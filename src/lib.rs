@@ -47,6 +47,11 @@ impl Client {
         &self.store
     }
 
+    /// Returns a mutable reference to the store
+    pub fn store_mut(&mut self) -> &mut Store {
+        &mut self.store
+    }
+
     // DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 

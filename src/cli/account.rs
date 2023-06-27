@@ -101,7 +101,7 @@ fn list_accounts() -> Result<(), String> {
 // ================================================================================================
 
 fn new_account(template: &Option<AccountTemplate>, deploy: bool) -> Result<(), String> {
-    let client = Client::new(ClientConfig::default()).map_err(|err| err.to_string())?;
+    let mut client = Client::new(ClientConfig::default()).map_err(|err| err.to_string())?;
 
     if deploy {
         todo!("Recording the account on chain is not supported yet");
@@ -150,20 +150,12 @@ fn new_account(template: &Option<AccountTemplate>, deploy: bool) -> Result<(), S
     }
     .map_err(|err| err.to_string())?;
 
-    // TODO: Make these inserts atomic through a single transaction
+    // consider making store field public so we don't have to use
+    // a function that returns a mutable reference to it
     client
-        .store()
-        .insert_account_code(account.code())
-        .and_then(|_| client.store().insert_account_storage(account.storage()))
-        .and_then(|_| client.store().insert_account_vault(account.vault()))
-        .and_then(|_| client.store().insert_account(&account))
-        .map(|_| {
-            println!(
-                "Succesfully created and stored Account ID: {}",
-                account.id()
-            )
-        })
-        .map_err(|x| x.to_string())?;
+        .store_mut()
+        .insert_account_with_metadata(&account)
+        .map_err(|err| err.to_string())?;
 
     Ok(())
 }

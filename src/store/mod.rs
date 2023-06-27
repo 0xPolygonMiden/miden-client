@@ -5,7 +5,7 @@ use objects::{
     assembly::AstSerdeOptions,
     assets::Asset,
 };
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, Transaction};
 
 mod migrations;
 
@@ -57,7 +57,18 @@ impl Store {
         Ok(result)
     }
 
-    pub fn insert_account(&self, account: &Account) -> Result<(), StoreError> {
+    pub fn insert_account_with_metadata(&mut self, account: &Account) -> Result<(), StoreError> {
+        let tx = self.db.transaction().unwrap();
+
+        Self::insert_account_code(&tx, account.code())?;
+        Self::insert_account_storage(&tx, account.storage())?;
+        Self::insert_account_vault(&tx, account.vault())?;
+        Self::insert_account(&tx, account)?;
+
+        tx.commit().map_err(StoreError::QueryError)
+    }
+
+    fn insert_account(tx: &Transaction<'_>, account: &Account) -> Result<(), StoreError> {
         let id: u64 = account.id().into();
         let code_root = serde_json::to_string(&account.code().root())
             .map_err(StoreError::InputSerializationError)?;
@@ -66,7 +77,7 @@ impl Store {
         let vault_root = serde_json::to_string(&account.vault().commitment())
             .map_err(StoreError::InputSerializationError)?;
 
-        self.db.execute(
+        tx.execute(
             "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed) VALUES (?, ?, ?, ?, ?, ?)",
             params![
                 id as i64,
@@ -81,7 +92,10 @@ impl Store {
         .map_err(StoreError::QueryError)
     }
 
-    pub fn insert_account_code(&self, account_code: &AccountCode) -> Result<(), StoreError> {
+    fn insert_account_code(
+        tx: &Transaction<'_>,
+        account_code: &AccountCode,
+    ) -> Result<(), StoreError> {
         let code_root = serde_json::to_string(&account_code.root())
             .map_err(StoreError::InputSerializationError)?;
         let code = serde_json::to_string(account_code.procedures())
@@ -90,17 +104,16 @@ impl Store {
             serialize_imports: true,
         });
 
-        self.db
-            .execute(
-                "INSERT INTO account_code (root, procedures, module) VALUES (?, ?, ?)",
-                params![code_root, code, module,],
-            )
-            .map(|_| ())
-            .map_err(StoreError::QueryError)
+        tx.execute(
+            "INSERT OR IGNORE INTO account_code (root, procedures, module) VALUES (?, ?, ?)",
+            params![code_root, code, module,],
+        )
+        .map(|_| ())
+        .map_err(StoreError::QueryError)
     }
 
-    pub fn insert_account_storage(
-        &self,
+    fn insert_account_storage(
+        tx: &Transaction<'_>,
         account_storage: &AccountStorage,
     ) -> Result<(), StoreError> {
         let storage_root = serde_json::to_string(&account_storage.root())
@@ -110,29 +123,30 @@ impl Store {
         let storage_slots =
             serde_json::to_string(&storage_slots).map_err(StoreError::InputSerializationError)?;
 
-        self.db
-            .execute(
-                "INSERT INTO account_storage (root, slots) VALUES (?, ?)",
-                params![storage_root, storage_slots],
-            )
-            .map(|_| ())
-            .map_err(StoreError::QueryError)
+        tx.execute(
+            "INSERT INTO account_storage (root, slots) VALUES (?, ?)",
+            params![storage_root, storage_slots],
+        )
+        .map(|_| ())
+        .map_err(StoreError::QueryError)
     }
 
-    pub fn insert_account_vault(&self, account_vault: &AccountVault) -> Result<(), StoreError> {
+    fn insert_account_vault(
+        tx: &Transaction<'_>,
+        account_vault: &AccountVault,
+    ) -> Result<(), StoreError> {
         let vault_root = serde_json::to_string(&account_vault.commitment())
             .map_err(StoreError::InputSerializationError)?;
 
         let assets: Vec<Asset> = account_vault.assets().collect();
         let assets = serde_json::to_string(&assets).map_err(StoreError::InputSerializationError)?;
 
-        self.db
-            .execute(
-                "INSERT INTO account_vaults (root, assets) VALUES (?, ?)",
-                params![vault_root, assets],
-            )
-            .map(|_| ())
-            .map_err(StoreError::QueryError)
+        tx.execute(
+            "INSERT INTO account_vaults (root, assets) VALUES (?, ?)",
+            params![vault_root, assets],
+        )
+        .map(|_| ())
+        .map_err(StoreError::QueryError)
     }
 }
 
@@ -153,48 +167,144 @@ impl From<&ClientConfig> for StoreConfig {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
+    use std::env::temp_dir;
+    use uuid::Uuid;
 
-    use ctor::dtor;
+    use crypto::dsa::rpo_falcon512::KeyPair;
 
+    use miden_lib::{assembler::assembler, AuthScheme};
+    use objects::{
+        accounts::{Account, AccountCode, AccountType},
+        assembly::ModuleAst,
+    };
     use rusqlite::{params, Connection};
+
+    use crate::store;
 
     use super::{migrations, Store};
 
-    const DB_NAME: &str = "test_db.sqlite3";
-
     pub fn store_for_tests() -> Store {
-        let mut db = Connection::open(DB_NAME).unwrap();
+        let mut temp_file = temp_dir();
+        temp_file.push(format!("{}.sqlite3", Uuid::new_v4()));
+        let mut db = Connection::open(temp_file).unwrap();
         migrations::update_to_latest(&mut db).unwrap();
 
         Store { db }
     }
 
+    fn test_account_code() -> AccountCode {
+        let auth_scheme_procedure = "basic::auth_tx_rpo_falcon512";
+
+        let account_code_string: String = format!(
+            "
+    use.miden::wallets::basic->basic_wallet
+    use.miden::eoa::basic
+
+    export.basic_wallet::receive_asset
+    export.basic_wallet::send_asset
+    export.{auth_scheme_procedure}
+
+    "
+        );
+        let account_code_src: &str = &account_code_string;
+        let account_code_ast = ModuleAst::parse(account_code_src).unwrap();
+        let account_assembler = assembler();
+        AccountCode::new(account_code_ast.clone(), &account_assembler).unwrap()
+    }
+
+    fn test_account() -> Account {
+        let init_seed = [0u8; 32];
+        let key_pair: KeyPair = KeyPair::new().unwrap();
+        let auth_scheme = AuthScheme::RpoFalcon512 {
+            pub_key: key_pair.public_key(),
+        };
+        let (acc, _) = miden_lib::wallets::create_basic_wallet(
+            init_seed,
+            auth_scheme,
+            AccountType::RegularAccountImmutableCode,
+        )
+        .unwrap();
+        acc
+    }
+
     #[test]
-    pub fn insert_u64_max_as_id() {
+    pub fn test_insert_u64_max_as_id() {
         let store = store_for_tests();
         let test_value: u64 = u64::MAX;
 
+        // Insert dummy data on tables to prevent foreing key constraint errors
+        store
+            .db
+            .execute(
+                "INSERT INTO account_code (root, procedures, module) VALUES ('1', '1', '1')",
+                [],
+            )
+            .unwrap();
+
+        store
+            .db
+            .execute(
+                "INSERT INTO account_storage (root, slots) VALUES ('1', '1')",
+                [],
+            )
+            .unwrap();
+
+        store
+            .db
+            .execute(
+                "INSERT INTO account_vaults (root, assets) VALUES ('1', '1')",
+                [],
+            )
+            .unwrap();
+
+        // Actual test
         store.db.execute(
             "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed) VALUES (?, '1', '1', '1', '1', '1')",
             params![test_value as i64],
         )
         .unwrap();
 
-        let mut stmt = store.db.prepare("SELECT id from accounts").unwrap();
+        let actual: i64 = store
+            .db
+            .query_row("SELECT id from accounts", [], |row| row.get(0))
+            .unwrap();
 
-        let mut rows = stmt.query([]).unwrap();
-        while let Some(r) = rows.next().unwrap() {
-            let v: i64 = r.get(0).unwrap();
-            if v as u64 == test_value {
-                return;
-            };
-        }
-        panic!()
+        assert_eq!(actual as u64, test_value);
     }
 
-    #[dtor]
-    fn cleanup() {
-        fs::remove_file(DB_NAME).unwrap()
+    #[test]
+    pub fn insert_same_account_twice_fails() {
+        let mut store = store_for_tests();
+        let account = test_account();
+
+        assert!(store.insert_account_with_metadata(&account).is_ok());
+        assert!(store.insert_account_with_metadata(&account).is_err());
+    }
+
+    #[test]
+    fn test_account_code_insertion_no_duplicates() {
+        let mut store = store_for_tests();
+        let account_code = test_account_code();
+        let tx = store.db.transaction().unwrap();
+
+        // Table is empty at the beginning
+        let mut actual: usize = tx
+            .query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(actual, 0);
+
+        // First insertion generates a new row
+        store::Store::insert_account_code(&tx, &account_code).unwrap();
+        actual = tx
+            .query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(actual, 1);
+
+        // Second insertion does not generate a new row
+        store::Store::insert_account_code(&tx, &account_code).unwrap();
+        actual = tx
+            .query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(actual, 1);
     }
 }
