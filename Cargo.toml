@@ -1,0 +1,22 @@
+[package]
+name = "miden-client"
+version = "0.1.0"
+authors = ["miden contributors"]
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/0xPolygonMiden/miden-client"
+keywords = ["miden", "client"]
+edition = "2021"
+rust-version = "1.67"
+
+[features]
+default = ["std"]
+std = ["crypto/std", "objects/std"]
+
+[dependencies]
+clap = { version = "4.3" , features = ["derive"] }
+crypto = { package = "miden-crypto", git = "https://github.com/0xPolygonMiden/crypto", branch = "next", default-features = false }
+lazy_static = "1.4.0"
+objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", default-features = false }
+rusqlite = { version = "0.29.0", features = ["bundled"] }
+rusqlite_migration = { version = "1.0" }
