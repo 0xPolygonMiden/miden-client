@@ -7,7 +7,6 @@ use miden_client::{Client, ClientConfig};
 use miden_lib::{faucets, wallets, AuthScheme};
 use objects::assets::TokenSymbol;
 
-
 // ACCOUNT COMMAND
 // ================================================================================================
 
@@ -59,7 +58,6 @@ impl AccountCmd {
                     todo!("Recording the account on chain is not supported yet");
                 }
 
-                println!("adding falcon key");
                 // we need a Falcon Public Key to create the wallet account
                 let key_pair: KeyPair = KeyPair::new().map_err(|x| x.to_string())?;
                 let pub_key: PublicKey = key_pair.public_key();
@@ -78,8 +76,6 @@ impl AccountCmd {
                 let (account, _) = match template {
                     None => todo!("Generic account creation is not supported yet"),
                     Some(AccountTemplate::Basic) => {
-                        println!("basic ass wallet");
-
                         wallets::create_basic_wallet(init_seed, auth_scheme)
                     }
                     Some(AccountTemplate::FungibleFaucet) => faucets::create_basic_faucet(
@@ -91,7 +87,6 @@ impl AccountCmd {
                     ),
                 }
                 .map_err(|x| x.to_string())?;
-                println!("insert account?");
 
                 // TODO: as the client takes form, make errors more structured
                 client
