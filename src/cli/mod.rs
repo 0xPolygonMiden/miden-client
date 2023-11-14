@@ -2,6 +2,13 @@ use clap::Parser;
 
 mod account;
 
+/// CLI actions
+#[derive(Debug, Parser)]
+pub enum Command {
+    #[clap(subcommand)]
+    Account(account::AccountCmd),
+}
+
 /// Root CLI struct
 #[derive(Parser, Debug)]
 #[clap(
@@ -22,10 +29,4 @@ impl Cli {
             Command::Account(account) => account.execute(),
         }
     }
-}
-
-/// CLI actions
-#[derive(Debug, Parser)]
-pub enum Command {
-    Account(account::AccountCmd),
 }

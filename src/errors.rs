@@ -3,7 +3,7 @@ use core::fmt;
 // CLIENT ERROR
 // ================================================================================================
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum ClientError {
     StoreError(StoreError),
 }
@@ -28,11 +28,12 @@ impl std::error::Error for ClientError {}
 // STORE ERROR
 // ================================================================================================
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum StoreError {
     ConnectionError(rusqlite::Error),
     MigrationError(rusqlite_migration::Error),
     QueryError(rusqlite::Error),
+    InputSerializationError(serde_json::Error),
 }
 
 impl fmt::Display for StoreError {
@@ -42,6 +43,9 @@ impl fmt::Display for StoreError {
             ConnectionError(err) => write!(f, "failed to connect to the database: {err}"),
             MigrationError(err) => write!(f, "failed to update the database: {err}"),
             QueryError(err) => write!(f, "failed to retrieve data from the database: {err}"),
+            InputSerializationError(err) => {
+                write!(f, "error trying to serialize inputs for the store: {err}")
+            }
         }
     }
 }

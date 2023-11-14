@@ -1,6 +1,10 @@
 use super::{errors::StoreError, AccountStub, ClientConfig};
 use crypto::{hash::rpo::Rpo256, Felt};
-use rusqlite::Connection;
+use objects::{
+    accounts::{Account, AccountCode, AccountStorage, AccountVault},
+    assets::Asset,
+};
+use rusqlite::{params, Connection};
 
 mod migrations;
 
@@ -15,7 +19,6 @@ impl Store {
     pub fn new(config: StoreConfig) -> Result<Self, StoreError> {
         let mut db = Connection::open(config.path).map_err(StoreError::ConnectionError)?;
         migrations::update_to_latest(&mut db)?;
-        migrations::insert_mock_data(&db);
 
         Ok(Self { db })
     }
@@ -44,6 +47,81 @@ impl Store {
 
         Ok(result)
     }
+
+    pub fn insert_account(&self, account: &Account) -> Result<(), StoreError> {
+        let id: u64 = account.id().into();
+        let code_root = serde_json::to_string(&account.code().root())
+            .map_err(StoreError::InputSerializationError)?;
+        let storage_root = serde_json::to_string(&account.storage().root())
+            .map_err(StoreError::InputSerializationError)?;
+        let vault_root = serde_json::to_string(&account.vault().commitment())
+            .map_err(StoreError::InputSerializationError)?;
+
+        self.db.execute(
+            "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed) VALUES (?, ?, ?, ?, ?, ?)",
+            params![
+                id,
+                code_root,
+                storage_root,
+                vault_root,
+                account.nonce().inner(),
+                account.is_on_chain(),
+            ],
+        )
+        .map(|_| ())
+        .map_err(StoreError::QueryError)
+    }
+
+    pub fn insert_account_code(&self, account_code: &AccountCode) -> Result<(), StoreError> {
+        let code_root = serde_json::to_string(&account_code.root())
+            .map_err(StoreError::InputSerializationError)?;
+        let code = serde_json::to_string(account_code.procedure_tree())
+            .map_err(StoreError::InputSerializationError)?;
+        // ModuleAst does not derive Serialize
+        let module = ""; // serde_json::to_string(account_code.module()).unwrap();
+
+        self.db
+            .execute(
+                "INSERT INTO account_code (root, procedures, module) VALUES (?, ?, ?)",
+                params![code_root, code, module,],
+            )
+            .map(|_| ())
+            .map_err(StoreError::QueryError)
+    }
+
+    pub fn insert_account_storage(
+        &self,
+        account_storage: &AccountStorage,
+    ) -> Result<(), StoreError> {
+        let storage_root = serde_json::to_string(&account_storage.root())
+            .map_err(StoreError::InputSerializationError)?;
+        let storage_slots = serde_json::to_string(&account_storage.slots())
+            .map_err(StoreError::InputSerializationError)?;
+
+        self.db
+            .execute(
+                "INSERT INTO account_storage (root, slots) VALUES (?, ?)",
+                params![storage_root, storage_slots],
+            )
+            .map(|_| ())
+            .map_err(StoreError::QueryError)
+    }
+
+    pub fn insert_account_vault(&self, account_vault: &AccountVault) -> Result<(), StoreError> {
+        let vault_root = serde_json::to_string(&account_vault.commitment())
+            .map_err(StoreError::InputSerializationError)?;
+
+        let assets: Vec<Asset> = account_vault.assets().collect();
+        let assets = serde_json::to_string(&assets).map_err(StoreError::InputSerializationError)?;
+
+        self.db
+            .execute(
+                "INSERT INTO account_vault (root, assets) VALUES (?, ?)",
+                params![vault_root, assets],
+            )
+            .map(|_| ())
+            .map_err(StoreError::QueryError)
+    }
 }
 
 // STORE CONFIG
@@ -59,4 +137,8 @@ impl From<&ClientConfig> for StoreConfig {
             path: config.store_path.clone(),
         }
     }
+}
+
+mod tests {
+    // TODO: Add tests
 }

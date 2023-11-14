@@ -1,26 +1,101 @@
-use clap::Parser;
+use clap::{Parser, ValueEnum};
+use crypto::{
+    dsa::rpo_falcon512::{KeyPair, PublicKey},
+    Felt,
+};
 use miden_client::{Client, ClientConfig};
+use miden_lib::{faucets, wallets, AuthScheme};
+use objects::assets::TokenSymbol;
+use rand::Rng;
 
 // ACCOUNT COMMAND
 // ================================================================================================
 
 #[derive(Debug, Clone, Parser)]
 #[clap(about = "View accounts and account details")]
-pub struct AccountCmd {
+pub enum AccountCmd {
     /// List all accounts monitored by this client
-    #[clap(short = 'l', long = "list")]
-    list: bool,
+    #[clap(short_flag = 'l')]
+    List,
 
     /// View details of the account for the specified ID
-    #[clap(short = 'v', long = "view", value_name = "ID")]
-    view: Option<String>,
+    #[clap(short_flag = 'v')]
+    View {
+        #[clap()]
+        id: Option<String>,
+    },
+
+    /// Create new account and store it locally
+    #[clap(short_flag = 'n')]
+    New {
+        #[clap()]
+        template: Option<AccountTemplate>,
+
+        /// Executes a transaction that records the account on-chain
+        #[clap()]
+        deploy: bool,
+    },
+}
+
+#[derive(Debug, Parser, Clone, ValueEnum)]
+#[clap()]
+pub enum AccountTemplate {
+    /// Creates a basic account (Regular account with immutable code)
+    Basic,
+    /// Creates a faucet for fungible tokens
+    FungibleFaucet,
 }
 
 impl AccountCmd {
     pub fn execute(&self) -> Result<(), String> {
-        println!("list: {}", self.list);
-        println!("view: {:?}", self.view);
-        list_accounts();
+        match self {
+            AccountCmd::List => {
+                list_accounts();
+            }
+            AccountCmd::New { template, deploy } => {
+                let client = Client::new(ClientConfig::default()).unwrap();
+
+                if *deploy {
+                    todo!("Recording the account on chain is not supported yet");
+                }
+
+                // we need a Falcon Public Key to create the wallet account
+                let key_pair: KeyPair = KeyPair::new().map_err(|x| x.to_string())?;
+                let pub_key: PublicKey = key_pair.public_key();
+                let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 { pub_key };
+
+                // TODO: this rng is probably not production ready and needs to be revised
+                let mut rng = rand::thread_rng();
+
+                // we need to use an initial seed to create the wallet account
+                let init_seed: [u8; 32] = rng.gen();
+
+                let (account, _) = match template {
+                    None => todo!("Generic account creation is not supported yet"),
+                    Some(AccountTemplate::Basic) => {
+                        wallets::create_basic_wallet(init_seed, auth_scheme)
+                    }
+                    Some(AccountTemplate::FungibleFaucet) => faucets::create_basic_faucet(
+                        init_seed,
+                        TokenSymbol::new("TEST").unwrap(),
+                        100u8,
+                        Felt::new(100u64),
+                        auth_scheme,
+                    ),
+                }
+                .map_err(|x| x.to_string())?;
+
+                // TODO: as the client takes form, make errors more structured
+                client
+                    .store
+                    .insert_account(&account)
+                    .and_then(|_| client.store.insert_account_code(account.code()))
+                    .and_then(|_| client.store.insert_account_storage(account.storage()))
+                    .and_then(|_| client.store.insert_account_vault(account.vault()))
+                    .map_err(|x| x.to_string())?
+            }
+            AccountCmd::View { id: _ } => todo!(),
+        }
         Ok(())
     }
 }

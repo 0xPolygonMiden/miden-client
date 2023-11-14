@@ -1,4 +1,4 @@
-use objects::{Account, AccountId, AccountStub};
+use objects::accounts::{Account, AccountId, AccountStub};
 use std::path::PathBuf;
 
 mod store;
@@ -20,7 +20,7 @@ use errors::ClientError;
 /// - Executes, proves, and submits transactions to the network as directed by the user.
 pub struct Client {
     /// Local database containing information about the accounts managed by this client.
-    store: Store,
+    pub store: Store,
     // TODO
     // node: connection to Miden node
 }
