@@ -1,6 +1,6 @@
 use clap::Parser;
 
-mod account;
+pub mod account;
 
 /// CLI actions
 #[derive(Debug, Parser)]
@@ -19,7 +19,7 @@ pub enum Command {
 )]
 pub struct Cli {
     #[clap(subcommand)]
-    action: Command,
+    pub action: Command,
 }
 
 /// CLI entry point

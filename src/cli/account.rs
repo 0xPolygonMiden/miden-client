@@ -6,7 +6,7 @@ use crypto::{
 use miden_client::{Client, ClientConfig};
 use miden_lib::{faucets, wallets, AuthScheme};
 use objects::assets::TokenSymbol;
-use rand::Rng;
+
 
 // ACCOUNT COMMAND
 // ================================================================================================
@@ -28,11 +28,11 @@ pub enum AccountCmd {
     /// Create new account and store it locally
     #[clap(short_flag = 'n')]
     New {
-        #[clap()]
+        #[clap(short, long,  default_value = None)]
         template: Option<AccountTemplate>,
 
         /// Executes a transaction that records the account on-chain
-        #[clap()]
+        #[clap(short, long, default_value_t = false)]
         deploy: bool,
     },
 }
@@ -59,31 +59,39 @@ impl AccountCmd {
                     todo!("Recording the account on chain is not supported yet");
                 }
 
+                println!("adding falcon key");
                 // we need a Falcon Public Key to create the wallet account
                 let key_pair: KeyPair = KeyPair::new().map_err(|x| x.to_string())?;
                 let pub_key: PublicKey = key_pair.public_key();
                 let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 { pub_key };
 
                 // TODO: this rng is probably not production ready and needs to be revised
-                let mut rng = rand::thread_rng();
+                let _rng = rand::thread_rng();
 
                 // we need to use an initial seed to create the wallet account
-                let init_seed: [u8; 32] = rng.gen();
+                //let init_seed: [u8; 32] =     // we need to use an initial seed to create the wallet account
+                let init_seed: [u8; 32] = [
+                    95, 113, 209, 94, 84, 105, 250, 242, 223, 203, 216, 124, 22, 159, 14, 132, 215,
+                    85, 183, 204, 149, 90, 166, 68, 100, 73, 106, 168, 125, 237, 138, 16,
+                ];
 
                 let (account, _) = match template {
                     None => todo!("Generic account creation is not supported yet"),
                     Some(AccountTemplate::Basic) => {
+                        println!("basic ass wallet");
+
                         wallets::create_basic_wallet(init_seed, auth_scheme)
                     }
                     Some(AccountTemplate::FungibleFaucet) => faucets::create_basic_faucet(
                         init_seed,
                         TokenSymbol::new("TEST").unwrap(),
-                        100u8,
+                        4u8,
                         Felt::new(100u64),
                         auth_scheme,
                     ),
                 }
                 .map_err(|x| x.to_string())?;
+                println!("insert account?");
 
                 // TODO: as the client takes form, make errors more structured
                 client

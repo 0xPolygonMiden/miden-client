@@ -1,7 +1,7 @@
 use clap::Parser;
 
 mod cli;
-use cli::Cli;
+use cli::{Cli};
 
 fn main() {
     // read command-line args
