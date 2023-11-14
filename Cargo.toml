@@ -17,7 +17,7 @@ std = ["crypto/std", "objects/std"]
 clap = { version = "4.3" , features = ["derive"] }
 crypto = { package = "miden-crypto", git = "https://github.com/0xPolygonMiden/crypto", branch = "next", default-features = false }
 lazy_static = "1.4.0"
-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", features = ["serde", "log"] }
+objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", features = ["serde", "log", "testing"] }
 miden_lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", default-features = false}
 rusqlite = { version = "0.29.0", features = ["bundled"] }
 rusqlite_migration = { version = "1.0" }

@@ -1,5 +1,7 @@
+use std::collections::BTreeMap;
+
 use super::{errors::StoreError, AccountStub, ClientConfig};
-use crypto::{hash::rpo::Rpo256, Felt};
+use crypto::{hash::rpo::Rpo256, Felt, Word};
 use objects::{
     accounts::{Account, AccountCode, AccountStorage, AccountVault},
     assets::Asset,
@@ -33,7 +35,12 @@ impl Store {
         let mut result = Vec::new();
         while let Some(row) = rows.next().map_err(StoreError::QueryError)? {
             // TODO: implement proper error handling and conversions
-            let id: u64 = row.get(0).unwrap();
+
+            // NOTE: the i64->u64 conversion is necessary when going in an out from sqlite,
+            // as it has no native u64 type (only i64), so it can go out of range
+            let id: i64 = row.get(0).unwrap();
+            let id = u64::from_be_bytes(id.to_be_bytes());
+
             let nonce: u64 = row.get(1).unwrap();
 
             result.push(AccountStub::new(
@@ -60,7 +67,7 @@ impl Store {
         self.db.execute(
             "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed) VALUES (?, ?, ?, ?, ?, ?)",
             params![
-                id,
+                i64::from_be_bytes(id.to_be_bytes()),
                 code_root,
                 storage_root,
                 vault_root,
@@ -75,7 +82,7 @@ impl Store {
     pub fn insert_account_code(&self, account_code: &AccountCode) -> Result<(), StoreError> {
         let code_root = serde_json::to_string(&account_code.root())
             .map_err(StoreError::InputSerializationError)?;
-        let code = serde_json::to_string(account_code.procedure_tree())
+        let code = serde_json::to_string(account_code.procedures())
             .map_err(StoreError::InputSerializationError)?;
         // ModuleAst does not derive Serialize
         let module = ""; // serde_json::to_string(account_code.module()).unwrap();
@@ -95,8 +102,10 @@ impl Store {
     ) -> Result<(), StoreError> {
         let storage_root = serde_json::to_string(&account_storage.root())
             .map_err(StoreError::InputSerializationError)?;
-        let storage_slots = serde_json::to_string(&account_storage.slots())
-            .map_err(StoreError::InputSerializationError)?;
+
+        let storage_slots: BTreeMap<u64, &Word> = account_storage.slots().leaves().collect();
+        let storage_slots =
+            serde_json::to_string(&storage_slots).map_err(StoreError::InputSerializationError)?;
 
         self.db
             .execute(

@@ -1,11 +1,9 @@
 use clap::{Parser, ValueEnum};
-use crypto::{
-    dsa::rpo_falcon512::{KeyPair, PublicKey},
-    Felt,
-};
+use crypto::{dsa::rpo_falcon512::KeyPair, Felt};
 use miden_client::{Client, ClientConfig};
 use miden_lib::{faucets, wallets, AuthScheme};
 use objects::assets::TokenSymbol;
+use rand::Rng;
 
 // ACCOUNT COMMAND
 // ================================================================================================
@@ -59,16 +57,13 @@ impl AccountCmd {
                 }
 
                 let key_pair: KeyPair = KeyPair::new().unwrap();
-                let pub_key: PublicKey = key_pair.public_key();
                 let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
-                    pub_key,
+                    pub_key: key_pair.public_key(),
                 };
 
+                let mut rng = rand::thread_rng();
                 // we need to use an initial seed to create the wallet account
-                let init_seed: [u8; 32] = [
-                    95, 113, 209, 94, 84, 105, 250, 242, 223, 203, 216, 124, 22, 159, 14, 132, 215,
-                    85, 183, 204, 149, 90, 166, 68, 100, 73, 106, 168, 125, 237, 138, 16,
-                ];
+                let init_seed: [u8; 32] = rng.gen();
 
                 let (account, _) = match template {
                     None => todo!("Generic account creation is not supported yet"),
@@ -92,6 +87,12 @@ impl AccountCmd {
                     .and_then(|_| client.store.insert_account_code(account.code()))
                     .and_then(|_| client.store.insert_account_storage(account.storage()))
                     .and_then(|_| client.store.insert_account_vault(account.vault()))
+                    .map(|_| {
+                        println!(
+                            "Succesfully created and stored Account ID: {}",
+                            account.id()
+                        )
+                    })
                     .map_err(|x| x.to_string())?
             }
             AccountCmd::View { id: _ } => todo!(),
@@ -104,7 +105,7 @@ impl AccountCmd {
 // ================================================================================================
 
 pub fn list_accounts() {
-    println!("{}", "-".repeat(240));
+    println!("{}", "-".repeat(60));
     println!(
         "{0: <18} | {1: <66} | {2: <66} | {3: <66} | {4: <15}",
         "account id", "code root", "vault root", "storage root", "nonce",
