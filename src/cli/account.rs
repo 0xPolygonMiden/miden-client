@@ -58,16 +58,13 @@ impl AccountCmd {
                     todo!("Recording the account on chain is not supported yet");
                 }
 
-                // we need a Falcon Public Key to create the wallet account
-                let key_pair: KeyPair = KeyPair::new().map_err(|x| x.to_string())?;
+                let key_pair: KeyPair = KeyPair::new().unwrap();
                 let pub_key: PublicKey = key_pair.public_key();
-                let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 { pub_key };
-
-                // TODO: this rng is probably not production ready and needs to be revised
-                let _rng = rand::thread_rng();
+                let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
+                    pub_key,
+                };
 
                 // we need to use an initial seed to create the wallet account
-                //let init_seed: [u8; 32] =     // we need to use an initial seed to create the wallet account
                 let init_seed: [u8; 32] = [
                     95, 113, 209, 94, 84, 105, 250, 242, 223, 203, 216, 124, 22, 159, 14, 132, 215,
                     85, 183, 204, 149, 90, 166, 68, 100, 73, 106, 168, 125, 237, 138, 16,
