@@ -1,7 +1,5 @@
-use std::collections::BTreeMap;
-
 use super::{errors::StoreError, AccountStub, ClientConfig};
-use crypto::{hash::rpo::Rpo256, Felt, Word};
+use crypto::{utils::collections::BTreeMap, Word};
 use objects::{
     accounts::{Account, AccountCode, AccountStorage, AccountVault},
     assets::Asset,
@@ -28,7 +26,7 @@ impl Store {
     pub fn get_accounts(&self) -> Result<Vec<AccountStub>, StoreError> {
         let mut stmt = self
             .db
-            .prepare("SELECT id, nonce FROM accounts")
+            .prepare("SELECT id, nonce, vault_root, storage_root, code_root FROM accounts")
             .map_err(StoreError::QueryError)?;
 
         let mut rows = stmt.query([]).map_err(StoreError::QueryError)?;
@@ -38,17 +36,28 @@ impl Store {
 
             // NOTE: the i64->u64 conversion is necessary when going in an out from sqlite,
             // as it has no native u64 type (only i64), so it can go out of range
-            let id: i64 = row.get(0).unwrap();
-            let id = u64::from_be_bytes(id.to_be_bytes());
+            let id: i64 = row.get(0).map_err(StoreError::QueryError)?;
+            let id = id as u64;
 
-            let nonce: u64 = row.get(1).unwrap();
+            let nonce: u64 = row.get(1).map_err(StoreError::QueryError)?;
+
+            let vault_root: String = row.get(2).map_err(StoreError::QueryError)?;
+            let storage_root: String = row.get(3).map_err(StoreError::QueryError)?;
+            let code_root: String = row.get(4).map_err(StoreError::QueryError)?;
 
             result.push(AccountStub::new(
-                id.try_into().unwrap(),
+                id.try_into()
+                    .expect("Conversion from stored AccountID should not panic"),
                 nonce.into(),
-                Rpo256::hash_elements(&[Felt::new(2)]),
-                Rpo256::hash_elements(&[Felt::new(3)]),
-                Rpo256::hash_elements(&[Felt::new(4)]),
+                vault_root
+                    .try_into()
+                    .map_err(StoreError::DataDeserializationError)?,
+                storage_root
+                    .try_into()
+                    .map_err(StoreError::DataDeserializationError)?,
+                code_root
+                    .try_into()
+                    .map_err(StoreError::DataDeserializationError)?,
             ));
         }
 
@@ -67,7 +76,7 @@ impl Store {
         self.db.execute(
             "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed) VALUES (?, ?, ?, ?, ?, ?)",
             params![
-                i64::from_be_bytes(id.to_be_bytes()),
+                id as i64,
                 code_root,
                 storage_root,
                 vault_root,

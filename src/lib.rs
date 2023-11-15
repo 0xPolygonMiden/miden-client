@@ -20,7 +20,7 @@ use errors::ClientError;
 /// - Executes, proves, and submits transactions to the network as directed by the user.
 pub struct Client {
     /// Local database containing information about the accounts managed by this client.
-    pub store: Store,
+    store: Store,
     // TODO
     // node: connection to Miden node
 }
@@ -37,6 +37,14 @@ impl Client {
         Ok(Self {
             store: Store::new((&config).into())?,
         })
+    }
+
+    // PUBLIC ACCESSORS
+    // --------------------------------------------------------------------------------------------
+
+    /// Returns a reference to the store
+    pub fn store(&self) -> &Store {
+        &self.store
     }
 
     // DATA RETRIEVAL
