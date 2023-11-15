@@ -49,15 +49,10 @@ impl Store {
                 id.try_into()
                     .expect("Conversion from stored AccountID should not panic"),
                 nonce.into(),
-                vault_root
-                    .try_into()
+                serde_json::from_str(&vault_root).map_err(StoreError::DataDeserializationError)?,
+                serde_json::from_str(&storage_root)
                     .map_err(StoreError::DataDeserializationError)?,
-                storage_root
-                    .try_into()
-                    .map_err(StoreError::DataDeserializationError)?,
-                code_root
-                    .try_into()
-                    .map_err(StoreError::DataDeserializationError)?,
+                serde_json::from_str(&code_root).map_err(StoreError::DataDeserializationError)?,
             ));
         }
 

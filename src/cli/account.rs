@@ -97,7 +97,7 @@ pub fn new_account(template: &Option<AccountTemplate>, deploy: bool) -> Result<(
     }
 
     let key_pair: KeyPair =
-        KeyPair::new().map_err(|err| format!("Error generating KeyPair: {}", err.to_string()))?;
+        KeyPair::new().map_err(|err| format!("Error generating KeyPair: {}", err))?;
     let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
         pub_key: key_pair.public_key(),
     };

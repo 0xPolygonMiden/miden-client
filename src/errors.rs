@@ -1,6 +1,6 @@
 use core::fmt;
 
-use crypto::utils::HexParseError;
+
 
 // CLIENT ERROR
 // ================================================================================================
@@ -36,7 +36,7 @@ pub enum StoreError {
     MigrationError(rusqlite_migration::Error),
     QueryError(rusqlite::Error),
     InputSerializationError(serde_json::Error),
-    DataDeserializationError(HexParseError),
+    DataDeserializationError(serde_json::Error),
 }
 
 impl fmt::Display for StoreError {
@@ -50,7 +50,7 @@ impl fmt::Display for StoreError {
                 write!(f, "error trying to serialize inputs for the store: {err}")
             }
             DataDeserializationError(err) => {
-                write!(f, "failed to deserialize data for the store: {err}")
+                write!(f, "error deserializing data from the store: {err}")
             }
         }
     }
