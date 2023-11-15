@@ -90,7 +90,7 @@ pub fn list_accounts() -> Result<(), String> {
 // ================================================================================================
 
 pub fn new_account(template: &Option<AccountTemplate>, deploy: bool) -> Result<(), String> {
-    let client = Client::new(ClientConfig::default()).unwrap();
+    let client = Client::new(ClientConfig::default()).map_err(|err| err.to_string())?;
 
     if deploy {
         todo!("Recording the account on chain is not supported yet");

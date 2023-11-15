@@ -105,7 +105,10 @@ impl Default for ClientConfig {
         let store_path = exec_dir.join(STORE_FILENAME);
 
         Self {
-            store_path: store_path.into_os_string().into_string().unwrap(),
+            store_path: store_path
+                .into_os_string()
+                .into_string()
+                .expect("Creating the hardcoded path to the store file should not panic"),
             node_endpoint: Endpoint::default(),
         }
     }
