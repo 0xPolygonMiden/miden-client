@@ -1,6 +1,6 @@
 use clap::{Parser, ValueEnum};
 use crypto::{dsa::rpo_falcon512::KeyPair, Felt};
-use miden_client::{errors::ClientError, Client, ClientConfig};
+use miden_client::{Client, ClientConfig};
 use miden_lib::{faucets, wallets, AuthScheme};
 use objects::assets::TokenSymbol;
 use rand::Rng;
@@ -70,7 +70,7 @@ pub fn list_accounts() -> Result<(), String> {
     println!("{}", "-".repeat(240));
 
     let client = Client::new(ClientConfig::default()).map_err(|err| err.to_string())?;
-    let accounts = client.get_accounts()?;
+    let accounts = client.get_accounts().map_err(|err| err.to_string())?;
 
     for acct in accounts {
         println!(
