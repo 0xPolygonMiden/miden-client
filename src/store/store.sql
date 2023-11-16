@@ -19,7 +19,7 @@ CREATE TABLE account_vault (
 
 -- Update accounts table
 CREATE TABLE accounts (
-    id BIGINT NOT NULL,           -- account ID.
+    id UNSIGNED BIG INT NOT NULL,  -- account ID.
     code_root BLOB NOT NULL,      -- root of the account_code Merkle tree.
     storage_root BLOB NOT NULL,   -- root of the account_storage Merkle tree.
     vault_root BLOB NOT NULL,     -- root of the account_vault Merkle tree.

@@ -1,5 +1,6 @@
 use super::{errors::StoreError, AccountStub, ClientConfig};
 use crypto::{utils::collections::BTreeMap, Word};
+use miden_assembly::ast::AstSerdeOptions;
 use objects::{
     accounts::{Account, AccountCode, AccountStorage, AccountVault},
     assets::Asset,
@@ -34,11 +35,7 @@ impl Store {
         while let Some(row) = rows.next().map_err(StoreError::QueryError)? {
             // TODO: implement proper error handling and conversions
 
-            // NOTE: the i64->u64 conversion is necessary when going in an out from sqlite,
-            // as it has no native u64 type (only i64), so it can go out of range
             let id: i64 = row.get(0).map_err(StoreError::QueryError)?;
-            let id = id as u64;
-
             let nonce: u64 = row.get(1).map_err(StoreError::QueryError)?;
 
             let vault_root: String = row.get(2).map_err(StoreError::QueryError)?;
@@ -46,7 +43,8 @@ impl Store {
             let code_root: String = row.get(4).map_err(StoreError::QueryError)?;
 
             result.push(AccountStub::new(
-                id.try_into()
+                (id as u64)
+                    .try_into()
                     .expect("Conversion from stored AccountID should not panic"),
                 nonce.into(),
                 serde_json::from_str(&vault_root).map_err(StoreError::DataDeserializationError)?,
@@ -88,8 +86,9 @@ impl Store {
             .map_err(StoreError::InputSerializationError)?;
         let code = serde_json::to_string(account_code.procedures())
             .map_err(StoreError::InputSerializationError)?;
-        // ModuleAst does not derive Serialize
-        let module = ""; // serde_json::to_string(account_code.module()).unwrap();
+        let module = account_code.module().to_bytes(AstSerdeOptions {
+            serialize_imports: true,
+        });
 
         self.db
             .execute(
@@ -152,6 +151,50 @@ impl From<&ClientConfig> for StoreConfig {
     }
 }
 
+#[cfg(test)]
 mod tests {
-    // TODO: Add tests
+    use std::fs;
+
+    use ctor::dtor;
+
+    use rusqlite::{params, Connection};
+
+    use super::{migrations, Store};
+
+    const DB_NAME: &str = "test_db.sqlite3";
+
+    pub fn store_for_tests() -> Store {
+        let mut db = Connection::open(DB_NAME).unwrap();
+        migrations::update_to_latest(&mut db).unwrap();
+
+        Store { db }
+    }
+
+    #[test]
+    pub fn insert_u64_max_as_id() {
+        let store = store_for_tests();
+        let test_value: u64 = u64::MAX;
+
+        store.db.execute(
+            "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed) VALUES (?, '1', '1', '1', '1', '1')",
+            params![test_value as i64],
+        )
+        .unwrap();
+
+        let mut stmt = store.db.prepare("SELECT id from accounts").unwrap();
+
+        let mut rows = stmt.query([]).unwrap();
+        while let Some(r) = rows.next().unwrap() {
+            let v: i64 = r.get(0).unwrap();
+            if v as u64 == test_value {
+                return;
+            };
+        }
+        panic!()
+    }
+
+    #[dtor]
+    fn cleanup() {
+        fs::remove_file(DB_NAME).unwrap()
+    }
 }

@@ -1,17 +1,21 @@
 use core::fmt;
 
+use objects::AccountError;
+
 // CLIENT ERROR
 // ================================================================================================
 
 #[derive(Debug)]
 pub enum ClientError {
     StoreError(StoreError),
+    AccountError(AccountError),
 }
 
 impl fmt::Display for ClientError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ClientError::StoreError(err) => write!(f, "store error: {err}"),
+            ClientError::AccountError(err) => write!(f, "account error: {err}"),
         }
     }
 }
