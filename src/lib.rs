@@ -57,6 +57,13 @@ impl Client {
         self.store.get_accounts().map_err(|err| err.into())
     }
 
+    /// Returns summary info about the specified account.
+    pub fn get_account_by_id(&self, account_id: AccountId) -> Result<AccountStub, ClientError> {
+        self.store
+            .get_account_by_id(account_id)
+            .map_err(|err| err.into())
+    }
+
     /// Returns historical states for the account with the specified ID.
     ///
     /// TODO: wrap `Account` in a type with additional info.

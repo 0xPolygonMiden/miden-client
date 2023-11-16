@@ -5,6 +5,8 @@ use miden_lib::{faucets, AuthScheme};
 use objects::{accounts::AccountType, assets::TokenSymbol};
 use rand::Rng;
 
+use crate::cli::account;
+
 // ACCOUNT COMMAND
 // ================================================================================================
 
@@ -15,9 +17,10 @@ pub enum AccountCmd {
     #[clap(short_flag = 'l')]
     List,
 
-    /// View details of the account for the specified ID
+    /// Show details of the account for the specified ID
     #[clap(short_flag = 'v')]
-    View {
+    Show {
+        // TODO: We should create a value parser for stricter typing (ie AccountID) once complexity grows
         #[clap()]
         id: Option<String>,
     },
@@ -63,7 +66,20 @@ impl AccountCmd {
             AccountCmd::New { template, deploy } => {
                 new_account(template, *deploy)?;
             }
-            AccountCmd::View { id: _ } => todo!(),
+            AccountCmd::Show { id: None } => todo!(),
+            AccountCmd::Show { id: Some(v) } => {
+                let clean_hex = v.to_lowercase();
+                let clean_hex = clean_hex.strip_prefix("0x").unwrap_or(&clean_hex);
+
+                // TODO: Improve errors
+                let account_id = u64::from_str_radix(clean_hex, 16)
+                    .map_err(|_| "Error parsing input Account Id as a hexadecimal number")?;
+                let account_id: AccountId = account_id
+                    .try_into()
+                    .map_err(|_| "Input number was not a valid Account Id")?;
+
+                show_account(account_id)?;
+            }
         }
         Ok(())
     }
@@ -164,6 +180,79 @@ fn new_account(template: &Option<AccountTemplate>, deploy: bool) -> Result<(), S
             )
         })
         .map_err(|x| x.to_string())?;
+
+    Ok(())
+}
+
+pub fn create_basic_wallet(
+    key_pair: KeyPair,
+    init_seed: [u8; 32],
+    account_type: AccountType,
+) -> Result<(Account, Word), AccountError> {
+    let account_code_string: String = "
+    use.miden::wallets::basic->basic_wallet
+    use.miden::eoa::basic
+
+    export.basic_wallet::receive_asset
+    export.basic_wallet::send_asset
+    export.basic::auth_tx_rpo_falcon512
+
+    "
+    .to_string();
+    let account_code_src: &str = &account_code_string;
+
+    let account_code_ast =
+        ModuleAst::parse(account_code_src).expect("Hardcoded program parsing should not panic");
+    let account_assembler = miden_lib::assembler::assembler();
+    let account_code = AccountCode::new(account_code_ast.clone(), &account_assembler)?;
+
+    let account_storage =
+        AccountStorage::new(vec![(0, key_pair.public_key().into())], MerkleStore::new())?;
+    let account_vault = AccountVault::new(&[]).expect("Creating empty vault should not fail");
+
+    let account_seed = AccountId::get_account_seed(
+        init_seed,
+        account_type,
+        false,
+        account_code.root(),
+        account_storage.root(),
+    )?;
+    let account_id = AccountId::new(account_seed, account_code.root(), account_storage.root())?;
+    Ok((
+        Account::new(
+            account_id,
+            account_vault,
+            account_storage,
+            account_code,
+            ZERO,
+        ),
+        account_seed,
+    ))
+}
+
+pub fn show_account(account_id: AccountId) -> Result<(), String> {
+    println!("{}", "-".repeat(240));
+    println!(
+        "{0: <18} | {1: <66} | {2: <66} | {3: <66} | {4: <15}",
+        "account id", "code root", "vault root", "storage root", "nonce",
+    );
+    println!("{}", "-".repeat(240));
+
+    let client = Client::new(ClientConfig::default()).map_err(|err| err.to_string())?;
+    let account = client
+        .get_account_by_id(account_id)
+        .map_err(|err| err.to_string())?;
+
+    println!(
+        "{0: <18} | {1: <66} | {2: <66} | {3: <66} | {4: <15}",
+        account.id(),
+        account.code_root(),
+        account.vault_root(),
+        account.storage_root(),
+        account.nonce(),
+    );
+
+    println!("{}", "-".repeat(240));
 
     Ok(())
 }

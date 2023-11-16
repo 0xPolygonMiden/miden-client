@@ -57,6 +57,43 @@ impl Store {
         Ok(result)
     }
 
+    pub fn get_account_by_id(&self, account_id: AccountId) -> Result<AccountStub, StoreError> {
+        let mut stmt = self
+            .db
+            .prepare(
+                "SELECT id, nonce, vault_root, storage_root, code_root FROM accounts WHERE id = ?",
+            )
+            .map_err(StoreError::QueryError)?;
+        let account_id: u64 = account_id.into();
+        
+        let mut rows = stmt
+            .query(params![account_id as i64])
+            .map_err(StoreError::QueryError)?;
+
+        if let Some(row) = rows.next().map_err(StoreError::QueryError)? {
+            let id: i64 = row.get(0).map_err(StoreError::QueryError)?;
+            let nonce: u64 = row.get(1).map_err(StoreError::QueryError)?;
+            let vault_root: String = row.get(2).map_err(StoreError::QueryError)?;
+            let storage_root: String = row.get(3).map_err(StoreError::QueryError)?;
+            let code_root: String = row.get(4).map_err(StoreError::QueryError)?;
+
+            let account = AccountStub::new(
+                (id as u64)
+                    .try_into()
+                    .expect("Conversion from stored AccountID should not panic"),
+                nonce.into(),
+                serde_json::from_str(&vault_root).map_err(StoreError::DataDeserializationError)?,
+                serde_json::from_str(&storage_root)
+                    .map_err(StoreError::DataDeserializationError)?,
+                serde_json::from_str(&code_root).map_err(StoreError::DataDeserializationError)?,
+            );
+
+            Ok(account)
+        } else {
+            Err(StoreError::AccountDataNotFound)
+        }
+    }
+
     pub fn insert_account(&self, account: &Account) -> Result<(), StoreError> {
         let id: u64 = account.id().into();
         let code_root = serde_json::to_string(&account.code().root())
