@@ -65,7 +65,7 @@ impl Store {
             )
             .map_err(StoreError::QueryError)?;
         let account_id: u64 = account_id.into();
-        
+
         let mut rows = stmt
             .query(params![account_id as i64])
             .map_err(StoreError::QueryError)?;
