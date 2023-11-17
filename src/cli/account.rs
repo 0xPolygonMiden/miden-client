@@ -1,10 +1,10 @@
 use clap::Parser;
 use crypto::{dsa::rpo_falcon512::KeyPair, merkle::MerkleStore, Felt, Word, ZERO};
-use miden_assembly::ast::ModuleAst;
 use miden_client::{Client, ClientConfig};
 use miden_lib::{faucets, AuthScheme};
 use objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, AccountType, AccountVault},
+    assembly::ModuleAst,
     assets::TokenSymbol,
     AccountError,
 };
@@ -44,7 +44,7 @@ pub enum AccountCmd {
 pub enum AccountTemplate {
     /// Creates a basic account (Regular account with immutable code)
     BasicImmutable,
-    /// Creates a basic account (Regular account with immutable code)
+    /// Creates a basic account (Regular account with mutable code)
     BasicMutable,
     /// Creates a faucet for fungible tokens
     FungibleFaucet {
@@ -77,7 +77,7 @@ impl AccountCmd {
 // LIST ACCOUNTS
 // ================================================================================================
 
-pub fn list_accounts() -> Result<(), String> {
+fn list_accounts() -> Result<(), String> {
     println!("{}", "-".repeat(240));
     println!(
         "{0: <18} | {1: <66} | {2: <66} | {3: <66} | {4: <15}",
@@ -105,7 +105,7 @@ pub fn list_accounts() -> Result<(), String> {
 // ACCOUNT NEW
 // ================================================================================================
 
-pub fn new_account(template: &Option<AccountTemplate>, deploy: bool) -> Result<(), String> {
+fn new_account(template: &Option<AccountTemplate>, deploy: bool) -> Result<(), String> {
     let client = Client::new(ClientConfig::default()).map_err(|err| err.to_string())?;
 
     if deploy {
@@ -133,14 +133,18 @@ pub fn new_account(template: &Option<AccountTemplate>, deploy: bool) -> Result<(
             token_symbol,
             decimals,
             max_supply,
-        }) => faucets::create_basic_faucet(
-            init_seed,
-            TokenSymbol::new(token_symbol)
-                .expect("Hardcoded test token symbol creation should not panic"),
-            *decimals,
-            Felt::new(*max_supply),
-            auth_scheme,
-        ),
+        }) => {
+            let max_supply = max_supply.to_le_bytes();
+            faucets::create_basic_faucet(
+                init_seed,
+                TokenSymbol::new(token_symbol)
+                    .expect("Hardcoded test token symbol creation should not panic"),
+                *decimals,
+                Felt::try_from(max_supply.as_slice())
+                    .map_err(|_| "Maximum supply must fit into a field element")?,
+                auth_scheme,
+            )
+        }
         Some(AccountTemplate::BasicMutable) => create_basic_wallet(
             key_pair,
             init_seed,

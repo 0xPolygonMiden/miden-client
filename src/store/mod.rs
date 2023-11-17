@@ -1,8 +1,8 @@
 use super::{errors::StoreError, AccountStub, ClientConfig};
 use crypto::{utils::collections::BTreeMap, Word};
-use miden_assembly::ast::AstSerdeOptions;
 use objects::{
     accounts::{Account, AccountCode, AccountStorage, AccountVault},
+    assembly::AstSerdeOptions,
     assets::Asset,
 };
 use rusqlite::{params, Connection};
@@ -36,7 +36,7 @@ impl Store {
             // TODO: implement proper error handling and conversions
 
             let id: i64 = row.get(0).map_err(StoreError::QueryError)?;
-            let nonce: u64 = row.get(1).map_err(StoreError::QueryError)?;
+            let nonce: i64 = row.get(1).map_err(StoreError::QueryError)?;
 
             let vault_root: String = row.get(2).map_err(StoreError::QueryError)?;
             let storage_root: String = row.get(3).map_err(StoreError::QueryError)?;
@@ -46,7 +46,7 @@ impl Store {
                 (id as u64)
                     .try_into()
                     .expect("Conversion from stored AccountID should not panic"),
-                nonce.into(),
+                (nonce as u64).into(),
                 serde_json::from_str(&vault_root).map_err(StoreError::DataDeserializationError)?,
                 serde_json::from_str(&storage_root)
                     .map_err(StoreError::DataDeserializationError)?,
@@ -73,7 +73,7 @@ impl Store {
                 code_root,
                 storage_root,
                 vault_root,
-                account.nonce().inner(),
+                account.nonce().inner() as i64,
                 account.is_on_chain(),
             ],
         )

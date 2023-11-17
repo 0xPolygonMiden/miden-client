@@ -1,5 +1,4 @@
 use core::fmt;
-
 use objects::AccountError;
 
 // CLIENT ERROR
