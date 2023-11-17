@@ -5,8 +5,6 @@ use miden_lib::{faucets, AuthScheme};
 use objects::{accounts::AccountType, assets::TokenSymbol};
 use rand::Rng;
 
-use crate::cli::account;
-
 // ACCOUNT COMMAND
 // ================================================================================================
 
