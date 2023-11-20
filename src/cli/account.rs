@@ -1,13 +1,8 @@
 use clap::Parser;
-use crypto::{dsa::rpo_falcon512::KeyPair, merkle::MerkleStore, Felt, Word, ZERO};
+use crypto::{dsa::rpo_falcon512::KeyPair, Felt};
 use miden_client::{Client, ClientConfig};
 use miden_lib::{faucets, AuthScheme};
-use objects::{
-    accounts::{Account, AccountCode, AccountId, AccountStorage, AccountType, AccountVault},
-    assembly::ModuleAst,
-    assets::TokenSymbol,
-    AccountError,
-};
+use objects::{accounts::AccountType, assets::TokenSymbol};
 use rand::Rng;
 
 // ACCOUNT COMMAND
@@ -124,9 +119,9 @@ fn new_account(template: &Option<AccountTemplate>, deploy: bool) -> Result<(), S
 
     let (account, _) = match template {
         None => todo!("Generic account creation is not supported yet"),
-        Some(AccountTemplate::BasicImmutable) => create_basic_wallet(
-            key_pair,
+        Some(AccountTemplate::BasicImmutable) => miden_lib::wallets::create_basic_wallet(
             init_seed,
+            auth_scheme,
             AccountType::RegularAccountImmutableCode,
         ),
         Some(AccountTemplate::FungibleFaucet {
@@ -135,7 +130,7 @@ fn new_account(template: &Option<AccountTemplate>, deploy: bool) -> Result<(), S
             max_supply,
         }) => {
             let max_supply = max_supply.to_le_bytes();
-            faucets::create_basic_faucet(
+            faucets::create_basic_fungible_faucet(
                 init_seed,
                 TokenSymbol::new(token_symbol)
                     .expect("Hardcoded test token symbol creation should not panic"),
@@ -145,9 +140,9 @@ fn new_account(template: &Option<AccountTemplate>, deploy: bool) -> Result<(), S
                 auth_scheme,
             )
         }
-        Some(AccountTemplate::BasicMutable) => create_basic_wallet(
-            key_pair,
+        Some(AccountTemplate::BasicMutable) => miden_lib::wallets::create_basic_wallet(
             init_seed,
+            auth_scheme,
             AccountType::RegularAccountUpdatableCode,
         ),
         _ => todo!("Template not supported yet"),
@@ -170,50 +165,4 @@ fn new_account(template: &Option<AccountTemplate>, deploy: bool) -> Result<(), S
         .map_err(|x| x.to_string())?;
 
     Ok(())
-}
-
-pub fn create_basic_wallet(
-    key_pair: KeyPair,
-    init_seed: [u8; 32],
-    account_type: AccountType,
-) -> Result<(Account, Word), AccountError> {
-    let account_code_string: String = "
-    use.miden::wallets::basic->basic_wallet
-    use.miden::eoa::basic
-
-    export.basic_wallet::receive_asset
-    export.basic_wallet::send_asset
-    export.basic::auth_tx_rpo_falcon512
-
-    "
-    .to_string();
-    let account_code_src: &str = &account_code_string;
-
-    let account_code_ast =
-        ModuleAst::parse(account_code_src).expect("Hardcoded program parsing should not panic");
-    let account_assembler = miden_lib::assembler::assembler();
-    let account_code = AccountCode::new(account_code_ast.clone(), &account_assembler)?;
-
-    let account_storage =
-        AccountStorage::new(vec![(0, key_pair.public_key().into())], MerkleStore::new())?;
-    let account_vault = AccountVault::new(&[]).expect("Creating empty vault should not fail");
-
-    let account_seed = AccountId::get_account_seed(
-        init_seed,
-        account_type,
-        false,
-        account_code.root(),
-        account_storage.root(),
-    )?;
-    let account_id = AccountId::new(account_seed, account_code.root(), account_storage.root())?;
-    Ok((
-        Account::new(
-            account_id,
-            account_vault,
-            account_storage,
-            account_code,
-            ZERO,
-        ),
-        account_seed,
-    ))
 }
