@@ -117,6 +117,7 @@ fn new_account(template: &Option<AccountTemplate>, deploy: bool) -> Result<(), S
     // we need to use an initial seed to create the wallet account
     let init_seed: [u8; 32] = rng.gen();
 
+    // TODO: as the client takes form, make errors more structured
     let (account, _) = match template {
         None => todo!("Generic account creation is not supported yet"),
         Some(AccountTemplate::BasicImmutable) => miden_lib::wallets::create_basic_wallet(
@@ -149,7 +150,7 @@ fn new_account(template: &Option<AccountTemplate>, deploy: bool) -> Result<(), S
     }
     .map_err(|err| err.to_string())?;
 
-    // TODO: as the client takes form, make errors more structured
+    // TODO: Make these inserts atomic through a single transaction
     client
         .store()
         .insert_account(&account)

@@ -18,8 +18,8 @@ testing = ["objects/testing"]
 clap = { version = "4.3" , features = ["derive"] }
 crypto = { package = "miden-crypto", git = "https://github.com/0xPolygonMiden/crypto", branch = "next", default-features = false }
 lazy_static = "1.4.0"
-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base", branch = "update-wallet-creation-functions", features = ["serde"] }
-miden_lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base", branch = "update-wallet-creation-functions", default-features = false}
+objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", features = ["serde"] }
+miden_lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", default-features = false}
 rusqlite = { version = "0.29.0", features = ["bundled"] }
 rusqlite_migration = { version = "1.0" }
 rand = { version="0.8.5" }
