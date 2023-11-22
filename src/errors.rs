@@ -1,5 +1,5 @@
 use core::fmt;
-use objects::AccountError;
+use objects::{AccountError, Digest};
 
 // CLIENT ERROR
 // ================================================================================================
@@ -35,9 +35,11 @@ impl std::error::Error for ClientError {}
 pub enum StoreError {
     ConnectionError(rusqlite::Error),
     MigrationError(rusqlite_migration::Error),
+    ColumnParsingError(rusqlite::Error),
     QueryError(rusqlite::Error),
     InputSerializationError(serde_json::Error),
     DataDeserializationError(serde_json::Error),
+    InputNoteNotFound(Digest),
 }
 
 impl fmt::Display for StoreError {
@@ -47,12 +49,16 @@ impl fmt::Display for StoreError {
             ConnectionError(err) => write!(f, "failed to connect to the database: {err}"),
             MigrationError(err) => write!(f, "failed to update the database: {err}"),
             QueryError(err) => write!(f, "failed to retrieve data from the database: {err}"),
+            ColumnParsingError(err) => {
+                write!(f, "failed to parse data retrieved from the database: {err}")
+            }
             InputSerializationError(err) => {
                 write!(f, "error trying to serialize inputs for the store: {err}")
             }
             DataDeserializationError(err) => {
                 write!(f, "error deserializing data from the store: {err}")
             }
+            InputNoteNotFound(hash) => write!(f, "input note with hash {} not found", hash),
         }
     }
 }

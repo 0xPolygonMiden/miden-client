@@ -1,4 +1,5 @@
 use clap::Parser;
+use miden_client::{Client, ClientConfig};
 
 mod cli;
 use cli::Cli;
