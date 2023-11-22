@@ -1,4 +1,4 @@
-use objects::{Account, AccountId, AccountStub};
+use objects::accounts::{Account, AccountId, AccountStub};
 use std::path::PathBuf;
 
 mod store;
@@ -37,6 +37,14 @@ impl Client {
         Ok(Self {
             store: Store::new((&config).into())?,
         })
+    }
+
+    // PUBLIC ACCESSORS
+    // --------------------------------------------------------------------------------------------
+
+    /// Returns a reference to the store
+    pub fn store(&self) -> &Store {
+        &self.store
     }
 
     // DATA RETRIEVAL
@@ -97,7 +105,10 @@ impl Default for ClientConfig {
         let store_path = exec_dir.join(STORE_FILENAME);
 
         Self {
-            store_path: store_path.into_os_string().into_string().unwrap(),
+            store_path: store_path
+                .into_os_string()
+                .into_string()
+                .expect("Creating the hardcoded path to the store file should not panic"),
             node_endpoint: Endpoint::default(),
         }
     }

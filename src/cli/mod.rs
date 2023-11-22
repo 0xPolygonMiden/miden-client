@@ -15,6 +15,13 @@ pub struct Cli {
     action: Command,
 }
 
+/// CLI actions
+#[derive(Debug, Parser)]
+pub enum Command {
+    #[clap(subcommand)]
+    Account(account::AccountCmd),
+}
+
 /// CLI entry point
 impl Cli {
     pub fn execute(&self) -> Result<(), String> {
@@ -22,10 +29,4 @@ impl Cli {
             Command::Account(account) => account.execute(),
         }
     }
-}
-
-/// CLI actions
-#[derive(Debug, Parser)]
-pub enum Command {
-    Account(account::AccountCmd),
 }
