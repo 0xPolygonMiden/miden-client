@@ -22,8 +22,9 @@ objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/
 miden_lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", default-features = false}
 rusqlite = { version = "0.29.0", features = ["bundled"] }
 rusqlite_migration = { version = "1.0" }
-rand = { version="0.8.5" }
-serde = {version="1.0", features = ["derive"]}
+rand = { version = "0.8.5" }
+dirs = { version = "5.0.1" }
+serde = {version = "1.0", features = ["derive"]}
 serde_json = { version = "1.0", features = ["raw_value"] }
 
 [dev-dependencies]

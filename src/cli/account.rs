@@ -167,7 +167,9 @@ fn new_account(template: &Option<AccountTemplate>, deploy: bool) -> Result<(), S
     // TODO: Make these inserts atomic through a single transaction
     client
         .store()
-        .insert_account_code(account.code())
+        .insert_account(&account)
+        .and_then(|_| client.store().insert_account_keys(account.id(), &key_pair))
+        .and_then(|_| client.store().insert_account_code(account.code()))
         .and_then(|_| client.store().insert_account_storage(account.storage()))
         .and_then(|_| client.store().insert_account_vault(account.vault()))
         .and_then(|_| client.store().insert_account(&account))
@@ -249,6 +251,8 @@ pub fn show_account(account_id: AccountId) -> Result<(), String> {
         account.storage_root(),
         account.nonce(),
     );
+
+    println!("Account keys: {:?}", client.get_account_keys(account_id));
 
     println!("{}", "-".repeat(240));
 

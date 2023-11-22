@@ -1,7 +1,11 @@
 use super::{errors::StoreError, AccountStub, ClientConfig};
-use crypto::{utils::collections::BTreeMap, Word};
+use crypto::{
+    dsa::rpo_falcon512::KeyPair,
+    utils::{collections::BTreeMap, Deserializable, Serializable},
+    Word,
+};
 use objects::{
-    accounts::{Account, AccountCode, AccountStorage, AccountVault},
+    accounts::{Account, AccountCode, AccountId, AccountStorage, AccountVault},
     assembly::AstSerdeOptions,
     assets::Asset,
 };
@@ -94,6 +98,27 @@ impl Store {
         }
     }
 
+    pub fn get_account_keys(&self, account_id: AccountId) -> Result<KeyPair, StoreError> {
+        let mut stmt = self
+            .db
+            .prepare("SELECT key_pair FROM account_keys WHERE account_id = ?")
+            .map_err(StoreError::QueryError)?;
+        let account_id: u64 = account_id.into();
+
+        let mut rows = stmt
+            .query(params![account_id as i64])
+            .map_err(StoreError::QueryError)?;
+
+        if let Some(row) = rows.next().map_err(StoreError::QueryError)? {
+            let key_pair_bytes: Vec<u8> = row.get(0).map_err(StoreError::QueryError)?;
+            let key_pair: KeyPair = KeyPair::read_from_bytes(&key_pair_bytes).unwrap();
+
+            Ok(key_pair)
+        } else {
+            Err(StoreError::AccountDataNotFound)
+        }
+    }
+
     pub fn insert_account(&self, account: &Account) -> Result<(), StoreError> {
         let id: u64 = account.id().into();
         let code_root = serde_json::to_string(&account.code().root())
@@ -167,6 +192,22 @@ impl Store {
             .execute(
                 "INSERT INTO account_vaults (root, assets) VALUES (?, ?)",
                 params![vault_root, assets],
+            )
+            .map(|_| ())
+            .map_err(StoreError::QueryError)
+    }
+
+    pub fn insert_account_keys(
+        &self,
+        account_id: AccountId,
+        key_pair: &KeyPair,
+    ) -> Result<(), StoreError> {
+        let account_id: u64 = account_id.into();
+        let key_pair = key_pair.to_bytes();
+        self.db
+            .execute(
+                "INSERT INTO account_keys (account_id, key_pair) VALUES (?, ?)",
+                params![account_id as i64, key_pair],
             )
             .map(|_| ())
             .map_err(StoreError::QueryError)

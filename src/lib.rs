@@ -1,5 +1,6 @@
+use crypto::dsa::rpo_falcon512::KeyPair;
 use objects::accounts::{Account, AccountId, AccountStub};
-use std::path::PathBuf;
+use std::{path::PathBuf, str::FromStr};
 
 mod store;
 use store::Store;
@@ -64,6 +65,13 @@ impl Client {
             .map_err(|err| err.into())
     }
 
+    /// Returns key pair structure for an Account Id.
+    ///
+    pub fn get_account_keys(&self, account_id: AccountId) -> Result<KeyPair, ClientError> {
+        self.store
+            .get_account_keys(account_id)
+            .map_err(|err| err.into())
+    }
     /// Returns historical states for the account with the specified ID.
     ///
     /// TODO: wrap `Account` in a type with additional info.
@@ -136,4 +144,12 @@ impl Default for Endpoint {
             port: MIDEN_NODE_PORT,
         }
     }
+}
+
+/// Directory to store Miden-related files (e.g. defaults, databases). Typically ~/.miden/
+pub fn miden_home() -> PathBuf {
+    // TODO: Support no_std
+    std::env::var("MIDEN_HOME")
+        .map(|path| PathBuf::from_str(&path).unwrap_or_default())
+        .unwrap_or_else(|_| dirs::home_dir().unwrap_or_default().join(".miden"))
 }
