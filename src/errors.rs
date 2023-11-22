@@ -37,7 +37,8 @@ pub enum StoreError {
     MigrationError(rusqlite_migration::Error),
     QueryError(rusqlite::Error),
     InputSerializationError(serde_json::Error),
-    DataDeserializationError(serde_json::Error),
+    JsonDataDeserializationError(serde_json::Error),
+    DataDeserializationError(String),
     AccountDataNotFound,
 }
 
@@ -51,8 +52,14 @@ impl fmt::Display for StoreError {
             InputSerializationError(err) => {
                 write!(f, "error trying to serialize inputs for the store: {err}")
             }
+            JsonDataDeserializationError(err) => {
+                write!(
+                    f,
+                    "error deserializing data from JSON from the store: {err}"
+                )
+            }
             DataDeserializationError(err) => {
-                write!(f, "error deserializing data from the store: {err}")
+                write!(f, "error deserializing data from the store for type {err}")
             }
             &AccountDataNotFound => {
                 write!(f, "Account data was not found")

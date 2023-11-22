@@ -1,8 +1,12 @@
 use clap::Parser;
-use crypto::{dsa::rpo_falcon512::KeyPair, Felt};
+use crypto::{dsa::rpo_falcon512::KeyPair, utils::Serializable, Felt};
 use miden_client::{Client, ClientConfig};
 use miden_lib::{faucets, AuthScheme};
-use objects::{accounts::AccountType, assets::TokenSymbol};
+use objects::{
+    accounts::{AccountId, AccountType},
+    assembly::AstSerdeOptions,
+    assets::TokenSymbol,
+};
 use rand::Rng;
 
 // ACCOUNT COMMAND
@@ -18,9 +22,17 @@ pub enum AccountCmd {
     /// Show details of the account for the specified ID
     #[clap(short_flag = 'v')]
     Show {
-        // TODO: We should create a value parser for stricter typing (ie AccountID) once complexity grows
+        // TODO: We should create a value parser for catching input parsing errors earlier (ie AccountID) once complexity grows
         #[clap()]
         id: Option<String>,
+        #[clap(short, long, default_value_t = false)]
+        keys: bool,
+        #[clap(short, long, default_value_t = false)]
+        vault: bool,
+        #[clap(short, long, default_value_t = false)]
+        storage: bool,
+        #[clap(short, long, default_value_t = false)]
+        code: bool,
     },
 
     /// Create new account and store it locally
@@ -64,8 +76,16 @@ impl AccountCmd {
             AccountCmd::New { template, deploy } => {
                 new_account(template, *deploy)?;
             }
-            AccountCmd::Show { id: None } => todo!(),
-            AccountCmd::Show { id: Some(v) } => {
+            AccountCmd::Show { id: None, .. } => {
+                todo!("Setting default accounts is not supported yet")
+            }
+            AccountCmd::Show {
+                id: Some(v),
+                keys,
+                vault,
+                storage,
+                code,
+            } => {
                 let clean_hex = v.to_lowercase();
                 let clean_hex = clean_hex.strip_prefix("0x").unwrap_or(&clean_hex);
 
@@ -76,7 +96,7 @@ impl AccountCmd {
                     .try_into()
                     .map_err(|_| "Input number was not a valid Account Id")?;
 
-                show_account(account_id)?;
+                show_account(account_id, *keys, *vault, *storage, *code)?;
             }
         }
         Ok(())
@@ -173,6 +193,7 @@ fn new_account(template: &Option<AccountTemplate>, deploy: bool) -> Result<(), S
         .and_then(|_| client.store().insert_account_storage(account.storage()))
         .and_then(|_| client.store().insert_account_vault(account.vault()))
         .and_then(|_| client.store().insert_account(&account))
+        .and_then(|_| client.store().insert_account_keys(account.id(), &key_pair))
         .map(|_| {
             println!(
                 "Succesfully created and stored Account ID: {}",
@@ -184,53 +205,13 @@ fn new_account(template: &Option<AccountTemplate>, deploy: bool) -> Result<(), S
     Ok(())
 }
 
-pub fn create_basic_wallet(
-    key_pair: KeyPair,
-    init_seed: [u8; 32],
-    account_type: AccountType,
-) -> Result<(Account, Word), AccountError> {
-    let account_code_string: String = "
-    use.miden::wallets::basic->basic_wallet
-    use.miden::eoa::basic
-
-    export.basic_wallet::receive_asset
-    export.basic_wallet::send_asset
-    export.basic::auth_tx_rpo_falcon512
-
-    "
-    .to_string();
-    let account_code_src: &str = &account_code_string;
-
-    let account_code_ast =
-        ModuleAst::parse(account_code_src).expect("Hardcoded program parsing should not panic");
-    let account_assembler = miden_lib::assembler::assembler();
-    let account_code = AccountCode::new(account_code_ast.clone(), &account_assembler)?;
-
-    let account_storage =
-        AccountStorage::new(vec![(0, key_pair.public_key().into())], MerkleStore::new())?;
-    let account_vault = AccountVault::new(&[]).expect("Creating empty vault should not fail");
-
-    let account_seed = AccountId::get_account_seed(
-        init_seed,
-        account_type,
-        false,
-        account_code.root(),
-        account_storage.root(),
-    )?;
-    let account_id = AccountId::new(account_seed, account_code.root(), account_storage.root())?;
-    Ok((
-        Account::new(
-            account_id,
-            account_vault,
-            account_storage,
-            account_code,
-            ZERO,
-        ),
-        account_seed,
-    ))
-}
-
-pub fn show_account(account_id: AccountId) -> Result<(), String> {
+pub fn show_account(
+    account_id: AccountId,
+    keys: bool,
+    vault: bool,
+    storage: bool,
+    code: bool,
+) -> Result<(), String> {
     println!("{}", "-".repeat(240));
     println!(
         "{0: <18} | {1: <66} | {2: <66} | {3: <66} | {4: <15}",
@@ -251,10 +232,56 @@ pub fn show_account(account_id: AccountId) -> Result<(), String> {
         account.storage_root(),
         account.nonce(),
     );
+    println!("{}\n", "-".repeat(240));
 
-    println!("Account keys: {:?}", client.get_account_keys(account_id));
+    if keys {
+        let key_pair = client
+            .get_account_keys(account_id)
+            .map_err(|err| err.to_string())?;
 
-    println!("{}", "-".repeat(240));
+        println!("Key pair: {}\n", hex::encode(key_pair.to_bytes()));
+    }
+
+    if vault {
+        let assets = client
+            .get_vault_assets(account.vault_root())
+            .map_err(|err| err.to_string())?;
+
+        println!(
+            "Vault assets: {}\n",
+            serde_json::to_string(&assets).map_err(|_| "Error serializing account assets")?
+        );
+    }
+
+    if storage {
+        let account_storage = client
+            .get_account_storage(account.storage_root())
+            .map_err(|err| err.to_string())?;
+
+        println!(
+            "Storage: {}\n",
+            serde_json::to_string(&account_storage)
+                .map_err(|_| "Error serializing account storage")?
+        );
+    }
+
+    if code {
+        let (procedure_digests, module) = client
+            .get_account_code(account.code_root())
+            .map_err(|err| err.to_string())?;
+
+        println!(
+            "Procedure digests: {}\n",
+            serde_json::to_string(&procedure_digests)
+                .map_err(|_| "Error serializing account storage for display")?
+        );
+        println!(
+            "Module AST: {}\n",
+            hex::encode(module.to_bytes(AstSerdeOptions {
+                serialize_imports: true
+            }))
+        );
+    }
 
     Ok(())
 }

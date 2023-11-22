@@ -1,5 +1,11 @@
-use crypto::dsa::rpo_falcon512::KeyPair;
-use objects::accounts::{Account, AccountId, AccountStub};
+use crypto::{
+    dsa::rpo_falcon512::KeyPair, hash::rpo::RpoDigest, utils::collections::BTreeMap, Word,
+};
+use objects::{
+    accounts::{Account, AccountId, AccountStub},
+    assembly::ModuleAst,
+    assets::Asset,
+};
 use std::{path::PathBuf, str::FromStr};
 
 mod store;
@@ -66,12 +72,39 @@ impl Client {
     }
 
     /// Returns key pair structure for an Account Id.
-    ///
     pub fn get_account_keys(&self, account_id: AccountId) -> Result<KeyPair, ClientError> {
         self.store
             .get_account_keys(account_id)
             .map_err(|err| err.into())
     }
+
+    /// Returns vault assets from a vault root.
+    pub fn get_vault_assets(&self, vault_root: RpoDigest) -> Result<Vec<Asset>, ClientError> {
+        self.store
+            .get_vault_assets(vault_root)
+            .map_err(|err| err.into())
+    }
+
+    /// Returns account code data from a root.
+    pub fn get_account_code(
+        &self,
+        code_root: RpoDigest,
+    ) -> Result<(Vec<RpoDigest>, ModuleAst), ClientError> {
+        self.store
+            .get_account_code(code_root)
+            .map_err(|err| err.into())
+    }
+
+    /// Returns account storage data from a storage root.
+    pub fn get_account_storage(
+        &self,
+        storage_root: RpoDigest,
+    ) -> Result<BTreeMap<u64, Word>, ClientError> {
+        self.store
+            .get_account_storage(storage_root)
+            .map_err(|err| err.into())
+    }
+
     /// Returns historical states for the account with the specified ID.
     ///
     /// TODO: wrap `Account` in a type with additional info.
@@ -148,7 +181,6 @@ impl Default for Endpoint {
 
 /// Directory to store Miden-related files (e.g. defaults, databases). Typically ~/.miden/
 pub fn miden_home() -> PathBuf {
-    // TODO: Support no_std
     std::env::var("MIDEN_HOME")
         .map(|path| PathBuf::from_str(&path).unwrap_or_default())
         .unwrap_or_else(|_| dirs::home_dir().unwrap_or_default().join(".miden"))

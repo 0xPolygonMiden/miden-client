@@ -1,4 +1,5 @@
 use super::{errors::StoreError, AccountStub, ClientConfig};
+use crypto::hash::rpo::RpoDigest;
 use crypto::{
     dsa::rpo_falcon512::KeyPair,
     utils::{collections::BTreeMap, Deserializable, Serializable},
@@ -6,7 +7,7 @@ use crypto::{
 };
 use objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, AccountVault},
-    assembly::AstSerdeOptions,
+    assembly::{AstSerdeOptions, ModuleAst},
     assets::Asset,
 };
 use rusqlite::{params, Connection};
@@ -51,10 +52,12 @@ impl Store {
                     .try_into()
                     .expect("Conversion from stored AccountID should not panic"),
                 (nonce as u64).into(),
-                serde_json::from_str(&vault_root).map_err(StoreError::DataDeserializationError)?,
+                serde_json::from_str(&vault_root)
+                    .map_err(StoreError::JsonDataDeserializationError)?,
                 serde_json::from_str(&storage_root)
-                    .map_err(StoreError::DataDeserializationError)?,
-                serde_json::from_str(&code_root).map_err(StoreError::DataDeserializationError)?,
+                    .map_err(StoreError::JsonDataDeserializationError)?,
+                serde_json::from_str(&code_root)
+                    .map_err(StoreError::JsonDataDeserializationError)?,
             ));
         }
 
@@ -86,10 +89,12 @@ impl Store {
                     .try_into()
                     .expect("Conversion from stored AccountID should not panic"),
                 nonce.into(),
-                serde_json::from_str(&vault_root).map_err(StoreError::DataDeserializationError)?,
+                serde_json::from_str(&vault_root)
+                    .map_err(StoreError::JsonDataDeserializationError)?,
                 serde_json::from_str(&storage_root)
-                    .map_err(StoreError::DataDeserializationError)?,
-                serde_json::from_str(&code_root).map_err(StoreError::DataDeserializationError)?,
+                    .map_err(StoreError::JsonDataDeserializationError)?,
+                serde_json::from_str(&code_root)
+                    .map_err(StoreError::JsonDataDeserializationError)?,
             );
 
             Ok(account)
@@ -98,6 +103,7 @@ impl Store {
         }
     }
 
+    /// Retrieve account keys data by Account Id
     pub fn get_account_keys(&self, account_id: AccountId) -> Result<KeyPair, StoreError> {
         let mut stmt = self
             .db
@@ -114,6 +120,79 @@ impl Store {
             let key_pair: KeyPair = KeyPair::read_from_bytes(&key_pair_bytes).unwrap();
 
             Ok(key_pair)
+        } else {
+            Err(StoreError::AccountDataNotFound)
+        }
+    }
+
+    /// Retrieve account code-related data by code root
+    pub fn get_account_code(
+        &self,
+        root: RpoDigest,
+    ) -> Result<(Vec<RpoDigest>, ModuleAst), StoreError> {
+        let root = serde_json::to_string(&root).map_err(StoreError::InputSerializationError)?;
+
+        let mut stmt = self
+            .db
+            .prepare("SELECT procedures, module FROM account_code WHERE root = ?")
+            .map_err(StoreError::QueryError)?;
+        let mut rows = stmt.query(params![root]).map_err(StoreError::QueryError)?;
+
+        if let Some(row) = rows.next().map_err(StoreError::QueryError)? {
+            let procedures: String = row.get(0).map_err(StoreError::QueryError)?;
+            let module: Vec<u8> = row.get(1).map_err(StoreError::QueryError)?;
+
+            let procedures = serde_json::from_str(&procedures)
+                .map_err(StoreError::JsonDataDeserializationError)?;
+            let module = ModuleAst::from_bytes(&module).map_err(|_| {
+                StoreError::DataDeserializationError(
+                    "could not deserialize ModuleAst from bytes".into(),
+                )
+            })?;
+            Ok((procedures, module))
+        } else {
+            Err(StoreError::AccountDataNotFound)
+        }
+    }
+
+    /// Retrieve account storage data by vault root
+    pub fn get_account_storage(&self, root: RpoDigest) -> Result<BTreeMap<u64, Word>, StoreError> {
+        let root = serde_json::to_string(&root).map_err(StoreError::InputSerializationError)?;
+
+        let mut stmt = self
+            .db
+            .prepare("SELECT slots FROM account_storage WHERE root = ?")
+            .map_err(StoreError::QueryError)?;
+        let mut rows = stmt.query(params![root]).map_err(StoreError::QueryError)?;
+
+        if let Some(row) = rows.next().map_err(StoreError::QueryError)? {
+            let slots: String = row.get(0).map_err(StoreError::QueryError)?;
+            let slots =
+                serde_json::from_str(&slots).map_err(StoreError::JsonDataDeserializationError)?;
+            Ok(slots)
+        } else {
+            Err(StoreError::AccountDataNotFound)
+        }
+    }
+
+    /// Retrieve assets by vault root
+    pub fn get_vault_assets(&self, root: RpoDigest) -> Result<Vec<Asset>, StoreError> {
+        let vault_root =
+            serde_json::to_string(&root).map_err(StoreError::InputSerializationError)?;
+
+        let mut stmt = self
+            .db
+            .prepare("SELECT assets FROM account_vaults WHERE root = ?")
+            .map_err(StoreError::QueryError)?;
+        let mut rows = stmt
+            .query(params![vault_root])
+            .map_err(StoreError::QueryError)?;
+
+        if let Some(row) = rows.next().map_err(StoreError::QueryError)? {
+            let assets: String = row.get(0).map_err(StoreError::QueryError)?;
+            let assets =
+                serde_json::from_str(&assets).map_err(StoreError::JsonDataDeserializationError)?;
+            Ok(assets)
         } else {
             Err(StoreError::AccountDataNotFound)
         }
