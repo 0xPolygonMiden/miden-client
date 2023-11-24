@@ -6,7 +6,7 @@ use objects::{
     assembly::ModuleAst,
     assets::Asset,
 };
-use std::{path::PathBuf, str::FromStr};
+use std::path::PathBuf;
 
 mod store;
 use store::Store;
@@ -177,11 +177,4 @@ impl Default for Endpoint {
             port: MIDEN_NODE_PORT,
         }
     }
-}
-
-/// Directory to store Miden-related files (e.g. defaults, databases). Typically ~/.miden/
-pub fn miden_home() -> PathBuf {
-    std::env::var("MIDEN_HOME")
-        .map(|path| PathBuf::from_str(&path).unwrap_or_default())
-        .unwrap_or_else(|_| dirs::home_dir().unwrap_or_default().join(".miden"))
 }
