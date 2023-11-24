@@ -4,6 +4,7 @@ use miden_client::{Client, ClientConfig};
 use miden_lib::{faucets, AuthScheme};
 use objects::{accounts::AccountType, assets::TokenSymbol};
 use rand::Rng;
+use tabled::{builder::Builder, settings::Style};
 
 // ACCOUNT COMMAND
 // ================================================================================================
@@ -73,27 +74,30 @@ impl AccountCmd {
 // ================================================================================================
 
 fn list_accounts() -> Result<(), String> {
-    println!("{}", "-".repeat(240));
-    println!(
-        "{0: <18} | {1: <66} | {2: <66} | {3: <66} | {4: <15}",
-        "account id", "code root", "vault root", "storage root", "nonce",
-    );
-    println!("{}", "-".repeat(240));
-
     let client = Client::new(ClientConfig::default()).map_err(|err| err.to_string())?;
     let accounts = client.get_accounts().map_err(|err| err.to_string())?;
 
+    let mut builder = Builder::new();
+    builder.push_record([
+        "account id",
+        "code root",
+        "vault root",
+        "storage root",
+        "nonce",
+    ]);
+
     for acct in accounts {
-        println!(
-            "{0: <18} | {1: <66} | {2: <66} | {3: <66} | {4: <15}",
-            acct.id(),
-            acct.code_root(),
-            acct.vault_root(),
-            acct.storage_root(),
-            acct.nonce(),
-        );
+        builder.push_record([
+            &acct.id().to_string(),
+            &acct.code_root().to_string(),
+            &acct.vault_root().to_string(),
+            &acct.storage_root().to_string(),
+            &acct.nonce().to_string(),
+        ]);
     }
-    println!("{}", "-".repeat(240));
+
+    let table = builder.build().with(Style::modern()).to_string();
+    println!("{}", table);
     Ok(())
 }
 
