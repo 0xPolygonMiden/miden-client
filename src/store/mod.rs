@@ -128,7 +128,7 @@ impl Store {
 
         self.db
             .execute(
-                "INSERT INTO account_vault (root, assets) VALUES (?, ?)",
+                "INSERT INTO account_vaults (root, assets) VALUES (?, ?)",
                 params![vault_root, assets],
             )
             .map(|_| ())
