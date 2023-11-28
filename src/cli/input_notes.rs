@@ -1,6 +1,7 @@
 use super::Client;
 use super::Parser;
 
+use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use objects::notes::RecordedNote;
 use objects::Digest;
 
@@ -77,41 +78,59 @@ fn show_input_note(
     // print note summary
     print_notes_summary(core::iter::once(&note));
 
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_HORIZONTAL_ONLY)
+        .set_content_arrangement(ContentArrangement::DynamicFullWidth);
+
     // print note script
     if show_script {
-        println!("{}", "-".repeat(240));
-        println!("Note script hash: {}", note.note().script().hash());
-        println!("{}", "-".repeat(240));
-        println!("Note Script:");
-        println!("{}", "-".repeat(240));
-        println!("{}", note.note().script().code());
+        table
+            .add_row(vec![
+                Cell::new("Note Script hash").add_attribute(Attribute::Bold),
+                Cell::new(note.note().script().hash()),
+            ])
+            .add_row(vec![
+                Cell::new("Note Script code").add_attribute(Attribute::Bold),
+                Cell::new(note.note().script().code()),
+            ]);
     };
 
     // print note vault
     if show_vault {
-        println!("{}", "-".repeat(240));
-        println!("Note vault hash: {}", note.note().vault().hash());
-        println!("{}", "-".repeat(240));
-        println!("Note Vault:");
-        println!("{}", "-".repeat(240));
-        for asset in note.note().vault().iter() {
-            // To do print this nicely
-            println!("{:?}", asset);
-        }
+        table
+            .add_row(vec![
+                Cell::new("Note Vault hash").add_attribute(Attribute::Bold),
+                Cell::new(note.note().vault().hash()),
+            ])
+            .add_row(vec![Cell::new("Note Vault").add_attribute(Attribute::Bold)]);
+
+        note.note().vault().iter().for_each(|asset| {
+            table.add_row(vec![Cell::new(&format!("{:?}", asset))]);
+        })
     };
 
     if show_inputs {
-        println!("{}", "-".repeat(240));
-        println!("Note inputs hash: {}", note.note().inputs().hash());
-        println!("{}", "-".repeat(240));
-        println!("Note Inputs:");
-        println!("{}", "-".repeat(240));
-        for (idx, input) in note.note().inputs().inputs().iter().enumerate() {
-            // To do print this nicely
-            println!("{idx}: {input}");
-        }
+        table
+            .add_row(vec![
+                Cell::new("Note Inputs hash").add_attribute(Attribute::Bold),
+                Cell::new(note.note().inputs().hash()),
+            ])
+            .add_row(vec![Cell::new("Note Inputs").add_attribute(Attribute::Bold)]);
+        note.note()
+            .inputs()
+            .inputs()
+            .iter()
+            .enumerate()
+            .for_each(|(idx, input)| {
+                table.add_row(vec![
+                    Cell::new(idx).add_attribute(Attribute::Bold),
+                    Cell::new(input),
+                ]);
+            });
     };
 
+    println!("{table}");
     Ok(())
 }
 
@@ -121,22 +140,27 @@ fn print_notes_summary<'a, I>(notes: I)
 where
     I: IntoIterator<Item = &'a RecordedNote>,
 {
-    println!("{}", "-".repeat(240));
-    println!(
-        "{0: <66} | {1: <66} | {2: <66} | {3: <66} | {4: <15}",
-        "hash", "script hash", "vault hash", "inputs hash", "serial num",
-    );
-    println!("{}", "-".repeat(240));
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_content_arrangement(ContentArrangement::DynamicFullWidth)
+        .set_header(vec![
+            Cell::new("hash").add_attribute(Attribute::Bold),
+            Cell::new("script hash").add_attribute(Attribute::Bold),
+            Cell::new("vault hash").add_attribute(Attribute::Bold),
+            Cell::new("inputs hash").add_attribute(Attribute::Bold),
+            Cell::new("serial num").add_attribute(Attribute::Bold),
+        ]);
 
-    for note in notes {
-        println!(
-            "{0: <66} | {1: <66} | {2: <66} | {3: <66} | {4: <15}",
-            note.note().hash(),
-            note.note().script().hash(),
-            note.note().vault().hash(),
-            note.note().inputs().hash(),
-            Digest::new(note.note().serial_num()),
-        );
-    }
-    println!("{}", "-".repeat(240));
+    notes.into_iter().for_each(|note| {
+        table.add_row(vec![
+            note.note().hash().to_string(),
+            note.note().script().hash().to_string(),
+            note.note().vault().hash().to_string(),
+            note.note().inputs().hash().to_string(),
+            Digest::new(note.note().serial_num()).to_string(),
+        ]);
+    });
+
+    println!("{table}");
 }

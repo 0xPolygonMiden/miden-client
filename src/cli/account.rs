@@ -79,7 +79,7 @@ fn list_accounts(client: Client) -> Result<(), String> {
     let mut table = Table::new();
     table
         .load_preset(presets::UTF8_FULL)
-        .set_content_arrangement(ContentArrangement::Dynamic)
+        .set_content_arrangement(ContentArrangement::DynamicFullWidth)
         .set_header(vec![
             Cell::new("account id").add_attribute(Attribute::Bold),
             Cell::new("code root").add_attribute(Attribute::Bold),
