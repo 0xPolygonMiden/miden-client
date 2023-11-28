@@ -41,3 +41,21 @@ CREATE TABLE accounts (
     FOREIGN KEY (storage_root) REFERENCES account_storage(root),
     FOREIGN KEY (vault_root) REFERENCES account_vaults(root)
 );
+
+-- Create input notes table
+CREATE TABLE input_notes (
+    hash BLOB NOT NULL,                                     -- the note hash
+    nullifier BLOB NOT NULL,                                -- the nullifier of the note
+    script BLOB NOT NULL,                                   -- the serialized NoteScript, including script hash and ProgramAst
+    vault BLOB NOT NULL,                                    -- the serialized NoteVault, including vault hash and list of assets
+    inputs BLOB NOT NULL,                                   -- the serialized NoteInputs, including inputs hash and list of inputs
+    serial_num BLOB NOT NULL,                               -- the note serial number
+    sender_id UNSIGNED BIG INT NOT NULL,                    -- the account ID of the sender
+    tag UNSIGNED BIG INT NOT NULL,                          -- the note tag
+    num_assets UNSIGNED BIG INT NOT NULL,                   -- the number of assets in the note
+    inclusion_proof BLOB NOT NULL,                          -- the inclusion proof of the note against a block number
+    recipients BLOB NOT NULL,                               -- a list of account IDs of accounts which can consume this note
+    status TEXT CHECK( status IN ('pending', 'committed')), -- the status of the note - either pending or committed
+    commit_height UNSIGNED BIG INT NOT NULL,                -- the block number at which the note was included into the chain
+    PRIMARY KEY (hash)
+);
