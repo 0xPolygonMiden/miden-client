@@ -16,8 +16,7 @@ use objects::{
 use std::path::PathBuf;
 
 mod store;
-pub use store::InputNoteFilter;
-use store::{AuthInfo, Store};
+use store::{AuthInfo, InputNoteFilter, Store};
 
 #[cfg(any(test, feature = "testing"))]
 pub mod mock;
@@ -170,6 +169,27 @@ impl Client {
     pub fn get_input_note(&self, hash: Digest) -> Result<RecordedNote, ClientError> {
         self.store
             .get_input_note_by_hash(hash)
+            .map_err(|err| err.into())
+    }
+
+    /// Returns unspent input notes managed by this client.
+    pub fn get_unspent_input_notes(&self) -> Result<Vec<RecordedNote>, ClientError> {
+        self.store
+            .get_input_notes(InputNoteFilter::Committed)
+            .map_err(|err| err.into())
+    }
+
+    /// Returns consumed input notes managed by this client.
+    pub fn get_consumed_input_notes(&self) -> Result<Vec<RecordedNote>, ClientError> {
+        self.store
+            .get_input_notes(InputNoteFilter::Consumed)
+            .map_err(|err| err.into())
+    }
+
+    /// Returns pending input notes managed by this client.
+    pub fn get_pending_input_notes(&self) -> Result<Vec<RecordedNote>, ClientError> {
+        self.store
+            .get_input_notes(InputNoteFilter::Pending)
             .map_err(|err| err.into())
     }
 
