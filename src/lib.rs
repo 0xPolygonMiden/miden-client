@@ -1,10 +1,7 @@
-use crypto::{
-    dsa::rpo_falcon512::KeyPair, hash::rpo::RpoDigest, utils::collections::BTreeMap, Word,
-};
 use objects::{
     accounts::{Account, AccountId, AccountStub},
-    assembly::ModuleAst,
-    assets::Asset,
+    notes::RecordedNote,
+    Digest,
 };
 use std::path::PathBuf;
 
@@ -54,7 +51,7 @@ impl Client {
         &self.store
     }
 
-    // DATA RETRIEVAL
+    // ACCOUNT DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
     /// Returns summary info about the accounts managed by this client.
@@ -121,6 +118,31 @@ impl Client {
         todo!()
     }
 
+    // INPUT NOTE DATA RETRIEVAL
+    // --------------------------------------------------------------------------------------------
+
+    /// Returns input notes managed by this client.
+    pub fn get_input_notes(&self) -> Result<Vec<RecordedNote>, ClientError> {
+        self.store.get_input_notes().map_err(|err| err.into())
+    }
+
+    /// Returns the input note with the specified hash.
+    pub fn get_input_note(&self, hash: Digest) -> Result<RecordedNote, ClientError> {
+        self.store
+            .get_input_note_by_hash(hash)
+            .map_err(|err| err.into())
+    }
+
+    // INPUT NOTE CREATION
+    // --------------------------------------------------------------------------------------------
+
+    /// Inserts a new input note into the client's store.
+    pub fn insert_input_note(&mut self, note: RecordedNote) -> Result<(), ClientError> {
+        self.store
+            .insert_input_note(&note)
+            .map_err(|err| err.into())
+    }
+
     // TODO: add methods for retrieving note and transaction info, and for creating/executing
     // transaction
 }
@@ -135,6 +157,16 @@ pub struct ClientConfig {
     store_path: String,
     /// Address of the Miden node to connect to.
     node_endpoint: Endpoint,
+}
+
+impl ClientConfig {
+    /// Returns a new instance of [ClientConfig] with the specified store path and node endpoint.
+    pub fn new(store_path: String, node_endpoint: Endpoint) -> Self {
+        Self {
+            store_path,
+            node_endpoint,
+        }
+    }
 }
 
 impl Default for ClientConfig {
@@ -176,5 +208,76 @@ impl Default for Endpoint {
             host: "localhost".to_string(),
             port: MIDEN_NODE_PORT,
         }
+    }
+}
+
+// TESTS
+// ================================================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::store::tests::create_test_store_path;
+    use mock::mock::{
+        account::MockAccountType, notes::AssetPreservationStatus, transaction::mock_inputs,
+    };
+
+    #[test]
+    fn test_input_notes_round_trip() {
+        // generate test store path
+        let store_path = create_test_store_path();
+
+        // generate test client
+        let mut client = super::Client::new(super::ClientConfig::new(
+            store_path.into_os_string().into_string().unwrap(),
+            super::Endpoint::default(),
+        ))
+        .unwrap();
+
+        // generate test data
+        let (_, _, _, recorded_notes) = mock_inputs(
+            MockAccountType::StandardExisting,
+            AssetPreservationStatus::Preserved,
+        );
+
+        // insert notes into database
+        for note in recorded_notes.iter().cloned() {
+            client.insert_input_note(note).unwrap();
+        }
+
+        // retrieve notes from database
+        let retrieved_notes = client.get_input_notes().unwrap();
+
+        // compare notes
+        assert_eq!(recorded_notes, retrieved_notes);
+    }
+
+    #[test]
+    fn test_get_input_note() {
+        // generate test store path
+        let store_path = create_test_store_path();
+
+        // generate test client
+        let mut client = super::Client::new(super::ClientConfig::new(
+            store_path.into_os_string().into_string().unwrap(),
+            super::Endpoint::default(),
+        ))
+        .unwrap();
+
+        // generate test data
+        let (_, _, _, recorded_notes) = mock_inputs(
+            MockAccountType::StandardExisting,
+            AssetPreservationStatus::Preserved,
+        );
+
+        // insert note into database
+        client.insert_input_note(recorded_notes[0].clone()).unwrap();
+
+        // retrieve note from database
+        let retrieved_note = client
+            .get_input_note(recorded_notes[0].note().hash())
+            .unwrap();
+
+        // compare notes
+        assert_eq!(recorded_notes[0], retrieved_note);
     }
 }

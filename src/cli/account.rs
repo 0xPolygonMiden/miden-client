@@ -68,13 +68,13 @@ pub enum AccountTemplate {
 }
 
 impl AccountCmd {
-    pub fn execute(&self) -> Result<(), String> {
+    pub fn execute(&self, client: Client) -> Result<(), String> {
         match self {
             AccountCmd::List => {
-                list_accounts()?;
+                list_accounts(client)?;
             }
             AccountCmd::New { template, deploy } => {
-                new_account(template, *deploy)?;
+                new_account(client, template, *deploy)?;
             }
             AccountCmd::Show { id: None, .. } => {
                 todo!("Setting default accounts is not supported yet")
@@ -106,7 +106,7 @@ impl AccountCmd {
 // LIST ACCOUNTS
 // ================================================================================================
 
-fn list_accounts() -> Result<(), String> {
+fn list_accounts(client: Client) -> Result<(), String> {
     println!("{}", "-".repeat(240));
     println!(
         "{0: <18} | {1: <66} | {2: <66} | {3: <66} | {4: <15}",
@@ -114,7 +114,6 @@ fn list_accounts() -> Result<(), String> {
     );
     println!("{}", "-".repeat(240));
 
-    let client = Client::new(ClientConfig::default()).map_err(|err| err.to_string())?;
     let accounts = client.get_accounts().map_err(|err| err.to_string())?;
 
     for acct in accounts {
@@ -134,9 +133,11 @@ fn list_accounts() -> Result<(), String> {
 // ACCOUNT NEW
 // ================================================================================================
 
-fn new_account(template: &Option<AccountTemplate>, deploy: bool) -> Result<(), String> {
-    let client = Client::new(ClientConfig::default()).map_err(|err| err.to_string())?;
-
+fn new_account(
+    client: Client,
+    template: &Option<AccountTemplate>,
+    deploy: bool,
+) -> Result<(), String> {
     if deploy {
         todo!("Recording the account on chain is not supported yet");
     }
