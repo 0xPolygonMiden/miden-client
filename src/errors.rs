@@ -1,6 +1,7 @@
 use core::fmt;
 use crypto::utils::DeserializationError;
 use objects::{accounts::AccountId, AccountError, Digest};
+use tonic::{transport::Error as TransportError, Status as TonicStatus};
 
 // CLIENT ERROR
 // ================================================================================================
@@ -9,6 +10,7 @@ use objects::{accounts::AccountId, AccountError, Digest};
 pub enum ClientError {
     StoreError(StoreError),
     AccountError(AccountError),
+    RpcApiError(RpcApiError),
 }
 
 impl fmt::Display for ClientError {
@@ -16,6 +18,7 @@ impl fmt::Display for ClientError {
         match self {
             ClientError::StoreError(err) => write!(f, "store error: {err}"),
             ClientError::AccountError(err) => write!(f, "account error: {err}"),
+            ClientError::RpcApiError(err) => write!(f, "rpc api error: {err}"),
         }
     }
 }
@@ -89,3 +92,23 @@ impl fmt::Display for StoreError {
 
 #[cfg(feature = "std")]
 impl std::error::Error for StoreError {}
+
+// API CLIENT ERROR
+// ================================================================================================
+
+#[derive(Debug)]
+pub enum RpcApiError {
+    ConnectionError(TransportError),
+    RequestError(TonicStatus),
+}
+
+impl fmt::Display for RpcApiError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RpcApiError::ConnectionError(err) => {
+                write!(f, "failed to connect to the API server: {err}")
+            }
+            RpcApiError::RequestError(err) => write!(f, "rpc request failed: {err}"),
+        }
+    }
+}
