@@ -456,11 +456,11 @@ fn parse_input_note(
 ) -> Result<RecordedNote, StoreError> {
     let (script, inputs, vault, serial_num, sender_id, tag, num_assets, inclusion_proof) =
         serialized_input_note_parts;
-    let script = serde_json::from_str(&script).map_err(StoreError::DataDeserializationError)?;
-    let inputs = serde_json::from_str(&inputs).map_err(StoreError::DataDeserializationError)?;
-    let vault = serde_json::from_str(&vault).map_err(StoreError::DataDeserializationError)?;
+    let script = serde_json::from_str(&script).map_err(StoreError::JsonDataDeserializationError)?;
+    let inputs = serde_json::from_str(&inputs).map_err(StoreError::JsonDataDeserializationError)?;
+    let vault = serde_json::from_str(&vault).map_err(StoreError::JsonDataDeserializationError)?;
     let serial_num =
-        serde_json::from_str(&serial_num).map_err(StoreError::DataDeserializationError)?;
+        serde_json::from_str(&serial_num).map_err(StoreError::JsonDataDeserializationError)?;
     let note_metadata = NoteMetadata::new(
         AccountId::new_unchecked(Felt::new(sender_id)),
         Felt::new(tag),
@@ -469,7 +469,7 @@ fn parse_input_note(
     let note = Note::from_parts(script, inputs, vault, serial_num, note_metadata);
 
     let inclusion_proof =
-        serde_json::from_str(&inclusion_proof).map_err(StoreError::DataDeserializationError)?;
+        serde_json::from_str(&inclusion_proof).map_err(StoreError::JsonDataDeserializationError)?;
     Ok(RecordedNote::new(note, inclusion_proof))
 }
 
