@@ -1,13 +1,36 @@
 use super::{errors::StoreError, AccountStub, ClientConfig};
 use crypto::{utils::collections::BTreeMap, Word};
 use objects::{
-    accounts::{Account, AccountCode, AccountStorage, AccountVault},
+    accounts::{Account, AccountCode, AccountId, AccountStorage, AccountVault},
     assembly::AstSerdeOptions,
     assets::Asset,
+    notes::{Note, NoteMetadata, RecordedNote},
+    Digest, Felt,
 };
 use rusqlite::{params, Connection, Transaction};
 
 mod migrations;
+
+// TYPES
+// ================================================================================================
+
+type SerializedInputNoteData = (
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    i64,
+    i64,
+    i64,
+    String,
+    String,
+    String,
+    i64,
+);
+
+type SerializedInputNoteParts = (String, String, String, String, u64, u64, u64, String);
 
 // CLIENT STORE
 // ================================================================================================
@@ -17,12 +40,19 @@ pub struct Store {
 }
 
 impl Store {
+    // CONSTRUCTORS
+    // --------------------------------------------------------------------------------------------
+
+    /// Returns a new instance of [Store] instantiated with the specified configuration options.
     pub fn new(config: StoreConfig) -> Result<Self, StoreError> {
         let mut db = Connection::open(config.path).map_err(StoreError::ConnectionError)?;
         migrations::update_to_latest(&mut db)?;
 
         Ok(Self { db })
     }
+
+    // ACCOUNTS
+    // --------------------------------------------------------------------------------------------
 
     pub fn get_accounts(&self) -> Result<Vec<AccountStub>, StoreError> {
         let mut stmt = self
@@ -148,6 +178,92 @@ impl Store {
         .map(|_| ())
         .map_err(StoreError::QueryError)
     }
+
+    // NOTES
+    // --------------------------------------------------------------------------------------------
+
+    /// Retrieves the input notes from the database
+    pub fn get_input_notes(&self) -> Result<Vec<RecordedNote>, StoreError> {
+        const QUERY: &str = "SELECT script, inputs, vault, serial_num, sender_id, tag, num_assets, inclusion_proof FROM input_notes";
+
+        self.db
+            .prepare(QUERY)
+            .map_err(StoreError::QueryError)?
+            .query_map([], parse_input_note_columns)
+            .expect("no binding parameters used in query")
+            .map(|result| {
+                result
+                    .map_err(StoreError::ColumnParsingError)
+                    .and_then(parse_input_note)
+            })
+            .collect::<Result<Vec<RecordedNote>, _>>()
+    }
+
+    /// Retrieves the input note with the specified hash from the database
+    pub fn get_input_note_by_hash(&self, hash: Digest) -> Result<RecordedNote, StoreError> {
+        let query_hash =
+            serde_json::to_string(&hash).map_err(StoreError::InputSerializationError)?;
+        const QUERY: &str = "SELECT script, inputs, vault, serial_num, sender_id, tag, num_assets, inclusion_proof FROM input_notes WHERE hash = ?";
+
+        self.db
+            .prepare(QUERY)
+            .map_err(StoreError::QueryError)?
+            .query_map(params![query_hash.to_string()], parse_input_note_columns)
+            .map_err(StoreError::QueryError)?
+            .map(|result| {
+                result
+                    .map_err(StoreError::ColumnParsingError)
+                    .and_then(parse_input_note)
+            })
+            .next()
+            .ok_or(StoreError::InputNoteNotFound(hash))?
+    }
+
+    /// Inserts the provided input note into the database
+    pub fn insert_input_note(&self, recorded_note: &RecordedNote) -> Result<(), StoreError> {
+        let (
+            hash,
+            nullifier,
+            script,
+            vault,
+            inputs,
+            serial_num,
+            sender_id,
+            tag,
+            num_assets,
+            inclusion_proof,
+            recipients,
+            status,
+            commit_height,
+        ) = serialize_input_note(recorded_note)?;
+
+        const QUERY: &str = "\
+        INSERT INTO input_notes
+            (hash, nullifier, script, vault, inputs, serial_num, sender_id, tag, num_assets, inclusion_proof, recipients, status, commit_height)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        self.db
+            .execute(
+                QUERY,
+                params![
+                    hash,
+                    nullifier,
+                    script,
+                    vault,
+                    inputs,
+                    serial_num,
+                    sender_id,
+                    tag,
+                    num_assets,
+                    inclusion_proof,
+                    recipients,
+                    status,
+                    commit_height
+                ],
+            )
+            .map_err(StoreError::QueryError)
+            .map(|_| ())
+    }
 }
 
 // STORE CONFIG
@@ -165,8 +281,102 @@ impl From<&ClientConfig> for StoreConfig {
     }
 }
 
+// HELPERS
+// ================================================================================================
+/// Parse input note columns from the provided row into native types.
+fn parse_input_note_columns(
+    row: &rusqlite::Row<'_>,
+) -> Result<SerializedInputNoteParts, rusqlite::Error> {
+    let script: String = row.get(0)?;
+    let inputs: String = row.get(1)?;
+    let vault: String = row.get(2)?;
+    let serial_num: String = row.get(3)?;
+    let sender_id = row.get::<usize, i64>(4)? as u64;
+    let tag = row.get::<usize, i64>(5)? as u64;
+    let num_assets = row.get::<usize, i64>(6)? as u64;
+    let inclusion_proof: String = row.get(7)?;
+    Ok((
+        script,
+        inputs,
+        vault,
+        serial_num,
+        sender_id,
+        tag,
+        num_assets,
+        inclusion_proof,
+    ))
+}
+
+/// Parse a note from the provided parts.
+fn parse_input_note(
+    serialized_input_note_parts: SerializedInputNoteParts,
+) -> Result<RecordedNote, StoreError> {
+    let (script, inputs, vault, serial_num, sender_id, tag, num_assets, inclusion_proof) =
+        serialized_input_note_parts;
+    let script = serde_json::from_str(&script).map_err(StoreError::DataDeserializationError)?;
+    let inputs = serde_json::from_str(&inputs).map_err(StoreError::DataDeserializationError)?;
+    let vault = serde_json::from_str(&vault).map_err(StoreError::DataDeserializationError)?;
+    let serial_num =
+        serde_json::from_str(&serial_num).map_err(StoreError::DataDeserializationError)?;
+    let note_metadata = NoteMetadata::new(
+        AccountId::new_unchecked(Felt::new(sender_id)),
+        Felt::new(tag),
+        Felt::new(num_assets),
+    );
+    let note = Note::from_parts(script, inputs, vault, serial_num, note_metadata);
+
+    let inclusion_proof =
+        serde_json::from_str(&inclusion_proof).map_err(StoreError::DataDeserializationError)?;
+    Ok(RecordedNote::new(note, inclusion_proof))
+}
+
+/// Serialize the provided input note into database compatible types.
+fn serialize_input_note(
+    recorded_note: &RecordedNote,
+) -> Result<SerializedInputNoteData, StoreError> {
+    let hash = serde_json::to_string(&recorded_note.note().hash())
+        .map_err(StoreError::InputSerializationError)?;
+    let nullifier = serde_json::to_string(&recorded_note.note().nullifier())
+        .map_err(StoreError::InputSerializationError)?;
+    let script = serde_json::to_string(&recorded_note.note().script())
+        .map_err(StoreError::InputSerializationError)?;
+    let vault = serde_json::to_string(&recorded_note.note().vault())
+        .map_err(StoreError::InputSerializationError)?;
+    let inputs = serde_json::to_string(&recorded_note.note().inputs())
+        .map_err(StoreError::InputSerializationError)?;
+    let serial_num = serde_json::to_string(&recorded_note.note().serial_num())
+        .map_err(StoreError::InputSerializationError)?;
+    let sender_id = u64::from(recorded_note.note().metadata().sender()) as i64;
+    let tag = u64::from(recorded_note.note().metadata().tag()) as i64;
+    let num_assets = u64::from(recorded_note.note().metadata().num_assets()) as i64;
+    let inclusion_proof = serde_json::to_string(&recorded_note.proof())
+        .map_err(StoreError::InputSerializationError)?;
+    let recipients = serde_json::to_string(&recorded_note.note().metadata().tag())
+        .map_err(StoreError::InputSerializationError)?;
+    let status = String::from("committed");
+    let commit_height = recorded_note.origin().block_num.inner() as i64;
+    Ok((
+        hash,
+        nullifier,
+        script,
+        vault,
+        inputs,
+        serial_num,
+        sender_id,
+        tag,
+        num_assets,
+        inclusion_proof,
+        recipients,
+        status,
+        commit_height,
+    ))
+}
+
+// TESTS
+// ================================================================================================
+
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use std::env::temp_dir;
     use uuid::Uuid;
 
@@ -183,9 +393,14 @@ mod tests {
 
     use super::{migrations, Store};
 
-    pub fn store_for_tests() -> Store {
+    pub fn create_test_store_path() -> std::path::PathBuf {
         let mut temp_file = temp_dir();
         temp_file.push(format!("{}.sqlite3", Uuid::new_v4()));
+        temp_file
+    }
+
+    fn create_test_store() -> Store {
+        let temp_file = create_test_store_path();
         let mut db = Connection::open(temp_file).unwrap();
         migrations::update_to_latest(&mut db).unwrap();
 
@@ -229,7 +444,7 @@ mod tests {
 
     #[test]
     pub fn test_insert_u64_max_as_id() {
-        let store = store_for_tests();
+        let store = create_test_store();
         let test_value: u64 = u64::MAX;
 
         // Insert dummy data on tables to prevent foreing key constraint errors
@@ -274,7 +489,7 @@ mod tests {
 
     #[test]
     pub fn insert_same_account_twice_fails() {
-        let mut store = store_for_tests();
+        let mut store = create_test_store();
         let account = test_account();
 
         assert!(store.insert_account_with_metadata(&account).is_ok());
@@ -283,7 +498,7 @@ mod tests {
 
     #[test]
     fn test_account_code_insertion_no_duplicates() {
-        let mut store = store_for_tests();
+        let mut store = create_test_store();
         let account_code = test_account_code();
         let tx = store.db.transaction().unwrap();
 
