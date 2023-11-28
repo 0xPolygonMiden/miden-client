@@ -192,7 +192,7 @@ fn new_account(
         .and_then(|_| client.store().insert_account_storage(account.storage()))
         .and_then(|_| client.store().insert_account_vault(account.vault()))
         .and_then(|_| client.store().insert_account(&account))
-        .and_then(|_| client.store().insert_account_keys(account.id(), &key_pair))
+        .and_then(|_| client.store().insert_account_auth(account.id(), key_pair))
         .map(|_| {
             println!(
                 "Succesfully created and stored Account ID: {}",

@@ -41,6 +41,7 @@ pub enum StoreError {
     JsonDataDeserializationError(serde_json::Error),
     DataDeserializationError(String),
     AccountDataNotFound,
+    InputNoteNotFound(Digest),
 }
 
 impl fmt::Display for StoreError {

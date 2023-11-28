@@ -1,15 +1,24 @@
+use std::path::PathBuf;
+
+use crypto::dsa::rpo_falcon512::KeyPair;
+use crypto::{hash::rpo::RpoDigest, utils::collections::BTreeMap, Word};
 use objects::{
     accounts::{Account, AccountId, AccountStub},
+    assembly::ModuleAst,
+    assets::Asset,
     notes::RecordedNote,
     Digest,
 };
-use std::path::PathBuf;
 
 mod store;
-use store::Store;
+use store::{AuthInfo, Store};
 
 pub mod errors;
 use errors::ClientError;
+
+pub enum AuthenticationMethod {
+    Falcon(KeyPair),
+}
 
 // MIDEN CLIENT
 // ================================================================================================
@@ -69,7 +78,7 @@ impl Client {
     }
 
     /// Returns key pair structure for an Account Id.
-    pub fn get_account_keys(&self, account_id: AccountId) -> Result<KeyPair, ClientError> {
+    pub fn get_account_keys(&self, account_id: AccountId) -> Result<AuthInfo, ClientError> {
         self.store
             .get_account_keys(account_id)
             .map_err(|err| err.into())

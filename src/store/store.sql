@@ -21,9 +21,9 @@ CREATE TABLE account_vaults (
 );
 
 -- Create account_keys table
-CREATE TABLE account_keys (
+CREATE TABLE account_auth (
     account_id UNSIGNED BIG INT NOT NULL, -- ID of the account
-    key_pair BLOB NOT NULL,               -- key pair
+    account_info BLOB NOT NULL,           -- Serialized representation of information needed for authentication
     PRIMARY KEY (account_id),
     FOREIGN KEY (account_id) REFERENCES accounts(id)
 );

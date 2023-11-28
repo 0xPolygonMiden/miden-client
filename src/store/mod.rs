@@ -134,10 +134,10 @@ impl Store {
     }
 
     /// Retrieve account keys data by Account Id
-    pub fn get_account_keys(&self, account_id: AccountId) -> Result<KeyPair, StoreError> {
+    pub fn get_account_keys(&self, account_id: AccountId) -> Result<AuthInfo, StoreError> {
         let mut stmt = self
             .db
-            .prepare("SELECT key_pair FROM account_keys WHERE account_id = ?")
+            .prepare("SELECT account_info FROM account_auth WHERE account_id = ?")
             .map_err(StoreError::QueryError)?;
         let account_id: u64 = account_id.into();
 
@@ -146,10 +146,11 @@ impl Store {
             .map_err(StoreError::QueryError)?;
 
         if let Some(row) = rows.next().map_err(StoreError::QueryError)? {
-            let key_pair_bytes: Vec<u8> = row.get(0).map_err(StoreError::QueryError)?;
-            let key_pair: KeyPair = KeyPair::read_from_bytes(&key_pair_bytes).unwrap();
+            let auth_info_bytes: Vec<u8> = row.get(0).map_err(StoreError::QueryError)?;
+            let auth_info: AuthInfo = AuthInfo::read_from_bytes(&auth_info_bytes)
+                .map_err(|e| StoreError::DataDeserializationError(e.to_string()))?;
 
-            Ok(key_pair)
+            Ok(auth_info)
         } else {
             Err(StoreError::AccountDataNotFound)
         }
@@ -306,17 +307,17 @@ impl Store {
             .map_err(StoreError::QueryError)
     }
 
-    pub fn insert_account_keys(
+    pub fn insert_account_auth(
         &self,
         account_id: AccountId,
-        key_pair: &KeyPair,
+        key_pair: KeyPair,
     ) -> Result<(), StoreError> {
         let account_id: u64 = account_id.into();
-        let key_pair = key_pair.to_bytes();
+        let auth_info = AuthInfo::Falcon(key_pair).to_bytes();
         self.db
             .execute(
-                "INSERT INTO account_keys (account_id, key_pair) VALUES (?, ?)",
-                params![account_id as i64, key_pair],
+                "INSERT INTO account_auth (account_id, account_info) VALUES (?, ?)",
+                params![account_id as i64, auth_info],
             )
             .map(|_| ())
             .map_err(StoreError::QueryError)
@@ -409,6 +410,54 @@ impl Store {
     }
 }
 
+// DATABASE AUTH INFO
+// ================================================================================================
+
+/// Type of Authentication Methods supported by the DB
+///
+/// TODO: add remaining auth types
+pub enum AuthInfo {
+    Falcon(KeyPair),
+}
+
+impl AuthInfo {
+    /// Returns byte identifier of specific AuthInfo
+    pub fn type_byte(&self) -> u8 {
+        match self {
+            AuthInfo::Falcon(_) => 0u8,
+        }
+    }
+}
+
+impl Serializable for AuthInfo {
+    fn write_into<W: crypto::utils::ByteWriter>(&self, target: &mut W) {
+        let mut bytes = vec![self.type_byte()];
+        match self {
+            AuthInfo::Falcon(key_pair) => {
+                bytes.append(&mut key_pair.to_bytes());
+                target.write_bytes(&bytes);
+            }
+        }
+    }
+}
+
+impl Deserializable for AuthInfo {
+    fn read_from<R: crypto::utils::ByteReader>(
+        source: &mut R,
+    ) -> Result<Self, crypto::utils::DeserializationError> {
+        let auth_type: u8 = source.read_u8()?;
+        match auth_type {
+            0u8 => {
+                let key_pair = KeyPair::read_from(source)?;
+                Ok(AuthInfo::Falcon(key_pair))
+            }
+            val => Err(crypto::utils::DeserializationError::InvalidValue(
+                val.to_string(),
+            )),
+        }
+    }
+}
+
 // STORE CONFIG
 // ================================================================================================
 
@@ -456,11 +505,11 @@ fn parse_input_note(
 ) -> Result<RecordedNote, StoreError> {
     let (script, inputs, vault, serial_num, sender_id, tag, num_assets, inclusion_proof) =
         serialized_input_note_parts;
-    let script = serde_json::from_str(&script).map_err(StoreError::DataDeserializationError)?;
-    let inputs = serde_json::from_str(&inputs).map_err(StoreError::DataDeserializationError)?;
-    let vault = serde_json::from_str(&vault).map_err(StoreError::DataDeserializationError)?;
+    let script = serde_json::from_str(&script).map_err(StoreError::JsonDataDeserializationError)?;
+    let inputs = serde_json::from_str(&inputs).map_err(StoreError::JsonDataDeserializationError)?;
+    let vault = serde_json::from_str(&vault).map_err(StoreError::JsonDataDeserializationError)?;
     let serial_num =
-        serde_json::from_str(&serial_num).map_err(StoreError::DataDeserializationError)?;
+        serde_json::from_str(&serial_num).map_err(StoreError::JsonDataDeserializationError)?;
     let note_metadata = NoteMetadata::new(
         AccountId::new_unchecked(Felt::new(sender_id)),
         Felt::new(tag),
@@ -469,7 +518,7 @@ fn parse_input_note(
     let note = Note::from_parts(script, inputs, vault, serial_num, note_metadata);
 
     let inclusion_proof =
-        serde_json::from_str(&inclusion_proof).map_err(StoreError::DataDeserializationError)?;
+        serde_json::from_str(&inclusion_proof).map_err(StoreError::JsonDataDeserializationError)?;
     Ok(RecordedNote::new(note, inclusion_proof))
 }
 
@@ -515,17 +564,38 @@ fn serialize_input_note(
     ))
 }
 
+/// Serialize the provided
+
 // TESTS
 // ================================================================================================
 
 #[cfg(test)]
 pub mod tests {
+    use crypto::{
+        dsa::rpo_falcon512::KeyPair,
+        utils::{Deserializable, Serializable},
+    };
     use std::env::temp_dir;
     use uuid::Uuid;
+
+    use super::AuthInfo;
 
     pub fn create_test_store_path() -> std::path::PathBuf {
         let mut temp_file = temp_dir();
         temp_file.push(format!("{}.sqlite3", Uuid::new_v4()));
         temp_file
+    }
+
+    #[test]
+    fn test_auth_info_serialization() {
+        let exp_key_pair = KeyPair::new().unwrap();
+        let auth_info = AuthInfo::Falcon(exp_key_pair);
+        let bytes = auth_info.to_bytes();
+        let actual = AuthInfo::read_from_bytes(&bytes).unwrap();
+        match actual {
+            AuthInfo::Falcon(act_key_pair) => {
+                assert_eq!(exp_key_pair, act_key_pair)
+            }
+        }
     }
 }
