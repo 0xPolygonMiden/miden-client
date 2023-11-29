@@ -380,13 +380,8 @@ pub mod tests {
     use std::env::temp_dir;
     use uuid::Uuid;
 
-    use crypto::dsa::rpo_falcon512::KeyPair;
-
-    use miden_lib::{assembler::assembler, AuthScheme};
-    use objects::{
-        accounts::{Account, AccountCode, AccountType},
-        assembly::ModuleAst,
-    };
+    use miden_lib::assembler::assembler;
+    use mock::mock::account;
     use rusqlite::{params, Connection};
 
     use crate::store;
@@ -405,41 +400,6 @@ pub mod tests {
         migrations::update_to_latest(&mut db).unwrap();
 
         Store { db }
-    }
-
-    fn test_account_code() -> AccountCode {
-        let auth_scheme_procedure = "basic::auth_tx_rpo_falcon512";
-
-        let account_code_string: String = format!(
-            "
-    use.miden::wallets::basic->basic_wallet
-    use.miden::eoa::basic
-
-    export.basic_wallet::receive_asset
-    export.basic_wallet::send_asset
-    export.{auth_scheme_procedure}
-
-    "
-        );
-        let account_code_src: &str = &account_code_string;
-        let account_code_ast = ModuleAst::parse(account_code_src).unwrap();
-        let account_assembler = assembler();
-        AccountCode::new(account_code_ast.clone(), &account_assembler).unwrap()
-    }
-
-    fn test_account() -> Account {
-        let init_seed = [0u8; 32];
-        let key_pair: KeyPair = KeyPair::new().unwrap();
-        let auth_scheme = AuthScheme::RpoFalcon512 {
-            pub_key: key_pair.public_key(),
-        };
-        let (acc, _) = miden_lib::wallets::create_basic_wallet(
-            init_seed,
-            auth_scheme,
-            AccountType::RegularAccountImmutableCode,
-        )
-        .unwrap();
-        acc
     }
 
     #[test]
@@ -490,7 +450,8 @@ pub mod tests {
     #[test]
     pub fn insert_same_account_twice_fails() {
         let mut store = create_test_store();
-        let account = test_account();
+        let assembler = assembler();
+        let account = account::mock_new_account(&assembler);
 
         assert!(store.insert_account_with_metadata(&account).is_ok());
         assert!(store.insert_account_with_metadata(&account).is_err());
@@ -499,7 +460,8 @@ pub mod tests {
     #[test]
     fn test_account_code_insertion_no_duplicates() {
         let mut store = create_test_store();
-        let account_code = test_account_code();
+        let assembler = assembler();
+        let account_code = account::mock_account_code(&assembler);
         let tx = store.db.transaction().unwrap();
 
         // Table is empty at the beginning
