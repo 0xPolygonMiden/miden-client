@@ -1,6 +1,6 @@
 use clap::Parser;
 use crypto::{dsa::rpo_falcon512::KeyPair, Felt};
-use miden_client::{Client, ClientConfig};
+use miden_client::Client;
 use miden_lib::{faucets, AuthScheme};
 use objects::{
     accounts::{AccountId, AccountType},
@@ -89,7 +89,7 @@ impl AccountCmd {
                     .try_into()
                     .map_err(|_| "Input number was not a valid Account Id")?;
                 println!("account id : {}", account_id);
-                show_account(account_id, *keys, *vault, *storage, *code)?;
+                show_account(client, account_id, *keys, *vault, *storage, *code)?;
             }
         }
         Ok(())
@@ -198,6 +198,7 @@ fn new_account(
 }
 
 pub fn show_account(
+    client: Client,
     account_id: AccountId,
     show_keys: bool,
     show_vault: bool,
@@ -211,7 +212,6 @@ pub fn show_account(
     );
     println!("{}", "-".repeat(240));
 
-    let client = Client::new(ClientConfig::default()).map_err(|err| err.to_string())?;
     let account = client
         .get_account_by_id(account_id)
         .map_err(|err| err.to_string())?;
@@ -263,11 +263,11 @@ pub fn show_account(
             .map_err(|err| err.to_string())?;
 
         println!(
-            "Procedure digests: {}\n",
+            "Procedure digests:\n{}\n",
             serde_json::to_string(&procedure_digests)
                 .map_err(|_| "Error serializing account storage for display")?
         );
-        println!("Module AST: {:#?}\n", &module);
+        println!("Module AST:\n{}\n", module);
     }
 
     Ok(())
