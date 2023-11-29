@@ -88,7 +88,7 @@ impl Store {
     }
 
     pub fn insert_account_with_metadata(&mut self, account: &Account) -> Result<(), StoreError> {
-        let tx = self.db.transaction().unwrap();
+        let tx = self.db.transaction().map_err(StoreError::QueryError)?;
 
         Self::insert_account_code(&tx, account.code())?;
         Self::insert_account_storage(&tx, account.storage())?;
