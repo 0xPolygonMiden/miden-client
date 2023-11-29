@@ -1,3 +1,5 @@
+use crate::AuthenticationMethod;
+
 use super::{errors::StoreError, AccountStub, ClientConfig};
 use crypto::hash::rpo::RpoDigest;
 use crypto::{
@@ -134,10 +136,13 @@ impl Store {
     }
 
     /// Retrieve account keys data by Account Id
-    pub fn get_account_keys(&self, account_id: AccountId) -> Result<KeyPair, StoreError> {
+    pub fn get_account_keys(
+        &self,
+        account_id: AccountId,
+    ) -> Result<AuthenticationMethod, StoreError> {
         let mut stmt = self
             .db
-            .prepare("SELECT key_pair FROM account_keys WHERE account_id = ?")
+            .prepare("SELECT account_info FROM account_auth WHERE account_id = ?")
             .map_err(StoreError::QueryError)?;
         let account_id: u64 = account_id.into();
 
@@ -315,7 +320,7 @@ impl Store {
         let key_pair = key_pair.to_bytes();
         self.db
             .execute(
-                "INSERT INTO account_keys (account_id, key_pair) VALUES (?, ?)",
+                "INSERT INTO account_auth (account_id, auth_info) VALUES (?, ?)",
                 params![account_id as i64, key_pair],
             )
             .map(|_| ())

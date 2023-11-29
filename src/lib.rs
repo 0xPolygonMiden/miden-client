@@ -16,6 +16,10 @@ use store::Store;
 pub mod errors;
 use errors::ClientError;
 
+pub enum AuthenticationMethod {
+    Falcon(KeyPair),
+}
+
 // MIDEN CLIENT
 // ================================================================================================
 
@@ -74,7 +78,10 @@ impl Client {
     }
 
     /// Returns key pair structure for an Account Id.
-    pub fn get_account_keys(&self, account_id: AccountId) -> Result<KeyPair, ClientError> {
+    pub fn get_account_keys(
+        &self,
+        account_id: AccountId,
+    ) -> Result<AuthenticationMethod, ClientError> {
         self.store
             .get_account_keys(account_id)
             .map_err(|err| err.into())
