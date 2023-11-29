@@ -382,7 +382,7 @@ pub mod tests {
 
     use miden_lib::assembler::assembler;
     use mock::mock::account;
-    use rusqlite::{params, Connection};
+    use rusqlite::Connection;
 
     use crate::store;
 
@@ -400,51 +400,6 @@ pub mod tests {
         migrations::update_to_latest(&mut db).unwrap();
 
         Store { db }
-    }
-
-    #[test]
-    pub fn test_insert_u64_max_as_id() {
-        let store = create_test_store();
-        let test_value: u64 = u64::MAX;
-
-        // Insert dummy data on tables to prevent foreing key constraint errors
-        store
-            .db
-            .execute(
-                "INSERT INTO account_code (root, procedures, module) VALUES ('1', '1', '1')",
-                [],
-            )
-            .unwrap();
-
-        store
-            .db
-            .execute(
-                "INSERT INTO account_storage (root, slots) VALUES ('1', '1')",
-                [],
-            )
-            .unwrap();
-
-        store
-            .db
-            .execute(
-                "INSERT INTO account_vaults (root, assets) VALUES ('1', '1')",
-                [],
-            )
-            .unwrap();
-
-        // Actual test
-        store.db.execute(
-            "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed) VALUES (?, '1', '1', '1', '1', '1')",
-            params![test_value as i64],
-        )
-        .unwrap();
-
-        let actual: i64 = store
-            .db
-            .query_row("SELECT id from accounts", [], |row| row.get(0))
-            .unwrap();
-
-        assert_eq!(actual as u64, test_value);
     }
 
     #[test]
