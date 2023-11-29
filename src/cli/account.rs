@@ -88,7 +88,7 @@ impl AccountCmd {
                 let account_id: AccountId = v
                     .try_into()
                     .map_err(|_| "Input number was not a valid Account Id")?;
-                println!("account id : {}", account_id);
+
                 show_account(client, account_id, *keys, *vault, *storage, *code)?;
             }
         }
