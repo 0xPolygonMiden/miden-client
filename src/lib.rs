@@ -9,7 +9,7 @@ mod store;
 use store::Store;
 
 pub mod errors;
-use errors::{ClientError, StoreError};
+use errors::ClientError;
 
 // MIDEN CLIENT
 // ================================================================================================
@@ -55,8 +55,10 @@ impl Client {
     // --------------------------------------------------------------------------------------------
 
     /// Inserts a new account into the client's store.
-    pub fn insert_account_with_metadata(&mut self, account: &Account) -> Result<(), StoreError> {
-        self.store.insert_account_with_metadata(account)
+    pub fn insert_account_with_metadata(&mut self, account: &Account) -> Result<(), ClientError> {
+        self.store
+            .insert_account_with_metadata(account)
+            .map_err(ClientError::StoreError)
     }
 
     // ACCOUNT DATA RETRIEVAL
