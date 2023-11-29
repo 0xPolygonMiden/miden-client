@@ -235,7 +235,7 @@ pub fn show_account(
 
     if keys {
         let key_pair = client
-            .get_account_keys(account_id)
+            .get_account_auth(account_id)
             .map_err(|err| err.to_string())?;
 
         println!("Key pair: {}\n", hex::encode(key_pair.to_bytes()));

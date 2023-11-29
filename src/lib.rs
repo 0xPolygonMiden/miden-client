@@ -78,9 +78,9 @@ impl Client {
     }
 
     /// Returns key pair structure for an Account Id.
-    pub fn get_account_keys(&self, account_id: AccountId) -> Result<AuthInfo, ClientError> {
+    pub fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, ClientError> {
         self.store
-            .get_account_keys(account_id)
+            .get_account_auth(account_id)
             .map_err(|err| err.into())
     }
 

@@ -134,7 +134,7 @@ impl Store {
     }
 
     /// Retrieve account keys data by Account Id
-    pub fn get_account_keys(&self, account_id: AccountId) -> Result<AuthInfo, StoreError> {
+    pub fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, StoreError> {
         let mut stmt = self
             .db
             .prepare("SELECT account_info FROM account_auth WHERE account_id = ?")
