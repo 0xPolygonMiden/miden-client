@@ -106,7 +106,7 @@ fn show_input_note(
             .add_row(vec![Cell::new("Note Vault").add_attribute(Attribute::Bold)]);
 
         note.note().vault().iter().for_each(|asset| {
-            table.add_row(vec![Cell::new(&format!("{:?}", asset))]);
+            table.add_row(vec![Cell::new(format!("{:?}", asset))]);
         })
     };
 
