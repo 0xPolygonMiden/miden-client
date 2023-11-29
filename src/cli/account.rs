@@ -151,10 +151,7 @@ fn new_account(
     }
     .map_err(|err| err.to_string())?;
 
-    // consider making store field public so we don't have to use
-    // a function that returns a mutable reference to it
     client
-        .store_mut()
         .insert_account_with_metadata(&account)
         .map_err(|err| err.to_string())?;
 
