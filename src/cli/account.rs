@@ -1,10 +1,9 @@
 use clap::Parser;
-use crypto::{dsa::rpo_falcon512::KeyPair, utils::Serializable, Felt};
+use crypto::{dsa::rpo_falcon512::KeyPair, Felt};
 use miden_client::{Client, ClientConfig};
 use miden_lib::{faucets, AuthScheme};
 use objects::{
     accounts::{AccountId, AccountType},
-    assembly::AstSerdeOptions,
     assets::TokenSymbol,
 };
 use rand::Rng;
@@ -20,7 +19,7 @@ pub enum AccountCmd {
     List,
 
     /// Show details of the account for the specified ID
-    #[clap(short_flag = 'v')]
+    #[clap(short_flag = 's')]
     Show {
         // TODO: We should create a value parser for catching input parsing errors earlier (ie AccountID) once complexity grows
         #[clap()]
@@ -77,7 +76,7 @@ impl AccountCmd {
                 new_account(client, template, *deploy)?;
             }
             AccountCmd::Show { id: None, .. } => {
-                todo!("Setting default accounts is not supported yet")
+                todo!("Default accounts are not supported yet")
             }
             AccountCmd::Show {
                 id: Some(v),
@@ -86,16 +85,10 @@ impl AccountCmd {
                 storage,
                 code,
             } => {
-                let clean_hex = v.to_lowercase();
-                let clean_hex = clean_hex.strip_prefix("0x").unwrap_or(&clean_hex);
-
-                // TODO: Improve errors
-                let account_id = u64::from_str_radix(clean_hex, 16)
-                    .map_err(|_| "Error parsing input Account Id as a hexadecimal number")?;
-                let account_id: AccountId = account_id
+                let account_id: AccountId = v
                     .try_into()
                     .map_err(|_| "Input number was not a valid Account Id")?;
-
+                println!("account id : {}", account_id);
                 show_account(account_id, *keys, *vault, *storage, *code)?;
             }
         }
@@ -206,10 +199,10 @@ fn new_account(
 
 pub fn show_account(
     account_id: AccountId,
-    keys: bool,
-    vault: bool,
-    storage: bool,
-    code: bool,
+    show_keys: bool,
+    show_vault: bool,
+    show_storage: bool,
+    show_code: bool,
 ) -> Result<(), String> {
     println!("{}", "-".repeat(240));
     println!(
@@ -233,15 +226,15 @@ pub fn show_account(
     );
     println!("{}\n", "-".repeat(240));
 
-    if keys {
+    if show_keys {
         let key_pair = client
             .get_account_keys(account_id)
             .map_err(|err| err.to_string())?;
 
-        println!("Key pair: {}\n", hex::encode(key_pair.to_bytes()));
+        println!("Key pair: {:?}\n", key_pair);
     }
 
-    if vault {
+    if show_vault {
         let assets = client
             .get_vault_assets(account.vault_root())
             .map_err(|err| err.to_string())?;
@@ -252,7 +245,7 @@ pub fn show_account(
         );
     }
 
-    if storage {
+    if show_storage {
         let account_storage = client
             .get_account_storage(account.storage_root())
             .map_err(|err| err.to_string())?;
@@ -264,7 +257,7 @@ pub fn show_account(
         );
     }
 
-    if code {
+    if show_code {
         let (procedure_digests, module) = client
             .get_account_code(account.code_root())
             .map_err(|err| err.to_string())?;
@@ -274,12 +267,7 @@ pub fn show_account(
             serde_json::to_string(&procedure_digests)
                 .map_err(|_| "Error serializing account storage for display")?
         );
-        println!(
-            "Module AST: {}\n",
-            hex::encode(module.to_bytes(AstSerdeOptions {
-                serialize_imports: true
-            }))
-        );
+        println!("Module AST: {:#?}\n", &module);
     }
 
     Ok(())
