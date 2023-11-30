@@ -77,7 +77,7 @@ impl fmt::Display for StoreError {
             AccountStorageNotFound(root) => {
                 write!(f, "account storage data with root {} not found", root)
             }
-            VaultDataNotFound(root) => write!(f, "account vault data with root {} not found", root),
+            VaultDataNotFound(root) => write!(f, "account vault data for root {} not found", root),
             AccountCodeDataNotFound(root) => {
                 write!(f, "account code data with root {} not found", root)
             }
