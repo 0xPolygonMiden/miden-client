@@ -1,5 +1,5 @@
 use clap::Parser;
-use crypto::{dsa::rpo_falcon512::KeyPair, Felt};
+use crypto::{dsa::rpo_falcon512::KeyPair, utils::Serializable, Felt};
 use miden_client::Client;
 use miden_lib::{faucets, AuthScheme};
 use objects::{
@@ -85,8 +85,7 @@ impl AccountCmd {
                 storage,
                 code,
             } => {
-                let account_id: AccountId = v
-                    .try_into()
+                let account_id: AccountId = AccountId::from_hex(v)
                     .map_err(|_| "Input number was not a valid Account Id")?;
 
                 show_account(client, account_id, *keys, *vault, *storage, *code)?;
@@ -227,11 +226,17 @@ pub fn show_account(
     println!("{}\n", "-".repeat(240));
 
     if show_keys {
-        let key_pair = client
+        let auth_info = client
             .get_account_keys(account_id)
             .map_err(|err| err.to_string())?;
 
-        println!("Key pair: {:?}\n", key_pair);
+        // TODO: Decide how we want to output and import auth info
+        println!("Key pair:\n0x");
+
+        auth_info
+            .to_bytes()
+            .iter()
+            .for_each(|byte| print!("{:02x}", byte));
     }
 
     if show_vault {
