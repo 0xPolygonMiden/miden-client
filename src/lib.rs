@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use crypto::dsa::rpo_falcon512::KeyPair;
 use crypto::{hash::rpo::RpoDigest, utils::collections::BTreeMap, Word};
 use objects::{
     accounts::{Account, AccountId, AccountStub},
@@ -15,10 +14,6 @@ use store::{AuthInfo, Store};
 
 pub mod errors;
 use errors::ClientError;
-
-pub enum AuthenticationMethod {
-    Falcon(KeyPair),
-}
 
 // MIDEN CLIENT
 // ================================================================================================

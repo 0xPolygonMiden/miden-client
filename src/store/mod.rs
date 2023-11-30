@@ -137,7 +137,7 @@ impl Store {
     pub fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, StoreError> {
         let mut stmt = self
             .db
-            .prepare("SELECT account_info FROM account_auth WHERE account_id = ?")
+            .prepare("SELECT auth_info FROM account_auth WHERE account_id = ?")
             .map_err(StoreError::QueryError)?;
         let account_id: u64 = account_id.into();
 
@@ -313,10 +313,10 @@ impl Store {
         key_pair: KeyPair,
     ) -> Result<(), StoreError> {
         let account_id: u64 = account_id.into();
-        let auth_info = AuthInfo::Falcon(key_pair).to_bytes();
+        let auth_info = AuthInfo::RpoFalcon512(key_pair).to_bytes();
         self.db
             .execute(
-                "INSERT INTO account_auth (account_id, account_info) VALUES (?, ?)",
+                "INSERT INTO account_auth (account_id, auth_info) VALUES (?, ?)",
                 params![account_id as i64, auth_info],
             )
             .map(|_| ())
@@ -417,14 +417,14 @@ impl Store {
 ///
 /// TODO: add remaining auth types
 pub enum AuthInfo {
-    Falcon(KeyPair),
+    RpoFalcon512(KeyPair),
 }
 
 impl AuthInfo {
     /// Returns byte identifier of specific AuthInfo
     pub fn type_byte(&self) -> u8 {
         match self {
-            AuthInfo::Falcon(_) => 0u8,
+            AuthInfo::RpoFalcon512(_) => 0u8,
         }
     }
 }
@@ -433,7 +433,7 @@ impl Serializable for AuthInfo {
     fn write_into<W: crypto::utils::ByteWriter>(&self, target: &mut W) {
         let mut bytes = vec![self.type_byte()];
         match self {
-            AuthInfo::Falcon(key_pair) => {
+            AuthInfo::RpoFalcon512(key_pair) => {
                 bytes.append(&mut key_pair.to_bytes());
                 target.write_bytes(&bytes);
             }
@@ -449,7 +449,7 @@ impl Deserializable for AuthInfo {
         match auth_type {
             0u8 => {
                 let key_pair = KeyPair::read_from(source)?;
-                Ok(AuthInfo::Falcon(key_pair))
+                Ok(AuthInfo::RpoFalcon512(key_pair))
             }
             val => Err(crypto::utils::DeserializationError::InvalidValue(
                 val.to_string(),
@@ -589,11 +589,11 @@ pub mod tests {
     #[test]
     fn test_auth_info_serialization() {
         let exp_key_pair = KeyPair::new().unwrap();
-        let auth_info = AuthInfo::Falcon(exp_key_pair);
+        let auth_info = AuthInfo::RpoFalcon512(exp_key_pair);
         let bytes = auth_info.to_bytes();
         let actual = AuthInfo::read_from_bytes(&bytes).unwrap();
         match actual {
-            AuthInfo::Falcon(act_key_pair) => {
+            AuthInfo::RpoFalcon512(act_key_pair) => {
                 assert_eq!(exp_key_pair, act_key_pair)
             }
         }
