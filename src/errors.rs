@@ -1,5 +1,6 @@
 use core::fmt;
-use objects::{AccountError, Digest};
+use crypto::utils::DeserializationError;
+use objects::{accounts::AccountId, AccountError, Digest};
 
 // CLIENT ERROR
 // ================================================================================================
@@ -39,8 +40,11 @@ pub enum StoreError {
     QueryError(rusqlite::Error),
     InputSerializationError(serde_json::Error),
     JsonDataDeserializationError(serde_json::Error),
-    DataDeserializationError(String),
-    AccountDataNotFound,
+    DataDeserializationError(DeserializationError),
+    AccountDataNotFound(AccountId),
+    AccountStorageNotFound(Digest),
+    VaultDataNotFound(Digest),
+    AccountCodeDataNotFound(Digest),
     InputNoteNotFound(Digest),
 }
 
@@ -64,12 +68,19 @@ impl fmt::Display for StoreError {
                 )
             }
             DataDeserializationError(err) => {
-                write!(f, "error deserializing data from the store for type {err}")
+                write!(f, "error deserializing data from the store: {err}")
             }
-            &AccountDataNotFound => {
-                write!(f, "Account data was not found")
+            AccountDataNotFound(account_id) => {
+                write!(f, "Account data was not found for Account Id {account_id}")
             }
             InputNoteNotFound(hash) => write!(f, "input note with hash {} not found", hash),
+            AccountStorageNotFound(root) => {
+                write!(f, "account storage data with root {} not found", root)
+            }
+            VaultDataNotFound(root) => write!(f, "account vault data with root {} not found", root),
+            AccountCodeDataNotFound(root) => {
+                write!(f, "account code data with root {} not found", root)
+            }
         }
     }
 }

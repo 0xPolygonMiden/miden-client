@@ -1,14 +1,13 @@
-use std::path::PathBuf;
-
-use crypto::dsa::rpo_falcon512::KeyPair;
-use crypto::{hash::rpo::RpoDigest, utils::collections::BTreeMap, Word};
 use objects::{
     accounts::{Account, AccountId, AccountStub},
     assembly::ModuleAst,
     assets::Asset,
+    crypto::dsa::rpo_falcon512::KeyPair,
     notes::RecordedNote,
-    Digest,
+    utils::collections::BTreeMap,
+    Digest, Word,
 };
+use std::path::PathBuf;
 
 mod store;
 use store::Store;
@@ -81,7 +80,7 @@ impl Client {
     }
 
     /// Returns vault assets from a vault root.
-    pub fn get_vault_assets(&self, vault_root: RpoDigest) -> Result<Vec<Asset>, ClientError> {
+    pub fn get_vault_assets(&self, vault_root: Digest) -> Result<Vec<Asset>, ClientError> {
         self.store
             .get_vault_assets(vault_root)
             .map_err(|err| err.into())
@@ -90,8 +89,8 @@ impl Client {
     /// Returns account code data from a root.
     pub fn get_account_code(
         &self,
-        code_root: RpoDigest,
-    ) -> Result<(Vec<RpoDigest>, ModuleAst), ClientError> {
+        code_root: Digest,
+    ) -> Result<(Vec<Digest>, ModuleAst), ClientError> {
         self.store
             .get_account_code(code_root)
             .map_err(|err| err.into())
@@ -100,7 +99,7 @@ impl Client {
     /// Returns account storage data from a storage root.
     pub fn get_account_storage(
         &self,
-        storage_root: RpoDigest,
+        storage_root: Digest,
     ) -> Result<BTreeMap<u64, Word>, ClientError> {
         self.store
             .get_account_storage(storage_root)

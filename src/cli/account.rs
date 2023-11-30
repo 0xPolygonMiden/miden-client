@@ -1,5 +1,9 @@
 use clap::Parser;
-use crypto::{dsa::rpo_falcon512::KeyPair, utils::Serializable, Felt};
+use crypto::{
+    dsa::rpo_falcon512::KeyPair,
+    utils::{bytes_to_hex_string, Serializable},
+    Felt,
+};
 use miden_client::Client;
 use miden_lib::{faucets, AuthScheme};
 use objects::{
@@ -231,12 +235,13 @@ pub fn show_account(
             .map_err(|err| err.to_string())?;
 
         // TODO: Decide how we want to output and import auth info
-        println!("Key pair:\n0x");
 
-        auth_info
+        const KEY_PAIR_SIZE: usize = std::mem::size_of::<KeyPair>();
+        let auth_info: [u8; KEY_PAIR_SIZE] = auth_info
             .to_bytes()
-            .iter()
-            .for_each(|byte| print!("{:02x}", byte));
+            .try_into()
+            .expect("Array size is const and should always exactly fit KeyPair");
+        println!("Key pair:\n0x{}", bytes_to_hex_string(auth_info));
     }
 
     if show_vault {
