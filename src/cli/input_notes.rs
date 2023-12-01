@@ -69,10 +69,7 @@ fn show_input_note(
     let hash = Digest::try_from(hash)
         .map_err(|err| format!("Failed to parse input note hash: {}", err))?;
 
-    let note = client
-        .store()
-        .get_input_note_by_hash(hash)
-        .map_err(|err| err.to_string())?;
+    let note = client.get_input_note(hash).map_err(|err| err.to_string())?;
 
     // print note summary
     print_notes_summary(core::iter::once(&note));
