@@ -88,34 +88,33 @@ impl Store {
     }
 
     pub fn insert_account_with_metadata(&mut self, account: &Account) -> Result<(), StoreError> {
-        let tx = self.db.transaction().map_err(StoreError::QueryError)?;
+        let tx = self
+            .db
+            .transaction()
+            .map_err(StoreError::TransactionError)?;
 
         Self::insert_account_code(&tx, account.code())?;
         Self::insert_account_storage(&tx, account.storage())?;
         Self::insert_account_vault(&tx, account.vault())?;
         Self::insert_account(&tx, account)?;
 
-        tx.commit().map_err(StoreError::QueryError)
+        tx.commit().map_err(StoreError::TransactionError)
     }
 
     fn insert_account(tx: &Transaction<'_>, account: &Account) -> Result<(), StoreError> {
         let id: u64 = account.id().into();
-        let code = serde_json::to_string(account.code().procedures())
+        let code_root = serde_json::to_string(&account.code().root())
             .map_err(StoreError::InputSerializationError)?;
-        let module = account.code().module().to_bytes(AstSerdeOptions {
-            serialize_imports: true,
-        });
         let storage_root = serde_json::to_string(&account.storage().root())
             .map_err(StoreError::InputSerializationError)?;
         let vault_root = serde_json::to_string(&account.vault().commitment())
             .map_err(StoreError::InputSerializationError)?;
 
         tx.execute(
-            "INSERT INTO accounts (id, procedures, module, storage_root, vault_root, nonce, committed) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed) VALUES (?, ?, ?, ?, ?, ?)",
             params![
                 id as i64,
-                code,
-                module,
+                code_root,
                 storage_root,
                 vault_root,
                 account.nonce().inner() as i64,

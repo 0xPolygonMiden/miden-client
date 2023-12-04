@@ -50,7 +50,7 @@ impl fmt::Display for StoreError {
             ConnectionError(err) => write!(f, "failed to connect to the database: {err}"),
             MigrationError(err) => write!(f, "failed to update the database: {err}"),
             QueryError(err) => write!(f, "failed to retrieve data from the database: {err}"),
-            TransactionError(err) => write!(f, "failed to execute transaction: {err}"),
+            TransactionError(err) => write!(f, "failed to instantiate a new transaction: {err}"),
             ColumnParsingError(err) => {
                 write!(f, "failed to parse data retrieved from the database: {err}")
             }
