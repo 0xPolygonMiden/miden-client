@@ -1,10 +1,10 @@
 use clap::Parser;
+use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use crypto::{
     dsa::rpo_falcon512::KeyPair,
     utils::{bytes_to_hex_string, Serializable},
     Felt,
 };
-use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::Client;
 use miden_lib::{faucets, AuthScheme};
 use objects::{
@@ -214,26 +214,31 @@ pub fn show_account(
     show_storage: bool,
     show_code: bool,
 ) -> Result<(), String> {
-    println!("{}", "-".repeat(240));
-    println!(
-        "{0: <18} | {1: <66} | {2: <66} | {3: <66} | {4: <15}",
-        "account id", "code root", "vault root", "storage root", "nonce",
-    );
-    println!("{}", "-".repeat(240));
-
     let account = client
         .get_account_by_id(account_id)
         .map_err(|err| err.to_string())?;
 
-    println!(
-        "{0: <18} | {1: <66} | {2: <66} | {3: <66} | {4: <15}",
-        account.id(),
-        account.code_root(),
-        account.vault_root(),
-        account.storage_root(),
-        account.nonce(),
-    );
-    println!("{}\n", "-".repeat(240));
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_content_arrangement(ContentArrangement::DynamicFullWidth)
+        .set_header(vec![
+            Cell::new("account id").add_attribute(Attribute::Bold),
+            Cell::new("code root").add_attribute(Attribute::Bold),
+            Cell::new("vault root").add_attribute(Attribute::Bold),
+            Cell::new("storage root").add_attribute(Attribute::Bold),
+            Cell::new("nonce").add_attribute(Attribute::Bold),
+        ]);
+
+    table.add_row(vec![
+        account.id().to_string(),
+        account.code_root().to_string(),
+        account.vault_root().to_string(),
+        account.storage_root().to_string(),
+        account.nonce().to_string(),
+    ]);
+
+    println!("{table}\n");
 
     if show_keys {
         let auth_info = client
