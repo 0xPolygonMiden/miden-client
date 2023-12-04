@@ -178,8 +178,11 @@ impl Default for Endpoint {
 #[cfg(test)]
 mod tests {
     use super::store::tests::create_test_store_path;
+    use miden_lib::assembler::assembler;
     use mock::mock::{
-        account::MockAccountType, notes::AssetPreservationStatus, transaction::mock_inputs,
+        account::{self, MockAccountType},
+        notes::AssetPreservationStatus,
+        transaction::mock_inputs,
     };
 
     #[test]

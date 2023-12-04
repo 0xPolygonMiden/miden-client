@@ -31,13 +31,14 @@ CREATE TABLE account_keys (
 -- Create accounts table
 CREATE TABLE accounts (
     id UNSIGNED BIG INT NOT NULL,  -- account ID.
-    code_root BLOB NOT NULL,       -- root of the account_code Merkle tree.
+    procedures BLOB NOT NULL,      -- serialized procedure digests for the account code.
+    module BLOB NOT NULL,          -- serialized ModuleAst for the account code.
     storage_root BLOB NOT NULL,    -- root of the account_storage Merkle tree.
     vault_root BLOB NOT NULL,      -- root of the account_vault Merkle tree.
     nonce BIGINT NOT NULL,         -- account nonce.
     committed BOOLEAN NOT NULL,    -- true if recorded, false if not.
     PRIMARY KEY (id),
-    FOREIGN KEY (code_root) REFERENCES account_code(root),
+    FOREIGN KEY (procedures, module) REFERENCES account_code(procedures, module),
     FOREIGN KEY (storage_root) REFERENCES account_storage(root),
     FOREIGN KEY (vault_root) REFERENCES account_vaults(root)
 );
