@@ -1,9 +1,16 @@
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
-use crypto::{dsa::rpo_falcon512::KeyPair, Felt};
+use crypto::{
+    dsa::rpo_falcon512::KeyPair,
+    utils::{bytes_to_hex_string, Serializable},
+    Felt,
+};
 use miden_client::Client;
 use miden_lib::{faucets, AuthScheme};
-use objects::{accounts::AccountType, assets::TokenSymbol};
+use objects::{
+    accounts::{AccountId, AccountType},
+    assets::TokenSymbol,
+};
 use rand::Rng;
 
 // ACCOUNT COMMAND
@@ -16,11 +23,20 @@ pub enum AccountCmd {
     #[clap(short_flag = 'l')]
     List,
 
-    /// View details of the account for the specified ID
-    #[clap(short_flag = 'v')]
-    View {
+    /// Show details of the account for the specified ID
+    #[clap(short_flag = 's')]
+    Show {
+        // TODO: We should create a value parser for catching input parsing errors earlier (ie AccountID) once complexity grows
         #[clap()]
         id: Option<String>,
+        #[clap(short, long, default_value_t = false)]
+        keys: bool,
+        #[clap(short, long, default_value_t = false)]
+        vault: bool,
+        #[clap(short, long, default_value_t = false)]
+        storage: bool,
+        #[clap(short, long, default_value_t = false)]
+        code: bool,
     },
 
     /// Create new account and store it locally
@@ -64,7 +80,21 @@ impl AccountCmd {
             AccountCmd::New { template, deploy } => {
                 new_account(client, template, *deploy)?;
             }
-            AccountCmd::View { id: _ } => todo!(),
+            AccountCmd::Show { id: None, .. } => {
+                todo!("Default accounts are not supported yet")
+            }
+            AccountCmd::Show {
+                id: Some(v),
+                keys,
+                vault,
+                storage,
+                code,
+            } => {
+                let account_id: AccountId = AccountId::from_hex(v)
+                    .map_err(|_| "Input number was not a valid Account Id")?;
+
+                show_account(client, account_id, *keys, *vault, *storage, *code)?;
+            }
         }
         Ok(())
     }
@@ -164,6 +194,7 @@ fn new_account(
         .and_then(|_| client.store().insert_account_storage(account.storage()))
         .and_then(|_| client.store().insert_account_vault(account.vault()))
         .and_then(|_| client.store().insert_account(&account))
+        .and_then(|_| client.store().insert_account_keys(account.id(), &key_pair))
         .map(|_| {
             println!(
                 "Succesfully created and stored Account ID: {}",
@@ -171,6 +202,94 @@ fn new_account(
             )
         })
         .map_err(|x| x.to_string())?;
+
+    Ok(())
+}
+
+pub fn show_account(
+    client: Client,
+    account_id: AccountId,
+    show_keys: bool,
+    show_vault: bool,
+    show_storage: bool,
+    show_code: bool,
+) -> Result<(), String> {
+    let account = client
+        .get_account_by_id(account_id)
+        .map_err(|err| err.to_string())?;
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_content_arrangement(ContentArrangement::DynamicFullWidth)
+        .set_header(vec![
+            Cell::new("account id").add_attribute(Attribute::Bold),
+            Cell::new("code root").add_attribute(Attribute::Bold),
+            Cell::new("vault root").add_attribute(Attribute::Bold),
+            Cell::new("storage root").add_attribute(Attribute::Bold),
+            Cell::new("nonce").add_attribute(Attribute::Bold),
+        ]);
+
+    table.add_row(vec![
+        account.id().to_string(),
+        account.code_root().to_string(),
+        account.vault_root().to_string(),
+        account.storage_root().to_string(),
+        account.nonce().to_string(),
+    ]);
+
+    println!("{table}\n");
+
+    if show_keys {
+        let auth_info = client
+            .get_account_keys(account_id)
+            .map_err(|err| err.to_string())?;
+
+        // TODO: Decide how we want to output and import auth info
+
+        const KEY_PAIR_SIZE: usize = std::mem::size_of::<KeyPair>();
+        let auth_info: [u8; KEY_PAIR_SIZE] = auth_info
+            .to_bytes()
+            .try_into()
+            .expect("Array size is const and should always exactly fit KeyPair");
+        println!("Key pair:\n0x{}", bytes_to_hex_string(auth_info));
+    }
+
+    if show_vault {
+        let assets = client
+            .get_vault_assets(account.vault_root())
+            .map_err(|err| err.to_string())?;
+
+        println!(
+            "Vault assets: {}\n",
+            serde_json::to_string(&assets).map_err(|_| "Error serializing account assets")?
+        );
+    }
+
+    if show_storage {
+        let account_storage = client
+            .get_account_storage(account.storage_root())
+            .map_err(|err| err.to_string())?;
+
+        println!(
+            "Storage: {}\n",
+            serde_json::to_string(&account_storage)
+                .map_err(|_| "Error serializing account storage")?
+        );
+    }
+
+    if show_code {
+        let (procedure_digests, module) = client
+            .get_account_code(account.code_root())
+            .map_err(|err| err.to_string())?;
+
+        println!(
+            "Procedure digests:\n{}\n",
+            serde_json::to_string(&procedure_digests)
+                .map_err(|_| "Error serializing account storage for display")?
+        );
+        println!("Module AST:\n{}\n", module);
+    }
 
     Ok(())
 }
