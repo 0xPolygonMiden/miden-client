@@ -26,6 +26,7 @@ rusqlite_migration = { version = "1.0" }
 rand = { version = "0.8.5" }
 serde = {version = "1.0", features = ["derive"]}
 serde_json = { version = "1.0", features = ["raw_value"] }
+comfy-table = "7.1.0"
 
 [dev-dependencies]
 uuid = { version = "1.6.1", features = ["serde", "v4"] }
