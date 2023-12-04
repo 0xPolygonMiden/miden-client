@@ -37,6 +37,7 @@ pub enum StoreError {
     MigrationError(rusqlite_migration::Error),
     ColumnParsingError(rusqlite::Error),
     QueryError(rusqlite::Error),
+    TransactionError(rusqlite::Error),
     InputSerializationError(serde_json::Error),
     DataDeserializationError(serde_json::Error),
     InputNoteNotFound(Digest),
@@ -49,6 +50,7 @@ impl fmt::Display for StoreError {
             ConnectionError(err) => write!(f, "failed to connect to the database: {err}"),
             MigrationError(err) => write!(f, "failed to update the database: {err}"),
             QueryError(err) => write!(f, "failed to retrieve data from the database: {err}"),
+            TransactionError(err) => write!(f, "failed to execute transaction: {err}"),
             ColumnParsingError(err) => {
                 write!(f, "failed to parse data retrieved from the database: {err}")
             }

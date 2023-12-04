@@ -241,4 +241,23 @@ mod tests {
         // compare notes
         assert_eq!(recorded_notes[0], retrieved_note);
     }
+
+    #[test]
+    pub fn insert_same_account_twice_fails() {
+        // generate test store path
+        let store_path = create_test_store_path();
+
+        // generate test client
+        let mut client = super::Client::new(super::ClientConfig::new(
+            store_path.into_os_string().into_string().unwrap(),
+            super::Endpoint::default(),
+        ))
+        .unwrap();
+
+        let assembler = assembler();
+        let account = account::mock_new_account(&assembler);
+
+        assert!(client.insert_account_with_metadata(&account).is_ok());
+        assert!(client.insert_account_with_metadata(&account).is_err());
+    }
 }
