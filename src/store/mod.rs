@@ -337,7 +337,7 @@ impl Store {
         key_pair: &KeyPair,
     ) -> Result<(), StoreError> {
         let account_id: u64 = account_id.into();
-        let auth_info = AuthInfo::RpoFalcon512(key_pair.clone()).to_bytes();
+        let auth_info = AuthInfo::RpoFalcon512(*key_pair).to_bytes();
         tx.execute(
             "INSERT INTO account_auth (account_id, auth_info) VALUES (?, ?)",
             params![account_id as i64, auth_info],
