@@ -188,7 +188,7 @@ fn new_account(
     .map_err(|err| err.to_string())?;
 
     client
-        .insert_account(&account)
+        .insert_account(&account, &key_pair)
         .map_err(|err| err.to_string())?;
 
     Ok(())

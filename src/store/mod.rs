@@ -94,7 +94,148 @@ impl Store {
         Ok(result)
     }
 
-    pub fn insert_account(&mut self, account: &Account) -> Result<(), StoreError> {
+    pub fn get_account_by_id(&self, account_id: AccountId) -> Result<AccountStub, StoreError> {
+        let mut stmt = self
+            .db
+            .prepare(
+                "SELECT id, nonce, vault_root, storage_root, code_root FROM accounts WHERE id = ?",
+            )
+            .map_err(StoreError::QueryError)?;
+        let account_id_int: u64 = account_id.into();
+
+        let mut rows = stmt
+            .query(params![account_id_int as i64])
+            .map_err(StoreError::QueryError)?;
+
+        if let Some(row) = rows.next().map_err(StoreError::QueryError)? {
+            let id: i64 = row.get(0).map_err(StoreError::QueryError)?;
+            let nonce: u64 = row.get(1).map_err(StoreError::QueryError)?;
+            let vault_root: String = row.get(2).map_err(StoreError::QueryError)?;
+            let storage_root: String = row.get(3).map_err(StoreError::QueryError)?;
+            let code_root: String = row.get(4).map_err(StoreError::QueryError)?;
+
+            let account = AccountStub::new(
+                (id as u64)
+                    .try_into()
+                    .expect("Conversion from stored AccountID should not panic"),
+                nonce.into(),
+                serde_json::from_str(&vault_root)
+                    .map_err(StoreError::JsonDataDeserializationError)?,
+                serde_json::from_str(&storage_root)
+                    .map_err(StoreError::JsonDataDeserializationError)?,
+                serde_json::from_str(&code_root)
+                    .map_err(StoreError::JsonDataDeserializationError)?,
+            );
+
+            Ok(account)
+        } else {
+            Err(StoreError::AccountDataNotFound(account_id))
+        }
+    }
+
+    /// Retrieve account keys data by Account Id
+    pub fn get_account_keys(&self, account_id: AccountId) -> Result<KeyPair, StoreError> {
+        let mut stmt = self
+            .db
+            .prepare("SELECT key_pair FROM account_keys WHERE account_id = ?")
+            .map_err(StoreError::QueryError)?;
+        let account_id_int: u64 = account_id.into();
+
+        let mut rows = stmt
+            .query(params![account_id_int as i64])
+            .map_err(StoreError::QueryError)?;
+
+        if let Some(row) = rows.next().map_err(StoreError::QueryError)? {
+            let key_pair_bytes: Vec<u8> = row.get(0).map_err(StoreError::QueryError)?;
+            let key_pair: KeyPair = KeyPair::read_from_bytes(&key_pair_bytes).unwrap();
+
+            Ok(key_pair)
+        } else {
+            Err(StoreError::AccountDataNotFound(account_id))
+        }
+    }
+
+    /// Retrieve account code-related data by code root
+    pub fn get_account_code(
+        &self,
+        root: Digest,
+    ) -> Result<(Vec<RpoDigest>, ModuleAst), StoreError> {
+        let root_serialized =
+            serde_json::to_string(&root).map_err(StoreError::InputSerializationError)?;
+
+        let mut stmt = self
+            .db
+            .prepare("SELECT procedures, module FROM account_code WHERE root = ?")
+            .map_err(StoreError::QueryError)?;
+        let mut rows = stmt
+            .query(params![root_serialized])
+            .map_err(StoreError::QueryError)?;
+
+        if let Some(row) = rows.next().map_err(StoreError::QueryError)? {
+            let procedures: String = row.get(0).map_err(StoreError::QueryError)?;
+            let module: Vec<u8> = row.get(1).map_err(StoreError::QueryError)?;
+
+            let procedures = serde_json::from_str(&procedures)
+                .map_err(StoreError::JsonDataDeserializationError)?;
+            let module =
+                ModuleAst::from_bytes(&module).map_err(StoreError::DataDeserializationError)?;
+            Ok((procedures, module))
+        } else {
+            Err(StoreError::AccountCodeDataNotFound(root))
+        }
+    }
+
+    /// Retrieve account storage data by vault root
+    pub fn get_account_storage(&self, root: RpoDigest) -> Result<BTreeMap<u64, Word>, StoreError> {
+        let root_serialized =
+            serde_json::to_string(&root).map_err(StoreError::InputSerializationError)?;
+
+        let mut stmt = self
+            .db
+            .prepare("SELECT slots FROM account_storage WHERE root = ?")
+            .map_err(StoreError::QueryError)?;
+        let mut rows = stmt
+            .query(params![root_serialized])
+            .map_err(StoreError::QueryError)?;
+
+        if let Some(row) = rows.next().map_err(StoreError::QueryError)? {
+            let slots: String = row.get(0).map_err(StoreError::QueryError)?;
+            let slots =
+                serde_json::from_str(&slots).map_err(StoreError::JsonDataDeserializationError)?;
+            Ok(slots)
+        } else {
+            Err(StoreError::AccountStorageNotFound(root))
+        }
+    }
+
+    /// Retrieve assets by vault root
+    pub fn get_vault_assets(&self, root: RpoDigest) -> Result<Vec<Asset>, StoreError> {
+        let vault_root =
+            serde_json::to_string(&root).map_err(StoreError::InputSerializationError)?;
+
+        let mut stmt = self
+            .db
+            .prepare("SELECT assets FROM account_vaults WHERE root = ?")
+            .map_err(StoreError::QueryError)?;
+        let mut rows = stmt
+            .query(params![vault_root])
+            .map_err(StoreError::QueryError)?;
+
+        if let Some(row) = rows.next().map_err(StoreError::QueryError)? {
+            let assets: String = row.get(0).map_err(StoreError::QueryError)?;
+            let assets =
+                serde_json::from_str(&assets).map_err(StoreError::JsonDataDeserializationError)?;
+            Ok(assets)
+        } else {
+            Err(StoreError::VaultDataNotFound(root))
+        }
+    }
+
+    pub fn insert_account(
+        &mut self,
+        account: &Account,
+        key_pair: &KeyPair,
+    ) -> Result<(), StoreError> {
         let tx = self
             .db
             .transaction()
@@ -104,6 +245,7 @@ impl Store {
         Self::insert_account_storage(&tx, account.storage())?;
         Self::insert_account_vault(&tx, account.vault())?;
         Self::insert_account_record(&tx, account)?;
+        Self::insert_account_keys(&tx, account.id(), key_pair)?;
 
         tx.commit().map_err(StoreError::TransactionError)
     }
@@ -190,19 +332,18 @@ impl Store {
     }
 
     pub fn insert_account_keys(
-        &self,
+        tx: &Transaction<'_>,
         account_id: AccountId,
         key_pair: &KeyPair,
     ) -> Result<(), StoreError> {
         let account_id: u64 = account_id.into();
         let key_pair = key_pair.to_bytes();
-        self.db
-            .execute(
-                "INSERT INTO account_keys (account_id, key_pair) VALUES (?, ?)",
-                params![account_id as i64, key_pair],
-            )
-            .map(|_| ())
-            .map_err(StoreError::QueryError)
+        tx.execute(
+            "INSERT INTO account_keys (account_id, key_pair) VALUES (?, ?)",
+            params![account_id as i64, key_pair],
+        )
+        .map(|_| ())
+        .map_err(StoreError::QueryError)
     }
 
     // NOTES

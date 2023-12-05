@@ -51,9 +51,13 @@ impl Client {
     // --------------------------------------------------------------------------------------------
 
     /// Inserts a new account into the client's store.
-    pub fn insert_account(&mut self, account: &Account) -> Result<(), ClientError> {
+    pub fn insert_account(
+        &mut self,
+        account: &Account,
+        key_pair: &KeyPair,
+    ) -> Result<(), ClientError> {
         self.store
-            .insert_account(account)
+            .insert_account(account, key_pair)
             .map_err(ClientError::StoreError)
     }
 
@@ -223,6 +227,7 @@ impl Default for Endpoint {
 #[cfg(test)]
 mod tests {
     use super::store::tests::create_test_store_path;
+    use crypto::dsa::rpo_falcon512::KeyPair;
     use miden_lib::assembler::assembler;
     use mock::mock::{
         account::{self, MockAccountType},
@@ -305,7 +310,11 @@ mod tests {
         let assembler = assembler();
         let account = account::mock_new_account(&assembler);
 
-        assert!(client.insert_account(&account).is_ok());
-        assert!(client.insert_account(&account).is_err());
+        let key_pair: KeyPair = KeyPair::new()
+            .map_err(|err| format!("Error generating KeyPair: {}", err))
+            .unwrap();
+
+        assert!(client.insert_account(&account, &key_pair).is_ok());
+        assert!(client.insert_account(&account, &key_pair).is_err());
     }
 }

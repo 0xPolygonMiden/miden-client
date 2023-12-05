@@ -34,6 +34,7 @@ impl std::error::Error for ClientError {}
 
 #[derive(Debug)]
 pub enum StoreError {
+    ConnectionError(rusqlite::Error),
     ColumnParsingError(rusqlite::Error),
     QueryError(rusqlite::Error),
     InputSerializationError(serde_json::Error),
@@ -44,9 +45,7 @@ pub enum StoreError {
     VaultDataNotFound(Digest),
     AccountCodeDataNotFound(Digest),
     InputNoteNotFound(Digest),
-    InputSerializationError(serde_json::Error),
     MigrationError(rusqlite_migration::Error),
-    QueryError(rusqlite::Error),
     TransactionError(rusqlite::Error),
 }
 
