@@ -12,7 +12,7 @@ use objects::{
     notes::{Note, NoteMetadata, RecordedNote},
     Digest, Felt,
 };
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, Transaction};
 
 mod migrations;
 
@@ -137,7 +137,7 @@ impl Store {
     pub fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, StoreError> {
         let mut stmt = self
             .db
-            .prepare("SELECT key_pair FROM account_keys WHERE account_id = ?")
+            .prepare("SELECT auth_info FROM account_auth WHERE account_id = ?")
             .map_err(StoreError::QueryError)?;
         let account_id_int: u64 = account_id.into();
 
@@ -231,7 +231,26 @@ impl Store {
         }
     }
 
-    pub fn insert_account(&self, account: &Account) -> Result<(), StoreError> {
+    pub fn insert_account(
+        &mut self,
+        account: &Account,
+        key_pair: &KeyPair,
+    ) -> Result<(), StoreError> {
+        let tx = self
+            .db
+            .transaction()
+            .map_err(StoreError::TransactionError)?;
+
+        Self::insert_account_code(&tx, account.code())?;
+        Self::insert_account_storage(&tx, account.storage())?;
+        Self::insert_account_vault(&tx, account.vault())?;
+        Self::insert_account_record(&tx, account)?;
+        Self::insert_account_auth(&tx, account.id(), key_pair)?;
+
+        tx.commit().map_err(StoreError::TransactionError)
+    }
+
+    fn insert_account_record(tx: &Transaction<'_>, account: &Account) -> Result<(), StoreError> {
         let id: u64 = account.id().into();
         let code_root = serde_json::to_string(&account.code().root())
             .map_err(StoreError::InputSerializationError)?;
@@ -240,7 +259,7 @@ impl Store {
         let vault_root = serde_json::to_string(&account.vault().commitment())
             .map_err(StoreError::InputSerializationError)?;
 
-        self.db.execute(
+        tx.execute(
             "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed) VALUES (?, ?, ?, ?, ?, ?)",
             params![
                 id as i64,
@@ -255,7 +274,10 @@ impl Store {
         .map_err(StoreError::QueryError)
     }
 
-    pub fn insert_account_code(&self, account_code: &AccountCode) -> Result<(), StoreError> {
+    fn insert_account_code(
+        tx: &Transaction<'_>,
+        account_code: &AccountCode,
+    ) -> Result<(), StoreError> {
         let code_root = serde_json::to_string(&account_code.root())
             .map_err(StoreError::InputSerializationError)?;
         let code = serde_json::to_string(account_code.procedures())
@@ -264,17 +286,16 @@ impl Store {
             serialize_imports: true,
         });
 
-        self.db
-            .execute(
-                "INSERT INTO account_code (root, procedures, module) VALUES (?, ?, ?)",
-                params![code_root, code, module,],
-            )
-            .map(|_| ())
-            .map_err(StoreError::QueryError)
+        tx.execute(
+            "INSERT OR IGNORE INTO account_code (root, procedures, module) VALUES (?, ?, ?)",
+            params![code_root, code, module,],
+        )
+        .map(|_| ())
+        .map_err(StoreError::QueryError)
     }
 
-    pub fn insert_account_storage(
-        &self,
+    fn insert_account_storage(
+        tx: &Transaction<'_>,
         account_storage: &AccountStorage,
     ) -> Result<(), StoreError> {
         let storage_root = serde_json::to_string(&account_storage.root())
@@ -284,45 +305,45 @@ impl Store {
         let storage_slots =
             serde_json::to_string(&storage_slots).map_err(StoreError::InputSerializationError)?;
 
-        self.db
-            .execute(
-                "INSERT INTO account_storage (root, slots) VALUES (?, ?)",
-                params![storage_root, storage_slots],
-            )
-            .map(|_| ())
-            .map_err(StoreError::QueryError)
+        tx.execute(
+            "INSERT INTO account_storage (root, slots) VALUES (?, ?)",
+            params![storage_root, storage_slots],
+        )
+        .map(|_| ())
+        .map_err(StoreError::QueryError)
     }
 
-    pub fn insert_account_vault(&self, account_vault: &AccountVault) -> Result<(), StoreError> {
+    fn insert_account_vault(
+        tx: &Transaction<'_>,
+        account_vault: &AccountVault,
+    ) -> Result<(), StoreError> {
         let vault_root = serde_json::to_string(&account_vault.commitment())
             .map_err(StoreError::InputSerializationError)?;
 
         let assets: Vec<Asset> = account_vault.assets().collect();
         let assets = serde_json::to_string(&assets).map_err(StoreError::InputSerializationError)?;
 
-        self.db
-            .execute(
-                "INSERT INTO account_vaults (root, assets) VALUES (?, ?)",
-                params![vault_root, assets],
-            )
-            .map(|_| ())
-            .map_err(StoreError::QueryError)
+        tx.execute(
+            "INSERT INTO account_vaults (root, assets) VALUES (?, ?)",
+            params![vault_root, assets],
+        )
+        .map(|_| ())
+        .map_err(StoreError::QueryError)
     }
 
     pub fn insert_account_auth(
-        &self,
+        tx: &Transaction<'_>,
         account_id: AccountId,
-        key_pair: KeyPair,
+        key_pair: &KeyPair,
     ) -> Result<(), StoreError> {
         let account_id: u64 = account_id.into();
-        let auth_info = AuthInfo::RpoFalcon512(key_pair).to_bytes();
-        self.db
-            .execute(
-                "INSERT INTO account_auth (account_id, auth_info) VALUES (?, ?)",
-                params![account_id as i64, auth_info],
-            )
-            .map(|_| ())
-            .map_err(StoreError::QueryError)
+        let auth_info = AuthInfo::RpoFalcon512(key_pair.clone()).to_bytes();
+        tx.execute(
+            "INSERT INTO account_auth (account_id, auth_info) VALUES (?, ?)",
+            params![account_id as i64, auth_info],
+        )
+        .map(|_| ())
+        .map_err(StoreError::QueryError)
     }
 
     // NOTES
@@ -581,6 +602,13 @@ pub mod tests {
     use uuid::Uuid;
 
     use super::AuthInfo;
+    use miden_lib::assembler::assembler;
+    use mock::mock::account;
+    use rusqlite::Connection;
+
+    use crate::store;
+
+    use super::{migrations, Store};
 
     pub fn create_test_store_path() -> std::path::PathBuf {
         let mut temp_file = temp_dir();
@@ -588,6 +616,13 @@ pub mod tests {
         temp_file
     }
 
+    fn create_test_store() -> Store {
+        let temp_file = create_test_store_path();
+        let mut db = Connection::open(temp_file).unwrap();
+        migrations::update_to_latest(&mut db).unwrap();
+
+        Store { db }
+    }
     #[test]
     fn test_auth_info_serialization() {
         let exp_key_pair = KeyPair::new().unwrap();
@@ -599,5 +634,33 @@ pub mod tests {
                 assert_eq!(exp_key_pair, act_key_pair)
             }
         }
+    }
+
+    #[test]
+    fn test_account_code_insertion_no_duplicates() {
+        let mut store = create_test_store();
+        let assembler = assembler();
+        let account_code = account::mock_account_code(&assembler);
+        let tx = store.db.transaction().unwrap();
+
+        // Table is empty at the beginning
+        let mut actual: usize = tx
+            .query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(actual, 0);
+
+        // First insertion generates a new row
+        store::Store::insert_account_code(&tx, &account_code).unwrap();
+        actual = tx
+            .query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(actual, 1);
+
+        // Second insertion does not generate a new row
+        store::Store::insert_account_code(&tx, &account_code).unwrap();
+        actual = tx
+            .query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(actual, 1);
     }
 }

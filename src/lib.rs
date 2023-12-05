@@ -1,3 +1,4 @@
+use crypto::dsa::rpo_falcon512::KeyPair;
 use objects::{
     accounts::{Account, AccountId, AccountStub},
     assembly::ModuleAst,
@@ -46,12 +47,18 @@ impl Client {
         })
     }
 
-    // PUBLIC ACCESSORS
+    // ACCOUNT INSERTION
     // --------------------------------------------------------------------------------------------
 
-    /// Returns a reference to the store
-    pub fn store(&self) -> &Store {
-        &self.store
+    /// Inserts a new account into the client's store.
+    pub fn insert_account(
+        &mut self,
+        account: &Account,
+        key_pair: &KeyPair,
+    ) -> Result<(), ClientError> {
+        self.store
+            .insert_account(account, key_pair)
+            .map_err(ClientError::StoreError)
     }
 
     // ACCOUNT DATA RETRIEVAL
@@ -220,8 +227,12 @@ impl Default for Endpoint {
 #[cfg(test)]
 mod tests {
     use super::store::tests::create_test_store_path;
+    use crypto::dsa::rpo_falcon512::KeyPair;
+    use miden_lib::assembler::assembler;
     use mock::mock::{
-        account::MockAccountType, notes::AssetPreservationStatus, transaction::mock_inputs,
+        account::{self, MockAccountType},
+        notes::AssetPreservationStatus,
+        transaction::mock_inputs,
     };
 
     #[test]
@@ -282,5 +293,28 @@ mod tests {
 
         // compare notes
         assert_eq!(recorded_notes[0], retrieved_note);
+    }
+
+    #[test]
+    pub fn insert_same_account_twice_fails() {
+        // generate test store path
+        let store_path = create_test_store_path();
+
+        // generate test client
+        let mut client = super::Client::new(super::ClientConfig::new(
+            store_path.into_os_string().into_string().unwrap(),
+            super::Endpoint::default(),
+        ))
+        .unwrap();
+
+        let assembler = assembler();
+        let account = account::mock_new_account(&assembler);
+
+        let key_pair: KeyPair = KeyPair::new()
+            .map_err(|err| format!("Error generating KeyPair: {}", err))
+            .unwrap();
+
+        assert!(client.insert_account(&account, &key_pair).is_ok());
+        assert!(client.insert_account(&account, &key_pair).is_err());
     }
 }

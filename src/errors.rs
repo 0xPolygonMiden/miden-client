@@ -35,7 +35,6 @@ impl std::error::Error for ClientError {}
 #[derive(Debug)]
 pub enum StoreError {
     ConnectionError(rusqlite::Error),
-    MigrationError(rusqlite_migration::Error),
     ColumnParsingError(rusqlite::Error),
     QueryError(rusqlite::Error),
     InputSerializationError(serde_json::Error),
@@ -46,6 +45,8 @@ pub enum StoreError {
     VaultDataNotFound(Digest),
     AccountCodeDataNotFound(Digest),
     InputNoteNotFound(Digest),
+    MigrationError(rusqlite_migration::Error),
+    TransactionError(rusqlite::Error),
 }
 
 impl fmt::Display for StoreError {
@@ -55,6 +56,7 @@ impl fmt::Display for StoreError {
             ConnectionError(err) => write!(f, "failed to connect to the database: {err}"),
             MigrationError(err) => write!(f, "failed to update the database: {err}"),
             QueryError(err) => write!(f, "failed to retrieve data from the database: {err}"),
+            TransactionError(err) => write!(f, "failed to instantiate a new transaction: {err}"),
             ColumnParsingError(err) => {
                 write!(f, "failed to parse data retrieved from the database: {err}")
             }
