@@ -1,7 +1,11 @@
 use objects::{
     accounts::{Account, AccountId, AccountStub},
+    assembly::ModuleAst,
+    assets::Asset,
+    crypto::dsa::rpo_falcon512::KeyPair,
     notes::RecordedNote,
-    Digest,
+    utils::collections::BTreeMap,
+    Digest, Word,
 };
 use std::path::PathBuf;
 
@@ -61,6 +65,47 @@ impl Client {
     /// TODO: replace `AccountStub` with a more relevant structure.
     pub fn get_accounts(&self) -> Result<Vec<AccountStub>, ClientError> {
         self.store.get_accounts().map_err(|err| err.into())
+    }
+
+    /// Returns summary info about the specified account.
+    pub fn get_account_by_id(&self, account_id: AccountId) -> Result<AccountStub, ClientError> {
+        self.store
+            .get_account_by_id(account_id)
+            .map_err(|err| err.into())
+    }
+
+    /// Returns key pair structure for an Account Id.
+    pub fn get_account_keys(&self, account_id: AccountId) -> Result<KeyPair, ClientError> {
+        self.store
+            .get_account_keys(account_id)
+            .map_err(|err| err.into())
+    }
+
+    /// Returns vault assets from a vault root.
+    pub fn get_vault_assets(&self, vault_root: Digest) -> Result<Vec<Asset>, ClientError> {
+        self.store
+            .get_vault_assets(vault_root)
+            .map_err(|err| err.into())
+    }
+
+    /// Returns account code data from a root.
+    pub fn get_account_code(
+        &self,
+        code_root: Digest,
+    ) -> Result<(Vec<Digest>, ModuleAst), ClientError> {
+        self.store
+            .get_account_code(code_root)
+            .map_err(|err| err.into())
+    }
+
+    /// Returns account storage data from a storage root.
+    pub fn get_account_storage(
+        &self,
+        storage_root: Digest,
+    ) -> Result<BTreeMap<u64, Word>, ClientError> {
+        self.store
+            .get_account_storage(storage_root)
+            .map_err(|err| err.into())
     }
 
     /// Returns historical states for the account with the specified ID.

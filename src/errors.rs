@@ -1,5 +1,6 @@
 use core::fmt;
-use objects::{AccountError, Digest};
+use crypto::utils::DeserializationError;
+use objects::{accounts::AccountId, AccountError, Digest};
 
 // CLIENT ERROR
 // ================================================================================================
@@ -34,8 +35,14 @@ impl std::error::Error for ClientError {}
 #[derive(Debug)]
 pub enum StoreError {
     ColumnParsingError(rusqlite::Error),
-    ConnectionError(rusqlite::Error),
-    DataDeserializationError(serde_json::Error),
+    QueryError(rusqlite::Error),
+    InputSerializationError(serde_json::Error),
+    JsonDataDeserializationError(serde_json::Error),
+    DataDeserializationError(DeserializationError),
+    AccountDataNotFound(AccountId),
+    AccountStorageNotFound(Digest),
+    VaultDataNotFound(Digest),
+    AccountCodeDataNotFound(Digest),
     InputNoteNotFound(Digest),
     InputSerializationError(serde_json::Error),
     MigrationError(rusqlite_migration::Error),
@@ -57,10 +64,26 @@ impl fmt::Display for StoreError {
             InputSerializationError(err) => {
                 write!(f, "error trying to serialize inputs for the store: {err}")
             }
+            JsonDataDeserializationError(err) => {
+                write!(
+                    f,
+                    "error deserializing data from JSON from the store: {err}"
+                )
+            }
             DataDeserializationError(err) => {
                 write!(f, "error deserializing data from the store: {err}")
             }
+            AccountDataNotFound(account_id) => {
+                write!(f, "Account data was not found for Account Id {account_id}")
+            }
             InputNoteNotFound(hash) => write!(f, "input note with hash {} not found", hash),
+            AccountStorageNotFound(root) => {
+                write!(f, "account storage data with root {} not found", root)
+            }
+            VaultDataNotFound(root) => write!(f, "account vault data for root {} not found", root),
+            AccountCodeDataNotFound(root) => {
+                write!(f, "account code data with root {} not found", root)
+            }
         }
     }
 }

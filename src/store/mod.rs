@@ -1,8 +1,13 @@
 use super::{errors::StoreError, AccountStub, ClientConfig};
-use crypto::{utils::collections::BTreeMap, Word};
+use crypto::hash::rpo::RpoDigest;
+use crypto::{
+    dsa::rpo_falcon512::KeyPair,
+    utils::{collections::BTreeMap, Deserializable, Serializable},
+    Word,
+};
 use objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, AccountVault},
-    assembly::AstSerdeOptions,
+    assembly::{AstSerdeOptions, ModuleAst},
     assets::Asset,
     notes::{Note, NoteMetadata, RecordedNote},
     Digest, Felt,
@@ -77,10 +82,12 @@ impl Store {
                     .try_into()
                     .expect("Conversion from stored AccountID should not panic"),
                 (nonce as u64).into(),
-                serde_json::from_str(&vault_root).map_err(StoreError::DataDeserializationError)?,
+                serde_json::from_str(&vault_root)
+                    .map_err(StoreError::JsonDataDeserializationError)?,
                 serde_json::from_str(&storage_root)
-                    .map_err(StoreError::DataDeserializationError)?,
-                serde_json::from_str(&code_root).map_err(StoreError::DataDeserializationError)?,
+                    .map_err(StoreError::JsonDataDeserializationError)?,
+                serde_json::from_str(&code_root)
+                    .map_err(StoreError::JsonDataDeserializationError)?,
             ));
         }
 
@@ -180,6 +187,22 @@ impl Store {
         )
         .map(|_| ())
         .map_err(StoreError::QueryError)
+    }
+
+    pub fn insert_account_keys(
+        &self,
+        account_id: AccountId,
+        key_pair: &KeyPair,
+    ) -> Result<(), StoreError> {
+        let account_id: u64 = account_id.into();
+        let key_pair = key_pair.to_bytes();
+        self.db
+            .execute(
+                "INSERT INTO account_keys (account_id, key_pair) VALUES (?, ?)",
+                params![account_id as i64, key_pair],
+            )
+            .map(|_| ())
+            .map_err(StoreError::QueryError)
     }
 
     // NOTES
@@ -316,11 +339,11 @@ fn parse_input_note(
 ) -> Result<RecordedNote, StoreError> {
     let (script, inputs, vault, serial_num, sender_id, tag, num_assets, inclusion_proof) =
         serialized_input_note_parts;
-    let script = serde_json::from_str(&script).map_err(StoreError::DataDeserializationError)?;
-    let inputs = serde_json::from_str(&inputs).map_err(StoreError::DataDeserializationError)?;
-    let vault = serde_json::from_str(&vault).map_err(StoreError::DataDeserializationError)?;
+    let script = serde_json::from_str(&script).map_err(StoreError::JsonDataDeserializationError)?;
+    let inputs = serde_json::from_str(&inputs).map_err(StoreError::JsonDataDeserializationError)?;
+    let vault = serde_json::from_str(&vault).map_err(StoreError::JsonDataDeserializationError)?;
     let serial_num =
-        serde_json::from_str(&serial_num).map_err(StoreError::DataDeserializationError)?;
+        serde_json::from_str(&serial_num).map_err(StoreError::JsonDataDeserializationError)?;
     let note_metadata = NoteMetadata::new(
         AccountId::new_unchecked(Felt::new(sender_id)),
         Felt::new(tag),
@@ -329,7 +352,7 @@ fn parse_input_note(
     let note = Note::from_parts(script, inputs, vault, serial_num, note_metadata);
 
     let inclusion_proof =
-        serde_json::from_str(&inclusion_proof).map_err(StoreError::DataDeserializationError)?;
+        serde_json::from_str(&inclusion_proof).map_err(StoreError::JsonDataDeserializationError)?;
     Ok(RecordedNote::new(note, inclusion_proof))
 }
 
