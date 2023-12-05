@@ -230,7 +230,7 @@ pub fn show_account(
 
     if show_keys {
         let auth_info = client
-            .get_account_keys(account_id)
+            .get_account_auth(account_id)
             .map_err(|err| err.to_string())?;
 
         // TODO: Decide how we want to output and import auth info
