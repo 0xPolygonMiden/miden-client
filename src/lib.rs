@@ -2,7 +2,6 @@ use objects::{
     accounts::{Account, AccountId, AccountStub},
     assembly::ModuleAst,
     assets::Asset,
-    crypto::dsa::rpo_falcon512::KeyPair,
     notes::RecordedNote,
     utils::collections::BTreeMap,
     Digest, Word,
@@ -10,7 +9,7 @@ use objects::{
 use std::path::PathBuf;
 
 mod store;
-use store::Store;
+use store::{AuthInfo, Store};
 
 pub mod errors;
 use errors::ClientError;
@@ -73,9 +72,9 @@ impl Client {
     }
 
     /// Returns key pair structure for an Account Id.
-    pub fn get_account_keys(&self, account_id: AccountId) -> Result<KeyPair, ClientError> {
+    pub fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, ClientError> {
         self.store
-            .get_account_keys(account_id)
+            .get_account_auth(account_id)
             .map_err(|err| err.into())
     }
 

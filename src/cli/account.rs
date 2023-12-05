@@ -194,7 +194,7 @@ fn new_account(
         .and_then(|_| client.store().insert_account_storage(account.storage()))
         .and_then(|_| client.store().insert_account_vault(account.vault()))
         .and_then(|_| client.store().insert_account(&account))
-        .and_then(|_| client.store().insert_account_keys(account.id(), &key_pair))
+        .and_then(|_| client.store().insert_account_auth(account.id(), key_pair))
         .map(|_| {
             println!(
                 "Succesfully created and stored Account ID: {}",
@@ -242,7 +242,7 @@ pub fn show_account(
 
     if show_keys {
         let auth_info = client
-            .get_account_keys(account_id)
+            .get_account_auth(account_id)
             .map_err(|err| err.to_string())?;
 
         // TODO: Decide how we want to output and import auth info
