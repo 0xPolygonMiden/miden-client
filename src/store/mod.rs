@@ -422,11 +422,13 @@ pub enum AuthInfo {
     RpoFalcon512(KeyPair),
 }
 
+const RPO_FALCON512_AUTH: u8 = 0;
+
 impl AuthInfo {
     /// Returns byte identifier of specific AuthInfo
-    pub fn type_byte(&self) -> u8 {
+    fn type_byte(&self) -> u8 {
         match self {
-            AuthInfo::RpoFalcon512(_) => 0u8,
+            AuthInfo::RpoFalcon512(_) => RPO_FALCON512_AUTH,
         }
     }
 }
@@ -449,7 +451,7 @@ impl Deserializable for AuthInfo {
     ) -> Result<Self, crypto::utils::DeserializationError> {
         let auth_type: u8 = source.read_u8()?;
         match auth_type {
-            0u8 => {
+            RPO_FALCON512_AUTH => {
                 let key_pair = KeyPair::read_from(source)?;
                 Ok(AuthInfo::RpoFalcon512(key_pair))
             }
