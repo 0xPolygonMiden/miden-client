@@ -47,9 +47,9 @@ impl Client {
     // --------------------------------------------------------------------------------------------
 
     /// Inserts a new account into the client's store.
-    pub fn insert_account_with_metadata(&mut self, account: &Account) -> Result<(), ClientError> {
+    pub fn insert_account(&mut self, account: &Account) -> Result<(), ClientError> {
         self.store
-            .insert_account_with_metadata(account)
+            .insert_account(account)
             .map_err(ClientError::StoreError)
     }
 
@@ -260,7 +260,7 @@ mod tests {
         let assembler = assembler();
         let account = account::mock_new_account(&assembler);
 
-        assert!(client.insert_account_with_metadata(&account).is_ok());
-        assert!(client.insert_account_with_metadata(&account).is_err());
+        assert!(client.insert_account(&account).is_ok());
+        assert!(client.insert_account(&account).is_err());
     }
 }

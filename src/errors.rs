@@ -33,14 +33,14 @@ impl std::error::Error for ClientError {}
 
 #[derive(Debug)]
 pub enum StoreError {
-    ConnectionError(rusqlite::Error),
-    MigrationError(rusqlite_migration::Error),
     ColumnParsingError(rusqlite::Error),
-    QueryError(rusqlite::Error),
-    TransactionError(rusqlite::Error),
-    InputSerializationError(serde_json::Error),
+    ConnectionError(rusqlite::Error),
     DataDeserializationError(serde_json::Error),
     InputNoteNotFound(Digest),
+    InputSerializationError(serde_json::Error),
+    MigrationError(rusqlite_migration::Error),
+    QueryError(rusqlite::Error),
+    TransactionError(rusqlite::Error),
 }
 
 impl fmt::Display for StoreError {

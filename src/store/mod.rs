@@ -87,7 +87,7 @@ impl Store {
         Ok(result)
     }
 
-    pub fn insert_account_with_metadata(&mut self, account: &Account) -> Result<(), StoreError> {
+    pub fn insert_account(&mut self, account: &Account) -> Result<(), StoreError> {
         let tx = self
             .db
             .transaction()
@@ -96,12 +96,12 @@ impl Store {
         Self::insert_account_code(&tx, account.code())?;
         Self::insert_account_storage(&tx, account.storage())?;
         Self::insert_account_vault(&tx, account.vault())?;
-        Self::insert_account(&tx, account)?;
+        Self::insert_account_record(&tx, account)?;
 
         tx.commit().map_err(StoreError::TransactionError)
     }
 
-    fn insert_account(tx: &Transaction<'_>, account: &Account) -> Result<(), StoreError> {
+    fn insert_account_record(tx: &Transaction<'_>, account: &Account) -> Result<(), StoreError> {
         let id: u64 = account.id().into();
         let code_root = serde_json::to_string(&account.code().root())
             .map_err(StoreError::InputSerializationError)?;

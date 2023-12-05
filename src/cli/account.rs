@@ -152,7 +152,7 @@ fn new_account(
     .map_err(|err| err.to_string())?;
 
     client
-        .insert_account_with_metadata(&account)
+        .insert_account(&account)
         .map_err(|err| err.to_string())?;
 
     Ok(())
