@@ -31,7 +31,7 @@ CREATE TABLE account_keys (
 -- Create accounts table
 CREATE TABLE accounts (
     id UNSIGNED BIG INT NOT NULL,  -- account ID.
-    code_root BLOB NOT NULL,       -- root of the account_code Merkle tree.
+    code_root BLOB NOT NULL,       -- root of the account_code 
     storage_root BLOB NOT NULL,    -- root of the account_storage Merkle tree.
     vault_root BLOB NOT NULL,      -- root of the account_vault Merkle tree.
     nonce BIGINT NOT NULL,         -- account nonce.
