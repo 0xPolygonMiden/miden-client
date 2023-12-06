@@ -1,5 +1,5 @@
-use crate::{Client, ClientConfig};
 use clap::Parser;
+use miden_client::client::{config::ClientConfig, Client};
 
 mod account;
 mod input_notes;
