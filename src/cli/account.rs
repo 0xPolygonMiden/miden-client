@@ -5,8 +5,9 @@ use crypto::{
     utils::{bytes_to_hex_string, Serializable},
     Felt,
 };
-use miden_client::Client;
+use miden_client::{AuthInfo, Client};
 use miden_lib::{faucets, AuthScheme};
+use miden_tx::DataStore;
 use objects::{
     accounts::{AccountId, AccountType},
     assets::TokenSymbol,
@@ -72,7 +73,7 @@ pub enum AccountTemplate {
 }
 
 impl AccountCmd {
-    pub fn execute(&self, client: Client) -> Result<(), String> {
+    pub fn execute(&self, client: Client<impl DataStore>) -> Result<(), String> {
         match self {
             AccountCmd::List => {
                 list_accounts(client)?;
@@ -103,7 +104,7 @@ impl AccountCmd {
 // LIST ACCOUNTS
 // ================================================================================================
 
-fn list_accounts(client: Client) -> Result<(), String> {
+fn list_accounts(client: Client<impl DataStore>) -> Result<(), String> {
     let accounts = client.get_accounts().map_err(|err| err.to_string())?;
 
     let mut table = Table::new();
@@ -136,7 +137,7 @@ fn list_accounts(client: Client) -> Result<(), String> {
 // ================================================================================================
 
 fn new_account(
-    mut client: Client,
+    mut client: Client<impl DataStore>,
     template: &Option<AccountTemplate>,
     deploy: bool,
 ) -> Result<(), String> {
@@ -188,14 +189,14 @@ fn new_account(
     .map_err(|err| err.to_string())?;
 
     client
-        .insert_account(&account, &key_pair)
+        .insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))
         .map_err(|err| err.to_string())?;
 
     Ok(())
 }
 
 pub fn show_account(
-    client: Client,
+    client: Client<impl DataStore>,
     account_id: AccountId,
     show_keys: bool,
     show_vault: bool,

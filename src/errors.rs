@@ -1,6 +1,7 @@
 use core::fmt;
 use crypto::utils::DeserializationError;
-use objects::{accounts::AccountId, AccountError, Digest};
+use miden_tx::{TransactionExecutorError, TransactionProverError};
+use objects::{accounts::AccountId, AccountError, Digest, NoteError};
 use tonic::{transport::Error as TransportError, Status as TonicStatus};
 
 // CLIENT ERROR
@@ -11,6 +12,9 @@ pub enum ClientError {
     StoreError(StoreError),
     AccountError(AccountError),
     RpcApiError(RpcApiError),
+    NoteError(NoteError),
+    ExecutorError(TransactionExecutorError),
+    TransactionProverError(TransactionProverError),
 }
 
 impl fmt::Display for ClientError {
@@ -19,6 +23,9 @@ impl fmt::Display for ClientError {
             ClientError::StoreError(err) => write!(f, "store error: {err}"),
             ClientError::AccountError(err) => write!(f, "account error: {err}"),
             ClientError::RpcApiError(err) => write!(f, "rpc api error: {err}"),
+            ClientError::NoteError(err) => write!(f, "note error: {err}"),
+            ClientError::ExecutorError(err) => write!(f, "executor error: {err}"),
+            ClientError::TransactionProverError(err) => write!(f, "prover error: {err}"),
         }
     }
 }

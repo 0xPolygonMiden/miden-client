@@ -2,6 +2,7 @@ use super::{Client, Parser};
 use miden_client::InputNoteFilter;
 
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
+use miden_tx::DataStore;
 use objects::notes::RecordedNote;
 use objects::Digest;
 
@@ -34,7 +35,7 @@ pub enum InputNotes {
 }
 
 impl InputNotes {
-    pub fn execute(&self, client: Client) -> Result<(), String> {
+    pub fn execute(&self, client: Client<impl DataStore>) -> Result<(), String> {
         match self {
             InputNotes::List => {
                 list_input_notes(client)?;
@@ -54,7 +55,7 @@ impl InputNotes {
 
 // LIST INPUT NOTES
 // ================================================================================================
-fn list_input_notes(client: Client) -> Result<(), String> {
+fn list_input_notes(client: Client<impl DataStore>) -> Result<(), String> {
     let notes = client
         .get_input_notes(InputNoteFilter::All)
         .map_err(|err| err.to_string())?;
@@ -63,7 +64,7 @@ fn list_input_notes(client: Client) -> Result<(), String> {
 }
 
 fn show_input_note(
-    client: Client,
+    client: Client<impl DataStore>,
     hash: String,
     show_script: bool,
     show_vault: bool,

@@ -1,9 +1,12 @@
 use crate::{Client, ClientConfig};
 use clap::Parser;
+use miden_client::MockDataStore;
+use miden_tx::TransactionExecutor;
 
 mod account;
 mod input_notes;
 mod sync_state;
+mod transaction;
 
 /// Root CLI struct
 #[derive(Parser, Debug)]
@@ -27,6 +30,8 @@ pub enum Command {
     InputNotes(input_notes::InputNotes),
     #[clap(subcommand)]
     SyncState(sync_state::SyncStateCmd),
+    #[clap(subcommand)]
+    Transaction(transaction::Transaction),
     #[cfg(feature = "testing")]
     /// Insert mock data into the client
     MockData,
@@ -36,9 +41,12 @@ pub enum Command {
 impl Cli {
     pub async fn execute(&self) -> Result<(), String> {
         // create a client
-        let client = Client::new(ClientConfig::default())
-            .await
-            .map_err(|err| err.to_string())?;
+        let client = Client::new(
+            ClientConfig::default(),
+            TransactionExecutor::new(MockDataStore::new()),
+        )
+        .await
+        .map_err(|err| err.to_string())?;
 
         // execute cli command
         match &self.action {
@@ -51,6 +59,7 @@ impl Cli {
                 miden_client::mock::insert_mock_data(&mut client);
                 Ok(())
             }
+            Command::Transaction(transaction) => transaction.execute(client),
         }
     }
 }

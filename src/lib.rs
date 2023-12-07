@@ -1,22 +1,27 @@
 use core::fmt;
-use crypto::dsa::rpo_falcon512::KeyPair;
 use crypto::StarkField;
+use miden_lib::notes::{create_note, Script};
 use miden_node_proto::{
-    account_id::AccountId as ProtoAccountId, requests::SyncStateRequest,
-    responses::SyncStateResponse,
+    account_id::AccountId as ProtoAccountId,
+    requests::{SubmitProvenTransactionRequest, SyncStateRequest},
+    responses::{SubmitProvenTransactionResponse, SyncStateResponse},
 };
+use miden_tx::{DataStore, ProvingOptions, TransactionExecutor, TransactionProver};
 use objects::{
     accounts::{Account, AccountId, AccountStub},
-    assembly::ModuleAst,
-    assets::Asset,
-    notes::RecordedNote,
+    assembly::{ModuleAst, ProgramAst},
+    assets::{Asset, FungibleAsset},
+    notes::{Note, RecordedNote},
+    transaction::{ProvenTransaction, TransactionResult, TransactionScript, TransactionWitness},
     utils::collections::BTreeMap,
-    Digest, Word,
+    Digest, Felt, Word,
 };
+
 use std::path::PathBuf;
 
 mod store;
-use store::{AuthInfo, InputNoteFilter, Store};
+pub use store::AuthInfo;
+pub use store::{mock_executor_data_store::MockDataStore, InputNoteFilter, Store};
 
 #[cfg(any(test, feature = "testing"))]
 pub mod mock;
@@ -29,6 +34,54 @@ use errors::ClientError;
 
 /// The number of bits to shift identifiers for in use of filters.
 pub const FILTER_ID_SHIFT: u8 = 48;
+// TODO: How does this fit here considering miden-base? Can we construct it from parts?
+pub struct ExecutedTransactionStub {
+    pub id: String,
+    pub account_id: u64,
+    pub init_account_state: Digest,
+    pub final_account_state: Digest,
+    pub input_notes: Vec<RecordedNote>,
+    pub output_notes: Vec<Note>,
+    pub script_hash: Option<Digest>,
+    pub script_program: Option<ProgramAst>,
+    pub script_inputs: Option<BTreeMap<Digest, Vec<Felt>>>,
+    pub block_num: u64,
+    pub committed: bool,
+    pub commit_height: u64,
+}
+
+impl ExecutedTransactionStub {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        id: String,
+        account_id: u64,
+        init_account_state: Digest,
+        final_account_state: Digest,
+        input_notes: Vec<RecordedNote>,
+        output_notes: Vec<Note>,
+        script_hash: Option<Digest>,
+        script_program: Option<ProgramAst>,
+        script_inputs: Option<BTreeMap<Digest, Vec<Felt>>>,
+        block_num: u64,
+        committed: bool,
+        commit_height: u64,
+    ) -> ExecutedTransactionStub {
+        ExecutedTransactionStub {
+            id,
+            account_id,
+            init_account_state,
+            final_account_state,
+            input_notes,
+            output_notes,
+            script_hash,
+            script_program,
+            script_inputs,
+            block_num,
+            committed,
+            commit_height,
+        }
+    }
+}
 
 // MIDEN CLIENT
 // ================================================================================================
@@ -41,7 +94,7 @@ pub const FILTER_ID_SHIFT: u8 = 48;
 /// - Connects to one or more Miden nodes to periodically sync with the current state of the
 ///   network.
 /// - Executes, proves, and submits transactions to the network as directed by the user.
-pub struct Client {
+pub struct Client<D: DataStore> {
     /// Local database containing information about the accounts managed by this client.
     store: Store,
     #[cfg(not(any(test, feature = "testing")))]
@@ -49,9 +102,10 @@ pub struct Client {
     rpc_api: miden_node_proto::rpc::api_client::ApiClient<tonic::transport::Channel>,
     #[cfg(any(test, feature = "testing"))]
     pub rpc_api: mock::MockRpcApi,
+    pub tx_executor: TransactionExecutor<D>,
 }
 
-impl Client {
+impl<D: DataStore> Client<D> {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
 
@@ -59,7 +113,10 @@ impl Client {
     ///
     /// # Errors
     /// Returns an error if the client could not be instantiated.
-    pub async fn new(config: ClientConfig) -> Result<Self, ClientError> {
+    pub async fn new(
+        config: ClientConfig,
+        transaction_executor: TransactionExecutor<D>,
+    ) -> Result<Self, ClientError> {
         Ok(Self {
             store: Store::new((&config).into())?,
             #[cfg(not(any(test, feature = "testing")))]
@@ -70,6 +127,7 @@ impl Client {
             .map_err(|err| ClientError::RpcApiError(errors::RpcApiError::ConnectionError(err)))?,
             #[cfg(any(test, feature = "testing"))]
             rpc_api: Default::default(),
+            tx_executor: transaction_executor,
         })
     }
 
@@ -80,10 +138,10 @@ impl Client {
     pub fn insert_account(
         &mut self,
         account: &Account,
-        key_pair: &KeyPair,
+        auth_info: &AuthInfo,
     ) -> Result<(), ClientError> {
         self.store
-            .insert_account(account, key_pair)
+            .insert_account(account, auth_info)
             .map_err(ClientError::StoreError)
     }
 
@@ -104,7 +162,7 @@ impl Client {
             .map_err(|err| err.into())
     }
 
-    /// Returns key pair structure for an Account Id.
+    /// Returns auth infor for an Account Id.
     pub fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, ClientError> {
         self.store
             .get_account_auth(account_id)
@@ -295,8 +353,169 @@ impl Client {
             .into_inner())
     }
 
-    // TODO: add methods for retrieving note and transaction info, and for creating/executing
-    // transaction
+    async fn submit_proven_transaction_request(
+        &mut self,
+        _proven_transaction: ProvenTransaction,
+    ) -> Result<SubmitProvenTransactionResponse, ClientError> {
+        let request = SubmitProvenTransactionRequest {};
+
+        Ok(self
+            .rpc_api
+            .submit_proven_transaction(request)
+            .await
+            .map_err(|err| ClientError::RpcApiError(errors::RpcApiError::RequestError(err)))?
+            .into_inner())
+    }
+
+    // TRANSACTION CREATION
+    // --------------------------------------------------------------------------------------------
+
+    /// Inserts a new transaction into the client's store.
+    fn insert_transaction(
+        &mut self,
+        transaction: &ProvenTransaction,
+        transaction_script: Option<TransactionScript>,
+    ) -> Result<(), ClientError> {
+        self.store
+            .insert_transaction(transaction, transaction_script)
+            .map_err(|err| err.into())
+    }
+
+    // TRANSACTION DATA RETRIEVAL
+    // --------------------------------------------------------------------------------------------
+
+    /// Returns input notes managed by this client.
+    pub fn get_transactions(&self) -> Result<Vec<ExecutedTransactionStub>, ClientError> {
+        self.store.get_transactions().map_err(|err| err.into())
+    }
+
+    // TRANSACTION
+    // --------------------------------------------------------------------------------------------
+
+    /// Creates and executes a transactions specified by the template, but does not change the
+    /// local database.
+    pub fn new_transaction(
+        &self,
+        transaction_template: TransactionTemplate,
+    ) -> Result<TransactionResult, ClientError> {
+        match transaction_template {
+            TransactionTemplate::PayToId(PaymentTransaction {
+                faucet_id,
+                sender_account_id,
+                target_account_id,
+                amount,
+            }) => {
+                // Create assets
+                let fungible_asset: Asset = FungibleAsset::new(faucet_id, amount).unwrap().into();
+                let (target_pub_key, target_sk_pk_felt) =
+                    store::mock_executor_data_store::get_new_key_pair_with_advice_map();
+                let target_account =
+                    store::mock_executor_data_store::get_account_with_default_account_code(
+                        target_account_id,
+                        target_pub_key,
+                        None,
+                    );
+
+                // Create the note
+                let p2id_script = Script::P2ID {
+                    target: target_account_id,
+                };
+                let note = create_note(
+                    p2id_script,
+                    vec![fungible_asset],
+                    sender_account_id,
+                    None,
+                    [Felt::new(1), Felt::new(2), Felt::new(3), Felt::new(4)], // TODO: Does this need to be random?
+                )
+                .map_err(ClientError::NoteError)?;
+
+                let data_store: MockDataStore = MockDataStore::with_existing(
+                    Some(target_account.clone()),
+                    Some(vec![note.clone()]),
+                );
+
+                let mut executor = TransactionExecutor::new(data_store.clone());
+                executor.load_account(target_account_id).unwrap();
+
+                let block_ref = data_store.block_header.block_num().as_int() as u32;
+                let note_origins = data_store
+                    .notes
+                    .iter()
+                    .map(|note| note.origin().clone())
+                    .collect::<Vec<_>>();
+
+                let tx_script_code = ProgramAst::parse(
+                    "
+                    use.miden::eoa::basic->auth_tx
+
+                    begin
+                        call.auth_tx::auth_tx_rpo_falcon512
+                    end
+                    "
+                    .to_string()
+                    .as_str(),
+                )
+                .unwrap();
+
+                let tx_script_target = executor
+                    .compile_tx_script(
+                        tx_script_code.clone(),
+                        vec![(target_pub_key, target_sk_pk_felt)],
+                        vec![],
+                    )
+                    .map_err(ClientError::ExecutorError)?;
+
+                // Execute the transaction and get the witness
+                let transaction_result = executor
+                    .execute_transaction(
+                        target_account_id,
+                        block_ref,
+                        &note_origins,
+                        Some(tx_script_target),
+                    )
+                    .map_err(ClientError::ExecutorError)?;
+
+                Ok(transaction_result)
+            }
+            TransactionTemplate::PayToIdWithRecall(_) => todo!(),
+            TransactionTemplate::ConsumeNotes(_) => todo!(),
+        }
+    }
+
+    /// Proves the specified transaction witness, submits it to the node, and saves the transaction into
+    /// the local database.
+    pub async fn send_transaction(
+        &mut self,
+        transaction_witness: TransactionWitness,
+        transaction_script: Option<TransactionScript>,
+    ) -> Result<(), ClientError> {
+        let transaction_prover = TransactionProver::new(ProvingOptions::default());
+        let proven_transaction = transaction_prover
+            .prove_transaction_witness(transaction_witness)
+            .map_err(ClientError::TransactionProverError)?;
+
+        self.submit_proven_transaction_request(proven_transaction.clone())
+            .await?;
+
+        self.insert_transaction(&proven_transaction, transaction_script)?;
+        Ok(())
+    }
+}
+
+pub enum TransactionTemplate {
+    /// Creates a pay-to-id note directed to a specific account from a faucet
+    PayToId(PaymentTransaction),
+    /// Creates a pay-to-id note directed to a specific account with a recall timeout
+    PayToIdWithRecall(PaymentTransaction),
+    /// Consume all outstanding notes for an account
+    ConsumeNotes(AccountId),
+}
+
+pub struct PaymentTransaction {
+    faucet_id: AccountId,
+    sender_account_id: AccountId,
+    target_account_id: AccountId,
+    amount: u64,
 }
 
 // CLIENT CONFIG
@@ -387,9 +606,12 @@ impl Default for Endpoint {
 
 #[cfg(test)]
 mod tests {
+    use crate::store::{mock_executor_data_store::MockDataStore, AuthInfo};
+
     use super::store::tests::create_test_store_path;
     use crypto::dsa::rpo_falcon512::KeyPair;
     use miden_lib::assembler::assembler;
+    use miden_tx::TransactionExecutor;
     use mock::mock::{
         account::{self, MockAccountType},
         notes::AssetPreservationStatus,
@@ -402,10 +624,13 @@ mod tests {
         let store_path = create_test_store_path();
 
         // generate test client
-        let mut client = super::Client::new(super::ClientConfig::new(
-            store_path.into_os_string().into_string().unwrap(),
-            super::Endpoint::default(),
-        ))
+        let mut client = super::Client::new(
+            super::ClientConfig::new(
+                store_path.into_os_string().into_string().unwrap(),
+                super::Endpoint::default(),
+            ),
+            TransactionExecutor::new(MockDataStore::default()),
+        )
         .await
         .unwrap();
 
@@ -427,16 +652,39 @@ mod tests {
         assert_eq!(recorded_notes, retrieved_notes);
     }
 
+    // #[tokio::test]
+    // async fn test_submit_proven_tx() {
+    //     let store_path = create_test_store_path();
+
+    //     // generate test client
+    //     let mut client = super::Client::new(
+    //         super::ClientConfig::new(
+    //             store_path.into_os_string().into_string().unwrap(),
+    //             super::Endpoint::default(),
+    //         ),
+    //         TransactionExecutor::new(MockDataStore::default()),
+    //     )
+    //     .await
+    //     .unwrap();
+
+    //     client.new_transaction(crate::TransactionTemplate::PayToId(
+    //         crate::PaymentTransaction { faucet_id: (), sender_account_id: (), target_account_id: (), amount: () }
+    //     ));
+    // }
+
     #[tokio::test]
     async fn test_get_input_note() {
         // generate test store path
         let store_path = create_test_store_path();
 
         // generate test client
-        let mut client = super::Client::new(super::ClientConfig::new(
-            store_path.into_os_string().into_string().unwrap(),
-            super::Endpoint::default(),
-        ))
+        let mut client = super::Client::new(
+            super::ClientConfig::new(
+                store_path.into_os_string().into_string().unwrap(),
+                super::Endpoint::default(),
+            ),
+            TransactionExecutor::new(MockDataStore::default()),
+        )
         .await
         .unwrap();
 
@@ -464,10 +712,13 @@ mod tests {
         let store_path = create_test_store_path();
 
         // generate test client
-        let mut client = super::Client::new(super::ClientConfig::new(
-            store_path.into_os_string().into_string().unwrap(),
-            super::Endpoint::default(),
-        ))
+        let mut client = super::Client::new(
+            super::ClientConfig::new(
+                store_path.into_os_string().into_string().unwrap(),
+                super::Endpoint::default(),
+            ),
+            TransactionExecutor::new(MockDataStore::default()),
+        )
         .await
         .unwrap();
 
@@ -478,8 +729,12 @@ mod tests {
             .map_err(|err| format!("Error generating KeyPair: {}", err))
             .unwrap();
 
-        assert!(client.insert_account(&account, &key_pair).is_ok());
-        assert!(client.insert_account(&account, &key_pair).is_err());
+        assert!(client
+            .insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))
+            .is_ok());
+        assert!(client
+            .insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))
+            .is_err());
     }
 
     #[tokio::test]
@@ -488,10 +743,13 @@ mod tests {
         let store_path = create_test_store_path();
 
         // generate test client
-        let mut client = super::Client::new(super::ClientConfig::new(
-            store_path.into_os_string().into_string().unwrap(),
-            super::Endpoint::default(),
-        ))
+        let mut client = super::Client::new(
+            super::ClientConfig::new(
+                store_path.into_os_string().into_string().unwrap(),
+                super::Endpoint::default(),
+            ),
+            TransactionExecutor::new(MockDataStore::default()),
+        )
         .await
         .unwrap();
 
@@ -550,10 +808,13 @@ mod tests {
         let store_path = create_test_store_path();
 
         // generate test client
-        let mut client = super::Client::new(super::ClientConfig::new(
-            store_path.into_os_string().into_string().unwrap(),
-            super::Endpoint::default(),
-        ))
+        let mut client = super::Client::new(
+            super::ClientConfig::new(
+                store_path.into_os_string().into_string().unwrap(),
+                super::Endpoint::default(),
+            ),
+            TransactionExecutor::new(MockDataStore::default()),
+        )
         .await
         .unwrap();
 

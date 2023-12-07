@@ -1,5 +1,6 @@
 use crate::Client;
 use clap::Parser;
+use miden_tx::DataStore;
 
 // TAGS COMMAND
 // ================================================================================================
@@ -28,7 +29,7 @@ pub enum SyncStateCmd {
 }
 
 impl SyncStateCmd {
-    pub async fn execute(&self, client: Client) -> Result<(), String> {
+    pub async fn execute(&self, client: Client<impl DataStore>) -> Result<(), String> {
         match self {
             SyncStateCmd::SyncState => {
                 sync_state(client).await?;
@@ -49,19 +50,19 @@ impl SyncStateCmd {
 
 // HELPERS
 // ================================================================================================
-fn list_tags(client: Client) -> Result<(), String> {
+fn list_tags(client: Client<impl DataStore>) -> Result<(), String> {
     let tags = client.get_note_tags().map_err(|err| err.to_string())?;
     println!("tags: {:?}", tags);
     Ok(())
 }
 
-fn add_tag(mut client: Client, tag: u64) -> Result<(), String> {
+fn add_tag(mut client: Client<impl DataStore>, tag: u64) -> Result<(), String> {
     client.add_note_tag(tag).map_err(|err| err.to_string())?;
     println!("tag {} added", tag);
     Ok(())
 }
 
-fn print_block_number(client: Client) -> Result<(), String> {
+fn print_block_number(client: Client<impl DataStore>) -> Result<(), String> {
     println!(
         "block number: {}",
         client
@@ -71,7 +72,7 @@ fn print_block_number(client: Client) -> Result<(), String> {
     Ok(())
 }
 
-async fn sync_state(mut client: Client) -> Result<(), String> {
+async fn sync_state(mut client: Client<impl DataStore>) -> Result<(), String> {
     let block_num = client.sync_state().await.map_err(|e| e.to_string())?;
     println!("state synced to block {}", block_num);
     Ok(())

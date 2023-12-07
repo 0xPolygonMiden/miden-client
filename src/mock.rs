@@ -1,11 +1,17 @@
+use crate::store::AuthInfo;
+
 use super::Client;
 use super::FILTER_ID_SHIFT;
 use crypto::dsa::rpo_falcon512::KeyPair;
+use miden_node_proto::requests::SubmitProvenTransactionRequest;
+use miden_node_proto::responses::SubmitProvenTransactionResponse;
 use miden_node_proto::{
     account_id::AccountId as ProtoAccountId,
     requests::SyncStateRequest,
     responses::{NullifierUpdate, SyncStateResponse},
 };
+use miden_tx::DataStore;
+use mock::mock::transaction::mock_executed_tx;
 use objects::{utils::collections::BTreeMap, StarkField};
 
 /// Mock RPC API
@@ -36,6 +42,16 @@ impl MockRpcApi {
             .get(&request)
             .expect("no response for sync state request")
             .clone();
+        Ok(tonic::Response::new(response))
+    }
+
+    pub async fn submit_proven_transaction(
+        &mut self,
+        request: impl tonic::IntoRequest<SubmitProvenTransactionRequest>,
+    ) -> std::result::Result<tonic::Response<SubmitProvenTransactionResponse>, tonic::Status> {
+        let _request = request.into_request().into_inner();
+        let response = SubmitProvenTransactionResponse {};
+
         Ok(tonic::Response::new(response))
     }
 }
@@ -91,7 +107,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
 }
 
 /// inserts mock note and account data into the client
-pub fn insert_mock_data(client: &mut Client) {
+pub fn insert_mock_data(client: &mut Client<impl DataStore>) {
     use mock::mock::{
         account::MockAccountType, notes::AssetPreservationStatus, transaction::mock_inputs,
     };
@@ -107,9 +123,19 @@ pub fn insert_mock_data(client: &mut Client) {
         client.insert_input_note(note).unwrap();
     }
 
+    let _transaction = mock_executed_tx(AssetPreservationStatus::Preserved);
+
     // insert account
-    let key_pair: KeyPair = KeyPair::new()
-        .map_err(|err| format!("Error generating KeyPair: {}", err))
-        .unwrap();
-    client.insert_account(&account, &key_pair).unwrap();
+    let auth_info = AuthInfo::RpoFalcon512(
+        KeyPair::new()
+            .map_err(|err| format!("Error generating KeyPair: {}", err))
+            .unwrap(),
+    );
+
+    //client
+    //    .insert_account(transaction.initial_account(), &auth_info)
+    //    .unwrap();
+    //client.insert_transaction(transaction).unwrap();
+
+    client.insert_account(&account, &auth_info).unwrap();
 }
