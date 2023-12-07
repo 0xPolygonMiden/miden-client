@@ -5,6 +5,7 @@ use crypto::{
     utils::{collections::BTreeMap, Deserializable, Serializable},
     Word,
 };
+use objects::notes::NoteScript;
 use objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, AccountVault},
     assembly::{AstSerdeOptions, ModuleAst},
@@ -22,7 +23,7 @@ mod migrations;
 type SerializedInputNoteData = (
     String,
     String,
-    String,
+    Vec<u8>,
     String,
     String,
     String,
@@ -35,7 +36,7 @@ type SerializedInputNoteData = (
     i64,
 );
 
-type SerializedInputNoteParts = (String, String, String, String, u64, u64, u64, String);
+type SerializedInputNoteParts = (Vec<u8>, String, String, String, u64, u64, u64, String);
 
 // CLIENT STORE
 // ================================================================================================
@@ -504,7 +505,7 @@ impl From<&ClientConfig> for StoreConfig {
 fn parse_input_note_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedInputNoteParts, rusqlite::Error> {
-    let script: String = row.get(0)?;
+    let script: Vec<u8> = row.get(0)?;
     let inputs: String = row.get(1)?;
     let vault: String = row.get(2)?;
     let serial_num: String = row.get(3)?;
@@ -530,7 +531,8 @@ fn parse_input_note(
 ) -> Result<RecordedNote, StoreError> {
     let (script, inputs, vault, serial_num, sender_id, tag, num_assets, inclusion_proof) =
         serialized_input_note_parts;
-    let script = serde_json::from_str(&script).map_err(StoreError::JsonDataDeserializationError)?;
+    let script =
+        NoteScript::read_from_bytes(&script).map_err(StoreError::DataDeserializationError)?;
     let inputs = serde_json::from_str(&inputs).map_err(StoreError::JsonDataDeserializationError)?;
     let vault = serde_json::from_str(&vault).map_err(StoreError::JsonDataDeserializationError)?;
     let serial_num =
@@ -555,8 +557,7 @@ fn serialize_input_note(
         .map_err(StoreError::InputSerializationError)?;
     let nullifier = serde_json::to_string(&recorded_note.note().nullifier())
         .map_err(StoreError::InputSerializationError)?;
-    let script = serde_json::to_string(&recorded_note.note().script())
-        .map_err(StoreError::InputSerializationError)?;
+    let script = recorded_note.note().script().to_bytes();
     let vault = serde_json::to_string(&recorded_note.note().vault())
         .map_err(StoreError::InputSerializationError)?;
     let inputs = serde_json::to_string(&recorded_note.note().inputs())
