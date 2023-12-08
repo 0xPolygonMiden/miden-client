@@ -31,7 +31,7 @@ CREATE TABLE account_auth (
 -- Create accounts table
 CREATE TABLE accounts (
     id UNSIGNED BIG INT NOT NULL,  -- account ID.
-    code_root BLOB NOT NULL,       -- root of the account_code 
+    code_root BLOB NOT NULL,       -- root of the account_code
     storage_root BLOB NOT NULL,    -- root of the account_storage Merkle tree.
     vault_root BLOB NOT NULL,      -- root of the account_vault Merkle tree.
     nonce BIGINT NOT NULL,         -- account nonce.
@@ -55,7 +55,23 @@ CREATE TABLE input_notes (
     num_assets UNSIGNED BIG INT NOT NULL,                   -- the number of assets in the note
     inclusion_proof BLOB NOT NULL,                          -- the inclusion proof of the note against a block number
     recipients BLOB NOT NULL,                               -- a list of account IDs of accounts which can consume this note
-    status TEXT CHECK( status IN ('pending', 'committed')), -- the status of the note - either pending or committed
+    status TEXT CHECK( status IN (                          -- the status of the note - either pending, committed or consumed
+        'pending', 'committed', 'consumed'
+        )),
     commit_height UNSIGNED BIG INT NOT NULL,                -- the block number at which the note was included into the chain
     PRIMARY KEY (hash)
 );
+
+-- Create state sync table
+CREATE TABLE state_sync (
+    block_number UNSIGNED BIG INT NOT NULL, -- the block number of the most recent state sync
+    tags BLOB NOT NULL,                     -- the serialized list of tags
+    PRIMARY KEY (block_number)
+);
+
+-- insert initial row into state_sync table
+INSERT OR IGNORE INTO state_sync (block_number, tags)
+SELECT 0, '[]'
+WHERE (
+    SELECT COUNT(*) FROM state_sync
+) = 0;
