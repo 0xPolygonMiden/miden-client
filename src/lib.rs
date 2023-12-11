@@ -375,6 +375,7 @@ mod tests {
         notes::AssetPreservationStatus,
         transaction::mock_inputs,
     };
+    use vm_processor::AdviceInputs;
 
     #[tokio::test]
     async fn test_input_notes_round_trip() {
@@ -390,7 +391,7 @@ mod tests {
         .unwrap();
 
         // generate test data
-        let (_, _, _, recorded_notes) = mock_inputs(
+        let (_, _, _, recorded_notes, _) = mock_inputs(
             MockAccountType::StandardExisting,
             AssetPreservationStatus::Preserved,
         );
@@ -421,7 +422,7 @@ mod tests {
         .unwrap();
 
         // generate test data
-        let (_, _, _, recorded_notes) = mock_inputs(
+        let (_, _, _, recorded_notes, _) = mock_inputs(
             MockAccountType::StandardExisting,
             AssetPreservationStatus::Preserved,
         );
@@ -452,7 +453,8 @@ mod tests {
         .unwrap();
 
         let assembler = assembler();
-        let account = account::mock_new_account(&assembler);
+        let mut auxiliary_data = AdviceInputs::default();
+        let account = account::mock_new_account(&assembler, &mut auxiliary_data);
 
         let key_pair: KeyPair = KeyPair::new()
             .map_err(|err| format!("Error generating KeyPair: {}", err))
