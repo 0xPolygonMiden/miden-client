@@ -1,6 +1,6 @@
 use super::Client;
 
-use crate::errors::ClientError;
+use crate::{errors::ClientError, store::InputNoteFilter};
 use objects::{notes::RecordedNote, Digest};
 
 impl Client {
@@ -8,8 +8,11 @@ impl Client {
     // --------------------------------------------------------------------------------------------
 
     /// Returns input notes managed by this client.
-    pub fn get_input_notes(&self) -> Result<Vec<RecordedNote>, ClientError> {
-        self.store.get_input_notes().map_err(|err| err.into())
+    pub fn get_input_notes(
+        &self,
+        filter: InputNoteFilter,
+    ) -> Result<Vec<RecordedNote>, ClientError> {
+        self.store.get_input_notes(filter).map_err(|err| err.into())
     }
 
     /// Returns the input note with the specified hash.

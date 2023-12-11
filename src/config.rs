@@ -1,7 +1,8 @@
+use core::fmt;
+use std::path::PathBuf;
+
 // CLIENT CONFIG
 // ================================================================================================
-
-use std::path::PathBuf;
 
 /// Configuration options of Miden client.
 #[derive(Debug, PartialEq, Eq)]
@@ -9,7 +10,7 @@ pub struct ClientConfig {
     /// Location of the client's data file.
     pub store_path: String,
     /// Address of the Miden node to connect to.
-    node_endpoint: Endpoint,
+    pub node_endpoint: Endpoint,
 }
 
 impl ClientConfig {
@@ -49,8 +50,26 @@ impl Default for ClientConfig {
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct Endpoint {
-    pub host: String,
-    pub port: u16,
+    protocol: String,
+    host: String,
+    port: u16,
+}
+
+impl Endpoint {
+    /// Returns a new instance of [Endpoint] with the specified protocol, host, and port.
+    pub fn new(protocol: String, host: String, port: u16) -> Self {
+        Self {
+            protocol,
+            host,
+            port,
+        }
+    }
+}
+
+impl fmt::Display for Endpoint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}://{}:{}", self.protocol, self.host, self.port)
+    }
 }
 
 impl Default for Endpoint {
@@ -58,6 +77,7 @@ impl Default for Endpoint {
         const MIDEN_NODE_PORT: u16 = 57291;
 
         Self {
+            protocol: "http".to_string(),
             host: "localhost".to_string(),
             port: MIDEN_NODE_PORT,
         }

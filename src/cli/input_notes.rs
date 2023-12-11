@@ -1,5 +1,5 @@
-use super::Client;
-use super::Parser;
+use super::{Client, Parser};
+use miden_client::store::InputNoteFilter;
 
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use objects::notes::RecordedNote;
@@ -55,7 +55,9 @@ impl InputNotes {
 // LIST INPUT NOTES
 // ================================================================================================
 fn list_input_notes(client: Client) -> Result<(), String> {
-    let notes = client.get_input_notes().map_err(|err| err.to_string())?;
+    let notes = client
+        .get_input_notes(InputNoteFilter::All)
+        .map_err(|err| err.to_string())?;
     print_notes_summary(&notes);
     Ok(())
 }

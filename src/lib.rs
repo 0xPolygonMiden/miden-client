@@ -1,7 +1,10 @@
 pub mod client;
 pub mod config;
 pub mod errors;
-mod store;
+pub mod store;
+
+#[cfg(any(test, feature = "testing"))]
+pub mod mock;
 
 // TESTS
 // ================================================================================================
@@ -11,9 +14,9 @@ mod tests {
     use crate::{
         client::Client,
         config::{ClientConfig, Endpoint},
+        store::{tests::create_test_store_path, InputNoteFilter},
     };
 
-    use super::store::tests::create_test_store_path;
     use crypto::dsa::rpo_falcon512::KeyPair;
     use miden_lib::assembler::assembler;
     use mock::mock::{
@@ -22,8 +25,8 @@ mod tests {
         transaction::mock_inputs,
     };
 
-    #[test]
-    fn test_input_notes_round_trip() {
+    #[tokio::test]
+    async fn test_input_notes_round_trip() {
         // generate test store path
         let store_path = create_test_store_path();
 
@@ -32,6 +35,7 @@ mod tests {
             store_path.into_os_string().into_string().unwrap(),
             Endpoint::default(),
         ))
+        .await
         .unwrap();
 
         // generate test data
@@ -46,14 +50,14 @@ mod tests {
         }
 
         // retrieve notes from database
-        let retrieved_notes = client.get_input_notes().unwrap();
+        let retrieved_notes = client.get_input_notes(InputNoteFilter::All).unwrap();
 
         // compare notes
         assert_eq!(recorded_notes, retrieved_notes);
     }
 
-    #[test]
-    fn test_get_input_note() {
+    #[tokio::test]
+    async fn test_get_input_note() {
         // generate test store path
         let store_path = create_test_store_path();
 
@@ -62,6 +66,7 @@ mod tests {
             store_path.into_os_string().into_string().unwrap(),
             Endpoint::default(),
         ))
+        .await
         .unwrap();
 
         // generate test data
@@ -82,8 +87,8 @@ mod tests {
         assert_eq!(recorded_notes[0], retrieved_note);
     }
 
-    #[test]
-    pub fn insert_same_account_twice_fails() {
+    #[tokio::test]
+    async fn insert_same_account_twice_fails() {
         // generate test store path
         let store_path = create_test_store_path();
 
@@ -92,6 +97,7 @@ mod tests {
             store_path.into_os_string().into_string().unwrap(),
             Endpoint::default(),
         ))
+        .await
         .unwrap();
 
         let assembler = assembler();
@@ -103,5 +109,96 @@ mod tests {
 
         assert!(client.insert_account(&account, &key_pair).is_ok());
         assert!(client.insert_account(&account, &key_pair).is_err());
+    }
+
+    #[tokio::test]
+    async fn test_sync_state() {
+        // generate test store path
+        let store_path = create_test_store_path();
+
+        // generate test client
+        let mut client = Client::new(ClientConfig::new(
+            store_path.into_os_string().into_string().unwrap(),
+            Endpoint::default(),
+        ))
+        .await
+        .unwrap();
+
+        // generate test data
+        crate::mock::insert_mock_data(&mut client);
+
+        // assert that we have no consumed notes prior to syncing state
+        assert_eq!(
+            client
+                .get_input_notes(InputNoteFilter::Consumed)
+                .unwrap()
+                .len(),
+            0
+        );
+
+        // sync state
+        let block_num = client.sync_state().await.unwrap();
+
+        // verify that the client is synced to the latest block
+        assert_eq!(
+            block_num,
+            client
+                .rpc_api
+                .sync_state_requests
+                .first_key_value()
+                .unwrap()
+                .1
+                .chain_tip
+        );
+
+        // verify that we now have one consumed note after syncing state
+        assert_eq!(
+            client
+                .get_input_notes(InputNoteFilter::Consumed)
+                .unwrap()
+                .len(),
+            1
+        );
+
+        // verify that the latest block number has been updated
+        assert_eq!(
+            client.get_latest_block_number().unwrap(),
+            client
+                .rpc_api
+                .sync_state_requests
+                .first_key_value()
+                .unwrap()
+                .1
+                .chain_tip
+        );
+    }
+
+    #[tokio::test]
+    async fn test_add_tag() {
+        // generate test store path
+        let store_path = create_test_store_path();
+
+        // generate test client
+        let mut client = Client::new(ClientConfig::new(
+            store_path.into_os_string().into_string().unwrap(),
+            Endpoint::default(),
+        ))
+        .await
+        .unwrap();
+
+        // assert that no tags are being tracked
+        assert_eq!(client.get_note_tags().unwrap().len(), 0);
+
+        // add a tag
+        const TAG_VALUE_1: u64 = 1;
+        const TAG_VALUE_2: u64 = 2;
+        client.add_note_tag(TAG_VALUE_1).unwrap();
+        client.add_note_tag(TAG_VALUE_2).unwrap();
+
+        // verify that the tag is being tracked
+        assert_eq!(
+            client.get_note_tags().unwrap(),
+            vec![TAG_VALUE_1, TAG_VALUE_2]
+        );
     }
 }
