@@ -1,6 +1,6 @@
 use crate::config::ClientConfig;
+use crate::errors::StoreError;
 
-use super::errors::StoreError;
 use clap::error::Result;
 use crypto::hash::rpo::RpoDigest;
 use crypto::{
