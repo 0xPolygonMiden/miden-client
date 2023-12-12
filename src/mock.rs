@@ -31,12 +31,15 @@ impl MockRpcApi {
         request: impl tonic::IntoRequest<SyncStateRequest>,
     ) -> std::result::Result<tonic::Response<SyncStateResponse>, tonic::Status> {
         let request = request.into_request().into_inner();
-        let response = self
-            .sync_state_requests
-            .get(&request)
-            .expect("no response for sync state request")
-            .clone();
-        Ok(tonic::Response::new(response))
+        match self.sync_state_requests.get(&request) {
+            Some(response) => {
+                let response = response.clone();
+                Ok(tonic::Response::new(response))
+            }
+            None => Err(tonic::Status::not_found(
+                "no response for sync state request",
+            )),
+        }
     }
 }
 
