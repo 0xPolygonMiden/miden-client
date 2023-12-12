@@ -1,5 +1,3 @@
-use super::Client;
-use super::FILTER_ID_SHIFT;
 use crypto::dsa::rpo_falcon512::KeyPair;
 use miden_node_proto::{
     account_id::AccountId as ProtoAccountId,
@@ -7,6 +5,8 @@ use miden_node_proto::{
     responses::{NullifierUpdate, SyncStateResponse},
 };
 use objects::{utils::collections::BTreeMap, StarkField};
+
+use crate::client::{Client, FILTER_ID_SHIFT};
 
 /// Mock RPC API
 ///
