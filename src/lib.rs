@@ -375,7 +375,7 @@ mod tests {
         notes::AssetPreservationStatus,
         transaction::mock_inputs,
     };
-    use vm_processor::AdviceInputs;
+    use objects::AdviceInputs;
 
     #[tokio::test]
     async fn test_input_notes_round_trip() {
