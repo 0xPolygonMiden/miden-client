@@ -76,6 +76,23 @@ impl Store {
     // ACCOUNTS
     // --------------------------------------------------------------------------------------------
 
+    /// Returns the account id's of all accounts stored in the database
+    pub fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {
+        const QUERY: &str = "SELECT id FROM accounts";
+
+        self.db
+            .prepare(QUERY)
+            .map_err(StoreError::QueryError)?
+            .query_map([], |row| row.get(0))
+            .expect("no binding parameters used in query")
+            .map(|result| {
+                result
+                    .map_err(StoreError::ColumnParsingError)
+                    .map(|id: u64| AccountId::try_from(id).expect("account id is valid"))
+            })
+            .collect::<Result<Vec<AccountId>, _>>()
+    }
+
     pub fn get_accounts(&self) -> Result<Vec<AccountStub>, StoreError> {
         const QUERY: &str = "SELECT id, nonce, vault_root, storage_root, code_root FROM accounts";
         self.db
@@ -271,11 +288,12 @@ impl Store {
     // --------------------------------------------------------------------------------------------
 
     /// Retrieves the input notes from the database
-    pub fn get_input_notes(&self) -> Result<Vec<RecordedNote>, StoreError> {
-        const QUERY: &str = "SELECT script, inputs, vault, serial_num, sender_id, tag, num_assets, inclusion_proof FROM input_notes";
-
+    pub fn get_input_notes(
+        &self,
+        note_filter: InputNoteFilter,
+    ) -> Result<Vec<RecordedNote>, StoreError> {
         self.db
-            .prepare(QUERY)
+            .prepare(&note_filter.to_query())
             .map_err(StoreError::QueryError)?
             .query_map([], parse_input_note_columns)
             .expect("no binding parameters used in query")
@@ -352,6 +370,108 @@ impl Store {
             .map_err(StoreError::QueryError)
             .map(|_| ())
     }
+
+    /// Returns the nullifiers of all unspent input notes
+    pub fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Digest>, StoreError> {
+        const QUERY: &str = "SELECT nullifier FROM input_notes WHERE status = 'committed'";
+
+        self.db
+            .prepare(QUERY)
+            .map_err(StoreError::QueryError)?
+            .query_map([], |row| row.get(0))
+            .expect("no binding parameters used in query")
+            .map(|result| {
+                result
+                    .map_err(StoreError::ColumnParsingError)
+                    .and_then(|v: String| {
+                        serde_json::from_str(&v).map_err(StoreError::JsonDataDeserializationError)
+                    })
+            })
+            .collect::<Result<Vec<Digest>, _>>()
+    }
+
+    // STATE SYNC
+    // --------------------------------------------------------------------------------------------
+
+    /// Returns the note tags that the client is interested in.
+    pub fn get_note_tags(&self) -> Result<Vec<u64>, StoreError> {
+        const QUERY: &str = "SELECT tags FROM state_sync";
+
+        self.db
+            .prepare(QUERY)
+            .map_err(StoreError::QueryError)?
+            .query_map([], |row| row.get(0))
+            .expect("no binding parameters used in query")
+            .map(|result| {
+                result
+                    .map_err(StoreError::ColumnParsingError)
+                    .and_then(|v: String| {
+                        serde_json::from_str(&v).map_err(StoreError::JsonDataDeserializationError)
+                    })
+            })
+            .next()
+            .expect("state sync tags exist")
+    }
+
+    /// Adds a note tag to the list of tags that the client is interested in.
+    pub fn add_note_tag(&mut self, tag: u64) -> Result<(), StoreError> {
+        let mut tags = self.get_note_tags()?;
+        tags.push(tag);
+        let tags = serde_json::to_string(&tags).map_err(StoreError::InputSerializationError)?;
+
+        const QUERY: &str = "UPDATE state_sync SET tags = ?";
+        self.db
+            .execute(QUERY, params![tags])
+            .map_err(StoreError::QueryError)
+            .map(|_| ())
+    }
+
+    /// Returns the block number of the last state sync block
+    pub fn get_latest_block_number(&self) -> Result<u32, StoreError> {
+        const QUERY: &str = "SELECT block_number FROM state_sync";
+
+        self.db
+            .prepare(QUERY)
+            .map_err(StoreError::QueryError)?
+            .query_map([], |row| row.get(0))
+            .expect("no binding parameters used in query")
+            .map(|result| {
+                result
+                    .map_err(StoreError::ColumnParsingError)
+                    .map(|v: i64| v as u32)
+            })
+            .next()
+            .expect("state sync block number exists")
+    }
+
+    pub fn apply_state_sync(
+        &mut self,
+        block_number: u32,
+        nullifiers: Vec<Digest>,
+    ) -> Result<(), StoreError> {
+        let tx = self
+            .db
+            .transaction()
+            .map_err(StoreError::TransactionError)?;
+
+        // update state sync block number
+        const BLOCK_NUMBER_QUERY: &str = "UPDATE state_sync SET block_number = ?";
+        tx.execute(BLOCK_NUMBER_QUERY, params![block_number])
+            .map_err(StoreError::QueryError)?;
+
+        // update spent notes
+        for nullifier in nullifiers {
+            const SPENT_QUERY: &str =
+                "UPDATE input_notes SET status = 'consumed' WHERE nullifier = ?";
+            let nullifier =
+                serde_json::to_string(&nullifier).map_err(StoreError::InputSerializationError)?;
+            tx.execute(SPENT_QUERY, params![nullifier])
+                .map_err(StoreError::QueryError)?;
+        }
+
+        // commit the transaction
+        tx.commit().map_err(StoreError::QueryError)
+    }
 }
 
 // DATABASE AUTH INFO
@@ -415,6 +535,28 @@ impl From<&ClientConfig> for StoreConfig {
     fn from(config: &ClientConfig) -> Self {
         Self {
             path: config.store_path.clone(),
+        }
+    }
+}
+
+// NOTE FILTER
+// ================================================================================================
+/// Represents a filter for input notes
+pub enum InputNoteFilter {
+    All,
+    Consumed,
+    Committed,
+    Pending,
+}
+
+impl InputNoteFilter {
+    pub fn to_query(&self) -> String {
+        let base = String::from("SELECT script, inputs, vault, serial_num, sender_id, tag, num_assets, inclusion_proof FROM input_notes");
+        match self {
+            InputNoteFilter::All => base,
+            InputNoteFilter::Committed => format!("{base} WHERE status = 'committed'"),
+            InputNoteFilter::Consumed => format!("{base} WHERE status = 'consumed'"),
+            InputNoteFilter::Pending => format!("{base} WHERE status = 'pending'"),
         }
     }
 }
