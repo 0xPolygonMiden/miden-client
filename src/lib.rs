@@ -375,7 +375,7 @@ mod tests {
         notes::AssetPreservationStatus,
         transaction::mock_inputs,
     };
-    use objects::AdviceInputs;
+    use objects::{accounts::AccountId, AdviceInputs};
 
     #[tokio::test]
     async fn test_input_notes_round_trip() {
@@ -462,6 +462,42 @@ mod tests {
 
         assert!(client.insert_account(&account, &key_pair).is_ok());
         assert!(client.insert_account(&account, &key_pair).is_err());
+    }
+
+    #[tokio::test]
+    async fn test_account_id_retrieval() {
+        // generate test store path
+        let store_path = create_test_store_path();
+
+        // generate test client
+        let mut client = super::Client::new(super::ClientConfig::new(
+            store_path.into_os_string().into_string().unwrap(),
+            super::Endpoint::default(),
+        ))
+        .await
+        .unwrap();
+
+        let assembler = assembler();
+        let mut auxiliary_data = AdviceInputs::default();
+        let account = account::mock_new_account(&assembler, &mut auxiliary_data);
+
+        let key_pair: KeyPair = KeyPair::new()
+            .map_err(|err| format!("Error generating KeyPair: {}", err))
+            .unwrap();
+
+        client.insert_account(&account, &key_pair).unwrap();
+
+        // Retrieving an existing account should succeed
+        let actual = match client.get_account_by_id(account.id()) {
+            Ok(account) => account,
+            Err(err) => panic!("Error retrieving account: {}", err),
+        };
+        assert_eq!(account.id(), actual.id());
+
+        // Retrieving a non existing account should fail
+        let hex = format!("0x{}", "1".repeat(16));
+        let invalid_id = AccountId::from_hex(&hex).unwrap();
+        assert!(client.get_account_by_id(invalid_id).is_err());
     }
 
     #[tokio::test]
