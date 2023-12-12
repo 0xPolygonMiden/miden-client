@@ -50,7 +50,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
     };
 
     // generate test data
-    let (account, _, _, recorded_notes) = mock_inputs(
+    let (account, _, _, recorded_notes, _) = mock_inputs(
         MockAccountType::StandardExisting,
         AssetPreservationStatus::Preserved,
     );
@@ -100,7 +100,7 @@ pub fn insert_mock_data(client: &mut Client) {
     };
 
     // generate test data
-    let (account, _, _, recorded_notes) = mock_inputs(
+    let (account, _, _, recorded_notes, _) = mock_inputs(
         MockAccountType::StandardExisting,
         AssetPreservationStatus::Preserved,
     );
