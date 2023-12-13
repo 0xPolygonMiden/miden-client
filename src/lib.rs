@@ -14,7 +14,7 @@ mod tests {
     use crate::{
         client::Client,
         config::{ClientConfig, Endpoint},
-        store::{tests::create_test_store_path, InputNoteFilter},
+        store::{notes::InputNoteFilter, tests::create_test_store_path},
     };
 
     use crypto::dsa::rpo_falcon512::KeyPair;

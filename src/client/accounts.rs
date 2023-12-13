@@ -10,7 +10,7 @@ use objects::{
     Digest,
 };
 
-use crate::{errors::ClientError, store::AuthInfo};
+use crate::{errors::ClientError, store::accounts::AuthInfo};
 
 impl Client {
     // ACCOUNT INSERTION

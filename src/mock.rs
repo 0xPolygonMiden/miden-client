@@ -6,7 +6,7 @@ use miden_node_proto::{
 };
 use objects::{utils::collections::BTreeMap, StarkField};
 
-use crate::client::{Client, FILTER_ID_SHIFT};
+use crate::client::{sync_state::FILTER_ID_SHIFT, Client};
 
 /// Mock RPC API
 ///
