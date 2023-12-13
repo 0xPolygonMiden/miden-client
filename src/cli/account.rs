@@ -5,7 +5,7 @@ use crypto::{
     utils::{bytes_to_hex_string, Serializable},
     Felt,
 };
-use miden_client::Client;
+use miden_client::client::Client;
 use miden_lib::{faucets, AuthScheme};
 use objects::{
     accounts::{AccountId, AccountType},

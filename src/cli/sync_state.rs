@@ -1,5 +1,5 @@
-use crate::Client;
 use clap::Parser;
+use miden_client::client::Client;
 
 // TAGS COMMAND
 // ================================================================================================
