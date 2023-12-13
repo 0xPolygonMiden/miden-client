@@ -4,9 +4,10 @@ use miden_node_proto::{
     requests::SyncStateRequest,
     responses::{NullifierUpdate, SyncStateResponse},
 };
+
 use objects::{utils::collections::BTreeMap, StarkField};
 
-use crate::client::{Client, FILTER_ID_SHIFT};
+use crate::{Client, FILTER_ID_SHIFT};
 
 /// Mock RPC API
 ///
@@ -114,5 +115,7 @@ pub fn insert_mock_data(client: &mut Client) {
     let key_pair: KeyPair = KeyPair::new()
         .map_err(|err| format!("Error generating KeyPair: {}", err))
         .unwrap();
-    client.insert_account(&account, &key_pair).unwrap();
+    client
+        .insert_account(&account, &crate::AuthInfo::RpoFalcon512(key_pair))
+        .unwrap();
 }

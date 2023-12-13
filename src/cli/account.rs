@@ -5,7 +5,7 @@ use crypto::{
     utils::{bytes_to_hex_string, Serializable},
     Felt,
 };
-use miden_client::client::Client;
+use miden_client::{AuthInfo, Client};
 use miden_lib::{faucets, AuthScheme};
 use objects::{
     accounts::{AccountId, AccountType},
@@ -188,7 +188,7 @@ fn new_account(
     .map_err(|err| err.to_string())?;
 
     client
-        .insert_account(&account, &key_pair)
+        .insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))
         .map_err(|err| err.to_string())?;
 
     Ok(())

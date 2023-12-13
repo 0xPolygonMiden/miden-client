@@ -1,6 +1,6 @@
-use crate::config::ClientConfig;
-use crate::errors::StoreError;
+use crate::TransactionStub;
 
+use super::{errors::StoreError, AccountStub, ClientConfig};
 use clap::error::Result;
 use crypto::hash::rpo::RpoDigest;
 use crypto::{
@@ -8,8 +8,9 @@ use crypto::{
     utils::{collections::BTreeMap, Deserializable, Serializable},
     Word,
 };
-use objects::accounts::AccountStub;
+use objects::assembly::ProgramAst;
 use objects::notes::NoteScript;
+use objects::transaction::{ProvenTransaction, TransactionScript};
 use objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, AccountVault},
     assembly::{AstSerdeOptions, ModuleAst},
@@ -37,6 +38,21 @@ type SerializedInputNoteData = (
     String,
     String,
     String,
+    i64,
+);
+
+type SerializedTransactionData = (
+    String,
+    i64,
+    String,
+    String,
+    String,
+    String,
+    Option<Vec<u8>>,
+    Option<Vec<u8>>,
+    Option<String>,
+    String,
+    bool,
     i64,
 );
 
@@ -213,7 +229,7 @@ impl Store {
     pub fn insert_account(
         &mut self,
         account: &Account,
-        key_pair: &KeyPair,
+        auth_info: &AuthInfo,
     ) -> Result<(), StoreError> {
         let tx = self
             .db
@@ -224,7 +240,7 @@ impl Store {
         Self::insert_account_storage(&tx, account.storage())?;
         Self::insert_account_vault(&tx, account.vault())?;
         Self::insert_account_record(&tx, account)?;
-        Self::insert_account_auth(&tx, account.id(), key_pair)?;
+        Self::insert_account_auth(&tx, account.id(), auth_info)?;
 
         tx.commit().map_err(StoreError::TransactionError)
     }
@@ -278,9 +294,9 @@ impl Store {
     pub fn insert_account_auth(
         tx: &Transaction<'_>,
         account_id: AccountId,
-        key_pair: &KeyPair,
+        auth_info: &AuthInfo,
     ) -> Result<(), StoreError> {
-        let (account_id, auth_info) = serialize_account_auth(account_id, key_pair)?;
+        let (account_id, auth_info) = serialize_account_auth(account_id, auth_info)?;
         const QUERY: &str = "INSERT INTO account_auth (account_id, auth_info) VALUES (?, ?)";
         tx.execute(QUERY, params![account_id, auth_info])
             .map(|_| ())
@@ -475,6 +491,66 @@ impl Store {
         // commit the transaction
         tx.commit().map_err(StoreError::QueryError)
     }
+
+    // TODO: Make a separate table for transaction scripts and only save the root
+    pub fn insert_transaction(
+        &self,
+        transaction: &ProvenTransaction,
+        tx_script: Option<TransactionScript>,
+    ) -> Result<(), StoreError> {
+        let (
+            transaction_id,
+            account_id,
+            init_account_state,
+            final_account_state,
+            input_notes,
+            output_notes,
+            script_program,
+            script_hash,
+            script_inputs,
+            block_ref,
+            committed,
+            commit_height,
+        ) = serialize_transaction(transaction, tx_script)?;
+
+        self.db.execute(
+                "INSERT INTO transactions (id, account_id, init_account_state, final_account_state, \
+                input_notes, output_notes, script_hash, script_program, script_inputs, block_ref, committed, commit_height) \
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                params![
+                    transaction_id,
+                    { account_id },
+                    init_account_state,
+                    final_account_state,
+                    input_notes,
+                    output_notes,
+                    script_program,
+                    script_hash,
+                    script_inputs,
+                    block_ref,
+                    committed,
+                    commit_height,
+                ],
+            ).map(|_| ())
+            .map_err(StoreError::QueryError)
+    }
+
+    /// Retrieves all executed transactions from the database
+    pub fn get_transactions(&self) -> Result<Vec<TransactionStub>, StoreError> {
+        self
+            .db
+            .prepare("SELECT id, account_id, init_account_state, final_account_state, \
+            input_notes, output_notes, script_hash, script_program, script_inputs, block_num, committed, commit_height FROM transactions")
+            .map_err(StoreError::QueryError)?
+            .query_map([], parse_transaction_columns)
+            .expect("no binding parameters used in query")
+            .map(|result| {
+                result
+                    .map_err(StoreError::ColumnParsingError)
+                    .and_then(parse_transaction)
+            })
+            .collect::<Result<Vec<TransactionStub>, _>>()
+    }
 }
 
 // DATABASE AUTH INFO
@@ -640,10 +716,10 @@ fn parse_account_auth(
 /// Serialized the provided account_auth into database compatible types.
 fn serialize_account_auth(
     account_id: AccountId,
-    key_pair: &KeyPair,
+    auth_info: &AuthInfo,
 ) -> Result<SerializedAccountAuthData, StoreError> {
     let account_id: u64 = account_id.into();
-    let auth_info = AuthInfo::RpoFalcon512(*key_pair).to_bytes();
+    let auth_info = auth_info.to_bytes();
     Ok((account_id as i64, auth_info))
 }
 
@@ -832,6 +908,149 @@ fn serialize_input_note(
         status,
         commit_height,
     ))
+}
+
+pub fn serialize_transaction(
+    transaction: &ProvenTransaction,
+    tx_script: Option<TransactionScript>,
+) -> Result<SerializedTransactionData, StoreError> {
+    let account_id: u64 = transaction.account_id().into();
+    let init_account_state = &transaction.initial_account_hash().to_string();
+    let final_account_state = &transaction.final_account_hash().to_string();
+
+    // TODO: Double check if saving nullifiers as input notes is enough
+    let nullifiers: Vec<Digest> = transaction
+        .consumed_notes()
+        .iter()
+        .map(|x| x.nullifier())
+        .collect();
+
+    let input_notes =
+        serde_json::to_string(&nullifiers).map_err(StoreError::InputSerializationError)?;
+
+    let output_notes = serde_json::to_string(&transaction.created_notes().to_vec())
+        .map_err(StoreError::InputSerializationError)?;
+
+    // TODO: Scripts should be in their own tables and only identifiers should be stored here
+    let mut script_program = None;
+    let mut script_hash = None;
+    let mut script_inputs = None;
+
+    if let Some(tx_script) = tx_script {
+        script_program = Some(tx_script.code().to_bytes(AstSerdeOptions {
+            serialize_imports: true,
+        }));
+        script_hash = Some(tx_script.hash().to_bytes());
+        script_inputs = Some(
+            serde_json::to_string(&tx_script.inputs())
+                .map_err(StoreError::InputSerializationError)?,
+        );
+    }
+
+    let block_ref = transaction.block_ref().to_string();
+
+    Ok((
+        "transaction_id".to_string(),
+        account_id as i64,
+        init_account_state.to_owned(),
+        final_account_state.to_owned(),
+        input_notes,
+        output_notes,
+        script_program,
+        script_hash,
+        script_inputs,
+        block_ref,
+        false,
+        0_i64,
+    ))
+}
+
+fn parse_transaction_columns(
+    row: &rusqlite::Row<'_>,
+) -> Result<SerializedTransactionData, rusqlite::Error> {
+    let id: String = row.get(0)?;
+    let account_id: i64 = row.get(1)?;
+    let init_account_state: String = row.get(2)?;
+    let final_account_state: String = row.get(3)?;
+    let input_notes: String = row.get(4)?;
+    let output_notes: String = row.get(5)?;
+    let script_hash: Option<Vec<u8>> = row.get(6)?;
+    let script_program: Option<Vec<u8>> = row.get(7)?;
+    let script_inputs: Option<String> = row.get(8)?;
+    let block_ref: String = row.get(9)?;
+    let committed: bool = row.get(10)?;
+    let commit_height: i64 = row.get(11)?;
+
+    Ok((
+        id,
+        account_id,
+        init_account_state,
+        final_account_state,
+        input_notes,
+        output_notes,
+        script_hash,
+        script_program,
+        script_inputs,
+        block_ref,
+        committed,
+        commit_height,
+    ))
+}
+
+/// Parse a transaction from the provided parts.
+fn parse_transaction(
+    serialized_transaction: SerializedTransactionData,
+) -> Result<TransactionStub, StoreError> {
+    let (
+        id,
+        account_id,
+        init_account_state,
+        final_account_state,
+        input_notes,
+        output_notes,
+        script_hash,
+        script_program,
+        script_inputs,
+        block_ref,
+        committed,
+        commit_height,
+    ) = serialized_transaction;
+    let init_account_state: Digest = serde_json::from_str(&init_account_state)
+        .map_err(StoreError::JsonDataDeserializationError)?;
+    let final_account_state: Digest = serde_json::from_str(&final_account_state)
+        .map_err(StoreError::JsonDataDeserializationError)?;
+    let input_notes: Vec<RecordedNote> =
+        serde_json::from_str(&input_notes).map_err(StoreError::JsonDataDeserializationError)?;
+    let output_notes: Vec<Note> =
+        serde_json::from_str(&output_notes).map_err(StoreError::JsonDataDeserializationError)?;
+    let script_hash = script_hash
+        .map(|hash| Digest::read_from_bytes(&hash))
+        .transpose()
+        .map_err(StoreError::DataDeserializationError)?;
+    let script_program = script_program
+        .map(|program| ProgramAst::from_bytes(&program))
+        .transpose()
+        .map_err(StoreError::DataDeserializationError)?;
+    let script_inputs = script_inputs
+        .map(|hash| serde_json::from_str::<BTreeMap<Digest, Vec<Felt>>>(&hash))
+        .transpose()
+        .map_err(StoreError::JsonDataDeserializationError)?;
+    let block_ref: Digest = block_ref.try_into().map_err(StoreError::HexParseError)?;
+
+    Ok(TransactionStub {
+        id,
+        account_id: account_id as u64,
+        init_account_state,
+        final_account_state,
+        input_notes,
+        output_notes,
+        script_hash,
+        script_program,
+        script_inputs,
+        block_ref,
+        committed,
+        commit_height: commit_height as u64,
+    })
 }
 
 // TESTS

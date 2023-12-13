@@ -1,5 +1,5 @@
 use core::fmt;
-use crypto::utils::DeserializationError;
+use crypto::utils::{DeserializationError, HexParseError};
 use objects::{accounts::AccountId, AccountError, Digest};
 use tonic::{transport::Error as TransportError, Status as TonicStatus};
 
@@ -42,6 +42,7 @@ pub enum StoreError {
     QueryError(rusqlite::Error),
     InputSerializationError(serde_json::Error),
     JsonDataDeserializationError(serde_json::Error),
+    HexParseError(HexParseError),
     DataDeserializationError(DeserializationError),
     AccountDataNotFound(AccountId),
     AccountStorageNotFound(Digest),
@@ -65,6 +66,9 @@ impl fmt::Display for StoreError {
             }
             InputSerializationError(err) => {
                 write!(f, "error trying to serialize inputs for the store: {err}")
+            }
+            HexParseError(err) => {
+                write!(f, "error parsing hex: {err}")
             }
             JsonDataDeserializationError(err) => {
                 write!(
