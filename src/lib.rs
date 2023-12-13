@@ -375,7 +375,10 @@ mod tests {
         notes::AssetPreservationStatus,
         transaction::mock_inputs,
     };
-    use objects::{accounts::AccountId, AdviceInputs};
+    use objects::{
+        accounts::{AccountId, AccountStub},
+        AdviceInputs,
+    };
 
     #[tokio::test]
     async fn test_input_notes_round_trip() {
@@ -465,7 +468,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_account_id_retrieval() {
+    async fn test_get_account_by_id() {
         // generate test store path
         let store_path = create_test_store_path();
 
@@ -488,11 +491,11 @@ mod tests {
         client.insert_account(&account, &key_pair).unwrap();
 
         // Retrieving an existing account should succeed
-        let actual = match client.get_account_by_id(account.id()) {
+        let acc_from_db = match client.get_account_by_id(account.id()) {
             Ok(account) => account,
             Err(err) => panic!("Error retrieving account: {}", err),
         };
-        assert_eq!(account.id(), actual.id());
+        assert_eq!(AccountStub::from(account), acc_from_db);
 
         // Retrieving a non existing account should fail
         let hex = format!("0x{}", "1".repeat(16));
