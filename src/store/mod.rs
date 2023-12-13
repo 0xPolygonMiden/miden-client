@@ -419,6 +419,9 @@ impl Store {
     /// Adds a note tag to the list of tags that the client is interested in.
     pub fn add_note_tag(&mut self, tag: u64) -> Result<(), StoreError> {
         let mut tags = self.get_note_tags()?;
+        if tags.contains(&tag) {
+            return Err(StoreError::NoteTagAlreadyTracked(tag));
+        }
         tags.push(tag);
         let tags = serde_json::to_string(&tags).map_err(StoreError::InputSerializationError)?;
 
