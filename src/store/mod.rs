@@ -8,14 +8,14 @@ use crypto::{
     utils::{collections::BTreeMap, Deserializable, Serializable},
     Word,
 };
-use objects::accounts::AccountStub;
-use objects::notes::NoteScript;
+
+use objects::ChainMmr;
 use objects::{
-    accounts::{Account, AccountCode, AccountId, AccountStorage, AccountVault},
+    accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub, AccountVault},
     assembly::{AstSerdeOptions, ModuleAst},
     assets::Asset,
-    notes::{Note, NoteMetadata, RecordedNote},
-    Digest, Felt,
+    notes::{Note, NoteMetadata, NoteScript, RecordedNote},
+    BlockHeader, Digest, Felt,
 };
 use rusqlite::{params, Connection, Transaction};
 
@@ -56,6 +56,12 @@ type SerializedAccountCodeParts = (String, String, String);
 
 type SerializedAccountStorageData = (String, String);
 type SerializedAccountStorageParts = (String, String);
+
+type SerializedBlockHeaderData = (i64, String, String, String, String);
+type SerializedBlockHeaderParts = (i64, String, String, String, String);
+
+type SerializedChainMmrNodeData = String;
+type SerializedChainMmrNodeParts = (i64, String);
 
 // CLIENT STORE
 // ================================================================================================
@@ -475,6 +481,69 @@ impl Store {
         // commit the transaction
         tx.commit().map_err(StoreError::QueryError)
     }
+
+    // CHAIN DATA
+    // --------------------------------------------------------------------------------------------
+    pub fn insert_block_header(&mut self, block_header: BlockHeader) -> Result<(), StoreError> {
+        let (block_num, header, notes_root, sub_hash, chain_mmr) =
+            serialize_block_header(block_header)?;
+
+        const QUERY: &str = "\
+        INSERT INTO block_headers
+            (block_num, header, notes_root, sub_hash, chain_mmr)
+         VALUES (?, ?, ?, ?, ?)";
+
+        self.db
+            .execute(
+                QUERY,
+                params![block_num, header, notes_root, sub_hash, chain_mmr],
+            )
+            .map_err(StoreError::QueryError)
+            .map(|_| ())
+    }
+
+    pub fn get_block_header_by_num(&self, block_number: u32) -> Result<BlockHeader, StoreError> {
+        const QUERY: &str = "SELECT block_num, header, notes_root, sub_hash, chain_mmr FROM block_headers WHERE block_num = ?";
+        self.db
+            .prepare(QUERY)
+            .map_err(StoreError::QueryError)?
+            .query_map(params![block_number as i64], parse_block_headers_columns)
+            .map_err(StoreError::QueryError)?
+            .map(|result| {
+                result
+                    .map_err(StoreError::ColumnParsingError)
+                    .and_then(parse_block_header)
+            })
+            .next()
+            .ok_or(StoreError::BlockHeaderNotFound(block_number))?
+    }
+
+    pub fn insert_chain_mmr_node(&mut self, chain_mmr: ChainMmr) -> Result<(), StoreError> {
+        let node = serialize_chain_mmr(chain_mmr)?;
+
+        const QUERY: &str = "INSERT INTO chain_mmr_nodes (node) VALUES (?)";
+
+        self.db
+            .execute(QUERY, params![node])
+            .map_err(StoreError::QueryError)
+            .map(|_| ())
+    }
+
+    pub fn get_chain_mmr_hash_by_id(&self, id: u64) -> Result<ChainMmr, StoreError> {
+        const QUERY: &str = "SELECT id, node FROM chain_mmr_nodes WHERE id = ?";
+        self.db
+            .prepare(QUERY)
+            .map_err(StoreError::QueryError)?
+            .query_map(params![id as i64], parse_chain_mmr_nodes_columns)
+            .map_err(StoreError::QueryError)?
+            .map(|result| {
+                result
+                    .map_err(StoreError::ColumnParsingError)
+                    .and_then(parse_chain_mmr_nodes)
+            })
+            .next()
+            .ok_or(StoreError::ChainMmrNodeNotFound(id))?
+    }
 }
 
 // DATABASE AUTH INFO
@@ -834,6 +903,61 @@ fn serialize_input_note(
     ))
 }
 
+fn serialize_block_header(
+    block_header: BlockHeader,
+) -> Result<SerializedBlockHeaderData, StoreError> {
+    let block_num = block_header.block_num().inner() as i64;
+    let header =
+        serde_json::to_string(&block_header).map_err(StoreError::InputSerializationError)?;
+    let notes_root = serde_json::to_string(&block_header.note_root())
+        .map_err(StoreError::InputSerializationError)?;
+    let sub_hash = serde_json::to_string(&block_header.sub_hash())
+        .map_err(StoreError::InputSerializationError)?;
+    let chain_mmr = serde_json::to_string(&block_header.chain_root())
+        .map_err(StoreError::InputSerializationError)?;
+
+    Ok((block_num, header, notes_root, sub_hash, chain_mmr))
+}
+
+fn parse_block_headers_columns(
+    row: &rusqlite::Row<'_>,
+) -> Result<SerializedBlockHeaderParts, rusqlite::Error> {
+    let block_num: i64 = row.get(0)?;
+    let header: String = row.get(1)?;
+    let notes_root: String = row.get(2)?;
+    let sub_hash: String = row.get(3)?;
+    let chain_mmr: String = row.get(4)?;
+    Ok((block_num, header, notes_root, sub_hash, chain_mmr))
+}
+
+fn parse_block_header(
+    serialized_block_header_parts: SerializedBlockHeaderParts,
+) -> Result<BlockHeader, StoreError> {
+    let (_, header, _, _, _) = serialized_block_header_parts;
+
+    serde_json::from_str(&header).map_err(StoreError::JsonDataDeserializationError)
+}
+
+fn serialize_chain_mmr(chain_mmr: ChainMmr) -> Result<SerializedChainMmrNodeData, StoreError> {
+    serde_json::to_string(&chain_mmr).map_err(StoreError::InputSerializationError)
+}
+
+fn parse_chain_mmr_nodes_columns(
+    row: &rusqlite::Row<'_>,
+) -> Result<SerializedChainMmrNodeParts, rusqlite::Error> {
+    let id = row.get(0)?;
+    let node = row.get(1)?;
+    Ok((id, node))
+}
+
+fn parse_chain_mmr_nodes(
+    serialized_chain_mmr_node_parts: SerializedChainMmrNodeParts,
+) -> Result<ChainMmr, StoreError> {
+    let (_, node) = serialized_chain_mmr_node_parts;
+
+    serde_json::from_str(&node).map_err(StoreError::JsonDataDeserializationError)
+}
+
 // TESTS
 // ================================================================================================
 
@@ -843,12 +967,13 @@ pub mod tests {
         dsa::rpo_falcon512::KeyPair,
         utils::{Deserializable, Serializable},
     };
+    use objects::ChainMmr;
     use std::env::temp_dir;
     use uuid::Uuid;
 
     use super::AuthInfo;
     use miden_lib::assembler::assembler;
-    use mock::mock::account;
+    use mock::mock::{account, block};
     use rusqlite::Connection;
 
     use crate::store;
@@ -907,5 +1032,52 @@ pub mod tests {
             .query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0))
             .unwrap();
         assert_eq!(actual, 1);
+    }
+
+    #[test]
+    fn test_block_header_insertion() {
+        let mut store = create_test_store();
+        let block_header = block::mock_block_header(0u8.into(), None, None, &[]);
+
+        assert!(store.insert_block_header(block_header).is_ok());
+    }
+
+    #[test]
+    fn test_block_header_by_number() {
+        let mut store = create_test_store();
+        let block_header = block::mock_block_header(0u8.into(), None, None, &[]);
+        store.insert_block_header(block_header).unwrap();
+
+        // Retrieving an existing block header should succeed
+        match store.get_block_header_by_num(0) {
+            Ok(block_header_from_db) => assert_eq!(block_header_from_db, block_header),
+            Err(e) => {
+                panic!("{:?}", e);
+            }
+        }
+
+        // Retrieving a non existing block header should fail
+        assert!(store.get_block_header_by_num(1).is_err());
+    }
+
+    #[test]
+    fn test_chain_mmr_node_insertion() {
+        let mut store = create_test_store();
+        let chain_mmr = ChainMmr::default();
+
+        assert!(store.insert_chain_mmr_node(chain_mmr).is_ok());
+    }
+
+    #[test]
+    fn test_chain_mmr_node_by_id() {
+        let mut store = create_test_store();
+        let chain_mmr = ChainMmr::default();
+        store.insert_chain_mmr_node(chain_mmr).unwrap();
+
+        // Retrieving an existing chain mmr node should succeed
+        assert!(store.get_chain_mmr_hash_by_id(1).is_ok());
+
+        // Retrieving a non existing chain mmr node should fail
+        assert!(store.get_chain_mmr_hash_by_id(2).is_err());
     }
 }
