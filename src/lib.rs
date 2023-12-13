@@ -122,9 +122,9 @@ mod tests {
         let store_path = create_test_store_path();
 
         // generate test client
-        let mut client = super::Client::new(super::ClientConfig::new(
+        let mut client = Client::new(ClientConfig::new(
             store_path.into_os_string().into_string().unwrap(),
-            super::Endpoint::default(),
+            Endpoint::default(),
         ))
         .await
         .unwrap();
