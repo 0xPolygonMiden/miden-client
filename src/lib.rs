@@ -4,15 +4,16 @@ use miden_node_proto::{
     account_id::AccountId as ProtoAccountId, requests::SyncStateRequest,
     responses::SyncStateResponse,
 };
-use objects::transaction::TransactionScript;
 use objects::{
     accounts::{Account, AccountId, AccountStub},
     assembly::ModuleAst,
     assets::Asset,
     notes::{Note, RecordedNote},
+    transaction::TransactionScript,
     utils::collections::BTreeMap,
     Digest, Word,
 };
+
 use std::path::PathBuf;
 
 mod store;
@@ -29,9 +30,6 @@ use errors::ClientError;
 
 /// The number of bits to shift identifiers for in use of filters.
 pub const FILTER_ID_SHIFT: u8 = 48;
-
-// EXECUTED TRANSACTIONS
-// ================================================================================================
 
 pub struct TransactionStub {
     pub id: Digest,
