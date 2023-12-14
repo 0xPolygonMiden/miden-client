@@ -18,6 +18,7 @@ use crate::{
 use crate::mock::MockRpcApi;
 
 pub mod accounts;
+pub mod chain_state;
 pub mod notes;
 
 // CONSTANTS
@@ -113,8 +114,16 @@ impl Client {
             })
             .collect::<Vec<_>>();
 
+        let new_block_headers: Vec<objects::BlockHeader> = match response.block_header {
+            Some(block_header) => {
+                let block_header = objects::BlockHeader::try_from(block_header).unwrap();
+                vec![block_header]
+            }
+            None => vec![],
+        };
+
         self.store
-            .apply_state_sync(new_block_num, new_nullifiers)
+            .apply_state_sync(new_block_num, new_nullifiers, new_block_headers)
             .map_err(ClientError::StoreError)?;
 
         Ok(new_block_num)

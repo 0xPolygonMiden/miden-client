@@ -138,6 +138,9 @@ mod tests {
             0
         );
 
+        // assert that we don't have any block headers prior to syncing state
+        assert_eq!(client.get_block_headers(10, 10).unwrap().len(), 0);
+
         // sync state
         let block_num = client.sync_state().await.unwrap();
 
@@ -173,6 +176,9 @@ mod tests {
                 .1
                 .chain_tip
         );
+
+        // verify that the database now holds the latest block header
+        assert_eq!(client.get_block_headers(10, 10).unwrap().len(), 1);
     }
 
     #[tokio::test]

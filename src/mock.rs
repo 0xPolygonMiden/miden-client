@@ -1,9 +1,11 @@
 use crypto::dsa::rpo_falcon512::KeyPair;
+use miden_node_proto::block_header::BlockHeader as NodeBlockHeader;
 use miden_node_proto::{
     account_id::AccountId as ProtoAccountId,
     requests::SyncStateRequest,
     responses::{NullifierUpdate, SyncStateResponse},
 };
+use mock::mock::block;
 use objects::{utils::collections::BTreeMap, StarkField};
 
 use crate::client::{Client, FILTER_ID_SHIFT};
@@ -75,12 +77,18 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
         nullifiers,
     };
 
+    let chain_tip = 10;
+
+    // create a block header for the response
+    let block_header: objects::BlockHeader =
+        block::mock_block_header(chain_tip.into(), None, None, &[]);
+
     // create a state sync response
     let response = SyncStateResponse {
-        chain_tip: 10,
+        chain_tip,
         mmr_delta: None,
         block_path: None,
-        block_header: None,
+        block_header: Some(NodeBlockHeader::from(block_header)),
         accounts: vec![],
         notes: vec![],
         nullifiers: vec![NullifierUpdate {

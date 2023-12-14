@@ -457,6 +457,7 @@ impl Store {
         &mut self,
         block_number: u32,
         nullifiers: Vec<Digest>,
+        block_headers: Vec<BlockHeader>,
     ) -> Result<(), StoreError> {
         let tx = self
             .db
@@ -478,8 +479,14 @@ impl Store {
                 .map_err(StoreError::QueryError)?;
         }
 
-        // commit the transaction
-        tx.commit().map_err(StoreError::QueryError)
+        // commit the updates
+        tx.commit().map_err(StoreError::QueryError)?;
+
+        // insert new block headers
+        for block_header in block_headers {
+            self.insert_block_header(block_header)?;
+        }
+        Ok(())
     }
 
     // CHAIN DATA
@@ -493,6 +500,7 @@ impl Store {
             (block_num, header, notes_root, sub_hash, chain_mmr)
          VALUES (?, ?, ?, ?, ?)";
 
+        println!("inserting block header {}", block_num);
         self.db
             .execute(
                 QUERY,
@@ -504,6 +512,7 @@ impl Store {
 
     pub fn get_block_header_by_num(&self, block_number: u32) -> Result<BlockHeader, StoreError> {
         const QUERY: &str = "SELECT block_num, header, notes_root, sub_hash, chain_mmr FROM block_headers WHERE block_num = ?";
+        println!("getting block header {}", block_number as u64 as i64);
         self.db
             .prepare(QUERY)
             .map_err(StoreError::QueryError)?
@@ -906,7 +915,7 @@ fn serialize_input_note(
 fn serialize_block_header(
     block_header: BlockHeader,
 ) -> Result<SerializedBlockHeaderData, StoreError> {
-    let block_num = block_header.block_num().inner() as i64;
+    let block_num: u64 = block_header.block_num().into();
     let header =
         serde_json::to_string(&block_header).map_err(StoreError::InputSerializationError)?;
     let notes_root = serde_json::to_string(&block_header.note_root())
@@ -916,7 +925,7 @@ fn serialize_block_header(
     let chain_mmr = serde_json::to_string(&block_header.chain_root())
         .map_err(StoreError::InputSerializationError)?;
 
-    Ok((block_num, header, notes_root, sub_hash, chain_mmr))
+    Ok((block_num as i64, header, notes_root, sub_hash, chain_mmr))
 }
 
 fn parse_block_headers_columns(
