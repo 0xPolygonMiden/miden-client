@@ -11,9 +11,8 @@ impl Client {
     ) -> Result<Vec<BlockHeader>, ClientError> {
         let mut headers = Vec::new();
         for block_number in start..=finish {
-            match self.store.get_block_header_by_num(block_number) {
-                Ok(block_header) => headers.push(block_header),
-                Err(_) => {} // ignore missing block headers
+            if let Ok(block_header) = self.store.get_block_header_by_num(block_number) {
+                headers.push(block_header)
             }
         }
 
