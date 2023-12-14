@@ -2,7 +2,7 @@ use crypto::{
     utils::{collections::BTreeMap, Deserializable, Serializable},
     Felt,
 };
-use miden_lib::assembler::assembler;
+
 use objects::{
     accounts::AccountId,
     assembly::{AstSerdeOptions, ProgramAst},
@@ -215,7 +215,7 @@ fn parse_transaction(
         serde_json::from_str(&output_notes).map_err(StoreError::JsonDataDeserializationError)?;
 
     let transaction_script: Option<TransactionScript> = if script_hash.is_some() {
-        let _script_hash = script_hash
+        let script_hash = script_hash
             .map(|hash| Digest::read_from_bytes(&hash))
             .transpose()
             .map_err(StoreError::DataDeserializationError)?
@@ -233,10 +233,10 @@ fn parse_transaction(
             .map_err(StoreError::JsonDataDeserializationError)?
             .expect("Script inputs should be included in the row");
 
-        let (tx_script, _) = TransactionScript::new(
+        let tx_script = TransactionScript::from_parts(
             script_program,
+            script_hash,
             script_inputs.into_iter().map(|(k, v)| (k.into(), v)),
-            &mut assembler(),
         )
         .map_err(StoreError::TransactionScriptError)?;
         Some(tx_script)
