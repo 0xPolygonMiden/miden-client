@@ -50,6 +50,8 @@ pub enum StoreError {
     InputNoteNotFound(Digest),
     MigrationError(rusqlite_migration::Error),
     TransactionError(rusqlite::Error),
+    BlockHeaderNotFound(u32),
+    ChainMmrNodeNotFound(u64),
 }
 
 impl fmt::Display for StoreError {
@@ -85,6 +87,12 @@ impl fmt::Display for StoreError {
             VaultDataNotFound(root) => write!(f, "account vault data for root {} not found", root),
             AccountCodeDataNotFound(root) => {
                 write!(f, "account code data with root {} not found", root)
+            }
+            BlockHeaderNotFound(block_number) => {
+                write!(f, "block header for block {} not found", block_number)
+            }
+            ChainMmrNodeNotFound(node_index) => {
+                write!(f, "chain mmr node at index {} not found", node_index)
             }
         }
     }
