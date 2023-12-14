@@ -5,6 +5,7 @@ use super::Store;
 use clap::error::Result;
 use crypto::utils::{Deserializable, Serializable};
 use objects::notes::NoteScript;
+use objects::BlockHeader;
 use objects::{
     accounts::AccountId,
     notes::{Note, NoteMetadata, RecordedNote},
@@ -220,6 +221,7 @@ impl Store {
         &mut self,
         block_number: u32,
         nullifiers: Vec<Digest>,
+        block_headers: Vec<BlockHeader>,
     ) -> Result<(), StoreError> {
         let tx = self
             .db
@@ -241,8 +243,14 @@ impl Store {
                 .map_err(StoreError::QueryError)?;
         }
 
-        // commit the transaction
-        tx.commit().map_err(StoreError::QueryError)
+        // commit the updates
+        tx.commit().map_err(StoreError::QueryError)?;
+
+        // insert new block headers
+        for block_header in block_headers {
+            self.insert_block_header(block_header)?;
+        }
+        Ok(())
     }
 }
 
