@@ -1,4 +1,6 @@
-use super::{errors::StoreError, AccountStub, ClientConfig};
+use crate::config::ClientConfig;
+
+use super::errors::StoreError;
 use clap::error::Result;
 use crypto::hash::rpo::RpoDigest;
 use crypto::{
@@ -6,6 +8,7 @@ use crypto::{
     utils::{collections::BTreeMap, Deserializable, Serializable},
     Word,
 };
+use objects::accounts::AccountStub;
 use objects::notes::NoteScript;
 use objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, AccountVault},

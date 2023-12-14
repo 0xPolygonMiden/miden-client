@@ -1,4 +1,3 @@
-use crate::{errors::StoreError, Store, TransactionStub};
 use crypto::{
     utils::{collections::BTreeMap, Deserializable, Serializable},
     Felt,
@@ -7,11 +6,15 @@ use miden_lib::assembler::assembler;
 use objects::{
     accounts::AccountId,
     assembly::{AstSerdeOptions, ProgramAst},
-    notes::{Note, RecordedNote},
+    notes::Note,
     transaction::{ProvenTransaction, TransactionScript},
     Digest,
 };
 use rusqlite::params;
+
+use crate::{client::transactions::TransactionStub, errors::StoreError};
+
+use super::Store;
 
 // TRANSACTIONS
 // ================================================================================================
@@ -132,7 +135,7 @@ pub fn serialize_transaction(
     let block_num = 0u32;
 
     Ok((
-        "transaction_id".to_string(),
+        transaction.final_account_hash().to_string(),
         account_id as i64,
         init_account_state.to_owned(),
         final_account_state.to_owned(),
@@ -199,11 +202,14 @@ fn parse_transaction(
     ) = serialized_transaction;
     let account_id = AccountId::try_from(account_id as u64).map_err(StoreError::AccountError)?;
     let id: Digest = id.try_into().map_err(StoreError::HexParseError)?;
-    let init_account_state: Digest = serde_json::from_str(&init_account_state)
-        .map_err(StoreError::JsonDataDeserializationError)?;
-    let final_account_state: Digest = serde_json::from_str(&final_account_state)
-        .map_err(StoreError::JsonDataDeserializationError)?;
-    let input_notes: Vec<RecordedNote> =
+    let init_account_state: Digest = init_account_state
+        .try_into()
+        .map_err(StoreError::HexParseError)?;
+
+    let final_account_state: Digest = final_account_state
+        .try_into()
+        .map_err(StoreError::HexParseError)?;
+    let input_note_nullifiers: Vec<Digest> =
         serde_json::from_str(&input_notes).map_err(StoreError::JsonDataDeserializationError)?;
     let output_notes: Vec<Note> =
         serde_json::from_str(&output_notes).map_err(StoreError::JsonDataDeserializationError)?;
@@ -214,11 +220,13 @@ fn parse_transaction(
             .transpose()
             .map_err(StoreError::DataDeserializationError)?
             .expect("Script hash should be included in the row");
+
         let script_program = script_program
             .map(|program| ProgramAst::from_bytes(&program))
             .transpose()
             .map_err(StoreError::DataDeserializationError)?
             .expect("Script program should be included in the row");
+
         let script_inputs = script_inputs
             .map(|hash| serde_json::from_str::<BTreeMap<Digest, Vec<Felt>>>(&hash))
             .transpose()
@@ -244,7 +252,7 @@ fn parse_transaction(
         account_id,
         init_account_state,
         final_account_state,
-        input_notes,
+        input_note_nullifiers,
         output_notes,
         transaction_script,
         block_num,

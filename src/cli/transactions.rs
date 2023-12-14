@@ -3,7 +3,7 @@ use comfy_table::Attribute;
 use comfy_table::Cell;
 use comfy_table::ContentArrangement;
 use comfy_table::Table;
-use miden_client::TransactionStub;
+use miden_client::client::transactions::TransactionStub;
 
 use super::Client;
 use super::Parser;

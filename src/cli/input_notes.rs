@@ -1,7 +1,7 @@
 use super::{Client, Parser};
 
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
-use miden_client::InputNoteFilter;
+use miden_client::store::InputNoteFilter;
 use objects::notes::RecordedNote;
 use objects::Digest;
 

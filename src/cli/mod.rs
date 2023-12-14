@@ -1,5 +1,5 @@
 use clap::Parser;
-use miden_client::{Client, ClientConfig};
+use miden_client::{client::Client, config::ClientConfig};
 
 mod account;
 mod input_notes;
