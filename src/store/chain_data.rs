@@ -25,7 +25,6 @@ impl Store {
             (block_num, header, notes_root, sub_hash, chain_mmr)
          VALUES (?, ?, ?, ?, ?)";
 
-        println!("inserting block header {}", block_num);
         self.db
             .execute(
                 QUERY,
@@ -37,7 +36,6 @@ impl Store {
 
     pub fn get_block_header_by_num(&self, block_number: u32) -> Result<BlockHeader, StoreError> {
         const QUERY: &str = "SELECT block_num, header, notes_root, sub_hash, chain_mmr FROM block_headers WHERE block_num = ?";
-        println!("getting block header {}", block_number as u64 as i64);
         self.db
             .prepare(QUERY)
             .map_err(StoreError::QueryError)?
