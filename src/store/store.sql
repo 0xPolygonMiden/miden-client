@@ -43,6 +43,7 @@ CREATE TABLE accounts (
 );
 
 -- Create transactions table
+-- TODO: Script-related information is to be moved to its own table referenced by the script_hash
 CREATE TABLE transactions (
     id BLOB NOT NULL,                                -- Transaction ID (hash of various components)
     account_id UNSIGNED BIG INT NOT NULL,            -- ID of the account against which the transaction was executed.

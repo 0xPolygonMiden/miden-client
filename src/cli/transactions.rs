@@ -11,12 +11,6 @@ use super::Parser;
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "View transactions")]
 pub enum Transaction {
-    /// Execute a transaction, prove and submit it to the node
-    #[clap(short_flag = 'n')]
-    New {
-        #[clap(subcommand)]
-        transaction_type: TransactionType,
-    },
     /// List transactions
     #[clap(short_flag = 'l')]
     List {
@@ -26,24 +20,12 @@ pub enum Transaction {
     },
 }
 
-#[derive(Clone, Debug, Parser)]
-#[clap()]
-pub enum TransactionType {
-    P2ID {
-        sender_account_id: String,
-        target_account_id: String,
-        faucet_id: String,
-    },
-    P2ID2,
-}
-
 impl Transaction {
     pub fn execute(&self, client: Client) -> Result<(), String> {
         match self {
             Transaction::List { pending } => {
                 list_transactions(client, *pending)?;
             }
-            Transaction::New { .. } => todo!(),
         }
         Ok(())
     }
@@ -76,18 +58,17 @@ where
             Cell::new("script hash").add_attribute(Attribute::Bold),
             Cell::new("committed").add_attribute(Attribute::Bold),
             Cell::new("block number").add_attribute(Attribute::Bold),
-            Cell::new("script inputs").add_attribute(Attribute::Bold),
         ]);
 
     for tx in executed_transactions {
         table.add_row(vec![
             tx.account_id.to_string(),
-            tx.script_hash
-                .map(|hash| hash.to_string())
-                .unwrap_or("-".into()),
+            tx.transaction_script
+                .as_ref()
+                .map(|x| x.hash().to_string())
+                .unwrap_or("-".to_string()),
             tx.committed.to_string(),
-            tx.block_ref.to_string(),
-            serde_json::to_string(&tx.script_inputs).unwrap_or("-".into()),
+            tx.block_num.to_string(),
         ]);
     }
 

@@ -8,6 +8,7 @@ use crypto::{
     utils::{collections::BTreeMap, Deserializable, Serializable},
     Word,
 };
+use miden_lib::assembler::assembler;
 use objects::assembly::ProgramAst;
 use objects::notes::NoteScript;
 use objects::transaction::{ProvenTransaction, TransactionScript};
@@ -51,7 +52,7 @@ type SerializedTransactionData = (
     Option<Vec<u8>>,
     Option<Vec<u8>>,
     Option<String>,
-    String,
+    u32,
     bool,
     i64,
 );
@@ -947,7 +948,7 @@ pub fn serialize_transaction(
         );
     }
 
-    let block_ref = transaction.block_ref().to_string();
+    let block_num = 0u32;
 
     Ok((
         "transaction_id".to_string(),
@@ -959,7 +960,7 @@ pub fn serialize_transaction(
         script_program,
         script_hash,
         script_inputs,
-        block_ref,
+        block_num,
         false,
         0_i64,
     ))
@@ -977,7 +978,7 @@ fn parse_transaction_columns(
     let script_hash: Option<Vec<u8>> = row.get(6)?;
     let script_program: Option<Vec<u8>> = row.get(7)?;
     let script_inputs: Option<String> = row.get(8)?;
-    let block_ref: String = row.get(9)?;
+    let block_num: u32 = row.get(9)?;
     let committed: bool = row.get(10)?;
     let commit_height: i64 = row.get(11)?;
 
@@ -991,7 +992,7 @@ fn parse_transaction_columns(
         script_hash,
         script_program,
         script_inputs,
-        block_ref,
+        block_num,
         committed,
         commit_height,
     ))
@@ -1011,10 +1012,12 @@ fn parse_transaction(
         script_hash,
         script_program,
         script_inputs,
-        block_ref,
+        _block_num,
         committed,
         commit_height,
     ) = serialized_transaction;
+    let account_id = AccountId::try_from(account_id as u64).map_err(StoreError::AccountError)?;
+    let id: Digest = id.try_into().map_err(StoreError::HexParseError)?;
     let init_account_state: Digest = serde_json::from_str(&init_account_state)
         .map_err(StoreError::JsonDataDeserializationError)?;
     let final_account_state: Digest = serde_json::from_str(&final_account_state)
@@ -1023,31 +1026,47 @@ fn parse_transaction(
         serde_json::from_str(&input_notes).map_err(StoreError::JsonDataDeserializationError)?;
     let output_notes: Vec<Note> =
         serde_json::from_str(&output_notes).map_err(StoreError::JsonDataDeserializationError)?;
-    let script_hash = script_hash
-        .map(|hash| Digest::read_from_bytes(&hash))
-        .transpose()
-        .map_err(StoreError::DataDeserializationError)?;
-    let script_program = script_program
-        .map(|program| ProgramAst::from_bytes(&program))
-        .transpose()
-        .map_err(StoreError::DataDeserializationError)?;
-    let script_inputs = script_inputs
-        .map(|hash| serde_json::from_str::<BTreeMap<Digest, Vec<Felt>>>(&hash))
-        .transpose()
-        .map_err(StoreError::JsonDataDeserializationError)?;
-    let block_ref: Digest = block_ref.try_into().map_err(StoreError::HexParseError)?;
+
+    let transaction_script: Option<TransactionScript> = if script_hash.is_some() {
+        let _script_hash = script_hash
+            .map(|hash| Digest::read_from_bytes(&hash))
+            .transpose()
+            .map_err(StoreError::DataDeserializationError)?
+            .expect("Script hash should be included in the row");
+        let script_program = script_program
+            .map(|program| ProgramAst::from_bytes(&program))
+            .transpose()
+            .map_err(StoreError::DataDeserializationError)?
+            .expect("Script program should be included in the row");
+        let script_inputs = script_inputs
+            .map(|hash| serde_json::from_str::<BTreeMap<Digest, Vec<Felt>>>(&hash))
+            .transpose()
+            .map_err(StoreError::JsonDataDeserializationError)?
+            .expect("Script inputs should be included in the row");
+
+        let (tx_script, _) = TransactionScript::new(
+            script_program,
+            script_inputs.into_iter().map(|(k, v)| (k.into(), v)),
+            &mut assembler(),
+        )
+        .map_err(StoreError::TransactionScriptError)?;
+        Some(tx_script)
+    } else {
+        None
+    };
+
+    // TODO: Change this
+    let block_num: u32 = 0u32;
 
     Ok(TransactionStub {
         id,
-        account_id: account_id as u64,
+        account_id,
         init_account_state,
         final_account_state,
         input_notes,
         output_notes,
-        script_hash,
-        script_program,
-        script_inputs,
-        block_ref,
+        transaction_script,
+        block_num,
         committed,
         commit_height: commit_height as u64,
     })

@@ -1,13 +1,13 @@
 use core::fmt;
-use crypto::{Felt, StarkField};
+use crypto::StarkField;
 use miden_node_proto::{
     account_id::AccountId as ProtoAccountId, requests::SyncStateRequest,
     responses::SyncStateResponse,
 };
-use objects::transaction::{ProvenTransaction, TransactionScript};
+use objects::transaction::TransactionScript;
 use objects::{
     accounts::{Account, AccountId, AccountStub},
-    assembly::{ModuleAst, ProgramAst},
+    assembly::ModuleAst,
     assets::Asset,
     notes::{Note, RecordedNote},
     utils::collections::BTreeMap,
@@ -34,16 +34,14 @@ pub const FILTER_ID_SHIFT: u8 = 48;
 // ================================================================================================
 
 pub struct TransactionStub {
-    pub id: String,
-    pub account_id: u64,
+    pub id: Digest,
+    pub account_id: AccountId,
     pub init_account_state: Digest,
     pub final_account_state: Digest,
     pub input_notes: Vec<RecordedNote>,
     pub output_notes: Vec<Note>,
-    pub script_hash: Option<Digest>,
-    pub script_program: Option<ProgramAst>,
-    pub script_inputs: Option<BTreeMap<Digest, Vec<Felt>>>,
-    pub block_ref: Digest,
+    pub transaction_script: Option<TransactionScript>,
+    pub block_num: u32,
     pub committed: bool,
     pub commit_height: u64,
 }
@@ -51,16 +49,14 @@ pub struct TransactionStub {
 impl TransactionStub {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        id: String,
-        account_id: u64,
+        id: Digest,
+        account_id: AccountId,
         init_account_state: Digest,
         final_account_state: Digest,
         input_notes: Vec<RecordedNote>,
         output_notes: Vec<Note>,
-        script_hash: Option<Digest>,
-        script_program: Option<ProgramAst>,
-        script_inputs: Option<BTreeMap<Digest, Vec<Felt>>>,
-        block_ref: Digest,
+        transaction_script: Option<TransactionScript>,
+        block_num: u32,
         committed: bool,
         commit_height: u64,
     ) -> TransactionStub {
@@ -71,10 +67,8 @@ impl TransactionStub {
             final_account_state,
             input_notes,
             output_notes,
-            script_hash,
-            script_program,
-            script_inputs,
-            block_ref,
+            transaction_script,
+            block_num,
             committed,
             commit_height,
         }
@@ -230,20 +224,6 @@ impl Client {
     pub fn insert_input_note(&mut self, note: RecordedNote) -> Result<(), ClientError> {
         self.store
             .insert_input_note(&note)
-            .map_err(|err| err.into())
-    }
-
-    // TRANSACTION CREATION
-    // --------------------------------------------------------------------------------------------
-
-    /// Inserts a new transaction into the client's store.
-    fn _new_transaction(
-        &mut self,
-        transaction: &ProvenTransaction,
-        transaction_script: Option<TransactionScript>,
-    ) -> Result<(), ClientError> {
-        self.store
-            .insert_transaction(transaction, transaction_script)
             .map_err(|err| err.into())
     }
 
