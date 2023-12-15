@@ -1,11 +1,11 @@
-use crypto::dsa::rpo_falcon512::KeyPair;
+use crypto::{dsa::rpo_falcon512::KeyPair, StarkField};
 use miden_node_proto::{
     account_id::AccountId as ProtoAccountId,
     requests::SyncStateRequest,
     responses::{NullifierUpdate, SyncStateResponse},
 };
 
-use objects::{utils::collections::BTreeMap, StarkField};
+use objects::utils::collections::BTreeMap;
 
 use crate::{
     client::{Client, FILTER_ID_SHIFT},
@@ -65,7 +65,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
 
     let nullifiers = recorded_notes
         .iter()
-        .map(|note| (note.note().nullifier()[3].as_int() >> FILTER_ID_SHIFT) as u32)
+        .map(|note| (note.note().nullifier().as_elements()[3].as_int() >> FILTER_ID_SHIFT) as u32)
         .collect();
 
     // create sync state requests
@@ -88,7 +88,15 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
         accounts: vec![],
         notes: vec![],
         nullifiers: vec![NullifierUpdate {
-            nullifier: Some(recorded_notes.first().unwrap().note().nullifier().into()),
+            nullifier: Some(
+                recorded_notes
+                    .first()
+                    .unwrap()
+                    .note()
+                    .nullifier()
+                    .inner()
+                    .into(),
+            ),
             block_num: 7,
         }],
     };
