@@ -19,6 +19,7 @@ use crate::mock::MockRpcApi;
 
 pub mod accounts;
 pub mod notes;
+pub mod transactions;
 
 // CONSTANTS
 // ================================================================================================

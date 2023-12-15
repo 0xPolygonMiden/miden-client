@@ -1,6 +1,6 @@
 use crate::config::ClientConfig;
-use crate::errors::StoreError;
 
+use super::errors::StoreError;
 use clap::error::Result;
 use crypto::hash::rpo::RpoDigest;
 use crypto::{
@@ -20,6 +20,7 @@ use objects::{
 use rusqlite::{params, Connection, Transaction};
 
 mod migrations;
+pub mod transactions;
 
 // TYPES
 // ================================================================================================
@@ -91,7 +92,7 @@ impl Store {
             .map(|result| {
                 result
                     .map_err(StoreError::ColumnParsingError)
-                    .map(|id: u64| AccountId::try_from(id).expect("account id is valid"))
+                    .map(|id: i64| AccountId::try_from(id as u64).expect("account id is valid"))
             })
             .collect::<Result<Vec<AccountId>, _>>()
     }
@@ -213,7 +214,7 @@ impl Store {
     pub fn insert_account(
         &mut self,
         account: &Account,
-        key_pair: &KeyPair,
+        auth_info: &AuthInfo,
     ) -> Result<(), StoreError> {
         let tx = self
             .db
@@ -224,7 +225,7 @@ impl Store {
         Self::insert_account_storage(&tx, account.storage())?;
         Self::insert_account_vault(&tx, account.vault())?;
         Self::insert_account_record(&tx, account)?;
-        Self::insert_account_auth(&tx, account.id(), key_pair)?;
+        Self::insert_account_auth(&tx, account.id(), auth_info)?;
 
         tx.commit().map_err(StoreError::TransactionError)
     }
@@ -278,9 +279,9 @@ impl Store {
     pub fn insert_account_auth(
         tx: &Transaction<'_>,
         account_id: AccountId,
-        key_pair: &KeyPair,
+        auth_info: &AuthInfo,
     ) -> Result<(), StoreError> {
-        let (account_id, auth_info) = serialize_account_auth(account_id, key_pair)?;
+        let (account_id, auth_info) = serialize_account_auth(account_id, auth_info)?;
         const QUERY: &str = "INSERT INTO account_auth (account_id, auth_info) VALUES (?, ?)";
         tx.execute(QUERY, params![account_id, auth_info])
             .map(|_| ())
@@ -640,10 +641,10 @@ fn parse_account_auth(
 /// Serialized the provided account_auth into database compatible types.
 fn serialize_account_auth(
     account_id: AccountId,
-    key_pair: &KeyPair,
+    auth_info: &AuthInfo,
 ) -> Result<SerializedAccountAuthData, StoreError> {
     let account_id: u64 = account_id.into();
-    let auth_info = AuthInfo::RpoFalcon512(*key_pair).to_bytes();
+    let auth_info = auth_info.to_bytes();
     Ok((account_id as i64, auth_info))
 }
 
