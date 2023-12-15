@@ -415,7 +415,8 @@ impl Store {
             .expect("state sync tags exist")
     }
 
-    /// Adds a note tag to the list of tags that the client is interested in.
+    /// Adds a note tag to the list of tags that the client is interested in. This function returns
+    /// `Ok(false)` if the tag had been added before, and `Ok(true)` if it was added succesfully.
     pub fn add_note_tag(&mut self, tag: u64) -> Result<bool, StoreError> {
         let mut tags = self.get_note_tags()?;
         if tags.contains(&tag) {
