@@ -57,6 +57,7 @@ pub enum StoreError {
     InputNoteNotFound(Digest),
     MigrationError(rusqlite_migration::Error),
     TransactionError(rusqlite::Error),
+    NoteTagAlreadyTracked(u64),
     TransactionScriptError(TransactionScriptError),
 }
 
@@ -101,6 +102,7 @@ impl fmt::Display for StoreError {
             AccountCodeDataNotFound(root) => {
                 write!(f, "account code data with root {} not found", root)
             }
+            NoteTagAlreadyTracked(tag) => write!(f, "note tag {} is already being tracked", tag),
         }
     }
 }

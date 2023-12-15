@@ -247,5 +247,14 @@ mod tests {
             client.get_note_tags().unwrap(),
             vec![TAG_VALUE_1, TAG_VALUE_2]
         );
+
+        // attempt to add the same tag again
+        client.add_note_tag(TAG_VALUE_1).unwrap();
+
+        // verify that the tag is still being tracked only once
+        assert_eq!(
+            client.get_note_tags().unwrap(),
+            vec![TAG_VALUE_1, TAG_VALUE_2]
+        );
     }
 }

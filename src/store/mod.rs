@@ -415,9 +415,13 @@ impl Store {
             .expect("state sync tags exist")
     }
 
-    /// Adds a note tag to the list of tags that the client is interested in.
-    pub fn add_note_tag(&mut self, tag: u64) -> Result<(), StoreError> {
+    /// Adds a note tag to the list of tags that the client is interested in. This function returns
+    /// `Ok(false)` if the tag had been added before, and `Ok(true)` if it was added succesfully.
+    pub fn add_note_tag(&mut self, tag: u64) -> Result<bool, StoreError> {
         let mut tags = self.get_note_tags()?;
+        if tags.contains(&tag) {
+            return Ok(false);
+        }
         tags.push(tag);
         let tags = serde_json::to_string(&tags).map_err(StoreError::InputSerializationError)?;
 
@@ -425,7 +429,9 @@ impl Store {
         self.db
             .execute(QUERY, params![tags])
             .map_err(StoreError::QueryError)
-            .map(|_| ())
+            .map(|_| ())?;
+
+        Ok(true)
     }
 
     /// Returns the block number of the last state sync block
