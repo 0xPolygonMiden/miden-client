@@ -156,9 +156,7 @@ impl Store {
             .map(|result| {
                 result
                     .map_err(StoreError::ColumnParsingError)
-                    .and_then(|v: String| {
-                        serde_json::from_str(&v).map_err(StoreError::JsonDataDeserializationError)
-                    })
+                    .and_then(|v: String| Digest::try_from(v).map_err(StoreError::HexParseError))
             })
             .collect::<Result<Vec<Digest>, _>>()
     }
@@ -237,8 +235,7 @@ impl Store {
         for nullifier in nullifiers {
             const SPENT_QUERY: &str =
                 "UPDATE input_notes SET status = 'consumed' WHERE nullifier = ?";
-            let nullifier =
-                serde_json::to_string(&nullifier).map_err(StoreError::InputSerializationError)?;
+            let nullifier = nullifier.to_string();
             tx.execute(SPENT_QUERY, params![nullifier])
                 .map_err(StoreError::QueryError)?;
         }

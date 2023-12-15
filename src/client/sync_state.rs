@@ -43,7 +43,7 @@ impl Client {
         let block_num = self.store.get_latest_block_number()?;
         let account_ids = self.store.get_account_ids()?;
         let note_tags = self.store.get_note_tags()?;
-        let nullifiers = self.store.get_unspent_input_note_nullifiers()?;
+        let nullifiers = self.store.get_unspent_input_note_nullifiers()?; // breaks
 
         let response = self
             .sync_state_request(block_num, &account_ids, &note_tags, &nullifiers)
