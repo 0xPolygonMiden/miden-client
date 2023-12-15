@@ -2,7 +2,7 @@ use super::Client;
 
 use std::collections::BTreeMap;
 
-use crypto::{dsa::rpo_falcon512::KeyPair, Word};
+use crypto::Word;
 use objects::{
     accounts::{Account, AccountId, AccountStub},
     assembly::ModuleAst,
@@ -20,10 +20,10 @@ impl Client {
     pub fn insert_account(
         &mut self,
         account: &Account,
-        key_pair: &KeyPair,
+        auth_info: &AuthInfo,
     ) -> Result<(), ClientError> {
         self.store
-            .insert_account(account, key_pair)
+            .insert_account(account, auth_info)
             .map_err(ClientError::StoreError)
     }
 

@@ -4,6 +4,7 @@ use miden_client::{client::Client, config::ClientConfig};
 mod account;
 mod input_notes;
 mod sync_state;
+mod transactions;
 
 /// Root CLI struct
 #[derive(Parser, Debug)]
@@ -27,6 +28,8 @@ pub enum Command {
     InputNotes(input_notes::InputNotes),
     #[clap(subcommand)]
     SyncState(sync_state::SyncStateCmd),
+    #[clap(subcommand)]
+    Transaction(transactions::Transaction),
     #[cfg(feature = "testing")]
     /// Insert mock data into the client
     MockData,
@@ -45,6 +48,7 @@ impl Cli {
             Command::Account(account) => account.execute(client),
             Command::InputNotes(notes) => notes.execute(client),
             Command::SyncState(tags) => tags.execute(client).await,
+            Command::Transaction(transaction) => transaction.execute(client),
             #[cfg(feature = "testing")]
             Command::MockData => {
                 let mut client = client;

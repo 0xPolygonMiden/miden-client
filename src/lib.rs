@@ -14,7 +14,7 @@ mod tests {
     use crate::{
         client::Client,
         config::{ClientConfig, Endpoint},
-        store::{tests::create_test_store_path, InputNoteFilter},
+        store::{tests::create_test_store_path, AuthInfo, InputNoteFilter},
     };
 
     use crypto::dsa::rpo_falcon512::KeyPair;
@@ -24,7 +24,10 @@ mod tests {
         notes::AssetPreservationStatus,
         transaction::mock_inputs,
     };
-    use objects::AdviceInputs;
+    use objects::{
+        accounts::{AccountId, AccountStub},
+        AdviceInputs,
+    };
 
     #[tokio::test]
     async fn test_input_notes_round_trip() {
@@ -109,8 +112,49 @@ mod tests {
             .map_err(|err| format!("Error generating KeyPair: {}", err))
             .unwrap();
 
-        assert!(client.insert_account(&account, &key_pair).is_ok());
-        assert!(client.insert_account(&account, &key_pair).is_err());
+        assert!(client
+            .insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))
+            .is_ok());
+        assert!(client
+            .insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))
+            .is_err());
+    }
+
+    #[tokio::test]
+    async fn test_get_account_by_id() {
+        // generate test store path
+        let store_path = create_test_store_path();
+
+        // generate test client
+        let mut client = Client::new(ClientConfig::new(
+            store_path.into_os_string().into_string().unwrap(),
+            Endpoint::default(),
+        ))
+        .await
+        .unwrap();
+
+        let assembler = assembler();
+        let mut auxiliary_data = AdviceInputs::default();
+        let account = account::mock_new_account(&assembler, &mut auxiliary_data);
+
+        let key_pair: KeyPair = KeyPair::new()
+            .map_err(|err| format!("Error generating KeyPair: {}", err))
+            .unwrap();
+        let auth_info = AuthInfo::RpoFalcon512(key_pair.clone());
+
+        client.insert_account(&account, &auth_info).unwrap();
+
+        // Retrieving an existing account should succeed
+        let acc_from_db = match client.get_account_by_id(account.id()) {
+            Ok(account) => account,
+            Err(err) => panic!("Error retrieving account: {}", err),
+        };
+        assert_eq!(AccountStub::from(account), acc_from_db);
+
+        // Retrieving a non existing account should fail
+        let hex = format!("0x{}", "1".repeat(16));
+        let invalid_id = AccountId::from_hex(&hex).unwrap();
+        assert!(client.get_account_by_id(invalid_id).is_err());
     }
 
     #[tokio::test]
