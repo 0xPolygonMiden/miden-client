@@ -129,89 +129,95 @@ impl Client {
                 asset: fungible_asset,
                 sender_account_id,
                 target_account_id,
-            }) => {
-                // Create assets
-                let (target_pub_key, target_sk_pk_felt) =
-                    store::mock_executor_data_store::get_new_key_pair_with_advice_map();
-                let target_account =
-                    store::mock_executor_data_store::get_account_with_default_account_code(
-                        target_account_id,
-                        target_pub_key,
-                        None,
-                    );
-
-                // Create the note
-                let p2id_script = Script::P2ID {
-                    target: target_account_id,
-                };
-
-                let mut rng = rand::thread_rng();
-                let serial_numbers: [u64; 4] = rng.gen();
-
-                let note = create_note(
-                    p2id_script,
-                    vec![fungible_asset],
-                    sender_account_id,
-                    Some(target_account_id.into()),
-                    serial_numbers.map(|number| number.into()),
-                )
-                .map_err(ClientError::NoteError)?;
-
-                // TODO: Remove this as DataStore is implemented on the Client's Store
-                let data_store: MockDataStore = MockDataStore::with_existing(
-                    Some(target_account.clone()),
-                    Some(vec![note.clone()]),
-                    None,
-                );
-
-                self.set_data_store(data_store.clone());
-                self.tx_executor
-                    .load_account(target_account_id)
-                    .map_err(ClientError::TransactionExecutorError)?;
-
-                let block_ref = data_store.block_header.block_num().as_int() as u32;
-                let note_origins = data_store
-                    .notes
-                    .iter()
-                    .map(|note| note.origin().clone())
-                    .collect::<Vec<_>>();
-
-                let tx_script_code = ProgramAst::parse(
-                    "
-                    use.miden::auth::basic->auth_tx
-
-                    begin
-                        call.auth_tx::auth_tx_rpo_falcon512
-                    end
-                    ",
-                )
-                .expect("program is correctly written");
-
-                let tx_script_target = self
-                    .tx_executor
-                    .compile_tx_script(
-                        tx_script_code.clone(),
-                        vec![(target_pub_key, target_sk_pk_felt)],
-                        vec![],
-                    )
-                    .map_err(ClientError::TransactionExecutorError)?;
-
-                // Execute the transaction and get the witness
-                let transaction_result = self
-                    .tx_executor
-                    .execute_transaction(
-                        target_account_id,
-                        block_ref,
-                        &note_origins,
-                        Some(tx_script_target.clone()),
-                    )
-                    .map_err(ClientError::TransactionExecutorError)?;
-
-                Ok((transaction_result, tx_script_target))
-            }
+            }) => self.new_p2id_transaction(fungible_asset, sender_account_id, target_account_id),
             TransactionTemplate::PayToIdWithRecall(_payment_data, _recall_height) => todo!(),
             TransactionTemplate::ConsumeNotes(_) => todo!(),
         }
+    }
+
+    fn new_p2id_transaction(
+        &mut self,
+        fungible_asset: Asset,
+        sender_account_id: AccountId,
+        target_account_id: AccountId,
+    ) -> Result<(TransactionResult, TransactionScript), ClientError> {
+        // Create assets
+        let (target_pub_key, target_sk_pk_felt) =
+            store::mock_executor_data_store::get_new_key_pair_with_advice_map();
+        let target_account = store::mock_executor_data_store::get_account_with_default_account_code(
+            target_account_id,
+            target_pub_key,
+            None,
+        );
+
+        // Create the note
+        let p2id_script = Script::P2ID {
+            target: target_account_id,
+        };
+
+        let mut rng = rand::thread_rng();
+        let serial_numbers: [u64; 4] = rng.gen();
+
+        let note = create_note(
+            p2id_script,
+            vec![fungible_asset],
+            sender_account_id,
+            Some(target_account_id.into()),
+            serial_numbers.map(|number| number.into()),
+        )
+        .map_err(ClientError::NoteError)?;
+
+        // TODO: Remove this as DataStore is implemented on the Client's Store
+        let data_store: MockDataStore = MockDataStore::with_existing(
+            Some(target_account.clone()),
+            Some(vec![note.clone()]),
+            None,
+        );
+
+        self.set_data_store(data_store.clone());
+        self.tx_executor
+            .load_account(target_account_id)
+            .map_err(ClientError::TransactionExecutorError)?;
+
+        let block_ref = data_store.block_header.block_num().as_int() as u32;
+        let note_origins = data_store
+            .notes
+            .iter()
+            .map(|note| note.origin().clone())
+            .collect::<Vec<_>>();
+
+        let tx_script_code = ProgramAst::parse(
+            "
+            use.miden::auth::basic->auth_tx
+
+            begin
+                call.auth_tx::auth_tx_rpo_falcon512
+            end
+            ",
+        )
+        .expect("program is correctly written");
+
+        let tx_script_target = self
+            .tx_executor
+            .compile_tx_script(
+                tx_script_code.clone(),
+                vec![(target_pub_key, target_sk_pk_felt)],
+                vec![],
+            )
+            .map_err(ClientError::TransactionExecutorError)?;
+
+        // Execute the transaction and get the witness
+        let transaction_result = self
+            .tx_executor
+            .execute_transaction(
+                target_account_id,
+                block_ref,
+                &note_origins,
+                Some(tx_script_target.clone()),
+            )
+            .map_err(ClientError::TransactionExecutorError)?;
+
+        Ok((transaction_result, tx_script_target))
     }
 
     /// Proves the specified transaction witness, submits it to the node, and stores the transaction in

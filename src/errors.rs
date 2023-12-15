@@ -60,9 +60,9 @@ pub enum StoreError {
     InputSerializationError(serde_json::Error),
     JsonDataDeserializationError(serde_json::Error),
     MigrationError(rusqlite_migration::Error),
+    NoteTagAlreadyTracked(u64),
     QueryError(rusqlite::Error),
     TransactionError(rusqlite::Error),
-    NoteTagAlreadyTracked(u64),
     TransactionScriptError(TransactionScriptError),
     VaultDataNotFound(Digest),
 }
@@ -102,16 +102,13 @@ impl fmt::Display for StoreError {
                 )
             }
             MigrationError(err) => write!(f, "failed to update the database: {err}"),
+            NoteTagAlreadyTracked(tag) => write!(f, "note tag {} is already being tracked", tag),
             QueryError(err) => write!(f, "failed to retrieve data from the database: {err}"),
             TransactionError(err) => write!(f, "failed to instantiate a new transaction: {err}"),
             TransactionScriptError(err) => {
                 write!(f, "error instantiating transaction script: {err}")
             }
             VaultDataNotFound(root) => write!(f, "account vault data for root {} not found", root),
-            AccountCodeDataNotFound(root) => {
-                write!(f, "account code data with root {} not found", root)
-            }
-            NoteTagAlreadyTracked(tag) => write!(f, "note tag {} is already being tracked", tag),
         }
     }
 }
