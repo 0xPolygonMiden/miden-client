@@ -15,7 +15,6 @@ mod tests {
         client::Client,
         config::{ClientConfig, Endpoint},
         store::{tests::create_test_store_path, AuthInfo, InputNoteFilter},
-        store::{tests::create_test_store_path, AuthInfo, InputNoteFilter},
     };
 
     use crypto::dsa::rpo_falcon512::KeyPair;
