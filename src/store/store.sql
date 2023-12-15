@@ -57,7 +57,7 @@ CREATE TABLE transactions (
     block_num UNSIGNED BIG INT,                      -- Block number for the block against which the transaction was executed.
     committed BOOLEAN NOT NULL,                      -- Status of the transaction: either pending (false) or committed (true).
     commit_height UNSIGNED BIG INT,                  -- Block number of the block at which the transaction was included in the chain.
-
+    
     FOREIGN KEY (account_id) REFERENCES accounts(id),
     PRIMARY KEY (id)
 );

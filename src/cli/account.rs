@@ -1,12 +1,18 @@
+use super::Client;
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use crypto::{
     dsa::rpo_falcon512::KeyPair,
     utils::{bytes_to_hex_string, Serializable},
+    Felt,
 };
-use miden_client::client::{accounts, Client};
-
-use objects::{accounts::AccountId, assets::TokenSymbol};
+use miden_client::store::AuthInfo;
+use miden_lib::{faucets, AuthScheme};
+use objects::{
+    accounts::{AccountId, AccountType},
+    assets::TokenSymbol,
+};
+use rand::Rng;
 
 // ACCOUNT COMMAND
 // ================================================================================================
@@ -38,7 +44,11 @@ pub enum AccountCmd {
     #[clap(short_flag = 'n')]
     New {
         #[clap(subcommand)]
-        template: AccountTemplate,
+        template: Option<AccountTemplate>,
+
+        /// Executes a transaction that records the account on-chain
+        #[clap(short, long, default_value_t = false)]
+        deploy: bool,
     },
 }
 
@@ -61,40 +71,15 @@ pub enum AccountTemplate {
     /// Creates a faucet for non-fungible tokens
     NonFungibleFaucet,
 }
+
 impl AccountCmd {
-    pub fn execute(&self, mut client: Client) -> Result<(), String> {
+    pub fn execute(&self, client: Client) -> Result<(), String> {
         match self {
             AccountCmd::List => {
                 list_accounts(client)?;
             }
-            AccountCmd::New { template } => {
-                let client_template = match template {
-                    AccountTemplate::BasicImmutable => accounts::AccountTemplate::BasicWallet {
-                        mutable_code: false,
-                        storage_mode: accounts::AccountStorageMode::Local,
-                    },
-                    AccountTemplate::BasicMutable => accounts::AccountTemplate::BasicWallet {
-                        mutable_code: true,
-                        storage_mode: accounts::AccountStorageMode::Local,
-                    },
-                    AccountTemplate::FungibleFaucet {
-                        token_symbol,
-                        decimals,
-                        max_supply,
-                    } => accounts::AccountTemplate::FungibleFaucet {
-                        token_symbol: TokenSymbol::new(token_symbol)
-                            .map_err(|err| format!("error: token symbol is invalid: {}", err))?,
-                        decimals: *decimals,
-                        max_supply: *max_supply,
-                        storage_mode: accounts::AccountStorageMode::Local,
-                    },
-                    AccountTemplate::NonFungibleFaucet => todo!(),
-                };
-                let new_account = client
-                    .new_account(client_template)
-                    .map_err(|err| err.to_string())?;
-
-                println!("New account created: {}", new_account.id());
+            AccountCmd::New { template, deploy } => {
+                new_account(client, template, *deploy)?;
             }
             AccountCmd::Show { id: None, .. } => {
                 todo!("Default accounts are not supported yet")
@@ -115,6 +100,7 @@ impl AccountCmd {
         Ok(())
     }
 }
+
 // LIST ACCOUNTS
 // ================================================================================================
 
@@ -144,6 +130,69 @@ fn list_accounts(client: Client) -> Result<(), String> {
     });
 
     println!("{table}");
+    Ok(())
+}
+
+// ACCOUNT NEW
+// ================================================================================================
+
+fn new_account(
+    mut client: Client,
+    template: &Option<AccountTemplate>,
+    deploy: bool,
+) -> Result<(), String> {
+    if deploy {
+        todo!("Recording the account on chain is not supported yet");
+    }
+
+    let key_pair: KeyPair =
+        KeyPair::new().map_err(|err| format!("Error generating KeyPair: {}", err))?;
+    let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
+        pub_key: key_pair.public_key(),
+    };
+
+    let mut rng = rand::thread_rng();
+    // we need to use an initial seed to create the wallet account
+    let init_seed: [u8; 32] = rng.gen();
+
+    // TODO: as the client takes form, make errors more structured
+    let (account, _) = match template {
+        None => todo!("Generic account creation is not supported yet"),
+        Some(AccountTemplate::BasicImmutable) => miden_lib::wallets::create_basic_wallet(
+            init_seed,
+            auth_scheme,
+            AccountType::RegularAccountImmutableCode,
+        ),
+        Some(AccountTemplate::FungibleFaucet {
+            token_symbol,
+            decimals,
+            max_supply,
+        }) => {
+            let max_supply = max_supply.to_le_bytes();
+            faucets::create_basic_fungible_faucet(
+                init_seed,
+                TokenSymbol::new(token_symbol)
+                    .expect("Hardcoded test token symbol creation should not panic"),
+                *decimals,
+                Felt::try_from(max_supply.as_slice())
+                    .map_err(|_| "Maximum supply must fit into a field element")?,
+                auth_scheme,
+            )
+        }
+        Some(AccountTemplate::BasicMutable) => miden_lib::wallets::create_basic_wallet(
+            init_seed,
+            auth_scheme,
+            AccountType::RegularAccountUpdatableCode,
+        ),
+        _ => todo!("Template not supported yet"),
+    }
+    .map_err(|err| err.to_string())?;
+
+    let auth_info = AuthInfo::RpoFalcon512(key_pair);
+    client
+        .insert_account(&account, &auth_info)
+        .map_err(|err| err.to_string())?;
+
     Ok(())
 }
 

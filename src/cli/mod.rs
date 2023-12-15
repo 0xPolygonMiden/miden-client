@@ -1,7 +1,7 @@
 use clap::Parser;
 use miden_client::{client::Client, config::ClientConfig};
 
-mod accounts;
+mod account;
 mod input_notes;
 mod sync_state;
 mod transactions;
@@ -23,7 +23,7 @@ pub struct Cli {
 #[derive(Debug, Parser)]
 pub enum Command {
     #[clap(subcommand)]
-    Account(accounts::AccountCmd),
+    Account(account::AccountCmd),
     #[clap(subcommand)]
     InputNotes(input_notes::InputNotes),
     #[clap(subcommand)]
@@ -32,7 +32,10 @@ pub enum Command {
     Transaction(transactions::Transaction),
     #[cfg(feature = "testing")]
     /// Insert mock data into the client
-    MockData,
+    MockData {
+        #[clap(short, long)]
+        transaction: bool,
+    },
 }
 
 /// CLI entry point
@@ -48,11 +51,14 @@ impl Cli {
             Command::Account(account) => account.execute(client),
             Command::InputNotes(notes) => notes.execute(client),
             Command::SyncState(tags) => tags.execute(client).await,
-            Command::Transaction(transaction) => transaction.execute(client),
+            Command::Transaction(transaction) => transaction.execute(client).await,
             #[cfg(feature = "testing")]
-            Command::MockData => {
+            Command::MockData { transaction } => {
                 let mut client = client;
                 miden_client::mock::insert_mock_data(&mut client);
+                if *transaction {
+                    miden_client::mock::create_mock_transaction(&mut client).await;
+                }
                 Ok(())
             }
         }

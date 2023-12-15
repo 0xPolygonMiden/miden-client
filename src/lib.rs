@@ -60,6 +60,26 @@ mod tests {
         assert_eq!(recorded_notes, retrieved_notes);
     }
 
+    // #[tokio::test]
+    // async fn test_submit_proven_tx() {
+    //     let store_path = create_test_store_path();
+
+    //     // generate test client
+    //     let mut client = Client::new(
+    //         ClientConfig::new(
+    //             store_path.into_os_string().into_string().unwrap(),
+    //             Endpoint::default(),
+    //         ),
+    //         TransactionExecutor::new(MockDataStore::default()),
+    //     )
+    //     .await
+    //     .unwrap();
+
+    //     client.new_transaction(crate::TransactionTemplate::PayToId(
+    //         crate::PaymentTransaction { faucet_id: (), sender_account_id: (), target_account_id: (), amount: () }
+    //     ));
+    // }
+
     #[tokio::test]
     async fn test_get_input_note() {
         // generate test store path
@@ -74,7 +94,7 @@ mod tests {
         .unwrap();
 
         // generate test data
-        let (_, _, _, recorded_notes, _) = mock_inputs(
+        let (_account, _, _, recorded_notes, _) = mock_inputs(
             MockAccountType::StandardExisting,
             AssetPreservationStatus::Preserved,
         );

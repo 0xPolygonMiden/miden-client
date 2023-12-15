@@ -2,141 +2,22 @@ use super::Client;
 
 use std::collections::BTreeMap;
 
-use crypto::{Felt, Word};
-use miden_lib::{faucets, AuthScheme};
+use crypto::Word;
 use objects::{
-    accounts::{Account, AccountId, AccountStub, AccountType},
+    accounts::{Account, AccountId, AccountStub},
     assembly::ModuleAst,
-    assets::{Asset, TokenSymbol},
+    assets::Asset,
     Digest,
 };
-use rand::{rngs::ThreadRng, Rng};
 
 use crate::{errors::ClientError, store::AuthInfo};
 
-pub enum AccountTemplate {
-    BasicWallet {
-        mutable_code: bool,
-        storage_mode: AccountStorageMode,
-    },
-    FungibleFaucet {
-        token_symbol: TokenSymbol,
-        decimals: u8,
-        max_supply: u64,
-        storage_mode: AccountStorageMode,
-    },
-}
-
-pub enum AccountStorageMode {
-    Local,
-    OnChain,
-}
-
 impl Client {
-    // ACCOUNT CREATION
-    // --------------------------------------------------------------------------------------------
-
-    pub fn new_account(&mut self, template: AccountTemplate) -> Result<Account, ClientError> {
-        let mut rng = rand::thread_rng();
-
-        let account = match template {
-            AccountTemplate::BasicWallet {
-                mutable_code,
-                storage_mode,
-            } => self.new_basic_wallet(mutable_code, &mut rng, storage_mode),
-            AccountTemplate::FungibleFaucet {
-                token_symbol,
-                decimals,
-                max_supply,
-                storage_mode,
-            } => {
-                self.new_fungible_faucet(token_symbol, decimals, max_supply, &mut rng, storage_mode)
-            }
-        }?;
-
-        Ok(account)
-    }
-
-    fn new_basic_wallet(
-        &mut self,
-        mutable_code: bool,
-        rng: &mut ThreadRng,
-        account_storage_mode: AccountStorageMode,
-    ) -> Result<Account, ClientError> {
-        if let AccountStorageMode::OnChain = account_storage_mode {
-            todo!("Recording the account on chain is not supported yet");
-        }
-
-        let key_pair: objects::crypto::dsa::rpo_falcon512::KeyPair =
-            objects::crypto::dsa::rpo_falcon512::KeyPair::new().map_err(ClientError::AuthError)?;
-
-        let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
-            pub_key: key_pair.public_key(),
-        };
-
-        // we need to use an initial seed to create the wallet account
-        let init_seed: [u8; 32] = rng.gen();
-
-        let (account, _seed) = if !mutable_code {
-            miden_lib::wallets::create_basic_wallet(
-                init_seed,
-                auth_scheme,
-                AccountType::RegularAccountImmutableCode,
-            )
-        } else {
-            miden_lib::wallets::create_basic_wallet(
-                init_seed,
-                auth_scheme,
-                AccountType::RegularAccountUpdatableCode,
-            )
-        }
-        .map_err(ClientError::AccountError)?;
-
-        self.insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))?;
-        Ok(account)
-    }
-
-    fn new_fungible_faucet(
-        &mut self,
-        token_symbol: TokenSymbol,
-        decimals: u8,
-        max_supply: u64,
-        rng: &mut ThreadRng,
-        account_storage_mode: AccountStorageMode,
-    ) -> Result<Account, ClientError> {
-        if let AccountStorageMode::OnChain = account_storage_mode {
-            todo!("On-chain accounts are not supported yet");
-        }
-
-        let key_pair: objects::crypto::dsa::rpo_falcon512::KeyPair =
-            objects::crypto::dsa::rpo_falcon512::KeyPair::new().map_err(ClientError::AuthError)?;
-
-        let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
-            pub_key: key_pair.public_key(),
-        };
-
-        // we need to use an initial seed to create the wallet account
-        let init_seed: [u8; 32] = rng.gen();
-
-        let (account, _seed) = faucets::create_basic_fungible_faucet(
-            init_seed,
-            token_symbol,
-            decimals,
-            Felt::try_from(max_supply.to_le_bytes().as_slice())
-                .expect("u64 can be safely converted to a field element"),
-            auth_scheme,
-        )
-        .map_err(ClientError::AccountError)?;
-
-        self.insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))?;
-        Ok(account)
-    }
-
     // ACCOUNT INSERTION
     // --------------------------------------------------------------------------------------------
 
     /// Inserts a new account into the client's store.
-    pub(crate) fn insert_account(
+    pub fn insert_account(
         &mut self,
         account: &Account,
         auth_info: &AuthInfo,
