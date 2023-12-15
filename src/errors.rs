@@ -1,5 +1,8 @@
 use core::fmt;
-use crypto::utils::{DeserializationError, HexParseError};
+use crypto::{
+    dsa::rpo_falcon512::FalconError,
+    utils::{DeserializationError, HexParseError},
+};
 use objects::{accounts::AccountId, AccountError, Digest, TransactionScriptError};
 use tonic::{transport::Error as TransportError, Status as TonicStatus};
 
@@ -8,8 +11,9 @@ use tonic::{transport::Error as TransportError, Status as TonicStatus};
 
 #[derive(Debug)]
 pub enum ClientError {
-    StoreError(StoreError),
     AccountError(AccountError),
+    AuthError(FalconError),
+    StoreError(StoreError),
     RpcApiError(RpcApiError),
 }
 
@@ -18,6 +22,7 @@ impl fmt::Display for ClientError {
         match self {
             ClientError::StoreError(err) => write!(f, "store error: {err}"),
             ClientError::AccountError(err) => write!(f, "account error: {err}"),
+            ClientError::AuthError(err) => write!(f, "authentication data error: {err}"),
             ClientError::RpcApiError(err) => write!(f, "rpc api error: {err}"),
         }
     }
