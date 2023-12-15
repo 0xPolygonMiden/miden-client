@@ -98,6 +98,7 @@ pub fn serialize_transaction(
     transaction: &ProvenTransaction,
     tx_script: Option<TransactionScript>,
 ) -> Result<SerializedTransactionData, StoreError> {
+    let transaction_id: String = transaction.id().inner().into();
     let account_id: u64 = transaction.account_id().into();
     let init_account_state = &transaction.initial_account_hash().to_string();
     let final_account_state = &transaction.final_account_hash().to_string();
@@ -134,7 +135,7 @@ pub fn serialize_transaction(
     let block_num = 0u32;
 
     Ok((
-        transaction.final_account_hash().to_string(),
+        transaction_id,
         account_id as i64,
         init_account_state.to_owned(),
         final_account_state.to_owned(),
