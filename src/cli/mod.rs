@@ -1,7 +1,7 @@
 use clap::Parser;
 use miden_client::{client::Client, config::ClientConfig};
 
-mod account;
+mod accounts;
 mod input_notes;
 mod sync_state;
 mod transactions;
@@ -23,7 +23,7 @@ pub struct Cli {
 #[derive(Debug, Parser)]
 pub enum Command {
     #[clap(subcommand)]
-    Account(account::AccountCmd),
+    Account(accounts::AccountCmd),
     #[clap(subcommand)]
     InputNotes(input_notes::InputNotes),
     #[clap(subcommand)]

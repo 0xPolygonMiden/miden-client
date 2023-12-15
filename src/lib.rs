@@ -140,9 +140,10 @@ mod tests {
         let key_pair: KeyPair = KeyPair::new()
             .map_err(|err| format!("Error generating KeyPair: {}", err))
             .unwrap();
-        let auth_info = AuthInfo::RpoFalcon512(key_pair.clone());
 
-        client.insert_account(&account, &auth_info).unwrap();
+        client
+            .insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))
+            .unwrap();
 
         // Retrieving an existing account should succeed
         let acc_from_db = match client.get_account_by_id(account.id()) {
