@@ -87,7 +87,14 @@ impl Client {
 
     /// Adds a note tag for the client to track.
     pub fn add_note_tag(&mut self, tag: u64) -> Result<(), ClientError> {
-        self.store.add_note_tag(tag).map_err(|err| err.into())
+        match self.store.add_note_tag(tag).map_err(|err| err.into()) {
+            Ok(true) => Ok(()),
+            Ok(false) => {
+                println!("tag {} is already being tracked", tag);
+                Ok(())
+            }
+            Err(err) => Err(err),
+        }
     }
 
     /// Syncs the client's state with the current state of the Miden network.

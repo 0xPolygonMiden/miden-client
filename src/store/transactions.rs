@@ -106,7 +106,7 @@ pub fn serialize_transaction(
     let nullifiers: Vec<Digest> = transaction
         .consumed_notes()
         .iter()
-        .map(|x| x.nullifier())
+        .map(|x| x.inner())
         .collect();
 
     let input_notes =

@@ -79,7 +79,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
 
     let nullifiers = recorded_notes
         .iter()
-        .map(|note| (note.note().nullifier()[3].as_int() >> FILTER_ID_SHIFT) as u32)
+        .map(|note| (note.note().nullifier().as_elements()[3].as_int() >> FILTER_ID_SHIFT) as u32)
         .collect();
 
     // create sync state requests
@@ -102,7 +102,15 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
         accounts: vec![],
         notes: vec![],
         nullifiers: vec![NullifierUpdate {
-            nullifier: Some(recorded_notes.first().unwrap().note().nullifier().into()),
+            nullifier: Some(
+                recorded_notes
+                    .first()
+                    .unwrap()
+                    .note()
+                    .nullifier()
+                    .inner()
+                    .into(),
+            ),
             block_num: 7,
         }],
     };
