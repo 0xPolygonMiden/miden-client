@@ -1,5 +1,6 @@
 use core::fmt;
 use crypto::utils::DeserializationError;
+use miden_node_proto::error::ParseError;
 use objects::{accounts::AccountId, AccountError, Digest};
 use tonic::{transport::Error as TransportError, Status as TonicStatus};
 
@@ -52,6 +53,7 @@ pub enum StoreError {
     TransactionError(rusqlite::Error),
     BlockHeaderNotFound(u32),
     ChainMmrNodeNotFound(u64),
+    ConvertionFailure(ParseError),
 }
 
 impl fmt::Display for StoreError {
@@ -94,6 +96,7 @@ impl fmt::Display for StoreError {
             ChainMmrNodeNotFound(node_index) => {
                 write!(f, "chain mmr node at index {} not found", node_index)
             }
+            ConvertionFailure(err) => write!(f, "failed to convert data: {err}"),
         }
     }
 }

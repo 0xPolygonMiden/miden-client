@@ -10,7 +10,7 @@ use objects::{accounts::AccountId, Digest};
 
 use crate::{
     config::ClientConfig,
-    errors::{ClientError, RpcApiError},
+    errors::{ClientError, RpcApiError, StoreError},
     store::Store,
 };
 
@@ -114,9 +114,14 @@ impl Client {
             })
             .collect::<Vec<_>>();
 
-        let new_block_headers: Vec<objects::BlockHeader> = match response.block_header {
+        let new_block_headers = match response.block_header {
             Some(block_header) => {
-                let block_header = objects::BlockHeader::try_from(block_header).unwrap();
+                let block_header = match objects::BlockHeader::try_from(block_header) {
+                    Ok(block_header) => block_header,
+                    Err(err) => {
+                        return Err(ClientError::StoreError(StoreError::ConvertionFailure(err)));
+                    }
+                };
                 vec![block_header]
             }
             None => vec![],
