@@ -1,6 +1,9 @@
 use core::fmt;
-use crypto::utils::DeserializationError;
-use objects::{accounts::AccountId, AccountError, Digest};
+use crypto::{
+    dsa::rpo_falcon512::FalconError,
+    utils::{DeserializationError, HexParseError},
+};
+use objects::{accounts::AccountId, AccountError, Digest, TransactionScriptError};
 use tonic::{transport::Error as TransportError, Status as TonicStatus};
 
 // CLIENT ERROR
@@ -8,8 +11,9 @@ use tonic::{transport::Error as TransportError, Status as TonicStatus};
 
 #[derive(Debug)]
 pub enum ClientError {
-    StoreError(StoreError),
     AccountError(AccountError),
+    AuthError(FalconError),
+    StoreError(StoreError),
     RpcApiError(RpcApiError),
 }
 
@@ -18,6 +22,7 @@ impl fmt::Display for ClientError {
         match self {
             ClientError::StoreError(err) => write!(f, "store error: {err}"),
             ClientError::AccountError(err) => write!(f, "account error: {err}"),
+            ClientError::AuthError(err) => write!(f, "authentication data error: {err}"),
             ClientError::RpcApiError(err) => write!(f, "rpc api error: {err}"),
         }
     }
@@ -42,7 +47,9 @@ pub enum StoreError {
     QueryError(rusqlite::Error),
     InputSerializationError(serde_json::Error),
     JsonDataDeserializationError(serde_json::Error),
+    HexParseError(HexParseError),
     DataDeserializationError(DeserializationError),
+    AccountError(AccountError),
     AccountDataNotFound(AccountId),
     AccountStorageNotFound(Digest),
     VaultDataNotFound(Digest),
@@ -52,21 +59,25 @@ pub enum StoreError {
     TransactionError(rusqlite::Error),
     BlockHeaderNotFound(u32),
     ChainMmrNodeNotFound(u64),
+    TransactionScriptError(TransactionScriptError),
 }
 
 impl fmt::Display for StoreError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use StoreError::*;
         match self {
+            AccountError(err) => write!(f, "error instantiating Account: {err}"),
             ConnectionError(err) => write!(f, "failed to connect to the database: {err}"),
             MigrationError(err) => write!(f, "failed to update the database: {err}"),
             QueryError(err) => write!(f, "failed to retrieve data from the database: {err}"),
-            TransactionError(err) => write!(f, "failed to instantiate a new transaction: {err}"),
             ColumnParsingError(err) => {
                 write!(f, "failed to parse data retrieved from the database: {err}")
             }
             InputSerializationError(err) => {
                 write!(f, "error trying to serialize inputs for the store: {err}")
+            }
+            HexParseError(err) => {
+                write!(f, "error parsing hex: {err}")
             }
             JsonDataDeserializationError(err) => {
                 write!(
@@ -83,6 +94,10 @@ impl fmt::Display for StoreError {
             InputNoteNotFound(hash) => write!(f, "input note with hash {} not found", hash),
             AccountStorageNotFound(root) => {
                 write!(f, "account storage data with root {} not found", root)
+            }
+            TransactionError(err) => write!(f, "failed to instantiate a new transaction: {err}"),
+            TransactionScriptError(err) => {
+                write!(f, "error instantiating transaction script: {err}")
             }
             VaultDataNotFound(root) => write!(f, "account vault data for root {} not found", root),
             AccountCodeDataNotFound(root) => {

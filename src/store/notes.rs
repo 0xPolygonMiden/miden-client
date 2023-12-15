@@ -311,8 +311,7 @@ fn serialize_input_note(
 ) -> Result<SerializedInputNoteData, StoreError> {
     let hash = serde_json::to_string(&recorded_note.note().hash())
         .map_err(StoreError::InputSerializationError)?;
-    let nullifier = serde_json::to_string(&recorded_note.note().nullifier())
-        .map_err(StoreError::InputSerializationError)?;
+    let nullifier = recorded_note.note().nullifier().inner().to_string();
     let script = recorded_note.note().script().to_bytes();
     let vault = serde_json::to_string(&recorded_note.note().vault())
         .map_err(StoreError::InputSerializationError)?;

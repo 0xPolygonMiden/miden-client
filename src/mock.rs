@@ -1,4 +1,4 @@
-use crypto::dsa::rpo_falcon512::KeyPair;
+use crypto::{dsa::rpo_falcon512::KeyPair, StarkField};
 use miden_node_proto::block_header::BlockHeader as NodeBlockHeader;
 use miden_node_proto::{
     account_id::AccountId as ProtoAccountId,
@@ -6,9 +6,10 @@ use miden_node_proto::{
     responses::{NullifierUpdate, SyncStateResponse},
 };
 use mock::mock::block;
-use objects::{utils::collections::BTreeMap, StarkField};
+use objects::utils::collections::BTreeMap;
 
 use crate::client::{sync_state::FILTER_ID_SHIFT, Client};
+use crate::store::accounts::AuthInfo;
 
 /// Mock RPC API
 ///
@@ -63,7 +64,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
 
     let nullifiers = recorded_notes
         .iter()
-        .map(|note| (note.note().nullifier()[3].as_int() >> FILTER_ID_SHIFT) as u32)
+        .map(|note| (note.note().nullifier().as_elements()[3].as_int() >> FILTER_ID_SHIFT) as u32)
         .collect();
 
     // create sync state requests
@@ -92,7 +93,15 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
         accounts: vec![],
         notes: vec![],
         nullifiers: vec![NullifierUpdate {
-            nullifier: Some(recorded_notes.first().unwrap().note().nullifier().into()),
+            nullifier: Some(
+                recorded_notes
+                    .first()
+                    .unwrap()
+                    .note()
+                    .nullifier()
+                    .inner()
+                    .into(),
+            ),
             block_num: 7,
         }],
     };
@@ -122,5 +131,7 @@ pub fn insert_mock_data(client: &mut Client) {
     let key_pair: KeyPair = KeyPair::new()
         .map_err(|err| format!("Error generating KeyPair: {}", err))
         .unwrap();
-    client.insert_account(&account, &key_pair).unwrap();
+    client
+        .insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))
+        .unwrap();
 }

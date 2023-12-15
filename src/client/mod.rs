@@ -13,6 +13,13 @@ pub mod accounts;
 pub mod chain_data;
 pub mod notes;
 pub mod sync_state;
+pub mod transactions;
+
+// CONSTANTS
+// ================================================================================================
+
+/// The number of bits to shift identifiers for in use of filters.
+pub const FILTER_ID_SHIFT: u8 = 48;
 
 /// A light client for connecting to the Miden rollup network.
 ///
