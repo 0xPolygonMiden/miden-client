@@ -59,6 +59,7 @@ pub enum StoreError {
     TransactionError(rusqlite::Error),
     BlockHeaderNotFound(u32),
     ChainMmrNodeNotFound(u64),
+    NoteTagAlreadyTracked(u64),
     TransactionScriptError(TransactionScriptError),
 }
 
@@ -109,6 +110,7 @@ impl fmt::Display for StoreError {
             ChainMmrNodeNotFound(node_index) => {
                 write!(f, "chain mmr node at index {} not found", node_index)
             }
+            NoteTagAlreadyTracked(tag) => write!(f, "note tag {} is already being tracked", tag),
         }
     }
 }
