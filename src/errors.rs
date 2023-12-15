@@ -1,6 +1,6 @@
 use core::fmt;
-use crypto::utils::DeserializationError;
-use objects::{accounts::AccountId, AccountError, Digest};
+use crypto::utils::{DeserializationError, HexParseError};
+use objects::{accounts::AccountId, AccountError, Digest, TransactionScriptError};
 use tonic::{transport::Error as TransportError, Status as TonicStatus};
 
 // CLIENT ERROR
@@ -42,7 +42,9 @@ pub enum StoreError {
     QueryError(rusqlite::Error),
     InputSerializationError(serde_json::Error),
     JsonDataDeserializationError(serde_json::Error),
+    HexParseError(HexParseError),
     DataDeserializationError(DeserializationError),
+    AccountError(AccountError),
     AccountDataNotFound(AccountId),
     AccountStorageNotFound(Digest),
     VaultDataNotFound(Digest),
@@ -50,21 +52,25 @@ pub enum StoreError {
     InputNoteNotFound(Digest),
     MigrationError(rusqlite_migration::Error),
     TransactionError(rusqlite::Error),
+    TransactionScriptError(TransactionScriptError),
 }
 
 impl fmt::Display for StoreError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use StoreError::*;
         match self {
+            AccountError(err) => write!(f, "error instantiating Account: {err}"),
             ConnectionError(err) => write!(f, "failed to connect to the database: {err}"),
             MigrationError(err) => write!(f, "failed to update the database: {err}"),
             QueryError(err) => write!(f, "failed to retrieve data from the database: {err}"),
-            TransactionError(err) => write!(f, "failed to instantiate a new transaction: {err}"),
             ColumnParsingError(err) => {
                 write!(f, "failed to parse data retrieved from the database: {err}")
             }
             InputSerializationError(err) => {
                 write!(f, "error trying to serialize inputs for the store: {err}")
+            }
+            HexParseError(err) => {
+                write!(f, "error parsing hex: {err}")
             }
             JsonDataDeserializationError(err) => {
                 write!(
@@ -81,6 +87,10 @@ impl fmt::Display for StoreError {
             InputNoteNotFound(hash) => write!(f, "input note with hash {} not found", hash),
             AccountStorageNotFound(root) => {
                 write!(f, "account storage data with root {} not found", root)
+            }
+            TransactionError(err) => write!(f, "failed to instantiate a new transaction: {err}"),
+            TransactionScriptError(err) => {
+                write!(f, "error instantiating transaction script: {err}")
             }
             VaultDataNotFound(root) => write!(f, "account vault data for root {} not found", root),
             AccountCodeDataNotFound(root) => {

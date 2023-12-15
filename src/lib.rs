@@ -14,7 +14,7 @@ mod tests {
     use crate::{
         client::Client,
         config::{ClientConfig, Endpoint},
-        store::{tests::create_test_store_path, InputNoteFilter},
+        store::{tests::create_test_store_path, AuthInfo, InputNoteFilter},
     };
 
     use crypto::dsa::rpo_falcon512::KeyPair;
@@ -109,8 +109,12 @@ mod tests {
             .map_err(|err| format!("Error generating KeyPair: {}", err))
             .unwrap();
 
-        assert!(client.insert_account(&account, &key_pair).is_ok());
-        assert!(client.insert_account(&account, &key_pair).is_err());
+        assert!(client
+            .insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))
+            .is_ok());
+        assert!(client
+            .insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))
+            .is_err());
     }
 
     #[tokio::test]
