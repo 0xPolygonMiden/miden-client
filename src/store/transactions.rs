@@ -31,7 +31,7 @@ type SerializedTransactionData = (
     Option<String>,
     u32,
     bool,
-    i64,
+    u32,
 );
 
 impl Store {
@@ -146,7 +146,7 @@ pub fn serialize_transaction(
         script_inputs,
         block_num,
         false,
-        0_i64,
+        0_u32,
     ))
 }
 
@@ -164,7 +164,7 @@ pub fn parse_transaction_columns(
     let script_inputs: Option<String> = row.get(8)?;
     let block_num: u32 = row.get(9)?;
     let committed: bool = row.get(10)?;
-    let commit_height: i64 = row.get(11)?;
+    let commit_height: u32 = row.get(11)?;
 
     Ok((
         id,
@@ -196,7 +196,7 @@ fn parse_transaction(
         script_hash,
         script_program,
         script_inputs,
-        _block_num,
+        block_num,
         committed,
         commit_height,
     ) = serialized_transaction;
@@ -243,9 +243,6 @@ fn parse_transaction(
     } else {
         None
     };
-
-    // TODO: Change this
-    let block_num: u32 = 0u32;
 
     Ok(TransactionStub {
         id,
