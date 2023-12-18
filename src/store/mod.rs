@@ -1,6 +1,6 @@
+use super::errors::StoreError;
 use crate::config::ClientConfig;
 
-use super::errors::StoreError;
 use clap::error::Result;
 use crypto::hash::rpo::RpoDigest;
 use crypto::{
@@ -8,6 +8,7 @@ use crypto::{
     utils::{collections::BTreeMap, Deserializable, Serializable},
     Word,
 };
+
 use objects::accounts::AccountStub;
 use objects::notes::NoteScript;
 use objects::{
@@ -19,8 +20,10 @@ use objects::{
 };
 use rusqlite::{params, Connection, Transaction};
 
-mod migrations;
+pub(crate) mod mock_executor_data_store;
 pub mod transactions;
+
+mod migrations;
 
 // TYPES
 // ================================================================================================
@@ -248,7 +251,8 @@ impl Store {
     ) -> Result<(), StoreError> {
         let (code_root, code, module) = serialize_account_code(account_code)?;
 
-        const QUERY: &str = "INSERT INTO account_code (root, procedures, module) VALUES (?, ?, ?)";
+        const QUERY: &str =
+            "INSERT OR IGNORE INTO account_code (root, procedures, module) VALUES (?, ?, ?)";
         tx.execute(QUERY, params![code_root, code, module,])
             .map(|_| ())
             .map_err(StoreError::QueryError)
@@ -270,7 +274,7 @@ impl Store {
         account_vault: &AccountVault,
     ) -> Result<(), StoreError> {
         let (vault_root, assets) = serialize_account_vault(account_vault)?;
-        const QUERY: &str = "INSERT INTO account_vaults (root, assets) VALUES (?, ?)";
+        const QUERY: &str = "INSERT OR IGNORE INTO account_vaults (root, assets) VALUES (?, ?)";
         tx.execute(QUERY, params![vault_root, assets])
             .map(|_| ())
             .map_err(StoreError::QueryError)
@@ -905,7 +909,6 @@ pub mod tests {
         assert_eq!(actual, 1);
 
         // Second insertion does not generate a new row
-        assert!(store::Store::insert_account_code(&tx, &account_code).is_err());
         actual = tx
             .query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0))
             .unwrap();

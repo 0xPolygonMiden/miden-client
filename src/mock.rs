@@ -1,16 +1,20 @@
-use crypto::{dsa::rpo_falcon512::KeyPair, StarkField};
+use crate::client::transactions::{PaymentTransactionData, TransactionTemplate};
+use crate::client::{Client, FILTER_ID_SHIFT};
+use crate::store::mock_executor_data_store::MockDataStore;
+use crate::store::AuthInfo;
+use crypto::dsa::rpo_falcon512::KeyPair;
+use miden_node_proto::requests::SubmitProvenTransactionRequest;
+use miden_node_proto::responses::SubmitProvenTransactionResponse;
 use miden_node_proto::{
     account_id::AccountId as ProtoAccountId,
     requests::SyncStateRequest,
     responses::{NullifierUpdate, SyncStateResponse},
 };
 
-use objects::utils::collections::BTreeMap;
-
-use crate::{
-    client::{Client, FILTER_ID_SHIFT},
-    store::AuthInfo,
-};
+use miden_tx::TransactionExecutor;
+use objects::accounts::AccountType;
+use objects::assets::FungibleAsset;
+use objects::{utils::collections::BTreeMap, StarkField};
 
 /// Mock RPC API
 ///
@@ -44,6 +48,16 @@ impl MockRpcApi {
                 "no response for sync state request",
             )),
         }
+    }
+
+    pub async fn submit_proven_transaction(
+        &mut self,
+        request: impl tonic::IntoRequest<SubmitProvenTransactionRequest>,
+    ) -> std::result::Result<tonic::Response<SubmitProvenTransactionResponse>, tonic::Status> {
+        let _request = request.into_request().into_inner();
+        let response = SubmitProvenTransactionResponse {};
+
+        Ok(tonic::Response::new(response))
     }
 }
 
@@ -129,4 +143,98 @@ pub fn insert_mock_data(client: &mut Client) {
     client
         .insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
+}
+
+pub async fn create_mock_transaction(client: &mut Client) {
+    let key_pair: KeyPair = KeyPair::new()
+        .map_err(|err| format!("Error generating KeyPair: {}", err))
+        .unwrap();
+    let auth_scheme: miden_lib::AuthScheme = miden_lib::AuthScheme::RpoFalcon512 {
+        pub_key: key_pair.public_key(),
+    };
+    let _assembler = miden_lib::assembler::assembler();
+
+    let mut rng = rand::thread_rng();
+    // we need to use an initial seed to create the wallet account
+    let init_seed: [u8; 32] = rand::Rng::gen(&mut rng);
+
+    let (sender_account, _) = miden_lib::wallets::create_basic_wallet(
+        init_seed,
+        auth_scheme,
+        AccountType::RegularAccountImmutableCode,
+    )
+    .unwrap();
+
+    client
+        .insert_account(&sender_account, &AuthInfo::RpoFalcon512(key_pair))
+        .unwrap();
+
+    let key_pair: KeyPair = KeyPair::new()
+        .map_err(|err| format!("Error generating KeyPair: {}", err))
+        .unwrap();
+    let auth_scheme: miden_lib::AuthScheme = miden_lib::AuthScheme::RpoFalcon512 {
+        pub_key: key_pair.public_key(),
+    };
+
+    let mut rng = rand::thread_rng();
+    // we need to use an initial seed to create the wallet account
+    let init_seed: [u8; 32] = rand::Rng::gen(&mut rng);
+
+    let (target_account, _) = miden_lib::wallets::create_basic_wallet(
+        init_seed,
+        auth_scheme,
+        AccountType::RegularAccountImmutableCode,
+    )
+    .unwrap();
+
+    client
+        .insert_account(&target_account, &AuthInfo::RpoFalcon512(key_pair))
+        .unwrap();
+
+    let key_pair: KeyPair = KeyPair::new()
+        .map_err(|err| format!("Error generating KeyPair: {}", err))
+        .unwrap();
+    let auth_scheme: miden_lib::AuthScheme = miden_lib::AuthScheme::RpoFalcon512 {
+        pub_key: key_pair.public_key(),
+    };
+
+    let mut rng = rand::thread_rng();
+    // we need to use an initial seed to create the wallet account
+    let init_seed: [u8; 32] = rand::Rng::gen(&mut rng);
+
+    let max_supply = 10000u64.to_le_bytes();
+
+    let (faucet, _) = miden_lib::faucets::create_basic_fungible_faucet(
+        init_seed,
+        objects::assets::TokenSymbol::new("MOCK").unwrap(),
+        4u8,
+        crypto::Felt::try_from(max_supply.as_slice()).unwrap(),
+        auth_scheme,
+    )
+    .unwrap();
+
+    client
+        .insert_account(&faucet, &AuthInfo::RpoFalcon512(key_pair))
+        .unwrap();
+
+    let asset: objects::assets::Asset = FungibleAsset::new(faucet.id(), 5u64).unwrap().into();
+    let transaction_template = TransactionTemplate::PayToId(PaymentTransactionData::new(
+        asset,
+        sender_account.id(),
+        target_account.id(),
+    ));
+    let (transaction_result, script) = client.new_transaction(transaction_template).unwrap();
+
+    client
+        .send_transaction(transaction_result.into_witness(), Some(script))
+        .await
+        .unwrap();
+}
+
+#[cfg(any(test, feature = "testing"))]
+impl Client {
+    /// testing function to set a data store to conveniently mock data if needed
+    pub fn set_data_store(&mut self, data_store: MockDataStore) {
+        self.tx_executor = TransactionExecutor::new(data_store);
+    }
 }

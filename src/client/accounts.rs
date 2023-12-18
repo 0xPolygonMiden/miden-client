@@ -33,6 +33,9 @@ pub enum AccountStorageMode {
 }
 
 impl Client {
+    // ACCOUNT INSERTION
+    // --------------------------------------------------------------------------------------------
+
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 
@@ -132,11 +135,8 @@ impl Client {
         Ok(account)
     }
 
-    // ACCOUNT INSERTION
-    // --------------------------------------------------------------------------------------------
-
     /// Inserts a new account into the client's store.
-    pub(crate) fn insert_account(
+    pub fn insert_account(
         &mut self,
         account: &Account,
         auth_info: &AuthInfo,

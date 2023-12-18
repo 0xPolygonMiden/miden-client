@@ -1,10 +1,11 @@
+use super::Client;
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use crypto::{
     dsa::rpo_falcon512::KeyPair,
     utils::{bytes_to_hex_string, Serializable},
 };
-use miden_client::client::{accounts, Client};
+use miden_client::client::accounts;
 
 use objects::{accounts::AccountId, assets::TokenSymbol};
 
@@ -61,6 +62,7 @@ pub enum AccountTemplate {
     /// Creates a faucet for non-fungible tokens
     NonFungibleFaucet,
 }
+
 impl AccountCmd {
     pub fn execute(&self, mut client: Client) -> Result<(), String> {
         match self {
@@ -108,13 +110,13 @@ impl AccountCmd {
             } => {
                 let account_id: AccountId = AccountId::from_hex(v)
                     .map_err(|_| "Input number was not a valid Account Id")?;
-
                 show_account(client, account_id, *keys, *vault, *storage, *code)?;
             }
         }
         Ok(())
     }
 }
+
 // LIST ACCOUNTS
 // ================================================================================================
 

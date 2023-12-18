@@ -1,3 +1,4 @@
+use crate::{client::transactions::TransactionStub, errors::StoreError};
 use crypto::{
     utils::{collections::BTreeMap, Deserializable, Serializable},
     Felt,
@@ -11,8 +12,6 @@ use objects::{
     Digest,
 };
 use rusqlite::params;
-
-use crate::{client::transactions::TransactionStub, errors::StoreError};
 
 use super::Store;
 
@@ -64,21 +63,21 @@ impl Store {
             final_account_state,
             input_notes,
             output_notes,
-            script_program,
             script_hash,
+            script_program,
             script_inputs,
-            block_ref,
+            block_num,
             committed,
             commit_height,
         ) = serialize_transaction(transaction, tx_script)?;
 
         self.db.execute(
                 "INSERT INTO transactions (id, account_id, init_account_state, final_account_state, \
-                input_notes, output_notes, script_hash, script_program, script_inputs, block_ref, committed, commit_height) \
+                input_notes, output_notes, script_hash, script_program, script_inputs, block_num, committed, commit_height) \
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 params![
                     transaction_id,
-                    { account_id },
+                    account_id,
                     init_account_state,
                     final_account_state,
                     input_notes,
@@ -86,7 +85,7 @@ impl Store {
                     script_program,
                     script_hash,
                     script_inputs,
-                    block_ref,
+                    block_num,
                     committed,
                     commit_height,
                 ],
@@ -99,6 +98,7 @@ pub fn serialize_transaction(
     transaction: &ProvenTransaction,
     tx_script: Option<TransactionScript>,
 ) -> Result<SerializedTransactionData, StoreError> {
+    let transaction_id: String = transaction.id().inner().into();
     let account_id: u64 = transaction.account_id().into();
     let init_account_state = &transaction.initial_account_hash().to_string();
     let final_account_state = &transaction.final_account_hash().to_string();
@@ -135,7 +135,7 @@ pub fn serialize_transaction(
     let block_num = 0u32;
 
     Ok((
-        transaction.final_account_hash().to_string(),
+        transaction_id,
         account_id as i64,
         init_account_state.to_owned(),
         final_account_state.to_owned(),

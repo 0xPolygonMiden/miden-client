@@ -3,7 +3,8 @@ use crypto::{
     dsa::rpo_falcon512::FalconError,
     utils::{DeserializationError, HexParseError},
 };
-use objects::{accounts::AccountId, AccountError, Digest, TransactionScriptError};
+use miden_tx::{TransactionExecutorError, TransactionProverError};
+use objects::{accounts::AccountId, AccountError, Digest, NoteError, TransactionScriptError};
 use tonic::{transport::Error as TransportError, Status as TonicStatus};
 
 // CLIENT ERROR
@@ -13,17 +14,27 @@ use tonic::{transport::Error as TransportError, Status as TonicStatus};
 pub enum ClientError {
     AccountError(AccountError),
     AuthError(FalconError),
-    StoreError(StoreError),
+    NoteError(NoteError),
     RpcApiError(RpcApiError),
+    StoreError(StoreError),
+    TransactionExecutionError(TransactionExecutorError),
+    TransactionProvingError(TransactionProverError),
 }
 
 impl fmt::Display for ClientError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ClientError::StoreError(err) => write!(f, "store error: {err}"),
             ClientError::AccountError(err) => write!(f, "account error: {err}"),
-            ClientError::AuthError(err) => write!(f, "authentication data error: {err}"),
+            ClientError::AuthError(err) => write!(f, "account auth error: {err}"),
+            ClientError::NoteError(err) => write!(f, "note error: {err}"),
             ClientError::RpcApiError(err) => write!(f, "rpc api error: {err}"),
+            ClientError::StoreError(err) => write!(f, "store error: {err}"),
+            ClientError::TransactionExecutionError(err) => {
+                write!(f, "transaction executor error: {err}")
+            }
+            ClientError::TransactionProvingError(err) => {
+                write!(f, "transaction prover error: {err}")
+            }
         }
     }
 }
@@ -42,41 +53,52 @@ impl std::error::Error for ClientError {}
 
 #[derive(Debug)]
 pub enum StoreError {
-    ConnectionError(rusqlite::Error),
+    AccountCodeDataNotFound(Digest),
+    AccountDataNotFound(AccountId),
+    AccountError(AccountError),
+    AccountStorageNotFound(Digest),
     ColumnParsingError(rusqlite::Error),
-    QueryError(rusqlite::Error),
+    ConnectionError(rusqlite::Error),
+    DataDeserializationError(DeserializationError),
+    HexParseError(HexParseError),
+    InputNoteNotFound(Digest),
     InputSerializationError(serde_json::Error),
     JsonDataDeserializationError(serde_json::Error),
-    HexParseError(HexParseError),
-    DataDeserializationError(DeserializationError),
-    AccountError(AccountError),
-    AccountDataNotFound(AccountId),
-    AccountStorageNotFound(Digest),
-    VaultDataNotFound(Digest),
-    AccountCodeDataNotFound(Digest),
-    InputNoteNotFound(Digest),
     MigrationError(rusqlite_migration::Error),
-    TransactionError(rusqlite::Error),
     NoteTagAlreadyTracked(u64),
+    QueryError(rusqlite::Error),
+    TransactionError(rusqlite::Error),
     TransactionScriptError(TransactionScriptError),
+    VaultDataNotFound(Digest),
 }
 
 impl fmt::Display for StoreError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use StoreError::*;
         match self {
+            AccountCodeDataNotFound(root) => {
+                write!(f, "account code data with root {} not found", root)
+            }
+            AccountDataNotFound(account_id) => {
+                write!(f, "Account data was not found for Account Id {account_id}")
+            }
             AccountError(err) => write!(f, "error instantiating Account: {err}"),
-            ConnectionError(err) => write!(f, "failed to connect to the database: {err}"),
-            MigrationError(err) => write!(f, "failed to update the database: {err}"),
-            QueryError(err) => write!(f, "failed to retrieve data from the database: {err}"),
+            AccountStorageNotFound(root) => {
+                write!(f, "account storage data with root {} not found", root)
+            }
             ColumnParsingError(err) => {
                 write!(f, "failed to parse data retrieved from the database: {err}")
             }
-            InputSerializationError(err) => {
-                write!(f, "error trying to serialize inputs for the store: {err}")
+            ConnectionError(err) => write!(f, "failed to connect to the database: {err}"),
+            DataDeserializationError(err) => {
+                write!(f, "error deserializing data from the store: {err}")
             }
             HexParseError(err) => {
                 write!(f, "error parsing hex: {err}")
+            }
+            InputNoteNotFound(hash) => write!(f, "input note with hash {} not found", hash),
+            InputSerializationError(err) => {
+                write!(f, "error trying to serialize inputs for the store: {err}")
             }
             JsonDataDeserializationError(err) => {
                 write!(
@@ -84,25 +106,14 @@ impl fmt::Display for StoreError {
                     "error deserializing data from JSON from the store: {err}"
                 )
             }
-            DataDeserializationError(err) => {
-                write!(f, "error deserializing data from the store: {err}")
-            }
-            AccountDataNotFound(account_id) => {
-                write!(f, "Account data was not found for Account Id {account_id}")
-            }
-            InputNoteNotFound(hash) => write!(f, "input note with hash {} not found", hash),
-            AccountStorageNotFound(root) => {
-                write!(f, "account storage data with root {} not found", root)
-            }
+            MigrationError(err) => write!(f, "failed to update the database: {err}"),
+            NoteTagAlreadyTracked(tag) => write!(f, "note tag {} is already being tracked", tag),
+            QueryError(err) => write!(f, "failed to retrieve data from the database: {err}"),
             TransactionError(err) => write!(f, "failed to instantiate a new transaction: {err}"),
             TransactionScriptError(err) => {
                 write!(f, "error instantiating transaction script: {err}")
             }
             VaultDataNotFound(root) => write!(f, "account vault data for root {} not found", root),
-            AccountCodeDataNotFound(root) => {
-                write!(f, "account code data with root {} not found", root)
-            }
-            NoteTagAlreadyTracked(tag) => write!(f, "note tag {} is already being tracked", tag),
         }
     }
 }
