@@ -13,8 +13,8 @@ pub enum ClientError {
     NoteError(NoteError),
     RpcApiError(RpcApiError),
     StoreError(StoreError),
-    TransactionExecutorError(TransactionExecutorError),
-    TransactionProverError(TransactionProverError),
+    TransactionExecutionError(TransactionExecutorError),
+    TransactionProvingError(TransactionProverError),
 }
 
 impl fmt::Display for ClientError {
@@ -24,10 +24,10 @@ impl fmt::Display for ClientError {
             ClientError::NoteError(err) => write!(f, "note error: {err}"),
             ClientError::RpcApiError(err) => write!(f, "rpc api error: {err}"),
             ClientError::StoreError(err) => write!(f, "store error: {err}"),
-            ClientError::TransactionExecutorError(err) => {
+            ClientError::TransactionExecutionError(err) => {
                 write!(f, "transaction executor error: {err}")
             }
-            ClientError::TransactionProverError(err) => {
+            ClientError::TransactionProvingError(err) => {
                 write!(f, "transaction prover error: {err}")
             }
         }

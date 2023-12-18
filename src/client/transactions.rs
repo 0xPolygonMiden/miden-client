@@ -177,7 +177,7 @@ impl Client {
         self.set_data_store(data_store.clone());
         self.tx_executor
             .load_account(target_account_id)
-            .map_err(ClientError::TransactionExecutorError)?;
+            .map_err(ClientError::TransactionExecutionError)?;
 
         let block_ref = data_store.block_header.block_num().as_int() as u32;
         let note_origins = data_store
@@ -204,7 +204,7 @@ impl Client {
                 vec![(target_pub_key, target_sk_pk_felt)],
                 vec![],
             )
-            .map_err(ClientError::TransactionExecutorError)?;
+            .map_err(ClientError::TransactionExecutionError)?;
 
         // Execute the transaction and get the witness
         let transaction_result = self
@@ -215,7 +215,7 @@ impl Client {
                 &note_origins,
                 Some(tx_script_target.clone()),
             )
-            .map_err(ClientError::TransactionExecutorError)?;
+            .map_err(ClientError::TransactionExecutionError)?;
 
         Ok((transaction_result, tx_script_target))
     }
@@ -230,7 +230,7 @@ impl Client {
         let transaction_prover = TransactionProver::new(ProvingOptions::default());
         let proven_transaction = transaction_prover
             .prove_transaction_witness(transaction_witness)
-            .map_err(ClientError::TransactionProverError)?;
+            .map_err(ClientError::TransactionProvingError)?;
 
         self.submit_proven_transaction_request(proven_transaction.clone())
             .await?;
