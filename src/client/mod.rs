@@ -1,10 +1,16 @@
 // MIDEN CLIENT
 // ================================================================================================
 
-use crate::{config::ClientConfig, errors::ClientError, store::Store};
+use crate::{
+    config::ClientConfig,
+    errors::ClientError,
+    store::{mock_executor_data_store::MockDataStore, Store},
+};
 
 #[cfg(not(any(test, feature = "testing")))]
 use crate::errors::RpcApiError;
+
+use miden_tx::TransactionExecutor;
 
 #[cfg(any(test, feature = "testing"))]
 use crate::mock::MockRpcApi;
@@ -31,12 +37,13 @@ pub const FILTER_ID_SHIFT: u8 = 48;
 /// - Executes, proves, and submits transactions to the network as directed by the user.
 pub struct Client {
     /// Local database containing information about the accounts managed by this client.
-    store: Store,
+    pub(crate) store: Store,
     #[cfg(not(any(test, feature = "testing")))]
     /// Api client for interacting with the Miden node.
     rpc_api: miden_node_proto::rpc::api_client::ApiClient<tonic::transport::Channel>,
     #[cfg(any(test, feature = "testing"))]
     pub rpc_api: MockRpcApi,
+    pub(crate) tx_executor: TransactionExecutor<MockDataStore>,
 }
 
 impl Client {
@@ -58,6 +65,7 @@ impl Client {
             .map_err(|err| ClientError::RpcApiError(RpcApiError::ConnectionError(err)))?,
             #[cfg(any(test, feature = "testing"))]
             rpc_api: Default::default(),
+            tx_executor: TransactionExecutor::new(MockDataStore::new()),
         })
     }
 }

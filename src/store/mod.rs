@@ -10,6 +10,8 @@ mod migrations;
 pub mod notes;
 pub mod transactions;
 
+pub(crate) mod mock_executor_data_store;
+
 // CLIENT STORE
 // ================================================================================================
 
