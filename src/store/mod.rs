@@ -1,5 +1,5 @@
+use super::errors::StoreError;
 use crate::config::ClientConfig;
-use crate::errors::StoreError;
 
 use clap::error::Result;
 use crypto::hash::rpo::RpoDigest;
@@ -9,16 +9,21 @@ use crypto::{
     Word,
 };
 
+use objects::accounts::AccountStub;
+use objects::notes::NoteScript;
 use objects::{
-    accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub, AccountVault},
+    accounts::{Account, AccountCode, AccountId, AccountStorage, AccountVault},
     assembly::{AstSerdeOptions, ModuleAst},
     assets::Asset,
-    notes::{Note, NoteMetadata, NoteScript, RecordedNote},
+    notes::{Note, NoteMetadata, RecordedNote},
     BlockHeader, Digest, Felt,
 };
 use rusqlite::{params, Connection, Transaction};
 
 pub mod chain_data;
+pub(crate) mod mock_executor_data_store;
+pub mod transactions;
+
 mod migrations;
 
 // TYPES
@@ -91,7 +96,7 @@ impl Store {
             .map(|result| {
                 result
                     .map_err(StoreError::ColumnParsingError)
-                    .map(|id: u64| AccountId::try_from(id).expect("account id is valid"))
+                    .map(|id: i64| AccountId::try_from(id as u64).expect("account id is valid"))
             })
             .collect::<Result<Vec<AccountId>, _>>()
     }
@@ -213,7 +218,7 @@ impl Store {
     pub fn insert_account(
         &mut self,
         account: &Account,
-        key_pair: &KeyPair,
+        auth_info: &AuthInfo,
     ) -> Result<(), StoreError> {
         let tx = self
             .db
@@ -224,7 +229,7 @@ impl Store {
         Self::insert_account_storage(&tx, account.storage())?;
         Self::insert_account_vault(&tx, account.vault())?;
         Self::insert_account_record(&tx, account)?;
-        Self::insert_account_auth(&tx, account.id(), key_pair)?;
+        Self::insert_account_auth(&tx, account.id(), auth_info)?;
 
         tx.commit().map_err(StoreError::TransactionError)
     }
@@ -247,7 +252,8 @@ impl Store {
     ) -> Result<(), StoreError> {
         let (code_root, code, module) = serialize_account_code(account_code)?;
 
-        const QUERY: &str = "INSERT INTO account_code (root, procedures, module) VALUES (?, ?, ?)";
+        const QUERY: &str =
+            "INSERT OR IGNORE INTO account_code (root, procedures, module) VALUES (?, ?, ?)";
         tx.execute(QUERY, params![code_root, code, module,])
             .map(|_| ())
             .map_err(StoreError::QueryError)
@@ -269,7 +275,7 @@ impl Store {
         account_vault: &AccountVault,
     ) -> Result<(), StoreError> {
         let (vault_root, assets) = serialize_account_vault(account_vault)?;
-        const QUERY: &str = "INSERT INTO account_vaults (root, assets) VALUES (?, ?)";
+        const QUERY: &str = "INSERT OR IGNORE INTO account_vaults (root, assets) VALUES (?, ?)";
         tx.execute(QUERY, params![vault_root, assets])
             .map(|_| ())
             .map_err(StoreError::QueryError)
@@ -278,9 +284,9 @@ impl Store {
     pub fn insert_account_auth(
         tx: &Transaction<'_>,
         account_id: AccountId,
-        key_pair: &KeyPair,
+        auth_info: &AuthInfo,
     ) -> Result<(), StoreError> {
-        let (account_id, auth_info) = serialize_account_auth(account_id, key_pair)?;
+        let (account_id, auth_info) = serialize_account_auth(account_id, auth_info)?;
         const QUERY: &str = "INSERT INTO account_auth (account_id, auth_info) VALUES (?, ?)";
         tx.execute(QUERY, params![account_id, auth_info])
             .map(|_| ())
@@ -386,9 +392,7 @@ impl Store {
             .map(|result| {
                 result
                     .map_err(StoreError::ColumnParsingError)
-                    .and_then(|v: String| {
-                        serde_json::from_str(&v).map_err(StoreError::JsonDataDeserializationError)
-                    })
+                    .and_then(|v: String| Digest::try_from(v).map_err(StoreError::HexParseError))
             })
             .collect::<Result<Vec<Digest>, _>>()
     }
@@ -416,9 +420,13 @@ impl Store {
             .expect("state sync tags exist")
     }
 
-    /// Adds a note tag to the list of tags that the client is interested in.
-    pub fn add_note_tag(&mut self, tag: u64) -> Result<(), StoreError> {
+    /// Adds a note tag to the list of tags that the client is interested in. This function returns
+    /// `Ok(false)` if the tag had been added before, and `Ok(true)` if it was added succesfully.
+    pub fn add_note_tag(&mut self, tag: u64) -> Result<bool, StoreError> {
         let mut tags = self.get_note_tags()?;
+        if tags.contains(&tag) {
+            return Ok(false);
+        }
         tags.push(tag);
         let tags = serde_json::to_string(&tags).map_err(StoreError::InputSerializationError)?;
 
@@ -426,7 +434,9 @@ impl Store {
         self.db
             .execute(QUERY, params![tags])
             .map_err(StoreError::QueryError)
-            .map(|_| ())
+            .map(|_| ())?;
+
+        Ok(true)
     }
 
     /// Returns the block number of the last state sync block
@@ -467,8 +477,7 @@ impl Store {
         for nullifier in nullifiers {
             const SPENT_QUERY: &str =
                 "UPDATE input_notes SET status = 'consumed' WHERE nullifier = ?";
-            let nullifier =
-                serde_json::to_string(&nullifier).map_err(StoreError::InputSerializationError)?;
+            let nullifier = nullifier.to_string();
             tx.execute(SPENT_QUERY, params![nullifier])
                 .map_err(StoreError::QueryError)?;
         }
@@ -647,10 +656,10 @@ fn parse_account_auth(
 /// Serialized the provided account_auth into database compatible types.
 fn serialize_account_auth(
     account_id: AccountId,
-    key_pair: &KeyPair,
+    auth_info: &AuthInfo,
 ) -> Result<SerializedAccountAuthData, StoreError> {
     let account_id: u64 = account_id.into();
-    let auth_info = AuthInfo::RpoFalcon512(*key_pair).to_bytes();
+    let auth_info = auth_info.to_bytes();
     Ok((account_id as i64, auth_info))
 }
 
@@ -806,8 +815,7 @@ fn serialize_input_note(
 ) -> Result<SerializedInputNoteData, StoreError> {
     let hash = serde_json::to_string(&recorded_note.note().hash())
         .map_err(StoreError::InputSerializationError)?;
-    let nullifier = serde_json::to_string(&recorded_note.note().nullifier())
-        .map_err(StoreError::InputSerializationError)?;
+    let nullifier = recorded_note.note().nullifier().inner().to_string();
     let script = recorded_note.note().script().to_bytes();
     let vault = serde_json::to_string(&recorded_note.note().vault())
         .map_err(StoreError::InputSerializationError)?;
@@ -910,7 +918,6 @@ pub mod tests {
         assert_eq!(actual, 1);
 
         // Second insertion does not generate a new row
-        assert!(store::Store::insert_account_code(&tx, &account_code).is_err());
         actual = tx
             .query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0))
             .unwrap();

@@ -42,6 +42,26 @@ CREATE TABLE accounts (
     FOREIGN KEY (vault_root) REFERENCES account_vaults(root)
 );
 
+-- Create transactions table
+-- TODO: Script-related information is to be moved to its own table referenced by the script_hash
+CREATE TABLE transactions (
+    id BLOB NOT NULL,                                -- Transaction ID (hash of various components)
+    account_id UNSIGNED BIG INT NOT NULL,            -- ID of the account against which the transaction was executed.
+    init_account_state BLOB NOT NULL,                -- Hash of the account state before the transaction was executed.
+    final_account_state BLOB NOT NULL,               -- Hash of the account state after the transaction was executed.
+    input_notes BLOB,                                -- Serialized list of input note hashes
+    output_notes BLOB,                               -- Serialized list of output note hashes 
+    script_hash BLOB,                                -- Transaction script hash
+    script_program BLOB,                             -- Transaction script program, serialized 
+    script_inputs BLOB,                              -- Transaction script inputs
+    block_num UNSIGNED BIG INT,                      -- Block number for the block against which the transaction was executed.
+    committed BOOLEAN NOT NULL,                      -- Status of the transaction: either pending (false) or committed (true).
+    commit_height UNSIGNED BIG INT,                  -- Block number of the block at which the transaction was included in the chain.
+    
+    FOREIGN KEY (account_id) REFERENCES accounts(id),
+    PRIMARY KEY (id)
+);
+
 -- Create input notes table
 CREATE TABLE input_notes (
     hash BLOB NOT NULL,                                     -- the note hash

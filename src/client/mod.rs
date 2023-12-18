@@ -6,12 +6,13 @@ use miden_node_proto::{
     account_id::AccountId as ProtoAccountId, requests::SyncStateRequest,
     responses::SyncStateResponse,
 };
+use miden_tx::TransactionExecutor;
 use objects::{accounts::AccountId, Digest};
 
 use crate::{
     config::ClientConfig,
     errors::{ClientError, RpcApiError, StoreError},
-    store::Store,
+    store::{mock_executor_data_store::MockDataStore, Store},
 };
 
 #[cfg(any(test, feature = "testing"))]
@@ -20,6 +21,7 @@ use crate::mock::MockRpcApi;
 pub mod accounts;
 pub mod chain_data;
 pub mod notes;
+pub mod transactions;
 
 // CONSTANTS
 // ================================================================================================
@@ -37,12 +39,13 @@ pub const FILTER_ID_SHIFT: u8 = 48;
 /// - Executes, proves, and submits transactions to the network as directed by the user.
 pub struct Client {
     /// Local database containing information about the accounts managed by this client.
-    store: Store,
+    pub(crate) store: Store,
     #[cfg(not(any(test, feature = "testing")))]
     /// Api client for interacting with the Miden node.
     rpc_api: miden_node_proto::rpc::api_client::ApiClient<tonic::transport::Channel>,
     #[cfg(any(test, feature = "testing"))]
     pub rpc_api: MockRpcApi,
+    pub(crate) tx_executor: TransactionExecutor<MockDataStore>,
 }
 
 impl Client {
@@ -64,6 +67,7 @@ impl Client {
             .map_err(|err| ClientError::RpcApiError(RpcApiError::ConnectionError(err)))?,
             #[cfg(any(test, feature = "testing"))]
             rpc_api: Default::default(),
+            tx_executor: TransactionExecutor::new(MockDataStore::new()),
         })
     }
 
@@ -84,7 +88,14 @@ impl Client {
 
     /// Adds a note tag for the client to track.
     pub fn add_note_tag(&mut self, tag: u64) -> Result<(), ClientError> {
-        self.store.add_note_tag(tag).map_err(|err| err.into())
+        match self.store.add_note_tag(tag).map_err(|err| err.into()) {
+            Ok(true) => Ok(()),
+            Ok(false) => {
+                println!("tag {} is already being tracked", tag);
+                Ok(())
+            }
+            Err(err) => Err(err),
+        }
     }
 
     /// Syncs the client's state with the current state of the Miden network.
