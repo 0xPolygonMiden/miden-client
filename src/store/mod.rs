@@ -451,7 +451,7 @@ impl Store {
         &mut self,
         block_number: u32,
         nullifiers: Vec<Digest>,
-        block_headers: Vec<BlockHeader>,
+        block_header: Option<BlockHeader>,
     ) -> Result<(), StoreError> {
         let tx = self
             .db
@@ -476,8 +476,8 @@ impl Store {
         // commit the updates
         tx.commit().map_err(StoreError::QueryError)?;
 
-        // insert new block headers
-        for block_header in block_headers {
+        // insert new block header
+        if let Some(block_header) = block_header {
             self.insert_block_header(block_header)?;
         }
         Ok(())

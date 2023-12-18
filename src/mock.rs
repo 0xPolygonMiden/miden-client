@@ -6,7 +6,7 @@ use miden_node_proto::{
     responses::{NullifierUpdate, SyncStateResponse},
 };
 use mock::mock::block;
-use objects::{utils::collections::BTreeMap, StarkField};
+use objects::utils::collections::BTreeMap;
 
 use crate::client::{Client, FILTER_ID_SHIFT};
 

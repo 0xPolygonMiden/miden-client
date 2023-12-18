@@ -114,21 +114,21 @@ impl Client {
             })
             .collect::<Vec<_>>();
 
-        let new_block_headers = match response.block_header {
+        let new_block_header = match response.block_header {
             Some(block_header) => {
                 let block_header = match objects::BlockHeader::try_from(block_header) {
-                    Ok(block_header) => block_header,
+                    Ok(block_header) => Some(block_header),
                     Err(err) => {
                         return Err(ClientError::StoreError(StoreError::ConvertionFailure(err)));
                     }
                 };
-                vec![block_header]
+                block_header
             }
-            None => vec![],
+            None => None,
         };
 
         self.store
-            .apply_state_sync(new_block_num, new_nullifiers, new_block_headers)
+            .apply_state_sync(new_block_num, new_nullifiers, new_block_header)
             .map_err(ClientError::StoreError)?;
 
         Ok(new_block_num)
