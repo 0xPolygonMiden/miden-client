@@ -126,15 +126,12 @@ impl Client {
             .collect::<Vec<_>>();
 
         let new_block_header = match response.block_header {
-            Some(block_header) => {
-                let block_header = match objects::BlockHeader::try_from(block_header) {
-                    Ok(block_header) => Some(block_header),
-                    Err(err) => {
-                        return Err(ClientError::StoreError(StoreError::ConvertionFailure(err)));
-                    }
-                };
-                block_header
-            }
+            Some(block_header) => match objects::BlockHeader::try_from(block_header) {
+                Ok(block_header) => Some(block_header),
+                Err(err) => {
+                    return Err(ClientError::StoreError(StoreError::ConvertionFailure(err)));
+                }
+            },
             None => None,
         };
 
