@@ -83,3 +83,18 @@ impl Default for Endpoint {
         }
     }
 }
+
+// STORE CONFIG
+// ================================================================================================
+
+pub struct StoreConfig {
+    pub path: String,
+}
+
+impl From<&ClientConfig> for StoreConfig {
+    fn from(config: &ClientConfig) -> Self {
+        Self {
+            path: config.store_path.clone(),
+        }
+    }
+}
