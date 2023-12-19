@@ -5,7 +5,7 @@ use super::Store;
 use clap::error::Result;
 use crypto::utils::{Deserializable, Serializable};
 use objects::notes::NoteScript;
-use objects::BlockHeader;
+
 use objects::{
     accounts::AccountId,
     notes::{Note, NoteMetadata, RecordedNote},
