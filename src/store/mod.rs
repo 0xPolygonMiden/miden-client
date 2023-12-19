@@ -5,7 +5,6 @@ use clap::error::Result;
 use rusqlite::Connection;
 
 pub mod accounts;
-pub mod chain_data;
 mod migrations;
 pub mod notes;
 pub mod transactions;
