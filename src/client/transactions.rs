@@ -1,5 +1,5 @@
 use crypto::{utils::Serializable, StarkField};
-use miden_lib::notes::{create_note, Script};
+use miden_lib::{notes::{create_note, Script}, transaction};
 use miden_node_proto::{
     requests::SubmitProvenTransactionRequest, responses::SubmitProvenTransactionResponse,
 };

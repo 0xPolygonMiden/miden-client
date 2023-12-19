@@ -1,6 +1,6 @@
 use crate::errors::StoreError;
 
-use super::Store;
+use super::{Store, NoteFilter};
 
 use clap::error::Result;
 use crypto::utils::{Deserializable, Serializable};
@@ -34,28 +34,6 @@ type SerializedInputNoteData = (
 
 type SerializedInputNoteParts = (Vec<u8>, String, String, String, u64, u64, u64, String);
 
-// NOTE FILTER
-// ================================================================================================
-/// Represents a filter for input notes
-pub enum InputNoteFilter {
-    All,
-    Consumed,
-    Committed,
-    Pending,
-}
-
-impl InputNoteFilter {
-    pub fn to_query(&self) -> String {
-        let base = String::from("SELECT script, inputs, vault, serial_num, sender_id, tag, num_assets, inclusion_proof FROM input_notes");
-        match self {
-            InputNoteFilter::All => base,
-            InputNoteFilter::Committed => format!("{base} WHERE status = 'committed'"),
-            InputNoteFilter::Consumed => format!("{base} WHERE status = 'consumed'"),
-            InputNoteFilter::Pending => format!("{base} WHERE status = 'pending'"),
-        }
-    }
-}
-
 impl Store {
     // NOTES
     // --------------------------------------------------------------------------------------------
@@ -63,7 +41,7 @@ impl Store {
     /// Retrieves the input notes from the database
     pub fn get_input_notes(
         &self,
-        note_filter: InputNoteFilter,
+        note_filter: NoteFilter,
     ) -> Result<Vec<RecordedNote>, StoreError> {
         self.db
             .prepare(&note_filter.to_query())

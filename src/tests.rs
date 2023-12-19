@@ -3,7 +3,7 @@
 use crate::{
     client::Client,
     config::{ClientConfig, Endpoint},
-    store::{accounts::AuthInfo, notes::InputNoteFilter, tests::create_test_store_path},
+    store::{accounts::AuthInfo, NoteFilter, tests::create_test_store_path},
 };
 
 use crypto::dsa::rpo_falcon512::KeyPair;
@@ -43,7 +43,7 @@ async fn test_input_notes_round_trip() {
     }
 
     // retrieve notes from database
-    let retrieved_notes = client.get_input_notes(InputNoteFilter::All).unwrap();
+    let retrieved_notes = client.get_input_notes(NoteFilter::All).unwrap();
 
     // compare notes
     assert_eq!(recorded_notes, retrieved_notes);
@@ -166,7 +166,7 @@ async fn test_sync_state() {
     // assert that we have no consumed notes prior to syncing state
     assert_eq!(
         client
-            .get_input_notes(InputNoteFilter::Consumed)
+            .get_input_notes(NoteFilter::Consumed)
             .unwrap()
             .len(),
         0
@@ -190,7 +190,7 @@ async fn test_sync_state() {
     // verify that we now have one consumed note after syncing state
     assert_eq!(
         client
-            .get_input_notes(InputNoteFilter::Consumed)
+            .get_input_notes(NoteFilter::Consumed)
             .unwrap()
             .len(),
         1

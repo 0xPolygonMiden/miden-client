@@ -6,7 +6,8 @@ use rusqlite::Connection;
 
 pub mod accounts;
 mod migrations;
-pub mod notes;
+pub mod input_notes;
+pub mod output_notes;
 pub mod transactions;
 
 pub(crate) mod mock_executor_data_store;
@@ -30,6 +31,30 @@ impl Store {
         Ok(Self { db })
     }
 }
+
+
+// NOTE FILTERs
+// ================================================================================================
+/// Represents a filter for input notes
+pub enum NoteFilter {
+    All,
+    Consumed,
+    Committed,
+    Pending,
+}
+
+impl NoteFilter {
+    pub fn to_query(&self) -> String {
+        let base = String::from("SELECT script, inputs, vault, serial_num, sender_id, tag, num_assets, inclusion_proof FROM input_notes");
+        match self {
+            NoteFilter::All => base,
+            NoteFilter::Committed => format!("{base} WHERE status = 'committed'"),
+            NoteFilter::Consumed => format!("{base} WHERE status = 'consumed'"),
+            NoteFilter::Pending => format!("{base} WHERE status = 'pending'"),
+        }
+    }
+}
+
 
 // TESTS
 // ================================================================================================
