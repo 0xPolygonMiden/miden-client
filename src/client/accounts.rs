@@ -12,7 +12,7 @@ use objects::{
 };
 use rand::{rngs::ThreadRng, Rng};
 
-use crate::{errors::ClientError, store::AuthInfo};
+use crate::{errors::ClientError, store::accounts::AuthInfo};
 
 pub enum AccountTemplate {
     BasicWallet {

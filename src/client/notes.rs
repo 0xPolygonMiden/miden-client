@@ -1,6 +1,6 @@
 use super::Client;
 
-use crate::{errors::ClientError, store::InputNoteFilter};
+use crate::{errors::ClientError, store::notes::InputNoteFilter};
 use objects::{notes::RecordedNote, Digest};
 
 impl Client {
