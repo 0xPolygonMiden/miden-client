@@ -62,6 +62,7 @@ CREATE TABLE transactions (
     PRIMARY KEY (id)
 );
 
+
 -- Create input notes table
 CREATE TABLE input_notes (
     hash BLOB NOT NULL,                                     -- the note hash
@@ -81,6 +82,24 @@ CREATE TABLE input_notes (
     commit_height UNSIGNED BIG INT NOT NULL,                -- the block number at which the note was included into the chain
     PRIMARY KEY (hash)
 );
+
+-- Create output notes table
+CREATE TABLE output_notes (
+    hash BLOB NOT NULL,                                     -- the note hash
+    vault BLOB NOT NULL,                                    -- the serialized NoteVault, including vault hash and list of assets
+    recipient BLOB NOT NULL,                                -- serialized note recipient information (note script, note inputs, and serial_num).
+    sender_id UNSIGNED BIG INT NOT NULL,                    -- the account ID of the sender
+    tag UNSIGNED BIG INT NOT NULL,                          -- the note tag
+    inclusion_proof BLOB NOT NULL,                          -- the inclusion proof of the note against a block number
+    recipients BLOB NOT NULL,                               -- a list of account IDs of accounts which can consume this note
+    status TEXT CHECK( status IN (                          -- the status of the note - either pending, committed or consumed
+        'pending', 'committed', 'consumed'
+        )),
+    commit_height UNSIGNED BIG INT NOT NULL,                -- the block number at which the note was included into the chain
+
+    PRIMARY KEY (hash)
+);
+
 
 -- Create state sync table
 CREATE TABLE state_sync (
