@@ -70,8 +70,6 @@ pub enum StoreError {
     TransactionError(rusqlite::Error),
     TransactionScriptError(TransactionScriptError),
     VaultDataNotFound(Digest),
-    BlockHeaderNotFound(u32),
-    ChainMmrNodeNotFound(u64),
 }
 
 impl fmt::Display for StoreError {
@@ -116,12 +114,6 @@ impl fmt::Display for StoreError {
                 write!(f, "error instantiating transaction script: {err}")
             }
             VaultDataNotFound(root) => write!(f, "account vault data for root {} not found", root),
-            BlockHeaderNotFound(block_number) => {
-                write!(f, "block header for block {} not found", block_number)
-            }
-            ChainMmrNodeNotFound(node_index) => {
-                write!(f, "chain mmr node at index {} not found", node_index)
-            }
         }
     }
 }
