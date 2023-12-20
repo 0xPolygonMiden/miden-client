@@ -1,9 +1,12 @@
 use super::Client;
 
+#[cfg(test)]
 use crate::errors::ClientError;
+#[cfg(test)]
 use objects::BlockHeader;
 
 impl Client {
+    #[cfg(test)]
     pub fn get_block_headers(
         &self,
         start: u32,

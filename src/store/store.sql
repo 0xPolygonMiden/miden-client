@@ -108,7 +108,7 @@ CREATE TABLE block_headers(
 
 -- Create chain mmr nodes
 CREATE TABLE chain_mmr_nodes(
-    id INTEGER,          -- in-order index of the internal MMR node (autoincrements)
-    node BLOB NOT NULL,  -- internal node value (hash)
+    id UNSIGNED BIG INT NOT NULL,   -- in-order index of the internal MMR node
+    node BLOB NOT NULL,             -- internal node value (hash)
     PRIMARY KEY (id)
 )

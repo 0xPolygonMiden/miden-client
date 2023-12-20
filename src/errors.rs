@@ -69,7 +69,7 @@ pub enum StoreError {
     TransactionError(rusqlite::Error),
     BlockHeaderNotFound(u32),
     ChainMmrNodeNotFound(u64),
-    ConvertionFailure(ParseError),
+    ConversionFailure(ParseError),
     TransactionScriptError(TransactionScriptError),
     VaultDataNotFound(Digest),
 }
@@ -122,7 +122,7 @@ impl fmt::Display for StoreError {
             ChainMmrNodeNotFound(node_index) => {
                 write!(f, "chain mmr node at index {} not found", node_index)
             }
-            ConvertionFailure(err) => write!(f, "failed to convert data: {err}"),
+            ConversionFailure(err) => write!(f, "failed to convert data: {err}"),
         }
     }
 }
