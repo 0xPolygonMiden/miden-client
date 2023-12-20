@@ -1,8 +1,7 @@
 use crate::client::transactions::{PaymentTransactionData, TransactionTemplate};
 use crate::client::{Client, FILTER_ID_SHIFT};
 use crate::store::mock_executor_data_store::MockDataStore;
-use crate::store::AuthInfo;
-use crypto::dsa::rpo_falcon512::KeyPair;
+use crypto::{dsa::rpo_falcon512::KeyPair, StarkField};
 use miden_node_proto::block_header::BlockHeader as NodeBlockHeader;
 use miden_node_proto::requests::SubmitProvenTransactionRequest;
 use miden_node_proto::responses::SubmitProvenTransactionResponse;
@@ -12,7 +11,9 @@ use miden_node_proto::{
     responses::{NullifierUpdate, SyncStateResponse},
 };
 use mock::mock::block;
-use objects::{utils::collections::BTreeMap, StarkField};
+use objects::utils::collections::BTreeMap;
+
+use crate::store::accounts::AuthInfo;
 
 use miden_tx::TransactionExecutor;
 use objects::accounts::AccountType;
