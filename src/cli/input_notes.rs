@@ -1,5 +1,10 @@
+use std::fs::File;
+use std::io::{Read, Write};
+use std::path::PathBuf;
+
 use super::{Client, Parser};
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
+use crypto::utils::{Deserializable, Serializable};
 use miden_client::store::notes::InputNoteFilter;
 use objects::notes::RecordedNote;
 use objects::Digest;
@@ -30,6 +35,26 @@ pub enum InputNotes {
         #[clap(short, long, default_value = "false")]
         inputs: bool,
     },
+
+    /// Export input note data to a binary file
+    #[clap(short_flag = 's')]
+    Export {
+        /// Hash of the input note to show
+        #[clap()]
+        hash: String,
+
+        /// Path to the file that will contain the input note data. If not provided, the filename will be the input note hash
+        #[clap()]
+        filename: Option<PathBuf>,
+    },
+
+    /// Import input note data from a binary file
+    #[clap(short_flag = 's')]
+    Import {
+        /// Path to the file that contains the input note data
+        #[clap()]
+        filename: PathBuf,
+    },
 }
 
 impl InputNotes {
@@ -46,6 +71,12 @@ impl InputNotes {
             } => {
                 show_input_note(client, hash.clone(), *script, *vault, *inputs)?;
             }
+            InputNotes::Export { hash, filename } => {
+                export_note(&client, hash, filename.clone())?;
+            }
+            InputNotes::Import { filename } => {
+                import_note(client, filename.clone())?;
+            }
         }
         Ok(())
     }
@@ -61,6 +92,44 @@ fn list_input_notes(client: Client) -> Result<(), String> {
     Ok(())
 }
 
+// EXPORT INPUT NOTE
+// ================================================================================================
+pub fn export_note(client: &Client, hash: &str, filename: Option<PathBuf>) -> Result<File, String> {
+    let hash = Digest::try_from(hash)
+        .map_err(|err| format!("Failed to parse input note hash: {}", err))?;
+    let note = client.get_input_note(hash).map_err(|err| err.to_string())?;
+
+    let file_path = filename.unwrap_or_else(|| {
+        let mut dir = PathBuf::new();
+        dir.push(hash.to_string());
+        dir
+    });
+
+    let mut file = File::create(file_path).map_err(|err| err.to_string())?;
+
+    let _ = file.write_all(&note.to_bytes());
+
+    Ok(file)
+}
+
+// IMPORT INPUT NOTE
+// ================================================================================================
+pub fn import_note(mut client: Client, filename: PathBuf) -> Result<Digest, String> {
+    let mut contents = vec![];
+    let mut _file = File::open(filename)
+        .and_then(|mut f| f.read_to_end(&mut contents))
+        .map_err(|err| err.to_string());
+
+    let note = RecordedNote::read_from_bytes(&contents).map_err(|err| err.to_string())?;
+
+    client
+        .insert_input_note(note.clone())
+        .map_err(|err| err.to_string())?;
+    Ok(note.note().hash())
+}
+
+// SHOW INPUT NOTE
+// ================================================================================================
 fn show_input_note(
     client: Client,
     hash: String,
@@ -161,4 +230,61 @@ where
     });
 
     println!("{table}");
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::cli::input_notes::{export_note, import_note};
+    use miden_client::{
+        client::Client,
+        config::{ClientConfig, Endpoint},
+        store::notes::InputNoteFilter,
+    };
+    use std::{env::temp_dir};
+    use uuid::Uuid;
+
+    #[tokio::test]
+    pub async fn import_export() {
+        // generate test client
+        let mut path = temp_dir();
+        path.push(Uuid::new_v4().to_string());
+        let mut client = Client::new(ClientConfig::new(
+            path.into_os_string().into_string().unwrap(),
+            Endpoint::default(),
+        ))
+        .await
+        .unwrap();
+
+        // generate test data
+        miden_client::mock::insert_mock_data(&mut client);
+
+        let note = client
+            .get_input_notes(InputNoteFilter::All)
+            .unwrap()
+            .first()
+            .unwrap()
+            .clone();
+
+        let mut filename_path = temp_dir();
+        filename_path.push("test_import");
+
+        export_note(
+            &client,
+            &note.note().hash().to_string(),
+            Some(filename_path.clone()),
+        )
+        .unwrap();
+
+        assert!(filename_path.exists());
+
+        let mut path = temp_dir();
+        path.push(Uuid::new_v4().to_string());
+        let client = Client::new(ClientConfig::new(
+            path.into_os_string().into_string().unwrap(),
+            Endpoint::default(),
+        ))
+        .await
+        .unwrap();
+        import_note(client, filename_path).unwrap();
+    }
 }

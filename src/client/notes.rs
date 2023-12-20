@@ -1,6 +1,9 @@
+
+
 use super::Client;
 
 use crate::{errors::ClientError, store::notes::InputNoteFilter};
+
 use objects::{notes::RecordedNote, Digest};
 
 impl Client {
@@ -31,7 +34,4 @@ impl Client {
             .insert_input_note(&note)
             .map_err(|err| err.into())
     }
-
-    // TODO: add methods for retrieving note and transaction info, and for creating/executing
-    // transaction
 }
