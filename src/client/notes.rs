@@ -1,5 +1,3 @@
-
-
 use super::Client;
 
 use crate::{errors::ClientError, store::notes::InputNoteFilter};

@@ -240,7 +240,7 @@ mod tests {
         config::{ClientConfig, Endpoint},
         store::notes::InputNoteFilter,
     };
-    use std::{env::temp_dir};
+    use std::env::temp_dir;
     use uuid::Uuid;
 
     #[tokio::test]
