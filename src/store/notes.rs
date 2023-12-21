@@ -177,8 +177,7 @@ impl Store {
 
     /// Retrieves the input note with the specified hash from the database
     pub fn get_input_note_by_hash(&self, hash: Digest) -> Result<NoteType, StoreError> {
-        let query_hash =
-            serde_json::to_string(&hash).map_err(StoreError::InputSerializationError)?;
+        let query_hash = &hash.to_string();
         const QUERY: &str = "SELECT script, inputs, vault, serial_num, sender_id, tag, num_assets, inclusion_proof FROM input_notes WHERE hash = ?";
 
         self.db
