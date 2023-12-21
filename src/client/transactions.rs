@@ -1,4 +1,11 @@
-use crypto::{utils::Serializable, StarkField};
+use crate::{
+    errors::{self, ClientError},
+    store::{
+        accounts::AuthInfo,
+        mock_executor_data_store::{self, MockDataStore},
+    },
+};
+use crypto::{utils::Serializable, Felt};
 use miden_lib::notes::{create_note, Script};
 use miden_node_proto::{
     requests::SubmitProvenTransactionRequest, responses::SubmitProvenTransactionResponse,
@@ -7,17 +14,12 @@ use miden_tx::{ProvingOptions, TransactionProver};
 use objects::{
     accounts::AccountId,
     assembly::ProgramAst,
-    assets::Asset,
+    assets::{Asset, FungibleAsset},
     notes::Note,
     transaction::{ProvenTransaction, TransactionResult, TransactionScript, TransactionWitness},
     Digest,
 };
 use rand::Rng;
-
-use crate::{
-    errors::{self, ClientError},
-    store::{self, mock_executor_data_store::MockDataStore},
-};
 
 use super::Client;
 
@@ -28,6 +30,12 @@ pub enum TransactionTemplate {
     PayToIdWithRecall(PaymentTransactionData, u32),
     /// Consume all outstanding notes for an account
     ConsumeNotes(AccountId),
+    MintFungibleAsset {
+        // TODO: Should this be called "distribute"?
+        asset: FungibleAsset,
+        tag: u64,
+        target_account_id: AccountId,
+    },
 }
 
 pub struct PaymentTransactionData {
@@ -123,7 +131,7 @@ impl Client {
     pub fn new_transaction(
         &mut self,
         transaction_template: TransactionTemplate,
-    ) -> Result<(TransactionResult, TransactionScript), ClientError> {
+    ) -> Result<(TransactionResult, TransactionScript, Vec<Note>), ClientError> {
         match transaction_template {
             TransactionTemplate::PayToId(PaymentTransactionData {
                 asset: fungible_asset,
@@ -132,7 +140,94 @@ impl Client {
             }) => self.new_p2id_transaction(fungible_asset, sender_account_id, target_account_id),
             TransactionTemplate::PayToIdWithRecall(_payment_data, _recall_height) => todo!(),
             TransactionTemplate::ConsumeNotes(_) => todo!(),
+            TransactionTemplate::MintFungibleAsset {
+                asset,
+                tag,
+                target_account_id,
+            } => self.new_mint_fungible_asset_transaction(asset, target_account_id, tag),
         }
+    }
+
+    fn new_mint_fungible_asset_transaction(
+        &mut self,
+        asset: FungibleAsset,
+        target_id: AccountId,
+        tag: u64,
+    ) -> Result<(TransactionResult, TransactionScript, Vec<Note>), ClientError> {
+        let faucet_id = asset.faucet_id();
+        let faucet_account = self.get_account_by_id(faucet_id)?;
+        let faucet_auth = self.get_account_auth(faucet_id)?;
+
+        self.tx_executor
+            .load_account(faucet_account.id())
+            .map_err(ClientError::TransactionExecutionError)?;
+
+        let block_ref = self.get_latest_block_number()?;
+
+        let mut rng = rand::thread_rng();
+        let serial_num: [u64; 4] = rng.gen();
+
+        let tag = Felt::new(tag);
+        let output_note = create_note(
+            Script::P2ID { target: target_id },
+            vec![asset.into()],
+            faucet_id,
+            Some(tag),
+            serial_num.map(|n| n.into()),
+        )
+        .map_err(ClientError::NoteError)?;
+        let _recipient = [target_id.into(), Felt::new(1), Felt::new(2), Felt::new(3)];
+        let amount = Felt::new(asset.amount());
+
+        let tx_script_code = ProgramAst::parse(
+            format!(
+                "
+            use.miden::faucets::basic_fungible->faucet
+            use.miden::auth::basic->auth_tx
+
+            begin
+
+                push.{recipient}
+                push.{tag}
+                push.{amount}
+                call.faucet::distribute
+
+                call.auth_tx::auth_tx_rpo_falcon512
+                dropw dropw
+
+            end
+            ",
+                recipient = output_note.recipient(),
+                tag = tag,
+                amount = amount,
+            )
+            .as_str(),
+        )
+        .unwrap();
+
+        let pubkey_input = match faucet_auth {
+            AuthInfo::RpoFalcon512(key) => (
+                key.public_key().into(),
+                key.to_bytes()
+                    .iter()
+                    .map(|a| Felt::new(*a as u64))
+                    .collect::<Vec<Felt>>(),
+            ),
+        };
+
+        let script_inputs = vec![pubkey_input];
+        let tx_script = self
+            .tx_executor
+            .compile_tx_script(tx_script_code, script_inputs, vec![])
+            .map_err(ClientError::TransactionExecutionError)?;
+
+        // Execute the transaction and get the witness
+        let transaction_result = self
+            .tx_executor
+            .execute_transaction(faucet_account.id(), block_ref, &[], Some(tx_script.clone()))
+            .unwrap();
+
+        Ok((transaction_result, tx_script, vec![output_note]))
     }
 
     fn new_p2id_transaction(
@@ -140,17 +235,7 @@ impl Client {
         fungible_asset: Asset,
         sender_account_id: AccountId,
         target_account_id: AccountId,
-    ) -> Result<(TransactionResult, TransactionScript), ClientError> {
-        // Create assets
-        let (target_pub_key, target_sk_pk_felt) =
-            store::mock_executor_data_store::get_new_key_pair_with_advice_map();
-        let target_account = store::mock_executor_data_store::get_account_with_default_account_code(
-            target_account_id,
-            target_pub_key,
-            None,
-        );
-
-        // Create the note
+    ) -> Result<(TransactionResult, TransactionScript, Vec<Note>), ClientError> {
         let p2id_script = Script::P2ID {
             target: target_account_id,
         };
@@ -168,23 +253,31 @@ impl Client {
         .map_err(ClientError::NoteError)?;
 
         // TODO: Remove this as DataStore is implemented on the Client's Store
-        let data_store: MockDataStore = MockDataStore::with_existing(
-            Some(target_account.clone()),
-            Some(vec![note.clone()]),
-            None,
-        );
 
-        self.set_data_store(data_store.clone());
+        #[cfg(feature = "testing")]
+        {
+            let (target_pub_key, _target_sk_pk_felt) =
+                mock_executor_data_store::get_new_key_pair_with_advice_map();
+            let target_account = mock_executor_data_store::get_account_with_default_account_code(
+                target_account_id,
+                target_pub_key,
+                None,
+            );
+            let data_store: MockDataStore = MockDataStore::with_existing(
+                Some(target_account.clone()),
+                Some(vec![note.clone()]),
+                None,
+            );
+
+            self.set_data_store(data_store.clone());
+        }
+
         self.tx_executor
             .load_account(target_account_id)
             .map_err(ClientError::TransactionExecutionError)?;
 
-        let block_ref = data_store.block_header.block_num().as_int() as u32;
-        let note_origins = data_store
-            .notes
-            .iter()
-            .map(|note| note.origin().clone())
-            .collect::<Vec<_>>();
+        let block_ref = self.get_latest_block_number()?;
+        let note_origins = [];
 
         let tx_script_code = ProgramAst::parse(
             "
@@ -201,7 +294,7 @@ impl Client {
             .tx_executor
             .compile_tx_script(
                 tx_script_code.clone(),
-                vec![(target_pub_key, target_sk_pk_felt)],
+                vec![/*(target_pub_key, target_sk_pk_felt)*/],
                 vec![],
             )
             .map_err(ClientError::TransactionExecutionError)?;
@@ -217,7 +310,7 @@ impl Client {
             )
             .map_err(ClientError::TransactionExecutionError)?;
 
-        Ok((transaction_result, tx_script_target))
+        Ok((transaction_result, tx_script_target, vec![note]))
     }
 
     /// Proves the specified transaction witness, submits it to the node, and stores the transaction in
@@ -231,6 +324,9 @@ impl Client {
         let proven_transaction = transaction_prover
             .prove_transaction_witness(transaction_witness)
             .map_err(ClientError::TransactionProvingError)?;
+
+        //NoteInclusionProof::new(block_num, sub_hash, note_root, index, note_path);
+        //RecordedNote::new(Note, )
 
         self.submit_proven_transaction_request(proven_transaction.clone())
             .await?;

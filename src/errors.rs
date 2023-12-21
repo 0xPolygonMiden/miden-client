@@ -1,9 +1,9 @@
 use core::fmt;
-use crypto::{
-    dsa::rpo_falcon512::FalconError,
-    utils::{DeserializationError, HexParseError},
-};
+use crypto::utils::DeserializationError;
+use crypto::{dsa::rpo_falcon512::FalconError, utils::HexParseError};
+use miden_node_proto::error::ParseError;
 use miden_tx::{TransactionExecutorError, TransactionProverError};
+use objects::AssetError;
 use objects::{accounts::AccountId, AccountError, Digest, NoteError, TransactionScriptError};
 use tonic::{transport::Error as TransportError, Status as TonicStatus};
 
@@ -13,6 +13,7 @@ use tonic::{transport::Error as TransportError, Status as TonicStatus};
 #[derive(Debug)]
 pub enum ClientError {
     AccountError(AccountError),
+    AssetError(AssetError),
     AuthError(FalconError),
     NoteError(NoteError),
     RpcApiError(RpcApiError),
@@ -25,6 +26,7 @@ impl fmt::Display for ClientError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ClientError::AccountError(err) => write!(f, "account error: {err}"),
+            ClientError::AssetError(err) => write!(f, "asset error: {err}"),
             ClientError::AuthError(err) => write!(f, "account auth error: {err}"),
             ClientError::NoteError(err) => write!(f, "note error: {err}"),
             ClientError::RpcApiError(err) => write!(f, "rpc api error: {err}"),
@@ -68,6 +70,9 @@ pub enum StoreError {
     NoteTagAlreadyTracked(u64),
     QueryError(rusqlite::Error),
     TransactionError(rusqlite::Error),
+    BlockHeaderNotFound(u32),
+    ChainMmrNodeNotFound(u64),
+    ConvertionFailure(ParseError),
     TransactionScriptError(TransactionScriptError),
     VaultDataNotFound(Digest),
 }
@@ -114,6 +119,13 @@ impl fmt::Display for StoreError {
                 write!(f, "error instantiating transaction script: {err}")
             }
             VaultDataNotFound(root) => write!(f, "account vault data for root {} not found", root),
+            BlockHeaderNotFound(block_number) => {
+                write!(f, "block header for block {} not found", block_number)
+            }
+            ChainMmrNodeNotFound(node_index) => {
+                write!(f, "chain mmr node at index {} not found", node_index)
+            }
+            ConvertionFailure(err) => write!(f, "failed to convert data: {err}"),
         }
     }
 }

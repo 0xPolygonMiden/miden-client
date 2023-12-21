@@ -3,6 +3,7 @@ use comfy_table::Attribute;
 use comfy_table::Cell;
 use comfy_table::ContentArrangement;
 use comfy_table::Table;
+
 use miden_client::client::transactions::PaymentTransactionData;
 use miden_client::client::transactions::TransactionStub;
 use miden_client::client::transactions::TransactionTemplate;
@@ -40,6 +41,12 @@ pub enum TransactionType {
         amount: u64,
     },
     P2IDR,
+    Mint {
+        faucet_id: String,
+        target_account_id: String,
+        tag: u64,
+        amount: u64,
+    },
 }
 
 impl Transaction {
@@ -69,7 +76,7 @@ impl Transaction {
                         sender_account_id,
                         target_account_id,
                     );
-                    let (transaction_result, tx_script) = client
+                    let (transaction_result, tx_script, output_notes) = client
                         .new_transaction(TransactionTemplate::PayToId(payment_transaction))
                         .map_err(|err| err.to_string())?;
 
@@ -77,9 +84,49 @@ impl Transaction {
                         .send_transaction(transaction_result.into_witness(), Some(tx_script))
                         .await
                         .map_err(|err| err.to_string())?;
+
+                    for note in output_notes {
+                        client
+                            .insert_pending_note(note)
+                            .map_err(|err| err.to_string())?
+                    }
                 }
                 TransactionType::P2IDR => {
                     todo!()
+                }
+                TransactionType::Mint {
+                    target_account_id,
+                    tag,
+                    amount,
+                    faucet_id,
+                } => {
+                    let faucet_id =
+                        AccountId::from_hex(faucet_id).map_err(|err| err.to_string())?;
+
+                    let target_account_id =
+                        AccountId::from_hex(target_account_id).map_err(|err| err.to_string())?;
+
+                    let asset =
+                        FungibleAsset::new(faucet_id, *amount).map_err(|err| err.to_string())?;
+
+                    let (transaction_result, tx_script, output_notes) = client
+                        .new_transaction(TransactionTemplate::MintFungibleAsset {
+                            asset,
+                            tag: *tag,
+                            target_account_id,
+                        })
+                        .map_err(|err| err.to_string())?;
+
+                    client
+                        .send_transaction(transaction_result.into_witness(), Some(tx_script))
+                        .await
+                        .map_err(|err| err.to_string())?;
+
+                    for note in output_notes {
+                        client
+                            .insert_pending_note(note)
+                            .map_err(|err| err.to_string())?
+                    }
                 }
             },
         }

@@ -43,7 +43,7 @@ async fn test_input_notes_round_trip() {
     }
 
     // retrieve notes from database
-    let retrieved_notes = client.get_input_notes(InputNoteFilter::All).unwrap();
+    let retrieved_notes = client.get_recorded_notes().unwrap();
 
     // compare notes
     assert_eq!(recorded_notes, retrieved_notes);
@@ -76,8 +76,12 @@ async fn test_get_input_note() {
         .get_input_note(recorded_notes[0].note().hash())
         .unwrap();
 
-    // compare notes
-    assert_eq!(recorded_notes[0], retrieved_note);
+    match retrieved_note {
+        crate::store::notes::NoteType::PendingNote(_) => panic!(),
+        crate::store::notes::NoteType::CommittedNote(n) => {
+            assert_eq!(recorded_notes[0], n)
+        }
+    }
 }
 
 #[tokio::test]
@@ -163,7 +167,7 @@ async fn test_sync_state() {
     // generate test data
     crate::mock::insert_mock_data(&mut client);
 
-    // assert that we have no consumed notes prior to syncing state
+    // assert that we have no consumed nor pending notes prior to syncing state
     assert_eq!(
         client
             .get_input_notes(InputNoteFilter::Consumed)
@@ -191,6 +195,15 @@ async fn test_sync_state() {
     assert_eq!(
         client
             .get_input_notes(InputNoteFilter::Consumed)
+            .unwrap()
+            .len(),
+        1
+    );
+
+    // verify that the pending note we had is now committed
+    assert_eq!(
+        client
+            .get_input_notes(InputNoteFilter::Committed)
             .unwrap()
             .len(),
         1
