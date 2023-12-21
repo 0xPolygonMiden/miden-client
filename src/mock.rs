@@ -99,8 +99,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
     let chain_tip = 10;
 
     // create a block header for the response
-    let block_header: objects::BlockHeader =
-        block::mock_block_header(chain_tip.into(), None, None, &[]);
+    let block_header: objects::BlockHeader = block::mock_block_header(chain_tip, None, None, &[]);
 
     // create a state sync response
     let response = SyncStateResponse {
