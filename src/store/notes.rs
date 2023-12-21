@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use crate::errors::StoreError;
 
 use super::Store;
@@ -228,13 +230,11 @@ impl Store {
         &mut self,
         sync_state_response: SyncStateResponse,
     ) -> Result<(Vec<Digest>, u32, Option<BlockHeader>), StoreError> {
-        println!("applying state sync response");
         let nullifiers = self.get_unspent_input_note_nullifiers()?;
         let mut new_nullifiers = Vec::new();
         for nullifier in &sync_state_response.nullifiers {
             let nullifier = nullifier.nullifier.as_ref().unwrap().try_into().unwrap();
             if nullifiers.contains(&nullifier) {
-                println!("adding nullifier {}", nullifier);
                 new_nullifiers.push(nullifier);
             }
         }
@@ -244,12 +244,17 @@ impl Store {
             .transaction()
             .map_err(StoreError::TransactionError)?;
 
-        // update state sync block number
+        // Update block_num in the state_sync table to response.block_header.block_num.
         const BLOCK_NUMBER_QUERY: &str = "UPDATE state_sync SET block_number = ?";
         tx.execute(BLOCK_NUMBER_QUERY, params![sync_state_response.chain_tip])
             .map_err(StoreError::QueryError)?;
 
-        // update spent notes
+        // Check if the returned account hashes match latest account hashes in the database.
+        // If they don't match, something got corrupted and we won't be able to execute
+        // transactions against accounts where there is a state mismatch.
+        // todo...
+
+        // For any consumed nullifiers update corresponding input notes.
         for nullifier in &new_nullifiers {
             const SPENT_QUERY: &str =
                 "UPDATE input_notes SET status = 'consumed' WHERE nullifier = ?";
@@ -258,7 +263,36 @@ impl Store {
                 .map_err(StoreError::QueryError)?;
         }
 
-        // add new block header
+        // This also implies that transactions in which these notes were created have also
+        // been committed and thus we need to update their state and states of involved accounts accordingly.
+        // todo...
+
+        // Update input notes table based on the returned notes.
+        // Here, we'll assume that we already have most of the note's details in the table
+        // (these notes could be imported previously via a side channel or created locally).
+        // But these notes would be missing anchor info (e.g., location in the chain and inclusion path).
+        // So, basically, for every returned note:
+        for note in sync_state_response.notes {
+            // a. We look up a note record by note hash in input_notes table. If no note is found, we just move to the next returned note.
+            if let Some(note_hash) = note.note_hash {
+                let note_hash: [Felt; 4] = [
+                    note_hash.d0.into(),
+                    note_hash.d1.into(),
+                    note_hash.d2.into(),
+                    note_hash.d3.into(),
+                ];
+                // if let Ok(note) = self.get_input_note_by_hash(note_hash.into()) { <-- fails as it attemps to borrow self that is already borrowed by tx
+                // b. If a note is found, we update it's anchor info.
+                // This will make this note consumable because now we build the inclusion proof for the note
+                // (which is required to execute a transaction).
+                // }
+            }
+        }
+
+        // If the response brought back any relevant notes (e.g., the ones that were not ignored in the previous step),
+        // we also need to update our chain data tables. The simplest way to do this is to maintain in memory
+        // representation of PartialMmr struct which contains info from these tables.
+        // Specifically, we need to insert a new block header (from response.block_header)
         if let Some(_block_header) = sync_state_response.block_header.clone() {
             // this function is incomplete, it has a todo!() inside to
             // prevent skipping over it
@@ -271,7 +305,7 @@ impl Store {
             // )?;
         }
 
-        // update chain mmr
+        // and also update chain_mmr_nodes table.
         if let Some(_mmr_delta) = sync_state_response.mmr_delta {
             // build chain mmr with data stores on the database
             // apply mmr delta to the chain mmr
