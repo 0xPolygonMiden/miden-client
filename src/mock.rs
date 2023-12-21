@@ -142,7 +142,7 @@ pub fn insert_mock_data(client: &mut Client) {
 
     // insert notes into database
     for note in recorded_notes.into_iter() {
-        client.insert_input_note(note).unwrap();
+        client.import_input_note(note).unwrap();
     }
 
     // insert account

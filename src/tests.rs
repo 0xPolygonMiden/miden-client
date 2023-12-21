@@ -39,7 +39,7 @@ async fn test_input_notes_round_trip() {
 
     // insert notes into database
     for note in recorded_notes.iter().cloned() {
-        client.insert_input_note(note).unwrap();
+        client.import_input_note(note).unwrap();
     }
 
     // retrieve notes from database
@@ -69,7 +69,7 @@ async fn test_get_input_note() {
     );
 
     // insert note into database
-    client.insert_input_note(recorded_notes[0].clone()).unwrap();
+    client.import_input_note(recorded_notes[0].clone()).unwrap();
 
     // retrieve note from database
     let retrieved_note = client

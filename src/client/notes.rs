@@ -27,7 +27,7 @@ impl Client {
     // --------------------------------------------------------------------------------------------
 
     /// Inserts a new input note into the client's store.
-    pub fn insert_input_note(&mut self, note: RecordedNote) -> Result<(), ClientError> {
+    pub fn import_input_note(&mut self, note: RecordedNote) -> Result<(), ClientError> {
         self.store
             .insert_input_note(&note)
             .map_err(|err| err.into())

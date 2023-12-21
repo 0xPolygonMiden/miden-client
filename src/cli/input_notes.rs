@@ -123,7 +123,7 @@ pub fn import_note(mut client: Client, filename: PathBuf) -> Result<Digest, Stri
     let note = RecordedNote::read_from_bytes(&contents).map_err(|err| err.to_string())?;
 
     client
-        .insert_input_note(note.clone())
+        .import_input_note(note.clone())
         .map_err(|err| err.to_string())?;
     Ok(note.note().hash())
 }
