@@ -34,12 +34,6 @@ pub const FILTER_ID_SHIFT: u8 = 48;
 pub struct Client {
     /// Local database containing information about the accounts managed by this client.
     pub(crate) store: Store,
-    #[cfg(not(any(test, feature = "testing")))]
-    /// Api client for interacting with the Miden node.
-    rpc_api: miden_node_proto::rpc::api_client::ApiClient<tonic::transport::Channel>,
-    #[cfg(not(any(test, feature = "testing")))]
-    /// Api client for interacting with the Miden node.
-    pub(crate) tx_executor: TransactionExecutor<crate::store::data_store::SqliteDataStore>,
     #[cfg(any(test, feature = "testing"))]
     pub rpc_api: MockRpcApi,
     #[cfg(any(test, feature = "testing"))]

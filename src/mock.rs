@@ -24,7 +24,7 @@ use crate::store::accounts::AuthInfo;
 
 use miden_tx::TransactionExecutor;
 use objects::accounts::AccountType;
-use objects::assets::{Asset, FungibleAsset};
+use objects::assets::FungibleAsset;
 
 /// Mock RPC API
 ///
@@ -158,7 +158,7 @@ pub fn insert_mock_data(client: &mut Client) {
     };
 
     // generate test data
-    let (account, _, _, recorded_notes, _) = mock_inputs(
+    let (_account, _, _, recorded_notes, _) = mock_inputs(
         MockAccountType::StandardExisting,
         AssetPreservationStatus::Preserved,
     );

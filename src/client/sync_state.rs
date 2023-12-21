@@ -82,7 +82,7 @@ impl Client {
             .into_iter()
             .filter_map(|note| {
                 let note_hash: Digest = note.note_hash.unwrap().try_into().unwrap();
-                if pending_notes.contains(&note_hash.try_into().unwrap()) {
+                if pending_notes.contains(&note_hash) {
                     let note_inclusion_proof = NoteInclusionProof::new(
                         block_num,
                         block_header.sub_hash(),

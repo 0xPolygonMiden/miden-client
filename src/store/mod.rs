@@ -10,10 +10,8 @@ pub mod notes;
 pub mod state_sync;
 pub mod transactions;
 
-//#[cfg(any(test, feature = "testing"))]
+#[cfg(any(test, feature = "testing"))]
 pub mod mock_executor_data_store;
-
-pub mod data_store;
 
 // CLIENT STORE
 // ================================================================================================
