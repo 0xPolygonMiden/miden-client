@@ -47,34 +47,41 @@ impl Client {
     ///
     /// Returns the block number the client has been synced to.
     pub async fn sync_state(&mut self) -> Result<u32, ClientError> {
+        println!("syncing state");
         let block_num = self.store.get_latest_block_number()?;
         let account_ids = self.store.get_account_ids()?;
         let note_tags = self.store.get_note_tags()?;
-        let nullifiers = self.store.get_unspent_input_note_nullifiers()?; // breaks
+        let nullifiers = self.store.get_unspent_input_note_nullifiers()?;
 
-        let response = self
+        let mut response = self
             .sync_state_request(block_num, &account_ids, &note_tags, &nullifiers)
             .await?;
 
-        let new_block_num = response.chain_tip;
-        let new_nullifiers = response
-            .nullifiers
-            .into_iter()
-            .filter_map(|x| {
-                let nullifier = x.nullifier.as_ref().unwrap().try_into().unwrap();
-                if nullifiers.contains(&nullifier) {
-                    Some(nullifier)
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
+        let (mut new_nullifiers, mut chain_tip, mut block_header) =
+            self.store.apply_state_sync(response)?;
 
-        self.store
-            .apply_state_sync(new_block_num, new_nullifiers)
-            .map_err(ClientError::StoreError)?;
+        let mut block_header_num = match &block_header {
+            Some(block) => block.block_num,
+            None => 0,
+        };
 
-        Ok(new_block_num)
+        // loop until we reach the tip of the chain
+        while chain_tip != block_header_num {
+            // get new response
+            response = self
+                .sync_state_request(chain_tip, &account_ids, &note_tags, &new_nullifiers)
+                .await?;
+
+            // apply response to the store
+            (new_nullifiers, chain_tip, block_header) = self.store.apply_state_sync(response)?;
+
+            block_header_num = match &block_header {
+                Some(block) => block.block_num,
+                None => 0,
+            };
+        }
+
+        Ok(chain_tip)
     }
 
     // HELPERS

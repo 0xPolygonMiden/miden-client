@@ -4,6 +4,8 @@ use super::Store;
 
 use clap::error::Result;
 use crypto::utils::{Deserializable, Serializable};
+use miden_node_proto::block_header::BlockHeader;
+use miden_node_proto::responses::SyncStateResponse;
 use objects::notes::NoteScript;
 
 use objects::{
@@ -220,11 +222,23 @@ impl Store {
             .expect("state sync block number exists")
     }
 
+    /// Applies the provided state sync response to the database
+    /// and returns the list of nullifiers that were consumed along with the block number
     pub fn apply_state_sync(
         &mut self,
-        block_number: u32,
-        nullifiers: Vec<Digest>,
-    ) -> Result<(), StoreError> {
+        sync_state_response: SyncStateResponse,
+    ) -> Result<(Vec<Digest>, u32, Option<BlockHeader>), StoreError> {
+        println!("applying state sync response");
+        let nullifiers = self.get_unspent_input_note_nullifiers()?;
+        let mut new_nullifiers = Vec::new();
+        for nullifier in &sync_state_response.nullifiers {
+            let nullifier = nullifier.nullifier.as_ref().unwrap().try_into().unwrap();
+            if nullifiers.contains(&nullifier) {
+                println!("adding nullifier {}", nullifier);
+                new_nullifiers.push(nullifier);
+            }
+        }
+
         let tx = self
             .db
             .transaction()
@@ -232,11 +246,11 @@ impl Store {
 
         // update state sync block number
         const BLOCK_NUMBER_QUERY: &str = "UPDATE state_sync SET block_number = ?";
-        tx.execute(BLOCK_NUMBER_QUERY, params![block_number])
+        tx.execute(BLOCK_NUMBER_QUERY, params![sync_state_response.chain_tip])
             .map_err(StoreError::QueryError)?;
 
         // update spent notes
-        for nullifier in nullifiers {
+        for nullifier in &new_nullifiers {
             const SPENT_QUERY: &str =
                 "UPDATE input_notes SET status = 'consumed' WHERE nullifier = ?";
             let nullifier = nullifier.to_string();
@@ -244,13 +258,37 @@ impl Store {
                 .map_err(StoreError::QueryError)?;
         }
 
+        // add new block header
+        if let Some(_block_header) = sync_state_response.block_header.clone() {
+            // this function is incomplete, it has a todo!() inside to
+            // prevent skipping over it
+            // Self::insert_block_header(
+            //     &tx,
+            //     block_header
+            //         .try_into()
+            //         .map_err(StoreError::ConversionFailure)?,
+            //     chain_mmr_peaks,
+            // )?;
+        }
+
+        // update chain mmr
+        if let Some(_mmr_delta) = sync_state_response.mmr_delta {
+            // build chain mmr with data stores on the database
+            // apply mmr delta to the chain mmr
+            // somehow get diff
+            // apply nodes that are missing from the database
+        }
+
         // commit the updates
         tx.commit().map_err(StoreError::QueryError)?;
 
-        Ok(())
+        Ok((
+            new_nullifiers,
+            sync_state_response.chain_tip,
+            sync_state_response.block_header,
+        ))
     }
 }
-
 // HELPERS
 // ================================================================================================
 
