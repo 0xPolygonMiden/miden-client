@@ -73,7 +73,7 @@ CREATE TABLE input_notes (
     sender_id UNSIGNED BIG INT NOT NULL,                    -- the account ID of the sender
     tag UNSIGNED BIG INT NOT NULL,                          -- the note tag
     num_assets UNSIGNED BIG INT NOT NULL,                   -- the number of assets in the note
-    inclusion_proof BLOB NOT NULL,                          -- the inclusion proof of the note against a block number
+    inclusion_proof BLOB NULL,                              -- the inclusion proof of the note against a block number
     recipients BLOB NOT NULL,                               -- a list of account IDs of accounts which can consume this note
     status TEXT CHECK( status IN (                          -- the status of the note - either pending, committed or consumed
         'pending', 'committed', 'consumed'

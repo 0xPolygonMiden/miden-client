@@ -1,7 +1,7 @@
 use super::{Client, Parser};
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
-use miden_client::store::notes::InputNoteFilter;
-use objects::notes::RecordedNote;
+use miden_client::store::notes::{InputNoteFilter, NoteType};
+
 use objects::Digest;
 
 #[derive(Debug, Parser, Clone)]
@@ -86,11 +86,11 @@ fn show_input_note(
         table
             .add_row(vec![
                 Cell::new("Note Script hash").add_attribute(Attribute::Bold),
-                Cell::new(note.note().script().hash()),
+                Cell::new(note.script().hash()),
             ])
             .add_row(vec![
                 Cell::new("Note Script code").add_attribute(Attribute::Bold),
-                Cell::new(note.note().script().code()),
+                Cell::new(note.script().code()),
             ]);
     };
 
@@ -99,11 +99,11 @@ fn show_input_note(
         table
             .add_row(vec![
                 Cell::new("Note Vault hash").add_attribute(Attribute::Bold),
-                Cell::new(note.note().vault().hash()),
+                Cell::new(note.vault().hash()),
             ])
             .add_row(vec![Cell::new("Note Vault").add_attribute(Attribute::Bold)]);
 
-        note.note().vault().iter().for_each(|asset| {
+        note.vault().iter().for_each(|asset| {
             table.add_row(vec![Cell::new(format!("{:?}", asset))]);
         })
     };
@@ -112,11 +112,10 @@ fn show_input_note(
         table
             .add_row(vec![
                 Cell::new("Note Inputs hash").add_attribute(Attribute::Bold),
-                Cell::new(note.note().inputs().hash()),
+                Cell::new(note.inputs().hash()),
             ])
             .add_row(vec![Cell::new("Note Inputs").add_attribute(Attribute::Bold)]);
-        note.note()
-            .inputs()
+        note.inputs()
             .inputs()
             .iter()
             .enumerate()
@@ -136,7 +135,7 @@ fn show_input_note(
 // ================================================================================================
 fn print_notes_summary<'a, I>(notes: I)
 where
-    I: IntoIterator<Item = &'a RecordedNote>,
+    I: IntoIterator<Item = &'a NoteType>,
 {
     let mut table = Table::new();
     table
@@ -152,11 +151,11 @@ where
 
     notes.into_iter().for_each(|note| {
         table.add_row(vec![
-            note.note().hash().to_string(),
-            note.note().script().hash().to_string(),
-            note.note().vault().hash().to_string(),
-            note.note().inputs().hash().to_string(),
-            Digest::new(note.note().serial_num()).to_string(),
+            note.hash().to_string(),
+            note.script().hash().to_string(),
+            note.vault().hash().to_string(),
+            note.inputs().hash().to_string(),
+            Digest::new(note.serial_num()).to_string(),
         ]);
     });
 

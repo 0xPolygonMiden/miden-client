@@ -3,9 +3,9 @@ use super::Store;
 use crate::errors::StoreError;
 
 use clap::error::Result;
+use crypto::dsa::rpo_falcon512::KeyPair;
 use crypto::hash::rpo::RpoDigest;
 use crypto::utils::{Deserializable, Serializable};
-use crypto::{dsa::rpo_falcon512::KeyPair, utils::collections::BTreeMap, Word};
 use objects::accounts::AccountStub;
 use objects::assembly::AstSerdeOptions;
 use objects::{
@@ -30,8 +30,8 @@ type SerializedAccountVaultParts = (String, String);
 type SerializedAccountCodeData = (String, String, Vec<u8>);
 type SerializedAccountCodeParts = (String, String, String);
 
-type SerializedAccountStorageData = (String, String);
-type SerializedAccountStorageParts = (String, String);
+type SerializedAccountStorageData = (String, Vec<u8>);
+type SerializedAccountStorageParts = (String, Vec<u8>);
 
 // DATABASE AUTH INFO
 // ================================================================================================
@@ -179,7 +179,7 @@ impl Store {
     }
 
     /// Retrieve account storage data by vault root
-    pub fn get_account_storage(&self, root: RpoDigest) -> Result<BTreeMap<u64, Word>, StoreError> {
+    pub fn get_account_storage(&self, root: RpoDigest) -> Result<AccountStorage, StoreError> {
         let root_serialized =
             serde_json::to_string(&root).map_err(StoreError::InputSerializationError)?;
 
@@ -422,18 +422,19 @@ fn parse_account_storage_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedAccountStorageParts, rusqlite::Error> {
     let root: String = row.get(0)?;
-    let slots: String = row.get(1)?;
-    Ok((root, slots))
+    let storage: Vec<u8> = row.get(1)?;
+    Ok((root, storage))
 }
 
 /// Parse an account_storage from the provided parts.
 fn parse_account_storage(
     serialized_account_storage_parts: SerializedAccountStorageParts,
-) -> Result<BTreeMap<u64, Word>, StoreError> {
-    let (_, slots) = serialized_account_storage_parts;
+) -> Result<AccountStorage, StoreError> {
+    let (_, storage) = serialized_account_storage_parts;
 
-    let slots = serde_json::from_str(&slots).map_err(StoreError::JsonDataDeserializationError)?;
-    Ok(slots)
+    let storage =
+        AccountStorage::read_from_bytes(&storage).map_err(StoreError::DataDeserializationError)?;
+    Ok(storage)
 }
 
 /// Serialize the provided account_storage into database compatible types.
@@ -442,9 +443,9 @@ fn serialize_account_storage(
 ) -> Result<SerializedAccountStorageData, StoreError> {
     let root = serde_json::to_string(&account_storage.root())
         .map_err(StoreError::InputSerializationError)?;
-    let slots: BTreeMap<u64, &Word> = account_storage.slots().leaves().collect();
-    let slots = serde_json::to_string(&slots).map_err(StoreError::InputSerializationError)?;
-    Ok((root, slots))
+    let storage = account_storage.to_bytes();
+
+    Ok((root, storage))
 }
 
 /// Parse account_vault columns from the provided row into native types.
@@ -458,7 +459,7 @@ fn parse_account_vault_columns(
 
 /// Parse a vector of assets from the provided parts.
 fn parse_account_vault(
-    serialized_account_vault_parts: SerializedAccountStorageParts,
+    serialized_account_vault_parts: SerializedAccountVaultParts,
 ) -> Result<Vec<Asset>, StoreError> {
     let (_, assets) = serialized_account_vault_parts;
 

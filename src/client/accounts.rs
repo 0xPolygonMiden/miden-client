@@ -1,11 +1,8 @@
 use super::Client;
-
-use std::collections::BTreeMap;
-
-use crypto::{Felt, Word};
+use crypto::Felt;
 use miden_lib::{faucets, AuthScheme};
 use objects::{
-    accounts::{Account, AccountId, AccountStub, AccountType},
+    accounts::{Account, AccountId, AccountStorage, AccountStub, AccountType},
     assembly::ModuleAst,
     assets::{Asset, TokenSymbol},
     Digest,
@@ -188,10 +185,7 @@ impl Client {
     }
 
     /// Returns account storage data from a storage root.
-    pub fn get_account_storage(
-        &self,
-        storage_root: Digest,
-    ) -> Result<BTreeMap<u64, Word>, ClientError> {
+    pub fn get_account_storage(&self, storage_root: Digest) -> Result<AccountStorage, ClientError> {
         self.store
             .get_account_storage(storage_root)
             .map_err(|err| err.into())

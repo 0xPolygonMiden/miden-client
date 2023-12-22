@@ -3,6 +3,7 @@ use crypto::utils::DeserializationError;
 use crypto::{dsa::rpo_falcon512::FalconError, utils::HexParseError};
 use miden_node_proto::error::ParseError;
 use miden_tx::{TransactionExecutorError, TransactionProverError};
+use objects::AssetError;
 use objects::{accounts::AccountId, AccountError, Digest, NoteError, TransactionScriptError};
 use tonic::{transport::Error as TransportError, Status as TonicStatus};
 
@@ -12,6 +13,7 @@ use tonic::{transport::Error as TransportError, Status as TonicStatus};
 #[derive(Debug)]
 pub enum ClientError {
     AccountError(AccountError),
+    AssetError(AssetError),
     AuthError(FalconError),
     NoteError(NoteError),
     RpcApiError(RpcApiError),
@@ -24,6 +26,7 @@ impl fmt::Display for ClientError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ClientError::AccountError(err) => write!(f, "account error: {err}"),
+            ClientError::AssetError(err) => write!(f, "asset error: {err}"),
             ClientError::AuthError(err) => write!(f, "account auth error: {err}"),
             ClientError::NoteError(err) => write!(f, "note error: {err}"),
             ClientError::RpcApiError(err) => write!(f, "rpc api error: {err}"),

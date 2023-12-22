@@ -1,11 +1,9 @@
 use miden_lib::assembler::assembler;
 use miden_tx::{DataStore, DataStoreError};
-use mock::{
-    constants::{ACCOUNT_ID_SENDER, DEFAULT_ACCOUNT_CODE},
-    mock::account::MockAccountType,
-    mock::notes::AssetPreservationStatus,
-    mock::transaction::{mock_inputs, mock_inputs_with_existing},
-};
+use mock::constants::{ACCOUNT_ID_SENDER, DEFAULT_ACCOUNT_CODE};
+use mock::mock::account::MockAccountType;
+use mock::mock::notes::AssetPreservationStatus;
+use mock::mock::transaction::{mock_inputs, mock_inputs_with_existing};
 use objects::AdviceInputs;
 use objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, AccountVault, StorageSlotType},

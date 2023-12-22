@@ -1,11 +1,10 @@
 use super::Client;
-
 use crypto::StarkField;
 use miden_node_proto::{
     account_id::AccountId as ProtoAccountId, requests::SyncStateRequest,
     responses::SyncStateResponse,
 };
-use objects::{accounts::AccountId, Digest};
+use objects::{accounts::AccountId, notes::NoteInclusionProof, Digest};
 
 use crate::errors::{ClientError, RpcApiError};
 
@@ -56,32 +55,55 @@ impl Client {
         let mut response = self
             .sync_state_request(block_num, &account_ids, &note_tags, &nullifiers)
             .await?;
+        let incoming_block_header = response.block_header.unwrap();
 
-        let (mut new_nullifiers, mut chain_tip, mut block_header) =
-            self.store.apply_state_sync(response)?;
+        let new_block_num = incoming_block_header.block_num;
+        let new_nullifiers = response
+            .nullifiers
+            .into_iter()
+            .filter_map(|x| {
+                let nullifier = x.nullifier.as_ref().unwrap().try_into().unwrap();
+                if nullifiers.contains(&nullifier) {
+                    Some(nullifier)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
 
-        let mut block_header_num = match &block_header {
-            Some(block) => block.block_num,
-            None => 0,
-        };
+        let block_header: objects::BlockHeader = incoming_block_header.try_into().unwrap();
 
-        // loop until we reach the tip of the chain
-        while chain_tip != block_header_num {
-            // get new response
-            response = self
-                .sync_state_request(chain_tip, &account_ids, &note_tags, &new_nullifiers)
-                .await?;
+        // Pending notes should all be `Note`s and not `RecordedNote`s
+        let pending_notes = self
+            .store
+            .get_pending_note_hashes()
+            .map_err(ClientError::StoreError)?;
+        let committed_notes: Vec<(Digest, NoteInclusionProof)> = response
+            .notes
+            .into_iter()
+            .filter_map(|note| {
+                let note_hash: Digest = note.note_hash.unwrap().try_into().unwrap();
+                if pending_notes.contains(&note_hash) {
+                    let note_inclusion_proof = NoteInclusionProof::new(
+                        block_num,
+                        block_header.sub_hash(),
+                        block_header.note_root(),
+                        note.note_index.into(),
+                        note.merkle_path.unwrap().try_into().unwrap(),
+                    )
+                    .unwrap();
+                    Some((note_hash, note_inclusion_proof))
+                } else {
+                    None
+                }
+            })
+            .collect();
 
-            // apply response to the store
-            (new_nullifiers, chain_tip, block_header) = self.store.apply_state_sync(response)?;
+        self.store
+            .apply_state_sync(new_block_num, new_nullifiers, committed_notes)
+            .map_err(ClientError::StoreError)?;
 
-            block_header_num = match &block_header {
-                Some(block) => block.block_num,
-                None => 0,
-            };
-        }
-
-        Ok(chain_tip)
+        Ok(response.chain_tip)
     }
 
     // HELPERS
