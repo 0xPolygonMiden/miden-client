@@ -18,7 +18,6 @@ use objects::{
 };
 use rand::Rng;
 
-
 use super::Client;
 
 pub enum TransactionTemplate {
