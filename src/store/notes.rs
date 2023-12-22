@@ -1,5 +1,3 @@
-use std::hash::Hash;
-
 use crate::errors::StoreError;
 
 use super::Store;
@@ -274,13 +272,13 @@ impl Store {
         // So, basically, for every returned note:
         for note in sync_state_response.notes {
             // a. We look up a note record by note hash in input_notes table. If no note is found, we just move to the next returned note.
-            if let Some(note_hash) = note.note_hash {
-                let note_hash: [Felt; 4] = [
-                    note_hash.d0.into(),
-                    note_hash.d1.into(),
-                    note_hash.d2.into(),
-                    note_hash.d3.into(),
-                ];
+            if let Some(_note_hash) = note.note_hash {
+                // let note_hash: [Felt; 4] = [
+                //     _note_hash.d0.into(),
+                //     _note_hash.d1.into(),
+                //     _note_hash.d2.into(),
+                //     _note_hash.d3.into(),
+                // ];
                 // if let Ok(note) = self.get_input_note_by_hash(note_hash.into()) { <-- fails as it attemps to borrow self that is already borrowed by tx
                 // b. If a note is found, we update it's anchor info.
                 // This will make this note consumable because now we build the inclusion proof for the note
