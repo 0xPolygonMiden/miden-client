@@ -84,10 +84,11 @@ impl Store {
     }
 
     /// Returns all nodes in the table.
-    pub fn get_chain_mmr_nodes(&mut self) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
+    pub fn get_chain_mmr_nodes(
+        tx: &Transaction<'_>,
+    ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
         const QUERY: &str = "SELECT id, node FROM chain_mmr_nodes";
-        self.db
-            .prepare(QUERY)
+        tx.prepare(QUERY)
             .map_err(StoreError::QueryError)?
             .query_map(params![], parse_chain_mmr_nodes_columns)
             .map_err(StoreError::QueryError)?

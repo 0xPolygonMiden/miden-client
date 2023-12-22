@@ -112,7 +112,13 @@ impl Client {
             .collect();
 
         self.store
-            .apply_state_sync(new_block_num, new_nullifiers, committed_notes)
+            .apply_state_sync(
+                new_block_num,
+                new_nullifiers,
+                committed_notes,
+                response.accounts,
+                response.mmr_delta,
+            )
             .map_err(ClientError::StoreError)?;
 
         if response.chain_tip == new_block_num {

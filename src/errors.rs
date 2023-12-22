@@ -58,6 +58,7 @@ pub enum StoreError {
     AccountCodeDataNotFound(Digest),
     AccountDataNotFound(AccountId),
     AccountError(AccountError),
+    AccountHashMismatch(AccountId),
     AccountStorageNotFound(Digest),
     ColumnParsingError(rusqlite::Error),
     ConnectionError(rusqlite::Error),
@@ -88,6 +89,9 @@ impl fmt::Display for StoreError {
                 write!(f, "Account data was not found for Account Id {account_id}")
             }
             AccountError(err) => write!(f, "error instantiating Account: {err}"),
+            AccountHashMismatch(account_id) => {
+                write!(f, "account hash mismatch for account {account_id}")
+            }
             AccountStorageNotFound(root) => {
                 write!(f, "account storage data with root {} not found", root)
             }
