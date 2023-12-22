@@ -13,10 +13,11 @@ use objects::{
     assembly::ProgramAst,
     assets::Asset,
     notes::Note,
-    transaction::{ProvenTransaction, TransactionResult, TransactionScript, TransactionWitness},
+    transaction::{ProvenTransaction, TransactionResult, TransactionScript},
     Digest,
 };
 use rand::Rng;
+
 
 use super::Client;
 
@@ -91,6 +92,38 @@ impl TransactionStub {
     }
 }
 
+pub struct TransactionExecutionResult {
+    result: TransactionResult,
+    script: Option<TransactionScript>,
+    created_notes: Vec<Note>,
+}
+
+impl TransactionExecutionResult {
+    pub fn new(
+        result: TransactionResult,
+        script: Option<TransactionScript>,
+        created_notes: Vec<Note>,
+    ) -> TransactionExecutionResult {
+        TransactionExecutionResult {
+            result,
+            script,
+            created_notes,
+        }
+    }
+
+    pub fn result(&self) -> &TransactionResult {
+        &self.result
+    }
+
+    pub fn script(&self) -> &Option<TransactionScript> {
+        &self.script
+    }
+
+    pub fn created_notes(&self) -> &Vec<Note> {
+        &self.created_notes
+    }
+}
+
 impl Client {
     // TRANSACTION CREATION
     // --------------------------------------------------------------------------------------------
@@ -122,7 +155,7 @@ impl Client {
     pub fn new_transaction(
         &mut self,
         transaction_template: TransactionTemplate,
-    ) -> Result<(TransactionResult, TransactionScript, Vec<Note>), ClientError> {
+    ) -> Result<TransactionExecutionResult, ClientError> {
         match transaction_template {
             TransactionTemplate::PayToId(PaymentTransactionData {
                 asset: fungible_asset,
@@ -139,7 +172,7 @@ impl Client {
         fungible_asset: Asset,
         sender_account_id: AccountId,
         target_account_id: AccountId,
-    ) -> Result<(TransactionResult, TransactionScript, Vec<Note>), ClientError> {
+    ) -> Result<TransactionExecutionResult, ClientError> {
         let p2id_script = Script::P2ID {
             target: target_account_id,
         };
@@ -214,20 +247,22 @@ impl Client {
             )
             .map_err(ClientError::TransactionExecutionError)?;
 
-        Ok((transaction_result, tx_script_target, vec![note]))
+        Ok(TransactionExecutionResult::new(
+            transaction_result,
+            Some(tx_script_target),
+            vec![note],
+        ))
     }
 
     /// Proves the specified transaction witness, submits it to the node, and stores the transaction in
     /// the local database for tracking.
     pub async fn send_transaction(
         &mut self,
-        transaction_witness: TransactionWitness,
-        transaction_script: Option<TransactionScript>,
-        output_notes: Vec<Note>,
+        transaction_execution_result: TransactionExecutionResult,
     ) -> Result<(), ClientError> {
         let transaction_prover = TransactionProver::new(ProvingOptions::default());
         let proven_transaction = transaction_prover
-            .prove_transaction_witness(transaction_witness)
+            .prove_transaction_witness(transaction_execution_result.result().clone().into_witness())
             .map_err(ClientError::TransactionProvingError)?;
 
         //NoteInclusionProof::new(block_num, sub_hash, note_root, index, note_path);
@@ -236,10 +271,13 @@ impl Client {
         self.submit_proven_transaction_request(proven_transaction.clone())
             .await?;
 
-        self.insert_transaction(&proven_transaction, transaction_script)?;
+        self.insert_transaction(
+            &proven_transaction,
+            transaction_execution_result.script().clone(),
+        )?;
 
-        for note in output_notes {
-            self.import_input_note(note.into())?
+        for note in transaction_execution_result.created_notes() {
+            self.import_input_note(note.clone().into())?
         }
 
         Ok(())

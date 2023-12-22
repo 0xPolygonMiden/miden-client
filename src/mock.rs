@@ -316,10 +316,10 @@ pub async fn create_mock_transaction(client: &mut Client) {
         target_account.id(),
     ));
 
-    let (transaction_result, script, notes) = client.new_transaction(transaction_template).unwrap();
+    let transaction_execution_result = client.new_transaction(transaction_template).unwrap();
 
     client
-        .send_transaction(transaction_result.into_witness(), Some(script), notes)
+        .send_transaction(transaction_execution_result)
         .await
         .unwrap();
 }
