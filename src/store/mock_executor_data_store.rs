@@ -6,7 +6,6 @@ use mock::{
     mock::notes::AssetPreservationStatus,
     mock::transaction::{mock_inputs, mock_inputs_with_existing},
 };
-use objects::AdviceInputs;
 use objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, AccountVault, StorageSlotType},
     assembly::ModuleAst,
@@ -14,8 +13,9 @@ use objects::{
     assets::{Asset, FungibleAsset},
     crypto::{dsa::rpo_falcon512::KeyPair, utils::Serializable},
     notes::{Note, NoteOrigin, NoteScript, RecordedNote},
-    BlockHeader, ChainMmr, Felt, Word,
+    BlockHeader, Felt, Word,
 };
+use objects::{transaction::ChainMmr, AdviceInputs};
 
 // MOCK DATA STORE
 // ================================================================================================
