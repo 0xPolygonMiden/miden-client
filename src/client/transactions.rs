@@ -223,6 +223,7 @@ impl Client {
         &mut self,
         transaction_witness: TransactionWitness,
         transaction_script: Option<TransactionScript>,
+        output_notes: Vec<Note>,
     ) -> Result<(), ClientError> {
         let transaction_prover = TransactionProver::new(ProvingOptions::default());
         let proven_transaction = transaction_prover
@@ -236,6 +237,11 @@ impl Client {
             .await?;
 
         self.insert_transaction(&proven_transaction, transaction_script)?;
+
+        for note in output_notes {
+            self.import_input_note(note.into())?
+        }
+
         Ok(())
     }
 

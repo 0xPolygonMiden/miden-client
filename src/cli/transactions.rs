@@ -75,15 +75,13 @@ impl Transaction {
                         .map_err(|err| err.to_string())?;
 
                     client
-                        .send_transaction(transaction_result.into_witness(), Some(tx_script))
+                        .send_transaction(
+                            transaction_result.into_witness(),
+                            Some(tx_script),
+                            output_notes,
+                        )
                         .await
                         .map_err(|err| err.to_string())?;
-
-                    for note in output_notes {
-                        client
-                            .import_input_note(note.into())
-                            .map_err(|err| err.to_string())?
-                    }
                 }
                 TransactionType::P2IDR => {
                     todo!()

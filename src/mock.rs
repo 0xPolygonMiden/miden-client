@@ -316,12 +316,10 @@ pub async fn create_mock_transaction(client: &mut Client) {
         target_account.id(),
     ));
 
-    // TODO: Fix _notes usage
-    let (transaction_result, script, _notes) =
-        client.new_transaction(transaction_template).unwrap();
+    let (transaction_result, script, notes) = client.new_transaction(transaction_template).unwrap();
 
     client
-        .send_transaction(transaction_result.into_witness(), Some(script))
+        .send_transaction(transaction_result.into_witness(), Some(script), notes)
         .await
         .unwrap();
 }

@@ -1,10 +1,10 @@
 use super::Client;
 use crypto::StarkField;
 use miden_node_proto::{
-    account_id::AccountId as ProtoAccountId, requests::SyncStateRequest,
+    account_id::AccountId as ProtoAccountId, note::NoteSyncRecord, requests::SyncStateRequest,
     responses::SyncStateResponse,
 };
-use objects::{accounts::AccountId, notes::NoteInclusionProof, Digest};
+use objects::{accounts::AccountId, notes::NoteInclusionProof, BlockHeader, Digest};
 
 use crate::errors::{ClientError, RpcApiError};
 
@@ -84,37 +84,10 @@ impl Client {
             })
             .collect::<Vec<_>>();
 
-        let block_header: objects::BlockHeader = incoming_block_header.try_into().unwrap();
+        let block_header: BlockHeader = incoming_block_header.try_into().unwrap();
 
-        // Pending notes should all be `Note`s and not `RecordedNote`s
-        let pending_notes: Vec<Digest> = self
-            .store
-            .get_input_notes(crate::store::notes::InputNoteFilter::Pending)
-            .map_err(ClientError::StoreError)?
-            .iter()
-            .map(|n| n.note().hash())
-            .collect();
-
-        let committed_notes: Vec<(Digest, NoteInclusionProof)> = response
-            .notes
-            .into_iter()
-            .filter_map(|note| {
-                let note_hash: Digest = note.note_hash.unwrap().try_into().unwrap();
-                if pending_notes.contains(&note_hash) {
-                    let note_inclusion_proof = NoteInclusionProof::new(
-                        block_num,
-                        block_header.sub_hash(),
-                        block_header.note_root(),
-                        note.note_index.into(),
-                        note.merkle_path.unwrap().try_into().unwrap(),
-                    )
-                    .unwrap();
-                    Some((note_hash, note_inclusion_proof))
-                } else {
-                    None
-                }
-            })
-            .collect();
+        let committed_notes =
+            self.get_newly_committed_note_hashes(&response.notes, &block_header)?;
 
         self.store
             .apply_state_sync(new_block_num, new_nullifiers, committed_notes)
@@ -129,6 +102,40 @@ impl Client {
 
     // HELPERS
     // --------------------------------------------------------------------------------------------
+    fn get_newly_committed_note_hashes(
+        &self,
+        notes: &[NoteSyncRecord],
+        block_header: &BlockHeader,
+    ) -> Result<Vec<(Digest, NoteInclusionProof)>, ClientError> {
+        let pending_notes: Vec<Digest> = self
+            .store
+            .get_input_notes(crate::store::notes::InputNoteFilter::Pending)
+            .map_err(ClientError::StoreError)?
+            .iter()
+            .map(|n| n.note().hash())
+            .collect();
+
+        Ok(notes
+            .iter()
+            .filter_map(|note| {
+                let note_hash: Digest = note.note_hash.clone().unwrap().try_into().unwrap();
+                if pending_notes.contains(&note_hash) {
+                    let note_inclusion_proof = NoteInclusionProof::new(
+                        block_header.block_num(),
+                        block_header.sub_hash(),
+                        block_header.note_root(),
+                        note.note_index.into(),
+                        note.merkle_path.clone().unwrap().try_into().unwrap(),
+                    )
+                    .unwrap();
+                    Some((note_hash, note_inclusion_proof))
+                } else {
+                    None
+                }
+            })
+            .collect())
+    }
+
     /// Sends a sync state request to the Miden node and returns the response.
     async fn sync_state_request(
         &mut self,
