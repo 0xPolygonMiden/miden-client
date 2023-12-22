@@ -119,7 +119,8 @@ pub fn import_note(mut client: Client, filename: PathBuf) -> Result<Digest, Stri
     let mut _file = File::open(filename)
         .and_then(|mut f| f.read_to_end(&mut contents))
         .map_err(|err| err.to_string());
-
+    // TODO: When importing a RecordedNote we want to make sure that the note actually exists in the chain (RPC call)  
+    // and start monitoring its nullifiers (ie, update the list of relevant tags in the state sync table)
     let note = RecordedNote::read_from_bytes(&contents).map_err(|err| err.to_string())?;
 
     client
