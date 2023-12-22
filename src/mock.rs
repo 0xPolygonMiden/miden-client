@@ -99,8 +99,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
     let chain_tip = 10;
 
     // create a block header for the response
-    let block_header: objects::BlockHeader =
-        block::mock_block_header(chain_tip.into(), None, None, &[]);
+    let block_header: objects::BlockHeader = block::mock_block_header(chain_tip, None, None, &[]);
 
     // create a state sync response
     let response = SyncStateResponse {
@@ -142,7 +141,7 @@ pub fn insert_mock_data(client: &mut Client) {
 
     // insert notes into database
     for note in recorded_notes.into_iter() {
-        client.insert_input_note(note).unwrap();
+        client.import_input_note(note).unwrap();
     }
 
     // insert account

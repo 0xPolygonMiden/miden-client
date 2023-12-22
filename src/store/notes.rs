@@ -324,7 +324,7 @@ fn serialize_input_note(
     let recipients = serde_json::to_string(&recorded_note.note().metadata().tag())
         .map_err(StoreError::InputSerializationError)?;
     let status = String::from("committed");
-    let commit_height = recorded_note.origin().block_num.inner() as i64;
+    let commit_height = recorded_note.origin().block_num as i64;
     Ok((
         hash,
         nullifier,

@@ -1,4 +1,4 @@
-use crypto::{utils::Serializable, StarkField};
+use crypto::utils::Serializable;
 use miden_lib::notes::{create_note, Script};
 use miden_node_proto::{
     requests::SubmitProvenTransactionRequest, responses::SubmitProvenTransactionResponse,
@@ -179,7 +179,7 @@ impl Client {
             .load_account(target_account_id)
             .map_err(ClientError::TransactionExecutionError)?;
 
-        let block_ref = data_store.block_header.block_num().as_int() as u32;
+        let block_ref = data_store.block_header.block_num();
         let note_origins = data_store
             .notes
             .iter()
