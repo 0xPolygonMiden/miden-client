@@ -3,7 +3,10 @@ use miden_node_proto::{mmr::MmrDelta, responses::AccountHashUpdate};
 use objects::Digest;
 use rusqlite::params;
 
-use crate::errors::StoreError;
+use crate::{
+    errors::StoreError,
+    store::accounts::{parse_accounts, parse_accounts_columns},
+};
 
 use super::Store;
 
@@ -71,13 +74,42 @@ impl Store {
         &mut self,
         block_number: u32,
         nullifiers: Vec<Digest>,
-        _accounts: Vec<AccountHashUpdate>,
+        accounts: Vec<AccountHashUpdate>,
         mmr_delta: Option<MmrDelta>,
     ) -> Result<(), StoreError> {
         let tx = self
             .db
             .transaction()
             .map_err(StoreError::TransactionError)?;
+
+        // Check if the returned account hashes match latest account hashes in the database
+        for account in accounts {
+            if let (Some(account_id), Some(account_hash)) =
+                (account.account_id, account.account_hash)
+            {
+                let account_id_int: u64 = account_id.clone().into();
+                const ACCOUNT_HASH_QUERY: &str = "SELECT hash FROM accounts WHERE id = ?";
+
+                if let Some(Ok(acc_stub)) = tx
+                    .prepare(ACCOUNT_HASH_QUERY)
+                    .map_err(StoreError::QueryError)?
+                    .query_map(params![account_id_int as i64], parse_accounts_columns)
+                    .map_err(StoreError::QueryError)?
+                    .map(|result| {
+                        result
+                            .map_err(StoreError::ColumnParsingError)
+                            .and_then(parse_accounts)
+                    })
+                    .next()
+                {
+                    if account_hash != acc_stub.hash().into() {
+                        return Err(StoreError::AccountHashMismatch(
+                            account_id.try_into().unwrap(),
+                        ));
+                    }
+                }
+            }
+        }
 
         // update state sync block number
         const BLOCK_NUMBER_QUERY: &str = "UPDATE state_sync SET block_number = ?";
