@@ -12,8 +12,9 @@ use objects::{
     assets::{Asset, FungibleAsset},
     crypto::{dsa::rpo_falcon512::KeyPair, utils::Serializable},
     notes::{Note, NoteOrigin, NoteScript, RecordedNote},
-    BlockHeader, ChainMmr, Felt, Word,
+    BlockHeader, Felt, Word,
 };
+use objects::{transaction::ChainMmr, AdviceInputs};
 
 // MOCK DATA STORE
 // ================================================================================================
