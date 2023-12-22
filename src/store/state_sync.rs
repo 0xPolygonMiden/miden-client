@@ -49,7 +49,7 @@ impl Store {
 
     /// Returns the block number of the last state sync block
     pub fn get_latest_block_number(&self) -> Result<u32, StoreError> {
-        const QUERY: &str = "SELECT block_number FROM state_sync";
+        const QUERY: &str = "SELECT block_num FROM state_sync";
 
         self.db
             .prepare(QUERY)
@@ -67,7 +67,7 @@ impl Store {
 
     pub fn apply_state_sync(
         &mut self,
-        block_number: u32,
+        block_num: u32,
         nullifiers: Vec<Digest>,
         committed_notes: Vec<(Digest, NoteInclusionProof)>,
     ) -> Result<(), StoreError> {
@@ -77,8 +77,8 @@ impl Store {
             .map_err(StoreError::TransactionError)?;
 
         // update state sync block number
-        const BLOCK_NUMBER_QUERY: &str = "UPDATE state_sync SET block_number = ?";
-        tx.execute(BLOCK_NUMBER_QUERY, params![block_number])
+        const BLOCK_NUMBER_QUERY: &str = "UPDATE state_sync SET block_num = ?";
+        tx.execute(BLOCK_NUMBER_QUERY, params![block_num])
             .map_err(StoreError::QueryError)?;
 
         // update spent notes
@@ -102,6 +102,8 @@ impl Store {
             )
             .map_err(StoreError::QueryError)?;
         }
+
+        // TODO: We would need to mark transactions as committed here as well
 
         // commit the updates
         tx.commit().map_err(StoreError::QueryError)?;

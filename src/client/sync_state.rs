@@ -8,6 +8,11 @@ use objects::{accounts::AccountId, notes::NoteInclusionProof, Digest};
 
 use crate::errors::{ClientError, RpcApiError};
 
+pub enum SyncStatus {
+    SyncedToLastBlock(u32),
+    SyncedToBlock(u32),
+}
+
 // CONSTANTS
 // ================================================================================================
 
@@ -46,6 +51,15 @@ impl Client {
     ///
     /// Returns the block number the client has been synced to.
     pub async fn sync_state(&mut self) -> Result<u32, ClientError> {
+        loop {
+            let response = self.single_sync_state().await?;
+            if let SyncStatus::SyncedToLastBlock(v) = response {
+                return Ok(v);
+            }
+        }
+    }
+
+    async fn single_sync_state(&mut self) -> Result<SyncStatus, ClientError> {
         let block_num = self.store.get_latest_block_number()?;
         let account_ids = self.store.get_account_ids()?;
         let note_tags = self.store.get_note_tags()?;
@@ -73,10 +87,14 @@ impl Client {
         let block_header: objects::BlockHeader = incoming_block_header.try_into().unwrap();
 
         // Pending notes should all be `Note`s and not `RecordedNote`s
-        let pending_notes = self
+        let pending_notes: Vec<Digest> = self
             .store
-            .get_pending_note_hashes()
-            .map_err(ClientError::StoreError)?;
+            .get_input_notes(crate::store::notes::InputNoteFilter::Pending)
+            .map_err(ClientError::StoreError)?
+            .iter()
+            .map(|n| n.note().hash())
+            .collect();
+
         let committed_notes: Vec<(Digest, NoteInclusionProof)> = response
             .notes
             .into_iter()
@@ -102,7 +120,11 @@ impl Client {
             .apply_state_sync(new_block_num, new_nullifiers, committed_notes)
             .map_err(ClientError::StoreError)?;
 
-        Ok(response.chain_tip)
+        if response.chain_tip == new_block_num {
+            Ok(SyncStatus::SyncedToLastBlock(response.chain_tip))
+        } else {
+            Ok(SyncStatus::SyncedToBlock(new_block_num))
+        }
     }
 
     // HELPERS

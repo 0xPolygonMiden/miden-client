@@ -22,7 +22,7 @@ type SerializedAccountData = (i64, String, String, String, i64, bool);
 type SerializedAccountsParts = (i64, i64, String, String, String);
 
 type SerializedAccountAuthData = (i64, Vec<u8>);
-type SerializedAccountAuthParts = (i64, String);
+type SerializedAccountAuthParts = (i64, Vec<u8>);
 
 type SerializedAccountVaultData = (String, String);
 type SerializedAccountVaultParts = (String, String);
@@ -180,8 +180,7 @@ impl Store {
 
     /// Retrieve account storage data by vault root
     pub fn get_account_storage(&self, root: RpoDigest) -> Result<AccountStorage, StoreError> {
-        let root_serialized =
-            serde_json::to_string(&root).map_err(StoreError::InputSerializationError)?;
+        let root_serialized = &root.to_string();
 
         const QUERY: &str = "SELECT root, slots FROM account_storage WHERE root = ?";
         self.db
@@ -323,7 +322,7 @@ fn parse_accounts(
             .expect("Conversion from stored AccountID should not panic"),
         (nonce as u64).into(),
         serde_json::from_str(&vault_root).map_err(StoreError::JsonDataDeserializationError)?,
-        serde_json::from_str(&storage_root).map_err(StoreError::JsonDataDeserializationError)?,
+        Digest::try_from(&storage_root).map_err(StoreError::HexParseError)?,
         serde_json::from_str(&code_root).map_err(StoreError::JsonDataDeserializationError)?,
     ))
 }
@@ -333,8 +332,7 @@ fn serialize_account(account: &Account) -> Result<SerializedAccountData, StoreEr
     let id: u64 = account.id().into();
     let code_root = serde_json::to_string(&account.code().root())
         .map_err(StoreError::InputSerializationError)?;
-    let storage_root = serde_json::to_string(&account.storage().root())
-        .map_err(StoreError::InputSerializationError)?;
+    let storage_root = account.storage().root().to_string();
     let vault_root = serde_json::to_string(&account.vault().commitment())
         .map_err(StoreError::InputSerializationError)?;
     let committed = account.is_on_chain();
@@ -355,7 +353,7 @@ fn parse_account_auth_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedAccountAuthParts, rusqlite::Error> {
     let account_id: i64 = row.get(0)?;
-    let auth_info_bytes: String = row.get(1)?;
+    let auth_info_bytes: Vec<u8> = row.get(1)?;
     Ok((account_id, auth_info_bytes))
 }
 
@@ -364,7 +362,7 @@ fn parse_account_auth(
     serialized_account_auth_parts: SerializedAccountAuthParts,
 ) -> Result<AuthInfo, StoreError> {
     let (_, auth_info_bytes) = serialized_account_auth_parts;
-    let auth_info = AuthInfo::read_from_bytes(auth_info_bytes.as_bytes())
+    let auth_info = AuthInfo::read_from_bytes(&auth_info_bytes)
         .map_err(StoreError::DataDeserializationError)?;
     Ok(auth_info)
 }
@@ -441,8 +439,7 @@ fn parse_account_storage(
 fn serialize_account_storage(
     account_storage: &AccountStorage,
 ) -> Result<SerializedAccountStorageData, StoreError> {
-    let root = serde_json::to_string(&account_storage.root())
-        .map_err(StoreError::InputSerializationError)?;
+    let root = account_storage.root().to_string();
     let storage = account_storage.to_bytes();
 
     Ok((root, storage))

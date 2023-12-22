@@ -81,7 +81,7 @@ impl Transaction {
 
                     for note in output_notes {
                         client
-                            .insert_pending_note(note)
+                            .import_input_note(note.into())
                             .map_err(|err| err.to_string())?
                     }
                 }

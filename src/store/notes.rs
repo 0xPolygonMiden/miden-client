@@ -3,9 +3,9 @@ use crate::errors::StoreError;
 use super::Store;
 
 use clap::error::Result;
-use crypto::utils::{Deserializable, Serializable};
-use crypto::Word;
-use objects::notes::{Note, NoteInputs, NoteScript, NoteVault};
+use crypto::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
+
+use objects::notes::{Note, NoteInclusionProof, NoteScript};
 
 use objects::{
     accounts::AccountId,
@@ -66,48 +66,91 @@ impl InputNoteFilter {
     }
 }
 
-#[derive(Debug)]
-pub enum NoteType {
-    PendingNote(Note),
-    CommittedNote(RecordedNote),
+#[derive(Debug, PartialEq)]
+pub struct InputNoteRecord {
+    note: Note,
+    inclusion_proof: Option<NoteInclusionProof>,
 }
 
-impl NoteType {
-    pub fn hash(&self) -> Digest {
-        match self {
-            NoteType::PendingNote(n) => n.hash(),
-            NoteType::CommittedNote(n) => n.note().hash(),
+impl InputNoteRecord {
+    pub fn new(note: Note, inclusion_proof: Option<NoteInclusionProof>) -> InputNoteRecord {
+        InputNoteRecord {
+            note,
+            inclusion_proof,
         }
     }
-
-    pub fn script(&self) -> &NoteScript {
-        match self {
-            NoteType::PendingNote(n) => n.script(),
-            NoteType::CommittedNote(n) => n.note().script(),
-        }
+    pub fn note(&self) -> &Note {
+        &self.note
     }
 
-    pub fn vault(&self) -> &NoteVault {
-        match self {
-            NoteType::PendingNote(n) => n.vault(),
-            NoteType::CommittedNote(n) => n.note().vault(),
-        }
+    pub fn inclusion_proof(&self) -> &Option<NoteInclusionProof> {
+        &self.inclusion_proof
     }
+}
 
-    pub fn inputs(&self) -> &NoteInputs {
-        match self {
-            NoteType::PendingNote(n) => n.inputs(),
-            NoteType::CommittedNote(n) => n.note().inputs(),
-        }
+impl Serializable for InputNoteRecord {
+    fn write_into<W: ByteWriter>(&self, target: &mut W) {
+        target.write(self.note().to_bytes());
+        target.write(self.inclusion_proof().to_bytes());
     }
+}
 
-    pub fn serial_num(&self) -> Word {
-        match self {
-            NoteType::PendingNote(n) => n.serial_num(),
-            NoteType::CommittedNote(n) => n.note().serial_num(),
+impl Deserializable for InputNoteRecord {
+    fn read_from<R: ByteReader>(
+        source: &mut R,
+    ) -> std::prelude::v1::Result<Self, DeserializationError> {
+        let note: Note = source.read()?;
+        let proof: Option<NoteInclusionProof> = source.read()?;
+        Ok(InputNoteRecord::new(note, proof))
+    }
+}
+
+impl From<Note> for InputNoteRecord {
+    fn from(note: Note) -> Self {
+        InputNoteRecord {
+            note,
+            inclusion_proof: None,
         }
     }
 }
+
+impl From<RecordedNote> for InputNoteRecord {
+    fn from(recorded_note: RecordedNote) -> Self {
+        InputNoteRecord {
+            note: recorded_note.note().clone(),
+            inclusion_proof: Some(recorded_note.proof().clone()),
+        }
+    }
+}
+
+// SERIALIZATION
+// ================================================================================================
+
+// impl Serializable for InputNoteRecord {
+//     fn write_into<W: ByteWriter>(&self, target: &mut W) {
+//         match self {
+//             InputNoteRecord::PendingNote(n) => {
+//                 target.write_bool(false); // non-recorded note
+//                 target.write(n.to_bytes());
+//             }
+//             InputNoteRecord::CommittedNote(n) => {
+//                 target.write_bool(true); // recorded note
+//                 target.write(n.to_bytes());
+//             }
+//         }
+//     }
+// }
+
+// impl Deserializable for InputNoteRecord {
+//     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
+//         let was_recorded = source.read_bool()?;
+//         if was_recorded {
+//             Ok(InputNoteRecord::CommittedNote(RecordedNote::read_from(source)?))
+//         } else {
+//             Ok(InputNoteRecord::PendingNote(Note::read_from(source)?))
+//         }
+//     }
+// }
 
 impl Store {
     // NOTES
@@ -117,7 +160,7 @@ impl Store {
     pub fn get_input_notes(
         &self,
         note_filter: InputNoteFilter,
-    ) -> Result<Vec<NoteType>, StoreError> {
+    ) -> Result<Vec<InputNoteRecord>, StoreError> {
         self.db
             .prepare(&note_filter.to_query())
             .map_err(StoreError::QueryError)?
@@ -128,55 +171,11 @@ impl Store {
                     .map_err(StoreError::ColumnParsingError)
                     .and_then(parse_input_note)
             })
-            .collect::<Result<Vec<NoteType>, _>>()
-    }
-
-    /// Retrieves pending (ie, not committed/consumed) note hashes
-    pub fn get_pending_note_hashes(&self) -> Result<Vec<Digest>, StoreError> {
-        self.db
-            .prepare(&InputNoteFilter::Pending.to_query())
-            .map_err(StoreError::QueryError)?
-            .query_map([], parse_input_note_columns)
-            .expect("no binding parameters used in query")
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_input_note)
-            })
-            .filter_map(|note| {
-                if let Ok(NoteType::PendingNote(inner_note)) = note {
-                    Some(Ok(inner_note.hash()))
-                } else {
-                    None
-                }
-            })
-            .collect::<Result<Vec<Digest>, _>>()
-    }
-
-    /// Retrieves pending (ie, not committed/consumed) note hashes
-    pub fn get_recorded_notes(&self) -> Result<Vec<RecordedNote>, StoreError> {
-        self.db
-            .prepare(&InputNoteFilter::All.to_query())
-            .map_err(StoreError::QueryError)?
-            .query_map([], parse_input_note_columns)
-            .expect("no binding parameters used in query")
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_input_note)
-            })
-            .filter_map(|note| {
-                if let Ok(NoteType::CommittedNote(inner_note)) = note {
-                    Some(Ok(inner_note))
-                } else {
-                    None
-                }
-            })
-            .collect::<Result<Vec<RecordedNote>, _>>()
+            .collect::<Result<Vec<InputNoteRecord>, _>>()
     }
 
     /// Retrieves the input note with the specified hash from the database
-    pub fn get_input_note_by_hash(&self, hash: Digest) -> Result<NoteType, StoreError> {
+    pub fn get_input_note_by_hash(&self, hash: Digest) -> Result<InputNoteRecord, StoreError> {
         let query_hash = &hash.to_string();
         const QUERY: &str = "SELECT script, inputs, vault, serial_num, sender_id, tag, num_assets, inclusion_proof FROM input_notes WHERE hash = ?";
 
@@ -195,7 +194,7 @@ impl Store {
     }
 
     /// Inserts the provided input note into the database
-    pub fn insert_input_note(&self, recorded_note: &RecordedNote) -> Result<(), StoreError> {
+    pub fn insert_input_note(&self, note: &InputNoteRecord) -> Result<(), StoreError> {
         let (
             hash,
             nullifier,
@@ -210,58 +209,12 @@ impl Store {
             recipients,
             status,
             commit_height,
-        ) = serialize_input_note(recorded_note)?;
+        ) = serialize_input_note(note)?;
 
         const QUERY: &str = "\
         INSERT INTO input_notes
             (hash, nullifier, script, vault, inputs, serial_num, sender_id, tag, num_assets, inclusion_proof, recipients, status, commit_height)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-        self.db
-            .execute(
-                QUERY,
-                params![
-                    hash,
-                    nullifier,
-                    script,
-                    vault,
-                    inputs,
-                    serial_num,
-                    sender_id,
-                    tag,
-                    num_assets,
-                    inclusion_proof,
-                    recipients,
-                    status,
-                    commit_height
-                ],
-            )
-            .map_err(StoreError::QueryError)
-            .map(|_| ())
-    }
-
-    /// Inserts the provided Note (that has not yet been committed to the network) into the database with a pending status
-    pub fn insert_pending_note(&self, note: &Note) -> Result<(), StoreError> {
-        let (
-            hash,
-            nullifier,
-            script,
-            vault,
-            inputs,
-            serial_num,
-            sender_id,
-            tag,
-            num_assets,
-            inclusion_proof,
-            recipients,
-            status,
-            commit_height,
-        ) = serialize_pending_note(note)?;
-
-        const QUERY: &str = "\
-        INSERT INTO input_notes
-            (hash, nullifier, script, vault, inputs, serial_num, sender_id, tag, num_assets, inclusion_proof, recipients, status, commit_height)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         self.db
             .execute(
@@ -334,7 +287,7 @@ fn parse_input_note_columns(
 /// Parse a note from the provided parts.
 fn parse_input_note(
     serialized_input_note_parts: SerializedInputNoteParts,
-) -> Result<NoteType, StoreError> {
+) -> Result<InputNoteRecord, StoreError> {
     let (script, inputs, vault, serial_num, sender_id, tag, num_assets, inclusion_proof) =
         serialized_input_note_parts;
     let script =
@@ -350,80 +303,43 @@ fn parse_input_note(
     );
     let note = Note::from_parts(script, inputs, vault, serial_num, note_metadata);
 
-    match inclusion_proof {
+    let inclusion_proof = match inclusion_proof {
         Some(proof) => {
             let inclusion_proof =
                 serde_json::from_str(&proof).map_err(StoreError::JsonDataDeserializationError)?;
-            Ok(NoteType::CommittedNote(RecordedNote::new(
-                note,
-                inclusion_proof,
-            )))
+            Some(inclusion_proof)
         }
-        None => Ok(NoteType::PendingNote(note)),
-    }
+        None => None,
+    };
+
+    Ok(InputNoteRecord::new(note, inclusion_proof))
 }
 
 /// Serialize the provided input note into database compatible types.
-fn serialize_input_note(
-    recorded_note: &RecordedNote,
-) -> Result<SerializedInputNoteData, StoreError> {
-    let hash = recorded_note.note().hash().to_string();
-    let nullifier = recorded_note.note().nullifier().inner().to_string();
-    let script = recorded_note.note().script().to_bytes();
-    let vault = serde_json::to_string(&recorded_note.note().vault())
-        .map_err(StoreError::InputSerializationError)?;
-    let inputs = serde_json::to_string(&recorded_note.note().inputs())
-        .map_err(StoreError::InputSerializationError)?;
-    let serial_num = serde_json::to_string(&recorded_note.note().serial_num())
-        .map_err(StoreError::InputSerializationError)?;
-    let sender_id = u64::from(recorded_note.note().metadata().sender()) as i64;
-    let tag = u64::from(recorded_note.note().metadata().tag()) as i64;
-    let num_assets = u64::from(recorded_note.note().metadata().num_assets()) as i64;
-    let inclusion_proof = Some(
-        serde_json::to_string(&recorded_note.proof())
-            .map_err(StoreError::InputSerializationError)?,
-    );
-    let recipients = serde_json::to_string(&recorded_note.note().metadata().tag())
-        .map_err(StoreError::InputSerializationError)?;
-    let status = String::from("committed");
-    let commit_height = recorded_note.origin().block_num;
-    Ok((
-        hash,
-        nullifier,
-        script,
-        vault,
-        inputs,
-        serial_num,
-        sender_id,
-        tag,
-        num_assets,
-        inclusion_proof,
-        recipients,
-        status,
-        commit_height,
-    ))
-}
-
-/// Serialize the provided input note into database compatible types.
-fn serialize_pending_note(note: &Note) -> Result<SerializedInputNoteData, StoreError> {
-    let hash = serde_json::to_string(&note.hash()).map_err(StoreError::InputSerializationError)?;
-    let nullifier = note.nullifier().inner().to_string();
-    let script = note.script().to_bytes();
+fn serialize_input_note(note: &InputNoteRecord) -> Result<SerializedInputNoteData, StoreError> {
+    let hash = note.note().hash().to_string();
+    let nullifier = note.note().nullifier().inner().to_string();
+    let script = note.note().script().to_bytes();
     let vault =
-        serde_json::to_string(&note.vault()).map_err(StoreError::InputSerializationError)?;
-    let inputs =
-        serde_json::to_string(&note.inputs()).map_err(StoreError::InputSerializationError)?;
-    let serial_num =
-        serde_json::to_string(&note.serial_num()).map_err(StoreError::InputSerializationError)?;
-    let sender_id = u64::from(note.metadata().sender()) as i64;
-    let tag = u64::from(note.metadata().tag()) as i64;
-    let num_assets = u64::from(note.metadata().num_assets()) as i64;
-    let inclusion_proof = None;
-    let recipients = serde_json::to_string(&note.metadata().tag())
+        serde_json::to_string(&note.note().vault()).map_err(StoreError::InputSerializationError)?;
+    let inputs = serde_json::to_string(&note.note().inputs())
         .map_err(StoreError::InputSerializationError)?;
-    let status = String::from("pending");
-    let commit_height = 0;
+    let serial_num = serde_json::to_string(&note.note().serial_num())
+        .map_err(StoreError::InputSerializationError)?;
+    let sender_id = u64::from(note.note().metadata().sender()) as i64;
+    let tag = u64::from(note.note().metadata().tag()) as i64;
+    let num_assets = u64::from(note.note().metadata().num_assets()) as i64;
+    let (inclusion_proof, commit_height, status) = match note.inclusion_proof() {
+        Some(proof) => (
+            Some(serde_json::to_string(&proof).map_err(StoreError::InputSerializationError)?),
+            proof.origin().block_num,
+            String::from("committed"),
+        ),
+        None => (None, 0u32, String::from("pending")),
+    };
 
+    let recipients = serde_json::to_string(&note.note().metadata().tag())
+        .map_err(StoreError::InputSerializationError)?;
     Ok((
         hash,
         nullifier,

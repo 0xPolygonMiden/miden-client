@@ -87,7 +87,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
         id: u64::from(account.id()),
     }];
 
-    let nullifiers = recorded_notes
+    let nullifiers: Vec<u32> = recorded_notes
         .iter()
         .map(|note| (note.note().nullifier().as_elements()[3].as_int() >> FILTER_ID_SHIFT) as u32)
         .collect();
@@ -108,15 +108,15 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
     // create a state sync request
     let request = SyncStateRequest {
         block_num: 0,
-        account_ids: accounts,
+        account_ids: accounts.clone(),
         note_tags: vec![],
-        nullifiers,
+        nullifiers: nullifiers.clone(),
     };
 
     let chain_tip = 10;
 
     // create a block header for the response
-    let block_header: objects::BlockHeader = block::mock_block_header(chain_tip, None, None, &[]);
+    let block_header: objects::BlockHeader = block::mock_block_header(8, None, None, &[]);
 
     // create a state sync response
     let response = SyncStateResponse {
@@ -148,6 +148,51 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
     };
     requests.insert(request, response);
 
+    // SECOND REQUEST
+    // ---------------------------------------------------------------------------------
+
+    // create a state sync request
+    let request = SyncStateRequest {
+        block_num: 0,
+        account_ids: accounts.clone(),
+        note_tags: vec![],
+        nullifiers,
+    };
+
+    // create a block header for the response
+    let block_header: objects::BlockHeader = block::mock_block_header(10, None, None, &[]);
+
+    // create a state sync response
+    let response = SyncStateResponse {
+        chain_tip,
+        mmr_delta: None,
+        block_path: None,
+        block_header: Some(NodeBlockHeader::from(block_header)),
+        accounts: vec![],
+        notes: vec![NoteSyncRecord {
+            note_index: 0,
+            note_hash: Some(created_notes.first().unwrap().hash().into()),
+            sender: account.id().into(),
+            tag: 0u64,
+            num_assets: 2,
+            merkle_path: Some(MerklePath::default()),
+        }],
+        nullifiers: vec![NullifierUpdate {
+            nullifier: Some(
+                recorded_notes
+                    .first()
+                    .unwrap()
+                    .note()
+                    .nullifier()
+                    .inner()
+                    .into(),
+            ),
+            block_num: 7,
+        }],
+    };
+
+    requests.insert(request, response);
+
     requests
 }
 
@@ -175,12 +220,12 @@ pub fn insert_mock_data(client: &mut Client) {
 
     // insert notes into database
     for note in recorded_notes.into_iter() {
-        client.import_input_note(note).unwrap();
+        client.import_input_note(note.into()).unwrap();
     }
 
     // insert notes into database
     for note in created_notes {
-        client.insert_pending_note(note).unwrap();
+        client.import_input_note(note.into()).unwrap();
     }
 
     // insert account

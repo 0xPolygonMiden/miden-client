@@ -4,6 +4,7 @@ use mock::constants::{ACCOUNT_ID_SENDER, DEFAULT_ACCOUNT_CODE};
 use mock::mock::account::MockAccountType;
 use mock::mock::notes::AssetPreservationStatus;
 use mock::mock::transaction::{mock_inputs, mock_inputs_with_existing};
+use objects::transaction::ChainMmr;
 use objects::AdviceInputs;
 use objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, AccountVault, StorageSlotType},
@@ -14,7 +15,6 @@ use objects::{
     notes::{Note, NoteOrigin, NoteScript, RecordedNote},
     BlockHeader, Felt, Word,
 };
-use objects::{transaction::ChainMmr, AdviceInputs};
 
 // MOCK DATA STORE
 // ================================================================================================

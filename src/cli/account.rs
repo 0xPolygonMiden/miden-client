@@ -4,8 +4,10 @@ use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use crypto::{
     dsa::rpo_falcon512::KeyPair,
     utils::{bytes_to_hex_string, Serializable},
+    Word,
 };
 use miden_client::client::accounts;
+use objects::utils::collections::BTreeMap;
 
 use objects::{accounts::AccountId, assets::TokenSymbol};
 
@@ -188,14 +190,16 @@ pub fn show_account(
             .get_account_auth(account_id)
             .map_err(|err| err.to_string())?;
 
-        // TODO: Decide how we want to output and import auth info
-
-        const KEY_PAIR_SIZE: usize = std::mem::size_of::<KeyPair>();
-        let auth_info: [u8; KEY_PAIR_SIZE] = auth_info
-            .to_bytes()
-            .try_into()
-            .expect("Array size is const and should always exactly fit KeyPair");
-        println!("Key pair:\n0x{}", bytes_to_hex_string(auth_info));
+        match auth_info {
+            miden_client::store::accounts::AuthInfo::RpoFalcon512(key_pair) => {
+                const KEY_PAIR_SIZE: usize = std::mem::size_of::<KeyPair>();
+                let auth_info: [u8; KEY_PAIR_SIZE] = key_pair
+                    .to_bytes()
+                    .try_into()
+                    .expect("Array size is const and should always exactly fit KeyPair");
+                println!("Key pair:\n0x{}", bytes_to_hex_string(auth_info));
+            }
+        };
     }
 
     if show_vault {
@@ -214,9 +218,10 @@ pub fn show_account(
             .get_account_storage(account.storage_root())
             .map_err(|err| err.to_string())?;
 
+        let slots_leaves: BTreeMap<u64, &Word> = account_storage.slots().leaves().collect();
         println!(
             "Storage: {}\n",
-            serde_json::to_string(&account_storage.slots())
+            serde_json::to_string(&slots_leaves)
                 .map_err(|_| "Error serializing account storage")?
         );
     }
