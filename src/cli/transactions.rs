@@ -70,7 +70,7 @@ impl Transaction {
                         sender_account_id,
                         target_account_id,
                     );
-                    let (transaction_result, tx_script, output_notes) = client
+                    let (transaction_result, tx_script) = client
                         .new_transaction(TransactionTemplate::PayToId(payment_transaction))
                         .map_err(|err| err.to_string())?;
 
@@ -78,12 +78,6 @@ impl Transaction {
                         .send_transaction(transaction_result.into_witness(), Some(tx_script))
                         .await
                         .map_err(|err| err.to_string())?;
-
-                    for note in output_notes {
-                        client
-                            .insert_pending_note(note)
-                            .map_err(|err| err.to_string())?
-                    }
                 }
                 TransactionType::P2IDR => {
                     todo!()

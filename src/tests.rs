@@ -39,11 +39,11 @@ async fn test_input_notes_round_trip() {
 
     // insert notes into database
     for note in recorded_notes.iter().cloned() {
-        client.insert_input_note(note).unwrap();
+        client.import_input_note(note).unwrap();
     }
 
     // retrieve notes from database
-    let retrieved_notes = client.get_recorded_notes().unwrap();
+    let retrieved_notes = client.get_input_notes(InputNoteFilter::All).unwrap();
 
     // compare notes
     assert_eq!(recorded_notes, retrieved_notes);
@@ -69,19 +69,15 @@ async fn test_get_input_note() {
     );
 
     // insert note into database
-    client.insert_input_note(recorded_notes[0].clone()).unwrap();
+    client.import_input_note(recorded_notes[0].clone()).unwrap();
 
     // retrieve note from database
     let retrieved_note = client
         .get_input_note(recorded_notes[0].note().hash())
         .unwrap();
 
-    match retrieved_note {
-        crate::store::notes::NoteType::PendingNote(_) => panic!(),
-        crate::store::notes::NoteType::CommittedNote(n) => {
-            assert_eq!(recorded_notes[0], n)
-        }
-    }
+    // compare notes
+    assert_eq!(recorded_notes[0], retrieved_note);
 }
 
 #[tokio::test]

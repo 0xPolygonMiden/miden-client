@@ -158,29 +158,14 @@ pub fn insert_mock_data(client: &mut Client) {
     };
 
     // generate test data
-    let (_account, _, _, recorded_notes, _) = mock_inputs(
+    let (account, _, _, recorded_notes, _) = mock_inputs(
         MockAccountType::StandardExisting,
         AssetPreservationStatus::Preserved,
     );
 
-    let assembler = assembler();
-    let account = mock_account(
-        None,
-        Felt::ONE,
-        None,
-        &assembler,
-        &mut AdviceInputs::default(),
-    );
-    let (_consumed, created_notes) = mock_notes(&assembler, &AssetPreservationStatus::Preserved);
-
     // insert notes into database
     for note in recorded_notes.into_iter() {
-        client.insert_input_note(note).unwrap();
-    }
-
-    // insert notes into database
-    for note in created_notes {
-        client.insert_pending_note(note).unwrap();
+        client.import_input_note(note).unwrap();
     }
 
     // insert account
@@ -270,10 +255,7 @@ pub async fn create_mock_transaction(client: &mut Client) {
         sender_account.id(),
         target_account.id(),
     ));
-
-    // TODO: Fix _notes usage
-    let (transaction_result, script, _notes) =
-        client.new_transaction(transaction_template).unwrap();
+    let (transaction_result, script) = client.new_transaction(transaction_template).unwrap();
 
     client
         .send_transaction(transaction_result.into_witness(), Some(script))
