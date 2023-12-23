@@ -63,6 +63,7 @@ pub enum StoreError {
     ConnectionError(rusqlite::Error),
     DataDeserializationError(DeserializationError),
     HexParseError(HexParseError),
+    InputNoteDoesNotContainProof(Digest),
     InputNoteNotFound(Digest),
     InputSerializationError(serde_json::Error),
     JsonDataDeserializationError(serde_json::Error),
@@ -101,6 +102,11 @@ impl fmt::Display for StoreError {
             HexParseError(err) => {
                 write!(f, "error parsing hex: {err}")
             }
+            InputNoteDoesNotContainProof(hash) => write!(
+                f,
+                "input note with hash {} does not contain an inclusion proof",
+                hash
+            ),
             InputNoteNotFound(hash) => write!(f, "input note with hash {} not found", hash),
             InputSerializationError(err) => {
                 write!(f, "error trying to serialize inputs for the store: {err}")

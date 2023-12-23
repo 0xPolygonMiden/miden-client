@@ -123,34 +123,24 @@ impl From<RecordedNote> for InputNoteRecord {
     }
 }
 
-// SERIALIZATION
-// ================================================================================================
+impl TryInto<RecordedNote> for InputNoteRecord {
+    type Error = StoreError;
 
-// impl Serializable for InputNoteRecord {
-//     fn write_into<W: ByteWriter>(&self, target: &mut W) {
-//         match self {
-//             InputNoteRecord::PendingNote(n) => {
-//                 target.write_bool(false); // non-recorded note
-//                 target.write(n.to_bytes());
-//             }
-//             InputNoteRecord::CommittedNote(n) => {
-//                 target.write_bool(true); // recorded note
-//                 target.write(n.to_bytes());
-//             }
-//         }
-//     }
-// }
+    fn try_into(self) -> std::prelude::v1::Result<RecordedNote, Self::Error> {
+        (&self).try_into()
+    }
+}
 
-// impl Deserializable for InputNoteRecord {
-//     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
-//         let was_recorded = source.read_bool()?;
-//         if was_recorded {
-//             Ok(InputNoteRecord::CommittedNote(RecordedNote::read_from(source)?))
-//         } else {
-//             Ok(InputNoteRecord::PendingNote(Note::read_from(source)?))
-//         }
-//     }
-// }
+impl TryInto<RecordedNote> for &InputNoteRecord {
+    type Error = StoreError;
+
+    fn try_into(self) -> std::prelude::v1::Result<RecordedNote, Self::Error> {
+        match self.inclusion_proof {
+            Some(proof) => Ok(RecordedNote::new(self.note, proof)),
+            None => Err(StoreError::InputNoteDoesNotContainProof(self.note.hash())),
+        }
+    }
+}
 
 impl Store {
     // NOTES
