@@ -119,7 +119,7 @@ impl Store {
             .collect()
     }
 
-    pub fn get_account_by_id(&self, account_id: AccountId) -> Result<AccountStub, StoreError> {
+    pub fn get_account_stub_by_id(&self, account_id: AccountId) -> Result<AccountStub, StoreError> {
         let account_id_int: u64 = account_id.into();
         const QUERY: &str =
             "SELECT id, nonce, vault_root, storage_root, code_root FROM accounts WHERE id = ?";
@@ -292,6 +292,30 @@ impl Store {
         tx.execute(QUERY, params![account_id, auth_info])
             .map(|_| ())
             .map_err(StoreError::QueryError)
+    }
+
+    // TODO: Get all parts from a single query
+    /// Retrieves a full [Account] object
+    pub fn get_account_by_id(&self, account_id: AccountId) -> Result<Account, StoreError> {
+        let account_stub = self.get_account_stub_by_id(account_id)?;
+        let (procedures, module_ast) = self.get_account_code(account_stub.code_root())?;
+
+        let account_code = AccountCode::from_parts(module_ast, procedures);
+
+        let account_storage = self.get_account_storage(account_stub.storage_root())?;
+
+        let account_vault = self.get_vault_assets(account_stub.vault_root())?;
+        let account_vault = AccountVault::new(&account_vault).map_err(StoreError::AccountError)?;
+
+        let account = Account::new(
+            account_stub.id(),
+            account_vault,
+            account_storage,
+            account_code,
+            account_stub.nonce(),
+        );
+
+        Ok(account)
     }
 }
 

@@ -156,7 +156,7 @@ impl Client {
     /// Returns summary info about the specified account.
     pub fn get_account_by_id(&self, account_id: AccountId) -> Result<AccountStub, ClientError> {
         self.store
-            .get_account_by_id(account_id)
+            .get_account_stub_by_id(account_id)
             .map_err(|err| err.into())
     }
 
