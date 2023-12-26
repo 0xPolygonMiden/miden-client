@@ -276,7 +276,7 @@ impl Store {
         account_vault: &AccountVault,
     ) -> Result<(), StoreError> {
         let (vault_root, assets) = serialize_account_vault(account_vault)?;
-        const QUERY: &str = "INSERT INTO account_vaults (root, assets) VALUES (?, ?)";
+        const QUERY: &str = "INSERT OR IGNORE INTO account_vaults (root, assets) VALUES (?, ?)";
         tx.execute(QUERY, params![vault_root, assets])
             .map(|_| ())
             .map_err(StoreError::QueryError)

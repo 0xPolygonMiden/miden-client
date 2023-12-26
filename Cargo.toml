@@ -19,6 +19,7 @@ clap = { version = "4.3" , features = ["derive"] }
 crypto = { package = "miden-crypto", git = "https://github.com/0xPolygonMiden/crypto", branch = "next", default-features = false }
 lazy_static = "1.4.0"
 miden_node_proto = { package = "miden-node-proto", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "main", default-features = false }
+miden_node_store = { package = "miden-node-store", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "main" }
 objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", features = ["serde"] }
 miden_lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", default-features = false }
 miden_tx = { package = "miden-tx", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", default-features = false }

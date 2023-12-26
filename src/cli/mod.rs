@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::Parser;
 use miden_client::{client::Client, config::ClientConfig};
 
@@ -36,6 +38,12 @@ pub enum Command {
         #[clap(short, long)]
         transaction: bool,
     },
+    #[cfg(feature = "testing")]
+    /// Insert data from node's genesis file
+    LoadGenesis {
+        #[clap(short, long)]
+        genesis_path: PathBuf,
+    },
 }
 
 /// CLI entry point
@@ -60,6 +68,11 @@ impl Cli {
                     miden_client::mock::create_mock_transaction(&mut client).await;
                 }
                 Ok(())
+            }
+            #[cfg(feature = "testing")]
+            Command::LoadGenesis { genesis_path } => {
+                let mut client = client;
+                miden_client::mock::load_genesis_data(&mut client, genesis_path)
             }
         }
     }

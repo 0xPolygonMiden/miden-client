@@ -1,6 +1,10 @@
+use std::fs;
+use std::path::Path;
+
 use crate::client::transactions::{PaymentTransactionData, TransactionTemplate};
 use crate::client::{Client, FILTER_ID_SHIFT};
 use crate::store::mock_executor_data_store::MockDataStore;
+use crypto::utils::Deserializable;
 use crypto::{dsa::rpo_falcon512::KeyPair, StarkField};
 use crypto::{Felt, FieldElement};
 use miden_lib::assembler::assembler;
@@ -15,6 +19,8 @@ use miden_node_proto::{
     responses::{NullifierUpdate, SyncStateResponse},
 };
 use mock::mock::account::mock_account;
+
+use miden_node_store::genesis::GenesisState;
 use mock::mock::block;
 use mock::mock::notes::mock_notes;
 use objects::utils::collections::BTreeMap;
@@ -194,6 +200,34 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
     requests.insert(request, response);
 
     requests
+}
+
+pub fn load_genesis_data(client: &mut Client, path: &Path) -> Result<(), String> {
+    let file_contents = fs::read(path.join("genesis.dat")).map_err(|err| err.to_string())?;
+
+    let genesis_state =
+        GenesisState::read_from_bytes(&file_contents).map_err(|err| err.to_string())?;
+
+    if genesis_state.accounts.len() != 2 {
+        return Err(format!(
+            "error: genesis state file should have 2 accounts, has {}",
+            genesis_state.accounts.len()
+        ));
+    }
+
+    for acc in genesis_state.accounts {
+        let key_pair = if acc.is_faucet() {
+            let file_contents = fs::read(path.join("faucet.fsk")).unwrap();
+            KeyPair::read_from_bytes(&file_contents).unwrap()
+        } else {
+            let file_contents = fs::read(path.join("wallet.fsk")).unwrap();
+            KeyPair::read_from_bytes(&file_contents).unwrap()
+        };
+        client
+            .insert_account(&acc, &AuthInfo::RpoFalcon512(key_pair))
+            .map_err(|err| err.to_string())?;
+    }
+    Ok(())
 }
 
 /// inserts mock note and account data into the client
