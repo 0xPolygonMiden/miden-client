@@ -41,6 +41,7 @@ pub enum Command {
     #[cfg(feature = "testing")]
     /// Insert data from node's genesis file
     LoadGenesis {
+        /// The directory that contains the three files generated from the node: genesis.dat, faucet.fsk and wallet.fsk
         #[clap(short, long)]
         genesis_path: PathBuf,
     },
