@@ -96,8 +96,8 @@ impl Transaction {
                 } => {
                     let faucet_id =
                         AccountId::from_hex(faucet_id).map_err(|err| err.to_string())?;
-                    let fungible_asset = FungibleAsset::new(faucet_id, *amount)
-                        .map_err(|err| err.to_string())?;
+                    let fungible_asset =
+                        FungibleAsset::new(faucet_id, *amount).map_err(|err| err.to_string())?;
                     let target_account_id =
                         AccountId::from_hex(target_account_id).map_err(|err| err.to_string())?;
                     let transaction_template = TransactionTemplate::MintFungibleAsset {
