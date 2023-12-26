@@ -40,6 +40,12 @@ pub enum TransactionType {
         faucet_id: String,
         amount: u64,
     },
+    Mint {
+        target_account_id: String,
+        tag: u64,
+        faucet_id: String,
+        amount: u64,
+    },
     P2IDR,
 }
 
@@ -81,6 +87,33 @@ impl Transaction {
                 }
                 TransactionType::P2IDR => {
                     todo!()
+                }
+                TransactionType::Mint {
+                    faucet_id,
+                    tag,
+                    target_account_id,
+                    amount,
+                } => {
+                    let faucet_id =
+                        AccountId::from_hex(faucet_id).map_err(|err| err.to_string())?;
+                    let fungible_asset = FungibleAsset::new(faucet_id, *amount)
+                        .map_err(|err| err.to_string())?;
+                    let target_account_id =
+                        AccountId::from_hex(target_account_id).map_err(|err| err.to_string())?;
+                    let transaction_template = TransactionTemplate::MintFungibleAsset {
+                        asset: fungible_asset,
+                        tag: *tag,
+                        target_account_id,
+                    };
+
+                    let transaction_execution_result = client
+                        .new_transaction(transaction_template)
+                        .map_err(|err| err.to_string())?;
+
+                    client
+                        .send_transaction(transaction_execution_result)
+                        .await
+                        .map_err(|err| err.to_string())?;
                 }
             },
         }

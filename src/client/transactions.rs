@@ -257,7 +257,7 @@ impl Client {
         let transaction_result = self
             .tx_executor
             .execute_transaction(faucet_account.id(), block_ref, &[], Some(tx_script.clone()))
-            .unwrap();
+            .map_err(ClientError::TransactionExecutionError)?;
 
         Ok(TransactionExecutionResult::new(
             transaction_result,
