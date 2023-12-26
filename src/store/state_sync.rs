@@ -1,6 +1,7 @@
 use crypto::merkle::{Mmr, PartialMmr};
 use miden_node_proto::{mmr::MmrDelta, responses::AccountHashUpdate};
-use objects::Digest;
+
+use objects::{BlockHeader, Digest};
 use rusqlite::params;
 
 use crate::{
@@ -54,7 +55,7 @@ impl Store {
 
     /// Returns the block number of the last state sync block
     pub fn get_latest_block_number(&self) -> Result<u32, StoreError> {
-        const QUERY: &str = "SELECT block_number FROM state_sync";
+        const QUERY: &str = "SELECT block_num FROM state_sync";
 
         self.db
             .prepare(QUERY)
@@ -72,9 +73,9 @@ impl Store {
 
     pub fn apply_state_sync(
         &mut self,
-        block_number: u32,
+        block_header: BlockHeader,
         nullifiers: Vec<Digest>,
-        accounts: Vec<AccountHashUpdate>,
+        account_updates: Vec<AccountHashUpdate>,
         mmr_delta: Option<MmrDelta>,
     ) -> Result<(), StoreError> {
         let tx = self
@@ -83,9 +84,9 @@ impl Store {
             .map_err(StoreError::TransactionError)?;
 
         // Check if the returned account hashes match latest account hashes in the database
-        for account in accounts {
+        for account_update in account_updates {
             if let (Some(account_id), Some(account_hash)) =
-                (account.account_id, account.account_hash)
+                (account_update.account_id, account_update.account_hash)
             {
                 let account_id_int: u64 = account_id.clone().into();
                 const ACCOUNT_HASH_QUERY: &str = "SELECT hash FROM accounts WHERE id = ?";
@@ -112,8 +113,8 @@ impl Store {
         }
 
         // update state sync block number
-        const BLOCK_NUMBER_QUERY: &str = "UPDATE state_sync SET block_number = ?";
-        tx.execute(BLOCK_NUMBER_QUERY, params![block_number])
+        const BLOCK_NUMBER_QUERY: &str = "UPDATE state_sync SET block_num = ?";
+        tx.execute(BLOCK_NUMBER_QUERY, params![block_header.block_num()])
             .map_err(StoreError::QueryError)?;
 
         // update spent notes
@@ -131,18 +132,28 @@ impl Store {
             // get current nodes on table
             let previous_nodes = Self::get_chain_mmr_nodes(&tx)?;
 
-            let _highest_index = previous_nodes.keys().max().copied().unwrap();
-
             // build partial mmr from the nodes - partial_mmr should be on memory as part of our store
             let leaves: Vec<Digest> = previous_nodes.values().cloned().collect();
             let mmr: Mmr = leaves.into();
-            let mut partial_mmr: PartialMmr = mmr.peaks(mmr.forest()).unwrap().into();
+            let mut partial_mmr: PartialMmr = mmr
+                .peaks(mmr.forest())
+                .map_err(StoreError::MmrError)?
+                .into();
 
             // apply the delta
-            _ = partial_mmr.apply(mmr_delta.try_into().unwrap());
+            let new_authentication_nodes = partial_mmr
+                .apply(mmr_delta.try_into().unwrap())
+                .map_err(StoreError::MmrError)?;
+            for (node_id, node) in new_authentication_nodes {
+                Store::insert_chain_mmr_node(&tx, node_id, node)?;
+            }
 
-            // get the new nodes - the ones that have higher index than highest_index
-            // let node_diff
+            Store::insert_block_header(
+                &tx,
+                block_header,
+                partial_mmr.peaks().peaks().to_vec(),
+                partial_mmr.forest() as u64,
+            )?;
         }
 
         // commit the updates

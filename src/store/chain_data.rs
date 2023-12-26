@@ -10,11 +10,11 @@ use crypto::merkle::InOrderIndex;
 use objects::{BlockHeader, Digest};
 use rusqlite::{params, Transaction};
 
-type SerializedBlockHeaderData = (i64, String, String, String, String);
-type SerializedBlockHeaderParts = (i64, String, String, String, String);
+type SerializedBlockHeaderData = (i64, String, String, String, String, i64);
+type SerializedBlockHeaderParts = (u64, String, String, String, String, u64);
 
 type SerializedChainMmrNodeData = (i64, String);
-type SerializedChainMmrNodeParts = (i64, String);
+type SerializedChainMmrNodeParts = (u64, String);
 
 impl Store {
     // CHAIN DATA
@@ -23,22 +23,22 @@ impl Store {
         tx: &Transaction<'_>,
         block_header: BlockHeader,
         chain_mmr_peaks: Vec<Digest>,
+        forest: u64,
     ) -> Result<(), StoreError> {
-        let (block_num, header, notes_root, sub_hash, chain_mmr) =
-            serialize_block_header(block_header, chain_mmr_peaks)?;
+        let (block_num, header, notes_root, sub_hash, chain_mmr, forest) =
+            serialize_block_header(block_header, chain_mmr_peaks, forest)?;
 
         const QUERY: &str = "\
         INSERT INTO block_headers
-            (block_num, header, notes_root, sub_hash, chain_mmr)
-         VALUES (?, ?, ?, ?, ?)";
+            (block_num, header, notes_root, sub_hash, chain_mmr, forest)
+         VALUES (?, ?, ?, ?, ?, ?)";
 
         tx.execute(
             QUERY,
-            params![block_num, header, notes_root, sub_hash, chain_mmr],
+            params![block_num, header, notes_root, sub_hash, chain_mmr, forest],
         )
         .map_err(StoreError::QueryError)
-        .map(|_| ())?;
-        todo!() // TODO: pending changes https://github.com/0xPolygonMiden/miden-client/pull/63#discussion_r1432892042
+        .map(|_| ())
     }
 
     #[cfg(test)]
@@ -58,7 +58,7 @@ impl Store {
             .ok_or(StoreError::BlockHeaderNotFound(block_number))?
     }
 
-    fn insert_chain_mmr_node(
+    pub(crate) fn insert_chain_mmr_node(
         tx: &Transaction<'_>,
         id: InOrderIndex,
         node: Digest,
@@ -107,6 +107,7 @@ impl Store {
 fn serialize_block_header(
     block_header: BlockHeader,
     chain_mmr_peaks: Vec<Digest>,
+    forest: u64,
 ) -> Result<SerializedBlockHeaderData, StoreError> {
     let block_num = block_header.block_num();
     let header =
@@ -124,6 +125,7 @@ fn serialize_block_header(
         notes_root,
         sub_hash,
         chain_mmr_peaks,
+        forest as i64,
     ))
 }
 
@@ -137,7 +139,15 @@ fn parse_block_headers_columns(
     let notes_root: String = row.get(2)?;
     let sub_hash: String = row.get(3)?;
     let chain_mmr: String = row.get(4)?;
-    Ok((block_num, header, notes_root, sub_hash, chain_mmr))
+    let forest: i64 = row.get(5)?;
+    Ok((
+        block_num as u64,
+        header,
+        notes_root,
+        sub_hash,
+        chain_mmr,
+        forest as u64,
+    ))
 }
 
 // Unused until we need to query the block headers table
@@ -145,7 +155,7 @@ fn parse_block_headers_columns(
 fn parse_block_header(
     serialized_block_header_parts: SerializedBlockHeaderParts,
 ) -> Result<BlockHeader, StoreError> {
-    let (_, header, _, _, _) = serialized_block_header_parts;
+    let (_, header, _, _, _, _) = serialized_block_header_parts;
 
     serde_json::from_str(&header).map_err(StoreError::JsonDataDeserializationError)
 }
@@ -162,9 +172,9 @@ fn serialize_chain_mmr_node(
 fn parse_chain_mmr_nodes_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedChainMmrNodeParts, rusqlite::Error> {
-    let id = row.get(0)?;
+    let id: i64 = row.get(0)?;
     let node = row.get(1)?;
-    Ok((id, node))
+    Ok((id as u64, node))
 }
 
 fn parse_chain_mmr_nodes(
@@ -172,7 +182,7 @@ fn parse_chain_mmr_nodes(
 ) -> Result<(InOrderIndex, Digest), StoreError> {
     let (id, node) = serialized_chain_mmr_node_parts;
 
-    let id = InOrderIndex::new(NonZeroUsize::new((id as u64) as usize).unwrap());
+    let id = InOrderIndex::new(NonZeroUsize::new(id as usize).unwrap());
     let node: Digest =
         serde_json::from_str(&node).map_err(StoreError::JsonDataDeserializationError)?;
     Ok((id, node))

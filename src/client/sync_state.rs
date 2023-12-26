@@ -83,11 +83,11 @@ impl Client {
             })
             .collect::<Vec<_>>();
 
-        let _block_header: objects::BlockHeader = incoming_block_header.try_into().unwrap();
-
         self.store
             .apply_state_sync(
-                new_block_num,
+                incoming_block_header
+                    .try_into()
+                    .map_err(ClientError::RpcTypeConversionFailure)?,
                 new_nullifiers,
                 response.accounts,
                 response.mmr_delta,

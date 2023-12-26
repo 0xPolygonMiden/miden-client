@@ -231,9 +231,6 @@ impl Client {
             .prove_transaction_witness(transaction_witness)
             .map_err(ClientError::TransactionProvingError)?;
 
-        //NoteInclusionProof::new(block_num, sub_hash, note_root, index, note_path);
-        //RecordedNote::new(Note, )
-
         self.submit_proven_transaction_request(proven_transaction.clone())
             .await?;
 

@@ -84,13 +84,13 @@ CREATE TABLE input_notes (
 
 -- Create state sync table
 CREATE TABLE state_sync (
-    block_number UNSIGNED BIG INT NOT NULL, -- the block number of the most recent state sync
+    block_num UNSIGNED BIG INT NOT NULL, -- the block number of the most recent state sync
     tags BLOB NOT NULL,                     -- the serialized list of tags
-    PRIMARY KEY (block_number)
+    PRIMARY KEY (block_num)
 );
 
 -- insert initial row into state_sync table
-INSERT OR IGNORE INTO state_sync (block_number, tags)
+INSERT OR IGNORE INTO state_sync (block_num, tags)
 SELECT 0, '[]'
 WHERE (
     SELECT COUNT(*) FROM state_sync
@@ -102,7 +102,8 @@ CREATE TABLE block_headers(
     header BLOB NOT NULL,                 -- serialized block header
     notes_root BLOB NOT NULL,             -- root of the notes Merkle tree in this block
     sub_hash BLOB NOT NULL,               -- hash of all other header fields in the block
-    chain_mmr BLOB NOT NULL,              -- serialized peaks and forest of the chain MMR at this block
+    chain_mmr BLOB NOT NULL,              -- serialized peaks of the chain MMR at this block
+    forest UNSIGNED BIG NOT NULL,         -- forest of the chain MMR at this block
     PRIMARY KEY (block_num)
 );
 
