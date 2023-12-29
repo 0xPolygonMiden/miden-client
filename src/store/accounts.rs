@@ -300,7 +300,7 @@ impl Store {
 // ================================================================================================
 
 /// Parse accounts colums from the provided row into native types
-pub fn parse_accounts_columns(
+fn parse_accounts_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedAccountsParts, rusqlite::Error> {
     let id: i64 = row.get(0)?;
