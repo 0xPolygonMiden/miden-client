@@ -24,10 +24,8 @@ impl Client {
     // --------------------------------------------------------------------------------------------
 
     /// Returns the block number of the last state sync block
-    pub fn get_latest_block_number(&self) -> Result<u32, ClientError> {
-        self.store
-            .get_latest_block_number()
-            .map_err(|err| err.into())
+    pub fn get_latest_block_num(&self) -> Result<u32, ClientError> {
+        self.store.get_latest_block_num().map_err(|err| err.into())
     }
 
     /// Returns the list of note tags tracked by the client.
@@ -60,7 +58,7 @@ impl Client {
     }
 
     async fn single_sync_state(&mut self) -> Result<SyncStatus, ClientError> {
-        let block_num = self.store.get_latest_block_number()?;
+        let block_num = self.store.get_latest_block_num()?;
         let account_ids = self.store.get_account_ids()?;
         let note_tags = self.store.get_note_tags()?;
         let nullifiers = self.store.get_unspent_input_note_nullifiers()?; // breaks
@@ -86,8 +84,7 @@ impl Client {
 
         let block_header: BlockHeader = incoming_block_header.try_into().unwrap();
 
-        let committed_notes =
-            self.get_newly_committed_note_hashes(&response.notes, &block_header)?;
+        let committed_notes = self.get_newly_committed_note_info(&response.notes, &block_header)?;
 
         self.store
             .apply_state_sync(new_block_num, new_nullifiers, committed_notes)
@@ -102,7 +99,10 @@ impl Client {
 
     // HELPERS
     // --------------------------------------------------------------------------------------------
-    fn get_newly_committed_note_hashes(
+
+    /// Extracts information about notes that the client is interested in, creating the note inclusion
+    /// proof in order to correctly update store data
+    fn get_newly_committed_note_info(
         &self,
         notes: &[NoteSyncRecord],
         block_header: &BlockHeader,

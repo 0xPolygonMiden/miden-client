@@ -14,6 +14,11 @@ use objects::{
 };
 use rusqlite::params;
 
+pub(crate) const INSERT_NOTE_QUERY: &str = "\
+INSERT INTO input_notes
+    (hash, nullifier, script, vault, inputs, serial_num, sender_id, tag, num_assets, inclusion_proof, recipients, status, commit_height)
+ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
 // TYPES
 // ================================================================================================
 
@@ -83,15 +88,15 @@ impl InputNoteRecord {
         &self.note
     }
 
-    pub fn inclusion_proof(&self) -> &Option<NoteInclusionProof> {
-        &self.inclusion_proof
+    pub fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
+        self.inclusion_proof.as_ref()
     }
 }
 
 impl Serializable for InputNoteRecord {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
         target.write(self.note().to_bytes());
-        target.write(self.inclusion_proof().to_bytes());
+        target.write(self.inclusion_proof.to_bytes());
     }
 }
 
@@ -122,35 +127,6 @@ impl From<RecordedNote> for InputNoteRecord {
         }
     }
 }
-
-// SERIALIZATION
-// ================================================================================================
-
-// impl Serializable for InputNoteRecord {
-//     fn write_into<W: ByteWriter>(&self, target: &mut W) {
-//         match self {
-//             InputNoteRecord::PendingNote(n) => {
-//                 target.write_bool(false); // non-recorded note
-//                 target.write(n.to_bytes());
-//             }
-//             InputNoteRecord::CommittedNote(n) => {
-//                 target.write_bool(true); // recorded note
-//                 target.write(n.to_bytes());
-//             }
-//         }
-//     }
-// }
-
-// impl Deserializable for InputNoteRecord {
-//     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
-//         let was_recorded = source.read_bool()?;
-//         if was_recorded {
-//             Ok(InputNoteRecord::CommittedNote(RecordedNote::read_from(source)?))
-//         } else {
-//             Ok(InputNoteRecord::PendingNote(Note::read_from(source)?))
-//         }
-//     }
-// }
 
 impl Store {
     // NOTES
@@ -211,14 +187,9 @@ impl Store {
             commit_height,
         ) = serialize_input_note(note)?;
 
-        const QUERY: &str = "\
-        INSERT INTO input_notes
-            (hash, nullifier, script, vault, inputs, serial_num, sender_id, tag, num_assets, inclusion_proof, recipients, status, commit_height)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
         self.db
             .execute(
-                QUERY,
+                INSERT_NOTE_QUERY,
                 params![
                     hash,
                     nullifier,
@@ -316,7 +287,9 @@ fn parse_input_note(
 }
 
 /// Serialize the provided input note into database compatible types.
-fn serialize_input_note(note: &InputNoteRecord) -> Result<SerializedInputNoteData, StoreError> {
+pub(crate) fn serialize_input_note(
+    note: &InputNoteRecord,
+) -> Result<SerializedInputNoteData, StoreError> {
     let hash = note.note().hash().to_string();
     let nullifier = note.note().nullifier().inner().to_string();
     let script = note.note().script().to_bytes();

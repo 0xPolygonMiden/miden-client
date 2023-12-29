@@ -237,6 +237,9 @@ where
     println!("{table}");
 }
 
+// TESTS
+// ================================================================================================
+
 #[cfg(test)]
 mod tests {
     use crate::cli::input_notes::{export_note, import_note};

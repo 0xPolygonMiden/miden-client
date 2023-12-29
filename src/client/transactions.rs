@@ -13,7 +13,7 @@ use objects::{
     assembly::ProgramAst,
     assets::Asset,
     notes::Note,
-    transaction::{ProvenTransaction, TransactionResult, TransactionScript},
+    transaction::{ProvenTransaction, TransactionResult, TransactionScript, TransactionWitness},
     Digest,
 };
 use rand::Rng;
@@ -28,6 +28,9 @@ pub enum TransactionTemplate {
     /// Consume all outstanding notes for an account
     ConsumeNotes(AccountId),
 }
+
+// PAYMENT TRANSACTION DATA
+// --------------------------------------------------------------------------------------------
 
 pub struct PaymentTransactionData {
     asset: Asset,
@@ -91,6 +94,11 @@ impl TransactionStub {
     }
 }
 
+// TRANSACTION EXECUTION RESULT
+// --------------------------------------------------------------------------------------------
+
+/// Contains information about the execution of a transaction, useful for proving and tracking
+/// new notes.
 pub struct TransactionExecutionResult {
     result: TransactionResult,
     script: Option<TransactionScript>,
@@ -98,6 +106,9 @@ pub struct TransactionExecutionResult {
 }
 
 impl TransactionExecutionResult {
+    // CONSTRUCTORS
+    // --------------------------------------------------------------------------------------------
+
     pub fn new(
         result: TransactionResult,
         script: Option<TransactionScript>,
@@ -108,6 +119,10 @@ impl TransactionExecutionResult {
             script,
             created_notes,
         }
+    }
+
+    pub fn get_witness(&self) -> TransactionWitness {
+        self.result.clone().into_witness()
     }
 
     pub fn result(&self) -> &TransactionResult {
@@ -124,20 +139,6 @@ impl TransactionExecutionResult {
 }
 
 impl Client {
-    // TRANSACTION CREATION
-    // --------------------------------------------------------------------------------------------
-
-    /// Inserts a new transaction into the client's store.
-    fn insert_transaction(
-        &mut self,
-        transaction: &ProvenTransaction,
-        transaction_script: Option<TransactionScript>,
-    ) -> Result<(), ClientError> {
-        self.store
-            .insert_transaction(transaction, transaction_script)
-            .map_err(|err| err.into())
-    }
-
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
@@ -212,7 +213,7 @@ impl Client {
             .load_account(target_account_id)
             .map_err(ClientError::TransactionExecutionError)?;
 
-        let block_ref = self.get_latest_block_number()?;
+        let block_ref = self.get_latest_block_num()?;
         let note_origins = [];
 
         let tx_script_code = ProgramAst::parse(
@@ -261,23 +262,14 @@ impl Client {
     ) -> Result<(), ClientError> {
         let transaction_prover = TransactionProver::new(ProvingOptions::default());
         let proven_transaction = transaction_prover
-            .prove_transaction_witness(transaction_execution_result.result().clone().into_witness())
+            .prove_transaction_witness(transaction_execution_result.get_witness())
             .map_err(ClientError::TransactionProvingError)?;
-
-        //NoteInclusionProof::new(block_num, sub_hash, note_root, index, note_path);
-        //RecordedNote::new(Note, )
 
         self.submit_proven_transaction_request(proven_transaction.clone())
             .await?;
 
-        self.insert_transaction(
-            &proven_transaction,
-            transaction_execution_result.script().clone(),
-        )?;
-
-        for note in transaction_execution_result.created_notes() {
-            self.import_input_note(note.clone().into())?
-        }
+        self.store
+            .insert_proven_transaction_data(proven_transaction, transaction_execution_result)?;
 
         Ok(())
     }

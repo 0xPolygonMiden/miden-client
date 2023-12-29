@@ -214,7 +214,7 @@ async fn test_sync_state() {
 
     // verify that the latest block number has been updated
     assert_eq!(
-        client.get_latest_block_number().unwrap(),
+        client.get_latest_block_num().unwrap(),
         client
             .rpc_api
             .sync_state_requests
