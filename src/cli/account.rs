@@ -188,14 +188,16 @@ pub fn show_account(
             .get_account_auth(account_id)
             .map_err(|err| err.to_string())?;
 
-        // TODO: Decide how we want to output and import auth info
-
-        const KEY_PAIR_SIZE: usize = std::mem::size_of::<KeyPair>();
-        let auth_info: [u8; KEY_PAIR_SIZE] = auth_info
-            .to_bytes()
-            .try_into()
-            .expect("Array size is const and should always exactly fit KeyPair");
-        println!("Key pair:\n0x{}", bytes_to_hex_string(auth_info));
+        match auth_info {
+            miden_client::store::accounts::AuthInfo::RpoFalcon512(key_pair) => {
+                const KEY_PAIR_SIZE: usize = std::mem::size_of::<KeyPair>();
+                let auth_info: [u8; KEY_PAIR_SIZE] = key_pair
+                    .to_bytes()
+                    .try_into()
+                    .expect("Array size is const and should always exactly fit KeyPair");
+                println!("Key pair:\n0x{}", bytes_to_hex_string(auth_info));
+            }
+        };
     }
 
     if show_vault {

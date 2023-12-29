@@ -1,7 +1,7 @@
 use crypto::merkle::{Mmr, PartialMmr};
 use miden_node_proto::{mmr::MmrDelta, responses::AccountHashUpdate};
 
-use objects::{BlockHeader, Digest};
+use objects::{notes::NoteInclusionProof, BlockHeader, Digest};
 use rusqlite::params;
 
 use crate::{
@@ -54,7 +54,7 @@ impl Store {
     }
 
     /// Returns the block number of the last state sync block
-    pub fn get_latest_block_number(&self) -> Result<u32, StoreError> {
+    pub fn get_latest_block_num(&self) -> Result<u32, StoreError> {
         const QUERY: &str = "SELECT block_num FROM state_sync";
 
         self.db
@@ -77,6 +77,7 @@ impl Store {
         nullifiers: Vec<Digest>,
         account_updates: Vec<AccountHashUpdate>,
         mmr_delta: Option<MmrDelta>,
+        committed_notes: Vec<(Digest, NoteInclusionProof)>,
     ) -> Result<(), StoreError> {
         let tx = self
             .db
@@ -155,6 +156,21 @@ impl Store {
                 partial_mmr.forest() as u64,
             )?;
         }
+
+        // update tracked notes
+        for (committed_note_hash, inclusion_proof) in committed_notes {
+            const SPENT_QUERY: &str =
+                "UPDATE input_notes SET status = 'committed', inclusion_proof = ? WHERE hash = ?";
+            let inclusion_proof = serde_json::to_string(&inclusion_proof)
+                .map_err(StoreError::InputSerializationError)?;
+            tx.execute(
+                SPENT_QUERY,
+                params![inclusion_proof, committed_note_hash.to_string()],
+            )
+            .map_err(StoreError::QueryError)?;
+        }
+
+        // TODO: We would need to mark transactions as committed here as well
 
         // commit the updates
         tx.commit().map_err(StoreError::QueryError)?;

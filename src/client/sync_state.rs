@@ -1,10 +1,10 @@
 use super::Client;
 use crypto::StarkField;
 use miden_node_proto::{
-    account_id::AccountId as ProtoAccountId, requests::SyncStateRequest,
+    account_id::AccountId as ProtoAccountId, note::NoteSyncRecord, requests::SyncStateRequest,
     responses::SyncStateResponse,
 };
-use objects::{accounts::AccountId, Digest};
+use objects::{accounts::AccountId, notes::NoteInclusionProof, BlockHeader, Digest};
 
 use crate::errors::{ClientError, RpcApiError};
 
@@ -24,10 +24,8 @@ impl Client {
     // --------------------------------------------------------------------------------------------
 
     /// Returns the block number of the last state sync block
-    pub fn get_latest_block_number(&self) -> Result<u32, ClientError> {
-        self.store
-            .get_latest_block_number()
-            .map_err(|err| err.into())
+    pub fn get_latest_block_num(&self) -> Result<u32, ClientError> {
+        self.store.get_latest_block_num().map_err(|err| err.into())
     }
 
     /// Returns the list of note tags tracked by the client.
@@ -60,7 +58,7 @@ impl Client {
     }
 
     async fn single_sync_state(&mut self) -> Result<SyncStatus, ClientError> {
-        let block_num = self.store.get_latest_block_number()?;
+        let block_num = self.store.get_latest_block_num()?;
         let account_ids = self.store.get_account_ids()?;
         let note_tags = self.store.get_note_tags()?;
         let nullifiers = self.store.get_unspent_input_note_nullifiers()?;
@@ -68,8 +66,10 @@ impl Client {
             .sync_state_request(block_num, &account_ids, &note_tags, &nullifiers)
             .await?;
         let incoming_block_header = response.block_header.unwrap();
+        let incoming_block_header: BlockHeader = incoming_block_header
+            .try_into()
+            .map_err(ClientError::RpcTypeConversionFailure)?;
 
-        let new_block_num = incoming_block_header.block_num;
         let new_nullifiers = response
             .nullifiers
             .into_iter()
@@ -83,26 +83,65 @@ impl Client {
             })
             .collect::<Vec<_>>();
 
+        let committed_notes =
+            self.get_newly_committed_note_info(&response.notes, &incoming_block_header)?;
+
         self.store
             .apply_state_sync(
-                incoming_block_header
-                    .try_into()
-                    .map_err(ClientError::RpcTypeConversionFailure)?,
+                incoming_block_header,
                 new_nullifiers,
                 response.accounts,
                 response.mmr_delta,
+                committed_notes,
             )
             .map_err(ClientError::StoreError)?;
 
-        if response.chain_tip == new_block_num {
+        if response.chain_tip == incoming_block_header.block_num() {
             Ok(SyncStatus::SyncedToLastBlock(response.chain_tip))
         } else {
-            Ok(SyncStatus::SyncedToBlock(new_block_num))
+            Ok(SyncStatus::SyncedToBlock(incoming_block_header.block_num()))
         }
     }
 
     // HELPERS
     // --------------------------------------------------------------------------------------------
+
+    /// Extracts information about notes that the client is interested in, creating the note inclusion
+    /// proof in order to correctly update store data
+    fn get_newly_committed_note_info(
+        &self,
+        notes: &[NoteSyncRecord],
+        block_header: &BlockHeader,
+    ) -> Result<Vec<(Digest, NoteInclusionProof)>, ClientError> {
+        let pending_notes: Vec<Digest> = self
+            .store
+            .get_input_notes(crate::store::notes::InputNoteFilter::Pending)
+            .map_err(ClientError::StoreError)?
+            .iter()
+            .map(|n| n.note().hash())
+            .collect();
+
+        Ok(notes
+            .iter()
+            .filter_map(|note| {
+                let note_hash: Digest = note.note_hash.clone().unwrap().try_into().unwrap();
+                if pending_notes.contains(&note_hash) {
+                    let note_inclusion_proof = NoteInclusionProof::new(
+                        block_header.block_num(),
+                        block_header.sub_hash(),
+                        block_header.note_root(),
+                        note.note_index.into(),
+                        note.merkle_path.clone().unwrap().try_into().unwrap(),
+                    )
+                    .unwrap();
+                    Some((note_hash, note_inclusion_proof))
+                } else {
+                    None
+                }
+            })
+            .collect())
+    }
+
     /// Sends a sync state request to the Miden node and returns the response.
     async fn sync_state_request(
         &mut self,

@@ -4,10 +4,10 @@ use std::path::PathBuf;
 
 use super::{Client, Parser};
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
-use miden_client::store::notes::InputNoteFilter;
+use miden_client::store::notes::{InputNoteFilter, InputNoteRecord};
 
 use crypto::utils::{Deserializable, Serializable};
-use objects::notes::RecordedNote;
+
 use objects::Digest;
 
 #[derive(Debug, Parser, Clone)]
@@ -59,7 +59,7 @@ pub enum InputNotes {
 }
 
 impl InputNotes {
-    pub fn execute(&self, client: Client) -> Result<(), String> {
+    pub fn execute(&self, mut client: Client) -> Result<(), String> {
         match self {
             InputNotes::List => {
                 list_input_notes(client)?;
@@ -76,7 +76,7 @@ impl InputNotes {
                 export_note(&client, hash, filename.clone())?;
             }
             InputNotes::Import { filename } => {
-                import_note(client, filename.clone())?;
+                import_note(&mut client, filename.clone())?;
             }
         }
         Ok(())
@@ -108,26 +108,30 @@ pub fn export_note(client: &Client, hash: &str, filename: Option<PathBuf>) -> Re
 
     let mut file = File::create(file_path).map_err(|err| err.to_string())?;
 
-    let _ = file.write_all(&note.to_bytes());
+    file.write_all(&note.to_bytes())
+        .map_err(|err| err.to_string())?;
 
     Ok(file)
 }
 
 // IMPORT INPUT NOTE
 // ================================================================================================
-pub fn import_note(mut client: Client, filename: PathBuf) -> Result<Digest, String> {
+pub fn import_note(client: &mut Client, filename: PathBuf) -> Result<Digest, String> {
     let mut contents = vec![];
     let mut _file = File::open(filename)
         .and_then(|mut f| f.read_to_end(&mut contents))
         .map_err(|err| err.to_string());
+
     // TODO: When importing a RecordedNote we want to make sure that the note actually exists in the chain (RPC call)
     // and start monitoring its nullifiers (ie, update the list of relevant tags in the state sync table)
-    let note = RecordedNote::read_from_bytes(&contents).map_err(|err| err.to_string())?;
+    let note = InputNoteRecord::read_from_bytes(&contents).map_err(|err| err.to_string())?;
 
+    let note_hash = note.note().hash();
     client
-        .import_input_note(note.clone())
+        .import_input_note(note)
         .map_err(|err| err.to_string())?;
-    Ok(note.note().hash())
+
+    Ok(note_hash)
 }
 
 // SHOW INPUT NOTE
@@ -207,7 +211,7 @@ fn show_input_note(
 // ================================================================================================
 fn print_notes_summary<'a, I>(notes: I)
 where
-    I: IntoIterator<Item = &'a RecordedNote>,
+    I: IntoIterator<Item = &'a InputNoteRecord>,
 {
     let mut table = Table::new();
     table
@@ -234,19 +238,23 @@ where
     println!("{table}");
 }
 
+// TESTS
+// ================================================================================================
+
 #[cfg(test)]
 mod tests {
     use crate::cli::input_notes::{export_note, import_note};
+
     use miden_client::{
         client::Client,
         config::{ClientConfig, Endpoint},
-        store::notes::InputNoteFilter,
+        store::notes::{InputNoteFilter, InputNoteRecord},
     };
     use std::env::temp_dir;
     use uuid::Uuid;
 
     #[tokio::test]
-    pub async fn import_export() {
+    pub async fn import_export_recorded_note() {
         // generate test client
         let mut path = temp_dir();
         path.push(Uuid::new_v4().to_string());
@@ -260,12 +268,9 @@ mod tests {
         // generate test data
         miden_client::mock::insert_mock_data(&mut client);
 
-        let note = client
-            .get_input_notes(InputNoteFilter::All)
-            .unwrap()
-            .first()
-            .unwrap()
-            .clone();
+        let notes = client.get_input_notes(InputNoteFilter::All).unwrap();
+
+        let note = notes.first().unwrap();
 
         let mut filename_path = temp_dir();
         filename_path.push("test_import");
@@ -281,12 +286,59 @@ mod tests {
 
         let mut path = temp_dir();
         path.push(Uuid::new_v4().to_string());
-        let client = Client::new(ClientConfig::new(
+        let mut client = Client::new(ClientConfig::new(
             path.into_os_string().into_string().unwrap(),
             Endpoint::default(),
         ))
         .await
         .unwrap();
-        import_note(client, filename_path).unwrap();
+
+        import_note(&mut client, filename_path).unwrap();
+        let imported_note = client.get_input_note(note.note().hash()).unwrap();
+
+        assert_eq!(note.note().hash(), imported_note.note().hash());
+
+        // Import/export pending note
+        // ------------------------------
+
+        // generate test client
+        let mut path = temp_dir();
+        path.push(Uuid::new_v4().to_string());
+        let mut client = Client::new(ClientConfig::new(
+            path.into_os_string().into_string().unwrap(),
+            Endpoint::default(),
+        ))
+        .await
+        .unwrap();
+
+        // generate test data
+        miden_client::mock::insert_mock_data(&mut client);
+
+        let pending_note = client.get_input_notes(InputNoteFilter::Pending).unwrap();
+        let note: &InputNoteRecord = pending_note.first().unwrap();
+        assert!(note.inclusion_proof().is_none());
+
+        let mut filename_path = temp_dir();
+        filename_path.push("test_import_pending");
+        export_note(
+            &client,
+            &note.note().hash().to_string(),
+            Some(filename_path.clone()),
+        )
+        .unwrap();
+
+        let mut path = temp_dir();
+        path.push(Uuid::new_v4().to_string());
+        let mut client = Client::new(ClientConfig::new(
+            path.into_os_string().into_string().unwrap(),
+            Endpoint::default(),
+        ))
+        .await
+        .unwrap();
+
+        import_note(&mut client, filename_path).unwrap();
+        let imported_note = client.get_input_note(note.note().hash()).unwrap();
+
+        assert_eq!(note.note().hash(), imported_note.note().hash());
     }
 }

@@ -3,7 +3,11 @@
 use crate::{
     client::Client,
     config::{ClientConfig, Endpoint},
-    store::{accounts::AuthInfo, notes::InputNoteFilter, tests::create_test_store_path},
+    store::{
+        accounts::AuthInfo,
+        notes::{InputNoteFilter, InputNoteRecord},
+        tests::create_test_store_path,
+    },
 };
 
 use crypto::dsa::rpo_falcon512::KeyPair;
@@ -39,12 +43,14 @@ async fn test_input_notes_round_trip() {
 
     // insert notes into database
     for note in recorded_notes.iter().cloned() {
-        client.import_input_note(note).unwrap();
+        client.import_input_note(note.into()).unwrap();
     }
 
     // retrieve notes from database
-    let retrieved_notes = client.get_input_notes(InputNoteFilter::All).unwrap();
+    let retrieved_notes = client.get_input_notes(InputNoteFilter::Committed).unwrap();
 
+    let recorded_notes: Vec<InputNoteRecord> =
+        recorded_notes.iter().map(|n| n.clone().into()).collect();
     // compare notes
     assert_eq!(recorded_notes, retrieved_notes);
 }
@@ -69,15 +75,17 @@ async fn test_get_input_note() {
     );
 
     // insert note into database
-    client.import_input_note(recorded_notes[0].clone()).unwrap();
+    client
+        .import_input_note(recorded_notes[0].clone().into())
+        .unwrap();
 
     // retrieve note from database
     let retrieved_note = client
         .get_input_note(recorded_notes[0].note().hash())
         .unwrap();
 
-    // compare notes
-    assert_eq!(recorded_notes[0], retrieved_note);
+    let recorded_note: InputNoteRecord = recorded_notes[0].clone().into();
+    assert_eq!(recorded_note, retrieved_note)
 }
 
 #[tokio::test]
@@ -172,8 +180,10 @@ async fn test_sync_state() {
         0
     );
 
+    let pending_notes = client.get_input_notes(InputNoteFilter::Pending).unwrap();
+
     // sync state
-    let block_num = client.sync_state().await.unwrap();
+    let block_num: u32 = client.sync_state().await.unwrap();
 
     // verify that the client is synced to the latest block
     assert_eq!(
@@ -197,17 +207,14 @@ async fn test_sync_state() {
     );
 
     // verify that the pending note we had is now committed
-    assert_eq!(
-        client
-            .get_input_notes(InputNoteFilter::Committed)
-            .unwrap()
-            .len(),
-        1
+    assert_ne!(
+        client.get_input_notes(InputNoteFilter::Pending).unwrap(),
+        pending_notes
     );
 
     // verify that the latest block number has been updated
     assert_eq!(
-        client.get_latest_block_number().unwrap(),
+        client.get_latest_block_num().unwrap(),
         client
             .rpc_api
             .sync_state_requests

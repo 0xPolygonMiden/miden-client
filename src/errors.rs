@@ -65,6 +65,7 @@ pub enum StoreError {
     AccountError(AccountError),
     AccountHashMismatch(AccountId),
     AccountStorageNotFound(Digest),
+    BlockHeaderNotFound(u32),
     ChainMmrNodeNotFound(u64),
     ColumnParsingError(rusqlite::Error),
     ConnectionError(rusqlite::Error),
@@ -77,8 +78,8 @@ pub enum StoreError {
     MmrError(MmrError),
     NoteTagAlreadyTracked(u64),
     QueryError(rusqlite::Error),
+    RpcTypeConversionFailure(ParseError),
     TransactionError(rusqlite::Error),
-    BlockHeaderNotFound(u32),
     TransactionScriptError(TransactionScriptError),
     VaultDataNotFound(Digest),
 }
@@ -99,6 +100,9 @@ impl fmt::Display for StoreError {
             }
             AccountStorageNotFound(root) => {
                 write!(f, "account storage data with root {} not found", root)
+            }
+            BlockHeaderNotFound(block_number) => {
+                write!(f, "block header for block {} not found", block_number)
             }
             ColumnParsingError(err) => {
                 write!(f, "failed to parse data retrieved from the database: {err}")
@@ -132,9 +136,7 @@ impl fmt::Display for StoreError {
                 write!(f, "error instantiating transaction script: {err}")
             }
             VaultDataNotFound(root) => write!(f, "account vault data for root {} not found", root),
-            BlockHeaderNotFound(block_num) => {
-                write!(f, "block header for block {} not found", block_num)
-            }
+            RpcTypeConversionFailure(err) => write!(f, "failed to convert data: {err}"),
         }
     }
 }

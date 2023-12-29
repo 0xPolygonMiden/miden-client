@@ -1,7 +1,3 @@
-use crate::{
-    errors::{self, ClientError},
-    store::mock_executor_data_store::{self, MockDataStore},
-};
 use crypto::utils::Serializable;
 use miden_lib::notes::{create_note, Script};
 use miden_node_proto::{
@@ -18,6 +14,11 @@ use objects::{
 };
 use rand::Rng;
 
+use crate::{
+    errors::{ClientError, RpcApiError},
+    store::mock_executor_data_store::{self, MockDataStore},
+};
+
 use super::Client;
 
 pub enum TransactionTemplate {
@@ -28,6 +29,9 @@ pub enum TransactionTemplate {
     /// Consume all outstanding notes for an account
     ConsumeNotes(AccountId),
 }
+
+// PAYMENT TRANSACTION DATA
+// --------------------------------------------------------------------------------------------
 
 pub struct PaymentTransactionData {
     asset: Asset,
@@ -91,21 +95,51 @@ impl TransactionStub {
     }
 }
 
-impl Client {
-    // TRANSACTION CREATION
+// TRANSACTION EXECUTION RESULT
+// --------------------------------------------------------------------------------------------
+
+/// Contains information about the execution of a transaction, useful for proving and tracking
+/// new notes.
+pub struct TransactionExecutionResult {
+    result: TransactionResult,
+    script: Option<TransactionScript>,
+    created_notes: Vec<Note>,
+}
+
+impl TransactionExecutionResult {
+    // CONSTRUCTORS
     // --------------------------------------------------------------------------------------------
 
-    /// Inserts a new transaction into the client's store.
-    fn insert_transaction(
-        &mut self,
-        transaction: &ProvenTransaction,
-        transaction_script: Option<TransactionScript>,
-    ) -> Result<(), ClientError> {
-        self.store
-            .insert_transaction(transaction, transaction_script)
-            .map_err(|err| err.into())
+    pub fn new(
+        result: TransactionResult,
+        script: Option<TransactionScript>,
+        created_notes: Vec<Note>,
+    ) -> TransactionExecutionResult {
+        TransactionExecutionResult {
+            result,
+            script,
+            created_notes,
+        }
     }
 
+    pub fn get_witness(&self) -> TransactionWitness {
+        self.result.clone().into_witness()
+    }
+
+    pub fn result(&self) -> &TransactionResult {
+        &self.result
+    }
+
+    pub fn script(&self) -> &Option<TransactionScript> {
+        &self.script
+    }
+
+    pub fn created_notes(&self) -> &Vec<Note> {
+        &self.created_notes
+    }
+}
+
+impl Client {
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
@@ -122,7 +156,7 @@ impl Client {
     pub fn new_transaction(
         &mut self,
         transaction_template: TransactionTemplate,
-    ) -> Result<(TransactionResult, TransactionScript), ClientError> {
+    ) -> Result<TransactionExecutionResult, ClientError> {
         match transaction_template {
             TransactionTemplate::PayToId(PaymentTransactionData {
                 asset: fungible_asset,
@@ -139,17 +173,7 @@ impl Client {
         fungible_asset: Asset,
         sender_account_id: AccountId,
         target_account_id: AccountId,
-    ) -> Result<(TransactionResult, TransactionScript), ClientError> {
-        // Create assets
-        let (target_pub_key, target_sk_pk_felt) =
-            mock_executor_data_store::get_new_key_pair_with_advice_map();
-        let target_account = mock_executor_data_store::get_account_with_default_account_code(
-            target_account_id,
-            target_pub_key,
-            None,
-        );
-
-        // Create the note
+    ) -> Result<TransactionExecutionResult, ClientError> {
         let p2id_script = Script::P2ID {
             target: target_account_id,
         };
@@ -167,23 +191,31 @@ impl Client {
         .map_err(ClientError::NoteError)?;
 
         // TODO: Remove this as DataStore is implemented on the Client's Store
-        let data_store: MockDataStore = MockDataStore::with_existing(
-            Some(target_account.clone()),
-            Some(vec![note.clone()]),
-            None,
-        );
 
-        self.set_data_store(data_store.clone());
+        #[cfg(feature = "testing")]
+        {
+            let (target_pub_key, _target_sk_pk_felt) =
+                mock_executor_data_store::get_new_key_pair_with_advice_map();
+            let target_account = mock_executor_data_store::get_account_with_default_account_code(
+                target_account_id,
+                target_pub_key,
+                None,
+            );
+            let data_store: MockDataStore = MockDataStore::with_existing(
+                Some(target_account.clone()),
+                Some(vec![note.clone()]),
+                None,
+            );
+
+            self.set_data_store(data_store.clone());
+        }
+
         self.tx_executor
             .load_account(target_account_id)
             .map_err(ClientError::TransactionExecutionError)?;
 
-        let block_ref = data_store.block_header.block_num();
-        let note_origins = data_store
-            .notes
-            .iter()
-            .map(|note| note.origin().clone())
-            .collect::<Vec<_>>();
+        let block_ref = self.get_latest_block_num()?;
+        let note_origins = [];
 
         let tx_script_code = ProgramAst::parse(
             "
@@ -200,7 +232,7 @@ impl Client {
             .tx_executor
             .compile_tx_script(
                 tx_script_code.clone(),
-                vec![(target_pub_key, target_sk_pk_felt)],
+                vec![/*(target_pub_key, target_sk_pk_felt)*/],
                 vec![],
             )
             .map_err(ClientError::TransactionExecutionError)?;
@@ -216,25 +248,30 @@ impl Client {
             )
             .map_err(ClientError::TransactionExecutionError)?;
 
-        Ok((transaction_result, tx_script_target))
+        Ok(TransactionExecutionResult::new(
+            transaction_result,
+            Some(tx_script_target),
+            vec![note],
+        ))
     }
 
     /// Proves the specified transaction witness, submits it to the node, and stores the transaction in
     /// the local database for tracking.
     pub async fn send_transaction(
         &mut self,
-        transaction_witness: TransactionWitness,
-        transaction_script: Option<TransactionScript>,
+        transaction_execution_result: TransactionExecutionResult,
     ) -> Result<(), ClientError> {
         let transaction_prover = TransactionProver::new(ProvingOptions::default());
         let proven_transaction = transaction_prover
-            .prove_transaction_witness(transaction_witness)
+            .prove_transaction_witness(transaction_execution_result.get_witness())
             .map_err(ClientError::TransactionProvingError)?;
 
         self.submit_proven_transaction_request(proven_transaction.clone())
             .await?;
 
-        self.insert_transaction(&proven_transaction, transaction_script)?;
+        self.store
+            .insert_proven_transaction_data(proven_transaction, transaction_execution_result)?;
+
         Ok(())
     }
 
@@ -250,7 +287,7 @@ impl Client {
             .rpc_api
             .submit_proven_transaction(request)
             .await
-            .map_err(|err| ClientError::RpcApiError(errors::RpcApiError::RequestError(err)))?
+            .map_err(|err| ClientError::RpcApiError(RpcApiError::RequestError(err)))?
             .into_inner())
     }
 }

@@ -70,12 +70,12 @@ impl Transaction {
                         sender_account_id,
                         target_account_id,
                     );
-                    let (transaction_result, tx_script) = client
+                    let transaction_execution_result = client
                         .new_transaction(TransactionTemplate::PayToId(payment_transaction))
                         .map_err(|err| err.to_string())?;
 
                     client
-                        .send_transaction(transaction_result.into_witness(), Some(tx_script))
+                        .send_transaction(transaction_execution_result)
                         .await
                         .map_err(|err| err.to_string())?;
                 }

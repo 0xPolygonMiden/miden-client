@@ -1,4 +1,7 @@
-use crate::{client::transactions::TransactionStub, errors::StoreError};
+use crate::{
+    client::transactions::{TransactionExecutionResult, TransactionStub},
+    errors::StoreError,
+};
 use crypto::{
     utils::{collections::BTreeMap, Deserializable, Serializable},
     Felt,
@@ -11,9 +14,16 @@ use objects::{
     transaction::{ProvenTransaction, TransactionScript},
     Digest,
 };
-use rusqlite::params;
+use rusqlite::{params, Transaction};
 
-use super::Store;
+use super::{
+    notes::{serialize_input_note, InputNoteRecord, INSERT_NOTE_QUERY},
+    Store,
+};
+
+pub(crate) const INSERT_TRANSACTION_QUERY: &str = "INSERT INTO transactions (id, account_id, init_account_state, final_account_state, \
+    input_notes, output_notes, script_hash, script_program, script_inputs, block_num, committed, commit_height) \
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
 // TRANSACTIONS
 // ================================================================================================
@@ -71,10 +81,9 @@ impl Store {
             commit_height,
         ) = serialize_transaction(transaction, tx_script)?;
 
-        self.db.execute(
-                "INSERT INTO transactions (id, account_id, init_account_state, final_account_state, \
-                input_notes, output_notes, script_hash, script_program, script_inputs, block_num, committed, commit_height) \
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        self.db
+            .execute(
+                INSERT_TRANSACTION_QUERY,
                 params![
                     transaction_id,
                     account_id,
@@ -89,12 +98,77 @@ impl Store {
                     committed,
                     commit_height,
                 ],
-            ).map(|_| ())
+            )
+            .map(|_| ())
             .map_err(StoreError::QueryError)
+    }
+
+    pub fn insert_proven_transaction_data(
+        &mut self,
+        proven_transaction: ProvenTransaction,
+        transaction_result: TransactionExecutionResult,
+    ) -> Result<(), StoreError> {
+        // Create atomic transcation
+
+        let tx = self
+            .db
+            .transaction()
+            .map_err(StoreError::TransactionError)?;
+
+        // Insert transaction data
+
+        let (
+            transaction_id,
+            account_id,
+            init_account_state,
+            final_account_state,
+            input_notes,
+            output_notes,
+            script_hash,
+            script_program,
+            script_inputs,
+            block_num,
+            committed,
+            commit_height,
+        ) = serialize_transaction(&proven_transaction, transaction_result.script().clone())?;
+
+        tx.execute(
+            INSERT_TRANSACTION_QUERY,
+            params![
+                transaction_id,
+                account_id,
+                init_account_state,
+                final_account_state,
+                input_notes,
+                output_notes,
+                script_program,
+                script_hash,
+                script_inputs,
+                block_num,
+                committed,
+                commit_height,
+            ],
+        )
+        .map(|_| ())
+        .map_err(StoreError::QueryError)?;
+
+        let input_notes: Vec<InputNoteRecord> = transaction_result
+            .created_notes()
+            .iter()
+            .map(|n| n.clone().into())
+            .collect();
+
+        // Insert input notes
+        insert_input_notes(&tx, &input_notes)?;
+
+        // commit the transaction
+        tx.commit().map_err(StoreError::QueryError)?;
+
+        Ok(())
     }
 }
 
-pub fn serialize_transaction(
+pub(crate) fn serialize_transaction(
     transaction: &ProvenTransaction,
     tx_script: Option<TransactionScript>,
 ) -> Result<SerializedTransactionData, StoreError> {
@@ -256,4 +330,51 @@ fn parse_transaction(
         committed,
         commit_height: commit_height as u64,
     })
+}
+
+/// Inserts the provided input notes into the database
+fn insert_input_notes(
+    sql_transaction: &Transaction<'_>,
+    notes: &[InputNoteRecord],
+) -> Result<(), StoreError> {
+    for note in notes {
+        let (
+            hash,
+            nullifier,
+            script,
+            vault,
+            inputs,
+            serial_num,
+            sender_id,
+            tag,
+            num_assets,
+            inclusion_proof,
+            recipients,
+            status,
+            commit_height,
+        ) = serialize_input_note(note)?;
+
+        sql_transaction
+            .execute(
+                INSERT_NOTE_QUERY,
+                params![
+                    hash,
+                    nullifier,
+                    script,
+                    vault,
+                    inputs,
+                    serial_num,
+                    sender_id,
+                    tag,
+                    num_assets,
+                    inclusion_proof,
+                    recipients,
+                    status,
+                    commit_height
+                ],
+            )
+            .map_err(StoreError::QueryError)?;
+    }
+
+    Ok(())
 }
