@@ -4,10 +4,8 @@ use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use crypto::{
     dsa::rpo_falcon512::KeyPair,
     utils::{bytes_to_hex_string, Serializable},
-    Word,
 };
 use miden_client::client::accounts;
-use objects::utils::collections::BTreeMap;
 
 use objects::{accounts::AccountId, assets::TokenSymbol};
 
@@ -218,10 +216,9 @@ pub fn show_account(
             .get_account_storage(account.storage_root())
             .map_err(|err| err.to_string())?;
 
-        let slots_leaves: BTreeMap<u64, &Word> = account_storage.slots().leaves().collect();
         println!(
             "Storage: {}\n",
-            serde_json::to_string(&slots_leaves)
+            serde_json::to_string(&account_storage.slots())
                 .map_err(|_| "Error serializing account storage")?
         );
     }

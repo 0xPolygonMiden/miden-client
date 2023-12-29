@@ -1,7 +1,3 @@
-use crate::{
-    errors::{self, ClientError},
-    store::mock_executor_data_store::{self, MockDataStore},
-};
 use crypto::utils::Serializable;
 use miden_lib::notes::{create_note, Script};
 use miden_node_proto::{
@@ -17,6 +13,11 @@ use objects::{
     Digest,
 };
 use rand::Rng;
+
+use crate::{
+    errors::{ClientError, RpcApiError},
+    store::mock_executor_data_store::{self, MockDataStore},
+};
 
 use super::Client;
 
@@ -286,7 +287,7 @@ impl Client {
             .rpc_api
             .submit_proven_transaction(request)
             .await
-            .map_err(|err| ClientError::RpcApiError(errors::RpcApiError::RequestError(err)))?
+            .map_err(|err| ClientError::RpcApiError(RpcApiError::RequestError(err)))?
             .into_inner())
     }
 }

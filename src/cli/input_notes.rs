@@ -4,8 +4,9 @@ use std::path::PathBuf;
 
 use super::{Client, Parser};
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
-use crypto::utils::{Deserializable, Serializable};
 use miden_client::store::notes::{InputNoteFilter, InputNoteRecord};
+
+use crypto::utils::{Deserializable, Serializable};
 
 use objects::Digest;
 

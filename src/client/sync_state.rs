@@ -61,14 +61,15 @@ impl Client {
         let block_num = self.store.get_latest_block_num()?;
         let account_ids = self.store.get_account_ids()?;
         let note_tags = self.store.get_note_tags()?;
-        let nullifiers = self.store.get_unspent_input_note_nullifiers()?; // breaks
-
+        let nullifiers = self.store.get_unspent_input_note_nullifiers()?;
         let response = self
             .sync_state_request(block_num, &account_ids, &note_tags, &nullifiers)
             .await?;
         let incoming_block_header = response.block_header.unwrap();
+        let incoming_block_header: BlockHeader = incoming_block_header
+            .try_into()
+            .map_err(ClientError::RpcTypeConversionFailure)?;
 
-        let new_block_num = incoming_block_header.block_num;
         let new_nullifiers = response
             .nullifiers
             .into_iter()
@@ -82,18 +83,23 @@ impl Client {
             })
             .collect::<Vec<_>>();
 
-        let block_header: BlockHeader = incoming_block_header.try_into().unwrap();
-
-        let committed_notes = self.get_newly_committed_note_info(&response.notes, &block_header)?;
+        let committed_notes =
+            self.get_newly_committed_note_info(&response.notes, &incoming_block_header)?;
 
         self.store
-            .apply_state_sync(new_block_num, new_nullifiers, committed_notes)
+            .apply_state_sync(
+                incoming_block_header,
+                new_nullifiers,
+                response.accounts,
+                response.mmr_delta,
+                committed_notes,
+            )
             .map_err(ClientError::StoreError)?;
 
-        if response.chain_tip == new_block_num {
+        if response.chain_tip == incoming_block_header.block_num() {
             Ok(SyncStatus::SyncedToLastBlock(response.chain_tip))
         } else {
-            Ok(SyncStatus::SyncedToBlock(new_block_num))
+            Ok(SyncStatus::SyncedToBlock(incoming_block_header.block_num()))
         }
     }
 

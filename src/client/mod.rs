@@ -13,6 +13,7 @@ use miden_tx::TransactionExecutor;
 use crate::mock::MockRpcApi;
 
 pub mod accounts;
+pub mod chain_data;
 pub mod notes;
 pub mod sync_state;
 pub mod transactions;
