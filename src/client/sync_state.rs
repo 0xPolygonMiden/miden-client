@@ -1,5 +1,4 @@
 use super::Client;
-
 use crypto::StarkField;
 use miden_node_proto::{
     account_id::AccountId as ProtoAccountId, requests::SyncStateRequest,
@@ -8,6 +7,11 @@ use miden_node_proto::{
 use objects::{accounts::AccountId, Digest};
 
 use crate::errors::{ClientError, RpcApiError};
+
+pub enum SyncStatus {
+    SyncedToLastBlock(u32),
+    SyncedToBlock(u32),
+}
 
 // CONSTANTS
 // ================================================================================================
@@ -47,16 +51,25 @@ impl Client {
     ///
     /// Returns the block number the client has been synced to.
     pub async fn sync_state(&mut self) -> Result<u32, ClientError> {
+        loop {
+            let response = self.single_sync_state().await?;
+            if let SyncStatus::SyncedToLastBlock(v) = response {
+                return Ok(v);
+            }
+        }
+    }
+
+    async fn single_sync_state(&mut self) -> Result<SyncStatus, ClientError> {
         let block_num = self.store.get_latest_block_number()?;
         let account_ids = self.store.get_account_ids()?;
         let note_tags = self.store.get_note_tags()?;
-        let nullifiers = self.store.get_unspent_input_note_nullifiers()?; // breaks
-
+        let nullifiers = self.store.get_unspent_input_note_nullifiers()?;
         let response = self
             .sync_state_request(block_num, &account_ids, &note_tags, &nullifiers)
             .await?;
+        let incoming_block_header = response.block_header.unwrap();
 
-        let new_block_num = response.chain_tip;
+        let new_block_num = incoming_block_header.block_num;
         let new_nullifiers = response
             .nullifiers
             .into_iter()
@@ -71,10 +84,21 @@ impl Client {
             .collect::<Vec<_>>();
 
         self.store
-            .apply_state_sync(new_block_num, new_nullifiers)
+            .apply_state_sync(
+                incoming_block_header
+                    .try_into()
+                    .map_err(ClientError::RpcTypeConversionFailure)?,
+                new_nullifiers,
+                response.accounts,
+                response.mmr_delta,
+            )
             .map_err(ClientError::StoreError)?;
 
-        Ok(new_block_num)
+        if response.chain_tip == new_block_num {
+            Ok(SyncStatus::SyncedToLastBlock(response.chain_tip))
+        } else {
+            Ok(SyncStatus::SyncedToBlock(new_block_num))
+        }
     }
 
     // HELPERS

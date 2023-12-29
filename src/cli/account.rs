@@ -216,7 +216,7 @@ pub fn show_account(
 
         println!(
             "Storage: {}\n",
-            serde_json::to_string(&account_storage)
+            serde_json::to_string(&account_storage.slots())
                 .map_err(|_| "Error serializing account storage")?
         );
     }

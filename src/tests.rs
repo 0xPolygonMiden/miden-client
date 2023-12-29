@@ -163,7 +163,7 @@ async fn test_sync_state() {
     // generate test data
     crate::mock::insert_mock_data(&mut client);
 
-    // assert that we have no consumed notes prior to syncing state
+    // assert that we have no consumed nor pending notes prior to syncing state
     assert_eq!(
         client
             .get_input_notes(InputNoteFilter::Consumed)
@@ -191,6 +191,15 @@ async fn test_sync_state() {
     assert_eq!(
         client
             .get_input_notes(InputNoteFilter::Consumed)
+            .unwrap()
+            .len(),
+        1
+    );
+
+    // verify that the pending note we had is now committed
+    assert_eq!(
+        client
+            .get_input_notes(InputNoteFilter::Committed)
             .unwrap()
             .len(),
         1

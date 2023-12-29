@@ -2,7 +2,11 @@ use crate::client::transactions::{PaymentTransactionData, TransactionTemplate};
 use crate::client::{Client, FILTER_ID_SHIFT};
 use crate::store::mock_executor_data_store::MockDataStore;
 use crypto::{dsa::rpo_falcon512::KeyPair, StarkField};
+use crypto::{Felt, FieldElement};
+use miden_lib::assembler::assembler;
 use miden_node_proto::block_header::BlockHeader as NodeBlockHeader;
+use miden_node_proto::merkle::MerklePath;
+use miden_node_proto::note::NoteSyncRecord;
 use miden_node_proto::requests::SubmitProvenTransactionRequest;
 use miden_node_proto::responses::SubmitProvenTransactionResponse;
 use miden_node_proto::{
@@ -10,8 +14,11 @@ use miden_node_proto::{
     requests::SyncStateRequest,
     responses::{NullifierUpdate, SyncStateResponse},
 };
+use mock::mock::account::mock_account;
 use mock::mock::block;
+use mock::mock::notes::mock_notes;
 use objects::utils::collections::BTreeMap;
+use objects::AdviceInputs;
 
 use crate::store::accounts::AuthInfo;
 
@@ -88,6 +95,16 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
     // create sync state requests
     let mut requests = BTreeMap::new();
 
+    let assembler = assembler();
+    let account = mock_account(
+        None,
+        Felt::ONE,
+        None,
+        &assembler,
+        &mut AdviceInputs::default(),
+    );
+    let (_consumed, created_notes) = mock_notes(&assembler, &AssetPreservationStatus::Preserved);
+
     // create a state sync request
     let request = SyncStateRequest {
         block_num: 0,
@@ -108,7 +125,14 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
         block_path: None,
         block_header: Some(NodeBlockHeader::from(block_header)),
         accounts: vec![],
-        notes: vec![],
+        notes: vec![NoteSyncRecord {
+            note_index: 0,
+            note_hash: Some(created_notes.first().unwrap().hash().into()),
+            sender: account.id().into(),
+            tag: 0u64,
+            num_assets: 2,
+            merkle_path: Some(MerklePath::default()),
+        }],
         nullifiers: vec![NullifierUpdate {
             nullifier: Some(
                 recorded_notes
@@ -239,7 +263,6 @@ pub async fn create_mock_transaction(client: &mut Client) {
         .unwrap();
 }
 
-#[cfg(any(test, feature = "testing"))]
 impl Client {
     /// testing function to set a data store to conveniently mock data if needed
     pub fn set_data_store(&mut self, data_store: MockDataStore) {

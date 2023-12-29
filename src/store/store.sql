@@ -73,7 +73,7 @@ CREATE TABLE input_notes (
     sender_id UNSIGNED BIG INT NOT NULL,                    -- the account ID of the sender
     tag UNSIGNED BIG INT NOT NULL,                          -- the note tag
     num_assets UNSIGNED BIG INT NOT NULL,                   -- the number of assets in the note
-    inclusion_proof BLOB NOT NULL,                          -- the inclusion proof of the note against a block number
+    inclusion_proof BLOB NULL,                              -- the inclusion proof of the note against a block number
     recipients BLOB NOT NULL,                               -- a list of account IDs of accounts which can consume this note
     status TEXT CHECK( status IN (                          -- the status of the note - either pending, committed or consumed
         'pending', 'committed', 'consumed'
@@ -84,14 +84,32 @@ CREATE TABLE input_notes (
 
 -- Create state sync table
 CREATE TABLE state_sync (
-    block_number UNSIGNED BIG INT NOT NULL, -- the block number of the most recent state sync
+    block_num UNSIGNED BIG INT NOT NULL, -- the block number of the most recent state sync
     tags BLOB NOT NULL,                     -- the serialized list of tags
-    PRIMARY KEY (block_number)
+    PRIMARY KEY (block_num)
 );
 
 -- insert initial row into state_sync table
-INSERT OR IGNORE INTO state_sync (block_number, tags)
+INSERT OR IGNORE INTO state_sync (block_num, tags)
 SELECT 0, '[]'
 WHERE (
     SELECT COUNT(*) FROM state_sync
 ) = 0;
+
+-- Create block headers table
+CREATE TABLE block_headers(
+    block_num UNSIGNED BIG INT NOT NULL,  -- block number
+    header BLOB NOT NULL,                 -- serialized block header
+    notes_root BLOB NOT NULL,             -- root of the notes Merkle tree in this block
+    sub_hash BLOB NOT NULL,               -- hash of all other header fields in the block
+    chain_mmr BLOB NOT NULL,              -- serialized peaks of the chain MMR at this block
+    forest UNSIGNED BIG NOT NULL,         -- forest of the chain MMR at this block
+    PRIMARY KEY (block_num)
+);
+
+-- Create chain mmr nodes
+CREATE TABLE chain_mmr_nodes(
+    id UNSIGNED BIG INT NOT NULL,   -- in-order index of the internal MMR node
+    node BLOB NOT NULL,             -- internal node value (hash)
+    PRIMARY KEY (id)
+)

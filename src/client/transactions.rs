@@ -1,3 +1,7 @@
+use crate::{
+    errors::{self, ClientError},
+    store::mock_executor_data_store::{self, MockDataStore},
+};
 use crypto::utils::Serializable;
 use miden_lib::notes::{create_note, Script};
 use miden_node_proto::{
@@ -13,11 +17,6 @@ use objects::{
     Digest,
 };
 use rand::Rng;
-
-use crate::{
-    errors::{self, ClientError},
-    store::{self, mock_executor_data_store::MockDataStore},
-};
 
 use super::Client;
 
@@ -143,8 +142,8 @@ impl Client {
     ) -> Result<(TransactionResult, TransactionScript), ClientError> {
         // Create assets
         let (target_pub_key, target_sk_pk_felt) =
-            store::mock_executor_data_store::get_new_key_pair_with_advice_map();
-        let target_account = store::mock_executor_data_store::get_account_with_default_account_code(
+            mock_executor_data_store::get_new_key_pair_with_advice_map();
+        let target_account = mock_executor_data_store::get_account_with_default_account_code(
             target_account_id,
             target_pub_key,
             None,
