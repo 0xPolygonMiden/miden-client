@@ -124,11 +124,12 @@ pub fn import_note(client: &mut Client, filename: PathBuf) -> Result<Digest, Str
 
     // TODO: When importing a RecordedNote we want to make sure that the note actually exists in the chain (RPC call)
     // and start monitoring its nullifiers (ie, update the list of relevant tags in the state sync table)
-    let note = InputNoteRecord::read_from_bytes(&contents).map_err(|err| err.to_string())?;
+    let input_note_record =
+        InputNoteRecord::read_from_bytes(&contents).map_err(|err| err.to_string())?;
 
-    let note_hash = note.note().authentication_hash();
+    let note_hash = input_note_record.note().authentication_hash();
     client
-        .import_input_note(note)
+        .import_input_note(input_note_record)
         .map_err(|err| err.to_string())?;
 
     Ok(note_hash)
@@ -146,10 +147,10 @@ fn show_input_note(
     let hash = Digest::try_from(hash)
         .map_err(|err| format!("Failed to parse input note hash: {}", err))?;
 
-    let note = client.get_input_note(hash).map_err(|err| err.to_string())?;
+    let input_note_record = client.get_input_note(hash).map_err(|err| err.to_string())?;
 
     // print note summary
-    print_notes_summary(core::iter::once(&note));
+    print_notes_summary(core::iter::once(&input_note_record));
 
     let mut table = Table::new();
     table
@@ -161,11 +162,11 @@ fn show_input_note(
         table
             .add_row(vec![
                 Cell::new("Note Script hash").add_attribute(Attribute::Bold),
-                Cell::new(note.note().script().hash()),
+                Cell::new(input_note_record.note().script().hash()),
             ])
             .add_row(vec![
                 Cell::new("Note Script code").add_attribute(Attribute::Bold),
-                Cell::new(note.note().script().code()),
+                Cell::new(input_note_record.note().script().code()),
             ]);
     };
 
@@ -174,11 +175,11 @@ fn show_input_note(
         table
             .add_row(vec![
                 Cell::new("Note Vault hash").add_attribute(Attribute::Bold),
-                Cell::new(note.note().assets().commitment()),
+                Cell::new(input_note_record.note().assets().commitment()),
             ])
             .add_row(vec![Cell::new("Note Vault").add_attribute(Attribute::Bold)]);
 
-        note.note().assets().iter().for_each(|asset| {
+        input_note_record.note().assets().iter().for_each(|asset| {
             table.add_row(vec![Cell::new(format!("{:?}", asset))]);
         })
     };
@@ -187,10 +188,11 @@ fn show_input_note(
         table
             .add_row(vec![
                 Cell::new("Note Inputs hash").add_attribute(Attribute::Bold),
-                Cell::new(note.note().inputs().hash()),
+                Cell::new(input_note_record.note().inputs().hash()),
             ])
             .add_row(vec![Cell::new("Note Inputs").add_attribute(Attribute::Bold)]);
-        note.note()
+        input_note_record
+            .note()
             .inputs()
             .inputs()
             .iter()
@@ -225,13 +227,13 @@ where
             Cell::new("serial num").add_attribute(Attribute::Bold),
         ]);
 
-    notes.into_iter().for_each(|note| {
+    notes.into_iter().for_each(|input_note_record| {
         table.add_row(vec![
-            note.note().authentication_hash().to_string(),
-            note.note().script().hash().to_string(),
-            note.note().assets().commitment().to_string(),
-            note.note().inputs().hash().to_string(),
-            Digest::new(note.note().serial_num()).to_string(),
+            input_note_record.note().authentication_hash().to_string(),
+            input_note_record.note().script().hash().to_string(),
+            input_note_record.note().assets().commitment().to_string(),
+            input_note_record.note().inputs().hash().to_string(),
+            Digest::new(input_note_record.note().serial_num()).to_string(),
         ]);
     });
 
@@ -248,7 +250,7 @@ mod tests {
     use miden_client::{
         client::Client,
         config::{ClientConfig, Endpoint},
-        store::notes::{InputNoteFilter, InputNoteRecord},
+        store::notes::{InputNoteFilter},
     };
     use std::env::temp_dir;
     use uuid::Uuid;
@@ -270,14 +272,14 @@ mod tests {
 
         let notes = client.get_input_notes(InputNoteFilter::All).unwrap();
 
-        let note = notes.first().unwrap();
+        let input_note_record = notes.first().unwrap();
 
         let mut filename_path = temp_dir();
         filename_path.push("test_import");
 
         export_note(
             &client,
-            &note.note().authentication_hash().to_string(),
+            &input_note_record.note().authentication_hash().to_string(),
             Some(filename_path.clone()),
         )
         .unwrap();
@@ -294,13 +296,13 @@ mod tests {
         .unwrap();
 
         import_note(&mut client, filename_path).unwrap();
-        let imported_note = client
-            .get_input_note(note.note().authentication_hash())
+        let imported_note_record = client
+            .get_input_note(input_note_record.note().authentication_hash())
             .unwrap();
 
         assert_eq!(
-            note.note().authentication_hash(),
-            imported_note.note().authentication_hash()
+            input_note_record.note().authentication_hash(),
+            imported_note_record.note().authentication_hash()
         );
 
         // Import/export pending note
@@ -320,14 +322,14 @@ mod tests {
         miden_client::mock::insert_mock_data(&mut client);
 
         let pending_note = client.get_input_notes(InputNoteFilter::Pending).unwrap();
-        let note: &InputNoteRecord = pending_note.first().unwrap();
-        assert!(note.inclusion_proof().is_none());
+        let input_note_record = &pending_note.first().unwrap();
+        assert!(input_note_record.inclusion_proof().is_none());
 
         let mut filename_path = temp_dir();
         filename_path.push("test_import_pending");
         export_note(
             &client,
-            &note.note().authentication_hash().to_string(),
+            &input_note_record.note().authentication_hash().to_string(),
             Some(filename_path.clone()),
         )
         .unwrap();
@@ -343,11 +345,11 @@ mod tests {
 
         import_note(&mut client, filename_path).unwrap();
         let imported_note = client
-            .get_input_note(note.note().authentication_hash())
+            .get_input_note(input_note_record.note().authentication_hash())
             .unwrap();
 
         assert_eq!(
-            note.note().authentication_hash(),
+            input_note_record.note().authentication_hash(),
             imported_note.note().authentication_hash()
         );
     }

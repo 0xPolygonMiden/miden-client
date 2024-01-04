@@ -88,7 +88,9 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
 
     let nullifiers: Vec<u32> = recorded_notes
         .iter()
-        .map(|note| (note.note().nullifier().as_elements()[3].as_int() >> FILTER_ID_SHIFT) as u32)
+        .map(|input_note| {
+            (input_note.note().nullifier().as_elements()[3].as_int() >> FILTER_ID_SHIFT) as u32
+        })
         .collect();
 
     // create sync state requests
