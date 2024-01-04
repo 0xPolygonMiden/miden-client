@@ -3,10 +3,10 @@ use super::Store;
 use crate::errors::StoreError;
 
 use clap::error::Result;
-use crypto::Word;
 use crypto::dsa::rpo_falcon512::KeyPair;
 use crypto::hash::rpo::RpoDigest;
 use crypto::utils::{Deserializable, Serializable};
+use crypto::Word;
 use objects::accounts::AccountStub;
 use objects::assembly::AstSerdeOptions;
 use objects::assets::AssetVault;
@@ -239,17 +239,29 @@ impl Store {
         tx.commit().map_err(StoreError::TransactionError)
     }
 
-    fn insert_account_record(tx: &Transaction<'_>, account: &Account, account_seed: Word) -> Result<(), StoreError> {
+    fn insert_account_record(
+        tx: &Transaction<'_>,
+        account: &Account,
+        account_seed: Word,
+    ) -> Result<(), StoreError> {
         let (id, code_root, storage_root, vault_root, nonce, committed) =
             serialize_account(account)?;
 
-        let account_seed = serde_json::to_string(&account_seed)
-        .map_err(StoreError::InputSerializationError)?;
+        let account_seed =
+            serde_json::to_string(&account_seed).map_err(StoreError::InputSerializationError)?;
 
         const QUERY: &str =  "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed) VALUES (?, ?, ?, ?, ?, ?, ?)";
         tx.execute(
             QUERY,
-            params![id, code_root, storage_root, vault_root, nonce, committed, account_seed],
+            params![
+                id,
+                code_root,
+                storage_root,
+                vault_root,
+                nonce,
+                committed,
+                account_seed
+            ],
         )
         .map(|_| ())
         .map_err(StoreError::QueryError)
