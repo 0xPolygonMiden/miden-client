@@ -15,7 +15,7 @@ CREATE TABLE account_storage (
 
 -- Create account_vaults table
 CREATE TABLE account_vaults (
-    root BLOB NOT NULL,         -- root of the Merkle tree for the account vault.
+    root BLOB NOT NULL,         -- root of the Merkle tree for the account asset vault.
     assets BLOB NOT NULL,       -- serialized account vault assets.
     PRIMARY KEY (root)
 );

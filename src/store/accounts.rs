@@ -207,12 +207,12 @@ impl Store {
         self.db
             .prepare(QUERY)
             .map_err(StoreError::QueryError)?
-            .query_map(params![vault_root], parse_account_vault_columns)
+            .query_map(params![vault_root], parse_account_asset_vault_columns)
             .map_err(StoreError::QueryError)?
             .map(|result| {
                 result
                     .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_account_vault)
+                    .and_then(parse_account_asset_vault)
             })
             .next()
             .ok_or(StoreError::VaultDataNotFound(root))?
@@ -230,7 +230,7 @@ impl Store {
 
         Self::insert_account_code(&tx, account.code())?;
         Self::insert_account_storage(&tx, account.storage())?;
-        Self::insert_account_vault(&tx, account.vault())?;
+        Self::insert_account_asset_vault(&tx, account.vault())?;
         Self::insert_account_record(&tx, account)?;
         Self::insert_account_auth(&tx, account.id(), auth_info)?;
 
@@ -272,11 +272,11 @@ impl Store {
             .map_err(StoreError::QueryError)
     }
 
-    fn insert_account_vault(
+    fn insert_account_asset_vault(
         tx: &Transaction<'_>,
-        account_vault: &AssetVault,
+        asset_vault: &AssetVault,
     ) -> Result<(), StoreError> {
-        let (vault_root, assets) = serialize_account_vault(account_vault)?;
+        let (vault_root, assets) = serialize_account_asset_vault(asset_vault)?;
         const QUERY: &str = "INSERT INTO account_vaults (root, assets) VALUES (?, ?)";
         tx.execute(QUERY, params![vault_root, assets])
             .map(|_| ())
@@ -447,7 +447,7 @@ fn serialize_account_storage(
 }
 
 /// Parse account_vault columns from the provided row into native types.
-fn parse_account_vault_columns(
+fn parse_account_asset_vault_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedAccountVaultParts, rusqlite::Error> {
     let root: String = row.get(0)?;
@@ -456,22 +456,22 @@ fn parse_account_vault_columns(
 }
 
 /// Parse a vector of assets from the provided parts.
-fn parse_account_vault(
-    serialized_account_vault_parts: SerializedAccountVaultParts,
+fn parse_account_asset_vault(
+    serialized_account_asset_vault_parts: SerializedAccountVaultParts,
 ) -> Result<Vec<Asset>, StoreError> {
-    let (_, assets) = serialized_account_vault_parts;
+    let (_, assets) = serialized_account_asset_vault_parts;
 
     let assets = serde_json::from_str(&assets).map_err(StoreError::JsonDataDeserializationError)?;
     Ok(assets)
 }
 
-/// Serialize the provided account_vault into database compatible types.
-fn serialize_account_vault(
-    account_vault: &AssetVault,
+/// Serialize the provided asset_vault into database compatible types.
+fn serialize_account_asset_vault(
+    asset_vault: &AssetVault,
 ) -> Result<SerializedAccountVaultData, StoreError> {
-    let root = serde_json::to_string(&account_vault.commitment())
+    let root = serde_json::to_string(&asset_vault.commitment())
         .map_err(StoreError::InputSerializationError)?;
-    let assets: Vec<Asset> = account_vault.assets().collect();
+    let assets: Vec<Asset> = asset_vault.assets().collect();
     let assets = serde_json::to_string(&assets).map_err(StoreError::InputSerializationError)?;
     Ok((root, assets))
 }
