@@ -14,6 +14,7 @@ use miden_node_proto::{
     requests::SyncStateRequest,
     responses::{NullifierUpdate, SyncStateResponse},
 };
+use mock::constants::{AccountSeedType, generate_account_seed};
 use mock::mock::account::mock_account;
 use mock::mock::block;
 use mock::mock::notes::mock_notes;
@@ -208,7 +209,8 @@ pub fn insert_mock_data(client: &mut Client) {
     );
 
     let assembler = TransactionKernel::assembler();
-    let account = mock_account(None, Felt::ONE, None, &assembler);
+    let (account_id, account_seed) = generate_account_seed(AccountSeedType::RegularAccountUpdatableCodeOnChain);
+    let account = mock_account(Some(account_id.into()), Felt::ONE, None, &assembler);
     let (_consumed, created_notes) = mock_notes(&assembler, &AssetPreservationStatus::Preserved);
 
     // insert notes into database
@@ -226,7 +228,7 @@ pub fn insert_mock_data(client: &mut Client) {
         .map_err(|err| format!("Error generating KeyPair: {}", err))
         .unwrap();
     client
-        .insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&account, account_seed, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 }
 
@@ -242,7 +244,7 @@ pub async fn create_mock_transaction(client: &mut Client) {
     // we need to use an initial seed to create the wallet account
     let init_seed: [u8; 32] = rand::Rng::gen(&mut rng);
 
-    let (sender_account, _) = miden_lib::accounts::wallets::create_basic_wallet(
+    let (sender_account, seed) = miden_lib::accounts::wallets::create_basic_wallet(
         init_seed,
         auth_scheme,
         AccountType::RegularAccountImmutableCode,
@@ -250,7 +252,7 @@ pub async fn create_mock_transaction(client: &mut Client) {
     .unwrap();
 
     client
-        .insert_account(&sender_account, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&sender_account, seed, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
     let key_pair: KeyPair = KeyPair::new()
@@ -264,7 +266,7 @@ pub async fn create_mock_transaction(client: &mut Client) {
     // we need to use an initial seed to create the wallet account
     let init_seed: [u8; 32] = rand::Rng::gen(&mut rng);
 
-    let (target_account, _) = miden_lib::accounts::wallets::create_basic_wallet(
+    let (target_account, seed) = miden_lib::accounts::wallets::create_basic_wallet(
         init_seed,
         auth_scheme,
         AccountType::RegularAccountImmutableCode,
@@ -272,7 +274,7 @@ pub async fn create_mock_transaction(client: &mut Client) {
     .unwrap();
 
     client
-        .insert_account(&target_account, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&target_account, seed, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
     let key_pair: KeyPair = KeyPair::new()
@@ -288,7 +290,7 @@ pub async fn create_mock_transaction(client: &mut Client) {
 
     let max_supply = 10000u64.to_le_bytes();
 
-    let (faucet, _) = miden_lib::accounts::faucets::create_basic_fungible_faucet(
+    let (faucet, seed) = miden_lib::accounts::faucets::create_basic_fungible_faucet(
         init_seed,
         objects::assets::TokenSymbol::new("MOCK").unwrap(),
         4u8,
@@ -298,7 +300,7 @@ pub async fn create_mock_transaction(client: &mut Client) {
     .unwrap();
 
     client
-        .insert_account(&faucet, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&faucet, seed, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
     let asset: objects::assets::Asset = FungibleAsset::new(faucet.id(), 5u64).unwrap().into();

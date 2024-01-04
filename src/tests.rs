@@ -11,12 +11,13 @@ use crate::{
 };
 
 use crypto::dsa::rpo_falcon512::KeyPair;
+use crypto::{Felt, FieldElement};
 use miden_lib::transaction::TransactionKernel;
-use mock::mock::{
+use mock::{mock::{
     account::{self, MockAccountType},
     notes::AssetPreservationStatus,
     transaction::mock_inputs,
-};
+}, constants::{AccountSeedType, generate_account_seed}};
 use objects::accounts::{AccountId, AccountStub};
 #[tokio::test]
 async fn test_input_notes_round_trip() {
@@ -100,17 +101,20 @@ async fn insert_same_account_twice_fails() {
     .unwrap();
 
     let assembler = TransactionKernel::assembler();
-    let account = account::mock_new_account(&assembler);
+
+    let (account_id, account_seed) =
+        generate_account_seed(AccountSeedType::RegularAccountUpdatableCodeOnChain);
+    let account = account::mock_account(Some(account_id.into()), Felt::ZERO, None, &assembler);
 
     let key_pair: KeyPair = KeyPair::new()
         .map_err(|err| format!("Error generating KeyPair: {}", err))
         .unwrap();
 
     assert!(client
-        .insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&account, account_seed, &AuthInfo::RpoFalcon512(key_pair))
         .is_ok());
     assert!(client
-        .insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&account, account_seed, &AuthInfo::RpoFalcon512(key_pair))
         .is_err());
 }
 
@@ -128,14 +132,17 @@ async fn test_get_account_by_id() {
     .unwrap();
 
     let assembler = TransactionKernel::assembler();
-    let account = account::mock_new_account(&assembler);
+
+    let (account_id, account_seed) =
+        generate_account_seed(AccountSeedType::RegularAccountUpdatableCodeOnChain);
+    let account = account::mock_account(Some(account_id.into()), Felt::ZERO, None, &assembler);
 
     let key_pair: KeyPair = KeyPair::new()
         .map_err(|err| format!("Error generating KeyPair: {}", err))
         .unwrap();
 
     client
-        .insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&account, account_seed, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
     // Retrieving an existing account should succeed
