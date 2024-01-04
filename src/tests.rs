@@ -13,11 +13,14 @@ use crate::{
 use crypto::dsa::rpo_falcon512::KeyPair;
 use crypto::{Felt, FieldElement};
 use miden_lib::transaction::TransactionKernel;
-use mock::{mock::{
-    account::{self, MockAccountType},
-    notes::AssetPreservationStatus,
-    transaction::mock_inputs,
-}, constants::{AccountSeedType, generate_account_seed}};
+use mock::{
+    constants::{generate_account_seed, AccountSeedType},
+    mock::{
+        account::{self, MockAccountType},
+        notes::AssetPreservationStatus,
+        transaction::mock_inputs,
+    },
+};
 use objects::accounts::{AccountId, AccountStub};
 #[tokio::test]
 async fn test_input_notes_round_trip() {
