@@ -1,5 +1,5 @@
 use super::Client;
-use crypto::Felt;
+use crypto::{Felt, Word};
 use miden_lib::AuthScheme;
 use objects::{
     accounts::{Account, AccountId, AccountStorage, AccountStub, AccountType},
@@ -77,7 +77,7 @@ impl Client {
         // we need to use an initial seed to create the wallet account
         let init_seed: [u8; 32] = rng.gen();
 
-        let (account, _seed) = if !mutable_code {
+        let (account, seed) = if !mutable_code {
             miden_lib::accounts::wallets::create_basic_wallet(
                 init_seed,
                 auth_scheme,
@@ -92,7 +92,7 @@ impl Client {
         }
         .map_err(ClientError::AccountError)?;
 
-        self.insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))?;
+        self.insert_account(&account, seed, &AuthInfo::RpoFalcon512(key_pair))?;
         Ok(account)
     }
 
@@ -118,7 +118,7 @@ impl Client {
         // we need to use an initial seed to create the wallet account
         let init_seed: [u8; 32] = rng.gen();
 
-        let (account, _seed) = miden_lib::accounts::faucets::create_basic_fungible_faucet(
+        let (account, seed) = miden_lib::accounts::faucets::create_basic_fungible_faucet(
             init_seed,
             token_symbol,
             decimals,
@@ -128,7 +128,7 @@ impl Client {
         )
         .map_err(ClientError::AccountError)?;
 
-        self.insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))?;
+        self.insert_account(&account, seed, &AuthInfo::RpoFalcon512(key_pair))?;
         Ok(account)
     }
 
@@ -136,10 +136,11 @@ impl Client {
     pub fn insert_account(
         &mut self,
         account: &Account,
+        account_seed: Word,
         auth_info: &AuthInfo,
     ) -> Result<(), ClientError> {
         self.store
-            .insert_account(account, auth_info)
+            .insert_account(account, account_seed, auth_info)
             .map_err(ClientError::StoreError)
     }
 
