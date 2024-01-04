@@ -14,9 +14,7 @@ use miden_node_proto::{
     requests::SyncStateRequest,
     responses::{NullifierUpdate, SyncStateResponse},
 };
-use mock::constants::{
-    generate_account_seed, AccountSeedType, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN,
-};
+use mock::constants::{generate_account_seed, AccountSeedType};
 use mock::mock::account::mock_account;
 use mock::mock::block;
 use mock::mock::notes::mock_notes;
@@ -25,7 +23,7 @@ use objects::utils::collections::BTreeMap;
 use crate::store::accounts::AuthInfo;
 
 use miden_tx::TransactionExecutor;
-use objects::accounts::AccountType;
+use objects::accounts::{AccountId, AccountType};
 use objects::assets::FungibleAsset;
 
 /// Mock RPC API
@@ -75,6 +73,122 @@ impl MockRpcApi {
 
         Ok(tonic::Response::new(response))
     }
+}
+
+fn create_mock_sync_state_requests(
+    requests: &mut BTreeMap<SyncStateRequest, SyncStateResponse>,
+    account_id: AccountId,
+) {
+    use mock::mock::{
+        account::MockAccountType, notes::AssetPreservationStatus, transaction::mock_inputs,
+    };
+
+    // generate test data
+    let (_account, _, _, recorded_notes) = mock_inputs(
+        MockAccountType::StandardExisting,
+        AssetPreservationStatus::Preserved,
+    );
+
+    let accounts = vec![ProtoAccountId {
+        id: u64::from(account_id),
+    }];
+
+    let nullifiers: Vec<u32> = recorded_notes
+        .iter()
+        .map(|note| (note.note().nullifier().as_elements()[3].as_int() >> FILTER_ID_SHIFT) as u32)
+        .collect();
+
+    let assembler = TransactionKernel::assembler();
+    let account = mock_account(None, Felt::ONE, None, &assembler);
+    let (_consumed, created_notes) = mock_notes(&assembler, &AssetPreservationStatus::Preserved);
+
+    // create a state sync request
+    let request = SyncStateRequest {
+        block_num: 0,
+        account_ids: accounts.clone(),
+        note_tags: vec![],
+        nullifiers: nullifiers.clone(),
+    };
+
+    let chain_tip = 10;
+
+    // create a block header for the response
+    let block_header: objects::BlockHeader = block::mock_block_header(8, None, None, &[]);
+
+    // create a state sync response
+    let response = SyncStateResponse {
+        chain_tip,
+        mmr_delta: None,
+        block_path: None,
+        block_header: Some(NodeBlockHeader::from(block_header)),
+        accounts: vec![],
+        notes: vec![NoteSyncRecord {
+            note_index: 0,
+            note_hash: Some(created_notes.first().unwrap().authentication_hash().into()),
+            sender: account.id().into(),
+            tag: 0u64,
+            num_assets: 2,
+            merkle_path: Some(MerklePath::default()),
+        }],
+        nullifiers: vec![NullifierUpdate {
+            nullifier: Some(
+                recorded_notes
+                    .first()
+                    .unwrap()
+                    .note()
+                    .nullifier()
+                    .inner()
+                    .into(),
+            ),
+            block_num: 7,
+        }],
+    };
+    requests.insert(request, response);
+
+    // SECOND REQUEST
+    // ---------------------------------------------------------------------------------
+
+    // create a state sync request
+    let request = SyncStateRequest {
+        block_num: 0,
+        account_ids: accounts.clone(),
+        note_tags: vec![],
+        nullifiers,
+    };
+
+    // create a block header for the response
+    let block_header: objects::BlockHeader = block::mock_block_header(10, None, None, &[]);
+
+    // create a state sync response
+    let response = SyncStateResponse {
+        chain_tip,
+        mmr_delta: None,
+        block_path: None,
+        block_header: Some(NodeBlockHeader::from(block_header)),
+        accounts: vec![],
+        notes: vec![NoteSyncRecord {
+            note_index: 0,
+            note_hash: Some(created_notes.first().unwrap().authentication_hash().into()),
+            sender: account.id().into(),
+            tag: 0u64,
+            num_assets: 2,
+            merkle_path: Some(MerklePath::default()),
+        }],
+        nullifiers: vec![NullifierUpdate {
+            nullifier: Some(
+                recorded_notes
+                    .first()
+                    .unwrap()
+                    .note()
+                    .nullifier()
+                    .inner()
+                    .into(),
+            ),
+            block_num: 7,
+        }],
+    };
+
+    requests.insert(request, response);
 }
 
 /// Generates mock sync state requests and responses
@@ -211,14 +325,9 @@ pub fn insert_mock_data(client: &mut Client) {
     );
 
     let assembler = TransactionKernel::assembler();
-    let (_account_id, account_seed) =
+    let (account_id, account_seed) =
         generate_account_seed(AccountSeedType::RegularAccountUpdatableCodeOnChain);
-    let account = mock_account(
-        Some(ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN),
-        Felt::ONE,
-        None,
-        &assembler,
-    );
+    let account = mock_account(Some(u64::from(account_id)), Felt::ONE, None, &assembler);
     let (_consumed, created_notes) = mock_notes(&assembler, &AssetPreservationStatus::Preserved);
 
     // insert notes into database
@@ -238,6 +347,9 @@ pub fn insert_mock_data(client: &mut Client) {
     client
         .insert_account(&account, account_seed, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
+
+    // insert some sync request
+    create_mock_sync_state_requests(&mut client.rpc_api.sync_state_requests, account_id)
 }
 
 pub async fn create_mock_transaction(client: &mut Client) {
