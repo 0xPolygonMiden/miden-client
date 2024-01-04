@@ -8,8 +8,9 @@ use crypto::hash::rpo::RpoDigest;
 use crypto::utils::{Deserializable, Serializable};
 use objects::accounts::AccountStub;
 use objects::assembly::AstSerdeOptions;
+use objects::assets::AssetVault;
 use objects::{
-    accounts::{Account, AccountCode, AccountId, AccountStorage, AccountVault},
+    accounts::{Account, AccountCode, AccountId, AccountStorage},
     assembly::ModuleAst,
     assets::Asset,
     Digest,
@@ -273,7 +274,7 @@ impl Store {
 
     fn insert_account_vault(
         tx: &Transaction<'_>,
-        account_vault: &AccountVault,
+        account_vault: &AssetVault,
     ) -> Result<(), StoreError> {
         let (vault_root, assets) = serialize_account_vault(account_vault)?;
         const QUERY: &str = "INSERT INTO account_vaults (root, assets) VALUES (?, ?)";
@@ -466,7 +467,7 @@ fn parse_account_vault(
 
 /// Serialize the provided account_vault into database compatible types.
 fn serialize_account_vault(
-    account_vault: &AccountVault,
+    account_vault: &AssetVault,
 ) -> Result<SerializedAccountVaultData, StoreError> {
     let root = serde_json::to_string(&account_vault.commitment())
         .map_err(StoreError::InputSerializationError)?;
@@ -481,7 +482,6 @@ pub mod tests {
         dsa::rpo_falcon512::KeyPair,
         utils::{Deserializable, Serializable},
     };
-    use miden_lib::assembler::assembler;
     use mock::mock::account;
 
     use crate::store::{self, tests::create_test_store};
@@ -491,7 +491,7 @@ pub mod tests {
     #[test]
     fn test_account_code_insertion_no_duplicates() {
         let mut store = create_test_store();
-        let assembler = assembler();
+        let assembler = miden_lib::transaction::TransactionKernel::assembler();
         let account_code = account::mock_account_code(&assembler);
         let tx = store.db.transaction().unwrap();
 

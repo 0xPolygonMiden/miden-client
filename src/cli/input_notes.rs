@@ -126,7 +126,7 @@ pub fn import_note(client: &mut Client, filename: PathBuf) -> Result<Digest, Str
     // and start monitoring its nullifiers (ie, update the list of relevant tags in the state sync table)
     let note = InputNoteRecord::read_from_bytes(&contents).map_err(|err| err.to_string())?;
 
-    let note_hash = note.note().hash();
+    let note_hash = note.note().authentication_hash();
     client
         .import_input_note(note)
         .map_err(|err| err.to_string())?;
@@ -174,11 +174,11 @@ fn show_input_note(
         table
             .add_row(vec![
                 Cell::new("Note Vault hash").add_attribute(Attribute::Bold),
-                Cell::new(note.note().vault().hash()),
+                Cell::new(note.note().assets().commitment()),
             ])
             .add_row(vec![Cell::new("Note Vault").add_attribute(Attribute::Bold)]);
 
-        note.note().vault().iter().for_each(|asset| {
+        note.note().assets().iter().for_each(|asset| {
             table.add_row(vec![Cell::new(format!("{:?}", asset))]);
         })
     };
@@ -218,7 +218,7 @@ where
         .load_preset(presets::UTF8_FULL)
         .set_content_arrangement(ContentArrangement::DynamicFullWidth)
         .set_header(vec![
-            Cell::new("hash").add_attribute(Attribute::Bold),
+            Cell::new("auth hash").add_attribute(Attribute::Bold),
             Cell::new("script hash").add_attribute(Attribute::Bold),
             Cell::new("vault hash").add_attribute(Attribute::Bold),
             Cell::new("inputs hash").add_attribute(Attribute::Bold),
@@ -227,9 +227,9 @@ where
 
     notes.into_iter().for_each(|note| {
         table.add_row(vec![
-            note.note().hash().to_string(),
+            note.note().authentication_hash().to_string(),
             note.note().script().hash().to_string(),
-            note.note().vault().hash().to_string(),
+            note.note().assets().commitment().to_string(),
             note.note().inputs().hash().to_string(),
             Digest::new(note.note().serial_num()).to_string(),
         ]);
@@ -277,7 +277,7 @@ mod tests {
 
         export_note(
             &client,
-            &note.note().hash().to_string(),
+            &note.note().authentication_hash().to_string(),
             Some(filename_path.clone()),
         )
         .unwrap();
@@ -294,9 +294,14 @@ mod tests {
         .unwrap();
 
         import_note(&mut client, filename_path).unwrap();
-        let imported_note = client.get_input_note(note.note().hash()).unwrap();
+        let imported_note = client
+            .get_input_note(note.note().authentication_hash())
+            .unwrap();
 
-        assert_eq!(note.note().hash(), imported_note.note().hash());
+        assert_eq!(
+            note.note().authentication_hash(),
+            imported_note.note().authentication_hash()
+        );
 
         // Import/export pending note
         // ------------------------------
@@ -322,7 +327,7 @@ mod tests {
         filename_path.push("test_import_pending");
         export_note(
             &client,
-            &note.note().hash().to_string(),
+            &note.note().authentication_hash().to_string(),
             Some(filename_path.clone()),
         )
         .unwrap();
@@ -337,8 +342,13 @@ mod tests {
         .unwrap();
 
         import_note(&mut client, filename_path).unwrap();
-        let imported_note = client.get_input_note(note.note().hash()).unwrap();
+        let imported_note = client
+            .get_input_note(note.note().authentication_hash())
+            .unwrap();
 
-        assert_eq!(note.note().hash(), imported_note.note().hash());
+        assert_eq!(
+            note.note().authentication_hash(),
+            imported_note.note().authentication_hash()
+        );
     }
 }

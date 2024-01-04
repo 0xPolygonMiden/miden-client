@@ -9,7 +9,7 @@ use objects::{
     assembly::ProgramAst,
     assets::Asset,
     notes::Note,
-    transaction::{ProvenTransaction, TransactionResult, TransactionScript, TransactionWitness},
+    transaction::{ExecutedTransaction, OutputNotes, ProvenTransaction, TransactionScript},
     Digest,
 };
 use rand::Rng;
@@ -59,7 +59,7 @@ pub struct TransactionStub {
     pub init_account_state: Digest,
     pub final_account_state: Digest,
     pub input_note_nullifiers: Vec<Digest>,
-    pub output_notes: Vec<Note>,
+    pub output_notes: OutputNotes,
     pub transaction_script: Option<TransactionScript>,
     pub block_num: u32,
     pub committed: bool,
@@ -74,7 +74,7 @@ impl TransactionStub {
         init_account_state: Digest,
         final_account_state: Digest,
         input_note_nullifiers: Vec<Digest>,
-        output_notes: Vec<Note>,
+        output_notes: OutputNotes,
         transaction_script: Option<TransactionScript>,
         block_num: u32,
         committed: bool,
@@ -101,7 +101,7 @@ impl TransactionStub {
 /// Contains information about the execution of a transaction, useful for proving and tracking
 /// new notes.
 pub struct TransactionExecutionResult {
-    result: TransactionResult,
+    executed_transaction: ExecutedTransaction,
     script: Option<TransactionScript>,
     created_notes: Vec<Note>,
 }
@@ -111,23 +111,19 @@ impl TransactionExecutionResult {
     // --------------------------------------------------------------------------------------------
 
     pub fn new(
-        result: TransactionResult,
+        executed_transaction: ExecutedTransaction,
         script: Option<TransactionScript>,
         created_notes: Vec<Note>,
     ) -> TransactionExecutionResult {
         TransactionExecutionResult {
-            result,
+            executed_transaction,
             script,
             created_notes,
         }
     }
 
-    pub fn get_witness(&self) -> TransactionWitness {
-        self.result.clone().into_witness()
-    }
-
-    pub fn result(&self) -> &TransactionResult {
-        &self.result
+    pub fn executed_transaction(&self) -> &ExecutedTransaction {
+        &self.executed_transaction
     }
 
     pub fn script(&self) -> &Option<TransactionScript> {
@@ -204,7 +200,6 @@ impl Client {
             let data_store: MockDataStore = MockDataStore::with_existing(
                 Some(target_account.clone()),
                 Some(vec![note.clone()]),
-                None,
             );
 
             self.set_data_store(data_store.clone());
@@ -263,7 +258,7 @@ impl Client {
     ) -> Result<(), ClientError> {
         let transaction_prover = TransactionProver::new(ProvingOptions::default());
         let proven_transaction = transaction_prover
-            .prove_transaction_witness(transaction_execution_result.get_witness())
+            .prove_transaction(transaction_execution_result.executed_transaction().clone())
             .map_err(ClientError::TransactionProvingError)?;
 
         self.submit_proven_transaction_request(proven_transaction.clone())

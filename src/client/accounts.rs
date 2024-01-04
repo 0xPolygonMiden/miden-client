@@ -1,6 +1,6 @@
 use super::Client;
 use crypto::Felt;
-use miden_lib::{faucets, AuthScheme};
+use miden_lib::AuthScheme;
 use objects::{
     accounts::{Account, AccountId, AccountStorage, AccountStub, AccountType},
     assembly::ModuleAst,
@@ -78,13 +78,13 @@ impl Client {
         let init_seed: [u8; 32] = rng.gen();
 
         let (account, _seed) = if !mutable_code {
-            miden_lib::wallets::create_basic_wallet(
+            miden_lib::accounts::wallets::create_basic_wallet(
                 init_seed,
                 auth_scheme,
                 AccountType::RegularAccountImmutableCode,
             )
         } else {
-            miden_lib::wallets::create_basic_wallet(
+            miden_lib::accounts::wallets::create_basic_wallet(
                 init_seed,
                 auth_scheme,
                 AccountType::RegularAccountUpdatableCode,
@@ -118,7 +118,7 @@ impl Client {
         // we need to use an initial seed to create the wallet account
         let init_seed: [u8; 32] = rng.gen();
 
-        let (account, _seed) = faucets::create_basic_fungible_faucet(
+        let (account, _seed) = miden_lib::accounts::faucets::create_basic_fungible_faucet(
             init_seed,
             token_symbol,
             decimals,

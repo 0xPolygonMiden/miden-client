@@ -11,17 +11,13 @@ use crate::{
 };
 
 use crypto::dsa::rpo_falcon512::KeyPair;
-use miden_lib::assembler::assembler;
+use miden_lib::transaction::TransactionKernel;
 use mock::mock::{
     account::{self, MockAccountType},
     notes::AssetPreservationStatus,
     transaction::mock_inputs,
 };
-use objects::{
-    accounts::{AccountId, AccountStub},
-    AdviceInputs,
-};
-
+use objects::accounts::{AccountId, AccountStub};
 #[tokio::test]
 async fn test_input_notes_round_trip() {
     // generate test store path
@@ -36,7 +32,7 @@ async fn test_input_notes_round_trip() {
     .unwrap();
 
     // generate test data
-    let (_, _, _, recorded_notes, _) = mock_inputs(
+    let (_, _, _, recorded_notes) = mock_inputs(
         MockAccountType::StandardExisting,
         AssetPreservationStatus::Preserved,
     );
@@ -52,7 +48,12 @@ async fn test_input_notes_round_trip() {
     let recorded_notes: Vec<InputNoteRecord> =
         recorded_notes.iter().map(|n| n.clone().into()).collect();
     // compare notes
-    assert_eq!(recorded_notes, retrieved_notes);
+    for (recorded_note, retrieved_note) in recorded_notes.iter().zip(retrieved_notes) {
+        assert_eq!(
+            recorded_note.note().authentication_hash(),
+            retrieved_note.note().authentication_hash()
+        );
+    }
 }
 
 #[tokio::test]
@@ -69,7 +70,7 @@ async fn test_get_input_note() {
     .unwrap();
 
     // generate test data
-    let (_, _, _, recorded_notes, _) = mock_inputs(
+    let (_, _, _, recorded_notes) = mock_inputs(
         MockAccountType::StandardExisting,
         AssetPreservationStatus::Preserved,
     );
@@ -81,11 +82,14 @@ async fn test_get_input_note() {
 
     // retrieve note from database
     let retrieved_note = client
-        .get_input_note(recorded_notes[0].note().hash())
+        .get_input_note(recorded_notes[0].note().authentication_hash())
         .unwrap();
 
     let recorded_note: InputNoteRecord = recorded_notes[0].clone().into();
-    assert_eq!(recorded_note, retrieved_note)
+    assert_eq!(
+        recorded_note.note().authentication_hash(),
+        retrieved_note.note().authentication_hash()
+    )
 }
 
 #[tokio::test]
@@ -101,9 +105,8 @@ async fn insert_same_account_twice_fails() {
     .await
     .unwrap();
 
-    let assembler = assembler();
-    let mut auxiliary_data = AdviceInputs::default();
-    let account = account::mock_new_account(&assembler, &mut auxiliary_data);
+    let assembler = TransactionKernel::assembler();
+    let account = account::mock_new_account(&assembler);
 
     let key_pair: KeyPair = KeyPair::new()
         .map_err(|err| format!("Error generating KeyPair: {}", err))
@@ -130,9 +133,8 @@ async fn test_get_account_by_id() {
     .await
     .unwrap();
 
-    let assembler = assembler();
-    let mut auxiliary_data = AdviceInputs::default();
-    let account = account::mock_new_account(&assembler, &mut auxiliary_data);
+    let assembler = TransactionKernel::assembler();
+    let account = account::mock_new_account(&assembler);
 
     let key_pair: KeyPair = KeyPair::new()
         .map_err(|err| format!("Error generating KeyPair: {}", err))

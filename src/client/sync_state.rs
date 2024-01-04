@@ -118,7 +118,7 @@ impl Client {
             .get_input_notes(crate::store::notes::InputNoteFilter::Pending)
             .map_err(ClientError::StoreError)?
             .iter()
-            .map(|n| n.note().hash())
+            .map(|n| n.note().authentication_hash())
             .collect();
 
         Ok(notes
