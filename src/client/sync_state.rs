@@ -4,7 +4,11 @@ use miden_node_proto::{
     account_id::AccountId as ProtoAccountId, note::NoteSyncRecord, requests::SyncStateRequest,
     responses::SyncStateResponse,
 };
-use objects::{accounts::AccountId, notes::NoteInclusionProof, BlockHeader, Digest};
+use objects::{
+    accounts::AccountId,
+    notes::{NoteInclusionProof},
+    BlockHeader, Digest,
+};
 
 use crate::errors::{ClientError, RpcApiError};
 
@@ -118,13 +122,13 @@ impl Client {
             .get_input_notes(crate::store::notes::InputNoteFilter::Pending)
             .map_err(ClientError::StoreError)?
             .iter()
-            .map(|n| n.note().authentication_hash())
+            .map(|n| n.note().id().inner())
             .collect();
 
         Ok(notes
             .iter()
             .filter_map(|note| {
-                let note_hash: Digest = note.note_hash.clone().unwrap().try_into().unwrap();
+                let note_hash = note.note_hash.clone().unwrap().try_into().unwrap();
                 if pending_notes.contains(&note_hash) {
                     let note_inclusion_proof = NoteInclusionProof::new(
                         block_header.block_num(),
