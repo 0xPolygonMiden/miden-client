@@ -8,7 +8,6 @@ use objects::{
     accounts::AccountId,
     assembly::ProgramAst,
     assets::Asset,
-    notes::Note,
     transaction::{ExecutedTransaction, OutputNotes, ProvenTransaction, TransactionScript},
     Digest,
 };
@@ -95,46 +94,6 @@ impl TransactionStub {
     }
 }
 
-// TRANSACTION EXECUTION RESULT
-// --------------------------------------------------------------------------------------------
-
-/// Contains information about the execution of a transaction, useful for proving and tracking
-/// new notes.
-pub struct TransactionExecutionResult {
-    executed_transaction: ExecutedTransaction,
-    script: Option<TransactionScript>,
-    created_notes: Vec<Note>,
-}
-
-impl TransactionExecutionResult {
-    // CONSTRUCTORS
-    // --------------------------------------------------------------------------------------------
-
-    pub fn new(
-        executed_transaction: ExecutedTransaction,
-        script: Option<TransactionScript>,
-        created_notes: Vec<Note>,
-    ) -> TransactionExecutionResult {
-        TransactionExecutionResult {
-            executed_transaction,
-            script,
-            created_notes,
-        }
-    }
-
-    pub fn executed_transaction(&self) -> &ExecutedTransaction {
-        &self.executed_transaction
-    }
-
-    pub fn script(&self) -> &Option<TransactionScript> {
-        &self.script
-    }
-
-    pub fn created_notes(&self) -> &Vec<Note> {
-        &self.created_notes
-    }
-}
-
 impl Client {
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
@@ -152,7 +111,7 @@ impl Client {
     pub fn new_transaction(
         &mut self,
         transaction_template: TransactionTemplate,
-    ) -> Result<TransactionExecutionResult, ClientError> {
+    ) -> Result<ExecutedTransaction, ClientError> {
         match transaction_template {
             TransactionTemplate::PayToId(PaymentTransactionData {
                 asset: fungible_asset,
@@ -169,7 +128,7 @@ impl Client {
         fungible_asset: Asset,
         sender_account_id: AccountId,
         target_account_id: AccountId,
-    ) -> Result<TransactionExecutionResult, ClientError> {
+    ) -> Result<ExecutedTransaction, ClientError> {
         let p2id_script = Script::P2ID {
             target: target_account_id,
         };
@@ -233,7 +192,7 @@ impl Client {
             .map_err(ClientError::TransactionExecutionError)?;
 
         // Execute the transaction and get the witness
-        let transaction_result = self
+        let executed_transaction = self
             .tx_executor
             .execute_transaction(
                 target_account_id,
@@ -243,22 +202,18 @@ impl Client {
             )
             .map_err(ClientError::TransactionExecutionError)?;
 
-        Ok(TransactionExecutionResult::new(
-            transaction_result,
-            Some(tx_script_target),
-            vec![note],
-        ))
+        Ok(executed_transaction)
     }
 
     /// Proves the specified transaction witness, submits it to the node, and stores the transaction in
     /// the local database for tracking.
     pub async fn send_transaction(
         &mut self,
-        transaction_execution_result: TransactionExecutionResult,
+        transaction_execution_result: ExecutedTransaction,
     ) -> Result<(), ClientError> {
         let transaction_prover = TransactionProver::new(ProvingOptions::default());
         let proven_transaction = transaction_prover
-            .prove_transaction(transaction_execution_result.executed_transaction().clone())
+            .prove_transaction(transaction_execution_result.clone())
             .map_err(ClientError::TransactionProvingError)?;
 
         self.submit_proven_transaction_request(proven_transaction.clone())

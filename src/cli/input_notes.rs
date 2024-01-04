@@ -8,6 +8,7 @@ use miden_client::store::notes::{InputNoteFilter, InputNoteRecord};
 
 use crypto::utils::{Deserializable, Serializable};
 
+use objects::notes::NoteId;
 use objects::Digest;
 
 #[derive(Debug, Parser, Clone)]
@@ -17,12 +18,12 @@ pub enum InputNotes {
     #[clap(short_flag = 'l')]
     List,
 
-    /// Show details of the input note for the specified note hash
+    /// Show details of the input note for the specified note ID
     #[clap(short_flag = 's')]
     Show {
-        /// Hash of the input note to show
+        /// Note ID of the input note to show
         #[clap()]
-        hash: String,
+        id: String,
 
         /// Show note script
         #[clap(short, long, default_value = "false")]
@@ -40,11 +41,11 @@ pub enum InputNotes {
     /// Export input note data to a binary file
     #[clap(short_flag = 's')]
     Export {
-        /// Hash of the input note to show
+        /// Note ID of the input note to show
         #[clap()]
-        hash: String,
+        id: String,
 
-        /// Path to the file that will contain the input note data. If not provided, the filename will be the input note hash
+        /// Path to the file that will contain the input note data. If not provided, the filename will be the input note ID
         #[clap()]
         filename: Option<PathBuf>,
     },
@@ -65,15 +66,15 @@ impl InputNotes {
                 list_input_notes(client)?;
             }
             InputNotes::Show {
-                hash,
+                id,
                 script,
                 vault,
                 inputs,
             } => {
-                show_input_note(client, hash.clone(), *script, *vault, *inputs)?;
+                show_input_note(client, id.to_owned(), *script, *vault, *inputs)?;
             }
-            InputNotes::Export { hash, filename } => {
-                export_note(&client, hash, filename.clone())?;
+            InputNotes::Export { id, filename } => {
+                export_note(&client, id, filename.clone())?;
             }
             InputNotes::Import { filename } => {
                 import_note(&mut client, filename.clone())?;
@@ -95,14 +96,21 @@ fn list_input_notes(client: Client) -> Result<(), String> {
 
 // EXPORT INPUT NOTE
 // ================================================================================================
-pub fn export_note(client: &Client, hash: &str, filename: Option<PathBuf>) -> Result<File, String> {
-    let hash = Digest::try_from(hash)
-        .map_err(|err| format!("Failed to parse input note hash: {}", err))?;
-    let note = client.get_input_note(hash).map_err(|err| err.to_string())?;
+pub fn export_note(
+    client: &Client,
+    note_id: &str,
+    filename: Option<PathBuf>,
+) -> Result<File, String> {
+    let note_id = Digest::try_from(note_id)
+        .map_err(|err| format!("Failed to parse input note id: {}", err))?
+        .into();
+    let note = client
+        .get_input_note(note_id)
+        .map_err(|err| err.to_string())?;
 
     let file_path = filename.unwrap_or_else(|| {
         let mut dir = PathBuf::new();
-        dir.push(hash.to_string());
+        dir.push(note_id.inner().to_string());
         dir
     });
 
@@ -116,7 +124,7 @@ pub fn export_note(client: &Client, hash: &str, filename: Option<PathBuf>) -> Re
 
 // IMPORT INPUT NOTE
 // ================================================================================================
-pub fn import_note(client: &mut Client, filename: PathBuf) -> Result<Digest, String> {
+pub fn import_note(client: &mut Client, filename: PathBuf) -> Result<NoteId, String> {
     let mut contents = vec![];
     let mut _file = File::open(filename)
         .and_then(|mut f| f.read_to_end(&mut contents))
@@ -127,27 +135,30 @@ pub fn import_note(client: &mut Client, filename: PathBuf) -> Result<Digest, Str
     let input_note_record =
         InputNoteRecord::read_from_bytes(&contents).map_err(|err| err.to_string())?;
 
-    let note_hash = input_note_record.note().authentication_hash();
+    let note_id = input_note_record.note().id();
     client
         .import_input_note(input_note_record)
         .map_err(|err| err.to_string())?;
 
-    Ok(note_hash)
+    Ok(note_id)
 }
 
 // SHOW INPUT NOTE
 // ================================================================================================
 fn show_input_note(
     client: Client,
-    hash: String,
+    note_id: String,
     show_script: bool,
     show_vault: bool,
     show_inputs: bool,
 ) -> Result<(), String> {
-    let hash = Digest::try_from(hash)
-        .map_err(|err| format!("Failed to parse input note hash: {}", err))?;
+    let note_id = Digest::try_from(note_id)
+        .map_err(|err| format!("Failed to parse input note with ID: {}", err))?
+        .into();
 
-    let input_note_record = client.get_input_note(hash).map_err(|err| err.to_string())?;
+    let input_note_record = client
+        .get_input_note(note_id)
+        .map_err(|err| err.to_string())?;
 
     // print note summary
     print_notes_summary(core::iter::once(&input_note_record));
@@ -279,7 +290,7 @@ mod tests {
 
         export_note(
             &client,
-            &input_note_record.note().authentication_hash().to_string(),
+            &input_note_record.note().id().inner().to_string(),
             Some(filename_path.clone()),
         )
         .unwrap();
@@ -297,12 +308,12 @@ mod tests {
 
         import_note(&mut client, filename_path).unwrap();
         let imported_note_record = client
-            .get_input_note(input_note_record.note().authentication_hash())
+            .get_input_note(input_note_record.note().id())
             .unwrap();
 
         assert_eq!(
-            input_note_record.note().authentication_hash(),
-            imported_note_record.note().authentication_hash()
+            input_note_record.note().id(),
+            imported_note_record.note().id()
         );
 
         // Import/export pending note
@@ -329,7 +340,7 @@ mod tests {
         filename_path.push("test_import_pending");
         export_note(
             &client,
-            &input_note_record.note().authentication_hash().to_string(),
+            &input_note_record.note().id().inner().to_string(),
             Some(filename_path.clone()),
         )
         .unwrap();
@@ -345,12 +356,9 @@ mod tests {
 
         import_note(&mut client, filename_path).unwrap();
         let imported_note = client
-            .get_input_note(input_note_record.note().authentication_hash())
+            .get_input_note(input_note_record.note().id())
             .unwrap();
 
-        assert_eq!(
-            input_note_record.note().authentication_hash(),
-            imported_note.note().authentication_hash()
-        );
+        assert_eq!(input_note_record.note().id(), imported_note.note().id());
     }
 }

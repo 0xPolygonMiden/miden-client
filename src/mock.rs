@@ -47,9 +47,13 @@ impl MockRpcApi {
         &mut self,
         request: impl tonic::IntoRequest<SyncStateRequest>,
     ) -> std::result::Result<tonic::Response<SyncStateResponse>, tonic::Status> {
-        let request = request.into_request().into_inner();
-        match self.sync_state_requests.get(&request) {
-            Some(response) => {
+        let request: SyncStateRequest = request.into_request().into_inner();
+        match self
+            .sync_state_requests
+            .iter()
+            .find(|(req, _resp)| req.block_num == request.block_num)
+        {
+            Some((_req, response)) => {
                 let response = response.clone();
                 Ok(tonic::Response::new(response))
             }
@@ -148,7 +152,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
 
     // create a state sync request
     let request = SyncStateRequest {
-        block_num: 0,
+        block_num: 8,
         account_ids: accounts.clone(),
         note_tags: vec![],
         nullifiers,

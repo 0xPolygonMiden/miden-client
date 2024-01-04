@@ -49,10 +49,7 @@ async fn test_input_notes_round_trip() {
         recorded_notes.iter().map(|n| n.clone().into()).collect();
     // compare notes
     for (recorded_note, retrieved_note) in recorded_notes.iter().zip(retrieved_notes) {
-        assert_eq!(
-            recorded_note.note().authentication_hash(),
-            retrieved_note.note().authentication_hash()
-        );
+        assert_eq!(recorded_note.note_id(), retrieved_note.note_id());
     }
 }
 
@@ -82,14 +79,11 @@ async fn test_get_input_note() {
 
     // retrieve note from database
     let retrieved_note = client
-        .get_input_note(recorded_notes[0].note().authentication_hash())
+        .get_input_note(recorded_notes[0].note().id())
         .unwrap();
 
     let recorded_note: InputNoteRecord = recorded_notes[0].clone().into();
-    assert_eq!(
-        recorded_note.note().authentication_hash(),
-        retrieved_note.note().authentication_hash()
-    )
+    assert_eq!(recorded_note.note_id(), retrieved_note.note_id())
 }
 
 #[tokio::test]
@@ -210,7 +204,7 @@ async fn test_sync_state() {
 
     // verify that the pending note we had is now committed
     assert_ne!(
-        client.get_input_notes(InputNoteFilter::Pending).unwrap(),
+        client.get_input_notes(InputNoteFilter::Committed).unwrap(),
         pending_notes
     );
 

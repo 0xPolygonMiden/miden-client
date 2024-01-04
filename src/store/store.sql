@@ -64,7 +64,7 @@ CREATE TABLE transactions (
 
 -- Create input notes table
 CREATE TABLE input_notes (
-    hash BLOB NOT NULL,                                     -- the note hash
+    note_id BLOB NOT NULL,                                  -- the note id
     nullifier BLOB NOT NULL,                                -- the nullifier of the note
     script BLOB NOT NULL,                                   -- the serialized NoteScript, including script hash and ProgramAst
     vault BLOB NOT NULL,                                    -- the serialized NoteVault, including vault hash and list of assets
@@ -79,7 +79,7 @@ CREATE TABLE input_notes (
         'pending', 'committed', 'consumed'
         )),
     commit_height UNSIGNED BIG INT NOT NULL,                -- the block number at which the note was included into the chain
-    PRIMARY KEY (hash)
+    PRIMARY KEY (note_id)
 );
 
 -- Create state sync table

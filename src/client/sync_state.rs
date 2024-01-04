@@ -4,11 +4,7 @@ use miden_node_proto::{
     account_id::AccountId as ProtoAccountId, note::NoteSyncRecord, requests::SyncStateRequest,
     responses::SyncStateResponse,
 };
-use objects::{
-    accounts::AccountId,
-    notes::{NoteInclusionProof},
-    BlockHeader, Digest,
-};
+use objects::{accounts::AccountId, notes::NoteInclusionProof, BlockHeader, Digest};
 
 use crate::errors::{ClientError, RpcApiError};
 

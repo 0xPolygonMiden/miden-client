@@ -1,7 +1,4 @@
-use crate::{
-    client::transactions::{TransactionExecutionResult, TransactionStub},
-    errors::StoreError,
-};
+use crate::{client::transactions::TransactionStub, errors::StoreError};
 use crypto::{
     utils::{collections::BTreeMap, Deserializable, Serializable},
     Felt,
@@ -10,7 +7,7 @@ use crypto::{
 use objects::{
     accounts::AccountId,
     assembly::{AstSerdeOptions, ProgramAst},
-    transaction::{OutputNotes, ProvenTransaction, TransactionScript},
+    transaction::{ExecutedTransaction, OutputNotes, ProvenTransaction, TransactionScript},
     Digest,
 };
 use rusqlite::{params, Transaction};
@@ -105,7 +102,7 @@ impl Store {
     pub fn insert_proven_transaction_data(
         &mut self,
         proven_transaction: ProvenTransaction,
-        transaction_result: TransactionExecutionResult,
+        transaction_result: ExecutedTransaction,
     ) -> Result<(), StoreError> {
         // Create atomic transcation
 
@@ -129,7 +126,7 @@ impl Store {
             block_num,
             committed,
             commit_height,
-        ) = serialize_transaction(&proven_transaction, transaction_result.script().clone())?;
+        ) = serialize_transaction(&proven_transaction, transaction_result.tx_script().cloned())?;
 
         tx.execute(
             INSERT_TRANSACTION_QUERY,
@@ -152,9 +149,9 @@ impl Store {
         .map_err(StoreError::QueryError)?;
 
         let input_notes: Vec<InputNoteRecord> = transaction_result
-            .created_notes()
+            .input_notes()
             .iter()
-            .map(|n| n.clone().into())
+            .map(|n| n.note().clone().into())
             .collect();
 
         // Insert input notes

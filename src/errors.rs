@@ -4,6 +4,7 @@ use crypto::utils::DeserializationError;
 use crypto::{dsa::rpo_falcon512::FalconError, utils::HexParseError};
 use miden_node_proto::error::ParseError;
 use miden_tx::{TransactionExecutorError, TransactionProverError};
+use objects::notes::NoteId;
 use objects::AssetError;
 use objects::{accounts::AccountId, AccountError, Digest, NoteError, TransactionScriptError};
 use tonic::{transport::Error as TransportError, Status as TonicStatus};
@@ -71,7 +72,7 @@ pub enum StoreError {
     ConnectionError(rusqlite::Error),
     DataDeserializationError(DeserializationError),
     HexParseError(HexParseError),
-    InputNoteNotFound(Digest),
+    InputNoteNotFound(NoteId),
     InputSerializationError(serde_json::Error),
     JsonDataDeserializationError(serde_json::Error),
     MigrationError(rusqlite_migration::Error),
@@ -117,7 +118,9 @@ impl fmt::Display for StoreError {
             HexParseError(err) => {
                 write!(f, "error parsing hex: {err}")
             }
-            InputNoteNotFound(hash) => write!(f, "input note with hash {} not found", hash),
+            InputNoteNotFound(note_id) => {
+                write!(f, "input note with note id {} not found", note_id.inner())
+            }
             InputSerializationError(err) => {
                 write!(f, "error trying to serialize inputs for the store: {err}")
             }
