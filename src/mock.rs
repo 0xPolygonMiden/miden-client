@@ -14,7 +14,7 @@ use miden_node_proto::{
     requests::SyncStateRequest,
     responses::{NullifierUpdate, SyncStateResponse},
 };
-use mock::constants::{AccountSeedType, generate_account_seed};
+use mock::constants::{AccountSeedType, generate_account_seed, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN};
 use mock::mock::account::mock_account;
 use mock::mock::block;
 use mock::mock::notes::mock_notes;
@@ -209,8 +209,8 @@ pub fn insert_mock_data(client: &mut Client) {
     );
 
     let assembler = TransactionKernel::assembler();
-    let (account_id, account_seed) = generate_account_seed(AccountSeedType::RegularAccountUpdatableCodeOnChain);
-    let account = mock_account(Some(account_id.into()), Felt::ONE, None, &assembler);
+    let (_account_id, account_seed) = generate_account_seed(AccountSeedType::RegularAccountUpdatableCodeOnChain);
+    let account = mock_account(Some(ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN), Felt::ONE, None, &assembler);
     let (_consumed, created_notes) = mock_notes(&assembler, &AssetPreservationStatus::Preserved);
 
     // insert notes into database
