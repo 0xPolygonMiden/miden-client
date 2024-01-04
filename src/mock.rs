@@ -25,6 +25,7 @@ use crate::store::accounts::AuthInfo;
 use miden_tx::TransactionExecutor;
 use objects::accounts::{AccountId, AccountType};
 use objects::assets::FungibleAsset;
+use objects::transaction::InputNote;
 
 /// Mock RPC API
 ///
@@ -75,19 +76,12 @@ impl MockRpcApi {
     }
 }
 
-fn create_mock_sync_state_requests(
+fn create_mock_sync_state_request_for_account_and_notes(
     requests: &mut BTreeMap<SyncStateRequest, SyncStateResponse>,
     account_id: AccountId,
+    recorded_notes: &[InputNote],
 ) {
-    use mock::mock::{
-        account::MockAccountType, notes::AssetPreservationStatus, transaction::mock_inputs,
-    };
-
-    // generate test data
-    let (_account, _, _, recorded_notes) = mock_inputs(
-        MockAccountType::StandardExisting,
-        AssetPreservationStatus::Preserved,
-    );
+    use mock::mock::notes::AssetPreservationStatus;
 
     let accounts = vec![ProtoAccountId {
         id: u64::from(account_id),
@@ -203,111 +197,14 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
         AssetPreservationStatus::Preserved,
     );
 
-    let accounts = vec![ProtoAccountId {
-        id: u64::from(account.id()),
-    }];
-
-    let nullifiers: Vec<u32> = recorded_notes
-        .iter()
-        .map(|input_note| {
-            (input_note.note().nullifier().as_elements()[3].as_int() >> FILTER_ID_SHIFT) as u32
-        })
-        .collect();
-
     // create sync state requests
     let mut requests = BTreeMap::new();
 
-    let assembler = TransactionKernel::assembler();
-    let account = mock_account(None, Felt::ONE, None, &assembler);
-    let (_consumed, created_notes) = mock_notes(&assembler, &AssetPreservationStatus::Preserved);
-
-    // create a state sync request
-    let request = SyncStateRequest {
-        block_num: 0,
-        account_ids: accounts.clone(),
-        note_tags: vec![],
-        nullifiers: nullifiers.clone(),
-    };
-
-    let chain_tip = 10;
-
-    // create a block header for the response
-    let block_header: objects::BlockHeader = block::mock_block_header(8, None, None, &[]);
-
-    // create a state sync response
-    let response = SyncStateResponse {
-        chain_tip,
-        mmr_delta: None,
-        block_path: None,
-        block_header: Some(NodeBlockHeader::from(block_header)),
-        accounts: vec![],
-        notes: vec![NoteSyncRecord {
-            note_index: 0,
-            note_hash: Some(created_notes.first().unwrap().id().into()),
-            sender: account.id().into(),
-            tag: 0u64,
-            num_assets: 2,
-            merkle_path: Some(MerklePath::default()),
-        }],
-        nullifiers: vec![NullifierUpdate {
-            nullifier: Some(
-                recorded_notes
-                    .first()
-                    .unwrap()
-                    .note()
-                    .nullifier()
-                    .inner()
-                    .into(),
-            ),
-            block_num: 7,
-        }],
-    };
-    requests.insert(request, response);
-
-    // SECOND REQUEST
-    // ---------------------------------------------------------------------------------
-
-    // create a state sync request
-    let request = SyncStateRequest {
-        block_num: 8,
-        account_ids: accounts.clone(),
-        note_tags: vec![],
-        nullifiers,
-    };
-
-    // create a block header for the response
-    let block_header: objects::BlockHeader = block::mock_block_header(10, None, None, &[]);
-
-    // create a state sync response
-    let response = SyncStateResponse {
-        chain_tip,
-        mmr_delta: None,
-        block_path: None,
-        block_header: Some(NodeBlockHeader::from(block_header)),
-        accounts: vec![],
-        notes: vec![NoteSyncRecord {
-            note_index: 0,
-            note_hash: Some(created_notes.first().unwrap().id().into()),
-            sender: account.id().into(),
-            tag: 0u64,
-            num_assets: 2,
-            merkle_path: Some(MerklePath::default()),
-        }],
-        nullifiers: vec![NullifierUpdate {
-            nullifier: Some(
-                recorded_notes
-                    .first()
-                    .unwrap()
-                    .note()
-                    .nullifier()
-                    .inner()
-                    .into(),
-            ),
-            block_num: 7,
-        }],
-    };
-
-    requests.insert(request, response);
+    create_mock_sync_state_request_for_account_and_notes(
+        &mut requests,
+        account.id(),
+        &recorded_notes,
+    );
 
     requests
 }
@@ -349,7 +246,15 @@ pub fn insert_mock_data(client: &mut Client) {
         .unwrap();
 
     // insert some sync request
-    create_mock_sync_state_requests(&mut client.rpc_api.sync_state_requests, account_id)
+    let (_account, _, _, recorded_notes) = mock_inputs(
+        MockAccountType::StandardExisting,
+        AssetPreservationStatus::Preserved,
+    );
+    create_mock_sync_state_request_for_account_and_notes(
+        &mut client.rpc_api.sync_state_requests,
+        account_id,
+        &recorded_notes,
+    );
 }
 
 pub async fn create_mock_transaction(client: &mut Client) {
