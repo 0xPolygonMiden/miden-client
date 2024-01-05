@@ -1,30 +1,31 @@
 use crate::client::transactions::{PaymentTransactionData, TransactionTemplate};
 use crate::client::{Client, FILTER_ID_SHIFT};
-use crate::store::mock_executor_data_store::MockDataStore;
 use crypto::{dsa::rpo_falcon512::KeyPair, StarkField};
 use crypto::{Felt, FieldElement};
-use miden_lib::assembler::assembler;
+use miden_lib::transaction::TransactionKernel;
+use miden_node_proto::account_id::AccountId as ProtoAccountId;
 use miden_node_proto::block_header::BlockHeader as NodeBlockHeader;
 use miden_node_proto::merkle::MerklePath;
 use miden_node_proto::note::NoteSyncRecord;
 use miden_node_proto::requests::SubmitProvenTransactionRequest;
 use miden_node_proto::responses::SubmitProvenTransactionResponse;
 use miden_node_proto::{
-    account_id::AccountId as ProtoAccountId,
     requests::SyncStateRequest,
     responses::{NullifierUpdate, SyncStateResponse},
 };
+use mock::constants::{generate_account_seed, AccountSeedType};
 use mock::mock::account::mock_account;
+
 use mock::mock::block;
 use mock::mock::notes::mock_notes;
 use objects::utils::collections::BTreeMap;
-use objects::AdviceInputs;
 
 use crate::store::accounts::AuthInfo;
 
 use miden_tx::TransactionExecutor;
-use objects::accounts::AccountType;
+use objects::accounts::{AccountId, AccountType};
 use objects::assets::FungibleAsset;
+use objects::transaction::InputNote;
 
 /// Mock RPC API
 ///
@@ -48,9 +49,13 @@ impl MockRpcApi {
         &mut self,
         request: impl tonic::IntoRequest<SyncStateRequest>,
     ) -> std::result::Result<tonic::Response<SyncStateResponse>, tonic::Status> {
-        let request = request.into_request().into_inner();
-        match self.sync_state_requests.get(&request) {
-            Some(response) => {
+        let request: SyncStateRequest = request.into_request().into_inner();
+        match self
+            .sync_state_requests
+            .iter()
+            .find(|(req, _resp)| req.block_num == request.block_num)
+        {
+            Some((_req, response)) => {
                 let response = response.clone();
                 Ok(tonic::Response::new(response))
             }
@@ -71,20 +76,15 @@ impl MockRpcApi {
     }
 }
 
-/// Generates mock sync state requests and responses
-fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateResponse> {
-    use mock::mock::{
-        account::MockAccountType, notes::AssetPreservationStatus, transaction::mock_inputs,
-    };
-
-    // generate test data
-    let (account, _, _, recorded_notes, _) = mock_inputs(
-        MockAccountType::StandardExisting,
-        AssetPreservationStatus::Preserved,
-    );
+fn create_mock_sync_state_request_for_account_and_notes(
+    requests: &mut BTreeMap<SyncStateRequest, SyncStateResponse>,
+    account_id: AccountId,
+    recorded_notes: &[InputNote],
+) {
+    use mock::mock::notes::AssetPreservationStatus;
 
     let accounts = vec![ProtoAccountId {
-        id: u64::from(account.id()),
+        id: u64::from(account_id),
     }];
 
     let nullifiers: Vec<u32> = recorded_notes
@@ -92,17 +92,8 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
         .map(|note| (note.note().nullifier().as_elements()[3].as_int() >> FILTER_ID_SHIFT) as u32)
         .collect();
 
-    // create sync state requests
-    let mut requests = BTreeMap::new();
-
-    let assembler = assembler();
-    let account = mock_account(
-        None,
-        Felt::ONE,
-        None,
-        &assembler,
-        &mut AdviceInputs::default(),
-    );
+    let assembler = TransactionKernel::assembler();
+    let account = mock_account(None, Felt::ONE, None, &assembler);
     let (_consumed, created_notes) = mock_notes(&assembler, &AssetPreservationStatus::Preserved);
 
     // create a state sync request
@@ -127,7 +118,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
         accounts: vec![],
         notes: vec![NoteSyncRecord {
             note_index: 0,
-            note_hash: Some(created_notes.first().unwrap().hash().into()),
+            note_hash: Some(created_notes.first().unwrap().authentication_hash().into()),
             sender: account.id().into(),
             tag: 0u64,
             num_assets: 2,
@@ -171,7 +162,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
         accounts: vec![],
         notes: vec![NoteSyncRecord {
             note_index: 0,
-            note_hash: Some(created_notes.first().unwrap().hash().into()),
+            note_hash: Some(created_notes.first().unwrap().authentication_hash().into()),
             sender: account.id().into(),
             tag: 0u64,
             num_assets: 2,
@@ -192,6 +183,28 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
     };
 
     requests.insert(request, response);
+}
+
+/// Generates mock sync state requests and responses
+fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateResponse> {
+    use mock::mock::{
+        account::MockAccountType, notes::AssetPreservationStatus, transaction::mock_inputs,
+    };
+
+    // generate test data
+    let (account, _, _, recorded_notes) = mock_inputs(
+        MockAccountType::StandardExisting,
+        AssetPreservationStatus::Preserved,
+    );
+
+    // create sync state requests
+    let mut requests = BTreeMap::new();
+
+    create_mock_sync_state_request_for_account_and_notes(
+        &mut requests,
+        account.id(),
+        &recorded_notes,
+    );
 
     requests
 }
@@ -203,19 +216,15 @@ pub fn insert_mock_data(client: &mut Client) {
     };
 
     // generate test data
-    let (_account, _, _, recorded_notes, _) = mock_inputs(
+    let (_account, _, _, recorded_notes) = mock_inputs(
         MockAccountType::StandardExisting,
         AssetPreservationStatus::Preserved,
     );
 
-    let assembler = assembler();
-    let account = mock_account(
-        None,
-        Felt::ONE,
-        None,
-        &assembler,
-        &mut AdviceInputs::default(),
-    );
+    let assembler = TransactionKernel::assembler();
+    let (account_id, account_seed) =
+        generate_account_seed(AccountSeedType::RegularAccountUpdatableCodeOnChain);
+    let account = mock_account(Some(u64::from(account_id)), Felt::ONE, None, &assembler);
     let (_consumed, created_notes) = mock_notes(&assembler, &AssetPreservationStatus::Preserved);
 
     // insert notes into database
@@ -233,8 +242,19 @@ pub fn insert_mock_data(client: &mut Client) {
         .map_err(|err| format!("Error generating KeyPair: {}", err))
         .unwrap();
     client
-        .insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&account, account_seed, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
+
+    // insert some sync request
+    let (_account, _, _, recorded_notes) = mock_inputs(
+        MockAccountType::StandardExisting,
+        AssetPreservationStatus::Preserved,
+    );
+    create_mock_sync_state_request_for_account_and_notes(
+        &mut client.rpc_api.sync_state_requests,
+        account_id,
+        &recorded_notes,
+    );
 }
 
 pub async fn create_mock_transaction(client: &mut Client) {
@@ -244,13 +264,12 @@ pub async fn create_mock_transaction(client: &mut Client) {
     let auth_scheme: miden_lib::AuthScheme = miden_lib::AuthScheme::RpoFalcon512 {
         pub_key: key_pair.public_key(),
     };
-    let _assembler = miden_lib::assembler::assembler();
 
     let mut rng = rand::thread_rng();
     // we need to use an initial seed to create the wallet account
     let init_seed: [u8; 32] = rand::Rng::gen(&mut rng);
 
-    let (sender_account, _) = miden_lib::wallets::create_basic_wallet(
+    let (sender_account, seed) = miden_lib::accounts::wallets::create_basic_wallet(
         init_seed,
         auth_scheme,
         AccountType::RegularAccountImmutableCode,
@@ -258,7 +277,7 @@ pub async fn create_mock_transaction(client: &mut Client) {
     .unwrap();
 
     client
-        .insert_account(&sender_account, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&sender_account, seed, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
     let key_pair: KeyPair = KeyPair::new()
@@ -272,7 +291,7 @@ pub async fn create_mock_transaction(client: &mut Client) {
     // we need to use an initial seed to create the wallet account
     let init_seed: [u8; 32] = rand::Rng::gen(&mut rng);
 
-    let (target_account, _) = miden_lib::wallets::create_basic_wallet(
+    let (target_account, seed) = miden_lib::accounts::wallets::create_basic_wallet(
         init_seed,
         auth_scheme,
         AccountType::RegularAccountImmutableCode,
@@ -280,7 +299,7 @@ pub async fn create_mock_transaction(client: &mut Client) {
     .unwrap();
 
     client
-        .insert_account(&target_account, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&target_account, seed, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
     let key_pair: KeyPair = KeyPair::new()
@@ -296,7 +315,7 @@ pub async fn create_mock_transaction(client: &mut Client) {
 
     let max_supply = 10000u64.to_le_bytes();
 
-    let (faucet, _) = miden_lib::faucets::create_basic_fungible_faucet(
+    let (faucet, seed) = miden_lib::accounts::faucets::create_basic_fungible_faucet(
         init_seed,
         objects::assets::TokenSymbol::new("MOCK").unwrap(),
         4u8,
@@ -306,7 +325,7 @@ pub async fn create_mock_transaction(client: &mut Client) {
     .unwrap();
 
     client
-        .insert_account(&faucet, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&faucet, seed, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
     let asset: objects::assets::Asset = FungibleAsset::new(faucet.id(), 5u64).unwrap().into();
@@ -326,7 +345,10 @@ pub async fn create_mock_transaction(client: &mut Client) {
 
 impl Client {
     /// testing function to set a data store to conveniently mock data if needed
-    pub fn set_data_store(&mut self, data_store: MockDataStore) {
+    pub fn set_data_store(
+        &mut self,
+        data_store: crate::store::mock_executor_data_store::MockDataStore,
+    ) {
         self.tx_executor = TransactionExecutor::new(data_store);
     }
 }

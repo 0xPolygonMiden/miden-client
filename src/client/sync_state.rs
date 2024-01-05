@@ -4,6 +4,7 @@ use miden_node_proto::{
     account_id::AccountId as ProtoAccountId, note::NoteSyncRecord, requests::SyncStateRequest,
     responses::SyncStateResponse,
 };
+
 use objects::{accounts::AccountId, notes::NoteInclusionProof, BlockHeader, Digest};
 
 use crate::errors::{ClientError, RpcApiError};
@@ -58,17 +59,22 @@ impl Client {
     }
 
     async fn single_sync_state(&mut self) -> Result<SyncStatus, ClientError> {
-        let block_num = self.store.get_latest_block_num()?;
+        let current_block_num = self.store.get_latest_block_num()?;
         let account_ids = self.store.get_account_ids()?;
         let note_tags = self.store.get_note_tags()?;
         let nullifiers = self.store.get_unspent_input_note_nullifiers()?;
         let response = self
-            .sync_state_request(block_num, &account_ids, &note_tags, &nullifiers)
+            .sync_state_request(current_block_num, &account_ids, &note_tags, &nullifiers)
             .await?;
+
         let incoming_block_header = response.block_header.unwrap();
         let incoming_block_header: BlockHeader = incoming_block_header
             .try_into()
             .map_err(ClientError::RpcTypeConversionFailure)?;
+
+        if incoming_block_header.block_num() == current_block_num {
+            return Ok(SyncStatus::SyncedToLastBlock(current_block_num));
+        }
 
         let new_nullifiers = response
             .nullifiers
@@ -88,6 +94,7 @@ impl Client {
 
         self.store
             .apply_state_sync(
+                current_block_num,
                 incoming_block_header,
                 new_nullifiers,
                 response.accounts,
@@ -118,13 +125,13 @@ impl Client {
             .get_input_notes(crate::store::notes::InputNoteFilter::Pending)
             .map_err(ClientError::StoreError)?
             .iter()
-            .map(|n| n.note().hash())
+            .map(|n| n.note().id().inner())
             .collect();
 
         Ok(notes
             .iter()
             .filter_map(|note| {
-                let note_hash: Digest = note.note_hash.clone().unwrap().try_into().unwrap();
+                let note_hash = note.note_hash.clone().unwrap().try_into().unwrap();
                 if pending_notes.contains(&note_hash) {
                     let note_inclusion_proof = NoteInclusionProof::new(
                         block_header.block_num(),
@@ -169,6 +176,8 @@ impl Client {
             note_tags,
             nullifiers,
         };
+
+        println!("request: {:?}", request);
 
         Ok(self
             .rpc_api

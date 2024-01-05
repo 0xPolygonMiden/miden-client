@@ -1,11 +1,7 @@
 // MIDEN CLIENT
 // ================================================================================================
 
-use crate::{
-    config::ClientConfig,
-    errors::ClientError,
-    store::{mock_executor_data_store::MockDataStore, Store},
-};
+use crate::{config::ClientConfig, errors::ClientError, store::Store};
 
 use miden_tx::TransactionExecutor;
 
@@ -36,9 +32,14 @@ pub struct Client {
     /// Local database containing information about the accounts managed by this client.
     pub(crate) store: Store,
     #[cfg(any(test, feature = "testing"))]
-    pub rpc_api: MockRpcApi,
+    pub rpc_api: crate::mock::MockRpcApi,
     #[cfg(any(test, feature = "testing"))]
-    pub(crate) tx_executor: TransactionExecutor<MockDataStore>,
+    pub(crate) tx_executor:
+        TransactionExecutor<crate::store::mock_executor_data_store::MockDataStore>,
+    #[cfg(not(any(test, feature = "testing")))]
+    pub rpc_api: miden_node_proto::rpc::api_client::ApiClient<tonic::transport::Channel>,
+    #[cfg(not(any(test, feature = "testing")))]
+    pub tx_executor: TransactionExecutor<crate::store::data_store::SqliteDataStore>,
 }
 
 impl Client {
@@ -69,7 +70,9 @@ impl Client {
         return Ok(Self {
             store: Store::new((&config).into())?,
             rpc_api: Default::default(),
-            tx_executor: TransactionExecutor::new(MockDataStore::new()),
+            tx_executor: TransactionExecutor::new(
+                crate::store::mock_executor_data_store::MockDataStore::new(),
+            ),
         });
     }
 }

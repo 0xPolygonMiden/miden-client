@@ -4,7 +4,7 @@ use crate::{
     errors::ClientError,
     store::notes::{InputNoteFilter, InputNoteRecord},
 };
-use objects::Digest;
+use objects::notes::NoteId;
 
 impl Client {
     // INPUT NOTE DATA RETRIEVAL
@@ -19,9 +19,9 @@ impl Client {
     }
 
     /// Returns the input note with the specified hash.
-    pub fn get_input_note(&self, hash: Digest) -> Result<InputNoteRecord, ClientError> {
+    pub fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, ClientError> {
         self.store
-            .get_input_note_by_hash(hash)
+            .get_input_note_by_id(note_id)
             .map_err(|err| err.into())
     }
 

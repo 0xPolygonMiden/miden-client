@@ -14,11 +14,14 @@ pub mod transactions;
 #[cfg(any(test, feature = "testing"))]
 pub mod mock_executor_data_store;
 
+//#[cfg(not(any(test, feature = "testing")))]
+pub mod data_store;
+
 // CLIENT STORE
 // ================================================================================================
 
 pub struct Store {
-    db: Connection,
+    pub(crate) db: Connection,
 }
 
 impl Store {
