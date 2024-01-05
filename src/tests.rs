@@ -149,7 +149,7 @@ async fn test_get_account_by_id() {
         .unwrap();
 
     // Retrieving an existing account should succeed
-    let acc_from_db = match client.get_account_by_id(account.id()) {
+    let (acc_from_db, _account_seed) = match client.get_account_by_id(account.id()) {
         Ok(account) => account,
         Err(err) => panic!("Error retrieving account: {}", err),
     };
