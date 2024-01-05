@@ -133,15 +133,17 @@ fn list_accounts(client: Client) -> Result<(), String> {
             Cell::new("vault root").add_attribute(Attribute::Bold),
             Cell::new("storage root").add_attribute(Attribute::Bold),
             Cell::new("nonce").add_attribute(Attribute::Bold),
+            Cell::new("account seed").add_attribute(Attribute::Bold),
         ]);
 
-    accounts.iter().for_each(|acc| {
+    accounts.iter().for_each(|(acc, acc_seed)| {
         table.add_row(vec![
             acc.id().to_string(),
             acc.code_root().to_string(),
             acc.vault_root().to_string(),
             acc.storage_root().to_string(),
             acc.nonce().to_string(),
+            acc_seed.to_string(),
         ]);
     });
 
@@ -157,7 +159,7 @@ pub fn show_account(
     show_storage: bool,
     show_code: bool,
 ) -> Result<(), String> {
-    let account = client
+    let (account, account_seed) = client
         .get_account_by_id(account_id)
         .map_err(|err| err.to_string())?;
 
@@ -171,6 +173,7 @@ pub fn show_account(
             Cell::new("vault root").add_attribute(Attribute::Bold),
             Cell::new("storage root").add_attribute(Attribute::Bold),
             Cell::new("nonce").add_attribute(Attribute::Bold),
+            Cell::new("account seed").add_attribute(Attribute::Bold),
         ]);
 
     table.add_row(vec![
@@ -179,6 +182,7 @@ pub fn show_account(
         account.vault_root().to_string(),
         account.storage_root().to_string(),
         account.nonce().to_string(),
+        account_seed.to_string(),
     ]);
 
     println!("{table}\n");
