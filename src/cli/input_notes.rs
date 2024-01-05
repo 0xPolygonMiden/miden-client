@@ -231,7 +231,7 @@ where
         .load_preset(presets::UTF8_FULL)
         .set_content_arrangement(ContentArrangement::DynamicFullWidth)
         .set_header(vec![
-            Cell::new("auth hash").add_attribute(Attribute::Bold),
+            Cell::new("note id").add_attribute(Attribute::Bold),
             Cell::new("script hash").add_attribute(Attribute::Bold),
             Cell::new("vault hash").add_attribute(Attribute::Bold),
             Cell::new("inputs hash").add_attribute(Attribute::Bold),
@@ -240,7 +240,7 @@ where
 
     notes.into_iter().for_each(|input_note_record| {
         table.add_row(vec![
-            input_note_record.note().authentication_hash().to_string(),
+            input_note_record.note().id().inner().to_string(),
             input_note_record.note().script().hash().to_string(),
             input_note_record.note().assets().commitment().to_string(),
             input_note_record.note().inputs().hash().to_string(),
