@@ -65,16 +65,24 @@ impl Client {
         let response = self
             .sync_state_request(block_num, &account_ids, &note_tags, &nullifiers)
             .await?;
-        let incoming_block_header = response.block_header.unwrap();
+        let incoming_block_header = response.block_header.ok_or(ClientError::RpcExpectedFieldMissingFailure("Expected block header".to_string()))?;
         let incoming_block_header: BlockHeader = incoming_block_header
             .try_into()
             .map_err(ClientError::RpcTypeConversionFailure)?;
 
-        let new_nullifiers = response
+        // Handle any missing nullifiers
+        let response_nullifiers = response
             .nullifiers
             .into_iter()
-            .filter_map(|x| {
-                let nullifier = x.nullifier.as_ref().unwrap().try_into().unwrap();
+            .map(|x| {
+                x.nullifier.ok_or(ClientError::RpcExpectedFieldMissingFailure("Expected nullifier".to_string()))
+            })
+            .collect::<Result<Vec<_>, ClientError>>()?;
+
+        let new_nullifiers = response_nullifiers
+            .into_iter()
+            .filter_map(|response_nullifier| {
+                let nullifier = response_nullifier.try_into().unwrap();
                 if nullifiers.contains(&nullifier) {
                     Some(nullifier)
                 } else {
