@@ -3,7 +3,7 @@ use crate::client::{Client, FILTER_ID_SHIFT};
 use crate::store::mock_executor_data_store::MockDataStore;
 use crypto::{dsa::rpo_falcon512::KeyPair, StarkField};
 use crypto::{Felt, FieldElement};
-use miden_lib::assembler::assembler;
+use miden_lib::transaction::TransactionKernel;
 use miden_node_proto::block_header::BlockHeader as NodeBlockHeader;
 use miden_node_proto::merkle::MerklePath;
 use miden_node_proto::note::NoteSyncRecord;
@@ -18,7 +18,6 @@ use mock::mock::account::mock_account;
 use mock::mock::block;
 use mock::mock::notes::mock_notes;
 use objects::utils::collections::BTreeMap;
-use objects::AdviceInputs;
 
 use crate::store::accounts::AuthInfo;
 
@@ -48,9 +47,13 @@ impl MockRpcApi {
         &mut self,
         request: impl tonic::IntoRequest<SyncStateRequest>,
     ) -> std::result::Result<tonic::Response<SyncStateResponse>, tonic::Status> {
-        let request = request.into_request().into_inner();
-        match self.sync_state_requests.get(&request) {
-            Some(response) => {
+        let request: SyncStateRequest = request.into_request().into_inner();
+        match self
+            .sync_state_requests
+            .iter()
+            .find(|(req, _resp)| req.block_num == request.block_num)
+        {
+            Some((_req, response)) => {
                 let response = response.clone();
                 Ok(tonic::Response::new(response))
             }
@@ -78,7 +81,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
     };
 
     // generate test data
-    let (account, _, _, recorded_notes, _) = mock_inputs(
+    let (account, _, _, recorded_notes) = mock_inputs(
         MockAccountType::StandardExisting,
         AssetPreservationStatus::Preserved,
     );
@@ -89,20 +92,16 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
 
     let nullifiers: Vec<u32> = recorded_notes
         .iter()
-        .map(|note| (note.note().nullifier().as_elements()[3].as_int() >> FILTER_ID_SHIFT) as u32)
+        .map(|input_note| {
+            (input_note.note().nullifier().as_elements()[3].as_int() >> FILTER_ID_SHIFT) as u32
+        })
         .collect();
 
     // create sync state requests
     let mut requests = BTreeMap::new();
 
-    let assembler = assembler();
-    let account = mock_account(
-        None,
-        Felt::ONE,
-        None,
-        &assembler,
-        &mut AdviceInputs::default(),
-    );
+    let assembler = TransactionKernel::assembler();
+    let account = mock_account(None, Felt::ONE, None, &assembler);
     let (_consumed, created_notes) = mock_notes(&assembler, &AssetPreservationStatus::Preserved);
 
     // create a state sync request
@@ -127,7 +126,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
         accounts: vec![],
         notes: vec![NoteSyncRecord {
             note_index: 0,
-            note_hash: Some(created_notes.first().unwrap().hash().into()),
+            note_hash: Some(created_notes.first().unwrap().id().into()),
             sender: account.id().into(),
             tag: 0u64,
             num_assets: 2,
@@ -153,7 +152,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
 
     // create a state sync request
     let request = SyncStateRequest {
-        block_num: 0,
+        block_num: 8,
         account_ids: accounts.clone(),
         note_tags: vec![],
         nullifiers,
@@ -171,7 +170,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
         accounts: vec![],
         notes: vec![NoteSyncRecord {
             note_index: 0,
-            note_hash: Some(created_notes.first().unwrap().hash().into()),
+            note_hash: Some(created_notes.first().unwrap().id().into()),
             sender: account.id().into(),
             tag: 0u64,
             num_assets: 2,
@@ -203,19 +202,13 @@ pub fn insert_mock_data(client: &mut Client) {
     };
 
     // generate test data
-    let (_account, _, _, recorded_notes, _) = mock_inputs(
+    let (_account, _, _, recorded_notes) = mock_inputs(
         MockAccountType::StandardExisting,
         AssetPreservationStatus::Preserved,
     );
 
-    let assembler = assembler();
-    let account = mock_account(
-        None,
-        Felt::ONE,
-        None,
-        &assembler,
-        &mut AdviceInputs::default(),
-    );
+    let assembler = TransactionKernel::assembler();
+    let account = mock_account(None, Felt::ONE, None, &assembler);
     let (_consumed, created_notes) = mock_notes(&assembler, &AssetPreservationStatus::Preserved);
 
     // insert notes into database
@@ -244,13 +237,12 @@ pub async fn create_mock_transaction(client: &mut Client) {
     let auth_scheme: miden_lib::AuthScheme = miden_lib::AuthScheme::RpoFalcon512 {
         pub_key: key_pair.public_key(),
     };
-    let _assembler = miden_lib::assembler::assembler();
 
     let mut rng = rand::thread_rng();
     // we need to use an initial seed to create the wallet account
     let init_seed: [u8; 32] = rand::Rng::gen(&mut rng);
 
-    let (sender_account, _) = miden_lib::wallets::create_basic_wallet(
+    let (sender_account, _) = miden_lib::accounts::wallets::create_basic_wallet(
         init_seed,
         auth_scheme,
         AccountType::RegularAccountImmutableCode,
@@ -272,7 +264,7 @@ pub async fn create_mock_transaction(client: &mut Client) {
     // we need to use an initial seed to create the wallet account
     let init_seed: [u8; 32] = rand::Rng::gen(&mut rng);
 
-    let (target_account, _) = miden_lib::wallets::create_basic_wallet(
+    let (target_account, _) = miden_lib::accounts::wallets::create_basic_wallet(
         init_seed,
         auth_scheme,
         AccountType::RegularAccountImmutableCode,
@@ -296,7 +288,7 @@ pub async fn create_mock_transaction(client: &mut Client) {
 
     let max_supply = 10000u64.to_le_bytes();
 
-    let (faucet, _) = miden_lib::faucets::create_basic_fungible_faucet(
+    let (faucet, _) = miden_lib::accounts::faucets::create_basic_fungible_faucet(
         init_seed,
         objects::assets::TokenSymbol::new("MOCK").unwrap(),
         4u8,

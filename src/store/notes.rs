@@ -5,18 +5,15 @@ use super::Store;
 use clap::error::Result;
 use crypto::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 
-use objects::notes::{Note, NoteInclusionProof, NoteScript};
+use objects::notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteScript};
 
-use objects::{
-    accounts::AccountId,
-    notes::{NoteMetadata, RecordedNote},
-    Digest, Felt,
-};
+use objects::transaction::InputNote;
+use objects::{accounts::AccountId, notes::NoteMetadata, Digest, Felt};
 use rusqlite::params;
 
 pub(crate) const INSERT_NOTE_QUERY: &str = "\
 INSERT INTO input_notes
-    (hash, nullifier, script, vault, inputs, serial_num, sender_id, tag, num_assets, inclusion_proof, recipients, status, commit_height)
+    (note_id, nullifier, script, vault, inputs, serial_num, sender_id, tag, num_assets, inclusion_proof, recipients, status, commit_height)
  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
 // TYPES
@@ -26,8 +23,8 @@ type SerializedInputNoteData = (
     String,
     String,
     Vec<u8>,
-    String,
-    String,
+    Vec<u8>,
+    Vec<u8>,
     String,
     i64,
     i64,
@@ -40,8 +37,8 @@ type SerializedInputNoteData = (
 
 type SerializedInputNoteParts = (
     Vec<u8>,
-    String,
-    String,
+    Vec<u8>,
+    Vec<u8>,
     String,
     u64,
     u64,
@@ -88,6 +85,10 @@ impl InputNoteRecord {
         &self.note
     }
 
+    pub fn note_id(&self) -> NoteId {
+        self.note.id()
+    }
+
     pub fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
         self.inclusion_proof.as_ref()
     }
@@ -119,8 +120,8 @@ impl From<Note> for InputNoteRecord {
     }
 }
 
-impl From<RecordedNote> for InputNoteRecord {
-    fn from(recorded_note: RecordedNote) -> Self {
+impl From<InputNote> for InputNoteRecord {
+    fn from(recorded_note: InputNote) -> Self {
         InputNoteRecord {
             note: recorded_note.note().clone(),
             inclusion_proof: Some(recorded_note.proof().clone()),
@@ -150,15 +151,15 @@ impl Store {
             .collect::<Result<Vec<InputNoteRecord>, _>>()
     }
 
-    /// Retrieves the input note with the specified hash from the database
-    pub fn get_input_note_by_hash(&self, hash: Digest) -> Result<InputNoteRecord, StoreError> {
-        let query_hash = &hash.to_string();
-        const QUERY: &str = "SELECT script, inputs, vault, serial_num, sender_id, tag, num_assets, inclusion_proof FROM input_notes WHERE hash = ?";
+    /// Retrieves the input note with the specified id from the database
+    pub fn get_input_note_by_id(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError> {
+        let query_id = &note_id.inner().to_string();
+        const QUERY: &str = "SELECT script, inputs, vault, serial_num, sender_id, tag, num_assets, inclusion_proof FROM input_notes WHERE note_id = ?";
 
         self.db
             .prepare(QUERY)
             .map_err(StoreError::QueryError)?
-            .query_map(params![query_hash.to_string()], parse_input_note_columns)
+            .query_map(params![query_id.to_string()], parse_input_note_columns)
             .map_err(StoreError::QueryError)?
             .map(|result| {
                 result
@@ -166,13 +167,13 @@ impl Store {
                     .and_then(parse_input_note)
             })
             .next()
-            .ok_or(StoreError::InputNoteNotFound(hash))?
+            .ok_or(StoreError::InputNoteNotFound(note_id))?
     }
 
     /// Inserts the provided input note into the database
     pub fn insert_input_note(&self, note: &InputNoteRecord) -> Result<(), StoreError> {
         let (
-            hash,
+            note_id,
             nullifier,
             script,
             vault,
@@ -191,7 +192,7 @@ impl Store {
             .execute(
                 INSERT_NOTE_QUERY,
                 params![
-                    hash,
+                    note_id,
                     nullifier,
                     script,
                     vault,
@@ -236,8 +237,8 @@ fn parse_input_note_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedInputNoteParts, rusqlite::Error> {
     let script: Vec<u8> = row.get(0)?;
-    let inputs: String = row.get(1)?;
-    let vault: String = row.get(2)?;
+    let inputs: Vec<u8> = row.get(1)?;
+    let vault: Vec<u8> = row.get(2)?;
     let serial_num: String = row.get(3)?;
     let sender_id = row.get::<usize, i64>(4)? as u64;
     let tag = row.get::<usize, i64>(5)? as u64;
@@ -259,12 +260,14 @@ fn parse_input_note_columns(
 fn parse_input_note(
     serialized_input_note_parts: SerializedInputNoteParts,
 ) -> Result<InputNoteRecord, StoreError> {
-    let (script, inputs, vault, serial_num, sender_id, tag, num_assets, inclusion_proof) =
+    let (script, inputs, note_assets, serial_num, sender_id, tag, num_assets, inclusion_proof) =
         serialized_input_note_parts;
     let script =
         NoteScript::read_from_bytes(&script).map_err(StoreError::DataDeserializationError)?;
-    let inputs = serde_json::from_str(&inputs).map_err(StoreError::JsonDataDeserializationError)?;
-    let vault = serde_json::from_str(&vault).map_err(StoreError::JsonDataDeserializationError)?;
+    let inputs =
+        NoteInputs::read_from_bytes(&inputs).map_err(StoreError::DataDeserializationError)?;
+    let vault =
+        NoteAssets::read_from_bytes(&note_assets).map_err(StoreError::DataDeserializationError)?;
     let serial_num =
         serde_json::from_str(&serial_num).map_err(StoreError::JsonDataDeserializationError)?;
     let note_metadata = NoteMetadata::new(
@@ -290,13 +293,11 @@ fn parse_input_note(
 pub(crate) fn serialize_input_note(
     note: &InputNoteRecord,
 ) -> Result<SerializedInputNoteData, StoreError> {
-    let hash = note.note().hash().to_string();
+    let note_id = note.note_id().inner().to_string();
     let nullifier = note.note().nullifier().inner().to_string();
     let script = note.note().script().to_bytes();
-    let vault =
-        serde_json::to_string(&note.note().vault()).map_err(StoreError::InputSerializationError)?;
-    let inputs = serde_json::to_string(&note.note().inputs())
-        .map_err(StoreError::InputSerializationError)?;
+    let note_assets = note.note().assets().to_bytes();
+    let inputs = note.note().inputs().to_bytes();
     let serial_num = serde_json::to_string(&note.note().serial_num())
         .map_err(StoreError::InputSerializationError)?;
     let sender_id = u64::from(note.note().metadata().sender()) as i64;
@@ -314,10 +315,10 @@ pub(crate) fn serialize_input_note(
     let recipients = serde_json::to_string(&note.note().metadata().tag())
         .map_err(StoreError::InputSerializationError)?;
     Ok((
-        hash,
+        note_id,
         nullifier,
         script,
-        vault,
+        note_assets,
         inputs,
         serial_num,
         sender_id,

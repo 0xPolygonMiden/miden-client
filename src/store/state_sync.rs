@@ -160,7 +160,7 @@ impl Store {
         // update tracked notes
         for (committed_note_hash, inclusion_proof) in committed_notes {
             const SPENT_QUERY: &str =
-                "UPDATE input_notes SET status = 'committed', inclusion_proof = ? WHERE hash = ?";
+                "UPDATE input_notes SET status = 'committed', inclusion_proof = ? WHERE note_id = ?";
             let inclusion_proof = serde_json::to_string(&inclusion_proof)
                 .map_err(StoreError::InputSerializationError)?;
             tx.execute(
