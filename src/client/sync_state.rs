@@ -70,7 +70,7 @@ impl Client {
                 .block_header
                 .as_ref()
                 .ok_or(ClientError::RpcExpectedFieldMissingFailure(
-                    format!("Expected block header for response: {:?}", &response).to_string(),
+                    format!("Expected block header for response: {:?}", &response),
                 ))?;
         let incoming_block_header: BlockHeader = incoming_block_header
             .try_into()
@@ -84,7 +84,7 @@ impl Client {
             .map(|x| {
                 x.nullifier
                     .ok_or(ClientError::RpcExpectedFieldMissingFailure(
-                        format!("Expected nullifier for response {:?}", &response).to_string(),
+                        format!("Expected nullifier for response {:?}", &response),
                     ))
             })
             .collect::<Result<Vec<_>, ClientError>>()?;

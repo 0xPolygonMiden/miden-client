@@ -39,7 +39,7 @@ pub struct PaymentTransactionData {
 }
 
 impl PaymentTransactionData {
-    pub fn new(
+    pub const fn new(
         asset: Asset,
         sender_account_id: AccountId,
         target_account_id: AccountId,
@@ -157,11 +157,11 @@ impl Client {
                 None,
             );
             let data_store: MockDataStore = MockDataStore::with_existing(
-                Some(target_account.clone()),
-                Some(vec![note.clone()]),
+                Some(target_account),
+                Some(vec![note]),
             );
 
-            self.set_data_store(data_store.clone());
+            self.set_data_store(data_store);
         }
 
         self.tx_executor
@@ -185,7 +185,7 @@ impl Client {
         let tx_script_target = self
             .tx_executor
             .compile_tx_script(
-                tx_script_code.clone(),
+                tx_script_code,
                 vec![/*(target_pub_key, target_sk_pk_felt)*/],
                 vec![],
             )
@@ -198,7 +198,7 @@ impl Client {
                 target_account_id,
                 block_ref,
                 &note_origins,
-                Some(tx_script_target.clone()),
+                Some(tx_script_target),
             )
             .map_err(ClientError::TransactionExecutionError)?;
 

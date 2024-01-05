@@ -48,7 +48,7 @@ const RPO_FALCON512_AUTH: u8 = 0;
 
 impl AuthInfo {
     /// Returns byte identifier of specific AuthInfo
-    fn type_byte(&self) -> u8 {
+    const fn type_byte(&self) -> u8 {
         match self {
             AuthInfo::RpoFalcon512(_) => RPO_FALCON512_AUTH,
         }

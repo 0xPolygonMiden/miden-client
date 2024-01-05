@@ -153,7 +153,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
     // create a state sync request
     let request = SyncStateRequest {
         block_num: 8,
-        account_ids: accounts.clone(),
+        account_ids: accounts,
         note_tags: vec![],
         nullifiers,
     };
