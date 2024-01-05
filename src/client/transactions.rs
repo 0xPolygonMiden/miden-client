@@ -156,10 +156,8 @@ impl Client {
                 target_pub_key,
                 None,
             );
-            let data_store: MockDataStore = MockDataStore::with_existing(
-                Some(target_account),
-                Some(vec![note]),
-            );
+            let data_store: MockDataStore =
+                MockDataStore::with_existing(Some(target_account), Some(vec![note]));
 
             self.set_data_store(data_store);
         }

@@ -89,7 +89,7 @@ impl InputNoteRecord {
         self.note.id()
     }
 
-    pub  const fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
+    pub const fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
         self.inclusion_proof.as_ref()
     }
 }
