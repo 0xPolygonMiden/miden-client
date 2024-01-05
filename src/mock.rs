@@ -126,7 +126,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
         accounts: vec![],
         notes: vec![NoteSyncRecord {
             note_index: 0,
-            note_hash: Some(created_notes.first().unwrap().authentication_hash().into()),
+            note_hash: Some(created_notes.first().unwrap().id().into()),
             sender: account.id().into(),
             tag: 0u64,
             num_assets: 2,
@@ -170,7 +170,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
         accounts: vec![],
         notes: vec![NoteSyncRecord {
             note_index: 0,
-            note_hash: Some(created_notes.first().unwrap().authentication_hash().into()),
+            note_hash: Some(created_notes.first().unwrap().id().into()),
             sender: account.id().into(),
             tag: 0u64,
             num_assets: 2,
