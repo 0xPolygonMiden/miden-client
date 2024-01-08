@@ -1,7 +1,7 @@
 // TESTS
 // ================================================================================================
 use crate::{
-    client::Client,
+    client::{accounts::{AccountStorageMode, AccountTemplate}, Client},
     config::{ClientConfig, Endpoint},
     store::{
         accounts::AuthInfo,
@@ -21,7 +21,7 @@ use mock::{
         transaction::mock_inputs,
     },
 };
-use objects::accounts::{AccountId, AccountStub};
+use objects::{accounts::{AccountId, AccountStub}, assets::TokenSymbol};
 #[tokio::test]
 async fn test_input_notes_round_trip() {
     // generate test store path
@@ -88,6 +88,88 @@ async fn test_get_input_note() {
 
     let recorded_note: InputNoteRecord = recorded_notes[0].clone().into();
     assert_eq!(recorded_note.note_id(), retrieved_note.note_id())
+}
+
+#[tokio::test]
+async fn insert_basic_account() {
+    // generate test store path
+    let store_path = create_test_store_path();
+
+    // generate test client
+    let mut client = Client::new(ClientConfig::new(
+        store_path.into_os_string().into_string().unwrap(),
+        Endpoint::default(),
+    ))
+    .await
+    .unwrap();
+
+    let account_template = AccountTemplate::BasicWallet {
+        mutable_code: true,
+        storage_mode: AccountStorageMode::Local,
+    };
+
+    // Insert Account
+    let account_insert_result = client.new_account(account_template);
+    assert!(account_insert_result.is_ok());
+
+    let (account, account_seed) = account_insert_result.unwrap();
+
+    // Fetch Account
+    let fetched_account_data = client.get_account_by_id(account.id());
+    assert!(fetched_account_data.is_ok());
+
+    let (fetched_account, fetched_account_seed) = fetched_account_data.unwrap();
+    // Validate stub has matching data
+    assert_eq!(account.id(), fetched_account.id());
+    assert_eq!(account.nonce(), fetched_account.nonce());
+    assert_eq!(account.vault().commitment(), fetched_account.vault_root());
+    assert_eq!(account.storage().root(), fetched_account.storage_root());
+    assert_eq!(account.code().root(), fetched_account.code_root());
+
+    // Validate seed matches
+    assert_eq!(account_seed, fetched_account_seed);
+}
+
+#[tokio::test]
+async fn insert_faucet_account() {
+    // generate test store path
+    let store_path = create_test_store_path();
+
+    // generate test client
+    let mut client = Client::new(ClientConfig::new(
+        store_path.into_os_string().into_string().unwrap(),
+        Endpoint::default(),
+    ))
+    .await
+    .unwrap();
+
+    let faucet_template = AccountTemplate::FungibleFaucet {
+        token_symbol: TokenSymbol::new("TEST").unwrap(),
+        decimals: 10,
+        max_supply: 9999999999,
+        storage_mode: AccountStorageMode::Local,
+    };
+
+    // Insert Account
+    let account_insert_result = client.new_account(faucet_template);
+    assert!(account_insert_result.is_ok());
+
+    let (account, account_seed) = account_insert_result.unwrap();
+
+    // Fetch Account
+    let fetched_account_data = client.get_account_by_id(account.id());
+    assert!(fetched_account_data.is_ok());
+
+    let (fetched_account, fetched_account_seed) = fetched_account_data.unwrap();
+    // Validate stub has matching data
+    assert_eq!(account.id(), fetched_account.id());
+    assert_eq!(account.nonce(), fetched_account.nonce());
+    assert_eq!(account.vault().commitment(), fetched_account.vault_root());
+    assert_eq!(account.storage().root(), fetched_account.storage_root());
+    assert_eq!(account.code().root(), fetched_account.code_root());
+
+    // Validate seed matches
+    assert_eq!(account_seed, fetched_account_seed);
 }
 
 #[tokio::test]

@@ -36,10 +36,10 @@ impl Client {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 
-    pub fn new_account(&mut self, template: AccountTemplate) -> Result<Account, ClientError> {
+    pub fn new_account(&mut self, template: AccountTemplate) -> Result<(Account, Word), ClientError> {
         let mut rng = rand::thread_rng();
 
-        let account = match template {
+        let account_and_seed = match template {
             AccountTemplate::BasicWallet {
                 mutable_code,
                 storage_mode,
@@ -54,7 +54,7 @@ impl Client {
             }
         }?;
 
-        Ok(account)
+        Ok(account_and_seed)
     }
 
     fn new_basic_wallet(
@@ -62,7 +62,7 @@ impl Client {
         mutable_code: bool,
         rng: &mut ThreadRng,
         account_storage_mode: AccountStorageMode,
-    ) -> Result<Account, ClientError> {
+    ) -> Result<(Account, Word), ClientError> {
         if let AccountStorageMode::OnChain = account_storage_mode {
             todo!("Recording the account on chain is not supported yet");
         }
@@ -93,7 +93,7 @@ impl Client {
         .map_err(ClientError::AccountError)?;
 
         self.insert_account(&account, seed, &AuthInfo::RpoFalcon512(key_pair))?;
-        Ok(account)
+        Ok((account, seed))
     }
 
     fn new_fungible_faucet(
@@ -103,7 +103,7 @@ impl Client {
         max_supply: u64,
         rng: &mut ThreadRng,
         account_storage_mode: AccountStorageMode,
-    ) -> Result<Account, ClientError> {
+    ) -> Result<(Account, Word), ClientError> {
         if let AccountStorageMode::OnChain = account_storage_mode {
             todo!("On-chain accounts are not supported yet");
         }
@@ -129,7 +129,7 @@ impl Client {
         .map_err(ClientError::AccountError)?;
 
         self.insert_account(&account, seed, &AuthInfo::RpoFalcon512(key_pair))?;
-        Ok(account)
+        Ok((account, seed))
     }
 
     /// Inserts a new account into the client's store.
