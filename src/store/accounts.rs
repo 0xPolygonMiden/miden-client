@@ -106,7 +106,7 @@ impl Store {
             .collect::<Result<Vec<AccountId>, _>>()
     }
 
-    pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Digest)>, StoreError> {
+    pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Word)>, StoreError> {
         const QUERY: &str =
             "SELECT id, nonce, vault_root, storage_root, code_root, account_seed FROM accounts";
         self.db
@@ -125,7 +125,7 @@ impl Store {
     pub fn get_account_by_id(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountStub, Digest), StoreError> {
+    ) -> Result<(AccountStub, Word), StoreError> {
         let account_id_int: u64 = account_id.into();
         const QUERY: &str =
             "SELECT id, nonce, vault_root, storage_root, code_root, account_seed FROM accounts WHERE id = ?";
@@ -334,7 +334,7 @@ pub(crate) fn parse_accounts_columns(
 /// Parse an account from the provided parts.
 pub(crate) fn parse_accounts(
     serialized_account_parts: SerializedAccountsParts,
-) -> Result<(AccountStub, Digest), StoreError> {
+) -> Result<(AccountStub, Word), StoreError> {
     let (id, nonce, vault_root, storage_root, code_root, account_seed) = serialized_account_parts;
     let account_seed_word: Word =
         Word::read_from_bytes(&account_seed).map_err(StoreError::DataDeserializationError)?;
@@ -349,7 +349,7 @@ pub(crate) fn parse_accounts(
             Digest::try_from(&storage_root).map_err(StoreError::HexParseError)?,
             serde_json::from_str(&code_root).map_err(StoreError::JsonDataDeserializationError)?,
         ),
-        account_seed_word.into(),
+        account_seed_word,
     ))
 }
 

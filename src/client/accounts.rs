@@ -150,7 +150,7 @@ impl Client {
     /// Returns summary info about the accounts managed by this client.
     ///
     /// TODO: replace `AccountStub` with a more relevant structure.
-    pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Digest)>, ClientError> {
+    pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Word)>, ClientError> {
         self.store.get_accounts().map_err(|err| err.into())
     }
 
@@ -158,7 +158,7 @@ impl Client {
     pub fn get_account_by_id(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountStub, Digest), ClientError> {
+    ) -> Result<(AccountStub, Word), ClientError> {
         self.store
             .get_account_by_id(account_id)
             .map_err(|err| err.into())
