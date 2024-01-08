@@ -10,7 +10,7 @@ use miden_node_proto::note::NoteSyncRecord;
 use miden_node_proto::requests::SubmitProvenTransactionRequest;
 use miden_node_proto::responses::SubmitProvenTransactionResponse;
 use miden_node_proto::{
-    account_id::AccountId as ProtoAccountId,
+    account::AccountId as ProtoAccountId,
     requests::SyncStateRequest,
     responses::{NullifierUpdate, SyncStateResponse},
 };
