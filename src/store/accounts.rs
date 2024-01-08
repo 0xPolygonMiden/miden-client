@@ -21,7 +21,7 @@ use rusqlite::{params, Transaction};
 // TYPES
 // ================================================================================================
 type SerializedAccountData = (i64, String, String, String, i64, bool);
-type SerializedAccountsParts = (i64, i64, String, String, String, String);
+type SerializedAccountsParts = (i64, i64, String, String, String, Vec<u8>);
 
 type SerializedAccountAuthData = (i64, Vec<u8>);
 type SerializedAccountAuthParts = (i64, Vec<u8>);
@@ -251,9 +251,6 @@ impl Store {
         let (id, code_root, storage_root, vault_root, nonce, committed) =
             serialize_account(account)?;
 
-        let account_seed =
-            serde_json::to_string(&account_seed).map_err(StoreError::InputSerializationError)?;
-
         const QUERY: &str =  "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed) VALUES (?, ?, ?, ?, ?, ?, ?)";
         tx.execute(
             QUERY,
@@ -264,7 +261,7 @@ impl Store {
                 vault_root,
                 nonce,
                 committed,
-                account_seed
+                account_seed.to_bytes()
             ],
         )
         .map(|_| ())
@@ -330,7 +327,7 @@ pub(crate) fn parse_accounts_columns(
     let vault_root: String = row.get(2)?;
     let storage_root: String = row.get(3)?;
     let code_root: String = row.get(4)?;
-    let account_seed: String = dbg!(row.get(5))?;
+    let account_seed: Vec<u8> = row.get(5)?;
     Ok((id, nonce, vault_root, storage_root, code_root, account_seed))
 }
 
@@ -340,7 +337,7 @@ pub(crate) fn parse_accounts(
 ) -> Result<(AccountStub, Digest), StoreError> {
     let (id, nonce, vault_root, storage_root, code_root, account_seed) = serialized_account_parts;
     let account_seed_word: Word =
-        serde_json::from_str(&account_seed).map_err(StoreError::JsonDataDeserializationError)?;
+        Word::read_from_bytes(&account_seed).map_err(StoreError::DataDeserializationError)?;
 
     Ok((
         AccountStub::new(
