@@ -96,7 +96,7 @@ impl Store {
             .prepare(QUERY)
             .map_err(StoreError::QueryError)?
             .query_map([], |row| {
-                let row : i64 = row.get(0)?;
+                let row: i64 = row.get(0)?;
                 Ok(row)
             })
             .expect("no binding parameters used in query")
