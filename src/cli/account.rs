@@ -3,8 +3,8 @@ use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use crypto::{
     dsa::rpo_falcon512::KeyPair,
-    utils::{bytes_to_hex_string, Serializable}, Word, WORD_SIZE,
-    StarkField
+    utils::{bytes_to_hex_string, Serializable},
+    StarkField, Word, WORD_SIZE,
 };
 use miden_client::client::accounts;
 
@@ -97,7 +97,11 @@ impl AccountCmd {
                     .new_account(client_template)
                     .map_err(|err| err.to_string())?;
 
-                println!("New account created: {} with seed: {}", new_account.id(), format_word_to_single_hex(&account_seed));
+                println!(
+                    "New account created: {} with seed: {}",
+                    new_account.id(),
+                    format_word_to_single_hex(&account_seed)
+                );
             }
             AccountCmd::Show { id: None, .. } => {
                 todo!("Default accounts are not supported yet")
@@ -248,8 +252,8 @@ pub fn show_account(
     Ok(())
 }
 
-const BYTES_PER_FELT : usize = core::mem::size_of::<u64>();
-const BYTES_PER_WORD : usize = WORD_SIZE * BYTES_PER_FELT;
+const BYTES_PER_FELT: usize = core::mem::size_of::<u64>();
+const BYTES_PER_WORD: usize = WORD_SIZE * BYTES_PER_FELT;
 fn format_word_to_single_hex(word: &Word) -> String {
     let mut result = [0; BYTES_PER_WORD];
 

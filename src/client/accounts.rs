@@ -36,7 +36,10 @@ impl Client {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 
-    pub fn new_account(&mut self, template: AccountTemplate) -> Result<(Account, Word), ClientError> {
+    pub fn new_account(
+        &mut self,
+        template: AccountTemplate,
+    ) -> Result<(Account, Word), ClientError> {
         let mut rng = rand::thread_rng();
 
         let account_and_seed = match template {

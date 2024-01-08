@@ -1,7 +1,10 @@
 // TESTS
 // ================================================================================================
 use crate::{
-    client::{accounts::{AccountStorageMode, AccountTemplate}, Client},
+    client::{
+        accounts::{AccountStorageMode, AccountTemplate},
+        Client,
+    },
     config::{ClientConfig, Endpoint},
     store::{
         accounts::AuthInfo,
@@ -21,7 +24,10 @@ use mock::{
         transaction::mock_inputs,
     },
 };
-use objects::{accounts::{AccountId, AccountStub}, assets::TokenSymbol};
+use objects::{
+    accounts::{AccountId, AccountStub},
+    assets::TokenSymbol,
+};
 #[tokio::test]
 async fn test_input_notes_round_trip() {
     // generate test store path
