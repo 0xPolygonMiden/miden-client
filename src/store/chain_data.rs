@@ -58,6 +58,16 @@ impl Store {
             .ok_or(StoreError::BlockHeaderNotFound(block_number))?
     }
 
+    #[cfg(test)]
+    pub fn get_full_chain_mmr_nodes(&mut self) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
+        let tx = self
+            .db
+            .transaction()
+            .map_err(StoreError::TransactionError)?;
+
+        Self::get_chain_mmr_nodes(&tx)
+    }
+
     pub(crate) fn insert_chain_mmr_node(
         tx: &Transaction<'_>,
         id: InOrderIndex,

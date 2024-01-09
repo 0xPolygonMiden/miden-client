@@ -79,6 +79,7 @@ impl Store {
         mmr_delta: Option<MmrDelta>,
         committed_notes: Vec<(Digest, NoteInclusionProof)>,
     ) -> Result<(), StoreError> {
+        dbg!(&mmr_delta);
         let tx = self
             .db
             .transaction()
@@ -135,16 +136,27 @@ impl Store {
 
             // build partial mmr from the nodes - partial_mmr should be on memory as part of our store
             let leaves: Vec<Digest> = previous_nodes.values().cloned().collect();
+            dbg!(&leaves);
             let mmr: Mmr = leaves.into();
+            dbg!(&mmr);
             let mut partial_mmr: PartialMmr = mmr
                 .peaks(mmr.forest())
                 .map_err(StoreError::MmrError)?
                 .into();
+            dbg!(&mmr.peaks(mmr.forest()));
 
             // apply the delta
+            dbg!(mmr_delta.forest);
+            dbg!(partial_mmr.forest());
+            //
+            let changes = dbg!(partial_mmr.forest() ^ mmr_delta.forest as usize); // 4
+            let largest = dbg!(1 << changes.ilog2()); // 4
+            let merge = dbg!(partial_mmr.forest() & (largest - 1)); // 0
+
             let new_authentication_nodes = partial_mmr
-                .apply(mmr_delta.try_into().unwrap())
+                .apply(dbg!(mmr_delta.try_into().unwrap()))
                 .map_err(StoreError::MmrError)?;
+            dbg!(&new_authentication_nodes);
             for (node_id, node) in new_authentication_nodes {
                 Store::insert_chain_mmr_node(&tx, node_id, node)?;
             }

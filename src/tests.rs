@@ -11,6 +11,7 @@ use crate::{
 };
 
 use crypto::dsa::rpo_falcon512::KeyPair;
+use crypto::merkle::{Mmr, PartialMmr};
 use miden_lib::transaction::TransactionKernel;
 use mock::mock::{
     account::{self, MockAccountType},
@@ -19,6 +20,10 @@ use mock::mock::{
 };
 use objects::accounts::{AccountId, AccountStub};
 use objects::transaction::InputNotes;
+use objects::Digest;
+use objects::transaction::ChainMmr;
+
+use std::collections::BTreeMap;
 
 #[tokio::test]
 async fn test_input_notes_round_trip() {
@@ -223,6 +228,87 @@ async fn test_sync_state() {
             .1
             .chain_tip
     );
+}
+
+#[tokio::test]
+async fn test_sync_state_mmr_updates() {
+    // generate test store path
+    let store_path = create_test_store_path();
+
+    // generate test client
+    let mut client = Client::new(ClientConfig::new(
+        store_path.into_os_string().into_string().unwrap(),
+        Endpoint::default(),
+    ))
+    .await
+    .unwrap();
+
+    // generate test data
+    let (_last_block_header, chain_mmr) = crate::mock::insert_mock_data(&mut client);
+
+    // assert that we have no consumed nor pending notes prior to syncing state
+    assert_eq!(
+        client
+            .get_input_notes(InputNoteFilter::Consumed)
+            .unwrap()
+            .len(),
+        0
+    );
+
+    let pending_notes = client.get_input_notes(InputNoteFilter::Pending).unwrap();
+
+    // sync state
+    let block_num: u32 = client.sync_state().await.unwrap();
+
+    // verify that the client is synced to the latest block
+    assert_eq!(
+        block_num,
+        client
+            .rpc_api
+            .sync_state_requests
+            .first_key_value()
+            .unwrap()
+            .1
+            .chain_tip
+    );
+
+    // verify that we now have one consumed note after syncing state
+    assert_eq!(
+        client
+            .get_input_notes(InputNoteFilter::Consumed)
+            .unwrap()
+            .len(),
+        1
+    );
+
+    // verify that the pending note we had is now committed
+    assert_ne!(
+        client.get_input_notes(InputNoteFilter::Committed).unwrap(),
+        pending_notes
+    );
+
+    // verify that the latest block number has been updated
+    assert_eq!(
+        client.get_latest_block_num().unwrap(),
+        client
+            .rpc_api
+            .sync_state_requests
+            .first_key_value()
+            .unwrap()
+            .1
+            .chain_tip
+    );
+
+    // Try reconstructing the chain_mmr from what's in the database
+    let all_nodes = client.get_chain_mmr_nodes().unwrap();
+    let leaves: Vec<Digest> = all_nodes.values().cloned().collect();
+    let mmr: Mmr = leaves.into();
+
+    let recreated_chain_mmr = crate::mock::mmr_to_chain_mmr(&mmr);
+
+    assert_eq!(recreated_chain_mmr, chain_mmr)
+
+    // verify that we inserted the latest block into the db via the client
 }
 
 #[tokio::test]
