@@ -18,6 +18,8 @@ use mock::mock::{
     transaction::mock_inputs,
 };
 use objects::accounts::{AccountId, AccountStub};
+use objects::transaction::InputNotes;
+
 #[tokio::test]
 async fn test_input_notes_round_trip() {
     // generate test store path
@@ -32,10 +34,11 @@ async fn test_input_notes_round_trip() {
     .unwrap();
 
     // generate test data
-    let (_, _, _, recorded_notes) = mock_inputs(
+    let transaction_inputs = mock_inputs(
         MockAccountType::StandardExisting,
         AssetPreservationStatus::Preserved,
     );
+    let recorded_notes = transaction_inputs.input_notes();
 
     // insert notes into database
     for note in recorded_notes.iter().cloned() {
@@ -67,22 +70,23 @@ async fn test_get_input_note() {
     .unwrap();
 
     // generate test data
-    let (_, _, _, recorded_notes) = mock_inputs(
+    let transaction_inputs = mock_inputs(
         MockAccountType::StandardExisting,
         AssetPreservationStatus::Preserved,
     );
+    let recorded_notes : InputNotes = transaction_inputs.input_notes().clone();
 
     // insert note into database
     client
-        .import_input_note(recorded_notes[0].clone().into())
+        .import_input_note(recorded_notes.get_note(0).clone().into())
         .unwrap();
 
     // retrieve note from database
     let retrieved_note = client
-        .get_input_note(recorded_notes[0].note().id())
+        .get_input_note(recorded_notes.get_note(0).note().id())
         .unwrap();
 
-    let recorded_note: InputNoteRecord = recorded_notes[0].clone().into();
+    let recorded_note: InputNoteRecord = recorded_notes.get_note(0).clone().into();
     assert_eq!(recorded_note.note_id(), retrieved_note.note_id())
 }
 
