@@ -36,7 +36,7 @@ impl MockDataStore {
         );
         Self {
             account: transaction_data.account().clone(),
-            block_header: transaction_data.block_header().clone(),
+            block_header: *transaction_data.block_header(),
             block_chain: transaction_data.block_chain().clone(),
             input_notes: transaction_data.input_notes().clone(),
         }
