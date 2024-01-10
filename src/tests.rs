@@ -244,7 +244,7 @@ async fn test_sync_state_mmr_updates() {
     .unwrap();
 
     // generate test data
-    let (_last_block_header, chain_mmr) = crate::mock::insert_mock_data(&mut client);
+    let (last_block_header, chain_mmr) = crate::mock::insert_mock_data(&mut client);
 
     // assert that we have no consumed nor pending notes prior to syncing state
     assert_eq!(
@@ -299,6 +299,11 @@ async fn test_sync_state_mmr_updates() {
             .chain_tip
     );
 
+    // verify that we inserted the latest block into the db via the client
+    let latest_block = client.get_latest_block_num().unwrap();
+    assert_eq!(block_num, latest_block);
+    assert_eq!(block_header, client.get_block_headers(latest_block, latest_block).unwrap()[0]);
+
     // Try reconstructing the chain_mmr from what's in the database
     let all_nodes = client.get_chain_mmr_nodes().unwrap();
     let leaves: Vec<Digest> = all_nodes.values().cloned().collect();
@@ -306,9 +311,7 @@ async fn test_sync_state_mmr_updates() {
 
     let recreated_chain_mmr = crate::mock::mmr_to_chain_mmr(&mmr);
 
-    assert_eq!(recreated_chain_mmr, chain_mmr)
-
-    // verify that we inserted the latest block into the db via the client
+    assert_eq!(recreated_chain_mmr, chain_mmr);
 }
 
 #[tokio::test]
