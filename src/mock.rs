@@ -136,14 +136,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
             merkle_path: Some(MerklePath::default()),
         }],
         nullifiers: vec![NullifierUpdate {
-            nullifier: Some(
-                recorded_notes
-                    .get_note(0)
-                    .note()
-                    .nullifier()
-                    .inner()
-                    .into(),
-            ),
+            nullifier: Some(recorded_notes.get_note(0).note().nullifier().inner().into()),
             block_num: 7,
         }],
     };
@@ -179,14 +172,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
             merkle_path: Some(MerklePath::default()),
         }],
         nullifiers: vec![NullifierUpdate {
-            nullifier: Some(
-                recorded_notes
-                    .get_note(0)
-                    .note()
-                    .nullifier()
-                    .inner()
-                    .into(),
-            ),
+            nullifier: Some(recorded_notes.get_note(0).note().nullifier().inner().into()),
             block_num: 7,
         }],
     };

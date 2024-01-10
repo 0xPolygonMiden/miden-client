@@ -74,7 +74,7 @@ async fn test_get_input_note() {
         MockAccountType::StandardExisting,
         AssetPreservationStatus::Preserved,
     );
-    let recorded_notes : InputNotes = transaction_inputs.input_notes().clone();
+    let recorded_notes: InputNotes = transaction_inputs.input_notes().clone();
 
     // insert note into database
     client
