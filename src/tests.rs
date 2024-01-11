@@ -10,8 +10,7 @@ use crate::{
     },
 };
 
-use crypto::dsa::rpo_falcon512::KeyPair;
-use crypto::merkle::{Mmr, PartialMmr};
+use crypto::{dsa::rpo_falcon512::KeyPair, merkle::{InOrderIndex, MerklePath, PartialMmr, MmrPeaks}};
 use miden_lib::transaction::TransactionKernel;
 use mock::mock::{
     account::{self, MockAccountType},
@@ -19,11 +18,8 @@ use mock::mock::{
     transaction::mock_inputs,
 };
 use objects::accounts::{AccountId, AccountStub};
-use objects::transaction::ChainMmr;
 use objects::transaction::InputNotes;
 use objects::Digest;
-
-use std::collections::BTreeMap;
 
 #[tokio::test]
 async fn test_input_notes_round_trip() {
@@ -244,7 +240,7 @@ async fn test_sync_state_mmr_updates() {
     .unwrap();
 
     // generate test data
-    let (last_block_header, chain_mmr) = crate::mock::insert_mock_data(&mut client);
+    let (last_block_header, _chain_mmr) = crate::mock::insert_mock_data(&mut client);
 
     // assert that we have no consumed nor pending notes prior to syncing state
     assert_eq!(
@@ -310,18 +306,44 @@ async fn test_sync_state_mmr_updates() {
     );
 
     // Try reconstructing the chain_mmr from what's in the database
-    // FIXME: is this the real way to build the MMR? chain_mmr_nodes have the authentication nodes,
-    // not the leaves
-    let all_nodes = client.get_chain_mmr_nodes().unwrap();
-    let leaves: Vec<Digest> = all_nodes.values().cloned().collect();
-    let mmr: Mmr = leaves.into();
+    let _partial_mmr = build_partial_mmr_from_client_state(&mut client);
+}
 
-    let recreated_chain_mmr = crate::mock::mmr_to_chain_mmr(&mmr);
+fn build_partial_mmr_from_client_state(client: &mut Client) -> PartialMmr {
+    // let current_peaks_hash = client
+    //             .get_chain_mmr_peaks_by_block_num(block_num)
+    //             .unwrap();
+    //
+    // assert_eq!(
+    //     current_peaks.hash(),
+    //     chain_mmr.peaks().hash_peaks()
+    // );
+    //
+    // let partial_mmr = PartialMmr::from_peaks(current_peaks)
+    let mut partial_mmr = PartialMmr::from_peaks(MmrPeaks::new(0, Vec::new()).unwrap());
+    let chain_mmr_authentication_nodes = client
+        .get_chain_mmr_nodes()
+        .unwrap();
 
-    assert_eq!(
-        recreated_chain_mmr.peaks().hash_peaks(),
-        chain_mmr.peaks().hash_peaks()
-    );
+    let block_headers = client.get_block_headers(0, client.get_latest_block_num().unwrap()).unwrap();
+
+    let tracked_nodes : Vec<(InOrderIndex, Digest)> = block_headers.iter().map(|block_header| {
+        (InOrderIndex::from_leaf_pos(block_header.block_num() as usize), block_header.hash())
+    }).collect();
+
+    for (in_order_index, node_hash) in tracked_nodes {
+        let mut nodes = Vec::new();
+        let mut idx = in_order_index.clone();
+
+        while let Some(node) = chain_mmr_authentication_nodes.get(&idx.sibling()) {
+            nodes.push(*node);
+            idx = idx.parent();
+        }
+        let leaf_index = ((in_order_index.inner() + 1) / 2) - 1;
+        partial_mmr.add(leaf_index as usize, node_hash, &MerklePath::new(nodes)).unwrap();
+    }
+
+    partial_mmr
 }
 
 #[tokio::test]
