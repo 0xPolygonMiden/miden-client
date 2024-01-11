@@ -39,7 +39,7 @@ pub struct PaymentTransactionData {
 }
 
 impl PaymentTransactionData {
-    pub const fn new(
+    pub fn new(
         asset: Asset,
         sender_account_id: AccountId,
         target_account_id: AccountId,

@@ -75,13 +75,13 @@ pub struct InputNoteRecord {
 }
 
 impl InputNoteRecord {
-    pub const fn new(note: Note, inclusion_proof: Option<NoteInclusionProof>) -> InputNoteRecord {
+    pub fn new(note: Note, inclusion_proof: Option<NoteInclusionProof>) -> InputNoteRecord {
         InputNoteRecord {
             note,
             inclusion_proof,
         }
     }
-    pub const fn note(&self) -> &Note {
+    pub fn note(&self) -> &Note {
         &self.note
     }
 
@@ -89,7 +89,7 @@ impl InputNoteRecord {
         self.note.id()
     }
 
-    pub const fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
+    pub fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
         self.inclusion_proof.as_ref()
     }
 }
