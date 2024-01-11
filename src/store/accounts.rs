@@ -95,15 +95,12 @@ impl Store {
         self.db
             .prepare(QUERY)
             .map_err(StoreError::QueryError)?
-            .query_map([], |row| {
-                let row: i64 = row.get(0)?;
-                Ok(row)
-            })
+            .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
             .map(|result| {
                 result
                     .map_err(StoreError::ColumnParsingError)
-                    .map(|id: i64| AccountId::try_from(id as u64).expect("account id is not valid"))
+                    .map(|id: i64| AccountId::try_from(id as u64).expect("account id is valid"))
             })
             .collect::<Result<Vec<AccountId>, _>>()
     }
