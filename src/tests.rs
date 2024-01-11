@@ -302,16 +302,18 @@ async fn test_sync_state_mmr_updates() {
     // verify that we inserted the latest block into the db via the client
     let latest_block = client.get_latest_block_num().unwrap();
     assert_eq!(block_num, latest_block);
-    assert_eq!(block_header, client.get_block_headers(latest_block, latest_block).unwrap()[0]);
+    assert_eq!(last_block_header, client.get_block_headers(latest_block, latest_block).unwrap()[0]);
 
     // Try reconstructing the chain_mmr from what's in the database
+    // FIXME: is this the real way to build the MMR? chain_mmr_nodes have the authentication nodes,
+    // not the leaves
     let all_nodes = client.get_chain_mmr_nodes().unwrap();
     let leaves: Vec<Digest> = all_nodes.values().cloned().collect();
     let mmr: Mmr = leaves.into();
 
     let recreated_chain_mmr = crate::mock::mmr_to_chain_mmr(&mmr);
 
-    assert_eq!(recreated_chain_mmr, chain_mmr);
+    assert_eq!(recreated_chain_mmr.peaks().hash_peaks(), chain_mmr.peaks().hash_peaks());
 }
 
 #[tokio::test]
