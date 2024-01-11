@@ -59,7 +59,9 @@ impl Store {
     }
 
     #[cfg(test)]
-    pub fn get_full_chain_mmr_nodes(&mut self) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
+    pub fn get_full_chain_mmr_nodes(
+        &mut self,
+    ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
         let tx = self
             .db
             .transaction()

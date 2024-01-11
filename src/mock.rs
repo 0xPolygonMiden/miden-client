@@ -14,32 +14,32 @@ use miden_node_proto::{
     requests::SyncStateRequest,
     responses::{NullifierUpdate, SyncStateResponse},
 };
-use mock::mock::account::{mock_account};
+use mock::mock::account::mock_account;
 use mock::mock::block;
 use mock::mock::notes::mock_notes;
-use objects::BlockHeader;
 use objects::transaction::ChainMmr;
 use objects::utils::collections::BTreeMap;
+use objects::BlockHeader;
 
 use crate::store::accounts::AuthInfo;
 
+use crate::mock::block::mock_block_header;
+use crypto::merkle::InOrderIndex;
 use miden_tx::TransactionExecutor;
+use objects::accounts::AccountId;
 use objects::accounts::AccountType;
 use objects::assets::FungibleAsset;
-use objects::accounts::AccountId;
-use objects::transaction::InputNote;
-use objects::Digest;
 use objects::crypto::merkle::Mmr;
 use objects::crypto::merkle::MmrDelta;
+use objects::crypto::merkle::NodeIndex;
 use objects::crypto::merkle::PartialMmr;
-use crypto::merkle::InOrderIndex;
-use objects::notes::Note;
 use objects::crypto::merkle::SimpleSmt;
+use objects::notes::Note;
+use objects::notes::NoteInclusionProof;
 use objects::notes::NOTE_LEAF_DEPTH;
 use objects::notes::NOTE_TREE_DEPTH;
-use crate::mock::block::mock_block_header;
-use objects::crypto::merkle::NodeIndex;
-use objects::notes::NoteInclusionProof;
+use objects::transaction::InputNote;
+use objects::Digest;
 
 /// Mock RPC API
 ///
@@ -125,7 +125,7 @@ fn create_mock_sync_state_request(
 
     // create a block header for the response
     let block_header: objects::BlockHeader = block::mock_block_header(8, None, None, &[]);
-    
+
     // create a state sync response
     let response = SyncStateResponse {
         chain_tip,
@@ -168,7 +168,8 @@ fn create_mock_sync_state_request(
     };
 
     // create a block header for the response
-    let block_header: objects::BlockHeader = last_block_header.unwrap_or(block::mock_block_header(chain_tip, None, None, &[]));
+    let block_header: objects::BlockHeader =
+        last_block_header.unwrap_or(block::mock_block_header(chain_tip, None, None, &[]));
 
     // create a state sync response
     let response = SyncStateResponse {
@@ -369,7 +370,9 @@ fn mock_full_chain_mmr_and_notes(consumed_notes: Vec<Note>) -> (Mmr, Vec<InputNo
 /// inserts mock note and account data into the client, returns the latest block header and the
 /// chain mmr
 pub fn insert_mock_data(client: &mut Client) -> (BlockHeader, ChainMmr) {
-    use mock::mock::{account::MockAccountType, notes::AssetPreservationStatus, transaction::mock_inputs};
+    use mock::mock::{
+        account::MockAccountType, notes::AssetPreservationStatus, transaction::mock_inputs,
+    };
 
     // generate test data
     let transaction_inputs = mock_inputs(
@@ -509,7 +512,6 @@ impl Client {
         self.tx_executor = TransactionExecutor::new(data_store);
     }
 }
-
 
 /// Helper Functions
 

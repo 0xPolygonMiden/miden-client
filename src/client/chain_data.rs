@@ -3,13 +3,13 @@ use super::Client;
 #[cfg(test)]
 use crate::errors::ClientError;
 #[cfg(test)]
-use objects::BlockHeader;
-#[cfg(test)]
-use std::collections::BTreeMap;
-#[cfg(test)]
 use crypto::merkle::InOrderIndex;
 #[cfg(test)]
+use objects::BlockHeader;
+#[cfg(test)]
 use objects::Digest;
+#[cfg(test)]
+use std::collections::BTreeMap;
 
 impl Client {
     #[cfg(test)]
@@ -29,12 +29,11 @@ impl Client {
     }
 
     #[cfg(test)]
-    pub fn get_chain_mmr_nodes(
-        &mut self,
-    ) -> Result<BTreeMap<InOrderIndex, Digest>, ClientError> {
-        let chain_mmr_nodes = self.store.get_full_chain_mmr_nodes()
+    pub fn get_chain_mmr_nodes(&mut self) -> Result<BTreeMap<InOrderIndex, Digest>, ClientError> {
+        let chain_mmr_nodes = self
+            .store
+            .get_full_chain_mmr_nodes()
             .map_err(ClientError::StoreError)?;
-
 
         Ok(chain_mmr_nodes)
     }
