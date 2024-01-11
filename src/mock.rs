@@ -187,7 +187,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
     create_mock_sync_state_request_for_account_and_notes(
         &mut requests,
         transaction_inputs.account().id(),
-        &transaction_inputs.input_notes(),
+        transaction_inputs.input_notes(),
     );
 
     requests

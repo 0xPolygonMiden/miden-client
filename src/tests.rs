@@ -24,11 +24,11 @@ use mock::{
         transaction::mock_inputs,
     },
 };
+use objects::transaction::InputNotes;
 use objects::{
     accounts::{AccountId, AccountStub},
     assets::TokenSymbol,
 };
-use objects::transaction::InputNotes;
 
 #[tokio::test]
 async fn test_input_notes_round_trip() {

@@ -4,11 +4,10 @@ use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use crypto::{
     dsa::rpo_falcon512::KeyPair,
     utils::{bytes_to_hex_string, Serializable},
-    StarkField, Word, WORD_SIZE,
 };
 use miden_client::client::accounts;
 
-use objects::{accounts::AccountId, assets::TokenSymbol};
+use objects::{accounts::AccountId, assets::TokenSymbol, Digest};
 
 // ACCOUNT COMMAND
 // ================================================================================================
@@ -136,7 +135,7 @@ fn list_accounts(client: Client) -> Result<(), String> {
         ]);
 
     accounts.iter().for_each(|(acc, acc_seed)| {
-        let formatted_seed = format_word_to_single_hex(acc_seed);
+        let formatted_seed = Digest::from(acc_seed).to_string();
 
         table.add_row(vec![
             acc.id().to_string(),
@@ -164,7 +163,7 @@ pub fn show_account(
         .get_account_by_id(account_id)
         .map_err(|err| err.to_string())?;
 
-    let formatted_seed = format_word_to_single_hex(&account_seed);
+    let formatted_seed = Digest::from(account_seed).to_string();
 
     let mut table = Table::new();
     table
@@ -244,17 +243,4 @@ pub fn show_account(
     }
 
     Ok(())
-}
-
-const BYTES_PER_FELT: usize = core::mem::size_of::<u64>();
-const BYTES_PER_WORD: usize = WORD_SIZE * BYTES_PER_FELT;
-fn format_word_to_single_hex(word: &Word) -> String {
-    let mut result = [0; BYTES_PER_WORD];
-
-    result[..8].copy_from_slice(&word[0].as_int().to_le_bytes());
-    result[8..16].copy_from_slice(&word[1].as_int().to_le_bytes());
-    result[16..24].copy_from_slice(&word[2].as_int().to_le_bytes());
-    result[24..].copy_from_slice(&word[3].as_int().to_le_bytes());
-
-    bytes_to_hex_string(result)
 }
