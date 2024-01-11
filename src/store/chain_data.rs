@@ -43,7 +43,7 @@ impl Store {
 
     #[cfg(test)]
     pub fn get_block_header_by_num(&self, block_number: u32) -> Result<BlockHeader, StoreError> {
-        const QUERY: &str = "SELECT block_num, header, notes_root, sub_hash, chain_mmr FROM block_headers WHERE block_num = ?";
+        const QUERY: &str = "SELECT block_num, header, notes_root, sub_hash, chain_mmr, forest FROM block_headers WHERE block_num = ?";
         self.db
             .prepare(QUERY)
             .map_err(StoreError::QueryError)?
