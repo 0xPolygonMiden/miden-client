@@ -24,7 +24,6 @@ use objects::BlockHeader;
 use crate::store::accounts::AuthInfo;
 
 use crate::mock::block::mock_block_header;
-use crypto::merkle::InOrderIndex;
 use miden_tx::TransactionExecutor;
 use objects::accounts::AccountId;
 use objects::accounts::AccountType;
@@ -39,7 +38,6 @@ use objects::notes::NoteInclusionProof;
 use objects::notes::NOTE_LEAF_DEPTH;
 use objects::notes::NOTE_TREE_DEPTH;
 use objects::transaction::InputNote;
-use objects::Digest;
 
 /// Mock RPC API
 ///
@@ -90,15 +88,17 @@ impl MockRpcApi {
     }
 }
 
-fn create_mock_sync_state_request(
+fn create_mock_two_step_sync_state_request(
     requests: &mut BTreeMap<SyncStateRequest, SyncStateResponse>,
     account_id: AccountId,
     recorded_notes: &[InputNote],
     mmr_delta: Option<MmrDelta>,
-    chain_tip: Option<u32>,
     last_block_header: Option<BlockHeader>,
 ) {
     use mock::mock::notes::AssetPreservationStatus;
+
+    // Clear existing mocked data
+    requests.clear();
 
     let accounts = vec![ProtoAccountId {
         id: u64::from(account_id),
@@ -113,7 +113,8 @@ fn create_mock_sync_state_request(
     let account = mock_account(None, Felt::ONE, None, &assembler);
     let (_consumed, created_notes) = mock_notes(&assembler, &AssetPreservationStatus::Preserved);
 
-    // create a state sync request
+    // create a state sync request / response pair for the scenario where there is an needed update
+    // 2 blocks before the current chain tip
     let request = SyncStateRequest {
         block_num: 0,
         account_ids: accounts.clone(),
@@ -121,17 +122,19 @@ fn create_mock_sync_state_request(
         nullifiers: nullifiers.clone(),
     };
 
-    let chain_tip = chain_tip.unwrap_or(10);
+    let block_header: objects::BlockHeader =
+        last_block_header.unwrap_or(block::mock_block_header(10, None, None, &[]));
+    let chain_tip = block_header.block_num();
 
     // create a block header for the response
-    let block_header: objects::BlockHeader = block::mock_block_header(8, None, None, &[]);
+    let prior_block_header: objects::BlockHeader = block::mock_block_header(chain_tip - 2, None, None, &[]);
 
     // create a state sync response
     let response = SyncStateResponse {
         chain_tip,
         mmr_delta: None,
         block_path: None,
-        block_header: Some(NodeBlockHeader::from(block_header)),
+        block_header: Some(NodeBlockHeader::from(prior_block_header)),
         accounts: vec![],
         notes: vec![NoteSyncRecord {
             note_index: 0,
@@ -161,7 +164,7 @@ fn create_mock_sync_state_request(
 
     // create a state sync request
     let request = SyncStateRequest {
-        block_num: 0,
+        block_num: prior_block_header.block_num(),
         account_ids: accounts.clone(),
         note_tags: vec![],
         nullifiers,
@@ -408,12 +411,11 @@ pub fn insert_mock_data(client: &mut Client) -> (BlockHeader, ChainMmr) {
     // Create the Mmr delta update
     let mmr_delta = mmr.get_delta(0, mmr.forest());
 
-    create_mock_sync_state_request(
+    create_mock_two_step_sync_state_request(
         &mut client.rpc_api.sync_state_requests,
         account.id(),
         &recorded_notes,
         mmr_delta.ok(),
-        Some(4),
         Some(last_block_header),
     );
 
