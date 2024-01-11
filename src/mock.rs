@@ -81,10 +81,13 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
     };
 
     // generate test data
-    let (account, _, _, recorded_notes) = mock_inputs(
+    let transaction_inputs = mock_inputs(
         MockAccountType::StandardExisting,
         AssetPreservationStatus::Preserved,
     );
+
+    let account = transaction_inputs.account();
+    let recorded_notes = transaction_inputs.input_notes();
 
     let accounts = vec![ProtoAccountId {
         id: u64::from(account.id()),
@@ -133,15 +136,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
             merkle_path: Some(MerklePath::default()),
         }],
         nullifiers: vec![NullifierUpdate {
-            nullifier: Some(
-                recorded_notes
-                    .first()
-                    .unwrap()
-                    .note()
-                    .nullifier()
-                    .inner()
-                    .into(),
-            ),
+            nullifier: Some(recorded_notes.get_note(0).note().nullifier().inner().into()),
             block_num: 7,
         }],
     };
@@ -177,15 +172,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
             merkle_path: Some(MerklePath::default()),
         }],
         nullifiers: vec![NullifierUpdate {
-            nullifier: Some(
-                recorded_notes
-                    .first()
-                    .unwrap()
-                    .note()
-                    .nullifier()
-                    .inner()
-                    .into(),
-            ),
+            nullifier: Some(recorded_notes.get_note(0).note().nullifier().inner().into()),
             block_num: 7,
         }],
     };
@@ -202,7 +189,7 @@ pub fn insert_mock_data(client: &mut Client) {
     };
 
     // generate test data
-    let (_account, _, _, recorded_notes) = mock_inputs(
+    let transaction_inputs = mock_inputs(
         MockAccountType::StandardExisting,
         AssetPreservationStatus::Preserved,
     );
@@ -212,7 +199,7 @@ pub fn insert_mock_data(client: &mut Client) {
     let (_consumed, created_notes) = mock_notes(&assembler, &AssetPreservationStatus::Preserved);
 
     // insert notes into database
-    for note in recorded_notes.into_iter() {
+    for note in transaction_inputs.input_notes().clone().into_iter() {
         client.import_input_note(note.into()).unwrap();
     }
 
