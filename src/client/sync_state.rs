@@ -66,7 +66,6 @@ impl Client {
             .sync_state_request(block_num, &account_ids, &note_tags, &nullifiers)
             .await?;
 
-        dbg!(&response);
         let incoming_block_header = response.block_header.unwrap();
         let incoming_block_header: BlockHeader = incoming_block_header
             .try_into()

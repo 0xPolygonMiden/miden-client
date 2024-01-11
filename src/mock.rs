@@ -64,7 +64,6 @@ impl MockRpcApi {
         request: impl tonic::IntoRequest<SyncStateRequest>,
     ) -> std::result::Result<tonic::Response<SyncStateResponse>, tonic::Status> {
         let request: SyncStateRequest = request.into_request().into_inner();
-        // dbg!(&self.sync_state_requests);
         match self
             .sync_state_requests
             .iter()
@@ -96,6 +95,8 @@ fn create_mock_sync_state_request(
     account_id: AccountId,
     recorded_notes: &[InputNote],
     mmr_delta: Option<MmrDelta>,
+    chain_tip: Option<u32>,
+    last_block_header: Option<BlockHeader>,
 ) {
     use mock::mock::notes::AssetPreservationStatus;
 
@@ -120,12 +121,11 @@ fn create_mock_sync_state_request(
         nullifiers: nullifiers.clone(),
     };
 
-    let chain_tip = 10;
+    let chain_tip = chain_tip.unwrap_or(10);
 
     // create a block header for the response
     let block_header: objects::BlockHeader = block::mock_block_header(8, None, None, &[]);
     
-    // dbg!(&mmr_delta);
     // create a state sync response
     let response = SyncStateResponse {
         chain_tip,
@@ -168,7 +168,7 @@ fn create_mock_sync_state_request(
     };
 
     // create a block header for the response
-    let block_header: objects::BlockHeader = block::mock_block_header(10, None, None, &[]);
+    let block_header: objects::BlockHeader = last_block_header.unwrap_or(block::mock_block_header(chain_tip, None, None, &[]));
 
     // create a state sync response
     let response = SyncStateResponse {
@@ -310,7 +310,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
     requests
 }
 
-fn mock_full_chain_mmr_and_notes(consumed_notes: Vec<Note>) -> (Mmr, Vec<InputNote>) {
+fn mock_full_chain_mmr_and_notes(consumed_notes: Vec<Note>) -> (Mmr, Vec<InputNote>, BlockHeader) {
     let mut note_trees = Vec::new();
 
     // TODO: Consider how to better represent note authentication data.
@@ -363,7 +363,7 @@ fn mock_full_chain_mmr_and_notes(consumed_notes: Vec<Note>) -> (Mmr, Vec<InputNo
         })
         .collect::<Vec<_>>();
 
-    (mmr, recorded_notes)
+    (mmr, recorded_notes, block_chain[block_chain.len() - 1])
 }
 
 /// inserts mock note and account data into the client, returns the latest block header and the
@@ -382,11 +382,7 @@ pub fn insert_mock_data(client: &mut Client) -> (BlockHeader, ChainMmr) {
     let account = mock_account(None, Felt::ONE, None, &assembler);
     let (input_notes, created_notes) = mock_notes(&assembler, &AssetPreservationStatus::Preserved);
 
-    let (mmr, recorded_notes) = mock_full_chain_mmr_and_notes(input_notes);
-
-    // Block header
-    let block_header =
-        mock_block_header(4, Some(mmr.peaks(mmr.forest()).unwrap().hash_peaks()), None, &[account.clone()]);
+    let (mmr, recorded_notes, last_block_header) = mock_full_chain_mmr_and_notes(input_notes);
 
     // insert notes into database
     for note in transaction_inputs.input_notes().clone().into_iter() {
@@ -408,16 +404,17 @@ pub fn insert_mock_data(client: &mut Client) -> (BlockHeader, ChainMmr) {
 
     // Create the Mmr delta update
     let mmr_delta = mmr.get_delta(0, mmr.forest());
-    // dbg!(&mmr_delta);
 
     create_mock_sync_state_request(
         &mut client.rpc_api.sync_state_requests,
         account.id(),
         &recorded_notes,
-        mmr_delta.ok()
+        mmr_delta.ok(),
+        Some(4),
+        Some(last_block_header),
     );
 
-    (block_header, mmr_to_chain_mmr(&mmr))
+    (last_block_header, mmr_to_chain_mmr(&mmr))
 }
 
 pub async fn create_mock_transaction(client: &mut Client) {
