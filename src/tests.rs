@@ -10,7 +10,10 @@ use crate::{
     },
 };
 
-use crypto::{dsa::rpo_falcon512::KeyPair, merkle::{InOrderIndex, MerklePath, PartialMmr, MmrPeaks}};
+use crypto::{
+    dsa::rpo_falcon512::KeyPair,
+    merkle::{InOrderIndex, MerklePath, MmrPeaks, PartialMmr},
+};
 use miden_lib::transaction::TransactionKernel;
 use mock::mock::{
     account::{self, MockAccountType},
@@ -321,15 +324,21 @@ fn build_partial_mmr_from_client_state(client: &mut Client) -> PartialMmr {
     //
     // let partial_mmr = PartialMmr::from_peaks(current_peaks)
     let mut partial_mmr = PartialMmr::from_peaks(MmrPeaks::new(0, Vec::new()).unwrap());
-    let chain_mmr_authentication_nodes = client
-        .get_chain_mmr_nodes()
+    let chain_mmr_authentication_nodes = client.get_chain_mmr_nodes().unwrap();
+
+    let block_headers = client
+        .get_block_headers(0, client.get_latest_block_num().unwrap())
         .unwrap();
 
-    let block_headers = client.get_block_headers(0, client.get_latest_block_num().unwrap()).unwrap();
-
-    let tracked_nodes : Vec<(InOrderIndex, Digest)> = block_headers.iter().map(|block_header| {
-        (InOrderIndex::from_leaf_pos(block_header.block_num() as usize), block_header.hash())
-    }).collect();
+    let tracked_nodes: Vec<(InOrderIndex, Digest)> = block_headers
+        .iter()
+        .map(|block_header| {
+            (
+                InOrderIndex::from_leaf_pos(block_header.block_num() as usize),
+                block_header.hash(),
+            )
+        })
+        .collect();
 
     for (in_order_index, node_hash) in tracked_nodes {
         let mut nodes = Vec::new();
@@ -340,7 +349,9 @@ fn build_partial_mmr_from_client_state(client: &mut Client) -> PartialMmr {
             idx = idx.parent();
         }
         let leaf_index = ((in_order_index.inner() + 1) / 2) - 1;
-        partial_mmr.add(leaf_index as usize, node_hash, &MerklePath::new(nodes)).unwrap();
+        partial_mmr
+            .add(leaf_index as usize, node_hash, &MerklePath::new(nodes))
+            .unwrap();
     }
 
     partial_mmr

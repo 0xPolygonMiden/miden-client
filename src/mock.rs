@@ -127,7 +127,8 @@ fn create_mock_two_step_sync_state_request(
     let chain_tip = block_header.block_num();
 
     // create a block header for the response
-    let prior_block_header: objects::BlockHeader = block::mock_block_header(chain_tip - 2, None, None, &[]);
+    let prior_block_header: objects::BlockHeader =
+        block::mock_block_header(chain_tip - 2, None, None, &[]);
 
     // create a state sync response
     let response = SyncStateResponse {
