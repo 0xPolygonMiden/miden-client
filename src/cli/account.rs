@@ -93,15 +93,9 @@ impl AccountCmd {
                     },
                     AccountTemplate::NonFungibleFaucet => todo!(),
                 };
-                let (new_account, account_seed) = client
+                let (_new_account, _account_seed) = client
                     .new_account(client_template)
                     .map_err(|err| err.to_string())?;
-
-                println!(
-                    "New account created: {} with seed: {}",
-                    new_account.id(),
-                    format_word_to_single_hex(&account_seed)
-                );
             }
             AccountCmd::Show { id: None, .. } => {
                 todo!("Default accounts are not supported yet")
