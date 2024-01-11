@@ -330,27 +330,21 @@ fn build_partial_mmr_from_client_state(client: &mut Client) -> PartialMmr {
         .get_block_headers(0, client.get_latest_block_num().unwrap())
         .unwrap();
 
-    let tracked_nodes: Vec<(InOrderIndex, Digest)> = block_headers
+    let tracked_nodes: Vec<(usize, Digest)> = block_headers
         .iter()
-        .map(|block_header| {
-            (
-                InOrderIndex::from_leaf_pos(block_header.block_num() as usize),
-                block_header.hash(),
-            )
-        })
+        .map(|block_header| (block_header.block_num() as usize, block_header.hash()))
         .collect();
 
-    for (in_order_index, node_hash) in tracked_nodes {
+    for (block_num, node_hash) in tracked_nodes {
         let mut nodes = Vec::new();
-        let mut idx = in_order_index.clone();
+        let mut idx = InOrderIndex::from_leaf_pos(block_num);
 
         while let Some(node) = chain_mmr_authentication_nodes.get(&idx.sibling()) {
             nodes.push(*node);
             idx = idx.parent();
         }
-        let leaf_index = ((in_order_index.inner() + 1) / 2) - 1;
         partial_mmr
-            .add(leaf_index as usize, node_hash, &MerklePath::new(nodes))
+            .add(block_num as usize, node_hash, &MerklePath::new(nodes))
             .unwrap();
     }
 
