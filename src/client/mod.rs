@@ -32,7 +32,7 @@ pub struct Client {
     pub rpc_api: crate::mock::MockRpcApi,
     #[cfg(any(test, feature = "mock"))]
     pub(crate) tx_executor:
-        TransactionExecutor<crate::store::mock_executor_data_store::MockDataStore>,
+    TransactionExecutor<crate::store::mock_executor_data_store::MockDataStore>,
     #[cfg(not(any(test, feature = "mock")))]
     pub rpc_api: miden_node_proto::rpc::api_client::ApiClient<tonic::transport::Channel>,
     #[cfg(not(any(test, feature = "mock")))]

@@ -262,12 +262,10 @@ mod tests {
     use miden_client::{
         client::Client,
         config::{ClientConfig, Endpoint},
-        store::notes::{InputNoteRecord},
+        store::notes::InputNoteRecord,
     };
     use mock::mock::{
-        account::MockAccountType,
-        notes::{AssetPreservationStatus},
-        transaction::mock_inputs,
+        account::MockAccountType, notes::AssetPreservationStatus, transaction::mock_inputs,
     };
     use std::env::temp_dir;
     use uuid::Uuid;
