@@ -120,6 +120,10 @@ impl Store {
         MmrPeaks::new(0, vec![]).map_err(StoreError::MmrError)
     }
 
+    /// Given a set of input notes we want to consume at a certain block number (all notes belong
+    /// to prior blocks), this builds a PartialMmr sufficient to prove the block inclusion of the
+    /// notes corresponding blocks and a dictionary containing the tracked node numbers along with
+    /// their hash.
     pub fn get_partial_mmr_for_notes(
         &self,
         block_num: u32,
