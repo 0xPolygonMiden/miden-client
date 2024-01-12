@@ -1,6 +1,8 @@
-use std::fs::File;
-use std::io::{Read, Write};
-use std::path::PathBuf;
+use std::{
+    fs::File,
+    io::{Read, Write},
+    path::PathBuf,
+};
 
 use super::{Client, Parser};
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
@@ -8,8 +10,7 @@ use miden_client::store::notes::{InputNoteFilter, InputNoteRecord};
 
 use crypto::utils::{Deserializable, Serializable};
 
-use objects::notes::NoteId;
-use objects::Digest;
+use objects::{notes::NoteId, Digest};
 
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "View input notes")]

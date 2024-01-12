@@ -1,12 +1,15 @@
 use core::fmt;
-use crypto::merkle::MmrError;
-use crypto::utils::DeserializationError;
-use crypto::{dsa::rpo_falcon512::FalconError, utils::HexParseError};
+use crypto::{
+    dsa::rpo_falcon512::FalconError,
+    merkle::MmrError,
+    utils::{DeserializationError, HexParseError},
+};
 use miden_node_proto::error::ParseError;
 use miden_tx::{TransactionExecutorError, TransactionProverError};
-use objects::notes::NoteId;
-use objects::{accounts::AccountId, AccountError, Digest, NoteError, TransactionScriptError};
-use objects::{AssetError, AssetVaultError};
+use objects::{
+    accounts::AccountId, notes::NoteId, AccountError, AssetError, AssetVaultError, Digest,
+    NoteError, TransactionScriptError,
+};
 use tonic::{transport::Error as TransportError, Status as TonicStatus};
 
 // CLIENT ERROR

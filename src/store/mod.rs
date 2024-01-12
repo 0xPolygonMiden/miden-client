@@ -1,5 +1,4 @@
-use crate::config::StoreConfig;
-use crate::errors::StoreError;
+use crate::{config::StoreConfig, errors::StoreError};
 
 use clap::error::Result;
 use crypto::merkle::Mmr;

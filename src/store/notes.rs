@@ -8,8 +8,7 @@ use crypto::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError
 
 use objects::notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteScript};
 
-use objects::transaction::InputNote;
-use objects::{accounts::AccountId, notes::NoteMetadata, Digest, Felt};
+use objects::{accounts::AccountId, notes::NoteMetadata, transaction::InputNote, Digest, Felt};
 use rusqlite::params;
 
 pub(crate) const INSERT_NOTE_QUERY: &str = "\

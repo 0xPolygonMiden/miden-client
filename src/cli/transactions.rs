@@ -1,17 +1,11 @@
-use comfy_table::presets;
-use comfy_table::Attribute;
-use comfy_table::Cell;
-use comfy_table::ContentArrangement;
-use comfy_table::Table;
+use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 
-use miden_client::client::transactions::PaymentTransactionData;
-use miden_client::client::transactions::TransactionStub;
-use miden_client::client::transactions::TransactionTemplate;
-use objects::accounts::AccountId;
-use objects::assets::FungibleAsset;
+use miden_client::client::transactions::{
+    PaymentTransactionData, TransactionStub, TransactionTemplate,
+};
+use objects::{accounts::AccountId, assets::FungibleAsset};
 
-use super::Client;
-use super::Parser;
+use super::{Client, Parser};
 
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "View transactions")]

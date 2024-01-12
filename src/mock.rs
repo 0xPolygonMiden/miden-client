@@ -1,30 +1,34 @@
-use crate::client::transactions::{PaymentTransactionData, TransactionTemplate};
-use crate::client::{Client, FILTER_ID_SHIFT};
-use crypto::{dsa::rpo_falcon512::KeyPair, StarkField};
-use crypto::{Felt, FieldElement};
-use miden_lib::transaction::TransactionKernel;
-use miden_node_proto::account_id::AccountId as ProtoAccountId;
-use miden_node_proto::block_header::BlockHeader as NodeBlockHeader;
-use miden_node_proto::merkle::MerklePath;
-use miden_node_proto::note::NoteSyncRecord;
-use miden_node_proto::requests::SubmitProvenTransactionRequest;
-use miden_node_proto::responses::SubmitProvenTransactionResponse;
-use miden_node_proto::{
-    requests::SyncStateRequest,
-    responses::{NullifierUpdate, SyncStateResponse},
+use crate::client::{
+    transactions::{PaymentTransactionData, TransactionTemplate},
+    Client, FILTER_ID_SHIFT,
 };
-use mock::constants::{generate_account_seed, AccountSeedType};
-use mock::mock::account::mock_account;
+use crypto::{dsa::rpo_falcon512::KeyPair, Felt, FieldElement, StarkField};
+use miden_lib::transaction::TransactionKernel;
+use miden_node_proto::{
+    account_id::AccountId as ProtoAccountId,
+    block_header::BlockHeader as NodeBlockHeader,
+    merkle::MerklePath,
+    note::NoteSyncRecord,
+    requests::{SubmitProvenTransactionRequest, SyncStateRequest},
+    responses::{NullifierUpdate, SubmitProvenTransactionResponse, SyncStateResponse},
+};
+use mock::{
+    constants::{generate_account_seed, AccountSeedType},
+    mock::account::mock_account,
+};
 
-use mock::mock::block;
-use mock::mock::notes::{mock_notes, AssetPreservationStatus};
-use objects::transaction::InputNotes;
-use objects::utils::collections::BTreeMap;
+use mock::mock::{
+    block,
+    notes::{mock_notes, AssetPreservationStatus},
+};
+use objects::{transaction::InputNotes, utils::collections::BTreeMap};
 
 use crate::store::accounts::AuthInfo;
 
-use objects::accounts::{AccountId, AccountType};
-use objects::assets::FungibleAsset;
+use objects::{
+    accounts::{AccountId, AccountType},
+    assets::FungibleAsset,
+};
 
 /// Mock RPC API
 ///
