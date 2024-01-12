@@ -14,6 +14,7 @@ use miden_node_proto::{
     requests::SyncStateRequest,
     responses::{NullifierUpdate, SyncStateResponse},
 };
+use mock::constants::{generate_account_seed, AccountSeedType};
 use mock::mock::account::mock_account;
 use mock::mock::block;
 use mock::mock::notes::mock_notes;
@@ -25,9 +26,6 @@ use crate::store::accounts::AuthInfo;
 
 use crate::mock::block::mock_block_header;
 use miden_tx::TransactionExecutor;
-use objects::accounts::AccountId;
-use objects::accounts::AccountType;
-use objects::assets::FungibleAsset;
 use objects::crypto::merkle::Mmr;
 use objects::crypto::merkle::MmrDelta;
 use objects::crypto::merkle::NodeIndex;
@@ -38,6 +36,8 @@ use objects::notes::NoteInclusionProof;
 use objects::notes::NOTE_LEAF_DEPTH;
 use objects::notes::NOTE_TREE_DEPTH;
 use objects::transaction::InputNote;
+use objects::accounts::{AccountId, AccountType};
+use objects::assets::FungibleAsset;
 
 /// Mock RPC API
 ///
@@ -219,98 +219,16 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
         AssetPreservationStatus::Preserved,
     );
 
-    let account = transaction_inputs.account();
-    let recorded_notes = transaction_inputs.input_notes();
-
-    let accounts = vec![ProtoAccountId {
-        id: u64::from(account.id()),
-    }];
-
-    let nullifiers: Vec<u32> = recorded_notes
-        .iter()
-        .map(|input_note| {
-            (input_note.note().nullifier().as_elements()[3].as_int() >> FILTER_ID_SHIFT) as u32
-        })
-        .collect();
-
     // create sync state requests
     let mut requests = BTreeMap::new();
 
-    let assembler = TransactionKernel::assembler();
-    let account = mock_account(None, Felt::ONE, None, &assembler);
-    let (_consumed, created_notes) = mock_notes(&assembler, &AssetPreservationStatus::Preserved);
-
-    // create a state sync request
-    let request = SyncStateRequest {
-        block_num: 0,
-        account_ids: accounts.clone(),
-        note_tags: vec![],
-        nullifiers: nullifiers.clone(),
-    };
-
-    let chain_tip = 10;
-
-    // create a block header for the response
-    let block_header: objects::BlockHeader = block::mock_block_header(8, None, None, &[]);
-
-    // create a state sync response
-    let response = SyncStateResponse {
-        chain_tip,
-        mmr_delta: None,
-        block_path: None,
-        block_header: Some(NodeBlockHeader::from(block_header)),
-        accounts: vec![],
-        notes: vec![NoteSyncRecord {
-            note_index: 0,
-            note_hash: Some(created_notes.first().unwrap().id().into()),
-            sender: account.id().into(),
-            tag: 0u64,
-            num_assets: 2,
-            merkle_path: Some(MerklePath::default()),
-        }],
-        nullifiers: vec![NullifierUpdate {
-            nullifier: Some(recorded_notes.get_note(0).note().nullifier().inner().into()),
-            block_num: 7,
-        }],
-    };
-    requests.insert(request, response);
-
-    // SECOND REQUEST
-    // ---------------------------------------------------------------------------------
-
-    // create a state sync request
-    let request = SyncStateRequest {
-        block_num: 8,
-        account_ids: accounts.clone(),
-        note_tags: vec![],
-        nullifiers,
-    };
-
-    // create a block header for the response
-    let block_header: objects::BlockHeader = block::mock_block_header(10, None, None, &[]);
-
-    // create a state sync response
-    let response = SyncStateResponse {
-        chain_tip,
-        mmr_delta: None,
-        block_path: None,
-        block_header: Some(NodeBlockHeader::from(block_header)),
-        accounts: vec![],
-        notes: vec![NoteSyncRecord {
-            note_index: 0,
-            note_hash: Some(created_notes.first().unwrap().id().into()),
-            sender: account.id().into(),
-            tag: 0u64,
-            num_assets: 2,
-            merkle_path: Some(MerklePath::default()),
-        }],
-        nullifiers: vec![NullifierUpdate {
-            nullifier: Some(recorded_notes.get_note(0).note().nullifier().inner().into()),
-            block_num: 7,
-        }],
-    };
-
-    requests.insert(request, response);
+    create_mock_two_step_sync_state_request(
+        &mut requests,
+        transaction_inputs.account().id(),
+        &transaction_inputs.input_notes().clone().into_vec(),
+        None,
+        None
+    );
 
     requests
 }
@@ -374,25 +292,19 @@ fn mock_full_chain_mmr_and_notes(consumed_notes: Vec<Note>) -> (Mmr, Vec<InputNo
 /// inserts mock note and account data into the client, returns the latest block header and the
 /// chain mmr
 pub fn insert_mock_data(client: &mut Client) -> (BlockHeader, ChainMmr) {
-    use mock::mock::{
-        account::MockAccountType, notes::AssetPreservationStatus, transaction::mock_inputs,
-    };
-
-    // generate test data
-    let transaction_inputs = mock_inputs(
-        MockAccountType::StandardExisting,
-        AssetPreservationStatus::Preserved,
-    );
+    use mock::mock::notes::AssetPreservationStatus;
 
     // mock notes
     let assembler = TransactionKernel::assembler();
-    let account = mock_account(None, Felt::ONE, None, &assembler);
+    let (account_id, account_seed) =
+        generate_account_seed(AccountSeedType::RegularAccountUpdatableCodeOnChain);
+    let account = mock_account(Some(u64::from(account_id)), Felt::ONE, None, &assembler);
     let (input_notes, created_notes) = mock_notes(&assembler, &AssetPreservationStatus::Preserved);
 
     let (mmr, recorded_notes, last_block_header) = mock_full_chain_mmr_and_notes(input_notes);
 
     // insert notes into database
-    for note in transaction_inputs.input_notes().clone().into_iter() {
+    for note in recorded_notes.clone() {
         client.import_input_note(note.into()).unwrap();
     }
 
@@ -406,7 +318,7 @@ pub fn insert_mock_data(client: &mut Client) -> (BlockHeader, ChainMmr) {
         .map_err(|err| format!("Error generating KeyPair: {}", err))
         .unwrap();
     client
-        .insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&account, account_seed, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
     // Create the Mmr delta update
@@ -435,7 +347,7 @@ pub async fn create_mock_transaction(client: &mut Client) {
     // we need to use an initial seed to create the wallet account
     let init_seed: [u8; 32] = rand::Rng::gen(&mut rng);
 
-    let (sender_account, _) = miden_lib::accounts::wallets::create_basic_wallet(
+    let (sender_account, seed) = miden_lib::accounts::wallets::create_basic_wallet(
         init_seed,
         auth_scheme,
         AccountType::RegularAccountImmutableCode,
@@ -443,7 +355,7 @@ pub async fn create_mock_transaction(client: &mut Client) {
     .unwrap();
 
     client
-        .insert_account(&sender_account, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&sender_account, seed, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
     let key_pair: KeyPair = KeyPair::new()
@@ -457,7 +369,7 @@ pub async fn create_mock_transaction(client: &mut Client) {
     // we need to use an initial seed to create the wallet account
     let init_seed: [u8; 32] = rand::Rng::gen(&mut rng);
 
-    let (target_account, _) = miden_lib::accounts::wallets::create_basic_wallet(
+    let (target_account, seed) = miden_lib::accounts::wallets::create_basic_wallet(
         init_seed,
         auth_scheme,
         AccountType::RegularAccountImmutableCode,
@@ -465,7 +377,7 @@ pub async fn create_mock_transaction(client: &mut Client) {
     .unwrap();
 
     client
-        .insert_account(&target_account, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&target_account, seed, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
     let key_pair: KeyPair = KeyPair::new()
@@ -481,7 +393,7 @@ pub async fn create_mock_transaction(client: &mut Client) {
 
     let max_supply = 10000u64.to_le_bytes();
 
-    let (faucet, _) = miden_lib::accounts::faucets::create_basic_fungible_faucet(
+    let (faucet, seed) = miden_lib::accounts::faucets::create_basic_fungible_faucet(
         init_seed,
         objects::assets::TokenSymbol::new("MOCK").unwrap(),
         4u8,
@@ -491,7 +403,7 @@ pub async fn create_mock_transaction(client: &mut Client) {
     .unwrap();
 
     client
-        .insert_account(&faucet, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&faucet, seed, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
     let asset: objects::assets::Asset = FungibleAsset::new(faucet.id(), 5u64).unwrap().into();

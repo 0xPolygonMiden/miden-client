@@ -7,7 +7,7 @@ use crypto::{
 };
 use miden_client::client::accounts;
 
-use objects::{accounts::AccountId, assets::TokenSymbol};
+use objects::{accounts::AccountId, assets::TokenSymbol, Digest};
 
 // ACCOUNT COMMAND
 // ================================================================================================
@@ -92,11 +92,9 @@ impl AccountCmd {
                     },
                     AccountTemplate::NonFungibleFaucet => todo!(),
                 };
-                let new_account = client
+                let (_new_account, _account_seed) = client
                     .new_account(client_template)
                     .map_err(|err| err.to_string())?;
-
-                println!("New account created: {}", new_account.id());
             }
             AccountCmd::Show { id: None, .. } => {
                 todo!("Default accounts are not supported yet")
@@ -133,15 +131,19 @@ fn list_accounts(client: Client) -> Result<(), String> {
             Cell::new("vault root").add_attribute(Attribute::Bold),
             Cell::new("storage root").add_attribute(Attribute::Bold),
             Cell::new("nonce").add_attribute(Attribute::Bold),
+            Cell::new("account seed").add_attribute(Attribute::Bold),
         ]);
 
-    accounts.iter().for_each(|acc| {
+    accounts.iter().for_each(|(acc, acc_seed)| {
+        let formatted_seed = Digest::from(acc_seed).to_string();
+
         table.add_row(vec![
             acc.id().to_string(),
             acc.code_root().to_string(),
             acc.vault_root().to_string(),
             acc.storage_root().to_string(),
             acc.nonce().to_string(),
+            formatted_seed,
         ]);
     });
 
@@ -157,9 +159,11 @@ pub fn show_account(
     show_storage: bool,
     show_code: bool,
 ) -> Result<(), String> {
-    let account = client
+    let (account, account_seed) = client
         .get_account_by_id(account_id)
         .map_err(|err| err.to_string())?;
+
+    let formatted_seed = Digest::from(account_seed).to_string();
 
     let mut table = Table::new();
     table
@@ -171,6 +175,7 @@ pub fn show_account(
             Cell::new("vault root").add_attribute(Attribute::Bold),
             Cell::new("storage root").add_attribute(Attribute::Bold),
             Cell::new("nonce").add_attribute(Attribute::Bold),
+            Cell::new("account seed").add_attribute(Attribute::Bold),
         ]);
 
     table.add_row(vec![
@@ -179,6 +184,7 @@ pub fn show_account(
         account.vault_root().to_string(),
         account.storage_root().to_string(),
         account.nonce().to_string(),
+        formatted_seed,
     ]);
 
     println!("{table}\n");

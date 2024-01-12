@@ -1,7 +1,10 @@
 // TESTS
 // ================================================================================================
 use crate::{
-    client::Client,
+    client::{
+        accounts::{AccountStorageMode, AccountTemplate},
+        Client,
+    },
     config::{ClientConfig, Endpoint},
     store::{
         accounts::AuthInfo,
@@ -13,16 +16,24 @@ use crate::{
 use crypto::{
     dsa::rpo_falcon512::KeyPair,
     merkle::{InOrderIndex, MerklePath, MmrPeaks, PartialMmr},
+    Felt,
+    FieldElement
 };
 use miden_lib::transaction::TransactionKernel;
-use mock::mock::{
-    account::{self, MockAccountType},
-    notes::AssetPreservationStatus,
-    transaction::mock_inputs,
+use mock::{
+    constants::{generate_account_seed, AccountSeedType},
+    mock::{
+        account::{self, MockAccountType},
+        notes::AssetPreservationStatus,
+        transaction::mock_inputs,
+    },
 };
-use objects::accounts::{AccountId, AccountStub};
 use objects::transaction::InputNotes;
 use objects::Digest;
+use objects::{
+    accounts::{AccountId, AccountStub},
+    assets::TokenSymbol,
+};
 
 #[tokio::test]
 async fn test_input_notes_round_trip() {
@@ -95,6 +106,88 @@ async fn test_get_input_note() {
 }
 
 #[tokio::test]
+async fn insert_basic_account() {
+    // generate test store path
+    let store_path = create_test_store_path();
+
+    // generate test client
+    let mut client = Client::new(ClientConfig::new(
+        store_path.into_os_string().into_string().unwrap(),
+        Endpoint::default(),
+    ))
+    .await
+    .unwrap();
+
+    let account_template = AccountTemplate::BasicWallet {
+        mutable_code: true,
+        storage_mode: AccountStorageMode::Local,
+    };
+
+    // Insert Account
+    let account_insert_result = client.new_account(account_template);
+    assert!(account_insert_result.is_ok());
+
+    let (account, account_seed) = account_insert_result.unwrap();
+
+    // Fetch Account
+    let fetched_account_data = client.get_account_by_id(account.id());
+    assert!(fetched_account_data.is_ok());
+
+    let (fetched_account, fetched_account_seed) = fetched_account_data.unwrap();
+    // Validate stub has matching data
+    assert_eq!(account.id(), fetched_account.id());
+    assert_eq!(account.nonce(), fetched_account.nonce());
+    assert_eq!(account.vault().commitment(), fetched_account.vault_root());
+    assert_eq!(account.storage().root(), fetched_account.storage_root());
+    assert_eq!(account.code().root(), fetched_account.code_root());
+
+    // Validate seed matches
+    assert_eq!(account_seed, fetched_account_seed);
+}
+
+#[tokio::test]
+async fn insert_faucet_account() {
+    // generate test store path
+    let store_path = create_test_store_path();
+
+    // generate test client
+    let mut client = Client::new(ClientConfig::new(
+        store_path.into_os_string().into_string().unwrap(),
+        Endpoint::default(),
+    ))
+    .await
+    .unwrap();
+
+    let faucet_template = AccountTemplate::FungibleFaucet {
+        token_symbol: TokenSymbol::new("TEST").unwrap(),
+        decimals: 10,
+        max_supply: 9999999999,
+        storage_mode: AccountStorageMode::Local,
+    };
+
+    // Insert Account
+    let account_insert_result = client.new_account(faucet_template);
+    assert!(account_insert_result.is_ok());
+
+    let (account, account_seed) = account_insert_result.unwrap();
+
+    // Fetch Account
+    let fetched_account_data = client.get_account_by_id(account.id());
+    assert!(fetched_account_data.is_ok());
+
+    let (fetched_account, fetched_account_seed) = fetched_account_data.unwrap();
+    // Validate stub has matching data
+    assert_eq!(account.id(), fetched_account.id());
+    assert_eq!(account.nonce(), fetched_account.nonce());
+    assert_eq!(account.vault().commitment(), fetched_account.vault_root());
+    assert_eq!(account.storage().root(), fetched_account.storage_root());
+    assert_eq!(account.code().root(), fetched_account.code_root());
+
+    // Validate seed matches
+    assert_eq!(account_seed, fetched_account_seed);
+}
+
+#[tokio::test]
 async fn insert_same_account_twice_fails() {
     // generate test store path
     let store_path = create_test_store_path();
@@ -108,17 +201,20 @@ async fn insert_same_account_twice_fails() {
     .unwrap();
 
     let assembler = TransactionKernel::assembler();
-    let account = account::mock_new_account(&assembler);
+
+    let (account_id, account_seed) =
+        generate_account_seed(AccountSeedType::RegularAccountUpdatableCodeOnChain);
+    let account = account::mock_account(Some(account_id.into()), Felt::ZERO, None, &assembler);
 
     let key_pair: KeyPair = KeyPair::new()
         .map_err(|err| format!("Error generating KeyPair: {}", err))
         .unwrap();
 
     assert!(client
-        .insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&account, account_seed, &AuthInfo::RpoFalcon512(key_pair))
         .is_ok());
     assert!(client
-        .insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&account, account_seed, &AuthInfo::RpoFalcon512(key_pair))
         .is_err());
 }
 
@@ -136,18 +232,21 @@ async fn test_get_account_by_id() {
     .unwrap();
 
     let assembler = TransactionKernel::assembler();
-    let account = account::mock_new_account(&assembler);
+
+    let (account_id, account_seed) =
+        generate_account_seed(AccountSeedType::RegularAccountUpdatableCodeOnChain);
+    let account = account::mock_account(Some(account_id.into()), Felt::ZERO, None, &assembler);
 
     let key_pair: KeyPair = KeyPair::new()
         .map_err(|err| format!("Error generating KeyPair: {}", err))
         .unwrap();
 
     client
-        .insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&account, account_seed, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
     // Retrieving an existing account should succeed
-    let acc_from_db = match client.get_account_by_id(account.id()) {
+    let (acc_from_db, _account_seed) = match client.get_account_by_id(account.id()) {
         Ok(account) => account,
         Err(err) => panic!("Error retrieving account: {}", err),
     };
