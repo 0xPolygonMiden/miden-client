@@ -2,6 +2,7 @@ use crate::config::StoreConfig;
 use crate::errors::StoreError;
 
 use clap::error::Result;
+use crypto::merkle::Mmr;
 use rusqlite::Connection;
 
 pub mod accounts;
@@ -11,14 +12,17 @@ pub mod notes;
 pub mod state_sync;
 pub mod transactions;
 
-#[cfg(any(test, feature = "testing"))]
+#[cfg(any(test, feature = "mock"))]
 pub mod mock_executor_data_store;
+
+pub mod data_store;
 
 // CLIENT STORE
 // ================================================================================================
 
 pub struct Store {
-    db: Connection,
+    pub(crate) db: Connection,
+    pub(crate) mmr: Mmr,
 }
 
 impl Store {
@@ -29,8 +33,9 @@ impl Store {
     pub fn new(config: StoreConfig) -> Result<Self, StoreError> {
         let mut db = Connection::open(config.path).map_err(StoreError::ConnectionError)?;
         migrations::update_to_latest(&mut db)?;
+        let mmr = Mmr::new();
 
-        Ok(Self { db })
+        Ok(Self { db, mmr })
     }
 }
 
@@ -39,6 +44,7 @@ impl Store {
 
 #[cfg(test)]
 pub mod tests {
+    use crypto::merkle::Mmr;
     use std::env::temp_dir;
     use uuid::Uuid;
 
@@ -57,6 +63,9 @@ pub mod tests {
         let mut db = Connection::open(temp_file).unwrap();
         migrations::update_to_latest(&mut db).unwrap();
 
-        Store { db }
+        Store {
+            db,
+            mmr: Mmr::new(),
+        }
     }
 }

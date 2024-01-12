@@ -6,10 +6,13 @@ use clap::error::Result;
 use crypto::dsa::rpo_falcon512::KeyPair;
 use crypto::hash::rpo::RpoDigest;
 use crypto::utils::{Deserializable, Serializable};
+use crypto::Word;
+use miden_lib::transaction::TransactionKernel;
 use objects::accounts::AccountStub;
 use objects::assembly::AstSerdeOptions;
+use objects::assets::AssetVault;
 use objects::{
-    accounts::{Account, AccountCode, AccountId, AccountStorage, AccountVault},
+    accounts::{Account, AccountCode, AccountId, AccountStorage},
     assembly::ModuleAst,
     assets::Asset,
     Digest,
@@ -19,7 +22,7 @@ use rusqlite::{params, Transaction};
 // TYPES
 // ================================================================================================
 type SerializedAccountData = (i64, String, String, String, i64, bool);
-type SerializedAccountsParts = (i64, i64, String, String, String);
+type SerializedAccountsParts = (i64, i64, String, String, String, Vec<u8>);
 
 type SerializedAccountAuthData = (i64, Vec<u8>);
 type SerializedAccountAuthParts = (i64, Vec<u8>);
@@ -28,7 +31,7 @@ type SerializedAccountVaultData = (String, String);
 type SerializedAccountVaultParts = (String, String);
 
 type SerializedAccountCodeData = (String, String, Vec<u8>);
-type SerializedAccountCodeParts = (String, String, String);
+type SerializedAccountCodeParts = (String, String, Vec<u8>);
 
 type SerializedAccountStorageData = (String, Vec<u8>);
 type SerializedAccountStorageParts = (String, Vec<u8>);
@@ -39,6 +42,7 @@ type SerializedAccountStorageParts = (String, Vec<u8>);
 /// Type of Authentication Methods supported by the DB
 ///
 /// TODO: add remaining auth types
+#[derive(Debug)]
 pub enum AuthInfo {
     RpoFalcon512(KeyPair),
 }
@@ -99,13 +103,14 @@ impl Store {
             .map(|result| {
                 result
                     .map_err(StoreError::ColumnParsingError)
-                    .map(|id: u64| AccountId::try_from(id).expect("account id is valid"))
+                    .map(|id: i64| AccountId::try_from(id as u64).expect("account id is valid"))
             })
             .collect::<Result<Vec<AccountId>, _>>()
     }
 
-    pub fn get_accounts(&self) -> Result<Vec<AccountStub>, StoreError> {
-        const QUERY: &str = "SELECT id, nonce, vault_root, storage_root, code_root FROM accounts";
+    pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Word)>, StoreError> {
+        const QUERY: &str =
+            "SELECT id, nonce, vault_root, storage_root, code_root, account_seed FROM accounts";
         self.db
             .prepare(QUERY)
             .map_err(StoreError::QueryError)?
@@ -119,10 +124,13 @@ impl Store {
             .collect()
     }
 
-    pub fn get_account_by_id(&self, account_id: AccountId) -> Result<AccountStub, StoreError> {
+    pub fn get_account_stub_by_id(
+        &self,
+        account_id: AccountId,
+    ) -> Result<(AccountStub, Word), StoreError> {
         let account_id_int: u64 = account_id.into();
         const QUERY: &str =
-            "SELECT id, nonce, vault_root, storage_root, code_root FROM accounts WHERE id = ?";
+            "SELECT id, nonce, vault_root, storage_root, code_root, account_seed FROM accounts WHERE id = ?";
         self.db
             .prepare(QUERY)
             .map_err(StoreError::QueryError)?
@@ -135,6 +143,31 @@ impl Store {
             })
             .next()
             .ok_or(StoreError::AccountDataNotFound(account_id))?
+    }
+
+    // TODO: Get all parts from a single query
+    /// Retrieves a full [Account] object
+    pub fn get_account_by_id(&self, account_id: AccountId) -> Result<(Account, Word), StoreError> {
+        let (account_stub, seed) = self.get_account_stub_by_id(account_id)?;
+        let (_procedures, module_ast) = self.get_account_code(account_stub.code_root())?;
+
+        //let account_code = AccountCode::from_parts(module_ast, procedures);
+        let account_code = AccountCode::new(module_ast, &TransactionKernel::assembler()).unwrap();
+
+        let account_storage = self.get_account_storage(account_stub.storage_root())?;
+
+        let account_vault = self.get_vault_assets(account_stub.vault_root())?;
+        let account_vault = AssetVault::new(&account_vault).map_err(StoreError::AssetVaultError)?;
+
+        let account = Account::new(
+            account_stub.id(),
+            account_vault,
+            account_storage,
+            account_code,
+            account_stub.nonce(),
+        );
+
+        Ok((account, seed))
     }
 
     /// Retrieve account keys data by Account Id
@@ -160,9 +193,8 @@ impl Store {
         &self,
         root: Digest,
     ) -> Result<(Vec<RpoDigest>, ModuleAst), StoreError> {
-        let root_serialized =
-            serde_json::to_string(&root).map_err(StoreError::InputSerializationError)?;
-        const QUERY: &str = "SELECT procedures, module FROM account_code WHERE root = ?";
+        let root_serialized = root.to_string();
+        const QUERY: &str = "SELECT root, procedures, module FROM account_code WHERE root = ?";
 
         self.db
             .prepare(QUERY)
@@ -202,16 +234,16 @@ impl Store {
         let vault_root =
             serde_json::to_string(&root).map_err(StoreError::InputSerializationError)?;
 
-        const QUERY: &str = "SELECT assets FROM account_vaults WHERE root = ?";
+        const QUERY: &str = "SELECT root, assets FROM account_vaults WHERE root = ?";
         self.db
             .prepare(QUERY)
             .map_err(StoreError::QueryError)?
-            .query_map(params![vault_root], parse_account_vault_columns)
+            .query_map(params![vault_root], parse_account_asset_vault_columns)
             .map_err(StoreError::QueryError)?
             .map(|result| {
                 result
                     .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_account_vault)
+                    .and_then(parse_account_asset_vault)
             })
             .next()
             .ok_or(StoreError::VaultDataNotFound(root))?
@@ -220,6 +252,7 @@ impl Store {
     pub fn insert_account(
         &mut self,
         account: &Account,
+        account_seed: Word,
         auth_info: &AuthInfo,
     ) -> Result<(), StoreError> {
         let tx = self
@@ -229,20 +262,35 @@ impl Store {
 
         Self::insert_account_code(&tx, account.code())?;
         Self::insert_account_storage(&tx, account.storage())?;
-        Self::insert_account_vault(&tx, account.vault())?;
-        Self::insert_account_record(&tx, account)?;
+        Self::insert_account_asset_vault(&tx, account.vault())?;
+        Self::insert_account_record(&tx, account, account_seed)?;
         Self::insert_account_auth(&tx, account.id(), auth_info)?;
 
         tx.commit().map_err(StoreError::TransactionError)
     }
 
-    fn insert_account_record(tx: &Transaction<'_>, account: &Account) -> Result<(), StoreError> {
+    fn insert_account_record(
+        tx: &Transaction<'_>,
+        account: &Account,
+        account_seed: Word,
+    ) -> Result<(), StoreError> {
         let (id, code_root, storage_root, vault_root, nonce, committed) =
             serialize_account(account)?;
-        const QUERY: &str =  "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed) VALUES (?, ?, ?, ?, ?, ?)";
+
+        let account_seed = account_seed.to_bytes();
+
+        const QUERY: &str =  "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed) VALUES (?, ?, ?, ?, ?, ?, ?)";
         tx.execute(
             QUERY,
-            params![id, code_root, storage_root, vault_root, nonce, committed],
+            params![
+                id,
+                code_root,
+                storage_root,
+                vault_root,
+                nonce,
+                committed,
+                account_seed
+            ],
         )
         .map(|_| ())
         .map_err(StoreError::QueryError)
@@ -253,8 +301,8 @@ impl Store {
         account_code: &AccountCode,
     ) -> Result<(), StoreError> {
         let (code_root, code, module) = serialize_account_code(account_code)?;
-
-        const QUERY: &str = "INSERT INTO account_code (root, procedures, module) VALUES (?, ?, ?)";
+        const QUERY: &str =
+            "INSERT OR IGNORE INTO account_code (root, procedures, module) VALUES (?, ?, ?)";
         tx.execute(QUERY, params![code_root, code, module,])
             .map(|_| ())
             .map_err(StoreError::QueryError)
@@ -265,18 +313,18 @@ impl Store {
         account_storage: &AccountStorage,
     ) -> Result<(), StoreError> {
         let (storage_root, storage_slots) = serialize_account_storage(account_storage)?;
-        const QUERY: &str = "INSERT INTO account_storage (root, slots) VALUES (?, ?)";
+        const QUERY: &str = "INSERT OR IGNORE INTO account_storage (root, slots) VALUES (?, ?)";
         tx.execute(QUERY, params![storage_root, storage_slots])
             .map(|_| ())
             .map_err(StoreError::QueryError)
     }
 
-    fn insert_account_vault(
+    fn insert_account_asset_vault(
         tx: &Transaction<'_>,
-        account_vault: &AccountVault,
+        asset_vault: &AssetVault,
     ) -> Result<(), StoreError> {
-        let (vault_root, assets) = serialize_account_vault(account_vault)?;
-        const QUERY: &str = "INSERT INTO account_vaults (root, assets) VALUES (?, ?)";
+        let (vault_root, assets) = serialize_account_asset_vault(asset_vault)?;
+        const QUERY: &str = "INSERT OR IGNORE INTO account_vaults (root, assets) VALUES (?, ?)";
         tx.execute(QUERY, params![vault_root, assets])
             .map(|_| ())
             .map_err(StoreError::QueryError)
@@ -307,23 +355,29 @@ pub(crate) fn parse_accounts_columns(
     let vault_root: String = row.get(2)?;
     let storage_root: String = row.get(3)?;
     let code_root: String = row.get(4)?;
-    Ok((id, nonce, vault_root, storage_root, code_root))
+    let account_seed: Vec<u8> = row.get(5)?;
+    Ok((id, nonce, vault_root, storage_root, code_root, account_seed))
 }
 
 /// Parse an account from the provided parts.
 pub(crate) fn parse_accounts(
     serialized_account_parts: SerializedAccountsParts,
-) -> Result<AccountStub, StoreError> {
-    let (id, nonce, vault_root, storage_root, code_root) = serialized_account_parts;
+) -> Result<(AccountStub, Word), StoreError> {
+    let (id, nonce, vault_root, storage_root, code_root, account_seed) = serialized_account_parts;
+    let account_seed_word: Word =
+        Word::read_from_bytes(&account_seed).map_err(StoreError::DataDeserializationError)?;
 
-    Ok(AccountStub::new(
-        (id as u64)
-            .try_into()
-            .expect("Conversion from stored AccountID should not panic"),
-        (nonce as u64).into(),
-        serde_json::from_str(&vault_root).map_err(StoreError::JsonDataDeserializationError)?,
-        Digest::try_from(&storage_root).map_err(StoreError::HexParseError)?,
-        serde_json::from_str(&code_root).map_err(StoreError::JsonDataDeserializationError)?,
+    Ok((
+        AccountStub::new(
+            (id as u64)
+                .try_into()
+                .expect("Conversion from stored AccountID should not panic"),
+            (nonce as u64).into(),
+            serde_json::from_str(&vault_root).map_err(StoreError::JsonDataDeserializationError)?,
+            Digest::try_from(&storage_root).map_err(StoreError::HexParseError)?,
+            serde_json::from_str(&code_root).map_err(StoreError::JsonDataDeserializationError)?,
+        ),
+        account_seed_word,
     ))
 }
 
@@ -383,7 +437,7 @@ fn parse_account_code_columns(
 ) -> Result<SerializedAccountCodeParts, rusqlite::Error> {
     let root: String = row.get(0)?;
     let procedures: String = row.get(1)?;
-    let module: String = row.get(2)?;
+    let module: Vec<u8> = row.get(2)?;
     Ok((root, procedures, module))
 }
 
@@ -395,8 +449,7 @@ fn parse_account_code(
 
     let procedures =
         serde_json::from_str(&procedures).map_err(StoreError::JsonDataDeserializationError)?;
-    let module =
-        ModuleAst::from_bytes(module.as_bytes()).map_err(StoreError::DataDeserializationError)?;
+    let module = ModuleAst::from_bytes(&module).map_err(StoreError::DataDeserializationError)?;
     Ok((procedures, module))
 }
 
@@ -404,8 +457,7 @@ fn parse_account_code(
 fn serialize_account_code(
     account_code: &AccountCode,
 ) -> Result<SerializedAccountCodeData, StoreError> {
-    let root =
-        serde_json::to_string(&account_code.root()).map_err(StoreError::InputSerializationError)?;
+    let root = account_code.root().to_string();
     let procedures = serde_json::to_string(account_code.procedures())
         .map_err(StoreError::InputSerializationError)?;
     let module = account_code.module().to_bytes(AstSerdeOptions {
@@ -446,7 +498,7 @@ fn serialize_account_storage(
 }
 
 /// Parse account_vault columns from the provided row into native types.
-fn parse_account_vault_columns(
+fn parse_account_asset_vault_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedAccountVaultParts, rusqlite::Error> {
     let root: String = row.get(0)?;
@@ -455,22 +507,22 @@ fn parse_account_vault_columns(
 }
 
 /// Parse a vector of assets from the provided parts.
-fn parse_account_vault(
-    serialized_account_vault_parts: SerializedAccountVaultParts,
+fn parse_account_asset_vault(
+    serialized_account_asset_vault_parts: SerializedAccountVaultParts,
 ) -> Result<Vec<Asset>, StoreError> {
-    let (_, assets) = serialized_account_vault_parts;
+    let (_, assets) = serialized_account_asset_vault_parts;
 
     let assets = serde_json::from_str(&assets).map_err(StoreError::JsonDataDeserializationError)?;
     Ok(assets)
 }
 
-/// Serialize the provided account_vault into database compatible types.
-fn serialize_account_vault(
-    account_vault: &AccountVault,
+/// Serialize the provided asset_vault into database compatible types.
+fn serialize_account_asset_vault(
+    asset_vault: &AssetVault,
 ) -> Result<SerializedAccountVaultData, StoreError> {
-    let root = serde_json::to_string(&account_vault.commitment())
+    let root = serde_json::to_string(&asset_vault.commitment())
         .map_err(StoreError::InputSerializationError)?;
-    let assets: Vec<Asset> = account_vault.assets().collect();
+    let assets: Vec<Asset> = asset_vault.assets().collect();
     let assets = serde_json::to_string(&assets).map_err(StoreError::InputSerializationError)?;
     Ok((root, assets))
 }
@@ -481,7 +533,6 @@ pub mod tests {
         dsa::rpo_falcon512::KeyPair,
         utils::{Deserializable, Serializable},
     };
-    use miden_lib::assembler::assembler;
     use mock::mock::account;
 
     use crate::store::{self, tests::create_test_store};
@@ -491,7 +542,7 @@ pub mod tests {
     #[test]
     fn test_account_code_insertion_no_duplicates() {
         let mut store = create_test_store();
-        let assembler = assembler();
+        let assembler = miden_lib::transaction::TransactionKernel::assembler();
         let account_code = account::mock_account_code(&assembler);
         let tx = store.db.transaction().unwrap();
 
@@ -508,8 +559,8 @@ pub mod tests {
             .unwrap();
         assert_eq!(actual, 1);
 
-        // Second insertion does not generate a new row
-        assert!(store::Store::insert_account_code(&tx, &account_code).is_err());
+        // Second insertion passes but does not generate a new row
+        assert!(store::Store::insert_account_code(&tx, &account_code).is_ok());
         actual = tx
             .query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0))
             .unwrap();

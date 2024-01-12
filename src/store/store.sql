@@ -15,7 +15,7 @@ CREATE TABLE account_storage (
 
 -- Create account_vaults table
 CREATE TABLE account_vaults (
-    root BLOB NOT NULL,         -- root of the Merkle tree for the account vault.
+    root BLOB NOT NULL,         -- root of the Merkle tree for the account asset vault.
     assets BLOB NOT NULL,       -- serialized account vault assets.
     PRIMARY KEY (root)
 );
@@ -36,14 +36,16 @@ CREATE TABLE accounts (
     vault_root BLOB NOT NULL,      -- root of the account_vault Merkle tree.
     nonce BIGINT NOT NULL,         -- account nonce.
     committed BOOLEAN NOT NULL,    -- true if recorded, false if not.
-    PRIMARY KEY (id),
-    FOREIGN KEY (code_root) REFERENCES account_code(root),
-    FOREIGN KEY (storage_root) REFERENCES account_storage(root),
-    FOREIGN KEY (vault_root) REFERENCES account_vaults(root)
+    account_seed BLOB NOT NULL,    -- account seed used to generate the ID.
+    PRIMARY KEY (id)
+    --FOREIGN KEY (code_root) REFERENCES account_code(root),
+    --FOREIGN KEY (storage_root) REFERENCES account_storage(root),
+    --FOREIGN KEY (vault_root) REFERENCES account_vaults(root)
 );
 
 -- Create transactions table
 -- TODO: Script-related information is to be moved to its own table referenced by the script_hash
+
 CREATE TABLE transactions (
     id BLOB NOT NULL,                                -- Transaction ID (hash of various components)
     account_id UNSIGNED BIG INT NOT NULL,            -- ID of the account against which the transaction was executed.
@@ -64,7 +66,7 @@ CREATE TABLE transactions (
 
 -- Create input notes table
 CREATE TABLE input_notes (
-    hash BLOB NOT NULL,                                     -- the note hash
+    note_id BLOB NOT NULL,                                  -- the note id
     nullifier BLOB NOT NULL,                                -- the nullifier of the note
     script BLOB NOT NULL,                                   -- the serialized NoteScript, including script hash and ProgramAst
     vault BLOB NOT NULL,                                    -- the serialized NoteVault, including vault hash and list of assets
@@ -79,7 +81,7 @@ CREATE TABLE input_notes (
         'pending', 'committed', 'consumed'
         )),
     commit_height UNSIGNED BIG INT NOT NULL,                -- the block number at which the note was included into the chain
-    PRIMARY KEY (hash)
+    PRIMARY KEY (note_id)
 );
 
 -- Create state sync table
@@ -103,7 +105,7 @@ CREATE TABLE block_headers(
     notes_root BLOB NOT NULL,             -- root of the notes Merkle tree in this block
     sub_hash BLOB NOT NULL,               -- hash of all other header fields in the block
     chain_mmr BLOB NOT NULL,              -- serialized peaks of the chain MMR at this block
-    forest UNSIGNED BIG NOT NULL,         -- forest of the chain MMR at this block
+    forest UNSIGNED BIG INT NOT NULL,     -- forest of the chain MMR at this block
     PRIMARY KEY (block_num)
 );
 

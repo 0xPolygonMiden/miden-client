@@ -1,6 +1,6 @@
 use super::Client;
-use crypto::Felt;
-use miden_lib::{faucets, AuthScheme};
+use crypto::{Felt, Word};
+use miden_lib::AuthScheme;
 use objects::{
     accounts::{Account, AccountId, AccountStorage, AccountStub, AccountType},
     assembly::ModuleAst,
@@ -36,10 +36,13 @@ impl Client {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 
-    pub fn new_account(&mut self, template: AccountTemplate) -> Result<Account, ClientError> {
+    pub fn new_account(
+        &mut self,
+        template: AccountTemplate,
+    ) -> Result<(Account, Word), ClientError> {
         let mut rng = rand::thread_rng();
 
-        let account = match template {
+        let account_and_seed = match template {
             AccountTemplate::BasicWallet {
                 mutable_code,
                 storage_mode,
@@ -54,7 +57,7 @@ impl Client {
             }
         }?;
 
-        Ok(account)
+        Ok(account_and_seed)
     }
 
     fn new_basic_wallet(
@@ -62,7 +65,7 @@ impl Client {
         mutable_code: bool,
         rng: &mut ThreadRng,
         account_storage_mode: AccountStorageMode,
-    ) -> Result<Account, ClientError> {
+    ) -> Result<(Account, Word), ClientError> {
         if let AccountStorageMode::OnChain = account_storage_mode {
             todo!("Recording the account on chain is not supported yet");
         }
@@ -77,14 +80,14 @@ impl Client {
         // we need to use an initial seed to create the wallet account
         let init_seed: [u8; 32] = rng.gen();
 
-        let (account, _seed) = if !mutable_code {
-            miden_lib::wallets::create_basic_wallet(
+        let (account, seed) = if !mutable_code {
+            miden_lib::accounts::wallets::create_basic_wallet(
                 init_seed,
                 auth_scheme,
                 AccountType::RegularAccountImmutableCode,
             )
         } else {
-            miden_lib::wallets::create_basic_wallet(
+            miden_lib::accounts::wallets::create_basic_wallet(
                 init_seed,
                 auth_scheme,
                 AccountType::RegularAccountUpdatableCode,
@@ -92,8 +95,8 @@ impl Client {
         }
         .map_err(ClientError::AccountError)?;
 
-        self.insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))?;
-        Ok(account)
+        self.insert_account(&account, seed, &AuthInfo::RpoFalcon512(key_pair))?;
+        Ok((account, seed))
     }
 
     fn new_fungible_faucet(
@@ -103,7 +106,7 @@ impl Client {
         max_supply: u64,
         rng: &mut ThreadRng,
         account_storage_mode: AccountStorageMode,
-    ) -> Result<Account, ClientError> {
+    ) -> Result<(Account, Word), ClientError> {
         if let AccountStorageMode::OnChain = account_storage_mode {
             todo!("On-chain accounts are not supported yet");
         }
@@ -118,7 +121,7 @@ impl Client {
         // we need to use an initial seed to create the wallet account
         let init_seed: [u8; 32] = rng.gen();
 
-        let (account, _seed) = faucets::create_basic_fungible_faucet(
+        let (account, seed) = miden_lib::accounts::faucets::create_basic_fungible_faucet(
             init_seed,
             token_symbol,
             decimals,
@@ -128,18 +131,19 @@ impl Client {
         )
         .map_err(ClientError::AccountError)?;
 
-        self.insert_account(&account, &AuthInfo::RpoFalcon512(key_pair))?;
-        Ok(account)
+        self.insert_account(&account, seed, &AuthInfo::RpoFalcon512(key_pair))?;
+        Ok((account, seed))
     }
 
     /// Inserts a new account into the client's store.
     pub fn insert_account(
         &mut self,
         account: &Account,
+        account_seed: Word,
         auth_info: &AuthInfo,
     ) -> Result<(), ClientError> {
         self.store
-            .insert_account(account, auth_info)
+            .insert_account(account, account_seed, auth_info)
             .map_err(ClientError::StoreError)
     }
 
@@ -149,14 +153,24 @@ impl Client {
     /// Returns summary info about the accounts managed by this client.
     ///
     /// TODO: replace `AccountStub` with a more relevant structure.
-    pub fn get_accounts(&self) -> Result<Vec<AccountStub>, ClientError> {
+    pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Word)>, ClientError> {
         self.store.get_accounts().map_err(|err| err.into())
     }
 
     /// Returns summary info about the specified account.
-    pub fn get_account_by_id(&self, account_id: AccountId) -> Result<AccountStub, ClientError> {
+    pub fn get_account_by_id(&self, account_id: AccountId) -> Result<(Account, Word), ClientError> {
         self.store
             .get_account_by_id(account_id)
+            .map_err(|err| err.into())
+    }
+
+    /// Returns summary info about the specified account.
+    pub fn get_account_stub_by_id(
+        &self,
+        account_id: AccountId,
+    ) -> Result<(AccountStub, Word), ClientError> {
+        self.store
+            .get_account_stub_by_id(account_id)
             .map_err(|err| err.into())
     }
 

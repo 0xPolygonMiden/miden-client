@@ -1,16 +1,9 @@
 // MIDEN CLIENT
 // ================================================================================================
 
-use crate::{
-    config::ClientConfig,
-    errors::ClientError,
-    store::{mock_executor_data_store::MockDataStore, Store},
-};
+use crate::{config::ClientConfig, errors::ClientError, store::Store};
 
 use miden_tx::TransactionExecutor;
-
-#[cfg(feature = "testing")]
-use crate::mock::MockRpcApi;
 
 pub mod accounts;
 pub mod chain_data;
@@ -35,10 +28,15 @@ pub const FILTER_ID_SHIFT: u8 = 48;
 pub struct Client {
     /// Local database containing information about the accounts managed by this client.
     pub(crate) store: Store,
-    #[cfg(any(test, feature = "testing"))]
-    pub rpc_api: MockRpcApi,
-    #[cfg(any(test, feature = "testing"))]
-    pub(crate) tx_executor: TransactionExecutor<MockDataStore>,
+    #[cfg(any(test, feature = "mock"))]
+    pub rpc_api: crate::mock::MockRpcApi,
+    #[cfg(any(test, feature = "mock"))]
+    pub(crate) tx_executor:
+        TransactionExecutor<crate::store::mock_executor_data_store::MockDataStore>,
+    #[cfg(not(any(test, feature = "mock")))]
+    pub rpc_api: miden_node_proto::rpc::api_client::ApiClient<tonic::transport::Channel>,
+    #[cfg(not(any(test, feature = "mock")))]
+    pub tx_executor: TransactionExecutor<crate::store::data_store::SqliteDataStore>,
 }
 
 impl Client {
@@ -50,7 +48,7 @@ impl Client {
     /// # Errors
     /// Returns an error if the client could not be instantiated.
     pub async fn new(config: ClientConfig) -> Result<Self, ClientError> {
-        #[cfg(not(any(test, feature = "testing")))]
+        #[cfg(not(any(test, feature = "mock")))]
         return Ok(Self {
             store: Store::new((&config).into())?,
             rpc_api: miden_node_proto::rpc::api_client::ApiClient::connect(
@@ -65,11 +63,13 @@ impl Client {
             )),
         });
 
-        #[cfg(any(test, feature = "testing"))]
+        #[cfg(any(test, feature = "mock"))]
         return Ok(Self {
             store: Store::new((&config).into())?,
             rpc_api: Default::default(),
-            tx_executor: TransactionExecutor::new(MockDataStore::new()),
+            tx_executor: TransactionExecutor::new(
+                crate::store::mock_executor_data_store::MockDataStore::new(),
+            ),
         });
     }
 }

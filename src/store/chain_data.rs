@@ -6,9 +6,9 @@ use crate::errors::StoreError;
 
 use clap::error::Result;
 
-use crypto::merkle::InOrderIndex;
+use crypto::merkle::{InOrderIndex, MmrPeaks};
 use objects::{BlockHeader, Digest};
-use rusqlite::{params, Transaction};
+use rusqlite::{params, OptionalExtension, Transaction};
 
 type SerializedBlockHeaderData = (i64, String, String, String, String, i64);
 type SerializedBlockHeaderParts = (u64, String, String, String, String, u64);
@@ -22,9 +22,10 @@ impl Store {
     pub fn insert_block_header(
         tx: &Transaction<'_>,
         block_header: BlockHeader,
-        chain_mmr_peaks: Vec<Digest>,
+        chain_mmr_peaks: MmrPeaks,
         forest: u64,
     ) -> Result<(), StoreError> {
+        let chain_mmr_peaks = chain_mmr_peaks.peaks().to_vec();
         let (block_num, header, notes_root, sub_hash, chain_mmr, forest) =
             serialize_block_header(block_header, chain_mmr_peaks, forest)?;
 
@@ -41,9 +42,8 @@ impl Store {
         .map(|_| ())
     }
 
-    #[cfg(test)]
     pub fn get_block_header_by_num(&self, block_number: u32) -> Result<BlockHeader, StoreError> {
-        const QUERY: &str = "SELECT block_num, header, notes_root, sub_hash, chain_mmr FROM block_headers WHERE block_num = ?";
+        const QUERY: &str = "SELECT block_num, header, notes_root, sub_hash, chain_mmr, forest FROM block_headers WHERE block_num = ?";
         self.db
             .prepare(QUERY)
             .map_err(StoreError::QueryError)?
@@ -84,11 +84,10 @@ impl Store {
     }
 
     /// Returns all nodes in the table.
-    pub fn get_chain_mmr_nodes(
-        tx: &Transaction<'_>,
-    ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
+    pub fn get_chain_mmr_nodes(&self) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
         const QUERY: &str = "SELECT id, node FROM chain_mmr_nodes";
-        tx.prepare(QUERY)
+        self.db
+            .prepare(QUERY)
             .map_err(StoreError::QueryError)?
             .query_map(params![], parse_chain_mmr_nodes_columns)
             .map_err(StoreError::QueryError)?
@@ -99,10 +98,43 @@ impl Store {
             })
             .collect()
     }
+
+    /// Returns all nodes in the table.
+    pub fn get_chain_mmr_peaks_by_block_num(&self, block_num: u32) -> Result<MmrPeaks, StoreError> {
+        const QUERY: &str = "SELECT forest, chain_mmr FROM block_headers WHERE block_num = ?";
+
+        let mmr_peaks = self
+            .db
+            .prepare(QUERY)
+            .map_err(StoreError::QueryError)?
+            .query_row(params![block_num], |row| {
+                let forest: usize = row.get(0)?;
+                let peaks: String = row.get(1)?;
+                Ok((forest, peaks))
+            })
+            .optional()
+            .map_err(StoreError::QueryError)?
+            .unwrap_or_default();
+
+        parse_mmr_peaks(mmr_peaks)
+    }
 }
 
 // HELPERS
 // ================================================================================================
+
+fn parse_mmr_peaks(peaks_parts: (usize, String)) -> Result<MmrPeaks, StoreError> {
+    let (forest, nodes) = peaks_parts;
+
+    if forest == 0 {
+        return MmrPeaks::new(0, vec![]).map_err(StoreError::MmrError);
+    }
+
+    let mmr_peaks_nodes: Vec<Digest> =
+        serde_json::from_str(&nodes).map_err(StoreError::JsonDataDeserializationError)?;
+
+    MmrPeaks::new(forest, mmr_peaks_nodes).map_err(StoreError::MmrError)
+}
 
 fn serialize_block_header(
     block_header: BlockHeader,
@@ -129,8 +161,6 @@ fn serialize_block_header(
     ))
 }
 
-// Unused until we need to query the block headers table
-#[allow(dead_code)]
 fn parse_block_headers_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedBlockHeaderParts, rusqlite::Error> {
@@ -140,6 +170,7 @@ fn parse_block_headers_columns(
     let sub_hash: String = row.get(3)?;
     let chain_mmr: String = row.get(4)?;
     let forest: i64 = row.get(5)?;
+
     Ok((
         block_num as u64,
         header,
@@ -150,8 +181,6 @@ fn parse_block_headers_columns(
     ))
 }
 
-// Unused until we need to query the block headers table
-#[allow(dead_code)]
 fn parse_block_header(
     serialized_block_header_parts: SerializedBlockHeaderParts,
 ) -> Result<BlockHeader, StoreError> {
@@ -187,3 +216,5 @@ fn parse_chain_mmr_nodes(
         serde_json::from_str(&node).map_err(StoreError::JsonDataDeserializationError)?;
     Ok((id, node))
 }
+
+mod test {}
