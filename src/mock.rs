@@ -1,6 +1,6 @@
 use crate::client::{
     transactions::{PaymentTransactionData, TransactionTemplate},
-    Client, FILTER_ID_SHIFT,
+    Client, sync_state::FILTER_ID_SHIFT,
 };
 use crypto::{dsa::rpo_falcon512::KeyPair, Felt, FieldElement, StarkField};
 use miden_lib::transaction::TransactionKernel;

@@ -14,9 +14,6 @@ pub mod transactions;
 // CONSTANTS
 // ================================================================================================
 
-/// The number of bits to shift identifiers for in use of filters.
-pub const FILTER_ID_SHIFT: u8 = 48;
-
 /// A light client for connecting to the Miden rollup network.
 ///
 /// Miden client is responsible for managing a set of accounts. Specifically, the client:
@@ -33,6 +30,7 @@ pub struct Client {
     pub tx_executor: TransactionExecutor<crate::store::data_store::SqliteDataStore>,
 }
 
+#[cfg(not(any(test, feature = "mock")))]
 impl Client {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
@@ -41,7 +39,6 @@ impl Client {
     ///
     /// # Errors
     /// Returns an error if the client could not be instantiated.
-    #[cfg(not(any(test, feature = "mock")))]
     pub async fn new(config: ClientConfig) -> Result<Self, ClientError> {
         use crate::{errors::RpcApiError, store::data_store::SqliteDataStore};
         use miden_node_proto::rpc::api_client::ApiClient;

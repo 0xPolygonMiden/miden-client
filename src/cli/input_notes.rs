@@ -271,7 +271,7 @@ mod tests {
     use uuid::Uuid;
 
     #[tokio::test]
-    pub async fn import_export_recorded_note() {
+    async fn import_export_recorded_note() {
         // generate test client
         let mut path = temp_dir();
         path.push(Uuid::new_v4().to_string());
