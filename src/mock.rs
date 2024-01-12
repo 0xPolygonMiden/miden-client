@@ -1,43 +1,35 @@
 use crate::client::transactions::{PaymentTransactionData, TransactionTemplate};
 use crate::client::{Client, FILTER_ID_SHIFT};
+use crate::mock::block::mock_block_header;
+use crate::store::accounts::AuthInfo;
 use crate::store::mock_executor_data_store::MockDataStore;
 use crypto::{dsa::rpo_falcon512::KeyPair, StarkField};
 use crypto::{Felt, FieldElement};
 use miden_lib::transaction::TransactionKernel;
-use miden_node_proto::block_header::BlockHeader as NodeBlockHeader;
-use miden_node_proto::merkle::MerklePath;
-use miden_node_proto::note::NoteSyncRecord;
-use miden_node_proto::requests::SubmitProvenTransactionRequest;
-use miden_node_proto::responses::SubmitProvenTransactionResponse;
 use miden_node_proto::{
     account::AccountId as ProtoAccountId,
-    requests::SyncStateRequest,
-    responses::{NullifierUpdate, SyncStateResponse},
+    block_header::BlockHeader as NodeBlockHeader,
+    merkle::MerklePath,
+    note::NoteSyncRecord,
+    requests::{SubmitProvenTransactionRequest, SyncStateRequest},
+    responses::{NullifierUpdate, SubmitProvenTransactionResponse, SyncStateResponse},
 };
-use mock::constants::{generate_account_seed, AccountSeedType};
-use mock::mock::account::mock_account;
-use mock::mock::block;
-use mock::mock::notes::mock_notes;
-use objects::transaction::ChainMmr;
-use objects::utils::collections::BTreeMap;
-use objects::BlockHeader;
+use mock::{
+    constants::{generate_account_seed, AccountSeedType},
+    mock::{account::mock_account, block, notes::mock_notes},
+};
 
-use crate::store::accounts::AuthInfo;
-
-use crate::mock::block::mock_block_header;
 use miden_tx::TransactionExecutor;
-use objects::accounts::{AccountId, AccountType};
-use objects::assets::FungibleAsset;
-use objects::crypto::merkle::Mmr;
-use objects::crypto::merkle::MmrDelta;
-use objects::crypto::merkle::NodeIndex;
-use objects::crypto::merkle::PartialMmr;
-use objects::crypto::merkle::SimpleSmt;
-use objects::notes::Note;
-use objects::notes::NoteInclusionProof;
-use objects::notes::NOTE_LEAF_DEPTH;
-use objects::notes::NOTE_TREE_DEPTH;
-use objects::transaction::InputNote;
+
+use objects::{
+    accounts::{AccountId, AccountType},
+    assets::FungibleAsset,
+    crypto::merkle::{Mmr, MmrDelta, NodeIndex, PartialMmr, SimpleSmt},
+    notes::{Note, NoteInclusionProof, NOTE_LEAF_DEPTH, NOTE_TREE_DEPTH},
+    transaction::{ChainMmr, InputNote},
+    utils::collections::BTreeMap,
+    BlockHeader,
+};
 
 /// Mock RPC API
 ///

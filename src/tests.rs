@@ -27,11 +27,11 @@ use mock::{
         transaction::mock_inputs,
     },
 };
-use objects::transaction::InputNotes;
-use objects::Digest;
 use objects::{
     accounts::{AccountId, AccountStub},
     assets::TokenSymbol,
+    transaction::InputNotes,
+    Digest,
 };
 
 #[tokio::test]
