@@ -1,3 +1,4 @@
+
 use super::Store;
 use crypto::merkle::PartialMmr;
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
@@ -44,7 +45,6 @@ impl DataStore for SqliteDataStore {
 
         let mut list_of_notes = vec![];
 
-        let mut notes_blocks: Vec<objects::BlockHeader> = vec![];
         for note_id in notes {
             let input_note_record = self
                 .store
@@ -55,36 +55,17 @@ impl DataStore for SqliteDataStore {
                 .try_into()
                 .map_err(|_| DataStoreError::AccountNotFound(account_id))?;
             list_of_notes.push(input_note.clone());
-
-            let note_block_num = input_note.proof().origin().block_num;
-            let note_block = self
-                .store
-                .get_block_header_by_num(note_block_num)
-                .map_err(|_| DataStoreError::AccountNotFound(account_id))?;
-            notes_blocks.push(note_block);
         }
 
         // TODO:
         //  - To build the return (partial) ChainMmr: From the block numbers in each note.origin(), get the list of block headers
         //    and construct the partial Mmr
-
-        // build partial mmr from the nodes - partial_mmr should be on memory as part of our store
-        let partial_mmr: PartialMmr = {
-            // we are supposed to have data by this point, so reconstruct the partial mmr
-            let current_peaks = self
-                .store
-                .get_chain_mmr_peaks_by_block_num(block_num)
-                .map_err(|_err| DataStoreError::AccountNotFound(account_id))?;
-
-            PartialMmr::from_peaks(current_peaks)
-        };
+        let (partial_mmr, notes_blocks) = self.store.get_partial_mmr_for_notes(block_num, &list_of_notes)
+            .map_err(|_err| DataStoreError::AccountNotFound(account_id))?;
 
         let chain_mmr = ChainMmr::new(
             partial_mmr,
             notes_blocks
-                .iter()
-                .map(|b| (b.block_num(), b.hash()))
-                .collect(),
         )
         .map_err(|_err| DataStoreError::AccountNotFound(account_id))?;
 
