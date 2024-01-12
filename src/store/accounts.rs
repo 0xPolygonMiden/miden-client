@@ -374,7 +374,7 @@ pub(crate) fn parse_accounts(
             (nonce as u64).into(),
             serde_json::from_str(&vault_root).map_err(StoreError::JsonDataDeserializationError)?,
             Digest::try_from(&storage_root).map_err(StoreError::HexParseError)?,
-            serde_json::from_str(&code_root).map_err(StoreError::JsonDataDeserializationError)?,
+            Digest::try_from(&code_root).map_err(StoreError::HexParseError)?,
         ),
         account_seed_word,
     ))
@@ -383,8 +383,7 @@ pub(crate) fn parse_accounts(
 /// Serialized the provided account into database compatible types.
 fn serialize_account(account: &Account) -> Result<SerializedAccountData, StoreError> {
     let id: u64 = account.id().into();
-    let code_root = serde_json::to_string(&account.code().root())
-        .map_err(StoreError::InputSerializationError)?;
+    let code_root = account.code().root().to_string();
     let storage_root = account.storage().root().to_string();
     let vault_root = serde_json::to_string(&account.vault().commitment())
         .map_err(StoreError::InputSerializationError)?;

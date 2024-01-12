@@ -51,7 +51,6 @@ impl Client {
     /// Returns the block number the client has been synced to.
     pub async fn sync_state(&mut self) -> Result<u32, ClientError> {
         loop {
-            println!("trying to sync once");
             let response = self.single_sync_state().await?;
             if let SyncStatus::SyncedToLastBlock(v) = response {
                 return Ok(v);

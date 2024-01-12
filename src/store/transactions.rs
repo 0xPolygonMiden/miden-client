@@ -346,7 +346,7 @@ fn insert_input_notes(
             sender_id,
             tag,
             num_assets,
-            _inclusion_proof,
+            inclusion_proof,
             recipients,
             status,
             commit_height,
@@ -365,6 +365,7 @@ fn insert_input_notes(
                     sender_id,
                     tag,
                     num_assets,
+                    inclusion_proof,
                     recipients,
                     status,
                     commit_height
