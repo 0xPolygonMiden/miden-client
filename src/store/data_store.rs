@@ -1,4 +1,3 @@
-
 use super::Store;
 use crypto::merkle::PartialMmr;
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
@@ -60,14 +59,13 @@ impl DataStore for SqliteDataStore {
         // TODO:
         //  - To build the return (partial) ChainMmr: From the block numbers in each note.origin(), get the list of block headers
         //    and construct the partial Mmr
-        let (partial_mmr, notes_blocks) = self.store.get_partial_mmr_for_notes(block_num, &list_of_notes)
+        let (partial_mmr, notes_blocks) = self
+            .store
+            .get_partial_mmr_for_notes(block_num, &list_of_notes)
             .map_err(|_err| DataStoreError::AccountNotFound(account_id))?;
 
-        let chain_mmr = ChainMmr::new(
-            partial_mmr,
-            notes_blocks
-        )
-        .map_err(|_err| DataStoreError::AccountNotFound(account_id))?;
+        let chain_mmr = ChainMmr::new(partial_mmr, notes_blocks)
+            .map_err(|_err| DataStoreError::AccountNotFound(account_id))?;
 
         let input_notes = InputNotes::new(list_of_notes)
             .map_err(|_| DataStoreError::AccountNotFound(account_id))?;

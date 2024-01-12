@@ -6,8 +6,8 @@ use crate::errors::StoreError;
 
 use clap::error::Result;
 
-use crypto::merkle::{InOrderIndex, MmrPeaks, PartialMmr, MerklePath};
-use objects::{BlockHeader, Digest, transaction::InputNote};
+use crypto::merkle::{InOrderIndex, MerklePath, MmrPeaks, PartialMmr};
+use objects::{transaction::InputNote, BlockHeader, Digest};
 use rusqlite::{params, OptionalExtension, Transaction};
 
 type SerializedBlockHeaderData = (i64, String, String, String, String);
@@ -120,18 +120,22 @@ impl Store {
         MmrPeaks::new(0, vec![]).map_err(StoreError::MmrError)
     }
 
-    pub fn get_partial_mmr_for_notes(&self, block_num: u32, notes_to_consume: &[InputNote]) -> Result<(PartialMmr, BTreeMap<u32, Digest>), StoreError> {
-        let current_peaks = self
-                    .get_chain_mmr_peaks_by_block_num(block_num)
-                    .unwrap();
+    pub fn get_partial_mmr_for_notes(
+        &self,
+        block_num: u32,
+        notes_to_consume: &[InputNote],
+    ) -> Result<(PartialMmr, BTreeMap<u32, Digest>), StoreError> {
+        let current_peaks = self.get_chain_mmr_peaks_by_block_num(block_num).unwrap();
 
-        let notes_blocks : Result<Vec<(u32, objects::Digest)>, StoreError> = notes_to_consume.iter().map(|input_note| {
-            let note_block_num = input_note.proof().origin().block_num;
-            let block_header = self
-                .get_block_header_by_num(note_block_num)?;
+        let notes_blocks: Result<Vec<(u32, objects::Digest)>, StoreError> = notes_to_consume
+            .iter()
+            .map(|input_note| {
+                let note_block_num = input_note.proof().origin().block_num;
+                let block_header = self.get_block_header_by_num(note_block_num)?;
 
-            Ok((block_header.block_num() as u32, block_header.hash()))
-        }).collect();
+                Ok((block_header.block_num() as u32, block_header.hash()))
+            })
+            .collect();
         let notes_blocks = notes_blocks?;
 
         let mut partial_mmr = PartialMmr::from_peaks(current_peaks);
