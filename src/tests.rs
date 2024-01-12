@@ -27,6 +27,7 @@ use mock::{
         transaction::mock_inputs,
     },
 };
+use objects::transaction::InputNotes;
 use objects::{
     accounts::{AccountId, AccountStub},
     assets::TokenSymbol,
@@ -48,10 +49,11 @@ async fn test_input_notes_round_trip() {
 
     // generate test data
     let transaction_inputs = mock_inputs(
+    let transaction_inputs = mock_inputs(
         MockAccountType::StandardExisting,
         AssetPreservationStatus::Preserved,
     );
-    let _recorded_notes = transaction_inputs.input_notes();
+    let recorded_notes = transaction_inputs.input_notes();
 
     // insert notes into database
     for note in transaction_inputs.input_notes().iter().cloned() {
@@ -90,6 +92,7 @@ async fn test_get_input_note() {
         MockAccountType::StandardExisting,
         AssetPreservationStatus::Preserved,
     );
+    let recorded_notes: InputNotes = transaction_inputs.input_notes().clone();
     let recorded_notes: InputNotes = transaction_inputs.input_notes().clone();
 
     // insert note into database

@@ -37,10 +37,10 @@ CREATE TABLE accounts (
     nonce BIGINT NOT NULL,         -- account nonce.
     committed BOOLEAN NOT NULL,    -- true if recorded, false if not.
     account_seed BLOB NOT NULL,    -- account seed used to generate the ID.
-    PRIMARY KEY (id)
-    --FOREIGN KEY (code_root) REFERENCES account_code(root),
-    --FOREIGN KEY (storage_root) REFERENCES account_storage(root),
-    --FOREIGN KEY (vault_root) REFERENCES account_vaults(root)
+    PRIMARY KEY (id),
+    FOREIGN KEY (code_root) REFERENCES account_code(root),
+    FOREIGN KEY (storage_root) REFERENCES account_storage(root),
+    FOREIGN KEY (vault_root) REFERENCES account_vaults(root)
 );
 
 -- Create transactions table

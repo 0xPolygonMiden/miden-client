@@ -102,6 +102,7 @@ impl Store {
                 const ACCOUNT_HASH_QUERY: &str = "SELECT hash FROM accounts WHERE id = ?";
 
                 if let Some(Ok((acc_stub, _acc_seed))) = tx
+                if let Some(Ok((acc_stub, _acc_seed))) = tx
                     .prepare(ACCOUNT_HASH_QUERY)
                     .map_err(StoreError::QueryError)?
                     .query_map(params![account_id_int as i64], parse_accounts_columns)

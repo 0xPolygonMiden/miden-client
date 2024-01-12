@@ -25,6 +25,7 @@ use crate::store::accounts::AuthInfo;
 
 use objects::accounts::{AccountId, AccountType};
 use objects::assets::FungibleAsset;
+use objects::transaction::InputNotes;
 
 /// Mock RPC API
 ///
@@ -50,7 +51,7 @@ impl MockRpcApi {
     ) -> std::result::Result<tonic::Response<SyncStateResponse>, tonic::Status> {
         let request: SyncStateRequest = request.into_request().into_inner();
 
-        // For now, it's fine to just match based on block_num and
+        // Match request -> response through block_nu,
         match self
             .sync_state_requests
             .iter()
@@ -269,7 +270,7 @@ pub async fn create_mock_transaction(client: &mut Client) {
     // we need to use an initial seed to create the wallet account
     let init_seed: [u8; 32] = rand::Rng::gen(&mut rng);
 
-    let (target_account, _) = miden_lib::accounts::wallets::create_basic_wallet(
+    let (target_account, seed) = miden_lib::accounts::wallets::create_basic_wallet(
         init_seed,
         auth_scheme,
         AccountType::RegularAccountImmutableCode,
@@ -293,7 +294,7 @@ pub async fn create_mock_transaction(client: &mut Client) {
 
     let max_supply = 10000u64.to_le_bytes();
 
-    let (faucet, _) = miden_lib::accounts::faucets::create_basic_fungible_faucet(
+    let (faucet, seed) = miden_lib::accounts::faucets::create_basic_fungible_faucet(
         init_seed,
         objects::assets::TokenSymbol::new("MOCK").unwrap(),
         4u8,

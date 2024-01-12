@@ -274,6 +274,11 @@ impl Store {
         account: &Account,
         account_seed: Word,
     ) -> Result<(), StoreError> {
+    fn insert_account_record(
+        tx: &Transaction<'_>,
+        account: &Account,
+        account_seed: Word,
+    ) -> Result<(), StoreError> {
         let (id, code_root, storage_root, vault_root, nonce, committed) =
             serialize_account(account)?;
 
