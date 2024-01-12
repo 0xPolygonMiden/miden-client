@@ -26,6 +26,8 @@ use crate::store::accounts::AuthInfo;
 
 use crate::mock::block::mock_block_header;
 use miden_tx::TransactionExecutor;
+use objects::accounts::{AccountId, AccountType};
+use objects::assets::FungibleAsset;
 use objects::crypto::merkle::Mmr;
 use objects::crypto::merkle::MmrDelta;
 use objects::crypto::merkle::NodeIndex;
@@ -36,8 +38,6 @@ use objects::notes::NoteInclusionProof;
 use objects::notes::NOTE_LEAF_DEPTH;
 use objects::notes::NOTE_TREE_DEPTH;
 use objects::transaction::InputNote;
-use objects::accounts::{AccountId, AccountType};
-use objects::assets::FungibleAsset;
 
 /// Mock RPC API
 ///
@@ -227,7 +227,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
         transaction_inputs.account().id(),
         &transaction_inputs.input_notes().clone().into_vec(),
         None,
-        None
+        None,
     );
 
     requests

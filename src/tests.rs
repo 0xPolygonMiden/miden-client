@@ -16,8 +16,7 @@ use crate::{
 use crypto::{
     dsa::rpo_falcon512::KeyPair,
     merkle::{InOrderIndex, MerklePath, MmrPeaks, PartialMmr},
-    Felt,
-    FieldElement
+    Felt, FieldElement,
 };
 use miden_lib::transaction::TransactionKernel;
 use mock::{
