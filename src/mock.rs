@@ -6,7 +6,7 @@ use crate::client::{
 use crypto::{dsa::rpo_falcon512::KeyPair, Felt, FieldElement, StarkField};
 use miden_lib::transaction::TransactionKernel;
 use miden_node_proto::{
-    account_id::AccountId as ProtoAccountId,
+    account::AccountId as ProtoAccountId,
     block_header::BlockHeader as NodeBlockHeader,
     merkle::MerklePath,
     note::NoteSyncRecord,
