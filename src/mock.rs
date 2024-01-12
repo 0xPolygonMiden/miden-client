@@ -1,31 +1,35 @@
-use crate::client::transactions::{PaymentTransactionData, TransactionTemplate};
-use crate::client::{Client, FILTER_ID_SHIFT};
-use crate::store::mock_executor_data_store::MockDataStore;
-use crypto::{dsa::rpo_falcon512::KeyPair, StarkField};
-use crypto::{Felt, FieldElement};
+use crate::client::{
+    sync_state::FILTER_ID_SHIFT,
+    transactions::{PaymentTransactionData, TransactionTemplate},
+    Client,
+};
+use crypto::{dsa::rpo_falcon512::KeyPair, Felt, FieldElement, StarkField};
 use miden_lib::transaction::TransactionKernel;
-use miden_node_proto::block_header::BlockHeader as NodeBlockHeader;
-use miden_node_proto::merkle::MerklePath;
-use miden_node_proto::note::NoteSyncRecord;
-use miden_node_proto::requests::SubmitProvenTransactionRequest;
-use miden_node_proto::responses::SubmitProvenTransactionResponse;
 use miden_node_proto::{
     account::AccountId as ProtoAccountId,
-    requests::SyncStateRequest,
-    responses::{NullifierUpdate, SyncStateResponse},
+    block_header::BlockHeader as NodeBlockHeader,
+    merkle::MerklePath,
+    note::NoteSyncRecord,
+    requests::{SubmitProvenTransactionRequest, SyncStateRequest},
+    responses::{NullifierUpdate, SubmitProvenTransactionResponse, SyncStateResponse},
 };
-use mock::constants::{generate_account_seed, AccountSeedType};
-use mock::mock::account::mock_account;
-use mock::mock::block;
-use mock::mock::notes::mock_notes;
-use objects::utils::collections::BTreeMap;
+use mock::{
+    constants::{generate_account_seed, AccountSeedType},
+    mock::account::mock_account,
+};
+
+use mock::mock::{
+    block,
+    notes::{mock_notes, AssetPreservationStatus},
+};
+use objects::{transaction::InputNotes, utils::collections::BTreeMap};
 
 use crate::store::accounts::AuthInfo;
 
-use miden_tx::TransactionExecutor;
-use objects::accounts::{AccountId, AccountType};
-use objects::assets::FungibleAsset;
-use objects::transaction::InputNotes;
+use objects::{
+    accounts::{AccountId, AccountType},
+    assets::FungibleAsset,
+};
 
 /// Mock RPC API
 ///
@@ -50,6 +54,8 @@ impl MockRpcApi {
         request: impl tonic::IntoRequest<SyncStateRequest>,
     ) -> std::result::Result<tonic::Response<SyncStateResponse>, tonic::Status> {
         let request: SyncStateRequest = request.into_request().into_inner();
+
+        // Match request -> response through block_nu,
         match self
             .sync_state_requests
             .iter()
@@ -72,17 +78,18 @@ impl MockRpcApi {
         let _request = request.into_request().into_inner();
         let response = SubmitProvenTransactionResponse {};
 
+        // TODO: add some basic validations to test error cases
+
         Ok(tonic::Response::new(response))
     }
 }
 
+/// Generates mock sync state requests and responses
 fn create_mock_sync_state_request_for_account_and_notes(
     requests: &mut BTreeMap<SyncStateRequest, SyncStateResponse>,
     account_id: AccountId,
     recorded_notes: &InputNotes,
 ) {
-    use mock::mock::notes::AssetPreservationStatus;
-
     let accounts = vec![ProtoAccountId {
         id: u64::from(account_id),
     }];
@@ -118,7 +125,7 @@ fn create_mock_sync_state_request_for_account_and_notes(
         accounts: vec![],
         notes: vec![NoteSyncRecord {
             note_index: 0,
-            note_hash: Some(created_notes.first().unwrap().authentication_hash().into()),
+            note_hash: Some(created_notes.first().unwrap().id().into()),
             sender: account.id().into(),
             tag: 0u64,
             num_assets: 2,
@@ -136,7 +143,7 @@ fn create_mock_sync_state_request_for_account_and_notes(
 
     // create a state sync request
     let request = SyncStateRequest {
-        block_num: 0,
+        block_num: 8,
         account_ids: accounts.clone(),
         note_tags: vec![],
         nullifiers,
@@ -154,7 +161,7 @@ fn create_mock_sync_state_request_for_account_and_notes(
         accounts: vec![],
         notes: vec![NoteSyncRecord {
             note_index: 0,
-            note_hash: Some(created_notes.first().unwrap().authentication_hash().into()),
+            note_hash: Some(created_notes.first().unwrap().id().into()),
             sender: account.id().into(),
             tag: 0u64,
             num_assets: 2,
@@ -171,9 +178,7 @@ fn create_mock_sync_state_request_for_account_and_notes(
 
 /// Generates mock sync state requests and responses
 fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateResponse> {
-    use mock::mock::{
-        account::MockAccountType, notes::AssetPreservationStatus, transaction::mock_inputs,
-    };
+    use mock::mock::{account::MockAccountType, transaction::mock_inputs};
 
     // generate test data
     let transaction_inputs = mock_inputs(
@@ -195,9 +200,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
 
 /// inserts mock note and account data into the client
 pub fn insert_mock_data(client: &mut Client) {
-    use mock::mock::{
-        account::MockAccountType, notes::AssetPreservationStatus, transaction::mock_inputs,
-    };
+    use mock::mock::{account::MockAccountType, transaction::mock_inputs};
 
     // generate test data
     let transaction_inputs = mock_inputs(
@@ -208,7 +211,7 @@ pub fn insert_mock_data(client: &mut Client) {
     let assembler = TransactionKernel::assembler();
     let (account_id, account_seed) =
         generate_account_seed(AccountSeedType::RegularAccountUpdatableCodeOnChain);
-    let account = mock_account(Some(u64::from(account_id)), Felt::ONE, None, &assembler);
+    let account = mock_account(Some(account_id.into()), Felt::ONE, None, &assembler);
     let (_consumed, created_notes) = mock_notes(&assembler, &AssetPreservationStatus::Preserved);
 
     // insert notes into database
@@ -309,6 +312,9 @@ pub async fn create_mock_transaction(client: &mut Client) {
         .unwrap();
 
     let asset: objects::assets::Asset = FungibleAsset::new(faucet.id(), 5u64).unwrap().into();
+
+    // Insert a P2ID transaction object
+
     let transaction_template = TransactionTemplate::PayToId(PaymentTransactionData::new(
         asset,
         sender_account.id(),
@@ -323,9 +329,13 @@ pub async fn create_mock_transaction(client: &mut Client) {
         .unwrap();
 }
 
+#[cfg(test)]
 impl Client {
-    /// testing function to set a data store to conveniently mock data if needed
-    pub fn set_data_store(&mut self, data_store: MockDataStore) {
-        self.tx_executor = TransactionExecutor::new(data_store);
+    /// Helper function to set a data store to conveniently mock data for tests
+    pub fn set_data_store(
+        &mut self,
+        data_store: crate::store::mock_executor_data_store::MockDataStore,
+    ) {
+        self.tx_executor = miden_tx::TransactionExecutor::new(data_store);
     }
 }

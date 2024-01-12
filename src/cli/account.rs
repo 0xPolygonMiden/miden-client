@@ -131,19 +131,15 @@ fn list_accounts(client: Client) -> Result<(), String> {
             Cell::new("vault root").add_attribute(Attribute::Bold),
             Cell::new("storage root").add_attribute(Attribute::Bold),
             Cell::new("nonce").add_attribute(Attribute::Bold),
-            Cell::new("account seed").add_attribute(Attribute::Bold),
         ]);
 
-    accounts.iter().for_each(|(acc, acc_seed)| {
-        let formatted_seed = Digest::from(acc_seed).to_string();
-
+    accounts.iter().for_each(|(acc, _acc_seed)| {
         table.add_row(vec![
             acc.id().to_string(),
             acc.code_root().to_string(),
             acc.vault_root().to_string(),
             acc.storage_root().to_string(),
             acc.nonce().to_string(),
-            formatted_seed,
         ]);
     });
 
@@ -160,7 +156,7 @@ pub fn show_account(
     show_code: bool,
 ) -> Result<(), String> {
     let (account, account_seed) = client
-        .get_account_by_id(account_id)
+        .get_account_stub_by_id(account_id)
         .map_err(|err| err.to_string())?;
 
     let formatted_seed = Digest::from(account_seed).to_string();

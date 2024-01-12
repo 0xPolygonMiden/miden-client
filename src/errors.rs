@@ -1,12 +1,15 @@
 use core::fmt;
-use crypto::merkle::MmrError;
-use crypto::utils::DeserializationError;
-use crypto::{dsa::rpo_falcon512::FalconError, utils::HexParseError};
+use crypto::{
+    dsa::rpo_falcon512::FalconError,
+    merkle::MmrError,
+    utils::{DeserializationError, HexParseError},
+};
 use miden_node_proto::error::ParseError;
 use miden_tx::{TransactionExecutorError, TransactionProverError};
-use objects::notes::NoteId;
-use objects::AssetError;
-use objects::{accounts::AccountId, AccountError, Digest, NoteError, TransactionScriptError};
+use objects::{
+    accounts::AccountId, notes::NoteId, AccountError, AssetError, AssetVaultError, Digest,
+    NoteError, TransactionScriptError,
+};
 use tonic::{transport::Error as TransportError, Status as TonicStatus};
 
 // CLIENT ERROR
@@ -61,6 +64,7 @@ impl std::error::Error for ClientError {}
 
 #[derive(Debug)]
 pub enum StoreError {
+    AssetVaultError(AssetVaultError),
     AccountCodeDataNotFound(Digest),
     AccountDataNotFound(AccountId),
     AccountError(AccountError),
@@ -77,6 +81,7 @@ pub enum StoreError {
     JsonDataDeserializationError(serde_json::Error),
     MigrationError(rusqlite_migration::Error),
     MmrError(MmrError),
+    NoteError(NoteError),
     NoteTagAlreadyTracked(u64),
     QueryError(rusqlite::Error),
     RpcTypeConversionFailure(ParseError),
@@ -89,6 +94,9 @@ impl fmt::Display for StoreError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use StoreError::*;
         match self {
+            AssetVaultError(err) => {
+                write!(f, "asset vault with root {} not found", err)
+            }
             AccountCodeDataNotFound(root) => {
                 write!(f, "account code data with root {} not found", root)
             }
@@ -132,6 +140,7 @@ impl fmt::Display for StoreError {
             }
             MigrationError(err) => write!(f, "failed to update the database: {err}"),
             MmrError(err) => write!(f, "error constructing mmr: {err}"),
+            NoteError(err) => write!(f, "note error: {err}"),
             NoteTagAlreadyTracked(tag) => write!(f, "note tag {} is already being tracked", tag),
             QueryError(err) => write!(f, "failed to retrieve data from the database: {err}"),
             TransactionError(err) => write!(f, "failed to instantiate a new transaction: {err}"),

@@ -1,4 +1,7 @@
-use crypto::merkle::{Mmr, PartialMmr};
+use crypto::{
+    merkle::{MmrPeaks, PartialMmr},
+    utils::Serializable,
+};
 use miden_node_proto::{mmr::MmrDelta, responses::AccountHashUpdate};
 
 use objects::{notes::NoteInclusionProof, BlockHeader, Digest};
@@ -73,12 +76,17 @@ impl Store {
 
     pub fn apply_state_sync(
         &mut self,
+        current_block_num: u32,
         block_header: BlockHeader,
         nullifiers: Vec<Digest>,
         account_updates: Vec<AccountHashUpdate>,
         mmr_delta: Option<MmrDelta>,
         committed_notes: Vec<(Digest, NoteInclusionProof)>,
     ) -> Result<(), StoreError> {
+        // get current nodes on table
+        // we need to do this here because creating a sql tx borrows a mut reference
+        let current_peaks = self.get_chain_mmr_peaks_by_block_num(current_block_num)?;
+
         let tx = self
             .db
             .transaction()
@@ -130,44 +138,36 @@ impl Store {
         // update chain mmr nodes on the table
         // get all elements from the chain mmr table
         if let Some(mmr_delta) = mmr_delta {
-            // get current nodes on table
-            let previous_nodes = Self::get_chain_mmr_nodes(&tx)?;
-
             // build partial mmr from the nodes - partial_mmr should be on memory as part of our store
-            let leaves: Vec<Digest> = previous_nodes.values().cloned().collect();
-            let mmr: Mmr = leaves.into();
-            let mut partial_mmr: PartialMmr = mmr
-                .peaks(mmr.forest())
-                .map_err(StoreError::MmrError)?
-                .into();
+
+            let mut partial_mmr: PartialMmr = if current_block_num == 0 {
+                // first block we receive so we are good to create a blank partial mmr for this
+                MmrPeaks::new(0, vec![])
+                    .map_err(StoreError::MmrError)?
+                    .into()
+            } else {
+                PartialMmr::from_peaks(current_peaks)
+            };
 
             // apply the delta
-            let new_authentication_nodes = partial_mmr
-                .apply(mmr_delta.try_into().unwrap())
-                .map_err(StoreError::MmrError)?;
-            for (node_id, node) in new_authentication_nodes {
-                Store::insert_chain_mmr_node(&tx, node_id, node)?;
-            }
+            let mmr_delta: crypto::merkle::MmrDelta = mmr_delta.try_into().unwrap();
 
-            Store::insert_block_header(
-                &tx,
-                block_header,
-                partial_mmr.peaks().peaks().to_vec(),
-                partial_mmr.forest() as u64,
-            )?;
+            let new_authentication_nodes =
+                partial_mmr.apply(mmr_delta).map_err(StoreError::MmrError)?;
+
+            Store::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
+
+            Store::insert_block_header(&tx, block_header, partial_mmr.peaks())?;
         }
 
         // update tracked notes
-        for (committed_note_hash, inclusion_proof) in committed_notes {
+        for (note_id, inclusion_proof) in committed_notes {
             const SPENT_QUERY: &str =
                 "UPDATE input_notes SET status = 'committed', inclusion_proof = ? WHERE note_id = ?";
-            let inclusion_proof = serde_json::to_string(&inclusion_proof)
-                .map_err(StoreError::InputSerializationError)?;
-            tx.execute(
-                SPENT_QUERY,
-                params![inclusion_proof, committed_note_hash.to_string()],
-            )
-            .map_err(StoreError::QueryError)?;
+
+            let inclusion_proof = Some(inclusion_proof.to_bytes());
+            tx.execute(SPENT_QUERY, params![inclusion_proof, note_id.to_string()])
+                .map_err(StoreError::QueryError)?;
         }
 
         // TODO: We would need to mark transactions as committed here as well

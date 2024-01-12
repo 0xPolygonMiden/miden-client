@@ -45,6 +45,7 @@ CREATE TABLE accounts (
 
 -- Create transactions table
 -- TODO: Script-related information is to be moved to its own table referenced by the script_hash
+
 CREATE TABLE transactions (
     id BLOB NOT NULL,                                -- Transaction ID (hash of various components)
     account_id UNSIGNED BIG INT NOT NULL,            -- ID of the account against which the transaction was executed.
@@ -98,18 +99,17 @@ WHERE (
 ) = 0;
 
 -- Create block headers table
-CREATE TABLE block_headers(
+CREATE TABLE block_headers (
     block_num UNSIGNED BIG INT NOT NULL,  -- block number
     header BLOB NOT NULL,                 -- serialized block header
     notes_root BLOB NOT NULL,             -- root of the notes Merkle tree in this block
     sub_hash BLOB NOT NULL,               -- hash of all other header fields in the block
-    chain_mmr BLOB NOT NULL,              -- serialized peaks of the chain MMR at this block
-    forest UNSIGNED BIG NOT NULL,         -- forest of the chain MMR at this block
+    chain_mmr_peaks BLOB NOT NULL,        -- serialized peaks of the chain MMR at this block
     PRIMARY KEY (block_num)
 );
 
 -- Create chain mmr nodes
-CREATE TABLE chain_mmr_nodes(
+CREATE TABLE chain_mmr_nodes (
     id UNSIGNED BIG INT NOT NULL,   -- in-order index of the internal MMR node
     node BLOB NOT NULL,             -- internal node value (hash)
     PRIMARY KEY (id)

@@ -1,17 +1,11 @@
-use comfy_table::presets;
-use comfy_table::Attribute;
-use comfy_table::Cell;
-use comfy_table::ContentArrangement;
-use comfy_table::Table;
+use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 
-use miden_client::client::transactions::PaymentTransactionData;
-use miden_client::client::transactions::TransactionStub;
-use miden_client::client::transactions::TransactionTemplate;
-use objects::accounts::AccountId;
-use objects::assets::FungibleAsset;
+use miden_client::client::transactions::{
+    PaymentTransactionData, TransactionStub, TransactionTemplate,
+};
+use objects::{accounts::AccountId, assets::FungibleAsset};
 
-use super::Client;
-use super::Parser;
+use super::{Client, Parser};
 
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "View transactions")]
@@ -40,6 +34,11 @@ pub enum TransactionType {
         faucet_id: String,
         amount: u64,
     },
+    Mint {
+        target_account_id: String,
+        faucet_id: String,
+        amount: u64,
+    },
     P2IDR,
 }
 
@@ -49,40 +48,60 @@ impl Transaction {
             Transaction::List { pending } => {
                 list_transactions(client, *pending)?;
             }
-            Transaction::New { transaction_type } => match transaction_type {
-                TransactionType::P2ID {
-                    sender_account_id,
-                    target_account_id,
-                    faucet_id,
-                    amount,
-                } => {
-                    let faucet_id =
-                        AccountId::from_hex(faucet_id).map_err(|err| err.to_string())?;
-                    let fungible_asset = FungibleAsset::new(faucet_id, *amount)
-                        .map_err(|err| err.to_string())?
-                        .into();
-                    let sender_account_id =
-                        AccountId::from_hex(sender_account_id).map_err(|err| err.to_string())?;
-                    let target_account_id =
-                        AccountId::from_hex(target_account_id).map_err(|err| err.to_string())?;
-                    let payment_transaction = PaymentTransactionData::new(
-                        fungible_asset,
+            Transaction::New { transaction_type } => {
+                let transaction_template = match transaction_type {
+                    TransactionType::P2ID {
                         sender_account_id,
                         target_account_id,
-                    );
-                    let transaction_execution_result = client
-                        .new_transaction(TransactionTemplate::PayToId(payment_transaction))
-                        .map_err(|err| err.to_string())?;
+                        faucet_id,
+                        amount,
+                    } => {
+                        let faucet_id =
+                            AccountId::from_hex(faucet_id).map_err(|err| err.to_string())?;
+                        let fungible_asset = FungibleAsset::new(faucet_id, *amount)
+                            .map_err(|err| err.to_string())?
+                            .into();
+                        let sender_account_id = AccountId::from_hex(sender_account_id)
+                            .map_err(|err| err.to_string())?;
+                        let target_account_id = AccountId::from_hex(target_account_id)
+                            .map_err(|err| err.to_string())?;
+                        let payment_transaction = PaymentTransactionData::new(
+                            fungible_asset,
+                            sender_account_id,
+                            target_account_id,
+                        );
 
-                    client
-                        .send_transaction(transaction_execution_result)
-                        .await
-                        .map_err(|err| err.to_string())?;
-                }
-                TransactionType::P2IDR => {
-                    todo!()
-                }
-            },
+                        TransactionTemplate::PayToId(payment_transaction)
+                    }
+                    TransactionType::P2IDR => {
+                        todo!()
+                    }
+                    TransactionType::Mint {
+                        faucet_id,
+                        target_account_id,
+                        amount,
+                    } => {
+                        let faucet_id =
+                            AccountId::from_hex(faucet_id).map_err(|err| err.to_string())?;
+                        let fungible_asset = FungibleAsset::new(faucet_id, *amount)
+                            .map_err(|err| err.to_string())?;
+                        let target_account_id = AccountId::from_hex(target_account_id)
+                            .map_err(|err| err.to_string())?;
+                        TransactionTemplate::MintFungibleAsset {
+                            asset: fungible_asset,
+                            target_account_id,
+                        }
+                    }
+                };
+                let transaction_execution_result = client
+                    .new_transaction(transaction_template)
+                    .map_err(|err| err.to_string())?;
+                println!("Executed transaction, proving and then submitting...");
+                client
+                    .send_transaction(transaction_execution_result)
+                    .await
+                    .map_err(|err| err.to_string())?;
+            }
         }
         Ok(())
     }
@@ -116,6 +135,7 @@ where
             Cell::new("committed").add_attribute(Attribute::Bold),
             Cell::new("block number").add_attribute(Attribute::Bold),
             Cell::new("input notes count").add_attribute(Attribute::Bold),
+            Cell::new("output notes count").add_attribute(Attribute::Bold),
         ]);
 
     for tx in executed_transactions {
@@ -128,6 +148,7 @@ where
             tx.committed.to_string(),
             tx.block_num.to_string(),
             tx.input_note_nullifiers.len().to_string(),
+            tx.output_notes.num_notes().to_string(),
         ]);
     }
 

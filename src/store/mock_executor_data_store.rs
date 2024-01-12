@@ -1,19 +1,24 @@
-use miden_lib::transaction::TransactionKernel;
+use assembly::{Library, LibraryPath};
+use miden_lib::{
+    transaction::{memory::FAUCET_STORAGE_DATA_SLOT, TransactionKernel},
+    MidenLib,
+};
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
-use mock::constants::{ACCOUNT_ID_SENDER, DEFAULT_ACCOUNT_CODE};
-use mock::mock::account::MockAccountType;
-use mock::mock::notes::AssetPreservationStatus;
-use mock::mock::transaction::{mock_inputs, mock_inputs_with_existing};
-use objects::assets::AssetVault;
-use objects::notes::NoteId;
-use objects::transaction::{ChainMmr, InputNotes};
+use mock::{
+    constants::{ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN, ACCOUNT_ID_SENDER, DEFAULT_ACCOUNT_CODE},
+    mock::{
+        account::MockAccountType,
+        notes::AssetPreservationStatus,
+        transaction::{mock_inputs, mock_inputs_with_existing},
+    },
+};
 use objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, StorageSlotType},
-    assembly::ModuleAst,
-    assembly::ProgramAst,
-    assets::{Asset, FungibleAsset},
+    assembly::{ModuleAst, ProgramAst},
+    assets::{Asset, AssetVault, FungibleAsset},
     crypto::{dsa::rpo_falcon512::KeyPair, utils::Serializable},
-    notes::{Note, NoteScript},
+    notes::{Note, NoteId, NoteScript},
+    transaction::{ChainMmr, InputNotes},
     BlockHeader, Felt, Word,
 };
 
@@ -42,14 +47,16 @@ impl MockDataStore {
         }
     }
 
-    pub fn with_existing(account: Option<Account>, consumed_notes: Option<Vec<Note>>) -> Self {
-        let (account, block_header, block_chain, consumed_notes, _auxiliary_data_inputs) =
+    pub fn with_existing(account: Account, consumed_notes: Option<Vec<Note>>) -> Self {
+        let (_mocked_account, block_header, block_chain, consumed_notes, _auxiliary_data_inputs) =
+            // NOTE: Currently this disregards the mocked account and uses the passed account
             mock_inputs_with_existing(
                 MockAccountType::StandardExisting,
                 AssetPreservationStatus::Preserved,
-                account,
+                Some(account.clone()),
                 consumed_notes,
             );
+
         Self {
             account,
             block_header,
@@ -126,14 +133,14 @@ pub fn get_account_with_default_account_code(
     )])
     .unwrap();
 
-    let account_vault = match assets {
+    let asset_vault = match assets {
         Some(asset) => AssetVault::new(&[asset]).unwrap(),
         None => AssetVault::new(&[]).unwrap(),
     };
 
     Account::new(
         account_id,
-        account_vault,
+        asset_vault,
         account_storage,
         account_code,
         Felt::new(1),
@@ -160,4 +167,60 @@ pub fn get_note_with_fungible_asset_and_script(
         Felt::new(1),
     )
     .unwrap()
+}
+
+pub fn get_faucet_account_with_max_supply_and_total_issuance(
+    public_key: Word,
+    max_supply: u64,
+    total_issuance: Option<u64>,
+) -> Account {
+    let faucet_account_id = AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN).unwrap();
+
+    let miden = MidenLib::default();
+    let path = "miden::contracts::faucets::basic_fungible";
+    let faucet_code_ast = miden
+        .get_module_ast(&LibraryPath::new(path).unwrap())
+        .expect("Getting module AST failed");
+
+    let account_assembler = TransactionKernel::assembler();
+    let _account_code = AccountCode::new(faucet_code_ast.clone(), &account_assembler).unwrap();
+
+    let faucet_account_code =
+        AccountCode::new(faucet_code_ast.clone(), &account_assembler).unwrap();
+
+    let faucet_storage_slot_1 = [
+        Felt::new(max_supply),
+        Felt::new(0),
+        Felt::new(0),
+        Felt::new(0),
+    ];
+    let mut faucet_account_storage = AccountStorage::new(vec![
+        (0, (StorageSlotType::Value { value_arity: 0 }, public_key)),
+        (
+            1,
+            (
+                StorageSlotType::Value { value_arity: 0 },
+                faucet_storage_slot_1,
+            ),
+        ),
+    ])
+    .unwrap();
+
+    if let Some(total_issuance) = total_issuance {
+        let faucet_storage_slot_254 = [
+            Felt::new(0),
+            Felt::new(0),
+            Felt::new(0),
+            Felt::new(total_issuance),
+        ];
+        faucet_account_storage.set_item(FAUCET_STORAGE_DATA_SLOT, faucet_storage_slot_254);
+    };
+
+    Account::new(
+        faucet_account_id,
+        AssetVault::new(&[]).unwrap(),
+        faucet_account_storage.clone(),
+        faucet_account_code.clone(),
+        Felt::new(1),
+    )
 }

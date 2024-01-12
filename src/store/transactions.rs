@@ -183,7 +183,12 @@ pub(crate) fn serialize_transaction(
     let input_notes =
         serde_json::to_string(&nullifiers).map_err(StoreError::InputSerializationError)?;
 
-    let output_notes = transaction.output_notes().to_bytes();
+    let output_notes = transaction.output_notes();
+
+    // TODO: Add proper logging
+    println!("transaction id {:?}", transaction.id());
+    println!("transaction account id: {}", transaction.account_id());
+    println!("transaction output notes {:?}", output_notes);
 
     // TODO: Scripts should be in their own tables and only identifiers should be stored here
     let mut script_program = None;
@@ -209,7 +214,7 @@ pub(crate) fn serialize_transaction(
         init_account_state.to_owned(),
         final_account_state.to_owned(),
         input_notes,
-        output_notes,
+        output_notes.to_bytes(),
         script_program,
         script_hash,
         script_inputs,
@@ -278,8 +283,10 @@ fn parse_transaction(
     let final_account_state: Digest = final_account_state
         .try_into()
         .map_err(StoreError::HexParseError)?;
+
     let input_note_nullifiers: Vec<Digest> =
         serde_json::from_str(&input_notes).map_err(StoreError::JsonDataDeserializationError)?;
+
     let output_notes: OutputNotes = OutputNotes::read_from_bytes(&output_notes)
         .map_err(StoreError::DataDeserializationError)?;
 
@@ -334,7 +341,7 @@ fn insert_input_notes(
 ) -> Result<(), StoreError> {
     for note in notes {
         let (
-            hash,
+            note_id,
             nullifier,
             script,
             vault,
@@ -353,7 +360,7 @@ fn insert_input_notes(
             .execute(
                 INSERT_NOTE_QUERY,
                 params![
-                    hash,
+                    note_id,
                     nullifier,
                     script,
                     vault,
@@ -368,8 +375,8 @@ fn insert_input_notes(
                     commit_height
                 ],
             )
-            .map_err(StoreError::QueryError)?;
+            .map_err(StoreError::QueryError)
+            .map(|_| ())?
     }
-
     Ok(())
 }

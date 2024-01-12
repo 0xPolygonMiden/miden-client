@@ -1,14 +1,14 @@
-use crate::errors::StoreError;
+use crate::errors::{ClientError, StoreError};
 
 use super::Store;
 
 use clap::error::Result;
+
 use crypto::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 
 use objects::notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteScript};
 
-use objects::transaction::InputNote;
-use objects::{accounts::AccountId, notes::NoteMetadata, Digest, Felt};
+use objects::{accounts::AccountId, notes::NoteMetadata, transaction::InputNote, Digest, Felt};
 use rusqlite::params;
 
 pub(crate) const INSERT_NOTE_QUERY: &str = "\
@@ -29,10 +29,10 @@ type SerializedInputNoteData = (
     i64,
     i64,
     i64,
-    Option<String>,
+    Option<Vec<u8>>,
     String,
     String,
-    u32,
+    i64,
 );
 
 type SerializedInputNoteParts = (
@@ -43,7 +43,7 @@ type SerializedInputNoteParts = (
     u64,
     u64,
     u64,
-    Option<String>,
+    Option<Vec<u8>>,
 );
 
 // NOTE FILTER
@@ -68,7 +68,7 @@ impl InputNoteFilter {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct InputNoteRecord {
     note: Note,
     inclusion_proof: Option<NoteInclusionProof>,
@@ -129,10 +129,25 @@ impl From<InputNote> for InputNoteRecord {
     }
 }
 
-impl Store {
-    // NOTES
-    // --------------------------------------------------------------------------------------------
+impl TryInto<InputNote> for InputNoteRecord {
+    type Error = ClientError;
 
+    fn try_into(self) -> Result<InputNote, Self::Error> {
+        match self.inclusion_proof() {
+            Some(proof) => Ok(InputNote::new(self.note().clone(), proof.clone())),
+            None => Err(ClientError::NoteError(
+                objects::NoteError::invalid_origin_index(
+                    "Input Note Record contains no proof".to_string(),
+                ),
+            )),
+        }
+    }
+}
+
+// NOTES STORE METHODS
+// --------------------------------------------------------------------------------------------
+
+impl Store {
     /// Retrieves the input notes from the database
     pub fn get_input_notes(
         &self,
@@ -243,7 +258,7 @@ fn parse_input_note_columns(
     let sender_id = row.get::<usize, i64>(4)? as u64;
     let tag = row.get::<usize, i64>(5)? as u64;
     let num_assets = row.get::<usize, i64>(6)? as u64;
-    let inclusion_proof: Option<String> = row.get(7)?;
+    let inclusion_proof: Option<Vec<u8>> = row.get(7)?;
     Ok((
         script,
         inputs,
@@ -277,14 +292,12 @@ fn parse_input_note(
     );
     let note = Note::from_parts(script, inputs, vault, serial_num, note_metadata);
 
-    let inclusion_proof = match inclusion_proof {
-        Some(proof) => {
-            let inclusion_proof =
-                serde_json::from_str(&proof).map_err(StoreError::JsonDataDeserializationError)?;
-            Some(inclusion_proof)
-        }
-        None => None,
-    };
+    let inclusion_proof = inclusion_proof
+        .map(|proof| {
+            NoteInclusionProof::read_from_bytes(&proof)
+                .map_err(StoreError::DataDeserializationError)
+        })
+        .transpose()?;
 
     Ok(InputNoteRecord::new(note, inclusion_proof))
 }
@@ -303,17 +316,17 @@ pub(crate) fn serialize_input_note(
     let sender_id = u64::from(note.note().metadata().sender()) as i64;
     let tag = u64::from(note.note().metadata().tag()) as i64;
     let num_assets = u64::from(note.note().metadata().num_assets()) as i64;
-    let (inclusion_proof, commit_height, status) = match note.inclusion_proof() {
+    let (inclusion_proof, status, commit_height) = match note.inclusion_proof() {
         Some(proof) => (
-            Some(serde_json::to_string(&proof).map_err(StoreError::InputSerializationError)?),
-            proof.origin().block_num,
+            Some(proof.to_bytes()),
             String::from("committed"),
+            proof.origin().block_num,
         ),
-        None => (None, 0u32, String::from("pending")),
+        None => (None, String::from("pending"), 0u32),
     };
+    //(note_id, nullifier, script, vault, inputs, serial_num, sender_id, tag, num_assets, inclusion_proof, recipients, status, commit_height)
+    let recipients = note.note().recipient().to_string();
 
-    let recipients = serde_json::to_string(&note.note().metadata().tag())
-        .map_err(StoreError::InputSerializationError)?;
     Ok((
         note_id,
         nullifier,
@@ -327,6 +340,6 @@ pub(crate) fn serialize_input_note(
         inclusion_proof,
         recipients,
         status,
-        commit_height,
+        commit_height as i64,
     ))
 }
