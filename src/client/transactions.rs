@@ -19,7 +19,7 @@ use crate::{
     store::accounts::AuthInfo,
 };
 
-use super::{Client, sync_state::FILTER_ID_SHIFT};
+use super::{sync_state::FILTER_ID_SHIFT, Client};
 
 pub enum TransactionTemplate {
     /// Consume all outstanding notes for an account
