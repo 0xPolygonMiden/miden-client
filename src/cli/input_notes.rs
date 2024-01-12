@@ -255,14 +255,19 @@ where
 // TESTS
 // ================================================================================================
 
-#[cfg(not)]
+#[cfg(test)]
 mod tests {
     use crate::cli::input_notes::{export_note, import_note};
 
     use miden_client::{
         client::Client,
         config::{ClientConfig, Endpoint},
-        store::notes::InputNoteFilter,
+        store::notes::{InputNoteRecord},
+    };
+    use mock::mock::{
+        account::MockAccountType,
+        notes::{AssetPreservationStatus},
+        transaction::mock_inputs,
     };
     use std::env::temp_dir;
     use uuid::Uuid;
@@ -280,72 +285,48 @@ mod tests {
         .unwrap();
 
         // generate test data
-        miden_client::mock::insert_mock_data(&mut client);
+        let transaction_inputs = mock_inputs(
+            MockAccountType::StandardExisting,
+            AssetPreservationStatus::Preserved,
+        );
 
-        let notes = client.get_input_notes(InputNoteFilter::All).unwrap();
+        let committed_note: InputNoteRecord =
+            transaction_inputs.input_notes().get_note(0).clone().into();
+        let pending_note = InputNoteRecord::new(
+            transaction_inputs.input_notes().get_note(1).note().clone(),
+            None,
+        );
 
-        let input_note_record = notes.first().unwrap();
+        client.import_input_note(committed_note.clone()).unwrap();
+        client.import_input_note(pending_note.clone()).unwrap();
+        assert!(pending_note.inclusion_proof().is_none());
+        assert!(committed_note.inclusion_proof().is_some());
 
         let mut filename_path = temp_dir();
         filename_path.push("test_import");
 
+        let mut filename_path_pending = temp_dir();
+        filename_path_pending.push("test_import_pending");
+
         export_note(
             &client,
-            &input_note_record.note().id().inner().to_string(),
+            &committed_note.note_id().inner().to_string(),
             Some(filename_path.clone()),
         )
         .unwrap();
 
         assert!(filename_path.exists());
 
-        let mut path = temp_dir();
-        path.push(Uuid::new_v4().to_string());
-        let mut client = Client::new(ClientConfig::new(
-            path.into_os_string().into_string().unwrap(),
-            Endpoint::default(),
-        ))
-        .await
-        .unwrap();
-
-        import_note(&mut client, filename_path).unwrap();
-        let imported_note_record = client
-            .get_input_note(input_note_record.note().id())
-            .unwrap();
-
-        assert_eq!(
-            input_note_record.note().id(),
-            imported_note_record.note().id()
-        );
-
-        // Import/export pending note
-        // ------------------------------
-
-        // generate test client
-        let mut path = temp_dir();
-        path.push(Uuid::new_v4().to_string());
-        let mut client = Client::new(ClientConfig::new(
-            path.into_os_string().into_string().unwrap(),
-            Endpoint::default(),
-        ))
-        .await
-        .unwrap();
-
-        // generate test data
-        miden_client::mock::insert_mock_data(&mut client);
-
-        let pending_note = client.get_input_notes(InputNoteFilter::Pending).unwrap();
-        let input_note_record = &pending_note.first().unwrap();
-        assert!(input_note_record.inclusion_proof().is_none());
-
-        let mut filename_path = temp_dir();
-        filename_path.push("test_import_pending");
         export_note(
             &client,
-            &input_note_record.note().id().inner().to_string(),
-            Some(filename_path.clone()),
+            &pending_note.note_id().inner().to_string(),
+            Some(filename_path_pending.clone()),
         )
         .unwrap();
 
+        assert!(filename_path_pending.exists());
+
+        // generate test client to import notes to
         let mut path = temp_dir();
         path.push(Uuid::new_v4().to_string());
         let mut client = Client::new(ClientConfig::new(
@@ -356,10 +337,17 @@ mod tests {
         .unwrap();
 
         import_note(&mut client, filename_path).unwrap();
-        let imported_note = client
-            .get_input_note(input_note_record.note().id())
-            .unwrap();
+        let imported_note_record: InputNoteRecord =
+            client.get_input_note(committed_note.note().id()).unwrap();
 
-        assert_eq!(input_note_record.note().id(), imported_note.note().id());
+        assert_eq!(committed_note.note().id(), imported_note_record.note().id());
+
+        import_note(&mut client, filename_path_pending).unwrap();
+        let imported_pending_note_record = client.get_input_note(pending_note.note().id()).unwrap();
+
+        assert_eq!(
+            imported_pending_note_record.note().id(),
+            pending_note.note().id()
+        );
     }
 }

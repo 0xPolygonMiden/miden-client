@@ -68,7 +68,7 @@ impl InputNoteFilter {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct InputNoteRecord {
     note: Note,
     inclusion_proof: Option<NoteInclusionProof>,
