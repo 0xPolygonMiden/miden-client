@@ -16,8 +16,7 @@ use crate::{
 };
 
 use assembly::ast::{AstSerdeOptions, ModuleAst};
-use crypto::{dsa::rpo_falcon512::KeyPair, Word};
-use crypto::{Felt, FieldElement};
+use crypto::{dsa::rpo_falcon512::KeyPair, Felt, FieldElement, Word};
 use miden_lib::transaction::TransactionKernel;
 use mock::{
     constants::{generate_account_seed, AccountSeedType},
@@ -27,12 +26,11 @@ use mock::{
         transaction::mock_inputs,
     },
 };
-use objects::transaction::InputNotes;
 use objects::{
     accounts::{AccountId, AccountStub},
-    assets::TokenSymbol,
+    assets::{FungibleAsset, TokenSymbol},
+    transaction::InputNotes,
 };
-use objects::{assets::FungibleAsset, transaction::InputNotes};
 
 #[tokio::test]
 async fn test_input_notes_round_trip() {
@@ -49,11 +47,10 @@ async fn test_input_notes_round_trip() {
 
     // generate test data
     let transaction_inputs = mock_inputs(
-    let transaction_inputs = mock_inputs(
         MockAccountType::StandardExisting,
         AssetPreservationStatus::Preserved,
     );
-    let recorded_notes = transaction_inputs.input_notes();
+    let _recorded_notes = transaction_inputs.input_notes();
 
     // insert notes into database
     for note in transaction_inputs.input_notes().iter().cloned() {
@@ -92,7 +89,7 @@ async fn test_get_input_note() {
         MockAccountType::StandardExisting,
         AssetPreservationStatus::Preserved,
     );
-    let recorded_notes: InputNotes = transaction_inputs.input_notes().clone();
+    let _recorded_notes: InputNotes = transaction_inputs.input_notes().clone();
     let recorded_notes: InputNotes = transaction_inputs.input_notes().clone();
 
     // insert note into database

@@ -25,7 +25,6 @@ use crate::store::accounts::AuthInfo;
 
 use objects::accounts::{AccountId, AccountType};
 use objects::assets::FungibleAsset;
-use objects::transaction::InputNotes;
 
 /// Mock RPC API
 ///

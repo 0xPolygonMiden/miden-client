@@ -8,7 +8,6 @@ use crypto::{
 use miden_client::client::accounts;
 
 use objects::{accounts::AccountId, assets::TokenSymbol, Digest};
-use objects::{accounts::AccountId, assets::TokenSymbol, Digest};
 
 // ACCOUNT COMMAND
 // ================================================================================================
@@ -141,7 +140,6 @@ fn list_accounts(client: Client) -> Result<(), String> {
             acc.vault_root().to_string(),
             acc.storage_root().to_string(),
             acc.nonce().to_string(),
-            formatted_seed,
         ]);
     });
 

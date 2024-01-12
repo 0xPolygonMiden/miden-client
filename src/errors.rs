@@ -5,7 +5,6 @@ use crypto::{dsa::rpo_falcon512::FalconError, utils::HexParseError};
 use miden_node_proto::error::ParseError;
 use miden_tx::{TransactionExecutorError, TransactionProverError};
 use objects::notes::NoteId;
-use objects::AssetError;
 use objects::{accounts::AccountId, AccountError, Digest, NoteError, TransactionScriptError};
 use objects::{AssetError, AssetVaultError};
 use tonic::{transport::Error as TransportError, Status as TonicStatus};

@@ -1,7 +1,7 @@
 use super::Client;
 use crypto::StarkField;
 use miden_node_proto::{
-    account::AccountId as ProtoAccountId, note::NoteSyncRecord, requests::SyncStateRequest,
+    account_id::AccountId as ProtoAccountId, note::NoteSyncRecord, requests::SyncStateRequest,
     responses::SyncStateResponse,
 };
 
