@@ -101,7 +101,7 @@ impl Store {
             .map(|result| {
                 result
                     .map_err(StoreError::ColumnParsingError)
-                    .map(|id: u64| AccountId::try_from(id).expect("account id is valid"))
+                    .map(|id: i64| AccountId::try_from(id as u64).expect("account id is valid"))
             })
             .collect::<Result<Vec<AccountId>, _>>()
     }
