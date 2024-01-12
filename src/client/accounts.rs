@@ -30,12 +30,10 @@ pub enum AccountStorageMode {
 }
 
 impl Client {
-    // ACCOUNT INSERTION
-    // --------------------------------------------------------------------------------------------
-
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 
+    /// Creates a new [Account] based on an [AccountTemplate] and saves it in the store
     pub fn new_account(
         &mut self,
         template: AccountTemplate,
@@ -152,7 +150,6 @@ impl Client {
 
     /// Returns summary info about the accounts managed by this client.
     ///
-    /// TODO: replace `AccountStub` with a more relevant structure.
     pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Word)>, ClientError> {
         self.store.get_accounts().map_err(|err| err.into())
     }
@@ -203,21 +200,5 @@ impl Client {
         self.store
             .get_account_storage(storage_root)
             .map_err(|err| err.into())
-    }
-
-    /// Returns historical states for the account with the specified ID.
-    ///
-    /// TODO: wrap `Account` in a type with additional info.
-    /// TODO: consider changing the interface to support pagination.
-    pub fn get_account_history(&self, _account_id: AccountId) -> Result<Vec<Account>, ClientError> {
-        todo!()
-    }
-
-    /// Returns detailed information about the current state of the account with the specified ID.
-    ///
-    /// TODO: wrap `Account` in a type with additional info (e.g., status).
-    /// TODO: consider adding `nonce` as another parameter to identify a specific account state.
-    pub fn get_account_details(&self, _account_id: AccountId) -> Result<Account, ClientError> {
-        todo!()
     }
 }
