@@ -133,7 +133,7 @@ impl Store {
                 let note_block_num = input_note.proof().origin().block_num;
                 let block_header = self.get_block_header_by_num(note_block_num)?;
 
-                Ok((block_header.block_num() as u32, block_header.hash()))
+                Ok((block_header.block_num(), block_header.hash()))
             })
             .collect();
         let notes_blocks = notes_blocks?;
