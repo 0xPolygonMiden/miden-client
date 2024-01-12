@@ -1,5 +1,5 @@
-use crypto::{utils::Serializable, Felt, StarkField, Word};
-use miden_lib::notes::{create_note, Script};
+use crypto::{rand::RpoRandomCoin, utils::Serializable, Felt, StarkField, Word};
+use miden_lib::notes::create_p2id_note;
 use miden_node_proto::{
     requests::SubmitProvenTransactionRequest, responses::SubmitProvenTransactionResponse,
 };
@@ -149,17 +149,10 @@ impl Client {
 
         let block_ref = self.get_latest_block_num()?;
 
-        let mut rng = rand::thread_rng();
-        let serial_num: [u64; 4] = rng.gen();
+        let random_coin = self.get_random_coin();
 
-        let output_note = create_note(
-            Script::P2ID { target: target_id },
-            vec![asset.into()],
-            faucet_id,
-            Some(target_id.into()),
-            serial_num.map(|n| n.into()),
-        )
-        .map_err(ClientError::NoteError)?;
+        let output_note = create_p2id_note(faucet_id, target_id, vec![asset.into()], random_coin)
+            .map_err(ClientError::NoteError)?;
 
         let recipient = output_note
             .recipient()
@@ -224,19 +217,13 @@ impl Client {
         sender_account_id: AccountId,
         target_account_id: AccountId,
     ) -> Result<ExecutedTransaction, ClientError> {
-        let p2id_script = Script::P2ID {
-            target: target_account_id,
-        };
+        let random_coin = self.get_random_coin();
 
-        let mut rng = rand::thread_rng();
-        let serial_numbers: [u64; 4] = rng.gen();
-
-        let _note = create_note(
-            p2id_script,
-            vec![fungible_asset],
+        let _note = create_p2id_note(
             sender_account_id,
-            Some(target_account_id.into()),
-            serial_numbers.map(|number| number.into()),
+            target_account_id,
+            vec![fungible_asset],
+            random_coin,
         )
         .map_err(ClientError::NoteError)?;
 
@@ -317,5 +304,17 @@ impl Client {
             .await
             .map_err(|err| ClientError::RpcApiError(RpcApiError::RequestError(err)))?
             .into_inner())
+    }
+
+    // HELPERS
+    // --------------------------------------------------------------------------------------------
+
+    /// Gets [RpoRandomCoin] from the client
+    fn get_random_coin(&self) -> RpoRandomCoin {
+        // TODO: Initialize coin status once along with the client and persist status for retrieval
+        let mut rng = rand::thread_rng();
+        let coin_seed: [u64; 4] = rng.gen();
+
+        RpoRandomCoin::new(coin_seed.map(|x| x.into()))
     }
 }
