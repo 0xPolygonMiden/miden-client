@@ -271,76 +271,6 @@ async fn test_sync_state() {
     .unwrap();
 
     // generate test data
-    crate::mock::insert_mock_data(&mut client);
-
-    // assert that we have no consumed nor pending notes prior to syncing state
-    assert_eq!(
-        client
-            .get_input_notes(InputNoteFilter::Consumed)
-            .unwrap()
-            .len(),
-        0
-    );
-
-    let pending_notes = client.get_input_notes(InputNoteFilter::Pending).unwrap();
-
-    // sync state
-    let block_num: u32 = client.sync_state().await.unwrap();
-
-    // verify that the client is synced to the latest block
-    assert_eq!(
-        block_num,
-        client
-            .rpc_api
-            .sync_state_requests
-            .first_key_value()
-            .unwrap()
-            .1
-            .chain_tip
-    );
-
-    // verify that we now have one consumed note after syncing state
-    assert_eq!(
-        client
-            .get_input_notes(InputNoteFilter::Consumed)
-            .unwrap()
-            .len(),
-        1
-    );
-
-    // verify that the pending note we had is now committed
-    assert_ne!(
-        client.get_input_notes(InputNoteFilter::Committed).unwrap(),
-        pending_notes
-    );
-
-    // verify that the latest block number has been updated
-    assert_eq!(
-        client.get_latest_block_num().unwrap(),
-        client
-            .rpc_api
-            .sync_state_requests
-            .first_key_value()
-            .unwrap()
-            .1
-            .chain_tip
-    );
-}
-
-#[tokio::test]
-async fn test_sync_state_mmr_updates() {
-    // generate test store path
-    let store_path = create_test_store_path();
-
-    // generate test client
-    let mut client = Client::new(ClientConfig::new(
-        store_path.into_os_string().into_string().unwrap(),
-        Endpoint::default(),
-    ))
-    .await
-    .unwrap();
-
-    // generate test data
     let (last_block_header, _chain_mmr) = crate::mock::insert_mock_data(&mut client);
 
     // assert that we have no consumed nor pending notes prior to syncing state
@@ -407,7 +337,14 @@ async fn test_sync_state_mmr_updates() {
     );
 
     // Try reconstructing the chain_mmr from what's in the database
-    let _partial_mmr = build_partial_mmr_from_client_state(&mut client);
+    let partial_mmr = build_partial_mmr_from_client_state(&mut client);
+
+    // Since Mocked data contains two sync updates we should be "tracking" those blocks
+    assert!(partial_mmr.open(0).unwrap().is_none());
+    assert!(partial_mmr.open(1).unwrap().is_none());
+    assert!(partial_mmr.open(2).unwrap().is_some());
+    assert!(partial_mmr.open(3).unwrap().is_none());
+    assert!(partial_mmr.open(4).unwrap().is_some());
 }
 
 fn build_partial_mmr_from_client_state(client: &mut Client) -> PartialMmr {
