@@ -37,8 +37,8 @@ pub enum Command {
     SyncState(sync_state::SyncStateCmd),
     #[clap(subcommand)]
     Transaction(transactions::Transaction),
-    #[cfg(feature = "testing")]
-    /// Insert mock data into the client
+    #[cfg(feature = "mock")]
+    /// Insert mock data into the client. This is optional because it takes a few seconds
     MockData {
         #[clap(short, long)]
         transaction: bool,
@@ -66,13 +66,13 @@ impl Cli {
             Command::InputNotes(notes) => notes.execute(client),
             Command::SyncState(tags) => tags.execute(client).await,
             Command::Transaction(transaction) => transaction.execute(client).await,
-            #[cfg(feature = "testing")]
-            Command::MockData { .. } => {
-                // let mut client = client;
-                // miden_client::mock::insert_mock_data(&mut client);
-                // if *transaction {
-                //     miden_client::mock::create_mock_transaction(&mut client).await;
-                // }
+            #[cfg(feature = "mock")]
+            Command::MockData { transaction } => {
+                let mut client = client;
+                miden_client::mock::insert_mock_data(&mut client);
+                if *transaction {
+                    miden_client::mock::create_mock_transaction(&mut client).await;
+                }
                 Ok(())
             }
             Command::LoadGenesis { genesis_path } => {

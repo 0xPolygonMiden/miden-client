@@ -26,7 +26,7 @@ objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/
 miden_lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", default-features = false }
 miden_tx = { package = "miden-tx", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", default-features = false }
 assembly = { package = "miden-assembly", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
-
+mock = { package = "miden-mock", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", default-features = false }
 rusqlite = { version = "0.29.0", features = ["bundled"] }
 rusqlite_migration = { version = "1.0" }
 rand = { version = "0.8.5" }
@@ -38,4 +38,3 @@ comfy-table = "7.1.0"
 
 [dev-dependencies]
 uuid = { version = "1.6.1", features = ["serde", "v4"] }
-mock = { package = "miden-mock", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", default-features = false }

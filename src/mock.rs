@@ -308,7 +308,7 @@ pub async fn create_mock_transaction(client: &mut Client) {
 
     let asset: objects::assets::Asset = FungibleAsset::new(faucet.id(), 5u64).unwrap().into();
 
-    // Test submitting a P2ID transaction
+    // Insert a P2ID transaction object
 
     let transaction_template = TransactionTemplate::PayToId(PaymentTransactionData::new(
         asset,
