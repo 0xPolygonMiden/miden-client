@@ -67,10 +67,6 @@ impl DataStore for SqliteDataStore {
         // TODO:
         //  - To build the return (partial) ChainMmr: From the block numbers in each note.origin(), get the list of block headers
         //    and construct the partial Mmr
-        let _previous_nodes = self
-            .store
-            .get_chain_mmr_nodes()
-            .map_err(|_err| DataStoreError::AccountNotFound(account_id))?;
 
         // build partial mmr from the nodes - partial_mmr should be on memory as part of our store
         let partial_mmr: PartialMmr = {
@@ -105,14 +101,9 @@ impl DataStore for SqliteDataStore {
     }
 
     fn get_account_code(&self, account_id: AccountId) -> Result<ModuleAst, DataStoreError> {
-        let (account, _seed) = self
-            .store
-            .get_account_stub_by_id(account_id)
-            .map_err(|_err| DataStoreError::AccountNotFound(account_id))?;
-
         let (_, module_ast) = self
             .store
-            .get_account_code(account.code_root())
+            .get_account_code_by_account_id(account_id)
             .map_err(|_err| DataStoreError::AccountNotFound(account_id))?;
 
         Ok(module_ast)

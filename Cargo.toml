@@ -10,31 +10,31 @@ edition = "2021"
 rust-version = "1.67"
 
 [features]
+concurrent = ["miden_lib/concurrent", "objects/concurrent"]
 default = ["std"]
 mock = []
 std = ["crypto/std", "objects/std"]
 testing = ["objects/testing", "miden_lib/testing"]
-concurrent = ["miden_lib/concurrent", "objects/concurrent"]
 
 [dependencies]
+assembly = { package = "miden-assembly", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
 clap = { version = "4.3" , features = ["derive"] }
+comfy-table = "7.1.0"
 crypto = { package = "miden-crypto", git = "https://github.com/0xPolygonMiden/crypto", branch = "next", default-features = false }
 lazy_static = "1.4.0"
-miden_node_proto = { package = "miden-node-proto", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "igamigo-export-seed", default-features = false }
-miden_node_store = { package = "miden-node-store", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "igamigo-export-seed" }
-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", features = ["serde"] }
 miden_lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", default-features = false }
+miden_node_store = { package = "miden-node-store", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "igamigo-export-seed" }
+miden_node_proto = { package = "miden-node-proto", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "igamigo-export-seed", default-features = false }
 miden_tx = { package = "miden-tx", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", default-features = false }
-assembly = { package = "miden-assembly", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
 mock = { package = "miden-mock", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", default-features = false }
+objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", features = ["serde"] }
+rand = { version = "0.8.5" }
 rusqlite = { version = "0.29.0", features = ["bundled"] }
 rusqlite_migration = { version = "1.0" }
-rand = { version = "0.8.5" }
 serde = {version = "1.0", features = ["derive"]}
 serde_json = { version = "1.0", features = ["raw_value"] }
-tonic = { version = "0.10" }
 tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"] }
-comfy-table = "7.1.0"
+tonic = { version = "0.10" }
 
 [dev-dependencies]
 uuid = { version = "1.6.1", features = ["serde", "v4"] }

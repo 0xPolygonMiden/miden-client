@@ -1,7 +1,6 @@
 use crate::{config::StoreConfig, errors::StoreError};
 
 use clap::error::Result;
-use crypto::merkle::Mmr;
 use rusqlite::Connection;
 
 pub mod accounts;
@@ -21,7 +20,6 @@ pub mod data_store;
 
 pub struct Store {
     pub(crate) db: Connection,
-    pub(crate) mmr: Mmr,
 }
 
 impl Store {
@@ -32,9 +30,8 @@ impl Store {
     pub fn new(config: StoreConfig) -> Result<Self, StoreError> {
         let mut db = Connection::open(config.path).map_err(StoreError::ConnectionError)?;
         migrations::update_to_latest(&mut db)?;
-        let mmr = Mmr::new();
 
-        Ok(Self { db, mmr })
+        Ok(Self { db })
     }
 }
 
@@ -43,7 +40,6 @@ impl Store {
 
 #[cfg(test)]
 pub mod tests {
-    use crypto::merkle::Mmr;
     use std::env::temp_dir;
     use uuid::Uuid;
 
@@ -62,9 +58,6 @@ pub mod tests {
         let mut db = Connection::open(temp_file).unwrap();
         migrations::update_to_latest(&mut db).unwrap();
 
-        Store {
-            db,
-            mmr: Mmr::new(),
-        }
+        Store { db }
     }
 }

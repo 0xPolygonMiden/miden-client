@@ -85,7 +85,6 @@ impl Store {
     ) -> Result<(), StoreError> {
         // get current nodes on table
         // we need to do this here because creating a sql tx borrows a mut reference
-        let _previous_nodes = self.get_chain_mmr_nodes()?;
         let current_peaks = self.get_chain_mmr_peaks_by_block_num(current_block_num)?;
 
         let tx = self
@@ -158,21 +157,7 @@ impl Store {
 
             Store::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
 
-            let _peaks: Vec<String> = partial_mmr
-                .peaks()
-                .peaks()
-                .iter()
-                .map(|x| x.to_string())
-                .collect();
-
-            self.mmr.add(block_header.hash());
-
-            Store::insert_block_header(
-                &tx,
-                block_header,
-                partial_mmr.peaks(),
-                partial_mmr.forest() as u64,
-            )?;
+            Store::insert_block_header(&tx, block_header, partial_mmr.peaks())?;
         }
 
         // update tracked notes

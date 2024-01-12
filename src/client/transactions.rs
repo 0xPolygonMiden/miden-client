@@ -19,7 +19,7 @@ use crate::{
     store::accounts::AuthInfo,
 };
 
-use super::Client;
+use super::{Client, FILTER_ID_SHIFT};
 
 pub enum TransactionTemplate {
     /// Consume all outstanding notes for an account
@@ -28,7 +28,6 @@ pub enum TransactionTemplate {
     /// Mint fungible assets using a faucet account
     MintFungibleAsset {
         asset: FungibleAsset,
-        tag: u64,
         target_account_id: AccountId,
     },
     /// Creates a pay-to-id note directed to a specific account from a faucet
@@ -130,7 +129,6 @@ impl Client {
             TransactionTemplate::ConsumeNotes(_) => todo!(),
             TransactionTemplate::MintFungibleAsset {
                 asset,
-                tag: _tag,
                 target_account_id,
             } => self.new_mint_fungible_asset_transaction(asset, target_account_id),
         }
@@ -188,7 +186,7 @@ impl Client {
                 end
             ",
                 recipient = recipient,
-                tag = Felt::new(target_id.into()),
+                tag = Felt::new(Into::<u64>::into(target_id) >> FILTER_ID_SHIFT),
                 amount = Felt::new(asset.amount()),
             )
             .as_str(),

@@ -463,7 +463,6 @@ async fn test_mint_transaction() {
     println!("{:?}", faucet.account_type());
     let transaction_template = TransactionTemplate::MintFungibleAsset {
         asset: FungibleAsset::new(faucet.id(), 5u64).unwrap(),
-        tag: 10u64,
         target_account_id: AccountId::from_hex("0x168187d729b31a84").unwrap(),
     };
 

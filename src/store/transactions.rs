@@ -184,7 +184,11 @@ pub(crate) fn serialize_transaction(
         serde_json::to_string(&nullifiers).map_err(StoreError::InputSerializationError)?;
 
     let output_notes = transaction.output_notes();
-    println!("output notes from the transaction {:?}", output_notes);
+
+    // TODO: Add proper logging
+    println!("transaction id {:?}", transaction.id());
+    println!("transaction account id: {}", transaction.account_id());
+    println!("transaction output notes {:?}", output_notes);
 
     // TODO: Scripts should be in their own tables and only identifiers should be stored here
     let mut script_program = None;

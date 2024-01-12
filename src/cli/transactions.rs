@@ -36,7 +36,6 @@ pub enum TransactionType {
     },
     Mint {
         target_account_id: String,
-        tag: u64,
         faucet_id: String,
         amount: u64,
     },
@@ -79,7 +78,6 @@ impl Transaction {
                     }
                     TransactionType::Mint {
                         faucet_id,
-                        tag,
                         target_account_id,
                         amount,
                     } => {
@@ -91,7 +89,6 @@ impl Transaction {
                             .map_err(|err| err.to_string())?;
                         TransactionTemplate::MintFungibleAsset {
                             asset: fungible_asset,
-                            tag: *tag,
                             target_account_id,
                         }
                     }

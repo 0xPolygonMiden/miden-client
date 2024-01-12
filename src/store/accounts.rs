@@ -144,6 +144,17 @@ impl Store {
             .ok_or(StoreError::AccountDataNotFound(account_id))?
     }
 
+    /// Retrieves an account's [ModuleAst] and the code root by [AccountId]
+    pub fn get_account_code_by_account_id(
+        &self,
+        account_id: AccountId,
+    ) -> Result<(Vec<RpoDigest>, ModuleAst), StoreError> {
+        // TODO: This could be done via a single query
+        let (account, _seed) = self.get_account_stub_by_id(account_id)?;
+
+        self.get_account_code(account.code_root())
+    }
+
     // TODO: Get all parts from a single query
     /// Retrieves a full [Account] object
     pub fn get_account_by_id(&self, account_id: AccountId) -> Result<(Account, Word), StoreError> {

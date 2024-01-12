@@ -10,8 +10,8 @@ use crypto::merkle::{InOrderIndex, MmrPeaks};
 use objects::{BlockHeader, Digest};
 use rusqlite::{params, OptionalExtension, Transaction};
 
-type SerializedBlockHeaderData = (i64, String, String, String, String, i64);
-type SerializedBlockHeaderParts = (u64, String, String, String, String, u64);
+type SerializedBlockHeaderData = (i64, String, String, String, String);
+type SerializedBlockHeaderParts = (u64, String, String, String, String);
 
 type SerializedChainMmrNodeData = (i64, String);
 type SerializedChainMmrNodeParts = (u64, String);
@@ -23,27 +23,26 @@ impl Store {
         tx: &Transaction<'_>,
         block_header: BlockHeader,
         chain_mmr_peaks: MmrPeaks,
-        forest: u64,
     ) -> Result<(), StoreError> {
         let chain_mmr_peaks = chain_mmr_peaks.peaks().to_vec();
-        let (block_num, header, notes_root, sub_hash, chain_mmr, forest) =
-            serialize_block_header(block_header, chain_mmr_peaks, forest)?;
+        let (block_num, header, notes_root, sub_hash, chain_mmr) =
+            serialize_block_header(block_header, chain_mmr_peaks)?;
 
         const QUERY: &str = "\
         INSERT INTO block_headers
-            (block_num, header, notes_root, sub_hash, chain_mmr, forest)
-         VALUES (?, ?, ?, ?, ?, ?)";
+            (block_num, header, notes_root, sub_hash, chain_mmr_peaks)
+         VALUES (?, ?, ?, ?, ?)";
 
         tx.execute(
             QUERY,
-            params![block_num, header, notes_root, sub_hash, chain_mmr, forest],
+            params![block_num, header, notes_root, sub_hash, chain_mmr],
         )
         .map_err(StoreError::QueryError)
         .map(|_| ())
     }
 
     pub fn get_block_header_by_num(&self, block_number: u32) -> Result<BlockHeader, StoreError> {
-        const QUERY: &str = "SELECT block_num, header, notes_root, sub_hash, chain_mmr, forest FROM block_headers WHERE block_num = ?";
+        const QUERY: &str = "SELECT block_num, header, notes_root, sub_hash, chain_mmr_peaks FROM block_headers WHERE block_num = ?";
         self.db
             .prepare(QUERY)
             .map_err(StoreError::QueryError)?
@@ -99,47 +98,42 @@ impl Store {
             .collect()
     }
 
-    /// Returns all nodes in the table.
+    /// Returns peaks information from the blockchain by a specific block number.
     pub fn get_chain_mmr_peaks_by_block_num(&self, block_num: u32) -> Result<MmrPeaks, StoreError> {
-        const QUERY: &str = "SELECT forest, chain_mmr FROM block_headers WHERE block_num = ?";
+        const QUERY: &str = "SELECT chain_mmr_peaks FROM block_headers WHERE block_num = ?";
 
         let mmr_peaks = self
             .db
             .prepare(QUERY)
             .map_err(StoreError::QueryError)?
             .query_row(params![block_num], |row| {
-                let forest: usize = row.get(0)?;
-                let peaks: String = row.get(1)?;
-                Ok((forest, peaks))
+                let peaks: String = row.get(0)?;
+                Ok(peaks)
             })
             .optional()
-            .map_err(StoreError::QueryError)?
-            .unwrap_or_default();
+            .map_err(StoreError::QueryError)?;
 
-        parse_mmr_peaks(mmr_peaks)
+        if let Some(mmr_peaks) = mmr_peaks {
+            return parse_mmr_peaks(block_num, mmr_peaks);
+        }
+
+        MmrPeaks::new(0, vec![]).map_err(StoreError::MmrError)
     }
 }
 
 // HELPERS
 // ================================================================================================
 
-fn parse_mmr_peaks(peaks_parts: (usize, String)) -> Result<MmrPeaks, StoreError> {
-    let (forest, nodes) = peaks_parts;
-
-    if forest == 0 {
-        return MmrPeaks::new(0, vec![]).map_err(StoreError::MmrError);
-    }
-
+fn parse_mmr_peaks(forest: u32, peaks_nodes: String) -> Result<MmrPeaks, StoreError> {
     let mmr_peaks_nodes: Vec<Digest> =
-        serde_json::from_str(&nodes).map_err(StoreError::JsonDataDeserializationError)?;
+        serde_json::from_str(&peaks_nodes).map_err(StoreError::JsonDataDeserializationError)?;
 
-    MmrPeaks::new(forest, mmr_peaks_nodes).map_err(StoreError::MmrError)
+    MmrPeaks::new(forest as usize, mmr_peaks_nodes).map_err(StoreError::MmrError)
 }
 
 fn serialize_block_header(
     block_header: BlockHeader,
     chain_mmr_peaks: Vec<Digest>,
-    forest: u64,
 ) -> Result<SerializedBlockHeaderData, StoreError> {
     let block_num = block_header.block_num();
     let header =
@@ -157,7 +151,6 @@ fn serialize_block_header(
         notes_root,
         sub_hash,
         chain_mmr_peaks,
-        forest as i64,
     ))
 }
 
@@ -169,22 +162,14 @@ fn parse_block_headers_columns(
     let notes_root: String = row.get(2)?;
     let sub_hash: String = row.get(3)?;
     let chain_mmr: String = row.get(4)?;
-    let forest: i64 = row.get(5)?;
 
-    Ok((
-        block_num as u64,
-        header,
-        notes_root,
-        sub_hash,
-        chain_mmr,
-        forest as u64,
-    ))
+    Ok((block_num as u64, header, notes_root, sub_hash, chain_mmr))
 }
 
 fn parse_block_header(
     serialized_block_header_parts: SerializedBlockHeaderParts,
 ) -> Result<BlockHeader, StoreError> {
-    let (_, header, _, _, _, _) = serialized_block_header_parts;
+    let (_, header, _, _, _) = serialized_block_header_parts;
 
     serde_json::from_str(&header).map_err(StoreError::JsonDataDeserializationError)
 }
@@ -216,5 +201,3 @@ fn parse_chain_mmr_nodes(
         serde_json::from_str(&node).map_err(StoreError::JsonDataDeserializationError)?;
     Ok((id, node))
 }
-
-mod test {}
