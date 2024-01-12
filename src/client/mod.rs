@@ -25,9 +25,9 @@ pub mod transactions;
 #[cfg(not(any(test, feature = "mock")))]
 pub struct Client {
     /// Local database containing information about the accounts managed by this client.
-    pub(crate) store: Store,
-    pub rpc_api: miden_node_proto::rpc::api_client::ApiClient<tonic::transport::Channel>,
-    pub tx_executor: TransactionExecutor<crate::store::data_store::SqliteDataStore>,
+    store: Store,
+    rpc_api: miden_node_proto::rpc::api_client::ApiClient<tonic::transport::Channel>,
+    tx_executor: TransactionExecutor<crate::store::data_store::SqliteDataStore>,
 }
 
 #[cfg(not(any(test, feature = "mock")))]
