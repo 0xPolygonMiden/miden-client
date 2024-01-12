@@ -141,6 +141,7 @@ impl Store {
                 .map_err(StoreError::MmrError)?
                 .into();
 
+            // apply the delta
             let new_authentication_nodes = partial_mmr
                 .apply(mmr_delta.try_into().unwrap())
                 .map_err(StoreError::MmrError)?;
