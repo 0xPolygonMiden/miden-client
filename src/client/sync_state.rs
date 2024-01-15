@@ -91,17 +91,23 @@ impl Client {
             })
             .collect::<Result<Vec<_>, ClientError>>()?;
 
-        let new_nullifiers = response_nullifiers
+        let parsed_new_nullifiers = response_nullifiers
             .into_iter()
-            .filter_map(|response_nullifier| {
-                let nullifier = response_nullifier.try_into().unwrap();
+            .map(|response_nullifier| {
+                response_nullifier.try_into().map_err(ClientError::RpcTypeConversionFailure)
+            })
+            .collect::<Result<Vec<_>, ClientError>>()?;
+
+        let new_nullifiers = parsed_new_nullifiers
+            .into_iter()
+            .filter_map(|nullifier| {
                 if nullifiers.contains(&nullifier) {
                     Some(nullifier)
                 } else {
                     None
                 }
             })
-            .collect::<Vec<_>>();
+            .collect();
 
         let committed_notes =
             self.get_newly_committed_note_info(&response.notes, &incoming_block_header)?;
@@ -141,20 +147,39 @@ impl Client {
             .map(|n| n.note().id().inner())
             .collect();
 
-        Ok(notes
+        let notes_with_hashes_and_merkle_paths = notes
             .iter()
-            .filter_map(|note| {
-                let note_hash = note.note_hash.clone().unwrap().try_into().unwrap();
-                if pending_notes.contains(&note_hash) {
+            .map(|note_record| {
+                // Handle Options first
+                let note_hash = note_record.note_hash.clone().ok_or(ClientError::RpcExpectedFieldMissingFailure(format!(
+                        "Expected note hash for response note record {:?}",
+                        &note_record
+                )))?;
+                let note_merkle_path = note_record.merkle_path.clone().ok_or(ClientError::RpcExpectedFieldMissingFailure(format!(
+                        "Expected merkle path for response note record {:?}",
+                        &note_record
+                )))?;
+                // Handle casting after
+                let note_hash = note_hash.try_into().map_err(ClientError::RpcTypeConversionFailure)?;
+                let merkle_path : crypto::merkle::MerklePath = note_merkle_path.try_into().map_err(ClientError::RpcTypeConversionFailure)?;
+
+                Ok((note_record, note_hash, merkle_path))
+            })
+            .collect::<Result<Vec<_>, ClientError>>()?;
+
+        Ok(notes_with_hashes_and_merkle_paths
+            .iter()
+            .filter_map(|(note, note_hash, merkle_path)| {
+                if pending_notes.contains(note_hash) {
                     let note_inclusion_proof = NoteInclusionProof::new(
                         block_header.block_num(),
                         block_header.sub_hash(),
                         block_header.note_root(),
                         note.note_index.into(),
-                        note.merkle_path.clone().unwrap().try_into().unwrap(),
+                        merkle_path.clone(),
                     )
                     .unwrap();
-                    Some((note_hash, note_inclusion_proof))
+                    Some((*note_hash, note_inclusion_proof))
                 } else {
                     None
                 }
