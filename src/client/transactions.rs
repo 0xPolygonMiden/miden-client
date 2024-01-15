@@ -1,4 +1,4 @@
-use crypto::{rand::RpoRandomCoin, utils::Serializable, StarkField, Felt, Word};
+use crypto::{rand::RpoRandomCoin, utils::Serializable, Felt, StarkField, Word};
 use miden_lib::notes::create_p2id_note;
 use miden_node_proto::{
     requests::SubmitProvenTransactionRequest, responses::SubmitProvenTransactionResponse,
