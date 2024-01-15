@@ -45,7 +45,7 @@ impl fmt::Display for ClientError {
                 write!(f, "transaction prover error: {err}")
             }
             ClientError::RpcExpectedFieldMissingFailure(err) => {
-                write!(f, "rpc api error: {err}")
+                write!(f, "rpc api reponse missing an expected field: {err}")
             }
         }
     }
