@@ -20,10 +20,10 @@ pub enum ClientError {
     RpcTypeConversionFailure(ParseError),
     NoteError(NoteError),
     RpcApiError(RpcApiError),
+    RpcExpectedFieldMissingFailure(String),
     StoreError(StoreError),
     TransactionExecutionError(TransactionExecutorError),
     TransactionProvingError(TransactionProverError),
-    RpcExpectedFieldMissingFailure(String),
 }
 
 impl fmt::Display for ClientError {
