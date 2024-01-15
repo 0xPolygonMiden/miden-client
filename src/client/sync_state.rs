@@ -100,13 +100,7 @@ impl Client {
 
         let new_nullifiers = parsed_new_nullifiers
             .into_iter()
-            .filter_map(|nullifier| {
-                if nullifiers.contains(&nullifier) {
-                    Some(nullifier)
-                } else {
-                    None
-                }
-            })
+            .filter(|nullifier| nullifiers.contains(nullifier))
             .collect();
 
         let committed_notes =
