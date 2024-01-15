@@ -94,7 +94,9 @@ impl Client {
         let parsed_new_nullifiers = response_nullifiers
             .into_iter()
             .map(|response_nullifier| {
-                response_nullifier.try_into().map_err(ClientError::RpcTypeConversionFailure)
+                response_nullifier
+                    .try_into()
+                    .map_err(ClientError::RpcTypeConversionFailure)
             })
             .collect::<Result<Vec<_>, ClientError>>()?;
 
@@ -145,17 +147,25 @@ impl Client {
             .iter()
             .map(|note_record| {
                 // Handle Options first
-                let note_hash = note_record.note_hash.clone().ok_or(ClientError::RpcExpectedFieldMissingFailure(format!(
+                let note_hash = note_record.note_hash.clone().ok_or(
+                    ClientError::RpcExpectedFieldMissingFailure(format!(
                         "Expected note hash for response note record {:?}",
                         &note_record
-                )))?;
-                let note_merkle_path = note_record.merkle_path.clone().ok_or(ClientError::RpcExpectedFieldMissingFailure(format!(
+                    )),
+                )?;
+                let note_merkle_path = note_record.merkle_path.clone().ok_or(
+                    ClientError::RpcExpectedFieldMissingFailure(format!(
                         "Expected merkle path for response note record {:?}",
                         &note_record
-                )))?;
+                    )),
+                )?;
                 // Handle casting after
-                let note_hash = note_hash.try_into().map_err(ClientError::RpcTypeConversionFailure)?;
-                let merkle_path : crypto::merkle::MerklePath = note_merkle_path.try_into().map_err(ClientError::RpcTypeConversionFailure)?;
+                let note_hash = note_hash
+                    .try_into()
+                    .map_err(ClientError::RpcTypeConversionFailure)?;
+                let merkle_path: crypto::merkle::MerklePath = note_merkle_path
+                    .try_into()
+                    .map_err(ClientError::RpcTypeConversionFailure)?;
 
                 Ok((note_record, note_hash, merkle_path))
             })
