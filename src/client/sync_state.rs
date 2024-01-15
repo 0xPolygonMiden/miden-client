@@ -4,6 +4,7 @@ use miden_node_proto::{
     account::AccountId as ProtoAccountId, note::NoteSyncRecord, requests::SyncStateRequest,
     responses::SyncStateResponse,
 };
+
 use objects::{accounts::AccountId, notes::NoteInclusionProof, BlockHeader, Digest};
 
 use crate::errors::{ClientError, RpcApiError};
@@ -58,13 +59,21 @@ impl Client {
     }
 
     async fn single_sync_state(&mut self) -> Result<SyncStatus, ClientError> {
-        let block_num = self.store.get_latest_block_num()?;
+        let current_block_num = self.store.get_latest_block_num()?;
         let account_ids = self.store.get_account_ids()?;
-        let note_tags = self.store.get_note_tags()?;
+        let note_tags: Vec<u64> = self
+            .store
+            .get_accounts()
+            .unwrap()
+            .into_iter()
+            .map(|(a, _s)| a.id().into())
+            .collect();
+
         let nullifiers = self.store.get_unspent_input_note_nullifiers()?;
         let response = self
-            .sync_state_request(block_num, &account_ids, &note_tags, &nullifiers)
+            .sync_state_request(current_block_num, &account_ids, &note_tags, &nullifiers)
             .await?;
+
         let incoming_block_header =
             response
                 .block_header
@@ -77,7 +86,12 @@ impl Client {
             .try_into()
             .map_err(ClientError::RpcTypeConversionFailure)?;
 
-        // Handle any missing nullifiers
+        if incoming_block_header.block_num() == current_block_num
+            && (current_block_num != 0 || self.store.get_block_header_by_num(0).is_ok())
+        {
+            return Ok(SyncStatus::SyncedToLastBlock(current_block_num));
+        }
+
         let response_nullifiers = response
             .nullifiers
             .clone()
@@ -110,6 +124,7 @@ impl Client {
 
         self.store
             .apply_state_sync(
+                current_block_num,
                 incoming_block_header,
                 new_nullifiers,
                 response.accounts,
@@ -207,6 +222,7 @@ impl Client {
             .iter()
             .map(|nullifier| (nullifier[3].as_int() >> FILTER_ID_SHIFT) as u32)
             .collect();
+
         let note_tags = note_tags
             .iter()
             .map(|tag| (tag >> FILTER_ID_SHIFT) as u32)

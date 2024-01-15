@@ -1,5 +1,4 @@
-use crate::config::StoreConfig;
-use crate::errors::StoreError;
+use crate::{config::StoreConfig, errors::StoreError};
 
 use clap::error::Result;
 use rusqlite::Connection;
@@ -11,14 +10,16 @@ pub mod notes;
 pub mod state_sync;
 pub mod transactions;
 
-#[cfg(any(test, feature = "testing"))]
+#[cfg(any(test, feature = "mock"))]
 pub mod mock_executor_data_store;
+
+pub mod data_store;
 
 // CLIENT STORE
 // ================================================================================================
 
 pub struct Store {
-    db: Connection,
+    pub(crate) db: Connection,
 }
 
 impl Store {
