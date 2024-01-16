@@ -5,7 +5,7 @@ use crypto::{
 };
 
 use objects::{
-    accounts::{AccountId, AccountDelta},
+    accounts::{AccountDelta, AccountId},
     assembly::{AstSerdeOptions, ProgramAst},
     transaction::{ExecutedTransaction, OutputNotes, ProvenTransaction, TransactionScript},
     Digest,

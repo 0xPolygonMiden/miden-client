@@ -332,7 +332,10 @@ impl Store {
         .map_err(StoreError::QueryError)
     }
 
-    pub(crate) fn update_account_record(tx: &Transaction<'_>, account: &Account) -> Result<(), StoreError> {
+    pub(crate) fn update_account_record(
+        tx: &Transaction<'_>,
+        account: &Account,
+    ) -> Result<(), StoreError> {
         let (id, code_root, storage_root, vault_root, nonce, committed) =
             serialize_account(account)?;
 

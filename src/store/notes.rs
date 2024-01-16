@@ -215,7 +215,10 @@ impl Store {
     }
 
     /// Inserts the provided input note into the database
-    pub fn insert_input_note_tx(tx: &Transaction<'_>, note: &InputNoteRecord) -> Result<(), StoreError> {
+    pub fn insert_input_note_tx(
+        tx: &Transaction<'_>,
+        note: &InputNoteRecord,
+    ) -> Result<(), StoreError> {
         let (
             note_id,
             nullifier,
@@ -232,27 +235,26 @@ impl Store {
             commit_height,
         ) = serialize_input_note(note)?;
 
-        tx
-            .execute(
-                INSERT_NOTE_QUERY,
-                params![
-                    note_id,
-                    nullifier,
-                    script,
-                    vault,
-                    inputs,
-                    serial_num,
-                    sender_id,
-                    tag,
-                    num_assets,
-                    inclusion_proof,
-                    recipients,
-                    status,
-                    commit_height
-                ],
-            )
-            .map_err(StoreError::QueryError)
-            .map(|_| ())
+        tx.execute(
+            INSERT_NOTE_QUERY,
+            params![
+                note_id,
+                nullifier,
+                script,
+                vault,
+                inputs,
+                serial_num,
+                sender_id,
+                tag,
+                num_assets,
+                inclusion_proof,
+                recipients,
+                status,
+                commit_height
+            ],
+        )
+        .map_err(StoreError::QueryError)
+        .map(|_| ())
     }
 }
 

@@ -1,6 +1,8 @@
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 
-use miden_client::client::transactions::{PaymentTransactionData, TransactionStub, TransactionTemplate};
+use miden_client::client::transactions::{
+    PaymentTransactionData, TransactionStub, TransactionTemplate,
+};
 use objects::{accounts::AccountId, assets::FungibleAsset};
 
 use super::{Client, Parser};
@@ -105,7 +107,9 @@ impl Transaction {
                 // transaction was proven and submitted to the node correctly, persist note details and update account
                 let account_id = transaction_template.account_id();
 
-                client.persist_transaction_execution_changes(account_id, transaction_execution_result).map_err(|err| err.to_string())?;
+                client
+                    .persist_transaction_execution_changes(account_id, transaction_execution_result)
+                    .map_err(|err| err.to_string())?;
             }
         }
         Ok(())
