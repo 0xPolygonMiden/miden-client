@@ -26,7 +26,8 @@ pub mod transactions;
 pub struct Client {
     /// Local database containing information about the accounts managed by this client.
     store: Store,
-    rpc_api: miden_node_proto::rpc::api_client::ApiClient<tonic::transport::Channel>,
+    rpc_api: Option<miden_node_proto::rpc::api_client::ApiClient<tonic::transport::Channel>>,
+    config: ClientConfig,
     tx_executor: TransactionExecutor<crate::store::data_store::SqliteDataStore>,
 }
 
@@ -45,13 +46,23 @@ impl Client {
 
         Ok(Self {
             store: Store::new((&config).into())?,
-            rpc_api: ApiClient::connect(config.node_endpoint.to_string())
-                .await
-                .map_err(|err| ClientError::RpcApiError(RpcApiError::ConnectionError(err)))?,
+            rpc_api: None,
             tx_executor: TransactionExecutor::new(SqliteDataStore::new(Store::new(
                 (&config).into(),
             )?)),
+            config,
         })
+    }
+
+    pub fn rpc_api(&mut self) -> Result<&mut miden_node_proto::rpc::api_client::ApiClient<tonic::transport::Channel>, ClientError> {
+        if let Some(rpc_api) = self.rpc_api {
+            Ok(rpc_api)
+        } else {
+            let rpc_api = ApiClient::connect(config.node_endpoint.to_string())
+                .await
+                .map_err(|err| ClientError::RpcApiError(RpcApiError::ConnectionError(err)))?;
+            Ok(self.rpc_api.insert(rpc_api))
+        }
     }
 }
 
@@ -61,7 +72,7 @@ impl Client {
 #[cfg(any(test, feature = "mock"))]
 pub struct Client {
     pub(crate) store: Store,
-    pub rpc_api: crate::mock::MockRpcApi,
+    pub rpc_api: Option<crate::mock::MockRpcApi>,
     pub(crate) tx_executor:
         TransactionExecutor<crate::store::mock_executor_data_store::MockDataStore>,
 }
@@ -76,5 +87,9 @@ impl Client {
             rpc_api: Default::default(),
             tx_executor: TransactionExecutor::new(MockDataStore::new()),
         })
+    }
+
+    pub fn rpc_api(&mut self) -> Result<&mut crate::mock::MockRpcApi, ClientError> {
+        Ok(self.rpc_api.get_or_insert(Default::default()))
     }
 }

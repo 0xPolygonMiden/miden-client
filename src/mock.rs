@@ -234,7 +234,7 @@ pub fn insert_mock_data(client: &mut Client) {
 
     // insert some sync request
     create_mock_sync_state_request_for_account_and_notes(
-        &mut client.rpc_api.sync_state_requests,
+        &mut client.rpc_api().unwrap().sync_state_requests,
         account_id,
         transaction_inputs.input_notes(),
     );
