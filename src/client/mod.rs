@@ -72,7 +72,7 @@ impl Client {
 #[cfg(any(test, feature = "mock"))]
 pub struct Client {
     pub(crate) store: Store,
-    pub rpc_api: Option<crate::mock::MockRpcApi>,
+    rpc_api: Option<crate::mock::MockRpcApi>,
     pub(crate) tx_executor:
         TransactionExecutor<crate::store::mock_executor_data_store::MockDataStore>,
 }
