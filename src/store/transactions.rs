@@ -193,7 +193,7 @@ impl Store {
             .collect();
 
         // Insert input notes
-        insert_input_notes(&tx, &input_notes)?;
+        insert_input_notes(tx, &input_notes)?;
 
         Ok(())
     }
