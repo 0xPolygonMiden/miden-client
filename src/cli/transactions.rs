@@ -1,9 +1,6 @@
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 
-use miden_client::{
-    client::transactions::{PaymentTransactionData, TransactionStub, TransactionTemplate},
-    store::notes::InputNoteRecord,
-};
+use miden_client::client::transactions::{PaymentTransactionData, TransactionStub, TransactionTemplate};
 use objects::{accounts::AccountId, assets::FungibleAsset};
 
 use super::{Client, Parser};
@@ -106,22 +103,9 @@ impl Transaction {
                     .map_err(|err| err.to_string())?;
 
                 // transaction was proven and submitted to the node correctly, persist note details and update account
-
-                // TODO: This needs to be done through a single SQL tx
-                let account_delta = transaction_execution_result
-                    .executed_transaction()
-                    .account_delta();
                 let account_id = transaction_template.account_id();
 
-                client
-                    .update_account(account_id, account_delta)
-                    .map_err(|err| err.to_string())?;
-
-                for n in transaction_execution_result.created_notes() {
-                    client
-                        .import_input_note(InputNoteRecord::from(n.clone()))
-                        .unwrap();
-                }
+                client.persist_transaction_execution_changes(account_id, transaction_execution_result).map_err(|err| err.to_string())?;
             }
         }
         Ok(())

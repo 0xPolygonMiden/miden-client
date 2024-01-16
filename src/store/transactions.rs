@@ -5,7 +5,7 @@ use crypto::{
 };
 
 use objects::{
-    accounts::AccountId,
+    accounts::{AccountId, AccountDelta},
     assembly::{AstSerdeOptions, ProgramAst},
     transaction::{ExecutedTransaction, OutputNotes, ProvenTransaction, TransactionScript},
     Digest,
@@ -159,6 +159,43 @@ impl Store {
 
         // commit the transaction
         tx.commit().map_err(StoreError::QueryError)?;
+
+        Ok(())
+    }
+
+    pub fn insert_proven_and_submitted_transaction_data(
+        &mut self,
+        account_id: AccountId,
+        account_delta: &AccountDelta,
+        created_notes: &[InputNoteRecord],
+    ) -> Result<(), StoreError> {
+        let (mut account, _seed) = self.get_account_by_id(account_id)?;
+
+        account
+            .apply_delta(account_delta)
+            .map_err(StoreError::AccountError)?;
+
+        // Create atomic transcation
+        let tx = self
+            .db
+            .transaction()
+            .map_err(StoreError::TransactionError)?;
+
+        // Updates for account
+        println!("account update nonce: {}", account.nonce());
+        println!("account updatehash : {}", account.hash());
+
+        Self::insert_account_storage(&tx, account.storage())?;
+        Self::insert_account_asset_vault(&tx, account.vault())?;
+        Self::update_account_record(&tx, &account)?;
+
+        // Updates for notes
+        for note in created_notes {
+            Self::insert_input_note_tx(&tx, note)?;
+        }
+
+        // commit the transaction
+        tx.commit().map_err(StoreError::TransactionError)?;
 
         Ok(())
     }

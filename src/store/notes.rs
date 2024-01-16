@@ -9,7 +9,7 @@ use crypto::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError
 use objects::notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteScript};
 
 use objects::{accounts::AccountId, notes::NoteMetadata, transaction::InputNote, Digest, Felt};
-use rusqlite::params;
+use rusqlite::{params, Transaction};
 
 pub(crate) const INSERT_NOTE_QUERY: &str = "\
 INSERT INTO input_notes
@@ -186,7 +186,36 @@ impl Store {
     }
 
     /// Inserts the provided input note into the database
-    pub fn insert_input_note(&self, note: &InputNoteRecord) -> Result<(), StoreError> {
+    pub fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError> {
+        let tx = self
+            .db
+            .transaction()
+            .map_err(StoreError::TransactionError)?;
+
+        Self::insert_input_note_tx(&tx, note)?;
+
+        tx.commit().map_err(StoreError::TransactionError)
+    }
+
+    /// Returns the nullifiers of all unspent input notes
+    pub fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Digest>, StoreError> {
+        const QUERY: &str = "SELECT nullifier FROM input_notes WHERE status = 'pending'";
+
+        self.db
+            .prepare(QUERY)
+            .map_err(StoreError::QueryError)?
+            .query_map([], |row| row.get(0))
+            .expect("no binding parameters used in query")
+            .map(|result| {
+                result
+                    .map_err(StoreError::ColumnParsingError)
+                    .and_then(|v: String| Digest::try_from(v).map_err(StoreError::HexParseError))
+            })
+            .collect::<Result<Vec<Digest>, _>>()
+    }
+
+    /// Inserts the provided input note into the database
+    pub fn insert_input_note_tx(tx: &Transaction<'_>, note: &InputNoteRecord) -> Result<(), StoreError> {
         let (
             note_id,
             nullifier,
@@ -203,7 +232,7 @@ impl Store {
             commit_height,
         ) = serialize_input_note(note)?;
 
-        self.db
+        tx
             .execute(
                 INSERT_NOTE_QUERY,
                 params![
@@ -224,23 +253,6 @@ impl Store {
             )
             .map_err(StoreError::QueryError)
             .map(|_| ())
-    }
-
-    /// Returns the nullifiers of all unspent input notes
-    pub fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Digest>, StoreError> {
-        const QUERY: &str = "SELECT nullifier FROM input_notes WHERE status = 'pending'";
-
-        self.db
-            .prepare(QUERY)
-            .map_err(StoreError::QueryError)?
-            .query_map([], |row| row.get(0))
-            .expect("no binding parameters used in query")
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(|v: String| Digest::try_from(v).map_err(StoreError::HexParseError))
-            })
-            .collect::<Result<Vec<Digest>, _>>()
     }
 }
 

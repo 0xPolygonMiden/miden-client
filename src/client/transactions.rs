@@ -17,7 +17,7 @@ use rand::Rng;
 
 use crate::{
     errors::{ClientError, RpcApiError},
-    store::accounts::AuthInfo,
+    store::{accounts::AuthInfo, notes::InputNoteRecord},
 };
 
 use super::{sync_state::FILTER_ID_SHIFT, Client};
@@ -361,6 +361,22 @@ impl Client {
             .await
             .map_err(|err| ClientError::RpcApiError(RpcApiError::RequestError(err)))?
             .into_inner())
+    }
+
+    pub fn persist_transaction_execution_changes(&mut self, account_id: AccountId, transaction_execution_result: TransactionExecutionResult) -> Result<(), ClientError> {
+        let account_delta = transaction_execution_result
+            .executed_transaction()
+            .account_delta();
+        let input_note_records = transaction_execution_result.created_notes()
+            .into_iter()
+            .map(|note| InputNoteRecord::from(note.clone()))
+            .collect::<Vec<_>>();
+
+        self.store
+            .insert_proven_and_submitted_transaction_data(account_id, account_delta, &input_note_records)
+            .map_err(ClientError::StoreError)?;
+
+        Ok(())
     }
 
     // HELPERS
