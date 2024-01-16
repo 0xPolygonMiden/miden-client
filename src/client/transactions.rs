@@ -363,6 +363,8 @@ impl Client {
             .into_inner())
     }
 
+    // Persists account changes and created notes from an executed transaction. Should be used
+    // after submitting a proven transaction to a node.
     pub fn persist_transaction_execution_changes(
         &mut self,
         account_id: AccountId,
