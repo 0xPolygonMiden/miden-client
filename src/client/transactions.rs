@@ -373,7 +373,7 @@ impl Client {
             .account_delta();
         let input_note_records = transaction_execution_result
             .created_notes()
-            .into_iter()
+            .iter()
             .map(|note| InputNoteRecord::from(note.clone()))
             .collect::<Vec<_>>();
 
