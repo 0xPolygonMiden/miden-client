@@ -213,7 +213,9 @@ pub fn get_faucet_account_with_max_supply_and_total_issuance(
             Felt::new(0),
             Felt::new(total_issuance),
         ];
-        faucet_account_storage.set_item(FAUCET_STORAGE_DATA_SLOT, faucet_storage_slot_254);
+        faucet_account_storage
+            .set_item(FAUCET_STORAGE_DATA_SLOT, faucet_storage_slot_254)
+            .unwrap();
     };
 
     Account::new(
