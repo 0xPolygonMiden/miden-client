@@ -228,7 +228,7 @@ impl Store {
 
     /// Returns the nullifiers of all unspent input notes
     pub fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Digest>, StoreError> {
-        const QUERY: &str = "SELECT nullifier FROM input_notes WHERE status = 'committed'";
+        const QUERY: &str = "SELECT nullifier FROM input_notes WHERE status = 'pending'";
 
         self.db
             .prepare(QUERY)

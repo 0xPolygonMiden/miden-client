@@ -105,6 +105,7 @@ impl Client {
             .apply_state_sync(
                 current_block_num,
                 incoming_block_header,
+                response.block_path.unwrap().try_into().unwrap(),
                 new_nullifiers,
                 response.accounts,
                 response.mmr_delta,

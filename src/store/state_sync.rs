@@ -1,5 +1,5 @@
 use crypto::{
-    merkle::{MmrPeaks, PartialMmr},
+    merkle::{MerklePath, PartialMmr},
     utils::Serializable,
 };
 use miden_node_proto::{mmr::MmrDelta, responses::AccountHashUpdate};
@@ -74,10 +74,12 @@ impl Store {
             .expect("state sync block number exists")
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn apply_state_sync(
         &mut self,
         current_block_num: u32,
         block_header: BlockHeader,
+        new_block_header_path: MerklePath,
         nullifiers: Vec<Digest>,
         account_updates: Vec<AccountHashUpdate>,
         mmr_delta: Option<MmrDelta>,
@@ -98,7 +100,7 @@ impl Store {
                 (account_update.account_id, account_update.account_hash)
             {
                 let account_id_int: u64 = account_id.clone().into();
-                const ACCOUNT_HASH_QUERY: &str = "SELECT hash FROM accounts WHERE id = ?";
+                const ACCOUNT_HASH_QUERY: &str = "SELECT id, nonce, vault_root, storage_root, code_root, account_seed FROM accounts WHERE id = ?";
 
                 if let Some(Ok((acc_stub, _acc_seed))) = tx
                     .prepare(ACCOUNT_HASH_QUERY)
@@ -112,7 +114,9 @@ impl Store {
                     })
                     .next()
                 {
-                    if account_hash != acc_stub.hash().into() {
+                    let account_hash: Digest = account_hash.try_into().unwrap();
+
+                    if account_hash != acc_stub.hash() {
                         return Err(StoreError::AccountHashMismatch(
                             account_id.try_into().unwrap(),
                         ));
@@ -135,19 +139,12 @@ impl Store {
                 .map_err(StoreError::QueryError)?;
         }
 
-        // update chain mmr nodes on the table
-        // get all elements from the chain mmr table
+        // update chain mmr nodes on the table if and only if there were any input notes we might want to use in the future
+        //if committed_notes.len() > 0 {
         if let Some(mmr_delta) = mmr_delta {
             // build partial mmr from the nodes - partial_mmr should be on memory as part of our store
 
-            let mut partial_mmr: PartialMmr = if current_block_num == 0 {
-                // first block we receive so we are good to create a blank partial mmr for this
-                MmrPeaks::new(0, vec![])
-                    .map_err(StoreError::MmrError)?
-                    .into()
-            } else {
-                PartialMmr::from_peaks(current_peaks)
-            };
+            let mut partial_mmr: PartialMmr = PartialMmr::from_peaks(current_peaks);
 
             // apply the delta
             let mmr_delta: crypto::merkle::MmrDelta = mmr_delta.try_into().unwrap();
@@ -155,10 +152,19 @@ impl Store {
             let new_authentication_nodes =
                 partial_mmr.apply(mmr_delta).map_err(StoreError::MmrError)?;
 
+            // TODO: Leaving these prints for now, but we should remove as soon as this works as expected
+            println!("peaks: {:?}", partial_mmr.peaks());
+            println!("path: {:?}", new_block_header_path);
+            println!("block num {}", block_header.block_num());
+
+            //This fails: partial_mmr.add(block_header.block_num().try_into().expect("u32"), block_header.hash(), &new_block_header_path).unwrap();
+            println!("new authentication nodes: {:?}", new_authentication_nodes);
+
             Store::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
 
             Store::insert_block_header(&tx, block_header, partial_mmr.peaks())?;
         }
+        //}
 
         // update tracked notes
         for (note_id, inclusion_proof) in committed_notes {

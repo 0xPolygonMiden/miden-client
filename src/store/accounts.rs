@@ -7,11 +7,11 @@ use crypto::{
     dsa::rpo_falcon512::KeyPair,
     hash::rpo::RpoDigest,
     utils::{Deserializable, Serializable},
-    Word,
+    StarkField, Word,
 };
 use miden_lib::transaction::TransactionKernel;
 use objects::{
-    accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub},
+    accounts::{Account, AccountCode, AccountDelta, AccountId, AccountStorage, AccountStub},
     assembly::{AstSerdeOptions, ModuleAst},
     assets::{Asset, AssetVault},
     Digest,
@@ -198,6 +198,32 @@ impl Store {
             .ok_or(StoreError::AccountDataNotFound(account_id))?
     }
 
+    /// Update account after a transaction execution
+    pub fn update_account(
+        &mut self,
+        account_id: AccountId,
+        account_delta: &AccountDelta,
+    ) -> Result<(), StoreError> {
+        let (mut account, _seed) = self.get_account_by_id(account_id)?;
+
+        account
+            .apply_delta(account_delta)
+            .map_err(StoreError::AccountError)?;
+
+        println!("account update nonce: {}", account.nonce());
+        println!("account updatehash : {}", account.hash());
+        let tx = self
+            .db
+            .transaction()
+            .map_err(StoreError::TransactionError)?;
+
+        Self::insert_account_storage(&tx, account.storage())?;
+        Self::insert_account_asset_vault(&tx, account.vault())?;
+        Self::update_account_record(&tx, &account)?;
+
+        tx.commit().map_err(StoreError::TransactionError)
+    }
+
     /// Retrieve account code-related data by code root
     pub fn get_account_code(
         &self,
@@ -289,7 +315,7 @@ impl Store {
 
         let account_seed = account_seed.to_bytes();
 
-        const QUERY: &str =  "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        const QUERY: &str =  "INSERT OR REPLACE INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed) VALUES (?, ?, ?, ?, ?, ?, ?)";
         tx.execute(
             QUERY,
             params![
@@ -301,6 +327,19 @@ impl Store {
                 committed,
                 account_seed
             ],
+        )
+        .map(|_| ())
+        .map_err(StoreError::QueryError)
+    }
+
+    fn update_account_record(tx: &Transaction<'_>, account: &Account) -> Result<(), StoreError> {
+        let (id, code_root, storage_root, vault_root, nonce, committed) =
+            serialize_account(account)?;
+
+        const QUERY: &str =  "UPDATE accounts SET code_root=?, storage_root=?, vault_root=?, nonce=?, committed=? WHERE id =?";
+        tx.execute(
+            QUERY,
+            params![code_root, storage_root, vault_root, nonce, committed, id,],
         )
         .map(|_| ())
         .map_err(StoreError::QueryError)
@@ -323,7 +362,7 @@ impl Store {
         account_storage: &AccountStorage,
     ) -> Result<(), StoreError> {
         let (storage_root, storage_slots) = serialize_account_storage(account_storage)?;
-        const QUERY: &str = "INSERT OR IGNORE INTO account_storage (root, slots) VALUES (?, ?)";
+        const QUERY: &str = "INSERT OR REPLACE INTO account_storage (root, slots) VALUES (?, ?)";
         tx.execute(QUERY, params![storage_root, storage_slots])
             .map(|_| ())
             .map_err(StoreError::QueryError)
@@ -334,7 +373,7 @@ impl Store {
         asset_vault: &AssetVault,
     ) -> Result<(), StoreError> {
         let (vault_root, assets) = serialize_account_asset_vault(asset_vault)?;
-        const QUERY: &str = "INSERT OR IGNORE INTO account_vaults (root, assets) VALUES (?, ?)";
+        const QUERY: &str = "INSERT OR REPLACE INTO account_vaults (root, assets) VALUES (?, ?)";
         tx.execute(QUERY, params![vault_root, assets])
             .map(|_| ())
             .map_err(StoreError::QueryError)
@@ -399,7 +438,7 @@ fn serialize_account(account: &Account) -> Result<SerializedAccountData, StoreEr
     let vault_root = serde_json::to_string(&account.vault().commitment())
         .map_err(StoreError::InputSerializationError)?;
     let committed = account.is_on_chain();
-    let nonce = account.nonce().inner() as i64;
+    let nonce = account.nonce().as_int() as i64;
 
     Ok((
         id as i64,

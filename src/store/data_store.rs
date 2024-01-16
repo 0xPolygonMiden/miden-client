@@ -79,14 +79,8 @@ impl DataStore for SqliteDataStore {
             PartialMmr::from_peaks(current_peaks)
         };
 
-        let chain_mmr = ChainMmr::new(
-            partial_mmr,
-            notes_blocks
-                .iter()
-                .map(|b| (b.block_num(), b.hash()))
-                .collect(),
-        )
-        .map_err(|_err| DataStoreError::AccountNotFound(account_id))?;
+        let chain_mmr = ChainMmr::new(partial_mmr, notes_blocks)
+            .map_err(|_err| DataStoreError::AccountNotFound(account_id))?;
 
         let input_notes = InputNotes::new(list_of_notes)
             .map_err(|_| DataStoreError::AccountNotFound(account_id))?;

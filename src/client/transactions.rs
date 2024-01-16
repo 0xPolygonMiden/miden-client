@@ -9,6 +9,7 @@ use objects::{
     accounts::AccountId,
     assembly::ProgramAst,
     assets::{Asset, FungibleAsset},
+    notes::Note,
     transaction::{ExecutedTransaction, OutputNotes, ProvenTransaction, TransactionScript},
     Digest,
 };
@@ -21,6 +22,10 @@ use crate::{
 
 use super::{sync_state::FILTER_ID_SHIFT, Client};
 
+// TRANSACTION TEMPLATE
+// --------------------------------------------------------------------------------------------
+
+#[derive(Clone)]
 pub enum TransactionTemplate {
     /// Consume all outstanding notes for an account
     ConsumeNotes(AccountId),
@@ -36,9 +41,25 @@ pub enum TransactionTemplate {
     PayToIdWithRecall(PaymentTransactionData, u32),
 }
 
+impl TransactionTemplate {
+    /// Returns the executor [AccountId]
+    pub fn account_id(&self) -> AccountId {
+        match self {
+            TransactionTemplate::ConsumeNotes(n) => *n,
+            TransactionTemplate::MintFungibleAsset {
+                asset,
+                target_account_id: _target_account_id,
+            } => asset.faucet_id(),
+            TransactionTemplate::PayToId(p) => *p.account_id(),
+            TransactionTemplate::PayToIdWithRecall(p, _) => *p.account_id(),
+        }
+    }
+}
+
 // PAYMENT TRANSACTION DATA
 // --------------------------------------------------------------------------------------------
 
+#[derive(Clone)]
 pub struct PaymentTransactionData {
     asset: Asset,
     sender_account_id: AccountId,
@@ -56,6 +77,36 @@ impl PaymentTransactionData {
             sender_account_id,
             target_account_id,
         }
+    }
+
+    /// Returns the executor [AccountId]
+    pub fn account_id(&self) -> &AccountId {
+        &self.sender_account_id
+    }
+}
+
+// TRANSACTION EXECUTION RESULT
+// --------------------------------------------------------------------------------------------
+
+pub struct TransactionExecutionResult {
+    executed_transaction: ExecutedTransaction,
+    created_notes: Vec<Note>,
+}
+
+impl TransactionExecutionResult {
+    pub fn new(executed_transaction: ExecutedTransaction, created_notes: Vec<Note>) -> Self {
+        Self {
+            executed_transaction,
+            created_notes,
+        }
+    }
+
+    pub fn executed_transaction(&self) -> &ExecutedTransaction {
+        &self.executed_transaction
+    }
+
+    pub fn created_notes(&self) -> &Vec<Note> {
+        &self.created_notes
     }
 }
 
@@ -118,7 +169,7 @@ impl Client {
     pub fn new_transaction(
         &mut self,
         transaction_template: TransactionTemplate,
-    ) -> Result<ExecutedTransaction, ClientError> {
+    ) -> Result<TransactionExecutionResult, ClientError> {
         match transaction_template {
             TransactionTemplate::PayToId(PaymentTransactionData {
                 asset: fungible_asset,
@@ -138,7 +189,7 @@ impl Client {
         &mut self,
         asset: FungibleAsset,
         target_id: AccountId,
-    ) -> Result<ExecutedTransaction, ClientError> {
+    ) -> Result<TransactionExecutionResult, ClientError> {
         let faucet_id = asset.faucet_id();
 
         // Construct Account
@@ -203,12 +254,15 @@ impl Client {
             .map_err(ClientError::TransactionExecutionError)?;
 
         // Execute the transaction and get the witness
-        let transaction_result = self
+        let executed_transaction = self
             .tx_executor
             .execute_transaction(faucet_id, block_ref, &[], Some(tx_script.clone()))
             .map_err(ClientError::TransactionExecutionError)?;
 
-        Ok(transaction_result)
+        Ok(TransactionExecutionResult::new(
+            executed_transaction,
+            vec![output_note],
+        ))
     }
 
     fn new_p2id_transaction(
@@ -216,7 +270,7 @@ impl Client {
         fungible_asset: Asset,
         sender_account_id: AccountId,
         target_account_id: AccountId,
-    ) -> Result<ExecutedTransaction, ClientError> {
+    ) -> Result<TransactionExecutionResult, ClientError> {
         let random_coin = self.get_random_coin();
 
         let _note = create_p2id_note(
@@ -265,7 +319,10 @@ impl Client {
             )
             .map_err(ClientError::TransactionExecutionError)?;
 
-        Ok(executed_transaction)
+        Ok(TransactionExecutionResult::new(
+            executed_transaction,
+            vec![],
+        ))
     }
 
     /// Proves the specified transaction witness, submits it to the node, and stores the transaction in

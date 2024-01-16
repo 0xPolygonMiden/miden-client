@@ -237,15 +237,21 @@ where
             Cell::new("vault hash").add_attribute(Attribute::Bold),
             Cell::new("inputs hash").add_attribute(Attribute::Bold),
             Cell::new("serial num").add_attribute(Attribute::Bold),
+            Cell::new("commit height").add_attribute(Attribute::Bold),
         ]);
 
     notes.into_iter().for_each(|input_note_record| {
+        let commit_height = input_note_record
+            .inclusion_proof()
+            .map(|proof| proof.origin().block_num.to_string())
+            .unwrap_or("-".to_string());
         table.add_row(vec![
             input_note_record.note().id().inner().to_string(),
             input_note_record.note().script().hash().to_string(),
             input_note_record.note().assets().commitment().to_string(),
             input_note_record.note().inputs().hash().to_string(),
             Digest::new(input_note_record.note().serial_num()).to_string(),
+            commit_height,
         ]);
     });
 

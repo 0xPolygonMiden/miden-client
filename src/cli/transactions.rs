@@ -1,7 +1,8 @@
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 
-use miden_client::client::transactions::{
-    PaymentTransactionData, TransactionStub, TransactionTemplate,
+use miden_client::{
+    client::transactions::{PaymentTransactionData, TransactionStub, TransactionTemplate},
+    store::notes::InputNoteRecord,
 };
 use objects::{accounts::AccountId, assets::FungibleAsset};
 
@@ -93,14 +94,34 @@ impl Transaction {
                         }
                     }
                 };
+
                 let transaction_execution_result = client
-                    .new_transaction(transaction_template)
+                    .new_transaction(transaction_template.clone())
                     .map_err(|err| err.to_string())?;
                 println!("Executed transaction, proving and then submitting...");
+
                 client
-                    .send_transaction(transaction_execution_result)
+                    .send_transaction(transaction_execution_result.executed_transaction().clone())
                     .await
                     .map_err(|err| err.to_string())?;
+
+                // transaction was proven and submitted to the node correctly, persist note details and update account
+
+                // TODO: This needs to be done through a single SQL tx
+                let account_delta = transaction_execution_result
+                    .executed_transaction()
+                    .account_delta();
+                let account_id = transaction_template.account_id();
+
+                client
+                    .update_account(account_id, account_delta)
+                    .map_err(|err| err.to_string())?;
+
+                for n in transaction_execution_result.created_notes() {
+                    client
+                        .import_input_note(InputNoteRecord::from(n.clone()))
+                        .unwrap();
+                }
             }
         }
         Ok(())

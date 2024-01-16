@@ -4,6 +4,7 @@ use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use crypto::{
     dsa::rpo_falcon512::KeyPair,
     utils::{bytes_to_hex_string, Serializable},
+    StarkField,
 };
 use miden_client::client::accounts;
 
@@ -139,7 +140,7 @@ fn list_accounts(client: Client) -> Result<(), String> {
             acc.code_root().to_string(),
             acc.vault_root().to_string(),
             acc.storage_root().to_string(),
-            acc.nonce().to_string(),
+            acc.nonce().as_int().to_string(),
         ]);
     });
 
