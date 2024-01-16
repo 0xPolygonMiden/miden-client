@@ -321,10 +321,12 @@ pub async fn create_mock_transaction(client: &mut Client) {
         target_account.id(),
     ));
 
+    let account_id = transaction_template.account_id();
+
     let transaction_execution_result = client.new_transaction(transaction_template).unwrap();
 
     client
-        .send_transaction(transaction_execution_result.executed_transaction().clone())
+        .send_transaction(account_id, transaction_execution_result.executed_transaction().clone(), &transaction_execution_result.created_notes().clone())
         .await
         .unwrap();
 }

@@ -100,15 +100,8 @@ impl Transaction {
                 println!("Executed transaction, proving and then submitting...");
 
                 client
-                    .send_transaction(transaction_execution_result.executed_transaction().clone())
+                    .send_transaction(transaction_template.account_id(), transaction_execution_result.executed_transaction().clone(), &transaction_execution_result.created_notes().clone())
                     .await
-                    .map_err(|err| err.to_string())?;
-
-                // transaction was proven and submitted to the node correctly, persist note details and update account
-                let account_id = transaction_template.account_id();
-
-                client
-                    .persist_transaction_execution_changes(account_id, transaction_execution_result)
                     .map_err(|err| err.to_string())?;
             }
         }
