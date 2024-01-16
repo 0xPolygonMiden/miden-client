@@ -105,14 +105,14 @@ impl Store {
         account_id: AccountId,
         proven_transaction: ProvenTransaction,
         transaction_result: ExecutedTransaction,
-        created_notes: &[Note]
+        created_notes: &[Note],
     ) -> Result<(), StoreError> {
         let (mut account, _seed) = self.get_account_by_id(account_id)?;
 
-        let account_delta = transaction_result
-            .account_delta();
+        let account_delta = transaction_result.account_delta();
 
-        account.apply_delta(account_delta)
+        account
+            .apply_delta(account_delta)
             .map_err(StoreError::AccountError)?;
 
         let created_notes = created_notes

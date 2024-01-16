@@ -100,7 +100,11 @@ impl Transaction {
                 println!("Executed transaction, proving and then submitting...");
 
                 client
-                    .send_transaction(transaction_template.account_id(), transaction_execution_result.executed_transaction().clone(), &transaction_execution_result.created_notes().clone())
+                    .send_transaction(
+                        transaction_template.account_id(),
+                        transaction_execution_result.executed_transaction().clone(),
+                        &transaction_execution_result.created_notes().clone(),
+                    )
                     .await
                     .map_err(|err| err.to_string())?;
             }

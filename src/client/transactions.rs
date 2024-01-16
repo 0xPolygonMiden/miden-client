@@ -344,8 +344,12 @@ impl Client {
             .await?;
 
         // transaction was proven and submitted to the node correctly, persist note details and update account
-        self.store
-            .insert_proven_and_submitted_transaction_data(account_id, proven_transaction, transaction_execution_result, created_notes)?;
+        self.store.insert_proven_and_submitted_transaction_data(
+            account_id,
+            proven_transaction,
+            transaction_execution_result,
+            created_notes,
+        )?;
 
         Ok(())
     }
