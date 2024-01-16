@@ -54,7 +54,12 @@ impl Client {
         })
     }
 
-    pub fn rpc_api(&mut self) -> Result<&mut miden_node_proto::rpc::api_client::ApiClient<tonic::transport::Channel>, ClientError> {
+    pub fn rpc_api(
+        &mut self,
+    ) -> Result<
+        &mut miden_node_proto::rpc::api_client::ApiClient<tonic::transport::Channel>,
+        ClientError,
+    > {
         if let Some(rpc_api) = self.rpc_api {
             Ok(rpc_api)
         } else {
