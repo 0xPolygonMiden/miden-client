@@ -342,9 +342,7 @@ async fn test_sync_state() {
     assert_eq!(
         block_num,
         client
-            .rpc_api()
-            .await
-            .unwrap()
+            .rpc_api
             .sync_state_requests
             .first_key_value()
             .unwrap()
@@ -371,9 +369,7 @@ async fn test_sync_state() {
     assert_eq!(
         client.get_latest_block_num().unwrap(),
         client
-            .rpc_api()
-            .await
-            .unwrap()
+            .rpc_api
             .sync_state_requests
             .first_key_value()
             .unwrap()

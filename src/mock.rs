@@ -1,7 +1,10 @@
-use crate::client::{
-    sync_state::FILTER_ID_SHIFT,
-    transactions::{PaymentTransactionData, TransactionTemplate},
-    Client,
+use crate::{
+    client::{
+        sync_state::FILTER_ID_SHIFT,
+        transactions::{PaymentTransactionData, TransactionTemplate},
+        Client,
+    },
+    errors::{ClientError, RpcApiError},
 };
 use crypto::{dsa::rpo_falcon512::KeyPair, Felt, FieldElement, StarkField};
 use miden_lib::transaction::TransactionKernel;
@@ -52,7 +55,7 @@ impl MockRpcApi {
     pub async fn sync_state(
         &mut self,
         request: impl tonic::IntoRequest<SyncStateRequest>,
-    ) -> std::result::Result<tonic::Response<SyncStateResponse>, tonic::Status> {
+    ) -> std::result::Result<tonic::Response<SyncStateResponse>, ClientError> {
         let request: SyncStateRequest = request.into_request().into_inner();
 
         // Match request -> response through block_nu,
@@ -67,14 +70,15 @@ impl MockRpcApi {
             }
             None => Err(tonic::Status::not_found(
                 "no response for sync state request",
-            )),
+            ))
+            .map_err(|err| ClientError::RpcApiError(RpcApiError::RequestError(err))),
         }
     }
 
     pub async fn submit_proven_transaction(
         &mut self,
         request: impl tonic::IntoRequest<SubmitProvenTransactionRequest>,
-    ) -> std::result::Result<tonic::Response<SubmitProvenTransactionResponse>, tonic::Status> {
+    ) -> std::result::Result<tonic::Response<SubmitProvenTransactionResponse>, ClientError> {
         let _request = request.into_request().into_inner();
         let response = SubmitProvenTransactionResponse {};
 
@@ -234,7 +238,7 @@ pub async fn insert_mock_data(client: &mut Client) {
 
     // insert some sync request
     create_mock_sync_state_request_for_account_and_notes(
-        &mut client.rpc_api().await.unwrap().sync_state_requests,
+        &mut client.rpc_api.sync_state_requests,
         account_id,
         transaction_inputs.input_notes(),
     );

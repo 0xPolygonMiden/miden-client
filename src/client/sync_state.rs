@@ -7,7 +7,7 @@ use miden_node_proto::{
 
 use objects::{accounts::AccountId, notes::NoteInclusionProof, BlockHeader, Digest};
 
-use crate::errors::{ClientError, RpcApiError};
+use crate::errors::ClientError;
 
 pub enum SyncStatus {
     SyncedToLastBlock(u32),
@@ -188,12 +188,6 @@ impl Client {
             nullifiers,
         };
 
-        Ok(self
-            .rpc_api()
-            .await?
-            .sync_state(request)
-            .await
-            .map_err(|err| ClientError::RpcApiError(RpcApiError::RequestError(err)))?
-            .into_inner())
+        Ok(self.rpc_api.sync_state(request).await?.into_inner())
     }
 }

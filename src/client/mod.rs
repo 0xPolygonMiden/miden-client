@@ -1,7 +1,14 @@
 // MIDEN CLIENT
 // ================================================================================================
 
+#[cfg(not(any(test, feature = "mock")))]
+use crate::errors::RpcApiError;
 use crate::{config::ClientConfig, errors::ClientError, store::Store};
+#[cfg(not(any(test, feature = "mock")))]
+use miden_node_proto::{
+    requests::{SubmitProvenTransactionRequest, SyncStateRequest},
+    responses::{SubmitProvenTransactionResponse, SyncStateResponse},
+};
 
 use miden_tx::TransactionExecutor;
 
@@ -13,6 +20,62 @@ pub mod transactions;
 
 // CONSTANTS
 // ================================================================================================
+
+#[cfg(not(any(test, feature = "mock")))]
+struct LazyRpcClient(
+    Option<miden_node_proto::rpc::api_client::ApiClient<tonic::transport::Channel>>,
+    String,
+);
+
+#[cfg(not(any(test, feature = "mock")))]
+impl LazyRpcClient {
+    pub fn new(config_endpoint: String) -> LazyRpcClient {
+        LazyRpcClient(None, config_endpoint)
+    }
+
+    /// Executes the specified sync state request and returns the response.
+    pub async fn sync_state(
+        &mut self,
+        request: impl tonic::IntoRequest<SyncStateRequest>,
+    ) -> std::result::Result<tonic::Response<SyncStateResponse>, ClientError> {
+        let rpc_api = self.rpc_api().await?;
+        rpc_api
+            .sync_state(request)
+            .await
+            .map_err(|err| ClientError::RpcApiError(RpcApiError::RequestError(err)))
+    }
+
+    pub async fn submit_proven_transaction(
+        &mut self,
+        request: impl tonic::IntoRequest<SubmitProvenTransactionRequest>,
+    ) -> std::result::Result<tonic::Response<SubmitProvenTransactionResponse>, ClientError> {
+        let rpc_api = self.rpc_api().await?;
+        rpc_api
+            .submit_proven_transaction(request)
+            .await
+            .map_err(|err| ClientError::RpcApiError(RpcApiError::RequestError(err)))
+    }
+
+    /// Takes care of establishing the rpc connection if not connected yet and returns a reference
+    /// to the inner ApiClient
+    async fn rpc_api(
+        &mut self,
+    ) -> Result<
+        &mut miden_node_proto::rpc::api_client::ApiClient<tonic::transport::Channel>,
+        ClientError,
+    > {
+        use miden_node_proto::rpc::api_client::ApiClient;
+
+        if self.0.is_some() {
+            Ok(self.0.as_mut().unwrap())
+        } else {
+            let rpc_api = ApiClient::connect(self.1.clone())
+                .await
+                .map_err(|err| ClientError::RpcApiError(RpcApiError::ConnectionError(err)))?;
+            Ok(self.0.insert(rpc_api))
+        }
+    }
+}
 
 /// A light client for connecting to the Miden rollup network.
 ///
@@ -26,8 +89,7 @@ pub mod transactions;
 pub struct Client {
     /// Local database containing information about the accounts managed by this client.
     store: Store,
-    rpc_api: Option<miden_node_proto::rpc::api_client::ApiClient<tonic::transport::Channel>>,
-    config: ClientConfig,
+    rpc_api: LazyRpcClient,
     tx_executor: TransactionExecutor<crate::store::data_store::SqliteDataStore>,
 }
 
@@ -45,31 +107,11 @@ impl Client {
 
         Ok(Self {
             store: Store::new((&config).into())?,
-            rpc_api: None,
+            rpc_api: LazyRpcClient::new(config.node_endpoint.to_string()),
             tx_executor: TransactionExecutor::new(SqliteDataStore::new(Store::new(
                 (&config).into(),
             )?)),
-            config,
         })
-    }
-
-    pub async fn rpc_api(
-        &mut self,
-    ) -> Result<
-        &mut miden_node_proto::rpc::api_client::ApiClient<tonic::transport::Channel>,
-        ClientError,
-    > {
-        use crate::errors::RpcApiError;
-        use miden_node_proto::rpc::api_client::ApiClient;
-
-        if self.rpc_api.is_some() {
-            Ok(self.rpc_api.as_mut().unwrap())
-        } else {
-            let rpc_api = ApiClient::connect(self.config.node_endpoint.to_string())
-                .await
-                .map_err(|err| ClientError::RpcApiError(RpcApiError::ConnectionError(err)))?;
-            Ok(self.rpc_api.insert(rpc_api))
-        }
     }
 }
 
@@ -79,7 +121,7 @@ impl Client {
 #[cfg(any(test, feature = "mock"))]
 pub struct Client {
     pub(crate) store: Store,
-    rpc_api: Option<crate::mock::MockRpcApi>,
+    pub(crate) rpc_api: crate::mock::MockRpcApi,
     pub(crate) tx_executor:
         TransactionExecutor<crate::store::mock_executor_data_store::MockDataStore>,
 }
@@ -94,9 +136,5 @@ impl Client {
             rpc_api: Default::default(),
             tx_executor: TransactionExecutor::new(MockDataStore::new()),
         })
-    }
-
-    pub async fn rpc_api(&mut self) -> Result<&mut crate::mock::MockRpcApi, ClientError> {
-        Ok(self.rpc_api.get_or_insert(Default::default()))
     }
 }
