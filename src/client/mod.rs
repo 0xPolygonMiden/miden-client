@@ -41,8 +41,7 @@ impl Client {
     /// # Errors
     /// Returns an error if the client could not be instantiated.
     pub async fn new(config: ClientConfig) -> Result<Self, ClientError> {
-        use crate::{errors::RpcApiError, store::data_store::SqliteDataStore};
-        use miden_node_proto::rpc::api_client::ApiClient;
+        use crate::store::data_store::SqliteDataStore;
 
         Ok(Self {
             store: Store::new((&config).into())?,
@@ -54,16 +53,19 @@ impl Client {
         })
     }
 
-    pub fn rpc_api(
+    pub async fn rpc_api(
         &mut self,
     ) -> Result<
         &mut miden_node_proto::rpc::api_client::ApiClient<tonic::transport::Channel>,
         ClientError,
     > {
-        if let Some(rpc_api) = self.rpc_api {
-            Ok(rpc_api)
+        use crate::errors::RpcApiError;
+        use miden_node_proto::rpc::api_client::ApiClient;
+
+        if self.rpc_api.is_some() {
+            Ok(self.rpc_api.as_mut().unwrap())
         } else {
-            let rpc_api = ApiClient::connect(config.node_endpoint.to_string())
+            let rpc_api = ApiClient::connect(self.config.node_endpoint.to_string())
                 .await
                 .map_err(|err| ClientError::RpcApiError(RpcApiError::ConnectionError(err)))?;
             Ok(self.rpc_api.insert(rpc_api))
@@ -94,7 +96,7 @@ impl Client {
         })
     }
 
-    pub fn rpc_api(&mut self) -> Result<&mut crate::mock::MockRpcApi, ClientError> {
+    pub async fn rpc_api(&mut self) -> Result<&mut crate::mock::MockRpcApi, ClientError> {
         Ok(self.rpc_api.get_or_insert(Default::default()))
     }
 }

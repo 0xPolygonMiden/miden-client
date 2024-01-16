@@ -189,7 +189,7 @@ impl Client {
         };
 
         Ok(self
-            .rpc_api()?
+            .rpc_api().await?
             .sync_state(request)
             .await
             .map_err(|err| ClientError::RpcApiError(RpcApiError::RequestError(err)))?

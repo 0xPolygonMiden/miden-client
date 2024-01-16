@@ -199,7 +199,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
 }
 
 /// inserts mock note and account data into the client
-pub fn insert_mock_data(client: &mut Client) {
+pub async fn insert_mock_data(client: &mut Client) {
     use mock::mock::{account::MockAccountType, transaction::mock_inputs};
 
     // generate test data
@@ -234,7 +234,7 @@ pub fn insert_mock_data(client: &mut Client) {
 
     // insert some sync request
     create_mock_sync_state_request_for_account_and_notes(
-        &mut client.rpc_api().unwrap().sync_state_requests,
+        &mut client.rpc_api().await.unwrap().sync_state_requests,
         account_id,
         transaction_inputs.input_notes(),
     );
