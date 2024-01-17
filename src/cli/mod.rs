@@ -69,10 +69,10 @@ impl Cli {
             #[cfg(feature = "mock")]
             Command::MockData { transaction } => {
                 let mut client = client;
-                miden_client::mock::insert_mock_data(&mut client);
-                if *transaction {
-                    miden_client::mock::create_mock_transaction(&mut client).await;
-                }
+                // miden_client::mock::insert_mock_data(&mut client);
+                // if *transaction {
+                //     miden_client::mock::create_mock_transaction(&mut client).await;
+                // }
                 Ok(())
             }
             Command::LoadGenesis { genesis_path } => {

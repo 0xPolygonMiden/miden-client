@@ -9,15 +9,16 @@ use objects::{
     accounts::AccountId,
     assembly::ProgramAst,
     assets::{Asset, FungibleAsset},
-    notes::Note,
+    notes::{Note, NoteEnvelope},
     transaction::{ExecutedTransaction, OutputNotes, ProvenTransaction, TransactionScript},
     Digest,
 };
 use rand::Rng;
 
+
 use crate::{
     errors::{ClientError, RpcApiError},
-    store::accounts::AuthInfo,
+    store::{accounts::AuthInfo, notes::InputNoteFilter, transactions::TransactionFilter},
 };
 
 use super::{sync_state::FILTER_ID_SHIFT, Client};
@@ -116,7 +117,7 @@ pub struct TransactionStub {
     pub init_account_state: Digest,
     pub final_account_state: Digest,
     pub input_note_nullifiers: Vec<Digest>,
-    pub output_notes: OutputNotes,
+    pub output_notes: OutputNotes<NoteEnvelope>,
     pub transaction_script: Option<TransactionScript>,
     pub block_num: u32,
     pub committed: bool,
@@ -131,7 +132,7 @@ impl TransactionStub {
         init_account_state: Digest,
         final_account_state: Digest,
         input_note_nullifiers: Vec<Digest>,
-        output_notes: OutputNotes,
+        output_notes: OutputNotes<NoteEnvelope>,
         transaction_script: Option<TransactionScript>,
         block_num: u32,
         committed: bool,
@@ -158,7 +159,9 @@ impl Client {
 
     /// Returns input notes managed by this client.
     pub fn get_transactions(&self) -> Result<Vec<TransactionStub>, ClientError> {
-        self.store.get_transactions().map_err(|err| err.into())
+        self.store
+            .get_transactions(TransactionFilter::All)
+            .map_err(|err| err.into())
     }
 
     // TRANSACTION
@@ -177,12 +180,76 @@ impl Client {
                 target_account_id,
             }) => self.new_p2id_transaction(fungible_asset, sender_account_id, target_account_id),
             TransactionTemplate::PayToIdWithRecall(_payment_data, _recall_height) => todo!(),
-            TransactionTemplate::ConsumeNotes(_) => todo!(),
+            TransactionTemplate::ConsumeNotes(account_id) => {
+                self.new_consume_notes_transaction(account_id)
+            }
             TransactionTemplate::MintFungibleAsset {
                 asset,
                 target_account_id,
             } => self.new_mint_fungible_asset_transaction(asset, target_account_id),
         }
+    }
+
+    fn new_consume_notes_transaction(
+        &mut self,
+        account_id: AccountId,
+    ) -> Result<TransactionExecutionResult, ClientError> {
+        self.tx_executor
+            .load_account(account_id)
+            .map_err(ClientError::TransactionExecutionError)?;
+
+        let tx_script_code = ProgramAst::parse(
+            "
+            use.miden::contracts::auth::basic->auth_tx
+    
+            begin
+                call.auth_tx::auth_tx_rpo_falcon512
+            end
+            ",
+        )
+        .unwrap();
+
+        let account_auth = self.get_account_auth(account_id)?;
+
+        let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
+            AuthInfo::RpoFalcon512(key) => (
+                key.public_key().into(),
+                key.to_bytes()
+                    .iter()
+                    .map(|a| Felt::new(*a as u64))
+                    .collect::<Vec<Felt>>(),
+            ),
+        };
+        let script_inputs = vec![(pubkey_input, advice_map)];
+
+        // this assumes all committed notes are consumable by account_id
+
+        let input_notes = self
+            .store
+            .get_input_notes(InputNoteFilter::Committed)
+            .map_err(ClientError::StoreError)?;
+        let input_note = input_notes.first().unwrap();
+
+        let tx_script = self
+            .tx_executor
+            .compile_tx_script(tx_script_code, script_inputs, vec![])
+            .map_err(ClientError::TransactionExecutionError)?;
+
+        // Execute the transaction and get the witness
+        let executed_transaction = self
+            .tx_executor
+            .execute_transaction(
+                account_id,
+                input_note.inclusion_proof().unwrap().origin().block_num,
+                &[input_note.note_id()],
+                Some(tx_script.clone()),
+            )
+            .map_err(ClientError::TransactionExecutionError)?;
+
+        Ok(TransactionExecutionResult::new(
+            executed_transaction,
+            vec![],
+        ))
     }
 
     pub fn new_mint_fungible_asset_transaction(
@@ -375,3 +442,27 @@ impl Client {
         RpoRandomCoin::new(coin_seed.map(|x| x.into()))
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use objects::accounts::AccountId;
+
+    use crate::{client::{Client, transactions::TransactionTemplate}, config::{ClientConfig, Endpoint}};
+
+    #[tokio::test]
+    async fn test_consume() {
+        // generate test store path
+        // generate test client
+        let mut client = Client::new(ClientConfig::new(
+            "/Users/ignacio/repos/miden-client/target/release/store.sqlite3".to_string(),
+            Endpoint::default(),
+        ))
+        .await
+        .unwrap();
+
+        let tx = TransactionTemplate::ConsumeNotes(AccountId::from_hex("0x168187d729b32a84").unwrap());
+        client.new_transaction(tx).unwrap();
+    }
+}
+

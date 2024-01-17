@@ -210,8 +210,6 @@ impl Store {
             .apply_delta(account_delta)
             .map_err(StoreError::AccountError)?;
 
-        println!("account update nonce: {}", account.nonce());
-        println!("account updatehash : {}", account.hash());
         let tx = self
             .db
             .transaction()
