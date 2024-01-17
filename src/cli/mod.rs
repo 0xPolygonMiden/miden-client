@@ -116,3 +116,108 @@ pub fn load_genesis_data(client: &mut Client, path: &Path) -> Result<(), String>
     }
     Ok(())
 }
+
+// TESTS
+// ================================================================================================
+
+#[cfg(test)]
+pub mod tests {
+    use super::{Cli, Command};
+    use std::{env::temp_dir, fs, path::PathBuf, thread, time::Duration};
+
+    use crypto::{Felt, FieldElement, utils::Serializable};
+    use miden_client::{client::Client, config::{ClientConfig, Endpoint}};
+    use miden_lib::transaction::TransactionKernel;
+    use miden_node_store::genesis::GenesisState;
+    use mock::{
+        constants::{generate_account_seed, AccountSeedType},
+        mock::account
+    };
+    use objects::accounts::{AccountData, AuthData};
+    use rand::{Rng, thread_rng};
+
+    pub fn create_genesis_data() -> PathBuf {
+        let temp_dir = temp_dir();
+        let mut rng = thread_rng();
+
+        let account_dir = temp_dir.join("accounts");
+        fs::create_dir_all(account_dir.clone()).unwrap();
+
+        // Create an account and save it to a file
+        let (account_id, account_seed) =
+            generate_account_seed(AccountSeedType::RegularAccountUpdatableCodeOnChain);
+        let assembler = TransactionKernel::assembler();
+        let account = account::mock_account(Some(account_id.into()), Felt::ZERO, None, &assembler);
+
+        let key_pair_seed : [u32; 10] = rng.gen();
+        let mut key_pair_seed_u8 : [u8; 40] = [0; 40];
+        for (dest_c, source_e) in key_pair_seed_u8.chunks_exact_mut(4).zip(key_pair_seed.iter()) {
+            dest_c.copy_from_slice(&source_e.to_le_bytes())
+        }
+        let auth_data = AuthData::RpoFalcon512Seed(key_pair_seed_u8);
+
+        let account_data = AccountData::new(account.clone(), Some(account_seed), auth_data);
+        let account_file_path  = account_dir.join(format!("account0.mac"));
+        fs::write(account_file_path, account_data.to_bytes()).unwrap();
+
+        // Create a Faucet and save it to a file
+        let (account_id, account_seed) =
+            generate_account_seed(AccountSeedType::FungibleFaucetValidInitialBalance);
+        let faucet_account = account::mock_account(Some(account_id.into()), Felt::ZERO, None, &assembler);
+        let key_pair_seed : [u32; 10] = rng.gen();
+        let mut key_pair_seed_u8 : [u8; 40] = [0; 40];
+        for (dest_c, source_e) in key_pair_seed_u8.chunks_exact_mut(4).zip(key_pair_seed.iter()) {
+            dest_c.copy_from_slice(&source_e.to_le_bytes())
+        }
+        let auth_data = AuthData::RpoFalcon512Seed(key_pair_seed_u8);
+        let account_data = AccountData::new(faucet_account.clone(), Some(account_seed), auth_data);
+
+        let account_file_path  = account_dir.join(format!("account1.mac"));
+        fs::write(account_file_path, account_data.to_bytes()).unwrap();
+
+        // Create Genesis state and save it to a file
+        let accounts = vec![account, faucet_account];
+        let genesis_state = GenesisState::new(accounts, 1, 1);
+        fs::write(temp_dir.join("genesis.dat"), genesis_state.to_bytes()).unwrap();
+
+        temp_dir
+    }
+
+    #[tokio::test]
+    async fn load_genesis_test() {
+        const STORE_FILENAME: &str = "test.store.sqlite3";
+
+        // get directory of the currently executing binary, or fallback to the current directory
+        let exec_dir = match std::env::current_exe() {
+            Ok(mut path) => {
+                path.pop();
+                path
+            }
+            Err(_) => PathBuf::new(),
+        };
+
+        let store_path = exec_dir.join(STORE_FILENAME);
+        if store_path.exists() {
+            fs::remove_file(&store_path).unwrap();
+            thread::sleep(Duration::from_secs(1));
+        }
+
+        let genesis_data_path = create_genesis_data();
+        let load_genesis_command = Command::LoadGenesis { genesis_path: genesis_data_path };
+        let cli = Cli { action: load_genesis_command };
+        cli.execute().await.unwrap();
+
+        let client = Client::new(ClientConfig::new(
+            store_path.into_os_string().into_string().unwrap(),
+            Endpoint::default(),
+        ))
+        .await
+        .unwrap();
+
+        // TODO: make create_genesis_data at least return the ids of the accounts to make a better
+        // check
+        let accounts = client.get_accounts().unwrap();
+        assert_eq!(accounts.len(), 2);
+        assert_eq!(accounts.iter().filter(|(account, _)| account.id().is_faucet()).count(), 1);
+    }
+}
