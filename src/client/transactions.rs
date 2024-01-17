@@ -11,7 +11,7 @@ use objects::{
     assets::{Asset, FungibleAsset},
     notes::NoteEnvelope,
     transaction::{ExecutedTransaction, OutputNotes, ProvenTransaction, TransactionScript},
-    Digest,
+    Digest, notes::NoteEnvelope,
 };
 use rand::Rng;
 
