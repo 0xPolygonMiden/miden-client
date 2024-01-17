@@ -15,7 +15,6 @@ use objects::{
 };
 use rand::Rng;
 
-
 use crate::{
     errors::{ClientError, RpcApiError},
     store::{accounts::AuthInfo, notes::InputNoteFilter, transactions::TransactionFilter},
@@ -222,7 +221,7 @@ impl Client {
         };
         let script_inputs = vec![(pubkey_input, advice_map)];
 
-        // this assumes all committed notes are consumable by account_id
+        // for now, assume all committed notes are consumable by account_id
 
         let input_notes = self
             .store
@@ -235,12 +234,15 @@ impl Client {
             .compile_tx_script(tx_script_code, script_inputs, vec![])
             .map_err(ClientError::TransactionExecutionError)?;
 
+        // TODO: Change this to last block number after we confirm this execution works
+        let block_num = input_note.inclusion_proof().unwrap().origin().block_num;
+
         // Execute the transaction and get the witness
         let executed_transaction = self
             .tx_executor
             .execute_transaction(
                 account_id,
-                input_note.inclusion_proof().unwrap().origin().block_num,
+                block_num,
                 &[input_note.note_id()],
                 Some(tx_script.clone()),
             )
@@ -442,27 +444,3 @@ impl Client {
         RpoRandomCoin::new(coin_seed.map(|x| x.into()))
     }
 }
-
-
-#[cfg(test)]
-mod tests {
-    use objects::accounts::AccountId;
-
-    use crate::{client::{Client, transactions::TransactionTemplate}, config::{ClientConfig, Endpoint}};
-
-    #[tokio::test]
-    async fn test_consume() {
-        // generate test store path
-        // generate test client
-        let mut client = Client::new(ClientConfig::new(
-            "/Users/ignacio/repos/miden-client/target/release/store.sqlite3".to_string(),
-            Endpoint::default(),
-        ))
-        .await
-        .unwrap();
-
-        let tx = TransactionTemplate::ConsumeNotes(AccountId::from_hex("0x168187d729b32a84").unwrap());
-        client.new_transaction(tx).unwrap();
-    }
-}
-

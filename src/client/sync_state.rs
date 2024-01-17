@@ -1,13 +1,21 @@
 use super::Client;
-use crypto::{StarkField, merkle::{MmrPeaks, MerklePath}};
+use crypto::{
+    merkle::{MmrPeaks},
+    StarkField,
+};
 use miden_node_proto::{
-    account::AccountId as ProtoAccountId, note::NoteSyncRecord, requests::{SyncStateRequest, GetBlockHeaderByNumberRequest},
+    account::AccountId as ProtoAccountId,
+    note::NoteSyncRecord,
+    requests::{GetBlockHeaderByNumberRequest, SyncStateRequest},
     responses::SyncStateResponse,
 };
 
 use objects::{accounts::AccountId, notes::NoteInclusionProof, BlockHeader, Digest};
 
-use crate::{errors::{ClientError, RpcApiError}, store::Store};
+use crate::{
+    errors::{ClientError, RpcApiError, StoreError},
+    store::Store,
+};
 
 pub enum SyncStatus {
     SyncedToLastBlock(u32),
@@ -61,12 +69,24 @@ impl Client {
 
     pub async fn ensure_genesis_in_place(&mut self) -> Result<(), ClientError> {
         let genesis = self.store.get_block_header_by_num(0);
-        if genesis.is_err() {
-            let genesis_block = self.rpc_api.get_block_header_by_number(GetBlockHeaderByNumberRequest {block_num:Some(0)}).await.unwrap().into_inner();
-            let genesis_block:objects::BlockHeader = genesis_block.block_header.unwrap().try_into().unwrap();
+        if matches!(genesis, Err(StoreError::BlockHeaderNotFound(0))) {
+            let genesis_block = self
+                .rpc_api
+                .get_block_header_by_number(GetBlockHeaderByNumberRequest { block_num: Some(0) })
+                .await
+                .unwrap()
+                .into_inner();
+            let genesis_block: objects::BlockHeader =
+                genesis_block.block_header.unwrap().try_into().unwrap();
             let tx = self.store.db.transaction().unwrap();
 
-            Store::insert_block_header(&tx, genesis_block, MmrPeaks::new(0,vec![]).unwrap(), MerklePath::new(vec![])).unwrap();
+            Store::insert_block_header(
+                &tx,
+                genesis_block,
+                MmrPeaks::new(0, vec![]).unwrap(),
+                false,
+            )
+            .unwrap();
             tx.commit().unwrap();
         }
         Ok(())
@@ -93,9 +113,7 @@ impl Client {
             .try_into()
             .map_err(ClientError::RpcTypeConversionFailure)?;
 
-        if incoming_block_header.block_num() == current_block_num
-            && (current_block_num != 0 || self.store.get_block_header_by_num(0).is_ok())
-        {
+        if incoming_block_header.block_num() == current_block_num {
             return Ok(SyncStatus::SyncedToLastBlock(current_block_num));
         }
 

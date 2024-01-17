@@ -39,4 +39,4 @@ tonic = { version = "0.10" }
 [dev-dependencies]
 uuid = { version = "1.6.1", features = ["serde", "v4"] }
 # needed for tests to run always with the mock feature
-# miden_client = { package = "miden-client", path = ".", features = ["mock"] }
+miden_client = { package = "miden-client", path = ".", features = ["mock"] }

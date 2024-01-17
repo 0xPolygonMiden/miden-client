@@ -86,7 +86,7 @@ CREATE TABLE input_notes (
 
 -- Create state sync table
 CREATE TABLE state_sync (
-    block_num UNSIGNED BIG INT NOT NULL, -- the block number of the most recent state sync
+    block_num UNSIGNED BIG INT NOT NULL,    -- the block number of the most recent state sync
     tags BLOB NOT NULL,                     -- the serialized list of tags
     PRIMARY KEY (block_num)
 );
@@ -105,7 +105,7 @@ CREATE TABLE block_headers (
     notes_root BLOB NOT NULL,             -- root of the notes Merkle tree in this block
     sub_hash BLOB NOT NULL,               -- hash of all other header fields in the block
     chain_mmr_peaks BLOB NOT NULL,        -- serialized peaks of the chain MMR at this block
-    block_path  BLOB NOT NULL,
+    has_notes BOOL NOT NULL,              -- whether the header had interesting notes to the client
     PRIMARY KEY (block_num)
 );
 

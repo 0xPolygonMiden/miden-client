@@ -6,16 +6,13 @@ use crate::errors::StoreError;
 
 use clap::error::Result;
 
-use crypto::{
-    merkle::{InOrderIndex, MerklePath, MmrPeaks},
-    utils::{Deserializable, Serializable},
-};
+use crypto::merkle::{InOrderIndex, MmrPeaks};
 
 use objects::{BlockHeader, Digest};
 use rusqlite::{params, OptionalExtension, Transaction};
 
-type SerializedBlockHeaderData = (i64, String, String, String, String, Vec<u8>);
-type SerializedBlockHeaderParts = (u64, String, String, String, String, Vec<u8>);
+type SerializedBlockHeaderData = (i64, String, String, String, String, bool);
+type SerializedBlockHeaderParts = (u64, String, String, String, String, bool);
 
 type SerializedChainMmrNodeData = (i64, String);
 type SerializedChainMmrNodeParts = (u64, String);
@@ -27,20 +24,20 @@ impl Store {
         tx: &Transaction<'_>,
         block_header: BlockHeader,
         chain_mmr_peaks: MmrPeaks,
-        block_path: MerklePath,
+        has_notes: bool,
     ) -> Result<(), StoreError> {
         let chain_mmr_peaks = chain_mmr_peaks.peaks().to_vec();
-        let (block_num, header, notes_root, sub_hash, chain_mmr, block_path) =
-            serialize_block_header(block_header, chain_mmr_peaks, block_path)?;
+        let (block_num, header, notes_root, sub_hash, chain_mmr, has_notes) =
+            serialize_block_header(block_header, chain_mmr_peaks, has_notes)?;
 
         const QUERY: &str = "\
         INSERT INTO block_headers
-            (block_num, header, notes_root, sub_hash, chain_mmr_peaks, block_path)
+            (block_num, header, notes_root, sub_hash, chain_mmr_peaks, has_notes)
          VALUES (?, ?, ?, ?, ?, ?)";
 
         tx.execute(
             QUERY,
-            params![block_num, header, notes_root, sub_hash, chain_mmr, block_path],
+            params![block_num, header, notes_root, sub_hash, chain_mmr, has_notes],
         )
         .map_err(StoreError::QueryError)
         .map(|_| ())
@@ -49,8 +46,8 @@ impl Store {
     pub fn get_block_header_by_num(
         &self,
         block_number: u32,
-    ) -> Result<(BlockHeader, MerklePath), StoreError> {
-        const QUERY: &str = "SELECT block_num, header, notes_root, sub_hash, chain_mmr_peaks, block_path FROM block_headers WHERE block_num = ?";
+    ) -> Result<(BlockHeader, bool), StoreError> {
+        const QUERY: &str = "SELECT block_num, header, notes_root, sub_hash, chain_mmr_peaks, has_notes FROM block_headers WHERE block_num = ?";
         self.db
             .prepare(QUERY)
             .map_err(StoreError::QueryError)?
@@ -142,7 +139,7 @@ fn parse_mmr_peaks(forest: u32, peaks_nodes: String) -> Result<MmrPeaks, StoreEr
 fn serialize_block_header(
     block_header: BlockHeader,
     chain_mmr_peaks: Vec<Digest>,
-    block_path: MerklePath,
+    has_notes: bool,
 ) -> Result<SerializedBlockHeaderData, StoreError> {
     let block_num = block_header.block_num();
     let header =
@@ -153,7 +150,6 @@ fn serialize_block_header(
         .map_err(StoreError::InputSerializationError)?;
     let chain_mmr_peaks =
         serde_json::to_string(&chain_mmr_peaks).map_err(StoreError::InputSerializationError)?;
-    let block_path = block_path.to_bytes();
 
     Ok((
         block_num as i64,
@@ -161,7 +157,7 @@ fn serialize_block_header(
         notes_root,
         sub_hash,
         chain_mmr_peaks,
-        block_path,
+        has_notes,
     ))
 }
 
@@ -173,7 +169,7 @@ fn parse_block_headers_columns(
     let notes_root: String = row.get(2)?;
     let sub_hash: String = row.get(3)?;
     let chain_mmr: String = row.get(4)?;
-    let block_path: Vec<u8> = row.get(5)?;
+    let has_notes: bool = row.get(5)?;
 
     Ok((
         block_num as u64,
@@ -181,18 +177,18 @@ fn parse_block_headers_columns(
         notes_root,
         sub_hash,
         chain_mmr,
-        block_path,
+        has_notes,
     ))
 }
 
 fn parse_block_header(
     serialized_block_header_parts: SerializedBlockHeaderParts,
-) -> Result<(BlockHeader, MerklePath), StoreError> {
-    let (_, header, _, _, _, block_path) = serialized_block_header_parts;
+) -> Result<(BlockHeader, bool), StoreError> {
+    let (_, header, _, _, _, has_notes) = serialized_block_header_parts;
 
     Ok((
         serde_json::from_str(&header).map_err(StoreError::JsonDataDeserializationError)?,
-        MerklePath::read_from_bytes(&block_path).unwrap(),
+        has_notes,
     ))
 }
 

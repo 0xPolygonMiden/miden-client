@@ -3,11 +3,13 @@
 use crate::{
     client::{
         accounts::{AccountStorageMode, AccountTemplate},
+        transactions::TransactionTemplate,
         Client,
     },
     config::{ClientConfig, Endpoint},
     store::{
         accounts::AuthInfo,
+        mock_executor_data_store::MockDataStore,
         notes::{InputNoteFilter, InputNoteRecord},
         tests::create_test_store_path,
     },
@@ -306,163 +308,163 @@ async fn test_get_account_by_id() {
     assert!(client.get_account_stub_by_id(invalid_id).is_err());
 }
 
-// #[tokio::test]
-// async fn test_sync_state() {
-//     // generate test store path
-//     let store_path = create_test_store_path();
+#[tokio::test]
+async fn test_sync_state() {
+    // generate test store path
+    let store_path = create_test_store_path();
 
-//     // generate test client
-//     let mut client = Client::new(ClientConfig::new(
-//         store_path.into_os_string().into_string().unwrap(),
-//         Endpoint::default(),
-//     ))
-//     .await
-//     .unwrap();
+    // generate test client
+    let mut client = Client::new(ClientConfig::new(
+        store_path.into_os_string().into_string().unwrap(),
+        Endpoint::default(),
+    ))
+    .await
+    .unwrap();
 
-//     // generate test data
-//     crate::mock::insert_mock_data(&mut client);
+    // generate test data
+    crate::mock::insert_mock_data(&mut client);
 
-//     // assert that we have no consumed nor pending notes prior to syncing state
-//     assert_eq!(
-//         client
-//             .get_input_notes(InputNoteFilter::Consumed)
-//             .unwrap()
-//             .len(),
-//         0
-//     );
+    // assert that we have no consumed nor pending notes prior to syncing state
+    assert_eq!(
+        client
+            .get_input_notes(InputNoteFilter::Consumed)
+            .unwrap()
+            .len(),
+        0
+    );
 
-//     let pending_notes = client.get_input_notes(InputNoteFilter::Pending).unwrap();
+    let pending_notes = client.get_input_notes(InputNoteFilter::Pending).unwrap();
 
-//     // sync state
-//     let block_num: u32 = client.sync_state().await.unwrap();
+    // sync state
+    let block_num: u32 = client.sync_state().await.unwrap();
 
-//     // verify that the client is synced to the latest block
-//     assert_eq!(
-//         block_num,
-//         client
-//             .rpc_api
-//             .sync_state_requests
-//             .first_key_value()
-//             .unwrap()
-//             .1
-//             .chain_tip
-//     );
+    // verify that the client is synced to the latest block
+    assert_eq!(
+        block_num,
+        client
+            .rpc_api
+            .sync_state_requests
+            .first_key_value()
+            .unwrap()
+            .1
+            .chain_tip
+    );
 
-//     // verify that we now have one consumed note after syncing state
-//     assert_eq!(
-//         client
-//             .get_input_notes(InputNoteFilter::Consumed)
-//             .unwrap()
-//             .len(),
-//         1
-//     );
+    // verify that we now have one consumed note after syncing state
+    assert_eq!(
+        client
+            .get_input_notes(InputNoteFilter::Consumed)
+            .unwrap()
+            .len(),
+        1
+    );
 
-//     // verify that the pending note we had is now committed
-//     assert_ne!(
-//         client.get_input_notes(InputNoteFilter::Committed).unwrap(),
-//         pending_notes
-//     );
+    // verify that the pending note we had is now committed
+    assert_ne!(
+        client.get_input_notes(InputNoteFilter::Committed).unwrap(),
+        pending_notes
+    );
 
-//     // verify that the latest block number has been updated
-//     assert_eq!(
-//         client.get_latest_block_num().unwrap(),
-//         client
-//             .rpc_api
-//             .sync_state_requests
-//             .first_key_value()
-//             .unwrap()
-//             .1
-//             .chain_tip
-//     );
-// }
+    // verify that the latest block number has been updated
+    assert_eq!(
+        client.get_latest_block_num().unwrap(),
+        client
+            .rpc_api
+            .sync_state_requests
+            .first_key_value()
+            .unwrap()
+            .1
+            .chain_tip
+    );
+}
 
-// #[tokio::test]
-// async fn test_add_tag() {
-//     // generate test store path
-//     let store_path = create_test_store_path();
+#[tokio::test]
+async fn test_add_tag() {
+    // generate test store path
+    let store_path = create_test_store_path();
 
-//     // generate test client
-//     let mut client = Client::new(ClientConfig::new(
-//         store_path.into_os_string().into_string().unwrap(),
-//         Endpoint::default(),
-//     ))
-//     .await
-//     .unwrap();
+    // generate test client
+    let mut client = Client::new(ClientConfig::new(
+        store_path.into_os_string().into_string().unwrap(),
+        Endpoint::default(),
+    ))
+    .await
+    .unwrap();
 
-//     // assert that no tags are being tracked
-//     assert_eq!(client.get_note_tags().unwrap().len(), 0);
+    // assert that no tags are being tracked
+    assert_eq!(client.get_note_tags().unwrap().len(), 0);
 
-//     // add a tag
-//     const TAG_VALUE_1: u64 = 1;
-//     const TAG_VALUE_2: u64 = 2;
-//     client.add_note_tag(TAG_VALUE_1).unwrap();
-//     client.add_note_tag(TAG_VALUE_2).unwrap();
+    // add a tag
+    const TAG_VALUE_1: u64 = 1;
+    const TAG_VALUE_2: u64 = 2;
+    client.add_note_tag(TAG_VALUE_1).unwrap();
+    client.add_note_tag(TAG_VALUE_2).unwrap();
 
-//     // verify that the tag is being tracked
-//     assert_eq!(
-//         client.get_note_tags().unwrap(),
-//         vec![TAG_VALUE_1, TAG_VALUE_2]
-//     );
+    // verify that the tag is being tracked
+    assert_eq!(
+        client.get_note_tags().unwrap(),
+        vec![TAG_VALUE_1, TAG_VALUE_2]
+    );
 
-//     // attempt to add the same tag again
-//     client.add_note_tag(TAG_VALUE_1).unwrap();
+    // attempt to add the same tag again
+    client.add_note_tag(TAG_VALUE_1).unwrap();
 
-//     // verify that the tag is still being tracked only once
-//     assert_eq!(
-//         client.get_note_tags().unwrap(),
-//         vec![TAG_VALUE_1, TAG_VALUE_2]
-//     );
-// }
+    // verify that the tag is still being tracked only once
+    assert_eq!(
+        client.get_note_tags().unwrap(),
+        vec![TAG_VALUE_1, TAG_VALUE_2]
+    );
+}
 
-// #[tokio::test]
-// #[ignore = "currently fails with PhantomCallsNotAllowed"]
-// async fn test_mint_transaction() {
-//     const FAUCET_ID: u64 = 10347894387879516201u64;
-//     const FAUCET_SEED: Word = [Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::ZERO];
+#[tokio::test]
+#[ignore = "currently fails with PhantomCallsNotAllowed"]
+async fn test_mint_transaction() {
+    const FAUCET_ID: u64 = 10347894387879516201u64;
+    const FAUCET_SEED: Word = [Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::ZERO];
 
-//     // generate test store path
-//     let store_path = create_test_store_path();
+    // generate test store path
+    let store_path = create_test_store_path();
 
-//     // generate test client
-//     let mut client = Client::new(ClientConfig::new(
-//         store_path.into_os_string().into_string().unwrap(),
-//         Endpoint::default(),
-//     ))
-//     .await
-//     .unwrap();
+    // generate test client
+    let mut client = Client::new(ClientConfig::new(
+        store_path.into_os_string().into_string().unwrap(),
+        Endpoint::default(),
+    ))
+    .await
+    .unwrap();
 
-//     let (faucet, _seed) = client
-//         .new_account(AccountTemplate::FungibleFaucet {
-//             token_symbol: TokenSymbol::new("TST").unwrap(),
-//             decimals: 10u8,
-//             max_supply: 1000u64,
-//             storage_mode: AccountStorageMode::Local,
-//         })
-//         .unwrap();
-//     let faucet = mock_account(
-//         Some(FAUCET_ID),
-//         Felt::new(10u64),
-//         Some(faucet.code().clone()),
-//         &TransactionKernel::assembler(),
-//     );
+    let (faucet, _seed) = client
+        .new_account(AccountTemplate::FungibleFaucet {
+            token_symbol: TokenSymbol::new("TST").unwrap(),
+            decimals: 10u8,
+            max_supply: 1000u64,
+            storage_mode: AccountStorageMode::Local,
+        })
+        .unwrap();
+    let faucet = mock_account(
+        Some(FAUCET_ID),
+        Felt::new(10u64),
+        Some(faucet.code().clone()),
+        &TransactionKernel::assembler(),
+    );
 
-//     let key_pair: KeyPair = KeyPair::new()
-//         .map_err(|err| format!("Error generating KeyPair: {}", err))
-//         .unwrap();
-//     client
-//         .store
-//         .insert_account(&faucet, FAUCET_SEED, &AuthInfo::RpoFalcon512(key_pair))
-//         .unwrap();
-//     client.set_data_store(MockDataStore::with_existing(faucet.clone(), None));
+    let key_pair: KeyPair = KeyPair::new()
+        .map_err(|err| format!("Error generating KeyPair: {}", err))
+        .unwrap();
+    client
+        .store
+        .insert_account(&faucet, FAUCET_SEED, &AuthInfo::RpoFalcon512(key_pair))
+        .unwrap();
+    client.set_data_store(MockDataStore::with_existing(faucet.clone(), None));
 
-//     // Test submitting a mint transaction
+    // Test submitting a mint transaction
 
-//     dbg!(&faucet.id());
-//     println!("{:?}", faucet.account_type());
-//     let transaction_template = TransactionTemplate::MintFungibleAsset {
-//         asset: FungibleAsset::new(faucet.id(), 5u64).unwrap(),
-//         target_account_id: AccountId::from_hex("0x168187d729b31a84").unwrap(),
-//     };
+    dbg!(&faucet.id());
+    println!("{:?}", faucet.account_type());
+    let transaction_template = TransactionTemplate::MintFungibleAsset {
+        asset: FungibleAsset::new(faucet.id(), 5u64).unwrap(),
+        target_account_id: AccountId::from_hex("0x168187d729b31a84").unwrap(),
+    };
 
-//     client.new_transaction(transaction_template).unwrap();
-// }
+    client.new_transaction(transaction_template).unwrap();
+}
