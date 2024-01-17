@@ -10,7 +10,7 @@ use objects::{
     assembly::ProgramAst,
     assets::{Asset, FungibleAsset},
     transaction::{ExecutedTransaction, OutputNotes, ProvenTransaction, TransactionScript},
-    Digest,
+    Digest, notes::NoteEnvelope,
 };
 use rand::Rng;
 
@@ -65,7 +65,7 @@ pub struct TransactionStub {
     pub init_account_state: Digest,
     pub final_account_state: Digest,
     pub input_note_nullifiers: Vec<Digest>,
-    pub output_notes: OutputNotes,
+    pub output_notes: OutputNotes<NoteEnvelope>,
     pub transaction_script: Option<TransactionScript>,
     pub block_num: u32,
     pub committed: bool,
@@ -80,7 +80,7 @@ impl TransactionStub {
         init_account_state: Digest,
         final_account_state: Digest,
         input_note_nullifiers: Vec<Digest>,
-        output_notes: OutputNotes,
+        output_notes: OutputNotes<NoteEnvelope>,
         transaction_script: Option<TransactionScript>,
         block_num: u32,
         committed: bool,

@@ -8,7 +8,7 @@ use objects::{
     accounts::AccountId,
     assembly::{AstSerdeOptions, ProgramAst},
     transaction::{ExecutedTransaction, OutputNotes, ProvenTransaction, TransactionScript},
-    Digest,
+    Digest, notes::NoteEnvelope,
 };
 use rusqlite::{params, Transaction};
 
@@ -287,7 +287,7 @@ fn parse_transaction(
     let input_note_nullifiers: Vec<Digest> =
         serde_json::from_str(&input_notes).map_err(StoreError::JsonDataDeserializationError)?;
 
-    let output_notes: OutputNotes = OutputNotes::read_from_bytes(&output_notes)
+    let output_notes: OutputNotes<NoteEnvelope> = OutputNotes::<NoteEnvelope>::read_from_bytes(&output_notes)
         .map_err(StoreError::DataDeserializationError)?;
 
     let transaction_script: Option<TransactionScript> = if script_hash.is_some() {
