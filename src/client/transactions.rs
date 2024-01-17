@@ -9,8 +9,9 @@ use objects::{
     accounts::AccountId,
     assembly::ProgramAst,
     assets::{Asset, FungibleAsset},
+    notes::NoteEnvelope,
     transaction::{ExecutedTransaction, OutputNotes, ProvenTransaction, TransactionScript},
-    Digest, notes::NoteEnvelope,
+    Digest,
 };
 use rand::Rng;
 
