@@ -163,7 +163,7 @@ fn create_mock_sync_state_request_for_account_and_notes(
     // create a state sync request
     let request = SyncStateRequest {
         block_num: 8,
-        account_ids: accounts.clone(),
+        account_ids: accounts,
         note_tags: vec![],
         nullifiers,
     };

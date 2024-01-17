@@ -15,7 +15,7 @@ pub struct ClientConfig {
 
 impl ClientConfig {
     /// Returns a new instance of [ClientConfig] with the specified store path and node endpoint.
-    pub fn new(store_path: String, node_endpoint: Endpoint) -> Self {
+    pub const fn new(store_path: String, node_endpoint: Endpoint) -> Self {
         Self {
             store_path,
             node_endpoint,
@@ -57,7 +57,7 @@ pub struct Endpoint {
 
 impl Endpoint {
     /// Returns a new instance of [Endpoint] with the specified protocol, host, and port.
-    pub fn new(protocol: String, host: String, port: u16) -> Self {
+    pub const fn new(protocol: String, host: String, port: u16) -> Self {
         Self {
             protocol,
             host,
