@@ -1,5 +1,3 @@
-
-
 use crypto::{
     merkle::{MerklePath, PartialMmr},
     utils::Serializable,

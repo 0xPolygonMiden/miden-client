@@ -1,8 +1,5 @@
 use super::Client;
-use crypto::{
-    merkle::{MmrPeaks},
-    StarkField,
-};
+use crypto::{merkle::MmrPeaks, StarkField};
 use miden_node_proto::{
     account::AccountId as ProtoAccountId,
     note::NoteSyncRecord,
