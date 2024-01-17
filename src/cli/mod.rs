@@ -136,19 +136,16 @@ pub mod tests {
         constants::{generate_account_seed, AccountSeedType},
         mock::account,
     };
-    use objects::accounts::{AccountData, AuthData};
-    use rand::{thread_rng, Rng};
+    use objects::accounts::{Account, AccountData, AuthData};
+    use rand::{rngs::ThreadRng, thread_rng, Rng};
 
-    pub fn create_genesis_data() -> PathBuf {
-        let temp_dir = temp_dir();
-        let mut rng = thread_rng();
-
-        let account_dir = temp_dir.join("accounts");
-        fs::create_dir_all(account_dir.clone()).unwrap();
-
+    fn create_account_data(
+        rng: &mut ThreadRng,
+        seed_type: AccountSeedType,
+        account_file_path: PathBuf,
+    ) -> Account {
         // Create an account and save it to a file
-        let (account_id, account_seed) =
-            generate_account_seed(AccountSeedType::RegularAccountUpdatableCodeOnChain);
+        let (account_id, account_seed) = generate_account_seed(seed_type);
         let assembler = TransactionKernel::assembler();
         let account = account::mock_account(Some(account_id.into()), Felt::ZERO, None, &assembler);
 
@@ -163,38 +160,12 @@ pub mod tests {
         let auth_data = AuthData::RpoFalcon512Seed(key_pair_seed_u8);
 
         let account_data = AccountData::new(account.clone(), Some(account_seed), auth_data);
-        let account_file_path = account_dir.join("account0.mac");
         fs::write(account_file_path, account_data.to_bytes()).unwrap();
 
-        // Create a Faucet and save it to a file
-        let (account_id, account_seed) =
-            generate_account_seed(AccountSeedType::FungibleFaucetValidInitialBalance);
-        let faucet_account =
-            account::mock_account(Some(account_id.into()), Felt::ZERO, None, &assembler);
-        let key_pair_seed: [u32; 10] = rng.gen();
-        let mut key_pair_seed_u8: [u8; 40] = [0; 40];
-        for (dest_c, source_e) in key_pair_seed_u8
-            .chunks_exact_mut(4)
-            .zip(key_pair_seed.iter())
-        {
-            dest_c.copy_from_slice(&source_e.to_le_bytes())
-        }
-        let auth_data = AuthData::RpoFalcon512Seed(key_pair_seed_u8);
-        let account_data = AccountData::new(faucet_account.clone(), Some(account_seed), auth_data);
-
-        let account_file_path = account_dir.join("account1.mac");
-        fs::write(account_file_path, account_data.to_bytes()).unwrap();
-
-        // Create Genesis state and save it to a file
-        let accounts = vec![account, faucet_account];
-        let genesis_state = GenesisState::new(accounts, 1, 1);
-        fs::write(temp_dir.join("genesis.dat"), genesis_state.to_bytes()).unwrap();
-
-        temp_dir
+        account
     }
 
-    #[tokio::test]
-    async fn load_genesis_test() {
+    fn reset_db() -> PathBuf {
         const STORE_FILENAME: &str = "test.store.sqlite3";
 
         // get directory of the currently executing binary, or fallback to the current directory
@@ -212,7 +183,41 @@ pub mod tests {
             thread::sleep(Duration::from_secs(1));
         }
 
-        let genesis_data_path = create_genesis_data();
+        store_path
+    }
+
+    pub fn create_genesis_data() -> (PathBuf, Vec<Account>) {
+        let temp_dir = temp_dir();
+        let mut rng = thread_rng();
+
+        let account_dir = temp_dir.join("accounts");
+        fs::create_dir_all(account_dir.clone()).unwrap();
+
+        let account = create_account_data(
+            &mut rng,
+            AccountSeedType::RegularAccountUpdatableCodeOnChain,
+            account_dir.join("account0.mac"),
+        );
+
+        // Create a Faucet and save it to a file
+        let faucet_account = create_account_data(
+            &mut rng,
+            AccountSeedType::FungibleFaucetValidInitialBalance,
+            account_dir.join("account1.mac"),
+        );
+
+        // Create Genesis state and save it to a file
+        let accounts = vec![account, faucet_account];
+        let genesis_state = GenesisState::new(accounts.clone(), 1, 1);
+        fs::write(temp_dir.join("genesis.dat"), genesis_state.to_bytes()).unwrap();
+
+        (temp_dir, accounts)
+    }
+
+    #[tokio::test]
+    async fn load_genesis_test() {
+        let store_path = reset_db();
+        let (genesis_data_path, created_accounts) = create_genesis_data();
         let load_genesis_command = Command::LoadGenesis {
             genesis_path: genesis_data_path,
         };
@@ -232,12 +237,7 @@ pub mod tests {
         // check
         let accounts = client.get_accounts().unwrap();
         assert_eq!(accounts.len(), 2);
-        assert_eq!(
-            accounts
-                .iter()
-                .filter(|(account, _)| account.id().is_faucet())
-                .count(),
-            1
-        );
+        assert_eq!(accounts[0].0.id(), created_accounts[0].id());
+        assert_eq!(accounts[1].0.id(), created_accounts[1].id());
     }
 }
