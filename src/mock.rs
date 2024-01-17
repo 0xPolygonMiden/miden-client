@@ -10,8 +10,11 @@ use miden_node_proto::{
     block_header::BlockHeader as NodeBlockHeader,
     merkle::MerklePath,
     note::NoteSyncRecord,
-    requests::{SubmitProvenTransactionRequest, SyncStateRequest},
-    responses::{NullifierUpdate, SubmitProvenTransactionResponse, SyncStateResponse},
+    requests::{GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest, SyncStateRequest},
+    responses::{
+        GetBlockHeaderByNumberResponse, NullifierUpdate, SubmitProvenTransactionResponse,
+        SyncStateResponse,
+    },
 };
 use mock::{
     constants::{generate_account_seed, AccountSeedType},
@@ -69,6 +72,22 @@ impl MockRpcApi {
                 "no response for sync state request",
             )),
         }
+    }
+
+    /// Executes the specified sync state request and returns the response.
+    pub async fn get_block_header_by_number(
+        &mut self,
+        request: impl tonic::IntoRequest<GetBlockHeaderByNumberRequest>,
+    ) -> std::result::Result<tonic::Response<GetBlockHeaderByNumberResponse>, tonic::Status> {
+        let request: GetBlockHeaderByNumberRequest = request.into_request().into_inner();
+
+        if request.block_num == Some(0) {
+            let block_header: objects::BlockHeader = block::mock_block_header(0, None, None, &[]);
+            return Ok(tonic::Response::new(GetBlockHeaderByNumberResponse {
+                block_header: Some(block_header.into()),
+            }));
+        }
+        panic!("get_block_header_by_number is supposed to be only used for genesis block")
     }
 
     pub async fn submit_proven_transaction(

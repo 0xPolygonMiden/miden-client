@@ -36,8 +36,7 @@ impl DataStore for SqliteDataStore {
             .map_err(|_| DataStoreError::AccountNotFound(account_id))?;
 
         // Get header data
-
-        let block_header = self
+        let (block_header, _had_notes) = self
             .store
             .get_block_header_by_num(block_num)
             .map_err(|_err| DataStoreError::AccountNotFound(account_id))?;
@@ -57,11 +56,15 @@ impl DataStore for SqliteDataStore {
             list_of_notes.push(input_note.clone());
 
             let note_block_num = input_note.proof().origin().block_num;
-            let note_block = self
-                .store
-                .get_block_header_by_num(note_block_num)
-                .map_err(|_| DataStoreError::AccountNotFound(account_id))?;
-            notes_blocks.push(note_block);
+
+            // last block will never be included in our version of the ChainMmr, so don't include
+            if note_block_num != block_num {
+                let (note_block, _) = self
+                    .store
+                    .get_block_header_by_num(note_block_num)
+                    .map_err(|_| DataStoreError::AccountNotFound(account_id))?;
+                notes_blocks.push(note_block);
+            }
         }
 
         // TODO:
@@ -80,7 +83,8 @@ impl DataStore for SqliteDataStore {
         };
 
         let chain_mmr = ChainMmr::new(partial_mmr, notes_blocks)
-            .map_err(|_err| DataStoreError::AccountNotFound(account_id))?;
+            .map_err(|err| println!("error {}", err))
+            .unwrap();
 
         let input_notes = InputNotes::new(list_of_notes)
             .map_err(|_| DataStoreError::AccountNotFound(account_id))?;

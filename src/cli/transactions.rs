@@ -3,6 +3,7 @@ use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::client::transactions::{
     PaymentTransactionData, TransactionStub, TransactionTemplate,
 };
+
 use objects::{accounts::AccountId, assets::FungibleAsset};
 
 use super::{Client, Parser};
@@ -40,6 +41,9 @@ pub enum TransactionType {
         amount: u64,
     },
     P2IDR,
+    ConsumeNotes {
+        account_id: String,
+    },
 }
 
 impl Transaction {
@@ -92,6 +96,11 @@ impl Transaction {
                             target_account_id,
                         }
                     }
+                    TransactionType::ConsumeNotes { account_id } => {
+                        let account_id =
+                            AccountId::from_hex(account_id).map_err(|err| err.to_string())?;
+                        TransactionTemplate::ConsumeNotes(account_id)
+                    }
                 };
 
                 let transaction_execution_result = client
@@ -139,7 +148,8 @@ where
             Cell::new("account id").add_attribute(Attribute::Bold),
             Cell::new("script hash").add_attribute(Attribute::Bold),
             Cell::new("committed").add_attribute(Attribute::Bold),
-            Cell::new("block number").add_attribute(Attribute::Bold),
+            Cell::new("commit height").add_attribute(Attribute::Bold),
+            Cell::new("block num").add_attribute(Attribute::Bold),
             Cell::new("input notes count").add_attribute(Attribute::Bold),
             Cell::new("output notes count").add_attribute(Attribute::Bold),
         ]);
@@ -152,6 +162,7 @@ where
                 .map(|x| x.hash().to_string())
                 .unwrap_or("-".to_string()),
             tx.committed.to_string(),
+            tx.commit_height.to_string(),
             tx.block_num.to_string(),
             tx.input_note_nullifiers.len().to_string(),
             tx.output_notes.num_notes().to_string(),

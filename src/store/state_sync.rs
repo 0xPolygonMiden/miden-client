@@ -4,12 +4,18 @@ use crypto::{
 };
 use miden_node_proto::{mmr::MmrDelta, responses::AccountHashUpdate};
 
-use objects::{notes::NoteInclusionProof, BlockHeader, Digest};
+use objects::{
+    notes::{NoteId, NoteInclusionProof},
+    BlockHeader, Digest,
+};
 use rusqlite::params;
 
 use crate::{
     errors::StoreError,
-    store::accounts::{parse_accounts, parse_accounts_columns},
+    store::{
+        accounts::{parse_accounts, parse_accounts_columns},
+        transactions::TransactionFilter,
+    },
 };
 
 use super::Store;
@@ -79,7 +85,7 @@ impl Store {
         &mut self,
         current_block_num: u32,
         block_header: BlockHeader,
-        new_block_header_path: MerklePath,
+        requested_header_block_path: MerklePath,
         nullifiers: Vec<Digest>,
         account_updates: Vec<AccountHashUpdate>,
         mmr_delta: Option<MmrDelta>,
@@ -87,7 +93,11 @@ impl Store {
     ) -> Result<(), StoreError> {
         // get current nodes on table
         // we need to do this here because creating a sql tx borrows a mut reference
+        let (current_block_header, header_had_notes) =
+            self.get_block_header_by_num(current_block_num)?;
         let current_peaks = self.get_chain_mmr_peaks_by_block_num(current_block_num)?;
+
+        let uncommitted_transactions = self.get_transactions(TransactionFilter::Uncomitted)?;
 
         let tx = self
             .db
@@ -152,22 +162,35 @@ impl Store {
             let new_authentication_nodes =
                 partial_mmr.apply(mmr_delta).map_err(StoreError::MmrError)?;
 
-            // TODO: Leaving these prints for now, but we should remove as soon as this works as expected
-            println!("peaks: {:?}", partial_mmr.peaks());
-            println!("path: {:?}", new_block_header_path);
-            println!("block num {}", block_header.block_num());
-
-            //This fails: partial_mmr.add(block_header.block_num().try_into().expect("u32"), block_header.hash(), &new_block_header_path).unwrap();
-            println!("new authentication nodes: {:?}", new_authentication_nodes);
+            if header_had_notes {
+                partial_mmr
+                    .add(
+                        current_block_num as usize,
+                        current_block_header.hash(),
+                        &requested_header_block_path,
+                    )
+                    .unwrap();
+                for n in partial_mmr.inner_nodes(
+                    vec![(current_block_num as usize, current_block_header.hash())].into_iter(),
+                ) {
+                    println!("new auth node: {:?}", n);
+                }
+            }
 
             Store::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
 
-            Store::insert_block_header(&tx, block_header, partial_mmr.peaks())?;
+            let header_has_interesting_notes = !committed_notes.is_empty();
+            Store::insert_block_header(
+                &tx,
+                block_header,
+                partial_mmr.peaks(),
+                header_has_interesting_notes,
+            )?;
         }
         //}
 
         // update tracked notes
-        for (note_id, inclusion_proof) in committed_notes {
+        for (note_id, inclusion_proof) in committed_notes.iter() {
             const SPENT_QUERY: &str =
                 "UPDATE input_notes SET status = 'committed', inclusion_proof = ? WHERE note_id = ?";
 
@@ -176,7 +199,17 @@ impl Store {
                 .map_err(StoreError::QueryError)?;
         }
 
-        // TODO: We would need to mark transactions as committed here as well
+        let note_ids: Vec<NoteId> = committed_notes
+            .iter()
+            .map(|(id, _)| NoteId::from(*id))
+            .collect();
+
+        Store::mark_transactions_as_committed_by_note_id(
+            &uncommitted_transactions,
+            &note_ids,
+            block_header.block_num(),
+            &tx,
+        )?;
 
         // commit the updates
         tx.commit().map_err(StoreError::QueryError)?;
