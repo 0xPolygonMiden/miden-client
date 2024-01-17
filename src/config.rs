@@ -25,7 +25,11 @@ impl ClientConfig {
 
 impl Default for ClientConfig {
     fn default() -> Self {
+        #[cfg(not(any(test, feature = "mock")))]
         const STORE_FILENAME: &str = "store.sqlite3";
+
+        #[cfg(any(test, feature = "mock"))]
+        const STORE_FILENAME: &str = "test.store.sqlite3";
 
         // get directory of the currently executing binary, or fallback to the current directory
         let exec_dir = match std::env::current_exe() {
