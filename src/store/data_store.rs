@@ -83,8 +83,7 @@ impl DataStore for SqliteDataStore {
         };
 
         let chain_mmr = ChainMmr::new(partial_mmr, notes_blocks)
-            .map_err(|err| println!("error {}", err))
-            .unwrap();
+            .map_err(|_err| DataStoreError::AccountNotFound(account_id))?;
 
         let input_notes = InputNotes::new(list_of_notes)
             .map_err(|_| DataStoreError::AccountNotFound(account_id))?;
