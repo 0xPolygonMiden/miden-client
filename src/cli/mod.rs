@@ -7,6 +7,7 @@ use clap::Parser;
 use crypto::{dsa::rpo_falcon512::KeyPair, utils::Deserializable};
 use miden_client::{client::Client, config::ClientConfig, store::accounts::AuthInfo};
 use miden_node_store::genesis::GenesisState;
+use objects::accounts::{AccountData, AuthData};
 
 mod account;
 mod input_notes;
@@ -89,29 +90,23 @@ pub fn load_genesis_data(client: &mut Client, path: &Path) -> Result<(), String>
     let genesis_state =
         GenesisState::read_from_bytes(&file_contents).map_err(|err| err.to_string())?;
 
-    if genesis_state.accounts.len() != 2 {
-        return Err(format!(
-            "error: genesis state file should have 2 accounts, has {}",
-            genesis_state.accounts.len()
-        ));
-    }
-
-    for acc_and_seed in genesis_state.accounts {
-        let account = acc_and_seed.account;
-        let seed = acc_and_seed.seed;
-
-        let key_pair = if account.is_faucet() {
-            let file_contents = fs::read(path.join("faucet.fsk")).unwrap();
-            let _ = account.code().procedure_tree();
-
-            KeyPair::read_from_bytes(&file_contents).unwrap()
-        } else {
-            let file_contents = fs::read(path.join("wallet.fsk")).unwrap();
-            KeyPair::read_from_bytes(&file_contents).unwrap()
-        };
-        client
-            .insert_account(&account, seed, &AuthInfo::RpoFalcon512(key_pair))
+    for account_index in 0..genesis_state.accounts.len() {
+        let account_data_filepath = format!("accounts/account{}.mac", account_index);
+        let account_data_file_contents = fs::read(path.join(account_data_filepath))
             .map_err(|err| err.to_string())?;
+        let account_data = AccountData::read_from_bytes(&account_data_file_contents).map_err(|err| err.to_string())?;
+
+        match account_data.auth {
+            AuthData::RpoFalcon512Seed(key_pair) => {
+                let keypair = KeyPair::from_seed(&key_pair).map_err(|err| err.to_string())?;
+                let seed = account_data.account_seed.ok_or("Account seed was expected")?;
+
+                client
+                    .insert_account(&account_data.account, seed, &AuthInfo::RpoFalcon512(keypair))
+                    .map_err(|err| err.to_string())?;
+            }
+        }
+
     }
     Ok(())
 }
