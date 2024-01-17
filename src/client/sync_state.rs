@@ -235,6 +235,11 @@ impl Client {
             nullifiers,
         };
 
-        Ok(self.rpc_api.sync_state(request).await?.into_inner())
+        Ok(self
+            .rpc_api
+            .sync_state(request)
+            .await
+            .map_err(ClientError::RpcApiError)?
+            .into_inner())
     }
 }

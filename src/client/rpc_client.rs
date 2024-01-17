@@ -1,7 +1,6 @@
 // RPC Client
 // ================================================================================================
 //
-use crate::errors::ClientError;
 use crate::errors::RpcApiError;
 use miden_node_proto::{
     requests::{SubmitProvenTransactionRequest, SyncStateRequest},
@@ -36,34 +35,34 @@ impl RpcClient {
     pub async fn sync_state(
         &mut self,
         request: impl tonic::IntoRequest<SyncStateRequest>,
-    ) -> Result<tonic::Response<SyncStateResponse>, ClientError> {
+    ) -> Result<tonic::Response<SyncStateResponse>, RpcApiError> {
         let rpc_api = self.rpc_api().await?;
         rpc_api
             .sync_state(request)
             .await
-            .map_err(|err| ClientError::RpcApiError(RpcApiError::RequestError(err)))
+            .map_err(RpcApiError::RequestError)
     }
 
     pub async fn submit_proven_transaction(
         &mut self,
         request: impl tonic::IntoRequest<SubmitProvenTransactionRequest>,
-    ) -> Result<tonic::Response<SubmitProvenTransactionResponse>, ClientError> {
+    ) -> Result<tonic::Response<SubmitProvenTransactionResponse>, RpcApiError> {
         let rpc_api = self.rpc_api().await?;
         rpc_api
             .submit_proven_transaction(request)
             .await
-            .map_err(|err| ClientError::RpcApiError(RpcApiError::RequestError(err)))
+            .map_err(RpcApiError::RequestError)
     }
 
     /// Takes care of establishing the rpc connection if not connected yet and returns a reference
     /// to the inner ApiClient
-    async fn rpc_api(&mut self) -> Result<&mut ApiClient<Channel>, ClientError> {
+    async fn rpc_api(&mut self) -> Result<&mut ApiClient<Channel>, RpcApiError> {
         if self.rpc_api.is_some() {
             Ok(self.rpc_api.as_mut().unwrap())
         } else {
             let rpc_api = ApiClient::connect(self.endpoint.clone())
                 .await
-                .map_err(|err| ClientError::RpcApiError(RpcApiError::ConnectionError(err)))?;
+                .map_err(RpcApiError::ConnectionError)?;
             Ok(self.rpc_api.insert(rpc_api))
         }
     }
