@@ -248,7 +248,7 @@ impl Client {
         let tx_script_target = self
             .tx_executor
             .compile_tx_script(
-                tx_script_code.clone(),
+                tx_script_code,
                 vec![/*(target_pub_key, target_sk_pk_felt)*/],
                 vec![],
             )
@@ -261,7 +261,7 @@ impl Client {
                 target_account_id,
                 block_ref,
                 &note_origins,
-                Some(tx_script_target.clone()),
+                Some(tx_script_target),
             )
             .map_err(ClientError::TransactionExecutionError)?;
 
