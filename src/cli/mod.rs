@@ -92,21 +92,27 @@ pub fn load_genesis_data(client: &mut Client, path: &Path) -> Result<(), String>
 
     for account_index in 0..genesis_state.accounts.len() {
         let account_data_filepath = format!("accounts/account{}.mac", account_index);
-        let account_data_file_contents = fs::read(path.join(account_data_filepath))
+        let account_data_file_contents =
+            fs::read(path.join(account_data_filepath)).map_err(|err| err.to_string())?;
+        let account_data = AccountData::read_from_bytes(&account_data_file_contents)
             .map_err(|err| err.to_string())?;
-        let account_data = AccountData::read_from_bytes(&account_data_file_contents).map_err(|err| err.to_string())?;
 
         match account_data.auth {
             AuthData::RpoFalcon512Seed(key_pair) => {
                 let keypair = KeyPair::from_seed(&key_pair).map_err(|err| err.to_string())?;
-                let seed = account_data.account_seed.ok_or("Account seed was expected")?;
+                let seed = account_data
+                    .account_seed
+                    .ok_or("Account seed was expected")?;
 
                 client
-                    .insert_account(&account_data.account, seed, &AuthInfo::RpoFalcon512(keypair))
+                    .insert_account(
+                        &account_data.account,
+                        seed,
+                        &AuthInfo::RpoFalcon512(keypair),
+                    )
                     .map_err(|err| err.to_string())?;
             }
         }
-
     }
     Ok(())
 }
