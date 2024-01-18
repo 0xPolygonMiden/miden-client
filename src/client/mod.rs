@@ -9,7 +9,6 @@ use rpc_client::RpcClient;
 pub mod accounts;
 pub mod chain_data;
 pub mod notes;
-#[cfg(not(any(test, feature = "mock")))]
 pub mod rpc_client;
 pub mod sync_state;
 pub mod transactions;

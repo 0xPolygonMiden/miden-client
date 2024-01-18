@@ -1,5 +1,6 @@
 use crate::{
     client::{
+        rpc_client::RpcApiEndpoint,
         sync_state::FILTER_ID_SHIFT,
         transactions::{PaymentTransactionData, TransactionTemplate},
         Client,
@@ -68,9 +69,10 @@ impl MockRpcApi {
                 let response = response.clone();
                 Ok(tonic::Response::new(response))
             }
-            None => Err(RpcApiError::RequestError(tonic::Status::not_found(
-                "no response for sync state request",
-            ))),
+            None => Err(RpcApiError::RequestError(
+                RpcApiEndpoint::SynState,
+                tonic::Status::not_found("no response for sync state request"),
+            )),
         }
     }
 

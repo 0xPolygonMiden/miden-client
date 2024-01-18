@@ -1,28 +1,44 @@
 // RPC Client
 // ================================================================================================
 //
+#[cfg(not(any(test, feature = "mock")))]
 use crate::errors::RpcApiError;
+use core::fmt;
+#[cfg(not(any(test, feature = "mock")))]
 use miden_node_proto::{
     requests::{SubmitProvenTransactionRequest, SyncStateRequest},
     responses::{SubmitProvenTransactionResponse, SyncStateResponse},
     rpc::api_client::ApiClient,
 };
+#[cfg(not(any(test, feature = "mock")))]
 use tonic::transport::Channel;
 
 // CONSTANTS
 // ================================================================================================
 
-pub enum RpcClientError {
-    SynStateError(RpcApiError),
-    SubmitProvenTxError(RpcApiError),
+#[derive(Debug)]
+pub enum RpcApiEndpoint {
+    SynState,
+    SubmitProvenTx,
+}
+
+impl fmt::Display for RpcApiEndpoint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RpcApiEndpoint::SynState => write!(f, "sync_state"),
+            RpcApiEndpoint::SubmitProvenTx => write!(f, "submit_proven_transaction"),
+        }
+    }
 }
 
 /// Wrapper for ApiClient which defers establishing a connection with a node until necessary
+#[cfg(not(any(test, feature = "mock")))]
 pub(crate) struct RpcClient {
     rpc_api: Option<ApiClient<Channel>>,
     endpoint: String,
 }
 
+#[cfg(not(any(test, feature = "mock")))]
 impl RpcClient {
     pub fn new(config_endpoint: String) -> RpcClient {
         RpcClient {
@@ -40,7 +56,7 @@ impl RpcClient {
         rpc_api
             .sync_state(request)
             .await
-            .map_err(RpcApiError::RequestError)
+            .map_err(|err| RpcApiError::RequestError(RpcApiEndpoint::SynState, err))
     }
 
     pub async fn submit_proven_transaction(
@@ -51,7 +67,7 @@ impl RpcClient {
         rpc_api
             .submit_proven_transaction(request)
             .await
-            .map_err(RpcApiError::RequestError)
+            .map_err(|err| RpcApiError::RequestError(RpcApiEndpoint::SubmitProvenTx, err))
     }
 
     /// Takes care of establishing the rpc connection if not connected yet and returns a reference
