@@ -38,6 +38,16 @@ impl Client {
         let account_indices =
             account_indices.unwrap_or((0..genesis_state.accounts.len()).collect());
 
+        if account_indices
+            .iter()
+            .any(|&index| index >= genesis_state.accounts.len())
+        {
+            return Err(format!(
+                "The provided indices for this genesis file should be in the range 0-{}",
+                genesis_state.accounts.len()
+            ));
+        }
+
         for account_index in account_indices {
             let account_data_filepath = format!("accounts/account{}.mac", account_index);
             self.import_account_from_file(path.join(account_data_filepath))?;
