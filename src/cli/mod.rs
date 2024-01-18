@@ -50,7 +50,7 @@ pub enum Command {
         /// The indices of accounts to import, if account indices contains the value `i`, then it
         /// will import account at "{genesis_path}/accounts/account{i}.mac". If not provided takes
         /// all files possible
-        #[clap(short, long, value_delimiter = ',')]
+        #[clap(short, long, value_delimiter = ' ', num_args=1..)]
         account_indices: Option<Vec<usize>>,
     },
 }

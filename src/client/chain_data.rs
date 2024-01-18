@@ -44,7 +44,7 @@ impl Client {
         {
             return Err(format!(
                 "The provided indices for this genesis file should be in the range 0-{}",
-                genesis_state.accounts.len()
+                genesis_state.accounts.len() - 1
             ));
         }
 
