@@ -163,7 +163,7 @@ impl std::error::Error for StoreError {}
 // API CLIENT ERROR
 // ================================================================================================
 
-use crate::client::rpc_client::RpcApiEndpoint;
+use crate::client::RpcApiEndpoint;
 
 #[derive(Debug)]
 pub enum RpcApiError {

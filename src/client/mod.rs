@@ -2,6 +2,7 @@
 // ================================================================================================
 
 use crate::{config::ClientConfig, errors::ClientError, store::Store};
+use core::fmt;
 use miden_tx::TransactionExecutor;
 #[cfg(not(any(test, feature = "mock")))]
 use rpc_client::RpcClient;
@@ -9,12 +10,28 @@ use rpc_client::RpcClient;
 pub mod accounts;
 pub mod chain_data;
 pub mod notes;
+#[cfg(not(any(test, feature = "mock")))]
 pub mod rpc_client;
 pub mod sync_state;
 pub mod transactions;
 
 // CONSTANTS
 // ================================================================================================
+
+#[derive(Debug)]
+pub enum RpcApiEndpoint {
+    SyncState,
+    SubmitProvenTx,
+}
+
+impl fmt::Display for RpcApiEndpoint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RpcApiEndpoint::SyncState => write!(f, "sync_state"),
+            RpcApiEndpoint::SubmitProvenTx => write!(f, "submit_proven_transaction"),
+        }
+    }
+}
 
 /// A light client for connecting to the Miden rollup network.
 ///
