@@ -1,5 +1,3 @@
-
-
 use crypto::{
     merkle::{MerklePath, PartialMmr},
     utils::Serializable,
@@ -97,6 +95,7 @@ impl Store {
         // we need to do this here because creating a sql tx borrows a mut reference
         let (current_block_header, header_had_notes) =
             self.get_block_header_by_num(current_block_num)?;
+
         let current_peaks = self.get_chain_mmr_peaks_by_block_num(current_block_num)?;
 
         let uncommitted_transactions = self.get_transactions(TransactionFilter::Uncomitted)?;
@@ -152,10 +151,8 @@ impl Store {
         }
 
         // update chain mmr nodes on the table if and only if there were any input notes we might want to use in the future
-        //if committed_notes.len() > 0 {
         if let Some(mmr_delta) = mmr_delta {
             // build partial mmr from the nodes - partial_mmr should be on memory as part of our store
-
             let mut partial_mmr: PartialMmr = PartialMmr::from_peaks(current_peaks);
 
             // apply the delta
@@ -172,11 +169,6 @@ impl Store {
                         &requested_header_block_path,
                     )
                     .unwrap();
-                for n in partial_mmr.inner_nodes(
-                    vec![(current_block_num as usize, current_block_header.hash())].into_iter(),
-                ) {
-                    println!("new auth node: {:?}", n);
-                }
             }
 
             Store::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
@@ -189,7 +181,6 @@ impl Store {
                 header_has_interesting_notes,
             )?;
         }
-        //}
 
         // update tracked notes
         for (note_id, inclusion_proof) in committed_notes.iter() {

@@ -343,7 +343,7 @@ pub async fn create_mock_transaction(client: &mut Client) {
     let transaction_execution_result = client.new_transaction(transaction_template).unwrap();
 
     client
-        .send_transaction(transaction_execution_result.executed_transaction().clone())
+        .send_transaction(transaction_execution_result)
         .await
         .unwrap();
 }

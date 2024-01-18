@@ -4,10 +4,7 @@ use crypto::{
     Felt,
 };
 
-use super::{
-    notes::{serialize_input_note, InputNoteRecord, INSERT_NOTE_QUERY},
-    Store,
-};
+use super::Store;
 use objects::{
     accounts::AccountId,
     assembly::{AstSerdeOptions, ProgramAst},
@@ -130,15 +127,6 @@ impl Store {
         )
         .map(|_| ())
         .map_err(StoreError::QueryError)?;
-
-        let input_notes: Vec<InputNoteRecord> = transaction_result
-            .input_notes()
-            .iter()
-            .map(|n| n.note().clone().into())
-            .collect();
-
-        // Insert input notes
-        insert_input_notes(&tx, &input_notes)?;
 
         // commit the transaction
         tx.commit().map_err(StoreError::QueryError)?;
@@ -342,51 +330,4 @@ fn parse_transaction(
         committed,
         commit_height: commit_height as u64,
     })
-}
-
-/// Inserts the provided input notes into the database
-fn insert_input_notes(
-    sql_transaction: &Transaction<'_>,
-    notes: &[InputNoteRecord],
-) -> Result<(), StoreError> {
-    for note in notes {
-        let (
-            note_id,
-            nullifier,
-            script,
-            vault,
-            inputs,
-            serial_num,
-            sender_id,
-            tag,
-            num_assets,
-            inclusion_proof,
-            recipients,
-            status,
-            commit_height,
-        ) = serialize_input_note(note)?;
-
-        sql_transaction
-            .execute(
-                INSERT_NOTE_QUERY,
-                params![
-                    note_id,
-                    nullifier,
-                    script,
-                    vault,
-                    inputs,
-                    serial_num,
-                    sender_id,
-                    tag,
-                    num_assets,
-                    inclusion_proof,
-                    recipients,
-                    status,
-                    commit_height
-                ],
-            )
-            .map_err(StoreError::QueryError)
-            .map(|_| ())?
-    }
-    Ok(())
 }

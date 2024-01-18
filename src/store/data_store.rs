@@ -53,11 +53,11 @@ impl DataStore for SqliteDataStore {
             let input_note: InputNote = input_note_record
                 .try_into()
                 .map_err(|_| DataStoreError::AccountNotFound(account_id))?;
+
             list_of_notes.push(input_note.clone());
 
             let note_block_num = input_note.proof().origin().block_num;
 
-            // last block will never be included in our version of the ChainMmr, so don't include
             if note_block_num != block_num {
                 let (note_block, _) = self
                     .store
@@ -85,6 +85,9 @@ impl DataStore for SqliteDataStore {
         let chain_mmr = ChainMmr::new(partial_mmr, notes_blocks)
             .map_err(|err| println!("error {}", err))
             .unwrap();
+
+        let mut cloned_mmr = chain_mmr.clone();
+        cloned_mmr.add_block(block_header, true);
 
         let input_notes = InputNotes::new(list_of_notes)
             .map_err(|_| DataStoreError::AccountNotFound(account_id))?;

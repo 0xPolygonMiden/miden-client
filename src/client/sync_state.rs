@@ -1,8 +1,5 @@
 use super::Client;
-use crypto::{
-    merkle::{MmrPeaks},
-    StarkField,
-};
+use crypto::{merkle::MmrPeaks, StarkField};
 use miden_node_proto::{
     account::AccountId as ProtoAccountId,
     note::NoteSyncRecord,
@@ -103,7 +100,9 @@ impl Client {
             .map(|(a, _s)| a.id().into())
             .collect();
 
-        let nullifiers = self.store.get_unspent_input_note_nullifiers()?;
+        // FIXME: This 
+        // let nullifiers = self.store.get_unspent_input_note_nullifiers()?;
+        let nullifiers = vec![];
         let response = self
             .sync_state_request(current_block_num, &account_ids, &note_tags, &nullifiers)
             .await?;
@@ -170,17 +169,24 @@ impl Client {
             .map(|n| n.note().id().inner())
             .collect();
 
+        if pending_notes.len() >0 {
+            println!("pending notes local {}", pending_notes[0]);
+        }
+        println!("incoming note list {:?}", notes);
         Ok(notes
             .iter()
             .filter_map(|note| {
                 let note_hash = note.note_hash.clone().unwrap().try_into().unwrap();
+                let mut merkle_path: crypto::merkle::MerklePath =
+                    note.merkle_path.clone().unwrap().try_into().unwrap();
+                merkle_path.remove(0);
                 if pending_notes.contains(&note_hash) {
                     let note_inclusion_proof = NoteInclusionProof::new(
                         block_header.block_num(),
                         block_header.sub_hash(),
                         block_header.note_root(),
                         note.note_index.into(),
-                        note.merkle_path.clone().unwrap().try_into().unwrap(),
+                        merkle_path,
                     )
                     .unwrap();
 
@@ -220,7 +226,7 @@ impl Client {
             note_tags,
             nullifiers,
         };
-
+        println!("sync state request {:?}", request);
         Ok(self
             .rpc_api
             .sync_state(request)

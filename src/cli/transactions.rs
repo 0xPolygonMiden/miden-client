@@ -1,11 +1,10 @@
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 
-use miden_client::{
-    client::transactions::{PaymentTransactionData, TransactionStub, TransactionTemplate},
-    store::notes::InputNoteRecord,
+use miden_client::client::transactions::{
+    PaymentTransactionData, TransactionStub, TransactionTemplate,
 };
 
-use objects::{accounts::AccountId, assets::FungibleAsset};
+use objects::{accounts::AccountId, assets::FungibleAsset, notes::NoteId, Digest};
 
 use super::{Client, Parser};
 
@@ -42,8 +41,9 @@ pub enum TransactionType {
         amount: u64,
     },
     P2IDR,
-    ConsumeNotes {
+    ConsumeNote {
         account_id: String,
+        note_id: Option<String>,
     },
 }
 
@@ -97,40 +97,33 @@ impl Transaction {
                             target_account_id,
                         }
                     }
-                    TransactionType::ConsumeNotes { account_id } => {
+                    TransactionType::ConsumeNote {
+                        account_id,
+                        note_id,
+                    } => {
                         let account_id =
                             AccountId::from_hex(account_id).map_err(|err| err.to_string())?;
-                        TransactionTemplate::ConsumeNotes(account_id)
+                        let note_id = note_id.clone().map(|note_id| {
+                            NoteId::from(
+                                Digest::try_from(note_id)
+                                    .map_err(|err| err.to_string())
+                                    .unwrap(),
+                            )
+                        });
+                        TransactionTemplate::ConsumeNote(account_id, note_id)
                     }
                 };
 
                 let transaction_execution_result = client
                     .new_transaction(transaction_template.clone())
                     .map_err(|err| err.to_string())?;
+
                 println!("Executed transaction, proving and then submitting...");
 
                 client
-                    .send_transaction(transaction_execution_result.executed_transaction().clone())
+                    .send_transaction(transaction_execution_result)
                     .await
                     .map_err(|err| err.to_string())?;
-
-                // transaction was proven and submitted to the node correctly, persist note details and update account
-
-                // TODO: This needs to be done through a single SQL tx
-                let account_delta = transaction_execution_result
-                    .executed_transaction()
-                    .account_delta();
-                let account_id = transaction_template.account_id();
-
-                client
-                    .update_account(account_id, account_delta)
-                    .map_err(|err| err.to_string())?;
-
-                for n in transaction_execution_result.created_notes() {
-                    client
-                        .import_input_note(InputNoteRecord::from(n.clone()))
-                        .unwrap();
-                }
             }
         }
         Ok(())

@@ -8,7 +8,7 @@ use crypto::{
 };
 use miden_client::client::accounts;
 
-use objects::{accounts::AccountId, assets::TokenSymbol, Digest};
+use objects::{accounts::AccountId, assets::TokenSymbol};
 
 // ACCOUNT COMMAND
 // ================================================================================================
@@ -156,11 +156,9 @@ pub fn show_account(
     show_storage: bool,
     show_code: bool,
 ) -> Result<(), String> {
-    let (account, account_seed) = client
+    let (account, _account_seed) = client
         .get_account_stub_by_id(account_id)
         .map_err(|err| err.to_string())?;
-
-    let formatted_seed = Digest::from(account_seed).to_string();
 
     let mut table = Table::new();
     table
@@ -172,7 +170,7 @@ pub fn show_account(
             Cell::new("vault root").add_attribute(Attribute::Bold),
             Cell::new("storage root").add_attribute(Attribute::Bold),
             Cell::new("nonce").add_attribute(Attribute::Bold),
-            Cell::new("account seed").add_attribute(Attribute::Bold),
+            Cell::new("account hash").add_attribute(Attribute::Bold),
         ]);
 
     table.add_row(vec![
@@ -181,10 +179,10 @@ pub fn show_account(
         account.vault_root().to_string(),
         account.storage_root().to_string(),
         account.nonce().to_string(),
-        formatted_seed,
+        account.hash().to_string(),
     ]);
-
-    println!("{table}\n");
+    println!("{table}\n\n");
+    println!("Current account hash: {:?}", account.hash());
 
     if show_keys {
         let auth_info = client
