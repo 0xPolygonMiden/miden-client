@@ -230,14 +230,19 @@ impl Client {
         };
         let script_inputs = vec![(pubkey_input, advice_map)];
 
-        if note_id.is_some() {
-            panic!()
-        }
-        let input_notes = self
-            .store
-            .get_input_notes(InputNoteFilter::Committed)
-            .map_err(ClientError::StoreError)?;
-        let input_note = input_notes.first().unwrap();
+        let input_note = if note_id.is_some() {
+            self.store.get_input_note_by_id(note_id.unwrap())?
+        } else {
+            let input_notes = self
+                .store
+                .get_input_notes(InputNoteFilter::Committed)
+                .map_err(ClientError::StoreError)?;
+
+            input_notes
+                .first()
+                .ok_or(ClientError::NoConsumableNoteForAccount(account_id))?
+                .clone()
+        };
 
         let tx_script = self
             .tx_executor

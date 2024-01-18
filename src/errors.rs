@@ -22,6 +22,7 @@ pub enum ClientError {
     AuthError(FalconError),
     RpcTypeConversionFailure(ParseError),
     NoteError(NoteError),
+    NoConsumableNoteForAccount(AccountId),
     RpcApiError(RpcApiError),
     RpcExpectedFieldMissingFailure(String),
     StoreError(StoreError),
@@ -49,6 +50,9 @@ impl fmt::Display for ClientError {
             }
             ClientError::RpcExpectedFieldMissingFailure(err) => {
                 write!(f, "rpc api reponse missing an expected field: {err}")
+            }
+            ClientError::NoConsumableNoteForAccount(account_id) => {
+                write!(f, "no consumable note for account id: {account_id}")
             }
         }
     }
