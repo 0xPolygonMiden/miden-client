@@ -44,12 +44,14 @@ pub enum Command {
         #[clap(short, long)]
         transaction: bool,
     },
-    //#[cfg(feature = "testing")]
     /// Insert data from node's genesis file
     LoadGenesis {
         /// The directory that contains the three files generated from the node: genesis.dat, faucet.fsk and wallet.fs
         #[clap(short, long)]
         genesis_path: PathBuf,
+        /// Optionally decide which indices are imported (indices are zero-based)
+        #[clap()]
+        account_indices: Option<Vec<usize>>,
     },
 }
 
@@ -76,21 +78,34 @@ impl Cli {
                 // }
                 Ok(())
             }
-            Command::LoadGenesis { genesis_path } => {
+            Command::LoadGenesis {
+                genesis_path,
+                account_indices,
+            } => {
                 let mut client = client;
-                load_genesis_data(&mut client, genesis_path)
+                load_genesis_data(&mut client, genesis_path, account_indices.clone())
             }
         }
     }
 }
 
-pub fn load_genesis_data(client: &mut Client, path: &Path) -> Result<(), String> {
+pub fn load_genesis_data(
+    client: &mut Client,
+    path: &Path,
+    account_indices: Option<Vec<usize>>,
+) -> Result<(), String> {
     let file_contents = fs::read(path.join("genesis.dat")).map_err(|err| err.to_string())?;
 
     let genesis_state =
         GenesisState::read_from_bytes(&file_contents).map_err(|err| err.to_string())?;
 
-    for account_index in 0..genesis_state.accounts.len() {
+    let range = if let Some(indices) = account_indices {
+        indices
+    } else {
+        (0..genesis_state.accounts.len()).collect()
+    };
+
+    for account_index in range {
         let account_data_filepath = format!("accounts/account{}.mac", account_index);
         let account_data_file_contents =
             fs::read(path.join(account_data_filepath)).map_err(|err| err.to_string())?;
@@ -220,6 +235,7 @@ pub mod tests {
         let (genesis_data_path, created_accounts) = create_genesis_data();
         let load_genesis_command = Command::LoadGenesis {
             genesis_path: genesis_data_path,
+            account_indices: None,
         };
         let cli = Cli {
             action: load_genesis_command,

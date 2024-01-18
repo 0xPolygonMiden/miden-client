@@ -76,9 +76,11 @@ impl InputNotes {
             }
             InputNotes::Export { id, filename } => {
                 export_note(&client, id, filename.clone())?;
+                println!("Succesfully exported note {}", id);
             }
             InputNotes::Import { filename } => {
-                import_note(&mut client, filename.clone())?;
+                let note_id = import_note(&mut client, filename.clone())?;
+                println!("Succesfully imported note {}", note_id.inner());
             }
         }
         Ok(())
