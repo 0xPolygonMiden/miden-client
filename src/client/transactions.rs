@@ -19,11 +19,7 @@ use rand::Rng;
 
 use crate::{
     errors::{ClientError, RpcApiError},
-    store::{
-        accounts::AuthInfo,
-        notes::{InputNoteFilter, InputNoteRecord},
-        transactions::TransactionFilter,
-    },
+    store::{accounts::AuthInfo, notes::InputNoteFilter, transactions::TransactionFilter},
 };
 
 use super::Client;
@@ -532,6 +528,7 @@ impl Client {
     /// the local database for tracking.
     pub async fn send_transaction(
         &mut self,
+        account_id: AccountId,
         transaction_execution_result: TransactionExecutionResult,
     ) -> Result<(), ClientError> {
         let transaction_prover = TransactionProver::new(ProvingOptions::default());
@@ -544,44 +541,13 @@ impl Client {
         self.submit_proven_transaction_request(proven_transaction.clone())
             .await?;
 
-        self.store.insert_proven_transaction_data(
-            proven_transaction,
-            transaction_execution_result.executed_transaction.clone(),
-        )?;
-
         // transaction was proven and submitted to the node correctly, persist note details and update account
-        // TODO: This needs to be done through a single SQL tx
-        let account_delta = transaction_execution_result
-            .executed_transaction()
-            .account_delta();
-
-        let account_id = transaction_execution_result
-            .executed_transaction()
-            .account_id();
-
-        self.update_account(account_id, account_delta)?;
-
-        for note in transaction_execution_result.created_notes() {
-            self.import_input_note(InputNoteRecord::from(note.clone()))
-                .unwrap();
-        }
-
-        // FIXME: Temporary until nullifier data gets correctly returned from the node
-        for input_note in transaction_execution_result
-            .executed_transaction()
-            .input_notes()
-            .iter()
-        {
-            const SPENT_QUERY: &str =
-                "UPDATE input_notes SET status = 'consumed' WHERE note_id = ?";
-            self.store
-                .db
-                .execute(
-                    SPENT_QUERY,
-                    rusqlite::params![input_note.id().inner().to_string()],
-                )
-                .unwrap();
-        }
+        self.store.insert_proven_and_submitted_transaction_data(
+            account_id,
+            proven_transaction,
+            transaction_execution_result.executed_transaction().clone(),
+            transaction_execution_result.created_notes(),
+        )?;
 
         Ok(())
     }

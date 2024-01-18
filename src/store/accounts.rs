@@ -330,7 +330,10 @@ impl Store {
         .map_err(StoreError::QueryError)
     }
 
-    fn update_account_record(tx: &Transaction<'_>, account: &Account) -> Result<(), StoreError> {
+    pub(crate) fn update_account_record(
+        tx: &Transaction<'_>,
+        account: &Account,
+    ) -> Result<(), StoreError> {
         let (id, code_root, storage_root, vault_root, nonce, committed) =
             serialize_account(account)?;
 
@@ -355,7 +358,7 @@ impl Store {
             .map_err(StoreError::QueryError)
     }
 
-    fn insert_account_storage(
+    pub(crate) fn insert_account_storage(
         tx: &Transaction<'_>,
         account_storage: &AccountStorage,
     ) -> Result<(), StoreError> {
@@ -366,7 +369,7 @@ impl Store {
             .map_err(StoreError::QueryError)
     }
 
-    fn insert_account_asset_vault(
+    pub(crate) fn insert_account_asset_vault(
         tx: &Transaction<'_>,
         asset_vault: &AssetVault,
     ) -> Result<(), StoreError> {
