@@ -4,8 +4,6 @@
 use crate::{config::ClientConfig, errors::ClientError, store::Store};
 use core::fmt;
 use miden_tx::TransactionExecutor;
-#[cfg(not(any(test, feature = "mock")))]
-use rpc_client::RpcClient;
 
 pub mod accounts;
 pub mod chain_data;
@@ -45,7 +43,7 @@ impl fmt::Display for RpcApiEndpoint {
 pub struct Client {
     /// Local database containing information about the accounts managed by this client.
     store: Store,
-    rpc_api: RpcClient,
+    rpc_api: rpc_client::RpcClient,
     tx_executor: TransactionExecutor<crate::store::data_store::SqliteDataStore>,
 }
 
