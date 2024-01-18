@@ -104,10 +104,7 @@ impl Store {
         // Transaction Data
         Self::insert_proven_transaction_data(&tx, proven_transaction, transaction_result)?;
 
-        // Updates for account
-        println!("account update nonce: {}", account.nonce());
-        println!("account updatehash : {}", account.hash());
-
+        // Account Data
         Self::insert_account_storage(&tx, account.storage())?;
         Self::insert_account_asset_vault(&tx, account.vault())?;
         Self::update_account_record(&tx, &account)?;
