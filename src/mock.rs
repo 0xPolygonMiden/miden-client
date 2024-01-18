@@ -3,12 +3,13 @@ use crate::client::{
     transactions::{PaymentTransactionData, TransactionTemplate},
     Client,
 };
-use crypto::{dsa::rpo_falcon512::KeyPair, Felt, FieldElement, StarkField};
+use crypto::{dsa::rpo_falcon512::KeyPair, Felt, FieldElement, StarkField, Word};
 use miden_lib::transaction::TransactionKernel;
 use miden_node_proto::{
     account::AccountId as ProtoAccountId,
     block_header::BlockHeader as NodeBlockHeader,
     merkle::MerklePath,
+    mmr::MmrDelta,
     note::NoteSyncRecord,
     requests::{GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest, SyncStateRequest},
     responses::{
@@ -25,7 +26,7 @@ use mock::mock::{
     block,
     notes::{mock_notes, AssetPreservationStatus},
 };
-use objects::{transaction::InputNotes, utils::collections::BTreeMap};
+use objects::{transaction::InputNotes, utils::collections::BTreeMap, Digest};
 
 use crate::store::accounts::AuthInfo;
 
@@ -138,8 +139,11 @@ fn create_mock_sync_state_request_for_account_and_notes(
     // create a state sync response
     let response = SyncStateResponse {
         chain_tip,
-        mmr_delta: None,
-        block_path: None,
+        mmr_delta: Some(MmrDelta {
+            forest: 8,
+            data: vec![Digest::new(Word::default()).into()],
+        }),
+        block_path: Some(MerklePath::default()),
         block_header: Some(NodeBlockHeader::from(block_header)),
         accounts: vec![],
         notes: vec![NoteSyncRecord {
@@ -175,7 +179,7 @@ fn create_mock_sync_state_request_for_account_and_notes(
     let response = SyncStateResponse {
         chain_tip,
         mmr_delta: None,
-        block_path: None,
+        block_path: Some(MerklePath::default()),
         block_header: Some(NodeBlockHeader::from(block_header)),
         accounts: vec![],
         notes: vec![NoteSyncRecord {
