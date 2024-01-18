@@ -134,6 +134,14 @@ impl Client {
             })
             .collect::<Result<Vec<_>, ClientError>>()?;
 
+        let requested_block_path = response
+            .block_path
+            .ok_or(ClientError::RpcExpectedFieldMissingFailure(format!(
+                "Missing block path on response",
+            )))?
+            .try_into()
+            .map_err(ClientError::RpcTypeConversionFailure)?;
+
         let parsed_new_nullifiers = response_nullifiers
             .into_iter()
             .map(|response_nullifier| {
@@ -155,7 +163,7 @@ impl Client {
             .apply_state_sync(
                 current_block_num,
                 incoming_block_header,
-                response.block_path.unwrap().try_into().unwrap(),
+                requested_block_path,
                 new_nullifiers,
                 response.accounts,
                 response.mmr_delta,
@@ -220,9 +228,15 @@ impl Client {
             .iter()
             .filter_map(|(note, note_hash, merkle_path)| {
                 if pending_notes.contains(note_hash) {
+                    // FIXME: This removal is to accomodate a problem with how the node constructs paths where
+                    // they are constructed using note ID instead of authentication hash, so for now we remove the first
+                    // node here.
+                    //
+                    // See: https://github.com/0xPolygonMiden/miden-node/blob/main/store/src/state.rs#L274
                     let mut merkle_path = merkle_path.clone();
-                    let _ = merkle_path.remove(0);
-
+                    if merkle_path.len() > 0 {
+                        let _ = merkle_path.remove(0);
+                    }
                     let note_inclusion_proof = NoteInclusionProof::new(
                         block_header.block_num(),
                         block_header.sub_hash(),
