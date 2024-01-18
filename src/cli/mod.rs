@@ -47,9 +47,17 @@ pub enum Command {
     //#[cfg(feature = "testing")]
     /// Insert data from node's genesis file
     LoadGenesis {
-        /// The directory that contains the three files generated from the node: genesis.dat, faucet.fsk and wallet.fs
+        /// The directory that contains the files generated from the node: genesis.dat, faucet.fsk
+        /// and wallet.fs and the accounts directory containing account{X}.mac files, one for each
+        /// account
         #[clap(short, long)]
         genesis_path: PathBuf,
+
+        /// The indices of accounts to import, if account indices contains the value `i`, then it
+        /// will import account at "{genesis_path}/accounts/account{i}.mac". If not provided takes
+        /// all files possible
+        #[clap(short, long, value_delimiter = ',')]
+        account_indices: Option<Vec<usize>>,
     },
 }
 
@@ -76,21 +84,30 @@ impl Cli {
                 }
                 Ok(())
             }
-            Command::LoadGenesis { genesis_path } => {
+            Command::LoadGenesis {
+                genesis_path,
+                account_indices,
+            } => {
                 let mut client = client;
-                load_genesis_data(&mut client, genesis_path)
+                load_genesis_data(&mut client, genesis_path, account_indices.clone())
             }
         }
     }
 }
 
-pub fn load_genesis_data(client: &mut Client, path: &Path) -> Result<(), String> {
+pub fn load_genesis_data(
+    client: &mut Client,
+    path: &Path,
+    account_indices: Option<Vec<usize>>,
+) -> Result<(), String> {
     let file_contents = fs::read(path.join("genesis.dat")).map_err(|err| err.to_string())?;
 
     let genesis_state =
         GenesisState::read_from_bytes(&file_contents).map_err(|err| err.to_string())?;
 
-    for account_index in 0..genesis_state.accounts.len() {
+    let account_indices = account_indices.unwrap_or((0..genesis_state.accounts.len()).collect());
+
+    for account_index in account_indices {
         let account_data_filepath = format!("accounts/account{}.mac", account_index);
         let account_data_file_contents =
             fs::read(path.join(account_data_filepath)).map_err(|err| err.to_string())?;
@@ -220,6 +237,7 @@ pub mod tests {
         let (genesis_data_path, created_accounts) = create_genesis_data();
         let load_genesis_command = Command::LoadGenesis {
             genesis_path: genesis_data_path,
+            account_indices: None,
         };
         let cli = Cli {
             action: load_genesis_command,
