@@ -1,5 +1,5 @@
 use crypto::{rand::RpoRandomCoin, utils::Serializable, Felt, StarkField, Word};
-use miden_lib::notes::create_p2id_note;
+use miden_lib::notes::{create_p2id_note, create_p2idr_note};
 use miden_node_proto::{
     requests::SubmitProvenTransactionRequest, responses::SubmitProvenTransactionResponse,
 };
@@ -181,7 +181,11 @@ impl Client {
                 sender_account_id,
                 target_account_id,
             }) => self.new_p2id_transaction(fungible_asset, sender_account_id, target_account_id),
-            TransactionTemplate::PayToIdWithRecall(_payment_data, _recall_height) => todo!(),
+            TransactionTemplate::PayToIdWithRecall(PaymentTransactionData {
+                asset: fungible_asset,
+                sender_account_id,
+                target_account_id
+            }, recall_height) => self.new_p2idr_transaction(fungible_asset, sender_account_id, target_account_id, recall_height),
             TransactionTemplate::ConsumeNote(account_id, note_id) => {
                 self.new_consume_notes_transaction(account_id, note_id)
             }
@@ -357,6 +361,97 @@ impl Client {
             sender_account_id,
             target_account_id,
             vec![fungible_asset],
+            random_coin,
+        )
+        .map_err(ClientError::NoteError)?;
+
+        self.tx_executor
+            .load_account(sender_account_id)
+            .map_err(ClientError::TransactionExecutionError)?;
+
+        let block_ref = self.get_latest_block_num()?;
+
+        let recipient = output_note
+            .recipient()
+            .iter()
+            .map(|x| x.as_int().to_string())
+            .collect::<Vec<_>>()
+            .join(".");
+
+        let tx_script_code = ProgramAst::parse(&format!(
+            "
+        use.miden::contracts::auth::basic->auth_tx
+        use.miden::contracts::wallets::basic->wallet
+
+        begin
+            push.{recipient}
+            push.{tag}
+            push.{asset}
+            call.wallet::send_asset drop
+            dropw dropw
+            call.auth_tx::auth_tx_rpo_falcon512
+        end
+        ",
+            recipient = recipient,
+            tag = Felt::new(Into::<u64>::into(target_account_id)),
+            asset = prepare_word(&fungible_asset.into()),
+        ))
+        .expect("program is correctly written");
+
+        let account_auth = self
+            .store
+            .get_account_auth(sender_account_id)
+            .map_err(ClientError::StoreError)?;
+        let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
+            AuthInfo::RpoFalcon512(key) => (
+                key.public_key().into(),
+                key.to_bytes()
+                    .iter()
+                    .map(|a| Felt::new(*a as u64))
+                    .collect::<Vec<Felt>>(),
+            ),
+        };
+
+        let tx_script_target = self
+            .tx_executor
+            .compile_tx_script(
+                tx_script_code.clone(),
+                vec![(pubkey_input, advice_map)],
+                vec![],
+            )
+            .map_err(ClientError::TransactionExecutionError)?;
+
+        // Execute the transaction and get the witness
+        let executed_transaction = self
+            .tx_executor
+            .execute_transaction(
+                sender_account_id,
+                block_ref,
+                &[],
+                Some(tx_script_target.clone()),
+            )
+            .map_err(ClientError::TransactionExecutionError)?;
+
+        Ok(TransactionExecutionResult::new(
+            executed_transaction,
+            vec![output_note],
+        ))
+    }
+
+    fn new_p2idr_transaction(
+        &mut self,
+        fungible_asset: Asset,
+        sender_account_id: AccountId,
+        target_account_id: AccountId,
+        block_number_limit: u32,
+    ) -> Result<TransactionExecutionResult, ClientError> {
+        let random_coin = self.get_random_coin();
+
+        let output_note = create_p2idr_note(
+            sender_account_id,
+            target_account_id,
+            vec![fungible_asset],
+            block_number_limit,
             random_coin,
         )
         .map_err(ClientError::NoteError)?;
