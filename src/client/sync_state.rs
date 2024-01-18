@@ -136,7 +136,9 @@ impl Client {
 
         let requested_block_path = response
             .block_path
-            .ok_or(ClientError::RpcExpectedFieldMissingFailure("Missing block path on response".to_string()))?
+            .ok_or(ClientError::RpcExpectedFieldMissingFailure(
+                "Missing block path on response".to_string(),
+            ))?
             .try_into()
             .map_err(ClientError::RpcTypeConversionFailure)?;
 
