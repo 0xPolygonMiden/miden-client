@@ -126,7 +126,7 @@ pub fn get_account_with_default_account_code(
     let account_code_ast = ModuleAst::parse(account_code_src).unwrap();
     let account_assembler = TransactionKernel::assembler();
 
-    let account_code = AccountCode::new(account_code_ast.clone(), &account_assembler).unwrap();
+    let account_code = AccountCode::new(account_code_ast, &account_assembler).unwrap();
     let account_storage = AccountStorage::new(vec![(
         0,
         (StorageSlotType::Value { value_arity: 0 }, public_key),
@@ -159,7 +159,7 @@ pub fn get_note_with_fungible_asset_and_script(
     let sender_id = AccountId::try_from(ACCOUNT_ID_SENDER).unwrap();
 
     Note::new(
-        note_script.clone(),
+        note_script,
         &[],
         &[fungible_asset.into()],
         SERIAL_NUM,

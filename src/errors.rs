@@ -23,6 +23,7 @@ pub enum ClientError {
     RpcTypeConversionFailure(ParseError),
     NoteError(NoteError),
     RpcApiError(RpcApiError),
+    RpcExpectedFieldMissingFailure(String),
     StoreError(StoreError),
     TransactionExecutionError(TransactionExecutorError),
     TransactionProvingError(TransactionProverError),
@@ -45,6 +46,9 @@ impl fmt::Display for ClientError {
             }
             ClientError::TransactionProvingError(err) => {
                 write!(f, "transaction prover error: {err}")
+            }
+            ClientError::RpcExpectedFieldMissingFailure(err) => {
+                write!(f, "rpc api reponse missing an expected field: {err}")
             }
         }
     }

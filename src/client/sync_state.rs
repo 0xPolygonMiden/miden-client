@@ -107,7 +107,14 @@ impl Client {
             .sync_state_request(current_block_num, &account_ids, &note_tags, &nullifiers)
             .await?;
 
-        let incoming_block_header = response.block_header.unwrap();
+        let incoming_block_header =
+            response
+                .block_header
+                .as_ref()
+                .ok_or(ClientError::RpcExpectedFieldMissingFailure(format!(
+                    "Expected block header for response: {:?}",
+                    &response
+                )))?;
         let incoming_block_header: BlockHeader = incoming_block_header
             .try_into()
             .map_err(ClientError::RpcTypeConversionFailure)?;
@@ -116,18 +123,32 @@ impl Client {
             return Ok(SyncStatus::SyncedToLastBlock(current_block_num));
         }
 
-        let new_nullifiers = response
+        let response_nullifiers = response
             .nullifiers
+            .clone()
             .into_iter()
-            .filter_map(|x| {
-                let nullifier = x.nullifier.as_ref().unwrap().try_into().unwrap();
-                if nullifiers.contains(&nullifier) {
-                    Some(nullifier)
-                } else {
-                    None
-                }
+            .map(|x| {
+                x.nullifier
+                    .ok_or(ClientError::RpcExpectedFieldMissingFailure(format!(
+                        "Expected nullifier for response {:?}",
+                        &response
+                    )))
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>, ClientError>>()?;
+
+        let parsed_new_nullifiers = response_nullifiers
+            .into_iter()
+            .map(|response_nullifier| {
+                response_nullifier
+                    .try_into()
+                    .map_err(ClientError::RpcTypeConversionFailure)
+            })
+            .collect::<Result<Vec<_>, ClientError>>()?;
+
+        let new_nullifiers = parsed_new_nullifiers
+            .into_iter()
+            .filter(|nullifier| nullifiers.contains(nullifier))
+            .collect();
 
         let committed_notes =
             self.get_newly_committed_note_info(&response.notes, &incoming_block_header)?;
@@ -169,6 +190,7 @@ impl Client {
             .map(|n| n.note().id().inner())
             .collect();
 
+<<<<<<< HEAD
         if pending_notes.len() >0 {
             println!("pending notes local {}", pending_notes[0]);
         }
@@ -181,16 +203,53 @@ impl Client {
                     note.merkle_path.clone().unwrap().try_into().unwrap();
                 merkle_path.remove(0);
                 if pending_notes.contains(&note_hash) {
+=======
+        let notes_with_hashes_and_merkle_paths = notes
+            .iter()
+            .map(|note_record| {
+                // Handle Options first
+                let note_hash = note_record.note_hash.clone().ok_or(
+                    ClientError::RpcExpectedFieldMissingFailure(format!(
+                        "Expected note hash for response note record {:?}",
+                        &note_record
+                    )),
+                )?;
+                let note_merkle_path = note_record.merkle_path.clone().ok_or(
+                    ClientError::RpcExpectedFieldMissingFailure(format!(
+                        "Expected merkle path for response note record {:?}",
+                        &note_record
+                    )),
+                )?;
+                // Handle casting after
+                let note_hash = note_hash
+                    .try_into()
+                    .map_err(ClientError::RpcTypeConversionFailure)?;
+                let merkle_path: crypto::merkle::MerklePath = note_merkle_path
+                    .try_into()
+                    .map_err(ClientError::RpcTypeConversionFailure)?;
+
+                Ok((note_record, note_hash, merkle_path))
+            })
+            .collect::<Result<Vec<_>, ClientError>>()?;
+
+        Ok(notes_with_hashes_and_merkle_paths
+            .iter()
+            .filter_map(|(note, note_hash, merkle_path)| {
+                if pending_notes.contains(note_hash) {
+>>>>>>> e8baaaed087c6df8fb342d7d56d8c72a69220508
                     let note_inclusion_proof = NoteInclusionProof::new(
                         block_header.block_num(),
                         block_header.sub_hash(),
                         block_header.note_root(),
                         note.note_index.into(),
+<<<<<<< HEAD
                         merkle_path,
+=======
+                        merkle_path.clone(),
+>>>>>>> e8baaaed087c6df8fb342d7d56d8c72a69220508
                     )
                     .unwrap();
-
-                    Some((note_hash, note_inclusion_proof))
+                    Some((*note_hash, note_inclusion_proof))
                 } else {
                     None
                 }
