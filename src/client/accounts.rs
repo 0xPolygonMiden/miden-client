@@ -1,13 +1,16 @@
 use super::Client;
-use crypto::{Felt, Word};
+use crypto::{dsa::rpo_falcon512::KeyPair, utils::Deserializable, Felt, Word};
 use miden_lib::AuthScheme;
 use objects::{
-    accounts::{Account, AccountId, AccountStorage, AccountStub, AccountType},
+    accounts::{
+        Account, AccountData, AccountId, AccountStorage, AccountStub, AccountType, AuthData,
+    },
     assembly::ModuleAst,
     assets::{Asset, TokenSymbol},
     Digest,
 };
 use rand::{rngs::ThreadRng, Rng};
+use std::{fs, path::PathBuf};
 
 use crate::{errors::ClientError, store::accounts::AuthInfo};
 
@@ -56,6 +59,32 @@ impl Client {
         }?;
 
         Ok(account_and_seed)
+    }
+
+    pub(crate) fn import_account_from_file(
+        &mut self,
+        account_file_path: PathBuf,
+    ) -> Result<(), String> {
+        let account_data_file_contents =
+            fs::read(account_file_path).map_err(|err| err.to_string())?;
+        let account_data = AccountData::read_from_bytes(&account_data_file_contents)
+            .map_err(|err| err.to_string())?;
+
+        match account_data.auth {
+            AuthData::RpoFalcon512Seed(key_pair) => {
+                let keypair = KeyPair::from_seed(&key_pair).map_err(|err| err.to_string())?;
+                let seed = account_data
+                    .account_seed
+                    .ok_or("Account seed was expected")?;
+
+                self.insert_account(
+                    &account_data.account,
+                    seed,
+                    &AuthInfo::RpoFalcon512(keypair),
+                )
+                .map_err(|err| err.to_string())
+            }
+        }
     }
 
     fn new_basic_wallet(
