@@ -29,21 +29,27 @@ pub enum Transaction {
 #[derive(Clone, Debug, Parser)]
 #[clap()]
 pub enum TransactionType {
-    P2ID {
-        sender_account_id: String,
-        target_account_id: String,
-        faucet_id: String,
-        amount: u64,
+    ConsumeNote {
+        account_id: String,
+        note_id: Option<String>,
     },
     Mint {
         target_account_id: String,
         faucet_id: String,
         amount: u64,
     },
-    P2IDR,
-    ConsumeNote {
-        account_id: String,
-        note_id: Option<String>,
+    P2ID {
+        sender_account_id: String,
+        target_account_id: String,
+        faucet_id: String,
+        amount: u64,
+    },
+    P2IDR {
+        sender_account_id: String,
+        target_account_id: String,
+        faucet_id: String,
+        amount: u64,
+        block_num_limit: u32,
     },
 }
 
@@ -78,8 +84,32 @@ impl Transaction {
 
                         TransactionTemplate::PayToId(payment_transaction)
                     }
-                    TransactionType::P2IDR => {
-                        todo!()
+                    TransactionType::P2IDR {
+                        sender_account_id,
+                        target_account_id,
+                        faucet_id,
+                        amount,
+                        block_num_limit,
+                    } => {
+                        let faucet_id =
+                            AccountId::from_hex(faucet_id).map_err(|err| err.to_string())?;
+                        let fungible_asset = FungibleAsset::new(faucet_id, *amount)
+                            .map_err(|err| err.to_string())?
+                            .into();
+                        let sender_account_id = AccountId::from_hex(sender_account_id)
+                            .map_err(|err| err.to_string())?;
+                        let target_account_id = AccountId::from_hex(target_account_id)
+                            .map_err(|err| err.to_string())?;
+                        let payment_transaction = PaymentTransactionData::new(
+                            fungible_asset,
+                            sender_account_id,
+                            target_account_id,
+                        );
+
+                        TransactionTemplate::PayToIdWithRecall(
+                            payment_transaction,
+                            *block_num_limit,
+                        )
                     }
                     TransactionType::Mint {
                         faucet_id,
