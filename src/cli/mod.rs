@@ -46,7 +46,7 @@ pub enum Command {
     },
     /// Insert data from node's genesis file
     LoadGenesis {
-        /// The directory that contains the three files generated from the node: genesis.dat, faucet.fsk and wallet.fs
+        /// The directory that contains the files generated from the node
         #[clap(short, long)]
         genesis_path: PathBuf,
         /// Optionally decide which indices are imported (indices are zero-based)
