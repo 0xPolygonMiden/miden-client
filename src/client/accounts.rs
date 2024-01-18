@@ -11,6 +11,7 @@ use objects::{
     Digest,
 };
 use rand::{rngs::ThreadRng, Rng};
+use std::{fs, path::PathBuf};
 
 use crate::{errors::ClientError, store::accounts::AuthInfo};
 
