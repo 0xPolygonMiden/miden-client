@@ -459,8 +459,6 @@ async fn test_mint_transaction() {
 
     // Test submitting a mint transaction
 
-    dbg!(&faucet.id());
-    println!("{:?}", faucet.account_type());
     let transaction_template = TransactionTemplate::MintFungibleAsset {
         asset: FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         target_account_id: AccountId::from_hex("0x168187d729b31a84").unwrap(),

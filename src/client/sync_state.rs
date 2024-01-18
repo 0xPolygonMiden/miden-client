@@ -220,12 +220,15 @@ impl Client {
             .iter()
             .filter_map(|(note, note_hash, merkle_path)| {
                 if pending_notes.contains(note_hash) {
+                    let mut merkle_path = merkle_path.clone();
+                    let _ = merkle_path.remove(0);
+
                     let note_inclusion_proof = NoteInclusionProof::new(
                         block_header.block_num(),
                         block_header.sub_hash(),
                         block_header.note_root(),
                         note.note_index.into(),
-                        merkle_path.clone(),
+                        merkle_path,
                     )
                     .unwrap();
                     Some((*note_hash, note_inclusion_proof))

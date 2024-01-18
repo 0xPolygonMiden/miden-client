@@ -1,13 +1,12 @@
-use crate::{client::transactions::TransactionStub, errors::StoreError};
+use crate::{
+    client::transactions::TransactionStub, errors::StoreError, store::notes::InputNoteRecord,
+};
 use crypto::{
     utils::{collections::BTreeMap, Deserializable, Serializable},
     Felt,
 };
 
-use super::{
-    notes::{serialize_input_note, InputNoteRecord, INSERT_NOTE_QUERY},
-    Store,
-};
+use super::Store;
 use objects::{
     accounts::AccountId,
     assembly::{AstSerdeOptions, ProgramAst},
@@ -167,14 +166,16 @@ impl Store {
         .map(|_| ())
         .map_err(StoreError::QueryError)?;
 
-        let input_notes: Vec<InputNoteRecord> = transaction_result
-            .input_notes()
-            .iter()
-            .map(|n| n.note().clone().into())
-            .collect();
-
-        // Insert input notes
-        insert_input_notes(tx, &input_notes)?;
+        // FIXME: Temporary until nullifier data gets correctly returned from the node
+        for input_note in transaction_result.input_notes().iter() {
+            const SPENT_QUERY: &str =
+                "UPDATE input_notes SET status = 'consumed' WHERE note_id = ?";
+            tx.execute(
+                SPENT_QUERY,
+                rusqlite::params![input_note.id().inner().to_string()],
+            )
+            .unwrap();
+        }
 
         Ok(())
     }
@@ -231,9 +232,8 @@ pub(crate) fn serialize_transaction(
     let output_notes = transaction.output_notes();
 
     // TODO: Add proper logging
-    println!("transaction id {:?}", transaction.id());
+    println!("transaction id {}", transaction.id().inner());
     println!("transaction account id: {}", transaction.account_id());
-    println!("transaction output notes {:?}", output_notes);
 
     // TODO: Scripts should be in their own tables and only identifiers should be stored here
     let mut script_program = None;
@@ -375,51 +375,4 @@ fn parse_transaction(
         committed,
         commit_height: commit_height as u64,
     })
-}
-
-/// Inserts the provided input notes into the database
-fn insert_input_notes(
-    sql_transaction: &Transaction<'_>,
-    notes: &[InputNoteRecord],
-) -> Result<(), StoreError> {
-    for note in notes {
-        let (
-            note_id,
-            nullifier,
-            script,
-            vault,
-            inputs,
-            serial_num,
-            sender_id,
-            tag,
-            num_assets,
-            inclusion_proof,
-            recipients,
-            status,
-            commit_height,
-        ) = serialize_input_note(note)?;
-
-        sql_transaction
-            .execute(
-                INSERT_NOTE_QUERY,
-                params![
-                    note_id,
-                    nullifier,
-                    script,
-                    vault,
-                    inputs,
-                    serial_num,
-                    sender_id,
-                    tag,
-                    num_assets,
-                    inclusion_proof,
-                    recipients,
-                    status,
-                    commit_height
-                ],
-            )
-            .map_err(StoreError::QueryError)
-            .map(|_| ())?
-    }
-    Ok(())
 }
