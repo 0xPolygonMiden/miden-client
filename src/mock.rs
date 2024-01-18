@@ -3,7 +3,7 @@ use crate::client::{
     transactions::{PaymentTransactionData, TransactionTemplate},
     Client,
 };
-use crypto::{dsa::rpo_falcon512::KeyPair, Felt, FieldElement, StarkField, Word, WORD_SIZE};
+use crypto::{dsa::rpo_falcon512::KeyPair, Felt, FieldElement, StarkField, Word};
 use miden_lib::transaction::TransactionKernel;
 use miden_node_proto::{
     account::AccountId as ProtoAccountId,
