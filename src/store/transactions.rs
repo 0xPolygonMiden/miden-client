@@ -188,7 +188,6 @@ pub(crate) fn serialize_transaction(
     // TODO: Add proper logging
     println!("transaction id {:?}", transaction.id());
     println!("transaction account id: {}", transaction.account_id());
-    println!("transaction output notes {:?}", output_notes);
 
     // TODO: Scripts should be in their own tables and only identifiers should be stored here
     let mut script_program = None;

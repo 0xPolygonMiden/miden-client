@@ -319,10 +319,7 @@ pub(crate) fn serialize_input_note(
     let (inclusion_proof, status, commit_height) = match note.inclusion_proof() {
         Some(proof) => {
             let mut path = proof.note_path().clone();
-
-            let removed = path.remove(0);
-            println!("removed node= {}", removed);
-
+            let _removed = path.remove(0);
             (
                 Some(
                     NoteInclusionProof::new(

@@ -131,15 +131,23 @@ fn list_accounts(client: Client) -> Result<(), String> {
             Cell::new("code root").add_attribute(Attribute::Bold),
             Cell::new("vault root").add_attribute(Attribute::Bold),
             Cell::new("storage root").add_attribute(Attribute::Bold),
+            Cell::new("type").add_attribute(Attribute::Bold),
             Cell::new("nonce").add_attribute(Attribute::Bold),
         ]);
 
     accounts.iter().for_each(|(acc, _acc_seed)| {
+        let acc_type = match acc.id().account_type() {
+            objects::accounts::AccountType::FungibleFaucet => "Fungible faucet",
+            objects::accounts::AccountType::NonFungibleFaucet => "Non-fungible faucet",
+            objects::accounts::AccountType::RegularAccountImmutableCode => "Regular",
+            objects::accounts::AccountType::RegularAccountUpdatableCode => "Regular (updatable)",
+        };
         table.add_row(vec![
             acc.id().to_string(),
             acc.code_root().to_string(),
             acc.vault_root().to_string(),
             acc.storage_root().to_string(),
+            acc_type.to_string(),
             acc.nonce().as_int().to_string(),
         ]);
     });

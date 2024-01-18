@@ -100,9 +100,7 @@ impl Client {
             .map(|(a, _s)| a.id().into())
             .collect();
 
-        // FIXME: This 
-        // let nullifiers = self.store.get_unspent_input_note_nullifiers()?;
-        let nullifiers = vec![];
+        let nullifiers = self.store.get_unspent_input_note_nullifiers()?;
         let response = self
             .sync_state_request(current_block_num, &account_ids, &note_tags, &nullifiers)
             .await?;
@@ -190,20 +188,6 @@ impl Client {
             .map(|n| n.note().id().inner())
             .collect();
 
-<<<<<<< HEAD
-        if pending_notes.len() >0 {
-            println!("pending notes local {}", pending_notes[0]);
-        }
-        println!("incoming note list {:?}", notes);
-        Ok(notes
-            .iter()
-            .filter_map(|note| {
-                let note_hash = note.note_hash.clone().unwrap().try_into().unwrap();
-                let mut merkle_path: crypto::merkle::MerklePath =
-                    note.merkle_path.clone().unwrap().try_into().unwrap();
-                merkle_path.remove(0);
-                if pending_notes.contains(&note_hash) {
-=======
         let notes_with_hashes_and_merkle_paths = notes
             .iter()
             .map(|note_record| {
@@ -236,17 +220,15 @@ impl Client {
             .iter()
             .filter_map(|(note, note_hash, merkle_path)| {
                 if pending_notes.contains(note_hash) {
->>>>>>> e8baaaed087c6df8fb342d7d56d8c72a69220508
+                    let mut merkle_path = merkle_path.clone();
+                    let _ = merkle_path.remove(0);
+
                     let note_inclusion_proof = NoteInclusionProof::new(
                         block_header.block_num(),
                         block_header.sub_hash(),
                         block_header.note_root(),
                         note.note_index.into(),
-<<<<<<< HEAD
                         merkle_path,
-=======
-                        merkle_path.clone(),
->>>>>>> e8baaaed087c6df8fb342d7d56d8c72a69220508
                     )
                     .unwrap();
                     Some((*note_hash, note_inclusion_proof))
@@ -285,7 +267,7 @@ impl Client {
             note_tags,
             nullifiers,
         };
-        println!("sync state request {:?}", request);
+
         Ok(self
             .rpc_api
             .sync_state(request)
