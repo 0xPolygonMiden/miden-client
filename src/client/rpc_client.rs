@@ -18,14 +18,14 @@ use tonic::transport::Channel;
 
 #[derive(Debug)]
 pub enum RpcApiEndpoint {
-    SynState,
+    SyncState,
     SubmitProvenTx,
 }
 
 impl fmt::Display for RpcApiEndpoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RpcApiEndpoint::SynState => write!(f, "sync_state"),
+            RpcApiEndpoint::SyncState => write!(f, "sync_state"),
             RpcApiEndpoint::SubmitProvenTx => write!(f, "submit_proven_transaction"),
         }
     }
@@ -56,7 +56,7 @@ impl RpcClient {
         rpc_api
             .sync_state(request)
             .await
-            .map_err(|err| RpcApiError::RequestError(RpcApiEndpoint::SynState, err))
+            .map_err(|err| RpcApiError::RequestError(RpcApiEndpoint::SyncState, err))
     }
 
     pub async fn submit_proven_transaction(

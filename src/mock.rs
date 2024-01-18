@@ -70,7 +70,7 @@ impl MockRpcApi {
                 Ok(tonic::Response::new(response))
             }
             None => Err(RpcApiError::RequestError(
-                RpcApiEndpoint::SynState,
+                RpcApiEndpoint::SyncState,
                 tonic::Status::not_found("no response for sync state request"),
             )),
         }
