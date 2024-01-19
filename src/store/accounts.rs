@@ -11,7 +11,7 @@ use crypto::{
 };
 use miden_lib::transaction::TransactionKernel;
 use objects::{
-    accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub, AccountDelta},
+    accounts::{Account, AccountCode, AccountDelta, AccountId, AccountStorage, AccountStub},
     assembly::{AstSerdeOptions, ModuleAst},
     assets::{Asset, AssetVault},
     Digest,
