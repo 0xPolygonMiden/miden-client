@@ -11,7 +11,7 @@ use crypto::{
 };
 use miden_lib::transaction::TransactionKernel;
 use objects::{
-    accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub},
+    accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub, AccountDelta},
     assembly::{AstSerdeOptions, ModuleAst},
     assets::{Asset, AssetVault},
     Digest,
@@ -198,6 +198,30 @@ impl Store {
             .ok_or(StoreError::AccountDataNotFound(account_id))?
     }
 
+    /// Update account after a transaction execution
+    pub fn update_account(
+        &mut self,
+        account_id: AccountId,
+        account_delta: &AccountDelta,
+    ) -> Result<(), StoreError> {
+        let (mut account, _seed) = self.get_account_by_id(account_id)?;
+
+        account
+            .apply_delta(account_delta)
+            .map_err(StoreError::AccountError)?;
+
+        let tx = self
+            .db
+            .transaction()
+            .map_err(StoreError::TransactionError)?;
+
+        Self::insert_account_storage(&tx, account.storage())?;
+        Self::insert_account_asset_vault(&tx, account.vault())?;
+        Self::update_account_record(&tx, &account)?;
+
+        tx.commit().map_err(StoreError::TransactionError)
+    }
+
     /// Retrieve account code-related data by code root
     pub fn get_account_code(
         &self,
@@ -301,6 +325,22 @@ impl Store {
                 committed,
                 account_seed
             ],
+        )
+        .map(|_| ())
+        .map_err(StoreError::QueryError)
+    }
+
+    pub(crate) fn update_account_record(
+        tx: &Transaction<'_>,
+        account: &Account,
+    ) -> Result<(), StoreError> {
+        let (id, code_root, storage_root, vault_root, nonce, committed) =
+            serialize_account(account)?;
+
+        const QUERY: &str =  "UPDATE accounts SET code_root=?, storage_root=?, vault_root=?, nonce=?, committed=? WHERE id =?";
+        tx.execute(
+            QUERY,
+            params![code_root, storage_root, vault_root, nonce, committed, id,],
         )
         .map(|_| ())
         .map_err(StoreError::QueryError)

@@ -2,7 +2,7 @@ use super::Client;
 use crypto::{Felt, Word};
 use miden_lib::AuthScheme;
 use objects::{
-    accounts::{Account, AccountId, AccountStorage, AccountStub, AccountType},
+    accounts::{Account, AccountId, AccountStorage, AccountStub, AccountType, AccountDelta},
     assembly::ModuleAst,
     assets::{Asset, TokenSymbol},
     Digest,
@@ -144,6 +144,18 @@ impl Client {
             .insert_account(account, account_seed, auth_info)
             .map_err(ClientError::StoreError)
     }
+
+        /// Inserts a new account into the client's store.
+        pub fn update_account(
+            &mut self,
+            account_id: AccountId,
+            account_delta: &AccountDelta,
+        ) -> Result<(), ClientError> {
+            self.store
+                .update_account(account_id, account_delta)
+                .map_err(ClientError::StoreError)
+        }
+    
 
     // ACCOUNT DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
