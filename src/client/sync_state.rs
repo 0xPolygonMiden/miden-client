@@ -65,7 +65,8 @@ impl Client {
         }
     }
 
-    ///
+    /// Checks whether the genesis block is in place in the database, and
+    /// requests it to the node and stores it if not
     async fn ensure_genesis_in_place(&mut self) -> Result<(), ClientError> {
         let genesis = self.store.get_block_header_by_num(0);
 
