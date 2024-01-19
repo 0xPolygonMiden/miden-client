@@ -44,7 +44,7 @@ pub enum Command {
     },
     //#[cfg(feature = "testing")]
     /// Insert data from node's genesis file
-    LoadGenesis {
+    LoadAccounts {
         /// The directory that contains the account files generated from the node containing
         /// account{X}.mac files, one for each account
         #[clap(short, long)]
@@ -81,18 +81,18 @@ impl Cli {
                 }
                 Ok(())
             }
-            Command::LoadGenesis {
+            Command::LoadAccounts {
                 accounts_path,
                 account_indices,
             } => {
                 let mut client = client;
-                load_genesis_data(&mut client, accounts_path, account_indices.clone())
+                load_accounts_data(&mut client, accounts_path, account_indices.clone())
             }
         }
     }
 }
 
-pub fn load_genesis_data(
+pub fn load_accounts_data(
     client: &mut Client,
     path: &Path,
     account_indices: Option<Vec<usize>>,
