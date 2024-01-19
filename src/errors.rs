@@ -60,6 +60,12 @@ impl From<StoreError> for ClientError {
     }
 }
 
+impl From<RpcApiError> for ClientError {
+    fn from(err: RpcApiError) -> Self {
+        Self::RpcApiError(err)
+    }
+}
+
 #[cfg(feature = "std")]
 impl std::error::Error for ClientError {}
 
