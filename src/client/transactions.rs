@@ -9,6 +9,7 @@ use objects::{
     accounts::AccountId,
     assembly::ProgramAst,
     assets::{Asset, FungibleAsset},
+    notes::NoteEnvelope,
     transaction::{ExecutedTransaction, OutputNotes, ProvenTransaction, TransactionScript},
     Digest,
 };
@@ -16,7 +17,7 @@ use rand::Rng;
 
 use crate::{
     errors::{ClientError, RpcApiError},
-    store::accounts::AuthInfo,
+    store::{accounts::AuthInfo, transactions::TransactionFilter},
 };
 
 use super::{sync_state::FILTER_ID_SHIFT, Client};
@@ -65,7 +66,7 @@ pub struct TransactionStub {
     pub init_account_state: Digest,
     pub final_account_state: Digest,
     pub input_note_nullifiers: Vec<Digest>,
-    pub output_notes: OutputNotes,
+    pub output_notes: OutputNotes<NoteEnvelope>,
     pub transaction_script: Option<TransactionScript>,
     pub block_num: u32,
     pub committed: bool,
@@ -80,7 +81,7 @@ impl TransactionStub {
         init_account_state: Digest,
         final_account_state: Digest,
         input_note_nullifiers: Vec<Digest>,
-        output_notes: OutputNotes,
+        output_notes: OutputNotes<NoteEnvelope>,
         transaction_script: Option<TransactionScript>,
         block_num: u32,
         committed: bool,
@@ -106,8 +107,13 @@ impl Client {
     // --------------------------------------------------------------------------------------------
 
     /// Returns input notes managed by this client.
-    pub fn get_transactions(&self) -> Result<Vec<TransactionStub>, ClientError> {
-        self.store.get_transactions().map_err(|err| err.into())
+    pub fn get_transactions(
+        &self,
+        transaction_filter: TransactionFilter,
+    ) -> Result<Vec<TransactionStub>, ClientError> {
+        self.store
+            .get_transactions(transaction_filter)
+            .map_err(|err| err.into())
     }
 
     // TRANSACTION

@@ -20,10 +20,10 @@ pub enum ClientError {
     AccountError(AccountError),
     AssetError(AssetError),
     AuthError(FalconError),
-    RpcTypeConversionFailure(ParseError),
     NoteError(NoteError),
     RpcApiError(RpcApiError),
-    RpcExpectedFieldMissingFailure(String),
+    RpcExpectedFieldMissing(String),
+    RpcTypeConversionFailure(ParseError),
     StoreError(StoreError),
     TransactionExecutionError(TransactionExecutorError),
     TransactionProvingError(TransactionProverError),
@@ -35,20 +35,20 @@ impl fmt::Display for ClientError {
             ClientError::AccountError(err) => write!(f, "account error: {err}"),
             ClientError::AssetError(err) => write!(f, "asset error: {err}"),
             ClientError::AuthError(err) => write!(f, "account auth error: {err}"),
+            ClientError::NoteError(err) => write!(f, "note error: {err}"),
+            ClientError::RpcApiError(err) => write!(f, "rpc api error: {err}"),
+            ClientError::RpcExpectedFieldMissing(err) => {
+                write!(f, "rpc api reponse missing an expected field: {err}")
+            }
             ClientError::RpcTypeConversionFailure(err) => {
                 write!(f, "failed to convert data: {err}")
             }
-            ClientError::NoteError(err) => write!(f, "note error: {err}"),
-            ClientError::RpcApiError(err) => write!(f, "rpc api error: {err}"),
             ClientError::StoreError(err) => write!(f, "store error: {err}"),
             ClientError::TransactionExecutionError(err) => {
                 write!(f, "transaction executor error: {err}")
             }
             ClientError::TransactionProvingError(err) => {
                 write!(f, "transaction prover error: {err}")
-            }
-            ClientError::RpcExpectedFieldMissingFailure(err) => {
-                write!(f, "rpc api reponse missing an expected field: {err}")
             }
         }
     }

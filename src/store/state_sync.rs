@@ -1,15 +1,21 @@
 use crypto::{
-    merkle::{MmrPeaks, PartialMmr},
+    merkle::{MerklePath, PartialMmr},
     utils::Serializable,
 };
 use miden_node_proto::{mmr::MmrDelta, responses::AccountHashUpdate};
 
-use objects::{notes::NoteInclusionProof, BlockHeader, Digest};
+use objects::{
+    notes::{NoteId, NoteInclusionProof},
+    BlockHeader, Digest,
+};
 use rusqlite::params;
 
 use crate::{
     errors::StoreError,
-    store::accounts::{parse_accounts, parse_accounts_columns},
+    store::{
+        accounts::{parse_accounts, parse_accounts_columns},
+        transactions::TransactionFilter,
+    },
 };
 
 use super::Store;
@@ -74,10 +80,12 @@ impl Store {
             .expect("state sync block number exists")
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn apply_state_sync(
         &mut self,
         current_block_num: u32,
         block_header: BlockHeader,
+        requested_header_block_path: MerklePath,
         nullifiers: Vec<Digest>,
         account_updates: Vec<AccountHashUpdate>,
         mmr_delta: Option<MmrDelta>,
@@ -85,7 +93,12 @@ impl Store {
     ) -> Result<(), StoreError> {
         // get current nodes on table
         // we need to do this here because creating a sql tx borrows a mut reference
+        let (current_block_header, header_had_notes) =
+            self.get_block_header_by_num(current_block_num)?;
+
         let current_peaks = self.get_chain_mmr_peaks_by_block_num(current_block_num)?;
+
+        let uncommitted_transactions = self.get_transactions(TransactionFilter::Uncomitted)?;
 
         let tx = self
             .db
@@ -98,7 +111,7 @@ impl Store {
                 (account_update.account_id, account_update.account_hash)
             {
                 let account_id_int: u64 = account_id.clone().into();
-                const ACCOUNT_HASH_QUERY: &str = "SELECT hash FROM accounts WHERE id = ?";
+                const ACCOUNT_HASH_QUERY: &str = "SELECT id, nonce, vault_root, storage_root, code_root, account_seed FROM accounts WHERE id = ?";
 
                 if let Some(Ok((acc_stub, _acc_seed))) = tx
                     .prepare(ACCOUNT_HASH_QUERY)
@@ -112,9 +125,15 @@ impl Store {
                     })
                     .next()
                 {
-                    if account_hash != acc_stub.hash().into() {
+                    let account_hash: Digest = account_hash
+                        .try_into()
+                        .map_err(StoreError::RpcTypeConversionFailure)?;
+
+                    if account_hash != acc_stub.hash() {
                         return Err(StoreError::AccountHashMismatch(
-                            account_id.try_into().unwrap(),
+                            account_id
+                                .try_into()
+                                .map_err(StoreError::RpcTypeConversionFailure)?,
                         ));
                     }
                 }
@@ -135,33 +154,42 @@ impl Store {
                 .map_err(StoreError::QueryError)?;
         }
 
-        // update chain mmr nodes on the table
-        // get all elements from the chain mmr table
+        // build partial mmr from the nodes - partial_mmr should be on memory as part of our store
+        let mut partial_mmr: PartialMmr = PartialMmr::from_peaks(current_peaks);
+
         if let Some(mmr_delta) = mmr_delta {
-            // build partial mmr from the nodes - partial_mmr should be on memory as part of our store
-
-            let mut partial_mmr: PartialMmr = if current_block_num == 0 {
-                // first block we receive so we are good to create a blank partial mmr for this
-                MmrPeaks::new(0, vec![])
-                    .map_err(StoreError::MmrError)?
-                    .into()
-            } else {
-                PartialMmr::from_peaks(current_peaks)
-            };
-
             // apply the delta
-            let mmr_delta: crypto::merkle::MmrDelta = mmr_delta.try_into().unwrap();
+            let mmr_delta: crypto::merkle::MmrDelta = mmr_delta
+                .try_into()
+                .map_err(StoreError::RpcTypeConversionFailure)?;
 
             let new_authentication_nodes =
                 partial_mmr.apply(mmr_delta).map_err(StoreError::MmrError)?;
 
-            Store::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
+            if header_had_notes {
+                partial_mmr
+                    .add(
+                        current_block_num as usize,
+                        current_block_header.hash(),
+                        &requested_header_block_path,
+                    )
+                    .map_err(StoreError::MmrError)?;
+            }
 
-            Store::insert_block_header(&tx, block_header, partial_mmr.peaks())?;
+            Store::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
         }
 
+        let header_has_interesting_notes = !committed_notes.is_empty();
+
+        Store::insert_block_header(
+            &tx,
+            block_header,
+            partial_mmr.peaks(),
+            header_has_interesting_notes,
+        )?;
+
         // update tracked notes
-        for (note_id, inclusion_proof) in committed_notes {
+        for (note_id, inclusion_proof) in committed_notes.iter() {
             const SPENT_QUERY: &str =
                 "UPDATE input_notes SET status = 'committed', inclusion_proof = ? WHERE note_id = ?";
 
@@ -170,7 +198,17 @@ impl Store {
                 .map_err(StoreError::QueryError)?;
         }
 
-        // TODO: We would need to mark transactions as committed here as well
+        let note_ids: Vec<NoteId> = committed_notes
+            .iter()
+            .map(|(id, _)| NoteId::from(*id))
+            .collect();
+
+        Store::mark_transactions_as_committed_by_note_id(
+            &uncommitted_transactions,
+            &note_ids,
+            block_header.block_num(),
+            &tx,
+        )?;
 
         // commit the updates
         tx.commit().map_err(StoreError::QueryError)?;

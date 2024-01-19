@@ -3,15 +3,19 @@ use crate::client::{
     transactions::{PaymentTransactionData, TransactionTemplate},
     Client,
 };
-use crypto::{dsa::rpo_falcon512::KeyPair, Felt, FieldElement, StarkField};
+use crypto::{dsa::rpo_falcon512::KeyPair, Felt, FieldElement, StarkField, Word};
 use miden_lib::transaction::TransactionKernel;
 use miden_node_proto::{
     account::AccountId as ProtoAccountId,
     block_header::BlockHeader as NodeBlockHeader,
     merkle::MerklePath,
+    mmr::MmrDelta,
     note::NoteSyncRecord,
-    requests::{SubmitProvenTransactionRequest, SyncStateRequest},
-    responses::{NullifierUpdate, SubmitProvenTransactionResponse, SyncStateResponse},
+    requests::{GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest, SyncStateRequest},
+    responses::{
+        GetBlockHeaderByNumberResponse, NullifierUpdate, SubmitProvenTransactionResponse,
+        SyncStateResponse,
+    },
 };
 use mock::{
     constants::{generate_account_seed, AccountSeedType},
@@ -22,7 +26,7 @@ use mock::mock::{
     block,
     notes::{mock_notes, AssetPreservationStatus},
 };
-use objects::{transaction::InputNotes, utils::collections::BTreeMap};
+use objects::{transaction::InputNotes, utils::collections::BTreeMap, Digest};
 
 use crate::store::accounts::AuthInfo;
 
@@ -69,6 +73,22 @@ impl MockRpcApi {
                 "no response for sync state request",
             )),
         }
+    }
+
+    /// Executes the specified sync state request and returns the response.
+    pub async fn get_block_header_by_number(
+        &mut self,
+        request: impl tonic::IntoRequest<GetBlockHeaderByNumberRequest>,
+    ) -> std::result::Result<tonic::Response<GetBlockHeaderByNumberResponse>, tonic::Status> {
+        let request: GetBlockHeaderByNumberRequest = request.into_request().into_inner();
+
+        if request.block_num == Some(0) {
+            let block_header: objects::BlockHeader = block::mock_block_header(0, None, None, &[]);
+            return Ok(tonic::Response::new(GetBlockHeaderByNumberResponse {
+                block_header: Some(block_header.into()),
+            }));
+        }
+        panic!("get_block_header_by_number is supposed to be only used for genesis block")
     }
 
     pub async fn submit_proven_transaction(
@@ -119,8 +139,11 @@ fn create_mock_sync_state_request_for_account_and_notes(
     // create a state sync response
     let response = SyncStateResponse {
         chain_tip,
-        mmr_delta: None,
-        block_path: None,
+        mmr_delta: Some(MmrDelta {
+            forest: 8,
+            data: vec![Digest::new(Word::default()).into()],
+        }),
+        block_path: Some(MerklePath::default()),
         block_header: Some(NodeBlockHeader::from(block_header)),
         accounts: vec![],
         notes: vec![NoteSyncRecord {

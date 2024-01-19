@@ -36,8 +36,7 @@ impl DataStore for SqliteDataStore {
             .map_err(|_| DataStoreError::AccountNotFound(account_id))?;
 
         // Get header data
-
-        let block_header = self
+        let (block_header, _had_notes) = self
             .store
             .get_block_header_by_num(block_num)
             .map_err(|_err| DataStoreError::AccountNotFound(account_id))?;
@@ -54,14 +53,18 @@ impl DataStore for SqliteDataStore {
             let input_note: InputNote = input_note_record
                 .try_into()
                 .map_err(|_| DataStoreError::AccountNotFound(account_id))?;
+
             list_of_notes.push(input_note.clone());
 
             let note_block_num = input_note.proof().origin().block_num;
-            let note_block = self
-                .store
-                .get_block_header_by_num(note_block_num)
-                .map_err(|_| DataStoreError::AccountNotFound(account_id))?;
-            notes_blocks.push(note_block);
+
+            if note_block_num != block_num {
+                let (note_block, _) = self
+                    .store
+                    .get_block_header_by_num(note_block_num)
+                    .map_err(|_| DataStoreError::AccountNotFound(account_id))?;
+                notes_blocks.push(note_block);
+            }
         }
 
         // TODO:

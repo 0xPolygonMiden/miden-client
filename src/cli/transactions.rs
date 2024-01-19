@@ -1,7 +1,8 @@
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 
-use miden_client::client::transactions::{
-    PaymentTransactionData, TransactionStub, TransactionTemplate,
+use miden_client::{
+    client::transactions::{PaymentTransactionData, TransactionStub, TransactionTemplate},
+    store::transactions::TransactionFilter,
 };
 use objects::{accounts::AccountId, assets::FungibleAsset};
 
@@ -110,7 +111,9 @@ impl Transaction {
 // LIST TRANSACTIONS
 // ================================================================================================
 fn list_transactions(client: Client, only_show_pending: bool) -> Result<(), String> {
-    let transactions = client.get_transactions().map_err(|err| err.to_string())?;
+    let transactions = client
+        .get_transactions(TransactionFilter::All)
+        .map_err(|err| err.to_string())?;
     print_transactions_summary(&transactions, only_show_pending);
     Ok(())
 }

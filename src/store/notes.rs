@@ -317,11 +317,33 @@ pub(crate) fn serialize_input_note(
     let tag = u64::from(note.note().metadata().tag()) as i64;
     let num_assets = u64::from(note.note().metadata().num_assets()) as i64;
     let (inclusion_proof, status, commit_height) = match note.inclusion_proof() {
-        Some(proof) => (
-            Some(proof.to_bytes()),
-            String::from("committed"),
-            proof.origin().block_num,
-        ),
+        Some(proof) => {
+            // FIXME: This removal is to accomodate a problem with how the node constructs paths where
+            // they are constructed using note ID instead of authentication hash, so for now we remove the first
+            // node here.
+            //
+            // See: https://github.com/0xPolygonMiden/miden-node/blob/main/store/src/state.rs#L274
+            let mut path = proof.note_path().clone();
+            if path.len() > 0 {
+                let _removed = path.remove(0);
+            }
+
+            (
+                Some(
+                    NoteInclusionProof::new(
+                        proof.origin().block_num,
+                        proof.sub_hash(),
+                        proof.note_root(),
+                        proof.origin().node_index.value(),
+                        path,
+                    )
+                    .unwrap()
+                    .to_bytes(),
+                ),
+                String::from("committed"),
+                proof.origin().block_num,
+            )
+        }
         None => (None, String::from("pending"), 0u32),
     };
     //(note_id, nullifier, script, vault, inputs, serial_num, sender_id, tag, num_assets, inclusion_proof, recipients, status, commit_height)
