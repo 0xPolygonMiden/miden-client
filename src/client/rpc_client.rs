@@ -1,7 +1,4 @@
-// RPC Client
-// ================================================================================================
-//
-use crate::{client::RpcApiEndpoint, errors::RpcApiError};
+use crate::{client::rpc_endpoint::RpcApiEndpoint, errors::RpcApiError};
 use miden_node_proto::{
     requests::{SubmitProvenTransactionRequest, SyncStateRequest},
     responses::{SubmitProvenTransactionResponse, SyncStateResponse},
@@ -9,7 +6,7 @@ use miden_node_proto::{
 };
 use tonic::transport::Channel;
 
-// CONSTANTS
+// RPC Client
 // ================================================================================================
 
 /// Wrapper for ApiClient which defers establishing a connection with a node until necessary
