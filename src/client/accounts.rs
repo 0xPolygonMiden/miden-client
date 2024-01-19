@@ -244,10 +244,7 @@ pub mod tests {
     use objects::accounts::{AccountData, AuthData};
     use rand::{rngs::ThreadRng, thread_rng, Rng};
 
-    fn create_account_data(
-        rng: &mut ThreadRng,
-        seed_type: AccountSeedType,
-    ) -> AccountData {
+    fn create_account_data(rng: &mut ThreadRng, seed_type: AccountSeedType) -> AccountData {
         // Create an account and save it to a file
         let (account_id, account_seed) = generate_account_seed(seed_type);
         let assembler = TransactionKernel::assembler();
@@ -274,10 +271,8 @@ pub mod tests {
         );
 
         // Create a Faucet and save it to a file
-        let faucet_account = create_account_data(
-            &mut rng,
-            AccountSeedType::FungibleFaucetValidInitialBalance,
-        );
+        let faucet_account =
+            create_account_data(&mut rng, AccountSeedType::FungibleFaucetValidInitialBalance);
 
         // Create Genesis state and save it to a file
         let accounts = vec![account, faucet_account];
@@ -300,14 +295,16 @@ pub mod tests {
 
         let created_accounts_data = create_initial_accounts_data();
 
-
         for account_data in created_accounts_data.clone() {
             client.import_account(account_data).unwrap();
         }
 
-        let expected_accounts : Vec<_> = created_accounts_data.into_iter().map(|account_data| account_data.account).collect();
+        let expected_accounts: Vec<_> = created_accounts_data
+            .into_iter()
+            .map(|account_data| account_data.account)
+            .collect();
         let accounts = client.get_accounts().unwrap();
-        
+
         assert_eq!(accounts.len(), 2);
         assert_eq!(accounts[0].0.id(), expected_accounts[0].id());
         assert_eq!(accounts[0].0.nonce(), expected_accounts[0].nonce());
@@ -319,7 +316,10 @@ pub mod tests {
             accounts[0].0.storage_root(),
             expected_accounts[0].storage().root()
         );
-        assert_eq!(accounts[0].0.code_root(), expected_accounts[0].code().root());
+        assert_eq!(
+            accounts[0].0.code_root(),
+            expected_accounts[0].code().root()
+        );
 
         assert_eq!(accounts[1].0.id(), expected_accounts[1].id());
         assert_eq!(accounts[1].0.nonce(), expected_accounts[1].nonce());
@@ -331,6 +331,9 @@ pub mod tests {
             accounts[1].0.storage_root(),
             expected_accounts[1].storage().root()
         );
-        assert_eq!(accounts[1].0.code_root(), expected_accounts[1].code().root());
+        assert_eq!(
+            accounts[1].0.code_root(),
+            expected_accounts[1].code().root()
+        );
     }
 }
