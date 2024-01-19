@@ -56,7 +56,7 @@ impl MockRpcApi {
     pub async fn sync_state(
         &mut self,
         request: impl tonic::IntoRequest<SyncStateRequest>,
-    ) -> std::result::Result<tonic::Response<SyncStateResponse>, RpcApiError> {
+    ) -> Result<tonic::Response<SyncStateResponse>, RpcApiError> {
         let request: SyncStateRequest = request.into_request().into_inner();
 
         // Match request -> response through block_nu,
@@ -79,7 +79,7 @@ impl MockRpcApi {
     pub async fn submit_proven_transaction(
         &mut self,
         request: impl tonic::IntoRequest<SubmitProvenTransactionRequest>,
-    ) -> std::result::Result<tonic::Response<SubmitProvenTransactionResponse>, RpcApiError> {
+    ) -> Result<tonic::Response<SubmitProvenTransactionResponse>, RpcApiError> {
         let _request = request.into_request().into_inner();
         let response = SubmitProvenTransactionResponse {};
 
