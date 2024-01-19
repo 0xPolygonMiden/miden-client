@@ -1,5 +1,12 @@
 use clap::Parser;
+use crypto::utils::Deserializable;
 use miden_client::{client::Client, config::ClientConfig};
+use miden_node_store::genesis::GenesisState;
+use objects::accounts::AccountData;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 mod account;
 mod input_notes;
@@ -63,4 +70,41 @@ impl Cli {
             }
         }
     }
+}
+
+pub fn load_genesis_data(
+    client: &mut Client,
+    path: &Path,
+    account_indices: Option<Vec<usize>>,
+) -> Result<(), String> {
+    let file_contents = fs::read(path.join("genesis.dat")).map_err(|err| err.to_string())?;
+
+    let genesis_state =
+        GenesisState::read_from_bytes(&file_contents).map_err(|err| err.to_string())?;
+
+    let account_indices = account_indices
+        .clone()
+        .unwrap_or((0..genesis_state.accounts.len()).collect());
+
+    if account_indices
+        .iter()
+        .any(|&index| index >= genesis_state.accounts.len())
+    {
+        return Err(format!(
+            "The provided indices for this genesis file should be in the range 0-{}",
+            genesis_state.accounts.len() - 1
+        ));
+    }
+
+    for account_index in account_indices {
+        let account_data_filepath = format!("accounts/account{}.mac", account_index);
+        let account_data_file_contents =
+            fs::read(path.join(account_data_filepath)).map_err(|err| err.to_string())?;
+        let account_data = AccountData::read_from_bytes(&account_data_file_contents)
+            .map_err(|err| err.to_string())?;
+
+        client.import_account_data(account_data)?;
+    }
+
+    Ok(())
 }
