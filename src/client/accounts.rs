@@ -60,10 +60,12 @@ impl Client {
         Ok(account_and_seed)
     }
 
-    pub fn import_account_data(&mut self, account_data: AccountData) -> Result<(), String> {
+    pub fn import_account(&mut self, account_data: AccountData) -> Result<(), String> {
         match account_data.auth {
             AuthData::RpoFalcon512Seed(key_pair) => {
                 let keypair = KeyPair::from_seed(&key_pair).map_err(|err| err.to_string())?;
+                // TODO: Handle account data without seed so we can export existing accounts into
+                // other clients where we have no seed (account nonce > 0)
                 let seed = account_data
                     .account_seed
                     .ok_or("Account seed was expected")?;
@@ -229,26 +231,23 @@ impl Client {
 #[cfg(test)]
 pub mod tests {
     use crate::store::tests::create_test_store_path;
-    use crypto::{utils::Deserializable, utils::Serializable, Felt, FieldElement};
+    use crypto::{Felt, FieldElement};
     use miden_client::{
         client::Client,
         config::{ClientConfig, Endpoint},
     };
     use miden_lib::transaction::TransactionKernel;
-    use miden_node_store::genesis::GenesisState;
     use mock::{
         constants::{generate_account_seed, AccountSeedType},
         mock::account,
     };
-    use objects::accounts::{Account, AccountData, AuthData};
+    use objects::accounts::{AccountData, AuthData};
     use rand::{rngs::ThreadRng, thread_rng, Rng};
-    use std::{env::temp_dir, fs, path::PathBuf};
 
     fn create_account_data(
         rng: &mut ThreadRng,
         seed_type: AccountSeedType,
-        account_file_path: PathBuf,
-    ) -> Account {
+    ) -> AccountData {
         // Create an account and save it to a file
         let (account_id, account_seed) = generate_account_seed(seed_type);
         let assembler = TransactionKernel::assembler();
@@ -264,38 +263,26 @@ pub mod tests {
         }
         let auth_data = AuthData::RpoFalcon512Seed(key_pair_seed_u8);
 
-        let account_data = AccountData::new(account.clone(), Some(account_seed), auth_data);
-        fs::write(account_file_path, account_data.to_bytes()).unwrap();
-
-        account
+        AccountData::new(account.clone(), Some(account_seed), auth_data)
     }
 
-    pub fn create_genesis_data() -> (PathBuf, Vec<Account>) {
-        let temp_dir = temp_dir();
+    pub fn create_initial_accounts_data() -> Vec<AccountData> {
         let mut rng = thread_rng();
-
-        let account_dir = temp_dir.join("accounts");
-        fs::create_dir_all(account_dir.clone()).unwrap();
-
         let account = create_account_data(
             &mut rng,
             AccountSeedType::RegularAccountUpdatableCodeOnChain,
-            account_dir.join("account0.mac"),
         );
 
         // Create a Faucet and save it to a file
         let faucet_account = create_account_data(
             &mut rng,
             AccountSeedType::FungibleFaucetValidInitialBalance,
-            account_dir.join("account1.mac"),
         );
 
         // Create Genesis state and save it to a file
         let accounts = vec![account, faucet_account];
-        let genesis_state = GenesisState::new(accounts.clone(), 1, 1);
-        fs::write(temp_dir.join("genesis.dat"), genesis_state.to_bytes()).unwrap();
 
-        (temp_dir, accounts)
+        accounts
     }
 
     #[tokio::test]
@@ -311,47 +298,39 @@ pub mod tests {
         .await
         .unwrap();
 
-        let (genesis_data_path, created_accounts) = create_genesis_data();
+        let created_accounts_data = create_initial_accounts_data();
 
-        let file_contents = fs::read(genesis_data_path.join("genesis.dat")).unwrap();
 
-        let genesis_state = GenesisState::read_from_bytes(&file_contents)
-            .map_err(|err| err.to_string())
-            .unwrap();
-
-        for account_index in 0..genesis_state.accounts.len() {
-            let account_data_filepath = format!("accounts/account{}.mac", account_index);
-            let account_data_file_contents =
-                fs::read(genesis_data_path.join(account_data_filepath)).unwrap();
-            let account_data = AccountData::read_from_bytes(&account_data_file_contents).unwrap();
-
-            client.import_account_data(account_data).unwrap();
+        for account_data in created_accounts_data.clone() {
+            client.import_account(account_data).unwrap();
         }
 
+        let expected_accounts : Vec<_> = created_accounts_data.into_iter().map(|account_data| account_data.account).collect();
         let accounts = client.get_accounts().unwrap();
+        
         assert_eq!(accounts.len(), 2);
-        assert_eq!(accounts[0].0.id(), created_accounts[0].id());
-        assert_eq!(accounts[0].0.nonce(), created_accounts[0].nonce());
+        assert_eq!(accounts[0].0.id(), expected_accounts[0].id());
+        assert_eq!(accounts[0].0.nonce(), expected_accounts[0].nonce());
         assert_eq!(
             accounts[0].0.vault_root(),
-            created_accounts[0].vault().commitment()
+            expected_accounts[0].vault().commitment()
         );
         assert_eq!(
             accounts[0].0.storage_root(),
-            created_accounts[0].storage().root()
+            expected_accounts[0].storage().root()
         );
-        assert_eq!(accounts[0].0.code_root(), created_accounts[0].code().root());
+        assert_eq!(accounts[0].0.code_root(), expected_accounts[0].code().root());
 
-        assert_eq!(accounts[1].0.id(), created_accounts[1].id());
-        assert_eq!(accounts[1].0.nonce(), created_accounts[1].nonce());
+        assert_eq!(accounts[1].0.id(), expected_accounts[1].id());
+        assert_eq!(accounts[1].0.nonce(), expected_accounts[1].nonce());
         assert_eq!(
             accounts[1].0.vault_root(),
-            created_accounts[1].vault().commitment()
+            expected_accounts[1].vault().commitment()
         );
         assert_eq!(
             accounts[1].0.storage_root(),
-            created_accounts[1].storage().root()
+            expected_accounts[1].storage().root()
         );
-        assert_eq!(accounts[1].0.code_root(), created_accounts[1].code().root());
+        assert_eq!(accounts[1].0.code_root(), expected_accounts[1].code().root());
     }
 }

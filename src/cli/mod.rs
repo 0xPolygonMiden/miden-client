@@ -124,7 +124,7 @@ pub fn load_genesis_data(
         let account_data = AccountData::read_from_bytes(&account_data_file_contents)
             .map_err(|err| err.to_string())?;
 
-        client.import_account_data(account_data)?;
+        client.import_account(account_data)?;
     }
 
     Ok(())
