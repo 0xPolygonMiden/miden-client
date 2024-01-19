@@ -18,11 +18,13 @@ use super::{
     Store,
 };
 
-pub(crate) const INSERT_TRANSACTION_QUERY: &str = "INSERT INTO transactions (id, account_id, init_account_state, final_account_state, \
+pub(crate) const INSERT_TRANSACTION_QUERY: &str =
+    "INSERT INTO transactions (id, account_id, init_account_state, final_account_state, \
     input_notes, output_notes, script_hash, block_num, committed, commit_height) \
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str = "INSERT OR REPLACE INTO transaction_scripts (id, program, inputs) \
+pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str =
+    "INSERT OR REPLACE INTO transaction_scripts (id, program, inputs) \
     VALUES (?, ?, ?)";
 
 // TRANSACTIONS FILTERS
@@ -157,11 +159,7 @@ impl Store {
         if let Some(hash) = script_hash.clone() {
             tx.execute(
                 INSERT_TRANSACTION_SCRIPT_QUERY,
-                params![
-                    hash,
-                    script_program,
-                    script_inputs
-                ],
+                params![hash, script_program, script_inputs],
             )
             .map(|_| ())
             .map_err(StoreError::QueryError)?;
