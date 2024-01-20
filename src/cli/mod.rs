@@ -45,14 +45,14 @@ pub enum Command {
     //#[cfg(feature = "testing")]
     /// Insert data from node's genesis file
     LoadAccounts {
-        /// The directory that contains the account files generated from the node containing
-        /// account{X}.mac files, one for each account
+        /// The directory that contains account data files (i.e., .mac filed), one file for each
+        /// account.
         #[clap(short, long)]
         accounts_path: PathBuf,
 
         /// The indices of accounts to import, if account indices contains the value `i`, then it
-        /// will import account at "{genesis_path}/accounts/account{i}.mac". If not provided takes
-        /// all files possible
+        /// will import account at "{accounts_path}/account{i}.mac". If not provided takes all
+        /// files possible
         #[clap(short, long, value_delimiter = ' ', num_args=1..)]
         account_indices: Option<Vec<usize>>,
     },

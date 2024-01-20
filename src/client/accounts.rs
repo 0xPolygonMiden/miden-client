@@ -281,7 +281,7 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn load_genesis_test() {
+    async fn load_accounts_test() {
         // generate test store path
         let store_path = create_test_store_path();
 
