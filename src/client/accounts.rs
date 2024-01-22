@@ -2,7 +2,10 @@ use super::Client;
 use crypto::{dsa::rpo_falcon512::KeyPair, Felt, Word};
 use miden_lib::AuthScheme;
 use objects::{
-    accounts::{Account, AccountDelta, AccountId, AccountStorage, AccountStub, AccountType},
+    accounts::{
+        Account, AccountData, AccountDelta, AccountId, AccountStorage, AccountStub, AccountType,
+        AuthData,
+    },
     assembly::ModuleAst,
     assets::{Asset, TokenSymbol},
     Digest,
