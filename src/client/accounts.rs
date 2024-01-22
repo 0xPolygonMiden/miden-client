@@ -1,8 +1,10 @@
 use super::Client;
-use crypto::{Felt, Word};
+use crypto::{dsa::rpo_falcon512::KeyPair, Felt, Word};
 use miden_lib::AuthScheme;
 use objects::{
-    accounts::{Account, AccountId, AccountStorage, AccountStub, AccountType},
+    accounts::{
+        Account, AccountData, AccountId, AccountStorage, AccountStub, AccountType, AuthData,
+    },
     assembly::ModuleAst,
     assets::{Asset, TokenSymbol},
     Digest,
@@ -56,6 +58,26 @@ impl Client {
         }?;
 
         Ok(account_and_seed)
+    }
+
+    pub fn import_account(&mut self, account_data: AccountData) -> Result<(), String> {
+        match account_data.auth {
+            AuthData::RpoFalcon512Seed(key_pair) => {
+                let keypair = KeyPair::from_seed(&key_pair).map_err(|err| err.to_string())?;
+                // TODO: Handle account data without seed so we can export existing accounts into
+                // other clients where we have no seed (account nonce > 0)
+                let seed = account_data
+                    .account_seed
+                    .ok_or("Account seed was expected")?;
+
+                self.insert_account(
+                    &account_data.account,
+                    seed,
+                    &AuthInfo::RpoFalcon512(keypair),
+                )
+                .map_err(|err| err.to_string())
+            }
+        }
     }
 
     fn new_basic_wallet(
@@ -200,5 +222,118 @@ impl Client {
         self.store
             .get_account_storage(storage_root)
             .map_err(|err| err.into())
+    }
+}
+
+// TESTS
+// ================================================================================================
+
+#[cfg(test)]
+pub mod tests {
+    use crate::store::tests::create_test_store_path;
+    use crypto::{Felt, FieldElement};
+    use miden_client::{
+        client::Client,
+        config::{ClientConfig, Endpoint},
+    };
+    use miden_lib::transaction::TransactionKernel;
+    use mock::{
+        constants::{generate_account_seed, AccountSeedType},
+        mock::account,
+    };
+    use objects::accounts::{AccountData, AuthData};
+    use rand::{rngs::ThreadRng, thread_rng, Rng};
+
+    fn create_account_data(rng: &mut ThreadRng, seed_type: AccountSeedType) -> AccountData {
+        // Create an account and save it to a file
+        let (account_id, account_seed) = generate_account_seed(seed_type);
+        let assembler = TransactionKernel::assembler();
+        let account = account::mock_account(Some(account_id.into()), Felt::ZERO, None, &assembler);
+
+        let key_pair_seed: [u32; 10] = rng.gen();
+        let mut key_pair_seed_u8: [u8; 40] = [0; 40];
+        for (dest_c, source_e) in key_pair_seed_u8
+            .chunks_exact_mut(4)
+            .zip(key_pair_seed.iter())
+        {
+            dest_c.copy_from_slice(&source_e.to_le_bytes())
+        }
+        let auth_data = AuthData::RpoFalcon512Seed(key_pair_seed_u8);
+
+        AccountData::new(account.clone(), Some(account_seed), auth_data)
+    }
+
+    pub fn create_initial_accounts_data() -> Vec<AccountData> {
+        let mut rng = thread_rng();
+        let account = create_account_data(
+            &mut rng,
+            AccountSeedType::RegularAccountUpdatableCodeOnChain,
+        );
+
+        // Create a Faucet and save it to a file
+        let faucet_account =
+            create_account_data(&mut rng, AccountSeedType::FungibleFaucetValidInitialBalance);
+
+        // Create Genesis state and save it to a file
+        let accounts = vec![account, faucet_account];
+
+        accounts
+    }
+
+    #[tokio::test]
+    async fn load_accounts_test() {
+        // generate test store path
+        let store_path = create_test_store_path();
+
+        // generate test client
+        let mut client = Client::new(ClientConfig::new(
+            store_path.into_os_string().into_string().unwrap(),
+            Endpoint::default(),
+        ))
+        .await
+        .unwrap();
+
+        let created_accounts_data = create_initial_accounts_data();
+
+        for account_data in created_accounts_data.clone() {
+            client.import_account(account_data).unwrap();
+        }
+
+        let expected_accounts: Vec<_> = created_accounts_data
+            .into_iter()
+            .map(|account_data| account_data.account)
+            .collect();
+        let accounts = client.get_accounts().unwrap();
+
+        assert_eq!(accounts.len(), 2);
+        assert_eq!(accounts[0].0.id(), expected_accounts[0].id());
+        assert_eq!(accounts[0].0.nonce(), expected_accounts[0].nonce());
+        assert_eq!(
+            accounts[0].0.vault_root(),
+            expected_accounts[0].vault().commitment()
+        );
+        assert_eq!(
+            accounts[0].0.storage_root(),
+            expected_accounts[0].storage().root()
+        );
+        assert_eq!(
+            accounts[0].0.code_root(),
+            expected_accounts[0].code().root()
+        );
+
+        assert_eq!(accounts[1].0.id(), expected_accounts[1].id());
+        assert_eq!(accounts[1].0.nonce(), expected_accounts[1].nonce());
+        assert_eq!(
+            accounts[1].0.vault_root(),
+            expected_accounts[1].vault().commitment()
+        );
+        assert_eq!(
+            accounts[1].0.storage_root(),
+            expected_accounts[1].storage().root()
+        );
+        assert_eq!(
+            accounts[1].0.code_root(),
+            expected_accounts[1].code().root()
+        );
     }
 }
