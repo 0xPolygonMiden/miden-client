@@ -49,12 +49,11 @@ pub enum Command {
         /// account.
         #[clap(short, long)]
         accounts_path: PathBuf,
-
-        /// The indices of accounts to import, if account indices contains the value `i`, then it
-        /// will import account at "{accounts_path}/account{i}.mac". If not provided takes all
-        /// files possible
-        #[clap(short, long, value_delimiter = ' ', num_args=1..)]
-        account_indices: Option<Vec<usize>>,
+    },
+    LoadAccount {
+        /// The path to the account data file.
+        #[clap(short, long)]
+        account_path: PathBuf,
     },
 }
 
@@ -83,19 +82,23 @@ impl Cli {
             }
             Command::LoadAccounts {
                 accounts_path,
-                account_indices,
             } => {
                 let mut client = client;
-                load_accounts_data(&mut client, accounts_path, account_indices.clone())
+                load_accounts_data(&mut client, accounts_path)
+            }
+            Command::LoadAccount {
+                account_path,
+            } => {
+                let mut client = client;
+                load_account(&mut client, account_path)
             }
         }
     }
 }
 
-pub fn load_accounts_data(
+fn load_accounts_data(
     client: &mut Client,
     path: &Path,
-    account_indices: Option<Vec<usize>>,
 ) -> Result<(), String> {
     if !PathBuf::new().join(path).exists() {
         return Err("The specified path does not exist".to_string());
@@ -105,32 +108,21 @@ pub fn load_accounts_data(
         .unwrap()
         .filter_map(|file| file.ok())
         .filter(|file| file.path().extension().map_or(false, |ext| ext == "mac"));
-    let account_files_count = mac_account_files.count();
 
-    // If the indices were not provided, use all files in the accounts directory
-    let account_indices = account_indices
-        .clone()
-        .unwrap_or((0..account_files_count).collect());
-
-    if account_indices
-        .iter()
-        .any(|&index| index >= account_files_count)
-    {
-        return Err(format!(
-            "The provided indices for this genesis file should be in the range 0-{}",
-            account_files_count - 1
-        ));
+    for file in mac_account_files {
+        load_account(client, &file.path())?;
     }
 
-    for account_index in account_indices {
-        let account_data_filename = format!("account{}.mac", account_index);
-        let account_data_file_contents =
-            fs::read(path.join(account_data_filename)).map_err(|err| err.to_string())?;
-        let account_data = AccountData::read_from_bytes(&account_data_file_contents)
-            .map_err(|err| err.to_string())?;
+    Ok(())
+}
 
-        client.import_account(account_data)?;
-    }
+fn load_account(client: &mut Client, account_data_path: &PathBuf) -> Result<(), String> {
+    let account_data_file_contents =
+        fs::read(account_data_path).map_err(|err| err.to_string())?;
+    let account_data = AccountData::read_from_bytes(&account_data_file_contents)
+        .map_err(|err| err.to_string())?;
+
+    client.import_account(account_data)?;
 
     Ok(())
 }
