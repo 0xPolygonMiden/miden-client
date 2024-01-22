@@ -27,6 +27,7 @@ use mock::mock::{
     notes::{mock_notes, AssetPreservationStatus},
 };
 use objects::{transaction::InputNotes, utils::collections::BTreeMap, Digest};
+use tonic::{IntoRequest, Response, Status};
 
 use crate::store::accounts::AuthInfo;
 
@@ -55,8 +56,8 @@ impl MockRpcApi {
     /// Executes the specified sync state request and returns the response.
     pub async fn sync_state(
         &mut self,
-        request: impl tonic::IntoRequest<SyncStateRequest>,
-    ) -> std::result::Result<tonic::Response<SyncStateResponse>, tonic::Status> {
+        request: impl IntoRequest<SyncStateRequest>,
+    ) -> Result<Response<SyncStateResponse>, Status> {
         let request: SyncStateRequest = request.into_request().into_inner();
 
         // Match request -> response through block_nu,
@@ -67,24 +68,22 @@ impl MockRpcApi {
         {
             Some((_req, response)) => {
                 let response = response.clone();
-                Ok(tonic::Response::new(response))
+                Ok(Response::new(response))
             }
-            None => Err(tonic::Status::not_found(
-                "no response for sync state request",
-            )),
+            None => Err(Status::not_found("no response for sync state request")),
         }
     }
 
     /// Executes the specified sync state request and returns the response.
     pub async fn get_block_header_by_number(
         &mut self,
-        request: impl tonic::IntoRequest<GetBlockHeaderByNumberRequest>,
-    ) -> std::result::Result<tonic::Response<GetBlockHeaderByNumberResponse>, tonic::Status> {
+        request: impl IntoRequest<GetBlockHeaderByNumberRequest>,
+    ) -> Result<Response<GetBlockHeaderByNumberResponse>, Status> {
         let request: GetBlockHeaderByNumberRequest = request.into_request().into_inner();
 
         if request.block_num == Some(0) {
             let block_header: objects::BlockHeader = block::mock_block_header(0, None, None, &[]);
-            return Ok(tonic::Response::new(GetBlockHeaderByNumberResponse {
+            return Ok(Response::new(GetBlockHeaderByNumberResponse {
                 block_header: Some(block_header.into()),
             }));
         }
@@ -93,14 +92,14 @@ impl MockRpcApi {
 
     pub async fn submit_proven_transaction(
         &mut self,
-        request: impl tonic::IntoRequest<SubmitProvenTransactionRequest>,
-    ) -> std::result::Result<tonic::Response<SubmitProvenTransactionResponse>, tonic::Status> {
+        request: impl IntoRequest<SubmitProvenTransactionRequest>,
+    ) -> Result<Response<SubmitProvenTransactionResponse>, Status> {
         let _request = request.into_request().into_inner();
         let response = SubmitProvenTransactionResponse {};
 
         // TODO: add some basic validations to test error cases
 
-        Ok(tonic::Response::new(response))
+        Ok(Response::new(response))
     }
 }
 

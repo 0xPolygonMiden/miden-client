@@ -65,14 +65,15 @@ impl Client {
         }
     }
 
-    ///
+    /// Checks whether the genesis block is in place in the database, and
+    /// requests it to the node and stores if not
     async fn ensure_genesis_in_place(&mut self) -> Result<(), ClientError> {
         let genesis = self.store.get_block_header_by_num(0);
 
         match genesis {
-            Ok(_) => Ok(()),
             Err(StoreError::BlockHeaderNotFound(0)) => self.retrieve_and_store_genesis().await,
             Err(err) => Err(ClientError::StoreError(err)),
+            Ok(_) => Ok(()),
         }
     }
 
@@ -107,8 +108,7 @@ impl Client {
         .map_err(ClientError::StoreError)?;
 
         tx.commit()
-            .map_err(|err| ClientError::StoreError(StoreError::TransactionError(err)))?;
-        Ok(())
+            .map_err(|err| ClientError::StoreError(StoreError::TransactionError(err)))
     }
 
     async fn single_sync_state(&mut self) -> Result<SyncStatus, ClientError> {
