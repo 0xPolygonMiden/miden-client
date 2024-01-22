@@ -80,15 +80,11 @@ impl Cli {
                 }
                 Ok(())
             }
-            Command::LoadAccounts {
-                accounts_path,
-            } => {
+            Command::LoadAccounts { accounts_path } => {
                 let mut client = client;
                 load_accounts_data(&mut client, accounts_path)
             }
-            Command::LoadAccount {
-                account_path,
-            } => {
+            Command::LoadAccount { account_path } => {
                 let mut client = client;
                 load_account(&mut client, account_path)
             }
@@ -96,10 +92,7 @@ impl Cli {
     }
 }
 
-fn load_accounts_data(
-    client: &mut Client,
-    path: &Path,
-) -> Result<(), String> {
+fn load_accounts_data(client: &mut Client, path: &Path) -> Result<(), String> {
     if !PathBuf::new().join(path).exists() {
         return Err("The specified path does not exist".to_string());
     }
@@ -117,10 +110,9 @@ fn load_accounts_data(
 }
 
 fn load_account(client: &mut Client, account_data_path: &PathBuf) -> Result<(), String> {
-    let account_data_file_contents =
-        fs::read(account_data_path).map_err(|err| err.to_string())?;
-    let account_data = AccountData::read_from_bytes(&account_data_file_contents)
-        .map_err(|err| err.to_string())?;
+    let account_data_file_contents = fs::read(account_data_path).map_err(|err| err.to_string())?;
+    let account_data =
+        AccountData::read_from_bytes(&account_data_file_contents).map_err(|err| err.to_string())?;
 
     client.import_account(account_data)?;
 
