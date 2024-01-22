@@ -2,7 +2,10 @@ use super::Client;
 use crypto::{dsa::rpo_falcon512::KeyPair, Felt, Word};
 use miden_lib::AuthScheme;
 use objects::{
-    accounts::{Account, AccountDelta, AccountId, AccountStorage, AccountStub, AccountType},
+    accounts::{
+        Account, AccountData, AccountDelta, AccountId, AccountStorage, AccountStub, AccountType,
+        AuthData,
+    },
     assembly::ModuleAst,
     assets::{Asset, TokenSymbol},
     Digest,
@@ -165,7 +168,7 @@ impl Client {
             .map_err(ClientError::StoreError)
     }
 
-    /// Applies an [AccountDelta] to the stored account and stores the result in the database.
+    /// Inserts a new account into the client's store.
     pub fn update_account(
         &mut self,
         account_id: AccountId,

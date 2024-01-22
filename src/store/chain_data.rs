@@ -8,6 +8,10 @@ use clap::error::Result;
 
 use crypto::merkle::{InOrderIndex, MmrPeaks};
 
+use miden_node_proto::{
+    requests::GetBlockHeaderByNumberRequest, responses::GetBlockHeaderByNumberResponse,
+};
+use mock::mock::block;
 use objects::{BlockHeader, Digest};
 use rusqlite::{params, OptionalExtension, Transaction};
 
@@ -74,6 +78,22 @@ impl Store {
         tx.execute(QUERY, params![id, node])
             .map_err(StoreError::QueryError)
             .map(|_| ())
+    }
+
+    /// Executes the specified sync state request and returns the response.
+    pub async fn get_block_header_by_number(
+        &mut self,
+        request: impl tonic::IntoRequest<GetBlockHeaderByNumberRequest>,
+    ) -> Result<tonic::Response<GetBlockHeaderByNumberResponse>, tonic::Status> {
+        let request: GetBlockHeaderByNumberRequest = request.into_request().into_inner();
+
+        if request.block_num == Some(0) {
+            let block_header: objects::BlockHeader = block::mock_block_header(0, None, None, &[]);
+            return Ok(tonic::Response::new(GetBlockHeaderByNumberResponse {
+                block_header: Some(block_header.into()),
+            }));
+        }
+        panic!("get_block_header_by_number is supposed to be only used for genesis block")
     }
 
     pub fn insert_chain_mmr_nodes(

@@ -1,22 +1,20 @@
-use crate::{client::transactions::TransactionStub, errors::StoreError};
+use crate::{
+    client::transactions::TransactionStub, errors::StoreError, store::notes::InputNoteRecord,
+};
 use crypto::{
     utils::{collections::BTreeMap, Deserializable, Serializable},
     Felt,
 };
 
+use super::Store;
 use objects::{
     accounts::AccountId,
     assembly::{AstSerdeOptions, ProgramAst},
-    notes::{NoteEnvelope, NoteId},
+    notes::{Note, NoteEnvelope, NoteId},
     transaction::{ExecutedTransaction, OutputNotes, ProvenTransaction, TransactionScript},
     Digest,
 };
 use rusqlite::{params, Transaction};
-
-use super::{
-    notes::{serialize_input_note, InputNoteRecord, INSERT_NOTE_QUERY},
-    Store,
-};
 
 pub(crate) const INSERT_TRANSACTION_QUERY: &str = "INSERT INTO transactions (id, account_id, init_account_state, final_account_state, \
     input_notes, output_notes, script_hash, script_program, script_inputs, block_num, committed, commit_height) \
@@ -78,63 +76,54 @@ impl Store {
             .collect::<Result<Vec<TransactionStub>, _>>()
     }
 
-    // TODO: Make a separate table for transaction scripts and only save the root
-    pub fn insert_transaction(
-        &self,
-        transaction: &ProvenTransaction,
-        tx_script: Option<TransactionScript>,
-    ) -> Result<(), StoreError> {
-        let (
-            transaction_id,
-            account_id,
-            init_account_state,
-            final_account_state,
-            input_notes,
-            output_notes,
-            script_hash,
-            script_program,
-            script_inputs,
-            block_num,
-            committed,
-            commit_height,
-        ) = serialize_transaction(transaction, tx_script)?;
-
-        self.db
-            .execute(
-                INSERT_TRANSACTION_QUERY,
-                params![
-                    transaction_id,
-                    account_id,
-                    init_account_state,
-                    final_account_state,
-                    input_notes,
-                    output_notes,
-                    script_program,
-                    script_hash,
-                    script_inputs,
-                    block_num,
-                    committed,
-                    commit_height,
-                ],
-            )
-            .map(|_| ())
-            .map_err(StoreError::QueryError)
-    }
-
-    pub fn insert_proven_transaction_data(
+    pub fn insert_proven_and_submitted_transaction_data(
         &mut self,
+        account_id: AccountId,
         proven_transaction: ProvenTransaction,
         transaction_result: ExecutedTransaction,
+        created_notes: &[Note],
     ) -> Result<(), StoreError> {
-        // Create atomic transcation
+        let (mut account, _seed) = self.get_account_by_id(account_id)?;
+
+        let account_delta = transaction_result.account_delta();
+
+        account
+            .apply_delta(account_delta)
+            .map_err(StoreError::AccountError)?;
+
+        let created_notes = created_notes
+            .iter()
+            .map(|note| InputNoteRecord::from(note.clone()))
+            .collect::<Vec<_>>();
 
         let tx = self
             .db
             .transaction()
             .map_err(StoreError::TransactionError)?;
 
-        // Insert transaction data
+        // Transaction Data
+        Self::insert_proven_transaction_data(&tx, proven_transaction, transaction_result)?;
 
+        // Account Data
+        Self::insert_account_storage(&tx, account.storage())?;
+        Self::insert_account_asset_vault(&tx, account.vault())?;
+        Self::update_account_record(&tx, &account)?;
+
+        // Updates for notes
+        for note in created_notes {
+            Self::insert_input_note_tx(&tx, &note)?;
+        }
+
+        tx.commit().map_err(StoreError::TransactionError)?;
+
+        Ok(())
+    }
+
+    pub fn insert_proven_transaction_data(
+        tx: &Transaction<'_>,
+        proven_transaction: ProvenTransaction,
+        transaction_result: ExecutedTransaction,
+    ) -> Result<(), StoreError> {
         let (
             transaction_id,
             account_id,
@@ -148,7 +137,11 @@ impl Store {
             block_num,
             committed,
             commit_height,
-        ) = serialize_transaction(&proven_transaction, transaction_result.tx_script().cloned())?;
+        ) = serialize_transaction(
+            &proven_transaction,
+            transaction_result.tx_script().cloned(),
+            transaction_result.block_header().block_num(),
+        )?;
 
         tx.execute(
             INSERT_TRANSACTION_QUERY,
@@ -170,17 +163,16 @@ impl Store {
         .map(|_| ())
         .map_err(StoreError::QueryError)?;
 
-        let input_notes: Vec<InputNoteRecord> = transaction_result
-            .input_notes()
-            .iter()
-            .map(|n| n.note().clone().into())
-            .collect();
-
-        // Insert input notes
-        insert_input_notes(&tx, &input_notes)?;
-
-        // commit the transaction
-        tx.commit().map_err(StoreError::QueryError)?;
+        // FIXME: Temporary until nullifier data gets correctly returned from the node
+        for input_note in transaction_result.input_notes().iter() {
+            const SPENT_QUERY: &str =
+                "UPDATE input_notes SET status = 'consumed' WHERE note_id = ?";
+            tx.execute(
+                SPENT_QUERY,
+                rusqlite::params![input_note.id().inner().to_string()],
+            )
+            .unwrap();
+        }
 
         Ok(())
     }
@@ -217,6 +209,7 @@ impl Store {
 pub(crate) fn serialize_transaction(
     transaction: &ProvenTransaction,
     tx_script: Option<TransactionScript>,
+    block_num: u32,
 ) -> Result<SerializedTransactionData, StoreError> {
     let transaction_id: String = transaction.id().inner().into();
     let account_id: u64 = transaction.account_id().into();
@@ -236,9 +229,8 @@ pub(crate) fn serialize_transaction(
     let output_notes = transaction.output_notes();
 
     // TODO: Add proper logging
-    println!("transaction id {:?}", transaction.id());
+    println!("transaction id {}", transaction.id().inner());
     println!("transaction account id: {}", transaction.account_id());
-    println!("transaction output notes {:?}", output_notes);
 
     // TODO: Scripts should be in their own tables and only identifiers should be stored here
     let mut script_program = None;
@@ -255,8 +247,6 @@ pub(crate) fn serialize_transaction(
                 .map_err(StoreError::InputSerializationError)?,
         );
     }
-
-    let block_num = 0u32;
 
     Ok((
         transaction_id,
@@ -382,51 +372,4 @@ fn parse_transaction(
         committed,
         commit_height: commit_height as u64,
     })
-}
-
-/// Inserts the provided input notes into the database
-fn insert_input_notes(
-    sql_transaction: &Transaction<'_>,
-    notes: &[InputNoteRecord],
-) -> Result<(), StoreError> {
-    for note in notes {
-        let (
-            note_id,
-            nullifier,
-            script,
-            vault,
-            inputs,
-            serial_num,
-            sender_id,
-            tag,
-            num_assets,
-            inclusion_proof,
-            recipients,
-            status,
-            commit_height,
-        ) = serialize_input_note(note)?;
-
-        sql_transaction
-            .execute(
-                INSERT_NOTE_QUERY,
-                params![
-                    note_id,
-                    nullifier,
-                    script,
-                    vault,
-                    inputs,
-                    serial_num,
-                    sender_id,
-                    tag,
-                    num_assets,
-                    inclusion_proof,
-                    recipients,
-                    status,
-                    commit_height
-                ],
-            )
-            .map_err(StoreError::QueryError)
-            .map(|_| ())?
-    }
-    Ok(())
 }

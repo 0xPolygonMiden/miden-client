@@ -29,7 +29,7 @@ impl Client {
     // SYNC STATE
     // --------------------------------------------------------------------------------------------
 
-    /// Returns the block number of the last state sync block.
+    /// Returns the block number of the last state sync block
     pub fn get_latest_block_num(&self) -> Result<u32, ClientError> {
         self.store.get_latest_block_num().map_err(|err| err.into())
     }
@@ -65,15 +65,14 @@ impl Client {
         }
     }
 
-    /// Checks whether the genesis block is in place in the database, and
-    /// requests it to the node and stores it if it isn't.
+    ///
     async fn ensure_genesis_in_place(&mut self) -> Result<(), ClientError> {
         let genesis = self.store.get_block_header_by_num(0);
 
         match genesis {
+            Ok(_) => Ok(()),
             Err(StoreError::BlockHeaderNotFound(0)) => self.retrieve_and_store_genesis().await,
             Err(err) => Err(ClientError::StoreError(err)),
-            Ok(_) => Ok(()),
         }
     }
 
@@ -108,7 +107,8 @@ impl Client {
         .map_err(ClientError::StoreError)?;
 
         tx.commit()
-            .map_err(|err| ClientError::StoreError(StoreError::TransactionError(err)))
+            .map_err(|err| ClientError::StoreError(StoreError::TransactionError(err)))?;
+        Ok(())
     }
 
     async fn single_sync_state(&mut self) -> Result<SyncStatus, ClientError> {

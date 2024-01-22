@@ -45,8 +45,7 @@ pub enum Command {
     //#[cfg(feature = "testing")]
     /// Insert data from node's genesis file
     LoadAccounts {
-        /// The directory that contains account data files (i.e., .mac filed), one file for each
-        /// account.
+        /// The directory that contains account data files (i.e., *.mac files).
         #[clap(short, long)]
         accounts_path: PathBuf,
 

@@ -27,7 +27,6 @@ use mock::mock::{
     notes::{mock_notes, AssetPreservationStatus},
 };
 use objects::{transaction::InputNotes, utils::collections::BTreeMap, Digest};
-use tonic::{IntoRequest, Response, Status};
 
 use crate::store::accounts::AuthInfo;
 
@@ -56,8 +55,8 @@ impl MockRpcApi {
     /// Executes the specified sync state request and returns the response.
     pub async fn sync_state(
         &mut self,
-        request: impl IntoRequest<SyncStateRequest>,
-    ) -> Result<Response<SyncStateResponse>, Status> {
+        request: impl tonic::IntoRequest<SyncStateRequest>,
+    ) -> Result<tonic::Response<SyncStateResponse>, tonic::Status> {
         let request: SyncStateRequest = request.into_request().into_inner();
 
         // Match request -> response through block_nu,
@@ -68,22 +67,25 @@ impl MockRpcApi {
         {
             Some((_req, response)) => {
                 let response = response.clone();
-                Ok(Response::new(response))
+                Ok(tonic::Response::new(response))
             }
-            None => Err(Status::not_found("no response for sync state request")),
+            None => Err(tonic::Status::not_found(
+                "no response for sync state request",
+            )),
         }
     }
 
-    /// Executes the specified sync state request and returns the response.
+    /// Creates and executes a [GetBlockHeaderByNumberRequest].
+    /// Only used for retrieving genesis block right now so that's the only case we need to cover.
     pub async fn get_block_header_by_number(
         &mut self,
-        request: impl IntoRequest<GetBlockHeaderByNumberRequest>,
-    ) -> Result<Response<GetBlockHeaderByNumberResponse>, Status> {
+        request: impl tonic::IntoRequest<GetBlockHeaderByNumberRequest>,
+    ) -> Result<tonic::Response<GetBlockHeaderByNumberResponse>, tonic::Status> {
         let request: GetBlockHeaderByNumberRequest = request.into_request().into_inner();
 
         if request.block_num == Some(0) {
             let block_header: objects::BlockHeader = block::mock_block_header(0, None, None, &[]);
-            return Ok(Response::new(GetBlockHeaderByNumberResponse {
+            return Ok(tonic::Response::new(GetBlockHeaderByNumberResponse {
                 block_header: Some(block_header.into()),
             }));
         }
@@ -92,14 +94,14 @@ impl MockRpcApi {
 
     pub async fn submit_proven_transaction(
         &mut self,
-        request: impl IntoRequest<SubmitProvenTransactionRequest>,
-    ) -> Result<Response<SubmitProvenTransactionResponse>, Status> {
+        request: impl tonic::IntoRequest<SubmitProvenTransactionRequest>,
+    ) -> Result<tonic::Response<SubmitProvenTransactionResponse>, tonic::Status> {
         let _request = request.into_request().into_inner();
         let response = SubmitProvenTransactionResponse {};
 
         // TODO: add some basic validations to test error cases
 
-        Ok(Response::new(response))
+        Ok(tonic::Response::new(response))
     }
 }
 
@@ -343,10 +345,12 @@ pub async fn create_mock_transaction(client: &mut Client) {
         target_account.id(),
     ));
 
+    let account_id = transaction_template.account_id();
+
     let transaction_execution_result = client.new_transaction(transaction_template).unwrap();
 
     client
-        .send_transaction(transaction_execution_result)
+        .send_transaction(account_id, transaction_execution_result)
         .await
         .unwrap();
 }

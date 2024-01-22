@@ -7,7 +7,7 @@ use crypto::{
     dsa::rpo_falcon512::KeyPair,
     hash::rpo::RpoDigest,
     utils::{Deserializable, Serializable},
-    Word,
+    StarkField, Word,
 };
 use miden_lib::transaction::TransactionKernel;
 use objects::{
@@ -313,7 +313,7 @@ impl Store {
 
         let account_seed = account_seed.to_bytes();
 
-        const QUERY: &str =  "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        const QUERY: &str =  "INSERT OR REPLACE INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed) VALUES (?, ?, ?, ?, ?, ?, ?)";
         tx.execute(
             QUERY,
             params![
@@ -358,23 +358,23 @@ impl Store {
             .map_err(StoreError::QueryError)
     }
 
-    fn insert_account_storage(
+    pub(crate) fn insert_account_storage(
         tx: &Transaction<'_>,
         account_storage: &AccountStorage,
     ) -> Result<(), StoreError> {
         let (storage_root, storage_slots) = serialize_account_storage(account_storage)?;
-        const QUERY: &str = "INSERT OR IGNORE INTO account_storage (root, slots) VALUES (?, ?)";
+        const QUERY: &str = "INSERT OR REPLACE INTO account_storage (root, slots) VALUES (?, ?)";
         tx.execute(QUERY, params![storage_root, storage_slots])
             .map(|_| ())
             .map_err(StoreError::QueryError)
     }
 
-    fn insert_account_asset_vault(
+    pub(crate) fn insert_account_asset_vault(
         tx: &Transaction<'_>,
         asset_vault: &AssetVault,
     ) -> Result<(), StoreError> {
         let (vault_root, assets) = serialize_account_asset_vault(asset_vault)?;
-        const QUERY: &str = "INSERT OR IGNORE INTO account_vaults (root, assets) VALUES (?, ?)";
+        const QUERY: &str = "INSERT OR REPLACE INTO account_vaults (root, assets) VALUES (?, ?)";
         tx.execute(QUERY, params![vault_root, assets])
             .map(|_| ())
             .map_err(StoreError::QueryError)
@@ -439,7 +439,7 @@ fn serialize_account(account: &Account) -> Result<SerializedAccountData, StoreEr
     let vault_root = serde_json::to_string(&account.vault().commitment())
         .map_err(StoreError::InputSerializationError)?;
     let committed = account.is_on_chain();
-    let nonce = account.nonce().inner() as i64;
+    let nonce = account.nonce().as_int() as i64;
 
     Ok((
         id as i64,
