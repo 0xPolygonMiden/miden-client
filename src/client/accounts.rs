@@ -145,7 +145,7 @@ impl Client {
             .map_err(ClientError::StoreError)
     }
 
-    /// Inserts a new account into the client's store.
+    /// Applies an [AccountDelta] to the stored account and stores the result in the database.
     pub fn update_account(
         &mut self,
         account_id: AccountId,
