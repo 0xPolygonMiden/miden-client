@@ -14,11 +14,7 @@ use super::{Client, Parser};
 pub enum Transaction {
     /// List transactions
     #[clap(short_flag = 'l')]
-    List {
-        /// List only pending transactions
-        #[clap(short, long, default_value_t = false)]
-        pending: bool,
-    },
+    List,
     /// Execute a transaction, prove and submit it to the node
     #[clap(short_flag = 'n')]
     New {
@@ -51,8 +47,8 @@ pub enum TransactionType {
 impl Transaction {
     pub async fn execute(&self, mut client: Client) -> Result<(), String> {
         match self {
-            Transaction::List { pending } => {
-                list_transactions(client, *pending)?;
+            Transaction::List => {
+                list_transactions(client)?;
             }
             Transaction::New { transaction_type } => {
                 let transaction_template = match transaction_type {
@@ -138,17 +134,17 @@ impl Transaction {
 
 // LIST TRANSACTIONS
 // ================================================================================================
-fn list_transactions(client: Client, only_show_pending: bool) -> Result<(), String> {
+fn list_transactions(client: Client) -> Result<(), String> {
     let transactions = client
         .get_transactions(TransactionFilter::All)
         .map_err(|err| err.to_string())?;
-    print_transactions_summary(&transactions, only_show_pending);
+    print_transactions_summary(&transactions);
     Ok(())
 }
 
 // HELPERS
 // ================================================================================================
-fn print_transactions_summary<'a, I>(executed_transactions: I, _only_show_pending: bool)
+fn print_transactions_summary<'a, I>(executed_transactions: I)
 where
     I: IntoIterator<Item = &'a TransactionStub>,
 {

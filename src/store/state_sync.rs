@@ -62,7 +62,7 @@ impl Store {
         Ok(true)
     }
 
-    /// Returns the block number of the last state sync block
+    /// Returns the block number of the last state sync block.
     pub fn get_latest_block_num(&self) -> Result<u32, StoreError> {
         const QUERY: &str = "SELECT block_num FROM state_sync";
 
