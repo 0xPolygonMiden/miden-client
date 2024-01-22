@@ -2,14 +2,13 @@
 use crate::store::data_store::SqliteDataStore;
 use crate::{config::ClientConfig, errors::ClientError, store::Store};
 use miden_tx::TransactionExecutor;
+pub use rpc_client::RpcApiEndpoint;
 
 pub mod accounts;
-pub mod chain_data;
-pub mod notes;
-#[cfg(not(any(test, feature = "mock")))]
-pub mod rpc_client;
-pub mod rpc_endpoint;
-pub mod sync_state;
+mod chain_data;
+mod notes;
+mod rpc_client;
+pub(crate) mod sync_state;
 pub mod transactions;
 
 // MIDEN CLIENT
@@ -55,22 +54,27 @@ impl Client {
 // ================================================================================================
 
 #[cfg(any(test, feature = "mock"))]
-pub struct Client {
-    pub(crate) store: Store,
-    pub(crate) rpc_api: crate::mock::MockRpcApi,
-    pub(crate) tx_executor:
-        TransactionExecutor<crate::store::mock_executor_data_store::MockDataStore>,
-}
+pub use mock::Client;
 
 #[cfg(any(test, feature = "mock"))]
-impl Client {
-    pub async fn new(config: ClientConfig) -> Result<Self, ClientError> {
-        use crate::store::mock_executor_data_store::MockDataStore;
+mod mock {
+    use super::{ClientConfig, ClientError, Store, TransactionExecutor};
+    use crate::{mock::MockRpcApi, store::mock_executor_data_store::MockDataStore};
 
-        Ok(Self {
-            store: Store::new((&config).into())?,
-            rpc_api: Default::default(),
-            tx_executor: TransactionExecutor::new(MockDataStore::new()),
-        })
+    pub struct Client {
+        pub(crate) store: Store,
+        pub(crate) rpc_api: MockRpcApi,
+        pub(crate) tx_executor: TransactionExecutor<MockDataStore>,
+    }
+
+    #[cfg(any(test, feature = "mock"))]
+    impl Client {
+        pub async fn new(config: ClientConfig) -> Result<Self, ClientError> {
+            Ok(Self {
+                store: Store::new((&config).into())?,
+                rpc_api: Default::default(),
+                tx_executor: TransactionExecutor::new(MockDataStore::new()),
+            })
+        }
     }
 }
