@@ -1,11 +1,5 @@
 use clap::Parser;
-use crypto::utils::Deserializable;
 use miden_client::{client::Client, config::ClientConfig};
-use objects::accounts::AccountData;
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
 
 mod account;
 mod input_notes;
@@ -42,19 +36,6 @@ pub enum Command {
         #[clap(short, long)]
         transaction: bool,
     },
-    //#[cfg(feature = "testing")]
-    /// Insert data from node's genesis file
-    LoadAccounts {
-        /// The directory that contains account data files (i.e., .mac filed), one file for each
-        /// account.
-        #[clap(short, long)]
-        accounts_path: PathBuf,
-    },
-    LoadAccount {
-        /// The path to the account data file.
-        #[clap(short, long)]
-        account_path: PathBuf,
-    },
 }
 
 /// CLI entry point
@@ -80,41 +61,6 @@ impl Cli {
                 }
                 Ok(())
             }
-            Command::LoadAccounts { accounts_path } => {
-                let mut client = client;
-                load_accounts_data(&mut client, accounts_path)
-            }
-            Command::LoadAccount { account_path } => {
-                let mut client = client;
-                load_account(&mut client, account_path)
-            }
         }
     }
-}
-
-fn load_accounts_data(client: &mut Client, path: &Path) -> Result<(), String> {
-    if !PathBuf::new().join(path).exists() {
-        return Err("The specified path does not exist".to_string());
-    }
-
-    let mac_account_files = fs::read_dir(path)
-        .unwrap()
-        .filter_map(|file| file.ok())
-        .filter(|file| file.path().extension().map_or(false, |ext| ext == "mac"));
-
-    for file in mac_account_files {
-        load_account(client, &file.path())?;
-    }
-
-    Ok(())
-}
-
-fn load_account(client: &mut Client, account_data_path: &PathBuf) -> Result<(), String> {
-    let account_data_file_contents = fs::read(account_data_path).map_err(|err| err.to_string())?;
-    let account_data =
-        AccountData::read_from_bytes(&account_data_file_contents).map_err(|err| err.to_string())?;
-
-    client.import_account(account_data)?;
-
-    Ok(())
 }

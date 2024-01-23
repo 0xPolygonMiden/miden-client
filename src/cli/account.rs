@@ -1,13 +1,19 @@
-use super::Client;
+use std::{fs, path::PathBuf};
+
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use crypto::{
     dsa::rpo_falcon512::KeyPair,
-    utils::{bytes_to_hex_string, Serializable},
+    utils::{bytes_to_hex_string, Deserializable, Serializable},
 };
 use miden_client::client::accounts;
 
-use objects::{accounts::AccountId, assets::TokenSymbol, Digest};
+use super::Client;
+use objects::{
+    accounts::{AccountData, AccountId},
+    assets::TokenSymbol,
+    Digest,
+};
 
 // ACCOUNT COMMAND
 // ================================================================================================
@@ -40,6 +46,14 @@ pub enum AccountCmd {
     New {
         #[clap(subcommand)]
         template: AccountTemplate,
+    },
+
+    /// Import accounts from binary files (with .mac extension)
+    #[clap(short_flag = 'i')]
+    Import {
+        /// Path to the file that contains the input note data
+        #[clap(short, long, num_args = 1..)]
+        filenames: Vec<PathBuf>,
     },
 }
 
@@ -109,6 +123,12 @@ impl AccountCmd {
                 let account_id: AccountId = AccountId::from_hex(v)
                     .map_err(|_| "Input number was not a valid Account Id")?;
                 show_account(client, account_id, *keys, *vault, *storage, *code)?;
+            }
+            AccountCmd::Import { filenames } => {
+                validate_paths(filenames, None)?;
+                for filename in filenames {
+                    import_account(&mut client, filename)?;
+                }
             }
         }
         Ok(())
@@ -239,4 +259,41 @@ pub fn show_account(
     }
 
     Ok(())
+}
+
+// IMPORT INPUT NOTE
+// ================================================================================================
+fn import_account(client: &mut Client, filename: &PathBuf) -> Result<(), String> {
+    let account_data_file_contents = fs::read(filename).map_err(|err| err.to_string())?;
+    let account_data =
+        AccountData::read_from_bytes(&account_data_file_contents).map_err(|err| err.to_string())?;
+
+    client.import_account(account_data)?;
+
+    Ok(())
+}
+
+// HELPERS
+// ================================================================================================
+
+/// Checks that all files exist, otherwise returns an error. It can also validate that all files
+/// have a specific extension
+fn validate_paths(paths: &[PathBuf], expected_extension: Option<&str>) -> Result<(), String> {
+    let invalid_path = if let Some(extension) = expected_extension {
+        paths
+            .iter()
+            .find(|path| !path.exists() || path.extension().map_or(false, |ext| ext != extension))
+    } else {
+        paths.iter().find(|path| !path.exists())
+    };
+
+    if let Some(path) = invalid_path {
+        Err(format!(
+            "The path `{}` does not exist or does not have the appropiate extension",
+            path.to_string_lossy()
+        )
+        .to_string())
+    } else {
+        Ok(())
+    }
 }
