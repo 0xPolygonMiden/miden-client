@@ -144,16 +144,13 @@ impl Client {
 
         // Construct Account
         let faucet_auth = self.get_account_auth(faucet_id)?;
-        self.tx_executor
-            .load_account(faucet_id)
-            .map_err(ClientError::TransactionExecutionError)?;
+        self.tx_executor.load_account(faucet_id)?;
 
         let block_ref = self.get_latest_block_num()?;
 
         let random_coin = self.get_random_coin();
 
-        let output_note = create_p2id_note(faucet_id, target_id, vec![asset.into()], random_coin)
-            .map_err(ClientError::NoteError)?;
+        let output_note = create_p2id_note(faucet_id, target_id, vec![asset.into()], random_coin)?;
 
         let recipient = output_note
             .recipient()
@@ -198,16 +195,17 @@ impl Client {
         };
         let script_inputs = vec![(pubkey_input, advice_map)];
 
-        let tx_script = self
-            .tx_executor
-            .compile_tx_script(tx_script_code, script_inputs, vec![])
-            .map_err(ClientError::TransactionExecutionError)?;
+        let tx_script =
+            self.tx_executor
+                .compile_tx_script(tx_script_code, script_inputs, vec![])?;
 
         // Execute the transaction and get the witness
-        let transaction_result = self
-            .tx_executor
-            .execute_transaction(faucet_id, block_ref, &[], Some(tx_script.clone()))
-            .map_err(ClientError::TransactionExecutionError)?;
+        let transaction_result = self.tx_executor.execute_transaction(
+            faucet_id,
+            block_ref,
+            &[],
+            Some(tx_script.clone()),
+        )?;
 
         Ok(transaction_result)
     }
@@ -225,12 +223,9 @@ impl Client {
             target_account_id,
             vec![fungible_asset],
             random_coin,
-        )
-        .map_err(ClientError::NoteError)?;
+        )?;
 
-        self.tx_executor
-            .load_account(target_account_id)
-            .map_err(ClientError::TransactionExecutionError)?;
+        self.tx_executor.load_account(target_account_id)?;
 
         let block_ref = self.get_latest_block_num()?;
         let note_origins = [];
@@ -246,25 +241,19 @@ impl Client {
         )
         .expect("program is correctly written");
 
-        let tx_script_target = self
-            .tx_executor
-            .compile_tx_script(
-                tx_script_code,
-                vec![/*(target_pub_key, target_sk_pk_felt)*/],
-                vec![],
-            )
-            .map_err(ClientError::TransactionExecutionError)?;
+        let tx_script_target = self.tx_executor.compile_tx_script(
+            tx_script_code,
+            vec![/*(target_pub_key, target_sk_pk_felt)*/],
+            vec![],
+        )?;
 
         // Execute the transaction and get the witness
-        let executed_transaction = self
-            .tx_executor
-            .execute_transaction(
-                target_account_id,
-                block_ref,
-                &note_origins,
-                Some(tx_script_target),
-            )
-            .map_err(ClientError::TransactionExecutionError)?;
+        let executed_transaction = self.tx_executor.execute_transaction(
+            target_account_id,
+            block_ref,
+            &note_origins,
+            Some(tx_script_target),
+        )?;
 
         Ok(executed_transaction)
     }
@@ -276,9 +265,8 @@ impl Client {
         transaction_execution_result: ExecutedTransaction,
     ) -> Result<(), ClientError> {
         let transaction_prover = TransactionProver::new(ProvingOptions::default());
-        let proven_transaction = transaction_prover
-            .prove_transaction(transaction_execution_result.clone())
-            .map_err(ClientError::TransactionProvingError)?;
+        let proven_transaction =
+            transaction_prover.prove_transaction(transaction_execution_result.clone())?;
 
         println!("Proved transaction, submitting to the node...");
 

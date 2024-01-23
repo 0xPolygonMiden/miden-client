@@ -167,7 +167,7 @@ impl Store {
         let account_storage = self.get_account_storage(account_stub.storage_root())?;
 
         let account_vault = self.get_vault_assets(account_stub.vault_root())?;
-        let account_vault = AssetVault::new(&account_vault).map_err(StoreError::AssetVaultError)?;
+        let account_vault = AssetVault::new(&account_vault)?;
 
         let account = Account::new(
             account_stub.id(),
@@ -374,8 +374,7 @@ pub(crate) fn parse_accounts(
     serialized_account_parts: SerializedAccountsParts,
 ) -> Result<(AccountStub, Word), StoreError> {
     let (id, nonce, vault_root, storage_root, code_root, account_seed) = serialized_account_parts;
-    let account_seed_word: Word =
-        Word::read_from_bytes(&account_seed).map_err(StoreError::DataDeserializationError)?;
+    let account_seed_word: Word = Word::read_from_bytes(&account_seed)?;
 
     Ok((
         AccountStub::new(
@@ -384,8 +383,8 @@ pub(crate) fn parse_accounts(
                 .expect("Conversion from stored AccountID should not panic"),
             (nonce as u64).into(),
             serde_json::from_str(&vault_root).map_err(StoreError::JsonDataDeserializationError)?,
-            Digest::try_from(&storage_root).map_err(StoreError::HexParseError)?,
-            Digest::try_from(&code_root).map_err(StoreError::HexParseError)?,
+            Digest::try_from(&storage_root)?,
+            Digest::try_from(&code_root)?,
         ),
         account_seed_word,
     ))
@@ -425,8 +424,7 @@ fn parse_account_auth(
     serialized_account_auth_parts: SerializedAccountAuthParts,
 ) -> Result<AuthInfo, StoreError> {
     let (_, auth_info_bytes) = serialized_account_auth_parts;
-    let auth_info = AuthInfo::read_from_bytes(&auth_info_bytes)
-        .map_err(StoreError::DataDeserializationError)?;
+    let auth_info = AuthInfo::read_from_bytes(&auth_info_bytes)?;
     Ok(auth_info)
 }
 
@@ -458,7 +456,7 @@ fn parse_account_code(
 
     let procedures =
         serde_json::from_str(&procedures).map_err(StoreError::JsonDataDeserializationError)?;
-    let module = ModuleAst::from_bytes(&module).map_err(StoreError::DataDeserializationError)?;
+    let module = ModuleAst::from_bytes(&module)?;
     Ok((procedures, module))
 }
 
@@ -491,8 +489,7 @@ fn parse_account_storage(
 ) -> Result<AccountStorage, StoreError> {
     let (_, storage) = serialized_account_storage_parts;
 
-    let storage =
-        AccountStorage::read_from_bytes(&storage).map_err(StoreError::DataDeserializationError)?;
+    let storage = AccountStorage::read_from_bytes(&storage)?;
     Ok(storage)
 }
 

@@ -142,9 +142,7 @@ impl Store {
 
             let mut partial_mmr: PartialMmr = if current_block_num == 0 {
                 // first block we receive so we are good to create a blank partial mmr for this
-                MmrPeaks::new(0, vec![])
-                    .map_err(StoreError::MmrError)?
-                    .into()
+                MmrPeaks::new(0, vec![])?.into()
             } else {
                 PartialMmr::from_peaks(current_peaks)
             };
@@ -152,8 +150,7 @@ impl Store {
             // apply the delta
             let mmr_delta: crypto::merkle::MmrDelta = mmr_delta.try_into().unwrap();
 
-            let new_authentication_nodes =
-                partial_mmr.apply(mmr_delta).map_err(StoreError::MmrError)?;
+            let new_authentication_nodes = partial_mmr.apply(mmr_delta)?;
 
             Store::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
 

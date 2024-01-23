@@ -82,9 +82,7 @@ impl Client {
                     "Expected block header for response: {:?}",
                     &response
                 )))?;
-        let incoming_block_header: BlockHeader = incoming_block_header
-            .try_into()
-            .map_err(ClientError::RpcTypeConversionFailure)?;
+        let incoming_block_header: BlockHeader = incoming_block_header.try_into()?;
 
         if incoming_block_header.block_num() == current_block_num
             && (current_block_num != 0 || self.store.get_block_header_by_num(0).is_ok())
@@ -175,12 +173,8 @@ impl Client {
                     )),
                 )?;
                 // Handle casting after
-                let note_hash = note_hash
-                    .try_into()
-                    .map_err(ClientError::RpcTypeConversionFailure)?;
-                let merkle_path: crypto::merkle::MerklePath = note_merkle_path
-                    .try_into()
-                    .map_err(ClientError::RpcTypeConversionFailure)?;
+                let note_hash = note_hash.try_into()?;
+                let merkle_path: crypto::merkle::MerklePath = note_merkle_path.try_into()?;
 
                 Ok((note_record, note_hash, merkle_path))
             })

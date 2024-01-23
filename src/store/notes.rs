@@ -239,6 +239,7 @@ impl Store {
                 result
                     .map_err(StoreError::ColumnParsingError)
                     .and_then(|v: String| Digest::try_from(v).map_err(StoreError::HexParseError))
+                    .into()
             })
             .collect::<Result<Vec<Digest>, _>>()
     }
@@ -277,12 +278,9 @@ fn parse_input_note(
 ) -> Result<InputNoteRecord, StoreError> {
     let (script, inputs, note_assets, serial_num, sender_id, tag, num_assets, inclusion_proof) =
         serialized_input_note_parts;
-    let script =
-        NoteScript::read_from_bytes(&script).map_err(StoreError::DataDeserializationError)?;
-    let inputs =
-        NoteInputs::read_from_bytes(&inputs).map_err(StoreError::DataDeserializationError)?;
-    let vault =
-        NoteAssets::read_from_bytes(&note_assets).map_err(StoreError::DataDeserializationError)?;
+    let script = NoteScript::read_from_bytes(&script)?;
+    let inputs = NoteInputs::read_from_bytes(&inputs)?;
+    let vault = NoteAssets::read_from_bytes(&note_assets)?;
     let serial_num =
         serde_json::from_str(&serial_num).map_err(StoreError::JsonDataDeserializationError)?;
     let note_metadata = NoteMetadata::new(
@@ -293,10 +291,7 @@ fn parse_input_note(
     let note = Note::from_parts(script, inputs, vault, serial_num, note_metadata);
 
     let inclusion_proof = inclusion_proof
-        .map(|proof| {
-            NoteInclusionProof::read_from_bytes(&proof)
-                .map_err(StoreError::DataDeserializationError)
-        })
+        .map(|proof| NoteInclusionProof::read_from_bytes(&proof))
         .transpose()?;
 
     Ok(InputNoteRecord::new(note, inclusion_proof))

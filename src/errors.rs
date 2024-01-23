@@ -7,8 +7,8 @@ use crypto::{
 use miden_node_proto::error::ParseError;
 use miden_tx::{TransactionExecutorError, TransactionProverError};
 use objects::{
-    accounts::AccountId, notes::NoteId, AccountError, AssetError, AssetVaultError, Digest,
-    NoteError, TransactionScriptError,
+    accounts::AccountId, notes::NoteId, AccountError, AssetVaultError, Digest, NoteError,
+    TransactionScriptError,
 };
 use tonic::{transport::Error as TransportError, Status as TonicStatus};
 
@@ -18,7 +18,6 @@ use tonic::{transport::Error as TransportError, Status as TonicStatus};
 #[derive(Debug)]
 pub enum ClientError {
     AccountError(AccountError),
-    AssetError(AssetError),
     AuthError(FalconError),
     NoteError(NoteError),
     RpcApiError(RpcApiError),
@@ -33,7 +32,6 @@ impl fmt::Display for ClientError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ClientError::AccountError(err) => write!(f, "account error: {err}"),
-            ClientError::AssetError(err) => write!(f, "asset error: {err}"),
             ClientError::AuthError(err) => write!(f, "account auth error: {err}"),
             ClientError::RpcTypeConversionFailure(err) => {
                 write!(f, "failed to convert data: {err}")
@@ -54,9 +52,39 @@ impl fmt::Display for ClientError {
     }
 }
 
+impl From<AccountError> for ClientError {
+    fn from(err: AccountError) -> Self {
+        Self::AccountError(err)
+    }
+}
+
+impl From<NoteError> for ClientError {
+    fn from(err: NoteError) -> Self {
+        Self::NoteError(err)
+    }
+}
+
+impl From<ParseError> for ClientError {
+    fn from(err: ParseError) -> Self {
+        Self::RpcTypeConversionFailure(err)
+    }
+}
+
 impl From<StoreError> for ClientError {
     fn from(err: StoreError) -> Self {
         Self::StoreError(err)
+    }
+}
+
+impl From<TransactionExecutorError> for ClientError {
+    fn from(err: TransactionExecutorError) -> Self {
+        Self::TransactionExecutionError(err)
+    }
+}
+
+impl From<TransactionProverError> for ClientError {
+    fn from(err: TransactionProverError) -> Self {
+        Self::TransactionProvingError(err)
     }
 }
 
@@ -85,13 +113,48 @@ pub enum StoreError {
     JsonDataDeserializationError(serde_json::Error),
     MigrationError(rusqlite_migration::Error),
     MmrError(MmrError),
-    NoteError(NoteError),
     NoteTagAlreadyTracked(u64),
     QueryError(rusqlite::Error),
     RpcTypeConversionFailure(ParseError),
     TransactionError(rusqlite::Error),
     TransactionScriptError(TransactionScriptError),
     VaultDataNotFound(Digest),
+}
+
+impl From<AssetVaultError> for StoreError {
+    fn from(value: AssetVaultError) -> Self {
+        StoreError::AssetVaultError(value)
+    }
+}
+
+impl From<AccountError> for StoreError {
+    fn from(value: AccountError) -> Self {
+        StoreError::AccountError(value)
+    }
+}
+
+impl From<DeserializationError> for StoreError {
+    fn from(value: DeserializationError) -> Self {
+        StoreError::DataDeserializationError(value)
+    }
+}
+
+impl From<HexParseError> for StoreError {
+    fn from(value: HexParseError) -> Self {
+        StoreError::HexParseError(value)
+    }
+}
+
+impl From<MmrError> for StoreError {
+    fn from(value: MmrError) -> Self {
+        StoreError::MmrError(value)
+    }
+}
+
+impl From<TransactionScriptError> for StoreError {
+    fn from(value: TransactionScriptError) -> Self {
+        StoreError::TransactionScriptError(value)
+    }
 }
 
 impl fmt::Display for StoreError {
@@ -144,7 +207,6 @@ impl fmt::Display for StoreError {
             }
             MigrationError(err) => write!(f, "failed to update the database: {err}"),
             MmrError(err) => write!(f, "error constructing mmr: {err}"),
-            NoteError(err) => write!(f, "note error: {err}"),
             NoteTagAlreadyTracked(tag) => write!(f, "note tag {} is already being tracked", tag),
             QueryError(err) => write!(f, "failed to retrieve data from the database: {err}"),
             TransactionError(err) => write!(f, "failed to instantiate a new transaction: {err}"),

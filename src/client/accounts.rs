@@ -112,8 +112,7 @@ impl Client {
                 auth_scheme,
                 AccountType::RegularAccountUpdatableCode,
             )
-        }
-        .map_err(ClientError::AccountError)?;
+        }?;
 
         self.insert_account(&account, seed, &AuthInfo::RpoFalcon512(key_pair))?;
         Ok((account, seed))
@@ -148,8 +147,7 @@ impl Client {
             Felt::try_from(max_supply.to_le_bytes().as_slice())
                 .expect("u64 can be safely converted to a field element"),
             auth_scheme,
-        )
-        .map_err(ClientError::AccountError)?;
+        )?;
 
         self.insert_account(&account, seed, &AuthInfo::RpoFalcon512(key_pair))?;
         Ok((account, seed))
