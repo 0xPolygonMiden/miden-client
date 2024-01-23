@@ -11,8 +11,12 @@ mod client {
     use super::RpcApiEndpoint;
     use crate::errors::RpcApiError;
     use miden_node_proto::{
-        requests::{SubmitProvenTransactionRequest, SyncStateRequest},
-        responses::{SubmitProvenTransactionResponse, SyncStateResponse},
+        requests::{
+            GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest, SyncStateRequest,
+        },
+        responses::{
+            GetBlockHeaderByNumberResponse, SubmitProvenTransactionResponse, SyncStateResponse,
+        },
         rpc::api_client::ApiClient,
     };
     use tonic::transport::Channel;
@@ -52,6 +56,19 @@ mod client {
                 .submit_proven_transaction(request)
                 .await
                 .map_err(|err| RpcApiError::RequestError(RpcApiEndpoint::SubmitProvenTx, err))
+        }
+
+        pub async fn get_block_header_by_number(
+            &mut self,
+            request: impl tonic::IntoRequest<GetBlockHeaderByNumberRequest>,
+        ) -> Result<tonic::Response<GetBlockHeaderByNumberResponse>, RpcApiError> {
+            let rpc_api = self.rpc_api().await?;
+            rpc_api
+                .get_block_header_by_number(request)
+                .await
+                .map_err(|err| {
+                    RpcApiError::RequestError(RpcApiEndpoint::GetBlockHeaderByNumber, err)
+                })
         }
 
         /// Takes care of establishing the rpc connection if not connected yet and returns a reference

@@ -84,7 +84,7 @@ impl MockRpcApi {
     pub async fn get_block_header_by_number(
         &mut self,
         request: impl IntoRequest<GetBlockHeaderByNumberRequest>,
-    ) -> Result<Response<GetBlockHeaderByNumberResponse>, Status> {
+    ) -> Result<Response<GetBlockHeaderByNumberResponse>, RpcApiError> {
         let request: GetBlockHeaderByNumberRequest = request.into_request().into_inner();
 
         if request.block_num == Some(0) {

@@ -100,13 +100,12 @@ impl DataStore for SqliteDataStore {
 
 impl From<StoreError> for DataStoreError {
     fn from(value: StoreError) -> Self {
-        // TODO: Re-add the InputNoteNotFound once the DataStoreError uses a NoteId instead of NoteIndex
         match value {
             StoreError::AccountDataNotFound(account_id) => {
                 DataStoreError::AccountNotFound(account_id)
             }
             StoreError::BlockHeaderNotFound(block_num) => DataStoreError::BlockNotFound(block_num),
-            // StoreError::InputNoteNotFound(note_id) => DataStoreError::NoteNotFound(u32, NoteIndex),
+            StoreError::InputNoteNotFound(note_id) => DataStoreError::NoteNotFound(note_id),
             err => DataStoreError::InternalError(err.to_string()),
         }
     }
