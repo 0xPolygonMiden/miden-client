@@ -10,6 +10,7 @@ use miden_node_proto::{
 use objects::{accounts::AccountId, notes::NoteInclusionProof, BlockHeader, Digest};
 
 use crate::{
+    client::RpcApiEndpoint,
     errors::{ClientError, RpcApiError, StoreError},
     store::Store,
 };
@@ -81,7 +82,12 @@ impl Client {
             .rpc_api
             .get_block_header_by_number(GetBlockHeaderByNumberRequest { block_num: Some(0) })
             .await
-            .map_err(|err| ClientError::RpcApiError(RpcApiError::RequestError(err)))?
+            .map_err(|err| {
+                ClientError::RpcApiError(RpcApiError::RequestError(
+                    RpcApiEndpoint::GetBlockHeaderByNumber,
+                    err,
+                ))
+            })?
             .into_inner();
 
         let genesis_block: objects::BlockHeader = genesis_block

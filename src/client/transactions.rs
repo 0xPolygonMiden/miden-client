@@ -16,7 +16,7 @@ use objects::{
 use rand::Rng;
 
 use crate::{
-    errors::{ClientError, RpcApiError},
+    errors::ClientError,
     store::{accounts::AuthInfo, transactions::TransactionFilter},
 };
 

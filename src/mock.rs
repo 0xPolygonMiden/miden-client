@@ -60,7 +60,7 @@ impl MockRpcApi {
     pub async fn sync_state(
         &mut self,
         request: impl IntoRequest<SyncStateRequest>,
-    ) -> Result<Response<SyncStateResponse>, Status> {
+    ) -> Result<Response<SyncStateResponse>, RpcApiError> {
         let request: SyncStateRequest = request.into_request().into_inner();
 
         // Match request -> response through block_nu,
@@ -73,7 +73,10 @@ impl MockRpcApi {
                 let response = response.clone();
                 Ok(Response::new(response))
             }
-            None => Err(Status::not_found("no response for sync state request")),
+            None => Err(RpcApiError::RequestError(
+                RpcApiEndpoint::SyncState,
+                Status::not_found("no response for sync state request"),
+            )),
         }
     }
 

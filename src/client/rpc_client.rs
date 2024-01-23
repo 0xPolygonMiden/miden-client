@@ -74,6 +74,7 @@ mod client {
 //
 #[derive(Debug)]
 pub enum RpcApiEndpoint {
+    GetBlockHeaderByNumber,
     SyncState,
     SubmitProvenTx,
 }
@@ -81,6 +82,7 @@ pub enum RpcApiEndpoint {
 impl fmt::Display for RpcApiEndpoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            RpcApiEndpoint::GetBlockHeaderByNumber => write!(f, "get_block_header_by_number"),
             RpcApiEndpoint::SyncState => write!(f, "sync_state"),
             RpcApiEndpoint::SubmitProvenTx => write!(f, "submit_proven_transaction"),
         }
