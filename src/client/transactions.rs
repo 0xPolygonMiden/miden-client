@@ -308,8 +308,7 @@ impl Client {
         Ok(self
             .rpc_api
             .submit_proven_transaction(request)
-            .await
-            .map_err(|err| ClientError::RpcApiError(RpcApiError::RequestError(err)))?
+            .await?
             .into_inner())
     }
 
