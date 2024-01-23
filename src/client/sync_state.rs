@@ -107,8 +107,7 @@ impl Client {
         .map_err(ClientError::StoreError)?;
 
         tx.commit()
-            .map_err(|err| ClientError::StoreError(StoreError::TransactionError(err)))?;
-        Ok(())
+            .map_err(|err| ClientError::StoreError(StoreError::TransactionError(err)))
     }
 
     async fn single_sync_state(&mut self) -> Result<SyncStatus, ClientError> {
