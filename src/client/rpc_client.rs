@@ -1,23 +1,8 @@
 use core::fmt;
 
-// RPC Client
+// RPC CLIENT
 // ================================================================================================
 //
-#[derive(Debug)]
-pub enum RpcApiEndpoint {
-    SyncState,
-    SubmitProvenTx,
-}
-
-impl fmt::Display for RpcApiEndpoint {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            RpcApiEndpoint::SyncState => write!(f, "sync_state"),
-            RpcApiEndpoint::SubmitProvenTx => write!(f, "submit_proven_transaction"),
-        }
-    }
-}
-
 #[cfg(not(any(test, feature = "mock")))]
 pub(crate) use client::RpcClient;
 
@@ -80,6 +65,24 @@ mod client {
                     .map_err(RpcApiError::ConnectionError)?;
                 Ok(self.rpc_api.insert(rpc_api))
             }
+        }
+    }
+}
+
+// RPC API ENDPOINT
+// ================================================================================================
+//
+#[derive(Debug)]
+pub enum RpcApiEndpoint {
+    SyncState,
+    SubmitProvenTx,
+}
+
+impl fmt::Display for RpcApiEndpoint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RpcApiEndpoint::SyncState => write!(f, "sync_state"),
+            RpcApiEndpoint::SubmitProvenTx => write!(f, "submit_proven_transaction"),
         }
     }
 }
