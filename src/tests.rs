@@ -322,7 +322,7 @@ async fn test_sync_state() {
     .unwrap();
 
     // generate test data
-    crate::mock::insert_mock_data(&mut client);
+    crate::mock::insert_mock_data(&mut client).await;
 
     // assert that we have no consumed nor pending notes prior to syncing state
     assert_eq!(

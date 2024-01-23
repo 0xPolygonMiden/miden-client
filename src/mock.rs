@@ -1,7 +1,10 @@
-use crate::client::{
-    sync_state::FILTER_ID_SHIFT,
-    transactions::{PaymentTransactionData, TransactionTemplate},
-    Client,
+use crate::{
+    client::{
+        sync_state::FILTER_ID_SHIFT,
+        transactions::{PaymentTransactionData, TransactionTemplate},
+        Client, RpcApiEndpoint,
+    },
+    errors::RpcApiError,
 };
 use crypto::{dsa::rpo_falcon512::KeyPair, Felt, FieldElement, StarkField};
 use miden_lib::transaction::TransactionKernel;
@@ -52,7 +55,7 @@ impl MockRpcApi {
     pub async fn sync_state(
         &mut self,
         request: impl tonic::IntoRequest<SyncStateRequest>,
-    ) -> std::result::Result<tonic::Response<SyncStateResponse>, tonic::Status> {
+    ) -> Result<tonic::Response<SyncStateResponse>, RpcApiError> {
         let request: SyncStateRequest = request.into_request().into_inner();
 
         // Match request -> response through block_nu,
@@ -65,8 +68,9 @@ impl MockRpcApi {
                 let response = response.clone();
                 Ok(tonic::Response::new(response))
             }
-            None => Err(tonic::Status::not_found(
-                "no response for sync state request",
+            None => Err(RpcApiError::RequestError(
+                RpcApiEndpoint::SyncState,
+                tonic::Status::not_found("no response for sync state request"),
             )),
         }
     }
@@ -74,7 +78,7 @@ impl MockRpcApi {
     pub async fn submit_proven_transaction(
         &mut self,
         request: impl tonic::IntoRequest<SubmitProvenTransactionRequest>,
-    ) -> std::result::Result<tonic::Response<SubmitProvenTransactionResponse>, tonic::Status> {
+    ) -> Result<tonic::Response<SubmitProvenTransactionResponse>, RpcApiError> {
         let _request = request.into_request().into_inner();
         let response = SubmitProvenTransactionResponse {};
 
@@ -199,7 +203,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
 }
 
 /// inserts mock note and account data into the client
-pub fn insert_mock_data(client: &mut Client) {
+pub async fn insert_mock_data(client: &mut Client) {
     use mock::mock::{account::MockAccountType, transaction::mock_inputs};
 
     // generate test data

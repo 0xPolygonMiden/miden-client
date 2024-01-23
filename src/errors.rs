@@ -60,6 +60,12 @@ impl From<StoreError> for ClientError {
     }
 }
 
+impl From<RpcApiError> for ClientError {
+    fn from(err: RpcApiError) -> Self {
+        Self::RpcApiError(err)
+    }
+}
+
 #[cfg(feature = "std")]
 impl std::error::Error for ClientError {}
 
@@ -163,10 +169,12 @@ impl std::error::Error for StoreError {}
 // API CLIENT ERROR
 // ================================================================================================
 
+use crate::client::RpcApiEndpoint;
+
 #[derive(Debug)]
 pub enum RpcApiError {
     ConnectionError(TransportError),
-    RequestError(TonicStatus),
+    RequestError(RpcApiEndpoint, TonicStatus),
 }
 
 impl fmt::Display for RpcApiError {
@@ -175,7 +183,9 @@ impl fmt::Display for RpcApiError {
             RpcApiError::ConnectionError(err) => {
                 write!(f, "failed to connect to the API server: {err}")
             }
-            RpcApiError::RequestError(err) => write!(f, "rpc request failed: {err}"),
+            RpcApiError::RequestError(endpoint, err) => {
+                write!(f, "rpc request failed for {endpoint}: {err}")
+            }
         }
     }
 }

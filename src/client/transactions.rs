@@ -15,10 +15,7 @@ use objects::{
 };
 use rand::Rng;
 
-use crate::{
-    errors::{ClientError, RpcApiError},
-    store::accounts::AuthInfo,
-};
+use crate::{errors::ClientError, store::accounts::AuthInfo};
 
 use super::{sync_state::FILTER_ID_SHIFT, Client};
 
@@ -302,8 +299,7 @@ impl Client {
         Ok(self
             .rpc_api
             .submit_proven_transaction(request)
-            .await
-            .map_err(|err| ClientError::RpcApiError(RpcApiError::RequestError(err)))?
+            .await?
             .into_inner())
     }
 
