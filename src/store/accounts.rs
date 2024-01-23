@@ -92,7 +92,7 @@ impl Store {
 
     /// Returns the account id's of all accounts stored in the database
     pub fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {
-        const QUERY: &str = "SELECT id FROM accounts";
+        const QUERY: &str = "SELECT DISTINCT id FROM accounts";
 
         self.db
             .prepare(QUERY)
@@ -109,7 +109,10 @@ impl Store {
 
     pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Word)>, StoreError> {
         const QUERY: &str =
-            "SELECT id, nonce, vault_root, storage_root, code_root, account_seed FROM accounts";
+            "SELECT a.id, a.nonce, a.vault_root, a.storage_root, a.code_root, a.account_seed \
+            FROM accounts a \
+            WHERE a.nonce = (SELECT MAX(b.nonce) FROM accounts b WHERE b.id = a.id)";
+
         self.db
             .prepare(QUERY)
             .map_err(StoreError::QueryError)?
@@ -128,8 +131,11 @@ impl Store {
         account_id: AccountId,
     ) -> Result<(AccountStub, Word), StoreError> {
         let account_id_int: u64 = account_id.into();
-        const QUERY: &str =
-            "SELECT id, nonce, vault_root, storage_root, code_root, account_seed FROM accounts WHERE id = ?";
+        const QUERY: &str = "SELECT id, nonce, vault_root, storage_root, code_root, account_seed \
+            FROM accounts WHERE id = ? \
+            ORDER BY nonce DESC \
+            LIMIT 1";
+
         self.db
             .prepare(QUERY)
             .map_err(StoreError::QueryError)?
@@ -204,7 +210,7 @@ impl Store {
         account_id: AccountId,
         account_delta: &AccountDelta,
     ) -> Result<(), StoreError> {
-        let (mut account, _seed) = self.get_account_by_id(account_id)?;
+        let (mut account, seed) = self.get_account_by_id(account_id)?;
 
         account
             .apply_delta(account_delta)
@@ -217,7 +223,7 @@ impl Store {
 
         Self::insert_account_storage(&tx, account.storage())?;
         Self::insert_account_asset_vault(&tx, account.vault())?;
-        Self::update_account_record(&tx, &account)?;
+        Self::insert_account_record(&tx, &account, seed)?;
 
         tx.commit().map_err(StoreError::TransactionError)
     }
@@ -325,22 +331,6 @@ impl Store {
                 committed,
                 account_seed
             ],
-        )
-        .map(|_| ())
-        .map_err(StoreError::QueryError)
-    }
-
-    pub(crate) fn update_account_record(
-        tx: &Transaction<'_>,
-        account: &Account,
-    ) -> Result<(), StoreError> {
-        let (id, code_root, storage_root, vault_root, nonce, committed) =
-            serialize_account(account)?;
-
-        const QUERY: &str =  "UPDATE accounts SET code_root=?, storage_root=?, vault_root=?, nonce=?, committed=? WHERE id =?";
-        tx.execute(
-            QUERY,
-            params![code_root, storage_root, vault_root, nonce, committed, id,],
         )
         .map(|_| ())
         .map_err(StoreError::QueryError)

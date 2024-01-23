@@ -24,30 +24,39 @@ impl Store {
         tx: &Transaction<'_>,
         block_header: BlockHeader,
         chain_mmr_peaks: MmrPeaks,
-        has_notes: bool,
+        has_client_notes: bool,
     ) -> Result<(), StoreError> {
         let chain_mmr_peaks = chain_mmr_peaks.peaks().to_vec();
-        let (block_num, header, notes_root, sub_hash, chain_mmr, has_notes) =
-            serialize_block_header(block_header, chain_mmr_peaks, has_notes)?;
+        let (block_num, header, notes_root, sub_hash, chain_mmr, has_client_notes) =
+            serialize_block_header(block_header, chain_mmr_peaks, has_client_notes)?;
 
         const QUERY: &str = "\
         INSERT INTO block_headers
-            (block_num, header, notes_root, sub_hash, chain_mmr_peaks, has_notes)
+            (block_num, header, notes_root, sub_hash, chain_mmr_peaks, has_client_notes)
          VALUES (?, ?, ?, ?, ?, ?)";
 
         tx.execute(
             QUERY,
-            params![block_num, header, notes_root, sub_hash, chain_mmr, has_notes],
+            params![
+                block_num,
+                header,
+                notes_root,
+                sub_hash,
+                chain_mmr,
+                has_client_notes
+            ],
         )
         .map_err(StoreError::QueryError)
         .map(|_| ())
     }
 
+    /// Retrieves a [BlockHeader] by number and a boolean value that represents whether the
+    /// block contains notes relevant to the client.
     pub fn get_block_header_by_num(
         &self,
         block_number: u32,
     ) -> Result<(BlockHeader, bool), StoreError> {
-        const QUERY: &str = "SELECT block_num, header, notes_root, sub_hash, chain_mmr_peaks, has_notes FROM block_headers WHERE block_num = ?";
+        const QUERY: &str = "SELECT block_num, header, notes_root, sub_hash, chain_mmr_peaks, has_client_notes FROM block_headers WHERE block_num = ?";
         self.db
             .prepare(QUERY)
             .map_err(StoreError::QueryError)?
@@ -62,6 +71,7 @@ impl Store {
             .ok_or(StoreError::BlockHeaderNotFound(block_number))?
     }
 
+    /// Inserts a node represented by its in-order index and the node value.
     pub(crate) fn insert_chain_mmr_node(
         tx: &Transaction<'_>,
         id: InOrderIndex,
@@ -76,6 +86,7 @@ impl Store {
             .map(|_| ())
     }
 
+    /// Inserts a list of MMR authentication nodes to the Chain MMR nodes table.
     pub fn insert_chain_mmr_nodes(
         tx: &Transaction<'_>,
         nodes: Vec<(InOrderIndex, Digest)>,
@@ -87,7 +98,7 @@ impl Store {
         Ok(())
     }
 
-    /// Returns all nodes in the table.
+    /// Returns all MMR nodes in the store.
     pub fn get_chain_mmr_nodes(&self) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
         const QUERY: &str = "SELECT id, node FROM chain_mmr_nodes";
         self.db
@@ -139,7 +150,7 @@ fn parse_mmr_peaks(forest: u32, peaks_nodes: String) -> Result<MmrPeaks, StoreEr
 fn serialize_block_header(
     block_header: BlockHeader,
     chain_mmr_peaks: Vec<Digest>,
-    has_notes: bool,
+    has_client_notes: bool,
 ) -> Result<SerializedBlockHeaderData, StoreError> {
     let block_num = block_header.block_num();
     let header =
@@ -157,7 +168,7 @@ fn serialize_block_header(
         notes_root,
         sub_hash,
         chain_mmr_peaks,
-        has_notes,
+        has_client_notes,
     ))
 }
 
@@ -169,7 +180,7 @@ fn parse_block_headers_columns(
     let notes_root: String = row.get(2)?;
     let sub_hash: String = row.get(3)?;
     let chain_mmr: String = row.get(4)?;
-    let has_notes: bool = row.get(5)?;
+    let has_client_notes: bool = row.get(5)?;
 
     Ok((
         block_num as u64,
@@ -177,18 +188,18 @@ fn parse_block_headers_columns(
         notes_root,
         sub_hash,
         chain_mmr,
-        has_notes,
+        has_client_notes,
     ))
 }
 
 fn parse_block_header(
     serialized_block_header_parts: SerializedBlockHeaderParts,
 ) -> Result<(BlockHeader, bool), StoreError> {
-    let (_, header, _, _, _, has_notes) = serialized_block_header_parts;
+    let (_, header, _, _, _, has_client_notes) = serialized_block_header_parts;
 
     Ok((
         serde_json::from_str(&header).map_err(StoreError::JsonDataDeserializationError)?,
-        has_notes,
+        has_client_notes,
     ))
 }
 

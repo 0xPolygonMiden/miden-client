@@ -64,7 +64,7 @@ fn add_tag(mut client: Client, tag: u64) -> Result<(), String> {
 fn print_block_number(client: Client) -> Result<(), String> {
     println!(
         "block number: {}",
-        client.get_latest_block_num().map_err(|e| e.to_string())?
+        client.get_sync_height().map_err(|e| e.to_string())?
     );
     Ok(())
 }

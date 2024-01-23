@@ -30,8 +30,8 @@ impl Client {
     // --------------------------------------------------------------------------------------------
 
     /// Returns the block number of the last state sync block.
-    pub fn get_latest_block_num(&self) -> Result<u32, ClientError> {
-        self.store.get_latest_block_num().map_err(|err| err.into())
+    pub fn get_sync_height(&self) -> Result<u32, ClientError> {
+        self.store.get_sync_height().map_err(|err| err.into())
     }
 
     /// Returns the list of note tags tracked by the client.
@@ -65,15 +65,14 @@ impl Client {
         }
     }
 
-    /// Checks whether the genesis block is in place in the database, and
-    /// requests it to the node and stores it if it isn't.
+    ///
     async fn ensure_genesis_in_place(&mut self) -> Result<(), ClientError> {
         let genesis = self.store.get_block_header_by_num(0);
 
         match genesis {
+            Ok(_) => Ok(()),
             Err(StoreError::BlockHeaderNotFound(0)) => self.retrieve_and_store_genesis().await,
             Err(err) => Err(ClientError::StoreError(err)),
-            Ok(_) => Ok(()),
         }
     }
 
@@ -108,11 +107,12 @@ impl Client {
         .map_err(ClientError::StoreError)?;
 
         tx.commit()
-            .map_err(|err| ClientError::StoreError(StoreError::TransactionError(err)))
+            .map_err(|err| ClientError::StoreError(StoreError::TransactionError(err)))?;
+        Ok(())
     }
 
     async fn single_sync_state(&mut self) -> Result<SyncStatus, ClientError> {
-        let current_block_num = self.store.get_latest_block_num()?;
+        let current_block_num = self.store.get_sync_height()?;
         let account_ids = self.store.get_account_ids()?;
         let note_tags: Vec<u64> = self
             .store
@@ -151,7 +151,7 @@ impl Client {
                 x.nullifier
                     .ok_or(ClientError::RpcExpectedFieldMissing(format!(
                         "Expected nullifier for response {:?}",
-                        &response
+                        &response.clone()
                     )))
             })
             .collect::<Result<Vec<_>, ClientError>>()?;
@@ -159,7 +159,7 @@ impl Client {
         let requested_block_path = response
             .block_path
             .ok_or(ClientError::RpcExpectedFieldMissing(
-                "Missing block path on response".to_string(),
+                "Missing block path on response".to_string().to_string(),
             ))?
             .try_into()
             .map_err(ClientError::RpcTypeConversionFailure)?;
