@@ -51,7 +51,7 @@ pub enum AccountCmd {
     /// Import accounts from binary files (with .mac extension)
     #[clap(short_flag = 'i')]
     Import {
-        /// Path to the file that contains the input note data
+        /// Paths to the files that contains the account data
         #[clap(short, long, num_args = 1..)]
         filenames: Vec<PathBuf>,
     },
@@ -125,7 +125,7 @@ impl AccountCmd {
                 show_account(client, account_id, *keys, *vault, *storage, *code)?;
             }
             AccountCmd::Import { filenames } => {
-                validate_paths(filenames, None)?;
+                validate_paths(filenames, "mac")?;
                 for filename in filenames {
                     import_account(&mut client, filename)?;
                 }
@@ -276,16 +276,15 @@ fn import_account(client: &mut Client, filename: &PathBuf) -> Result<(), String>
 // HELPERS
 // ================================================================================================
 
-/// Checks that all files exist, otherwise returns an error. It can also validate that all files
-/// have a specific extension
-fn validate_paths(paths: &[PathBuf], expected_extension: Option<&str>) -> Result<(), String> {
-    let invalid_path = if let Some(extension) = expected_extension {
-        paths
-            .iter()
-            .find(|path| !path.exists() || path.extension().map_or(false, |ext| ext != extension))
-    } else {
-        paths.iter().find(|path| !path.exists())
-    };
+/// Checks that all files exist, otherwise returns an error. It also ensures that all files have a
+/// specific extension
+fn validate_paths(paths: &[PathBuf], expected_extension: &str) -> Result<(), String> {
+    let invalid_path = paths.iter().find(|path| {
+        !path.exists()
+            || path
+                .extension()
+                .map_or(false, |ext| ext != expected_extension)
+    });
 
     if let Some(path) = invalid_path {
         Err(format!(
