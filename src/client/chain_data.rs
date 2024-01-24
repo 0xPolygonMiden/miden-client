@@ -1,24 +1,27 @@
 use super::Client;
 
 #[cfg(test)]
-use crate::errors::ClientError;
+use crate::{errors::ClientError, store::chain_data::BlockFilter};
 #[cfg(test)]
 use objects::BlockHeader;
 
 impl Client {
     #[cfg(test)]
-    pub fn get_block_headers(
+    pub fn get_block_headers_in_range(
         &self,
         start: u32,
         finish: u32,
     ) -> Result<Vec<BlockHeader>, ClientError> {
-        let mut headers = Vec::new();
-        for block_number in start..=finish {
-            if let Ok(block_header) = self.store.get_block_header_by_num(block_number) {
-                headers.push(block_header)
-            }
-        }
+        self.store.get_block_headers(BlockFilter::Range(start, finish))
+            .map_err(ClientError::StoreError)
+    }
 
-        Ok(headers)
+    #[cfg(test)]
+    pub fn get_block_headers(
+        &self,
+        block_numbers: &[u32],
+    ) -> Result<Vec<BlockHeader>, ClientError> {
+        self.store.get_block_headers(BlockFilter::List(block_numbers))
+            .map_err(ClientError::StoreError)
     }
 }

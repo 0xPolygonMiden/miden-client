@@ -19,14 +19,14 @@ type SerializedChainMmrNodeParts = (u64, String);
 // Block FILTER
 // ================================================================================================
 /// Represents a filter for blocks
-pub enum BlockFilter {
+pub enum BlockFilter<'a> {
     All,
     Single(u32),
     Range(u32, u32), // Represents inclusive range [start, end]
-    List(Vec<u32>),
+    List(&'a [u32]),
 }
 
-impl BlockFilter {
+impl<'a> BlockFilter<'a> {
     pub fn to_query_filter(&self) -> String {
         match self {
             BlockFilter::All => String::from(""),
