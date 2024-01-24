@@ -4,7 +4,7 @@
 <a href="https://github.com/0xPolygonMiden/miden-client/actions/workflows/ci.yml"><img src="https://github.com/0xPolygonMiden/miden-client/actions/workflows/ci.yml/badge.svg?branch=main"></a>
 <a href="https://crates.io/crates/miden-client"><img src="https://img.shields.io/crates/v/miden-client"></a>
 
-This repository contains the Miden client, which provides a way to execute transactions and interact with the Miden blockchain.
+This repository contains the Miden client, which provides a way to execute and prove transactions, facilitating the interaction with the Miden rollup.
 
 ### Status
 
@@ -12,18 +12,18 @@ The Miden client is still under heavy development and the project can be conside
 
 ## Overview
 
-The Miden client currently consists of a library project and a CLI binary:
+The Miden client currently consists of a library package and a CLI binary:
 
 - The library contains several modules that implement different features related to Miden, and exposes a variety of functions in each of them
-- The CLI is a basic wrapper around the library features, and provides a simple way to interact with it and the Miden network
+- The CLI is a basic wrapper around the library features, and provides a simple way to interact with it and the Miden rollup
 
-The client's main responsibility is to maintain a partial view of the blockchain which allows for locally executing and proving transactions. It keeps a local store of various entities periodically get updated by communicating with the node.
+The client's main responsibility is to maintain a partial view of the blockchain which allows for locally executing and proving transactions. It keeps a local store of various entities that periodically get updated by communicating with the node.
 
 ## Installing the CLI
 
 Before you can build and run the Miden client CLI, you'll need to make sure you have Rust [installed](https://www.rust-lang.org/tools/install).
 
-You can then choose to run the client CLI using `cargo`, or install it in your system. In order to install it, you can run:
+You can then choose to run the client CLI using `cargo`, or install it on your system. In order to install it, you can run:
 
 ```sh
 cargo install --path .
@@ -39,19 +39,19 @@ cargo install --features testing --path .
 
 The `testing` feature allows mainly for faster account creation. When using the the client CLI alongside a locally-running node, you will want to make sure the node is installed/executed with the `testing` feature as well, as some validations can fail if the settings do not match up both on the client and the node.
 
-Additionally, the client supports another feature: The `concurrent` flag enables some optimizations that will incur in faster transaction execution and proving.
+Additionally, the client supports another feature: The `concurrent` flag enables some optimizations that will result in faster transaction execution and proving.
 
-After installing the client, you can use it with `miden-client`. For a basic understanding of each available CLI command, you can use the `--help` flag in order to get information: `miden-client --help`. This is also available for each subcommand.
+After installing the client, you can use it by running `miden-client`. In order to get more information about available CLI commands you can run `miden-client --help``.
 
 ## Example: Executing, proving and submitting transactions
 
 ### Prerequisites
 
-- This guide assumes a basic understanding of the Miden network, as it deals with some of its main concepts, such as Notes, Accounts, and Transactions. A good place to learn about these concepts is the [Polygon Miden Documentation](https://0xpolygonmiden.github.io/miden-base/introduction.html).
+- This guide assumes a basic understanding of the Miden rollup, as it deals with some of its main concepts, such as Notes, Accounts, and Transactions. A good place to learn about these concepts is the [Polygon Miden Documentation](https://0xpolygonmiden.github.io/miden-base/introduction.html).
 
 - Currently, the client allows for submitting locally-proven transactions to the Miden node. Because there is no way to deploy an account to the network, the best way to test the client is by [generating accounts via the genesis file](https://github.com/0xPolygonMiden/miden-node?tab=readme-ov-file#generating-the-genesis-file). 
   - For this example, we will make use of 1 faucet account and 2 regular wallet accounts, so you should set your node's `toml` config file accordingly. We will refer to these accounts as having IDs `regular account ID A` and `regular account ID B` in order differentiate them.
-  - Once the account files have been generated, [make sure the node is running](https://github.com/0xPolygonMiden/miden-node?tab=readme-ov-file#running-the-node).
+  - Once the account files have been generated, [make sure the node is running](https://github.com/0xPolygonMiden/miden-node?tab=readme-ov-file#running-the-node). If the node has some stored state from previous tests and usage, you might have to clear its database (`miden-store.sqlite3`).
 
 ### 1. Loading account data
 
@@ -72,10 +72,10 @@ miden-client account list
 As briefly mentioned in the [Overview](#overview) section, the client needs to periodically query the node to receive updates about entities that might be important in order to run transactions. The way to do so is by running the `state-sync` command:
 
 ```bash
-miden-client state-sync -s
+miden-client sync-state -s
 ```
 
-Running this command will update local data up to the chain tip. This is needed before running any transaction.
+Running this command will update local data up to the chain tip. This is needed in order to execute and prove any transaction.
 
 ### 3. Minting an asset 
 
@@ -85,7 +85,7 @@ Since we have now synced our local view of the blockchain and have account infor
 miden-client transaction new mint <regular-account-ID-A> <faucet-account-id> 1000
 ```
 
-This will execute, prove and submit a mint transaction to the node. The account that executes this transaction will be the faucet as was defined in the node's configuration file. In this case, it is minting `1000` fungible assets to `<regular-account-ID-A>`. 
+This will execute, prove and submit a transaction that mints assets to the node. The account that executes this transaction will be the faucet as was defined in the node's configuration file. In this case, it is minting `1000` fungible assets to `<regular-account-ID-A>`. 
 
 This will add a transaction and an output note (containing the minted assets) to the local store in order to track their lifecycles. You can display them by doing `miden-client transaction list` and `miden-client input-notes list` respectively. If you do so, you will notice that they do not show a `commit height` even though they were submitted to the operator. This is because our local view of the network has not yet been updated. After updating it with a `state-sync`, you should see the height at which the transaction and the note containing the asset were committed. This will allow us to prove transactions that make use of this note, as we can compute valid proofs that state that the note exists in the blockchain.
 
@@ -109,7 +109,7 @@ Some of the assets we minted can now be transferred to our second regular accoun
 
 ```bash
 miden-client state-sync -s # Make sure we have an updated view of the state
-miden-client transaction new p2id <regular-account-ID-A> <regular-account-ID-B> <faucet-account-ID> 50 # Transfers 50 assets to account ID B
+miden-client transaction new p2id <regular-account-ID-A> <regular-account-ID-B> <faucet-account-ID> 50 # Transfers an amount of '50' of the fungible asset to account ID B
 ```
 
 This will generate a Pay-to-ID (`P2ID`) note containing 50 assets, transferred from one regular account to the other. If we sync, we can now make use of the note and consume it for the receiving account:
@@ -119,11 +119,11 @@ miden-client state-sync -s # Make sure we have an updated view of the state
 miden-client transaction new consume-note <regular-account-ID-B> # Consume the note
 ```
 
-That's it! You will now be able to see `950` fungible assets in the first regular account, and `50` assets in the remaining regular account:
+That's it! You will now be able to see `950` fungible tokens in the first regular account, and `50` tokens in the remaining regular account:
 
 ```bash
-miden-client account show <regular-account-ID-B> -v # Show account B's vault assets (50 fungible assets)
-miden-client account show <regular-account-ID-A> -v # Show account A's vault assets (950 fungible assets)
+miden-client account show <regular-account-ID-B> -v # Show account B's vault assets (50 fungible tokens)
+miden-client account show <regular-account-ID-A> -v # Show account A's vault assets (950 fungible tokens)
 ```
 
 ### Clearing the state
