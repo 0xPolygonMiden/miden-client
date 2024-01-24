@@ -4,12 +4,15 @@ use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use crypto::{
     dsa::rpo_falcon512::KeyPair,
-    utils::{bytes_to_hex_string, Serializable},
+    utils::{bytes_to_hex_string, Deserializable, Serializable},
     StarkField,
 };
-use miden_client::client::accounts;
+use miden_client::client::{accounts, Client};
 
-use objects::{accounts::AccountId, assets::TokenSymbol};
+use objects::{
+    accounts::{AccountData, AccountId},
+    assets::TokenSymbol,
+};
 
 // ACCOUNT COMMAND
 // ================================================================================================
@@ -36,14 +39,12 @@ pub enum AccountCmd {
         #[clap(short, long, default_value_t = false)]
         code: bool,
     },
-
     /// Create new account and store it locally
     #[clap(short_flag = 'n')]
     New {
         #[clap(subcommand)]
         template: AccountTemplate,
     },
-
     /// Import accounts from binary files (with .mac extension)
     #[clap(short_flag = 'i')]
     Import {

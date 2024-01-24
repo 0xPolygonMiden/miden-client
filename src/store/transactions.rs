@@ -39,25 +39,6 @@ impl TransactionFilter {
     }
 }
 
-// TRANSACTIONS FILTERS
-// ================================================================================================
-
-pub enum TransactionFilter {
-    All,
-    Uncomitted,
-}
-
-impl TransactionFilter {
-    pub fn to_query(&self) -> String {
-        const QUERY: &str = "SELECT id, account_id, init_account_state, final_account_state, \
-        input_notes, output_notes, script_hash, script_program, script_inputs, block_num, committed, commit_height FROM transactions";
-        match self {
-            TransactionFilter::All => QUERY.to_string(),
-            TransactionFilter::Uncomitted => format!("{QUERY} WHERE committed=false"),
-        }
-    }
-}
-
 // TRANSACTIONS
 // ================================================================================================
 
@@ -78,21 +59,6 @@ type SerializedTransactionData = (
 
 impl Store {
     /// Retrieves all executed transactions from the database
-    pub fn get_transactions(
-        &self,
-        transaction_filter: TransactionFilter,
-    ) -> Result<Vec<TransactionStub>, StoreError> {
-        self.db
-            .prepare(&transaction_filter.to_query())
-            .map_err(StoreError::QueryError)?
-            .query_map([], parse_transaction_columns)
-            .expect("no binding parameters used in query")
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_transaction)
-            })
-            .collect::<Result<Vec<TransactionStub>, _>>()
     pub fn get_transactions(
         &self,
         transaction_filter: TransactionFilter,
@@ -361,8 +327,6 @@ fn parse_transaction(
     let input_note_nullifiers: Vec<Digest> =
         serde_json::from_str(&input_notes).map_err(StoreError::JsonDataDeserializationError)?;
 
-    let output_notes: OutputNotes<NoteEnvelope> = OutputNotes::read_from_bytes(&output_notes)
-        .map_err(StoreError::DataDeserializationError)?;
     let output_notes: OutputNotes<NoteEnvelope> = OutputNotes::read_from_bytes(&output_notes)
         .map_err(StoreError::DataDeserializationError)?;
 

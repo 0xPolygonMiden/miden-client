@@ -170,14 +170,6 @@ impl Client {
         self.store
             .get_transactions(transaction_filter)
             .map_err(|err| err.into())
-    /// Retrieves tracked transactions, filtered by [TransactionFilter].
-    pub fn get_transactions(
-        &self,
-        transaction_filter: TransactionFilter,
-    ) -> Result<Vec<TransactionStub>, ClientError> {
-        self.store
-            .get_transactions(transaction_filter)
-            .map_err(|err| err.into())
     }
 
     // TRANSACTION
@@ -293,7 +285,7 @@ impl Client {
             .load_account(faucet_id)
             .map_err(ClientError::TransactionExecutionError)?;
 
-        let block_ref = self.get_sync_height()?;
+        let _block_ref = self.get_sync_height()?;
         let block_ref = self.get_sync_height()?;
 
         let random_coin = self.get_random_coin();

@@ -1,3 +1,5 @@
+
+
 use clap::Parser;
 use miden_client::{client::Client, config::ClientConfig};
 
@@ -35,19 +37,6 @@ pub enum Command {
     MockData {
         #[clap(short, long)]
         transaction: bool,
-    },
-    //#[cfg(feature = "testing")]
-    /// Insert data from node's genesis file
-    LoadAccounts {
-        /// The directory that contains account data files (i.e., *.mac files).
-        #[clap(short, long)]
-        accounts_path: PathBuf,
-
-        /// The indices of accounts to import, if account indices contains the value `i`, then it
-        /// will import account at "{accounts_path}/account{i}.mac". If not provided takes all
-        /// files possible
-        #[clap(short, long, value_delimiter = ' ', num_args=1..)]
-        account_indices: Option<Vec<usize>>,
     },
 }
 
