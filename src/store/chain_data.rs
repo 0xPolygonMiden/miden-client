@@ -23,7 +23,8 @@ type SerializedChainMmrNodeParts = (u64, String);
 pub enum BlockFilter<'a> {
     All,
     Single(u32),
-    Range(u32, u32), // Represents inclusive range [start, end]
+    Range(u32, u32),
+    /// Represents inclusive range [start, end]
     List(&'a [u32]),
 }
 
@@ -39,12 +40,12 @@ impl<'a> BlockFilter<'a> {
                 *start as i64, *end as i64
             ),
             BlockFilter::List(block_numbers) => {
-                let block_numbers_condition = block_numbers
+                let formatted_block_numbers_list = block_numbers
                     .iter()
-                    .map(|block_number| format!("block_num = {}", *block_number as i64))
+                    .map(|block_number| (*block_number as i64).to_string())
                     .collect::<Vec<String>>()
-                    .join(" OR ");
-                format!("WHERE {}", block_numbers_condition)
+                    .join(",");
+                format!("WHERE block_num IN ({})", formatted_block_numbers_list)
             }
         }
     }
