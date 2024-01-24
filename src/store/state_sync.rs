@@ -5,18 +5,13 @@ use crypto::{
 use miden_node_proto::{mmr::MmrDelta, responses::AccountHashUpdate};
 
 use objects::{
+    accounts::AccountStub,
     notes::{NoteId, NoteInclusionProof},
     BlockHeader, Digest,
 };
 use rusqlite::params;
 
-use crate::{
-    errors::StoreError,
-    store::{
-        accounts::{parse_accounts, parse_accounts_columns},
-        transactions::TransactionFilter,
-    },
-};
+use crate::{errors::StoreError, store::transactions::TransactionFilter};
 
 use super::Store;
 
@@ -62,8 +57,8 @@ impl Store {
         Ok(true)
     }
 
-    /// Returns the block number of the last state sync block.
-    pub fn get_latest_block_num(&self) -> Result<u32, StoreError> {
+    /// Returns the block number of the last state sync block
+    pub fn get_sync_height(&self) -> Result<u32, StoreError> {
         const QUERY: &str = "SELECT block_num FROM state_sync";
 
         self.db
@@ -100,45 +95,19 @@ impl Store {
 
         let uncommitted_transactions = self.get_transactions(TransactionFilter::Uncomitted)?;
 
+        let current_accounts: Vec<AccountStub> = self
+            .get_accounts()?
+            .iter()
+            .map(|(acc, _)| acc.clone())
+            .collect();
+
         let tx = self
             .db
             .transaction()
             .map_err(StoreError::TransactionError)?;
 
         // Check if the returned account hashes match latest account hashes in the database
-        for account_update in account_updates {
-            if let (Some(account_id), Some(account_hash)) =
-                (account_update.account_id, account_update.account_hash)
-            {
-                let account_id_int: u64 = account_id.clone().into();
-                const ACCOUNT_HASH_QUERY: &str = "SELECT id, nonce, vault_root, storage_root, code_root, account_seed FROM accounts WHERE id = ?";
-
-                if let Some(Ok((acc_stub, _acc_seed))) = tx
-                    .prepare(ACCOUNT_HASH_QUERY)
-                    .map_err(StoreError::QueryError)?
-                    .query_map(params![account_id_int as i64], parse_accounts_columns)
-                    .map_err(StoreError::QueryError)?
-                    .map(|result| {
-                        result
-                            .map_err(StoreError::ColumnParsingError)
-                            .and_then(parse_accounts)
-                    })
-                    .next()
-                {
-                    let account_hash: Digest = account_hash
-                        .try_into()
-                        .map_err(StoreError::RpcTypeConversionFailure)?;
-
-                    if account_hash != acc_stub.hash() {
-                        return Err(StoreError::AccountHashMismatch(
-                            account_id
-                                .try_into()
-                                .map_err(StoreError::RpcTypeConversionFailure)?,
-                        ));
-                    }
-                }
-            }
-        }
+        Self::check_account_hashes(&account_updates, &current_accounts)?;
 
         // update state sync block number
         const BLOCK_NUMBER_QUERY: &str = "UPDATE state_sync SET block_num = ?";
@@ -213,6 +182,36 @@ impl Store {
         // commit the updates
         tx.commit().map_err(StoreError::QueryError)?;
 
+        Ok(())
+    }
+
+    fn check_account_hashes(
+        account_updates: &[AccountHashUpdate],
+        current_accounts: &[AccountStub],
+    ) -> Result<(), StoreError> {
+        for account_update in account_updates {
+            if let (Some(update_account_id), Some(remote_account_hash)) =
+                (&account_update.account_id, &account_update.account_hash)
+            {
+                let update_account_id: u64 = update_account_id.clone().into();
+                if let Some(acc_stub) = current_accounts
+                    .iter()
+                    .find(|acc| update_account_id == u64::from(acc.id()))
+                {
+                    let remote_account_hash: Digest = remote_account_hash
+                        .try_into()
+                        .map_err(StoreError::RpcTypeConversionFailure)?;
+
+                    if remote_account_hash != acc_stub.hash() {
+                        return Err(StoreError::AccountHashMismatch(
+                            update_account_id
+                                .try_into()
+                                .map_err(StoreError::AccountError)?,
+                        ));
+                    }
+                }
+            }
+        }
         Ok(())
     }
 }

@@ -1,3 +1,5 @@
+use crate::errors::StoreError;
+
 use super::Store;
 use crypto::merkle::PartialMmr;
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
@@ -30,16 +32,10 @@ impl DataStore for SqliteDataStore {
         notes: &[objects::notes::NoteId],
     ) -> Result<TransactionInputs, DataStoreError> {
         // Construct Account
-        let (account, seed) = self
-            .store
-            .get_account_by_id(account_id)
-            .map_err(|_| DataStoreError::AccountNotFound(account_id))?;
+        let (account, seed) = self.store.get_account_by_id(account_id)?;
 
         // Get header data
-        let (block_header, _had_notes) = self
-            .store
-            .get_block_header_by_num(block_num)
-            .map_err(|_err| DataStoreError::AccountNotFound(account_id))?;
+        let (block_header, _had_notes) = self.store.get_block_header_by_num(block_num)?;
 
         let mut list_of_notes = vec![];
 
@@ -59,10 +55,8 @@ impl DataStore for SqliteDataStore {
             let note_block_num = input_note.proof().origin().block_num;
 
             if note_block_num != block_num {
-                let (note_block, _) = self
-                    .store
-                    .get_block_header_by_num(note_block_num)
-                    .map_err(|_| DataStoreError::AccountNotFound(account_id))?;
+                let (note_block, _) = self.store.get_block_header_by_num(note_block_num)?;
+
                 notes_blocks.push(note_block);
             }
         }
@@ -74,19 +68,16 @@ impl DataStore for SqliteDataStore {
         // build partial mmr from the nodes - partial_mmr should be on memory as part of our store
         let partial_mmr: PartialMmr = {
             // we are supposed to have data by this point, so reconstruct the partial mmr
-            let current_peaks = self
-                .store
-                .get_chain_mmr_peaks_by_block_num(block_num)
-                .map_err(|_err| DataStoreError::AccountNotFound(account_id))?;
+            let current_peaks = self.store.get_chain_mmr_peaks_by_block_num(block_num)?;
 
             PartialMmr::from_peaks(current_peaks)
         };
 
         let chain_mmr = ChainMmr::new(partial_mmr, notes_blocks)
-            .map_err(|_err| DataStoreError::AccountNotFound(account_id))?;
+            .map_err(|err| DataStoreError::InternalError(err.to_string()))?;
 
         let input_notes = InputNotes::new(list_of_notes)
-            .map_err(|_| DataStoreError::AccountNotFound(account_id))?;
+            .map_err(|err| DataStoreError::InternalError(err.to_string()))?;
 
         let seed = if account.is_new() { Some(seed) } else { None };
         let transaction_inputs =
@@ -104,5 +95,18 @@ impl DataStore for SqliteDataStore {
             .map_err(|_err| DataStoreError::AccountNotFound(account_id))?;
 
         Ok(module_ast)
+    }
+}
+
+impl From<StoreError> for DataStoreError {
+    fn from(value: StoreError) -> Self {
+        match value {
+            StoreError::AccountDataNotFound(account_id) => {
+                DataStoreError::AccountNotFound(account_id)
+            }
+            StoreError::BlockHeaderNotFound(block_num) => DataStoreError::BlockNotFound(block_num),
+            StoreError::InputNoteNotFound(note_id) => DataStoreError::NoteNotFound(note_id),
+            err => DataStoreError::InternalError(err.to_string()),
+        }
     }
 }

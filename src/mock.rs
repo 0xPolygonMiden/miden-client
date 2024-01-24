@@ -1,7 +1,10 @@
-use crate::client::{
-    sync_state::FILTER_ID_SHIFT,
-    transactions::{PaymentTransactionData, TransactionTemplate},
-    Client,
+use crate::{
+    client::{
+        sync_state::FILTER_ID_SHIFT,
+        transactions::{PaymentTransactionData, TransactionTemplate},
+        Client, RpcApiEndpoint,
+    },
+    errors::RpcApiError,
 };
 use crypto::{dsa::rpo_falcon512::KeyPair, Felt, FieldElement, StarkField, Word};
 use miden_lib::transaction::TransactionKernel;
@@ -27,6 +30,7 @@ use mock::mock::{
     notes::{mock_notes, AssetPreservationStatus},
 };
 use objects::{transaction::InputNotes, utils::collections::BTreeMap, Digest};
+use tonic::{IntoRequest, Response, Status};
 
 use crate::store::accounts::AuthInfo;
 
@@ -55,8 +59,8 @@ impl MockRpcApi {
     /// Executes the specified sync state request and returns the response.
     pub async fn sync_state(
         &mut self,
-        request: impl tonic::IntoRequest<SyncStateRequest>,
-    ) -> Result<tonic::Response<SyncStateResponse>, tonic::Status> {
+        request: impl IntoRequest<SyncStateRequest>,
+    ) -> Result<Response<SyncStateResponse>, RpcApiError> {
         let request: SyncStateRequest = request.into_request().into_inner();
 
         // Match request -> response through block_nu,
@@ -69,8 +73,9 @@ impl MockRpcApi {
                 let response = response.clone();
                 Ok(tonic::Response::new(response))
             }
-            None => Err(tonic::Status::not_found(
-                "no response for sync state request",
+            None => Err(RpcApiError::RequestError(
+                RpcApiEndpoint::SyncState,
+                Status::not_found("no response for sync state request"),
             )),
         }
     }
@@ -79,8 +84,8 @@ impl MockRpcApi {
     /// Only used for retrieving genesis block right now so that's the only case we need to cover.
     pub async fn get_block_header_by_number(
         &mut self,
-        request: impl tonic::IntoRequest<GetBlockHeaderByNumberRequest>,
-    ) -> Result<tonic::Response<GetBlockHeaderByNumberResponse>, tonic::Status> {
+        request: impl IntoRequest<GetBlockHeaderByNumberRequest>,
+    ) -> Result<Response<GetBlockHeaderByNumberResponse>, RpcApiError> {
         let request: GetBlockHeaderByNumberRequest = request.into_request().into_inner();
 
         if request.block_num == Some(0) {
@@ -95,7 +100,7 @@ impl MockRpcApi {
     pub async fn submit_proven_transaction(
         &mut self,
         request: impl tonic::IntoRequest<SubmitProvenTransactionRequest>,
-    ) -> Result<tonic::Response<SubmitProvenTransactionResponse>, tonic::Status> {
+    ) -> std::result::Result<tonic::Response<SubmitProvenTransactionResponse>, RpcApiError> {
         let _request = request.into_request().into_inner();
         let response = SubmitProvenTransactionResponse {};
 
@@ -223,7 +228,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
 }
 
 /// inserts mock note and account data into the client
-pub fn insert_mock_data(client: &mut Client) {
+pub async fn insert_mock_data(client: &mut Client) {
     use mock::mock::{account::MockAccountType, transaction::mock_inputs};
 
     // generate test data

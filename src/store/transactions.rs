@@ -83,7 +83,7 @@ impl Store {
         transaction_result: ExecutedTransaction,
         created_notes: &[Note],
     ) -> Result<(), StoreError> {
-        let (mut account, _seed) = self.get_account_by_id(account_id)?;
+        let (mut account, seed) = self.get_account_by_id(account_id)?;
 
         let account_delta = transaction_result.account_delta();
 
@@ -107,7 +107,7 @@ impl Store {
         // Account Data
         Self::insert_account_storage(&tx, account.storage())?;
         Self::insert_account_asset_vault(&tx, account.vault())?;
-        Self::update_account_record(&tx, &account)?;
+        Self::insert_account_record(&tx, &account, seed)?;
 
         // Updates for notes
         for note in created_notes {
