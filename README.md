@@ -94,11 +94,11 @@ miden-client transaction new mint <regular-account-ID-A> <faucet-account-id> 100
 
 This will execute, prove and submit a transaction that mints assets to the node. The account that executes this transaction will be the faucet as was defined in the node's configuration file. In this case, it is minting `1000` fungible tokens to `<regular-account-ID-A>`. 
 
-This will add a transaction and an output note (containing the minted assets) to the local store in order to track their lifecycles. You can display them by running `miden-client transaction list` and `miden-client input-notes list` respectively. If you do so, you will notice that they do not show a `commit height` even though they were submitted to the operator. This is because our local view of the network has not yet been updated. After updating it with a `sync-state`, you should see the height at which the transaction and the note containing the asset were committed. This will allow us to prove transactions that make use of this note, as we can compute valid proofs that state that the note exists in the blockchain.
+This will add a transaction and an output note (containing the minted asset) to the local store in order to track their lifecycles. You can display them by running `miden-client transaction list` and `miden-client input-notes list` respectively. If you do so, you will notice that they do not show a `commit height` even though they were submitted to the operator. This is because our local view of the network has not yet been updated. After updating it with a `sync-state`, you should see the height at which the transaction and the note containing the asset were committed. This will allow us to prove transactions that make use of this note, as we can compute valid proofs that state that the note exists in the blockchain.
 
 ### 4. Consuming the note
 
-After creating the note with the minted assets, the regular account can now consume it and add the tokens to its vault. You can do this the following way:
+After creating the note with the minted asset, the regular account can now consume it and add the tokens to its vault. You can do this the following way:
 
 ```bash
 miden-client transaction new consume-note <regular-account-ID-A>
@@ -112,11 +112,11 @@ miden-client account show <regular-account-ID-A> -v
 
 ### 5. Transferring assets between accounts
 
-Some of the assets we minted can now be transferred to our second regular account. To do so, you can run:
+Some of the tokens we minted can now be transferred to our second regular account. To do so, you can run:
 
 ```bash
 miden-client state-sync -s # Make sure we have an updated view of the state
-miden-client transaction new p2id <regular-account-ID-A> <regular-account-ID-B> <faucet-account-ID> 50 # Transfers an amount of '50' of the fungible asset to account ID B
+miden-client transaction new p2id <regular-account-ID-A> <regular-account-ID-B> <faucet-account-ID> 50 # Transfers 50 tokens to account ID B
 ```
 
 This will generate a Pay-to-ID (`P2ID`) note containing 50 assets, transferred from one regular account to the other. If we sync, we can now make use of the note and consume it for the receiving account:
