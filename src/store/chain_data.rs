@@ -16,6 +16,39 @@ type SerializedBlockHeaderParts = (u64, String, String, String, String);
 type SerializedChainMmrNodeData = (i64, String);
 type SerializedChainMmrNodeParts = (u64, String);
 
+// Block FILTER
+// ================================================================================================
+/// Represents a filter for blocks
+pub enum BlockFilter {
+    All,
+    Single(u32),
+    Range(u32, u32), // Represents inclusive range [start, end]
+    List(Vec<u32>),
+}
+
+impl BlockFilter {
+    pub fn to_query_filter(&self) -> String {
+        match self {
+            BlockFilter::All => String::from(""),
+            BlockFilter::Single(block_height) => {
+                format!("WHERE block_number = {}", *block_height as i64)
+            }
+            BlockFilter::Range(start, end) => format!(
+                "WHERE block_number >= {} AND block_number < {}",
+                *start as i64, *end as i64
+            ),
+            BlockFilter::List(block_numbers) => {
+                let block_numbers_condition = block_numbers
+                    .iter()
+                    .map(|block_number| format!("block_number = {}", *block_number as i64))
+                    .collect::<Vec<String>>()
+                    .join(" AND ");
+                format!("WHERE {}", block_numbers_condition)
+            }
+        }
+    }
+}
+
 impl Store {
     // CHAIN DATA
     // --------------------------------------------------------------------------------------------
@@ -41,20 +74,29 @@ impl Store {
         .map(|_| ())
     }
 
-    pub fn get_block_header_by_num(&self, block_number: u32) -> Result<BlockHeader, StoreError> {
-        const QUERY: &str = "SELECT block_num, header, notes_root, sub_hash, chain_mmr_peaks FROM block_headers WHERE block_num = ?";
+    pub fn get_block_headers(&self, filter: BlockFilter) -> Result<Vec<BlockHeader>, StoreError> {
+        let query = format!(
+            "SELECT block_num, header, notes_root, sub_hash, chain_mmr_peaks FROM block_headers {}",
+            filter.to_query_filter()
+        );
         self.db
-            .prepare(QUERY)
+            .prepare(&query)
             .map_err(StoreError::QueryError)?
-            .query_map(params![block_number as i64], parse_block_headers_columns)
+            .query_map(params![], parse_block_headers_columns)
             .map_err(StoreError::QueryError)?
             .map(|result| {
                 result
                     .map_err(StoreError::ColumnParsingError)
                     .and_then(parse_block_header)
             })
-            .next()
-            .ok_or(StoreError::BlockHeaderNotFound(block_number))?
+            .collect()
+    }
+
+    pub fn get_block_header_by_num(&self, block_number: u32) -> Result<BlockHeader, StoreError> {
+        self.get_block_headers(BlockFilter::Single(block_number))?
+            .first()
+            .copied()
+            .ok_or(StoreError::BlockHeaderNotFound(block_number))
     }
 
     pub(crate) fn insert_chain_mmr_node(
