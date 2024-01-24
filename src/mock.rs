@@ -71,7 +71,7 @@ impl MockRpcApi {
         {
             Some((_req, response)) => {
                 let response = response.clone();
-                Ok(tonic::Response::new(response))
+                Ok(Response::new(response))
             }
             None => Err(RpcApiError::RequestError(
                 RpcApiEndpoint::SyncState,
@@ -106,7 +106,7 @@ impl MockRpcApi {
 
         // TODO: add some basic validations to test error cases
 
-        Ok(tonic::Response::new(response))
+        Ok(Response::new(response))
     }
 }
 

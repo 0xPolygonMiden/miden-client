@@ -2,6 +2,7 @@ use super::Store;
 use crate::errors::StoreError;
 use clap::error::Result;
 use crypto::merkle::{InOrderIndex, MmrPeaks};
+
 use objects::{BlockHeader, Digest};
 use rusqlite::{params, OptionalExtension, Transaction};
 use std::{collections::BTreeMap, num::NonZeroUsize};
