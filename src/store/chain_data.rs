@@ -31,18 +31,18 @@ impl<'a> BlockFilter<'a> {
         match self {
             BlockFilter::All => String::from(""),
             BlockFilter::Single(block_height) => {
-                format!("WHERE block_number = {}", *block_height as i64)
+                format!("WHERE block_num = {}", *block_height as i64)
             }
             BlockFilter::Range(start, end) => format!(
-                "WHERE block_number >= {} AND block_number < {}",
+                "WHERE block_num >= {} AND block_num <= {}",
                 *start as i64, *end as i64
             ),
             BlockFilter::List(block_numbers) => {
                 let block_numbers_condition = block_numbers
                     .iter()
-                    .map(|block_number| format!("block_number = {}", *block_number as i64))
+                    .map(|block_number| format!("block_num = {}", *block_number as i64))
                     .collect::<Vec<String>>()
-                    .join(" AND ");
+                    .join(" OR ");
                 format!("WHERE {}", block_numbers_condition)
             }
         }
@@ -242,4 +242,51 @@ fn parse_chain_mmr_nodes(
     let node: Digest =
         serde_json::from_str(&node).map_err(StoreError::JsonDataDeserializationError)?;
     Ok((id, node))
+}
+
+#[cfg(test)]
+mod test {
+    use crate::store::{tests::create_test_store, Store};
+    use crypto::merkle::MmrPeaks;
+    use mock::mock::block::mock_block_header;
+    use objects::BlockHeader;
+
+    use super::BlockFilter;
+
+    fn insert_dummy_block_headers(store: &mut Store) -> Vec<BlockHeader> {
+        let block_headers : Vec<BlockHeader> = (0..5).map(|block_num| mock_block_header(block_num, None, None, &[])).collect();
+        let tx = store.db.transaction().unwrap();
+        let dummy_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
+        (0..5).for_each(|block_num| Store::insert_block_header(&tx, block_headers[block_num], dummy_peaks.clone()).unwrap());
+        tx.commit().unwrap();
+
+        block_headers
+    }
+
+    #[test]
+    fn insert_and_get_block_headers_by_number() {
+        let mut store = create_test_store();
+        let block_headers = insert_dummy_block_headers(&mut store);
+
+        let block_header = store.get_block_header_by_num(3).unwrap();
+        assert_eq!(block_headers[3], block_header);
+    }
+
+    #[test]
+    fn insert_and_get_block_headers_in_range() {
+        let mut store = create_test_store();
+        let mock_block_headers = insert_dummy_block_headers(&mut store);
+
+        let block_headers = store.get_block_headers(BlockFilter::Range(1, 3)).unwrap();
+        assert_eq!(&mock_block_headers[1..=3], &block_headers[..]);
+    }
+
+    #[test]
+    fn insert_and_get_block_headers_from_list() {
+        let mut store = create_test_store();
+        let mock_block_headers = insert_dummy_block_headers(&mut store);
+
+        let block_headers = store.get_block_headers(BlockFilter::List(&[1, 3])).unwrap();
+        assert_eq!(&[mock_block_headers[1], mock_block_headers[3]], &block_headers[..]);
+    }
 }
