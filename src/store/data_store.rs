@@ -1,5 +1,3 @@
-use crate::errors::StoreError;
-
 use super::Store;
 use crypto::merkle::PartialMmr;
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
@@ -80,33 +78,14 @@ impl DataStore for SqliteDataStore {
             .map_err(|err| DataStoreError::InternalError(err.to_string()))?;
 
         let seed = if account.is_new() { Some(seed) } else { None };
-        let transaction_inputs =
-            TransactionInputs::new(account, seed, block_header, chain_mmr, input_notes)
-                .map_err(|err| println!("{}", err))
-                .unwrap();
 
-        Ok(transaction_inputs)
+        TransactionInputs::new(account, seed, block_header, chain_mmr, input_notes)
+            .map_err(DataStoreError::InvalidTransactionInput)
     }
 
     fn get_account_code(&self, account_id: AccountId) -> Result<ModuleAst, DataStoreError> {
-        let (_, module_ast) = self
-            .store
-            .get_account_code_by_account_id(account_id)
-            .map_err(|_err| DataStoreError::AccountNotFound(account_id))?;
+        let (_, module_ast) = self.store.get_account_code_by_account_id(account_id)?;
 
         Ok(module_ast)
-    }
-}
-
-impl From<StoreError> for DataStoreError {
-    fn from(value: StoreError) -> Self {
-        match value {
-            StoreError::AccountDataNotFound(account_id) => {
-                DataStoreError::AccountNotFound(account_id)
-            }
-            StoreError::BlockHeaderNotFound(block_num) => DataStoreError::BlockNotFound(block_num),
-            StoreError::InputNoteNotFound(note_id) => DataStoreError::NoteNotFound(note_id),
-            err => DataStoreError::InternalError(err.to_string()),
-        }
     }
 }

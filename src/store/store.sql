@@ -103,7 +103,7 @@ CREATE TABLE block_headers (
     notes_root BLOB NOT NULL,             -- root of the notes Merkle tree in this block
     sub_hash BLOB NOT NULL,               -- hash of all other header fields in the block
     chain_mmr_peaks BLOB NOT NULL,        -- serialized peaks of the chain MMR at this block
-    has_client_notes BOOL NOT NULL,       -- whether the header had notes relevant to the client
+    has_client_notes BOOL NOT NULL,       -- whether the block has notes relevant to the client
     PRIMARY KEY (block_num)
 );
 

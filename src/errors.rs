@@ -5,7 +5,7 @@ use crypto::{
     utils::{DeserializationError, HexParseError},
 };
 use miden_node_proto::error::ParseError;
-use miden_tx::{TransactionExecutorError, TransactionProverError};
+use miden_tx::{DataStoreError, TransactionExecutorError, TransactionProverError};
 use objects::{
     accounts::AccountId, notes::NoteId, AccountError, AssetError, AssetVaultError, Digest,
     NoteError, TransactionScriptError,
@@ -163,6 +163,19 @@ impl fmt::Display for StoreError {
             }
             VaultDataNotFound(root) => write!(f, "account vault data for root {} not found", root),
             RpcTypeConversionFailure(err) => write!(f, "failed to convert data: {err}"),
+        }
+    }
+}
+
+impl From<StoreError> for DataStoreError {
+    fn from(value: StoreError) -> Self {
+        match value {
+            StoreError::AccountDataNotFound(account_id) => {
+                DataStoreError::AccountNotFound(account_id)
+            }
+            StoreError::BlockHeaderNotFound(block_num) => DataStoreError::BlockNotFound(block_num),
+            StoreError::InputNoteNotFound(note_id) => DataStoreError::NoteNotFound(note_id),
+            err => DataStoreError::InternalError(err.to_string()),
         }
     }
 }
