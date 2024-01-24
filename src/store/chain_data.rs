@@ -7,11 +7,12 @@ use crate::errors::StoreError;
 use clap::error::Result;
 
 use crypto::merkle::{InOrderIndex, MmrPeaks};
+
 use objects::{BlockHeader, Digest};
 use rusqlite::{params, OptionalExtension, Transaction};
 
-type SerializedBlockHeaderData = (i64, String, String, String, String);
-type SerializedBlockHeaderParts = (u64, String, String, String, String);
+type SerializedBlockHeaderData = (i64, String, String, String, String, bool);
+type SerializedBlockHeaderParts = (u64, String, String, String, String, bool);
 
 type SerializedChainMmrNodeData = (i64, String);
 type SerializedChainMmrNodeParts = (u64, String);
@@ -56,27 +57,38 @@ impl Store {
         tx: &Transaction<'_>,
         block_header: BlockHeader,
         chain_mmr_peaks: MmrPeaks,
+        has_client_notes: bool,
     ) -> Result<(), StoreError> {
         let chain_mmr_peaks = chain_mmr_peaks.peaks().to_vec();
-        let (block_num, header, notes_root, sub_hash, chain_mmr) =
-            serialize_block_header(block_header, chain_mmr_peaks)?;
+        let (block_num, header, notes_root, sub_hash, chain_mmr, has_client_notes) =
+            serialize_block_header(block_header, chain_mmr_peaks, has_client_notes)?;
 
         const QUERY: &str = "\
         INSERT INTO block_headers
-            (block_num, header, notes_root, sub_hash, chain_mmr_peaks)
-         VALUES (?, ?, ?, ?, ?)";
+            (block_num, header, notes_root, sub_hash, chain_mmr_peaks, has_client_notes)
+         VALUES (?, ?, ?, ?, ?, ?)";
 
         tx.execute(
             QUERY,
-            params![block_num, header, notes_root, sub_hash, chain_mmr],
+            params![
+                block_num,
+                header,
+                notes_root,
+                sub_hash,
+                chain_mmr,
+                has_client_notes
+            ],
         )
         .map_err(StoreError::QueryError)
         .map(|_| ())
     }
 
-    pub fn get_block_headers(&self, filter: BlockFilter) -> Result<Vec<BlockHeader>, StoreError> {
+    pub fn get_block_headers(
+        &self,
+        filter: BlockFilter,
+    ) -> Result<Vec<(BlockHeader, bool)>, StoreError> {
         let query = format!(
-            "SELECT block_num, header, notes_root, sub_hash, chain_mmr_peaks FROM block_headers {}",
+            "SELECT block_num, header, notes_root, sub_hash, chain_mmr_peaks, has_client_notes FROM block_headers {}",
             filter.to_query_filter()
         );
         self.db
@@ -92,13 +104,17 @@ impl Store {
             .collect()
     }
 
-    pub fn get_block_header_by_num(&self, block_number: u32) -> Result<BlockHeader, StoreError> {
+    pub fn get_block_header_by_num(
+        &self,
+        block_number: u32,
+    ) -> Result<(BlockHeader, bool), StoreError> {
         self.get_block_headers(BlockFilter::Single(block_number))?
             .first()
             .copied()
             .ok_or(StoreError::BlockHeaderNotFound(block_number))
     }
 
+    /// Inserts a node represented by its in-order index and the node value.
     pub(crate) fn insert_chain_mmr_node(
         tx: &Transaction<'_>,
         id: InOrderIndex,
@@ -113,6 +129,7 @@ impl Store {
             .map(|_| ())
     }
 
+    /// Inserts a list of MMR authentication nodes to the Chain MMR nodes table.
     pub fn insert_chain_mmr_nodes(
         tx: &Transaction<'_>,
         nodes: Vec<(InOrderIndex, Digest)>,
@@ -124,7 +141,7 @@ impl Store {
         Ok(())
     }
 
-    /// Returns all nodes in the table.
+    /// Returns all MMR nodes in the store.
     pub fn get_chain_mmr_nodes(&self) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
         const QUERY: &str = "SELECT id, node FROM chain_mmr_nodes";
         self.db
@@ -176,6 +193,7 @@ fn parse_mmr_peaks(forest: u32, peaks_nodes: String) -> Result<MmrPeaks, StoreEr
 fn serialize_block_header(
     block_header: BlockHeader,
     chain_mmr_peaks: Vec<Digest>,
+    has_client_notes: bool,
 ) -> Result<SerializedBlockHeaderData, StoreError> {
     let block_num = block_header.block_num();
     let header =
@@ -193,6 +211,7 @@ fn serialize_block_header(
         notes_root,
         sub_hash,
         chain_mmr_peaks,
+        has_client_notes,
     ))
 }
 
@@ -204,16 +223,27 @@ fn parse_block_headers_columns(
     let notes_root: String = row.get(2)?;
     let sub_hash: String = row.get(3)?;
     let chain_mmr: String = row.get(4)?;
+    let has_client_notes: bool = row.get(5)?;
 
-    Ok((block_num as u64, header, notes_root, sub_hash, chain_mmr))
+    Ok((
+        block_num as u64,
+        header,
+        notes_root,
+        sub_hash,
+        chain_mmr,
+        has_client_notes,
+    ))
 }
 
 fn parse_block_header(
     serialized_block_header_parts: SerializedBlockHeaderParts,
-) -> Result<BlockHeader, StoreError> {
-    let (_, header, _, _, _) = serialized_block_header_parts;
+) -> Result<(BlockHeader, bool), StoreError> {
+    let (_, header, _, _, _, has_client_notes) = serialized_block_header_parts;
 
-    serde_json::from_str(&header).map_err(StoreError::JsonDataDeserializationError)
+    Ok((
+        serde_json::from_str(&header).map_err(StoreError::JsonDataDeserializationError)?,
+        has_client_notes,
+    ))
 }
 
 fn serialize_chain_mmr_node(
@@ -254,10 +284,15 @@ mod test {
     use super::BlockFilter;
 
     fn insert_dummy_block_headers(store: &mut Store) -> Vec<BlockHeader> {
-        let block_headers : Vec<BlockHeader> = (0..5).map(|block_num| mock_block_header(block_num, None, None, &[])).collect();
+        let block_headers: Vec<BlockHeader> = (0..5)
+            .map(|block_num| mock_block_header(block_num, None, None, &[]))
+            .collect();
         let tx = store.db.transaction().unwrap();
         let dummy_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
-        (0..5).for_each(|block_num| Store::insert_block_header(&tx, block_headers[block_num], dummy_peaks.clone()).unwrap());
+        (0..5).for_each(|block_num| {
+            Store::insert_block_header(&tx, block_headers[block_num], dummy_peaks.clone(), false)
+                .unwrap()
+        });
         tx.commit().unwrap();
 
         block_headers
@@ -269,7 +304,7 @@ mod test {
         let block_headers = insert_dummy_block_headers(&mut store);
 
         let block_header = store.get_block_header_by_num(3).unwrap();
-        assert_eq!(block_headers[3], block_header);
+        assert_eq!(block_headers[3], block_header.0);
     }
 
     #[test]
@@ -277,7 +312,12 @@ mod test {
         let mut store = create_test_store();
         let mock_block_headers = insert_dummy_block_headers(&mut store);
 
-        let block_headers = store.get_block_headers(BlockFilter::Range(1, 3)).unwrap();
+        let block_headers: Vec<BlockHeader> = store
+            .get_block_headers(BlockFilter::Range(1, 3))
+            .unwrap()
+            .into_iter()
+            .map(|(block_header, _has_notes)| block_header)
+            .collect();
         assert_eq!(&mock_block_headers[1..=3], &block_headers[..]);
     }
 
@@ -286,7 +326,15 @@ mod test {
         let mut store = create_test_store();
         let mock_block_headers = insert_dummy_block_headers(&mut store);
 
-        let block_headers = store.get_block_headers(BlockFilter::List(&[1, 3])).unwrap();
-        assert_eq!(&[mock_block_headers[1], mock_block_headers[3]], &block_headers[..]);
+        let block_headers: Vec<BlockHeader> = store
+            .get_block_headers(BlockFilter::List(&[1, 3]))
+            .unwrap()
+            .into_iter()
+            .map(|(block_header, _has_notes)| block_header)
+            .collect();
+        assert_eq!(
+            &[mock_block_headers[1], mock_block_headers[3]],
+            &block_headers[..]
+        );
     }
 }

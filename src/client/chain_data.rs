@@ -11,8 +11,9 @@ impl Client {
         &self,
         start: u32,
         finish: u32,
-    ) -> Result<Vec<BlockHeader>, ClientError> {
-        self.store.get_block_headers(BlockFilter::Range(start, finish))
+    ) -> Result<Vec<(BlockHeader, bool)>, ClientError> {
+        self.store
+            .get_block_headers(BlockFilter::Range(start, finish))
             .map_err(ClientError::StoreError)
     }
 
@@ -20,8 +21,9 @@ impl Client {
     pub fn get_block_headers(
         &self,
         block_numbers: &[u32],
-    ) -> Result<Vec<BlockHeader>, ClientError> {
-        self.store.get_block_headers(BlockFilter::List(block_numbers))
+    ) -> Result<Vec<(BlockHeader, bool)>, ClientError> {
+        self.store
+            .get_block_headers(BlockFilter::List(block_numbers))
             .map_err(ClientError::StoreError)
     }
 }
