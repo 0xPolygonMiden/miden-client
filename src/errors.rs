@@ -170,7 +170,7 @@ impl From<StoreError> for DataStoreError {
                 DataStoreError::AccountNotFound(account_id)
             }
             StoreError::BlockHeaderNotFound(block_num) => DataStoreError::BlockNotFound(block_num),
-            StoreError::InputNoteNotFound(note_id) => DataStoreError::NoteNotFound(note_id),
+            //StoreError::InputNoteNotFound(note_id) => DataStoreError::NoteNotFound(note_id),
             err => DataStoreError::InternalError(err.to_string()),
         }
     }
