@@ -1,5 +1,3 @@
-
-
 use clap::Parser;
 use miden_client::{client::Client, config::ClientConfig};
 
