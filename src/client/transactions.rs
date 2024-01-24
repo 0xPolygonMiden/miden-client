@@ -19,7 +19,7 @@ use rand::Rng;
 
 use crate::{
     errors::ClientError,
-    store::{accounts::AuthInfo, transactions::TransactionFilter, notes::InputNoteFilter},
+    store::{accounts::AuthInfo, notes::InputNoteFilter, transactions::TransactionFilter},
 };
 
 use super::Client;
