@@ -367,7 +367,7 @@ async fn test_sync_state() {
 
     // verify that the latest block number has been updated
     assert_eq!(
-        client.get_latest_block_num().unwrap(),
+        client.get_sync_height().unwrap(),
         client
             .rpc_api
             .sync_state_requests
@@ -464,5 +464,6 @@ async fn test_mint_transaction() {
         target_account_id: AccountId::from_hex("0x168187d729b31a84").unwrap(),
     };
 
-    client.new_transaction(transaction_template).unwrap();
+    let transaction = client.new_transaction(transaction_template).unwrap();
+    assert!(transaction.account_delta().nonce().is_some());
 }

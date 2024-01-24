@@ -5,7 +5,7 @@ use crypto::{
     utils::{DeserializationError, HexParseError},
 };
 use miden_node_proto::error::ParseError;
-use miden_tx::{TransactionExecutorError, TransactionProverError};
+use miden_tx::{DataStoreError, TransactionExecutorError, TransactionProverError};
 use objects::{
     accounts::AccountId, notes::NoteId, AccountError, AssetError, AssetVaultError, Digest,
     NoteError, TransactionScriptError,
@@ -22,7 +22,7 @@ pub enum ClientError {
     AuthError(FalconError),
     NoteError(NoteError),
     RpcApiError(RpcApiError),
-    RpcExpectedFieldMissingFailure(String),
+    RpcExpectedFieldMissing(String),
     RpcTypeConversionFailure(ParseError),
     StoreError(StoreError),
     TransactionExecutionError(TransactionExecutorError),
@@ -35,20 +35,20 @@ impl fmt::Display for ClientError {
             ClientError::AccountError(err) => write!(f, "account error: {err}"),
             ClientError::AssetError(err) => write!(f, "asset error: {err}"),
             ClientError::AuthError(err) => write!(f, "account auth error: {err}"),
+            ClientError::NoteError(err) => write!(f, "note error: {err}"),
+            ClientError::RpcApiError(err) => write!(f, "rpc api error: {err}"),
+            ClientError::RpcExpectedFieldMissing(err) => {
+                write!(f, "rpc api reponse missing an expected field: {err}")
+            }
             ClientError::RpcTypeConversionFailure(err) => {
                 write!(f, "failed to convert data: {err}")
             }
-            ClientError::NoteError(err) => write!(f, "note error: {err}"),
-            ClientError::RpcApiError(err) => write!(f, "rpc api error: {err}"),
             ClientError::StoreError(err) => write!(f, "store error: {err}"),
             ClientError::TransactionExecutionError(err) => {
                 write!(f, "transaction executor error: {err}")
             }
             ClientError::TransactionProvingError(err) => {
                 write!(f, "transaction prover error: {err}")
-            }
-            ClientError::RpcExpectedFieldMissingFailure(err) => {
-                write!(f, "rpc api reponse missing an expected field: {err}")
             }
         }
     }
@@ -159,6 +159,19 @@ impl fmt::Display for StoreError {
             }
             VaultDataNotFound(root) => write!(f, "account vault data for root {} not found", root),
             RpcTypeConversionFailure(err) => write!(f, "failed to convert data: {err}"),
+        }
+    }
+}
+
+impl From<StoreError> for DataStoreError {
+    fn from(value: StoreError) -> Self {
+        match value {
+            StoreError::AccountDataNotFound(account_id) => {
+                DataStoreError::AccountNotFound(account_id)
+            }
+            StoreError::BlockHeaderNotFound(block_num) => DataStoreError::BlockNotFound(block_num),
+            StoreError::InputNoteNotFound(note_id) => DataStoreError::NoteNotFound(note_id),
+            err => DataStoreError::InternalError(err.to_string()),
         }
     }
 }

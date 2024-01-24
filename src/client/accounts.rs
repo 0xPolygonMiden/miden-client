@@ -3,7 +3,8 @@ use crypto::{dsa::rpo_falcon512::KeyPair, Felt, Word};
 use miden_lib::AuthScheme;
 use objects::{
     accounts::{
-        Account, AccountData, AccountId, AccountStorage, AccountStub, AccountType, AuthData,
+        Account, AccountData, AccountDelta, AccountId, AccountStorage, AccountStub, AccountType,
+        AuthData,
     },
     assembly::ModuleAst,
     assets::{Asset, TokenSymbol},
@@ -164,6 +165,17 @@ impl Client {
     ) -> Result<(), ClientError> {
         self.store
             .insert_account(account, account_seed, auth_info)
+            .map_err(ClientError::StoreError)
+    }
+
+    /// Applies an [AccountDelta] to the stored account and stores the result in the database.
+    pub fn update_account(
+        &mut self,
+        account_id: AccountId,
+        account_delta: &AccountDelta,
+    ) -> Result<(), ClientError> {
+        self.store
+            .update_account(account_id, account_delta)
             .map_err(ClientError::StoreError)
     }
 

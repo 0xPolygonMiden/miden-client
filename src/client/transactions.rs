@@ -15,7 +15,10 @@ use objects::{
 };
 use rand::Rng;
 
-use crate::{errors::ClientError, store::accounts::AuthInfo};
+use crate::{
+    errors::ClientError,
+    store::{accounts::AuthInfo, transactions::TransactionFilter},
+};
 
 use super::{sync_state::FILTER_ID_SHIFT, Client};
 
@@ -103,15 +106,20 @@ impl Client {
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
-    /// Returns input notes managed by this client.
-    pub fn get_transactions(&self) -> Result<Vec<TransactionStub>, ClientError> {
-        self.store.get_transactions().map_err(|err| err.into())
+    /// Retrieves tracked transactions, filtered by [TransactionFilter].
+    pub fn get_transactions(
+        &self,
+        transaction_filter: TransactionFilter,
+    ) -> Result<Vec<TransactionStub>, ClientError> {
+        self.store
+            .get_transactions(transaction_filter)
+            .map_err(|err| err.into())
     }
 
     // TRANSACTION
     // --------------------------------------------------------------------------------------------
 
-    /// Creates and executes a transactions specified by the template, but does not change the
+    /// Creates and executes a transaction specified by the template, but does not change the
     /// local database.
     pub fn new_transaction(
         &mut self,
@@ -132,7 +140,8 @@ impl Client {
         }
     }
 
-    pub fn new_mint_fungible_asset_transaction(
+    /// Creates and executes a mint transaction specified by the template.
+    fn new_mint_fungible_asset_transaction(
         &mut self,
         asset: FungibleAsset,
         target_id: AccountId,
@@ -145,7 +154,7 @@ impl Client {
             .load_account(faucet_id)
             .map_err(ClientError::TransactionExecutionError)?;
 
-        let block_ref = self.get_latest_block_num()?;
+        let block_ref = self.get_sync_height()?;
 
         let random_coin = self.get_random_coin();
 
@@ -229,7 +238,7 @@ impl Client {
             .load_account(target_account_id)
             .map_err(ClientError::TransactionExecutionError)?;
 
-        let block_ref = self.get_latest_block_num()?;
+        let block_ref = self.get_sync_height()?;
         let note_origins = [];
 
         let tx_script_code = ProgramAst::parse(
