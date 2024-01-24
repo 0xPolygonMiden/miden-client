@@ -37,8 +37,8 @@ pub enum TransactionFilter {
 
 impl TransactionFilter {
     pub fn to_query(&self) -> String {
-        const QUERY: &str = "SELECT tx.id, tx.account_id, tx.init_account_state, tx.final_account_state, tx.input_notes, tx.output_notes, tx.script_hash, \
-            script.program, script.inputs, tx.block_num, tx.committed, tx.commit_height \
+        const QUERY: &str = "SELECT tx.id, tx.account_id, tx.init_account_state, tx.final_account_state, \
+            tx.input_notes, tx.output_notes, tx.script_hash, script.program, tx.script_inputs, tx.block_num, tx.committed, tx.commit_height \
             FROM transactions AS tx LEFT JOIN transaction_scripts AS script ON tx.script_hash = script.id";
         match self {
             TransactionFilter::All => QUERY.to_string(),
