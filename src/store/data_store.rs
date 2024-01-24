@@ -1,5 +1,3 @@
-
-
 use super::Store;
 use crypto::merkle::PartialMmr;
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
