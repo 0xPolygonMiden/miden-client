@@ -156,6 +156,7 @@ fn create_mock_sync_state_request_for_account_and_notes(
             note_hash: Some(created_notes.first().unwrap().id().into()),
             sender: account.id().into(),
             tag: 0u64,
+            num_assets: 2,
             merkle_path: Some(MerklePath::default()),
         }],
         nullifiers: vec![NullifierUpdate {
@@ -191,6 +192,7 @@ fn create_mock_sync_state_request_for_account_and_notes(
             note_hash: Some(created_notes.first().unwrap().id().into()),
             sender: account.id().into(),
             tag: 0u64,
+            num_assets: 2,
             merkle_path: Some(MerklePath::default()),
         }],
         nullifiers: vec![NullifierUpdate {

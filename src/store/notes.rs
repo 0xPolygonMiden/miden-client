@@ -13,8 +13,8 @@ use rusqlite::params;
 
 pub(crate) const INSERT_NOTE_QUERY: &str = "\
 INSERT INTO input_notes
-    (note_id, nullifier, script, vault, inputs, serial_num, sender_id, tag, inclusion_proof, recipients, status, commit_height)
- VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    (note_id, nullifier, script, vault, inputs, serial_num, sender_id, tag, num_assets, inclusion_proof, recipients, status, commit_height)
+ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
 // TYPES
 // ================================================================================================
@@ -28,13 +28,23 @@ type SerializedInputNoteData = (
     String,
     i64,
     i64,
+    i64,
     Option<Vec<u8>>,
     String,
     String,
     i64,
 );
 
-type SerializedInputNoteParts = (Vec<u8>, Vec<u8>, Vec<u8>, String, u64, u64, Option<Vec<u8>>);
+type SerializedInputNoteParts = (
+    Vec<u8>,
+    Vec<u8>,
+    Vec<u8>,
+    String,
+    u64,
+    u64,
+    u64,
+    Option<Vec<u8>>,
+);
 
 // NOTE FILTER
 // ================================================================================================
@@ -48,7 +58,7 @@ pub enum InputNoteFilter {
 
 impl InputNoteFilter {
     pub fn to_query(&self) -> String {
-        let base = String::from("SELECT script, inputs, vault, serial_num, sender_id, tag, inclusion_proof FROM input_notes");
+        let base = String::from("SELECT script, inputs, vault, serial_num, sender_id, tag, num_assets, inclusion_proof FROM input_notes");
         match self {
             InputNoteFilter::All => base,
             InputNoteFilter::Committed => format!("{base} WHERE status = 'committed'"),
@@ -159,7 +169,7 @@ impl Store {
     /// Retrieves the input note with the specified id from the database
     pub fn get_input_note_by_id(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError> {
         let query_id = &note_id.inner().to_string();
-        const QUERY: &str = "SELECT script, inputs, vault, serial_num, sender_id, tag, inclusion_proof FROM input_notes WHERE note_id = ?";
+        const QUERY: &str = "SELECT script, inputs, vault, serial_num, sender_id, tag, num_assets, inclusion_proof FROM input_notes WHERE note_id = ?";
 
         self.db
             .prepare(QUERY)
@@ -186,6 +196,7 @@ impl Store {
             serial_num,
             sender_id,
             tag,
+            num_assets,
             inclusion_proof,
             recipients,
             status,
@@ -204,6 +215,7 @@ impl Store {
                     serial_num,
                     sender_id,
                     tag,
+                    num_assets,
                     inclusion_proof,
                     recipients,
                     status,
@@ -245,7 +257,8 @@ fn parse_input_note_columns(
     let serial_num: String = row.get(3)?;
     let sender_id = row.get::<usize, i64>(4)? as u64;
     let tag = row.get::<usize, i64>(5)? as u64;
-    let inclusion_proof: Option<Vec<u8>> = row.get(6)?;
+    let num_assets = row.get::<usize, i64>(6)? as u64;
+    let inclusion_proof: Option<Vec<u8>> = row.get(7)?;
     Ok((
         script,
         inputs,
@@ -253,6 +266,7 @@ fn parse_input_note_columns(
         serial_num,
         sender_id,
         tag,
+        num_assets,
         inclusion_proof,
     ))
 }
@@ -261,7 +275,7 @@ fn parse_input_note_columns(
 fn parse_input_note(
     serialized_input_note_parts: SerializedInputNoteParts,
 ) -> Result<InputNoteRecord, StoreError> {
-    let (script, inputs, note_assets, serial_num, sender_id, tag, inclusion_proof) =
+    let (script, inputs, note_assets, serial_num, sender_id, tag, num_assets, inclusion_proof) =
         serialized_input_note_parts;
     let script =
         NoteScript::read_from_bytes(&script).map_err(StoreError::DataDeserializationError)?;
@@ -274,6 +288,7 @@ fn parse_input_note(
     let note_metadata = NoteMetadata::new(
         AccountId::new_unchecked(Felt::new(sender_id)),
         Felt::new(tag),
+        Felt::new(num_assets),
     );
     let note = Note::from_parts(script, inputs, vault, serial_num, note_metadata);
 
@@ -300,6 +315,7 @@ pub(crate) fn serialize_input_note(
         .map_err(StoreError::InputSerializationError)?;
     let sender_id = u64::from(note.note().metadata().sender()) as i64;
     let tag = u64::from(note.note().metadata().tag()) as i64;
+    let num_assets = u64::from(note.note().metadata().num_assets()) as i64;
     let (inclusion_proof, status, commit_height) = match note.inclusion_proof() {
         Some(proof) => {
             // FIXME: This removal is to accomodate a problem with how the node constructs paths where
@@ -330,6 +346,7 @@ pub(crate) fn serialize_input_note(
         }
         None => (None, String::from("pending"), 0u32),
     };
+    //(note_id, nullifier, script, vault, inputs, serial_num, sender_id, tag, num_assets, inclusion_proof, recipients, status, commit_height)
     let recipients = note.note().recipient().to_string();
 
     Ok((
@@ -341,6 +358,7 @@ pub(crate) fn serialize_input_note(
         serial_num,
         sender_id,
         tag,
+        num_assets,
         inclusion_proof,
         recipients,
         status,
