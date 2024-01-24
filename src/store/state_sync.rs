@@ -86,13 +86,12 @@ impl Store {
         mmr_delta: Option<MmrDelta>,
         committed_notes: Vec<(Digest, NoteInclusionProof)>,
     ) -> Result<(), StoreError> {
-        // get current nodes on table
-        // we need to do this here because creating a sql tx borrows a mut reference
+        // retrieve necessary data
+        // we need to do this here because creating a sql tx borrows a mut reference w
         let (current_block_header, header_had_notes) =
             self.get_block_header_by_num(current_block_num)?;
 
         let current_peaks = self.get_chain_mmr_peaks_by_block_num(current_block_num)?;
-
         let uncommitted_transactions = self.get_transactions(TransactionFilter::Uncomitted)?;
 
         let current_accounts: Vec<AccountStub> = self
@@ -101,13 +100,13 @@ impl Store {
             .map(|(acc, _)| acc.clone())
             .collect();
 
+        // Check if the returned account hashes match latest account hashes in the database
+        check_account_hashes(&account_updates, &current_accounts)?;
+
         let tx = self
             .db
             .transaction()
             .map_err(StoreError::TransactionError)?;
-
-        // Check if the returned account hashes match latest account hashes in the database
-        Self::check_account_hashes(&account_updates, &current_accounts)?;
 
         // update state sync block number
         const BLOCK_NUMBER_QUERY: &str = "UPDATE state_sync SET block_num = ?";
@@ -148,13 +147,15 @@ impl Store {
             Store::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
         }
 
-        let header_has_interesting_notes = !committed_notes.is_empty();
+        // TODO: Due to the fact that notes are returned based on fuzzy matching of tags,
+        // this process of marking if the header has notes needs to be revisited
+        let block_has_interesting_notes = !committed_notes.is_empty();
 
         Store::insert_block_header(
             &tx,
             block_header,
             partial_mmr.peaks(),
-            header_has_interesting_notes,
+            block_has_interesting_notes,
         )?;
 
         // update tracked notes
@@ -184,34 +185,34 @@ impl Store {
 
         Ok(())
     }
+}
 
-    fn check_account_hashes(
-        account_updates: &[AccountHashUpdate],
-        current_accounts: &[AccountStub],
-    ) -> Result<(), StoreError> {
-        for account_update in account_updates {
-            if let (Some(update_account_id), Some(remote_account_hash)) =
-                (&account_update.account_id, &account_update.account_hash)
+fn check_account_hashes(
+    account_updates: &[AccountHashUpdate],
+    current_accounts: &[AccountStub],
+) -> Result<(), StoreError> {
+    for account_update in account_updates {
+        if let (Some(update_account_id), Some(remote_account_hash)) =
+            (&account_update.account_id, &account_update.account_hash)
+        {
+            let update_account_id: u64 = update_account_id.clone().into();
+            if let Some(acc_stub) = current_accounts
+                .iter()
+                .find(|acc| update_account_id == u64::from(acc.id()))
             {
-                let update_account_id: u64 = update_account_id.clone().into();
-                if let Some(acc_stub) = current_accounts
-                    .iter()
-                    .find(|acc| update_account_id == u64::from(acc.id()))
-                {
-                    let remote_account_hash: Digest = remote_account_hash
-                        .try_into()
-                        .map_err(StoreError::RpcTypeConversionFailure)?;
+                let remote_account_hash: Digest = remote_account_hash
+                    .try_into()
+                    .map_err(StoreError::RpcTypeConversionFailure)?;
 
-                    if remote_account_hash != acc_stub.hash() {
-                        return Err(StoreError::AccountHashMismatch(
-                            update_account_id
-                                .try_into()
-                                .map_err(StoreError::AccountError)?,
-                        ));
-                    }
+                if remote_account_hash != acc_stub.hash() {
+                    return Err(StoreError::AccountHashMismatch(
+                        update_account_id
+                            .try_into()
+                            .map_err(StoreError::AccountError)?,
+                    ));
                 }
             }
         }
-        Ok(())
     }
+    Ok(())
 }

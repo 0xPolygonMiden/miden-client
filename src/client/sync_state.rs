@@ -65,7 +65,8 @@ impl Client {
         }
     }
 
-    ///
+    /// Attempts to retrieve the genesis block from the store. If not found,
+    /// it requests it from the node and store it
     async fn ensure_genesis_in_place(&mut self) -> Result<(), ClientError> {
         let genesis = self.store.get_block_header_by_num(0);
 
@@ -76,6 +77,8 @@ impl Client {
         }
     }
 
+    /// Calls `get_block_header_by_number` requesting the genesis block and storing it
+    /// in the local database
     async fn retrieve_and_store_genesis(&mut self) -> Result<(), ClientError> {
         let genesis_block = self
             .rpc_api
