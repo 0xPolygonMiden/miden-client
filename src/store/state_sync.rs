@@ -130,11 +130,9 @@ impl Store {
                 .try_into()
                 .map_err(StoreError::RpcTypeConversionFailure)?;
 
-            let new_authentication_nodes = new_authentication_nodes.into_iter().chain(
-                partial_mmr
-                    .apply(mmr_delta)
-                    .map_err(StoreError::MmrError)?,
-            );
+            let new_authentication_nodes = new_authentication_nodes
+                .into_iter()
+                .chain(partial_mmr.apply(mmr_delta).map_err(StoreError::MmrError)?);
             // insert new relevant authentication nodes
             Store::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
         }
