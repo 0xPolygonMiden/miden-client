@@ -8,6 +8,7 @@ use objects::{
 };
 use rusqlite::params;
 
+
 use crate::{errors::StoreError, store::transactions::TransactionFilter};
 
 use super::Store;
@@ -122,19 +123,25 @@ impl Store {
         let mut partial_mmr: PartialMmr = PartialMmr::from_peaks(current_peaks);
         if let Some(mmr_delta) = mmr_delta {
             // first, apply curent_block to the Mmr
-            let new_authentication_nodes =
-                partial_mmr.add(current_block_header.hash(), block_had_notes);
+            let new_authentication_nodes = partial_mmr
+                .add(current_block_header.hash(), block_had_notes)
+                .into_iter();
 
             // apply the Mmr delta to bring Mmr to forest equal to chain_tip
             let mmr_delta: crypto::merkle::MmrDelta = mmr_delta
                 .try_into()
                 .map_err(StoreError::RpcTypeConversionFailure)?;
 
-            let new_authentication_nodes = new_authentication_nodes
-                .into_iter()
-                .chain(partial_mmr.apply(mmr_delta).map_err(StoreError::MmrError)?);
-            // insert new relevant authentication nodes
-            Store::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
+            let delta_new_authentication_nodes = partial_mmr
+                .apply(mmr_delta)
+                .map_err(StoreError::MmrError)?
+                .into_iter();
+
+            // insert new relevant authentication nodescargo
+            Store::insert_chain_mmr_nodes(
+                &tx,
+                new_authentication_nodes.chain(delta_new_authentication_nodes),
+            )?;
         }
 
         // TODO: Due to the fact that notes are returned based on fuzzy matching of tags,
