@@ -58,9 +58,21 @@ impl From<AccountError> for ClientError {
     }
 }
 
+impl From<FalconError> for ClientError {
+    fn from(err: FalconError) -> Self {
+        Self::AuthError(err)
+    }
+}
+
 impl From<NoteError> for ClientError {
     fn from(err: NoteError) -> Self {
         Self::NoteError(err)
+    }
+}
+
+impl From<RpcApiError> for ClientError {
+    fn from(err: RpcApiError) -> Self {
+        Self::RpcApiError(err)
     }
 }
 
@@ -85,12 +97,6 @@ impl From<TransactionExecutorError> for ClientError {
 impl From<TransactionProverError> for ClientError {
     fn from(err: TransactionProverError) -> Self {
         Self::TransactionProvingError(err)
-    }
-}
-
-impl From<RpcApiError> for ClientError {
-    fn from(err: RpcApiError) -> Self {
-        Self::RpcApiError(err)
     }
 }
 

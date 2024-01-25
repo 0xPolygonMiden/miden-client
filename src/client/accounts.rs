@@ -92,7 +92,7 @@ impl Client {
         }
 
         let key_pair: objects::crypto::dsa::rpo_falcon512::KeyPair =
-            objects::crypto::dsa::rpo_falcon512::KeyPair::new().map_err(ClientError::AuthError)?;
+            objects::crypto::dsa::rpo_falcon512::KeyPair::new()?;
 
         let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
             pub_key: key_pair.public_key(),
@@ -132,7 +132,7 @@ impl Client {
         }
 
         let key_pair: objects::crypto::dsa::rpo_falcon512::KeyPair =
-            objects::crypto::dsa::rpo_falcon512::KeyPair::new().map_err(ClientError::AuthError)?;
+            objects::crypto::dsa::rpo_falcon512::KeyPair::new()?;
 
         let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
             pub_key: key_pair.public_key(),
