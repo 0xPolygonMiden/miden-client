@@ -123,13 +123,13 @@ impl Store {
 
         // TODO: Due to the fact that notes are returned based on fuzzy matching of tags,
         // this process of marking if the header has notes needs to be revisited
-        let block_has_interesting_notes = !committed_notes.is_empty();
+        let block_has_relevant_notes = !committed_notes.is_empty();
         let new_partial_mmr = apply_and_store_mmr_changes(
             &tx,
             current_peaks,
             mmr_delta,
             current_block_header,
-            block_has_interesting_notes,
+            block_has_relevant_notes,
         )?;
 
         Store::insert_block_header(&tx, block_header, new_partial_mmr.peaks(), block_had_notes)?;
@@ -200,14 +200,14 @@ fn apply_and_store_mmr_changes(
     current_peaks: MmrPeaks,
     mmr_delta: MmrDelta,
     current_block_header: BlockHeader,
-    block_had_notes: bool,
+    block_had_relevant_notes: bool,
 ) -> Result<PartialMmr, StoreError> {
     // TODO: reload local full view of Partial Mmr here
     let mut partial_mmr: PartialMmr = PartialMmr::from_peaks(current_peaks);
 
     // first, apply curent_block to the Mmr
     let new_authentication_nodes = partial_mmr
-        .add(current_block_header.hash(), block_had_notes)
+        .add(current_block_header.hash(), block_had_relevant_notes)
         .into_iter();
 
     // apply the Mmr delta to bring Mmr to forest equal to chain_tip
