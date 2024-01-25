@@ -1,7 +1,4 @@
-use crypto::{
-    merkle::{MerklePath, PartialMmr},
-    utils::Serializable,
-};
+use crypto::{merkle::PartialMmr, utils::Serializable};
 use miden_node_proto::{mmr::MmrDelta, responses::AccountHashUpdate};
 
 use objects::{
@@ -80,7 +77,6 @@ impl Store {
         &mut self,
         current_block_num: u32,
         block_header: BlockHeader,
-        requested_header_block_path: MerklePath,
         nullifiers: Vec<Digest>,
         account_updates: Vec<AccountHashUpdate>,
         mmr_delta: Option<MmrDelta>,
@@ -88,7 +84,7 @@ impl Store {
     ) -> Result<(), StoreError> {
         // retrieve necessary data
         // we need to do this here because creating a sql tx borrows a mut reference w
-        let (current_block_header, header_had_notes) =
+        let (current_block_header, block_had_notes) =
             self.get_block_header_by_num(current_block_num)?;
 
         let current_peaks = self.get_chain_mmr_peaks_by_block_num(current_block_num)?;
@@ -122,28 +118,24 @@ impl Store {
                 .map_err(StoreError::QueryError)?;
         }
 
-        // build partial mmr from the nodes - partial_mmr should be on memory as part of our store
+        // TODO: reload local full view of Partial Mmr here
         let mut partial_mmr: PartialMmr = PartialMmr::from_peaks(current_peaks);
-
         if let Some(mmr_delta) = mmr_delta {
-            // apply the delta
+            // first, apply curent_block to the Mmr
+            let new_authentication_nodes = partial_mmr.add(current_block_header.hash(), true);
+            if block_had_notes {
+                // if the block had relevant notes, save authentication nodes for later usage
+                Store::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
+            }
+
+            // apply the Mmr delta to bring Mmr to forest equal to chain_tip
             let mmr_delta: crypto::merkle::MmrDelta = mmr_delta
                 .try_into()
                 .map_err(StoreError::RpcTypeConversionFailure)?;
 
             let new_authentication_nodes =
                 partial_mmr.apply(mmr_delta).map_err(StoreError::MmrError)?;
-
-            if header_had_notes {
-                partial_mmr
-                    .track(
-                        current_block_num as usize,
-                        current_block_header.hash(),
-                        &requested_header_block_path,
-                    )
-                    .map_err(StoreError::MmrError)?;
-            }
-
+            // insert new relevant authentication nodes
             Store::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
         }
 

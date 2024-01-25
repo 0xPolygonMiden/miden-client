@@ -148,7 +148,6 @@ fn create_mock_sync_state_request_for_account_and_notes(
             forest: 8,
             data: vec![Digest::new(Word::default()).into()],
         }),
-        block_path: Some(MerklePath::default()),
         block_header: Some(NodeBlockHeader::from(block_header)),
         accounts: vec![],
         notes: vec![NoteSyncRecord {
@@ -183,7 +182,6 @@ fn create_mock_sync_state_request_for_account_and_notes(
     let response = SyncStateResponse {
         chain_tip,
         mmr_delta: None,
-        block_path: Some(MerklePath::default()),
         block_header: Some(NodeBlockHeader::from(block_header)),
         accounts: vec![],
         notes: vec![NoteSyncRecord {

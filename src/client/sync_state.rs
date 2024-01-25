@@ -159,14 +159,6 @@ impl Client {
             })
             .collect::<Result<Vec<_>, ClientError>>()?;
 
-        let requested_block_path = response
-            .block_path
-            .ok_or(ClientError::RpcExpectedFieldMissing(
-                "Missing block path on response".to_string().to_string(),
-            ))?
-            .try_into()
-            .map_err(ClientError::RpcTypeConversionFailure)?;
-
         let parsed_new_nullifiers = response_nullifiers
             .into_iter()
             .map(|response_nullifier| {
@@ -188,7 +180,6 @@ impl Client {
             .apply_state_sync(
                 current_block_num,
                 incoming_block_header,
-                requested_block_path,
                 new_nullifiers,
                 response.accounts,
                 response.mmr_delta,
