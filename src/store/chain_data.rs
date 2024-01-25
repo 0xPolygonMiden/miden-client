@@ -87,7 +87,7 @@ impl Store {
     }
 
     /// Inserts a list of MMR authentication nodes to the Chain MMR nodes table.
-    pub fn insert_chain_mmr_nodes(
+    pub(super) fn insert_chain_mmr_nodes(
         tx: &Transaction<'_>,
         nodes: impl Iterator<Item = (InOrderIndex, Digest)>,
     ) -> Result<(), StoreError> {

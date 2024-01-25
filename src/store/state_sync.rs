@@ -1,4 +1,7 @@
-use crypto::{merkle::PartialMmr, utils::Serializable};
+use crypto::{
+    merkle::{MmrPeaks, PartialMmr},
+    utils::Serializable,
+};
 use miden_node_proto::{mmr::MmrDelta, responses::AccountHashUpdate};
 
 use objects::{
@@ -79,7 +82,7 @@ impl Store {
         block_header: BlockHeader,
         nullifiers: Vec<Digest>,
         account_updates: Vec<AccountHashUpdate>,
-        mmr_delta: Option<MmrDelta>,
+        mmr_delta: MmrDelta,
         committed_notes: Vec<(Digest, NoteInclusionProof)>,
     ) -> Result<(), StoreError> {
         // retrieve necessary data
@@ -118,41 +121,18 @@ impl Store {
                 .map_err(StoreError::QueryError)?;
         }
 
-        // TODO: reload local full view of Partial Mmr here
-        let mut partial_mmr: PartialMmr = PartialMmr::from_peaks(current_peaks);
-        if let Some(mmr_delta) = mmr_delta {
-            // first, apply curent_block to the Mmr
-            let new_authentication_nodes = partial_mmr
-                .add(current_block_header.hash(), block_had_notes)
-                .into_iter();
-
-            // apply the Mmr delta to bring Mmr to forest equal to chain_tip
-            let mmr_delta: crypto::merkle::MmrDelta = mmr_delta
-                .try_into()
-                .map_err(StoreError::RpcTypeConversionFailure)?;
-
-            let delta_new_authentication_nodes = partial_mmr
-                .apply(mmr_delta)
-                .map_err(StoreError::MmrError)?
-                .into_iter();
-
-            // insert new relevant authentication nodescargo
-            Store::insert_chain_mmr_nodes(
-                &tx,
-                new_authentication_nodes.chain(delta_new_authentication_nodes),
-            )?;
-        }
-
         // TODO: Due to the fact that notes are returned based on fuzzy matching of tags,
         // this process of marking if the header has notes needs to be revisited
         let block_has_interesting_notes = !committed_notes.is_empty();
-
-        Store::insert_block_header(
+        let new_partial_mmr = apply_and_store_mmr_changes(
             &tx,
-            block_header,
-            partial_mmr.peaks(),
+            current_peaks,
+            mmr_delta,
+            current_block_header,
             block_has_interesting_notes,
         )?;
+
+        Store::insert_block_header(&tx, block_header, new_partial_mmr.peaks(), block_had_notes)?;
 
         // update tracked notes
         for (note_id, inclusion_proof) in committed_notes.iter() {
@@ -211,4 +191,38 @@ fn check_account_hashes(
         }
     }
     Ok(())
+}
+
+fn apply_and_store_mmr_changes(
+    tx: &rusqlite::Transaction<'_>,
+    current_peaks: MmrPeaks,
+    mmr_delta: MmrDelta,
+    current_block_header: BlockHeader,
+    block_had_notes: bool,
+) -> Result<PartialMmr, StoreError> {
+    // TODO: reload local full view of Partial Mmr here
+    let mut partial_mmr: PartialMmr = PartialMmr::from_peaks(current_peaks);
+
+    // first, apply curent_block to the Mmr
+    let new_authentication_nodes = partial_mmr
+        .add(current_block_header.hash(), block_had_notes)
+        .into_iter();
+
+    // apply the Mmr delta to bring Mmr to forest equal to chain_tip
+    let mmr_delta: crypto::merkle::MmrDelta = mmr_delta
+        .try_into()
+        .map_err(StoreError::RpcTypeConversionFailure)?;
+
+    let delta_new_authentication_nodes = partial_mmr
+        .apply(mmr_delta)
+        .map_err(StoreError::MmrError)?
+        .into_iter();
+
+    // insert new relevant authentication nodes
+    Store::insert_chain_mmr_nodes(
+        tx,
+        new_authentication_nodes.chain(delta_new_authentication_nodes),
+    )?;
+
+    Ok(partial_mmr)
 }

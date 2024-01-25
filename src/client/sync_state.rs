@@ -176,13 +176,19 @@ impl Client {
         let committed_notes =
             self.get_newly_committed_note_info(&response.notes, &incoming_block_header)?;
 
+        let mmr_delta = response
+            .mmr_delta
+            .ok_or(ClientError::RpcExpectedFieldMissing(
+                "MmrDelta missing on node's response".to_string(),
+            ))?;
+
         self.store
             .apply_state_sync(
                 current_block_num,
                 incoming_block_header,
                 new_nullifiers,
                 response.accounts,
-                response.mmr_delta,
+                mmr_delta,
                 committed_notes,
             )
             .map_err(ClientError::StoreError)?;
