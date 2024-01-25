@@ -20,8 +20,8 @@ use rusqlite::{params, Transaction};
 
 // TYPES
 // ================================================================================================
-type SerializedAccountData = (i64, String, String, String, i64, bool);
-type SerializedAccountsParts = (i64, i64, String, String, String, Vec<u8>);
+type SerializedAccountData = (i64, String, String, String, String, i64, bool);
+type SerializedAccountsParts = (i64, i64, String, String, String, String, Vec<u8>);
 
 type SerializedAccountAuthData = (i64, Vec<u8>);
 type SerializedAccountAuthParts = (i64, Vec<u8>);
@@ -107,9 +107,9 @@ impl Store {
             .collect::<Result<Vec<AccountId>, _>>()
     }
 
-    pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Word)>, StoreError> {
+    pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Digest, Word)>, StoreError> {
         const QUERY: &str =
-            "SELECT a.id, a.nonce, a.vault_root, a.storage_root, a.code_root, a.account_seed \
+            "SELECT a.id, a.nonce, a.vault_root, a.storage_root, a.code_root, a.account_hash, a.account_seed \
             FROM accounts a \
             WHERE a.nonce = (SELECT MAX(b.nonce) FROM accounts b WHERE b.id = a.id)";
 
@@ -129,9 +129,10 @@ impl Store {
     pub fn get_account_stub_by_id(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountStub, Word), StoreError> {
+    ) -> Result<(AccountStub, Digest, Word), StoreError> {
         let account_id_int: u64 = account_id.into();
-        const QUERY: &str = "SELECT id, nonce, vault_root, storage_root, code_root, account_seed \
+        const QUERY: &str =
+            "SELECT id, nonce, vault_root, storage_root, code_root, account_hash, account_seed \
             FROM accounts WHERE id = ? \
             ORDER BY nonce DESC \
             LIMIT 1";
@@ -156,15 +157,18 @@ impl Store {
         account_id: AccountId,
     ) -> Result<(Vec<RpoDigest>, ModuleAst), StoreError> {
         // TODO: This could be done via a single query
-        let (account, _seed) = self.get_account_stub_by_id(account_id)?;
+        let (account, _account_hash, _seed) = self.get_account_stub_by_id(account_id)?;
 
         self.get_account_code(account.code_root())
     }
 
     // TODO: Get all parts from a single query
     /// Retrieves a full [Account] object
-    pub fn get_account_by_id(&self, account_id: AccountId) -> Result<(Account, Word), StoreError> {
-        let (account_stub, seed) = self.get_account_stub_by_id(account_id)?;
+    pub fn get_account_by_id(
+        &self,
+        account_id: AccountId,
+    ) -> Result<(Account, Digest, Word), StoreError> {
+        let (account_stub, account_hash, seed) = self.get_account_stub_by_id(account_id)?;
         let (_procedures, module_ast) = self.get_account_code(account_stub.code_root())?;
 
         //let account_code = AccountCode::from_parts(module_ast, procedures);
@@ -183,7 +187,7 @@ impl Store {
             account_stub.nonce(),
         );
 
-        Ok((account, seed))
+        Ok((account, account_hash, seed))
     }
 
     /// Retrieve account keys data by Account Id
@@ -210,7 +214,7 @@ impl Store {
         account_id: AccountId,
         account_delta: &AccountDelta,
     ) -> Result<(), StoreError> {
-        let (mut account, seed) = self.get_account_by_id(account_id)?;
+        let (mut account, _account_hash, seed) = self.get_account_by_id(account_id)?;
 
         account
             .apply_delta(account_delta)
@@ -314,12 +318,12 @@ impl Store {
         account: &Account,
         account_seed: Word,
     ) -> Result<(), StoreError> {
-        let (id, code_root, storage_root, vault_root, nonce, committed) =
+        let (id, code_root, storage_root, vault_root, account_hash, nonce, committed) =
             serialize_account(account)?;
 
         let account_seed = account_seed.to_bytes();
 
-        const QUERY: &str =  "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        const QUERY: &str =  "INSERT INTO accounts (id, code_root, storage_root, vault_root, account_hash, nonce, committed, account_seed) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         tx.execute(
             QUERY,
             params![
@@ -327,6 +331,7 @@ impl Store {
                 code_root,
                 storage_root,
                 vault_root,
+                account_hash,
                 nonce,
                 committed,
                 account_seed
@@ -395,15 +400,25 @@ pub(crate) fn parse_accounts_columns(
     let vault_root: String = row.get(2)?;
     let storage_root: String = row.get(3)?;
     let code_root: String = row.get(4)?;
-    let account_seed: Vec<u8> = row.get(5)?;
-    Ok((id, nonce, vault_root, storage_root, code_root, account_seed))
+    let account_hash: String = row.get(5)?;
+    let account_seed: Vec<u8> = row.get(6)?;
+    Ok((
+        id,
+        nonce,
+        vault_root,
+        storage_root,
+        code_root,
+        account_hash,
+        account_seed,
+    ))
 }
 
 /// Parse an account from the provided parts.
 pub(crate) fn parse_accounts(
     serialized_account_parts: SerializedAccountsParts,
-) -> Result<(AccountStub, Word), StoreError> {
-    let (id, nonce, vault_root, storage_root, code_root, account_seed) = serialized_account_parts;
+) -> Result<(AccountStub, Digest, Word), StoreError> {
+    let (id, nonce, vault_root, storage_root, code_root, account_hash, account_seed) =
+        serialized_account_parts;
     let account_seed_word: Word =
         Word::read_from_bytes(&account_seed).map_err(StoreError::DataDeserializationError)?;
 
@@ -417,6 +432,7 @@ pub(crate) fn parse_accounts(
             Digest::try_from(&storage_root).map_err(StoreError::HexParseError)?,
             Digest::try_from(&code_root).map_err(StoreError::HexParseError)?,
         ),
+        Digest::try_from(&account_hash).map_err(StoreError::HexParseError)?,
         account_seed_word,
     ))
 }
@@ -428,6 +444,7 @@ fn serialize_account(account: &Account) -> Result<SerializedAccountData, StoreEr
     let storage_root = account.storage().root().to_string();
     let vault_root = serde_json::to_string(&account.vault().commitment())
         .map_err(StoreError::InputSerializationError)?;
+    let account_hash = account.hash().to_string();
     let committed = account.is_on_chain();
     let nonce = account.nonce().inner() as i64;
 
@@ -436,6 +453,7 @@ fn serialize_account(account: &Account) -> Result<SerializedAccountData, StoreEr
         code_root,
         storage_root,
         vault_root,
+        account_hash,
         nonce,
         committed,
     ))

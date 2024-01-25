@@ -30,7 +30,7 @@ impl DataStore for SqliteDataStore {
         notes: &[objects::notes::NoteId],
     ) -> Result<TransactionInputs, DataStoreError> {
         // Construct Account
-        let (account, seed) = self.store.get_account_by_id(account_id)?;
+        let (account, _account_hash, seed) = self.store.get_account_by_id(account_id)?;
 
         // Get header data
         let (block_header, _had_notes) = self.store.get_block_header_by_num(block_num)?;

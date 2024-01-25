@@ -134,13 +134,15 @@ async fn insert_basic_account() {
     let fetched_account_data = client.get_account_by_id(account.id());
     assert!(fetched_account_data.is_ok());
 
-    let (fetched_account, fetched_account_seed) = fetched_account_data.unwrap();
+    let (fetched_account, fetched_account_hash, fetched_account_seed) =
+        fetched_account_data.unwrap();
     // Validate stub has matching data
     assert_eq!(account.id(), fetched_account.id());
     assert_eq!(account.nonce(), fetched_account.nonce());
     assert_eq!(account.vault(), fetched_account.vault());
     assert_eq!(account.storage().root(), fetched_account.storage().root());
     assert_eq!(account.code().root(), fetched_account.code().root());
+    assert_eq!(account.hash(), fetched_account_hash);
 
     // Validate seed matches
     assert_eq!(account_seed, fetched_account_seed);
@@ -176,13 +178,15 @@ async fn insert_faucet_account() {
     let fetched_account_data = client.get_account_by_id(account.id());
     assert!(fetched_account_data.is_ok());
 
-    let (fetched_account, fetched_account_seed) = fetched_account_data.unwrap();
+    let (fetched_account, fetched_account_hash, fetched_account_seed) =
+        fetched_account_data.unwrap();
     // Validate stub has matching data
     assert_eq!(account.id(), fetched_account.id());
     assert_eq!(account.nonce(), fetched_account.nonce());
     assert_eq!(account.vault(), fetched_account.vault());
     assert_eq!(account.storage(), fetched_account.storage());
     assert_eq!(account.code().root(), fetched_account.code().root());
+    assert_eq!(account.hash(), fetched_account_hash);
 
     // Validate seed matches
     assert_eq!(account_seed, fetched_account_seed);
@@ -257,7 +261,7 @@ async fn test_acc_code() {
     client
         .insert_account(&account, account_seed, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
-    let (retrieved_acc, _) = client.get_account_by_id(account_id).unwrap();
+    let (retrieved_acc, _, _) = client.get_account_by_id(account_id).unwrap();
 
     let mut account_module = account.code().module().clone();
     account_module.clear_locations();
@@ -296,10 +300,11 @@ async fn test_get_account_by_id() {
         .unwrap();
 
     // Retrieving an existing account should succeed
-    let (acc_from_db, _account_seed) = match client.get_account_stub_by_id(account.id()) {
-        Ok(account) => account,
-        Err(err) => panic!("Error retrieving account: {}", err),
-    };
+    let (acc_from_db, _account_hash, _account_seed) =
+        match client.get_account_stub_by_id(account.id()) {
+            Ok(account) => account,
+            Err(err) => panic!("Error retrieving account: {}", err),
+        };
     assert_eq!(AccountStub::from(account), acc_from_db);
 
     // Retrieving a non existing account should fail

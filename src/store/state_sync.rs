@@ -96,7 +96,7 @@ impl Store {
         let current_accounts: Vec<AccountStub> = self
             .get_accounts()?
             .iter()
-            .map(|(acc, _)| acc.clone())
+            .map(|(acc, _, _)| acc.clone())
             .collect();
 
         // Check if the returned account hashes match latest account hashes in the database

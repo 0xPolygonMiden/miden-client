@@ -33,6 +33,7 @@ CREATE TABLE accounts (
     code_root BLOB NOT NULL,       -- root of the account_code
     storage_root BLOB NOT NULL,    -- root of the account_storage Merkle tree.
     vault_root BLOB NOT NULL,      -- root of the account_vault Merkle tree.
+    account_hash BLOB NOT NULL,    -- root of the account_code
     nonce BIGINT NOT NULL,         -- account nonce.
     committed BOOLEAN NOT NULL,    -- true if recorded, false if not.
     account_seed BLOB NOT NULL,    -- account seed used to generate the ID.

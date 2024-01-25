@@ -184,12 +184,15 @@ impl Client {
 
     /// Returns summary info about the accounts managed by this client.
     ///
-    pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Word)>, ClientError> {
+    pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Digest, Word)>, ClientError> {
         self.store.get_accounts().map_err(|err| err.into())
     }
 
     /// Returns summary info about the specified account.
-    pub fn get_account_by_id(&self, account_id: AccountId) -> Result<(Account, Word), ClientError> {
+    pub fn get_account_by_id(
+        &self,
+        account_id: AccountId,
+    ) -> Result<(Account, Digest, Word), ClientError> {
         self.store
             .get_account_by_id(account_id)
             .map_err(|err| err.into())
@@ -199,7 +202,7 @@ impl Client {
     pub fn get_account_stub_by_id(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountStub, Word), ClientError> {
+    ) -> Result<(AccountStub, Digest, Word), ClientError> {
         self.store
             .get_account_stub_by_id(account_id)
             .map_err(|err| err.into())

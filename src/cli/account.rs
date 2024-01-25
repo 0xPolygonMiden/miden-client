@@ -153,7 +153,7 @@ fn list_accounts(client: Client) -> Result<(), String> {
             Cell::new("nonce").add_attribute(Attribute::Bold),
         ]);
 
-    accounts.iter().for_each(|(acc, _acc_seed)| {
+    accounts.iter().for_each(|(acc, _acc_hash, _acc_seed)| {
         table.add_row(vec![
             acc.id().to_string(),
             acc.code_root().to_string(),
@@ -175,7 +175,7 @@ pub fn show_account(
     show_storage: bool,
     show_code: bool,
 ) -> Result<(), String> {
-    let (account, account_seed) = client
+    let (account, _account_hash, account_seed) = client
         .get_account_stub_by_id(account_id)
         .map_err(|err| err.to_string())?;
 
