@@ -6,7 +6,6 @@ use crypto::{
     Felt,
 };
 
-
 use super::Store;
 use objects::{
     accounts::{AccountDelta, AccountId},
@@ -16,11 +15,6 @@ use objects::{
     Digest,
 };
 use rusqlite::{params, Transaction};
-
-use super::{
-    notes::{serialize_input_note, InputNoteRecord, INSERT_NOTE_QUERY},
-    Store,
-};
 
 pub(crate) const INSERT_TRANSACTION_QUERY: &str =
     "INSERT INTO transactions (id, account_id, init_account_state, final_account_state, \
@@ -149,7 +143,7 @@ impl Store {
             block_num,
             committed,
             commit_height,
-        ) = serialize_transaction(&proven_transaction, transaction_result.tx_script().cloned())?;
+        ) = serialize_transaction(&proven_transaction, transaction_script, block_num)?;
 
         if let Some(hash) = script_hash.clone() {
             tx.execute(

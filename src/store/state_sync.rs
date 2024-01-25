@@ -80,7 +80,6 @@ impl Store {
         &mut self,
         current_block_num: u32,
         block_header: BlockHeader,
-        requested_header_block_path: MerklePath,
         nullifiers: Vec<Digest>,
         account_updates: Vec<AccountHashUpdate>,
         mmr_delta: Option<MmrDelta>,

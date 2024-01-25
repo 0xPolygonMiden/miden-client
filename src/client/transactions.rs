@@ -12,10 +12,7 @@ use objects::{
     assembly::ProgramAst,
     assets::{Asset, FungibleAsset},
     notes::{Note, NoteEnvelope, NoteId},
-    transaction::{
-        ExecutedTransaction, OutputNotes, ProvenTransaction,
-        TransactionScript,
-    },
+    transaction::{ExecutedTransaction, OutputNotes, ProvenTransaction, TransactionScript},
     Digest,
 };
 use rand::Rng;
