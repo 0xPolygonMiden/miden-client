@@ -7,7 +7,7 @@ use crypto::{
 use objects::{
     accounts::AccountId,
     assembly::{AstSerdeOptions, ProgramAst},
-    notes::NoteEnvelope,
+    notes::{NoteEnvelope, NoteId},
     transaction::{ExecutedTransaction, OutputNotes, ProvenTransaction, TransactionScript},
     Digest,
 };
@@ -21,6 +21,25 @@ use super::{
 pub(crate) const INSERT_TRANSACTION_QUERY: &str = "INSERT INTO transactions (id, account_id, init_account_state, final_account_state, \
     input_notes, output_notes, script_hash, script_program, script_inputs, block_num, committed, commit_height) \
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+// TRANSACTIONS FILTERS
+// ================================================================================================
+
+pub enum TransactionFilter {
+    All,
+    Uncomitted,
+}
+
+impl TransactionFilter {
+    pub fn to_query(&self) -> String {
+        const QUERY: &str = "SELECT id, account_id, init_account_state, final_account_state, \
+        input_notes, output_notes, script_hash, script_program, script_inputs, block_num, committed, commit_height FROM transactions";
+        match self {
+            TransactionFilter::All => QUERY.to_string(),
+            TransactionFilter::Uncomitted => format!("{QUERY} WHERE committed=false"),
+        }
+    }
+}
 
 // TRANSACTIONS
 // ================================================================================================
@@ -42,21 +61,23 @@ type SerializedTransactionData = (
 
 impl Store {
     /// Retrieves all executed transactions from the database
-    pub fn get_transactions(&self) -> Result<Vec<TransactionStub>, StoreError> {
-        self
-                .db
-                .prepare("SELECT id, account_id, init_account_state, final_account_state, \
-                input_notes, output_notes, script_hash, script_program, script_inputs, block_num, committed, commit_height FROM transactions")
-                .map_err(StoreError::QueryError)?
-                .query_map([], parse_transaction_columns)
-                .expect("no binding parameters used in query")
-                .map(|result| {
-                    result
-                        .map_err(StoreError::ColumnParsingError)
-                        .and_then(parse_transaction)
-                })
-                .collect::<Result<Vec<TransactionStub>, _>>()
+    pub fn get_transactions(
+        &self,
+        transaction_filter: TransactionFilter,
+    ) -> Result<Vec<TransactionStub>, StoreError> {
+        self.db
+            .prepare(&transaction_filter.to_query())
+            .map_err(StoreError::QueryError)?
+            .query_map([], parse_transaction_columns)
+            .expect("no binding parameters used in query")
+            .map(|result| {
+                result
+                    .map_err(StoreError::ColumnParsingError)
+                    .and_then(parse_transaction)
+            })
+            .collect::<Result<Vec<TransactionStub>, _>>()
     }
+
     // TODO: Make a separate table for transaction scripts and only save the root
     pub fn insert_transaction(
         &self,
@@ -162,6 +183,34 @@ impl Store {
         tx.commit().map_err(StoreError::QueryError)?;
 
         Ok(())
+    }
+
+    /// Updates transactions as committed if the input `note_ids` belongs to one uncommitted transaction
+    pub(crate) fn mark_transactions_as_committed_by_note_id(
+        uncommitted_transactions: &[TransactionStub],
+        note_ids: &[NoteId],
+        block_num: u32,
+        tx: &Transaction<'_>,
+    ) -> Result<usize, StoreError> {
+        let updated_transactions: Vec<&TransactionStub> = uncommitted_transactions
+            .iter()
+            .filter(|t| {
+                t.output_notes
+                    .iter()
+                    .any(|n| note_ids.contains(&n.note_id()))
+            })
+            .collect();
+
+        let mut rows = 0;
+        for transaction in updated_transactions {
+            const QUERY: &str =
+                "UPDATE transactions set committed=true, commit_height=? where id=?";
+            rows += tx
+                .execute(QUERY, params![block_num, transaction.id.to_string()])
+                .map_err(StoreError::QueryError)?;
+        }
+
+        Ok(rows)
     }
 }
 
@@ -344,7 +393,6 @@ fn insert_input_notes(
             serial_num,
             sender_id,
             tag,
-            num_assets,
             inclusion_proof,
             recipients,
             status,
@@ -363,7 +411,6 @@ fn insert_input_notes(
                     serial_num,
                     sender_id,
                     tag,
-                    num_assets,
                     inclusion_proof,
                     recipients,
                     status,

@@ -24,8 +24,7 @@ CREATE TABLE account_vaults (
 CREATE TABLE account_auth (
     account_id UNSIGNED BIG INT NOT NULL,  -- ID of the account
     auth_info BLOB NOT NULL,               -- Serialized representation of information needed for authentication
-    PRIMARY KEY (account_id),
-    FOREIGN KEY (account_id) REFERENCES accounts(id)
+    PRIMARY KEY (account_id)
 );
 
 -- Create accounts table
@@ -37,7 +36,7 @@ CREATE TABLE accounts (
     nonce BIGINT NOT NULL,         -- account nonce.
     committed BOOLEAN NOT NULL,    -- true if recorded, false if not.
     account_seed BLOB NOT NULL,    -- account seed used to generate the ID.
-    PRIMARY KEY (id),
+    PRIMARY KEY (id, nonce),
     FOREIGN KEY (code_root) REFERENCES account_code(root),
     FOREIGN KEY (storage_root) REFERENCES account_storage(root),
     FOREIGN KEY (vault_root) REFERENCES account_vaults(root)
@@ -60,7 +59,6 @@ CREATE TABLE transactions (
     committed BOOLEAN NOT NULL,                      -- Status of the transaction: either pending (false) or committed (true).
     commit_height UNSIGNED BIG INT,                  -- Block number of the block at which the transaction was included in the chain.
     
-    FOREIGN KEY (account_id) REFERENCES accounts(id),
     PRIMARY KEY (id)
 );
 
@@ -74,7 +72,6 @@ CREATE TABLE input_notes (
     serial_num BLOB NOT NULL,                               -- the note serial number
     sender_id UNSIGNED BIG INT NOT NULL,                    -- the account ID of the sender
     tag UNSIGNED BIG INT NOT NULL,                          -- the note tag
-    num_assets UNSIGNED BIG INT NOT NULL,                   -- the number of assets in the note
     inclusion_proof BLOB NULL,                              -- the inclusion proof of the note against a block number
     recipients BLOB NOT NULL,                               -- a list of account IDs of accounts which can consume this note
     status TEXT CHECK( status IN (                          -- the status of the note - either pending, committed or consumed
@@ -86,7 +83,7 @@ CREATE TABLE input_notes (
 
 -- Create state sync table
 CREATE TABLE state_sync (
-    block_num UNSIGNED BIG INT NOT NULL, -- the block number of the most recent state sync
+    block_num UNSIGNED BIG INT NOT NULL,    -- the block number of the most recent state sync
     tags BLOB NOT NULL,                     -- the serialized list of tags
     PRIMARY KEY (block_num)
 );
@@ -105,6 +102,7 @@ CREATE TABLE block_headers (
     notes_root BLOB NOT NULL,             -- root of the notes Merkle tree in this block
     sub_hash BLOB NOT NULL,               -- hash of all other header fields in the block
     chain_mmr_peaks BLOB NOT NULL,        -- serialized peaks of the chain MMR at this block
+    has_client_notes BOOL NOT NULL,       -- whether the block has notes relevant to the client
     PRIMARY KEY (block_num)
 );
 

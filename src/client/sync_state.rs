@@ -1,13 +1,18 @@
 use super::Client;
-use crypto::StarkField;
+use crypto::{merkle::MmrPeaks, StarkField};
 use miden_node_proto::{
-    account::AccountId as ProtoAccountId, note::NoteSyncRecord, requests::SyncStateRequest,
+    account::AccountId as ProtoAccountId,
+    note::NoteSyncRecord,
+    requests::{GetBlockHeaderByNumberRequest, SyncStateRequest},
     responses::SyncStateResponse,
 };
 
 use objects::{accounts::AccountId, notes::NoteInclusionProof, BlockHeader, Digest};
 
-use crate::errors::{ClientError, RpcApiError};
+use crate::{
+    errors::{ClientError, StoreError},
+    store::Store,
+};
 
 pub enum SyncStatus {
     SyncedToLastBlock(u32),
@@ -24,9 +29,9 @@ impl Client {
     // SYNC STATE
     // --------------------------------------------------------------------------------------------
 
-    /// Returns the block number of the last state sync block
-    pub fn get_latest_block_num(&self) -> Result<u32, ClientError> {
-        self.store.get_latest_block_num().map_err(|err| err.into())
+    /// Returns the block number of the last state sync block.
+    pub fn get_sync_height(&self) -> Result<u32, ClientError> {
+        self.store.get_sync_height().map_err(|err| err.into())
     }
 
     /// Returns the list of note tags tracked by the client.
@@ -47,9 +52,11 @@ impl Client {
     }
 
     /// Syncs the client's state with the current state of the Miden network.
+    /// Before doing so, it ensures the genesis block exists in the local store.
     ///
     /// Returns the block number the client has been synced to.
     pub async fn sync_state(&mut self) -> Result<u32, ClientError> {
+        self.ensure_genesis_in_place().await?;
         loop {
             let response = self.single_sync_state().await?;
             if let SyncStatus::SyncedToLastBlock(v) = response {
@@ -58,8 +65,57 @@ impl Client {
         }
     }
 
+    /// Attempts to retrieve the genesis block from the store. If not found,
+    /// it requests it from the node and store it
+    async fn ensure_genesis_in_place(&mut self) -> Result<(), ClientError> {
+        let genesis = self.store.get_block_header_by_num(0);
+
+        match genesis {
+            Ok(_) => Ok(()),
+            Err(StoreError::BlockHeaderNotFound(0)) => self.retrieve_and_store_genesis().await,
+            Err(err) => Err(ClientError::StoreError(err)),
+        }
+    }
+
+    /// Calls `get_block_header_by_number` requesting the genesis block and storing it
+    /// in the local database
+    async fn retrieve_and_store_genesis(&mut self) -> Result<(), ClientError> {
+        let genesis_block = self
+            .rpc_api
+            .get_block_header_by_number(GetBlockHeaderByNumberRequest { block_num: Some(0) })
+            .await
+            .map_err(ClientError::RpcApiError)?
+            .into_inner();
+
+        let genesis_block: objects::BlockHeader = genesis_block
+            .block_header
+            .ok_or(ClientError::RpcExpectedFieldMissing(
+                "Expected block header in genesis block request".to_string(),
+            ))?
+            .try_into()
+            .map_err(ClientError::RpcTypeConversionFailure)?;
+
+        let tx = self
+            .store
+            .db
+            .transaction()
+            .map_err(|err| ClientError::StoreError(StoreError::TransactionError(err)))?;
+
+        Store::insert_block_header(
+            &tx,
+            genesis_block,
+            MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks"),
+            false,
+        )
+        .map_err(ClientError::StoreError)?;
+
+        tx.commit()
+            .map_err(|err| ClientError::StoreError(StoreError::TransactionError(err)))?;
+        Ok(())
+    }
+
     async fn single_sync_state(&mut self) -> Result<SyncStatus, ClientError> {
-        let current_block_num = self.store.get_latest_block_num()?;
+        let current_block_num = self.store.get_sync_height()?;
         let account_ids = self.store.get_account_ids()?;
         let note_tags: Vec<u64> = self
             .store
@@ -78,15 +134,13 @@ impl Client {
             response
                 .block_header
                 .as_ref()
-                .ok_or(ClientError::RpcExpectedFieldMissingFailure(format!(
+                .ok_or(ClientError::RpcExpectedFieldMissing(format!(
                     "Expected block header for response: {:?}",
                     &response
                 )))?;
         let incoming_block_header: BlockHeader = incoming_block_header.try_into()?;
 
-        if incoming_block_header.block_num() == current_block_num
-            && (current_block_num != 0 || self.store.get_block_header_by_num(0).is_ok())
-        {
+        if incoming_block_header.block_num() == current_block_num {
             return Ok(SyncStatus::SyncedToLastBlock(current_block_num));
         }
 
@@ -96,12 +150,20 @@ impl Client {
             .into_iter()
             .map(|x| {
                 x.nullifier
-                    .ok_or(ClientError::RpcExpectedFieldMissingFailure(format!(
+                    .ok_or(ClientError::RpcExpectedFieldMissing(format!(
                         "Expected nullifier for response {:?}",
-                        &response
+                        &response.clone()
                     )))
             })
             .collect::<Result<Vec<_>, ClientError>>()?;
+
+        let requested_block_path = response
+            .block_path
+            .ok_or(ClientError::RpcExpectedFieldMissing(
+                "Missing block path on response".to_string().to_string(),
+            ))?
+            .try_into()
+            .map_err(ClientError::RpcTypeConversionFailure)?;
 
         let parsed_new_nullifiers = response_nullifiers
             .into_iter()
@@ -124,6 +186,7 @@ impl Client {
             .apply_state_sync(
                 current_block_num,
                 incoming_block_header,
+                requested_block_path,
                 new_nullifiers,
                 response.accounts,
                 response.mmr_delta,
@@ -156,48 +219,60 @@ impl Client {
             .map(|n| n.note().id().inner())
             .collect();
 
-        let notes_with_hashes_and_merkle_paths = notes
-            .iter()
-            .map(|note_record| {
-                // Handle Options first
-                let note_hash = note_record.note_hash.clone().ok_or(
-                    ClientError::RpcExpectedFieldMissingFailure(format!(
-                        "Expected note hash for response note record {:?}",
-                        &note_record
-                    )),
-                )?;
-                let note_merkle_path = note_record.merkle_path.clone().ok_or(
-                    ClientError::RpcExpectedFieldMissingFailure(format!(
-                        "Expected merkle path for response note record {:?}",
-                        &note_record
-                    )),
-                )?;
-                // Handle casting after
-                let note_hash = note_hash.try_into()?;
-                let merkle_path: crypto::merkle::MerklePath = note_merkle_path.try_into()?;
+        let notes_with_hashes_and_merkle_paths =
+            notes
+                .iter()
+                .map(|note_record| {
+                    // Handle Options first
+                    let note_hash = note_record.note_hash.clone().ok_or(
+                        ClientError::RpcExpectedFieldMissing(format!(
+                            "Expected note hash for response note record {:?}",
+                            &note_record
+                        )),
+                    )?;
+                    let note_merkle_path = note_record.merkle_path.clone().ok_or(
+                        ClientError::RpcExpectedFieldMissing(format!(
+                            "Expected merkle path for response note record {:?}",
+                            &note_record
+                        )),
+                    )?;
+                    // Handle casting after
+                    let note_hash = note_hash.try_into()?;
+                    let merkle_path: crypto::merkle::MerklePath = note_merkle_path.try_into()?;
 
-                Ok((note_record, note_hash, merkle_path))
-            })
-            .collect::<Result<Vec<_>, ClientError>>()?;
+                    Ok((note_record, note_hash, merkle_path))
+                })
+                .collect::<Result<Vec<_>, ClientError>>()?;
 
-        Ok(notes_with_hashes_and_merkle_paths
+        notes_with_hashes_and_merkle_paths
             .iter()
-            .filter_map(|(note, note_hash, merkle_path)| {
-                if pending_notes.contains(note_hash) {
-                    let note_inclusion_proof = NoteInclusionProof::new(
+            .filter_map(|(note, note_id, merkle_path)| {
+                if pending_notes.contains(note_id) {
+                    // FIXME: This removal is to accomodate a problem with how the node constructs paths where
+                    // they are constructed using note ID instead of authentication hash, so for now we remove the first
+                    // node here.
+                    //
+                    // See: https://github.com/0xPolygonMiden/miden-node/blob/main/store/src/state.rs#L274
+                    let mut merkle_path = merkle_path.clone();
+                    if merkle_path.len() > 0 {
+                        let _ = merkle_path.remove(0);
+                    }
+                    let note_id_and_proof = NoteInclusionProof::new(
                         block_header.block_num(),
                         block_header.sub_hash(),
                         block_header.note_root(),
                         note.note_index.into(),
-                        merkle_path.clone(),
+                        merkle_path,
                     )
-                    .unwrap();
-                    Some((*note_hash, note_inclusion_proof))
+                    .map_err(ClientError::NoteError)
+                    .map(|proof| (*note_id, proof));
+
+                    Some(note_id_and_proof)
                 } else {
                     None
                 }
             })
-            .collect())
+            .collect()
     }
 
     /// Sends a sync state request to the Miden node and returns the response.
@@ -229,11 +304,6 @@ impl Client {
             nullifiers,
         };
 
-        Ok(self
-            .rpc_api
-            .sync_state(request)
-            .await
-            .map_err(|err| ClientError::RpcApiError(RpcApiError::RequestError(err)))?
-            .into_inner())
+        Ok(self.rpc_api.sync_state(request).await?.into_inner())
     }
 }

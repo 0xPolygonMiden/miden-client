@@ -1,11 +1,5 @@
 use clap::Parser;
-use crypto::utils::Deserializable;
 use miden_client::{client::Client, config::ClientConfig};
-use objects::accounts::AccountData;
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
 
 mod account;
 mod input_notes;
@@ -42,20 +36,6 @@ pub enum Command {
         #[clap(short, long)]
         transaction: bool,
     },
-    //#[cfg(feature = "testing")]
-    /// Insert data from node's genesis file
-    LoadAccounts {
-        /// The directory that contains account data files (i.e., .mac filed), one file for each
-        /// account.
-        #[clap(short, long)]
-        accounts_path: PathBuf,
-
-        /// The indices of accounts to import, if account indices contains the value `i`, then it
-        /// will import account at "{accounts_path}/account{i}.mac". If not provided takes all
-        /// files possible
-        #[clap(short, long, value_delimiter = ' ', num_args=1..)]
-        account_indices: Option<Vec<usize>>,
-    },
 }
 
 /// CLI entry point
@@ -75,62 +55,12 @@ impl Cli {
             #[cfg(feature = "mock")]
             Command::MockData { transaction } => {
                 let mut client = client;
-                miden_client::mock::insert_mock_data(&mut client);
+                miden_client::mock::insert_mock_data(&mut client).await;
                 if *transaction {
                     miden_client::mock::create_mock_transaction(&mut client).await;
                 }
                 Ok(())
             }
-            Command::LoadAccounts {
-                accounts_path,
-                account_indices,
-            } => {
-                let mut client = client;
-                load_accounts_data(&mut client, accounts_path, account_indices.clone())
-            }
         }
     }
-}
-
-pub fn load_accounts_data(
-    client: &mut Client,
-    path: &Path,
-    account_indices: Option<Vec<usize>>,
-) -> Result<(), String> {
-    if !PathBuf::new().join(path).exists() {
-        return Err("The specified path does not exist".to_string());
-    }
-
-    let mac_account_files = fs::read_dir(path)
-        .unwrap()
-        .filter_map(|file| file.ok())
-        .filter(|file| file.path().extension().map_or(false, |ext| ext == "mac"));
-    let account_files_count = mac_account_files.count();
-
-    // If the indices were not provided, use all files in the accounts directory
-    let account_indices = account_indices
-        .clone()
-        .unwrap_or((0..account_files_count).collect());
-
-    if account_indices
-        .iter()
-        .any(|&index| index >= account_files_count)
-    {
-        return Err(format!(
-            "The provided indices for this genesis file should be in the range 0-{}",
-            account_files_count - 1
-        ));
-    }
-
-    for account_index in account_indices {
-        let account_data_filename = format!("account{}.mac", account_index);
-        let account_data_file_contents =
-            fs::read(path.join(account_data_filename)).map_err(|err| err.to_string())?;
-        let account_data = AccountData::read_from_bytes(&account_data_file_contents)
-            .map_err(|err| err.to_string())?;
-
-        client.import_account(account_data)?;
-    }
-
-    Ok(())
 }

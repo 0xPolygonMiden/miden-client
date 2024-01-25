@@ -1,17 +1,24 @@
-use crate::client::{
-    sync_state::FILTER_ID_SHIFT,
-    transactions::{PaymentTransactionData, TransactionTemplate},
-    Client,
+use crate::{
+    client::{
+        sync_state::FILTER_ID_SHIFT,
+        transactions::{PaymentTransactionData, TransactionTemplate},
+        Client, RpcApiEndpoint,
+    },
+    errors::RpcApiError,
 };
-use crypto::{dsa::rpo_falcon512::KeyPair, Felt, FieldElement, StarkField};
+use crypto::{dsa::rpo_falcon512::KeyPair, Felt, FieldElement, StarkField, Word};
 use miden_lib::transaction::TransactionKernel;
 use miden_node_proto::{
     account::AccountId as ProtoAccountId,
     block_header::BlockHeader as NodeBlockHeader,
     merkle::MerklePath,
+    mmr::MmrDelta,
     note::NoteSyncRecord,
-    requests::{SubmitProvenTransactionRequest, SyncStateRequest},
-    responses::{NullifierUpdate, SubmitProvenTransactionResponse, SyncStateResponse},
+    requests::{GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest, SyncStateRequest},
+    responses::{
+        GetBlockHeaderByNumberResponse, NullifierUpdate, SubmitProvenTransactionResponse,
+        SyncStateResponse,
+    },
 };
 use mock::{
     constants::{generate_account_seed, AccountSeedType},
@@ -22,7 +29,8 @@ use mock::mock::{
     block,
     notes::{mock_notes, AssetPreservationStatus},
 };
-use objects::{transaction::InputNotes, utils::collections::BTreeMap};
+use objects::{transaction::InputNotes, utils::collections::BTreeMap, Digest};
+use tonic::{IntoRequest, Response, Status};
 
 use crate::store::accounts::AuthInfo;
 
@@ -51,8 +59,8 @@ impl MockRpcApi {
     /// Executes the specified sync state request and returns the response.
     pub async fn sync_state(
         &mut self,
-        request: impl tonic::IntoRequest<SyncStateRequest>,
-    ) -> std::result::Result<tonic::Response<SyncStateResponse>, tonic::Status> {
+        request: impl IntoRequest<SyncStateRequest>,
+    ) -> Result<Response<SyncStateResponse>, RpcApiError> {
         let request: SyncStateRequest = request.into_request().into_inner();
 
         // Match request -> response through block_nu,
@@ -63,24 +71,41 @@ impl MockRpcApi {
         {
             Some((_req, response)) => {
                 let response = response.clone();
-                Ok(tonic::Response::new(response))
+                Ok(Response::new(response))
             }
-            None => Err(tonic::Status::not_found(
-                "no response for sync state request",
+            None => Err(RpcApiError::RequestError(
+                RpcApiEndpoint::SyncState,
+                Status::not_found("no response for sync state request"),
             )),
         }
+    }
+
+    /// Executes the specified sync state request and returns the response.
+    pub async fn get_block_header_by_number(
+        &mut self,
+        request: impl IntoRequest<GetBlockHeaderByNumberRequest>,
+    ) -> Result<Response<GetBlockHeaderByNumberResponse>, RpcApiError> {
+        let request: GetBlockHeaderByNumberRequest = request.into_request().into_inner();
+
+        if request.block_num == Some(0) {
+            let block_header: objects::BlockHeader = block::mock_block_header(0, None, None, &[]);
+            return Ok(Response::new(GetBlockHeaderByNumberResponse {
+                block_header: Some(block_header.into()),
+            }));
+        }
+        panic!("get_block_header_by_number is supposed to be only used for genesis block")
     }
 
     pub async fn submit_proven_transaction(
         &mut self,
         request: impl tonic::IntoRequest<SubmitProvenTransactionRequest>,
-    ) -> std::result::Result<tonic::Response<SubmitProvenTransactionResponse>, tonic::Status> {
+    ) -> std::result::Result<tonic::Response<SubmitProvenTransactionResponse>, RpcApiError> {
         let _request = request.into_request().into_inner();
         let response = SubmitProvenTransactionResponse {};
 
         // TODO: add some basic validations to test error cases
 
-        Ok(tonic::Response::new(response))
+        Ok(Response::new(response))
     }
 }
 
@@ -119,8 +144,11 @@ fn create_mock_sync_state_request_for_account_and_notes(
     // create a state sync response
     let response = SyncStateResponse {
         chain_tip,
-        mmr_delta: None,
-        block_path: None,
+        mmr_delta: Some(MmrDelta {
+            forest: 8,
+            data: vec![Digest::new(Word::default()).into()],
+        }),
+        block_path: Some(MerklePath::default()),
         block_header: Some(NodeBlockHeader::from(block_header)),
         accounts: vec![],
         notes: vec![NoteSyncRecord {
@@ -128,7 +156,6 @@ fn create_mock_sync_state_request_for_account_and_notes(
             note_hash: Some(created_notes.first().unwrap().id().into()),
             sender: account.id().into(),
             tag: 0u64,
-            num_assets: 2,
             merkle_path: Some(MerklePath::default()),
         }],
         nullifiers: vec![NullifierUpdate {
@@ -156,7 +183,7 @@ fn create_mock_sync_state_request_for_account_and_notes(
     let response = SyncStateResponse {
         chain_tip,
         mmr_delta: None,
-        block_path: None,
+        block_path: Some(MerklePath::default()),
         block_header: Some(NodeBlockHeader::from(block_header)),
         accounts: vec![],
         notes: vec![NoteSyncRecord {
@@ -164,7 +191,6 @@ fn create_mock_sync_state_request_for_account_and_notes(
             note_hash: Some(created_notes.first().unwrap().id().into()),
             sender: account.id().into(),
             tag: 0u64,
-            num_assets: 2,
             merkle_path: Some(MerklePath::default()),
         }],
         nullifiers: vec![NullifierUpdate {
@@ -199,7 +225,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
 }
 
 /// inserts mock note and account data into the client
-pub fn insert_mock_data(client: &mut Client) {
+pub async fn insert_mock_data(client: &mut Client) {
     use mock::mock::{account::MockAccountType, transaction::mock_inputs};
 
     // generate test data
