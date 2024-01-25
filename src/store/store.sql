@@ -57,8 +57,9 @@ CREATE TABLE transactions (
     committed BOOLEAN NOT NULL,                      -- Status of the transaction: either pending (false) or committed (true).
     commit_height UNSIGNED BIG INT,                  -- Block number of the block at which the transaction was included in the chain.
     
+    PRIMARY KEY (id),
     FOREIGN KEY (script_hash) REFERENCES transaction_scripts(script_hash),
-    PRIMARY KEY (id)
+    FOREIGN KEY (init_account_state) REFERENCES accounts(account_hash)
 );
 
 CREATE TABLE transaction_scripts (
