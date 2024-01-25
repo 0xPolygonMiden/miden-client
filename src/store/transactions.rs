@@ -17,9 +17,19 @@ use objects::{
 };
 use rusqlite::{params, Transaction};
 
-pub(crate) const INSERT_TRANSACTION_QUERY: &str = "INSERT INTO transactions (id, account_id, init_account_state, final_account_state, \
-    input_notes, output_notes, script_hash, script_program, script_inputs, block_num, committed, commit_height) \
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+use super::{
+    notes::{serialize_input_note, InputNoteRecord, INSERT_NOTE_QUERY},
+    Store,
+};
+
+pub(crate) const INSERT_TRANSACTION_QUERY: &str =
+    "INSERT INTO transactions (id, account_id, init_account_state, final_account_state, \
+    input_notes, output_notes, script_hash, script_inputs, block_num, committed, commit_height) \
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str =
+    "INSERT OR REPLACE INTO transaction_scripts (id, program) \
+    VALUES (?, ?)";
 
 // TRANSACTIONS FILTERS
 // ================================================================================================
@@ -31,11 +41,12 @@ pub enum TransactionFilter {
 
 impl TransactionFilter {
     pub fn to_query(&self) -> String {
-        const QUERY: &str = "SELECT id, account_id, init_account_state, final_account_state, \
-        input_notes, output_notes, script_hash, script_program, script_inputs, block_num, committed, commit_height FROM transactions";
+        const QUERY: &str = "SELECT tx.id, tx.account_id, tx.init_account_state, tx.final_account_state, \
+            tx.input_notes, tx.output_notes, tx.script_hash, script.program, tx.script_inputs, tx.block_num, tx.committed, tx.commit_height \
+            FROM transactions AS tx LEFT JOIN transaction_scripts AS script ON tx.script_hash = script.script_hash";
         match self {
             TransactionFilter::All => QUERY.to_string(),
-            TransactionFilter::Uncomitted => format!("{QUERY} WHERE committed=false"),
+            TransactionFilter::Uncomitted => format!("{QUERY} WHERE tx.committed=false"),
         }
     }
 }
@@ -132,13 +143,22 @@ impl Store {
             final_account_state,
             input_notes,
             output_notes,
-            script_hash,
             script_program,
+            script_hash,
             script_inputs,
             block_num,
             committed,
             commit_height,
-        ) = serialize_transaction(&proven_transaction, transaction_script, block_num)?;
+        ) = serialize_transaction(&proven_transaction, transaction_result.tx_script().cloned())?;
+
+        if let Some(hash) = script_hash.clone() {
+            tx.execute(
+                INSERT_TRANSACTION_SCRIPT_QUERY,
+                params![hash, script_program],
+            )
+            .map(|_| ())
+            .map_err(StoreError::QueryError)?;
+        }
 
         tx.execute(
             INSERT_TRANSACTION_QUERY,
@@ -149,7 +169,6 @@ impl Store {
                 final_account_state,
                 input_notes,
                 output_notes,
-                script_program,
                 script_hash,
                 script_inputs,
                 block_num,
@@ -313,7 +332,7 @@ fn parse_transaction(
     let input_note_nullifiers: Vec<Digest> =
         serde_json::from_str(&input_notes).map_err(StoreError::JsonDataDeserializationError)?;
 
-    let output_notes: OutputNotes<NoteEnvelope> = OutputNotes::read_from_bytes(&output_notes)
+    let output_notes = OutputNotes::<NoteEnvelope>::read_from_bytes(&output_notes)
         .map_err(StoreError::DataDeserializationError)?;
 
     let transaction_script: Option<TransactionScript> = if script_hash.is_some() {
