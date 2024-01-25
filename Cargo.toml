@@ -10,7 +10,7 @@ edition = "2021"
 rust-version = "1.67"
 
 [features]
-concurrent = ["miden_lib/concurrent", "objects/concurrent"]
+concurrent = ["miden_lib/concurrent", "objects/concurrent", "miden_tx/concurrent"]
 default = ["std"]
 mock = []
 std = ["crypto/std", "objects/std"]
