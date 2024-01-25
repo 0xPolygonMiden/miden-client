@@ -8,7 +8,6 @@ use objects::{
 };
 use rusqlite::params;
 
-
 use crate::{errors::StoreError, store::transactions::TransactionFilter};
 
 use super::Store;
