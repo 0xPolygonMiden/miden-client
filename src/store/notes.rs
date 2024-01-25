@@ -144,8 +144,7 @@ impl Store {
         note_filter: InputNoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
         self.db
-            .prepare(&note_filter.to_query())
-            .map_err(StoreError::QueryError)?
+            .prepare(&note_filter.to_query())?
             .query_map([], parse_input_note_columns)
             .expect("no binding parameters used in query")
             .map(|result| {
@@ -162,10 +161,8 @@ impl Store {
         const QUERY: &str = "SELECT script, inputs, vault, serial_num, sender_id, tag, inclusion_proof FROM input_notes WHERE note_id = ?";
 
         self.db
-            .prepare(QUERY)
-            .map_err(StoreError::QueryError)?
-            .query_map(params![query_id.to_string()], parse_input_note_columns)
-            .map_err(StoreError::QueryError)?
+            .prepare(QUERY)?
+            .query_map(params![query_id.to_string()], parse_input_note_columns)?
             .map(|result| {
                 result
                     .map_err(StoreError::ColumnParsingError)
@@ -192,26 +189,24 @@ impl Store {
             commit_height,
         ) = serialize_input_note(note)?;
 
-        self.db
-            .execute(
-                INSERT_NOTE_QUERY,
-                params![
-                    note_id,
-                    nullifier,
-                    script,
-                    vault,
-                    inputs,
-                    serial_num,
-                    sender_id,
-                    tag,
-                    inclusion_proof,
-                    recipients,
-                    status,
-                    commit_height
-                ],
-            )
-            .map_err(StoreError::QueryError)
-            .map(|_| ())
+        self.db.execute(
+            INSERT_NOTE_QUERY,
+            params![
+                note_id,
+                nullifier,
+                script,
+                vault,
+                inputs,
+                serial_num,
+                sender_id,
+                tag,
+                inclusion_proof,
+                recipients,
+                status,
+                commit_height
+            ],
+        )?;
+        Ok(())
     }
 
     /// Returns the nullifiers of all unspent input notes
@@ -219,8 +214,7 @@ impl Store {
         const QUERY: &str = "SELECT nullifier FROM input_notes WHERE status = 'committed'";
 
         self.db
-            .prepare(QUERY)
-            .map_err(StoreError::QueryError)?
+            .prepare(QUERY)?
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
             .map(|result| {

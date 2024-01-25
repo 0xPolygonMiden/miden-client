@@ -100,6 +100,12 @@ impl From<TransactionProverError> for ClientError {
     }
 }
 
+impl From<rusqlite::Error> for ClientError {
+    fn from(err: rusqlite::Error) -> Self {
+        Self::StoreError(StoreError::from(err))
+    }
+}
+
 #[cfg(feature = "std")]
 impl std::error::Error for ClientError {}
 
@@ -128,6 +134,7 @@ pub enum StoreError {
     NoteTagAlreadyTracked(u64),
     QueryError(rusqlite::Error),
     RpcTypeConversionFailure(ParseError),
+    SqliteError(rusqlite::Error),
     TransactionError(rusqlite::Error),
     TransactionScriptError(TransactionScriptError),
     VaultDataNotFound(Digest),
@@ -142,6 +149,23 @@ impl From<AssetVaultError> for StoreError {
 impl From<AccountError> for StoreError {
     fn from(value: AccountError) -> Self {
         StoreError::AccountError(value)
+    }
+}
+
+impl From<rusqlite::Error> for StoreError {
+    fn from(value: rusqlite::Error) -> Self {
+        match value {
+            rusqlite::Error::SqliteFailure(_, _) => StoreError::SqliteError(value),
+            rusqlite::Error::SqliteSingleThreadedMode
+            | rusqlite::Error::InvalidPath(_)
+            | rusqlite::Error::Utf8Error(_)
+            | rusqlite::Error::NulError(_) => StoreError::ConnectionError(value),
+            rusqlite::Error::FromSqlConversionFailure(_, _, _)
+            | rusqlite::Error::IntegralValueOutOfRange(_, _)
+            | rusqlite::Error::InvalidColumnIndex(_)
+            | rusqlite::Error::InvalidColumnType(_, _, _) => StoreError::ColumnParsingError(value),
+            _ => StoreError::QueryError(value),
+        }
     }
 }
 
@@ -221,6 +245,7 @@ impl fmt::Display for StoreError {
             MmrError(err) => write!(f, "error constructing mmr: {err}"),
             NoteTagAlreadyTracked(tag) => write!(f, "note tag {} is already being tracked", tag),
             QueryError(err) => write!(f, "failed to retrieve data from the database: {err}"),
+            SqliteError(err) => write!(f, "error on the underlying sqlite call: {err}"),
             TransactionError(err) => write!(f, "failed to instantiate a new transaction: {err}"),
             TransactionScriptError(err) => {
                 write!(f, "error instantiating transaction script: {err}")

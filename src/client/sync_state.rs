@@ -95,11 +95,7 @@ impl Client {
             .try_into()
             .map_err(ClientError::RpcTypeConversionFailure)?;
 
-        let tx = self
-            .store
-            .db
-            .transaction()
-            .map_err(|err| ClientError::StoreError(StoreError::TransactionError(err)))?;
+        let tx = self.store.db.transaction()?;
 
         Store::insert_block_header(
             &tx,
@@ -109,8 +105,7 @@ impl Client {
         )
         .map_err(ClientError::StoreError)?;
 
-        tx.commit()
-            .map_err(|err| ClientError::StoreError(StoreError::TransactionError(err)))?;
+        tx.commit()?;
         Ok(())
     }
 

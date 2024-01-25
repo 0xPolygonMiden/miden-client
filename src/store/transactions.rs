@@ -66,8 +66,7 @@ impl Store {
         transaction_filter: TransactionFilter,
     ) -> Result<Vec<TransactionStub>, StoreError> {
         self.db
-            .prepare(&transaction_filter.to_query())
-            .map_err(StoreError::QueryError)?
+            .prepare(&transaction_filter.to_query())?
             .query_map([], parse_transaction_columns)
             .expect("no binding parameters used in query")
             .map(|result| {
@@ -99,26 +98,24 @@ impl Store {
             commit_height,
         ) = serialize_transaction(transaction, tx_script)?;
 
-        self.db
-            .execute(
-                INSERT_TRANSACTION_QUERY,
-                params![
-                    transaction_id,
-                    account_id,
-                    init_account_state,
-                    final_account_state,
-                    input_notes,
-                    output_notes,
-                    script_program,
-                    script_hash,
-                    script_inputs,
-                    block_num,
-                    committed,
-                    commit_height,
-                ],
-            )
-            .map(|_| ())
-            .map_err(StoreError::QueryError)
+        self.db.execute(
+            INSERT_TRANSACTION_QUERY,
+            params![
+                transaction_id,
+                account_id,
+                init_account_state,
+                final_account_state,
+                input_notes,
+                output_notes,
+                script_program,
+                script_hash,
+                script_inputs,
+                block_num,
+                committed,
+                commit_height,
+            ],
+        )?;
+        Ok(())
     }
 
     pub fn insert_proven_transaction_data(
@@ -128,10 +125,7 @@ impl Store {
     ) -> Result<(), StoreError> {
         // Create atomic transcation
 
-        let tx = self
-            .db
-            .transaction()
-            .map_err(StoreError::TransactionError)?;
+        let tx = self.db.transaction()?;
 
         // Insert transaction data
 
@@ -166,9 +160,7 @@ impl Store {
                 committed,
                 commit_height,
             ],
-        )
-        .map(|_| ())
-        .map_err(StoreError::QueryError)?;
+        )?;
 
         let input_notes: Vec<InputNoteRecord> = transaction_result
             .input_notes()
@@ -180,7 +172,7 @@ impl Store {
         insert_input_notes(&tx, &input_notes)?;
 
         // commit the transaction
-        tx.commit().map_err(StoreError::QueryError)?;
+        tx.commit()?;
 
         Ok(())
     }
@@ -205,9 +197,7 @@ impl Store {
         for transaction in updated_transactions {
             const QUERY: &str =
                 "UPDATE transactions set committed=true, commit_height=? where id=?";
-            rows += tx
-                .execute(QUERY, params![block_num, transaction.id.to_string()])
-                .map_err(StoreError::QueryError)?;
+            rows += tx.execute(QUERY, params![block_num, transaction.id.to_string()])?;
         }
 
         Ok(rows)
@@ -399,26 +389,23 @@ fn insert_input_notes(
             commit_height,
         ) = serialize_input_note(note)?;
 
-        sql_transaction
-            .execute(
-                INSERT_NOTE_QUERY,
-                params![
-                    note_id,
-                    nullifier,
-                    script,
-                    vault,
-                    inputs,
-                    serial_num,
-                    sender_id,
-                    tag,
-                    inclusion_proof,
-                    recipients,
-                    status,
-                    commit_height
-                ],
-            )
-            .map_err(StoreError::QueryError)
-            .map(|_| ())?
+        sql_transaction.execute(
+            INSERT_NOTE_QUERY,
+            params![
+                note_id,
+                nullifier,
+                script,
+                vault,
+                inputs,
+                serial_num,
+                sender_id,
+                tag,
+                inclusion_proof,
+                recipients,
+                status,
+                commit_height
+            ],
+        )?;
     }
     Ok(())
 }
