@@ -122,11 +122,10 @@ impl Store {
         let mut partial_mmr: PartialMmr = PartialMmr::from_peaks(current_peaks);
         if let Some(mmr_delta) = mmr_delta {
             // first, apply curent_block to the Mmr
-            let new_authentication_nodes = partial_mmr.add(current_block_header.hash(), true);
-            if block_had_notes {
-                // if the block had relevant notes, save authentication nodes for later usage
-                Store::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
-            }
+            let new_authentication_nodes =
+                partial_mmr.add(current_block_header.hash(), block_had_notes);
+            // if the block had relevant notes, save authentication nodes for later usage
+            Store::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
 
             // apply the Mmr delta to bring Mmr to forest equal to chain_tip
             let mmr_delta: crypto::merkle::MmrDelta = mmr_delta
