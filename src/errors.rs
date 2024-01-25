@@ -135,7 +135,6 @@ pub enum StoreError {
     QueryError(rusqlite::Error),
     RpcTypeConversionFailure(ParseError),
     SqliteError(rusqlite::Error),
-    TransactionError(rusqlite::Error),
     TransactionScriptError(TransactionScriptError),
     VaultDataNotFound(Digest),
 }
@@ -246,7 +245,6 @@ impl fmt::Display for StoreError {
             NoteTagAlreadyTracked(tag) => write!(f, "note tag {} is already being tracked", tag),
             QueryError(err) => write!(f, "failed to retrieve data from the database: {err}"),
             SqliteError(err) => write!(f, "error on the underlying sqlite call: {err}"),
-            TransactionError(err) => write!(f, "failed to instantiate a new transaction: {err}"),
             TransactionScriptError(err) => {
                 write!(f, "error instantiating transaction script: {err}")
             }
