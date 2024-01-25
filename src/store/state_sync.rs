@@ -193,6 +193,8 @@ fn check_account_hashes(
     Ok(())
 }
 
+/// Applies changes to the Mmr structure, storing authentication nodes for leaves we track
+/// and returns the updated [PartialMmr]
 fn apply_and_store_mmr_changes(
     tx: &rusqlite::Transaction<'_>,
     current_peaks: MmrPeaks,

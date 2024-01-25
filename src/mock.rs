@@ -183,7 +183,10 @@ fn create_mock_sync_state_request_for_account_and_notes(
     // create a state sync response
     let response = SyncStateResponse {
         chain_tip,
-        mmr_delta: Some(MmrDelta{forest:10, data: vec![Digest::new(Word::default()).into()]}),
+        mmr_delta: Some(MmrDelta {
+            forest: 10,
+            data: vec![Digest::new(Word::default()).into()],
+        }),
         block_header: Some(NodeBlockHeader::from(block_header)),
         accounts: vec![],
         notes: vec![NoteSyncRecord {
