@@ -136,7 +136,7 @@ impl Store {
 
             if header_had_notes {
                 partial_mmr
-                    .add(
+                    .track(
                         current_block_num as usize,
                         current_block_header.hash(),
                         &requested_header_block_path,
