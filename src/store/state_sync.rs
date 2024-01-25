@@ -124,16 +124,17 @@ impl Store {
             // first, apply curent_block to the Mmr
             let new_authentication_nodes =
                 partial_mmr.add(current_block_header.hash(), block_had_notes);
-            // if the block had relevant notes, save authentication nodes for later usage
-            Store::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
 
             // apply the Mmr delta to bring Mmr to forest equal to chain_tip
             let mmr_delta: crypto::merkle::MmrDelta = mmr_delta
                 .try_into()
                 .map_err(StoreError::RpcTypeConversionFailure)?;
 
-            let new_authentication_nodes =
-                partial_mmr.apply(mmr_delta).map_err(StoreError::MmrError)?;
+            let new_authentication_nodes = new_authentication_nodes.into_iter().chain(
+                partial_mmr
+                    .apply(mmr_delta)
+                    .map_err(StoreError::MmrError)?,
+            );
             // insert new relevant authentication nodes
             Store::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
         }
