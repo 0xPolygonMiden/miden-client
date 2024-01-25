@@ -1,4 +1,4 @@
-use super::Store;
+use super::{chain_data::BlockFilter, Store};
 use crypto::merkle::PartialMmr;
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
 
@@ -37,7 +37,7 @@ impl DataStore for SqliteDataStore {
 
         let mut list_of_notes = vec![];
 
-        let mut notes_blocks: Vec<objects::BlockHeader> = vec![];
+        let mut notes_blocks: Vec<u32> = vec![];
         for note_id in notes {
             let input_note_record = self
                 .store
@@ -53,11 +53,16 @@ impl DataStore for SqliteDataStore {
             let note_block_num = input_note.proof().origin().block_num;
 
             if note_block_num != block_num {
-                let (note_block, _) = self.store.get_block_header_by_num(note_block_num)?;
-
-                notes_blocks.push(note_block);
+                notes_blocks.push(note_block_num);
             }
         }
+
+        let mut notes_blocks: Vec<objects::BlockHeader> = self
+            .store
+            .get_block_headers(BlockFilter::List(&notes_blocks))?
+            .iter()
+            .map(|(header, _has_notes)| *header)
+            .collect();
 
         // TODO:
         //  - To build the return (partial) ChainMmr: From the block numbers in each note.origin(), get the list of block headers
