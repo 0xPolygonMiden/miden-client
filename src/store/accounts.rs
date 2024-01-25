@@ -99,11 +99,10 @@ impl Store {
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
             .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .map(|id: i64| AccountId::try_from(id as u64).expect("account id is valid"))
+                Ok(result
+                    .map(|id: i64| AccountId::try_from(id as u64).expect("account id is valid"))?)
             })
-            .collect::<Result<Vec<AccountId>, _>>()
+            .collect::<Result<Vec<AccountId>, StoreError>>()
     }
 
     pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Word)>, StoreError> {
@@ -116,11 +115,7 @@ impl Store {
             .prepare(QUERY)?
             .query_map([], parse_accounts_columns)
             .expect("no binding parameters used in query")
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_accounts)
-            })
+            .map(|result| Ok(result?).and_then(parse_accounts))
             .collect()
     }
 
@@ -137,11 +132,7 @@ impl Store {
         self.db
             .prepare(QUERY)?
             .query_map(params![account_id_int as i64], parse_accounts_columns)?
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_accounts)
-            })
+            .map(|result| Ok(result?).and_then(parse_accounts))
             .next()
             .ok_or(StoreError::AccountDataNotFound(account_id))?
     }
@@ -189,11 +180,7 @@ impl Store {
         self.db
             .prepare(QUERY)?
             .query_map(params![account_id_int as i64], parse_account_auth_columns)?
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_account_auth)
-            })
+            .map(|result| Ok(result?).and_then(parse_account_auth))
             .next()
             .ok_or(StoreError::AccountDataNotFound(account_id))?
     }
@@ -230,11 +217,7 @@ impl Store {
         self.db
             .prepare(QUERY)?
             .query_map(params![root_serialized], parse_account_code_columns)?
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_account_code)
-            })
+            .map(|result| Ok(result?).and_then(parse_account_code))
             .next()
             .ok_or(StoreError::AccountCodeDataNotFound(root))?
     }
@@ -247,11 +230,7 @@ impl Store {
         self.db
             .prepare(QUERY)?
             .query_map(params![root_serialized], parse_account_storage_columns)?
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_account_storage)
-            })
+            .map(|result| Ok(result?).and_then(parse_account_storage))
             .next()
             .ok_or(StoreError::AccountStorageNotFound(root))?
     }
@@ -265,11 +244,7 @@ impl Store {
         self.db
             .prepare(QUERY)?
             .query_map(params![vault_root], parse_account_asset_vault_columns)?
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_account_asset_vault)
-            })
+            .map(|result| Ok(result?).and_then(parse_account_asset_vault))
             .next()
             .ok_or(StoreError::VaultDataNotFound(root))?
     }

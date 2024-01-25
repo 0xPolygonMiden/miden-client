@@ -43,8 +43,6 @@ CREATE TABLE accounts (
 );
 
 -- Create transactions table
--- TODO: Script-related information is to be moved to its own table referenced by the script_hash
-
 CREATE TABLE transactions (
     id BLOB NOT NULL,                                -- Transaction ID (hash of various components)
     account_id UNSIGNED BIG INT NOT NULL,            -- ID of the account against which the transaction was executed.
@@ -53,13 +51,20 @@ CREATE TABLE transactions (
     input_notes BLOB,                                -- Serialized list of input note hashes
     output_notes BLOB,                               -- Serialized list of output note hashes 
     script_hash BLOB,                                -- Transaction script hash
-    script_program BLOB,                             -- Transaction script program, serialized 
     script_inputs BLOB,                              -- Transaction script inputs
     block_num UNSIGNED BIG INT,                      -- Block number for the block against which the transaction was executed.
     committed BOOLEAN NOT NULL,                      -- Status of the transaction: either pending (false) or committed (true).
     commit_height UNSIGNED BIG INT,                  -- Block number of the block at which the transaction was included in the chain.
     
+    FOREIGN KEY (script_hash) REFERENCES transaction_scripts(script_hash),
     PRIMARY KEY (id)
+);
+
+CREATE TABLE transaction_scripts (
+    script_hash BLOB NOT NULL,                       -- Transaction script Hash
+    program BLOB,                                    -- Transaction script program, serialized
+
+    PRIMARY KEY (script_hash)
 );
 
 -- Create input notes table

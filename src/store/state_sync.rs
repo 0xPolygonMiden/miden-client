@@ -29,7 +29,7 @@ impl Store {
             .expect("no binding parameters used in query")
             .map(|result| {
                 result
-                    .map_err(StoreError::ColumnParsingError)
+                    .map_err(|err| StoreError::ParsingError(err.to_string()))
                     .and_then(|v: String| {
                         serde_json::from_str(&v).map_err(StoreError::JsonDataDeserializationError)
                     })
@@ -61,11 +61,7 @@ impl Store {
             .prepare(QUERY)?
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .map(|v: i64| v as u32)
-            })
+            .map(|result| Ok(result?).map(|v: i64| v as u32))
             .next()
             .expect("state sync block number exists")
     }

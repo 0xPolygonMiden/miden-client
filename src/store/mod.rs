@@ -28,7 +28,7 @@ impl Store {
 
     /// Returns a new instance of [Store] instantiated with the specified configuration options.
     pub fn new(config: StoreConfig) -> Result<Self, StoreError> {
-        let mut db = Connection::open(config.path).map_err(StoreError::ConnectionError)?;
+        let mut db = Connection::open(config.path)?;
         migrations::update_to_latest(&mut db)?;
 
         Ok(Self { db })

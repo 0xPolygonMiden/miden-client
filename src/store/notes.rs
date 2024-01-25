@@ -147,11 +147,7 @@ impl Store {
             .prepare(&note_filter.to_query())?
             .query_map([], parse_input_note_columns)
             .expect("no binding parameters used in query")
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_input_note)
-            })
+            .map(|result| Ok(result?).and_then(parse_input_note))
             .collect::<Result<Vec<InputNoteRecord>, _>>()
     }
 
@@ -163,11 +159,7 @@ impl Store {
         self.db
             .prepare(QUERY)?
             .query_map(params![query_id.to_string()], parse_input_note_columns)?
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_input_note)
-            })
+            .map(|result| Ok(result?).and_then(parse_input_note))
             .next()
             .ok_or(StoreError::InputNoteNotFound(note_id))?
     }
@@ -219,7 +211,7 @@ impl Store {
             .expect("no binding parameters used in query")
             .map(|result| {
                 result
-                    .map_err(StoreError::ColumnParsingError)
+                    .map_err(|err| StoreError::ParsingError(err.to_string()))
                     .and_then(|v: String| Digest::try_from(v).map_err(StoreError::HexParseError))
             })
             .collect::<Result<Vec<Digest>, _>>()

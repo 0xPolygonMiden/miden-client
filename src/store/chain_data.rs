@@ -60,11 +60,7 @@ impl Store {
         self.db
             .prepare(QUERY)?
             .query_map(params![block_number as i64], parse_block_headers_columns)?
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_block_header)
-            })
+            .map(|result| Ok(result?).and_then(parse_block_header))
             .next()
             .ok_or(StoreError::BlockHeaderNotFound(block_number))?
     }
@@ -101,11 +97,7 @@ impl Store {
         self.db
             .prepare(QUERY)?
             .query_map(params![], parse_chain_mmr_nodes_columns)?
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_chain_mmr_nodes)
-            })
+            .map(|result| Ok(result?).and_then(parse_chain_mmr_nodes))
             .collect()
     }
 

@@ -122,19 +122,17 @@ pub enum StoreError {
     AccountStorageNotFound(Digest),
     BlockHeaderNotFound(u32),
     ChainMmrNodeNotFound(u64),
-    ColumnParsingError(rusqlite::Error),
-    ConnectionError(rusqlite::Error),
+    DatabaseError(String),
     DataDeserializationError(DeserializationError),
     HexParseError(HexParseError),
     InputNoteNotFound(NoteId),
     InputSerializationError(serde_json::Error),
     JsonDataDeserializationError(serde_json::Error),
-    MigrationError(rusqlite_migration::Error),
     MmrError(MmrError),
     NoteTagAlreadyTracked(u64),
-    QueryError(rusqlite::Error),
+    ParsingError(String),
+    QueryError(String),
     RpcTypeConversionFailure(ParseError),
-    SqliteError(rusqlite::Error),
     TransactionScriptError(TransactionScriptError),
     VaultDataNotFound(Digest),
 }
@@ -151,19 +149,29 @@ impl From<AccountError> for StoreError {
     }
 }
 
+impl From<rusqlite_migration::Error> for StoreError {
+    fn from(value: rusqlite_migration::Error) -> Self {
+        StoreError::DatabaseError(value.to_string())
+    }
+}
 impl From<rusqlite::Error> for StoreError {
     fn from(value: rusqlite::Error) -> Self {
         match value {
-            rusqlite::Error::SqliteFailure(_, _) => StoreError::SqliteError(value),
-            rusqlite::Error::SqliteSingleThreadedMode
-            | rusqlite::Error::InvalidPath(_)
-            | rusqlite::Error::Utf8Error(_)
-            | rusqlite::Error::NulError(_) => StoreError::ConnectionError(value),
             rusqlite::Error::FromSqlConversionFailure(_, _, _)
             | rusqlite::Error::IntegralValueOutOfRange(_, _)
             | rusqlite::Error::InvalidColumnIndex(_)
-            | rusqlite::Error::InvalidColumnType(_, _, _) => StoreError::ColumnParsingError(value),
-            _ => StoreError::QueryError(value),
+            | rusqlite::Error::InvalidColumnType(_, _, _) => {
+                StoreError::ParsingError(value.to_string())
+            }
+            rusqlite::Error::InvalidParameterName(_)
+            | rusqlite::Error::InvalidColumnName(_)
+            | rusqlite::Error::StatementChangedRows(_)
+            | rusqlite::Error::ExecuteReturnedResults
+            | rusqlite::Error::InvalidQuery
+            | rusqlite::Error::MultipleStatement
+            | rusqlite::Error::InvalidParameterCount(_, _)
+            | rusqlite::Error::QueryReturnedNoRows => StoreError::QueryError(value.to_string()),
+            _ => StoreError::DatabaseError(value.to_string()),
         }
     }
 }
@@ -215,13 +223,10 @@ impl fmt::Display for StoreError {
             BlockHeaderNotFound(block_number) => {
                 write!(f, "block header for block {} not found", block_number)
             }
-            ColumnParsingError(err) => {
-                write!(f, "failed to parse data retrieved from the database: {err}")
-            }
             ChainMmrNodeNotFound(node_index) => {
                 write!(f, "chain mmr node at index {} not found", node_index)
             }
-            ConnectionError(err) => write!(f, "failed to connect to the database: {err}"),
+            DatabaseError(err) => write!(f, "database-related non-query error: {err}"),
             DataDeserializationError(err) => {
                 write!(f, "error deserializing data from the store: {err}")
             }
@@ -240,11 +245,12 @@ impl fmt::Display for StoreError {
                     "error deserializing data from JSON from the store: {err}"
                 )
             }
-            MigrationError(err) => write!(f, "failed to update the database: {err}"),
             MmrError(err) => write!(f, "error constructing mmr: {err}"),
             NoteTagAlreadyTracked(tag) => write!(f, "note tag {} is already being tracked", tag),
+            ParsingError(err) => {
+                write!(f, "failed to parse data retrieved from the database: {err}")
+            }
             QueryError(err) => write!(f, "failed to retrieve data from the database: {err}"),
-            SqliteError(err) => write!(f, "error on the underlying sqlite call: {err}"),
             TransactionScriptError(err) => {
                 write!(f, "error instantiating transaction script: {err}")
             }
