@@ -57,7 +57,7 @@ impl DataStore for SqliteDataStore {
             }
         }
 
-        let mut notes_blocks: Vec<objects::BlockHeader> = self
+        let notes_blocks: Vec<objects::BlockHeader> = self
             .store
             .get_block_headers(BlockFilter::List(&notes_blocks))?
             .iter()
