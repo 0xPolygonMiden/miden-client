@@ -126,10 +126,7 @@ impl Transaction {
                 println!("Executed transaction, proving and then submitting...");
 
                 client
-                    .send_transaction(
-                        transaction_template.account_id(),
-                        transaction_execution_result,
-                    )
+                    .send_transaction(transaction_execution_result)
                     .await
                     .map_err(|err| err.to_string())?;
             }

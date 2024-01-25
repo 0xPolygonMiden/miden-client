@@ -8,11 +8,14 @@ use miden_tx::{ProvingOptions, TransactionProver};
 
 use mock::procedures::prepare_word;
 use objects::{
-    accounts::AccountId,
+    accounts::{AccountDelta, AccountId},
     assembly::ProgramAst,
     assets::{Asset, FungibleAsset},
     notes::{Note, NoteEnvelope, NoteId},
-    transaction::{ExecutedTransaction, OutputNotes, ProvenTransaction, TransactionScript},
+    transaction::{
+        ExecutedTransaction, OutputNotes, ProvenTransaction,
+        TransactionScript,
+    },
     Digest,
 };
 use rand::Rng;
@@ -87,19 +90,19 @@ impl PaymentTransactionData {
     }
 }
 
-// TRANSACTION EXECUTION RESULT
+// TRANSACTION RESULT
 // --------------------------------------------------------------------------------------------
 
 /// Represents the result of executing a transaction by the client
 ///  
 /// It contains an [ExecutedTransaction] and a list of [Note] that describe the details of the
 /// notes created by the transaction execution
-pub struct TransactionExecutionResult {
+pub struct TransactionResult {
     executed_transaction: ExecutedTransaction,
     created_notes: Vec<Note>,
 }
 
-impl TransactionExecutionResult {
+impl TransactionResult {
     pub fn new(executed_transaction: ExecutedTransaction, created_notes: Vec<Note>) -> Self {
         Self {
             executed_transaction,
@@ -113,6 +116,18 @@ impl TransactionExecutionResult {
 
     pub fn created_notes(&self) -> &Vec<Note> {
         &self.created_notes
+    }
+
+    pub fn block_num(&self) -> u32 {
+        self.executed_transaction.block_header().block_num()
+    }
+
+    pub fn transaction_script(&self) -> Option<&TransactionScript> {
+        self.executed_transaction.tx_script()
+    }
+
+    pub fn account_delta(&self) -> &AccountDelta {
+        self.executed_transaction.account_delta()
     }
 }
 
@@ -181,7 +196,7 @@ impl Client {
     pub fn new_transaction(
         &mut self,
         transaction_template: TransactionTemplate,
-    ) -> Result<TransactionExecutionResult, ClientError> {
+    ) -> Result<TransactionResult, ClientError> {
         match transaction_template {
             TransactionTemplate::PayToId(PaymentTransactionData {
                 asset: fungible_asset,
@@ -203,7 +218,7 @@ impl Client {
         &mut self,
         account_id: AccountId,
         note_id: Option<NoteId>,
-    ) -> Result<TransactionExecutionResult, ClientError> {
+    ) -> Result<TransactionResult, ClientError> {
         self.tx_executor
             .load_account(account_id)
             .map_err(ClientError::TransactionExecutionError)?;
@@ -265,10 +280,7 @@ impl Client {
             )
             .map_err(ClientError::TransactionExecutionError)?;
 
-        Ok(TransactionExecutionResult::new(
-            executed_transaction,
-            vec![],
-        ))
+        Ok(TransactionResult::new(executed_transaction, vec![]))
     }
 
     /// Creates and executes a mint transaction specified by the template.
@@ -276,7 +288,7 @@ impl Client {
         &mut self,
         asset: FungibleAsset,
         target_id: AccountId,
-    ) -> Result<TransactionExecutionResult, ClientError> {
+    ) -> Result<TransactionResult, ClientError> {
         let faucet_id = asset.faucet_id();
 
         // Construct Account
@@ -347,7 +359,7 @@ impl Client {
             .execute_transaction(faucet_id, block_ref, &[], Some(tx_script.clone()))
             .map_err(ClientError::TransactionExecutionError)?;
 
-        Ok(TransactionExecutionResult::new(
+        Ok(TransactionResult::new(
             executed_transaction,
             vec![created_note],
         ))
@@ -358,7 +370,7 @@ impl Client {
         fungible_asset: Asset,
         sender_account_id: AccountId,
         target_account_id: AccountId,
-    ) -> Result<TransactionExecutionResult, ClientError> {
+    ) -> Result<TransactionResult, ClientError> {
         let random_coin = self.get_random_coin();
 
         let created_note = create_p2id_note(
@@ -436,7 +448,7 @@ impl Client {
             )
             .map_err(ClientError::TransactionExecutionError)?;
 
-        Ok(TransactionExecutionResult::new(
+        Ok(TransactionResult::new(
             executed_transaction,
             vec![created_note],
         ))
@@ -446,12 +458,11 @@ impl Client {
     /// the local database for tracking.
     pub async fn send_transaction(
         &mut self,
-        account_id: AccountId,
-        transaction_execution_result: TransactionExecutionResult,
+        tx_result: TransactionResult,
     ) -> Result<(), ClientError> {
         let transaction_prover = TransactionProver::new(ProvingOptions::default());
         let proven_transaction = transaction_prover
-            .prove_transaction(transaction_execution_result.executed_transaction().clone())
+            .prove_transaction(tx_result.executed_transaction().clone())
             .map_err(ClientError::TransactionProvingError)?;
 
         println!("Proved transaction, submitting to the node...");
@@ -460,11 +471,12 @@ impl Client {
             .await?;
 
         // transaction was proven and submitted to the node correctly, persist note details and update account
-        self.store.insert_proven_and_submitted_transaction_data(
-            account_id,
+        self.store.insert_transaction_data(
             proven_transaction,
-            transaction_execution_result.executed_transaction().clone(),
-            transaction_execution_result.created_notes(),
+            tx_result.block_num(),
+            tx_result.transaction_script().cloned(),
+            tx_result.account_delta(),
+            tx_result.created_notes(),
         )?;
 
         Ok(())

@@ -6,12 +6,13 @@ use crypto::{
     Felt,
 };
 
+
 use super::Store;
 use objects::{
-    accounts::AccountId,
+    accounts::{AccountDelta, AccountId},
     assembly::{AstSerdeOptions, ProgramAst},
     notes::{Note, NoteEnvelope, NoteId},
-    transaction::{ExecutedTransaction, OutputNotes, ProvenTransaction, TransactionScript},
+    transaction::{OutputNotes, ProvenTransaction, TransactionScript},
     Digest,
 };
 use rusqlite::{params, Transaction};
@@ -76,16 +77,15 @@ impl Store {
             .collect::<Result<Vec<TransactionStub>, _>>()
     }
 
-    pub fn insert_proven_and_submitted_transaction_data(
+    pub fn insert_transaction_data(
         &mut self,
-        account_id: AccountId,
-        proven_transaction: ProvenTransaction,
-        transaction_result: ExecutedTransaction,
+        transaction: ProvenTransaction,
+        block_num: u32,
+        tx_script: Option<TransactionScript>,
+        account_delta: &AccountDelta,
         created_notes: &[Note],
     ) -> Result<(), StoreError> {
-        let (mut account, seed) = self.get_account_by_id(account_id)?;
-
-        let account_delta = transaction_result.account_delta();
+        let (mut account, seed) = self.get_account_by_id(transaction.account_id())?;
 
         account
             .apply_delta(account_delta)
@@ -102,7 +102,7 @@ impl Store {
             .map_err(StoreError::TransactionError)?;
 
         // Transaction Data
-        Self::insert_proven_transaction_data(&tx, proven_transaction, transaction_result)?;
+        Self::insert_proven_transaction_data(&tx, transaction, block_num, tx_script)?;
 
         // Account Data
         Self::insert_account_storage(&tx, account.storage())?;
@@ -122,7 +122,8 @@ impl Store {
     pub fn insert_proven_transaction_data(
         tx: &Transaction<'_>,
         proven_transaction: ProvenTransaction,
-        transaction_result: ExecutedTransaction,
+        block_num: u32,
+        transaction_script: Option<TransactionScript>,
     ) -> Result<(), StoreError> {
         let (
             transaction_id,
@@ -137,11 +138,7 @@ impl Store {
             block_num,
             committed,
             commit_height,
-        ) = serialize_transaction(
-            &proven_transaction,
-            transaction_result.tx_script().cloned(),
-            transaction_result.block_header().block_num(),
-        )?;
+        ) = serialize_transaction(&proven_transaction, transaction_script, block_num)?;
 
         tx.execute(
             INSERT_TRANSACTION_QUERY,
@@ -162,17 +159,6 @@ impl Store {
         )
         .map(|_| ())
         .map_err(StoreError::QueryError)?;
-
-        // FIXME: Temporary until nullifier data gets correctly returned from the node
-        for input_note in transaction_result.input_notes().iter() {
-            const SPENT_QUERY: &str =
-                "UPDATE input_notes SET status = 'consumed' WHERE note_id = ?";
-            tx.execute(
-                SPENT_QUERY,
-                rusqlite::params![input_note.id().inner().to_string()],
-            )
-            .unwrap();
-        }
 
         Ok(())
     }

@@ -235,7 +235,6 @@ impl Store {
                 serial_num,
                 sender_id,
                 tag,
-                num_assets,
                 inclusion_proof,
                 recipients,
                 status,
