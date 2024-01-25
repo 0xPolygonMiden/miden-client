@@ -93,14 +93,14 @@ impl Store {
         let current_peaks = self.get_chain_mmr_peaks_by_block_num(current_block_num)?;
         let uncommitted_transactions = self.get_transactions(TransactionFilter::Uncomitted)?;
 
-        let current_accounts: Vec<AccountStub> = self
+        let current_accounts_with_hashes: Vec<(AccountStub, Digest)> = self
             .get_accounts()?
             .iter()
-            .map(|(acc, _, _)| acc.clone())
+            .map(|(acc, acc_hash, _)| (acc.clone(), *acc_hash))
             .collect();
 
         // Check if the returned account hashes match latest account hashes in the database
-        check_account_hashes(&account_updates, &current_accounts)?;
+        check_account_hashes(&account_updates, &current_accounts_with_hashes)?;
 
         let tx = self
             .db
@@ -165,22 +165,22 @@ impl Store {
 
 fn check_account_hashes(
     account_updates: &[AccountHashUpdate],
-    current_accounts: &[AccountStub],
+    current_accounts: &[(AccountStub, Digest)],
 ) -> Result<(), StoreError> {
     for account_update in account_updates {
         if let (Some(update_account_id), Some(remote_account_hash)) =
             (&account_update.account_id, &account_update.account_hash)
         {
             let update_account_id: u64 = update_account_id.clone().into();
-            if let Some(acc_stub) = current_accounts
+            if let Some((_acc_stub, acc_hash)) = current_accounts
                 .iter()
-                .find(|acc| update_account_id == u64::from(acc.id()))
+                .find(|(acc, _acc_hash)| update_account_id == u64::from(acc.id()))
             {
                 let remote_account_hash: Digest = remote_account_hash
                     .try_into()
                     .map_err(StoreError::RpcTypeConversionFailure)?;
 
-                if remote_account_hash != acc_stub.hash() {
+                if remote_account_hash != *acc_hash {
                     return Err(StoreError::AccountHashMismatch(
                         update_account_id
                             .try_into()
