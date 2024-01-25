@@ -146,7 +146,9 @@ fn create_mock_sync_state_request_for_account_and_notes(
         chain_tip,
         mmr_delta: Some(MmrDelta {
             forest: 8,
-            data: (0..3).map(|_| Digest::new(Word::default()).into()).collect(),
+            data: (0..3)
+                .map(|_| Digest::new(Word::default()).into())
+                .collect(),
         }),
         block_header: Some(NodeBlockHeader::from(block_header)),
         accounts: vec![],
