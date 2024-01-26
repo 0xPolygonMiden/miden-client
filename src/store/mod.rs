@@ -7,6 +7,7 @@ pub mod accounts;
 pub mod chain_data;
 mod migrations;
 pub mod notes;
+pub mod records;
 pub mod state_sync;
 pub mod transactions;
 

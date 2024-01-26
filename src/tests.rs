@@ -27,7 +27,7 @@ use mock::{
     },
 };
 use objects::{
-    accounts::{AccountId, AccountStub},
+    accounts::AccountId,
     assets::{FungibleAsset, TokenSymbol},
     transaction::InputNotes,
 };
@@ -300,17 +300,21 @@ async fn test_get_account_by_id() {
         .unwrap();
 
     // Retrieving an existing account should succeed
-    let (acc_from_db, _account_hash, _account_seed) =
-        match client.get_account_stub_by_id(account.id()) {
-            Ok(account) => account,
-            Err(err) => panic!("Error retrieving account: {}", err),
-        };
-    assert_eq!(AccountStub::from(account), acc_from_db);
+    let acc_from_db = match client.get_account_record_by_id(account.id()) {
+        Ok(account) => account,
+        Err(err) => panic!("Error retrieving account: {}", err),
+    };
+    assert_eq!(account.id(), acc_from_db.id());
+    assert_eq!(account.hash(), acc_from_db.account_hash());
+    assert_eq!(account.nonce(), acc_from_db.nonce());
+    assert_eq!(account.storage().root(), acc_from_db.storage_root());
+    assert_eq!(account.code().root(), acc_from_db.code_root());
+    assert_eq!(account.vault().commitment(), acc_from_db.vault_root());
 
     // Retrieving a non existing account should fail
     let hex = format!("0x{}", "1".repeat(16));
     let invalid_id = AccountId::from_hex(&hex).unwrap();
-    assert!(client.get_account_stub_by_id(invalid_id).is_err());
+    assert!(client.get_account_record_by_id(invalid_id).is_err());
 }
 
 #[tokio::test]

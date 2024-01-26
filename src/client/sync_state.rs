@@ -122,7 +122,7 @@ impl Client {
             .get_accounts()
             .unwrap()
             .into_iter()
-            .map(|(a, _h, _s)| a.id().into())
+            .map(|a| a.id().into())
             .collect();
 
         let nullifiers = self.store.get_unspent_input_note_nullifiers()?;

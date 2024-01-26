@@ -1,6 +1,6 @@
 use super::Store;
 
-use crate::errors::StoreError;
+use crate::{errors::StoreError, store::records::AccountRecord};
 
 use clap::error::Result;
 use crypto::{
@@ -11,7 +11,7 @@ use crypto::{
 };
 use miden_lib::transaction::TransactionKernel;
 use objects::{
-    accounts::{Account, AccountCode, AccountDelta, AccountId, AccountStorage, AccountStub},
+    accounts::{Account, AccountCode, AccountDelta, AccountId, AccountStorage},
     assembly::{AstSerdeOptions, ModuleAst},
     assets::{Asset, AssetVault},
     Digest,
@@ -21,7 +21,7 @@ use rusqlite::{params, Transaction};
 // TYPES
 // ================================================================================================
 type SerializedAccountData = (i64, String, String, String, String, i64, bool);
-type SerializedAccountsParts = (i64, i64, String, String, String, String, Vec<u8>);
+pub(crate) type SerializedAccountsParts = (i64, i64, String, String, String, String, Vec<u8>);
 
 type SerializedAccountAuthData = (i64, Vec<u8>);
 type SerializedAccountAuthParts = (i64, Vec<u8>);
@@ -107,7 +107,7 @@ impl Store {
             .collect::<Result<Vec<AccountId>, _>>()
     }
 
-    pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Digest, Word)>, StoreError> {
+    pub fn get_accounts(&self) -> Result<Vec<AccountRecord>, StoreError> {
         const QUERY: &str =
             "SELECT a.id, a.nonce, a.vault_root, a.storage_root, a.code_root, a.account_hash, a.account_seed \
             FROM accounts a \
@@ -121,15 +121,15 @@ impl Store {
             .map(|result| {
                 result
                     .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_accounts)
+                    .and_then(AccountRecord::new)
             })
             .collect()
     }
 
-    pub fn get_account_stub_by_id(
+    pub fn get_account_record_by_id(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountStub, Digest, Word), StoreError> {
+    ) -> Result<AccountRecord, StoreError> {
         let account_id_int: u64 = account_id.into();
         const QUERY: &str =
             "SELECT id, nonce, vault_root, storage_root, code_root, account_hash, account_seed \
@@ -145,7 +145,7 @@ impl Store {
             .map(|result| {
                 result
                     .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_accounts)
+                    .and_then(AccountRecord::new)
             })
             .next()
             .ok_or(StoreError::AccountDataNotFound(account_id))?
@@ -157,7 +157,7 @@ impl Store {
         account_id: AccountId,
     ) -> Result<(Vec<RpoDigest>, ModuleAst), StoreError> {
         // TODO: This could be done via a single query
-        let (account, _account_hash, _seed) = self.get_account_stub_by_id(account_id)?;
+        let account = self.get_account_record_by_id(account_id)?;
 
         self.get_account_code(account.code_root())
     }
@@ -168,26 +168,30 @@ impl Store {
         &self,
         account_id: AccountId,
     ) -> Result<(Account, Digest, Word), StoreError> {
-        let (account_stub, account_hash, seed) = self.get_account_stub_by_id(account_id)?;
-        let (_procedures, module_ast) = self.get_account_code(account_stub.code_root())?;
+        let account_record = self.get_account_record_by_id(account_id)?;
+        let (_procedures, module_ast) = self.get_account_code(account_record.code_root())?;
 
         //let account_code = AccountCode::from_parts(module_ast, procedures);
         let account_code = AccountCode::new(module_ast, &TransactionKernel::assembler()).unwrap();
 
-        let account_storage = self.get_account_storage(account_stub.storage_root())?;
+        let account_storage = self.get_account_storage(account_record.storage_root())?;
 
-        let account_vault = self.get_vault_assets(account_stub.vault_root())?;
+        let account_vault = self.get_vault_assets(account_record.vault_root())?;
         let account_vault = AssetVault::new(&account_vault).map_err(StoreError::AssetVaultError)?;
 
         let account = Account::new(
-            account_stub.id(),
+            account_record.id(),
             account_vault,
             account_storage,
             account_code,
-            account_stub.nonce(),
+            account_record.nonce(),
         );
 
-        Ok((account, account_hash, seed))
+        Ok((
+            account,
+            account_record.account_hash(),
+            account_record.account_seed(),
+        ))
     }
 
     /// Retrieve account keys data by Account Id
@@ -410,30 +414,6 @@ pub(crate) fn parse_accounts_columns(
         code_root,
         account_hash,
         account_seed,
-    ))
-}
-
-/// Parse an account from the provided parts.
-pub(crate) fn parse_accounts(
-    serialized_account_parts: SerializedAccountsParts,
-) -> Result<(AccountStub, Digest, Word), StoreError> {
-    let (id, nonce, vault_root, storage_root, code_root, account_hash, account_seed) =
-        serialized_account_parts;
-    let account_seed_word: Word =
-        Word::read_from_bytes(&account_seed).map_err(StoreError::DataDeserializationError)?;
-
-    Ok((
-        AccountStub::new(
-            (id as u64)
-                .try_into()
-                .expect("Conversion from stored AccountID should not panic"),
-            (nonce as u64).into(),
-            serde_json::from_str(&vault_root).map_err(StoreError::JsonDataDeserializationError)?,
-            Digest::try_from(&storage_root).map_err(StoreError::HexParseError)?,
-            Digest::try_from(&code_root).map_err(StoreError::HexParseError)?,
-        ),
-        Digest::try_from(&account_hash).map_err(StoreError::HexParseError)?,
-        account_seed_word,
     ))
 }
 

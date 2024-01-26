@@ -3,8 +3,7 @@ use crypto::{dsa::rpo_falcon512::KeyPair, Felt, Word};
 use miden_lib::AuthScheme;
 use objects::{
     accounts::{
-        Account, AccountData, AccountDelta, AccountId, AccountStorage, AccountStub, AccountType,
-        AuthData,
+        Account, AccountData, AccountDelta, AccountId, AccountStorage, AccountType, AuthData,
     },
     assembly::ModuleAst,
     assets::{Asset, TokenSymbol},
@@ -12,7 +11,10 @@ use objects::{
 };
 use rand::{rngs::ThreadRng, Rng};
 
-use crate::{errors::ClientError, store::accounts::AuthInfo};
+use crate::{
+    errors::ClientError,
+    store::{accounts::AuthInfo, records::AccountRecord},
+};
 
 pub enum AccountTemplate {
     BasicWallet {
@@ -184,7 +186,7 @@ impl Client {
 
     /// Returns summary info about the accounts managed by this client.
     ///
-    pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Digest, Word)>, ClientError> {
+    pub fn get_accounts(&self) -> Result<Vec<AccountRecord>, ClientError> {
         self.store.get_accounts().map_err(|err| err.into())
     }
 
@@ -199,12 +201,12 @@ impl Client {
     }
 
     /// Returns summary info about the specified account.
-    pub fn get_account_stub_by_id(
+    pub fn get_account_record_by_id(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountStub, Digest, Word), ClientError> {
+    ) -> Result<AccountRecord, ClientError> {
         self.store
-            .get_account_stub_by_id(account_id)
+            .get_account_record_by_id(account_id)
             .map_err(|err| err.into())
     }
 
@@ -321,34 +323,28 @@ pub mod tests {
         let accounts = client.get_accounts().unwrap();
 
         assert_eq!(accounts.len(), 2);
-        assert_eq!(accounts[0].0.id(), expected_accounts[0].id());
-        assert_eq!(accounts[0].0.nonce(), expected_accounts[0].nonce());
+        assert_eq!(accounts[0].id(), expected_accounts[0].id());
+        assert_eq!(accounts[0].nonce(), expected_accounts[0].nonce());
         assert_eq!(
-            accounts[0].0.vault_root(),
+            accounts[0].vault_root(),
             expected_accounts[0].vault().commitment()
         );
         assert_eq!(
-            accounts[0].0.storage_root(),
+            accounts[0].storage_root(),
             expected_accounts[0].storage().root()
         );
-        assert_eq!(
-            accounts[0].0.code_root(),
-            expected_accounts[0].code().root()
-        );
+        assert_eq!(accounts[0].code_root(), expected_accounts[0].code().root());
 
-        assert_eq!(accounts[1].0.id(), expected_accounts[1].id());
-        assert_eq!(accounts[1].0.nonce(), expected_accounts[1].nonce());
+        assert_eq!(accounts[1].id(), expected_accounts[1].id());
+        assert_eq!(accounts[1].nonce(), expected_accounts[1].nonce());
         assert_eq!(
-            accounts[1].0.vault_root(),
+            accounts[1].vault_root(),
             expected_accounts[1].vault().commitment()
         );
         assert_eq!(
-            accounts[1].0.storage_root(),
+            accounts[1].storage_root(),
             expected_accounts[1].storage().root()
         );
-        assert_eq!(
-            accounts[1].0.code_root(),
-            expected_accounts[1].code().root()
-        );
+        assert_eq!(accounts[1].code_root(), expected_accounts[1].code().root());
     }
 }
