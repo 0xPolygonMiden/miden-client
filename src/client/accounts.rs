@@ -191,10 +191,7 @@ impl Client {
     }
 
     /// Returns summary info about the specified account.
-    pub fn get_account_by_id(
-        &self,
-        account_id: AccountId,
-    ) -> Result<(Account, Digest, Word), ClientError> {
+    pub fn get_account_by_id(&self, account_id: AccountId) -> Result<Account, ClientError> {
         self.store
             .get_account_by_id(account_id)
             .map_err(|err| err.into())
@@ -207,6 +204,14 @@ impl Client {
     ) -> Result<AccountRecord, ClientError> {
         self.store
             .get_account_record_by_id(account_id)
+            .map_err(|err| err.into())
+    }
+
+    /// Returns an Account struct from the account records info
+    #[cfg(test)]
+    pub fn get_account_from_record(&self, record: &AccountRecord) -> Result<Account, ClientError> {
+        self.store
+            .get_account_from_record(record)
             .map_err(|err| err.into())
     }
 

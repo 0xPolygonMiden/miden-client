@@ -164,11 +164,17 @@ impl Store {
 
     // TODO: Get all parts from a single query
     /// Retrieves a full [Account] object
-    pub fn get_account_by_id(
-        &self,
-        account_id: AccountId,
-    ) -> Result<(Account, Digest, Word), StoreError> {
+    pub fn get_account_by_id(&self, account_id: AccountId) -> Result<Account, StoreError> {
         let account_record = self.get_account_record_by_id(account_id)?;
+        self.get_account_from_record(&account_record)
+    }
+
+    // TODO: Get all parts from a single query
+    /// Retrieves a full [Account] object
+    pub fn get_account_from_record(
+        &self,
+        account_record: &AccountRecord,
+    ) -> Result<Account, StoreError> {
         let (_procedures, module_ast) = self.get_account_code(account_record.code_root())?;
 
         //let account_code = AccountCode::from_parts(module_ast, procedures);
@@ -187,11 +193,7 @@ impl Store {
             account_record.nonce(),
         );
 
-        Ok((
-            account,
-            account_record.account_hash(),
-            account_record.account_seed(),
-        ))
+        Ok(account)
     }
 
     /// Retrieve account keys data by Account Id
@@ -218,7 +220,8 @@ impl Store {
         account_id: AccountId,
         account_delta: &AccountDelta,
     ) -> Result<(), StoreError> {
-        let (mut account, _account_hash, seed) = self.get_account_by_id(account_id)?;
+        let account_record = self.get_account_record_by_id(account_id)?;
+        let mut account = self.get_account_from_record(&account_record)?;
 
         account
             .apply_delta(account_delta)
@@ -231,7 +234,7 @@ impl Store {
 
         Self::insert_account_storage(&tx, account.storage())?;
         Self::insert_account_asset_vault(&tx, account.vault())?;
-        Self::insert_account_record(&tx, &account, seed)?;
+        Self::insert_account_record(&tx, &account, account_record.account_seed())?;
 
         tx.commit().map_err(StoreError::TransactionError)
     }

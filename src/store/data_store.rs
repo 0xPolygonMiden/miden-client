@@ -30,7 +30,8 @@ impl DataStore for SqliteDataStore {
         notes: &[objects::notes::NoteId],
     ) -> Result<TransactionInputs, DataStoreError> {
         // Construct Account
-        let (account, _account_hash, seed) = self.store.get_account_by_id(account_id)?;
+        let account_record = self.store.get_account_record_by_id(account_id)?;
+        let account = self.store.get_account_from_record(&account_record)?;
 
         // Get header data
         let (block_header, _had_notes) = self.store.get_block_header_by_num(block_num)?;
@@ -77,7 +78,11 @@ impl DataStore for SqliteDataStore {
         let input_notes = InputNotes::new(list_of_notes)
             .map_err(|err| DataStoreError::InternalError(err.to_string()))?;
 
-        let seed = if account.is_new() { Some(seed) } else { None };
+        let seed = if account.is_new() {
+            Some(account_record.account_seed())
+        } else {
+            None
+        };
 
         TransactionInputs::new(account, seed, block_header, chain_mmr, input_notes)
             .map_err(DataStoreError::InvalidTransactionInput)

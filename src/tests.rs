@@ -130,22 +130,26 @@ async fn insert_basic_account() {
 
     let (account, account_seed) = account_insert_result.unwrap();
 
-    // Fetch Account
-    let fetched_account_data = client.get_account_by_id(account.id());
-    assert!(fetched_account_data.is_ok());
+    // Fetch Account Record
+    let fetched_account_record = client.get_account_record_by_id(account.id());
+    assert!(fetched_account_record.is_ok());
+    let fetched_account_record = fetched_account_record.unwrap();
 
-    let (fetched_account, fetched_account_hash, fetched_account_seed) =
-        fetched_account_data.unwrap();
+    // Fetch Account
+    let fetched_account_data = client.get_account_from_record(&fetched_account_record);
+    assert!(fetched_account_data.is_ok());
+    let fetched_account = fetched_account_data.unwrap();
+
     // Validate stub has matching data
     assert_eq!(account.id(), fetched_account.id());
     assert_eq!(account.nonce(), fetched_account.nonce());
     assert_eq!(account.vault(), fetched_account.vault());
     assert_eq!(account.storage().root(), fetched_account.storage().root());
     assert_eq!(account.code().root(), fetched_account.code().root());
-    assert_eq!(account.hash(), fetched_account_hash);
+    assert_eq!(account.hash(), fetched_account_record.account_hash());
 
     // Validate seed matches
-    assert_eq!(account_seed, fetched_account_seed);
+    assert_eq!(account_seed, fetched_account_record.account_seed());
 }
 
 #[tokio::test]
@@ -174,22 +178,26 @@ async fn insert_faucet_account() {
 
     let (account, account_seed) = account_insert_result.unwrap();
 
-    // Fetch Account
-    let fetched_account_data = client.get_account_by_id(account.id());
-    assert!(fetched_account_data.is_ok());
+    // Fetch Account Record
+    let fetched_account_record = client.get_account_record_by_id(account.id());
+    assert!(fetched_account_record.is_ok());
+    let fetched_account_record = fetched_account_record.unwrap();
 
-    let (fetched_account, fetched_account_hash, fetched_account_seed) =
-        fetched_account_data.unwrap();
+    // Fetch Account
+    let fetched_account_data = client.get_account_from_record(&fetched_account_record);
+    assert!(fetched_account_data.is_ok());
+    let fetched_account = fetched_account_data.unwrap();
+
     // Validate stub has matching data
     assert_eq!(account.id(), fetched_account.id());
     assert_eq!(account.nonce(), fetched_account.nonce());
     assert_eq!(account.vault(), fetched_account.vault());
-    assert_eq!(account.storage(), fetched_account.storage());
+    assert_eq!(account.storage().root(), fetched_account.storage().root());
     assert_eq!(account.code().root(), fetched_account.code().root());
-    assert_eq!(account.hash(), fetched_account_hash);
+    assert_eq!(account.hash(), fetched_account_record.account_hash());
 
     // Validate seed matches
-    assert_eq!(account_seed, fetched_account_seed);
+    assert_eq!(account_seed, fetched_account_record.account_seed());
 }
 
 #[tokio::test]
@@ -261,7 +269,7 @@ async fn test_acc_code() {
     client
         .insert_account(&account, account_seed, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
-    let (retrieved_acc, _, _) = client.get_account_by_id(account_id).unwrap();
+    let retrieved_acc = client.get_account_by_id(account_id).unwrap();
 
     let mut account_module = account.code().module().clone();
     account_module.clear_locations();
