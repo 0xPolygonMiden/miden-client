@@ -353,7 +353,7 @@ impl Store {
         account_storage: &AccountStorage,
     ) -> Result<(), StoreError> {
         let (storage_root, storage_slots) = serialize_account_storage(account_storage)?;
-        const QUERY: &str = "INSERT OR REPLACE INTO account_storage (root, slots) VALUES (?, ?)";
+        const QUERY: &str = "INSERT OR IGNORE INTO account_storage (root, slots) VALUES (?, ?)";
         tx.execute(QUERY, params![storage_root, storage_slots])
             .map(|_| ())
             .map_err(StoreError::QueryError)
@@ -364,7 +364,7 @@ impl Store {
         asset_vault: &AssetVault,
     ) -> Result<(), StoreError> {
         let (vault_root, assets) = serialize_account_asset_vault(asset_vault)?;
-        const QUERY: &str = "INSERT OR REPLACE INTO account_vaults (root, assets) VALUES (?, ?)";
+        const QUERY: &str = "INSERT OR IGNORE INTO account_vaults (root, assets) VALUES (?, ?)";
         tx.execute(QUERY, params![vault_root, assets])
             .map(|_| ())
             .map_err(StoreError::QueryError)
