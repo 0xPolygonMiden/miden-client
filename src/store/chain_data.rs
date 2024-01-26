@@ -23,8 +23,8 @@ type SerializedChainMmrNodeParts = (u64, String);
 pub enum BlockFilter<'a> {
     All,
     Single(u32),
-    Range(u32, u32),
     /// Represents inclusive range [start, end]
+    Range(u32, u32),
     List(&'a [u32]),
 }
 
