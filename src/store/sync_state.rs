@@ -21,7 +21,7 @@ impl Store {
 
     /// Returns the note tags that the client is interested in.
     pub fn get_note_tags(&self) -> Result<Vec<u64>, StoreError> {
-        const QUERY: &str = "SELECT tags FROM state_sync";
+        const QUERY: &str = "SELECT tags FROM sync_state";
 
         self.db
             .prepare(QUERY)?
@@ -47,7 +47,7 @@ impl Store {
         tags.push(tag);
         let tags = serde_json::to_string(&tags).map_err(StoreError::InputSerializationError)?;
 
-        const QUERY: &str = "UPDATE state_sync SET tags = ?";
+        const QUERY: &str = "UPDATE sync_state SET tags = ?";
         self.db.execute(QUERY, params![tags])?;
 
         Ok(true)
@@ -55,7 +55,7 @@ impl Store {
 
     /// Returns the block number of the last state sync block
     pub fn get_sync_height(&self) -> Result<u32, StoreError> {
-        const QUERY: &str = "SELECT block_num FROM state_sync";
+        const QUERY: &str = "SELECT block_num FROM sync_state";
 
         self.db
             .prepare(QUERY)?
@@ -67,7 +67,7 @@ impl Store {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn apply_state_sync(
+    pub fn apply_sync_state(
         &mut self,
         current_block_num: u32,
         block_header: BlockHeader,
@@ -96,7 +96,7 @@ impl Store {
         let tx = self.db.transaction()?;
 
         // update state sync block number
-        const BLOCK_NUMBER_QUERY: &str = "UPDATE state_sync SET block_num = ?";
+        const BLOCK_NUMBER_QUERY: &str = "UPDATE sync_state SET block_num = ?";
         tx.execute(BLOCK_NUMBER_QUERY, params![block_header.block_num()])?;
 
         // update spent notes
