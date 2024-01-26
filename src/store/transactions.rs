@@ -22,7 +22,7 @@ pub(crate) const INSERT_TRANSACTION_QUERY: &str =
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
 pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str =
-    "INSERT OR REPLACE INTO transaction_scripts (id, program) \
+    "INSERT OR IGNORE INTO transaction_scripts (id, program) \
     VALUES (?, ?)";
 
 // TRANSACTIONS FILTERS
