@@ -7,15 +7,13 @@ use crypto::{
     utils::{collections::BTreeMap, Deserializable, Serializable},
     Felt,
 };
-use miden_lib::transaction;
 
 use super::Store;
 use objects::{
-    accounts::{AccountDelta, AccountId},
+    accounts::AccountId,
     assembly::{AstSerdeOptions, ProgramAst},
-    notes::{Note, NoteEnvelope, NoteId},
-    transaction::{ExecutedTransaction, OutputNotes, ProvenTransaction, TransactionScript},
-    vm::ExecutionProof,
+    notes::{NoteEnvelope, NoteId},
+    transaction::{OutputNotes, TransactionScript},
     Digest,
 };
 use rusqlite::{params, Transaction};
@@ -26,7 +24,7 @@ pub(crate) const INSERT_TRANSACTION_QUERY: &str =
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
 pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str =
-    "INSERT OR IGNORE INTO transaction_scripts (id, program) \
+    "INSERT OR IGNORE INTO transaction_scripts (script_hash, program) \
     VALUES (?, ?)";
 
 // TRANSACTIONS FILTERS
