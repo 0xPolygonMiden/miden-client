@@ -205,7 +205,7 @@ impl Store {
     }
 
     /// Inserts the provided input note into the database
-    pub fn insert_input_note_tx(
+    pub(super) fn insert_input_note_tx(
         tx: &Transaction<'_>,
         note: &InputNoteRecord,
     ) -> Result<(), StoreError> {

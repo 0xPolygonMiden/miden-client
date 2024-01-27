@@ -467,14 +467,8 @@ impl Client {
         self.submit_proven_transaction_request(proven_transaction.clone())
             .await?;
 
-        // transaction was proven and submitted to the node correctly, persist note details and update account
-        self.store.insert_transaction_data(
-            proven_transaction,
-            tx_result.block_num(),
-            tx_result.transaction_script().cloned(),
-            tx_result.account_delta(),
-            tx_result.created_notes(),
-        )?;
+        // Transaction was proven and submitted to the node correctly, persist note details and update account
+        self.store.insert_transaction_data(tx_result)?;
 
         Ok(())
     }
