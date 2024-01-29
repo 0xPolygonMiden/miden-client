@@ -80,7 +80,8 @@ impl MockRpcApi {
         }
     }
 
-    /// Executes the specified sync state request and returns the response.
+    /// Creates and executes a [GetBlockHeaderByNumberRequest].
+    /// Only used for retrieving genesis block right now so that's the only case we need to cover.
     pub async fn get_block_header_by_number(
         &mut self,
         request: impl IntoRequest<GetBlockHeaderByNumberRequest>,
@@ -89,7 +90,7 @@ impl MockRpcApi {
 
         if request.block_num == Some(0) {
             let block_header: objects::BlockHeader = block::mock_block_header(0, None, None, &[]);
-            return Ok(Response::new(GetBlockHeaderByNumberResponse {
+            return Ok(tonic::Response::new(GetBlockHeaderByNumberResponse {
                 block_header: Some(block_header.into()),
             }));
         }

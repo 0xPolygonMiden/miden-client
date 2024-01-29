@@ -20,6 +20,7 @@ pub enum ClientError {
     AccountError(AccountError),
     AuthError(FalconError),
     NoteError(NoteError),
+    NoConsumableNoteForAccount(AccountId),
     RpcApiError(RpcApiError),
     RpcExpectedFieldMissing(String),
     RpcTypeConversionFailure(ParseError),
@@ -33,6 +34,9 @@ impl fmt::Display for ClientError {
         match self {
             ClientError::AccountError(err) => write!(f, "account error: {err}"),
             ClientError::AuthError(err) => write!(f, "account auth error: {err}"),
+            ClientError::NoConsumableNoteForAccount(account_id) => {
+                write!(f, "No consumable note for account ID {}", account_id)
+            }
             ClientError::NoteError(err) => write!(f, "note error: {err}"),
             ClientError::RpcApiError(err) => write!(f, "rpc api error: {err}"),
             ClientError::RpcExpectedFieldMissing(err) => {
@@ -179,6 +183,12 @@ impl From<rusqlite::Error> for StoreError {
 impl From<DeserializationError> for StoreError {
     fn from(value: DeserializationError) -> Self {
         StoreError::DataDeserializationError(value)
+    }
+}
+
+impl From<ParseError> for StoreError {
+    fn from(value: ParseError) -> Self {
+        StoreError::RpcTypeConversionFailure(value)
     }
 }
 

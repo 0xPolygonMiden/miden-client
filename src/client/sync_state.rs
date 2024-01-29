@@ -92,8 +92,7 @@ impl Client {
             .ok_or(ClientError::RpcExpectedFieldMissing(
                 "Expected block header in genesis block request".to_string(),
             ))?
-            .try_into()
-            .map_err(ClientError::RpcTypeConversionFailure)?;
+            .try_into()?;
 
         let tx = self.store.db.transaction()?;
 
@@ -102,8 +101,7 @@ impl Client {
             genesis_block,
             MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks"),
             false,
-        )
-        .map_err(ClientError::StoreError)?;
+        )?;
 
         tx.commit()?;
         Ok(())
@@ -183,8 +181,7 @@ impl Client {
                 response.accounts,
                 mmr_delta,
                 committed_notes,
-            )
-            .map_err(ClientError::StoreError)?;
+            )?;
 
         if response.chain_tip == incoming_block_header.block_num() {
             Ok(SyncStatus::SyncedToLastBlock(response.chain_tip))
@@ -205,8 +202,7 @@ impl Client {
     ) -> Result<Vec<(Digest, NoteInclusionProof)>, ClientError> {
         let pending_notes: Vec<Digest> = self
             .store
-            .get_input_notes(crate::store::notes::InputNoteFilter::Pending)
-            .map_err(ClientError::StoreError)?
+            .get_input_notes(crate::store::notes::InputNoteFilter::Pending)?
             .iter()
             .map(|n| n.note().id().inner())
             .collect();

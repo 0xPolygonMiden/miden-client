@@ -162,14 +162,12 @@ fn check_account_hashes(
                 .find(|acc| update_account_id == u64::from(acc.id()))
             {
                 let remote_account_hash: Digest = remote_account_hash
-                    .try_into()
-                    .map_err(StoreError::RpcTypeConversionFailure)?;
+                    .try_into()?;
 
                 if remote_account_hash != acc_stub.hash() {
                     return Err(StoreError::AccountHashMismatch(
                         update_account_id
-                            .try_into()
-                            .map_err(StoreError::AccountError)?,
+                            .try_into()?,
                     ));
                 }
             }
@@ -197,12 +195,10 @@ fn apply_and_store_mmr_changes(
 
     // apply the Mmr delta to bring Mmr to forest equal to chain_tip
     let mmr_delta: crypto::merkle::MmrDelta = mmr_delta
-        .try_into()
-        .map_err(StoreError::RpcTypeConversionFailure)?;
+        .try_into()?;
 
     let delta_new_authentication_nodes = partial_mmr
-        .apply(mmr_delta)
-        .map_err(StoreError::MmrError)?
+        .apply(mmr_delta)?
         .into_iter();
 
     // insert new relevant authentication nodes

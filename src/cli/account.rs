@@ -5,14 +5,13 @@ use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use crypto::{
     dsa::rpo_falcon512::KeyPair,
     utils::{bytes_to_hex_string, Deserializable, Serializable},
+    StarkField,
 };
-use miden_client::client::accounts;
+use miden_client::client::{accounts, Client};
 
-use super::Client;
 use objects::{
     accounts::{AccountData, AccountId},
     assets::TokenSymbol,
-    Digest,
 };
 
 // ACCOUNT COMMAND
@@ -40,14 +39,12 @@ pub enum AccountCmd {
         #[clap(short, long, default_value_t = false)]
         code: bool,
     },
-
     /// Create new account and store it locally
     #[clap(short_flag = 'n')]
     New {
         #[clap(subcommand)]
         template: AccountTemplate,
     },
-
     /// Import accounts from binary files (with .mac extension)
     #[clap(short_flag = 'i')]
     Import {
@@ -150,16 +147,24 @@ fn list_accounts(client: Client) -> Result<(), String> {
             Cell::new("code root").add_attribute(Attribute::Bold),
             Cell::new("vault root").add_attribute(Attribute::Bold),
             Cell::new("storage root").add_attribute(Attribute::Bold),
+            Cell::new("type").add_attribute(Attribute::Bold),
             Cell::new("nonce").add_attribute(Attribute::Bold),
         ]);
 
     accounts.iter().for_each(|(acc, _acc_seed)| {
+        let acc_type = match acc.id().account_type() {
+            objects::accounts::AccountType::FungibleFaucet => "Fungible faucet",
+            objects::accounts::AccountType::NonFungibleFaucet => "Non-fungible faucet",
+            objects::accounts::AccountType::RegularAccountImmutableCode => "Regular",
+            objects::accounts::AccountType::RegularAccountUpdatableCode => "Regular (updatable)",
+        };
         table.add_row(vec![
             acc.id().to_string(),
             acc.code_root().to_string(),
             acc.vault_root().to_string(),
             acc.storage_root().to_string(),
-            acc.nonce().to_string(),
+            acc_type.to_string(),
+            acc.nonce().as_int().to_string(),
         ]);
     });
 
@@ -175,11 +180,9 @@ pub fn show_account(
     show_storage: bool,
     show_code: bool,
 ) -> Result<(), String> {
-    let (account, account_seed) = client
+    let (account, _account_seed) = client
         .get_account_stub_by_id(account_id)
         .map_err(|err| err.to_string())?;
-
-    let formatted_seed = Digest::from(account_seed).to_string();
 
     let mut table = Table::new();
     table
@@ -191,7 +194,7 @@ pub fn show_account(
             Cell::new("vault root").add_attribute(Attribute::Bold),
             Cell::new("storage root").add_attribute(Attribute::Bold),
             Cell::new("nonce").add_attribute(Attribute::Bold),
-            Cell::new("account seed").add_attribute(Attribute::Bold),
+            Cell::new("account hash").add_attribute(Attribute::Bold),
         ]);
 
     table.add_row(vec![
@@ -200,9 +203,8 @@ pub fn show_account(
         account.vault_root().to_string(),
         account.storage_root().to_string(),
         account.nonce().to_string(),
-        formatted_seed,
+        account.hash().to_string(),
     ]);
-
     println!("{table}\n");
 
     if show_keys {

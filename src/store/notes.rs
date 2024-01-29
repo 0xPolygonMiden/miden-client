@@ -9,7 +9,7 @@ use crypto::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError
 use objects::notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteScript};
 
 use objects::{accounts::AccountId, notes::NoteMetadata, transaction::InputNote, Digest, Felt};
-use rusqlite::params;
+use rusqlite::{params, Transaction};
 
 pub(crate) const INSERT_NOTE_QUERY: &str = "\
 INSERT INTO input_notes
@@ -165,40 +165,14 @@ impl Store {
     }
 
     /// Inserts the provided input note into the database
-    pub fn insert_input_note(&self, note: &InputNoteRecord) -> Result<(), StoreError> {
-        let (
-            note_id,
-            nullifier,
-            script,
-            vault,
-            inputs,
-            serial_num,
-            sender_id,
-            tag,
-            inclusion_proof,
-            recipients,
-            status,
-            commit_height,
-        ) = serialize_input_note(note)?;
+    pub fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError> {
+        let tx = self
+            .db
+            .transaction()?;
 
-        self.db.execute(
-            INSERT_NOTE_QUERY,
-            params![
-                note_id,
-                nullifier,
-                script,
-                vault,
-                inputs,
-                serial_num,
-                sender_id,
-                tag,
-                inclusion_proof,
-                recipients,
-                status,
-                commit_height
-            ],
-        )?;
-        Ok(())
+        Self::insert_input_note_tx(&tx, note)?;
+
+        Ok(tx.commit()?)
     }
 
     /// Returns the nullifiers of all unspent input notes
@@ -215,6 +189,47 @@ impl Store {
                     .and_then(|v: String| Digest::try_from(v).map_err(StoreError::HexParseError))
             })
             .collect::<Result<Vec<Digest>, _>>()
+    }
+
+    /// Inserts the provided input note into the database
+    pub(super) fn insert_input_note_tx(
+        tx: &Transaction<'_>,
+        note: &InputNoteRecord,
+    ) -> Result<(), StoreError> {
+        let (
+            note_id,
+            nullifier,
+            script,
+            vault,
+            inputs,
+            serial_num,
+            sender_id,
+            tag,
+            inclusion_proof,
+            recipients,
+            status,
+            commit_height,
+        ) = serialize_input_note(note)?;
+
+        tx.execute(
+            INSERT_NOTE_QUERY,
+            params![
+                note_id,
+                nullifier,
+                script,
+                vault,
+                inputs,
+                serial_num,
+                sender_id,
+                tag,
+                inclusion_proof,
+                recipients,
+                status,
+                commit_height
+            ],
+        )
+        .map_err(|err| StoreError::QueryError(err.to_string()))
+        .map(|_| ())
     }
 }
 

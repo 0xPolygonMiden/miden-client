@@ -465,5 +465,9 @@ async fn test_mint_transaction() {
     };
 
     let transaction = client.new_transaction(transaction_template).unwrap();
-    assert!(transaction.account_delta().nonce().is_some());
+    assert!(transaction
+        .executed_transaction()
+        .account_delta()
+        .nonce()
+        .is_some());
 }

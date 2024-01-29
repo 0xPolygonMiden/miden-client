@@ -1,15 +1,11 @@
-use std::{collections::BTreeMap, num::NonZeroUsize};
-
 use super::Store;
-
 use crate::errors::StoreError;
-
 use clap::error::Result;
-
 use crypto::merkle::{InOrderIndex, MmrPeaks};
 
 use objects::{BlockHeader, Digest};
 use rusqlite::{params, OptionalExtension, Transaction};
+use std::{collections::BTreeMap, num::NonZeroUsize};
 
 type SerializedBlockHeaderData = (i64, String, String, String, String, bool);
 type SerializedBlockHeaderParts = (u64, String, String, String, String, bool);
