@@ -11,10 +11,12 @@ use objects::notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, N
 use objects::{accounts::AccountId, notes::NoteMetadata, transaction::InputNote, Digest, Felt};
 use rusqlite::{params, Transaction};
 
-pub(crate) const INSERT_NOTE_QUERY: &str = "\
-INSERT INTO input_notes
-    (note_id, nullifier, script, vault, inputs, serial_num, sender_id, tag, inclusion_proof, recipients, status, commit_height)
- VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+pub(crate) fn insert_note_query(table_name: &str) -> String {
+    format!("\
+    INSERT INTO {table_name}
+        (note_id, nullifier, script, assets, inputs, serial_num, sender_id, tag, inclusion_proof, recipient, status, commit_height)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+}
 
 // TYPES
 // ================================================================================================
@@ -47,8 +49,8 @@ pub enum InputNoteFilter {
 }
 
 impl InputNoteFilter {
-    pub fn to_query(&self) -> String {
-        let base = String::from("SELECT script, inputs, vault, serial_num, sender_id, tag, inclusion_proof FROM input_notes");
+    pub fn to_query(&self, notes_table: &str) -> String {
+        let base = format!("SELECT script, inputs, assets, serial_num, sender_id, tag, inclusion_proof FROM {notes_table}");
         match self {
             InputNoteFilter::All => base,
             InputNoteFilter::Committed => format!("{base} WHERE status = 'committed'"),
@@ -144,7 +146,20 @@ impl Store {
         note_filter: InputNoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
         self.db
-            .prepare(&note_filter.to_query())?
+            .prepare(&note_filter.to_query("input_notes"))?
+            .query_map([], parse_input_note_columns)
+            .expect("no binding parameters used in query")
+            .map(|result| Ok(result?).and_then(parse_input_note))
+            .collect::<Result<Vec<InputNoteRecord>, _>>()
+    }
+
+    /// Retrieves the output notes from the database
+    pub fn get_output_notes(
+        &self,
+        note_filter: InputNoteFilter,
+    ) -> Result<Vec<InputNoteRecord>, StoreError> {
+        self.db
+            .prepare(&note_filter.to_query("output_notes"))?
             .query_map([], parse_input_note_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_input_note))
@@ -154,7 +169,7 @@ impl Store {
     /// Retrieves the input note with the specified id from the database
     pub fn get_input_note_by_id(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError> {
         let query_id = &note_id.inner().to_string();
-        const QUERY: &str = "SELECT script, inputs, vault, serial_num, sender_id, tag, inclusion_proof FROM input_notes WHERE note_id = ?";
+        const QUERY: &str = "SELECT script, inputs, assets, serial_num, sender_id, tag, inclusion_proof FROM input_notes WHERE note_id = ?";
 
         self.db
             .prepare(QUERY)?
@@ -210,7 +225,48 @@ impl Store {
         ) = serialize_input_note(note)?;
 
         tx.execute(
-            INSERT_NOTE_QUERY,
+            &insert_note_query("input_notes"),
+            params![
+                note_id,
+                nullifier,
+                script,
+                vault,
+                inputs,
+                serial_num,
+                sender_id,
+                tag,
+                inclusion_proof,
+                recipients,
+                status,
+                commit_height
+            ],
+        )
+        .map_err(|err| StoreError::QueryError(err.to_string()))
+        .map(|_| ())
+    }
+
+    /// Inserts the provided input note into the database
+    pub fn insert_output_note_tx(
+        tx: &Transaction<'_>,
+        note: &InputNoteRecord,
+    ) -> Result<(), StoreError> {
+        let (
+            note_id,
+            nullifier,
+            script,
+            vault,
+            inputs,
+            serial_num,
+            sender_id,
+            tag,
+            inclusion_proof,
+            recipients,
+            status,
+            commit_height,
+        ) = serialize_input_note(note)?;
+
+        tx.execute(
+            &insert_note_query("output_notes"),
             params![
                 note_id,
                 nullifier,

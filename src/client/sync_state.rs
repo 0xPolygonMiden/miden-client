@@ -7,12 +7,11 @@ use miden_node_proto::{
     responses::SyncStateResponse,
 };
 
-use objects::{accounts::AccountId, notes::NoteInclusionProof, BlockHeader, Digest};
-
 use crate::{
     errors::{ClientError, StoreError},
-    store::Store,
+    store::{notes::InputNoteFilter, Store},
 };
+use objects::{accounts::AccountId, notes::NoteInclusionProof, BlockHeader, Digest};
 
 pub enum SyncStatus {
     SyncedToLastBlock(u32),
@@ -199,12 +198,22 @@ impl Client {
         notes: &[NoteSyncRecord],
         block_header: &BlockHeader,
     ) -> Result<Vec<(Digest, NoteInclusionProof)>, ClientError> {
-        let pending_notes: Vec<Digest> = self
+        let pending_input_notes: Vec<Digest> = self
             .store
-            .get_input_notes(crate::store::notes::InputNoteFilter::Pending)?
+            .get_input_notes(InputNoteFilter::Pending)?
             .iter()
             .map(|n| n.note().id().inner())
             .collect();
+
+        let pending_output_notes: Vec<Digest> = self
+            .store
+            .get_output_notes(InputNoteFilter::Pending)?
+            .iter()
+            .map(|n| n.note().id().inner())
+            .collect();
+
+        let mut pending_notes = [pending_input_notes, pending_output_notes].concat();
+        pending_notes.dedup_by(|note_id, other_note_id| note_id == other_note_id);
 
         let notes_with_hashes_and_merkle_paths =
             notes
