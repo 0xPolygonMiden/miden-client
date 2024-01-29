@@ -8,6 +8,7 @@ use miden_node_proto::{
 };
 
 use objects::{accounts::AccountId, notes::NoteInclusionProof, BlockHeader, Digest};
+use tracing::{warn, instrument};
 
 use crate::{
     errors::{ClientError, StoreError},
@@ -44,7 +45,7 @@ impl Client {
         match self.store.add_note_tag(tag).map_err(|err| err.into()) {
             Ok(true) => Ok(()),
             Ok(false) => {
-                println!("tag {} is already being tracked", tag);
+                warn!("tag {} is already being tracked", tag);
                 Ok(())
             }
             Err(err) => Err(err),
