@@ -1,3 +1,5 @@
+use crate::errors::ClientError;
+
 use super::Store;
 use crypto::merkle::PartialMmr;
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
@@ -6,6 +8,7 @@ use objects::{
     accounts::AccountId,
     assembly::ModuleAst,
     transaction::{ChainMmr, InputNote, InputNotes},
+    BlockHeader,
 };
 
 // DATA STORE
@@ -39,14 +42,11 @@ impl DataStore for SqliteDataStore {
 
         let mut notes_blocks: Vec<objects::BlockHeader> = vec![];
         for note_id in notes {
-            let input_note_record = self
-                .store
-                .get_input_note_by_id(*note_id)
-                .map_err(|_| DataStoreError::AccountNotFound(account_id))?;
+            let input_note_record = self.store.get_input_note_by_id(*note_id)?;
 
             let input_note: InputNote = input_note_record
                 .try_into()
-                .map_err(|_| DataStoreError::AccountNotFound(account_id))?;
+                .map_err(|err: ClientError| DataStoreError::InternalError(err.to_string()))?;
 
             list_of_notes.push(input_note.clone());
 
@@ -59,23 +59,12 @@ impl DataStore for SqliteDataStore {
             }
         }
 
-        // TODO:
-        //  - To build the return (partial) ChainMmr: From the block numbers in each note.origin(), get the list of block headers
-        //    and construct the partial Mmr
-
-        // build partial mmr from the nodes - partial_mmr should be on memory as part of our store
-        let partial_mmr: PartialMmr = {
-            // we are supposed to have data by this point, so reconstruct the partial mmr
-            let current_peaks = self.store.get_chain_mmr_peaks_by_block_num(block_num)?;
-
-            PartialMmr::from_peaks(current_peaks)
-        };
-
+        let partial_mmr = build_partial_mmr_with_paths(&self.store, block_num, &notes_blocks)?;
         let chain_mmr = ChainMmr::new(partial_mmr, notes_blocks)
             .map_err(|err| DataStoreError::InternalError(err.to_string()))?;
 
-        let input_notes = InputNotes::new(list_of_notes)
-            .map_err(|err| DataStoreError::InternalError(err.to_string()))?;
+        let input_notes =
+            InputNotes::new(list_of_notes).map_err(DataStoreError::InvalidTransactionInput)?;
 
         let seed = if account.is_new() { Some(seed) } else { None };
 
@@ -88,4 +77,34 @@ impl DataStore for SqliteDataStore {
 
         Ok(module_ast)
     }
+}
+
+/// Builds a [PartialMmr] with a specified forest number and a list of blocks that should be
+/// authenticated.
+///
+/// `authenticated_blocks` cannot contain `forest`. For authenticating the last block we have,
+/// the kernel extends the MMR which is why it's not needed here.
+fn build_partial_mmr_with_paths(
+    store: &Store,
+    forest: u32,
+    authenticated_blocks: &[BlockHeader],
+) -> Result<PartialMmr, DataStoreError> {
+    let mut partial_mmr: PartialMmr = {
+        let current_peaks = store.get_chain_mmr_peaks_by_block_num(forest)?;
+
+        PartialMmr::from_peaks(current_peaks)
+    };
+
+    let block_nums: Vec<u32> = authenticated_blocks.iter().map(|b| b.block_num()).collect();
+
+    let authentication_paths =
+        store.get_authentication_path_for_blocks(&block_nums, partial_mmr.forest())?;
+
+    for (header, path) in authenticated_blocks.iter().zip(authentication_paths.iter()) {
+        partial_mmr
+            .track(header.block_num() as usize, header.hash(), path)
+            .map_err(|err| DataStoreError::InternalError(err.to_string()))?;
+    }
+
+    Ok(partial_mmr)
 }

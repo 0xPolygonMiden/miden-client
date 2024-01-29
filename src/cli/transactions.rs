@@ -26,7 +26,10 @@ pub enum TransactionType {
     P2IDR,
     ConsumeNote {
         account_id: String,
-        note_id: Option<String>,
+        note_id: String,
+    },
+    ConsumeAllNotes {
+        account_id: String,
     },
 }
 
@@ -81,16 +84,15 @@ impl TryInto<TransactionTemplate> for &TransactionType {
                 note_id,
             } => {
                 let account_id = AccountId::from_hex(account_id).map_err(|err| err.to_string())?;
-                let note_id = match note_id {
-                    Some(note_id) => Some(
-                        Digest::try_from(note_id)
-                            .map(NoteId::from)
-                            .map_err(|err| err.to_string())?,
-                    ),
-                    None => None,
-                };
+                let note_id = Digest::try_from(note_id)
+                    .map(NoteId::from)
+                    .map_err(|err| err.to_string())?;
 
                 Ok(TransactionTemplate::ConsumeNote(account_id, note_id))
+            }
+            TransactionType::ConsumeAllNotes { account_id } => {
+                let account_id = AccountId::from_hex(account_id).map_err(|err| err.to_string())?;
+                Ok(TransactionTemplate::ConsumeAllNotes(account_id))
             }
         }
     }

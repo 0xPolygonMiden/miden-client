@@ -1,17 +1,19 @@
 use super::Client;
-use crypto::{merkle::MmrPeaks, StarkField};
+use crypto::merkle::{InOrderIndex, MerklePath, MmrDelta, MmrPeaks, PartialMmr};
 use miden_node_proto::{
     account::AccountId as ProtoAccountId,
     note::NoteSyncRecord,
     requests::{GetBlockHeaderByNumberRequest, SyncStateRequest},
-    responses::SyncStateResponse,
+    responses::{AccountHashUpdate, SyncStateResponse},
 };
 
-use objects::{accounts::AccountId, notes::NoteInclusionProof, BlockHeader, Digest};
+use objects::{
+    accounts::AccountStub, crypto, notes::NoteInclusionProof, BlockHeader, Digest, StarkField,
+};
 
 use crate::{
     errors::{ClientError, StoreError},
-    store::Store,
+    store::{chain_data::ChainMmrNodeFilter, Store},
 };
 
 pub enum SyncStatus {
@@ -115,8 +117,17 @@ impl Client {
     }
 
     async fn single_sync_state(&mut self) -> Result<SyncStatus, ClientError> {
+        // Construct request
+
         let current_block_num = self.store.get_sync_height()?;
-        let account_ids = self.store.get_account_ids()?;
+
+        let accounts: Vec<AccountStub> = self
+            .store
+            .get_accounts()?
+            .iter()
+            .map(|(acc, _)| acc.clone())
+            .collect();
+
         let note_tags: Vec<u64> = self
             .store
             .get_accounts()
@@ -126,8 +137,10 @@ impl Client {
             .collect();
 
         let nullifiers = self.store.get_unspent_input_note_nullifiers()?;
+
+        // Send request and convert types
         let response = self
-            .sync_state_request(current_block_num, &account_ids, &note_tags, &nullifiers)
+            .sync_state_request(current_block_num, &accounts, &note_tags, &nullifiers)
             .await?;
 
         let incoming_block_header =
@@ -141,7 +154,7 @@ impl Client {
         let incoming_block_header: BlockHeader = incoming_block_header
             .try_into()
             .map_err(ClientError::RpcTypeConversionFailure)?;
-
+        // We don't need to continue if the chain has not advanced
         if incoming_block_header.block_num() == current_block_num {
             return Ok(SyncStatus::SyncedToLastBlock(current_block_num));
         }
@@ -176,20 +189,40 @@ impl Client {
         let committed_notes =
             self.get_newly_committed_note_info(&response.notes, &incoming_block_header)?;
 
-        let mmr_delta = response
+        let mmr_delta: crypto::merkle::MmrDelta = response
             .mmr_delta
             .ok_or(ClientError::RpcExpectedFieldMissing(
                 "MmrDelta missing on node's response".to_string(),
-            ))?;
+            ))?
+            .try_into()
+            .unwrap();
 
+        // Check if the returned account hashes match latest account hashes in the database
+        check_account_hashes(&response.accounts, &accounts)?;
+
+        // Build PartialMmr with current data and apply updates
+        let (new_peaks, new_authentication_nodes) = {
+            let current_partial_mmr = self.build_partial_mmr_for_block(current_block_num)?;
+
+            let (current_block, has_relevant_notes) =
+                self.store.get_block_header_by_num(current_block_num)?;
+
+            apply_mmr_changes(
+                current_partial_mmr,
+                mmr_delta,
+                current_block,
+                has_relevant_notes,
+            )?
+        };
+
+        // Apply received and computed updates to the store
         self.store
             .apply_state_sync(
-                current_block_num,
                 incoming_block_header,
                 new_nullifiers,
-                response.accounts,
-                mmr_delta,
                 committed_notes,
+                new_peaks,
+                &new_authentication_nodes,
             )
             .map_err(ClientError::StoreError)?;
 
@@ -282,13 +315,15 @@ impl Client {
     async fn sync_state_request(
         &mut self,
         block_num: u32,
-        account_ids: &[AccountId],
+        account_ids: &[AccountStub],
         note_tags: &[u64],
         nullifiers: &[Digest],
     ) -> Result<SyncStateResponse, ClientError> {
         let account_ids = account_ids
             .iter()
-            .map(|id| ProtoAccountId { id: u64::from(*id) })
+            .map(|acc| ProtoAccountId {
+                id: u64::from(acc.id()),
+            })
             .collect();
         let nullifiers = nullifiers
             .iter()
@@ -309,4 +344,103 @@ impl Client {
 
         Ok(self.rpc_api.sync_state(request).await?.into_inner())
     }
+
+    /// Builds the current view of the chain's [PartialMmr]. Because we want to add all new
+    /// authentication nodes that could come from applying the MMR updates, we need to track all
+    /// known leaves thus far.
+    ///
+    /// As part of the syncing process, we add the current block number so we don't need to
+    /// add it here.
+    fn build_partial_mmr_for_block(&self, block_num: u32) -> Result<PartialMmr, ClientError> {
+        let tracked_nodes = self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All)?;
+        let current_peaks = self.store.get_chain_mmr_peaks_by_block_num(block_num)?;
+        let tracked_blocks = self.store.get_tracked_block_headers()?;
+        let mut partial_mmr = PartialMmr::from_peaks(current_peaks);
+
+        for block in tracked_blocks {
+            if block.block_num() as usize >= partial_mmr.forest() {
+                continue;
+            }
+
+            let mut merkle_nodes = Vec::new();
+            let mut idx = InOrderIndex::from_leaf_pos(block.block_num() as usize);
+
+            while let Some(node) = tracked_nodes.get(&idx.sibling()) {
+                merkle_nodes.push(*node);
+                idx = idx.parent();
+            }
+
+            let merkle_path = MerklePath::new(merkle_nodes);
+            // Track the relevant block with the constructed merkle paths
+            partial_mmr
+                .track(block.block_num() as usize, block.hash(), &merkle_path)
+                .map_err(StoreError::MmrError)?;
+        }
+
+        Ok(partial_mmr)
+    }
+}
+
+// UTILS
+// --------------------------------------------------------------------------------------------
+
+/// Applies changes to the Mmr structure, storing authentication nodes for leaves we track
+/// and returns the updated [PartialMmr]
+fn apply_mmr_changes(
+    current_partial_mmr: PartialMmr,
+    mmr_delta: MmrDelta,
+    current_block_header: BlockHeader,
+    current_block_has_relevant_notes: bool,
+) -> Result<(MmrPeaks, Vec<(InOrderIndex, Digest)>), StoreError> {
+    // TODO: reload local full view of Partial Mmr here
+    let mut partial_mmr: PartialMmr = current_partial_mmr;
+
+    // First, apply curent_block to the Mmr
+    let new_authentication_nodes = partial_mmr
+        .add(
+            current_block_header.hash(),
+            current_block_has_relevant_notes,
+        )
+        .into_iter();
+
+    // Apply the Mmr delta to bring Mmr to forest equal to chain tip
+    let new_authentication_nodes: Vec<(InOrderIndex, Digest)> = partial_mmr
+        .apply(mmr_delta)
+        .map_err(StoreError::MmrError)?
+        .into_iter()
+        .chain(new_authentication_nodes)
+        .collect();
+
+    Ok((partial_mmr.peaks(), new_authentication_nodes))
+}
+
+/// Validates account hash updates and returns an error if there is a mismatch.
+fn check_account_hashes(
+    account_updates: &[AccountHashUpdate],
+    current_accounts: &[AccountStub],
+) -> Result<(), StoreError> {
+    for account_update in account_updates {
+        if let (Some(update_account_id), Some(remote_account_hash)) =
+            (&account_update.account_id, &account_update.account_hash)
+        {
+            let update_account_id: u64 = update_account_id.clone().into();
+            if let Some(acc_stub) = current_accounts
+                .iter()
+                .find(|acc| update_account_id == u64::from(acc.id()))
+            {
+                let remote_account_hash: Digest = remote_account_hash
+                    .try_into()
+                    .map_err(StoreError::RpcTypeConversionFailure)?;
+
+                if remote_account_hash != acc_stub.hash() {
+                    return Err(StoreError::AccountHashMismatch(
+                        update_account_id
+                            .try_into()
+                            .map_err(StoreError::AccountError)?,
+                    ));
+                }
+            }
+        }
+    }
+    Ok(())
 }

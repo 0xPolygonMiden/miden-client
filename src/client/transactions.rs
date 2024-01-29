@@ -29,8 +29,10 @@ use super::Client;
 
 #[derive(Clone)]
 pub enum TransactionTemplate {
-    /// Consume outstanding note for an account. If none is provided, it consumes the first found
-    ConsumeNote(AccountId, Option<NoteId>),
+    /// Consume outstanding note for an account.
+    ConsumeNote(AccountId, NoteId),
+    /// Consume all outstanding note for an account.
+    ConsumeAllNotes(AccountId),
     // NOTE: Maybe this should be called "distribute"?
     /// Mint fungible assets using a faucet account
     MintFungibleAsset {
@@ -48,6 +50,7 @@ impl TransactionTemplate {
     pub fn account_id(&self) -> AccountId {
         match self {
             TransactionTemplate::ConsumeNote(account_id, _) => *account_id,
+            TransactionTemplate::ConsumeAllNotes(account_id) => *account_id,
             TransactionTemplate::MintFungibleAsset {
                 asset,
                 target_account_id: _target_account_id,
@@ -188,7 +191,6 @@ impl Client {
     // --------------------------------------------------------------------------------------------
 
     /// Creates and executes a transaction specified by the template, but does not change the
-    /// Creates and executes a transaction specified by the template, but does not change the
     /// local database.
     pub fn new_transaction(
         &mut self,
@@ -202,15 +204,22 @@ impl Client {
             }) => self.new_p2id_transaction(fungible_asset, sender_account_id, target_account_id),
             TransactionTemplate::PayToIdWithRecall(_payment_data, _recall_height) => todo!(),
             TransactionTemplate::ConsumeNote(account_id, note_id) => {
-                self.new_consume_notes_transaction(account_id, note_id)
+                self.new_consume_notes_transaction(account_id, Some(note_id))
             }
             TransactionTemplate::MintFungibleAsset {
                 asset,
                 target_account_id,
             } => self.new_mint_fungible_asset_transaction(asset, target_account_id),
+            TransactionTemplate::ConsumeAllNotes(account_id) => {
+                self.new_consume_notes_transaction(account_id, None)
+            }
         }
     }
 
+    /// Creates and executes a transaction that consumes a number of notes
+    ///
+    /// If `note_id` is `None`, all committed input notes are consumed.
+    /// Otherwise, the specified note is consumed.
     fn new_consume_notes_transaction(
         &mut self,
         account_id: AccountId,
@@ -244,18 +253,14 @@ impl Client {
         };
         let script_inputs = vec![(pubkey_input, advice_map)];
 
-        let input_note = if note_id.is_some() {
-            self.store.get_input_note_by_id(note_id.unwrap())?
+        let input_notes = if let Some(note_id) = note_id {
+            vec![self.store.get_input_note_by_id(note_id)?.note_id()]
         } else {
-            let input_notes = self
-                .store
-                .get_input_notes(InputNoteFilter::Committed)
-                .map_err(ClientError::StoreError)?;
-
-            input_notes
-                .first()
-                .ok_or(ClientError::NoConsumableNoteForAccount(account_id))?
-                .clone()
+            self.store
+                .get_input_notes(InputNoteFilter::Committed)?
+                .iter()
+                .map(|n| n.note_id())
+                .collect()
         };
 
         let tx_script = self
@@ -263,18 +268,13 @@ impl Client {
             .compile_tx_script(tx_script_code, script_inputs, vec![])
             .map_err(ClientError::TransactionExecutionError)?;
 
-        // TODO: Change this to last block number after we confirm this execution works
-        let block_num = input_note.inclusion_proof().unwrap().origin().block_num;
+        // TODO: Is it preferrable to execute against the minimum block_num possible (ie, the input note's block_num)
+        let block_num = self.store.get_sync_height()?;
 
         // Execute the transaction and get the witness
         let executed_transaction = self
             .tx_executor
-            .execute_transaction(
-                account_id,
-                block_num,
-                &[input_note.note_id()],
-                Some(tx_script.clone()),
-            )
+            .execute_transaction(account_id, block_num, &input_notes, Some(tx_script.clone()))
             .map_err(ClientError::TransactionExecutionError)?;
 
         Ok(TransactionResult::new(executed_transaction, vec![]))
