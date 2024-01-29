@@ -70,9 +70,9 @@ impl Store {
                 chain_mmr,
                 has_client_notes
             ],
-        )
-        .map_err(StoreError::QueryError)
-        .map(|_| ())
+        )?;
+
+        Ok(())
     }
 
     /// Retrieves a [BlockHeader] by number and a boolean value that represents whether the
@@ -83,15 +83,9 @@ impl Store {
     ) -> Result<(BlockHeader, bool), StoreError> {
         const QUERY: &str = "SELECT block_num, header, notes_root, sub_hash, chain_mmr_peaks, has_client_notes FROM block_headers WHERE block_num = ?";
         self.db
-            .prepare(QUERY)
-            .map_err(StoreError::QueryError)?
-            .query_map(params![block_number as i64], parse_block_headers_columns)
-            .map_err(StoreError::QueryError)?
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_block_header)
-            })
+            .prepare(QUERY)?
+            .query_map(params![block_number as i64], parse_block_headers_columns)?
+            .map(|result| Ok(result?).and_then(parse_block_header))
             .next()
             .ok_or(StoreError::BlockHeaderNotFound(block_number))?
     }
@@ -100,17 +94,14 @@ impl Store {
     pub fn get_tracked_block_headers(&self) -> Result<Vec<BlockHeader>, StoreError> {
         const QUERY: &str = "SELECT block_num, header, notes_root, sub_hash, chain_mmr_peaks, has_client_notes FROM block_headers WHERE has_client_notes=true";
         self.db
-            .prepare(QUERY)
-            .map_err(StoreError::QueryError)?
-            .query_map(params![], parse_block_headers_columns)
-            .map_err(StoreError::QueryError)?
+            .prepare(QUERY)?
+            .query_map(params![], parse_block_headers_columns)?
             .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
+                Ok(result?)
                     .and_then(parse_block_header)
-                    .map(|(block, _had_notes)| block)
+                    .and_then(|(block, _)| Ok(block))
             })
-            .collect::<Result<Vec<BlockHeader>, _>>()
+            .collect()
     }
 
     /// Inserts a node represented by its in-order index and the node value.
@@ -123,9 +114,8 @@ impl Store {
 
         const QUERY: &str = "INSERT INTO chain_mmr_nodes (id, node) VALUES (?, ?)";
 
-        tx.execute(QUERY, params![id, node])
-            .map_err(StoreError::QueryError)
-            .map(|_| ())
+        tx.execute(QUERY, params![id, node])?;
+        Ok(())
     }
 
     /// Inserts a list of MMR authentication nodes to the Chain MMR nodes table.
@@ -146,15 +136,9 @@ impl Store {
         filter: ChainMmrNodeFilter,
     ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
         self.db
-            .prepare(&filter.to_query())
-            .map_err(StoreError::QueryError)?
-            .query_map(params![], parse_chain_mmr_nodes_columns)
-            .map_err(StoreError::QueryError)?
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_chain_mmr_nodes)
-            })
+            .prepare(&filter.to_query())?
+            .query_map(params![], parse_chain_mmr_nodes_columns)?
+            .map(|result| Ok(result?).and_then(parse_chain_mmr_nodes))
             .collect()
     }
 
@@ -164,20 +148,18 @@ impl Store {
 
         let mmr_peaks = self
             .db
-            .prepare(QUERY)
-            .map_err(StoreError::QueryError)?
+            .prepare(QUERY)?
             .query_row(params![block_num], |row| {
                 let peaks: String = row.get(0)?;
                 Ok(peaks)
             })
-            .optional()
-            .map_err(StoreError::QueryError)?;
+            .optional()?;
 
         if let Some(mmr_peaks) = mmr_peaks {
             return parse_mmr_peaks(block_num, mmr_peaks);
         }
 
-        MmrPeaks::new(0, vec![]).map_err(StoreError::MmrError)
+        Ok(MmrPeaks::new(0, vec![])?)
     }
 
     /// Retrieves all Chain MMR nodes required for authenticating the set of blocks, and then

@@ -144,15 +144,10 @@ impl Store {
         note_filter: InputNoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
         self.db
-            .prepare(&note_filter.to_query())
-            .map_err(StoreError::QueryError)?
+            .prepare(&note_filter.to_query())?
             .query_map([], parse_input_note_columns)
             .expect("no binding parameters used in query")
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_input_note)
-            })
+            .map(|result| Ok(result?).and_then(parse_input_note))
             .collect::<Result<Vec<InputNoteRecord>, _>>()
     }
 
@@ -162,29 +157,20 @@ impl Store {
         const QUERY: &str = "SELECT script, inputs, vault, serial_num, sender_id, tag, inclusion_proof FROM input_notes WHERE note_id = ?";
 
         self.db
-            .prepare(QUERY)
-            .map_err(StoreError::QueryError)?
-            .query_map(params![query_id.to_string()], parse_input_note_columns)
-            .map_err(StoreError::QueryError)?
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_input_note)
-            })
+            .prepare(QUERY)?
+            .query_map(params![query_id.to_string()], parse_input_note_columns)?
+            .map(|result| Ok(result?).and_then(parse_input_note))
             .next()
             .ok_or(StoreError::InputNoteNotFound(note_id))?
     }
 
     /// Inserts the provided input note into the database
     pub fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError> {
-        let tx = self
-            .db
-            .transaction()
-            .map_err(StoreError::TransactionError)?;
+        let tx = self.db.transaction()?;
 
         Self::insert_input_note_tx(&tx, note)?;
 
-        tx.commit().map_err(StoreError::TransactionError)
+        Ok(tx.commit()?)
     }
 
     /// Returns the nullifiers of all unspent input notes
@@ -192,13 +178,12 @@ impl Store {
         const QUERY: &str = "SELECT nullifier FROM input_notes WHERE status = 'committed'";
 
         self.db
-            .prepare(QUERY)
-            .map_err(StoreError::QueryError)?
+            .prepare(QUERY)?
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
             .map(|result| {
                 result
-                    .map_err(StoreError::ColumnParsingError)
+                    .map_err(|err| StoreError::ParsingError(err.to_string()))
                     .and_then(|v: String| Digest::try_from(v).map_err(StoreError::HexParseError))
             })
             .collect::<Result<Vec<Digest>, _>>()
@@ -241,7 +226,7 @@ impl Store {
                 commit_height
             ],
         )
-        .map_err(StoreError::QueryError)
+        .map_err(|err| StoreError::QueryError(err.to_string()))
         .map(|_| ())
     }
 }
@@ -277,12 +262,9 @@ fn parse_input_note(
 ) -> Result<InputNoteRecord, StoreError> {
     let (script, inputs, note_assets, serial_num, sender_id, tag, inclusion_proof) =
         serialized_input_note_parts;
-    let script =
-        NoteScript::read_from_bytes(&script).map_err(StoreError::DataDeserializationError)?;
-    let inputs =
-        NoteInputs::read_from_bytes(&inputs).map_err(StoreError::DataDeserializationError)?;
-    let vault =
-        NoteAssets::read_from_bytes(&note_assets).map_err(StoreError::DataDeserializationError)?;
+    let script = NoteScript::read_from_bytes(&script)?;
+    let inputs = NoteInputs::read_from_bytes(&inputs)?;
+    let vault = NoteAssets::read_from_bytes(&note_assets)?;
     let serial_num =
         serde_json::from_str(&serial_num).map_err(StoreError::JsonDataDeserializationError)?;
     let note_metadata = NoteMetadata::new(
@@ -292,10 +274,7 @@ fn parse_input_note(
     let note = Note::from_parts(script, inputs, vault, serial_num, note_metadata);
 
     let inclusion_proof = inclusion_proof
-        .map(|proof| {
-            NoteInclusionProof::read_from_bytes(&proof)
-                .map_err(StoreError::DataDeserializationError)
-        })
+        .map(|proof| NoteInclusionProof::read_from_bytes(&proof))
         .transpose()?;
 
     Ok(InputNoteRecord::new(note, inclusion_proof))

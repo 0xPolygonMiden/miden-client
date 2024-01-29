@@ -94,25 +94,18 @@ impl Client {
             .ok_or(ClientError::RpcExpectedFieldMissing(
                 "Expected block header in genesis block request".to_string(),
             ))?
-            .try_into()
-            .map_err(ClientError::RpcTypeConversionFailure)?;
+            .try_into()?;
 
-        let tx = self
-            .store
-            .db
-            .transaction()
-            .map_err(|err| ClientError::StoreError(StoreError::TransactionError(err)))?;
+        let tx = self.store.db.transaction()?;
 
         Store::insert_block_header(
             &tx,
             genesis_block,
             MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks"),
             false,
-        )
-        .map_err(ClientError::StoreError)?;
+        )?;
 
-        tx.commit()
-            .map_err(|err| ClientError::StoreError(StoreError::TransactionError(err)))?;
+        tx.commit()?;
         Ok(())
     }
 
@@ -151,9 +144,9 @@ impl Client {
                     "Expected block header for response: {:?}",
                     &response
                 )))?;
-        let incoming_block_header: BlockHeader = incoming_block_header
-            .try_into()
-            .map_err(ClientError::RpcTypeConversionFailure)?;
+
+        let incoming_block_header: BlockHeader = incoming_block_header.try_into()?;
+
         // We don't need to continue if the chain has not advanced
         if incoming_block_header.block_num() == current_block_num {
             return Ok(SyncStatus::SyncedToLastBlock(current_block_num));
@@ -194,8 +187,7 @@ impl Client {
             .ok_or(ClientError::RpcExpectedFieldMissing(
                 "MmrDelta missing on node's response".to_string(),
             ))?
-            .try_into()
-            .unwrap();
+            .try_into()?;
 
         // Check if the returned account hashes match latest account hashes in the database
         check_account_hashes(&response.accounts, &accounts)?;
@@ -245,8 +237,7 @@ impl Client {
     ) -> Result<Vec<(Digest, NoteInclusionProof)>, ClientError> {
         let pending_notes: Vec<Digest> = self
             .store
-            .get_input_notes(crate::store::notes::InputNoteFilter::Pending)
-            .map_err(ClientError::StoreError)?
+            .get_input_notes(crate::store::notes::InputNoteFilter::Pending)?
             .iter()
             .map(|n| n.note().id().inner())
             .collect();
@@ -269,12 +260,8 @@ impl Client {
                         )),
                     )?;
                     // Handle casting after
-                    let note_hash = note_hash
-                        .try_into()
-                        .map_err(ClientError::RpcTypeConversionFailure)?;
-                    let merkle_path: crypto::merkle::MerklePath = note_merkle_path
-                        .try_into()
-                        .map_err(ClientError::RpcTypeConversionFailure)?;
+                    let note_hash = note_hash.try_into()?;
+                    let merkle_path: crypto::merkle::MerklePath = note_merkle_path.try_into()?;
 
                     Ok((note_record, note_hash, merkle_path))
                 })

@@ -7,8 +7,8 @@ use crypto::{
 use miden_node_proto::error::ParseError;
 use miden_tx::{DataStoreError, TransactionExecutorError, TransactionProverError};
 use objects::{
-    accounts::AccountId, notes::NoteId, AccountError, AssetError, AssetVaultError, Digest,
-    NoteError, TransactionScriptError,
+    accounts::AccountId, notes::NoteId, AccountError, AssetVaultError, Digest, NoteError,
+    TransactionScriptError,
 };
 use tonic::{transport::Error as TransportError, Status as TonicStatus};
 
@@ -18,7 +18,6 @@ use tonic::{transport::Error as TransportError, Status as TonicStatus};
 #[derive(Debug)]
 pub enum ClientError {
     AccountError(AccountError),
-    AssetError(AssetError),
     AuthError(FalconError),
     NoteError(NoteError),
     NoConsumableNoteForAccount(AccountId),
@@ -34,7 +33,6 @@ impl fmt::Display for ClientError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ClientError::AccountError(err) => write!(f, "account error: {err}"),
-            ClientError::AssetError(err) => write!(f, "asset error: {err}"),
             ClientError::AuthError(err) => write!(f, "account auth error: {err}"),
             ClientError::NoConsumableNoteForAccount(account_id) => {
                 write!(f, "No consumable note for account ID {}", account_id)
@@ -58,15 +56,60 @@ impl fmt::Display for ClientError {
     }
 }
 
-impl From<StoreError> for ClientError {
-    fn from(err: StoreError) -> Self {
-        Self::StoreError(err)
+// CONVERSIONS
+// ================================================================================================
+
+impl From<AccountError> for ClientError {
+    fn from(err: AccountError) -> Self {
+        Self::AccountError(err)
+    }
+}
+
+impl From<FalconError> for ClientError {
+    fn from(err: FalconError) -> Self {
+        Self::AuthError(err)
+    }
+}
+
+impl From<NoteError> for ClientError {
+    fn from(err: NoteError) -> Self {
+        Self::NoteError(err)
     }
 }
 
 impl From<RpcApiError> for ClientError {
     fn from(err: RpcApiError) -> Self {
         Self::RpcApiError(err)
+    }
+}
+
+impl From<ParseError> for ClientError {
+    fn from(err: ParseError) -> Self {
+        Self::RpcTypeConversionFailure(err)
+    }
+}
+
+impl From<StoreError> for ClientError {
+    fn from(err: StoreError) -> Self {
+        Self::StoreError(err)
+    }
+}
+
+impl From<TransactionExecutorError> for ClientError {
+    fn from(err: TransactionExecutorError) -> Self {
+        Self::TransactionExecutionError(err)
+    }
+}
+
+impl From<TransactionProverError> for ClientError {
+    fn from(err: TransactionProverError) -> Self {
+        Self::TransactionProvingError(err)
+    }
+}
+
+impl From<rusqlite::Error> for ClientError {
+    fn from(err: rusqlite::Error) -> Self {
+        Self::StoreError(StoreError::from(err))
     }
 }
 
@@ -86,22 +129,88 @@ pub enum StoreError {
     AccountStorageNotFound(Digest),
     BlockHeaderNotFound(u32),
     ChainMmrNodeNotFound(u64),
-    ColumnParsingError(rusqlite::Error),
-    ConnectionError(rusqlite::Error),
+    DatabaseError(String),
     DataDeserializationError(DeserializationError),
     HexParseError(HexParseError),
     InputNoteNotFound(NoteId),
     InputSerializationError(serde_json::Error),
     JsonDataDeserializationError(serde_json::Error),
-    MigrationError(rusqlite_migration::Error),
     MmrError(MmrError),
-    NoteError(NoteError),
     NoteTagAlreadyTracked(u64),
-    QueryError(rusqlite::Error),
+    ParsingError(String),
+    QueryError(String),
     RpcTypeConversionFailure(ParseError),
-    TransactionError(rusqlite::Error),
     TransactionScriptError(TransactionScriptError),
     VaultDataNotFound(Digest),
+}
+
+impl From<AssetVaultError> for StoreError {
+    fn from(value: AssetVaultError) -> Self {
+        StoreError::AssetVaultError(value)
+    }
+}
+
+impl From<AccountError> for StoreError {
+    fn from(value: AccountError) -> Self {
+        StoreError::AccountError(value)
+    }
+}
+
+impl From<rusqlite_migration::Error> for StoreError {
+    fn from(value: rusqlite_migration::Error) -> Self {
+        StoreError::DatabaseError(value.to_string())
+    }
+}
+impl From<rusqlite::Error> for StoreError {
+    fn from(value: rusqlite::Error) -> Self {
+        match value {
+            rusqlite::Error::FromSqlConversionFailure(_, _, _)
+            | rusqlite::Error::IntegralValueOutOfRange(_, _)
+            | rusqlite::Error::InvalidColumnIndex(_)
+            | rusqlite::Error::InvalidColumnType(_, _, _) => {
+                StoreError::ParsingError(value.to_string())
+            }
+            rusqlite::Error::InvalidParameterName(_)
+            | rusqlite::Error::InvalidColumnName(_)
+            | rusqlite::Error::StatementChangedRows(_)
+            | rusqlite::Error::ExecuteReturnedResults
+            | rusqlite::Error::InvalidQuery
+            | rusqlite::Error::MultipleStatement
+            | rusqlite::Error::InvalidParameterCount(_, _)
+            | rusqlite::Error::QueryReturnedNoRows => StoreError::QueryError(value.to_string()),
+            _ => StoreError::DatabaseError(value.to_string()),
+        }
+    }
+}
+
+impl From<DeserializationError> for StoreError {
+    fn from(value: DeserializationError) -> Self {
+        StoreError::DataDeserializationError(value)
+    }
+}
+
+impl From<ParseError> for StoreError {
+    fn from(value: ParseError) -> Self {
+        StoreError::RpcTypeConversionFailure(value)
+    }
+}
+
+impl From<HexParseError> for StoreError {
+    fn from(value: HexParseError) -> Self {
+        StoreError::HexParseError(value)
+    }
+}
+
+impl From<MmrError> for StoreError {
+    fn from(value: MmrError) -> Self {
+        StoreError::MmrError(value)
+    }
+}
+
+impl From<TransactionScriptError> for StoreError {
+    fn from(value: TransactionScriptError) -> Self {
+        StoreError::TransactionScriptError(value)
+    }
 }
 
 impl fmt::Display for StoreError {
@@ -127,13 +236,10 @@ impl fmt::Display for StoreError {
             BlockHeaderNotFound(block_number) => {
                 write!(f, "block header for block {} not found", block_number)
             }
-            ColumnParsingError(err) => {
-                write!(f, "failed to parse data retrieved from the database: {err}")
-            }
             ChainMmrNodeNotFound(node_index) => {
                 write!(f, "chain mmr node at index {} not found", node_index)
             }
-            ConnectionError(err) => write!(f, "failed to connect to the database: {err}"),
+            DatabaseError(err) => write!(f, "database-related non-query error: {err}"),
             DataDeserializationError(err) => {
                 write!(f, "error deserializing data from the store: {err}")
             }
@@ -152,12 +258,12 @@ impl fmt::Display for StoreError {
                     "error deserializing data from JSON from the store: {err}"
                 )
             }
-            MigrationError(err) => write!(f, "failed to update the database: {err}"),
             MmrError(err) => write!(f, "error constructing mmr: {err}"),
-            NoteError(err) => write!(f, "note error: {err}"),
             NoteTagAlreadyTracked(tag) => write!(f, "note tag {} is already being tracked", tag),
+            ParsingError(err) => {
+                write!(f, "failed to parse data retrieved from the database: {err}")
+            }
             QueryError(err) => write!(f, "failed to retrieve data from the database: {err}"),
-            TransactionError(err) => write!(f, "failed to instantiate a new transaction: {err}"),
             TransactionScriptError(err) => {
                 write!(f, "error instantiating transaction script: {err}")
             }

@@ -95,16 +95,14 @@ impl Store {
         const QUERY: &str = "SELECT DISTINCT id FROM accounts";
 
         self.db
-            .prepare(QUERY)
-            .map_err(StoreError::QueryError)?
+            .prepare(QUERY)?
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
             .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .map(|id: i64| AccountId::try_from(id as u64).expect("account id is valid"))
+                Ok(result
+                    .map(|id: i64| AccountId::try_from(id as u64).expect("account id is valid"))?)
             })
-            .collect::<Result<Vec<AccountId>, _>>()
+            .collect::<Result<Vec<AccountId>, StoreError>>()
     }
 
     pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Word)>, StoreError> {
@@ -114,15 +112,10 @@ impl Store {
             WHERE a.nonce = (SELECT MAX(b.nonce) FROM accounts b WHERE b.id = a.id)";
 
         self.db
-            .prepare(QUERY)
-            .map_err(StoreError::QueryError)?
+            .prepare(QUERY)?
             .query_map([], parse_accounts_columns)
             .expect("no binding parameters used in query")
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_accounts)
-            })
+            .map(|result| Ok(result?).and_then(parse_accounts))
             .collect()
     }
 
@@ -137,15 +130,9 @@ impl Store {
             LIMIT 1";
 
         self.db
-            .prepare(QUERY)
-            .map_err(StoreError::QueryError)?
-            .query_map(params![account_id_int as i64], parse_accounts_columns)
-            .map_err(StoreError::QueryError)?
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_accounts)
-            })
+            .prepare(QUERY)?
+            .query_map(params![account_id_int as i64], parse_accounts_columns)?
+            .map(|result| Ok(result?).and_then(parse_accounts))
             .next()
             .ok_or(StoreError::AccountDataNotFound(account_id))?
     }
@@ -173,7 +160,7 @@ impl Store {
         let account_storage = self.get_account_storage(account_stub.storage_root())?;
 
         let account_vault = self.get_vault_assets(account_stub.vault_root())?;
-        let account_vault = AssetVault::new(&account_vault).map_err(StoreError::AssetVaultError)?;
+        let account_vault = AssetVault::new(&account_vault)?;
 
         let account = Account::new(
             account_stub.id(),
@@ -191,15 +178,9 @@ impl Store {
         let account_id_int: u64 = account_id.into();
         const QUERY: &str = "SELECT account_id, auth_info FROM account_auth WHERE account_id = ?";
         self.db
-            .prepare(QUERY)
-            .map_err(StoreError::QueryError)?
-            .query_map(params![account_id_int as i64], parse_account_auth_columns)
-            .map_err(StoreError::QueryError)?
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_account_auth)
-            })
+            .prepare(QUERY)?
+            .query_map(params![account_id_int as i64], parse_account_auth_columns)?
+            .map(|result| Ok(result?).and_then(parse_account_auth))
             .next()
             .ok_or(StoreError::AccountDataNotFound(account_id))?
     }
@@ -216,16 +197,13 @@ impl Store {
             .apply_delta(account_delta)
             .map_err(StoreError::AccountError)?;
 
-        let tx = self
-            .db
-            .transaction()
-            .map_err(StoreError::TransactionError)?;
+        let tx = self.db.transaction()?;
 
         Self::insert_account_storage(&tx, account.storage())?;
         Self::insert_account_asset_vault(&tx, account.vault())?;
         Self::insert_account_record(&tx, &account, seed)?;
 
-        tx.commit().map_err(StoreError::TransactionError)
+        Ok(tx.commit()?)
     }
 
     /// Retrieve account code-related data by code root
@@ -237,15 +215,9 @@ impl Store {
         const QUERY: &str = "SELECT root, procedures, module FROM account_code WHERE root = ?";
 
         self.db
-            .prepare(QUERY)
-            .map_err(StoreError::QueryError)?
-            .query_map(params![root_serialized], parse_account_code_columns)
-            .map_err(StoreError::QueryError)?
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_account_code)
-            })
+            .prepare(QUERY)?
+            .query_map(params![root_serialized], parse_account_code_columns)?
+            .map(|result| Ok(result?).and_then(parse_account_code))
             .next()
             .ok_or(StoreError::AccountCodeDataNotFound(root))?
     }
@@ -256,15 +228,9 @@ impl Store {
 
         const QUERY: &str = "SELECT root, slots FROM account_storage WHERE root = ?";
         self.db
-            .prepare(QUERY)
-            .map_err(StoreError::QueryError)?
-            .query_map(params![root_serialized], parse_account_storage_columns)
-            .map_err(StoreError::QueryError)?
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_account_storage)
-            })
+            .prepare(QUERY)?
+            .query_map(params![root_serialized], parse_account_storage_columns)?
+            .map(|result| Ok(result?).and_then(parse_account_storage))
             .next()
             .ok_or(StoreError::AccountStorageNotFound(root))?
     }
@@ -276,15 +242,9 @@ impl Store {
 
         const QUERY: &str = "SELECT root, assets FROM account_vaults WHERE root = ?";
         self.db
-            .prepare(QUERY)
-            .map_err(StoreError::QueryError)?
-            .query_map(params![vault_root], parse_account_asset_vault_columns)
-            .map_err(StoreError::QueryError)?
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_account_asset_vault)
-            })
+            .prepare(QUERY)?
+            .query_map(params![vault_root], parse_account_asset_vault_columns)?
+            .map(|result| Ok(result?).and_then(parse_account_asset_vault))
             .next()
             .ok_or(StoreError::VaultDataNotFound(root))?
     }
@@ -295,10 +255,7 @@ impl Store {
         account_seed: Word,
         auth_info: &AuthInfo,
     ) -> Result<(), StoreError> {
-        let tx = self
-            .db
-            .transaction()
-            .map_err(StoreError::TransactionError)?;
+        let tx = self.db.transaction()?;
 
         Self::insert_account_code(&tx, account.code())?;
         Self::insert_account_storage(&tx, account.storage())?;
@@ -306,7 +263,7 @@ impl Store {
         Self::insert_account_record(&tx, account, account_seed)?;
         Self::insert_account_auth(&tx, account.id(), auth_info)?;
 
-        tx.commit().map_err(StoreError::TransactionError)
+        Ok(tx.commit()?)
     }
 
     pub(super) fn insert_account_record(
@@ -331,9 +288,8 @@ impl Store {
                 committed,
                 account_seed
             ],
-        )
-        .map(|_| ())
-        .map_err(StoreError::QueryError)
+        )?;
+        Ok(())
     }
 
     fn insert_account_code(
@@ -343,9 +299,8 @@ impl Store {
         let (code_root, code, module) = serialize_account_code(account_code)?;
         const QUERY: &str =
             "INSERT OR IGNORE INTO account_code (root, procedures, module) VALUES (?, ?, ?)";
-        tx.execute(QUERY, params![code_root, code, module,])
-            .map(|_| ())
-            .map_err(StoreError::QueryError)
+        tx.execute(QUERY, params![code_root, code, module,])?;
+        Ok(())
     }
 
     pub(crate) fn insert_account_storage(
@@ -354,9 +309,8 @@ impl Store {
     ) -> Result<(), StoreError> {
         let (storage_root, storage_slots) = serialize_account_storage(account_storage)?;
         const QUERY: &str = "INSERT OR IGNORE INTO account_storage (root, slots) VALUES (?, ?)";
-        tx.execute(QUERY, params![storage_root, storage_slots])
-            .map(|_| ())
-            .map_err(StoreError::QueryError)
+        tx.execute(QUERY, params![storage_root, storage_slots])?;
+        Ok(())
     }
 
     pub(crate) fn insert_account_asset_vault(
@@ -365,9 +319,8 @@ impl Store {
     ) -> Result<(), StoreError> {
         let (vault_root, assets) = serialize_account_asset_vault(asset_vault)?;
         const QUERY: &str = "INSERT OR IGNORE INTO account_vaults (root, assets) VALUES (?, ?)";
-        tx.execute(QUERY, params![vault_root, assets])
-            .map(|_| ())
-            .map_err(StoreError::QueryError)
+        tx.execute(QUERY, params![vault_root, assets])?;
+        Ok(())
     }
 
     pub fn insert_account_auth(
@@ -377,9 +330,8 @@ impl Store {
     ) -> Result<(), StoreError> {
         let (account_id, auth_info) = serialize_account_auth(account_id, auth_info)?;
         const QUERY: &str = "INSERT INTO account_auth (account_id, auth_info) VALUES (?, ?)";
-        tx.execute(QUERY, params![account_id, auth_info])
-            .map(|_| ())
-            .map_err(StoreError::QueryError)
+        tx.execute(QUERY, params![account_id, auth_info])?;
+        Ok(())
     }
 }
 
@@ -404,8 +356,7 @@ pub(crate) fn parse_accounts(
     serialized_account_parts: SerializedAccountsParts,
 ) -> Result<(AccountStub, Word), StoreError> {
     let (id, nonce, vault_root, storage_root, code_root, account_seed) = serialized_account_parts;
-    let account_seed_word: Word =
-        Word::read_from_bytes(&account_seed).map_err(StoreError::DataDeserializationError)?;
+    let account_seed_word: Word = Word::read_from_bytes(&account_seed)?;
 
     Ok((
         AccountStub::new(
@@ -414,8 +365,8 @@ pub(crate) fn parse_accounts(
                 .expect("Conversion from stored AccountID should not panic"),
             (nonce as u64).into(),
             serde_json::from_str(&vault_root).map_err(StoreError::JsonDataDeserializationError)?,
-            Digest::try_from(&storage_root).map_err(StoreError::HexParseError)?,
-            Digest::try_from(&code_root).map_err(StoreError::HexParseError)?,
+            Digest::try_from(&storage_root)?,
+            Digest::try_from(&code_root)?,
         ),
         account_seed_word,
     ))
@@ -455,8 +406,7 @@ fn parse_account_auth(
     serialized_account_auth_parts: SerializedAccountAuthParts,
 ) -> Result<AuthInfo, StoreError> {
     let (_, auth_info_bytes) = serialized_account_auth_parts;
-    let auth_info = AuthInfo::read_from_bytes(&auth_info_bytes)
-        .map_err(StoreError::DataDeserializationError)?;
+    let auth_info = AuthInfo::read_from_bytes(&auth_info_bytes)?;
     Ok(auth_info)
 }
 
@@ -488,7 +438,7 @@ fn parse_account_code(
 
     let procedures =
         serde_json::from_str(&procedures).map_err(StoreError::JsonDataDeserializationError)?;
-    let module = ModuleAst::from_bytes(&module).map_err(StoreError::DataDeserializationError)?;
+    let module = ModuleAst::from_bytes(&module)?;
     Ok((procedures, module))
 }
 
@@ -521,8 +471,7 @@ fn parse_account_storage(
 ) -> Result<AccountStorage, StoreError> {
     let (_, storage) = serialized_account_storage_parts;
 
-    let storage =
-        AccountStorage::read_from_bytes(&storage).map_err(StoreError::DataDeserializationError)?;
+    let storage = AccountStorage::read_from_bytes(&storage)?;
     Ok(storage)
 }
 
