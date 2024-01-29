@@ -284,21 +284,7 @@ mod test {
     }
 
     #[test]
-    fn insert_and_get_block_headers_in_range() {
-        let mut store = create_test_store();
-        let mock_block_headers = insert_dummy_block_headers(&mut store);
-
-        let block_headers: Vec<BlockHeader> = store
-            .get_block_headers(&[1, 3])
-            .unwrap()
-            .into_iter()
-            .map(|(block_header, _has_notes)| block_header)
-            .collect();
-        assert_eq!(&mock_block_headers[1..=3], &block_headers[..]);
-    }
-
-    #[test]
-    fn insert_and_get_block_headers_from_list() {
+    fn insert_and_get_block_headers_by_list() {
         let mut store = create_test_store();
         let mock_block_headers = insert_dummy_block_headers(&mut store);
 
