@@ -98,8 +98,7 @@ impl Store {
             .query_map(params![], parse_block_headers_columns)?
             .map(|result| {
                 Ok(result?)
-                    .and_then(parse_block_header)
-                    .and_then(|(block, _)| Ok(block))
+                    .and_then(parse_block_header).map(|(block, _)| block)
             })
             .collect()
     }

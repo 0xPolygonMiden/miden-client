@@ -4,7 +4,6 @@ use crypto::{
 };
 
 use objects::{
-    accounts::AccountStub,
     notes::{NoteId, NoteInclusionProof},
     BlockHeader, Digest,
 };
