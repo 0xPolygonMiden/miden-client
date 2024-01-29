@@ -17,40 +17,6 @@ type SerializedBlockHeaderParts = (u64, String, String, String, String, bool);
 type SerializedChainMmrNodeData = (i64, String);
 type SerializedChainMmrNodeParts = (u64, String);
 
-// Block FILTER
-// ================================================================================================
-/// Represents a filter for blocks
-pub enum BlockFilter<'a> {
-    All,
-    Single(u32),
-    /// Represents inclusive range [start, end]
-    Range(u32, u32),
-    List(&'a [u32]),
-}
-
-impl<'a> BlockFilter<'a> {
-    pub fn to_query_filter(&self) -> String {
-        match self {
-            BlockFilter::All => String::from(""),
-            BlockFilter::Single(block_height) => {
-                format!("WHERE block_num = {}", *block_height as i64)
-            }
-            BlockFilter::Range(start, end) => format!(
-                "WHERE block_num >= {} AND block_num <= {}",
-                *start as i64, *end as i64
-            ),
-            BlockFilter::List(block_numbers) => {
-                let formatted_block_numbers_list = block_numbers
-                    .iter()
-                    .map(|block_number| (*block_number as i64).to_string())
-                    .collect::<Vec<String>>()
-                    .join(",");
-                format!("WHERE block_num IN ({})", formatted_block_numbers_list)
-            }
-        }
-    }
-}
-
 impl Store {
     // CHAIN DATA
     // --------------------------------------------------------------------------------------------
@@ -86,11 +52,16 @@ impl Store {
 
     pub fn get_block_headers(
         &self,
-        filter: BlockFilter,
+        block_numbers: &[u32],
     ) -> Result<Vec<(BlockHeader, bool)>, StoreError> {
+        let formatted_block_numbers_list = block_numbers
+            .iter()
+            .map(|block_number| (*block_number as i64).to_string())
+            .collect::<Vec<String>>()
+            .join(",");
         let query = format!(
-            "SELECT block_num, header, notes_root, sub_hash, chain_mmr_peaks, has_client_notes FROM block_headers {}",
-            filter.to_query_filter()
+            "SELECT block_num, header, notes_root, sub_hash, chain_mmr_peaks, has_client_notes FROM block_headers WHERE block_num IN ({})",
+            formatted_block_numbers_list
         );
         self.db
             .prepare(&query)
@@ -109,10 +80,20 @@ impl Store {
         &self,
         block_number: u32,
     ) -> Result<(BlockHeader, bool), StoreError> {
-        self.get_block_headers(BlockFilter::Single(block_number))?
-            .first()
-            .copied()
-            .ok_or(StoreError::BlockHeaderNotFound(block_number))
+        const QUERY: &str = "SELECT block_num, header, notes_root, sub_hash, chain_mmr_peaks, has_client_notes FROM block_headers WHERE block_num = ?";
+
+        self.db
+            .prepare(QUERY)
+            .map_err(StoreError::QueryError)?
+            .query_map(params![block_number as i64], parse_block_headers_columns)
+            .map_err(StoreError::QueryError)?
+            .map(|result| {
+                result
+                    .map_err(StoreError::ColumnParsingError)
+                    .and_then(parse_block_header)
+            })
+            .next()
+            .ok_or(StoreError::BlockHeaderNotFound(block_number))?
     }
 
     /// Inserts a node represented by its in-order index and the node value.
@@ -282,8 +263,6 @@ mod test {
     use mock::mock::block::mock_block_header;
     use objects::BlockHeader;
 
-    use super::BlockFilter;
-
     fn insert_dummy_block_headers(store: &mut Store) -> Vec<BlockHeader> {
         let block_headers: Vec<BlockHeader> = (0..5)
             .map(|block_num| mock_block_header(block_num, None, None, &[]))
@@ -314,7 +293,7 @@ mod test {
         let mock_block_headers = insert_dummy_block_headers(&mut store);
 
         let block_headers: Vec<BlockHeader> = store
-            .get_block_headers(BlockFilter::Range(1, 3))
+            .get_block_headers(&[1, 3])
             .unwrap()
             .into_iter()
             .map(|(block_header, _has_notes)| block_header)
@@ -328,7 +307,7 @@ mod test {
         let mock_block_headers = insert_dummy_block_headers(&mut store);
 
         let block_headers: Vec<BlockHeader> = store
-            .get_block_headers(BlockFilter::List(&[1, 3]))
+            .get_block_headers(&[1, 3])
             .unwrap()
             .into_iter()
             .map(|(block_header, _has_notes)| block_header)

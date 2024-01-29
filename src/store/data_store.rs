@@ -1,4 +1,4 @@
-use super::{chain_data::BlockFilter, Store};
+use super::Store;
 use crypto::merkle::PartialMmr;
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
 
@@ -59,7 +59,7 @@ impl DataStore for SqliteDataStore {
 
         let notes_blocks: Vec<objects::BlockHeader> = self
             .store
-            .get_block_headers(BlockFilter::List(&notes_blocks))?
+            .get_block_headers(&notes_blocks)?
             .iter()
             .map(|(header, _has_notes)| *header)
             .collect();

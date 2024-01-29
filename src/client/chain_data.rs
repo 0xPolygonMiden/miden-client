@@ -1,7 +1,7 @@
 use super::Client;
 
 #[cfg(test)]
-use crate::{errors::ClientError, store::chain_data::BlockFilter};
+use crate::errors::ClientError;
 #[cfg(test)]
 use objects::BlockHeader;
 
@@ -13,7 +13,7 @@ impl Client {
         finish: u32,
     ) -> Result<Vec<(BlockHeader, bool)>, ClientError> {
         self.store
-            .get_block_headers(BlockFilter::Range(start, finish))
+            .get_block_headers(&(start..=finish).collect::<Vec<u32>>())
             .map_err(ClientError::StoreError)
     }
 
@@ -23,7 +23,7 @@ impl Client {
         block_numbers: &[u32],
     ) -> Result<Vec<(BlockHeader, bool)>, ClientError> {
         self.store
-            .get_block_headers(BlockFilter::List(block_numbers))
+            .get_block_headers(block_numbers)
             .map_err(ClientError::StoreError)
     }
 }
