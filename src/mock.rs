@@ -80,7 +80,8 @@ impl MockRpcApi {
         }
     }
 
-    /// Executes the specified sync state request and returns the response.
+    /// Creates and executes a [GetBlockHeaderByNumberRequest].
+    /// Only used for retrieving genesis block right now so that's the only case we need to cover.
     pub async fn get_block_header_by_number(
         &mut self,
         request: impl IntoRequest<GetBlockHeaderByNumberRequest>,
@@ -89,7 +90,7 @@ impl MockRpcApi {
 
         if request.block_num == Some(0) {
             let block_header: objects::BlockHeader = block::mock_block_header(0, None, None, &[]);
-            return Ok(Response::new(GetBlockHeaderByNumberResponse {
+            return Ok(tonic::Response::new(GetBlockHeaderByNumberResponse {
                 block_header: Some(block_header.into()),
             }));
         }
@@ -146,9 +147,10 @@ fn create_mock_sync_state_request_for_account_and_notes(
         chain_tip,
         mmr_delta: Some(MmrDelta {
             forest: 8,
-            data: vec![Digest::new(Word::default()).into()],
+            data: (0..3)
+                .map(|_| Digest::new(Word::default()).into())
+                .collect(),
         }),
-        block_path: Some(MerklePath::default()),
         block_header: Some(NodeBlockHeader::from(block_header)),
         accounts: vec![],
         notes: vec![NoteSyncRecord {
@@ -182,8 +184,10 @@ fn create_mock_sync_state_request_for_account_and_notes(
     // create a state sync response
     let response = SyncStateResponse {
         chain_tip,
-        mmr_delta: None,
-        block_path: Some(MerklePath::default()),
+        mmr_delta: Some(MmrDelta {
+            forest: 10,
+            data: vec![Digest::new(Word::default()).into()],
+        }),
         block_header: Some(NodeBlockHeader::from(block_header)),
         accounts: vec![],
         notes: vec![NoteSyncRecord {

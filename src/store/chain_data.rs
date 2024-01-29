@@ -1,15 +1,11 @@
-use std::{collections::BTreeMap, num::NonZeroUsize};
-
 use super::Store;
-
 use crate::errors::StoreError;
-
 use clap::error::Result;
-
 use crypto::merkle::{InOrderIndex, MmrPeaks};
 
 use objects::{BlockHeader, Digest};
 use rusqlite::{params, OptionalExtension, Transaction};
+use std::{collections::BTreeMap, num::NonZeroUsize};
 
 type SerializedBlockHeaderData = (i64, String, String, String, String, bool);
 type SerializedBlockHeaderParts = (u64, String, String, String, String, bool);
@@ -112,9 +108,9 @@ impl Store {
     }
 
     /// Inserts a list of MMR authentication nodes to the Chain MMR nodes table.
-    pub fn insert_chain_mmr_nodes(
+    pub(super) fn insert_chain_mmr_nodes(
         tx: &Transaction<'_>,
-        nodes: Vec<(InOrderIndex, Digest)>,
+        nodes: impl Iterator<Item = (InOrderIndex, Digest)>,
     ) -> Result<(), StoreError> {
         for (index, node) in nodes {
             Self::insert_chain_mmr_node(tx, index, node)?;

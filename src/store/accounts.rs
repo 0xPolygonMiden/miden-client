@@ -7,7 +7,7 @@ use crypto::{
     dsa::rpo_falcon512::KeyPair,
     hash::rpo::RpoDigest,
     utils::{Deserializable, Serializable},
-    Word,
+    StarkField, Word,
 };
 use miden_lib::transaction::TransactionKernel;
 use objects::{
@@ -309,7 +309,7 @@ impl Store {
         tx.commit().map_err(StoreError::TransactionError)
     }
 
-    fn insert_account_record(
+    pub(super) fn insert_account_record(
         tx: &Transaction<'_>,
         account: &Account,
         account_seed: Word,
@@ -348,7 +348,7 @@ impl Store {
             .map_err(StoreError::QueryError)
     }
 
-    fn insert_account_storage(
+    pub(crate) fn insert_account_storage(
         tx: &Transaction<'_>,
         account_storage: &AccountStorage,
     ) -> Result<(), StoreError> {
@@ -359,7 +359,7 @@ impl Store {
             .map_err(StoreError::QueryError)
     }
 
-    fn insert_account_asset_vault(
+    pub(crate) fn insert_account_asset_vault(
         tx: &Transaction<'_>,
         asset_vault: &AssetVault,
     ) -> Result<(), StoreError> {
@@ -429,7 +429,7 @@ fn serialize_account(account: &Account) -> Result<SerializedAccountData, StoreEr
     let vault_root = serde_json::to_string(&account.vault().commitment())
         .map_err(StoreError::InputSerializationError)?;
     let committed = account.is_on_chain();
-    let nonce = account.nonce().inner() as i64;
+    let nonce = account.nonce().as_int() as i64;
 
     Ok((
         id as i64,

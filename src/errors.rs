@@ -21,6 +21,7 @@ pub enum ClientError {
     AssetError(AssetError),
     AuthError(FalconError),
     NoteError(NoteError),
+    NoConsumableNoteForAccount(AccountId),
     RpcApiError(RpcApiError),
     RpcExpectedFieldMissing(String),
     RpcTypeConversionFailure(ParseError),
@@ -35,6 +36,9 @@ impl fmt::Display for ClientError {
             ClientError::AccountError(err) => write!(f, "account error: {err}"),
             ClientError::AssetError(err) => write!(f, "asset error: {err}"),
             ClientError::AuthError(err) => write!(f, "account auth error: {err}"),
+            ClientError::NoConsumableNoteForAccount(account_id) => {
+                write!(f, "No consumable note for account ID {}", account_id)
+            }
             ClientError::NoteError(err) => write!(f, "note error: {err}"),
             ClientError::RpcApiError(err) => write!(f, "rpc api error: {err}"),
             ClientError::RpcExpectedFieldMissing(err) => {
