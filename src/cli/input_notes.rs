@@ -284,10 +284,9 @@ mod tests {
         let mut path = temp_dir();
         path.push(Uuid::new_v4().to_string());
         let mut client = Client::new(ClientConfig::new(
-            path.into_os_string().into_string().unwrap(),
-            Endpoint::default(),
+            path.into_os_string().into_string().unwrap().into(),
+            Endpoint::default().into(),
         ))
-        .await
         .unwrap();
 
         // generate test data
@@ -336,10 +335,9 @@ mod tests {
         let mut path = temp_dir();
         path.push(Uuid::new_v4().to_string());
         let mut client = Client::new(ClientConfig::new(
-            path.into_os_string().into_string().unwrap(),
-            Endpoint::default(),
+            path.into_os_string().into_string().unwrap().into(),
+            Endpoint::default().into(),
         ))
-        .await
         .unwrap();
 
         import_note(&mut client, filename_path).unwrap();

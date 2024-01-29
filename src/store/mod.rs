@@ -28,7 +28,7 @@ impl Store {
 
     /// Returns a new instance of [Store] instantiated with the specified configuration options.
     pub fn new(config: StoreConfig) -> Result<Self, StoreError> {
-        let mut db = Connection::open(config.path)?;
+        let mut db = Connection::open(config.database_filepath)?;
         migrations::update_to_latest(&mut db)?;
 
         Ok(Self { db })
@@ -45,7 +45,25 @@ pub mod tests {
 
     use rusqlite::Connection;
 
+    use crate::{
+        client::Client,
+        config::{ClientConfig, RpcConfig},
+    };
+
     use super::{migrations, Store};
+
+    pub fn create_test_client() -> Client {
+        let client_config = ClientConfig {
+            store: create_test_store_path()
+                .into_os_string()
+                .into_string()
+                .unwrap()
+                .into(),
+            rpc: RpcConfig::default(),
+        };
+
+        Client::new(client_config).unwrap()
+    }
 
     pub fn create_test_store_path() -> std::path::PathBuf {
         let mut temp_file = temp_dir();
