@@ -92,25 +92,18 @@ impl Client {
             .ok_or(ClientError::RpcExpectedFieldMissing(
                 "Expected block header in genesis block request".to_string(),
             ))?
-            .try_into()
-            .map_err(ClientError::RpcTypeConversionFailure)?;
+            .try_into()?;
 
-        let tx = self
-            .store
-            .db
-            .transaction()
-            .map_err(|err| ClientError::StoreError(StoreError::TransactionError(err)))?;
+        let tx = self.store.db.transaction()?;
 
         Store::insert_block_header(
             &tx,
             genesis_block,
             MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks"),
             false,
-        )
-        .map_err(ClientError::StoreError)?;
+        )?;
 
-        tx.commit()
-            .map_err(|err| ClientError::StoreError(StoreError::TransactionError(err)))?;
+        tx.commit()?;
         Ok(())
     }
 
@@ -138,9 +131,7 @@ impl Client {
                     "Expected block header for response: {:?}",
                     &response
                 )))?;
-        let incoming_block_header: BlockHeader = incoming_block_header
-            .try_into()
-            .map_err(ClientError::RpcTypeConversionFailure)?;
+        let incoming_block_header: BlockHeader = incoming_block_header.try_into()?;
 
         if incoming_block_header.block_num() == current_block_num {
             return Ok(SyncStatus::SyncedToLastBlock(current_block_num));
@@ -182,16 +173,14 @@ impl Client {
                 "MmrDelta missing on node's response".to_string(),
             ))?;
 
-        self.store
-            .apply_state_sync(
-                current_block_num,
-                incoming_block_header,
-                new_nullifiers,
-                response.accounts,
-                mmr_delta,
-                committed_notes,
-            )
-            .map_err(ClientError::StoreError)?;
+        self.store.apply_state_sync(
+            current_block_num,
+            incoming_block_header,
+            new_nullifiers,
+            response.accounts,
+            mmr_delta,
+            committed_notes,
+        )?;
 
         if response.chain_tip == incoming_block_header.block_num() {
             Ok(SyncStatus::SyncedToLastBlock(response.chain_tip))
@@ -212,8 +201,7 @@ impl Client {
     ) -> Result<Vec<(Digest, NoteInclusionProof)>, ClientError> {
         let pending_notes: Vec<Digest> = self
             .store
-            .get_input_notes(crate::store::notes::InputNoteFilter::Pending)
-            .map_err(ClientError::StoreError)?
+            .get_input_notes(crate::store::notes::InputNoteFilter::Pending)?
             .iter()
             .map(|n| n.note().id().inner())
             .collect();
@@ -236,12 +224,8 @@ impl Client {
                         )),
                     )?;
                     // Handle casting after
-                    let note_hash = note_hash
-                        .try_into()
-                        .map_err(ClientError::RpcTypeConversionFailure)?;
-                    let merkle_path: crypto::merkle::MerklePath = note_merkle_path
-                        .try_into()
-                        .map_err(ClientError::RpcTypeConversionFailure)?;
+                    let note_hash = note_hash.try_into()?;
+                    let merkle_path: crypto::merkle::MerklePath = note_merkle_path.try_into()?;
 
                     Ok((note_record, note_hash, merkle_path))
                 })

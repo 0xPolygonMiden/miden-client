@@ -72,15 +72,10 @@ impl Store {
         transaction_filter: TransactionFilter,
     ) -> Result<Vec<TransactionStub>, StoreError> {
         self.db
-            .prepare(&transaction_filter.to_query())
-            .map_err(StoreError::QueryError)?
+            .prepare(&transaction_filter.to_query())?
             .query_map([], parse_transaction_columns)
             .expect("no binding parameters used in query")
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_transaction)
-            })
+            .map(|result| Ok(result?).and_then(parse_transaction))
             .collect::<Result<Vec<TransactionStub>, _>>()
     }
 
@@ -103,10 +98,7 @@ impl Store {
             .map(|note| InputNoteRecord::from(note.clone()))
             .collect::<Vec<_>>();
 
-        let tx = self
-            .db
-            .transaction()
-            .map_err(StoreError::TransactionError)?;
+        let tx = self.db.transaction()?;
 
         // Transaction Data
         Self::insert_proven_transaction_data(&tx, tx_result)?;
@@ -121,7 +113,7 @@ impl Store {
             Self::insert_input_note_tx(&tx, &note)?;
         }
 
-        tx.commit().map_err(StoreError::TransactionError)?;
+        tx.commit()?;
 
         Ok(())
     }
@@ -149,9 +141,7 @@ impl Store {
             tx.execute(
                 INSERT_TRANSACTION_SCRIPT_QUERY,
                 params![hash, script_program],
-            )
-            .map(|_| ())
-            .map_err(StoreError::QueryError)?;
+            )?;
         }
 
         tx.execute(
@@ -169,9 +159,7 @@ impl Store {
                 committed,
                 commit_height,
             ],
-        )
-        .map(|_| ())
-        .map_err(StoreError::QueryError)?;
+        )?;
 
         Ok(())
     }
@@ -196,9 +184,7 @@ impl Store {
         for transaction in updated_transactions {
             const QUERY: &str =
                 "UPDATE transactions set committed=true, commit_height=? where id=?";
-            rows += tx
-                .execute(QUERY, params![block_num, transaction.id.to_string()])
-                .map_err(StoreError::QueryError)?;
+            rows += tx.execute(QUERY, params![block_num, transaction.id.to_string()])?;
         }
 
         Ok(rows)
@@ -315,33 +301,26 @@ fn parse_transaction(
         committed,
         commit_height,
     ) = serialized_transaction;
-    let account_id = AccountId::try_from(account_id as u64).map_err(StoreError::AccountError)?;
-    let id: Digest = id.try_into().map_err(StoreError::HexParseError)?;
-    let init_account_state: Digest = init_account_state
-        .try_into()
-        .map_err(StoreError::HexParseError)?;
+    let account_id = AccountId::try_from(account_id as u64)?;
+    let id: Digest = id.try_into()?;
+    let init_account_state: Digest = init_account_state.try_into()?;
 
-    let final_account_state: Digest = final_account_state
-        .try_into()
-        .map_err(StoreError::HexParseError)?;
+    let final_account_state: Digest = final_account_state.try_into()?;
 
     let input_note_nullifiers: Vec<Digest> =
         serde_json::from_str(&input_notes).map_err(StoreError::JsonDataDeserializationError)?;
 
-    let output_notes = OutputNotes::<NoteEnvelope>::read_from_bytes(&output_notes)
-        .map_err(StoreError::DataDeserializationError)?;
+    let output_notes = OutputNotes::<NoteEnvelope>::read_from_bytes(&output_notes)?;
 
     let transaction_script: Option<TransactionScript> = if script_hash.is_some() {
         let script_hash = script_hash
             .map(|hash| Digest::read_from_bytes(&hash))
-            .transpose()
-            .map_err(StoreError::DataDeserializationError)?
+            .transpose()?
             .expect("Script hash should be included in the row");
 
         let script_program = script_program
             .map(|program| ProgramAst::from_bytes(&program))
-            .transpose()
-            .map_err(StoreError::DataDeserializationError)?
+            .transpose()?
             .expect("Script program should be included in the row");
 
         let script_inputs = script_inputs
@@ -354,8 +333,8 @@ fn parse_transaction(
             script_program,
             script_hash,
             script_inputs.into_iter().map(|(k, v)| (k.into(), v)),
-        )
-        .map_err(StoreError::TransactionScriptError)?;
+        )?;
+
         Some(tx_script)
     } else {
         None
