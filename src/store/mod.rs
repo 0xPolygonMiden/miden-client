@@ -7,7 +7,7 @@ pub mod accounts;
 pub mod chain_data;
 mod migrations;
 pub mod notes;
-pub mod sync_state;
+pub mod state_sync;
 pub mod transactions;
 
 #[cfg(any(test, feature = "mock"))]

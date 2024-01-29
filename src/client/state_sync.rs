@@ -55,10 +55,10 @@ impl Client {
     /// Before doing so, it ensures the genesis block exists in the local store.
     ///
     /// Returns the block number the client has been synced to.
-    pub async fn sync_state(&mut self) -> Result<u32, ClientError> {
+    pub async fn state_sync(&mut self) -> Result<u32, ClientError> {
         self.ensure_genesis_in_place().await?;
         loop {
-            let response = self.single_sync_state().await?;
+            let response = self.single_state_sync().await?;
             if let SyncStatus::SyncedToLastBlock(v) = response {
                 return Ok(v);
             }
@@ -107,7 +107,7 @@ impl Client {
         Ok(())
     }
 
-    async fn single_sync_state(&mut self) -> Result<SyncStatus, ClientError> {
+    async fn single_state_sync(&mut self) -> Result<SyncStatus, ClientError> {
         let current_block_num = self.store.get_sync_height()?;
         let account_ids = self.store.get_account_ids()?;
         let note_tags: Vec<u64> = self
@@ -120,7 +120,7 @@ impl Client {
 
         let nullifiers = self.store.get_unspent_input_note_nullifiers()?;
         let response = self
-            .sync_state_request(current_block_num, &account_ids, &note_tags, &nullifiers)
+            .state_sync_request(current_block_num, &account_ids, &note_tags, &nullifiers)
             .await?;
 
         let incoming_block_header =
@@ -173,14 +173,15 @@ impl Client {
                 "MmrDelta missing on node's response".to_string(),
             ))?;
 
-        self.store.apply_sync_state(
-            current_block_num,
-            incoming_block_header,
-            new_nullifiers,
-            response.accounts,
-            mmr_delta,
-            committed_notes,
-        )?;
+        self.store
+            .apply_state_sync(
+                current_block_num,
+                incoming_block_header,
+                new_nullifiers,
+                response.accounts,
+                mmr_delta,
+                committed_notes,
+            )?;
 
         if response.chain_tip == incoming_block_header.block_num() {
             Ok(SyncStatus::SyncedToLastBlock(response.chain_tip))
@@ -263,7 +264,7 @@ impl Client {
     }
 
     /// Sends a sync state request to the Miden node and returns the response.
-    async fn sync_state_request(
+    async fn state_sync_request(
         &mut self,
         block_num: u32,
         account_ids: &[AccountId],
@@ -291,6 +292,6 @@ impl Client {
             nullifiers,
         };
 
-        Ok(self.rpc_api.sync_state(request).await?.into_inner())
+        Ok(self.rpc_api.state_sync(request).await?.into_inner())
     }
 }

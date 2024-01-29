@@ -87,17 +87,17 @@ CREATE TABLE input_notes (
 );
 
 -- Create state sync table
-CREATE TABLE sync_state (
+CREATE TABLE state_sync (
     block_num UNSIGNED BIG INT NOT NULL,    -- the block number of the most recent state sync
     tags BLOB NOT NULL,                     -- the serialized list of tags
     PRIMARY KEY (block_num)
 );
 
--- insert initial row into sync_state table
-INSERT OR IGNORE INTO sync_state (block_num, tags)
+-- insert initial row into state_sync table
+INSERT OR IGNORE INTO state_sync (block_num, tags)
 SELECT 0, '[]'
 WHERE (
-    SELECT COUNT(*) FROM sync_state
+    SELECT COUNT(*) FROM state_sync
 ) = 0;
 
 -- Create block headers table

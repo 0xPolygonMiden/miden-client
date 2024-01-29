@@ -79,7 +79,7 @@ miden-client account list
 As briefly mentioned in the [Overview](#overview) section, the client needs to periodically query the node to receive updates about entities that might be important in order to run transactions. The way to do so is by running the `sync` command:
 
 ```bash
-miden-client sync -s
+miden-client sync
 ```
 
 Running this command will update local data up to the chain tip. This is needed in order to execute and prove any transaction.
@@ -115,14 +115,14 @@ miden-client account show <regular-account-ID-A> -v
 Some of the tokens we minted can now be transferred to our second regular account. To do so, you can run:
 
 ```bash
-miden-client sync -s # Make sure we have an updated view of the state
+miden-client sync # Make sure we have an updated view of the state
 miden-client transaction new p2id <regular-account-ID-A> <regular-account-ID-B> <faucet-account-ID> 50 # Transfers 50 tokens to account ID B
 ```
 
 This will generate a Pay-to-ID (`P2ID`) note containing 50 assets, transferred from one regular account to the other. If we sync, we can now make use of the note and consume it for the receiving account:
 
 ```bash
-miden-client sync -s # Make sure we have an updated view of the state
+miden-client sync # Make sure we have an updated view of the state
 miden-client transaction new consume-note <regular-account-ID-B> # Consume the note
 ```
 

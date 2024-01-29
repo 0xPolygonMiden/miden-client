@@ -309,7 +309,7 @@ async fn test_get_account_by_id() {
 }
 
 #[tokio::test]
-async fn test_sync_state() {
+async fn test_state_sync() {
     // generate test store path
     let store_path = create_test_store_path();
 
@@ -336,14 +336,14 @@ async fn test_sync_state() {
     let pending_notes = client.get_input_notes(InputNoteFilter::Pending).unwrap();
 
     // sync state
-    let block_num: u32 = client.sync_state().await.unwrap();
+    let block_num: u32 = client.state_sync().await.unwrap();
 
     // verify that the client is synced to the latest block
     assert_eq!(
         block_num,
         client
             .rpc_api
-            .sync_state_requests
+            .state_sync_requests
             .first_key_value()
             .unwrap()
             .1
@@ -370,7 +370,7 @@ async fn test_sync_state() {
         client.get_sync_height().unwrap(),
         client
             .rpc_api
-            .sync_state_requests
+            .state_sync_requests
             .first_key_value()
             .unwrap()
             .1

@@ -36,13 +36,13 @@ mod client {
         }
 
         /// Executes the specified sync state request and returns the response.
-        pub async fn sync_state(
+        pub async fn state_sync(
             &mut self,
             request: impl tonic::IntoRequest<SyncStateRequest>,
         ) -> Result<tonic::Response<SyncStateResponse>, RpcApiError> {
             let rpc_api = self.rpc_api().await?;
             rpc_api
-                .sync_state(request)
+                .state_sync(request)
                 .await
                 .map_err(|err| RpcApiError::RequestError(RpcApiEndpoint::SyncState, err))
         }
@@ -100,7 +100,7 @@ impl fmt::Display for RpcApiEndpoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             RpcApiEndpoint::GetBlockHeaderByNumber => write!(f, "get_block_header_by_number"),
-            RpcApiEndpoint::SyncState => write!(f, "sync_state"),
+            RpcApiEndpoint::SyncState => write!(f, "state_sync"),
             RpcApiEndpoint::SubmitProvenTx => write!(f, "submit_proven_transaction"),
         }
     }
