@@ -166,9 +166,7 @@ impl Store {
 
     /// Inserts the provided input note into the database
     pub fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError> {
-        let tx = self
-            .db
-            .transaction()?;
+        let tx = self.db.transaction()?;
 
         Self::insert_input_note_tx(&tx, note)?;
 

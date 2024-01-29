@@ -247,9 +247,7 @@ impl Client {
         let input_note = if note_id.is_some() {
             self.store.get_input_note_by_id(note_id.unwrap())?
         } else {
-            let input_notes = self
-                .store
-                .get_input_notes(InputNoteFilter::Committed)?;
+            let input_notes = self.store.get_input_notes(InputNoteFilter::Committed)?;
 
             input_notes
                 .first()
@@ -257,22 +255,20 @@ impl Client {
                 .clone()
         };
 
-        let tx_script = self
-            .tx_executor
-            .compile_tx_script(tx_script_code, script_inputs, vec![])?;
+        let tx_script =
+            self.tx_executor
+                .compile_tx_script(tx_script_code, script_inputs, vec![])?;
 
         // TODO: Change this to last block number after we confirm this execution works
         let block_num = input_note.inclusion_proof().unwrap().origin().block_num;
 
         // Execute the transaction and get the witness
-        let executed_transaction = self
-            .tx_executor
-            .execute_transaction(
-                account_id,
-                block_num,
-                &[input_note.note_id()],
-                Some(tx_script.clone()),
-            )?;
+        let executed_transaction = self.tx_executor.execute_transaction(
+            account_id,
+            block_num,
+            &[input_note.note_id()],
+            Some(tx_script.clone()),
+        )?;
 
         Ok(TransactionResult::new(executed_transaction, vec![]))
     }
@@ -344,9 +340,12 @@ impl Client {
                 .compile_tx_script(tx_script_code, script_inputs, vec![])?;
 
         // Execute the transaction and get the witness
-        let executed_transaction = self
-            .tx_executor
-            .execute_transaction(faucet_id, block_ref, &[], Some(tx_script.clone()))?;
+        let executed_transaction = self.tx_executor.execute_transaction(
+            faucet_id,
+            block_ref,
+            &[],
+            Some(tx_script.clone()),
+        )?;
 
         Ok(TransactionResult::new(
             executed_transaction,
@@ -369,8 +368,7 @@ impl Client {
             random_coin,
         )?;
 
-        self.tx_executor
-            .load_account(sender_account_id)?;
+        self.tx_executor.load_account(sender_account_id)?;
 
         let block_ref = self.get_sync_height()?;
 
@@ -401,9 +399,7 @@ impl Client {
         ))
         .expect("program is correctly written");
 
-        let account_auth = self
-            .store
-            .get_account_auth(sender_account_id)?;
+        let account_auth = self.store.get_account_auth(sender_account_id)?;
         let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
             AuthInfo::RpoFalcon512(key) => (
                 key.public_key().into(),
@@ -414,23 +410,19 @@ impl Client {
             ),
         };
 
-        let tx_script_target = self
-            .tx_executor
-            .compile_tx_script(
-                tx_script_code.clone(),
-                vec![(pubkey_input, advice_map)],
-                vec![],
-            )?;
+        let tx_script_target = self.tx_executor.compile_tx_script(
+            tx_script_code.clone(),
+            vec![(pubkey_input, advice_map)],
+            vec![],
+        )?;
 
         // Execute the transaction and get the witness
-        let executed_transaction = self
-            .tx_executor
-            .execute_transaction(
-                sender_account_id,
-                block_ref,
-                &[],
-                Some(tx_script_target.clone()),
-            )?;
+        let executed_transaction = self.tx_executor.execute_transaction(
+            sender_account_id,
+            block_ref,
+            &[],
+            Some(tx_script_target.clone()),
+        )?;
 
         Ok(TransactionResult::new(
             executed_transaction,
@@ -445,8 +437,8 @@ impl Client {
         tx_result: TransactionResult,
     ) -> Result<(), ClientError> {
         let transaction_prover = TransactionProver::new(ProvingOptions::default());
-        let proven_transaction = transaction_prover
-            .prove_transaction(tx_result.executed_transaction().clone())?;
+        let proven_transaction =
+            transaction_prover.prove_transaction(tx_result.executed_transaction().clone())?;
 
         println!("Proved transaction, submitting to the node...");
 

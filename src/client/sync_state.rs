@@ -173,15 +173,14 @@ impl Client {
                 "MmrDelta missing on node's response".to_string(),
             ))?;
 
-        self.store
-            .apply_state_sync(
-                current_block_num,
-                incoming_block_header,
-                new_nullifiers,
-                response.accounts,
-                mmr_delta,
-                committed_notes,
-            )?;
+        self.store.apply_state_sync(
+            current_block_num,
+            incoming_block_header,
+            new_nullifiers,
+            response.accounts,
+            mmr_delta,
+            committed_notes,
+        )?;
 
         if response.chain_tip == incoming_block_header.block_num() {
             Ok(SyncStatus::SyncedToLastBlock(response.chain_tip))
