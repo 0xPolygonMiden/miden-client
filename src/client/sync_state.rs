@@ -8,7 +8,7 @@ use miden_node_proto::{
 };
 
 use objects::{accounts::AccountId, notes::NoteInclusionProof, BlockHeader, Digest};
-use tracing::{warn, instrument};
+use tracing::warn;
 
 use crate::{
     errors::{ClientError, StoreError},
