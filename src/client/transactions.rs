@@ -1,4 +1,5 @@
 use crypto::{rand::RpoRandomCoin, utils::Serializable, Felt, StarkField, Word};
+use lazy_static::lazy_static;
 use miden_lib::notes::create_p2id_note;
 use miden_node_proto::{
     requests::SubmitProvenTransactionRequest, responses::SubmitProvenTransactionResponse,
@@ -24,6 +25,16 @@ use crate::{
 };
 
 use super::Client;
+
+// MASM SCRIPTS
+// --------------------------------------------------------------------------------------------
+lazy_static! {
+    static ref CONSUME_NOTES_TX_SCRIPT: &'static str =
+        include_str!("asm/transaction_scripts/consume_notes.masm");
+    static ref MINT_FUNGIBLE_TX_SCRIPT: &'static str =
+        include_str!("asm/transaction_scripts/mint_fungible.masm");
+    static ref P2ID_TX_SCRIPT: &'static str = include_str!("asm/transaction_scripts/p2id.masm");
+}
 
 // TRANSACTION TEMPLATE
 // --------------------------------------------------------------------------------------------
@@ -230,16 +241,7 @@ impl Client {
             .load_account(account_id)
             .map_err(ClientError::TransactionExecutionError)?;
 
-        let tx_script_code = ProgramAst::parse(
-            "
-            use.miden::contracts::auth::basic->auth_tx
-    
-            begin
-                call.auth_tx::auth_tx_rpo_falcon512
-            end
-            ",
-        )
-        .unwrap();
+        let tx_script_code = ProgramAst::parse(&CONSUME_NOTES_TX_SCRIPT).unwrap();
 
         let account_auth = self.get_account_auth(account_id)?;
 
@@ -306,27 +308,13 @@ impl Client {
             .join(".");
 
         let tx_script_code = ProgramAst::parse(
-            format!(
-                "
-                use.miden::contracts::faucets::basic_fungible->faucet
-                use.miden::contracts::auth::basic->auth_tx
-    
-                begin
-                    push.{recipient}
-                    push.{tag}
-                    push.{amount}
-                    call.faucet::distribute
-    
-                    call.auth_tx::auth_tx_rpo_falcon512
-                    dropw dropw
-    
-                end
-            ",
-                recipient = recipient,
-                tag = Felt::new(Into::<u64>::into(target_id)),
-                amount = Felt::new(asset.amount()),
-            )
-            .as_str(),
+            &MINT_FUNGIBLE_TX_SCRIPT
+                .replace("{recipient}", &recipient)
+                .replace(
+                    "{tag}",
+                    &Felt::new(Into::<u64>::into(target_id)).to_string(),
+                )
+                .replace("{amount}", &Felt::new(asset.amount()).to_string()),
         )
         .expect("program is well formed");
 
@@ -385,24 +373,15 @@ impl Client {
             .collect::<Vec<_>>()
             .join(".");
 
-        let tx_script_code = ProgramAst::parse(&format!(
-            "
-        use.miden::contracts::auth::basic->auth_tx
-        use.miden::contracts::wallets::basic->wallet
-
-        begin
-            push.{recipient}
-            push.{tag}
-            push.{asset}
-            call.wallet::send_asset drop
-            dropw dropw
-            call.auth_tx::auth_tx_rpo_falcon512
-        end
-        ",
-            recipient = recipient,
-            tag = Felt::new(Into::<u64>::into(target_account_id)),
-            asset = prepare_word(&fungible_asset.into()),
-        ))
+        let tx_script_code = ProgramAst::parse(
+            &P2ID_TX_SCRIPT
+                .replace("{recipient}", &recipient)
+                .replace(
+                    "{tag}",
+                    &Felt::new(Into::<u64>::into(target_account_id)).to_string(),
+                )
+                .replace("{asset}", &prepare_word(&fungible_asset.into()).to_string()),
+        )
         .expect("program is correctly written");
 
         let account_auth = self.store.get_account_auth(sender_account_id)?;
