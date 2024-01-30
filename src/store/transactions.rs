@@ -213,9 +213,9 @@ pub(crate) fn serialize_transaction_data(
 
     let output_notes = executed_transaction.output_notes();
 
-    info!("transaction id {}", executed_transaction.id().inner());
+    info!("Transaction id {}", executed_transaction.id().inner());
     info!(
-        "transaction account id: {}",
+        "Transaction account id: {}",
         executed_transaction.account_id()
     );
 
