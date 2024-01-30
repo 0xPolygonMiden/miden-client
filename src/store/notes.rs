@@ -13,7 +13,7 @@ use objects::notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, N
 use objects::{accounts::AccountId, notes::NoteMetadata, transaction::InputNote, Digest, Felt};
 use rusqlite::{params, Transaction};
 
-pub(crate) fn insert_note_query(table_name: &str) -> String {
+fn insert_note_query(table_name: NoteTable) -> String {
     format!("\
     INSERT INTO {table_name}
         (note_id, nullifier, script, assets, inputs, serial_num, sender_id, tag, inclusion_proof, recipient, status, commit_height)
@@ -238,13 +238,13 @@ impl Store {
             sender_id,
             tag,
             inclusion_proof,
-            recipients,
+            recipient,
             status,
             commit_height,
         ) = serialize_input_note(note)?;
 
         tx.execute(
-            &insert_note_query("input_notes"),
+            &insert_note_query(NoteTable::InputNotes),
             params![
                 note_id,
                 nullifier,
@@ -255,7 +255,7 @@ impl Store {
                 sender_id,
                 tag,
                 inclusion_proof,
-                recipients,
+                recipient,
                 status,
                 commit_height
             ],
@@ -279,13 +279,13 @@ impl Store {
             sender_id,
             tag,
             inclusion_proof,
-            recipients,
+            recipient,
             status,
             commit_height,
         ) = serialize_input_note(note)?;
 
         tx.execute(
-            &insert_note_query("output_notes"),
+            &insert_note_query(NoteTable::OutputNotes),
             params![
                 note_id,
                 nullifier,
@@ -296,7 +296,7 @@ impl Store {
                 sender_id,
                 tag,
                 inclusion_proof,
-                recipients,
+                recipient,
                 status,
                 commit_height
             ],
@@ -398,7 +398,7 @@ pub(crate) fn serialize_input_note(
         }
         None => (None, String::from("pending"), 0u32),
     };
-    let recipients = note.note().recipient().to_string();
+    let recipient = note.note().recipient().to_string();
 
     Ok((
         note_id,
@@ -410,7 +410,7 @@ pub(crate) fn serialize_input_note(
         sender_id,
         tag,
         inclusion_proof,
-        recipients,
+        recipient,
         status,
         commit_height as i64,
     ))
