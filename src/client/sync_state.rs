@@ -116,22 +116,20 @@ impl Client {
         let accounts: Vec<AccountStub> = self
             .store
             .get_accounts()?
-            .iter()
-            .map(|(acc, _)| acc.clone())
+            .into_iter()
+            .map(|(acc, _)| acc)
             .collect();
 
-        let note_tags: Vec<u64> = self
-            .store
-            .get_accounts()?
-            .into_iter()
-            .map(|(a, _s)| a.id().into())
-            .collect();
+        let note_tags: Vec<u32> = accounts
+            .iter()
+            .map(|acc| (u64::from(acc.id()) >> FILTER_ID_SHIFT) as u32)
+            .collect::<Vec<_>>();
 
         let nullifiers = self.store.get_unspent_input_note_nullifiers()?;
 
         // Send request and convert types
         let response = self
-            .sync_state_request(current_block_num, &accounts, &note_tags, &nullifiers)
+            .sync_state_request(current_block_num, &accounts, note_tags, &nullifiers)
             .await?;
 
         let incoming_block_header = response
@@ -139,12 +137,12 @@ impl Client {
             .as_ref()
             .ok_or(ClientError::RpcExpectedFieldMissing("BlockHeader".into()))?;
 
-        let incoming_block_header: BlockHeader = incoming_block_header.try_into()?;
-
         // We don't need to continue if the chain has not advanced
-        if incoming_block_header.block_num() == current_block_num {
+        if incoming_block_header.block_num == current_block_num {
             return Ok(SyncStatus::SyncedToLastBlock(current_block_num));
         }
+
+        let incoming_block_header: BlockHeader = incoming_block_header.try_into()?;
 
         let committed_notes =
             self.get_newly_committed_note_info(&response.notes, &incoming_block_header)?;
@@ -266,7 +264,7 @@ impl Client {
         &mut self,
         block_num: u32,
         account_ids: &[AccountStub],
-        note_tags: &[u64],
+        note_tags: Vec<u32>,
         nullifiers: &[Digest],
     ) -> Result<SyncStateResponse, ClientError> {
         let account_ids = account_ids
@@ -280,11 +278,6 @@ impl Client {
             .iter()
             .map(|nullifier| (nullifier[3].as_int() >> FILTER_ID_SHIFT) as u32)
             .collect();
-
-        let note_tags = note_tags
-            .iter()
-            .map(|tag| (tag >> FILTER_ID_SHIFT) as u32)
-            .collect::<Vec<_>>();
 
         let request = SyncStateRequest {
             block_num,

@@ -254,7 +254,7 @@ impl Client {
         let script_inputs = vec![(pubkey_input, advice_map)];
 
         let input_notes = if let Some(note_id) = note_id {
-            vec![self.store.get_input_note_by_id(note_id)?.note_id()]
+            vec![note_id]
         } else {
             self.store
                 .get_input_notes(InputNoteFilter::Committed)?
@@ -267,7 +267,6 @@ impl Client {
             self.tx_executor
                 .compile_tx_script(tx_script_code, script_inputs, vec![])?;
 
-        // TODO: Is it preferrable to execute against the minimum block_num possible (ie, the input note's block_num)
         let block_num = self.store.get_sync_height()?;
 
         // Execute the transaction and get the witness
