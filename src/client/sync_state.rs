@@ -10,9 +10,9 @@ use miden_node_proto::{
     responses::SyncStateResponse,
 };
 
+use super::Client;
 use objects::{accounts::AccountId, notes::NoteInclusionProof, BlockHeader, Digest};
 use tracing::warn;
-use super::Client;
 
 pub enum SyncStatus {
     SyncedToLastBlock(u32),
