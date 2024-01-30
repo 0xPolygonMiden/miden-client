@@ -6,6 +6,7 @@ use miden_client::{
 };
 
 use objects::{accounts::AccountId, assets::FungibleAsset, notes::NoteId, Digest};
+use tracing::info;
 
 use super::{Client, Parser};
 
@@ -123,7 +124,7 @@ impl Transaction {
                     .new_transaction(transaction_template.clone())
                     .map_err(|err| err.to_string())?;
 
-                println!("Executed transaction, proving and then submitting...");
+                info!("Executed transaction, proving and then submitting...");
 
                 client
                     .send_transaction(transaction_execution_result)
