@@ -62,6 +62,8 @@ impl Client {
         Ok(account_and_seed)
     }
 
+    /// Saves in the store the [Account] corresponding to `account_data`. It is expected that the
+    /// provided [AccountData] has an account_seed, otherwise panics.
     pub fn import_account(&mut self, account_data: AccountData) -> Result<(), String> {
         match account_data.auth {
             AuthData::RpoFalcon512Seed(key_pair) => {
@@ -82,6 +84,7 @@ impl Client {
         }
     }
 
+    /// Creates a new regular account and saves it in the store along with its seed and auth data
     fn new_basic_wallet(
         &mut self,
         mutable_code: bool,

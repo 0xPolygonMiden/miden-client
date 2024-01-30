@@ -17,7 +17,7 @@ use objects::{
 
 pub struct SqliteDataStore {
     /// Local database containing information about the accounts managed by this client.
-    pub(crate) store: Store,
+    pub store: Store,
 }
 
 impl SqliteDataStore {

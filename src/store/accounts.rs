@@ -105,6 +105,8 @@ impl Store {
             .collect::<Result<Vec<AccountId>, StoreError>>()
     }
 
+    /// Returns a list of [AccountStub] of all accounts stored in the database along with the seeds
+    /// used to create the corresponding accounts
     pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Word)>, StoreError> {
         const QUERY: &str =
             "SELECT a.id, a.nonce, a.vault_root, a.storage_root, a.code_root, a.account_seed \
@@ -119,6 +121,8 @@ impl Store {
             .collect()
     }
 
+    /// Retrieves an [AccountStub] object for the specified [AccountId] along with the seed
+    /// used to create it. Returns an [Err] if the account was not found
     pub fn get_account_stub_by_id(
         &self,
         account_id: AccountId,
@@ -249,6 +253,7 @@ impl Store {
             .ok_or(StoreError::VaultDataNotFound(root))?
     }
 
+    /// Inserts an [Account] along with the seed used to create it and its [AuthInfo]
     pub fn insert_account(
         &mut self,
         account: &Account,
@@ -292,6 +297,7 @@ impl Store {
         Ok(())
     }
 
+    /// Inserts an [AccountCode]
     fn insert_account_code(
         tx: &Transaction<'_>,
         account_code: &AccountCode,
@@ -303,6 +309,7 @@ impl Store {
         Ok(())
     }
 
+    /// Inserts an [AccountStorage]
     pub(crate) fn insert_account_storage(
         tx: &Transaction<'_>,
         account_storage: &AccountStorage,
@@ -313,6 +320,7 @@ impl Store {
         Ok(())
     }
 
+    /// Inserts an [AssetVault]
     pub(crate) fn insert_account_asset_vault(
         tx: &Transaction<'_>,
         asset_vault: &AssetVault,
@@ -323,6 +331,7 @@ impl Store {
         Ok(())
     }
 
+    /// Inserts an [AuthInfo] for the account with id `account_id`
     pub fn insert_account_auth(
         tx: &Transaction<'_>,
         account_id: AccountId,
