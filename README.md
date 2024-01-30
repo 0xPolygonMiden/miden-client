@@ -1,4 +1,4 @@
-# Miden Client
+<img width="1043" alt="image" src="https://github.com/0xPolygonMiden/miden-client/assets/7201911/6090fa41-5d23-476a-a1fd-3647e4e41896"># Miden Client
 
 <a href="https://github.com/0xPolygonMiden/miden-node/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
 <a href="https://github.com/0xPolygonMiden/miden-client/actions/workflows/ci.yml"><img src="https://github.com/0xPolygonMiden/miden-client/actions/workflows/ci.yml/badge.svg?branch=main"></a>
@@ -54,7 +54,7 @@ Currently, the client is hardcoded to run commands against a locally-running nod
 
 ### Prerequisites
 
-- This guide assumes a basic understanding of the Miden rollup, as it deals with some of its main concepts, such as Notes, Accounts, and Transactions. A good place to learn about these concepts is the [Polygon Miden Documentation](https://0xpolygonmiden.github.io/miden-base/introduction.html).
+- This guide assumes that you have setup a [Miden Node](https://github.com/0xPolygonMiden/miden-node) that can perform a basic local transaction and a basic understanding of the Miden rollup, as it deals with some of its main concepts, such as Notes, Accounts, and Transactions. A good place to learn about these concepts is the [Polygon Miden Documentation](https://0xpolygonmiden.github.io/miden-base/introduction.html).
 
 - Currently, the client allows for submitting locally-proven transactions to the Miden node. Currently, the easiest way to test the client is by [generating accounts via the genesis file](https://github.com/0xPolygonMiden/miden-node?tab=readme-ov-file#generating-the-genesis-file). 
   - For this example, we will make use of 1 faucet account and 2 regular wallet accounts, so you should set your node's `toml` config file accordingly. We will refer to these accounts as having IDs `regular account ID A` and `regular account ID B` in order differentiate them.
