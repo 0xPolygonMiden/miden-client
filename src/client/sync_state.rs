@@ -111,7 +111,6 @@ impl Client {
 
     async fn single_sync_state(&mut self) -> Result<SyncStatus, ClientError> {
         // Construct request
-
         let current_block_num = self.store.get_sync_height()?;
 
         let accounts: Vec<AccountStub> = self
@@ -123,8 +122,7 @@ impl Client {
 
         let note_tags: Vec<u64> = self
             .store
-            .get_accounts()
-            .unwrap()
+            .get_accounts()?
             .into_iter()
             .map(|(a, _s)| a.id().into())
             .collect();
@@ -136,14 +134,10 @@ impl Client {
             .sync_state_request(current_block_num, &accounts, &note_tags, &nullifiers)
             .await?;
 
-        let incoming_block_header =
-            response
-                .block_header
-                .as_ref()
-                .ok_or(ClientError::RpcExpectedFieldMissing(format!(
-                    "Expected block header for response: {:?}",
-                    &response
-                )))?;
+        let incoming_block_header = response
+            .block_header
+            .as_ref()
+            .ok_or(ClientError::RpcExpectedFieldMissing("BlockHeader".into()))?;
 
         let incoming_block_header: BlockHeader = incoming_block_header.try_into()?;
 
@@ -152,45 +146,19 @@ impl Client {
             return Ok(SyncStatus::SyncedToLastBlock(current_block_num));
         }
 
-        let response_nullifiers = response
-            .nullifiers
-            .clone()
-            .into_iter()
-            .map(|x| {
-                x.nullifier
-                    .ok_or(ClientError::RpcExpectedFieldMissing(format!(
-                        "Expected nullifier for response {:?}",
-                        &response.clone()
-                    )))
-            })
-            .collect::<Result<Vec<_>, ClientError>>()?;
-
-        let parsed_new_nullifiers = response_nullifiers
-            .into_iter()
-            .map(|response_nullifier| {
-                response_nullifier
-                    .try_into()
-                    .map_err(ClientError::RpcTypeConversionFailure)
-            })
-            .collect::<Result<Vec<_>, ClientError>>()?;
-
-        let new_nullifiers = parsed_new_nullifiers
-            .into_iter()
-            .filter(|nullifier| nullifiers.contains(nullifier))
-            .collect();
-
         let committed_notes =
             self.get_newly_committed_note_info(&response.notes, &incoming_block_header)?;
 
-        let mmr_delta: crypto::merkle::MmrDelta = response
-            .mmr_delta
-            .ok_or(ClientError::RpcExpectedFieldMissing(
-                "MmrDelta missing on node's response".to_string(),
-            ))?
-            .try_into()?;
-
         // Check if the returned account hashes match latest account hashes in the database
         check_account_hashes(&response.accounts, &accounts)?;
+
+        // Derive new nullifiers data
+        let new_nullifiers = self.get_new_nullifiers(&response)?;
+
+        let mmr_delta: crypto::merkle::MmrDelta = response
+            .mmr_delta
+            .ok_or(ClientError::RpcExpectedFieldMissing("MmrDelta".into()))?
+            .try_into()?;
 
         // Build PartialMmr with current data and apply updates
         let (new_peaks, new_authentication_nodes) = {
@@ -242,30 +210,25 @@ impl Client {
             .map(|n| n.note().id().inner())
             .collect();
 
-        let notes_with_hashes_and_merkle_paths =
-            notes
-                .iter()
-                .map(|note_record| {
-                    // Handle Options first
-                    let note_hash = note_record.note_hash.clone().ok_or(
-                        ClientError::RpcExpectedFieldMissing(format!(
-                            "Expected note hash for response note record {:?}",
-                            &note_record
-                        )),
-                    )?;
-                    let note_merkle_path = note_record.merkle_path.clone().ok_or(
-                        ClientError::RpcExpectedFieldMissing(format!(
-                            "Expected merkle path for response note record {:?}",
-                            &note_record
-                        )),
-                    )?;
-                    // Handle casting after
-                    let note_hash = note_hash.try_into()?;
-                    let merkle_path: crypto::merkle::MerklePath = note_merkle_path.try_into()?;
+        let notes_with_hashes_and_merkle_paths = notes
+            .iter()
+            .map(|note_record| {
+                // Handle Options first
+                let note_hash = note_record
+                    .note_hash
+                    .clone()
+                    .ok_or(ClientError::RpcExpectedFieldMissing("NoteHash".into()))?;
+                let note_merkle_path = note_record
+                    .merkle_path
+                    .clone()
+                    .ok_or(ClientError::RpcExpectedFieldMissing("MerklePath".into()))?;
+                // Handle casting after
+                let note_hash = note_hash.try_into()?;
+                let merkle_path: crypto::merkle::MerklePath = note_merkle_path.try_into()?;
 
-                    Ok((note_record, note_hash, merkle_path))
-                })
-                .collect::<Result<Vec<_>, ClientError>>()?;
+                Ok((note_record, note_hash, merkle_path))
+            })
+            .collect::<Result<Vec<_>, ClientError>>()?;
 
         notes_with_hashes_and_merkle_paths
             .iter()
@@ -312,6 +275,7 @@ impl Client {
                 id: u64::from(acc.id()),
             })
             .collect();
+
         let nullifiers = nullifiers
             .iter()
             .map(|nullifier| (nullifier[3].as_int() >> FILTER_ID_SHIFT) as u32)
@@ -365,6 +329,43 @@ impl Client {
         }
 
         Ok(partial_mmr)
+    }
+
+    /// Extracts information about nullifiers for unspent input notes that the client is tracking
+    /// from the received [SyncStateResponse]
+    fn get_new_nullifiers(
+        &self,
+        sync_state_response: &SyncStateResponse,
+    ) -> Result<Vec<Digest>, ClientError> {
+        // Get current unspent nullifiers
+        let nullifiers = self.store.get_unspent_input_note_nullifiers()?;
+
+        // Get NullifierUpdates
+        let response_nullifiers = sync_state_response
+            .nullifiers
+            .clone()
+            .into_iter()
+            .map(|x| {
+                x.nullifier
+                    .ok_or(ClientError::RpcExpectedFieldMissing("Nullifier".into()))
+            })
+            .collect::<Result<Vec<_>, ClientError>>()?;
+
+        let parsed_new_nullifiers = response_nullifiers
+            .into_iter()
+            .map(|response_nullifier| {
+                response_nullifier
+                    .try_into()
+                    .map_err(ClientError::RpcTypeConversionFailure)
+            })
+            .collect::<Result<Vec<_>, ClientError>>()?;
+
+        let new_nullifiers = parsed_new_nullifiers
+            .into_iter()
+            .filter(|nullifier| nullifiers.contains(nullifier))
+            .collect();
+
+        Ok(new_nullifiers)
     }
 }
 
