@@ -243,19 +243,6 @@ impl Client {
 
         let tx_script_code = ProgramAst::parse(&CONSUME_NOTES_TX_SCRIPT).unwrap();
 
-        let account_auth = self.get_account_auth(account_id)?;
-
-        let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
-            AuthInfo::RpoFalcon512(key) => (
-                key.public_key().into(),
-                key.to_bytes()
-                    .iter()
-                    .map(|a| Felt::new(*a as u64))
-                    .collect::<Vec<Felt>>(),
-            ),
-        };
-        let script_inputs = vec![(pubkey_input, advice_map)];
-
         let input_notes = if let Some(note_id) = note_id {
             vec![note_id]
         } else {
@@ -266,19 +253,15 @@ impl Client {
                 .collect()
         };
 
-        let tx_script =
-            self.tx_executor
-                .compile_tx_script(tx_script_code, script_inputs, vec![])?;
-
         let block_num = self.store.get_sync_height()?;
 
-        // Execute the transaction and get the witness
-        let executed_transaction = self
-            .tx_executor
-            .execute_transaction(account_id, block_num, &input_notes, Some(tx_script.clone()))
-            .map_err(ClientError::TransactionExecutionError)?;
-
-        Ok(TransactionResult::new(executed_transaction, vec![]))
+        self.compile_and_execute_tx_script(
+            block_num,
+            tx_script_code,
+            account_id,
+            &input_notes,
+            &[],
+        )
     }
 
     /// Creates and executes a mint transaction specified by the template.
@@ -290,7 +273,6 @@ impl Client {
         let faucet_id = asset.faucet_id();
 
         // Construct Account
-        let faucet_auth = self.get_account_auth(faucet_id)?;
         self.tx_executor.load_account(faucet_id)?;
 
         let _block_ref = self.get_sync_height()?;
@@ -318,33 +300,13 @@ impl Client {
         )
         .expect("program is well formed");
 
-        let (pubkey_input, advice_map): (Word, Vec<Felt>) = match faucet_auth {
-            AuthInfo::RpoFalcon512(key) => (
-                key.public_key().into(),
-                key.to_bytes()
-                    .iter()
-                    .map(|a| Felt::new(*a as u64))
-                    .collect::<Vec<Felt>>(),
-            ),
-        };
-        let script_inputs = vec![(pubkey_input, advice_map)];
-
-        let tx_script =
-            self.tx_executor
-                .compile_tx_script(tx_script_code, script_inputs, vec![])?;
-
-        // Execute the transaction and get the witness
-        let executed_transaction = self.tx_executor.execute_transaction(
-            faucet_id,
+        self.compile_and_execute_tx_script(
             block_ref,
+            tx_script_code,
+            faucet_id,
             &[],
-            Some(tx_script.clone()),
-        )?;
-
-        Ok(TransactionResult::new(
-            executed_transaction,
-            vec![created_note],
-        ))
+            &[created_note],
+        )
     }
 
     fn new_p2id_transaction(
@@ -384,7 +346,24 @@ impl Client {
         )
         .expect("program is correctly written");
 
-        let account_auth = self.store.get_account_auth(sender_account_id)?;
+        self.compile_and_execute_tx_script(
+            block_ref,
+            tx_script_code,
+            sender_account_id,
+            &[],
+            &[created_note],
+        )
+    }
+
+    fn compile_and_execute_tx_script(
+        &mut self,
+        block_num: u32,
+        tx_script: ProgramAst,
+        auth_account_id: AccountId,
+        input_notes: &[NoteId],
+        output_notes: &[Note],
+    ) -> Result<TransactionResult, ClientError> {
+        let account_auth = self.get_account_auth(auth_account_id)?;
         let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
             AuthInfo::RpoFalcon512(key) => (
                 key.public_key().into(),
@@ -394,24 +373,23 @@ impl Client {
                     .collect::<Vec<Felt>>(),
             ),
         };
+        let script_inputs = vec![(pubkey_input, advice_map)];
 
-        let tx_script_target = self.tx_executor.compile_tx_script(
-            tx_script_code.clone(),
-            vec![(pubkey_input, advice_map)],
-            vec![],
-        )?;
+        let tx_script = self
+            .tx_executor
+            .compile_tx_script(tx_script, script_inputs, vec![])?;
 
         // Execute the transaction and get the witness
         let executed_transaction = self.tx_executor.execute_transaction(
-            sender_account_id,
-            block_ref,
-            &[],
-            Some(tx_script_target.clone()),
+            auth_account_id,
+            block_num,
+            input_notes,
+            Some(tx_script.clone()),
         )?;
 
         Ok(TransactionResult::new(
             executed_transaction,
-            vec![created_note],
+            output_notes.to_vec(),
         ))
     }
 
