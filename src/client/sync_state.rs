@@ -294,34 +294,12 @@ impl Client {
     /// known leaves thus far.
     ///
     /// As part of the syncing process, we add the current block number so we don't need to
-    /// add it here.
+    /// track it here.
     fn build_partial_mmr_for_block(&self, block_num: u32) -> Result<PartialMmr, ClientError> {
         let tracked_nodes = self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All)?;
         let current_peaks = self.store.get_chain_mmr_peaks_by_block_num(block_num)?;
-        let tracked_blocks = self.store.get_tracked_block_headers()?;
-        let mut partial_mmr = PartialMmr::from_peaks(current_peaks);
 
-        for block in tracked_blocks {
-            if block.block_num() as usize >= partial_mmr.forest() {
-                continue;
-            }
-
-            let mut merkle_nodes = Vec::new();
-            let mut idx = InOrderIndex::from_leaf_pos(block.block_num() as usize);
-
-            while let Some(node) = tracked_nodes.get(&idx.sibling()) {
-                merkle_nodes.push(*node);
-                idx = idx.parent();
-            }
-
-            let merkle_path = MerklePath::new(merkle_nodes);
-            // Track the relevant block with the constructed merkle paths
-            partial_mmr
-                .track(block.block_num() as usize, block.hash(), &merkle_path)
-                .map_err(StoreError::MmrError)?;
-        }
-
-        Ok(partial_mmr)
+        Ok(PartialMmr::from_parts(current_peaks, tracked_nodes, false))
     }
 
     /// Extracts information about nullifiers for unspent input notes that the client is tracking
