@@ -1,5 +1,5 @@
 use super::Client;
-use crypto::merkle::{InOrderIndex, MerklePath, MmrDelta, MmrPeaks, PartialMmr};
+use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_node_proto::{
     account::AccountId as ProtoAccountId,
     note::NoteSyncRecord,
@@ -299,7 +299,17 @@ impl Client {
         let tracked_nodes = self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All)?;
         let current_peaks = self.store.get_chain_mmr_peaks_by_block_num(block_num)?;
 
-        Ok(PartialMmr::from_parts(current_peaks, tracked_nodes, false))
+        let track_latest = match self.store.get_block_header_by_num(block_num - 1) {
+            Ok((_, should_be_tracked)) => Ok(should_be_tracked),
+            Err(StoreError::BlockHeaderNotFound(_)) => Ok(false),
+            Err(err) => Err(ClientError::StoreError(err)),
+        }?;
+
+        Ok(PartialMmr::from_parts(
+            current_peaks,
+            tracked_nodes,
+            track_latest,
+        ))
     }
 
     /// Extracts information about nullifiers for unspent input notes that the client is tracking
