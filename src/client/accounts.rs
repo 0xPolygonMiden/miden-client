@@ -92,7 +92,7 @@ impl Client {
         }
 
         let key_pair: objects::crypto::dsa::rpo_falcon512::KeyPair =
-            objects::crypto::dsa::rpo_falcon512::KeyPair::new().map_err(ClientError::AuthError)?;
+            objects::crypto::dsa::rpo_falcon512::KeyPair::new()?;
 
         let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
             pub_key: key_pair.public_key(),
@@ -113,8 +113,7 @@ impl Client {
                 auth_scheme,
                 AccountType::RegularAccountUpdatableCode,
             )
-        }
-        .map_err(ClientError::AccountError)?;
+        }?;
 
         self.insert_account(&account, seed, &AuthInfo::RpoFalcon512(key_pair))?;
         Ok((account, seed))
@@ -133,7 +132,7 @@ impl Client {
         }
 
         let key_pair: objects::crypto::dsa::rpo_falcon512::KeyPair =
-            objects::crypto::dsa::rpo_falcon512::KeyPair::new().map_err(ClientError::AuthError)?;
+            objects::crypto::dsa::rpo_falcon512::KeyPair::new()?;
 
         let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
             pub_key: key_pair.public_key(),
@@ -149,8 +148,7 @@ impl Client {
             Felt::try_from(max_supply.to_le_bytes().as_slice())
                 .expect("u64 can be safely converted to a field element"),
             auth_scheme,
-        )
-        .map_err(ClientError::AccountError)?;
+        )?;
 
         self.insert_account(&account, seed, &AuthInfo::RpoFalcon512(key_pair))?;
         Ok((account, seed))

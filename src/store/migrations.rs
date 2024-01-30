@@ -15,7 +15,5 @@ lazy_static! {
 // ================================================================================================
 
 pub fn update_to_latest(conn: &mut Connection) -> Result<(), StoreError> {
-    MIGRATIONS
-        .to_latest(conn)
-        .map_err(StoreError::MigrationError)
+    Ok(MIGRATIONS.to_latest(conn)?)
 }

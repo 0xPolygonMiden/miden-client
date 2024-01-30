@@ -41,9 +41,9 @@ impl Store {
                 chain_mmr,
                 has_client_notes
             ],
-        )
-        .map_err(StoreError::QueryError)
-        .map(|_| ())
+        )?;
+
+        Ok(())
     }
 
     pub fn get_block_headers(
@@ -79,15 +79,9 @@ impl Store {
         const QUERY: &str = "SELECT block_num, header, notes_root, sub_hash, chain_mmr_peaks, has_client_notes FROM block_headers WHERE block_num = ?";
 
         self.db
-            .prepare(QUERY)
-            .map_err(StoreError::QueryError)?
-            .query_map(params![block_number as i64], parse_block_headers_columns)
-            .map_err(StoreError::QueryError)?
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_block_header)
-            })
+            .prepare(QUERY)?
+            .query_map(params![block_number as i64], parse_block_headers_columns)?
+            .map(|result| Ok(result?).and_then(parse_block_header))
             .next()
             .ok_or(StoreError::BlockHeaderNotFound(block_number))?
     }
@@ -102,9 +96,8 @@ impl Store {
 
         const QUERY: &str = "INSERT INTO chain_mmr_nodes (id, node) VALUES (?, ?)";
 
-        tx.execute(QUERY, params![id, node])
-            .map_err(StoreError::QueryError)
-            .map(|_| ())
+        tx.execute(QUERY, params![id, node])?;
+        Ok(())
     }
 
     /// Inserts a list of MMR authentication nodes to the Chain MMR nodes table.
@@ -123,15 +116,9 @@ impl Store {
     pub fn get_chain_mmr_nodes(&self) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
         const QUERY: &str = "SELECT id, node FROM chain_mmr_nodes";
         self.db
-            .prepare(QUERY)
-            .map_err(StoreError::QueryError)?
-            .query_map(params![], parse_chain_mmr_nodes_columns)
-            .map_err(StoreError::QueryError)?
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_chain_mmr_nodes)
-            })
+            .prepare(QUERY)?
+            .query_map(params![], parse_chain_mmr_nodes_columns)?
+            .map(|result| Ok(result?).and_then(parse_chain_mmr_nodes))
             .collect()
     }
 
@@ -141,20 +128,18 @@ impl Store {
 
         let mmr_peaks = self
             .db
-            .prepare(QUERY)
-            .map_err(StoreError::QueryError)?
+            .prepare(QUERY)?
             .query_row(params![block_num], |row| {
                 let peaks: String = row.get(0)?;
                 Ok(peaks)
             })
-            .optional()
-            .map_err(StoreError::QueryError)?;
+            .optional()?;
 
         if let Some(mmr_peaks) = mmr_peaks {
             return parse_mmr_peaks(block_num, mmr_peaks);
         }
 
-        MmrPeaks::new(0, vec![]).map_err(StoreError::MmrError)
+        Ok(MmrPeaks::new(0, vec![])?)
     }
 }
 
