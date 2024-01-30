@@ -45,7 +45,9 @@ impl Store {
 
         Ok(())
     }
-
+    /// Retrieves a list of [BlockHeader] by number and a boolean value that represents whether the
+    /// block contains notes relevant to the client. It's up to the callee to check that all
+    /// requested block headers were found
     pub fn get_block_headers(
         &self,
         block_numbers: &[u32],
@@ -60,18 +62,14 @@ impl Store {
             formatted_block_numbers_list
         );
         self.db
-            .prepare(&query)
-            .map_err(StoreError::QueryError)?
-            .query_map(params![], parse_block_headers_columns)
-            .map_err(StoreError::QueryError)?
-            .map(|result| {
-                result
-                    .map_err(StoreError::ColumnParsingError)
-                    .and_then(parse_block_header)
-            })
+            .prepare(&query)?
+            .query_map(params![], parse_block_headers_columns)?
+            .map(|result| Ok(result?).and_then(parse_block_header))
             .collect()
     }
 
+    /// Retrieves a [BlockHeader] by number and a boolean value that represents whether the
+    /// block contains notes relevant to the client.
     pub fn get_block_header_by_num(
         &self,
         block_number: u32,
