@@ -1,5 +1,4 @@
 use crypto::{rand::RpoRandomCoin, utils::Serializable, Felt, StarkField, Word};
-use lazy_static::lazy_static;
 use miden_lib::notes::create_p2id_note;
 use miden_node_proto::{
     requests::SubmitProvenTransactionRequest, responses::SubmitProvenTransactionResponse,
@@ -28,13 +27,9 @@ use super::Client;
 
 // MASM SCRIPTS
 // --------------------------------------------------------------------------------------------
-lazy_static! {
-    static ref CONSUME_NOTES_TX_SCRIPT: &'static str =
-        include_str!("asm/transaction_scripts/consume_notes.masm");
-    static ref MINT_FUNGIBLE_TX_SCRIPT: &'static str =
-        include_str!("asm/transaction_scripts/mint_fungible.masm");
-    static ref P2ID_TX_SCRIPT: &'static str = include_str!("asm/transaction_scripts/p2id.masm");
-}
+const CONSUME_NOTES_TX_SCRIPT: &str = include_str!("asm/transaction_scripts/consume_notes.masm");
+const MINT_FUNGIBLE_TX_SCRIPT: &str = include_str!("asm/transaction_scripts/mint_fungible.masm");
+const P2ID_TX_SCRIPT: &str = include_str!("asm/transaction_scripts/p2id.masm");
 
 // TRANSACTION TEMPLATE
 // --------------------------------------------------------------------------------------------
@@ -235,13 +230,14 @@ impl Client {
     fn new_consume_notes_transaction(
         &mut self,
         account_id: AccountId,
-        note_id: Option<NoteId>,
+       note_id: Option<NoteId>,
     ) -> Result<TransactionResult, ClientError> {
         self.tx_executor
             .load_account(account_id)
             .map_err(ClientError::TransactionExecutionError)?;
 
-        let tx_script_code = ProgramAst::parse(&CONSUME_NOTES_TX_SCRIPT).unwrap();
+        let tx_script_code =
+            ProgramAst::parse(CONSUME_NOTES_TX_SCRIPT).expect("shipped MASM is well-formed");
 
         let input_notes = if let Some(note_id) = note_id {
             vec![note_id]
@@ -298,7 +294,7 @@ impl Client {
                 )
                 .replace("{amount}", &Felt::new(asset.amount()).to_string()),
         )
-        .expect("program is well formed");
+        .expect("shipped MASM is well-formed");
 
         self.compile_and_execute_tx_script(
             block_ref,
@@ -344,7 +340,7 @@ impl Client {
                 )
                 .replace("{asset}", &prepare_word(&fungible_asset.into()).to_string()),
         )
-        .expect("program is correctly written");
+        .expect("shipped MASM is well-formed");
 
         self.compile_and_execute_tx_script(
             block_ref,
