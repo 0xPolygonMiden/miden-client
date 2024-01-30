@@ -42,7 +42,7 @@ mod client {
         ) -> Result<tonic::Response<SyncStateResponse>, RpcApiError> {
             let rpc_api = self.rpc_api().await?;
             rpc_api
-                .state_sync(request)
+                .sync_state(request)
                 .await
                 .map_err(|err| RpcApiError::RequestError(RpcApiEndpoint::SyncState, err))
         }
