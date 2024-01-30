@@ -45,6 +45,28 @@ impl Store {
 
         Ok(())
     }
+    /// Retrieves a list of [BlockHeader] by number and a boolean value that represents whether the
+    /// block contains notes relevant to the client. It's up to the callee to check that all
+    /// requested block headers were found
+    pub fn get_block_headers(
+        &self,
+        block_numbers: &[u32],
+    ) -> Result<Vec<(BlockHeader, bool)>, StoreError> {
+        let formatted_block_numbers_list = block_numbers
+            .iter()
+            .map(|block_number| (*block_number as i64).to_string())
+            .collect::<Vec<String>>()
+            .join(",");
+        let query = format!(
+            "SELECT block_num, header, notes_root, sub_hash, chain_mmr_peaks, has_client_notes FROM block_headers WHERE block_num IN ({})",
+            formatted_block_numbers_list
+        );
+        self.db
+            .prepare(&query)?
+            .query_map(params![], parse_block_headers_columns)?
+            .map(|result| Ok(result?).and_then(parse_block_header))
+            .collect()
+    }
 
     /// Retrieves a [BlockHeader] by number and a boolean value that represents whether the
     /// block contains notes relevant to the client.
@@ -53,6 +75,7 @@ impl Store {
         block_number: u32,
     ) -> Result<(BlockHeader, bool), StoreError> {
         const QUERY: &str = "SELECT block_num, header, notes_root, sub_hash, chain_mmr_peaks, has_client_notes FROM block_headers WHERE block_num = ?";
+
         self.db
             .prepare(QUERY)?
             .query_map(params![block_number as i64], parse_block_headers_columns)?
@@ -210,4 +233,53 @@ fn parse_chain_mmr_nodes(
     let node: Digest =
         serde_json::from_str(&node).map_err(StoreError::JsonDataDeserializationError)?;
     Ok((id, node))
+}
+
+#[cfg(test)]
+mod test {
+    use crate::store::{tests::create_test_store, Store};
+    use crypto::merkle::MmrPeaks;
+    use mock::mock::block::mock_block_header;
+    use objects::BlockHeader;
+
+    fn insert_dummy_block_headers(store: &mut Store) -> Vec<BlockHeader> {
+        let block_headers: Vec<BlockHeader> = (0..5)
+            .map(|block_num| mock_block_header(block_num, None, None, &[]))
+            .collect();
+        let tx = store.db.transaction().unwrap();
+        let dummy_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
+        (0..5).for_each(|block_num| {
+            Store::insert_block_header(&tx, block_headers[block_num], dummy_peaks.clone(), false)
+                .unwrap()
+        });
+        tx.commit().unwrap();
+
+        block_headers
+    }
+
+    #[test]
+    fn insert_and_get_block_headers_by_number() {
+        let mut store = create_test_store();
+        let block_headers = insert_dummy_block_headers(&mut store);
+
+        let block_header = store.get_block_header_by_num(3).unwrap();
+        assert_eq!(block_headers[3], block_header.0);
+    }
+
+    #[test]
+    fn insert_and_get_block_headers_by_list() {
+        let mut store = create_test_store();
+        let mock_block_headers = insert_dummy_block_headers(&mut store);
+
+        let block_headers: Vec<BlockHeader> = store
+            .get_block_headers(&[1, 3])
+            .unwrap()
+            .into_iter()
+            .map(|(block_header, _has_notes)| block_header)
+            .collect();
+        assert_eq!(
+            &[mock_block_headers[1], mock_block_headers[3]],
+            &block_headers[..]
+        );
+    }
 }

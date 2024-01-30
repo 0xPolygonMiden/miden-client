@@ -7,6 +7,7 @@ use crypto::{
     utils::{collections::BTreeMap, Deserializable, Serializable},
     Felt,
 };
+use tracing::info;
 
 use super::Store;
 use objects::{
@@ -217,10 +218,9 @@ pub(crate) fn serialize_transaction_data(
 
     let output_notes = executed_transaction.output_notes();
 
-    // TODO: Add proper logging
-    println!("transaction id {}", executed_transaction.id().inner());
-    println!(
-        "transaction account id: {}",
+    info!("Transaction id {}", executed_transaction.id().inner());
+    info!(
+        "Transaction account id: {}",
         executed_transaction.account_id()
     );
 

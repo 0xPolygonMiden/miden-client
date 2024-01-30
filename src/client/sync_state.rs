@@ -1,4 +1,7 @@
-use super::Client;
+use crate::{
+    errors::{ClientError, StoreError},
+    store::{notes::NoteFilter, Store},
+};
 use crypto::{merkle::MmrPeaks, StarkField};
 use miden_node_proto::{
     account::AccountId as ProtoAccountId,
@@ -7,11 +10,9 @@ use miden_node_proto::{
     responses::SyncStateResponse,
 };
 
-use crate::{
-    errors::{ClientError, StoreError},
-    store::{notes::NoteFilter, Store},
-};
 use objects::{accounts::AccountId, notes::NoteInclusionProof, BlockHeader, Digest};
+use tracing::warn;
+use super::Client;
 
 pub enum SyncStatus {
     SyncedToLastBlock(u32),
@@ -43,7 +44,7 @@ impl Client {
         match self.store.add_note_tag(tag).map_err(|err| err.into()) {
             Ok(true) => Ok(()),
             Ok(false) => {
-                println!("tag {} is already being tracked", tag);
+                warn!("Tag {} is already being tracked", tag);
                 Ok(())
             }
             Err(err) => Err(err),
