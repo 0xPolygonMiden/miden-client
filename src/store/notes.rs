@@ -1,3 +1,5 @@
+use core::fmt;
+
 use crate::errors::{ClientError, StoreError};
 
 use super::Store;
@@ -38,24 +40,41 @@ type SerializedInputNoteData = (
 
 type SerializedInputNoteParts = (Vec<u8>, Vec<u8>, Vec<u8>, String, u64, u64, Option<Vec<u8>>);
 
+// NOTE TABLE
+// ================================================================================================
+/// Represents a table in the db used to store notes based on their use case
+enum NoteTable {
+    InputNotes,
+    OutputNotes,
+}
+
+impl fmt::Display for NoteTable {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            NoteTable::InputNotes => write!(f, "input_notes"),
+            NoteTable::OutputNotes => write!(f, "output_notes"),
+        }
+    }
+}
+
 // NOTE FILTER
 // ================================================================================================
 /// Represents a filter for input notes
-pub enum InputNoteFilter {
+pub enum NoteFilter {
     All,
     Consumed,
     Committed,
     Pending,
 }
 
-impl InputNoteFilter {
-    pub fn to_query(&self, notes_table: &str) -> String {
+impl NoteFilter {
+    fn to_query(&self, notes_table: NoteTable) -> String {
         let base = format!("SELECT script, inputs, assets, serial_num, sender_id, tag, inclusion_proof FROM {notes_table}");
         match self {
-            InputNoteFilter::All => base,
-            InputNoteFilter::Committed => format!("{base} WHERE status = 'committed'"),
-            InputNoteFilter::Consumed => format!("{base} WHERE status = 'consumed'"),
-            InputNoteFilter::Pending => format!("{base} WHERE status = 'pending'"),
+            NoteFilter::All => base,
+            NoteFilter::Committed => format!("{base} WHERE status = 'committed'"),
+            NoteFilter::Consumed => format!("{base} WHERE status = 'consumed'"),
+            NoteFilter::Pending => format!("{base} WHERE status = 'pending'"),
         }
     }
 }
@@ -143,10 +162,10 @@ impl Store {
     /// Retrieves the input notes from the database
     pub fn get_input_notes(
         &self,
-        note_filter: InputNoteFilter,
+        note_filter: NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
         self.db
-            .prepare(&note_filter.to_query("input_notes"))?
+            .prepare(&note_filter.to_query(NoteTable::InputNotes))?
             .query_map([], parse_input_note_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_input_note))
@@ -156,10 +175,10 @@ impl Store {
     /// Retrieves the output notes from the database
     pub fn get_output_notes(
         &self,
-        note_filter: InputNoteFilter,
+        note_filter: NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
         self.db
-            .prepare(&note_filter.to_query("output_notes"))?
+            .prepare(&note_filter.to_query(NoteTable::OutputNotes))?
             .query_map([], parse_input_note_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_input_note))

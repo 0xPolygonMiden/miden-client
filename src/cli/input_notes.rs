@@ -6,7 +6,7 @@ use std::{
 
 use super::{Client, Parser};
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
-use miden_client::store::notes::{InputNoteFilter, InputNoteRecord};
+use miden_client::store::notes::{InputNoteRecord, NoteFilter};
 
 use crypto::utils::{Deserializable, Serializable};
 
@@ -91,7 +91,7 @@ impl InputNotes {
 // ================================================================================================
 fn list_input_notes(client: Client) -> Result<(), String> {
     let notes = client
-        .get_input_notes(InputNoteFilter::All)
+        .get_input_notes(NoteFilter::All)
         .map_err(|err| err.to_string())?;
     print_notes_summary(&notes);
     Ok(())

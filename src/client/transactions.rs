@@ -19,7 +19,7 @@ use rand::Rng;
 
 use crate::{
     errors::ClientError,
-    store::{accounts::AuthInfo, notes::InputNoteFilter, transactions::TransactionFilter},
+    store::{accounts::AuthInfo, notes::NoteFilter, transactions::TransactionFilter},
 };
 
 use super::Client;
@@ -247,7 +247,7 @@ impl Client {
         let input_note = if note_id.is_some() {
             self.store.get_input_note_by_id(note_id.unwrap())?
         } else {
-            let input_notes = self.store.get_input_notes(InputNoteFilter::Committed)?;
+            let input_notes = self.store.get_input_notes(NoteFilter::Committed)?;
 
             input_notes
                 .first()

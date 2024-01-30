@@ -9,7 +9,7 @@ use miden_node_proto::{
 
 use crate::{
     errors::{ClientError, StoreError},
-    store::{notes::InputNoteFilter, Store},
+    store::{notes::NoteFilter, Store},
 };
 use objects::{accounts::AccountId, notes::NoteInclusionProof, BlockHeader, Digest};
 
@@ -200,14 +200,14 @@ impl Client {
     ) -> Result<Vec<(Digest, NoteInclusionProof)>, ClientError> {
         let pending_input_notes: Vec<Digest> = self
             .store
-            .get_input_notes(InputNoteFilter::Pending)?
+            .get_input_notes(NoteFilter::Pending)?
             .iter()
             .map(|n| n.note().id().inner())
             .collect();
 
         let pending_output_notes: Vec<Digest> = self
             .store
-            .get_output_notes(InputNoteFilter::Pending)?
+            .get_output_notes(NoteFilter::Pending)?
             .iter()
             .map(|n| n.note().id().inner())
             .collect();
