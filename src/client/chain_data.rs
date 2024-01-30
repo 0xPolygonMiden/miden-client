@@ -7,18 +7,23 @@ use objects::BlockHeader;
 
 impl Client {
     #[cfg(test)]
-    pub fn get_block_headers(
+    pub fn get_block_headers_in_range(
         &self,
         start: u32,
         finish: u32,
-    ) -> Result<Vec<BlockHeader>, ClientError> {
-        let mut headers = Vec::new();
-        for block_number in start..=finish {
-            if let Ok((block_header, _)) = self.store.get_block_header_by_num(block_number) {
-                headers.push(block_header)
-            }
-        }
+    ) -> Result<Vec<(BlockHeader, bool)>, ClientError> {
+        self.store
+            .get_block_headers(&(start..=finish).collect::<Vec<u32>>())
+            .map_err(ClientError::StoreError)
+    }
 
-        Ok(headers)
+    #[cfg(test)]
+    pub fn get_block_headers(
+        &self,
+        block_numbers: &[u32],
+    ) -> Result<Vec<(BlockHeader, bool)>, ClientError> {
+        self.store
+            .get_block_headers(block_numbers)
+            .map_err(ClientError::StoreError)
     }
 }
