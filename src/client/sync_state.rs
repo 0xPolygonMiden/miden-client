@@ -300,11 +300,15 @@ impl Client {
         let tracked_nodes = self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All)?;
         let current_peaks = self.store.get_chain_mmr_peaks_by_block_num(block_num)?;
 
-        let track_latest = match self.store.get_block_header_by_num(block_num - 1) {
-            Ok((_, previous_block_had_notes)) => Ok(previous_block_had_notes),
-            Err(StoreError::BlockHeaderNotFound(_)) => Ok(false),
-            Err(err) => Err(ClientError::StoreError(err)),
-        }?;
+        let track_latest = if block_num != 0 {
+            match self.store.get_block_header_by_num(block_num - 1) {
+                Ok((_, previous_block_had_notes)) => Ok(previous_block_had_notes),
+                Err(StoreError::BlockHeaderNotFound(_)) => Ok(false),
+                Err(err) => Err(ClientError::StoreError(err)),
+            }?
+        } else {
+            false
+        };
 
         Ok(PartialMmr::from_parts(
             current_peaks,
