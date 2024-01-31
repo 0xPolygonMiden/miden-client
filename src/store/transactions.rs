@@ -102,6 +102,7 @@ impl Store {
         let tx = self.db.transaction()?;
 
         // Transaction Data
+        dbg!("SOMETHING");
         Self::insert_proven_transaction_data(&tx, tx_result)?;
 
         // Account Data
@@ -112,12 +113,15 @@ impl Store {
         // Updates for notes
         // TODO: see if we should filter the input notes we store to keep notes we can consume with
         // existing accounts
+        dbg!("SOMETHING2");
         for note in &created_notes {
             Store::insert_input_note_tx(&tx, note)?;
         }
+        dbg!("SOMETHING3");
         for note in &created_notes {
             Store::insert_output_note_tx(&tx, note)?;
         }
+        dbg!("SOMETHING4");
 
         tx.commit()?;
 
