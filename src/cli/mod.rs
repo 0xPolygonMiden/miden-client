@@ -1,10 +1,19 @@
+use std::path::Path;
+
 use clap::Parser;
+use figment::{
+    providers::{Format, Toml},
+    Figment,
+};
 use miden_client::{client::Client, config::ClientConfig};
 
 mod account;
 mod input_notes;
 mod sync_state;
 mod transactions;
+
+/// Config file name
+const CLIENT_CONFIG_FILE_NAME: &str = "miden.toml";
 
 /// Root CLI struct
 #[derive(Parser, Debug)]
@@ -41,12 +50,15 @@ pub enum Command {
 /// CLI entry point
 impl Cli {
     pub async fn execute(&self) -> Result<(), String> {
-        // create a client
-        let client = Client::new(ClientConfig::default())
-            .await
-            .map_err(|err| err.to_string())?;
+        // Create the client
+        let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
+        current_dir.push(CLIENT_CONFIG_FILE_NAME);
+        println!("path {:?}", current_dir);
 
-        // execute cli command
+        let client_config = load_config(current_dir.as_path())?;
+        let client = Client::new(client_config).map_err(|err| err.to_string())?;
+
+        // Execute cli command
         match &self.action {
             Command::Account(account) => account.execute(client),
             Command::InputNotes(notes) => notes.execute(client),
@@ -63,4 +75,19 @@ impl Cli {
             }
         }
     }
+}
+
+/// Loads the client configuration.
+///
+/// This function will look for the configuration file at the provided path. If the path is
+/// relative, searches in parent directories all the way to the root as well.
+pub fn load_config(config_file: &Path) -> Result<ClientConfig, String> {
+    Figment::from(Toml::file(config_file))
+        .extract()
+        .map_err(|err| {
+            format!(
+                "Failed to load {} config file: {err}",
+                config_file.display()
+            )
+        })
 }

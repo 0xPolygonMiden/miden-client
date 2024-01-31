@@ -4,14 +4,12 @@ use crate::{
     client::{
         accounts::{AccountStorageMode, AccountTemplate},
         transactions::TransactionTemplate,
-        Client,
     },
-    config::{ClientConfig, Endpoint},
     store::{
         accounts::AuthInfo,
         mock_executor_data_store::MockDataStore,
         notes::{InputNoteFilter, InputNoteRecord},
-        tests::create_test_store_path,
+        tests::create_test_client,
     },
 };
 
@@ -34,16 +32,8 @@ use objects::{
 
 #[tokio::test]
 async fn test_input_notes_round_trip() {
-    // generate test store path
-    let store_path = create_test_store_path();
-
-    // generate test client
-    let mut client = Client::new(ClientConfig::new(
-        store_path.into_os_string().into_string().unwrap(),
-        Endpoint::default(),
-    ))
-    .await
-    .unwrap();
+    // generate test client with a random store name
+    let mut client = create_test_client();
 
     // generate test data
     let transaction_inputs = mock_inputs(
@@ -73,16 +63,8 @@ async fn test_input_notes_round_trip() {
 
 #[tokio::test]
 async fn test_get_input_note() {
-    // generate test store path
-    let store_path = create_test_store_path();
-
-    // generate test client
-    let mut client = Client::new(ClientConfig::new(
-        store_path.into_os_string().into_string().unwrap(),
-        Endpoint::default(),
-    ))
-    .await
-    .unwrap();
+    // generate test client with a random store name
+    let mut client = create_test_client();
 
     // generate test data
     let transaction_inputs = mock_inputs(
@@ -108,16 +90,8 @@ async fn test_get_input_note() {
 
 #[tokio::test]
 async fn insert_basic_account() {
-    // generate test store path
-    let store_path = create_test_store_path();
-
-    // generate test client
-    let mut client = Client::new(ClientConfig::new(
-        store_path.into_os_string().into_string().unwrap(),
-        Endpoint::default(),
-    ))
-    .await
-    .unwrap();
+    // generate test client with a random store name
+    let mut client = create_test_client();
 
     let account_template = AccountTemplate::BasicWallet {
         mutable_code: true,
@@ -148,16 +122,8 @@ async fn insert_basic_account() {
 
 #[tokio::test]
 async fn insert_faucet_account() {
-    // generate test store path
-    let store_path = create_test_store_path();
-
-    // generate test client
-    let mut client = Client::new(ClientConfig::new(
-        store_path.into_os_string().into_string().unwrap(),
-        Endpoint::default(),
-    ))
-    .await
-    .unwrap();
+    // generate test client with a random store name
+    let mut client = create_test_client();
 
     let faucet_template = AccountTemplate::FungibleFaucet {
         token_symbol: TokenSymbol::new("TEST").unwrap(),
@@ -190,16 +156,8 @@ async fn insert_faucet_account() {
 
 #[tokio::test]
 async fn insert_same_account_twice_fails() {
-    // generate test store path
-    let store_path = create_test_store_path();
-
-    // generate test client
-    let mut client = Client::new(ClientConfig::new(
-        store_path.into_os_string().into_string().unwrap(),
-        Endpoint::default(),
-    ))
-    .await
-    .unwrap();
+    // generate test client with a random store name
+    let mut client = create_test_client();
 
     let assembler = TransactionKernel::assembler();
 
@@ -221,16 +179,8 @@ async fn insert_same_account_twice_fails() {
 
 #[tokio::test]
 async fn test_acc_code() {
-    // generate test store path
-    let store_path = create_test_store_path();
-
-    // generate test client
-    let mut client = Client::new(ClientConfig::new(
-        store_path.into_os_string().into_string().unwrap(),
-        Endpoint::default(),
-    ))
-    .await
-    .unwrap();
+    // generate test client with a random store name
+    let mut client = create_test_client();
 
     let assembler = TransactionKernel::assembler();
     let key_pair: KeyPair = KeyPair::new()
@@ -270,16 +220,8 @@ async fn test_acc_code() {
 
 #[tokio::test]
 async fn test_get_account_by_id() {
-    // generate test store path
-    let store_path = create_test_store_path();
-
-    // generate test client
-    let mut client = Client::new(ClientConfig::new(
-        store_path.into_os_string().into_string().unwrap(),
-        Endpoint::default(),
-    ))
-    .await
-    .unwrap();
+    // generate test client with a random store name
+    let mut client = create_test_client();
 
     let assembler = TransactionKernel::assembler();
 
@@ -310,16 +252,8 @@ async fn test_get_account_by_id() {
 
 #[tokio::test]
 async fn test_sync_state() {
-    // generate test store path
-    let store_path = create_test_store_path();
-
-    // generate test client
-    let mut client = Client::new(ClientConfig::new(
-        store_path.into_os_string().into_string().unwrap(),
-        Endpoint::default(),
-    ))
-    .await
-    .unwrap();
+    // generate test client with a random store name
+    let mut client = create_test_client();
 
     // generate test data
     crate::mock::insert_mock_data(&mut client).await;
@@ -380,16 +314,8 @@ async fn test_sync_state() {
 
 #[tokio::test]
 async fn test_add_tag() {
-    // generate test store path
-    let store_path = create_test_store_path();
-
-    // generate test client
-    let mut client = Client::new(ClientConfig::new(
-        store_path.into_os_string().into_string().unwrap(),
-        Endpoint::default(),
-    ))
-    .await
-    .unwrap();
+    // generate test client with a random store name
+    let mut client = create_test_client();
 
     // assert that no tags are being tracked
     assert_eq!(client.get_note_tags().unwrap().len(), 0);
@@ -422,16 +348,8 @@ async fn test_mint_transaction() {
     const FAUCET_ID: u64 = 10347894387879516201u64;
     const FAUCET_SEED: Word = [Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::ZERO];
 
-    // generate test store path
-    let store_path = create_test_store_path();
-
-    // generate test client
-    let mut client = Client::new(ClientConfig::new(
-        store_path.into_os_string().into_string().unwrap(),
-        Endpoint::default(),
-    ))
-    .await
-    .unwrap();
+    // generate test client with a random store name
+    let mut client = create_test_client();
 
     let (faucet, _seed) = client
         .new_account(AccountTemplate::FungibleFaucet {
