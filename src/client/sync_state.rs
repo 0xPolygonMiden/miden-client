@@ -1,6 +1,6 @@
 use crate::{
     errors::{ClientError, StoreError},
-    store::{notes::NoteFilter, Store},
+    store::Store,
 };
 use crypto::{merkle::MmrPeaks, StarkField};
 use miden_node_proto::{
@@ -199,23 +199,6 @@ impl Client {
         notes: &[NoteSyncRecord],
         block_header: &BlockHeader,
     ) -> Result<Vec<(Digest, NoteInclusionProof)>, ClientError> {
-        let pending_input_notes: Vec<Digest> = self
-            .store
-            .get_input_notes(NoteFilter::Pending)?
-            .iter()
-            .map(|n| n.note().id().inner())
-            .collect();
-
-        let pending_output_notes: Vec<Digest> = self
-            .store
-            .get_output_notes(NoteFilter::Pending)?
-            .iter()
-            .map(|n| n.note().id().inner())
-            .collect();
-
-        let mut pending_notes = [pending_input_notes, pending_output_notes].concat();
-        pending_notes.dedup_by(|note_id, other_note_id| note_id == other_note_id);
-
         let notes_with_hashes_and_merkle_paths =
             notes
                 .iter()
@@ -243,31 +226,26 @@ impl Client {
 
         notes_with_hashes_and_merkle_paths
             .iter()
-            .filter_map(|(note, note_id, merkle_path)| {
-                if pending_notes.contains(note_id) {
-                    // FIXME: This removal is to accomodate a problem with how the node constructs paths where
-                    // they are constructed using note ID instead of authentication hash, so for now we remove the first
-                    // node here.
-                    //
-                    // See: https://github.com/0xPolygonMiden/miden-node/blob/main/store/src/state.rs#L274
-                    let mut merkle_path = merkle_path.clone();
-                    if merkle_path.len() > 0 {
-                        let _ = merkle_path.remove(0);
-                    }
-                    let note_id_and_proof = NoteInclusionProof::new(
-                        block_header.block_num(),
-                        block_header.sub_hash(),
-                        block_header.note_root(),
-                        note.note_index.into(),
-                        merkle_path,
-                    )
-                    .map_err(ClientError::NoteError)
-                    .map(|proof| (*note_id, proof));
-
-                    Some(note_id_and_proof)
-                } else {
-                    None
+            .map(|(note, note_id, merkle_path)| {
+                // FIXME: This removal is to accomodate a problem with how the node constructs paths where
+                // they are constructed using note ID instead of authentication hash, so for now we remove the first
+                // node here.
+                //
+                // See: https://github.com/0xPolygonMiden/miden-node/blob/main/store/src/state.rs#L274
+                let mut merkle_path = merkle_path.clone();
+                if merkle_path.len() > 0 {
+                    let _ = merkle_path.remove(0);
                 }
+
+                NoteInclusionProof::new(
+                    block_header.block_num(),
+                    block_header.sub_hash(),
+                    block_header.note_root(),
+                    note.note_index.into(),
+                    merkle_path,
+                )
+                .map_err(ClientError::NoteError)
+                .map(|proof| (*note_id, proof))
             })
             .collect()
     }
