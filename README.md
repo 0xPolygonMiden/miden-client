@@ -1,4 +1,4 @@
-<img width="1043" alt="image" src="https://github.com/0xPolygonMiden/miden-client/assets/7201911/6090fa41-5d23-476a-a1fd-3647e4e41896"># Miden Client
+# Miden Client
 
 <a href="https://github.com/0xPolygonMiden/miden-node/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
 <a href="https://github.com/0xPolygonMiden/miden-client/actions/workflows/ci.yml"><img src="https://github.com/0xPolygonMiden/miden-client/actions/workflows/ci.yml/badge.svg?branch=main"></a>
