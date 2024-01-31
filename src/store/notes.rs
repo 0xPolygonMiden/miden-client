@@ -16,8 +16,8 @@ use rusqlite::{params, Transaction};
 fn insert_note_query(table_name: NoteTable) -> String {
     format!("\
     INSERT INTO {table_name}
-        (note_id, nullifier, script, assets, inputs, serial_num, sender_id, tag, inclusion_proof, recipient, status, commit_height)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        (note_id, nullifier, script, assets, inputs, serial_num, sender_id, tag, inclusion_proof, recipient, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 }
 
 // TYPES
@@ -35,7 +35,6 @@ type SerializedInputNoteData = (
     Option<Vec<u8>>,
     String,
     String,
-    i64,
 );
 
 type SerializedInputNoteParts = (Vec<u8>, Vec<u8>, Vec<u8>, String, u64, u64, Option<Vec<u8>>);
@@ -240,7 +239,6 @@ impl Store {
             inclusion_proof,
             recipient,
             status,
-            commit_height,
         ) = serialize_input_note(note)?;
 
         tx.execute(
@@ -257,7 +255,6 @@ impl Store {
                 inclusion_proof,
                 recipient,
                 status,
-                commit_height
             ],
         )
         .map_err(|err| StoreError::QueryError(err.to_string()))
@@ -281,7 +278,6 @@ impl Store {
             inclusion_proof,
             recipient,
             status,
-            commit_height,
         ) = serialize_input_note(note)?;
 
         tx.execute(
@@ -298,7 +294,6 @@ impl Store {
                 inclusion_proof,
                 recipient,
                 status,
-                commit_height
             ],
         )
         .map_err(|err| StoreError::QueryError(err.to_string()))
@@ -368,7 +363,7 @@ pub(crate) fn serialize_input_note(
         .map_err(StoreError::InputSerializationError)?;
     let sender_id = u64::from(note.note().metadata().sender()) as i64;
     let tag = u64::from(note.note().metadata().tag()) as i64;
-    let (inclusion_proof, status, commit_height) = match note.inclusion_proof() {
+    let (inclusion_proof, status) = match note.inclusion_proof() {
         Some(proof) => {
             // FIXME: This removal is to accomodate a problem with how the node constructs paths where
             // they are constructed using note ID instead of authentication hash, so for now we remove the first
@@ -393,10 +388,9 @@ pub(crate) fn serialize_input_note(
                     .to_bytes(),
                 ),
                 String::from("committed"),
-                proof.origin().block_num,
             )
         }
-        None => (None, String::from("pending"), 0u32),
+        None => (None, String::from("pending")),
     };
     let recipient = note.note().recipient().to_hex();
 
@@ -412,6 +406,5 @@ pub(crate) fn serialize_input_note(
         inclusion_proof,
         recipient,
         status,
-        commit_height as i64,
     ))
 }

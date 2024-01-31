@@ -82,7 +82,6 @@ CREATE TABLE input_notes (
     status TEXT CHECK( status IN (                          -- the status of the note - either pending, committed or consumed
         'pending', 'committed', 'consumed'
         )),
-    commit_height UNSIGNED BIG INT NOT NULL,                -- the block number at which the note was included into the chain
     PRIMARY KEY (note_id)
 );
 
@@ -101,7 +100,6 @@ CREATE TABLE output_notes (
     status TEXT CHECK( status IN (                          -- the status of the note - either pending, committed or consumed
         'pending', 'committed', 'consumed'
         )),
-    commit_height UNSIGNED BIG INT NOT NULL,                -- the block number at which the note was included into the chain
     PRIMARY KEY (note_id)
 );
 
