@@ -1,54 +1,31 @@
 use core::fmt;
 use std::path::PathBuf;
 
+use serde::Deserialize;
+
 // CLIENT CONFIG
 // ================================================================================================
 
 /// Configuration options of Miden client.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Default, Deserialize, Eq, PartialEq)]
 pub struct ClientConfig {
-    /// Location of the client's data file.
-    pub store_path: String,
-    /// Address of the Miden node to connect to.
-    pub node_endpoint: Endpoint,
+    /// Describes settings related to the store.
+    pub store: StoreConfig,
+    /// Describes settings related to the RPC endpoint
+    pub rpc: RpcConfig,
 }
 
 impl ClientConfig {
     /// Returns a new instance of [ClientConfig] with the specified store path and node endpoint.
-    pub const fn new(store_path: String, node_endpoint: Endpoint) -> Self {
-        Self {
-            store_path,
-            node_endpoint,
-        }
+    pub const fn new(store: StoreConfig, rpc: RpcConfig) -> Self {
+        Self { store, rpc }
     }
 }
 
-impl Default for ClientConfig {
-    fn default() -> Self {
-        const STORE_FILENAME: &str = "store.sqlite3";
+// ENDPOINT
+// ================================================================================================
 
-        // get directory of the currently executing binary, or fallback to the current directory
-        let exec_dir = match std::env::current_exe() {
-            Ok(mut path) => {
-                path.pop();
-                path
-            }
-            Err(_) => PathBuf::new(),
-        };
-
-        let store_path = exec_dir.join(STORE_FILENAME);
-
-        Self {
-            store_path: store_path
-                .into_os_string()
-                .into_string()
-                .expect("Creating the hardcoded path to the store file should not panic"),
-            node_endpoint: Endpoint::default(),
-        }
-    }
-}
-
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+#[derive(Clone, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Endpoint {
     protocol: String,
     host: String,
@@ -87,14 +64,65 @@ impl Default for Endpoint {
 // STORE CONFIG
 // ================================================================================================
 
+#[derive(Debug, Deserialize, Eq, PartialEq)]
 pub struct StoreConfig {
-    pub path: String,
+    pub database_filepath: String,
 }
 
 impl From<&ClientConfig> for StoreConfig {
     fn from(config: &ClientConfig) -> Self {
         Self {
-            path: config.store_path.clone(),
+            database_filepath: config.store.database_filepath.clone(),
         }
+    }
+}
+
+impl TryFrom<&str> for StoreConfig {
+    type Error = String;
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        StoreConfig::try_from(value.to_string())
+    }
+}
+
+// TODO: Implement error checking for invalid paths, or make it based on Path types
+impl TryFrom<String> for StoreConfig {
+    type Error = String;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Ok(Self {
+            database_filepath: value,
+        })
+    }
+}
+
+impl Default for StoreConfig {
+    fn default() -> Self {
+        const STORE_FILENAME: &str = "store.sqlite3";
+
+        // Get current directory
+        let exec_dir = PathBuf::new();
+
+        // Append filepath
+        let database_filepath = exec_dir
+            .join(STORE_FILENAME)
+            .into_os_string()
+            .into_string()
+            .expect("Creating the hardcoded store path should not panic");
+
+        Self { database_filepath }
+    }
+}
+
+// RPC CONFIG
+// ================================================================================================
+
+#[derive(Debug, Default, Deserialize, Eq, PartialEq)]
+pub struct RpcConfig {
+    /// Address of the Miden node to connect to.
+    pub endpoint: Endpoint,
+}
+
+impl From<Endpoint> for RpcConfig {
+    fn from(value: Endpoint) -> Self {
+        Self { endpoint: value }
     }
 }
