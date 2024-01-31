@@ -27,8 +27,10 @@ use super::Client;
 
 // MASM SCRIPTS
 // --------------------------------------------------------------------------------------------
-const AUTH_CONSUME_NOTES_SCRIPT: &str = include_str!("asm/transaction_scripts/auth_consume_notes.masm");
-const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str = include_str!("asm/transaction_scripts/distribute_fungible_asset.masm");
+const AUTH_CONSUME_NOTES_SCRIPT: &str =
+    include_str!("asm/transaction_scripts/auth_consume_notes.masm");
+const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
+    include_str!("asm/transaction_scripts/distribute_fungible_asset.masm");
 const SEND_ASSET_SCRIPT: &str = include_str!("asm/transaction_scripts/send_asset.masm");
 
 // TRANSACTION TEMPLATE
