@@ -398,7 +398,7 @@ pub(crate) fn serialize_input_note(
         }
         None => (None, String::from("pending"), 0u32),
     };
-    let recipient = note.note().recipient().to_string();
+    let recipient = note.note().recipient().to_hex();
 
     Ok((
         note_id,
