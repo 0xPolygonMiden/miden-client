@@ -4,9 +4,9 @@ use super::Store;
 use crate::errors::StoreError;
 use clap::error::Result;
 
-use crypto::merkle::{InOrderIndex, MerklePath, MmrPeaks};
+use crypto::merkle::{InOrderIndex, MmrPeaks};
 
-use objects::utils::collections::{BTreeMap, BTreeSet};
+use objects::utils::collections::{BTreeMap};
 use objects::{BlockHeader, Digest};
 use rusqlite::{params, OptionalExtension, Transaction};
 type SerializedBlockHeaderData = (i64, String, String, String, String, bool);
@@ -183,55 +183,6 @@ impl Store {
         }
 
         Ok(MmrPeaks::new(0, vec![])?)
-    }
-
-    /// Retrieves all Chain MMR nodes required for authenticating the set of blocks, and then
-    /// constructs the path for each of them.
-    ///
-    /// This method assumes `block_nums` cannot contain `forest`.
-    pub fn get_authentication_path_for_blocks(
-        &self,
-        block_nums: &[u32],
-        forest: usize,
-    ) -> Result<Vec<MerklePath>, StoreError> {
-        let mut node_indices = BTreeSet::new();
-
-        // Calculate all needed nodes indices for generating the paths
-        for block_num in block_nums {
-            let block_num = *block_num as usize;
-            let before = forest & block_num;
-            let after = forest ^ before;
-            let path_depth = after.ilog2() as usize;
-
-            let mut idx = InOrderIndex::from_leaf_pos(block_num);
-
-            for _ in 0..path_depth {
-                node_indices.insert(idx.sibling());
-                idx = idx.parent();
-            }
-        }
-
-        // Get all Mmr nodes based on collected indices
-        let node_indices: Vec<InOrderIndex> = node_indices.into_iter().collect();
-
-        let filter = ChainMmrNodeFilter::List(&node_indices);
-        let mmr_nodes = self.get_chain_mmr_nodes(filter)?;
-
-        // Construct authentication paths
-        let mut authentication_paths = vec![];
-        for block_num in block_nums {
-            let mut merkle_nodes = vec![];
-            let mut idx = InOrderIndex::from_leaf_pos(*block_num as usize);
-
-            while let Some(node) = mmr_nodes.get(&idx.sibling()) {
-                merkle_nodes.push(*node);
-                idx = idx.parent();
-            }
-            let path = MerklePath::new(merkle_nodes);
-            authentication_paths.push(path);
-        }
-
-        Ok(authentication_paths)
     }
 }
 

@@ -15,19 +15,19 @@ use crate::{
 
 use assembly::ast::{AstSerdeOptions, ModuleAst};
 use crypto::{dsa::rpo_falcon512::KeyPair, Felt, FieldElement, Word};
-use miden_lib::transaction::TransactionKernel;
+use miden_lib::transaction::{TransactionKernel};
 use mock::{
     constants::{generate_account_seed, AccountSeedType},
     mock::{
         account::{self, mock_account, MockAccountType},
         notes::AssetPreservationStatus,
-        transaction::mock_inputs,
+        transaction::{mock_inputs},
     },
 };
 use objects::{
     accounts::{AccountId, AccountStub},
     assets::{FungibleAsset, TokenSymbol},
-    transaction::InputNotes,
+    transaction::{InputNotes},
 };
 
 #[tokio::test]
@@ -359,6 +359,7 @@ async fn test_mint_transaction() {
             storage_mode: AccountStorageMode::Local,
         })
         .unwrap();
+
     let faucet = mock_account(
         Some(FAUCET_ID),
         Felt::new(10u64),
@@ -373,7 +374,7 @@ async fn test_mint_transaction() {
         .store
         .insert_account(&faucet, FAUCET_SEED, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
-    client.set_data_store(MockDataStore::with_existing(faucet.clone(), None));
+    client.set_data_store(MockDataStore::with_existing(faucet.clone(), None, None));
 
     // Test submitting a mint transaction
 
@@ -388,4 +389,37 @@ async fn test_mint_transaction() {
         .account_delta()
         .nonce()
         .is_some());
+}
+
+#[tokio::test]
+#[ignore = "currently fails because executor's DuplicateProcName error, see https://github.com/0xPolygonMiden/miden-base/issues/443"]
+async fn test_consume_all_transaction() {
+    // generate test client with a random store name
+    let mut client = create_test_client();
+
+    // generate test data
+    let transaction_inputs = mock_inputs(
+        MockAccountType::StandardExisting,
+        AssetPreservationStatus::Preserved,
+    );
+
+    let recorded_notes: InputNotes = transaction_inputs.input_notes().clone();
+    let mut notes_for_data_store = vec![];
+    for note in recorded_notes {
+        notes_for_data_store.push(note.note().clone());
+    }
+
+    let (account, seed) = client
+        .new_account(AccountTemplate::BasicWallet {
+            mutable_code: false,
+            storage_mode: AccountStorageMode::Local,
+        })
+        .unwrap();
+
+    let data_store =
+        MockDataStore::with_existing(account.clone(), Some(seed), Some(notes_for_data_store));
+    client.set_data_store(data_store);
+
+    let transaction_template = TransactionTemplate::ConsumeAllNotes(account.id());
+    client.new_transaction(transaction_template).unwrap();
 }
