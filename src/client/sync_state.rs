@@ -46,7 +46,7 @@ impl Client {
         match self.store.add_note_tag(tag).map_err(|err| err.into()) {
             Ok(true) => Ok(()),
             Ok(false) => {
-                println!("tag {} is already being tracked", tag);
+                warn!("Tag {} is already being tracked", tag);
                 Ok(())
             }
             Err(err) => Err(err),

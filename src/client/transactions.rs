@@ -16,6 +16,7 @@ use objects::{
     Digest,
 };
 use rand::Rng;
+use tracing::info;
 
 use crate::{
     errors::ClientError,
@@ -445,7 +446,7 @@ impl Client {
         let proven_transaction =
             transaction_prover.prove_transaction(tx_result.executed_transaction().clone())?;
 
-        println!("Proved transaction, submitting to the node...");
+        info!("Proved transaction, submitting to the node...");
 
         self.submit_proven_transaction_request(proven_transaction.clone())
             .await?;

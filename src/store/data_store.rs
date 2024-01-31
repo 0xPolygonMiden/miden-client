@@ -40,7 +40,7 @@ impl DataStore for SqliteDataStore {
 
         let mut list_of_notes = vec![];
 
-        let mut notes_blocks: Vec<objects::BlockHeader> = vec![];
+        let mut notes_blocks: Vec<u32> = vec![];
         for note_id in notes {
             let input_note_record = self.store.get_input_note_by_id(*note_id)?;
 
@@ -53,11 +53,16 @@ impl DataStore for SqliteDataStore {
             let note_block_num = input_note.proof().origin().block_num;
 
             if note_block_num != block_num {
-                let (note_block, _) = self.store.get_block_header_by_num(note_block_num)?;
-
-                notes_blocks.push(note_block);
+                notes_blocks.push(note_block_num);
             }
         }
+
+        let notes_blocks: Vec<objects::BlockHeader> = self
+            .store
+            .get_block_headers(&notes_blocks)?
+            .iter()
+            .map(|(header, _has_notes)| *header)
+            .collect();
 
         let partial_mmr = build_partial_mmr_with_paths(&self.store, block_num, &notes_blocks)?;
         let chain_mmr = ChainMmr::new(partial_mmr, notes_blocks)
