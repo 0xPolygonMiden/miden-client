@@ -251,12 +251,12 @@ impl Client {
 
         let block_num = self.store.get_sync_height()?;
 
-        self.compile_and_execute_tx_script(
-            block_num,
-            tx_script_code,
+        self.compile_and_execute_tx(
             account_id,
             &input_notes,
-            &[],
+            vec![],
+            tx_script_code,
+            block_num,
         )
     }
 
@@ -296,12 +296,12 @@ impl Client {
         )
         .expect("shipped MASM is well-formed");
 
-        self.compile_and_execute_tx_script(
-            block_ref,
-            tx_script_code,
+        self.compile_and_execute_tx(
             faucet_id,
             &[],
-            &[created_note],
+            vec![created_note],
+            tx_script_code,
+            block_ref,
         )
     }
 
@@ -342,24 +342,24 @@ impl Client {
         )
         .expect("shipped MASM is well-formed");
 
-        self.compile_and_execute_tx_script(
-            block_ref,
-            tx_script_code,
+        self.compile_and_execute_tx(
             sender_account_id,
             &[],
-            &[created_note],
+            vec![created_note],
+            tx_script_code,
+            block_ref,
         )
     }
 
-    fn compile_and_execute_tx_script(
+    fn compile_and_execute_tx(
         &mut self,
-        block_num: u32,
-        tx_script: ProgramAst,
-        auth_account_id: AccountId,
+        account_id: AccountId,
         input_notes: &[NoteId],
-        output_notes: &[Note],
+        output_notes: Vec<Note>,
+        tx_script: ProgramAst,
+        block_num: u32,
     ) -> Result<TransactionResult, ClientError> {
-        let account_auth = self.get_account_auth(auth_account_id)?;
+        let account_auth = self.get_account_auth(account_id)?;
         let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
             AuthInfo::RpoFalcon512(key) => (
                 key.public_key().into(),
@@ -377,16 +377,13 @@ impl Client {
 
         // Execute the transaction and get the witness
         let executed_transaction = self.tx_executor.execute_transaction(
-            auth_account_id,
+            account_id,
             block_num,
             input_notes,
             Some(tx_script.clone()),
         )?;
 
-        Ok(TransactionResult::new(
-            executed_transaction,
-            output_notes.to_vec(),
-        ))
+        Ok(TransactionResult::new(executed_transaction, output_notes))
     }
 
     /// Proves the specified transaction witness, submits it to the node, and stores the transaction in
