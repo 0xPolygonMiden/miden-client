@@ -310,7 +310,7 @@ impl Store {
     }
 
     /// Inserts an [AccountStorage]
-    pub(crate) fn insert_account_storage(
+    pub(super) fn insert_account_storage(
         tx: &Transaction<'_>,
         account_storage: &AccountStorage,
     ) -> Result<(), StoreError> {
