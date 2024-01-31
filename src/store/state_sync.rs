@@ -74,7 +74,7 @@ impl Store {
         &mut self,
         block_header: BlockHeader,
         nullifiers: Vec<Digest>,
-        committed_notes: Vec<(Digest, NoteInclusionProof)>,
+        committed_notes: Vec<(NoteId, NoteInclusionProof)>,
         new_mmr_peaks: MmrPeaks,
         new_authentication_nodes: &[(InOrderIndex, Digest)],
     ) -> Result<(), StoreError> {
@@ -108,13 +108,13 @@ impl Store {
                 "UPDATE input_notes SET status = 'committed', inclusion_proof = ? WHERE note_id = ?";
 
             let inclusion_proof = Some(inclusion_proof.to_bytes());
-            tx.execute(SPENT_QUERY, params![inclusion_proof, note_id.to_string()])?;
+            tx.execute(
+                SPENT_QUERY,
+                params![inclusion_proof, note_id.inner().to_string()],
+            )?;
         }
 
-        let note_ids: Vec<NoteId> = committed_notes
-            .iter()
-            .map(|(id, _)| NoteId::from(*id))
-            .collect();
+        let note_ids: Vec<NoteId> = committed_notes.iter().map(|(id, _)| (*id)).collect();
 
         Store::mark_transactions_as_committed_by_note_id(
             &uncommitted_transactions,

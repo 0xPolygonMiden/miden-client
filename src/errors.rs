@@ -22,8 +22,6 @@ pub enum ClientError {
     NoteError(NoteError),
     NoConsumableNoteForAccount(AccountId),
     RpcApiError(RpcApiError),
-    RpcExpectedFieldMissing(String),
-    RpcTypeConversionFailure(ParseError),
     StoreError(StoreError),
     TransactionExecutionError(TransactionExecutorError),
     TransactionProvingError(TransactionProverError),
@@ -39,12 +37,6 @@ impl fmt::Display for ClientError {
             }
             ClientError::NoteError(err) => write!(f, "note error: {err}"),
             ClientError::RpcApiError(err) => write!(f, "rpc api error: {err}"),
-            ClientError::RpcExpectedFieldMissing(err) => {
-                write!(f, "rpc api reponse missing an expected field: {err}")
-            }
-            ClientError::RpcTypeConversionFailure(err) => {
-                write!(f, "failed to convert data: {err}")
-            }
             ClientError::StoreError(err) => write!(f, "store error: {err}"),
             ClientError::TransactionExecutionError(err) => {
                 write!(f, "transaction executor error: {err}")
@@ -80,12 +72,6 @@ impl From<NoteError> for ClientError {
 impl From<RpcApiError> for ClientError {
     fn from(err: RpcApiError) -> Self {
         Self::RpcApiError(err)
-    }
-}
-
-impl From<ParseError> for ClientError {
-    fn from(err: ParseError) -> Self {
-        Self::RpcTypeConversionFailure(err)
     }
 }
 
@@ -298,6 +284,8 @@ use crate::client::RpcApiEndpoint;
 pub enum RpcApiError {
     ConnectionError(TransportError),
     RequestError(RpcApiEndpoint, TonicStatus),
+    ExpectedFieldMissing(String),
+    ConversionFailure(ParseError),
 }
 
 impl fmt::Display for RpcApiError {
@@ -309,6 +297,18 @@ impl fmt::Display for RpcApiError {
             RpcApiError::RequestError(endpoint, err) => {
                 write!(f, "rpc request failed for {endpoint}: {err}")
             }
+            RpcApiError::ExpectedFieldMissing(err) => {
+                write!(f, "rpc API reponse missing an expected field: {err}")
+            }
+            RpcApiError::ConversionFailure(err) => {
+                write!(f, "failed to convert RPC data: {err}")
+            }
         }
+    }
+}
+
+impl From<ParseError> for RpcApiError {
+    fn from(err: ParseError) -> Self {
+        Self::ConversionFailure(err)
     }
 }
