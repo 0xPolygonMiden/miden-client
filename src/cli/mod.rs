@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::{Path};
 
 use clap::Parser;
 use figment::{
@@ -50,11 +50,15 @@ pub enum Command {
 /// CLI entry point
 impl Cli {
     pub async fn execute(&self) -> Result<(), String> {
-        // create a client
-        let client_config = load_config(PathBuf::from(CLIENT_CONFIG_FILE_NAME).as_path())?;
+        // Create the client
+        let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
+        current_dir.push(CLIENT_CONFIG_FILE_NAME);
+        println!("path {:?}", current_dir);
+
+        let client_config = load_config(current_dir.as_path())?;
         let client = Client::new(client_config).map_err(|err| err.to_string())?;
 
-        // execute cli command
+        // Execute cli command
         match &self.action {
             Command::Account(account) => account.execute(client),
             Command::InputNotes(notes) => notes.execute(client),

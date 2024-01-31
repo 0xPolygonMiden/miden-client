@@ -284,7 +284,11 @@ mod tests {
         let mut path = temp_dir();
         path.push(Uuid::new_v4().to_string());
         let mut client = Client::new(ClientConfig::new(
-            path.into_os_string().into_string().unwrap().into(),
+            path.into_os_string()
+                .into_string()
+                .unwrap()
+                .try_into()
+                .unwrap(),
             Endpoint::default().into(),
         ))
         .unwrap();
@@ -335,7 +339,11 @@ mod tests {
         let mut path = temp_dir();
         path.push(Uuid::new_v4().to_string());
         let mut client = Client::new(ClientConfig::new(
-            path.into_os_string().into_string().unwrap().into(),
+            path.into_os_string()
+                .into_string()
+                .unwrap()
+                .try_into()
+                .unwrap(),
             Endpoint::default().into(),
         ))
         .unwrap();

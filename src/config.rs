@@ -77,19 +77,20 @@ impl From<&ClientConfig> for StoreConfig {
     }
 }
 
-impl From<&str> for StoreConfig {
-    fn from(value: &str) -> Self {
-        Self {
-            database_filepath: value.to_string(),
-        }
+impl TryFrom<&str> for StoreConfig {
+    type Error = String;
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        StoreConfig::try_from(value.to_string())
     }
 }
 
-impl From<String> for StoreConfig {
-    fn from(value: String) -> Self {
-        Self {
+// TODO: Implement error checking for invalid paths, or make it based on Path types
+impl TryFrom<String> for StoreConfig {
+    type Error = String;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Ok(Self {
             database_filepath: value,
-        }
+        })
     }
 }
 
@@ -97,15 +98,10 @@ impl Default for StoreConfig {
     fn default() -> Self {
         const STORE_FILENAME: &str = "store.sqlite3";
 
-        // get directory of the currently executing binary, or fallback to the current directory
-        let exec_dir = match std::env::current_exe() {
-            Ok(mut path) => {
-                path.pop();
-                path
-            }
-            Err(_) => PathBuf::new(),
-        };
+        // Get current directory
+        let exec_dir = PathBuf::new();
 
+        // Append filepath
         let database_filepath = exec_dir
             .join(STORE_FILENAME)
             .into_os_string()

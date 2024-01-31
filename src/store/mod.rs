@@ -58,7 +58,8 @@ pub mod tests {
                 .into_os_string()
                 .into_string()
                 .unwrap()
-                .into(),
+                .try_into()
+                .unwrap(),
             rpc: RpcConfig::default(),
         };
 
