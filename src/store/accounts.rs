@@ -321,7 +321,7 @@ impl Store {
     }
 
     /// Inserts an [AssetVault]
-    pub(crate) fn insert_account_asset_vault(
+    pub(super) fn insert_account_asset_vault(
         tx: &Transaction<'_>,
         asset_vault: &AssetVault,
     ) -> Result<(), StoreError> {
