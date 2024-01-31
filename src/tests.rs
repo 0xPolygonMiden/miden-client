@@ -270,7 +270,7 @@ async fn test_sync_state() {
     let pending_notes = client.get_input_notes(InputNoteFilter::Pending).unwrap();
 
     // sync state
-    let block_num: u32 = client.state_sync().await.unwrap();
+    let block_num: u32 = client.sync_state().await.unwrap();
 
     // verify that the client is synced to the latest block
     assert_eq!(

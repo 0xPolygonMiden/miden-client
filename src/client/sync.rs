@@ -56,7 +56,7 @@ impl Client {
     /// Before doing so, it ensures the genesis block exists in the local store.
     ///
     /// Returns the block number the client has been synced to.
-    pub async fn state_sync(&mut self) -> Result<u32, ClientError> {
+    pub async fn sync_state(&mut self) -> Result<u32, ClientError> {
         self.ensure_genesis_in_place().await?;
         loop {
             let response = self.single_state_sync().await?;
@@ -121,7 +121,7 @@ impl Client {
 
         let nullifiers = self.store.get_unspent_input_note_nullifiers()?;
         let response = self
-            .state_sync_request(current_block_num, &account_ids, &note_tags, &nullifiers)
+            .send_state_sync_request(current_block_num, &account_ids, &note_tags, &nullifiers)
             .await?;
 
         let incoming_block_header =
@@ -264,7 +264,7 @@ impl Client {
     }
 
     /// Sends a sync state request to the Miden node and returns the response.
-    async fn state_sync_request(
+    async fn send_state_sync_request(
         &mut self,
         block_num: u32,
         account_ids: &[AccountId],
@@ -292,6 +292,6 @@ impl Client {
             nullifiers,
         };
 
-        Ok(self.rpc_api.state_sync(request).await?.into_inner())
+        Ok(self.rpc_api.sync_state(request).await?.into_inner())
     }
 }

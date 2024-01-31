@@ -1,6 +1,6 @@
 use crate::{
     client::{
-        state_sync::FILTER_ID_SHIFT,
+        sync::FILTER_ID_SHIFT,
         transactions::{PaymentTransactionData, TransactionTemplate},
         Client, RpcApiEndpoint,
     },
@@ -57,7 +57,7 @@ impl Default for MockRpcApi {
 
 impl MockRpcApi {
     /// Executes the specified sync state request and returns the response.
-    pub async fn state_sync(
+    pub async fn sync_state(
         &mut self,
         request: impl IntoRequest<SyncStateRequest>,
     ) -> Result<Response<SyncStateResponse>, RpcApiError> {

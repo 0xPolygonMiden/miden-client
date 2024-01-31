@@ -36,7 +36,7 @@ mod client {
         }
 
         /// Executes the specified sync state request and returns the response.
-        pub async fn state_sync(
+        pub async fn sync_state(
             &mut self,
             request: impl tonic::IntoRequest<SyncStateRequest>,
         ) -> Result<tonic::Response<SyncStateResponse>, RpcApiError> {
