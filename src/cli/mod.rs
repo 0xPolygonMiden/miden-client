@@ -37,7 +37,7 @@ pub enum Command {
     InputNotes(input_notes::InputNotes),
     #[clap(subcommand)]
     SyncState(sync_state::SyncStateCmd),
-    #[clap(subcommand)]
+    #[clap(subcommand, name = "tx", alias = "transaction")]
     Transaction(transactions::Transaction),
     #[cfg(feature = "mock")]
     /// Insert mock data into the client. This is optional because it takes a few seconds
