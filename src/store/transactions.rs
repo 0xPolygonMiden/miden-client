@@ -168,7 +168,7 @@ impl Store {
     }
 
     /// Updates transactions as committed if the input `note_ids` belongs to one uncommitted transaction
-    pub(crate) fn mark_transactions_as_committed_by_note_id(
+    pub(super) fn mark_transactions_as_committed_by_note_id(
         uncommitted_transactions: &[TransactionStub],
         note_ids: &[NoteId],
         block_num: u32,
@@ -194,7 +194,7 @@ impl Store {
     }
 }
 
-pub(crate) fn serialize_transaction_data(
+pub(super) fn serialize_transaction_data(
     transaction_result: TransactionResult,
 ) -> Result<SerializedTransactionData, StoreError> {
     let executed_transaction = transaction_result.executed_transaction();

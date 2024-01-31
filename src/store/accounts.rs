@@ -332,7 +332,7 @@ impl Store {
     }
 
     /// Inserts an [AuthInfo] for the account with id `account_id`
-    pub fn insert_account_auth(
+    pub(super) fn insert_account_auth(
         tx: &Transaction<'_>,
         account_id: AccountId,
         auth_info: &AuthInfo,
