@@ -6,7 +6,7 @@ use clap::error::Result;
 
 use crypto::merkle::{InOrderIndex, MmrPeaks};
 
-use objects::utils::collections::{BTreeMap};
+use objects::utils::collections::BTreeMap;
 use objects::{BlockHeader, Digest};
 use rusqlite::{params, OptionalExtension, Transaction};
 type SerializedBlockHeaderData = (i64, String, String, String, String, bool);

@@ -15,19 +15,19 @@ use crate::{
 
 use assembly::ast::{AstSerdeOptions, ModuleAst};
 use crypto::{dsa::rpo_falcon512::KeyPair, Felt, FieldElement, Word};
-use miden_lib::transaction::{TransactionKernel};
+use miden_lib::transaction::TransactionKernel;
 use mock::{
     constants::{generate_account_seed, AccountSeedType},
     mock::{
         account::{self, mock_account, MockAccountType},
         notes::AssetPreservationStatus,
-        transaction::{mock_inputs},
+        transaction::mock_inputs,
     },
 };
 use objects::{
     accounts::{AccountId, AccountStub},
     assets::{FungibleAsset, TokenSymbol},
-    transaction::{InputNotes},
+    transaction::InputNotes,
 };
 
 #[tokio::test]
