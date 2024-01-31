@@ -15,6 +15,7 @@ use crate::{
     errors::{ClientError, StoreError},
     store::{chain_data::ChainMmrNodeFilter, Store},
 };
+use tracing::warn;
 
 pub enum SyncStatus {
     SyncedToLastBlock(u32),
