@@ -27,9 +27,9 @@ use super::Client;
 
 // MASM SCRIPTS
 // --------------------------------------------------------------------------------------------
-const CONSUME_NOTES_TX_SCRIPT: &str = include_str!("asm/transaction_scripts/consume_notes.masm");
-const MINT_FUNGIBLE_TX_SCRIPT: &str = include_str!("asm/transaction_scripts/mint_fungible.masm");
-const P2ID_TX_SCRIPT: &str = include_str!("asm/transaction_scripts/p2id.masm");
+const AUTH_CONSUME_NOTES_SCRIPT: &str = include_str!("asm/transaction_scripts/auth_consume_notes.masm");
+const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str = include_str!("asm/transaction_scripts/distribute_fungible_asset.masm");
+const SEND_ASSET_SCRIPT: &str = include_str!("asm/transaction_scripts/send_asset.masm");
 
 // TRANSACTION TEMPLATE
 // --------------------------------------------------------------------------------------------
@@ -237,7 +237,7 @@ impl Client {
             .map_err(ClientError::TransactionExecutionError)?;
 
         let tx_script_code =
-            ProgramAst::parse(CONSUME_NOTES_TX_SCRIPT).expect("shipped MASM is well-formed");
+            ProgramAst::parse(AUTH_CONSUME_NOTES_SCRIPT).expect("shipped MASM is well-formed");
 
         let input_notes = if let Some(note_id) = note_id {
             vec![note_id]
@@ -286,7 +286,7 @@ impl Client {
             .join(".");
 
         let tx_script_code = ProgramAst::parse(
-            &MINT_FUNGIBLE_TX_SCRIPT
+            &DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT
                 .replace("{recipient}", &recipient)
                 .replace(
                     "{tag}",
@@ -332,7 +332,7 @@ impl Client {
             .join(".");
 
         let tx_script_code = ProgramAst::parse(
-            &P2ID_TX_SCRIPT
+            &SEND_ASSET_SCRIPT
                 .replace("{recipient}", &recipient)
                 .replace(
                     "{tag}",
