@@ -39,10 +39,10 @@ impl Client {
     ///
     /// # Errors
     /// Returns an error if the client could not be instantiated.
-    pub async fn new(config: ClientConfig) -> Result<Self, ClientError> {
+    pub fn new(config: ClientConfig) -> Result<Self, ClientError> {
         Ok(Self {
             store: Store::new((&config).into())?,
-            rpc_api: rpc_client::RpcClient::new(config.node_endpoint.to_string()),
+            rpc_api: rpc_client::RpcClient::new(config.rpc.endpoint.to_string()),
             tx_executor: TransactionExecutor::new(SqliteDataStore::new(Store::new(
                 (&config).into(),
             )?)),
@@ -69,7 +69,7 @@ mod mock {
 
     #[cfg(any(test, feature = "mock"))]
     impl Client {
-        pub async fn new(config: ClientConfig) -> Result<Self, ClientError> {
+        pub fn new(config: ClientConfig) -> Result<Self, ClientError> {
             Ok(Self {
                 store: Store::new((&config).into())?,
                 rpc_api: Default::default(),

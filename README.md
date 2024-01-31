@@ -17,7 +17,6 @@ The Miden client currently consists of two components:
 - `miden-client` library, which can be used by other project to programmatically interact with the Miden rollup.
 - `miden-client` binary which is a wrapper around the library exposing its functionality via a simple command-line interface (CLI).
 
-
 The client's main responsibility is to maintain a partial view of the blockchain which allows for locally executing and proving transactions. It keeps a local store of various entities that periodically get updated by communicating with the node.
 
 ## Usage
@@ -48,7 +47,9 @@ After installing the client, you can use it by running `miden-client`. In order 
 
 ### Connecting to the network
 
-Currently, the client is hardcoded to run commands against a locally-running node. Calls will be routed to the default RPC socket of `miden-node` (that is, `localhost:57291`).
+The CLI can be configured through a TOML file ([`miden.toml`](miden.toml)). This file is expected to be located in the directory from where you are running the CLI. This is useful for connecting to a specific node when developing with the client, for example. 
+
+In the configuration file, you will find a section for defining the node's endpoint and the store's filename. By default, the node will run on `localhost:57291`, so the example file defines this as the RPC endpoint.
 
 ## Example: Executing, proving and submitting transactions
 
@@ -59,6 +60,7 @@ Currently, the client is hardcoded to run commands against a locally-running nod
 - Currently, the client allows for submitting locally-proven transactions to the Miden node. Currently, the easiest way to test the client is by [generating accounts via the genesis file](https://github.com/0xPolygonMiden/miden-node?tab=readme-ov-file#generating-the-genesis-file). 
   - For this example, we will make use of 1 faucet account and 2 regular wallet accounts, so you should set your node's `toml` config file accordingly. We will refer to these accounts as having IDs `regular account ID A` and `regular account ID B` in order differentiate them.
   - Once the account files have been generated, [make sure the node is running](https://github.com/0xPolygonMiden/miden-node?tab=readme-ov-file#running-the-node). If the node has some stored state from previous tests and usage, you might have to clear its database (`miden-store.sqlite3`).
+  - The client should be configured to use the running node's socket as its endpoint as explained in the previous section.
 
 ### 1. Loading account data
 

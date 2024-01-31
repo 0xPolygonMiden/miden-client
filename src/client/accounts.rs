@@ -240,12 +240,9 @@ impl Client {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::store::tests::create_test_store_path;
+    use crate::store::tests::create_test_client;
     use crypto::{Felt, FieldElement};
-    use miden_client::{
-        client::Client,
-        config::{ClientConfig, Endpoint},
-    };
+
     use miden_lib::transaction::TransactionKernel;
     use mock::{
         constants::{generate_account_seed, AccountSeedType},
@@ -292,16 +289,8 @@ pub mod tests {
 
     #[tokio::test]
     async fn load_accounts_test() {
-        // generate test store path
-        let store_path = create_test_store_path();
-
         // generate test client
-        let mut client = Client::new(ClientConfig::new(
-            store_path.into_os_string().into_string().unwrap(),
-            Endpoint::default(),
-        ))
-        .await
-        .unwrap();
+        let mut client = create_test_client();
 
         let created_accounts_data = create_initial_accounts_data();
 
