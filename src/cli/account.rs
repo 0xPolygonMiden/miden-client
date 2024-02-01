@@ -5,14 +5,16 @@ use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use crypto::{
     dsa::rpo_falcon512::KeyPair,
     utils::{bytes_to_hex_string, Deserializable, Serializable},
-    StarkField,
+    StarkField, ZERO,
 };
 use miden_client::client::{accounts, Client};
 
 use objects::{
-    accounts::{AccountData, AccountId},
-    assets::TokenSymbol,
+    accounts::{AccountData, AccountId, StorageSlotType},
+    assets::{Asset, TokenSymbol},
 };
+
+use crate::cli::create_dynamic_table;
 
 // ACCOUNT COMMAND
 // ================================================================================================
@@ -138,19 +140,14 @@ impl AccountCmd {
 fn list_accounts(client: Client) -> Result<(), String> {
     let accounts = client.get_accounts().map_err(|err| err.to_string())?;
 
-    let mut table = Table::new();
-    table
-        .load_preset(presets::UTF8_FULL)
-        .set_content_arrangement(ContentArrangement::DynamicFullWidth)
-        .set_header(vec![
-            Cell::new("account id").add_attribute(Attribute::Bold),
-            Cell::new("code root").add_attribute(Attribute::Bold),
-            Cell::new("vault root").add_attribute(Attribute::Bold),
-            Cell::new("storage root").add_attribute(Attribute::Bold),
-            Cell::new("type").add_attribute(Attribute::Bold),
-            Cell::new("nonce").add_attribute(Attribute::Bold),
-        ]);
-
+    let mut table = create_dynamic_table(&[
+        "account id",
+        "code root",
+        "vault root",
+        "storage root",
+        "type",
+        "nonce",
+    ]);
     accounts.iter().for_each(|(acc, _acc_seed)| {
         let acc_type = match acc.id().account_type() {
             objects::accounts::AccountType::FungibleFaucet => "Fungible faucet",
@@ -184,19 +181,14 @@ pub fn show_account(
         .get_account_stub_by_id(account_id)
         .map_err(|err| err.to_string())?;
 
-    let mut table = Table::new();
-    table
-        .load_preset(presets::UTF8_FULL)
-        .set_content_arrangement(ContentArrangement::DynamicFullWidth)
-        .set_header(vec![
-            Cell::new("account id").add_attribute(Attribute::Bold),
-            Cell::new("code root").add_attribute(Attribute::Bold),
-            Cell::new("vault root").add_attribute(Attribute::Bold),
-            Cell::new("storage root").add_attribute(Attribute::Bold),
-            Cell::new("nonce").add_attribute(Attribute::Bold),
-            Cell::new("account hash").add_attribute(Attribute::Bold),
-        ]);
-
+    let mut table = create_dynamic_table(&[
+        "account id",
+        "code root",
+        "vault root",
+        "storage root",
+        "nonce",
+        "account hash",
+    ]);
     table.add_row(vec![
         account.id().to_string(),
         account.code_root().to_string(),
@@ -206,6 +198,81 @@ pub fn show_account(
         account.hash().to_string(),
     ]);
     println!("{table}\n");
+
+    if show_vault {
+        let assets = client
+            .get_vault_assets(account.vault_root())
+            .map_err(|err| err.to_string())?;
+
+        println!("Assets: ");
+
+        let mut table = create_dynamic_table(&["Asset Type", "Faucet ID", "Amount"]);
+        for asset in assets {
+            let (asset_type, faucet_id, amount) = match asset {
+                Asset::Fungible(fungible_asset) => (
+                    "Fungible Asset",
+                    fungible_asset.faucet_id(),
+                    fungible_asset.amount(),
+                ),
+                Asset::NonFungible(non_fungible_asset) => {
+                    ("Non Fungible Asset", non_fungible_asset.faucet_id(), 1)
+                }
+            };
+            table.add_row(vec![asset_type, &faucet_id.to_hex(), &amount.to_string()]);
+        }
+
+        println!("{table}\n");
+    }
+
+    if show_storage {
+        let account_storage = client
+            .get_account_storage(account.storage_root())
+            .map_err(|err| err.to_string())?;
+
+        println!("Storage: \n");
+
+        let mut table = create_dynamic_table(&[
+            "Item Slot Type",
+            "Item Slot Index",
+            "Value/Commitment",
+            "Value Arity",
+        ]);
+        for (idx, entry) in account_storage.layout().iter().enumerate() {
+            let item = account_storage.get_item(idx as u8);
+
+            // Last entry is reserved so I don't think the user cares about it Also, to keep the
+            // output smaller, if the [StorageSlotType] is a value and it's 0 we assume it's not
+            // initialized and skip it
+            if idx == account_storage.layout().len() - 1 {
+                continue;
+            }
+            if matches!(
+                entry,
+                StorageSlotType::Value {
+                    value_arity: _value_arity
+                }
+            ) && item == [ZERO; 4].into()
+            {
+                continue;
+            }
+
+            let (slot_type, arity) = match entry {
+                StorageSlotType::Value { value_arity } => ("Value", value_arity),
+                StorageSlotType::Array {
+                    depth: _depth,
+                    value_arity,
+                } => ("Array", value_arity),
+                StorageSlotType::Map { value_arity } => ("Map", value_arity),
+            };
+            table.add_row(vec![
+                slot_type,
+                &idx.to_string(),
+                &item.to_hex(),
+                &arity.to_string(),
+            ]);
+        }
+        println!("{table}\n");
+    }
 
     if show_keys {
         let auth_info = client
@@ -219,32 +286,17 @@ pub fn show_account(
                     .to_bytes()
                     .try_into()
                     .expect("Array size is const and should always exactly fit KeyPair");
-                println!("Key pair:\n0x{}", bytes_to_hex_string(auth_info));
+
+                let mut table = Table::new();
+                table
+                    .load_preset(presets::UTF8_HORIZONTAL_ONLY)
+                    .set_content_arrangement(ContentArrangement::DynamicFullWidth)
+                    .set_header(vec![Cell::new("Key Pair").add_attribute(Attribute::Bold)]);
+
+                table.add_row(vec![format!("0x{}\n", bytes_to_hex_string(auth_info))]);
+                println!("{table}\n");
             }
         };
-    }
-
-    if show_vault {
-        let assets = client
-            .get_vault_assets(account.vault_root())
-            .map_err(|err| err.to_string())?;
-
-        println!(
-            "Vault assets: {}\n",
-            serde_json::to_string(&assets).map_err(|_| "Error serializing account assets")?
-        );
-    }
-
-    if show_storage {
-        let account_storage = client
-            .get_account_storage(account.storage_root())
-            .map_err(|err| err.to_string())?;
-
-        println!(
-            "Storage: {}\n",
-            serde_json::to_string(&account_storage.slots())
-                .map_err(|_| "Error serializing account storage")?
-        );
     }
 
     if show_code {
@@ -252,12 +304,17 @@ pub fn show_account(
             .get_account_code(account.code_root())
             .map_err(|err| err.to_string())?;
 
-        println!(
-            "Procedure digests:\n{}\n",
-            serde_json::to_string(&procedure_digests)
-                .map_err(|_| "Error serializing account storage for display")?
-        );
-        println!("Module AST:\n{}\n", module);
+        println!("Account Code Info:");
+
+        let mut table = create_dynamic_table(&["Procedure Digests"]);
+        for digest in &procedure_digests {
+            table.add_row(vec![digest.to_hex()]);
+        }
+        println!("{table}\n");
+
+        let mut code_table = create_dynamic_table(&["Code"]);
+        code_table.add_row(vec![&module]);
+        println!("{code_table}\n");
     }
 
     Ok(())

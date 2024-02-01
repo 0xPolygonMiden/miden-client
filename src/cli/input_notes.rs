@@ -4,6 +4,8 @@ use std::{
     path::PathBuf,
 };
 
+use crate::cli::create_dynamic_table;
+
 use super::{Client, Parser};
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::store::notes::{InputNoteFilter, InputNoteRecord};
@@ -229,18 +231,14 @@ fn print_notes_summary<'a, I>(notes: I)
 where
     I: IntoIterator<Item = &'a InputNoteRecord>,
 {
-    let mut table = Table::new();
-    table
-        .load_preset(presets::UTF8_FULL)
-        .set_content_arrangement(ContentArrangement::DynamicFullWidth)
-        .set_header(vec![
-            Cell::new("note id").add_attribute(Attribute::Bold),
-            Cell::new("script hash").add_attribute(Attribute::Bold),
-            Cell::new("vault hash").add_attribute(Attribute::Bold),
-            Cell::new("inputs hash").add_attribute(Attribute::Bold),
-            Cell::new("serial num").add_attribute(Attribute::Bold),
-            Cell::new("commit height").add_attribute(Attribute::Bold),
-        ]);
+    let mut table = create_dynamic_table(&[
+        "note id",
+        "script hash",
+        "vault hash",
+        "inputs hash",
+        "serial num",
+        "commit height",
+    ]);
 
     notes.into_iter().for_each(|input_note_record| {
         let commit_height = input_note_record
