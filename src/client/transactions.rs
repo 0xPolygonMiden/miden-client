@@ -232,7 +232,7 @@ impl Client {
     fn new_consume_notes_transaction(
         &mut self,
         account_id: AccountId,
-       note_id: Option<NoteId>,
+        note_id: Option<NoteId>,
     ) -> Result<TransactionResult, ClientError> {
         self.tx_executor
             .load_account(account_id)
@@ -253,13 +253,7 @@ impl Client {
 
         let block_num = self.store.get_sync_height()?;
 
-        self.compile_and_execute_tx(
-            account_id,
-            &input_notes,
-            vec![],
-            tx_script_code,
-            block_num,
-        )
+        self.compile_and_execute_tx(account_id, &input_notes, vec![], tx_script_code, block_num)
     }
 
     /// Creates and executes a mint transaction specified by the template.
@@ -382,7 +376,7 @@ impl Client {
             account_id,
             block_num,
             input_notes,
-            Some(tx_script.clone()),
+            Some(tx_script),
         )?;
 
         Ok(TransactionResult::new(executed_transaction, output_notes))
