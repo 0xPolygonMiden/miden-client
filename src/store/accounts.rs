@@ -106,7 +106,9 @@ impl Store {
     }
 
     /// Returns a list of [AccountStub] of all accounts stored in the database along with the seeds
-    /// used to create the corresponding accounts
+    /// used to create them.
+    ///
+    /// Said accounts' state is the state at the last sync made.
     pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Word)>, StoreError> {
         const QUERY: &str =
             "SELECT a.id, a.nonce, a.vault_root, a.storage_root, a.code_root, a.account_seed \
@@ -122,7 +124,12 @@ impl Store {
     }
 
     /// Retrieves an [AccountStub] object for the specified [AccountId] along with the seed
-    /// used to create it. Returns an [Err] if the account was not found
+    /// used to create it.
+    ///
+    /// Said accounts' state is the state at the last sync made.
+    ///
+    /// # Errors
+    /// Returns an [Err] if the account was not found
     pub fn get_account_stub_by_id(
         &self,
         account_id: AccountId,
