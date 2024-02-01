@@ -31,7 +31,7 @@ const AUTH_CONSUME_NOTES_SCRIPT: &str =
     include_str!("asm/transaction_scripts/auth_consume_notes.masm");
 const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
     include_str!("asm/transaction_scripts/distribute_fungible_asset.masm");
-const SEND_ASSET_SCRIPT: &str = include_str!("asm/transaction_scripts/send_asset.masm");
+const AUTH_SEND_ASSET_SCRIPT: &str = include_str!("asm/transaction_scripts/auth_send_asset.masm");
 
 // TRANSACTION TEMPLATE
 // --------------------------------------------------------------------------------------------
@@ -327,7 +327,7 @@ impl Client {
             .join(".");
 
         let tx_script_code = ProgramAst::parse(
-            &SEND_ASSET_SCRIPT
+            &AUTH_SEND_ASSET_SCRIPT
                 .replace("{recipient}", &recipient)
                 .replace(
                     "{tag}",
