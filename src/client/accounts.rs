@@ -7,7 +7,7 @@ use objects::{
     },
     assembly::ModuleAst,
     assets::{Asset, TokenSymbol},
-    Digest,
+    Digest, StarkField,
 };
 use rand::{rngs::ThreadRng, Rng};
 
@@ -68,17 +68,26 @@ impl Client {
         match account_data.auth {
             AuthData::RpoFalcon512Seed(key_pair) => {
                 let keypair = KeyPair::from_seed(&key_pair)?;
-                // TODO: Handle account data without seed so we can export existing accounts into
-                // other clients where we have no seed (account nonce > 0)
-                let seed = account_data
-                    .account_seed
-                    .expect("Account seed was expected");
-
-                self.insert_account(
-                    &account_data.account,
-                    seed,
-                    &AuthInfo::RpoFalcon512(keypair),
-                )
+                let account_nonce = account_data.account.nonce().as_int();
+                match account_data.account_seed {
+                    Some(seed) if account_nonce == 0 => self.insert_account(
+                        &account_data.account,
+                        seed,
+                        &AuthInfo::RpoFalcon512(keypair),
+                    ),
+                    Some(_) => {
+                        tracing::warn!(
+                            "Imported an account with nonce > 0 and still provided a seed"
+                        );
+                        Ok(())
+                    }
+                    None if account_nonce > 0 => {
+                        unimplemented!();
+                    }
+                    None => Err(ClientError::ImportAccountError(
+                        "tried to import an account without a seed and nonce = 0".to_string(),
+                    )),
+                }
             }
         }
     }

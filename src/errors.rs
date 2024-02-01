@@ -19,6 +19,7 @@ use tonic::{transport::Error as TransportError, Status as TonicStatus};
 pub enum ClientError {
     AccountError(AccountError),
     AuthError(FalconError),
+    ImportAccountError(String),
     NoteError(NoteError),
     NoConsumableNoteForAccount(AccountId),
     RpcApiError(RpcApiError),
@@ -32,6 +33,7 @@ impl fmt::Display for ClientError {
         match self {
             ClientError::AccountError(err) => write!(f, "account error: {err}"),
             ClientError::AuthError(err) => write!(f, "account auth error: {err}"),
+            ClientError::ImportAccountError(err) => write!(f, "import account error: {err}"),
             ClientError::NoConsumableNoteForAccount(account_id) => {
                 write!(f, "No consumable note for account ID {}", account_id)
             }
