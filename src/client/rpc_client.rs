@@ -1,20 +1,27 @@
 use core::fmt;
 use crypto::merkle::{MerklePath, MmrDelta};
 use miden_node_proto::responses::SyncStateResponse;
-use objects::{accounts::AccountId, notes::NoteId, BlockHeader, Digest};
+use objects::{
+    accounts::AccountId,
+    notes::{NoteId, NoteMetadata},
+    BlockHeader, Digest,
+};
 
 // STATE SYNC INFO
 // ================================================================================================
 
 /// Represents a [SyncStateResponse] with fields converted into domain types
 pub struct StateSyncInfo {
+    /// The block number of the chain tip at the moment of the response
     pub chain_tip: u32,
+    /// The returned block header
     pub block_header: BlockHeader,
+    /// MMR delta that contains data for (current_block.num, incoming_block_header.num-1)
     pub mmr_delta: MmrDelta,
     /// Tuples of AccountId alongside their new account hashes
     pub account_hash_updates: Vec<(AccountId, Digest)>,
     /// List of tuples of Note ID, Note Index and Merkle Path for all new notes
-    pub note_inclusions: Vec<(NoteId, u64, MerklePath)>,
+    pub note_inclusions: Vec<CommittedNote>,
     /// List of nullifiers that identify spent notes
     pub nullifiers: Vec<Digest>,
 }
@@ -64,11 +71,18 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                 .try_into()?;
             let note_id: NoteId = note_id.into();
 
-            let note_merkle_path = note
+            let merkle_path = note
                 .merkle_path
                 .ok_or(RpcApiError::ExpectedFieldMissing("Notes.MerklePath".into()))?
                 .try_into()?;
-            note_inclusions.push((note_id, note.note_index as u64, note_merkle_path));
+
+            let sender_account_id = note.sender.try_into()?;
+            let metadata = NoteMetadata::new(sender_account_id, note.tag.into());
+
+            let committed_note =
+                CommittedNote::new(note_id, note.note_index, merkle_path, metadata);
+
+            note_inclusions.push(committed_note);
         }
 
         let nullifiers = value
@@ -94,6 +108,53 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
     }
 }
 
+// COMMITTED NOTE
+// ================================================================================================
+
+/// Represents a committed note, returned as part of a [SyncStateResponse]
+pub struct CommittedNote {
+    /// Note ID of the committed note
+    note_id: NoteId,
+    /// Note index for the note merkle tree
+    note_index: u32,
+    /// Merkle path for the note merkle tree up to the block's note root
+    merkle_path: MerklePath,
+    /// Note metadata
+    metadata: NoteMetadata,
+}
+
+impl CommittedNote {
+    pub fn new(
+        note_id: NoteId,
+        note_index: u32,
+        merkle_path: MerklePath,
+        metadata: NoteMetadata,
+    ) -> Self {
+        Self {
+            note_id,
+            note_index,
+            merkle_path,
+            metadata,
+        }
+    }
+
+    pub fn note_id(&self) -> &NoteId {
+        &self.note_id
+    }
+
+    pub fn note_index(&self) -> u32 {
+        self.note_index
+    }
+
+    pub fn merkle_path(&self) -> &MerklePath {
+        &self.merkle_path
+    }
+
+    pub fn metadata(&self) -> NoteMetadata {
+        self.metadata
+    }
+}
+
 // RPC CLIENT
 // ================================================================================================
 //
@@ -110,7 +171,7 @@ mod client {
         requests::{
             GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest, SyncStateRequest,
         },
-        responses::{SubmitProvenTransactionResponse, SyncStateResponse},
+        responses::SubmitProvenTransactionResponse,
         rpc::api_client::ApiClient,
     };
     use objects::{accounts::AccountId, BlockHeader};
@@ -128,19 +189,6 @@ mod client {
                 rpc_api: None,
                 endpoint: config_endpoint,
             }
-        }
-
-        /// Sends the request through the tonic client the specified sync state request
-        /// and returns the response.
-        async fn sync_state_request(
-            &mut self,
-            request: impl tonic::IntoRequest<SyncStateRequest>,
-        ) -> Result<tonic::Response<SyncStateResponse>, RpcApiError> {
-            let rpc_api = self.rpc_api().await?;
-            rpc_api
-                .sync_state(request)
-                .await
-                .map_err(|err| RpcApiError::RequestError(RpcApiEndpoint::SyncState, err))
         }
 
         pub async fn submit_proven_transaction(
@@ -213,8 +261,12 @@ mod client {
                 nullifiers,
             };
 
-            let response = self.sync_state_request(request).await?.into_inner();
-            response.try_into()
+            let rpc_api = self.rpc_api().await?;
+            let response = rpc_api
+                .sync_state(request)
+                .await
+                .map_err(|err| RpcApiError::RequestError(RpcApiEndpoint::SyncState, err))?;
+            response.into_inner().try_into()
         }
     }
 }

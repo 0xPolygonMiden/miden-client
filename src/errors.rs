@@ -283,9 +283,10 @@ use crate::client::RpcApiEndpoint;
 #[derive(Debug)]
 pub enum RpcApiError {
     ConnectionError(TransportError),
-    RequestError(RpcApiEndpoint, TonicStatus),
-    ExpectedFieldMissing(String),
     ConversionFailure(ParseError),
+    ExpectedFieldMissing(String),
+    InvalidAccountReceived(AccountError),
+    RequestError(RpcApiEndpoint, TonicStatus),
 }
 
 impl fmt::Display for RpcApiError {
@@ -294,14 +295,20 @@ impl fmt::Display for RpcApiError {
             RpcApiError::ConnectionError(err) => {
                 write!(f, "failed to connect to the API server: {err}")
             }
-            RpcApiError::RequestError(endpoint, err) => {
-                write!(f, "rpc request failed for {endpoint}: {err}")
+            RpcApiError::ConversionFailure(err) => {
+                write!(f, "failed to convert RPC data: {err}")
             }
             RpcApiError::ExpectedFieldMissing(err) => {
                 write!(f, "rpc API reponse missing an expected field: {err}")
             }
-            RpcApiError::ConversionFailure(err) => {
-                write!(f, "failed to convert RPC data: {err}")
+            RpcApiError::InvalidAccountReceived(account_error) => {
+                write!(
+                    f,
+                    "rpc API reponse contained an invalid account: {account_error}"
+                )
+            }
+            RpcApiError::RequestError(endpoint, err) => {
+                write!(f, "rpc request failed for {endpoint}: {err}")
             }
         }
     }
@@ -310,5 +317,11 @@ impl fmt::Display for RpcApiError {
 impl From<ParseError> for RpcApiError {
     fn from(err: ParseError) -> Self {
         Self::ConversionFailure(err)
+    }
+}
+
+impl From<AccountError> for RpcApiError {
+    fn from(err: AccountError) -> Self {
+        Self::InvalidAccountReceived(err)
     }
 }

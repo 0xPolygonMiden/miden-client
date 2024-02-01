@@ -1,5 +1,5 @@
-use super::Client;
-use ::crypto::merkle::MerklePath;
+use super::{rpc_client::CommittedNote, Client};
+
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_node_proto::requests::GetBlockHeaderByNumberRequest;
 
@@ -60,7 +60,7 @@ impl Client {
     pub async fn sync_state(&mut self) -> Result<u32, ClientError> {
         self.ensure_genesis_in_place().await?;
         loop {
-            let response = self.single_sync_state().await?;
+            let response = self.sync_state_once().await?;
             if let SyncStatus::SyncedToLastBlock(v) = response {
                 return Ok(v);
             }
@@ -68,7 +68,7 @@ impl Client {
     }
 
     /// Attempts to retrieve the genesis block from the store. If not found,
-    /// it requests it from the node and store it
+    /// it requests it from the node and store it.
     async fn ensure_genesis_in_place(&mut self) -> Result<(), ClientError> {
         let genesis = self.store.get_block_header_by_num(0);
 
@@ -100,7 +100,7 @@ impl Client {
         Ok(())
     }
 
-    async fn single_sync_state(&mut self) -> Result<SyncStatus, ClientError> {
+    async fn sync_state_once(&mut self) -> Result<SyncStatus, ClientError> {
         let current_block_num = self.store.get_sync_height()?;
 
         let accounts: Vec<AccountStub> = self
@@ -140,7 +140,7 @@ impl Client {
         }
 
         let committed_notes =
-            self.construct_inclusion_proofs(response.note_inclusions, &response.block_header)?;
+            self.build_inclusion_proofs(response.note_inclusions, &response.block_header)?;
 
         // Check if the returned account hashes match latest account hashes in the database
         check_account_hashes(&response.account_hash_updates, &accounts)?;
@@ -186,9 +186,9 @@ impl Client {
 
     /// Extracts information about notes that the client is interested in, creating the note inclusion
     /// proof in order to correctly update store data
-    fn construct_inclusion_proofs(
+    fn build_inclusion_proofs(
         &self,
-        committed_notes: Vec<(NoteId, u64, MerklePath)>,
+        committed_notes: Vec<CommittedNote>,
         block_header: &BlockHeader,
     ) -> Result<Vec<(NoteId, NoteInclusionProof)>, ClientError> {
         let pending_notes: Vec<NoteId> = self
@@ -200,14 +200,14 @@ impl Client {
 
         committed_notes
             .iter()
-            .filter_map(|(note_id, note_index, merkle_path)| {
-                if pending_notes.contains(note_id) {
+            .filter_map(|commited_note| {
+                if pending_notes.contains(commited_note.note_id()) {
                     // FIXME: This removal is to accomodate a problem with how the node constructs paths where
                     // they are constructed using note ID instead of authentication hash, so for now we remove the first
                     // node here.
                     //
                     // See: https://github.com/0xPolygonMiden/miden-node/blob/main/store/src/state.rs#L274
-                    let mut merkle_path = merkle_path.clone();
+                    let mut merkle_path = commited_note.merkle_path().clone();
                     if merkle_path.len() > 0 {
                         let _ = merkle_path.remove(0);
                     }
@@ -216,11 +216,11 @@ impl Client {
                         block_header.block_num(),
                         block_header.sub_hash(),
                         block_header.note_root(),
-                        *note_index,
+                        commited_note.note_index().into(),
                         merkle_path,
                     )
                     .map_err(ClientError::NoteError)
-                    .map(|proof| (*note_id, proof));
+                    .map(|proof| (*commited_note.note_id(), proof));
 
                     Some(note_id_and_proof)
                 } else {

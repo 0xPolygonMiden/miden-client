@@ -128,12 +128,9 @@ pub fn get_authentication_path_for_blocks(
 
     // Calculate all needed nodes indices for generating the paths
     for block_num in block_nums {
-        let block_num = *block_num as usize;
-        let before = forest & block_num;
-        let after = forest ^ before;
-        let path_depth = after.ilog2() as usize;
+        let path_depth = mmr_merkle_path_len(*block_num as usize, forest);
 
-        let mut idx = InOrderIndex::from_leaf_pos(block_num);
+        let mut idx = InOrderIndex::from_leaf_pos(*block_num as usize);
 
         for _ in 0..path_depth {
             node_indices.insert(idx.sibling());
@@ -162,4 +159,14 @@ pub fn get_authentication_path_for_blocks(
     }
 
     Ok(authentication_paths)
+}
+
+/// Calculates the merkle path length for an MMR of a specific forest and a leaf index
+/// `leaf_index` is a 0-indexed leaf number and `forest` is the total amount of leaves
+/// in the MMR at this point.
+fn mmr_merkle_path_len(leaf_index: usize, forest: usize) -> usize {
+    let before = forest & leaf_index;
+    let after = forest ^ before;
+
+    after.ilog2() as usize
 }
