@@ -153,13 +153,13 @@ where
     I: IntoIterator<Item = &'a TransactionStub>,
 {
     let mut table = create_dynamic_table(&[
-        "account id",
-        "script hash",
-        "committed",
-        "commit height",
-        "block num",
-        "input notes count",
-        "output notes count",
+        "Account ID",
+        "Script Hash",
+        "Committed",
+        "Commit Height",
+        "Block Num",
+        "Input Notes Count",
+        "Output Notes Count",
     ]);
 
     for tx in executed_transactions {

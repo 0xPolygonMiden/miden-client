@@ -232,12 +232,12 @@ where
     I: IntoIterator<Item = &'a InputNoteRecord>,
 {
     let mut table = create_dynamic_table(&[
-        "note id",
-        "script hash",
-        "vault hash",
-        "inputs hash",
-        "serial num",
-        "commit height",
+        "Note ID",
+        "Script Hash",
+        "Vault Vash",
+        "Inputs Hash",
+        "Serial Num",
+        "Commit Height",
     ]);
 
     notes.into_iter().for_each(|input_note_record| {

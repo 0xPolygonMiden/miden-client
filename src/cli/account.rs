@@ -141,12 +141,12 @@ fn list_accounts(client: Client) -> Result<(), String> {
     let accounts = client.get_accounts().map_err(|err| err.to_string())?;
 
     let mut table = create_dynamic_table(&[
-        "account id",
-        "code root",
-        "vault root",
-        "storage root",
-        "type",
-        "nonce",
+        "Account ID",
+        "Code Root",
+        "Vault Root",
+        "Storage Root",
+        "Type",
+        "Nonce",
     ]);
     accounts.iter().for_each(|(acc, _acc_seed)| {
         let acc_type = match acc.id().account_type() {
@@ -182,12 +182,12 @@ pub fn show_account(
         .map_err(|err| err.to_string())?;
 
     let mut table = create_dynamic_table(&[
-        "account id",
-        "code root",
-        "vault root",
-        "storage root",
-        "nonce",
-        "account hash",
+        "Account ID",
+        "Code Root",
+        "Vault Root",
+        "Storage Root",
+        "Nonce",
+        "Account Hash",
     ]);
     table.add_row(vec![
         account.id().to_string(),
