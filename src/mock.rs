@@ -1,7 +1,7 @@
 use crate::{
     client::{
         rpc_client::StateSyncInfo,
-        sync_state::FILTER_ID_SHIFT,
+        sync::FILTER_ID_SHIFT,
         transactions::{PaymentTransactionData, TransactionTemplate},
         Client, RpcApiEndpoint,
     },
@@ -42,13 +42,13 @@ use objects::{
 /// This struct implements the RPC API used by the client to communicate with the node. It is
 /// intended to be used for testing purposes only.
 pub struct MockRpcApi {
-    pub sync_state_requests: BTreeMap<SyncStateRequest, SyncStateResponse>,
+    pub state_sync_requests: BTreeMap<SyncStateRequest, SyncStateResponse>,
 }
 
 impl Default for MockRpcApi {
     fn default() -> Self {
         Self {
-            sync_state_requests: generate_sync_state_mock_requests(),
+            state_sync_requests: generate_state_sync_mock_requests(),
         }
     }
 }
@@ -64,7 +64,7 @@ impl MockRpcApi {
     ) -> Result<StateSyncInfo, RpcApiError> {
         // Match request -> response through block_num
         let response = match self
-            .sync_state_requests
+            .state_sync_requests
             .iter()
             .find(|(req, _)| req.block_num == block_num)
         {
@@ -110,7 +110,7 @@ impl MockRpcApi {
 }
 
 /// Generates mock sync state requests and responses
-fn create_mock_sync_state_request_for_account_and_notes(
+fn create_mock_state_sync_request_for_account_and_notes(
     requests: &mut BTreeMap<SyncStateRequest, SyncStateResponse>,
     account_id: AccountId,
     recorded_notes: &InputNotes,
@@ -206,7 +206,7 @@ fn create_mock_sync_state_request_for_account_and_notes(
 }
 
 /// Generates mock sync state requests and responses
-fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateResponse> {
+fn generate_state_sync_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateResponse> {
     use mock::mock::{account::MockAccountType, transaction::mock_inputs};
 
     // generate test data
@@ -218,7 +218,7 @@ fn generate_sync_state_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
     // create sync state requests
     let mut requests = BTreeMap::new();
 
-    create_mock_sync_state_request_for_account_and_notes(
+    create_mock_state_sync_request_for_account_and_notes(
         &mut requests,
         transaction_inputs.account().id(),
         transaction_inputs.input_notes(),
@@ -262,8 +262,8 @@ pub async fn insert_mock_data(client: &mut Client) {
         .unwrap();
 
     // insert some sync request
-    create_mock_sync_state_request_for_account_and_notes(
-        &mut client.rpc_api.sync_state_requests,
+    create_mock_state_sync_request_for_account_and_notes(
+        &mut client.rpc_api.state_sync_requests,
         account_id,
         transaction_inputs.input_notes(),
     );
