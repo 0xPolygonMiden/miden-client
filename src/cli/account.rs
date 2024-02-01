@@ -280,10 +280,10 @@ fn import_account(client: &mut Client, filename: &PathBuf) -> Result<(), String>
         AccountData::read_from_bytes(&account_data_file_contents).map_err(|err| err.to_string())?;
     let account_id = account_data.account.id();
 
-    client.import_account(account_data)?;
     println!("Imported account with ID: {}", account_id);
-
-    Ok(())
+    client
+        .import_account(account_data)
+        .map_err(|err| err.to_string())
 }
 
 // HELPERS

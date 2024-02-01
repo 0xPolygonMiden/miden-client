@@ -64,22 +64,22 @@ impl Client {
 
     /// Saves in the store the [Account] corresponding to `account_data`. It is expected that the
     /// provided [AccountData] has an account_seed, otherwise panics.
-    pub fn import_account(&mut self, account_data: AccountData) -> Result<(), String> {
+    pub fn import_account(&mut self, account_data: AccountData) -> Result<(), ClientError> {
         match account_data.auth {
             AuthData::RpoFalcon512Seed(key_pair) => {
-                let keypair = KeyPair::from_seed(&key_pair).map_err(|err| err.to_string())?;
+                let keypair = KeyPair::from_seed(&key_pair)?;
                 // TODO: Handle account data without seed so we can export existing accounts into
                 // other clients where we have no seed (account nonce > 0)
                 let seed = account_data
                     .account_seed
-                    .ok_or("Account seed was expected")?;
+                    .ok_or("Account seed was expected")
+                    .unwrap();
 
                 self.insert_account(
                     &account_data.account,
                     seed,
                     &AuthInfo::RpoFalcon512(keypair),
                 )
-                .map_err(|err| err.to_string())
             }
         }
     }
