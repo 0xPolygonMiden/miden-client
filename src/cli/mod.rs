@@ -42,8 +42,6 @@ pub enum Command {
     /// View a summary of the current client state
     Info,
     #[clap(subcommand)]
-    SyncState(sync_state::SyncStateCmd),
-    #[clap(subcommand)]
     Tags(tags::TagsCmd),
     #[clap(subcommand, name = "tx")]
     #[clap(visible_alias = "transaction")]
