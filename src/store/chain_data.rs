@@ -1,21 +1,50 @@
+use std::num::NonZeroUsize;
+
 use super::Store;
 use crate::errors::StoreError;
 use clap::error::Result;
+
 use crypto::merkle::{InOrderIndex, MmrPeaks};
 
+use objects::utils::collections::BTreeMap;
 use objects::{BlockHeader, Digest};
 use rusqlite::{params, OptionalExtension, Transaction};
-use std::{collections::BTreeMap, num::NonZeroUsize};
-
 type SerializedBlockHeaderData = (i64, String, String, String, String, bool);
 type SerializedBlockHeaderParts = (u64, String, String, String, String, bool);
 
 type SerializedChainMmrNodeData = (i64, String);
 type SerializedChainMmrNodeParts = (u64, String);
 
+pub enum ChainMmrNodeFilter<'a> {
+    All,
+    List(&'a [InOrderIndex]),
+}
+
+impl ChainMmrNodeFilter<'_> {
+    pub fn to_query(&self) -> String {
+        let base = String::from("SELECT id, node FROM chain_mmr_nodes");
+        match self {
+            ChainMmrNodeFilter::All => base,
+            ChainMmrNodeFilter::List(ids) => {
+                let formatted_list = ids
+                    .iter()
+                    .map(|id| (Into::<u64>::into(*id)).to_string())
+                    .collect::<Vec<String>>()
+                    .join(",");
+                format!("{base} WHERE id IN ({})", formatted_list)
+            }
+        }
+    }
+}
+
 impl Store {
     // CHAIN DATA
     // --------------------------------------------------------------------------------------------
+
+    /// Inserts a block header into the store, alongside peaks information at the block's height.
+    ///
+    /// `has_client_notes` describes whether the block has relevant notes to the client; this means
+    /// the client might want to authenticate merkle paths based on this value.
     pub fn insert_block_header(
         tx: &Transaction<'_>,
         block_header: BlockHeader,
@@ -84,8 +113,22 @@ impl Store {
             .ok_or(StoreError::BlockHeaderNotFound(block_number))?
     }
 
+    /// Retrieves a list of [BlockHeader] that include relevant notes to the client.
+    pub fn get_tracked_block_headers(&self) -> Result<Vec<BlockHeader>, StoreError> {
+        const QUERY: &str = "SELECT block_num, header, notes_root, sub_hash, chain_mmr_peaks, has_client_notes FROM block_headers WHERE has_client_notes=true";
+        self.db
+            .prepare(QUERY)?
+            .query_map(params![], parse_block_headers_columns)?
+            .map(|result| {
+                Ok(result?)
+                    .and_then(parse_block_header)
+                    .map(|(block, _)| block)
+            })
+            .collect()
+    }
+
     /// Inserts a node represented by its in-order index and the node value.
-    pub(crate) fn insert_chain_mmr_node(
+    fn insert_chain_mmr_node(
         tx: &Transaction<'_>,
         id: InOrderIndex,
         node: Digest,
@@ -101,20 +144,22 @@ impl Store {
     /// Inserts a list of MMR authentication nodes to the Chain MMR nodes table.
     pub(super) fn insert_chain_mmr_nodes(
         tx: &Transaction<'_>,
-        nodes: impl Iterator<Item = (InOrderIndex, Digest)>,
+        nodes: &[(InOrderIndex, Digest)],
     ) -> Result<(), StoreError> {
         for (index, node) in nodes {
-            Self::insert_chain_mmr_node(tx, index, node)?;
+            Self::insert_chain_mmr_node(tx, *index, *node)?;
         }
 
         Ok(())
     }
 
-    /// Returns all MMR nodes in the store.
-    pub fn get_chain_mmr_nodes(&self) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
-        const QUERY: &str = "SELECT id, node FROM chain_mmr_nodes";
+    /// Retrieves all MMR authentication nodes based on [ChainMmrNodeFilter].
+    pub fn get_chain_mmr_nodes(
+        &self,
+        filter: ChainMmrNodeFilter,
+    ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
         self.db
-            .prepare(QUERY)?
+            .prepare(&filter.to_query())?
             .query_map(params![], parse_chain_mmr_nodes_columns)?
             .map(|result| Ok(result?).and_then(parse_chain_mmr_nodes))
             .collect()

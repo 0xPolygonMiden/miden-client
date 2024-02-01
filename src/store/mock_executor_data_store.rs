@@ -28,6 +28,7 @@ use objects::{
 #[derive(Clone)]
 pub struct MockDataStore {
     pub account: Account,
+    pub account_seed: Option<Word>,
     pub block_header: BlockHeader,
     pub block_chain: ChainMmr,
     pub input_notes: InputNotes,
@@ -44,24 +45,30 @@ impl MockDataStore {
             block_header: *transaction_data.block_header(),
             block_chain: transaction_data.block_chain().clone(),
             input_notes: transaction_data.input_notes().clone(),
+            account_seed: None,
         }
     }
 
-    pub fn with_existing(account: Account, consumed_notes: Option<Vec<Note>>) -> Self {
-        let (_mocked_account, block_header, block_chain, consumed_notes, _auxiliary_data_inputs) =
+    pub fn with_existing(
+        account: Account,
+        account_seed: Option<Word>,
+        input_notes: Option<Vec<Note>>,
+    ) -> Self {
+        let (_mocked_account, block_header, block_chain, input_notes, _auxiliary_data_inputs) =
             // NOTE: Currently this disregards the mocked account and uses the passed account
             mock_inputs_with_existing(
                 MockAccountType::StandardExisting,
                 AssetPreservationStatus::Preserved,
                 Some(account.clone()),
-                consumed_notes,
+                input_notes,
             );
 
         Self {
             account,
             block_header,
             block_chain,
-            input_notes: InputNotes::new(consumed_notes).unwrap(),
+            input_notes: InputNotes::new(input_notes).unwrap(),
+            account_seed,
         }
     }
 }
@@ -76,7 +83,7 @@ impl DataStore for MockDataStore {
     /// NOTE: This method assumes the MockDataStore was created accordingly using `with_existing()`
     fn get_transaction_inputs(
         &self,
-        account_id: AccountId,
+        _account_id: AccountId,
         _block_num: u32,
         notes: &[NoteId],
     ) -> Result<TransactionInputs, DataStoreError> {
@@ -88,12 +95,12 @@ impl DataStore for MockDataStore {
         notes.iter().all(|note| origins.contains(note));
         TransactionInputs::new(
             self.account.clone(),
-            None,
+            self.account_seed,
             self.block_header,
             self.block_chain.clone(),
             self.input_notes.clone(),
         )
-        .map_err(|_err| DataStoreError::AccountNotFound(account_id))
+        .map_err(|err| DataStoreError::InternalError(err.to_string()))
     }
 
     fn get_account_code(&self, _account_id: AccountId) -> Result<ModuleAst, DataStoreError> {
