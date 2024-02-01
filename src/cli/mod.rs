@@ -15,7 +15,7 @@ mod tags;
 mod transactions;
 
 /// Config file name
-const CLIENT_CONFIG_FILE_NAME: &str = "miden.toml";
+const CLIENT_CONFIG_FILE_NAME: &str = "miden-client.toml";
 
 /// Root CLI struct
 #[derive(Parser, Debug)]
