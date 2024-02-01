@@ -267,7 +267,6 @@ impl Client {
         // Construct Account
         self.tx_executor.load_account(faucet_id)?;
 
-        let _block_ref = self.get_sync_height()?;
         let block_ref = self.get_sync_height()?;
 
         let random_coin = self.get_random_coin();
