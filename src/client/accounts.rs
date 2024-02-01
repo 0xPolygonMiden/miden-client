@@ -72,8 +72,7 @@ impl Client {
                 // other clients where we have no seed (account nonce > 0)
                 let seed = account_data
                     .account_seed
-                    .ok_or("Account seed was expected")
-                    .unwrap();
+                    .expect("Account seed was expected");
 
                 self.insert_account(
                     &account_data.account,
