@@ -263,16 +263,15 @@ pub fn show_account(
     Ok(())
 }
 
-// IMPORT INPUT NOTE
+// IMPORT ACCOUNT
 // ================================================================================================
+
 fn import_account(client: &mut Client, filename: &PathBuf) -> Result<(), String> {
     let account_data_file_contents = fs::read(filename).map_err(|err| err.to_string())?;
     let account_data =
         AccountData::read_from_bytes(&account_data_file_contents).map_err(|err| err.to_string())?;
 
-    client.import_account(account_data)?;
-
-    Ok(())
+    client.import_account(account_data)
 }
 
 // HELPERS

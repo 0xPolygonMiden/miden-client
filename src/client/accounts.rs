@@ -1,4 +1,3 @@
-use super::Client;
 use crypto::{dsa::rpo_falcon512::KeyPair, Felt, Word};
 use miden_lib::AuthScheme;
 use objects::{
@@ -13,6 +12,8 @@ use objects::{
 use rand::{rngs::ThreadRng, Rng};
 
 use crate::{errors::ClientError, store::accounts::AuthInfo};
+
+use super::Client;
 
 pub enum AccountTemplate {
     BasicWallet {

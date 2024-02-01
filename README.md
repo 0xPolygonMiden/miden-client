@@ -103,10 +103,10 @@ This will add a transaction and an output note (containing the minted asset) to 
 After creating the note with the minted asset, the regular account can now consume it and add the tokens to its vault. You can do this the following way:
 
 ```bash
-miden-client tx new consume-note <regular-account-ID-A>
+miden-client tx new consume-note <regular-account-ID-A> <input-note-ID>
 ```
 
-This will consume the first available note. You can also pass a Note ID to this command (which you can list as stated in the previous step). You will now be able to see the asset in the account's vault by running:
+This will consume the input note ID, which you can get by listing them as explained in the previous step. You will now be able to see the asset in the account's vault by running:
 
 ```bash
 miden-client account show <regular-account-ID-A> -v

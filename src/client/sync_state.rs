@@ -1,19 +1,20 @@
-use super::Client;
-use crypto::{merkle::MmrPeaks, StarkField};
-use miden_node_proto::{
-    account::AccountId as ProtoAccountId,
-    note::NoteSyncRecord,
-    requests::{GetBlockHeaderByNumberRequest, SyncStateRequest},
-    responses::SyncStateResponse,
-};
+use super::{rpc_client::CommittedNote, Client};
 
-use objects::{accounts::AccountId, notes::NoteInclusionProof, BlockHeader, Digest};
-use tracing::warn;
+use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
+use miden_node_proto::requests::GetBlockHeaderByNumberRequest;
+
+use objects::{
+    accounts::{AccountId, AccountStub},
+    crypto,
+    notes::{NoteId, NoteInclusionProof},
+    BlockHeader, Digest, StarkField,
+};
 
 use crate::{
     errors::{ClientError, StoreError},
-    store::Store,
+    store::{chain_data::ChainMmrNodeFilter, Store},
 };
+use tracing::warn;
 
 pub enum SyncStatus {
     SyncedToLastBlock(u32),
@@ -59,7 +60,7 @@ impl Client {
     pub async fn sync_state(&mut self) -> Result<u32, ClientError> {
         self.ensure_genesis_in_place().await?;
         loop {
-            let response = self.single_sync_state().await?;
+            let response = self.sync_state_once().await?;
             if let SyncStatus::SyncedToLastBlock(v) = response {
                 return Ok(v);
             }
@@ -67,7 +68,7 @@ impl Client {
     }
 
     /// Attempts to retrieve the genesis block from the store. If not found,
-    /// it requests it from the node and store it
+    /// it requests it from the node and store it.
     async fn ensure_genesis_in_place(&mut self) -> Result<(), ClientError> {
         let genesis = self.store.get_block_header_by_num(0);
 
@@ -84,16 +85,7 @@ impl Client {
         let genesis_block = self
             .rpc_api
             .get_block_header_by_number(GetBlockHeaderByNumberRequest { block_num: Some(0) })
-            .await
-            .map_err(ClientError::RpcApiError)?
-            .into_inner();
-
-        let genesis_block: objects::BlockHeader = genesis_block
-            .block_header
-            .ok_or(ClientError::RpcExpectedFieldMissing(
-                "Expected block header in genesis block request".to_string(),
-            ))?
-            .try_into()?;
+            .await?;
 
         let tx = self.store.db.transaction()?;
 
@@ -108,85 +100,84 @@ impl Client {
         Ok(())
     }
 
-    async fn single_sync_state(&mut self) -> Result<SyncStatus, ClientError> {
+    async fn sync_state_once(&mut self) -> Result<SyncStatus, ClientError> {
         let current_block_num = self.store.get_sync_height()?;
-        let account_ids = self.store.get_account_ids()?;
-        let note_tags: Vec<u64> = self
+
+        let accounts: Vec<AccountStub> = self
             .store
-            .get_accounts()
-            .unwrap()
+            .get_accounts()?
             .into_iter()
-            .map(|(a, _s)| a.id().into())
+            .map(|(acc_stub, _)| acc_stub)
             .collect();
 
-        let nullifiers = self.store.get_unspent_input_note_nullifiers()?;
+        let note_tags: Vec<u16> = accounts
+            .iter()
+            .map(|acc| ((u64::from(acc.id()) >> FILTER_ID_SHIFT) as u16))
+            .collect();
+
+        let nullifiers_tags: Vec<u16> = self
+            .store
+            .get_unspent_input_note_nullifiers()?
+            .iter()
+            .map(|nullifier| (nullifier[3].as_int() >> FILTER_ID_SHIFT) as u16)
+            .collect();
+
+        // Send request
+        let account_ids: Vec<AccountId> = accounts.iter().map(|acc| acc.id()).collect();
         let response = self
-            .sync_state_request(current_block_num, &account_ids, &note_tags, &nullifiers)
+            .rpc_api
+            .sync_state(
+                current_block_num,
+                &account_ids,
+                &note_tags,
+                &nullifiers_tags,
+            )
             .await?;
 
-        let incoming_block_header =
-            response
-                .block_header
-                .as_ref()
-                .ok_or(ClientError::RpcExpectedFieldMissing(format!(
-                    "Expected block header for response: {:?}",
-                    &response
-                )))?;
-        let incoming_block_header: BlockHeader = incoming_block_header.try_into()?;
-
-        if incoming_block_header.block_num() == current_block_num {
+        // We don't need to continue if the chain has not advanced
+        if response.block_header.block_num() == current_block_num {
             return Ok(SyncStatus::SyncedToLastBlock(current_block_num));
         }
 
-        let response_nullifiers = response
-            .nullifiers
-            .clone()
-            .into_iter()
-            .map(|x| {
-                x.nullifier
-                    .ok_or(ClientError::RpcExpectedFieldMissing(format!(
-                        "Expected nullifier for response {:?}",
-                        &response.clone()
-                    )))
-            })
-            .collect::<Result<Vec<_>, ClientError>>()?;
-
-        let parsed_new_nullifiers = response_nullifiers
-            .into_iter()
-            .map(|response_nullifier| {
-                response_nullifier
-                    .try_into()
-                    .map_err(ClientError::RpcTypeConversionFailure)
-            })
-            .collect::<Result<Vec<_>, ClientError>>()?;
-
-        let new_nullifiers = parsed_new_nullifiers
-            .into_iter()
-            .filter(|nullifier| nullifiers.contains(nullifier))
-            .collect();
-
         let committed_notes =
-            self.get_newly_committed_note_info(&response.notes, &incoming_block_header)?;
+            self.build_inclusion_proofs(response.note_inclusions, &response.block_header)?;
 
-        let mmr_delta = response
-            .mmr_delta
-            .ok_or(ClientError::RpcExpectedFieldMissing(
-                "MmrDelta missing on node's response".to_string(),
-            ))?;
+        // Check if the returned account hashes match latest account hashes in the database
+        check_account_hashes(&response.account_hash_updates, &accounts)?;
 
-        self.store.apply_state_sync(
-            current_block_num,
-            incoming_block_header,
-            new_nullifiers,
-            response.accounts,
-            mmr_delta,
-            committed_notes,
-        )?;
+        // Derive new nullifiers data
+        let new_nullifiers = self.get_new_nullifiers(response.nullifiers)?;
 
-        if response.chain_tip == incoming_block_header.block_num() {
+        // Build PartialMmr with current data and apply updates
+        let (new_peaks, new_authentication_nodes) = {
+            let current_partial_mmr = self.build_current_partial_mmr()?;
+
+            let (current_block, has_relevant_notes) =
+                self.store.get_block_header_by_num(current_block_num)?;
+
+            apply_mmr_changes(
+                current_partial_mmr,
+                response.mmr_delta,
+                current_block,
+                has_relevant_notes,
+            )?
+        };
+
+        // Apply received and computed updates to the store
+        self.store
+            .apply_state_sync(
+                response.block_header,
+                new_nullifiers,
+                committed_notes,
+                new_peaks,
+                &new_authentication_nodes,
+            )
+            .map_err(ClientError::StoreError)?;
+
+        if response.chain_tip == response.block_header.block_num() {
             Ok(SyncStatus::SyncedToLastBlock(response.chain_tip))
         } else {
-            Ok(SyncStatus::SyncedToBlock(incoming_block_header.block_num()))
+            Ok(SyncStatus::SyncedToBlock(response.block_header.block_num()))
         }
     }
 
@@ -195,65 +186,41 @@ impl Client {
 
     /// Extracts information about notes that the client is interested in, creating the note inclusion
     /// proof in order to correctly update store data
-    fn get_newly_committed_note_info(
+    fn build_inclusion_proofs(
         &self,
-        notes: &[NoteSyncRecord],
+        committed_notes: Vec<CommittedNote>,
         block_header: &BlockHeader,
-    ) -> Result<Vec<(Digest, NoteInclusionProof)>, ClientError> {
-        let pending_notes: Vec<Digest> = self
+    ) -> Result<Vec<(NoteId, NoteInclusionProof)>, ClientError> {
+        let pending_notes: Vec<NoteId> = self
             .store
             .get_input_notes(crate::store::notes::InputNoteFilter::Pending)?
             .iter()
-            .map(|n| n.note().id().inner())
+            .map(|n| n.note().id())
             .collect();
 
-        let notes_with_hashes_and_merkle_paths =
-            notes
-                .iter()
-                .map(|note_record| {
-                    // Handle Options first
-                    let note_hash = note_record.note_hash.clone().ok_or(
-                        ClientError::RpcExpectedFieldMissing(format!(
-                            "Expected note hash for response note record {:?}",
-                            &note_record
-                        )),
-                    )?;
-                    let note_merkle_path = note_record.merkle_path.clone().ok_or(
-                        ClientError::RpcExpectedFieldMissing(format!(
-                            "Expected merkle path for response note record {:?}",
-                            &note_record
-                        )),
-                    )?;
-                    // Handle casting after
-                    let note_hash = note_hash.try_into()?;
-                    let merkle_path: crypto::merkle::MerklePath = note_merkle_path.try_into()?;
-
-                    Ok((note_record, note_hash, merkle_path))
-                })
-                .collect::<Result<Vec<_>, ClientError>>()?;
-
-        notes_with_hashes_and_merkle_paths
+        committed_notes
             .iter()
-            .filter_map(|(note, note_id, merkle_path)| {
-                if pending_notes.contains(note_id) {
+            .filter_map(|commited_note| {
+                if pending_notes.contains(commited_note.note_id()) {
                     // FIXME: This removal is to accomodate a problem with how the node constructs paths where
                     // they are constructed using note ID instead of authentication hash, so for now we remove the first
                     // node here.
                     //
                     // See: https://github.com/0xPolygonMiden/miden-node/blob/main/store/src/state.rs#L274
-                    let mut merkle_path = merkle_path.clone();
+                    let mut merkle_path = commited_note.merkle_path().clone();
                     if merkle_path.len() > 0 {
                         let _ = merkle_path.remove(0);
                     }
+
                     let note_id_and_proof = NoteInclusionProof::new(
                         block_header.block_num(),
                         block_header.sub_hash(),
                         block_header.note_root(),
-                        note.note_index.into(),
+                        commited_note.note_index().into(),
                         merkle_path,
                     )
                     .map_err(ClientError::NoteError)
-                    .map(|proof| (*note_id, proof));
+                    .map(|proof| (*commited_note.note_id(), proof));
 
                     Some(note_id_and_proof)
                 } else {
@@ -263,35 +230,100 @@ impl Client {
             .collect()
     }
 
-    /// Sends a sync state request to the Miden node and returns the response.
-    async fn sync_state_request(
-        &mut self,
-        block_num: u32,
-        account_ids: &[AccountId],
-        note_tags: &[u64],
-        nullifiers: &[Digest],
-    ) -> Result<SyncStateResponse, ClientError> {
-        let account_ids = account_ids
-            .iter()
-            .map(|id| ProtoAccountId { id: u64::from(*id) })
-            .collect();
-        let nullifiers = nullifiers
-            .iter()
-            .map(|nullifier| (nullifier[3].as_int() >> FILTER_ID_SHIFT) as u32)
-            .collect();
+    /// Builds the current view of the chain's [PartialMmr]. Because we want to add all new
+    /// authentication nodes that could come from applying the MMR updates, we need to track all
+    /// known leaves thus far.
+    ///
+    /// As part of the syncing process, we add the current block number so we don't need to
+    /// track it here.
+    fn build_current_partial_mmr(&self) -> Result<PartialMmr, ClientError> {
+        let current_block_num = self.store.get_sync_height()?;
 
-        let note_tags = note_tags
-            .iter()
-            .map(|tag| (tag >> FILTER_ID_SHIFT) as u32)
-            .collect::<Vec<_>>();
+        let tracked_nodes = self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All)?;
+        let current_peaks = self
+            .store
+            .get_chain_mmr_peaks_by_block_num(current_block_num)?;
 
-        let request = SyncStateRequest {
-            block_num,
-            account_ids,
-            note_tags,
-            nullifiers,
+        let track_latest = if current_block_num != 0 {
+            match self.store.get_block_header_by_num(current_block_num - 1) {
+                Ok((_, previous_block_had_notes)) => Ok(previous_block_had_notes),
+                Err(StoreError::BlockHeaderNotFound(_)) => Ok(false),
+                Err(err) => Err(ClientError::StoreError(err)),
+            }?
+        } else {
+            false
         };
 
-        Ok(self.rpc_api.sync_state(request).await?.into_inner())
+        Ok(PartialMmr::from_parts(
+            current_peaks,
+            tracked_nodes,
+            track_latest,
+        ))
     }
+
+    /// Extracts information about nullifiers for unspent input notes that the client is tracking
+    /// from the received [SyncStateResponse]
+    fn get_new_nullifiers(&self, new_nullifiers: Vec<Digest>) -> Result<Vec<Digest>, ClientError> {
+        // Get current unspent nullifiers
+        let nullifiers = self.store.get_unspent_input_note_nullifiers()?;
+
+        let new_nullifiers = new_nullifiers
+            .into_iter()
+            .filter(|nullifier| nullifiers.contains(nullifier))
+            .collect();
+
+        Ok(new_nullifiers)
+    }
+}
+
+// UTILS
+// --------------------------------------------------------------------------------------------
+
+/// Applies changes to the Mmr structure, storing authentication nodes for leaves we track
+/// and returns the updated [PartialMmr]
+fn apply_mmr_changes(
+    current_partial_mmr: PartialMmr,
+    mmr_delta: MmrDelta,
+    current_block_header: BlockHeader,
+    current_block_has_relevant_notes: bool,
+) -> Result<(MmrPeaks, Vec<(InOrderIndex, Digest)>), StoreError> {
+    let mut partial_mmr: PartialMmr = current_partial_mmr;
+
+    // First, apply curent_block to the Mmr
+    let new_authentication_nodes = partial_mmr
+        .add(
+            current_block_header.hash(),
+            current_block_has_relevant_notes,
+        )
+        .into_iter();
+
+    // Apply the Mmr delta to bring Mmr to forest equal to chain tip
+    let new_authentication_nodes: Vec<(InOrderIndex, Digest)> = partial_mmr
+        .apply(mmr_delta)
+        .map_err(StoreError::MmrError)?
+        .into_iter()
+        .chain(new_authentication_nodes)
+        .collect();
+
+    Ok((partial_mmr.peaks(), new_authentication_nodes))
+}
+
+/// Validates account hash updates and returns an error if there is a mismatch.
+fn check_account_hashes(
+    account_updates: &[(AccountId, Digest)],
+    current_accounts: &[AccountStub],
+) -> Result<(), StoreError> {
+    for (remote_account_id, remote_account_hash) in account_updates {
+        {
+            if let Some(local_account) = current_accounts
+                .iter()
+                .find(|acc| *remote_account_id == acc.id())
+            {
+                if *remote_account_hash != local_account.hash() {
+                    return Err(StoreError::AccountHashMismatch(*remote_account_id));
+                }
+            }
+        }
+    }
+    Ok(())
 }
