@@ -1,5 +1,6 @@
 use crate::{
     client::{
+        rpc_client::StateSyncInfo,
         sync_state::FILTER_ID_SHIFT,
         transactions::{PaymentTransactionData, TransactionTemplate},
         Client, RpcApiEndpoint,
@@ -15,10 +16,7 @@ use miden_node_proto::{
     mmr::MmrDelta,
     note::NoteSyncRecord,
     requests::{GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest, SyncStateRequest},
-    responses::{
-        GetBlockHeaderByNumberResponse, NullifierUpdate, SubmitProvenTransactionResponse,
-        SyncStateResponse,
-    },
+    responses::{NullifierUpdate, SubmitProvenTransactionResponse, SyncStateResponse},
 };
 use mock::{
     constants::{generate_account_seed, AccountSeedType},
@@ -29,7 +27,7 @@ use mock::mock::{
     block,
     notes::{mock_notes, AssetPreservationStatus},
 };
-use objects::{transaction::InputNotes, utils::collections::BTreeMap, Digest};
+use objects::{transaction::InputNotes, utils::collections::BTreeMap, BlockHeader, Digest};
 use tonic::{IntoRequest, Response, Status};
 
 use crate::store::accounts::AuthInfo;
@@ -59,15 +57,16 @@ impl MockRpcApi {
     /// Executes the specified sync state request and returns the response.
     pub async fn sync_state(
         &mut self,
-        request: impl IntoRequest<SyncStateRequest>,
-    ) -> Result<Response<SyncStateResponse>, RpcApiError> {
-        let request: SyncStateRequest = request.into_request().into_inner();
-
-        // Match request -> response through block_nu,
-        match self
+        block_num: u32,
+        _account_ids: &[AccountId],
+        _note_tags: &[u16],
+        _nullifiers_tags: &[u16],
+    ) -> Result<StateSyncInfo, RpcApiError> {
+        // Match request -> response through block_num
+        let response = match self
             .sync_state_requests
             .iter()
-            .find(|(req, _resp)| req.block_num == request.block_num)
+            .find(|(req, _)| req.block_num == block_num)
         {
             Some((_req, response)) => {
                 let response = response.clone();
@@ -77,7 +76,9 @@ impl MockRpcApi {
                 RpcApiEndpoint::SyncState,
                 Status::not_found("no response for sync state request"),
             )),
-        }
+        }?;
+
+        response.into_inner().try_into()
     }
 
     /// Creates and executes a [GetBlockHeaderByNumberRequest].
@@ -85,14 +86,12 @@ impl MockRpcApi {
     pub async fn get_block_header_by_number(
         &mut self,
         request: impl IntoRequest<GetBlockHeaderByNumberRequest>,
-    ) -> Result<Response<GetBlockHeaderByNumberResponse>, RpcApiError> {
+    ) -> Result<BlockHeader, RpcApiError> {
         let request: GetBlockHeaderByNumberRequest = request.into_request().into_inner();
 
         if request.block_num == Some(0) {
             let block_header: objects::BlockHeader = block::mock_block_header(0, None, None, &[]);
-            return Ok(tonic::Response::new(GetBlockHeaderByNumberResponse {
-                block_header: Some(block_header.into()),
-            }));
+            return Ok(block_header);
         }
         panic!("get_block_header_by_number is supposed to be only used for genesis block")
     }
