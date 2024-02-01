@@ -8,7 +8,7 @@ pub mod accounts;
 mod chain_data;
 mod notes;
 pub(crate) mod rpc_client;
-pub(crate) mod sync_state;
+pub(crate) mod sync;
 pub mod transactions;
 
 // MIDEN CLIENT

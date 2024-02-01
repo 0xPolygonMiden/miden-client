@@ -25,6 +25,14 @@ use crate::{
 
 use super::Client;
 
+// MASM SCRIPTS
+// --------------------------------------------------------------------------------------------
+const AUTH_CONSUME_NOTES_SCRIPT: &str =
+    include_str!("asm/transaction_scripts/auth_consume_notes.masm");
+const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
+    include_str!("asm/transaction_scripts/distribute_fungible_asset.masm");
+const AUTH_SEND_ASSET_SCRIPT: &str = include_str!("asm/transaction_scripts/auth_send_asset.masm");
+
 // TRANSACTION TEMPLATE
 // --------------------------------------------------------------------------------------------
 
@@ -230,29 +238,8 @@ impl Client {
             .load_account(account_id)
             .map_err(ClientError::TransactionExecutionError)?;
 
-        let tx_script_code = ProgramAst::parse(
-            "
-            use.miden::contracts::auth::basic->auth_tx
-    
-            begin
-                call.auth_tx::auth_tx_rpo_falcon512
-            end
-            ",
-        )
-        .unwrap();
-
-        let account_auth = self.get_account_auth(account_id)?;
-
-        let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
-            AuthInfo::RpoFalcon512(key) => (
-                key.public_key().into(),
-                key.to_bytes()
-                    .iter()
-                    .map(|a| Felt::new(*a as u64))
-                    .collect::<Vec<Felt>>(),
-            ),
-        };
-        let script_inputs = vec![(pubkey_input, advice_map)];
+        let tx_script_code =
+            ProgramAst::parse(AUTH_CONSUME_NOTES_SCRIPT).expect("shipped MASM is well-formed");
 
         let input_notes = if let Some(note_id) = note_id {
             vec![note_id]
@@ -264,19 +251,9 @@ impl Client {
                 .collect()
         };
 
-        let tx_script =
-            self.tx_executor
-                .compile_tx_script(tx_script_code, script_inputs, vec![])?;
-
         let block_num = self.store.get_sync_height()?;
 
-        // Execute the transaction and get the witness
-        let executed_transaction = self
-            .tx_executor
-            .execute_transaction(account_id, block_num, &input_notes, Some(tx_script.clone()))
-            .map_err(ClientError::TransactionExecutionError)?;
-
-        Ok(TransactionResult::new(executed_transaction, vec![]))
+        self.compile_and_execute_tx(account_id, &input_notes, vec![], tx_script_code, block_num)
     }
 
     /// Creates and executes a mint transaction specified by the template.
@@ -288,10 +265,8 @@ impl Client {
         let faucet_id = asset.faucet_id();
 
         // Construct Account
-        let faucet_auth = self.get_account_auth(faucet_id)?;
         self.tx_executor.load_account(faucet_id)?;
 
-        let _block_ref = self.get_sync_height()?;
         let block_ref = self.get_sync_height()?;
 
         let random_coin = self.get_random_coin();
@@ -306,57 +281,23 @@ impl Client {
             .join(".");
 
         let tx_script_code = ProgramAst::parse(
-            format!(
-                "
-                use.miden::contracts::faucets::basic_fungible->faucet
-                use.miden::contracts::auth::basic->auth_tx
-    
-                begin
-                    push.{recipient}
-                    push.{tag}
-                    push.{amount}
-                    call.faucet::distribute
-    
-                    call.auth_tx::auth_tx_rpo_falcon512
-                    dropw dropw
-    
-                end
-            ",
-                recipient = recipient,
-                tag = Felt::new(Into::<u64>::into(target_id)),
-                amount = Felt::new(asset.amount()),
-            )
-            .as_str(),
+            &DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT
+                .replace("{recipient}", &recipient)
+                .replace(
+                    "{tag}",
+                    &Felt::new(Into::<u64>::into(target_id)).to_string(),
+                )
+                .replace("{amount}", &Felt::new(asset.amount()).to_string()),
         )
-        .expect("program is well formed");
+        .expect("shipped MASM is well-formed");
 
-        let (pubkey_input, advice_map): (Word, Vec<Felt>) = match faucet_auth {
-            AuthInfo::RpoFalcon512(key) => (
-                key.public_key().into(),
-                key.to_bytes()
-                    .iter()
-                    .map(|a| Felt::new(*a as u64))
-                    .collect::<Vec<Felt>>(),
-            ),
-        };
-        let script_inputs = vec![(pubkey_input, advice_map)];
-
-        let tx_script =
-            self.tx_executor
-                .compile_tx_script(tx_script_code, script_inputs, vec![])?;
-
-        // Execute the transaction and get the witness
-        let executed_transaction = self.tx_executor.execute_transaction(
+        self.compile_and_execute_tx(
             faucet_id,
-            block_ref,
             &[],
-            Some(tx_script.clone()),
-        )?;
-
-        Ok(TransactionResult::new(
-            executed_transaction,
             vec![created_note],
-        ))
+            tx_script_code,
+            block_ref,
+        )
     }
 
     fn new_p2id_transaction(
@@ -385,27 +326,35 @@ impl Client {
             .collect::<Vec<_>>()
             .join(".");
 
-        let tx_script_code = ProgramAst::parse(&format!(
-            "
-        use.miden::contracts::auth::basic->auth_tx
-        use.miden::contracts::wallets::basic->wallet
+        let tx_script_code = ProgramAst::parse(
+            &AUTH_SEND_ASSET_SCRIPT
+                .replace("{recipient}", &recipient)
+                .replace(
+                    "{tag}",
+                    &Felt::new(Into::<u64>::into(target_account_id)).to_string(),
+                )
+                .replace("{asset}", &prepare_word(&fungible_asset.into()).to_string()),
+        )
+        .expect("shipped MASM is well-formed");
 
-        begin
-            push.{recipient}
-            push.{tag}
-            push.{asset}
-            call.wallet::send_asset drop
-            dropw dropw
-            call.auth_tx::auth_tx_rpo_falcon512
-        end
-        ",
-            recipient = recipient,
-            tag = Felt::new(Into::<u64>::into(target_account_id)),
-            asset = prepare_word(&fungible_asset.into()),
-        ))
-        .expect("program is correctly written");
+        self.compile_and_execute_tx(
+            sender_account_id,
+            &[],
+            vec![created_note],
+            tx_script_code,
+            block_ref,
+        )
+    }
 
-        let account_auth = self.store.get_account_auth(sender_account_id)?;
+    fn compile_and_execute_tx(
+        &mut self,
+        account_id: AccountId,
+        input_notes: &[NoteId],
+        output_notes: Vec<Note>,
+        tx_script: ProgramAst,
+        block_num: u32,
+    ) -> Result<TransactionResult, ClientError> {
+        let account_auth = self.get_account_auth(account_id)?;
         let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
             AuthInfo::RpoFalcon512(key) => (
                 key.public_key().into(),
@@ -415,25 +364,21 @@ impl Client {
                     .collect::<Vec<Felt>>(),
             ),
         };
+        let script_inputs = vec![(pubkey_input, advice_map)];
 
-        let tx_script_target = self.tx_executor.compile_tx_script(
-            tx_script_code.clone(),
-            vec![(pubkey_input, advice_map)],
-            vec![],
-        )?;
+        let tx_script = self
+            .tx_executor
+            .compile_tx_script(tx_script, script_inputs, vec![])?;
 
         // Execute the transaction and get the witness
         let executed_transaction = self.tx_executor.execute_transaction(
-            sender_account_id,
-            block_ref,
-            &[],
-            Some(tx_script_target.clone()),
+            account_id,
+            block_num,
+            input_notes,
+            Some(tx_script),
         )?;
 
-        Ok(TransactionResult::new(
-            executed_transaction,
-            vec![created_note],
-        ))
+        Ok(TransactionResult::new(executed_transaction, output_notes))
     }
 
     /// Proves the specified transaction witness, submits it to the node, and stores the transaction in

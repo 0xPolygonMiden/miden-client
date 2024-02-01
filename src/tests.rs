@@ -274,7 +274,7 @@ async fn test_sync_state() {
         block_num,
         client
             .rpc_api
-            .sync_state_requests
+            .state_sync_requests
             .first_key_value()
             .unwrap()
             .1
@@ -298,7 +298,7 @@ async fn test_sync_state() {
         client.get_sync_height().unwrap(),
         client
             .rpc_api
-            .sync_state_requests
+            .state_sync_requests
             .first_key_value()
             .unwrap()
             .1

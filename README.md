@@ -78,10 +78,10 @@ miden-client account list
 
 ### 2. Synchronizing the state
 
-As briefly mentioned in the [Overview](#overview) section, the client needs to periodically query the node to receive updates about entities that might be important in order to run transactions. The way to do so is by running the `state-sync` command:
+As briefly mentioned in the [Overview](#overview) section, the client needs to periodically query the node to receive updates about entities that might be important in order to run transactions. The way to do so is by running the `sync` command:
 
 ```bash
-miden-client sync-state -s
+miden-client sync
 ```
 
 Running this command will update local data up to the chain tip. This is needed in order to execute and prove any transaction.
@@ -96,7 +96,7 @@ miden-client transaction new mint <regular-account-ID-A> <faucet-account-id> 100
 
 This will execute, prove and submit a transaction that mints assets to the node. The account that executes this transaction will be the faucet as was defined in the node's configuration file. In this case, it is minting `1000` fungible tokens to `<regular-account-ID-A>`. 
 
-This will add a transaction and an output note (containing the minted asset) to the local store in order to track their lifecycles. You can display them by running `miden-client transaction list` and `miden-client input-notes list` respectively. If you do so, you will notice that they do not show a `commit height` even though they were submitted to the operator. This is because our local view of the network has not yet been updated. After updating it with a `sync-state`, you should see the height at which the transaction and the note containing the asset were committed. This will allow us to prove transactions that make use of this note, as we can compute valid proofs that state that the note exists in the blockchain.
+This will add a transaction and an output note (containing the minted asset) to the local store in order to track their lifecycles. You can display them by running `miden-client transaction list` and `miden-client input-notes list` respectively. If you do so, you will notice that they do not show a `commit height` even though they were submitted to the operator. This is because our local view of the network has not yet been updated. After updating it with a `sync`, you should see the height at which the transaction and the note containing the asset were committed. This will allow us to prove transactions that make use of this note, as we can compute valid proofs that state that the note exists in the blockchain.
 
 ### 4. Consuming the note
 
@@ -117,14 +117,14 @@ miden-client account show <regular-account-ID-A> -v
 Some of the tokens we minted can now be transferred to our second regular account. To do so, you can run:
 
 ```bash
-miden-client state-sync -s # Make sure we have an updated view of the state
+miden-client sync # Make sure we have an updated view of the state
 miden-client transaction new p2id <regular-account-ID-A> <regular-account-ID-B> <faucet-account-ID> 50 # Transfers 50 tokens to account ID B
 ```
 
 This will generate a Pay-to-ID (`P2ID`) note containing 50 assets, transferred from one regular account to the other. If we sync, we can now make use of the note and consume it for the receiving account:
 
 ```bash
-miden-client state-sync -s # Make sure we have an updated view of the state
+miden-client sync # Make sure we have an updated view of the state
 miden-client transaction new consume-note <regular-account-ID-B> # Consume the note
 ```
 
