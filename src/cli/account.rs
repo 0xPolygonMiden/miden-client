@@ -49,7 +49,7 @@ pub enum AccountCmd {
     #[clap(short_flag = 'i')]
     Import {
         /// Paths to the files that contains the account data
-        #[clap(short, long, num_args = 1..)]
+        #[arg()]
         filenames: Vec<PathBuf>,
     },
 }
@@ -126,6 +126,7 @@ impl AccountCmd {
                 for filename in filenames {
                     import_account(&mut client, filename)?;
                 }
+                println!("Imported {} accounts.", filenames.len());
             }
         }
         Ok(())
@@ -270,8 +271,12 @@ fn import_account(client: &mut Client, filename: &PathBuf) -> Result<(), String>
     let account_data_file_contents = fs::read(filename).map_err(|err| err.to_string())?;
     let account_data =
         AccountData::read_from_bytes(&account_data_file_contents).map_err(|err| err.to_string())?;
+    let account_id = account_data.account.id();
 
-    client.import_account(account_data)
+    client.import_account(account_data)?;
+    println!("Imported account with ID: {}", account_id);
+
+    Ok(())
 }
 
 // HELPERS
