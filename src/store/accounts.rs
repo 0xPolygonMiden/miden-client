@@ -126,7 +126,7 @@ impl Store {
     /// Retrieves an [AccountStub] object for the specified [AccountId] along with the seed
     /// used to create it.
     ///
-    /// Said accounts' state is the state at the last sync made.
+    /// Said account's state is the state according to the last sync performed.
     ///
     /// # Errors
     /// Returns an [Err] if the account was not found
