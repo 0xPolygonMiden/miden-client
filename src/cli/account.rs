@@ -269,7 +269,7 @@ pub fn show_account(
 
 fn import_account(client: &mut Client, filename: &PathBuf) -> Result<(), String> {
     info!(
-        "Attempting to import file at {}...",
+        "Attempting to import account data from {}...",
         fs::canonicalize(filename)
             .map_err(|err| err.to_string())?
             .as_path()
