@@ -7,27 +7,36 @@ use crate::{
     },
     errors::RpcApiError,
 };
-use crypto::{dsa::rpo_falcon512::KeyPair, Felt, FieldElement, StarkField, Word};
+use crypto::{
+    dsa::rpo_falcon512::KeyPair,
+    merkle::{NodeIndex, SimpleSmt},
+    Felt, FieldElement, StarkField,
+};
 use miden_lib::transaction::TransactionKernel;
 use miden_node_proto::{
     account::AccountId as ProtoAccountId,
     block_header::BlockHeader as NodeBlockHeader,
     merkle::MerklePath,
-    mmr::MmrDelta,
     note::NoteSyncRecord,
     requests::{GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest, SyncStateRequest},
     responses::{NullifierUpdate, SubmitProvenTransactionResponse, SyncStateResponse},
 };
 use mock::{
     constants::{generate_account_seed, AccountSeedType},
-    mock::account::mock_account,
+    mock::{account::mock_account, block::mock_block_header},
 };
 
 use mock::mock::{
     block,
     notes::{mock_notes, AssetPreservationStatus},
 };
-use objects::{transaction::InputNotes, utils::collections::BTreeMap, BlockHeader, Digest};
+use objects::{
+    crypto::merkle::{Mmr, MmrDelta},
+    notes::{Note, NoteInclusionProof},
+    transaction::InputNote,
+    utils::collections::BTreeMap,
+    BlockHeader, NOTE_TREE_DEPTH,
+};
 use tonic::{IntoRequest, Response, Status};
 
 use crate::store::accounts::AuthInfo;
@@ -110,11 +119,16 @@ impl MockRpcApi {
 }
 
 /// Generates mock sync state requests and responses
-fn create_mock_state_sync_request_for_account_and_notes(
+fn create_mock_two_step_sync_state_request(
     requests: &mut BTreeMap<SyncStateRequest, SyncStateResponse>,
     account_id: AccountId,
-    recorded_notes: &InputNotes,
+    recorded_notes: &[InputNote],
+    mmr_delta: Option<MmrDelta>,
+    last_block_header: Option<BlockHeader>,
 ) {
+    // Clear existing mocked data
+    requests.clear();
+
     let accounts = vec![ProtoAccountId {
         id: u64::from(account_id),
     }];
@@ -128,7 +142,9 @@ fn create_mock_state_sync_request_for_account_and_notes(
     let account = mock_account(None, Felt::ONE, None, &assembler);
     let (_consumed, created_notes) = mock_notes(&assembler, &AssetPreservationStatus::Preserved);
 
-    // create a state sync request
+    // create a state sync request / response pair for the scenario where there is an needed update
+    // 2 blocks before the current chain tip
+
     let request = SyncStateRequest {
         block_num: 0,
         account_ids: accounts.clone(),
@@ -136,21 +152,19 @@ fn create_mock_state_sync_request_for_account_and_notes(
         nullifiers: nullifiers.clone(),
     };
 
-    let chain_tip = 10;
+    let block_header: objects::BlockHeader =
+        last_block_header.unwrap_or(block::mock_block_header(10, None, None, &[]));
+    let chain_tip = block_header.block_num();
 
     // create a block header for the response
-    let block_header: objects::BlockHeader = block::mock_block_header(8, None, None, &[]);
+    let prior_block_header: objects::BlockHeader =
+        block::mock_block_header(chain_tip - 2, None, None, &[]);
 
     // create a state sync response
     let response = SyncStateResponse {
         chain_tip,
-        mmr_delta: Some(MmrDelta {
-            forest: 8,
-            data: (0..3)
-                .map(|_| Digest::new(Word::default()).into())
-                .collect(),
-        }),
-        block_header: Some(NodeBlockHeader::from(block_header)),
+        mmr_delta: None,
+        block_header: Some(NodeBlockHeader::from(prior_block_header)),
         accounts: vec![],
         notes: vec![NoteSyncRecord {
             note_index: 0,
@@ -160,7 +174,15 @@ fn create_mock_state_sync_request_for_account_and_notes(
             merkle_path: Some(MerklePath::default()),
         }],
         nullifiers: vec![NullifierUpdate {
-            nullifier: Some(recorded_notes.get_note(0).note().nullifier().inner().into()),
+            nullifier: Some(
+                recorded_notes
+                    .first()
+                    .unwrap()
+                    .note()
+                    .nullifier()
+                    .inner()
+                    .into(),
+            ),
             block_num: 7,
         }],
     };
@@ -171,22 +193,20 @@ fn create_mock_state_sync_request_for_account_and_notes(
 
     // create a state sync request
     let request = SyncStateRequest {
-        block_num: 8,
+        block_num: prior_block_header.block_num(),
         account_ids: accounts,
         note_tags: vec![],
         nullifiers,
     };
 
     // create a block header for the response
-    let block_header: objects::BlockHeader = block::mock_block_header(10, None, None, &[]);
+    let block_header: objects::BlockHeader =
+        last_block_header.unwrap_or(block::mock_block_header(chain_tip, None, None, &[]));
 
     // create a state sync response
     let response = SyncStateResponse {
         chain_tip,
-        mmr_delta: Some(MmrDelta {
-            forest: 10,
-            data: vec![Digest::new(Word::default()).into()],
-        }),
+        mmr_delta: mmr_delta.map(|inner_delta| inner_delta.into()),
         block_header: Some(NodeBlockHeader::from(block_header)),
         accounts: vec![],
         notes: vec![NoteSyncRecord {
@@ -197,7 +217,15 @@ fn create_mock_state_sync_request_for_account_and_notes(
             merkle_path: Some(MerklePath::default()),
         }],
         nullifiers: vec![NullifierUpdate {
-            nullifier: Some(recorded_notes.get_note(0).note().nullifier().inner().into()),
+            nullifier: Some(
+                recorded_notes
+                    .first()
+                    .unwrap()
+                    .note()
+                    .nullifier()
+                    .inner()
+                    .into(),
+            ),
             block_num: 7,
         }],
     };
@@ -218,21 +246,80 @@ fn generate_state_sync_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
     // create sync state requests
     let mut requests = BTreeMap::new();
 
-    create_mock_state_sync_request_for_account_and_notes(
+    create_mock_two_step_sync_state_request(
         &mut requests,
         transaction_inputs.account().id(),
-        transaction_inputs.input_notes(),
+        &transaction_inputs.input_notes().clone().into_vec(),
+        None,
+        None,
     );
 
     requests
 }
 
-/// inserts mock note and account data into the client
-pub async fn insert_mock_data(client: &mut Client) {
+fn mock_full_chain_mmr_and_notes(consumed_notes: Vec<Note>) -> (Mmr, Vec<InputNote>, BlockHeader) {
+    let mut note_trees = Vec::new();
+
+    // TODO: Consider how to better represent note authentication data.
+    // we use the index for both the block number and the leaf index in the note tree
+    for (index, note) in consumed_notes.iter().enumerate() {
+        let tree_index = 2 * index;
+        let smt_entries = vec![
+            (tree_index as u64, note.id().into()),
+            ((tree_index + 1) as u64, note.metadata().into()),
+        ];
+        let smt: SimpleSmt<NOTE_TREE_DEPTH> = SimpleSmt::with_leaves(smt_entries).unwrap();
+        note_trees.push(smt);
+    }
+
+    let mut note_tree_iter = note_trees.iter();
+
+    // create a dummy chain of block headers
+    let block_chain = vec![
+        mock_block_header(0, None, note_tree_iter.next().map(|x| x.root()), &[]),
+        mock_block_header(1, None, note_tree_iter.next().map(|x| x.root()), &[]),
+        mock_block_header(2, None, note_tree_iter.next().map(|x| x.root()), &[]),
+        mock_block_header(3, None, note_tree_iter.next().map(|x| x.root()), &[]),
+        mock_block_header(4, None, note_tree_iter.next().map(|x| x.root()), &[]),
+    ];
+
+    // instantiate and populate MMR
+    let mut mmr = Mmr::default();
+    for block_header in block_chain.iter() {
+        mmr.add(block_header.hash())
+    }
+
+    // set origin for consumed notes using chain and block data
+    let recorded_notes = consumed_notes
+        .into_iter()
+        .enumerate()
+        .map(|(index, note)| {
+            let block_header = &block_chain[index];
+            let auth_index = NodeIndex::new(NOTE_TREE_DEPTH, index as u64).unwrap();
+            InputNote::new(
+                note,
+                NoteInclusionProof::new(
+                    block_header.block_num(),
+                    block_header.sub_hash(),
+                    block_header.note_root(),
+                    index as u64,
+                    note_trees[index].open(&auth_index.try_into().unwrap()).path,
+                )
+                .unwrap(),
+            )
+        })
+        .collect::<Vec<_>>();
+
+    (mmr, recorded_notes, block_chain[block_chain.len() - 1])
+}
+
+/// inserts mock note and account data into the client and returns the last block header of mocked
+/// chain
+pub async fn insert_mock_data(client: &mut Client) -> BlockHeader {
     use mock::mock::{account::MockAccountType, transaction::mock_inputs};
 
     // generate test data
-    let transaction_inputs = mock_inputs(
+    let _transaction_inputs = mock_inputs(
         MockAccountType::StandardExisting,
         AssetPreservationStatus::Preserved,
     );
@@ -241,10 +328,11 @@ pub async fn insert_mock_data(client: &mut Client) {
     let (account_id, account_seed) =
         generate_account_seed(AccountSeedType::RegularAccountUpdatableCodeOnChain);
     let account = mock_account(Some(account_id.into()), Felt::ONE, None, &assembler);
-    let (_consumed, created_notes) = mock_notes(&assembler, &AssetPreservationStatus::Preserved);
+    let (input_notes, created_notes) = mock_notes(&assembler, &AssetPreservationStatus::Preserved);
+    let (mmr, recorded_notes, last_block_header) = mock_full_chain_mmr_and_notes(input_notes);
 
     // insert notes into database
-    for note in transaction_inputs.input_notes().clone().into_iter() {
+    for note in recorded_notes.clone() {
         client.import_input_note(note.into()).unwrap();
     }
 
@@ -261,12 +349,18 @@ pub async fn insert_mock_data(client: &mut Client) {
         .insert_account(&account, account_seed, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
-    // insert some sync request
-    create_mock_state_sync_request_for_account_and_notes(
+    // Create the Mmr delta update
+    let mmr_delta = mmr.get_delta(0, mmr.forest());
+
+    create_mock_two_step_sync_state_request(
         &mut client.rpc_api.state_sync_requests,
-        account_id,
-        transaction_inputs.input_notes(),
+        account.id(),
+        &recorded_notes,
+        mmr_delta.ok(),
+        Some(last_block_header),
     );
+
+    last_block_header
 }
 
 pub async fn create_mock_transaction(client: &mut Client) {

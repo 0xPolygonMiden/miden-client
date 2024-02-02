@@ -313,6 +313,50 @@ async fn test_sync_state() {
 }
 
 #[tokio::test]
+async fn test_sync_state_mmr_state() {
+    // generate test client with a random store name
+    let mut client = create_test_client();
+
+    // generate test data
+    let last_block_header = crate::mock::insert_mock_data(&mut client).await;
+
+    // sync state
+    let block_num: u32 = client.sync_state().await.unwrap();
+
+    // verify that the client is synced to the latest block
+    assert_eq!(
+        block_num,
+        client
+            .rpc_api
+            .state_sync_requests
+            .first_key_value()
+            .unwrap()
+            .1
+            .chain_tip
+    );
+
+    // verify that the latest block number has been updated
+    assert_eq!(
+        client.get_sync_height().unwrap(),
+        client
+            .rpc_api
+            .state_sync_requests
+            .first_key_value()
+            .unwrap()
+            .1
+            .chain_tip
+    );
+
+    // verify that we inserted the latest block into the db via the client
+    let latest_block = client.get_sync_height().unwrap();
+    assert_eq!(block_num, latest_block);
+    assert_eq!(
+        last_block_header,
+        client.get_block_headers(&[latest_block]).unwrap()[0].0
+    );
+}
+
+#[tokio::test]
 async fn test_add_tag() {
     // generate test client with a random store name
     let mut client = create_test_client();
