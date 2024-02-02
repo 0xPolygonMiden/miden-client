@@ -62,8 +62,16 @@ impl Client {
         Ok(account_and_seed)
     }
 
-    /// Saves in the store the [Account] corresponding to `account_data`. It is expected that the
-    /// provided [AccountData] has an account_seed, otherwise panics.
+    /// Saves in the store the [Account] corresponding to `account_data`.
+    ///
+    /// # Errors
+    ///
+    /// Will return an error if trying to import a new account without providing its seed
+    ///
+    /// # Panics
+    ///
+    /// Will panic when trying to import a non new account without a seed since it's not
+    /// implemented yet
     pub fn import_account(&mut self, account_data: AccountData) -> Result<(), ClientError> {
         match account_data.auth {
             AuthData::RpoFalcon512Seed(key_pair) => {
