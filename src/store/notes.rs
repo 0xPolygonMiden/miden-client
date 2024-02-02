@@ -14,10 +14,10 @@ use objects::{accounts::AccountId, notes::NoteMetadata, transaction::InputNote, 
 use rusqlite::{named_params, params, Transaction};
 
 fn insert_note_query(table_name: NoteTable) -> String {
-    dbg!(format!("\
+    format!("\
     INSERT INTO {table_name}
         (note_id, nullifier, script, assets, inputs, serial_num, inclusion_proof, recipient, status, metadata)
-     VALUES (:note_id, :nullifier, :script, :assets, :inputs, :serial_num, :inclusion_proof, :recipient, :status, json(:somedata))"))
+     VALUES (:note_id, :nullifier, :script, :assets, :inputs, :serial_num, :inclusion_proof, :recipient, :status, json(:somedata))")
 }
 
 // TYPES
@@ -240,7 +240,7 @@ impl Store {
         ) = serialize_input_note(note)?;
 
         tx.execute(
-            &dbg!(insert_note_query(NoteTable::InputNotes)),
+            &insert_note_query(NoteTable::InputNotes),
             named_params! {
                 ":note_id": note_id,
                 ":nullifier": nullifier,
@@ -277,7 +277,7 @@ impl Store {
         ) = serialize_input_note(note)?;
 
         tx.execute(
-            &dbg!(insert_note_query(NoteTable::OutputNotes)),
+            &insert_note_query(NoteTable::OutputNotes),
             named_params! {
                 ":note_id": note_id,
                 ":nullifier": nullifier,
@@ -390,8 +390,6 @@ pub(crate) fn serialize_input_note(
     let recipient = note.note().recipient().to_hex();
 
     let metadata = format!(r#"{{"sender_id": {sender_id}, "tag": {tag}}}"#);
-
-    dbg!(&metadata);
 
     Ok((
         note_id,
