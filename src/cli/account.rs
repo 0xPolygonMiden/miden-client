@@ -232,10 +232,10 @@ pub fn show_account(
         println!("Storage: \n");
 
         let mut table = create_dynamic_table(&[
-            "Item Slot Type",
             "Item Slot Index",
-            "Value/Commitment",
+            "Item Slot Type",
             "Value Arity",
+            "Value/Commitment",
         ]);
         for (idx, entry) in account_storage.layout().iter().enumerate() {
             let item = account_storage.get_item(idx as u8);
@@ -265,10 +265,10 @@ pub fn show_account(
                 StorageSlotType::Map { value_arity } => ("Map", value_arity),
             };
             table.add_row(vec![
-                slot_type,
                 &idx.to_string(),
-                &item.to_hex(),
+                slot_type,
                 &arity.to_string(),
+                &item.to_hex(),
             ]);
         }
         println!("{table}\n");
