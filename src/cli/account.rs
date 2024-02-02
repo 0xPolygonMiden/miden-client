@@ -10,7 +10,7 @@ use crypto::{
 use miden_client::client::{accounts, Client};
 
 use objects::{
-    accounts::{AccountData, AccountId, StorageSlotType},
+    accounts::{AccountData, AccountId, AccountStub, AccountType, StorageSlotType},
     assets::{Asset, TokenSymbol},
 };
 
@@ -149,18 +149,12 @@ fn list_accounts(client: Client) -> Result<(), String> {
         "Nonce",
     ]);
     accounts.iter().for_each(|(acc, _acc_seed)| {
-        let acc_type = match acc.id().account_type() {
-            objects::accounts::AccountType::FungibleFaucet => "Fungible faucet",
-            objects::accounts::AccountType::NonFungibleFaucet => "Non-fungible faucet",
-            objects::accounts::AccountType::RegularAccountImmutableCode => "Regular",
-            objects::accounts::AccountType::RegularAccountUpdatableCode => "Regular (updatable)",
-        };
         table.add_row(vec![
             acc.id().to_string(),
             acc.code_root().to_string(),
             acc.vault_root().to_string(),
             acc.storage_root().to_string(),
-            acc_type.to_string(),
+            get_account_type(acc),
             acc.nonce().as_int().to_string(),
         ]);
     });
@@ -183,6 +177,7 @@ pub fn show_account(
 
     let mut table = create_dynamic_table(&[
         "Account ID",
+        "Type",
         "Code Root",
         "Vault Root",
         "Storage Root",
@@ -191,6 +186,7 @@ pub fn show_account(
     ]);
     table.add_row(vec![
         account.id().to_string(),
+        get_account_type(&account),
         account.code_root().to_string(),
         account.vault_root().to_string(),
         account.storage_root().to_string(),
@@ -353,4 +349,14 @@ fn validate_paths(paths: &[PathBuf], expected_extension: &str) -> Result<(), Str
     } else {
         Ok(())
     }
+}
+
+fn get_account_type(account: &AccountStub) -> String {
+    match account.id().account_type() {
+        AccountType::FungibleFaucet => "Fungible faucet",
+        AccountType::NonFungibleFaucet => "Non-fungible faucet",
+        AccountType::RegularAccountImmutableCode => "Regular",
+        AccountType::RegularAccountUpdatableCode => "Regular (updatable)",
+    }
+    .to_string()
 }
