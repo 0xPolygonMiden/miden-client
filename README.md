@@ -47,7 +47,7 @@ After installing the client, you can use it by running `miden-client`. In order 
 
 ### Connecting to the network
 
-The CLI can be configured through a TOML file ([`miden.toml`](miden.toml)). This file is expected to be located in the directory from where you are running the CLI. This is useful for connecting to a specific node when developing with the client, for example. 
+The CLI can be configured through a TOML file ([`miden-client.toml`](miden-client.toml)). This file is expected to be located in the directory from where you are running the CLI. This is useful for connecting to a specific node when developing with the client, for example. 
 
 In the configuration file, you will find a section for defining the node's endpoint and the store's filename. By default, the node will run on `localhost:57291`, so the example file defines this as the RPC endpoint.
 
