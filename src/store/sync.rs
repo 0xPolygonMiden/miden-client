@@ -90,12 +90,11 @@ impl Store {
         for nullifier in nullifiers {
             const SPENT_INPUT_NOTE_QUERY: &str =
                 "UPDATE input_notes SET status = 'consumed' WHERE nullifier = ?";
-            let nullifier = nullifier.to_string();
+            let nullifier = nullifier.to_hex();
             tx.execute(SPENT_INPUT_NOTE_QUERY, params![nullifier])?;
 
             const SPENT_OUTPUT_NOTE_QUERY: &str =
                 "UPDATE output_notes SET status = 'consumed' WHERE nullifier = ?";
-            let nullifier = nullifier.to_string();
             tx.execute(SPENT_OUTPUT_NOTE_QUERY, params![nullifier])?;
         }
 
@@ -115,7 +114,7 @@ impl Store {
             let inclusion_proof = Some(inclusion_proof.to_bytes());
             tx.execute(
                 COMMITTED_INPUT_NOTES_QUERY,
-                params![inclusion_proof, note_id.inner().to_string()],
+                params![inclusion_proof, note_id.inner().to_hex()],
             )?;
 
             // Update output notes
@@ -124,7 +123,7 @@ impl Store {
 
             tx.execute(
                 COMMITTED_OUTPUT_NOTES_QUERY,
-                params![inclusion_proof, note_id.inner().to_string()],
+                params![inclusion_proof, note_id.inner().to_hex()],
             )?;
         }
 
