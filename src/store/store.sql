@@ -76,13 +76,12 @@ CREATE TABLE input_notes (
     assets BLOB NOT NULL,                                   -- the serialized NoteAssets, including vault hash and list of assets
     inputs BLOB NOT NULL,                                   -- the serialized NoteInputs, including inputs hash and list of inputs
     serial_num BLOB NOT NULL,                               -- the note serial number.
+    sender_id UNSIGNED BIG INT NULL,                        -- the account ID of the sender. Known once the note is recorded on chain
+    tag UNSIGNED BIG INT NULL,                              -- the note tag. Known once the note is recorded on-chain
     inclusion_proof BLOB NULL,                              -- the inclusion proof of the note against a block number. Known once the note is recorded on-chain
     status TEXT CHECK( status IN (                          -- the status of the note - either pending, committed or consumed
         'pending', 'committed', 'consumed'
         )),
-    metadata JSON NULL,                                     -- JSON (known once note is recorded on-chain) containing fields:
-                                                            --    - sender_id: the account ID of the sender
-                                                            --    - tag: the note tag
     PRIMARY KEY (note_id)
 );
 
@@ -95,13 +94,12 @@ CREATE TABLE output_notes (
     assets BLOB NOT NULL,                                   -- the serialized NoteAssets, including vault hash and list of assets
     inputs BLOB NULL,                                       -- the serialized NoteInputs, including inputs hash and list of inputs. May not be known
     serial_num BLOB NULL,                                   -- the note serial number. May not be known
+    sender_id UNSIGNED BIG INT NOT NULL,                    -- the account ID of the sender
+    tag UNSIGNED BIG INT NOT NULL,                          -- the note tag
     inclusion_proof BLOB NULL,                              -- the inclusion proof of the note against a block number
     status TEXT CHECK( status IN (                          -- the status of the note - either pending, committed or consumed
         'pending', 'committed', 'consumed'
         )),
-    metadata JSON NOT NULL,                                 -- JSON containing fields:
-                                                            --    - sender_id: the account ID of the sender
-                                                            --    - tag: the note tag
     PRIMARY KEY (note_id)
 );
 

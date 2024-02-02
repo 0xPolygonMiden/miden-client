@@ -11,13 +11,13 @@ use crypto::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError
 use objects::notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteScript};
 
 use objects::{accounts::AccountId, notes::NoteMetadata, transaction::InputNote, Digest, Felt};
-use rusqlite::{named_params, params, Transaction};
+use rusqlite::{params, Transaction};
 
 fn insert_note_query(table_name: NoteTable) -> String {
     format!("\
     INSERT INTO {table_name}
-        (note_id, nullifier, script, assets, inputs, serial_num, inclusion_proof, recipient, status, metadata)
-     VALUES (:note_id, :nullifier, :script, :assets, :inputs, :serial_num, :inclusion_proof, :recipient, :status, json(:somedata))")
+        (note_id, nullifier, script, assets, inputs, serial_num, sender_id, tag, inclusion_proof, recipient, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 }
 
 // TYPES
@@ -30,8 +30,9 @@ type SerializedInputNoteData = (
     Vec<u8>,
     Vec<u8>,
     String,
+    i64,
+    i64,
     Option<Vec<u8>>,
-    String,
     String,
     String,
 );
@@ -67,7 +68,7 @@ pub enum NoteFilter {
 
 impl NoteFilter {
     fn to_query(&self, notes_table: NoteTable) -> String {
-        let base = format!("SELECT script, inputs, assets, serial_num, json_extract(metadata, '$.sender_id'), json_extract(metadata, '$.tag'), inclusion_proof FROM {notes_table}");
+        let base = format!("SELECT script, inputs, assets, serial_num, sender_id, tag, inclusion_proof FROM {notes_table}");
         match self {
             NoteFilter::All => base,
             NoteFilter::Committed => format!("{base} WHERE status = 'committed'"),
@@ -185,8 +186,8 @@ impl Store {
 
     /// Retrieves the input note with the specified id from the database
     pub fn get_input_note_by_id(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError> {
-        let query_id = &note_id.inner().to_hex();
-        const QUERY: &str = "SELECT script, inputs, assets, serial_num, json_extract(metadata, '$.sender_id'), json_extract(metadata, '$.tag'), inclusion_proof FROM input_notes WHERE note_id = ?";
+        let query_id = &note_id.inner().to_string();
+        const QUERY: &str = "SELECT script, inputs, assets, serial_num, sender_id, tag, inclusion_proof FROM input_notes WHERE note_id = ?";
 
         self.db
             .prepare(QUERY)?
@@ -233,26 +234,28 @@ impl Store {
             vault,
             inputs,
             serial_num,
+            sender_id,
+            tag,
             inclusion_proof,
             recipient,
             status,
-            metadata,
         ) = serialize_input_note(note)?;
 
         tx.execute(
             &insert_note_query(NoteTable::InputNotes),
-            named_params! {
-                ":note_id": note_id,
-                ":nullifier": nullifier,
-                ":script": script,
-                ":assets": vault,
-                ":inputs": inputs,
-                ":serial_num": serial_num,
-                ":inclusion_proof": inclusion_proof,
-                ":recipient": recipient,
-                ":status": status,
-                ":somedata": metadata,
-            },
+            params![
+                note_id,
+                nullifier,
+                script,
+                vault,
+                inputs,
+                serial_num,
+                sender_id,
+                tag,
+                inclusion_proof,
+                recipient,
+                status,
+            ],
         )
         .map_err(|err| StoreError::QueryError(err.to_string()))
         .map(|_| ())
@@ -270,26 +273,28 @@ impl Store {
             vault,
             inputs,
             serial_num,
+            sender_id,
+            tag,
             inclusion_proof,
             recipient,
             status,
-            metadata,
         ) = serialize_input_note(note)?;
 
         tx.execute(
             &insert_note_query(NoteTable::OutputNotes),
-            named_params! {
-                ":note_id": note_id,
-                ":nullifier": nullifier,
-                ":script": script,
-                ":assets": vault,
-                ":inputs": inputs,
-                ":serial_num": serial_num,
-                ":inclusion_proof": inclusion_proof,
-                ":recipient": recipient,
-                ":status": status,
-                ":somedata": metadata,
-            },
+            params![
+                note_id,
+                nullifier,
+                script,
+                vault,
+                inputs,
+                serial_num,
+                sender_id,
+                tag,
+                inclusion_proof,
+                recipient,
+                status,
+            ],
         )
         .map_err(|err| StoreError::QueryError(err.to_string()))
         .map(|_| ())
@@ -389,8 +394,6 @@ pub(crate) fn serialize_input_note(
     };
     let recipient = note.note().recipient().to_hex();
 
-    let metadata = format!(r#"{{"sender_id": {sender_id}, "tag": {tag}}}"#);
-
     Ok((
         note_id,
         nullifier,
@@ -398,9 +401,10 @@ pub(crate) fn serialize_input_note(
         note_assets,
         inputs,
         serial_num,
+        sender_id,
+        tag,
         inclusion_proof,
         recipient,
         status,
-        metadata,
     ))
 }
