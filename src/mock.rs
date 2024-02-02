@@ -151,6 +151,7 @@ fn create_mock_sync_state_request_for_account_and_notes(
         .map(|header| header.block_num())
         .unwrap_or(10);
     let mut deltas_iter = mmr_delta.unwrap_or_default().into_iter();
+    let mut created_notes_iter = created_notes.iter();
 
     for (block_order, block_header) in tracked_block_headers.iter().enumerate() {
         let request = SyncStateRequest {
@@ -174,7 +175,7 @@ fn create_mock_sync_state_request_for_account_and_notes(
             accounts: vec![],
             notes: vec![NoteSyncRecord {
                 note_index: 0,
-                note_hash: Some(created_notes.first().unwrap().id().into()),
+                note_hash: Some(created_notes_iter.next().unwrap().id().into()),
                 sender: account.id().into(),
                 tag: 0u64,
                 merkle_path: Some(miden_node_proto::merkle::MerklePath::default()),
@@ -253,6 +254,8 @@ fn mock_full_chain_mmr_and_notes(
         mock_block_header(2, None, note_tree_iter.next().map(|x| x.root()), &[]),
         mock_block_header(3, None, note_tree_iter.next().map(|x| x.root()), &[]),
         mock_block_header(4, None, note_tree_iter.next().map(|x| x.root()), &[]),
+        mock_block_header(5, None, note_tree_iter.next().map(|x| x.root()), &[]),
+        mock_block_header(6, None, note_tree_iter.next().map(|x| x.root()), &[]),
     ];
 
     // instantiate and populate MMR
@@ -263,6 +266,9 @@ fn mock_full_chain_mmr_and_notes(
         }
         if block_num == 4 {
             mmr_deltas.push(mmr.get_delta(3, mmr.forest()).unwrap());
+        }
+        if block_num == 6 {
+            mmr_deltas.push(mmr.get_delta(5, mmr.forest()).unwrap());
         }
         mmr.add(block_header.hash());
     }
@@ -291,7 +297,7 @@ fn mock_full_chain_mmr_and_notes(
     (
         mmr,
         recorded_notes,
-        vec![block_chain[2], block_chain[4]],
+        vec![block_chain[2], block_chain[4], block_chain[6]],
         mmr_deltas,
     )
 }
