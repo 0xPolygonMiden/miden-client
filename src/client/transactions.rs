@@ -38,11 +38,8 @@ const AUTH_SEND_ASSET_SCRIPT: &str = include_str!("asm/transaction_scripts/auth_
 
 #[derive(Clone)]
 pub enum TransactionTemplate {
-    /// Consume outstanding note for an account.
-    ConsumeNote(AccountId, NoteId),
-    /// Consume all outstanding note for an account.
-    ConsumeAllNotes(AccountId),
-    // NOTE: Maybe this should be called "distribute"?
+    /// Consume outstanding notes for an account.
+    ConsumeNotes(AccountId, Vec<NoteId>),
     /// Mint fungible assets using a faucet account
     MintFungibleAsset {
         asset: FungibleAsset,
@@ -58,8 +55,7 @@ impl TransactionTemplate {
     /// Returns the executor [AccountId]
     pub fn account_id(&self) -> AccountId {
         match self {
-            TransactionTemplate::ConsumeNote(account_id, _) => *account_id,
-            TransactionTemplate::ConsumeAllNotes(account_id) => *account_id,
+            TransactionTemplate::ConsumeNotes(account_id, _) => *account_id,
             TransactionTemplate::MintFungibleAsset {
                 asset,
                 target_account_id: _target_account_id,
@@ -212,16 +208,13 @@ impl Client {
                 target_account_id,
             }) => self.new_p2id_transaction(fungible_asset, sender_account_id, target_account_id),
             TransactionTemplate::PayToIdWithRecall(_payment_data, _recall_height) => todo!(),
-            TransactionTemplate::ConsumeNote(account_id, note_id) => {
-                self.new_consume_notes_transaction(account_id, Some(note_id))
+            TransactionTemplate::ConsumeNotes(account_id, list_of_notes) => {
+                self.new_consume_notes_transaction(account_id, &list_of_notes)
             }
             TransactionTemplate::MintFungibleAsset {
                 asset,
                 target_account_id,
             } => self.new_mint_fungible_asset_transaction(asset, target_account_id),
-            TransactionTemplate::ConsumeAllNotes(account_id) => {
-                self.new_consume_notes_transaction(account_id, None)
-            }
         }
     }
 
@@ -232,7 +225,7 @@ impl Client {
     fn new_consume_notes_transaction(
         &mut self,
         account_id: AccountId,
-        note_id: Option<NoteId>,
+        _note_id: &[NoteId],
     ) -> Result<TransactionResult, ClientError> {
         self.tx_executor
             .load_account(account_id)
@@ -241,15 +234,12 @@ impl Client {
         let tx_script_code =
             ProgramAst::parse(AUTH_CONSUME_NOTES_SCRIPT).expect("shipped MASM is well-formed");
 
-        let input_notes = if let Some(note_id) = note_id {
-            vec![note_id]
-        } else {
-            self.store
-                .get_input_notes(InputNoteFilter::Committed)?
-                .iter()
-                .map(|n| n.note_id())
-                .collect()
-        };
+        let input_notes: Vec<NoteId> = self
+            .store
+            .get_input_notes(InputNoteFilter::Committed)?
+            .iter()
+            .map(|n| n.note_id())
+            .collect();
 
         let block_num = self.store.get_sync_height()?;
 

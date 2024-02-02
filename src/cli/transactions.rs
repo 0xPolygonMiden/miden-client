@@ -29,8 +29,9 @@ pub enum TransactionType {
         account_id: String,
         note_id: String,
     },
-    ConsumeAllNotes {
+    ConsumeNoteList {
         account_id: String,
+        list_of_notes: Vec<String>,
     },
 }
 
@@ -87,11 +88,20 @@ impl TryInto<TransactionTemplate> for &TransactionType {
                 let account_id = AccountId::from_hex(account_id).map_err(|err| err.to_string())?;
                 let note_id = NoteId::try_from_hex(note_id).map_err(|err| err.to_string())?;
 
-                Ok(TransactionTemplate::ConsumeNote(account_id, note_id))
+                Ok(TransactionTemplate::ConsumeNotes(account_id, vec![note_id]))
             }
-            TransactionType::ConsumeAllNotes { account_id } => {
+            TransactionType::ConsumeNoteList {
+                account_id,
+                list_of_notes,
+            } => {
+                let list_of_notes = list_of_notes
+                    .iter()
+                    .map(|n| NoteId::try_from_hex(n).map_err(|err| err.to_string()))
+                    .collect::<Result<Vec<NoteId>, _>>()?;
+
                 let account_id = AccountId::from_hex(account_id).map_err(|err| err.to_string())?;
-                Ok(TransactionTemplate::ConsumeAllNotes(account_id))
+
+                Ok(TransactionTemplate::ConsumeNotes(account_id, list_of_notes))
             }
         }
     }
