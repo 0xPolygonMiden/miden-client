@@ -318,7 +318,7 @@ async fn test_sync_state_mmr_state() {
     let mut client = create_test_client();
 
     // generate test data
-    let last_block_header = crate::mock::insert_mock_data(&mut client).await;
+    let tracked_block_headers = crate::mock::insert_mock_data(&mut client).await;
 
     // sync state
     let block_num: u32 = client.sync_state().await.unwrap();
@@ -351,9 +351,18 @@ async fn test_sync_state_mmr_state() {
     let latest_block = client.get_sync_height().unwrap();
     assert_eq!(block_num, latest_block);
     assert_eq!(
-        last_block_header,
+        tracked_block_headers[tracked_block_headers.len() - 1],
         client.get_block_headers(&[latest_block]).unwrap()[0].0
     );
+
+    // Try reconstructing the chain_mmr from what's in the database
+    let partial_mmr = client.build_current_partial_mmr().unwrap();
+
+    // Since Mocked data contains two sync updates we should be "tracking" those blocks
+    assert!(partial_mmr.open(0).unwrap().is_none());
+    assert!(partial_mmr.open(1).unwrap().is_none());
+    assert!(partial_mmr.open(2).unwrap().is_some());
+    assert!(partial_mmr.open(3).unwrap().is_none());
 }
 
 #[tokio::test]

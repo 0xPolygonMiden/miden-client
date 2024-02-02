@@ -142,7 +142,7 @@ pub fn get_authentication_path_for_blocks(
     let node_indices: Vec<InOrderIndex> = node_indices.into_iter().collect();
 
     let filter = ChainMmrNodeFilter::List(&node_indices);
-    let mmr_nodes = store.get_chain_mmr_nodes(filter)?;
+    let mmr_nodes = dbg!(store.get_chain_mmr_nodes(filter)?);
 
     // Construct authentication paths
     let mut authentication_paths = vec![];

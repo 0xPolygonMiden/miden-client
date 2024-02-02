@@ -140,7 +140,7 @@ impl Client {
         }
 
         let committed_notes =
-            self.build_inclusion_proofs(response.note_inclusions, &response.block_header)?;
+            dbg!(self.build_inclusion_proofs(response.note_inclusions, &response.block_header)?);
 
         // Check if the returned account hashes match latest account hashes in the database
         check_account_hashes(&response.account_hash_updates, &accounts)?;
@@ -198,6 +198,12 @@ impl Client {
             .map(|n| n.note().id())
             .collect();
 
+        dbg!(&pending_notes);
+        dbg!(&committed_notes
+            .iter()
+            .map(|note| note.note_id())
+            .collect::<Vec<&NoteId>>());
+
         committed_notes
             .iter()
             .filter_map(|commited_note| {
@@ -236,7 +242,7 @@ impl Client {
     ///
     /// As part of the syncing process, we add the current block number so we don't need to
     /// track it here.
-    fn build_current_partial_mmr(&self) -> Result<PartialMmr, ClientError> {
+    pub(crate) fn build_current_partial_mmr(&self) -> Result<PartialMmr, ClientError> {
         let current_block_num = self.store.get_sync_height()?;
 
         let tracked_nodes = self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All)?;
