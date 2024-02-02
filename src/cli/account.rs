@@ -18,7 +18,7 @@ use objects::{
 // ================================================================================================
 
 #[derive(Debug, Clone, Parser)]
-#[clap(about = "View accounts and account details")]
+#[clap(about = "Create accounts and inspect account details")]
 pub enum AccountCmd {
     /// List all accounts monitored by this client
     #[clap(short_flag = 'l')]

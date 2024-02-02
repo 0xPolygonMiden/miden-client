@@ -98,7 +98,7 @@ impl TryInto<TransactionTemplate> for &TransactionType {
 }
 
 #[derive(Debug, Parser, Clone)]
-#[clap(about = "View transactions")]
+#[clap(about = "Execute and view transactions")]
 pub enum Transaction {
     /// List transactions
     #[clap(short_flag = 'l')]

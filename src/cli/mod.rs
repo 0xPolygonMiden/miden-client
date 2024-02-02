@@ -43,7 +43,8 @@ pub enum Command {
     Info,
     #[clap(subcommand)]
     Tags(tags::TagsCmd),
-    #[clap(subcommand)]
+    #[clap(subcommand, name = "tx")]
+    #[clap(visible_alias = "transaction")]
     Transaction(transactions::Transaction),
     #[cfg(feature = "mock")]
     /// Insert mock data into the client. This is optional because it takes a few seconds
