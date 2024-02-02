@@ -75,12 +75,16 @@ impl Client {
                         seed,
                         &AuthInfo::RpoFalcon512(keypair),
                     ),
-                    Some(_) => {
+                    Some(seed) => {
                         tracing::warn!(
                             "Imported an existing account and still provided a seed when it is not needed. It's possible that the account's file was incorrectly generated."
                         );
 
-                        unimplemented!();
+                        self.insert_account(
+                            &account_data.account,
+                            seed,
+                            &AuthInfo::RpoFalcon512(keypair),
+                        )
                     }
                     None if !is_new_account => {
                         unimplemented!();
