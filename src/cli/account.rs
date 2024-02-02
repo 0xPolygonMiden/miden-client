@@ -1,5 +1,3 @@
-use std::{fs, path::PathBuf};
-
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use crypto::{
@@ -13,6 +11,8 @@ use objects::{
     accounts::{AccountData, AccountId},
     assets::TokenSymbol,
 };
+use std::{fs, path::PathBuf};
+use tracing::info;
 
 // ACCOUNT COMMAND
 // ================================================================================================
@@ -268,6 +268,10 @@ pub fn show_account(
 // ================================================================================================
 
 fn import_account(client: &mut Client, filename: &PathBuf) -> Result<(), String> {
+    info!(
+        "Attempting to import file at {}...",
+        filename.as_path().display()
+    );
     let account_data_file_contents = fs::read(filename).map_err(|err| err.to_string())?;
     let account_data =
         AccountData::read_from_bytes(&account_data_file_contents).map_err(|err| err.to_string())?;
