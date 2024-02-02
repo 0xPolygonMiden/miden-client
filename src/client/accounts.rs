@@ -97,9 +97,7 @@ impl Client {
                     None if !is_new_account => {
                         unimplemented!();
                     }
-                    None => Err(ClientError::ImportAccountError(
-                        "tried to import a new account without its seed".to_string(),
-                    )),
+                    None => Err(ClientError::ImportNewAccountWithoutSeed),
                 }
             }
         }
