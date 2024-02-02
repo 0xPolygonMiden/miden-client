@@ -270,7 +270,10 @@ pub fn show_account(
 fn import_account(client: &mut Client, filename: &PathBuf) -> Result<(), String> {
     info!(
         "Attempting to import file at {}...",
-        filename.as_path().display()
+        fs::canonicalize(filename)
+            .map_err(|err| err.to_string())?
+            .as_path()
+            .display()
     );
     let account_data_file_contents = fs::read(filename).map_err(|err| err.to_string())?;
     let account_data =
