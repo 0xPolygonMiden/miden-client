@@ -140,7 +140,7 @@ impl Client {
         }
 
         let committed_notes =
-            dbg!(self.build_inclusion_proofs(response.note_inclusions, &response.block_header)?);
+            self.build_inclusion_proofs(response.note_inclusions, &response.block_header)?;
 
         // Check if the returned account hashes match latest account hashes in the database
         check_account_hashes(&response.account_hash_updates, &accounts)?;
@@ -197,12 +197,6 @@ impl Client {
             .iter()
             .map(|n| n.note().id())
             .collect();
-
-        dbg!(&pending_notes);
-        dbg!(&committed_notes
-            .iter()
-            .map(|note| note.note_id())
-            .collect::<Vec<&NoteId>>());
 
         committed_notes
             .iter()
