@@ -121,7 +121,8 @@ impl MockRpcApi {
 fn create_mock_sync_state_request_for_account_and_notes(
     requests: &mut BTreeMap<SyncStateRequest, SyncStateResponse>,
     account_id: AccountId,
-    recorded_notes: &[InputNote],
+    created_notes: &[Note],
+    consumed_notes: &[InputNote],
     mmr_delta: Option<Vec<MmrDelta>>,
     tracked_block_headers: Option<Vec<BlockHeader>>,
 ) {
@@ -132,14 +133,13 @@ fn create_mock_sync_state_request_for_account_and_notes(
         id: u64::from(account_id),
     }];
 
-    let nullifiers: Vec<u32> = recorded_notes
+    let nullifiers: Vec<u32> = consumed_notes
         .iter()
         .map(|note| (note.note().nullifier().as_elements()[3].as_int() >> FILTER_ID_SHIFT) as u32)
         .collect();
 
     let assembler = TransactionKernel::assembler();
     let account = mock_account(None, Felt::ONE, None, &assembler);
-    let (_consumed, created_notes) = mock_notes(&assembler, &AssetPreservationStatus::Preserved);
 
     let tracked_block_headers = tracked_block_headers.unwrap_or(vec![
         block::mock_block_header(8, None, None, &[]),
@@ -181,7 +181,7 @@ fn create_mock_sync_state_request_for_account_and_notes(
             }],
             nullifiers: vec![NullifierUpdate {
                 nullifier: Some(
-                    recorded_notes
+                    consumed_notes
                         .first()
                         .unwrap()
                         .note()
@@ -212,6 +212,12 @@ fn generate_state_sync_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
     create_mock_sync_state_request_for_account_and_notes(
         &mut requests,
         transaction_inputs.account().id(),
+        &transaction_inputs
+            .input_notes()
+            .clone()
+            .into_iter()
+            .map(|input_note| input_note.note().clone())
+            .collect::<Vec<_>>(),
         &transaction_inputs.input_notes().clone().into_vec(),
         None,
         None,
@@ -300,11 +306,11 @@ pub async fn insert_mock_data(client: &mut Client) -> Vec<BlockHeader> {
     let account = mock_account(Some(u64::from(account_id)), Felt::ONE, None, &assembler);
     let (input_notes, created_notes) = mock_notes(&assembler, &AssetPreservationStatus::Preserved);
 
-    let (_mmr, recorded_notes, tracked_block_headers, mmr_deltas) =
+    let (_mmr, consumed_notes, tracked_block_headers, mmr_deltas) =
         mock_full_chain_mmr_and_notes(input_notes);
 
     // insert notes into database
-    for note in recorded_notes.clone() {
+    for note in consumed_notes.clone() {
         client.import_input_note(note.into()).unwrap();
     }
 
@@ -324,7 +330,8 @@ pub async fn insert_mock_data(client: &mut Client) -> Vec<BlockHeader> {
     create_mock_sync_state_request_for_account_and_notes(
         &mut client.rpc_api.state_sync_requests,
         account.id(),
-        &recorded_notes,
+        &created_notes,
+        &consumed_notes,
         Some(mmr_deltas),
         Some(tracked_block_headers.clone()),
     );
