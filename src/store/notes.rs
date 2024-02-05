@@ -67,6 +67,7 @@ pub enum NoteFilter {
 }
 
 impl NoteFilter {
+    /// Returns a [String] containing the query for this Filter
     fn to_query(&self, notes_table: NoteTable) -> String {
         let base = format!("SELECT script, inputs, assets, serial_num, sender_id, tag, inclusion_proof FROM {notes_table}");
         match self {

@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use clap::Parser;
+use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use figment::{
     providers::{Format, Toml},
     Figment,
@@ -15,7 +16,7 @@ mod tags;
 mod transactions;
 
 /// Config file name
-const CLIENT_CONFIG_FILE_NAME: &str = "miden.toml";
+const CLIENT_CONFIG_FILE_NAME: &str = "miden-client.toml";
 
 /// Root CLI struct
 #[derive(Parser, Debug)]
@@ -43,7 +44,8 @@ pub enum Command {
     Info,
     #[clap(subcommand)]
     Tags(tags::TagsCmd),
-    #[clap(subcommand)]
+    #[clap(subcommand, name = "tx")]
+    #[clap(visible_alias = "transaction")]
     Transaction(transactions::Transaction),
     #[cfg(feature = "mock")]
     /// Insert mock data into the client. This is optional because it takes a few seconds
@@ -61,7 +63,7 @@ impl Cli {
         current_dir.push(CLIENT_CONFIG_FILE_NAME);
 
         let client_config = load_config(current_dir.as_path())?;
-        let client = Client::new(client_config).map_err(|err| err.to_string())?;
+        let client = Client::new(client_config)?;
 
         // Execute cli command
         match &self.action {
@@ -97,4 +99,19 @@ pub fn load_config(config_file: &Path) -> Result<ClientConfig, String> {
                 config_file.display()
             )
         })
+}
+
+pub fn create_dynamic_table(headers: &[&str]) -> Table {
+    let header_cells = headers
+        .iter()
+        .map(|header| Cell::new(header).add_attribute(Attribute::Bold))
+        .collect::<Vec<_>>();
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_content_arrangement(ContentArrangement::DynamicFullWidth)
+        .set_header(header_cells);
+
+    table
 }
