@@ -105,6 +105,10 @@ impl Store {
             .collect::<Result<Vec<AccountId>, StoreError>>()
     }
 
+    /// Returns a list of [AccountStub] of all accounts stored in the database along with the seeds
+    /// used to create them.
+    ///
+    /// Said accounts' state is the state at the last sync made.
     pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Word)>, StoreError> {
         const QUERY: &str =
             "SELECT a.id, a.nonce, a.vault_root, a.storage_root, a.code_root, a.account_seed \
@@ -119,6 +123,13 @@ impl Store {
             .collect()
     }
 
+    /// Retrieves an [AccountStub] object for the specified [AccountId] along with the seed
+    /// used to create it.
+    ///
+    /// Said account's state is the state according to the last sync performed.
+    ///
+    /// # Errors
+    /// Returns an [Err] if the account was not found
     pub fn get_account_stub_by_id(
         &self,
         account_id: AccountId,
@@ -249,6 +260,7 @@ impl Store {
             .ok_or(StoreError::VaultDataNotFound(root))?
     }
 
+    /// Inserts an [Account] along with the seed used to create it and its [AuthInfo]
     pub fn insert_account(
         &mut self,
         account: &Account,
@@ -292,6 +304,7 @@ impl Store {
         Ok(())
     }
 
+    /// Inserts an [AccountCode]
     fn insert_account_code(
         tx: &Transaction<'_>,
         account_code: &AccountCode,
@@ -303,7 +316,8 @@ impl Store {
         Ok(())
     }
 
-    pub(crate) fn insert_account_storage(
+    /// Inserts an [AccountStorage]
+    pub(super) fn insert_account_storage(
         tx: &Transaction<'_>,
         account_storage: &AccountStorage,
     ) -> Result<(), StoreError> {
@@ -313,7 +327,8 @@ impl Store {
         Ok(())
     }
 
-    pub(crate) fn insert_account_asset_vault(
+    /// Inserts an [AssetVault]
+    pub(super) fn insert_account_asset_vault(
         tx: &Transaction<'_>,
         asset_vault: &AssetVault,
     ) -> Result<(), StoreError> {
@@ -323,7 +338,8 @@ impl Store {
         Ok(())
     }
 
-    pub fn insert_account_auth(
+    /// Inserts an [AuthInfo] for the account with id `account_id`
+    pub(super) fn insert_account_auth(
         tx: &Transaction<'_>,
         account_id: AccountId,
         auth_info: &AuthInfo,

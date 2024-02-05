@@ -120,16 +120,14 @@ impl Transaction {
             Transaction::New { transaction_type } => {
                 let transaction_template: TransactionTemplate = transaction_type.try_into()?;
 
-                let transaction_execution_result = client
-                    .new_transaction(transaction_template.clone())
-                    .map_err(|err| err.to_string())?;
+                let transaction_execution_result =
+                    client.new_transaction(transaction_template.clone())?;
 
                 info!("Executed transaction, proving and then submitting...");
 
                 client
                     .send_transaction(transaction_execution_result)
-                    .await
-                    .map_err(|err| err.to_string())?;
+                    .await?
             }
         }
         Ok(())
@@ -139,9 +137,7 @@ impl Transaction {
 // LIST TRANSACTIONS
 // ================================================================================================
 fn list_transactions(client: Client) -> Result<(), String> {
-    let transactions = client
-        .get_transactions(TransactionFilter::All)
-        .map_err(|err| err.to_string())?;
+    let transactions = client.get_transactions(TransactionFilter::All)?;
     print_transactions_summary(&transactions);
     Ok(())
 }

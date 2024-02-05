@@ -62,26 +62,47 @@ impl Client {
         Ok(account_and_seed)
     }
 
-    pub fn import_account(&mut self, account_data: AccountData) -> Result<(), String> {
+    /// Saves in the store the [Account] corresponding to `account_data`.
+    ///
+    /// # Errors
+    ///
+    /// Will return an error if trying to import a new account without providing its seed
+    ///
+    /// # Panics
+    ///
+    /// Will panic when trying to import a non new account without a seed since it's not
+    /// implemented yet
+    pub fn import_account(&mut self, account_data: AccountData) -> Result<(), ClientError> {
         match account_data.auth {
             AuthData::RpoFalcon512Seed(key_pair) => {
-                let keypair = KeyPair::from_seed(&key_pair).map_err(|err| err.to_string())?;
-                // TODO: Handle account data without seed so we can export existing accounts into
-                // other clients where we have no seed (account nonce > 0)
-                let seed = account_data
-                    .account_seed
-                    .ok_or("Account seed was expected")?;
+                let keypair = KeyPair::from_seed(&key_pair)?;
+                match (account_data.account.is_new(), account_data.account_seed) {
+                    (true, Some(seed)) => self.insert_account(
+                        &account_data.account,
+                        seed,
+                        &AuthInfo::RpoFalcon512(keypair),
+                    ),
+                    (false, Some(seed)) => {
+                        tracing::warn!(
+                            "Imported an existing account and still provided a seed when it is not needed. It's possible that the account's file was incorrectly generated."
+                        );
 
-                self.insert_account(
-                    &account_data.account,
-                    seed,
-                    &AuthInfo::RpoFalcon512(keypair),
-                )
-                .map_err(|err| err.to_string())
+                        self.insert_account(
+                            &account_data.account,
+                            seed,
+                            &AuthInfo::RpoFalcon512(keypair),
+                        )
+                    }
+                    (false, None) => {
+                        unimplemented!();
+                    }
+                    (true, None) => Err(ClientError::ImportNewAccountWithoutSeed),
+                }
             }
         }
     }
 
+    /// Creates a new regular account and saves it in the store along with its seed and auth data
     fn new_basic_wallet(
         &mut self,
         mutable_code: bool,

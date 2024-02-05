@@ -19,6 +19,7 @@ use tonic::{transport::Error as TransportError, Status as TonicStatus};
 pub enum ClientError {
     AccountError(AccountError),
     AuthError(FalconError),
+    ImportNewAccountWithoutSeed,
     NoteError(NoteError),
     NoConsumableNoteForAccount(AccountId),
     RpcApiError(RpcApiError),
@@ -32,6 +33,10 @@ impl fmt::Display for ClientError {
         match self {
             ClientError::AccountError(err) => write!(f, "account error: {err}"),
             ClientError::AuthError(err) => write!(f, "account auth error: {err}"),
+            ClientError::ImportNewAccountWithoutSeed => write!(
+                f,
+                "import account error: can't import a new account without its initial seed"
+            ),
             ClientError::NoConsumableNoteForAccount(account_id) => {
                 write!(f, "No consumable note for account ID {}", account_id)
             }
@@ -96,6 +101,12 @@ impl From<TransactionProverError> for ClientError {
 impl From<rusqlite::Error> for ClientError {
     fn from(err: rusqlite::Error) -> Self {
         Self::StoreError(StoreError::from(err))
+    }
+}
+
+impl From<ClientError> for String {
+    fn from(err: ClientError) -> String {
+        err.to_string()
     }
 }
 
