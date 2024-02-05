@@ -92,9 +92,7 @@ impl InputNotes {
 // LIST INPUT NOTES
 // ================================================================================================
 fn list_input_notes(client: Client) -> Result<(), String> {
-    let notes = client
-        .get_input_notes(InputNoteFilter::All)
-        .map_err(|err| err.to_string())?;
+    let notes = client.get_input_notes(InputNoteFilter::All)?;
     print_notes_summary(&notes);
     Ok(())
 }
@@ -109,9 +107,7 @@ pub fn export_note(
     let note_id = Digest::try_from(note_id)
         .map_err(|err| format!("Failed to parse input note id: {}", err))?
         .into();
-    let note = client
-        .get_input_note(note_id)
-        .map_err(|err| err.to_string())?;
+    let note = client.get_input_note(note_id)?;
 
     let file_path = filename.unwrap_or_else(|| {
         let mut dir = PathBuf::new();
@@ -141,9 +137,7 @@ pub fn import_note(client: &mut Client, filename: PathBuf) -> Result<NoteId, Str
         InputNoteRecord::read_from_bytes(&contents).map_err(|err| err.to_string())?;
 
     let note_id = input_note_record.note().id();
-    client
-        .import_input_note(input_note_record)
-        .map_err(|err| err.to_string())?;
+    client.import_input_note(input_note_record)?;
 
     Ok(note_id)
 }
@@ -161,9 +155,7 @@ fn show_input_note(
         .map_err(|err| format!("Failed to parse input note with ID: {}", err))?
         .into();
 
-    let input_note_record = client
-        .get_input_note(note_id)
-        .map_err(|err| err.to_string())?;
+    let input_note_record = client.get_input_note(note_id)?;
 
     // print note summary
     print_notes_summary(core::iter::once(&input_note_record));

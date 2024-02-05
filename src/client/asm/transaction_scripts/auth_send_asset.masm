@@ -1,0 +1,11 @@
+use.miden::contracts::auth::basic->auth_tx
+use.miden::contracts::wallets::basic->wallet
+
+begin
+    push.{recipient}
+    push.{tag}
+    push.{asset}
+    call.wallet::send_asset drop
+    dropw dropw
+    call.auth_tx::auth_tx_rpo_falcon512
+end

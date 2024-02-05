@@ -7,7 +7,7 @@ pub mod accounts;
 pub mod chain_data;
 mod migrations;
 pub mod notes;
-pub mod state_sync;
+pub mod sync;
 pub mod transactions;
 
 #[cfg(any(test, feature = "mock"))]
@@ -66,13 +66,13 @@ pub mod tests {
         Client::new(client_config).unwrap()
     }
 
-    pub fn create_test_store_path() -> std::path::PathBuf {
+    pub(crate) fn create_test_store_path() -> std::path::PathBuf {
         let mut temp_file = temp_dir();
         temp_file.push(format!("{}.sqlite3", Uuid::new_v4()));
         temp_file
     }
 
-    pub fn create_test_store() -> Store {
+    pub(crate) fn create_test_store() -> Store {
         let temp_file = create_test_store_path();
         let mut db = Connection::open(temp_file).unwrap();
         migrations::update_to_latest(&mut db).unwrap();

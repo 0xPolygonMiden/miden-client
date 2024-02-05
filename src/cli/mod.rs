@@ -9,12 +9,14 @@ use figment::{
 use miden_client::{client::Client, config::ClientConfig};
 
 mod account;
+mod info;
 mod input_notes;
-mod sync_state;
+mod sync;
+mod tags;
 mod transactions;
 
 /// Config file name
-const CLIENT_CONFIG_FILE_NAME: &str = "miden.toml";
+const CLIENT_CONFIG_FILE_NAME: &str = "miden-client.toml";
 
 /// Root CLI struct
 #[derive(Parser, Debug)]
@@ -36,9 +38,14 @@ pub enum Command {
     Account(account::AccountCmd),
     #[clap(subcommand)]
     InputNotes(input_notes::InputNotes),
+    /// Sync this client with the latest state of the Miden network.
+    Sync,
+    /// View a summary of the current client state
+    Info,
     #[clap(subcommand)]
-    SyncState(sync_state::SyncStateCmd),
-    #[clap(subcommand)]
+    Tags(tags::TagsCmd),
+    #[clap(subcommand, name = "tx")]
+    #[clap(visible_alias = "transaction")]
     Transaction(transactions::Transaction),
     #[cfg(feature = "mock")]
     /// Insert mock data into the client. This is optional because it takes a few seconds
@@ -56,13 +63,15 @@ impl Cli {
         current_dir.push(CLIENT_CONFIG_FILE_NAME);
 
         let client_config = load_config(current_dir.as_path())?;
-        let client = Client::new(client_config).map_err(|err| err.to_string())?;
+        let client = Client::new(client_config)?;
 
         // Execute cli command
         match &self.action {
             Command::Account(account) => account.execute(client),
+            Command::Info => info::print_client_info(&client),
             Command::InputNotes(notes) => notes.execute(client),
-            Command::SyncState(tags) => tags.execute(client).await,
+            Command::Sync => sync::sync_state(client).await,
+            Command::Tags(tags) => tags.execute(client).await,
             Command::Transaction(transaction) => transaction.execute(client).await,
             #[cfg(feature = "mock")]
             Command::MockData { transaction } => {

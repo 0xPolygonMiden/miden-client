@@ -1,5 +1,3 @@
-use std::{fs, path::PathBuf};
-
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use crypto::{
@@ -13,6 +11,8 @@ use objects::{
     accounts::{AccountData, AccountId, AccountStorage, AccountStub, AccountType, StorageSlotType},
     assets::{Asset, TokenSymbol},
 };
+use std::{fs, path::PathBuf};
+use tracing::info;
 
 use crate::cli::create_dynamic_table;
 
@@ -20,7 +20,7 @@ use crate::cli::create_dynamic_table;
 // ================================================================================================
 
 #[derive(Debug, Clone, Parser)]
-#[clap(about = "View accounts and account details")]
+#[clap(about = "Create accounts and inspect account details")]
 pub enum AccountCmd {
     /// List all accounts monitored by this client
     #[clap(short_flag = 'l')]
@@ -51,7 +51,7 @@ pub enum AccountCmd {
     #[clap(short_flag = 'i')]
     Import {
         /// Paths to the files that contains the account data
-        #[clap(short, long, num_args = 1..)]
+        #[arg()]
         filenames: Vec<PathBuf>,
     },
 }
@@ -105,9 +105,7 @@ impl AccountCmd {
                     },
                     AccountTemplate::NonFungibleFaucet => todo!(),
                 };
-                let (_new_account, _account_seed) = client
-                    .new_account(client_template)
-                    .map_err(|err| err.to_string())?;
+                let (_new_account, _account_seed) = client.new_account(client_template)?;
             }
             AccountCmd::Show { id: None, .. } => {
                 todo!("Default accounts are not supported yet")
@@ -128,6 +126,7 @@ impl AccountCmd {
                 for filename in filenames {
                     import_account(&mut client, filename)?;
                 }
+                println!("Imported {} accounts.", filenames.len());
             }
         }
         Ok(())
@@ -138,7 +137,7 @@ impl AccountCmd {
 // ================================================================================================
 
 fn list_accounts(client: Client) -> Result<(), String> {
-    let accounts = client.get_accounts().map_err(|err| err.to_string())?;
+    let accounts = client.get_accounts()?;
 
     let mut table = create_dynamic_table(&[
         "Account ID",
@@ -171,9 +170,7 @@ pub fn show_account(
     show_storage: bool,
     show_code: bool,
 ) -> Result<(), String> {
-    let (account, _account_seed) = client
-        .get_account_stub_by_id(account_id)
-        .map_err(|err| err.to_string())?;
+    let (account, _account_seed) = client.get_account_stub_by_id(account_id)?;
 
     let mut table = create_dynamic_table(&[
         "Account ID",
@@ -197,8 +194,7 @@ pub fn show_account(
 
     if show_vault {
         let assets = client
-            .get_vault_assets(account.vault_root())
-            .map_err(|err| err.to_string())?;
+            .get_vault_assets(account.vault_root())?;
 
         println!("Assets: ");
 
@@ -222,8 +218,7 @@ pub fn show_account(
 
     if show_storage {
         let account_storage = client
-            .get_account_storage(account.storage_root())
-            .map_err(|err| err.to_string())?;
+            .get_account_storage(account.storage_root())?;
 
         println!("Storage: \n");
 
@@ -271,9 +266,7 @@ pub fn show_account(
     }
 
     if show_keys {
-        let auth_info = client
-            .get_account_auth(account_id)
-            .map_err(|err| err.to_string())?;
+        let auth_info = client.get_account_auth(account_id)?;
 
         match auth_info {
             miden_client::store::accounts::AuthInfo::RpoFalcon512(key_pair) => {
@@ -282,6 +275,7 @@ pub fn show_account(
                     .to_bytes()
                     .try_into()
                     .expect("Array size is const and should always exactly fit KeyPair");
+
 
                 let mut table = Table::new();
                 table
@@ -296,9 +290,7 @@ pub fn show_account(
     }
 
     if show_code {
-        let (procedure_digests, module) = client
-            .get_account_code(account.code_root())
-            .map_err(|err| err.to_string())?;
+        let (procedure_digests, module) = client.get_account_code(account.code_root())?;
 
         println!("Account Code Info:");
 
@@ -320,11 +312,22 @@ pub fn show_account(
 // ================================================================================================
 
 fn import_account(client: &mut Client, filename: &PathBuf) -> Result<(), String> {
+    info!(
+        "Attempting to import account data from {}...",
+        fs::canonicalize(filename)
+            .map_err(|err| err.to_string())?
+            .as_path()
+            .display()
+    );
     let account_data_file_contents = fs::read(filename).map_err(|err| err.to_string())?;
     let account_data =
         AccountData::read_from_bytes(&account_data_file_contents).map_err(|err| err.to_string())?;
+    let account_id = account_data.account.id();
 
-    client.import_account(account_data)
+    client.import_account(account_data)?;
+    println!("Imported account with ID: {}", account_id);
+
+    Ok(())
 }
 
 // HELPERS
