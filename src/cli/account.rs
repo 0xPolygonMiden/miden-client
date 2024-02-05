@@ -10,7 +10,7 @@ use crypto::{
 use miden_client::client::{accounts, Client};
 
 use objects::{
-    accounts::{AccountData, AccountId, AccountStub, AccountType, StorageSlotType},
+    accounts::{AccountData, AccountId, AccountStorage, AccountStub, AccountType, StorageSlotType},
     assets::{Asset, TokenSymbol},
 };
 
@@ -239,7 +239,7 @@ pub fn show_account(
             // Last entry is reserved so I don't think the user cares about it Also, to keep the
             // output smaller, if the [StorageSlotType] is a value and it's 0 we assume it's not
             // initialized and skip it
-            if idx == account_storage.layout().len() - 1 {
+            if idx == AccountStorage::SLOT_LAYOUT_COMMITMENT_INDEX as usize {
                 continue;
             }
             if matches!(
