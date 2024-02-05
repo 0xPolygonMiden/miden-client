@@ -193,8 +193,7 @@ pub fn show_account(
     println!("{table}\n");
 
     if show_vault {
-        let assets = 
-            client.get_vault_assets(account.vault_root())?;
+        let assets = client.get_vault_assets(account.vault_root())?;
 
         println!("Assets: ");
 
@@ -217,8 +216,7 @@ pub fn show_account(
     }
 
     if show_storage {
-        let account_storage = 
-            client.get_account_storage(account.storage_root())?;
+        let account_storage = client.get_account_storage(account.storage_root())?;
 
         println!("Storage: \n");
 
@@ -275,7 +273,6 @@ pub fn show_account(
                     .to_bytes()
                     .try_into()
                     .expect("Array size is const and should always exactly fit KeyPair");
-
 
                 let mut table = Table::new();
                 table
