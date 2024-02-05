@@ -2,10 +2,11 @@ FEATURES_CONCURRENT_TESTING=--features concurrent,testing
 FEATURES_INTEGRATION_TESTING=$(FEATURES_CONCURRENT_TESTING),uuid
 NODE_FEATURES_TESTING=--features testing
 NODE_BINARY=--bin miden-node
+HTTP_CODE := $(shell curl --http2-prior-knowledge -X POST -s -o /dev/null -w ''%{http_code}'' -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","method":"ping","params":[]}' http://localhost:57291)
 
 integration_test:
 	# Wait for the node to be up
-	while [[ "curl --http2-prior-knowledge -X POST -s -o /dev/null -w ''%{http_code}'' -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"method\":\"ping\",\"params\":[]}' http://localhost:57291" -eq 200 ]]; do sleep 2; done		
+	while [[ ${HTTP_CODE} != "200" ]]; do sleep 2; done		
 	cargo run --release --bin="integration" $(FEATURES_INTEGRATION_TESTING)
 	pkill miden-node
 
