@@ -32,7 +32,7 @@ You can then choose to run the client CLI using `cargo`, or install it on your s
 cargo install --path . --bin="miden"
 ```
 
-This will install the `miden-client` binary in your PATH, at `~/.cargo/bin/miden-client`. 
+This will install the `miden` binary in your PATH, at `~/.cargo/bin/miden`. 
 
 For testing, the following way of installing is recommended:
 
@@ -44,7 +44,7 @@ The `testing` feature allows mainly for faster account creation. When using the 
 
 Additionally, the client supports another feature: The `concurrent` flag enables optimizations that will result in faster transaction execution and proving.
 
-After installing the client, you can use it by running `miden-client`. In order to get more information about available CLI commands you can run `miden --help`.
+After installing the client, you can use it by running `miden`. In order to get more information about available CLI commands you can run `miden --help`.
 
 ### Connecting to the network
 
