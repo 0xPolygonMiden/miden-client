@@ -76,14 +76,13 @@ impl Client {
         match account_data.auth {
             AuthData::RpoFalcon512Seed(key_pair) => {
                 let keypair = KeyPair::from_seed(&key_pair)?;
-                let is_new_account = account_data.account.is_new();
-                match account_data.account_seed {
-                    Some(seed) if is_new_account => self.insert_account(
+                match (account_data.account.is_new(), account_data.account_seed) {
+                    (true, Some(seed)) => self.insert_account(
                         &account_data.account,
                         seed,
                         &AuthInfo::RpoFalcon512(keypair),
                     ),
-                    Some(seed) => {
+                    (false, Some(seed)) => {
                         tracing::warn!(
                             "Imported an existing account and still provided a seed when it is not needed. It's possible that the account's file was incorrectly generated."
                         );
@@ -94,10 +93,10 @@ impl Client {
                             &AuthInfo::RpoFalcon512(keypair),
                         )
                     }
-                    None if !is_new_account => {
+                    (false, None) => {
                         unimplemented!();
                     }
-                    None => Err(ClientError::ImportNewAccountWithoutSeed),
+                    (true, None) => Err(ClientError::ImportNewAccountWithoutSeed),
                 }
             }
         }
