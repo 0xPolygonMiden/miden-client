@@ -11,7 +11,7 @@ use miden_client::client::Client;
 use miden_client::config::{ClientConfig, RpcConfig};
 use miden_client::store::{notes::InputNoteFilter, transactions::TransactionFilter};
 
-pub fn create_test_client() -> Client {
+fn create_test_client() -> Client {
     let client_config = ClientConfig {
         store: create_test_store_path()
             .into_os_string()
@@ -25,10 +25,29 @@ pub fn create_test_client() -> Client {
     Client::new(client_config).unwrap()
 }
 
-pub fn create_test_store_path() -> std::path::PathBuf {
+fn create_test_store_path() -> std::path::PathBuf {
     let mut temp_file = temp_dir();
     temp_file.push(format!("{}.sqlite3", Uuid::new_v4()));
     temp_file
+}
+
+async fn execute_tx_and_sync(client: &mut Client, tx_template: TransactionTemplate) {
+    let current_block_num = client.sync_state().await.unwrap();
+
+    println!("Executing Transaction");
+    let transaction_execution_result = client.new_transaction(tx_template).unwrap();
+
+    println!("Sending Transaction to node");
+    client
+        .send_transaction(transaction_execution_result)
+        .await
+        .unwrap();
+
+    // Wait until we've actually gotten a new block
+    println!("Syncing State...");
+    while client.sync_state().await.unwrap() == current_block_num {
+        std::thread::sleep(std::time::Duration::new(5, 0));
+    }
 }
 
 const MINT_AMOUNT: u64 = 1000;
@@ -86,31 +105,12 @@ async fn main() {
 
     // Create a Mint Tx for 1000 units of our fungible asset
     let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
-    println!("Creating and Executing Transaction...");
-    let transaction_execution_result = client
-        .new_transaction(TransactionTemplate::MintFungibleAsset {
-            asset: fungible_asset,
-            target_account_id: regular_account_id,
-        })
-        .unwrap();
-
-    println!("Sending Transaction to node");
-    client
-        .send_transaction(transaction_execution_result)
-        .await
-        .unwrap();
-
-    // Check that the note exists
-    println!("Fetching Pending Notes...");
-    let notes = client.get_input_notes(InputNoteFilter::Pending).unwrap();
-    assert_eq!(notes.len(), 1);
-
-    // TODO: can we somehow avoid this sleep?
-    std::thread::sleep(std::time::Duration::new(30, 0));
-
-    // Sync state
-    println!("Syncing State...");
-    client.sync_state().await.unwrap();
+    let tx_template = TransactionTemplate::MintFungibleAsset {
+        asset: fungible_asset,
+        target_account_id: regular_account_id,
+    };
+    println!("Minting Asset");
+    execute_tx_and_sync(&mut client, tx_template).await;
 
     // Check that note is committed
     println!("Fetching Pending Notes...");
@@ -121,20 +121,9 @@ async fn main() {
     let notes = client.get_input_notes(InputNoteFilter::Committed).unwrap();
     assert!(!notes.is_empty());
 
-    // Try to consume that note
+    let tx_template = TransactionTemplate::ConsumeNote(regular_account_id, notes[0].note_id());
     println!("Consuming Note...");
-    let transaction_execution_result = client
-        .new_transaction(TransactionTemplate::ConsumeNote(
-            regular_account_id,
-            notes[0].note_id(),
-        ))
-        .unwrap();
-
-    println!("Sending Transaction to node");
-    client
-        .send_transaction(transaction_execution_result)
-        .await
-        .unwrap();
+    execute_tx_and_sync(&mut client, tx_template).await;
 
     let (regular_account, _seed) = client.get_account_by_id(regular_account_id).unwrap();
     assert_eq!(regular_account.vault().assets().count(), 1);
