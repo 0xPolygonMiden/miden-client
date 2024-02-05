@@ -177,21 +177,21 @@ pub fn show_account(
 
     let mut table = create_dynamic_table(&[
         "Account ID",
+        "Account Hash",
         "Type",
         "Code Root",
         "Vault Root",
         "Storage Root",
         "Nonce",
-        "Account Hash",
     ]);
     table.add_row(vec![
         account.id().to_string(),
+        account.hash().to_string(),
         get_account_type(&account),
         account.code_root().to_string(),
         account.vault_root().to_string(),
         account.storage_root().to_string(),
         account.nonce().to_string(),
-        account.hash().to_string(),
     ]);
     println!("{table}\n");
 
