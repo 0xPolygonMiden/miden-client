@@ -3,7 +3,7 @@ use std::fs;
 use uuid::Uuid;
 
 use objects::accounts::AccountData;
-use objects::assets::FungibleAsset;
+use objects::assets::{Asset, FungibleAsset};
 use objects::utils::serde::Deserializable;
 
 use miden_client::client::transactions::TransactionTemplate;
@@ -30,6 +30,8 @@ pub fn create_test_store_path() -> std::path::PathBuf {
     temp_file.push(format!("{}.sqlite3", Uuid::new_v4()));
     temp_file
 }
+
+const MINT_AMOUNT: u64 = 1000;
 
 #[tokio::main]
 async fn main() {
@@ -83,7 +85,7 @@ async fn main() {
     assert_eq!(regular_account.vault().assets().count(), 0);
 
     // Create a Mint Tx for 1000 units of our fungible asset
-    let fungible_asset = FungibleAsset::new(faucet_account_id, 1000).unwrap();
+    let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
     println!("Creating and Executing Transaction...");
     let transaction_execution_result = client
         .new_transaction(TransactionTemplate::MintFungibleAsset {
@@ -133,4 +135,14 @@ async fn main() {
         .send_transaction(transaction_execution_result)
         .await
         .unwrap();
+
+    let (regular_account, _seed) = client.get_account_by_id(regular_account_id).unwrap();
+    assert_eq!(regular_account.vault().assets().count(), 1);
+    let asset = regular_account.vault().assets().next().unwrap();
+
+    if let Asset::Fungible(fungible_asset) = asset {
+        assert_eq!(fungible_asset.amount(), MINT_AMOUNT);
+    } else {
+        panic!("ACCOUNT SHOULD HAVE A FUNGIBLE ASSET");
+    }
 }
