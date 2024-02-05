@@ -103,9 +103,7 @@ impl AccountCmd {
                     },
                     AccountTemplate::NonFungibleFaucet => todo!(),
                 };
-                let (_new_account, _account_seed) = client
-                    .new_account(client_template)
-                    .map_err(|err| err.to_string())?;
+                let (_new_account, _account_seed) = client.new_account(client_template)?;
             }
             AccountCmd::Show { id: None, .. } => {
                 todo!("Default accounts are not supported yet")
@@ -137,7 +135,7 @@ impl AccountCmd {
 // ================================================================================================
 
 fn list_accounts(client: Client) -> Result<(), String> {
-    let accounts = client.get_accounts().map_err(|err| err.to_string())?;
+    let accounts = client.get_accounts()?;
 
     let mut table = Table::new();
     table
@@ -181,9 +179,7 @@ pub fn show_account(
     show_storage: bool,
     show_code: bool,
 ) -> Result<(), String> {
-    let (account, _account_seed) = client
-        .get_account_stub_by_id(account_id)
-        .map_err(|err| err.to_string())?;
+    let (account, _account_seed) = client.get_account_stub_by_id(account_id)?;
 
     let mut table = Table::new();
     table
@@ -209,9 +205,7 @@ pub fn show_account(
     println!("{table}\n");
 
     if show_keys {
-        let auth_info = client
-            .get_account_auth(account_id)
-            .map_err(|err| err.to_string())?;
+        let auth_info = client.get_account_auth(account_id)?;
 
         match auth_info {
             miden_client::store::accounts::AuthInfo::RpoFalcon512(key_pair) => {
@@ -226,9 +220,7 @@ pub fn show_account(
     }
 
     if show_vault {
-        let assets = client
-            .get_vault_assets(account.vault_root())
-            .map_err(|err| err.to_string())?;
+        let assets = client.get_vault_assets(account.vault_root())?;
 
         println!(
             "Vault assets: {}\n",
@@ -237,9 +229,7 @@ pub fn show_account(
     }
 
     if show_storage {
-        let account_storage = client
-            .get_account_storage(account.storage_root())
-            .map_err(|err| err.to_string())?;
+        let account_storage = client.get_account_storage(account.storage_root())?;
 
         println!(
             "Storage: {}\n",
@@ -249,9 +239,7 @@ pub fn show_account(
     }
 
     if show_code {
-        let (procedure_digests, module) = client
-            .get_account_code(account.code_root())
-            .map_err(|err| err.to_string())?;
+        let (procedure_digests, module) = client.get_account_code(account.code_root())?;
 
         println!(
             "Procedure digests:\n{}\n",
@@ -280,9 +268,7 @@ fn import_account(client: &mut Client, filename: &PathBuf) -> Result<(), String>
         AccountData::read_from_bytes(&account_data_file_contents).map_err(|err| err.to_string())?;
     let account_id = account_data.account.id();
 
-    client
-        .import_account(account_data)
-        .map_err(|err| err.to_string())?;
+    client.import_account(account_data)?;
     println!("Imported account with ID: {}", account_id);
 
     Ok(())

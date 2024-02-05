@@ -104,6 +104,12 @@ impl From<rusqlite::Error> for ClientError {
     }
 }
 
+impl From<ClientError> for String {
+    fn from(err: ClientError) -> String {
+        err.to_string()
+    }
+}
+
 #[cfg(feature = "std")]
 impl std::error::Error for ClientError {}
 

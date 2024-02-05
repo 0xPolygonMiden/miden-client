@@ -62,7 +62,7 @@ impl Cli {
         current_dir.push(CLIENT_CONFIG_FILE_NAME);
 
         let client_config = load_config(current_dir.as_path())?;
-        let client = Client::new(client_config).map_err(|err| err.to_string())?;
+        let client = Client::new(client_config)?;
 
         // Execute cli command
         match &self.action {
