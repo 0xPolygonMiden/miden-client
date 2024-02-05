@@ -1,5 +1,3 @@
-use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
-
 use miden_client::{
     client::transactions::{PaymentTransactionData, TransactionStub, TransactionTemplate},
     store::transactions::TransactionFilter,
@@ -7,6 +5,8 @@ use miden_client::{
 
 use objects::{accounts::AccountId, assets::FungibleAsset, notes::NoteId};
 use tracing::info;
+
+use crate::cli::create_dynamic_table;
 
 use super::{Client, Parser};
 
@@ -148,23 +148,15 @@ fn print_transactions_summary<'a, I>(executed_transactions: I)
 where
     I: IntoIterator<Item = &'a TransactionStub>,
 {
-    let mut table = Table::new();
-    table
-        .load_preset(presets::UTF8_HORIZONTAL_ONLY)
-        .set_content_arrangement(ContentArrangement::DynamicFullWidth);
-
-    table
-        .load_preset(presets::UTF8_FULL)
-        .set_content_arrangement(ContentArrangement::DynamicFullWidth)
-        .set_header(vec![
-            Cell::new("account id").add_attribute(Attribute::Bold),
-            Cell::new("script hash").add_attribute(Attribute::Bold),
-            Cell::new("committed").add_attribute(Attribute::Bold),
-            Cell::new("commit height").add_attribute(Attribute::Bold),
-            Cell::new("block num").add_attribute(Attribute::Bold),
-            Cell::new("input notes count").add_attribute(Attribute::Bold),
-            Cell::new("output notes count").add_attribute(Attribute::Bold),
-        ]);
+    let mut table = create_dynamic_table(&[
+        "Account ID",
+        "Script Hash",
+        "Committed",
+        "Commit Height",
+        "Block Num",
+        "Input Notes Count",
+        "Output Notes Count",
+    ]);
 
     for tx in executed_transactions {
         let commit_height = match tx.commit_height {

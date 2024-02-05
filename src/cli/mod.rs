@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use clap::Parser;
+use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use figment::{
     providers::{Format, Toml},
     Figment,
@@ -98,4 +99,19 @@ pub fn load_config(config_file: &Path) -> Result<ClientConfig, String> {
                 config_file.display()
             )
         })
+}
+
+pub fn create_dynamic_table(headers: &[&str]) -> Table {
+    let header_cells = headers
+        .iter()
+        .map(|header| Cell::new(header).add_attribute(Attribute::Bold))
+        .collect::<Vec<_>>();
+
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_FULL)
+        .set_content_arrangement(ContentArrangement::DynamicFullWidth)
+        .set_header(header_cells);
+
+    table
 }
