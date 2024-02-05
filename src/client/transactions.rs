@@ -20,7 +20,7 @@ use tracing::info;
 
 use crate::{
     errors::ClientError,
-    store::{accounts::AuthInfo, notes::InputNoteFilter, transactions::TransactionFilter},
+    store::{accounts::AuthInfo, transactions::TransactionFilter},
 };
 
 use super::Client;
@@ -47,7 +47,8 @@ pub enum TransactionTemplate {
     },
     /// Creates a pay-to-id note directed to a specific account
     PayToId(PaymentTransactionData),
-    /// Creates a pay-to-id note directed to a specific account, specifying a block height at which the payment is recalled
+    /// Creates a pay-to-id note directed to a specific account, specifying a block height at which
+    /// the payment can be recalled
     PayToIdWithRecall(PaymentTransactionData, u32),
 }
 
@@ -136,7 +137,14 @@ impl TransactionResult {
     }
 }
 
-pub struct TransactionStub {
+// TRANSACTION RECORD
+// --------------------------------------------------------------------------------------------
+
+/// Describes a transaction that has been executed and is being tracked on the Client
+///
+/// Currently, the `commit_height` (and `committed` status) is set based on the height
+/// at which the transaction's output notes are committed.
+pub struct TransactionRecord {
     pub id: Digest,
     pub account_id: AccountId,
     pub init_account_state: Digest,
@@ -149,7 +157,7 @@ pub struct TransactionStub {
     pub commit_height: u64,
 }
 
-impl TransactionStub {
+impl TransactionRecord {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: Digest,
@@ -162,8 +170,8 @@ impl TransactionStub {
         block_num: u32,
         committed: bool,
         commit_height: u64,
-    ) -> TransactionStub {
-        TransactionStub {
+    ) -> TransactionRecord {
+        TransactionRecord {
             id,
             account_id,
             init_account_state,
@@ -186,7 +194,7 @@ impl Client {
     pub fn get_transactions(
         &self,
         transaction_filter: TransactionFilter,
-    ) -> Result<Vec<TransactionStub>, ClientError> {
+    ) -> Result<Vec<TransactionRecord>, ClientError> {
         self.store
             .get_transactions(transaction_filter)
             .map_err(|err| err.into())
@@ -219,13 +227,10 @@ impl Client {
     }
 
     /// Creates and executes a transaction that consumes a number of notes
-    ///
-    /// If `note_id` is `None`, all committed input notes are consumed.
-    /// Otherwise, the specified note is consumed.
     fn new_consume_notes_transaction(
         &mut self,
         account_id: AccountId,
-        _note_id: &[NoteId],
+        node_ids: &[NoteId],
     ) -> Result<TransactionResult, ClientError> {
         self.tx_executor
             .load_account(account_id)
@@ -234,16 +239,11 @@ impl Client {
         let tx_script_code =
             ProgramAst::parse(AUTH_CONSUME_NOTES_SCRIPT).expect("shipped MASM is well-formed");
 
-        let input_notes: Vec<NoteId> = self
-            .store
-            .get_input_notes(InputNoteFilter::Committed)?
-            .iter()
-            .map(|n| n.note_id())
-            .collect();
-
         let block_num = self.store.get_sync_height()?;
 
-        self.compile_and_execute_tx(account_id, &input_notes, vec![], tx_script_code, block_num)
+        // Because the notes are retrieved by the executor, there is no need to cross check here
+        // that they exist in the Store
+        self.compile_and_execute_tx(account_id, node_ids, vec![], tx_script_code, block_num)
     }
 
     /// Creates and executes a mint transaction specified by the template.
@@ -260,7 +260,6 @@ impl Client {
         let block_ref = self.get_sync_height()?;
 
         let random_coin = self.get_random_coin();
-
         let created_note = create_p2id_note(faucet_id, target_id, vec![asset.into()], random_coin)?;
 
         let recipient = created_note

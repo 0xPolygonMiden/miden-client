@@ -39,6 +39,7 @@ type SerializedInputNoteParts = (Vec<u8>, Vec<u8>, Vec<u8>, String, u64, u64, Op
 // NOTE FILTER
 // ================================================================================================
 /// Represents a filter for input notes
+#[derive(Clone, Debug)]
 pub enum InputNoteFilter {
     All,
     Consumed,

@@ -11,13 +11,26 @@ use miden_client::store::notes::{InputNoteFilter, InputNoteRecord};
 use crypto::utils::{Deserializable, Serializable};
 
 use objects::{notes::NoteId, Digest};
+use tracing::warn;
+
+#[derive(Clone, Debug, Parser)]
+#[clap()]
+pub enum NoteFilter {
+    Pending,
+    Committed,
+    Consumed,
+}
 
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "View input notes")]
 pub enum InputNotes {
     /// List input notes
     #[clap(short_flag = 'l')]
-    List,
+    List {
+        /// Filter the displayed note list
+        #[clap(subcommand)]
+        filter: Option<NoteFilter>,
+    },
 
     /// Show details of the input note for the specified note ID
     #[clap(short_flag = 's')]
@@ -63,8 +76,18 @@ pub enum InputNotes {
 impl InputNotes {
     pub fn execute(&self, mut client: Client) -> Result<(), String> {
         match self {
-            InputNotes::List => {
-                list_input_notes(client)?;
+            InputNotes::List { filter } => {
+                let filter = match filter {
+                    Some(NoteFilter::Committed) => InputNoteFilter::Committed,
+                    Some(NoteFilter::Consumed) => {
+                        warn!("Nullifiers are not currently being set on the node");
+                        InputNoteFilter::Consumed
+                    }
+                    Some(NoteFilter::Pending) => InputNoteFilter::Pending,
+                    None => InputNoteFilter::All,
+                };
+
+                list_input_notes(client, filter)?;
             }
             InputNotes::Show {
                 id,
@@ -89,9 +112,9 @@ impl InputNotes {
 
 // LIST INPUT NOTES
 // ================================================================================================
-fn list_input_notes(client: Client) -> Result<(), String> {
+fn list_input_notes(client: Client, input_note_filter: InputNoteFilter) -> Result<(), String> {
     let notes = client
-        .get_input_notes(InputNoteFilter::All)
+        .get_input_notes(input_note_filter)
         .map_err(|err| err.to_string())?;
     print_notes_summary(&notes);
     Ok(())

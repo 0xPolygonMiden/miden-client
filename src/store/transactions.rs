@@ -1,5 +1,5 @@
 use crate::{
-    client::transactions::{TransactionResult, TransactionStub},
+    client::transactions::{TransactionRecord, TransactionResult},
     errors::StoreError,
     store::notes::InputNoteRecord,
 };
@@ -71,13 +71,13 @@ impl Store {
     pub fn get_transactions(
         &self,
         transaction_filter: TransactionFilter,
-    ) -> Result<Vec<TransactionStub>, StoreError> {
+    ) -> Result<Vec<TransactionRecord>, StoreError> {
         self.db
             .prepare(&transaction_filter.to_query())?
             .query_map([], parse_transaction_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_transaction))
-            .collect::<Result<Vec<TransactionStub>, _>>()
+            .collect::<Result<Vec<TransactionRecord>, _>>()
     }
 
     pub fn insert_transaction_data(
@@ -167,12 +167,12 @@ impl Store {
 
     /// Updates transactions as committed if the input `note_ids` belongs to one uncommitted transaction
     pub(crate) fn mark_transactions_as_committed_by_note_id(
-        uncommitted_transactions: &[TransactionStub],
+        uncommitted_transactions: &[TransactionRecord],
         note_ids: &[NoteId],
         block_num: u32,
         tx: &Transaction<'_>,
     ) -> Result<usize, StoreError> {
-        let updated_transactions: Vec<&TransactionStub> = uncommitted_transactions
+        let updated_transactions: Vec<&TransactionRecord> = uncommitted_transactions
             .iter()
             .filter(|t| {
                 t.output_notes
@@ -286,7 +286,7 @@ pub fn parse_transaction_columns(
 /// Parse a transaction from the provided parts.
 fn parse_transaction(
     serialized_transaction: SerializedTransactionData,
-) -> Result<TransactionStub, StoreError> {
+) -> Result<TransactionRecord, StoreError> {
     let (
         id,
         account_id,
@@ -340,7 +340,7 @@ fn parse_transaction(
         None
     };
 
-    Ok(TransactionStub {
+    Ok(TransactionRecord {
         id,
         account_id,
         init_account_state,

@@ -1,7 +1,7 @@
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 
 use miden_client::{
-    client::transactions::{PaymentTransactionData, TransactionStub, TransactionTemplate},
+    client::transactions::{PaymentTransactionData, TransactionRecord, TransactionTemplate},
     store::transactions::TransactionFilter,
 };
 
@@ -25,11 +25,7 @@ pub enum TransactionType {
         amount: u64,
     },
     P2IDR,
-    ConsumeNote {
-        account_id: String,
-        note_id: String,
-    },
-    ConsumeNoteList {
+    ConsumeNotes {
         account_id: String,
         list_of_notes: Vec<String>,
     },
@@ -81,16 +77,7 @@ impl TryInto<TransactionTemplate> for &TransactionType {
                     target_account_id,
                 })
             }
-            TransactionType::ConsumeNote {
-                account_id,
-                note_id,
-            } => {
-                let account_id = AccountId::from_hex(account_id).map_err(|err| err.to_string())?;
-                let note_id = NoteId::try_from_hex(note_id).map_err(|err| err.to_string())?;
-
-                Ok(TransactionTemplate::ConsumeNotes(account_id, vec![note_id]))
-            }
-            TransactionType::ConsumeNoteList {
+            TransactionType::ConsumeNotes {
                 account_id,
                 list_of_notes,
             } => {
@@ -160,7 +147,7 @@ fn list_transactions(client: Client) -> Result<(), String> {
 // ================================================================================================
 fn print_transactions_summary<'a, I>(executed_transactions: I)
 where
-    I: IntoIterator<Item = &'a TransactionStub>,
+    I: IntoIterator<Item = &'a TransactionRecord>,
 {
     let mut table = Table::new();
     table
