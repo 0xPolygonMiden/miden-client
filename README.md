@@ -12,7 +12,7 @@ The Miden client is still under heavy development and the project can be conside
 
 ## Overview
 
-The Miden client currently consists of two components:
+The Miden client currently consists of three components:
 
 - `miden-client` library, which can be used by other project to programmatically interact with the Miden rollup.
 - `miden` binary which is a wrapper around the library exposing its functionality via a simple command-line interface (CLI).
@@ -61,10 +61,8 @@ There are commands provided in the `Makefile` to make running this test easier. 
 make reset
 # This command will clone the node's repo and generate the accounts and genesis files and lastly start the node and run it on background
 make start_node &
-# This will run the integration test
+# This will run the integration test and after it finishes it will kill the node process
 make integration_test
-# This kills the node's process
-pkill miden-node
 ```
 
 ## Example: Executing, proving and submitting transactions

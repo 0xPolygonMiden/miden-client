@@ -7,6 +7,7 @@ integration_test:
 	# Wait for the node to be up
 	while [[ "curl --http2-prior-knowledge -X POST -s -o /dev/null -w ''%{http_code}'' -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"method\":\"ping\",\"params\":[]}' http://localhost:57291" -eq 200 ]]; do sleep 2; done		
 	cargo run --release --bin="integration" $(FEATURES_INTEGRATION_TESTING)
+	pkill miden-node
 
 node:
 	if cd miden-node; then git pull; else git clone https://github.com/0xPolygonMiden/miden-node.git; fi
@@ -19,5 +20,4 @@ start_node: node
 
 reset:
 	rm -rf miden-node
-	rm -f store.sqlite3
 	cargo clean
