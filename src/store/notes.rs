@@ -48,6 +48,7 @@ pub enum InputNoteFilter {
 }
 
 impl InputNoteFilter {
+    /// Returns a [String] containing the query for this Filter
     pub fn to_query(&self) -> String {
         let base = String::from("SELECT script, inputs, vault, serial_num, sender_id, tag, inclusion_proof FROM input_notes");
         match self {

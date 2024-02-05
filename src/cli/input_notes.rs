@@ -4,6 +4,8 @@ use std::{
     path::PathBuf,
 };
 
+use crate::cli::create_dynamic_table;
+
 use super::{Client, Parser};
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::store::notes::{InputNoteFilter, InputNoteRecord};
@@ -116,6 +118,7 @@ fn list_input_notes(client: Client, input_note_filter: InputNoteFilter) -> Resul
     let notes = client
         .get_input_notes(input_note_filter)
         .map_err(|err| err.to_string())?;
+
     print_notes_summary(&notes);
     Ok(())
 }
@@ -130,9 +133,7 @@ pub fn export_note(
     let note_id = Digest::try_from(note_id)
         .map_err(|err| format!("Failed to parse input note id: {}", err))?
         .into();
-    let note = client
-        .get_input_note(note_id)
-        .map_err(|err| err.to_string())?;
+    let note = client.get_input_note(note_id)?;
 
     let file_path = filename.unwrap_or_else(|| {
         let mut dir = PathBuf::new();
@@ -162,9 +163,7 @@ pub fn import_note(client: &mut Client, filename: PathBuf) -> Result<NoteId, Str
         InputNoteRecord::read_from_bytes(&contents).map_err(|err| err.to_string())?;
 
     let note_id = input_note_record.note().id();
-    client
-        .import_input_note(input_note_record)
-        .map_err(|err| err.to_string())?;
+    client.import_input_note(input_note_record)?;
 
     Ok(note_id)
 }
@@ -182,9 +181,7 @@ fn show_input_note(
         .map_err(|err| format!("Failed to parse input note with ID: {}", err))?
         .into();
 
-    let input_note_record = client
-        .get_input_note(note_id)
-        .map_err(|err| err.to_string())?;
+    let input_note_record = client.get_input_note(note_id)?;
 
     // print note summary
     print_notes_summary(core::iter::once(&input_note_record));
@@ -252,18 +249,14 @@ fn print_notes_summary<'a, I>(notes: I)
 where
     I: IntoIterator<Item = &'a InputNoteRecord>,
 {
-    let mut table = Table::new();
-    table
-        .load_preset(presets::UTF8_FULL)
-        .set_content_arrangement(ContentArrangement::DynamicFullWidth)
-        .set_header(vec![
-            Cell::new("note id").add_attribute(Attribute::Bold),
-            Cell::new("script hash").add_attribute(Attribute::Bold),
-            Cell::new("vault hash").add_attribute(Attribute::Bold),
-            Cell::new("inputs hash").add_attribute(Attribute::Bold),
-            Cell::new("serial num").add_attribute(Attribute::Bold),
-            Cell::new("commit height").add_attribute(Attribute::Bold),
-        ]);
+    let mut table = create_dynamic_table(&[
+        "Note ID",
+        "Script Hash",
+        "Vault Vash",
+        "Inputs Hash",
+        "Serial Num",
+        "Commit Height",
+    ]);
 
     notes.into_iter().for_each(|input_note_record| {
         let commit_height = input_note_record
