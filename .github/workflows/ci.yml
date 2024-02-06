@@ -79,7 +79,6 @@ jobs:
           toolchain: stable
           components: rustfmt
           override: true
-      - name: Run Test
-        - run: make reset
-        - run: make start_node > /dev/null &
-        - run: make integration_test
+      - run: make reset
+      - run: make start_node > /dev/null &
+      - run: make integration_test
