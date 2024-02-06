@@ -1,4 +1,4 @@
-FEATURES_INTEGRATION_TESTING="concurrent,testing,uuid"
+FEATURES_INTEGRATION_TESTING="concurrent,testing,integration"
 
 # compile before waiting for the node to be up
 cargo test --no-run --release --features "$FEATURES_INTEGRATION_TESTING" --test integration -- --include-ignored

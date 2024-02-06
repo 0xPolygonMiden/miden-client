@@ -10,7 +10,7 @@ pub mod notes;
 pub mod sync;
 pub mod transactions;
 
-#[cfg(any(test, feature = "mock"))]
+#[cfg(any(test, all(feature = "mock", not(feature = "integration"))))]
 pub mod mock_executor_data_store;
 
 pub mod data_store;

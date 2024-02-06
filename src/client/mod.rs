@@ -1,4 +1,4 @@
-#[cfg(not(any(test, feature = "mock")))]
+#[cfg(not(any(test, all(feature = "mock", not(feature = "integration")))))]
 use crate::store::data_store::SqliteDataStore;
 use crate::{config::ClientConfig, errors::ClientError, store::Store};
 use miden_tx::TransactionExecutor;
@@ -22,7 +22,7 @@ pub mod transactions;
 /// - Connects to one or more Miden nodes to periodically sync with the current state of the
 ///   network.
 /// - Executes, proves, and submits transactions to the network as directed by the user.
-#[cfg(not(any(test, feature = "mock")))]
+#[cfg(not(any(test, all(feature = "mock", not(feature = "integration")))))]
 pub struct Client {
     /// Local database containing information about the accounts managed by this client.
     store: Store,
@@ -30,7 +30,7 @@ pub struct Client {
     tx_executor: TransactionExecutor<SqliteDataStore>,
 }
 
-#[cfg(not(any(test, feature = "mock")))]
+#[cfg(not(any(test, all(feature = "mock", not(feature = "integration")))))]
 impl Client {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
@@ -53,10 +53,10 @@ impl Client {
 // TESTING
 // ================================================================================================
 
-#[cfg(any(test, feature = "mock"))]
+#[cfg(any(test, all(feature = "mock", not(feature = "integration"))))]
 pub use mock::Client;
 
-#[cfg(any(test, feature = "mock"))]
+#[cfg(any(test, all(feature = "mock", not(feature = "integration"))))]
 mod mock {
     use super::{ClientConfig, ClientError, Store, TransactionExecutor};
     use crate::{mock::MockRpcApi, store::mock_executor_data_store::MockDataStore};
@@ -67,7 +67,7 @@ mod mock {
         pub(crate) tx_executor: TransactionExecutor<MockDataStore>,
     }
 
-    #[cfg(any(test, feature = "mock"))]
+    #[cfg(any(test, all(feature = "mock", not(feature = "integration"))))]
     impl Client {
         pub fn new(config: ClientConfig) -> Result<Self, ClientError> {
             Ok(Self {

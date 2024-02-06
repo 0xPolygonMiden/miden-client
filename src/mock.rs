@@ -70,7 +70,7 @@ impl MockRpcApi {
         {
             Some((_req, response)) => {
                 let response = response.clone();
-                Ok(Response::new(response))
+                Ok(response)
             }
             None => Err(RpcApiError::RequestError(
                 RpcApiEndpoint::SyncState,
@@ -78,7 +78,7 @@ impl MockRpcApi {
             )),
         }?;
 
-        response.into_inner().try_into()
+        response.try_into()
     }
 
     /// Creates and executes a [GetBlockHeaderByNumberRequest].
