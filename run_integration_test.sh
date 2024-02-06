@@ -3,7 +3,7 @@ FEATURES_INTEGRATION_TESTING="concurrent,testing,uuid"
 # Wait for the node to be up
 http_code="000"
 while true; do
-  if [ "$http_code" == "200" ]; then
+  if [ "$http_code" = "200" ]; then
     break;
   fi
   sleep 2
