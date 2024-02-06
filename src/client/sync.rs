@@ -190,28 +190,54 @@ impl Client {
         committed_notes: Vec<CommittedNote>,
         block_header: &BlockHeader,
     ) -> Result<Vec<(NoteId, NoteInclusionProof)>, ClientError> {
+        // We'll only pick committed notes that we are tracking as input/output notes. Since the
+        // sync response contains notes matching either the provided accounts or the provided tag
+        // we might get many notes when we only care about a few of those.
+        let pending_input_notes: Vec<NoteId> = self
+            .store
+            .get_input_notes(crate::store::notes::NoteFilter::Pending)?
+            .iter()
+            .map(|n| n.note().id())
+            .collect();
+
+        let pending_output_notes: Vec<NoteId> = self
+            .store
+            .get_input_notes(crate::store::notes::NoteFilter::Pending)?
+            .iter()
+            .map(|n| n.note().id())
+            .collect();
+
+        let mut pending_notes = [pending_input_notes, pending_output_notes].concat();
+        pending_notes.dedup();
+
         committed_notes
             .iter()
-            .map(|commited_note| {
-                // FIXME: This removal is to accomodate a problem with how the node constructs paths where
-                // they are constructed using note ID instead of authentication hash, so for now we remove the first
-                // node here.
-                //
-                // See: https://github.com/0xPolygonMiden/miden-node/blob/main/store/src/state.rs#L274
-                let mut merkle_path = commited_note.merkle_path().clone();
-                if merkle_path.len() > 0 {
-                    let _ = merkle_path.remove(0);
-                }
+            .filter_map(|commited_note| {
+                if pending_notes.contains(commited_note.note_id()) {
+                    // FIXME: This removal is to accomodate a problem with how the node constructs paths where
+                    // they are constructed using note ID instead of authentication hash, so for now we remove the first
+                    // node here.
+                    //
+                    // See: https://github.com/0xPolygonMiden/miden-node/blob/main/store/src/state.rs#L274
+                    let mut merkle_path = commited_note.merkle_path().clone();
+                    if merkle_path.len() > 0 {
+                        let _ = merkle_path.remove(0);
+                    }
 
-                NoteInclusionProof::new(
-                    block_header.block_num(),
-                    block_header.sub_hash(),
-                    block_header.note_root(),
-                    commited_note.note_index().into(),
-                    merkle_path,
-                )
-                .map_err(ClientError::NoteError)
-                .map(|proof| (*commited_note.note_id(), proof))
+                    let note_inclusion_proof = NoteInclusionProof::new(
+                        block_header.block_num(),
+                        block_header.sub_hash(),
+                        block_header.note_root(),
+                        commited_note.note_index().into(),
+                        merkle_path,
+                    )
+                    .map_err(ClientError::NoteError)
+                    .map(|proof| (*commited_note.note_id(), proof));
+
+                    Some(note_inclusion_proof)
+                } else {
+                    None
+                }
             })
             .collect()
     }
