@@ -52,8 +52,7 @@ async fn execute_tx_and_sync(client: &mut Client, tx_template: TransactionTempla
 
 const MINT_AMOUNT: u64 = 1000;
 
-#[ignore]
-#[tokio::test]
+#[tokio::main]
 async fn main() {
     let mut client = create_test_client();
 
