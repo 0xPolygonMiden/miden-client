@@ -1,5 +1,3 @@
-
-
 use crypto::{rand::RpoRandomCoin, utils::Serializable, Felt, StarkField, Word};
 use miden_lib::notes::create_p2id_note;
 use miden_node_proto::{
@@ -13,8 +11,10 @@ use objects::{
     accounts::{AccountDelta, AccountId},
     assembly::ProgramAst,
     assets::{Asset, FungibleAsset},
-    notes::{Note, NoteEnvelope, NoteId},
-    transaction::{ExecutedTransaction, OutputNotes, ProvenTransaction, TransactionScript},
+    notes::{Note, NoteId},
+    transaction::{
+        ExecutedTransaction, OutputNote, OutputNotes, ProvenTransaction, TransactionScript,
+    },
     Digest,
 };
 use rand::Rng;
@@ -152,7 +152,7 @@ pub struct TransactionRecord {
     pub init_account_state: Digest,
     pub final_account_state: Digest,
     pub input_note_nullifiers: Vec<Digest>,
-    pub output_notes: OutputNotes<NoteEnvelope>,
+    pub output_notes: OutputNotes<OutputNote>,
     pub transaction_script: Option<TransactionScript>,
     pub block_num: u32,
     pub transaction_status: TransactionStatus,
@@ -166,7 +166,7 @@ impl TransactionRecord {
         init_account_state: Digest,
         final_account_state: Digest,
         input_note_nullifiers: Vec<Digest>,
-        output_notes: OutputNotes<NoteEnvelope>,
+        output_notes: OutputNotes<OutputNote>,
         transaction_script: Option<TransactionScript>,
         block_num: u32,
         transaction_status: TransactionStatus,

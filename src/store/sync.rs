@@ -79,6 +79,10 @@ impl Store {
         new_authentication_nodes: &[(InOrderIndex, Digest)],
     ) -> Result<(), StoreError> {
         let uncommitted_transactions = self.get_transactions(TransactionFilter::Uncomitted)?;
+        println!(
+            "uncommitted transactions: {}",
+            uncommitted_transactions.len()
+        );
 
         let tx = self.db.transaction()?;
 
@@ -116,12 +120,14 @@ impl Store {
 
         let note_ids: Vec<NoteId> = committed_notes.iter().map(|(id, _)| (*id)).collect();
 
-        Store::mark_transactions_as_committed_by_note_id(
+        let rows = Store::mark_transactions_as_committed_by_note_id(
             &uncommitted_transactions,
             &note_ids,
             block_header.block_num(),
             &tx,
         )?;
+
+        println!("rows {}", rows);
 
         // Commit the updates
         tx.commit()?;

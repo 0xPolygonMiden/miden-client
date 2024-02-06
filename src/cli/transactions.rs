@@ -150,9 +150,6 @@ where
         "Status",
         "Account ID",
         "Script Hash",
-        "Committed",
-        "Commit Height",
-        "Block Num",
         "Input Notes Count",
         "Output Notes Count",
     ]);
@@ -166,7 +163,6 @@ where
                 .as_ref()
                 .map(|x| x.hash().to_string())
                 .unwrap_or("-".to_string()),
-            tx.block_num.to_string(),
             tx.input_note_nullifiers.len().to_string(),
             tx.output_notes.num_notes().to_string(),
         ]);

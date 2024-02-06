@@ -7,14 +7,15 @@ use crypto::{
     utils::{collections::BTreeMap, Deserializable, Serializable},
     Felt,
 };
+
 use tracing::info;
 
 use super::Store;
 use objects::{
     accounts::AccountId,
     assembly::{AstSerdeOptions, ProgramAst},
-    notes::{NoteEnvelope, NoteId},
-    transaction::{OutputNotes, TransactionScript},
+    notes::{NoteId},
+    transaction::{OutputNote, OutputNotes, TransactionScript},
     Digest,
 };
 use rusqlite::{params, Transaction};
@@ -173,18 +174,15 @@ impl Store {
     ) -> Result<usize, StoreError> {
         let updated_transactions: Vec<&TransactionRecord> = uncommitted_transactions
             .iter()
-            .filter(|t| {
-                t.output_notes
-                    .iter()
-                    .any(|n| note_ids.contains(&n.note_id()))
-            })
+            .filter(|t| t.output_notes.iter().any(|n| note_ids.contains(&n.id())))
             .collect();
 
         let mut rows = 0;
         for transaction in updated_transactions {
             const QUERY: &str = "UPDATE transactions set commit_height=? where id=?";
-            rows += tx.execute(QUERY, params![block_num, transaction.id.to_string()])?;
+            rows += tx.execute(QUERY, params![Some(block_num), transaction.id.to_string()])?;
         }
+        info!("Marked {} transactions as committed", rows);
 
         Ok(rows)
     }
@@ -210,10 +208,14 @@ pub(super) fn serialize_transaction_data(
         serde_json::to_string(&nullifiers).map_err(StoreError::InputSerializationError)?;
 
     let output_notes = executed_transaction.output_notes();
+    println!(
+        "output notes first {}",
+        output_notes.get_note(0).id().inner()
+    );
 
-    info!("Transaction id {}", executed_transaction.id().inner());
+    info!("Transaction ID: {}", executed_transaction.id().inner());
     info!(
-        "Transaction account id: {}",
+        "Transaction account ID: {}",
         executed_transaction.account_id()
     );
 
@@ -304,7 +306,7 @@ fn parse_transaction(
     let input_note_nullifiers: Vec<Digest> =
         serde_json::from_str(&input_notes).map_err(StoreError::JsonDataDeserializationError)?;
 
-    let output_notes = OutputNotes::<NoteEnvelope>::read_from_bytes(&output_notes)?;
+    let output_notes: OutputNotes<OutputNote> = OutputNotes::read_from_bytes(&output_notes)?;
 
     let transaction_script: Option<TransactionScript> = if script_hash.is_some() {
         let script_hash = script_hash
