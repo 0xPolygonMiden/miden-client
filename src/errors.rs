@@ -10,7 +10,6 @@ use objects::{
     accounts::AccountId, notes::NoteId, AccountError, AssetVaultError, Digest, NoteError,
     TransactionScriptError,
 };
-use tonic::{transport::Error as TransportError, Status as TonicStatus};
 
 // CLIENT ERROR
 // ================================================================================================
@@ -22,7 +21,7 @@ pub enum ClientError {
     ImportNewAccountWithoutSeed,
     NoteError(NoteError),
     NoConsumableNoteForAccount(AccountId),
-    RpcApiError(RpcApiError),
+    NodeApiError(NodeApiError),
     StoreError(StoreError),
     TransactionExecutionError(TransactionExecutorError),
     TransactionProvingError(TransactionProverError),
@@ -41,7 +40,7 @@ impl fmt::Display for ClientError {
                 write!(f, "No consumable note for account ID {}", account_id)
             }
             ClientError::NoteError(err) => write!(f, "note error: {err}"),
-            ClientError::RpcApiError(err) => write!(f, "rpc api error: {err}"),
+            ClientError::NodeApiError(err) => write!(f, "rpc api error: {err}"),
             ClientError::StoreError(err) => write!(f, "store error: {err}"),
             ClientError::TransactionExecutionError(err) => {
                 write!(f, "transaction executor error: {err}")
@@ -74,9 +73,9 @@ impl From<NoteError> for ClientError {
     }
 }
 
-impl From<RpcApiError> for ClientError {
-    fn from(err: RpcApiError) -> Self {
-        Self::RpcApiError(err)
+impl From<NodeApiError> for ClientError {
+    fn from(err: NodeApiError) -> Self {
+        Self::NodeApiError(err)
     }
 }
 
@@ -289,50 +288,48 @@ impl std::error::Error for StoreError {}
 // API CLIENT ERROR
 // ================================================================================================
 
-use crate::client::RpcApiEndpoint;
-
 #[derive(Debug)]
-pub enum RpcApiError {
-    ConnectionError(TransportError),
-    ConversionFailure(ParseError),
+pub enum NodeApiError {
+    ConnectionError(String),
+    ConversionFailure(String),
     ExpectedFieldMissing(String),
-    InvalidAccountReceived(AccountError),
-    RequestError(RpcApiEndpoint, TonicStatus),
+    InvalidAccountReceived(String),
+    RequestError(String, String),
 }
 
-impl fmt::Display for RpcApiError {
+impl fmt::Display for NodeApiError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RpcApiError::ConnectionError(err) => {
+            NodeApiError::ConnectionError(err) => {
                 write!(f, "failed to connect to the API server: {err}")
             }
-            RpcApiError::ConversionFailure(err) => {
+            NodeApiError::ConversionFailure(err) => {
                 write!(f, "failed to convert RPC data: {err}")
             }
-            RpcApiError::ExpectedFieldMissing(err) => {
+            NodeApiError::ExpectedFieldMissing(err) => {
                 write!(f, "rpc API reponse missing an expected field: {err}")
             }
-            RpcApiError::InvalidAccountReceived(account_error) => {
+            NodeApiError::InvalidAccountReceived(account_error) => {
                 write!(
                     f,
                     "rpc API reponse contained an invalid account: {account_error}"
                 )
             }
-            RpcApiError::RequestError(endpoint, err) => {
+            NodeApiError::RequestError(endpoint, err) => {
                 write!(f, "rpc request failed for {endpoint}: {err}")
             }
         }
     }
 }
 
-impl From<ParseError> for RpcApiError {
+impl From<ParseError> for NodeApiError {
     fn from(err: ParseError) -> Self {
-        Self::ConversionFailure(err)
+        Self::ConversionFailure(err.to_string())
     }
 }
 
-impl From<AccountError> for RpcApiError {
+impl From<AccountError> for NodeApiError {
     fn from(err: AccountError) -> Self {
-        Self::InvalidAccountReceived(err)
+        Self::InvalidAccountReceived(err.to_string())
     }
 }

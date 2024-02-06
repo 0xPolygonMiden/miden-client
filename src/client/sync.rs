@@ -1,7 +1,6 @@
-use super::{rpc_client::CommittedNote, Client};
+use super::{rpc_client::CommittedNote, Client, NodeApi};
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
-use miden_node_proto::requests::GetBlockHeaderByNumberRequest;
 
 use objects::{
     accounts::{AccountId, AccountStub},
@@ -27,7 +26,7 @@ pub enum SyncStatus {
 /// The number of bits to shift identifiers for in use of filters.
 pub const FILTER_ID_SHIFT: u8 = 48;
 
-impl Client {
+impl<N: NodeApi> Client<N> {
     // SYNC STATE
     // --------------------------------------------------------------------------------------------
 
@@ -84,7 +83,7 @@ impl Client {
     async fn retrieve_and_store_genesis(&mut self) -> Result<(), ClientError> {
         let genesis_block = self
             .rpc_api
-            .get_block_header_by_number(GetBlockHeaderByNumberRequest { block_num: Some(0) })
+            .get_block_header_by_number(Some(0))
             .await?;
 
         let tx = self.store.db.transaction()?;

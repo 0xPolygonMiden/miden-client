@@ -25,7 +25,7 @@ use crate::{
     store::{accounts::AuthInfo, transactions::TransactionFilter},
 };
 
-use super::Client;
+use super::{Client, NodeApi};
 
 // MASM SCRIPTS
 // --------------------------------------------------------------------------------------------
@@ -204,7 +204,7 @@ impl std::fmt::Display for TransactionStatus {
     }
 }
 
-impl Client {
+impl<N: NodeApi> Client<N> {
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
@@ -412,16 +412,12 @@ impl Client {
     async fn submit_proven_transaction_request(
         &mut self,
         proven_transaction: ProvenTransaction,
-    ) -> Result<SubmitProvenTransactionResponse, ClientError> {
-        let request = SubmitProvenTransactionRequest {
-            transaction: proven_transaction.to_bytes(),
-        };
-
+    ) -> Result<(), ClientError> {
         Ok(self
             .rpc_api
-            .submit_proven_transaction(request)
+            .submit_proven_transaction(proven_transaction)
             .await?
-            .into_inner())
+        )
     }
 
     // HELPERS

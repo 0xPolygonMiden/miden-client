@@ -1,4 +1,4 @@
-use super::Client;
+use super::{Client, NodeApi};
 
 use crate::{
     errors::ClientError,
@@ -6,7 +6,7 @@ use crate::{
 };
 use objects::notes::NoteId;
 
-impl Client {
+impl<N: NodeApi> Client<N> {
     // INPUT NOTE DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 

@@ -3,9 +3,9 @@ use crate::{
         rpc_client::StateSyncInfo,
         sync::FILTER_ID_SHIFT,
         transactions::{PaymentTransactionData, TransactionTemplate},
-        Client, RpcApiEndpoint,
+        Client, RpcApiEndpoint, NodeApi,
     },
-    errors::RpcApiError,
+    errors::NodeApiError,
 };
 use crypto::{
     dsa::rpo_falcon512::KeyPair,
@@ -32,9 +32,9 @@ use mock::mock::{
 use objects::{
     crypto::merkle::{Mmr, MmrDelta},
     notes::{Note, NoteInclusionProof},
-    transaction::InputNote,
+    transaction::{InputNote, ProvenTransaction},
     utils::collections::BTreeMap,
-    BlockHeader, NOTE_TREE_DEPTH,
+    BlockHeader, NOTE_TREE_DEPTH, Digest
 };
 use tonic::{IntoRequest, Response, Status};
 
@@ -61,15 +61,19 @@ impl Default for MockRpcApi {
     }
 }
 
-impl MockRpcApi {
+impl NodeApi for MockRpcApi {
+    fn new(_config_endpoint: &str) -> Self {
+        Self::default()
+    }
+    
     /// Executes the specified sync state request and returns the response.
-    pub async fn sync_state(
+    async fn sync_state(
         &mut self,
         block_num: u32,
         _account_ids: &[AccountId],
         _note_tags: &[u16],
         _nullifiers_tags: &[u16],
-    ) -> Result<StateSyncInfo, RpcApiError> {
+    ) -> Result<StateSyncInfo, NodeApiError> {
         // Match request -> response through block_num
         let response = match self
             .state_sync_requests
@@ -80,9 +84,9 @@ impl MockRpcApi {
                 let response = response.clone();
                 Ok(Response::new(response))
             }
-            None => Err(RpcApiError::RequestError(
-                RpcApiEndpoint::SyncState,
-                Status::not_found("no response for sync state request"),
+            None => Err(NodeApiError::RequestError(
+                RpcApiEndpoint::SyncState.to_string(),
+                Status::not_found("no response for sync state request").to_string(),
             )),
         }?;
 
@@ -91,10 +95,11 @@ impl MockRpcApi {
 
     /// Creates and executes a [GetBlockHeaderByNumberRequest].
     /// Only used for retrieving genesis block right now so that's the only case we need to cover.
-    pub async fn get_block_header_by_number(
+    async fn get_block_header_by_number(
         &mut self,
-        request: impl IntoRequest<GetBlockHeaderByNumberRequest>,
-    ) -> Result<BlockHeader, RpcApiError> {
+        block_num: Option<u32>,
+    ) -> Result<BlockHeader, NodeApiError> {
+        let request = GetBlockHeaderByNumberRequest { block_num };
         let request: GetBlockHeaderByNumberRequest = request.into_request().into_inner();
 
         if request.block_num == Some(0) {
@@ -104,16 +109,12 @@ impl MockRpcApi {
         panic!("get_block_header_by_number is supposed to be only used for genesis block")
     }
 
-    pub async fn submit_proven_transaction(
+    async fn submit_proven_transaction(
         &mut self,
-        request: impl tonic::IntoRequest<SubmitProvenTransactionRequest>,
-    ) -> std::result::Result<tonic::Response<SubmitProvenTransactionResponse>, RpcApiError> {
-        let _request = request.into_request().into_inner();
-        let response = SubmitProvenTransactionResponse {};
-
+        _proven_transaction: ProvenTransaction,
+    ) -> std::result::Result<(), NodeApiError> {
         // TODO: add some basic validations to test error cases
-
-        Ok(Response::new(response))
+        Ok(())
     }
 }
 
