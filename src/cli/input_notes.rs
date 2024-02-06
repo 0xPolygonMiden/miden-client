@@ -115,9 +115,7 @@ impl InputNotes {
 // LIST INPUT NOTES
 // ================================================================================================
 fn list_input_notes(client: Client, input_note_filter: InputNoteFilter) -> Result<(), String> {
-    let notes = client
-        .get_input_notes(input_note_filter)
-        .map_err(|err| err.to_string())?;
+    let notes = client.get_input_notes(input_note_filter)?;
 
     print_notes_summary(&notes);
     Ok(())
