@@ -13,7 +13,7 @@ node:
 	cd miden-node && cargo run --release $(NODE_BINARY) $(NODE_FEATURES_TESTING) -- make-genesis --inputs-path node/genesis.toml
 
 start_node: node
-	cd miden-node && cargo run --release $(NODE_BINARY) $(NODE_FEATURES_TESTING) -- start --config node/miden.toml
+	cd miden-node && cargo run $(NODE_BINARY) $(NODE_FEATURES_TESTING) -- start --config node/miden.toml
 
 reset:
 	rm -rf miden-node
