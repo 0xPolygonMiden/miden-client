@@ -43,8 +43,8 @@ tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"] }
 tonic = { version = "0.10" }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3" }
+uuid = { version = "1.6.1", features = ["serde", "v4"], optional = true}
 
 [dev-dependencies]
 # needed for tests to run always with the mock feature
-miden_client = { package = "miden-client", path = ".", features=["mock"] }
-uuid = { version = "1.6.1", features = ["serde", "v4"]}
+miden_client = { package = "miden-client", path = ".", features=["mock", "uuid"] }

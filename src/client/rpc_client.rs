@@ -120,7 +120,6 @@ pub struct CommittedNote {
     /// Merkle path for the note merkle tree up to the block's note root
     merkle_path: MerklePath,
     /// Note metadata
-    #[allow(dead_code)]
     metadata: NoteMetadata,
 }
 
@@ -151,7 +150,6 @@ impl CommittedNote {
         &self.merkle_path
     }
 
-    #[allow(dead_code)]
     pub fn metadata(&self) -> NoteMetadata {
         self.metadata
     }
@@ -160,12 +158,12 @@ impl CommittedNote {
 // RPC CLIENT
 // ================================================================================================
 //
-#[cfg(not(any(test, all(feature = "mock", not(feature = "integration")))))]
+#[cfg(not(any(test, feature = "mock")))]
 pub(crate) use client::RpcClient;
 
 use crate::errors::RpcApiError;
 
-#[cfg(not(any(test, all(feature = "mock", not(feature = "integration")))))]
+#[cfg(not(any(test, feature = "mock")))]
 mod client {
     use super::{RpcApiEndpoint, StateSyncInfo};
     use crate::errors::RpcApiError;
@@ -243,7 +241,7 @@ mod client {
         pub async fn sync_state(
             &mut self,
             block_num: u32,
-            account_ids: &[AccountId],
+            account_ids: &Vec<AccountId>,
             note_tags: &[u16],
             nullifiers_tags: &[u16],
         ) -> Result<StateSyncInfo, RpcApiError> {
