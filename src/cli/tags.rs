@@ -32,13 +32,13 @@ impl TagsCmd {
 // HELPERS
 // ================================================================================================
 fn list_tags(client: Client) -> Result<(), String> {
-    let tags = client.get_note_tags().map_err(|err| err.to_string())?;
+    let tags = client.get_note_tags()?;
     println!("tags: {:?}", tags);
     Ok(())
 }
 
 fn add_tag(mut client: Client, tag: u64) -> Result<(), String> {
-    client.add_note_tag(tag).map_err(|err| err.to_string())?;
+    client.add_note_tag(tag)?;
     println!("tag {} added", tag);
     Ok(())
 }

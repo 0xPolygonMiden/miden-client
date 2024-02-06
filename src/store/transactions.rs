@@ -37,6 +37,7 @@ pub enum TransactionFilter {
 }
 
 impl TransactionFilter {
+    /// Returns a [String] containing the query for this Filter
     pub fn to_query(&self) -> String {
         const QUERY: &str = "SELECT tx.id, tx.account_id, tx.init_account_state, tx.final_account_state, \
             tx.input_notes, tx.output_notes, tx.script_hash, script.program, tx.script_inputs, tx.block_num, tx.commit_height \
@@ -79,6 +80,7 @@ impl Store {
             .collect::<Result<Vec<TransactionRecord>, _>>()
     }
 
+    /// Inserts a transaction and updates the current state based on the `tx_result` changes
     pub fn insert_transaction_data(
         &mut self,
         tx_result: TransactionResult,
@@ -188,7 +190,7 @@ impl Store {
     }
 }
 
-pub(crate) fn serialize_transaction_data(
+pub(super) fn serialize_transaction_data(
     transaction_result: TransactionResult,
 ) -> Result<SerializedTransactionData, StoreError> {
     let executed_transaction = transaction_result.executed_transaction();
@@ -246,7 +248,7 @@ pub(crate) fn serialize_transaction_data(
     ))
 }
 
-pub fn parse_transaction_columns(
+fn parse_transaction_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedTransactionData, rusqlite::Error> {
     let id: String = row.get(0)?;

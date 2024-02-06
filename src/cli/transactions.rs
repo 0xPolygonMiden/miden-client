@@ -1,5 +1,3 @@
-use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
-
 use miden_client::{
     client::transactions::{PaymentTransactionData, TransactionRecord, TransactionTemplate},
     store::transactions::TransactionFilter,
@@ -7,6 +5,8 @@ use miden_client::{
 
 use objects::{accounts::AccountId, assets::FungibleAsset, notes::NoteId};
 use tracing::info;
+
+use crate::cli::create_dynamic_table;
 
 use super::{Client, Parser};
 
@@ -117,16 +117,14 @@ impl Transaction {
             Transaction::New { transaction_type } => {
                 let transaction_template: TransactionTemplate = transaction_type.try_into()?;
 
-                let transaction_execution_result = client
-                    .new_transaction(transaction_template.clone())
-                    .map_err(|err| err.to_string())?;
+                let transaction_execution_result =
+                    client.new_transaction(transaction_template.clone())?;
 
                 info!("Executed transaction, proving and then submitting...");
 
                 client
                     .send_transaction(transaction_execution_result)
-                    .await
-                    .map_err(|err| err.to_string())?;
+                    .await?
             }
         }
         Ok(())
@@ -136,9 +134,7 @@ impl Transaction {
 // LIST TRANSACTIONS
 // ================================================================================================
 fn list_transactions(client: Client) -> Result<(), String> {
-    let transactions = client
-        .get_transactions(TransactionFilter::All)
-        .map_err(|err| err.to_string())?;
+    let transactions = client.get_transactions(TransactionFilter::All)?;
     print_transactions_summary(&transactions);
     Ok(())
 }
@@ -149,23 +145,17 @@ fn print_transactions_summary<'a, I>(executed_transactions: I)
 where
     I: IntoIterator<Item = &'a TransactionRecord>,
 {
-    let mut table = Table::new();
-    table
-        .load_preset(presets::UTF8_HORIZONTAL_ONLY)
-        .set_content_arrangement(ContentArrangement::DynamicFullWidth);
-
-    table
-        .load_preset(presets::UTF8_FULL)
-        .set_content_arrangement(ContentArrangement::DynamicFullWidth)
-        .set_header(vec![
-            Cell::new("transaction id").add_attribute(Attribute::Bold),
-            Cell::new("account id").add_attribute(Attribute::Bold),
-            Cell::new("status").add_attribute(Attribute::Bold),
-            Cell::new("script hash").add_attribute(Attribute::Bold),
-            Cell::new("block num").add_attribute(Attribute::Bold),
-            Cell::new("input notes count").add_attribute(Attribute::Bold),
-            Cell::new("output notes count").add_attribute(Attribute::Bold),
-        ]);
+    let mut table = create_dynamic_table(&[
+        "ID",
+        "Status",
+        "Account ID",
+        "Script Hash",
+        "Committed",
+        "Commit Height",
+        "Block Num",
+        "Input Notes Count",
+        "Output Notes Count",
+    ]);
 
     for tx in executed_transactions {
         table.add_row(vec![

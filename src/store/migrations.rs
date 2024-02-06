@@ -14,6 +14,6 @@ lazy_static! {
 // PUBLIC FUNCTIONS
 // ================================================================================================
 
-pub fn update_to_latest(conn: &mut Connection) -> Result<(), StoreError> {
+pub(crate) fn update_to_latest(conn: &mut Connection) -> Result<(), StoreError> {
     Ok(MIGRATIONS.to_latest(conn)?)
 }
