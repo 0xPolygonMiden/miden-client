@@ -9,13 +9,9 @@ keywords = ["miden", "client"]
 edition = "2021"
 rust-version = "1.67"
 
-[[bin]]
+[[test]]
 name = "integration"
-path = "src/client/integration.rs"
-
-[[bin]]
-name = "miden"
-path = "src/main.rs"
+path = "tests/integration/main.rs"
 
 [features]
 concurrent = ["miden_lib/concurrent", "objects/concurrent", "miden_tx/concurrent"]
