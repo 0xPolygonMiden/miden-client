@@ -14,7 +14,7 @@ use super::Store;
 use objects::{
     accounts::AccountId,
     assembly::{AstSerdeOptions, ProgramAst},
-    notes::{NoteId},
+    notes::NoteId,
     transaction::{OutputNote, OutputNotes, TransactionScript},
     Digest,
 };
