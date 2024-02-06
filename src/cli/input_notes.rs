@@ -5,6 +5,7 @@ use std::{
 };
 
 use super::{Client, Parser};
+use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::store::notes::{InputNoteFilter, InputNoteRecord};
 
@@ -13,8 +14,7 @@ use crypto::utils::{Deserializable, Serializable};
 use objects::{notes::NoteId, Digest};
 use tracing::warn;
 
-#[derive(Clone, Debug, Parser)]
-#[clap()]
+#[derive(Clone, Debug, ValueEnum)]
 pub enum NoteFilter {
     Pending,
     Committed,
@@ -28,7 +28,7 @@ pub enum InputNotes {
     #[clap(short_flag = 'l')]
     List {
         /// Filter the displayed note list
-        #[clap(subcommand)]
+        #[clap(short, long)]
         filter: Option<NoteFilter>,
     },
 

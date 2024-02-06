@@ -158,29 +158,24 @@ where
         .load_preset(presets::UTF8_FULL)
         .set_content_arrangement(ContentArrangement::DynamicFullWidth)
         .set_header(vec![
+            Cell::new("transaction id").add_attribute(Attribute::Bold),
             Cell::new("account id").add_attribute(Attribute::Bold),
+            Cell::new("status").add_attribute(Attribute::Bold),
             Cell::new("script hash").add_attribute(Attribute::Bold),
-            Cell::new("committed").add_attribute(Attribute::Bold),
-            Cell::new("commit height").add_attribute(Attribute::Bold),
             Cell::new("block num").add_attribute(Attribute::Bold),
             Cell::new("input notes count").add_attribute(Attribute::Bold),
             Cell::new("output notes count").add_attribute(Attribute::Bold),
         ]);
 
     for tx in executed_transactions {
-        let commit_height = match tx.commit_height {
-            0 => "-".to_string(),
-            _ => tx.commit_height.to_string(),
-        };
-
         table.add_row(vec![
+            tx.id.to_string(),
+            tx.transaction_status.to_string(),
             tx.account_id.to_string(),
             tx.transaction_script
                 .as_ref()
                 .map(|x| x.hash().to_string())
                 .unwrap_or("-".to_string()),
-            tx.committed.to_string(),
-            commit_height,
             tx.block_num.to_string(),
             tx.input_note_nullifiers.len().to_string(),
             tx.output_notes.num_notes().to_string(),

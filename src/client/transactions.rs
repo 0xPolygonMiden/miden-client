@@ -1,3 +1,5 @@
+
+
 use crypto::{rand::RpoRandomCoin, utils::Serializable, Felt, StarkField, Word};
 use miden_lib::notes::create_p2id_note;
 use miden_node_proto::{
@@ -47,8 +49,8 @@ pub enum TransactionTemplate {
     },
     /// Creates a pay-to-id note directed to a specific account
     PayToId(PaymentTransactionData),
-    /// Creates a pay-to-id note directed to a specific account, specifying a block height at which
-    /// the payment can be recalled
+    /// Creates a pay-to-id note directed to a specific account, specifying a block height after
+    /// which the note can be recalled
     PayToIdWithRecall(PaymentTransactionData, u32),
 }
 
@@ -153,8 +155,7 @@ pub struct TransactionRecord {
     pub output_notes: OutputNotes<NoteEnvelope>,
     pub transaction_script: Option<TransactionScript>,
     pub block_num: u32,
-    pub committed: bool,
-    pub commit_height: u64,
+    pub transaction_status: TransactionStatus,
 }
 
 impl TransactionRecord {
@@ -168,8 +169,7 @@ impl TransactionRecord {
         output_notes: OutputNotes<NoteEnvelope>,
         transaction_script: Option<TransactionScript>,
         block_num: u32,
-        committed: bool,
-        commit_height: u64,
+        transaction_status: TransactionStatus,
     ) -> TransactionRecord {
         TransactionRecord {
             id,
@@ -180,8 +180,26 @@ impl TransactionRecord {
             output_notes,
             transaction_script,
             block_num,
-            committed,
-            commit_height,
+            transaction_status,
+        }
+    }
+}
+
+/// Represents the status of a transaction
+pub enum TransactionStatus {
+    /// Transaction has been submitted but not yet committed
+    Pending,
+    /// Transaction has been committed and included in the specified block number
+    Committed(u32),
+}
+
+impl std::fmt::Display for TransactionStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TransactionStatus::Pending => write!(f, "Pending"),
+            TransactionStatus::Committed(block_number) => {
+                write!(f, "Committed (Block: {})", block_number)
+            }
         }
     }
 }
