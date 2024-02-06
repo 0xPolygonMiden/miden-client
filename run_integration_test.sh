@@ -1,5 +1,8 @@
 FEATURES_INTEGRATION_TESTING="concurrent,testing,uuid"
 
+# compile before waiting for the node to be up
+cargo build --release --bin="integration" --features "$FEATURES_INTEGRATION_TESTING"
+
 # Wait for the node to be up
 http_code="000"
 while true; do
