@@ -370,9 +370,16 @@ async fn test_sync_state_mmr_state() {
     assert!(partial_mmr.open(4).unwrap().is_some());
     assert!(partial_mmr.open(5).unwrap().is_none());
 
-    // Ensure the proof is valid
-    // let mmr_proof = dbg!(partial_mmr.open(2).unwrap().unwrap());
-    // assert!(partial_mmr.peaks().verify(tracked_block_headers[0].hash(), mmr_proof));
+    // Ensure the proofs are valid
+    let mmr_proof = partial_mmr.open(2).unwrap().unwrap();
+    assert!(partial_mmr
+        .peaks()
+        .verify(tracked_block_headers[0].hash(), mmr_proof));
+
+    let mmr_proof = partial_mmr.open(4).unwrap().unwrap();
+    assert!(partial_mmr
+        .peaks()
+        .verify(tracked_block_headers[1].hash(), mmr_proof));
 }
 
 #[tokio::test]
