@@ -32,8 +32,6 @@ fn create_test_store_path() -> std::path::PathBuf {
 }
 
 async fn execute_tx_and_sync(client: &mut Client, tx_template: TransactionTemplate) {
-    let current_block_num = client.sync_state().await.unwrap();
-
     println!("Executing Transaction");
     let transaction_execution_result = client.new_transaction(tx_template).unwrap();
 
@@ -42,6 +40,8 @@ async fn execute_tx_and_sync(client: &mut Client, tx_template: TransactionTempla
         .send_transaction(transaction_execution_result)
         .await
         .unwrap();
+
+    let current_block_num = client.sync_state().await.unwrap();
 
     // Wait until we've actually gotten a new block
     println!("Syncing State...");
