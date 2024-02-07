@@ -405,7 +405,7 @@ async fn test_consume_all_transaction() {
 
     let recorded_notes: InputNotes = transaction_inputs.input_notes().clone();
     let mut notes_for_data_store = vec![];
-    for note in recorded_notes {
+    for note in recorded_notes.iter() {
         notes_for_data_store.push(note.note().clone());
     }
 
@@ -420,6 +420,7 @@ async fn test_consume_all_transaction() {
         MockDataStore::with_existing(account.clone(), Some(seed), Some(notes_for_data_store));
     client.set_data_store(data_store);
 
-    let transaction_template = TransactionTemplate::ConsumeAllNotes(account.id());
+    let note_list = recorded_notes.iter().map(|x| x.note().id()).collect();
+    let transaction_template = TransactionTemplate::ConsumeNotes(account.id(), note_list);
     client.new_transaction(transaction_template).unwrap();
 }

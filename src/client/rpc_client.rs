@@ -150,6 +150,7 @@ impl CommittedNote {
         &self.merkle_path
     }
 
+    #[allow(dead_code)]
     pub fn metadata(&self) -> NoteMetadata {
         self.metadata
     }
