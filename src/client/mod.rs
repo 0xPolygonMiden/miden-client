@@ -1,17 +1,20 @@
 #[cfg(not(any(test, feature = "mock")))]
 use crate::store::data_store::SqliteDataStore;
-use crate::{config::ClientConfig, errors::{ClientError, NodeApiError}, store::Store};
+use crate::{
+    config::ClientConfig,
+    errors::{ClientError, NodeApiError},
+    store::Store,
+};
 use miden_tx::TransactionExecutor;
-use objects::{transaction::ProvenTransaction, BlockHeader, accounts::AccountId};
+use objects::{accounts::AccountId, transaction::ProvenTransaction, BlockHeader};
 pub use rpc_client::RpcApiEndpoint;
 
 pub mod accounts;
 mod chain_data;
 mod notes;
-pub(crate) mod rpc_client;
+pub mod rpc_client;
 pub(crate) mod sync;
 pub mod transactions;
-
 
 // NODE API TRAIT
 // ================================================================================================
@@ -34,7 +37,6 @@ pub trait NodeApi {
         nullifiers_tags: &[u16],
     ) -> Result<StateSyncInfo, NodeApiError>;
 }
-
 
 // MIDEN CLIENT
 // ================================================================================================
@@ -85,21 +87,21 @@ use self::rpc_client::StateSyncInfo;
 
 #[cfg(any(test, feature = "mock"))]
 mod mock {
-    use super::{ClientConfig, ClientError, Store, TransactionExecutor, NodeApi};
-    use crate::{mock::MockRpcApi, store::mock_executor_data_store::MockDataStore};
+    use super::{ClientConfig, ClientError, NodeApi, Store, TransactionExecutor};
+    use crate::store::mock_executor_data_store::MockDataStore;
 
     pub struct Client<N: NodeApi> {
         pub(crate) store: Store,
-        pub(crate) rpc_api: MockRpcApi,
+        pub(crate) rpc_api: N,
         pub(crate) tx_executor: TransactionExecutor<MockDataStore>,
     }
 
     #[cfg(any(test, feature = "mock"))]
     impl<N: NodeApi> Client<N> {
-        pub fn new(config: ClientConfig, _api: N) -> Result<Self, ClientError> {
+        pub fn new(config: ClientConfig, api: N) -> Result<Self, ClientError> {
             Ok(Self {
                 store: Store::new((&config).into())?,
-                rpc_api: Default::default(),
+                rpc_api: api,
                 tx_executor: TransactionExecutor::new(MockDataStore::new()),
             })
         }

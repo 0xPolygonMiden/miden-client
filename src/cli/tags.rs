@@ -1,3 +1,5 @@
+use miden_client::client::NodeApi;
+
 use super::{Client, Parser};
 
 #[derive(Debug, Parser, Clone)]
@@ -16,7 +18,7 @@ pub enum TagsCmd {
 }
 
 impl TagsCmd {
-    pub async fn execute(&self, client: Client) -> Result<(), String> {
+    pub async fn execute<N: NodeApi>(&self, client: Client<N>) -> Result<(), String> {
         match self {
             TagsCmd::List => {
                 list_tags(client)?;
@@ -31,13 +33,13 @@ impl TagsCmd {
 
 // HELPERS
 // ================================================================================================
-fn list_tags(client: Client) -> Result<(), String> {
+fn list_tags<N: NodeApi>(client: Client<N>) -> Result<(), String> {
     let tags = client.get_note_tags()?;
     println!("tags: {:?}", tags);
     Ok(())
 }
 
-fn add_tag(mut client: Client, tag: u64) -> Result<(), String> {
+fn add_tag<N: NodeApi>(mut client: Client<N>, tag: u64) -> Result<(), String> {
     client.add_note_tag(tag)?;
     println!("tag {} added", tag);
     Ok(())

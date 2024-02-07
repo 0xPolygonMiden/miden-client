@@ -9,7 +9,10 @@ use crate::cli::create_dynamic_table;
 use super::{Client, Parser};
 use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
-use miden_client::store::notes::{InputNoteFilter, InputNoteRecord};
+use miden_client::{
+    client::NodeApi,
+    store::notes::{InputNoteFilter, InputNoteRecord},
+};
 
 use crypto::utils::{Deserializable, Serializable};
 
@@ -76,7 +79,7 @@ pub enum InputNotes {
 }
 
 impl InputNotes {
-    pub fn execute(&self, mut client: Client) -> Result<(), String> {
+    pub fn execute<N: NodeApi>(&self, mut client: Client<N>) -> Result<(), String> {
         match self {
             InputNotes::List { filter } => {
                 let filter = match filter {
@@ -114,17 +117,16 @@ impl InputNotes {
 
 // LIST INPUT NOTES
 // ================================================================================================
-fn list_input_notes(client: Client, input_note_filter: InputNoteFilter) -> Result<(), String> {
+fn list_input_notes<N: NodeApi>(client: Client<N>, input_note_filter: InputNoteFilter) -> Result<(), String> {
     let notes = client.get_input_notes(input_note_filter)?;
-
     print_notes_summary(&notes);
     Ok(())
 }
 
 // EXPORT INPUT NOTE
 // ================================================================================================
-pub fn export_note(
-    client: &Client,
+pub fn export_note<N: NodeApi>(
+    client: &Client<N>,
     note_id: &str,
     filename: Option<PathBuf>,
 ) -> Result<File, String> {
@@ -149,7 +151,10 @@ pub fn export_note(
 
 // IMPORT INPUT NOTE
 // ================================================================================================
-pub fn import_note(client: &mut Client, filename: PathBuf) -> Result<NoteId, String> {
+pub fn import_note<N: NodeApi>(
+    client: &mut Client<N>,
+    filename: PathBuf,
+) -> Result<NoteId, String> {
     let mut contents = vec![];
     let mut _file = File::open(filename)
         .and_then(|mut f| f.read_to_end(&mut contents))
@@ -168,8 +173,8 @@ pub fn import_note(client: &mut Client, filename: PathBuf) -> Result<NoteId, Str
 
 // SHOW INPUT NOTE
 // ================================================================================================
-fn show_input_note(
-    client: Client,
+fn show_input_note<N: NodeApi>(
+    client: Client<N>,
     note_id: String,
     show_script: bool,
     show_vault: bool,
@@ -282,8 +287,9 @@ mod tests {
     use crate::cli::input_notes::{export_note, import_note};
 
     use miden_client::{
-        client::Client,
+        client::{Client, NodeApi},
         config::{ClientConfig, Endpoint},
+        mock::MockRpcApi,
         store::notes::InputNoteRecord,
     };
     use mock::mock::{
@@ -297,14 +303,17 @@ mod tests {
         // generate test client
         let mut path = temp_dir();
         path.push(Uuid::new_v4().to_string());
-        let mut client = Client::new(ClientConfig::new(
-            path.into_os_string()
-                .into_string()
-                .unwrap()
-                .try_into()
-                .unwrap(),
-            Endpoint::default().into(),
-        ))
+        let mut client = Client::<MockRpcApi>::new(
+            ClientConfig::new(
+                path.into_os_string()
+                    .into_string()
+                    .unwrap()
+                    .try_into()
+                    .unwrap(),
+                Endpoint::default().into(),
+            ),
+            MockRpcApi::new(&Endpoint::default().to_string()),
+        )
         .unwrap();
 
         // generate test data
@@ -352,14 +361,17 @@ mod tests {
         // generate test client to import notes to
         let mut path = temp_dir();
         path.push(Uuid::new_v4().to_string());
-        let mut client = Client::new(ClientConfig::new(
-            path.into_os_string()
-                .into_string()
-                .unwrap()
-                .try_into()
-                .unwrap(),
-            Endpoint::default().into(),
-        ))
+        let mut client = Client::<MockRpcApi>::new(
+            ClientConfig::new(
+                path.into_os_string()
+                    .into_string()
+                    .unwrap()
+                    .try_into()
+                    .unwrap(),
+                Endpoint::default().into(),
+            ),
+            MockRpcApi::new(&Endpoint::default().to_string()),
+        )
         .unwrap();
 
         import_note(&mut client, filename_path).unwrap();

@@ -6,7 +6,13 @@ use figment::{
     providers::{Format, Toml},
     Figment,
 };
-use miden_client::{client::Client, config::ClientConfig};
+use miden_client::{
+    client::{Client, NodeApi},
+    config::ClientConfig,
+};
+
+#[cfg(feature = "mock")]
+use miden_client::mock::MockRpcApi;
 
 mod account;
 mod info;
@@ -63,7 +69,14 @@ impl Cli {
         current_dir.push(CLIENT_CONFIG_FILE_NAME);
 
         let client_config = load_config(current_dir.as_path())?;
-        let client = Client::new(client_config)?;
+        let rpc_endpoint = client_config.rpc.endpoint.to_string();
+
+        #[cfg(not(feature = "mock"))]
+        let client: Client<RpcClient> = Client::new(client_config, RpcClient::new(&rpc_endpoint))?;
+
+        #[cfg(feature = "mock")]
+        let client: Client<MockRpcApi> =
+            Client::new(client_config, MockRpcApi::new(&rpc_endpoint))?;
 
         // Execute cli command
         match &self.action {

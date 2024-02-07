@@ -3,7 +3,7 @@ use crate::{
         rpc_client::StateSyncInfo,
         sync::FILTER_ID_SHIFT,
         transactions::{PaymentTransactionData, TransactionTemplate},
-        Client, RpcApiEndpoint, NodeApi,
+        Client, NodeApi, RpcApiEndpoint,
     },
     errors::NodeApiError,
 };
@@ -17,8 +17,8 @@ use miden_node_proto::{
     account::AccountId as ProtoAccountId,
     block_header::BlockHeader as NodeBlockHeader,
     note::NoteSyncRecord,
-    requests::{GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest, SyncStateRequest},
-    responses::{NullifierUpdate, SubmitProvenTransactionResponse, SyncStateResponse},
+    requests::{GetBlockHeaderByNumberRequest, SyncStateRequest},
+    responses::{NullifierUpdate, SyncStateResponse},
 };
 use mock::{
     constants::{generate_account_seed, AccountSeedType},
@@ -65,7 +65,7 @@ impl NodeApi for MockRpcApi {
     fn new(_config_endpoint: &str) -> Self {
         Self::default()
     }
-    
+
     /// Executes the specified sync state request and returns the response.
     async fn sync_state(
         &mut self,
@@ -342,7 +342,7 @@ pub async fn insert_mock_data(client: &mut Client) -> Vec<BlockHeader> {
     tracked_block_headers
 }
 
-pub async fn create_mock_transaction(client: &mut Client) {
+pub async fn create_mock_transaction(client: &mut Client<MockRpcApi>) {
     let key_pair: KeyPair = KeyPair::new()
         .map_err(|err| format!("Error generating KeyPair: {}", err))
         .unwrap();
@@ -432,7 +432,7 @@ pub async fn create_mock_transaction(client: &mut Client) {
 }
 
 #[cfg(test)]
-impl Client {
+impl<N: NodeApi> Client<N> {
     /// Helper function to set a data store to conveniently mock data for tests
     pub fn set_data_store(
         &mut self,

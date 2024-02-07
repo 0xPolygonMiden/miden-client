@@ -73,7 +73,9 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
 
             let merkle_path = note
                 .merkle_path
-                .ok_or(NodeApiError::ExpectedFieldMissing("Notes.MerklePath".into()))?
+                .ok_or(NodeApiError::ExpectedFieldMissing(
+                    "Notes.MerklePath".into(),
+                ))?
                 .try_into()?;
 
             let sender_account_id = note.sender.try_into()?;
@@ -93,7 +95,10 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                     .clone()
                     .nullifier
                     .ok_or(NodeApiError::ExpectedFieldMissing("Nullifier".into()))
-                    .and_then(|n| Digest::try_from(n).map_err(|err| NodeApiError::ConversionFailure(err.to_string())))
+                    .and_then(|n| {
+                        Digest::try_from(n)
+                            .map_err(|err| NodeApiError::ConversionFailure(err.to_string()))
+                    })
             })
             .collect::<Result<Vec<Digest>, NodeApiError>>()?;
 
@@ -160,27 +165,28 @@ impl CommittedNote {
 // ================================================================================================
 //
 // #[cfg(not(any(test, feature = "mock")))]
-pub(crate) use client::RpcClient;
+pub use client::RpcClient;
 
 use crate::errors::NodeApiError;
 
 // #[cfg(not(any(test, feature = "mock")))]
 mod client {
     use super::{RpcApiEndpoint, StateSyncInfo};
-    use crate::errors::NodeApiError;
     use crate::client::NodeApi;
+    use crate::errors::NodeApiError;
     use crypto::utils::Serializable;
     use miden_node_proto::{
+        errors::ParseError,
         requests::{
-            SubmitProvenTransactionRequest, SyncStateRequest, GetBlockHeaderByNumberRequest,
+            GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest, SyncStateRequest,
         },
-        rpc::api_client::ApiClient, errors::ParseError,
+        rpc::api_client::ApiClient,
     };
-    use objects::{accounts::AccountId, BlockHeader, transaction::ProvenTransaction};
+    use objects::{accounts::AccountId, transaction::ProvenTransaction, BlockHeader};
     use tonic::transport::Channel;
 
     /// Wrapper for ApiClient which defers establishing a connection with a node until necessary
-    pub(crate) struct RpcClient {
+    pub struct RpcClient {
         rpc_api: Option<ApiClient<Channel>>,
         endpoint: String,
     }
@@ -198,7 +204,6 @@ mod client {
                 Ok(self.rpc_api.insert(rpc_api))
             }
         }
-
     }
 
     impl NodeApi for RpcClient {
@@ -220,7 +225,12 @@ mod client {
             rpc_api
                 .submit_proven_transaction(request)
                 .await
-                .map_err(|err| NodeApiError::RequestError(RpcApiEndpoint::SubmitProvenTx.to_string(), err.to_string()))?;
+                .map_err(|err| {
+                    NodeApiError::RequestError(
+                        RpcApiEndpoint::SubmitProvenTx.to_string(),
+                        err.to_string(),
+                    )
+                })?;
 
             Ok(())
         }
@@ -236,7 +246,10 @@ mod client {
                     .get_block_header_by_number(request)
                     .await
                     .map_err(|err| {
-                        NodeApiError::RequestError(RpcApiEndpoint::GetBlockHeaderByNumber.to_string(), err.to_string())
+                        NodeApiError::RequestError(
+                            RpcApiEndpoint::GetBlockHeaderByNumber.to_string(),
+                            err.to_string(),
+                        )
                     })?;
 
             api_response
@@ -273,10 +286,9 @@ mod client {
             };
 
             let rpc_api = self.rpc_api().await?;
-            let response = rpc_api
-                .sync_state(request)
-                .await
-                .map_err(|err| NodeApiError::RequestError(RpcApiEndpoint::SyncState.to_string(), err.to_string()))?;
+            let response = rpc_api.sync_state(request).await.map_err(|err| {
+                NodeApiError::RequestError(RpcApiEndpoint::SyncState.to_string(), err.to_string())
+            })?;
             response.into_inner().try_into()
         }
     }

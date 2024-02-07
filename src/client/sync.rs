@@ -81,10 +81,7 @@ impl<N: NodeApi> Client<N> {
     /// Calls `get_block_header_by_number` requesting the genesis block and storing it
     /// in the local database
     async fn retrieve_and_store_genesis(&mut self) -> Result<(), ClientError> {
-        let genesis_block = self
-            .rpc_api
-            .get_block_header_by_number(Some(0))
-            .await?;
+        let genesis_block = self.rpc_api.get_block_header_by_number(Some(0)).await?;
 
         let tx = self.store.db.transaction()?;
 
@@ -138,18 +135,21 @@ impl<N: NodeApi> Client<N> {
             return Ok(SyncStatus::SyncedToLastBlock(current_block_num));
         }
 
-        let committed_notes =
-            self.build_inclusion_proofs(response.note_inclusions, &response.block_header)?;
+        let committed_notes = <Client<N>>::build_inclusion_proofs(
+            self,
+            response.note_inclusions,
+            &response.block_header,
+        )?;
 
         // Check if the returned account hashes match latest account hashes in the database
         check_account_hashes(&response.account_hash_updates, &accounts)?;
 
         // Derive new nullifiers data
-        let new_nullifiers = self.get_new_nullifiers(response.nullifiers)?;
+        let new_nullifiers = <Client<N>>::get_new_nullifiers(self, response.nullifiers)?;
 
         // Build PartialMmr with current data and apply updates
         let (new_peaks, new_authentication_nodes) = {
-            let current_partial_mmr = self.build_current_partial_mmr()?;
+            let current_partial_mmr = <Client<N>>::build_current_partial_mmr(self)?;
 
             let (current_block, has_relevant_notes) =
                 self.store.get_block_header_by_num(current_block_num)?;

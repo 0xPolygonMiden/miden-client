@@ -1,8 +1,5 @@
 use crypto::{rand::RpoRandomCoin, utils::Serializable, Felt, StarkField, Word};
 use miden_lib::notes::create_p2id_note;
-use miden_node_proto::{
-    requests::SubmitProvenTransactionRequest, responses::SubmitProvenTransactionResponse,
-};
 
 use miden_tx::{ProvingOptions, TransactionProver};
 
@@ -275,9 +272,10 @@ impl<N: NodeApi> Client<N> {
         // Construct Account
         self.tx_executor.load_account(faucet_id)?;
 
-        let block_ref = self.get_sync_height()?;
+        let block_ref = Client::<N>::get_sync_height(self)?;
 
-        let random_coin = self.get_random_coin();
+        let random_coin = Client::<N>::get_random_coin(self);
+
         let created_note = create_p2id_note(faucet_id, target_id, vec![asset.into()], random_coin)?;
 
         let recipient = created_note
@@ -313,7 +311,7 @@ impl<N: NodeApi> Client<N> {
         sender_account_id: AccountId,
         target_account_id: AccountId,
     ) -> Result<TransactionResult, ClientError> {
-        let random_coin = self.get_random_coin();
+        let random_coin = Client::<N>::get_random_coin(self);
 
         let created_note = create_p2id_note(
             sender_account_id,
@@ -324,7 +322,7 @@ impl<N: NodeApi> Client<N> {
 
         self.tx_executor.load_account(sender_account_id)?;
 
-        let block_ref = self.get_sync_height()?;
+        let block_ref = Client::<N>::get_sync_height(self)?;
 
         let recipient = created_note
             .recipient()
@@ -361,7 +359,7 @@ impl<N: NodeApi> Client<N> {
         tx_script: ProgramAst,
         block_num: u32,
     ) -> Result<TransactionResult, ClientError> {
-        let account_auth = self.get_account_auth(account_id)?;
+        let account_auth = Client::<N>::get_account_auth(self, account_id)?;
         let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
             AuthInfo::RpoFalcon512(key) => (
                 key.public_key().into(),
@@ -416,8 +414,7 @@ impl<N: NodeApi> Client<N> {
         Ok(self
             .rpc_api
             .submit_proven_transaction(proven_transaction)
-            .await?
-        )
+            .await?)
     }
 
     // HELPERS
