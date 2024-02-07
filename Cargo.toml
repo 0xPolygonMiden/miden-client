@@ -12,6 +12,7 @@ rust-version = "1.67"
 [[bin]]
 name = "integration"
 path = "tests/integration/main.rs"
+required-features = ["integration", "testing", "concurrent"]
 
 [[bin]]
 name = "miden"
