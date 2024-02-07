@@ -13,7 +13,7 @@ default-run = "miden-client"
 [[bin]]
 name = "integration"
 path = "tests/integration/main.rs"
-required-features = ["integration", "testing", "concurrent", "uuid"]
+required-features = ["integration"]
 
 [features]
 concurrent = ["miden_lib/concurrent", "objects/concurrent", "miden_tx/concurrent"]
