@@ -3,6 +3,7 @@ use crate::{
     errors::{ClientError, NodeApiError},
     store::Store,
 };
+use async_trait::async_trait;
 use miden_tx::{DataStore, TransactionExecutor};
 use objects::{accounts::AccountId, transaction::ProvenTransaction, BlockHeader};
 
@@ -19,6 +20,7 @@ pub mod transactions;
 // NODE API TRAIT
 // ================================================================================================
 
+#[async_trait]
 pub trait NodeApi {
     fn new(config_endpoint: &str) -> Self;
     async fn submit_proven_transaction(

@@ -12,6 +12,7 @@ use crypto::{
     merkle::{NodeIndex, SimpleSmt},
     Felt, FieldElement, StarkField,
 };
+use async_trait::async_trait;
 use miden_lib::transaction::TransactionKernel;
 use miden_node_proto::{
     account::AccountId as ProtoAccountId,
@@ -65,6 +66,7 @@ impl Default for MockRpcApi {
     }
 }
 
+#[async_trait]
 impl NodeApi for MockRpcApi {
     fn new(_config_endpoint: &str) -> Self {
         Self::default()

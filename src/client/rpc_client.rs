@@ -174,6 +174,7 @@ mod client {
     use super::{RpcApiEndpoint, StateSyncInfo};
     use crate::client::NodeApi;
     use crate::errors::NodeApiError;
+    use async_trait::async_trait;
     use crypto::utils::Serializable;
     use miden_node_proto::{
         errors::ParseError,
@@ -206,6 +207,7 @@ mod client {
         }
     }
 
+    #[async_trait]
     impl NodeApi for RpcClient {
         fn new(config_endpoint: &str) -> RpcClient {
             RpcClient {
