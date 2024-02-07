@@ -14,6 +14,9 @@ use miden_client::{
 #[cfg(feature = "mock")]
 use miden_client::mock::MockRpcApi;
 
+#[cfg(not(feature = "mock"))]
+use miden_client::client::rpc_client::RpcClient;
+
 mod account;
 mod info;
 mod input_notes;
