@@ -208,10 +208,6 @@ pub(super) fn serialize_transaction_data(
         serde_json::to_string(&nullifiers).map_err(StoreError::InputSerializationError)?;
 
     let output_notes = executed_transaction.output_notes();
-    println!(
-        "output notes first {}",
-        output_notes.get_note(0).id().inner()
-    );
 
     info!("Transaction ID: {}", executed_transaction.id().inner());
     info!(

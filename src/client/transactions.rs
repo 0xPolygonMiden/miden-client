@@ -189,7 +189,7 @@ impl TransactionRecord {
 pub enum TransactionStatus {
     /// Transaction has been submitted but not yet committed
     Pending,
-    /// Transaction has been committed and included in the specified block number
+    /// Transaction has been committed and included at the specified block number
     Committed(u32),
 }
 
