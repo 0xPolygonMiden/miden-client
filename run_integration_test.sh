@@ -1,4 +1,4 @@
-FEATURES_INTEGRATION_TESTING="concurrent,testing,uuid"
+FEATURES_INTEGRATION_TESTING="integration"
 
 # compile before waiting for the node to be up
 cargo build --release --bin="integration" --features "$FEATURES_INTEGRATION_TESTING"

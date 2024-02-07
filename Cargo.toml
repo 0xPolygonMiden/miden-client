@@ -12,7 +12,7 @@ rust-version = "1.67"
 [[bin]]
 name = "integration"
 path = "tests/integration/main.rs"
-required-features = ["testing", "concurrent", "uuid"]
+required-features = ["integration", "testing", "concurrent", "uuid"]
 
 [[bin]]
 name = "miden"
@@ -21,6 +21,7 @@ path = "src/main.rs"
 [features]
 concurrent = ["miden_lib/concurrent", "objects/concurrent", "miden_tx/concurrent"]
 default = ["std"]
+integration = ["testing", "concurrent", "uuid"]
 mock = []
 std = ["crypto/std", "objects/std"]
 testing = ["objects/testing", "miden_lib/testing"]
