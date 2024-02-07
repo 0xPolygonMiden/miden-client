@@ -80,5 +80,5 @@ jobs:
           components: rustfmt
           override: true
       - run: make reset
-      - run: make start_node > /dev/null &
-      - run: make integration_test
+      - run: make start-node > /dev/null &
+      - run: make integration-test
