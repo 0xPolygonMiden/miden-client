@@ -12,11 +12,10 @@ The Miden client is still under heavy development and the project can be conside
 
 ## Overview
 
-The Miden client currently consists of three components:
+The Miden client currently consists of two components:
 
 - `miden-client` library, which can be used by other project to programmatically interact with the Miden rollup.
 - `miden` binary which is a wrapper around the library exposing its functionality via a simple command-line interface (CLI).
-- `integration` binary which is a binary used to run integration tests.
 
 The client's main responsibility is to maintain a partial view of the blockchain which allows for locally executing and proving transactions. It keeps a local store of various entities that periodically get updated by communicating with the node.
 
@@ -37,7 +36,7 @@ This will install the `miden` binary in your PATH, at `~/.cargo/bin/miden`.
 For testing, the following way of installing is recommended:
 
 ```sh
-cargo install --features testing --path . --bin="miden"
+cargo install --features testing --path . --bin miden
 ```
 
 The `testing` feature allows mainly for faster account creation. When using the the client CLI alongside a locally-running node, you will want to make sure the node is installed/executed with the `testing` feature as well, as some validations can fail if the settings do not match up both on the client and the node.
@@ -51,6 +50,8 @@ After installing the client, you can use it by running `miden`. In order to get 
 The CLI can be configured through a TOML file ([`miden-client.toml`](miden-client.toml)). This file is expected to be located in the directory from where you are running the CLI. This is useful for connecting to a specific node when developing with the client, for example. 
 
 In the configuration file, you will find a section for defining the node's endpoint and the store's filename. By default, the node will run on `localhost:57291`, so the example file defines this as the RPC endpoint.
+
+## Testing
 
 ### Running integration tests
 
