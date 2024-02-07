@@ -1,4 +1,4 @@
-use super::Store;
+use super::SqliteStore;
 
 use crate::errors::StoreError;
 
@@ -86,7 +86,7 @@ impl Deserializable for AuthInfo {
     }
 }
 
-impl Store {
+impl SqliteStore {
     // ACCOUNTS
     // --------------------------------------------------------------------------------------------
 
@@ -557,14 +557,14 @@ pub mod tests {
         assert_eq!(actual, 0);
 
         // First insertion generates a new row
-        store::Store::insert_account_code(&tx, &account_code).unwrap();
+        store::SqliteStore::insert_account_code(&tx, &account_code).unwrap();
         actual = tx
             .query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0))
             .unwrap();
         assert_eq!(actual, 1);
 
         // Second insertion passes but does not generate a new row
-        assert!(store::Store::insert_account_code(&tx, &account_code).is_ok());
+        assert!(store::SqliteStore::insert_account_code(&tx, &account_code).is_ok());
         actual = tx
             .query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0))
             .unwrap();

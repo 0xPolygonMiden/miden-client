@@ -15,14 +15,24 @@ pub mod mock_executor_data_store;
 
 pub mod data_store;
 
+// STORE
+// ================================================================================================
+
+
+pub trait Store {
+    
+}
+
+
+
 // CLIENT STORE
 // ================================================================================================
 
-pub struct Store {
+pub struct SqliteStore {
     pub(crate) db: Connection,
 }
 
-impl Store {
+impl SqliteStore {
     // CONSTRUCTORS
     // --------------------------------------------------------------------------------------------
 
@@ -50,7 +60,7 @@ pub mod tests {
         config::{ClientConfig, RpcConfig},
     };
 
-    use super::{migrations, Store};
+    use super::{migrations, SqliteStore};
 
     pub fn create_test_client() -> Client {
         let client_config = ClientConfig {
@@ -72,11 +82,11 @@ pub mod tests {
         temp_file
     }
 
-    pub(crate) fn create_test_store() -> Store {
+    pub(crate) fn create_test_store() -> SqliteStore {
         let temp_file = create_test_store_path();
         let mut db = Connection::open(temp_file).unwrap();
         migrations::update_to_latest(&mut db).unwrap();
 
-        Store { db }
+        SqliteStore { db }
     }
 }

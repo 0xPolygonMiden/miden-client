@@ -1,6 +1,6 @@
 use std::num::NonZeroUsize;
 
-use super::Store;
+use super::SqliteStore;
 use crate::errors::StoreError;
 use clap::error::Result;
 
@@ -37,7 +37,7 @@ impl ChainMmrNodeFilter<'_> {
     }
 }
 
-impl Store {
+impl SqliteStore {
     // CHAIN DATA
     // --------------------------------------------------------------------------------------------
 
@@ -282,19 +282,19 @@ fn parse_chain_mmr_nodes(
 
 #[cfg(test)]
 mod test {
-    use crate::store::{tests::create_test_store, Store};
+    use crate::store::{tests::create_test_store, SqliteStore};
     use crypto::merkle::MmrPeaks;
     use mock::mock::block::mock_block_header;
     use objects::BlockHeader;
 
-    fn insert_dummy_block_headers(store: &mut Store) -> Vec<BlockHeader> {
+    fn insert_dummy_block_headers(store: &mut SqliteStore) -> Vec<BlockHeader> {
         let block_headers: Vec<BlockHeader> = (0..5)
             .map(|block_num| mock_block_header(block_num, None, None, &[]))
             .collect();
         let tx = store.db.transaction().unwrap();
         let dummy_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
         (0..5).for_each(|block_num| {
-            Store::insert_block_header(&tx, block_headers[block_num], dummy_peaks.clone(), false)
+            SqliteStore::insert_block_header(&tx, block_headers[block_num], dummy_peaks.clone(), false)
                 .unwrap()
         });
         tx.commit().unwrap();

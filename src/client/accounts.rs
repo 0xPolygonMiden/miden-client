@@ -188,12 +188,20 @@ impl Client {
             .map_err(ClientError::StoreError)
     }
 
-    /// Applies an [AccountDelta] to the stored account and stores the result in the database.
+    /// Applies an [AccountDelta] to the stored account
     pub fn update_account(
         &mut self,
         account_id: AccountId,
         account_delta: &AccountDelta,
     ) -> Result<(), ClientError> {
+        let (mut account, seed) = self.store.get_account_by_id(account_id)?;
+
+        account
+            .apply_delta(account_delta)?;
+
+        self.store.insert_account(&account, account_seed, auth_info)
+
+        
         self.store
             .update_account(account_id, account_delta)
             .map_err(ClientError::StoreError)

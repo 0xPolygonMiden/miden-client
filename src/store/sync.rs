@@ -11,9 +11,9 @@ use rusqlite::params;
 
 use crate::{errors::StoreError, store::transactions::TransactionFilter};
 
-use super::Store;
+use super::SqliteStore;
 
-impl Store {
+impl SqliteStore {
     // STATE SYNC
     // --------------------------------------------------------------------------------------------
 
@@ -97,10 +97,10 @@ impl Store {
         // TODO: Due to the fact that notes are returned based on fuzzy matching of tags,
         // this process of marking if the header has notes needs to be revisited
         let block_has_relevant_notes = !committed_notes.is_empty();
-        Store::insert_block_header(&tx, block_header, new_mmr_peaks, block_has_relevant_notes)?;
+        SqliteStore::insert_block_header(&tx, block_header, new_mmr_peaks, block_has_relevant_notes)?;
 
         // Insert new authentication nodes (inner nodes of the PartialMmr)
-        Store::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
+        SqliteStore::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
 
         // Update tracked notes
         for (note_id, inclusion_proof) in committed_notes.iter() {
@@ -116,7 +116,7 @@ impl Store {
 
         let note_ids: Vec<NoteId> = committed_notes.iter().map(|(id, _)| (*id)).collect();
 
-        Store::mark_transactions_as_committed_by_note_id(
+        SqliteStore::mark_transactions_as_committed_by_note_id(
             &uncommitted_transactions,
             &note_ids,
             block_header.block_num(),

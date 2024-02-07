@@ -9,7 +9,7 @@ use crypto::{
 };
 use tracing::info;
 
-use super::Store;
+use super::SqliteStore;
 use objects::{
     accounts::AccountId,
     assembly::{AstSerdeOptions, ProgramAst},
@@ -67,7 +67,7 @@ type SerializedTransactionData = (
     u32,
 );
 
-impl Store {
+impl SqliteStore {
     /// Retrieves all executed transactions from the database
     pub fn get_transactions(
         &self,

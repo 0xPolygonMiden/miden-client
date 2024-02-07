@@ -1,6 +1,6 @@
 #[cfg(not(any(test, feature = "mock")))]
 use crate::store::data_store::SqliteDataStore;
-use crate::{config::ClientConfig, errors::ClientError, store::Store};
+use crate::{config::ClientConfig, errors::ClientError, store::SqliteStore};
 use miden_tx::TransactionExecutor;
 pub use rpc_client::RpcApiEndpoint;
 
@@ -25,7 +25,7 @@ pub mod transactions;
 #[cfg(not(any(test, feature = "mock")))]
 pub struct Client {
     /// Local database containing information about the accounts managed by this client.
-    store: Store,
+    store: SqliteStore,
     rpc_api: rpc_client::RpcClient,
     tx_executor: TransactionExecutor<SqliteDataStore>,
 }
@@ -41,9 +41,9 @@ impl Client {
     /// Returns an error if the client could not be instantiated.
     pub fn new(config: ClientConfig) -> Result<Self, ClientError> {
         Ok(Self {
-            store: Store::new((&config).into())?,
+            store: SqliteStore::new((&config).into())?,
             rpc_api: rpc_client::RpcClient::new(config.rpc.endpoint.to_string()),
-            tx_executor: TransactionExecutor::new(SqliteDataStore::new(Store::new(
+            tx_executor: TransactionExecutor::new(SqliteDataStore::new(SqliteStore::new(
                 (&config).into(),
             )?)),
         })
@@ -58,11 +58,11 @@ pub use mock::Client;
 
 #[cfg(any(test, feature = "mock"))]
 mod mock {
-    use super::{ClientConfig, ClientError, Store, TransactionExecutor};
+    use super::{ClientConfig, ClientError, SqliteStore, TransactionExecutor};
     use crate::{mock::MockRpcApi, store::mock_executor_data_store::MockDataStore};
 
     pub struct Client {
-        pub(crate) store: Store,
+        pub(crate) store: SqliteStore,
         pub(crate) rpc_api: MockRpcApi,
         pub(crate) tx_executor: TransactionExecutor<MockDataStore>,
     }
@@ -71,7 +71,7 @@ mod mock {
     impl Client {
         pub fn new(config: ClientConfig) -> Result<Self, ClientError> {
             Ok(Self {
-                store: Store::new((&config).into())?,
+                store: SqliteStore::new((&config).into())?,
                 rpc_api: Default::default(),
                 tx_executor: TransactionExecutor::new(MockDataStore::new()),
             })

@@ -12,7 +12,7 @@ use objects::{
 
 use crate::{
     errors::{ClientError, StoreError},
-    store::{chain_data::ChainMmrNodeFilter, Store},
+    store::{chain_data::ChainMmrNodeFilter, SqliteStore},
 };
 use tracing::warn;
 
@@ -89,7 +89,7 @@ impl Client {
 
         let tx = self.store.db.transaction()?;
 
-        Store::insert_block_header(
+        SqliteStore::insert_block_header(
             &tx,
             genesis_block,
             MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks"),

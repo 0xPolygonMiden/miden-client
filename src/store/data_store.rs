@@ -1,7 +1,7 @@
 use crate::errors::{ClientError, StoreError};
 use objects::utils::collections::BTreeSet;
 
-use super::{chain_data::ChainMmrNodeFilter, Store};
+use super::{chain_data::ChainMmrNodeFilter, SqliteStore};
 use crypto::merkle::{InOrderIndex, MerklePath, PartialMmr};
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
 
@@ -17,11 +17,11 @@ use objects::{
 
 pub struct SqliteDataStore {
     /// Local database containing information about the accounts managed by this client.
-    pub(crate) store: Store,
+    pub(crate) store: SqliteStore,
 }
 
 impl SqliteDataStore {
-    pub fn new(store: Store) -> Self {
+    pub fn new(store: SqliteStore) -> Self {
         Self { store }
     }
 }
@@ -91,7 +91,7 @@ impl DataStore for SqliteDataStore {
 /// `authenticated_blocks` cannot contain `forest`. For authenticating the last block we have,
 /// the kernel extends the MMR which is why it's not needed here.
 fn build_partial_mmr_with_paths(
-    store: &Store,
+    store: &SqliteStore,
     forest: u32,
     authenticated_blocks: &[BlockHeader],
 ) -> Result<PartialMmr, DataStoreError> {
@@ -120,7 +120,7 @@ fn build_partial_mmr_with_paths(
 ///
 /// This method assumes `block_nums` cannot contain `forest`.
 pub fn get_authentication_path_for_blocks(
-    store: &Store,
+    store: &SqliteStore,
     block_nums: &[u32],
     forest: usize,
 ) -> Result<Vec<MerklePath>, StoreError> {

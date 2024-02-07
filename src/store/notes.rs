@@ -1,6 +1,6 @@
 use crate::errors::{ClientError, StoreError};
 
-use super::Store;
+use super::SqliteStore;
 
 use clap::error::Result;
 
@@ -138,7 +138,7 @@ impl TryInto<InputNote> for InputNoteRecord {
 // NOTES STORE METHODS
 // --------------------------------------------------------------------------------------------
 
-impl Store {
+impl SqliteStore {
     /// Retrieves the input notes from the database
     pub fn get_input_notes(
         &self,
