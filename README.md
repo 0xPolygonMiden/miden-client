@@ -60,9 +60,9 @@ There are commands provided in the `Makefile` to make running this test easier. 
 # This will ensure we start from a clean node and client
 make reset
 # This command will clone the node's repo and generate the accounts and genesis files and lastly start the node and run it on background
-make start_node &
+make start-node &
 # This will run the integration test and after it finishes it will kill the node process
-make integration_test
+make integration-test
 ```
 
 ## Example: Executing, proving and submitting transactions

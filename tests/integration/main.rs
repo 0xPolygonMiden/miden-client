@@ -134,4 +134,6 @@ async fn main() {
     } else {
         panic!("ACCOUNT SHOULD HAVE A FUNGIBLE ASSET");
     }
+
+    println!("Test ran successfully!");
 }
