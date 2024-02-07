@@ -51,21 +51,6 @@ The CLI can be configured through a TOML file ([`miden-client.toml`](miden-clien
 
 In the configuration file, you will find a section for defining the node's endpoint and the store's filename. By default, the node will run on `localhost:57291`, so the example file defines this as the RPC endpoint.
 
-## Testing
-
-### Running integration tests
-
-There are commands provided in the `Makefile` to make running this test easier. To run the current integration test, you should run:
-
-```bash
-# This will ensure we start from a clean node and client
-make reset
-# This command will clone the node's repo and generate the accounts and genesis files and lastly start the node and run it on background
-make start-node &
-# This will run the integration test and after it finishes it will kill the node process
-make integration-test
-```
-
 ## Example: Executing, proving and submitting transactions
 
 ### Prerequisites
@@ -153,6 +138,21 @@ miden-client account show <regular-account-ID-A> -v # Show account A's vault ass
 ### Clearing the state
 
 All state is maintained in `store.sqlite3`, located in the same directory where the client binary is. In case it needs to be cleared, the file can be deleted; it will later be created again when any command is executed.
+
+## Testing
+
+### Running integration tests
+
+There are commands provided in the `Makefile` to make running this test easier. To run the current integration test, you should run:
+
+```bash
+# This will ensure we start from a clean node and client
+make reset
+# This command will clone the node's repo and generate the accounts and genesis files and lastly start the node and run it on background
+make start-node &
+# This will run the integration test and after it finishes it will kill the node process
+make integration-test
+```
 
 ## License
 This project is [MIT licensed](./LICENSE).
