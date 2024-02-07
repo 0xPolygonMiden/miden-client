@@ -106,7 +106,7 @@ After creating the note with the minted asset, the regular account can now consu
 miden-client tx new consume-note <regular-account-ID-A> <input-note-ID>
 ```
 
-This will consume the input note ID, which you can get by listing them as explained in the previous step. You will now be able to see the asset in the account's vault by running:
+This will consume the input note identified by its ID, which you can get by listing them as explained in the previous step. You will now be able to see the asset in the account's vault by running:
 
 ```bash
 miden-client account show <regular-account-ID-A> -v
