@@ -119,15 +119,13 @@ impl MockRpcApi {
 
 /// Generates mock sync state requests and responses
 fn create_mock_sync_state_request_for_account_and_notes(
-    requests: &mut BTreeMap<SyncStateRequest, SyncStateResponse>,
     account_id: AccountId,
     created_notes: &[Note],
     consumed_notes: &[InputNote],
     mmr_delta: Option<Vec<MmrDelta>>,
     tracked_block_headers: Option<Vec<BlockHeader>>,
-) {
-    // Clear existing mocked data
-    requests.clear();
+) -> BTreeMap<SyncStateRequest, SyncStateResponse> {
+    let mut requests: BTreeMap<SyncStateRequest, SyncStateResponse> = BTreeMap::new();
 
     let accounts = vec![ProtoAccountId {
         id: u64::from(account_id),
@@ -195,6 +193,8 @@ fn create_mock_sync_state_request_for_account_and_notes(
         };
         requests.insert(request, response);
     }
+
+    requests
 }
 
 /// Generates mock sync state requests and responses
@@ -208,10 +208,7 @@ fn generate_state_sync_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
     );
 
     // create sync state requests
-    let mut requests = BTreeMap::new();
-
-    create_mock_sync_state_request_for_account_and_notes(
-        &mut requests,
+    let requests = create_mock_sync_state_request_for_account_and_notes(
         transaction_inputs.account().id(),
         &transaction_inputs
             .input_notes()
@@ -333,8 +330,7 @@ pub async fn insert_mock_data(client: &mut Client) -> Vec<BlockHeader> {
         .insert_account(&account, account_seed, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
-    create_mock_sync_state_request_for_account_and_notes(
-        &mut client.rpc_api.state_sync_requests,
+    client.rpc_api.state_sync_requests = create_mock_sync_state_request_for_account_and_notes(
         account.id(),
         &created_notes,
         &consumed_notes,
