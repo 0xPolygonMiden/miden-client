@@ -59,6 +59,7 @@ impl fmt::Display for NoteTable {
 // NOTE FILTER
 // ================================================================================================
 /// Represents a filter for input notes
+#[derive(Clone, Debug)]
 pub enum NoteFilter {
     All,
     Consumed,

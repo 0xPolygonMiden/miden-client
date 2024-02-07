@@ -4,7 +4,7 @@ use crypto::{
     merkle::MmrError,
     utils::{DeserializationError, HexParseError},
 };
-use miden_node_proto::error::ParseError;
+use miden_node_proto::errors::ParseError;
 use miden_tx::{DataStoreError, TransactionExecutorError, TransactionProverError};
 use objects::{
     accounts::AccountId, notes::NoteId, AccountError, AssetVaultError, Digest, NoteError,
