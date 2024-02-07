@@ -87,7 +87,7 @@ impl Store {
         tx.execute(BLOCK_NUMBER_QUERY, params![block_header.block_num()])?;
 
         // Update spent notes
-        for nullifier in nullifiers {
+        for nullifier in nullifiers.iter() {
             const SPENT_INPUT_NOTE_QUERY: &str =
                 "UPDATE input_notes SET status = 'consumed' WHERE nullifier = ?";
             let nullifier = nullifier.to_hex();
@@ -132,6 +132,7 @@ impl Store {
         Store::mark_transactions_as_committed_by_note_id(
             &uncommitted_transactions,
             &note_ids,
+            &nullifiers,
             block_header.block_num(),
             &tx,
         )?;

@@ -174,12 +174,18 @@ impl Store {
     pub(crate) fn mark_transactions_as_committed_by_note_id(
         uncommitted_transactions: &[TransactionRecord],
         note_ids: &[NoteId],
+        nullifiers: &[Digest],
         block_num: u32,
         tx: &Transaction<'_>,
     ) -> Result<usize, StoreError> {
         let updated_transactions: Vec<&TransactionRecord> = uncommitted_transactions
             .iter()
-            .filter(|t| t.output_notes.iter().any(|n| note_ids.contains(&n.id())))
+            .filter(|t| {
+                t.input_note_nullifiers
+                    .iter()
+                    .all(|n| nullifiers.contains(n))
+                    && t.output_notes.iter().any(|n| note_ids.contains(&n.id()))
+            })
             .collect();
 
         let mut rows = 0;
