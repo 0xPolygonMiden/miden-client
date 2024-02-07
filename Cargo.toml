@@ -12,7 +12,7 @@ rust-version = "1.67"
 [[bin]]
 name = "integration"
 path = "tests/integration/main.rs"
-required-features = ["integration", "testing", "concurrent"]
+required-features = ["testing", "concurrent", "uuid"]
 
 [[bin]]
 name = "miden"
@@ -22,7 +22,6 @@ path = "src/main.rs"
 concurrent = ["miden_lib/concurrent", "objects/concurrent", "miden_tx/concurrent"]
 default = ["std"]
 mock = []
-integration = []
 std = ["crypto/std", "objects/std"]
 testing = ["objects/testing", "miden_lib/testing"]
 
@@ -52,4 +51,4 @@ uuid = { version = "1.6.1", features = ["serde", "v4"], optional = true}
 
 [dev-dependencies]
 # needed for tests to run always with the mock feature
-miden_client = { package = "miden-client", path = ".", features=["mock", "uuid"] }
+miden_client = { package = "miden-client", path = ".", features=["mock"] }
