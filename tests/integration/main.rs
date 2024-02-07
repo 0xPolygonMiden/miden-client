@@ -121,7 +121,8 @@ async fn main() {
     let notes = client.get_input_notes(InputNoteFilter::Committed).unwrap();
     assert!(!notes.is_empty());
 
-    let tx_template = TransactionTemplate::ConsumeNote(regular_account_id, notes[0].note_id());
+    let tx_template =
+        TransactionTemplate::ConsumeNotes(regular_account_id, vec![notes[0].note_id()]);
     println!("Consuming Note...");
     execute_tx_and_sync(&mut client, tx_template).await;
 

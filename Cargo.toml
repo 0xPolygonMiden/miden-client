@@ -8,15 +8,12 @@ repository = "https://github.com/0xPolygonMiden/miden-client"
 keywords = ["miden", "client"]
 edition = "2021"
 rust-version = "1.67"
+default-run = "miden-client"
 
 [[bin]]
 name = "integration"
 path = "tests/integration/main.rs"
 required-features = ["integration", "testing", "concurrent", "uuid"]
-
-[[bin]]
-name = "miden"
-path = "src/main.rs"
 
 [features]
 concurrent = ["miden_lib/concurrent", "objects/concurrent", "miden_tx/concurrent"]
