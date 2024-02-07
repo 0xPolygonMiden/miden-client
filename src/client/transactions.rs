@@ -248,7 +248,7 @@ impl Client {
     fn new_consume_notes_transaction(
         &mut self,
         account_id: AccountId,
-        node_ids: &[NoteId],
+        note_ids: &[NoteId],
     ) -> Result<TransactionResult, ClientError> {
         self.tx_executor
             .load_account(account_id)
@@ -261,7 +261,7 @@ impl Client {
 
         // Because the notes are retrieved by the executor, there is no need to cross check here
         // that they exist in the Store
-        self.compile_and_execute_tx(account_id, node_ids, vec![], tx_script_code, block_num)
+        self.compile_and_execute_tx(account_id, note_ids, vec![], tx_script_code, block_num)
     }
 
     /// Creates and executes a mint transaction specified by the template.
