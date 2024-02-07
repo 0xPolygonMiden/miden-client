@@ -12,10 +12,14 @@ use miden_client::{
 };
 
 #[cfg(feature = "mock")]
+use miden_client::mock::MockDataStore;
+#[cfg(feature = "mock")]
 use miden_client::mock::MockRpcApi;
 
 #[cfg(not(feature = "mock"))]
 use miden_client::client::rpc_client::RpcClient;
+#[cfg(not(feature = "mock"))]
+use miden_client::store::data_store::SqliteDataStore;
 
 mod account;
 mod info;
@@ -75,11 +79,23 @@ impl Cli {
         let rpc_endpoint = client_config.rpc.endpoint.to_string();
 
         #[cfg(not(feature = "mock"))]
-        let client: Client<RpcClient> = Client::new(client_config, RpcClient::new(&rpc_endpoint))?;
+        let client: Client<RpcClient, SqliteDataStore> = {
+            use miden_client::{errors::ClientError, store::Store};
+
+            let store = Store::new((&client_config).into()).map_err(ClientError::StoreError)?;
+            Client::new(
+                client_config,
+                RpcClient::new(&rpc_endpoint),
+                SqliteDataStore::new(store),
+            )?
+        };
 
         #[cfg(feature = "mock")]
-        let client: Client<MockRpcApi> =
-            Client::new(client_config, MockRpcApi::new(&rpc_endpoint))?;
+        let client: Client<MockRpcApi, MockDataStore> = Client::new(
+            client_config,
+            MockRpcApi::new(&rpc_endpoint),
+            MockDataStore::new(),
+        )?;
 
         // Execute cli command
         match &self.action {

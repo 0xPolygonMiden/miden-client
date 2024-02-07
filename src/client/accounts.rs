@@ -1,5 +1,6 @@
 use crypto::{dsa::rpo_falcon512::KeyPair, Felt, Word};
 use miden_lib::AuthScheme;
+use miden_tx::DataStore;
 use objects::{
     accounts::{
         Account, AccountData, AccountDelta, AccountId, AccountStorage, AccountStub, AccountType,
@@ -33,7 +34,7 @@ pub enum AccountStorageMode {
     OnChain,
 }
 
-impl<N: NodeApi> Client<N> {
+impl<N: NodeApi, D: DataStore> Client<N, D> {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 

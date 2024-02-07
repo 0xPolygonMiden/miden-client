@@ -4,9 +4,10 @@ use crate::{
     errors::ClientError,
     store::notes::{InputNoteFilter, InputNoteRecord},
 };
+use miden_tx::DataStore;
 use objects::notes::NoteId;
 
-impl<N: NodeApi> Client<N> {
+impl<N: NodeApi, D: DataStore> Client<N, D> {
     // INPUT NOTE DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 

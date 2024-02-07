@@ -276,7 +276,7 @@ async fn test_sync_state() {
     assert_eq!(
         block_num,
         client
-            .rpc_api
+            .rpc_api()
             .state_sync_requests
             .first_key_value()
             .unwrap()
@@ -303,7 +303,7 @@ async fn test_sync_state() {
     assert_eq!(
         client.get_sync_height().unwrap(),
         client
-            .rpc_api
+            .rpc_api()
             .state_sync_requests
             .first_key_value()
             .unwrap()
@@ -441,7 +441,7 @@ async fn test_mint_transaction() {
         .map_err(|err| format!("Error generating KeyPair: {}", err))
         .unwrap();
     client
-        .store
+        .store()
         .insert_account(&faucet, FAUCET_SEED, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
     client.set_data_store(MockDataStore::with_existing(faucet.clone(), None, None));

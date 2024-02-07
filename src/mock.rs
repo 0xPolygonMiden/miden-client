@@ -20,6 +20,8 @@ use miden_node_proto::{
     requests::{GetBlockHeaderByNumberRequest, SyncStateRequest},
     responses::{NullifierUpdate, SyncStateResponse},
 };
+#[cfg(test)]
+use miden_tx::DataStore;
 use mock::{
     constants::{generate_account_seed, AccountSeedType},
     mock::{account::mock_account, block::mock_block_header},
@@ -44,6 +46,8 @@ use objects::{
     accounts::{AccountId, AccountType},
     assets::FungibleAsset,
 };
+
+pub use crate::store::mock_executor_data_store::MockDataStore;
 
 /// Mock RPC API
 ///
@@ -331,7 +335,7 @@ pub async fn insert_mock_data(client: &mut Client) -> Vec<BlockHeader> {
         .insert_account(&account, account_seed, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
-    client.rpc_api.state_sync_requests = create_mock_sync_state_request_for_account_and_notes(
+    client.rpc_api().state_sync_requests = create_mock_sync_state_request_for_account_and_notes(
         account.id(),
         &created_notes,
         &consumed_notes,
@@ -342,7 +346,7 @@ pub async fn insert_mock_data(client: &mut Client) -> Vec<BlockHeader> {
     tracked_block_headers
 }
 
-pub async fn create_mock_transaction(client: &mut Client<MockRpcApi>) {
+pub async fn create_mock_transaction(client: &mut Client<MockRpcApi, MockDataStore>) {
     let key_pair: KeyPair = KeyPair::new()
         .map_err(|err| format!("Error generating KeyPair: {}", err))
         .unwrap();
@@ -432,12 +436,9 @@ pub async fn create_mock_transaction(client: &mut Client<MockRpcApi>) {
 }
 
 #[cfg(test)]
-impl<N: NodeApi> Client<N> {
+impl<N: NodeApi, D: DataStore> Client<N, D> {
     /// Helper function to set a data store to conveniently mock data for tests
-    pub fn set_data_store(
-        &mut self,
-        data_store: crate::store::mock_executor_data_store::MockDataStore,
-    ) {
-        self.tx_executor = miden_tx::TransactionExecutor::new(data_store);
+    pub fn set_data_store(&mut self, data_store: D) {
+        self.set_tx_executor(miden_tx::TransactionExecutor::new(data_store));
     }
 }

@@ -16,6 +16,7 @@ use miden_client::{
 
 use crypto::utils::{Deserializable, Serializable};
 
+use miden_tx::DataStore;
 use objects::{notes::NoteId, Digest};
 use tracing::warn;
 
@@ -79,7 +80,10 @@ pub enum InputNotes {
 }
 
 impl InputNotes {
-    pub fn execute<N: NodeApi>(&self, mut client: Client<N>) -> Result<(), String> {
+    pub fn execute<N: NodeApi, D: DataStore>(
+        &self,
+        mut client: Client<N, D>,
+    ) -> Result<(), String> {
         match self {
             InputNotes::List { filter } => {
                 let filter = match filter {
@@ -117,7 +121,7 @@ impl InputNotes {
 
 // LIST INPUT NOTES
 // ================================================================================================
-fn list_input_notes<N: NodeApi>(client: Client<N>, input_note_filter: InputNoteFilter) -> Result<(), String> {
+fn list_input_notes<N: NodeApi, D: DataStore>(client: Client<N, D>, input_note_filter: InputNoteFilter) -> Result<(), String> {
     let notes = client.get_input_notes(input_note_filter)?;
     print_notes_summary(&notes);
     Ok(())
@@ -125,8 +129,8 @@ fn list_input_notes<N: NodeApi>(client: Client<N>, input_note_filter: InputNoteF
 
 // EXPORT INPUT NOTE
 // ================================================================================================
-pub fn export_note<N: NodeApi>(
-    client: &Client<N>,
+pub fn export_note<N: NodeApi, D: DataStore>(
+    client: &Client<N, D>,
     note_id: &str,
     filename: Option<PathBuf>,
 ) -> Result<File, String> {
@@ -151,8 +155,8 @@ pub fn export_note<N: NodeApi>(
 
 // IMPORT INPUT NOTE
 // ================================================================================================
-pub fn import_note<N: NodeApi>(
-    client: &mut Client<N>,
+pub fn import_note<N: NodeApi, D: DataStore>(
+    client: &mut Client<N, D>,
     filename: PathBuf,
 ) -> Result<NoteId, String> {
     let mut contents = vec![];
@@ -173,8 +177,8 @@ pub fn import_note<N: NodeApi>(
 
 // SHOW INPUT NOTE
 // ================================================================================================
-fn show_input_note<N: NodeApi>(
-    client: Client<N>,
+fn show_input_note<N: NodeApi, D: DataStore>(
+    client: Client<N, D>,
     note_id: String,
     show_script: bool,
     show_vault: bool,
@@ -289,7 +293,7 @@ mod tests {
     use miden_client::{
         client::{Client, NodeApi},
         config::{ClientConfig, Endpoint},
-        mock::MockRpcApi,
+        mock::{MockDataStore, MockRpcApi},
         store::notes::InputNoteRecord,
     };
     use mock::mock::{
@@ -303,7 +307,7 @@ mod tests {
         // generate test client
         let mut path = temp_dir();
         path.push(Uuid::new_v4().to_string());
-        let mut client = Client::<MockRpcApi>::new(
+        let mut client = Client::<MockRpcApi, MockDataStore>::new(
             ClientConfig::new(
                 path.into_os_string()
                     .into_string()
@@ -313,6 +317,7 @@ mod tests {
                 Endpoint::default().into(),
             ),
             MockRpcApi::new(&Endpoint::default().to_string()),
+            MockDataStore::new(),
         )
         .unwrap();
 
@@ -361,7 +366,7 @@ mod tests {
         // generate test client to import notes to
         let mut path = temp_dir();
         path.push(Uuid::new_v4().to_string());
-        let mut client = Client::<MockRpcApi>::new(
+        let mut client = Client::<MockRpcApi, MockDataStore>::new(
             ClientConfig::new(
                 path.into_os_string()
                     .into_string()
@@ -371,6 +376,7 @@ mod tests {
                 Endpoint::default().into(),
             ),
             MockRpcApi::new(&Endpoint::default().to_string()),
+            MockDataStore::new(),
         )
         .unwrap();
 

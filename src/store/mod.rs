@@ -48,14 +48,14 @@ pub mod tests {
     use crate::{
         client::Client,
         config::{ClientConfig, RpcConfig},
-        mock::MockRpcApi,
+        mock::{MockDataStore, MockRpcApi},
     };
 
     use crate::client::NodeApi;
 
     use super::{migrations, Store};
 
-    pub fn create_test_client() -> Client<MockRpcApi> {
+    pub fn create_test_client() -> Client<MockRpcApi, MockDataStore> {
         let client_config = ClientConfig {
             store: create_test_store_path()
                 .into_os_string()
@@ -68,7 +68,12 @@ pub mod tests {
 
         let rpc_endpoint = client_config.rpc.endpoint.to_string();
 
-        Client::<MockRpcApi>::new(client_config, MockRpcApi::new(&rpc_endpoint)).unwrap()
+        Client::<MockRpcApi, MockDataStore>::new(
+            client_config,
+            MockRpcApi::new(&rpc_endpoint),
+            MockDataStore::new(),
+        )
+        .unwrap()
     }
 
     pub(crate) fn create_test_store_path() -> std::path::PathBuf {

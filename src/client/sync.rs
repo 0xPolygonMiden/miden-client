@@ -2,6 +2,7 @@ use super::{rpc_client::CommittedNote, Client, NodeApi};
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 
+use miden_tx::DataStore;
 use objects::{
     accounts::{AccountId, AccountStub},
     crypto,
@@ -26,7 +27,7 @@ pub enum SyncStatus {
 /// The number of bits to shift identifiers for in use of filters.
 pub const FILTER_ID_SHIFT: u8 = 48;
 
-impl<N: NodeApi> Client<N> {
+impl<N: NodeApi, D: DataStore> Client<N, D> {
     // SYNC STATE
     // --------------------------------------------------------------------------------------------
 
@@ -135,7 +136,7 @@ impl<N: NodeApi> Client<N> {
             return Ok(SyncStatus::SyncedToLastBlock(current_block_num));
         }
 
-        let committed_notes = <Client<N>>::build_inclusion_proofs(
+        let committed_notes = <Client<N, D>>::build_inclusion_proofs(
             self,
             response.note_inclusions,
             &response.block_header,
@@ -145,11 +146,11 @@ impl<N: NodeApi> Client<N> {
         check_account_hashes(&response.account_hash_updates, &accounts)?;
 
         // Derive new nullifiers data
-        let new_nullifiers = <Client<N>>::get_new_nullifiers(self, response.nullifiers)?;
+        let new_nullifiers = <Client<N, D>>::get_new_nullifiers(self, response.nullifiers)?;
 
         // Build PartialMmr with current data and apply updates
         let (new_peaks, new_authentication_nodes) = {
-            let current_partial_mmr = <Client<N>>::build_current_partial_mmr(self)?;
+            let current_partial_mmr = <Client<N, D>>::build_current_partial_mmr(self)?;
 
             let (current_block, has_relevant_notes) =
                 self.store.get_block_header_by_num(current_block_num)?;

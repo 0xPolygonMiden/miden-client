@@ -6,6 +6,7 @@ use miden_client::{
     store::transactions::TransactionFilter,
 };
 
+use miden_tx::DataStore;
 use objects::{accounts::AccountId, assets::FungibleAsset, notes::NoteId};
 use tracing::info;
 
@@ -112,7 +113,10 @@ pub enum Transaction {
 }
 
 impl Transaction {
-    pub async fn execute<N: NodeApi>(&self, mut client: Client<N>) -> Result<(), String> {
+    pub async fn execute<N: NodeApi, D: DataStore>(
+        &self,
+        mut client: Client<N, D>,
+    ) -> Result<(), String> {
         match self {
             Transaction::List => {
                 list_transactions(client)?;
@@ -136,7 +140,7 @@ impl Transaction {
 
 // LIST TRANSACTIONS
 // ================================================================================================
-fn list_transactions<N: NodeApi>(client: Client<N>) -> Result<(), String> {
+fn list_transactions<N: NodeApi, D: DataStore>(client: Client<N, D>) -> Result<(), String> {
     let transactions = client.get_transactions(TransactionFilter::All)?;
     print_transactions_summary(&transactions);
     Ok(())
