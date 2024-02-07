@@ -121,7 +121,10 @@ impl InputNotes {
 
 // LIST INPUT NOTES
 // ================================================================================================
-fn list_input_notes<N: NodeApi, D: DataStore>(client: Client<N, D>, input_note_filter: InputNoteFilter) -> Result<(), String> {
+fn list_input_notes<N: NodeApi, D: DataStore>(
+    client: Client<N, D>,
+    input_note_filter: InputNoteFilter,
+) -> Result<(), String> {
     let notes = client.get_input_notes(input_note_filter)?;
     print_notes_summary(&notes);
     Ok(())
