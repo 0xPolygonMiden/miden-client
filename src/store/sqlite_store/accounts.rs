@@ -39,7 +39,6 @@ impl SqliteStore {
     // ACCOUNTS
     // --------------------------------------------------------------------------------------------
 
-    /// Returns the account id's of all accounts stored in the database
     pub(super) fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {
         const QUERY: &str = "SELECT DISTINCT id FROM accounts";
 
@@ -54,13 +53,7 @@ impl SqliteStore {
             .collect::<Result<Vec<AccountId>, StoreError>>()
     }
 
-    /// Returns a list of [AccountStub] of all accounts stored in the database along with the seeds
-    /// used to create them.
-    ///
-    /// Said accounts' state is the state at the last sync made.
-    pub(super) fn get_accounts(
-        &self,
-    ) -> Result<Vec<(AccountStub, Option<Word>)>, StoreError> {
+    pub(super) fn get_accounts(&self) -> Result<Vec<(AccountStub, Option<Word>)>, StoreError> {
         const QUERY: &str =
             "SELECT a.id, a.nonce, a.vault_root, a.storage_root, a.code_root, a.account_seed \
             FROM accounts a \
@@ -74,13 +67,6 @@ impl SqliteStore {
             .collect()
     }
 
-    /// Retrieves an [AccountStub] object for the specified [AccountId] along with the seed
-    /// used to create it.
-    ///
-    /// Said account's state is the state according to the last sync performed.
-    ///
-    /// # Errors
-    /// Returns an [Err] if the account was not found
     pub(crate) fn get_account_stub_by_id(
         &self,
         account_id: AccountId,
@@ -99,8 +85,9 @@ impl SqliteStore {
             .ok_or(StoreError::AccountDataNotFound(account_id))?
     }
 
+    // NOTE: This is currently used to retrieve the account code for the `DataStore` method
     /// Retrieves an account's [ModuleAst] and the code root by [AccountId]
-    pub(crate) fn handle_get_account_code_by_account_id(
+    pub(crate) fn get_account_code_by_account_id(
         &self,
         account_id: AccountId,
     ) -> Result<(Vec<Digest>, ModuleAst), StoreError> {
@@ -111,11 +98,6 @@ impl SqliteStore {
     }
 
     // TODO: Get all parts from a single query
-    /// Retrieves a full [Account] object, along with its seed.
-    ///
-    /// This function returns the [Account]'s latest state. If the account is new (that is, has
-    /// never executed a trasaction), the returned seed will be `Some(Word)`; otherwise the seed
-    /// will be `None`
     pub(crate) fn get_account_by_id(
         &self,
         account_id: AccountId,
@@ -142,10 +124,7 @@ impl SqliteStore {
     }
 
     /// Retrieve account keys data by Account Id
-    pub(crate) fn get_account_auth(
-        &self,
-        account_id: AccountId,
-    ) -> Result<AuthInfo, StoreError> {
+    pub(crate) fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, StoreError> {
         let account_id_int: u64 = account_id.into();
         const QUERY: &str = "SELECT account_id, auth_info FROM account_auth WHERE account_id = ?";
         self.db
@@ -216,7 +195,6 @@ impl SqliteStore {
             .ok_or(StoreError::VaultDataNotFound(root))?
     }
 
-    /// Inserts an [Account] along with the seed used to create it and its [AuthInfo]
     pub(super) fn insert_account(
         &mut self,
         account: &Account,
@@ -245,7 +223,7 @@ pub(super) fn insert_account_record(
 ) -> Result<(), StoreError> {
     let (id, code_root, storage_root, vault_root, nonce, committed) = serialize_account(account)?;
 
-    let account_seed = account_seed.to_bytes();
+    let account_seed = account_seed.map(|seed| seed.to_bytes());
 
     const QUERY: &str =  "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed) VALUES (?, ?, ?, ?, ?, ?, ?)";
     tx.execute(
@@ -487,10 +465,7 @@ fn serialize_account_asset_vault(
 
 #[cfg(test)]
 mod tests {
-    use crate::store::{
-        self,
-        sqlite_store::{accounts::insert_account_code, tests::create_test_store, SqliteStore},
-    };
+    use crate::store::sqlite_store::{accounts::insert_account_code, tests::create_test_store};
     use crypto::{
         dsa::rpo_falcon512::KeyPair,
         utils::{Deserializable, Serializable},

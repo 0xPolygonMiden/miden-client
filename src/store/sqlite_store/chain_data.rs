@@ -38,10 +38,6 @@ impl ChainMmrNodeFilter<'_> {
 }
 
 impl SqliteStore {
-    /// Inserts a block header into the store, alongside peaks information at the block's height.
-    ///
-    /// `has_client_notes` describes whether the block has relevant notes to the client; this means
-    /// the client might want to authenticate merkle paths based on this value.
     pub(crate) fn insert_block_header(
         &self,
         block_header: BlockHeader,
@@ -71,9 +67,6 @@ impl SqliteStore {
         Ok(())
     }
 
-    /// Retrieves a list of [BlockHeader] by number and a boolean value that represents whether the
-    /// block contains notes relevant to the client. It's up to the callee to check that all
-    /// requested block headers were found
     pub(crate) fn get_block_headers(
         &self,
         block_numbers: &[u32],
@@ -94,8 +87,6 @@ impl SqliteStore {
             .collect()
     }
 
-    /// Retrieves a [BlockHeader] by number and a boolean value that represents whether the
-    /// block contains notes relevant to the client.
     pub(crate) fn get_block_header_by_num(
         &self,
         block_number: u32,
@@ -110,7 +101,6 @@ impl SqliteStore {
             .ok_or(StoreError::BlockHeaderNotFound(block_number))?
     }
 
-    /// Retrieves a list of [BlockHeader] that include relevant notes to the client.
     pub(crate) fn get_tracked_block_headers(&self) -> Result<Vec<BlockHeader>, StoreError> {
         const QUERY: &str = "SELECT block_num, header, notes_root, sub_hash, chain_mmr_peaks, has_client_notes FROM block_headers WHERE has_client_notes=true";
         self.db
@@ -124,8 +114,7 @@ impl SqliteStore {
             .collect()
     }
 
-    /// Retrieves all MMR authentication nodes based on [ChainMmrNodeFilter].
-    pub(crate) fn handle_get_chain_mmr_nodes(
+    pub(crate) fn get_chain_mmr_nodes(
         &self,
         filter: ChainMmrNodeFilter,
     ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
@@ -136,7 +125,6 @@ impl SqliteStore {
             .collect()
     }
 
-    /// Returns peaks information from the blockchain by a specific block number.
     pub(crate) fn get_chain_mmr_peaks_by_block_num(
         &self,
         block_num: u32,

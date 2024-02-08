@@ -1,13 +1,8 @@
 use crypto::{dsa::rpo_falcon512::KeyPair, Felt, Word};
 use miden_lib::AuthScheme;
 use objects::{
-    accounts::{
-        Account, AccountData, AccountDelta, AccountId, AccountStorage, AccountStub, AccountType,
-        AuthData,
-    },
-    assembly::ModuleAst,
-    assets::{Asset, TokenSymbol},
-    Digest,
+    accounts::{Account, AccountData, AccountDelta, AccountId, AccountStub, AccountType, AuthData},
+    assets::TokenSymbol,
 };
 use rand::{rngs::ThreadRng, Rng};
 
@@ -106,6 +101,11 @@ impl Client {
     }
 
     /// Creates a new regular account and saves it in the store along with its seed and auth data
+    ///
+    /// # Panics
+    ///
+    /// If the passed [AccountStorageMode] is [AccountStorageMode::OnChain], this function panics
+    /// since this feature is not currently supported on Miden
     fn new_basic_wallet(
         &mut self,
         mutable_code: bool,
@@ -238,30 +238,6 @@ impl Client {
     pub fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, ClientError> {
         self.store
             .get_account_auth(account_id)
-            .map_err(|err| err.into())
-    }
-
-    /// Returns vault assets from a vault root.
-    pub fn get_vault_assets(&self, vault_root: Digest) -> Result<Vec<Asset>, ClientError> {
-        self.store
-            .get_vault_assets(vault_root)
-            .map_err(|err| err.into())
-    }
-
-    /// Returns account code data from a root.
-    pub fn get_account_code(
-        &self,
-        code_root: Digest,
-    ) -> Result<(Vec<Digest>, ModuleAst), ClientError> {
-        self.store
-            .get_account_code(code_root)
-            .map_err(|err| err.into())
-    }
-
-    /// Returns account storage data from a storage root.
-    pub fn get_account_storage(&self, storage_root: Digest) -> Result<AccountStorage, ClientError> {
-        self.store
-            .get_account_storage(storage_root)
             .map_err(|err| err.into())
     }
 }

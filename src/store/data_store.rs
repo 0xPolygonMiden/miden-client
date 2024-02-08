@@ -11,7 +11,7 @@ use objects::{
     BlockHeader,
 };
 
-use super::{sqlite_store::SqliteStore, ChainMmrNodeFilter, Store};
+use super::{sqlite_store::SqliteStore, ChainMmrNodeFilter};
 
 // DATA STORE
 // ================================================================================================
@@ -78,7 +78,7 @@ impl DataStore for SqliteDataStore {
     }
 
     fn get_account_code(&self, account_id: AccountId) -> Result<ModuleAst, DataStoreError> {
-        let (_, module_ast) = self.store.handle_get_account_code_by_account_id(account_id)?;
+        let (_, module_ast) = self.store.get_account_code_by_account_id(account_id)?;
 
         Ok(module_ast)
     }

@@ -13,7 +13,6 @@ use rusqlite::params;
 use super::SqliteStore;
 
 impl SqliteStore {
-    /// Returns the note tags that the client is interested in.
     pub(crate) fn get_note_tags(&self) -> Result<Vec<u64>, StoreError> {
         const QUERY: &str = "SELECT tags FROM state_sync";
 
@@ -32,7 +31,6 @@ impl SqliteStore {
             .expect("state sync tags exist")
     }
 
-    /// Adds a note tag to the list of tags that the client is interested in.
     pub(super) fn add_note_tag(&mut self, tag: u64) -> Result<bool, StoreError> {
         let mut tags = self.get_note_tags()?;
         if tags.contains(&tag) {
@@ -47,7 +45,6 @@ impl SqliteStore {
         Ok(true)
     }
 
-    /// Returns the block number of the last state sync block.
     pub(super) fn get_sync_height(&self) -> Result<u32, StoreError> {
         const QUERY: &str = "SELECT block_num FROM state_sync";
 
@@ -60,12 +57,6 @@ impl SqliteStore {
             .expect("state sync block number exists")
     }
 
-    /// Applies the state sync update to the store. An update involves:
-    ///
-    /// - Inserting the new block header to the store alongside new MMR peaks information
-    /// - Updating the notes, marking them as `committed` or `consumed` based on incoming
-    ///   inclusion proofs and nullifiers
-    /// - Storing new MMR authentication nodes
     pub(super) fn apply_state_sync(
         &mut self,
         block_header: BlockHeader,

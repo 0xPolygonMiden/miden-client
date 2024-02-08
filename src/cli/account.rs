@@ -8,7 +8,7 @@ use crypto::{
 use miden_client::client::{accounts, Client};
 
 use objects::{
-    accounts::{AccountData, AccountId, AccountStorage, AccountStub, AccountType, StorageSlotType},
+    accounts::{AccountData, AccountId, AccountStorage, AccountType, StorageSlotType},
     assets::{Asset, TokenSymbol},
 };
 use std::{fs, path::PathBuf};
@@ -153,7 +153,7 @@ fn list_accounts(client: Client) -> Result<(), String> {
             acc.code_root().to_string(),
             acc.vault_root().to_string(),
             acc.storage_root().to_string(),
-            get_account_type(acc),
+            account_type_display_name(&acc.id().account_type()),
             acc.nonce().as_int().to_string(),
         ]);
     });
@@ -170,7 +170,7 @@ pub fn show_account(
     show_storage: bool,
     show_code: bool,
 ) -> Result<(), String> {
-    let (account, _account_seed) = client.get_account_stub_by_id(account_id)?;
+    let (account, _account_seed) = client.get_account_by_id(account_id)?;
 
     let mut table = create_dynamic_table(&[
         "Account ID",
@@ -184,16 +184,15 @@ pub fn show_account(
     table.add_row(vec![
         account.id().to_string(),
         account.hash().to_string(),
-        get_account_type(&account),
-        account.code_root().to_string(),
-        account.vault_root().to_string(),
-        account.storage_root().to_string(),
+        account_type_display_name(&account.account_type()),
+        account.code().root().to_string(),
+        account.vault().asset_tree().root().to_string(),
         account.nonce().to_string(),
     ]);
     println!("{table}\n");
 
     if show_vault {
-        let assets = client.get_vault_assets(account.vault_root())?;
+        let assets = account.vault().assets();
 
         println!("Assets: ");
 
@@ -216,7 +215,7 @@ pub fn show_account(
     }
 
     if show_storage {
-        let account_storage = client.get_account_storage(account.storage_root())?;
+        let account_storage = account.storage();
 
         println!("Storage: \n");
 
@@ -287,12 +286,13 @@ pub fn show_account(
     }
 
     if show_code {
-        let (procedure_digests, module) = client.get_account_code(account.code_root())?;
+        let module = account.code().module();
+        let procedure_digests = account.code().procedures();
 
         println!("Account Code Info:");
 
         let mut table = create_dynamic_table(&["Procedure Digests"]);
-        for digest in &procedure_digests {
+        for digest in procedure_digests {
             table.add_row(vec![digest.to_hex()]);
         }
         println!("{table}\n");
@@ -351,8 +351,8 @@ fn validate_paths(paths: &[PathBuf], expected_extension: &str) -> Result<(), Str
     }
 }
 
-fn get_account_type(account: &AccountStub) -> String {
-    match account.id().account_type() {
+fn account_type_display_name(account_type: &AccountType) -> String {
+    match account_type {
         AccountType::FungibleFaucet => "Fungible faucet",
         AccountType::NonFungibleFaucet => "Non-fungible faucet",
         AccountType::RegularAccountImmutableCode => "Regular",

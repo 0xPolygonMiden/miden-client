@@ -57,7 +57,6 @@ type SerializedInputNoteParts = (Vec<u8>, Vec<u8>, Vec<u8>, String, u64, u64, Op
 // --------------------------------------------------------------------------------------------
 
 impl SqliteStore {
-    /// Retrieves the input notes from the database
     pub(crate) fn get_input_notes(
         &self,
         note_filter: InputNoteFilter,
@@ -70,7 +69,6 @@ impl SqliteStore {
             .collect::<Result<Vec<InputNoteRecord>, _>>()
     }
 
-    /// Retrieves the input note with the specified id from the database
     pub(crate) fn get_input_note_by_id(
         &self,
         note_id: NoteId,
@@ -86,7 +84,6 @@ impl SqliteStore {
             .ok_or(StoreError::InputNoteNotFound(note_id))?
     }
 
-    /// Inserts the provided input note into the database
     pub(crate) fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError> {
         let tx = self.db.transaction()?;
 
@@ -95,7 +92,6 @@ impl SqliteStore {
         Ok(tx.commit()?)
     }
 
-    /// Returns the nullifiers of all unspent input notes
     pub(crate) fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Digest>, StoreError> {
         const QUERY: &str = "SELECT nullifier FROM input_notes WHERE status = 'committed'";
 

@@ -1,6 +1,5 @@
 use objects::{
-    accounts::{Account, AccountId, AccountStorage, AccountStub},
-    assets::Asset,
+    accounts::{Account, AccountId, AccountStub},
     notes::NoteInclusionProof,
     utils::collections::BTreeMap,
     Digest,
@@ -50,6 +49,10 @@ impl SqliteStore {
     }
 }
 
+// SQLite implementation of the Store trait
+//
+// To simplify, all implementations rely on inner SqliteStore functions that map 1:1 by name
+// This way, the actual implementations are grouped by entity types in their own sub-modules
 impl Store for SqliteStore {
     fn get_note_tags(&self) -> Result<Vec<u64>, StoreError> {
         self.get_note_tags()
@@ -141,26 +144,11 @@ impl Store for SqliteStore {
         &self,
         filter: ChainMmrNodeFilter,
     ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
-        self.handle_get_chain_mmr_nodes(filter)
+        self.get_chain_mmr_nodes(filter)
     }
 
     fn get_chain_mmr_peaks_by_block_num(&self, block_num: u32) -> Result<MmrPeaks, StoreError> {
         self.get_chain_mmr_peaks_by_block_num(block_num)
-    }
-
-    fn get_account_code(
-        &self,
-        root: Digest,
-    ) -> Result<(Vec<Digest>, assembly::ast::ModuleAst), StoreError> {
-        self.get_account_code(root)
-    }
-
-    fn get_account_storage(&self, root: Digest) -> Result<AccountStorage, StoreError> {
-        self.get_account_storage(root)
-    }
-
-    fn get_vault_assets(&self, root: Digest) -> Result<Vec<Asset>, StoreError> {
-        self.get_vault_assets(root)
     }
 
     fn insert_account(
@@ -192,10 +180,6 @@ impl Store for SqliteStore {
         account_id: AccountId,
     ) -> Result<(Account, Option<Word>), StoreError> {
         self.get_account_by_id(account_id)
-    }
-
-    fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, StoreError> {
-        self.get_account_auth(account_id)
     }
 }
 

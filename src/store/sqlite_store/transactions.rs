@@ -1,7 +1,7 @@
 use crate::{
     client::transactions::{TransactionResult, TransactionStub},
     errors::StoreError,
-    store::{InputNoteRecord, Store, TransactionFilter},
+    store::{InputNoteRecord, TransactionFilter},
 };
 use crypto::{
     utils::{collections::BTreeMap, Deserializable, Serializable},
@@ -65,7 +65,6 @@ type SerializedTransactionData = (
 );
 
 impl SqliteStore {
-    /// Retrieves all executed transactions from the database
     pub(crate) fn get_transactions(
         &self,
         transaction_filter: TransactionFilter,
@@ -78,7 +77,6 @@ impl SqliteStore {
             .collect::<Result<Vec<TransactionStub>, _>>()
     }
 
-    /// Inserts a transaction and updates the current state based on the `tx_result` changes
     pub(crate) fn insert_transaction_data(
         &mut self,
         tx_result: TransactionResult,
