@@ -236,7 +236,7 @@ impl Client {
     ///
     /// As part of the syncing process, we add the current block number so we don't need to
     /// track it here.
-    fn build_current_partial_mmr(&self) -> Result<PartialMmr, ClientError> {
+    pub(crate) fn build_current_partial_mmr(&self) -> Result<PartialMmr, ClientError> {
         let current_block_num = self.store.get_sync_height()?;
 
         let tracked_nodes = self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All)?;
