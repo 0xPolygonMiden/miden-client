@@ -1,5 +1,5 @@
 use crate::{
-    client::transactions::{TransactionResult, TransactionStub},
+    client::transactions::{TransactionRecord, TransactionResult, TransactionStatus},
     errors::StoreError,
     store::{InputNoteRecord, TransactionFilter},
 };
@@ -9,39 +9,38 @@ use crypto::{
 };
 use tracing::info;
 
-use super::SqliteStore;
+use super::{
+    accounts::{insert_account_asset_vault, insert_account_record, insert_account_storage},
+    notes::insert_input_note_tx,
+    SqliteStore,
+};
 use objects::{
     accounts::AccountId,
     assembly::{AstSerdeOptions, ProgramAst},
-    notes::{NoteEnvelope, NoteId},
-    transaction::{OutputNotes, TransactionScript},
+    notes::NoteId,
+    transaction::{OutputNote, OutputNotes, TransactionScript},
     Digest,
 };
 use rusqlite::{params, Transaction};
 
-// QUERIES
-// ================================================================================================
-
 pub(crate) const INSERT_TRANSACTION_QUERY: &str =
     "INSERT INTO transactions (id, account_id, init_account_state, final_account_state, \
-    input_notes, output_notes, script_hash, script_inputs, block_num, committed, commit_height) \
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    input_notes, output_notes, script_hash, script_inputs, block_num, commit_height) \
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
 pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str =
     "INSERT OR IGNORE INTO transaction_scripts (script_hash, program) \
     VALUES (?, ?)";
 
-// TRANSACTION FILTER
-// ================================================================================================
 impl TransactionFilter {
     /// Returns a [String] containing the query for this Filter
     pub fn to_query(&self) -> String {
         const QUERY: &str = "SELECT tx.id, tx.account_id, tx.init_account_state, tx.final_account_state, \
-                tx.input_notes, tx.output_notes, tx.script_hash, script.program, tx.script_inputs, tx.block_num, tx.committed, tx.commit_height \
-                FROM transactions AS tx LEFT JOIN transaction_scripts AS script ON tx.script_hash = script.script_hash";
+            tx.input_notes, tx.output_notes, tx.script_hash, script.program, tx.script_inputs, tx.block_num, tx.commit_height \
+            FROM transactions AS tx LEFT JOIN transaction_scripts AS script ON tx.script_hash = script.script_hash";
         match self {
             TransactionFilter::All => QUERY.to_string(),
-            TransactionFilter::Uncomitted => format!("{QUERY} WHERE tx.committed=false"),
+            TransactionFilter::Uncomitted => format!("{QUERY} WHERE tx.commit_height IS NULL"),
         }
     }
 }
@@ -60,24 +59,25 @@ type SerializedTransactionData = (
     Option<Vec<u8>>,
     Option<String>,
     u32,
-    bool,
-    u32,
+    Option<u32>,
 );
 
 impl SqliteStore {
-    pub(crate) fn get_transactions(
+    /// Retrieves all executed transactions from the database
+    pub fn get_transactions(
         &self,
         transaction_filter: TransactionFilter,
-    ) -> Result<Vec<TransactionStub>, StoreError> {
+    ) -> Result<Vec<TransactionRecord>, StoreError> {
         self.db
             .prepare(&transaction_filter.to_query())?
             .query_map([], parse_transaction_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_transaction))
-            .collect::<Result<Vec<TransactionStub>, _>>()
+            .collect::<Result<Vec<TransactionRecord>, _>>()
     }
 
-    pub(crate) fn insert_transaction_data(
+    /// Inserts a transaction and updates the current state based on the `tx_result` changes
+    pub fn insert_transaction_data(
         &mut self,
         tx_result: TransactionResult,
     ) -> Result<(), StoreError> {
@@ -102,13 +102,13 @@ impl SqliteStore {
         Self::insert_proven_transaction_data(&tx, tx_result)?;
 
         // Account Data
-        super::accounts::insert_account_storage(&tx, account.storage())?;
-        super::accounts::insert_account_asset_vault(&tx, account.vault())?;
-        super::accounts::insert_account_record(&tx, &account, seed)?;
+        insert_account_storage(&tx, account.storage())?;
+        insert_account_asset_vault(&tx, account.vault())?;
+        insert_account_record(&tx, &account, seed)?;
 
         // Updates for notes
         for note in created_notes {
-            super::notes::insert_input_note_tx(&tx, &note)?;
+            insert_input_note_tx(&tx, &note)?;
         }
 
         tx.commit()?;
@@ -132,7 +132,6 @@ impl SqliteStore {
             script_inputs,
             block_num,
             committed,
-            commit_height,
         ) = serialize_transaction_data(transaction_result)?;
 
         if let Some(hash) = script_hash.clone() {
@@ -155,7 +154,6 @@ impl SqliteStore {
                 script_inputs,
                 block_num,
                 committed,
-                commit_height,
             ],
         )?;
 
@@ -164,32 +162,28 @@ impl SqliteStore {
 
     /// Updates transactions as committed if the input `note_ids` belongs to one uncommitted transaction
     pub(super) fn mark_transactions_as_committed_by_note_id(
-        uncommitted_transactions: &[TransactionStub],
+        uncommitted_transactions: &[TransactionRecord],
         note_ids: &[NoteId],
         block_num: u32,
         tx: &Transaction<'_>,
     ) -> Result<usize, StoreError> {
-        let updated_transactions: Vec<&TransactionStub> = uncommitted_transactions
+        let updated_transactions: Vec<&TransactionRecord> = uncommitted_transactions
             .iter()
-            .filter(|t| {
-                t.output_notes
-                    .iter()
-                    .any(|n| note_ids.contains(&n.note_id()))
-            })
+            .filter(|t| t.output_notes.iter().any(|n| note_ids.contains(&n.id())))
             .collect();
 
         let mut rows = 0;
         for transaction in updated_transactions {
-            const QUERY: &str =
-                "UPDATE transactions set committed=true, commit_height=? where id=?";
-            rows += tx.execute(QUERY, params![block_num, transaction.id.to_string()])?;
+            const QUERY: &str = "UPDATE transactions set commit_height=? where id=?";
+            rows += tx.execute(QUERY, params![Some(block_num), transaction.id.to_string()])?;
         }
+        info!("Marked {} transactions as committed", rows);
 
         Ok(rows)
     }
 }
 
-fn serialize_transaction_data(
+pub(super) fn serialize_transaction_data(
     transaction_result: TransactionResult,
 ) -> Result<SerializedTransactionData, StoreError> {
     let executed_transaction = transaction_result.executed_transaction();
@@ -210,9 +204,9 @@ fn serialize_transaction_data(
 
     let output_notes = executed_transaction.output_notes();
 
-    info!("Transaction id {}", executed_transaction.id().inner());
+    info!("Transaction ID :{}", executed_transaction.id().inner());
     info!(
-        "Transaction account id: {}",
+        "Transaction account ID: {}",
         executed_transaction.account_id()
     );
 
@@ -243,8 +237,7 @@ fn serialize_transaction_data(
         script_hash,
         script_inputs,
         transaction_result.block_num(),
-        false,
-        0_u32,
+        None,
     ))
 }
 
@@ -261,8 +254,7 @@ fn parse_transaction_columns(
     let script_program: Option<Vec<u8>> = row.get(7)?;
     let script_inputs: Option<String> = row.get(8)?;
     let block_num: u32 = row.get(9)?;
-    let committed: bool = row.get(10)?;
-    let commit_height: u32 = row.get(11)?;
+    let commit_height: Option<u32> = row.get(10)?;
 
     Ok((
         id,
@@ -275,7 +267,6 @@ fn parse_transaction_columns(
         script_program,
         script_inputs,
         block_num,
-        committed,
         commit_height,
     ))
 }
@@ -283,7 +274,7 @@ fn parse_transaction_columns(
 /// Parse a transaction from the provided parts.
 fn parse_transaction(
     serialized_transaction: SerializedTransactionData,
-) -> Result<TransactionStub, StoreError> {
+) -> Result<TransactionRecord, StoreError> {
     let (
         id,
         account_id,
@@ -295,7 +286,6 @@ fn parse_transaction(
         script_program,
         script_inputs,
         block_num,
-        committed,
         commit_height,
     ) = serialized_transaction;
     let account_id = AccountId::try_from(account_id as u64)?;
@@ -307,7 +297,7 @@ fn parse_transaction(
     let input_note_nullifiers: Vec<Digest> =
         serde_json::from_str(&input_notes).map_err(StoreError::JsonDataDeserializationError)?;
 
-    let output_notes = OutputNotes::<NoteEnvelope>::read_from_bytes(&output_notes)?;
+    let output_notes = OutputNotes::<OutputNote>::read_from_bytes(&output_notes)?;
 
     let transaction_script: Option<TransactionScript> = if script_hash.is_some() {
         let script_hash = script_hash
@@ -337,7 +327,11 @@ fn parse_transaction(
         None
     };
 
-    Ok(TransactionStub {
+    let transaction_status = commit_height.map_or(TransactionStatus::Pending, |height| {
+        TransactionStatus::Committed(height)
+    });
+
+    Ok(TransactionRecord {
         id,
         account_id,
         init_account_state,
@@ -346,7 +340,6 @@ fn parse_transaction(
         output_notes,
         transaction_script,
         block_num,
-        committed,
-        commit_height: commit_height as u64,
+        transaction_status,
     })
 }

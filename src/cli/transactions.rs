@@ -1,5 +1,5 @@
 use miden_client::{
-    client::transactions::{PaymentTransactionData, TransactionStub, TransactionTemplate},
+    client::transactions::{PaymentTransactionData, TransactionRecord, TransactionTemplate},
     store::TransactionFilter,
 };
 
@@ -25,12 +25,9 @@ pub enum TransactionType {
         amount: u64,
     },
     P2IDR,
-    ConsumeNote {
+    ConsumeNotes {
         account_id: String,
-        note_id: String,
-    },
-    ConsumeAllNotes {
-        account_id: String,
+        list_of_notes: Vec<String>,
     },
 }
 
@@ -80,18 +77,18 @@ impl TryInto<TransactionTemplate> for &TransactionType {
                     target_account_id,
                 })
             }
-            TransactionType::ConsumeNote {
+            TransactionType::ConsumeNotes {
                 account_id,
-                note_id,
+                list_of_notes,
             } => {
-                let account_id = AccountId::from_hex(account_id).map_err(|err| err.to_string())?;
-                let note_id = NoteId::try_from_hex(note_id).map_err(|err| err.to_string())?;
+                let list_of_notes = list_of_notes
+                    .iter()
+                    .map(|n| NoteId::try_from_hex(n).map_err(|err| err.to_string()))
+                    .collect::<Result<Vec<NoteId>, _>>()?;
 
-                Ok(TransactionTemplate::ConsumeNote(account_id, note_id))
-            }
-            TransactionType::ConsumeAllNotes { account_id } => {
                 let account_id = AccountId::from_hex(account_id).map_err(|err| err.to_string())?;
-                Ok(TransactionTemplate::ConsumeAllNotes(account_id))
+
+                Ok(TransactionTemplate::ConsumeNotes(account_id, list_of_notes))
             }
         }
     }
@@ -146,33 +143,26 @@ fn list_transactions(client: Client) -> Result<(), String> {
 // ================================================================================================
 fn print_transactions_summary<'a, I>(executed_transactions: I)
 where
-    I: IntoIterator<Item = &'a TransactionStub>,
+    I: IntoIterator<Item = &'a TransactionRecord>,
 {
     let mut table = create_dynamic_table(&[
+        "ID",
+        "Status",
         "Account ID",
         "Script Hash",
-        "Committed",
-        "Commit Height",
-        "Block Num",
         "Input Notes Count",
         "Output Notes Count",
     ]);
 
     for tx in executed_transactions {
-        let commit_height = match tx.commit_height {
-            0 => "-".to_string(),
-            _ => tx.commit_height.to_string(),
-        };
-
         table.add_row(vec![
+            tx.id.to_string(),
+            tx.transaction_status.to_string(),
             tx.account_id.to_string(),
             tx.transaction_script
                 .as_ref()
                 .map(|x| x.hash().to_string())
                 .unwrap_or("-".to_string()),
-            tx.committed.to_string(),
-            commit_height,
-            tx.block_num.to_string(),
             tx.input_note_nullifiers.len().to_string(),
             tx.output_notes.num_notes().to_string(),
         ]);

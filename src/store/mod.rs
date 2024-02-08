@@ -1,5 +1,5 @@
 use crate::{
-    client::transactions::{TransactionResult, TransactionStub},
+    client::transactions::{TransactionRecord, TransactionResult},
     errors::{ClientError, StoreError},
 };
 use clap::error::Result;
@@ -34,7 +34,7 @@ pub trait Store {
     fn get_transactions(
         &self,
         transaction_filter: TransactionFilter,
-    ) -> Result<Vec<TransactionStub>, StoreError>;
+    ) -> Result<Vec<TransactionRecord>, StoreError>;
 
     /// Inserts a transaction and updates the current state based on the `tx_result` changes
     fn insert_transaction_data(&mut self, tx_result: TransactionResult) -> Result<(), StoreError>;
@@ -304,7 +304,9 @@ impl TryInto<InputNote> for InputNoteRecord {
 // ================================================================================================
 
 pub enum ChainMmrNodeFilter<'a> {
+    /// Return all nodes.
     All,
+    /// Filter by the specified in-order indices.
     List(&'a [InOrderIndex]),
 }
 
@@ -312,7 +314,10 @@ pub enum ChainMmrNodeFilter<'a> {
 // ================================================================================================
 
 pub enum TransactionFilter {
+    /// Return all transactions.
     All,
+    /// Filter by transactions that have not yet been committed to the blockchain as per the last
+    /// sync.
     Uncomitted,
 }
 
@@ -320,8 +325,14 @@ pub enum TransactionFilter {
 // ================================================================================================
 
 pub enum InputNoteFilter {
+    /// Return a list of all [InputNoteRecord].
     All,
+    /// Filter by consumed [InputNoteRecord]. notes that have been used as inputs in transactions.
     Consumed,
+    /// Return a list of committed [InputNoteRecord]. These represent notes that the blockchain
+    /// has included in a block, and for which we are storing anchor data.
     Committed,
+    /// Return a list of pending [InputNoteRecord]. These represent notes for which the store
+    /// does not have anchor data.
     Pending,
 }

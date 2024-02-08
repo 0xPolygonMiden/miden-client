@@ -55,8 +55,7 @@ CREATE TABLE transactions (
     script_hash BLOB,                                -- Transaction script hash
     script_inputs BLOB,                              -- Transaction script inputs
     block_num UNSIGNED BIG INT,                      -- Block number for the block against which the transaction was executed.
-    committed BOOLEAN NOT NULL,                      -- Status of the transaction: either pending (false) or committed (true).
-    commit_height UNSIGNED BIG INT,                  -- Block number of the block at which the transaction was included in the chain.
+    commit_height UNSIGNED BIG INT NULL,             -- Block number of the block at which the transaction was included in the chain. 
     
     FOREIGN KEY (script_hash) REFERENCES transaction_scripts(script_hash),
     PRIMARY KEY (id)

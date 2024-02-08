@@ -17,7 +17,7 @@ use objects::{notes::NoteId, BlockHeader};
 use rusqlite::Connection;
 
 use crate::{
-    client::transactions::{TransactionResult, TransactionStub},
+    client::transactions::{TransactionRecord, TransactionResult},
     config::StoreConfig,
     errors::StoreError,
 };
@@ -86,7 +86,7 @@ impl Store for SqliteStore {
     fn get_transactions(
         &self,
         transaction_filter: TransactionFilter,
-    ) -> Result<Vec<TransactionStub>, StoreError> {
+    ) -> Result<Vec<TransactionRecord>, StoreError> {
         self.get_transactions(transaction_filter)
     }
 

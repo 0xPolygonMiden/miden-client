@@ -11,8 +11,10 @@ use objects::{
     accounts::{AccountDelta, AccountId},
     assembly::ProgramAst,
     assets::{Asset, FungibleAsset},
-    notes::{Note, NoteEnvelope, NoteId},
-    transaction::{ExecutedTransaction, OutputNotes, ProvenTransaction, TransactionScript},
+    notes::{Note, NoteId},
+    transaction::{
+        ExecutedTransaction, OutputNote, OutputNotes, ProvenTransaction, TransactionScript,
+    },
     Digest,
 };
 use rand::Rng;
@@ -40,11 +42,8 @@ const AUTH_SEND_ASSET_SCRIPT: &str = include_str!("asm/transaction_scripts/auth_
 
 #[derive(Clone)]
 pub enum TransactionTemplate {
-    /// Consume outstanding note for an account.
-    ConsumeNote(AccountId, NoteId),
-    /// Consume all outstanding note for an account.
-    ConsumeAllNotes(AccountId),
-    // NOTE: Maybe this should be called "distribute"?
+    /// Consume outstanding notes for an account.
+    ConsumeNotes(AccountId, Vec<NoteId>),
     /// Mint fungible assets using a faucet account
     MintFungibleAsset {
         asset: FungibleAsset,
@@ -52,7 +51,8 @@ pub enum TransactionTemplate {
     },
     /// Creates a pay-to-id note directed to a specific account
     PayToId(PaymentTransactionData),
-    /// Creates a pay-to-id note directed to a specific account, specifying a block height at which the payment is recalled
+    /// Creates a pay-to-id note directed to a specific account, specifying a block height after
+    /// which the note can be recalled
     PayToIdWithRecall(PaymentTransactionData, u32),
 }
 
@@ -60,8 +60,7 @@ impl TransactionTemplate {
     /// Returns the executor [AccountId]
     pub fn account_id(&self) -> AccountId {
         match self {
-            TransactionTemplate::ConsumeNote(account_id, _) => *account_id,
-            TransactionTemplate::ConsumeAllNotes(account_id) => *account_id,
+            TransactionTemplate::ConsumeNotes(account_id, _) => *account_id,
             TransactionTemplate::MintFungibleAsset {
                 asset,
                 target_account_id: _target_account_id,
@@ -142,20 +141,26 @@ impl TransactionResult {
     }
 }
 
-pub struct TransactionStub {
+// TRANSACTION RECORD
+// --------------------------------------------------------------------------------------------
+
+/// Describes a transaction that has been executed and is being tracked on the Client
+///
+/// Currently, the `commit_height` (and `committed` status) is set based on the height
+/// at which the transaction's output notes are committed.
+pub struct TransactionRecord {
     pub id: Digest,
     pub account_id: AccountId,
     pub init_account_state: Digest,
     pub final_account_state: Digest,
     pub input_note_nullifiers: Vec<Digest>,
-    pub output_notes: OutputNotes<NoteEnvelope>,
+    pub output_notes: OutputNotes<OutputNote>,
     pub transaction_script: Option<TransactionScript>,
     pub block_num: u32,
-    pub committed: bool,
-    pub commit_height: u64,
+    pub transaction_status: TransactionStatus,
 }
 
-impl TransactionStub {
+impl TransactionRecord {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: Digest,
@@ -163,13 +168,12 @@ impl TransactionStub {
         init_account_state: Digest,
         final_account_state: Digest,
         input_note_nullifiers: Vec<Digest>,
-        output_notes: OutputNotes<NoteEnvelope>,
+        output_notes: OutputNotes<OutputNote>,
         transaction_script: Option<TransactionScript>,
         block_num: u32,
-        committed: bool,
-        commit_height: u64,
-    ) -> TransactionStub {
-        TransactionStub {
+        transaction_status: TransactionStatus,
+    ) -> TransactionRecord {
+        TransactionRecord {
             id,
             account_id,
             init_account_state,
@@ -178,8 +182,26 @@ impl TransactionStub {
             output_notes,
             transaction_script,
             block_num,
-            committed,
-            commit_height,
+            transaction_status,
+        }
+    }
+}
+
+/// Represents the status of a transaction
+pub enum TransactionStatus {
+    /// Transaction has been submitted but not yet committed
+    Pending,
+    /// Transaction has been committed and included at the specified block number
+    Committed(u32),
+}
+
+impl std::fmt::Display for TransactionStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TransactionStatus::Pending => write!(f, "Pending"),
+            TransactionStatus::Committed(block_number) => {
+                write!(f, "Committed (Block: {})", block_number)
+            }
         }
     }
 }
@@ -192,7 +214,7 @@ impl Client {
     pub fn get_transactions(
         &self,
         transaction_filter: TransactionFilter,
-    ) -> Result<Vec<TransactionStub>, ClientError> {
+    ) -> Result<Vec<TransactionRecord>, ClientError> {
         self.store
             .get_transactions(transaction_filter)
             .map_err(|err| err.into())
@@ -214,27 +236,21 @@ impl Client {
                 target_account_id,
             }) => self.new_p2id_transaction(fungible_asset, sender_account_id, target_account_id),
             TransactionTemplate::PayToIdWithRecall(_payment_data, _recall_height) => todo!(),
-            TransactionTemplate::ConsumeNote(account_id, note_id) => {
-                self.new_consume_notes_transaction(account_id, Some(note_id))
+            TransactionTemplate::ConsumeNotes(account_id, list_of_notes) => {
+                self.new_consume_notes_transaction(account_id, &list_of_notes)
             }
             TransactionTemplate::MintFungibleAsset {
                 asset,
                 target_account_id,
             } => self.new_mint_fungible_asset_transaction(asset, target_account_id),
-            TransactionTemplate::ConsumeAllNotes(account_id) => {
-                self.new_consume_notes_transaction(account_id, None)
-            }
         }
     }
 
     /// Creates and executes a transaction that consumes a number of notes
-    ///
-    /// If `note_id` is `None`, all committed input notes are consumed.
-    /// Otherwise, the specified note is consumed.
     fn new_consume_notes_transaction(
         &mut self,
         account_id: AccountId,
-        note_id: Option<NoteId>,
+        note_ids: &[NoteId],
     ) -> Result<TransactionResult, ClientError> {
         self.tx_executor
             .load_account(account_id)
@@ -243,19 +259,11 @@ impl Client {
         let tx_script_code =
             ProgramAst::parse(AUTH_CONSUME_NOTES_SCRIPT).expect("shipped MASM is well-formed");
 
-        let input_notes = if let Some(note_id) = note_id {
-            vec![note_id]
-        } else {
-            self.store
-                .get_input_notes(InputNoteFilter::Committed)?
-                .iter()
-                .map(|n| n.note_id())
-                .collect()
-        };
-
         let block_num = self.store.get_sync_height()?;
 
-        self.compile_and_execute_tx(account_id, &input_notes, vec![], tx_script_code, block_num)
+        // Because the notes are retrieved by the executor, there is no need to cross check here
+        // that they exist in the Store
+        self.compile_and_execute_tx(account_id, note_ids, vec![], tx_script_code, block_num)
     }
 
     /// Creates and executes a mint transaction specified by the template.
@@ -272,7 +280,6 @@ impl Client {
         let block_ref = self.get_sync_height()?;
 
         let random_coin = self.get_random_coin();
-
         let created_note = create_p2id_note(faucet_id, target_id, vec![asset.into()], random_coin)?;
 
         let recipient = created_note

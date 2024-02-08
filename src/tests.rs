@@ -312,6 +312,76 @@ async fn test_sync_state() {
 }
 
 #[tokio::test]
+async fn test_sync_state_mmr_state() {
+    // generate test client with a random store name
+    let mut client = create_test_client();
+
+    // generate test data
+    let tracked_block_headers = crate::mock::insert_mock_data(&mut client).await;
+
+    // sync state
+    let block_num: u32 = client.sync_state().await.unwrap();
+
+    // verify that the client is synced to the latest block
+    assert_eq!(
+        block_num,
+        client
+            .rpc_api
+            .state_sync_requests
+            .first_key_value()
+            .unwrap()
+            .1
+            .chain_tip
+    );
+
+    // verify that the latest block number has been updated
+    assert_eq!(
+        client.get_sync_height().unwrap(),
+        client
+            .rpc_api
+            .state_sync_requests
+            .first_key_value()
+            .unwrap()
+            .1
+            .chain_tip
+    );
+
+    // verify that we inserted the latest block into the db via the client
+    let latest_block = client.get_sync_height().unwrap();
+    assert_eq!(block_num, latest_block);
+    assert_eq!(
+        tracked_block_headers[tracked_block_headers.len() - 1],
+        client.get_block_headers(&[latest_block]).unwrap()[0].0
+    );
+
+    // Try reconstructing the chain_mmr from what's in the database
+    let partial_mmr = client.build_current_partial_mmr().unwrap();
+
+    // Since Mocked data contains three sync updates we should be "tracking" those blocks
+    // However, remember that we don't actually update the partial_mmr with the latest block but up
+    // to one block before instead. This is because the prologue will already build the
+    // authentication path for that block.
+    assert_eq!(partial_mmr.forest(), 6);
+    assert!(partial_mmr.open(0).unwrap().is_none());
+    assert!(partial_mmr.open(1).unwrap().is_none());
+    assert!(partial_mmr.open(2).unwrap().is_some());
+    assert!(partial_mmr.open(3).unwrap().is_none());
+    assert!(partial_mmr.open(4).unwrap().is_some());
+    assert!(partial_mmr.open(5).unwrap().is_none());
+
+    // Ensure the proofs are valid
+    let mmr_proof = partial_mmr.open(2).unwrap().unwrap();
+    assert!(partial_mmr
+        .peaks()
+        .verify(tracked_block_headers[0].hash(), mmr_proof));
+
+    let mmr_proof = partial_mmr.open(4).unwrap().unwrap();
+    assert!(partial_mmr
+        .peaks()
+        .verify(tracked_block_headers[1].hash(), mmr_proof));
+}
+
+#[tokio::test]
 async fn test_add_tag() {
     // generate test client with a random store name
     let mut client = create_test_client();
@@ -404,7 +474,7 @@ async fn test_consume_all_transaction() {
 
     let recorded_notes: InputNotes = transaction_inputs.input_notes().clone();
     let mut notes_for_data_store = vec![];
-    for note in recorded_notes {
+    for note in recorded_notes.iter() {
         notes_for_data_store.push(note.note().clone());
     }
 
@@ -419,6 +489,7 @@ async fn test_consume_all_transaction() {
         MockDataStore::with_existing(account.clone(), Some(seed), Some(notes_for_data_store));
     client.set_data_store(data_store);
 
-    let transaction_template = TransactionTemplate::ConsumeAllNotes(account.id());
+    let note_list = recorded_notes.iter().map(|x| x.note().id()).collect();
+    let transaction_template = TransactionTemplate::ConsumeNotes(account.id(), note_list);
     client.new_transaction(transaction_template).unwrap();
 }
