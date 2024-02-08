@@ -7,12 +7,12 @@ use crate::{
     },
     errors::NodeApiError,
 };
+use async_trait::async_trait;
 use crypto::{
     dsa::rpo_falcon512::KeyPair,
     merkle::{NodeIndex, SimpleSmt},
     Felt, FieldElement, StarkField,
 };
-use async_trait::async_trait;
 use miden_lib::transaction::TransactionKernel;
 use miden_node_proto::{
     account::AccountId as ProtoAccountId,
@@ -37,7 +37,7 @@ use objects::{
     notes::{Note, NoteInclusionProof},
     transaction::{InputNote, ProvenTransaction},
     utils::collections::BTreeMap,
-    BlockHeader, NOTE_TREE_DEPTH, Digest
+    BlockHeader, NOTE_TREE_DEPTH,
 };
 use tonic::{IntoRequest, Response, Status};
 
@@ -308,7 +308,7 @@ fn mock_full_chain_mmr_and_notes(
 
 /// inserts mock note and account data into the client and returns the last block header of mocked
 /// chain
-pub async fn insert_mock_data(client: &mut Client) -> Vec<BlockHeader> {
+pub async fn insert_mock_data(client: &mut Client<MockRpcApi, MockDataStore>) -> Vec<BlockHeader> {
     // mock notes
     let assembler = TransactionKernel::assembler();
     let (account_id, account_seed) =
