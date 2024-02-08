@@ -1,5 +1,5 @@
 use super::SqliteStore;
-use crate::store::{AuthInfo, Store};
+use crate::store::AuthInfo;
 
 use crate::errors::StoreError;
 

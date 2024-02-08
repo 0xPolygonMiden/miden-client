@@ -22,7 +22,7 @@ use tracing::info;
 
 use crate::{
     errors::ClientError,
-    store::{AuthInfo, InputNoteFilter, TransactionFilter},
+    store::{AuthInfo, TransactionFilter},
 };
 
 use crate::store::Store;
