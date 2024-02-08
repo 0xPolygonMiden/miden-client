@@ -204,7 +204,7 @@ pub(super) fn serialize_transaction_data(
 
     let output_notes = executed_transaction.output_notes();
 
-    info!("Transaction ID :{}", executed_transaction.id().inner());
+    info!("Transaction ID: {}", executed_transaction.id().inner());
     info!(
         "Transaction account ID: {}",
         executed_transaction.account_id()
