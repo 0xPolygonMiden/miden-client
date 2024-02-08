@@ -170,11 +170,25 @@ impl Store {
         Ok(())
     }
 
-    /// Updates transactions as committed if the input `note_ids` belongs to one uncommitted transaction
-    pub(crate) fn mark_transactions_as_committed_by_note_id(
+    /// Updates uncommitted transactions as committed based on the state update info
+    ///
+    /// To set an uncommitted transaction as committed three things must hold:
+    ///
+    /// - all of the transaction's output notes are committed
+    /// - all of the transaction's input notes are consumed, which means we got their nullifiers as
+    /// part of the update
+    /// - the account corresponding to the transaction hash matches the transaction's
+    /// final_account_state
+    ///
+    /// # Errors
+    ///
+    /// This function can return an error if any of the updates to the transactions within the
+    /// database transaction fail.
+    pub(crate) fn mark_transactions_as_committed(
         uncommitted_transactions: &[TransactionRecord],
         note_ids: &[NoteId],
         nullifiers: &[Digest],
+        account_hash_changes: &[(AccountId, Digest)],
         block_num: u32,
         tx: &Transaction<'_>,
     ) -> Result<usize, StoreError> {
@@ -184,7 +198,12 @@ impl Store {
                 t.input_note_nullifiers
                     .iter()
                     .all(|n| nullifiers.contains(n))
-                    && t.output_notes.iter().any(|n| note_ids.contains(&n.id()))
+                    && t.output_notes.iter().all(|n| note_ids.contains(&n.id()))
+                    && account_hash_changes
+                        .iter()
+                        .any(|(account_id, account_hash)| {
+                            *account_id == t.account_id && *account_hash == t.final_account_state
+                        })
             })
             .collect();
 

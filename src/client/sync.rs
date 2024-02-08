@@ -166,6 +166,7 @@ impl Client {
         self.store
             .apply_state_sync(
                 response.block_header,
+                response.account_hash_updates,
                 new_nullifiers,
                 committed_notes,
                 new_peaks,

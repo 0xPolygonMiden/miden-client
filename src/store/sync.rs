@@ -4,6 +4,7 @@ use crypto::{
 };
 
 use objects::{
+    accounts::AccountId,
     notes::{NoteId, NoteInclusionProof},
     BlockHeader, Digest,
 };
@@ -70,9 +71,12 @@ impl Store {
     /// - Updating the notes, marking them as `committed` or `consumed` based on incoming
     ///   inclusion proofs and nullifiers
     /// - Storing new MMR authentication nodes
+    /// - Updating the transactions, marking them as `committed` based on the incoming account
+    /// changes, nullifiers and consumed notes.
     pub fn apply_state_sync(
         &mut self,
         block_header: BlockHeader,
+        account_hash_changes: Vec<(AccountId, Digest)>,
         nullifiers: Vec<Digest>,
         committed_notes: Vec<(NoteId, NoteInclusionProof)>,
         new_mmr_peaks: MmrPeaks,
@@ -129,10 +133,11 @@ impl Store {
 
         let note_ids: Vec<NoteId> = committed_notes.iter().map(|(id, _)| (*id)).collect();
 
-        Store::mark_transactions_as_committed_by_note_id(
+        Store::mark_transactions_as_committed(
             &uncommitted_transactions,
             &note_ids,
             &nullifiers,
+            &account_hash_changes,
             block_header.block_num(),
             &tx,
         )?;
