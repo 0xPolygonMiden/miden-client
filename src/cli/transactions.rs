@@ -1,6 +1,6 @@
 use miden_client::{
     client::transactions::{PaymentTransactionData, TransactionStub, TransactionTemplate},
-    store::transactions::TransactionFilter,
+    store::TransactionFilter,
 };
 
 use objects::{accounts::AccountId, assets::FungibleAsset, notes::NoteId};

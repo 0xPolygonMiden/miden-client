@@ -20,8 +20,10 @@ use tracing::info;
 
 use crate::{
     errors::ClientError,
-    store::{accounts::AuthInfo, notes::InputNoteFilter, transactions::TransactionFilter},
+    store::{AuthInfo, InputNoteFilter, TransactionFilter},
 };
+
+use crate::store::Store;
 
 use super::Client;
 

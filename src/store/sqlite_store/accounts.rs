@@ -1,17 +1,17 @@
 use super::SqliteStore;
+use crate::store::{AuthInfo, Store};
 
 use crate::errors::StoreError;
 
 use clap::error::Result;
 use crypto::{
-    dsa::rpo_falcon512::KeyPair,
     hash::rpo::RpoDigest,
     utils::{Deserializable, Serializable},
     StarkField, Word,
 };
 use miden_lib::transaction::TransactionKernel;
 use objects::{
-    accounts::{Account, AccountCode, AccountDelta, AccountId, AccountStorage, AccountStub},
+    accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub},
     assembly::{AstSerdeOptions, ModuleAst},
     assets::{Asset, AssetVault},
     Digest,
@@ -21,7 +21,7 @@ use rusqlite::{params, Transaction};
 // TYPES
 // ================================================================================================
 type SerializedAccountData = (i64, String, String, String, i64, bool);
-type SerializedAccountsParts = (i64, i64, String, String, String, Vec<u8>);
+type SerializedAccountsParts = (i64, i64, String, String, String, Option<Vec<u8>>);
 
 type SerializedAccountAuthData = (i64, Vec<u8>);
 type SerializedAccountAuthParts = (i64, Vec<u8>);
@@ -35,63 +35,12 @@ type SerializedAccountCodeParts = (String, String, Vec<u8>);
 type SerializedAccountStorageData = (String, Vec<u8>);
 type SerializedAccountStorageParts = (String, Vec<u8>);
 
-// DATABASE AUTH INFO
-// ================================================================================================
-
-/// Type of Authentication Methods supported by the DB
-///
-/// TODO: add remaining auth types
-#[derive(Debug)]
-pub enum AuthInfo {
-    RpoFalcon512(KeyPair),
-}
-
-const RPO_FALCON512_AUTH: u8 = 0;
-
-impl AuthInfo {
-    /// Returns byte identifier of specific AuthInfo
-    const fn type_byte(&self) -> u8 {
-        match self {
-            AuthInfo::RpoFalcon512(_) => RPO_FALCON512_AUTH,
-        }
-    }
-}
-
-impl Serializable for AuthInfo {
-    fn write_into<W: crypto::utils::ByteWriter>(&self, target: &mut W) {
-        let mut bytes = vec![self.type_byte()];
-        match self {
-            AuthInfo::RpoFalcon512(key_pair) => {
-                bytes.append(&mut key_pair.to_bytes());
-                target.write_bytes(&bytes);
-            }
-        }
-    }
-}
-
-impl Deserializable for AuthInfo {
-    fn read_from<R: crypto::utils::ByteReader>(
-        source: &mut R,
-    ) -> Result<Self, crypto::utils::DeserializationError> {
-        let auth_type: u8 = source.read_u8()?;
-        match auth_type {
-            RPO_FALCON512_AUTH => {
-                let key_pair = KeyPair::read_from(source)?;
-                Ok(AuthInfo::RpoFalcon512(key_pair))
-            }
-            val => Err(crypto::utils::DeserializationError::InvalidValue(
-                val.to_string(),
-            )),
-        }
-    }
-}
-
 impl SqliteStore {
     // ACCOUNTS
     // --------------------------------------------------------------------------------------------
 
     /// Returns the account id's of all accounts stored in the database
-    pub fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {
+    pub(super) fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {
         const QUERY: &str = "SELECT DISTINCT id FROM accounts";
 
         self.db
@@ -109,7 +58,9 @@ impl SqliteStore {
     /// used to create them.
     ///
     /// Said accounts' state is the state at the last sync made.
-    pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Word)>, StoreError> {
+    pub(super) fn get_accounts(
+        &self,
+    ) -> Result<Vec<(AccountStub, Option<Word>)>, StoreError> {
         const QUERY: &str =
             "SELECT a.id, a.nonce, a.vault_root, a.storage_root, a.code_root, a.account_seed \
             FROM accounts a \
@@ -130,10 +81,10 @@ impl SqliteStore {
     ///
     /// # Errors
     /// Returns an [Err] if the account was not found
-    pub fn get_account_stub_by_id(
+    pub(crate) fn get_account_stub_by_id(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountStub, Word), StoreError> {
+    ) -> Result<(AccountStub, Option<Word>), StoreError> {
         let account_id_int: u64 = account_id.into();
         const QUERY: &str = "SELECT id, nonce, vault_root, storage_root, code_root, account_seed \
             FROM accounts WHERE id = ? \
@@ -149,10 +100,10 @@ impl SqliteStore {
     }
 
     /// Retrieves an account's [ModuleAst] and the code root by [AccountId]
-    pub fn get_account_code_by_account_id(
+    pub(crate) fn handle_get_account_code_by_account_id(
         &self,
         account_id: AccountId,
-    ) -> Result<(Vec<RpoDigest>, ModuleAst), StoreError> {
+    ) -> Result<(Vec<Digest>, ModuleAst), StoreError> {
         // TODO: This could be done via a single query
         let (account, _seed) = self.get_account_stub_by_id(account_id)?;
 
@@ -160,12 +111,18 @@ impl SqliteStore {
     }
 
     // TODO: Get all parts from a single query
-    /// Retrieves a full [Account] object
-    pub fn get_account_by_id(&self, account_id: AccountId) -> Result<(Account, Word), StoreError> {
+    /// Retrieves a full [Account] object, along with its seed.
+    ///
+    /// This function returns the [Account]'s latest state. If the account is new (that is, has
+    /// never executed a trasaction), the returned seed will be `Some(Word)`; otherwise the seed
+    /// will be `None`
+    pub(crate) fn get_account_by_id(
+        &self,
+        account_id: AccountId,
+    ) -> Result<(Account, Option<Word>), StoreError> {
         let (account_stub, seed) = self.get_account_stub_by_id(account_id)?;
         let (_procedures, module_ast) = self.get_account_code(account_stub.code_root())?;
 
-        //let account_code = AccountCode::from_parts(module_ast, procedures);
         let account_code = AccountCode::new(module_ast, &TransactionKernel::assembler()).unwrap();
 
         let account_storage = self.get_account_storage(account_stub.storage_root())?;
@@ -185,7 +142,10 @@ impl SqliteStore {
     }
 
     /// Retrieve account keys data by Account Id
-    pub fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, StoreError> {
+    pub(crate) fn get_account_auth(
+        &self,
+        account_id: AccountId,
+    ) -> Result<AuthInfo, StoreError> {
         let account_id_int: u64 = account_id.into();
         const QUERY: &str = "SELECT account_id, auth_info FROM account_auth WHERE account_id = ?";
         self.db
@@ -196,29 +156,22 @@ impl SqliteStore {
             .ok_or(StoreError::AccountDataNotFound(account_id))?
     }
 
-    /// Update account after a transaction execution
-    pub fn update_account(
-        &mut self,
-        account_id: AccountId,
-        account_delta: &AccountDelta,
-    ) -> Result<(), StoreError> {
-        let (mut account, seed) = self.get_account_by_id(account_id)?;
-
-        account
-            .apply_delta(account_delta)
-            .map_err(StoreError::AccountError)?;
-
+    /// Update previously-existing account after a transaction execution
+    ///
+    /// Because the Client retrieves the account by account ID before applying the delta, we don't
+    /// need to check that it exists here
+    pub(crate) fn update_account(&mut self, new_account_state: Account) -> Result<(), StoreError> {
         let tx = self.db.transaction()?;
 
-        Self::insert_account_storage(&tx, account.storage())?;
-        Self::insert_account_asset_vault(&tx, account.vault())?;
-        Self::insert_account_record(&tx, &account, seed)?;
+        insert_account_storage(&tx, new_account_state.storage())?;
+        insert_account_asset_vault(&tx, new_account_state.vault())?;
+        insert_account_record(&tx, &new_account_state, None)?;
 
         Ok(tx.commit()?)
     }
 
     /// Retrieve account code-related data by code root
-    pub fn get_account_code(
+    pub(super) fn get_account_code(
         &self,
         root: Digest,
     ) -> Result<(Vec<RpoDigest>, ModuleAst), StoreError> {
@@ -234,7 +187,10 @@ impl SqliteStore {
     }
 
     /// Retrieve account storage data by vault root
-    pub fn get_account_storage(&self, root: RpoDigest) -> Result<AccountStorage, StoreError> {
+    pub(super) fn get_account_storage(
+        &self,
+        root: RpoDigest,
+    ) -> Result<AccountStorage, StoreError> {
         let root_serialized = &root.to_string();
 
         const QUERY: &str = "SELECT root, slots FROM account_storage WHERE root = ?";
@@ -247,7 +203,7 @@ impl SqliteStore {
     }
 
     /// Retrieve assets by vault root
-    pub fn get_vault_assets(&self, root: RpoDigest) -> Result<Vec<Asset>, StoreError> {
+    pub(super) fn get_vault_assets(&self, root: Digest) -> Result<Vec<Asset>, StoreError> {
         let vault_root =
             serde_json::to_string(&root).map_err(StoreError::InputSerializationError)?;
 
@@ -261,7 +217,7 @@ impl SqliteStore {
     }
 
     /// Inserts an [Account] along with the seed used to create it and its [AuthInfo]
-    pub fn insert_account(
+    pub(super) fn insert_account(
         &mut self,
         account: &Account,
         account_seed: Word,
@@ -269,93 +225,89 @@ impl SqliteStore {
     ) -> Result<(), StoreError> {
         let tx = self.db.transaction()?;
 
-        Self::insert_account_code(&tx, account.code())?;
-        Self::insert_account_storage(&tx, account.storage())?;
-        Self::insert_account_asset_vault(&tx, account.vault())?;
-        Self::insert_account_record(&tx, account, account_seed)?;
-        Self::insert_account_auth(&tx, account.id(), auth_info)?;
+        insert_account_code(&tx, account.code())?;
+        insert_account_storage(&tx, account.storage())?;
+        insert_account_asset_vault(&tx, account.vault())?;
+        insert_account_record(&tx, account, Some(account_seed))?;
+        insert_account_auth(&tx, account.id(), auth_info)?;
 
         Ok(tx.commit()?)
-    }
-
-    pub(super) fn insert_account_record(
-        tx: &Transaction<'_>,
-        account: &Account,
-        account_seed: Word,
-    ) -> Result<(), StoreError> {
-        let (id, code_root, storage_root, vault_root, nonce, committed) =
-            serialize_account(account)?;
-
-        let account_seed = account_seed.to_bytes();
-
-        const QUERY: &str =  "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed) VALUES (?, ?, ?, ?, ?, ?, ?)";
-        tx.execute(
-            QUERY,
-            params![
-                id,
-                code_root,
-                storage_root,
-                vault_root,
-                nonce,
-                committed,
-                account_seed
-            ],
-        )?;
-        Ok(())
-    }
-
-    /// Inserts an [AccountCode]
-    fn insert_account_code(
-        tx: &Transaction<'_>,
-        account_code: &AccountCode,
-    ) -> Result<(), StoreError> {
-        let (code_root, code, module) = serialize_account_code(account_code)?;
-        const QUERY: &str =
-            "INSERT OR IGNORE INTO account_code (root, procedures, module) VALUES (?, ?, ?)";
-        tx.execute(QUERY, params![code_root, code, module,])?;
-        Ok(())
-    }
-
-    /// Inserts an [AccountStorage]
-    pub(super) fn insert_account_storage(
-        tx: &Transaction<'_>,
-        account_storage: &AccountStorage,
-    ) -> Result<(), StoreError> {
-        let (storage_root, storage_slots) = serialize_account_storage(account_storage)?;
-        const QUERY: &str = "INSERT OR IGNORE INTO account_storage (root, slots) VALUES (?, ?)";
-        tx.execute(QUERY, params![storage_root, storage_slots])?;
-        Ok(())
-    }
-
-    /// Inserts an [AssetVault]
-    pub(super) fn insert_account_asset_vault(
-        tx: &Transaction<'_>,
-        asset_vault: &AssetVault,
-    ) -> Result<(), StoreError> {
-        let (vault_root, assets) = serialize_account_asset_vault(asset_vault)?;
-        const QUERY: &str = "INSERT OR IGNORE INTO account_vaults (root, assets) VALUES (?, ?)";
-        tx.execute(QUERY, params![vault_root, assets])?;
-        Ok(())
-    }
-
-    /// Inserts an [AuthInfo] for the account with id `account_id`
-    pub(super) fn insert_account_auth(
-        tx: &Transaction<'_>,
-        account_id: AccountId,
-        auth_info: &AuthInfo,
-    ) -> Result<(), StoreError> {
-        let (account_id, auth_info) = serialize_account_auth(account_id, auth_info)?;
-        const QUERY: &str = "INSERT INTO account_auth (account_id, auth_info) VALUES (?, ?)";
-        tx.execute(QUERY, params![account_id, auth_info])?;
-        Ok(())
     }
 }
 
 // HELPERS
 // ================================================================================================
 
+pub(super) fn insert_account_record(
+    tx: &Transaction<'_>,
+    account: &Account,
+    account_seed: Option<Word>,
+) -> Result<(), StoreError> {
+    let (id, code_root, storage_root, vault_root, nonce, committed) = serialize_account(account)?;
+
+    let account_seed = account_seed.to_bytes();
+
+    const QUERY: &str =  "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed) VALUES (?, ?, ?, ?, ?, ?, ?)";
+    tx.execute(
+        QUERY,
+        params![
+            id,
+            code_root,
+            storage_root,
+            vault_root,
+            nonce,
+            committed,
+            account_seed
+        ],
+    )?;
+    Ok(())
+}
+
+/// Inserts an [AccountCode]
+fn insert_account_code(tx: &Transaction<'_>, account_code: &AccountCode) -> Result<(), StoreError> {
+    let (code_root, code, module) = serialize_account_code(account_code)?;
+    const QUERY: &str =
+        "INSERT OR IGNORE INTO account_code (root, procedures, module) VALUES (?, ?, ?)";
+    tx.execute(QUERY, params![code_root, code, module,])?;
+    Ok(())
+}
+
+/// Inserts an [AccountStorage]
+pub(super) fn insert_account_storage(
+    tx: &Transaction<'_>,
+    account_storage: &AccountStorage,
+) -> Result<(), StoreError> {
+    let (storage_root, storage_slots) = serialize_account_storage(account_storage)?;
+    const QUERY: &str = "INSERT OR IGNORE INTO account_storage (root, slots) VALUES (?, ?)";
+    tx.execute(QUERY, params![storage_root, storage_slots])?;
+    Ok(())
+}
+
+/// Inserts an [AssetVault]
+pub(super) fn insert_account_asset_vault(
+    tx: &Transaction<'_>,
+    asset_vault: &AssetVault,
+) -> Result<(), StoreError> {
+    let (vault_root, assets) = serialize_account_asset_vault(asset_vault)?;
+    const QUERY: &str = "INSERT OR IGNORE INTO account_vaults (root, assets) VALUES (?, ?)";
+    tx.execute(QUERY, params![vault_root, assets])?;
+    Ok(())
+}
+
+/// Inserts an [AuthInfo] for the account with id `account_id`
+pub(super) fn insert_account_auth(
+    tx: &Transaction<'_>,
+    account_id: AccountId,
+    auth_info: &AuthInfo,
+) -> Result<(), StoreError> {
+    let (account_id, auth_info) = serialize_account_auth(account_id, auth_info)?;
+    const QUERY: &str = "INSERT INTO account_auth (account_id, auth_info) VALUES (?, ?)";
+    tx.execute(QUERY, params![account_id, auth_info])?;
+    Ok(())
+}
+
 /// Parse accounts colums from the provided row into native types
-pub(crate) fn parse_accounts_columns(
+pub(super) fn parse_accounts_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedAccountsParts, rusqlite::Error> {
     let id: i64 = row.get(0)?;
@@ -363,16 +315,18 @@ pub(crate) fn parse_accounts_columns(
     let vault_root: String = row.get(2)?;
     let storage_root: String = row.get(3)?;
     let code_root: String = row.get(4)?;
-    let account_seed: Vec<u8> = row.get(5)?;
+    let account_seed: Option<Vec<u8>> = row.get(5)?;
     Ok((id, nonce, vault_root, storage_root, code_root, account_seed))
 }
 
 /// Parse an account from the provided parts.
-pub(crate) fn parse_accounts(
+pub(super) fn parse_accounts(
     serialized_account_parts: SerializedAccountsParts,
-) -> Result<(AccountStub, Word), StoreError> {
+) -> Result<(AccountStub, Option<Word>), StoreError> {
     let (id, nonce, vault_root, storage_root, code_root, account_seed) = serialized_account_parts;
-    let account_seed_word: Word = Word::read_from_bytes(&account_seed)?;
+    let account_seed = account_seed
+        .map(|seed| Word::read_from_bytes(&seed))
+        .transpose()?;
 
     Ok((
         AccountStub::new(
@@ -384,7 +338,7 @@ pub(crate) fn parse_accounts(
             Digest::try_from(&storage_root)?,
             Digest::try_from(&code_root)?,
         ),
-        account_seed_word,
+        account_seed,
     ))
 }
 
@@ -532,14 +486,16 @@ fn serialize_account_asset_vault(
 }
 
 #[cfg(test)]
-pub mod tests {
+mod tests {
+    use crate::store::{
+        self,
+        sqlite_store::{accounts::insert_account_code, tests::create_test_store, SqliteStore},
+    };
     use crypto::{
         dsa::rpo_falcon512::KeyPair,
         utils::{Deserializable, Serializable},
     };
     use mock::mock::account;
-
-    use crate::store::{self, tests::create_test_store};
 
     use super::AuthInfo;
 
@@ -557,14 +513,14 @@ pub mod tests {
         assert_eq!(actual, 0);
 
         // First insertion generates a new row
-        store::SqliteStore::insert_account_code(&tx, &account_code).unwrap();
+        insert_account_code(&tx, &account_code).unwrap();
         actual = tx
             .query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0))
             .unwrap();
         assert_eq!(actual, 1);
 
         // Second insertion passes but does not generate a new row
-        assert!(store::SqliteStore::insert_account_code(&tx, &account_code).is_ok());
+        assert!(insert_account_code(&tx, &account_code).is_ok());
         actual = tx
             .query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0))
             .unwrap();

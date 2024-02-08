@@ -267,7 +267,7 @@ pub fn show_account(
         let auth_info = client.get_account_auth(account_id)?;
 
         match auth_info {
-            miden_client::store::accounts::AuthInfo::RpoFalcon512(key_pair) => {
+            miden_client::store::AuthInfo::RpoFalcon512(key_pair) => {
                 const KEY_PAIR_SIZE: usize = std::mem::size_of::<KeyPair>();
                 let auth_info: [u8; KEY_PAIR_SIZE] = key_pair
                     .to_bytes()

@@ -12,7 +12,7 @@ use objects::{
 
 use crate::{
     errors::{ClientError, StoreError},
-    store::{chain_data::ChainMmrNodeFilter, SqliteStore},
+    store::{ChainMmrNodeFilter, InputNoteFilter, Store},
 };
 use tracing::warn;
 
@@ -87,16 +87,12 @@ impl Client {
             .get_block_header_by_number(GetBlockHeaderByNumberRequest { block_num: Some(0) })
             .await?;
 
-        let tx = self.store.db.transaction()?;
-
-        SqliteStore::insert_block_header(
-            &tx,
-            genesis_block,
-            MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks"),
-            false,
-        )?;
-
-        tx.commit()?;
+        let blank_mmr_peaks =
+            MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks should not fail to instantiate");
+        // NOTE: If genesis block data ever includes notes in the future, the third parameter in
+        // this `insert_block_header` call may be `true`
+        self.store
+            .insert_block_header(genesis_block, blank_mmr_peaks, false)?;
         Ok(())
     }
 
@@ -193,7 +189,7 @@ impl Client {
     ) -> Result<Vec<(NoteId, NoteInclusionProof)>, ClientError> {
         let pending_notes: Vec<NoteId> = self
             .store
-            .get_input_notes(crate::store::notes::InputNoteFilter::Pending)?
+            .get_input_notes(InputNoteFilter::Pending)?
             .iter()
             .map(|n| n.note().id())
             .collect();

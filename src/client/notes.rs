@@ -2,7 +2,7 @@ use super::Client;
 
 use crate::{
     errors::ClientError,
-    store::notes::{InputNoteFilter, InputNoteRecord},
+    store::{InputNoteFilter, InputNoteRecord},
 };
 use objects::notes::NoteId;
 

@@ -3,22 +3,18 @@ use crypto::{
     utils::Serializable,
 };
 
+use crate::{errors::StoreError, store::TransactionFilter};
 use objects::{
     notes::{NoteId, NoteInclusionProof},
     BlockHeader, Digest,
 };
 use rusqlite::params;
 
-use crate::{errors::StoreError, store::transactions::TransactionFilter};
-
 use super::SqliteStore;
 
 impl SqliteStore {
-    // STATE SYNC
-    // --------------------------------------------------------------------------------------------
-
     /// Returns the note tags that the client is interested in.
-    pub fn get_note_tags(&self) -> Result<Vec<u64>, StoreError> {
+    pub(crate) fn get_note_tags(&self) -> Result<Vec<u64>, StoreError> {
         const QUERY: &str = "SELECT tags FROM state_sync";
 
         self.db
@@ -37,7 +33,7 @@ impl SqliteStore {
     }
 
     /// Adds a note tag to the list of tags that the client is interested in.
-    pub fn add_note_tag(&mut self, tag: u64) -> Result<bool, StoreError> {
+    pub(super) fn add_note_tag(&mut self, tag: u64) -> Result<bool, StoreError> {
         let mut tags = self.get_note_tags()?;
         if tags.contains(&tag) {
             return Ok(false);
@@ -52,7 +48,7 @@ impl SqliteStore {
     }
 
     /// Returns the block number of the last state sync block.
-    pub fn get_sync_height(&self) -> Result<u32, StoreError> {
+    pub(super) fn get_sync_height(&self) -> Result<u32, StoreError> {
         const QUERY: &str = "SELECT block_num FROM state_sync";
 
         self.db
@@ -70,7 +66,7 @@ impl SqliteStore {
     /// - Updating the notes, marking them as `committed` or `consumed` based on incoming
     ///   inclusion proofs and nullifiers
     /// - Storing new MMR authentication nodes
-    pub fn apply_state_sync(
+    pub(super) fn apply_state_sync(
         &mut self,
         block_header: BlockHeader,
         nullifiers: Vec<Digest>,
@@ -97,7 +93,12 @@ impl SqliteStore {
         // TODO: Due to the fact that notes are returned based on fuzzy matching of tags,
         // this process of marking if the header has notes needs to be revisited
         let block_has_relevant_notes = !committed_notes.is_empty();
-        SqliteStore::insert_block_header(&tx, block_header, new_mmr_peaks, block_has_relevant_notes)?;
+        SqliteStore::insert_block_header_tx(
+            &tx,
+            block_header,
+            new_mmr_peaks,
+            block_has_relevant_notes,
+        )?;
 
         // Insert new authentication nodes (inner nodes of the PartialMmr)
         SqliteStore::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;

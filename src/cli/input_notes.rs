@@ -8,7 +8,7 @@ use crate::cli::create_dynamic_table;
 
 use super::{Client, Parser};
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
-use miden_client::store::notes::{InputNoteFilter, InputNoteRecord};
+use miden_client::store::{InputNoteFilter, InputNoteRecord};
 
 use crypto::utils::{Deserializable, Serializable};
 
@@ -260,7 +260,7 @@ mod tests {
     use miden_client::{
         client::Client,
         config::{ClientConfig, Endpoint},
-        store::notes::InputNoteRecord,
+        store::InputNoteRecord,
     };
     use mock::mock::{
         account::MockAccountType, notes::AssetPreservationStatus, transaction::mock_inputs,

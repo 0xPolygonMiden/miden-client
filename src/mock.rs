@@ -6,6 +6,7 @@ use crate::{
         Client, RpcApiEndpoint,
     },
     errors::RpcApiError,
+    store::AuthInfo,
 };
 use crypto::{dsa::rpo_falcon512::KeyPair, Felt, FieldElement, StarkField, Word};
 use miden_lib::transaction::TransactionKernel;
@@ -29,8 +30,6 @@ use mock::mock::{
 };
 use objects::{transaction::InputNotes, utils::collections::BTreeMap, BlockHeader, Digest};
 use tonic::{IntoRequest, Response, Status};
-
-use crate::store::accounts::AuthInfo;
 
 use objects::{
     accounts::{AccountId, AccountType},

@@ -1,7 +1,7 @@
 use crate::{
     client::transactions::{TransactionResult, TransactionStub},
     errors::StoreError,
-    store::notes::InputNoteRecord,
+    store::{InputNoteRecord, Store, TransactionFilter},
 };
 use crypto::{
     utils::{collections::BTreeMap, Deserializable, Serializable},
@@ -19,6 +19,9 @@ use objects::{
 };
 use rusqlite::{params, Transaction};
 
+// QUERIES
+// ================================================================================================
+
 pub(crate) const INSERT_TRANSACTION_QUERY: &str =
     "INSERT INTO transactions (id, account_id, init_account_state, final_account_state, \
     input_notes, output_notes, script_hash, script_inputs, block_num, committed, commit_height) \
@@ -28,20 +31,14 @@ pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str =
     "INSERT OR IGNORE INTO transaction_scripts (script_hash, program) \
     VALUES (?, ?)";
 
-// TRANSACTIONS FILTERS
+// TRANSACTION FILTER
 // ================================================================================================
-
-pub enum TransactionFilter {
-    All,
-    Uncomitted,
-}
-
 impl TransactionFilter {
     /// Returns a [String] containing the query for this Filter
     pub fn to_query(&self) -> String {
         const QUERY: &str = "SELECT tx.id, tx.account_id, tx.init_account_state, tx.final_account_state, \
-            tx.input_notes, tx.output_notes, tx.script_hash, script.program, tx.script_inputs, tx.block_num, tx.committed, tx.commit_height \
-            FROM transactions AS tx LEFT JOIN transaction_scripts AS script ON tx.script_hash = script.script_hash";
+                tx.input_notes, tx.output_notes, tx.script_hash, script.program, tx.script_inputs, tx.block_num, tx.committed, tx.commit_height \
+                FROM transactions AS tx LEFT JOIN transaction_scripts AS script ON tx.script_hash = script.script_hash";
         match self {
             TransactionFilter::All => QUERY.to_string(),
             TransactionFilter::Uncomitted => format!("{QUERY} WHERE tx.committed=false"),
@@ -69,7 +66,7 @@ type SerializedTransactionData = (
 
 impl SqliteStore {
     /// Retrieves all executed transactions from the database
-    pub fn get_transactions(
+    pub(crate) fn get_transactions(
         &self,
         transaction_filter: TransactionFilter,
     ) -> Result<Vec<TransactionStub>, StoreError> {
@@ -82,7 +79,7 @@ impl SqliteStore {
     }
 
     /// Inserts a transaction and updates the current state based on the `tx_result` changes
-    pub fn insert_transaction_data(
+    pub(crate) fn insert_transaction_data(
         &mut self,
         tx_result: TransactionResult,
     ) -> Result<(), StoreError> {
@@ -107,13 +104,13 @@ impl SqliteStore {
         Self::insert_proven_transaction_data(&tx, tx_result)?;
 
         // Account Data
-        Self::insert_account_storage(&tx, account.storage())?;
-        Self::insert_account_asset_vault(&tx, account.vault())?;
-        Self::insert_account_record(&tx, &account, seed)?;
+        super::accounts::insert_account_storage(&tx, account.storage())?;
+        super::accounts::insert_account_asset_vault(&tx, account.vault())?;
+        super::accounts::insert_account_record(&tx, &account, seed)?;
 
         // Updates for notes
         for note in created_notes {
-            Self::insert_input_note_tx(&tx, &note)?;
+            super::notes::insert_input_note_tx(&tx, &note)?;
         }
 
         tx.commit()?;
@@ -194,7 +191,7 @@ impl SqliteStore {
     }
 }
 
-pub(super) fn serialize_transaction_data(
+fn serialize_transaction_data(
     transaction_result: TransactionResult,
 ) -> Result<SerializedTransactionData, StoreError> {
     let executed_transaction = transaction_result.executed_transaction();

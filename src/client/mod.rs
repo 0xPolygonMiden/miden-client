@@ -1,6 +1,4 @@
-#[cfg(not(any(test, feature = "mock")))]
-use crate::store::data_store::SqliteDataStore;
-use crate::{config::ClientConfig, errors::ClientError, store::SqliteStore};
+use crate::{config::ClientConfig, errors::ClientError};
 use miden_tx::TransactionExecutor;
 pub use rpc_client::RpcApiEndpoint;
 
@@ -58,8 +56,11 @@ pub use mock::Client;
 
 #[cfg(any(test, feature = "mock"))]
 mod mock {
-    use super::{ClientConfig, ClientError, SqliteStore, TransactionExecutor};
-    use crate::{mock::MockRpcApi, store::mock_executor_data_store::MockDataStore};
+    use super::{ClientConfig, ClientError, TransactionExecutor};
+    use crate::{
+        mock::MockRpcApi,
+        store::{mock_executor_data_store::MockDataStore, sqlite_store::SqliteStore},
+    };
 
     pub struct Client {
         pub(crate) store: SqliteStore,

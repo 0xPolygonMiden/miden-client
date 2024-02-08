@@ -6,10 +6,8 @@ use crate::{
         transactions::TransactionTemplate,
     },
     store::{
-        accounts::AuthInfo,
-        mock_executor_data_store::MockDataStore,
-        notes::{InputNoteFilter, InputNoteRecord},
-        tests::create_test_client,
+        mock_executor_data_store::MockDataStore, sqlite_store::tests::create_test_client, AuthInfo,
+        InputNoteFilter, InputNoteRecord, Store,
     },
 };
 
@@ -24,6 +22,7 @@ use mock::{
         transaction::mock_inputs,
     },
 };
+
 use objects::{
     accounts::{AccountId, AccountStub},
     assets::{FungibleAsset, TokenSymbol},
@@ -117,7 +116,7 @@ async fn insert_basic_account() {
     assert_eq!(account.code().root(), fetched_account.code().root());
 
     // Validate seed matches
-    assert_eq!(account_seed, fetched_account_seed);
+    assert_eq!(account_seed, fetched_account_seed.unwrap());
 }
 
 #[tokio::test]
@@ -151,7 +150,7 @@ async fn insert_faucet_account() {
     assert_eq!(account.code().root(), fetched_account.code().root());
 
     // Validate seed matches
-    assert_eq!(account_seed, fetched_account_seed);
+    assert_eq!(account_seed, fetched_account_seed.unwrap());
 }
 
 #[tokio::test]

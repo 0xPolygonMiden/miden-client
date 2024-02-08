@@ -11,7 +11,10 @@ use objects::{
 };
 use rand::{rngs::ThreadRng, Rng};
 
-use crate::{errors::ClientError, store::accounts::AuthInfo};
+use crate::{
+    errors::ClientError,
+    store::{AuthInfo, Store},
+};
 
 use super::Client;
 
@@ -194,17 +197,12 @@ impl Client {
         account_id: AccountId,
         account_delta: &AccountDelta,
     ) -> Result<(), ClientError> {
-        let (mut account, seed) = self.store.get_account_by_id(account_id)?;
+        let (mut account, _seed) = self.store.get_account_by_id(account_id)?;
 
-        account
-            .apply_delta(account_delta)?;
+        account.apply_delta(account_delta)?;
 
-        self.store.insert_account(&account, account_seed, auth_info)
-
-        
-        self.store
-            .update_account(account_id, account_delta)
-            .map_err(ClientError::StoreError)
+        // TODO: We don't need to store (nor retrieve) the seed every time
+        Ok(self.store.update_account(account)?)
     }
 
     // ACCOUNT DATA RETRIEVAL
@@ -212,12 +210,15 @@ impl Client {
 
     /// Returns summary info about the accounts managed by this client.
     ///
-    pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Word)>, ClientError> {
+    pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Option<Word>)>, ClientError> {
         self.store.get_accounts().map_err(|err| err.into())
     }
 
     /// Returns summary info about the specified account.
-    pub fn get_account_by_id(&self, account_id: AccountId) -> Result<(Account, Word), ClientError> {
+    pub fn get_account_by_id(
+        &self,
+        account_id: AccountId,
+    ) -> Result<(Account, Option<Word>), ClientError> {
         self.store
             .get_account_by_id(account_id)
             .map_err(|err| err.into())
@@ -227,7 +228,7 @@ impl Client {
     pub fn get_account_stub_by_id(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountStub, Word), ClientError> {
+    ) -> Result<(AccountStub, Option<Word>), ClientError> {
         self.store
             .get_account_stub_by_id(account_id)
             .map_err(|err| err.into())
@@ -270,7 +271,6 @@ impl Client {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::store::tests::create_test_client;
     use crypto::{Felt, FieldElement};
 
     use miden_lib::transaction::TransactionKernel;
@@ -280,6 +280,8 @@ pub mod tests {
     };
     use objects::accounts::{AccountData, AuthData};
     use rand::{rngs::ThreadRng, thread_rng, Rng};
+
+    use crate::store::sqlite_store::tests::create_test_client;
 
     fn create_account_data(rng: &mut ThreadRng, seed_type: AccountSeedType) -> AccountData {
         // Create an account and save it to a file
