@@ -14,7 +14,6 @@ use super::Store;
 use objects::{
     accounts::AccountId,
     assembly::{AstSerdeOptions, ProgramAst},
-    notes::NoteId,
     transaction::{OutputNote, OutputNotes, TransactionScript},
     Digest,
 };
@@ -170,52 +169,21 @@ impl Store {
         Ok(())
     }
 
-    /// Updates uncommitted transactions as committed based on the state update info
-    ///
-    /// To set an uncommitted transaction as committed three things must hold:
-    ///
-    /// - all of the transaction's output notes are committed
-    /// - all of the transaction's input notes are consumed, which means we got their nullifiers as
-    /// part of the update
-    /// - the account corresponding to the transaction hash matches the transaction's
-    /// final_account_state
+    /// Set the provided transactions as committed
     ///
     /// # Errors
     ///
     /// This function can return an error if any of the updates to the transactions within the
     /// database transaction fail.
     pub(crate) fn mark_transactions_as_committed(
-        uncommitted_transactions: &[TransactionRecord],
-        note_ids: &[NoteId],
-        nullifiers: &[Digest],
-        account_hash_changes: &[(AccountId, Digest)],
-        block_num: u32,
         tx: &Transaction<'_>,
+        block_num: u32,
+        transactions_to_commit: &[Digest],
     ) -> Result<usize, StoreError> {
-        let updated_transactions: Vec<&TransactionRecord> = uncommitted_transactions
-            .iter()
-            .filter(|t| {
-                // TODO: based on the discussion in
-                // https://github.com/0xPolygonMiden/miden-client/issues/144, we should be aware
-                // that in the future it'll be possible to have many transactions modifying an
-                // account be included in a single block. If that happens, we'll need to rewrite
-                // this check
-                t.input_note_nullifiers
-                    .iter()
-                    .all(|n| nullifiers.contains(n))
-                    && t.output_notes.iter().all(|n| note_ids.contains(&n.id()))
-                    && account_hash_changes
-                        .iter()
-                        .any(|(account_id, account_hash)| {
-                            *account_id == t.account_id && *account_hash == t.final_account_state
-                        })
-            })
-            .collect();
-
         let mut rows = 0;
-        for transaction in updated_transactions {
+        for transaction_id in transactions_to_commit {
             const QUERY: &str = "UPDATE transactions set commit_height=? where id=?";
-            rows += tx.execute(QUERY, params![Some(block_num), transaction.id.to_string()])?;
+            rows += tx.execute(QUERY, params![Some(block_num), transaction_id.to_string()])?;
         }
         info!("Marked {} transactions as committed", rows);
 
