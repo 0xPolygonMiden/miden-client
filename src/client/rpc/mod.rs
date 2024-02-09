@@ -12,7 +12,7 @@ use objects::{
 mod tonic_client;
 pub use tonic_client::TonicRpcClient;
 
-// NODE API TRAIT
+// NODE RPC CLIENT TRAIT
 // ================================================================================================
 
 /// This trait is used for communication with the miden node
@@ -127,18 +127,20 @@ impl CommittedNote {
 // ================================================================================================
 //
 #[derive(Debug)]
-pub enum RpcApiEndpoint {
+pub enum NodeRpcClientEndpoint {
     GetBlockHeaderByNumber,
     SyncState,
     SubmitProvenTx,
 }
 
-impl fmt::Display for RpcApiEndpoint {
+impl fmt::Display for NodeRpcClientEndpoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RpcApiEndpoint::GetBlockHeaderByNumber => write!(f, "get_block_header_by_number"),
-            RpcApiEndpoint::SyncState => write!(f, "sync_state"),
-            RpcApiEndpoint::SubmitProvenTx => write!(f, "submit_proven_transaction"),
+            NodeRpcClientEndpoint::GetBlockHeaderByNumber => {
+                write!(f, "get_block_header_by_number")
+            }
+            NodeRpcClientEndpoint::SyncState => write!(f, "sync_state"),
+            NodeRpcClientEndpoint::SubmitProvenTx => write!(f, "submit_proven_transaction"),
         }
     }
 }

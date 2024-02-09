@@ -1,6 +1,6 @@
 use crate::{
     client::{
-        rpc::{NodeRpcClient, RpcApiEndpoint, StateSyncInfo},
+        rpc::{NodeRpcClient, NodeRpcClientEndpoint, StateSyncInfo},
         sync::FILTER_ID_SHIFT,
         transactions::{PaymentTransactionData, TransactionTemplate},
         Client,
@@ -96,7 +96,7 @@ impl NodeRpcClient for MockRpcApi {
                 Ok(Response::new(response))
             }
             None => Err(NodeRpcClientError::RequestError(
-                RpcApiEndpoint::SyncState.to_string(),
+                NodeRpcClientEndpoint::SyncState.to_string(),
                 Status::not_found("no response for sync state request").to_string(),
             )),
         }?;
