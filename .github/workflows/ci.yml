@@ -67,3 +67,18 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
+  integration_tests:
+    name: integration_tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - name: Install minimal stable with rustfmt
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: rustfmt
+          override: true
+      - run: make reset
+      - run: make start-node > /dev/null &
+      - run: make integration-test
