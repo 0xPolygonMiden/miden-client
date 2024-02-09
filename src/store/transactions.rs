@@ -195,6 +195,11 @@ impl Store {
         let updated_transactions: Vec<&TransactionRecord> = uncommitted_transactions
             .iter()
             .filter(|t| {
+                // TODO: based on the discussion in
+                // https://github.com/0xPolygonMiden/miden-client/issues/144, we should be aware
+                // that in the future it'll be possible to have many transactions modifying an
+                // account be included in a single block. If that happens, we'll need to rewrite
+                // this check
                 t.input_note_nullifiers
                     .iter()
                     .all(|n| nullifiers.contains(n))
