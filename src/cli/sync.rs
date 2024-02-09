@@ -1,4 +1,4 @@
-use miden_client::client::{Client, NodeRpcClient};
+use miden_client::client::{rpc::NodeRpcClient, Client};
 use miden_tx::DataStore;
 
 pub async fn sync_state<N: NodeRpcClient, D: DataStore>(

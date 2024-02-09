@@ -1,4 +1,4 @@
-use super::{Client, NodeRpcClient};
+use super::{rpc::NodeRpcClient, Client};
 use miden_tx::DataStore;
 
 #[cfg(test)]

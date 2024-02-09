@@ -1,44 +1,14 @@
-use crate::{
-    config::ClientConfig,
-    errors::{ClientError, NodeRpcClientError},
-    store::Store,
-};
-use async_trait::async_trait;
+use crate::{config::ClientConfig, errors::ClientError, store::Store};
 use miden_tx::{DataStore, TransactionExecutor};
-use objects::{accounts::AccountId, transaction::ProvenTransaction, BlockHeader};
 
-pub use rpc_client::RpcApiEndpoint;
-use rpc_client::StateSyncInfo;
+pub mod rpc;
+use rpc::NodeRpcClient;
 
 pub mod accounts;
 mod chain_data;
 mod notes;
-pub mod rpc_client;
 pub(crate) mod sync;
 pub mod transactions;
-
-// NODE API TRAIT
-// ================================================================================================
-
-#[async_trait]
-pub trait NodeRpcClient {
-    fn new(config_endpoint: &str) -> Self;
-    async fn submit_proven_transaction(
-        &mut self,
-        proven_transaction: ProvenTransaction,
-    ) -> Result<(), NodeRpcClientError>;
-    async fn get_block_header_by_number(
-        &mut self,
-        block_number: Option<u32>,
-    ) -> Result<BlockHeader, NodeRpcClientError>;
-    async fn sync_state(
-        &mut self,
-        block_num: u32,
-        account_ids: &[AccountId],
-        note_tags: &[u16],
-        nullifiers_tags: &[u16],
-    ) -> Result<StateSyncInfo, NodeRpcClientError>;
-}
 
 // MIDEN CLIENT
 // ================================================================================================

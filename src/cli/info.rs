@@ -1,4 +1,4 @@
-use miden_client::client::{Client, NodeRpcClient};
+use miden_client::client::{rpc::NodeRpcClient, Client};
 use miden_tx::DataStore;
 
 pub fn print_client_info<N: NodeRpcClient, D: DataStore>(

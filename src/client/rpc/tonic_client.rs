@@ -1,30 +1,9 @@
-use core::fmt;
-use crypto::merkle::{MerklePath, MmrDelta};
+use super::{CommittedNote, StateSyncInfo};
 use miden_node_proto::responses::SyncStateResponse;
 use objects::{
-    accounts::AccountId,
     notes::{NoteId, NoteMetadata},
-    BlockHeader, Digest,
+    Digest,
 };
-
-// STATE SYNC INFO
-// ================================================================================================
-
-/// Represents a [SyncStateResponse] with fields converted into domain types
-pub struct StateSyncInfo {
-    /// The block number of the chain tip at the moment of the response
-    pub chain_tip: u32,
-    /// The returned block header
-    pub block_header: BlockHeader,
-    /// MMR delta that contains data for (current_block.num, incoming_block_header.num-1)
-    pub mmr_delta: MmrDelta,
-    /// Tuples of AccountId alongside their new account hashes
-    pub account_hash_updates: Vec<(AccountId, Digest)>,
-    /// List of tuples of Note ID, Note Index and Merkle Path for all new notes
-    pub note_inclusions: Vec<CommittedNote>,
-    /// List of nullifiers that identify spent notes
-    pub nullifiers: Vec<Digest>,
-}
 
 impl TryFrom<SyncStateResponse> for StateSyncInfo {
     type Error = NodeRpcClientError;
@@ -115,66 +94,18 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
     }
 }
 
-// COMMITTED NOTE
-// ================================================================================================
-
-/// Represents a committed note, returned as part of a [SyncStateResponse]
-pub struct CommittedNote {
-    /// Note ID of the committed note
-    note_id: NoteId,
-    /// Note index for the note merkle tree
-    note_index: u32,
-    /// Merkle path for the note merkle tree up to the block's note root
-    merkle_path: MerklePath,
-    /// Note metadata
-    metadata: NoteMetadata,
-}
-
-impl CommittedNote {
-    pub fn new(
-        note_id: NoteId,
-        note_index: u32,
-        merkle_path: MerklePath,
-        metadata: NoteMetadata,
-    ) -> Self {
-        Self {
-            note_id,
-            note_index,
-            merkle_path,
-            metadata,
-        }
-    }
-
-    pub fn note_id(&self) -> &NoteId {
-        &self.note_id
-    }
-
-    pub fn note_index(&self) -> u32 {
-        self.note_index
-    }
-
-    pub fn merkle_path(&self) -> &MerklePath {
-        &self.merkle_path
-    }
-
-    #[allow(dead_code)]
-    pub fn metadata(&self) -> NoteMetadata {
-        self.metadata
-    }
-}
-
 // RPC CLIENT
 // ================================================================================================
 //
 // #[cfg(not(any(test, feature = "mock")))]
-pub use client::RpcClient;
+pub use client::TonicRpcClient;
 
 use crate::errors::NodeRpcClientError;
 
 // #[cfg(not(any(test, feature = "mock")))]
 mod client {
-    use super::{RpcApiEndpoint, StateSyncInfo};
-    use crate::client::NodeRpcClient;
+    use crate::client::rpc::NodeRpcClient;
+    use crate::client::rpc::{RpcApiEndpoint, StateSyncInfo};
     use crate::errors::NodeRpcClientError;
     use async_trait::async_trait;
     use crypto::utils::Serializable;
@@ -189,12 +120,12 @@ mod client {
     use tonic::transport::Channel;
 
     /// Wrapper for ApiClient which defers establishing a connection with a node until necessary
-    pub struct RpcClient {
+    pub struct TonicRpcClient {
         rpc_api: Option<ApiClient<Channel>>,
         endpoint: String,
     }
 
-    impl RpcClient {
+    impl TonicRpcClient {
         /// Takes care of establishing the RPC connection if not connected yet and returns a reference
         /// to the inner ApiClient
         async fn rpc_api(&mut self) -> Result<&mut ApiClient<Channel>, NodeRpcClientError> {
@@ -210,9 +141,9 @@ mod client {
     }
 
     #[async_trait]
-    impl NodeRpcClient for RpcClient {
-        fn new(config_endpoint: &str) -> RpcClient {
-            RpcClient {
+    impl NodeRpcClient for TonicRpcClient {
+        fn new(config_endpoint: &str) -> TonicRpcClient {
+            TonicRpcClient {
                 rpc_api: None,
                 endpoint: config_endpoint.to_string(),
             }
@@ -299,26 +230,6 @@ mod client {
                 )
             })?;
             response.into_inner().try_into()
-        }
-    }
-}
-
-// RPC API ENDPOINT
-// ================================================================================================
-//
-#[derive(Debug)]
-pub enum RpcApiEndpoint {
-    GetBlockHeaderByNumber,
-    SyncState,
-    SubmitProvenTx,
-}
-
-impl fmt::Display for RpcApiEndpoint {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            RpcApiEndpoint::GetBlockHeaderByNumber => write!(f, "get_block_header_by_number"),
-            RpcApiEndpoint::SyncState => write!(f, "sync_state"),
-            RpcApiEndpoint::SubmitProvenTx => write!(f, "submit_proven_transaction"),
         }
     }
 }

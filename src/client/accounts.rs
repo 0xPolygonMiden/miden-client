@@ -14,7 +14,7 @@ use rand::{rngs::ThreadRng, Rng};
 
 use crate::{errors::ClientError, store::accounts::AuthInfo};
 
-use super::{Client, NodeRpcClient};
+use super::{rpc::NodeRpcClient, Client};
 
 pub enum AccountTemplate {
     BasicWallet {

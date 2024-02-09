@@ -1,4 +1,4 @@
-use miden_client::client::NodeRpcClient;
+use miden_client::client::rpc::NodeRpcClient;
 use miden_tx::DataStore;
 
 use super::{Client, Parser};

@@ -1,9 +1,9 @@
 use crate::{
     client::{
-        rpc_client::StateSyncInfo,
+        rpc::{NodeRpcClient, RpcApiEndpoint, StateSyncInfo},
         sync::FILTER_ID_SHIFT,
         transactions::{PaymentTransactionData, TransactionTemplate},
-        Client, NodeRpcClient, RpcApiEndpoint,
+        Client,
     },
     errors::NodeRpcClientError,
 };

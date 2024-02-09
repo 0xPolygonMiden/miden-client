@@ -1,4 +1,4 @@
-use super::{rpc_client::CommittedNote, Client, NodeRpcClient};
+use super::{rpc::CommittedNote, rpc::NodeRpcClient, Client};
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 

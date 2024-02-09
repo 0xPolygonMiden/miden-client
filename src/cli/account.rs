@@ -5,7 +5,7 @@ use crypto::{
     utils::{bytes_to_hex_string, Deserializable, Serializable},
     StarkField, ZERO,
 };
-use miden_client::client::{accounts, Client, NodeRpcClient};
+use miden_client::client::{accounts, rpc::NodeRpcClient, Client};
 
 use miden_tx::DataStore;
 use objects::{

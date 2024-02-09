@@ -1,4 +1,4 @@
-use super::{Client, NodeRpcClient};
+use super::{rpc::NodeRpcClient, Client};
 
 use crate::{
     errors::ClientError,

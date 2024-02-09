@@ -10,7 +10,7 @@ use super::{Client, Parser};
 use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
-    client::NodeRpcClient,
+    client::rpc::NodeRpcClient,
     store::notes::{InputNoteFilter, InputNoteRecord},
 };
 
@@ -294,7 +294,7 @@ mod tests {
     use crate::cli::input_notes::{export_note, import_note};
 
     use miden_client::{
-        client::{Client, NodeRpcClient},
+        client::{rpc::NodeRpcClient, Client},
         config::{ClientConfig, Endpoint},
         mock::{MockDataStore, MockRpcApi},
         store::notes::InputNoteRecord,

@@ -22,7 +22,7 @@ use crate::{
     store::{accounts::AuthInfo, transactions::TransactionFilter},
 };
 
-use super::{Client, NodeRpcClient};
+use super::{rpc::NodeRpcClient, Client};
 
 // MASM SCRIPTS
 // --------------------------------------------------------------------------------------------

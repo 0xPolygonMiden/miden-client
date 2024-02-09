@@ -7,7 +7,7 @@ use figment::{
     Figment,
 };
 use miden_client::{
-    client::{Client, NodeRpcClient},
+    client::{rpc::NodeRpcClient, Client},
     config::ClientConfig,
 };
 
@@ -17,7 +17,7 @@ use miden_client::mock::MockDataStore;
 use miden_client::mock::MockRpcApi;
 
 #[cfg(not(feature = "mock"))]
-use miden_client::client::rpc_client::RpcClient;
+use miden_client::client::rpc::TonicRpcClient;
 #[cfg(not(feature = "mock"))]
 use miden_client::store::data_store::SqliteDataStore;
 
@@ -79,13 +79,13 @@ impl Cli {
         let rpc_endpoint = client_config.rpc.endpoint.to_string();
 
         #[cfg(not(feature = "mock"))]
-        let client: Client<RpcClient, SqliteDataStore> = {
+        let client: Client<TonicRpcClient, SqliteDataStore> = {
             use miden_client::{errors::ClientError, store::Store};
 
             let store = Store::new((&client_config).into()).map_err(ClientError::StoreError)?;
             Client::new(
                 client_config,
-                RpcClient::new(&rpc_endpoint),
+                TonicRpcClient::new(&rpc_endpoint),
                 SqliteDataStore::new(store),
             )?
         };

@@ -1,7 +1,7 @@
 use miden_client::{
     client::{
+        rpc::NodeRpcClient,
         transactions::{PaymentTransactionData, TransactionRecord, TransactionTemplate},
-        NodeRpcClient,
     },
     store::transactions::TransactionFilter,
 };
