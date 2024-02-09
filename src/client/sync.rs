@@ -119,7 +119,7 @@ impl Client {
             .store
             .get_unspent_input_note_nullifiers()?
             .iter()
-            .map(|nullifier| (nullifier[3].as_int() >> FILTER_ID_SHIFT) as u16)
+            .map(|nullifier| (nullifier[0].as_int() >> FILTER_ID_SHIFT) as u16)
             .collect();
 
         // Send request
