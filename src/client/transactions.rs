@@ -4,8 +4,8 @@ use miden_node_proto::{
     requests::SubmitProvenTransactionRequest, responses::SubmitProvenTransactionResponse,
 };
 
+use crate::store::Store;
 use miden_tx::{ProvingOptions, TransactionProver};
-
 use mock::procedures::prepare_word;
 use objects::{
     accounts::{AccountDelta, AccountId},
@@ -24,8 +24,6 @@ use crate::{
     errors::ClientError,
     store::{AuthInfo, TransactionFilter},
 };
-
-use crate::store::Store;
 
 use super::Client;
 
@@ -363,7 +361,7 @@ impl Client {
         tx_script: ProgramAst,
         block_num: u32,
     ) -> Result<TransactionResult, ClientError> {
-        let account_auth = self.get_account_auth(account_id)?;
+        let account_auth = self.store.get_account_auth(account_id)?;
         let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
             AuthInfo::RpoFalcon512(key) => (
                 key.public_key().into(),

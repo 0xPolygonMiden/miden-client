@@ -1,3 +1,5 @@
+#[cfg(not(any(test, feature = "mock")))]
+use crate::store::{data_store::SqliteDataStore, sqlite_store::SqliteStore};
 use crate::{config::ClientConfig, errors::ClientError};
 use miden_tx::TransactionExecutor;
 pub use rpc_client::RpcApiEndpoint;

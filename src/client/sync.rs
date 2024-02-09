@@ -10,9 +10,10 @@ use objects::{
     BlockHeader, Digest, StarkField,
 };
 
+use crate::store::Store;
 use crate::{
     errors::{ClientError, StoreError},
-    store::{ChainMmrNodeFilter, InputNoteFilter, Store},
+    store::{ChainMmrNodeFilter, InputNoteFilter},
 };
 use tracing::warn;
 
