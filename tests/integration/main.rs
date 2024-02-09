@@ -1,3 +1,4 @@
+use miden_client::store::{InputNoteFilter, TransactionFilter};
 use std::env::temp_dir;
 use std::fs;
 use uuid::Uuid;
@@ -9,7 +10,6 @@ use objects::utils::serde::Deserializable;
 use miden_client::client::transactions::TransactionTemplate;
 use miden_client::client::Client;
 use miden_client::config::{ClientConfig, RpcConfig};
-use miden_client::store::{notes::InputNoteFilter, transactions::TransactionFilter};
 
 fn create_test_client() -> Client {
     let client_config = ClientConfig {
