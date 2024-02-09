@@ -15,7 +15,6 @@ use crypto::utils::{Deserializable, Serializable};
 
 use objects::{notes::NoteId, Digest};
 
-
 #[derive(Clone, Debug, ValueEnum)]
 pub enum NoteFilter {
     Pending,
