@@ -66,12 +66,14 @@ impl Default for MockRpcApi {
     }
 }
 
-#[async_trait]
-impl NodeRpcClient for MockRpcApi {
-    fn new(_config_endpoint: &str) -> Self {
+impl MockRpcApi {
+    pub fn new(_config_endpoint: &str) -> Self {
         Self::default()
     }
+}
 
+#[async_trait]
+impl NodeRpcClient for MockRpcApi {
     /// Executes the specified sync state request and returns the response.
     async fn sync_state(
         &mut self,

@@ -294,7 +294,7 @@ mod tests {
     use crate::cli::input_notes::{export_note, import_note};
 
     use miden_client::{
-        client::{rpc::NodeRpcClient, Client},
+        client::Client,
         config::{ClientConfig, Endpoint},
         mock::{MockDataStore, MockRpcApi},
         store::notes::InputNoteRecord,

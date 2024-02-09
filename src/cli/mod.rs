@@ -6,10 +6,7 @@ use figment::{
     providers::{Format, Toml},
     Figment,
 };
-use miden_client::{
-    client::{rpc::NodeRpcClient, Client},
-    config::ClientConfig,
-};
+use miden_client::{client::Client, config::ClientConfig};
 
 #[cfg(feature = "mock")]
 use miden_client::mock::MockDataStore;

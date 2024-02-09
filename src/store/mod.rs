@@ -51,8 +51,6 @@ pub mod tests {
         mock::{MockDataStore, MockRpcApi},
     };
 
-    use crate::client::rpc::NodeRpcClient;
-
     use super::{migrations, Store};
 
     pub fn create_test_client() -> Client<MockRpcApi, MockDataStore> {

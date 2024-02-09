@@ -138,17 +138,17 @@ mod client {
                 Ok(self.rpc_api.insert(rpc_api))
             }
         }
-    }
 
-    #[async_trait]
-    impl NodeRpcClient for TonicRpcClient {
-        fn new(config_endpoint: &str) -> TonicRpcClient {
+        pub fn new(config_endpoint: &str) -> TonicRpcClient {
             TonicRpcClient {
                 rpc_api: None,
                 endpoint: config_endpoint.to_string(),
             }
         }
+    }
 
+    #[async_trait]
+    impl NodeRpcClient for TonicRpcClient {
         async fn submit_proven_transaction(
             &mut self,
             proven_transaction: ProvenTransaction,
