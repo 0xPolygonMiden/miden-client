@@ -5,6 +5,7 @@ use crate::{
         accounts::{AccountStorageMode, AccountTemplate},
         transactions::TransactionTemplate,
     },
+    mock::mock_fungible_faucet_account,
     store::{
         mock_executor_data_store::MockDataStore, sqlite_store::tests::create_test_client, AuthInfo,
         InputNoteFilter, InputNoteRecord, Store,
@@ -17,7 +18,7 @@ use miden_lib::transaction::TransactionKernel;
 use mock::{
     constants::{generate_account_seed, AccountSeedType},
     mock::{
-        account::{self, mock_account, MockAccountType},
+        account::{self, MockAccountType},
         notes::AssetPreservationStatus,
         transaction::mock_inputs,
     },
@@ -412,41 +413,37 @@ async fn test_add_tag() {
 }
 
 #[tokio::test]
-#[ignore = "currently fails with PhantomCallsNotAllowed"]
 async fn test_mint_transaction() {
     const FAUCET_ID: u64 = 10347894387879516201u64;
     const FAUCET_SEED: Word = [Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::ZERO];
+    const INITIAL_BALANCE: u64 = 1000;
 
     // generate test client with a random store name
     let mut client = create_test_client();
 
-    let (faucet, _seed) = client
-        .new_account(AccountTemplate::FungibleFaucet {
-            token_symbol: TokenSymbol::new("TST").unwrap(),
-            decimals: 10u8,
-            max_supply: 1000u64,
-            storage_mode: AccountStorageMode::Local,
-        })
-        .unwrap();
-
-    let faucet = mock_account(
-        Some(FAUCET_ID),
-        Felt::new(10u64),
-        Some(faucet.code().clone()),
-        &TransactionKernel::assembler(),
-    );
-
+    // Faucet account generation
     let key_pair: KeyPair = KeyPair::new()
         .map_err(|err| format!("Error generating KeyPair: {}", err))
         .unwrap();
+
+    let faucet = mock_fungible_faucet_account(
+        AccountId::try_from(FAUCET_ID).unwrap(),
+        INITIAL_BALANCE,
+        key_pair,
+    );
+
     client
         .store
         .insert_account(&faucet, FAUCET_SEED, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
-    client.set_data_store(MockDataStore::with_existing(faucet.clone(), None, None));
+
+    client.set_data_store(MockDataStore::with_existing(
+        faucet.clone(),
+        None,
+        Some(vec![]),
+    ));
 
     // Test submitting a mint transaction
-
     let transaction_template = TransactionTemplate::MintFungibleAsset {
         asset: FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         target_account_id: AccountId::from_hex("0x168187d729b31a84").unwrap(),
