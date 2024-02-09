@@ -28,7 +28,7 @@ Before you can build and run the Miden client CLI, you'll need to make sure you 
 You can then choose to run the client CLI using `cargo`, or install it on your system. In order to install it, you can run:
 
 ```sh
-cargo install --path ."
+cargo install --path .
 ```
 
 This will install the `miden` binary in your PATH, at `~/.cargo/bin/miden`. 
