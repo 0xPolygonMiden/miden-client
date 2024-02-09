@@ -114,6 +114,9 @@ impl Client {
             .map(|acc| ((u64::from(acc.id()) >> FILTER_ID_SHIFT) as u16))
             .collect();
 
+        // To receive information about added nullifiers, we reduce them to the higher 16 bits
+        // Note that besides filtering by nullifier prefixes, the node also filters by block number
+        // (it only returns nullifiers from current_block_num until response.block_header.block_num())
         let nullifiers_tags: Vec<u16> = self
             .store
             .get_unspent_input_note_nullifiers()?
@@ -248,7 +251,7 @@ impl Client {
     ///
     /// As part of the syncing process, we add the current block number so we don't need to
     /// track it here.
-    fn build_current_partial_mmr(&self) -> Result<PartialMmr, ClientError> {
+    pub(crate) fn build_current_partial_mmr(&self) -> Result<PartialMmr, ClientError> {
         let current_block_num = self.store.get_sync_height()?;
 
         let tracked_nodes = self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All)?;

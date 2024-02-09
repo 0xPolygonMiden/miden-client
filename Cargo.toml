@@ -8,10 +8,17 @@ repository = "https://github.com/0xPolygonMiden/miden-client"
 keywords = ["miden", "client"]
 edition = "2021"
 rust-version = "1.67"
+default-run = "miden-client"
+
+[[bin]]
+name = "integration"
+path = "tests/integration/main.rs"
+required-features = ["integration"]
 
 [features]
 concurrent = ["miden_lib/concurrent", "objects/concurrent", "miden_tx/concurrent"]
 default = ["std"]
+integration = ["testing", "concurrent", "uuid"]
 mock = []
 std = ["crypto/std", "objects/std"]
 testing = ["objects/testing", "miden_lib/testing"]
@@ -38,8 +45,8 @@ tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"] }
 tonic = { version = "0.10" }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3" }
+uuid = { version = "1.6.1", features = ["serde", "v4"], optional = true}
 
 [dev-dependencies]
-uuid = { version = "1.6.1", features = ["serde", "v4"] }
 # needed for tests to run always with the mock feature
-miden_client = { package = "miden-client", path = ".", features = ["mock"] }
+miden_client = { package = "miden-client", path = ".", features=["mock", "uuid"] }

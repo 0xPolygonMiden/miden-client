@@ -31,7 +31,7 @@ You can then choose to run the client CLI using `cargo`, or install it on your s
 cargo install --path .
 ```
 
-This will install the `miden-client` binary in your PATH, at `~/.cargo/bin/miden-client`. 
+This will install the `miden` binary in your PATH, at `~/.cargo/bin/miden`. 
 
 For testing, the following way of installing is recommended:
 
@@ -106,7 +106,7 @@ After creating the note with the minted asset, the regular account can now consu
 miden-client tx new consume-note <regular-account-ID-A> <input-note-ID>
 ```
 
-This will consume the input note ID, which you can get by listing them as explained in the previous step. You will now be able to see the asset in the account's vault by running:
+This will consume the input note identified by its ID, which you can get by listing them as explained in the previous step. You will now be able to see the asset in the account's vault by running:
 
 ```bash
 miden-client account show <regular-account-ID-A> -v
@@ -138,6 +138,21 @@ miden-client account show <regular-account-ID-A> -v # Show account A's vault ass
 ### Clearing the state
 
 All state is maintained in `store.sqlite3`, located in the same directory where the client binary is. In case it needs to be cleared, the file can be deleted; it will later be created again when any command is executed.
+
+## Testing
+
+### Running integration tests
+
+There are commands provided in the `Makefile` to make running this test easier. To run the current integration test, you should run:
+
+```bash
+# This will ensure we start from a clean node and client
+make reset
+# This command will clone the node's repo and generate the accounts and genesis files and lastly start the node and run it on background
+make start-node &
+# This will run the integration test and after it finishes it will kill the node process
+make integration-test
+```
 
 ## License
 This project is [MIT licensed](./LICENSE).
