@@ -15,10 +15,12 @@ pub use tonic_client::TonicRpcClient;
 // NODE API TRAIT
 // ================================================================================================
 
+/// This trait is used for communication with the miden node
+///
+/// The implementers are responsible for connecting to the Miden node, handling endpoint
+/// requests/responses, and translating responses into domain objects relevant for each of the
+/// endpoints.
 #[async_trait]
-/// This trait is mean to be used to abstract the connection between the client and the node. Since
-/// different environments (e.g a mocked client, compiling to wasm or no_std, using other crate for
-/// the communication) may require other implementations it made sense to create a trait for this
 pub trait NodeRpcClient {
     /// Given a Proven Transaction, send it to the node for it to be included in a future block
     async fn submit_proven_transaction(
@@ -26,7 +28,7 @@ pub trait NodeRpcClient {
         proven_transaction: ProvenTransaction,
     ) -> Result<(), NodeRpcClientError>;
 
-    /// Given a block number, fetch the block header corresponding to that height from the node
+    /// Given a block number, fetches the block header corresponding to that height from the node
     ///
     /// When `None` is provided, returns info regarding the latest block
     async fn get_block_header_by_number(
@@ -34,17 +36,17 @@ pub trait NodeRpcClient {
         block_number: Option<u32>,
     ) -> Result<BlockHeader, NodeRpcClientError>;
 
-    /// Fetch info from the node necessary to perform a state sync
+    /// Fetches info from the node necessary to perform a state sync
     ///
-    /// - `block_num` is the last block number known by the client. The returned [ StateSyncInfo ]
-    /// should contain data starting from the next block, until the first block which contains a
-    /// note of matching the requested tag, or the chain tip if there are no notes.
+    /// - `block_num` is the last block number known by the client. The returned [StateSyncInfo]
+    ///   should contain data starting from the next block, until the first block which contains a
+    ///   note of matching the requested tag, or the chain tip if there are no notes.
     /// - `account_ids` is a list of account ids and determines the accounts the client is interested
-    /// in and should receive account updates of.
+    ///   in and should receive account updates of.
     /// - `note_tags` is a list of tags used to filter the notes the client is interested in, which
-    /// serves as a "note group" filter. Notice that you can't filter by a specific note id
+    ///   serves as a "note group" filter. Notice that you can't filter by a specific note id
     /// - `nullifiers_tags` similar to `note_tags`, is a list of tags used to filter the nullifiers
-    /// corresponding to some notes the client is interested in
+    ///   corresponding to some notes the client is interested in
     async fn sync_state(
         &mut self,
         block_num: u32,
