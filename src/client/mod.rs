@@ -1,6 +1,6 @@
 use crate::{
     config::ClientConfig,
-    errors::{ClientError, NodeApiError},
+    errors::{ClientError, NodeRpcClientError},
     store::Store,
 };
 use async_trait::async_trait;
@@ -21,23 +21,23 @@ pub mod transactions;
 // ================================================================================================
 
 #[async_trait]
-pub trait NodeApi {
+pub trait NodeRpcClient {
     fn new(config_endpoint: &str) -> Self;
     async fn submit_proven_transaction(
         &mut self,
         proven_transaction: ProvenTransaction,
-    ) -> Result<(), NodeApiError>;
+    ) -> Result<(), NodeRpcClientError>;
     async fn get_block_header_by_number(
         &mut self,
         block_number: Option<u32>,
-    ) -> Result<BlockHeader, NodeApiError>;
+    ) -> Result<BlockHeader, NodeRpcClientError>;
     async fn sync_state(
         &mut self,
         block_num: u32,
         account_ids: &[AccountId],
         note_tags: &[u16],
         nullifiers_tags: &[u16],
-    ) -> Result<StateSyncInfo, NodeApiError>;
+    ) -> Result<StateSyncInfo, NodeRpcClientError>;
 }
 
 // MIDEN CLIENT
@@ -51,14 +51,14 @@ pub trait NodeApi {
 /// - Connects to one or more Miden nodes to periodically sync with the current state of the
 ///   network.
 /// - Executes, proves, and submits transactions to the network as directed by the user.
-pub struct Client<N: NodeApi, D: DataStore> {
+pub struct Client<N: NodeRpcClient, D: DataStore> {
     /// Local database containing information about the accounts managed by this client.
     store: Store,
     rpc_api: N,
     tx_executor: TransactionExecutor<D>,
 }
 
-impl<N: NodeApi, D: DataStore> Client<N, D> {
+impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
 

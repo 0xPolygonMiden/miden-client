@@ -21,7 +21,7 @@ pub enum ClientError {
     ImportNewAccountWithoutSeed,
     NoteError(NoteError),
     NoConsumableNoteForAccount(AccountId),
-    NodeApiError(NodeApiError),
+    NodeRpcClientError(NodeRpcClientError),
     StoreError(StoreError),
     TransactionExecutionError(TransactionExecutorError),
     TransactionProvingError(TransactionProverError),
@@ -40,7 +40,7 @@ impl fmt::Display for ClientError {
                 write!(f, "No consumable note for account ID {}", account_id)
             }
             ClientError::NoteError(err) => write!(f, "note error: {err}"),
-            ClientError::NodeApiError(err) => write!(f, "rpc api error: {err}"),
+            ClientError::NodeRpcClientError(err) => write!(f, "rpc api error: {err}"),
             ClientError::StoreError(err) => write!(f, "store error: {err}"),
             ClientError::TransactionExecutionError(err) => {
                 write!(f, "transaction executor error: {err}")
@@ -73,9 +73,9 @@ impl From<NoteError> for ClientError {
     }
 }
 
-impl From<NodeApiError> for ClientError {
-    fn from(err: NodeApiError) -> Self {
-        Self::NodeApiError(err)
+impl From<NodeRpcClientError> for ClientError {
+    fn from(err: NodeRpcClientError) -> Self {
+        Self::NodeRpcClientError(err)
     }
 }
 
@@ -289,7 +289,7 @@ impl std::error::Error for StoreError {}
 // ================================================================================================
 
 #[derive(Debug)]
-pub enum NodeApiError {
+pub enum NodeRpcClientError {
     ConnectionError(String),
     ConversionFailure(String),
     ExpectedFieldMissing(String),
@@ -297,38 +297,38 @@ pub enum NodeApiError {
     RequestError(String, String),
 }
 
-impl fmt::Display for NodeApiError {
+impl fmt::Display for NodeRpcClientError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NodeApiError::ConnectionError(err) => {
+            NodeRpcClientError::ConnectionError(err) => {
                 write!(f, "failed to connect to the API server: {err}")
             }
-            NodeApiError::ConversionFailure(err) => {
+            NodeRpcClientError::ConversionFailure(err) => {
                 write!(f, "failed to convert RPC data: {err}")
             }
-            NodeApiError::ExpectedFieldMissing(err) => {
+            NodeRpcClientError::ExpectedFieldMissing(err) => {
                 write!(f, "rpc API reponse missing an expected field: {err}")
             }
-            NodeApiError::InvalidAccountReceived(account_error) => {
+            NodeRpcClientError::InvalidAccountReceived(account_error) => {
                 write!(
                     f,
                     "rpc API reponse contained an invalid account: {account_error}"
                 )
             }
-            NodeApiError::RequestError(endpoint, err) => {
+            NodeRpcClientError::RequestError(endpoint, err) => {
                 write!(f, "rpc request failed for {endpoint}: {err}")
             }
         }
     }
 }
 
-impl From<ParseError> for NodeApiError {
+impl From<ParseError> for NodeRpcClientError {
     fn from(err: ParseError) -> Self {
         Self::ConversionFailure(err.to_string())
     }
 }
 
-impl From<AccountError> for NodeApiError {
+impl From<AccountError> for NodeRpcClientError {
     fn from(err: AccountError) -> Self {
         Self::InvalidAccountReceived(err.to_string())
     }

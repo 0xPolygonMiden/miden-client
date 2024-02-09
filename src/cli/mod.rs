@@ -7,7 +7,7 @@ use figment::{
     Figment,
 };
 use miden_client::{
-    client::{Client, NodeApi},
+    client::{Client, NodeRpcClient},
     config::ClientConfig,
 };
 

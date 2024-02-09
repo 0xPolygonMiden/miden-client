@@ -5,7 +5,7 @@ use crypto::{
     utils::{bytes_to_hex_string, Deserializable, Serializable},
     StarkField, ZERO,
 };
-use miden_client::client::{accounts, Client, NodeApi};
+use miden_client::client::{accounts, Client, NodeRpcClient};
 
 use miden_tx::DataStore;
 use objects::{
@@ -78,7 +78,7 @@ pub enum AccountTemplate {
 }
 
 impl AccountCmd {
-    pub fn execute<N: NodeApi, D: DataStore>(
+    pub fn execute<N: NodeRpcClient, D: DataStore>(
         &self,
         mut client: Client<N, D>,
     ) -> Result<(), String> {
@@ -140,7 +140,7 @@ impl AccountCmd {
 // LIST ACCOUNTS
 // ================================================================================================
 
-fn list_accounts<N: NodeApi, D: DataStore>(client: Client<N, D>) -> Result<(), String> {
+fn list_accounts<N: NodeRpcClient, D: DataStore>(client: Client<N, D>) -> Result<(), String> {
     let accounts = client.get_accounts()?;
 
     let mut table = create_dynamic_table(&[
@@ -166,7 +166,7 @@ fn list_accounts<N: NodeApi, D: DataStore>(client: Client<N, D>) -> Result<(), S
     Ok(())
 }
 
-pub fn show_account<N: NodeApi, D: DataStore>(
+pub fn show_account<N: NodeRpcClient, D: DataStore>(
     client: Client<N, D>,
     account_id: AccountId,
     show_keys: bool,
@@ -312,7 +312,7 @@ pub fn show_account<N: NodeApi, D: DataStore>(
 // IMPORT ACCOUNT
 // ================================================================================================
 
-fn import_account<N: NodeApi, D: DataStore>(
+fn import_account<N: NodeRpcClient, D: DataStore>(
     client: &mut Client<N, D>,
     filename: &PathBuf,
 ) -> Result<(), String> {

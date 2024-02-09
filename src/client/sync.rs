@@ -1,4 +1,4 @@
-use super::{rpc_client::CommittedNote, Client, NodeApi};
+use super::{rpc_client::CommittedNote, Client, NodeRpcClient};
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 
@@ -27,7 +27,7 @@ pub enum SyncStatus {
 /// The number of bits to shift identifiers for in use of filters.
 pub const FILTER_ID_SHIFT: u8 = 48;
 
-impl<N: NodeApi, D: DataStore> Client<N, D> {
+impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     // SYNC STATE
     // --------------------------------------------------------------------------------------------
 

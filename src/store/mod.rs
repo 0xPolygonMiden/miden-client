@@ -51,7 +51,7 @@ pub mod tests {
         mock::{MockDataStore, MockRpcApi},
     };
 
-    use crate::client::NodeApi;
+    use crate::client::NodeRpcClient;
 
     use super::{migrations, Store};
 

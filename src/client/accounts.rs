@@ -14,7 +14,7 @@ use rand::{rngs::ThreadRng, Rng};
 
 use crate::{errors::ClientError, store::accounts::AuthInfo};
 
-use super::{Client, NodeApi};
+use super::{Client, NodeRpcClient};
 
 pub enum AccountTemplate {
     BasicWallet {
@@ -34,7 +34,7 @@ pub enum AccountStorageMode {
     OnChain,
 }
 
-impl<N: NodeApi, D: DataStore> Client<N, D> {
+impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 

@@ -22,7 +22,7 @@ use crate::{
     store::{accounts::AuthInfo, transactions::TransactionFilter},
 };
 
-use super::{Client, NodeApi};
+use super::{Client, NodeRpcClient};
 
 // MASM SCRIPTS
 // --------------------------------------------------------------------------------------------
@@ -201,7 +201,7 @@ impl std::fmt::Display for TransactionStatus {
     }
 }
 
-impl<N: NodeApi, D: DataStore> Client<N, D> {
+impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 

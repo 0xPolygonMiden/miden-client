@@ -10,7 +10,7 @@ use super::{Client, Parser};
 use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
-    client::NodeApi,
+    client::NodeRpcClient,
     store::notes::{InputNoteFilter, InputNoteRecord},
 };
 
@@ -80,7 +80,7 @@ pub enum InputNotes {
 }
 
 impl InputNotes {
-    pub fn execute<N: NodeApi, D: DataStore>(
+    pub fn execute<N: NodeRpcClient, D: DataStore>(
         &self,
         mut client: Client<N, D>,
     ) -> Result<(), String> {
@@ -121,7 +121,7 @@ impl InputNotes {
 
 // LIST INPUT NOTES
 // ================================================================================================
-fn list_input_notes<N: NodeApi, D: DataStore>(
+fn list_input_notes<N: NodeRpcClient, D: DataStore>(
     client: Client<N, D>,
     input_note_filter: InputNoteFilter,
 ) -> Result<(), String> {
@@ -132,7 +132,7 @@ fn list_input_notes<N: NodeApi, D: DataStore>(
 
 // EXPORT INPUT NOTE
 // ================================================================================================
-pub fn export_note<N: NodeApi, D: DataStore>(
+pub fn export_note<N: NodeRpcClient, D: DataStore>(
     client: &Client<N, D>,
     note_id: &str,
     filename: Option<PathBuf>,
@@ -158,7 +158,7 @@ pub fn export_note<N: NodeApi, D: DataStore>(
 
 // IMPORT INPUT NOTE
 // ================================================================================================
-pub fn import_note<N: NodeApi, D: DataStore>(
+pub fn import_note<N: NodeRpcClient, D: DataStore>(
     client: &mut Client<N, D>,
     filename: PathBuf,
 ) -> Result<NoteId, String> {
@@ -180,7 +180,7 @@ pub fn import_note<N: NodeApi, D: DataStore>(
 
 // SHOW INPUT NOTE
 // ================================================================================================
-fn show_input_note<N: NodeApi, D: DataStore>(
+fn show_input_note<N: NodeRpcClient, D: DataStore>(
     client: Client<N, D>,
     note_id: String,
     show_script: bool,
@@ -294,7 +294,7 @@ mod tests {
     use crate::cli::input_notes::{export_note, import_note};
 
     use miden_client::{
-        client::{Client, NodeApi},
+        client::{Client, NodeRpcClient},
         config::{ClientConfig, Endpoint},
         mock::{MockDataStore, MockRpcApi},
         store::notes::InputNoteRecord,

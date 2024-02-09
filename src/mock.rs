@@ -3,9 +3,9 @@ use crate::{
         rpc_client::StateSyncInfo,
         sync::FILTER_ID_SHIFT,
         transactions::{PaymentTransactionData, TransactionTemplate},
-        Client, NodeApi, RpcApiEndpoint,
+        Client, NodeRpcClient, RpcApiEndpoint,
     },
-    errors::NodeApiError,
+    errors::NodeRpcClientError,
 };
 use async_trait::async_trait;
 use crypto::{
@@ -67,7 +67,7 @@ impl Default for MockRpcApi {
 }
 
 #[async_trait]
-impl NodeApi for MockRpcApi {
+impl NodeRpcClient for MockRpcApi {
     fn new(_config_endpoint: &str) -> Self {
         Self::default()
     }
@@ -79,7 +79,7 @@ impl NodeApi for MockRpcApi {
         _account_ids: &[AccountId],
         _note_tags: &[u16],
         _nullifiers_tags: &[u16],
-    ) -> Result<StateSyncInfo, NodeApiError> {
+    ) -> Result<StateSyncInfo, NodeRpcClientError> {
         // Match request -> response through block_num
         let response = match self
             .state_sync_requests
@@ -90,7 +90,7 @@ impl NodeApi for MockRpcApi {
                 let response = response.clone();
                 Ok(Response::new(response))
             }
-            None => Err(NodeApiError::RequestError(
+            None => Err(NodeRpcClientError::RequestError(
                 RpcApiEndpoint::SyncState.to_string(),
                 Status::not_found("no response for sync state request").to_string(),
             )),
@@ -104,7 +104,7 @@ impl NodeApi for MockRpcApi {
     async fn get_block_header_by_number(
         &mut self,
         block_num: Option<u32>,
-    ) -> Result<BlockHeader, NodeApiError> {
+    ) -> Result<BlockHeader, NodeRpcClientError> {
         let request = GetBlockHeaderByNumberRequest { block_num };
         let request: GetBlockHeaderByNumberRequest = request.into_request().into_inner();
 
@@ -118,7 +118,7 @@ impl NodeApi for MockRpcApi {
     async fn submit_proven_transaction(
         &mut self,
         _proven_transaction: ProvenTransaction,
-    ) -> std::result::Result<(), NodeApiError> {
+    ) -> std::result::Result<(), NodeRpcClientError> {
         // TODO: add some basic validations to test error cases
         Ok(())
     }
@@ -438,7 +438,7 @@ pub async fn create_mock_transaction(client: &mut Client<MockRpcApi, MockDataSto
 }
 
 #[cfg(test)]
-impl<N: NodeApi, D: DataStore> Client<N, D> {
+impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     /// Helper function to set a data store to conveniently mock data for tests
     pub fn set_data_store(&mut self, data_store: D) {
         self.set_tx_executor(miden_tx::TransactionExecutor::new(data_store));

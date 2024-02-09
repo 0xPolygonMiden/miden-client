@@ -1,4 +1,4 @@
-use super::{Client, NodeApi};
+use super::{Client, NodeRpcClient};
 use miden_tx::DataStore;
 
 #[cfg(test)]
@@ -6,7 +6,7 @@ use crate::errors::ClientError;
 #[cfg(test)]
 use objects::BlockHeader;
 
-impl<N: NodeApi, D: DataStore> Client<N, D> {
+impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     #[cfg(test)]
     pub fn get_block_headers_in_range(
         &self,

@@ -1,7 +1,7 @@
 use miden_client::{
     client::{
         transactions::{PaymentTransactionData, TransactionRecord, TransactionTemplate},
-        NodeApi,
+        NodeRpcClient,
     },
     store::transactions::TransactionFilter,
 };
@@ -113,7 +113,7 @@ pub enum Transaction {
 }
 
 impl Transaction {
-    pub async fn execute<N: NodeApi, D: DataStore>(
+    pub async fn execute<N: NodeRpcClient, D: DataStore>(
         &self,
         mut client: Client<N, D>,
     ) -> Result<(), String> {
@@ -140,7 +140,7 @@ impl Transaction {
 
 // LIST TRANSACTIONS
 // ================================================================================================
-fn list_transactions<N: NodeApi, D: DataStore>(client: Client<N, D>) -> Result<(), String> {
+fn list_transactions<N: NodeRpcClient, D: DataStore>(client: Client<N, D>) -> Result<(), String> {
     let transactions = client.get_transactions(TransactionFilter::All)?;
     print_transactions_summary(&transactions);
     Ok(())

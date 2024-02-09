@@ -1,4 +1,4 @@
-use super::{Client, NodeApi};
+use super::{Client, NodeRpcClient};
 
 use crate::{
     errors::ClientError,
@@ -7,7 +7,7 @@ use crate::{
 use miden_tx::DataStore;
 use objects::notes::NoteId;
 
-impl<N: NodeApi, D: DataStore> Client<N, D> {
+impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     // INPUT NOTE DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
