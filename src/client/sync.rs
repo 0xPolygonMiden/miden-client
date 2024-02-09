@@ -115,6 +115,9 @@ impl Client {
             .map(|acc| ((u64::from(acc.id()) >> FILTER_ID_SHIFT) as u16))
             .collect();
 
+        // To receive information about added nullifiers, we reduce them to the higher 16 bits
+        // Note that besides filtering by nullifier prefixes, the node also filters by block number
+        // (it only returns nullifiers from current_block_num until response.block_header.block_num())
         let nullifiers_tags: Vec<u16> = self
             .store
             .get_unspent_input_note_nullifiers()?
