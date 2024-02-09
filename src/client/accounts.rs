@@ -201,7 +201,6 @@ impl Client {
 
         account.apply_delta(account_delta)?;
 
-        // TODO: We don't need to store (nor retrieve) the seed every time
         Ok(self.store.update_account(account)?)
     }
 
