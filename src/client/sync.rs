@@ -136,21 +136,18 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
             return Ok(SyncStatus::SyncedToLastBlock(current_block_num));
         }
 
-        let committed_notes = <Client<N, D>>::build_inclusion_proofs(
-            self,
-            response.note_inclusions,
-            &response.block_header,
-        )?;
+        let committed_notes =
+            self.build_inclusion_proofs(response.note_inclusions, &response.block_header)?;
 
         // Check if the returned account hashes match latest account hashes in the database
         check_account_hashes(&response.account_hash_updates, &accounts)?;
 
         // Derive new nullifiers data
-        let new_nullifiers = <Client<N, D>>::get_new_nullifiers(self, response.nullifiers)?;
+        let new_nullifiers = self.get_new_nullifiers(response.nullifiers)?;
 
         // Build PartialMmr with current data and apply updates
         let (new_peaks, new_authentication_nodes) = {
-            let current_partial_mmr = <Client<N, D>>::build_current_partial_mmr(self)?;
+            let current_partial_mmr = self.build_current_partial_mmr()?;
 
             let (current_block, has_relevant_notes) =
                 self.store.get_block_header_by_num(current_block_num)?;

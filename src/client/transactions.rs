@@ -272,9 +272,8 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
         // Construct Account
         self.tx_executor.load_account(faucet_id)?;
 
-        let block_ref = Self::get_sync_height(self)?;
-
-        let random_coin = Self::get_random_coin(self);
+        let block_ref = self.get_sync_height()?;
+        let random_coin = self.get_random_coin();
 
         let created_note = create_p2id_note(faucet_id, target_id, vec![asset.into()], random_coin)?;
 
@@ -311,7 +310,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
         sender_account_id: AccountId,
         target_account_id: AccountId,
     ) -> Result<TransactionResult, ClientError> {
-        let random_coin = Self::get_random_coin(self);
+        let random_coin = self.get_random_coin();
 
         let created_note = create_p2id_note(
             sender_account_id,
@@ -322,7 +321,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
 
         self.tx_executor.load_account(sender_account_id)?;
 
-        let block_ref = Self::get_sync_height(self)?;
+        let block_ref = self.get_sync_height()?;
 
         let recipient = created_note
             .recipient()
@@ -359,7 +358,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
         tx_script: ProgramAst,
         block_num: u32,
     ) -> Result<TransactionResult, ClientError> {
-        let account_auth = Self::get_account_auth(self, account_id)?;
+        let account_auth = self.get_account_auth(account_id)?;
         let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
             AuthInfo::RpoFalcon512(key) => (
                 key.public_key().into(),
