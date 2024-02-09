@@ -1,9 +1,20 @@
-use super::{CommittedNote, StateSyncInfo};
-use miden_node_proto::responses::SyncStateResponse;
-use objects::{
-    notes::{NoteId, NoteMetadata},
-    Digest,
+use super::{CommittedNote, NodeRpcClient, RpcApiEndpoint, StateSyncInfo};
+use crate::errors::NodeRpcClientError;
+use async_trait::async_trait;
+use crypto::utils::Serializable;
+use miden_node_proto::{
+    errors::ParseError,
+    requests::{GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest, SyncStateRequest},
+    responses::SyncStateResponse,
+    rpc::api_client::ApiClient,
 };
+use objects::{
+    accounts::AccountId,
+    notes::{NoteId, NoteMetadata},
+    transaction::ProvenTransaction,
+    BlockHeader, Digest,
+};
+use tonic::transport::Channel;
 
 impl TryFrom<SyncStateResponse> for StateSyncInfo {
     type Error = NodeRpcClientError;
@@ -97,139 +108,113 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
 // RPC CLIENT
 // ================================================================================================
 //
-// #[cfg(not(any(test, feature = "mock")))]
-pub use client::TonicRpcClient;
 
-use crate::errors::NodeRpcClientError;
+/// Wrapper for ApiClient which defers establishing a connection with a node until necessary
+pub struct TonicRpcClient {
+    rpc_api: Option<ApiClient<Channel>>,
+    endpoint: String,
+}
 
-// #[cfg(not(any(test, feature = "mock")))]
-mod client {
-    use crate::client::rpc::NodeRpcClient;
-    use crate::client::rpc::{RpcApiEndpoint, StateSyncInfo};
-    use crate::errors::NodeRpcClientError;
-    use async_trait::async_trait;
-    use crypto::utils::Serializable;
-    use miden_node_proto::{
-        errors::ParseError,
-        requests::{
-            GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest, SyncStateRequest,
-        },
-        rpc::api_client::ApiClient,
-    };
-    use objects::{accounts::AccountId, transaction::ProvenTransaction, BlockHeader};
-    use tonic::transport::Channel;
-
-    /// Wrapper for ApiClient which defers establishing a connection with a node until necessary
-    pub struct TonicRpcClient {
-        rpc_api: Option<ApiClient<Channel>>,
-        endpoint: String,
-    }
-
-    impl TonicRpcClient {
-        /// Takes care of establishing the RPC connection if not connected yet and returns a reference
-        /// to the inner ApiClient
-        async fn rpc_api(&mut self) -> Result<&mut ApiClient<Channel>, NodeRpcClientError> {
-            if self.rpc_api.is_some() {
-                Ok(self.rpc_api.as_mut().unwrap())
-            } else {
-                let rpc_api = ApiClient::connect(self.endpoint.clone())
-                    .await
-                    .map_err(|err| NodeRpcClientError::ConnectionError(err.to_string()))?;
-                Ok(self.rpc_api.insert(rpc_api))
-            }
-        }
-
-        pub fn new(config_endpoint: &str) -> TonicRpcClient {
-            TonicRpcClient {
-                rpc_api: None,
-                endpoint: config_endpoint.to_string(),
-            }
-        }
-    }
-
-    #[async_trait]
-    impl NodeRpcClient for TonicRpcClient {
-        async fn submit_proven_transaction(
-            &mut self,
-            proven_transaction: ProvenTransaction,
-        ) -> Result<(), NodeRpcClientError> {
-            let request = SubmitProvenTransactionRequest {
-                transaction: proven_transaction.to_bytes(),
-            };
-            let rpc_api = self.rpc_api().await?;
-            rpc_api
-                .submit_proven_transaction(request)
+impl TonicRpcClient {
+    /// Takes care of establishing the RPC connection if not connected yet and returns a reference
+    /// to the inner ApiClient
+    async fn rpc_api(&mut self) -> Result<&mut ApiClient<Channel>, NodeRpcClientError> {
+        if self.rpc_api.is_some() {
+            Ok(self.rpc_api.as_mut().unwrap())
+        } else {
+            let rpc_api = ApiClient::connect(self.endpoint.clone())
                 .await
-                .map_err(|err| {
-                    NodeRpcClientError::RequestError(
-                        RpcApiEndpoint::SubmitProvenTx.to_string(),
-                        err.to_string(),
-                    )
-                })?;
-
-            Ok(())
+                .map_err(|err| NodeRpcClientError::ConnectionError(err.to_string()))?;
+            Ok(self.rpc_api.insert(rpc_api))
         }
+    }
 
-        async fn get_block_header_by_number(
-            &mut self,
-            block_num: Option<u32>,
-        ) -> Result<BlockHeader, NodeRpcClientError> {
-            let request = GetBlockHeaderByNumberRequest { block_num };
-            let rpc_api = self.rpc_api().await?;
-            let api_response =
-                rpc_api
-                    .get_block_header_by_number(request)
-                    .await
-                    .map_err(|err| {
-                        NodeRpcClientError::RequestError(
-                            RpcApiEndpoint::GetBlockHeaderByNumber.to_string(),
-                            err.to_string(),
-                        )
-                    })?;
-
-            api_response
-                .into_inner()
-                .block_header
-                .ok_or(NodeRpcClientError::ExpectedFieldMissing(
-                    "BlockHeader".into(),
-                ))?
-                .try_into()
-                .map_err(|err: ParseError| NodeRpcClientError::ConversionFailure(err.to_string()))
+    pub fn new(config_endpoint: &str) -> TonicRpcClient {
+        TonicRpcClient {
+            rpc_api: None,
+            endpoint: config_endpoint.to_string(),
         }
+    }
+}
 
-        /// Sends a sync state request to the Miden node, validates and converts the response
-        /// into a [StateSyncInfo] struct.
-        async fn sync_state(
-            &mut self,
-            block_num: u32,
-            account_ids: &[AccountId],
-            note_tags: &[u16],
-            nullifiers_tags: &[u16],
-        ) -> Result<StateSyncInfo, NodeRpcClientError> {
-            let account_ids = account_ids.iter().map(|acc| (*acc).into()).collect();
-
-            let nullifiers = nullifiers_tags
-                .iter()
-                .map(|&nullifier| nullifier as u32)
-                .collect();
-
-            let note_tags = note_tags.iter().map(|&note_tag| note_tag as u32).collect();
-
-            let request = SyncStateRequest {
-                block_num,
-                account_ids,
-                note_tags,
-                nullifiers,
-            };
-
-            let rpc_api = self.rpc_api().await?;
-            let response = rpc_api.sync_state(request).await.map_err(|err| {
+#[async_trait]
+impl NodeRpcClient for TonicRpcClient {
+    async fn submit_proven_transaction(
+        &mut self,
+        proven_transaction: ProvenTransaction,
+    ) -> Result<(), NodeRpcClientError> {
+        let request = SubmitProvenTransactionRequest {
+            transaction: proven_transaction.to_bytes(),
+        };
+        let rpc_api = self.rpc_api().await?;
+        rpc_api
+            .submit_proven_transaction(request)
+            .await
+            .map_err(|err| {
                 NodeRpcClientError::RequestError(
-                    RpcApiEndpoint::SyncState.to_string(),
+                    RpcApiEndpoint::SubmitProvenTx.to_string(),
                     err.to_string(),
                 )
             })?;
-            response.into_inner().try_into()
-        }
+
+        Ok(())
+    }
+
+    async fn get_block_header_by_number(
+        &mut self,
+        block_num: Option<u32>,
+    ) -> Result<BlockHeader, NodeRpcClientError> {
+        let request = GetBlockHeaderByNumberRequest { block_num };
+        let rpc_api = self.rpc_api().await?;
+        let api_response = rpc_api
+            .get_block_header_by_number(request)
+            .await
+            .map_err(|err| {
+                NodeRpcClientError::RequestError(
+                    RpcApiEndpoint::GetBlockHeaderByNumber.to_string(),
+                    err.to_string(),
+                )
+            })?;
+
+        api_response
+            .into_inner()
+            .block_header
+            .ok_or(NodeRpcClientError::ExpectedFieldMissing(
+                "BlockHeader".into(),
+            ))?
+            .try_into()
+            .map_err(|err: ParseError| NodeRpcClientError::ConversionFailure(err.to_string()))
+    }
+
+    /// Sends a sync state request to the Miden node, validates and converts the response
+    /// into a [StateSyncInfo] struct.
+    async fn sync_state(
+        &mut self,
+        block_num: u32,
+        account_ids: &[AccountId],
+        note_tags: &[u16],
+        nullifiers_tags: &[u16],
+    ) -> Result<StateSyncInfo, NodeRpcClientError> {
+        let account_ids = account_ids.iter().map(|acc| (*acc).into()).collect();
+
+        let nullifiers = nullifiers_tags
+            .iter()
+            .map(|&nullifier| nullifier as u32)
+            .collect();
+
+        let note_tags = note_tags.iter().map(|&note_tag| note_tag as u32).collect();
+
+        let request = SyncStateRequest {
+            block_num,
+            account_ids,
+            note_tags,
+            nullifiers,
+        };
+
+        let rpc_api = self.rpc_api().await?;
+        let response = rpc_api.sync_state(request).await.map_err(|err| {
+            NodeRpcClientError::RequestError(RpcApiEndpoint::SyncState.to_string(), err.to_string())
+        })?;
+        response.into_inner().try_into()
     }
 }
