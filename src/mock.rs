@@ -13,7 +13,7 @@ use crypto::{
     merkle::{NodeIndex, SimpleSmt},
     Felt, FieldElement, StarkField,
 };
-use miden_lib::transaction::TransactionKernel;
+use miden_lib::{transaction::TransactionKernel, AuthScheme};
 use miden_node_proto::{
     account::AccountId as ProtoAccountId,
     block_header::BlockHeader as NodeBlockHeader,
@@ -33,12 +33,15 @@ use mock::mock::{
     notes::{mock_notes, AssetPreservationStatus},
 };
 use objects::{
+    accounts::{Account, AccountStorage, StorageSlotType},
+    assets::{AssetVault, TokenSymbol},
     crypto::merkle::{Mmr, MmrDelta},
     notes::{Note, NoteInclusionProof},
     transaction::{InputNote, ProvenTransaction},
     utils::collections::BTreeMap,
     BlockHeader, NOTE_TREE_DEPTH,
 };
+use rand::Rng;
 use tonic::{IntoRequest, Response, Status};
 
 use crate::store::accounts::AuthInfo;
@@ -437,6 +440,60 @@ pub async fn create_mock_transaction(client: &mut Client<MockRpcApi, MockDataSto
         .send_transaction(transaction_execution_result)
         .await
         .unwrap();
+}
+
+pub fn mock_fungible_faucet_account(
+    id: AccountId,
+    initial_balance: u64,
+    key_pair: KeyPair,
+) -> Account {
+    let mut rng = rand::thread_rng();
+    let init_seed: [u8; 32] = rng.gen();
+    let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
+        pub_key: key_pair.public_key(),
+    };
+
+    let (faucet, _seed) = miden_lib::accounts::faucets::create_basic_fungible_faucet(
+        init_seed,
+        TokenSymbol::new("TST").unwrap(),
+        10u8,
+        Felt::try_from(initial_balance.to_le_bytes().as_slice())
+            .expect("u64 can be safely converted to a field element"),
+        auth_scheme,
+    )
+    .unwrap();
+
+    let faucet_storage_slot_1 = [
+        Felt::new(initial_balance),
+        Felt::new(0),
+        Felt::new(0),
+        Felt::new(0),
+    ];
+    let faucet_account_storage = AccountStorage::new(vec![
+        (
+            0,
+            (
+                StorageSlotType::Value { value_arity: 0 },
+                key_pair.public_key().into(),
+            ),
+        ),
+        (
+            1,
+            (
+                StorageSlotType::Value { value_arity: 0 },
+                faucet_storage_slot_1,
+            ),
+        ),
+    ])
+    .unwrap();
+
+    Account::new(
+        id,
+        AssetVault::new(&[]).unwrap(),
+        faucet_account_storage.clone(),
+        faucet.code().clone(),
+        Felt::new(10u64),
+    )
 }
 
 #[cfg(test)]
