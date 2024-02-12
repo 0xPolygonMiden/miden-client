@@ -1,4 +1,4 @@
-use crypto::{rand::RpoRandomCoin, utils::Serializable, Felt, StarkField, Word};
+use crypto::{rand::RpoRandomCoin, utils::Serializable, Felt, Word};
 use miden_lib::notes::create_p2id_note;
 use miden_node_proto::generated::{
     requests::SubmitProvenTransactionRequest, responses::SubmitProvenTransactionResponse,
@@ -433,6 +433,6 @@ impl Client {
         let mut rng = rand::thread_rng();
         let coin_seed: [u64; 4] = rng.gen();
 
-        RpoRandomCoin::new(coin_seed.map(|x| x.into()))
+        RpoRandomCoin::new(coin_seed.map(Felt::new))
     }
 }

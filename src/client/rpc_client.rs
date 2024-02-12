@@ -80,7 +80,12 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                 .sender
                 .ok_or(RpcApiError::ExpectedFieldMissing("Notes.Sender".into()))?
                 .try_into()?;
-            let metadata = NoteMetadata::new(sender_account_id, note.tag.into());
+            let metadata = NoteMetadata::new(
+                sender_account_id,
+                note.tag
+                    .try_into()
+                    .expect("tag value is greater than or equal to the field modulus"),
+            );
 
             let committed_note =
                 CommittedNote::new(note_id, note.note_index, merkle_path, metadata);
