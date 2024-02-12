@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WASM Greet Example</title>
+</head>
+<body>
+    <script type="module" src="./dist/index.js"></script>
+    <script type="module">
+        // Example of using the exported `greet` function directly in HTML
+        import { greet } from './dist/index.js';
+
+        async function loadAndGreet() {
+            // Since greet is exported asynchronously, ensure it's available
+            await greet(); // Assuming `greet` is a function that can be awaited
+        }
+
+        loadAndGreet().catch(console.error);
+    </script>
+</body>
+</html>

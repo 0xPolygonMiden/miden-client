@@ -1,0 +1,11 @@
+[package]
+name = "miden-wasm"
+version = "1.0.0"
+description = "WebAssembly based toolkit for developing zero knowledge applications with Polygon Miden"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies.wasm-bindgen]
+wasm-bindgen = "0.2"
