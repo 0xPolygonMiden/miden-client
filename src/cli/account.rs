@@ -32,13 +32,13 @@ pub enum AccountCmd {
         // TODO: We should create a value parser for catching input parsing errors earlier (ie AccountID) once complexity grows
         #[clap()]
         id: Option<String>,
-        #[clap(short, long, default_value = false)]
+        #[clap(short, long, default_value_t = false)]
         keys: bool,
-        #[clap(short, long, default_value = false)]
+        #[clap(short, long, default_value_t = false)]
         vault: bool,
-        #[clap(short, long, default_value = false)]
+        #[clap(short, long, default_value_t = false)]
         storage: bool,
-        #[clap(short, long, default_value = false)]
+        #[clap(short, long, default_value_t = false)]
         code: bool,
     },
     /// Create new account and store it locally
