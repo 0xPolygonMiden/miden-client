@@ -14,7 +14,6 @@ use miden_client::store::notes::{InputNoteFilter, InputNoteRecord};
 use crypto::utils::{Deserializable, Serializable};
 
 use objects::{notes::NoteId, Digest};
-use tracing::warn;
 
 #[derive(Clone, Debug, ValueEnum)]
 pub enum NoteFilter {
@@ -81,10 +80,7 @@ impl InputNotes {
             InputNotes::List { filter } => {
                 let filter = match filter {
                     Some(NoteFilter::Committed) => InputNoteFilter::Committed,
-                    Some(NoteFilter::Consumed) => {
-                        warn!("Nullifiers are not currently being set on the node");
-                        InputNoteFilter::Consumed
-                    }
+                    Some(NoteFilter::Consumed) => InputNoteFilter::Consumed,
                     Some(NoteFilter::Pending) => InputNoteFilter::Pending,
                     None => InputNoteFilter::All,
                 };

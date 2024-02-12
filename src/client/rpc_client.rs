@@ -1,6 +1,6 @@
 use core::fmt;
 use crypto::merkle::{MerklePath, MmrDelta};
-use miden_node_proto::responses::SyncStateResponse;
+use miden_node_proto::generated::responses::SyncStateResponse;
 use objects::{
     accounts::AccountId,
     notes::{NoteId, NoteMetadata},
@@ -66,7 +66,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
         let mut note_inclusions = vec![];
         for note in value.notes {
             let note_id: Digest = note
-                .note_hash
+                .note_id
                 .ok_or(RpcApiError::ExpectedFieldMissing("Notes.Id".into()))?
                 .try_into()?;
             let note_id: NoteId = note_id.into();
@@ -150,7 +150,6 @@ impl CommittedNote {
         &self.merkle_path
     }
 
-    #[allow(dead_code)]
     pub fn metadata(&self) -> NoteMetadata {
         self.metadata
     }
@@ -168,7 +167,7 @@ use crate::errors::RpcApiError;
 mod client {
     use super::{RpcApiEndpoint, StateSyncInfo};
     use crate::errors::RpcApiError;
-    use miden_node_proto::{
+    use miden_node_proto::generated::{
         requests::{
             GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest, SyncStateRequest,
         },
