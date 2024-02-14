@@ -34,6 +34,8 @@ use mock::mock::{
 };
 use objects::{
     accounts::{Account, AccountStorage, StorageSlotType},
+    accounts::{AccountId, AccountType},
+    assets::FungibleAsset,
     assets::{AssetVault, TokenSymbol},
     crypto::merkle::{Mmr, MmrDelta},
     notes::{Note, NoteInclusionProof},
@@ -45,12 +47,6 @@ use rand::Rng;
 use tonic::{IntoRequest, Response, Status};
 
 use crate::store::accounts::AuthInfo;
-
-use objects::{
-    accounts::{AccountId, AccountType},
-    assets::FungibleAsset,
-};
-
 pub use crate::store::mock_executor_data_store::MockDataStore;
 
 /// Mock RPC API
