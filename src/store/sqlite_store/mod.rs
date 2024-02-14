@@ -90,8 +90,14 @@ impl Store for SqliteStore {
         self.get_transactions(transaction_filter)
     }
 
-    fn insert_transaction_data(&mut self, tx_result: TransactionResult) -> Result<(), StoreError> {
-        self.insert_transaction_data(tx_result)
+    fn insert_transaction_data(
+        &mut self,
+        tx_result: TransactionResult,
+        updated_account: Account,
+        account_seed: Option<Word>,
+        created_notes: &[InputNoteRecord],
+    ) -> Result<(), StoreError> {
+        self.insert_transaction_data(tx_result, updated_account, account_seed, created_notes)
     }
 
     fn get_input_notes(

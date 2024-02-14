@@ -5,7 +5,7 @@ use crate::{
 };
 use crypto::{
     utils::{collections::BTreeMap, Deserializable, Serializable},
-    Felt,
+    Felt, Word,
 };
 use tracing::info;
 
@@ -15,7 +15,7 @@ use super::{
     SqliteStore,
 };
 use objects::{
-    accounts::AccountId,
+    accounts::{Account, AccountId},
     assembly::{AstSerdeOptions, ProgramAst},
     notes::NoteId,
     transaction::{OutputNote, OutputNotes, TransactionScript},
@@ -80,35 +80,23 @@ impl SqliteStore {
     pub fn insert_transaction_data(
         &mut self,
         tx_result: TransactionResult,
+        updated_account: Account,
+        account_seed: Option<Word>,
+        created_notes: &[InputNoteRecord],
     ) -> Result<(), StoreError> {
-        let account_id = tx_result.executed_transaction().account_id();
-        let account_delta = tx_result.account_delta();
-
-        let (mut account, seed) = self.get_account_by_id(account_id)?;
-
-        account
-            .apply_delta(account_delta)
-            .map_err(StoreError::AccountError)?;
-
-        let created_notes = tx_result
-            .created_notes()
-            .iter()
-            .map(|note| InputNoteRecord::from(note.clone()))
-            .collect::<Vec<_>>();
-
         let tx = self.db.transaction()?;
 
         // Transaction Data
         Self::insert_proven_transaction_data(&tx, tx_result)?;
 
         // Account Data
-        insert_account_storage(&tx, account.storage())?;
-        insert_account_asset_vault(&tx, account.vault())?;
-        insert_account_record(&tx, &account, seed)?;
+        insert_account_storage(&tx, updated_account.storage())?;
+        insert_account_asset_vault(&tx, updated_account.vault())?;
+        insert_account_record(&tx, &updated_account, account_seed)?;
 
         // Updates for notes
         for note in created_notes {
-            insert_input_note_tx(&tx, &note)?;
+            insert_input_note_tx(&tx, note)?;
         }
 
         tx.commit()?;
