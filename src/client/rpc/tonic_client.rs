@@ -4,9 +4,13 @@ use async_trait::async_trait;
 use crypto::utils::Serializable;
 use miden_node_proto::{
     errors::ParseError,
-    requests::{GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest, SyncStateRequest},
-    responses::SyncStateResponse,
-    rpc::api_client::ApiClient,
+    generated::{
+        requests::{
+            GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest, SyncStateRequest,
+        },
+        responses::SyncStateResponse,
+        rpc::api_client::ApiClient,
+    },
 };
 use objects::{
     accounts::AccountId,
@@ -180,9 +184,10 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
         let mut note_inclusions = vec![];
         for note in value.notes {
             let note_id: Digest = note
-                .note_hash
+                .note_id
                 .ok_or(NodeRpcClientError::ExpectedFieldMissing("Notes.Id".into()))?
                 .try_into()?;
+
             let note_id: NoteId = note_id.into();
 
             let merkle_path = note
@@ -192,7 +197,12 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                 ))?
                 .try_into()?;
 
-            let sender_account_id = note.sender.try_into()?;
+            let sender_account_id = note
+                .sender
+                .ok_or(NodeRpcClientError::ExpectedFieldMissing(
+                    "Notes.Sender".into(),
+                ))?
+                .try_into()?;
             let metadata = NoteMetadata::new(sender_account_id, note.tag.into());
 
             let committed_note =

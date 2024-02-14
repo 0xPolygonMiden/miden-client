@@ -18,7 +18,6 @@ use crypto::utils::{Deserializable, Serializable};
 
 use miden_tx::DataStore;
 use objects::{notes::NoteId, Digest};
-use tracing::warn;
 
 #[derive(Clone, Debug, ValueEnum)]
 pub enum NoteFilter {
@@ -88,10 +87,7 @@ impl InputNotes {
             InputNotes::List { filter } => {
                 let filter = match filter {
                     Some(NoteFilter::Committed) => InputNoteFilter::Committed,
-                    Some(NoteFilter::Consumed) => {
-                        warn!("Nullifiers are not currently being set on the node");
-                        InputNoteFilter::Consumed
-                    }
+                    Some(NoteFilter::Consumed) => InputNoteFilter::Consumed,
                     Some(NoteFilter::Pending) => InputNoteFilter::Pending,
                     None => InputNoteFilter::All,
                 };
@@ -232,13 +228,13 @@ fn show_input_note<N: NodeRpcClient, D: DataStore>(
         table
             .add_row(vec![
                 Cell::new("Note Inputs hash").add_attribute(Attribute::Bold),
-                Cell::new(input_note_record.note().inputs().hash()),
+                Cell::new(input_note_record.note().inputs().commitment()),
             ])
             .add_row(vec![Cell::new("Note Inputs").add_attribute(Attribute::Bold)]);
         input_note_record
             .note()
             .inputs()
-            .inputs()
+            .values()
             .iter()
             .enumerate()
             .for_each(|(idx, input)| {
@@ -277,7 +273,7 @@ where
             input_note_record.note().id().inner().to_string(),
             input_note_record.note().script().hash().to_string(),
             input_note_record.note().assets().commitment().to_string(),
-            input_note_record.note().inputs().hash().to_string(),
+            input_note_record.note().inputs().commitment().to_string(),
             Digest::new(input_note_record.note().serial_num()).to_string(),
             commit_height,
         ]);
