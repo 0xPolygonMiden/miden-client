@@ -76,7 +76,10 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                 .ok_or(RpcApiError::ExpectedFieldMissing("Notes.MerklePath".into()))?
                 .try_into()?;
 
-            let sender_account_id = note.sender.try_into()?;
+            let sender_account_id = note
+                .sender
+                .ok_or(RpcApiError::ExpectedFieldMissing("Notes.Sender".into()))?
+                .try_into()?;
             let metadata = NoteMetadata::new(sender_account_id, note.tag.into());
 
             let committed_note =

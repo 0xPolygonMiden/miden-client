@@ -31,6 +31,8 @@ use mock::mock::{
 };
 use objects::{
     accounts::{Account, AccountStorage, StorageSlotType},
+    accounts::{AccountId, AccountType},
+    assets::FungibleAsset,
     assets::{AssetVault, TokenSymbol},
     crypto::merkle::{Mmr, MmrDelta},
     notes::{Note, NoteInclusionProof},
@@ -42,11 +44,6 @@ use rand::Rng;
 use tonic::{IntoRequest, Response, Status};
 
 use crate::store::accounts::AuthInfo;
-
-use objects::{
-    accounts::{AccountId, AccountType},
-    assets::FungibleAsset,
-};
 
 /// Mock RPC API
 ///
@@ -177,7 +174,7 @@ fn create_mock_sync_state_request_for_account_and_notes(
             notes: vec![NoteSyncRecord {
                 note_index: 0,
                 note_id: Some(created_notes_iter.next().unwrap().id().into()),
-                sender: account.id().into(),
+                sender: Some(account.id().into()),
                 tag: 0u64,
                 merkle_path: Some(miden_node_proto::generated::merkle::MerklePath::default()),
             }],
