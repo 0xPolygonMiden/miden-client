@@ -14,7 +14,7 @@ use crypto::{
     Felt, FieldElement, StarkField,
 };
 use miden_lib::{transaction::TransactionKernel, AuthScheme};
-use miden_node_proto::{
+use miden_node_proto::generated::{
     account::AccountId as ProtoAccountId,
     block_header::BlockHeader as NodeBlockHeader,
     note::NoteSyncRecord,
@@ -32,6 +32,8 @@ use mock::mock::{
 };
 use objects::{
     accounts::{Account, AccountStorage, StorageSlotType},
+    accounts::{AccountId, AccountType},
+    assets::FungibleAsset,
     assets::{AssetVault, TokenSymbol},
     crypto::merkle::{Mmr, MmrDelta},
     notes::{Note, NoteInclusionProof},
@@ -41,11 +43,6 @@ use objects::{
 };
 use rand::Rng;
 use tonic::{IntoRequest, Response, Status};
-
-use objects::{
-    accounts::{AccountId, AccountType},
-    assets::FungibleAsset,
-};
 
 /// Mock RPC API
 ///
@@ -170,15 +167,15 @@ fn create_mock_sync_state_request_for_account_and_notes(
             chain_tip,
             mmr_delta: deltas_iter
                 .next()
-                .map(miden_node_proto::mmr::MmrDelta::from),
+                .map(miden_node_proto::generated::mmr::MmrDelta::from),
             block_header: Some(NodeBlockHeader::from(*block_header)),
             accounts: vec![],
             notes: vec![NoteSyncRecord {
                 note_index: 0,
-                note_hash: Some(created_notes_iter.next().unwrap().id().into()),
-                sender: account.id().into(),
+                note_id: Some(created_notes_iter.next().unwrap().id().into()),
+                sender: Some(account.id().into()),
                 tag: 0u64,
-                merkle_path: Some(miden_node_proto::merkle::MerklePath::default()),
+                merkle_path: Some(miden_node_proto::generated::merkle::MerklePath::default()),
             }],
             nullifiers: vec![NullifierUpdate {
                 nullifier: Some(
