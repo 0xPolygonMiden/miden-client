@@ -69,36 +69,56 @@ CREATE TABLE transaction_scripts (
 -- Create input notes table
 CREATE TABLE input_notes (
     note_id BLOB NOT NULL,                                  -- the note id
-    nullifier BLOB NOT NULL,                                -- the nullifier of the note
     recipient BLOB NOT NULL,                                -- the note recipient
-    script BLOB NOT NULL,                                   -- the serialized NoteScript, including script hash and ProgramAst
     assets BLOB NOT NULL,                                   -- the serialized NoteAssets, including vault hash and list of assets
-    inputs BLOB NOT NULL,                                   -- the serialized NoteInputs, including inputs hash and list of inputs
-    serial_num BLOB NOT NULL,                               -- the note serial number.
-    sender_id UNSIGNED BIG INT NULL,                        -- the account ID of the sender. Known once the note is recorded on chain
-    tag UNSIGNED BIG INT NULL,                              -- the note tag. Known once the note is recorded on-chain
-    inclusion_proof BLOB NULL,                              -- the inclusion proof of the note against a block number. Known once the note is recorded on-chain
     status TEXT CHECK( status IN (                          -- the status of the note - either pending, committed or consumed
         'pending', 'committed', 'consumed'
         )),
+
+    inclusion_proof JSON NULL,                              -- JSON consisting of the following fields:
+    -- block_num                                              -- number of the block the note was included in
+    -- note_index                                             -- the index of the note in the note Merkle tree of the block the note was created in.
+    -- sub_hash                                               -- sub hash of the block the note was included in stored as a hex string
+    -- note_root                                              -- the note root of the block the note was created in
+    -- note_path                                              -- the Merkle path to the note in the note Merkle tree of the block the note was created in, stored as an array of digests
+    
+    metadata JSON NULL,                                     -- JSON consisting of the following fields:
+    -- sender_id                                              -- the account ID of the sender
+    -- tag                                                    -- the note tag
+
+    details JSON NULL,                                      -- JSON consisting of the following fields:
+    -- nullifier                                              -- the nullifier of the note
+    -- script                                                 -- the serialized NoteScript, including script hash and ProgramAst
+    -- inputs                                                 -- the serialized NoteInputs, including inputs hash and list of inputs
+    -- serial_num                                             -- the note serial number
     PRIMARY KEY (note_id)
 );
 
 -- Create output notes table
 CREATE TABLE output_notes (
     note_id BLOB NOT NULL,                                  -- the note id
-    nullifier BLOB NULL,                                    -- the nullifier of the note, only known if we know script, inputs, serial_num
     recipient BLOB NOT NULL,                                -- the note recipient
-    script BLOB NULL,                                       -- the serialized NoteScript, including script hash and ProgramAst. May not be known
     assets BLOB NOT NULL,                                   -- the serialized NoteAssets, including vault hash and list of assets
-    inputs BLOB NULL,                                       -- the serialized NoteInputs, including inputs hash and list of inputs. May not be known
-    serial_num BLOB NULL,                                   -- the note serial number. May not be known
-    sender_id UNSIGNED BIG INT NOT NULL,                    -- the account ID of the sender
-    tag UNSIGNED BIG INT NOT NULL,                          -- the note tag
-    inclusion_proof BLOB NULL,                              -- the inclusion proof of the note against a block number
     status TEXT CHECK( status IN (                          -- the status of the note - either pending, committed or consumed
         'pending', 'committed', 'consumed'
         )),
+
+    inclusion_proof JSON NULL,                              -- JSON consisting of the following fields:
+    -- block_num                                              -- number of the block the note was included in
+    -- note_index                                             -- the index of the note in the note Merkle tree of the block the note was created in.
+    -- sub_hash                                               -- sub hash of the block the note was included in stored as a hex string
+    -- note_root                                              -- the note root of the block the note was created in
+    -- note_path                                              -- the Merkle path to the note in the note Merkle tree of the block the note was created in, stored as an array of digests
+    
+    metadata JSON NULL,                                     -- JSON consisting of the following fields:
+    -- sender_id                                              -- the account ID of the sender
+    -- tag                                                    -- the note tag
+
+    details JSON NULL,                                      -- JSON consisting of the following fields:
+    -- nullifier                                              -- the nullifier of the note
+    -- script                                                 -- the serialized NoteScript, including script hash and ProgramAst
+    -- inputs                                                 -- the serialized NoteInputs, including inputs hash and list of inputs
+    -- serial_num                                             -- the note serial number
     PRIMARY KEY (note_id)
 );
 

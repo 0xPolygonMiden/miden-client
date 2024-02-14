@@ -16,26 +16,14 @@ use rusqlite::{params, Transaction};
 fn insert_note_query(table_name: NoteTable) -> String {
     format!("\
     INSERT INTO {table_name}
-        (note_id, nullifier, script, assets, inputs, serial_num, sender_id, tag, inclusion_proof, recipient, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        (note_id, assets, recipient, status, metadata, details, inclusion_proof)
+     (:note_id, :assets, :recipient, :status, json(:metadata), json(:details), json(:inclusion_proof))")
 }
 
 // TYPES
 // ================================================================================================
 
-type SerializedInputNoteData = (
-    String,
-    String,
-    Vec<u8>,
-    Vec<u8>,
-    Vec<u8>,
-    String,
-    i64,
-    i64,
-    Option<Vec<u8>>,
-    String,
-    String,
-);
+type SerializedInputNoteData = (String, Vec<u8>, String, String, String, String, String);
 
 type SerializedInputNoteParts = (Vec<u8>, Vec<u8>, Vec<u8>, String, u64, u64, Option<Vec<u8>>);
 
@@ -229,35 +217,20 @@ impl Store {
         tx: &Transaction<'_>,
         note: &InputNoteRecord,
     ) -> Result<(), StoreError> {
-        let (
-            note_id,
-            nullifier,
-            script,
-            vault,
-            inputs,
-            serial_num,
-            sender_id,
-            tag,
-            inclusion_proof,
-            recipient,
-            status,
-        ) = serialize_input_note(note)?;
+        let (note_id, assets, recipient, status, metadata, details, inclusion_proof) =
+            serialize_input_note(note)?;
 
         tx.execute(
             &insert_note_query(NoteTable::InputNotes),
-            params![
-                note_id,
-                nullifier,
-                script,
-                vault,
-                inputs,
-                serial_num,
-                sender_id,
-                tag,
-                inclusion_proof,
-                recipient,
-                status,
-            ],
+            named_params! {
+                ":note_id": note_id,
+                ":assets": assets,
+                ":recipient": recipient,
+                ":status": status,
+                ":metadata": metadata,
+                ":details": details
+                ":inclusion_proof": inclusion_proof,
+            },
         )
         .map_err(|err| StoreError::QueryError(err.to_string()))
         .map(|_| ())
@@ -268,35 +241,20 @@ impl Store {
         tx: &Transaction<'_>,
         note: &InputNoteRecord,
     ) -> Result<(), StoreError> {
-        let (
-            note_id,
-            nullifier,
-            script,
-            vault,
-            inputs,
-            serial_num,
-            sender_id,
-            tag,
-            inclusion_proof,
-            recipient,
-            status,
-        ) = serialize_input_note(note)?;
+        let (note_id, assets, recipient, status, metadata, details, inclusion_proof) =
+            serialize_input_note(note)?;
 
         tx.execute(
             &insert_note_query(NoteTable::OutputNotes),
-            params![
-                note_id,
-                nullifier,
-                script,
-                vault,
-                inputs,
-                serial_num,
-                sender_id,
-                tag,
-                inclusion_proof,
-                recipient,
-                status,
-            ],
+            named_params! {
+                ":note_id": note_id,
+                ":assets": assets,
+                ":recipient": recipient,
+                ":status": status,
+                ":metadata": metadata,
+                ":details": details
+                ":inclusion_proof": inclusion_proof,
+            },
         )
         .map_err(|err| StoreError::QueryError(err.to_string()))
         .map(|_| ())
@@ -377,18 +335,21 @@ pub(crate) fn serialize_input_note(
                 let _removed = path.remove(0);
             }
 
+            let block_num = proof.origin().block_num;
+            let sub_hash = proof.sub_hash();
+            let note_root = proof.note_root();
+            let node_index = proof.origin().node_index.value();
+
             (
-                Some(
-                    NoteInclusionProof::new(
-                        proof.origin().block_num,
-                        proof.sub_hash(),
-                        proof.note_root(),
-                        proof.origin().node_index.value(),
-                        path,
-                    )
-                    .unwrap()
-                    .to_bytes(),
-                ),
+                Some(format!(
+                    r#"{{
+                    "block_num": {block_num}, 
+                    "note_index": {note_indes}, 
+                    "sub_hash": {subhash}, 
+                    "note_root": {note_root}, 
+                    "note_path": {path}
+                }}"#
+                )),
                 String::from("committed"),
             )
         }
@@ -396,17 +357,18 @@ pub(crate) fn serialize_input_note(
     };
     let recipient = note.note().recipient().to_hex();
 
+    let metadata = format!(r#"{{"sender_id": {sender_id}, "tag": {tag}}}"#);
+    let details = format!(
+        r#"{{"nullifier": {nullifier}, "script": {script}, "inputs": {inputs}, "serial_num": {serial_num}}}"#
+    );
+
     Ok((
         note_id,
-        nullifier,
-        script,
         note_assets,
-        inputs,
-        serial_num,
-        sender_id,
-        tag,
-        inclusion_proof,
         recipient,
         status,
+        metadata,
+        details,
+        inclusion_proof,
     ))
 }
