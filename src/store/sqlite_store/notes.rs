@@ -9,7 +9,7 @@ use crypto::utils::{Deserializable, Serializable};
 
 use objects::notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteScript};
 
-use objects::{accounts::AccountId, notes::NoteMetadata, Digest, Felt};
+use objects::{accounts::AccountId, notes::NoteMetadata, Felt};
 use rusqlite::{params, Transaction};
 
 pub(crate) const INSERT_NOTE_QUERY: &str = "\
@@ -90,21 +90,6 @@ impl SqliteStore {
         insert_input_note_tx(&tx, note)?;
 
         Ok(tx.commit()?)
-    }
-
-    pub(crate) fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Digest>, StoreError> {
-        const QUERY: &str = "SELECT nullifier FROM input_notes WHERE status = 'committed'";
-
-        self.db
-            .prepare(QUERY)?
-            .query_map([], |row| row.get(0))
-            .expect("no binding parameters used in query")
-            .map(|result| {
-                result
-                    .map_err(|err| StoreError::ParsingError(err.to_string()))
-                    .and_then(|v: String| Digest::try_from(v).map_err(StoreError::HexParseError))
-            })
-            .collect::<Result<Vec<Digest>, _>>()
     }
 }
 

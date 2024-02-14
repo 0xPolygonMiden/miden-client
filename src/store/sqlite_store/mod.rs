@@ -115,10 +115,6 @@ impl Store for SqliteStore {
         self.insert_input_note(note)
     }
 
-    fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Digest>, StoreError> {
-        self.get_unspent_input_note_nullifiers()
-    }
-
     fn insert_block_header(
         &self,
         block_header: BlockHeader,
@@ -133,13 +129,6 @@ impl Store for SqliteStore {
         block_numbers: &[u32],
     ) -> Result<Vec<(BlockHeader, bool)>, StoreError> {
         self.get_block_headers(block_numbers)
-    }
-
-    fn get_block_header_by_num(
-        &self,
-        block_number: u32,
-    ) -> Result<(BlockHeader, bool), StoreError> {
-        self.get_block_header_by_num(block_number)
     }
 
     fn get_tracked_block_headers(&self) -> Result<Vec<BlockHeader>, StoreError> {

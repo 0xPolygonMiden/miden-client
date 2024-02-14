@@ -87,20 +87,6 @@ impl SqliteStore {
             .collect()
     }
 
-    pub(crate) fn get_block_header_by_num(
-        &self,
-        block_number: u32,
-    ) -> Result<(BlockHeader, bool), StoreError> {
-        const QUERY: &str = "SELECT block_num, header, notes_root, sub_hash, chain_mmr_peaks, has_client_notes FROM block_headers WHERE block_num = ?";
-
-        self.db
-            .prepare(QUERY)?
-            .query_map(params![block_number as i64], parse_block_headers_columns)?
-            .map(|result| Ok(result?).and_then(parse_block_header))
-            .next()
-            .ok_or(StoreError::BlockHeaderNotFound(block_number))?
-    }
-
     pub(crate) fn get_tracked_block_headers(&self) -> Result<Vec<BlockHeader>, StoreError> {
         const QUERY: &str = "SELECT block_num, header, notes_root, sub_hash, chain_mmr_peaks, has_client_notes FROM block_headers WHERE has_client_notes=true";
         self.db
@@ -299,7 +285,10 @@ mod test {
     use mock::mock::block::mock_block_header;
     use objects::BlockHeader;
 
-    use crate::store::sqlite_store::{tests::create_test_store, SqliteStore};
+    use crate::store::{
+        sqlite_store::{tests::create_test_store, SqliteStore},
+        Store,
+    };
 
     fn insert_dummy_block_headers(store: &mut SqliteStore) -> Vec<BlockHeader> {
         let block_headers: Vec<BlockHeader> = (0..5)

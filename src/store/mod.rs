@@ -58,7 +58,17 @@ pub trait Store {
     fn get_input_note_by_id(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError>;
 
     /// Returns the nullifiers of all unspent input notes
-    fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Digest>, StoreError>;
+    ///
+    /// It's automatically implemented by using the `get_input_notes` function
+    fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Digest>, StoreError> {
+        let nullifiers = self
+            .get_input_notes(InputNoteFilter::Committed)?
+            .iter()
+            .map(|input_note| input_note.note().nullifier().inner())
+            .collect();
+
+        Ok(nullifiers)
+    }
 
     /// Inserts the provided input note into the database
     fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError>;
@@ -76,8 +86,18 @@ pub trait Store {
 
     /// Retrieves a [BlockHeader] by number and a boolean value that represents whether the
     /// block contains notes relevant to the client.
-    fn get_block_header_by_num(&self, block_number: u32)
-        -> Result<(BlockHeader, bool), StoreError>;
+    ///
+    /// It's automatically implemented by using the `get_block_headers` function
+    fn get_block_header_by_num(
+        &self,
+        block_number: u32,
+    ) -> Result<(BlockHeader, bool), StoreError> {
+        self.get_block_headers(&[block_number])
+            .map(|block_headers_list| block_headers_list.first().cloned())
+            .and_then(|block_header| {
+                block_header.ok_or(StoreError::BlockHeaderNotFound(block_number))
+            })
+    }
 
     /// Retrieves a list of [BlockHeader] that include relevant notes to the client.
     fn get_tracked_block_headers(&self) -> Result<Vec<BlockHeader>, StoreError>;

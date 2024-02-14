@@ -11,7 +11,7 @@ use objects::{
     BlockHeader,
 };
 
-use super::{sqlite_store::SqliteStore, ChainMmrNodeFilter};
+use super::{sqlite_store::SqliteStore, ChainMmrNodeFilter, Store};
 
 // DATA STORE
 // ================================================================================================
