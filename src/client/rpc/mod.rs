@@ -59,7 +59,7 @@ pub trait NodeRpcClient {
 // STATE SYNC INFO
 // ================================================================================================
 
-/// Represents a [SyncStateResponse] with fields converted into domain types
+/// Represents a `SyncStateResponse` with fields converted into domain types
 pub struct StateSyncInfo {
     /// The block number of the chain tip at the moment of the response
     pub chain_tip: u32,
@@ -78,7 +78,7 @@ pub struct StateSyncInfo {
 // COMMITTED NOTE
 // ================================================================================================
 
-/// Represents a committed note, returned as part of a [SyncStateResponse]
+/// Represents a committed note, returned as part of a `SyncStateResponse`
 pub struct CommittedNote {
     /// Note ID of the committed note
     note_id: NoteId,
