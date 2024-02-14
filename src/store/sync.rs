@@ -1,13 +1,10 @@
-use crypto::{
-    merkle::{InOrderIndex, MmrPeaks},
-    utils::Serializable,
-};
+use crypto::merkle::{InOrderIndex, MmrPeaks};
 
 use objects::{
     notes::{NoteId, NoteInclusionProof},
     BlockHeader, Digest,
 };
-use rusqlite::params;
+use rusqlite::{named_params, params};
 
 use crate::{errors::StoreError, store::transactions::TransactionFilter};
 
@@ -89,12 +86,12 @@ impl Store {
         // Update spent notes
         for nullifier in nullifiers {
             const SPENT_INPUT_NOTE_QUERY: &str =
-                "UPDATE input_notes SET status = 'consumed' WHERE nullifier = ?";
+                "UPDATE input_notes SET status = 'consumed' WHERE json_extract(details, '$.nullifier') = ?";
             let nullifier = nullifier.to_hex();
             tx.execute(SPENT_INPUT_NOTE_QUERY, params![nullifier])?;
 
             const SPENT_OUTPUT_NOTE_QUERY: &str =
-                "UPDATE output_notes SET status = 'consumed' WHERE nullifier = ?";
+                "UPDATE output_notes SET status = 'consumed' WHERE json_extract(details, '$.nullifier') = ?";
             tx.execute(SPENT_OUTPUT_NOTE_QUERY, params![nullifier])?;
         }
 
@@ -108,22 +105,51 @@ impl Store {
 
         // Update tracked notes
         for (note_id, inclusion_proof) in committed_notes.iter() {
-            const COMMITTED_INPUT_NOTES_QUERY: &str =
-                "UPDATE input_notes SET status = 'committed', inclusion_proof = ? WHERE note_id = ?";
+            // let inclusion_proof = Some(inclusion_proof.to_bytes());
 
-            let inclusion_proof = Some(inclusion_proof.to_bytes());
+            let block_num = inclusion_proof.origin().block_num;
+            let sub_hash = inclusion_proof.sub_hash().to_string();
+            let note_root = inclusion_proof.note_root().to_string();
+            let node_index = inclusion_proof.origin().node_index.value();
+            let path = inclusion_proof
+                .note_path()
+                .iter()
+                .map(|path_node| format!("\"{}\"", path_node))
+                .collect::<Vec<_>>()
+                .join(",");
+            dbg!(&path);
+
+            let inclusion_proof = Some(format!(
+                r#"{{
+                    "block_num": {block_num}, 
+                    "note_index": {node_index}, 
+                    "sub_hash": "{sub_hash}", 
+                    "note_root": "{note_root}", 
+                    "note_path": [{path}]
+                }}"#
+            ));
+
+            const COMMITTED_INPUT_NOTES_QUERY: &str =
+                "UPDATE input_notes SET status = 'committed', inclusion_proof = json(:inclusion_proof) WHERE note_id = :note_id";
+
             tx.execute(
                 COMMITTED_INPUT_NOTES_QUERY,
-                params![inclusion_proof, note_id.inner().to_hex()],
+                named_params! {
+                    ":inclusion_proof": inclusion_proof,
+                    ":note_id": note_id.inner().to_hex()
+                },
             )?;
 
             // Update output notes
             const COMMITTED_OUTPUT_NOTES_QUERY: &str =
-                "UPDATE output_notes SET status = 'committed', inclusion_proof = ? WHERE note_id = ?";
+                "UPDATE output_notes SET status = 'committed', inclusion_proof = json(:inclusion_proof) WHERE note_id = :note_id";
 
             tx.execute(
                 COMMITTED_OUTPUT_NOTES_QUERY,
-                params![inclusion_proof, note_id.inner().to_hex()],
+                named_params! {
+                    ":inclusion_proof": inclusion_proof,
+                    ":note_id": note_id.inner().to_hex()
+                },
             )?;
         }
 

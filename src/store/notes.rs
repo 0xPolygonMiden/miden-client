@@ -6,26 +6,47 @@ use super::Store;
 
 use clap::error::Result;
 
+use crypto::merkle::MerklePath;
 use crypto::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 
 use objects::notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteScript};
 
 use objects::{accounts::AccountId, notes::NoteMetadata, transaction::InputNote, Digest, Felt};
-use rusqlite::{params, Transaction};
+use rusqlite::{named_params, params, Transaction};
 
 fn insert_note_query(table_name: NoteTable) -> String {
     format!("\
     INSERT INTO {table_name}
-        (note_id, assets, recipient, status, metadata, details, inclusion_proof)
-     (:note_id, :assets, :recipient, :status, json(:metadata), json(:details), json(:inclusion_proof))")
+        (note_id, assets, recipient, status, metadata, details, inclusion_proof) 
+     VALUES (:note_id, :assets, :recipient, :status, json(:metadata), json(:details), json(:inclusion_proof))")
 }
 
 // TYPES
 // ================================================================================================
 
-type SerializedInputNoteData = (String, Vec<u8>, String, String, String, String, String);
+type SerializedInputNoteData = (
+    String,
+    Vec<u8>,
+    String,
+    String,
+    String,
+    String,
+    Option<String>,
+);
 
-type SerializedInputNoteParts = (Vec<u8>, Vec<u8>, Vec<u8>, String, u64, u64, Option<Vec<u8>>);
+type SerializedInputNoteParts = (
+    String,
+    String,
+    Vec<u8>,
+    String,
+    u64,
+    u64,
+    Option<u32>,
+    Option<u64>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+);
 
 // NOTE TABLE
 // ================================================================================================
@@ -58,7 +79,21 @@ pub enum NoteFilter {
 impl NoteFilter {
     /// Returns a [String] containing the query for this Filter
     fn to_query(&self, notes_table: NoteTable) -> String {
-        let base = format!("SELECT script, inputs, assets, serial_num, sender_id, tag, inclusion_proof FROM {notes_table}");
+        let base = format!(
+            "SELECT CAST(json_extract(details, '$.script') AS TEXT), 
+                                    CAST(json_extract(details, '$.inputs') AS TEXT), 
+                                    assets, 
+                                    json_extract(details, '$.serial_num'), 
+                                    json_extract(metadata, '$.sender_id'), 
+                                    json_extract(metadata, '$.tag'), 
+                                    json_extract(inclusion_proof, '$.block_num'), 
+                                    json_extract(inclusion_proof, '$.note_index'), 
+                                    CAST(json_extract(inclusion_proof, '$.sub_hash') AS TEXT), 
+                                    CAST(json_extract(inclusion_proof, '$.note_root') AS TEXT), 
+                                    json_extract(inclusion_proof, '$.note_path')
+                                    from {notes_table}"
+        );
+
         match self {
             NoteFilter::All => base,
             NoteFilter::Committed => format!("{base} WHERE status = 'committed'"),
@@ -177,7 +212,19 @@ impl Store {
     /// Retrieves the input note with the specified id from the database
     pub fn get_input_note_by_id(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError> {
         let query_id = &note_id.inner().to_string();
-        const QUERY: &str = "SELECT script, inputs, assets, serial_num, sender_id, tag, inclusion_proof FROM input_notes WHERE note_id = ?";
+
+        const QUERY: &str = "SELECT CAST(json_extract(details, '$.script') AS TEXT), 
+                                    CAST(json_extract(details, '$.inputs') AS TEXT),
+                                    assets, 
+                                    json_extract(details, '$.serial_num'), 
+                                    json_extract(COALESCE(metadata, null), '$.sender_id'), 
+                                    json_extract(COALESCE(metadata, null), '$.tag'), 
+                                    json_extract(inclusion_proof, '$.block_num'), 
+                                    json_extract(inclusion_proof, '$.note_index'), 
+                                    CAST(json_extract(inclusion_proof, '$.sub_hash') AS TEXT), 
+                                    CAST(json_extract(inclusion_proof, '$.note_root') AS TEXT), 
+                                    json_extract(inclusion_proof, '$.note_path')
+                                    from input_notes WHERE note_id = ?";
 
         self.db
             .prepare(QUERY)?
@@ -198,7 +245,7 @@ impl Store {
 
     /// Returns the nullifiers of all unspent input notes
     pub fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Digest>, StoreError> {
-        const QUERY: &str = "SELECT nullifier FROM input_notes WHERE status = 'committed'";
+        const QUERY: &str = "SELECT json_extract(details, '$.nullifier') FROM input_notes WHERE status = 'committed'";
 
         self.db
             .prepare(QUERY)?
@@ -228,7 +275,7 @@ impl Store {
                 ":recipient": recipient,
                 ":status": status,
                 ":metadata": metadata,
-                ":details": details
+                ":details": details,
                 ":inclusion_proof": inclusion_proof,
             },
         )
@@ -252,7 +299,7 @@ impl Store {
                 ":recipient": recipient,
                 ":status": status,
                 ":metadata": metadata,
-                ":details": details
+                ":details": details,
                 ":inclusion_proof": inclusion_proof,
             },
         )
@@ -268,21 +315,20 @@ impl Store {
 fn parse_input_note_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedInputNoteParts, rusqlite::Error> {
-    let script: Vec<u8> = row.get(0)?;
-    let inputs: Vec<u8> = row.get(1)?;
+    let script: String = row.get(0)?;
+    let inputs: String = row.get(1)?;
     let vault: Vec<u8> = row.get(2)?;
     let serial_num: String = row.get(3)?;
     let sender_id = row.get::<usize, i64>(4)? as u64;
     let tag = row.get::<usize, i64>(5)? as u64;
-    let inclusion_proof: Option<Vec<u8>> = row.get(6)?;
+    let block_num: Option<u32> = row.get(6)?;
+    let note_index: Option<u64> = row.get(7)?;
+    let sub_hash: Option<String> = row.get(8)?;
+    let note_root: Option<String> = row.get(9)?;
+    let note_path: Option<String> = row.get(10)?;
     Ok((
-        script,
-        inputs,
-        vault,
-        serial_num,
-        sender_id,
-        tag,
-        inclusion_proof,
+        script, inputs, vault, serial_num, sender_id, tag, block_num, note_index, sub_hash,
+        note_root, note_path,
     ))
 }
 
@@ -290,10 +336,48 @@ fn parse_input_note_columns(
 fn parse_input_note(
     serialized_input_note_parts: SerializedInputNoteParts,
 ) -> Result<InputNoteRecord, StoreError> {
-    let (script, inputs, note_assets, serial_num, sender_id, tag, inclusion_proof) =
-        serialized_input_note_parts;
+    let (
+        script,
+        inputs,
+        note_assets,
+        serial_num,
+        sender_id,
+        tag,
+        block_num,
+        note_index,
+        sub_hash,
+        note_root,
+        note_path,
+    ) = serialized_input_note_parts;
+
+    let script = script
+        .replace(['[', ']'], "")
+        .split(',')
+        .map(|script_byte| {
+            script_byte.parse().map_err(|_err| {
+                StoreError::DataDeserializationError(DeserializationError::InvalidValue(
+                    script_byte.to_string(),
+                ))
+            })
+        })
+        .collect::<Result<Vec<u8>, _>>();
+    let script = script?;
     let script = NoteScript::read_from_bytes(&script)?;
+
+    let inputs = inputs
+        .replace(['[', ']'], "")
+        .split(',')
+        .map(|inputs_byte| {
+            inputs_byte.parse().map_err(|_err| {
+                StoreError::DataDeserializationError(DeserializationError::InvalidValue(
+                    inputs_byte.to_string(),
+                ))
+            })
+        })
+        .collect::<Result<Vec<u8>, _>>();
+    let inputs = inputs?;
     let inputs = NoteInputs::read_from_bytes(&inputs)?;
+
     let vault = NoteAssets::read_from_bytes(&note_assets)?;
     let serial_num =
         serde_json::from_str(&serial_num).map_err(StoreError::JsonDataDeserializationError)?;
@@ -303,9 +387,32 @@ fn parse_input_note(
     );
     let note = Note::from_parts(script, inputs, vault, serial_num, note_metadata);
 
-    let inclusion_proof = inclusion_proof
-        .map(|proof| NoteInclusionProof::read_from_bytes(&proof))
-        .transpose()?;
+    let inclusion_proof = match (block_num, note_index, sub_hash, note_root, note_path) {
+        (Some(block_num), Some(note_index), Some(sub_hash), Some(note_root), Some(note_path)) => {
+            let sub_hash = Digest::try_from(sub_hash)?;
+            let note_root = Digest::try_from(note_root)?;
+            let note_path = note_path.replace(['[', ']', '\"'], "");
+
+            // If the string is empty `split` actually yields an empty string instead of an empty
+            // iterator chain so we need to take care of it
+            let note_path = if note_path.is_empty() {
+                Ok(Vec::new())
+            } else {
+                note_path
+                    .split(',')
+                    .map(|node_digest| dbg!(Digest::try_from(dbg!(node_digest))))
+                    .collect::<Result<Vec<_>, _>>()
+            };
+
+            let note_path = note_path?;
+            let note_path = MerklePath::from(note_path);
+            Some(
+                NoteInclusionProof::new(block_num, sub_hash, note_root, note_index, note_path)
+                    .expect("Should be able to read note inclusion proof from db"),
+            )
+        }
+        _ => None,
+    };
 
     Ok(InputNoteRecord::new(note, inclusion_proof))
 }
@@ -336,18 +443,23 @@ pub(crate) fn serialize_input_note(
             }
 
             let block_num = proof.origin().block_num;
-            let sub_hash = proof.sub_hash();
-            let note_root = proof.note_root();
+            let sub_hash = dbg!(proof.sub_hash().to_string());
+            let note_root = dbg!(proof.note_root().to_string());
             let node_index = proof.origin().node_index.value();
+            let path = path
+                .into_iter()
+                .map(|path_node| format!("\"{}\"", path_node))
+                .collect::<Vec<_>>()
+                .join(",");
 
             (
                 Some(format!(
                     r#"{{
                     "block_num": {block_num}, 
-                    "note_index": {note_indes}, 
-                    "sub_hash": {subhash}, 
-                    "note_root": {note_root}, 
-                    "note_path": {path}
+                    "note_index": {node_index}, 
+                    "sub_hash": "{sub_hash}", 
+                    "note_root": "{note_root}", 
+                    "note_path": [{path}]
                 }}"#
                 )),
                 String::from("committed"),
@@ -358,8 +470,18 @@ pub(crate) fn serialize_input_note(
     let recipient = note.note().recipient().to_hex();
 
     let metadata = format!(r#"{{"sender_id": {sender_id}, "tag": {tag}}}"#);
+    let script = script
+        .into_iter()
+        .map(|script_byte| script_byte.to_string())
+        .collect::<Vec<_>>()
+        .join(",");
+    let inputs = inputs
+        .into_iter()
+        .map(|inputs_byte| inputs_byte.to_string())
+        .collect::<Vec<_>>()
+        .join(",");
     let details = format!(
-        r#"{{"nullifier": {nullifier}, "script": {script}, "inputs": {inputs}, "serial_num": {serial_num}}}"#
+        r#"{{"nullifier": "{nullifier}", "script": [{script}], "inputs": [{inputs}], "serial_num": "{serial_num}"}}"#
     );
 
     Ok((

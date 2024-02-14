@@ -54,8 +54,7 @@ pub mod tests {
 
     pub fn create_test_client() -> Client {
         let client_config = ClientConfig {
-            store: create_test_store_path()
-                .into_os_string()
+            store: dbg!(create_test_store_path().into_os_string())
                 .into_string()
                 .unwrap()
                 .try_into()
