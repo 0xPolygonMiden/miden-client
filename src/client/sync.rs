@@ -4,7 +4,7 @@ use crate::{
 };
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
-use miden_node_proto::requests::GetBlockHeaderByNumberRequest;
+use miden_node_proto::generated::requests::GetBlockHeaderByNumberRequest;
 
 use super::{rpc_client::CommittedNote, Client};
 use objects::{
