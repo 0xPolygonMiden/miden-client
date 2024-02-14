@@ -159,8 +159,8 @@ impl Store for SqliteStore {
         self.get_account_ids()
     }
 
-    fn get_accounts(&self) -> Result<Vec<(AccountStub, Option<Word>)>, StoreError> {
-        self.get_accounts()
+    fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, StoreError> {
+        self.get_account_stubs()
     }
 
     fn get_account_stub_by_id(

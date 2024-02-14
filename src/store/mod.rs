@@ -132,7 +132,7 @@ pub trait Store {
     /// used to create them.
     ///
     /// Said accounts' state is the state after the last performed sync.
-    fn get_accounts(&self) -> Result<Vec<(AccountStub, Option<Word>)>, StoreError>;
+    fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, StoreError>;
 
     /// Retrieves an [AccountStub] object for the specified [AccountId] along with the seed
     /// used to create it.

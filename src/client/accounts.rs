@@ -210,7 +210,7 @@ impl Client {
     /// Returns summary info about the accounts managed by this client.
     ///
     pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Option<Word>)>, ClientError> {
-        self.store.get_accounts().map_err(|err| err.into())
+        self.store.get_account_stubs().map_err(|err| err.into())
     }
 
     /// Returns summary info about the specified account.

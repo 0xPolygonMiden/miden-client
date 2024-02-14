@@ -102,7 +102,7 @@ impl Client {
 
         let accounts: Vec<AccountStub> = self
             .store
-            .get_accounts()?
+            .get_account_stubs()?
             .into_iter()
             .map(|(acc_stub, _)| acc_stub)
             .collect();
