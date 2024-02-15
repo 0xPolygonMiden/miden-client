@@ -5,6 +5,7 @@ use crate::{
         accounts::{AccountStorageMode, AccountTemplate},
         transactions::TransactionTemplate,
     },
+    mock::mock_fungible_faucet_account,
     store::{
         accounts::AuthInfo,
         mock_executor_data_store::MockDataStore,
@@ -19,7 +20,7 @@ use miden_lib::transaction::TransactionKernel;
 use mock::{
     constants::{generate_account_seed, AccountSeedType},
     mock::{
-        account::{self, mock_account, MockAccountType},
+        account::{self, MockAccountType},
         notes::AssetPreservationStatus,
         transaction::mock_inputs,
     },
@@ -307,6 +308,76 @@ async fn test_sync_state() {
 }
 
 #[tokio::test]
+async fn test_sync_state_mmr_state() {
+    // generate test client with a random store name
+    let mut client = create_test_client();
+
+    // generate test data
+    let tracked_block_headers = crate::mock::insert_mock_data(&mut client).await;
+
+    // sync state
+    let block_num: u32 = client.sync_state().await.unwrap();
+
+    // verify that the client is synced to the latest block
+    assert_eq!(
+        block_num,
+        client
+            .rpc_api
+            .state_sync_requests
+            .first_key_value()
+            .unwrap()
+            .1
+            .chain_tip
+    );
+
+    // verify that the latest block number has been updated
+    assert_eq!(
+        client.get_sync_height().unwrap(),
+        client
+            .rpc_api
+            .state_sync_requests
+            .first_key_value()
+            .unwrap()
+            .1
+            .chain_tip
+    );
+
+    // verify that we inserted the latest block into the db via the client
+    let latest_block = client.get_sync_height().unwrap();
+    assert_eq!(block_num, latest_block);
+    assert_eq!(
+        tracked_block_headers[tracked_block_headers.len() - 1],
+        client.get_block_headers(&[latest_block]).unwrap()[0].0
+    );
+
+    // Try reconstructing the chain_mmr from what's in the database
+    let partial_mmr = client.build_current_partial_mmr().unwrap();
+
+    // Since Mocked data contains three sync updates we should be "tracking" those blocks
+    // However, remember that we don't actually update the partial_mmr with the latest block but up
+    // to one block before instead. This is because the prologue will already build the
+    // authentication path for that block.
+    assert_eq!(partial_mmr.forest(), 6);
+    assert!(partial_mmr.open(0).unwrap().is_none());
+    assert!(partial_mmr.open(1).unwrap().is_none());
+    assert!(partial_mmr.open(2).unwrap().is_some());
+    assert!(partial_mmr.open(3).unwrap().is_none());
+    assert!(partial_mmr.open(4).unwrap().is_some());
+    assert!(partial_mmr.open(5).unwrap().is_none());
+
+    // Ensure the proofs are valid
+    let mmr_proof = partial_mmr.open(2).unwrap().unwrap();
+    assert!(partial_mmr
+        .peaks()
+        .verify(tracked_block_headers[0].hash(), mmr_proof));
+
+    let mmr_proof = partial_mmr.open(4).unwrap().unwrap();
+    assert!(partial_mmr
+        .peaks()
+        .verify(tracked_block_headers[1].hash(), mmr_proof));
+}
+
+#[tokio::test]
 async fn test_add_tag() {
     // generate test client with a random store name
     let mut client = create_test_client();
@@ -337,41 +408,37 @@ async fn test_add_tag() {
 }
 
 #[tokio::test]
-#[ignore = "currently fails with PhantomCallsNotAllowed"]
 async fn test_mint_transaction() {
     const FAUCET_ID: u64 = 10347894387879516201u64;
     const FAUCET_SEED: Word = [Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::ZERO];
+    const INITIAL_BALANCE: u64 = 1000;
 
     // generate test client with a random store name
     let mut client = create_test_client();
 
-    let (faucet, _seed) = client
-        .new_account(AccountTemplate::FungibleFaucet {
-            token_symbol: TokenSymbol::new("TST").unwrap(),
-            decimals: 10u8,
-            max_supply: 1000u64,
-            storage_mode: AccountStorageMode::Local,
-        })
-        .unwrap();
-
-    let faucet = mock_account(
-        Some(FAUCET_ID),
-        Felt::new(10u64),
-        Some(faucet.code().clone()),
-        &TransactionKernel::assembler(),
-    );
-
+    // Faucet account generation
     let key_pair: KeyPair = KeyPair::new()
         .map_err(|err| format!("Error generating KeyPair: {}", err))
         .unwrap();
+
+    let faucet = mock_fungible_faucet_account(
+        AccountId::try_from(FAUCET_ID).unwrap(),
+        INITIAL_BALANCE,
+        key_pair,
+    );
+
     client
         .store
         .insert_account(&faucet, FAUCET_SEED, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
-    client.set_data_store(MockDataStore::with_existing(faucet.clone(), None, None));
+
+    client.set_data_store(MockDataStore::with_existing(
+        faucet.clone(),
+        None,
+        Some(vec![]),
+    ));
 
     // Test submitting a mint transaction
-
     let transaction_template = TransactionTemplate::MintFungibleAsset {
         asset: FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         target_account_id: AccountId::from_hex("0x168187d729b31a84").unwrap(),

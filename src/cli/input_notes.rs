@@ -1,19 +1,15 @@
+use super::{Client, Parser};
+use crate::cli::create_dynamic_table;
+use clap::ValueEnum;
+use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
+use crypto::utils::{Deserializable, Serializable};
+use miden_client::store::notes::{InputNoteRecord, NoteFilter as ClientNoteFilter};
+use objects::{notes::NoteId, Digest};
 use std::{
     fs::File,
     io::{Read, Write},
     path::PathBuf,
 };
-
-use crate::cli::create_dynamic_table;
-
-use super::{Client, Parser};
-use clap::ValueEnum;
-use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
-use miden_client::store::notes::{InputNoteRecord, NoteFilter as ClientNoteFilter};
-
-use crypto::utils::{Deserializable, Serializable};
-
-use objects::{notes::NoteId, Digest};
 use tracing::warn;
 
 #[derive(Clone, Debug, ValueEnum)]
@@ -220,13 +216,13 @@ fn show_input_note(
         table
             .add_row(vec![
                 Cell::new("Note Inputs hash").add_attribute(Attribute::Bold),
-                Cell::new(input_note_record.note().inputs().hash()),
+                Cell::new(input_note_record.note().inputs().commitment()),
             ])
             .add_row(vec![Cell::new("Note Inputs").add_attribute(Attribute::Bold)]);
         input_note_record
             .note()
             .inputs()
-            .inputs()
+            .values()
             .iter()
             .enumerate()
             .for_each(|(idx, input)| {
@@ -265,7 +261,7 @@ where
             input_note_record.note().id().inner().to_string(),
             input_note_record.note().script().hash().to_string(),
             input_note_record.note().assets().commitment().to_string(),
-            input_note_record.note().inputs().hash().to_string(),
+            input_note_record.note().inputs().commitment().to_string(),
             Digest::new(input_note_record.note().serial_num()).to_string(),
             commit_height,
         ]);

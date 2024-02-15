@@ -1,6 +1,9 @@
 use core::fmt;
-use crypto::merkle::{MerklePath, MmrDelta};
-use miden_node_proto::responses::SyncStateResponse;
+use crypto::{
+    merkle::{MerklePath, MmrDelta},
+    utils::DeserializationError,
+};
+use miden_node_proto::generated::responses::SyncStateResponse;
 use objects::{
     accounts::AccountId,
     notes::{NoteId, NoteMetadata},
@@ -66,7 +69,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
         let mut note_inclusions = vec![];
         for note in value.notes {
             let note_id: Digest = note
-                .note_hash
+                .note_id
                 .ok_or(RpcApiError::ExpectedFieldMissing("Notes.Id".into()))?
                 .try_into()?;
             let note_id: NoteId = note_id.into();
@@ -76,8 +79,16 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                 .ok_or(RpcApiError::ExpectedFieldMissing("Notes.MerklePath".into()))?
                 .try_into()?;
 
-            let sender_account_id = note.sender.try_into()?;
-            let metadata = NoteMetadata::new(sender_account_id, note.tag.into());
+            let sender_account_id = note
+                .sender
+                .ok_or(RpcApiError::ExpectedFieldMissing("Notes.Sender".into()))?
+                .try_into()?;
+            let metadata = NoteMetadata::new(
+                sender_account_id,
+                note.tag
+                    .try_into()
+                    .map_err(DeserializationError::InvalidValue)?,
+            );
 
             let committed_note =
                 CommittedNote::new(note_id, note.note_index, merkle_path, metadata);
@@ -150,7 +161,6 @@ impl CommittedNote {
         &self.merkle_path
     }
 
-    #[allow(dead_code)]
     pub fn metadata(&self) -> NoteMetadata {
         self.metadata
     }
@@ -168,7 +178,7 @@ use crate::errors::RpcApiError;
 mod client {
     use super::{RpcApiEndpoint, StateSyncInfo};
     use crate::errors::RpcApiError;
-    use miden_node_proto::{
+    use miden_node_proto::generated::{
         requests::{
             GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest, SyncStateRequest,
         },

@@ -7,20 +7,31 @@ license = "MIT"
 repository = "https://github.com/0xPolygonMiden/miden-client"
 keywords = ["miden", "client"]
 edition = "2021"
-rust-version = "1.67"
+rust-version = "1.75"
+default-run = "miden-client"
+
+[[bin]]
+name = "integration"
+path = "tests/integration/main.rs"
+required-features = ["integration"]
 
 [features]
-concurrent = ["miden_lib/concurrent", "objects/concurrent", "miden_tx/concurrent"]
+concurrent = [
+    "miden_lib/concurrent",
+    "objects/concurrent",
+    "miden_tx/concurrent",
+]
 default = ["std"]
+integration = ["testing", "concurrent", "uuid"]
 mock = []
 std = ["crypto/std", "objects/std"]
 testing = ["objects/testing", "miden_lib/testing"]
 
 [dependencies]
 assembly = { package = "miden-assembly", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
-clap = { version = "4.3" , features = ["derive"] }
+clap = { version = "4.3", features = ["derive"] }
 comfy-table = "7.1.0"
-crypto = { package = "miden-crypto", git = "https://github.com/0xPolygonMiden/crypto", branch = "next", default-features = false }
+crypto = { package = "miden-crypto", version = "0.8", default-features = false }
 figment = { version = "0.10", features = ["toml", "env"] }
 lazy_static = "1.4.0"
 miden_lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", default-features = false }
@@ -28,18 +39,23 @@ miden_node_store = { package = "miden-node-store", git = "https://github.com/0xP
 miden_node_proto = { package = "miden-node-proto", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "main", default-features = false }
 miden_tx = { package = "miden-tx", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", default-features = false }
 mock = { package = "miden-mock", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", default-features = false }
-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", features = ["serde"] }
+objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", features = [
+    "serde",
+] }
 rand = { version = "0.8.5" }
-rusqlite = { version = "0.29.0", features = ["bundled"] }
+rusqlite = { version = "0.30.0", features = ["bundled"] }
 rusqlite_migration = { version = "1.0" }
-serde = {version = "1.0", features = ["derive"]}
+serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
 tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"] }
-tonic = { version = "0.10" }
+tonic = { version = "0.11" }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3" }
+uuid = { version = "1.6.1", features = ["serde", "v4"], optional = true }
 
 [dev-dependencies]
-uuid = { version = "1.6.1", features = ["serde", "v4"] }
 # needed for tests to run always with the mock feature
-miden_client = { package = "miden-client", path = ".", features = ["mock"] }
+miden_client = { package = "miden-client", path = ".", features = [
+    "mock",
+    "uuid",
+] }
