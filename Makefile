@@ -18,3 +18,8 @@ start-node: node
 reset:
 	rm -rf miden-node
 	cargo clean
+
+fmt:
+	cargo fix --allow-staged --allow-dirty --all-targets --all-features
+	cargo fmt
+	cargo clippy --all-targets --all-features -- -D clippy::all -D warnings
