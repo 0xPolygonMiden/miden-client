@@ -3,7 +3,7 @@ use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use crypto::{
     dsa::rpo_falcon512::KeyPair,
     utils::{bytes_to_hex_string, Deserializable, Serializable},
-    StarkField, ZERO,
+    ZERO,
 };
 use miden_client::client::{accounts, rpc::NodeRpcClient, Client};
 

@@ -292,6 +292,7 @@ impl std::error::Error for StoreError {}
 pub enum NodeRpcClientError {
     ConnectionError(String),
     ConversionFailure(String),
+    DeserializationError(DeserializationError),
     ExpectedFieldMissing(String),
     InvalidAccountReceived(String),
     RequestError(String, String),
@@ -305,6 +306,9 @@ impl fmt::Display for NodeRpcClientError {
             }
             NodeRpcClientError::ConversionFailure(err) => {
                 write!(f, "failed to convert RPC data: {err}")
+            }
+            NodeRpcClientError::DeserializationError(err) => {
+                write!(f, "failed to deserialize RPC data: {err}")
             }
             NodeRpcClientError::ExpectedFieldMissing(err) => {
                 write!(f, "rpc API reponse missing an expected field: {err}")
@@ -322,14 +326,20 @@ impl fmt::Display for NodeRpcClientError {
     }
 }
 
-impl From<ParseError> for NodeRpcClientError {
-    fn from(err: ParseError) -> Self {
-        Self::ConversionFailure(err.to_string())
-    }
-}
-
 impl From<AccountError> for NodeRpcClientError {
     fn from(err: AccountError) -> Self {
         Self::InvalidAccountReceived(err.to_string())
+    }
+}
+
+impl From<DeserializationError> for NodeRpcClientError {
+    fn from(err: DeserializationError) -> Self {
+        Self::DeserializationError(err)
+    }
+}
+
+impl From<ParseError> for NodeRpcClientError {
+    fn from(err: ParseError) -> Self {
+        Self::ConversionFailure(err.to_string())
     }
 }

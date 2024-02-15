@@ -16,7 +16,7 @@ use objects::{
     accounts::AccountId,
     notes::{NoteId, NoteMetadata},
     transaction::ProvenTransaction,
-    BlockHeader, Digest,
+    BlockHeader, Digest, Felt
 };
 use tonic::transport::Channel;
 
@@ -203,7 +203,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                     "Notes.Sender".into(),
                 ))?
                 .try_into()?;
-            let metadata = NoteMetadata::new(sender_account_id, note.tag.into());
+            let metadata = NoteMetadata::new(sender_account_id, Felt::new(note.tag));
 
             let committed_note =
                 CommittedNote::new(note_id, note.note_index, merkle_path, metadata);

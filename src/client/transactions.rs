@@ -1,4 +1,4 @@
-use crypto::{rand::RpoRandomCoin, utils::Serializable, Felt, StarkField, Word};
+use crypto::{rand::RpoRandomCoin, utils::Serializable, Felt, Word};
 use miden_lib::notes::create_p2id_note;
 
 use miden_tx::{DataStore, ProvingOptions, TransactionProver};
@@ -10,7 +10,8 @@ use objects::{
     assets::{Asset, FungibleAsset},
     notes::{Note, NoteId},
     transaction::{
-        ExecutedTransaction, OutputNote, OutputNotes, ProvenTransaction, TransactionScript,
+        ExecutedTransaction, OutputNote, OutputNotes, ProvenTransaction, TransactionArgs,
+        TransactionScript,
     },
     Digest,
 };
@@ -127,8 +128,8 @@ impl TransactionResult {
         self.executed_transaction.block_header().block_num()
     }
 
-    pub fn transaction_script(&self) -> Option<&TransactionScript> {
-        self.executed_transaction.tx_script()
+    pub fn transaction_arguments(&self) -> &TransactionArgs {
+        self.executed_transaction.tx_args()
     }
 
     pub fn account_delta(&self) -> &AccountDelta {
@@ -374,12 +375,14 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
             .tx_executor
             .compile_tx_script(tx_script, script_inputs, vec![])?;
 
+        let tx_args = TransactionArgs::with_tx_script(tx_script);
+
         // Execute the transaction and get the witness
         let executed_transaction = self.tx_executor.execute_transaction(
             account_id,
             block_num,
             input_notes,
-            Some(tx_script),
+            Some(tx_args),
         )?;
 
         Ok(TransactionResult::new(executed_transaction, output_notes))
@@ -425,6 +428,6 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
         let mut rng = rand::thread_rng();
         let coin_seed: [u64; 4] = rng.gen();
 
-        RpoRandomCoin::new(coin_seed.map(|x| x.into()))
+        RpoRandomCoin::new(coin_seed.map(Felt::new))
     }
 }

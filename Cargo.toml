@@ -32,7 +32,7 @@ assembly = { package = "miden-assembly", git = "https://github.com/0xPolygonMide
 async-trait = { version = "0.1" }
 clap = { version = "4.3", features = ["derive"] }
 comfy-table = "7.1.0"
-crypto = { package = "miden-crypto", git = "https://github.com/0xPolygonMiden/crypto", branch = "next", default-features = false }
+crypto = { package = "miden-crypto", version = "0.8", default-features = false }
 figment = { version = "0.10", features = ["toml", "env"] }
 lazy_static = "1.4.0"
 miden_lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", default-features = false }
