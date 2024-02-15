@@ -13,7 +13,8 @@ use objects::{
     assets::{Asset, FungibleAsset},
     notes::{Note, NoteId},
     transaction::{
-        ExecutedTransaction, OutputNote, OutputNotes, ProvenTransaction, TransactionScript,
+        ExecutedTransaction, OutputNote, OutputNotes, ProvenTransaction, TransactionArgs,
+        TransactionScript,
     },
     Digest,
 };
@@ -130,8 +131,8 @@ impl TransactionResult {
         self.executed_transaction.block_header().block_num()
     }
 
-    pub fn transaction_script(&self) -> Option<&TransactionScript> {
-        self.executed_transaction.tx_script()
+    pub fn transaction_arguments(&self) -> &TransactionArgs {
+        self.executed_transaction.tx_args()
     }
 
     pub fn account_delta(&self) -> &AccountDelta {
@@ -377,12 +378,14 @@ impl Client {
             .tx_executor
             .compile_tx_script(tx_script, script_inputs, vec![])?;
 
+        let tx_args = TransactionArgs::with_tx_script(tx_script);
+
         // Execute the transaction and get the witness
         let executed_transaction = self.tx_executor.execute_transaction(
             account_id,
             block_num,
             input_notes,
-            Some(tx_script),
+            Some(tx_args),
         )?;
 
         Ok(TransactionResult::new(executed_transaction, output_notes))
