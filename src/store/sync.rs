@@ -117,7 +117,6 @@ impl Store {
                 .map(|path_node| format!("\"{}\"", path_node))
                 .collect::<Vec<_>>()
                 .join(",");
-            dbg!(&path);
 
             let inclusion_proof = Some(format!(
                 r#"{{

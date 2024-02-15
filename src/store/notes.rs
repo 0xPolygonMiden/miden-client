@@ -400,7 +400,7 @@ fn parse_input_note(
             } else {
                 note_path
                     .split(',')
-                    .map(|node_digest| dbg!(Digest::try_from(dbg!(node_digest))))
+                    .map(|node_digest| Digest::try_from(node_digest))
                     .collect::<Result<Vec<_>, _>>()
             };
 
@@ -443,8 +443,8 @@ pub(crate) fn serialize_input_note(
             }
 
             let block_num = proof.origin().block_num;
-            let sub_hash = dbg!(proof.sub_hash().to_string());
-            let note_root = dbg!(proof.note_root().to_string());
+            let sub_hash = proof.sub_hash().to_string();
+            let note_root = proof.note_root().to_string();
             let node_index = proof.origin().node_index.value();
             let path = path
                 .into_iter()
