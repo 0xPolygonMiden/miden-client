@@ -88,8 +88,8 @@ impl InputNoteRecord {
 
 impl Serializable for InputNoteRecord {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
-        target.write(self.note().to_bytes());
-        target.write(self.inclusion_proof.to_bytes());
+        self.note().write_into(target);
+        self.inclusion_proof.write_into(target);
     }
 }
 
@@ -97,8 +97,8 @@ impl Deserializable for InputNoteRecord {
     fn read_from<R: ByteReader>(
         source: &mut R,
     ) -> std::prelude::v1::Result<Self, DeserializationError> {
-        let note: Note = source.read()?;
-        let proof: Option<NoteInclusionProof> = source.read()?;
+        let note = Note::read_from(source)?;
+        let proof = Option::<NoteInclusionProof>::read_from(source)?;
         Ok(InputNoteRecord::new(note, proof))
     }
 }
