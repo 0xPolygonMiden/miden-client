@@ -1,5 +1,8 @@
 use core::fmt;
-use crypto::merkle::{MerklePath, MmrDelta};
+use crypto::{
+    merkle::{MerklePath, MmrDelta},
+    utils::DeserializationError,
+};
 use miden_node_proto::generated::responses::SyncStateResponse;
 use objects::{
     accounts::AccountId,
@@ -84,7 +87,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                 sender_account_id,
                 note.tag
                     .try_into()
-                    .expect("tag value is greater than or equal to the field modulus"),
+                    .map_err(DeserializationError::InvalidValue)?,
             );
 
             let committed_note =
