@@ -16,7 +16,7 @@ use objects::{
     accounts::AccountId,
     notes::{NoteId, NoteMetadata},
     transaction::ProvenTransaction,
-    BlockHeader, Digest, Felt
+    BlockHeader, Digest, Felt,
 };
 use tonic::transport::Channel;
 
