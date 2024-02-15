@@ -1,6 +1,7 @@
 use crate::{config::StoreConfig, errors::StoreError};
 
 use clap::error::Result;
+use crypto::utils::DeserializationError;
 use rusqlite::Connection;
 
 pub mod accounts;
@@ -33,6 +34,32 @@ impl Store {
 
         Ok(Self { db })
     }
+}
+
+// HELPER Functions
+// ================================================================================================
+
+pub(crate) fn parse_json_array(array_as_str: String) -> Vec<String> {
+    let array_as_str = array_as_str.replace(['[', ']', '\"'], "");
+
+    // If the string is empty `split` actually yields an empty string instead of an empty
+    // iterator chain so we need to take care of it
+    if array_as_str.is_empty() {
+        Vec::new()
+    } else {
+        array_as_str
+            .split(',')
+            .map(|str| str.to_string())
+            .collect::<Vec<_>>()
+    }
+}
+
+pub(crate) fn parse_json_byte_str(byte_as_str: String) -> Result<u8, StoreError> {
+    byte_as_str.parse().map_err(|_err| {
+        StoreError::DataDeserializationError(DeserializationError::InvalidValue(
+            byte_as_str.to_string(),
+        ))
+    })
 }
 
 // TESTS

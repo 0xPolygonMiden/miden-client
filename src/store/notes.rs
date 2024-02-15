@@ -2,7 +2,7 @@ use core::fmt;
 
 use crate::errors::{ClientError, StoreError};
 
-use super::Store;
+use super::{parse_json_array, parse_json_byte_str, Store};
 
 use clap::error::Result;
 
@@ -350,32 +350,16 @@ fn parse_input_note(
         note_path,
     ) = serialized_input_note_parts;
 
-    let script = script
-        .replace(['[', ']'], "")
-        .split(',')
-        .map(|script_byte| {
-            script_byte.parse().map_err(|_err| {
-                StoreError::DataDeserializationError(DeserializationError::InvalidValue(
-                    script_byte.to_string(),
-                ))
-            })
-        })
-        .collect::<Result<Vec<u8>, _>>();
-    let script = script?;
+    let script = parse_json_array(script)
+        .into_iter()
+        .map(parse_json_byte_str)
+        .collect::<Result<Vec<u8>, _>>()?;
     let script = NoteScript::read_from_bytes(&script)?;
 
-    let inputs = inputs
-        .replace(['[', ']'], "")
-        .split(',')
-        .map(|inputs_byte| {
-            inputs_byte.parse().map_err(|_err| {
-                StoreError::DataDeserializationError(DeserializationError::InvalidValue(
-                    inputs_byte.to_string(),
-                ))
-            })
-        })
-        .collect::<Result<Vec<u8>, _>>();
-    let inputs = inputs?;
+    let inputs = parse_json_array(inputs)
+        .into_iter()
+        .map(parse_json_byte_str)
+        .collect::<Result<Vec<u8>, _>>()?;
     let inputs = NoteInputs::read_from_bytes(&inputs)?;
 
     let vault = NoteAssets::read_from_bytes(&note_assets)?;
@@ -391,20 +375,11 @@ fn parse_input_note(
         (Some(block_num), Some(note_index), Some(sub_hash), Some(note_root), Some(note_path)) => {
             let sub_hash = Digest::try_from(sub_hash)?;
             let note_root = Digest::try_from(note_root)?;
-            let note_path = note_path.replace(['[', ']', '\"'], "");
+            let note_path = parse_json_array(note_path)
+                .iter()
+                .map(Digest::try_from)
+                .collect::<Result<Vec<_>, _>>()?;
 
-            // If the string is empty `split` actually yields an empty string instead of an empty
-            // iterator chain so we need to take care of it
-            let note_path = if note_path.is_empty() {
-                Ok(Vec::new())
-            } else {
-                note_path
-                    .split(',')
-                    .map(Digest::try_from)
-                    .collect::<Result<Vec<_>, _>>()
-            };
-
-            let note_path = note_path?;
             let note_path = MerklePath::from(note_path);
             Some(
                 NoteInclusionProof::new(block_num, sub_hash, note_root, note_index, note_path)
