@@ -205,7 +205,7 @@ impl Client {
 
         let pending_output_notes: Vec<NoteId> = self
             .store
-            .get_input_notes(crate::store::notes::NoteFilter::Pending)?
+            .get_output_notes(crate::store::notes::NoteFilter::Pending)?
             .iter()
             .map(|n| n.note().id())
             .collect();
