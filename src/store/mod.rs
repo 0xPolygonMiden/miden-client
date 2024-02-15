@@ -36,7 +36,7 @@ pub mod data_store;
 ///     VALUES (json(:some_field))")
 /// ```
 ///
-/// ```rust
+/// ```ignore
 /// let metadata = format!(r#"{{"some_inner_field": {some_field}, "some_other_inner_field": {some_other_field}}}"#);
 /// ```
 ///
@@ -53,7 +53,7 @@ pub mod data_store;
 /// suppose one of your json fields is an array of digests. Then you'll need to
 ///     - Create the json with an array of strings representing the digests:
 ///
-///     ```rust
+///     ```ignore
 ///     let some_array_field = some_array
 ///         .into_iter()
 ///         .map(array_elem_to_string)
@@ -70,7 +70,7 @@ pub mod data_store;
 ///     - When deserializing, handling the extra symbols (`[`, `]`, `,`, `"`). For that you can use
 ///     the `parse_json_array` function:
 ///
-///     ```rust
+///     ```ignore
 ///         let some_array = parse_json_array(some_array_field)
 ///         .into_iter()
 ///         .map(parse_json_byte_str)
