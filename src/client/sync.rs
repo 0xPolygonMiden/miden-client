@@ -11,7 +11,7 @@ use objects::{
     accounts::{AccountId, AccountStub},
     crypto,
     notes::{NoteId, NoteInclusionProof},
-    BlockHeader, Digest, StarkField,
+    BlockHeader, Digest,
 };
 use tracing::warn;
 

@@ -295,6 +295,7 @@ use crate::client::RpcApiEndpoint;
 pub enum RpcApiError {
     ConnectionError(TransportError),
     ConversionFailure(ParseError),
+    DeserializationError(DeserializationError),
     ExpectedFieldMissing(String),
     InvalidAccountReceived(AccountError),
     RequestError(RpcApiEndpoint, TonicStatus),
@@ -308,6 +309,9 @@ impl fmt::Display for RpcApiError {
             }
             RpcApiError::ConversionFailure(err) => {
                 write!(f, "failed to convert RPC data: {err}")
+            }
+            RpcApiError::DeserializationError(err) => {
+                write!(f, "failed to deserialize RPC data: {err}")
             }
             RpcApiError::ExpectedFieldMissing(err) => {
                 write!(f, "rpc API reponse missing an expected field: {err}")
@@ -325,14 +329,20 @@ impl fmt::Display for RpcApiError {
     }
 }
 
-impl From<ParseError> for RpcApiError {
-    fn from(err: ParseError) -> Self {
-        Self::ConversionFailure(err)
-    }
-}
-
 impl From<AccountError> for RpcApiError {
     fn from(err: AccountError) -> Self {
         Self::InvalidAccountReceived(err)
+    }
+}
+
+impl From<DeserializationError> for RpcApiError {
+    fn from(err: DeserializationError) -> Self {
+        Self::DeserializationError(err)
+    }
+}
+
+impl From<ParseError> for RpcApiError {
+    fn from(err: ParseError) -> Self {
+        Self::ConversionFailure(err)
     }
 }

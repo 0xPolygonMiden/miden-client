@@ -221,11 +221,12 @@ pub(super) fn serialize_transaction_data(
     );
 
     // TODO: Scripts should be in their own tables and only identifiers should be stored here
+    let transaction_args = transaction_result.transaction_arguments();
     let mut script_program = None;
     let mut script_hash = None;
     let mut script_inputs = None;
 
-    if let Some(tx_script) = transaction_result.transaction_script() {
+    if let Some(tx_script) = transaction_args.tx_script() {
         script_program = Some(tx_script.code().to_bytes(AstSerdeOptions {
             serialize_imports: true,
         }));
