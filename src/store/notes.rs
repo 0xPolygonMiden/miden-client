@@ -400,7 +400,7 @@ fn parse_input_note(
             } else {
                 note_path
                     .split(',')
-                    .map(|node_digest| Digest::try_from(node_digest))
+                    .map(Digest::try_from)
                     .collect::<Result<Vec<_>, _>>()
             };
 
