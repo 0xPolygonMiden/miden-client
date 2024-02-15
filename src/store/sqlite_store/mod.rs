@@ -1,6 +1,6 @@
 use objects::{
     accounts::{Account, AccountId, AccountStub},
-    notes::{Note, NoteInclusionProof},
+    notes::NoteInclusionProof,
     utils::collections::BTreeMap,
     Digest,
 };

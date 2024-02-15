@@ -7,7 +7,7 @@ use clap::error::Result;
 use crypto::{
     hash::rpo::RpoDigest,
     utils::{Deserializable, Serializable},
-    StarkField, Word,
+    Felt, Word,
 };
 use miden_lib::transaction::TransactionKernel;
 use objects::{
@@ -311,7 +311,7 @@ pub(super) fn parse_accounts(
             (id as u64)
                 .try_into()
                 .expect("Conversion from stored AccountID should not panic"),
-            (nonce as u64).into(),
+            Felt::new(nonce as u64),
             serde_json::from_str(&vault_root).map_err(StoreError::JsonDataDeserializationError)?,
             Digest::try_from(&storage_root)?,
             Digest::try_from(&code_root)?,

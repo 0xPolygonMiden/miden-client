@@ -1,5 +1,8 @@
 use core::fmt;
-use crypto::merkle::{MerklePath, MmrDelta};
+use crypto::{
+    merkle::{MerklePath, MmrDelta},
+    utils::DeserializationError,
+};
 use miden_node_proto::generated::responses::SyncStateResponse;
 use objects::{
     accounts::AccountId,
@@ -80,7 +83,12 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                 .sender
                 .ok_or(RpcApiError::ExpectedFieldMissing("Notes.Sender".into()))?
                 .try_into()?;
-            let metadata = NoteMetadata::new(sender_account_id, note.tag.into());
+            let metadata = NoteMetadata::new(
+                sender_account_id,
+                note.tag
+                    .try_into()
+                    .map_err(DeserializationError::InvalidValue)?,
+            );
 
             let committed_note =
                 CommittedNote::new(note_id, note.note_index, merkle_path, metadata);

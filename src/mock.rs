@@ -11,7 +11,7 @@ use crate::{
 use crypto::{
     dsa::rpo_falcon512::KeyPair,
     merkle::{NodeIndex, SimpleSmt},
-    Felt, FieldElement, StarkField,
+    Felt, FieldElement,
 };
 use miden_lib::{transaction::TransactionKernel, AuthScheme};
 use miden_node_proto::generated::{
