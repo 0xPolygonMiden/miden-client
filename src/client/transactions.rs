@@ -404,23 +404,7 @@ impl Client {
             .await?;
 
         // Transaction was proven and submitted to the node correctly, persist note details and update account
-        let account_id = tx_result.executed_transaction().account_id();
-        let account_delta = tx_result.account_delta();
-
-        let (mut account, seed) = self.store.get_account_by_id(account_id)?;
-
-        account
-            .apply_delta(account_delta)
-            .map_err(ClientError::AccountError)?;
-
-        let created_notes = tx_result
-            .created_notes()
-            .iter()
-            .map(|note| InputNoteRecord::from(note.clone()))
-            .collect::<Vec<_>>();
-
-        self.store
-            .insert_transaction_data(tx_result, account, seed, &created_notes)?;
+        self.store.insert_transaction_data(tx_result)?;
 
         Ok(())
     }

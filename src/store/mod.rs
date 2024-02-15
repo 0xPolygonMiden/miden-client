@@ -37,13 +37,7 @@ pub trait Store {
     ) -> Result<Vec<TransactionRecord>, StoreError>;
 
     /// Inserts a transaction and updates the current state based on the `tx_result` changes
-    fn insert_transaction_data(
-        &mut self,
-        tx_result: TransactionResult,
-        updated_account: Account,
-        account_seed: Option<Word>,
-        created_notes: &[InputNoteRecord],
-    ) -> Result<(), StoreError>;
+    fn insert_transaction_data(&mut self, tx_result: TransactionResult) -> Result<(), StoreError>;
 
     // NOTE FUNCTIONS
     // ================================================================================================
