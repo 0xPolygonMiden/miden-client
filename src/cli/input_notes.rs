@@ -10,7 +10,6 @@ use std::{
     io::{Read, Write},
     path::PathBuf,
 };
-use tracing::warn;
 
 #[derive(Clone, Debug, ValueEnum)]
 pub enum NoteFilter {
