@@ -11,7 +11,7 @@ use crypto::{
 };
 use objects::{
     accounts::{Account, AccountId, AccountStub},
-    notes::{Note, NoteId, NoteInclusionProof},
+    notes::{Note, NoteId, NoteInclusionProof, Nullifier},
     transaction::InputNote,
     utils::collections::BTreeMap,
     BlockHeader, Digest,
@@ -54,11 +54,11 @@ pub trait Store {
     /// Returns the nullifiers of all unspent input notes
     ///
     /// It's automatically implemented by using the `get_input_notes` function
-    fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Digest>, StoreError> {
+    fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
         let nullifiers = self
             .get_input_notes(InputNoteFilter::Committed)?
             .iter()
-            .map(|input_note| input_note.note().nullifier().inner())
+            .map(|input_note| input_note.note().nullifier())
             .collect();
 
         Ok(nullifiers)

@@ -119,7 +119,7 @@ impl Client {
             .store
             .get_unspent_input_note_nullifiers()?
             .iter()
-            .map(|nullifier| (nullifier[3].as_int() >> FILTER_ID_SHIFT) as u16)
+            .map(|nullifier| (nullifier.inner()[3].as_int() >> FILTER_ID_SHIFT) as u16)
             .collect();
 
         // Send request
@@ -265,7 +265,12 @@ impl Client {
     /// from the received [SyncStateResponse]
     fn get_new_nullifiers(&self, new_nullifiers: Vec<Digest>) -> Result<Vec<Digest>, ClientError> {
         // Get current unspent nullifiers
-        let nullifiers = self.store.get_unspent_input_note_nullifiers()?;
+        let nullifiers = self
+            .store
+            .get_unspent_input_note_nullifiers()?
+            .iter()
+            .map(|nullifier| nullifier.inner())
+            .collect::<Vec<_>>();
 
         let new_nullifiers = new_nullifiers
             .into_iter()
