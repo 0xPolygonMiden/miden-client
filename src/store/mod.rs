@@ -48,7 +48,10 @@ pub trait Store {
         note_filter: InputNoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError>;
 
-    /// Retrieves the input note with the specified id from the database
+    /// Retrieves an [InputNoteRecord] for the input note corresponding to the specified id from the database
+    ///
+    /// # Errors
+    /// Returns a `StoreError::InputNoteNotFound` if there is no Note with the provided id
     fn get_input_note_by_id(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError>;
 
     /// Returns the nullifiers of all unspent input notes
@@ -78,10 +81,13 @@ pub trait Store {
         block_numbers: &[u32],
     ) -> Result<Vec<(BlockHeader, bool)>, StoreError>;
 
-    /// Retrieves a [BlockHeader] by number and a boolean value that represents whether the
-    /// block contains notes relevant to the client.
+    /// Retrieves a [BlockHeader] corresponding to the provided block number and a boolean value
+    /// that represents whether the block contains notes relevant to the client.
     ///
     /// It's automatically implemented by using the `get_block_headers` function
+    ///
+    /// # Errors
+    /// Returns a `StoreError::BlockHeaderNotFound` if the block was not found
     fn get_block_header_by_num(
         &self,
         block_number: u32,
@@ -134,7 +140,7 @@ pub trait Store {
     /// Said account's state is the state according to the last sync performed.
     ///
     /// # Errors
-    /// Returns an [Err] if the account was not found
+    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided id
     fn get_account_stub_by_id(
         &self,
         account_id: AccountId,
@@ -145,6 +151,9 @@ pub trait Store {
     /// This function returns the [Account]'s latest state. If the account is new (that is, has
     /// never executed a trasaction), the returned seed will be `Some(Word)`; otherwise the seed
     /// will be `None`
+    ///
+    /// # Errors
+    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided id
     fn get_account_by_id(
         &self,
         account_id: AccountId,
