@@ -141,18 +141,7 @@ All state is maintained in `store.sqlite3`, located in the same directory where 
 
 ## Testing
 
-### Running integration tests
-
-There are commands provided in the `Makefile` to make running this test easier. To run the current integration test, you should run:
-
-```bash
-# This will ensure we start from a clean node and client
-make reset
-# This command will clone the node's repo and generate the accounts and genesis files and lastly start the node and run it on background
-make start-node &
-# This will run the integration test and after it finishes it will kill the node process
-make integration-test
-```
+This crate has both unit tests (which can be run with `cargo test`) and integration tests. For more info on integration tests, refer to the [integration testing document](./tests/README.md)
 
 ## License
 This project is [MIT licensed](./LICENSE).
