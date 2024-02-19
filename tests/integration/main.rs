@@ -1,6 +1,7 @@
 use miden_client::client::Client;
 use miden_client::client::{rpc::TonicRpcClient, transactions::TransactionTemplate};
 use miden_client::config::{ClientConfig, RpcConfig};
+use miden_client::errors::{ClientError, NodeRpcClientError};
 use miden_client::store::Store;
 use miden_client::store::{
     data_store::SqliteDataStore, notes::NoteFilter, transactions::TransactionFilter,
@@ -12,6 +13,7 @@ use objects::utils::serde::Deserializable;
 
 use std::env::temp_dir;
 use std::fs;
+use std::time::Duration;
 
 use uuid::Uuid;
 
@@ -64,11 +66,40 @@ async fn execute_tx_and_sync(
     }
 }
 
+/// Waits for node to be running.
+///
+/// # Panics
+///
+/// This function will panic if it does `NUMBER_OF_NODE_TRIES` unsuccessfull checks or if we
+/// receive an error other than a connection related error
+fn wait_for_node(client: &mut Client<TonicRpcClient, SqliteDataStore>) {
+    const NODE_TIME_BETWEEN_TRIES: u64 = 30;
+    const NUMBER_OF_NODE_TRIES: u64 = 10;
+
+    println!("Waiting for Node to be up. Checking every {NODE_TIME_BETWEEN_TRIES}s for {NUMBER_OF_NODE_TRIES} tries...");
+
+    for _try_number in 0..NUMBER_OF_NODE_TRIES {
+        match client.get_accounts() {
+            Err(ClientError::NodeRpcClientError(NodeRpcClientError::ConnectionError(_))) => {
+                std::thread::sleep(Duration::from_secs(NODE_TIME_BETWEEN_TRIES));
+            }
+            Err(other_error) => {
+                panic!("Unexpected error: {other_error}");
+            }
+            _ => break,
+        }
+    }
+
+    panic!("Unable to connect to node");
+}
+
 const MINT_AMOUNT: u64 = 1000;
 
 #[tokio::main]
 async fn main() {
     let mut client = create_test_client();
+
+    wait_for_node(&mut client);
 
     // Enusre clean state
     assert!(client.get_accounts().unwrap().is_empty());
