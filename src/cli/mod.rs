@@ -8,6 +8,16 @@ use figment::{
 };
 use miden_client::{client::Client, config::ClientConfig};
 
+#[cfg(feature = "mock")]
+use miden_client::mock::MockDataStore;
+#[cfg(feature = "mock")]
+use miden_client::mock::MockRpcApi;
+
+#[cfg(not(feature = "mock"))]
+use miden_client::client::rpc::TonicRpcClient;
+#[cfg(not(feature = "mock"))]
+use miden_client::store::data_store::SqliteDataStore;
+
 mod account;
 mod info;
 mod input_notes;
@@ -63,7 +73,26 @@ impl Cli {
         current_dir.push(CLIENT_CONFIG_FILE_NAME);
 
         let client_config = load_config(current_dir.as_path())?;
-        let client = Client::new(client_config)?;
+        let rpc_endpoint = client_config.rpc.endpoint.to_string();
+
+        #[cfg(not(feature = "mock"))]
+        let client: Client<TonicRpcClient, SqliteDataStore> = {
+            use miden_client::{errors::ClientError, store::Store};
+
+            let store = Store::new((&client_config).into()).map_err(ClientError::StoreError)?;
+            Client::new(
+                client_config,
+                TonicRpcClient::new(&rpc_endpoint),
+                SqliteDataStore::new(store),
+            )?
+        };
+
+        #[cfg(feature = "mock")]
+        let client: Client<MockRpcApi, MockDataStore> = Client::new(
+            client_config,
+            MockRpcApi::new(&rpc_endpoint),
+            MockDataStore::new(),
+        )?;
 
         // Execute cli command
         match &self.action {

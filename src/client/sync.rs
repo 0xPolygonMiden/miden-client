@@ -1,12 +1,12 @@
+use super::{rpc::CommittedNote, rpc::NodeRpcClient, Client};
 use crate::{
     errors::{ClientError, StoreError},
     store::{chain_data::ChainMmrNodeFilter, Store},
 };
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
-use miden_node_proto::generated::requests::GetBlockHeaderByNumberRequest;
 
-use super::{rpc_client::CommittedNote, Client};
+use miden_tx::DataStore;
 use objects::{
     accounts::{AccountId, AccountStub},
     crypto,
@@ -26,7 +26,7 @@ pub enum SyncStatus {
 /// The number of bits to shift identifiers for in use of filters.
 pub const FILTER_ID_SHIFT: u8 = 48;
 
-impl Client {
+impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     // SYNC STATE
     // --------------------------------------------------------------------------------------------
 
@@ -81,10 +81,7 @@ impl Client {
     /// Calls `get_block_header_by_number` requesting the genesis block and storing it
     /// in the local database
     async fn retrieve_and_store_genesis(&mut self) -> Result<(), ClientError> {
-        let genesis_block = self
-            .rpc_api
-            .get_block_header_by_number(GetBlockHeaderByNumberRequest { block_num: Some(0) })
-            .await?;
+        let genesis_block = self.rpc_api.get_block_header_by_number(Some(0)).await?;
 
         let tx = self.store.db.transaction()?;
 
