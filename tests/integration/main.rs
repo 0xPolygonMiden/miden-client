@@ -73,8 +73,8 @@ async fn execute_tx_and_sync(
 /// This function will panic if it does `NUMBER_OF_NODE_TRIES` unsuccessfull checks or if we
 /// receive an error other than a connection related error
 fn wait_for_node(client: &mut Client<TonicRpcClient, SqliteDataStore>) {
-    const NODE_TIME_BETWEEN_TRIES: u64 = 30;
-    const NUMBER_OF_NODE_TRIES: u64 = 10;
+    const NODE_TIME_BETWEEN_TRIES: u64 = 5;
+    const NUMBER_OF_NODE_TRIES: u64 = 60;
 
     println!("Waiting for Node to be up. Checking every {NODE_TIME_BETWEEN_TRIES}s for {NUMBER_OF_NODE_TRIES} tries...");
 
