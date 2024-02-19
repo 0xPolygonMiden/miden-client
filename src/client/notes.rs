@@ -1,12 +1,13 @@
-use super::Client;
+use super::{rpc::NodeRpcClient, Client};
 
 use crate::{
     errors::ClientError,
     store::notes::{InputNoteRecord, NoteFilter},
 };
+use miden_tx::DataStore;
 use objects::notes::NoteId;
 
-impl Client {
+impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     // INPUT NOTE DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
