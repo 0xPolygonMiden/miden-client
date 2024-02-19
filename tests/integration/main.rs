@@ -72,14 +72,14 @@ async fn execute_tx_and_sync(
 ///
 /// This function will panic if it does `NUMBER_OF_NODE_ATTEMPTS` unsuccessful checks or if we
 /// receive an error other than a connection related error
-fn wait_for_node(client: &mut Client<TonicRpcClient, SqliteDataStore>) {
+async fn wait_for_node(client: &mut Client<TonicRpcClient, SqliteDataStore>) {
     const NODE_TIME_BETWEEN_ATTEMPTS: u64 = 5;
     const NUMBER_OF_NODE_ATTEMPTS: u64 = 60;
 
     println!("Waiting for Node to be up. Checking every {NODE_TIME_BETWEEN_ATTEMPTS}s for {NUMBER_OF_NODE_ATTEMPTS} tries...");
 
     for _try_number in 0..NUMBER_OF_NODE_ATTEMPTS {
-        match client.get_accounts() {
+        match client.sync_state().await {
             Err(ClientError::NodeRpcClientError(NodeRpcClientError::ConnectionError(_))) => {
                 std::thread::sleep(Duration::from_secs(NODE_TIME_BETWEEN_ATTEMPTS));
             }
@@ -98,8 +98,6 @@ const MINT_AMOUNT: u64 = 1000;
 #[tokio::main]
 async fn main() {
     let mut client = create_test_client();
-
-    wait_for_node(&mut client);
 
     // Enusre clean state
     assert!(client.get_accounts().unwrap().is_empty());
@@ -122,6 +120,8 @@ async fn main() {
         let account_data = AccountData::read_from_bytes(&account_data_file_contents).unwrap();
         client.import_account(account_data).unwrap();
     }
+
+    wait_for_node(&mut client).await;
 
     println!("Syncing State...");
     client.sync_state().await.unwrap();
