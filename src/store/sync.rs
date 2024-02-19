@@ -88,10 +88,14 @@ impl Store {
 
         // Update spent notes
         for nullifier in nullifiers {
-            const SPENT_QUERY: &str =
+            const SPENT_INPUT_NOTE_QUERY: &str =
                 "UPDATE input_notes SET status = 'consumed' WHERE nullifier = ?";
-            let nullifier = nullifier.to_string();
-            tx.execute(SPENT_QUERY, params![nullifier])?;
+            let nullifier = nullifier.to_hex();
+            tx.execute(SPENT_INPUT_NOTE_QUERY, params![nullifier])?;
+
+            const SPENT_OUTPUT_NOTE_QUERY: &str =
+                "UPDATE output_notes SET status = 'consumed' WHERE nullifier = ?";
+            tx.execute(SPENT_OUTPUT_NOTE_QUERY, params![nullifier])?;
         }
 
         // TODO: Due to the fact that notes are returned based on fuzzy matching of tags,
@@ -104,13 +108,22 @@ impl Store {
 
         // Update tracked notes
         for (note_id, inclusion_proof) in committed_notes.iter() {
-            const SPENT_QUERY: &str =
+            const COMMITTED_INPUT_NOTES_QUERY: &str =
                 "UPDATE input_notes SET status = 'committed', inclusion_proof = ? WHERE note_id = ?";
 
             let inclusion_proof = Some(inclusion_proof.to_bytes());
             tx.execute(
-                SPENT_QUERY,
-                params![inclusion_proof, note_id.inner().to_string()],
+                COMMITTED_INPUT_NOTES_QUERY,
+                params![inclusion_proof, note_id.inner().to_hex()],
+            )?;
+
+            // Update output notes
+            const COMMITTED_OUTPUT_NOTES_QUERY: &str =
+                "UPDATE output_notes SET status = 'committed', inclusion_proof = ? WHERE note_id = ?";
+
+            tx.execute(
+                COMMITTED_OUTPUT_NOTES_QUERY,
+                params![inclusion_proof, note_id.inner().to_hex()],
             )?;
         }
 

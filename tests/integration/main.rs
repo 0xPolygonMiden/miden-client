@@ -1,18 +1,25 @@
-use miden_client::client::accounts::{AccountStorageMode, AccountTemplate};
+use miden_client::client::{
+    accounts::{AccountStorageMode, AccountTemplate},
+    rpc::TonicRpcClient,
+    transactions::{PaymentTransactionData, TransactionTemplate},
+    Client,
+};
+use miden_client::config::{ClientConfig, RpcConfig};
+use miden_client::store::{
+    data_store::SqliteDataStore, notes::NoteFilter, transactions::TransactionFilter, Store,
+};
+
+use objects::{
+    accounts::AccountData,
+    assets::{Asset, FungibleAsset},
+    utils::serde::Deserializable,
+};
+
 use std::env::temp_dir;
 use std::fs;
 use uuid::Uuid;
 
-use objects::accounts::AccountData;
-use objects::assets::{Asset, FungibleAsset};
-use objects::utils::serde::Deserializable;
-
-use miden_client::client::transactions::{PaymentTransactionData, TransactionTemplate};
-use miden_client::client::Client;
-use miden_client::config::{ClientConfig, RpcConfig};
-use miden_client::store::{notes::InputNoteFilter, transactions::TransactionFilter};
-
-fn create_test_client() -> Client {
+fn create_test_client() -> Client<TonicRpcClient, SqliteDataStore> {
     let client_config = ClientConfig {
         store: create_test_store_path()
             .into_os_string()
@@ -23,7 +30,14 @@ fn create_test_client() -> Client {
         rpc: RpcConfig::default(),
     };
 
-    Client::new(client_config).unwrap()
+    let rpc_endpoint = client_config.rpc.endpoint.to_string();
+    let store = Store::new((&client_config).into()).unwrap();
+    Client::new(
+        client_config,
+        TonicRpcClient::new(&rpc_endpoint),
+        SqliteDataStore::new(store),
+    )
+    .unwrap()
 }
 
 fn create_test_store_path() -> std::path::PathBuf {
@@ -32,7 +46,10 @@ fn create_test_store_path() -> std::path::PathBuf {
     temp_file
 }
 
-async fn execute_tx_and_sync(client: &mut Client, tx_template: TransactionTemplate) {
+async fn execute_tx_and_sync(
+    client: &mut Client<TonicRpcClient, SqliteDataStore>,
+    tx_template: TransactionTemplate,
+) {
     println!("Executing Transaction");
     let transaction_execution_result = client.new_transaction(tx_template).unwrap();
 
@@ -64,10 +81,7 @@ async fn main() {
         .get_transactions(TransactionFilter::All)
         .unwrap()
         .is_empty());
-    assert!(client
-        .get_input_notes(InputNoteFilter::All)
-        .unwrap()
-        .is_empty());
+    assert!(client.get_input_notes(NoteFilter::All).unwrap().is_empty());
 
     // Import accounts
     println!("Importing Accounts...");
@@ -121,11 +135,11 @@ async fn main() {
 
     // Check that note is committed
     println!("Fetching Pending Notes...");
-    let notes = client.get_input_notes(InputNoteFilter::Pending).unwrap();
+    let notes = client.get_input_notes(NoteFilter::Pending).unwrap();
     assert!(notes.is_empty());
 
     println!("Fetching Committed Notes...");
-    let notes = client.get_input_notes(InputNoteFilter::Committed).unwrap();
+    let notes = client.get_input_notes(NoteFilter::Committed).unwrap();
     assert!(!notes.is_empty());
 
     let tx_template =
@@ -155,7 +169,7 @@ async fn main() {
 
     // Check that note is committed for the second account to consume
     println!("Fetching Committed Notes...");
-    let notes = client.get_input_notes(InputNoteFilter::Committed).unwrap();
+    let notes = client.get_input_notes(NoteFilter::Committed).unwrap();
     assert!(!notes.is_empty());
 
     // Consume P2ID note
