@@ -2,8 +2,6 @@ FEATURES_INTEGRATION_TESTING="integration"
 NODE_FEATURES_TESTING=--features testing
 NODE_BINARY=--bin miden-node
 
-HTTP_CODE = "200"
-
 integration-test:
 	set -o pipefail; cargo run --release --bin="integration" --features "$(FEATURES_INTEGRATION_TESTING)"; pkill miden-node
 	exit $$? || echo "integration test failed with exit code $$?"
