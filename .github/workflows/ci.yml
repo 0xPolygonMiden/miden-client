@@ -70,6 +70,7 @@ jobs:
   integration_tests:
     name: integration_tests
     runs-on: ubuntu-latest
+    needs: [clippy, rustfmt]
     steps:
       - uses: actions/checkout@main
       - name: Install minimal stable with rustfmt
