@@ -70,18 +70,18 @@ async fn execute_tx_and_sync(
 ///
 /// # Panics
 ///
-/// This function will panic if it does `NUMBER_OF_NODE_TRIES` unsuccessfull checks or if we
+/// This function will panic if it does `NUMBER_OF_NODE_ATTEMPTS` unsuccessful checks or if we
 /// receive an error other than a connection related error
 fn wait_for_node(client: &mut Client<TonicRpcClient, SqliteDataStore>) {
-    const NODE_TIME_BETWEEN_TRIES: u64 = 5;
-    const NUMBER_OF_NODE_TRIES: u64 = 60;
+    const NODE_TIME_BETWEEN_ATTEMPTS: u64 = 5;
+    const NUMBER_OF_NODE_ATTEMPTS: u64 = 60;
 
-    println!("Waiting for Node to be up. Checking every {NODE_TIME_BETWEEN_TRIES}s for {NUMBER_OF_NODE_TRIES} tries...");
+    println!("Waiting for Node to be up. Checking every {NODE_TIME_BETWEEN_ATTEMPTS}s for {NUMBER_OF_NODE_ATTEMPTS} tries...");
 
-    for _try_number in 0..NUMBER_OF_NODE_TRIES {
+    for _try_number in 0..NUMBER_OF_NODE_ATTEMPTS {
         match client.get_accounts() {
             Err(ClientError::NodeRpcClientError(NodeRpcClientError::ConnectionError(_))) => {
-                std::thread::sleep(Duration::from_secs(NODE_TIME_BETWEEN_TRIES));
+                std::thread::sleep(Duration::from_secs(NODE_TIME_BETWEEN_ATTEMPTS));
             }
             Err(other_error) => {
                 panic!("Unexpected error: {other_error}");
