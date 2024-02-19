@@ -5,6 +5,7 @@ use crypto::{
 
 use objects::{
     notes::{NoteId, NoteInclusionProof},
+    transaction::TransactionId,
     BlockHeader, Digest,
 };
 use rusqlite::params;
@@ -79,7 +80,7 @@ impl Store {
         committed_notes: Vec<(NoteId, NoteInclusionProof)>,
         new_mmr_peaks: MmrPeaks,
         new_authentication_nodes: &[(InOrderIndex, Digest)],
-        transactions_to_commit: &[Digest],
+        transactions_to_commit: &[TransactionId],
     ) -> Result<(), StoreError> {
         let tx = self.db.transaction()?;
 

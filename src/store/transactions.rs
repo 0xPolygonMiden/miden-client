@@ -14,7 +14,7 @@ use super::Store;
 use objects::{
     accounts::AccountId,
     assembly::{AstSerdeOptions, ProgramAst},
-    transaction::{OutputNote, OutputNotes, TransactionScript},
+    transaction::{OutputNote, OutputNotes, TransactionId, TransactionScript},
     Digest,
 };
 use rusqlite::{params, Transaction};
@@ -178,7 +178,7 @@ impl Store {
     pub(crate) fn mark_transactions_as_committed(
         tx: &Transaction<'_>,
         block_num: u32,
-        transactions_to_commit: &[Digest],
+        transactions_to_commit: &[TransactionId],
     ) -> Result<usize, StoreError> {
         let mut rows = 0;
         for transaction_id in transactions_to_commit {
@@ -299,6 +299,7 @@ fn parse_transaction(
     ) = serialized_transaction;
     let account_id = AccountId::try_from(account_id as u64)?;
     let id: Digest = id.try_into()?;
+    let id = TransactionId::from(id);
     let init_account_state: Digest = init_account_state.try_into()?;
 
     let final_account_state: Digest = final_account_state.try_into()?;

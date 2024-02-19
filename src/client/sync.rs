@@ -12,6 +12,7 @@ use objects::{
     accounts::{AccountId, AccountStub},
     crypto,
     notes::{NoteId, NoteInclusionProof},
+    transaction::TransactionId,
     BlockHeader, Digest,
 };
 use tracing::warn;
@@ -368,7 +369,7 @@ fn get_transactions_to_commit(
     note_ids: &[NoteId],
     nullifiers: &[Digest],
     account_hash_updates: &[(AccountId, Digest)],
-) -> Vec<Digest> {
+) -> Vec<TransactionId> {
     uncommitted_transactions
         .iter()
         .filter(|t| {
