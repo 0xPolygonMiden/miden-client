@@ -112,8 +112,13 @@ impl Store {
         Self::insert_account_record(&tx, &account, seed)?;
 
         // Updates for notes
-        for note in created_notes {
-            Self::insert_input_note_tx(&tx, &note)?;
+        // TODO: see if we should filter the input notes we store to keep notes we can consume with
+        // existing accounts
+        for note in &created_notes {
+            Store::insert_input_note_tx(&tx, note)?;
+        }
+        for note in &created_notes {
+            Store::insert_output_note_tx(&tx, note)?;
         }
 
         tx.commit()?;

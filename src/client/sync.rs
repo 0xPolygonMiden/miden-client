@@ -1,4 +1,8 @@
 use super::{rpc::CommittedNote, rpc::NodeRpcClient, Client};
+use crate::{
+    errors::{ClientError, StoreError},
+    store::{chain_data::ChainMmrNodeFilter, Store},
+};
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 
@@ -8,11 +12,6 @@ use objects::{
     crypto,
     notes::{NoteId, NoteInclusionProof},
     BlockHeader, Digest,
-};
-
-use crate::{
-    errors::{ClientError, StoreError},
-    store::{chain_data::ChainMmrNodeFilter, Store},
 };
 use tracing::warn;
 
@@ -191,12 +190,25 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
         committed_notes: Vec<CommittedNote>,
         block_header: &BlockHeader,
     ) -> Result<Vec<(NoteId, NoteInclusionProof)>, ClientError> {
-        let pending_notes: Vec<NoteId> = self
+        // We'll only pick committed notes that we are tracking as input/output notes. Since the
+        // sync response contains notes matching either the provided accounts or the provided tag
+        // we might get many notes when we only care about a few of those.
+        let pending_input_notes: Vec<NoteId> = self
             .store
-            .get_input_notes(crate::store::notes::InputNoteFilter::Pending)?
+            .get_input_notes(crate::store::notes::NoteFilter::Pending)?
             .iter()
             .map(|n| n.note().id())
             .collect();
+
+        let pending_output_notes: Vec<NoteId> = self
+            .store
+            .get_output_notes(crate::store::notes::NoteFilter::Pending)?
+            .iter()
+            .map(|n| n.note().id())
+            .collect();
+
+        let mut pending_notes = [pending_input_notes, pending_output_notes].concat();
+        pending_notes.dedup();
 
         committed_notes
             .iter()
@@ -212,7 +224,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
                         let _ = merkle_path.remove(0);
                     }
 
-                    let note_id_and_proof = NoteInclusionProof::new(
+                    let note_inclusion_proof = NoteInclusionProof::new(
                         block_header.block_num(),
                         block_header.sub_hash(),
                         block_header.note_root(),
@@ -222,7 +234,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
                     .map_err(ClientError::NoteError)
                     .map(|proof| (*commited_note.note_id(), proof));
 
-                    Some(note_id_and_proof)
+                    Some(note_inclusion_proof)
                 } else {
                     None
                 }

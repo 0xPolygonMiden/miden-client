@@ -2,7 +2,7 @@ use super::{rpc::NodeRpcClient, Client};
 
 use crate::{
     errors::ClientError,
-    store::notes::{InputNoteFilter, InputNoteRecord},
+    store::notes::{InputNoteRecord, NoteFilter},
 };
 use miden_tx::DataStore;
 use objects::notes::NoteId;
@@ -12,10 +12,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     // --------------------------------------------------------------------------------------------
 
     /// Returns input notes managed by this client.
-    pub fn get_input_notes(
-        &self,
-        filter: InputNoteFilter,
-    ) -> Result<Vec<InputNoteRecord>, ClientError> {
+    pub fn get_input_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, ClientError> {
         self.store.get_input_notes(filter).map_err(|err| err.into())
     }
 

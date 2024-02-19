@@ -9,7 +9,7 @@ use crate::{
     store::{
         accounts::AuthInfo,
         mock_executor_data_store::MockDataStore,
-        notes::{InputNoteFilter, InputNoteRecord},
+        notes::{InputNoteRecord, NoteFilter},
         tests::create_test_client,
     },
 };
@@ -49,7 +49,7 @@ async fn test_input_notes_round_trip() {
     }
 
     // retrieve notes from database
-    let retrieved_notes = client.get_input_notes(InputNoteFilter::Committed).unwrap();
+    let retrieved_notes = client.get_input_notes(NoteFilter::Committed).unwrap();
 
     let recorded_notes: Vec<InputNoteRecord> = transaction_inputs
         .input_notes()
@@ -261,14 +261,11 @@ async fn test_sync_state() {
 
     // assert that we have no consumed nor pending notes prior to syncing state
     assert_eq!(
-        client
-            .get_input_notes(InputNoteFilter::Consumed)
-            .unwrap()
-            .len(),
+        client.get_input_notes(NoteFilter::Consumed).unwrap().len(),
         0
     );
 
-    let pending_notes = client.get_input_notes(InputNoteFilter::Pending).unwrap();
+    let pending_notes = client.get_input_notes(NoteFilter::Pending).unwrap();
 
     // sync state
     let block_num: u32 = client.sync_state().await.unwrap();
@@ -287,16 +284,13 @@ async fn test_sync_state() {
 
     // verify that we now have one consumed note after syncing state
     assert_eq!(
-        client
-            .get_input_notes(InputNoteFilter::Consumed)
-            .unwrap()
-            .len(),
+        client.get_input_notes(NoteFilter::Consumed).unwrap().len(),
         1
     );
 
     // verify that the pending note we had is now committed
     assert_ne!(
-        client.get_input_notes(InputNoteFilter::Committed).unwrap(),
+        client.get_input_notes(NoteFilter::Committed).unwrap(),
         pending_notes
     );
 

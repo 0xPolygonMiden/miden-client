@@ -3,7 +3,7 @@ use miden_client::client::{rpc::TonicRpcClient, transactions::TransactionTemplat
 use miden_client::config::{ClientConfig, RpcConfig};
 use miden_client::store::Store;
 use miden_client::store::{
-    data_store::SqliteDataStore, notes::InputNoteFilter, transactions::TransactionFilter,
+    data_store::SqliteDataStore, notes::NoteFilter, transactions::TransactionFilter,
 };
 
 use objects::accounts::AccountData;
@@ -76,10 +76,7 @@ async fn main() {
         .get_transactions(TransactionFilter::All)
         .unwrap()
         .is_empty());
-    assert!(client
-        .get_input_notes(InputNoteFilter::All)
-        .unwrap()
-        .is_empty());
+    assert!(client.get_input_notes(NoteFilter::All).unwrap().is_empty());
 
     // Import accounts
     println!("Importing Accounts...");
@@ -128,11 +125,11 @@ async fn main() {
 
     // Check that note is committed
     println!("Fetching Pending Notes...");
-    let notes = client.get_input_notes(InputNoteFilter::Pending).unwrap();
+    let notes = client.get_input_notes(NoteFilter::Pending).unwrap();
     assert!(notes.is_empty());
 
     println!("Fetching Committed Notes...");
-    let notes = client.get_input_notes(InputNoteFilter::Committed).unwrap();
+    let notes = client.get_input_notes(NoteFilter::Committed).unwrap();
     assert!(!notes.is_empty());
 
     let tx_template =

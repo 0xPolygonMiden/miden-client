@@ -11,7 +11,7 @@ use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     client::rpc::NodeRpcClient,
-    store::notes::{InputNoteFilter, InputNoteRecord},
+    store::notes::{InputNoteRecord, NoteFilter as ClientNoteFilter},
 };
 
 use crypto::utils::{Deserializable, Serializable};
@@ -86,10 +86,10 @@ impl InputNotes {
         match self {
             InputNotes::List { filter } => {
                 let filter = match filter {
-                    Some(NoteFilter::Committed) => InputNoteFilter::Committed,
-                    Some(NoteFilter::Consumed) => InputNoteFilter::Consumed,
-                    Some(NoteFilter::Pending) => InputNoteFilter::Pending,
-                    None => InputNoteFilter::All,
+                    Some(NoteFilter::Committed) => ClientNoteFilter::Committed,
+                    Some(NoteFilter::Consumed) => ClientNoteFilter::Consumed,
+                    Some(NoteFilter::Pending) => ClientNoteFilter::Pending,
+                    None => ClientNoteFilter::All,
                 };
 
                 list_input_notes(client, filter)?;
@@ -119,7 +119,7 @@ impl InputNotes {
 // ================================================================================================
 fn list_input_notes<N: NodeRpcClient, D: DataStore>(
     client: Client<N, D>,
-    input_note_filter: InputNoteFilter,
+    input_note_filter: ClientNoteFilter,
 ) -> Result<(), String> {
     let notes = client.get_input_notes(input_note_filter)?;
     print_notes_summary(&notes);
