@@ -1,11 +1,12 @@
 use crate::{
+    client::transactions::TransactionRecord,
     errors::{ClientError, StoreError},
     store::{chain_data::ChainMmrNodeFilter, transactions::TransactionFilter, Store},
 };
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 
-use super::{rpc::CommittedNote, rpc::NodeRpcClient, transactions::TransactionRecord, Client};
+use super::{rpc::CommittedNote, rpc::NodeRpcClient, Client};
 use miden_tx::DataStore;
 use objects::{
     accounts::{AccountId, AccountStub},
