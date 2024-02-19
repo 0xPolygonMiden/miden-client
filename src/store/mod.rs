@@ -43,10 +43,7 @@ pub trait Store {
     // ================================================================================================
 
     /// Retrieves the input notes from the database
-    fn get_input_notes(
-        &self,
-        note_filter: InputNoteFilter,
-    ) -> Result<Vec<InputNoteRecord>, StoreError>;
+    fn get_input_notes(&self, note_filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError>;
 
     /// Retrieves an [InputNoteRecord] for the input note corresponding to the specified id from the database
     ///
@@ -56,10 +53,10 @@ pub trait Store {
 
     /// Returns the nullifiers of all unspent input notes
     ///
-    /// It's automatically implemented by using the `get_input_notes` function
+    /// A default implementation that relies on the `get_input_notes` function exists
     fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
         let nullifiers = self
-            .get_input_notes(InputNoteFilter::Committed)?
+            .get_input_notes(NoteFilter::Committed)?
             .iter()
             .map(|input_note| input_note.note().nullifier())
             .collect();
@@ -353,7 +350,7 @@ pub enum TransactionFilter {
 // NOTE FILTER
 // ================================================================================================
 
-pub enum InputNoteFilter {
+pub enum NoteFilter {
     /// Return a list of all [InputNoteRecord].
     All,
     /// Filter by consumed [InputNoteRecord]. notes that have been used as inputs in transactions.

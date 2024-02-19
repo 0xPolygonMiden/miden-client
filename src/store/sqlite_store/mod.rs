@@ -5,9 +5,7 @@ use objects::{
     Digest,
 };
 
-use super::{
-    AuthInfo, ChainMmrNodeFilter, InputNoteFilter, InputNoteRecord, Store, TransactionFilter,
-};
+use super::{AuthInfo, ChainMmrNodeFilter, InputNoteRecord, NoteFilter, Store, TransactionFilter};
 use crypto::{
     merkle::{InOrderIndex, MmrPeaks},
     Word,
@@ -94,10 +92,7 @@ impl Store for SqliteStore {
         self.insert_transaction_data(tx_result)
     }
 
-    fn get_input_notes(
-        &self,
-        note_filter: InputNoteFilter,
-    ) -> Result<Vec<InputNoteRecord>, StoreError> {
+    fn get_input_notes(&self, note_filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError> {
         self.get_input_notes(note_filter)
     }
 
@@ -185,11 +180,12 @@ pub mod tests {
     use crate::{
         client::Client,
         config::{ClientConfig, RpcConfig},
+        mock::{MockDataStore, MockRpcApi},
     };
 
     use super::{migrations, SqliteStore};
 
-    pub fn create_test_client() -> Client {
+    pub fn create_test_client() -> Client<MockRpcApi, MockDataStore> {
         let client_config = ClientConfig {
             store: create_test_store_path()
                 .into_os_string()
@@ -200,7 +196,14 @@ pub mod tests {
             rpc: RpcConfig::default(),
         };
 
-        Client::new(client_config).unwrap()
+        let rpc_endpoint = client_config.rpc.endpoint.to_string();
+
+        Client::<MockRpcApi, MockDataStore>::new(
+            client_config,
+            MockRpcApi::new(&rpc_endpoint),
+            MockDataStore::new(),
+        )
+        .unwrap()
     }
 
     pub(crate) fn create_test_store_path() -> std::path::PathBuf {

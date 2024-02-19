@@ -1,4 +1,4 @@
-use crate::{config::ClientConfig, errors::ClientError, store::Store};
+use crate::{config::ClientConfig, errors::ClientError, store::sqlite_store::SqliteStore};
 use miden_tx::{DataStore, TransactionExecutor};
 
 pub mod rpc;
@@ -24,8 +24,8 @@ pub mod transactions;
 pub struct Client<N: NodeRpcClient, D: DataStore> {
     /// Local database containing information about the accounts managed by this client.
     store: SqliteStore,
-    rpc_api: rpc_client::RpcClient,
-    tx_executor: TransactionExecutor<SqliteDataStore>,
+    rpc_api: N,
+    tx_executor: TransactionExecutor<D>,
 }
 
 impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
@@ -49,28 +49,13 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
         &mut self.rpc_api
     }
 
-#[cfg(any(test, feature = "mock"))]
-mod mock {
-    use super::{ClientConfig, ClientError, TransactionExecutor};
-    use crate::{
-        mock::MockRpcApi,
-        store::{mock_executor_data_store::MockDataStore, sqlite_store::SqliteStore},
-    };
-
-    pub struct Client {
-        pub(crate) store: SqliteStore,
-        pub(crate) rpc_api: MockRpcApi,
-        pub(crate) tx_executor: TransactionExecutor<MockDataStore>,
+    #[cfg(any(test, feature = "mock"))]
+    pub fn set_tx_executor(&mut self, tx_executor: TransactionExecutor<D>) {
+        self.tx_executor = tx_executor;
     }
 
     #[cfg(any(test, feature = "mock"))]
-    impl Client {
-        pub fn new(config: ClientConfig) -> Result<Self, ClientError> {
-            Ok(Self {
-                store: SqliteStore::new((&config).into())?,
-                rpc_api: Default::default(),
-                tx_executor: TransactionExecutor::new(MockDataStore::new()),
-            })
-        }
+    pub fn store(&mut self) -> &mut SqliteStore {
+        &mut self.store
     }
 }

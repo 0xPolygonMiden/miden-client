@@ -1,10 +1,9 @@
 use miden_client::client::Client;
 use miden_client::client::{rpc::TonicRpcClient, transactions::TransactionTemplate};
 use miden_client::config::{ClientConfig, RpcConfig};
-use miden_client::store::Store;
-use miden_client::store::{
-    data_store::SqliteDataStore, notes::NoteFilter, transactions::TransactionFilter,
-};
+use miden_client::store::data_store::SqliteDataStore;
+use miden_client::store::sqlite_store::SqliteStore;
+use miden_client::store::{NoteFilter, TransactionFilter};
 
 use objects::accounts::AccountData;
 use objects::assets::{Asset, FungibleAsset};
@@ -27,7 +26,7 @@ fn create_test_client() -> Client<TonicRpcClient, SqliteDataStore> {
     };
 
     let rpc_endpoint = client_config.rpc.endpoint.to_string();
-    let store = Store::new((&client_config).into()).unwrap();
+    let store = SqliteStore::new((&client_config).into()).unwrap();
     Client::new(
         client_config,
         TonicRpcClient::new(&rpc_endpoint),

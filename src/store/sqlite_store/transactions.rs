@@ -7,11 +7,12 @@ use crypto::{
     utils::{collections::BTreeMap, Deserializable, Serializable},
     Felt,
 };
+
 use tracing::info;
 
 use super::{
     accounts::{insert_account_asset_vault, insert_account_record, insert_account_storage},
-    notes::insert_input_note_tx,
+    notes::{insert_input_note_tx, insert_output_note_tx},
     SqliteStore,
 };
 use objects::{
@@ -31,6 +32,9 @@ pub(crate) const INSERT_TRANSACTION_QUERY: &str =
 pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str =
     "INSERT OR IGNORE INTO transaction_scripts (script_hash, program) \
     VALUES (?, ?)";
+
+// TRANSACTIONS FILTERS
+// ================================================================================================
 
 impl TransactionFilter {
     /// Returns a [String] containing the query for this Filter
@@ -86,9 +90,11 @@ impl SqliteStore {
 
         let (mut account, seed) = self.get_account_by_id(account_id)?;
 
-        account.apply_delta(account_delta)?;
+        account
+            .apply_delta(account_delta)
+            .map_err(StoreError::AccountError)?;
 
-        let output_notes = tx_result
+        let created_notes = tx_result
             .created_notes()
             .iter()
             .map(|note| InputNoteRecord::from(note.clone()))
@@ -105,8 +111,15 @@ impl SqliteStore {
         insert_account_record(&tx, &account, seed)?;
 
         // Updates for notes
-        for note in output_notes {
-            insert_input_note_tx(&tx, &note)?;
+
+        // TODO: see if we should filter the input notes we store to keep notes we can consume with
+        // existing accounts
+        for note in &created_notes {
+            insert_input_note_tx(&tx, note)?;
+        }
+
+        for note in &created_notes {
+            insert_output_note_tx(&tx, note)?;
         }
 
         tx.commit()?;
@@ -159,7 +172,7 @@ impl SqliteStore {
     }
 
     /// Updates transactions as committed if the input `note_ids` belongs to one uncommitted transaction
-    pub(super) fn mark_transactions_as_committed_by_note_id(
+    pub(crate) fn mark_transactions_as_committed_by_note_id(
         uncommitted_transactions: &[TransactionRecord],
         note_ids: &[NoteId],
         block_num: u32,
@@ -296,7 +309,7 @@ fn parse_transaction(
     let input_note_nullifiers: Vec<Digest> =
         serde_json::from_str(&input_notes).map_err(StoreError::JsonDataDeserializationError)?;
 
-    let output_notes = OutputNotes::<OutputNote>::read_from_bytes(&output_notes)?;
+    let output_notes: OutputNotes<OutputNote> = OutputNotes::read_from_bytes(&output_notes)?;
 
     let transaction_script: Option<TransactionScript> = if script_hash.is_some() {
         let script_hash = script_hash

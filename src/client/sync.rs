@@ -1,23 +1,15 @@
 use super::{rpc::CommittedNote, rpc::NodeRpcClient, Client};
-use crate::{
-    errors::{ClientError, StoreError},
-    store::{chain_data::ChainMmrNodeFilter, Store},
-};
+use crate::errors::{ClientError, StoreError};
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 
+use crate::store::{ChainMmrNodeFilter, NoteFilter, Store};
 use miden_tx::DataStore;
 use objects::{
     accounts::{AccountId, AccountStub},
     crypto,
     notes::{NoteId, NoteInclusionProof},
     BlockHeader, Digest,
-};
-
-use crate::store::Store;
-use crate::{
-    errors::{ClientError, StoreError},
-    store::{ChainMmrNodeFilter, InputNoteFilter},
 };
 use tracing::warn;
 
@@ -197,7 +189,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
         // we might get many notes when we only care about a few of those.
         let pending_input_notes: Vec<NoteId> = self
             .store
-            .get_input_notes(crate::store::notes::NoteFilter::Pending)?
+            .get_input_notes(NoteFilter::Pending)?
             .iter()
             .map(|n| n.note().id())
             .collect();

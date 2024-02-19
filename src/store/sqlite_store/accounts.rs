@@ -195,7 +195,7 @@ impl SqliteStore {
             .ok_or(StoreError::VaultDataNotFound(root))?
     }
 
-    pub(super) fn insert_account(
+    pub(crate) fn insert_account(
         &mut self,
         account: &Account,
         account_seed: Word,

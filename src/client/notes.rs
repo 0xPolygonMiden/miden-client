@@ -2,7 +2,7 @@ use super::{rpc::NodeRpcClient, Client};
 
 use crate::{
     errors::ClientError,
-    store::{InputNoteFilter, InputNoteRecord},
+    store::{InputNoteRecord, NoteFilter},
 };
 use miden_tx::DataStore;
 use objects::notes::NoteId;

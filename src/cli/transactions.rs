@@ -3,7 +3,7 @@ use miden_client::{
         rpc::NodeRpcClient,
         transactions::{PaymentTransactionData, TransactionRecord, TransactionTemplate},
     },
-    store::transactions::TransactionFilter,
+    store::TransactionFilter,
 };
 
 use miden_tx::DataStore;

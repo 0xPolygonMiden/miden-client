@@ -11,7 +11,7 @@ use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     client::rpc::NodeRpcClient,
-    store::notes::{InputNoteRecord, NoteFilter as ClientNoteFilter},
+    store::{InputNoteRecord, NoteFilter as ClientNoteFilter},
 };
 
 use crypto::utils::{Deserializable, Serializable};
@@ -293,7 +293,7 @@ mod tests {
         client::Client,
         config::{ClientConfig, Endpoint},
         mock::{MockDataStore, MockRpcApi},
-        store::notes::InputNoteRecord,
+        store::InputNoteRecord,
     };
     use mock::mock::{
         account::MockAccountType, notes::AssetPreservationStatus, transaction::mock_inputs,

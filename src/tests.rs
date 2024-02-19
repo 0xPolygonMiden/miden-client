@@ -7,12 +7,8 @@ use crate::{
     },
     mock::mock_fungible_faucet_account,
     store::{
-        accounts::AuthInfo,
-        mock_executor_data_store::MockDataStore,
-        notes::{InputNoteRecord, NoteFilter},
-        tests::create_test_client,
         mock_executor_data_store::MockDataStore, sqlite_store::tests::create_test_client, AuthInfo,
-        InputNoteFilter, InputNoteRecord, Store,
+        InputNoteRecord, NoteFilter,
     },
 };
 
@@ -482,6 +478,7 @@ async fn test_consume_all_transaction() {
 
     let data_store =
         MockDataStore::with_existing(account.clone(), Some(seed), Some(notes_for_data_store));
+
     client.set_data_store(data_store);
 
     let note_list = recorded_notes.iter().map(|x| x.note().id()).collect();
