@@ -274,7 +274,7 @@ async fn test_sync_state() {
     assert_eq!(
         block_num,
         client
-            .rpc_api
+            .rpc_api()
             .state_sync_requests
             .first_key_value()
             .unwrap()
@@ -298,7 +298,7 @@ async fn test_sync_state() {
     assert_eq!(
         client.get_sync_height().unwrap(),
         client
-            .rpc_api
+            .rpc_api()
             .state_sync_requests
             .first_key_value()
             .unwrap()
@@ -322,7 +322,7 @@ async fn test_sync_state_mmr_state() {
     assert_eq!(
         block_num,
         client
-            .rpc_api
+            .rpc_api()
             .state_sync_requests
             .first_key_value()
             .unwrap()
@@ -334,7 +334,7 @@ async fn test_sync_state_mmr_state() {
     assert_eq!(
         client.get_sync_height().unwrap(),
         client
-            .rpc_api
+            .rpc_api()
             .state_sync_requests
             .first_key_value()
             .unwrap()
@@ -428,7 +428,7 @@ async fn test_mint_transaction() {
     );
 
     client
-        .store
+        .store()
         .insert_account(&faucet, FAUCET_SEED, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
