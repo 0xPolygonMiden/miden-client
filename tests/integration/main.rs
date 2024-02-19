@@ -86,7 +86,7 @@ fn wait_for_node(client: &mut Client<TonicRpcClient, SqliteDataStore>) {
             Err(other_error) => {
                 panic!("Unexpected error: {other_error}");
             }
-            _ => break,
+            _ => return,
         }
     }
 

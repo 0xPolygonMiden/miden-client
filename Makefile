@@ -1,10 +1,13 @@
+FEATURES_INTEGRATION_TESTING="integration"
 NODE_FEATURES_TESTING=--features testing
 NODE_BINARY=--bin miden-node
 
 HTTP_CODE = "200"
 
 integration-test:
-	./tests/run_integration_test.sh || echo "integration test failed with exit code $$?"
+	set -o pipefail; cargo run --release --bin="integration" --features "$(FEATURES_INTEGRATION_TESTING)"; pkill miden-node
+	exit $$? || echo "integration test failed with exit code $$?"
+
 
 node:
 	if cd miden-node; then git pull; else git clone https://github.com/0xPolygonMiden/miden-node.git; fi
