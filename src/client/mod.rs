@@ -1,13 +1,12 @@
-#[cfg(not(any(test, feature = "mock")))]
-use crate::store::{data_store::SqliteDataStore, sqlite_store::SqliteStore};
-use crate::{config::ClientConfig, errors::ClientError};
-use miden_tx::TransactionExecutor;
-pub use rpc_client::RpcApiEndpoint;
+use crate::{config::ClientConfig, errors::ClientError, store::Store};
+use miden_tx::{DataStore, TransactionExecutor};
+
+pub mod rpc;
+use rpc::NodeRpcClient;
 
 pub mod accounts;
 mod chain_data;
 mod notes;
-pub(crate) mod rpc_client;
 pub(crate) mod sync;
 pub mod transactions;
 
@@ -22,16 +21,14 @@ pub mod transactions;
 /// - Connects to one or more Miden nodes to periodically sync with the current state of the
 ///   network.
 /// - Executes, proves, and submits transactions to the network as directed by the user.
-#[cfg(not(any(test, feature = "mock")))]
-pub struct Client {
+pub struct Client<N: NodeRpcClient, D: DataStore> {
     /// Local database containing information about the accounts managed by this client.
     store: SqliteStore,
     rpc_api: rpc_client::RpcClient,
     tx_executor: TransactionExecutor<SqliteDataStore>,
 }
 
-#[cfg(not(any(test, feature = "mock")))]
-impl Client {
+impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
 
@@ -39,22 +36,18 @@ impl Client {
     ///
     /// # Errors
     /// Returns an error if the client could not be instantiated.
-    pub fn new(config: ClientConfig) -> Result<Self, ClientError> {
+    pub fn new(config: ClientConfig, api: N, data_store: D) -> Result<Self, ClientError> {
         Ok(Self {
             store: SqliteStore::new((&config).into())?,
-            rpc_api: rpc_client::RpcClient::new(config.rpc.endpoint.to_string()),
-            tx_executor: TransactionExecutor::new(SqliteDataStore::new(SqliteStore::new(
-                (&config).into(),
-            )?)),
+            rpc_api: api,
+            tx_executor: TransactionExecutor::new(data_store),
         })
     }
-}
 
-// TESTING
-// ================================================================================================
-
-#[cfg(any(test, feature = "mock"))]
-pub use mock::Client;
+    #[cfg(any(test, feature = "mock"))]
+    pub fn rpc_api(&mut self) -> &mut N {
+        &mut self.rpc_api
+    }
 
 #[cfg(any(test, feature = "mock"))]
 mod mock {
