@@ -1,3 +1,5 @@
+SHELL := /bin/bash
+
 FEATURES_INTEGRATION_TESTING="integration"
 NODE_FEATURES_TESTING=--features testing
 NODE_BINARY=--bin miden-node
