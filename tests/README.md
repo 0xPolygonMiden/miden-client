@@ -54,8 +54,8 @@ The current integration test at `./integration/main.rs` goes through the followi
 3. Sync up the client
 4. Mint an asset (this creates a note for the regular account *A*) and sync again
 5. Consume the note and sync again. (After this point the account *A* should have an asset from faucet *C*)
-6. Run a p2id transaction to transfer some of the minted asset from account *A* to *B*. Sync again
-7. Consume the p2id note for account *B*. Now both accounts should have some of asset from faucet *C*
+6. Run a P2ID transaction to transfer some of the minted asset from account *A* to *B*. Sync again
+7. Consume the P2ID note for account *B*. Now both accounts should have some of asset from faucet *C*
 
 In short, we're testing:
 
@@ -64,7 +64,7 @@ In short, we're testing:
 - sync
 - mint tx
 - consume note tx (both for an imported and a created account)
-- p2id tx
+- P2ID tx
 
 ## CI integration
 
