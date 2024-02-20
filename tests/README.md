@@ -26,9 +26,9 @@ Before running the tests though, there is a setup we need to perform to have a
 node up and running. This is accomplished with the `node` command from the
 `Makefile` and what it does is:
 
-- clone the node repo if it doesn't exist
-- delete previously existing data
-- generate genesis and account data with `cargo run --release --bin miden-node --features testing -- make-genesis --inputs-path node/genesis.toml`
+- Clone the node repo if it doesn't exist.
+- Delete previously existing data.
+- Generate genesis and account data with `cargo run --release --bin miden-node --features testing -- make-genesis --inputs-path node/genesis.toml`.
 
 After that we can start the node, again done in the `start-node` command from the `Makefile`
 
@@ -38,12 +38,12 @@ The integration test is run with the `integration-test` command from the
 Makefile, although it's actually a proxy for the `run_integration_test.sh`
 script. What that script takes care of is:
 
-- Compiling the integration test code
+- Compiling the integration test code.
 - Waiting for the node to be up (this allows us to run both the `start-node`
   and `integration-test` commands without worrying about synchronization
-  issues)
-- Run the integration test binary
-- Kill the node process
+  issues).
+- Run the integration test binary.
+- Kill the node process.
 
 ### The test itself
 
@@ -59,12 +59,12 @@ The current integration test at `./integration/main.rs` goes through the followi
 
 In short, we're testing:
 
-- account importing
-- account creation
-- sync
-- mint tx
-- consume note tx (both for an imported and a created account)
-- P2ID tx
+- Account importing.
+- Account creation.
+- Sync.
+- Mint tx.
+- Consume note tx (both for an imported and a created account).
+- P2ID tx.
 
 ## CI integration
 
