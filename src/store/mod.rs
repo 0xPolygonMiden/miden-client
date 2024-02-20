@@ -46,7 +46,8 @@ pub trait Store {
     fn get_input_notes(&self, note_filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError>;
 
     /// Retrieves the output notes from the store
-    fn get_output_notes(&self, note_filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError>;
+    fn get_output_notes(&self, note_filter: NoteFilter)
+        -> Result<Vec<InputNoteRecord>, StoreError>;
 
     /// Retrieves an [InputNoteRecord] for the input note corresponding to the specified id from the store
     ///

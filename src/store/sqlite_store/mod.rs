@@ -99,7 +99,10 @@ impl Store for SqliteStore {
         self.get_input_notes(note_filter)
     }
 
-    fn get_output_notes(&self, note_filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError> {
+    fn get_output_notes(
+        &self,
+        note_filter: NoteFilter,
+    ) -> Result<Vec<InputNoteRecord>, StoreError> {
         self.get_output_notes(note_filter)
     }
 
