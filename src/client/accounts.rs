@@ -88,7 +88,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
                             &AuthInfo::RpoFalcon512(keypair),
                         )
                     }
-                    // Cases left: non-new account with no seed, and new account with seed; both OK
+                    // Non-new account with no seed, and new account with seed; both OK
                     (_, seed) => self.insert_account(
                         &account_data.account,
                         seed,
