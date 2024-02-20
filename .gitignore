@@ -19,4 +19,4 @@ Cargo.lock
 *.sqlite3
 
 # Ignore mkdocs build files
-docs/
+docs/site
