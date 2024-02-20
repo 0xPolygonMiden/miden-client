@@ -92,6 +92,17 @@ CREATE TABLE input_notes (
     -- inputs                                                 -- the serialized NoteInputs, including inputs hash and list of inputs
     -- serial_num                                             -- the note serial number
     PRIMARY KEY (note_id)
+
+    CONSTRAINT check_valid_inclusion_proof_json CHECK (
+      inclusion_proof IS NULL OR 
+      (
+        json_extract(inclusion_proof, '$.block_num') IS NOT NULL AND
+        json_extract(inclusion_proof, '$.note_index') IS NOT NULL AND
+        json_extract(inclusion_proof, '$.sub_hash') IS NOT NULL AND
+        json_extract(inclusion_proof, '$.note_root') IS NOT NULL AND
+        json_extract(inclusion_proof, '$.note_path') IS NOT NULL
+      ))
+    CONSTRAINT check_valid_metadata_json CHECK (metadata IS NULL OR (json_extract(metadata, '$.sender_id') IS NOT NULL AND json_extract(metadata, '$.tag') IS NOT NULL))
 );
 
 -- Create output notes table
@@ -120,6 +131,25 @@ CREATE TABLE output_notes (
     -- inputs                                                 -- the serialized NoteInputs, including inputs hash and list of inputs
     -- serial_num                                             -- the note serial number
     PRIMARY KEY (note_id)
+
+    CONSTRAINT check_valid_inclusion_proof_json CHECK (
+      inclusion_proof IS NULL OR 
+      (
+        json_extract(inclusion_proof, '$.block_num') IS NOT NULL AND
+        json_extract(inclusion_proof, '$.note_index') IS NOT NULL AND
+        json_extract(inclusion_proof, '$.sub_hash') IS NOT NULL AND
+        json_extract(inclusion_proof, '$.note_root') IS NOT NULL AND
+        json_extract(inclusion_proof, '$.note_path') IS NOT NULL
+      ))
+    CONSTRAINT check_valid_details_json CHECK (
+      details IS NULL OR 
+      (
+        json_extract(details, '$.nullifier') IS NOT NULL AND
+        json_extract(details, '$.script') IS NOT NULL AND
+        json_extract(details, '$.inputs') IS NOT NULL AND
+        json_extract(details, '$.serial_num') IS NOT NULL
+      ))
+
 );
 
 -- Create state sync table
