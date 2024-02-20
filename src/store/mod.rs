@@ -42,10 +42,13 @@ pub trait Store {
     // NOTE FUNCTIONS
     // ================================================================================================
 
-    /// Retrieves the input notes from the database
+    /// Retrieves the input notes from the store
     fn get_input_notes(&self, note_filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError>;
 
-    /// Retrieves an [InputNoteRecord] for the input note corresponding to the specified id from the database
+    /// Retrieves the output notes from the store
+    fn get_output_notes(&self, note_filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError>;
+
+    /// Retrieves an [InputNoteRecord] for the input note corresponding to the specified id from the store
     ///
     /// # Errors
     ///

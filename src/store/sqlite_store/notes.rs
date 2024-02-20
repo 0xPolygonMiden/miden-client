@@ -63,8 +63,8 @@ impl fmt::Display for NoteTable {
 
 impl NoteFilter {
     /// Returns a [String] containing the query for this Filter
-    fn to_query(&self) -> String {
-        let base = String::from("SELECT script, inputs, assets, serial_num, sender_id, tag, inclusion_proof FROM input_notes");
+    fn to_query(&self, notes_table: NoteTable) -> String {
+        let base = format!("SELECT script, inputs, assets, serial_num, sender_id, tag, inclusion_proof FROM {notes_table}");
         match self {
             NoteFilter::All => base,
             NoteFilter::Committed => format!("{base} WHERE status = 'committed'"),
@@ -83,7 +83,20 @@ impl SqliteStore {
         note_filter: NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
         self.db
-            .prepare(&note_filter.to_query())?
+            .prepare(&note_filter.to_query(NoteTable::InputNotes))?
+            .query_map([], parse_input_note_columns)
+            .expect("no binding parameters used in query")
+            .map(|result| Ok(result?).and_then(parse_input_note))
+            .collect::<Result<Vec<InputNoteRecord>, _>>()
+    }
+
+    /// Retrieves the output notes from the database
+    pub(crate) fn get_output_notes(
+        &self,
+        note_filter: NoteFilter,
+    ) -> Result<Vec<InputNoteRecord>, StoreError> {
+        self.db
+            .prepare(&note_filter.to_query(NoteTable::OutputNotes))?
             .query_map([], parse_input_note_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_input_note))
