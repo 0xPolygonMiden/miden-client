@@ -138,7 +138,7 @@ impl SqliteStore {
     /// Update previously-existing account after a transaction execution
     ///
     /// Because the Client retrieves the account by account ID before applying the delta, we don't
-    /// need to check that it exists here. This inserts a new row into the accounts table. 
+    /// need to check that it exists here. This inserts a new row into the accounts table.
     /// We can later identify the proper account state by looking at the nonce.
     pub(crate) fn update_account(&mut self, new_account_state: Account) -> Result<(), StoreError> {
         let tx = self.db.transaction()?;
@@ -199,7 +199,7 @@ impl SqliteStore {
     pub(crate) fn insert_account(
         &mut self,
         account: &Account,
-        account_seed: Word,
+        account_seed: Option<Word>,
         auth_info: &AuthInfo,
     ) -> Result<(), StoreError> {
         let tx = self.db.transaction()?;
@@ -207,7 +207,7 @@ impl SqliteStore {
         insert_account_code(&tx, account.code())?;
         insert_account_storage(&tx, account.storage())?;
         insert_account_asset_vault(&tx, account.vault())?;
-        insert_account_record(&tx, account, Some(account_seed))?;
+        insert_account_record(&tx, account, account_seed)?;
         insert_account_auth(&tx, account.id(), auth_info)?;
 
         Ok(tx.commit()?)

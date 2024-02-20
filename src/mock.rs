@@ -128,7 +128,7 @@ impl NodeRpcClient for MockRpcApi {
 /// Generates mock sync state requests and responses
 fn create_mock_sync_state_request_for_account_and_notes(
     account_id: AccountId,
-    created_notes: &[Note],
+    output_notes: &[Note],
     consumed_notes: &[InputNote],
     mmr_delta: Option<Vec<MmrDelta>>,
     tracked_block_headers: Option<Vec<BlockHeader>>,
@@ -157,7 +157,7 @@ fn create_mock_sync_state_request_for_account_and_notes(
         .map(|header| header.block_num())
         .unwrap_or(10);
     let mut deltas_iter = mmr_delta.unwrap_or_default().into_iter();
-    let mut created_notes_iter = created_notes.iter();
+    let mut created_notes_iter = output_notes.iter();
 
     for (block_order, block_header) in tracked_block_headers.iter().enumerate() {
         let request = SyncStateRequest {
@@ -335,7 +335,11 @@ pub async fn insert_mock_data(client: &mut Client<MockRpcApi, MockDataStore>) ->
         .map_err(|err| format!("Error generating KeyPair: {}", err))
         .unwrap();
     client
-        .insert_account(&account, account_seed, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(
+            &account,
+            Some(account_seed),
+            &AuthInfo::RpoFalcon512(key_pair),
+        )
         .unwrap();
 
     client.rpc_api().state_sync_requests = create_mock_sync_state_request_for_account_and_notes(
@@ -369,7 +373,11 @@ pub async fn create_mock_transaction(client: &mut Client<MockRpcApi, MockDataSto
     .unwrap();
 
     client
-        .insert_account(&sender_account, seed, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(
+            &sender_account,
+            Some(seed),
+            &AuthInfo::RpoFalcon512(key_pair),
+        )
         .unwrap();
 
     let key_pair: KeyPair = KeyPair::new()
@@ -391,7 +399,11 @@ pub async fn create_mock_transaction(client: &mut Client<MockRpcApi, MockDataSto
     .unwrap();
 
     client
-        .insert_account(&target_account, seed, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(
+            &target_account,
+            Some(seed),
+            &AuthInfo::RpoFalcon512(key_pair),
+        )
         .unwrap();
 
     let key_pair: KeyPair = KeyPair::new()
@@ -417,7 +429,7 @@ pub async fn create_mock_transaction(client: &mut Client<MockRpcApi, MockDataSto
     .unwrap();
 
     client
-        .insert_account(&faucet, seed, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&faucet, Some(seed), &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
     let asset: objects::assets::Asset = FungibleAsset::new(faucet.id(), 5u64).unwrap().into();

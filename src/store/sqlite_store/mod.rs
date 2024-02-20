@@ -148,7 +148,7 @@ impl Store for SqliteStore {
     fn insert_account(
         &mut self,
         account: &Account,
-        account_seed: Word,
+        account_seed: Option<Word>,
         auth_info: &AuthInfo,
     ) -> Result<(), StoreError> {
         self.insert_account(account, account_seed, auth_info)
@@ -169,7 +169,10 @@ impl Store for SqliteStore {
         self.get_account_stub_by_id(account_id)
     }
 
-    fn get_account_by_id(&self, account_id: AccountId) -> Result<(Account, Option<Word>), StoreError> {
+    fn get_account_by_id(
+        &self,
+        account_id: AccountId,
+    ) -> Result<(Account, Option<Word>), StoreError> {
         self.get_account_by_id(account_id)
     }
 }

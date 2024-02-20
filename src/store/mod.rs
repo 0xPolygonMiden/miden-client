@@ -166,7 +166,7 @@ pub trait Store {
     fn insert_account(
         &mut self,
         account: &Account,
-        account_seed: Word,
+        account_seed: Option<Word>,
         auth_info: &AuthInfo,
     ) -> Result<(), StoreError>;
 
