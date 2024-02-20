@@ -9,6 +9,7 @@ use objects::{
     accounts::{AccountId, AccountStub},
     crypto,
     notes::{NoteId, NoteInclusionProof},
+    transaction::TransactionId,
     BlockHeader, Digest,
 };
 use tracing::warn;
@@ -156,6 +157,18 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
             )?
         };
 
+        let note_ids: Vec<NoteId> = committed_notes.iter().map(|(id, _)| (*id)).collect();
+
+        let uncommitted_transactions =
+            self.store.get_transactions(TransactionFilter::Uncomitted)?;
+
+        let transactions_to_commit = get_transactions_to_commit(
+            &uncommitted_transactions,
+            &note_ids,
+            &new_nullifiers,
+            &response.account_hash_updates,
+        );
+
         // Apply received and computed updates to the store
         self.store
             .apply_state_sync(
@@ -164,6 +177,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
                 committed_notes,
                 new_peaks,
                 &new_authentication_nodes,
+                &transactions_to_commit,
             )
             .map_err(ClientError::StoreError)?;
 
@@ -337,4 +351,41 @@ fn check_account_hashes(
         }
     }
     Ok(())
+}
+
+/// Returns the list of transactions that should be marked as committed based on the state update info
+///
+/// To set an uncommitted transaction as committed three things must hold:
+///
+/// - all of the transaction's output notes are committed
+/// - all of the transaction's input notes are consumed, which means we got their nullifiers as
+/// part of the update
+/// - the account corresponding to the transaction hash matches the transaction's
+/// final_account_state
+fn get_transactions_to_commit(
+    uncommitted_transactions: &[TransactionRecord],
+    note_ids: &[NoteId],
+    nullifiers: &[Digest],
+    account_hash_updates: &[(AccountId, Digest)],
+) -> Vec<TransactionId> {
+    uncommitted_transactions
+        .iter()
+        .filter(|t| {
+            // TODO: based on the discussion in
+            // https://github.com/0xPolygonMiden/miden-client/issues/144, we should be aware
+            // that in the future it'll be possible to have many transactions modifying an
+            // account be included in a single block. If that happens, we'll need to rewrite
+            // this check
+            t.input_note_nullifiers
+                .iter()
+                .all(|n| nullifiers.contains(n))
+                && t.output_notes.iter().all(|n| note_ids.contains(&n.id()))
+                && account_hash_updates
+                    .iter()
+                    .any(|(account_id, account_hash)| {
+                        *account_id == t.account_id && *account_hash == t.final_account_state
+                    })
+        })
+        .map(|t| t.id)
+        .collect()
 }
