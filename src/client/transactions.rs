@@ -11,7 +11,7 @@ use objects::{
     notes::{Note, NoteId},
     transaction::{
         ExecutedTransaction, OutputNote, OutputNotes, ProvenTransaction, TransactionArgs,
-        TransactionScript,
+        TransactionId, TransactionScript,
     },
     Digest,
 };
@@ -145,7 +145,7 @@ impl TransactionResult {
 /// Currently, the `commit_height` (and `committed` status) is set based on the height
 /// at which the transaction's output notes are committed.
 pub struct TransactionRecord {
-    pub id: Digest,
+    pub id: TransactionId,
     pub account_id: AccountId,
     pub init_account_state: Digest,
     pub final_account_state: Digest,
@@ -159,7 +159,7 @@ pub struct TransactionRecord {
 impl TransactionRecord {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        id: Digest,
+        id: TransactionId,
         account_id: AccountId,
         init_account_state: Digest,
         final_account_state: Digest,

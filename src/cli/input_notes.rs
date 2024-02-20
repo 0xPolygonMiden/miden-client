@@ -1,23 +1,19 @@
+use super::{Client, Parser};
+use crate::cli::create_dynamic_table;
+use clap::ValueEnum;
+use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
+use crypto::utils::{Deserializable, Serializable};
+use miden_client::{
+    client::rpc::NodeRpcClient,
+    store::notes::{InputNoteRecord, NoteFilter as ClientNoteFilter},
+};
+use miden_tx::DataStore;
+use objects::{notes::NoteId, Digest};
 use std::{
     fs::File,
     io::{Read, Write},
     path::PathBuf,
 };
-
-use crate::cli::create_dynamic_table;
-
-use super::{Client, Parser};
-use clap::ValueEnum;
-use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
-use miden_client::{
-    client::rpc::NodeRpcClient,
-    store::notes::{InputNoteRecord, NoteFilter as ClientNoteFilter},
-};
-
-use crypto::utils::{Deserializable, Serializable};
-
-use miden_tx::DataStore;
-use objects::{notes::NoteId, Digest};
 
 #[derive(Clone, Debug, ValueEnum)]
 pub enum NoteFilter {
