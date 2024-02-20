@@ -88,8 +88,8 @@ impl Store for SqliteStore {
         self.get_transactions(transaction_filter)
     }
 
-    fn insert_transaction_data(&mut self, tx_result: TransactionResult) -> Result<(), StoreError> {
-        self.insert_transaction_data(tx_result)
+    fn apply_transaction(&mut self, tx_result: TransactionResult) -> Result<(), StoreError> {
+        self.apply_transaction(tx_result)
     }
 
     fn get_input_notes(&self, note_filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError> {

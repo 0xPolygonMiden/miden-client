@@ -69,8 +69,8 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     ///
     /// # Panics
     ///
-    /// Will panic when trying to import a non new account without a seed since it's not
-    /// implemented yet
+    /// Will panic when trying to import a non-new account without a seed since this functionality
+    /// is not currently implemented
     pub fn import_account(&mut self, account_data: AccountData) -> Result<(), ClientError> {
         match account_data.auth {
             AuthData::RpoFalcon512Seed(key_pair) => {
@@ -193,6 +193,11 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     }
 
     /// Applies an [AccountDelta] to the stored account
+    /// 
+    /// # Errors
+    /// 
+    /// This function can error if the account is not found or if there is a problem applying
+    /// the [AccountDelta] to the related [Account]
     pub fn update_account(
         &mut self,
         account_id: AccountId,

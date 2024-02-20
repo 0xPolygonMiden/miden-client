@@ -81,7 +81,7 @@ impl SqliteStore {
     }
 
     /// Inserts a transaction and updates the current state based on the `tx_result` changes
-    pub fn insert_transaction_data(
+    pub fn apply_transaction(
         &mut self,
         tx_result: TransactionResult,
     ) -> Result<(), StoreError> {
@@ -103,7 +103,7 @@ impl SqliteStore {
         let tx = self.db.transaction()?;
 
         // Transaction Data
-        Self::insert_proven_transaction_data(&tx, tx_result)?;
+        insert_proven_transaction_data(&tx, tx_result)?;
 
         // Account Data
         insert_account_storage(&tx, account.storage())?;
@@ -123,50 +123,6 @@ impl SqliteStore {
         }
 
         tx.commit()?;
-
-        Ok(())
-    }
-
-    fn insert_proven_transaction_data(
-        tx: &Transaction<'_>,
-        transaction_result: TransactionResult,
-    ) -> Result<(), StoreError> {
-        let (
-            transaction_id,
-            account_id,
-            init_account_state,
-            final_account_state,
-            input_notes,
-            output_notes,
-            script_program,
-            script_hash,
-            script_inputs,
-            block_num,
-            committed,
-        ) = serialize_transaction_data(transaction_result)?;
-
-        if let Some(hash) = script_hash.clone() {
-            tx.execute(
-                INSERT_TRANSACTION_SCRIPT_QUERY,
-                params![hash, script_program],
-            )?;
-        }
-
-        tx.execute(
-            INSERT_TRANSACTION_QUERY,
-            params![
-                transaction_id,
-                account_id,
-                init_account_state,
-                final_account_state,
-                input_notes,
-                output_notes,
-                script_hash,
-                script_inputs,
-                block_num,
-                committed,
-            ],
-        )?;
 
         Ok(())
     }
@@ -192,6 +148,50 @@ impl SqliteStore {
 
         Ok(rows)
     }
+}
+
+pub(super) fn insert_proven_transaction_data(
+    tx: &Transaction<'_>,
+    transaction_result: TransactionResult,
+) -> Result<(), StoreError> {
+    let (
+        transaction_id,
+        account_id,
+        init_account_state,
+        final_account_state,
+        input_notes,
+        output_notes,
+        script_program,
+        script_hash,
+        script_inputs,
+        block_num,
+        committed,
+    ) = serialize_transaction_data(transaction_result)?;
+
+    if let Some(hash) = script_hash.clone() {
+        tx.execute(
+            INSERT_TRANSACTION_SCRIPT_QUERY,
+            params![hash, script_program],
+        )?;
+    }
+
+    tx.execute(
+        INSERT_TRANSACTION_QUERY,
+        params![
+            transaction_id,
+            account_id,
+            init_account_state,
+            final_account_state,
+            input_notes,
+            output_notes,
+            script_hash,
+            script_inputs,
+            block_num,
+            committed,
+        ],
+    )?;
+
+    Ok(())
 }
 
 pub(super) fn serialize_transaction_data(

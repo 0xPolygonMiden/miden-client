@@ -105,14 +105,14 @@ impl PaymentTransactionData {
 /// notes created by the transaction execution
 pub struct TransactionResult {
     executed_transaction: ExecutedTransaction,
-    created_notes: Vec<Note>,
+    output_notes: Vec<Note>,
 }
 
 impl TransactionResult {
     pub fn new(executed_transaction: ExecutedTransaction, created_notes: Vec<Note>) -> Self {
         Self {
             executed_transaction,
-            created_notes,
+            output_notes: created_notes,
         }
     }
 
@@ -121,7 +121,7 @@ impl TransactionResult {
     }
 
     pub fn created_notes(&self) -> &Vec<Note> {
-        &self.created_notes
+        &self.output_notes
     }
 
     pub fn block_num(&self) -> u32 {
@@ -404,7 +404,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
             .await?;
 
         // Transaction was proven and submitted to the node correctly, persist note details and update account
-        self.store.insert_transaction_data(tx_result)?;
+        self.store.apply_transaction(tx_result)?;
 
         Ok(())
     }
