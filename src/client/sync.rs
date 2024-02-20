@@ -1,5 +1,12 @@
-use super::{rpc::CommittedNote, rpc::NodeRpcClient, Client};
-use crate::errors::{ClientError, StoreError};
+use super::{
+    rpc::{CommittedNote, NodeRpcClient},
+    transactions::TransactionRecord,
+    Client,
+};
+use crate::{
+    errors::{ClientError, StoreError},
+    store::TransactionFilter,
+};
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 
@@ -175,9 +182,9 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
                 response.block_header,
                 new_nullifiers,
                 committed_notes,
+                &transactions_to_commit,
                 new_peaks,
                 &new_authentication_nodes,
-                &transactions_to_commit,
             )
             .map_err(ClientError::StoreError)?;
 
@@ -357,10 +364,10 @@ fn check_account_hashes(
 ///
 /// To set an uncommitted transaction as committed three things must hold:
 ///
-/// - all of the transaction's output notes are committed
-/// - all of the transaction's input notes are consumed, which means we got their nullifiers as
+/// - All of the transaction's output notes are committed
+/// - All of the transaction's input notes are consumed, which means we got their nullifiers as
 /// part of the update
-/// - the account corresponding to the transaction hash matches the transaction's
+/// - The account corresponding to the transaction hash matches the transaction's
 /// final_account_state
 fn get_transactions_to_commit(
     uncommitted_transactions: &[TransactionRecord],

@@ -137,7 +137,7 @@ impl SqliteStore {
 
     /// Update previously-existing account after a transaction execution
     ///
-    /// Because the Client retrieves the account by account ID before applying the delta, we don't
+    /// Because the Client retrieves the account by Account ID before applying the delta, we don't
     /// need to check that it exists here
     pub(crate) fn update_account(&mut self, new_account_state: Account) -> Result<(), StoreError> {
         let tx = self.db.transaction()?;

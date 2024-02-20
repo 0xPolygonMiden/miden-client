@@ -1,6 +1,7 @@
 use miden_client::client::Client;
 use miden_client::client::{rpc::TonicRpcClient, transactions::TransactionTemplate};
 use miden_client::config::{ClientConfig, RpcConfig};
+use miden_client::errors::{ClientError, NodeRpcClientError};
 use miden_client::store::data_store::SqliteDataStore;
 use miden_client::store::sqlite_store::SqliteStore;
 use miden_client::store::{NoteFilter, TransactionFilter};

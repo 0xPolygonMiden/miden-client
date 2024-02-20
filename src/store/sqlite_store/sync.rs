@@ -3,9 +3,10 @@ use crypto::{
     utils::Serializable,
 };
 
-use crate::{errors::StoreError, store::TransactionFilter};
+use crate::errors::StoreError;
 use objects::{
     notes::{NoteId, NoteInclusionProof},
+    transaction::TransactionId,
     BlockHeader, Digest,
 };
 use rusqlite::params;
@@ -62,11 +63,10 @@ impl SqliteStore {
         block_header: BlockHeader,
         nullifiers: Vec<Digest>,
         committed_notes: Vec<(NoteId, NoteInclusionProof)>,
+        committed_transactions: &[TransactionId],
         new_mmr_peaks: MmrPeaks,
         new_authentication_nodes: &[(InOrderIndex, Digest)],
     ) -> Result<(), StoreError> {
-        let uncommitted_transactions = self.get_transactions(TransactionFilter::Uncomitted)?;
-
         let tx = self.db.transaction()?;
 
         // Update state sync block number
@@ -74,7 +74,7 @@ impl SqliteStore {
         tx.execute(BLOCK_NUMBER_QUERY, params![block_header.block_num()])?;
 
         // Update spent notes
-        for nullifier in nullifiers {
+        for nullifier in nullifiers.iter() {
             const SPENT_INPUT_NOTE_QUERY: &str =
                 "UPDATE input_notes SET status = 'consumed' WHERE nullifier = ?";
             let nullifier = nullifier.to_hex();
@@ -88,15 +88,10 @@ impl SqliteStore {
         // TODO: Due to the fact that notes are returned based on fuzzy matching of tags,
         // this process of marking if the header has notes needs to be revisited
         let block_has_relevant_notes = !committed_notes.is_empty();
-        SqliteStore::insert_block_header_tx(
-            &tx,
-            block_header,
-            new_mmr_peaks,
-            block_has_relevant_notes,
-        )?;
+        Self::insert_block_header_tx(&tx, block_header, new_mmr_peaks, block_has_relevant_notes)?;
 
         // Insert new authentication nodes (inner nodes of the PartialMmr)
-        SqliteStore::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
+        Self::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
 
         // Update tracked notes
         for (note_id, inclusion_proof) in committed_notes.iter() {
@@ -119,13 +114,11 @@ impl SqliteStore {
             )?;
         }
 
-        let note_ids: Vec<NoteId> = committed_notes.iter().map(|(id, _)| (*id)).collect();
-
-        SqliteStore::mark_transactions_as_committed_by_note_id(
-            &uncommitted_transactions,
-            &note_ids,
-            block_header.block_num(),
+        // Mark transactions as committed
+        Self::mark_transactions_as_committed(
             &tx,
+            block_header.block_num(),
+            committed_transactions,
         )?;
 
         // Commit the updates

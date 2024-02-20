@@ -193,9 +193,9 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     }
 
     /// Applies an [AccountDelta] to the stored account
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// This function can error if the account is not found or if there is a problem applying
     /// the [AccountDelta] to the related [Account]
     pub fn update_account(

@@ -1,6 +1,7 @@
 use objects::{
     accounts::{Account, AccountId, AccountStub},
     notes::NoteInclusionProof,
+    transaction::TransactionId,
     utils::collections::BTreeMap,
     Digest,
 };
@@ -69,6 +70,7 @@ impl Store for SqliteStore {
         block_header: BlockHeader,
         nullifiers: Vec<Digest>,
         committed_notes: Vec<(NoteId, NoteInclusionProof)>,
+        committed_transactions: &[TransactionId],
         new_mmr_peaks: MmrPeaks,
         new_authentication_nodes: &[(InOrderIndex, Digest)],
     ) -> Result<(), StoreError> {
@@ -76,6 +78,7 @@ impl Store for SqliteStore {
             block_header,
             nullifiers,
             committed_notes,
+            committed_transactions,
             new_mmr_peaks,
             new_authentication_nodes,
         )

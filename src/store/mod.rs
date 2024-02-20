@@ -12,7 +12,7 @@ use crypto::{
 use objects::{
     accounts::{Account, AccountId, AccountStub},
     notes::{Note, NoteId, NoteInclusionProof, Nullifier},
-    transaction::InputNote,
+    transaction::{InputNote, TransactionId},
     utils::collections::BTreeMap,
     BlockHeader, Digest,
 };
@@ -48,6 +48,7 @@ pub trait Store {
     /// Retrieves an [InputNoteRecord] for the input note corresponding to the specified id from the database
     ///
     /// # Errors
+    ///
     /// Returns a `StoreError::InputNoteNotFound` if there is no Note with the provided id
     fn get_input_note_by_id(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError>;
 
@@ -150,6 +151,7 @@ pub trait Store {
     /// will be `None`
     ///
     /// # Errors
+    ///
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided id
     fn get_account_by_id(
         &self,
@@ -187,6 +189,7 @@ pub trait Store {
         block_header: BlockHeader,
         nullifiers: Vec<Digest>,
         committed_notes: Vec<(NoteId, NoteInclusionProof)>,
+        committed_transactions: &[TransactionId],
         new_mmr_peaks: MmrPeaks,
         new_authentication_nodes: &[(InOrderIndex, Digest)],
     ) -> Result<(), StoreError>;
