@@ -158,18 +158,18 @@ impl Store for SqliteStore {
         self.get_account_ids()
     }
 
-    fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Word)>, StoreError> {
+    fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, StoreError> {
         self.get_account_stubs()
     }
 
     fn get_account_stub_by_id(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountStub, Word), StoreError> {
+    ) -> Result<(AccountStub, Option<Word>), StoreError> {
         self.get_account_stub_by_id(account_id)
     }
 
-    fn get_account_by_id(&self, account_id: AccountId) -> Result<(Account, Word), StoreError> {
+    fn get_account_by_id(&self, account_id: AccountId) -> Result<(Account, Option<Word>), StoreError> {
         self.get_account_by_id(account_id)
     }
 }

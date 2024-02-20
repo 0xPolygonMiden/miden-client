@@ -21,7 +21,7 @@ use rusqlite::{params, Transaction};
 // TYPES
 // ================================================================================================
 type SerializedAccountData = (i64, String, String, String, i64, bool);
-type SerializedAccountsParts = (i64, i64, String, String, String, Vec<u8>);
+type SerializedAccountsParts = (i64, i64, String, String, String, Option<Vec<u8>>);
 
 type SerializedAccountAuthData = (i64, Vec<u8>);
 type SerializedAccountAuthParts = (i64, Vec<u8>);
@@ -53,7 +53,7 @@ impl SqliteStore {
             .collect::<Result<Vec<AccountId>, StoreError>>()
     }
 
-    pub(super) fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Word)>, StoreError> {
+    pub(super) fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, StoreError> {
         const QUERY: &str =
             "SELECT a.id, a.nonce, a.vault_root, a.storage_root, a.code_root, a.account_seed \
             FROM accounts a \
@@ -70,12 +70,13 @@ impl SqliteStore {
     pub(crate) fn get_account_stub_by_id(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountStub, Word), StoreError> {
+    ) -> Result<(AccountStub, Option<Word>), StoreError> {
         let account_id_int: u64 = account_id.into();
         const QUERY: &str = "SELECT id, nonce, vault_root, storage_root, code_root, account_seed \
             FROM accounts WHERE id = ? \
             ORDER BY nonce DESC \
             LIMIT 1";
+
         self.db
             .prepare(QUERY)?
             .query_map(params![account_id_int as i64], parse_accounts_columns)?
@@ -100,7 +101,7 @@ impl SqliteStore {
     pub(crate) fn get_account_by_id(
         &self,
         account_id: AccountId,
-    ) -> Result<(Account, Word), StoreError> {
+    ) -> Result<(Account, Option<Word>), StoreError> {
         let (account_stub, seed) = self.get_account_stub_by_id(account_id)?;
         let (_procedures, module_ast) = self.get_account_code(account_stub.code_root())?;
 
@@ -136,15 +137,15 @@ impl SqliteStore {
 
     /// Update previously-existing account after a transaction execution
     ///
-    /// This inserts a new row into the accounts table. We can identify the proper account state
-    /// by looking at the nonce.
+    /// Because the Client retrieves the account by account ID before applying the delta, we don't
+    /// need to check that it exists here. This inserts a new row into the accounts table. 
+    /// We can later identify the proper account state by looking at the nonce.
     pub(crate) fn update_account(&mut self, new_account_state: Account) -> Result<(), StoreError> {
-        let (_account, seed) = self.get_account_by_id(new_account_state.id())?;
         let tx = self.db.transaction()?;
 
         insert_account_storage(&tx, new_account_state.storage())?;
         insert_account_asset_vault(&tx, new_account_state.vault())?;
-        insert_account_record(&tx, &new_account_state, seed)?;
+        insert_account_record(&tx, &new_account_state, None)?;
 
         Ok(tx.commit()?)
     }
@@ -206,7 +207,7 @@ impl SqliteStore {
         insert_account_code(&tx, account.code())?;
         insert_account_storage(&tx, account.storage())?;
         insert_account_asset_vault(&tx, account.vault())?;
-        insert_account_record(&tx, account, account_seed)?;
+        insert_account_record(&tx, account, Some(account_seed))?;
         insert_account_auth(&tx, account.id(), auth_info)?;
 
         Ok(tx.commit()?)
@@ -219,11 +220,11 @@ impl SqliteStore {
 pub(super) fn insert_account_record(
     tx: &Transaction<'_>,
     account: &Account,
-    account_seed: Word,
+    account_seed: Option<Word>,
 ) -> Result<(), StoreError> {
     let (id, code_root, storage_root, vault_root, nonce, committed) = serialize_account(account)?;
 
-    let account_seed = account_seed.to_bytes();
+    let account_seed = account_seed.map(|seed| seed.to_bytes());
 
     const QUERY: &str =  "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed) VALUES (?, ?, ?, ?, ?, ?, ?)";
     tx.execute(
@@ -293,16 +294,18 @@ pub(super) fn parse_accounts_columns(
     let vault_root: String = row.get(2)?;
     let storage_root: String = row.get(3)?;
     let code_root: String = row.get(4)?;
-    let account_seed: Vec<u8> = row.get(5)?;
+    let account_seed: Option<Vec<u8>> = row.get(5)?;
     Ok((id, nonce, vault_root, storage_root, code_root, account_seed))
 }
 
 /// Parse an account from the provided parts.
 pub(super) fn parse_accounts(
     serialized_account_parts: SerializedAccountsParts,
-) -> Result<(AccountStub, Word), StoreError> {
+) -> Result<(AccountStub, Option<Word>), StoreError> {
     let (id, nonce, vault_root, storage_root, code_root, account_seed) = serialized_account_parts;
-    let account_seed = Word::read_from_bytes(&account_seed)?;
+    let account_seed = account_seed
+        .map(|seed| Word::read_from_bytes(&seed))
+        .transpose()?;
 
     Ok((
         AccountStub::new(

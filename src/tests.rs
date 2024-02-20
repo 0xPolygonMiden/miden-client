@@ -117,7 +117,7 @@ async fn insert_basic_account() {
     assert_eq!(account.code().root(), fetched_account.code().root());
 
     // Validate seed matches
-    assert_eq!(account_seed, fetched_account_seed);
+    assert_eq!(account_seed, fetched_account_seed.unwrap());
 }
 
 #[tokio::test]
@@ -151,7 +151,7 @@ async fn insert_faucet_account() {
     assert_eq!(account.code().root(), fetched_account.code().root());
 
     // Validate seed matches
-    assert_eq!(account_seed, fetched_account_seed);
+    assert_eq!(account_seed, fetched_account_seed.unwrap());
 }
 
 #[tokio::test]

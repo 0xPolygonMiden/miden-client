@@ -134,7 +134,7 @@ pub trait Store {
     /// used to create them.
     ///
     /// Said accounts' state is the state after the last performed sync.
-    fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Word)>, StoreError>;
+    fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, StoreError>;
 
     /// Retrieves an [AccountStub] object for the specified [AccountId] along with the seed
     /// used to create it.
@@ -142,20 +142,25 @@ pub trait Store {
     /// Said account's state is the state according to the last sync performed.
     ///
     /// # Errors
-    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
+    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided id
     fn get_account_stub_by_id(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountStub, Word), StoreError>;
+    ) -> Result<(AccountStub, Option<Word>), StoreError>;
 
     /// Retrieves a full [Account] object, along with its seed.
     ///
-    /// This function returns the [Account]'s latest state alongside the account's seed
+    /// This function returns the [Account]'s latest state. If the account is new (that is, has
+    /// never executed a trasaction), the returned seed will be `Some(Word)`; otherwise the seed
+    /// will be `None`
     ///
     /// # Errors
     ///
-    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    fn get_account_by_id(&self, account_id: AccountId) -> Result<(Account, Word), StoreError>;
+    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided id
+    fn get_account_by_id(
+        &self,
+        account_id: AccountId,
+    ) -> Result<(Account, Option<Word>), StoreError>;
 
     /// Inserts an [Account] along with the seed used to create it and its [AuthInfo]
     fn insert_account(

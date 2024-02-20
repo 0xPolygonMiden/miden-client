@@ -193,9 +193,9 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     }
 
     /// Applies an [AccountDelta] to the stored account
-    ///
+    /// 
     /// # Errors
-    ///
+    /// 
     /// This function can error if the account is not found or if there is a problem applying
     /// the [AccountDelta] to the related [Account]
     pub fn update_account(
@@ -215,12 +215,15 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
 
     /// Returns summary info about the accounts managed by this client.
     ///
-    pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Word)>, ClientError> {
+    pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Option<Word>)>, ClientError> {
         self.store.get_account_stubs().map_err(|err| err.into())
     }
 
     /// Returns summary info about the specified account.
-    pub fn get_account_by_id(&self, account_id: AccountId) -> Result<(Account, Word), ClientError> {
+    pub fn get_account_by_id(
+        &self,
+        account_id: AccountId,
+    ) -> Result<(Account, Option<Word>), ClientError> {
         self.store
             .get_account_by_id(account_id)
             .map_err(|err| err.into())
@@ -230,7 +233,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     pub fn get_account_stub_by_id(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountStub, Word), ClientError> {
+    ) -> Result<(AccountStub, Option<Word>), ClientError> {
         self.store
             .get_account_stub_by_id(account_id)
             .map_err(|err| err.into())
