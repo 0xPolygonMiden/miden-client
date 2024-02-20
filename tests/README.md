@@ -34,28 +34,30 @@ After that we can start the node, again done in the `start-node` command from th
 
 ### Test Run
 
-The integration test is run with the `integration-test` command from the
-Makefile, although it's actually a proxy for the `run_integration_test.sh`
-script. What that script takes care of is:
-
-- Compiling the integration test code.
-- Waiting for the node to be up (this allows us to run both the `start-node`
-  and `integration-test` commands without worrying about synchronization
-  issues).
-- Run the integration test binary.
-- Kill the node process.
+To run the integration test you just need to run `make integration-test`. It'll
+run the rust binary for the integration test and report whether there was an
+error or not and the exit code if so. Lastly it kills the node's process.
 
 ### The test itself
 
 The current integration test at `./integration/main.rs` goes through the following steps:
 
-1. Load accounts (1 regular *A*, 1 faucet *C*) created with the `make-genesis` command of the node
+0. Wait for the node to be reachable (this is mainly so you can run `make start-node` 
+   and `make integration-test` in parallel without major issues).
+   This is done with a sync request, although in the future we might use a
+   health check endpoint or similar.
+1. Load accounts (1 regular *A*, 1 faucet *C*) created with the `make-genesis`
+   command of the node
 2. Create an extra regular account *C*
 3. Sync up the client
-4. Mint an asset (this creates a note for the regular account *A*) and sync again
-5. Consume the note and sync again. (After this point the account *A* should have an asset from faucet *C*)
-6. Run a P2ID transaction to transfer some of the minted asset from account *A* to *B*. Sync again
-7. Consume the P2ID note for account *B*. Now both accounts should have some of asset from faucet *C*
+4. Mint an asset (this creates a note for the regular account *A*) and sync
+   again
+5. Consume the note and sync again. (After this point the account *A* should
+   have an asset from faucet *C*)
+6. Run a P2ID transaction to transfer some of the minted asset from account *A*
+   to *B*. Sync again
+7. Consume the P2ID note for account *B*. Now both accounts should have some of
+   asset from faucet *C*
 
 In short, we're testing:
 
