@@ -179,9 +179,9 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     }
 
     /// Inserts a new account into the client's store.
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// If an account is new and no seed is provided, the function errors out because the client
     /// cannot execute transactions against new accounts for which it does not know the seed.
     pub fn insert_account(
