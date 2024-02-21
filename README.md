@@ -31,7 +31,7 @@ You can then choose to run the client CLI using `cargo`, or install it on your s
 cargo install --path .
 ```
 
-This will install the `miden` binary in your PATH, at `~/.cargo/bin/miden`. 
+This will install the `miden-client` binary in your PATH, at `~/.cargo/bin/miden-client`. 
 
 For testing, the following way of installing is recommended:
 
