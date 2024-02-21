@@ -54,7 +54,7 @@ pub trait Store {
     /// # Errors
     ///
     /// Returns a `StoreError::InputNoteNotFound` if there is no Note with the provided id
-    fn get_input_note_by_id(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError>;
+    fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError>;
 
     /// Returns the nullifiers of all unspent input notes
     ///
@@ -144,10 +144,7 @@ pub trait Store {
     ///
     /// # Errors
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    fn get_account_stub_by_id(
-        &self,
-        account_id: AccountId,
-    ) -> Result<(AccountStub, Option<Word>), StoreError>;
+    fn get_account_stub(&self, account_id: AccountId) -> Result<(AccountStub, Word), StoreError>;
 
     /// Retrieves a full [Account] object. The seed will be returned if the account is new,
     /// otherwise it will be `None`.
@@ -159,10 +156,14 @@ pub trait Store {
     /// # Errors
     ///
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    fn get_account_by_id(
-        &self,
-        account_id: AccountId,
-    ) -> Result<(Account, Option<Word>), StoreError>;
+    fn get_account(&self, account_id: AccountId) -> Result<(Account, Word), StoreError>;
+
+    /// Retrieves an account's [AuthInfo], utilized to authenticate the account.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
+    fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, StoreError>;
 
     /// Inserts an [Account] along with the seed used to create it and its [AuthInfo]
     fn insert_account(
@@ -171,6 +172,10 @@ pub trait Store {
         account_seed: Option<Word>,
         auth_info: &AuthInfo,
     ) -> Result<(), StoreError>;
+
+    /// Update previously-existing account after a transaction execution
+    /// The account that is to be updated is identified by the Account ID
+    fn update_account(&mut self, new_account_state: Account) -> Result<(), StoreError>;
 
     // SYNC-RELATED FUNCTIONS
     // ================================================================================================

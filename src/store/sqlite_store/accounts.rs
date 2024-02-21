@@ -67,7 +67,7 @@ impl SqliteStore {
             .collect()
     }
 
-    pub(crate) fn get_account_stub_by_id(
+    pub(crate) fn get_account_stub(
         &self,
         account_id: AccountId,
     ) -> Result<(AccountStub, Option<Word>), StoreError> {
@@ -92,17 +92,14 @@ impl SqliteStore {
         account_id: AccountId,
     ) -> Result<(Vec<Digest>, ModuleAst), StoreError> {
         // TODO: This could be done via a single query
-        let (account, _seed) = self.get_account_stub_by_id(account_id)?;
+        let (account, _seed) = self.get_account_stub(account_id)?;
 
         self.get_account_code(account.code_root())
     }
 
     // TODO: Get all parts from a single query
-    pub(crate) fn get_account_by_id(
-        &self,
-        account_id: AccountId,
-    ) -> Result<(Account, Option<Word>), StoreError> {
-        let (account_stub, seed) = self.get_account_stub_by_id(account_id)?;
+    pub(crate) fn get_account(&self, account_id: AccountId) -> Result<(Account, Word), StoreError> {
+        let (account_stub, seed) = self.get_account_stub(account_id)?;
         let (_procedures, module_ast) = self.get_account_code(account_stub.code_root())?;
 
         let account_code = AccountCode::new(module_ast, &TransactionKernel::assembler()).unwrap();

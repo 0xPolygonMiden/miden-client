@@ -18,9 +18,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
 
     /// Returns the input note with the specified hash.
     pub fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, ClientError> {
-        self.store
-            .get_input_note_by_id(note_id)
-            .map_err(|err| err.into())
+        self.store.get_input_note(note_id).map_err(|err| err.into())
     }
 
     // INPUT NOTE CREATION

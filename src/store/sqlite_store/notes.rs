@@ -103,10 +103,7 @@ impl SqliteStore {
             .collect::<Result<Vec<InputNoteRecord>, _>>()
     }
 
-    pub(crate) fn get_input_note_by_id(
-        &self,
-        note_id: NoteId,
-    ) -> Result<InputNoteRecord, StoreError> {
+    pub(crate) fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError> {
         let query_id = &note_id.inner().to_string();
         const QUERY: &str = "SELECT script, inputs, assets, serial_num, sender_id, tag, inclusion_proof FROM input_notes WHERE note_id = ?";
 
