@@ -105,7 +105,7 @@ async fn insert_basic_account() {
     let (account, account_seed) = account_insert_result.unwrap();
 
     // Fetch Account
-    let fetched_account_data = client.get_account_by_id(account.id());
+    let fetched_account_data = client.get_account(account.id());
     assert!(fetched_account_data.is_ok());
 
     let (fetched_account, fetched_account_seed) = fetched_account_data.unwrap();
@@ -139,7 +139,7 @@ async fn insert_faucet_account() {
     let (account, account_seed) = account_insert_result.unwrap();
 
     // Fetch Account
-    let fetched_account_data = client.get_account_by_id(account.id());
+    let fetched_account_data = client.get_account(account.id());
     assert!(fetched_account_data.is_ok());
 
     let (fetched_account, fetched_account_seed) = fetched_account_data.unwrap();
@@ -219,7 +219,7 @@ async fn test_acc_code() {
             &AuthInfo::RpoFalcon512(key_pair),
         )
         .unwrap();
-    let (retrieved_acc, _) = client.get_account_by_id(account_id).unwrap();
+    let (retrieved_acc, _) = client.get_account(account_id).unwrap();
 
     let mut account_module = account.code().module().clone();
     account_module.clear_locations();

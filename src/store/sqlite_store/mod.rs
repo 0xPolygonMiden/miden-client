@@ -162,11 +162,14 @@ impl Store for SqliteStore {
         self.get_account_stubs()
     }
 
-    fn get_account_stub(&self, account_id: AccountId) -> Result<(AccountStub, Word), StoreError> {
+    fn get_account_stub(
+        &self,
+        account_id: AccountId,
+    ) -> Result<(AccountStub, Option<Word>), StoreError> {
         self.get_account_stub(account_id)
     }
 
-    fn get_account(&self, account_id: AccountId) -> Result<(Account, Word), StoreError> {
+    fn get_account(&self, account_id: AccountId) -> Result<(Account, Option<Word>), StoreError> {
         self.get_account(account_id)
     }
 

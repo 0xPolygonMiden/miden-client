@@ -144,7 +144,10 @@ pub trait Store {
     ///
     /// # Errors
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    fn get_account_stub(&self, account_id: AccountId) -> Result<(AccountStub, Word), StoreError>;
+    fn get_account_stub(
+        &self,
+        account_id: AccountId,
+    ) -> Result<(AccountStub, Option<Word>), StoreError>;
 
     /// Retrieves a full [Account] object. The seed will be returned if the account is new,
     /// otherwise it will be `None`.
@@ -156,7 +159,7 @@ pub trait Store {
     /// # Errors
     ///
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    fn get_account(&self, account_id: AccountId) -> Result<(Account, Word), StoreError>;
+    fn get_account(&self, account_id: AccountId) -> Result<(Account, Option<Word>), StoreError>;
 
     /// Retrieves an account's [AuthInfo], utilized to authenticate the account.
     ///

@@ -217,10 +217,11 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     }
 
     /// Returns summary info about the specified account.
-    pub fn get_account(&self, account_id: AccountId) -> Result<(Account, Word), ClientError> {
-        self.store
-            .get_account_by_id(account_id)
-            .map_err(|err| err.into())
+    pub fn get_account(
+        &self,
+        account_id: AccountId,
+    ) -> Result<(Account, Option<Word>), ClientError> {
+        self.store.get_account(account_id).map_err(|err| err.into())
     }
 
     /// Returns summary info about the specified account.

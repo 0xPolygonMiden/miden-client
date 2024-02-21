@@ -98,7 +98,10 @@ impl SqliteStore {
     }
 
     // TODO: Get all parts from a single query
-    pub(crate) fn get_account(&self, account_id: AccountId) -> Result<(Account, Word), StoreError> {
+    pub(crate) fn get_account(
+        &self,
+        account_id: AccountId,
+    ) -> Result<(Account, Option<Word>), StoreError> {
         let (account_stub, seed) = self.get_account_stub(account_id)?;
         let (_procedures, module_ast) = self.get_account_code(account_stub.code_root())?;
 
