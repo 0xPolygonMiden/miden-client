@@ -203,7 +203,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
         account_id: AccountId,
         account_delta: &AccountDelta,
     ) -> Result<(), ClientError> {
-        let (mut account, _seed) = self.store.get_account_by_id(account_id)?;
+        let (mut account, _seed) = self.store.get_account(account_id)?;
 
         account.apply_delta(account_delta)?;
 
@@ -221,9 +221,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
 
     /// Returns summary info about the specified account.
     pub fn get_account_by_id(&self, account_id: AccountId) -> Result<(Account, Word), ClientError> {
-        self.store
-            .get_account_by_id(account_id)
-            .map_err(|err| err.into())
+        self.store.get_account(account_id).map_err(|err| err.into())
     }
 
     /// Returns summary info about the specified account.
@@ -232,7 +230,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
         account_id: AccountId,
     ) -> Result<(AccountStub, Word), ClientError> {
         self.store
-            .get_account_stub_by_id(account_id)
+            .get_account_stub(account_id)
             .map_err(|err| err.into())
     }
 

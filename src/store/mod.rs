@@ -54,7 +54,7 @@ pub trait Store {
     /// # Errors
     ///
     /// Returns a `StoreError::InputNoteNotFound` if there is no Note with the provided id
-    fn get_input_note_by_id(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError>;
+    fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError>;
 
     /// Returns the nullifiers of all unspent input notes
     ///
@@ -143,10 +143,7 @@ pub trait Store {
     ///
     /// # Errors
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    fn get_account_stub_by_id(
-        &self,
-        account_id: AccountId,
-    ) -> Result<(AccountStub, Word), StoreError>;
+    fn get_account_stub(&self, account_id: AccountId) -> Result<(AccountStub, Word), StoreError>;
 
     /// Retrieves a full [Account] object, along with its seed.
     ///
@@ -155,7 +152,7 @@ pub trait Store {
     /// # Errors
     ///
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    fn get_account_by_id(&self, account_id: AccountId) -> Result<(Account, Word), StoreError>;
+    fn get_account(&self, account_id: AccountId) -> Result<(Account, Word), StoreError>;
 
     /// Retrieves an account's [AuthInfo], utilized to authenticate the account.
     ///

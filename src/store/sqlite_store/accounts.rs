@@ -67,7 +67,7 @@ impl SqliteStore {
             .collect()
     }
 
-    pub(crate) fn get_account_stub_by_id(
+    pub(crate) fn get_account_stub(
         &self,
         account_id: AccountId,
     ) -> Result<(AccountStub, Word), StoreError> {
@@ -91,17 +91,14 @@ impl SqliteStore {
         account_id: AccountId,
     ) -> Result<(Vec<Digest>, ModuleAst), StoreError> {
         // TODO: This could be done via a single query
-        let (account, _seed) = self.get_account_stub_by_id(account_id)?;
+        let (account, _seed) = self.get_account_stub(account_id)?;
 
         self.get_account_code(account.code_root())
     }
 
     // TODO: Get all parts from a single query
-    pub(crate) fn get_account_by_id(
-        &self,
-        account_id: AccountId,
-    ) -> Result<(Account, Word), StoreError> {
-        let (account_stub, seed) = self.get_account_stub_by_id(account_id)?;
+    pub(crate) fn get_account(&self, account_id: AccountId) -> Result<(Account, Word), StoreError> {
+        let (account_stub, seed) = self.get_account_stub(account_id)?;
         let (_procedures, module_ast) = self.get_account_code(account_stub.code_root())?;
 
         let account_code = AccountCode::new(module_ast, &TransactionKernel::assembler()).unwrap();
@@ -139,7 +136,7 @@ impl SqliteStore {
     /// This inserts a new row into the accounts table. We can later identify the proper account
     /// state by looking at the nonce.
     pub(crate) fn update_account(&mut self, new_account_state: Account) -> Result<(), StoreError> {
-        let (_account, seed) = self.get_account_by_id(new_account_state.id())?;
+        let (_account, seed) = self.get_account(new_account_state.id())?;
         let tx = self.db.transaction()?;
 
         insert_account_storage(&tx, new_account_state.storage())?;

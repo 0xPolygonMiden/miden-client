@@ -106,8 +106,8 @@ impl Store for SqliteStore {
         self.get_output_notes(note_filter)
     }
 
-    fn get_input_note_by_id(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError> {
-        self.get_input_note_by_id(note_id)
+    fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError> {
+        self.get_input_note(note_id)
     }
 
     fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError> {
@@ -162,15 +162,12 @@ impl Store for SqliteStore {
         self.get_account_stubs()
     }
 
-    fn get_account_stub_by_id(
-        &self,
-        account_id: AccountId,
-    ) -> Result<(AccountStub, Word), StoreError> {
-        self.get_account_stub_by_id(account_id)
+    fn get_account_stub(&self, account_id: AccountId) -> Result<(AccountStub, Word), StoreError> {
+        self.get_account_stub(account_id)
     }
 
-    fn get_account_by_id(&self, account_id: AccountId) -> Result<(Account, Word), StoreError> {
-        self.get_account_by_id(account_id)
+    fn get_account(&self, account_id: AccountId) -> Result<(Account, Word), StoreError> {
+        self.get_account(account_id)
     }
 
     fn update_account(&mut self, new_account_state: Account) -> Result<(), StoreError> {
