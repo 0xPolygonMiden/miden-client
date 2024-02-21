@@ -197,7 +197,7 @@ pub mod tests {
 
     use super::{migrations, SqliteStore};
 
-    pub fn create_test_client() -> Client<MockRpcApi, MockDataStore> {
+    pub fn create_test_client() -> Client<MockRpcApi, SqliteStore, MockDataStore> {
         let client_config = ClientConfig {
             store: create_test_store_path()
                 .into_os_string()
@@ -209,10 +209,11 @@ pub mod tests {
         };
 
         let rpc_endpoint = client_config.rpc.endpoint.to_string();
+        let store = SqliteStore::new((&client_config).into()).unwrap();
 
-        Client::<MockRpcApi, MockDataStore>::new(
-            client_config,
+        Client::<MockRpcApi, SqliteStore, MockDataStore>::new(
             MockRpcApi::new(&rpc_endpoint),
+            store,
             MockDataStore::new(),
         )
         .unwrap()

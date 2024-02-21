@@ -32,7 +32,7 @@ pub enum AccountStorageMode {
     OnChain,
 }
 
-impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
+impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 
