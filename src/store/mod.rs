@@ -157,6 +157,13 @@ pub trait Store {
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
     fn get_account_by_id(&self, account_id: AccountId) -> Result<(Account, Word), StoreError>;
 
+    /// Retrieves an account's [AuthInfo], utilized to authenticate the account.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
+    fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, StoreError>;
+
     /// Inserts an [Account] along with the seed used to create it and its [AuthInfo]
     fn insert_account(
         &mut self,
@@ -164,6 +171,10 @@ pub trait Store {
         account_seed: Word,
         auth_info: &AuthInfo,
     ) -> Result<(), StoreError>;
+
+    /// Update previously-existing account after a transaction execution
+    /// The account that is to be updated is identified by the Account ID
+    fn update_account(&mut self, new_account_state: Account) -> Result<(), StoreError>;
 
     // SYNC-RELATED FUNCTIONS
     // ================================================================================================

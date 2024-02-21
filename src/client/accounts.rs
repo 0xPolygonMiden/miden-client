@@ -236,7 +236,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
             .map_err(|err| err.into())
     }
 
-    /// Returns key pair structure for an Account Id.
+    /// Returns an [AuthInfo] object utilized to authenticate an account.
     pub fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, ClientError> {
         self.store
             .get_account_auth(account_id)

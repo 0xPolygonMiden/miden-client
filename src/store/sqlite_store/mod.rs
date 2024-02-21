@@ -172,6 +172,14 @@ impl Store for SqliteStore {
     fn get_account_by_id(&self, account_id: AccountId) -> Result<(Account, Word), StoreError> {
         self.get_account_by_id(account_id)
     }
+
+    fn update_account(&mut self, new_account_state: Account) -> Result<(), StoreError> {
+        self.update_account(new_account_state)
+    }
+
+    fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, StoreError> {
+        self.get_account_auth(account_id)
+    }
 }
 
 // TESTS

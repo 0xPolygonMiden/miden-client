@@ -136,8 +136,8 @@ impl SqliteStore {
 
     /// Update previously-existing account after a transaction execution
     ///
-    /// This inserts a new row into the accounts table. We can identify the proper account state
-    /// by looking at the nonce.
+    /// This inserts a new row into the accounts table. We can later identify the proper account
+    /// state by looking at the nonce.
     pub(crate) fn update_account(&mut self, new_account_state: Account) -> Result<(), StoreError> {
         let (_account, seed) = self.get_account_by_id(new_account_state.id())?;
         let tx = self.db.transaction()?;
