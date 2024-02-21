@@ -1,18 +1,19 @@
-use super::{rpc_client::CommittedNote, Client};
+use crate::{
+    client::transactions::TransactionRecord,
+    errors::{ClientError, StoreError},
+    store::{chain_data::ChainMmrNodeFilter, transactions::TransactionFilter, Store},
+};
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
-use miden_node_proto::generated::requests::GetBlockHeaderByNumberRequest;
 
+use super::{rpc::CommittedNote, rpc::NodeRpcClient, Client};
+use miden_tx::DataStore;
 use objects::{
     accounts::{AccountId, AccountStub},
     crypto,
     notes::{NoteId, NoteInclusionProof},
-    BlockHeader, Digest, StarkField,
-};
-
-use crate::{
-    errors::{ClientError, StoreError},
-    store::{chain_data::ChainMmrNodeFilter, Store},
+    transaction::TransactionId,
+    BlockHeader, Digest,
 };
 use tracing::warn;
 
@@ -27,7 +28,7 @@ pub enum SyncStatus {
 /// The number of bits to shift identifiers for in use of filters.
 pub const FILTER_ID_SHIFT: u8 = 48;
 
-impl Client {
+impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     // SYNC STATE
     // --------------------------------------------------------------------------------------------
 
@@ -82,10 +83,7 @@ impl Client {
     /// Calls `get_block_header_by_number` requesting the genesis block and storing it
     /// in the local database
     async fn retrieve_and_store_genesis(&mut self) -> Result<(), ClientError> {
-        let genesis_block = self
-            .rpc_api
-            .get_block_header_by_number(GetBlockHeaderByNumberRequest { block_num: Some(0) })
-            .await?;
+        let genesis_block = self.rpc_api.get_block_header_by_number(Some(0)).await?;
 
         let tx = self.store.db.transaction()?;
 
@@ -166,6 +164,18 @@ impl Client {
             )?
         };
 
+        let note_ids: Vec<NoteId> = committed_notes.iter().map(|(id, _)| (*id)).collect();
+
+        let uncommitted_transactions =
+            self.store.get_transactions(TransactionFilter::Uncomitted)?;
+
+        let transactions_to_commit = get_transactions_to_commit(
+            &uncommitted_transactions,
+            &note_ids,
+            &new_nullifiers,
+            &response.account_hash_updates,
+        );
+
         // Apply received and computed updates to the store
         self.store
             .apply_state_sync(
@@ -174,6 +184,7 @@ impl Client {
                 committed_notes,
                 new_peaks,
                 &new_authentication_nodes,
+                &transactions_to_commit,
             )
             .map_err(ClientError::StoreError)?;
 
@@ -194,12 +205,25 @@ impl Client {
         committed_notes: Vec<CommittedNote>,
         block_header: &BlockHeader,
     ) -> Result<Vec<(NoteId, NoteInclusionProof)>, ClientError> {
-        let pending_notes: Vec<NoteId> = self
+        // We'll only pick committed notes that we are tracking as input/output notes. Since the
+        // sync response contains notes matching either the provided accounts or the provided tag
+        // we might get many notes when we only care about a few of those.
+        let pending_input_notes: Vec<NoteId> = self
             .store
-            .get_input_notes(crate::store::notes::InputNoteFilter::Pending)?
+            .get_input_notes(crate::store::notes::NoteFilter::Pending)?
             .iter()
             .map(|n| n.note().id())
             .collect();
+
+        let pending_output_notes: Vec<NoteId> = self
+            .store
+            .get_output_notes(crate::store::notes::NoteFilter::Pending)?
+            .iter()
+            .map(|n| n.note().id())
+            .collect();
+
+        let mut pending_notes = [pending_input_notes, pending_output_notes].concat();
+        pending_notes.dedup();
 
         committed_notes
             .iter()
@@ -215,7 +239,7 @@ impl Client {
                         let _ = merkle_path.remove(0);
                     }
 
-                    let note_id_and_proof = NoteInclusionProof::new(
+                    let note_inclusion_proof = NoteInclusionProof::new(
                         block_header.block_num(),
                         block_header.sub_hash(),
                         block_header.note_root(),
@@ -225,7 +249,7 @@ impl Client {
                     .map_err(ClientError::NoteError)
                     .map(|proof| (*commited_note.note_id(), proof));
 
-                    Some(note_id_and_proof)
+                    Some(note_inclusion_proof)
                 } else {
                     None
                 }
@@ -329,4 +353,41 @@ fn check_account_hashes(
         }
     }
     Ok(())
+}
+
+/// Returns the list of transactions that should be marked as committed based on the state update info
+///
+/// To set an uncommitted transaction as committed three things must hold:
+///
+/// - all of the transaction's output notes are committed
+/// - all of the transaction's input notes are consumed, which means we got their nullifiers as
+/// part of the update
+/// - the account corresponding to the transaction hash matches the transaction's
+/// final_account_state
+fn get_transactions_to_commit(
+    uncommitted_transactions: &[TransactionRecord],
+    note_ids: &[NoteId],
+    nullifiers: &[Digest],
+    account_hash_updates: &[(AccountId, Digest)],
+) -> Vec<TransactionId> {
+    uncommitted_transactions
+        .iter()
+        .filter(|t| {
+            // TODO: based on the discussion in
+            // https://github.com/0xPolygonMiden/miden-client/issues/144, we should be aware
+            // that in the future it'll be possible to have many transactions modifying an
+            // account be included in a single block. If that happens, we'll need to rewrite
+            // this check
+            t.input_note_nullifiers
+                .iter()
+                .all(|n| nullifiers.contains(n))
+                && t.output_notes.iter().all(|n| note_ids.contains(&n.id()))
+                && account_hash_updates
+                    .iter()
+                    .any(|(account_id, account_hash)| {
+                        *account_id == t.account_id && *account_hash == t.final_account_state
+                    })
+        })
+        .map(|t| t.id)
+        .collect()
 }

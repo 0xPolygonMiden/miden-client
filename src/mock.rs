@@ -1,25 +1,28 @@
 use crate::{
     client::{
-        rpc_client::StateSyncInfo,
+        rpc::{NodeRpcClient, NodeRpcClientEndpoint, StateSyncInfo},
         sync::FILTER_ID_SHIFT,
         transactions::{PaymentTransactionData, TransactionTemplate},
-        Client, RpcApiEndpoint,
+        Client,
     },
-    errors::RpcApiError,
+    errors::NodeRpcClientError,
 };
+use async_trait::async_trait;
 use crypto::{
     dsa::rpo_falcon512::KeyPair,
     merkle::{NodeIndex, SimpleSmt},
-    Felt, FieldElement, StarkField,
+    Felt, FieldElement,
 };
 use miden_lib::{transaction::TransactionKernel, AuthScheme};
 use miden_node_proto::generated::{
     account::AccountId as ProtoAccountId,
     block_header::BlockHeader as NodeBlockHeader,
     note::NoteSyncRecord,
-    requests::{GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest, SyncStateRequest},
-    responses::{NullifierUpdate, SubmitProvenTransactionResponse, SyncStateResponse},
+    requests::{GetBlockHeaderByNumberRequest, SyncStateRequest},
+    responses::{NullifierUpdate, SyncStateResponse},
 };
+#[cfg(test)]
+use miden_tx::DataStore;
 use mock::{
     constants::{generate_account_seed, AccountSeedType},
     mock::{account::mock_account, block::mock_block_header},
@@ -31,10 +34,12 @@ use mock::mock::{
 };
 use objects::{
     accounts::{Account, AccountStorage, StorageSlotType},
+    accounts::{AccountId, AccountType},
+    assets::FungibleAsset,
     assets::{AssetVault, TokenSymbol},
     crypto::merkle::{Mmr, MmrDelta},
     notes::{Note, NoteInclusionProof},
-    transaction::InputNote,
+    transaction::{InputNote, ProvenTransaction},
     utils::collections::BTreeMap,
     BlockHeader, NOTE_TREE_DEPTH,
 };
@@ -42,11 +47,7 @@ use rand::Rng;
 use tonic::{IntoRequest, Response, Status};
 
 use crate::store::accounts::AuthInfo;
-
-use objects::{
-    accounts::{AccountId, AccountType},
-    assets::FungibleAsset,
-};
+pub use crate::store::mock_executor_data_store::MockDataStore;
 
 /// Mock RPC API
 ///
@@ -65,14 +66,21 @@ impl Default for MockRpcApi {
 }
 
 impl MockRpcApi {
+    pub fn new(_config_endpoint: &str) -> Self {
+        Self::default()
+    }
+}
+
+#[async_trait]
+impl NodeRpcClient for MockRpcApi {
     /// Executes the specified sync state request and returns the response.
-    pub async fn sync_state(
+    async fn sync_state(
         &mut self,
         block_num: u32,
         _account_ids: &[AccountId],
         _note_tags: &[u16],
         _nullifiers_tags: &[u16],
-    ) -> Result<StateSyncInfo, RpcApiError> {
+    ) -> Result<StateSyncInfo, NodeRpcClientError> {
         // Match request -> response through block_num
         let response = match self
             .state_sync_requests
@@ -83,9 +91,9 @@ impl MockRpcApi {
                 let response = response.clone();
                 Ok(Response::new(response))
             }
-            None => Err(RpcApiError::RequestError(
-                RpcApiEndpoint::SyncState,
-                Status::not_found("no response for sync state request"),
+            None => Err(NodeRpcClientError::RequestError(
+                NodeRpcClientEndpoint::SyncState.to_string(),
+                Status::not_found("no response for sync state request").to_string(),
             )),
         }?;
 
@@ -94,10 +102,11 @@ impl MockRpcApi {
 
     /// Creates and executes a [GetBlockHeaderByNumberRequest].
     /// Only used for retrieving genesis block right now so that's the only case we need to cover.
-    pub async fn get_block_header_by_number(
+    async fn get_block_header_by_number(
         &mut self,
-        request: impl IntoRequest<GetBlockHeaderByNumberRequest>,
-    ) -> Result<BlockHeader, RpcApiError> {
+        block_num: Option<u32>,
+    ) -> Result<BlockHeader, NodeRpcClientError> {
+        let request = GetBlockHeaderByNumberRequest { block_num };
         let request: GetBlockHeaderByNumberRequest = request.into_request().into_inner();
 
         if request.block_num == Some(0) {
@@ -107,16 +116,12 @@ impl MockRpcApi {
         panic!("get_block_header_by_number is supposed to be only used for genesis block")
     }
 
-    pub async fn submit_proven_transaction(
+    async fn submit_proven_transaction(
         &mut self,
-        request: impl tonic::IntoRequest<SubmitProvenTransactionRequest>,
-    ) -> std::result::Result<tonic::Response<SubmitProvenTransactionResponse>, RpcApiError> {
-        let _request = request.into_request().into_inner();
-        let response = SubmitProvenTransactionResponse {};
-
+        _proven_transaction: ProvenTransaction,
+    ) -> std::result::Result<(), NodeRpcClientError> {
         // TODO: add some basic validations to test error cases
-
-        Ok(Response::new(response))
+        Ok(())
     }
 }
 
@@ -177,7 +182,7 @@ fn create_mock_sync_state_request_for_account_and_notes(
             notes: vec![NoteSyncRecord {
                 note_index: 0,
                 note_id: Some(created_notes_iter.next().unwrap().id().into()),
-                sender: account.id().into(),
+                sender: Some(account.id().into()),
                 tag: 0u64,
                 merkle_path: Some(miden_node_proto::generated::merkle::MerklePath::default()),
             }],
@@ -304,7 +309,7 @@ fn mock_full_chain_mmr_and_notes(
 
 /// inserts mock note and account data into the client and returns the last block header of mocked
 /// chain
-pub async fn insert_mock_data(client: &mut Client) -> Vec<BlockHeader> {
+pub async fn insert_mock_data(client: &mut Client<MockRpcApi, MockDataStore>) -> Vec<BlockHeader> {
     // mock notes
     let assembler = TransactionKernel::assembler();
     let (account_id, account_seed) =
@@ -333,7 +338,7 @@ pub async fn insert_mock_data(client: &mut Client) -> Vec<BlockHeader> {
         .insert_account(&account, account_seed, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
-    client.rpc_api.state_sync_requests = create_mock_sync_state_request_for_account_and_notes(
+    client.rpc_api().state_sync_requests = create_mock_sync_state_request_for_account_and_notes(
         account.id(),
         &created_notes,
         &consumed_notes,
@@ -344,7 +349,7 @@ pub async fn insert_mock_data(client: &mut Client) -> Vec<BlockHeader> {
     tracked_block_headers
 }
 
-pub async fn create_mock_transaction(client: &mut Client) {
+pub async fn create_mock_transaction(client: &mut Client<MockRpcApi, MockDataStore>) {
     let key_pair: KeyPair = KeyPair::new()
         .map_err(|err| format!("Error generating KeyPair: {}", err))
         .unwrap();
@@ -488,12 +493,9 @@ pub fn mock_fungible_faucet_account(
 }
 
 #[cfg(test)]
-impl Client {
+impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     /// Helper function to set a data store to conveniently mock data for tests
-    pub fn set_data_store(
-        &mut self,
-        data_store: crate::store::mock_executor_data_store::MockDataStore,
-    ) {
-        self.tx_executor = miden_tx::TransactionExecutor::new(data_store);
+    pub fn set_data_store(&mut self, data_store: D) {
+        self.set_tx_executor(miden_tx::TransactionExecutor::new(data_store));
     }
 }
