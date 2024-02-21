@@ -137,18 +137,20 @@ pub trait Store {
     fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, StoreError>;
 
     /// Retrieves an [AccountStub] object for the specified [AccountId] along with the seed
-    /// used to create it.
+    /// used to create it. The seed will be returned if the account is new, otherwise it
+    /// will be `None`.
     ///
     /// Said account's state is the state according to the last sync performed.
     ///
     /// # Errors
-    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided id
+    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
     fn get_account_stub_by_id(
         &self,
         account_id: AccountId,
     ) -> Result<(AccountStub, Option<Word>), StoreError>;
 
-    /// Retrieves a full [Account] object, along with its seed.
+    /// Retrieves a full [Account] object. The seed will be returned if the account is new,
+    /// otherwise it will be `None`.
     ///
     /// This function returns the [Account]'s latest state. If the account is new (that is, has
     /// never executed a trasaction), the returned seed will be `Some(Word)`; otherwise the seed
@@ -156,7 +158,7 @@ pub trait Store {
     ///
     /// # Errors
     ///
-    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided id
+    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
     fn get_account_by_id(
         &self,
         account_id: AccountId,

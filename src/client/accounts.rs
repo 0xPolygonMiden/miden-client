@@ -75,26 +75,16 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
         match account_data.auth {
             AuthData::RpoFalcon512Seed(key_pair) => {
                 let keypair = KeyPair::from_seed(&key_pair)?;
-                match (account_data.account.is_new(), account_data.account_seed) {
-                    (true, None) => Err(ClientError::ImportNewAccountWithoutSeed),
-                    (false, Some(seed)) => {
-                        tracing::warn!(
-                            "Imported an existing account and still provided a seed when it is not needed. It's possible that the account's file was incorrectly generated."
-                        );
 
-                        self.insert_account(
-                            &account_data.account,
-                            Some(seed),
-                            &AuthInfo::RpoFalcon512(keypair),
-                        )
-                    }
-                    // Non-new account with no seed, and new account with seed; both OK
-                    (_, seed) => self.insert_account(
-                        &account_data.account,
-                        seed,
-                        &AuthInfo::RpoFalcon512(keypair),
-                    ),
+                if !account_data.account.is_new() && account_data.account_seed.is_some() {
+                    tracing::warn!("Imported an existing account and still provided a seed when it is not needed. It's possible that the account's file was incorrectly generated");
                 }
+
+                self.insert_account(
+                    &account_data.account,
+                    account_data.account_seed,
+                    &AuthInfo::RpoFalcon512(keypair),
+                )
             }
         }
     }
