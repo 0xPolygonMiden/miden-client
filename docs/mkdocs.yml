@@ -81,7 +81,7 @@ extra:
       find what they're searching for. With your consent, you're helping us to
       make our documentation better.
 
-docs_dir: src
+docs_dir: docs
 
 extra_css:
   - _site_essentials/stylesheets/extra.css
