@@ -12,11 +12,8 @@ Note that running the node locally for development is encouraged, but the endpoi
 
 ## Reference
 
-The following is a list of commands that the CLI currently supports
+The following is a list of commands that the CLI currently supports. A small explanation follows for the commands that contain subcommands. Note that for any command you can get an explanation in the terminal by attaching `--help` to it.
 
-
-  Command
-  ---------
 | Command      | Description                                                  |
 |--------------|--------------------------------------------------------------|
 | `account`      | Create accounts and inspect account details                 |
