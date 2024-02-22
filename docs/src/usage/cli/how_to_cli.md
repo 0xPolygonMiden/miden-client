@@ -9,3 +9,60 @@ The CLI can be configured through a TOML file ([`miden-client.toml`](https://git
 In the configuration file, you will find a section for defining the node's endpoint and the store's filename. By default, the node will run on `localhost:57291`, so the linked example file specifies it as the node's endpoint. 
 
 Note that running the node locally for development is encouraged, but the endpoint can be set to point to any remote node's IP as well.
+
+## Reference
+
+The following is a list of commands that the CLI currently supports
+
+
+  Command
+  ---------
+| Command      | Description                                                  |
+|--------------|--------------------------------------------------------------|
+| `account`      | Create accounts and inspect account details                 |
+| `input-notes`  | View and manage input notes                                             |
+| `sync`         | Sync this client with the latest state of the Miden network |
+| `info`         | View a summary of the current client state                  |
+| `tags`         | View and add tags                                            |
+| `tx` (or `transaction`)           | Execute and view transactions            
+
+### `account` subcommands
+
+| Command | Description                                         | Aliases |
+|---------|-----------------------------------------------------|---------|
+| `list`    | List all accounts monitored by this client         | -l      |
+| `show`    | Show details of the account for the specified ID   | -s      |
+| `new`     | Create new account and store it locally            | -n      |
+| `import`  | Import accounts from binary files | -i      |
+
+
+### `input-notes` subcommands
+
+| Command | Description                                                 | Aliases |
+|---------|-------------------------------------------------------------|---------|
+| `list`    | List input notes                                            | -l      |
+| `show`    | Show details of the input note for the specified note ID   | -s      |
+| `export`  | Export input note data to a binary file                    | -e      |
+| `import`  | Import input note data from a binary file                  | -i      |
+
+### `tags` command
+| Command | Description                                              | Aliases |
+|---------|----------------------------------------------------------|---------|
+| `list`    | List all tags monitored by this client                   | -l      |
+| `add`     | Add a new tag to the list of tags monitored by this client | -a      |
+
+### `tx` command
+
+| Command | Description                                              | Aliases |
+|---------|----------------------------------------------------------|---------|
+| `list`    | List tracked transactions                                        | -l      |
+| `new  <TX TYPE>` | Execute a transaction, prove and submit it to the node. Once submitted, it gets tracked by the client   | -n      |
+
+#### Types of transaction
+
+| Command         | Explanation                                                                                                       |
+|-----------------|-------------------------------------------------------------------------------------------------------------------|
+| `p2id <SENDER ACCOUNT ID> <TARGET ACCOUNT ID> <FAUCET ID> <AMOUNT>`            | Sender Account creates a note that a target Account ID can consume. The asset is identifed by the tuple `(FAUCET ID, AMOUNT)`. |
+| `mint <TARGET ACCOUNT ID> <FAUCET ID> <AMOUNT>`           | Creates a note that contains a specific amount tokens minted by a faucet, that the target Cccount ID can consume|
+| `consume-notes  <ACCOUNT ID> [NOTES]`  | Account ID consumes a list of notes, specified by their Note ID |
+
