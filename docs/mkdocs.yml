@@ -39,13 +39,19 @@ theme:
     - content.code.copy
     - content.action.edit
 nav:
-  - Interacting with the Client:
-      - CLI: 'cli.md'
-      - Using the client's crate: 'rust_crate.md'
-  - Develop using the Client:
-      - Getting Started: 'development.md'
-  - How Miden Client works:
-      - Overview: 'overview.md'
+  - Miden:
+      - Miden Client:
+        - Introduction:
+          - Introduction: introduction/introduction.md
+          - Overview: introduction/overview.md
+        - Usage: 
+          - Installation: usage/installation.md
+          - How to use the CLI:
+            - How to use the CLI: usage/cli/how_to_cli.md
+            - Tutorial: usage/cli/example.md
+          - How to develop: usage/library/how_to_develop.md
+        - Design: design.md
+        
 extra:
   generator: false
   # FIXME: got a `jinja2.exceptions.TemplateNotFound: partials/integrations/analytics/custom.html` error with this uncommented

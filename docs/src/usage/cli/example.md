@@ -1,66 +1,15 @@
-# Miden Client
-
-<a href="https://github.com/0xPolygonMiden/miden-node/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-<a href="https://github.com/0xPolygonMiden/miden-client/actions/workflows/ci.yml"><img src="https://github.com/0xPolygonMiden/miden-client/actions/workflows/ci.yml/badge.svg?branch=main"></a>
-<a href="https://crates.io/crates/miden-client"><img src="https://img.shields.io/crates/v/miden-client"></a>
-
-This repository contains the Miden client, which provides a way to execute and prove transactions, facilitating the interaction with the Miden rollup.
-
-### Status
-
-The Miden client is still under heavy development and the project can be considered to be in an *alpha* stage. Many features are yet to be implemented and there is a number of limitations which we will lift in the near future.
-
-## Overview
-
-The Miden client currently consists of two components:
-
-- `miden-client` library, which can be used by other project to programmatically interact with the Miden rollup.
-- `miden-client` binary which is a wrapper around the library exposing its functionality via a simple command-line interface (CLI).
-
-The client's main responsibility is to maintain a partial view of the blockchain which allows for locally executing and proving transactions. It keeps a local store of various entities that periodically get updated by syncing with the node.
-
-## Usage
-
-### Installing the CLI
-
-Before you can build and run the Miden client CLI, you'll need to make sure you have Rust [installed](https://www.rust-lang.org/tools/install). Miden client v0.1 requires Rust version **1.75** or later.
-
-You can then choose to run the client CLI using `cargo`, or install it on your system. In order to install it, you can run:
-
-```sh
-cargo install --path .
-```
-
-This will install the `miden-client` binary in your PATH, at `~/.cargo/bin/miden-client`. 
-
-For testing, the following way of installing is recommended:
-
-```sh
-cargo install --features testing --path .
-```
-
-The `testing` feature allows mainly for faster account creation. When using the the client CLI alongside a locally-running node, you will want to make sure the node is installed/executed with the `testing` feature as well, as some validations can fail if the settings do not match up both on the client and the node.
-
-Additionally, the client supports another feature: The `concurrent` flag enables optimizations that will result in faster transaction execution and proving.
-
-After installing the client, you can use it by running `miden-client`. In order to get more information about available CLI commands you can run `miden-client --help`.
-
-### Connecting to the network
-
-The CLI can be configured through a TOML file ([`miden-client.toml`](miden-client.toml)). This file is expected to be located in the directory from where you are running the CLI. This is useful for connecting to a specific node when developing with the client, for example. 
-
-In the configuration file, you will find a section for defining the node's endpoint and the store's filename. By default, the node will run on `localhost:57291`, so the example file defines this as the RPC endpoint.
-
 ## Example: Executing, proving and submitting transactions
 
-### Prerequisites
+Once we have installed the CLI, we can use its features to interact with the Miden Node. Let's take a look at an example to familiarize ourselves. In this example, we'll mint assets with a fungible faucet for a basic account, which we will then transfer to a different account.
 
-- This guide assumes a basic understanding of the Miden rollup, as it deals with some of its main concepts, such as Notes, Accounts, and Transactions. A good place to learn about these concepts is the [Polygon Miden Documentation](https://0xpolygonmiden.github.io/miden-base/introduction.html).
-- It also assumes that you have set up a [Miden Node](https://github.com/0xPolygonMiden/miden-node) that can perform a basic local transaction. 
+## Prerequisites
+
 - Currently, the client allows for submitting locally-proven transactions to the Miden node. The simplest way to test the client is by [generating accounts via the genesis file](https://github.com/0xPolygonMiden/miden-node?tab=readme-ov-file#generating-the-genesis-file). 
   - For this example, we will make use of 1 faucet account and 2 regular wallet accounts, so you should set your node's `toml` config file accordingly. We will refer to these accounts as having IDs `regular account ID A` and `regular account ID B` in order differentiate them.
-  - Once the account files have been generated, [make sure the node is running](https://github.com/0xPolygonMiden/miden-node?tab=readme-ov-file#running-the-node). If the node has some stored state from previous tests and usage, you might have to clear its database (`miden-store.sqlite3`).
+  - Once the account files have been generated, [make sure the node is running](https://github.com/0xPolygonMiden/miden-node?tab=readme-ov-file#running-the-node). If the node has some stored state from previous tests and usage, you might have to clear its database.
   - The client should be configured to use the running node's socket as its endpoint as explained in the previous section.
+
+## Example
 
 ### 1. Loading account data
 
@@ -75,7 +24,6 @@ The client will then import all account-related data generated by the node (stor
 ```bash
 miden-client account list
 ```
-
 ### 2. Synchronizing the state
 
 As briefly mentioned in the [Overview](#overview) section, the client needs to periodically query the node to receive updates about entities that might be important in order to run transactions. The way to do so is by running the `sync` command:
@@ -134,14 +82,3 @@ That's it! You will now be able to see `950` fungible tokens in the first regula
 miden-client account show <regular-account-ID-B> -v # Show account B's vault assets (50 fungible tokens)
 miden-client account show <regular-account-ID-A> -v # Show account A's vault assets (950 fungible tokens)
 ```
-
-### Clearing the state
-
-All state is maintained in `store.sqlite3`, located in the same directory where the client binary is. In case it needs to be cleared, the file can be deleted; it will later be created again when any command is executed.
-
-## Testing
-
-This crate has both unit tests (which can be run with `cargo test`) and integration tests. For more info on integration tests, refer to the [integration testing document](./tests/README.md)
-
-## License
-This project is [MIT licensed](./LICENSE).

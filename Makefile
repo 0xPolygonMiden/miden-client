@@ -29,6 +29,9 @@ docs_deps:
 build_docs: docs_deps
 	cd docs && mkdocs build
 
+docs: docs_deps
+	cd docs && mkdocs serve
+
 serve_docs: docs_deps
 	cd docs && mkdocs serve
   
