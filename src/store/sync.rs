@@ -5,11 +5,12 @@ use crypto::{
 
 use objects::{
     notes::{NoteId, NoteInclusionProof},
+    transaction::TransactionId,
     BlockHeader, Digest,
 };
 use rusqlite::params;
 
-use crate::{errors::StoreError, store::transactions::TransactionFilter};
+use crate::errors::StoreError;
 
 use super::Store;
 
@@ -70,6 +71,8 @@ impl Store {
     /// - Updating the notes, marking them as `committed` or `consumed` based on incoming
     ///   inclusion proofs and nullifiers
     /// - Storing new MMR authentication nodes
+    /// - Updating the transactions, marking them as `committed` based on the incoming account
+    /// changes, nullifiers and consumed notes.
     pub fn apply_state_sync(
         &mut self,
         block_header: BlockHeader,
@@ -77,9 +80,8 @@ impl Store {
         committed_notes: Vec<(NoteId, NoteInclusionProof)>,
         new_mmr_peaks: MmrPeaks,
         new_authentication_nodes: &[(InOrderIndex, Digest)],
+        transactions_to_commit: &[TransactionId],
     ) -> Result<(), StoreError> {
-        let uncommitted_transactions = self.get_transactions(TransactionFilter::Uncomitted)?;
-
         let tx = self.db.transaction()?;
 
         // Update state sync block number
@@ -87,7 +89,7 @@ impl Store {
         tx.execute(BLOCK_NUMBER_QUERY, params![block_header.block_num()])?;
 
         // Update spent notes
-        for nullifier in nullifiers {
+        for nullifier in nullifiers.iter() {
             const SPENT_INPUT_NOTE_QUERY: &str =
                 "UPDATE input_notes SET status = 'consumed' WHERE nullifier = ?";
             let nullifier = nullifier.to_hex();
@@ -127,13 +129,10 @@ impl Store {
             )?;
         }
 
-        let note_ids: Vec<NoteId> = committed_notes.iter().map(|(id, _)| (*id)).collect();
-
-        Store::mark_transactions_as_committed_by_note_id(
-            &uncommitted_transactions,
-            &note_ids,
-            block_header.block_num(),
+        Store::mark_transactions_as_committed(
             &tx,
+            block_header.block_num(),
+            transactions_to_commit,
         )?;
 
         // Commit the updates
