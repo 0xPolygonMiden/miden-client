@@ -32,9 +32,10 @@ The following is a list of commands that the CLI currently supports
 |---------|-----------------------------------------------------|---------|
 | `list`    | List all accounts monitored by this client         | -l      |
 | `show`    | Show details of the account for the specified ID   | -s      |
-| `new`     | Create new account and store it locally            | -n      |
+| `new <ACCOUNT TYPE>`     | Create new account and store it locally            | -n      |
 | `import`  | Import accounts from binary files | -i      |
 
+Once an account gets created with the `new` command, it will be automatically stored and tracked by the client, which means the client can execute transactions that modify the state of accounts and track related changes by synchronizing with the Miden Node.
 
 ### `input-notes` subcommands
 
