@@ -9,29 +9,20 @@ As mentioned in the Overview section, the Client is comprised by a library and a
 ### Installing the CLI
 
 The first step to installing the Client, is to clone the [Client's repository](https://github.com/0xPolygonMiden/miden-client/).
-You can then choose to run the client CLI using `cargo`, or install it on your system. In order to install it, you can run:
+You can then choose to run the client CLI using `cargo run`, or install it on your system. The current recommended way of installing and running the client is to utilize the `testing` and `concurrent` features:
 
 ```sh
-cargo install --path .
+cargo install --features testing,concurrent --path .
 ```
 
-This will install the `miden-client` binary in your PATH, at `~/.cargo/bin/miden-client`. 
+This will install the `miden-client` binary (at `~/.cargo/bin/miden-client`) and add it to your `PATH`. 
 
-### Optional features
+### Features
 
 #### `Testing` feature
-For testing, the following way of installing is recommended:
 
-```sh
-cargo install --features testing --path .
-```
-
-The `testing` feature allows mainly for faster account creation. When using the the client CLI alongside a locally-running node, you will want to make sure the node is installed/executed with the `testing` feature as well, as some validations can fail if the settings do not match up both on the client and the node.
+The `testing` feature allows mainly for faster account creation. When using the the client CLI alongside a locally-running node, **you will need to make sure the node is installed/executed with the `testing` feature as well**, as some validations can fail if flag does not match up both on the client and the node.
 
 #### `Concurrent` feature
 
 Additionally, the client supports another feature: The `concurrent` flag enables optimizations that will result in faster transaction execution and proving.
-
-```sh
-cargo install --features concurrent --path .
-```

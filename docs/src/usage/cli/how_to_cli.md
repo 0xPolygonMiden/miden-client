@@ -56,11 +56,17 @@ Once an account gets created with the `new` command, it will be automatically st
 | `list`    | List tracked transactions                                        | -l      |
 | `new  <TX TYPE>` | Execute a transaction, prove and submit it to the node. Once submitted, it gets tracked by the client   | -n      |
 
+After a transaction gets executed, two entities start being tracked:
+- The transaction itself: It will follow a lifecycle of being `pending` (initial state) and `committed` (after the we know the node received it)
+- Output Notes that might have been created as part of the transaction (for example, when executing a pay-to-id transaction)
+
+You can list them with their respective commands.
+
 #### Types of transaction
 
 | Command         | Explanation                                                                                                       |
 |-----------------|-------------------------------------------------------------------------------------------------------------------|
 | `p2id <SENDER ACCOUNT ID> <TARGET ACCOUNT ID> <FAUCET ID> <AMOUNT>`            | Pay-to-id transaction. Sender Account creates a note that a target Account ID can consume. The asset is identifed by the tuple `(FAUCET ID, AMOUNT)`. |
-| `mint <TARGET ACCOUNT ID> <FAUCET ID> <AMOUNT>`           | Creates a note that contains a specific amount tokens minted by a faucet, that the target Cccount ID can consume|
+| `mint <TARGET ACCOUNT ID> <FAUCET ID> <AMOUNT>`           | Creates a note that contains a specific amount tokens minted by a faucet, that the target Account ID can consume|
 | `consume-notes  <ACCOUNT ID> [NOTES]`  | Account ID consumes a list of notes, specified by their Note ID |
 
