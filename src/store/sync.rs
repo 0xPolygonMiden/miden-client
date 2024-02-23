@@ -6,7 +6,10 @@ use objects::{
 };
 use rusqlite::{named_params, params};
 
-use crate::{errors::StoreError, store::transactions::TransactionFilter};
+use crate::{
+    errors::StoreError,
+    store::{notes::NoteRecordInclusionProof, transactions::TransactionFilter},
+};
 
 use super::Store;
 
@@ -105,28 +108,20 @@ impl Store {
 
         // Update tracked notes
         for (note_id, inclusion_proof) in committed_notes.iter() {
-            // let inclusion_proof = Some(inclusion_proof.to_bytes());
-
             let block_num = inclusion_proof.origin().block_num;
             let sub_hash = inclusion_proof.sub_hash().to_string();
             let note_root = inclusion_proof.note_root().to_string();
-            let node_index = inclusion_proof.origin().node_index.value();
+            let note_index = inclusion_proof.origin().node_index.value();
             let path = inclusion_proof
                 .note_path()
                 .iter()
-                .map(|path_node| format!("\"{}\"", path_node))
-                .collect::<Vec<_>>()
-                .join(",");
+                .map(|node| node.to_string())
+                .collect::<Vec<_>>();
 
-            let inclusion_proof = Some(format!(
-                r#"{{
-                    "block_num": {block_num}, 
-                    "note_index": {node_index}, 
-                    "sub_hash": "{sub_hash}", 
-                    "note_root": "{note_root}", 
-                    "note_path": [{path}]
-                }}"#
-            ));
+            let inclusion_proof = serde_json::to_string(&NoteRecordInclusionProof::new(
+                block_num, note_index, sub_hash, note_root, path,
+            ))
+            .map_err(StoreError::InputSerializationError)?;
 
             const COMMITTED_INPUT_NOTES_QUERY: &str =
                 "UPDATE input_notes SET status = 'committed', inclusion_proof = json(:inclusion_proof) WHERE note_id = :note_id";

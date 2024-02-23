@@ -216,7 +216,7 @@ impl NoteRecordDetails {
 }
 
 #[derive(Serialize, Deserialize)]
-struct NoteRecordInclusionProof {
+pub(crate) struct NoteRecordInclusionProof {
     block_num: u32,
     note_index: u64,
     sub_hash: String,
@@ -225,7 +225,7 @@ struct NoteRecordInclusionProof {
 }
 
 impl NoteRecordInclusionProof {
-    fn new(
+    pub(crate) fn new(
         block_num: u32,
         note_index: u64,
         sub_hash: String,
