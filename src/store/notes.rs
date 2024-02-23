@@ -504,10 +504,6 @@ pub(crate) fn serialize_input_note(
     ))
     .map_err(StoreError::InputSerializationError)?;
 
-    dbg!(&inclusion_proof);
-    dbg!(&metadata);
-    dbg!(&details);
-
     Ok((
         note_id,
         note_assets,
