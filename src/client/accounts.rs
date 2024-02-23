@@ -235,6 +235,11 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     }
 
     /// Returns an [AuthInfo] object utilized to authenticate an account.
+    ///
+    /// # Errors
+    ///
+    /// Returns a ClientError::StoreError(StoreError::AccountDataNotFound) if the provided id does
+    /// not correspond to an existing account.
     pub fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, ClientError> {
         self.store
             .get_account_auth(account_id)
