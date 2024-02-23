@@ -190,14 +190,13 @@ pub mod tests {
     use rusqlite::Connection;
 
     use crate::{
-        client::Client,
         config::{ClientConfig, RpcConfig},
-        mock::{MockDataStore, MockRpcApi},
+        mock::{MockClient, MockDataStore, MockRpcApi},
     };
 
     use super::{migrations, SqliteStore};
 
-    pub fn create_test_client() -> Client<MockRpcApi, SqliteStore, MockDataStore> {
+    pub fn create_test_client() -> MockClient {
         let client_config = ClientConfig {
             store: create_test_store_path()
                 .into_os_string()
@@ -211,12 +210,7 @@ pub mod tests {
         let rpc_endpoint = client_config.rpc.endpoint.to_string();
         let store = SqliteStore::new((&client_config).into()).unwrap();
 
-        Client::<MockRpcApi, SqliteStore, MockDataStore>::new(
-            MockRpcApi::new(&rpc_endpoint),
-            store,
-            MockDataStore::new(),
-        )
-        .unwrap()
+        MockClient::new(MockRpcApi::new(&rpc_endpoint), store, MockDataStore::new()).unwrap()
     }
 
     pub(crate) fn create_test_store_path() -> std::path::PathBuf {

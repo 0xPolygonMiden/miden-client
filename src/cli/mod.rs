@@ -11,6 +11,8 @@ use miden_client::{
 };
 
 #[cfg(feature = "mock")]
+use miden_client::mock::MockClient;
+#[cfg(feature = "mock")]
 use miden_client::mock::MockDataStore;
 #[cfg(feature = "mock")]
 use miden_client::mock::MockRpcApi;
@@ -91,7 +93,7 @@ impl Cli {
         };
 
         #[cfg(feature = "mock")]
-        let client: Client<MockRpcApi, SqliteStore, MockDataStore> =
+        let client: MockClient =
             Client::new(MockRpcApi::new(&rpc_endpoint), store, MockDataStore::new())?;
 
         // Execute cli command

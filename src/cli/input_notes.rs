@@ -286,9 +286,8 @@ mod tests {
     use crate::cli::input_notes::{export_note, import_note};
 
     use miden_client::{
-        client::Client,
         config::{ClientConfig, Endpoint},
-        mock::{MockDataStore, MockRpcApi},
+        mock::{MockClient, MockDataStore, MockRpcApi},
         store::{sqlite_store::SqliteStore, InputNoteRecord},
     };
     use mock::mock::{
@@ -313,7 +312,7 @@ mod tests {
 
         let store = SqliteStore::new((&client_config).into()).unwrap();
 
-        let mut client = Client::<MockRpcApi, SqliteStore, MockDataStore>::new(
+        let mut client = MockClient::new(
             MockRpcApi::new(&Endpoint::default().to_string()),
             store,
             MockDataStore::new(),
@@ -375,7 +374,7 @@ mod tests {
         );
         let store = SqliteStore::new((&client_config).into()).unwrap();
 
-        let mut client = Client::<MockRpcApi, SqliteStore, MockDataStore>::new(
+        let mut client = MockClient::new(
             MockRpcApi::new(&Endpoint::default().to_string()),
             store,
             MockDataStore::new(),

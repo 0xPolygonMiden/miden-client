@@ -51,6 +51,8 @@ use tonic::{IntoRequest, Response, Status};
 
 pub use crate::store::mock_executor_data_store::MockDataStore;
 
+pub type MockClient = Client<MockRpcApi, SqliteStore, MockDataStore>;
+
 /// Mock RPC API
 ///
 /// This struct implements the RPC API used by the client to communicate with the node. It is
@@ -311,9 +313,7 @@ fn mock_full_chain_mmr_and_notes(
 
 /// inserts mock note and account data into the client and returns the last block header of mocked
 /// chain
-pub async fn insert_mock_data(
-    client: &mut Client<MockRpcApi, SqliteStore, MockDataStore>,
-) -> Vec<BlockHeader> {
+pub async fn insert_mock_data(client: &mut MockClient) -> Vec<BlockHeader> {
     // mock notes
     let assembler = TransactionKernel::assembler();
     let (account_id, account_seed) =
@@ -353,7 +353,7 @@ pub async fn insert_mock_data(
     tracked_block_headers
 }
 
-pub async fn create_mock_transaction(client: &mut Client<MockRpcApi, SqliteStore, MockDataStore>) {
+pub async fn create_mock_transaction(client: &mut MockClient) {
     let key_pair: KeyPair = KeyPair::new()
         .map_err(|err| format!("Error generating KeyPair: {}", err))
         .unwrap();
