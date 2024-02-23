@@ -48,7 +48,7 @@ pub trait Store {
     /// Retrieves the output notes from the store
     fn get_output_notes(&self, note_filter: NoteFilter) -> Result<Vec<NoteRecord>, StoreError>;
 
-    /// Retrieves an [InputNoteRecord] for the input note corresponding to the specified id from the store
+    /// Retrieves an [NoteRecord] for the input note corresponding to the specified id from the store
     ///
     /// # Errors
     ///
@@ -370,14 +370,14 @@ pub enum TransactionFilter {
 // ================================================================================================
 
 pub enum NoteFilter {
-    /// Return a list of all [InputNoteRecord].
+    /// Return a list of all [NoteRecord].
     All,
-    /// Filter by consumed [InputNoteRecord]. notes that have been used as inputs in transactions.
+    /// Filter by consumed [NoteRecord]. notes that have been used as inputs in transactions.
     Consumed,
-    /// Return a list of committed [InputNoteRecord]. These represent notes that the blockchain
+    /// Return a list of committed [NoteRecord]. These represent notes that the blockchain
     /// has included in a block, and for which we are storing anchor data.
     Committed,
-    /// Return a list of pending [InputNoteRecord]. These represent notes for which the store
+    /// Return a list of pending [NoteRecord]. These represent notes for which the store
     /// does not have anchor data.
     Pending,
 }
