@@ -31,7 +31,7 @@ You can then choose to run the client CLI using `cargo`, or install it on your s
 cargo install --path .
 ```
 
-This will install the `miden` binary in your PATH, at `~/.cargo/bin/miden`. 
+This will install the `miden-client` binary in your PATH, at `~/.cargo/bin/miden-client`. 
 
 For testing, the following way of installing is recommended:
 
@@ -56,8 +56,8 @@ In the configuration file, you will find a section for defining the node's endpo
 ### Prerequisites
 
 - This guide assumes a basic understanding of the Miden rollup, as it deals with some of its main concepts, such as Notes, Accounts, and Transactions. A good place to learn about these concepts is the [Polygon Miden Documentation](https://0xpolygonmiden.github.io/miden-base/introduction.html).
-
-- Currently, the client allows for submitting locally-proven transactions to the Miden node. Currently, the easiest way to test the client is by [generating accounts via the genesis file](https://github.com/0xPolygonMiden/miden-node?tab=readme-ov-file#generating-the-genesis-file). 
+- It also assumes that you have set up a [Miden Node](https://github.com/0xPolygonMiden/miden-node) that can perform a basic local transaction. 
+- Currently, the client allows for submitting locally-proven transactions to the Miden node. The simplest way to test the client is by [generating accounts via the genesis file](https://github.com/0xPolygonMiden/miden-node?tab=readme-ov-file#generating-the-genesis-file). 
   - For this example, we will make use of 1 faucet account and 2 regular wallet accounts, so you should set your node's `toml` config file accordingly. We will refer to these accounts as having IDs `regular account ID A` and `regular account ID B` in order differentiate them.
   - Once the account files have been generated, [make sure the node is running](https://github.com/0xPolygonMiden/miden-node?tab=readme-ov-file#running-the-node). If the node has some stored state from previous tests and usage, you might have to clear its database (`miden-store.sqlite3`).
   - The client should be configured to use the running node's socket as its endpoint as explained in the previous section.
@@ -141,18 +141,7 @@ All state is maintained in `store.sqlite3`, located in the same directory where 
 
 ## Testing
 
-### Running integration tests
-
-There are commands provided in the `Makefile` to make running this test easier. To run the current integration test, you should run:
-
-```bash
-# This will ensure we start from a clean node and client
-make reset
-# This command will clone the node's repo and generate the accounts and genesis files and lastly start the node and run it on background
-make start-node &
-# This will run the integration test and after it finishes it will kill the node process
-make integration-test
-```
+This crate has both unit tests (which can be run with `cargo test`) and integration tests. For more info on integration tests, refer to the [integration testing document](./tests/README.md)
 
 ## License
 This project is [MIT licensed](./LICENSE).

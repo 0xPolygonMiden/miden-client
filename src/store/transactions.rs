@@ -14,8 +14,7 @@ use super::Store;
 use objects::{
     accounts::AccountId,
     assembly::{AstSerdeOptions, ProgramAst},
-    notes::NoteId,
-    transaction::{OutputNote, OutputNotes, TransactionScript},
+    transaction::{OutputNote, OutputNotes, TransactionId, TransactionScript},
     Digest,
 };
 use rusqlite::{params, Transaction};
@@ -170,22 +169,21 @@ impl Store {
         Ok(())
     }
 
-    /// Updates transactions as committed if the input `note_ids` belongs to one uncommitted transaction
-    pub(crate) fn mark_transactions_as_committed_by_note_id(
-        uncommitted_transactions: &[TransactionRecord],
-        note_ids: &[NoteId],
-        block_num: u32,
+    /// Set the provided transactions as committed
+    ///
+    /// # Errors
+    ///
+    /// This function can return an error if any of the updates to the transactions within the
+    /// database transaction fail.
+    pub(crate) fn mark_transactions_as_committed(
         tx: &Transaction<'_>,
+        block_num: u32,
+        transactions_to_commit: &[TransactionId],
     ) -> Result<usize, StoreError> {
-        let updated_transactions: Vec<&TransactionRecord> = uncommitted_transactions
-            .iter()
-            .filter(|t| t.output_notes.iter().any(|n| note_ids.contains(&n.id())))
-            .collect();
-
         let mut rows = 0;
-        for transaction in updated_transactions {
+        for transaction_id in transactions_to_commit {
             const QUERY: &str = "UPDATE transactions set commit_height=? where id=?";
-            rows += tx.execute(QUERY, params![Some(block_num), transaction.id.to_string()])?;
+            rows += tx.execute(QUERY, params![Some(block_num), transaction_id.to_string()])?;
         }
         info!("Marked {} transactions as committed", rows);
 
@@ -301,6 +299,7 @@ fn parse_transaction(
     ) = serialized_transaction;
     let account_id = AccountId::try_from(account_id as u64)?;
     let id: Digest = id.try_into()?;
+    let id = TransactionId::from(id);
     let init_account_state: Digest = init_account_state.try_into()?;
 
     let final_account_state: Digest = final_account_state.try_into()?;
