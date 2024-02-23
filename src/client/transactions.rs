@@ -1,10 +1,7 @@
 use crypto::{rand::RpoRandomCoin, utils::Serializable, Felt, Word};
 use miden_lib::notes::create_p2id_note;
-use miden_node_proto::generated::{
-    requests::SubmitProvenTransactionRequest, responses::SubmitProvenTransactionResponse,
-};
 
-use miden_tx::{ProvingOptions, TransactionProver};
+use miden_tx::{DataStore, ProvingOptions, TransactionProver};
 
 use mock::procedures::prepare_word;
 use objects::{
@@ -14,7 +11,7 @@ use objects::{
     notes::{Note, NoteId},
     transaction::{
         ExecutedTransaction, OutputNote, OutputNotes, ProvenTransaction, TransactionArgs,
-        TransactionScript,
+        TransactionId, TransactionScript,
     },
     Digest,
 };
@@ -26,7 +23,7 @@ use crate::{
     store::{accounts::AuthInfo, transactions::TransactionFilter},
 };
 
-use super::Client;
+use super::{rpc::NodeRpcClient, Client};
 
 // MASM SCRIPTS
 // --------------------------------------------------------------------------------------------
@@ -148,7 +145,7 @@ impl TransactionResult {
 /// Currently, the `commit_height` (and `committed` status) is set based on the height
 /// at which the transaction's output notes are committed.
 pub struct TransactionRecord {
-    pub id: Digest,
+    pub id: TransactionId,
     pub account_id: AccountId,
     pub init_account_state: Digest,
     pub final_account_state: Digest,
@@ -162,7 +159,7 @@ pub struct TransactionRecord {
 impl TransactionRecord {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        id: Digest,
+        id: TransactionId,
         account_id: AccountId,
         init_account_state: Digest,
         final_account_state: Digest,
@@ -205,7 +202,7 @@ impl std::fmt::Display for TransactionStatus {
     }
 }
 
-impl Client {
+impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
@@ -277,8 +274,8 @@ impl Client {
         self.tx_executor.load_account(faucet_id)?;
 
         let block_ref = self.get_sync_height()?;
-
         let random_coin = self.get_random_coin();
+
         let created_note = create_p2id_note(faucet_id, target_id, vec![asset.into()], random_coin)?;
 
         let recipient = created_note
@@ -415,16 +412,11 @@ impl Client {
     async fn submit_proven_transaction_request(
         &mut self,
         proven_transaction: ProvenTransaction,
-    ) -> Result<SubmitProvenTransactionResponse, ClientError> {
-        let request = SubmitProvenTransactionRequest {
-            transaction: proven_transaction.to_bytes(),
-        };
-
+    ) -> Result<(), ClientError> {
         Ok(self
             .rpc_api
-            .submit_proven_transaction(request)
-            .await?
-            .into_inner())
+            .submit_proven_transaction(proven_transaction)
+            .await?)
     }
 
     // HELPERS

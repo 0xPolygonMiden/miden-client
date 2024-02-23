@@ -17,3 +17,6 @@ Cargo.lock
 
 # Ignore Store files that may be spawned using `cargo run`
 *.sqlite3
+
+# Ignore mkdocs build files
+docs/site

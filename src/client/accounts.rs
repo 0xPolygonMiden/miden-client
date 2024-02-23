@@ -1,5 +1,6 @@
 use crypto::{dsa::rpo_falcon512::KeyPair, Felt, Word};
 use miden_lib::AuthScheme;
+use miden_tx::DataStore;
 use objects::{
     accounts::{
         Account, AccountData, AccountDelta, AccountId, AccountStorage, AccountStub, AccountType,
@@ -13,7 +14,7 @@ use rand::{rngs::ThreadRng, Rng};
 
 use crate::{errors::ClientError, store::accounts::AuthInfo};
 
-use super::Client;
+use super::{rpc::NodeRpcClient, Client};
 
 pub enum AccountTemplate {
     BasicWallet {
@@ -33,7 +34,7 @@ pub enum AccountStorageMode {
     OnChain,
 }
 
-impl Client {
+impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 

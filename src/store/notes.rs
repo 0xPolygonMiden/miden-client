@@ -1,3 +1,5 @@
+use core::fmt;
+
 use crate::errors::{ClientError, StoreError};
 
 use super::Store;
@@ -11,10 +13,12 @@ use objects::notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, N
 use objects::{accounts::AccountId, notes::NoteMetadata, transaction::InputNote, Digest, Felt};
 use rusqlite::{params, Transaction};
 
-pub(crate) const INSERT_NOTE_QUERY: &str = "\
-INSERT INTO input_notes
-    (note_id, nullifier, script, vault, inputs, serial_num, sender_id, tag, inclusion_proof, recipients, status, commit_height)
- VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+fn insert_note_query(table_name: NoteTable) -> String {
+    format!("\
+    INSERT INTO {table_name}
+        (note_id, nullifier, script, assets, inputs, serial_num, sender_id, tag, inclusion_proof, recipient, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+}
 
 // TYPES
 // ================================================================================================
@@ -31,31 +35,47 @@ type SerializedInputNoteData = (
     Option<Vec<u8>>,
     String,
     String,
-    i64,
 );
 
 type SerializedInputNoteParts = (Vec<u8>, Vec<u8>, Vec<u8>, String, u64, u64, Option<Vec<u8>>);
+
+// NOTE TABLE
+// ================================================================================================
+/// Represents a table in the db used to store notes based on their use case
+enum NoteTable {
+    InputNotes,
+    OutputNotes,
+}
+
+impl fmt::Display for NoteTable {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            NoteTable::InputNotes => write!(f, "input_notes"),
+            NoteTable::OutputNotes => write!(f, "output_notes"),
+        }
+    }
+}
 
 // NOTE FILTER
 // ================================================================================================
 /// Represents a filter for input notes
 #[derive(Clone, Debug)]
-pub enum InputNoteFilter {
+pub enum NoteFilter {
     All,
     Consumed,
     Committed,
     Pending,
 }
 
-impl InputNoteFilter {
+impl NoteFilter {
     /// Returns a [String] containing the query for this Filter
-    pub fn to_query(&self) -> String {
-        let base = String::from("SELECT script, inputs, vault, serial_num, sender_id, tag, inclusion_proof FROM input_notes");
+    fn to_query(&self, notes_table: NoteTable) -> String {
+        let base = format!("SELECT script, inputs, assets, serial_num, sender_id, tag, inclusion_proof FROM {notes_table}");
         match self {
-            InputNoteFilter::All => base,
-            InputNoteFilter::Committed => format!("{base} WHERE status = 'committed'"),
-            InputNoteFilter::Consumed => format!("{base} WHERE status = 'consumed'"),
-            InputNoteFilter::Pending => format!("{base} WHERE status = 'pending'"),
+            NoteFilter::All => base,
+            NoteFilter::Committed => format!("{base} WHERE status = 'committed'"),
+            NoteFilter::Consumed => format!("{base} WHERE status = 'consumed'"),
+            NoteFilter::Pending => format!("{base} WHERE status = 'pending'"),
         }
     }
 }
@@ -143,10 +163,23 @@ impl Store {
     /// Retrieves the input notes from the database
     pub fn get_input_notes(
         &self,
-        note_filter: InputNoteFilter,
+        note_filter: NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
         self.db
-            .prepare(&note_filter.to_query())?
+            .prepare(&note_filter.to_query(NoteTable::InputNotes))?
+            .query_map([], parse_input_note_columns)
+            .expect("no binding parameters used in query")
+            .map(|result| Ok(result?).and_then(parse_input_note))
+            .collect::<Result<Vec<InputNoteRecord>, _>>()
+    }
+
+    /// Retrieves the output notes from the database
+    pub fn get_output_notes(
+        &self,
+        note_filter: NoteFilter,
+    ) -> Result<Vec<InputNoteRecord>, StoreError> {
+        self.db
+            .prepare(&note_filter.to_query(NoteTable::OutputNotes))?
             .query_map([], parse_input_note_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_input_note))
@@ -156,7 +189,7 @@ impl Store {
     /// Retrieves the input note with the specified id from the database
     pub fn get_input_note_by_id(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError> {
         let query_id = &note_id.inner().to_string();
-        const QUERY: &str = "SELECT script, inputs, vault, serial_num, sender_id, tag, inclusion_proof FROM input_notes WHERE note_id = ?";
+        const QUERY: &str = "SELECT script, inputs, assets, serial_num, sender_id, tag, inclusion_proof FROM input_notes WHERE note_id = ?";
 
         self.db
             .prepare(QUERY)?
@@ -206,13 +239,12 @@ impl Store {
             sender_id,
             tag,
             inclusion_proof,
-            recipients,
+            recipient,
             status,
-            commit_height,
         ) = serialize_input_note(note)?;
 
         tx.execute(
-            INSERT_NOTE_QUERY,
+            &insert_note_query(NoteTable::InputNotes),
             params![
                 note_id,
                 nullifier,
@@ -223,9 +255,47 @@ impl Store {
                 sender_id,
                 tag,
                 inclusion_proof,
-                recipients,
+                recipient,
                 status,
-                commit_height
+            ],
+        )
+        .map_err(|err| StoreError::QueryError(err.to_string()))
+        .map(|_| ())
+    }
+
+    /// Inserts the provided input note into the database
+    pub fn insert_output_note_tx(
+        tx: &Transaction<'_>,
+        note: &InputNoteRecord,
+    ) -> Result<(), StoreError> {
+        let (
+            note_id,
+            nullifier,
+            script,
+            vault,
+            inputs,
+            serial_num,
+            sender_id,
+            tag,
+            inclusion_proof,
+            recipient,
+            status,
+        ) = serialize_input_note(note)?;
+
+        tx.execute(
+            &insert_note_query(NoteTable::OutputNotes),
+            params![
+                note_id,
+                nullifier,
+                script,
+                vault,
+                inputs,
+                serial_num,
+                sender_id,
+                tag,
+                inclusion_proof,
+                recipient,
+                status,
             ],
         )
         .map_err(|err| StoreError::QueryError(err.to_string()))
@@ -295,7 +365,7 @@ pub(crate) fn serialize_input_note(
         .map_err(StoreError::InputSerializationError)?;
     let sender_id = u64::from(note.note().metadata().sender()) as i64;
     let tag = u64::from(note.note().metadata().tag()) as i64;
-    let (inclusion_proof, status, commit_height) = match note.inclusion_proof() {
+    let (inclusion_proof, status) = match note.inclusion_proof() {
         Some(proof) => {
             // FIXME: This removal is to accomodate a problem with how the node constructs paths where
             // they are constructed using note ID instead of authentication hash, so for now we remove the first
@@ -320,12 +390,11 @@ pub(crate) fn serialize_input_note(
                     .to_bytes(),
                 ),
                 String::from("committed"),
-                proof.origin().block_num,
             )
         }
-        None => (None, String::from("pending"), 0u32),
+        None => (None, String::from("pending")),
     };
-    let recipients = note.note().recipient().to_string();
+    let recipient = note.note().recipient().to_hex();
 
     Ok((
         note_id,
@@ -337,8 +406,7 @@ pub(crate) fn serialize_input_note(
         sender_id,
         tag,
         inclusion_proof,
-        recipients,
+        recipient,
         status,
-        commit_height as i64,
     ))
 }
