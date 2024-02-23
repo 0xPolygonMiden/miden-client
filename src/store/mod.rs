@@ -110,6 +110,8 @@ pub trait Store {
     ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError>;
 
     /// Returns peaks information from the blockchain by a specific block number.
+    ///
+    /// If there is no chain mmr info stored for the provided block returns an empty [MmrPeaks]
     fn get_chain_mmr_peaks_by_block_num(&self, block_num: u32) -> Result<MmrPeaks, StoreError>;
 
     /// Inserts a block header into the store, alongside peaks information at the block's height.
@@ -169,7 +171,13 @@ pub trait Store {
     ) -> Result<(), StoreError>;
 
     /// Update previously-existing account after a transaction execution
+    ///
     /// The account that is to be updated is identified by the Account ID
+    ///
+    /// # Errors
+    ///
+    /// Returns a `StoreError::AccountDataNotFound` if the provided account does not correspond to
+    /// one persisted by the store.
     fn update_account(&mut self, new_account_state: Account) -> Result<(), StoreError>;
 
     // SYNC-RELATED FUNCTIONS
@@ -189,6 +197,8 @@ pub trait Store {
     /// - Inserting the new block header to the store alongside new MMR peaks information
     /// - Updating the notes, marking them as `committed` or `consumed` based on incoming
     ///   inclusion proofs and nullifiers
+    /// - Updating transactions in the store, marking as `committed` the ones provided with
+    /// `committed_transactions`
     /// - Storing new MMR authentication nodes
     fn apply_state_sync(
         &mut self,
@@ -250,14 +260,14 @@ impl Deserializable for AuthInfo {
     }
 }
 
-// INPUT NOTE RECORD
+// NOTE RECORD
 // ================================================================================================
 
 /// Represents a Note of which the [Store] can keep track and retrieve.
 ///
-/// An [InputNoteRecord] contains all the information of a [Note], in addition of (optionally)
+/// A [NoteRecord] contains all the information of a [Note], in addition of (optionally)
 /// the [NoteInclusionProof] that identifies when the note was included in the chain. Once the
-/// proof is set, the [InputNoteRecord] can be transformed into an [InputNote] and used as input
+/// proof is set, the [NoteRecord] can be transformed into an [InputNote] and used as input
 /// for transactions.
 #[derive(Clone, Debug, PartialEq)]
 pub struct NoteRecord {
