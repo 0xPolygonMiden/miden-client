@@ -16,7 +16,9 @@ use std::time::Duration;
 
 use uuid::Uuid;
 
-fn create_test_client() -> Client<TonicRpcClient, SqliteStore, SqliteDataStore> {
+type TestClient = Client<TonicRpcClient, SqliteStore, SqliteDataStore>;
+
+fn create_test_client() -> TestClient {
     let client_config = ClientConfig {
         store: create_test_store_path()
             .into_os_string()
@@ -31,7 +33,7 @@ fn create_test_client() -> Client<TonicRpcClient, SqliteStore, SqliteDataStore> 
     let store = SqliteStore::new((&client_config).into()).unwrap();
     // TODO: See if we can solve this by wrapping store with a `Rc<Cell<..>>` or a `Rc<RefCell<..>>`
     let data_store_store = SqliteStore::new((&client_config).into()).unwrap();
-    Client::new(
+    TestClient::new(
         TonicRpcClient::new(&rpc_endpoint),
         store,
         SqliteDataStore::new(data_store_store),
@@ -45,10 +47,7 @@ fn create_test_store_path() -> std::path::PathBuf {
     temp_file
 }
 
-async fn execute_tx_and_sync(
-    client: &mut Client<TonicRpcClient, SqliteStore, SqliteDataStore>,
-    tx_template: TransactionTemplate,
-) {
+async fn execute_tx_and_sync(client: &mut TestClient, tx_template: TransactionTemplate) {
     println!("Executing Transaction");
     let transaction_execution_result = client.new_transaction(tx_template).unwrap();
 
@@ -73,7 +72,7 @@ async fn execute_tx_and_sync(
 ///
 /// This function will panic if it does `NUMBER_OF_NODE_ATTEMPTS` unsuccessful checks or if we
 /// receive an error other than a connection related error
-async fn wait_for_node(client: &mut Client<TonicRpcClient, SqliteStore, SqliteDataStore>) {
+async fn wait_for_node(client: &mut TestClient) {
     const NODE_TIME_BETWEEN_ATTEMPTS: u64 = 5;
     const NUMBER_OF_NODE_ATTEMPTS: u64 = 60;
 
