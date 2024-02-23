@@ -6,7 +6,7 @@ use objects::{
     Digest,
 };
 
-use super::{AuthInfo, ChainMmrNodeFilter, InputNoteRecord, NoteFilter, Store, TransactionFilter};
+use super::{AuthInfo, ChainMmrNodeFilter, NoteFilter, NoteRecord, Store, TransactionFilter};
 use crypto::{
     merkle::{InOrderIndex, MmrPeaks},
     Word,
@@ -95,22 +95,19 @@ impl Store for SqliteStore {
         self.apply_transaction(tx_result)
     }
 
-    fn get_input_notes(&self, note_filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError> {
+    fn get_input_notes(&self, note_filter: NoteFilter) -> Result<Vec<NoteRecord>, StoreError> {
         self.get_input_notes(note_filter)
     }
 
-    fn get_output_notes(
-        &self,
-        note_filter: NoteFilter,
-    ) -> Result<Vec<InputNoteRecord>, StoreError> {
+    fn get_output_notes(&self, note_filter: NoteFilter) -> Result<Vec<NoteRecord>, StoreError> {
         self.get_output_notes(note_filter)
     }
 
-    fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError> {
+    fn get_input_note(&self, note_id: NoteId) -> Result<NoteRecord, StoreError> {
         self.get_input_note(note_id)
     }
 
-    fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError> {
+    fn insert_input_note(&mut self, note: &NoteRecord) -> Result<(), StoreError> {
         self.insert_input_note(note)
     }
 

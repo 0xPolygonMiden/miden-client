@@ -8,7 +8,7 @@ use crate::{
     mock::mock_fungible_faucet_account,
     store::{
         mock_executor_data_store::MockDataStore, sqlite_store::tests::create_test_client, AuthInfo,
-        InputNoteRecord, NoteFilter,
+        NoteFilter, NoteRecord,
     },
 };
 
@@ -50,7 +50,7 @@ async fn test_input_notes_round_trip() {
     // retrieve notes from database
     let retrieved_notes = client.get_input_notes(NoteFilter::Committed).unwrap();
 
-    let recorded_notes: Vec<InputNoteRecord> = transaction_inputs
+    let recorded_notes: Vec<NoteRecord> = transaction_inputs
         .input_notes()
         .iter()
         .map(|n| n.clone().into())
@@ -84,7 +84,7 @@ async fn test_get_input_note() {
         .get_input_note(recorded_notes.get_note(0).note().id())
         .unwrap();
 
-    let recorded_note: InputNoteRecord = recorded_notes.get_note(0).clone().into();
+    let recorded_note: NoteRecord = recorded_notes.get_note(0).clone().into();
     assert_eq!(recorded_note.note_id(), retrieved_note.note_id())
 }
 

@@ -43,18 +43,17 @@ pub trait Store {
     // ================================================================================================
 
     /// Retrieves the input notes from the store
-    fn get_input_notes(&self, note_filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError>;
+    fn get_input_notes(&self, note_filter: NoteFilter) -> Result<Vec<NoteRecord>, StoreError>;
 
     /// Retrieves the output notes from the store
-    fn get_output_notes(&self, note_filter: NoteFilter)
-        -> Result<Vec<InputNoteRecord>, StoreError>;
+    fn get_output_notes(&self, note_filter: NoteFilter) -> Result<Vec<NoteRecord>, StoreError>;
 
     /// Retrieves an [InputNoteRecord] for the input note corresponding to the specified id from the store
     ///
     /// # Errors
     ///
     /// Returns a `StoreError::InputNoteNotFound` if there is no Note with the provided id
-    fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError>;
+    fn get_input_note(&self, note_id: NoteId) -> Result<NoteRecord, StoreError>;
 
     /// Returns the nullifiers of all unspent input notes
     ///
@@ -70,7 +69,7 @@ pub trait Store {
     }
 
     /// Inserts the provided input note into the database
-    fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError>;
+    fn insert_input_note(&mut self, note: &NoteRecord) -> Result<(), StoreError>;
 
     // CHAIN DATA FUNCTIONS
     // ================================================================================================
@@ -261,14 +260,14 @@ impl Deserializable for AuthInfo {
 /// proof is set, the [InputNoteRecord] can be transformed into an [InputNote] and used as input
 /// for transactions.
 #[derive(Clone, Debug, PartialEq)]
-pub struct InputNoteRecord {
+pub struct NoteRecord {
     note: Note,
     inclusion_proof: Option<NoteInclusionProof>,
 }
 
-impl InputNoteRecord {
-    pub fn new(note: Note, inclusion_proof: Option<NoteInclusionProof>) -> InputNoteRecord {
-        InputNoteRecord {
+impl NoteRecord {
+    pub fn new(note: Note, inclusion_proof: Option<NoteInclusionProof>) -> NoteRecord {
+        NoteRecord {
             note,
             inclusion_proof,
         }
@@ -286,42 +285,42 @@ impl InputNoteRecord {
     }
 }
 
-impl Serializable for InputNoteRecord {
+impl Serializable for NoteRecord {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
         self.note().write_into(target);
         self.inclusion_proof.write_into(target);
     }
 }
 
-impl Deserializable for InputNoteRecord {
+impl Deserializable for NoteRecord {
     fn read_from<R: ByteReader>(
         source: &mut R,
     ) -> std::prelude::v1::Result<Self, DeserializationError> {
         let note: Note = source.read()?;
         let proof: Option<NoteInclusionProof> = source.read()?;
-        Ok(InputNoteRecord::new(note, proof))
+        Ok(NoteRecord::new(note, proof))
     }
 }
 
-impl From<Note> for InputNoteRecord {
+impl From<Note> for NoteRecord {
     fn from(note: Note) -> Self {
-        InputNoteRecord {
+        NoteRecord {
             note,
             inclusion_proof: None,
         }
     }
 }
 
-impl From<InputNote> for InputNoteRecord {
+impl From<InputNote> for NoteRecord {
     fn from(recorded_note: InputNote) -> Self {
-        InputNoteRecord {
+        NoteRecord {
             note: recorded_note.note().clone(),
             inclusion_proof: Some(recorded_note.proof().clone()),
         }
     }
 }
 
-impl TryInto<InputNote> for InputNoteRecord {
+impl TryInto<InputNote> for NoteRecord {
     type Error = ClientError;
 
     fn try_into(self) -> Result<InputNote, Self::Error> {
