@@ -7,7 +7,6 @@ use miden_client::{
     client::rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
 };
-use miden_tx::DataStore;
 use objects::{notes::NoteId, Digest};
 use std::{
     fs::File,
@@ -75,9 +74,9 @@ pub enum InputNotes {
 }
 
 impl InputNotes {
-    pub fn execute<N: NodeRpcClient, S: Store, D: DataStore>(
+    pub fn execute<N: NodeRpcClient, S: Store>(
         &self,
-        mut client: Client<N, S, D>,
+        mut client: Client<N, S>,
     ) -> Result<(), String> {
         match self {
             InputNotes::List { filter } => {
@@ -113,8 +112,8 @@ impl InputNotes {
 
 // LIST INPUT NOTES
 // ================================================================================================
-fn list_input_notes<N: NodeRpcClient, S: Store, D: DataStore>(
-    client: Client<N, S, D>,
+fn list_input_notes<N: NodeRpcClient, S: Store>(
+    client: Client<N, S>,
     input_note_filter: ClientNoteFilter,
 ) -> Result<(), String> {
     let notes = client.get_input_notes(input_note_filter)?;
@@ -124,8 +123,8 @@ fn list_input_notes<N: NodeRpcClient, S: Store, D: DataStore>(
 
 // EXPORT INPUT NOTE
 // ================================================================================================
-pub fn export_note<N: NodeRpcClient, S: Store, D: DataStore>(
-    client: &Client<N, S, D>,
+pub fn export_note<N: NodeRpcClient, S: Store>(
+    client: &Client<N, S>,
     note_id: &str,
     filename: Option<PathBuf>,
 ) -> Result<File, String> {
@@ -150,8 +149,8 @@ pub fn export_note<N: NodeRpcClient, S: Store, D: DataStore>(
 
 // IMPORT INPUT NOTE
 // ================================================================================================
-pub fn import_note<N: NodeRpcClient, S: Store, D: DataStore>(
-    client: &mut Client<N, S, D>,
+pub fn import_note<N: NodeRpcClient, S: Store>(
+    client: &mut Client<N, S>,
     filename: PathBuf,
 ) -> Result<NoteId, String> {
     let mut contents = vec![];
@@ -172,8 +171,8 @@ pub fn import_note<N: NodeRpcClient, S: Store, D: DataStore>(
 
 // SHOW INPUT NOTE
 // ================================================================================================
-fn show_input_note<N: NodeRpcClient, S: Store, D: DataStore>(
-    client: Client<N, S, D>,
+fn show_input_note<N: NodeRpcClient, S: Store>(
+    client: Client<N, S>,
     note_id: String,
     show_script: bool,
     show_vault: bool,

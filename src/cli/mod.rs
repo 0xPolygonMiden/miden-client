@@ -19,8 +19,6 @@ use miden_client::mock::MockRpcApi;
 
 #[cfg(not(feature = "mock"))]
 use miden_client::client::rpc::TonicRpcClient;
-#[cfg(not(feature = "mock"))]
-use miden_client::store::data_store::SqliteDataStore;
 
 mod account;
 mod info;
@@ -81,15 +79,11 @@ impl Cli {
         let store = SqliteStore::new((&client_config).into()).map_err(ClientError::StoreError)?;
 
         #[cfg(not(feature = "mock"))]
-        let client: Client<TonicRpcClient, SqliteStore, SqliteDataStore> = {
+        let client: Client<TonicRpcClient, SqliteStore> = {
             let data_store_store =
                 miden_client::store::sqlite_store::SqliteStore::new((&client_config).into())
                     .map_err(ClientError::StoreError)?;
-            Client::new(
-                TonicRpcClient::new(&rpc_endpoint),
-                store,
-                SqliteDataStore::new(data_store_store),
-            )?
+            Client::new(TonicRpcClient::new(&rpc_endpoint), store, data_store_store)?
         };
 
         #[cfg(feature = "mock")]

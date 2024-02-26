@@ -2,7 +2,7 @@ use crypto::{rand::RpoRandomCoin, utils::Serializable, Felt, Word};
 use miden_lib::notes::create_p2id_note;
 
 use crate::store::Store;
-use miden_tx::{DataStore, ProvingOptions, TransactionProver};
+use miden_tx::{ProvingOptions, TransactionProver};
 use mock::procedures::prepare_word;
 use objects::{
     accounts::{AccountDelta, AccountId},
@@ -202,7 +202,7 @@ impl std::fmt::Display for TransactionStatus {
     }
 }
 
-impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
+impl<N: NodeRpcClient, S: Store> Client<N, S> {
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 

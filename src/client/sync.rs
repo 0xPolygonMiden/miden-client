@@ -11,7 +11,6 @@ use crate::{
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 
 use crate::store::{ChainMmrNodeFilter, NoteFilter, Store};
-use miden_tx::DataStore;
 use objects::{
     accounts::{AccountId, AccountStub},
     crypto,
@@ -32,7 +31,7 @@ pub enum SyncStatus {
 /// The number of bits to shift identifiers for in use of filters.
 pub const FILTER_ID_SHIFT: u8 = 48;
 
-impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
+impl<N: NodeRpcClient, S: Store> Client<N, S> {
     // SYNC STATE
     // --------------------------------------------------------------------------------------------
 

@@ -1,5 +1,5 @@
 use crate::{errors::ClientError, store::Store};
-use miden_tx::{DataStore, TransactionExecutor};
+use miden_tx::TransactionExecutor;
 
 pub mod rpc;
 use rpc::NodeRpcClient;
@@ -9,6 +9,11 @@ mod chain_data;
 mod notes;
 pub(crate) mod sync;
 pub mod transactions;
+
+#[cfg(any(test, feature = "mock"))]
+use crate::mock::MockDataStore;
+#[cfg(not(any(test, feature = "mock")))]
+use crate::store::data_store::ClientDataStore;
 
 // MIDEN CLIENT
 // ================================================================================================
@@ -21,14 +26,17 @@ pub mod transactions;
 /// - Connects to one or more Miden nodes to periodically sync with the current state of the
 ///   network.
 /// - Executes, proves, and submits transactions to the network as directed by the user.
-pub struct Client<N: NodeRpcClient, S: Store, D: DataStore> {
+pub struct Client<N: NodeRpcClient, S: Store> {
     /// Local database containing information about the accounts managed by this client.
     store: S,
     rpc_api: N,
-    tx_executor: TransactionExecutor<D>,
+    #[cfg(not(any(test, feature = "mock")))]
+    tx_executor: TransactionExecutor<ClientDataStore<S>>,
+    #[cfg(any(test, feature = "mock"))]
+    tx_executor: TransactionExecutor<MockDataStore>,
 }
 
-impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
+impl<N: NodeRpcClient, S: Store> Client<N, S> {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
 
@@ -36,7 +44,19 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
     ///
     /// # Errors
     /// Returns an error if the client could not be instantiated.
-    pub fn new(api: N, store: S, data_store: D) -> Result<Self, ClientError> {
+    /// TODO: remove the `data_store_store`, just left this here to make things work and then I'll
+    /// take care of that
+    #[cfg(not(any(test, feature = "mock")))]
+    pub fn new(api: N, store: S, data_store_store: S) -> Result<Self, ClientError> {
+        Ok(Self {
+            store,
+            rpc_api: api,
+            tx_executor: TransactionExecutor::new(ClientDataStore::new(data_store_store)),
+        })
+    }
+
+    #[cfg(any(test, feature = "mock"))]
+    pub fn new(api: N, store: S, data_store: MockDataStore) -> Result<Self, ClientError> {
         Ok(Self {
             store,
             rpc_api: api,
@@ -50,7 +70,7 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
     }
 
     #[cfg(any(test, feature = "mock"))]
-    pub fn set_tx_executor(&mut self, tx_executor: TransactionExecutor<D>) {
+    pub fn set_tx_executor(&mut self, tx_executor: TransactionExecutor<MockDataStore>) {
         self.tx_executor = tx_executor;
     }
 

@@ -24,8 +24,7 @@ use miden_node_proto::generated::{
     requests::{GetBlockHeaderByNumberRequest, SyncStateRequest},
     responses::{NullifierUpdate, SyncStateResponse},
 };
-#[cfg(test)]
-use miden_tx::DataStore;
+
 use mock::{
     constants::{generate_account_seed, AccountSeedType},
     mock::{account::mock_account, block::mock_block_header},
@@ -51,7 +50,7 @@ use tonic::{IntoRequest, Response, Status};
 
 pub use crate::store::mock_executor_data_store::MockDataStore;
 
-pub type MockClient = Client<MockRpcApi, SqliteStore, MockDataStore>;
+pub type MockClient = Client<MockRpcApi, SqliteStore>;
 
 /// Mock RPC API
 ///
@@ -497,9 +496,9 @@ pub fn mock_fungible_faucet_account(
 }
 
 #[cfg(test)]
-impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
+impl<N: NodeRpcClient, S: Store> Client<N, S> {
     /// Helper function to set a data store to conveniently mock data for tests
-    pub fn set_data_store(&mut self, data_store: D) {
+    pub fn set_data_store(&mut self, data_store: MockDataStore) {
         self.set_tx_executor(miden_tx::TransactionExecutor::new(data_store));
     }
 }
