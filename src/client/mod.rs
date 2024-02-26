@@ -14,6 +14,8 @@ pub mod transactions;
 use crate::mock::MockDataStore;
 #[cfg(not(any(test, feature = "mock")))]
 use crate::store::data_store::ClientDataStore;
+#[cfg(not(any(test, feature = "mock")))]
+use std::{cell::RefCell, rc::Rc};
 
 // MIDEN CLIENT
 // ================================================================================================
@@ -44,8 +46,6 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
     ///
     /// # Errors
     /// Returns an error if the client could not be instantiated.
-    /// TODO: remove the `data_store_store`, just left this here to make things work and then I'll
-    /// take care of that
     #[cfg(not(any(test, feature = "mock")))]
     pub fn new(api: N, store: S, data_store_store: S) -> Result<Self, ClientError> {
         Ok(Self {
@@ -78,4 +78,14 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
     pub fn store(&mut self) -> &mut S {
         &mut self.store
     }
+}
+
+#[cfg(not(any(test, feature = "mock")))]
+pub fn shared_store_client<N: NodeRpcClient, S: Store>(
+    api: N,
+    store: S,
+) -> Result<Client<N, Rc<RefCell<S>>>, ClientError> {
+    let store = Rc::new(RefCell::new(store));
+
+    Client::new(api, store.clone(), store)
 }

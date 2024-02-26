@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use crate::{
     client::transactions::{TransactionRecord, TransactionResult},
     errors::{ClientError, StoreError},
@@ -9,6 +11,7 @@ use crypto::{
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
     Word,
 };
+
 use objects::{
     accounts::{Account, AccountId, AccountStub},
     notes::{Note, NoteId, NoteInclusionProof, Nullifier},
@@ -371,4 +374,145 @@ pub enum NoteFilter {
     /// Return a list of pending [InputNoteRecord]. These represent notes for which the store
     /// does not have anchor data.
     Pending,
+}
+
+impl<T: Store> Store for Rc<RefCell<T>> {
+    fn get_transactions(
+        &self,
+        transaction_filter: TransactionFilter,
+    ) -> Result<Vec<TransactionRecord>, StoreError> {
+        self.borrow().get_transactions(transaction_filter)
+    }
+
+    fn apply_transaction(&mut self, tx_result: TransactionResult) -> Result<(), StoreError> {
+        self.borrow_mut().apply_transaction(tx_result)
+    }
+
+    // NOTE FUNCTIONS
+    // ================================================================================================
+
+    fn get_input_notes(&self, note_filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError> {
+        self.borrow().get_input_notes(note_filter)
+    }
+
+    fn get_output_notes(
+        &self,
+        note_filter: NoteFilter,
+    ) -> Result<Vec<InputNoteRecord>, StoreError> {
+        self.borrow().get_output_notes(note_filter)
+    }
+
+    fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError> {
+        self.borrow().get_input_note(note_id)
+    }
+
+    fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError> {
+        self.borrow_mut().insert_input_note(note)
+    }
+
+    // CHAIN DATA FUNCTIONS
+    // ================================================================================================
+
+    fn get_block_headers(
+        &self,
+        block_numbers: &[u32],
+    ) -> Result<Vec<(BlockHeader, bool)>, StoreError> {
+        self.borrow().get_block_headers(block_numbers)
+    }
+
+    fn get_tracked_block_headers(&self) -> Result<Vec<BlockHeader>, StoreError> {
+        self.borrow().get_tracked_block_headers()
+    }
+
+    fn get_chain_mmr_nodes(
+        &self,
+        filter: ChainMmrNodeFilter,
+    ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
+        self.borrow().get_chain_mmr_nodes(filter)
+    }
+
+    fn get_chain_mmr_peaks_by_block_num(&self, block_num: u32) -> Result<MmrPeaks, StoreError> {
+        self.borrow().get_chain_mmr_peaks_by_block_num(block_num)
+    }
+
+    fn insert_block_header(
+        &self,
+        block_header: BlockHeader,
+        chain_mmr_peaks: MmrPeaks,
+        has_client_notes: bool,
+    ) -> Result<(), StoreError> {
+        self.borrow_mut()
+            .insert_block_header(block_header, chain_mmr_peaks, has_client_notes)
+    }
+
+    // ACCOUNT FUNCTIONS
+    // ================================================================================================
+
+    fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {
+        self.borrow().get_account_ids()
+    }
+
+    fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Word)>, StoreError> {
+        self.borrow().get_account_stubs()
+    }
+
+    fn get_account_stub(&self, account_id: AccountId) -> Result<(AccountStub, Word), StoreError> {
+        self.borrow().get_account_stub(account_id)
+    }
+
+    fn get_account(&self, account_id: AccountId) -> Result<(Account, Word), StoreError> {
+        self.borrow().get_account(account_id)
+    }
+
+    fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, StoreError> {
+        self.borrow().get_account_auth(account_id)
+    }
+
+    fn insert_account(
+        &mut self,
+        account: &Account,
+        account_seed: Word,
+        auth_info: &AuthInfo,
+    ) -> Result<(), StoreError> {
+        self.borrow_mut()
+            .insert_account(account, account_seed, auth_info)
+    }
+
+    fn update_account(&mut self, new_account_state: Account) -> Result<(), StoreError> {
+        self.borrow_mut().update_account(new_account_state)
+    }
+
+    // SYNC-RELATED FUNCTIONS
+    // ================================================================================================
+
+    fn get_note_tags(&self) -> Result<Vec<u64>, StoreError> {
+        self.borrow().get_note_tags()
+    }
+
+    fn add_note_tag(&mut self, tag: u64) -> Result<bool, StoreError> {
+        self.borrow_mut().add_note_tag(tag)
+    }
+
+    fn get_sync_height(&self) -> Result<u32, StoreError> {
+        self.borrow().get_sync_height()
+    }
+
+    fn apply_state_sync(
+        &mut self,
+        block_header: BlockHeader,
+        nullifiers: Vec<Digest>,
+        committed_notes: Vec<(NoteId, NoteInclusionProof)>,
+        committed_transactions: &[TransactionId],
+        new_mmr_peaks: MmrPeaks,
+        new_authentication_nodes: &[(InOrderIndex, Digest)],
+    ) -> Result<(), StoreError> {
+        self.borrow_mut().apply_state_sync(
+            block_header,
+            nullifiers,
+            committed_notes,
+            committed_transactions,
+            new_mmr_peaks,
+            new_authentication_nodes,
+        )
+    }
 }
