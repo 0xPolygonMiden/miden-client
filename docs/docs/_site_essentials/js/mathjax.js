@@ -14,3 +14,4 @@ window.MathJax = {
   document$.subscribe(() => {
     MathJax.typesetPromise()
   })
+  

@@ -31,9 +31,6 @@ build_docs: docs_deps
 
 docs: docs_deps
 	cd docs && mkdocs serve
-
-serve_docs: docs_deps
-	cd docs && mkdocs serve
   
 fmt:
 	cargo fix --allow-staged --allow-dirty --all-targets --all-features
