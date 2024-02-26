@@ -248,6 +248,15 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
         account_id: AccountId,
         note_ids: &[NoteId],
     ) -> Result<TransactionResult, ClientError> {
+        // First validate that no note has already been consumed
+        let unspent_nullifiers = self.store.get_unspent_input_note_nullifiers()?;
+        for note_id in note_ids {
+            let note = self.get_input_note(*note_id)?;
+            if unspent_nullifiers.contains(&note.note().nullifier().inner()) {
+                return Err(ClientError::DoubleNoteSpendError(*note_id));
+            }
+        }
+
         self.tx_executor
             .load_account(account_id)
             .map_err(ClientError::TransactionExecutionError)?;

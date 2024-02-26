@@ -231,5 +231,19 @@ async fn main() {
         panic!("ACCOUNT SHOULD HAVE A FUNGIBLE ASSET");
     }
 
+    // Sync and check that we can't consume the P2ID note again
+    let tx_template =
+        TransactionTemplate::ConsumeNotes(second_regular_account_id, vec![notes[0].note_id()]);
+    println!("Consuming Note...");
+
+    match client.new_transaction(tx_template) {
+        Ok(_) => panic!("TRANSACTION SHOULD NOT BE CONSUMABLE!"),
+        Err(ClientError::DoubleNoteSpendError(note_id)) if note_id == notes[0].note_id() => {}
+        _ => panic!(
+            "UNEXPECTED ERROR, SHOULD BE A DOUBLE SPEND ERROR FOR NOTE {}",
+            notes[0].note_id().to_hex()
+        ),
+    }
+
     println!("Test ran successfully!");
 }
