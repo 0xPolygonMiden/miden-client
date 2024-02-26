@@ -76,13 +76,21 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
             AuthData::RpoFalcon512Seed(key_pair) => {
                 let keypair = KeyPair::from_seed(&key_pair)?;
 
-                if !account_data.account.is_new() && account_data.account_seed.is_some() {
-                    tracing::warn!("Imported an existing account and still provided a seed when it is not needed. It's possible that the account's file was incorrectly generated");
-                }
+                let account_seed = if !account_data.account.is_new() && account_data.account_seed.is_some() {
+                    tracing::warn!("Imported an existing account and still provided a seed when it is not needed. It's possible that the account's file was incorrectly generated. The seed will be ignored.");
+                    // Ignore the seed since it's not a new account
+                    
+                    // TODO: The alternative approach to this is to store the seed anyway, but 
+                    // ignore it at the point of executing against this transaction, but that
+                    // approach seems a little bit more incorrect
+                    None
+                } else {
+                    account_data.account_seed
+                };
 
                 self.insert_account(
                     &account_data.account,
-                    account_data.account_seed,
+                    account_seed,
                     &AuthInfo::RpoFalcon512(keypair),
                 )
             }
