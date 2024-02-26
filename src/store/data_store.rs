@@ -1,7 +1,7 @@
 use crate::errors::{ClientError, StoreError};
 use objects::utils::collections::BTreeSet;
 
-use super::{chain_data::ChainMmrNodeFilter, Store};
+use super::{chain_data::ChainMmrNodeFilter, notes::NoteFilter, Store};
 use crypto::merkle::{InOrderIndex, MerklePath, PartialMmr};
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
 
@@ -33,6 +33,25 @@ impl DataStore for SqliteDataStore {
         block_num: u32,
         notes: &[objects::notes::NoteId],
     ) -> Result<TransactionInputs, DataStoreError> {
+        // First validate that no note has already been consumed
+        let unspent_notes = self
+            .store
+            .get_input_notes(NoteFilter::Committed)?
+            .iter()
+            .map(|note_record| note_record.note_id())
+            .collect::<Vec<_>>();
+
+        for note_id in notes {
+            if !unspent_notes.contains(note_id) {
+                // TODO: Add a variant to TransactionInputError so we can use the
+                // `DataStoreError::InvalidTransactionInput` variant.
+                return Err(DataStoreError::InternalError(format!(
+                    "Cannot consume note with id {} twice",
+                    note_id.to_hex()
+                )));
+            }
+        }
+
         // Construct Account
         let (account, seed) = self.store.get_account_by_id(account_id)?;
 

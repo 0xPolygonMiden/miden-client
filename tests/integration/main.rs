@@ -10,6 +10,7 @@ use miden_client::store::{
     data_store::SqliteDataStore, notes::NoteFilter, transactions::TransactionFilter, Store,
 };
 
+use miden_tx::{DataStoreError, TransactionExecutorError};
 use objects::{
     accounts::AccountData,
     assets::{Asset, FungibleAsset},
@@ -238,7 +239,11 @@ async fn main() {
 
     match client.new_transaction(tx_template) {
         Ok(_) => panic!("TRANSACTION SHOULD NOT BE CONSUMABLE!"),
-        Err(ClientError::DoubleNoteSpendError(note_id)) if note_id == notes[0].note_id() => {}
+        Err(ClientError::TransactionExecutionError(
+            TransactionExecutorError::FetchTransactionInputsFailed(DataStoreError::InternalError(
+                error,
+            )),
+        )) if error.contains(&notes[0].note_id().to_hex()) => {}
         _ => panic!(
             "UNEXPECTED ERROR, SHOULD BE A DOUBLE SPEND ERROR FOR NOTE {}",
             notes[0].note_id().to_hex()
