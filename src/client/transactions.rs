@@ -252,7 +252,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
         let unspent_nullifiers = self.store.get_unspent_input_note_nullifiers()?;
         for note_id in note_ids {
             let note = self.get_input_note(*note_id)?;
-            if unspent_nullifiers.contains(&note.note().nullifier().inner()) {
+            if !unspent_nullifiers.contains(&note.note().nullifier().inner()) {
                 return Err(ClientError::DoubleNoteSpendError(*note_id));
             }
         }
