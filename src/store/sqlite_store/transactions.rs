@@ -66,13 +66,13 @@ type SerializedTransactionData = (
 );
 
 impl SqliteStore {
-    /// Retrieves all executed transactions from the database
+    /// Retrieves tracked transactions, filtered by [TransactionFilter].
     pub fn get_transactions(
         &self,
-        transaction_filter: TransactionFilter,
+        filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, StoreError> {
         self.db
-            .prepare(&transaction_filter.to_query())?
+            .prepare(&filter.to_query())?
             .query_map([], parse_transaction_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_transaction))

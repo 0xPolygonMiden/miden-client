@@ -80,10 +80,10 @@ impl NoteFilter {
 impl SqliteStore {
     pub(crate) fn get_input_notes(
         &self,
-        note_filter: NoteFilter,
+        filter: NoteFilter,
     ) -> Result<Vec<NoteRecord>, StoreError> {
         self.db
-            .prepare(&note_filter.to_query(NoteTable::InputNotes))?
+            .prepare(&filter.to_query(NoteTable::InputNotes))?
             .query_map([], parse_input_note_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_input_note))
@@ -93,10 +93,10 @@ impl SqliteStore {
     /// Retrieves the output notes from the database
     pub(crate) fn get_output_notes(
         &self,
-        note_filter: NoteFilter,
+        filter: NoteFilter,
     ) -> Result<Vec<NoteRecord>, StoreError> {
         self.db
-            .prepare(&note_filter.to_query(NoteTable::OutputNotes))?
+            .prepare(&filter.to_query(NoteTable::OutputNotes))?
             .query_map([], parse_input_note_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_input_note))
