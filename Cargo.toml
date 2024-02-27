@@ -39,7 +39,7 @@ miden_lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/mi
 miden_node_store = { package = "miden-node-store", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "main" }
 miden_node_proto = { package = "miden-node-proto", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "main", default-features = false }
 miden_tx = { package = "miden-tx", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", default-features = false }
-mock = { package = "miden-mock", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", default-features = false }
+mock = { package = "miden-mock", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main" }
 objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", features = [
     "serde",
 ] }
