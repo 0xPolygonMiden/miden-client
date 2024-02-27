@@ -115,9 +115,9 @@ impl InputNotes {
 // ================================================================================================
 fn list_input_notes<N: NodeRpcClient, D: DataStore>(
     client: Client<N, D>,
-    input_note_filter: ClientNoteFilter,
+    filter: ClientNoteFilter,
 ) -> Result<(), String> {
-    let notes = client.get_input_notes(input_note_filter)?;
+    let notes = client.get_input_notes(filter)?;
     print_notes_summary(&notes);
     Ok(())
 }

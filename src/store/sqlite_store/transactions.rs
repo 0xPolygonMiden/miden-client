@@ -66,7 +66,7 @@ type SerializedTransactionData = (
 );
 
 impl SqliteStore {
-    /// Retrieves all executed transactions from the database
+    /// Retrieves tracked transactions, filtered by [TransactionFilter].
     pub fn get_transactions(
         &self,
         transaction_filter: TransactionFilter,
