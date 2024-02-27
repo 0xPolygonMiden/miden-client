@@ -43,12 +43,7 @@ impl DataStore for SqliteDataStore {
 
         for note_id in notes {
             if !unspent_notes.contains(note_id) {
-                // TODO: Add a variant to TransactionInputError so we can use the
-                // `DataStoreError::InvalidTransactionInput` variant.
-                return Err(DataStoreError::InternalError(format!(
-                    "Cannot consume note with id {} twice",
-                    note_id.to_hex()
-                )));
+                return Err(DataStoreError::NoteAlreadyConsumed(*note_id));
             }
         }
 

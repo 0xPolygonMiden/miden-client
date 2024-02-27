@@ -18,7 +18,6 @@ use objects::{
 pub enum ClientError {
     AccountError(AccountError),
     AuthError(FalconError),
-    DoubleNoteSpendError(NoteId),
     ImportNewAccountWithoutSeed,
     NoteError(NoteError),
     NoConsumableNoteForAccount(AccountId),
@@ -33,11 +32,6 @@ impl fmt::Display for ClientError {
         match self {
             ClientError::AccountError(err) => write!(f, "account error: {err}"),
             ClientError::AuthError(err) => write!(f, "account auth error: {err}"),
-            ClientError::DoubleNoteSpendError(note_id) => write!(
-                f,
-                "double spend error: can't consume the already consumed note with id: {}",
-                note_id.to_hex()
-            ),
             ClientError::ImportNewAccountWithoutSeed => write!(
                 f,
                 "import account error: can't import a new account without its initial seed"
