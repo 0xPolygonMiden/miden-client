@@ -86,9 +86,9 @@ impl Store for SqliteStore {
 
     fn get_transactions(
         &self,
-        transaction_filter: TransactionFilter,
+        filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, StoreError> {
-        self.get_transactions(transaction_filter)
+        self.get_transactions(filter)
     }
 
     fn apply_transaction(&mut self, tx_result: TransactionResult) -> Result<(), StoreError> {

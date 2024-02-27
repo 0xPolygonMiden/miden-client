@@ -33,7 +33,7 @@ pub trait Store {
     /// Retrieves stored transactions, filtered by [TransactionFilter].
     fn get_transactions(
         &self,
-        transaction_filter: TransactionFilter,
+        filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, StoreError>;
 
     /// Inserts a transaction and updates the current state based on the `tx_result` changes
