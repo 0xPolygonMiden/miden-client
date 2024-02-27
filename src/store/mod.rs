@@ -111,7 +111,7 @@ pub trait Store {
 
     /// Returns peaks information from the blockchain by a specific block number.
     ///
-    /// If there is no chain mmr info stored for the provided block returns an empty [MmrPeaks]
+    /// If there is no chain MMR info stored for the provided block returns an empty [MmrPeaks]
     fn get_chain_mmr_peaks_by_block_num(&self, block_num: u32) -> Result<MmrPeaks, StoreError>;
 
     /// Inserts a block header into the store, alongside peaks information at the block's height.
