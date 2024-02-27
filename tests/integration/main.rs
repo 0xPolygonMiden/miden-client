@@ -232,7 +232,7 @@ async fn main() {
         panic!("ACCOUNT SHOULD HAVE A FUNGIBLE ASSET");
     }
 
-    // Sync and check that we can't consume the P2ID note again
+    // Check that we can't consume the P2ID note again
     let tx_template =
         TransactionTemplate::ConsumeNotes(second_regular_account_id, vec![notes[0].note_id()]);
     println!("Consuming Note...");
