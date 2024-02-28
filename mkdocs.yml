@@ -16,7 +16,6 @@ theme:
         toggle:
           icon: material/eye-outline
           name: Switch to light mode
-  favicon: img/favicon.ico
   icon:
     logo: logo
     repo: repo
@@ -28,65 +27,29 @@ theme:
     - navigation.instant.progress
     - navigation.tracking
     - navigation.integration
-    - navigation.tabs
-    - navigation.tabs.sticky
+    #- navigation.tabs
+    #- navigation.tabs.sticky
     - navigation.indexes
-    - navigation.sections
+    #- navigation.sections
     - navigation.path
     - navigation.top
     - navigation.footer
     - toc.follow
     - content.code.copy
     - content.action.edit
+
+
 nav:
+  - Home: index.md
   - Interacting with the Client:
       - CLI: 'cli.md'
       - Using the client's crate: 'rust_crate.md'
   - Develop using the Client:
-      - Getting Started: 'development.md'
+      - Getting Started: '/development.md'
   - How Miden Client works:
       - Overview: 'overview.md'
-extra:
-  generator: false
-  # FIXME: got a `jinja2.exceptions.TemplateNotFound: partials/integrations/analytics/custom.html` error with this uncommented
-  # analytics:
-  #   provider: custom
-  #   property: google    
-  #  feedback:  # feedback form only works when Google Analytics is set up and working
-  #    title: Was this page helpful?
-  #    ratings:
-  #      - icon: fontawesome/regular/face-grin-stars
-  #        name: This page was helpful
-  #        data: 1
-  #        note: >-
-  #          Thanks for your feedback!
-  #      - icon: fontawesome/regular/face-grimace
-  #        name: This page could be improved
-  #        data: 0
-  #        note: >-
-  #          Thanks for your feedback! Help us improve this page by
-  #          using our <a href="..." target="_blank" rel="noopener">feedback form</a>.
-  social:
-    - icon: fontawesome/solid/circle-question
-      link: https://support.polygon.technology/support/solutions
-    - icon: fontawesome/solid/globe
-      link: https://polygon.technology/
-    - icon: fontawesome/brands/github
-      link: https://github.com/0xPolygon/polygon-docs
-  consent:
-    title: Cookie consent
-    description: >-
-      We use cookies to recognize your repeated visits and preferences, as well
-      as to measure the effectiveness of our documentation and whether users
-      find what they're searching for. With your consent, you're helping us to
-      make our documentation better.
 
-docs_dir: docs
 
-extra_css:
-  - _site_essentials/stylesheets/extra.css
-  - https://fonts.googleapis.com/icon?family=Material+Icons
-  - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.7/katex.min.css
 
 markdown_extensions:
   - toc:
@@ -132,11 +95,14 @@ plugins:
       show_contribution: true
 
 validation:
-  absolute_links: ignore
+  absolute_links: warn
 
 extra_javascript:
-  - _site_essentials/js/mathjax.js
   - https://polyfill.io/v3/polyfill.min.js?features=es6
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
   - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.7/katex.min.js  
   - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.7/contrib/auto-render.min.js
+
+extra_css:
+  - https://fonts.googleapis.com/icon?family=Material+Icons
+  - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.7/katex.min.css
