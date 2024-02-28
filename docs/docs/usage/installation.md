@@ -15,7 +15,7 @@ You can then choose to run the client CLI using `cargo run`, or install it on yo
 cargo install --features testing,concurrent --path .
 ```
 
-This will install the `miden-client` binary (at `~/.cargo/bin/miden-client`) and add it to your `PATH`. 
+This will install the `miden-client` binary (at `~/.cargo/bin/miden-client`) and add it to your `PATH`.
 
 ### Features
 
@@ -26,3 +26,7 @@ The `testing` feature allows mainly for faster account creation. When using the 
 #### `Concurrent` feature
 
 Additionally, the client supports another feature: The `concurrent` flag enables optimizations that will result in faster transaction execution and proving.
+
+### Building in `release`
+
+When running the client using `cargo run`, it's important to keep in mind that the `release` build will be significantly faster than `debug` for executing and proving transactions, so defaulting to running in `release` is encouraged. Note that when installing with `cargo install`, this is the default build configuration. 
