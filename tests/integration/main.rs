@@ -6,9 +6,9 @@ use miden_client::client::{
 };
 use miden_client::config::{ClientConfig, RpcConfig};
 use miden_client::errors::{ClientError, NodeRpcClientError};
-use miden_client::store::{
-    data_store::SqliteDataStore, sqlite_store::SqliteStore, NoteFilter, TransactionFilter,
-};
+use miden_client::store::data_store::SqliteDataStore;
+use miden_client::store::sqlite_store::SqliteStore;
+use miden_client::store::{NoteFilter, TransactionFilter};
 
 use objects::{
     accounts::AccountData,
