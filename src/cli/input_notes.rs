@@ -1,5 +1,5 @@
 use super::{Client, Parser};
-use crate::cli::create_dynamic_table;
+use crate::cli::{create_dynamic_table, get_note_with_id_prefix};
 use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use crypto::utils::{Deserializable, Serializable};
@@ -179,11 +179,8 @@ fn show_input_note<N: NodeRpcClient, D: DataStore>(
     show_vault: bool,
     show_inputs: bool,
 ) -> Result<(), String> {
-    let note_id = Digest::try_from(note_id)
-        .map_err(|err| format!("Failed to parse input note with ID: {}", err))?
-        .into();
-
-    let input_note_record = client.get_input_note(note_id)?;
+    let input_note_record =
+        get_note_with_id_prefix(&client, &note_id).map_err(|err| err.to_string())?;
 
     // print note summary
     print_notes_summary(core::iter::once(&input_note_record));

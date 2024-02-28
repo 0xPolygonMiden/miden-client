@@ -1,3 +1,4 @@
+use core::fmt;
 use std::path::Path;
 
 use clap::Parser;
@@ -6,7 +7,12 @@ use figment::{
     providers::{Format, Toml},
     Figment,
 };
-use miden_client::{client::Client, config::ClientConfig};
+use miden_client::{
+    client::{rpc::NodeRpcClient, Client},
+    config::ClientConfig,
+    errors::ClientError,
+    store::notes::{InputNoteRecord, NoteFilter as ClientNoteFilter},
+};
 
 #[cfg(feature = "mock")]
 use miden_client::mock::MockDataStore;
@@ -17,6 +23,7 @@ use miden_client::mock::MockRpcApi;
 use miden_client::client::rpc::TonicRpcClient;
 #[cfg(not(feature = "mock"))]
 use miden_client::store::data_store::SqliteDataStore;
+use miden_tx::DataStore;
 
 mod account;
 mod info;
@@ -77,7 +84,7 @@ impl Cli {
 
         #[cfg(not(feature = "mock"))]
         let client: Client<TonicRpcClient, SqliteDataStore> = {
-            use miden_client::{errors::ClientError, store::Store};
+            use miden_client::store::Store;
 
             let store = Store::new((&client_config).into()).map_err(ClientError::StoreError)?;
             Client::new(
@@ -143,4 +150,60 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
         .set_header(header_cells);
 
     table
+}
+
+pub(crate) enum NoteIdPrefixFetchError {
+    NoMatch(String, ClientError),
+    MultipleMatches(String, Vec<InputNoteRecord>),
+}
+
+impl fmt::Display for NoteIdPrefixFetchError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            NoteIdPrefixFetchError::NoMatch(note_id, err) => {
+                write!(f, "couldn't find note with id {note_id}: {err}")
+            }
+            NoteIdPrefixFetchError::MultipleMatches(note_id, matches) => {
+                let matches = matches
+                    .iter()
+                    .map(|note_record| note_record.note_id().to_hex())
+                    .collect::<Vec<_>>()
+                    .join(",");
+
+                write!(
+                    f,
+                    "found more than one note for the provided ID {note_id} : {matches}"
+                )
+            }
+        }
+    }
+}
+
+/// Returns all client's notes whose id starts with `note_id_prefix`
+///
+/// # Errors
+///
+/// - Returns [NoteIdPrefixFetchError::NoMatch] if we were unable to find any note where
+/// `note_id_prefix` is a prefix of its id.
+/// - Returns [NoteIdPrefixFetchError::MultipleMatches] if there were more than one note found
+/// where `note_id_prefix` is a prefix of its id.
+pub fn get_note_with_id_prefix<N: NodeRpcClient, D: DataStore>(
+    client: &Client<N, D>,
+    note_id_prefix: &str,
+) -> Result<InputNoteRecord, NoteIdPrefixFetchError> {
+    let input_note_records = client
+        .get_input_notes(ClientNoteFilter::All)
+        .map_err(|err| NoteIdPrefixFetchError::NoMatch(note_id_prefix.to_string(), err))?
+        .into_iter()
+        .filter(|note_record| note_record.note_id().to_hex().starts_with(note_id_prefix))
+        .collect::<Vec<_>>();
+
+    if input_note_records.len() > 1 {
+        return Err(NoteIdPrefixFetchError::MultipleMatches(
+            note_id_prefix.to_string(),
+            input_note_records,
+        ));
+    }
+
+    Ok(input_note_records[0].clone())
 }
