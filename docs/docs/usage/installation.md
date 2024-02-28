@@ -1,6 +1,6 @@
 # Usage
 
-Before using Miden Client, make sure you have Rust [installed](https://www.rust-lang.org/tools/install). Miden Client requires Rust version **1.67** or later.
+Before using Miden client, make sure you have Rust [installed](https://www.rust-lang.org/tools/install). Miden client requires Rust version **1.67** or later.
 
 As mentioned in the Overview section, the Client is comprised by a library and a CLI that exposes its main functionality.
 

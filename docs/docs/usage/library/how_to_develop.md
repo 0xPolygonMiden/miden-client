@@ -1,12 +1,12 @@
 # How to use the library
 
-In order to use the Miden Client library in a Rust project, you need to include it as a dependency. In your project's `cargo.toml`, add:
+In order to use the Miden client library in a Rust project, you need to include it as a dependency. In your project's `cargo.toml`, add:
 
 ````toml
 miden_client = { package = "miden-client", git = "https://github.com/0xPolygonMiden/miden-client", branch = "main" }
 ````
 
-## Instantiating the client
+## Client instantiation
 
 Currently, the client is generic over the `NodeRpcClient` and the `DataStore`. The current supported store is the `SqliteStore`, which is a SQLite implementation of the incoming `Store` trait.
 
@@ -24,7 +24,7 @@ Currently, the client is generic over the `NodeRpcClient` and the `DataStore`. T
 
 ## Local account creation
 
-With the Miden Client, you can create and track local (not on-chain) accounts. What this means is that all state is tracked locally, and the rollup only keeps commitments to the data, which in turn guarantees privacy:
+With the Miden client, you can create and track local (not on-chain) accounts. What this means is that all state is tracked locally, and the rollup only keeps commitments to the data, which in turn guarantees privacy:
 
 ```Rust
     let account_template = AccountTemplate::BasicWallet {

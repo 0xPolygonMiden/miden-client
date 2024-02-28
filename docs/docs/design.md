@@ -1,6 +1,6 @@
 # Technical design
 
-The Miden Client contains a few key features:
+The Miden client contains a few key features:
 
 - Store
 - RPC client
@@ -21,7 +21,7 @@ Because Miden allows for off-chain executing and proving, the client needs to kn
 
 The store can track any number of accounts, and in turn any number of notes that those accounts might have created or may want to consume. 
 
-## RPC Client
+## RPC client
 
 The RPC client allows for communicating with the node through a defined set of gRPC methods. Currently, these methods are:
 

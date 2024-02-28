@@ -40,7 +40,7 @@ theme:
     - content.action.edit
 nav:
   - Miden:
-      - Miden Client:
+      - Miden client:
         - Introduction:
           - Introduction: introduction/introduction.md
           - Overview: introduction/overview.md
