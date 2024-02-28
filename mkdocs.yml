@@ -45,7 +45,7 @@ nav:
       - CLI: 'cli.md'
       - Using the client's crate: 'rust_crate.md'
   - Develop using the Client:
-      - Getting Started: '/development.md'
+      - Getting Started: 'development.md'
   - How Miden Client works:
       - Overview: 'overview.md'
 
