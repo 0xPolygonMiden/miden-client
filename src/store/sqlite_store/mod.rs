@@ -86,24 +86,21 @@ impl Store for SqliteStore {
 
     fn get_transactions(
         &self,
-        transaction_filter: TransactionFilter,
+        filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, StoreError> {
-        self.get_transactions(transaction_filter)
+        self.get_transactions(filter)
     }
 
     fn apply_transaction(&mut self, tx_result: TransactionResult) -> Result<(), StoreError> {
         self.apply_transaction(tx_result)
     }
 
-    fn get_input_notes(&self, note_filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError> {
-        self.get_input_notes(note_filter)
+    fn get_input_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError> {
+        self.get_input_notes(filter)
     }
 
-    fn get_output_notes(
-        &self,
-        note_filter: NoteFilter,
-    ) -> Result<Vec<InputNoteRecord>, StoreError> {
-        self.get_output_notes(note_filter)
+    fn get_output_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError> {
+        self.get_output_notes(filter)
     }
 
     fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError> {

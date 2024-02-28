@@ -31,37 +31,37 @@ pub mod mock_executor_data_store;
 
 pub trait Store {
     // TRANSACTIONS
-    // ================================================================================================
+    // --------------------------------------------------------------------------------------------
 
-    /// Retrieves all executed transactions from the database
+    /// Retrieves stored transactions, filtered by [TransactionFilter].
     fn get_transactions(
         &self,
-        transaction_filter: TransactionFilter,
+        filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, StoreError>;
 
     /// Inserts a transaction and updates the current state based on the `tx_result` changes
     fn apply_transaction(&mut self, tx_result: TransactionResult) -> Result<(), StoreError>;
 
-    // NOTE FUNCTIONS
-    // ================================================================================================
+    // NOTES
+    // --------------------------------------------------------------------------------------------
 
     /// Retrieves the input notes from the store
-    fn get_input_notes(&self, note_filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError>;
+    fn get_input_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError>;
 
     /// Retrieves the output notes from the store
-    fn get_output_notes(&self, note_filter: NoteFilter)
-        -> Result<Vec<InputNoteRecord>, StoreError>;
+    fn get_output_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError>;
 
-    /// Retrieves an [InputNoteRecord] for the input note corresponding to the specified id from the store
+    /// Retrieves an [InputNoteRecord] for the input note corresponding to the specified id from
+    /// the store.
     ///
     /// # Errors
     ///
-    /// Returns a `StoreError::InputNoteNotFound` if there is no Note with the provided id
+    /// Returns a [StoreError::InputNoteNotFound] if there is no Note with the provided id
     fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError>;
 
     /// Returns the nullifiers of all unspent input notes
     ///
-    /// A default implementation that relies on the `get_input_notes` function exists
+    /// The default implementation of this method uses [Store::get_input_notes].
     fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
         let nullifiers = self
             .get_input_notes(NoteFilter::Committed)?
@@ -75,12 +75,16 @@ pub trait Store {
     /// Inserts the provided input note into the database
     fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError>;
 
-    // CHAIN DATA FUNCTIONS
-    // ================================================================================================
+    // CHAIN DATA
+    // --------------------------------------------------------------------------------------------
 
-    /// Retrieves a list of [BlockHeader] by number and a boolean value that represents whether the
-    /// block contains notes relevant to the client. It's up to the callee to check that all
-    /// requested block headers were found
+    /// Retrieves a vector of [BlockHeader]s filtered by the provided block numbers.
+    ///
+    /// The returned vector may not contain some or all of the requested block headers. It's up to
+    /// the callee to check whether all requested block headers were found.
+    ///
+    /// For each block header an additional boolean value is returned representing whether the block
+    /// contains notes relevant to the client.
     fn get_block_headers(
         &self,
         block_numbers: &[u32],
@@ -89,10 +93,10 @@ pub trait Store {
     /// Retrieves a [BlockHeader] corresponding to the provided block number and a boolean value
     /// that represents whether the block contains notes relevant to the client.
     ///
-    /// It's automatically implemented by using the `get_block_headers` function
+    /// The default implementation of this method uses [Store::get_block_headers].
     ///
     /// # Errors
-    /// Returns a `StoreError::BlockHeaderNotFound` if the block was not found
+    /// Returns a [StoreError::BlockHeaderNotFound] if the block was not found.
     fn get_block_header_by_num(
         &self,
         block_number: u32,
@@ -127,8 +131,8 @@ pub trait Store {
         has_client_notes: bool,
     ) -> Result<(), StoreError>;
 
-    // ACCOUNT FUNCTIONS
-    // ================================================================================================
+    // ACCOUNT
+    // --------------------------------------------------------------------------------------------
 
     /// Returns the account IDs of all accounts stored in the database
     fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError>;
@@ -176,14 +180,14 @@ pub trait Store {
     /// The account that is to be updated is identified by the Account ID
     fn update_account(&mut self, new_account_state: Account) -> Result<(), StoreError>;
 
-    // SYNC-RELATED FUNCTIONS
-    // ================================================================================================
+    // SYNC
+    // --------------------------------------------------------------------------------------------
 
     /// Returns the note tags that the client is interested in.
-    fn get_note_tags(&self) -> Result<Vec<u64>, StoreError>; // TODO: Should this go away?
+    fn get_note_tags(&self) -> Result<Vec<u64>, StoreError>;
 
     /// Adds a note tag to the list of tags that the client is interested in.
-    fn add_note_tag(&mut self, tag: u64) -> Result<bool, StoreError>; // TODO: Should this go away?
+    fn add_note_tag(&mut self, tag: u64) -> Result<bool, StoreError>;
 
     /// Returns the block number of the last state sync block.
     fn get_sync_height(&self) -> Result<u32, StoreError>;

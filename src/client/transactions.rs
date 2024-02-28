@@ -209,10 +209,10 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
     /// Retrieves tracked transactions, filtered by [TransactionFilter].
     pub fn get_transactions(
         &self,
-        transaction_filter: TransactionFilter,
+        filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, ClientError> {
         self.store
-            .get_transactions(transaction_filter)
+            .get_transactions(filter)
             .map_err(|err| err.into())
     }
 
