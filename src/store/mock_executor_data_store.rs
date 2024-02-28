@@ -1,4 +1,3 @@
-use assembly::{Library, LibraryPath};
 use miden_lib::{
     transaction::{memory::FAUCET_STORAGE_DATA_SLOT, TransactionKernel},
     MidenLib,
@@ -14,7 +13,7 @@ use mock::{
 };
 use objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, StorageSlotType},
-    assembly::{ModuleAst, ProgramAst},
+    assembly::{Library, LibraryPath, ModuleAst, ProgramAst},
     assets::{Asset, AssetVault, FungibleAsset},
     crypto::{dsa::rpo_falcon512::KeyPair, utils::Serializable},
     notes::{Note, NoteId, NoteScript},
