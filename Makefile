@@ -24,7 +24,7 @@ reset:
 	cargo clean
 
 docs_deps:
-	cd docs && pip3 install -r requirements.txt
+	cd docs && pip3 install -r ../requirements.txt
 
 build_docs: docs_deps
 	cd docs && mkdocs build
