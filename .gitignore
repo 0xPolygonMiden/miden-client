@@ -20,3 +20,16 @@ Cargo.lock
 
 # Ignore mkdocs build files
 docs/site
+
+# Docs platform ignores
+.vscode
+.code
+.idea
+site/
+venv/
+env/
+*.out
+node_modules/
+.DS_Store
+**/.DS_Store
+*.iml
