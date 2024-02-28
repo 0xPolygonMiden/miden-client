@@ -10,6 +10,11 @@ In the configuration file, you will find a section for defining the node's endpo
 
 Note that running the node locally for development is encouraged, but the endpoint can be set to point to any remote node's IP as well.
 
+
+## Example: Executing, proving and submitting transactions to the Miden node
+
+For a complete example on how to run the client and submit transactions to the Miden node, you can refer to the [`Getting Started`](https://0xpolygonmiden.github.io/miden-base/introduction/getting-started.html).
+
 ## Reference
 
 The following is a list of commands that the CLI currently supports. A small explanation follows for the commands that contain subcommands. Note that for any command you can get an explanation in the terminal by attaching `--help` to it.
