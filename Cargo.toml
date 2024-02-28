@@ -28,7 +28,7 @@ std = ["crypto/std", "objects/std"]
 testing = ["objects/testing", "miden_lib/testing"]
 
 [dependencies]
-assembly = { package = "miden-assembly", git = "https://github.com/0xPolygonMiden/miden-vm.git", branch = "next", default-features = false }
+assembly = { package = "miden-assembly", version = "0.8", default-features = false }
 async-trait = { version = "0.1" }
 clap = { version = "4.3", features = ["derive"] }
 comfy-table = "7.1.0"
