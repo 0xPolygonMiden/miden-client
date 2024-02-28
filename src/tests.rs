@@ -14,7 +14,6 @@ use crate::{
     },
 };
 
-use assembly::ast::{AstSerdeOptions, ModuleAst};
 use crypto::{dsa::rpo_falcon512::KeyPair, Felt, FieldElement, Word};
 use miden_lib::transaction::TransactionKernel;
 use mock::{
@@ -27,6 +26,7 @@ use mock::{
 };
 use objects::{
     accounts::{AccountId, AccountStub},
+    assembly::{AstSerdeOptions, ModuleAst},
     assets::{FungibleAsset, TokenSymbol},
     transaction::InputNotes,
 };
