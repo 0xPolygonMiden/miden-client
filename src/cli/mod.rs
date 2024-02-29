@@ -79,9 +79,11 @@ impl Cli {
         let store = SqliteStore::new((&client_config).into()).map_err(ClientError::StoreError)?;
 
         #[cfg(not(feature = "mock"))]
-        let client = {
-            use miden_client::client::shared_store_client;
-            shared_store_client(TonicRpcClient::new(&rpc_endpoint), store)?
+        let client: Client<TonicRpcClient, SqliteStore> = {
+            let data_store_store =
+                miden_client::store::sqlite_store::SqliteStore::new((&client_config).into())
+                    .map_err(ClientError::StoreError)?;
+            Client::new(TonicRpcClient::new(&rpc_endpoint), store, data_store_store)?
         };
 
         #[cfg(feature = "mock")]
