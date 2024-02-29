@@ -29,7 +29,7 @@ docs_deps:
 build_docs: docs_deps
 	cd docs && mkdocs build
 
-serve_docs: docs_deps
+docs: docs_deps
 	cd docs && mkdocs serve
   
 fmt:

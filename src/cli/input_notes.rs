@@ -23,7 +23,7 @@ pub enum NoteFilter {
 }
 
 #[derive(Debug, Parser, Clone)]
-#[clap(about = "View input notes")]
+#[clap(about = "View and manage input notes")]
 pub enum InputNotes {
     /// List input notes
     #[clap(short_flag = 'l')]

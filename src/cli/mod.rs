@@ -36,7 +36,7 @@ const CLIENT_CONFIG_FILE_NAME: &str = "miden-client.toml";
 #[derive(Parser, Debug)]
 #[clap(
     name = "Miden",
-    about = "Miden Client",
+    about = "Miden client",
     version,
     rename_all = "kebab-case"
 )]
