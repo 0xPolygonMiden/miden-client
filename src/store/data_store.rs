@@ -1,7 +1,6 @@
 use crate::errors::{ClientError, StoreError};
 use objects::utils::collections::BTreeSet;
 
-use super::{sqlite_store::SqliteStore, ChainMmrNodeFilter, NoteFilter, Store};
 use crypto::merkle::{InOrderIndex, MerklePath, PartialMmr};
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
 
@@ -11,6 +10,8 @@ use objects::{
     transaction::{ChainMmr, InputNote, InputNotes},
     BlockHeader,
 };
+
+use super::{sqlite_store::SqliteStore, ChainMmrNodeFilter, NoteFilter, Store};
 
 // DATA STORE
 // ================================================================================================
@@ -85,8 +86,6 @@ impl DataStore for SqliteDataStore {
 
         let input_notes =
             InputNotes::new(list_of_notes).map_err(DataStoreError::InvalidTransactionInput)?;
-
-        let seed = if account.is_new() { Some(seed) } else { None };
 
         TransactionInputs::new(account, seed, block_header, chain_mmr, input_notes)
             .map_err(DataStoreError::InvalidTransactionInput)
