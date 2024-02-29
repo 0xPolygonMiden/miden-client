@@ -1,7 +1,6 @@
 use super::SqliteStore;
-use crate::store::AuthInfo;
 
-use crate::errors::StoreError;
+use crate::{errors::StoreError, store::AuthInfo};
 
 use clap::error::Result;
 use crypto::{
@@ -76,7 +75,6 @@ impl SqliteStore {
             FROM accounts WHERE id = ? \
             ORDER BY nonce DESC \
             LIMIT 1";
-
         self.db
             .prepare(QUERY)?
             .query_map(params![account_id_int as i64], parse_accounts_columns)?
@@ -92,6 +90,7 @@ impl SqliteStore {
         account_id: AccountId,
     ) -> Result<(Vec<Digest>, ModuleAst), StoreError> {
         // TODO: This could be done via a single query
+        let (account, _seed) = self.get_account_stub(account_id)?;
         let (account, _seed) = self.get_account_stub(account_id)?;
 
         self.get_account_code(account.code_root())

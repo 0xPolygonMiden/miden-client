@@ -11,7 +11,7 @@ use objects::{
     BlockHeader,
 };
 
-use super::{sqlite_store::SqliteStore, ChainMmrNodeFilter, Store};
+use super::{sqlite_store::SqliteStore, ChainMmrNodeFilter, NoteFilter, Store};
 
 // DATA STORE
 // ================================================================================================
@@ -34,6 +34,20 @@ impl DataStore for SqliteDataStore {
         block_num: u32,
         notes: &[objects::notes::NoteId],
     ) -> Result<TransactionInputs, DataStoreError> {
+        // First validate that no note has already been consumed
+        let unspent_notes = self
+            .store
+            .get_input_notes(NoteFilter::Committed)?
+            .iter()
+            .map(|note_record| note_record.note_id())
+            .collect::<Vec<_>>();
+
+        for note_id in notes {
+            if !unspent_notes.contains(note_id) {
+                return Err(DataStoreError::NoteAlreadyConsumed(*note_id));
+            }
+        }
+
         // Construct Account
         let (account, seed) = self.store.get_account(account_id)?;
 
