@@ -40,10 +40,9 @@ theme:
 
 
 nav:
-  - Introduction:
-      - Introduction: introduction/introduction.md
-      - Overview: introduction/overview.md
+  - Overview: overview.md
   - Usage:
+      - Installation: usage/installation.md
       - CLI: 'usage/cli.md'
       - Using the client's crate: 'usage/rust-crate.md'
       - Library: 'usage/library.md'
