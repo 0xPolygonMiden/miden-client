@@ -7,16 +7,11 @@ use objects::{
 };
 use rusqlite::{named_params, params};
 
-use crate::{errors::StoreError, store::notes::NoteRecordInclusionProof};
+use super::SqliteStore;
+use crate::{errors::StoreError, store::NoteRecordInclusionProof};
 
-use super::Store;
-
-impl Store {
-    // STATE SYNC
-    // --------------------------------------------------------------------------------------------
-
-    /// Returns the note tags that the client is interested in.
-    pub fn get_note_tags(&self) -> Result<Vec<u64>, StoreError> {
+impl SqliteStore {
+    pub(crate) fn get_note_tags(&self) -> Result<Vec<u64>, StoreError> {
         const QUERY: &str = "SELECT tags FROM state_sync";
 
         self.db
@@ -34,8 +29,7 @@ impl Store {
             .expect("state sync tags exist")
     }
 
-    /// Adds a note tag to the list of tags that the client is interested in.
-    pub fn add_note_tag(&mut self, tag: u64) -> Result<bool, StoreError> {
+    pub(super) fn add_note_tag(&mut self, tag: u64) -> Result<bool, StoreError> {
         let mut tags = self.get_note_tags()?;
         if tags.contains(&tag) {
             return Ok(false);
@@ -49,8 +43,7 @@ impl Store {
         Ok(true)
     }
 
-    /// Returns the block number of the last state sync block.
-    pub fn get_sync_height(&self) -> Result<u32, StoreError> {
+    pub(super) fn get_sync_height(&self) -> Result<u32, StoreError> {
         const QUERY: &str = "SELECT block_num FROM state_sync";
 
         self.db
@@ -62,22 +55,14 @@ impl Store {
             .expect("state sync block number exists")
     }
 
-    /// Applies the state sync update to the store. An update involves:
-    ///
-    /// - Inserting the new block header to the store alongside new MMR peaks information
-    /// - Updating the notes, marking them as `committed` or `consumed` based on incoming
-    ///   inclusion proofs and nullifiers
-    /// - Storing new MMR authentication nodes
-    /// - Updating the transactions, marking them as `committed` based on the incoming account
-    /// changes, nullifiers and consumed notes.
-    pub fn apply_state_sync(
+    pub(super) fn apply_state_sync(
         &mut self,
         block_header: BlockHeader,
         nullifiers: Vec<Digest>,
         committed_notes: Vec<(NoteId, NoteInclusionProof)>,
+        committed_transactions: &[TransactionId],
         new_mmr_peaks: MmrPeaks,
         new_authentication_nodes: &[(InOrderIndex, Digest)],
-        transactions_to_commit: &[TransactionId],
     ) -> Result<(), StoreError> {
         let tx = self.db.transaction()?;
 
@@ -100,10 +85,10 @@ impl Store {
         // TODO: Due to the fact that notes are returned based on fuzzy matching of tags,
         // this process of marking if the header has notes needs to be revisited
         let block_has_relevant_notes = !committed_notes.is_empty();
-        Store::insert_block_header(&tx, block_header, new_mmr_peaks, block_has_relevant_notes)?;
+        Self::insert_block_header_tx(&tx, block_header, new_mmr_peaks, block_has_relevant_notes)?;
 
         // Insert new authentication nodes (inner nodes of the PartialMmr)
-        Store::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
+        Self::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
 
         // Update tracked notes
         for (note_id, inclusion_proof) in committed_notes.iter() {
@@ -146,10 +131,11 @@ impl Store {
             )?;
         }
 
-        Store::mark_transactions_as_committed(
+        // Mark transactions as committed
+        Self::mark_transactions_as_committed(
             &tx,
             block_header.block_num(),
-            transactions_to_commit,
+            committed_transactions,
         )?;
 
         // Commit the updates
