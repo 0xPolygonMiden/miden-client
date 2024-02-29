@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::errors::StoreError;
-use crate::store::{NoteFilter, NoteRecord};
+use crate::store::{InputNoteRecord, NoteFilter};
 
 use super::SqliteStore;
 
@@ -81,29 +81,29 @@ impl SqliteStore {
     pub(crate) fn get_input_notes(
         &self,
         filter: NoteFilter,
-    ) -> Result<Vec<NoteRecord>, StoreError> {
+    ) -> Result<Vec<InputNoteRecord>, StoreError> {
         self.db
             .prepare(&filter.to_query(NoteTable::InputNotes))?
             .query_map([], parse_input_note_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_input_note))
-            .collect::<Result<Vec<NoteRecord>, _>>()
+            .collect::<Result<Vec<InputNoteRecord>, _>>()
     }
 
     /// Retrieves the output notes from the database
     pub(crate) fn get_output_notes(
         &self,
         filter: NoteFilter,
-    ) -> Result<Vec<NoteRecord>, StoreError> {
+    ) -> Result<Vec<InputNoteRecord>, StoreError> {
         self.db
             .prepare(&filter.to_query(NoteTable::OutputNotes))?
             .query_map([], parse_input_note_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_input_note))
-            .collect::<Result<Vec<NoteRecord>, _>>()
+            .collect::<Result<Vec<InputNoteRecord>, _>>()
     }
 
-    pub(crate) fn get_input_note(&self, note_id: NoteId) -> Result<NoteRecord, StoreError> {
+    pub(crate) fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError> {
         let query_id = &note_id.inner().to_string();
         const QUERY: &str = "SELECT script, inputs, assets, serial_num, sender_id, tag, inclusion_proof FROM input_notes WHERE note_id = ?";
 
@@ -115,7 +115,7 @@ impl SqliteStore {
             .ok_or(StoreError::InputNoteNotFound(note_id))?
     }
 
-    pub(crate) fn insert_input_note(&mut self, note: &NoteRecord) -> Result<(), StoreError> {
+    pub(crate) fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError> {
         let tx = self.db.transaction()?;
 
         insert_input_note_tx(&tx, note)?;
@@ -130,7 +130,7 @@ impl SqliteStore {
 /// Inserts the provided input note into the database
 pub(super) fn insert_input_note_tx(
     tx: &Transaction<'_>,
-    note: &NoteRecord,
+    note: &InputNoteRecord,
 ) -> Result<(), StoreError> {
     let (
         note_id,
@@ -167,7 +167,10 @@ pub(super) fn insert_input_note_tx(
 }
 
 /// Inserts the provided input note into the database
-pub fn insert_output_note_tx(tx: &Transaction<'_>, note: &NoteRecord) -> Result<(), StoreError> {
+pub fn insert_output_note_tx(
+    tx: &Transaction<'_>,
+    note: &InputNoteRecord,
+) -> Result<(), StoreError> {
     let (
         note_id,
         nullifier,
@@ -227,7 +230,7 @@ fn parse_input_note_columns(
 /// Parse a note from the provided parts.
 fn parse_input_note(
     serialized_input_note_parts: SerializedInputNoteParts,
-) -> Result<NoteRecord, StoreError> {
+) -> Result<InputNoteRecord, StoreError> {
     let (script, inputs, note_assets, serial_num, sender_id, tag, inclusion_proof) =
         serialized_input_note_parts;
     let script = NoteScript::read_from_bytes(&script)?;
@@ -245,11 +248,13 @@ fn parse_input_note(
         .map(|proof| NoteInclusionProof::read_from_bytes(&proof))
         .transpose()?;
 
-    Ok(NoteRecord::new(note, inclusion_proof))
+    Ok(InputNoteRecord::new(note, inclusion_proof))
 }
 
 /// Serialize the provided input note into database compatible types.
-pub(crate) fn serialize_note(note: &NoteRecord) -> Result<SerializedInputNoteData, StoreError> {
+pub(crate) fn serialize_note(
+    note: &InputNoteRecord,
+) -> Result<SerializedInputNoteData, StoreError> {
     let note_id = note.note_id().inner().to_string();
     let nullifier = note.note().nullifier().inner().to_string();
     let script = note.note().script().to_bytes();

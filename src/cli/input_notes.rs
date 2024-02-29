@@ -5,7 +5,7 @@ use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use crypto::utils::{Deserializable, Serializable};
 use miden_client::{
     client::rpc::NodeRpcClient,
-    store::{NoteFilter as ClientNoteFilter, NoteRecord},
+    store::{InputNoteRecord, NoteFilter as ClientNoteFilter},
 };
 use miden_tx::DataStore;
 use objects::{notes::NoteId, Digest};
@@ -162,7 +162,7 @@ pub fn import_note<N: NodeRpcClient, D: DataStore>(
     // TODO: When importing a RecordedNote we want to make sure that the note actually exists in the chain (RPC call)
     // and start monitoring its nullifiers (ie, update the list of relevant tags in the state sync table)
     let input_note_record =
-        NoteRecord::read_from_bytes(&contents).map_err(|err| err.to_string())?;
+        InputNoteRecord::read_from_bytes(&contents).map_err(|err| err.to_string())?;
 
     let note_id = input_note_record.note().id();
     client.import_input_note(input_note_record)?;
@@ -249,7 +249,7 @@ fn show_input_note<N: NodeRpcClient, D: DataStore>(
 // ================================================================================================
 fn print_notes_summary<'a, I>(notes: I)
 where
-    I: IntoIterator<Item = &'a NoteRecord>,
+    I: IntoIterator<Item = &'a InputNoteRecord>,
 {
     let mut table = create_dynamic_table(&[
         "Note ID",
@@ -289,7 +289,7 @@ mod tests {
         client::Client,
         config::{ClientConfig, Endpoint},
         mock::{MockDataStore, MockRpcApi},
-        store::NoteRecord,
+        store::InputNoteRecord,
     };
     use mock::mock::{
         account::MockAccountType, notes::AssetPreservationStatus, transaction::mock_inputs,
@@ -322,9 +322,9 @@ mod tests {
             AssetPreservationStatus::Preserved,
         );
 
-        let committed_note: NoteRecord =
+        let committed_note: InputNoteRecord =
             transaction_inputs.input_notes().get_note(0).clone().into();
-        let pending_note = NoteRecord::new(
+        let pending_note = InputNoteRecord::new(
             transaction_inputs.input_notes().get_note(1).note().clone(),
             None,
         );
@@ -376,7 +376,7 @@ mod tests {
         .unwrap();
 
         import_note(&mut client, filename_path).unwrap();
-        let imported_note_record: NoteRecord =
+        let imported_note_record: InputNoteRecord =
             client.get_input_note(committed_note.note().id()).unwrap();
 
         assert_eq!(committed_note.note().id(), imported_note_record.note().id());

@@ -43,18 +43,18 @@ pub trait Store {
     // --------------------------------------------------------------------------------------------
 
     /// Retrieves the input notes from the store
-    fn get_input_notes(&self, filter: NoteFilter) -> Result<Vec<NoteRecord>, StoreError>;
+    fn get_input_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError>;
 
     /// Retrieves the output notes from the store
-    fn get_output_notes(&self, filter: NoteFilter) -> Result<Vec<NoteRecord>, StoreError>;
+    fn get_output_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError>;
 
-    /// Retrieves a [NoteRecord] for the input note corresponding to the specified ID from
+    /// Retrieves a [InputNoteRecord] for the input note corresponding to the specified ID from
     /// the store.
     ///
     /// # Errors
     ///
     /// Returns a [StoreError::InputNoteNotFound] if there is no Note with the provided ID
-    fn get_input_note(&self, note_id: NoteId) -> Result<NoteRecord, StoreError>;
+    fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError>;
 
     /// Returns the nullifiers of all unspent input notes
     ///
@@ -70,7 +70,7 @@ pub trait Store {
     }
 
     /// Inserts the provided input note into the database
-    fn insert_input_note(&mut self, note: &NoteRecord) -> Result<(), StoreError>;
+    fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError>;
 
     // CHAIN DATA
     // --------------------------------------------------------------------------------------------
@@ -265,24 +265,24 @@ impl Deserializable for AuthInfo {
     }
 }
 
-// NOTE RECORD
+// INPUT NOTE RECORD
 // ================================================================================================
 
 /// Represents a Note of which the [Store] can keep track and retrieve.
 ///
-/// A [NoteRecord] contains all the information of a [Note], in addition of (optionally)
+/// An [InputNoteRecord] contains all the information of a [Note], in addition of (optionally)
 /// the [NoteInclusionProof] that identifies when the note was included in the chain. Once the
-/// proof is set, the [NoteRecord] can be transformed into an [InputNote] and used as input
+/// proof is set, the [InputNoteRecord] can be transformed into an [InputNote] and used as input
 /// for transactions.
 #[derive(Clone, Debug, PartialEq)]
-pub struct NoteRecord {
+pub struct InputNoteRecord {
     note: Note,
     inclusion_proof: Option<NoteInclusionProof>,
 }
 
-impl NoteRecord {
-    pub fn new(note: Note, inclusion_proof: Option<NoteInclusionProof>) -> NoteRecord {
-        NoteRecord {
+impl InputNoteRecord {
+    pub fn new(note: Note, inclusion_proof: Option<NoteInclusionProof>) -> InputNoteRecord {
+        InputNoteRecord {
             note,
             inclusion_proof,
         }
@@ -300,42 +300,42 @@ impl NoteRecord {
     }
 }
 
-impl Serializable for NoteRecord {
+impl Serializable for InputNoteRecord {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
         self.note().write_into(target);
         self.inclusion_proof.write_into(target);
     }
 }
 
-impl Deserializable for NoteRecord {
+impl Deserializable for InputNoteRecord {
     fn read_from<R: ByteReader>(
         source: &mut R,
     ) -> std::prelude::v1::Result<Self, DeserializationError> {
         let note: Note = source.read()?;
         let proof: Option<NoteInclusionProof> = source.read()?;
-        Ok(NoteRecord::new(note, proof))
+        Ok(InputNoteRecord::new(note, proof))
     }
 }
 
-impl From<Note> for NoteRecord {
+impl From<Note> for InputNoteRecord {
     fn from(note: Note) -> Self {
-        NoteRecord {
+        InputNoteRecord {
             note,
             inclusion_proof: None,
         }
     }
 }
 
-impl From<InputNote> for NoteRecord {
+impl From<InputNote> for InputNoteRecord {
     fn from(recorded_note: InputNote) -> Self {
-        NoteRecord {
+        InputNoteRecord {
             note: recorded_note.note().clone(),
             inclusion_proof: Some(recorded_note.proof().clone()),
         }
     }
 }
 
-impl TryInto<InputNote> for NoteRecord {
+impl TryInto<InputNote> for InputNoteRecord {
     type Error = ClientError;
 
     fn try_into(self) -> Result<InputNote, Self::Error> {
@@ -375,14 +375,14 @@ pub enum TransactionFilter {
 // ================================================================================================
 
 pub enum NoteFilter {
-    /// Return a list of all [NoteRecord].
+    /// Return a list of all [InputNoteRecord].
     All,
-    /// Filter by consumed [NoteRecord]. notes that have been used as inputs in transactions.
+    /// Filter by consumed [InputNoteRecord]. notes that have been used as inputs in transactions.
     Consumed,
-    /// Return a list of committed [NoteRecord]. These represent notes that the blockchain
+    /// Return a list of committed [InputNoteRecord]. These represent notes that the blockchain
     /// has included in a block, and for which we are storing anchor data.
     Committed,
-    /// Return a list of pending [NoteRecord]. These represent notes for which the store
+    /// Return a list of pending [InputNoteRecord]. These represent notes for which the store
     /// does not have anchor data.
     Pending,
 }

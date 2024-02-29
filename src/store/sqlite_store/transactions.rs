@@ -1,7 +1,7 @@
 use crate::{
     client::transactions::{TransactionRecord, TransactionResult, TransactionStatus},
     errors::StoreError,
-    store::{NoteRecord, TransactionFilter},
+    store::{InputNoteRecord, TransactionFilter},
 };
 use crypto::{
     utils::{collections::BTreeMap, Deserializable, Serializable},
@@ -93,7 +93,7 @@ impl SqliteStore {
         let created_notes = tx_result
             .created_notes()
             .iter()
-            .map(|note| NoteRecord::from(note.clone()))
+            .map(|note| InputNoteRecord::from(note.clone()))
             .collect::<Vec<_>>();
 
         let tx = self.db.transaction()?;
