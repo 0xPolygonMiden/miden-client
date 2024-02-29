@@ -40,17 +40,15 @@ theme:
 
 
 nav:
-  - Home: index.md
   - Introduction:
       - Introduction: introduction/introduction.md
       - Overview: introduction/overview.md
-  - Interacting with the client:
-      - CLI: 'cli.md'
-      - Using the client's crate: 'rust_crate.md'
-  - Develop using the client:
-      - Getting Started: 'development.md'
-  - How the Miden client works:
-      - Overview: 'overview.md'
+  - Usage:
+      - CLI: 'usage/cli.md'
+      - Using the client's crate: 'usage/rust-crate.md'
+      - Library: 'usage/library.md'
+  - Getting Started: 'development.md'
+  - Design: 'design.md'
 
 
 
