@@ -2,17 +2,15 @@ use crypto::{dsa::rpo_falcon512::KeyPair, Felt, Word};
 use miden_lib::AuthScheme;
 use miden_tx::DataStore;
 use objects::{
-    accounts::{
-        Account, AccountData, AccountDelta, AccountId, AccountStorage, AccountStub, AccountType,
-        AuthData,
-    },
-    assembly::ModuleAst,
-    assets::{Asset, TokenSymbol},
-    Digest,
+    accounts::{Account, AccountData, AccountDelta, AccountId, AccountStub, AccountType, AuthData},
+    assets::TokenSymbol,
 };
 use rand::{rngs::ThreadRng, Rng};
 
-use crate::{errors::ClientError, store::accounts::AuthInfo};
+use crate::{
+    errors::ClientError,
+    store::{AuthInfo, Store},
+};
 
 use super::{rpc::NodeRpcClient, Client};
 
@@ -71,8 +69,8 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     ///
     /// # Panics
     ///
-    /// Will panic when trying to import a non new account without a seed since it's not
-    /// implemented yet
+    /// Will panic when trying to import a non-new account without a seed since this functionality
+    /// is not currently implemented
     pub fn import_account(&mut self, account_data: AccountData) -> Result<(), ClientError> {
         match account_data.auth {
             AuthData::RpoFalcon512Seed(key_pair) => {
@@ -104,6 +102,11 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     }
 
     /// Creates a new regular account and saves it in the store along with its seed and auth data
+    ///
+    /// # Panics
+    ///
+    /// If the passed [AccountStorageMode] is [AccountStorageMode::OnChain], this function panics
+    /// since this feature is not currently supported on Miden
     fn new_basic_wallet(
         &mut self,
         mutable_code: bool,
@@ -189,15 +192,22 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
             .map_err(ClientError::StoreError)
     }
 
-    /// Applies an [AccountDelta] to the stored account and stores the result in the database.
+    /// Applies an [AccountDelta] to the stored account
+    ///
+    /// # Errors
+    ///
+    /// This function can error if the account is not found or if there is a problem applying
+    /// the [AccountDelta] to the related [Account]
     pub fn update_account(
         &mut self,
         account_id: AccountId,
         account_delta: &AccountDelta,
     ) -> Result<(), ClientError> {
-        self.store
-            .update_account(account_id, account_delta)
-            .map_err(ClientError::StoreError)
+        let (mut account, _seed) = self.store.get_account(account_id)?;
+
+        account.apply_delta(account_delta)?;
+
+        Ok(self.store.update_account(account)?)
     }
 
     // ACCOUNT DATA RETRIEVAL
@@ -206,14 +216,12 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     /// Returns summary info about the accounts managed by this client.
     ///
     pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Word)>, ClientError> {
-        self.store.get_accounts().map_err(|err| err.into())
+        self.store.get_account_stubs().map_err(|err| err.into())
     }
 
     /// Returns summary info about the specified account.
     pub fn get_account_by_id(&self, account_id: AccountId) -> Result<(Account, Word), ClientError> {
-        self.store
-            .get_account_by_id(account_id)
-            .map_err(|err| err.into())
+        self.store.get_account(account_id).map_err(|err| err.into())
     }
 
     /// Returns summary info about the specified account.
@@ -222,38 +230,14 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
         account_id: AccountId,
     ) -> Result<(AccountStub, Word), ClientError> {
         self.store
-            .get_account_stub_by_id(account_id)
+            .get_account_stub(account_id)
             .map_err(|err| err.into())
     }
 
-    /// Returns key pair structure for an Account Id.
+    /// Returns an [AuthInfo] object utilized to authenticate an account.
     pub fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, ClientError> {
         self.store
             .get_account_auth(account_id)
-            .map_err(|err| err.into())
-    }
-
-    /// Returns vault assets from a vault root.
-    pub fn get_vault_assets(&self, vault_root: Digest) -> Result<Vec<Asset>, ClientError> {
-        self.store
-            .get_vault_assets(vault_root)
-            .map_err(|err| err.into())
-    }
-
-    /// Returns account code data from a root.
-    pub fn get_account_code(
-        &self,
-        code_root: Digest,
-    ) -> Result<(Vec<Digest>, ModuleAst), ClientError> {
-        self.store
-            .get_account_code(code_root)
-            .map_err(|err| err.into())
-    }
-
-    /// Returns account storage data from a storage root.
-    pub fn get_account_storage(&self, storage_root: Digest) -> Result<AccountStorage, ClientError> {
-        self.store
-            .get_account_storage(storage_root)
             .map_err(|err| err.into())
     }
 }
@@ -263,7 +247,6 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::store::tests::create_test_client;
     use crypto::{Felt, FieldElement};
 
     use miden_lib::transaction::TransactionKernel;
@@ -273,6 +256,8 @@ pub mod tests {
     };
     use objects::accounts::{AccountData, AuthData};
     use rand::{rngs::ThreadRng, thread_rng, Rng};
+
+    use crate::store::sqlite_store::tests::create_test_client;
 
     fn create_account_data(rng: &mut ThreadRng, seed_type: AccountSeedType) -> AccountData {
         // Create an account and save it to a file

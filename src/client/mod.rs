@@ -1,4 +1,4 @@
-use crate::{config::ClientConfig, errors::ClientError, store::Store};
+use crate::{config::ClientConfig, errors::ClientError, store::sqlite_store::SqliteStore};
 use miden_tx::{DataStore, TransactionExecutor};
 
 pub mod rpc;
@@ -23,7 +23,7 @@ pub mod transactions;
 /// - Executes, proves, and submits transactions to the network as directed by the user.
 pub struct Client<N: NodeRpcClient, D: DataStore> {
     /// Local database containing information about the accounts managed by this client.
-    store: Store,
+    store: SqliteStore,
     rpc_api: N,
     tx_executor: TransactionExecutor<D>,
 }
@@ -38,7 +38,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     /// Returns an error if the client could not be instantiated.
     pub fn new(config: ClientConfig, api: N, data_store: D) -> Result<Self, ClientError> {
         Ok(Self {
-            store: Store::new((&config).into())?,
+            store: SqliteStore::new((&config).into())?,
             rpc_api: api,
             tx_executor: TransactionExecutor::new(data_store),
         })
@@ -55,7 +55,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     }
 
     #[cfg(any(test, feature = "mock"))]
-    pub fn store(&mut self) -> &mut Store {
+    pub fn store(&mut self) -> &mut SqliteStore {
         &mut self.store
     }
 }
