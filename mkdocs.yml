@@ -40,7 +40,7 @@ theme:
 
 
 nav:
-  - Overview: overview.md
+  - Overview: index.md
   - Usage:
       - Installation: usage/installation.md
       - CLI: 'usage/cli.md'

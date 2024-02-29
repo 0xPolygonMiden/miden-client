@@ -1,3 +1,5 @@
+# Overview
+
 ## Components
 
 The Miden client currently consists of two main components:
