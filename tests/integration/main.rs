@@ -10,6 +10,7 @@ use miden_client::store::data_store::SqliteDataStore;
 use miden_client::store::sqlite_store::SqliteStore;
 use miden_client::store::{NoteFilter, TransactionFilter};
 
+use miden_tx::{DataStoreError, TransactionExecutorError};
 use objects::{
     accounts::AccountData,
     assets::{Asset, FungibleAsset},
@@ -229,6 +230,24 @@ async fn main() {
         assert_eq!(fungible_asset.amount(), TRANSFER_AMOUNT);
     } else {
         panic!("ACCOUNT SHOULD HAVE A FUNGIBLE ASSET");
+    }
+
+    // Check that we can't consume the P2ID note again
+    let tx_template =
+        TransactionTemplate::ConsumeNotes(second_regular_account_id, vec![notes[0].note_id()]);
+    println!("Consuming Note...");
+
+    match client.new_transaction(tx_template) {
+        Ok(_) => panic!("TRANSACTION SHOULD NOT BE CONSUMABLE!"),
+        Err(ClientError::TransactionExecutionError(
+            TransactionExecutorError::FetchTransactionInputsFailed(DataStoreError::InternalError(
+                error,
+            )),
+        )) if error.contains(&notes[0].note_id().to_hex()) => {}
+        _ => panic!(
+            "UNEXPECTED ERROR, SHOULD BE A DOUBLE SPEND ERROR FOR NOTE {}",
+            notes[0].note_id().to_hex()
+        ),
     }
 
     println!("Test ran successfully!");
