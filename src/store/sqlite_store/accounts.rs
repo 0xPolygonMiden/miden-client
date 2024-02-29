@@ -90,7 +90,7 @@ impl SqliteStore {
         account_id: AccountId,
     ) -> Result<(Vec<Digest>, ModuleAst), StoreError> {
         // TODO: This could be done via a single query
-        let (account, _seed) = self.get_account_stub(account_id)?;
+        let (_account, _seed) = self.get_account_stub(account_id)?;
         let (account, _seed) = self.get_account_stub(account_id)?;
 
         self.get_account_code(account.code_root())
