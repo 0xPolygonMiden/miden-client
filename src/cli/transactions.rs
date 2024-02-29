@@ -100,10 +100,11 @@ impl TryInto<TransactionTemplate> for &TransactionType {
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "Execute and view transactions")]
 pub enum Transaction {
-    /// List transactions
+    /// List currently tracked transactions
     #[clap(short_flag = 'l')]
     List,
-    /// Execute a transaction, prove and submit it to the node
+    /// Execute a transaction, prove and submit it to the node. Once submitted, it
+    /// gets tracked by the client
     #[clap(short_flag = 'n')]
     New {
         #[clap(subcommand)]
