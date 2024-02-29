@@ -6,6 +6,7 @@ use crate::{
         Client,
     },
     errors::NodeRpcClientError,
+    store::AuthInfo,
 };
 use async_trait::async_trait;
 use crypto::{
@@ -46,7 +47,6 @@ use objects::{
 use rand::Rng;
 use tonic::{IntoRequest, Response, Status};
 
-use crate::store::accounts::AuthInfo;
 pub use crate::store::mock_executor_data_store::MockDataStore;
 
 /// Mock RPC API

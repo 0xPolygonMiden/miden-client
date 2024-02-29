@@ -6,9 +6,9 @@ use miden_client::client::{
 };
 use miden_client::config::{ClientConfig, RpcConfig};
 use miden_client::errors::{ClientError, NodeRpcClientError};
-use miden_client::store::{
-    data_store::SqliteDataStore, notes::NoteFilter, transactions::TransactionFilter, Store,
-};
+use miden_client::store::data_store::SqliteDataStore;
+use miden_client::store::sqlite_store::SqliteStore;
+use miden_client::store::{NoteFilter, TransactionFilter};
 
 use miden_tx::{DataStoreError, TransactionExecutorError};
 use objects::{
@@ -35,7 +35,7 @@ fn create_test_client() -> Client<TonicRpcClient, SqliteDataStore> {
     };
 
     let rpc_endpoint = client_config.rpc.endpoint.to_string();
-    let store = Store::new((&client_config).into()).unwrap();
+    let store = SqliteStore::new((&client_config).into()).unwrap();
     Client::new(
         client_config,
         TonicRpcClient::new(&rpc_endpoint),
