@@ -41,13 +41,10 @@ theme:
 
 nav:
   - Overview: index.md
-  - Usage:
-      - Installation: usage/installation.md
-      - CLI: 'usage/cli.md'
-      - Using the client's crate: 'usage/rust-crate.md'
-      - Library: 'usage/library.md'
-  - Getting Started: 'development.md'
-  - Design: 'design.md'
+  - Design: design.md
+  - Installation: installation.md
+  - CLI: 'cli.md'
+  - Library: 'library.md'
 
 
 
