@@ -1,5 +1,3 @@
-# How to use
-
 After installing the client, you can use it by running `miden-client`. In order to get more information about available CLI commands you can run `miden-client --help`.
 
 ## Configuration
@@ -10,10 +8,8 @@ In the configuration file, you will find a section for defining the node's endpo
 
 Note that running the node locally for development is encouraged, but the endpoint can be set to point to any remote node's IP as well.
 
-
-## Example: Executing, proving and submitting transactions to the Miden node
-
-For a complete example on how to run the client and submit transactions to the Miden node, you can refer to the [`Getting Started`](https://0xpolygonmiden.github.io/miden-base/introduction/getting-started.html).
+!!! example "Executing, proving, and submitting transactions to the Miden node"
+    For a complete example on how to run the client and submit transactions to the Miden node, you can refer to the [`Getting started`](https://0xpolygonmiden.github.io/miden-base/introduction/getting-started.html).
 
 ## Reference
 
@@ -49,6 +45,7 @@ Once an account gets created with the `new` command, it will be automatically st
 | `import`  | Import input note data from a binary file                  | -i      |
 
 ### `tags` command
+
 | Command | Description                                              | Aliases |
 |---------|----------------------------------------------------------|---------|
 | `list`    | List all tags monitored by this client                   | -l      |
@@ -62,12 +59,13 @@ Once an account gets created with the `new` command, it will be automatically st
 | `new  <TX TYPE>` | Execute a transaction, prove and submit it to the node. Once submitted, it gets tracked by the client   | -n      |
 
 After a transaction gets executed, two entities start being tracked:
+
 - The transaction itself: It will follow a lifecycle of being `pending` (initial state) and `committed` (after the we know the node received it)
 - Output Notes that might have been created as part of the transaction (for example, when executing a pay-to-id transaction)
 
 You can list them with their respective commands.
 
-#### Types of transaction
+## Types of transaction
 
 | Command         | Explanation                                                                                                       |
 |-----------------|-------------------------------------------------------------------------------------------------------------------|

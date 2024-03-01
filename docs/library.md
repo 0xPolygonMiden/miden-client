@@ -1,10 +1,8 @@
-# How to use the library
-
 In order to use the Miden client library in a Rust project, you need to include it as a dependency. In your project's `cargo.toml`, add:
 
-````toml
+```toml
 miden_client = { package = "miden-client", git = "https://github.com/0xPolygonMiden/miden-client", branch = "main" }
-````
+```
 
 ## Client instantiation
 
