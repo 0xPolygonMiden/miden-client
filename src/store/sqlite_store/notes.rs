@@ -1,13 +1,12 @@
 use std::fmt;
 
 use crate::errors::StoreError;
-use crate::store::{InputNoteRecord, NoteFilter, NoteRecordDetails, NoteRecordInclusionProof};
+use crate::store::{InputNoteRecord, NoteFilter, NoteRecordDetails};
 
 use super::SqliteStore;
 
 use clap::error::Result;
 
-use crypto::merkle::MerklePath;
 use crypto::utils::{Deserializable, Serializable};
 
 use objects::notes::{
@@ -242,29 +241,11 @@ fn parse_input_note(
 
     let inclusion_proof = match note_inclusion_proof {
         Some(note_inclusion_proof) => {
-            let note_inclusion_proof: NoteRecordInclusionProof =
+            let note_inclusion_proof: NoteInclusionProof =
                 serde_json::from_str(&note_inclusion_proof)
                     .map_err(StoreError::JsonDataDeserializationError)?;
 
-            let sub_hash = Digest::try_from(note_inclusion_proof.sub_hash())?;
-            let note_root = Digest::try_from(note_inclusion_proof.note_root())?;
-            let note_path = note_inclusion_proof
-                .note_path()
-                .iter()
-                .map(Digest::try_from)
-                .collect::<Result<Vec<_>, _>>()?;
-
-            let note_path = MerklePath::from(note_path);
-            Some(
-                NoteInclusionProof::new(
-                    note_inclusion_proof.block_num(),
-                    sub_hash,
-                    note_root,
-                    note_inclusion_proof.note_index(),
-                    note_path,
-                )
-                .expect("Should be able to read note inclusion proof from db"),
-            )
+            Some(note_inclusion_proof)
         }
         _ => None,
     };
@@ -284,6 +265,8 @@ pub(crate) fn serialize_note(
             // they are constructed using note ID instead of authentication hash, so for now we remove the first
             // node here.
             //
+            // Note: once removed we can also stop creating a new `NoteInclusionProof`
+            //
             // See: https://github.com/0xPolygonMiden/miden-node/blob/main/store/src/state.rs#L274
             let mut path = proof.note_path().clone();
             if path.len() > 0 {
@@ -292,16 +275,12 @@ pub(crate) fn serialize_note(
 
             let block_num = proof.origin().block_num;
             let node_index = proof.origin().node_index.value();
-            let sub_hash = proof.sub_hash().to_string();
-            let note_root = proof.note_root().to_string();
-            let path = path
-                .into_iter()
-                .map(|path_node| path_node.to_string())
-                .collect::<Vec<_>>();
+            let sub_hash = proof.sub_hash();
+            let note_root = proof.note_root();
 
-            let inclusion_proof = serde_json::to_string(&NoteRecordInclusionProof::new(
-                block_num, node_index, sub_hash, note_root, path,
-            ))
+            let inclusion_proof = serde_json::to_string(&NoteInclusionProof::new(
+                block_num, sub_hash, note_root, node_index, path,
+            )?)
             .map_err(StoreError::InputSerializationError)?;
 
             (Some(inclusion_proof), String::from("committed"))

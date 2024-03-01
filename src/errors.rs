@@ -204,6 +204,12 @@ impl From<MmrError> for StoreError {
     }
 }
 
+impl From<NoteError> for StoreError {
+    fn from(value: NoteError) -> Self {
+        StoreError::NoteInclusionProofError(value)
+    }
+}
+
 impl From<TransactionScriptError> for StoreError {
     fn from(value: TransactionScriptError) -> Self {
         StoreError::TransactionScriptError(value)

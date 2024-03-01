@@ -97,8 +97,8 @@ CREATE TABLE input_notes (
     CONSTRAINT check_valid_inclusion_proof_json CHECK (
       inclusion_proof IS NULL OR 
       (
-        json_extract(inclusion_proof, '$.block_num') IS NOT NULL AND
-        json_extract(inclusion_proof, '$.note_index') IS NOT NULL AND
+        json_extract(inclusion_proof, '$.origin.block_num') IS NOT NULL AND
+        json_extract(inclusion_proof, '$.origin.node_index') IS NOT NULL AND
         json_extract(inclusion_proof, '$.sub_hash') IS NOT NULL AND
         json_extract(inclusion_proof, '$.note_root') IS NOT NULL AND
         json_extract(inclusion_proof, '$.note_path') IS NOT NULL
@@ -136,8 +136,8 @@ CREATE TABLE output_notes (
     CONSTRAINT check_valid_inclusion_proof_json CHECK (
       inclusion_proof IS NULL OR 
       (
-        json_extract(inclusion_proof, '$.block_num') IS NOT NULL AND
-        json_extract(inclusion_proof, '$.note_index') IS NOT NULL AND
+        json_extract(inclusion_proof, '$.origin.block_num') IS NOT NULL AND
+        json_extract(inclusion_proof, '$.origin.node_index') IS NOT NULL AND
         json_extract(inclusion_proof, '$.sub_hash') IS NOT NULL AND
         json_extract(inclusion_proof, '$.note_root') IS NOT NULL AND
         json_extract(inclusion_proof, '$.note_path') IS NOT NULL

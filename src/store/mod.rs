@@ -372,53 +372,6 @@ impl NoteRecordDetails {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-pub(crate) struct NoteRecordInclusionProof {
-    block_num: u32,
-    note_index: u64,
-    sub_hash: String,
-    note_root: String,
-    note_path: Vec<String>,
-}
-
-impl NoteRecordInclusionProof {
-    pub(crate) fn new(
-        block_num: u32,
-        note_index: u64,
-        sub_hash: String,
-        note_root: String,
-        note_path: Vec<String>,
-    ) -> Self {
-        Self {
-            block_num,
-            note_index,
-            sub_hash,
-            note_root,
-            note_path,
-        }
-    }
-
-    fn block_num(&self) -> u32 {
-        self.block_num
-    }
-
-    fn note_index(&self) -> u64 {
-        self.note_index
-    }
-
-    fn sub_hash(&self) -> &str {
-        &self.sub_hash
-    }
-
-    fn note_root(&self) -> &str {
-        &self.note_root
-    }
-
-    fn note_path(&self) -> &Vec<String> {
-        &self.note_path
-    }
-}
-
 // CHAIN MMR NODE FILTER
 // ================================================================================================
 

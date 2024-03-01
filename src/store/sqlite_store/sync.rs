@@ -8,7 +8,7 @@ use objects::{
 use rusqlite::{named_params, params};
 
 use super::SqliteStore;
-use crate::{errors::StoreError, store::NoteRecordInclusionProof};
+use crate::errors::StoreError;
 
 impl SqliteStore {
     pub(crate) fn get_note_tags(&self) -> Result<Vec<u64>, StoreError> {
@@ -93,18 +93,17 @@ impl SqliteStore {
         // Update tracked notes
         for (note_id, inclusion_proof) in committed_notes.iter() {
             let block_num = inclusion_proof.origin().block_num;
-            let sub_hash = inclusion_proof.sub_hash().to_string();
-            let note_root = inclusion_proof.note_root().to_string();
+            let sub_hash = inclusion_proof.sub_hash();
+            let note_root = inclusion_proof.note_root();
             let note_index = inclusion_proof.origin().node_index.value();
-            let path = inclusion_proof
-                .note_path()
-                .iter()
-                .map(|node| node.to_string())
-                .collect::<Vec<_>>();
 
-            let inclusion_proof = serde_json::to_string(&NoteRecordInclusionProof::new(
-                block_num, note_index, sub_hash, note_root, path,
-            ))
+            let inclusion_proof = serde_json::to_string(&NoteInclusionProof::new(
+                block_num,
+                sub_hash,
+                note_root,
+                note_index,
+                inclusion_proof.note_path().clone(),
+            )?)
             .map_err(StoreError::InputSerializationError)?;
 
             const COMMITTED_INPUT_NOTES_QUERY: &str =
