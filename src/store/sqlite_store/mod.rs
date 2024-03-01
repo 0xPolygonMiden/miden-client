@@ -144,21 +144,24 @@ impl Store for SqliteStore {
 
     fn get_transactions(
         &self,
-        filter: TransactionFilter,
+        transaction_filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, StoreError> {
-        self.get_transactions(filter)
+        self.get_transactions(transaction_filter)
     }
 
     fn apply_transaction(&mut self, tx_result: TransactionResult) -> Result<(), StoreError> {
         self.apply_transaction(tx_result)
     }
 
-    fn get_input_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError> {
-        self.get_input_notes(filter)
+    fn get_input_notes(&self, note_filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError> {
+        self.get_input_notes(note_filter)
     }
 
-    fn get_output_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError> {
-        self.get_output_notes(filter)
+    fn get_output_notes(
+        &self,
+        note_filter: NoteFilter,
+    ) -> Result<Vec<InputNoteRecord>, StoreError> {
+        self.get_output_notes(note_filter)
     }
 
     fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError> {
@@ -203,7 +206,7 @@ impl Store for SqliteStore {
     fn insert_account(
         &mut self,
         account: &Account,
-        account_seed: Word,
+        account_seed: Option<Word>,
         auth_info: &AuthInfo,
     ) -> Result<(), StoreError> {
         self.insert_account(account, account_seed, auth_info)
@@ -213,15 +216,18 @@ impl Store for SqliteStore {
         self.get_account_ids()
     }
 
-    fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Word)>, StoreError> {
+    fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, StoreError> {
         self.get_account_stubs()
     }
 
-    fn get_account_stub(&self, account_id: AccountId) -> Result<(AccountStub, Word), StoreError> {
+    fn get_account_stub(
+        &self,
+        account_id: AccountId,
+    ) -> Result<(AccountStub, Option<Word>), StoreError> {
         self.get_account_stub(account_id)
     }
 
-    fn get_account(&self, account_id: AccountId) -> Result<(Account, Word), StoreError> {
+    fn get_account(&self, account_id: AccountId) -> Result<(Account, Option<Word>), StoreError> {
         self.get_account(account_id)
     }
 

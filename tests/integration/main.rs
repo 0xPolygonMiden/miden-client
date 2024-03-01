@@ -10,6 +10,7 @@ use miden_client::store::data_store::SqliteDataStore;
 use miden_client::store::sqlite_store::SqliteStore;
 use miden_client::store::{NoteFilter, TransactionFilter};
 
+use miden_tx::{DataStoreError, TransactionExecutorError};
 use objects::{
     accounts::AccountData,
     assets::{Asset, FungibleAsset},
@@ -153,7 +154,7 @@ async fn main() {
     let second_regular_account_id = regular_account_stubs[1].id();
     let faucet_account_id = faucet_account_stub.id();
 
-    let (regular_account, _seed) = client.get_account_by_id(first_regular_account_id).unwrap();
+    let (regular_account, _seed) = client.get_account(first_regular_account_id).unwrap();
     assert_eq!(regular_account.vault().assets().count(), 0);
 
     // Create a Mint Tx for 1000 units of our fungible asset
@@ -179,7 +180,8 @@ async fn main() {
     println!("Consuming Note...");
     execute_tx_and_sync(&mut client, tx_template).await;
 
-    let (regular_account, _seed) = client.get_account_by_id(first_regular_account_id).unwrap();
+    let (regular_account, _seed) = client.get_account(second_regular_account_id).unwrap();
+
     assert_eq!(regular_account.vault().assets().count(), 1);
     let asset = regular_account.vault().assets().next().unwrap();
 
@@ -210,7 +212,7 @@ async fn main() {
     println!("Consuming Note...");
     execute_tx_and_sync(&mut client, tx_template).await;
 
-    let (regular_account, _seed) = client.get_account_by_id(first_regular_account_id).unwrap();
+    let (regular_account, _seed) = client.get_account(first_regular_account_id).unwrap();
     assert_eq!(regular_account.vault().assets().count(), 1);
     let asset = regular_account.vault().assets().next().unwrap();
 
@@ -221,7 +223,7 @@ async fn main() {
         panic!("ACCOUNT SHOULD HAVE A FUNGIBLE ASSET");
     }
 
-    let (regular_account, _seed) = client.get_account_by_id(second_regular_account_id).unwrap();
+    let (regular_account, _seed) = client.get_account(second_regular_account_id).unwrap();
     assert_eq!(regular_account.vault().assets().count(), 1);
     let asset = regular_account.vault().assets().next().unwrap();
 
@@ -229,6 +231,24 @@ async fn main() {
         assert_eq!(fungible_asset.amount(), TRANSFER_AMOUNT);
     } else {
         panic!("ACCOUNT SHOULD HAVE A FUNGIBLE ASSET");
+    }
+
+    // Check that we can't consume the P2ID note again
+    let tx_template =
+        TransactionTemplate::ConsumeNotes(second_regular_account_id, vec![notes[0].note_id()]);
+    println!("Consuming Note...");
+
+    match client.new_transaction(tx_template) {
+        Ok(_) => panic!("TRANSACTION SHOULD NOT BE CONSUMABLE!"),
+        Err(ClientError::TransactionExecutionError(
+            TransactionExecutorError::FetchTransactionInputsFailed(DataStoreError::InternalError(
+                error,
+            )),
+        )) if error.contains(&notes[0].note_id().to_hex()) => {}
+        _ => panic!(
+            "UNEXPECTED ERROR, SHOULD BE A DOUBLE SPEND ERROR FOR NOTE {}",
+            notes[0].note_id().to_hex()
+        ),
     }
 
     println!("Test ran successfully!");
