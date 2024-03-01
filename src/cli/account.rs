@@ -176,7 +176,7 @@ pub fn show_account<N: NodeRpcClient, S: Store>(
     show_storage: bool,
     show_code: bool,
 ) -> Result<(), String> {
-    let (account, _account_seed) = client.get_account_by_id(account_id)?;
+    let (account, _account_seed) = client.get_account(account_id)?;
 
     let mut table = create_dynamic_table(&[
         "Account ID",

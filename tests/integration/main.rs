@@ -144,7 +144,7 @@ async fn main() {
     let second_regular_account_id = regular_account_stubs[1].id();
     let faucet_account_id = faucet_account_stub.id();
 
-    let (regular_account, _seed) = client.get_account_by_id(first_regular_account_id).unwrap();
+    let (regular_account, _seed) = client.get_account(first_regular_account_id).unwrap();
     assert_eq!(regular_account.vault().assets().count(), 0);
 
     // Create a Mint Tx for 1000 units of our fungible asset
@@ -170,7 +170,8 @@ async fn main() {
     println!("Consuming Note...");
     execute_tx_and_sync(&mut client, tx_template).await;
 
-    let (regular_account, _seed) = client.get_account_by_id(first_regular_account_id).unwrap();
+    let (regular_account, _seed) = client.get_account(second_regular_account_id).unwrap();
+
     assert_eq!(regular_account.vault().assets().count(), 1);
     let asset = regular_account.vault().assets().next().unwrap();
 
@@ -201,7 +202,7 @@ async fn main() {
     println!("Consuming Note...");
     execute_tx_and_sync(&mut client, tx_template).await;
 
-    let (regular_account, _seed) = client.get_account_by_id(first_regular_account_id).unwrap();
+    let (regular_account, _seed) = client.get_account(first_regular_account_id).unwrap();
     assert_eq!(regular_account.vault().assets().count(), 1);
     let asset = regular_account.vault().assets().next().unwrap();
 
@@ -212,7 +213,7 @@ async fn main() {
         panic!("ACCOUNT SHOULD HAVE A FUNGIBLE ASSET");
     }
 
-    let (regular_account, _seed) = client.get_account_by_id(second_regular_account_id).unwrap();
+    let (regular_account, _seed) = client.get_account(second_regular_account_id).unwrap();
     assert_eq!(regular_account.vault().assets().count(), 1);
     let asset = regular_account.vault().assets().next().unwrap();
 

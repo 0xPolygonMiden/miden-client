@@ -138,25 +138,32 @@ pub trait Store {
     /// used to create them.
     ///
     /// Said accounts' state is the state after the last performed sync.
-    fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Word)>, StoreError>;
+    fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, StoreError>;
 
     /// Retrieves an [AccountStub] object for the specified [AccountId] along with the seed
-    /// used to create it.
+    /// used to create it. The seed will be returned if the account is new, otherwise it
+    /// will be `None`.
     ///
     /// Said account's state is the state according to the last sync performed.
     ///
     /// # Errors
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    fn get_account_stub(&self, account_id: AccountId) -> Result<(AccountStub, Word), StoreError>;
+    fn get_account_stub(
+        &self,
+        account_id: AccountId,
+    ) -> Result<(AccountStub, Option<Word>), StoreError>;
 
-    /// Retrieves a full [Account] object, along with its seed.
+    /// Retrieves a full [Account] object. The seed will be returned if the account is new,
+    /// otherwise it will be `None`.
     ///
-    /// This function returns the [Account]'s latest state alongside the account's seed
+    /// This function returns the [Account]'s latest state. If the account is new (that is, has
+    /// never executed a trasaction), the returned seed will be `Some(Word)`; otherwise the seed
+    /// will be `None`
     ///
     /// # Errors
     ///
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    fn get_account(&self, account_id: AccountId) -> Result<(Account, Word), StoreError>;
+    fn get_account(&self, account_id: AccountId) -> Result<(Account, Option<Word>), StoreError>;
 
     /// Retrieves an account's [AuthInfo], utilized to authenticate the account.
     ///
@@ -169,7 +176,7 @@ pub trait Store {
     fn insert_account(
         &mut self,
         account: &Account,
-        account_seed: Word,
+        account_seed: Option<Word>,
         auth_info: &AuthInfo,
     ) -> Result<(), StoreError>;
 
@@ -479,15 +486,18 @@ impl<T: Store> Store for Rc<RefCell<T>> {
         self.borrow().get_account_ids()
     }
 
-    fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Word)>, StoreError> {
+    fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, StoreError> {
         self.borrow().get_account_stubs()
     }
 
-    fn get_account_stub(&self, account_id: AccountId) -> Result<(AccountStub, Word), StoreError> {
+    fn get_account_stub(
+        &self,
+        account_id: AccountId,
+    ) -> Result<(AccountStub, Option<Word>), StoreError> {
         self.borrow().get_account_stub(account_id)
     }
 
-    fn get_account(&self, account_id: AccountId) -> Result<(Account, Word), StoreError> {
+    fn get_account(&self, account_id: AccountId) -> Result<(Account, Option<Word>), StoreError> {
         self.borrow().get_account(account_id)
     }
 
@@ -498,7 +508,7 @@ impl<T: Store> Store for Rc<RefCell<T>> {
     fn insert_account(
         &mut self,
         account: &Account,
-        account_seed: Word,
+        account_seed: Option<Word>,
         auth_info: &AuthInfo,
     ) -> Result<(), StoreError> {
         self.borrow_mut()

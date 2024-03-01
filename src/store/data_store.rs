@@ -86,8 +86,6 @@ impl<S: Store> DataStore for ClientDataStore<S> {
         let input_notes =
             InputNotes::new(list_of_notes).map_err(DataStoreError::InvalidTransactionInput)?;
 
-        let seed = if account.is_new() { Some(seed) } else { None };
-
         TransactionInputs::new(account, seed, block_header, chain_mmr, input_notes)
             .map_err(DataStoreError::InvalidTransactionInput)
     }
