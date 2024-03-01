@@ -1,9 +1,7 @@
 use std::fmt;
 
 use crate::errors::StoreError;
-use crate::store::{
-    InputNoteRecord, NoteFilter, NoteRecordDetails, NoteRecordInclusionProof, NoteRecordMetadata,
-};
+use crate::store::{InputNoteRecord, NoteFilter, NoteRecordDetails, NoteRecordInclusionProof};
 
 use super::SqliteStore;
 
@@ -13,10 +11,10 @@ use crypto::merkle::MerklePath;
 use crypto::utils::{Deserializable, Serializable};
 
 use objects::notes::{
-    Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteScript, Nullifier,
+    Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata, NoteScript, Nullifier,
 };
 
-use objects::{notes::NoteMetadata, Digest};
+use objects::Digest;
 use rusqlite::{named_params, params, Transaction};
 
 fn insert_note_query(table_name: NoteTable) -> String {
@@ -231,14 +229,14 @@ fn parse_input_note(
 
     let note_details: NoteRecordDetails =
         serde_json::from_str(&note_details).map_err(StoreError::JsonDataDeserializationError)?;
-    let note_metadata: NoteRecordMetadata =
+    let note_metadata: NoteMetadata =
         serde_json::from_str(&note_metadata).map_err(StoreError::JsonDataDeserializationError)?;
 
     let script = NoteScript::read_from_bytes(note_details.script())?;
     let inputs = NoteInputs::read_from_bytes(note_details.inputs())?;
 
     let serial_num = note_details.serial_num();
-    let note_metadata = NoteMetadata::new(*note_metadata.sender_id(), *note_metadata.tag());
+    let note_metadata = NoteMetadata::new(note_metadata.sender(), note_metadata.tag());
     let note_assets = NoteAssets::read_from_bytes(&note_assets)?;
     let note = Note::from_parts(script, inputs, note_assets, *serial_num, note_metadata);
 
@@ -314,7 +312,7 @@ pub(crate) fn serialize_note(
 
     let sender_id = note.note().metadata().sender();
     let tag = note.note().metadata().tag();
-    let metadata = serde_json::to_string(&NoteRecordMetadata::new(sender_id, tag))
+    let metadata = serde_json::to_string(&NoteMetadata::new(sender_id, tag))
         .map_err(StoreError::InputSerializationError)?;
 
     let nullifier = note.note().nullifier().inner().to_string();

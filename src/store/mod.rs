@@ -14,7 +14,7 @@ use objects::{
     notes::{Note, NoteId, NoteInclusionProof, Nullifier},
     transaction::{InputNote, TransactionId},
     utils::collections::BTreeMap,
-    BlockHeader, Digest, Felt,
+    BlockHeader, Digest,
 };
 use serde::{Deserialize, Serialize};
 
@@ -338,27 +338,6 @@ impl TryInto<InputNote> for InputNoteRecord {
                 ),
             )),
         }
-    }
-}
-
-// TODO: Once SqliteStore change is implemented move it to that module
-#[derive(Serialize, Deserialize)]
-struct NoteRecordMetadata {
-    sender_id: AccountId,
-    tag: Felt,
-}
-
-impl NoteRecordMetadata {
-    fn new(sender_id: AccountId, tag: Felt) -> Self {
-        Self { sender_id, tag }
-    }
-
-    fn sender_id(&self) -> &AccountId {
-        &self.sender_id
-    }
-
-    fn tag(&self) -> &Felt {
-        &self.tag
     }
 }
 

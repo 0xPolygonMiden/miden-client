@@ -103,7 +103,7 @@ CREATE TABLE input_notes (
         json_extract(inclusion_proof, '$.note_root') IS NOT NULL AND
         json_extract(inclusion_proof, '$.note_path') IS NOT NULL
       ))
-    CONSTRAINT check_valid_metadata_json CHECK (metadata IS NULL OR (json_extract(metadata, '$.sender_id') IS NOT NULL AND json_extract(metadata, '$.tag') IS NOT NULL))
+    CONSTRAINT check_valid_metadata_json CHECK (metadata IS NULL OR (json_extract(metadata, '$.sender') IS NOT NULL AND json_extract(metadata, '$.tag') IS NOT NULL))
 );
 
 -- Create output notes table
