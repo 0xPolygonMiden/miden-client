@@ -75,28 +75,26 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
         match account_data.auth {
             AuthData::RpoFalcon512Seed(key_pair) => {
                 let keypair = KeyPair::from_seed(&key_pair)?;
-                match (account_data.account.is_new(), account_data.account_seed) {
-                    (true, Some(seed)) => self.insert_account(
-                        &account_data.account,
-                        seed,
-                        &AuthInfo::RpoFalcon512(keypair),
-                    ),
-                    (false, Some(seed)) => {
-                        tracing::warn!(
-                            "Imported an existing account and still provided a seed when it is not needed. It's possible that the account's file was incorrectly generated."
-                        );
 
-                        self.insert_account(
-                            &account_data.account,
-                            seed,
-                            &AuthInfo::RpoFalcon512(keypair),
-                        )
-                    }
-                    (false, None) => {
-                        unimplemented!();
-                    }
-                    (true, None) => Err(ClientError::ImportNewAccountWithoutSeed),
-                }
+                let account_seed = if !account_data.account.is_new()
+                    && account_data.account_seed.is_some()
+                {
+                    tracing::warn!("Imported an existing account and still provided a seed when it is not needed. It's possible that the account's file was incorrectly generated. The seed will be ignored.");
+                    // Ignore the seed since it's not a new account
+
+                    // TODO: The alternative approach to this is to store the seed anyway, but
+                    // ignore it at the point of executing against this transaction, but that
+                    // approach seems a little bit more incorrect
+                    None
+                } else {
+                    account_data.account_seed
+                };
+
+                self.insert_account(
+                    &account_data.account,
+                    account_seed,
+                    &AuthInfo::RpoFalcon512(keypair),
+                )
             }
         }
     }
@@ -141,7 +139,7 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
             )
         }?;
 
-        self.insert_account(&account, seed, &AuthInfo::RpoFalcon512(key_pair))?;
+        self.insert_account(&account, Some(seed), &AuthInfo::RpoFalcon512(key_pair))?;
         Ok((account, seed))
     }
 
@@ -176,17 +174,26 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
             auth_scheme,
         )?;
 
-        self.insert_account(&account, seed, &AuthInfo::RpoFalcon512(key_pair))?;
+        self.insert_account(&account, Some(seed), &AuthInfo::RpoFalcon512(key_pair))?;
         Ok((account, seed))
     }
 
     /// Inserts a new account into the client's store.
+    ///
+    /// # Errors
+    ///
+    /// If an account is new and no seed is provided, the function errors out because the client
+    /// cannot execute transactions against new accounts for which it does not know the seed.
     pub fn insert_account(
         &mut self,
         account: &Account,
-        account_seed: Word,
+        account_seed: Option<Word>,
         auth_info: &AuthInfo,
     ) -> Result<(), ClientError> {
+        if account.is_new() && account_seed.is_none() {
+            return Err(ClientError::ImportNewAccountWithoutSeed);
+        }
+
         self.store
             .insert_account(account, account_seed, auth_info)
             .map_err(ClientError::StoreError)
@@ -215,12 +222,15 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
 
     /// Returns summary info about the accounts managed by this client.
     ///
-    pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Word)>, ClientError> {
+    pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Option<Word>)>, ClientError> {
         self.store.get_account_stubs().map_err(|err| err.into())
     }
 
     /// Returns summary info about the specified account.
-    pub fn get_account_by_id(&self, account_id: AccountId) -> Result<(Account, Word), ClientError> {
+    pub fn get_account(
+        &self,
+        account_id: AccountId,
+    ) -> Result<(Account, Option<Word>), ClientError> {
         self.store.get_account(account_id).map_err(|err| err.into())
     }
 
@@ -228,7 +238,7 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
     pub fn get_account_stub_by_id(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountStub, Word), ClientError> {
+    ) -> Result<(AccountStub, Option<Word>), ClientError> {
         self.store
             .get_account_stub(account_id)
             .map_err(|err| err.into())
@@ -247,17 +257,17 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
 
 #[cfg(test)]
 pub mod tests {
-    use crypto::{Felt, FieldElement};
+    use crypto::{dsa::rpo_falcon512::KeyPair, Felt, FieldElement};
 
     use miden_lib::transaction::TransactionKernel;
     use mock::{
         constants::{generate_account_seed, AccountSeedType},
-        mock::account,
+        mock::account::{self, mock_account},
     };
     use objects::accounts::{AccountData, AuthData};
     use rand::{rngs::ThreadRng, thread_rng, Rng};
 
-    use crate::store::sqlite_store::tests::create_test_client;
+    use crate::store::{sqlite_store::tests::create_test_client, AuthInfo};
 
     fn create_account_data(rng: &mut ThreadRng, seed_type: AccountSeedType) -> AccountData {
         // Create an account and save it to a file
@@ -293,6 +303,32 @@ pub mod tests {
         let accounts = vec![account, faucet_account];
 
         accounts
+    }
+
+    #[test]
+    pub fn try_import_new_account() {
+        // generate test client
+        let mut client = create_test_client();
+        let assembler = TransactionKernel::assembler();
+
+        let (account_id, account_seed) =
+            generate_account_seed(AccountSeedType::RegularAccountUpdatableCodeOnChain);
+        let account = mock_account(Some(u64::from(account_id)), Felt::ZERO, None, &assembler);
+
+        let key_pair: KeyPair = KeyPair::new()
+            .map_err(|err| format!("Error generating KeyPair: {}", err))
+            .unwrap();
+
+        assert!(client
+            .insert_account(&account, None, &AuthInfo::RpoFalcon512(key_pair))
+            .is_err());
+        assert!(client
+            .insert_account(
+                &account,
+                Some(account_seed),
+                &AuthInfo::RpoFalcon512(key_pair)
+            )
+            .is_ok());
     }
 
     #[tokio::test]

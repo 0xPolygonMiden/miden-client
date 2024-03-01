@@ -105,7 +105,7 @@ async fn insert_basic_account() {
     let (account, account_seed) = account_insert_result.unwrap();
 
     // Fetch Account
-    let fetched_account_data = client.get_account_by_id(account.id());
+    let fetched_account_data = client.get_account(account.id());
     assert!(fetched_account_data.is_ok());
 
     let (fetched_account, fetched_account_seed) = fetched_account_data.unwrap();
@@ -117,7 +117,7 @@ async fn insert_basic_account() {
     assert_eq!(account.code().root(), fetched_account.code().root());
 
     // Validate seed matches
-    assert_eq!(account_seed, fetched_account_seed);
+    assert_eq!(account_seed, fetched_account_seed.unwrap());
 }
 
 #[tokio::test]
@@ -139,7 +139,7 @@ async fn insert_faucet_account() {
     let (account, account_seed) = account_insert_result.unwrap();
 
     // Fetch Account
-    let fetched_account_data = client.get_account_by_id(account.id());
+    let fetched_account_data = client.get_account(account.id());
     assert!(fetched_account_data.is_ok());
 
     let (fetched_account, fetched_account_seed) = fetched_account_data.unwrap();
@@ -151,7 +151,7 @@ async fn insert_faucet_account() {
     assert_eq!(account.code().root(), fetched_account.code().root());
 
     // Validate seed matches
-    assert_eq!(account_seed, fetched_account_seed);
+    assert_eq!(account_seed, fetched_account_seed.unwrap());
 }
 
 #[tokio::test]
@@ -170,10 +170,18 @@ async fn insert_same_account_twice_fails() {
         .unwrap();
 
     assert!(client
-        .insert_account(&account, account_seed, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(
+            &account,
+            Some(account_seed),
+            &AuthInfo::RpoFalcon512(key_pair)
+        )
         .is_ok());
     assert!(client
-        .insert_account(&account, account_seed, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(
+            &account,
+            Some(account_seed),
+            &AuthInfo::RpoFalcon512(key_pair)
+        )
         .is_err());
 }
 
@@ -205,9 +213,13 @@ async fn test_acc_code() {
     assert_eq!(account_module, reconstructed_ast);
 
     client
-        .insert_account(&account, account_seed, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(
+            &account,
+            Some(account_seed),
+            &AuthInfo::RpoFalcon512(key_pair),
+        )
         .unwrap();
-    let (retrieved_acc, _) = client.get_account_by_id(account_id).unwrap();
+    let (retrieved_acc, _) = client.get_account(account_id).unwrap();
 
     let mut account_module = account.code().module().clone();
     account_module.clear_locations();
@@ -234,7 +246,11 @@ async fn test_get_account_by_id() {
         .unwrap();
 
     client
-        .insert_account(&account, account_seed, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(
+            &account,
+            Some(account_seed),
+            &AuthInfo::RpoFalcon512(key_pair),
+        )
         .unwrap();
 
     // Retrieving an existing account should succeed
@@ -428,7 +444,11 @@ async fn test_mint_transaction() {
 
     client
         .store()
-        .insert_account(&faucet, FAUCET_SEED, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(
+            &faucet,
+            Some(FAUCET_SEED),
+            &AuthInfo::RpoFalcon512(key_pair),
+        )
         .unwrap();
 
     client.set_data_store(MockDataStore::with_existing(
