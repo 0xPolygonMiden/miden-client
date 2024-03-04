@@ -6,7 +6,10 @@ use objects::{
     Digest,
 };
 
-use super::{AuthInfo, ChainMmrNodeFilter, InputNoteRecord, NoteFilter, Store, TransactionFilter};
+use super::{
+    AuthInfo, ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store,
+    TransactionFilter,
+};
 use crypto::{
     merkle::{InOrderIndex, MmrPeaks},
     Word,
@@ -160,7 +163,7 @@ impl Store for SqliteStore {
     fn get_output_notes(
         &self,
         note_filter: NoteFilter,
-    ) -> Result<Vec<InputNoteRecord>, StoreError> {
+    ) -> Result<Vec<OutputNoteRecord>, StoreError> {
         self.get_output_notes(note_filter)
     }
 

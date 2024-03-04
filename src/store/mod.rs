@@ -11,7 +11,7 @@ use crypto::{
 };
 use objects::{
     accounts::{Account, AccountId, AccountStub},
-    notes::{Note, NoteId, NoteInclusionProof, Nullifier},
+    notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
     transaction::{InputNote, TransactionId},
     utils::collections::BTreeMap,
     BlockHeader, Digest,
@@ -47,7 +47,7 @@ pub trait Store {
     fn get_input_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError>;
 
     /// Retrieves the output notes from the store
-    fn get_output_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError>;
+    fn get_output_notes(&self, filter: NoteFilter) -> Result<Vec<OutputNoteRecord>, StoreError>;
 
     /// Retrieves an [InputNoteRecord] for the input note corresponding to the specified id from
     /// the store.
@@ -263,6 +263,15 @@ impl Deserializable for AuthInfo {
     }
 }
 
+// NOTE STATUS
+// ================================================================================================
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum NoteStatus {
+    Pending,
+    Committed,
+    Consumed,
+}
+
 // INPUT NOTE RECORD
 // ================================================================================================
 
@@ -348,8 +357,97 @@ impl TryInto<InputNote> for InputNoteRecord {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-struct NoteRecordDetails {
+// OUTPUT NOTE RECORD
+// ================================================================================================
+
+/// TODO: Fill this with InputNoteRecord like documentation
+#[derive(Clone, Debug, PartialEq)]
+pub struct OutputNoteRecord {
+    id: NoteId,
+    recipient: Digest,
+    assets: NoteAssets,
+    status: NoteStatus,
+    metadata: NoteMetadata,
+    inclusion_proof: Option<NoteInclusionProof>,
+    details: Option<NoteRecordDetails>,
+}
+
+impl OutputNoteRecord {
+    pub fn new(
+        id: NoteId,
+        recipient: Digest,
+        assets: NoteAssets,
+        status: NoteStatus,
+        metadata: NoteMetadata,
+        inclusion_proof: Option<NoteInclusionProof>,
+        details: Option<NoteRecordDetails>,
+    ) -> OutputNoteRecord {
+        OutputNoteRecord {
+            id,
+            recipient,
+            assets,
+            status,
+            metadata,
+            inclusion_proof,
+            details,
+        }
+    }
+
+    pub fn id(&self) -> NoteId {
+        self.id
+    }
+
+    pub fn recipient(&self) -> Digest {
+        self.recipient
+    }
+
+    pub fn assets(&self) -> &NoteAssets {
+        &self.assets
+    }
+
+    pub fn status(&self) -> NoteStatus {
+        self.status
+    }
+
+    pub fn metadata(&self) -> &NoteMetadata {
+        &self.metadata
+    }
+
+    pub fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
+        self.inclusion_proof.as_ref()
+    }
+
+    pub fn details(&self) -> Option<&NoteRecordDetails> {
+        self.details.as_ref()
+    }
+
+    pub fn note(&self) -> Option<&Note> {
+        // TODO: add logic to return Some(note) if we have enough info to build one
+        None
+    }
+}
+
+impl From<Note> for OutputNoteRecord {
+    fn from(note: Note) -> Self {
+        OutputNoteRecord {
+            id: note.id(),
+            recipient: note.recipient(),
+            assets: note.assets().clone(),
+            status: NoteStatus::Pending,
+            metadata: *note.metadata(),
+            inclusion_proof: None,
+            details: Some(NoteRecordDetails {
+                nullifier: note.nullifier().to_string(),
+                script: note.script().to_bytes(),
+                inputs: note.inputs().to_bytes(),
+                serial_num: note.serial_num(),
+            }),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct NoteRecordDetails {
     nullifier: String,
     script: Vec<u8>,
     inputs: Vec<u8>,

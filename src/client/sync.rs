@@ -219,7 +219,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
             .store
             .get_output_notes(NoteFilter::Pending)?
             .iter()
-            .map(|n| n.note().id())
+            .map(|n| n.id())
             .collect();
 
         let mut pending_notes = [pending_input_notes, pending_output_notes].concat();
