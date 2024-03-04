@@ -77,7 +77,7 @@ impl Cli {
 
         #[cfg(not(feature = "mock"))]
         let client: Client<TonicRpcClient, SqliteDataStore> = {
-            use miden_client::{errors::ClientError, store::Store};
+            use miden_client::errors::ClientError;
 
             let store =
                 miden_client::store::sqlite_store::SqliteStore::new((&client_config).into())

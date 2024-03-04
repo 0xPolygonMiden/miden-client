@@ -8,7 +8,6 @@ integration-test:
 	set -o pipefail; cargo run --release --bin="integration" --features "$(FEATURES_INTEGRATION_TESTING)"; pkill miden-node
 	exit $$? || echo "integration test failed with exit code $$?"
 
-
 node:
 	if cd miden-node; then git pull; else git clone https://github.com/0xPolygonMiden/miden-node.git; fi
 	rm -rf miden-node/miden-store.sqlite3 miden-node/miden-store.sqlite3-wal miden-node/miden-store.sqlite3-shm

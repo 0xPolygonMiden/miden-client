@@ -180,10 +180,6 @@ pub trait Store {
         auth_info: &AuthInfo,
     ) -> Result<(), StoreError>;
 
-    /// Update previously-existing account after a transaction execution
-    /// The account that is to be updated is identified by the Account ID
-    fn update_account(&mut self, new_account_state: Account) -> Result<(), StoreError>;
-
     // SYNC
     // --------------------------------------------------------------------------------------------
 
