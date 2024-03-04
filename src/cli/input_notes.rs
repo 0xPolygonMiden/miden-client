@@ -5,7 +5,7 @@ use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use crypto::utils::{Deserializable, Serializable};
 use miden_client::{
     client::rpc::NodeRpcClient,
-    store::notes::{InputNoteRecord, NoteFilter as ClientNoteFilter},
+    store::{InputNoteRecord, NoteFilter as ClientNoteFilter},
 };
 use miden_tx::DataStore;
 use objects::{notes::NoteId, Digest};
@@ -23,7 +23,7 @@ pub enum NoteFilter {
 }
 
 #[derive(Debug, Parser, Clone)]
-#[clap(about = "View input notes")]
+#[clap(about = "View and manage input notes")]
 pub enum InputNotes {
     /// List input notes
     #[clap(short_flag = 'l')]
@@ -115,9 +115,9 @@ impl InputNotes {
 // ================================================================================================
 fn list_input_notes<N: NodeRpcClient, D: DataStore>(
     client: Client<N, D>,
-    input_note_filter: ClientNoteFilter,
+    filter: ClientNoteFilter,
 ) -> Result<(), String> {
-    let notes = client.get_input_notes(input_note_filter)?;
+    let notes = client.get_input_notes(filter)?;
     print_notes_summary(&notes);
     Ok(())
 }
@@ -286,7 +286,7 @@ mod tests {
         client::Client,
         config::{ClientConfig, Endpoint},
         mock::{MockDataStore, MockRpcApi},
-        store::notes::InputNoteRecord,
+        store::InputNoteRecord,
     };
     use mock::mock::{
         account::MockAccountType, notes::AssetPreservationStatus, transaction::mock_inputs,

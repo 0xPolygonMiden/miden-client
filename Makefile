@@ -24,13 +24,13 @@ reset:
 	cargo clean
 
 docs_deps:
-	cd docs && pip3 install -r requirements.txt
+	pip3 install -r requirements.txt
 
 build_docs: docs_deps
-	cd docs && mkdocs build
+	mkdocs build
 
 serve_docs: docs_deps
-	cd docs && mkdocs serve
+	mkdocs serve
   
 fmt:
 	cargo fix --allow-staged --allow-dirty --all-targets --all-features

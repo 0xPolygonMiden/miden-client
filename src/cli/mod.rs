@@ -39,7 +39,7 @@ const CLIENT_CONFIG_FILE_NAME: &str = "miden-client.toml";
 #[derive(Parser, Debug)]
 #[clap(
     name = "Miden",
-    about = "Miden Client",
+    about = "Miden client",
     version,
     rename_all = "kebab-case"
 )]
@@ -86,7 +86,9 @@ impl Cli {
         let client: Client<TonicRpcClient, SqliteDataStore> = {
             use miden_client::store::Store;
 
-            let store = Store::new((&client_config).into()).map_err(ClientError::StoreError)?;
+            let store =
+                miden_client::store::sqlite_store::SqliteStore::new((&client_config).into())
+                    .map_err(ClientError::StoreError)?;
             Client::new(
                 client_config,
                 TonicRpcClient::new(&rpc_endpoint),

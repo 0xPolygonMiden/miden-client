@@ -1,7 +1,6 @@
 use crate::errors::{ClientError, StoreError};
 use objects::utils::collections::BTreeSet;
 
-use super::{chain_data::ChainMmrNodeFilter, Store};
 use crypto::merkle::{InOrderIndex, MerklePath, PartialMmr};
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
 
@@ -12,16 +11,18 @@ use objects::{
     BlockHeader,
 };
 
+use super::{sqlite_store::SqliteStore, ChainMmrNodeFilter, NoteFilter, Store};
+
 // DATA STORE
 // ================================================================================================
 
 pub struct SqliteDataStore {
     /// Local database containing information about the accounts managed by this client.
-    pub(crate) store: Store,
+    pub(crate) store: SqliteStore,
 }
 
 impl SqliteDataStore {
-    pub fn new(store: Store) -> Self {
+    pub fn new(store: SqliteStore) -> Self {
         Self { store }
     }
 }
@@ -33,8 +34,22 @@ impl DataStore for SqliteDataStore {
         block_num: u32,
         notes: &[objects::notes::NoteId],
     ) -> Result<TransactionInputs, DataStoreError> {
+        // First validate that no note has already been consumed
+        let unspent_notes = self
+            .store
+            .get_input_notes(NoteFilter::Committed)?
+            .iter()
+            .map(|note_record| note_record.note_id())
+            .collect::<Vec<_>>();
+
+        for note_id in notes {
+            if !unspent_notes.contains(note_id) {
+                return Err(DataStoreError::NoteAlreadyConsumed(*note_id));
+            }
+        }
+
         // Construct Account
-        let (account, seed) = self.store.get_account_by_id(account_id)?;
+        let (account, seed) = self.store.get_account(account_id)?;
 
         // Get header data
         let (block_header, _had_notes) = self.store.get_block_header_by_num(block_num)?;
@@ -43,7 +58,7 @@ impl DataStore for SqliteDataStore {
 
         let mut notes_blocks: Vec<u32> = vec![];
         for note_id in notes {
-            let input_note_record = self.store.get_input_note_by_id(*note_id)?;
+            let input_note_record = self.store.get_input_note(*note_id)?;
 
             let input_note: InputNote = input_note_record
                 .try_into()
@@ -72,8 +87,6 @@ impl DataStore for SqliteDataStore {
         let input_notes =
             InputNotes::new(list_of_notes).map_err(DataStoreError::InvalidTransactionInput)?;
 
-        let seed = if account.is_new() { Some(seed) } else { None };
-
         TransactionInputs::new(account, seed, block_header, chain_mmr, input_notes)
             .map_err(DataStoreError::InvalidTransactionInput)
     }
@@ -91,7 +104,7 @@ impl DataStore for SqliteDataStore {
 /// `authenticated_blocks` cannot contain `forest`. For authenticating the last block we have,
 /// the kernel extends the MMR which is why it's not needed here.
 fn build_partial_mmr_with_paths(
-    store: &Store,
+    store: &SqliteStore,
     forest: u32,
     authenticated_blocks: &[BlockHeader],
 ) -> Result<PartialMmr, DataStoreError> {
@@ -120,7 +133,7 @@ fn build_partial_mmr_with_paths(
 ///
 /// This method assumes `block_nums` cannot contain `forest`.
 pub fn get_authentication_path_for_blocks(
-    store: &Store,
+    store: &SqliteStore,
     block_nums: &[u32],
     forest: usize,
 ) -> Result<Vec<MerklePath>, StoreError> {
