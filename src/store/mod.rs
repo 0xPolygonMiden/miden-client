@@ -11,10 +11,13 @@ use crypto::{
 };
 use objects::{
     accounts::{Account, AccountId, AccountStub},
-    notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
+    notes::{
+        Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata, NoteScript,
+        Nullifier,
+    },
     transaction::{InputNote, TransactionId},
     utils::collections::BTreeMap,
-    BlockHeader, Digest,
+    BlockHeader, Digest, NoteError,
 };
 use serde::{Deserialize, Serialize};
 
@@ -64,10 +67,10 @@ pub trait Store {
         let nullifiers = self
             .get_input_notes(NoteFilter::Committed)?
             .iter()
-            .map(|input_note| input_note.note().nullifier())
-            .collect();
+            .map(|input_note| Ok(Nullifier::from(Digest::try_from(input_note.nullifier())?)))
+            .collect::<Result<Vec<_>, _>>();
 
-        Ok(nullifiers)
+        nullifiers
     }
 
     /// Inserts the provided input note into the database
@@ -272,6 +275,39 @@ pub enum NoteStatus {
     Consumed,
 }
 
+impl From<NoteStatus> for u8 {
+    fn from(value: NoteStatus) -> Self {
+        match value {
+            NoteStatus::Pending => 0,
+            NoteStatus::Committed => 1,
+            NoteStatus::Consumed => 2,
+        }
+    }
+}
+
+impl From<u8> for NoteStatus {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => NoteStatus::Pending,
+            1 => NoteStatus::Committed,
+            _ => NoteStatus::Consumed,
+        }
+    }
+}
+
+impl Serializable for NoteStatus {
+    fn write_into<W: ByteWriter>(&self, target: &mut W) {
+        target.write_bytes(&[(*self).into()]);
+    }
+}
+
+impl Deserializable for NoteStatus {
+    fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
+        let enum_byte = u8::read_from(source)?;
+        Ok(enum_byte.into())
+    }
+}
+
 // INPUT NOTE RECORD
 // ================================================================================================
 
@@ -283,52 +319,123 @@ pub enum NoteStatus {
 /// for transactions.
 #[derive(Clone, Debug, PartialEq)]
 pub struct InputNoteRecord {
-    note: Note,
+    id: NoteId,
+    recipient: Digest,
+    assets: NoteAssets,
+    status: NoteStatus,
+    metadata: Option<NoteMetadata>,
     inclusion_proof: Option<NoteInclusionProof>,
+    details: NoteRecordDetails,
 }
 
 impl InputNoteRecord {
-    pub fn new(note: Note, inclusion_proof: Option<NoteInclusionProof>) -> InputNoteRecord {
+    pub fn new(
+        id: NoteId,
+        recipient: Digest,
+        assets: NoteAssets,
+        status: NoteStatus,
+        metadata: Option<NoteMetadata>,
+        inclusion_proof: Option<NoteInclusionProof>,
+        details: NoteRecordDetails,
+    ) -> InputNoteRecord {
         InputNoteRecord {
-            note,
+            id,
+            recipient,
+            assets,
+            status,
+            metadata,
             inclusion_proof,
+            details,
         }
     }
-    pub fn note(&self) -> &Note {
-        &self.note
+
+    pub fn id(&self) -> NoteId {
+        self.id
     }
 
-    pub fn note_id(&self) -> NoteId {
-        self.note.id()
+    pub fn recipient(&self) -> Digest {
+        self.recipient
+    }
+
+    pub fn assets(&self) -> &NoteAssets {
+        &self.assets
+    }
+
+    pub fn status(&self) -> NoteStatus {
+        self.status
+    }
+
+    pub fn metadata(&self) -> Option<&NoteMetadata> {
+        self.metadata.as_ref()
+    }
+
+    pub fn nullifier(&self) -> &str {
+        &self.details.nullifier
     }
 
     pub fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
         self.inclusion_proof.as_ref()
     }
+
+    pub fn details(&self) -> &NoteRecordDetails {
+        &self.details
+    }
+
+    pub fn note(&self) -> Option<&Note> {
+        // TODO: add logic to return Some(note) if we have enough info to build one
+        None
+    }
 }
 
 impl Serializable for InputNoteRecord {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
-        self.note().write_into(target);
-        self.inclusion_proof.write_into(target);
+        self.id().write_into(target);
+        self.recipient().write_into(target);
+        self.assets().write_into(target);
+        self.status().write_into(target);
+        self.metadata().write_into(target);
+        self.details().write_into(target);
+        self.inclusion_proof().write_into(target);
     }
 }
 
 impl Deserializable for InputNoteRecord {
-    fn read_from<R: ByteReader>(
-        source: &mut R,
-    ) -> std::prelude::v1::Result<Self, DeserializationError> {
-        let note = Note::read_from(source)?;
-        let proof = Option::<NoteInclusionProof>::read_from(source)?;
-        Ok(InputNoteRecord::new(note, proof))
+    fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
+        let id = NoteId::read_from(source)?;
+        let recipient = Digest::read_from(source)?;
+        let assets = NoteAssets::read_from(source)?;
+        let status = NoteStatus::read_from(source)?;
+        let metadata = Option::<NoteMetadata>::read_from(source)?;
+        let details = NoteRecordDetails::read_from(source)?;
+        let inclusion_proof = Option::<NoteInclusionProof>::read_from(source)?;
+
+        Ok(InputNoteRecord {
+            id,
+            recipient,
+            assets,
+            status,
+            metadata,
+            inclusion_proof,
+            details,
+        })
     }
 }
 
 impl From<Note> for InputNoteRecord {
     fn from(note: Note) -> Self {
         InputNoteRecord {
-            note,
+            id: note.id(),
+            recipient: note.recipient(),
+            assets: note.assets().clone(),
+            status: NoteStatus::Pending,
+            metadata: Some(*note.metadata()),
             inclusion_proof: None,
+            details: NoteRecordDetails {
+                nullifier: note.nullifier().to_string(),
+                script: note.script().to_bytes(),
+                inputs: note.inputs().to_bytes(),
+                serial_num: note.serial_num(),
+            },
         }
     }
 }
@@ -336,7 +443,17 @@ impl From<Note> for InputNoteRecord {
 impl From<InputNote> for InputNoteRecord {
     fn from(recorded_note: InputNote) -> Self {
         InputNoteRecord {
-            note: recorded_note.note().clone(),
+            id: recorded_note.note().id(),
+            recipient: recorded_note.note().recipient(),
+            assets: recorded_note.note().assets().clone(),
+            status: NoteStatus::Pending,
+            metadata: Some(*recorded_note.note().metadata()),
+            details: NoteRecordDetails {
+                nullifier: recorded_note.note().nullifier().to_string(),
+                script: recorded_note.note().script().to_bytes(),
+                inputs: recorded_note.note().inputs().to_bytes(),
+                serial_num: recorded_note.note().serial_num(),
+            },
             inclusion_proof: Some(recorded_note.proof().clone()),
         }
     }
@@ -346,11 +463,32 @@ impl TryInto<InputNote> for InputNoteRecord {
     type Error = ClientError;
 
     fn try_into(self) -> Result<InputNote, Self::Error> {
-        match self.inclusion_proof() {
-            Some(proof) => Ok(InputNote::new(self.note().clone(), proof.clone())),
-            None => Err(ClientError::NoteError(
+        match (self.inclusion_proof, self.metadata) {
+            (Some(proof), Some(metadata)) => {
+                let script = NoteScript::read_from_bytes(&self.details.script).map_err(|err| {
+                    ClientError::NoteError(NoteError::NoteDeserializationError(err))
+                })?;
+                let inputs = NoteInputs::read_from_bytes(&self.details.inputs).map_err(|err| {
+                    ClientError::NoteError(NoteError::NoteDeserializationError(err))
+                })?;
+                let note = Note::from_parts(
+                    script,
+                    inputs,
+                    self.assets,
+                    self.details.serial_num,
+                    metadata,
+                );
+                Ok(InputNote::new(note, proof.clone()))
+            }
+            (None, _) => Err(ClientError::NoteError(
                 objects::NoteError::invalid_origin_index(
                     "Input Note Record contains no proof".to_string(),
+                ),
+            )),
+            (_, None) => Err(ClientError::NoteError(
+                // TODO: use better error?
+                objects::NoteError::invalid_origin_index(
+                    "Input Note Record contains no metadata".to_string(),
                 ),
             )),
         }
@@ -455,7 +593,7 @@ pub struct NoteRecordDetails {
 }
 
 impl NoteRecordDetails {
-    fn new(nullifier: String, script: Vec<u8>, inputs: Vec<u8>, serial_num: Word) -> Self {
+    pub fn new(nullifier: String, script: Vec<u8>, inputs: Vec<u8>, serial_num: Word) -> Self {
         Self {
             nullifier,
             script,
@@ -464,16 +602,53 @@ impl NoteRecordDetails {
         }
     }
 
-    fn script(&self) -> &Vec<u8> {
+    pub fn script(&self) -> &Vec<u8> {
         &self.script
     }
 
-    fn inputs(&self) -> &Vec<u8> {
+    pub fn inputs(&self) -> &Vec<u8> {
         &self.inputs
     }
 
-    fn serial_num(&self) -> &Word {
-        &self.serial_num
+    pub fn serial_num(&self) -> Word {
+        self.serial_num
+    }
+}
+
+impl Serializable for NoteRecordDetails {
+    fn write_into<W: ByteWriter>(&self, target: &mut W) {
+        let nullifier_bytes = self.nullifier.as_bytes();
+        target.write_usize(nullifier_bytes.len());
+        target.write_bytes(nullifier_bytes);
+
+        target.write_usize(self.script().len());
+        target.write_bytes(self.script());
+
+        target.write_usize(self.inputs().len());
+        target.write_bytes(self.inputs());
+
+        self.serial_num().write_into(target);
+    }
+}
+
+impl Deserializable for NoteRecordDetails {
+    fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
+        let nullifier_len = usize::read_from(source)?;
+        let nullifier_bytes = source.read_vec(nullifier_len)?;
+        let nullifier =
+            String::from_utf8(nullifier_bytes).expect("Nullifier String bytes should be readable.");
+
+        let script_len = usize::read_from(source)?;
+        let script = source.read_vec(script_len)?;
+
+        let inputs_len = usize::read_from(source)?;
+        let inputs = source.read_vec(inputs_len)?;
+
+        let serial_num = Word::read_from(source)?;
+
+        Ok(NoteRecordDetails::new(
+            nullifier, script, inputs, serial_num,
+        ))
     }
 }
 

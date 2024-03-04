@@ -176,7 +176,7 @@ async fn main() {
     assert!(!notes.is_empty());
 
     let tx_template =
-        TransactionTemplate::ConsumeNotes(first_regular_account_id, vec![notes[0].note_id()]);
+        TransactionTemplate::ConsumeNotes(first_regular_account_id, vec![notes[0].id()]);
     println!("Consuming Note...");
     execute_tx_and_sync(&mut client, tx_template).await;
 
@@ -208,7 +208,7 @@ async fn main() {
 
     // Consume P2ID note
     let tx_template =
-        TransactionTemplate::ConsumeNotes(second_regular_account_id, vec![notes[0].note_id()]);
+        TransactionTemplate::ConsumeNotes(second_regular_account_id, vec![notes[0].id()]);
     println!("Consuming Note...");
     execute_tx_and_sync(&mut client, tx_template).await;
 
@@ -235,7 +235,7 @@ async fn main() {
 
     // Check that we can't consume the P2ID note again
     let tx_template =
-        TransactionTemplate::ConsumeNotes(second_regular_account_id, vec![notes[0].note_id()]);
+        TransactionTemplate::ConsumeNotes(second_regular_account_id, vec![notes[0].id()]);
     println!("Consuming Note...");
 
     match client.new_transaction(tx_template) {
@@ -244,10 +244,10 @@ async fn main() {
             TransactionExecutorError::FetchTransactionInputsFailed(DataStoreError::InternalError(
                 error,
             )),
-        )) if error.contains(&notes[0].note_id().to_hex()) => {}
+        )) if error.contains(&notes[0].id().to_hex()) => {}
         _ => panic!(
             "UNEXPECTED ERROR, SHOULD BE A DOUBLE SPEND ERROR FOR NOTE {}",
-            notes[0].note_id().to_hex()
+            notes[0].id().to_hex()
         ),
     }
 

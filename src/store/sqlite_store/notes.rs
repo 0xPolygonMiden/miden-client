@@ -9,9 +9,7 @@ use clap::error::Result;
 
 use crypto::utils::{Deserializable, Serializable};
 
-use objects::notes::{
-    Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata, NoteScript, Nullifier,
-};
+use objects::notes::{NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, Nullifier};
 
 use objects::Digest;
 use rusqlite::{named_params, params, Transaction};
@@ -31,12 +29,28 @@ type SerializedInputNoteData = (
     Vec<u8>,
     String,
     String,
+    Option<String>,
+    String,
+    Option<String>,
+);
+type SerializedOutputNoteData = (
+    String,
+    Vec<u8>,
+    String,
+    String,
     String,
     Option<String>,
     Option<String>,
 );
 
-type SerializedInputNoteParts = (Vec<u8>, String, String, Option<String>);
+type SerializedInputNoteParts = (
+    Vec<u8>,
+    String,
+    String,
+    String,
+    Option<String>,
+    Option<String>,
+);
 type SerializedOutputNoteParts = (
     Vec<u8>,
     Option<String>,
@@ -70,32 +84,16 @@ impl fmt::Display for NoteTable {
 impl NoteFilter {
     /// Returns a [String] containing the query for this Filter
     fn to_query(&self, notes_table: NoteTable) -> String {
-        // TODO: go back to single query (now I need this bc I made the change for output notes
-        // only)
-        let base = match notes_table {
-            NoteTable::InputNotes => {
-                format!(
-                    "SELECT 
-                                assets, 
-                                details, 
-                                metadata,
-                                inclusion_proof
-                                from {notes_table}"
-                )
-            }
-            _ => {
-                format!(
-                    "SELECT 
-                                assets, 
-                                details, 
-                                recipient,
-                                status,
-                                metadata,
-                                inclusion_proof
-                                from {notes_table}"
-                )
-            }
-        };
+        let base = format!(
+            "SELECT 
+                        assets, 
+                        details, 
+                        recipient,
+                        status,
+                        metadata,
+                        inclusion_proof
+                        from {notes_table}"
+        );
 
         match self {
             NoteFilter::All => base,
@@ -239,31 +237,41 @@ fn parse_input_note_columns(
 ) -> Result<SerializedInputNoteParts, rusqlite::Error> {
     let assets: Vec<u8> = row.get(0)?;
     let details: String = row.get(1)?;
-    let metadata: String = row.get(2)?;
-    let inclusion_proof: Option<String> = row.get(3)?;
+    let recipient: String = row.get(2)?;
+    let status: String = row.get(3)?;
+    let metadata: Option<String> = row.get(4)?;
+    let inclusion_proof: Option<String> = row.get(5)?;
 
-    Ok((assets, details, metadata, inclusion_proof))
+    Ok((
+        assets,
+        details,
+        recipient,
+        status,
+        metadata,
+        inclusion_proof,
+    ))
 }
 
 /// Parse a note from the provided parts.
 fn parse_input_note(
     serialized_input_note_parts: SerializedInputNoteParts,
 ) -> Result<InputNoteRecord, StoreError> {
-    let (note_assets, note_details, note_metadata, note_inclusion_proof) =
+    let (note_assets, note_details, recipient, status, note_metadata, note_inclusion_proof) =
         serialized_input_note_parts;
 
     let note_details: NoteRecordDetails =
         serde_json::from_str(&note_details).map_err(StoreError::JsonDataDeserializationError)?;
-    let note_metadata: NoteMetadata =
-        serde_json::from_str(&note_metadata).map_err(StoreError::JsonDataDeserializationError)?;
 
-    let script = NoteScript::read_from_bytes(note_details.script())?;
-    let inputs = NoteInputs::read_from_bytes(note_details.inputs())?;
+    let note_metadata: Option<NoteMetadata> = if let Some(metadata_as_json_str) = note_metadata {
+        Some(
+            serde_json::from_str(&metadata_as_json_str)
+                .map_err(StoreError::JsonDataDeserializationError)?,
+        )
+    } else {
+        None
+    };
 
-    let serial_num = note_details.serial_num();
-    let note_metadata = NoteMetadata::new(note_metadata.sender(), note_metadata.tag());
     let note_assets = NoteAssets::read_from_bytes(&note_assets)?;
-    let note = Note::from_parts(script, inputs, note_assets, *serial_num, note_metadata);
 
     let inclusion_proof = match note_inclusion_proof {
         Some(note_inclusion_proof) => {
@@ -276,15 +284,28 @@ fn parse_input_note(
         _ => None,
     };
 
-    Ok(InputNoteRecord::new(note, inclusion_proof))
+    let recipient = Digest::try_from(recipient)?;
+    let id = NoteId::new(recipient, note_assets.commitment());
+    let status: NoteStatus =
+        serde_json::from_str(&status).map_err(StoreError::JsonDataDeserializationError)?;
+
+    Ok(InputNoteRecord::new(
+        id,
+        recipient,
+        note_assets,
+        status,
+        note_metadata,
+        inclusion_proof,
+        note_details,
+    ))
 }
 
 /// Serialize the provided input note into database compatible types.
 pub(crate) fn serialize_input_note(
     note: &InputNoteRecord,
 ) -> Result<SerializedInputNoteData, StoreError> {
-    let note_id = note.note_id().inner().to_string();
-    let note_assets = note.note().assets().to_bytes();
+    let note_id = note.id().inner().to_string();
+    let note_assets = note.assets().to_bytes();
     let (inclusion_proof, status) = match note.inclusion_proof() {
         Some(proof) => {
             // FIXME: This removal is to accomodate a problem with how the node constructs paths where
@@ -313,21 +334,16 @@ pub(crate) fn serialize_input_note(
         }
         None => (None, String::from("pending")),
     };
-    let recipient = note.note().recipient().to_hex();
+    let recipient = note.recipient().to_hex();
 
-    let sender_id = note.note().metadata().sender();
-    let tag = note.note().metadata().tag();
-    let metadata = serde_json::to_string(&NoteMetadata::new(sender_id, tag))
-        .map_err(StoreError::InputSerializationError)?;
+    let metadata = if let Some(metadata) = note.metadata() {
+        Some(serde_json::to_string(metadata).map_err(StoreError::InputSerializationError)?)
+    } else {
+        None
+    };
 
-    let nullifier = note.note().nullifier().inner().to_string();
-    let script = note.note().script().to_bytes();
-    let inputs = note.note().inputs().to_bytes();
-    let serial_num = note.note().serial_num();
-    let details = serde_json::to_string(&NoteRecordDetails::new(
-        nullifier, script, inputs, serial_num,
-    ))
-    .map_err(StoreError::InputSerializationError)?;
+    let details =
+        serde_json::to_string(&note.details()).map_err(StoreError::InputSerializationError)?;
 
     Ok((
         note_id,
@@ -335,7 +351,7 @@ pub(crate) fn serialize_input_note(
         recipient,
         status,
         metadata,
-        Some(details),
+        details,
         inclusion_proof,
     ))
 }
@@ -412,7 +428,7 @@ fn parse_output_note(
 /// Serialize the provided output note into database compatible types.
 pub(crate) fn serialize_output_note(
     note: &OutputNoteRecord,
-) -> Result<SerializedInputNoteData, StoreError> {
+) -> Result<SerializedOutputNoteData, StoreError> {
     let note_id = note.id().inner().to_string();
     let note_assets = note.assets().to_bytes();
     let (inclusion_proof, status) = match note.inclusion_proof() {

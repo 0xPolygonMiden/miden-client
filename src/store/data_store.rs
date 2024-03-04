@@ -39,7 +39,7 @@ impl DataStore for SqliteDataStore {
             .store
             .get_input_notes(NoteFilter::Committed)?
             .iter()
-            .map(|note_record| note_record.note_id())
+            .map(|note_record| note_record.id())
             .collect::<Vec<_>>();
 
         for note_id in notes {

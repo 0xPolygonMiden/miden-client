@@ -212,7 +212,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
             .store
             .get_input_notes(NoteFilter::Pending)?
             .iter()
-            .map(|n| n.note().id())
+            .map(|n| n.id())
             .collect();
 
         let pending_output_notes: Vec<NoteId> = self
