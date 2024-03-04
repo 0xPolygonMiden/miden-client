@@ -17,20 +17,26 @@ use super::{get_note_with_id_prefix, Client, Parser};
 #[derive(Clone, Debug, Parser)]
 #[clap()]
 pub enum TransactionType {
+    /// Create a Pay To ID transaction.
     P2ID {
         sender_account_id: String,
         target_account_id: String,
         faucet_id: String,
         amount: u64,
     },
+    /// Mint `amount` assets from the faucet corresponding to `faucet_id` to be received by
+    /// `target_account_id`.
     Mint {
         target_account_id: String,
         faucet_id: String,
         amount: u64,
     },
+    /// Create a Pay To ID with Recall transaction.
     P2IDR,
+    /// Consume with the account corresponding to `account_id` all of the notes from `list_of_notes`.
     ConsumeNotes {
         account_id: String,
+        /// A list of note IDs or the hex prefixes of their corresponding IDs
         list_of_notes: Vec<String>,
     },
 }
@@ -66,7 +72,7 @@ impl Transaction {
     }
 }
 
-// LIST TRANSACTIONS
+// NEW TRANSACTION
 // ================================================================================================
 async fn new_transaction<N: NodeRpcClient, D: DataStore>(
     client: &mut Client<N, D>,
@@ -86,6 +92,10 @@ async fn new_transaction<N: NodeRpcClient, D: DataStore>(
     Ok(())
 }
 
+/// Builds a [TransactionTemplate] based on the transaction type provided via cli args
+///
+/// For [TransactionTemplate::ConsumeNotes], it'll try to find the corresponding notes by using the
+/// provided IDs as prefixes
 fn build_transaction_template<N: NodeRpcClient, D: DataStore>(
     client: &Client<N, D>,
     transaction_type: &TransactionType,

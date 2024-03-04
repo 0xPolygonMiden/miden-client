@@ -161,7 +161,10 @@ impl fmt::Display for NoteIdPrefixFetchError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             NoteIdPrefixFetchError::NoMatch(note_id, err) => {
-                write!(f, "couldn't find note with id {note_id}: {err}")
+                write!(
+                    f,
+                    "No matches were found with the input prefix {note_id}: {err}"
+                )
             }
             NoteIdPrefixFetchError::MultipleMatches(note_id, matches) => {
                 let matches = matches
@@ -172,7 +175,7 @@ impl fmt::Display for NoteIdPrefixFetchError {
 
                 write!(
                     f,
-                    "found more than one note for the provided ID {note_id} : {matches}"
+                    "found more than one note for the provided ID {note_id} and only one match is expected. All matching IDs: {matches}"
                 )
             }
         }
