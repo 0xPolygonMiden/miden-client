@@ -11,7 +11,7 @@ use miden_client::{
     client::{rpc::NodeRpcClient, Client},
     config::ClientConfig,
     errors::ClientError,
-    store::notes::{InputNoteRecord, NoteFilter as ClientNoteFilter},
+    store::{InputNoteRecord, NoteFilter as ClientNoteFilter},
 };
 
 #[cfg(feature = "mock")]
