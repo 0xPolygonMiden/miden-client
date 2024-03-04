@@ -73,12 +73,12 @@ impl SqliteStore {
         // Update spent notes
         for nullifier in nullifiers.iter() {
             const SPENT_INPUT_NOTE_QUERY: &str =
-                "UPDATE input_notes SET status = 'consumed' WHERE json_extract(details, '$.nullifier') = ?";
+                "UPDATE input_notes SET status = '\"Consumed\"' WHERE json_extract(details, '$.nullifier') = ?";
             let nullifier = nullifier.to_hex();
             tx.execute(SPENT_INPUT_NOTE_QUERY, params![nullifier])?;
 
             const SPENT_OUTPUT_NOTE_QUERY: &str =
-                "UPDATE output_notes SET status = 'consumed' WHERE json_extract(details, '$.nullifier') = ?";
+                "UPDATE output_notes SET status = '\"Consumed\"' WHERE json_extract(details, '$.nullifier') = ?";
             tx.execute(SPENT_OUTPUT_NOTE_QUERY, params![nullifier])?;
         }
 
@@ -107,25 +107,25 @@ impl SqliteStore {
             .map_err(StoreError::InputSerializationError)?;
 
             const COMMITTED_INPUT_NOTES_QUERY: &str =
-                "UPDATE input_notes SET status = 'committed', inclusion_proof = json(:inclusion_proof) WHERE note_id = :note_id";
+                "UPDATE input_notes SET status = '\"Committed\"', inclusion_proof = json(:inclusion_proof) WHERE note_id = :note_id";
 
             tx.execute(
                 COMMITTED_INPUT_NOTES_QUERY,
                 named_params! {
                     ":inclusion_proof": inclusion_proof,
-                    ":note_id": note_id.inner().to_hex()
+                    ":note_id": note_id.inner().to_hex(),
                 },
             )?;
 
             // Update output notes
             const COMMITTED_OUTPUT_NOTES_QUERY: &str =
-                "UPDATE output_notes SET status = 'committed', inclusion_proof = json(:inclusion_proof) WHERE note_id = :note_id";
+                "UPDATE output_notes SET status = '\"Committed\"', inclusion_proof = json(:inclusion_proof) WHERE note_id = :note_id";
 
             tx.execute(
                 COMMITTED_OUTPUT_NOTES_QUERY,
                 named_params! {
                     ":inclusion_proof": inclusion_proof,
-                    ":note_id": note_id.inner().to_hex()
+                    ":note_id": note_id.inner().to_hex(),
                 },
             )?;
         }

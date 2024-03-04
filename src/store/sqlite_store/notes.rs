@@ -97,9 +97,9 @@ impl NoteFilter {
 
         match self {
             NoteFilter::All => base,
-            NoteFilter::Committed => format!("{base} WHERE status = 'committed'"),
-            NoteFilter::Consumed => format!("{base} WHERE status = 'consumed'"),
-            NoteFilter::Pending => format!("{base} WHERE status = 'pending'"),
+            NoteFilter::Committed => format!("{base} WHERE status = '\"Committed\"'"),
+            NoteFilter::Consumed => format!("{base} WHERE status = '\"Consumed\"'"),
+            NoteFilter::Pending => format!("{base} WHERE status = '\"Pending\"'"),
         }
     }
 }
@@ -138,7 +138,9 @@ impl SqliteStore {
 
         const QUERY: &str = "SELECT 
                                     assets, 
-                                    details,
+                                    details, 
+                                    recipient,
+                                    status,
                                     metadata,
                                     inclusion_proof
                                     from input_notes WHERE note_id = ?";
@@ -161,7 +163,7 @@ impl SqliteStore {
 
     /// Returns the nullifiers of all unspent input notes
     pub fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
-        const QUERY: &str = "SELECT json_extract(details, '$.nullifier') FROM input_notes WHERE status = 'committed'";
+        const QUERY: &str = "SELECT json_extract(details, '$.nullifier') FROM input_notes WHERE status = '\"Committed\"'";
 
         self.db
             .prepare(QUERY)?
@@ -259,14 +261,13 @@ fn parse_input_note(
     let (note_assets, note_details, recipient, status, note_metadata, note_inclusion_proof) =
         serialized_input_note_parts;
 
-    let note_details: NoteRecordDetails =
-        serde_json::from_str(&note_details).map_err(StoreError::JsonDataDeserializationError)?;
+    let note_details: NoteRecordDetails = dbg!(
+        serde_json::from_str(&note_details).map_err(StoreError::JsonDataDeserializationError)
+    )?;
 
     let note_metadata: Option<NoteMetadata> = if let Some(metadata_as_json_str) = note_metadata {
-        Some(
-            serde_json::from_str(&metadata_as_json_str)
-                .map_err(StoreError::JsonDataDeserializationError)?,
-        )
+        Some(dbg!(serde_json::from_str(&metadata_as_json_str)
+            .map_err(StoreError::JsonDataDeserializationError))?)
     } else {
         None
     };
@@ -276,8 +277,8 @@ fn parse_input_note(
     let inclusion_proof = match note_inclusion_proof {
         Some(note_inclusion_proof) => {
             let note_inclusion_proof: NoteInclusionProof =
-                serde_json::from_str(&note_inclusion_proof)
-                    .map_err(StoreError::JsonDataDeserializationError)?;
+                dbg!(serde_json::from_str(&note_inclusion_proof)
+                    .map_err(StoreError::JsonDataDeserializationError))?;
 
             Some(note_inclusion_proof)
         }
@@ -287,7 +288,7 @@ fn parse_input_note(
     let recipient = Digest::try_from(recipient)?;
     let id = NoteId::new(recipient, note_assets.commitment());
     let status: NoteStatus =
-        serde_json::from_str(&status).map_err(StoreError::JsonDataDeserializationError)?;
+        dbg!(serde_json::from_str(&status).map_err(StoreError::JsonDataDeserializationError))?;
 
     Ok(InputNoteRecord::new(
         id,
@@ -330,9 +331,17 @@ pub(crate) fn serialize_input_note(
             )?)
             .map_err(StoreError::InputSerializationError)?;
 
-            (Some(inclusion_proof), String::from("committed"))
+            let status = serde_json::to_string(&NoteStatus::Committed)
+                .map_err(StoreError::InputSerializationError)?;
+
+            (Some(inclusion_proof), status)
         }
-        None => (None, String::from("pending")),
+        None => {
+            let status = serde_json::to_string(&NoteStatus::Pending)
+                .map_err(StoreError::InputSerializationError)?;
+
+            (None, status)
+        }
     };
     let recipient = note.recipient().to_hex();
 
