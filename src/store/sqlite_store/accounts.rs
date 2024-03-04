@@ -119,8 +119,6 @@ impl SqliteStore {
             account_stub.nonce(),
         );
 
-        println!("account seed {:?}", seed);
-
         Ok((account, seed))
     }
 
