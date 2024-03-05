@@ -26,6 +26,12 @@ pub mod mock_executor_data_store;
 // STORE TRAIT
 // ================================================================================================
 
+/// The [Store] trait exposes all methods that the client store needs in order to track the current
+/// state. 
+/// 
+/// All updates are implied to be atomic. That is, if multiple entities are meant to be updated as
+/// part of any single function and an error is returned during its execution, any changes that
+/// might have happened up to that point need to be discarded
 pub trait Store {
     // TRANSACTIONS
     // --------------------------------------------------------------------------------------------
@@ -36,7 +42,13 @@ pub trait Store {
         filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, StoreError>;
 
-    /// Inserts a transaction and updates the current state based on the `tx_result` changes
+    /// Applies a transaction, atomically updating the current state based on the
+    /// [TransactionResult]
+    ///
+    /// An update involves:
+    /// - Applying the resulting [AccountDelta] and storing the new [Account] state
+    /// - Storing new notes as a result of the transaction execution
+    /// - Inserting the transaction into the store to track 
     fn apply_transaction(&mut self, tx_result: TransactionResult) -> Result<(), StoreError>;
 
     // NOTES
@@ -335,7 +347,7 @@ impl TryInto<InputNote> for InputNoteRecord {
         match self.inclusion_proof() {
             Some(proof) => Ok(InputNote::new(self.note().clone(), proof.clone())),
             None => Err(ClientError::NoteError(
-                objects::NoteError::invalid_origin_index(
+                miden_objects::NoteError::invalid_origin_index(
                     "Input Note Record contains no inclusion proof".to_string(),
                 ),
             )),
