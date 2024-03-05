@@ -352,6 +352,7 @@ impl From<ParseError> for NodeRpcClientError {
 // ================================================================================================
 
 /// Error when Looking for a specific note ID from a partial ID
+#[derive(Debug, Eq, PartialEq)]
 pub enum NoteIdPrefixFetchError {
     NoMatch(String),
     MultipleMatches(String),

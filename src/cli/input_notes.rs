@@ -280,11 +280,15 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::cli::input_notes::{export_note, import_note};
+    use crate::cli::{
+        get_note_with_id_prefix,
+        input_notes::{export_note, import_note},
+    };
 
     use miden_client::{
         client::Client,
         config::{ClientConfig, Endpoint},
+        errors::NoteIdPrefixFetchError,
         mock::{MockDataStore, MockRpcApi},
         store::InputNoteRecord,
     };
@@ -384,6 +388,69 @@ mod tests {
         assert_eq!(
             imported_pending_note_record.note().id(),
             pending_note.note().id()
+        );
+    }
+
+    #[tokio::test]
+    async fn get_input_note_with_prefix() {
+        // generate test client
+        let mut path = temp_dir();
+        path.push(Uuid::new_v4().to_string());
+        let mut client = Client::<MockRpcApi, MockDataStore>::new(
+            ClientConfig::new(
+                path.into_os_string()
+                    .into_string()
+                    .unwrap()
+                    .try_into()
+                    .unwrap(),
+                Endpoint::default().into(),
+            ),
+            MockRpcApi::new(&Endpoint::default().to_string()),
+            MockDataStore::new(),
+        )
+        .unwrap();
+
+        // Ensure we get an error if no note is found
+        let non_existent_note_id = "0x123456";
+        assert_eq!(
+            get_note_with_id_prefix(&client, non_existent_note_id),
+            Err(NoteIdPrefixFetchError::NoMatch(
+                non_existent_note_id.to_string()
+            ))
+        );
+
+        // generate test data
+        let transaction_inputs = mock_inputs(
+            MockAccountType::StandardExisting,
+            AssetPreservationStatus::Preserved,
+        );
+
+        let committed_note: InputNoteRecord =
+            transaction_inputs.input_notes().get_note(0).clone().into();
+        let pending_note = InputNoteRecord::new(
+            transaction_inputs.input_notes().get_note(1).note().clone(),
+            None,
+        );
+
+        client.import_input_note(committed_note.clone()).unwrap();
+        client.import_input_note(pending_note.clone()).unwrap();
+        assert!(pending_note.inclusion_proof().is_none());
+        assert!(committed_note.inclusion_proof().is_some());
+
+        // Check that we can fetch Both notes
+        let note = get_note_with_id_prefix(&client, &committed_note.note_id().to_hex()).unwrap();
+        assert_eq!(note.note_id(), committed_note.note_id());
+
+        let note = get_note_with_id_prefix(&client, &pending_note.note_id().to_hex()).unwrap();
+        assert_eq!(note.note_id(), pending_note.note_id());
+
+        // Check that we get an error if many match
+        let note_id_with_many_matches = "0x";
+        assert_eq!(
+            get_note_with_id_prefix(&client, note_id_with_many_matches),
+            Err(NoteIdPrefixFetchError::MultipleMatches(
+                note_id_with_many_matches.to_string()
+            ))
         );
     }
 }

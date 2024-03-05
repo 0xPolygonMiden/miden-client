@@ -161,7 +161,7 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
 /// `note_id_prefix` is a prefix of its id.
 /// - Returns [NoteIdPrefixFetchError::MultipleMatches] if there were more than one note found
 /// where `note_id_prefix` is a prefix of its id.
-pub fn get_note_with_id_prefix<N: NodeRpcClient, D: DataStore>(
+pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, D: DataStore>(
     client: &Client<N, D>,
     note_id_prefix: &str,
 ) -> Result<InputNoteRecord, NoteIdPrefixFetchError> {
