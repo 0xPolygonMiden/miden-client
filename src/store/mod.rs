@@ -27,8 +27,8 @@ pub mod mock_executor_data_store;
 // ================================================================================================
 
 /// The [Store] trait exposes all methods that the client store needs in order to track the current
-/// state. 
-/// 
+/// state.
+///
 /// All updates are implied to be atomic. That is, if multiple entities are meant to be updated as
 /// part of any single function and an error is returned during its execution, any changes that
 /// might have happened up to that point need to be discarded
@@ -48,7 +48,7 @@ pub trait Store {
     /// An update involves:
     /// - Applying the resulting [AccountDelta] and storing the new [Account] state
     /// - Storing new notes as a result of the transaction execution
-    /// - Inserting the transaction into the store to track 
+    /// - Inserting the transaction into the store to track
     fn apply_transaction(&mut self, tx_result: TransactionResult) -> Result<(), StoreError>;
 
     // NOTES
