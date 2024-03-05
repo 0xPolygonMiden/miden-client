@@ -207,6 +207,12 @@ async fn main() {
     let notes = client.get_input_notes(NoteFilter::Committed).unwrap();
     assert!(!notes.is_empty());
 
+    // Check that the note filter for account IDs works correctly
+    let notes = client
+        .get_input_notes(NoteFilter::ConsumableBy(regular_account.id()))
+        .unwrap();
+    assert!(!notes.is_empty());
+
     // Consume P2ID note
     let tx_template =
         TransactionTemplate::ConsumeNotes(second_regular_account_id, vec![notes[0].note_id()]);
@@ -225,6 +231,12 @@ async fn main() {
     } else {
         panic!("ACCOUNT SHOULD HAVE A FUNGIBLE ASSET");
     }
+
+    // Check that the note filter for account IDs works correctly
+    let notes = client
+        .get_input_notes(NoteFilter::ConsumableBy(regular_account.id()))
+        .unwrap();
+    assert!(notes.is_empty());
 
     let (regular_account, _seed) = client.get_account(second_regular_account_id).unwrap();
     assert_eq!(regular_account.vault().assets().count(), 1);

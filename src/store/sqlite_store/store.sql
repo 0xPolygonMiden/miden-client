@@ -79,6 +79,7 @@ CREATE TABLE input_notes (
     sender_id UNSIGNED BIG INT NULL,                        -- the account ID of the sender. Known once the note is recorded on chain
     tag UNSIGNED BIG INT NULL,                              -- the note tag. Known once the note is recorded on-chain
     inclusion_proof BLOB NULL,                              -- the inclusion proof of the note against a block number. Known once the note is recorded on-chain
+    script_hash BLOB NOT NULL,                              -- the note script hash in order to facilitate searches
     status TEXT CHECK( status IN (                          -- the status of the note - either pending, committed or consumed
         'pending', 'committed', 'consumed'
         )),
@@ -97,6 +98,7 @@ CREATE TABLE output_notes (
     sender_id UNSIGNED BIG INT NOT NULL,                    -- the account ID of the sender
     tag UNSIGNED BIG INT NOT NULL,                          -- the note tag
     inclusion_proof BLOB NULL,                              -- the inclusion proof of the note against a block number
+    script_hash BLOB NULL,                                  -- the note script hash in order to facilitate searches
     status TEXT CHECK( status IN (                          -- the status of the note - either pending, committed or consumed
         'pending', 'committed', 'consumed'
         )),

@@ -394,4 +394,7 @@ pub enum NoteFilter {
     /// Return a list of pending [InputNoteRecord]. These represent notes for which the store
     /// does not have anchor data.
     Pending,
+    /// Return a list of committed P2ID and P2ID notes that can be consumed by a specific
+    /// [AccountId].
+    ConsumableBy(AccountId),
 }

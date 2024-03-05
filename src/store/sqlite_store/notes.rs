@@ -14,11 +14,16 @@ use objects::notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, N
 use objects::{accounts::AccountId, notes::NoteMetadata, Felt};
 use rusqlite::{params, Transaction};
 
+const P2ID_NOTE_SCRIPT_ROOT: &str =
+    "0x65c08aef0e3d11ce8a26662005a5272398e8810e5e13a903a993ee622d03675f";
+const P2IDR_NOTE_SCRIPT_ROOT: &str =
+    "0x03dd8f8fd57f015d821648292cee0ce42e16c4b80427c46b9cb874db44395f47";
+
 fn insert_note_query(table_name: NoteTable) -> String {
     format!("\
     INSERT INTO {table_name}
-        (note_id, nullifier, script, assets, inputs, serial_num, sender_id, tag, inclusion_proof, recipient, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        (note_id, nullifier, script, assets, inputs, serial_num, sender_id, tag, inclusion_proof, recipient, status, script_hash)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 }
 
 // TYPES
@@ -34,6 +39,7 @@ type SerializedInputNoteData = (
     i64,
     i64,
     Option<Vec<u8>>,
+    String,
     String,
     String,
 );
@@ -70,6 +76,23 @@ impl NoteFilter {
             NoteFilter::Committed => format!("{base} WHERE status = 'committed'"),
             NoteFilter::Consumed => format!("{base} WHERE status = 'consumed'"),
             NoteFilter::Pending => format!("{base} WHERE status = 'pending'"),
+            NoteFilter::ConsumableBy(_) => {
+                format!("{base} WHERE status = 'committed' AND (script_hash = '{P2ID_NOTE_SCRIPT_ROOT}' OR script_hash = '{P2IDR_NOTE_SCRIPT_ROOT}')")
+            }
+        }
+    }
+
+    /// Returns a list of parameters for each type of filter
+    fn query_params(&self) -> Vec<rusqlite::types::Value> {
+        match self {
+            NoteFilter::ConsumableBy(account_id) => {
+                let inputs = NoteInputs::new(vec![(*account_id).into()])
+                    .expect("Only one argument should not cause errors");
+                let inputs_param = inputs.to_bytes();
+                // vec![rusqlite::types::Value::Blob(inputs_param)]
+                vec![]
+            }
+            _ => vec![],
         }
     }
 }
@@ -84,7 +107,10 @@ impl SqliteStore {
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
         self.db
             .prepare(&filter.to_query(NoteTable::InputNotes))?
-            .query_map([], parse_input_note_columns)
+            .query_map(
+                rusqlite::params_from_iter(filter.query_params()),
+                parse_input_note_columns,
+            )
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_input_note))
             .collect::<Result<Vec<InputNoteRecord>, _>>()
@@ -97,7 +123,10 @@ impl SqliteStore {
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
         self.db
             .prepare(&filter.to_query(NoteTable::OutputNotes))?
-            .query_map([], parse_input_note_columns)
+            .query_map(
+                rusqlite::params_from_iter(filter.query_params()),
+                parse_input_note_columns,
+            )
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_input_note))
             .collect::<Result<Vec<InputNoteRecord>, _>>()
@@ -144,6 +173,7 @@ pub(super) fn insert_input_note_tx(
         inclusion_proof,
         recipient,
         status,
+        script_hash,
     ) = serialize_note(note)?;
 
     tx.execute(
@@ -160,6 +190,7 @@ pub(super) fn insert_input_note_tx(
             inclusion_proof,
             recipient,
             status,
+            script_hash
         ],
     )
     .map_err(|err| StoreError::QueryError(err.to_string()))
@@ -183,6 +214,7 @@ pub fn insert_output_note_tx(
         inclusion_proof,
         recipient,
         status,
+        script_hash,
     ) = serialize_note(note)?;
 
     tx.execute(
@@ -199,6 +231,7 @@ pub fn insert_output_note_tx(
             inclusion_proof,
             recipient,
             status,
+            script_hash
         ],
     )
     .map_err(|err| StoreError::QueryError(err.to_string()))
@@ -257,6 +290,7 @@ pub(crate) fn serialize_note(
 ) -> Result<SerializedInputNoteData, StoreError> {
     let note_id = note.note_id().inner().to_string();
     let nullifier = note.note().nullifier().inner().to_string();
+    let script_hash = note.note().script().hash();
     let script = note.note().script().to_bytes();
     let note_assets = note.note().assets().to_bytes();
     let inputs = note.note().inputs().to_bytes();
@@ -307,5 +341,56 @@ pub(crate) fn serialize_note(
         inclusion_proof,
         recipient,
         status,
+        script_hash.to_string(),
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use crypto::{rand::RpoRandomCoin, Felt};
+    use miden_lib::notes::{create_p2id_note, create_p2idr_note};
+    use mock::constants::{generate_account_seed, AccountSeedType};
+    use objects::{accounts::AccountId, assets::FungibleAsset};
+    use rand::Rng;
+
+    use crate::store::sqlite_store::notes::{P2IDR_NOTE_SCRIPT_ROOT, P2ID_NOTE_SCRIPT_ROOT};
+
+    // We need to make sure the script roots we use for filters are in line with the note scripts
+    // coming from Miden objects
+    #[test]
+    fn ensure_correct_script_roots() {
+        // create dummy data for the notes
+        let faucet_id: AccountId = 10347894387879516201u64.try_into().unwrap();
+        let (account_id, _) =
+            generate_account_seed(AccountSeedType::RegularAccountUpdatableCodeOnChain);
+
+        let rng = {
+            let mut rng = rand::thread_rng();
+            let coin_seed: [u64; 4] = rng.gen();
+            RpoRandomCoin::new(coin_seed.map(Felt::new))
+        };
+
+        // create dummy notes to compare note script roots
+        let p2id_note = create_p2id_note(
+            account_id,
+            account_id,
+            vec![FungibleAsset::new(faucet_id, 100u64).unwrap().into()],
+            rng,
+        )
+        .unwrap();
+        let p2idr_note = create_p2idr_note(
+            account_id,
+            account_id,
+            vec![FungibleAsset::new(faucet_id, 100u64).unwrap().into()],
+            10,
+            rng,
+        )
+        .unwrap();
+
+        assert_eq!(p2id_note.script().hash().to_string(), P2ID_NOTE_SCRIPT_ROOT);
+        assert_eq!(
+            p2idr_note.script().hash().to_string(),
+            P2IDR_NOTE_SCRIPT_ROOT
+        );
+    }
 }

@@ -1,25 +1,28 @@
 use super::{Client, Parser};
 use crate::cli::create_dynamic_table;
-use clap::ValueEnum;
+use clap::Subcommand;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use crypto::utils::{Deserializable, Serializable};
 use miden_client::{
     client::rpc::NodeRpcClient,
+    errors::ClientError,
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
 };
 use miden_tx::DataStore;
-use objects::{notes::NoteId, Digest};
+use objects::{accounts::AccountId, notes::NoteId, Digest};
 use std::{
     fs::File,
     io::{Read, Write},
     path::PathBuf,
 };
 
-#[derive(Clone, Debug, ValueEnum)]
+#[derive(Clone, Debug, Subcommand)]
+#[clap(about = "Define way in which to filter notes")]
 pub enum NoteFilter {
     Pending,
     Committed,
     Consumed,
+    ConsumableBy { account_id: String },
 }
 
 #[derive(Debug, Parser, Clone)]
@@ -29,7 +32,7 @@ pub enum InputNotes {
     #[clap(short_flag = 'l')]
     List {
         /// Filter the displayed note list
-        #[clap(short, long)]
+        #[clap(subcommand)]
         filter: Option<NoteFilter>,
     },
 
@@ -85,6 +88,11 @@ impl InputNotes {
                     Some(NoteFilter::Committed) => ClientNoteFilter::Committed,
                     Some(NoteFilter::Consumed) => ClientNoteFilter::Consumed,
                     Some(NoteFilter::Pending) => ClientNoteFilter::Pending,
+                    Some(NoteFilter::ConsumableBy { account_id }) => {
+                        let account_id =
+                            AccountId::from_hex(account_id).map_err(ClientError::AccountError)?;
+                        ClientNoteFilter::ConsumableBy(account_id)
+                    }
                     None => ClientNoteFilter::All,
                 };
 
