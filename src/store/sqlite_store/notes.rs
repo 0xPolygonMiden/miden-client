@@ -88,7 +88,7 @@ impl NoteFilter {
             NoteFilter::ConsumableBy(account_id) => {
                 let inputs = NoteInputs::new(vec![(*account_id).into()])
                     .expect("Only one argument should not cause errors");
-                let inputs_param = inputs.to_bytes();
+                let _inputs_param = inputs.to_bytes();
                 // vec![rusqlite::types::Value::Blob(inputs_param)]
                 vec![]
             }
