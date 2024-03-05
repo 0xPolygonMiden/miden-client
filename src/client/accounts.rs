@@ -2,7 +2,7 @@ use crypto::{dsa::rpo_falcon512::KeyPair, Felt, Word};
 use miden_lib::AuthScheme;
 use miden_tx::DataStore;
 use objects::{
-    accounts::{Account, AccountData, AccountDelta, AccountId, AccountStub, AccountType, AuthData},
+    accounts::{Account, AccountData, AccountId, AccountStub, AccountType, AuthData},
     assets::TokenSymbol,
 };
 use rand::{rngs::ThreadRng, Rng};
@@ -32,7 +32,7 @@ pub enum AccountStorageMode {
     OnChain,
 }
 
-impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
+impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 
@@ -197,24 +197,6 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
         self.store
             .insert_account(account, account_seed, auth_info)
             .map_err(ClientError::StoreError)
-    }
-
-    /// Applies an [AccountDelta] to the stored account
-    ///
-    /// # Errors
-    ///
-    /// This function can error if the account is not found or if there is a problem applying
-    /// the [AccountDelta] to the related [Account]
-    pub fn update_account(
-        &mut self,
-        account_id: AccountId,
-        account_delta: &AccountDelta,
-    ) -> Result<(), ClientError> {
-        let (mut account, _seed) = self.store.get_account(account_id)?;
-
-        account.apply_delta(account_delta)?;
-
-        Ok(self.store.update_account(account)?)
     }
 
     // ACCOUNT DATA RETRIEVAL
