@@ -48,12 +48,12 @@ pub trait Store {
     /// Retrieves the output notes from the store
     fn get_output_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError>;
 
-    /// Retrieves an [InputNoteRecord] for the input note corresponding to the specified id from
+    /// Retrieves an [InputNoteRecord] for the input note corresponding to the specified ID from
     /// the store.
     ///
     /// # Errors
     ///
-    /// Returns a [StoreError::InputNoteNotFound] if there is no Note with the provided id
+    /// Returns a [StoreError::InputNoteNotFound] if there is no Note with the provided ID
     fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError>;
 
     /// Returns the nullifiers of all unspent input notes
@@ -115,6 +115,8 @@ pub trait Store {
     ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError>;
 
     /// Returns peaks information from the blockchain by a specific block number.
+    ///
+    /// If there is no chain MMR info stored for the provided block returns an empty [MmrPeaks]
     fn get_chain_mmr_peaks_by_block_num(&self, block_num: u32) -> Result<MmrPeaks, StoreError>;
 
     /// Inserts a block header into the store, alongside peaks information at the block's height.
@@ -181,7 +183,13 @@ pub trait Store {
     ) -> Result<(), StoreError>;
 
     /// Update previously-existing account after a transaction execution
+    ///
     /// The account that is to be updated is identified by the Account ID
+    ///
+    /// # Errors
+    ///
+    /// Returns a `StoreError::AccountDataNotFound` if the provided account does not correspond to
+    /// one persisted by the store.
     fn update_account(&mut self, new_account_state: Account) -> Result<(), StoreError>;
 
     // SYNC
@@ -201,6 +209,8 @@ pub trait Store {
     /// - Inserting the new block header to the store alongside new MMR peaks information
     /// - Updating the notes, marking them as `committed` or `consumed` based on incoming
     ///   inclusion proofs and nullifiers
+    /// - Updating transactions in the store, marking as `committed` the ones provided with
+    /// `committed_transactions`
     /// - Storing new MMR authentication nodes
     fn apply_state_sync(
         &mut self,
