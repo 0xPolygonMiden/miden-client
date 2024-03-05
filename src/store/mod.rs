@@ -498,7 +498,12 @@ impl TryInto<InputNote> for InputNoteRecord {
 // OUTPUT NOTE RECORD
 // ================================================================================================
 
-/// TODO: Fill this with InputNoteRecord like documentation
+/// Represents a Note which was the result of executing some transaction of which the [Store] can
+/// keep track and retrieve.
+///
+/// An [OutputNoteRecord] contains all the information of a [Note] while it allows for not
+/// knowing the details (nullifier, script, inputs and serial number), in addition of (optionally)
+/// the [NoteInclusionProof] that identifies when the note was included in the chain.
 #[derive(Clone, Debug, PartialEq)]
 pub struct OutputNoteRecord {
     id: NoteId,
@@ -677,14 +682,14 @@ pub enum TransactionFilter {
 // ================================================================================================
 
 pub enum NoteFilter {
-    /// Return a list of all [InputNoteRecord].
+    /// Return a list of all notes ([InputNoteRecord] or [OutputNoteRecord]).
     All,
-    /// Filter by consumed [InputNoteRecord]. notes that have been used as inputs in transactions.
+    /// Filter by consumed notes ([InputNoteRecord] or [OutputNoteRecord]). notes that have been used as inputs in transactions.
     Consumed,
-    /// Return a list of committed [InputNoteRecord]. These represent notes that the blockchain
+    /// Return a list of committed notes ([InputNoteRecord] or [OutputNoteRecord]). These represent notes that the blockchain
     /// has included in a block, and for which we are storing anchor data.
     Committed,
-    /// Return a list of pending [InputNoteRecord]. These represent notes for which the store
+    /// Return a list of pending notes ([InputNoteRecord] or [OutputNoteRecord]). These represent notes for which the store
     /// does not have anchor data.
     Pending,
 }
