@@ -10,7 +10,6 @@ use figment::{
 use miden_client::{
     client::{rpc::NodeRpcClient, Client},
     config::ClientConfig,
-    errors::ClientError,
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter},
 };
 
@@ -155,29 +154,20 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
 }
 
 pub(crate) enum NoteIdPrefixFetchError {
-    NoMatch(String, ClientError),
-    MultipleMatches(String, Vec<InputNoteRecord>),
+    NoMatch(String),
+    MultipleMatches(String),
 }
 
 impl fmt::Display for NoteIdPrefixFetchError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NoteIdPrefixFetchError::NoMatch(note_id, err) => {
-                write!(
-                    f,
-                    "No matches were found with the input prefix {note_id}: {err}"
-                )
+            NoteIdPrefixFetchError::NoMatch(note_id) => {
+                write!(f, "No matches were found with the input prefix {note_id}.")
             }
-            NoteIdPrefixFetchError::MultipleMatches(note_id, matches) => {
-                let matches = matches
-                    .iter()
-                    .map(|note_record| note_record.note_id().to_hex())
-                    .collect::<Vec<_>>()
-                    .join(",");
-
+            NoteIdPrefixFetchError::MultipleMatches(note_id) => {
                 write!(
                     f,
-                    "found more than one note for the provided ID {note_id} and only one match is expected. All matching IDs: {matches}"
+                    "found more than one note for the provided ID {note_id} and only one match is expected."
                 )
             }
         }
@@ -198,15 +188,20 @@ pub fn get_note_with_id_prefix<N: NodeRpcClient, D: DataStore>(
 ) -> Result<InputNoteRecord, NoteIdPrefixFetchError> {
     let input_note_records = client
         .get_input_notes(ClientNoteFilter::All)
-        .map_err(|err| NoteIdPrefixFetchError::NoMatch(note_id_prefix.to_string(), err))?
+        .map_err(|err| {
+            tracing::error!("Error when fetching all notes from the store: {err}");
+            NoteIdPrefixFetchError::NoMatch(note_id_prefix.to_string())
+        })?
         .into_iter()
         .filter(|note_record| note_record.note_id().to_hex().starts_with(note_id_prefix))
         .collect::<Vec<_>>();
 
+    if input_note_records.is_empty() {
+        return Err(NoteIdPrefixFetchError::NoMatch(note_id_prefix.to_string()));
+    }
     if input_note_records.len() > 1 {
         return Err(NoteIdPrefixFetchError::MultipleMatches(
             note_id_prefix.to_string(),
-            input_note_records,
         ));
     }
 
