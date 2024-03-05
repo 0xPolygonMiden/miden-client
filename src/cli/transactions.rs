@@ -3,7 +3,7 @@ use miden_client::{
         rpc::NodeRpcClient,
         transactions::{PaymentTransactionData, TransactionRecord, TransactionTemplate},
     },
-    store::TransactionFilter,
+    store::{Store, TransactionFilter},
 };
 
 use miden_tx::DataStore;
@@ -57,9 +57,9 @@ pub enum Transaction {
 }
 
 impl Transaction {
-    pub async fn execute<N: NodeRpcClient, D: DataStore>(
+    pub async fn execute<N: NodeRpcClient, S: Store, D: DataStore>(
         &self,
-        mut client: Client<N, D>,
+        mut client: Client<N, S, D>,
     ) -> Result<(), String> {
         match self {
             Transaction::List => {
@@ -75,8 +75,8 @@ impl Transaction {
 
 // NEW TRANSACTION
 // ================================================================================================
-async fn new_transaction<N: NodeRpcClient, D: DataStore>(
-    client: &mut Client<N, D>,
+async fn new_transaction<N: NodeRpcClient, S: Store, D: DataStore>(
+    client: &mut Client<N, S, D>,
     transaction_type: &TransactionType,
 ) -> Result<(), String> {
     let transaction_template: TransactionTemplate =
@@ -97,8 +97,8 @@ async fn new_transaction<N: NodeRpcClient, D: DataStore>(
 ///
 /// For [TransactionTemplate::ConsumeNotes], it'll try to find the corresponding notes by using the
 /// provided IDs as prefixes
-fn build_transaction_template<N: NodeRpcClient, D: DataStore>(
-    client: &Client<N, D>,
+fn build_transaction_template<N: NodeRpcClient, S: Store, D: DataStore>(
+    client: &Client<N, S, D>,
     transaction_type: &TransactionType,
 ) -> Result<TransactionTemplate, String> {
     match transaction_type {
@@ -162,7 +162,9 @@ fn build_transaction_template<N: NodeRpcClient, D: DataStore>(
 
 // LIST TRANSACTIONS
 // ================================================================================================
-fn list_transactions<N: NodeRpcClient, D: DataStore>(client: Client<N, D>) -> Result<(), String> {
+fn list_transactions<N: NodeRpcClient, S: Store, D: DataStore>(
+    client: Client<N, S, D>,
+) -> Result<(), String> {
     let transactions = client.get_transactions(TransactionFilter::All)?;
     print_transactions_summary(&transactions);
     Ok(())
