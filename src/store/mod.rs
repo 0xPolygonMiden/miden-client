@@ -319,13 +319,13 @@ impl Deserializable for NoteStatus {
 /// for transactions.
 #[derive(Clone, Debug, PartialEq)]
 pub struct InputNoteRecord {
-    id: NoteId,
-    recipient: Digest,
     assets: NoteAssets,
-    status: NoteStatus,
-    metadata: Option<NoteMetadata>,
-    inclusion_proof: Option<NoteInclusionProof>,
     details: NoteRecordDetails,
+    id: NoteId,
+    inclusion_proof: Option<NoteInclusionProof>,
+    metadata: Option<NoteMetadata>,
+    recipient: Digest,
+    status: NoteStatus,
 }
 
 impl InputNoteRecord {
@@ -379,11 +379,6 @@ impl InputNoteRecord {
 
     pub fn details(&self) -> &NoteRecordDetails {
         &self.details
-    }
-
-    pub fn note(&self) -> Option<&Note> {
-        // TODO: add logic to return Some(note) if we have enough info to build one
-        None
     }
 }
 
@@ -480,13 +475,13 @@ impl TryInto<InputNote> for InputNoteRecord {
                 );
                 Ok(InputNote::new(note, proof.clone()))
             }
+            // TODO: should we use a better Error for these two?
             (None, _) => Err(ClientError::NoteError(
                 objects::NoteError::invalid_origin_index(
                     "Input Note Record contains no proof".to_string(),
                 ),
             )),
             (_, None) => Err(ClientError::NoteError(
-                // TODO: use better error?
                 objects::NoteError::invalid_origin_index(
                     "Input Note Record contains no metadata".to_string(),
                 ),
@@ -506,13 +501,13 @@ impl TryInto<InputNote> for InputNoteRecord {
 /// the [NoteInclusionProof] that identifies when the note was included in the chain.
 #[derive(Clone, Debug, PartialEq)]
 pub struct OutputNoteRecord {
-    id: NoteId,
-    recipient: Digest,
     assets: NoteAssets,
-    status: NoteStatus,
-    metadata: NoteMetadata,
-    inclusion_proof: Option<NoteInclusionProof>,
     details: Option<NoteRecordDetails>,
+    id: NoteId,
+    inclusion_proof: Option<NoteInclusionProof>,
+    metadata: NoteMetadata,
+    recipient: Digest,
+    status: NoteStatus,
 }
 
 impl OutputNoteRecord {
@@ -562,11 +557,6 @@ impl OutputNoteRecord {
 
     pub fn details(&self) -> Option<&NoteRecordDetails> {
         self.details.as_ref()
-    }
-
-    pub fn note(&self) -> Option<&Note> {
-        // TODO: add logic to return Some(note) if we have enough info to build one
-        None
     }
 }
 
