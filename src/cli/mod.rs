@@ -6,8 +6,12 @@ use figment::{
     providers::{Format, Toml},
     Figment,
 };
-use miden_client::{client::Client, config::ClientConfig};
+use miden_client::{
+    client::Client, config::ClientConfig, errors::ClientError, store::sqlite_store::SqliteStore,
+};
 
+#[cfg(feature = "mock")]
+use miden_client::mock::MockClient;
 #[cfg(feature = "mock")]
 use miden_client::mock::MockDataStore;
 #[cfg(feature = "mock")]
@@ -32,7 +36,7 @@ const CLIENT_CONFIG_FILE_NAME: &str = "miden-client.toml";
 #[derive(Parser, Debug)]
 #[clap(
     name = "Miden",
-    about = "Miden Client",
+    about = "Miden client",
     version,
     rename_all = "kebab-case"
 )]
@@ -74,25 +78,23 @@ impl Cli {
 
         let client_config = load_config(current_dir.as_path())?;
         let rpc_endpoint = client_config.rpc.endpoint.to_string();
+        let store = SqliteStore::new((&client_config).into()).map_err(ClientError::StoreError)?;
 
         #[cfg(not(feature = "mock"))]
-        let client: Client<TonicRpcClient, SqliteDataStore> = {
-            use miden_client::{errors::ClientError, store::Store};
-
-            let store = Store::new((&client_config).into()).map_err(ClientError::StoreError)?;
+        let client: Client<TonicRpcClient, SqliteStore, SqliteDataStore> = {
+            let data_store_store =
+                miden_client::store::sqlite_store::SqliteStore::new((&client_config).into())
+                    .map_err(ClientError::StoreError)?;
             Client::new(
-                client_config,
                 TonicRpcClient::new(&rpc_endpoint),
-                SqliteDataStore::new(store),
+                store,
+                SqliteDataStore::new(data_store_store),
             )?
         };
 
         #[cfg(feature = "mock")]
-        let client: Client<MockRpcApi, MockDataStore> = Client::new(
-            client_config,
-            MockRpcApi::new(&rpc_endpoint),
-            MockDataStore::new(),
-        )?;
+        let client: MockClient =
+            Client::new(MockRpcApi::new(&rpc_endpoint), store, MockDataStore::new())?;
 
         // Execute cli command
         match &self.action {

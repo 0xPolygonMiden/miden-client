@@ -1,4 +1,4 @@
-use crate::{config::ClientConfig, errors::ClientError, store::Store};
+use crate::{errors::ClientError, store::Store};
 use miden_tx::{DataStore, TransactionExecutor};
 
 pub mod rpc;
@@ -21,14 +21,14 @@ pub mod transactions;
 /// - Connects to one or more Miden nodes to periodically sync with the current state of the
 ///   network.
 /// - Executes, proves, and submits transactions to the network as directed by the user.
-pub struct Client<N: NodeRpcClient, D: DataStore> {
+pub struct Client<N: NodeRpcClient, S: Store, D: DataStore> {
     /// Local database containing information about the accounts managed by this client.
-    store: Store,
+    store: S,
     rpc_api: N,
     tx_executor: TransactionExecutor<D>,
 }
 
-impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
+impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
 
@@ -36,9 +36,9 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     ///
     /// # Errors
     /// Returns an error if the client could not be instantiated.
-    pub fn new(config: ClientConfig, api: N, data_store: D) -> Result<Self, ClientError> {
+    pub fn new(api: N, store: S, data_store: D) -> Result<Self, ClientError> {
         Ok(Self {
-            store: Store::new((&config).into())?,
+            store,
             rpc_api: api,
             tx_executor: TransactionExecutor::new(data_store),
         })
@@ -55,7 +55,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     }
 
     #[cfg(any(test, feature = "mock"))]
-    pub fn store(&mut self) -> &mut Store {
+    pub fn store(&mut self) -> &mut S {
         &mut self.store
     }
 }

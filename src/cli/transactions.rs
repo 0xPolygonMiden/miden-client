@@ -3,7 +3,7 @@ use miden_client::{
         rpc::NodeRpcClient,
         transactions::{PaymentTransactionData, TransactionRecord, TransactionTemplate},
     },
-    store::transactions::TransactionFilter,
+    store::{Store, TransactionFilter},
 };
 
 use miden_tx::DataStore;
@@ -101,10 +101,11 @@ impl TryInto<TransactionTemplate> for &TransactionType {
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "Execute and view transactions")]
 pub enum Transaction {
-    /// List transactions
+    /// List currently tracked transactions
     #[clap(short_flag = 'l')]
     List,
-    /// Execute a transaction, prove and submit it to the node
+    /// Execute a transaction, prove and submit it to the node. Once submitted, it
+    /// gets tracked by the client
     #[clap(short_flag = 'n')]
     New {
         #[clap(subcommand)]
@@ -113,9 +114,9 @@ pub enum Transaction {
 }
 
 impl Transaction {
-    pub async fn execute<N: NodeRpcClient, D: DataStore>(
+    pub async fn execute<N: NodeRpcClient, S: Store, D: DataStore>(
         &self,
-        mut client: Client<N, D>,
+        mut client: Client<N, S, D>,
     ) -> Result<(), String> {
         match self {
             Transaction::List => {
@@ -140,7 +141,9 @@ impl Transaction {
 
 // LIST TRANSACTIONS
 // ================================================================================================
-fn list_transactions<N: NodeRpcClient, D: DataStore>(client: Client<N, D>) -> Result<(), String> {
+fn list_transactions<N: NodeRpcClient, S: Store, D: DataStore>(
+    client: Client<N, S, D>,
+) -> Result<(), String> {
     let transactions = client.get_transactions(TransactionFilter::All)?;
     print_transactions_summary(&transactions);
     Ok(())

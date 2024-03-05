@@ -6,10 +6,11 @@ use miden_client::client::{
 };
 use miden_client::config::{ClientConfig, RpcConfig};
 use miden_client::errors::{ClientError, NodeRpcClientError};
-use miden_client::store::{
-    data_store::SqliteDataStore, notes::NoteFilter, transactions::TransactionFilter, Store,
-};
+use miden_client::store::data_store::SqliteDataStore;
+use miden_client::store::sqlite_store::SqliteStore;
+use miden_client::store::{NoteFilter, TransactionFilter};
 
+use miden_tx::{DataStoreError, TransactionExecutorError};
 use objects::{
     accounts::AccountData,
     assets::{Asset, FungibleAsset},
@@ -22,7 +23,9 @@ use std::time::Duration;
 
 use uuid::Uuid;
 
-fn create_test_client() -> Client<TonicRpcClient, SqliteDataStore> {
+type TestClient = Client<TonicRpcClient, SqliteStore, SqliteDataStore>;
+
+fn create_test_client() -> TestClient {
     let client_config = ClientConfig {
         store: create_test_store_path()
             .into_os_string()
@@ -34,11 +37,13 @@ fn create_test_client() -> Client<TonicRpcClient, SqliteDataStore> {
     };
 
     let rpc_endpoint = client_config.rpc.endpoint.to_string();
-    let store = Store::new((&client_config).into()).unwrap();
-    Client::new(
-        client_config,
+    let store = SqliteStore::new((&client_config).into()).unwrap();
+    // TODO: See if we can solve this by wrapping store with a `Rc<Cell<..>>` or a `Rc<RefCell<..>>`
+    let data_store_store = SqliteStore::new((&client_config).into()).unwrap();
+    TestClient::new(
         TonicRpcClient::new(&rpc_endpoint),
-        SqliteDataStore::new(store),
+        store,
+        SqliteDataStore::new(data_store_store),
     )
     .unwrap()
 }
@@ -49,10 +54,7 @@ fn create_test_store_path() -> std::path::PathBuf {
     temp_file
 }
 
-async fn execute_tx_and_sync(
-    client: &mut Client<TonicRpcClient, SqliteDataStore>,
-    tx_template: TransactionTemplate,
-) {
+async fn execute_tx_and_sync(client: &mut TestClient, tx_template: TransactionTemplate) {
     println!("Executing Transaction");
     let transaction_execution_result = client.new_transaction(tx_template).unwrap();
 
@@ -77,7 +79,7 @@ async fn execute_tx_and_sync(
 ///
 /// This function will panic if it does `NUMBER_OF_NODE_ATTEMPTS` unsuccessful checks or if we
 /// receive an error other than a connection related error
-async fn wait_for_node(client: &mut Client<TonicRpcClient, SqliteDataStore>) {
+async fn wait_for_node(client: &mut TestClient) {
     const NODE_TIME_BETWEEN_ATTEMPTS: u64 = 5;
     const NUMBER_OF_NODE_ATTEMPTS: u64 = 60;
 
@@ -153,7 +155,7 @@ async fn main() {
     let second_regular_account_id = regular_account_stubs[1].id();
     let faucet_account_id = faucet_account_stub.id();
 
-    let (regular_account, _seed) = client.get_account_by_id(first_regular_account_id).unwrap();
+    let (regular_account, _seed) = client.get_account(first_regular_account_id).unwrap();
     assert_eq!(regular_account.vault().assets().count(), 0);
 
     // Create a Mint Tx for 1000 units of our fungible asset
@@ -179,7 +181,8 @@ async fn main() {
     println!("Consuming Note...");
     execute_tx_and_sync(&mut client, tx_template).await;
 
-    let (regular_account, _seed) = client.get_account_by_id(first_regular_account_id).unwrap();
+    let (regular_account, _seed) = client.get_account(second_regular_account_id).unwrap();
+
     assert_eq!(regular_account.vault().assets().count(), 1);
     let asset = regular_account.vault().assets().next().unwrap();
 
@@ -210,7 +213,9 @@ async fn main() {
     println!("Consuming Note...");
     execute_tx_and_sync(&mut client, tx_template).await;
 
-    let (regular_account, _seed) = client.get_account_by_id(first_regular_account_id).unwrap();
+    let (regular_account, seed) = client.get_account(first_regular_account_id).unwrap();
+    // The seed should not be retrieved due to the account not being new
+    assert!(!regular_account.is_new() && seed.is_none());
     assert_eq!(regular_account.vault().assets().count(), 1);
     let asset = regular_account.vault().assets().next().unwrap();
 
@@ -221,7 +226,7 @@ async fn main() {
         panic!("ACCOUNT SHOULD HAVE A FUNGIBLE ASSET");
     }
 
-    let (regular_account, _seed) = client.get_account_by_id(second_regular_account_id).unwrap();
+    let (regular_account, _seed) = client.get_account(second_regular_account_id).unwrap();
     assert_eq!(regular_account.vault().assets().count(), 1);
     let asset = regular_account.vault().assets().next().unwrap();
 
@@ -229,6 +234,24 @@ async fn main() {
         assert_eq!(fungible_asset.amount(), TRANSFER_AMOUNT);
     } else {
         panic!("ACCOUNT SHOULD HAVE A FUNGIBLE ASSET");
+    }
+
+    // Check that we can't consume the P2ID note again
+    let tx_template =
+        TransactionTemplate::ConsumeNotes(second_regular_account_id, vec![notes[0].note_id()]);
+    println!("Consuming Note...");
+
+    match client.new_transaction(tx_template) {
+        Ok(_) => panic!("TRANSACTION SHOULD NOT BE CONSUMABLE!"),
+        Err(ClientError::TransactionExecutionError(
+            TransactionExecutorError::FetchTransactionInputsFailed(DataStoreError::InternalError(
+                error,
+            )),
+        )) if error.contains(&notes[0].note_id().to_hex()) => {}
+        _ => panic!(
+            "UNEXPECTED ERROR, SHOULD BE A DOUBLE SPEND ERROR FOR NOTE {}",
+            notes[0].note_id().to_hex()
+        ),
     }
 
     println!("Test ran successfully!");

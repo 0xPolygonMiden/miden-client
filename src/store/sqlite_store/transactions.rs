@@ -1,7 +1,7 @@
 use crate::{
     client::transactions::{TransactionRecord, TransactionResult, TransactionStatus},
     errors::StoreError,
-    store::notes::InputNoteRecord,
+    store::{InputNoteRecord, TransactionFilter},
 };
 use crypto::{
     utils::{collections::BTreeMap, Deserializable, Serializable},
@@ -10,9 +10,13 @@ use crypto::{
 
 use tracing::info;
 
-use super::Store;
+use super::{
+    accounts::{insert_account_asset_vault, insert_account_record, insert_account_storage},
+    notes::{insert_input_note_tx, insert_output_note_tx},
+    SqliteStore,
+};
 use objects::{
-    accounts::AccountId,
+    accounts::{Account, AccountId},
     assembly::{AstSerdeOptions, ProgramAst},
     transaction::{OutputNote, OutputNotes, TransactionId, TransactionScript},
     Digest,
@@ -30,11 +34,6 @@ pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str =
 
 // TRANSACTIONS FILTERS
 // ================================================================================================
-
-pub enum TransactionFilter {
-    All,
-    Uncomitted,
-}
 
 impl TransactionFilter {
     /// Returns a [String] containing the query for this Filter
@@ -66,14 +65,14 @@ type SerializedTransactionData = (
     Option<u32>,
 );
 
-impl Store {
-    /// Retrieves all executed transactions from the database
+impl SqliteStore {
+    /// Retrieves tracked transactions, filtered by [TransactionFilter].
     pub fn get_transactions(
         &self,
-        transaction_filter: TransactionFilter,
+        filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, StoreError> {
         self.db
-            .prepare(&transaction_filter.to_query())?
+            .prepare(&filter.to_query())?
             .query_map([], parse_transaction_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_transaction))
@@ -81,14 +80,11 @@ impl Store {
     }
 
     /// Inserts a transaction and updates the current state based on the `tx_result` changes
-    pub fn insert_transaction_data(
-        &mut self,
-        tx_result: TransactionResult,
-    ) -> Result<(), StoreError> {
+    pub fn apply_transaction(&mut self, tx_result: TransactionResult) -> Result<(), StoreError> {
         let account_id = tx_result.executed_transaction().account_id();
         let account_delta = tx_result.account_delta();
 
-        let (mut account, seed) = self.get_account_by_id(account_id)?;
+        let (mut account, _seed) = self.get_account(account_id)?;
 
         account
             .apply_delta(account_delta)
@@ -103,68 +99,24 @@ impl Store {
         let tx = self.db.transaction()?;
 
         // Transaction Data
-        Self::insert_proven_transaction_data(&tx, tx_result)?;
+        insert_proven_transaction_data(&tx, tx_result)?;
 
         // Account Data
-        Self::insert_account_storage(&tx, account.storage())?;
-        Self::insert_account_asset_vault(&tx, account.vault())?;
-        Self::insert_account_record(&tx, &account, seed)?;
+        update_account(&tx, account)?;
 
         // Updates for notes
+
         // TODO: see if we should filter the input notes we store to keep notes we can consume with
         // existing accounts
         for note in &created_notes {
-            Store::insert_input_note_tx(&tx, note)?;
+            insert_input_note_tx(&tx, note)?;
         }
+
         for note in &created_notes {
-            Store::insert_output_note_tx(&tx, note)?;
+            insert_output_note_tx(&tx, note)?;
         }
 
         tx.commit()?;
-
-        Ok(())
-    }
-
-    fn insert_proven_transaction_data(
-        tx: &Transaction<'_>,
-        transaction_result: TransactionResult,
-    ) -> Result<(), StoreError> {
-        let (
-            transaction_id,
-            account_id,
-            init_account_state,
-            final_account_state,
-            input_notes,
-            output_notes,
-            script_program,
-            script_hash,
-            script_inputs,
-            block_num,
-            committed,
-        ) = serialize_transaction_data(transaction_result)?;
-
-        if let Some(hash) = script_hash.clone() {
-            tx.execute(
-                INSERT_TRANSACTION_SCRIPT_QUERY,
-                params![hash, script_program],
-            )?;
-        }
-
-        tx.execute(
-            INSERT_TRANSACTION_QUERY,
-            params![
-                transaction_id,
-                account_id,
-                init_account_state,
-                final_account_state,
-                input_notes,
-                output_notes,
-                script_hash,
-                script_inputs,
-                block_num,
-                committed,
-            ],
-        )?;
 
         Ok(())
     }
@@ -189,6 +141,61 @@ impl Store {
 
         Ok(rows)
     }
+}
+
+/// Update previously-existing account after a transaction execution
+///
+/// Because the Client retrieves the account by account ID before applying the delta, we don't
+/// need to check that it exists here. This inserts a new row into the accounts table.
+/// We can later identify the proper account state by looking at the nonce.
+fn update_account(tx: &Transaction<'_>, new_account_state: Account) -> Result<(), StoreError> {
+    insert_account_storage(tx, new_account_state.storage())?;
+    insert_account_asset_vault(tx, new_account_state.vault())?;
+    insert_account_record(tx, &new_account_state, None)
+}
+
+pub(super) fn insert_proven_transaction_data(
+    tx: &Transaction<'_>,
+    transaction_result: TransactionResult,
+) -> Result<(), StoreError> {
+    let (
+        transaction_id,
+        account_id,
+        init_account_state,
+        final_account_state,
+        input_notes,
+        output_notes,
+        script_program,
+        script_hash,
+        script_inputs,
+        block_num,
+        committed,
+    ) = serialize_transaction_data(transaction_result)?;
+
+    if let Some(hash) = script_hash.clone() {
+        tx.execute(
+            INSERT_TRANSACTION_SCRIPT_QUERY,
+            params![hash, script_program],
+        )?;
+    }
+
+    tx.execute(
+        INSERT_TRANSACTION_QUERY,
+        params![
+            transaction_id,
+            account_id,
+            init_account_state,
+            final_account_state,
+            input_notes,
+            output_notes,
+            script_hash,
+            script_inputs,
+            block_num,
+            committed,
+        ],
+    )?;
+
+    Ok(())
 }
 
 pub(super) fn serialize_transaction_data(
@@ -299,7 +306,6 @@ fn parse_transaction(
     ) = serialized_transaction;
     let account_id = AccountId::try_from(account_id as u64)?;
     let id: Digest = id.try_into()?;
-    let id = TransactionId::from(id);
     let init_account_state: Digest = init_account_state.try_into()?;
 
     let final_account_state: Digest = final_account_state.try_into()?;
@@ -342,7 +348,7 @@ fn parse_transaction(
     });
 
     Ok(TransactionRecord {
-        id,
+        id: id.into(),
         account_id,
         init_account_state,
         final_account_state,

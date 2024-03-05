@@ -29,17 +29,19 @@ CREATE TABLE account_auth (
 
 -- Create accounts table
 CREATE TABLE accounts (
-    id UNSIGNED BIG INT NOT NULL,  -- account ID.
-    code_root BLOB NOT NULL,       -- root of the account_code
-    storage_root BLOB NOT NULL,    -- root of the account_storage Merkle tree.
-    vault_root BLOB NOT NULL,      -- root of the account_vault Merkle tree.
-    nonce BIGINT NOT NULL,         -- account nonce.
-    committed BOOLEAN NOT NULL,    -- true if recorded, false if not.
-    account_seed BLOB NOT NULL,    -- account seed used to generate the ID.
+    id UNSIGNED BIG INT NOT NULL,  -- Account ID.
+    code_root BLOB NOT NULL,       -- Root of the account_code
+    storage_root BLOB NOT NULL,    -- Root of the account_storage Merkle tree.
+    vault_root BLOB NOT NULL,      -- Root of the account_vault Merkle tree.
+    nonce BIGINT NOT NULL,         -- Account nonce.
+    committed BOOLEAN NOT NULL,    -- True if recorded, false if not.
+    account_seed BLOB NULL,        -- Account seed used to generate the ID. Expected to be NULL for non-new accounts
     PRIMARY KEY (id, nonce),
     FOREIGN KEY (code_root) REFERENCES account_code(root),
     FOREIGN KEY (storage_root) REFERENCES account_storage(root),
     FOREIGN KEY (vault_root) REFERENCES account_vaults(root)
+    
+    CONSTRAINT check_seed_nonzero CHECK (NOT (nonce = 0 AND account_seed IS NULL))
 );
 
 -- Create transactions table
@@ -54,7 +56,6 @@ CREATE TABLE transactions (
     script_inputs BLOB,                              -- Transaction script inputs
     block_num UNSIGNED BIG INT,                      -- Block number for the block against which the transaction was executed.
     commit_height UNSIGNED BIG INT NULL,             -- Block number of the block at which the transaction was included in the chain. 
-    
     FOREIGN KEY (script_hash) REFERENCES transaction_scripts(script_hash),
     PRIMARY KEY (id)
 );

@@ -132,6 +132,7 @@ pub enum StoreError {
     InputSerializationError(serde_json::Error),
     JsonDataDeserializationError(serde_json::Error),
     MmrError(MmrError),
+    NoteInclusionProofError(NoteError),
     NoteTagAlreadyTracked(u64),
     ParsingError(String),
     QueryError(String),
@@ -256,6 +257,9 @@ impl fmt::Display for StoreError {
             }
             MmrError(err) => write!(f, "error constructing mmr: {err}"),
             NoteTagAlreadyTracked(tag) => write!(f, "note tag {} is already being tracked", tag),
+            NoteInclusionProofError(error) => {
+                write!(f, "inclusion proof creation error: {}", error)
+            }
             ParsingError(err) => {
                 write!(f, "failed to parse data retrieved from the database: {err}")
             }
