@@ -347,7 +347,7 @@ impl TryInto<InputNote> for InputNoteRecord {
         match self.inclusion_proof() {
             Some(proof) => Ok(InputNote::new(self.note().clone(), proof.clone())),
             None => Err(ClientError::NoteError(
-                miden_objects::NoteError::invalid_origin_index(
+                objects::NoteError::invalid_origin_index(
                     "Input Note Record contains no inclusion proof".to_string(),
                 ),
             )),
