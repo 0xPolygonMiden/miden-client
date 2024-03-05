@@ -261,13 +261,14 @@ fn parse_input_note(
     let (note_assets, note_details, recipient, status, note_metadata, note_inclusion_proof) =
         serialized_input_note_parts;
 
-    let note_details: NoteRecordDetails = dbg!(
-        serde_json::from_str(&note_details).map_err(StoreError::JsonDataDeserializationError)
-    )?;
+    let note_details: NoteRecordDetails =
+        serde_json::from_str(&note_details).map_err(StoreError::JsonDataDeserializationError)?;
 
     let note_metadata: Option<NoteMetadata> = if let Some(metadata_as_json_str) = note_metadata {
-        Some(dbg!(serde_json::from_str(&metadata_as_json_str)
-            .map_err(StoreError::JsonDataDeserializationError))?)
+        Some(
+            serde_json::from_str(&metadata_as_json_str)
+                .map_err(StoreError::JsonDataDeserializationError)?,
+        )
     } else {
         None
     };
@@ -277,8 +278,8 @@ fn parse_input_note(
     let inclusion_proof = match note_inclusion_proof {
         Some(note_inclusion_proof) => {
             let note_inclusion_proof: NoteInclusionProof =
-                dbg!(serde_json::from_str(&note_inclusion_proof)
-                    .map_err(StoreError::JsonDataDeserializationError))?;
+                serde_json::from_str(&note_inclusion_proof)
+                    .map_err(StoreError::JsonDataDeserializationError)?;
 
             Some(note_inclusion_proof)
         }
@@ -288,7 +289,7 @@ fn parse_input_note(
     let recipient = Digest::try_from(recipient)?;
     let id = NoteId::new(recipient, note_assets.commitment());
     let status: NoteStatus =
-        dbg!(serde_json::from_str(&status).map_err(StoreError::JsonDataDeserializationError))?;
+        serde_json::from_str(&status).map_err(StoreError::JsonDataDeserializationError)?;
 
     Ok(InputNoteRecord::new(
         id,
