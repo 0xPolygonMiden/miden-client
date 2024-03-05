@@ -1,5 +1,3 @@
-# Technical design
-
 The Miden client contains a few key features:
 
 - Store
