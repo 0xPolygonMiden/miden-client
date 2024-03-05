@@ -30,7 +30,7 @@ pub mod mock_executor_data_store;
 /// state.
 ///
 /// All update functions are implied to be atomic. That is, if multiple entities are meant to be
-/// updated as part of any single function and an error is returned during its execution, any 
+/// updated as part of any single function and an error is returned during its execution, any
 /// changes that might have happened up to that point need to be rolled back and discarded.
 pub trait Store {
     // TRANSACTIONS
