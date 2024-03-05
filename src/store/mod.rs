@@ -26,6 +26,12 @@ pub mod mock_executor_data_store;
 // STORE TRAIT
 // ================================================================================================
 
+/// The [Store] trait exposes all methods that the client store needs in order to track the current
+/// state.
+///
+/// All update functions are implied to be atomic. That is, if multiple entities are meant to be
+/// updated as part of any single function and an error is returned during its execution, any
+/// changes that might have happened up to that point need to be rolled back and discarded.
 pub trait Store {
     // TRANSACTIONS
     // --------------------------------------------------------------------------------------------
@@ -36,7 +42,13 @@ pub trait Store {
         filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, StoreError>;
 
-    /// Inserts a transaction and updates the current state based on the `tx_result` changes
+    /// Applies a transaction, atomically updating the current state based on the
+    /// [TransactionResult]
+    ///
+    /// An update involves:
+    /// - Applying the resulting [AccountDelta] and storing the new [Account] state
+    /// - Storing new notes as a result of the transaction execution
+    /// - Inserting the transaction into the store to track
     fn apply_transaction(&mut self, tx_result: TransactionResult) -> Result<(), StoreError>;
 
     // NOTES
@@ -181,16 +193,6 @@ pub trait Store {
         account_seed: Option<Word>,
         auth_info: &AuthInfo,
     ) -> Result<(), StoreError>;
-
-    /// Update previously-existing account after a transaction execution
-    ///
-    /// The account that is to be updated is identified by the Account ID
-    ///
-    /// # Errors
-    ///
-    /// Returns a `StoreError::AccountDataNotFound` if the provided account does not correspond to
-    /// one persisted by the store.
-    fn update_account(&mut self, new_account_state: Account) -> Result<(), StoreError>;
 
     // SYNC
     // --------------------------------------------------------------------------------------------

@@ -212,7 +212,9 @@ async fn main() {
     println!("Consuming Note...");
     execute_tx_and_sync(&mut client, tx_template).await;
 
-    let (regular_account, _seed) = client.get_account(first_regular_account_id).unwrap();
+    let (regular_account, seed) = client.get_account(first_regular_account_id).unwrap();
+    // The seed should not be retrieved due to the account not being new
+    assert!(!regular_account.is_new() && seed.is_none());
     assert_eq!(regular_account.vault().assets().count(), 1);
     let asset = regular_account.vault().assets().next().unwrap();
 
