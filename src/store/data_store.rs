@@ -1,6 +1,7 @@
 use crate::errors::{ClientError, StoreError};
 use objects::utils::collections::BTreeSet;
 
+use super::{sqlite_store::SqliteStore, ChainMmrNodeFilter, NoteFilter, Store};
 use crypto::merkle::{InOrderIndex, MerklePath, PartialMmr};
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
 
@@ -10,8 +11,6 @@ use objects::{
     transaction::{ChainMmr, InputNote, InputNotes},
     BlockHeader,
 };
-
-use super::{sqlite_store::SqliteStore, ChainMmrNodeFilter, NoteFilter, Store};
 
 // DATA STORE
 // ================================================================================================

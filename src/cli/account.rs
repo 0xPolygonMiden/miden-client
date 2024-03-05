@@ -5,7 +5,10 @@ use crypto::{
     utils::{bytes_to_hex_string, Deserializable, Serializable},
     ZERO,
 };
-use miden_client::client::{accounts, rpc::NodeRpcClient, Client};
+use miden_client::{
+    client::{accounts, rpc::NodeRpcClient, Client},
+    store::Store,
+};
 
 use miden_tx::DataStore;
 use objects::{
@@ -78,9 +81,9 @@ pub enum AccountTemplate {
 }
 
 impl AccountCmd {
-    pub fn execute<N: NodeRpcClient, D: DataStore>(
+    pub fn execute<N: NodeRpcClient, S: Store, D: DataStore>(
         &self,
-        mut client: Client<N, D>,
+        mut client: Client<N, S, D>,
     ) -> Result<(), String> {
         match self {
             AccountCmd::List => {
@@ -140,7 +143,9 @@ impl AccountCmd {
 // LIST ACCOUNTS
 // ================================================================================================
 
-fn list_accounts<N: NodeRpcClient, D: DataStore>(client: Client<N, D>) -> Result<(), String> {
+fn list_accounts<N: NodeRpcClient, S: Store, D: DataStore>(
+    client: Client<N, S, D>,
+) -> Result<(), String> {
     let accounts = client.get_accounts()?;
 
     let mut table = create_dynamic_table(&[
@@ -166,8 +171,8 @@ fn list_accounts<N: NodeRpcClient, D: DataStore>(client: Client<N, D>) -> Result
     Ok(())
 }
 
-pub fn show_account<N: NodeRpcClient, D: DataStore>(
-    client: Client<N, D>,
+pub fn show_account<N: NodeRpcClient, S: Store, D: DataStore>(
+    client: Client<N, S, D>,
     account_id: AccountId,
     show_keys: bool,
     show_vault: bool,
@@ -312,8 +317,8 @@ pub fn show_account<N: NodeRpcClient, D: DataStore>(
 // IMPORT ACCOUNT
 // ================================================================================================
 
-fn import_account<N: NodeRpcClient, D: DataStore>(
-    client: &mut Client<N, D>,
+fn import_account<N: NodeRpcClient, S: Store, D: DataStore>(
+    client: &mut Client<N, S, D>,
     filename: &PathBuf,
 ) -> Result<(), String> {
     info!(

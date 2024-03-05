@@ -1,3 +1,5 @@
+#[cfg(test)]
+use crate::store::Store;
 use crate::{
     client::{
         rpc::{NodeRpcClient, NodeRpcClientEndpoint, StateSyncInfo},
@@ -6,7 +8,7 @@ use crate::{
         Client,
     },
     errors::NodeRpcClientError,
-    store::AuthInfo,
+    store::{sqlite_store::SqliteStore, AuthInfo},
 };
 use async_trait::async_trait;
 use crypto::{
@@ -48,6 +50,8 @@ use rand::Rng;
 use tonic::{IntoRequest, Response, Status};
 
 pub use crate::store::mock_executor_data_store::MockDataStore;
+
+pub type MockClient = Client<MockRpcApi, SqliteStore, MockDataStore>;
 
 /// Mock RPC API
 ///
@@ -309,7 +313,7 @@ fn mock_full_chain_mmr_and_notes(
 
 /// inserts mock note and account data into the client and returns the last block header of mocked
 /// chain
-pub async fn insert_mock_data(client: &mut Client<MockRpcApi, MockDataStore>) -> Vec<BlockHeader> {
+pub async fn insert_mock_data(client: &mut MockClient) -> Vec<BlockHeader> {
     // mock notes
     let assembler = TransactionKernel::assembler();
     let (account_id, account_seed) =
@@ -353,7 +357,7 @@ pub async fn insert_mock_data(client: &mut Client<MockRpcApi, MockDataStore>) ->
     tracked_block_headers
 }
 
-pub async fn create_mock_transaction(client: &mut Client<MockRpcApi, MockDataStore>) {
+pub async fn create_mock_transaction(client: &mut MockClient) {
     let key_pair: KeyPair = KeyPair::new()
         .map_err(|err| format!("Error generating KeyPair: {}", err))
         .unwrap();
@@ -505,7 +509,7 @@ pub fn mock_fungible_faucet_account(
 }
 
 #[cfg(test)]
-impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
+impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
     /// Helper function to set a data store to conveniently mock data for tests
     pub fn set_data_store(&mut self, data_store: D) {
         self.set_tx_executor(miden_tx::TransactionExecutor::new(data_store));
