@@ -347,3 +347,28 @@ impl From<ParseError> for NodeRpcClientError {
         Self::ConversionFailure(err.to_string())
     }
 }
+
+// NOTE ID PREFIX FETCH ERROR
+// ================================================================================================
+
+/// Error when Looking for a specific note ID from a partial ID
+pub enum NoteIdPrefixFetchError {
+    NoMatch(String),
+    MultipleMatches(String),
+}
+
+impl fmt::Display for NoteIdPrefixFetchError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            NoteIdPrefixFetchError::NoMatch(note_id) => {
+                write!(f, "No matches were found with the input prefix {note_id}.")
+            }
+            NoteIdPrefixFetchError::MultipleMatches(note_id) => {
+                write!(
+                    f,
+                    "found more than one note for the provided ID {note_id} and only one match is expected."
+                )
+            }
+        }
+    }
+}

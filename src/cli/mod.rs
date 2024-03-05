@@ -1,4 +1,3 @@
-use core::fmt;
 use std::path::Path;
 
 use clap::Parser;
@@ -10,6 +9,7 @@ use figment::{
 use miden_client::{
     client::{rpc::NodeRpcClient, Client},
     config::ClientConfig,
+    errors::NoteIdPrefixFetchError,
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter},
 };
 
@@ -151,27 +151,6 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
         .set_header(header_cells);
 
     table
-}
-
-pub(crate) enum NoteIdPrefixFetchError {
-    NoMatch(String),
-    MultipleMatches(String),
-}
-
-impl fmt::Display for NoteIdPrefixFetchError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            NoteIdPrefixFetchError::NoMatch(note_id) => {
-                write!(f, "No matches were found with the input prefix {note_id}.")
-            }
-            NoteIdPrefixFetchError::MultipleMatches(note_id) => {
-                write!(
-                    f,
-                    "found more than one note for the provided ID {note_id} and only one match is expected."
-                )
-            }
-        }
-    }
 }
 
 /// Returns all client's notes whose id starts with `note_id_prefix`
