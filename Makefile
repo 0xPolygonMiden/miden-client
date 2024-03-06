@@ -1,11 +1,10 @@
 SHELL := /bin/bash
 
-FEATURES_INTEGRATION_TESTING="integration"
 NODE_FEATURES_TESTING=--features testing
 NODE_BINARY=--bin miden-node
 
 integration-test:
-	cargo run --release --bin="integration" --features "$(FEATURES_INTEGRATION_TESTING)" || (echo "integration test failed with exit code $$?" && false)
+	cargo test --release --test integration --features integration || (echo "integration test failed with exit code $$?" && false)
 
 node:
 	if cd miden-node; then git pull; else git clone https://github.com/0xPolygonMiden/miden-node.git; fi

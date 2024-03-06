@@ -97,7 +97,7 @@ async fn wait_for_node(client: &mut TestClient) {
 const MINT_AMOUNT: u64 = 1000;
 const TRANSFER_AMOUNT: u64 = 50;
 
-#[tokio::main]
+#[tokio::test]
 async fn main() {
     let mut client = create_test_client();
 

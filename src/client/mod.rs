@@ -10,9 +10,9 @@ mod notes;
 pub(crate) mod sync;
 pub mod transactions;
 
-#[cfg(any(test, feature = "mock"))]
+#[cfg(all(not(feature = "integration"), any(test, feature = "mock")))]
 use crate::mock::MockDataStore;
-#[cfg(not(any(test, feature = "mock")))]
+#[cfg(any(feature = "integration", not(any(test, feature = "mock"))))]
 use crate::store::data_store::ClientDataStore;
 
 // MIDEN CLIENT
@@ -30,9 +30,9 @@ pub struct Client<N: NodeRpcClient, S: Store> {
     /// Local database containing information about the accounts managed by this client.
     store: S,
     rpc_api: N,
-    #[cfg(not(any(test, feature = "mock")))]
+    #[cfg(any(feature = "integration", not(any(test, feature = "mock"))))]
     tx_executor: TransactionExecutor<ClientDataStore<S>>,
-    #[cfg(any(test, feature = "mock"))]
+    #[cfg(all(not(feature = "integration"), any(test, feature = "mock")))]
     tx_executor: TransactionExecutor<MockDataStore>,
 }
 
@@ -46,7 +46,7 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
     /// Returns an error if the client could not be instantiated.
     /// TODO: remove the `data_store_store`, just left this here to make things work and then I'll
     /// take care of that
-    #[cfg(not(any(test, feature = "mock")))]
+    #[cfg(any(feature = "integration", not(any(test, feature = "mock"))))]
     pub fn new(api: N, store: S, data_store_store: S) -> Result<Self, ClientError> {
         Ok(Self {
             store,
@@ -55,7 +55,7 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         })
     }
 
-    #[cfg(any(test, feature = "mock"))]
+    #[cfg(all(not(feature = "integration"), any(test, feature = "mock")))]
     pub fn new(api: N, store: S, data_store: MockDataStore) -> Result<Self, ClientError> {
         Ok(Self {
             store,
@@ -64,17 +64,17 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         })
     }
 
-    #[cfg(any(test, feature = "mock"))]
+    #[cfg(all(not(feature = "integration"), any(test, feature = "mock")))]
     pub fn rpc_api(&mut self) -> &mut N {
         &mut self.rpc_api
     }
 
-    #[cfg(any(test, feature = "mock"))]
+    #[cfg(all(not(feature = "integration"), any(test, feature = "mock")))]
     pub fn set_tx_executor(&mut self, tx_executor: TransactionExecutor<MockDataStore>) {
         self.tx_executor = tx_executor;
     }
 
-    #[cfg(any(test, feature = "mock"))]
+    #[cfg(all(not(feature = "integration"), any(test, feature = "mock")))]
     pub fn store(&mut self) -> &mut S {
         &mut self.store
     }

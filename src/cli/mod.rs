@@ -10,14 +10,14 @@ use miden_client::{
     client::Client, config::ClientConfig, errors::ClientError, store::sqlite_store::SqliteStore,
 };
 
-#[cfg(feature = "mock")]
+#[cfg(all(not(feature = "integration"), any(test, feature = "mock")))]
 use miden_client::mock::MockClient;
-#[cfg(feature = "mock")]
+#[cfg(all(not(feature = "integration"), any(test, feature = "mock")))]
 use miden_client::mock::MockDataStore;
-#[cfg(feature = "mock")]
+#[cfg(all(not(feature = "integration"), any(test, feature = "mock")))]
 use miden_client::mock::MockRpcApi;
 
-#[cfg(not(feature = "mock"))]
+#[cfg(any(feature = "integration", not(any(test, feature = "mock"))))]
 use miden_client::client::rpc::TonicRpcClient;
 
 mod account;
@@ -59,7 +59,7 @@ pub enum Command {
     #[clap(subcommand, name = "tx")]
     #[clap(visible_alias = "transaction")]
     Transaction(transactions::Transaction),
-    #[cfg(feature = "mock")]
+    #[cfg(all(not(feature = "integration"), any(test, feature = "mock")))]
     /// Insert mock data into the client. This is optional because it takes a few seconds
     MockData {
         #[clap(short, long)]
@@ -78,7 +78,7 @@ impl Cli {
         let rpc_endpoint = client_config.rpc.endpoint.to_string();
         let store = SqliteStore::new((&client_config).into()).map_err(ClientError::StoreError)?;
 
-        #[cfg(not(feature = "mock"))]
+        #[cfg(any(feature = "integration", not(any(test, feature = "mock"))))]
         let client: Client<TonicRpcClient, SqliteStore> = {
             let data_store_store =
                 miden_client::store::sqlite_store::SqliteStore::new((&client_config).into())
@@ -86,7 +86,7 @@ impl Cli {
             Client::new(TonicRpcClient::new(&rpc_endpoint), store, data_store_store)?
         };
 
-        #[cfg(feature = "mock")]
+        #[cfg(all(not(feature = "integration"), any(test, feature = "mock")))]
         let client: MockClient =
             Client::new(MockRpcApi::new(&rpc_endpoint), store, MockDataStore::new())?;
 
@@ -98,7 +98,7 @@ impl Cli {
             Command::Sync => sync::sync_state(client).await,
             Command::Tags(tags) => tags.execute(client).await,
             Command::Transaction(transaction) => transaction.execute(client).await,
-            #[cfg(feature = "mock")]
+            #[cfg(all(not(feature = "integration"), any(test, feature = "mock")))]
             Command::MockData { transaction } => {
                 let mut client = client;
                 miden_client::mock::insert_mock_data(&mut client).await;
