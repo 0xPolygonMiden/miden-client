@@ -207,7 +207,7 @@ async fn main() {
     let notes = client.get_input_notes(NoteFilter::Committed).unwrap();
     assert!(!notes.is_empty());
 
-    // Check that the note filter for account IDs works correctly
+    // One note is expected to be consumable by the account ID
     let notes = client
         .get_input_notes(NoteFilter::ConsumableBy(regular_account.id()))
         .unwrap();
@@ -232,7 +232,7 @@ async fn main() {
         panic!("ACCOUNT SHOULD HAVE A FUNGIBLE ASSET");
     }
 
-    // Check that the note filter for account IDs works correctly
+    // After consuming the note, no notes are expected to be consumable by the account
     let notes = client
         .get_input_notes(NoteFilter::ConsumableBy(regular_account.id()))
         .unwrap();
