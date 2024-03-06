@@ -89,8 +89,7 @@ impl NoteFilter {
                 let inputs = NoteInputs::new(vec![(*account_id).into()])
                     .expect("Only one argument should not cause errors");
                 let _inputs_param = inputs.to_bytes();
-                // vec![rusqlite::types::Value::Blob(inputs_param)]
-                vec![]
+                vec![rusqlite::types::Value::Blob(inputs_param)]
             }
             _ => vec![],
         }
