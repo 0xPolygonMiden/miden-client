@@ -16,6 +16,7 @@ use objects::{
     utils::collections::BTreeMap,
     BlockHeader, Digest,
 };
+use serde::{Deserialize, Serialize};
 
 pub mod data_store;
 pub mod sqlite_store;
@@ -356,8 +357,8 @@ impl Deserializable for InputNoteRecord {
     fn read_from<R: ByteReader>(
         source: &mut R,
     ) -> std::prelude::v1::Result<Self, DeserializationError> {
-        let note: Note = source.read()?;
-        let proof: Option<NoteInclusionProof> = source.read()?;
+        let note = Note::read_from(source)?;
+        let proof = Option::<NoteInclusionProof>::read_from(source)?;
         Ok(InputNoteRecord::new(note, proof))
     }
 }
@@ -388,10 +389,41 @@ impl TryInto<InputNote> for InputNoteRecord {
             Some(proof) => Ok(InputNote::new(self.note().clone(), proof.clone())),
             None => Err(ClientError::NoteError(
                 objects::NoteError::invalid_origin_index(
-                    "Input Note Record contains no inclusion proof".to_string(),
+                    "Input Note Record contains no proof".to_string(),
                 ),
             )),
         }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct NoteRecordDetails {
+    nullifier: String,
+    script: Vec<u8>,
+    inputs: Vec<u8>,
+    serial_num: Word,
+}
+
+impl NoteRecordDetails {
+    fn new(nullifier: String, script: Vec<u8>, inputs: Vec<u8>, serial_num: Word) -> Self {
+        Self {
+            nullifier,
+            script,
+            inputs,
+            serial_num,
+        }
+    }
+
+    fn script(&self) -> &Vec<u8> {
+        &self.script
+    }
+
+    fn inputs(&self) -> &Vec<u8> {
+        &self.inputs
+    }
+
+    fn serial_num(&self) -> &Word {
+        &self.serial_num
     }
 }
 
