@@ -11,6 +11,7 @@ use miden_client::store::sqlite_store::SqliteStore;
 use miden_client::store::{NoteFilter, TransactionFilter};
 
 use miden_tx::{DataStoreError, TransactionExecutorError};
+use mock::constants::{generate_account_seed, AccountSeedType};
 use objects::{
     accounts::AccountData,
     assets::{Asset, FungibleAsset},
@@ -213,6 +214,10 @@ async fn main() {
     println!("Consuming Note...");
     execute_tx_and_sync(&mut client, tx_template).await;
 
+    // Ensure we have nothing else to consume
+    let notes = client.get_input_notes(NoteFilter::Committed).unwrap();
+    assert!(notes.is_empty());
+
     let (regular_account, seed) = client.get_account(first_regular_account_id).unwrap();
     // The seed should not be retrieved due to the account not being new
     assert!(!regular_account.is_new() && seed.is_none());
@@ -251,6 +256,25 @@ async fn main() {
         Ok(_) => panic!("Double-spend error: Note should not be consumable!"),
         _ => panic!("Unexpected error: {}", notes[0].note_id().to_hex()),
     }
+
+    // Mint some asset for an account not tracked by the client. It should not be stored as an
+    // input note afterwards since it is not being tracked by the client
+    let (non_existent_account_id, _account_seed) =
+        generate_account_seed(AccountSeedType::RegularAccountUpdatableCodeOnChain);
+
+    let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
+    let tx_template = TransactionTemplate::PayToId(PaymentTransactionData::new(
+        Asset::Fungible(asset),
+        first_regular_account_id,
+        non_existent_account_id,
+    ));
+    println!("Running P2ID tx...");
+    execute_tx_and_sync(&mut client, tx_template).await;
+
+    // Check that no accounts were added
+    println!("Fetching Committed Notes...");
+    let notes = client.get_input_notes(NoteFilter::Committed).unwrap();
+    assert!(notes.is_empty());
 
     println!("Test ran successfully!");
 }
