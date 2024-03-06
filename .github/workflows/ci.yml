@@ -83,6 +83,9 @@ jobs:
       - run: make reset
       - run: make start-node > /dev/null &
       - run: make integration-test
+      - name: Kill miden-node
+        if: always()
+        run: make kill-node
   docs:
     name: build mkdocs
     runs-on: ubuntu-latest
