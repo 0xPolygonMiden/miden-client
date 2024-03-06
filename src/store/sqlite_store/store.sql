@@ -97,7 +97,7 @@ CREATE TABLE output_notes (
     sender_id UNSIGNED BIG INT NOT NULL,                    -- the account ID of the sender
     tag UNSIGNED BIG INT NOT NULL,                          -- the note tag
     inclusion_proof BLOB NULL,                              -- the inclusion proof of the note against a block number
-    script_ast BLOB NOT NULL,                               -- the serialized script ProgramAst
+    script_ast BLOB NULL,                                   -- the serialized script ProgramAst
     script_hash BLOB NULL,                                  -- the note script hash in order to facilitate searches
     status TEXT CHECK( status IN (                          -- the status of the note - either pending, committed or consumed
         'pending', 'committed', 'consumed'
