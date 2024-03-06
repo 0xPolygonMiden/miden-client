@@ -68,8 +68,8 @@ async fn execute_tx_and_sync(client: &mut TestClient, tx_template: TransactionTe
 
     // Wait until we've actually gotten a new block
     println!("Syncing State...");
-    while client.sync_state().await.unwrap() == current_block_num {
-        std::thread::sleep(std::time::Duration::new(5, 0));
+    while client.sync_state().await.unwrap() <= current_block_num + 1 {
+        std::thread::sleep(std::time::Duration::new(3, 0));
     }
 }
 
