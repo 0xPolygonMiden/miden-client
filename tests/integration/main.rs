@@ -119,7 +119,7 @@ async fn main() {
     println!("Importing Accounts...");
     for account_idx in 0..2 {
         let account_data_file_contents =
-            fs::read(format!("../miden-node/accounts/account{}.mac", account_idx)).unwrap();
+            fs::read(format!("./miden-node/accounts/account{}.mac", account_idx)).unwrap();
         let account_data = AccountData::read_from_bytes(&account_data_file_contents).unwrap();
         client.import_account(account_data).unwrap();
     }
