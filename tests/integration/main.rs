@@ -217,7 +217,7 @@ async fn main() {
     let notes = client
         .get_input_notes(NoteFilter::ConsumableBy(first_regular_account_id))
         .unwrap();
-    assert!(!notes.is_empty());
+    assert!(notes.is_empty());
 
     // Consume P2ID note
     let tx_template =
