@@ -69,7 +69,7 @@ async fn execute_tx_and_sync(client: &mut TestClient, tx_template: TransactionTe
     // Wait until we've actually gotten a new block
     println!("Syncing State...");
     while client.sync_state().await.unwrap() == current_block_num {
-        std::thread::sleep(std::time::Duration::new(5, 0));
+        std::thread::sleep(std::time::Duration::new(2, 0));
     }
 }
 
@@ -93,7 +93,10 @@ async fn wait_for_node(client: &mut TestClient) {
             Err(other_error) => {
                 panic!("Unexpected error: {other_error}");
             }
-            _ => return,
+            _ => {
+                println!("Node is up and sync was successful!");
+                return;
+            }
         }
     }
 
@@ -133,9 +136,6 @@ async fn main() {
         .unwrap();
 
     wait_for_node(&mut client).await;
-
-    println!("Syncing State...");
-    client.sync_state().await.unwrap();
 
     // Get Faucet and regular accounts
     println!("Fetching Accounts...");
@@ -207,9 +207,15 @@ async fn main() {
     let notes = client.get_input_notes(NoteFilter::Committed).unwrap();
     assert!(!notes.is_empty());
 
-    // One note is expected to be consumable by the account ID
+    // One note is expected to be consumable by the target account ID
     let notes = client
-        .get_input_notes(NoteFilter::ConsumableBy(regular_account.id()))
+        .get_input_notes(NoteFilter::ConsumableBy(second_regular_account_id))
+        .unwrap();
+    assert!(!notes.is_empty());
+
+    // No notes are expected to be consumable by the sender account ID
+    let notes = client
+        .get_input_notes(NoteFilter::ConsumableBy(first_regular_account_id))
         .unwrap();
     assert!(!notes.is_empty());
 
