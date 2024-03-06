@@ -215,8 +215,8 @@ async fn main() {
     execute_tx_and_sync(&mut client, tx_template).await;
 
     // Ensure we have nothing else to consume
-    let notes = client.get_input_notes(NoteFilter::Committed).unwrap();
-    assert!(notes.is_empty());
+    let current_notes = client.get_input_notes(NoteFilter::Committed).unwrap();
+    assert!(current_notes.is_empty());
 
     let (regular_account, seed) = client.get_account(first_regular_account_id).unwrap();
     // The seed should not be retrieved due to the account not being new
