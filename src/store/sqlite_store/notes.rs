@@ -14,6 +14,11 @@ use objects::notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, N
 use objects::{accounts::AccountId, notes::NoteMetadata, Felt};
 use rusqlite::{params, Transaction};
 
+pub(crate) const P2ID_NOTE_SCRIPT_ROOT: &str =
+    "0x65c08aef0e3d11ce8a26662005a5272398e8810e5e13a903a993ee622d03675f";
+pub(crate) const P2IDR_NOTE_SCRIPT_ROOT: &str =
+    "0x03dd8f8fd57f015d821648292cee0ce42e16c4b80427c46b9cb874db44395f47";
+
 fn insert_note_query(table_name: NoteTable) -> String {
     format!("\
     INSERT INTO {table_name}

@@ -12,12 +12,15 @@ use tracing::info;
 
 use super::{
     accounts::{insert_account_asset_vault, insert_account_record, insert_account_storage},
-    notes::{insert_input_note_tx, insert_output_note_tx},
+    notes::{
+        insert_input_note_tx, insert_output_note_tx, P2IDR_NOTE_SCRIPT_ROOT, P2ID_NOTE_SCRIPT_ROOT,
+    },
     SqliteStore,
 };
 use objects::{
     accounts::{Account, AccountId},
     assembly::{AstSerdeOptions, ProgramAst},
+    notes::NoteInputs,
     transaction::{OutputNote, OutputNotes, TransactionId, TransactionScript},
     Digest,
 };
@@ -90,9 +93,27 @@ impl SqliteStore {
             .apply_delta(account_delta)
             .map_err(StoreError::AccountError)?;
 
+        let account_ids_tracked_by_client = self
+            .get_account_stubs()?
+            .iter()
+            .map(|(account_stub, _seed)| account_stub.id())
+            .collect::<Vec<_>>();
+
         let created_notes = tx_result
             .created_notes()
             .iter()
+            .filter(|note| {
+                let script_hash_str = note.script().hash().to_string();
+                // We want to check that *if* it is a P2ID or P2IDR the inputs are the
+                // corresponding ones
+                !(script_hash_str == P2ID_NOTE_SCRIPT_ROOT
+                    || script_hash_str == P2IDR_NOTE_SCRIPT_ROOT)
+                    || account_ids_tracked_by_client.iter().any(|account_id| {
+                        *note.inputs()
+                            == NoteInputs::new(vec![(*account_id).into()])
+                                .expect("Number of inputs should be 1")
+                    })
+            })
             .map(|note| InputNoteRecord::from(note.clone()))
             .collect::<Vec<_>>();
 
