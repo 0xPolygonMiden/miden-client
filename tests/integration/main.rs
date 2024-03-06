@@ -206,18 +206,18 @@ async fn main() {
     println!("Fetching Committed Notes...");
     let notes = client.get_input_notes(NoteFilter::Committed).unwrap();
     assert!(!notes.is_empty());
+    
+    // No notes are expected to be consumable by the sender account ID
+    let notes = client
+        .get_input_notes(NoteFilter::ConsumableBy(first_regular_account_id))
+        .unwrap();
+    assert!(notes.is_empty());
 
     // One note is expected to be consumable by the target account ID
     let notes = client
         .get_input_notes(NoteFilter::ConsumableBy(second_regular_account_id))
         .unwrap();
     assert!(!notes.is_empty());
-
-    // No notes are expected to be consumable by the sender account ID
-    let notes = client
-        .get_input_notes(NoteFilter::ConsumableBy(first_regular_account_id))
-        .unwrap();
-    assert!(notes.is_empty());
 
     // Consume P2ID note
     let tx_template =
