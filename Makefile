@@ -5,7 +5,7 @@ NODE_FEATURES_TESTING=--features testing
 NODE_BINARY=--bin miden-node
 
 integration-test:
-	cargo run --release --bin="integration" --features "$(FEATURES_INTEGRATION_TESTING)" && pkill miden-node
+	cargo run --release --bin="integration" --features "$(FEATURES_INTEGRATION_TESTING)" || (echo "integration test failed with exit code $$?" && false)
 
 node:
 	if cd miden-node; then git pull; else git clone https://github.com/0xPolygonMiden/miden-node.git; fi
@@ -16,6 +16,9 @@ node:
 
 start-node: node
 	cd miden-node && cargo run --release $(NODE_BINARY) $(NODE_FEATURES_TESTING) -- start --config node/miden-node.toml
+
+kill-node:
+	pkill miden-node
 
 reset:
 	rm -rf miden-node
