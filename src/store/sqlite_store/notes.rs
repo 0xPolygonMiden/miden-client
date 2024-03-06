@@ -9,6 +9,7 @@ use clap::error::Result;
 
 use crypto::utils::{Deserializable, Serializable};
 
+use objects::assembly::{AstSerdeOptions, ProgramAst};
 use objects::notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteScript};
 
 use objects::{accounts::AccountId, notes::NoteMetadata, Felt};
@@ -22,7 +23,7 @@ const P2IDR_NOTE_SCRIPT_ROOT: &str =
 fn insert_note_query(table_name: NoteTable) -> String {
     format!("\
     INSERT INTO {table_name}
-        (note_id, nullifier, script, assets, inputs, serial_num, sender_id, tag, inclusion_proof, recipient, status, script_hash)
+        (note_id, nullifier, script_ast, assets, inputs, serial_num, sender_id, tag, inclusion_proof, recipient, status, script_hash)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 }
 
@@ -44,7 +45,16 @@ type SerializedInputNoteData = (
     String,
 );
 
-type SerializedInputNoteParts = (Vec<u8>, Vec<u8>, Vec<u8>, String, u64, u64, Option<Vec<u8>>);
+type SerializedInputNoteParts = (
+    Vec<u8>,
+    Vec<u8>,
+    Vec<u8>,
+    String,
+    u64,
+    u64,
+    Option<Vec<u8>>,
+    String,
+);
 
 // NOTE TABLE
 // ================================================================================================
@@ -70,7 +80,7 @@ impl fmt::Display for NoteTable {
 impl NoteFilter {
     /// Returns a [String] containing the query for this Filter
     fn to_query(&self, notes_table: NoteTable) -> String {
-        let base = format!("SELECT script, inputs, assets, serial_num, sender_id, tag, inclusion_proof FROM {notes_table}");
+        let base = format!("SELECT script_ast, inputs, assets, serial_num, sender_id, tag, inclusion_proof, script_hash FROM {notes_table}");
         match self {
             NoteFilter::All => base,
             NoteFilter::Committed => format!("{base} WHERE status = 'committed'"),
@@ -88,7 +98,7 @@ impl NoteFilter {
             NoteFilter::ConsumableBy(account_id) => {
                 let inputs = NoteInputs::new(vec![(*account_id).into()])
                     .expect("Only one argument should not cause errors");
-                let _inputs_param = inputs.to_bytes();
+                let inputs_param = inputs.to_bytes();
                 vec![rusqlite::types::Value::Blob(inputs_param)]
             }
             _ => vec![],
@@ -133,7 +143,7 @@ impl SqliteStore {
 
     pub(crate) fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError> {
         let query_id = &note_id.inner().to_string();
-        const QUERY: &str = "SELECT script, inputs, assets, serial_num, sender_id, tag, inclusion_proof FROM input_notes WHERE note_id = ?";
+        const QUERY: &str = "SELECT script_ast, inputs, assets, serial_num, sender_id, tag, inclusion_proof, script_hash FROM input_notes WHERE note_id = ?";
 
         self.db
             .prepare(QUERY)?
@@ -163,7 +173,7 @@ pub(super) fn insert_input_note_tx(
     let (
         note_id,
         nullifier,
-        script,
+        script_ast,
         vault,
         inputs,
         serial_num,
@@ -180,7 +190,7 @@ pub(super) fn insert_input_note_tx(
         params![
             note_id,
             nullifier,
-            script,
+            script_ast,
             vault,
             inputs,
             serial_num,
@@ -248,6 +258,8 @@ fn parse_input_note_columns(
     let sender_id = row.get::<usize, i64>(4)? as u64;
     let tag = row.get::<usize, i64>(5)? as u64;
     let inclusion_proof: Option<Vec<u8>> = row.get(6)?;
+    let script_hash: String = row.get(7)?;
+
     Ok((
         script,
         inputs,
@@ -256,6 +268,7 @@ fn parse_input_note_columns(
         sender_id,
         tag,
         inclusion_proof,
+        script_hash,
     ))
 }
 
@@ -263,9 +276,10 @@ fn parse_input_note_columns(
 fn parse_input_note(
     serialized_input_note_parts: SerializedInputNoteParts,
 ) -> Result<InputNoteRecord, StoreError> {
-    let (script, inputs, note_assets, serial_num, sender_id, tag, inclusion_proof) =
+    let (script_ast, inputs, note_assets, serial_num, sender_id, tag, inclusion_proof, script_hash) =
         serialized_input_note_parts;
-    let script = NoteScript::read_from_bytes(&script)?;
+    let script_ast = ProgramAst::from_bytes(&script_ast)?;
+    let script = NoteScript::from_parts(script_ast, script_hash.try_into()?);
     let inputs = NoteInputs::read_from_bytes(&inputs)?;
     let vault = NoteAssets::read_from_bytes(&note_assets)?;
     let serial_num =
@@ -290,7 +304,11 @@ pub(crate) fn serialize_note(
     let note_id = note.note_id().inner().to_string();
     let nullifier = note.note().nullifier().inner().to_string();
     let script_hash = note.note().script().hash();
-    let script = note.note().script().to_bytes();
+    let script_ast = note
+        .note()
+        .script()
+        .code()
+        .to_bytes(AstSerdeOptions::new(true));
     let note_assets = note.note().assets().to_bytes();
     let inputs = note.note().inputs().to_bytes();
     let serial_num = serde_json::to_string(&note.note().serial_num())
@@ -331,7 +349,7 @@ pub(crate) fn serialize_note(
     Ok((
         note_id,
         nullifier,
-        script,
+        script_ast,
         note_assets,
         inputs,
         serial_num,
