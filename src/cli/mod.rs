@@ -177,6 +177,15 @@ pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, S: Store, D: DataStore>(
         return Err(NoteIdPrefixFetchError::NoMatch(note_id_prefix.to_string()));
     }
     if input_note_records.len() > 1 {
+        let input_note_record_ids = input_note_records
+            .iter()
+            .map(|input_note_record| input_note_record.note_id())
+            .collect::<Vec<_>>();
+        tracing::error!(
+            "Multiple notes found for the prefix {}: {:?}",
+            note_id_prefix,
+            input_note_record_ids
+        );
         return Err(NoteIdPrefixFetchError::MultipleMatches(
             note_id_prefix.to_string(),
         ));
