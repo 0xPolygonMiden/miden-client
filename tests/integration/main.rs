@@ -119,7 +119,7 @@ async fn main() {
     println!("Importing Accounts...");
     for account_idx in 0..2 {
         let account_data_file_contents =
-            fs::read(format!("./miden-node/accounts/account{}.mac", account_idx)).unwrap();
+            fs::read(format!("../miden-node/accounts/account{}.mac", account_idx)).unwrap();
         let account_data = AccountData::read_from_bytes(&account_data_file_contents).unwrap();
         client.import_account(account_data).unwrap();
     }
@@ -223,7 +223,7 @@ async fn main() {
     if let Asset::Fungible(fungible_asset) = asset {
         assert_eq!(fungible_asset.amount(), MINT_AMOUNT - TRANSFER_AMOUNT);
     } else {
-        panic!("ACCOUNT SHOULD HAVE A FUNGIBLE ASSET");
+        panic!("Error: Account should have a fungible asset");
     }
 
     let (regular_account, _seed) = client.get_account(second_regular_account_id).unwrap();
@@ -233,7 +233,7 @@ async fn main() {
     if let Asset::Fungible(fungible_asset) = asset {
         assert_eq!(fungible_asset.amount(), TRANSFER_AMOUNT);
     } else {
-        panic!("ACCOUNT SHOULD HAVE A FUNGIBLE ASSET");
+        panic!("Error: Account should have a fungible asset");
     }
 
     // Check that we can't consume the P2ID note again
@@ -241,17 +241,15 @@ async fn main() {
         TransactionTemplate::ConsumeNotes(second_regular_account_id, vec![notes[0].note_id()]);
     println!("Consuming Note...");
 
+    // Double-spend error expected to be received since we are consuming the same note
     match client.new_transaction(tx_template) {
-        Ok(_) => panic!("TRANSACTION SHOULD NOT BE CONSUMABLE!"),
         Err(ClientError::TransactionExecutionError(
-            TransactionExecutorError::FetchTransactionInputsFailed(DataStoreError::InternalError(
-                error,
-            )),
-        )) if error.contains(&notes[0].note_id().to_hex()) => {}
-        _ => panic!(
-            "UNEXPECTED ERROR, SHOULD BE A DOUBLE SPEND ERROR FOR NOTE {}",
-            notes[0].note_id().to_hex()
-        ),
+            TransactionExecutorError::FetchTransactionInputsFailed(
+                DataStoreError::NoteAlreadyConsumed(_),
+            ),
+        )) => {}
+        Ok(_) => panic!("Double-spend error: Note should not be consumable!"),
+        _ => panic!("Unexpected error: {}", notes[0].note_id().to_hex()),
     }
 
     println!("Test ran successfully!");
