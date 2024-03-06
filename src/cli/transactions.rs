@@ -24,7 +24,7 @@ pub enum TransactionType {
         faucet_id: String,
         amount: u64,
     },
-    /// Mint `amount` assets from the faucet corresponding to `faucet_id` to be received by
+    /// Mint `amount` tokens from the specified fungible faucet (corresponding to `faucet_id`). The created note can then be then consumed by
     /// `target_account_id`.
     Mint {
         target_account_id: String,

@@ -151,7 +151,7 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
     table
 }
 
-/// Returns all client's notes whose id starts with `note_id_prefix`
+/// Returns all client's notes whose ID starts with `note_id_prefix`
 ///
 /// # Errors
 ///
