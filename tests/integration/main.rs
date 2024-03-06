@@ -239,10 +239,10 @@ async fn main() {
     }
 
     // After consuming the note, no notes are expected to be consumable by the account
-    let notes = client
+    let consumable_notes_after_tx = client
         .get_input_notes(NoteFilter::ConsumableBy(regular_account.id()))
         .unwrap();
-    assert!(notes.is_empty());
+    assert!(consumable_notes_after_tx.is_empty());
 
     let (regular_account, _seed) = client.get_account(second_regular_account_id).unwrap();
     assert_eq!(regular_account.vault().assets().count(), 1);
