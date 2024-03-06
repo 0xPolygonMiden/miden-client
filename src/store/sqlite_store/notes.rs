@@ -87,7 +87,7 @@ impl NoteFilter {
             NoteFilter::Consumed => format!("{base} WHERE status = 'consumed'"),
             NoteFilter::Pending => format!("{base} WHERE status = 'pending'"),
             NoteFilter::ConsumableBy(_) => {
-                format!("{base} WHERE status = 'committed' AND (script_hash = '{P2ID_NOTE_SCRIPT_ROOT}' OR script_hash = '{P2IDR_NOTE_SCRIPT_ROOT}')")
+                format!("{base} WHERE status = 'committed' AND (script_hash = '{P2ID_NOTE_SCRIPT_ROOT}' OR script_hash = '{P2IDR_NOTE_SCRIPT_ROOT}') AND inputs=?")
             }
         }
     }
@@ -119,8 +119,7 @@ impl SqliteStore {
             .query_map(
                 rusqlite::params_from_iter(filter.query_params()),
                 parse_input_note_columns,
-            )
-            .expect("no binding parameters used in query")
+            )?
             .map(|result| Ok(result?).and_then(parse_input_note))
             .collect::<Result<Vec<InputNoteRecord>, _>>()
     }
@@ -135,8 +134,7 @@ impl SqliteStore {
             .query_map(
                 rusqlite::params_from_iter(filter.query_params()),
                 parse_input_note_columns,
-            )
-            .expect("no binding parameters used in query")
+            )?
             .map(|result| Ok(result?).and_then(parse_input_note))
             .collect::<Result<Vec<InputNoteRecord>, _>>()
     }
