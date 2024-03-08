@@ -106,7 +106,7 @@ After creating the note with the minted asset, the regular account can now consu
 miden-client tx new consume-notes <regular-account-ID-A> <input-note-ID>
 ```
 
-This will consume the input note identified by its ID, which you can get by listing them as explained in the previous step. Note that you can consume more than one note in a single transaction.
+This will consume the input note identified by its ID, which you can get by listing them as explained in the previous step. Note that you can consume more than one note in a single transaction. Also, it's possible to provide part of the id instead. For example, instead of `cargo run --release --features testing,concurrent tx new consume-notes <regular-account-ID-A> 0x70b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0` you can do `cargo run --release --features testing,concurrent tx new consume-notes <regular-account-ID-A> 0x70b7ec`. 
 
 You will now be able to see the asset in the account's vault by running:
 
