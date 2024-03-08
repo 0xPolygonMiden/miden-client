@@ -121,8 +121,6 @@ WHERE (
 CREATE TABLE block_headers (
     block_num UNSIGNED BIG INT NOT NULL,  -- block number
     header BLOB NOT NULL,                 -- serialized block header
-    notes_root BLOB NOT NULL,             -- root of the notes Merkle tree in this block
-    sub_hash BLOB NOT NULL,               -- hash of all other header fields in the block
     chain_mmr_peaks BLOB NOT NULL,        -- serialized peaks of the chain MMR at this block
     has_client_notes BOOL NOT NULL,       -- whether the block has notes relevant to the client
     PRIMARY KEY (block_num)
