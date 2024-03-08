@@ -61,18 +61,7 @@ pub trait Store {
         let filtered_notes = tx_result
             .created_notes()
             .iter()
-            .filter(|note| {
-                let script_hash_str = note.script().hash().to_string();
-                // We want to check that *if* it is a P2ID or P2IDR the inputs are the
-                // corresponding ones
-                !(script_hash_str == P2ID_NOTE_SCRIPT_ROOT
-                    || script_hash_str == P2IDR_NOTE_SCRIPT_ROOT)
-                    || account_ids_tracked_by_client.iter().any(|account_id| {
-                        *note.inputs()
-                            == NoteInputs::new(vec![(*account_id).into()])
-                                .expect("Number of inputs should be 1")
-                    })
-            })
+            .filter(|note| can_be_consumed(note, &account_ids_tracked_by_client))
             .cloned()
             .collect::<Vec<_>>();
 
@@ -462,4 +451,17 @@ pub enum NoteFilter {
     /// Return a list of pending [InputNoteRecord]. These represent notes for which the store
     /// does not have anchor data.
     Pending,
+}
+
+/// Check if `note` can be consumed by any of the accounts corresponding to `account_ids`
+fn can_be_consumed(note: &Note, account_ids: &[AccountId]) -> bool {
+    let script_hash_str = note.script().hash().to_string();
+    // We want to check that *if* it is a P2ID or P2IDR the inputs are the
+    // corresponding ones
+    !(script_hash_str == P2ID_NOTE_SCRIPT_ROOT || script_hash_str == P2IDR_NOTE_SCRIPT_ROOT)
+        || account_ids.iter().any(|account_id| {
+            *note.inputs()
+                == NoteInputs::new(vec![(*account_id).into()])
+                    .expect("Number of inputs should be 1")
+        })
 }

@@ -271,7 +271,7 @@ async fn main() {
     println!("Running P2ID tx...");
     execute_tx_and_sync(&mut client, tx_template).await;
 
-    // Check that no accounts were added
+    // Check that no new notes were added
     println!("Fetching Committed Notes...");
     let notes = client.get_input_notes(NoteFilter::Committed).unwrap();
     assert!(notes.is_empty());
