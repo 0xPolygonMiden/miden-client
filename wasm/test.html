@@ -2,20 +2,47 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>WASM Greet Example</title>
+    <title>WASM Example</title>
 </head>
 <body>
     <script type="module" src="./dist/index.js"></script>
     <script type="module">
-        // Example of using the exported `greet` function directly in HTML
-        import { greet } from './dist/index.js';
+        // Example of using the exported WebClient in the browser
+        import { WebClient } from './dist/index.js';
 
-        async function loadAndGreet() {
-            // Since greet is exported asynchronously, ensure it's available
-            await greet(); // Assuming `greet` is a function that can be awaited
+        async function initializeWebClient() {
+            const webClient = new WebClient();
+            try {
+                await webClient.create_client();
+                await webClient.fake_new_account();
+            } catch (error) {
+                console.error('Failed to create client with web store:', error);
+            }
         }
 
-        loadAndGreet().catch(console.error);
+        async function testNewAccount() {
+            const webClient = new WebClient();
+            const basicMutableTemplate = {
+                type: "BasicMutable"
+            };
+            const fungibleFaucetTemplate = {
+                type: "FungibleFaucet",
+                decimals: 18,
+                max_supply: 1000000
+            };
+            try {
+                await webClient.create_client();
+                await webClient.new_account(basicMutableTemplate);
+                await webClient.new_account(fungibleFaucetTemplate);
+                // console.log(account);
+                // console.log(word);
+            } catch (error) {
+                console.error('Failed to create client with web store:', error);
+            }
+        }
+
+        //initializeWebClient();
+        testNewAccount();
     </script>
 </body>
 </html>
