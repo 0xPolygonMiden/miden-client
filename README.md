@@ -1,4 +1,4 @@
-# Miden Client
+# Miden client
 
 <a href="https://github.com/0xPolygonMiden/miden-node/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
 <a href="https://github.com/0xPolygonMiden/miden-client/actions/workflows/ci.yml"><img src="https://github.com/0xPolygonMiden/miden-client/actions/workflows/ci.yml/badge.svg?branch=main"></a>
@@ -17,7 +17,7 @@ The Miden client currently consists of two components:
 - `miden-client` library, which can be used by other project to programmatically interact with the Miden rollup.
 - `miden-client` binary which is a wrapper around the library exposing its functionality via a simple command-line interface (CLI).
 
-The client's main responsibility is to maintain a partial view of the blockchain which allows for locally executing and proving transactions. It keeps a local store of various entities that periodically get updated by communicating with the node.
+The client's main responsibility is to maintain a partial view of the blockchain which allows for locally executing and proving transactions. It keeps a local store of various entities that periodically get updated by syncing with the node.
 
 ## Usage
 
@@ -96,17 +96,19 @@ miden-client tx new mint <regular-account-ID-A> <faucet-account-id> 1000
 
 This will execute, prove and submit a transaction that mints assets to the node. The account that executes this transaction will be the faucet as was defined in the node's configuration file. In this case, it is minting `1000` fungible tokens to `<regular-account-ID-A>`. 
 
-This will add a transaction and an output note (containing the minted asset) to the local store in order to track their lifecycles. You can display them by running `miden-client tx list` and `miden-client input-notes list` respectively. If you do so, you will notice that they do not show a `commit height` even though they were submitted to the operator. This is because our local view of the network has not yet been updated. After updating it with a `sync`, you should see the height at which the transaction and the note containing the asset were committed. This will allow us to prove transactions that make use of this note, as we can compute valid proofs that state that the note exists in the blockchain.
+This will add a transaction and an output note (containing the minted asset) to the local store in order to track their lifecycles. You can display them by running `miden-client tx list` and `miden-client input-notes list` respectively. If you do so, you will notice that they do not show a `commit height` even though they were submitted to the operator. This is because our local view of the network has not yet been updated, so the client does not have a way to prove the inclusion of the note in the blockchain. After updating it with a `sync`, you should see the height at which the transaction and the note containing the asset were committed. This will allow us to prove transactions that make use of this note, as we can compute valid proofs that state that the note exists in the blockchain.
 
 ### 4. Consuming the note
 
 After creating the note with the minted asset, the regular account can now consume it and add the tokens to its vault. You can do this the following way:
 
 ```bash
-miden-client tx new consume-note <regular-account-ID-A> <input-note-ID>
+miden-client tx new consume-notes <regular-account-ID-A> <input-note-ID>
 ```
 
-This will consume the input note identified by its ID, which you can get by listing them as explained in the previous step. You will now be able to see the asset in the account's vault by running:
+This will consume the input note identified by its ID, which you can get by listing them as explained in the previous step. Note that you can consume more than one note in a single transaction.
+
+You will now be able to see the asset in the account's vault by running:
 
 ```bash
 miden-client account show <regular-account-ID-A> -v
@@ -125,7 +127,7 @@ This will generate a Pay-to-ID (`P2ID`) note containing 50 assets, transferred f
 
 ```bash
 miden-client sync # Make sure we have an updated view of the state
-miden-client tx new consume-note <regular-account-ID-B> # Consume the note
+miden-client tx new consume-notes <regular-account-ID-B> # Consume the note
 ```
 
 That's it! You will now be able to see `950` fungible tokens in the first regular account, and `50` tokens in the remaining regular account:

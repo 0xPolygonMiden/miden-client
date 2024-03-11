@@ -1,8 +1,8 @@
 use crypto::{rand::RpoRandomCoin, utils::Serializable, Felt, Word};
 use miden_lib::notes::create_p2id_note;
 
+use crate::store::Store;
 use miden_tx::{DataStore, ProvingOptions, TransactionProver};
-
 use mock::procedures::prepare_word;
 use objects::{
     accounts::{AccountDelta, AccountId},
@@ -20,7 +20,7 @@ use tracing::info;
 
 use crate::{
     errors::ClientError,
-    store::{accounts::AuthInfo, transactions::TransactionFilter},
+    store::{AuthInfo, TransactionFilter},
 };
 
 use super::{rpc::NodeRpcClient, Client};
@@ -105,14 +105,14 @@ impl PaymentTransactionData {
 /// notes created by the transaction execution
 pub struct TransactionResult {
     executed_transaction: ExecutedTransaction,
-    created_notes: Vec<Note>,
+    output_notes: Vec<Note>,
 }
 
 impl TransactionResult {
     pub fn new(executed_transaction: ExecutedTransaction, created_notes: Vec<Note>) -> Self {
         Self {
             executed_transaction,
-            created_notes,
+            output_notes: created_notes,
         }
     }
 
@@ -121,7 +121,7 @@ impl TransactionResult {
     }
 
     pub fn created_notes(&self) -> &Vec<Note> {
-        &self.created_notes
+        &self.output_notes
     }
 
     pub fn block_num(&self) -> u32 {
@@ -202,17 +202,17 @@ impl std::fmt::Display for TransactionStatus {
     }
 }
 
-impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
+impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
     /// Retrieves tracked transactions, filtered by [TransactionFilter].
     pub fn get_transactions(
         &self,
-        transaction_filter: TransactionFilter,
+        filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, ClientError> {
         self.store
-            .get_transactions(transaction_filter)
+            .get_transactions(filter)
             .map_err(|err| err.into())
     }
 
@@ -359,7 +359,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
         tx_script: ProgramAst,
         block_num: u32,
     ) -> Result<TransactionResult, ClientError> {
-        let account_auth = self.get_account_auth(account_id)?;
+        let account_auth = self.store.get_account_auth(account_id)?;
         let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
             AuthInfo::RpoFalcon512(key) => (
                 key.public_key().into(),
@@ -404,7 +404,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
             .await?;
 
         // Transaction was proven and submitted to the node correctly, persist note details and update account
-        self.store.insert_transaction_data(tx_result)?;
+        self.store.apply_transaction(tx_result)?;
 
         Ok(())
     }

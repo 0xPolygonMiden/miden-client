@@ -15,7 +15,7 @@ pub use tonic_client::TonicRpcClient;
 // NODE RPC CLIENT TRAIT
 // ================================================================================================
 
-/// This trait is used for communication with the miden node
+/// Defines the interface for communicating with the Miden node.
 ///
 /// The implementers are responsible for connecting to the Miden node, handling endpoint
 /// requests/responses, and translating responses into domain objects relevant for each of the

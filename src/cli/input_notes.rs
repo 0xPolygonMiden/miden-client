@@ -1,11 +1,11 @@
 use super::{Client, Parser};
-use crate::cli::create_dynamic_table;
+use crate::cli::{create_dynamic_table, get_note_with_id_prefix};
 use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use crypto::utils::{Deserializable, Serializable};
 use miden_client::{
     client::rpc::NodeRpcClient,
-    store::notes::{InputNoteRecord, NoteFilter as ClientNoteFilter},
+    store::{InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
 };
 use miden_tx::DataStore;
 use objects::{notes::NoteId, Digest};
@@ -23,7 +23,7 @@ pub enum NoteFilter {
 }
 
 #[derive(Debug, Parser, Clone)]
-#[clap(about = "View input notes")]
+#[clap(about = "View and manage input notes")]
 pub enum InputNotes {
     /// List input notes
     #[clap(short_flag = 'l')]
@@ -75,9 +75,9 @@ pub enum InputNotes {
 }
 
 impl InputNotes {
-    pub fn execute<N: NodeRpcClient, D: DataStore>(
+    pub fn execute<N: NodeRpcClient, S: Store, D: DataStore>(
         &self,
-        mut client: Client<N, D>,
+        mut client: Client<N, S, D>,
     ) -> Result<(), String> {
         match self {
             InputNotes::List { filter } => {
@@ -113,19 +113,19 @@ impl InputNotes {
 
 // LIST INPUT NOTES
 // ================================================================================================
-fn list_input_notes<N: NodeRpcClient, D: DataStore>(
-    client: Client<N, D>,
-    input_note_filter: ClientNoteFilter,
+fn list_input_notes<N: NodeRpcClient, S: Store, D: DataStore>(
+    client: Client<N, S, D>,
+    filter: ClientNoteFilter,
 ) -> Result<(), String> {
-    let notes = client.get_input_notes(input_note_filter)?;
+    let notes = client.get_input_notes(filter)?;
     print_notes_summary(&notes);
     Ok(())
 }
 
 // EXPORT INPUT NOTE
 // ================================================================================================
-pub fn export_note<N: NodeRpcClient, D: DataStore>(
-    client: &Client<N, D>,
+pub fn export_note<N: NodeRpcClient, S: Store, D: DataStore>(
+    client: &Client<N, S, D>,
     note_id: &str,
     filename: Option<PathBuf>,
 ) -> Result<File, String> {
@@ -150,8 +150,8 @@ pub fn export_note<N: NodeRpcClient, D: DataStore>(
 
 // IMPORT INPUT NOTE
 // ================================================================================================
-pub fn import_note<N: NodeRpcClient, D: DataStore>(
-    client: &mut Client<N, D>,
+pub fn import_note<N: NodeRpcClient, S: Store, D: DataStore>(
+    client: &mut Client<N, S, D>,
     filename: PathBuf,
 ) -> Result<NoteId, String> {
     let mut contents = vec![];
@@ -172,18 +172,15 @@ pub fn import_note<N: NodeRpcClient, D: DataStore>(
 
 // SHOW INPUT NOTE
 // ================================================================================================
-fn show_input_note<N: NodeRpcClient, D: DataStore>(
-    client: Client<N, D>,
+fn show_input_note<N: NodeRpcClient, S: Store, D: DataStore>(
+    client: Client<N, S, D>,
     note_id: String,
     show_script: bool,
     show_vault: bool,
     show_inputs: bool,
 ) -> Result<(), String> {
-    let note_id = Digest::try_from(note_id)
-        .map_err(|err| format!("Failed to parse input note with ID: {}", err))?
-        .into();
-
-    let input_note_record = client.get_input_note(note_id)?;
+    let input_note_record =
+        get_note_with_id_prefix(&client, &note_id).map_err(|err| err.to_string())?;
 
     // print note summary
     print_notes_summary(core::iter::once(&input_note_record));
@@ -283,13 +280,16 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::cli::input_notes::{export_note, import_note};
+    use crate::cli::{
+        get_note_with_id_prefix,
+        input_notes::{export_note, import_note},
+    };
 
     use miden_client::{
-        client::Client,
         config::{ClientConfig, Endpoint},
-        mock::{MockDataStore, MockRpcApi},
-        store::notes::InputNoteRecord,
+        errors::NoteIdPrefixFetchError,
+        mock::{MockClient, MockDataStore, MockRpcApi},
+        store::{sqlite_store::SqliteStore, InputNoteRecord},
     };
     use mock::mock::{
         account::MockAccountType, notes::AssetPreservationStatus, transaction::mock_inputs,
@@ -302,16 +302,20 @@ mod tests {
         // generate test client
         let mut path = temp_dir();
         path.push(Uuid::new_v4().to_string());
-        let mut client = Client::<MockRpcApi, MockDataStore>::new(
-            ClientConfig::new(
-                path.into_os_string()
-                    .into_string()
-                    .unwrap()
-                    .try_into()
-                    .unwrap(),
-                Endpoint::default().into(),
-            ),
+        let client_config = ClientConfig::new(
+            path.into_os_string()
+                .into_string()
+                .unwrap()
+                .try_into()
+                .unwrap(),
+            Endpoint::default().into(),
+        );
+
+        let store = SqliteStore::new((&client_config).into()).unwrap();
+
+        let mut client = MockClient::new(
             MockRpcApi::new(&Endpoint::default().to_string()),
+            store,
             MockDataStore::new(),
         )
         .unwrap();
@@ -361,16 +365,19 @@ mod tests {
         // generate test client to import notes to
         let mut path = temp_dir();
         path.push(Uuid::new_v4().to_string());
-        let mut client = Client::<MockRpcApi, MockDataStore>::new(
-            ClientConfig::new(
-                path.into_os_string()
-                    .into_string()
-                    .unwrap()
-                    .try_into()
-                    .unwrap(),
-                Endpoint::default().into(),
-            ),
+        let client_config = ClientConfig::new(
+            path.into_os_string()
+                .into_string()
+                .unwrap()
+                .try_into()
+                .unwrap(),
+            Endpoint::default().into(),
+        );
+        let store = SqliteStore::new((&client_config).into()).unwrap();
+
+        let mut client = MockClient::new(
             MockRpcApi::new(&Endpoint::default().to_string()),
+            store,
             MockDataStore::new(),
         )
         .unwrap();
@@ -387,6 +394,73 @@ mod tests {
         assert_eq!(
             imported_pending_note_record.note().id(),
             pending_note.note().id()
+        );
+    }
+
+    #[tokio::test]
+    async fn get_input_note_with_prefix() {
+        // generate test client
+        let mut path = temp_dir();
+        path.push(Uuid::new_v4().to_string());
+        let client_config = ClientConfig::new(
+            path.into_os_string()
+                .into_string()
+                .unwrap()
+                .try_into()
+                .unwrap(),
+            Endpoint::default().into(),
+        );
+
+        let store = SqliteStore::new((&client_config).into()).unwrap();
+
+        let mut client = MockClient::new(
+            MockRpcApi::new(&Endpoint::default().to_string()),
+            store,
+            MockDataStore::new(),
+        )
+        .unwrap();
+
+        // Ensure we get an error if no note is found
+        let non_existent_note_id = "0x123456";
+        assert_eq!(
+            get_note_with_id_prefix(&client, non_existent_note_id),
+            Err(NoteIdPrefixFetchError::NoMatch(
+                non_existent_note_id.to_string()
+            ))
+        );
+
+        // generate test data
+        let transaction_inputs = mock_inputs(
+            MockAccountType::StandardExisting,
+            AssetPreservationStatus::Preserved,
+        );
+
+        let committed_note: InputNoteRecord =
+            transaction_inputs.input_notes().get_note(0).clone().into();
+        let pending_note = InputNoteRecord::new(
+            transaction_inputs.input_notes().get_note(1).note().clone(),
+            None,
+        );
+
+        client.import_input_note(committed_note.clone()).unwrap();
+        client.import_input_note(pending_note.clone()).unwrap();
+        assert!(pending_note.inclusion_proof().is_none());
+        assert!(committed_note.inclusion_proof().is_some());
+
+        // Check that we can fetch Both notes
+        let note = get_note_with_id_prefix(&client, &committed_note.note_id().to_hex()).unwrap();
+        assert_eq!(note.note_id(), committed_note.note_id());
+
+        let note = get_note_with_id_prefix(&client, &pending_note.note_id().to_hex()).unwrap();
+        assert_eq!(note.note_id(), pending_note.note_id());
+
+        // Check that we get an error if many match
+        let note_id_with_many_matches = "0x";
+        assert_eq!(
+            get_note_with_id_prefix(&client, note_id_with_many_matches),
+            Err(NoteIdPrefixFetchError::MultipleMatches(
+                note_id_with_many_matches.to_string()
+            ))
         );
     }
 }

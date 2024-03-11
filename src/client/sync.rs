@@ -1,12 +1,16 @@
+use super::{
+    rpc::{CommittedNote, NodeRpcClient},
+    transactions::TransactionRecord,
+    Client,
+};
 use crate::{
-    client::transactions::TransactionRecord,
     errors::{ClientError, StoreError},
-    store::{chain_data::ChainMmrNodeFilter, transactions::TransactionFilter, Store},
+    store::TransactionFilter,
 };
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 
-use super::{rpc::CommittedNote, rpc::NodeRpcClient, Client};
+use crate::store::{ChainMmrNodeFilter, NoteFilter, Store};
 use miden_tx::DataStore;
 use objects::{
     accounts::{AccountId, AccountStub},
@@ -28,7 +32,7 @@ pub enum SyncStatus {
 /// The number of bits to shift identifiers for in use of filters.
 pub const FILTER_ID_SHIFT: u8 = 48;
 
-impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
+impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
     // SYNC STATE
     // --------------------------------------------------------------------------------------------
 
@@ -85,16 +89,12 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     async fn retrieve_and_store_genesis(&mut self) -> Result<(), ClientError> {
         let genesis_block = self.rpc_api.get_block_header_by_number(Some(0)).await?;
 
-        let tx = self.store.db.transaction()?;
-
-        Store::insert_block_header(
-            &tx,
-            genesis_block,
-            MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks"),
-            false,
-        )?;
-
-        tx.commit()?;
+        let blank_mmr_peaks =
+            MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks should not fail to instantiate");
+        // NOTE: If genesis block data ever includes notes in the future, the third parameter in
+        // this `insert_block_header` call may be `true`
+        self.store
+            .insert_block_header(genesis_block, blank_mmr_peaks, false)?;
         Ok(())
     }
 
@@ -103,7 +103,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
 
         let accounts: Vec<AccountStub> = self
             .store
-            .get_accounts()?
+            .get_account_stubs()?
             .into_iter()
             .map(|(acc_stub, _)| acc_stub)
             .collect();
@@ -120,7 +120,7 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
             .store
             .get_unspent_input_note_nullifiers()?
             .iter()
-            .map(|nullifier| (nullifier[3].as_int() >> FILTER_ID_SHIFT) as u16)
+            .map(|nullifier| (nullifier.inner()[3].as_int() >> FILTER_ID_SHIFT) as u16)
             .collect();
 
         // Send request
@@ -182,9 +182,9 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
                 response.block_header,
                 new_nullifiers,
                 committed_notes,
+                &transactions_to_commit,
                 new_peaks,
                 &new_authentication_nodes,
-                &transactions_to_commit,
             )
             .map_err(ClientError::StoreError)?;
 
@@ -210,14 +210,14 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
         // we might get many notes when we only care about a few of those.
         let pending_input_notes: Vec<NoteId> = self
             .store
-            .get_input_notes(crate::store::notes::NoteFilter::Pending)?
+            .get_input_notes(NoteFilter::Pending)?
             .iter()
             .map(|n| n.note().id())
             .collect();
 
         let pending_output_notes: Vec<NoteId> = self
             .store
-            .get_output_notes(crate::store::notes::NoteFilter::Pending)?
+            .get_output_notes(NoteFilter::Pending)?
             .iter()
             .map(|n| n.note().id())
             .collect();
@@ -292,7 +292,12 @@ impl<N: NodeRpcClient, D: DataStore> Client<N, D> {
     /// from the received [SyncStateResponse]
     fn get_new_nullifiers(&self, new_nullifiers: Vec<Digest>) -> Result<Vec<Digest>, ClientError> {
         // Get current unspent nullifiers
-        let nullifiers = self.store.get_unspent_input_note_nullifiers()?;
+        let nullifiers = self
+            .store
+            .get_unspent_input_note_nullifiers()?
+            .iter()
+            .map(|nullifier| nullifier.inner())
+            .collect::<Vec<_>>();
 
         let new_nullifiers = new_nullifiers
             .into_iter()
@@ -359,10 +364,10 @@ fn check_account_hashes(
 ///
 /// To set an uncommitted transaction as committed three things must hold:
 ///
-/// - all of the transaction's output notes are committed
-/// - all of the transaction's input notes are consumed, which means we got their nullifiers as
+/// - All of the transaction's output notes are committed
+/// - All of the transaction's input notes are consumed, which means we got their nullifiers as
 /// part of the update
-/// - the account corresponding to the transaction hash matches the transaction's
+/// - The account corresponding to the transaction hash matches the transaction's
 /// final_account_state
 fn get_transactions_to_commit(
     uncommitted_transactions: &[TransactionRecord],

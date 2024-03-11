@@ -11,8 +11,10 @@ There are commands provided in the `Makefile` to make running them easier. To ru
 make reset
 # This command will clone the node's repo and generate the accounts and genesis files and lastly start the node and run it on background
 make start-node &
-# This will run the integration test and after it finishes it will kill the node process
+# This will run the integration test 
 make integration-test
+# After tests are done, we can kill the node process
+make kill-node
 ```
 
 ## Integration Test Flow
@@ -58,12 +60,13 @@ The current integration test at `./integration/main.rs` goes through the followi
    to *B*. Sync again
 7. Consume the P2ID note for account *B*. Now both accounts should have some of
    asset from faucet *C*
+8. A double-spend is attempted to check that the client does not allow this
 
 In short, we're testing:
 
 - Account importing.
 - Account creation.
-- Sync.
+- Sync and entity tracking.
 - Mint tx.
 - Consume note tx (both for an imported and a created account).
 - P2ID tx.

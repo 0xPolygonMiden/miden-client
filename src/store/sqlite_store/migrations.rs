@@ -1,7 +1,8 @@
-use super::StoreError;
 use lazy_static::lazy_static;
 use rusqlite::Connection;
 use rusqlite_migration::{Migrations, M};
+
+use crate::errors::StoreError;
 
 // MIGRATIONS
 // ================================================================================================
