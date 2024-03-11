@@ -1,23 +1,11 @@
 name: "Feature request"
 description: "Request new goodies"
-title: "[Feature]: "
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
         Thank you for taking the time to fill a feature request!
-  - type: dropdown
-    id: target-group
-    attributes:
-      label: "To whom is this feature for?"
-      description: "Let us know who will use this new goodie!"
-      options:
-        - End user
-        - App developer
-        - Rollup operator
-    validations:
-      required: true
   - type: textarea
     id: scenario-why
     attributes:
