@@ -465,9 +465,17 @@ pub(crate) fn serialize_output_note(
             )?)
             .map_err(StoreError::InputSerializationError)?;
 
-            (Some(inclusion_proof), String::from("committed"))
+            let status = serde_json::to_string(&NoteStatus::Committed)
+                .map_err(StoreError::InputSerializationError)?;
+
+            (Some(inclusion_proof), status)
         }
-        None => (None, String::from("pending")),
+        None => {
+            let status = serde_json::to_string(&NoteStatus::Pending)
+                .map_err(StoreError::InputSerializationError)?;
+
+            (None, status)
+        }
     };
     let recipient = note.recipient().to_hex();
 
