@@ -12,7 +12,7 @@ edition = "2021"
 rust-version = "1.75"
 default-run = "miden-client"
 
-[[bin]]
+[[test]]
 name = "integration"
 path = "tests/integration/main.rs"
 required-features = ["integration"]
