@@ -44,6 +44,8 @@ Once an account gets created with the `new` command, it will be automatically st
 | `export`  | Export input note data to a binary file                    | -e      |
 | `import`  | Import input note data from a binary file                  | -i      |
 
+For `show` subcommand, you can also provide a partial ID instead of the full ID. So instead of `miden-client input-notes show 0x70b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0` you can do `miden-client input-notes show 0x70b7ec`
+
 ### `tags` command
 
 | Command | Description                                              | Aliases |
@@ -73,3 +75,4 @@ You can list them with their respective commands.
 | `mint <TARGET ACCOUNT ID> <FAUCET ID> <AMOUNT>`           | Creates a note that contains a specific amount tokens minted by a faucet, that the target Account ID can consume|
 | `consume-notes  <ACCOUNT ID> [NOTES]`  | Account ID consumes a list of notes, specified by their Note ID |
 
+For `consume-notes` subcommand, you can also provide a partial ID instead of the full ID for each note. So instead of `miden-client consume-notes <some-account-id> 0x70b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0 0x80b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0` you can do `miden-client consume-notes <some-account-id> 0x70b7ecb 0x80b7ecb`
