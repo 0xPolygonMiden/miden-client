@@ -136,11 +136,8 @@ fn build_transaction_template<N: NodeRpcClient, S: Store>(
                 AccountId::from_hex(sender_account_id).map_err(|err| err.to_string())?;
             let target_account_id =
                 AccountId::from_hex(target_account_id).map_err(|err| err.to_string())?;
-            let payment_transaction = PaymentTransactionData::new(
-                fungible_asset,
-                sender_account_id,
-                target_account_id,
-            );
+            let payment_transaction =
+                PaymentTransactionData::new(fungible_asset, sender_account_id, target_account_id);
 
             Ok(TransactionTemplate::PayToIdWithRecall(
                 payment_transaction,
