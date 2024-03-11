@@ -15,7 +15,6 @@ use miden_objects::{
     accounts::AccountData,
     assets::{Asset, FungibleAsset},
     notes::NoteId,
-    utils::serde::Deserializable,
 };
 use miden_tx::{DataStoreError, TransactionExecutorError};
 use uuid::Uuid;
@@ -95,42 +94,8 @@ const TRANSFER_AMOUNT: u64 = 50;
 
 #[tokio::main]
 async fn main() {
-    let mut client = create_test_client();
-
-    let (first_regular_account, second_regular_account, faucet_account_stub) =
-        setup(&mut client).await;
-
-    let first_regular_account_id = first_regular_account.id();
-    let second_regular_account_id = second_regular_account.id();
-    let faucet_account_id = faucet_account_stub.id();
-
-    test_mint_note(&mut client, first_regular_account_id, faucet_account_id).await;
-    let created_note_record = test_p2id_transfer(
-        &mut client,
-        first_regular_account_id,
-        second_regular_account_id,
-        faucet_account_id,
-    )
-    .await;
-    test_note_cannot_be_consumed_twice(
-        &mut client,
-        second_regular_account_id,
-        created_note_record.note_id(),
-    )
-    .await;
-    let created_note_record = test_p2idr_transfer(
-        &mut client,
-        first_regular_account_id,
-        second_regular_account_id,
-        faucet_account_id,
-    )
-    .await;
-    test_note_cannot_be_consumed_twice(
-        &mut client,
-        second_regular_account_id,
-        created_note_record.note_id(),
-    )
-    .await;
+    test_p2id_transfer().await;
+    test_p2idr_transfer().await;
 
     println!("Test ran successfully!");
 }
@@ -141,22 +106,25 @@ async fn setup(client: &mut TestClient) -> (AccountStub, AccountStub, AccountStu
     assert!(client.get_transactions(TransactionFilter::All).unwrap().is_empty());
     assert!(client.get_input_notes(NoteFilter::All).unwrap().is_empty());
 
-    // Import accounts
-    println!("Importing Accounts...");
-    for account_idx in 0..2 {
-        let account_data_file_contents =
-            fs::read(format!("./miden-node/accounts/account{}.mac", account_idx)).unwrap();
-        let account_data = AccountData::read_from_bytes(&account_data_file_contents).unwrap();
-        client.import_account(account_data).unwrap();
-    }
-
-    // Create new regular account
+    // Create faucet account
     client
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
+        .new_account(AccountTemplate::FungibleFaucet {
+            token_symbol: TokenSymbol::new("MATIC").unwrap(),
+            decimals: 8,
+            max_supply: 1000000,
             storage_mode: AccountStorageMode::Local,
         })
         .unwrap();
+
+    // Create regular accounts
+    for _ in 0..2 {
+        client
+            .new_account(AccountTemplate::BasicWallet {
+                mutable_code: false,
+                storage_mode: AccountStorageMode::Local,
+            })
+            .unwrap();
+    }
 
     wait_for_node(client).await;
 
@@ -227,12 +195,18 @@ async fn test_mint_note(
     }
 }
 
-async fn test_p2id_transfer(
-    client: &mut TestClient,
-    from_account_id: AccountId,
-    to_account_id: AccountId,
-    faucet_account_id: AccountId,
-) -> InputNoteRecord {
+async fn test_p2id_transfer() {
+    let mut client = create_test_client();
+
+    let (first_regular_account, second_regular_account, faucet_account_stub) =
+        setup(&mut client).await;
+
+    let from_account_id = first_regular_account.id();
+    let to_account_id = second_regular_account.id();
+    let faucet_account_id = faucet_account_stub.id();
+
+    // First Mint necesary token
+    test_mint_note(&mut client, from_account_id, faucet_account_id).await;
     // Do a transfer from first account to second account
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
     let tx_template = TransactionTemplate::PayToId(PaymentTransactionData::new(
@@ -241,7 +215,7 @@ async fn test_p2id_transfer(
         to_account_id,
     ));
     println!("Running P2ID tx...");
-    execute_tx_and_sync(client, tx_template).await;
+    execute_tx_and_sync(&mut client, tx_template).await;
 
     // Check that note is committed for the second account to consume
     println!("Fetching Committed Notes...");
@@ -251,7 +225,7 @@ async fn test_p2id_transfer(
     // Consume P2ID note
     let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![notes[0].note_id()]);
     println!("Consuming Note...");
-    execute_tx_and_sync(client, tx_template).await;
+    execute_tx_and_sync(&mut client, tx_template).await;
 
     let (regular_account, seed) = client.get_account(from_account_id).unwrap();
     // The seed should not be retrieved due to the account not being new
@@ -276,15 +250,21 @@ async fn test_p2id_transfer(
         panic!("Error: Account should have a fungible asset");
     }
 
-    notes[0].clone()
+    test_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].note_id()).await;
 }
 
-async fn test_p2idr_transfer(
-    client: &mut TestClient,
-    from_account_id: AccountId,
-    to_account_id: AccountId,
-    faucet_account_id: AccountId,
-) -> InputNoteRecord {
+async fn test_p2idr_transfer() {
+    let mut client = create_test_client();
+
+    let (first_regular_account, second_regular_account, faucet_account_stub) =
+        setup(&mut client).await;
+
+    let from_account_id = first_regular_account.id();
+    let to_account_id = second_regular_account.id();
+    let faucet_account_id = faucet_account_stub.id();
+
+    // First Mint necesary token
+    test_mint_note(&mut client, from_account_id, faucet_account_id).await;
     // Do a transfer from first account to second account with Recall. In this situation we'll do
     // the happy path where the `to_account_id` consumes the note
     let from_account_balance = client
@@ -308,7 +288,7 @@ async fn test_p2idr_transfer(
         current_block_num + 50,
     );
     println!("Running P2IDR tx...");
-    execute_tx_and_sync(client, tx_template).await;
+    execute_tx_and_sync(&mut client, tx_template).await;
 
     // Check that note is committed for the second account to consume
     println!("Fetching Committed Notes...");
@@ -318,7 +298,7 @@ async fn test_p2idr_transfer(
     // Make the `to_account_id` consume P2IDR note
     let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![notes[0].note_id()]);
     println!("Consuming Note...");
-    execute_tx_and_sync(client, tx_template).await;
+    execute_tx_and_sync(&mut client, tx_template).await;
 
     let (regular_account, seed) = client.get_account(from_account_id).unwrap();
     // The seed should not be retrieved due to the account not being new
@@ -349,7 +329,7 @@ async fn test_p2idr_transfer(
         panic!("Error: Account should have a fungible asset");
     }
 
-    notes[0].clone()
+    test_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].note_id()).await;
 }
 
 async fn test_note_cannot_be_consumed_twice(
