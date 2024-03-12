@@ -1,7 +1,6 @@
 use super::{CommittedNote, NodeRpcClient, NodeRpcClientEndpoint, StateSyncInfo};
 use crate::errors::NodeRpcClientError;
 use async_trait::async_trait;
-use crypto::utils::Serializable;
 use miden_node_proto::{
     errors::ParseError,
     generated::{
@@ -18,6 +17,7 @@ use miden_objects::{
     transaction::ProvenTransaction,
     BlockHeader, Digest, Felt,
 };
+use miden_tx::utils::Serializable;
 use tonic::transport::Channel;
 
 // TONIC RPC CLIENT

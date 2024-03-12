@@ -5,9 +5,11 @@ use crate::errors::StoreError;
 use crate::store::ChainMmrNodeFilter;
 use clap::error::Result;
 
-use crypto::merkle::{InOrderIndex, MmrPeaks};
-
-use miden_objects::{utils::collections::BTreeMap, BlockHeader, Digest};
+use miden_objects::{
+    crypto::merkle::{InOrderIndex, MmrPeaks},
+    utils::collections::BTreeMap,
+    BlockHeader, Digest,
+};
 use rusqlite::{params, OptionalExtension, Transaction};
 
 type SerializedBlockHeaderData = (i64, String, String, bool);
@@ -246,8 +248,7 @@ fn parse_chain_mmr_nodes(
 
 #[cfg(test)]
 mod test {
-    use crypto::merkle::MmrPeaks;
-    use miden_objects::BlockHeader;
+    use miden_objects::{crypto::merkle::MmrPeaks, BlockHeader};
 
     use crate::store::{
         sqlite_store::{tests::create_test_store, SqliteStore},

@@ -7,11 +7,12 @@ use super::SqliteStore;
 
 use clap::error::Result;
 
-use crypto::utils::{Deserializable, Serializable};
-
-use miden_objects::notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteScript};
-
-use miden_objects::{accounts::AccountId, notes::NoteMetadata, Felt};
+use miden_objects::{
+    accounts::AccountId,
+    notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata, NoteScript},
+    Felt,
+};
+use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{params, Transaction};
 
 fn insert_note_query(table_name: NoteTable) -> String {

@@ -2,13 +2,15 @@ use super::{Client, Parser};
 use crate::cli::{create_dynamic_table, get_note_with_id_prefix};
 use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
-use crypto::utils::{Deserializable, Serializable};
 use miden_client::{
     client::rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
 };
 use miden_objects::{notes::NoteId, Digest};
-use miden_tx::DataStore;
+use miden_tx::{
+    utils::{Deserializable, Serializable},
+    DataStore,
+};
 use std::{
     fs::File,
     io::{Read, Write},

@@ -1,8 +1,9 @@
-use crypto::{dsa::rpo_falcon512::KeyPair, Felt, Word};
 use miden_lib::AuthScheme;
 use miden_objects::{
     accounts::{Account, AccountData, AccountId, AccountStub, AccountType, AuthData},
     assets::TokenSymbol,
+    crypto::dsa::rpo_falcon512::KeyPair,
+    Felt, Word,
 };
 use miden_tx::DataStore;
 use rand::{rngs::ThreadRng, Rng};
@@ -115,8 +116,7 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
             todo!("Recording the account on chain is not supported yet");
         }
 
-        let key_pair: miden_objects::crypto::dsa::rpo_falcon512::KeyPair =
-            miden_objects::crypto::dsa::rpo_falcon512::KeyPair::new()?;
+        let key_pair: KeyPair = KeyPair::new()?;
 
         let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
             pub_key: key_pair.public_key(),
@@ -155,8 +155,7 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
             todo!("On-chain accounts are not supported yet");
         }
 
-        let key_pair: miden_objects::crypto::dsa::rpo_falcon512::KeyPair =
-            miden_objects::crypto::dsa::rpo_falcon512::KeyPair::new()?;
+        let key_pair: KeyPair = KeyPair::new()?;
 
         let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
             pub_key: key_pair.public_key(),
@@ -244,9 +243,11 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
 
 #[cfg(test)]
 pub mod tests {
-    use crypto::{dsa::rpo_falcon512::KeyPair, Word};
-
-    use miden_objects::accounts::{Account, AccountData, AccountId, AuthData};
+    use miden_objects::{
+        accounts::{Account, AccountData, AccountId, AuthData},
+        crypto::dsa::rpo_falcon512::KeyPair,
+        Word,
+    };
 
     use crate::{
         mock::{

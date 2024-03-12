@@ -11,11 +11,6 @@ use crate::{
     store::{sqlite_store::SqliteStore, AuthInfo},
 };
 use async_trait::async_trait;
-use crypto::{
-    dsa::rpo_falcon512::KeyPair,
-    merkle::{NodeIndex, SimpleSmt},
-    Felt, Word, ZERO,
-};
 use miden_lib::{transaction::TransactionKernel, AuthScheme};
 use miden_node_proto::generated::{
     account::AccountId as ProtoAccountId,
@@ -31,11 +26,14 @@ use miden_objects::{
     },
     assembly::{Assembler, ModuleAst, ProgramAst},
     assets::{Asset, AssetVault, FungibleAsset, TokenSymbol},
-    crypto::merkle::{Mmr, MmrDelta},
+    crypto::{
+        dsa::rpo_falcon512::KeyPair,
+        merkle::{Mmr, MmrDelta, NodeIndex, SimpleSmt},
+    },
     notes::{Note, NoteAssets, NoteInclusionProof, NoteScript},
     transaction::{InputNote, ProvenTransaction},
     utils::collections::BTreeMap,
-    BlockHeader, NOTE_TREE_DEPTH,
+    BlockHeader, Felt, Word, NOTE_TREE_DEPTH, ZERO,
 };
 #[cfg(test)]
 use miden_tx::DataStore;
@@ -448,7 +446,7 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
         init_seed,
         miden_objects::assets::TokenSymbol::new("MOCK").unwrap(),
         4u8,
-        crypto::Felt::try_from(max_supply.as_slice()).unwrap(),
+        Felt::try_from(max_supply.as_slice()).unwrap(),
         auth_scheme,
     )
     .unwrap();
@@ -561,7 +559,7 @@ pub fn mock_notes(assembler: &Assembler) -> (Vec<Note>, Vec<Note>) {
         &[fungible_asset_1],
         SERIAL_NUM_4,
         sender,
-        crypto::ZERO,
+        ZERO,
     )
     .unwrap();
 
@@ -572,7 +570,7 @@ pub fn mock_notes(assembler: &Assembler) -> (Vec<Note>, Vec<Note>) {
         &[fungible_asset_2],
         SERIAL_NUM_5,
         sender,
-        crypto::ZERO,
+        ZERO,
     )
     .unwrap();
 
@@ -583,7 +581,7 @@ pub fn mock_notes(assembler: &Assembler) -> (Vec<Note>, Vec<Note>) {
         &[fungible_asset_3],
         SERIAL_NUM_6,
         sender,
-        crypto::ZERO,
+        ZERO,
     )
     .unwrap();
 

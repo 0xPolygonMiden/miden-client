@@ -1,16 +1,13 @@
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
+    crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::{NoteId, NoteInclusionProof},
     transaction::TransactionId,
     utils::collections::BTreeMap,
-    BlockHeader, Digest,
+    BlockHeader, Digest, Word,
 };
 
 use super::{AuthInfo, ChainMmrNodeFilter, InputNoteRecord, NoteFilter, Store, TransactionFilter};
-use crypto::{
-    merkle::{InOrderIndex, MmrPeaks},
-    Word,
-};
 
 use rusqlite::Connection;
 

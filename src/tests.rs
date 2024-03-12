@@ -12,13 +12,14 @@ use crate::{
     store::{sqlite_store::tests::create_test_client, AuthInfo, InputNoteRecord, NoteFilter},
 };
 
-use crypto::{dsa::rpo_falcon512::KeyPair, Felt, FieldElement, Word};
 use miden_lib::transaction::TransactionKernel;
 
 use miden_objects::{
     accounts::{AccountId, AccountStub},
     assembly::{AstSerdeOptions, ModuleAst},
     assets::{FungibleAsset, TokenSymbol},
+    crypto::dsa::rpo_falcon512::KeyPair,
+    Felt, FieldElement, Word,
 };
 
 #[tokio::test]

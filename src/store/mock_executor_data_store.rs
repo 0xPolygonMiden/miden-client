@@ -1,4 +1,3 @@
-use crypto::merkle::PartialMmr;
 use miden_lib::{
     transaction::{memory::FAUCET_STORAGE_DATA_SLOT, TransactionKernel},
     MidenLib,
@@ -7,7 +6,7 @@ use miden_objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, StorageSlotType},
     assembly::{Library, LibraryPath, ModuleAst, ProgramAst},
     assets::{AssetVault, FungibleAsset},
-    crypto::{dsa::rpo_falcon512::KeyPair, utils::Serializable},
+    crypto::{dsa::rpo_falcon512::KeyPair, merkle::PartialMmr, utils::Serializable},
     notes::{Note, NoteId, NoteScript},
     transaction::{ChainMmr, InputNote, InputNotes},
     BlockHeader, Felt, Word,
