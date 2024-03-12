@@ -39,6 +39,7 @@ async fn test_input_notes_round_trip() {
 
     // retrieve notes from database
     let retrieved_notes = client.get_input_notes(NoteFilter::Committed).unwrap();
+    assert_eq!(retrieved_notes.len(), consumed_notes.len());
 
     let recorded_notes: Vec<InputNoteRecord> =
         consumed_notes.iter().map(|n| n.clone().into()).collect();
