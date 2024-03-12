@@ -1,26 +1,40 @@
-Before using the Miden client, make sure you have a [Rust installation](https://www.rust-lang.org/tools/install). Miden client requires Rust version 1.67 or later.
+## Software prerequisites
 
-As mentioned in the overview, the client is comprised of a library and a CLI that exposes its main functionality.
+- [Rust installation](https://www.rust-lang.org/tools/install) minimum version 1.67.
 
-## CLI interface
+## Run the client without installing
 
-### Installation
+These steps spin up the client, and current code, without a full installation.
 
-1. Clone the [miden-client repository](https://github.com/0xPolygonMiden/miden-client/).
+1. Clone the [miden-client repository](https://github.com/0xPolygonMiden/miden-client/) and `cd` into the directory.
 
-```sh
-git clone https://github.com/0xPolygonMiden/miden-client.git
-```
+    ```sh
+    git clone https://github.com/0xPolygonMiden/miden-client.git
+    cd miden-client/
+    ```
 
 2. Run the client CLI using:
 
+    ```sh
+    cargo run
+    ```
+
+### Optional flags
+
+There are two optional flags on `cargo run`.
+
 ```sh
-cargo run
+cargo run --flag
 ```
 
-Or you can install it on your system. 
+- `release`: We recommend using this flag as it makes the build significantly faster. This is a default when [installing](#install-the-client).
+- `debug`: This flag makes available some debugging features of the Miden VM.
 
-The current recommended way of installing and running the client is to utilize the `testing` and `concurrent` features.
+## Install the client
+
+We currently recommend installing and running the client with the [`testing`](#testing-feature) and [`concurrent`](#concurrent-feature) features.
+
+Clone the repo as above and run the following command:
 
 ```sh
 cargo install --features testing,concurrent --path .
@@ -28,16 +42,14 @@ cargo install --features testing,concurrent --path .
 
 This installs the `miden-client` binary (at `~/.cargo/bin/miden-client`) and adds it to your `PATH`.
 
-## Features
-
 ### `Testing` feature
 
-The `testing` feature allows mainly for faster account creation. When using the the client CLI alongside a locally-running node, **you will need to make sure the node is installed/executed with the `testing` feature as well**, as some validations can fail if flag does not match up both on the client and the node.
+The `testing` feature speeds up account creation. 
+
+!!! warning "Install the `testing` feature on node and client"
+    - When using the the client CLI alongside a locally-running node, make sure to install/execute the node with the `testing` feature. 
+    - Some validations can fail if the flag does not match on both the client and the node.
 
 ### `Concurrent` feature
 
-Additionally, the client supports another feature: The `concurrent` flag enables optimizations that will result in faster transaction execution and proving.
-
-## Building in `release`
-
-When running the client using `cargo run`, it's important to keep in mind that the `release` build will be significantly faster than `debug` for executing and proving transactions, so defaulting to running in `release` is encouraged. Note that when installing with `cargo install`, this is the default build configuration. 
+The `concurrent` flag enables optimizations that result in faster transaction execution and proving times.
