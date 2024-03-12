@@ -4,7 +4,7 @@ use crate::{
     client::{
         rpc::{NodeRpcClient, NodeRpcClientEndpoint, StateSyncInfo},
         sync::FILTER_ID_SHIFT,
-        transactions::{PaymentTransactionData, TransactionTemplate},
+        transactions::{prepare_word, PaymentTransactionData, TransactionTemplate},
         Client,
     },
     errors::NodeRpcClientError,
@@ -14,7 +14,7 @@ use async_trait::async_trait;
 use crypto::{
     dsa::rpo_falcon512::KeyPair,
     merkle::{NodeIndex, SimpleSmt},
-    Felt, FieldElement,
+    Felt, Word, ZERO,
 };
 use miden_lib::{transaction::TransactionKernel, AuthScheme};
 use miden_node_proto::generated::{
@@ -24,34 +24,42 @@ use miden_node_proto::generated::{
     requests::{GetBlockHeaderByNumberRequest, SyncStateRequest},
     responses::{NullifierUpdate, SyncStateResponse},
 };
-#[cfg(test)]
-use miden_tx::DataStore;
-use mock::{
-    constants::{generate_account_seed, AccountSeedType},
-    mock::{account::mock_account, block::mock_block_header},
-};
-
-use mock::mock::{
-    block,
-    notes::{mock_notes, AssetPreservationStatus},
-};
-use objects::{
-    accounts::{Account, AccountStorage, StorageSlotType},
-    accounts::{AccountId, AccountType},
-    assets::FungibleAsset,
-    assets::{AssetVault, TokenSymbol},
+use miden_objects::{
+    accounts::{
+        get_account_seed_single, Account, AccountCode, AccountId, AccountStorage, AccountType,
+        StorageSlotType,
+    },
+    assembly::{Assembler, ModuleAst, ProgramAst},
+    assets::{Asset, AssetVault, FungibleAsset, TokenSymbol},
     crypto::merkle::{Mmr, MmrDelta},
-    notes::{Note, NoteInclusionProof},
+    notes::{Note, NoteAssets, NoteInclusionProof, NoteScript},
     transaction::{InputNote, ProvenTransaction},
     utils::collections::BTreeMap,
     BlockHeader, NOTE_TREE_DEPTH,
 };
+#[cfg(test)]
+use miden_tx::DataStore;
 use rand::Rng;
 use tonic::{IntoRequest, Response, Status};
 
 pub use crate::store::mock_executor_data_store::MockDataStore;
 
 pub type MockClient = Client<MockRpcApi, SqliteStore, MockDataStore>;
+
+// MOCK CONSTS
+// ================================================================================================
+
+pub const ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN: u64 = 3238098370154045919;
+pub const ACCOUNT_ID_REGULAR: u64 = 0b0110111011u64 << 54;
+pub const ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN: u64 = 0b1010011100 << 54;
+pub const DEFAULT_ACCOUNT_CODE: &str = "
+    use.miden::contracts::wallets::basic->basic_wallet
+    use.miden::contracts::auth::basic->basic_eoa
+
+    export.basic_wallet::receive_asset
+    export.basic_wallet::send_asset
+    export.basic_eoa::auth_tx_rpo_falcon512
+";
 
 /// Mock RPC API
 ///
@@ -72,6 +80,14 @@ impl Default for MockRpcApi {
 impl MockRpcApi {
     pub fn new(_config_endpoint: &str) -> Self {
         Self::default()
+    }
+}
+
+#[cfg(test)]
+impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
+    /// Helper function to set a data store to conveniently mock data for tests
+    pub fn set_data_store(&mut self, data_store: D) {
+        self.set_tx_executor(miden_tx::TransactionExecutor::new(data_store));
     }
 }
 
@@ -114,7 +130,7 @@ impl NodeRpcClient for MockRpcApi {
         let request: GetBlockHeaderByNumberRequest = request.into_request().into_inner();
 
         if request.block_num == Some(0) {
-            let block_header: objects::BlockHeader = block::mock_block_header(0, None, None, &[]);
+            let block_header = BlockHeader::mock(0, None, None, &[]);
             return Ok(block_header);
         }
         panic!("get_block_header_by_number is supposed to be only used for genesis block")
@@ -128,6 +144,9 @@ impl NodeRpcClient for MockRpcApi {
         Ok(())
     }
 }
+
+// HELPERS
+// ================================================================================================
 
 /// Generates mock sync state requests and responses
 fn create_mock_sync_state_request_for_account_and_notes(
@@ -148,12 +167,12 @@ fn create_mock_sync_state_request_for_account_and_notes(
         .map(|note| (note.note().nullifier().as_elements()[3].as_int() >> FILTER_ID_SHIFT) as u32)
         .collect();
 
-    let assembler = TransactionKernel::assembler();
-    let account = mock_account(None, Felt::ONE, None, &assembler);
+    let _assembler = TransactionKernel::assembler();
+    let account = get_account_with_default_account_code(account_id, Word::default(), None);
 
     let tracked_block_headers = tracked_block_headers.unwrap_or(vec![
-        block::mock_block_header(8, None, None, &[]),
-        block::mock_block_header(10, None, None, &[]),
+        BlockHeader::mock(8, None, None, &[]),
+        BlockHeader::mock(10, None, None, &[]),
     ]);
 
     let chain_tip = tracked_block_headers
@@ -211,32 +230,23 @@ fn create_mock_sync_state_request_for_account_and_notes(
 
 /// Generates mock sync state requests and responses
 fn generate_state_sync_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateResponse> {
-    use mock::mock::{account::MockAccountType, transaction::mock_inputs};
-
-    // generate test data
-    let transaction_inputs = mock_inputs(
-        MockAccountType::StandardExisting,
-        AssetPreservationStatus::Preserved,
-    );
+    let account_id = AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap();
 
     // create sync state requests
-    let requests = create_mock_sync_state_request_for_account_and_notes(
-        transaction_inputs.account().id(),
-        &transaction_inputs
-            .input_notes()
-            .clone()
-            .into_iter()
-            .map(|input_note| input_note.note().clone())
-            .collect::<Vec<_>>(),
-        &transaction_inputs.input_notes().clone().into_vec(),
-        None,
-        None,
-    );
+    let assembler = TransactionKernel::assembler();
+    let (consumed_notes, created_notes) = mock_notes(&assembler);
+    let (_, input_notes, _, _) = mock_full_chain_mmr_and_notes(consumed_notes);
 
-    requests
+    create_mock_sync_state_request_for_account_and_notes(
+        account_id,
+        &created_notes,
+        &input_notes,
+        None,
+        None,
+    )
 }
 
-fn mock_full_chain_mmr_and_notes(
+pub fn mock_full_chain_mmr_and_notes(
     consumed_notes: Vec<Note>,
 ) -> (Mmr, Vec<InputNote>, Vec<BlockHeader>, Vec<MmrDelta>) {
     let mut note_trees = Vec::new();
@@ -258,13 +268,13 @@ fn mock_full_chain_mmr_and_notes(
 
     // create a dummy chain of block headers
     let block_chain = vec![
-        mock_block_header(0, None, note_tree_iter.next().map(|x| x.root()), &[]),
-        mock_block_header(1, None, note_tree_iter.next().map(|x| x.root()), &[]),
-        mock_block_header(2, None, note_tree_iter.next().map(|x| x.root()), &[]),
-        mock_block_header(3, None, note_tree_iter.next().map(|x| x.root()), &[]),
-        mock_block_header(4, None, note_tree_iter.next().map(|x| x.root()), &[]),
-        mock_block_header(5, None, note_tree_iter.next().map(|x| x.root()), &[]),
-        mock_block_header(6, None, note_tree_iter.next().map(|x| x.root()), &[]),
+        BlockHeader::mock(0, None, note_tree_iter.next().map(|x| x.root()), &[]),
+        BlockHeader::mock(1, None, note_tree_iter.next().map(|x| x.root()), &[]),
+        BlockHeader::mock(2, None, note_tree_iter.next().map(|x| x.root()), &[]),
+        BlockHeader::mock(3, None, note_tree_iter.next().map(|x| x.root()), &[]),
+        BlockHeader::mock(4, None, note_tree_iter.next().map(|x| x.root()), &[]),
+        BlockHeader::mock(5, None, note_tree_iter.next().map(|x| x.root()), &[]),
+        BlockHeader::mock(6, None, note_tree_iter.next().map(|x| x.root()), &[]),
     ];
 
     // instantiate and populate MMR
@@ -315,14 +325,26 @@ fn mock_full_chain_mmr_and_notes(
 /// chain
 pub async fn insert_mock_data(client: &mut MockClient) -> Vec<BlockHeader> {
     // mock notes
-    let assembler = TransactionKernel::assembler();
-    let (account_id, account_seed) =
-        generate_account_seed(AccountSeedType::RegularAccountUpdatableCodeOnChain);
-    let account = mock_account(Some(u64::from(account_id)), Felt::ONE, None, &assembler);
-    let (input_notes, created_notes) = mock_notes(&assembler, &AssetPreservationStatus::Preserved);
+    let account = get_account_with_default_account_code(
+        AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN).unwrap(),
+        Word::default(),
+        None,
+    );
 
+    let init_seed: [u8; 32] = [0; 32];
+    let account_seed = get_account_seed_single(
+        init_seed,
+        account.account_type(),
+        true,
+        account.code().root(),
+        account.storage().root(),
+    )
+    .unwrap();
+
+    let assembler = TransactionKernel::assembler();
+    let (consumed_notes, created_notes) = mock_notes(&assembler);
     let (_mmr, consumed_notes, tracked_block_headers, mmr_deltas) =
-        mock_full_chain_mmr_and_notes(input_notes);
+        mock_full_chain_mmr_and_notes(consumed_notes);
 
     // insert notes into database
     for note in consumed_notes.clone() {
@@ -425,7 +447,7 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
 
     let (faucet, seed) = miden_lib::accounts::faucets::create_basic_fungible_faucet(
         init_seed,
-        objects::assets::TokenSymbol::new("MOCK").unwrap(),
+        miden_objects::assets::TokenSymbol::new("MOCK").unwrap(),
         4u8,
         crypto::Felt::try_from(max_supply.as_slice()).unwrap(),
         auth_scheme,
@@ -436,7 +458,7 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
         .insert_account(&faucet, Some(seed), &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
-    let asset: objects::assets::Asset = FungibleAsset::new(faucet.id(), 5u64).unwrap().into();
+    let asset: miden_objects::assets::Asset = FungibleAsset::new(faucet.id(), 5u64).unwrap().into();
 
     // Insert a P2ID transaction object
 
@@ -508,10 +530,201 @@ pub fn mock_fungible_faucet_account(
     )
 }
 
-#[cfg(test)]
-impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
-    /// Helper function to set a data store to conveniently mock data for tests
-    pub fn set_data_store(&mut self, data_store: D) {
-        self.set_tx_executor(miden_tx::TransactionExecutor::new(data_store));
+pub fn mock_notes(assembler: &Assembler) -> (Vec<Note>, Vec<Note>) {
+    const ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_1: u64 =
+        0b1010010001111111010110100011011110101011010001101111110110111100u64;
+    const ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_2: u64 =
+        0b1010000101101010101101000110111101010110100011011110100011011101u64;
+    const ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_3: u64 =
+        0b1010011001011010101101000110111101010110100011011101000110111100u64;
+    // Note Assets
+    let faucet_id_1 = AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_1).unwrap();
+    let faucet_id_2 = AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_2).unwrap();
+    let faucet_id_3 = AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_3).unwrap();
+    let fungible_asset_1: Asset = FungibleAsset::new(faucet_id_1, 100).unwrap().into();
+    let fungible_asset_2: Asset = FungibleAsset::new(faucet_id_2, 150).unwrap().into();
+    let fungible_asset_3: Asset = FungibleAsset::new(faucet_id_3, 7).unwrap().into();
+
+    // Sender account
+    let sender = AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap();
+
+    // CREATED NOTES
+    // --------------------------------------------------------------------------------------------
+    // create note script
+    let note_program_ast = ProgramAst::parse("begin push.1 drop end").unwrap();
+    let (note_script, _) = NoteScript::new(note_program_ast, assembler).unwrap();
+
+    // Created Notes
+    const SERIAL_NUM_4: Word = [Felt::new(13), Felt::new(14), Felt::new(15), Felt::new(16)];
+    let created_note_1 = Note::new(
+        note_script.clone(),
+        &[Felt::new(1)],
+        &[fungible_asset_1],
+        SERIAL_NUM_4,
+        sender,
+        crypto::ZERO,
+    )
+    .unwrap();
+
+    const SERIAL_NUM_5: Word = [Felt::new(17), Felt::new(18), Felt::new(19), Felt::new(20)];
+    let created_note_2 = Note::new(
+        note_script.clone(),
+        &[Felt::new(2)],
+        &[fungible_asset_2],
+        SERIAL_NUM_5,
+        sender,
+        crypto::ZERO,
+    )
+    .unwrap();
+
+    const SERIAL_NUM_6: Word = [Felt::new(21), Felt::new(22), Felt::new(23), Felt::new(24)];
+    let created_note_3 = Note::new(
+        note_script,
+        &[Felt::new(2)],
+        &[fungible_asset_3],
+        SERIAL_NUM_6,
+        sender,
+        crypto::ZERO,
+    )
+    .unwrap();
+
+    let created_notes = vec![created_note_1, created_note_2, created_note_3];
+
+    // CONSUMED NOTES
+    // --------------------------------------------------------------------------------------------
+
+    // create note 1 script
+    let note_1_script_src = format!(
+        "\
+        begin
+            # create note 0
+            push.{created_note_0_recipient}
+            push.{created_note_0_tag}
+            push.{created_note_0_asset}
+            # MAST root of the `create_note` mock account procedure
+            # call.0xacb46cadec8d1721934827ed161b851f282f1f4b88b72391a67fed668b1a00ba
+            drop dropw dropw
+
+            # create note 1
+            push.{created_note_1_recipient}
+            push.{created_note_1_tag}
+            push.{created_note_1_asset}
+            # MAST root of the `create_note` mock account procedure
+            # call.0xacb46cadec8d1721934827ed161b851f282f1f4b88b72391a67fed668b1a00ba
+            drop dropw dropw
+        end
+    ",
+        created_note_0_recipient = prepare_word(&created_notes[0].recipient()),
+        created_note_0_tag = created_notes[0].metadata().tag(),
+        created_note_0_asset = prepare_assets(created_notes[0].assets())[0],
+        created_note_1_recipient = prepare_word(&created_notes[1].recipient()),
+        created_note_1_tag = created_notes[1].metadata().tag(),
+        created_note_1_asset = prepare_assets(created_notes[1].assets())[0],
+    );
+    let note_1_script_ast = ProgramAst::parse(&note_1_script_src).unwrap();
+    let (note_1_script, _) = NoteScript::new(note_1_script_ast, assembler).unwrap();
+
+    // create note 2 script
+    let note_2_script_src = format!(
+        "\
+        begin
+            # create note 2
+            push.{created_note_2_recipient}
+            push.{created_note_2_tag}
+            push.{created_note_2_asset}
+            # MAST root of the `create_note` mock account procedure
+            # call.0xacb46cadec8d1721934827ed161b851f282f1f4b88b72391a67fed668b1a00ba
+            drop dropw dropw
+        end
+        ",
+        created_note_2_recipient = prepare_word(&created_notes[2].recipient()),
+        created_note_2_tag = created_notes[2].metadata().tag(),
+        created_note_2_asset = prepare_assets(created_notes[2].assets())[0],
+    );
+    let note_2_script_ast = ProgramAst::parse(&note_2_script_src).unwrap();
+    let (note_2_script, _) = NoteScript::new(note_2_script_ast, assembler).unwrap();
+
+    // Consumed Notes
+    const SERIAL_NUM_1: Word = [Felt::new(1), Felt::new(2), Felt::new(3), Felt::new(4)];
+    let consumed_note_1 = Note::new(
+        note_1_script,
+        &[Felt::new(1)],
+        &[fungible_asset_1],
+        SERIAL_NUM_1,
+        sender,
+        ZERO,
+    )
+    .unwrap();
+
+    const SERIAL_NUM_2: Word = [Felt::new(5), Felt::new(6), Felt::new(7), Felt::new(8)];
+    let consumed_note_2 = Note::new(
+        note_2_script,
+        &[Felt::new(2)],
+        &[fungible_asset_2, fungible_asset_3],
+        SERIAL_NUM_2,
+        sender,
+        ZERO,
+    )
+    .unwrap();
+
+    let consumed_notes = vec![consumed_note_1, consumed_note_2];
+
+    (consumed_notes, created_notes)
+}
+
+fn get_account_with_nonce(
+    account_id: AccountId,
+    public_key: Word,
+    assets: Option<Asset>,
+    nonce: u64,
+) -> Account {
+    let account_code_src = DEFAULT_ACCOUNT_CODE;
+    let account_code_ast = ModuleAst::parse(account_code_src).unwrap();
+    let account_assembler = TransactionKernel::assembler();
+
+    let account_code = AccountCode::new(account_code_ast, &account_assembler).unwrap();
+    let account_storage = AccountStorage::new(vec![(
+        0,
+        (StorageSlotType::Value { value_arity: 0 }, public_key),
+    )])
+    .unwrap();
+
+    let asset_vault = match assets {
+        Some(asset) => AssetVault::new(&[asset]).unwrap(),
+        None => AssetVault::new(&[]).unwrap(),
+    };
+
+    Account::new(
+        account_id,
+        asset_vault,
+        account_storage,
+        account_code,
+        Felt::new(nonce),
+    )
+}
+
+pub fn get_account_with_default_account_code(
+    account_id: AccountId,
+    public_key: Word,
+    assets: Option<Asset>,
+) -> Account {
+    get_account_with_nonce(account_id, public_key, assets, 1)
+}
+
+pub fn get_new_account_with_default_account_code(
+    account_id: AccountId,
+    public_key: Word,
+    assets: Option<Asset>,
+) -> Account {
+    get_account_with_nonce(account_id, public_key, assets, 0)
+}
+
+fn prepare_assets(note_assets: &NoteAssets) -> Vec<String> {
+    let mut assets = Vec::new();
+    for &asset in note_assets.iter() {
+        let asset_word: Word = asset.into();
+        let asset_str = prepare_word(&asset_word);
+        assets.push(asset_str);
     }
+    assets
 }

@@ -7,8 +7,8 @@ use miden_client::{
     client::rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
 };
+use miden_objects::{notes::NoteId, Digest};
 use miden_tx::DataStore;
-use objects::{notes::NoteId, Digest};
 use std::{
     fs::File,
     io::{Read, Write},
@@ -288,12 +288,11 @@ mod tests {
     use miden_client::{
         config::{ClientConfig, Endpoint},
         errors::NoteIdPrefixFetchError,
-        mock::{MockClient, MockDataStore, MockRpcApi},
+        mock::{mock_full_chain_mmr_and_notes, mock_notes, MockClient, MockDataStore, MockRpcApi},
         store::{sqlite_store::SqliteStore, InputNoteRecord},
     };
-    use mock::mock::{
-        account::MockAccountType, notes::AssetPreservationStatus, transaction::mock_inputs,
-    };
+    use miden_lib::transaction::TransactionKernel;
+
     use std::env::temp_dir;
     use uuid::Uuid;
 
@@ -316,22 +315,17 @@ mod tests {
         let mut client = MockClient::new(
             MockRpcApi::new(&Endpoint::default().to_string()),
             store,
-            MockDataStore::new(),
+            MockDataStore::default(),
         )
         .unwrap();
 
         // generate test data
-        let transaction_inputs = mock_inputs(
-            MockAccountType::StandardExisting,
-            AssetPreservationStatus::Preserved,
-        );
+        let assembler = TransactionKernel::assembler();
+        let (consumed_notes, created_notes) = mock_notes(&assembler);
+        let (_, commited_notes, _, _) = mock_full_chain_mmr_and_notes(consumed_notes);
 
-        let committed_note: InputNoteRecord =
-            transaction_inputs.input_notes().get_note(0).clone().into();
-        let pending_note = InputNoteRecord::new(
-            transaction_inputs.input_notes().get_note(1).note().clone(),
-            None,
-        );
+        let committed_note: InputNoteRecord = commited_notes.first().unwrap().clone().into();
+        let pending_note = InputNoteRecord::new(created_notes.first().unwrap().clone(), None);
 
         client.import_input_note(committed_note.clone()).unwrap();
         client.import_input_note(pending_note.clone()).unwrap();
@@ -378,7 +372,7 @@ mod tests {
         let mut client = MockClient::new(
             MockRpcApi::new(&Endpoint::default().to_string()),
             store,
-            MockDataStore::new(),
+            MockDataStore::default(),
         )
         .unwrap();
 
@@ -416,7 +410,7 @@ mod tests {
         let mut client = MockClient::new(
             MockRpcApi::new(&Endpoint::default().to_string()),
             store,
-            MockDataStore::new(),
+            MockDataStore::default(),
         )
         .unwrap();
 
@@ -430,17 +424,12 @@ mod tests {
         );
 
         // generate test data
-        let transaction_inputs = mock_inputs(
-            MockAccountType::StandardExisting,
-            AssetPreservationStatus::Preserved,
-        );
+        let assembler = TransactionKernel::assembler();
+        let (consumed_notes, created_notes) = mock_notes(&assembler);
+        let (_, notes, _, _) = mock_full_chain_mmr_and_notes(consumed_notes);
 
-        let committed_note: InputNoteRecord =
-            transaction_inputs.input_notes().get_note(0).clone().into();
-        let pending_note = InputNoteRecord::new(
-            transaction_inputs.input_notes().get_note(1).note().clone(),
-            None,
-        );
+        let committed_note: InputNoteRecord = notes.first().unwrap().clone().into();
+        let pending_note = InputNoteRecord::new(created_notes.first().unwrap().clone(), None);
 
         client.import_input_note(committed_note.clone()).unwrap();
         client.import_input_note(pending_note.clone()).unwrap();

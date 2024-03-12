@@ -6,8 +6,8 @@ use miden_client::{
     store::{Store, TransactionFilter},
 };
 
+use miden_objects::{accounts::AccountId, assets::FungibleAsset, notes::NoteId};
 use miden_tx::DataStore;
-use objects::{accounts::AccountId, assets::FungibleAsset, notes::NoteId};
 use tracing::info;
 
 use crate::cli::create_dynamic_table;

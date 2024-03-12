@@ -9,9 +9,9 @@ use clap::error::Result;
 
 use crypto::utils::{Deserializable, Serializable};
 
-use objects::notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteScript};
+use miden_objects::notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteScript};
 
-use objects::{accounts::AccountId, notes::NoteMetadata, Felt};
+use miden_objects::{accounts::AccountId, notes::NoteMetadata, Felt};
 use rusqlite::{params, Transaction};
 
 fn insert_note_query(table_name: NoteTable) -> String {

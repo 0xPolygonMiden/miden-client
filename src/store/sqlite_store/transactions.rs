@@ -15,7 +15,7 @@ use super::{
     notes::{insert_input_note_tx, insert_output_note_tx},
     SqliteStore,
 };
-use objects::{
+use miden_objects::{
     accounts::{Account, AccountId},
     assembly::{AstSerdeOptions, ProgramAst},
     transaction::{OutputNote, OutputNotes, TransactionId, TransactionScript},

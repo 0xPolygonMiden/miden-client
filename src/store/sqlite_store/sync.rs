@@ -4,7 +4,7 @@ use crypto::{
 };
 
 use crate::errors::StoreError;
-use objects::{
+use miden_objects::{
     notes::{NoteId, NoteInclusionProof},
     transaction::TransactionId,
     BlockHeader, Digest,

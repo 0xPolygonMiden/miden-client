@@ -10,11 +10,11 @@ use miden_client::{
     store::Store,
 };
 
-use miden_tx::DataStore;
-use objects::{
+use miden_objects::{
     accounts::{AccountData, AccountId, AccountStorage, AccountType, StorageSlotType},
     assets::{Asset, TokenSymbol},
 };
+use miden_tx::DataStore;
 use std::{fs, path::PathBuf};
 use tracing::info;
 

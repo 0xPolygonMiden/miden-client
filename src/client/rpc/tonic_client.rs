@@ -12,7 +12,7 @@ use miden_node_proto::{
         rpc::api_client::ApiClient,
     },
 };
-use objects::{
+use miden_objects::{
     accounts::AccountId,
     notes::{NoteId, NoteMetadata},
     transaction::ProvenTransaction,

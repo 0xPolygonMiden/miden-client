@@ -9,7 +9,7 @@ use crypto::{
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
     Word,
 };
-use objects::{
+use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
     notes::{Note, NoteId, NoteInclusionProof, Nullifier},
     transaction::{InputNote, TransactionId},
@@ -351,7 +351,7 @@ impl TryInto<InputNote> for InputNoteRecord {
         match self.inclusion_proof() {
             Some(proof) => Ok(InputNote::new(self.note().clone(), proof.clone())),
             None => Err(ClientError::NoteError(
-                objects::NoteError::invalid_origin_index(
+                miden_objects::NoteError::invalid_origin_index(
                     "Input Note Record contains no inclusion proof".to_string(),
                 ),
             )),

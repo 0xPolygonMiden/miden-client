@@ -1,11 +1,11 @@
 use crate::errors::{ClientError, StoreError};
-use objects::utils::collections::BTreeSet;
+use miden_objects::utils::collections::BTreeSet;
 
 use super::{sqlite_store::SqliteStore, ChainMmrNodeFilter, NoteFilter, Store};
 use crypto::merkle::{InOrderIndex, MerklePath, PartialMmr};
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
 
-use objects::{
+use miden_objects::{
     accounts::AccountId,
     assembly::ModuleAst,
     transaction::{ChainMmr, InputNote, InputNotes},
@@ -31,7 +31,7 @@ impl DataStore for SqliteDataStore {
         &self,
         account_id: AccountId,
         block_num: u32,
-        notes: &[objects::notes::NoteId],
+        notes: &[miden_objects::notes::NoteId],
     ) -> Result<TransactionInputs, DataStoreError> {
         // First validate that no note has already been consumed
         let unspent_notes = self
@@ -72,7 +72,7 @@ impl DataStore for SqliteDataStore {
             }
         }
 
-        let notes_blocks: Vec<objects::BlockHeader> = self
+        let notes_blocks: Vec<miden_objects::BlockHeader> = self
             .store
             .get_block_headers(&notes_blocks)?
             .iter()

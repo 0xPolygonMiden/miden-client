@@ -5,11 +5,11 @@ use crypto::{
     utils::{DeserializationError, HexParseError},
 };
 use miden_node_proto::errors::ParseError;
-use miden_tx::{DataStoreError, TransactionExecutorError, TransactionProverError};
-use objects::{
+use miden_objects::{
     accounts::AccountId, notes::NoteId, AccountError, AssetVaultError, Digest, NoteError,
     TransactionScriptError,
 };
+use miden_tx::{DataStoreError, TransactionExecutorError, TransactionProverError};
 
 // CLIENT ERROR
 // ================================================================================================

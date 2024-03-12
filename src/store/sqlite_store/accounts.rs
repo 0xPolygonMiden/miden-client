@@ -9,7 +9,7 @@ use crypto::{
     Felt, Word,
 };
 use miden_lib::transaction::TransactionKernel;
-use objects::{
+use miden_objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub},
     assembly::{AstSerdeOptions, ModuleAst},
     assets::{Asset, AssetVault},
@@ -450,12 +450,16 @@ fn serialize_account_asset_vault(
 
 #[cfg(test)]
 mod tests {
-    use crate::store::sqlite_store::{accounts::insert_account_code, tests::create_test_store};
     use crypto::{
         dsa::rpo_falcon512::KeyPair,
         utils::{Deserializable, Serializable},
     };
-    use mock::mock::account;
+    use miden_objects::{accounts::AccountCode, assembly::ModuleAst};
+
+    use crate::{
+        mock::DEFAULT_ACCOUNT_CODE,
+        store::sqlite_store::{accounts::insert_account_code, tests::create_test_store},
+    };
 
     use super::AuthInfo;
 
@@ -463,7 +467,8 @@ mod tests {
     fn test_account_code_insertion_no_duplicates() {
         let mut store = create_test_store();
         let assembler = miden_lib::transaction::TransactionKernel::assembler();
-        let account_code = account::mock_account_code(&assembler);
+        let module_ast = ModuleAst::parse(DEFAULT_ACCOUNT_CODE).unwrap();
+        let account_code = AccountCode::new(module_ast, &assembler).unwrap();
         let tx = store.db.transaction().unwrap();
 
         // Table is empty at the beginning
