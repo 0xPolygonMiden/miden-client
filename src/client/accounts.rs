@@ -246,10 +246,10 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
 pub mod tests {
     use crypto::{dsa::rpo_falcon512::KeyPair, Word};
 
-    use miden_lib::transaction::TransactionKernel;
+    
     use miden_objects::accounts::{Account, AccountData, AccountId, AuthData};
 
-    use rand::thread_rng;
+    
 
     use crate::{
         mock::{
