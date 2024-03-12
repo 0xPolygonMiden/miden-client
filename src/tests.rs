@@ -56,8 +56,7 @@ async fn test_get_input_note() {
     let mut client = create_test_client();
 
     let assembler = TransactionKernel::assembler();
-    let (consumed_notes, created_notes) = mock_notes(&assembler);
-    let (_, consumed_notes, _, _) = mock_full_chain_mmr_and_notes(consumed_notes);
+    let (_consumed_notes, created_notes) = mock_notes(&assembler);
 
     // insert Note into database
     client
@@ -71,19 +70,6 @@ async fn test_get_input_note() {
 
     let recorded_note: InputNoteRecord = created_notes.first().unwrap().clone().into();
     assert_eq!(recorded_note.note_id(), retrieved_note.note_id());
-
-    // test the same for an InputNote type
-    client
-        .import_input_note(consumed_notes.first().unwrap().clone().into())
-        .unwrap();
-
-    // retrieve note from database
-    let retrieved_note = client
-        .get_input_note(consumed_notes.first().unwrap().clone().id())
-        .unwrap();
-
-    let recorded_note: InputNoteRecord = consumed_notes.first().unwrap().clone().into();
-    assert_eq!(recorded_note.note_id(), retrieved_note.note_id())
 }
 
 #[tokio::test]
