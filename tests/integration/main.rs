@@ -49,25 +49,28 @@ async fn execute_tx_and_sync(
 ) {
     println!("Executing Transaction");
     let transaction_execution_result = client.new_transaction(tx_template).unwrap();
-    let created_notes = transaction_execution_result.created_notes().clone();
-    dbg!(&created_notes);
+    let transaction_id = transaction_execution_result.executed_transaction().id();
 
     println!("Sending Transaction to node");
     client.send_transaction(transaction_execution_result).await.unwrap();
 
-    // Wait until we've actually gotten a new block
+    // wait until tx is committed
     loop {
         println!("Syncing State...");
         client.sync_state().await.unwrap();
-        let committed_notes = client.get_input_notes(NoteFilter::Committed).unwrap();
-        let all_created_notes_committed = created_notes
+
+        // Check if executed transaction got committed by the node
+        let uncommited_transactions = client
+            .get_transactions(TransactionFilter::Uncomitted)
+            .unwrap();
+        let is_tx_committed = uncommited_transactions
             .iter()
-            .all(|note| committed_notes
-                .iter()
-                .find(|committed_note| committed_note.note_id() == note.id())
-                .is_some()
-            );
-        if all_created_notes_committed { break; }
+            .find(|uncommited_tx| uncommited_tx.id == transaction_id)
+            .is_none();
+        if is_tx_committed {
+            break;
+        }
+
         std::thread::sleep(std::time::Duration::new(3, 0));
     }
 }
@@ -102,13 +105,13 @@ async fn wait_for_node(client: &mut TestClient) {
 const MINT_AMOUNT: u64 = 1000;
 const TRANSFER_AMOUNT: u64 = 50;
 
-// #[tokio::test]
-// async fn main() {
-//     test_p2id_transfer().await;
-//     test_p2idr_transfer().await;
+#[tokio::test]
+async fn main() {
+    test_p2id_transfer().await;
+    test_p2idr_transfer().await;
 
-//     println!("Test ran successfully!");
-// }
+    println!("Test ran successfully!");
+}
 
 async fn setup(client: &mut TestClient) -> (AccountStub, AccountStub, AccountStub) {
     // Enusre clean state
@@ -205,7 +208,9 @@ async fn test_mint_note(
     }
 }
 
-#[tokio::test]
+// TODO: once [this issue](https://github.com/0xPolygonMiden/miden-client/issues/201#issuecomment-1989432215)
+// gets fixed, we should uncomment this and delete main so tests are run in parallel
+// #[tokio::test]
 async fn test_p2id_transfer() {
     let mut client = create_test_client();
 
@@ -264,7 +269,9 @@ async fn test_p2id_transfer() {
     test_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].note_id()).await;
 }
 
-#[tokio::test]
+// TODO: once [this issue](https://github.com/0xPolygonMiden/miden-client/issues/201#issuecomment-1989432215)
+// gets fixed, we should uncomment this and delete main so tests are run in parallel
+// #[tokio::test]
 async fn test_p2idr_transfer() {
     let mut client = create_test_client();
 
