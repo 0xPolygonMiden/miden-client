@@ -167,7 +167,6 @@ fn create_mock_sync_state_request_for_account_and_notes(
         .map(|note| (note.note().nullifier().as_elements()[3].as_int() >> FILTER_ID_SHIFT) as u32)
         .collect();
 
-    let _assembler = TransactionKernel::assembler();
     let account = get_account_with_default_account_code(account_id, Word::default(), None);
 
     let tracked_block_headers = tracked_block_headers.unwrap_or(vec![

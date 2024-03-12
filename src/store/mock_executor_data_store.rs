@@ -15,7 +15,8 @@ use miden_objects::{
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
 
 use crate::mock::{
-    get_account_with_default_account_code, mock_full_chain_mmr_and_notes, ACCOUNT_ID_REGULAR,
+    get_account_with_default_account_code, mock_full_chain_mmr_and_notes,
+    ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN, ACCOUNT_ID_REGULAR,
 };
 
 // MOCK DATA STORE
@@ -149,8 +150,7 @@ pub fn get_faucet_account_with_max_supply_and_total_issuance(
     max_supply: u64,
     total_issuance: Option<u64>,
 ) -> Account {
-    let faucet_account_id =
-        AccountId::try_from(miden_objects::accounts::ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN).unwrap();
+    let faucet_account_id = AccountId::try_from(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN).unwrap();
 
     let miden = MidenLib::default();
     let path = "miden::contracts::faucets::basic_fungible";

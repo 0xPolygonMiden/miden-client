@@ -1,7 +1,9 @@
 #[cfg(test)]
-use super::{rpc::NodeRpcClient, Client};
-#[cfg(test)]
-use crate::{errors::ClientError, store::Store};
+use crate::{
+    client::{rpc::NodeRpcClient, Client},
+    errors::ClientError,
+    store::Store,
+};
 #[cfg(test)]
 use miden_objects::BlockHeader;
 #[cfg(test)]
