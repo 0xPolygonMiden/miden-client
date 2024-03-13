@@ -3,19 +3,19 @@ use crate::{
     errors::{ClientError, StoreError},
 };
 use clap::error::Result;
-use crypto::{
-    dsa::rpo_falcon512::KeyPair,
-    merkle::{InOrderIndex, MmrPeaks},
-    utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
-    Word,
-};
-use objects::{
+use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
+    crypto::{
+        dsa::rpo_falcon512::KeyPair,
+        merkle::{InOrderIndex, MmrPeaks},
+    },
     notes::{Note, NoteId, NoteInclusionProof, Nullifier},
     transaction::{InputNote, TransactionId},
     utils::collections::BTreeMap,
-    BlockHeader, Digest,
+    BlockHeader, Digest, Word,
 };
+
+use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 use serde::{Deserialize, Serialize};
 
 pub mod data_store;
@@ -247,7 +247,7 @@ impl AuthInfo {
 }
 
 impl Serializable for AuthInfo {
-    fn write_into<W: crypto::utils::ByteWriter>(&self, target: &mut W) {
+    fn write_into<W: ByteWriter>(&self, target: &mut W) {
         let mut bytes = vec![self.type_byte()];
         match self {
             AuthInfo::RpoFalcon512(key_pair) => {
@@ -259,18 +259,14 @@ impl Serializable for AuthInfo {
 }
 
 impl Deserializable for AuthInfo {
-    fn read_from<R: crypto::utils::ByteReader>(
-        source: &mut R,
-    ) -> Result<Self, crypto::utils::DeserializationError> {
+    fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
         let auth_type: u8 = source.read_u8()?;
         match auth_type {
             RPO_FALCON512_AUTH => {
                 let key_pair = KeyPair::read_from(source)?;
                 Ok(AuthInfo::RpoFalcon512(key_pair))
             }
-            val => Err(crypto::utils::DeserializationError::InvalidValue(
-                val.to_string(),
-            )),
+            val => Err(DeserializationError::InvalidValue(val.to_string())),
         }
     }
 }
@@ -352,8 +348,8 @@ impl TryInto<InputNote> for InputNoteRecord {
         match self.inclusion_proof() {
             Some(proof) => Ok(InputNote::new(self.note().clone(), proof.clone())),
             None => Err(ClientError::NoteError(
-                objects::NoteError::invalid_origin_index(
-                    "Input Note Record contains no proof".to_string(),
+                miden_objects::NoteError::invalid_origin_index(
+                    "Input Note Record contains no inclusion proof".to_string(),
                 ),
             )),
         }

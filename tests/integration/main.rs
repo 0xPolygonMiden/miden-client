@@ -1,22 +1,24 @@
-use miden_client::client::{
-    accounts::{AccountStorageMode, AccountTemplate},
-    rpc::TonicRpcClient,
-    transactions::{PaymentTransactionData, TransactionTemplate},
-    Client,
-};
 use miden_client::config::{ClientConfig, RpcConfig};
 use miden_client::errors::{ClientError, NodeRpcClientError};
 use miden_client::store::data_store::SqliteDataStore;
 use miden_client::store::sqlite_store::SqliteStore;
 use miden_client::store::{NoteFilter, TransactionFilter};
+use miden_client::{
+    client::{
+        accounts::{AccountStorageMode, AccountTemplate},
+        rpc::TonicRpcClient,
+        transactions::{PaymentTransactionData, TransactionTemplate},
+        Client,
+    },
+    mock::ACCOUNT_ID_REGULAR,
+};
 
-use miden_tx::{DataStoreError, TransactionExecutorError};
-use mock::constants::{generate_account_seed, AccountSeedType};
-use objects::{
-    accounts::AccountData,
+use miden_objects::{
+    accounts::{AccountData, AccountId},
     assets::{Asset, FungibleAsset},
     utils::serde::Deserializable,
 };
+use miden_tx::{DataStoreError, TransactionExecutorError};
 
 use std::env::temp_dir;
 use std::fs;
@@ -259,14 +261,11 @@ async fn main() {
 
     // Mint some asset for an account not tracked by the client. It should not be stored as an
     // input note afterwards since it is not being tracked by the client
-    let (non_existent_account_id, _account_seed) =
-        generate_account_seed(AccountSeedType::RegularAccountUpdatableCodeOnChain);
-
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
     let tx_template = TransactionTemplate::PayToId(PaymentTransactionData::new(
         Asset::Fungible(asset),
         first_regular_account_id,
-        non_existent_account_id,
+        AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap(),
     ));
     println!("Running P2ID tx...");
     execute_tx_and_sync(&mut client, tx_template).await;

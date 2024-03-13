@@ -4,8 +4,8 @@ use crate::{
     errors::ClientError,
     store::{InputNoteRecord, NoteFilter, Store},
 };
+use miden_objects::notes::NoteId;
 use miden_tx::DataStore;
-use objects::notes::NoteId;
 
 impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
     // INPUT NOTE DATA RETRIEVAL

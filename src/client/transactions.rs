@@ -1,20 +1,18 @@
-use crypto::{rand::RpoRandomCoin, utils::Serializable, Felt, Word};
-use miden_lib::notes::create_p2id_note;
-
 use crate::store::Store;
-use miden_tx::{DataStore, ProvingOptions, TransactionProver};
-use mock::procedures::prepare_word;
-use objects::{
+use miden_lib::notes::create_p2id_note;
+use miden_objects::{
     accounts::{AccountDelta, AccountId},
     assembly::ProgramAst,
     assets::{Asset, FungibleAsset},
+    crypto::rand::RpoRandomCoin,
     notes::{Note, NoteId, NoteInputs},
     transaction::{
         ExecutedTransaction, OutputNote, OutputNotes, ProvenTransaction, TransactionArgs,
         TransactionId, TransactionScript,
     },
-    Digest,
+    Digest, Felt, Word,
 };
+use miden_tx::{utils::Serializable, DataStore, ProvingOptions, TransactionProver};
 use rand::Rng;
 use tracing::info;
 
@@ -450,7 +448,7 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
         let filtered_notes = created_notes
             .iter()
             .enumerate()
-            .filter(|(note_idx, note)| self.can_be_consumed(note, &account_ids_tracked_by_client))
+            .filter(|(_note_idx, note)| self.can_be_consumed(note, &account_ids_tracked_by_client))
             .map(|(note_idx, _note)| note_idx)
             .collect::<Vec<_>>();
 
@@ -491,4 +489,14 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
 
         RpoRandomCoin::new(coin_seed.map(Felt::new))
     }
+}
+
+// HELPERS
+// ================================================================================================
+
+pub fn prepare_word(word: &Word) -> String {
+    word.iter()
+        .map(|x| x.as_int().to_string())
+        .collect::<Vec<_>>()
+        .join(".")
 }
