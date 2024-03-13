@@ -1,9 +1,9 @@
 use crate::errors::NodeRpcClientError;
 use async_trait::async_trait;
 use core::fmt;
-use crypto::merkle::{MerklePath, MmrDelta};
-use objects::{
+use miden_objects::{
     accounts::AccountId,
+    crypto::merkle::{MerklePath, MmrDelta},
     notes::{NoteId, NoteMetadata},
     transaction::ProvenTransaction,
     BlockHeader, Digest,

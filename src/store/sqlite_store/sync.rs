@@ -1,14 +1,11 @@
-use crypto::{
-    merkle::{InOrderIndex, MmrPeaks},
-    utils::Serializable,
-};
-
 use crate::errors::StoreError;
-use objects::{
+use miden_objects::{
+    crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::{NoteId, NoteInclusionProof},
     transaction::TransactionId,
     BlockHeader, Digest,
 };
+use miden_tx::utils::Serializable;
 use rusqlite::params;
 
 use super::SqliteStore;

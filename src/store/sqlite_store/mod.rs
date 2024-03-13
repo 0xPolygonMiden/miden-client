@@ -1,17 +1,13 @@
-use objects::{
+use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
-    notes::NoteInclusionProof,
+    crypto::merkle::{InOrderIndex, MmrPeaks},
+    notes::{NoteId, NoteInclusionProof},
     transaction::TransactionId,
     utils::collections::BTreeMap,
-    Digest,
+    BlockHeader, Digest, Word,
 };
 
 use super::{AuthInfo, ChainMmrNodeFilter, InputNoteRecord, NoteFilter, Store, TransactionFilter};
-use crypto::{
-    merkle::{InOrderIndex, MmrPeaks},
-    Word,
-};
-use objects::{notes::NoteId, BlockHeader};
 
 use rusqlite::Connection;
 
@@ -209,7 +205,12 @@ pub mod tests {
         let rpc_endpoint = client_config.rpc.endpoint.to_string();
         let store = SqliteStore::new((&client_config).into()).unwrap();
 
-        MockClient::new(MockRpcApi::new(&rpc_endpoint), store, MockDataStore::new()).unwrap()
+        MockClient::new(
+            MockRpcApi::new(&rpc_endpoint),
+            store,
+            MockDataStore::default(),
+        )
+        .unwrap()
     }
 
     pub(crate) fn create_test_store_path() -> std::path::PathBuf {
