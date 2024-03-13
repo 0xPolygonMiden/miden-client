@@ -2,23 +2,20 @@ use miden_lib::{
     transaction::{memory::FAUCET_STORAGE_DATA_SLOT, TransactionKernel},
     MidenLib,
 };
-use miden_tx::{DataStore, DataStoreError, TransactionInputs};
-use mock::{
-    constants::{ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN, ACCOUNT_ID_SENDER, DEFAULT_ACCOUNT_CODE},
-    mock::{
-        account::MockAccountType,
-        notes::AssetPreservationStatus,
-        transaction::{mock_inputs, mock_inputs_with_existing},
-    },
-};
-use objects::{
+use miden_objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, StorageSlotType},
     assembly::{Library, LibraryPath, ModuleAst, ProgramAst},
-    assets::{Asset, AssetVault, FungibleAsset},
-    crypto::{dsa::rpo_falcon512::KeyPair, utils::Serializable},
+    assets::{AssetVault, FungibleAsset},
+    crypto::{dsa::rpo_falcon512::KeyPair, merkle::PartialMmr, utils::Serializable},
     notes::{Note, NoteId, NoteScript},
-    transaction::{ChainMmr, InputNotes},
+    transaction::{ChainMmr, InputNote, InputNotes},
     BlockHeader, Felt, Word,
+};
+use miden_tx::{DataStore, DataStoreError, TransactionInputs};
+
+use crate::mock::{
+    get_account_with_default_account_code, mock_full_chain_mmr_and_notes,
+    ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN, ACCOUNT_ID_REGULAR,
 };
 
 // MOCK DATA STORE
@@ -34,39 +31,36 @@ pub struct MockDataStore {
 }
 
 impl MockDataStore {
-    pub fn new() -> Self {
-        let transaction_data = mock_inputs(
-            MockAccountType::StandardExisting,
-            AssetPreservationStatus::Preserved,
-        );
-        Self {
-            account: transaction_data.account().clone(),
-            block_header: *transaction_data.block_header(),
-            block_chain: transaction_data.block_chain().clone(),
-            input_notes: transaction_data.input_notes().clone(),
-            account_seed: None,
-        }
-    }
-
-    pub fn with_existing(
+    pub fn new(
         account: Account,
         account_seed: Option<Word>,
-        input_notes: Option<Vec<Note>>,
+        input_notes: Option<Vec<InputNote>>,
     ) -> Self {
-        let (_mocked_account, block_header, block_chain, input_notes, _auxiliary_data_inputs) =
-            // NOTE: Currently this disregards the mocked account and uses the passed account
-            mock_inputs_with_existing(
-                MockAccountType::StandardExisting,
-                AssetPreservationStatus::Preserved,
-                Some(account.clone()),
-                input_notes,
-            );
+        let (mmr, _notes, headers, _) = mock_full_chain_mmr_and_notes(vec![]);
+        let partial_mmr_peaks = mmr.peaks(mmr.forest()).unwrap();
+        let mut partial_mmr = PartialMmr::from_peaks(partial_mmr_peaks);
+
+        for block in headers.iter() {
+            let merkle_path = mmr
+                .open(block.block_num() as usize, mmr.forest())
+                .unwrap()
+                .merkle_path;
+            partial_mmr
+                .track(block.block_num() as usize, block.hash(), &merkle_path)
+                .unwrap();
+        }
 
         Self {
             account,
-            block_header,
-            block_chain,
-            input_notes: InputNotes::new(input_notes).unwrap(),
+            // NOTE: This last block header is ahead of the mocked chain MMR view in order to correctly build transaction inputs
+            block_header: BlockHeader::mock(
+                7,
+                Some(mmr.peaks(mmr.forest()).unwrap().hash_peaks()),
+                None,
+                &[],
+            ),
+            block_chain: ChainMmr::new(partial_mmr, headers).unwrap(),
+            input_notes: InputNotes::new(input_notes.unwrap_or_default()).unwrap(),
             account_seed,
         }
     }
@@ -74,7 +68,12 @@ impl MockDataStore {
 
 impl Default for MockDataStore {
     fn default() -> Self {
-        Self::new()
+        let account = get_account_with_default_account_code(
+            ACCOUNT_ID_REGULAR.try_into().unwrap(),
+            Word::default(),
+            None,
+        );
+        Self::new(account, Some(Word::default()), None)
     }
 }
 
@@ -123,42 +122,12 @@ pub fn get_new_key_pair_with_advice_map() -> (Word, Vec<Felt>) {
 }
 
 #[allow(dead_code)]
-pub fn get_account_with_default_account_code(
-    account_id: AccountId,
-    public_key: Word,
-    assets: Option<Asset>,
-) -> Account {
-    let account_code_src = DEFAULT_ACCOUNT_CODE;
-    let account_code_ast = ModuleAst::parse(account_code_src).unwrap();
-    let account_assembler = TransactionKernel::assembler();
-
-    let account_code = AccountCode::new(account_code_ast, &account_assembler).unwrap();
-    let account_storage = AccountStorage::new(vec![(
-        0,
-        (StorageSlotType::Value { value_arity: 0 }, public_key),
-    )])
-    .unwrap();
-
-    let asset_vault = match assets {
-        Some(asset) => AssetVault::new(&[asset]).unwrap(),
-        None => AssetVault::new(&[]).unwrap(),
-    };
-
-    Account::new(
-        account_id,
-        asset_vault,
-        account_storage,
-        account_code,
-        Felt::new(1),
-    )
-}
-
-#[allow(dead_code)]
 pub fn get_note_with_fungible_asset_and_script(
     fungible_asset: FungibleAsset,
     note_script: ProgramAst,
 ) -> Note {
     let note_assembler = TransactionKernel::assembler();
+    const ACCOUNT_ID_SENDER: u64 = 0b0110111011u64 << 54;
 
     let (note_script, _) = NoteScript::new(note_script, &note_assembler).unwrap();
     const SERIAL_NUM: Word = [Felt::new(1), Felt::new(2), Felt::new(3), Felt::new(4)];

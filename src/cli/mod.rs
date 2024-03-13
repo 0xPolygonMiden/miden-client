@@ -97,8 +97,11 @@ impl Cli {
         };
 
         #[cfg(feature = "mock")]
-        let client: MockClient =
-            Client::new(MockRpcApi::new(&rpc_endpoint), store, MockDataStore::new())?;
+        let client: MockClient = Client::new(
+            MockRpcApi::new(&rpc_endpoint),
+            store,
+            MockDataStore::default(),
+        )?;
 
         // Execute cli command
         match &self.action {

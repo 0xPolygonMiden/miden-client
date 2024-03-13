@@ -5,6 +5,7 @@ pub mod rpc;
 use rpc::NodeRpcClient;
 
 pub mod accounts;
+#[cfg(test)]
 mod chain_data;
 mod notes;
 pub(crate) mod sync;

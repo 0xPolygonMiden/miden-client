@@ -10,12 +10,12 @@ use miden_client::store::data_store::SqliteDataStore;
 use miden_client::store::sqlite_store::SqliteStore;
 use miden_client::store::{NoteFilter, TransactionFilter};
 
-use miden_tx::{DataStoreError, TransactionExecutorError};
-use objects::{
+use miden_objects::{
     accounts::AccountData,
     assets::{Asset, FungibleAsset},
     utils::serde::Deserializable,
 };
+use miden_tx::{DataStoreError, TransactionExecutorError};
 
 use std::env::temp_dir;
 use std::fs;
