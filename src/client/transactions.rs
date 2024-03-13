@@ -434,6 +434,7 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
         Ok(())
     }
 
+    /// Returns the indices of the notes from `created_notes` that can be consumed by this client
     fn filter_created_notes_to_track(
         &mut self,
         created_notes: &[Note],
