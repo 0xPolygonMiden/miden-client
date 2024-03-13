@@ -1,6 +1,6 @@
-use crypto::merkle::{InOrderIndex, MmrPeaks};
-
-use objects::{
+use crate::errors::StoreError;
+use miden_objects::{
+    crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::{NoteId, NoteInclusionProof},
     transaction::TransactionId,
     BlockHeader, Digest,
@@ -8,7 +8,6 @@ use objects::{
 use rusqlite::{named_params, params};
 
 use super::SqliteStore;
-use crate::errors::StoreError;
 
 impl SqliteStore {
     pub(crate) fn get_note_tags(&self) -> Result<Vec<u64>, StoreError> {

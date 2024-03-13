@@ -1,14 +1,14 @@
 use core::fmt;
-use crypto::{
-    dsa::rpo_falcon512::FalconError,
-    merkle::MmrError,
-    utils::{DeserializationError, HexParseError},
-};
 use miden_node_proto::errors::ParseError;
-use miden_tx::{DataStoreError, TransactionExecutorError, TransactionProverError};
-use objects::{
-    accounts::AccountId, notes::NoteId, AccountError, AssetVaultError, Digest, NoteError,
-    TransactionScriptError,
+use miden_objects::{
+    accounts::AccountId,
+    crypto::{dsa::rpo_falcon512::FalconError, merkle::MmrError},
+    notes::NoteId,
+    AccountError, AssetVaultError, Digest, NoteError, TransactionScriptError,
+};
+use miden_tx::{
+    utils::{DeserializationError, HexParseError},
+    DataStoreError, TransactionExecutorError, TransactionProverError,
 };
 
 // CLIENT ERROR
@@ -351,5 +351,31 @@ impl From<DeserializationError> for NodeRpcClientError {
 impl From<ParseError> for NodeRpcClientError {
     fn from(err: ParseError) -> Self {
         Self::ConversionFailure(err.to_string())
+    }
+}
+
+// NOTE ID PREFIX FETCH ERROR
+// ================================================================================================
+
+/// Error when Looking for a specific note ID from a partial ID
+#[derive(Debug, Eq, PartialEq)]
+pub enum NoteIdPrefixFetchError {
+    NoMatch(String),
+    MultipleMatches(String),
+}
+
+impl fmt::Display for NoteIdPrefixFetchError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            NoteIdPrefixFetchError::NoMatch(note_id) => {
+                write!(f, "No matches were found with the input prefix {note_id}.")
+            }
+            NoteIdPrefixFetchError::MultipleMatches(note_id) => {
+                write!(
+                    f,
+                    "found more than one note for the provided ID {note_id} and only one match is expected."
+                )
+            }
+        }
     }
 }
