@@ -11,7 +11,7 @@ use crate::{
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 
 use crate::store::{ChainMmrNodeFilter, NoteFilter, Store};
-use objects::{
+use miden_objects::{
     accounts::{AccountId, AccountStub},
     crypto,
     notes::{NoteId, NoteInclusionProof},

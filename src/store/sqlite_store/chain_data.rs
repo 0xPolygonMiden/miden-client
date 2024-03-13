@@ -5,10 +5,11 @@ use crate::errors::StoreError;
 use crate::store::ChainMmrNodeFilter;
 use clap::error::Result;
 
-use crypto::merkle::{InOrderIndex, MmrPeaks};
-
-use objects::utils::collections::BTreeMap;
-use objects::{BlockHeader, Digest};
+use miden_objects::{
+    crypto::merkle::{InOrderIndex, MmrPeaks},
+    utils::collections::BTreeMap,
+    BlockHeader, Digest,
+};
 use rusqlite::{params, OptionalExtension, Transaction};
 
 type SerializedBlockHeaderData = (i64, String, String, bool);
@@ -247,9 +248,7 @@ fn parse_chain_mmr_nodes(
 
 #[cfg(test)]
 mod test {
-    use crypto::merkle::MmrPeaks;
-    use mock::mock::block::mock_block_header;
-    use objects::BlockHeader;
+    use miden_objects::{crypto::merkle::MmrPeaks, BlockHeader};
 
     use crate::store::{
         sqlite_store::{tests::create_test_store, SqliteStore},
@@ -258,7 +257,7 @@ mod test {
 
     fn insert_dummy_block_headers(store: &mut SqliteStore) -> Vec<BlockHeader> {
         let block_headers: Vec<BlockHeader> = (0..5)
-            .map(|block_num| mock_block_header(block_num, None, None, &[]))
+            .map(|block_num| BlockHeader::mock(block_num, None, None, &[]))
             .collect();
         let tx = store.db.transaction().unwrap();
         let dummy_peaks = MmrPeaks::new(0, Vec::new()).unwrap();

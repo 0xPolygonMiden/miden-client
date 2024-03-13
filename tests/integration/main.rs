@@ -9,12 +9,12 @@ use miden_client::config::{ClientConfig, RpcConfig};
 use miden_client::errors::{ClientError, NodeRpcClientError};
 use miden_client::store::{sqlite_store::SqliteStore, NoteFilter, TransactionFilter};
 
-use miden_tx::{DataStoreError, TransactionExecutorError};
-use objects::{
+use miden_objects::{
     accounts::AccountData,
     assets::{Asset, FungibleAsset},
     utils::serde::Deserializable,
 };
+use miden_tx::{DataStoreError, TransactionExecutorError};
 
 use std::env::temp_dir;
 use std::fs;

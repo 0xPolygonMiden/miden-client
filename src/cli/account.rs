@@ -1,19 +1,17 @@
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
-use crypto::{
-    dsa::rpo_falcon512::KeyPair,
-    utils::{bytes_to_hex_string, Deserializable, Serializable},
-    ZERO,
-};
 use miden_client::{
     client::{accounts, rpc::NodeRpcClient, Client},
     store::Store,
 };
 
-use objects::{
+use miden_objects::{
     accounts::{AccountData, AccountId, AccountStorage, AccountType, StorageSlotType},
     assets::{Asset, TokenSymbol},
+    crypto::dsa::rpo_falcon512::KeyPair,
+    ZERO,
 };
+use miden_tx::utils::{bytes_to_hex_string, Deserializable, Serializable};
 use std::{fs, path::PathBuf};
 use tracing::info;
 

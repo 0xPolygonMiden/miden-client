@@ -3,18 +3,14 @@ use super::SqliteStore;
 use crate::{errors::StoreError, store::AuthInfo};
 
 use clap::error::Result;
-use crypto::{
-    hash::rpo::RpoDigest,
-    utils::{Deserializable, Serializable},
-    Felt, Word,
-};
 use miden_lib::transaction::TransactionKernel;
-use objects::{
+use miden_objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub},
     assembly::{AstSerdeOptions, ModuleAst},
     assets::{Asset, AssetVault},
-    Digest,
+    Digest, Felt, Word,
 };
+use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{params, Transaction};
 
 // TYPES
@@ -125,7 +121,7 @@ impl SqliteStore {
     pub(super) fn get_account_code(
         &self,
         root: Digest,
-    ) -> Result<(Vec<RpoDigest>, ModuleAst), StoreError> {
+    ) -> Result<(Vec<Digest>, ModuleAst), StoreError> {
         let root_serialized = root.to_string();
         const QUERY: &str = "SELECT root, procedures, module FROM account_code WHERE root = ?";
 
@@ -138,10 +134,7 @@ impl SqliteStore {
     }
 
     /// Retrieve account storage data by vault root
-    pub(super) fn get_account_storage(
-        &self,
-        root: RpoDigest,
-    ) -> Result<AccountStorage, StoreError> {
+    pub(super) fn get_account_storage(&self, root: Digest) -> Result<AccountStorage, StoreError> {
         let root_serialized = &root.to_string();
 
         const QUERY: &str = "SELECT root, slots FROM account_storage WHERE root = ?";
@@ -353,7 +346,7 @@ fn parse_account_code_columns(
 /// Parse an account_code from the provided parts.
 fn parse_account_code(
     serialized_account_code_parts: SerializedAccountCodeParts,
-) -> Result<(Vec<RpoDigest>, ModuleAst), StoreError> {
+) -> Result<(Vec<Digest>, ModuleAst), StoreError> {
     let (_, procedures, module) = serialized_account_code_parts;
 
     let procedures =
@@ -437,12 +430,15 @@ fn serialize_account_asset_vault(
 
 #[cfg(test)]
 mod tests {
-    use crate::store::sqlite_store::{accounts::insert_account_code, tests::create_test_store};
-    use crypto::{
-        dsa::rpo_falcon512::KeyPair,
-        utils::{Deserializable, Serializable},
+    use miden_objects::{
+        accounts::AccountCode, assembly::ModuleAst, crypto::dsa::rpo_falcon512::KeyPair,
     };
-    use mock::mock::account;
+    use miden_tx::utils::{Deserializable, Serializable};
+
+    use crate::{
+        mock::DEFAULT_ACCOUNT_CODE,
+        store::sqlite_store::{accounts::insert_account_code, tests::create_test_store},
+    };
 
     use super::AuthInfo;
 
@@ -450,7 +446,8 @@ mod tests {
     fn test_account_code_insertion_no_duplicates() {
         let mut store = create_test_store();
         let assembler = miden_lib::transaction::TransactionKernel::assembler();
-        let account_code = account::mock_account_code(&assembler);
+        let module_ast = ModuleAst::parse(DEFAULT_ACCOUNT_CODE).unwrap();
+        let account_code = AccountCode::new(module_ast, &assembler).unwrap();
         let tx = store.db.transaction().unwrap();
 
         // Table is empty at the beginning

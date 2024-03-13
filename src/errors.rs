@@ -1,14 +1,14 @@
 use core::fmt;
-use crypto::{
-    dsa::rpo_falcon512::FalconError,
-    merkle::MmrError,
-    utils::{DeserializationError, HexParseError},
-};
 use miden_node_proto::errors::ParseError;
-use miden_tx::{DataStoreError, TransactionExecutorError, TransactionProverError};
-use objects::{
-    accounts::AccountId, notes::NoteId, AccountError, AssetVaultError, Digest, NoteError,
-    TransactionScriptError,
+use miden_objects::{
+    accounts::AccountId,
+    crypto::{dsa::rpo_falcon512::FalconError, merkle::MmrError},
+    notes::NoteId,
+    AccountError, AssetVaultError, Digest, NoteError, TransactionScriptError,
+};
+use miden_tx::{
+    utils::{DeserializationError, HexParseError},
+    DataStoreError, TransactionExecutorError, TransactionProverError,
 };
 
 // CLIENT ERROR
@@ -201,6 +201,12 @@ impl From<HexParseError> for StoreError {
 impl From<MmrError> for StoreError {
     fn from(value: MmrError) -> Self {
         StoreError::MmrError(value)
+    }
+}
+
+impl From<NoteError> for StoreError {
+    fn from(value: NoteError) -> Self {
+        StoreError::NoteInclusionProofError(value)
     }
 }
 

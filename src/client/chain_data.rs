@@ -1,12 +1,15 @@
-use super::{rpc::NodeRpcClient, Client, Store};
+#[cfg(test)]
+use crate::{
+    client::{rpc::NodeRpcClient, Client},
+    errors::ClientError,
+    store::Store,
+};
 
 #[cfg(test)]
-use crate::errors::ClientError;
-#[cfg(test)]
-use objects::BlockHeader;
+use miden_objects::BlockHeader;
 
+#[cfg(test)]
 impl<N: NodeRpcClient, S: Store> Client<N, S> {
-    #[cfg(test)]
     pub fn get_block_headers_in_range(
         &self,
         start: u32,
@@ -17,7 +20,6 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
             .map_err(ClientError::StoreError)
     }
 
-    #[cfg(test)]
     pub fn get_block_headers(
         &self,
         block_numbers: &[u32],

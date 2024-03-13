@@ -3,19 +3,20 @@ use crate::{
     errors::{ClientError, StoreError},
 };
 use clap::error::Result;
-use crypto::{
-    dsa::rpo_falcon512::KeyPair,
-    merkle::{InOrderIndex, MmrPeaks},
-    utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
-    Word,
-};
-use objects::{
+use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
+    crypto::{
+        dsa::rpo_falcon512::KeyPair,
+        merkle::{InOrderIndex, MmrPeaks},
+    },
     notes::{Note, NoteId, NoteInclusionProof, Nullifier},
     transaction::{InputNote, TransactionId},
     utils::collections::BTreeMap,
-    BlockHeader, Digest,
+    BlockHeader, Digest, Word,
 };
+
+use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
+use serde::{Deserialize, Serialize};
 
 pub mod data_store;
 pub mod sqlite_store;
@@ -246,7 +247,7 @@ impl AuthInfo {
 }
 
 impl Serializable for AuthInfo {
-    fn write_into<W: crypto::utils::ByteWriter>(&self, target: &mut W) {
+    fn write_into<W: ByteWriter>(&self, target: &mut W) {
         let mut bytes = vec![self.type_byte()];
         match self {
             AuthInfo::RpoFalcon512(key_pair) => {
@@ -258,18 +259,14 @@ impl Serializable for AuthInfo {
 }
 
 impl Deserializable for AuthInfo {
-    fn read_from<R: crypto::utils::ByteReader>(
-        source: &mut R,
-    ) -> Result<Self, crypto::utils::DeserializationError> {
+    fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
         let auth_type: u8 = source.read_u8()?;
         match auth_type {
             RPO_FALCON512_AUTH => {
                 let key_pair = KeyPair::read_from(source)?;
                 Ok(AuthInfo::RpoFalcon512(key_pair))
             }
-            val => Err(crypto::utils::DeserializationError::InvalidValue(
-                val.to_string(),
-            )),
+            val => Err(DeserializationError::InvalidValue(val.to_string())),
         }
     }
 }
@@ -320,8 +317,8 @@ impl Deserializable for InputNoteRecord {
     fn read_from<R: ByteReader>(
         source: &mut R,
     ) -> std::prelude::v1::Result<Self, DeserializationError> {
-        let note: Note = source.read()?;
-        let proof: Option<NoteInclusionProof> = source.read()?;
+        let note = Note::read_from(source)?;
+        let proof = Option::<NoteInclusionProof>::read_from(source)?;
         Ok(InputNoteRecord::new(note, proof))
     }
 }
@@ -351,11 +348,42 @@ impl TryInto<InputNote> for InputNoteRecord {
         match self.inclusion_proof() {
             Some(proof) => Ok(InputNote::new(self.note().clone(), proof.clone())),
             None => Err(ClientError::NoteError(
-                objects::NoteError::invalid_origin_index(
+                miden_objects::NoteError::invalid_origin_index(
                     "Input Note Record contains no inclusion proof".to_string(),
                 ),
             )),
         }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct NoteRecordDetails {
+    nullifier: String,
+    script: Vec<u8>,
+    inputs: Vec<u8>,
+    serial_num: Word,
+}
+
+impl NoteRecordDetails {
+    fn new(nullifier: String, script: Vec<u8>, inputs: Vec<u8>, serial_num: Word) -> Self {
+        Self {
+            nullifier,
+            script,
+            inputs,
+            serial_num,
+        }
+    }
+
+    fn script(&self) -> &Vec<u8> {
+        &self.script
+    }
+
+    fn inputs(&self) -> &Vec<u8> {
+        &self.inputs
+    }
+
+    fn serial_num(&self) -> &Word {
+        &self.serial_num
     }
 }
 

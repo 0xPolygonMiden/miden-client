@@ -1,20 +1,18 @@
-use crypto::{rand::RpoRandomCoin, utils::Serializable, Felt, Word};
-use miden_lib::notes::create_p2id_note;
-
 use crate::store::Store;
-use miden_tx::{ProvingOptions, TransactionProver};
-use mock::procedures::prepare_word;
-use objects::{
+use miden_lib::notes::create_p2id_note;
+use miden_objects::{
     accounts::{AccountDelta, AccountId},
     assembly::ProgramAst,
     assets::{Asset, FungibleAsset},
+    crypto::rand::RpoRandomCoin,
     notes::{Note, NoteId},
     transaction::{
         ExecutedTransaction, OutputNote, OutputNotes, ProvenTransaction, TransactionArgs,
         TransactionId, TransactionScript,
     },
-    Digest,
+    Digest, Felt, Word,
 };
+use miden_tx::{utils::Serializable, ProvingOptions, TransactionProver};
 use rand::Rng;
 use tracing::info;
 
@@ -430,4 +428,14 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
 
         RpoRandomCoin::new(coin_seed.map(Felt::new))
     }
+}
+
+// HELPERS
+// ================================================================================================
+
+pub fn prepare_word(word: &Word) -> String {
+    word.iter()
+        .map(|x| x.as_int().to_string())
+        .collect::<Vec<_>>()
+        .join(".")
 }
