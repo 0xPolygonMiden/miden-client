@@ -89,7 +89,7 @@ CREATE TABLE input_notes (
 
     details JSON NOT NULL,                                      -- JSON consisting of the following fields:
     -- nullifier                                              -- the nullifier of the note
-    -- script                                                 -- the serialized NoteScript, including script hash and ProgramAst
+    -- script                                                 -- the note's script hash
     -- inputs                                                 -- the serialized NoteInputs, including inputs hash and list of inputs
     -- serial_num                                             -- the note serial number
     PRIMARY KEY (note_id)
@@ -128,7 +128,7 @@ CREATE TABLE output_notes (
 
     details JSON NULL,                                      -- JSON consisting of the following fields:
     -- nullifier                                              -- the nullifier of the note
-    -- script                                                 -- the serialized NoteScript, including script hash and ProgramAst
+    -- script                                                 -- the note's script hash
     -- inputs                                                 -- the serialized NoteInputs, including inputs hash and list of inputs
     -- serial_num                                             -- the note serial number
     PRIMARY KEY (note_id)
@@ -152,6 +152,15 @@ CREATE TABLE output_notes (
       ))
 
 );
+
+-- Create note's scripts table, used for both input and output notes
+-- TODO: can't do FOREIGN KEY over json fields, sure we're ok?
+CREATE TABLE notes_scripts (
+    script_hash BLOB NOT NULL,                       -- Note script Hash
+    program BLOB,                                    -- Note script program, serialized
+
+    PRIMARY KEY (script_hash)
+)
 
 -- Create state sync table
 CREATE TABLE state_sync (
