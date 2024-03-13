@@ -8,7 +8,7 @@ use objects::{
     accounts::{AccountDelta, AccountId},
     assembly::ProgramAst,
     assets::{Asset, FungibleAsset},
-    notes::{Note, NoteId},
+    notes::{Note, NoteId, NoteInputs},
     transaction::{
         ExecutedTransaction, OutputNote, OutputNotes, ProvenTransaction, TransactionArgs,
         TransactionId, TransactionScript,
@@ -32,6 +32,13 @@ const AUTH_CONSUME_NOTES_SCRIPT: &str =
 const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
     include_str!("asm/transaction_scripts/distribute_fungible_asset.masm");
 const AUTH_SEND_ASSET_SCRIPT: &str = include_str!("asm/transaction_scripts/auth_send_asset.masm");
+
+// KNOWN SCRIPT ROOTS
+// --------------------------------------------------------------------------------------------
+pub(crate) const P2ID_NOTE_SCRIPT_ROOT: &str =
+    "0x65c08aef0e3d11ce8a26662005a5272398e8810e5e13a903a993ee622d03675f";
+pub(crate) const P2IDR_NOTE_SCRIPT_ROOT: &str =
+    "0x03dd8f8fd57f015d821648292cee0ce42e16c4b80427c46b9cb874db44395f47";
 
 // TRANSACTION TEMPLATE
 // --------------------------------------------------------------------------------------------
@@ -101,18 +108,22 @@ impl PaymentTransactionData {
 
 /// Represents the result of executing a transaction by the client
 ///  
-/// It contains an [ExecutedTransaction] and a list of [Note] that describe the details of the
-/// notes created by the transaction execution
+/// It contains an [ExecutedTransaction], a list of [Note] that describe the details of the notes
+/// created by the transaction execution, and a list of `usize` `relevant_notes` that contain the
+/// indices of `output_notes` that are relevant to the client
 pub struct TransactionResult {
     executed_transaction: ExecutedTransaction,
     output_notes: Vec<Note>,
+    relevant_notes: Vec<usize>,
 }
 
 impl TransactionResult {
     pub fn new(executed_transaction: ExecutedTransaction, created_notes: Vec<Note>) -> Self {
+        let relevant_notes = (0..created_notes.len()).collect();
         Self {
             executed_transaction,
             output_notes: created_notes,
+            relevant_notes,
         }
     }
 
@@ -122,6 +133,17 @@ impl TransactionResult {
 
     pub fn created_notes(&self) -> &Vec<Note> {
         &self.output_notes
+    }
+
+    pub fn relevant_notes(&self) -> Vec<&Note> {
+        self.relevant_notes
+            .iter()
+            .map(|note_index| &self.output_notes[*note_index])
+            .collect()
+    }
+
+    pub fn set_relevant_notes(&mut self, relevant_notes_indices: &[usize]) {
+        self.relevant_notes = Vec::from(relevant_notes_indices);
     }
 
     pub fn block_num(&self) -> u32 {
@@ -403,10 +425,49 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
         self.submit_proven_transaction_request(proven_transaction.clone())
             .await?;
 
+        let relevant_created_notes =
+            self.filter_created_notes_to_track(tx_result.created_notes())?;
+        let mut tx_result = tx_result;
+        tx_result.set_relevant_notes(&relevant_created_notes);
+
         // Transaction was proven and submitted to the node correctly, persist note details and update account
         self.store.apply_transaction(tx_result)?;
 
         Ok(())
+    }
+
+    fn filter_created_notes_to_track(
+        &mut self,
+        created_notes: &[Note],
+    ) -> Result<Vec<usize>, ClientError> {
+        let account_ids_tracked_by_client = self
+            .store
+            .get_account_stubs()?
+            .iter()
+            .map(|(account_stub, _seed)| account_stub.id())
+            .collect::<Vec<_>>();
+
+        let filtered_notes = created_notes
+            .iter()
+            .enumerate()
+            .filter(|(note_idx, note)| self.can_be_consumed(note, &account_ids_tracked_by_client))
+            .map(|(note_idx, _note)| note_idx)
+            .collect::<Vec<_>>();
+
+        Ok(filtered_notes)
+    }
+
+    /// Check if `note` can be consumed by any of the accounts corresponding to `account_ids`
+    fn can_be_consumed(&self, note: &Note, account_ids: &[AccountId]) -> bool {
+        let script_hash_str = note.script().hash().to_string();
+        // We want to check that *if* it is a P2ID or P2IDR the inputs are the
+        // corresponding ones
+        !(script_hash_str == P2ID_NOTE_SCRIPT_ROOT || script_hash_str == P2IDR_NOTE_SCRIPT_ROOT)
+            || account_ids.iter().any(|account_id| {
+                *note.inputs()
+                    == NoteInputs::new(vec![(*account_id).into()])
+                        .expect("Number of inputs should be 1")
+            })
     }
 
     async fn submit_proven_transaction_request(

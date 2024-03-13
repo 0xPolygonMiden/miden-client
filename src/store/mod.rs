@@ -11,7 +11,7 @@ use crypto::{
 };
 use objects::{
     accounts::{Account, AccountId, AccountStub},
-    notes::{Note, NoteId, NoteInclusionProof, NoteInputs, Nullifier},
+    notes::{Note, NoteId, NoteInclusionProof, Nullifier},
     transaction::{InputNote, TransactionId},
     utils::collections::BTreeMap,
     BlockHeader, Digest,
@@ -20,11 +20,6 @@ use serde::{Deserialize, Serialize};
 
 pub mod data_store;
 pub mod sqlite_store;
-
-pub(crate) const P2ID_NOTE_SCRIPT_ROOT: &str =
-    "0x65c08aef0e3d11ce8a26662005a5272398e8810e5e13a903a993ee622d03675f";
-pub(crate) const P2IDR_NOTE_SCRIPT_ROOT: &str =
-    "0x03dd8f8fd57f015d821648292cee0ce42e16c4b80427c46b9cb874db44395f47";
 
 #[cfg(any(test, feature = "mock"))]
 pub mod mock_executor_data_store;
@@ -47,26 +42,6 @@ pub trait Store {
         &self,
         filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, StoreError>;
-
-    fn filter_created_notes_to_track(
-        &mut self,
-        tx_result: &TransactionResult,
-    ) -> Result<Vec<Note>, StoreError> {
-        let account_ids_tracked_by_client = self
-            .get_account_stubs()?
-            .iter()
-            .map(|(account_stub, _seed)| account_stub.id())
-            .collect::<Vec<_>>();
-
-        let filtered_notes = tx_result
-            .created_notes()
-            .iter()
-            .filter(|note| can_be_consumed(note, &account_ids_tracked_by_client))
-            .cloned()
-            .collect::<Vec<_>>();
-
-        Ok(filtered_notes)
-    }
 
     /// Applies a transaction, atomically updating the current state based on the
     /// [TransactionResult]
@@ -451,17 +426,4 @@ pub enum NoteFilter {
     /// Return a list of pending [InputNoteRecord]. These represent notes for which the store
     /// does not have anchor data.
     Pending,
-}
-
-/// Check if `note` can be consumed by any of the accounts corresponding to `account_ids`
-fn can_be_consumed(note: &Note, account_ids: &[AccountId]) -> bool {
-    let script_hash_str = note.script().hash().to_string();
-    // We want to check that *if* it is a P2ID or P2IDR the inputs are the
-    // corresponding ones
-    !(script_hash_str == P2ID_NOTE_SCRIPT_ROOT || script_hash_str == P2IDR_NOTE_SCRIPT_ROOT)
-        || account_ids.iter().any(|account_id| {
-            *note.inputs()
-                == NoteInputs::new(vec![(*account_id).into()])
-                    .expect("Number of inputs should be 1")
-        })
 }
