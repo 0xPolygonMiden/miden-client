@@ -1,17 +1,19 @@
 use std::fmt;
 
-use crate::errors::StoreError;
-use crate::store::{InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord};
+use crate::{
+    errors::StoreError,
+    store::{InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord},
+};
 
 use super::SqliteStore;
 
 use clap::error::Result;
 
-use crypto::utils::{Deserializable, Serializable};
-
-use objects::notes::{NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, Nullifier};
-
-use objects::Digest;
+use miden_objects::{
+    crypto::utils::{Deserializable, Serializable},
+    notes::{NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
+    Digest,
+};
 use rusqlite::{named_params, params, Transaction};
 
 fn insert_note_query(table_name: NoteTable) -> String {
@@ -86,13 +88,13 @@ impl NoteFilter {
     fn to_query(&self, notes_table: NoteTable) -> String {
         let base = format!(
             "SELECT 
-                        assets, 
-                        details, 
-                        recipient,
-                        status,
-                        metadata,
-                        inclusion_proof
-                        from {notes_table}"
+                    assets, 
+                    details, 
+                    recipient,
+                    status,
+                    metadata,
+                    inclusion_proof
+                    from {notes_table}"
         );
 
         match self {
@@ -138,7 +140,7 @@ impl SqliteStore {
 
         const QUERY: &str = "SELECT 
                                     assets, 
-                                    details, 
+                                    details,
                                     recipient,
                                     status,
                                     metadata,
@@ -308,6 +310,7 @@ pub(crate) fn serialize_input_note(
 ) -> Result<SerializedInputNoteData, StoreError> {
     let note_id = note.id().inner().to_string();
     let note_assets = note.assets().to_bytes();
+
     let (inclusion_proof, status) = match note.inclusion_proof() {
         Some(proof) => {
             // FIXME: This removal is to accomodate a problem with how the node constructs paths where

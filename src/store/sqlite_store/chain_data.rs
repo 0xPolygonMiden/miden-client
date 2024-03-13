@@ -5,14 +5,15 @@ use crate::errors::StoreError;
 use crate::store::ChainMmrNodeFilter;
 use clap::error::Result;
 
-use crypto::merkle::{InOrderIndex, MmrPeaks};
-
-use objects::utils::collections::BTreeMap;
-use objects::{BlockHeader, Digest};
+use miden_objects::{
+    crypto::merkle::{InOrderIndex, MmrPeaks},
+    utils::collections::BTreeMap,
+    BlockHeader, Digest,
+};
 use rusqlite::{params, OptionalExtension, Transaction};
 
-type SerializedBlockHeaderData = (i64, String, String, String, String, bool);
-type SerializedBlockHeaderParts = (u64, String, String, String, String, bool);
+type SerializedBlockHeaderData = (i64, String, String, bool);
+type SerializedBlockHeaderParts = (u64, String, String, bool);
 
 type SerializedChainMmrNodeData = (i64, String);
 type SerializedChainMmrNodeParts = (u64, String);
@@ -45,23 +46,16 @@ impl SqliteStore {
         has_client_notes: bool,
     ) -> Result<(), StoreError> {
         let chain_mmr_peaks = chain_mmr_peaks.peaks().to_vec();
-        let (block_num, header, notes_root, sub_hash, chain_mmr, has_client_notes) =
+        let (block_num, header, chain_mmr, has_client_notes) =
             serialize_block_header(block_header, chain_mmr_peaks, has_client_notes)?;
         const QUERY: &str = "\
         INSERT INTO block_headers
-            (block_num, header, notes_root, sub_hash, chain_mmr_peaks, has_client_notes)
-        VALUES (?, ?, ?, ?, ?, ?)";
+            (block_num, header, chain_mmr_peaks, has_client_notes)
+        VALUES (?, ?, ?, ?)";
 
         self.db.execute(
             QUERY,
-            params![
-                block_num,
-                header,
-                notes_root,
-                sub_hash,
-                chain_mmr,
-                has_client_notes
-            ],
+            params![block_num, header, chain_mmr, has_client_notes],
         )?;
 
         Ok(())
@@ -77,7 +71,7 @@ impl SqliteStore {
             .collect::<Vec<String>>()
             .join(",");
         let query = format!(
-            "SELECT block_num, header, notes_root, sub_hash, chain_mmr_peaks, has_client_notes FROM block_headers WHERE block_num IN ({})",
+            "SELECT block_num, header, chain_mmr_peaks, has_client_notes FROM block_headers WHERE block_num IN ({})",
             formatted_block_numbers_list
         );
         self.db
@@ -88,7 +82,7 @@ impl SqliteStore {
     }
 
     pub(crate) fn get_tracked_block_headers(&self) -> Result<Vec<BlockHeader>, StoreError> {
-        const QUERY: &str = "SELECT block_num, header, notes_root, sub_hash, chain_mmr_peaks, has_client_notes FROM block_headers WHERE has_client_notes=true";
+        const QUERY: &str = "SELECT block_num, header, chain_mmr_peaks, has_client_notes FROM block_headers WHERE has_client_notes=true";
         self.db
             .prepare(QUERY)?
             .query_map(params![], parse_block_headers_columns)?
@@ -152,22 +146,15 @@ impl SqliteStore {
         has_client_notes: bool,
     ) -> Result<(), StoreError> {
         let chain_mmr_peaks = chain_mmr_peaks.peaks().to_vec();
-        let (block_num, header, notes_root, sub_hash, chain_mmr, has_client_notes) =
+        let (block_num, header, chain_mmr, has_client_notes) =
             serialize_block_header(block_header, chain_mmr_peaks, has_client_notes)?;
         const QUERY: &str = "\
         INSERT INTO block_headers
-            (block_num, header, notes_root, sub_hash, chain_mmr_peaks, has_client_notes)
-        VALUES (?, ?, ?, ?, ?, ?)";
+            (block_num, header, chain_mmr_peaks, has_client_notes)
+        VALUES (?, ?, ?, ?)";
         tx.execute(
             QUERY,
-            params![
-                block_num,
-                header,
-                notes_root,
-                sub_hash,
-                chain_mmr,
-                has_client_notes
-            ],
+            params![block_num, header, chain_mmr, has_client_notes],
         )?;
         Ok(())
     }
@@ -203,21 +190,10 @@ fn serialize_block_header(
     let block_num = block_header.block_num();
     let header =
         serde_json::to_string(&block_header).map_err(StoreError::InputSerializationError)?;
-    let notes_root = serde_json::to_string(&block_header.note_root())
-        .map_err(StoreError::InputSerializationError)?;
-    let sub_hash = serde_json::to_string(&block_header.sub_hash())
-        .map_err(StoreError::InputSerializationError)?;
     let chain_mmr_peaks =
         serde_json::to_string(&chain_mmr_peaks).map_err(StoreError::InputSerializationError)?;
 
-    Ok((
-        block_num as i64,
-        header,
-        notes_root,
-        sub_hash,
-        chain_mmr_peaks,
-        has_client_notes,
-    ))
+    Ok((block_num as i64, header, chain_mmr_peaks, has_client_notes))
 }
 
 fn parse_block_headers_columns(
@@ -225,25 +201,16 @@ fn parse_block_headers_columns(
 ) -> Result<SerializedBlockHeaderParts, rusqlite::Error> {
     let block_num: i64 = row.get(0)?;
     let header: String = row.get(1)?;
-    let notes_root: String = row.get(2)?;
-    let sub_hash: String = row.get(3)?;
-    let chain_mmr: String = row.get(4)?;
-    let has_client_notes: bool = row.get(5)?;
+    let chain_mmr: String = row.get(2)?;
+    let has_client_notes: bool = row.get(3)?;
 
-    Ok((
-        block_num as u64,
-        header,
-        notes_root,
-        sub_hash,
-        chain_mmr,
-        has_client_notes,
-    ))
+    Ok((block_num as u64, header, chain_mmr, has_client_notes))
 }
 
 fn parse_block_header(
     serialized_block_header_parts: SerializedBlockHeaderParts,
 ) -> Result<(BlockHeader, bool), StoreError> {
-    let (_, header, _, _, _, has_client_notes) = serialized_block_header_parts;
+    let (_, header, _, has_client_notes) = serialized_block_header_parts;
 
     Ok((
         serde_json::from_str(&header).map_err(StoreError::JsonDataDeserializationError)?,
@@ -281,9 +248,7 @@ fn parse_chain_mmr_nodes(
 
 #[cfg(test)]
 mod test {
-    use crypto::merkle::MmrPeaks;
-    use mock::mock::block::mock_block_header;
-    use objects::BlockHeader;
+    use miden_objects::{crypto::merkle::MmrPeaks, BlockHeader};
 
     use crate::store::{
         sqlite_store::{tests::create_test_store, SqliteStore},
@@ -292,7 +257,7 @@ mod test {
 
     fn insert_dummy_block_headers(store: &mut SqliteStore) -> Vec<BlockHeader> {
         let block_headers: Vec<BlockHeader> = (0..5)
-            .map(|block_num| mock_block_header(block_num, None, None, &[]))
+            .map(|block_num| BlockHeader::mock(block_num, None, None, &[]))
             .collect();
         let tx = store.db.transaction().unwrap();
         let dummy_peaks = MmrPeaks::new(0, Vec::new()).unwrap();

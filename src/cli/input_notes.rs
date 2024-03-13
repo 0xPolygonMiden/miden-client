@@ -1,16 +1,18 @@
 use super::{Client, Parser};
-use crate::cli::create_dynamic_table;
+use crate::cli::{create_dynamic_table, get_note_with_id_prefix};
 use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
-use crypto::utils::{Deserializable, Serializable};
 use miden_client::{
     client::rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
 };
-use miden_tx::DataStore;
-use objects::{
+use miden_objects::{
     notes::{NoteId, NoteInputs, NoteScript},
     Digest,
+};
+use miden_tx::{
+    utils::{Deserializable, Serializable},
+    DataStore,
 };
 use std::{
     fs::File,
@@ -182,11 +184,8 @@ fn show_input_note<N: NodeRpcClient, S: Store, D: DataStore>(
     show_vault: bool,
     show_inputs: bool,
 ) -> Result<(), String> {
-    let note_id = Digest::try_from(note_id)
-        .map_err(|err| format!("Failed to parse input note with ID: {}", err))?
-        .into();
-
-    let input_note_record = client.get_input_note(note_id)?;
+    let input_note_record =
+        get_note_with_id_prefix(&client, &note_id).map_err(|err| err.to_string())?;
 
     // print note summary
     print_notes_summary(core::iter::once(&input_note_record))?;
@@ -296,16 +295,19 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::cli::input_notes::{export_note, import_note};
+    use crate::cli::{
+        get_note_with_id_prefix,
+        input_notes::{export_note, import_note},
+    };
 
     use miden_client::{
         config::{ClientConfig, Endpoint},
-        mock::{MockClient, MockDataStore, MockRpcApi},
+        errors::NoteIdPrefixFetchError,
+        mock::{mock_full_chain_mmr_and_notes, mock_notes, MockClient, MockDataStore, MockRpcApi},
         store::{sqlite_store::SqliteStore, InputNoteRecord},
     };
-    use mock::mock::{
-        account::MockAccountType, notes::AssetPreservationStatus, transaction::mock_inputs,
-    };
+    use miden_lib::transaction::TransactionKernel;
+
     use std::env::temp_dir;
     use uuid::Uuid;
 
@@ -328,20 +330,17 @@ mod tests {
         let mut client = MockClient::new(
             MockRpcApi::new(&Endpoint::default().to_string()),
             store,
-            MockDataStore::new(),
+            MockDataStore::default(),
         )
         .unwrap();
 
         // generate test data
-        let transaction_inputs = mock_inputs(
-            MockAccountType::StandardExisting,
-            AssetPreservationStatus::Preserved,
-        );
+        let assembler = TransactionKernel::assembler();
+        let (consumed_notes, created_notes) = mock_notes(&assembler);
+        let (_, commited_notes, _, _) = mock_full_chain_mmr_and_notes(consumed_notes);
 
-        let committed_note: InputNoteRecord =
-            transaction_inputs.input_notes().get_note(0).clone().into();
-        let pending_note =
-            InputNoteRecord::from(transaction_inputs.input_notes().get_note(1).note().clone());
+        let committed_note: InputNoteRecord = commited_notes.first().unwrap().clone().into();
+        let pending_note = InputNoteRecord::from(created_notes.first().unwrap().clone());
 
         client.import_input_note(committed_note.clone()).unwrap();
         client.import_input_note(pending_note.clone()).unwrap();
@@ -388,7 +387,7 @@ mod tests {
         let mut client = MockClient::new(
             MockRpcApi::new(&Endpoint::default().to_string()),
             store,
-            MockDataStore::new(),
+            MockDataStore::default(),
         )
         .unwrap();
 
@@ -402,5 +401,67 @@ mod tests {
         let imported_pending_note_record = client.get_input_note(pending_note.id()).unwrap();
 
         assert_eq!(imported_pending_note_record.id(), pending_note.id());
+    }
+
+    #[tokio::test]
+    async fn get_input_note_with_prefix() {
+        // generate test client
+        let mut path = temp_dir();
+        path.push(Uuid::new_v4().to_string());
+        let client_config = ClientConfig::new(
+            path.into_os_string()
+                .into_string()
+                .unwrap()
+                .try_into()
+                .unwrap(),
+            Endpoint::default().into(),
+        );
+
+        let store = SqliteStore::new((&client_config).into()).unwrap();
+
+        let mut client = MockClient::new(
+            MockRpcApi::new(&Endpoint::default().to_string()),
+            store,
+            MockDataStore::default(),
+        )
+        .unwrap();
+
+        // Ensure we get an error if no note is found
+        let non_existent_note_id = "0x123456";
+        assert_eq!(
+            get_note_with_id_prefix(&client, non_existent_note_id),
+            Err(NoteIdPrefixFetchError::NoMatch(
+                non_existent_note_id.to_string()
+            ))
+        );
+
+        // generate test data
+        let assembler = TransactionKernel::assembler();
+        let (consumed_notes, created_notes) = mock_notes(&assembler);
+        let (_, notes, _, _) = mock_full_chain_mmr_and_notes(consumed_notes);
+
+        let committed_note: InputNoteRecord = notes.first().unwrap().clone().into();
+        let pending_note = InputNoteRecord::from(created_notes.first().unwrap().clone());
+
+        client.import_input_note(committed_note.clone()).unwrap();
+        client.import_input_note(pending_note.clone()).unwrap();
+        assert!(pending_note.inclusion_proof().is_none());
+        assert!(committed_note.inclusion_proof().is_some());
+
+        // Check that we can fetch Both notes
+        let note = get_note_with_id_prefix(&client, &committed_note.id().to_hex()).unwrap();
+        assert_eq!(note.id(), committed_note.id());
+
+        let note = get_note_with_id_prefix(&client, &pending_note.id().to_hex()).unwrap();
+        assert_eq!(note.id(), pending_note.id());
+
+        // Check that we get an error if many match
+        let note_id_with_many_matches = "0x";
+        assert_eq!(
+            get_note_with_id_prefix(&client, note_id_with_many_matches),
+            Err(NoteIdPrefixFetchError::MultipleMatches(
+                note_id_with_many_matches.to_string()
+            ))
+        );
     }
 }

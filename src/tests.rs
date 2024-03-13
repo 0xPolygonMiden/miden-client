@@ -5,29 +5,21 @@ use crate::{
         accounts::{AccountStorageMode, AccountTemplate},
         transactions::TransactionTemplate,
     },
-    mock::mock_fungible_faucet_account,
-    store::{
-        mock_executor_data_store::MockDataStore, sqlite_store::tests::create_test_client, AuthInfo,
-        InputNoteRecord, NoteFilter,
-    },
-};
-
-use crypto::{dsa::rpo_falcon512::KeyPair, Felt, FieldElement, Word};
-use miden_lib::transaction::TransactionKernel;
-use mock::{
-    constants::{generate_account_seed, AccountSeedType},
     mock::{
-        account::{self, MockAccountType},
-        notes::AssetPreservationStatus,
-        transaction::mock_inputs,
+        get_account_with_default_account_code, mock_full_chain_mmr_and_notes,
+        mock_fungible_faucet_account, mock_notes, MockDataStore, ACCOUNT_ID_REGULAR,
     },
+    store::{sqlite_store::tests::create_test_client, AuthInfo, InputNoteRecord, NoteFilter},
 };
 
-use objects::{
+use miden_lib::transaction::TransactionKernel;
+
+use miden_objects::{
     accounts::{AccountId, AccountStub},
     assembly::{AstSerdeOptions, ModuleAst},
     assets::{FungibleAsset, TokenSymbol},
-    transaction::InputNotes,
+    crypto::dsa::rpo_falcon512::KeyPair,
+    Felt, FieldElement, Word,
 };
 
 #[tokio::test]
@@ -36,25 +28,22 @@ async fn test_input_notes_round_trip() {
     let mut client = create_test_client();
 
     // generate test data
-    let transaction_inputs = mock_inputs(
-        MockAccountType::StandardExisting,
-        AssetPreservationStatus::Preserved,
-    );
-    let _recorded_notes = transaction_inputs.input_notes();
+
+    let assembler = TransactionKernel::assembler();
+    let (consumed_notes, _created_notes) = mock_notes(&assembler);
+    let (_, consumed_notes, _, _) = mock_full_chain_mmr_and_notes(consumed_notes);
 
     // insert notes into database
-    for note in transaction_inputs.input_notes().iter().cloned() {
+    for note in consumed_notes.iter().cloned() {
         client.import_input_note(note.into()).unwrap();
     }
 
     // retrieve notes from database
     let retrieved_notes = client.get_input_notes(NoteFilter::Committed).unwrap();
+    assert_eq!(retrieved_notes.len(), consumed_notes.len());
 
-    let recorded_notes: Vec<InputNoteRecord> = transaction_inputs
-        .input_notes()
-        .iter()
-        .map(|n| n.clone().into())
-        .collect();
+    let recorded_notes: Vec<InputNoteRecord> =
+        consumed_notes.iter().map(|n| n.clone().into()).collect();
     // compare notes
     for (recorded_note, retrieved_note) in recorded_notes.iter().zip(retrieved_notes) {
         assert_eq!(recorded_note.id(), retrieved_note.id());
@@ -66,26 +55,21 @@ async fn test_get_input_note() {
     // generate test client with a random store name
     let mut client = create_test_client();
 
-    // generate test data
-    let transaction_inputs = mock_inputs(
-        MockAccountType::StandardExisting,
-        AssetPreservationStatus::Preserved,
-    );
-    let _recorded_notes: InputNotes = transaction_inputs.input_notes().clone();
-    let recorded_notes: InputNotes = transaction_inputs.input_notes().clone();
+    let assembler = TransactionKernel::assembler();
+    let (_consumed_notes, created_notes) = mock_notes(&assembler);
 
-    // insert note into database
+    // insert Note into database
     client
-        .import_input_note(recorded_notes.get_note(0).clone().into())
+        .import_input_note(created_notes.first().unwrap().clone().into())
         .unwrap();
 
     // retrieve note from database
     let retrieved_note = client
-        .get_input_note(recorded_notes.get_note(0).note().id())
+        .get_input_note(created_notes.first().unwrap().clone().id())
         .unwrap();
 
-    let recorded_note: InputNoteRecord = recorded_notes.get_note(0).clone().into();
-    assert_eq!(recorded_note.id(), retrieved_note.id())
+    let recorded_note: InputNoteRecord = created_notes.first().unwrap().clone().into();
+    assert_eq!(recorded_note.id(), retrieved_note.id());
 }
 
 #[tokio::test]
@@ -159,11 +143,11 @@ async fn insert_same_account_twice_fails() {
     // generate test client with a random store name
     let mut client = create_test_client();
 
-    let assembler = TransactionKernel::assembler();
-
-    let (account_id, account_seed) =
-        generate_account_seed(AccountSeedType::RegularAccountUpdatableCodeOnChain);
-    let account = account::mock_account(Some(account_id.into()), Felt::ZERO, None, &assembler);
+    let account = get_account_with_default_account_code(
+        AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap(),
+        Word::default(),
+        None,
+    );
 
     let key_pair: KeyPair = KeyPair::new()
         .map_err(|err| format!("Error generating KeyPair: {}", err))
@@ -172,33 +156,33 @@ async fn insert_same_account_twice_fails() {
     assert!(client
         .insert_account(
             &account,
-            Some(account_seed),
+            Some(Word::default()),
             &AuthInfo::RpoFalcon512(key_pair)
         )
         .is_ok());
     assert!(client
         .insert_account(
             &account,
-            Some(account_seed),
+            Some(Word::default()),
             &AuthInfo::RpoFalcon512(key_pair)
         )
         .is_err());
 }
 
 #[tokio::test]
-async fn test_acc_code() {
+async fn test_account_code() {
     // generate test client with a random store name
     let mut client = create_test_client();
 
-    let assembler = TransactionKernel::assembler();
     let key_pair: KeyPair = KeyPair::new()
         .map_err(|err| format!("Error generating KeyPair: {}", err))
         .unwrap();
 
-    let (account_id, account_seed) =
-        generate_account_seed(AccountSeedType::RegularAccountUpdatableCodeOnChain);
-
-    let account = account::mock_account(Some(account_id.into()), Felt::ZERO, None, &assembler);
+    let account = get_account_with_default_account_code(
+        AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap(),
+        Word::default(),
+        None,
+    );
 
     let mut account_module = account.code().module().clone();
 
@@ -215,11 +199,11 @@ async fn test_acc_code() {
     client
         .insert_account(
             &account,
-            Some(account_seed),
+            Some(Word::default()),
             &AuthInfo::RpoFalcon512(key_pair),
         )
         .unwrap();
-    let (retrieved_acc, _) = client.get_account(account_id).unwrap();
+    let (retrieved_acc, _) = client.get_account(account.id()).unwrap();
 
     let mut account_module = account.code().module().clone();
     account_module.clear_locations();
@@ -235,11 +219,11 @@ async fn test_get_account_by_id() {
     // generate test client with a random store name
     let mut client = create_test_client();
 
-    let assembler = TransactionKernel::assembler();
-
-    let (account_id, account_seed) =
-        generate_account_seed(AccountSeedType::RegularAccountUpdatableCodeOnChain);
-    let account = account::mock_account(Some(account_id.into()), Felt::ZERO, None, &assembler);
+    let account = get_account_with_default_account_code(
+        AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap(),
+        Word::default(),
+        None,
+    );
 
     let key_pair: KeyPair = KeyPair::new()
         .map_err(|err| format!("Error generating KeyPair: {}", err))
@@ -248,7 +232,7 @@ async fn test_get_account_by_id() {
     client
         .insert_account(
             &account,
-            Some(account_seed),
+            Some(Word::default()),
             &AuthInfo::RpoFalcon512(key_pair),
         )
         .unwrap();
@@ -450,12 +434,7 @@ async fn test_mint_transaction() {
             &AuthInfo::RpoFalcon512(key_pair),
         )
         .unwrap();
-
-    client.set_data_store(MockDataStore::with_existing(
-        faucet.clone(),
-        None,
-        Some(vec![]),
-    ));
+    client.set_data_store(MockDataStore::new(faucet.clone(), None, Some(vec![])));
 
     // Test submitting a mint transaction
     let transaction_template = TransactionTemplate::MintFungibleAsset {
@@ -469,39 +448,4 @@ async fn test_mint_transaction() {
         .account_delta()
         .nonce()
         .is_some());
-}
-
-#[tokio::test]
-#[ignore = "currently fails because executor's DuplicateProcName error, see https://github.com/0xPolygonMiden/miden-base/issues/443"]
-async fn test_consume_all_transaction() {
-    // generate test client with a random store name
-    let mut client = create_test_client();
-
-    // generate test data
-    let transaction_inputs = mock_inputs(
-        MockAccountType::StandardExisting,
-        AssetPreservationStatus::Preserved,
-    );
-
-    let recorded_notes: InputNotes = transaction_inputs.input_notes().clone();
-    let mut notes_for_data_store = vec![];
-    for note in recorded_notes.iter() {
-        notes_for_data_store.push(note.note().clone());
-    }
-
-    let (account, seed) = client
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Local,
-        })
-        .unwrap();
-
-    let data_store =
-        MockDataStore::with_existing(account.clone(), Some(seed), Some(notes_for_data_store));
-
-    client.set_data_store(data_store);
-
-    let note_list = recorded_notes.iter().map(|x| x.note().id()).collect();
-    let transaction_template = TransactionTemplate::ConsumeNotes(account.id(), note_list);
-    client.new_transaction(transaction_template).unwrap();
 }
