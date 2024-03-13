@@ -1,17 +1,14 @@
+use miden_client::client::{
+    accounts::{AccountStorageMode, AccountTemplate},
+    rpc::TonicRpcClient,
+    transactions::{PaymentTransactionData, TransactionTemplate},
+    Client,
+};
 use miden_client::config::{ClientConfig, RpcConfig};
 use miden_client::errors::{ClientError, NodeRpcClientError};
 use miden_client::store::data_store::SqliteDataStore;
 use miden_client::store::sqlite_store::SqliteStore;
 use miden_client::store::{NoteFilter, TransactionFilter};
-use miden_client::{
-    client::{
-        accounts::{AccountStorageMode, AccountTemplate},
-        rpc::TonicRpcClient,
-        transactions::{PaymentTransactionData, TransactionTemplate},
-        Client,
-    },
-    mock::ACCOUNT_ID_REGULAR,
-};
 
 use miden_objects::{
     accounts::{AccountData, AccountId},
@@ -25,6 +22,9 @@ use std::fs;
 use std::time::Duration;
 
 use uuid::Uuid;
+
+// TODO: Once this is ran as a regular test use the one in `miden_client::mock::ACCOUNT_ID_REGULAR`
+pub const ACCOUNT_ID_REGULAR: u64 = 0b0110111011u64 << 54;
 
 type TestClient = Client<TonicRpcClient, SqliteStore, SqliteDataStore>;
 
