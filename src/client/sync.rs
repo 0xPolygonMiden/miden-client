@@ -11,14 +11,14 @@ use crate::{
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 
 use crate::store::{ChainMmrNodeFilter, NoteFilter, Store};
-use miden_tx::DataStore;
-use objects::{
+use miden_objects::{
     accounts::{AccountId, AccountStub},
     crypto,
     notes::{NoteId, NoteInclusionProof},
     transaction::TransactionId,
     BlockHeader, Digest,
 };
+use miden_tx::DataStore;
 use tracing::warn;
 
 pub enum SyncStatus {
