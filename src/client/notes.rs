@@ -5,9 +5,8 @@ use crate::{
     store::{InputNoteRecord, NoteFilter, Store},
 };
 use miden_objects::notes::NoteId;
-use miden_tx::DataStore;
 
-impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
+impl<N: NodeRpcClient, S: Store> Client<N, S> {
     // INPUT NOTE DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 

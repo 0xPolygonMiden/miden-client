@@ -22,9 +22,6 @@ use miden_client::mock::MockRpcApi;
 
 #[cfg(not(feature = "mock"))]
 use miden_client::client::rpc::TonicRpcClient;
-#[cfg(not(feature = "mock"))]
-use miden_client::store::data_store::SqliteDataStore;
-use miden_tx::DataStore;
 
 mod account;
 mod info;
@@ -85,15 +82,11 @@ impl Cli {
         let store = SqliteStore::new((&client_config).into()).map_err(ClientError::StoreError)?;
 
         #[cfg(not(feature = "mock"))]
-        let client: Client<TonicRpcClient, SqliteStore, SqliteDataStore> = {
-            let data_store_store =
+        let client: Client<TonicRpcClient, SqliteStore> = {
+            let executor_store =
                 miden_client::store::sqlite_store::SqliteStore::new((&client_config).into())
                     .map_err(ClientError::StoreError)?;
-            Client::new(
-                TonicRpcClient::new(&rpc_endpoint),
-                store,
-                SqliteDataStore::new(data_store_store),
-            )?
+            Client::new(TonicRpcClient::new(&rpc_endpoint), store, executor_store)?
         };
 
         #[cfg(feature = "mock")]
@@ -162,8 +155,8 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
 /// `note_id_prefix` is a prefix of its id.
 /// - Returns [NoteIdPrefixFetchError::MultipleMatches] if there were more than one note found
 /// where `note_id_prefix` is a prefix of its id.
-pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, S: Store, D: DataStore>(
-    client: &Client<N, S, D>,
+pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, S: Store>(
+    client: &Client<N, S>,
     note_id_prefix: &str,
 ) -> Result<InputNoteRecord, NoteIdPrefixFetchError> {
     let input_note_records = client

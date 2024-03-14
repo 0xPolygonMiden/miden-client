@@ -1,14 +1,13 @@
+use miden_client::client::Client;
 use miden_client::client::{
     accounts::{AccountStorageMode, AccountTemplate},
     rpc::TonicRpcClient,
-    transactions::{PaymentTransactionData, TransactionTemplate},
-    Client,
+    transactions::PaymentTransactionData,
+    transactions::TransactionTemplate,
 };
 use miden_client::config::{ClientConfig, RpcConfig};
 use miden_client::errors::{ClientError, NodeRpcClientError};
-use miden_client::store::data_store::SqliteDataStore;
-use miden_client::store::sqlite_store::SqliteStore;
-use miden_client::store::{NoteFilter, TransactionFilter};
+use miden_client::store::{sqlite_store::SqliteStore, NoteFilter, TransactionFilter};
 
 use miden_objects::{
     accounts::AccountData,
@@ -23,7 +22,7 @@ use std::time::Duration;
 
 use uuid::Uuid;
 
-type TestClient = Client<TonicRpcClient, SqliteStore, SqliteDataStore>;
+type TestClient = Client<TonicRpcClient, SqliteStore>;
 
 fn create_test_client() -> TestClient {
     let client_config = ClientConfig {
@@ -38,14 +37,8 @@ fn create_test_client() -> TestClient {
 
     let rpc_endpoint = client_config.rpc.endpoint.to_string();
     let store = SqliteStore::new((&client_config).into()).unwrap();
-    // TODO: See if we can solve this by wrapping store with a `Rc<Cell<..>>` or a `Rc<RefCell<..>>`
-    let data_store_store = SqliteStore::new((&client_config).into()).unwrap();
-    TestClient::new(
-        TonicRpcClient::new(&rpc_endpoint),
-        store,
-        SqliteDataStore::new(data_store_store),
-    )
-    .unwrap()
+    let executor_store = SqliteStore::new((&client_config).into()).unwrap();
+    TestClient::new(TonicRpcClient::new(&rpc_endpoint), store, executor_store).unwrap()
 }
 
 fn create_test_store_path() -> std::path::PathBuf {

@@ -5,7 +5,6 @@ use miden_objects::{
     crypto::dsa::rpo_falcon512::KeyPair,
     Felt, Word,
 };
-use miden_tx::DataStore;
 use rand::{rngs::ThreadRng, Rng};
 
 use crate::{
@@ -33,7 +32,7 @@ pub enum AccountStorageMode {
     OnChain,
 }
 
-impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
+impl<N: NodeRpcClient, S: Store> Client<N, S> {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 

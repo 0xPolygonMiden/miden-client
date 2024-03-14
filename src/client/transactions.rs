@@ -12,7 +12,7 @@ use miden_objects::{
     },
     Digest, Felt, Word,
 };
-use miden_tx::{utils::Serializable, DataStore, ProvingOptions, TransactionProver};
+use miden_tx::{utils::Serializable, ProvingOptions, TransactionProver};
 use rand::Rng;
 use tracing::info;
 
@@ -200,7 +200,7 @@ impl std::fmt::Display for TransactionStatus {
     }
 }
 
-impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
+impl<N: NodeRpcClient, S: Store> Client<N, S> {
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 

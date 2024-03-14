@@ -1,4 +1,4 @@
-use super::{sqlite_store::SqliteStore, ChainMmrNodeFilter, NoteFilter, Store};
+use super::{ChainMmrNodeFilter, NoteFilter, Store};
 use crate::errors::{ClientError, StoreError};
 use miden_objects::{
     accounts::AccountId,
@@ -14,18 +14,18 @@ use miden_tx::{DataStore, DataStoreError, TransactionInputs};
 // DATA STORE
 // ================================================================================================
 
-pub struct SqliteDataStore {
+pub struct ClientDataStore<S: Store> {
     /// Local database containing information about the accounts managed by this client.
-    pub(crate) store: SqliteStore,
+    pub(crate) store: S,
 }
 
-impl SqliteDataStore {
-    pub fn new(store: SqliteStore) -> Self {
+impl<S: Store> ClientDataStore<S> {
+    pub fn new(store: S) -> Self {
         Self { store }
     }
 }
 
-impl DataStore for SqliteDataStore {
+impl<S: Store> DataStore for ClientDataStore<S> {
     fn get_transaction_inputs(
         &self,
         account_id: AccountId,
@@ -90,7 +90,8 @@ impl DataStore for SqliteDataStore {
     }
 
     fn get_account_code(&self, account_id: AccountId) -> Result<ModuleAst, DataStoreError> {
-        let (_, module_ast) = self.store.get_account_code_by_account_id(account_id)?;
+        let (account, _seed) = self.store.get_account(account_id)?;
+        let module_ast = account.code().module().clone();
 
         Ok(module_ast)
     }
@@ -101,8 +102,8 @@ impl DataStore for SqliteDataStore {
 ///
 /// `authenticated_blocks` cannot contain `forest`. For authenticating the last block we have,
 /// the kernel extends the MMR which is why it's not needed here.
-fn build_partial_mmr_with_paths(
-    store: &SqliteStore,
+fn build_partial_mmr_with_paths<S: Store>(
+    store: &S,
     forest: u32,
     authenticated_blocks: &[BlockHeader],
 ) -> Result<PartialMmr, DataStoreError> {
@@ -130,8 +131,8 @@ fn build_partial_mmr_with_paths(
 /// constructs the path for each of them.
 ///
 /// This method assumes `block_nums` cannot contain `forest`.
-pub fn get_authentication_path_for_blocks(
-    store: &SqliteStore,
+pub fn get_authentication_path_for_blocks<S: Store>(
+    store: &S,
     block_nums: &[u32],
     forest: usize,
 ) -> Result<Vec<MerklePath>, StoreError> {
