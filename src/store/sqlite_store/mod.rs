@@ -26,7 +26,65 @@ mod transactions;
 
 // SQLITE STORE
 // ================================================================================================
-
+///
+/// Represents a connection with an sqlite database
+///
+///
+/// Current table definitions can be found at `store.sql` migration file. One particular column
+/// type used is JSON, for which you can look more info at [sqlite's official documentation](https://www.sqlite.org/json1.html).
+/// In the case of json, some caveats must be taken:
+///
+/// - To insert json values you must use sqlite's `json` function in the query alongside named
+/// parameters, and the provided parameter must be a valid json. That is:
+///
+/// ```sql
+/// INSERT INTO SOME_TABLE
+///     (some_field)
+///     VALUES (json(:some_field))")
+/// ```
+///
+/// ```ignore
+/// let metadata = format!(r#"{{"some_inner_field": {some_field}, "some_other_inner_field": {some_other_field}}}"#);
+/// ```
+///
+/// (Using raw string literals for the jsons is encouraged if possible)
+///
+/// - To get data from any of the json fields you can use the `json_extract` function (in some
+/// cases you'll need to do some explicit type casting to help rusqlite figure out types):
+///
+/// ```sql
+/// SELECT CAST(json_extract(some_json_col, '$.some_json_field') AS TEXT) from some_table
+/// ```
+///
+/// - For some datatypes you'll need to do some manual serialization/deserialization. For example,
+/// suppose one of your json fields is an array of digests. Then you'll need to
+///     - Create the json with an array of strings representing the digests:
+///
+///     ```ignore
+///     let some_array_field = some_array
+///         .into_iter()
+///         .map(array_elem_to_string)
+///         .collect::<Vec<_>>()
+///         .join(",");
+///
+///     Some(format!(
+///         r#"{{
+///             "some_array_field": [{some_array_field}]
+///         }}"#
+///     )),
+///     ```
+///
+///     - When deserializing, handling the extra symbols (`[`, `]`, `,`, `"`). For that you can use
+///     the `parse_json_array` function:
+///
+///     ```ignore
+///         let some_array = parse_json_array(some_array_field)
+///         .into_iter()
+///         .map(parse_json_byte_str)
+///         .collect::<Result<Vec<u8>, _>>()?;
+///     ```
+/// - Thus, if needed you can create a struct representing the json values and use serde_json to
+/// simplify all of the serialization/deserialization logic
 pub struct SqliteStore {
     pub(crate) db: Connection,
 }

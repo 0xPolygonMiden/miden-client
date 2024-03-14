@@ -14,7 +14,9 @@ use miden_objects::{
     utils::collections::BTreeMap,
     BlockHeader, Digest, Word,
 };
+
 use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
+use serde::{Deserialize, Serialize};
 
 pub mod data_store;
 pub mod sqlite_store;
@@ -315,8 +317,8 @@ impl Deserializable for InputNoteRecord {
     fn read_from<R: ByteReader>(
         source: &mut R,
     ) -> std::prelude::v1::Result<Self, DeserializationError> {
-        let note: Note = source.read()?;
-        let proof: Option<NoteInclusionProof> = source.read()?;
+        let note = Note::read_from(source)?;
+        let proof = Option::<NoteInclusionProof>::read_from(source)?;
         Ok(InputNoteRecord::new(note, proof))
     }
 }
@@ -351,6 +353,37 @@ impl TryInto<InputNote> for InputNoteRecord {
                 ),
             )),
         }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct NoteRecordDetails {
+    nullifier: String,
+    script: Vec<u8>,
+    inputs: Vec<u8>,
+    serial_num: Word,
+}
+
+impl NoteRecordDetails {
+    fn new(nullifier: String, script: Vec<u8>, inputs: Vec<u8>, serial_num: Word) -> Self {
+        Self {
+            nullifier,
+            script,
+            inputs,
+            serial_num,
+        }
+    }
+
+    fn script(&self) -> &Vec<u8> {
+        &self.script
+    }
+
+    fn inputs(&self) -> &Vec<u8> {
+        &self.inputs
+    }
+
+    fn serial_num(&self) -> &Word {
+        &self.serial_num
     }
 }
 
