@@ -1,5 +1,6 @@
-use crate::{errors::ClientError, store::Store};
 use miden_tx::TransactionExecutor;
+
+use crate::{errors::ClientError, store::Store};
 
 pub mod rpc;
 use rpc::NodeRpcClient;
@@ -56,7 +57,11 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
     ///
     /// Returns an error if the client could not be instantiated.
     #[cfg(not(any(test, feature = "mock")))]
-    pub fn new(api: N, store: S, executor_store: S) -> Result<Self, ClientError> {
+    pub fn new(
+        api: N,
+        store: S,
+        executor_store: S,
+    ) -> Result<Self, ClientError> {
         Ok(Self {
             store,
             rpc_api: api,
@@ -65,7 +70,11 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
     }
 
     #[cfg(any(test, feature = "mock"))]
-    pub fn new(api: N, store: S, data_store: MockDataStore) -> Result<Self, ClientError> {
+    pub fn new(
+        api: N,
+        store: S,
+        data_store: MockDataStore,
+    ) -> Result<Self, ClientError> {
         Ok(Self {
             store,
             rpc_api: api,
@@ -79,7 +88,10 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
     }
 
     #[cfg(any(test, feature = "mock"))]
-    pub fn set_tx_executor(&mut self, tx_executor: TransactionExecutor<MockDataStore>) {
+    pub fn set_tx_executor(
+        &mut self,
+        tx_executor: TransactionExecutor<MockDataStore>,
+    ) {
         self.tx_executor = tx_executor;
     }
 

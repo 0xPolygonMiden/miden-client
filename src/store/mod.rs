@@ -1,7 +1,3 @@
-use crate::{
-    client::transactions::{TransactionRecord, TransactionResult},
-    errors::{ClientError, StoreError},
-};
 use clap::error::Result;
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
@@ -14,9 +10,13 @@ use miden_objects::{
     utils::collections::BTreeMap,
     BlockHeader, Digest, Word,
 };
-
 use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 use serde::{Deserialize, Serialize};
+
+use crate::{
+    client::transactions::{TransactionRecord, TransactionResult},
+    errors::{ClientError, StoreError},
+};
 
 pub mod data_store;
 pub mod sqlite_store;
@@ -50,16 +50,25 @@ pub trait Store {
     /// - Applying the resulting [AccountDelta](miden_objects::accounts::AccountDelta) and storing the new [Account] state
     /// - Storing new notes as a result of the transaction execution
     /// - Inserting the transaction into the store to track
-    fn apply_transaction(&mut self, tx_result: TransactionResult) -> Result<(), StoreError>;
+    fn apply_transaction(
+        &mut self,
+        tx_result: TransactionResult,
+    ) -> Result<(), StoreError>;
 
     // NOTES
     // --------------------------------------------------------------------------------------------
 
     /// Retrieves the input notes from the store
-    fn get_input_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError>;
+    fn get_input_notes(
+        &self,
+        filter: NoteFilter,
+    ) -> Result<Vec<InputNoteRecord>, StoreError>;
 
     /// Retrieves the output notes from the store
-    fn get_output_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError>;
+    fn get_output_notes(
+        &self,
+        filter: NoteFilter,
+    ) -> Result<Vec<InputNoteRecord>, StoreError>;
 
     /// Retrieves an [InputNoteRecord] for the input note corresponding to the specified ID from
     /// the store.
@@ -67,7 +76,10 @@ pub trait Store {
     /// # Errors
     ///
     /// Returns a [StoreError::InputNoteNotFound] if there is no Note with the provided ID
-    fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError>;
+    fn get_input_note(
+        &self,
+        note_id: NoteId,
+    ) -> Result<InputNoteRecord, StoreError>;
 
     /// Returns the nullifiers of all unspent input notes
     ///
@@ -83,7 +95,10 @@ pub trait Store {
     }
 
     /// Inserts the provided input note into the database
-    fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError>;
+    fn insert_input_note(
+        &mut self,
+        note: &InputNoteRecord,
+    ) -> Result<(), StoreError>;
 
     // CHAIN DATA
     // --------------------------------------------------------------------------------------------
@@ -130,7 +145,10 @@ pub trait Store {
     /// Returns peaks information from the blockchain by a specific block number.
     ///
     /// If there is no chain MMR info stored for the provided block returns an empty [MmrPeaks]
-    fn get_chain_mmr_peaks_by_block_num(&self, block_num: u32) -> Result<MmrPeaks, StoreError>;
+    fn get_chain_mmr_peaks_by_block_num(
+        &self,
+        block_num: u32,
+    ) -> Result<MmrPeaks, StoreError>;
 
     /// Inserts a block header into the store, alongside peaks information at the block's height.
     ///
@@ -178,14 +196,20 @@ pub trait Store {
     /// # Errors
     ///
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    fn get_account(&self, account_id: AccountId) -> Result<(Account, Option<Word>), StoreError>;
+    fn get_account(
+        &self,
+        account_id: AccountId,
+    ) -> Result<(Account, Option<Word>), StoreError>;
 
     /// Retrieves an account's [AuthInfo], utilized to authenticate the account.
     ///
     /// # Errors
     ///
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, StoreError>;
+    fn get_account_auth(
+        &self,
+        account_id: AccountId,
+    ) -> Result<AuthInfo, StoreError>;
 
     /// Inserts an [Account] along with the seed used to create it and its [AuthInfo]
     fn insert_account(
@@ -202,7 +226,10 @@ pub trait Store {
     fn get_note_tags(&self) -> Result<Vec<u64>, StoreError>;
 
     /// Adds a note tag to the list of tags that the client is interested in.
-    fn add_note_tag(&mut self, tag: u64) -> Result<bool, StoreError>;
+    fn add_note_tag(
+        &mut self,
+        tag: u64,
+    ) -> Result<bool, StoreError>;
 
     /// Returns the block number of the last state sync block.
     fn get_sync_height(&self) -> Result<u32, StoreError>;
@@ -247,13 +274,16 @@ impl AuthInfo {
 }
 
 impl Serializable for AuthInfo {
-    fn write_into<W: ByteWriter>(&self, target: &mut W) {
+    fn write_into<W: ByteWriter>(
+        &self,
+        target: &mut W,
+    ) {
         let mut bytes = vec![self.type_byte()];
         match self {
             AuthInfo::RpoFalcon512(key_pair) => {
                 bytes.append(&mut key_pair.to_bytes());
                 target.write_bytes(&bytes);
-            }
+            },
         }
     }
 }
@@ -265,7 +295,7 @@ impl Deserializable for AuthInfo {
             RPO_FALCON512_AUTH => {
                 let key_pair = KeyPair::read_from(source)?;
                 Ok(AuthInfo::RpoFalcon512(key_pair))
-            }
+            },
             val => Err(DeserializationError::InvalidValue(val.to_string())),
         }
     }
@@ -287,7 +317,10 @@ pub struct InputNoteRecord {
 }
 
 impl InputNoteRecord {
-    pub fn new(note: Note, inclusion_proof: Option<NoteInclusionProof>) -> InputNoteRecord {
+    pub fn new(
+        note: Note,
+        inclusion_proof: Option<NoteInclusionProof>,
+    ) -> InputNoteRecord {
         InputNoteRecord {
             note,
             inclusion_proof,
@@ -307,7 +340,10 @@ impl InputNoteRecord {
 }
 
 impl Serializable for InputNoteRecord {
-    fn write_into<W: ByteWriter>(&self, target: &mut W) {
+    fn write_into<W: ByteWriter>(
+        &self,
+        target: &mut W,
+    ) {
         self.note().write_into(target);
         self.inclusion_proof.write_into(target);
     }
@@ -315,7 +351,7 @@ impl Serializable for InputNoteRecord {
 
 impl Deserializable for InputNoteRecord {
     fn read_from<R: ByteReader>(
-        source: &mut R,
+        source: &mut R
     ) -> std::prelude::v1::Result<Self, DeserializationError> {
         let note = Note::read_from(source)?;
         let proof = Option::<NoteInclusionProof>::read_from(source)?;
@@ -347,11 +383,9 @@ impl TryInto<InputNote> for InputNoteRecord {
     fn try_into(self) -> Result<InputNote, Self::Error> {
         match self.inclusion_proof() {
             Some(proof) => Ok(InputNote::new(self.note().clone(), proof.clone())),
-            None => Err(ClientError::NoteError(
-                miden_objects::NoteError::invalid_origin_index(
-                    "Input Note Record contains no inclusion proof".to_string(),
-                ),
-            )),
+            None => Err(ClientError::NoteError(miden_objects::NoteError::invalid_origin_index(
+                "Input Note Record contains no inclusion proof".to_string(),
+            ))),
         }
     }
 }
@@ -365,7 +399,12 @@ struct NoteRecordDetails {
 }
 
 impl NoteRecordDetails {
-    fn new(nullifier: String, script: Vec<u8>, inputs: Vec<u8>, serial_num: Word) -> Self {
+    fn new(
+        nullifier: String,
+        script: Vec<u8>,
+        inputs: Vec<u8>,
+        serial_num: Word,
+    ) -> Self {
         Self {
             nullifier,
             script,

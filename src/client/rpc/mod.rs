@@ -1,6 +1,6 @@
-use crate::errors::NodeRpcClientError;
-use async_trait::async_trait;
 use core::fmt;
+
+use async_trait::async_trait;
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{MerklePath, MmrDelta},
@@ -8,6 +8,8 @@ use miden_objects::{
     transaction::ProvenTransaction,
     BlockHeader, Digest,
 };
+
+use crate::errors::NodeRpcClientError;
 
 mod tonic_client;
 pub use tonic_client::TonicRpcClient;
@@ -134,11 +136,14 @@ pub enum NodeRpcClientEndpoint {
 }
 
 impl fmt::Display for NodeRpcClientEndpoint {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         match self {
             NodeRpcClientEndpoint::GetBlockHeaderByNumber => {
                 write!(f, "get_block_header_by_number")
-            }
+            },
             NodeRpcClientEndpoint::SyncState => write!(f, "sync_state"),
             NodeRpcClientEndpoint::SubmitProvenTx => write!(f, "submit_proven_transaction"),
         }

@@ -1,12 +1,12 @@
 #[cfg(test)]
+use miden_objects::BlockHeader;
+
+#[cfg(test)]
 use crate::{
     client::{rpc::NodeRpcClient, Client},
     errors::ClientError,
     store::Store,
 };
-
-#[cfg(test)]
-use miden_objects::BlockHeader;
 
 #[cfg(test)]
 impl<N: NodeRpcClient, S: Store> Client<N, S> {
@@ -24,8 +24,6 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         &self,
         block_numbers: &[u32],
     ) -> Result<Vec<(BlockHeader, bool)>, ClientError> {
-        self.store
-            .get_block_headers(block_numbers)
-            .map_err(ClientError::StoreError)
+        self.store.get_block_headers(block_numbers).map_err(ClientError::StoreError)
     }
 }

@@ -7,12 +7,11 @@ use miden_objects::{
 };
 use rand::{rngs::ThreadRng, Rng};
 
+use super::{rpc::NodeRpcClient, Client};
 use crate::{
     errors::ClientError,
     store::{AuthInfo, Store},
 };
-
-use super::{rpc::NodeRpcClient, Client};
 
 pub enum AccountTemplate {
     BasicWallet {
@@ -55,7 +54,7 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
                 storage_mode,
             } => {
                 self.new_fungible_faucet(token_symbol, decimals, max_supply, &mut rng, storage_mode)
-            }
+            },
         }?;
 
         Ok(account_and_seed)
@@ -71,7 +70,10 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
     ///
     /// Will panic when trying to import a non-new account without a seed since this functionality
     /// is not currently implemented
-    pub fn import_account(&mut self, account_data: AccountData) -> Result<(), ClientError> {
+    pub fn import_account(
+        &mut self,
+        account_data: AccountData,
+    ) -> Result<(), ClientError> {
         match account_data.auth {
             AuthData::RpoFalcon512Seed(key_pair) => {
                 let keypair = KeyPair::from_seed(&key_pair)?;
@@ -95,7 +97,7 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
                     account_seed,
                     &AuthInfo::RpoFalcon512(keypair),
                 )
-            }
+            },
         }
     }
 
@@ -201,7 +203,6 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
     // --------------------------------------------------------------------------------------------
 
     /// Returns summary info about the accounts managed by this client.
-    ///
     pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Option<Word>)>, ClientError> {
         self.store.get_account_stubs().map_err(|err| err.into())
     }
@@ -219,9 +220,7 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         &self,
         account_id: AccountId,
     ) -> Result<(AccountStub, Option<Word>), ClientError> {
-        self.store
-            .get_account_stub(account_id)
-            .map_err(|err| err.into())
+        self.store.get_account_stub(account_id).map_err(|err| err.into())
     }
 
     /// Returns an [AuthInfo] object utilized to authenticate an account.
@@ -230,10 +229,11 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
     ///
     /// Returns a [ClientError::StoreError] with a [StoreError::AccountDataNotFound](crate::errors::StoreError::AccountDataNotFound) if the provided ID does
     /// not correspond to an existing account.
-    pub fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, ClientError> {
-        self.store
-            .get_account_auth(account_id)
-            .map_err(|err| err.into())
+    pub fn get_account_auth(
+        &self,
+        account_id: AccountId,
+    ) -> Result<AuthInfo, ClientError> {
+        self.store.get_account_auth(account_id).map_err(|err| err.into())
     }
 }
 
@@ -297,11 +297,7 @@ pub mod tests {
             .insert_account(&account, None, &AuthInfo::RpoFalcon512(key_pair))
             .is_err());
         assert!(client
-            .insert_account(
-                &account,
-                Some(Word::default()),
-                &AuthInfo::RpoFalcon512(key_pair)
-            )
+            .insert_account(&account, Some(Word::default()), &AuthInfo::RpoFalcon512(key_pair))
             .is_ok());
     }
 
