@@ -79,19 +79,6 @@ impl SqliteStore {
             .ok_or(StoreError::AccountDataNotFound(account_id))?
     }
 
-    // NOTE: This is currently used to retrieve the account code for the `DataStore` method
-    /// Retrieves an account's [ModuleAst] and the code root by [AccountId]
-    pub(crate) fn get_account_code_by_account_id(
-        &self,
-        account_id: AccountId,
-    ) -> Result<(Vec<Digest>, ModuleAst), StoreError> {
-        // TODO: This could be done via a single query
-        let (_account, _seed) = self.get_account_stub(account_id)?;
-        let (account, _seed) = self.get_account_stub(account_id)?;
-
-        self.get_account_code(account.code_root())
-    }
-
     // TODO: Get all parts from a single query
     pub(crate) fn get_account(
         &self,

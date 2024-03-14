@@ -1,34 +1,40 @@
-The Miden client contains a few key features:
+The Miden client has the following architectural components:
 
-- Store
-- RPC client
-- Transaction Executor
+- [Store](#store)
+- [RPC client](#rpc-client)
+- [Transaction executor](#transaction-executor)
 
-The RPC client and Store are defined as Rust traits, in order to allow developers and users to utilize the implementation they desire for any specific environment.
+!!! important "Customizable"
+    - The RPC client and the store are Rust traits.
+    - This allow developers and users to easily customize their implementations.
 
 ## Store
 
-The store is central to the client's design and is in charge of enabling persistence over the following entities:
+The store is central to the client's design. 
 
-- Accounts, their history of states and related information such as vault assets or account code
-- Transactions and their scripts
-- Notes
-- Block headers and chain information that the client needs to properly execute transactions and consume notes
+It manages the persistence of the following entities:
+
+- Accounts; including their state history and related information such as vault assets and account code.
+- Transactions and their scripts.
+- Notes.
+- Block headers and chain information that the client needs to execute transactions and consume notes.
  
-Because Miden allows for off-chain executing and proving, the client needs to know about the state of the blockchain at the moment of execution. To avoid state bloat, however, the client does not deal with the whole blockchain history, but rather with the parts of the chain history that are relevant to the user. 
+Because Miden allows off-chain executing and proving, the client needs to know about the state of the blockchain at the moment of execution. To avoid state bloat, however, the client does not need to see the whole blockchain history, just the chain history intervals that are relevant to the user. 
 
-The store can track any number of accounts, and in turn any number of notes that those accounts might have created or may want to consume. 
+The store can track any number of accounts, and any number of notes that those accounts might have created or may want to consume. 
 
 ## RPC client
 
-The RPC client allows for communicating with the node through a defined set of gRPC methods. Currently, these methods are:
+The RPC client communicates with the node through a defined set of gRPC methods. 
 
-- `GetBlockHeaderByNumber`
-- `SyncState`: Asks the node for relevant information to the client. That is, account changes for accounts that it's tracking, whether relevant notes have been created or consumed, etc.
-- `SubmitProvenTransaction`: After a transaction has been locally proven, the client will send it to the node for inclusion in the blockchain
+Currently, these include:
 
-## Transaction Executor
+- `GetBlockHeaderByNumber`: Returns the block header information given a specific block number.
+- `SyncState`: Asks the node for information relevant to the client. For example, specific account changes, whether relevant notes have been created or consumed, etc.
+- `SubmitProvenTransaction`: Sends a locally-proved transaction to the node for inclusion in the blockchain.
 
-Lastly, the client contains a transaction executor that allows for executing transactions with the Miden VM. 
+## Transaction executor
 
-When executing, the executor will need to access relevant blockchain history, which is why the executor is generic over a `DataStore` which is an interface for accessing this data. Because of this, the executor and the store might be somewhat coupled as well.
+The transaction executor executes transactions using the Miden VM. 
+
+When executing, the executor needs access to relevant blockchain history. The executor uses a `DataStore` interface for accessing this data. This means that there may be some coupling between the executor and the store.

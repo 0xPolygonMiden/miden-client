@@ -7,7 +7,6 @@ use miden_client::{
 };
 
 use miden_objects::{accounts::AccountId, assets::FungibleAsset, notes::NoteId};
-use miden_tx::DataStore;
 use tracing::info;
 
 use crate::cli::create_dynamic_table;
@@ -57,9 +56,9 @@ pub enum Transaction {
 }
 
 impl Transaction {
-    pub async fn execute<N: NodeRpcClient, S: Store, D: DataStore>(
+    pub async fn execute<N: NodeRpcClient, S: Store>(
         &self,
-        mut client: Client<N, S, D>,
+        mut client: Client<N, S>,
     ) -> Result<(), String> {
         match self {
             Transaction::List => {
@@ -75,8 +74,8 @@ impl Transaction {
 
 // NEW TRANSACTION
 // ================================================================================================
-async fn new_transaction<N: NodeRpcClient, S: Store, D: DataStore>(
-    client: &mut Client<N, S, D>,
+async fn new_transaction<N: NodeRpcClient, S: Store>(
+    client: &mut Client<N, S>,
     transaction_type: &TransactionType,
 ) -> Result<(), String> {
     let transaction_template: TransactionTemplate =
@@ -97,8 +96,8 @@ async fn new_transaction<N: NodeRpcClient, S: Store, D: DataStore>(
 ///
 /// For [TransactionTemplate::ConsumeNotes], it'll try to find the corresponding notes by using the
 /// provided IDs as prefixes
-fn build_transaction_template<N: NodeRpcClient, S: Store, D: DataStore>(
-    client: &Client<N, S, D>,
+fn build_transaction_template<N: NodeRpcClient, S: Store>(
+    client: &Client<N, S>,
     transaction_type: &TransactionType,
 ) -> Result<TransactionTemplate, String> {
     match transaction_type {
@@ -162,9 +161,7 @@ fn build_transaction_template<N: NodeRpcClient, S: Store, D: DataStore>(
 
 // LIST TRANSACTIONS
 // ================================================================================================
-fn list_transactions<N: NodeRpcClient, S: Store, D: DataStore>(
-    client: Client<N, S, D>,
-) -> Result<(), String> {
+fn list_transactions<N: NodeRpcClient, S: Store>(client: Client<N, S>) -> Result<(), String> {
     let transactions = client.get_transactions(TransactionFilter::All)?;
     print_transactions_summary(&transactions);
     Ok(())

@@ -35,14 +35,13 @@ use miden_objects::{
     utils::collections::BTreeMap,
     BlockHeader, Felt, Word, NOTE_TREE_DEPTH, ZERO,
 };
-#[cfg(test)]
-use miden_tx::DataStore;
+
 use rand::Rng;
 use tonic::{IntoRequest, Response, Status};
 
 pub use crate::store::mock_executor_data_store::MockDataStore;
 
-pub type MockClient = Client<MockRpcApi, SqliteStore, MockDataStore>;
+pub type MockClient = Client<MockRpcApi, SqliteStore>;
 
 // MOCK CONSTS
 // ================================================================================================
@@ -78,14 +77,6 @@ impl Default for MockRpcApi {
 impl MockRpcApi {
     pub fn new(_config_endpoint: &str) -> Self {
         Self::default()
-    }
-}
-
-#[cfg(test)]
-impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
-    /// Helper function to set a data store to conveniently mock data for tests
-    pub fn set_data_store(&mut self, data_store: D) {
-        self.set_tx_executor(miden_tx::TransactionExecutor::new(data_store));
     }
 }
 
@@ -525,6 +516,14 @@ pub fn mock_fungible_faucet_account(
         faucet.code().clone(),
         Felt::new(10u64),
     )
+}
+
+#[cfg(test)]
+impl<N: NodeRpcClient, S: Store> Client<N, S> {
+    /// Helper function to set a data store to conveniently mock data for tests
+    pub fn set_data_store(&mut self, data_store: MockDataStore) {
+        self.set_tx_executor(miden_tx::TransactionExecutor::new(data_store));
+    }
 }
 
 pub fn mock_notes(assembler: &Assembler) -> (Vec<Note>, Vec<Note>) {

@@ -1,24 +1,6 @@
-site_name: My Docs
+site_name: Miden client
 theme:
   name: material
-  palette:
-      # Palette toggle for light mode
-      - scheme: default
-        primary: white
-        accent: purple
-        toggle:
-          icon: material/eye
-          name: Switch to dark mode
-      # Palette toggle for dark mode
-      - scheme: slate
-        primary: black
-        accent: purple
-        toggle:
-          icon: material/eye-outline
-          name: Switch to light mode
-  icon:
-    logo: logo
-    repo: repo
   features:
     - search.suggest
     - search.highlight
@@ -40,9 +22,12 @@ theme:
 
 
 nav:
-  - Overview: index.md
-  - Design: design.md
-  - Installation: installation.md
+  - Overview: 
+      - Overview: index.md
+      - Features: features.md
+  - Get started:
+      - Design: design.md
+      - Install and run: install-and-run.md
   - CLI: 'cli.md'
   - Library: 'library.md'
 
@@ -83,13 +68,6 @@ markdown_extensions:
 plugins:
   - search
   - open-in-new-tab
-  - git-revision-date-localized:
-      fallback_to_build_date: true
-      strict: false
-      exclude:
-        - index.md
-  - git-authors:
-      show_contribution: true
 
 validation:
   absolute_links: warn

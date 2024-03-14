@@ -49,7 +49,7 @@ pub trait Store {
     /// [TransactionResult]
     ///
     /// An update involves:
-    /// - Applying the resulting [AccountDelta] and storing the new [Account] state
+    /// - Applying the resulting [AccountDelta](miden_objects::accounts::AccountDelta) and storing the new [Account] state
     /// - Storing new notes as a result of the transaction execution
     /// - Inserting the transaction into the store to track
     fn apply_transaction(&mut self, tx_result: TransactionResult) -> Result<(), StoreError>;
