@@ -10,19 +10,9 @@ toolchain = "nightly"
 command = "cargo"
 args = ["fmt", "--all", "--", "--check"]
 
-[tasks.clippy-default]
+[tasks.clippy]
 command = "cargo"
 args = ["clippy","--workspace", "--all-targets", "--", "-D", "clippy::all", "-D", "warnings"]
-
-[tasks.clippy-all-features]
-command = "cargo"
-args = ["clippy","--workspace", "--all-targets", "--all-features", "--", "-D", "clippy::all", "-D", "warnings"]
-
-[tasks.clippy]
-dependencies = [
-  "clippy-default",
-  "clippy-all-features"
-]
 
 [tasks.docs]
 env = { "RUSTDOCFLAGS" = "-D warnings" }
