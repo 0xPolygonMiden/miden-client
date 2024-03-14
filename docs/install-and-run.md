@@ -6,20 +6,13 @@
 
 We currently recommend installing and running the client with the [`testing`](#testing-feature) and [`concurrent`](#concurrent-feature) features.
 
-1. Clone the [miden-client repository](https://github.com/0xPolygonMiden/miden-client/) and `cd` into the directory.
+1. Run the following command to install the miden-client:
 
     ```sh
-    git clone https://github.com/0xPolygonMiden/miden-client.git
-    cd miden-client/
+    cargo install miden-client --features testing,concurrent
     ```
 
-2. Run the following command to install the miden-client:
-
-    ```sh
-    cargo install --features testing,concurrent --path .
-    ```
-
-    This installs the `miden-client` binary (at `~/.cargo/bin/miden-client`) with the [`testing`](#testing-feature) and [`concurrent`](#concurrent-feature) features and adds it to your PATH.
+    This installs the `miden-client` binary (at `~/.cargo/bin/miden-client`) with the [`testing`](#testing-feature) and [`concurrent`](#concurrent-feature) features.
 
 ### `Testing` feature
 
@@ -40,16 +33,6 @@ The `concurrent` flag enables optimizations that result in faster transaction ex
 2. Run the client CLI using:
 
     ```sh
-    cargo run
+    miden-client
     ```
-
-### Optional flags
-
-There are two optional flags on `cargo run`.
-
-    ```sh
-    cargo run --<flag>
-    ```
-
-    - `release`: We recommend using this flag as it makes the build significantly faster. This is a default when [installing](#install-the-client).
-    - `debug`: This flag makes available some debugging features of the Miden VM.
+    
