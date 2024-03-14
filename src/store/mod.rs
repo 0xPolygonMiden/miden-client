@@ -293,12 +293,14 @@ impl From<NoteStatus> for u8 {
     }
 }
 
-impl From<u8> for NoteStatus {
-    fn from(value: u8) -> Self {
+impl TryFrom<u8> for NoteStatus {
+    type Error = DeserializationError;
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
-            0 => NoteStatus::Pending,
-            1 => NoteStatus::Committed,
-            _ => NoteStatus::Consumed,
+            0 => Ok(NoteStatus::Pending),
+            1 => Ok(NoteStatus::Committed),
+            2 => Ok(NoteStatus::Consumed),
+            _ => Err(DeserializationError::InvalidValue(value.to_string())),
         }
     }
 }
@@ -312,7 +314,7 @@ impl Serializable for NoteStatus {
 impl Deserializable for NoteStatus {
     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
         let enum_byte = u8::read_from(source)?;
-        Ok(enum_byte.into())
+        enum_byte.try_into()
     }
 }
 
