@@ -27,7 +27,7 @@ nav:
       - Features: features.md
   - Get started:
       - Design: design.md
-      - Install and run: installation.md
+      - Install and run: install-and-run.md
   - CLI: 'cli.md'
   - Library: 'library.md'
 
