@@ -85,12 +85,12 @@ impl From<Note> for OutputNoteRecord {
             status: NoteStatus::Pending,
             metadata: *note.metadata(),
             inclusion_proof: None,
-            details: Some(NoteRecordDetails {
-                nullifier: note.nullifier().to_string(),
-                script: note.script().to_bytes(),
-                inputs: note.inputs().to_bytes(),
-                serial_num: note.serial_num(),
-            }),
+            details: Some(NoteRecordDetails::new(
+                note.nullifier().to_string(),
+                note.script().clone(),
+                note.inputs().to_bytes(),
+                note.serial_num(),
+            )),
         }
     }
 }

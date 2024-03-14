@@ -128,12 +128,12 @@ impl From<Note> for InputNoteRecord {
             status: NoteStatus::Pending,
             metadata: Some(*note.metadata()),
             inclusion_proof: None,
-            details: NoteRecordDetails {
-                nullifier: note.nullifier().to_string(),
-                script: note.script().to_bytes(),
-                inputs: note.inputs().to_bytes(),
-                serial_num: note.serial_num(),
-            },
+            details: NoteRecordDetails::new(
+                note.nullifier().to_string(),
+                note.script().clone(),
+                note.inputs().to_bytes(),
+                note.serial_num(),
+            ),
         }
     }
 }
@@ -146,12 +146,12 @@ impl From<InputNote> for InputNoteRecord {
             assets: recorded_note.note().assets().clone(),
             status: NoteStatus::Pending,
             metadata: Some(*recorded_note.note().metadata()),
-            details: NoteRecordDetails {
-                nullifier: recorded_note.note().nullifier().to_string(),
-                script: recorded_note.note().script().to_bytes(),
-                inputs: recorded_note.note().inputs().to_bytes(),
-                serial_num: recorded_note.note().serial_num(),
-            },
+            details: NoteRecordDetails::new(
+                recorded_note.note().nullifier().to_string(),
+                recorded_note.note().script().clone(),
+                recorded_note.note().inputs().to_bytes(),
+                recorded_note.note().serial_num(),
+            ),
             inclusion_proof: Some(recorded_note.proof().clone()),
         }
     }
@@ -163,14 +163,11 @@ impl TryInto<InputNote> for InputNoteRecord {
     fn try_into(self) -> Result<InputNote, Self::Error> {
         match (self.inclusion_proof, self.metadata) {
             (Some(proof), Some(metadata)) => {
-                let script = NoteScript::read_from_bytes(&self.details.script).map_err(|err| {
-                    ClientError::NoteError(NoteError::NoteDeserializationError(err))
-                })?;
                 let inputs = NoteInputs::read_from_bytes(&self.details.inputs).map_err(|err| {
                     ClientError::NoteError(NoteError::NoteDeserializationError(err))
                 })?;
                 let note = Note::from_parts(
-                    script,
+                    self.details.script.clone(),
                     inputs,
                     self.assets,
                     self.details.serial_num,

@@ -1,6 +1,8 @@
 use miden_objects::{
+    assembly::{Assembler, ProgramAst},
+    notes::NoteScript,
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
-    Word,
+    Digest, Word,
 };
 use serde::{Deserialize, Serialize};
 
@@ -57,10 +59,21 @@ impl Deserializable for NoteStatus {
     }
 }
 
+fn dummy_script() -> NoteScript {
+    let assembler = Assembler::default();
+    let note_program_ast =
+        ProgramAst::parse("begin end").expect("dummy script should be parseable");
+    let (note_script, _) = NoteScript::new(note_program_ast, &assembler)
+        .expect("dummy not script should be created without issues");
+    note_script
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct NoteRecordDetails {
     nullifier: String,
-    script: Vec<u8>,
+    script_hash: Digest,
+    #[serde(skip_serializing, skip_deserializing, default = "dummy_script")]
+    script: NoteScript,
     inputs: Vec<u8>,
     serial_num: Word,
 }
@@ -68,19 +81,25 @@ pub struct NoteRecordDetails {
 impl NoteRecordDetails {
     pub fn new(
         nullifier: String,
-        script: Vec<u8>,
+        script: NoteScript,
         inputs: Vec<u8>,
         serial_num: Word,
     ) -> Self {
+        let script_hash = script.hash();
         Self {
             nullifier,
             script,
+            script_hash,
             inputs,
             serial_num,
         }
     }
 
-    pub fn script(&self) -> &Vec<u8> {
+    pub fn script_hash(&self) -> &Digest {
+        &self.script_hash
+    }
+
+    pub fn script(&self) -> &NoteScript {
         &self.script
     }
 
@@ -102,8 +121,7 @@ impl Serializable for NoteRecordDetails {
         target.write_usize(nullifier_bytes.len());
         target.write_bytes(nullifier_bytes);
 
-        target.write_usize(self.script().len());
-        target.write_bytes(self.script());
+        self.script().write_into(target);
 
         target.write_usize(self.inputs().len());
         target.write_bytes(self.inputs());
@@ -119,8 +137,7 @@ impl Deserializable for NoteRecordDetails {
         let nullifier =
             String::from_utf8(nullifier_bytes).expect("Nullifier String bytes should be readable.");
 
-        let script_len = usize::read_from(source)?;
-        let script = source.read_vec(script_len)?;
+        let script = NoteScript::read_from(source)?;
 
         let inputs_len = usize::read_from(source)?;
         let inputs = source.read_vec(inputs_len)?;

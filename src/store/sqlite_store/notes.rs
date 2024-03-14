@@ -3,7 +3,7 @@ use std::fmt;
 use clap::error::Result;
 use miden_objects::{
     crypto::utils::{Deserializable, Serializable},
-    notes::{NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
+    notes::{NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, NoteScript, Nullifier},
     Digest,
 };
 use rusqlite::{named_params, params, Transaction};
@@ -24,10 +24,28 @@ fn insert_note_query(table_name: NoteTable) -> String {
 // TYPES
 // ================================================================================================
 
-type SerializedInputNoteData =
-    (String, Vec<u8>, String, String, Option<String>, String, Option<String>);
-type SerializedOutputNoteData =
-    (String, Vec<u8>, String, String, String, Option<String>, Option<String>);
+type SerializedInputNoteData = (
+    String,
+    Vec<u8>,
+    String,
+    String,
+    Option<String>,
+    String,
+    String,
+    Vec<u8>,
+    Option<String>,
+);
+type SerializedOutputNoteData = (
+    String,
+    Vec<u8>,
+    String,
+    String,
+    String,
+    Option<String>,
+    Option<String>,
+    Option<Vec<u8>>,
+    Option<String>,
+);
 
 type SerializedInputNoteParts = (Vec<u8>, String, String, String, Option<String>, Option<String>);
 type SerializedOutputNoteParts = (Vec<u8>, Option<String>, String, String, String, Option<String>);
@@ -172,8 +190,17 @@ pub(super) fn insert_input_note_tx(
     tx: &Transaction<'_>,
     note: &InputNoteRecord,
 ) -> Result<(), StoreError> {
-    let (note_id, assets, recipient, status, metadata, details, inclusion_proof) =
-        serialize_input_note(note)?;
+    let (
+        note_id,
+        assets,
+        recipient,
+        status,
+        metadata,
+        details,
+        note_script_hash,
+        serialized_note_script,
+        inclusion_proof,
+    ) = serialize_input_note(note)?;
 
     tx.execute(
         &insert_note_query(NoteTable::InputNotes),
@@ -196,8 +223,17 @@ pub fn insert_output_note_tx(
     tx: &Transaction<'_>,
     note: &OutputNoteRecord,
 ) -> Result<(), StoreError> {
-    let (note_id, assets, recipient, status, metadata, details, inclusion_proof) =
-        serialize_output_note(note)?;
+    let (
+        note_id,
+        assets,
+        recipient,
+        status,
+        metadata,
+        details,
+        note_script_hash,
+        serialized_note_script,
+        inclusion_proof,
+    ) = serialize_output_note(note)?;
 
     tx.execute(
         &insert_note_query(NoteTable::OutputNotes),
@@ -332,8 +368,20 @@ pub(crate) fn serialize_input_note(
 
     let details =
         serde_json::to_string(&note.details()).map_err(StoreError::InputSerializationError)?;
+    let note_script_hash = note.details().script_hash().to_hex();
+    let serialized_note_script = note.details().script().to_bytes();
 
-    Ok((note_id, note_assets, recipient, status, metadata, details, inclusion_proof))
+    Ok((
+        note_id,
+        note_assets,
+        recipient,
+        status,
+        metadata,
+        details,
+        note_script_hash,
+        serialized_note_script,
+        inclusion_proof,
+    ))
 }
 
 /// Parse input note columns from the provided row into native types.
@@ -454,6 +502,18 @@ pub(crate) fn serialize_output_note(
     } else {
         None
     };
+    let note_script_hash = note.details().map(|details| details.script_hash().to_hex());
+    let serialized_note_script = note.details().map(|details| details.script().to_bytes());
 
-    Ok((note_id, note_assets, recipient, status, metadata, details, inclusion_proof))
+    Ok((
+        note_id,
+        note_assets,
+        recipient,
+        status,
+        metadata,
+        details,
+        note_script_hash,
+        serialized_note_script,
+        inclusion_proof,
+    ))
 }
