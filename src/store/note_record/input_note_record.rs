@@ -174,7 +174,7 @@ impl TryInto<InputNote> for InputNoteRecord {
                 );
                 Ok(InputNote::new(note, proof.clone()))
             }
-            // TODO: should we use a better Error for these two?
+
             (None, _) => Err(ClientError::NoteError(
                 miden_objects::NoteError::invalid_origin_index(
                     "Input Note Record contains no inclusion proof".to_string(),
