@@ -89,7 +89,7 @@ CREATE TABLE input_notes (
 
     details JSON NOT NULL,                                  -- JSON consisting of the following fields:
     -- nullifier                                              -- the nullifier of the note
-    -- script                                                 -- the note's script hash
+    -- script_hash                                                 -- the note's script hash
     -- inputs                                                 -- the serialized NoteInputs, including inputs hash and list of inputs
     -- serial_num                                             -- the note serial number
     PRIMARY KEY (note_id)
@@ -146,7 +146,7 @@ CREATE TABLE output_notes (
       details IS NULL OR 
       (
         json_extract(details, '$.nullifier') IS NOT NULL AND
-        json_extract(details, '$.script') IS NOT NULL AND
+        json_extract(details, '$.script_hash') IS NOT NULL AND
         json_extract(details, '$.inputs') IS NOT NULL AND
         json_extract(details, '$.serial_num') IS NOT NULL
       ))
@@ -160,7 +160,7 @@ CREATE TABLE notes_scripts (
     serialized_note_script BLOB,                     -- NoteScript, serialized
 
     PRIMARY KEY (script_hash)
-)
+);
 
 -- Create state sync table
 CREATE TABLE state_sync (

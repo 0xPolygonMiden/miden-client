@@ -82,13 +82,17 @@ impl NoteFilter {
     ) -> String {
         let base = format!(
             "SELECT 
-                    assets, 
-                    details, 
-                    recipient,
-                    status,
-                    metadata,
-                    inclusion_proof
-                    from {notes_table}"
+                    note.assets, 
+                    note.details, 
+                    note.recipient,
+                    note.status,
+                    note.metadata,
+                    note.inclusion_proof,
+                    script.serialized_note_script
+                    from {notes_table} AS note 
+                    LEFT OUTER JOIN notes_scripts AS script
+                        ON note.details IS NOT NULL AND 
+                        json_extract(note.details, '$.script_hash') = script.script_hash"
         );
 
         match self {
@@ -136,13 +140,18 @@ impl SqliteStore {
         let query_id = &note_id.inner().to_string();
 
         const QUERY: &str = "SELECT 
-                                    assets, 
-                                    details,
-                                    recipient,
-                                    status,
-                                    metadata,
-                                    inclusion_proof
-                                    from input_notes WHERE note_id = ?";
+                        note.assets, 
+                        note.details, 
+                        note.recipient,
+                        note.status,
+                        note.metadata,
+                        note.inclusion_proof,
+                        script.serialized_note_script
+                        from input_notes AS note 
+                        LEFT OUTER JOIN notes_scripts AS script
+                            ON note.details IS NOT NULL AND 
+                            json_extract(note.details, '$.script_hash') = script.script_hash
+                        WHERE note.note_id = ?";
 
         self.db
             .prepare(QUERY)?
