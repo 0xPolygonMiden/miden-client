@@ -3,7 +3,7 @@ use std::fmt;
 use clap::error::Result;
 use miden_objects::{
     crypto::utils::{Deserializable, Serializable},
-    notes::{NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
+    notes::{NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, NoteScript, Nullifier},
     Digest,
 };
 use rusqlite::{named_params, params, Transaction};
@@ -47,8 +47,10 @@ type SerializedOutputNoteData = (
     Option<String>,
 );
 
-type SerializedInputNoteParts = (Vec<u8>, String, String, String, Option<String>, Option<String>);
-type SerializedOutputNoteParts = (Vec<u8>, Option<String>, String, String, String, Option<String>);
+type SerializedInputNoteParts =
+    (Vec<u8>, String, String, String, Option<String>, Option<String>, Vec<u8>);
+type SerializedOutputNoteParts =
+    (Vec<u8>, Option<String>, String, String, String, Option<String>, Option<Vec<u8>>);
 
 // NOTE TABLE
 // ================================================================================================
@@ -282,19 +284,43 @@ fn parse_input_note_columns(
     let status: String = row.get(3)?;
     let metadata: Option<String> = row.get(4)?;
     let inclusion_proof: Option<String> = row.get(5)?;
+    let serialized_note_script: Vec<u8> = row.get(6)?;
 
-    Ok((assets, details, recipient, status, metadata, inclusion_proof))
+    Ok((
+        assets,
+        details,
+        recipient,
+        status,
+        metadata,
+        inclusion_proof,
+        serialized_note_script,
+    ))
 }
 
 /// Parse a note from the provided parts.
 fn parse_input_note(
     serialized_input_note_parts: SerializedInputNoteParts
 ) -> Result<InputNoteRecord, StoreError> {
-    let (note_assets, note_details, recipient, status, note_metadata, note_inclusion_proof) =
-        serialized_input_note_parts;
+    let (
+        note_assets,
+        note_details,
+        recipient,
+        status,
+        note_metadata,
+        note_inclusion_proof,
+        serialized_note_script,
+    ) = serialized_input_note_parts;
 
+    // Merge the info that comes from the input notes table and the notes script table
+    let note_script = NoteScript::read_from_bytes(&serialized_note_script)?;
     let note_details: NoteRecordDetails =
         serde_json::from_str(&note_details).map_err(StoreError::JsonDataDeserializationError)?;
+    let note_details = NoteRecordDetails::new(
+        note_details.nullifier().to_string(),
+        note_script,
+        note_details.inputs().clone(),
+        note_details.serial_num(),
+    );
 
     let note_metadata: Option<NoteMetadata> = if let Some(metadata_as_json_str) = note_metadata {
         Some(
@@ -415,22 +441,48 @@ fn parse_output_note_columns(
     let status: String = row.get(3)?;
     let metadata: String = row.get(4)?;
     let inclusion_proof: Option<String> = row.get(5)?;
+    let serialized_note_script: Option<Vec<u8>> = row.get(6)?;
 
-    Ok((assets, details, recipient, status, metadata, inclusion_proof))
+    Ok((
+        assets,
+        details,
+        recipient,
+        status,
+        metadata,
+        inclusion_proof,
+        serialized_note_script,
+    ))
 }
 
 /// Parse a note from the provided parts.
 fn parse_output_note(
     serialized_output_note_parts: SerializedOutputNoteParts
 ) -> Result<OutputNoteRecord, StoreError> {
-    let (note_assets, note_details, recipient, status, note_metadata, note_inclusion_proof) =
-        serialized_output_note_parts;
+    let (
+        note_assets,
+        note_details,
+        recipient,
+        status,
+        note_metadata,
+        note_inclusion_proof,
+        serialized_note_script,
+    ) = serialized_output_note_parts;
 
     let note_details: Option<NoteRecordDetails> = if let Some(details_as_json_str) = note_details {
-        Some(
-            serde_json::from_str(&details_as_json_str)
-                .map_err(StoreError::JsonDataDeserializationError)?,
-        )
+        // Merge the info that comes from the input notes table and the notes script table
+        let serialized_note_script = serialized_note_script
+            .expect("Has note details so it should have the serialized script");
+        let note_script = NoteScript::read_from_bytes(&serialized_note_script)?;
+        let note_details: NoteRecordDetails = serde_json::from_str(&details_as_json_str)
+            .map_err(StoreError::JsonDataDeserializationError)?;
+        let note_details = NoteRecordDetails::new(
+            note_details.nullifier().to_string(),
+            note_script,
+            note_details.inputs().clone(),
+            note_details.serial_num(),
+        );
+
+        Some(note_details)
     } else {
         None
     };

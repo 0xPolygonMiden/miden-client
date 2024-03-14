@@ -95,6 +95,10 @@ impl NoteRecordDetails {
         }
     }
 
+    pub fn nullifier(&self) -> &str {
+        &self.nullifier
+    }
+
     pub fn script_hash(&self) -> &Digest {
         &self.script_hash
     }
