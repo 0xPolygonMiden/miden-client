@@ -11,7 +11,7 @@ use miden_client::{
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
 };
 use miden_objects::{
-    notes::{NoteId, NoteInputs, NoteScript},
+    notes::{NoteId, NoteInputs},
     Digest,
 };
 use miden_tx::utils::{Deserializable, Serializable};

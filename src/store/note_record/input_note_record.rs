@@ -1,5 +1,5 @@
 use miden_objects::{
-    notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata, NoteScript},
+    notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata},
     transaction::InputNote,
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
     Digest, NoteError,
