@@ -28,8 +28,9 @@ use crate::store::data_store::ClientDataStore;
 ///   network.
 /// - Executes, proves, and submits transactions to the network as directed by the user.
 pub struct Client<N: NodeRpcClient, S: Store> {
-    /// Local database containing information about the accounts managed by this client.
+    /// The client's store, which provides a way to write and read entities to provide persistence.
     store: S,
+    /// An instance of [NodeRpcClient] which provides a way for the client to connect to the Miden node.
     rpc_api: N,
     #[cfg(not(any(test, feature = "mock")))]
     tx_executor: TransactionExecutor<ClientDataStore<S>>,
@@ -41,18 +42,25 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
 
-    /// Returns a new instance of [Client] instantiated with the specified configuration options.
+    /// Returns a new instance of [Client].
+    ///
+    /// ## Arguments
+    ///
+    /// - `api`: An instance of [NodeRpcClient] which provides a way for the client to connect to the Miden node.
+    /// - `store`: An instance of [Store], which provides a way to write and read entities to provide persistence.
+    /// - `executor_store`: An instance of [Store] that provides a way for [TransactionExecutor] to
+    /// retrieve relevant inputs at the moment of transaction execution. It should be the same
+    /// store as the one for `store`, but it doesn't have to be the **same instance**
     ///
     /// # Errors
+    ///
     /// Returns an error if the client could not be instantiated.
-    /// TODO: remove the `data_store_store`, just left this here to make things work and then I'll
-    /// take care of that
     #[cfg(not(any(test, feature = "mock")))]
-    pub fn new(api: N, store: S, data_store_store: S) -> Result<Self, ClientError> {
+    pub fn new(api: N, store: S, executor_store: S) -> Result<Self, ClientError> {
         Ok(Self {
             store,
             rpc_api: api,
-            tx_executor: TransactionExecutor::new(ClientDataStore::new(data_store_store)),
+            tx_executor: TransactionExecutor::new(ClientDataStore::new(executor_store)),
         })
     }
 
