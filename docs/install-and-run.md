@@ -51,5 +51,5 @@ There are two optional flags on `cargo run`.
     cargo run --<flag>
     ```
 
-    - `release`: We recommend using this flag as it makes the build significantly faster. This is a default when [installing](#install-the-client).
+    - `release`: This flag is default, and recommended, as it makes the build significantly faster. This is also a default when [installing](#install-the-client).
     - `debug`: This flag makes available some debugging features of the Miden VM.
