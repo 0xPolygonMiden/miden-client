@@ -335,8 +335,8 @@ fn parse_transaction(
         None
     };
 
-    let transaction_status = commit_height
-        .map_or(TransactionStatus::Pending, TransactionStatus::Committed);
+    let transaction_status =
+        commit_height.map_or(TransactionStatus::Pending, TransactionStatus::Committed);
 
     Ok(TransactionRecord {
         id: id.into(),
