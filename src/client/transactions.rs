@@ -323,7 +323,7 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
             random_coin,
         )?;
 
-        self.tx_for_send_asset_note(
+        self.execute_send_note_tx(
             fungible_asset,
             sender_account_id,
             target_account_id,
@@ -348,7 +348,7 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
             random_coin,
         )?;
 
-        self.tx_for_send_asset_note(
+        self.execute_send_note_tx(
             fungible_asset,
             sender_account_id,
             target_account_id,
@@ -356,7 +356,7 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         )
     }
 
-    fn tx_for_send_asset_note(
+    fn execute_send_note_tx(
         &mut self,
         fungible_asset: Asset,
         sender_account_id: AccountId,
