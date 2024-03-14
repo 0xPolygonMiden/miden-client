@@ -37,7 +37,6 @@ fn create_test_client() -> TestClient {
 
     let rpc_endpoint = client_config.rpc.endpoint.to_string();
     let store = SqliteStore::new((&client_config).into()).unwrap();
-    // TODO: See if we can solve this by wrapping store with a `Rc<Cell<..>>` or a `Rc<RefCell<..>>`
     let data_store_store = SqliteStore::new((&client_config).into()).unwrap();
     TestClient::new(TonicRpcClient::new(&rpc_endpoint), store, data_store_store).unwrap()
 }
