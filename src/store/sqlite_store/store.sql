@@ -73,7 +73,7 @@ CREATE TABLE input_notes (
     recipient BLOB NOT NULL,                                -- the note recipient
     assets BLOB NOT NULL,                                   -- the serialized NoteAssets, including vault hash and list of assets
     status TEXT CHECK( status IN (                          -- the status of the note - either pending, committed or consumed
-        '"Pending"', '"Committed"', '"Consumed"'
+        'Pending', 'Committed', 'Consumed'
         )),
 
     inclusion_proof JSON NULL,                              -- JSON consisting of the following fields:
@@ -112,7 +112,7 @@ CREATE TABLE output_notes (
     recipient BLOB NOT NULL,                                -- the note recipient
     assets BLOB NOT NULL,                                   -- the serialized NoteAssets, including vault hash and list of assets
     status TEXT CHECK( status IN (                          -- the status of the note - either pending, committed or consumed
-        '"Pending"', '"Committed"', '"Consumed"'
+        'Pending', 'Committed', 'Consumed'
         )),
 
     inclusion_proof JSON NULL,                              -- JSON consisting of the following fields:

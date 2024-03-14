@@ -99,9 +99,9 @@ impl NoteFilter {
 
         match self {
             NoteFilter::All => base,
-            NoteFilter::Committed => format!("{base} WHERE status = '\"Committed\"'"),
-            NoteFilter::Consumed => format!("{base} WHERE status = '\"Consumed\"'"),
-            NoteFilter::Pending => format!("{base} WHERE status = '\"Pending\"'"),
+            NoteFilter::Committed => format!("{base} WHERE status = 'Committed'"),
+            NoteFilter::Consumed => format!("{base} WHERE status = 'Consumed'"),
+            NoteFilter::Pending => format!("{base} WHERE status = 'Pending'"),
         }
     }
 }
@@ -165,7 +165,7 @@ impl SqliteStore {
 
     /// Returns the nullifiers of all unspent input notes
     pub fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
-        const QUERY: &str = "SELECT json_extract(details, '$.nullifier') FROM input_notes WHERE status = '\"Committed\"'";
+        const QUERY: &str = "SELECT json_extract(details, '$.nullifier') FROM input_notes WHERE status = 'Committed'";
 
         self.db
             .prepare(QUERY)?
@@ -290,8 +290,8 @@ fn parse_input_note(
 
     let recipient = Digest::try_from(recipient)?;
     let id = NoteId::new(recipient, note_assets.commitment());
-    let status: NoteStatus =
-        serde_json::from_str(&status).map_err(StoreError::JsonDataDeserializationError)?;
+    let status: NoteStatus = serde_json::from_str(&format!("\"{status}\""))
+        .map_err(StoreError::JsonDataDeserializationError)?;
 
     Ok(InputNoteRecord::new(
         id,
@@ -336,13 +336,15 @@ pub(crate) fn serialize_input_note(
             .map_err(StoreError::InputSerializationError)?;
 
             let status = serde_json::to_string(&NoteStatus::Committed)
-                .map_err(StoreError::InputSerializationError)?;
+                .map_err(StoreError::InputSerializationError)?
+                .replace('\"', "");
 
             (Some(inclusion_proof), status)
         }
         None => {
             let status = serde_json::to_string(&NoteStatus::Pending)
-                .map_err(StoreError::InputSerializationError)?;
+                .map_err(StoreError::InputSerializationError)?
+                .replace('\"', "");
 
             (None, status)
         }
@@ -424,8 +426,8 @@ fn parse_output_note(
 
     let recipient = Digest::try_from(recipient)?;
     let id = NoteId::new(recipient, note_assets.commitment());
-    let status: NoteStatus =
-        serde_json::from_str(&status).map_err(StoreError::JsonDataDeserializationError)?;
+    let status: NoteStatus = serde_json::from_str(&format!("\"{status}\""))
+        .map_err(StoreError::JsonDataDeserializationError)?;
 
     Ok(OutputNoteRecord::new(
         id,
@@ -469,13 +471,15 @@ pub(crate) fn serialize_output_note(
             .map_err(StoreError::InputSerializationError)?;
 
             let status = serde_json::to_string(&NoteStatus::Committed)
-                .map_err(StoreError::InputSerializationError)?;
+                .map_err(StoreError::InputSerializationError)?
+                .replace('\"', "");
 
             (Some(inclusion_proof), status)
         }
         None => {
             let status = serde_json::to_string(&NoteStatus::Pending)
-                .map_err(StoreError::InputSerializationError)?;
+                .map_err(StoreError::InputSerializationError)?
+                .replace('\"', "");
 
             (None, status)
         }
