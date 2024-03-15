@@ -394,7 +394,6 @@ pub(crate) fn serialize_input_note(
             let status = serde_json::to_string(&NoteStatus::Committed)
                 .map_err(StoreError::InputSerializationError)?
                 .replace('\"', "");
-
             (Some(inclusion_proof), status)
         },
         None => {
