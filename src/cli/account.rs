@@ -175,7 +175,6 @@ pub fn show_account<N: NodeRpcClient, S: Store>(
     show_code: bool,
 ) -> Result<(), String> {
     let (account, _account_seed) = client.get_account(account_id)?;
-
     let mut table = create_dynamic_table(&[
         "Account ID",
         "Account Hash",
@@ -191,7 +190,8 @@ pub fn show_account<N: NodeRpcClient, S: Store>(
         account_type_display_name(&account.account_type()),
         account.code().root().to_string(),
         account.vault().asset_tree().root().to_string(),
-        account.nonce().to_string(),
+        account.storage().root().to_string(),
+        account.nonce().as_int().to_string(),
     ]);
     println!("{table}\n");
 
