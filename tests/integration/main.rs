@@ -9,10 +9,10 @@ use miden_client::{
     },
     config::{ClientConfig, RpcConfig},
     errors::{ClientError, NodeRpcClientError},
-    store::{sqlite_store::SqliteStore, NoteFilter, TransactionFilter},
+    store::{sqlite_store::SqliteStore, InputNoteRecord, NoteFilter, TransactionFilter},
 };
 use miden_objects::{
-    accounts::AccountData,
+    accounts::{AccountData, AccountId, AccountStub},
     assets::{Asset, FungibleAsset},
     notes::NoteId,
     utils::serde::Deserializable,
