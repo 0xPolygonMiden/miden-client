@@ -5,13 +5,11 @@ use miden_client::{
     },
     store::{Store, TransactionFilter},
 };
-
 use miden_objects::{accounts::AccountId, assets::FungibleAsset, notes::NoteId};
 use tracing::info;
 
-use crate::cli::create_dynamic_table;
-
 use super::{get_note_with_id_prefix, Client, Parser};
+use crate::cli::create_dynamic_table;
 
 #[derive(Clone, Debug, Parser)]
 #[clap()]
@@ -63,10 +61,10 @@ impl Transaction {
         match self {
             Transaction::List => {
                 list_transactions(client)?;
-            }
+            },
             Transaction::New { transaction_type } => {
                 new_transaction(&mut client, transaction_type).await?;
-            }
+            },
         }
         Ok(())
     }
@@ -85,9 +83,7 @@ async fn new_transaction<N: NodeRpcClient, S: Store>(
 
     info!("Executed transaction, proving and then submitting...");
 
-    client
-        .send_transaction(transaction_execution_result)
-        .await?;
+    client.send_transaction(transaction_execution_result).await?;
 
     Ok(())
 }
@@ -108,9 +104,8 @@ fn build_transaction_template<N: NodeRpcClient, S: Store>(
             amount,
         } => {
             let faucet_id = AccountId::from_hex(faucet_id).map_err(|err| err.to_string())?;
-            let fungible_asset = FungibleAsset::new(faucet_id, *amount)
-                .map_err(|err| err.to_string())?
-                .into();
+            let fungible_asset =
+                FungibleAsset::new(faucet_id, *amount).map_err(|err| err.to_string())?.into();
             let sender_account_id =
                 AccountId::from_hex(sender_account_id).map_err(|err| err.to_string())?;
             let target_account_id =
@@ -119,10 +114,10 @@ fn build_transaction_template<N: NodeRpcClient, S: Store>(
                 PaymentTransactionData::new(fungible_asset, sender_account_id, target_account_id);
 
             Ok(TransactionTemplate::PayToId(payment_transaction))
-        }
+        },
         TransactionType::P2IDR => {
             todo!()
-        }
+        },
         TransactionType::Mint {
             faucet_id,
             target_account_id,
@@ -138,7 +133,7 @@ fn build_transaction_template<N: NodeRpcClient, S: Store>(
                 asset: fungible_asset,
                 target_account_id,
             })
-        }
+        },
         TransactionType::ConsumeNotes {
             account_id,
             list_of_notes,
@@ -155,7 +150,7 @@ fn build_transaction_template<N: NodeRpcClient, S: Store>(
             let account_id = AccountId::from_hex(account_id).map_err(|err| err.to_string())?;
 
             Ok(TransactionTemplate::ConsumeNotes(account_id, list_of_notes))
-        }
+        },
     }
 }
 

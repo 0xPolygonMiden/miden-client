@@ -1,4 +1,5 @@
 use core::fmt;
+
 use miden_node_proto::errors::ParseError;
 use miden_objects::{
     accounts::AccountId,
@@ -28,7 +29,10 @@ pub enum ClientError {
 }
 
 impl fmt::Display for ClientError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         match self {
             ClientError::AccountError(err) => write!(f, "account error: {err}"),
             ClientError::AuthError(err) => write!(f, "account auth error: {err}"),
@@ -38,16 +42,16 @@ impl fmt::Display for ClientError {
             ),
             ClientError::NoConsumableNoteForAccount(account_id) => {
                 write!(f, "No consumable note for account ID {}", account_id)
-            }
+            },
             ClientError::NoteError(err) => write!(f, "note error: {err}"),
             ClientError::NodeRpcClientError(err) => write!(f, "rpc api error: {err}"),
             ClientError::StoreError(err) => write!(f, "store error: {err}"),
             ClientError::TransactionExecutionError(err) => {
                 write!(f, "transaction executor error: {err}")
-            }
+            },
             ClientError::TransactionProvingError(err) => {
                 write!(f, "transaction prover error: {err}")
-            }
+            },
         }
     }
 }
@@ -166,7 +170,7 @@ impl From<rusqlite::Error> for StoreError {
             | rusqlite::Error::InvalidColumnIndex(_)
             | rusqlite::Error::InvalidColumnType(_, _, _) => {
                 StoreError::ParsingError(value.to_string())
-            }
+            },
             rusqlite::Error::InvalidParameterName(_)
             | rusqlite::Error::InvalidColumnName(_)
             | rusqlite::Error::StatementChangedRows(_)
@@ -217,62 +221,62 @@ impl From<TransactionScriptError> for StoreError {
 }
 
 impl fmt::Display for StoreError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         use StoreError::*;
         match self {
             AssetVaultError(err) => {
                 write!(f, "asset vault with root {} not found", err)
-            }
+            },
             AccountCodeDataNotFound(root) => {
                 write!(f, "account code data with root {} not found", root)
-            }
+            },
             AccountDataNotFound(account_id) => {
                 write!(f, "Account data was not found for Account Id {account_id}")
-            }
+            },
             AccountError(err) => write!(f, "error instantiating Account: {err}"),
             AccountHashMismatch(account_id) => {
                 write!(f, "account hash mismatch for account {account_id}")
-            }
+            },
             AccountStorageNotFound(root) => {
                 write!(f, "account storage data with root {} not found", root)
-            }
+            },
             BlockHeaderNotFound(block_number) => {
                 write!(f, "block header for block {} not found", block_number)
-            }
+            },
             ChainMmrNodeNotFound(node_index) => {
                 write!(f, "chain mmr node at index {} not found", node_index)
-            }
+            },
             DatabaseError(err) => write!(f, "database-related non-query error: {err}"),
             DataDeserializationError(err) => {
                 write!(f, "error deserializing data from the store: {err}")
-            }
+            },
             HexParseError(err) => {
                 write!(f, "error parsing hex: {err}")
-            }
+            },
             InputNoteNotFound(note_id) => {
                 write!(f, "input note with note id {} not found", note_id.inner())
-            }
+            },
             InputSerializationError(err) => {
                 write!(f, "error trying to serialize inputs for the store: {err}")
-            }
+            },
             JsonDataDeserializationError(err) => {
-                write!(
-                    f,
-                    "error deserializing data from JSON from the store: {err}"
-                )
-            }
+                write!(f, "error deserializing data from JSON from the store: {err}")
+            },
             MmrError(err) => write!(f, "error constructing mmr: {err}"),
             NoteTagAlreadyTracked(tag) => write!(f, "note tag {} is already being tracked", tag),
             NoteInclusionProofError(error) => {
                 write!(f, "inclusion proof creation error: {}", error)
-            }
+            },
             ParsingError(err) => {
                 write!(f, "failed to parse data retrieved from the database: {err}")
-            }
+            },
             QueryError(err) => write!(f, "failed to retrieve data from the database: {err}"),
             TransactionScriptError(err) => {
                 write!(f, "error instantiating transaction script: {err}")
-            }
+            },
             VaultDataNotFound(root) => write!(f, "account vault data for root {} not found", root),
             RpcTypeConversionFailure(err) => write!(f, "failed to convert data: {err}"),
         }
@@ -284,7 +288,7 @@ impl From<StoreError> for DataStoreError {
         match value {
             StoreError::AccountDataNotFound(account_id) => {
                 DataStoreError::AccountNotFound(account_id)
-            }
+            },
             StoreError::BlockHeaderNotFound(block_num) => DataStoreError::BlockNotFound(block_num),
             StoreError::InputNoteNotFound(note_id) => DataStoreError::NoteNotFound(note_id),
             err => DataStoreError::InternalError(err.to_string()),
@@ -309,29 +313,29 @@ pub enum NodeRpcClientError {
 }
 
 impl fmt::Display for NodeRpcClientError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         match self {
             NodeRpcClientError::ConnectionError(err) => {
                 write!(f, "failed to connect to the API server: {err}")
-            }
+            },
             NodeRpcClientError::ConversionFailure(err) => {
                 write!(f, "failed to convert RPC data: {err}")
-            }
+            },
             NodeRpcClientError::DeserializationError(err) => {
                 write!(f, "failed to deserialize RPC data: {err}")
-            }
+            },
             NodeRpcClientError::ExpectedFieldMissing(err) => {
                 write!(f, "rpc API reponse missing an expected field: {err}")
-            }
+            },
             NodeRpcClientError::InvalidAccountReceived(account_error) => {
-                write!(
-                    f,
-                    "rpc API reponse contained an invalid account: {account_error}"
-                )
-            }
+                write!(f, "rpc API reponse contained an invalid account: {account_error}")
+            },
             NodeRpcClientError::RequestError(endpoint, err) => {
                 write!(f, "rpc request failed for {endpoint}: {err}")
-            }
+            },
         }
     }
 }
@@ -365,17 +369,20 @@ pub enum NoteIdPrefixFetchError {
 }
 
 impl fmt::Display for NoteIdPrefixFetchError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         match self {
             NoteIdPrefixFetchError::NoMatch(note_id) => {
                 write!(f, "No matches were found with the input prefix {note_id}.")
-            }
+            },
             NoteIdPrefixFetchError::MultipleMatches(note_id) => {
                 write!(
                     f,
                     "found more than one note for the provided ID {note_id} and only one match is expected."
                 )
-            }
+            },
         }
     }
 }

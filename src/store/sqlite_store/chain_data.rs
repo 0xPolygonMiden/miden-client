@@ -1,16 +1,15 @@
 use std::num::NonZeroUsize;
 
-use super::SqliteStore;
-use crate::errors::StoreError;
-use crate::store::ChainMmrNodeFilter;
 use clap::error::Result;
-
 use miden_objects::{
     crypto::merkle::{InOrderIndex, MmrPeaks},
     utils::collections::BTreeMap,
     BlockHeader, Digest,
 };
 use rusqlite::{params, OptionalExtension, Transaction};
+
+use super::SqliteStore;
+use crate::{errors::StoreError, store::ChainMmrNodeFilter};
 
 type SerializedBlockHeaderData = (i64, String, String, bool);
 type SerializedBlockHeaderParts = (u64, String, String, bool);
@@ -33,7 +32,7 @@ impl ChainMmrNodeFilter<'_> {
                     .collect::<Vec<String>>()
                     .join(",");
                 format!("{base} WHERE id IN ({})", formatted_list)
-            }
+            },
         }
     }
 }
@@ -53,10 +52,8 @@ impl SqliteStore {
             (block_num, header, chain_mmr_peaks, has_client_notes)
         VALUES (?, ?, ?, ?)";
 
-        self.db.execute(
-            QUERY,
-            params![block_num, header, chain_mmr, has_client_notes],
-        )?;
+        self.db
+            .execute(QUERY, params![block_num, header, chain_mmr, has_client_notes])?;
 
         Ok(())
     }
@@ -86,11 +83,7 @@ impl SqliteStore {
         self.db
             .prepare(QUERY)?
             .query_map(params![], parse_block_headers_columns)?
-            .map(|result| {
-                Ok(result?)
-                    .and_then(parse_block_header)
-                    .map(|(block, _)| block)
-            })
+            .map(|result| Ok(result?).and_then(parse_block_header).map(|(block, _)| block))
             .collect()
     }
 
@@ -152,10 +145,7 @@ impl SqliteStore {
         INSERT INTO block_headers
             (block_num, header, chain_mmr_peaks, has_client_notes)
         VALUES (?, ?, ?, ?)";
-        tx.execute(
-            QUERY,
-            params![block_num, header, chain_mmr, has_client_notes],
-        )?;
+        tx.execute(QUERY, params![block_num, header, chain_mmr, has_client_notes])?;
         Ok(())
     }
 }
@@ -175,7 +165,10 @@ fn insert_chain_mmr_node(
     Ok(())
 }
 
-fn parse_mmr_peaks(forest: u32, peaks_nodes: String) -> Result<MmrPeaks, StoreError> {
+fn parse_mmr_peaks(
+    forest: u32,
+    peaks_nodes: String,
+) -> Result<MmrPeaks, StoreError> {
     let mmr_peaks_nodes: Vec<Digest> =
         serde_json::from_str(&peaks_nodes).map_err(StoreError::JsonDataDeserializationError)?;
 
@@ -197,7 +190,7 @@ fn serialize_block_header(
 }
 
 fn parse_block_headers_columns(
-    row: &rusqlite::Row<'_>,
+    row: &rusqlite::Row<'_>
 ) -> Result<SerializedBlockHeaderParts, rusqlite::Error> {
     let block_num: i64 = row.get(0)?;
     let header: String = row.get(1)?;
@@ -208,7 +201,7 @@ fn parse_block_headers_columns(
 }
 
 fn parse_block_header(
-    serialized_block_header_parts: SerializedBlockHeaderParts,
+    serialized_block_header_parts: SerializedBlockHeaderParts
 ) -> Result<(BlockHeader, bool), StoreError> {
     let (_, header, _, has_client_notes) = serialized_block_header_parts;
 
@@ -228,7 +221,7 @@ fn serialize_chain_mmr_node(
 }
 
 fn parse_chain_mmr_nodes_columns(
-    row: &rusqlite::Row<'_>,
+    row: &rusqlite::Row<'_>
 ) -> Result<SerializedChainMmrNodeParts, rusqlite::Error> {
     let id: i64 = row.get(0)?;
     let node = row.get(1)?;
@@ -236,7 +229,7 @@ fn parse_chain_mmr_nodes_columns(
 }
 
 fn parse_chain_mmr_nodes(
-    serialized_chain_mmr_node_parts: SerializedChainMmrNodeParts,
+    serialized_chain_mmr_node_parts: SerializedChainMmrNodeParts
 ) -> Result<(InOrderIndex, Digest), StoreError> {
     let (id, node) = serialized_chain_mmr_node_parts;
 
@@ -256,9 +249,8 @@ mod test {
     };
 
     fn insert_dummy_block_headers(store: &mut SqliteStore) -> Vec<BlockHeader> {
-        let block_headers: Vec<BlockHeader> = (0..5)
-            .map(|block_num| BlockHeader::mock(block_num, None, None, &[]))
-            .collect();
+        let block_headers: Vec<BlockHeader> =
+            (0..5).map(|block_num| BlockHeader::mock(block_num, None, None, &[])).collect();
         let tx = store.db.transaction().unwrap();
         let dummy_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
         (0..5).for_each(|block_num| {
@@ -295,9 +287,6 @@ mod test {
             .into_iter()
             .map(|(block_header, _has_notes)| block_header)
             .collect();
-        assert_eq!(
-            &[mock_block_headers[1], mock_block_headers[3]],
-            &block_headers[..]
-        );
+        assert_eq!(&[mock_block_headers[1], mock_block_headers[3]], &block_headers[..]);
     }
 }

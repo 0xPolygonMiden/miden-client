@@ -1,11 +1,12 @@
-use super::{NoteRecordDetails, NoteStatus};
-use crate::errors::ClientError;
 use miden_objects::{
     notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata, NoteScript},
     transaction::InputNote,
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
     Digest, NoteError,
 };
+
+use super::{NoteRecordDetails, NoteStatus};
+use crate::errors::ClientError;
 
 // INPUT NOTE RECORD
 // ================================================================================================
@@ -82,7 +83,10 @@ impl InputNoteRecord {
 }
 
 impl Serializable for InputNoteRecord {
-    fn write_into<W: ByteWriter>(&self, target: &mut W) {
+    fn write_into<W: ByteWriter>(
+        &self,
+        target: &mut W,
+    ) {
         self.id().write_into(target);
         self.recipient().write_into(target);
         self.assets().write_into(target);
@@ -173,18 +177,18 @@ impl TryInto<InputNote> for InputNoteRecord {
                     metadata,
                 );
                 Ok(InputNote::new(note, proof.clone()))
-            }
+            },
 
-            (None, _) => Err(ClientError::NoteError(
-                miden_objects::NoteError::invalid_origin_index(
+            (None, _) => {
+                Err(ClientError::NoteError(miden_objects::NoteError::invalid_origin_index(
                     "Input Note Record contains no inclusion proof".to_string(),
-                ),
-            )),
-            (_, None) => Err(ClientError::NoteError(
-                miden_objects::NoteError::invalid_origin_index(
+                )))
+            },
+            (_, None) => {
+                Err(ClientError::NoteError(miden_objects::NoteError::invalid_origin_index(
                     "Input Note Record contains no metadata".to_string(),
-                ),
-            )),
+                )))
+            },
         }
     }
 }

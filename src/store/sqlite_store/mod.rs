@@ -6,14 +6,12 @@ use miden_objects::{
     utils::collections::BTreeMap,
     BlockHeader, Digest, Word,
 };
+use rusqlite::Connection;
 
 use super::{
     AuthInfo, ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store,
     TransactionFilter,
 };
-
-use rusqlite::Connection;
-
 use crate::{
     client::transactions::{TransactionRecord, TransactionResult},
     config::StoreConfig,
@@ -114,7 +112,10 @@ impl Store for SqliteStore {
         self.get_note_tags()
     }
 
-    fn add_note_tag(&mut self, tag: u64) -> Result<bool, StoreError> {
+    fn add_note_tag(
+        &mut self,
+        tag: u64,
+    ) -> Result<bool, StoreError> {
         self.add_note_tag(tag)
     }
 
@@ -148,11 +149,17 @@ impl Store for SqliteStore {
         self.get_transactions(transaction_filter)
     }
 
-    fn apply_transaction(&mut self, tx_result: TransactionResult) -> Result<(), StoreError> {
+    fn apply_transaction(
+        &mut self,
+        tx_result: TransactionResult,
+    ) -> Result<(), StoreError> {
         self.apply_transaction(tx_result)
     }
 
-    fn get_input_notes(&self, note_filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError> {
+    fn get_input_notes(
+        &self,
+        note_filter: NoteFilter,
+    ) -> Result<Vec<InputNoteRecord>, StoreError> {
         self.get_input_notes(note_filter)
     }
 
@@ -163,11 +170,17 @@ impl Store for SqliteStore {
         self.get_output_notes(note_filter)
     }
 
-    fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError> {
+    fn get_input_note(
+        &self,
+        note_id: NoteId,
+    ) -> Result<InputNoteRecord, StoreError> {
         self.get_input_note(note_id)
     }
 
-    fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError> {
+    fn insert_input_note(
+        &mut self,
+        note: &InputNoteRecord,
+    ) -> Result<(), StoreError> {
         self.insert_input_note(note)
     }
 
@@ -198,7 +211,10 @@ impl Store for SqliteStore {
         self.get_chain_mmr_nodes(filter)
     }
 
-    fn get_chain_mmr_peaks_by_block_num(&self, block_num: u32) -> Result<MmrPeaks, StoreError> {
+    fn get_chain_mmr_peaks_by_block_num(
+        &self,
+        block_num: u32,
+    ) -> Result<MmrPeaks, StoreError> {
         self.get_chain_mmr_peaks_by_block_num(block_num)
     }
 
@@ -226,11 +242,17 @@ impl Store for SqliteStore {
         self.get_account_stub(account_id)
     }
 
-    fn get_account(&self, account_id: AccountId) -> Result<(Account, Option<Word>), StoreError> {
+    fn get_account(
+        &self,
+        account_id: AccountId,
+    ) -> Result<(Account, Option<Word>), StoreError> {
         self.get_account(account_id)
     }
 
-    fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, StoreError> {
+    fn get_account_auth(
+        &self,
+        account_id: AccountId,
+    ) -> Result<AuthInfo, StoreError> {
         self.get_account_auth(account_id)
     }
 }
@@ -241,16 +263,15 @@ impl Store for SqliteStore {
 #[cfg(test)]
 pub mod tests {
     use std::env::temp_dir;
-    use uuid::Uuid;
 
     use rusqlite::Connection;
+    use uuid::Uuid;
 
+    use super::{migrations, SqliteStore};
     use crate::{
         config::{ClientConfig, RpcConfig},
         mock::{MockClient, MockDataStore, MockRpcApi},
     };
-
-    use super::{migrations, SqliteStore};
 
     pub fn create_test_client() -> MockClient {
         let client_config = ClientConfig {
@@ -266,12 +287,7 @@ pub mod tests {
         let rpc_endpoint = client_config.rpc.endpoint.to_string();
         let store = SqliteStore::new((&client_config).into()).unwrap();
 
-        MockClient::new(
-            MockRpcApi::new(&rpc_endpoint),
-            store,
-            MockDataStore::default(),
-        )
-        .unwrap()
+        MockClient::new(MockRpcApi::new(&rpc_endpoint), store, MockDataStore::default()).unwrap()
     }
 
     pub(crate) fn create_test_store_path() -> std::path::PathBuf {

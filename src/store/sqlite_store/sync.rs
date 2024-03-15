@@ -1,4 +1,3 @@
-use crate::errors::StoreError;
 use miden_objects::{
     crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::{NoteId, NoteInclusionProof},
@@ -8,6 +7,7 @@ use miden_objects::{
 use rusqlite::{named_params, params};
 
 use super::SqliteStore;
+use crate::errors::StoreError;
 
 impl SqliteStore {
     pub(crate) fn get_note_tags(&self) -> Result<Vec<u64>, StoreError> {
@@ -18,17 +18,20 @@ impl SqliteStore {
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
             .map(|result| {
-                result
-                    .map_err(|err| StoreError::ParsingError(err.to_string()))
-                    .and_then(|v: String| {
+                result.map_err(|err| StoreError::ParsingError(err.to_string())).and_then(
+                    |v: String| {
                         serde_json::from_str(&v).map_err(StoreError::JsonDataDeserializationError)
-                    })
+                    },
+                )
             })
             .next()
             .expect("state sync tags exist")
     }
 
-    pub(super) fn add_note_tag(&mut self, tag: u64) -> Result<bool, StoreError> {
+    pub(super) fn add_note_tag(
+        &mut self,
+        tag: u64,
+    ) -> Result<bool, StoreError> {
         let mut tags = self.get_note_tags()?;
         if tags.contains(&tag) {
             return Ok(false);

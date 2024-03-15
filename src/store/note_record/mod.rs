@@ -42,7 +42,10 @@ impl TryFrom<u8> for NoteStatus {
 }
 
 impl Serializable for NoteStatus {
-    fn write_into<W: ByteWriter>(&self, target: &mut W) {
+    fn write_into<W: ByteWriter>(
+        &self,
+        target: &mut W,
+    ) {
         target.write_bytes(&[(*self).into()]);
     }
 }
@@ -63,7 +66,12 @@ pub struct NoteRecordDetails {
 }
 
 impl NoteRecordDetails {
-    pub fn new(nullifier: String, script: Vec<u8>, inputs: Vec<u8>, serial_num: Word) -> Self {
+    pub fn new(
+        nullifier: String,
+        script: Vec<u8>,
+        inputs: Vec<u8>,
+        serial_num: Word,
+    ) -> Self {
         Self {
             nullifier,
             script,
@@ -86,7 +94,10 @@ impl NoteRecordDetails {
 }
 
 impl Serializable for NoteRecordDetails {
-    fn write_into<W: ByteWriter>(&self, target: &mut W) {
+    fn write_into<W: ByteWriter>(
+        &self,
+        target: &mut W,
+    ) {
         let nullifier_bytes = self.nullifier.as_bytes();
         target.write_usize(nullifier_bytes.len());
         target.write_bytes(nullifier_bytes);
@@ -116,8 +127,6 @@ impl Deserializable for NoteRecordDetails {
 
         let serial_num = Word::read_from(source)?;
 
-        Ok(NoteRecordDetails::new(
-            nullifier, script, inputs, serial_num,
-        ))
+        Ok(NoteRecordDetails::new(nullifier, script, inputs, serial_num))
     }
 }

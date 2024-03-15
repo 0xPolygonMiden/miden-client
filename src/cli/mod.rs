@@ -6,22 +6,20 @@ use figment::{
     providers::{Format, Toml},
     Figment,
 };
-use miden_client::{
-    client::{rpc::NodeRpcClient, Client},
-    config::ClientConfig,
-    errors::{ClientError, NoteIdPrefixFetchError},
-    store::{sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
-};
-
+#[cfg(not(feature = "mock"))]
+use miden_client::client::rpc::TonicRpcClient;
 #[cfg(feature = "mock")]
 use miden_client::mock::MockClient;
 #[cfg(feature = "mock")]
 use miden_client::mock::MockDataStore;
 #[cfg(feature = "mock")]
 use miden_client::mock::MockRpcApi;
-
-#[cfg(not(feature = "mock"))]
-use miden_client::client::rpc::TonicRpcClient;
+use miden_client::{
+    client::{rpc::NodeRpcClient, Client},
+    config::ClientConfig,
+    errors::{ClientError, NoteIdPrefixFetchError},
+    store::{sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
+};
 
 mod account;
 mod info;
@@ -35,12 +33,7 @@ const CLIENT_CONFIG_FILE_NAME: &str = "miden-client.toml";
 
 /// Root CLI struct
 #[derive(Parser, Debug)]
-#[clap(
-    name = "Miden",
-    about = "Miden client",
-    version,
-    rename_all = "kebab-case"
-)]
+#[clap(name = "Miden", about = "Miden client", version, rename_all = "kebab-case")]
 pub struct Cli {
     #[clap(subcommand)]
     action: Command,
@@ -90,11 +83,8 @@ impl Cli {
         };
 
         #[cfg(feature = "mock")]
-        let client: MockClient = Client::new(
-            MockRpcApi::new(&rpc_endpoint),
-            store,
-            MockDataStore::default(),
-        )?;
+        let client: MockClient =
+            Client::new(MockRpcApi::new(&rpc_endpoint), store, MockDataStore::default())?;
 
         // Execute cli command
         match &self.action {
@@ -112,7 +102,7 @@ impl Cli {
                     miden_client::mock::create_mock_transaction(&mut client).await;
                 }
                 Ok(())
-            }
+            },
         }
     }
 }
@@ -124,12 +114,7 @@ impl Cli {
 pub fn load_config(config_file: &Path) -> Result<ClientConfig, String> {
     Figment::from(Toml::file(config_file))
         .extract()
-        .map_err(|err| {
-            format!(
-                "Failed to load {} config file: {err}",
-                config_file.display()
-            )
-        })
+        .map_err(|err| format!("Failed to load {} config file: {err}", config_file.display()))
 }
 
 pub fn create_dynamic_table(headers: &[&str]) -> Table {
@@ -182,9 +167,7 @@ pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, S: Store>(
             note_id_prefix,
             input_note_record_ids
         );
-        return Err(NoteIdPrefixFetchError::MultipleMatches(
-            note_id_prefix.to_string(),
-        ));
+        return Err(NoteIdPrefixFetchError::MultipleMatches(note_id_prefix.to_string()));
     }
 
     Ok(input_note_records[0].clone())

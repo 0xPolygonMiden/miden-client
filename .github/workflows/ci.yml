@@ -18,17 +18,13 @@ jobs:
     steps:
       - uses: actions/checkout@main
       - name: Install rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{matrix.toolchain}}
-          override: true
-      - name: Test
-        uses: actions-rs/cargo@v1
-        env:
-          RUSTFLAGS: -C debug-assertions
-        with:
-          command: test
-          args: --release
+      - name: Install cargo make
+        run: cargo install cargo-make
+      - name: cargo make - test
+        run: cargo make test
 
   clippy:
     name: Clippy
@@ -36,37 +32,29 @@ jobs:
     steps:
       - uses: actions/checkout@main
       - name: Install minimal stable with clippy
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
-          toolchain: nightly
           components: clippy
-          override: true
-
-      - name: Clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --all --all-targets -- -D clippy::all -D warnings
+          toolchain: stable
+      - name: Install cargo make
+        run: cargo install cargo-make
+      - name: cargo make - clippy
+        run: cargo make clippy
 
   rustfmt:
     name: rustfmt
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
-      - name: Install minimal stable with rustfmt
-        uses: actions-rs/toolchain@v1
+      - name: Install minimal nightly with rustfmt
+        uses: dtolnay/rust-toolchain@nightly
         with:
-          profile: minimal
-          toolchain: stable
           components: rustfmt
-          override: true
+      - name: Install cargo make
+        run: cargo install cargo-make
+      - name: cargo make - format
+        run: cargo make format
 
-      - name: rustfmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
   integration_tests:
     name: integration_tests
     runs-on: ubuntu-latest
@@ -74,23 +62,32 @@ jobs:
     steps:
       - uses: actions/checkout@main
       - name: Install minimal stable with rustfmt
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Install cargo make
+        run: cargo install cargo-make
+      - run: cargo make reset
+      - run: cargo make start-node > /dev/null &
+      - run: cargo make integration-test
+      - name: Kill miden-node
+        if: always()
+        run: cargo make kill-node
+
+  docs:
+    name: build mkdocs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install minimal stable with rustfmt
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           components: rustfmt
           override: true
-      - run: make reset
-      - run: make start-node > /dev/null &
-      - run: make integration-test
-      - name: Kill miden-node
-        if: always()
-        run: make kill-node
-  docs:
-    name: build mkdocs
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+      - name: Install cargo make
+        run: cargo install cargo-make
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
@@ -101,4 +98,4 @@ jobs:
           path: .cache
           restore-keys: |
             mkdocs-material-
-      - run: make build_docs 
+      - run: cargo make build-docs 

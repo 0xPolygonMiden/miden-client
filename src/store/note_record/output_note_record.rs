@@ -1,9 +1,10 @@
-use super::{NoteRecordDetails, NoteStatus};
 use miden_objects::{
     notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteMetadata},
     utils::Serializable,
     Digest,
 };
+
+use super::{NoteRecordDetails, NoteStatus};
 
 // OUTPUT NOTE RECORD
 // ================================================================================================
