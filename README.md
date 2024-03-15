@@ -14,7 +14,7 @@ The Miden client is still under heavy development and the project can be conside
 
 The Miden client currently consists of two components:
 
-- `miden-client` library, which can be used by other project to programmatically interact with the Miden rollup.
+- `miden-client` library, which can be used by other project to programmatically interact with the Miden rollup. 
 - `miden-client` binary which is a wrapper around the library exposing its functionality via a simple command-line interface (CLI).
 
 The client's main responsibility is to maintain a partial view of the blockchain which allows for locally executing and proving transactions. It keeps a local store of various entities that periodically get updated by syncing with the node.
@@ -25,25 +25,28 @@ The client's main responsibility is to maintain a partial view of the blockchain
 
 Before you can build and run the Miden client CLI, you'll need to make sure you have Rust [installed](https://www.rust-lang.org/tools/install). Miden client v0.1 requires Rust version **1.75** or later.
 
-You can then choose to run the client CLI using `cargo`, or install it on your system. In order to install it, you can run:
+You can then install the CLI on your system:
 
 ```sh
-cargo install --path .
+cargo install miden-client 
 ```
 
-This will install the `miden-client` binary in your PATH, at `~/.cargo/bin/miden-client`. 
+This will install the `miden-client` binary on `$HOME/.cargo/bin` by default. 
 
 For testing, the following way of installing is recommended:
 
 ```sh
-cargo install --features testing --path .
+cargo install miden-client --features testing,concurrent
 ```
 
 The `testing` feature allows mainly for faster account creation. When using the the client CLI alongside a locally-running node, you will want to make sure the node is installed/executed with the `testing` feature as well, as some validations can fail if the settings do not match up both on the client and the node.
 
-Additionally, the client supports another feature: The `concurrent` flag enables optimizations that will result in faster transaction execution and proving.
+Additionally, the `concurrent` flag enables optimizations that will result in faster transaction execution and proving.
 
 After installing the client, you can use it by running `miden-client`. In order to get more information about available CLI commands you can run `miden-client --help`.
+
+> [!IMPORTANT]  
+> In order to make transaction execution and proving faster, it's important that the client is built on release mode. When using `cargo install`, this is the default build configuration. However, in case you want to run the client using `cargo run`, this needs to be explicitly set (`cargo run --release --features testing, concurrent`).
 
 ### Connecting to the network
 
@@ -140,6 +143,15 @@ miden-client account show <regular-account-ID-A> -v # Show account A's vault ass
 ### Clearing the state
 
 All state is maintained in `store.sqlite3`, located in the same directory where the client binary is. In case it needs to be cleared, the file can be deleted; it will later be created again when any command is executed.
+
+
+## Utilizing the library
+
+In order to utilize the `miden-client` library, you can add the dependency to your project's `Cargo.toml` file:
+
+````toml
+miden-client = { version = "0.1", features = ["concurrent", "testing"]  }
+````
 
 ## Testing
 
