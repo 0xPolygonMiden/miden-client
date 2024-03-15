@@ -20,7 +20,7 @@ make kill-node
 ## Integration Test Flow
 
 The integration test goes through a series of supported flows such as minting
-and transfering assets which runs against a running node. 
+and transferring assets which runs against a running node. 
 
 ### Setup
 
