@@ -1,21 +1,18 @@
+use std::{fs, path::PathBuf};
+
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     client::{accounts, rpc::NodeRpcClient, Client},
     store::Store,
 };
-
 use miden_objects::{
     accounts::{AccountData, AccountId, AccountStorage, AccountType, StorageSlotType},
     assets::{Asset, TokenSymbol},
     crypto::dsa::rpo_falcon512::KeyPair,
     ZERO,
 };
-use miden_tx::{
-    utils::{bytes_to_hex_string, Deserializable, Serializable},
-    DataStore,
-};
-use std::{fs, path::PathBuf};
+use miden_tx::utils::{bytes_to_hex_string, Deserializable, Serializable};
 use tracing::info;
 
 use crate::cli::create_dynamic_table;
@@ -81,14 +78,14 @@ pub enum AccountTemplate {
 }
 
 impl AccountCmd {
-    pub fn execute<N: NodeRpcClient, S: Store, D: DataStore>(
+    pub fn execute<N: NodeRpcClient, S: Store>(
         &self,
-        mut client: Client<N, S, D>,
+        mut client: Client<N, S>,
     ) -> Result<(), String> {
         match self {
             AccountCmd::List => {
                 list_accounts(client)?;
-            }
+            },
             AccountCmd::New { template } => {
                 let client_template = match template {
                     AccountTemplate::BasicImmutable => accounts::AccountTemplate::BasicWallet {
@@ -113,10 +110,10 @@ impl AccountCmd {
                     AccountTemplate::NonFungibleFaucet => todo!(),
                 };
                 let (_new_account, _account_seed) = client.new_account(client_template)?;
-            }
+            },
             AccountCmd::Show { id: None, .. } => {
                 todo!("Default accounts are not supported yet")
-            }
+            },
             AccountCmd::Show {
                 id: Some(v),
                 keys,
@@ -127,14 +124,14 @@ impl AccountCmd {
                 let account_id: AccountId = AccountId::from_hex(v)
                     .map_err(|_| "Input number was not a valid Account Id")?;
                 show_account(client, account_id, *keys, *vault, *storage, *code)?;
-            }
+            },
             AccountCmd::Import { filenames } => {
                 validate_paths(filenames, "mac")?;
                 for filename in filenames {
                     import_account(&mut client, filename)?;
                 }
                 println!("Imported {} accounts.", filenames.len());
-            }
+            },
         }
         Ok(())
     }
@@ -143,9 +140,7 @@ impl AccountCmd {
 // LIST ACCOUNTS
 // ================================================================================================
 
-fn list_accounts<N: NodeRpcClient, S: Store, D: DataStore>(
-    client: Client<N, S, D>,
-) -> Result<(), String> {
+fn list_accounts<N: NodeRpcClient, S: Store>(client: Client<N, S>) -> Result<(), String> {
     let accounts = client.get_accounts()?;
 
     let mut table = create_dynamic_table(&[
@@ -171,8 +166,8 @@ fn list_accounts<N: NodeRpcClient, S: Store, D: DataStore>(
     Ok(())
 }
 
-pub fn show_account<N: NodeRpcClient, S: Store, D: DataStore>(
-    client: Client<N, S, D>,
+pub fn show_account<N: NodeRpcClient, S: Store>(
+    client: Client<N, S>,
     account_id: AccountId,
     show_keys: bool,
     show_vault: bool,
@@ -208,14 +203,12 @@ pub fn show_account<N: NodeRpcClient, S: Store, D: DataStore>(
         let mut table = create_dynamic_table(&["Asset Type", "Faucet ID", "Amount"]);
         for asset in assets {
             let (asset_type, faucet_id, amount) = match asset {
-                Asset::Fungible(fungible_asset) => (
-                    "Fungible Asset",
-                    fungible_asset.faucet_id(),
-                    fungible_asset.amount(),
-                ),
+                Asset::Fungible(fungible_asset) => {
+                    ("Fungible Asset", fungible_asset.faucet_id(), fungible_asset.amount())
+                },
                 Asset::NonFungible(non_fungible_asset) => {
                     ("Non Fungible Asset", non_fungible_asset.faucet_id(), 1)
-                }
+                },
             };
             table.add_row(vec![asset_type, &faucet_id.to_hex(), &amount.to_string()]);
         }
@@ -261,12 +254,7 @@ pub fn show_account<N: NodeRpcClient, S: Store, D: DataStore>(
                 } => ("Array", value_arity),
                 StorageSlotType::Map { value_arity } => ("Map", value_arity),
             };
-            table.add_row(vec![
-                &idx.to_string(),
-                slot_type,
-                &arity.to_string(),
-                &item.to_hex(),
-            ]);
+            table.add_row(vec![&idx.to_string(), slot_type, &arity.to_string(), &item.to_hex()]);
         }
         println!("{table}\n");
     }
@@ -290,7 +278,7 @@ pub fn show_account<N: NodeRpcClient, S: Store, D: DataStore>(
 
                 table.add_row(vec![format!("0x{}\n", bytes_to_hex_string(auth_info))]);
                 println!("{table}\n");
-            }
+            },
         };
     }
 
@@ -317,16 +305,13 @@ pub fn show_account<N: NodeRpcClient, S: Store, D: DataStore>(
 // IMPORT ACCOUNT
 // ================================================================================================
 
-fn import_account<N: NodeRpcClient, S: Store, D: DataStore>(
-    client: &mut Client<N, S, D>,
+fn import_account<N: NodeRpcClient, S: Store>(
+    client: &mut Client<N, S>,
     filename: &PathBuf,
 ) -> Result<(), String> {
     info!(
         "Attempting to import account data from {}...",
-        fs::canonicalize(filename)
-            .map_err(|err| err.to_string())?
-            .as_path()
-            .display()
+        fs::canonicalize(filename).map_err(|err| err.to_string())?.as_path().display()
     );
     let account_data_file_contents = fs::read(filename).map_err(|err| err.to_string())?;
     let account_data =
@@ -344,12 +329,12 @@ fn import_account<N: NodeRpcClient, S: Store, D: DataStore>(
 
 /// Checks that all files exist, otherwise returns an error. It also ensures that all files have a
 /// specific extension
-fn validate_paths(paths: &[PathBuf], expected_extension: &str) -> Result<(), String> {
+fn validate_paths(
+    paths: &[PathBuf],
+    expected_extension: &str,
+) -> Result<(), String> {
     let invalid_path = paths.iter().find(|path| {
-        !path.exists()
-            || path
-                .extension()
-                .map_or(false, |ext| ext != expected_extension)
+        !path.exists() || path.extension().map_or(false, |ext| ext != expected_extension)
     });
 
     if let Some(path) = invalid_path {

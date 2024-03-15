@@ -1,5 +1,9 @@
-use super::{Client, Parser};
-use crate::cli::{create_dynamic_table, get_note_with_id_prefix};
+use std::{
+    fs::File,
+    io::{Read, Write},
+    path::PathBuf,
+};
+
 use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
@@ -7,15 +11,10 @@ use miden_client::{
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
 };
 use miden_objects::{notes::NoteId, Digest};
-use miden_tx::{
-    utils::{Deserializable, Serializable},
-    DataStore,
-};
-use std::{
-    fs::File,
-    io::{Read, Write},
-    path::PathBuf,
-};
+use miden_tx::utils::{Deserializable, Serializable};
+
+use super::{Client, Parser};
+use crate::cli::{create_dynamic_table, get_note_with_id_prefix};
 
 #[derive(Clone, Debug, ValueEnum)]
 pub enum NoteFilter {
@@ -77,9 +76,9 @@ pub enum InputNotes {
 }
 
 impl InputNotes {
-    pub fn execute<N: NodeRpcClient, S: Store, D: DataStore>(
+    pub fn execute<N: NodeRpcClient, S: Store>(
         &self,
-        mut client: Client<N, S, D>,
+        mut client: Client<N, S>,
     ) -> Result<(), String> {
         match self {
             InputNotes::List { filter } => {
@@ -91,7 +90,7 @@ impl InputNotes {
                 };
 
                 list_input_notes(client, filter)?;
-            }
+            },
             InputNotes::Show {
                 id,
                 script,
@@ -99,15 +98,15 @@ impl InputNotes {
                 inputs,
             } => {
                 show_input_note(client, id.to_owned(), *script, *vault, *inputs)?;
-            }
+            },
             InputNotes::Export { id, filename } => {
                 export_note(&client, id, filename.clone())?;
                 println!("Succesfully exported note {}", id);
-            }
+            },
             InputNotes::Import { filename } => {
                 let note_id = import_note(&mut client, filename.clone())?;
                 println!("Succesfully imported note {}", note_id.inner());
-            }
+            },
         }
         Ok(())
     }
@@ -115,8 +114,8 @@ impl InputNotes {
 
 // LIST INPUT NOTES
 // ================================================================================================
-fn list_input_notes<N: NodeRpcClient, S: Store, D: DataStore>(
-    client: Client<N, S, D>,
+fn list_input_notes<N: NodeRpcClient, S: Store>(
+    client: Client<N, S>,
     filter: ClientNoteFilter,
 ) -> Result<(), String> {
     let notes = client.get_input_notes(filter)?;
@@ -126,8 +125,8 @@ fn list_input_notes<N: NodeRpcClient, S: Store, D: DataStore>(
 
 // EXPORT INPUT NOTE
 // ================================================================================================
-pub fn export_note<N: NodeRpcClient, S: Store, D: DataStore>(
-    client: &Client<N, S, D>,
+pub fn export_note<N: NodeRpcClient, S: Store>(
+    client: &Client<N, S>,
     note_id: &str,
     filename: Option<PathBuf>,
 ) -> Result<File, String> {
@@ -144,16 +143,15 @@ pub fn export_note<N: NodeRpcClient, S: Store, D: DataStore>(
 
     let mut file = File::create(file_path).map_err(|err| err.to_string())?;
 
-    file.write_all(&note.to_bytes())
-        .map_err(|err| err.to_string())?;
+    file.write_all(&note.to_bytes()).map_err(|err| err.to_string())?;
 
     Ok(file)
 }
 
 // IMPORT INPUT NOTE
 // ================================================================================================
-pub fn import_note<N: NodeRpcClient, S: Store, D: DataStore>(
-    client: &mut Client<N, S, D>,
+pub fn import_note<N: NodeRpcClient, S: Store>(
+    client: &mut Client<N, S>,
     filename: PathBuf,
 ) -> Result<NoteId, String> {
     let mut contents = vec![];
@@ -174,8 +172,8 @@ pub fn import_note<N: NodeRpcClient, S: Store, D: DataStore>(
 
 // SHOW INPUT NOTE
 // ================================================================================================
-fn show_input_note<N: NodeRpcClient, S: Store, D: DataStore>(
-    client: Client<N, S, D>,
+fn show_input_note<N: NodeRpcClient, S: Store>(
+    client: Client<N, S>,
     note_id: String,
     show_script: bool,
     show_vault: bool,
@@ -233,10 +231,8 @@ fn show_input_note<N: NodeRpcClient, S: Store, D: DataStore>(
             .iter()
             .enumerate()
             .for_each(|(idx, input)| {
-                table.add_row(vec![
-                    Cell::new(idx).add_attribute(Attribute::Bold),
-                    Cell::new(input),
-                ]);
+                table
+                    .add_row(vec![Cell::new(idx).add_attribute(Attribute::Bold), Cell::new(input)]);
             });
     };
 
@@ -282,10 +278,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::cli::{
-        get_note_with_id_prefix,
-        input_notes::{export_note, import_note},
-    };
+    use std::env::temp_dir;
 
     use miden_client::{
         config::{ClientConfig, Endpoint},
@@ -294,9 +287,12 @@ mod tests {
         store::{sqlite_store::SqliteStore, InputNoteRecord},
     };
     use miden_lib::transaction::TransactionKernel;
-
-    use std::env::temp_dir;
     use uuid::Uuid;
+
+    use crate::cli::{
+        get_note_with_id_prefix,
+        input_notes::{export_note, import_note},
+    };
 
     #[tokio::test]
     async fn import_export_recorded_note() {
@@ -304,11 +300,7 @@ mod tests {
         let mut path = temp_dir();
         path.push(Uuid::new_v4().to_string());
         let client_config = ClientConfig::new(
-            path.into_os_string()
-                .into_string()
-                .unwrap()
-                .try_into()
-                .unwrap(),
+            path.into_os_string().into_string().unwrap().try_into().unwrap(),
             Endpoint::default().into(),
         );
 
@@ -362,11 +354,7 @@ mod tests {
         let mut path = temp_dir();
         path.push(Uuid::new_v4().to_string());
         let client_config = ClientConfig::new(
-            path.into_os_string()
-                .into_string()
-                .unwrap()
-                .try_into()
-                .unwrap(),
+            path.into_os_string().into_string().unwrap().try_into().unwrap(),
             Endpoint::default().into(),
         );
         let store = SqliteStore::new((&client_config).into()).unwrap();
@@ -387,10 +375,7 @@ mod tests {
         import_note(&mut client, filename_path_pending).unwrap();
         let imported_pending_note_record = client.get_input_note(pending_note.note().id()).unwrap();
 
-        assert_eq!(
-            imported_pending_note_record.note().id(),
-            pending_note.note().id()
-        );
+        assert_eq!(imported_pending_note_record.note().id(), pending_note.note().id());
     }
 
     #[tokio::test]
@@ -399,11 +384,7 @@ mod tests {
         let mut path = temp_dir();
         path.push(Uuid::new_v4().to_string());
         let client_config = ClientConfig::new(
-            path.into_os_string()
-                .into_string()
-                .unwrap()
-                .try_into()
-                .unwrap(),
+            path.into_os_string().into_string().unwrap().try_into().unwrap(),
             Endpoint::default().into(),
         );
 
@@ -420,9 +401,7 @@ mod tests {
         let non_existent_note_id = "0x123456";
         assert_eq!(
             get_note_with_id_prefix(&client, non_existent_note_id),
-            Err(NoteIdPrefixFetchError::NoMatch(
-                non_existent_note_id.to_string()
-            ))
+            Err(NoteIdPrefixFetchError::NoMatch(non_existent_note_id.to_string()))
         );
 
         // generate test data
@@ -449,9 +428,7 @@ mod tests {
         let note_id_with_many_matches = "0x";
         assert_eq!(
             get_note_with_id_prefix(&client, note_id_with_many_matches),
-            Err(NoteIdPrefixFetchError::MultipleMatches(
-                note_id_with_many_matches.to_string()
-            ))
+            Err(NoteIdPrefixFetchError::MultipleMatches(note_id_with_many_matches.to_string()))
         );
     }
 }

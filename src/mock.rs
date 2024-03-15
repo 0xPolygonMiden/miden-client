@@ -1,15 +1,3 @@
-#[cfg(test)]
-use crate::store::Store;
-use crate::{
-    client::{
-        rpc::{NodeRpcClient, NodeRpcClientEndpoint, StateSyncInfo},
-        sync::FILTER_ID_SHIFT,
-        transactions::{prepare_word, PaymentTransactionData, TransactionTemplate},
-        Client,
-    },
-    errors::NodeRpcClientError,
-    store::{sqlite_store::SqliteStore, AuthInfo},
-};
 use async_trait::async_trait;
 use miden_lib::{transaction::TransactionKernel, AuthScheme};
 use miden_node_proto::generated::{
@@ -35,14 +23,24 @@ use miden_objects::{
     utils::collections::BTreeMap,
     BlockHeader, Felt, Word, NOTE_TREE_DEPTH, ZERO,
 };
-#[cfg(test)]
-use miden_tx::DataStore;
 use rand::Rng;
 use tonic::{IntoRequest, Response, Status};
 
 pub use crate::store::mock_executor_data_store::MockDataStore;
+#[cfg(test)]
+use crate::store::Store;
+use crate::{
+    client::{
+        rpc::{NodeRpcClient, NodeRpcClientEndpoint, StateSyncInfo},
+        sync::FILTER_ID_SHIFT,
+        transactions::{prepare_word, PaymentTransactionData, TransactionTemplate},
+        Client,
+    },
+    errors::NodeRpcClientError,
+    store::{sqlite_store::SqliteStore, AuthInfo},
+};
 
-pub type MockClient = Client<MockRpcApi, SqliteStore, MockDataStore>;
+pub type MockClient = Client<MockRpcApi, SqliteStore>;
 
 // MOCK CONSTS
 // ================================================================================================
@@ -81,14 +79,6 @@ impl MockRpcApi {
     }
 }
 
-#[cfg(test)]
-impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
-    /// Helper function to set a data store to conveniently mock data for tests
-    pub fn set_data_store(&mut self, data_store: D) {
-        self.set_tx_executor(miden_tx::TransactionExecutor::new(data_store));
-    }
-}
-
 #[async_trait]
 impl NodeRpcClient for MockRpcApi {
     /// Executes the specified sync state request and returns the response.
@@ -100,20 +90,17 @@ impl NodeRpcClient for MockRpcApi {
         _nullifiers_tags: &[u16],
     ) -> Result<StateSyncInfo, NodeRpcClientError> {
         // Match request -> response through block_num
-        let response = match self
-            .state_sync_requests
-            .iter()
-            .find(|(req, _)| req.block_num == block_num)
-        {
-            Some((_req, response)) => {
-                let response = response.clone();
-                Ok(Response::new(response))
-            }
-            None => Err(NodeRpcClientError::RequestError(
-                NodeRpcClientEndpoint::SyncState.to_string(),
-                Status::not_found("no response for sync state request").to_string(),
-            )),
-        }?;
+        let response =
+            match self.state_sync_requests.iter().find(|(req, _)| req.block_num == block_num) {
+                Some((_req, response)) => {
+                    let response = response.clone();
+                    Ok(Response::new(response))
+                },
+                None => Err(NodeRpcClientError::RequestError(
+                    NodeRpcClientEndpoint::SyncState.to_string(),
+                    Status::not_found("no response for sync state request").to_string(),
+                )),
+            }?;
 
         response.into_inner().try_into()
     }
@@ -172,10 +159,7 @@ fn create_mock_sync_state_request_for_account_and_notes(
         BlockHeader::mock(10, None, None, &[]),
     ]);
 
-    let chain_tip = tracked_block_headers
-        .last()
-        .map(|header| header.block_num())
-        .unwrap_or(10);
+    let chain_tip = tracked_block_headers.last().map(|header| header.block_num()).unwrap_or(10);
     let mut deltas_iter = mmr_delta.unwrap_or_default().into_iter();
     let mut created_notes_iter = output_notes.iter();
 
@@ -194,9 +178,7 @@ fn create_mock_sync_state_request_for_account_and_notes(
         // create a state sync response
         let response = SyncStateResponse {
             chain_tip,
-            mmr_delta: deltas_iter
-                .next()
-                .map(miden_node_proto::generated::mmr::MmrDelta::from),
+            mmr_delta: deltas_iter.next().map(miden_node_proto::generated::mmr::MmrDelta::from),
             block_header: Some(NodeBlockHeader::from(*block_header)),
             accounts: vec![],
             notes: vec![NoteSyncRecord {
@@ -207,15 +189,7 @@ fn create_mock_sync_state_request_for_account_and_notes(
                 merkle_path: Some(miden_node_proto::generated::merkle::MerklePath::default()),
             }],
             nullifiers: vec![NullifierUpdate {
-                nullifier: Some(
-                    consumed_notes
-                        .first()
-                        .unwrap()
-                        .note()
-                        .nullifier()
-                        .inner()
-                        .into(),
-                ),
+                nullifier: Some(consumed_notes.first().unwrap().note().nullifier().inner().into()),
                 block_num: 7,
             }],
         };
@@ -244,7 +218,7 @@ fn generate_state_sync_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
 }
 
 pub fn mock_full_chain_mmr_and_notes(
-    consumed_notes: Vec<Note>,
+    consumed_notes: Vec<Note>
 ) -> (Mmr, Vec<InputNote>, Vec<BlockHeader>, Vec<MmrDelta>) {
     let mut note_trees = Vec::new();
 
@@ -358,11 +332,7 @@ pub async fn insert_mock_data(client: &mut MockClient) -> Vec<BlockHeader> {
         .map_err(|err| format!("Error generating KeyPair: {}", err))
         .unwrap();
     client
-        .insert_account(
-            &account,
-            Some(account_seed),
-            &AuthInfo::RpoFalcon512(key_pair),
-        )
+        .insert_account(&account, Some(account_seed), &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
     client.rpc_api().state_sync_requests = create_mock_sync_state_request_for_account_and_notes(
@@ -396,11 +366,7 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
     .unwrap();
 
     client
-        .insert_account(
-            &sender_account,
-            Some(seed),
-            &AuthInfo::RpoFalcon512(key_pair),
-        )
+        .insert_account(&sender_account, Some(seed), &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
     let key_pair: KeyPair = KeyPair::new()
@@ -422,11 +388,7 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
     .unwrap();
 
     client
-        .insert_account(
-            &target_account,
-            Some(seed),
-            &AuthInfo::RpoFalcon512(key_pair),
-        )
+        .insert_account(&target_account, Some(seed), &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
     let key_pair: KeyPair = KeyPair::new()
@@ -467,10 +429,7 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
 
     let transaction_execution_result = client.new_transaction(transaction_template).unwrap();
 
-    client
-        .send_transaction(transaction_execution_result)
-        .await
-        .unwrap();
+    client.send_transaction(transaction_execution_result).await.unwrap();
 }
 
 pub fn mock_fungible_faucet_account(
@@ -494,27 +453,11 @@ pub fn mock_fungible_faucet_account(
     )
     .unwrap();
 
-    let faucet_storage_slot_1 = [
-        Felt::new(initial_balance),
-        Felt::new(0),
-        Felt::new(0),
-        Felt::new(0),
-    ];
+    let faucet_storage_slot_1 =
+        [Felt::new(initial_balance), Felt::new(0), Felt::new(0), Felt::new(0)];
     let faucet_account_storage = AccountStorage::new(vec![
-        (
-            0,
-            (
-                StorageSlotType::Value { value_arity: 0 },
-                key_pair.public_key().into(),
-            ),
-        ),
-        (
-            1,
-            (
-                StorageSlotType::Value { value_arity: 0 },
-                faucet_storage_slot_1,
-            ),
-        ),
+        (0, (StorageSlotType::Value { value_arity: 0 }, key_pair.public_key().into())),
+        (1, (StorageSlotType::Value { value_arity: 0 }, faucet_storage_slot_1)),
     ])
     .unwrap();
 
@@ -525,6 +468,17 @@ pub fn mock_fungible_faucet_account(
         faucet.code().clone(),
         Felt::new(10u64),
     )
+}
+
+#[cfg(test)]
+impl<N: NodeRpcClient, S: Store> Client<N, S> {
+    /// Helper function to set a data store to conveniently mock data for tests
+    pub fn set_data_store(
+        &mut self,
+        data_store: MockDataStore,
+    ) {
+        self.set_tx_executor(miden_tx::TransactionExecutor::new(data_store));
+    }
 }
 
 pub fn mock_notes(assembler: &Assembler) -> (Vec<Note>, Vec<Note>) {
@@ -575,15 +529,9 @@ pub fn mock_notes(assembler: &Assembler) -> (Vec<Note>, Vec<Note>) {
     .unwrap();
 
     const SERIAL_NUM_6: Word = [Felt::new(21), Felt::new(22), Felt::new(23), Felt::new(24)];
-    let created_note_3 = Note::new(
-        note_script,
-        &[Felt::new(2)],
-        &[fungible_asset_3],
-        SERIAL_NUM_6,
-        sender,
-        ZERO,
-    )
-    .unwrap();
+    let created_note_3 =
+        Note::new(note_script, &[Felt::new(2)], &[fungible_asset_3], SERIAL_NUM_6, sender, ZERO)
+            .unwrap();
 
     let created_notes = vec![created_note_1, created_note_2, created_note_3];
 
@@ -643,15 +591,9 @@ pub fn mock_notes(assembler: &Assembler) -> (Vec<Note>, Vec<Note>) {
 
     // Consumed Notes
     const SERIAL_NUM_1: Word = [Felt::new(1), Felt::new(2), Felt::new(3), Felt::new(4)];
-    let consumed_note_1 = Note::new(
-        note_1_script,
-        &[Felt::new(1)],
-        &[fungible_asset_1],
-        SERIAL_NUM_1,
-        sender,
-        ZERO,
-    )
-    .unwrap();
+    let consumed_note_1 =
+        Note::new(note_1_script, &[Felt::new(1)], &[fungible_asset_1], SERIAL_NUM_1, sender, ZERO)
+            .unwrap();
 
     const SERIAL_NUM_2: Word = [Felt::new(5), Felt::new(6), Felt::new(7), Felt::new(8)];
     let consumed_note_2 = Note::new(
@@ -680,24 +622,16 @@ fn get_account_with_nonce(
     let account_assembler = TransactionKernel::assembler();
 
     let account_code = AccountCode::new(account_code_ast, &account_assembler).unwrap();
-    let account_storage = AccountStorage::new(vec![(
-        0,
-        (StorageSlotType::Value { value_arity: 0 }, public_key),
-    )])
-    .unwrap();
+    let account_storage =
+        AccountStorage::new(vec![(0, (StorageSlotType::Value { value_arity: 0 }, public_key))])
+            .unwrap();
 
     let asset_vault = match assets {
         Some(asset) => AssetVault::new(&[asset]).unwrap(),
         None => AssetVault::new(&[]).unwrap(),
     };
 
-    Account::new(
-        account_id,
-        asset_vault,
-        account_storage,
-        account_code,
-        Felt::new(nonce),
-    )
+    Account::new(account_id, asset_vault, account_storage, account_code, Felt::new(nonce))
 }
 
 pub fn get_account_with_default_account_code(

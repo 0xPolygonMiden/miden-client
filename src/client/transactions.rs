@@ -1,4 +1,3 @@
-use crate::store::Store;
 use miden_lib::notes::create_p2id_note;
 use miden_objects::{
     accounts::{AccountDelta, AccountId},
@@ -12,16 +11,15 @@ use miden_objects::{
     },
     Digest, Felt, Word,
 };
-use miden_tx::{utils::Serializable, DataStore, ProvingOptions, TransactionProver};
+use miden_tx::{utils::Serializable, ProvingOptions, TransactionProver};
 use rand::Rng;
 use tracing::info;
 
+use super::{rpc::NodeRpcClient, Client};
 use crate::{
     errors::ClientError,
-    store::{AuthInfo, TransactionFilter},
+    store::{AuthInfo, Store, TransactionFilter},
 };
-
-use super::{rpc::NodeRpcClient, Client};
 
 // MASM SCRIPTS
 // --------------------------------------------------------------------------------------------
@@ -116,7 +114,10 @@ pub struct TransactionResult {
 }
 
 impl TransactionResult {
-    pub fn new(executed_transaction: ExecutedTransaction, created_notes: Vec<Note>) -> Self {
+    pub fn new(
+        executed_transaction: ExecutedTransaction,
+        created_notes: Vec<Note>,
+    ) -> Self {
         let relevant_notes = (0..created_notes.len()).collect();
         Self {
             executed_transaction,
@@ -140,7 +141,10 @@ impl TransactionResult {
             .collect()
     }
 
-    pub fn set_relevant_notes(&mut self, relevant_notes_indices: &[usize]) {
+    pub fn set_relevant_notes(
+        &mut self,
+        relevant_notes_indices: &[usize],
+    ) {
         self.relevant_notes = Vec::from(relevant_notes_indices);
     }
 
@@ -212,17 +216,20 @@ pub enum TransactionStatus {
 }
 
 impl std::fmt::Display for TransactionStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         match self {
             TransactionStatus::Pending => write!(f, "Pending"),
             TransactionStatus::Committed(block_number) => {
                 write!(f, "Committed (Block: {})", block_number)
-            }
+            },
         }
     }
 }
 
-impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
+impl<N: NodeRpcClient, S: Store> Client<N, S> {
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
@@ -231,9 +238,7 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
         &self,
         filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, ClientError> {
-        self.store
-            .get_transactions(filter)
-            .map_err(|err| err.into())
+        self.store.get_transactions(filter).map_err(|err| err.into())
     }
 
     // TRANSACTION
@@ -254,7 +259,7 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
             TransactionTemplate::PayToIdWithRecall(_payment_data, _recall_height) => todo!(),
             TransactionTemplate::ConsumeNotes(account_id, list_of_notes) => {
                 self.new_consume_notes_transaction(account_id, &list_of_notes)
-            }
+            },
             TransactionTemplate::MintFungibleAsset {
                 asset,
                 target_account_id,
@@ -308,21 +313,12 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
         let tx_script_code = ProgramAst::parse(
             &DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT
                 .replace("{recipient}", &recipient)
-                .replace(
-                    "{tag}",
-                    &Felt::new(Into::<u64>::into(target_id)).to_string(),
-                )
+                .replace("{tag}", &Felt::new(Into::<u64>::into(target_id)).to_string())
                 .replace("{amount}", &Felt::new(asset.amount()).to_string()),
         )
         .expect("shipped MASM is well-formed");
 
-        self.compile_and_execute_tx(
-            faucet_id,
-            &[],
-            vec![created_note],
-            tx_script_code,
-            block_ref,
-        )
+        self.compile_and_execute_tx(faucet_id, &[], vec![created_note], tx_script_code, block_ref)
     }
 
     fn new_p2id_transaction(
@@ -354,10 +350,7 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
         let tx_script_code = ProgramAst::parse(
             &AUTH_SEND_ASSET_SCRIPT
                 .replace("{recipient}", &recipient)
-                .replace(
-                    "{tag}",
-                    &Felt::new(Into::<u64>::into(target_account_id)).to_string(),
-                )
+                .replace("{tag}", &Felt::new(Into::<u64>::into(target_account_id)).to_string())
                 .replace("{asset}", &prepare_word(&fungible_asset.into()).to_string()),
         )
         .expect("shipped MASM is well-formed");
@@ -383,17 +376,12 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
         let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
             AuthInfo::RpoFalcon512(key) => (
                 key.public_key().into(),
-                key.to_bytes()
-                    .iter()
-                    .map(|a| Felt::new(*a as u64))
-                    .collect::<Vec<Felt>>(),
+                key.to_bytes().iter().map(|a| Felt::new(*a as u64)).collect::<Vec<Felt>>(),
             ),
         };
         let script_inputs = vec![(pubkey_input, advice_map)];
 
-        let tx_script = self
-            .tx_executor
-            .compile_tx_script(tx_script, script_inputs, vec![])?;
+        let tx_script = self.tx_executor.compile_tx_script(tx_script, script_inputs, vec![])?;
 
         let tx_args = TransactionArgs::with_tx_script(tx_script);
 
@@ -420,8 +408,7 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
 
         info!("Proved transaction, submitting to the node...");
 
-        self.submit_proven_transaction_request(proven_transaction.clone())
-            .await?;
+        self.submit_proven_transaction_request(proven_transaction.clone()).await?;
 
         let relevant_created_notes =
             self.filter_created_notes_to_track(tx_result.created_notes())?;
@@ -457,7 +444,11 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
     }
 
     /// Check if `note` can be consumed by any of the accounts corresponding to `account_ids`
-    fn can_be_consumed(&self, note: &Note, account_ids: &[AccountId]) -> bool {
+    fn can_be_consumed(
+        &self,
+        note: &Note,
+        account_ids: &[AccountId],
+    ) -> bool {
         let script_hash_str = note.script().hash().to_string();
         // We want to check that *if* it is a P2ID or P2IDR the inputs are the
         // corresponding ones
@@ -473,10 +464,7 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
         &mut self,
         proven_transaction: ProvenTransaction,
     ) -> Result<(), ClientError> {
-        Ok(self
-            .rpc_api
-            .submit_proven_transaction(proven_transaction)
-            .await?)
+        Ok(self.rpc_api.submit_proven_transaction(proven_transaction).await?)
     }
 
     // HELPERS
@@ -496,8 +484,5 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
 // ================================================================================================
 
 pub fn prepare_word(word: &Word) -> String {
-    word.iter()
-        .map(|x| x.as_int().to_string())
-        .collect::<Vec<_>>()
-        .join(".")
+    word.iter().map(|x| x.as_int().to_string()).collect::<Vec<_>>().join(".")
 }

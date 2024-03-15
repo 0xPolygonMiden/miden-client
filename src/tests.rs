@@ -1,5 +1,14 @@
 // TESTS
 // ================================================================================================
+use miden_lib::transaction::TransactionKernel;
+use miden_objects::{
+    accounts::{AccountId, AccountStub},
+    assembly::{AstSerdeOptions, ModuleAst},
+    assets::{FungibleAsset, TokenSymbol},
+    crypto::dsa::rpo_falcon512::KeyPair,
+    Felt, FieldElement, Word,
+};
+
 use crate::{
     client::{
         accounts::{AccountStorageMode, AccountTemplate},
@@ -10,16 +19,6 @@ use crate::{
         mock_fungible_faucet_account, mock_notes, MockDataStore, ACCOUNT_ID_REGULAR,
     },
     store::{sqlite_store::tests::create_test_client, AuthInfo, InputNoteRecord, NoteFilter},
-};
-
-use miden_lib::transaction::TransactionKernel;
-
-use miden_objects::{
-    accounts::{AccountId, AccountStub},
-    assembly::{AstSerdeOptions, ModuleAst},
-    assets::{FungibleAsset, TokenSymbol},
-    crypto::dsa::rpo_falcon512::KeyPair,
-    Felt, FieldElement, Word,
 };
 
 #[tokio::test]
@@ -59,14 +58,11 @@ async fn test_get_input_note() {
     let (_consumed_notes, created_notes) = mock_notes(&assembler);
 
     // insert Note into database
-    client
-        .import_input_note(created_notes.first().unwrap().clone().into())
-        .unwrap();
+    client.import_input_note(created_notes.first().unwrap().clone().into()).unwrap();
 
     // retrieve note from database
-    let retrieved_note = client
-        .get_input_note(created_notes.first().unwrap().clone().id())
-        .unwrap();
+    let retrieved_note =
+        client.get_input_note(created_notes.first().unwrap().clone().id()).unwrap();
 
     let recorded_note: InputNoteRecord = created_notes.first().unwrap().clone().into();
     assert_eq!(recorded_note.note_id(), retrieved_note.note_id());
@@ -154,18 +150,10 @@ async fn insert_same_account_twice_fails() {
         .unwrap();
 
     assert!(client
-        .insert_account(
-            &account,
-            Some(Word::default()),
-            &AuthInfo::RpoFalcon512(key_pair)
-        )
+        .insert_account(&account, Some(Word::default()), &AuthInfo::RpoFalcon512(key_pair))
         .is_ok());
     assert!(client
-        .insert_account(
-            &account,
-            Some(Word::default()),
-            &AuthInfo::RpoFalcon512(key_pair)
-        )
+        .insert_account(&account, Some(Word::default()), &AuthInfo::RpoFalcon512(key_pair))
         .is_err());
 }
 
@@ -197,21 +185,14 @@ async fn test_account_code() {
     assert_eq!(account_module, reconstructed_ast);
 
     client
-        .insert_account(
-            &account,
-            Some(Word::default()),
-            &AuthInfo::RpoFalcon512(key_pair),
-        )
+        .insert_account(&account, Some(Word::default()), &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
     let (retrieved_acc, _) = client.get_account(account.id()).unwrap();
 
     let mut account_module = account.code().module().clone();
     account_module.clear_locations();
     account_module.clear_imports();
-    assert_eq!(
-        *account_module.procs(),
-        *retrieved_acc.code().module().procs()
-    );
+    assert_eq!(*account_module.procs(), *retrieved_acc.code().module().procs());
 }
 
 #[tokio::test]
@@ -230,11 +211,7 @@ async fn test_get_account_by_id() {
         .unwrap();
 
     client
-        .insert_account(
-            &account,
-            Some(Word::default()),
-            &AuthInfo::RpoFalcon512(key_pair),
-        )
+        .insert_account(&account, Some(Word::default()), &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
     // Retrieving an existing account should succeed
@@ -259,10 +236,7 @@ async fn test_sync_state() {
     crate::mock::insert_mock_data(&mut client).await;
 
     // assert that we have no consumed nor pending notes prior to syncing state
-    assert_eq!(
-        client.get_input_notes(NoteFilter::Consumed).unwrap().len(),
-        0
-    );
+    assert_eq!(client.get_input_notes(NoteFilter::Consumed).unwrap().len(), 0);
 
     let pending_notes = client.get_input_notes(NoteFilter::Pending).unwrap();
 
@@ -272,37 +246,19 @@ async fn test_sync_state() {
     // verify that the client is synced to the latest block
     assert_eq!(
         block_num,
-        client
-            .rpc_api()
-            .state_sync_requests
-            .first_key_value()
-            .unwrap()
-            .1
-            .chain_tip
+        client.rpc_api().state_sync_requests.first_key_value().unwrap().1.chain_tip
     );
 
     // verify that we now have one consumed note after syncing state
-    assert_eq!(
-        client.get_input_notes(NoteFilter::Consumed).unwrap().len(),
-        1
-    );
+    assert_eq!(client.get_input_notes(NoteFilter::Consumed).unwrap().len(), 1);
 
     // verify that the pending note we had is now committed
-    assert_ne!(
-        client.get_input_notes(NoteFilter::Committed).unwrap(),
-        pending_notes
-    );
+    assert_ne!(client.get_input_notes(NoteFilter::Committed).unwrap(), pending_notes);
 
     // verify that the latest block number has been updated
     assert_eq!(
         client.get_sync_height().unwrap(),
-        client
-            .rpc_api()
-            .state_sync_requests
-            .first_key_value()
-            .unwrap()
-            .1
-            .chain_tip
+        client.rpc_api().state_sync_requests.first_key_value().unwrap().1.chain_tip
     );
 }
 
@@ -320,25 +276,13 @@ async fn test_sync_state_mmr_state() {
     // verify that the client is synced to the latest block
     assert_eq!(
         block_num,
-        client
-            .rpc_api()
-            .state_sync_requests
-            .first_key_value()
-            .unwrap()
-            .1
-            .chain_tip
+        client.rpc_api().state_sync_requests.first_key_value().unwrap().1.chain_tip
     );
 
     // verify that the latest block number has been updated
     assert_eq!(
         client.get_sync_height().unwrap(),
-        client
-            .rpc_api()
-            .state_sync_requests
-            .first_key_value()
-            .unwrap()
-            .1
-            .chain_tip
+        client.rpc_api().state_sync_requests.first_key_value().unwrap().1.chain_tip
     );
 
     // verify that we inserted the latest block into the db via the client
@@ -366,14 +310,10 @@ async fn test_sync_state_mmr_state() {
 
     // Ensure the proofs are valid
     let mmr_proof = partial_mmr.open(2).unwrap().unwrap();
-    assert!(partial_mmr
-        .peaks()
-        .verify(tracked_block_headers[0].hash(), mmr_proof));
+    assert!(partial_mmr.peaks().verify(tracked_block_headers[0].hash(), mmr_proof));
 
     let mmr_proof = partial_mmr.open(4).unwrap().unwrap();
-    assert!(partial_mmr
-        .peaks()
-        .verify(tracked_block_headers[1].hash(), mmr_proof));
+    assert!(partial_mmr.peaks().verify(tracked_block_headers[1].hash(), mmr_proof));
 }
 
 #[tokio::test]
@@ -391,19 +331,13 @@ async fn test_add_tag() {
     client.add_note_tag(TAG_VALUE_2).unwrap();
 
     // verify that the tag is being tracked
-    assert_eq!(
-        client.get_note_tags().unwrap(),
-        vec![TAG_VALUE_1, TAG_VALUE_2]
-    );
+    assert_eq!(client.get_note_tags().unwrap(), vec![TAG_VALUE_1, TAG_VALUE_2]);
 
     // attempt to add the same tag again
     client.add_note_tag(TAG_VALUE_1).unwrap();
 
     // verify that the tag is still being tracked only once
-    assert_eq!(
-        client.get_note_tags().unwrap(),
-        vec![TAG_VALUE_1, TAG_VALUE_2]
-    );
+    assert_eq!(client.get_note_tags().unwrap(), vec![TAG_VALUE_1, TAG_VALUE_2]);
 }
 
 #[tokio::test]
@@ -428,11 +362,7 @@ async fn test_mint_transaction() {
 
     client
         .store()
-        .insert_account(
-            &faucet,
-            Some(FAUCET_SEED),
-            &AuthInfo::RpoFalcon512(key_pair),
-        )
+        .insert_account(&faucet, Some(FAUCET_SEED), &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
     client.set_data_store(MockDataStore::new(faucet.clone(), None, Some(vec![])));
 
@@ -443,9 +373,5 @@ async fn test_mint_transaction() {
     };
 
     let transaction = client.new_transaction(transaction_template).unwrap();
-    assert!(transaction
-        .executed_transaction()
-        .account_delta()
-        .nonce()
-        .is_some());
+    assert!(transaction.executed_transaction().account_delta().nonce().is_some());
 }

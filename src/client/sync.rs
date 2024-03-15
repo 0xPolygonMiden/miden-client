@@ -1,16 +1,4 @@
-use super::{
-    rpc::{CommittedNote, NodeRpcClient},
-    transactions::TransactionRecord,
-    Client,
-};
-use crate::{
-    errors::{ClientError, StoreError},
-    store::TransactionFilter,
-};
-
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
-
-use crate::store::{ChainMmrNodeFilter, NoteFilter, Store};
 use miden_objects::{
     accounts::{AccountId, AccountStub},
     crypto,
@@ -18,8 +6,17 @@ use miden_objects::{
     transaction::TransactionId,
     BlockHeader, Digest,
 };
-use miden_tx::DataStore;
 use tracing::warn;
+
+use super::{
+    rpc::{CommittedNote, NodeRpcClient},
+    transactions::TransactionRecord,
+    Client,
+};
+use crate::{
+    errors::{ClientError, StoreError},
+    store::{ChainMmrNodeFilter, NoteFilter, Store, TransactionFilter},
+};
 
 pub enum SyncStatus {
     SyncedToLastBlock(u32),
@@ -32,7 +29,7 @@ pub enum SyncStatus {
 /// The number of bits to shift identifiers for in use of filters.
 pub const FILTER_ID_SHIFT: u8 = 48;
 
-impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
+impl<N: NodeRpcClient, S: Store> Client<N, S> {
     // SYNC STATE
     // --------------------------------------------------------------------------------------------
 
@@ -47,13 +44,16 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
     }
 
     /// Adds a note tag for the client to track.
-    pub fn add_note_tag(&mut self, tag: u64) -> Result<(), ClientError> {
+    pub fn add_note_tag(
+        &mut self,
+        tag: u64,
+    ) -> Result<(), ClientError> {
         match self.store.add_note_tag(tag).map_err(|err| err.into()) {
             Ok(true) => Ok(()),
             Ok(false) => {
                 warn!("Tag {} is already being tracked", tag);
                 Ok(())
-            }
+            },
             Err(err) => Err(err),
         }
     }
@@ -93,8 +93,7 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
             MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks should not fail to instantiate");
         // NOTE: If genesis block data ever includes notes in the future, the third parameter in
         // this `insert_block_header` call may be `true`
-        self.store
-            .insert_block_header(genesis_block, blank_mmr_peaks, false)?;
+        self.store.insert_block_header(genesis_block, blank_mmr_peaks, false)?;
         Ok(())
     }
 
@@ -127,12 +126,7 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
         let account_ids: Vec<AccountId> = accounts.iter().map(|acc| acc.id()).collect();
         let response = self
             .rpc_api
-            .sync_state(
-                current_block_num,
-                &account_ids,
-                &note_tags,
-                &nullifiers_tags,
-            )
+            .sync_state(current_block_num, &account_ids, &note_tags, &nullifiers_tags)
             .await?;
 
         // We don't need to continue if the chain has not advanced
@@ -267,9 +261,7 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
         let current_block_num = self.store.get_sync_height()?;
 
         let tracked_nodes = self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All)?;
-        let current_peaks = self
-            .store
-            .get_chain_mmr_peaks_by_block_num(current_block_num)?;
+        let current_peaks = self.store.get_chain_mmr_peaks_by_block_num(current_block_num)?;
 
         let track_latest = if current_block_num != 0 {
             match self.store.get_block_header_by_num(current_block_num - 1) {
@@ -281,16 +273,15 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
             false
         };
 
-        Ok(PartialMmr::from_parts(
-            current_peaks,
-            tracked_nodes,
-            track_latest,
-        ))
+        Ok(PartialMmr::from_parts(current_peaks, tracked_nodes, track_latest))
     }
 
     /// Extracts information about nullifiers for unspent input notes that the client is tracking
     /// from the received [SyncStateResponse]
-    fn get_new_nullifiers(&self, new_nullifiers: Vec<Digest>) -> Result<Vec<Digest>, ClientError> {
+    fn get_new_nullifiers(
+        &self,
+        new_nullifiers: Vec<Digest>,
+    ) -> Result<Vec<Digest>, ClientError> {
         // Get current unspent nullifiers
         let nullifiers = self
             .store
@@ -323,10 +314,7 @@ fn apply_mmr_changes(
 
     // First, apply curent_block to the Mmr
     let new_authentication_nodes = partial_mmr
-        .add(
-            current_block_header.hash(),
-            current_block_has_relevant_notes,
-        )
+        .add(current_block_header.hash(), current_block_has_relevant_notes)
         .into_iter();
 
     // Apply the Mmr delta to bring Mmr to forest equal to chain tip
@@ -347,9 +335,8 @@ fn check_account_hashes(
 ) -> Result<(), StoreError> {
     for (remote_account_id, remote_account_hash) in account_updates {
         {
-            if let Some(local_account) = current_accounts
-                .iter()
-                .find(|acc| *remote_account_id == acc.id())
+            if let Some(local_account) =
+                current_accounts.iter().find(|acc| *remote_account_id == acc.id())
             {
                 if *remote_account_hash != local_account.hash() {
                     return Err(StoreError::AccountHashMismatch(*remote_account_id));
@@ -383,15 +370,11 @@ fn get_transactions_to_commit(
             // that in the future it'll be possible to have many transactions modifying an
             // account be included in a single block. If that happens, we'll need to rewrite
             // this check
-            t.input_note_nullifiers
-                .iter()
-                .all(|n| nullifiers.contains(n))
+            t.input_note_nullifiers.iter().all(|n| nullifiers.contains(n))
                 && t.output_notes.iter().all(|n| note_ids.contains(&n.id()))
-                && account_hash_updates
-                    .iter()
-                    .any(|(account_id, account_hash)| {
-                        *account_id == t.account_id && *account_hash == t.final_account_state
-                    })
+                && account_hash_updates.iter().any(|(account_id, account_hash)| {
+                    *account_id == t.account_id && *account_hash == t.final_account_state
+                })
         })
         .map(|t| t.id)
         .collect()

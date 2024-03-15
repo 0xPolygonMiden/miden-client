@@ -1,32 +1,28 @@
-use miden_client::client::{
-    accounts::{AccountStorageMode, AccountTemplate},
-    rpc::TonicRpcClient,
-    transactions::{PaymentTransactionData, TransactionTemplate},
-    Client,
-};
-use miden_client::config::{ClientConfig, RpcConfig};
-use miden_client::errors::{ClientError, NodeRpcClientError};
-use miden_client::store::data_store::SqliteDataStore;
-use miden_client::store::sqlite_store::SqliteStore;
-use miden_client::store::{NoteFilter, TransactionFilter};
+use std::{env::temp_dir, fs, time::Duration};
 
+use miden_client::{
+    client::{
+        accounts::{AccountStorageMode, AccountTemplate},
+        rpc::TonicRpcClient,
+        transactions::{PaymentTransactionData, TransactionTemplate},
+        Client,
+    },
+    config::{ClientConfig, RpcConfig},
+    errors::{ClientError, NodeRpcClientError},
+    store::{sqlite_store::SqliteStore, NoteFilter, TransactionFilter},
+};
 use miden_objects::{
     accounts::{AccountData, AccountId},
     assets::{Asset, FungibleAsset},
     utils::serde::Deserializable,
 };
 use miden_tx::{DataStoreError, TransactionExecutorError};
-
-use std::env::temp_dir;
-use std::fs;
-use std::time::Duration;
-
 use uuid::Uuid;
 
 // TODO: Once this is ran as a regular test use the one in `miden_client::mock::ACCOUNT_ID_REGULAR`
 pub const ACCOUNT_ID_REGULAR: u64 = 0b0110111011u64 << 54;
 
-type TestClient = Client<TonicRpcClient, SqliteStore, SqliteDataStore>;
+type TestClient = Client<TonicRpcClient, SqliteStore>;
 
 fn create_test_client() -> TestClient {
     let client_config = ClientConfig {
@@ -41,31 +37,24 @@ fn create_test_client() -> TestClient {
 
     let rpc_endpoint = client_config.rpc.endpoint.to_string();
     let store = SqliteStore::new((&client_config).into()).unwrap();
-    // TODO: See if we can solve this by wrapping store with a `Rc<Cell<..>>` or a `Rc<RefCell<..>>`
-    let data_store_store = SqliteStore::new((&client_config).into()).unwrap();
-    TestClient::new(
-        TonicRpcClient::new(&rpc_endpoint),
-        store,
-        SqliteDataStore::new(data_store_store),
-    )
-    .unwrap()
+    let executor_store = SqliteStore::new((&client_config).into()).unwrap();
+    TestClient::new(TonicRpcClient::new(&rpc_endpoint), store, executor_store).unwrap()
 }
-
 fn create_test_store_path() -> std::path::PathBuf {
     let mut temp_file = temp_dir();
     temp_file.push(format!("{}.sqlite3", Uuid::new_v4()));
     temp_file
 }
 
-async fn execute_tx_and_sync(client: &mut TestClient, tx_template: TransactionTemplate) {
+async fn execute_tx_and_sync(
+    client: &mut TestClient,
+    tx_template: TransactionTemplate,
+) {
     println!("Executing Transaction");
     let transaction_execution_result = client.new_transaction(tx_template).unwrap();
 
     println!("Sending Transaction to node");
-    client
-        .send_transaction(transaction_execution_result)
-        .await
-        .unwrap();
+    client.send_transaction(transaction_execution_result).await.unwrap();
 
     let current_block_num = client.sync_state().await.unwrap();
 
@@ -92,10 +81,10 @@ async fn wait_for_node(client: &mut TestClient) {
         match client.sync_state().await {
             Err(ClientError::NodeRpcClientError(NodeRpcClientError::ConnectionError(_))) => {
                 std::thread::sleep(Duration::from_secs(NODE_TIME_BETWEEN_ATTEMPTS));
-            }
+            },
             Err(other_error) => {
                 panic!("Unexpected error: {other_error}");
-            }
+            },
             _ => return,
         }
     }
@@ -112,10 +101,7 @@ async fn main() {
 
     // Enusre clean state
     assert!(client.get_accounts().unwrap().is_empty());
-    assert!(client
-        .get_transactions(TransactionFilter::All)
-        .unwrap()
-        .is_empty());
+    assert!(client.get_transactions(TransactionFilter::All).unwrap().is_empty());
     assert!(client.get_input_notes(NoteFilter::All).unwrap().is_empty());
 
     // Import accounts
@@ -254,7 +240,7 @@ async fn main() {
             TransactionExecutorError::FetchTransactionInputsFailed(
                 DataStoreError::NoteAlreadyConsumed(_),
             ),
-        )) => {}
+        )) => {},
         Ok(_) => panic!("Double-spend error: Note should not be consumable!"),
         _ => panic!("Unexpected error: {}", notes[0].note_id().to_hex()),
     }

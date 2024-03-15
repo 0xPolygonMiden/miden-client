@@ -1,13 +1,3 @@
-use super::{
-    accounts::{insert_account_asset_vault, insert_account_record, insert_account_storage},
-    notes::{insert_input_note_tx, insert_output_note_tx},
-    SqliteStore,
-};
-use crate::{
-    client::transactions::{TransactionRecord, TransactionResult, TransactionStatus},
-    errors::StoreError,
-    store::{InputNoteRecord, TransactionFilter},
-};
 use miden_objects::{
     accounts::{Account, AccountId},
     assembly::{AstSerdeOptions, ProgramAst},
@@ -18,6 +8,17 @@ use miden_objects::{
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{params, Transaction};
 use tracing::info;
+
+use super::{
+    accounts::{insert_account_asset_vault, insert_account_record, insert_account_storage},
+    notes::{insert_input_note_tx, insert_output_note_tx},
+    SqliteStore,
+};
+use crate::{
+    client::transactions::{TransactionRecord, TransactionResult, TransactionStatus},
+    errors::StoreError,
+    store::{InputNoteRecord, TransactionFilter},
+};
 
 pub(crate) const INSERT_TRANSACTION_QUERY: &str =
     "INSERT INTO transactions (id, account_id, init_account_state, final_account_state, \
@@ -76,15 +77,16 @@ impl SqliteStore {
     }
 
     /// Inserts a transaction and updates the current state based on the `tx_result` changes
-    pub fn apply_transaction(&mut self, tx_result: TransactionResult) -> Result<(), StoreError> {
+    pub fn apply_transaction(
+        &mut self,
+        tx_result: TransactionResult,
+    ) -> Result<(), StoreError> {
         let account_id = tx_result.executed_transaction().account_id();
         let account_delta = tx_result.account_delta();
 
         let (mut account, _seed) = self.get_account(account_id)?;
 
-        account
-            .apply_delta(account_delta)
-            .map_err(StoreError::AccountError)?;
+        account.apply_delta(account_delta).map_err(StoreError::AccountError)?;
 
         let created_input_notes = tx_result
             .relevant_notes()
@@ -150,7 +152,10 @@ impl SqliteStore {
 /// Because the Client retrieves the account by account ID before applying the delta, we don't
 /// need to check that it exists here. This inserts a new row into the accounts table.
 /// We can later identify the proper account state by looking at the nonce.
-fn update_account(tx: &Transaction<'_>, new_account_state: Account) -> Result<(), StoreError> {
+fn update_account(
+    tx: &Transaction<'_>,
+    new_account_state: Account,
+) -> Result<(), StoreError> {
     insert_account_storage(tx, new_account_state.storage())?;
     insert_account_asset_vault(tx, new_account_state.vault())?;
     insert_account_record(tx, &new_account_state, None)
@@ -175,10 +180,7 @@ pub(super) fn insert_proven_transaction_data(
     ) = serialize_transaction_data(transaction_result)?;
 
     if let Some(hash) = script_hash.clone() {
-        tx.execute(
-            INSERT_TRANSACTION_SCRIPT_QUERY,
-            params![hash, script_program],
-        )?;
+        tx.execute(INSERT_TRANSACTION_SCRIPT_QUERY, params![hash, script_program])?;
     }
 
     tx.execute(
@@ -201,7 +203,7 @@ pub(super) fn insert_proven_transaction_data(
 }
 
 pub(super) fn serialize_transaction_data(
-    transaction_result: TransactionResult,
+    transaction_result: TransactionResult
 ) -> Result<SerializedTransactionData, StoreError> {
     let executed_transaction = transaction_result.executed_transaction();
     let transaction_id: String = executed_transaction.id().inner().into();
@@ -210,11 +212,8 @@ pub(super) fn serialize_transaction_data(
     let final_account_state = &executed_transaction.final_account().hash().to_string();
 
     // TODO: Double check if saving nullifiers as input notes is enough
-    let nullifiers: Vec<Digest> = executed_transaction
-        .input_notes()
-        .iter()
-        .map(|x| x.id().inner())
-        .collect();
+    let nullifiers: Vec<Digest> =
+        executed_transaction.input_notes().iter().map(|x| x.id().inner()).collect();
 
     let input_notes =
         serde_json::to_string(&nullifiers).map_err(StoreError::InputSerializationError)?;
@@ -222,10 +221,7 @@ pub(super) fn serialize_transaction_data(
     let output_notes = executed_transaction.output_notes();
 
     info!("Transaction ID: {}", executed_transaction.id().inner());
-    info!(
-        "Transaction account ID: {}",
-        executed_transaction.account_id()
-    );
+    info!("Transaction account ID: {}", executed_transaction.account_id());
 
     // TODO: Scripts should be in their own tables and only identifiers should be stored here
     let transaction_args = transaction_result.transaction_arguments();
@@ -260,7 +256,7 @@ pub(super) fn serialize_transaction_data(
 }
 
 fn parse_transaction_columns(
-    row: &rusqlite::Row<'_>,
+    row: &rusqlite::Row<'_>
 ) -> Result<SerializedTransactionData, rusqlite::Error> {
     let id: String = row.get(0)?;
     let account_id: i64 = row.get(1)?;
@@ -291,7 +287,7 @@ fn parse_transaction_columns(
 
 /// Parse a transaction from the provided parts.
 fn parse_transaction(
-    serialized_transaction: SerializedTransactionData,
+    serialized_transaction: SerializedTransactionData
 ) -> Result<TransactionRecord, StoreError> {
     let (
         id,
@@ -345,9 +341,8 @@ fn parse_transaction(
         None
     };
 
-    let transaction_status = commit_height.map_or(TransactionStatus::Pending, |height| {
-        TransactionStatus::Committed(height)
-    });
+    let transaction_status =
+        commit_height.map_or(TransactionStatus::Pending, TransactionStatus::Committed);
 
     Ok(TransactionRecord {
         id: id.into(),
