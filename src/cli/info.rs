@@ -10,9 +10,6 @@ pub fn print_client_info<N: NodeRpcClient, S: Store>(client: &Client<N, S>) -> R
 // HELPERS
 // ================================================================================================
 fn print_block_number<N: NodeRpcClient, S: Store>(client: &Client<N, S>) -> Result<(), String> {
-    println!(
-        "block number: {}",
-        client.get_sync_height().map_err(|e| e.to_string())?
-    );
+    println!("block number: {}", client.get_sync_height().map_err(|e| e.to_string())?);
     Ok(())
 }

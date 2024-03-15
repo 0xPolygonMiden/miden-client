@@ -25,10 +25,10 @@ impl TagsCmd {
         match self {
             TagsCmd::List => {
                 list_tags(client)?;
-            }
+            },
             TagsCmd::Add { tag } => {
                 add_tag(client, *tag)?;
-            }
+            },
         }
         Ok(())
     }
@@ -42,7 +42,10 @@ fn list_tags<N: NodeRpcClient, S: Store>(client: Client<N, S>) -> Result<(), Str
     Ok(())
 }
 
-fn add_tag<N: NodeRpcClient, S: Store>(mut client: Client<N, S>, tag: u64) -> Result<(), String> {
+fn add_tag<N: NodeRpcClient, S: Store>(
+    mut client: Client<N, S>,
+    tag: u64,
+) -> Result<(), String> {
     client.add_note_tag(tag)?;
     println!("tag {} added", tag);
     Ok(())

@@ -1,12 +1,6 @@
 use std::fmt;
 
-use crate::errors::StoreError;
-use crate::store::{InputNoteRecord, NoteFilter, NoteRecordDetails};
-
-use super::SqliteStore;
-
 use clap::error::Result;
-
 use miden_objects::{
     notes::{
         Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata, NoteScript,
@@ -16,6 +10,12 @@ use miden_objects::{
 };
 use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{named_params, params, Transaction};
+
+use super::SqliteStore;
+use crate::{
+    errors::StoreError,
+    store::{InputNoteRecord, NoteFilter, NoteRecordDetails},
+};
 
 fn insert_note_query(table_name: NoteTable) -> String {
     format!("\
@@ -27,15 +27,7 @@ fn insert_note_query(table_name: NoteTable) -> String {
 // TYPES
 // ================================================================================================
 
-type SerializedInputNoteData = (
-    String,
-    Vec<u8>,
-    String,
-    String,
-    String,
-    String,
-    Option<String>,
-);
+type SerializedInputNoteData = (String, Vec<u8>, String, String, String, String, Option<String>);
 
 type SerializedInputNoteParts = (Vec<u8>, String, String, Option<String>);
 
@@ -49,7 +41,10 @@ enum NoteTable {
 }
 
 impl fmt::Display for NoteTable {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         match self {
             NoteTable::InputNotes => write!(f, "input_notes"),
             NoteTable::OutputNotes => write!(f, "output_notes"),
@@ -62,7 +57,10 @@ impl fmt::Display for NoteTable {
 
 impl NoteFilter {
     /// Returns a [String] containing the query for this Filter
-    fn to_query(&self, notes_table: NoteTable) -> String {
+    fn to_query(
+        &self,
+        notes_table: NoteTable,
+    ) -> String {
         let base = format!(
             "SELECT 
                     assets, 
@@ -110,7 +108,10 @@ impl SqliteStore {
             .collect::<Result<Vec<InputNoteRecord>, _>>()
     }
 
-    pub(crate) fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError> {
+    pub(crate) fn get_input_note(
+        &self,
+        note_id: NoteId,
+    ) -> Result<InputNoteRecord, StoreError> {
         let query_id = &note_id.inner().to_string();
 
         const QUERY: &str = "SELECT 
@@ -128,7 +129,10 @@ impl SqliteStore {
             .ok_or(StoreError::InputNoteNotFound(note_id))?
     }
 
-    pub(crate) fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError> {
+    pub(crate) fn insert_input_note(
+        &mut self,
+        note: &InputNoteRecord,
+    ) -> Result<(), StoreError> {
         let tx = self.db.transaction()?;
 
         insert_input_note_tx(&tx, note)?;
@@ -145,13 +149,11 @@ impl SqliteStore {
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
             .map(|result| {
-                result
-                    .map_err(|err| StoreError::ParsingError(err.to_string()))
-                    .and_then(|v: String| {
-                        Digest::try_from(v)
-                            .map(Nullifier::from)
-                            .map_err(StoreError::HexParseError)
-                    })
+                result.map_err(|err| StoreError::ParsingError(err.to_string())).and_then(
+                    |v: String| {
+                        Digest::try_from(v).map(Nullifier::from).map_err(StoreError::HexParseError)
+                    },
+                )
             })
             .collect::<Result<Vec<Nullifier>, _>>()
     }
@@ -210,7 +212,7 @@ pub fn insert_output_note_tx(
 
 /// Parse input note columns from the provided row into native types.
 fn parse_input_note_columns(
-    row: &rusqlite::Row<'_>,
+    row: &rusqlite::Row<'_>
 ) -> Result<SerializedInputNoteParts, rusqlite::Error> {
     let assets: Vec<u8> = row.get(0)?;
     let details: String = row.get(1)?;
@@ -222,7 +224,7 @@ fn parse_input_note_columns(
 
 /// Parse a note from the provided parts.
 fn parse_input_note(
-    serialized_input_note_parts: SerializedInputNoteParts,
+    serialized_input_note_parts: SerializedInputNoteParts
 ) -> Result<InputNoteRecord, StoreError> {
     let (note_assets, note_details, note_metadata, note_inclusion_proof) =
         serialized_input_note_parts;
@@ -247,7 +249,7 @@ fn parse_input_note(
                     .map_err(StoreError::JsonDataDeserializationError)?;
 
             Some(note_inclusion_proof)
-        }
+        },
         _ => None,
     };
 
@@ -256,7 +258,7 @@ fn parse_input_note(
 
 /// Serialize the provided input note into database compatible types.
 pub(crate) fn serialize_note(
-    note: &InputNoteRecord,
+    note: &InputNoteRecord
 ) -> Result<SerializedInputNoteData, StoreError> {
     let note_id = note.note_id().inner().to_string();
     let note_assets = note.note().assets().to_bytes();
@@ -285,7 +287,7 @@ pub(crate) fn serialize_note(
             .map_err(StoreError::InputSerializationError)?;
 
             (Some(inclusion_proof), String::from("committed"))
-        }
+        },
         None => (None, String::from("pending")),
     };
     let recipient = note.note().recipient().to_hex();
@@ -299,18 +301,9 @@ pub(crate) fn serialize_note(
     let script = note.note().script().to_bytes();
     let inputs = note.note().inputs().to_bytes();
     let serial_num = note.note().serial_num();
-    let details = serde_json::to_string(&NoteRecordDetails::new(
-        nullifier, script, inputs, serial_num,
-    ))
-    .map_err(StoreError::InputSerializationError)?;
+    let details =
+        serde_json::to_string(&NoteRecordDetails::new(nullifier, script, inputs, serial_num))
+            .map_err(StoreError::InputSerializationError)?;
 
-    Ok((
-        note_id,
-        note_assets,
-        recipient,
-        status,
-        metadata,
-        details,
-        inclusion_proof,
-    ))
+    Ok((note_id, note_assets, recipient, status, metadata, details, inclusion_proof))
 }

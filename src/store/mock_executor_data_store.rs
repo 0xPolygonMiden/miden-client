@@ -41,10 +41,8 @@ impl MockDataStore {
         let mut partial_mmr = PartialMmr::from_peaks(partial_mmr_peaks);
 
         for block in headers.iter() {
-            let merkle_path = mmr
-                .open(block.block_num() as usize, mmr.forest())
-                .unwrap()
-                .merkle_path;
+            let merkle_path =
+                mmr.open(block.block_num() as usize, mmr.forest()).unwrap().merkle_path;
             partial_mmr
                 .track(block.block_num() as usize, block.hash(), &merkle_path)
                 .unwrap();
@@ -85,11 +83,7 @@ impl DataStore for MockDataStore {
         _block_num: u32,
         notes: &[NoteId],
     ) -> Result<TransactionInputs, DataStoreError> {
-        let origins = self
-            .input_notes
-            .iter()
-            .map(|note| note.id())
-            .collect::<Vec<_>>();
+        let origins = self.input_notes.iter().map(|note| note.id()).collect::<Vec<_>>();
         notes.iter().all(|note| origins.contains(note));
         TransactionInputs::new(
             self.account.clone(),
@@ -101,7 +95,10 @@ impl DataStore for MockDataStore {
         .map_err(|err| DataStoreError::InternalError(err.to_string()))
     }
 
-    fn get_account_code(&self, _account_id: AccountId) -> Result<ModuleAst, DataStoreError> {
+    fn get_account_code(
+        &self,
+        _account_id: AccountId,
+    ) -> Result<ModuleAst, DataStoreError> {
         Ok(self.account.code().module().clone())
     }
 }
@@ -113,10 +110,8 @@ pub fn get_new_key_pair_with_advice_map() -> (Word, Vec<Felt>) {
 
     let pk: Word = keypair.public_key().into();
     let pk_sk_bytes = keypair.to_bytes();
-    let pk_sk_felts: Vec<Felt> = pk_sk_bytes
-        .iter()
-        .map(|a| Felt::new(*a as u64))
-        .collect::<Vec<Felt>>();
+    let pk_sk_felts: Vec<Felt> =
+        pk_sk_bytes.iter().map(|a| Felt::new(*a as u64)).collect::<Vec<Felt>>();
 
     (pk, pk_sk_felts)
 }
@@ -133,15 +128,8 @@ pub fn get_note_with_fungible_asset_and_script(
     const SERIAL_NUM: Word = [Felt::new(1), Felt::new(2), Felt::new(3), Felt::new(4)];
     let sender_id = AccountId::try_from(ACCOUNT_ID_SENDER).unwrap();
 
-    Note::new(
-        note_script,
-        &[],
-        &[fungible_asset.into()],
-        SERIAL_NUM,
-        sender_id,
-        Felt::new(1),
-    )
-    .unwrap()
+    Note::new(note_script, &[], &[fungible_asset.into()], SERIAL_NUM, sender_id, Felt::new(1))
+        .unwrap()
 }
 
 pub fn get_faucet_account_with_max_supply_and_total_issuance(
@@ -163,31 +151,16 @@ pub fn get_faucet_account_with_max_supply_and_total_issuance(
     let faucet_account_code =
         AccountCode::new(faucet_code_ast.clone(), &account_assembler).unwrap();
 
-    let faucet_storage_slot_1 = [
-        Felt::new(max_supply),
-        Felt::new(0),
-        Felt::new(0),
-        Felt::new(0),
-    ];
+    let faucet_storage_slot_1 = [Felt::new(max_supply), Felt::new(0), Felt::new(0), Felt::new(0)];
     let mut faucet_account_storage = AccountStorage::new(vec![
         (0, (StorageSlotType::Value { value_arity: 0 }, public_key)),
-        (
-            1,
-            (
-                StorageSlotType::Value { value_arity: 0 },
-                faucet_storage_slot_1,
-            ),
-        ),
+        (1, (StorageSlotType::Value { value_arity: 0 }, faucet_storage_slot_1)),
     ])
     .unwrap();
 
     if let Some(total_issuance) = total_issuance {
-        let faucet_storage_slot_254 = [
-            Felt::new(0),
-            Felt::new(0),
-            Felt::new(0),
-            Felt::new(total_issuance),
-        ];
+        let faucet_storage_slot_254 =
+            [Felt::new(0), Felt::new(0), Felt::new(0), Felt::new(total_issuance)];
         faucet_account_storage
             .set_item(FAUCET_STORAGE_DATA_SLOT, faucet_storage_slot_254)
             .unwrap();
