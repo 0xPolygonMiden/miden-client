@@ -1,4 +1,4 @@
-use std::{env::temp_dir, fs, time::Duration};
+use std::{env::temp_dir, time::Duration};
 
 use miden_client::{
     client::{
@@ -9,11 +9,11 @@ use miden_client::{
     },
     config::{ClientConfig, RpcConfig},
     errors::{ClientError, NodeRpcClientError},
-    store::{sqlite_store::SqliteStore, InputNoteRecord, NoteFilter, TransactionFilter},
+    store::{sqlite_store::SqliteStore, NoteFilter, TransactionFilter},
 };
 use miden_objects::{
-    accounts::{AccountData, AccountId, AccountStub},
-    assets::{Asset, FungibleAsset},
+    accounts::{AccountId, AccountStub},
+    assets::{Asset, FungibleAsset, TokenSymbol},
     notes::NoteId,
 };
 use miden_tx::{DataStoreError, TransactionExecutorError};
