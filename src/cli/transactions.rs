@@ -120,7 +120,7 @@ fn build_transaction_template<N: NodeRpcClient, S: Store>(
                 PaymentTransactionData::new(fungible_asset, sender_account_id, target_account_id);
 
             Ok(TransactionTemplate::PayToId(payment_transaction))
-        }
+        },
         TransactionType::P2IDR {
             sender_account_id,
             target_account_id,
@@ -129,9 +129,8 @@ fn build_transaction_template<N: NodeRpcClient, S: Store>(
             recall_height,
         } => {
             let faucet_id = AccountId::from_hex(faucet_id).map_err(|err| err.to_string())?;
-            let fungible_asset = FungibleAsset::new(faucet_id, *amount)
-                .map_err(|err| err.to_string())?
-                .into();
+            let fungible_asset =
+                FungibleAsset::new(faucet_id, *amount).map_err(|err| err.to_string())?.into();
             let sender_account_id =
                 AccountId::from_hex(sender_account_id).map_err(|err| err.to_string())?;
             let target_account_id =
@@ -139,10 +138,7 @@ fn build_transaction_template<N: NodeRpcClient, S: Store>(
             let payment_transaction =
                 PaymentTransactionData::new(fungible_asset, sender_account_id, target_account_id);
 
-            Ok(TransactionTemplate::PayToIdWithRecall(
-                payment_transaction,
-                *recall_height,
-            ))
+            Ok(TransactionTemplate::PayToIdWithRecall(payment_transaction, *recall_height))
         },
         TransactionType::Mint {
             faucet_id,

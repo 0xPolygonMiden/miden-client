@@ -60,9 +60,8 @@ async fn execute_tx_and_sync(
         client.sync_state().await.unwrap();
 
         // Check if executed transaction got committed by the node
-        let uncommited_transactions = client
-            .get_transactions(TransactionFilter::Uncomitted)
-            .unwrap();
+        let uncommited_transactions =
+            client.get_transactions(TransactionFilter::Uncomitted).unwrap();
         let is_tx_committed = uncommited_transactions
             .iter()
             .find(|uncommited_tx| uncommited_tx.id == transaction_id)
@@ -327,10 +326,7 @@ async fn test_p2idr_transfer() {
 
     // Validate the transfered amounts
     if let Asset::Fungible(fungible_asset) = asset {
-        assert_eq!(
-            fungible_asset.amount(),
-            from_account_balance - TRANSFER_AMOUNT
-        );
+        assert_eq!(fungible_asset.amount(), from_account_balance - TRANSFER_AMOUNT);
     } else {
         panic!("Error: Account should have a fungible asset");
     }
@@ -340,10 +336,7 @@ async fn test_p2idr_transfer() {
     let asset = regular_account.vault().assets().next().unwrap();
 
     if let Asset::Fungible(fungible_asset) = asset {
-        assert_eq!(
-            fungible_asset.amount(),
-            to_account_balance + TRANSFER_AMOUNT
-        );
+        assert_eq!(fungible_asset.amount(), to_account_balance + TRANSFER_AMOUNT);
     } else {
         panic!("Error: Account should have a fungible asset");
     }

@@ -377,73 +377,7 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         let tx_script_code = ProgramAst::parse(
             &AUTH_SEND_ASSET_SCRIPT
                 .replace("{recipient}", &recipient)
-                .replace(
-                    "{tag}",
-                    &Felt::new(Into::<u64>::into(target_account_id)).to_string(),
-                )
-                .replace("{asset}", &prepare_word(&fungible_asset.into()).to_string()),
-        )
-        .expect("shipped MASM is well-formed");
-
-        self.compile_and_execute_tx(
-            sender_account_id,
-            &[],
-            vec![tx_output_note],
-            tx_script_code,
-            block_ref,
-        )
-    }
-
-    fn new_p2idr_transaction(
-        &mut self,
-        fungible_asset: Asset,
-        sender_account_id: AccountId,
-        target_account_id: AccountId,
-        recall_height: u32,
-    ) -> Result<TransactionResult, ClientError> {
-        let random_coin = self.get_random_coin();
-
-        let created_note = create_p2idr_note(
-            sender_account_id,
-            target_account_id,
-            vec![fungible_asset],
-            recall_height,
-            random_coin,
-        )?;
-
-        self.tx_for_send_asset_note(
-            fungible_asset,
-            sender_account_id,
-            target_account_id,
-            created_note,
-        )
-    }
-
-    fn tx_for_send_asset_note(
-        &mut self,
-        fungible_asset: Asset,
-        sender_account_id: AccountId,
-        target_account_id: AccountId,
-        tx_output_note: Note,
-    ) -> Result<TransactionResult, ClientError> {
-        self.tx_executor.load_account(sender_account_id)?;
-
-        let block_ref = self.get_sync_height()?;
-
-        let recipient = tx_output_note
-            .recipient()
-            .iter()
-            .map(|x| x.as_int().to_string())
-            .collect::<Vec<_>>()
-            .join(".");
-
-        let tx_script_code = ProgramAst::parse(
-            &AUTH_SEND_ASSET_SCRIPT
-                .replace("{recipient}", &recipient)
-                .replace(
-                    "{tag}",
-                    &Felt::new(Into::<u64>::into(target_account_id)).to_string(),
-                )
+                .replace("{tag}", &Felt::new(Into::<u64>::into(target_account_id)).to_string())
                 .replace("{asset}", &prepare_word(&fungible_asset.into()).to_string()),
         )
         .expect("shipped MASM is well-formed");

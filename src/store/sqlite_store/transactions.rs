@@ -1,7 +1,7 @@
 use miden_objects::{
     accounts::{Account, AccountId},
     assembly::{AstSerdeOptions, ProgramAst},
-    transaction::{OutputNote, OutputNotes, TransactionId, TransactionScript},
+    transaction::{OutputNote, OutputNotes, ToNullifier, TransactionId, TransactionScript},
     utils::collections::BTreeMap,
     Digest, Felt,
 };
