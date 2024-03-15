@@ -377,10 +377,7 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         let tx_script_code = ProgramAst::parse(
             &AUTH_SEND_ASSET_SCRIPT
                 .replace("{recipient}", &recipient)
-                .replace(
-                    "{tag}",
-                    &Felt::new(Into::<u64>::into(target_account_id)).to_string(),
-                )
+                .replace("{tag}", &Felt::new(Into::<u64>::into(target_account_id)).to_string())
                 .replace("{asset}", &prepare_word(&fungible_asset.into()).to_string()),
         )
         .expect("shipped MASM is well-formed");
