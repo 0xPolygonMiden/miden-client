@@ -206,14 +206,14 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
             .store
             .get_input_notes(NoteFilter::Pending)?
             .iter()
-            .map(|n| n.note().id())
+            .map(|n| n.id())
             .collect();
 
         let pending_output_notes: Vec<NoteId> = self
             .store
             .get_output_notes(NoteFilter::Pending)?
             .iter()
-            .map(|n| n.note().id())
+            .map(|n| n.id())
             .collect();
 
         let mut pending_notes = [pending_input_notes, pending_output_notes].concat();

@@ -45,7 +45,7 @@ async fn test_input_notes_round_trip() {
         consumed_notes.iter().map(|n| n.clone().into()).collect();
     // compare notes
     for (recorded_note, retrieved_note) in recorded_notes.iter().zip(retrieved_notes) {
-        assert_eq!(recorded_note.note_id(), retrieved_note.note_id());
+        assert_eq!(recorded_note.id(), retrieved_note.id());
     }
 }
 
@@ -65,7 +65,7 @@ async fn test_get_input_note() {
         client.get_input_note(created_notes.first().unwrap().clone().id()).unwrap();
 
     let recorded_note: InputNoteRecord = created_notes.first().unwrap().clone().into();
-    assert_eq!(recorded_note.note_id(), retrieved_note.note_id());
+    assert_eq!(recorded_note.id(), retrieved_note.id());
 }
 
 #[tokio::test]
