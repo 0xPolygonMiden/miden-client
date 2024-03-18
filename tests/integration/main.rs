@@ -191,7 +191,7 @@ async fn test_mint_note(
     assert!(!notes.is_empty());
 
     let tx_template =
-        TransactionTemplate::ConsumeNotes(first_regular_account_id, vec![notes[0].note_id()]);
+        TransactionTemplate::ConsumeNotes(first_regular_account_id, vec![notes[0].id()]);
     println!("Consuming Note...");
     execute_tx_and_sync(client, tx_template).await;
 
@@ -238,7 +238,7 @@ async fn test_p2id_transfer() {
     assert!(!notes.is_empty());
 
     // Consume P2ID note
-    let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![notes[0].note_id()]);
+    let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![notes[0].id()]);
     println!("Consuming Note...");
     execute_tx_and_sync(&mut client, tx_template).await;
 

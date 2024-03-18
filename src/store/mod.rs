@@ -5,17 +5,16 @@ use miden_objects::{
         dsa::rpo_falcon512::KeyPair,
         merkle::{InOrderIndex, MmrPeaks},
     },
-    notes::{Note, NoteId, NoteInclusionProof, Nullifier},
-    transaction::{InputNote, TransactionId},
+    notes::{NoteId, NoteInclusionProof, Nullifier},
+    transaction::TransactionId,
     utils::collections::BTreeMap,
     BlockHeader, Digest, Word,
 };
 use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
-use serde::{Deserialize, Serialize};
 
 use crate::{
     client::transactions::{TransactionRecord, TransactionResult},
-    errors::{ClientError, StoreError},
+    errors::StoreError,
 };
 
 pub mod data_store;
@@ -23,6 +22,9 @@ pub mod sqlite_store;
 
 #[cfg(all(any(test, feature = "mock"), not(feature = "integration")))]
 pub mod mock_executor_data_store;
+
+mod note_record;
+pub use note_record::{InputNoteRecord, NoteRecordDetails, NoteStatus, OutputNoteRecord};
 
 // STORE TRAIT
 // ================================================================================================
@@ -68,7 +70,7 @@ pub trait Store {
     fn get_output_notes(
         &self,
         filter: NoteFilter,
-    ) -> Result<Vec<InputNoteRecord>, StoreError>;
+    ) -> Result<Vec<OutputNoteRecord>, StoreError>;
 
     /// Retrieves an [InputNoteRecord] for the input note corresponding to the specified ID from
     /// the store.
@@ -88,10 +90,10 @@ pub trait Store {
         let nullifiers = self
             .get_input_notes(NoteFilter::Committed)?
             .iter()
-            .map(|input_note| input_note.note().nullifier())
-            .collect();
+            .map(|input_note| Ok(Nullifier::from(Digest::try_from(input_note.nullifier())?)))
+            .collect::<Result<Vec<_>, _>>();
 
-        Ok(nullifiers)
+        nullifiers
     }
 
     /// Inserts the provided input note into the database
@@ -301,131 +303,6 @@ impl Deserializable for AuthInfo {
     }
 }
 
-// INPUT NOTE RECORD
-// ================================================================================================
-
-/// Represents a Note of which the [Store] can keep track and retrieve.
-///
-/// An [InputNoteRecord] contains all the information of a [Note], in addition of (optionally)
-/// the [NoteInclusionProof] that identifies when the note was included in the chain. Once the
-/// proof is set, the [InputNoteRecord] can be transformed into an [InputNote] and used as input
-/// for transactions.
-#[derive(Clone, Debug, PartialEq)]
-pub struct InputNoteRecord {
-    note: Note,
-    inclusion_proof: Option<NoteInclusionProof>,
-}
-
-impl InputNoteRecord {
-    pub fn new(
-        note: Note,
-        inclusion_proof: Option<NoteInclusionProof>,
-    ) -> InputNoteRecord {
-        InputNoteRecord {
-            note,
-            inclusion_proof,
-        }
-    }
-    pub fn note(&self) -> &Note {
-        &self.note
-    }
-
-    pub fn note_id(&self) -> NoteId {
-        self.note.id()
-    }
-
-    pub fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
-        self.inclusion_proof.as_ref()
-    }
-}
-
-impl Serializable for InputNoteRecord {
-    fn write_into<W: ByteWriter>(
-        &self,
-        target: &mut W,
-    ) {
-        self.note().write_into(target);
-        self.inclusion_proof.write_into(target);
-    }
-}
-
-impl Deserializable for InputNoteRecord {
-    fn read_from<R: ByteReader>(
-        source: &mut R
-    ) -> std::prelude::v1::Result<Self, DeserializationError> {
-        let note = Note::read_from(source)?;
-        let proof = Option::<NoteInclusionProof>::read_from(source)?;
-        Ok(InputNoteRecord::new(note, proof))
-    }
-}
-
-impl From<Note> for InputNoteRecord {
-    fn from(note: Note) -> Self {
-        InputNoteRecord {
-            note,
-            inclusion_proof: None,
-        }
-    }
-}
-
-impl From<InputNote> for InputNoteRecord {
-    fn from(recorded_note: InputNote) -> Self {
-        InputNoteRecord {
-            note: recorded_note.note().clone(),
-            inclusion_proof: Some(recorded_note.proof().clone()),
-        }
-    }
-}
-
-impl TryInto<InputNote> for InputNoteRecord {
-    type Error = ClientError;
-
-    fn try_into(self) -> Result<InputNote, Self::Error> {
-        match self.inclusion_proof() {
-            Some(proof) => Ok(InputNote::new(self.note().clone(), proof.clone())),
-            None => Err(ClientError::NoteError(miden_objects::NoteError::invalid_origin_index(
-                "Input Note Record contains no inclusion proof".to_string(),
-            ))),
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-struct NoteRecordDetails {
-    nullifier: String,
-    script: Vec<u8>,
-    inputs: Vec<u8>,
-    serial_num: Word,
-}
-
-impl NoteRecordDetails {
-    fn new(
-        nullifier: String,
-        script: Vec<u8>,
-        inputs: Vec<u8>,
-        serial_num: Word,
-    ) -> Self {
-        Self {
-            nullifier,
-            script,
-            inputs,
-            serial_num,
-        }
-    }
-
-    fn script(&self) -> &Vec<u8> {
-        &self.script
-    }
-
-    fn inputs(&self) -> &Vec<u8> {
-        &self.inputs
-    }
-
-    fn serial_num(&self) -> &Word {
-        &self.serial_num
-    }
-}
-
 // CHAIN MMR NODE FILTER
 // ================================================================================================
 
@@ -451,14 +328,14 @@ pub enum TransactionFilter {
 // ================================================================================================
 
 pub enum NoteFilter {
-    /// Return a list of all [InputNoteRecord].
+    /// Return a list of all notes ([InputNoteRecord] or [OutputNoteRecord]).
     All,
-    /// Filter by consumed [InputNoteRecord]. notes that have been used as inputs in transactions.
+    /// Filter by consumed notes ([InputNoteRecord] or [OutputNoteRecord]). notes that have been used as inputs in transactions.
     Consumed,
-    /// Return a list of committed [InputNoteRecord]. These represent notes that the blockchain
+    /// Return a list of committed notes ([InputNoteRecord] or [OutputNoteRecord]). These represent notes that the blockchain
     /// has included in a block, and for which we are storing anchor data.
     Committed,
-    /// Return a list of pending [InputNoteRecord]. These represent notes for which the store
+    /// Return a list of pending notes ([InputNoteRecord] or [OutputNoteRecord]). These represent notes for which the store
     /// does not have anchor data.
     Pending,
 }

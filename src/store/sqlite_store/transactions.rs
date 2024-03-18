@@ -1,11 +1,11 @@
 use miden_objects::{
     accounts::{Account, AccountId},
     assembly::{AstSerdeOptions, ProgramAst},
+    crypto::utils::{Deserializable, Serializable},
     transaction::{OutputNote, OutputNotes, ToNullifier, TransactionId, TransactionScript},
     utils::collections::BTreeMap,
     Digest, Felt,
 };
-use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{params, Transaction};
 use tracing::info;
 
@@ -17,7 +17,7 @@ use super::{
 use crate::{
     client::transactions::{TransactionRecord, TransactionResult, TransactionStatus},
     errors::StoreError,
-    store::{InputNoteRecord, TransactionFilter},
+    store::{InputNoteRecord, OutputNoteRecord, TransactionFilter},
 };
 
 pub(crate) const INSERT_TRANSACTION_QUERY: &str =
@@ -88,10 +88,16 @@ impl SqliteStore {
 
         account.apply_delta(account_delta).map_err(StoreError::AccountError)?;
 
-        let created_notes = tx_result
+        let created_input_notes = tx_result
             .created_notes()
             .iter()
             .map(|note| InputNoteRecord::from(note.clone()))
+            .collect::<Vec<_>>();
+
+        let created_output_notes = tx_result
+            .created_notes()
+            .iter()
+            .map(|note| OutputNoteRecord::from(note.clone()))
             .collect::<Vec<_>>();
 
         let tx = self.db.transaction()?;
@@ -106,11 +112,11 @@ impl SqliteStore {
 
         // TODO: see if we should filter the input notes we store to keep notes we can consume with
         // existing accounts
-        for note in &created_notes {
+        for note in &created_input_notes {
             insert_input_note_tx(&tx, note)?;
         }
 
-        for note in &created_notes {
+        for note in &created_output_notes {
             insert_output_note_tx(&tx, note)?;
         }
 
