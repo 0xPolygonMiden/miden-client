@@ -21,7 +21,7 @@ use crate::{
 pub mod data_store;
 pub mod sqlite_store;
 
-#[cfg(any(test, feature = "mock"))]
+#[cfg(all(any(test, feature = "mock"), not(feature = "integration")))]
 pub mod mock_executor_data_store;
 
 // STORE TRAIT
