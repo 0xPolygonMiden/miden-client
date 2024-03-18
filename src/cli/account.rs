@@ -32,7 +32,7 @@ pub enum AccountCmd {
     Show {
         // TODO: We should create a value parser for catching input parsing errors earlier (ie AccountID) once complexity grows
         #[clap()]
-        id: Option<String>,
+        id: String,
         #[clap(short, long, default_value_t = false)]
         keys: bool,
         #[clap(short, long, default_value_t = false)]
@@ -111,17 +111,14 @@ impl AccountCmd {
                 };
                 let (_new_account, _account_seed) = client.new_account(client_template)?;
             },
-            AccountCmd::Show { id: None, .. } => {
-                todo!("Default accounts are not supported yet")
-            },
             AccountCmd::Show {
-                id: Some(v),
+                id,
                 keys,
                 vault,
                 storage,
                 code,
             } => {
-                let account_id: AccountId = AccountId::from_hex(v)
+                let account_id: AccountId = AccountId::from_hex(id)
                     .map_err(|_| "Input number was not a valid Account Id")?;
                 show_account(client, account_id, *keys, *vault, *storage, *code)?;
             },
