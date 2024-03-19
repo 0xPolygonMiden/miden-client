@@ -28,8 +28,11 @@ nav:
   - Get started:
       - Design: design.md
       - Install and run: install-and-run.md
-  - CLI: 'cli.md'
+  - Miden CLI: 
+      - Configuration: 'cli-config.md'
+      - Reference: 'cli-reference.md'
   - Library: 'library.md'
+  - Examples: 'examples.md'
 
 
 
