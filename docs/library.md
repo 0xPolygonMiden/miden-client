@@ -45,7 +45,7 @@ let account_template = AccountTemplate::BasicWallet {
     storage_mode: accounts::AccountStorageMode::Local,
 };
     
-let (new_account, account_seed) = client.new_account(client_template)?;
+let (new_account, account_seed) = client.new_account(account_template)?;
 ```
 
 The `AccountTemplate` enum defines the type of account. 
