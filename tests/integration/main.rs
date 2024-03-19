@@ -115,7 +115,7 @@ async fn main() {
     test_note_cannot_be_consumed_twice(
         &mut client,
         second_regular_account_id,
-        created_note_record.note_id(),
+        created_note_record.id(),
     )
     .await;
     let created_note_record = test_p2idr_transfer(
@@ -128,7 +128,7 @@ async fn main() {
     test_note_cannot_be_consumed_twice(
         &mut client,
         second_regular_account_id,
-        created_note_record.note_id(),
+        created_note_record.id(),
     )
     .await;
 
@@ -316,7 +316,7 @@ async fn test_p2idr_transfer(
     assert!(!notes.is_empty());
 
     // Make the `to_account_id` consume P2IDR note
-    let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![notes[0].note_id()]);
+    let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![notes[0].id()]);
     println!("Consuming Note...");
     execute_tx_and_sync(client, tx_template).await;
 
