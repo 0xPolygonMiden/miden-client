@@ -58,6 +58,10 @@ fn is_note_relevant<D: DataStore>(
 }
 
 /// Check if `note` can be consumed by the account corresponding to `account_id`
+///
+/// The function currently does a fast check for known scripts (P2ID and P2IDR). We're currently
+/// unable to execute notes that are not committed so a slow check for other scripts is currently
+/// not available.
 pub fn check_consumption<D: DataStore>(
     _tx_executor: &mut TransactionExecutor<D>,
     note: &Note,
