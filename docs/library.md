@@ -14,7 +14,7 @@ miden_client = {
 
 Spin up a client using the following Rust code and supplying a store and RPC endpoint. 
 
-The current supported store is the `SqliteDataStore`, which is a SQLite implementation of the incoming `Store` trait.
+The current supported store is the `SqliteDataStore`, which is a SQLite implementation of the `Store` trait.
 
 ```rust
 let client: Client<TonicRpcClient, SqliteDataStore> = {
