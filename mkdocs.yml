@@ -31,7 +31,7 @@ nav:
   - Miden CLI: 
       - Configuration: 'cli-config.md'
       - Reference: 'cli-reference.md'
-  - Library: 'library.md'
+  - Using the client library: 'library.md'
   - Examples: 'examples.md'
 
 
