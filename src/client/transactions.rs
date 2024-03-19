@@ -4,7 +4,7 @@ use miden_objects::{
     assembly::ProgramAst,
     assets::{Asset, FungibleAsset},
     crypto::rand::RpoRandomCoin,
-    notes::{Note, NoteId, NoteInputs},
+    notes::{Note, NoteId},
     transaction::{
         ExecutedTransaction, OutputNote, OutputNotes, ProvenTransaction, TransactionArgs,
         TransactionId, TransactionScript,
@@ -15,7 +15,7 @@ use miden_tx::{utils::Serializable, ProvingOptions, TransactionProver};
 use rand::Rng;
 use tracing::info;
 
-use super::{rpc::NodeRpcClient, Client};
+use super::{filter_created_notes_to_track, rpc::NodeRpcClient, Client};
 use crate::{
     errors::ClientError,
     store::{AuthInfo, Store, TransactionFilter},
@@ -28,13 +28,6 @@ const AUTH_CONSUME_NOTES_SCRIPT: &str =
 const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
     include_str!("asm/transaction_scripts/distribute_fungible_asset.masm");
 const AUTH_SEND_ASSET_SCRIPT: &str = include_str!("asm/transaction_scripts/auth_send_asset.masm");
-
-// KNOWN SCRIPT ROOTS
-// --------------------------------------------------------------------------------------------
-pub(crate) const P2ID_NOTE_SCRIPT_ROOT: &str =
-    "0x65c08aef0e3d11ce8a26662005a5272398e8810e5e13a903a993ee622d03675f";
-pub(crate) const P2IDR_NOTE_SCRIPT_ROOT: &str =
-    "0x03dd8f8fd57f015d821648292cee0ce42e16c4b80427c46b9cb874db44395f47";
 
 // TRANSACTION TEMPLATE
 // --------------------------------------------------------------------------------------------
@@ -410,8 +403,11 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
 
         self.submit_proven_transaction_request(proven_transaction.clone()).await?;
 
-        let relevant_created_notes =
-            self.filter_created_notes_to_track(tx_result.created_notes())?;
+        let relevant_created_notes = filter_created_notes_to_track(
+            &mut self.store,
+            &mut self.tx_executor,
+            tx_result.created_notes(),
+        )?;
         let mut tx_result = tx_result;
         tx_result.set_relevant_notes(&relevant_created_notes);
 
@@ -419,45 +415,6 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         self.store.apply_transaction(tx_result)?;
 
         Ok(())
-    }
-
-    /// Returns the indices of the notes from `created_notes` that can be consumed by this client
-    fn filter_created_notes_to_track(
-        &mut self,
-        created_notes: &[Note],
-    ) -> Result<Vec<usize>, ClientError> {
-        let account_ids_tracked_by_client = self
-            .store
-            .get_account_stubs()?
-            .iter()
-            .map(|(account_stub, _seed)| account_stub.id())
-            .collect::<Vec<_>>();
-
-        let filtered_notes = created_notes
-            .iter()
-            .enumerate()
-            .filter(|(_note_idx, note)| self.can_be_consumed(note, &account_ids_tracked_by_client))
-            .map(|(note_idx, _note)| note_idx)
-            .collect::<Vec<_>>();
-
-        Ok(filtered_notes)
-    }
-
-    /// Check if `note` can be consumed by any of the accounts corresponding to `account_ids`
-    fn can_be_consumed(
-        &self,
-        note: &Note,
-        account_ids: &[AccountId],
-    ) -> bool {
-        let script_hash_str = note.script().hash().to_string();
-        // We want to check that *if* it is a P2ID or P2IDR the inputs are the
-        // corresponding ones
-        !(script_hash_str == P2ID_NOTE_SCRIPT_ROOT || script_hash_str == P2IDR_NOTE_SCRIPT_ROOT)
-            || account_ids.iter().any(|account_id| {
-                *note.inputs()
-                    == NoteInputs::new(vec![(*account_id).into()])
-                        .expect("Number of inputs should be 1")
-            })
     }
 
     async fn submit_proven_transaction_request(

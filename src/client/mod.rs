@@ -8,9 +8,11 @@ use rpc::NodeRpcClient;
 pub mod accounts;
 #[cfg(test)]
 mod chain_data;
+mod note_consumption_checker;
 mod notes;
 pub(crate) mod sync;
 pub mod transactions;
+pub(crate) use note_consumption_checker::filter_created_notes_to_track;
 
 #[cfg(any(test, feature = "mock"))]
 use crate::mock::MockDataStore;
