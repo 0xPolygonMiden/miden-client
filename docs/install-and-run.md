@@ -6,13 +6,13 @@
 
 We currently recommend installing and running the client with the [`testing`](#testing-feature) and [`concurrent`](#concurrent-feature) features.
 
-1. Run the following command to install the miden-client:
+Run the following command to install the miden-client:
 
-    ```sh
-    cargo install miden-client --features testing,concurrent
-    ```
+```sh
+cargo install miden-client --features testing,concurrent
+```
 
-    This installs the `miden-client` binary (at `~/.cargo/bin/miden-client`) with the [`testing`](#testing-feature) and [`concurrent`](#concurrent-feature) features.
+This installs the `miden-client` binary (at `~/.cargo/bin/miden-client`) with the [`testing`](#testing-feature) and [`concurrent`](#concurrent-feature) features.
 
 ### `Testing` feature
 
