@@ -142,7 +142,7 @@ fn build_transaction_template<N: NodeRpcClient, S: Store>(
                 .iter()
                 .map(|note_id| {
                     get_note_with_id_prefix(client, note_id)
-                        .map(|note_record| note_record.note_id())
+                        .map(|note_record| note_record.id())
                         .map_err(|err| err.to_string())
                 })
                 .collect::<Result<Vec<NoteId>, _>>()?;

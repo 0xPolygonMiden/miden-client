@@ -1,11 +1,11 @@
 use miden_objects::{
     accounts::{Account, AccountId},
     assembly::{AstSerdeOptions, ProgramAst},
+    crypto::utils::{Deserializable, Serializable},
     transaction::{OutputNote, OutputNotes, TransactionId, TransactionScript},
     utils::collections::BTreeMap,
     Digest, Felt,
 };
-use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{params, Transaction};
 use tracing::info;
 
@@ -17,7 +17,7 @@ use super::{
 use crate::{
     client::transactions::{TransactionRecord, TransactionResult, TransactionStatus},
     errors::StoreError,
-    store::{InputNoteRecord, TransactionFilter},
+    store::{InputNoteRecord, OutputNoteRecord, TransactionFilter},
 };
 
 pub(crate) const INSERT_TRANSACTION_QUERY: &str =
@@ -97,7 +97,7 @@ impl SqliteStore {
         let created_output_notes = tx_result
             .created_notes()
             .iter()
-            .map(|note| InputNoteRecord::from(note.clone()))
+            .map(|note| OutputNoteRecord::from(note.clone()))
             .collect::<Vec<_>>();
 
         let tx = self.db.transaction()?;

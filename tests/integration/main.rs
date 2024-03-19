@@ -166,7 +166,7 @@ async fn main() {
     assert!(!notes.is_empty());
 
     let tx_template =
-        TransactionTemplate::ConsumeNotes(first_regular_account_id, vec![notes[0].note_id()]);
+        TransactionTemplate::ConsumeNotes(first_regular_account_id, vec![notes[0].id()]);
     println!("Consuming Note...");
     execute_tx_and_sync(&mut client, tx_template).await;
 
@@ -198,7 +198,7 @@ async fn main() {
 
     // Consume P2ID note
     let tx_template =
-        TransactionTemplate::ConsumeNotes(second_regular_account_id, vec![notes[0].note_id()]);
+        TransactionTemplate::ConsumeNotes(second_regular_account_id, vec![notes[0].id()]);
     println!("Consuming Note...");
     execute_tx_and_sync(&mut client, tx_template).await;
 
@@ -231,7 +231,7 @@ async fn main() {
 
     // Check that we can't consume the P2ID note again
     let tx_template =
-        TransactionTemplate::ConsumeNotes(second_regular_account_id, vec![notes[0].note_id()]);
+        TransactionTemplate::ConsumeNotes(second_regular_account_id, vec![notes[0].id()]);
     println!("Consuming Note...");
 
     // Double-spend error expected to be received since we are consuming the same note
@@ -242,7 +242,7 @@ async fn main() {
             ),
         )) => {},
         Ok(_) => panic!("Double-spend error: Note should not be consumable!"),
-        _ => panic!("Unexpected error: {}", notes[0].note_id().to_hex()),
+        _ => panic!("Unexpected error: {}", notes[0].id().to_hex()),
     }
 
     // Mint some asset for an account not tracked by the client. It should not be stored as an
