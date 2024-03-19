@@ -1,6 +1,5 @@
 name: "Task"
 description: "Work item"
-title: "[Task]: "
 body:
   - type: markdown
     attributes:
@@ -10,27 +9,28 @@ body:
     id: task-what
     attributes:
       label: "What should be done?"
-      placeholder: "Support new way of importing accounts"
+      placeholder: "Implement account importing"
     validations:
       required: true
   - type: textarea
     id: task-how
     attributes:
       label: "How should it be done?"
-      placeholder: "Add a function to the client which takes in an account definition filepath as a parameter"
+      placeholder: "The client should be able to read binary account data and add them to the local store"
     validations:
       required: true
   - type: textarea
     id: task-done
     attributes:
       label: "When is this task done?"
-      placeholder: "The task is done when the client has a function to import account data from a binary file"
+      placeholder: "The task is done when we can import *.mac files that we export from other projects such as the node."
     validations:
       required: true
   - type: textarea
     id: task-related
     attributes:
       label: "Additional context"
-      description: "Add context to the tasks. E.g. other related tasks or relevant dicussions on PRs/chats."
+      description: "Add context to the tasks. E.g. other related tasks or relevant discussions on PRs/chats."
     validations:
       required: false
+      
