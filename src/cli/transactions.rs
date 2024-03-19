@@ -5,7 +5,9 @@ use miden_client::{
     },
     store::{Store, TransactionFilter},
 };
-use miden_objects::{accounts::AccountId, assets::FungibleAsset, notes::NoteId};
+use miden_objects::{
+    accounts::AccountId, assets::FungibleAsset, crypto::rand::FeltRng, notes::NoteId,
+};
 use tracing::info;
 
 use super::{get_note_with_id_prefix, Client, Parser};
@@ -54,9 +56,9 @@ pub enum Transaction {
 }
 
 impl Transaction {
-    pub async fn execute<N: NodeRpcClient, S: Store>(
+    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store>(
         &self,
-        mut client: Client<N, S>,
+        mut client: Client<N, R, S>,
     ) -> Result<(), String> {
         match self {
             Transaction::List => {
@@ -72,8 +74,8 @@ impl Transaction {
 
 // NEW TRANSACTION
 // ================================================================================================
-async fn new_transaction<N: NodeRpcClient, S: Store>(
-    client: &mut Client<N, S>,
+async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store>(
+    client: &mut Client<N, R, S>,
     transaction_type: &TransactionType,
 ) -> Result<(), String> {
     let transaction_template: TransactionTemplate =
@@ -92,8 +94,8 @@ async fn new_transaction<N: NodeRpcClient, S: Store>(
 ///
 /// For [TransactionTemplate::ConsumeNotes], it'll try to find the corresponding notes by using the
 /// provided IDs as prefixes
-fn build_transaction_template<N: NodeRpcClient, S: Store>(
-    client: &Client<N, S>,
+fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
+    client: &Client<N, R, S>,
     transaction_type: &TransactionType,
 ) -> Result<TransactionTemplate, String> {
     match transaction_type {
@@ -156,7 +158,9 @@ fn build_transaction_template<N: NodeRpcClient, S: Store>(
 
 // LIST TRANSACTIONS
 // ================================================================================================
-fn list_transactions<N: NodeRpcClient, S: Store>(client: Client<N, S>) -> Result<(), String> {
+fn list_transactions<N: NodeRpcClient, R: FeltRng, S: Store>(
+    client: Client<N, R, S>
+) -> Result<(), String> {
     let transactions = client.get_transactions(TransactionFilter::All)?;
     print_transactions_summary(&transactions);
     Ok(())

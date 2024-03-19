@@ -2,7 +2,7 @@ use miden_lib::AuthScheme;
 use miden_objects::{
     accounts::{Account, AccountData, AccountId, AccountStub, AccountType, AuthData},
     assets::TokenSymbol,
-    crypto::dsa::rpo_falcon512::KeyPair,
+    crypto::{dsa::rpo_falcon512::KeyPair, rand::FeltRng},
     Felt, Word,
 };
 use rand::{rngs::ThreadRng, Rng};
@@ -31,7 +31,7 @@ pub enum AccountStorageMode {
     OnChain,
 }
 
-impl<N: NodeRpcClient, S: Store> Client<N, S> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 

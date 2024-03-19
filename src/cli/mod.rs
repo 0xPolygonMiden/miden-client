@@ -15,11 +15,12 @@ use miden_client::mock::MockDataStore;
 #[cfg(feature = "mock")]
 use miden_client::mock::MockRpcApi;
 use miden_client::{
-    client::{rpc::NodeRpcClient, Client},
+    client::{get_random_coin, rpc::NodeRpcClient, Client},
     config::ClientConfig,
     errors::{ClientError, NoteIdPrefixFetchError},
     store::{sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
 };
+use miden_objects::crypto::rand::FeltRng;
 
 mod account;
 mod info;
@@ -73,18 +74,19 @@ impl Cli {
         let client_config = load_config(current_dir.as_path())?;
         let rpc_endpoint = client_config.rpc.endpoint.to_string();
         let store = SqliteStore::new((&client_config).into()).map_err(ClientError::StoreError)?;
+        let rng = get_random_coin();
 
         #[cfg(not(feature = "mock"))]
-        let client: Client<TonicRpcClient, SqliteStore> = {
+        let client: Client<TonicRpcClient, RpoRandomCoin, SqliteStore> = {
             let executor_store =
                 miden_client::store::sqlite_store::SqliteStore::new((&client_config).into())
                     .map_err(ClientError::StoreError)?;
-            Client::new(TonicRpcClient::new(&rpc_endpoint), store, executor_store)?
+            Client::new(TonicRpcClient::new(&rpc_endpoint), rng, store, executor_store)?
         };
 
         #[cfg(feature = "mock")]
         let client: MockClient =
-            Client::new(MockRpcApi::new(&rpc_endpoint), store, MockDataStore::default())?;
+            Client::new(MockRpcApi::new(&rpc_endpoint), rng, store, MockDataStore::default())?;
 
         // Execute cli command
         match &self.action {
@@ -140,8 +142,8 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
 /// `note_id_prefix` is a prefix of its id.
 /// - Returns [NoteIdPrefixFetchError::MultipleMatches] if there were more than one note found
 /// where `note_id_prefix` is a prefix of its id.
-pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, S: Store>(
-    client: &Client<N, S>,
+pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>(
+    client: &Client<N, R, S>,
     note_id_prefix: &str,
 ) -> Result<InputNoteRecord, NoteIdPrefixFetchError> {
     let input_note_records = client

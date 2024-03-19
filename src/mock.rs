@@ -7,6 +7,8 @@ use miden_node_proto::generated::{
     requests::{GetBlockHeaderByNumberRequest, SyncStateRequest},
     responses::{NullifierUpdate, SyncStateResponse},
 };
+#[cfg(test)]
+use miden_objects::crypto::rand::FeltRng;
 use miden_objects::{
     accounts::{
         get_account_seed_single, Account, AccountCode, AccountId, AccountStorage, AccountType,
@@ -17,6 +19,7 @@ use miden_objects::{
     crypto::{
         dsa::rpo_falcon512::KeyPair,
         merkle::{Mmr, MmrDelta, NodeIndex, SimpleSmt},
+        rand::RpoRandomCoin,
     },
     notes::{Note, NoteAssets, NoteInclusionProof, NoteScript},
     transaction::{InputNote, ProvenTransaction},
@@ -40,7 +43,7 @@ use crate::{
     store::{sqlite_store::SqliteStore, AuthInfo},
 };
 
-pub type MockClient = Client<MockRpcApi, SqliteStore>;
+pub type MockClient = Client<MockRpcApi, RpoRandomCoin, SqliteStore>;
 
 // MOCK CONSTS
 // ================================================================================================
@@ -471,7 +474,7 @@ pub fn mock_fungible_faucet_account(
 }
 
 #[cfg(test)]
-impl<N: NodeRpcClient, S: Store> Client<N, S> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     /// Helper function to set a data store to conveniently mock data for tests
     pub fn set_data_store(
         &mut self,
