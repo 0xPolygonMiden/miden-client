@@ -265,7 +265,7 @@ async fn test_p2id_transfer() {
         panic!("Error: Account should have a fungible asset");
     }
 
-    test_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].note_id()).await;
+    test_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].id()).await;
 }
 
 // TODO: once [this issue](https://github.com/0xPolygonMiden/miden-client/issues/201#issuecomment-1989432215)
@@ -314,7 +314,7 @@ async fn test_p2idr_transfer() {
     assert!(!notes.is_empty());
 
     // Make the `to_account_id` consume P2IDR note
-    let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![notes[0].note_id()]);
+    let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![notes[0].id()]);
     println!("Consuming Note...");
     execute_tx_and_sync(&mut client, tx_template).await;
 
@@ -341,7 +341,7 @@ async fn test_p2idr_transfer() {
         panic!("Error: Account should have a fungible asset");
     }
 
-    test_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].note_id()).await;
+    test_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].id()).await;
 }
 
 async fn test_note_cannot_be_consumed_twice(
