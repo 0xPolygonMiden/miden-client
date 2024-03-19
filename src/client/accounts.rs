@@ -1,18 +1,17 @@
-use crypto::{dsa::rpo_falcon512::KeyPair, Felt, Word};
 use miden_lib::AuthScheme;
-use miden_tx::DataStore;
-use objects::{
+use miden_objects::{
     accounts::{Account, AccountData, AccountId, AccountStub, AccountType, AuthData},
     assets::TokenSymbol,
+    crypto::dsa::rpo_falcon512::KeyPair,
+    Felt, Word,
 };
 use rand::{rngs::ThreadRng, Rng};
 
+use super::{rpc::NodeRpcClient, Client};
 use crate::{
     errors::ClientError,
     store::{AuthInfo, Store},
 };
-
-use super::{rpc::NodeRpcClient, Client};
 
 pub enum AccountTemplate {
     BasicWallet {
@@ -32,7 +31,7 @@ pub enum AccountStorageMode {
     OnChain,
 }
 
-impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
+impl<N: NodeRpcClient, S: Store> Client<N, S> {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 
@@ -55,7 +54,7 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
                 storage_mode,
             } => {
                 self.new_fungible_faucet(token_symbol, decimals, max_supply, &mut rng, storage_mode)
-            }
+            },
         }?;
 
         Ok(account_and_seed)
@@ -71,7 +70,10 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
     ///
     /// Will panic when trying to import a non-new account without a seed since this functionality
     /// is not currently implemented
-    pub fn import_account(&mut self, account_data: AccountData) -> Result<(), ClientError> {
+    pub fn import_account(
+        &mut self,
+        account_data: AccountData,
+    ) -> Result<(), ClientError> {
         match account_data.auth {
             AuthData::RpoFalcon512Seed(key_pair) => {
                 let keypair = KeyPair::from_seed(&key_pair)?;
@@ -95,7 +97,7 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
                     account_seed,
                     &AuthInfo::RpoFalcon512(keypair),
                 )
-            }
+            },
         }
     }
 
@@ -115,8 +117,7 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
             todo!("Recording the account on chain is not supported yet");
         }
 
-        let key_pair: objects::crypto::dsa::rpo_falcon512::KeyPair =
-            objects::crypto::dsa::rpo_falcon512::KeyPair::new()?;
+        let key_pair: KeyPair = KeyPair::new()?;
 
         let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
             pub_key: key_pair.public_key(),
@@ -155,8 +156,7 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
             todo!("On-chain accounts are not supported yet");
         }
 
-        let key_pair: objects::crypto::dsa::rpo_falcon512::KeyPair =
-            objects::crypto::dsa::rpo_falcon512::KeyPair::new()?;
+        let key_pair: KeyPair = KeyPair::new()?;
 
         let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
             pub_key: key_pair.public_key(),
@@ -203,7 +203,6 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
     // --------------------------------------------------------------------------------------------
 
     /// Returns summary info about the accounts managed by this client.
-    ///
     pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Option<Word>)>, ClientError> {
         self.store.get_account_stubs().map_err(|err| err.into())
     }
@@ -221,9 +220,7 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
         &self,
         account_id: AccountId,
     ) -> Result<(AccountStub, Option<Word>), ClientError> {
-        self.store
-            .get_account_stub(account_id)
-            .map_err(|err| err.into())
+        self.store.get_account_stub(account_id).map_err(|err| err.into())
     }
 
     /// Returns an [AuthInfo] object utilized to authenticate an account.
@@ -232,10 +229,11 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
     ///
     /// Returns a [ClientError::StoreError] with a [StoreError::AccountDataNotFound](crate::errors::StoreError::AccountDataNotFound) if the provided ID does
     /// not correspond to an existing account.
-    pub fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, ClientError> {
-        self.store
-            .get_account_auth(account_id)
-            .map_err(|err| err.into())
+    pub fn get_account_auth(
+        &self,
+        account_id: AccountId,
+    ) -> Result<AuthInfo, ClientError> {
+        self.store.get_account_auth(account_id).map_err(|err| err.into())
     }
 }
 
@@ -244,47 +242,35 @@ impl<N: NodeRpcClient, S: Store, D: DataStore> Client<N, S, D> {
 
 #[cfg(test)]
 pub mod tests {
-    use crypto::{dsa::rpo_falcon512::KeyPair, Felt, FieldElement};
-
-    use miden_lib::transaction::TransactionKernel;
-    use mock::{
-        constants::{generate_account_seed, AccountSeedType},
-        mock::account::{self, mock_account},
+    use miden_objects::{
+        accounts::{Account, AccountData, AccountId, AuthData},
+        crypto::dsa::rpo_falcon512::KeyPair,
+        Word,
     };
-    use objects::accounts::{AccountData, AuthData};
-    use rand::{rngs::ThreadRng, thread_rng, Rng};
 
-    use crate::store::{sqlite_store::tests::create_test_client, AuthInfo};
+    use crate::{
+        mock::{
+            get_account_with_default_account_code, get_new_account_with_default_account_code,
+            ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN, ACCOUNT_ID_REGULAR,
+        },
+        store::{sqlite_store::tests::create_test_client, AuthInfo},
+    };
 
-    fn create_account_data(rng: &mut ThreadRng, seed_type: AccountSeedType) -> AccountData {
-        // Create an account and save it to a file
-        let (account_id, account_seed) = generate_account_seed(seed_type);
-        let assembler = TransactionKernel::assembler();
-        let account = account::mock_account(Some(account_id.into()), Felt::ZERO, None, &assembler);
+    fn create_account_data(account_id: u64) -> AccountData {
+        let account_id = AccountId::try_from(account_id).unwrap();
+        let account = get_account_with_default_account_code(account_id, Word::default(), None);
 
-        let key_pair_seed: [u32; 10] = rng.gen();
-        let mut key_pair_seed_u8: [u8; 40] = [0; 40];
-        for (dest_c, source_e) in key_pair_seed_u8
-            .chunks_exact_mut(4)
-            .zip(key_pair_seed.iter())
-        {
-            dest_c.copy_from_slice(&source_e.to_le_bytes())
-        }
-        let auth_data = AuthData::RpoFalcon512Seed(key_pair_seed_u8);
-
-        AccountData::new(account.clone(), Some(account_seed), auth_data)
+        AccountData::new(
+            account.clone(),
+            Some(Word::default()),
+            AuthData::RpoFalcon512Seed([0; 40]),
+        )
     }
 
     pub fn create_initial_accounts_data() -> Vec<AccountData> {
-        let mut rng = thread_rng();
-        let account = create_account_data(
-            &mut rng,
-            AccountSeedType::RegularAccountUpdatableCodeOnChain,
-        );
+        let account = create_account_data(ACCOUNT_ID_REGULAR);
 
-        // Create a Faucet and save it to a file
-        let faucet_account =
-            create_account_data(&mut rng, AccountSeedType::FungibleFaucetValidInitialBalance);
+        let faucet_account = create_account_data(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN);
 
         // Create Genesis state and save it to a file
         let accounts = vec![account, faucet_account];
@@ -296,11 +282,12 @@ pub mod tests {
     pub fn try_import_new_account() {
         // generate test client
         let mut client = create_test_client();
-        let assembler = TransactionKernel::assembler();
 
-        let (account_id, account_seed) =
-            generate_account_seed(AccountSeedType::RegularAccountUpdatableCodeOnChain);
-        let account = mock_account(Some(u64::from(account_id)), Felt::ZERO, None, &assembler);
+        let account = get_new_account_with_default_account_code(
+            AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap(),
+            Word::default(),
+            None,
+        );
 
         let key_pair: KeyPair = KeyPair::new()
             .map_err(|err| format!("Error generating KeyPair: {}", err))
@@ -310,11 +297,7 @@ pub mod tests {
             .insert_account(&account, None, &AuthInfo::RpoFalcon512(key_pair))
             .is_err());
         assert!(client
-            .insert_account(
-                &account,
-                Some(account_seed),
-                &AuthInfo::RpoFalcon512(key_pair)
-            )
+            .insert_account(&account, Some(Word::default()), &AuthInfo::RpoFalcon512(key_pair))
             .is_ok());
     }
 
@@ -329,41 +312,15 @@ pub mod tests {
             client.import_account(account_data).unwrap();
         }
 
-        let expected_accounts: Vec<_> = created_accounts_data
+        let expected_accounts: Vec<Account> = created_accounts_data
             .into_iter()
             .map(|account_data| account_data.account)
             .collect();
         let accounts = client.get_accounts().unwrap();
 
         assert_eq!(accounts.len(), 2);
-        assert_eq!(accounts[0].0.id(), expected_accounts[0].id());
-        assert_eq!(accounts[0].0.nonce(), expected_accounts[0].nonce());
-        assert_eq!(
-            accounts[0].0.vault_root(),
-            expected_accounts[0].vault().commitment()
-        );
-        assert_eq!(
-            accounts[0].0.storage_root(),
-            expected_accounts[0].storage().root()
-        );
-        assert_eq!(
-            accounts[0].0.code_root(),
-            expected_accounts[0].code().root()
-        );
-
-        assert_eq!(accounts[1].0.id(), expected_accounts[1].id());
-        assert_eq!(accounts[1].0.nonce(), expected_accounts[1].nonce());
-        assert_eq!(
-            accounts[1].0.vault_root(),
-            expected_accounts[1].vault().commitment()
-        );
-        assert_eq!(
-            accounts[1].0.storage_root(),
-            expected_accounts[1].storage().root()
-        );
-        assert_eq!(
-            accounts[1].0.code_root(),
-            expected_accounts[1].code().root()
-        );
+        for (client_acc, expected_acc) in accounts.iter().zip(expected_accounts.iter()) {
+            assert_eq!(client_acc.0.hash(), expected_acc.hash());
+        }
     }
 }

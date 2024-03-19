@@ -1,7 +1,4 @@
-use super::{CommittedNote, NodeRpcClient, NodeRpcClientEndpoint, StateSyncInfo};
-use crate::errors::NodeRpcClientError;
 use async_trait::async_trait;
-use crypto::utils::Serializable;
 use miden_node_proto::{
     errors::ParseError,
     generated::{
@@ -12,13 +9,17 @@ use miden_node_proto::{
         rpc::api_client::ApiClient,
     },
 };
-use objects::{
+use miden_objects::{
     accounts::AccountId,
     notes::{NoteId, NoteMetadata},
     transaction::ProvenTransaction,
     BlockHeader, Digest, Felt,
 };
+use miden_tx::utils::Serializable;
 use tonic::transport::Channel;
+
+use super::{CommittedNote, NodeRpcClient, NodeRpcClientEndpoint, StateSyncInfo};
+use crate::errors::NodeRpcClientError;
 
 // TONIC RPC CLIENT
 // ================================================================================================
@@ -64,15 +65,12 @@ impl NodeRpcClient for TonicRpcClient {
             transaction: proven_transaction.to_bytes(),
         };
         let rpc_api = self.rpc_api().await?;
-        rpc_api
-            .submit_proven_transaction(request)
-            .await
-            .map_err(|err| {
-                NodeRpcClientError::RequestError(
-                    NodeRpcClientEndpoint::SubmitProvenTx.to_string(),
-                    err.to_string(),
-                )
-            })?;
+        rpc_api.submit_proven_transaction(request).await.map_err(|err| {
+            NodeRpcClientError::RequestError(
+                NodeRpcClientEndpoint::SubmitProvenTx.to_string(),
+                err.to_string(),
+            )
+        })?;
 
         Ok(())
     }
@@ -83,22 +81,17 @@ impl NodeRpcClient for TonicRpcClient {
     ) -> Result<BlockHeader, NodeRpcClientError> {
         let request = GetBlockHeaderByNumberRequest { block_num };
         let rpc_api = self.rpc_api().await?;
-        let api_response = rpc_api
-            .get_block_header_by_number(request)
-            .await
-            .map_err(|err| {
-                NodeRpcClientError::RequestError(
-                    NodeRpcClientEndpoint::GetBlockHeaderByNumber.to_string(),
-                    err.to_string(),
-                )
-            })?;
+        let api_response = rpc_api.get_block_header_by_number(request).await.map_err(|err| {
+            NodeRpcClientError::RequestError(
+                NodeRpcClientEndpoint::GetBlockHeaderByNumber.to_string(),
+                err.to_string(),
+            )
+        })?;
 
         api_response
             .into_inner()
             .block_header
-            .ok_or(NodeRpcClientError::ExpectedFieldMissing(
-                "BlockHeader".into(),
-            ))?
+            .ok_or(NodeRpcClientError::ExpectedFieldMissing("BlockHeader".into()))?
             .try_into()
             .map_err(|err: ParseError| NodeRpcClientError::ConversionFailure(err.to_string()))
     }
@@ -114,10 +107,7 @@ impl NodeRpcClient for TonicRpcClient {
     ) -> Result<StateSyncInfo, NodeRpcClientError> {
         let account_ids = account_ids.iter().map(|acc| (*acc).into()).collect();
 
-        let nullifiers = nullifiers_tags
-            .iter()
-            .map(|&nullifier| nullifier as u32)
-            .collect();
+        let nullifiers = nullifiers_tags.iter().map(|&nullifier| nullifier as u32).collect();
 
         let note_tags = note_tags.iter().map(|&note_tag| note_tag as u32).collect();
 
@@ -151,9 +141,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
         // Validate and convert block header
         let block_header = value
             .block_header
-            .ok_or(NodeRpcClientError::ExpectedFieldMissing(
-                "BlockHeader".into(),
-            ))?
+            .ok_or(NodeRpcClientError::ExpectedFieldMissing("BlockHeader".into()))?
             .try_into()?;
 
         // Validate and convert MMR Delta
@@ -192,16 +180,12 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
 
             let merkle_path = note
                 .merkle_path
-                .ok_or(NodeRpcClientError::ExpectedFieldMissing(
-                    "Notes.MerklePath".into(),
-                ))?
+                .ok_or(NodeRpcClientError::ExpectedFieldMissing("Notes.MerklePath".into()))?
                 .try_into()?;
 
             let sender_account_id = note
                 .sender
-                .ok_or(NodeRpcClientError::ExpectedFieldMissing(
-                    "Notes.Sender".into(),
-                ))?
+                .ok_or(NodeRpcClientError::ExpectedFieldMissing("Notes.Sender".into()))?
                 .try_into()?;
             let metadata = NoteMetadata::new(sender_account_id, Felt::new(note.tag));
 

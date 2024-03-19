@@ -1,0 +1,79 @@
+# Cargo Makefile
+
+[env]
+FEATURES_INTEGRATION_TESTING="integration"
+NODE_FEATURES_TESTING="testing"
+NODE_BINARY="miden-node"
+
+[tasks.format]
+toolchain = "nightly"
+command = "cargo"
+args = ["fmt", "--all", "--", "--check"]
+
+[tasks.clippy]
+command = "cargo"
+args = ["clippy","--workspace", "--all-targets", "--", "-D", "clippy::all", "-D", "warnings"]
+
+[tasks.docs]
+env = { "RUSTDOCFLAGS" = "-D warnings" }
+command = "cargo"
+args = ["doc", "--all-features", "--keep-going", "--release"]
+
+[tasks.test]
+description = "Run the client testing suite"
+command = "cargo"
+args = ["test", "--release", "--workspace", "--", "--nocapture"]
+
+[tasks.integration-test]
+description = "Run the integration test binary. Requires a node to connect to."
+command = "cargo"
+args = ["run", "--release", "--bin=integration", "--features", "${FEATURES_INTEGRATION_TESTING}"]
+
+[tasks.lint]
+dependencies = [
+    "format",
+    "clippy",
+    "docs"
+]
+
+[tasks.kill-node]
+description = "Kill the miden-node process"
+script = "pkill miden-node || echo 'process not running'"
+
+[tasks.reset]
+description = "Remove the miden-node directory"
+command = "rm"
+args = ["-rf", "miden-node"]
+
+[tasks.node]
+description = "Clone or update miden-node repository and clean up files"
+script_runner = "bash"
+script = [
+    'if [ -d miden-node ]; then cd miden-node && git pull ; else git clone https://github.com/0xPolygonMiden/miden-node.git && cd miden-node; fi',
+    'rm -rf miden-store.sqlite3 miden-store.sqlite3-wal miden-store.sqlite3-shm',
+    'cargo run --bin $NODE_BINARY --features $NODE_FEATURES_TESTING -- make-genesis --inputs-path node/genesis.toml --force'
+]
+
+[tasks.start-node]
+description = "Start the miden-node"
+dependencies = ["node"]
+script_runner = "bash"
+cwd = "./miden-node/"
+script = "cargo run --bin ${NODE_BINARY} --features ${NODE_FEATURES_TESTING} -- start --config node/miden-node.toml"
+
+[tasks.docs-deps]
+description = "Install documentation dependencies"
+command = "pip3"
+args = ["install", "-r", "requirements.txt"]
+
+[tasks.build-docs]
+description = "Build documentation"
+dependencies = ["docs-deps"]
+command = "mkdocs"
+args = ["build"]
+
+[tasks.serve-docs]
+description = "Serve documentation locally"
+dependencies = ["docs-deps"]
+command = "mkdocs"
+args = ["serve"]

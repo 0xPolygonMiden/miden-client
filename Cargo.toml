@@ -1,10 +1,12 @@
 [package]
 name = "miden-client"
 version = "0.1.0"
+description = "Client library that facilitates interaction with the Miden rollup"
 authors = ["miden contributors"]
 readme = "README.md"
 license = "MIT"
 repository = "https://github.com/0xPolygonMiden/miden-client"
+documentation = "https://docs.rs/miden-client/0.1.0"
 keywords = ["miden", "client"]
 edition = "2021"
 rust-version = "1.75"
@@ -15,33 +17,36 @@ name = "integration"
 path = "tests/integration/main.rs"
 required-features = ["integration"]
 
+# This is so the integration test is not built when doing `cargo test` and
+# `cargo build --tests` The main issue is that for tests and mock feature we
+# change the client a bit and we don't want that for the integration test
+[[test]]
+name = "integration"
+path = "tests/integration/main.rs"
+test = false
+
 [features]
 concurrent = [
-    "miden_lib/concurrent",
-    "objects/concurrent",
-    "miden_tx/concurrent",
+    "miden-lib/concurrent",
+    "miden-objects/concurrent",
+    "miden-tx/concurrent",
 ]
 default = ["std"]
 integration = ["testing", "concurrent", "uuid"]
-mock = []
-std = ["crypto/std", "objects/std"]
-testing = ["objects/testing", "miden_lib/testing"]
+mock = ["miden-objects/testing"]
+std = ["miden-objects/std"]
+testing = ["miden-objects/testing", "miden-lib/testing"]
 
 [dependencies]
 async-trait = { version = "0.1" }
 clap = { version = "4.3", features = ["derive"] }
 comfy-table = "7.1.0"
-crypto = { package = "miden-crypto", version = "0.8", default-features = false }
 figment = { version = "0.10", features = ["toml", "env"] }
 lazy_static = "1.4.0"
-miden_lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", default-features = false }
-miden_node_store = { package = "miden-node-store", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "main" }
-miden_node_proto = { package = "miden-node-proto", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "main", default-features = false }
-miden_tx = { package = "miden-tx", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", default-features = false }
-mock = { package = "miden-mock", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main" }
-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base", branch = "main", features = [
-    "serde",
-] }
+miden-lib = { version= "0.1", default-features = false }
+miden-node-proto = { version= "0.1", default-features = false }
+miden-tx = { version= "0.1", default-features = false }
+miden-objects = { version = "0.1", features = ["serde"] }
 rand = { version = "0.8.5" }
 rusqlite = { version = "0.30.0", features = ["bundled"] }
 rusqlite_migration = { version = "1.0" }

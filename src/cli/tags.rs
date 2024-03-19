@@ -1,5 +1,4 @@
 use miden_client::{client::rpc::NodeRpcClient, store::Store};
-use miden_tx::DataStore;
 
 use super::{Client, Parser};
 
@@ -19,17 +18,17 @@ pub enum TagsCmd {
 }
 
 impl TagsCmd {
-    pub async fn execute<N: NodeRpcClient, S: Store, D: DataStore>(
+    pub async fn execute<N: NodeRpcClient, S: Store>(
         &self,
-        client: Client<N, S, D>,
+        client: Client<N, S>,
     ) -> Result<(), String> {
         match self {
             TagsCmd::List => {
                 list_tags(client)?;
-            }
+            },
             TagsCmd::Add { tag } => {
                 add_tag(client, *tag)?;
-            }
+            },
         }
         Ok(())
     }
@@ -37,16 +36,14 @@ impl TagsCmd {
 
 // HELPERS
 // ================================================================================================
-fn list_tags<N: NodeRpcClient, S: Store, D: DataStore>(
-    client: Client<N, S, D>,
-) -> Result<(), String> {
+fn list_tags<N: NodeRpcClient, S: Store>(client: Client<N, S>) -> Result<(), String> {
     let tags = client.get_note_tags()?;
     println!("tags: {:?}", tags);
     Ok(())
 }
 
-fn add_tag<N: NodeRpcClient, S: Store, D: DataStore>(
-    mut client: Client<N, S, D>,
+fn add_tag<N: NodeRpcClient, S: Store>(
+    mut client: Client<N, S>,
     tag: u64,
 ) -> Result<(), String> {
     client.add_note_tag(tag)?;

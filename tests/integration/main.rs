@@ -1,29 +1,25 @@
-use miden_client::client::{
-    accounts::{AccountStorageMode, AccountTemplate},
-    rpc::TonicRpcClient,
-    transactions::{PaymentTransactionData, TransactionTemplate},
-    Client,
-};
-use miden_client::config::{ClientConfig, RpcConfig};
-use miden_client::errors::{ClientError, NodeRpcClientError};
-use miden_client::store::data_store::SqliteDataStore;
-use miden_client::store::sqlite_store::SqliteStore;
-use miden_client::store::{NoteFilter, TransactionFilter};
+use std::{env::temp_dir, fs, time::Duration};
 
-use miden_tx::{DataStoreError, TransactionExecutorError};
-use objects::{
+use miden_client::{
+    client::{
+        accounts::{AccountStorageMode, AccountTemplate},
+        rpc::TonicRpcClient,
+        transactions::{PaymentTransactionData, TransactionTemplate},
+        Client,
+    },
+    config::{ClientConfig, RpcConfig},
+    errors::{ClientError, NodeRpcClientError},
+    store::{sqlite_store::SqliteStore, NoteFilter, TransactionFilter},
+};
+use miden_objects::{
     accounts::AccountData,
     assets::{Asset, FungibleAsset},
     utils::serde::Deserializable,
 };
-
-use std::env::temp_dir;
-use std::fs;
-use std::time::Duration;
-
+use miden_tx::{DataStoreError, TransactionExecutorError};
 use uuid::Uuid;
 
-type TestClient = Client<TonicRpcClient, SqliteStore, SqliteDataStore>;
+type TestClient = Client<TonicRpcClient, SqliteStore>;
 
 fn create_test_client() -> TestClient {
     let client_config = ClientConfig {
@@ -38,38 +34,31 @@ fn create_test_client() -> TestClient {
 
     let rpc_endpoint = client_config.rpc.endpoint.to_string();
     let store = SqliteStore::new((&client_config).into()).unwrap();
-    // TODO: See if we can solve this by wrapping store with a `Rc<Cell<..>>` or a `Rc<RefCell<..>>`
-    let data_store_store = SqliteStore::new((&client_config).into()).unwrap();
-    TestClient::new(
-        TonicRpcClient::new(&rpc_endpoint),
-        store,
-        SqliteDataStore::new(data_store_store),
-    )
-    .unwrap()
+    let executor_store = SqliteStore::new((&client_config).into()).unwrap();
+    TestClient::new(TonicRpcClient::new(&rpc_endpoint), store, executor_store).unwrap()
 }
-
 fn create_test_store_path() -> std::path::PathBuf {
     let mut temp_file = temp_dir();
     temp_file.push(format!("{}.sqlite3", Uuid::new_v4()));
     temp_file
 }
 
-async fn execute_tx_and_sync(client: &mut TestClient, tx_template: TransactionTemplate) {
+async fn execute_tx_and_sync(
+    client: &mut TestClient,
+    tx_template: TransactionTemplate,
+) {
     println!("Executing Transaction");
     let transaction_execution_result = client.new_transaction(tx_template).unwrap();
 
     println!("Sending Transaction to node");
-    client
-        .send_transaction(transaction_execution_result)
-        .await
-        .unwrap();
+    client.send_transaction(transaction_execution_result).await.unwrap();
 
     let current_block_num = client.sync_state().await.unwrap();
 
     // Wait until we've actually gotten a new block
     println!("Syncing State...");
-    while client.sync_state().await.unwrap() == current_block_num {
-        std::thread::sleep(std::time::Duration::new(5, 0));
+    while client.sync_state().await.unwrap() <= current_block_num + 1 {
+        std::thread::sleep(std::time::Duration::new(3, 0));
     }
 }
 
@@ -89,10 +78,10 @@ async fn wait_for_node(client: &mut TestClient) {
         match client.sync_state().await {
             Err(ClientError::NodeRpcClientError(NodeRpcClientError::ConnectionError(_))) => {
                 std::thread::sleep(Duration::from_secs(NODE_TIME_BETWEEN_ATTEMPTS));
-            }
+            },
             Err(other_error) => {
                 panic!("Unexpected error: {other_error}");
-            }
+            },
             _ => return,
         }
     }
@@ -109,10 +98,7 @@ async fn main() {
 
     // Enusre clean state
     assert!(client.get_accounts().unwrap().is_empty());
-    assert!(client
-        .get_transactions(TransactionFilter::All)
-        .unwrap()
-        .is_empty());
+    assert!(client.get_transactions(TransactionFilter::All).unwrap().is_empty());
     assert!(client.get_input_notes(NoteFilter::All).unwrap().is_empty());
 
     // Import accounts
@@ -181,7 +167,7 @@ async fn main() {
     println!("Consuming Note...");
     execute_tx_and_sync(&mut client, tx_template).await;
 
-    let (regular_account, _seed) = client.get_account(second_regular_account_id).unwrap();
+    let (regular_account, _seed) = client.get_account(first_regular_account_id).unwrap();
 
     assert_eq!(regular_account.vault().assets().count(), 1);
     let asset = regular_account.vault().assets().next().unwrap();
@@ -223,7 +209,7 @@ async fn main() {
     if let Asset::Fungible(fungible_asset) = asset {
         assert_eq!(fungible_asset.amount(), MINT_AMOUNT - TRANSFER_AMOUNT);
     } else {
-        panic!("ACCOUNT SHOULD HAVE A FUNGIBLE ASSET");
+        panic!("Error: Account should have a fungible asset");
     }
 
     let (regular_account, _seed) = client.get_account(second_regular_account_id).unwrap();
@@ -233,7 +219,7 @@ async fn main() {
     if let Asset::Fungible(fungible_asset) = asset {
         assert_eq!(fungible_asset.amount(), TRANSFER_AMOUNT);
     } else {
-        panic!("ACCOUNT SHOULD HAVE A FUNGIBLE ASSET");
+        panic!("Error: Account should have a fungible asset");
     }
 
     // Check that we can't consume the P2ID note again
@@ -241,17 +227,15 @@ async fn main() {
         TransactionTemplate::ConsumeNotes(second_regular_account_id, vec![notes[0].note_id()]);
     println!("Consuming Note...");
 
+    // Double-spend error expected to be received since we are consuming the same note
     match client.new_transaction(tx_template) {
-        Ok(_) => panic!("TRANSACTION SHOULD NOT BE CONSUMABLE!"),
         Err(ClientError::TransactionExecutionError(
-            TransactionExecutorError::FetchTransactionInputsFailed(DataStoreError::InternalError(
-                error,
-            )),
-        )) if error.contains(&notes[0].note_id().to_hex()) => {}
-        _ => panic!(
-            "UNEXPECTED ERROR, SHOULD BE A DOUBLE SPEND ERROR FOR NOTE {}",
-            notes[0].note_id().to_hex()
-        ),
+            TransactionExecutorError::FetchTransactionInputsFailed(
+                DataStoreError::NoteAlreadyConsumed(_),
+            ),
+        )) => {},
+        Ok(_) => panic!("Double-spend error: Note should not be consumable!"),
+        _ => panic!("Unexpected error: {}", notes[0].note_id().to_hex()),
     }
 
     println!("Test ran successfully!");

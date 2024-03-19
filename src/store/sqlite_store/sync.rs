@@ -1,17 +1,13 @@
-use crypto::{
-    merkle::{InOrderIndex, MmrPeaks},
-    utils::Serializable,
-};
-
-use crate::errors::StoreError;
-use objects::{
+use miden_objects::{
+    crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::{NoteId, NoteInclusionProof},
     transaction::TransactionId,
     BlockHeader, Digest,
 };
-use rusqlite::params;
+use rusqlite::{named_params, params};
 
 use super::SqliteStore;
+use crate::errors::StoreError;
 
 impl SqliteStore {
     pub(crate) fn get_note_tags(&self) -> Result<Vec<u64>, StoreError> {
@@ -22,17 +18,20 @@ impl SqliteStore {
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
             .map(|result| {
-                result
-                    .map_err(|err| StoreError::ParsingError(err.to_string()))
-                    .and_then(|v: String| {
+                result.map_err(|err| StoreError::ParsingError(err.to_string())).and_then(
+                    |v: String| {
                         serde_json::from_str(&v).map_err(StoreError::JsonDataDeserializationError)
-                    })
+                    },
+                )
             })
             .next()
             .expect("state sync tags exist")
     }
 
-    pub(super) fn add_note_tag(&mut self, tag: u64) -> Result<bool, StoreError> {
+    pub(super) fn add_note_tag(
+        &mut self,
+        tag: u64,
+    ) -> Result<bool, StoreError> {
         let mut tags = self.get_note_tags()?;
         if tags.contains(&tag) {
             return Ok(false);
@@ -76,12 +75,12 @@ impl SqliteStore {
         // Update spent notes
         for nullifier in nullifiers.iter() {
             const SPENT_INPUT_NOTE_QUERY: &str =
-                "UPDATE input_notes SET status = 'consumed' WHERE nullifier = ?";
+                "UPDATE input_notes SET status = 'consumed' WHERE json_extract(details, '$.nullifier') = ?";
             let nullifier = nullifier.to_hex();
             tx.execute(SPENT_INPUT_NOTE_QUERY, params![nullifier])?;
 
             const SPENT_OUTPUT_NOTE_QUERY: &str =
-                "UPDATE output_notes SET status = 'consumed' WHERE nullifier = ?";
+                "UPDATE output_notes SET status = 'consumed' WHERE json_extract(details, '$.nullifier') = ?";
             tx.execute(SPENT_OUTPUT_NOTE_QUERY, params![nullifier])?;
         }
 
@@ -95,22 +94,41 @@ impl SqliteStore {
 
         // Update tracked notes
         for (note_id, inclusion_proof) in committed_notes.iter() {
-            const COMMITTED_INPUT_NOTES_QUERY: &str =
-                "UPDATE input_notes SET status = 'committed', inclusion_proof = ? WHERE note_id = ?";
+            let block_num = inclusion_proof.origin().block_num;
+            let sub_hash = inclusion_proof.sub_hash();
+            let note_root = inclusion_proof.note_root();
+            let note_index = inclusion_proof.origin().node_index.value();
 
-            let inclusion_proof = Some(inclusion_proof.to_bytes());
+            let inclusion_proof = serde_json::to_string(&NoteInclusionProof::new(
+                block_num,
+                sub_hash,
+                note_root,
+                note_index,
+                inclusion_proof.note_path().clone(),
+            )?)
+            .map_err(StoreError::InputSerializationError)?;
+
+            const COMMITTED_INPUT_NOTES_QUERY: &str =
+                "UPDATE input_notes SET status = 'committed', inclusion_proof = json(:inclusion_proof) WHERE note_id = :note_id";
+
             tx.execute(
                 COMMITTED_INPUT_NOTES_QUERY,
-                params![inclusion_proof, note_id.inner().to_hex()],
+                named_params! {
+                    ":inclusion_proof": inclusion_proof,
+                    ":note_id": note_id.inner().to_hex()
+                },
             )?;
 
             // Update output notes
             const COMMITTED_OUTPUT_NOTES_QUERY: &str =
-                "UPDATE output_notes SET status = 'committed', inclusion_proof = ? WHERE note_id = ?";
+                "UPDATE output_notes SET status = 'committed', inclusion_proof = json(:inclusion_proof) WHERE note_id = :note_id";
 
             tx.execute(
                 COMMITTED_OUTPUT_NOTES_QUERY,
-                params![inclusion_proof, note_id.inner().to_hex()],
+                named_params! {
+                    ":inclusion_proof": inclusion_proof,
+                    ":note_id": note_id.inner().to_hex()
+                },
             )?;
         }
 

@@ -70,37 +70,87 @@ CREATE TABLE transaction_scripts (
 -- Create input notes table
 CREATE TABLE input_notes (
     note_id BLOB NOT NULL,                                  -- the note id
-    nullifier BLOB NOT NULL,                                -- the nullifier of the note
     recipient BLOB NOT NULL,                                -- the note recipient
-    script BLOB NOT NULL,                                   -- the serialized NoteScript, including script hash and ProgramAst
     assets BLOB NOT NULL,                                   -- the serialized NoteAssets, including vault hash and list of assets
-    inputs BLOB NOT NULL,                                   -- the serialized NoteInputs, including inputs hash and list of inputs
-    serial_num BLOB NOT NULL,                               -- the note serial number.
-    sender_id UNSIGNED BIG INT NULL,                        -- the account ID of the sender. Known once the note is recorded on chain
-    tag UNSIGNED BIG INT NULL,                              -- the note tag. Known once the note is recorded on-chain
-    inclusion_proof BLOB NULL,                              -- the inclusion proof of the note against a block number. Known once the note is recorded on-chain
     status TEXT CHECK( status IN (                          -- the status of the note - either pending, committed or consumed
         'pending', 'committed', 'consumed'
         )),
+
+    inclusion_proof JSON NULL,                              -- JSON consisting of the following fields:
+    -- block_num                                              -- number of the block the note was included in
+    -- note_index                                             -- the index of the note in the note Merkle tree of the block the note was created in.
+    -- sub_hash                                               -- sub hash of the block the note was included in stored as a hex string
+    -- note_root                                              -- the note root of the block the note was created in
+    -- note_path                                              -- the Merkle path to the note in the note Merkle tree of the block the note was created in, stored as an array of digests
+    
+    metadata JSON NULL,                                     -- JSON consisting of the following fields:
+    -- sender_id                                              -- the account ID of the sender
+    -- tag                                                    -- the note tag
+
+    details JSON NOT NULL,                                      -- JSON consisting of the following fields:
+    -- nullifier                                              -- the nullifier of the note
+    -- script                                                 -- the serialized NoteScript, including script hash and ProgramAst
+    -- inputs                                                 -- the serialized NoteInputs, including inputs hash and list of inputs
+    -- serial_num                                             -- the note serial number
     PRIMARY KEY (note_id)
+
+    CONSTRAINT check_valid_inclusion_proof_json CHECK (
+      inclusion_proof IS NULL OR 
+      (
+        json_extract(inclusion_proof, '$.origin.block_num') IS NOT NULL AND
+        json_extract(inclusion_proof, '$.origin.node_index') IS NOT NULL AND
+        json_extract(inclusion_proof, '$.sub_hash') IS NOT NULL AND
+        json_extract(inclusion_proof, '$.note_root') IS NOT NULL AND
+        json_extract(inclusion_proof, '$.note_path') IS NOT NULL
+      ))
+    CONSTRAINT check_valid_metadata_json CHECK (metadata IS NULL OR (json_extract(metadata, '$.sender') IS NOT NULL AND json_extract(metadata, '$.tag') IS NOT NULL))
 );
 
 -- Create output notes table
 CREATE TABLE output_notes (
     note_id BLOB NOT NULL,                                  -- the note id
-    nullifier BLOB NULL,                                    -- the nullifier of the note, only known if we know script, inputs, serial_num
     recipient BLOB NOT NULL,                                -- the note recipient
-    script BLOB NULL,                                       -- the serialized NoteScript, including script hash and ProgramAst. May not be known
     assets BLOB NOT NULL,                                   -- the serialized NoteAssets, including vault hash and list of assets
-    inputs BLOB NULL,                                       -- the serialized NoteInputs, including inputs hash and list of inputs. May not be known
-    serial_num BLOB NULL,                                   -- the note serial number. May not be known
-    sender_id UNSIGNED BIG INT NOT NULL,                    -- the account ID of the sender
-    tag UNSIGNED BIG INT NOT NULL,                          -- the note tag
-    inclusion_proof BLOB NULL,                              -- the inclusion proof of the note against a block number
     status TEXT CHECK( status IN (                          -- the status of the note - either pending, committed or consumed
         'pending', 'committed', 'consumed'
         )),
+
+    inclusion_proof JSON NULL,                              -- JSON consisting of the following fields:
+    -- block_num                                              -- number of the block the note was included in
+    -- note_index                                             -- the index of the note in the note Merkle tree of the block the note was created in.
+    -- sub_hash                                               -- sub hash of the block the note was included in stored as a hex string
+    -- note_root                                              -- the note root of the block the note was created in
+    -- note_path                                              -- the Merkle path to the note in the note Merkle tree of the block the note was created in, stored as an array of digests
+    
+    metadata JSON NOT NULL,                                     -- JSON consisting of the following fields:
+    -- sender_id                                              -- the account ID of the sender
+    -- tag                                                    -- the note tag
+
+    details JSON NULL,                                      -- JSON consisting of the following fields:
+    -- nullifier                                              -- the nullifier of the note
+    -- script                                                 -- the serialized NoteScript, including script hash and ProgramAst
+    -- inputs                                                 -- the serialized NoteInputs, including inputs hash and list of inputs
+    -- serial_num                                             -- the note serial number
     PRIMARY KEY (note_id)
+
+    CONSTRAINT check_valid_inclusion_proof_json CHECK (
+      inclusion_proof IS NULL OR 
+      (
+        json_extract(inclusion_proof, '$.origin.block_num') IS NOT NULL AND
+        json_extract(inclusion_proof, '$.origin.node_index') IS NOT NULL AND
+        json_extract(inclusion_proof, '$.sub_hash') IS NOT NULL AND
+        json_extract(inclusion_proof, '$.note_root') IS NOT NULL AND
+        json_extract(inclusion_proof, '$.note_path') IS NOT NULL
+      ))
+    CONSTRAINT check_valid_details_json CHECK (
+      details IS NULL OR 
+      (
+        json_extract(details, '$.nullifier') IS NOT NULL AND
+        json_extract(details, '$.script') IS NOT NULL AND
+        json_extract(details, '$.inputs') IS NOT NULL AND
+        json_extract(details, '$.serial_num') IS NOT NULL
+      ))
+
 );
 
 -- Create state sync table
@@ -121,8 +171,6 @@ WHERE (
 CREATE TABLE block_headers (
     block_num UNSIGNED BIG INT NOT NULL,  -- block number
     header BLOB NOT NULL,                 -- serialized block header
-    notes_root BLOB NOT NULL,             -- root of the notes Merkle tree in this block
-    sub_hash BLOB NOT NULL,               -- hash of all other header fields in the block
     chain_mmr_peaks BLOB NOT NULL,        -- serialized peaks of the chain MMR at this block
     has_client_notes BOOL NOT NULL,       -- whether the block has notes relevant to the client
     PRIMARY KEY (block_num)

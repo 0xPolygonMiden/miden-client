@@ -6,21 +6,20 @@ use figment::{
     providers::{Format, Toml},
     Figment,
 };
-use miden_client::{
-    client::Client, config::ClientConfig, errors::ClientError, store::sqlite_store::SqliteStore,
-};
-
+#[cfg(not(feature = "mock"))]
+use miden_client::client::rpc::TonicRpcClient;
 #[cfg(feature = "mock")]
 use miden_client::mock::MockClient;
 #[cfg(feature = "mock")]
 use miden_client::mock::MockDataStore;
 #[cfg(feature = "mock")]
 use miden_client::mock::MockRpcApi;
-
-#[cfg(not(feature = "mock"))]
-use miden_client::client::rpc::TonicRpcClient;
-#[cfg(not(feature = "mock"))]
-use miden_client::store::data_store::SqliteDataStore;
+use miden_client::{
+    client::{rpc::NodeRpcClient, Client},
+    config::ClientConfig,
+    errors::{ClientError, NoteIdPrefixFetchError},
+    store::{sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
+};
 
 mod account;
 mod info;
@@ -34,12 +33,7 @@ const CLIENT_CONFIG_FILE_NAME: &str = "miden-client.toml";
 
 /// Root CLI struct
 #[derive(Parser, Debug)]
-#[clap(
-    name = "Miden",
-    about = "Miden client",
-    version,
-    rename_all = "kebab-case"
-)]
+#[clap(name = "Miden", about = "Miden client", version, rename_all = "kebab-case")]
 pub struct Cli {
     #[clap(subcommand)]
     action: Command,
@@ -81,20 +75,16 @@ impl Cli {
         let store = SqliteStore::new((&client_config).into()).map_err(ClientError::StoreError)?;
 
         #[cfg(not(feature = "mock"))]
-        let client: Client<TonicRpcClient, SqliteStore, SqliteDataStore> = {
-            let data_store_store =
+        let client: Client<TonicRpcClient, SqliteStore> = {
+            let executor_store =
                 miden_client::store::sqlite_store::SqliteStore::new((&client_config).into())
                     .map_err(ClientError::StoreError)?;
-            Client::new(
-                TonicRpcClient::new(&rpc_endpoint),
-                store,
-                SqliteDataStore::new(data_store_store),
-            )?
+            Client::new(TonicRpcClient::new(&rpc_endpoint), store, executor_store)?
         };
 
         #[cfg(feature = "mock")]
         let client: MockClient =
-            Client::new(MockRpcApi::new(&rpc_endpoint), store, MockDataStore::new())?;
+            Client::new(MockRpcApi::new(&rpc_endpoint), store, MockDataStore::default())?;
 
         // Execute cli command
         match &self.action {
@@ -112,7 +102,7 @@ impl Cli {
                     miden_client::mock::create_mock_transaction(&mut client).await;
                 }
                 Ok(())
-            }
+            },
         }
     }
 }
@@ -124,12 +114,7 @@ impl Cli {
 pub fn load_config(config_file: &Path) -> Result<ClientConfig, String> {
     Figment::from(Toml::file(config_file))
         .extract()
-        .map_err(|err| {
-            format!(
-                "Failed to load {} config file: {err}",
-                config_file.display()
-            )
-        })
+        .map_err(|err| format!("Failed to load {} config file: {err}", config_file.display()))
 }
 
 pub fn create_dynamic_table(headers: &[&str]) -> Table {
@@ -145,4 +130,45 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
         .set_header(header_cells);
 
     table
+}
+
+/// Returns all client's notes whose ID starts with `note_id_prefix`
+///
+/// # Errors
+///
+/// - Returns [NoteIdPrefixFetchError::NoMatch] if we were unable to find any note where
+/// `note_id_prefix` is a prefix of its id.
+/// - Returns [NoteIdPrefixFetchError::MultipleMatches] if there were more than one note found
+/// where `note_id_prefix` is a prefix of its id.
+pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, S: Store>(
+    client: &Client<N, S>,
+    note_id_prefix: &str,
+) -> Result<InputNoteRecord, NoteIdPrefixFetchError> {
+    let input_note_records = client
+        .get_input_notes(ClientNoteFilter::All)
+        .map_err(|err| {
+            tracing::error!("Error when fetching all notes from the store: {err}");
+            NoteIdPrefixFetchError::NoMatch(note_id_prefix.to_string())
+        })?
+        .into_iter()
+        .filter(|note_record| note_record.note_id().to_hex().starts_with(note_id_prefix))
+        .collect::<Vec<_>>();
+
+    if input_note_records.is_empty() {
+        return Err(NoteIdPrefixFetchError::NoMatch(note_id_prefix.to_string()));
+    }
+    if input_note_records.len() > 1 {
+        let input_note_record_ids = input_note_records
+            .iter()
+            .map(|input_note_record| input_note_record.note_id())
+            .collect::<Vec<_>>();
+        tracing::error!(
+            "Multiple notes found for the prefix {}: {:?}",
+            note_id_prefix,
+            input_note_record_ids
+        );
+        return Err(NoteIdPrefixFetchError::MultipleMatches(note_id_prefix.to_string()));
+    }
+
+    Ok(input_note_records[0].clone())
 }
