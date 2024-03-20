@@ -1,7 +1,10 @@
 use miden_client::{
     client::{
         rpc::NodeRpcClient,
-        transactions::{PaymentTransactionData, TransactionRecord, TransactionTemplate},
+        transactions::{
+            transaction_request::{PaymentTransactionData, TransactionTemplate},
+            TransactionRecord,
+        },
     },
     store::{Store, TransactionFilter},
 };
@@ -79,7 +82,8 @@ async fn new_transaction<N: NodeRpcClient, S: Store>(
     let transaction_template: TransactionTemplate =
         build_transaction_template(client, transaction_type)?;
 
-    let transaction_execution_result = client.new_transaction(transaction_template.clone())?;
+    let transaction_request = client.build_transaction_request(transaction_template).unwrap();
+    let transaction_execution_result = client.new_transaction(transaction_request)?;
 
     info!("Executed transaction, proving and then submitting...");
 
@@ -129,10 +133,7 @@ fn build_transaction_template<N: NodeRpcClient, S: Store>(
             let target_account_id =
                 AccountId::from_hex(target_account_id).map_err(|err| err.to_string())?;
 
-            Ok(TransactionTemplate::MintFungibleAsset {
-                asset: fungible_asset,
-                target_account_id,
-            })
+            Ok(TransactionTemplate::MintFungibleAsset(fungible_asset, target_account_id))
         },
         TransactionType::ConsumeNotes {
             account_id,

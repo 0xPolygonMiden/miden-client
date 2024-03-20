@@ -4,7 +4,7 @@ use miden_client::{
     client::{
         accounts::{AccountStorageMode, AccountTemplate},
         rpc::TonicRpcClient,
-        transactions::{PaymentTransactionData, TransactionTemplate},
+        transactions::transaction_request::{PaymentTransactionData, TransactionTemplate},
         Client,
     },
     config::{ClientConfig, RpcConfig},
@@ -48,7 +48,8 @@ async fn execute_tx_and_sync(
     tx_template: TransactionTemplate,
 ) {
     println!("Executing Transaction");
-    let transaction_execution_result = client.new_transaction(tx_template).unwrap();
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    let transaction_execution_result = client.new_transaction(tx_request).unwrap();
 
     println!("Sending Transaction to node");
     client.send_transaction(transaction_execution_result).await.unwrap();
@@ -146,10 +147,8 @@ async fn main() {
 
     // Create a Mint Tx for 1000 units of our fungible asset
     let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
-    let tx_template = TransactionTemplate::MintFungibleAsset {
-        asset: fungible_asset,
-        target_account_id: first_regular_account_id,
-    };
+    let tx_template = TransactionTemplate::MintFungibleAsset(fungible_asset,first_regular_account_id);
+    
     println!("Minting Asset");
     execute_tx_and_sync(&mut client, tx_template).await;
 
@@ -228,7 +227,8 @@ async fn main() {
     println!("Consuming Note...");
 
     // Double-spend error expected to be received since we are consuming the same note
-    match client.new_transaction(tx_template) {
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    match client.new_transaction(tx_request) {
         Err(ClientError::TransactionExecutionError(
             TransactionExecutorError::FetchTransactionInputsFailed(
                 DataStoreError::NoteAlreadyConsumed(_),
