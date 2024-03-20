@@ -21,6 +21,8 @@ use miden_client::{
     store::{sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
 };
 use miden_objects::crypto::rand::FeltRng;
+#[cfg(not(feature = "mock"))]
+use miden_objects::crypto::rand::RpoRandomCoin;
 
 mod account;
 mod info;

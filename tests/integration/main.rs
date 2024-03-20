@@ -3,6 +3,7 @@ use std::{env::temp_dir, fs, time::Duration};
 use miden_client::{
     client::{
         accounts::{AccountStorageMode, AccountTemplate},
+        get_random_coin,
         rpc::TonicRpcClient,
         transactions::{PaymentTransactionData, TransactionTemplate},
         Client,
@@ -14,12 +15,13 @@ use miden_client::{
 use miden_objects::{
     accounts::AccountData,
     assets::{Asset, FungibleAsset},
+    crypto::rand::RpoRandomCoin,
     utils::serde::Deserializable,
 };
 use miden_tx::{DataStoreError, TransactionExecutorError};
 use uuid::Uuid;
 
-type TestClient = Client<TonicRpcClient, SqliteStore>;
+type TestClient = Client<TonicRpcClient, RpoRandomCoin, SqliteStore>;
 
 fn create_test_client() -> TestClient {
     let client_config = ClientConfig {
@@ -35,7 +37,8 @@ fn create_test_client() -> TestClient {
     let rpc_endpoint = client_config.rpc.endpoint.to_string();
     let store = SqliteStore::new((&client_config).into()).unwrap();
     let executor_store = SqliteStore::new((&client_config).into()).unwrap();
-    TestClient::new(TonicRpcClient::new(&rpc_endpoint), store, executor_store).unwrap()
+    let rng = get_random_coin();
+    TestClient::new(TonicRpcClient::new(&rpc_endpoint), rng, store, executor_store).unwrap()
 }
 fn create_test_store_path() -> std::path::PathBuf {
     let mut temp_file = temp_dir();
