@@ -277,7 +277,7 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         )?;
 
         if executed_transaction.output_notes().num_notes() != output_notes.len() {
-            return Err(ClientError::OutputNotesDoNotMatch)
+            return Err(ClientError::OutputNotesDoNotMatch);
         }
 
         Ok(TransactionResult::new(executed_transaction, output_notes))

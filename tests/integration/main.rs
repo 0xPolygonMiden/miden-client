@@ -147,8 +147,9 @@ async fn main() {
 
     // Create a Mint Tx for 1000 units of our fungible asset
     let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
-    let tx_template = TransactionTemplate::MintFungibleAsset(fungible_asset,first_regular_account_id);
-    
+    let tx_template =
+        TransactionTemplate::MintFungibleAsset(fungible_asset, first_regular_account_id);
+
     println!("Minting Asset");
     execute_tx_and_sync(&mut client, tx_template).await;
 
