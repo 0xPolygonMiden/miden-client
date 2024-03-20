@@ -19,7 +19,7 @@ use miden_objects::{
 use miden_tx::{DataStoreError, TransactionExecutorError};
 use uuid::Uuid;
 
-type TestClient = Client<TonicRpcClient, SqliteStore>;
+type TestClient = Client<TonicRpcClient, SqliteStore, SqliteStore>;
 
 fn create_test_client() -> TestClient {
     let client_config = ClientConfig {
