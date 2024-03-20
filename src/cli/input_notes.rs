@@ -79,9 +79,9 @@ pub enum InputNotes {
 }
 
 impl InputNotes {
-    pub fn execute<N: NodeRpcClient, S: Store>(
+    pub fn execute<N: NodeRpcClient, S: Store, E: Store>(
         &self,
-        mut client: Client<N, S>,
+        mut client: Client<N, S, E>,
     ) -> Result<(), String> {
         match self {
             InputNotes::List { filter } => {
@@ -117,8 +117,8 @@ impl InputNotes {
 
 // LIST INPUT NOTES
 // ================================================================================================
-fn list_input_notes<N: NodeRpcClient, S: Store>(
-    client: Client<N, S>,
+fn list_input_notes<N: NodeRpcClient, S: Store, E: Store>(
+    client: Client<N, S, E>,
     filter: ClientNoteFilter,
 ) -> Result<(), String> {
     let notes = client.get_input_notes(filter)?;
@@ -128,8 +128,8 @@ fn list_input_notes<N: NodeRpcClient, S: Store>(
 
 // EXPORT INPUT NOTE
 // ================================================================================================
-pub fn export_note<N: NodeRpcClient, S: Store>(
-    client: &Client<N, S>,
+pub fn export_note<N: NodeRpcClient, S: Store, E: Store>(
+    client: &Client<N, S, E>,
     note_id: &str,
     filename: Option<PathBuf>,
 ) -> Result<File, String> {
@@ -153,8 +153,8 @@ pub fn export_note<N: NodeRpcClient, S: Store>(
 
 // IMPORT INPUT NOTE
 // ================================================================================================
-pub fn import_note<N: NodeRpcClient, S: Store>(
-    client: &mut Client<N, S>,
+pub fn import_note<N: NodeRpcClient, S: Store, E: Store>(
+    client: &mut Client<N, S, E>,
     filename: PathBuf,
 ) -> Result<NoteId, String> {
     let mut contents = vec![];
@@ -175,8 +175,8 @@ pub fn import_note<N: NodeRpcClient, S: Store>(
 
 // SHOW INPUT NOTE
 // ================================================================================================
-fn show_input_note<N: NodeRpcClient, S: Store>(
-    client: Client<N, S>,
+fn show_input_note<N: NodeRpcClient, S: Store, E: Store>(
+    client: Client<N, S, E>,
     note_id: String,
     show_script: bool,
     show_vault: bool,
@@ -295,7 +295,7 @@ mod tests {
     use miden_client::{
         config::{ClientConfig, Endpoint},
         errors::NoteIdPrefixFetchError,
-        mock::{mock_full_chain_mmr_and_notes, mock_notes, MockClient, MockDataStore, MockRpcApi},
+        mock::{mock_full_chain_mmr_and_notes, mock_notes, MockClient, MockRpcApi, MockStore},
         store::{sqlite_store::SqliteStore, InputNoteRecord},
     };
     use miden_lib::transaction::TransactionKernel;
@@ -321,7 +321,7 @@ mod tests {
         let mut client = MockClient::new(
             MockRpcApi::new(&Endpoint::default().to_string()),
             store,
-            MockDataStore::default(),
+            MockStore::default(),
         )
         .unwrap();
 
@@ -370,7 +370,7 @@ mod tests {
         let mut client = MockClient::new(
             MockRpcApi::new(&Endpoint::default().to_string()),
             store,
-            MockDataStore::default(),
+            MockStore::default(),
         )
         .unwrap();
 
@@ -401,7 +401,7 @@ mod tests {
         let mut client = MockClient::new(
             MockRpcApi::new(&Endpoint::default().to_string()),
             store,
-            MockDataStore::default(),
+            MockStore::default(),
         )
         .unwrap();
 

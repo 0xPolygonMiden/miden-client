@@ -29,7 +29,7 @@ pub enum SyncStatus {
 /// The number of bits to shift identifiers for in use of filters.
 pub const FILTER_ID_SHIFT: u8 = 48;
 
-impl<N: NodeRpcClient, S: Store> Client<N, S> {
+impl<N: NodeRpcClient, S: Store, E: Store> Client<N, S, E> {
     // SYNC STATE
     // --------------------------------------------------------------------------------------------
 

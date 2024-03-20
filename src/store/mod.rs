@@ -24,7 +24,7 @@ mod note_record;
 pub use note_record::{InputNoteRecord, NoteRecordDetails, NoteStatus, OutputNoteRecord};
 
 #[cfg(any(test, feature = "mock"))]
-pub mod mock_executor_data_store;
+pub mod mock_executor_store;
 
 // STORE TRAIT
 // ================================================================================================

@@ -54,9 +54,9 @@ pub enum Transaction {
 }
 
 impl Transaction {
-    pub async fn execute<N: NodeRpcClient, S: Store>(
+    pub async fn execute<N: NodeRpcClient, S: Store, E: Store>(
         &self,
-        mut client: Client<N, S>,
+        mut client: Client<N, S, E>,
     ) -> Result<(), String> {
         match self {
             Transaction::List => {
@@ -72,8 +72,8 @@ impl Transaction {
 
 // NEW TRANSACTION
 // ================================================================================================
-async fn new_transaction<N: NodeRpcClient, S: Store>(
-    client: &mut Client<N, S>,
+async fn new_transaction<N: NodeRpcClient, S: Store, E: Store>(
+    client: &mut Client<N, S, E>,
     transaction_type: &TransactionType,
 ) -> Result<(), String> {
     let transaction_template: TransactionTemplate =
@@ -92,8 +92,8 @@ async fn new_transaction<N: NodeRpcClient, S: Store>(
 ///
 /// For [TransactionTemplate::ConsumeNotes], it'll try to find the corresponding notes by using the
 /// provided IDs as prefixes
-fn build_transaction_template<N: NodeRpcClient, S: Store>(
-    client: &Client<N, S>,
+fn build_transaction_template<N: NodeRpcClient, S: Store, E: Store>(
+    client: &Client<N, S, E>,
     transaction_type: &TransactionType,
 ) -> Result<TransactionTemplate, String> {
     match transaction_type {
@@ -156,7 +156,9 @@ fn build_transaction_template<N: NodeRpcClient, S: Store>(
 
 // LIST TRANSACTIONS
 // ================================================================================================
-fn list_transactions<N: NodeRpcClient, S: Store>(client: Client<N, S>) -> Result<(), String> {
+fn list_transactions<N: NodeRpcClient, S: Store, E: Store>(
+    client: Client<N, S, E>
+) -> Result<(), String> {
     let transactions = client.get_transactions(TransactionFilter::All)?;
     print_transactions_summary(&transactions);
     Ok(())

@@ -6,7 +6,7 @@ use crate::{
     store::{InputNoteRecord, NoteFilter, Store},
 };
 
-impl<N: NodeRpcClient, S: Store> Client<N, S> {
+impl<N: NodeRpcClient, S: Store, E: Store> Client<N, S, E> {
     // INPUT NOTE DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 

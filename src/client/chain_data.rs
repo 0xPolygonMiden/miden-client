@@ -9,7 +9,7 @@ use crate::{
 };
 
 #[cfg(test)]
-impl<N: NodeRpcClient, S: Store> Client<N, S> {
+impl<N: NodeRpcClient, S: Store, E: Store> Client<N, S, E> {
     pub fn get_block_headers_in_range(
         &self,
         start: u32,

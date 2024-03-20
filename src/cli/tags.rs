@@ -18,9 +18,9 @@ pub enum TagsCmd {
 }
 
 impl TagsCmd {
-    pub async fn execute<N: NodeRpcClient, S: Store>(
+    pub async fn execute<N: NodeRpcClient, S: Store, E: Store>(
         &self,
-        client: Client<N, S>,
+        client: Client<N, S, E>,
     ) -> Result<(), String> {
         match self {
             TagsCmd::List => {
@@ -36,14 +36,14 @@ impl TagsCmd {
 
 // HELPERS
 // ================================================================================================
-fn list_tags<N: NodeRpcClient, S: Store>(client: Client<N, S>) -> Result<(), String> {
+fn list_tags<N: NodeRpcClient, S: Store, E: Store>(client: Client<N, S, E>) -> Result<(), String> {
     let tags = client.get_note_tags()?;
     println!("tags: {:?}", tags);
     Ok(())
 }
 
-fn add_tag<N: NodeRpcClient, S: Store>(
-    mut client: Client<N, S>,
+fn add_tag<N: NodeRpcClient, S: Store, E: Store>(
+    mut client: Client<N, S, E>,
     tag: u64,
 ) -> Result<(), String> {
     client.add_note_tag(tag)?;

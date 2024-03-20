@@ -78,9 +78,9 @@ pub enum AccountTemplate {
 }
 
 impl AccountCmd {
-    pub fn execute<N: NodeRpcClient, S: Store>(
+    pub fn execute<N: NodeRpcClient, S: Store, E: Store>(
         &self,
-        mut client: Client<N, S>,
+        mut client: Client<N, S, E>,
     ) -> Result<(), String> {
         match self {
             AccountCmd::List => {
@@ -137,7 +137,9 @@ impl AccountCmd {
 // LIST ACCOUNTS
 // ================================================================================================
 
-fn list_accounts<N: NodeRpcClient, S: Store>(client: Client<N, S>) -> Result<(), String> {
+fn list_accounts<N: NodeRpcClient, S: Store, E: Store>(
+    client: Client<N, S, E>
+) -> Result<(), String> {
     let accounts = client.get_accounts()?;
 
     let mut table = create_dynamic_table(&[
@@ -163,8 +165,8 @@ fn list_accounts<N: NodeRpcClient, S: Store>(client: Client<N, S>) -> Result<(),
     Ok(())
 }
 
-pub fn show_account<N: NodeRpcClient, S: Store>(
-    client: Client<N, S>,
+pub fn show_account<N: NodeRpcClient, S: Store, E: Store>(
+    client: Client<N, S, E>,
     account_id: AccountId,
     show_keys: bool,
     show_vault: bool,
@@ -302,8 +304,8 @@ pub fn show_account<N: NodeRpcClient, S: Store>(
 // IMPORT ACCOUNT
 // ================================================================================================
 
-fn import_account<N: NodeRpcClient, S: Store>(
-    client: &mut Client<N, S>,
+fn import_account<N: NodeRpcClient, S: Store, E: Store>(
+    client: &mut Client<N, S, E>,
     filename: &PathBuf,
 ) -> Result<(), String> {
     info!(

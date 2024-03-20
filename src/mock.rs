@@ -26,7 +26,7 @@ use miden_objects::{
 use rand::Rng;
 use tonic::{IntoRequest, Response, Status};
 
-pub use crate::store::mock_executor_data_store::MockDataStore;
+pub use crate::store::mock_executor_store::MockStore;
 #[cfg(test)]
 use crate::store::Store;
 use crate::{
@@ -40,7 +40,7 @@ use crate::{
     store::{sqlite_store::SqliteStore, AuthInfo},
 };
 
-pub type MockClient = Client<MockRpcApi, SqliteStore>;
+pub type MockClient = Client<MockRpcApi, SqliteStore, MockStore>;
 
 // MOCK CONSTS
 // ================================================================================================
@@ -471,13 +471,14 @@ pub fn mock_fungible_faucet_account(
 }
 
 #[cfg(test)]
-impl<N: NodeRpcClient, S: Store> Client<N, S> {
+impl<N: NodeRpcClient, S: Store, E: Store> Client<N, S, E> {
     /// Helper function to set a data store to conveniently mock data for tests
     pub fn set_data_store(
         &mut self,
-        data_store: MockDataStore,
+        store: E,
     ) {
-        self.set_tx_executor(miden_tx::TransactionExecutor::new(data_store));
+        use crate::store::data_store::ClientDataStore;
+        self.set_tx_executor(miden_tx::TransactionExecutor::new(ClientDataStore::new(store)));
     }
 }
 

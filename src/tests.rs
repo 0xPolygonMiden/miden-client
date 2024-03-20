@@ -16,7 +16,7 @@ use crate::{
     },
     mock::{
         get_account_with_default_account_code, mock_full_chain_mmr_and_notes,
-        mock_fungible_faucet_account, mock_notes, MockDataStore, ACCOUNT_ID_REGULAR,
+        mock_fungible_faucet_account, mock_notes, MockStore, ACCOUNT_ID_REGULAR,
     },
     store::{sqlite_store::tests::create_test_client, AuthInfo, InputNoteRecord, NoteFilter},
 };
@@ -364,7 +364,7 @@ async fn test_mint_transaction() {
         .store()
         .insert_account(&faucet, Some(FAUCET_SEED), &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
-    client.set_data_store(MockDataStore::new(faucet.clone(), None, Some(vec![])));
+    client.set_data_store(MockStore::new(faucet.clone(), None, Some(vec![])));
 
     // Test submitting a mint transaction
     let transaction_template = TransactionTemplate::MintFungibleAsset {

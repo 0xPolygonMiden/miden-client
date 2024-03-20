@@ -204,7 +204,7 @@ impl std::fmt::Display for TransactionStatus {
     }
 }
 
-impl<N: NodeRpcClient, S: Store> Client<N, S> {
+impl<N: NodeRpcClient, S: Store, E: Store> Client<N, S, E> {
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 

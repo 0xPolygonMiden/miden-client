@@ -11,9 +11,9 @@ use miden_client::client::rpc::TonicRpcClient;
 #[cfg(feature = "mock")]
 use miden_client::mock::MockClient;
 #[cfg(feature = "mock")]
-use miden_client::mock::MockDataStore;
-#[cfg(feature = "mock")]
 use miden_client::mock::MockRpcApi;
+#[cfg(feature = "mock")]
+use miden_client::mock::MockStore;
 use miden_client::{
     client::{rpc::NodeRpcClient, Client},
     config::ClientConfig,
@@ -84,7 +84,7 @@ impl Cli {
 
         #[cfg(feature = "mock")]
         let client: MockClient =
-            Client::new(MockRpcApi::new(&rpc_endpoint), store, MockDataStore::default())?;
+            Client::new(MockRpcApi::new(&rpc_endpoint), store, MockStore::default())?;
 
         // Execute cli command
         match &self.action {
@@ -140,8 +140,8 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
 /// `note_id_prefix` is a prefix of its id.
 /// - Returns [NoteIdPrefixFetchError::MultipleMatches] if there were more than one note found
 /// where `note_id_prefix` is a prefix of its id.
-pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, S: Store>(
-    client: &Client<N, S>,
+pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, S: Store, E: Store>(
+    client: &Client<N, S, E>,
     note_id_prefix: &str,
 ) -> Result<InputNoteRecord, NoteIdPrefixFetchError> {
     let input_note_records = client
