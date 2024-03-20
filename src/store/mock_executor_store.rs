@@ -6,7 +6,7 @@ use miden_lib::{
 };
 use miden_objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub, StorageSlotType},
-    assembly::{Library, LibraryPath, ModuleAst, ProgramAst},
+    assembly::{Library, LibraryPath, ProgramAst},
     assets::{AssetVault, FungibleAsset},
     crypto::{
         dsa::rpo_falcon512::KeyPair,
@@ -17,7 +17,6 @@ use miden_objects::{
     transaction::{ChainMmr, InputNote, InputNotes},
     BlockHeader, Digest, Felt, Word,
 };
-use miden_tx::{DataStore, DataStoreError, TransactionInputs};
 
 use super::{ChainMmrNodeFilter, InputNoteRecord, OutputNoteRecord, Store};
 use crate::{
@@ -262,91 +261,6 @@ impl Store for MockStore {
 
     fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
         todo!()
-    }
-}
-
-// MOCK DATA STORE
-// ================================================================================================
-
-#[derive(Clone)]
-pub struct MockDataStore {
-    pub account: Account,
-    pub account_seed: Option<Word>,
-    pub block_header: BlockHeader,
-    pub block_chain: ChainMmr,
-    pub input_notes: InputNotes,
-}
-
-impl MockDataStore {
-    pub fn new(
-        account: Account,
-        account_seed: Option<Word>,
-        input_notes: Option<Vec<InputNote>>,
-    ) -> Self {
-        let (mmr, _notes, headers, _) = mock_full_chain_mmr_and_notes(vec![]);
-        let partial_mmr_peaks = mmr.peaks(mmr.forest()).unwrap();
-        let mut partial_mmr = PartialMmr::from_peaks(partial_mmr_peaks);
-
-        for block in headers.iter() {
-            let merkle_path =
-                mmr.open(block.block_num() as usize, mmr.forest()).unwrap().merkle_path;
-            partial_mmr
-                .track(block.block_num() as usize, block.hash(), &merkle_path)
-                .unwrap();
-        }
-
-        Self {
-            account,
-            // NOTE: This last block header is ahead of the mocked chain MMR view in order to correctly build transaction inputs
-            block_header: BlockHeader::mock(
-                7,
-                Some(mmr.peaks(mmr.forest()).unwrap().hash_peaks()),
-                None,
-                &[],
-            ),
-            block_chain: ChainMmr::new(partial_mmr, headers).unwrap(),
-            input_notes: InputNotes::new(input_notes.unwrap_or_default()).unwrap(),
-            account_seed,
-        }
-    }
-}
-
-impl Default for MockDataStore {
-    fn default() -> Self {
-        let account = get_account_with_default_account_code(
-            ACCOUNT_ID_REGULAR.try_into().unwrap(),
-            Word::default(),
-            None,
-        );
-        Self::new(account, Some(Word::default()), None)
-    }
-}
-
-impl DataStore for MockDataStore {
-    /// NOTE: This method assumes the MockDataStore was created accordingly using `with_existing()`
-    fn get_transaction_inputs(
-        &self,
-        _account_id: AccountId,
-        _block_num: u32,
-        notes: &[NoteId],
-    ) -> Result<TransactionInputs, DataStoreError> {
-        let origins = self.input_notes.iter().map(|note| note.id()).collect::<Vec<_>>();
-        notes.iter().all(|note| origins.contains(note));
-        TransactionInputs::new(
-            self.account.clone(),
-            self.account_seed,
-            self.block_header,
-            self.block_chain.clone(),
-            self.input_notes.clone(),
-        )
-        .map_err(|err| DataStoreError::InternalError(err.to_string()))
-    }
-
-    fn get_account_code(
-        &self,
-        _account_id: AccountId,
-    ) -> Result<ModuleAst, DataStoreError> {
-        Ok(self.account.code().module().clone())
     }
 }
 
