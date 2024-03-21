@@ -26,9 +26,6 @@ use miden_objects::{
 use rand::Rng;
 use tonic::{IntoRequest, Response, Status};
 
-pub use crate::store::mock_executor_data_store::MockDataStore;
-#[cfg(test)]
-use crate::store::Store;
 use crate::{
     client::{
         rpc::{NodeRpcClient, NodeRpcClientEndpoint, StateSyncInfo},
@@ -470,16 +467,16 @@ pub fn mock_fungible_faucet_account(
     )
 }
 
-#[cfg(test)]
-impl<N: NodeRpcClient, S: Store> Client<N, S> {
-    /// Helper function to set a data store to conveniently mock data for tests
-    pub fn set_data_store(
-        &mut self,
-        data_store: MockDataStore,
-    ) {
-        self.set_tx_executor(miden_tx::TransactionExecutor::new(data_store));
-    }
-}
+// #[cfg(test)]
+// impl<N: NodeRpcClient, S: Store> Client<N, S> {
+//     /// Helper function to set a data store to conveniently mock data for tests
+//     pub fn set_data_store(
+//         &mut self,
+//         data_store: MockDataStore,
+//     ) {
+//         self.set_tx_executor(miden_tx::TransactionExecutor::new(data_store));
+//     }
+// }
 
 pub fn mock_notes(assembler: &Assembler) -> (Vec<Note>, Vec<Note>) {
     const ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_1: u64 =

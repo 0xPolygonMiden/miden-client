@@ -11,8 +11,6 @@ use miden_client::client::rpc::TonicRpcClient;
 #[cfg(feature = "mock")]
 use miden_client::mock::MockClient;
 #[cfg(feature = "mock")]
-use miden_client::mock::MockDataStore;
-#[cfg(feature = "mock")]
 use miden_client::mock::MockRpcApi;
 use miden_client::{
     client::{rpc::NodeRpcClient, Client},
@@ -73,18 +71,17 @@ impl Cli {
         let client_config = load_config(current_dir.as_path())?;
         let rpc_endpoint = client_config.rpc.endpoint.to_string();
         let store = SqliteStore::new((&client_config).into()).map_err(ClientError::StoreError)?;
+        let executor_store =
+            miden_client::store::sqlite_store::SqliteStore::new((&client_config).into())
+                .map_err(ClientError::StoreError)?;
 
         #[cfg(not(feature = "mock"))]
-        let client: Client<TonicRpcClient, SqliteStore> = {
-            let executor_store =
-                miden_client::store::sqlite_store::SqliteStore::new((&client_config).into())
-                    .map_err(ClientError::StoreError)?;
-            Client::new(TonicRpcClient::new(&rpc_endpoint), store, executor_store)?
-        };
+        let client: Client<TonicRpcClient, SqliteStore> =
+            Client::new(TonicRpcClient::new(&rpc_endpoint), store, executor_store)?;
 
         #[cfg(feature = "mock")]
         let client: MockClient =
-            Client::new(MockRpcApi::new(&rpc_endpoint), store, MockDataStore::default())?;
+            Client::new(MockRpcApi::new(&rpc_endpoint), store, executor_store)?;
 
         // Execute cli command
         match &self.action {

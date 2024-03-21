@@ -5,8 +5,8 @@ use miden_objects::{
     accounts::{AccountId, AccountStub},
     assembly::{AstSerdeOptions, ModuleAst},
     assets::{FungibleAsset, TokenSymbol},
-    crypto::dsa::rpo_falcon512::KeyPair,
-    Felt, FieldElement, Word,
+    crypto::{dsa::rpo_falcon512::KeyPair, merkle::MmrPeaks},
+    BlockHeader, Word,
 };
 
 use crate::{
@@ -16,7 +16,7 @@ use crate::{
     },
     mock::{
         get_account_with_default_account_code, mock_full_chain_mmr_and_notes,
-        mock_fungible_faucet_account, mock_notes, MockDataStore, ACCOUNT_ID_REGULAR,
+        mock_fungible_faucet_account, mock_notes, ACCOUNT_ID_REGULAR,
     },
     store::{sqlite_store::tests::create_test_client, AuthInfo, InputNoteRecord, NoteFilter},
 };
@@ -343,7 +343,6 @@ async fn test_add_tag() {
 #[tokio::test]
 async fn test_mint_transaction() {
     const FAUCET_ID: u64 = 10347894387879516201u64;
-    const FAUCET_SEED: Word = [Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::ZERO];
     const INITIAL_BALANCE: u64 = 1000;
 
     // generate test client with a random store name
@@ -362,9 +361,18 @@ async fn test_mint_transaction() {
 
     client
         .store()
-        .insert_account(&faucet, Some(FAUCET_SEED), &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&faucet, None, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
-    client.set_data_store(MockDataStore::new(faucet.clone(), None, Some(vec![])));
+
+    // Ensure genesis block is created
+    let blank_mmr_peaks =
+        MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks should not fail to instantiate");
+    // keep mmr peaks and block header chain root consistent
+    let genesis_block = BlockHeader::mock(0, Some(blank_mmr_peaks.hash_peaks()), None, &[]);
+    client
+        .store()
+        .insert_block_header(genesis_block, blank_mmr_peaks, false)
+        .unwrap();
 
     // Test submitting a mint transaction
     let transaction_template = TransactionTemplate::MintFungibleAsset {
