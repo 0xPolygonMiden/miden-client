@@ -164,7 +164,7 @@ async fn setup(client: &mut TestClient) -> (AccountStub, AccountStub, AccountStu
     )
 }
 
-async fn test_mint_note(
+async fn mint_note(
     client: &mut TestClient,
     first_regular_account_id: AccountId,
     faucet_account_id: AccountId,
@@ -221,7 +221,7 @@ async fn test_p2id_transfer() {
     let faucet_account_id = faucet_account_stub.id();
 
     // First Mint necesary token
-    test_mint_note(&mut client, from_account_id, faucet_account_id).await;
+    mint_note(&mut client, from_account_id, faucet_account_id).await;
     // Do a transfer from first account to second account
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
     let tx_template = TransactionTemplate::PayToId(PaymentTransactionData::new(
@@ -265,7 +265,7 @@ async fn test_p2id_transfer() {
         panic!("Error: Account should have a fungible asset");
     }
 
-    test_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].id()).await;
+    assert_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].id()).await;
 }
 
 // TODO: once [this issue](https://github.com/0xPolygonMiden/miden-client/issues/201#issuecomment-1989432215)
@@ -282,7 +282,7 @@ async fn test_p2idr_transfer() {
     let faucet_account_id = faucet_account_stub.id();
 
     // First Mint necesary token
-    test_mint_note(&mut client, from_account_id, faucet_account_id).await;
+    mint_note(&mut client, from_account_id, faucet_account_id).await;
     // Do a transfer from first account to second account with Recall. In this situation we'll do
     // the happy path where the `to_account_id` consumes the note
     let from_account_balance = client
@@ -341,10 +341,10 @@ async fn test_p2idr_transfer() {
         panic!("Error: Account should have a fungible asset");
     }
 
-    test_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].id()).await;
+    assert_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].id()).await;
 }
 
-async fn test_note_cannot_be_consumed_twice(
+async fn assert_note_cannot_be_consumed_twice(
     client: &mut TestClient,
     consuming_account_id: AccountId,
     note_to_consume_id: NoteId,
