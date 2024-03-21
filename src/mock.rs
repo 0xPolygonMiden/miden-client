@@ -467,17 +467,6 @@ pub fn mock_fungible_faucet_account(
     )
 }
 
-// #[cfg(test)]
-// impl<N: NodeRpcClient, S: Store> Client<N, S> {
-//     /// Helper function to set a data store to conveniently mock data for tests
-//     pub fn set_data_store(
-//         &mut self,
-//         data_store: MockDataStore,
-//     ) {
-//         self.set_tx_executor(miden_tx::TransactionExecutor::new(data_store));
-//     }
-// }
-
 pub fn mock_notes(assembler: &Assembler) -> (Vec<Note>, Vec<Note>) {
     const ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_1: u64 =
         0b1010010001111111010110100011011110101011010001101111110110111100u64;

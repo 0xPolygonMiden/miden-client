@@ -67,14 +67,6 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         &mut self.rpc_api
     }
 
-    // #[cfg(any(test, feature = "mock"))]
-    // pub fn set_tx_executor(
-    //     &mut self,
-    //     tx_executor: TransactionExecutor<MockDataStore>,
-    // ) {
-    //     self.tx_executor = tx_executor;
-    // }
-
     #[cfg(any(test, feature = "mock"))]
     pub fn store(&mut self) -> &mut S {
         &mut self.store
