@@ -12,6 +12,36 @@ mod output_note_record;
 pub use input_note_record::InputNoteRecord;
 pub use output_note_record::OutputNoteRecord;
 
+/// This module defines common structs to be used within the [Store](crate::store::Store) for notes
+/// that are available to be consumed ([InputNoteRecord]) and notes that have been produced as a
+/// result of executing a transaction ([OutputNoteRecord]).
+///
+/// # Features
+///
+/// ## Serialization / Deserialization
+///
+/// We provide serialization and deserialization support via [Serializable] and [Deserializable]
+/// traits implementations, and also via [Serialize] and [Deserialize] from `serde` to provide the
+/// ability to serialize most fields into JSON. This is useful for example if you want to store
+/// some fields as json columns like we do in
+/// [SqliteStore](crate::store::sqlite_store::SqliteStore). For example, suppose we want to store
+/// [InputNoteRecord]'s metadata field in a JSON column. In that case, we could do something like:
+///
+/// ```ignore
+/// fn insert_metadata_into_some_table(db: &mut Database, note: InputNoteRecord) {
+///     let note_metadata_json = serde_json::to_string(note.metadata()).unwrap();
+///
+///     db.execute("INSERT INTO notes_metadata (note_id, note_metadata) VALUES (?, ?)",
+///     note.id().to_hex(), note_metadata_json).unwrap()
+/// }
+/// ```
+///
+/// ## Type conversion
+///
+/// We also facilitate converting from/into [InputNote](miden_objects::transaction::InputNote) /
+/// [Note](miden_objects::notes::Note), although this is not always possible. Check both
+/// [InputNoteRecord]'s and [OutputNoteRecord]'s documentation for more details into this
+
 // NOTE STATUS
 // ================================================================================================
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]

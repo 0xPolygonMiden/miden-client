@@ -13,10 +13,14 @@ use crate::errors::ClientError;
 
 /// Represents a Note of which the [Store] can keep track and retrieve.
 ///
-/// An [InputNoteRecord] contains all the information of a [Note], in addition of (optionally)
-/// the [NoteInclusionProof] that identifies when the note was included in the chain. Once the
-/// proof is set, the [InputNoteRecord] can be transformed into an [InputNote] and used as input
-/// for transactions.
+/// An [InputNoteRecord] contains all the information of a [Note], in addition of (optionally) the
+/// [NoteInclusionProof] that identifies when the note was included in the chain.
+///
+/// Once the proof is set, the [InputNoteRecord] can be transformed into an [InputNote] and used as
+/// input for transactions.
+///
+/// It is also possible to convert [Note] and [InputNote] into [InputNoteRecord] (we fill the
+/// `metadata` and `inclusion_proof` fields if possible)
 #[derive(Clone, Debug, PartialEq)]
 pub struct InputNoteRecord {
     assets: NoteAssets,
