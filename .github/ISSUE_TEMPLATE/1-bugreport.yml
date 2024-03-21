@@ -1,0 +1,46 @@
+name: "Bug Report"
+description: "File a bug report"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to fill out this bug report!
+   - type: input
+    id: version
+    attributes:
+      label: "Version"
+      description: "Which client version are you running?"
+      placeholder: "v0.1.0"
+    validations:
+      required: true
+  - type: textarea
+    id: other-versions
+    attributes:
+      label: "Packages versions"
+      description: "Let us know the versions of other packages used. For example, which version of the node are you using when reproducing this bug?"
+      placeholder: "miden-node: 0.1.0"
+    validations:
+      required: true
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: "Bug description"
+      description: "Describe the behavior you are experiencing."
+      placeholder: "Tell us what happened and what should have happened."
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce-steps
+    attributes:
+      label: "How can this be reproduced?"
+      description: "If possible, describe how to replicate the unexpected behavior that you see."
+      placeholder: "Steps!"
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Please copy and paste any relevant log output. This is automatically formatted as code, no need for backticks.
+      render: shell
