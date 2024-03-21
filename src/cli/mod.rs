@@ -6,14 +6,11 @@ use figment::{
     providers::{Format, Toml},
     Figment,
 };
-#[cfg(not(feature = "mock"))]
-use miden_client::client::rpc::TonicRpcClient;
-#[cfg(feature = "mock")]
-use miden_client::mock::MockClient;
-#[cfg(feature = "mock")]
-use miden_client::mock::MockRpcApi;
 use miden_client::{
-    client::{rpc::NodeRpcClient, Client},
+    client::{
+        rpc::{NodeRpcClient, TonicRpcClient},
+        Client,
+    },
     config::ClientConfig,
     errors::{ClientError, NoteIdPrefixFetchError},
     store::{sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
@@ -69,13 +66,8 @@ impl Cli {
             miden_client::store::sqlite_store::SqliteStore::new((&client_config).into())
                 .map_err(ClientError::StoreError)?;
 
-        #[cfg(not(feature = "mock"))]
         let client: Client<TonicRpcClient, SqliteStore> =
             Client::new(TonicRpcClient::new(&rpc_endpoint), store, executor_store)?;
-
-        #[cfg(feature = "mock")]
-        let client: MockClient =
-            Client::new(MockRpcApi::new(&rpc_endpoint), store, executor_store)?;
 
         // Execute cli command
         match &self.action {
