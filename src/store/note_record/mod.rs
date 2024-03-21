@@ -59,12 +59,12 @@ impl Deserializable for NoteStatus {
     }
 }
 
-fn dummy_script() -> NoteScript {
+fn default_script() -> NoteScript {
     let assembler = Assembler::default();
     let note_program_ast =
         ProgramAst::parse("begin end").expect("dummy script should be parseable");
     let (note_script, _) = NoteScript::new(note_program_ast, &assembler)
-        .expect("dummy not script should be created without issues");
+        .expect("dummy note script should be created without issues");
     note_script
 }
 
@@ -72,7 +72,7 @@ fn dummy_script() -> NoteScript {
 pub struct NoteRecordDetails {
     nullifier: String,
     script_hash: Digest,
-    #[serde(skip_serializing, skip_deserializing, default = "dummy_script")]
+    #[serde(skip_serializing, skip_deserializing, default = "default_script")]
     script: NoteScript,
     inputs: Vec<u8>,
     serial_num: Word,
