@@ -53,12 +53,6 @@ pub enum Command {
     #[clap(subcommand, name = "tx")]
     #[clap(visible_alias = "transaction")]
     Transaction(transactions::Transaction),
-    #[cfg(feature = "mock")]
-    /// Insert mock data into the client. This is optional because it takes a few seconds
-    MockData {
-        #[clap(short, long)]
-        transaction: bool,
-    },
 }
 
 /// CLI entry point
@@ -91,15 +85,6 @@ impl Cli {
             Command::Sync => sync::sync_state(client).await,
             Command::Tags(tags) => tags.execute(client).await,
             Command::Transaction(transaction) => transaction.execute(client).await,
-            #[cfg(feature = "mock")]
-            Command::MockData { transaction } => {
-                let mut client = client;
-                miden_client::mock::insert_mock_data(&mut client).await;
-                if *transaction {
-                    miden_client::mock::create_mock_transaction(&mut client).await;
-                }
-                Ok(())
-            },
         }
     }
 }
