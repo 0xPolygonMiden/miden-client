@@ -62,12 +62,12 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         })
     }
 
-    #[cfg(any(test, feature = "mock"))]
+    #[cfg(any(test, feature = "test_utils"))]
     pub fn rpc_api(&mut self) -> &mut N {
         &mut self.rpc_api
     }
 
-    #[cfg(any(test, feature = "mock"))]
+    #[cfg(any(test, feature = "test_utils"))]
     pub fn store(&mut self) -> &mut S {
         &mut self.store
     }
