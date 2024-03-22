@@ -63,7 +63,9 @@ pub fn check_consumption(
     match script_hash_str.as_str() {
         P2ID_NOTE_SCRIPT_ROOT if note_inputs == send_asset_inputs => NoteRelevance::Always,
         P2IDR_NOTE_SCRIPT_ROOT
-            if note_inputs.first() == send_asset_inputs.first() && note_inputs.len() > 1 =>
+            if (note.metadata().sender() == account_id
+                || note_inputs.first() == send_asset_inputs.first())
+                && note_inputs.len() == 2 =>
         {
             NoteRelevance::After(note_inputs[1].as_int() as u32)
         },
