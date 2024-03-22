@@ -1,9 +1,13 @@
 # Changelog
 
-* Adds support for P2IDR (Pay To ID with Recall) transactions on both the CLI
-  and the lib.
 * Add `note_consumption_checker` module with functions to detect notes
   consumable by a client / an account (via heuristics).
+* Removed `MockDataStore` and replaced usage in affected tests for loading mock
+  data on the DB.
+* Removed the `mock-data` command from the CLI
+* Removed `MockClient` altogether from the CLI
+* Adds support for P2IDR (Pay To ID with Recall) transactions on both the CLI
+  and the lib.
 
 ## 0.1.0 (2024-03-15)
 
