@@ -455,11 +455,8 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
 
         self.submit_proven_transaction_request(proven_transaction.clone()).await?;
 
-        let relevant_created_notes = filter_created_notes_to_track(
-            &mut self.store,
-            &mut self.tx_executor,
-            tx_result.created_notes(),
-        )?;
+        let relevant_created_notes =
+            filter_created_notes_to_track(&mut self.store, tx_result.created_notes())?;
         let mut tx_result = tx_result;
         tx_result.set_relevant_notes(&relevant_created_notes);
 
