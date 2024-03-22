@@ -5,8 +5,8 @@ use miden_objects::{
     accounts::{AccountId, AccountStub},
     assembly::{AstSerdeOptions, ModuleAst},
     assets::{FungibleAsset, TokenSymbol},
-    crypto::{dsa::rpo_falcon512::KeyPair, merkle::MmrPeaks},
-    BlockHeader, Word,
+    crypto::dsa::rpo_falcon512::KeyPair,
+    Word,
 };
 
 use crate::{
@@ -364,15 +364,7 @@ async fn test_mint_transaction() {
         .insert_account(&faucet, None, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
-    // Ensure genesis block is created
-    let blank_mmr_peaks =
-        MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks should not fail to instantiate");
-    // keep mmr peaks and block header chain root consistent
-    let genesis_block = BlockHeader::mock(0, Some(blank_mmr_peaks.hash_peaks()), None, &[]);
-    client
-        .store()
-        .insert_block_header(genesis_block, blank_mmr_peaks, false)
-        .unwrap();
+    client.sync_state().await.unwrap();
 
     // Test submitting a mint transaction
     let transaction_template = TransactionTemplate::MintFungibleAsset {
