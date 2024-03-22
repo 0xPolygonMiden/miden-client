@@ -253,6 +253,12 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
 
     /// Creates and executes a transaction specified by the template, but does not change the
     /// local database.
+    ///
+    /// # Errors
+    ///
+    /// - Returns [ClientError::OutputNotesDoNotMatch] if the [TransactionRequest] ouput notes do
+    /// not match the executor's output notes
+    /// - Returns a [ClientError::TransactionExecutionError]
     pub fn new_transaction(
         &mut self,
         transaction_request: TransactionRequest,
