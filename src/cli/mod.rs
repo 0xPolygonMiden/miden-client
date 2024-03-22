@@ -6,16 +6,11 @@ use figment::{
     providers::{Format, Toml},
     Figment,
 };
-#[cfg(not(feature = "mock"))]
-use miden_client::client::rpc::TonicRpcClient;
-#[cfg(feature = "mock")]
-use miden_client::mock::MockClient;
-#[cfg(feature = "mock")]
-use miden_client::mock::MockDataStore;
-#[cfg(feature = "mock")]
-use miden_client::mock::MockRpcApi;
 use miden_client::{
-    client::{rpc::NodeRpcClient, Client},
+    client::{
+        rpc::{NodeRpcClient, TonicRpcClient},
+        Client,
+    },
     config::ClientConfig,
     errors::{ClientError, NoteIdPrefixFetchError},
     store::{sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
@@ -55,12 +50,6 @@ pub enum Command {
     #[clap(subcommand, name = "tx")]
     #[clap(visible_alias = "transaction")]
     Transaction(transactions::Transaction),
-    #[cfg(feature = "mock")]
-    /// Insert mock data into the client. This is optional because it takes a few seconds
-    MockData {
-        #[clap(short, long)]
-        transaction: bool,
-    },
 }
 
 /// CLI entry point
@@ -73,18 +62,12 @@ impl Cli {
         let client_config = load_config(current_dir.as_path())?;
         let rpc_endpoint = client_config.rpc.endpoint.to_string();
         let store = SqliteStore::new((&client_config).into()).map_err(ClientError::StoreError)?;
+        let executor_store =
+            miden_client::store::sqlite_store::SqliteStore::new((&client_config).into())
+                .map_err(ClientError::StoreError)?;
 
-        #[cfg(not(feature = "mock"))]
-        let client: Client<TonicRpcClient, SqliteStore> = {
-            let executor_store =
-                miden_client::store::sqlite_store::SqliteStore::new((&client_config).into())
-                    .map_err(ClientError::StoreError)?;
-            Client::new(TonicRpcClient::new(&rpc_endpoint), store, executor_store)?
-        };
-
-        #[cfg(feature = "mock")]
-        let client: MockClient =
-            Client::new(MockRpcApi::new(&rpc_endpoint), store, MockDataStore::default())?;
+        let client: Client<TonicRpcClient, SqliteStore> =
+            Client::new(TonicRpcClient::new(&rpc_endpoint), store, executor_store)?;
 
         // Execute cli command
         match &self.action {
@@ -94,15 +77,6 @@ impl Cli {
             Command::Sync => sync::sync_state(client).await,
             Command::Tags(tags) => tags.execute(client).await,
             Command::Transaction(transaction) => transaction.execute(client).await,
-            #[cfg(feature = "mock")]
-            Command::MockData { transaction } => {
-                let mut client = client;
-                miden_client::mock::insert_mock_data(&mut client).await;
-                if *transaction {
-                    miden_client::mock::create_mock_transaction(&mut client).await;
-                }
-                Ok(())
-            },
         }
     }
 }

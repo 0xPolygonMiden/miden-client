@@ -270,7 +270,7 @@ pub mod tests {
     use super::{migrations, SqliteStore};
     use crate::{
         config::{ClientConfig, RpcConfig},
-        mock::{MockClient, MockDataStore, MockRpcApi},
+        mock::{MockClient, MockRpcApi},
     };
 
     pub fn create_test_client() -> MockClient {
@@ -286,8 +286,9 @@ pub mod tests {
 
         let rpc_endpoint = client_config.rpc.endpoint.to_string();
         let store = SqliteStore::new((&client_config).into()).unwrap();
+        let executor_store = SqliteStore::new((&client_config).into()).unwrap();
 
-        MockClient::new(MockRpcApi::new(&rpc_endpoint), store, MockDataStore::default()).unwrap()
+        MockClient::new(MockRpcApi::new(&rpc_endpoint), store, executor_store).unwrap()
     }
 
     pub(crate) fn create_test_store_path() -> std::path::PathBuf {
