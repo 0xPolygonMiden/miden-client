@@ -2,7 +2,7 @@ use miden_objects::{
     accounts::{Account, AccountId},
     assembly::{AstSerdeOptions, ProgramAst},
     crypto::utils::{Deserializable, Serializable},
-    transaction::{OutputNote, OutputNotes, TransactionId, TransactionScript},
+    transaction::{OutputNote, OutputNotes, ToNullifier, TransactionId, TransactionScript},
     utils::collections::BTreeMap,
     Digest, Felt,
 };
@@ -212,8 +212,11 @@ pub(super) fn serialize_transaction_data(
     let final_account_state = &executed_transaction.final_account().hash().to_string();
 
     // TODO: Double check if saving nullifiers as input notes is enough
-    let nullifiers: Vec<Digest> =
-        executed_transaction.input_notes().iter().map(|x| x.id().inner()).collect();
+    let nullifiers: Vec<Digest> = executed_transaction
+        .input_notes()
+        .iter()
+        .map(|x| x.nullifier().inner())
+        .collect();
 
     let input_notes =
         serde_json::to_string(&nullifiers).map_err(StoreError::InputSerializationError)?;

@@ -206,6 +206,49 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
                     random_coin,
                 )?;
 
+        self.execute_send_note_tx(
+            fungible_asset,
+            sender_account_id,
+            target_account_id,
+            created_note,
+        )
+    }
+
+    fn new_p2idr_transaction(
+        &mut self,
+        fungible_asset: Asset,
+        sender_account_id: AccountId,
+        target_account_id: AccountId,
+        recall_height: u32,
+    ) -> Result<TransactionResult, ClientError> {
+        let random_coin = self.get_random_coin();
+
+        let created_note = create_p2idr_note(
+            sender_account_id,
+            target_account_id,
+            vec![fungible_asset],
+            recall_height,
+            random_coin,
+        )?;
+
+        self.execute_send_note_tx(
+            fungible_asset,
+            sender_account_id,
+            target_account_id,
+            created_note,
+        )
+    }
+
+    fn execute_send_note_tx(
+        &mut self,
+        fungible_asset: Asset,
+        sender_account_id: AccountId,
+        target_account_id: AccountId,
+        tx_output_note: Note,
+    ) -> Result<TransactionResult, ClientError> {
+        self.tx_executor.load_account(sender_account_id)?;
+
+        let block_ref = self.get_sync_height()?;
                 let _account_auth = self.store.get_account_auth(payment_data.account_id())?;
 
                 let recipient = created_note

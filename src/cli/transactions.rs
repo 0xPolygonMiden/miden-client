@@ -32,7 +32,13 @@ pub enum TransactionType {
         amount: u64,
     },
     /// Create a Pay To ID with Recall transaction.
-    P2IDR,
+    P2IDR {
+        sender_account_id: String,
+        target_account_id: String,
+        faucet_id: String,
+        amount: u64,
+        recall_height: u32,
+    },
     /// Consume with the account corresponding to `account_id` all of the notes from `list_of_notes`.
     ConsumeNotes {
         account_id: String,
@@ -119,8 +125,24 @@ fn build_transaction_template<N: NodeRpcClient, S: Store>(
 
             Ok(TransactionTemplate::PayToId(payment_transaction))
         },
-        TransactionType::P2IDR => {
-            todo!()
+        TransactionType::P2IDR {
+            sender_account_id,
+            target_account_id,
+            faucet_id,
+            amount,
+            recall_height,
+        } => {
+            let faucet_id = AccountId::from_hex(faucet_id).map_err(|err| err.to_string())?;
+            let fungible_asset =
+                FungibleAsset::new(faucet_id, *amount).map_err(|err| err.to_string())?.into();
+            let sender_account_id =
+                AccountId::from_hex(sender_account_id).map_err(|err| err.to_string())?;
+            let target_account_id =
+                AccountId::from_hex(target_account_id).map_err(|err| err.to_string())?;
+            let payment_transaction =
+                PaymentTransactionData::new(fungible_asset, sender_account_id, target_account_id);
+
+            Ok(TransactionTemplate::PayToIdWithRecall(payment_transaction, *recall_height))
         },
         TransactionType::Mint {
             faucet_id,
