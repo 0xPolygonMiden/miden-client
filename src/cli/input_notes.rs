@@ -12,7 +12,7 @@ use miden_client::{
 };
 use miden_objects::{
     crypto::rand::FeltRng,
-    notes::{NoteId, NoteInputs, NoteScript},
+    notes::{NoteId, NoteInputs},
     Digest,
 };
 use miden_tx::utils::{Deserializable, Serializable};
@@ -196,8 +196,7 @@ fn show_input_note<N: NodeRpcClient, R: FeltRng, S: Store>(
 
     // print note script
     if show_script {
-        let script = NoteScript::read_from_bytes(input_note_record.details().script())
-            .map_err(|err| format!("Failed to parse the note record's program AST: {}", err))?;
+        let script = input_note_record.details().script();
 
         table
             .add_row(vec![
@@ -265,8 +264,7 @@ where
             .map(|proof| proof.origin().block_num.to_string())
             .unwrap_or("-".to_string());
 
-        let script = NoteScript::read_from_bytes(input_note_record.details().script())
-            .map_err(|err| format!("Failed to parse the note record's program AST: {}", err))?;
+        let script = input_note_record.details().script();
 
         let inputs = NoteInputs::read_from_bytes(input_note_record.details().inputs())
             .map_err(|err| format!("Failed to parse the note record's inputs: {}", err))?;
