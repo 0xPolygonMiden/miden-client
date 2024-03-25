@@ -8,6 +8,7 @@ use figment::{
 };
 use miden_client::{
     client::{
+        get_random_coin,
         rpc::{NodeRpcClient, TonicRpcClient},
         Client,
     },
@@ -15,6 +16,9 @@ use miden_client::{
     errors::{ClientError, NoteIdPrefixFetchError},
     store::{sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
 };
+use miden_objects::crypto::rand::FeltRng;
+#[cfg(not(feature = "mock"))]
+use miden_objects::crypto::rand::RpoRandomCoin;
 
 mod account;
 mod info;
@@ -62,12 +66,13 @@ impl Cli {
         let client_config = load_config(current_dir.as_path())?;
         let rpc_endpoint = client_config.rpc.endpoint.to_string();
         let store = SqliteStore::new((&client_config).into()).map_err(ClientError::StoreError)?;
+        let rng = get_random_coin();
         let executor_store =
             miden_client::store::sqlite_store::SqliteStore::new((&client_config).into())
                 .map_err(ClientError::StoreError)?;
 
-        let client: Client<TonicRpcClient, SqliteStore> =
-            Client::new(TonicRpcClient::new(&rpc_endpoint), store, executor_store)?;
+        let client: Client<TonicRpcClient, RpoRandomCoin, SqliteStore> =
+            Client::new(TonicRpcClient::new(&rpc_endpoint), rng, store, executor_store)?;
 
         // Execute cli command
         match &self.action {
@@ -114,8 +119,8 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
 /// `note_id_prefix` is a prefix of its id.
 /// - Returns [NoteIdPrefixFetchError::MultipleMatches] if there were more than one note found
 /// where `note_id_prefix` is a prefix of its id.
-pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, S: Store>(
-    client: &Client<N, S>,
+pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>(
+    client: &Client<N, R, S>,
     note_id_prefix: &str,
 ) -> Result<InputNoteRecord, NoteIdPrefixFetchError> {
     let input_note_records = client

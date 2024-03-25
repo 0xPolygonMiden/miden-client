@@ -3,7 +3,7 @@ use miden_objects::{
     accounts::{AccountDelta, AccountId},
     assembly::ProgramAst,
     assets::{Asset, FungibleAsset},
-    crypto::rand::RpoRandomCoin,
+    crypto::rand::FeltRng,
     notes::{Note, NoteId},
     transaction::{
         ExecutedTransaction, OutputNote, OutputNotes, ProvenTransaction, TransactionArgs,
@@ -12,10 +12,9 @@ use miden_objects::{
     Digest, Felt, Word,
 };
 use miden_tx::{utils::Serializable, ProvingOptions, TransactionProver};
-use rand::Rng;
 use tracing::info;
 
-use super::{rpc::NodeRpcClient, Client};
+use super::{get_random_coin, rpc::NodeRpcClient, Client};
 use crate::{
     errors::ClientError,
     store::{AuthInfo, Store, TransactionFilter},
@@ -204,7 +203,7 @@ impl std::fmt::Display for TransactionStatus {
     }
 }
 
-impl<N: NodeRpcClient, S: Store> Client<N, S> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
@@ -286,7 +285,7 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         self.tx_executor.load_account(faucet_id)?;
 
         let block_ref = self.get_sync_height()?;
-        let random_coin = self.get_random_coin();
+        let random_coin = get_random_coin();
 
         let created_note = create_p2id_note(faucet_id, target_id, vec![asset.into()], random_coin)?;
 
@@ -314,7 +313,7 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         sender_account_id: AccountId,
         target_account_id: AccountId,
     ) -> Result<TransactionResult, ClientError> {
-        let random_coin = self.get_random_coin();
+        let random_coin = get_random_coin();
 
         let created_note = create_p2id_note(
             sender_account_id,
@@ -338,7 +337,7 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         target_account_id: AccountId,
         recall_height: u32,
     ) -> Result<TransactionResult, ClientError> {
-        let random_coin = self.get_random_coin();
+        let random_coin = get_random_coin();
 
         let created_note = create_p2idr_note(
             sender_account_id,
@@ -448,18 +447,6 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         proven_transaction: ProvenTransaction,
     ) -> Result<(), ClientError> {
         Ok(self.rpc_api.submit_proven_transaction(proven_transaction).await?)
-    }
-
-    // HELPERS
-    // --------------------------------------------------------------------------------------------
-
-    /// Gets [RpoRandomCoin] from the client
-    fn get_random_coin(&self) -> RpoRandomCoin {
-        // TODO: Initialize coin status once along with the client and persist status for retrieval
-        let mut rng = rand::thread_rng();
-        let coin_seed: [u64; 4] = rng.gen();
-
-        RpoRandomCoin::new(coin_seed.map(Felt::new))
     }
 }
 

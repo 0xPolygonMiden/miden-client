@@ -1,3 +1,4 @@
+use miden_objects::crypto::rand::FeltRng;
 #[cfg(test)]
 use miden_objects::BlockHeader;
 
@@ -9,7 +10,7 @@ use crate::{
 };
 
 #[cfg(test)]
-impl<N: NodeRpcClient, S: Store> Client<N, S> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     pub fn get_block_headers_in_range(
         &self,
         start: u32,

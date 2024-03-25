@@ -11,6 +11,7 @@ use miden_client::{
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
 };
 use miden_objects::{
+    crypto::rand::FeltRng,
     notes::{NoteId, NoteInputs},
     Digest,
 };
@@ -79,9 +80,9 @@ pub enum InputNotes {
 }
 
 impl InputNotes {
-    pub fn execute<N: NodeRpcClient, S: Store>(
+    pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store>(
         &self,
-        mut client: Client<N, S>,
+        mut client: Client<N, R, S>,
     ) -> Result<(), String> {
         match self {
             InputNotes::List { filter } => {
@@ -117,8 +118,8 @@ impl InputNotes {
 
 // LIST INPUT NOTES
 // ================================================================================================
-fn list_input_notes<N: NodeRpcClient, S: Store>(
-    client: Client<N, S>,
+fn list_input_notes<N: NodeRpcClient, R: FeltRng, S: Store>(
+    client: Client<N, R, S>,
     filter: ClientNoteFilter,
 ) -> Result<(), String> {
     let notes = client.get_input_notes(filter)?;
@@ -128,8 +129,8 @@ fn list_input_notes<N: NodeRpcClient, S: Store>(
 
 // EXPORT INPUT NOTE
 // ================================================================================================
-pub fn export_note<N: NodeRpcClient, S: Store>(
-    client: &Client<N, S>,
+pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store>(
+    client: &Client<N, R, S>,
     note_id: &str,
     filename: Option<PathBuf>,
 ) -> Result<File, String> {
@@ -153,8 +154,8 @@ pub fn export_note<N: NodeRpcClient, S: Store>(
 
 // IMPORT INPUT NOTE
 // ================================================================================================
-pub fn import_note<N: NodeRpcClient, S: Store>(
-    client: &mut Client<N, S>,
+pub fn import_note<N: NodeRpcClient, R: FeltRng, S: Store>(
+    client: &mut Client<N, R, S>,
     filename: PathBuf,
 ) -> Result<NoteId, String> {
     let mut contents = vec![];
@@ -175,8 +176,8 @@ pub fn import_note<N: NodeRpcClient, S: Store>(
 
 // SHOW INPUT NOTE
 // ================================================================================================
-fn show_input_note<N: NodeRpcClient, S: Store>(
-    client: Client<N, S>,
+fn show_input_note<N: NodeRpcClient, R: FeltRng, S: Store>(
+    client: Client<N, R, S>,
     note_id: String,
     show_script: bool,
     show_vault: bool,
@@ -291,6 +292,7 @@ mod tests {
     use std::env::temp_dir;
 
     use miden_client::{
+        client::get_random_coin,
         config::{ClientConfig, Endpoint},
         errors::NoteIdPrefixFetchError,
         mock::{mock_full_chain_mmr_and_notes, mock_notes, MockClient, MockRpcApi},
@@ -315,10 +317,12 @@ mod tests {
         );
 
         let store = SqliteStore::new((&client_config).into()).unwrap();
+        let rng = get_random_coin();
         let executor_store = SqliteStore::new((&client_config).into()).unwrap();
 
         let mut client = MockClient::new(
             MockRpcApi::new(&Endpoint::default().to_string()),
+            rng,
             store,
             executor_store,
         )
@@ -369,6 +373,7 @@ mod tests {
 
         let mut client = MockClient::new(
             MockRpcApi::new(&Endpoint::default().to_string()),
+            rng,
             store,
             executor_store,
         )
@@ -397,10 +402,12 @@ mod tests {
         );
 
         let store = SqliteStore::new((&client_config).into()).unwrap();
+        let rng = get_random_coin();
         let executor_store = SqliteStore::new((&client_config).into()).unwrap();
 
         let mut client = MockClient::new(
             MockRpcApi::new(&Endpoint::default().to_string()),
+            rng,
             store,
             executor_store,
         )

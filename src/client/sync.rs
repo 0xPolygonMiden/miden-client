@@ -1,7 +1,7 @@
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
     accounts::{AccountId, AccountStub},
-    crypto,
+    crypto::{self, rand::FeltRng},
     notes::{NoteId, NoteInclusionProof},
     transaction::TransactionId,
     BlockHeader, Digest,
@@ -29,7 +29,7 @@ pub enum SyncStatus {
 /// The number of bits to shift identifiers for in use of filters.
 pub const FILTER_ID_SHIFT: u8 = 48;
 
-impl<N: NodeRpcClient, S: Store> Client<N, S> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     // SYNC STATE
     // --------------------------------------------------------------------------------------------
 
