@@ -160,14 +160,3 @@ impl PaymentTransactionData {
         self.asset
     }
 }
-
-#[cfg(test)]
-mod tests {
-
-    
-    
-    
-
-    
-    
-}
