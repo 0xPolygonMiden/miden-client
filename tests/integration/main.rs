@@ -1,23 +1,30 @@
-use std::{env::temp_dir, fs, time::Duration};
+use std::{collections::BTreeMap, env::temp_dir, fs, time::Duration};
 
 use miden_client::{
     client::{
         accounts::{AccountStorageMode, AccountTemplate},
         rpc::TonicRpcClient,
-        transactions::transaction_request::{PaymentTransactionData, TransactionTemplate},
+        transactions::transaction_request::{
+            PaymentTransactionData, TransactionRequest, TransactionTemplate,
+        },
         Client,
     },
     config::{ClientConfig, RpcConfig},
     errors::{ClientError, NodeRpcClientError},
-    store::{sqlite_store::SqliteStore, InputNoteRecord, NoteFilter, TransactionFilter},
+    store::{sqlite_store::SqliteStore, AuthInfo, InputNoteRecord, NoteFilter, TransactionFilter},
 };
+use miden_lib::notes::create_p2id_note;
 use miden_objects::{
     accounts::{AccountData, AccountId, AccountStub},
+    assembly::ProgramAst,
     assets::{Asset, FungibleAsset},
-    notes::NoteId,
+    crypto::rand::RpoRandomCoin,
+    notes::{Note, NoteId, NoteMetadata},
+    transaction::TransactionScript,
     utils::serde::Deserializable,
+    Felt, Word,
 };
-use miden_tx::{DataStoreError, TransactionExecutorError};
+use miden_tx::{utils::Serializable, DataStoreError, TransactionExecutorError};
 use uuid::Uuid;
 
 type TestClient = Client<TonicRpcClient, SqliteStore>;
@@ -100,6 +107,10 @@ async fn main() {
 
     let (first_regular_account, second_regular_account, faucet_account_stub) =
         setup(&mut client).await;
+
+    println!("BEGIN TX REQUEST");
+    test_transaction_request().await;
+    println!("END TX REQUEST");
 
     let first_regular_account_id = first_regular_account.id();
     let second_regular_account_id = second_regular_account.id();
@@ -367,4 +378,63 @@ async fn test_note_cannot_be_consumed_twice(
         Ok(_) => panic!("Double-spend error: Note should not be consumable!"),
         _ => panic!("Unexpected error: {}", note_to_consume_id.to_hex()),
     }
+}
+
+async fn test_transaction_request() {
+    let mut client = create_test_client();
+    println!("Importing Accounts...");
+    for account_idx in 0..2 {
+        let account_data_file_contents =
+            fs::read(format!("./miden-node/accounts/account{}.mac", account_idx)).unwrap();
+        let account_data = AccountData::read_from_bytes(&account_data_file_contents).unwrap();
+        client.import_account(account_data).unwrap();
+    }
+    let account_template = AccountTemplate::BasicWallet {
+        mutable_code: false,
+        storage_mode: AccountStorageMode::Local,
+    };
+
+    // Insert Account
+    let (account, _seed) = client.new_account(account_template).unwrap();
+    client.sync_state().await.unwrap();
+
+    // Prepare transaction
+    let committed_notes = client.get_input_notes(NoteFilter::Committed).unwrap();
+
+    let note_args = [[Felt::new(92), Felt::new(92), Felt::new(92), Felt::new(92)]];
+
+    let note_args_map = BTreeMap::from([(committed_notes[0].id(), Some(note_args[0]))]);
+
+    let code = "
+        use.miden::contracts::auth::basic->auth_tx
+        use.miden::kernels::tx::prologue
+        use.miden::tx
+
+        begin
+            call.auth_tx::auth_tx_rpo_falcon512
+        end
+        ";
+
+    let program = ProgramAst::parse(code).unwrap();
+
+    let tx_script = {
+        let account_auth = client.get_account_auth(account.id()).unwrap();
+        let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
+            AuthInfo::RpoFalcon512(key) => (
+                key.public_key().into(),
+                key.to_bytes().iter().map(|a| Felt::new(*a as u64)).collect::<Vec<Felt>>(),
+            ),
+        };
+
+        let script_inputs = vec![(pubkey_input, advice_map)];
+        client.compile_tx_script(program, script_inputs, vec![]).unwrap()
+    };
+
+    let transaction_request =
+        TransactionRequest::new(account.id(), note_args_map, vec![], Some(tx_script));
+
+    let execution = client.new_transaction(transaction_request);
+    execution.unwrap();
+
+    client.sync_state().await.unwrap();
 }

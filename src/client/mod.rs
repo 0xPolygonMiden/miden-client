@@ -1,4 +1,3 @@
-
 use miden_tx::TransactionExecutor;
 
 use crate::{errors::ClientError, store::Store};
@@ -31,7 +30,7 @@ pub struct Client<N: NodeRpcClient, S: Store> {
     store: S,
     /// An instance of [NodeRpcClient] which provides a way for the client to connect to the Miden node.
     rpc_api: N,
-    tx_executor: TransactionExecutor<ClientDataStore<S>>,
+    pub tx_executor: TransactionExecutor<ClientDataStore<S>>,
 }
 
 impl<N: NodeRpcClient, S: Store> Client<N, S> {

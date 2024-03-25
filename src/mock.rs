@@ -179,8 +179,6 @@ fn create_mock_sync_state_request_for_account_and_notes(
                 mocked_tracked_headers[1],
             ];
 
-            dbg!(all_mocked_block_headers[0].hash());
-
             let mut mmr = Mmr::default();
             let mut mocked_mmr_deltas = vec![];
 

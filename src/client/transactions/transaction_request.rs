@@ -163,108 +163,11 @@ impl PaymentTransactionData {
 
 #[cfg(test)]
 mod tests {
+
+    
+    
     
 
-    use miden_lib::transaction::TransactionKernel;
-    use miden_objects::{
-        assembly::ProgramAst, utils::collections::BTreeMap, Felt,
-        Word,
-    };
-    use miden_tx::utils::Serializable;
-
-    use super::TransactionRequest;
-    use crate::{
-        client::accounts::{AccountStorageMode, AccountTemplate},
-        mock::{
-            mock_full_chain_mmr_and_notes, mock_notes,
-            MockDataStore,
-        },
-        store::{sqlite_store::tests::create_test_client, AuthInfo},
-    };
-
-    #[tokio::test]
-    async fn test_transaction_request() {
-        let mut client = create_test_client();
-
-        let account_template = AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Local,
-        };
-
-        // Insert Account
-        let (account, seed) = client.new_account(account_template).unwrap();
-        //client.sync_state().await.unwrap();
-
-        // Prepare transaction
-
-        let assembler = TransactionKernel::assembler();
-
-        let (consumed_notes, created_notes) = mock_notes(&assembler);
-        let (_mmr, consumed_notes, _tracked_block_headers, _mmr_deltas) =
-            mock_full_chain_mmr_and_notes(consumed_notes);
-
-        let note_args = [
-            [Felt::new(91), Felt::new(91), Felt::new(91), Felt::new(91)],
-            [Felt::new(92), Felt::new(92), Felt::new(92), Felt::new(92)],
-        ];
-
-        let _note_args_map = BTreeMap::from([
-            (consumed_notes[0].id(), (note_args[1])),
-            (consumed_notes[1].id(), (note_args[0])),
-        ]);
-
-        let code = "
-        use.miden::tx
-        use.miden::kernels::tx::prologue
-        use.miden::kernels::tx::memory
-        use.miden::kernels::tx::note
-
-        begin
-            exec.prologue::prepare_transaction
     
-            # create output note 1
-            #push.0
-            #push.1
-            #push.2
-            #exec.tx::create_note
-            #drop
     
-            # create output note 2
-            #push.3
-            #push.4
-            #push.5
-            #exec.tx::create_note
-            #drop
-
-            #exec.memory::get_total_num_consumed_notes push.2 assert_eq
-            #exec.note::prepare_note dropw
-            #exec.note::increment_current_consumed_note_ptr drop
-            #exec.note::prepare_note dropw
-        end
-        ";
-
-        let program = ProgramAst::parse(code).unwrap();
-        let mock_data_store = MockDataStore::new(account.clone(), Some(seed), None);
-        client.set_data_store(mock_data_store);
-
-        let tx_script = {
-            let account_auth = client.get_account_auth(account.id()).unwrap();
-            let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
-                AuthInfo::RpoFalcon512(key) => (
-                    key.public_key().into(),
-                    key.to_bytes().iter().map(|a| Felt::new(*a as u64)).collect::<Vec<Felt>>(),
-                ),
-            };
-
-            let _script_inputs = vec![(pubkey_input, advice_map)];
-
-            client.tx_executor.compile_tx_script(program, vec![], vec![]).unwrap()
-        };
-        let expected_notes = vec![created_notes[0].clone(), created_notes[1].clone()];
-        let transaction_request =
-            TransactionRequest::new(account.id(), BTreeMap::new(), expected_notes, Some(tx_script));
-
-        let execution = client.new_transaction(transaction_request);
-        execution.unwrap();
-    }
 }

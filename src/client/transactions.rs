@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use miden_lib::notes::create_p2id_note;
+use miden_lib::notes::{create_p2id_note, create_p2idr_note};
 use miden_objects::{
     accounts::{AccountDelta, AccountId},
     assembly::ProgramAst,
@@ -12,7 +12,7 @@ use miden_objects::{
     },
     Digest, Felt, Word,
 };
-use miden_tx::{utils::Serializable, ProvingOptions, TransactionProver};
+use miden_tx::{utils::Serializable, ProvingOptions, ScriptTarget, TransactionProver};
 use rand::Rng;
 use tracing::info;
 
@@ -206,49 +206,6 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
                     random_coin,
                 )?;
 
-        self.execute_send_note_tx(
-            fungible_asset,
-            sender_account_id,
-            target_account_id,
-            created_note,
-        )
-    }
-
-    fn new_p2idr_transaction(
-        &mut self,
-        fungible_asset: Asset,
-        sender_account_id: AccountId,
-        target_account_id: AccountId,
-        recall_height: u32,
-    ) -> Result<TransactionResult, ClientError> {
-        let random_coin = self.get_random_coin();
-
-        let created_note = create_p2idr_note(
-            sender_account_id,
-            target_account_id,
-            vec![fungible_asset],
-            recall_height,
-            random_coin,
-        )?;
-
-        self.execute_send_note_tx(
-            fungible_asset,
-            sender_account_id,
-            target_account_id,
-            created_note,
-        )
-    }
-
-    fn execute_send_note_tx(
-        &mut self,
-        fungible_asset: Asset,
-        sender_account_id: AccountId,
-        target_account_id: AccountId,
-        tx_output_note: Note,
-    ) -> Result<TransactionResult, ClientError> {
-        self.tx_executor.load_account(sender_account_id)?;
-
-        let block_ref = self.get_sync_height()?;
                 let _account_auth = self.store.get_account_auth(payment_data.account_id())?;
 
                 let recipient = created_note
@@ -275,7 +232,43 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
 
                 (tx_script, vec![created_note], BTreeMap::new())
             },
-            TransactionTemplate::PayToIdWithRecall(_pay_data, _recall_height) => todo!(),
+            TransactionTemplate::PayToIdWithRecall(payment_data, recall_height) => {
+                let random_coin = self.get_random_coin();
+
+                let created_note = create_p2idr_note(
+                    payment_data.account_id(),
+                    payment_data.target_account_id(),
+                    vec![payment_data.asset()],
+                    recall_height,
+                    random_coin,
+                )?;
+
+                let _account_auth = self.store.get_account_auth(payment_data.account_id())?;
+
+                let recipient = created_note
+                    .recipient()
+                    .iter()
+                    .map(|x| x.as_int().to_string())
+                    .collect::<Vec<_>>()
+                    .join(".");
+
+                let tx_script = ProgramAst::parse(
+                    &transaction_request::AUTH_SEND_ASSET_SCRIPT
+                        .replace("{recipient}", &recipient)
+                        .replace(
+                            "{tag}",
+                            &Felt::new(Into::<u64>::into(payment_data.target_account_id()))
+                                .to_string(),
+                        )
+                        .replace(
+                            "{asset}",
+                            &prepare_word(&payment_data.asset().into()).to_string(),
+                        ),
+                )
+                .expect("shipped MASM is well-formed");
+
+                (tx_script, vec![created_note], BTreeMap::new())
+            },
         };
 
         let tx_args = {
@@ -350,6 +343,23 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         self.store.apply_transaction(tx_result)?;
 
         Ok(())
+    }
+
+    /// Compiles the provided transaction script source and inputs into a [TransactionScript] and
+    /// checks (to the extent possible) that the transaction script can be executed against all
+    /// accounts with the specified interfaces.
+    pub fn compile_transaction_script<T>(
+        &self,
+        program: ProgramAst,
+        inputs: T,
+        target_account_procs: Vec<ScriptTarget>,
+    ) -> Result<TransactionScript, ClientError>
+    where
+        T: IntoIterator<Item = (Word, Vec<Felt>)>,
+    {
+        self.tx_executor
+            .compile_tx_script(program, inputs, target_account_procs)
+            .map_err(ClientError::TransactionExecutionError)
     }
 
     async fn submit_proven_transaction_request(
