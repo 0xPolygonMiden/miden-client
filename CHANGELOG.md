@@ -1,5 +1,7 @@
 # Changelog
 
+* Normalize note script fields for input note and output note tables in sqlite
+  implementation.
 * Adds support for P2IDR (Pay To ID with Recall) transactions on both the CLI
   and the lib.
 * Removed `MockDataStore` and replaced usage in affected tests for loading mock
