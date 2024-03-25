@@ -17,9 +17,6 @@ mod notes;
 pub(crate) mod sync;
 pub mod transactions;
 
-#[cfg(any(test, feature = "mock"))]
-use crate::mock::MockDataStore;
-#[cfg(not(any(test, feature = "mock")))]
 use crate::store::data_store::ClientDataStore;
 
 // CLIENT RNG
@@ -58,10 +55,7 @@ pub struct Client<N: NodeRpcClient, R: ClientRng, S: Store> {
     rng: R,
     /// An instance of [NodeRpcClient] which provides a way for the client to connect to the Miden node.
     rpc_api: N,
-    #[cfg(not(any(test, feature = "mock")))]
     tx_executor: TransactionExecutor<ClientDataStore<S>>,
-    #[cfg(any(test, feature = "mock"))]
-    tx_executor: TransactionExecutor<MockDataStore>,
 }
 
 impl<N: NodeRpcClient, R: ClientRng, S: Store> Client<N, R, S> {
@@ -81,7 +75,6 @@ impl<N: NodeRpcClient, R: ClientRng, S: Store> Client<N, R, S> {
     /// # Errors
     ///
     /// Returns an error if the client could not be instantiated.
-    #[cfg(not(any(test, feature = "mock")))]
     pub fn new(
         api: N,
         rng: R,
@@ -96,35 +89,12 @@ impl<N: NodeRpcClient, R: ClientRng, S: Store> Client<N, R, S> {
         })
     }
 
-    #[cfg(any(test, feature = "mock"))]
-    pub fn new(
-        api: N,
-        rng: R,
-        store: S,
-        data_store: MockDataStore,
-    ) -> Result<Self, ClientError> {
-        Ok(Self {
-            store,
-            rng,
-            rpc_api: api,
-            tx_executor: TransactionExecutor::new(data_store),
-        })
-    }
-
-    #[cfg(any(test, feature = "mock"))]
+    #[cfg(any(test, feature = "test_utils"))]
     pub fn rpc_api(&mut self) -> &mut N {
         &mut self.rpc_api
     }
 
-    #[cfg(any(test, feature = "mock"))]
-    pub fn set_tx_executor(
-        &mut self,
-        tx_executor: TransactionExecutor<MockDataStore>,
-    ) {
-        self.tx_executor = tx_executor;
-    }
-
-    #[cfg(any(test, feature = "mock"))]
+    #[cfg(any(test, feature = "test_utils"))]
     pub fn store(&mut self) -> &mut S {
         &mut self.store
     }

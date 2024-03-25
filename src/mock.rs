@@ -7,8 +7,6 @@ use miden_node_proto::generated::{
     requests::{GetBlockHeaderByNumberRequest, SyncStateRequest},
     responses::{NullifierUpdate, SyncStateResponse},
 };
-#[cfg(test)]
-use miden_objects::crypto::rand::FeltRng;
 use miden_objects::{
     accounts::{
         get_account_seed_single, Account, AccountCode, AccountId, AccountStorage, AccountType,
@@ -27,11 +25,8 @@ use miden_objects::{
     BlockHeader, Felt, Word, NOTE_TREE_DEPTH, ZERO,
 };
 use rand::Rng;
-use tonic::{IntoRequest, Response, Status};
+use tonic::{Response, Status};
 
-pub use crate::store::mock_executor_data_store::MockDataStore;
-#[cfg(test)]
-use crate::store::Store;
 use crate::{
     client::{
         rpc::{NodeRpcClient, NodeRpcClientEndpoint, StateSyncInfo},
@@ -66,12 +61,15 @@ pub const DEFAULT_ACCOUNT_CODE: &str = "
 /// intended to be used for testing purposes only.
 pub struct MockRpcApi {
     pub state_sync_requests: BTreeMap<SyncStateRequest, SyncStateResponse>,
+    pub genesis_block: BlockHeader,
 }
 
 impl Default for MockRpcApi {
     fn default() -> Self {
+        let (genesis_block, state_sync_requests) = generate_state_sync_mock_requests();
         Self {
-            state_sync_requests: generate_state_sync_mock_requests(),
+            state_sync_requests,
+            genesis_block,
         }
     }
 }
@@ -115,11 +113,9 @@ impl NodeRpcClient for MockRpcApi {
         block_num: Option<u32>,
     ) -> Result<BlockHeader, NodeRpcClientError> {
         let request = GetBlockHeaderByNumberRequest { block_num };
-        let request: GetBlockHeaderByNumberRequest = request.into_request().into_inner();
 
         if request.block_num == Some(0) {
-            let block_header = BlockHeader::mock(0, None, None, &[]);
-            return Ok(block_header);
+            return Ok(self.genesis_block);
         }
         panic!("get_block_header_by_number is supposed to be only used for genesis block")
     }
@@ -136,11 +132,12 @@ impl NodeRpcClient for MockRpcApi {
 // HELPERS
 // ================================================================================================
 
-/// Generates mock sync state requests and responses
+/// Generates genesis block header, mock sync state requests and responses
 fn create_mock_sync_state_request_for_account_and_notes(
     account_id: AccountId,
     output_notes: &[Note],
     consumed_notes: &[InputNote],
+    genesis_block: &BlockHeader,
     mmr_delta: Option<Vec<MmrDelta>>,
     tracked_block_headers: Option<Vec<BlockHeader>>,
 ) -> BTreeMap<SyncStateRequest, SyncStateResponse> {
@@ -157,13 +154,56 @@ fn create_mock_sync_state_request_for_account_and_notes(
 
     let account = get_account_with_default_account_code(account_id, Word::default(), None);
 
-    let tracked_block_headers = tracked_block_headers.unwrap_or(vec![
-        BlockHeader::mock(8, None, None, &[]),
-        BlockHeader::mock(10, None, None, &[]),
-    ]);
+    // This assumes the callee provides either both `tracked_block_headers` and `mmr_delta` are
+    // provided or not provided
+    let (tracked_block_headers, mmr_delta) =
+        if let Some(tracked_block_headers) = tracked_block_headers {
+            (tracked_block_headers, mmr_delta.unwrap())
+        } else {
+            let mut mocked_tracked_headers =
+                vec![BlockHeader::mock(8, None, None, &[]), BlockHeader::mock(10, None, None, &[])];
+
+            let all_mocked_block_headers = vec![
+                *genesis_block,
+                BlockHeader::mock(1, None, None, &[]),
+                BlockHeader::mock(2, None, None, &[]),
+                BlockHeader::mock(3, None, None, &[]),
+                BlockHeader::mock(4, None, None, &[]),
+                BlockHeader::mock(5, None, None, &[]),
+                BlockHeader::mock(6, None, None, &[]),
+                BlockHeader::mock(7, None, None, &[]),
+                mocked_tracked_headers[0],
+                BlockHeader::mock(9, None, None, &[]),
+                mocked_tracked_headers[1],
+            ];
+
+            dbg!(all_mocked_block_headers[0].hash());
+
+            let mut mmr = Mmr::default();
+            let mut mocked_mmr_deltas = vec![];
+
+            for (block_num, block_header) in all_mocked_block_headers.iter().enumerate() {
+                if block_num == 8 {
+                    mocked_mmr_deltas.push(mmr.get_delta(1, mmr.forest()).unwrap());
+                }
+                if block_num == 10 {
+                    // Fix mocked block chain root
+                    mocked_tracked_headers[1] = BlockHeader::mock(
+                        10,
+                        Some(mmr.peaks(mmr.forest()).unwrap().hash_peaks()),
+                        None,
+                        &[],
+                    );
+                    mocked_mmr_deltas.push(mmr.get_delta(9, mmr.forest()).unwrap());
+                }
+                mmr.add(block_header.hash());
+            }
+
+            (mocked_tracked_headers, mocked_mmr_deltas)
+        };
 
     let chain_tip = tracked_block_headers.last().map(|header| header.block_num()).unwrap_or(10);
-    let mut deltas_iter = mmr_delta.unwrap_or_default().into_iter();
+    let mut deltas_iter = mmr_delta.into_iter();
     let mut created_notes_iter = output_notes.iter();
 
     for (block_order, block_header) in tracked_block_headers.iter().enumerate() {
@@ -203,7 +243,8 @@ fn create_mock_sync_state_request_for_account_and_notes(
 }
 
 /// Generates mock sync state requests and responses
-fn generate_state_sync_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateResponse> {
+fn generate_state_sync_mock_requests(
+) -> (BlockHeader, BTreeMap<SyncStateRequest, SyncStateResponse>) {
     let account_id = AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap();
 
     // create sync state requests
@@ -211,13 +252,18 @@ fn generate_state_sync_mock_requests() -> BTreeMap<SyncStateRequest, SyncStateRe
     let (consumed_notes, created_notes) = mock_notes(&assembler);
     let (_, input_notes, _, _) = mock_full_chain_mmr_and_notes(consumed_notes);
 
-    create_mock_sync_state_request_for_account_and_notes(
+    let genesis_block = BlockHeader::mock(0, None, None, &[]);
+
+    let state_sync_request_responses = create_mock_sync_state_request_for_account_and_notes(
         account_id,
         &created_notes,
         &input_notes,
+        &genesis_block,
         None,
         None,
-    )
+    );
+
+    (genesis_block, state_sync_request_responses)
 }
 
 pub fn mock_full_chain_mmr_and_notes(
@@ -338,10 +384,13 @@ pub async fn insert_mock_data(client: &mut MockClient) -> Vec<BlockHeader> {
         .insert_account(&account, Some(account_seed), &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
+    let genesis_block = BlockHeader::mock(0, None, None, &[]);
+
     client.rpc_api().state_sync_requests = create_mock_sync_state_request_for_account_and_notes(
         account.id(),
         &created_notes,
         &consumed_notes,
+        &genesis_block,
         Some(mmr_deltas),
         Some(tracked_block_headers.clone()),
     );
@@ -471,17 +520,6 @@ pub fn mock_fungible_faucet_account(
         faucet.code().clone(),
         Felt::new(10u64),
     )
-}
-
-#[cfg(test)]
-impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
-    /// Helper function to set a data store to conveniently mock data for tests
-    pub fn set_data_store(
-        &mut self,
-        data_store: MockDataStore,
-    ) {
-        self.set_tx_executor(miden_tx::TransactionExecutor::new(data_store));
-    }
 }
 
 pub fn mock_notes(assembler: &Assembler) -> (Vec<Note>, Vec<Note>) {
