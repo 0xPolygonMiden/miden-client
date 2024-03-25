@@ -1,5 +1,6 @@
 # Changelog
 
+* Refactored integration tests to be ran as regular rust tests.
 * Normalize note script fields for input note and output note tables in sqlite
   implementation.
 * Adds support for P2IDR (Pay To ID with Recall) transactions on both the CLI
