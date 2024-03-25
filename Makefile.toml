@@ -8,6 +8,11 @@ NODE_BINARY="miden-node"
 [tasks.format]
 toolchain = "nightly"
 command = "cargo"
+args = ["fmt", "--all"]
+
+[tasks.check-format]
+toolchain = "nightly"
+command = "cargo"
 args = ["fmt", "--all", "--", "--check"]
 
 [tasks.clippy]
@@ -31,7 +36,7 @@ args = ["test", "--release", "--test=integration", "--features", "${FEATURES_INT
 
 [tasks.lint]
 dependencies = [
-    "format",
+    "check-format",
     "clippy",
     "docs"
 ]
