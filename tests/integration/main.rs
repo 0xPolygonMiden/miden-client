@@ -231,13 +231,12 @@ async fn test_mint_note(
 
     // Mint some asset for an account not tracked by the client. It should not be stored as an
     // input note afterwards since it is not being tracked by the client
-    let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
-    let tx_template = TransactionTemplate::PayToId(PaymentTransactionData::new(
-        Asset::Fungible(asset),
-        first_regular_account_id,
-        AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap(),
-    ));
-    println!("Running P2ID tx...");
+    let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
+    let tx_template = TransactionTemplate::MintFungibleAsset {
+        asset: fungible_asset,
+        target_account_id: AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap(),
+    };
+    println!("Running Mint tx...");
     execute_tx_and_sync(client, tx_template).await;
 
     // Check that no new notes were added
