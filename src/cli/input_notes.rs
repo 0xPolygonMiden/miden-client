@@ -293,7 +293,7 @@ mod tests {
     use miden_client::{
         config::{ClientConfig, Endpoint},
         errors::NoteIdPrefixFetchError,
-        mock::{mock_full_chain_mmr_and_notes, mock_notes, MockClient, MockDataStore, MockRpcApi},
+        mock::{mock_full_chain_mmr_and_notes, mock_notes, MockClient, MockRpcApi},
         store::{sqlite_store::SqliteStore, InputNoteRecord},
     };
     use miden_lib::transaction::TransactionKernel;
@@ -315,11 +315,12 @@ mod tests {
         );
 
         let store = SqliteStore::new((&client_config).into()).unwrap();
+        let executor_store = SqliteStore::new((&client_config).into()).unwrap();
 
         let mut client = MockClient::new(
             MockRpcApi::new(&Endpoint::default().to_string()),
             store,
-            MockDataStore::default(),
+            executor_store,
         )
         .unwrap();
 
@@ -364,11 +365,12 @@ mod tests {
             Endpoint::default().into(),
         );
         let store = SqliteStore::new((&client_config).into()).unwrap();
+        let executor_store = SqliteStore::new((&client_config).into()).unwrap();
 
         let mut client = MockClient::new(
             MockRpcApi::new(&Endpoint::default().to_string()),
             store,
-            MockDataStore::default(),
+            executor_store,
         )
         .unwrap();
 
@@ -395,11 +397,12 @@ mod tests {
         );
 
         let store = SqliteStore::new((&client_config).into()).unwrap();
+        let executor_store = SqliteStore::new((&client_config).into()).unwrap();
 
         let mut client = MockClient::new(
             MockRpcApi::new(&Endpoint::default().to_string()),
             store,
-            MockDataStore::default(),
+            executor_store,
         )
         .unwrap();
 
