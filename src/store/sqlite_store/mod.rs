@@ -8,7 +8,10 @@ use miden_objects::{
 };
 use rusqlite::Connection;
 
-use super::{AuthInfo, ChainMmrNodeFilter, InputNoteRecord, NoteFilter, Store, TransactionFilter};
+use super::{
+    AuthInfo, ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store,
+    TransactionFilter,
+};
 use crate::{
     client::transactions::{TransactionRecord, TransactionResult},
     config::StoreConfig,
@@ -163,7 +166,7 @@ impl Store for SqliteStore {
     fn get_output_notes(
         &self,
         note_filter: NoteFilter,
-    ) -> Result<Vec<InputNoteRecord>, StoreError> {
+    ) -> Result<Vec<OutputNoteRecord>, StoreError> {
         self.get_output_notes(note_filter)
     }
 
@@ -267,7 +270,7 @@ pub mod tests {
     use super::{migrations, SqliteStore};
     use crate::{
         config::{ClientConfig, RpcConfig},
-        mock::{MockClient, MockDataStore, MockRpcApi},
+        mock::{MockClient, MockRpcApi},
     };
 
     pub fn create_test_client() -> MockClient {
@@ -283,8 +286,9 @@ pub mod tests {
 
         let rpc_endpoint = client_config.rpc.endpoint.to_string();
         let store = SqliteStore::new((&client_config).into()).unwrap();
+        let executor_store = SqliteStore::new((&client_config).into()).unwrap();
 
-        MockClient::new(MockRpcApi::new(&rpc_endpoint), store, MockDataStore::default()).unwrap()
+        MockClient::new(MockRpcApi::new(&rpc_endpoint), store, executor_store).unwrap()
     }
 
     pub(crate) fn create_test_store_path() -> std::path::PathBuf {
