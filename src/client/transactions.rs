@@ -348,7 +348,7 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
     /// Compiles the provided transaction script source and inputs into a [TransactionScript] and
     /// checks (to the extent possible) that the transaction script can be executed against all
     /// accounts with the specified interfaces.
-    pub fn compile_transaction_script<T>(
+    pub fn compile_tx_script<T>(
         &self,
         program: ProgramAst,
         inputs: T,

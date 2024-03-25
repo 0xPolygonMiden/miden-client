@@ -17,7 +17,7 @@ use miden_lib::notes::create_p2id_note;
 use miden_objects::{
     accounts::{AccountData, AccountId, AccountStub},
     assembly::ProgramAst,
-    assets::{Asset, FungibleAsset},
+    assets::{Asset, FungibleAsset, TokenSymbol},
     crypto::rand::RpoRandomCoin,
     notes::{Note, NoteId, NoteMetadata},
     transaction::TransactionScript,
@@ -108,9 +108,7 @@ async fn main() {
     let (first_regular_account, second_regular_account, faucet_account_stub) =
         setup(&mut client).await;
 
-    println!("BEGIN TX REQUEST");
     test_transaction_request().await;
-    println!("END TX REQUEST");
 
     let first_regular_account_id = first_regular_account.id();
     let second_regular_account_id = second_regular_account.id();
@@ -382,20 +380,31 @@ async fn test_note_cannot_be_consumed_twice(
 
 async fn test_transaction_request() {
     let mut client = create_test_client();
-    println!("Importing Accounts...");
-    for account_idx in 0..2 {
-        let account_data_file_contents =
-            fs::read(format!("./miden-node/accounts/account{}.mac", account_idx)).unwrap();
-        let account_data = AccountData::read_from_bytes(&account_data_file_contents).unwrap();
-        client.import_account(account_data).unwrap();
-    }
+
     let account_template = AccountTemplate::BasicWallet {
         mutable_code: false,
         storage_mode: AccountStorageMode::Local,
     };
 
+    client.sync_state().await.unwrap();
     // Insert Account
-    let (account, _seed) = client.new_account(account_template).unwrap();
+    let (regular_account, _seed) = client.new_account(account_template).unwrap();
+
+    let account_template = AccountTemplate::FungibleFaucet {
+        token_symbol: TokenSymbol::new("TEST").unwrap(),
+        decimals: 5u8,
+        max_supply: 10_000u64,
+        storage_mode: AccountStorageMode::Local,
+    };
+    let (fungible_faucet, _seed) = client.new_account(account_template).unwrap();
+
+    // Create a Mint Tx for 1000 units of our fungible asset
+    let fungible_asset = FungibleAsset::new(fungible_faucet.id(), MINT_AMOUNT).unwrap();
+    let tx_template = TransactionTemplate::MintFungibleAsset(fungible_asset, regular_account.id());
+
+    println!("Minting Asset");
+    execute_tx_and_sync(&mut client, tx_template).await;
+
     client.sync_state().await.unwrap();
 
     // Prepare transaction
@@ -418,7 +427,7 @@ async fn test_transaction_request() {
     let program = ProgramAst::parse(code).unwrap();
 
     let tx_script = {
-        let account_auth = client.get_account_auth(account.id()).unwrap();
+        let account_auth = client.get_account_auth(regular_account.id()).unwrap();
         let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
             AuthInfo::RpoFalcon512(key) => (
                 key.public_key().into(),
@@ -431,7 +440,7 @@ async fn test_transaction_request() {
     };
 
     let transaction_request =
-        TransactionRequest::new(account.id(), note_args_map, vec![], Some(tx_script));
+        TransactionRequest::new(regular_account.id(), note_args_map, vec![], Some(tx_script));
 
     let execution = client.new_transaction(transaction_request);
     execution.unwrap();
