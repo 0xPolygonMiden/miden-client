@@ -25,9 +25,9 @@ concurrent = [
 ]
 default = ["std"]
 integration = ["testing", "concurrent", "uuid"]
-mock = ["miden-objects/testing"]
 std = ["miden-objects/std"]
 testing = ["miden-objects/testing", "miden-lib/testing"]
+test_utils = ["miden-objects/testing"]
 
 [dependencies]
 async-trait = { version = "0.1" }
@@ -51,8 +51,8 @@ tracing-subscriber = { version = "0.3" }
 uuid = { version = "1.6.1", features = ["serde", "v4"], optional = true }
 
 [dev-dependencies]
-# needed for tests to run always with the mock feature
+# needed for tests to run always with the test utils feature
 miden_client = { package = "miden-client", path = ".", features = [
-    "mock",
+    "test_utils",
     "uuid",
 ] }

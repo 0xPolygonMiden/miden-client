@@ -12,9 +12,6 @@ mod notes;
 pub(crate) mod sync;
 pub mod transactions;
 
-#[cfg(all(any(test, feature = "mock"), not(feature = "integration")))]
-use crate::mock::MockDataStore;
-#[cfg(any(not(any(test, feature = "mock")), feature = "integration"))]
 use crate::store::data_store::ClientDataStore;
 
 // MIDEN CLIENT
@@ -33,10 +30,7 @@ pub struct Client<N: NodeRpcClient, S: Store> {
     store: S,
     /// An instance of [NodeRpcClient] which provides a way for the client to connect to the Miden node.
     rpc_api: N,
-    #[cfg(any(not(any(test, feature = "mock")), feature = "integration"))]
     tx_executor: TransactionExecutor<ClientDataStore<S>>,
-    #[cfg(all(any(test, feature = "mock"), not(feature = "integration")))]
-    tx_executor: TransactionExecutor<MockDataStore>,
 }
 
 impl<N: NodeRpcClient, S: Store> Client<N, S> {
@@ -56,7 +50,6 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
     /// # Errors
     ///
     /// Returns an error if the client could not be instantiated.
-    #[cfg(any(not(any(test, feature = "mock")), feature = "integration"))]
     pub fn new(
         api: N,
         store: S,
@@ -69,33 +62,12 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         })
     }
 
-    #[cfg(all(any(test, feature = "mock"), not(feature = "integration")))]
-    pub fn new(
-        api: N,
-        store: S,
-        data_store: MockDataStore,
-    ) -> Result<Self, ClientError> {
-        Ok(Self {
-            store,
-            rpc_api: api,
-            tx_executor: TransactionExecutor::new(data_store),
-        })
-    }
-
-    #[cfg(all(any(test, feature = "mock"), not(feature = "integration")))]
+    #[cfg(any(test, feature = "test_utils"))]
     pub fn rpc_api(&mut self) -> &mut N {
         &mut self.rpc_api
     }
 
-    #[cfg(all(any(test, feature = "mock"), not(feature = "integration")))]
-    pub fn set_tx_executor(
-        &mut self,
-        tx_executor: TransactionExecutor<MockDataStore>,
-    ) {
-        self.tx_executor = tx_executor;
-    }
-
-    #[cfg(all(any(test, feature = "mock"), not(feature = "integration")))]
+    #[cfg(any(test, feature = "test_utils"))]
     pub fn store(&mut self) -> &mut S {
         &mut self.store
     }

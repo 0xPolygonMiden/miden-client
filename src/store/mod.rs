@@ -20,9 +20,6 @@ use crate::{
 pub mod data_store;
 pub mod sqlite_store;
 
-#[cfg(all(any(test, feature = "mock"), not(feature = "integration")))]
-pub mod mock_executor_data_store;
-
 mod note_record;
 pub use note_record::{InputNoteRecord, NoteRecordDetails, NoteStatus, OutputNoteRecord};
 

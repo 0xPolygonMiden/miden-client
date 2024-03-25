@@ -9,12 +9,13 @@ use miden_client::{
     },
     config::{ClientConfig, RpcConfig},
     errors::{ClientError, NodeRpcClientError},
-    store::{sqlite_store::SqliteStore, NoteFilter, TransactionFilter},
+    store::{sqlite_store::SqliteStore, InputNoteRecord, NoteFilter, TransactionFilter},
 };
 use miden_objects::{
-    accounts::{AccountId, AccountStub},
+    accounts::{AccountData, AccountId, AccountStub},
     assets::{Asset, FungibleAsset, TokenSymbol},
     notes::NoteId,
+    utils::serde::Deserializable,
 };
 use miden_tx::{DataStoreError, TransactionExecutorError};
 use uuid::Uuid;
@@ -222,6 +223,7 @@ async fn test_p2id_transfer() {
 
     // First Mint necesary token
     mint_note(&mut client, from_account_id, faucet_account_id).await;
+
     // Do a transfer from first account to second account
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
     let tx_template = TransactionTemplate::PayToId(PaymentTransactionData::new(

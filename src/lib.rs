@@ -3,7 +3,7 @@ pub mod config;
 pub mod errors;
 pub mod store;
 
-#[cfg(all(any(test, feature = "mock"), not(feature = "integration")))]
+#[cfg(any(test, feature = "test_utils"))]
 pub mod mock;
 
 #[cfg(test)]
