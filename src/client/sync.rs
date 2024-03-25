@@ -355,7 +355,7 @@ fn check_account_hashes(
 /// - All of the transaction's input notes are consumed, which means we got their nullifiers as
 /// part of the update
 /// - The account corresponding to the transaction hash matches the transaction's
-/// final_account_state
+// final_account_state
 fn get_transactions_to_commit(
     uncommitted_transactions: &[TransactionRecord],
     note_ids: &[NoteId],

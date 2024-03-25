@@ -12,9 +12,12 @@ use super::{NoteRecordDetails, NoteStatus};
 /// Represents a Note which was the result of executing some transaction of which the [Store] can
 /// keep track and retrieve.
 ///
-/// An [OutputNoteRecord] contains all the information of a [Note] while it allows for not
-/// knowing the details (nullifier, script, inputs and serial number), in addition of (optionally)
-/// the [NoteInclusionProof] that identifies when the note was included in the chain.
+/// An [OutputNoteRecord] contains all the information of a [Note] while it allows for not knowing
+/// the details (nullifier, script, inputs and serial number), in addition of (optionally) the
+/// [NoteInclusionProof] that identifies when the note was included in the chain.
+///
+/// It is also possible to convert [Note] into [OutputNoteRecord] (we fill the `details` and
+/// `inclusion_proof` fields if possible)
 #[derive(Clone, Debug, PartialEq)]
 pub struct OutputNoteRecord {
     assets: NoteAssets,
@@ -85,12 +88,12 @@ impl From<Note> for OutputNoteRecord {
             status: NoteStatus::Pending,
             metadata: *note.metadata(),
             inclusion_proof: None,
-            details: Some(NoteRecordDetails {
-                nullifier: note.nullifier().to_string(),
-                script: note.script().to_bytes(),
-                inputs: note.inputs().to_bytes(),
-                serial_num: note.serial_num(),
-            }),
+            details: Some(NoteRecordDetails::new(
+                note.nullifier().to_string(),
+                note.script().clone(),
+                note.inputs().to_bytes(),
+                note.serial_num(),
+            )),
         }
     }
 }

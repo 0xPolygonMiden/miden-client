@@ -87,9 +87,9 @@ CREATE TABLE input_notes (
     -- sender_id                                              -- the account ID of the sender
     -- tag                                                    -- the note tag
 
-    details JSON NOT NULL,                                      -- JSON consisting of the following fields:
+    details JSON NOT NULL,                                  -- JSON consisting of the following fields:
     -- nullifier                                              -- the nullifier of the note
-    -- script                                                 -- the serialized NoteScript, including script hash and ProgramAst
+    -- script_hash                                                 -- the note's script hash
     -- inputs                                                 -- the serialized NoteInputs, including inputs hash and list of inputs
     -- serial_num                                             -- the note serial number
     PRIMARY KEY (note_id)
@@ -122,13 +122,13 @@ CREATE TABLE output_notes (
     -- note_root                                              -- the note root of the block the note was created in
     -- note_path                                              -- the Merkle path to the note in the note Merkle tree of the block the note was created in, stored as an array of digests
     
-    metadata JSON NOT NULL,                                     -- JSON consisting of the following fields:
+    metadata JSON NOT NULL,                                 -- JSON consisting of the following fields:
     -- sender_id                                              -- the account ID of the sender
     -- tag                                                    -- the note tag
 
     details JSON NULL,                                      -- JSON consisting of the following fields:
     -- nullifier                                              -- the nullifier of the note
-    -- script                                                 -- the serialized NoteScript, including script hash and ProgramAst
+    -- script                                                 -- the note's script hash
     -- inputs                                                 -- the serialized NoteInputs, including inputs hash and list of inputs
     -- serial_num                                             -- the note serial number
     PRIMARY KEY (note_id)
@@ -146,11 +146,20 @@ CREATE TABLE output_notes (
       details IS NULL OR 
       (
         json_extract(details, '$.nullifier') IS NOT NULL AND
-        json_extract(details, '$.script') IS NOT NULL AND
+        json_extract(details, '$.script_hash') IS NOT NULL AND
         json_extract(details, '$.inputs') IS NOT NULL AND
         json_extract(details, '$.serial_num') IS NOT NULL
       ))
 
+);
+
+-- Create note's scripts table, used for both input and output notes
+-- TODO: can't do FOREIGN KEY over json fields, sure we're ok?
+CREATE TABLE notes_scripts (
+    script_hash BLOB NOT NULL,                       -- Note script Hash
+    serialized_note_script BLOB,                     -- NoteScript, serialized
+
+    PRIMARY KEY (script_hash)
 );
 
 -- Create state sync table

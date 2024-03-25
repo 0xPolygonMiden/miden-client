@@ -12,18 +12,10 @@ edition = "2021"
 rust-version = "1.75"
 default-run = "miden-client"
 
-[[bin]]
-name = "integration"
-path = "tests/integration/main.rs"
-required-features = ["integration"]
-
-# This is so the integration test is not built when doing `cargo test` and
-# `cargo build --tests` The main issue is that for tests and test utils feature
-# we change the client a bit and we don't want that for the integration test
 [[test]]
 name = "integration"
 path = "tests/integration/main.rs"
-test = false
+required-features = ["integration"]
 
 [features]
 concurrent = [

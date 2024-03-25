@@ -1,6 +1,8 @@
 use miden_objects::{
+    assembly::{Assembler, ProgramAst},
+    notes::NoteScript,
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
-    Word,
+    Digest, Word,
 };
 use serde::{Deserialize, Serialize};
 
@@ -9,6 +11,36 @@ mod output_note_record;
 
 pub use input_note_record::InputNoteRecord;
 pub use output_note_record::OutputNoteRecord;
+
+/// This module defines common structs to be used within the [Store](crate::store::Store) for notes
+/// that are available to be consumed ([InputNoteRecord]) and notes that have been produced as a
+/// result of executing a transaction ([OutputNoteRecord]).
+///
+/// # Features
+///
+/// ## Serialization / Deserialization
+///
+/// We provide serialization and deserialization support via [Serializable] and [Deserializable]
+/// traits implementations, and also via [Serialize] and [Deserialize] from `serde` to provide the
+/// ability to serialize most fields into JSON. This is useful for example if you want to store
+/// some fields as json columns like we do in
+/// [SqliteStore](crate::store::sqlite_store::SqliteStore). For example, suppose we want to store
+/// [InputNoteRecord]'s metadata field in a JSON column. In that case, we could do something like:
+///
+/// ```ignore
+/// fn insert_metadata_into_some_table(db: &mut Database, note: InputNoteRecord) {
+///     let note_metadata_json = serde_json::to_string(note.metadata()).unwrap();
+///
+///     db.execute("INSERT INTO notes_metadata (note_id, note_metadata) VALUES (?, ?)",
+///     note.id().to_hex(), note_metadata_json).unwrap()
+/// }
+/// ```
+///
+/// ## Type conversion
+///
+/// We also facilitate converting from/into [InputNote](miden_objects::transaction::InputNote) /
+/// [Note](miden_objects::notes::Note), although this is not always possible. Check both
+/// [InputNoteRecord]'s and [OutputNoteRecord]'s documentation for more details into this
 
 // NOTE STATUS
 // ================================================================================================
@@ -57,10 +89,21 @@ impl Deserializable for NoteStatus {
     }
 }
 
+fn default_script() -> NoteScript {
+    let assembler = Assembler::default();
+    let note_program_ast =
+        ProgramAst::parse("begin end").expect("dummy script should be parseable");
+    let (note_script, _) = NoteScript::new(note_program_ast, &assembler)
+        .expect("dummy note script should be created without issues");
+    note_script
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct NoteRecordDetails {
     nullifier: String,
-    script: Vec<u8>,
+    script_hash: Digest,
+    #[serde(skip_serializing, skip_deserializing, default = "default_script")]
+    script: NoteScript,
     inputs: Vec<u8>,
     serial_num: Word,
 }
@@ -68,19 +111,29 @@ pub struct NoteRecordDetails {
 impl NoteRecordDetails {
     pub fn new(
         nullifier: String,
-        script: Vec<u8>,
+        script: NoteScript,
         inputs: Vec<u8>,
         serial_num: Word,
     ) -> Self {
+        let script_hash = script.hash();
         Self {
             nullifier,
             script,
+            script_hash,
             inputs,
             serial_num,
         }
     }
 
-    pub fn script(&self) -> &Vec<u8> {
+    pub fn nullifier(&self) -> &str {
+        &self.nullifier
+    }
+
+    pub fn script_hash(&self) -> &Digest {
+        &self.script_hash
+    }
+
+    pub fn script(&self) -> &NoteScript {
         &self.script
     }
 
@@ -102,8 +155,7 @@ impl Serializable for NoteRecordDetails {
         target.write_usize(nullifier_bytes.len());
         target.write_bytes(nullifier_bytes);
 
-        target.write_usize(self.script().len());
-        target.write_bytes(self.script());
+        self.script().write_into(target);
 
         target.write_usize(self.inputs().len());
         target.write_bytes(self.inputs());
@@ -119,8 +171,7 @@ impl Deserializable for NoteRecordDetails {
         let nullifier =
             String::from_utf8(nullifier_bytes).expect("Nullifier String bytes should be readable.");
 
-        let script_len = usize::read_from(source)?;
-        let script = source.read_vec(script_len)?;
+        let script = NoteScript::read_from(source)?;
 
         let inputs_len = usize::read_from(source)?;
         let inputs = source.read_vec(inputs_len)?;
