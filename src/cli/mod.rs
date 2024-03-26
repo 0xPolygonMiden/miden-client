@@ -22,6 +22,7 @@ use miden_objects::crypto::rand::RpoRandomCoin;
 
 mod account;
 mod info;
+mod init;
 mod input_notes;
 mod sync;
 mod tags;
@@ -43,6 +44,7 @@ pub struct Cli {
 pub enum Command {
     #[clap(subcommand)]
     Account(account::AccountCmd),
+    Init,
     #[clap(subcommand)]
     InputNotes(input_notes::InputNotes),
     /// Sync this client with the latest state of the Miden network.
@@ -59,10 +61,16 @@ pub enum Command {
 /// CLI entry point
 impl Cli {
     pub async fn execute(&self) -> Result<(), String> {
-        // Create the client
         let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
         current_dir.push(CLIENT_CONFIG_FILE_NAME);
 
+        // Check if it's an init command
+        if matches!(&self.action, Command::Init) {
+            init::initialize_client(current_dir.clone())?;
+            return Ok(());
+        }
+
+        // Create the client
         let client_config = load_config(current_dir.as_path())?;
         let rpc_endpoint = client_config.rpc.endpoint.to_string();
         let store = SqliteStore::new((&client_config).into()).map_err(ClientError::StoreError)?;
@@ -77,6 +85,7 @@ impl Cli {
         // Execute cli command
         match &self.action {
             Command::Account(account) => account.execute(client),
+            Command::Init => Ok(()),
             Command::Info => info::print_client_info(&client),
             Command::InputNotes(notes) => notes.execute(client),
             Command::Sync => sync::sync_state(client).await,
