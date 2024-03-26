@@ -267,7 +267,7 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
             },
         };
 
-        let tx_args = {
+        let tx_script = {
             let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
                 AuthInfo::RpoFalcon512(key) => (
                     key.public_key().into(),
@@ -280,7 +280,7 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
             self.tx_executor.compile_tx_script(tx_script_ast, script_inputs, vec![])?
         };
 
-        Ok(TransactionRequest::new(account_id, input_notes, created_notes, Some(tx_args)))
+        Ok(TransactionRequest::new(account_id, input_notes, created_notes, Some(tx_script)))
     }
 
     /// Creates and executes a transaction specified by the template, but does not change the
