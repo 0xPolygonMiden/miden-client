@@ -64,3 +64,5 @@ In order to execute a transaction, you first need to define which type of transa
         .send_transaction(transaction_execution_result)
         .await?
 ```
+
+You may also execute a transaction by manually defining a `TransactionRequest` instance. This allows you to run custom code, with custom note arguments as well.
