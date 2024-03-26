@@ -108,13 +108,13 @@ pub enum TransactionTemplate {
 }
 
 impl TransactionTemplate {
-    /// Returns the executor [AccountId]
+    /// Returns the [AccountId] of the account which the transaction will be executed against
     pub fn account_id(&self) -> AccountId {
         match self {
             TransactionTemplate::ConsumeNotes(account_id, _) => *account_id,
             TransactionTemplate::MintFungibleAsset(asset, _) => asset.faucet_id(),
-            TransactionTemplate::PayToId(p) => p.account_id(),
-            TransactionTemplate::PayToIdWithRecall(p, _) => p.account_id(),
+            TransactionTemplate::PayToId(payment_data) => payment_data.account_id(),
+            TransactionTemplate::PayToIdWithRecall(payment_data, _) => payment_data.account_id(),
         }
     }
 }

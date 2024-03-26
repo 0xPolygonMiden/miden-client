@@ -1,6 +1,7 @@
 # Changelog
 
 * Adds `TransactionRequest` for defining transactions with arbitrary scripts, inputs and outputs
+  and changes the client API to use this definition
 * Adds support for P2IDR (Pay To ID with Recall) transactions on both the CLI
   and the lib.
 * Removed `MockDataStore` and replaced usage in affected tests for loading mock

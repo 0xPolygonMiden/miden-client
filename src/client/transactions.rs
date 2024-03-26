@@ -206,8 +206,6 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
                     random_coin,
                 )?;
 
-                let _account_auth = self.store.get_account_auth(payment_data.account_id())?;
-
                 let recipient = created_note
                     .recipient()
                     .iter()
@@ -242,8 +240,6 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
                     recall_height,
                     random_coin,
                 )?;
-
-                let _account_auth = self.store.get_account_auth(payment_data.account_id())?;
 
                 let recipient = created_note
                     .recipient()
