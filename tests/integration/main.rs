@@ -16,18 +16,13 @@ use miden_client::{
     errors::{ClientError, NodeRpcClientError},
     store::{sqlite_store::SqliteStore, AuthInfo, InputNoteRecord, NoteFilter, TransactionFilter},
 };
-use miden_lib::{
-    notes::{create_p2id_note, utils::build_note_script},
-    transaction::TransactionKernel,
-};
+use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{AccountData, AccountId, AccountStub},
+    accounts::{AccountId, AccountStub},
     assembly::ProgramAst,
     assets::{Asset, FungibleAsset, TokenSymbol},
     crypto::rand::{FeltRng, RpoRandomCoin},
-    notes::{Note, NoteId, NoteMetadata, NoteScript},
-    transaction::TransactionScript,
-    utils::serde::Deserializable,
+    notes::{Note, NoteId, NoteScript},
     Felt, Word,
 };
 use miden_tx::{utils::Serializable, DataStoreError, TransactionExecutorError};
@@ -436,7 +431,7 @@ async fn test_transaction_request() {
 
     // If these args were to be modified, the transaction would fail because the note code expects
     // these exact arguments
-    let note_args = [[Felt::new(92), Felt::new(92), Felt::new(92), Felt::new(91)]];
+    let note_args = [[Felt::new(9), Felt::new(12), Felt::new(18), Felt::new(3)]];
 
     let note_args_map = BTreeMap::from([(note.id(), Some(note_args[0]))]);
 
@@ -564,7 +559,7 @@ async fn mint_custom_note(
         Some(tx_script),
     );
 
-    let execution = execute_tx_and_sync(client, transaction_request).await;
+    let _ = execute_tx_and_sync(client, transaction_request).await;
     note
 }
 
@@ -575,7 +570,7 @@ fn create_custom_note(
 ) -> Note {
     let assembler = TransactionKernel::assembler();
 
-    let recipient = [Felt::new(92), Felt::new(92), Felt::new(92), Felt::new(92)]
+    let recipient = [Felt::new(9), Felt::new(12), Felt::new(18), Felt::new(3)]
         .iter()
         .map(|x| x.to_string())
         .collect::<Vec<_>>()
