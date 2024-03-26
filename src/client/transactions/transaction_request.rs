@@ -23,6 +23,7 @@ pub const AUTH_SEND_ASSET_SCRIPT: &str =
 pub type NoteArgs = Word;
 
 /// Represents the most general way of defining an executable transaction
+#[derive(Clone, Debug)]
 pub struct TransactionRequest {
     /// ID of the account against which the transactions is to be executed.
     account_id: AccountId,
