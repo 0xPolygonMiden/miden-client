@@ -9,13 +9,12 @@ use miden_client::{
     },
     config::{ClientConfig, RpcConfig},
     errors::{ClientError, NodeRpcClientError},
-    store::{sqlite_store::SqliteStore, InputNoteRecord, NoteFilter, TransactionFilter},
+    store::{sqlite_store::SqliteStore, NoteFilter, TransactionFilter},
 };
 use miden_objects::{
-    accounts::{AccountData, AccountId, AccountStub},
+    accounts::{AccountId, AccountStub},
     assets::{Asset, FungibleAsset, TokenSymbol},
     notes::NoteId,
-    utils::serde::Deserializable,
 };
 use miden_tx::{DataStoreError, TransactionExecutorError};
 use uuid::Uuid;
@@ -108,7 +107,8 @@ const TRANSFER_AMOUNT: u64 = 50;
 #[tokio::test]
 async fn main() {
     test_p2id_transfer().await;
-    test_p2idr_transfer().await;
+    test_p2idr_transfer_consumed_by_target().await;
+    test_p2idr_transfer_consumed_by_sender().await;
 
     println!("Test ran successfully!");
 }
@@ -273,7 +273,7 @@ async fn test_p2id_transfer() {
 // TODO: once [this issue](https://github.com/0xPolygonMiden/miden-client/issues/201#issuecomment-1989432215)
 // gets fixed, we should uncomment this and delete main so tests are run in parallel
 // #[tokio::test]
-async fn test_p2idr_transfer() {
+async fn test_p2idr_transfer_consumed_by_target() {
     let mut client = create_test_client();
 
     let (first_regular_account, second_regular_account, faucet_account_stub) =
@@ -343,6 +343,87 @@ async fn test_p2idr_transfer() {
         panic!("Error: Account should have a fungible asset");
     }
 
+    assert_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].id()).await;
+}
+
+async fn test_p2idr_transfer_consumed_by_sender() {
+    let mut client = create_test_client();
+
+    let (first_regular_account, second_regular_account, faucet_account_stub) =
+        setup(&mut client).await;
+
+    let from_account_id = first_regular_account.id();
+    let to_account_id = second_regular_account.id();
+    let faucet_account_id = faucet_account_stub.id();
+
+    // First Mint necesary token
+    mint_note(&mut client, from_account_id, faucet_account_id).await;
+    // Do a transfer from first account to second account with Recall. In this situation we'll do
+    // the happy path where the `to_account_id` consumes the note
+    let from_account_balance = client
+        .get_account(from_account_id)
+        .unwrap()
+        .0
+        .vault()
+        .get_balance(faucet_account_id)
+        .unwrap_or(0);
+    let current_block_num = client.get_sync_height().unwrap();
+    let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
+    let tx_template = TransactionTemplate::PayToIdWithRecall(
+        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
+        current_block_num + 5,
+    );
+    println!("Running P2IDR tx...");
+    execute_tx_and_sync(&mut client, tx_template).await;
+
+    // Check that note is committed
+    println!("Fetching Committed Notes...");
+    let notes = client.get_input_notes(NoteFilter::Committed).unwrap();
+    assert!(!notes.is_empty());
+
+    // Check that it's still too early to consume
+    let tx_template = TransactionTemplate::ConsumeNotes(from_account_id, vec![notes[0].id()]);
+    println!("Consuming Note (too early)...");
+    let transaction_execution_result = client.new_transaction(tx_template);
+    assert!(transaction_execution_result.is_err_and(|err| {
+        matches!(
+            err,
+            ClientError::TransactionExecutionError(
+                TransactionExecutorError::ExecuteTransactionProgramFailed(_)
+            )
+        )
+    }));
+
+    // Wait to consume with the sender account
+    println!("Waiting for note to be consumable by sender");
+    let current_block_num = client.get_sync_height().unwrap();
+
+    while client.get_sync_height().unwrap() < current_block_num + 5 {
+        client.sync_state().await.unwrap();
+    }
+
+    // Consume the note with the sender account
+    let tx_template = TransactionTemplate::ConsumeNotes(from_account_id, vec![notes[0].id()]);
+    println!("Consuming Note...");
+    execute_tx_and_sync(&mut client, tx_template).await;
+
+    let (regular_account, seed) = client.get_account(from_account_id).unwrap();
+    // The seed should not be retrieved due to the account not being new
+    assert!(!regular_account.is_new() && seed.is_none());
+    assert_eq!(regular_account.vault().assets().count(), 1);
+    let asset = regular_account.vault().assets().next().unwrap();
+
+    // Validate the the sender hasn't lost funds
+    if let Asset::Fungible(fungible_asset) = asset {
+        assert_eq!(fungible_asset.amount(), from_account_balance);
+    } else {
+        panic!("Error: Account should have a fungible asset");
+    }
+
+    let (regular_account, _seed) = client.get_account(to_account_id).unwrap();
+    assert_eq!(regular_account.vault().assets().count(), 0);
+
+    // Check that the target can't consume the note anymore
     assert_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].id()).await;
 }
 
