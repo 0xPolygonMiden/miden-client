@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use miden_objects::{accounts::AccountId, assets::Asset, notes::Note, Word};
 
 use crate::{errors::ScreenerError, store::Store};
@@ -38,7 +40,8 @@ impl<'a, S: Store> NoteScreener<'a, S> {
         &self,
         note: &Note,
     ) -> Result<Vec<(AccountId, NoteRelevance)>, ScreenerError> {
-        let account_ids = self.store.get_account_ids()?;
+        let account_ids = BTreeSet::from_iter(self.store.get_account_ids()?);
+
         let script_hash = note.script().hash().to_string();
         let note_relevance = match script_hash.as_str() {
             P2ID_NOTE_SCRIPT_ROOT => Self::check_p2id_relevance(note, &account_ids),
@@ -52,7 +55,7 @@ impl<'a, S: Store> NoteScreener<'a, S> {
 
     fn check_p2id_relevance(
         note: &Note,
-        account_ids: &[AccountId],
+        account_ids: &BTreeSet<AccountId>,
     ) -> Vec<(AccountId, NoteRelevance)> {
         vec![(AccountId::new_unchecked(note.inputs().to_vec()[0]), NoteRelevance::Always)]
             .into_iter()
@@ -62,7 +65,7 @@ impl<'a, S: Store> NoteScreener<'a, S> {
 
     fn check_p2idr_relevance(
         note: &Note,
-        account_ids: &[AccountId],
+        account_ids: &BTreeSet<AccountId>,
     ) -> Vec<(AccountId, NoteRelevance)> {
         let note_inputs = note.inputs().to_vec();
         let sender = note.metadata().sender();
@@ -87,7 +90,7 @@ impl<'a, S: Store> NoteScreener<'a, S> {
     fn check_swap_relevance(
         &self,
         note: &Note,
-        account_ids: &[AccountId],
+        account_ids: &BTreeSet<AccountId>,
     ) -> Result<Vec<(AccountId, NoteRelevance)>, ScreenerError> {
         let note_inputs = note.inputs().to_vec();
 
@@ -130,7 +133,7 @@ impl<'a, S: Store> NoteScreener<'a, S> {
     fn check_script_relevance(
         &self,
         _note: &Note,
-        _account_ids: &[AccountId],
+        _account_ids: &BTreeSet<AccountId>,
     ) -> Vec<(AccountId, NoteRelevance)> {
         // TODO: try to execute the note script against relevant accounts; this will
         // require querying data from the store
