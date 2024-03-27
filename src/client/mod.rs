@@ -8,11 +8,11 @@ use rpc::NodeRpcClient;
 pub mod accounts;
 #[cfg(test)]
 mod chain_data;
-mod note_consumption_checker;
+mod note_screener;
 mod notes;
 pub(crate) mod sync;
 pub mod transactions;
-pub(crate) use note_consumption_checker::filter_created_notes_to_track;
+pub(crate) use note_screener::NoteScreener;
 
 use crate::store::data_store::ClientDataStore;
 

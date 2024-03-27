@@ -101,6 +101,14 @@ impl From<TransactionProverError> for ClientError {
     }
 }
 
+impl From<ScreenerError> for ClientError {
+    fn from(err: ScreenerError) -> Self {
+        match err {
+            ScreenerError::StoreError(store_error) => Self::StoreError(store_error),
+        }
+    }
+}
+
 impl From<rusqlite::Error> for ClientError {
     fn from(err: rusqlite::Error) -> Self {
         Self::StoreError(StoreError::from(err))
@@ -384,5 +392,20 @@ impl fmt::Display for NoteIdPrefixFetchError {
                 )
             },
         }
+    }
+}
+
+// NOTE ID PREFIX FETCH ERROR
+// ================================================================================================
+
+/// Error when screening notes to check relevance to a client
+#[derive(Debug)]
+pub enum ScreenerError {
+    StoreError(StoreError),
+}
+
+impl From<StoreError> for ScreenerError {
+    fn from(error: StoreError) -> Self {
+        Self::StoreError(error)
     }
 }

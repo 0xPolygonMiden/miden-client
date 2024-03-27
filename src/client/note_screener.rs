@@ -1,6 +1,6 @@
 use miden_objects::{accounts::AccountId, notes::Note};
 
-use crate::{errors::ClientError, store::Store};
+use crate::{errors::ScreenerError, store::Store};
 
 // KNOWN SCRIPT ROOTS
 // --------------------------------------------------------------------------------------------
@@ -11,82 +11,77 @@ pub(crate) const P2IDR_NOTE_SCRIPT_ROOT: &str =
 pub(crate) const SWAP_NOTE_SCRIPT_ROOT: &str =
     "0x0270336bdc66b9cfd0b7988f56b2e3e1cb39c920ec37627e49390523280c1545";
 
-/// Returns the indices of the notes from `created_notes` that can be consumed by the client
-///
-/// The provided `store` and `tx_executor` must correspond to the same client
-pub fn filter_created_notes_to_track<S: Store>(
-    store: &mut S,
-    created_notes: &[Note],
-) -> Result<Vec<usize>, ClientError> {
-    let account_ids_tracked_by_client = store
-        .get_account_stubs()?
-        .iter()
-        .map(|(account_stub, _seed)| account_stub.id())
-        .collect::<Vec<_>>();
-
-    let filtered_notes = created_notes
-        .iter()
-        .enumerate()
-        .filter(|(_note_idx, note)| is_note_relevant(note, &account_ids_tracked_by_client))
-        .map(|(note_idx, _note)| note_idx)
-        .collect::<Vec<_>>();
-
-    Ok(filtered_notes)
-}
-
-/// Returns whether the note is relevant
-///
-/// We call a note *irrelevant* if it cannot be consumed by any of the accounts corresponding to
-/// `acount_id`. And a note is *relevant* if it's not *irrelevant* (this means it can for sure be
-/// consumed or we can't be 100% sure it's possible to consume it)
-fn is_note_relevant(
-    note: &Note,
-    account_ids: &[AccountId],
-) -> bool {
-    account_ids
-        .iter()
-        .map(|&account_id| check_consumption(note, account_id))
-        .any(|consumption_check_result| consumption_check_result != NoteRelevance::None)
-}
-
-/// Check if `note` can be consumed by the account corresponding to `account_id`
-///
-/// The function currently does a fast check for known scripts (P2ID and P2IDR). We're currently
-/// unable to execute notes that are not committed so a slow check for other scripts is currently
-/// not available.
-pub fn check_consumption(
-    note: &Note,
-    account_id: AccountId,
-) -> NoteRelevance {
-    let script_hash_str = note.script().hash().to_string();
-    let send_asset_inputs = vec![(account_id).into()];
-    let note_inputs = note.inputs().to_vec();
-
-    match script_hash_str.as_str() {
-        P2ID_NOTE_SCRIPT_ROOT if note_inputs == send_asset_inputs => NoteRelevance::Always,
-        P2IDR_NOTE_SCRIPT_ROOT
-            if (note.metadata().sender() == account_id
-                || note_inputs.first() == send_asset_inputs.first())
-                && note_inputs.len() == 2 =>
-        {
-            NoteRelevance::After(note_inputs[1].as_int() as u32)
-        },
-        P2ID_NOTE_SCRIPT_ROOT => NoteRelevance::None,
-        P2IDR_NOTE_SCRIPT_ROOT => NoteRelevance::None,
-        _ => NoteRelevance::Unknown,
-    }
-}
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum NoteRelevance {
-    /// The note cannot be consumed.
-    None,
-    /// We cannot decide whether the note is consumable or not.
-    Unknown,
     /// The note can be consumed at any time.
     Always,
     /// The note can be consumed after the block with the specified number.
     After(u32),
+}
+
+pub struct NoteScreener<'a, S: Store> {
+    store: &'a S,
+}
+
+impl<'a, S: Store> NoteScreener<'a, S> {
+    pub fn new(store: &'a S) -> Self {
+        Self { store }
+    }
+
+    /// Returns a vector of tuples describing the relevance of the provided note to the
+    /// accounts monitored by this screener.
+    ///
+    /// Does a fast check for known scripts (P2ID, P2IDR, SWAP). We're currently
+    /// unable to execute notes that are not committed so a slow check for other scripts is currently
+    /// not available.
+    pub fn check_relevance(
+        &self,
+        note: &Note,
+    ) -> Result<Vec<(AccountId, NoteRelevance)>, ScreenerError> {
+        let _accounts_ids = self.store.get_account_ids()?;
+        let script_hash = note.script().hash().to_string();
+        let note_relevance = match script_hash.as_str() {
+            P2ID_NOTE_SCRIPT_ROOT => Self::check_p2id_relevance(note),
+            P2IDR_NOTE_SCRIPT_ROOT => Self::check_p2idr_relevance(note),
+            SWAP_NOTE_SCRIPT_ROOT => self.check_swap_relevance(note),
+            _ => self.check_script_relevance(note),
+        };
+
+        Ok(note_relevance)
+    }
+
+    fn check_p2id_relevance(note: &Note) -> Vec<(AccountId, NoteRelevance)> {
+        vec![(AccountId::new_unchecked(note.inputs().to_vec()[0]), NoteRelevance::Always)]
+    }
+
+    fn check_p2idr_relevance(note: &Note) -> Vec<(AccountId, NoteRelevance)> {
+        let note_inputs = note.inputs().to_vec();
+        let sender = note.metadata().sender();
+        let recall_height = note_inputs[1].as_int() as u32;
+
+        vec![
+            (AccountId::new_unchecked(note_inputs[0]), NoteRelevance::Always),
+            (sender, NoteRelevance::After(recall_height)),
+        ]
+    }
+
+    fn check_swap_relevance(
+        &self,
+        _note: &Note,
+    ) -> Vec<(AccountId, NoteRelevance)> {
+        // TODO: check if any of the accounts have the requested asset; this will require
+        // querying data from the store
+        todo!()
+    }
+
+    fn check_script_relevance(
+        &self,
+        _note: &Note,
+    ) -> Vec<(AccountId, NoteRelevance)> {
+        // TODO: try to execute the note script against relevant accounts; this will
+        // require querying data from the store
+        todo!()
+    }
 }
 
 #[cfg(test)]
@@ -103,7 +98,7 @@ mod tests {
     };
     use rand::Rng;
 
-    use crate::client::note_consumption_checker::{
+    use crate::client::note_screener::{
         P2IDR_NOTE_SCRIPT_ROOT, P2ID_NOTE_SCRIPT_ROOT, SWAP_NOTE_SCRIPT_ROOT,
     };
 
@@ -154,12 +149,8 @@ mod tests {
         .unwrap();
         let (swap_note, _serial_num) = create_swap_note(
             account_id,
-            miden_objects::assets::Asset::Fungible(
-                FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
-            ),
-            miden_objects::assets::Asset::Fungible(
-                FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
-            ),
+            FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
+            FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
             rng,
         )
         .unwrap();

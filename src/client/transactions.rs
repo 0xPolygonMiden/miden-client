@@ -15,9 +15,10 @@ use miden_tx::{utils::Serializable, ProvingOptions, TransactionProver};
 use rand::Rng;
 use tracing::info;
 
-use super::{filter_created_notes_to_track, rpc::NodeRpcClient, Client};
+use super::{rpc::NodeRpcClient, Client};
 use crate::{
-    errors::ClientError,
+    client::NoteScreener,
+    errors::{ClientError, ScreenerError},
     store::{AuthInfo, Store, TransactionFilter},
 };
 
@@ -455,10 +456,23 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
 
         self.submit_proven_transaction_request(proven_transaction.clone()).await?;
 
-        let relevant_created_notes =
-            filter_created_notes_to_track(&mut self.store, tx_result.created_notes())?;
+        let note_screener = NoteScreener::new(&self.store);
+
+        let relevant_created_notes = tx_result
+            .created_notes()
+            .iter()
+            .enumerate()
+            .map(|(note_index, note)| Ok((note_index, note_screener.check_relevance(note)?)))
+            .collect::<Result<Vec<_>, ScreenerError>>()?;
+
+        let relevant_created_notes_indices = relevant_created_notes
+            .into_iter()
+            .filter(|(_note_index, note_relevance)| !note_relevance.is_empty())
+            .map(|(note_index, _note_relevance)| note_index)
+            .collect::<Vec<_>>();
+
         let mut tx_result = tx_result;
-        tx_result.set_relevant_notes(&relevant_created_notes);
+        tx_result.set_relevant_notes(&relevant_created_notes_indices);
 
         // Transaction was proven and submitted to the node correctly, persist note details and update account
         self.store.apply_transaction(tx_result)?;
