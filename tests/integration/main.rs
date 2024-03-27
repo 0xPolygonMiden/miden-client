@@ -392,7 +392,7 @@ async fn assert_note_cannot_be_consumed_twice(
 // The following functions are for testing custom transaction code. What the test does is:
 //
 // - Create a custom tx that mints a custom note which checks that the note args are as expected
-//   (ie, a word of 4 felts that represent [92,92,92,92])
+//   (ie, a word of 4 felts that represent [9, 12, 18, 3])
 //
 // - Create another transaction that consumes this note with custom code. This custom code only
 //   asserts that the {asserted_value} parameter is 0. To test this we first execute with
