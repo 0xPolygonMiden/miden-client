@@ -38,23 +38,32 @@ impl<'a, S: Store> NoteScreener<'a, S> {
         &self,
         note: &Note,
     ) -> Result<Vec<(AccountId, NoteRelevance)>, ScreenerError> {
-        let _accounts_ids = self.store.get_account_ids()?;
+        let account_ids = self.store.get_account_ids()?;
         let script_hash = note.script().hash().to_string();
         let note_relevance = match script_hash.as_str() {
-            P2ID_NOTE_SCRIPT_ROOT => Self::check_p2id_relevance(note),
-            P2IDR_NOTE_SCRIPT_ROOT => Self::check_p2idr_relevance(note),
-            SWAP_NOTE_SCRIPT_ROOT => self.check_swap_relevance(note),
-            _ => self.check_script_relevance(note),
+            P2ID_NOTE_SCRIPT_ROOT => Self::check_p2id_relevance(note, &account_ids),
+            P2IDR_NOTE_SCRIPT_ROOT => Self::check_p2idr_relevance(note, &account_ids),
+            SWAP_NOTE_SCRIPT_ROOT => self.check_swap_relevance(note, &account_ids),
+            _ => self.check_script_relevance(note, &account_ids),
         };
 
         Ok(note_relevance)
     }
 
-    fn check_p2id_relevance(note: &Note) -> Vec<(AccountId, NoteRelevance)> {
+    fn check_p2id_relevance(
+        note: &Note,
+        account_ids: &[AccountId],
+    ) -> Vec<(AccountId, NoteRelevance)> {
         vec![(AccountId::new_unchecked(note.inputs().to_vec()[0]), NoteRelevance::Always)]
+            .into_iter()
+            .filter(|(account_id, _relevance)| account_ids.contains(account_id))
+            .collect()
     }
 
-    fn check_p2idr_relevance(note: &Note) -> Vec<(AccountId, NoteRelevance)> {
+    fn check_p2idr_relevance(
+        note: &Note,
+        account_ids: &[AccountId],
+    ) -> Vec<(AccountId, NoteRelevance)> {
         let note_inputs = note.inputs().to_vec();
         let sender = note.metadata().sender();
         let recall_height = note_inputs[1].as_int() as u32;
@@ -63,11 +72,15 @@ impl<'a, S: Store> NoteScreener<'a, S> {
             (AccountId::new_unchecked(note_inputs[0]), NoteRelevance::Always),
             (sender, NoteRelevance::After(recall_height)),
         ]
+        .into_iter()
+        .filter(|(account_id, _relevance)| account_ids.contains(account_id))
+        .collect()
     }
 
     fn check_swap_relevance(
         &self,
         _note: &Note,
+        _account_ids: &[AccountId],
     ) -> Vec<(AccountId, NoteRelevance)> {
         // TODO: check if any of the accounts have the requested asset; this will require
         // querying data from the store
@@ -77,6 +90,7 @@ impl<'a, S: Store> NoteScreener<'a, S> {
     fn check_script_relevance(
         &self,
         _note: &Note,
+        _account_ids: &[AccountId],
     ) -> Vec<(AccountId, NoteRelevance)> {
         // TODO: try to execute the note script against relevant accounts; this will
         // require querying data from the store
