@@ -37,7 +37,7 @@ The `AccountTemplate` enum defines which type of account will be created. Note t
 
 ## Execute a transaction
 
-In order to execute a transaction, you first need to define which type of transaction is to be executed. This may be done with the `TransactionTemplate` enum. Here is an example for a pay-to-id type transaction:
+In order to execute a transaction, you first need to define which type of transaction is to be executed. This may be done with the `TransactionTemplate` enum. The `TransactionTemplate` must be built into a `TransactionRequest`, which represents a more general definition of a transaction. Here is an example for a pay-to-id type transaction:
 
 ```rust
     // Define asset
@@ -53,13 +53,16 @@ In order to execute a transaction, you first need to define which type of transa
     );
 
     let transaction_template: TransactionTemplate = TransactionTemplate::P2ID(payment_transaction);
+    let transaction_request = client.build_transaction_request(transaction_template).unwrap();
 
     // Execute transaction. No information is tracked after this.
     let transaction_execution_result =
-        client.new_transaction(transaction_template.clone())?;
+        client.new_transaction(transaction_request.clone())?;
 
     // Prove and submit the transaction, which is stored alongside created notes (if any)
     client
         .send_transaction(transaction_execution_result)
         .await?
 ```
+
+You may also execute a transaction by manually defining a `TransactionRequest` instance. This allows you to run custom code, with custom note arguments as well.

@@ -12,7 +12,7 @@ use miden_objects::{
 use crate::{
     client::{
         accounts::{AccountStorageMode, AccountTemplate},
-        transactions::TransactionTemplate,
+        transactions::transaction_request::TransactionTemplate,
     },
     mock::{
         get_account_with_default_account_code, mock_full_chain_mmr_and_notes,
@@ -367,11 +367,13 @@ async fn test_mint_transaction() {
     client.sync_state().await.unwrap();
 
     // Test submitting a mint transaction
-    let transaction_template = TransactionTemplate::MintFungibleAsset {
-        asset: FungibleAsset::new(faucet.id(), 5u64).unwrap(),
-        target_account_id: AccountId::from_hex("0x168187d729b31a84").unwrap(),
-    };
+    let transaction_template = TransactionTemplate::MintFungibleAsset(
+        FungibleAsset::new(faucet.id(), 5u64).unwrap(),
+        AccountId::from_hex("0x168187d729b31a84").unwrap(),
+    );
 
-    let transaction = client.new_transaction(transaction_template).unwrap();
+    let transaction_request = client.build_transaction_request(transaction_template).unwrap();
+
+    let transaction = client.new_transaction(transaction_request).unwrap();
     assert!(transaction.executed_transaction().account_delta().nonce().is_some());
 }
