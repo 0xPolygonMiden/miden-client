@@ -49,7 +49,7 @@ end
 begin
     # drop the note script root
     dropw
-    # => [note_args] 
+    # => [NOTE_ARG] 
     push.{expected_note_arg} assert_eqw
 
     # store the note inputs to memory starting at address 0

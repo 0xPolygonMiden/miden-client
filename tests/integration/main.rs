@@ -570,14 +570,14 @@ fn create_custom_note(
 ) -> Note {
     let assembler = TransactionKernel::assembler();
 
-    let recipient = [Felt::new(9), Felt::new(12), Felt::new(18), Felt::new(3)]
+    let expected_note_arg = [Felt::new(9), Felt::new(12), Felt::new(18), Felt::new(3)]
         .iter()
         .map(|x| x.to_string())
         .collect::<Vec<_>>()
         .join(".");
 
     let note_script =
-        include_str!("asm/custom_p2id.masm").replace("{expected_note_arg}", &recipient);
+        include_str!("asm/custom_p2id.masm").replace("{expected_note_arg}", &expected_note_arg);
     let note_script = ProgramAst::parse(&note_script).unwrap();
     let (note_script, _) = NoteScript::new(note_script, &assembler).unwrap();
 
