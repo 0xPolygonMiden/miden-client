@@ -21,6 +21,7 @@ The following is a list of commands that the CLI currently supports. A small exp
 | `input-notes`  | View and manage input notes                                             |
 | `sync`         | Sync this client with the latest state of the Miden network |
 | `info`         | View a summary of the current client state                  |
+| `init`         | Create a miden-client.toml config file in the current directory   |
 | `tags`         | View and add tags                                            |
 | `tx` (or `transaction`)           | Execute and view transactions            
 
