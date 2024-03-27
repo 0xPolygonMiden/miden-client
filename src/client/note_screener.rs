@@ -1,4 +1,4 @@
-use miden_objects::{accounts::AccountId, notes::Note};
+use miden_objects::{accounts::AccountId, assets::Asset, notes::Note, Word};
 
 use crate::{errors::ScreenerError, store::Store};
 
@@ -77,14 +77,47 @@ impl<'a, S: Store> NoteScreener<'a, S> {
         .collect()
     }
 
+    /// Checks if a swap note can be consumed by any account whose id is in `account_ids`
+    ///
+    /// This implementation serves as a placeholder as we're currently not able to create, execute
+    /// and send SWAP NOTES. Hence, it's also untested. The main logic should be the same: for each
+    /// account check if it has enough of the wanted asset.
+    /// This is also very inefficient as we're loading the full accounts. We should instead just
+    /// load the account's vaults, or even have a function in the `Store` to do this.
     fn check_swap_relevance(
         &self,
-        _note: &Note,
-        _account_ids: &[AccountId],
+        note: &Note,
+        account_ids: &[AccountId],
     ) -> Vec<(AccountId, NoteRelevance)> {
-        // TODO: check if any of the accounts have the requested asset; this will require
-        // querying data from the store
-        todo!()
+        let note_inputs = note.inputs().to_vec();
+        let asset: Asset =
+            Word::from([note_inputs[4], note_inputs[5], note_inputs[6], note_inputs[7]])
+                .try_into()
+                .unwrap();
+        let asset_faucet_id = AccountId::new_unchecked(asset.vault_key()[3]);
+
+        account_ids
+            .iter()
+            .filter_map(|&account_id| {
+                let (account, _) = self.store.get_account(account_id).unwrap();
+
+                // Check that the account has enough
+                match asset {
+                    Asset::NonFungible(_non_fungible_asset)
+                        if account.vault().has_non_fungible_asset(asset).unwrap() =>
+                    {
+                        Some((account_id, NoteRelevance::Always))
+                    },
+                    Asset::Fungible(fungible_asset)
+                        if account.vault().get_balance(asset_faucet_id).unwrap()
+                            >= fungible_asset.amount() =>
+                    {
+                        Some((account_id, NoteRelevance::Always))
+                    },
+                    _ => None,
+                }
+            })
+            .collect::<Vec<_>>()
     }
 
     fn check_script_relevance(
