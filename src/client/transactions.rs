@@ -17,7 +17,8 @@ use tracing::info;
 
 use super::{rpc::NodeRpcClient, Client};
 use crate::{
-    errors::ClientError,
+    client::NoteScreener,
+    errors::{ClientError, ScreenerError},
     store::{AuthInfo, Store, TransactionFilter},
 };
 
@@ -97,11 +98,13 @@ impl PaymentTransactionData {
 
 /// Represents the result of executing a transaction by the client
 ///  
-/// It contains an [ExecutedTransaction] and a list of [Note] that describe the details of the
-/// notes created by the transaction execution
+/// It contains an [ExecutedTransaction], a list of [Note] that describe the details of the notes
+/// created by the transaction execution, and a list of `usize` `relevant_notes` that contain the
+/// indices of `output_notes` that are relevant to the client
 pub struct TransactionResult {
     executed_transaction: ExecutedTransaction,
     output_notes: Vec<Note>,
+    relevant_notes: Vec<usize>,
 }
 
 impl TransactionResult {
@@ -109,9 +112,11 @@ impl TransactionResult {
         executed_transaction: ExecutedTransaction,
         created_notes: Vec<Note>,
     ) -> Self {
+        let relevant_notes = (0..created_notes.len()).collect();
         Self {
             executed_transaction,
             output_notes: created_notes,
+            relevant_notes,
         }
     }
 
@@ -121,6 +126,20 @@ impl TransactionResult {
 
     pub fn created_notes(&self) -> &Vec<Note> {
         &self.output_notes
+    }
+
+    pub fn relevant_notes(&self) -> Vec<&Note> {
+        self.relevant_notes
+            .iter()
+            .map(|note_index| &self.output_notes[*note_index])
+            .collect()
+    }
+
+    pub fn set_relevant_notes(
+        &mut self,
+        relevant_notes_indices: &[usize],
+    ) {
+        self.relevant_notes = Vec::from(relevant_notes_indices);
     }
 
     pub fn block_num(&self) -> u32 {
@@ -436,6 +455,24 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         info!("Proved transaction, submitting to the node...");
 
         self.submit_proven_transaction_request(proven_transaction.clone()).await?;
+
+        let note_screener = NoteScreener::new(&self.store);
+
+        let relevant_created_notes = tx_result
+            .created_notes()
+            .iter()
+            .enumerate()
+            .map(|(note_index, note)| Ok((note_index, note_screener.check_relevance(note)?)))
+            .collect::<Result<Vec<_>, ScreenerError>>()?;
+
+        let relevant_created_notes_indices = relevant_created_notes
+            .into_iter()
+            .filter(|(_note_index, note_relevance)| !note_relevance.is_empty())
+            .map(|(note_index, _note_relevance)| note_index)
+            .collect::<Vec<_>>();
+
+        let mut tx_result = tx_result;
+        tx_result.set_relevant_notes(&relevant_created_notes_indices);
 
         // Transaction was proven and submitted to the node correctly, persist note details and update account
         self.store.apply_transaction(tx_result)?;

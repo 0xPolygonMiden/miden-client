@@ -20,6 +20,9 @@ use miden_objects::{
 use miden_tx::{DataStoreError, TransactionExecutorError};
 use uuid::Uuid;
 
+// TODO: Once this is ran as a regular test use the one in `miden_client::mock::ACCOUNT_ID_REGULAR`
+pub const ACCOUNT_ID_REGULAR: u64 = 0b0110111011u64 << 54;
+
 type TestClient = Client<TonicRpcClient, SqliteStore>;
 
 fn create_test_client() -> TestClient {
@@ -206,6 +209,21 @@ async fn mint_note(
     } else {
         panic!("ACCOUNT SHOULD HAVE A FUNGIBLE ASSET");
     }
+
+    // Mint some asset for an account not tracked by the client. It should not be stored as an
+    // input note afterwards since it is not being tracked by the client
+    let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
+    let tx_template = TransactionTemplate::MintFungibleAsset {
+        asset: fungible_asset,
+        target_account_id: AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap(),
+    };
+    println!("Running Mint tx...");
+    execute_tx_and_sync(client, tx_template).await;
+
+    // Check that no new notes were added
+    println!("Fetching Committed Notes...");
+    let notes = client.get_input_notes(NoteFilter::Committed).unwrap();
+    assert!(notes.is_empty());
 }
 
 // TODO: once [this issue](https://github.com/0xPolygonMiden/miden-client/issues/201#issuecomment-1989432215)
@@ -244,7 +262,12 @@ async fn test_p2id_transfer() {
     println!("Consuming Note...");
     execute_tx_and_sync(&mut client, tx_template).await;
 
+    // Ensure we have nothing else to consume
+    let current_notes = client.get_input_notes(NoteFilter::Committed).unwrap();
+    assert!(current_notes.is_empty());
+
     let (regular_account, seed) = client.get_account(from_account_id).unwrap();
+
     // The seed should not be retrieved due to the account not being new
     assert!(!regular_account.is_new() && seed.is_none());
     assert_eq!(regular_account.vault().assets().count(), 1);

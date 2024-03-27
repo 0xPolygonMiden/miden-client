@@ -5,7 +5,7 @@ use miden_objects::{
     accounts::AccountId,
     crypto::{dsa::rpo_falcon512::FalconError, merkle::MmrError},
     notes::NoteId,
-    AccountError, AssetVaultError, Digest, NoteError, TransactionScriptError,
+    AccountError, AssetError, AssetVaultError, Digest, NoteError, TransactionScriptError,
 };
 use miden_tx::{
     utils::{DeserializationError, HexParseError},
@@ -18,6 +18,7 @@ use miden_tx::{
 #[derive(Debug)]
 pub enum ClientError {
     AccountError(AccountError),
+    AssetError(AssetError),
     AuthError(FalconError),
     ImportNewAccountWithoutSeed,
     NoteError(NoteError),
@@ -35,6 +36,7 @@ impl fmt::Display for ClientError {
     ) -> fmt::Result {
         match self {
             ClientError::AccountError(err) => write!(f, "account error: {err}"),
+            ClientError::AssetError(err) => write!(f, "asset error: {err}"),
             ClientError::AuthError(err) => write!(f, "account auth error: {err}"),
             ClientError::ImportNewAccountWithoutSeed => write!(
                 f,
@@ -98,6 +100,16 @@ impl From<TransactionExecutorError> for ClientError {
 impl From<TransactionProverError> for ClientError {
     fn from(err: TransactionProverError) -> Self {
         Self::TransactionProvingError(err)
+    }
+}
+
+impl From<ScreenerError> for ClientError {
+    fn from(err: ScreenerError) -> Self {
+        match err {
+            ScreenerError::AssetError(asset_error) => Self::AssetError(asset_error),
+            ScreenerError::AccountError(account_error) => Self::AccountError(account_error),
+            ScreenerError::StoreError(store_error) => Self::StoreError(store_error),
+        }
     }
 }
 
@@ -384,5 +396,34 @@ impl fmt::Display for NoteIdPrefixFetchError {
                 )
             },
         }
+    }
+}
+
+// NOTE ID PREFIX FETCH ERROR
+// ================================================================================================
+
+/// Error when screening notes to check relevance to a client
+#[derive(Debug)]
+pub enum ScreenerError {
+    AccountError(AccountError),
+    AssetError(AssetError),
+    StoreError(StoreError),
+}
+
+impl From<StoreError> for ScreenerError {
+    fn from(error: StoreError) -> Self {
+        Self::StoreError(error)
+    }
+}
+
+impl From<AssetError> for ScreenerError {
+    fn from(error: AssetError) -> Self {
+        Self::AssetError(error)
+    }
+}
+
+impl From<AccountError> for ScreenerError {
+    fn from(error: AccountError) -> Self {
+        Self::AccountError(error)
     }
 }
