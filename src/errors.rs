@@ -5,7 +5,7 @@ use miden_objects::{
     accounts::AccountId,
     crypto::{dsa::rpo_falcon512::FalconError, merkle::MmrError},
     notes::NoteId,
-    AccountError, AssetVaultError, Digest, NoteError, TransactionScriptError,
+    AccountError, AssetError, AssetVaultError, Digest, NoteError, TransactionScriptError,
 };
 use miden_tx::{
     utils::{DeserializationError, HexParseError},
@@ -18,6 +18,7 @@ use miden_tx::{
 #[derive(Debug)]
 pub enum ClientError {
     AccountError(AccountError),
+    AssetError(AssetError),
     AuthError(FalconError),
     ImportNewAccountWithoutSeed,
     NoteError(NoteError),
@@ -35,6 +36,7 @@ impl fmt::Display for ClientError {
     ) -> fmt::Result {
         match self {
             ClientError::AccountError(err) => write!(f, "account error: {err}"),
+            ClientError::AssetError(err) => write!(f, "asset error: {err}"),
             ClientError::AuthError(err) => write!(f, "account auth error: {err}"),
             ClientError::ImportNewAccountWithoutSeed => write!(
                 f,
@@ -105,6 +107,7 @@ impl From<ScreenerError> for ClientError {
     fn from(err: ScreenerError) -> Self {
         match err {
             ScreenerError::StoreError(store_error) => Self::StoreError(store_error),
+            ScreenerError::AssetError(asset_error) => Self::AssetError(asset_error),
         }
     }
 }
@@ -402,10 +405,16 @@ impl fmt::Display for NoteIdPrefixFetchError {
 #[derive(Debug)]
 pub enum ScreenerError {
     StoreError(StoreError),
+    AssetError(AssetError),
 }
 
 impl From<StoreError> for ScreenerError {
     fn from(error: StoreError) -> Self {
         Self::StoreError(error)
+    }
+}
+impl From<AssetError> for ScreenerError {
+    fn from(error: AssetError) -> Self {
+        Self::AssetError(error)
     }
 }

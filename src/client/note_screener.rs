@@ -43,7 +43,7 @@ impl<'a, S: Store> NoteScreener<'a, S> {
         let note_relevance = match script_hash.as_str() {
             P2ID_NOTE_SCRIPT_ROOT => Self::check_p2id_relevance(note, &account_ids),
             P2IDR_NOTE_SCRIPT_ROOT => Self::check_p2idr_relevance(note, &account_ids),
-            SWAP_NOTE_SCRIPT_ROOT => self.check_swap_relevance(note, &account_ids),
+            SWAP_NOTE_SCRIPT_ROOT => self.check_swap_relevance(note, &account_ids)?,
             _ => self.check_script_relevance(note, &account_ids),
         };
 
@@ -88,36 +88,43 @@ impl<'a, S: Store> NoteScreener<'a, S> {
         &self,
         note: &Note,
         account_ids: &[AccountId],
-    ) -> Vec<(AccountId, NoteRelevance)> {
+    ) -> Result<Vec<(AccountId, NoteRelevance)>, ScreenerError> {
         let note_inputs = note.inputs().to_vec();
+
+        // get the demanded asset from the note's inputs
         let asset: Asset =
             Word::from([note_inputs[4], note_inputs[5], note_inputs[6], note_inputs[7]])
-                .try_into()
-                .unwrap();
+                .try_into()?;
         let asset_faucet_id = AccountId::new_unchecked(asset.vault_key()[3]);
 
-        account_ids
-            .iter()
-            .filter_map(|&account_id| {
-                let (account, _) = self.store.get_account(account_id).unwrap();
+        let mut accounts_with_relevance = Vec::new();
 
-                // Check that the account has enough
-                match asset {
-                    Asset::NonFungible(_non_fungible_asset)
-                        if account.vault().has_non_fungible_asset(asset).unwrap() =>
-                    {
-                        Some((account_id, NoteRelevance::Always))
-                    },
-                    Asset::Fungible(fungible_asset)
-                        if account.vault().get_balance(asset_faucet_id).unwrap()
-                            >= fungible_asset.amount() =>
-                    {
-                        Some((account_id, NoteRelevance::Always))
-                    },
-                    _ => None,
-                }
-            })
-            .collect::<Vec<_>>()
+        for account_id in account_ids {
+            let (account, _) = self.store.get_account(*account_id)?;
+
+            // Check that the account can cover the demanded asset
+            match asset {
+                Asset::NonFungible(_non_fungible_asset)
+                    if account.vault().has_non_fungible_asset(asset).expect(
+                        "Should be able to query has_non_fungible_asset for an Asset::NonFungible",
+                    ) =>
+                {
+                    accounts_with_relevance.push((*account_id, NoteRelevance::Always))
+                },
+                Asset::Fungible(fungible_asset)
+                    if account
+                        .vault()
+                        .get_balance(asset_faucet_id)
+                        .expect("Should be able to query get_balance for an Asset::Fungible")
+                        >= fungible_asset.amount() =>
+                {
+                    accounts_with_relevance.push((*account_id, NoteRelevance::Always))
+                },
+                _ => {},
+            }
+        }
+
+        Ok(accounts_with_relevance)
     }
 
     fn check_script_relevance(
