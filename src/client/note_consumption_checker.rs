@@ -8,6 +8,8 @@ pub(crate) const P2ID_NOTE_SCRIPT_ROOT: &str =
     "0x65c08aef0e3d11ce8a26662005a5272398e8810e5e13a903a993ee622d03675f";
 pub(crate) const P2IDR_NOTE_SCRIPT_ROOT: &str =
     "0x03dd8f8fd57f015d821648292cee0ce42e16c4b80427c46b9cb874db44395f47";
+pub(crate) const SWAP_NOTE_SCRIPT_ROOT: &str =
+    "0x0270336bdc66b9cfd0b7988f56b2e3e1cb39c920ec37627e49390523280c1545";
 
 /// Returns the indices of the notes from `created_notes` that can be consumed by the client
 ///
@@ -85,4 +87,85 @@ pub enum NoteRelevance {
     Always,
     /// The note can be consumed after the block with the specified number.
     After(u32),
+}
+
+#[cfg(test)]
+mod tests {
+    use miden_lib::{
+        notes::{create_p2id_note, create_p2idr_note, create_swap_note},
+        AuthScheme,
+    };
+    use miden_objects::{
+        accounts::{AccountId, AccountType},
+        assets::FungibleAsset,
+        crypto::{dsa::rpo_falcon512::KeyPair, rand::RpoRandomCoin},
+        Felt,
+    };
+    use rand::Rng;
+
+    use crate::client::note_consumption_checker::{
+        P2IDR_NOTE_SCRIPT_ROOT, P2ID_NOTE_SCRIPT_ROOT, SWAP_NOTE_SCRIPT_ROOT,
+    };
+
+    // We need to make sure the script roots we use for filters are in line with the note scripts
+    // coming from Miden objects
+    #[test]
+    fn ensure_correct_script_roots() {
+        // create dummy data for the notes
+        let faucet_id: AccountId = 10347894387879516201u64.try_into().unwrap();
+
+        let key_pair: KeyPair = KeyPair::new().unwrap();
+        let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
+            pub_key: key_pair.public_key(),
+        };
+
+        // we need to use an initial seed to create the wallet account
+        let mut rng = rand::thread_rng();
+        let init_seed: [u8; 32] = rng.gen();
+
+        let (account, _seed) = miden_lib::accounts::wallets::create_basic_wallet(
+            init_seed,
+            auth_scheme,
+            AccountType::RegularAccountImmutableCode,
+        )
+        .unwrap();
+        let account_id = account.id();
+
+        let rng = {
+            let coin_seed: [u64; 4] = rng.gen();
+            RpoRandomCoin::new(coin_seed.map(Felt::new))
+        };
+
+        // create dummy notes to compare note script roots
+        let p2id_note = create_p2id_note(
+            account_id,
+            account_id,
+            vec![FungibleAsset::new(faucet_id, 100u64).unwrap().into()],
+            rng,
+        )
+        .unwrap();
+        let p2idr_note = create_p2idr_note(
+            account_id,
+            account_id,
+            vec![FungibleAsset::new(faucet_id, 100u64).unwrap().into()],
+            10,
+            rng,
+        )
+        .unwrap();
+        let (swap_note, _serial_num) = create_swap_note(
+            account_id,
+            miden_objects::assets::Asset::Fungible(
+                FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
+            ),
+            miden_objects::assets::Asset::Fungible(
+                FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
+            ),
+            rng,
+        )
+        .unwrap();
+
+        assert_eq!(p2id_note.script().hash().to_string(), P2ID_NOTE_SCRIPT_ROOT);
+        assert_eq!(p2idr_note.script().hash().to_string(), P2IDR_NOTE_SCRIPT_ROOT);
+        assert_eq!(swap_note.script().hash().to_string(), SWAP_NOTE_SCRIPT_ROOT);
+    }
 }
