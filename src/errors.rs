@@ -106,8 +106,9 @@ impl From<TransactionProverError> for ClientError {
 impl From<ScreenerError> for ClientError {
     fn from(err: ScreenerError) -> Self {
         match err {
-            ScreenerError::StoreError(store_error) => Self::StoreError(store_error),
             ScreenerError::AssetError(asset_error) => Self::AssetError(asset_error),
+            ScreenerError::AccountError(account_error) => Self::AccountError(account_error),
+            ScreenerError::StoreError(store_error) => Self::StoreError(store_error),
         }
     }
 }
@@ -404,8 +405,9 @@ impl fmt::Display for NoteIdPrefixFetchError {
 /// Error when screening notes to check relevance to a client
 #[derive(Debug)]
 pub enum ScreenerError {
-    StoreError(StoreError),
+    AccountError(AccountError),
     AssetError(AssetError),
+    StoreError(StoreError),
 }
 
 impl From<StoreError> for ScreenerError {
@@ -413,8 +415,15 @@ impl From<StoreError> for ScreenerError {
         Self::StoreError(error)
     }
 }
+
 impl From<AssetError> for ScreenerError {
     fn from(error: AssetError) -> Self {
         Self::AssetError(error)
+    }
+}
+
+impl From<AccountError> for ScreenerError {
+    fn from(error: AccountError) -> Self {
+        Self::AccountError(error)
     }
 }

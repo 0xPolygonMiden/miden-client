@@ -44,10 +44,10 @@ impl<'a, S: Store> NoteScreener<'a, S> {
 
         let script_hash = note.script().hash().to_string();
         let note_relevance = match script_hash.as_str() {
-            P2ID_NOTE_SCRIPT_ROOT => Self::check_p2id_relevance(note, &account_ids),
-            P2IDR_NOTE_SCRIPT_ROOT => Self::check_p2idr_relevance(note, &account_ids),
+            P2ID_NOTE_SCRIPT_ROOT => Self::check_p2id_relevance(note, &account_ids)?,
+            P2IDR_NOTE_SCRIPT_ROOT => Self::check_p2idr_relevance(note, &account_ids)?,
             SWAP_NOTE_SCRIPT_ROOT => self.check_swap_relevance(note, &account_ids)?,
-            _ => self.check_script_relevance(note, &account_ids),
+            _ => self.check_script_relevance(note, &account_ids)?,
         };
 
         Ok(note_relevance)
@@ -56,28 +56,38 @@ impl<'a, S: Store> NoteScreener<'a, S> {
     fn check_p2id_relevance(
         note: &Note,
         account_ids: &BTreeSet<AccountId>,
-    ) -> Vec<(AccountId, NoteRelevance)> {
-        vec![(AccountId::new_unchecked(note.inputs().to_vec()[0]), NoteRelevance::Always)]
+    ) -> Result<Vec<(AccountId, NoteRelevance)>, ScreenerError> {
+        let note_inputs = note.inputs().to_vec();
+        if note_inputs.len() != 1 {
+            return Ok(Vec::new());
+        }
+
+        Ok(vec![(AccountId::try_from(note.inputs().to_vec()[0])?, NoteRelevance::Always)]
             .into_iter()
             .filter(|(account_id, _relevance)| account_ids.contains(account_id))
-            .collect()
+            .collect())
     }
 
     fn check_p2idr_relevance(
         note: &Note,
         account_ids: &BTreeSet<AccountId>,
-    ) -> Vec<(AccountId, NoteRelevance)> {
+    ) -> Result<Vec<(AccountId, NoteRelevance)>, ScreenerError> {
+        let note_inputs = note.inputs().to_vec();
+        if note_inputs.len() != 2 {
+            return Ok(Vec::new());
+        }
+
         let note_inputs = note.inputs().to_vec();
         let sender = note.metadata().sender();
         let recall_height = note_inputs[1].as_int() as u32;
 
-        vec![
-            (AccountId::new_unchecked(note_inputs[0]), NoteRelevance::Always),
+        Ok(vec![
+            (AccountId::try_from(note_inputs[0])?, NoteRelevance::Always),
             (sender, NoteRelevance::After(recall_height)),
         ]
         .into_iter()
         .filter(|(account_id, _relevance)| account_ids.contains(account_id))
-        .collect()
+        .collect())
     }
 
     /// Checks if a swap note can be consumed by any account whose id is in `account_ids`
@@ -93,12 +103,15 @@ impl<'a, S: Store> NoteScreener<'a, S> {
         account_ids: &BTreeSet<AccountId>,
     ) -> Result<Vec<(AccountId, NoteRelevance)>, ScreenerError> {
         let note_inputs = note.inputs().to_vec();
+        if note_inputs.len() != 9 {
+            return Ok(Vec::new());
+        }
 
         // get the demanded asset from the note's inputs
         let asset: Asset =
             Word::from([note_inputs[4], note_inputs[5], note_inputs[6], note_inputs[7]])
                 .try_into()?;
-        let asset_faucet_id = AccountId::new_unchecked(asset.vault_key()[3]);
+        let asset_faucet_id = AccountId::try_from(asset.vault_key()[3])?;
 
         let mut accounts_with_relevance = Vec::new();
 
@@ -134,7 +147,7 @@ impl<'a, S: Store> NoteScreener<'a, S> {
         &self,
         _note: &Note,
         _account_ids: &BTreeSet<AccountId>,
-    ) -> Vec<(AccountId, NoteRelevance)> {
+    ) -> Result<Vec<(AccountId, NoteRelevance)>, ScreenerError> {
         // TODO: try to execute the note script against relevant accounts; this will
         // require querying data from the store
         todo!()
