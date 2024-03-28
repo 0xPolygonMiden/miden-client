@@ -4,6 +4,7 @@ use miden_lib::notes::{create_p2id_note, create_p2idr_note};
 use miden_objects::{
     accounts::{AccountDelta, AccountId},
     assembly::ProgramAst,
+    assets::{FungibleAsset},
     crypto::rand::RpoRandomCoin,
     notes::Note,
     transaction::{
@@ -12,11 +13,11 @@ use miden_objects::{
     },
     Digest, Felt, Word,
 };
-use miden_tx::{utils::Serializable, ProvingOptions, ScriptTarget, TransactionProver};
+use miden_tx::{ProvingOptions, ScriptTarget, TransactionProver};
 use rand::Rng;
 use tracing::info;
 
-use self::transaction_request::{TransactionRequest, TransactionTemplate};
+use self::transaction_request::{PaymentTransactionData, TransactionRequest, TransactionTemplate};
 use super::{rpc::NodeRpcClient, Client};
 use crate::{
     errors::ClientError,
@@ -161,126 +162,28 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         let account_id = transaction_template.account_id();
         let account_auth = self.store.get_account_auth(account_id)?;
 
-        let (tx_script_ast, created_notes, input_notes) = match transaction_template {
+        match transaction_template {
             TransactionTemplate::ConsumeNotes(_, notes) => {
                 let program_ast = ProgramAst::parse(transaction_request::AUTH_CONSUME_NOTES_SCRIPT)
                     .expect("shipped MASM is well-formed");
                 let notes = notes.iter().map(|id| (*id, None)).collect();
-                (program_ast, vec![], notes)
+
+                let tx_script = {
+                    let script_inputs = vec![account_auth.into_advice_inputs()];
+                    self.tx_executor.compile_tx_script(program_ast, script_inputs, vec![])?
+                };
+                Ok(TransactionRequest::new(account_id, notes, vec![], Some(tx_script)))
             },
             TransactionTemplate::MintFungibleAsset(asset, target_account_id) => {
-                let random_coin = self.get_random_coin();
-                let created_note = create_p2id_note(
-                    account_id,
-                    target_account_id,
-                    vec![asset.into()],
-                    random_coin,
-                )?;
-
-                let recipient = created_note
-                    .recipient()
-                    .iter()
-                    .map(|x| x.as_int().to_string())
-                    .collect::<Vec<_>>()
-                    .join(".");
-
-                let tx_script = ProgramAst::parse(
-                    &transaction_request::DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT
-                        .replace("{recipient}", &recipient)
-                        .replace(
-                            "{tag}",
-                            &Felt::new(Into::<u64>::into(target_account_id)).to_string(),
-                        )
-                        .replace("{amount}", &Felt::new(asset.amount()).to_string()),
-                )
-                .expect("shipped MASM is well-formed");
-                (tx_script, vec![created_note], BTreeMap::new())
+                self.build_mint_tx_request(asset, account_auth, target_account_id)
             },
             TransactionTemplate::PayToId(payment_data) => {
-                let random_coin = self.get_random_coin();
-
-                let created_note = create_p2id_note(
-                    payment_data.account_id(),
-                    payment_data.target_account_id(),
-                    vec![payment_data.asset()],
-                    random_coin,
-                )?;
-
-                let recipient = created_note
-                    .recipient()
-                    .iter()
-                    .map(|x| x.as_int().to_string())
-                    .collect::<Vec<_>>()
-                    .join(".");
-
-                let tx_script = ProgramAst::parse(
-                    &transaction_request::AUTH_SEND_ASSET_SCRIPT
-                        .replace("{recipient}", &recipient)
-                        .replace(
-                            "{tag}",
-                            &Felt::new(Into::<u64>::into(payment_data.target_account_id()))
-                                .to_string(),
-                        )
-                        .replace(
-                            "{asset}",
-                            &prepare_word(&payment_data.asset().into()).to_string(),
-                        ),
-                )
-                .expect("shipped MASM is well-formed");
-
-                (tx_script, vec![created_note], BTreeMap::new())
+                self.build_p2id_tx_request(account_auth, payment_data, None)
             },
             TransactionTemplate::PayToIdWithRecall(payment_data, recall_height) => {
-                let random_coin = self.get_random_coin();
-
-                let created_note = create_p2idr_note(
-                    payment_data.account_id(),
-                    payment_data.target_account_id(),
-                    vec![payment_data.asset()],
-                    recall_height,
-                    random_coin,
-                )?;
-
-                let recipient = created_note
-                    .recipient()
-                    .iter()
-                    .map(|x| x.as_int().to_string())
-                    .collect::<Vec<_>>()
-                    .join(".");
-
-                let tx_script = ProgramAst::parse(
-                    &transaction_request::AUTH_SEND_ASSET_SCRIPT
-                        .replace("{recipient}", &recipient)
-                        .replace(
-                            "{tag}",
-                            &Felt::new(Into::<u64>::into(payment_data.target_account_id()))
-                                .to_string(),
-                        )
-                        .replace(
-                            "{asset}",
-                            &prepare_word(&payment_data.asset().into()).to_string(),
-                        ),
-                )
-                .expect("shipped MASM is well-formed");
-
-                (tx_script, vec![created_note], BTreeMap::new())
+                self.build_p2id_tx_request(account_auth, payment_data, Some(recall_height))
             },
-        };
-
-        let tx_script = {
-            let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
-                AuthInfo::RpoFalcon512(key) => (
-                    key.public_key().into(),
-                    key.to_bytes().iter().map(|a| Felt::new(*a as u64)).collect::<Vec<Felt>>(),
-                ),
-            };
-
-            let script_inputs = vec![(pubkey_input, advice_map)];
-
-            self.tx_executor.compile_tx_script(tx_script_ast, script_inputs, vec![])?
-        };
-
-        Ok(TransactionRequest::new(account_id, input_notes, created_notes, Some(tx_script)))
+        }
     }
 
     /// Creates and executes a transaction specified by the template, but does not change the
@@ -375,6 +278,111 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         let coin_seed: [u64; 4] = rng.gen();
 
         RpoRandomCoin::new(coin_seed.map(Felt::new))
+    }
+
+    /// Helper to build a [TransactionRequest] for P2ID-type transactions easily.
+    ///
+    /// - auth_info has to be from the executor account
+    /// - If recall_height is Some(), a P2IDR note will be created. Otherwise, a P2ID is created.
+    fn build_p2id_tx_request(
+        &self,
+        auth_info: AuthInfo,
+        payment_data: PaymentTransactionData,
+        recall_height: Option<u32>,
+    ) -> Result<TransactionRequest, ClientError> {
+        let random_coin = self.get_random_coin();
+
+        let created_note = if let Some(recall_height) = recall_height {
+            create_p2idr_note(
+                payment_data.account_id(),
+                payment_data.target_account_id(),
+                vec![payment_data.asset()],
+                recall_height,
+                random_coin,
+            )?
+        } else {
+            create_p2id_note(
+                payment_data.account_id(),
+                payment_data.target_account_id(),
+                vec![payment_data.asset()],
+                random_coin,
+            )?
+        };
+
+        let recipient = created_note
+            .recipient()
+            .iter()
+            .map(|x| x.as_int().to_string())
+            .collect::<Vec<_>>()
+            .join(".");
+
+        let tx_script = ProgramAst::parse(
+            &transaction_request::AUTH_SEND_ASSET_SCRIPT
+                .replace("{recipient}", &recipient)
+                .replace(
+                    "{tag}",
+                    &Felt::new(Into::<u64>::into(payment_data.target_account_id())).to_string(),
+                )
+                .replace("{asset}", &prepare_word(&payment_data.asset().into()).to_string()),
+        )
+        .expect("shipped MASM is well-formed");
+
+        let tx_script = {
+            let script_inputs = vec![auth_info.into_advice_inputs()];
+            self.tx_executor.compile_tx_script(tx_script, script_inputs, vec![])?
+        };
+
+        Ok(TransactionRequest::new(
+            payment_data.account_id(),
+            BTreeMap::new(),
+            vec![created_note],
+            Some(tx_script),
+        ))
+    }
+
+    /// Helper to build a [TransactionRequest] for transaction to mint fungible tokens.
+    ///
+    /// - faucet_auth_info has to be from the faucet account
+    fn build_mint_tx_request(
+        &self,
+        asset: FungibleAsset,
+        faucet_auth_info: AuthInfo,
+        target_account_id: AccountId,
+    ) -> Result<TransactionRequest, ClientError> {
+        let random_coin = self.get_random_coin();
+        let created_note = create_p2id_note(
+            asset.faucet_id(),
+            target_account_id,
+            vec![asset.into()],
+            random_coin,
+        )?;
+
+        let recipient = created_note
+            .recipient()
+            .iter()
+            .map(|x| x.as_int().to_string())
+            .collect::<Vec<_>>()
+            .join(".");
+
+        let tx_script = ProgramAst::parse(
+            &transaction_request::DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT
+                .replace("{recipient}", &recipient)
+                .replace("{tag}", &Felt::new(Into::<u64>::into(target_account_id)).to_string())
+                .replace("{amount}", &Felt::new(asset.amount()).to_string()),
+        )
+        .expect("shipped MASM is well-formed");
+
+        let tx_script = {
+            let script_inputs = vec![faucet_auth_info.into_advice_inputs()];
+            self.tx_executor.compile_tx_script(tx_script, script_inputs, vec![])?
+        };
+
+        Ok(TransactionRequest::new(
+            asset.faucet_id(),
+            BTreeMap::new(),
+            vec![created_note],
+            Some(tx_script),
+        ))
     }
 }
 
