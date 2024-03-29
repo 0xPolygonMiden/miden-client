@@ -9,19 +9,26 @@
     <script type="module">
         // Example of using the exported WebClient in the browser
         import { WebClient } from './dist/index.js';
-
-        async function initializeWebClient() {
-            const webClient = new WebClient();
+        
+        async function testCreateClient() {
             try {
+                const webClient = new WebClient();
                 await webClient.create_client();
+                return webClient;
+            } catch (error) {
+                console.error('Failed to create client with web store:', error);
+            }
+        }
+
+        async function testGreetExample(webClient) {
+            try {
                 await webClient.fake_new_account();
             } catch (error) {
                 console.error('Failed to create client with web store:', error);
             }
         }
 
-        async function testNewAccount() {
-            const webClient = new WebClient();
+        async function testNewAccount(webClient) {
             const basicMutableTemplate = {
                 type: "BasicMutable"
             };
@@ -31,7 +38,6 @@
                 max_supply: 1000000
             };
             try {
-                await webClient.create_client();
                 await webClient.new_account(basicMutableTemplate);
                 await webClient.new_account(fungibleFaucetTemplate);
                 // console.log(account);
@@ -41,8 +47,9 @@
             }
         }
 
-        //initializeWebClient();
-        testNewAccount();
+        let webClient = await testCreateClient();
+        //await testGreetExample(webClient);
+        await testNewAccount(webClient);
     </script>
 </body>
 </html>

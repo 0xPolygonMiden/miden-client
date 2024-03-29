@@ -5,28 +5,58 @@ use wasm_bindgen_futures::*;
 
 use async_trait::async_trait;
 
-#[wasm_bindgen(module = "/js/db-operations.js")]
+// Example
+#[wasm_bindgen(module = "/js/db/greet.js")]
 extern "C" {
-    #[wasm_bindgen(js_name = setupIndexedDB)]
-    fn setup_indexed_db() -> js_sys::Promise;
-
     #[wasm_bindgen(js_name = insertGreeting)]
     fn insert_greeting(greeting: String) -> js_sys::Promise;
+}
 
+// Initialize IndexedDB
+#[wasm_bindgen(module = "/js/db/schema.js")]
+extern "C" {
+    #[wasm_bindgen(js_name = openDatabase)]
+    fn setup_indexed_db() -> js_sys::Promise;
+}
+
+// Account IndexedDB Operations
+#[wasm_bindgen(module = "/js/db/accounts.js")]
+extern "C" {
     #[wasm_bindgen(js_name = insertAccountCode)]
-    fn insert_account_code_web(code_root: String, code: String, module: Vec<u8>) -> js_sys::Promise;
+    fn idxdb_insert_account_code(
+        code_root: String, 
+        code: String, 
+        module: Vec<u8>
+    ) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = insertAccountStorage)]
-    fn insert_account_storage_web(storage_roots: String, storage_slots: Vec<u8>) -> js_sys::Promise;
-    
+    fn idxdb_insert_account_storage(
+        storage_root: String, 
+        storage_slots: Vec<u8>
+    ) -> js_sys::Promise;
+
     #[wasm_bindgen(js_name = insertAccountAssetVault)]
-    fn insert_account_asset_vault_web(vault_root: String, assets: String) -> js_sys::Promise;
+    fn idxdb_insert_account_asset_vault(
+        vault_root: String, 
+        assets: String
+    ) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = insertAccountAuth)]
-    fn insert_account_auth_web(id: i64, auth_info: Vec<u8>) -> js_sys::Promise;
+    fn idxdb_insert_account_auth(
+        id: i64, 
+        auth_info: Vec<u8>
+    ) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = insertAccountRecord)]
-    fn insert_account_record_web(id: i64, code_root: String, storage_root: String, vault_root: String, nonce: i64, committed: bool, account_seed: Option<Vec<u8>>) -> js_sys::Promise;
+    fn idxdb_insert_account_record(
+        id: i64, 
+        code_root: String, 
+        storage_root: String, 
+        vault_root: String, 
+        nonce: i64, 
+        committed: bool, 
+        account_seed: Option<Vec<u8>>
+    ) -> js_sys::Promise;
 }
 
 // TYPES
@@ -81,7 +111,7 @@ impl Store for WebStore {
 //     account_code: &AccountCode
 // ) -> Result<(), ()> {
 //     let (code_root, code, module) = serialize_account_code(account_code)?;
-//     let result = JsFuture::from(insert_account_code_web(code_root, code, module)).await;
+//     let result = JsFuture::from(idxdb_insert_account_code(code_root, code, module)).await;
 //     match result {
 //         Ok(_) => Ok(()),
 //         Err(_) => Err(()),
@@ -111,7 +141,7 @@ impl Store for WebStore {
 //     account_storage: &AccountStorage
 // ) -> Result<(), ()> {
 //     let (storage_root, storage_slots) = serialize_account_storage(account_storage)?;
-//     let result = JsFuture::from(insert_account_storage_web(storage_root, storage_slots)).await;
+//     let result = JsFuture::from(idxdb_insert_account_storage(storage_root, storage_slots)).await;
 //     match result {
 //         Ok(_) => Ok(()),
 //         Err(_) => Err(()),
@@ -131,7 +161,7 @@ impl Store for WebStore {
 //     asset_vault: &AssetVault
 // ) -> Result<(), ()> {
 //     let (vault_root, assets) = serialize_account_asset_vault(asset_vault)?;
-//     let result = JsFuture::from(insert_account_asset_vault_web(vault_root, assets)).await;
+//     let result = JsFuture::from(idxdb_ insert_account_asset_vault(vault_root, assets)).await;
 //         match result {
 //             Ok(_) => Ok(()),
 //             Err(_) => Err(()),
@@ -160,7 +190,7 @@ impl Store for WebStore {
 //     let (id, code_root, storage_root, vault_root, nonce, committed) = serialize_account(account)?;
 //     let account_seed = account_seed.map(|seed| seed.to_bytes());
 
-//     let result = JsFuture::from(insert_account_record_web(
+//     let result = JsFuture::from(idxdb_insert_account_record(
 //         id,
 //         code_root,
 //         storage_root,
@@ -201,7 +231,7 @@ impl Store for WebStore {
 //     auth_info: &AuthInfo,
 // ) -> Result<(), ()> {
 //     let (account_id, auth_info) = serialize_account_auth(account_id, auth_info)?;
-//     let result = JsFuture::from(insert_account_auth_web(account_id, auth_info)).await;
+//     let result = JsFuture::from(idxdb_insert_account_auth(account_id, auth_info)).await;
 //     match result {
 //         Ok(_) => Ok(()),
 //         Err(_) => Err(()),

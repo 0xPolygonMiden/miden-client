@@ -1,22 +1,26 @@
 {
-    "name": "miden-wasm",
-    "version": "1.0.0",
-    "description": "Wasm build for the Polygon Miden Client",
-    "type": "module",
-    "main": "./dist/index.js",
-    "browser": "./dist/index.js",
-    "types": "./dist/index.d.ts",
-    "exports": {
-      ".": "./dist/index.js"
-    },
-    "scripts": {
-      "build": "rimraf dist && rollup -c rollup.config.js && rimraf dist/wasm*"
-    },
-    "devDependencies": {
-      "@wasm-tool/rollup-plugin-rust": "^2.4.2",
-      "cpr": "^3.0.1",
-      "rimraf": "^5.0.1",
-      "rollup": "^3.27.2"
-    }
+  "name": "miden-wasm",
+  "version": "1.0.0",
+  "description": "Wasm build for the Polygon Miden Client",
+  "type": "module",
+  "main": "./dist/index.js",
+  "browser": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "rimraf dist && rollup -c rollup.config.js && rimraf dist/wasm*"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@wasm-tool/rollup-plugin-rust": "^2.4.2",
+    "cpr": "^3.0.1",
+    "rimraf": "^5.0.1",
+    "rollup": "^3.27.2"
+  },
+  "dependencies": {
+    "dexie": "^4.0.1"
   }
-  
+}

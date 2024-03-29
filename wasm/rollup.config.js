@@ -1,4 +1,6 @@
 import rust from "@wasm-tool/rollup-plugin-rust";
+import resolve from "@rollup/plugin-node-resolve";
+import commonjs from "@rollup/plugin-commonjs";
 
 export default [
     {
@@ -24,6 +26,8 @@ export default [
                     typescriptDeclarationDir: "dist/crates",
                 },
             }),
+            resolve(), // Add this
+            commonjs(), // And this, if you have CommonJS modules
         ],
     },
     {
