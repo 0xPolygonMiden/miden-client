@@ -221,7 +221,7 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
             executed_transaction.output_notes().iter().map(|n| n.id()).collect();
         for output_note_id in output_notes.iter().map(|n| n.id()) {
             if !tx_note_ids.contains(&output_note_id) {
-                return Err(ClientError::UnexpectedOutputNotes);
+                return Err(ClientError::MissingOutputNote(output_note_id));
             }
         }
 

@@ -20,10 +20,10 @@ pub enum ClientError {
     AccountError(AccountError),
     AuthError(FalconError),
     ImportNewAccountWithoutSeed,
+    MissingOutputNote(NoteId),
     NoteError(NoteError),
     NoConsumableNoteForAccount(AccountId),
     NodeRpcClientError(NodeRpcClientError),
-    UnexpectedOutputNotes,
     StoreError(StoreError),
     TransactionExecutionError(TransactionExecutorError),
     TransactionProvingError(TransactionProverError),
@@ -41,12 +41,16 @@ impl fmt::Display for ClientError {
                 f,
                 "import account error: can't import a new account without its initial seed"
             ),
+            ClientError::MissingOutputNote(note_id) => write!(
+                f,
+                "transaction error: The transaction did not produce expected Note ID {}",
+                note_id.inner()
+            ),
             ClientError::NoConsumableNoteForAccount(account_id) => {
                 write!(f, "No consumable note for account ID {}", account_id)
             },
             ClientError::NoteError(err) => write!(f, "note error: {err}"),
             ClientError::NodeRpcClientError(err) => write!(f, "rpc api error: {err}"),
-            ClientError::UnexpectedOutputNotes => write!(f, "transaction error: The transaction request's output notes should be a subset of the transaction output notes"),
             ClientError::StoreError(err) => write!(f, "store error: {err}"),
             ClientError::TransactionExecutionError(err) => {
                 write!(f, "transaction executor error: {err}")
