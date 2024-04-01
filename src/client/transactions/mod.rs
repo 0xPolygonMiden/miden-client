@@ -1,16 +1,15 @@
-use std::collections::BTreeMap;
-
 use miden_lib::notes::{create_p2id_note, create_p2idr_note};
 use miden_objects::{
     accounts::{AccountDelta, AccountId},
     assembly::ProgramAst,
     assets::FungibleAsset,
     crypto::rand::RpoRandomCoin,
-    notes::Note,
+    notes::{Note, NoteId},
     transaction::{
         ExecutedTransaction, OutputNote, OutputNotes, ProvenTransaction, TransactionArgs,
         TransactionId, TransactionScript,
     },
+    utils::collections::{BTreeMap, BTreeSet},
     Digest, Felt, Word,
 };
 use miden_tx::{ProvingOptions, ScriptTarget, TransactionProver};
@@ -205,7 +204,7 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
 
         let block_num = self.store.get_sync_height()?;
 
-        let note_ids = transaction_request.get_note_ids();
+        let note_ids = transaction_request.get_input_note_ids();
 
         let output_notes = transaction_request.expected_output_notes().to_vec();
 
@@ -217,8 +216,13 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
             Some(transaction_request.into()),
         )?;
 
-        if executed_transaction.output_notes().num_notes() != output_notes.len() {
-            return Err(ClientError::OutputNotesDoNotMatch);
+        // Check that the expected output notes is a subset of the transaction's output notes
+        let tx_note_ids: BTreeSet<NoteId> =
+            executed_transaction.output_notes().iter().map(|n| n.id()).collect();
+        for output_note_id in output_notes.iter().map(|n| n.id()) {
+            if !tx_note_ids.contains(&output_note_id) {
+                return Err(ClientError::UnexpectedOutputNotes);
+            }
         }
 
         Ok(TransactionResult::new(executed_transaction, output_notes))

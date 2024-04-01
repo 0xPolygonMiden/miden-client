@@ -64,7 +64,7 @@ impl TransactionRequest {
         &self.input_notes
     }
 
-    pub fn get_note_ids(&self) -> Vec<NoteId> {
+    pub fn get_input_note_ids(&self) -> Vec<NoteId> {
         self.input_notes.keys().cloned().collect()
     }
 
@@ -76,7 +76,7 @@ impl TransactionRequest {
             .collect()
     }
 
-    pub fn expected_output_notes(&self) -> &Vec<Note> {
+    pub fn expected_output_notes(&self) -> &[Note] {
         &self.expected_output_notes
     }
 
@@ -97,9 +97,10 @@ impl From<TransactionRequest> for TransactionArgs {
 
 #[derive(Clone)]
 pub enum TransactionTemplate {
-    /// Consume outstanding notes for an account.
+    /// Consume the specified notes against an account.
     ConsumeNotes(AccountId, Vec<NoteId>),
-    /// Mint fungible assets using a faucet account and creates a note that can be consumed by the target Account ID
+    /// Mint fungible assets using a faucet account and creates a note that can be consumed by the target
+    /// Account ID
     MintFungibleAsset(FungibleAsset, AccountId),
     /// Creates a pay-to-id note directed to a specific account
     PayToId(PaymentTransactionData),

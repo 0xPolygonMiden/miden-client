@@ -23,7 +23,7 @@ pub enum ClientError {
     NoteError(NoteError),
     NoConsumableNoteForAccount(AccountId),
     NodeRpcClientError(NodeRpcClientError),
-    OutputNotesDoNotMatch,
+    UnexpectedOutputNotes,
     StoreError(StoreError),
     TransactionExecutionError(TransactionExecutorError),
     TransactionProvingError(TransactionProverError),
@@ -46,7 +46,7 @@ impl fmt::Display for ClientError {
             },
             ClientError::NoteError(err) => write!(f, "note error: {err}"),
             ClientError::NodeRpcClientError(err) => write!(f, "rpc api error: {err}"),
-            ClientError::OutputNotesDoNotMatch => write!(f, "transaction error: The transaction request's output notes count does not match the executor's output notes count"),
+            ClientError::UnexpectedOutputNotes => write!(f, "transaction error: The transaction request's output notes should be a subset of the transaction output notes"),
             ClientError::StoreError(err) => write!(f, "store error: {err}"),
             ClientError::TransactionExecutionError(err) => {
                 write!(f, "transaction executor error: {err}")
