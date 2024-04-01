@@ -17,6 +17,7 @@ use miden_objects::{
     crypto::{
         dsa::rpo_falcon512::KeyPair,
         merkle::{Mmr, MmrDelta, NodeIndex, SimpleSmt},
+        rand::RpoRandomCoin,
     },
     notes::{Note, NoteAssets, NoteInclusionProof, NoteScript},
     transaction::{InputNote, ProvenTransaction},
@@ -40,7 +41,7 @@ use crate::{
     store::{sqlite_store::SqliteStore, AuthInfo},
 };
 
-pub type MockClient = Client<MockRpcApi, SqliteStore>;
+pub type MockClient = Client<MockRpcApi, RpoRandomCoin, SqliteStore>;
 
 // MOCK CONSTS
 // ================================================================================================

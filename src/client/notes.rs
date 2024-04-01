@@ -1,4 +1,4 @@
-use miden_objects::notes::NoteId;
+use miden_objects::{crypto::rand::FeltRng, notes::NoteId};
 
 use super::{rpc::NodeRpcClient, Client};
 use crate::{
@@ -6,7 +6,7 @@ use crate::{
     store::{InputNoteRecord, NoteFilter, Store},
 };
 
-impl<N: NodeRpcClient, S: Store> Client<N, S> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     // INPUT NOTE DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 

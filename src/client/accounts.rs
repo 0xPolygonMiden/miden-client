@@ -2,12 +2,11 @@ use miden_lib::AuthScheme;
 use miden_objects::{
     accounts::{Account, AccountData, AccountId, AccountStub, AccountType, AuthData},
     assets::TokenSymbol,
-    crypto::dsa::rpo_falcon512::KeyPair,
+    crypto::{dsa::rpo_falcon512::KeyPair, rand::FeltRng},
     Felt, Word,
 };
-use rand::{rngs::ThreadRng, Rng};
 
-use super::{rpc::NodeRpcClient, Client};
+use super::{rpc::NodeRpcClient, Client, ClientRng};
 use crate::{
     errors::ClientError,
     store::{AuthInfo, Store},
@@ -31,7 +30,7 @@ pub enum AccountStorageMode {
     OnChain,
 }
 
-impl<N: NodeRpcClient, S: Store> Client<N, S> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 
@@ -40,21 +39,17 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         &mut self,
         template: AccountTemplate,
     ) -> Result<(Account, Word), ClientError> {
-        let mut rng = rand::thread_rng();
-
         let account_and_seed = match template {
             AccountTemplate::BasicWallet {
                 mutable_code,
                 storage_mode,
-            } => self.new_basic_wallet(mutable_code, &mut rng, storage_mode),
+            } => self.new_basic_wallet(mutable_code, storage_mode),
             AccountTemplate::FungibleFaucet {
                 token_symbol,
                 decimals,
                 max_supply,
                 storage_mode,
-            } => {
-                self.new_fungible_faucet(token_symbol, decimals, max_supply, &mut rng, storage_mode)
-            },
+            } => self.new_fungible_faucet(token_symbol, decimals, max_supply, storage_mode),
         }?;
 
         Ok(account_and_seed)
@@ -110,7 +105,6 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
     fn new_basic_wallet(
         &mut self,
         mutable_code: bool,
-        rng: &mut ThreadRng,
         account_storage_mode: AccountStorageMode,
     ) -> Result<(Account, Word), ClientError> {
         if let AccountStorageMode::OnChain = account_storage_mode {
@@ -124,7 +118,7 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         };
 
         // we need to use an initial seed to create the wallet account
-        let init_seed: [u8; 32] = rng.gen();
+        let init_seed: [u8; 32] = self.rng.get_random_seed();
 
         let (account, seed) = if !mutable_code {
             miden_lib::accounts::wallets::create_basic_wallet(
@@ -149,7 +143,6 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         token_symbol: TokenSymbol,
         decimals: u8,
         max_supply: u64,
-        rng: &mut ThreadRng,
         account_storage_mode: AccountStorageMode,
     ) -> Result<(Account, Word), ClientError> {
         if let AccountStorageMode::OnChain = account_storage_mode {
@@ -163,7 +156,7 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         };
 
         // we need to use an initial seed to create the wallet account
-        let init_seed: [u8; 32] = rng.gen();
+        let init_seed: [u8; 32] = self.rng.get_random_seed();
 
         let (account, seed) = miden_lib::accounts::faucets::create_basic_fungible_faucet(
             init_seed,
