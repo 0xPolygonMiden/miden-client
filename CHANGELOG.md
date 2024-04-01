@@ -1,5 +1,6 @@
 # Changelog
 
+* Added `ClientRng` trait for randomness component within `Client`.
 * Refactored integration tests to be ran as regular rust tests.
 * Normalize note script fields for input note and output note tables in sqlite
   implementation.
