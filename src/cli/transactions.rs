@@ -19,7 +19,7 @@ use crate::cli::create_dynamic_table;
 #[derive(Clone, Debug, Parser)]
 #[clap()]
 pub enum TransactionType {
-    /// Create a Pay To ID transaction.
+    /// Create a pay-to-id transaction.
     P2ID {
         sender_account_id: String,
         target_account_id: String,
@@ -33,7 +33,7 @@ pub enum TransactionType {
         faucet_id: String,
         amount: u64,
     },
-    /// Create a Pay To ID with Recall transaction.
+    /// Create a pay-to-id with recall transaction.
     P2IDR {
         sender_account_id: String,
         target_account_id: String,
@@ -90,7 +90,7 @@ async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store>(
     let transaction_template: TransactionTemplate =
         build_transaction_template(client, transaction_type)?;
 
-    let transaction_request = client.build_transaction_request(transaction_template).unwrap();
+    let transaction_request = client.build_transaction_request(transaction_template)?;
     let transaction_execution_result = client.new_transaction(transaction_request)?;
 
     info!("Executed transaction, proving and then submitting...");

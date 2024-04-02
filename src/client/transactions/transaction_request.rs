@@ -71,7 +71,7 @@ impl TransactionRequest {
     pub fn get_note_args(&self) -> BTreeMap<NoteId, NoteArgs> {
         self.input_notes
             .iter()
-            .filter(|(_, args)| args.is_some())
+            .filter_map(|(_, args)| args.is_some())
             .map(|(note, args)| (*note, args.expect("safe to unwrap due to filter")))
             .collect()
     }

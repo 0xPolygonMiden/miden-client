@@ -51,9 +51,11 @@ impl<T: FeltRng> ClientRng for T {}
 pub struct Client<N: NodeRpcClient, R: ClientRng, S: Store> {
     /// The client's store, which provides a way to write and read entities to provide persistence.
     store: S,
-    /// An instance of [ClientRng] which provides randomness tools for generating new keys, serial numbers, etc.
+    /// An instance of [ClientRng] which provides randomness tools for generating new keys,
+    /// serial numbers, etc.
     rng: R,
-    /// An instance of [NodeRpcClient] which provides a way for the client to connect to the Miden node.
+    /// An instance of [NodeRpcClient] which provides a way for the client to connect to the
+    /// Miden node.
     rpc_api: N,
     tx_executor: TransactionExecutor<ClientDataStore<S>>,
 }
