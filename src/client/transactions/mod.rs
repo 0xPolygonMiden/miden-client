@@ -219,10 +219,14 @@ impl<N: NodeRpcClient, R: ClientRng, S: Store> Client<N, R, S> {
         // Check that the expected output notes is a subset of the transaction's output notes
         let tx_note_ids: BTreeSet<NoteId> =
             executed_transaction.output_notes().iter().map(|n| n.id()).collect();
-        for output_note_id in output_notes.iter().map(|n| n.id()) {
-            if !tx_note_ids.contains(&output_note_id) {
-                return Err(ClientError::MissingOutputNote(output_note_id));
-            }
+
+        let missing_note_ids: Vec<NoteId> = output_notes
+            .iter()
+            .filter_map(|n| (!tx_note_ids.contains(&n.id())).then_some(n.id()))
+            .collect();
+
+        if !missing_note_ids.is_empty() {
+            return Err(ClientError::MissingOutputNote(missing_note_ids));
         }
 
         Ok(TransactionResult::new(executed_transaction, output_notes))

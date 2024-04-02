@@ -71,8 +71,7 @@ impl TransactionRequest {
     pub fn get_note_args(&self) -> BTreeMap<NoteId, NoteArgs> {
         self.input_notes
             .iter()
-            .filter(|(_, args)| args.is_some())
-            .map(|(note, args)| (*note, args.expect("safe to unwrap due to filter")))
+            .filter_map(|(note, args)| args.map(|a| (*note, a.clone())))
             .collect()
     }
 
@@ -95,7 +94,7 @@ impl From<TransactionRequest> for TransactionArgs {
 // TRANSACTION TEMPLATE
 // --------------------------------------------------------------------------------------------
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum TransactionTemplate {
     /// Consume the specified notes against an account.
     ConsumeNotes(AccountId, Vec<NoteId>),
@@ -124,7 +123,7 @@ impl TransactionTemplate {
 // PAYMENT TRANSACTION DATA
 // --------------------------------------------------------------------------------------------
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PaymentTransactionData {
     asset: Asset,
     sender_account_id: AccountId,
