@@ -20,7 +20,7 @@ pub enum ClientError {
     AccountError(AccountError),
     AuthError(FalconError),
     ImportNewAccountWithoutSeed,
-    MissingOutputNote(Vec<NoteId>),
+    MissingOutputNotes(Vec<NoteId>),
     NoteError(NoteError),
     NoConsumableNoteForAccount(AccountId),
     NodeRpcClientError(NodeRpcClientError),
@@ -41,7 +41,7 @@ impl fmt::Display for ClientError {
                 f,
                 "import account error: can't import a new account without its initial seed"
             ),
-            ClientError::MissingOutputNote(note_ids) => {
+            ClientError::MissingOutputNotes(note_ids) => {
                 write!(
                     f,
                     "transaction error: The transaction did not produce expected Note IDs: {}",

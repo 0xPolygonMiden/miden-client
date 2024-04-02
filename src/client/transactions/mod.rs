@@ -226,7 +226,7 @@ impl<N: NodeRpcClient, R: ClientRng, S: Store> Client<N, R, S> {
             .collect();
 
         if !missing_note_ids.is_empty() {
-            return Err(ClientError::MissingOutputNote(missing_note_ids));
+            return Err(ClientError::MissingOutputNotes(missing_note_ids));
         }
 
         Ok(TransactionResult::new(executed_transaction, output_notes))

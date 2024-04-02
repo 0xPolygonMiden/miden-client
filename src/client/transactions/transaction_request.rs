@@ -71,7 +71,7 @@ impl TransactionRequest {
     pub fn get_note_args(&self) -> BTreeMap<NoteId, NoteArgs> {
         self.input_notes
             .iter()
-            .filter_map(|(note, args)| args.map(|a| (*note, a.clone())))
+            .filter_map(|(note, args)| args.map(|a| (*note, a)))
             .collect()
     }
 
