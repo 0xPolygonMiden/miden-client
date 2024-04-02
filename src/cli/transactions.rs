@@ -1,7 +1,10 @@
 use miden_client::{
     client::{
         rpc::NodeRpcClient,
-        transactions::{PaymentTransactionData, TransactionRecord, TransactionTemplate},
+        transactions::{
+            transaction_request::{PaymentTransactionData, TransactionTemplate},
+            TransactionRecord,
+        },
     },
     store::{Store, TransactionFilter},
 };
@@ -16,7 +19,7 @@ use crate::cli::create_dynamic_table;
 #[derive(Clone, Debug, Parser)]
 #[clap()]
 pub enum TransactionType {
-    /// Create a Pay To ID transaction.
+    /// Create a pay-to-id transaction.
     P2ID {
         sender_account_id: String,
         target_account_id: String,
@@ -30,7 +33,7 @@ pub enum TransactionType {
         faucet_id: String,
         amount: u64,
     },
-    /// Create a Pay To ID with Recall transaction.
+    /// Create a pay-to-id with recall transaction.
     P2IDR {
         sender_account_id: String,
         target_account_id: String,
@@ -87,7 +90,8 @@ async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store>(
     let transaction_template: TransactionTemplate =
         build_transaction_template(client, transaction_type)?;
 
-    let transaction_execution_result = client.new_transaction(transaction_template.clone())?;
+    let transaction_request = client.build_transaction_request(transaction_template)?;
+    let transaction_execution_result = client.new_transaction(transaction_request)?;
 
     info!("Executed transaction, proving and then submitting...");
 
@@ -153,10 +157,7 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
             let target_account_id =
                 AccountId::from_hex(target_account_id).map_err(|err| err.to_string())?;
 
-            Ok(TransactionTemplate::MintFungibleAsset {
-                asset: fungible_asset,
-                target_account_id,
-            })
+            Ok(TransactionTemplate::MintFungibleAsset(fungible_asset, target_account_id))
         },
         TransactionType::ConsumeNotes {
             account_id,

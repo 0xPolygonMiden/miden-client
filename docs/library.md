@@ -74,13 +74,13 @@ let payment_transaction = PaymentTransactionData::new(
 );
 
 let transaction_template: TransactionTemplate = TransactionTemplate::P2ID(payment_transaction);
+let transaction_request = client.build_transaction_request(transaction_template).unwrap();
 
 // Execute transaction. No information is tracked after this.
-let transaction_execution_result =
-        client.new_transaction(transaction_template.clone())?;
+let transaction_execution_result = client.new_transaction(transaction_request.clone())?;
 
 // Prove and submit the transaction, which is stored alongside created notes (if any)
-client
-    .send_transaction(transaction_execution_result)
-    .await?
+client.send_transaction(transaction_execution_result).await?
 ```
+
+You may also execute a transaction by manually defining a `TransactionRequest` instance. This allows you to run custom code, with custom note arguments as well.
