@@ -393,6 +393,6 @@ impl<N: NodeRpcClient, R: ClientRng, S: Store> Client<N, R, S> {
 // HELPERS
 // ================================================================================================
 
-fn prepare_word(word: &Word) -> String {
+pub(crate) fn prepare_word(word: &Word) -> String {
     word.iter().map(|x| x.as_int().to_string()).collect::<Vec<_>>().join(".")
 }
