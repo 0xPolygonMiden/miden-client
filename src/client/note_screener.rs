@@ -156,11 +156,14 @@ impl<'a, S: Store> NoteScreener<'a, S> {
     fn check_script_relevance(
         &self,
         _note: &Note,
-        _account_ids: &BTreeSet<AccountId>,
+        account_ids: &BTreeSet<AccountId>,
     ) -> Result<Vec<(AccountId, NoteRelevance)>, ScreenerError> {
         // TODO: try to execute the note script against relevant accounts; this will
         // require querying data from the store
-        todo!()
+        Ok(account_ids
+            .iter()
+            .map(|account_id| (*account_id, NoteRelevance::Always))
+            .collect())
     }
 }
 
