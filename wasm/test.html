@@ -20,7 +20,7 @@
             }
         }
 
-        async function testGreetExample(webClient) {
+        async function testStoreAndRpc(webClient) {
             try {
                 await webClient.fake_new_account();
             } catch (error) {
@@ -40,16 +40,39 @@
             try {
                 await webClient.new_account(basicMutableTemplate);
                 await webClient.new_account(fungibleFaucetTemplate);
-                // console.log(account);
-                // console.log(word);
             } catch (error) {
-                console.error('Failed to create client with web store:', error);
+                console.error('Failed to call create account:', error);
             }
         }
 
+        async function testGetAccount(webClient) {
+            try {
+                await webClient.get_account("0xTestAccounStringHex");
+
+            } catch (error) {
+                console.error('Failed to call get account:', error);
+            
+            }
+        }
+
+        async function testGetAccount(webClient) {
+            try {
+                await webClient.get_account("0xTestAccounStringHex");
+
+            } catch (error) {
+                console.error('Failed to call get account:', error);
+            
+            }
+        }
+
+        
+
         let webClient = await testCreateClient();
-        //await testGreetExample(webClient);
+        //await testStoreAndRpc(webClient);
         await testNewAccount(webClient);
+        await testGetAccount(webClient);
+        await testGetAccounts(webClient);
+
     </script>
 </body>
 </html>

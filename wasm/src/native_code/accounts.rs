@@ -40,7 +40,7 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
     pub async fn new_account(
         &mut self,
         template: AccountTemplate,
-    ) -> String { // TODO: Add back OG return type Result<(Account, Word), ()>
+    ) -> String { // TODO: Replace with Result<(Account, Word), ()>
         let mut rng = StdRng::from_entropy();
 
         match template {
@@ -70,7 +70,7 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         mutable_code: bool,
         rng: &mut StdRng,
         account_storage_mode: AccountStorageMode,
-    ) -> String { // TODO: Add back OG return type Result<(Account, Word), ()>
+    ) -> String { // TODO: Replace with Result<(Account, Word), ()>
 
         // if let AccountStorageMode::OnChain = account_storage_mode {
         //     todo!("Recording the account on chain is not supported yet");
@@ -112,7 +112,7 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         max_supply: u64,
         rng: &mut StdRng,
         account_storage_mode: AccountStorageMode,
-    ) -> String{ // TODO: Add back OG return type Result<(Account, Word), ()>
+    ) -> String{ // TODO: Replace with Result<(Account, Word), ()>
 
         // if let AccountStorageMode::OnChain = account_storage_mode {
         //     todo!("On-chain accounts are not supported yet");
@@ -141,4 +141,41 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
 
         "Called new_fungible_faucet".to_string()
     }
+
+    pub async fn get_account(
+        &mut self,
+        account_id: String // TODO: Replace with AccountId
+    ) -> String { // TODO: Replace with Result<(Account, Option<Word>), ()>
+        // self.store.get_account(account_id).map_err(|err| err.into())
+
+        "Called get_account".to_string()
+    }
+
+    pub async fn get_accounts(
+        &mut self
+    ) -> String {  // TODO: Replace with Result<Vec<(AccountStub, Option<Word>)>, ()>
+        // self.store.get_account_stubs().map_err(|err| err.into())
+        
+        "Called get_accounts".to_string()
+    }
+
+    pub async fn get_account_stub_by_id(
+        &self,
+        account_id: String, // TODO: Replace with AccountId
+    ) -> String { // TODO: Replace with Result<(AccountStub, Option<Word>), ()>
+        //self.store.get_account_stub(account_id).map_err(|err| err.into())
+
+        "Called get_account_stub_by_id".to_string()
+    }
+
+    pub async fn get_account_auth(
+        &mut self,
+        account_id: String // TODO: Replace with AccountId
+    ) -> String { // TODO: Replace with Result<AuthInfo, ()>
+        // self.store.get_account_auth(account_id).map_err(|err| err.into())
+        
+        "Called get_account_auth".to_string()
+    }
+
+    // TODO: Import Account
 }

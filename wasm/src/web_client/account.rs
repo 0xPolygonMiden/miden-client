@@ -1,5 +1,7 @@
 use super::WebClient;
 
+//use miden_objects::{accounts::AccountId};
+
 use crate::native_code::accounts;
 use crate::native_code::rpc::NodeRpcClient;
 use crate::native_code::store::Store;
@@ -28,7 +30,7 @@ pub enum AccountTemplate {
 // RPC call. 
 #[wasm_bindgen]
 impl WebClient {
-    pub async fn fake_new_account(&mut self) -> Result<JsValue, JsValue> {
+    pub async fn testStoreAndRpc(&mut self) -> Result<JsValue, JsValue> {
         if let Some(ref mut client) = self.get_mut_inner() {
             let _ = client.store.insert_string("New account created".to_string()).await
                 .map(|_| JsValue::from_str("Account created successfully"))
@@ -105,4 +107,86 @@ impl WebClient {
             console::error_1(&"Client not initialized".into());
         }
     }
+
+    pub async fn get_account(
+        &mut self,
+        account_id: String // TODO: Replace with AccountId
+    ) -> () {
+        if let Some(ref mut client) = self.get_mut_inner() {
+            // let native_account_id = AccountId::from_hex(account_id).map_err(|err| {
+            //     let error_message = err.to_string();
+            //     let js_value_error_message = JsValue::from_str(&error_message);
+
+            //     console::log_1(&js_value_error_message);
+            // });
+
+            let message = client.get_account(account_id).await;
+            let js_value_message = JsValue::from_str(&message);
+            
+            // Print the message to the Chrome console
+            console::log_1(&js_value_message);
+        } else {
+            console::error_1(&"Client not initialized".into());
+        }
+    }
+
+    pub async fn get_accounts(
+        &mut self
+    ) -> () {
+        if let Some(ref mut client) = self.get_mut_inner() {
+            let message = client.get_accounts().await;
+            let js_value_message = JsValue::from_str(&message);
+            
+            // Print the message to the Chrome console
+            console::log_1(&js_value_message);
+        } else {
+            console::error_1(&"Client not initialized".into());
+        }
+    }
+
+    pub async fn get_account_stub_by_id(
+        &mut self,
+        account_id: String // TODO: Replace with AccountId
+    ) -> () {
+        if let Some(ref mut client) = self.get_mut_inner() {
+            // let native_account_id = AccountId::from_hex(account_id).map_err(|err| {
+            //     let error_message = err.to_string();
+            //     let js_value_error_message = JsValue::from_str(&error_message);
+
+            //     console::log_1(&js_value_error_message);
+            // });
+
+            let message = client.get_account_stub_by_id(account_id).await;
+            let js_value_message = JsValue::from_str(&message);
+            
+            // Print the message to the Chrome console
+            console::log_1(&js_value_message);
+        } else {
+            console::error_1(&"Client not initialized".into());
+        }
+    }
+
+    pub async fn get_account_auth(
+        &mut self,
+        account_id: String // TODO: Replace with AccountId
+    ) -> () {
+        if let Some(ref mut client) = self.get_mut_inner() {
+            // let native_account_id = AccountId::from_hex(account_id).map_err(|err| {
+            //     let error_message = err.to_string();
+            //     let js_value_error_message = JsValue::from_str(&error_message);
+
+            //     console::log_1(&js_value_error_message);
+            // });
+
+            let message = client.get_account_auth(account_id).await;
+            let js_value_message = JsValue::from_str(&message);
+            
+            // Print the message to the Chrome console
+            console::log_1(&js_value_message);
+        } else {
+            console::error_1(&"Client not initialized".into());
+        }
+    }
+
+    // TODO: Import Account
 }
