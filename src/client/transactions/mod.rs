@@ -17,10 +17,10 @@ use rand::Rng;
 use tracing::info;
 
 use self::transaction_request::{PaymentTransactionData, TransactionRequest, TransactionTemplate};
-use super::{rpc::NodeRpcClient, Client, ClientRng};
+use super::{note_screener::NoteRelevance, rpc::NodeRpcClient, Client, ClientRng};
 use crate::{
     client::NoteScreener,
-    errors::{ClientError, ScreenerError},
+    errors::ClientError,
     store::{AuthInfo, Store, TransactionFilter},
 };
 
@@ -37,7 +37,7 @@ pub mod transaction_request;
 pub struct TransactionResult {
     executed_transaction: ExecutedTransaction,
     output_notes: Vec<Note>,
-    relevant_notes: Vec<usize>,
+    relevant_notes: BTreeMap<usize, Vec<(AccountId, NoteRelevance)>>,
 }
 
 impl TransactionResult {
@@ -45,7 +45,11 @@ impl TransactionResult {
         executed_transaction: ExecutedTransaction,
         created_notes: Vec<Note>,
     ) -> Self {
-        let relevant_notes = (0..created_notes.len()).collect();
+        let mut relevant_notes = BTreeMap::new();
+        (0..created_notes.len()).for_each(|note_idx| {
+            relevant_notes.insert(note_idx, Vec::new());
+        });
+
         Self {
             executed_transaction,
             output_notes: created_notes,
@@ -63,16 +67,16 @@ impl TransactionResult {
 
     pub fn relevant_notes(&self) -> Vec<&Note> {
         self.relevant_notes
-            .iter()
+            .keys()
             .map(|note_index| &self.output_notes[*note_index])
             .collect()
     }
 
     pub fn set_relevant_notes(
         &mut self,
-        relevant_notes_indices: &[usize],
+        relevant_notes: &BTreeMap<usize, Vec<(AccountId, NoteRelevance)>>,
     ) {
-        self.relevant_notes = Vec::from(relevant_notes_indices);
+        self.relevant_notes = relevant_notes.clone();
     }
 
     pub fn block_num(&self) -> u32 {
@@ -266,22 +270,17 @@ impl<N: NodeRpcClient, R: ClientRng, S: Store> Client<N, R, S> {
         self.submit_proven_transaction_request(proven_transaction.clone()).await?;
 
         let note_screener = NoteScreener::new(&self.store);
+        let mut relevant_notes = BTreeMap::new();
 
-        let relevant_created_notes = tx_result
-            .created_notes()
-            .iter()
-            .enumerate()
-            .map(|(note_index, note)| Ok((note_index, note_screener.check_relevance(note)?)))
-            .collect::<Result<Vec<_>, ScreenerError>>()?;
-
-        let relevant_created_notes_indices = relevant_created_notes
-            .into_iter()
-            .filter(|(_note_index, note_relevance)| !note_relevance.is_empty())
-            .map(|(note_index, _note_relevance)| note_index)
-            .collect::<Vec<_>>();
+        for (idx, note) in tx_result.created_notes().iter().enumerate() {
+            let account_relevance = note_screener.check_relevance(note)?;
+            if !account_relevance.is_empty() {
+                relevant_notes.insert(idx, account_relevance);
+            }
+        }
 
         let mut tx_result = tx_result;
-        tx_result.set_relevant_notes(&relevant_created_notes_indices);
+        tx_result.set_relevant_notes(&relevant_notes);
 
         // Transaction was proven and submitted to the node correctly, persist note details and update account
         self.store.apply_transaction(tx_result)?;

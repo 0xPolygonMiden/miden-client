@@ -407,7 +407,7 @@ impl fmt::Display for NoteIdPrefixFetchError {
     }
 }
 
-// NOTE ID PREFIX FETCH ERROR
+// NOTE SCREENER ERROR
 // ================================================================================================
 
 /// Error when screening notes to check relevance to a client
