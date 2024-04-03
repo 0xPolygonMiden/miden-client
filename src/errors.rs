@@ -25,6 +25,7 @@ pub enum ClientError {
     NoteError(NoteError),
     NoConsumableNoteForAccount(AccountId),
     NodeRpcClientError(NodeRpcClientError),
+    ScreenerError(ScreenerError),
     StoreError(StoreError),
     TransactionExecutionError(TransactionExecutorError),
     TransactionProvingError(TransactionProverError),
@@ -55,6 +56,7 @@ impl fmt::Display for ClientError {
             },
             ClientError::NoteError(err) => write!(f, "note error: {err}"),
             ClientError::NodeRpcClientError(err) => write!(f, "rpc api error: {err}"),
+            ClientError::ScreenerError(err) => write!(f, "note screener error: {err}"),
             ClientError::StoreError(err) => write!(f, "store error: {err}"),
             ClientError::TransactionExecutionError(err) => {
                 write!(f, "transaction executor error: {err}")
@@ -113,11 +115,7 @@ impl From<TransactionProverError> for ClientError {
 
 impl From<ScreenerError> for ClientError {
     fn from(err: ScreenerError) -> Self {
-        match err {
-            ScreenerError::AssetError(asset_error) => Self::AssetError(asset_error),
-            ScreenerError::AccountError(account_error) => Self::AccountError(account_error),
-            ScreenerError::StoreError(store_error) => Self::StoreError(store_error),
-        }
+        Self::ScreenerError(err)
     }
 }
 
@@ -415,6 +413,7 @@ impl fmt::Display for NoteIdPrefixFetchError {
 pub enum ScreenerError {
     AccountError(AccountError),
     AssetError(AssetError),
+    InvalidNoteInputsError(NoteId),
     StoreError(StoreError),
 }
 
@@ -433,5 +432,31 @@ impl From<AssetError> for ScreenerError {
 impl From<AccountError> for ScreenerError {
     fn from(error: AccountError) -> Self {
         Self::AccountError(error)
+    }
+}
+
+impl fmt::Display for ScreenerError {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
+        match self {
+            ScreenerError::AccountError(account_error) => {
+                write!(f, "account error: {account_error}")
+            },
+            ScreenerError::AssetError(asset_error) => {
+                write!(f, "asset error: {asset_error}")
+            },
+            ScreenerError::InvalidNoteInputsError(note_id) => {
+                write!(
+                    f,
+                    "expected note inputs amount didn't match for note with ID: {}",
+                    note_id.to_hex()
+                )
+            },
+            ScreenerError::StoreError(store_error) => {
+                write!(f, "error while fetching data from the store: {store_error}")
+            },
+        }
     }
 }

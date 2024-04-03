@@ -57,12 +57,16 @@ impl<'a, S: Store> NoteScreener<'a, S> {
         note: &Note,
         account_ids: &BTreeSet<AccountId>,
     ) -> Result<Vec<(AccountId, NoteRelevance)>, ScreenerError> {
-        let note_inputs = note.inputs().to_vec();
-        if note_inputs.len() != 1 {
-            return Ok(Vec::new());
+        let mut note_inputs_iter = note.inputs().values().iter();
+        let account_id_felt = note_inputs_iter
+            .next()
+            .ok_or(ScreenerError::InvalidNoteInputsError(note.id()))?;
+
+        if note_inputs_iter.next().is_some() {
+            return Err(ScreenerError::InvalidNoteInputsError(note.id()));
         }
 
-        Ok(vec![(AccountId::try_from(note.inputs().to_vec()[0])?, NoteRelevance::Always)]
+        Ok(vec![(AccountId::try_from(*account_id_felt)?, NoteRelevance::Always)]
             .into_iter()
             .filter(|(account_id, _relevance)| account_ids.contains(account_id))
             .collect())
@@ -72,17 +76,23 @@ impl<'a, S: Store> NoteScreener<'a, S> {
         note: &Note,
         account_ids: &BTreeSet<AccountId>,
     ) -> Result<Vec<(AccountId, NoteRelevance)>, ScreenerError> {
-        let note_inputs = note.inputs().to_vec();
-        if note_inputs.len() != 2 {
-            return Ok(Vec::new());
+        let mut note_inputs_iter = note.inputs().values().iter();
+        let account_id_felt = note_inputs_iter
+            .next()
+            .ok_or(ScreenerError::InvalidNoteInputsError(note.id()))?;
+        let recall_height_felt = note_inputs_iter
+            .next()
+            .ok_or(ScreenerError::InvalidNoteInputsError(note.id()))?;
+
+        if note_inputs_iter.next().is_some() {
+            return Err(ScreenerError::InvalidNoteInputsError(note.id()));
         }
 
-        let note_inputs = note.inputs().to_vec();
         let sender = note.metadata().sender();
-        let recall_height = note_inputs[1].as_int() as u32;
+        let recall_height = recall_height_felt.as_int() as u32;
 
         Ok(vec![
-            (AccountId::try_from(note_inputs[0])?, NoteRelevance::Always),
+            (AccountId::try_from(*account_id_felt)?, NoteRelevance::Always),
             (sender, NoteRelevance::After(recall_height)),
         ]
         .into_iter()
