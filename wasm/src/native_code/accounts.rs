@@ -142,6 +142,14 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         "Called new_fungible_faucet".to_string()
     }
 
+    pub async fn get_accounts(
+        &mut self
+    ) -> String {  // TODO: Replace with Result<Vec<(AccountStub, Option<Word>)>, ()>
+        // self.store.get_account_stubs().map_err(|err| err.into())
+        
+        "Called get_accounts".to_string()
+    }
+
     pub async fn get_account(
         &mut self,
         account_id: String // TODO: Replace with AccountId
@@ -149,14 +157,6 @@ impl<N: NodeRpcClient, S: Store> Client<N, S> {
         // self.store.get_account(account_id).map_err(|err| err.into())
 
         "Called get_account".to_string()
-    }
-
-    pub async fn get_accounts(
-        &mut self
-    ) -> String {  // TODO: Replace with Result<Vec<(AccountStub, Option<Word>)>, ()>
-        // self.store.get_account_stubs().map_err(|err| err.into())
-        
-        "Called get_accounts".to_string()
     }
 
     pub async fn get_account_stub_by_id(

@@ -22,7 +22,7 @@
 
         async function testStoreAndRpc(webClient) {
             try {
-                await webClient.fake_new_account();
+                await webClient.test_store_and_rpc();
             } catch (error) {
                 console.error('Failed to create client with web store:', error);
             }
@@ -45,12 +45,12 @@
             }
         }
 
-        async function testGetAccount(webClient) {
+        async function testGetAccounts(webClient) {
             try {
-                await webClient.get_account("0xTestAccounStringHex");
+                await webClient.get_accounts();
 
             } catch (error) {
-                console.error('Failed to call get account:', error);
+                console.error('Failed to call get accounts:', error);
             
             }
         }
@@ -65,14 +65,33 @@
             }
         }
 
-        
+        async function testGetAccountStubById(webClient) {
+            try {
+                await webClient.get_account_stub_by_id("0xTestAccounStringHex");
+
+            } catch (error) {
+                console.error('Failed to call get account stub by id:', error);
+            
+            }
+        }
+
+        async function testGetAccountAuth(webClient) {
+            try {
+                await webClient.get_account_auth("0xTestAccounStringHex");
+
+            } catch (error) {
+                console.error('Failed to call get account auth:', error);
+            
+            }
+        }
 
         let webClient = await testCreateClient();
-        //await testStoreAndRpc(webClient);
+        await testStoreAndRpc(webClient);
         await testNewAccount(webClient);
-        await testGetAccount(webClient);
         await testGetAccounts(webClient);
-
+        await testGetAccount(webClient);
+        await testGetAccountStubById(webClient);
+        await testGetAccountAuth(webClient);
     </script>
 </body>
 </html>

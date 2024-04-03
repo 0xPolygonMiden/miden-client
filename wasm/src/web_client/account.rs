@@ -30,11 +30,11 @@ pub enum AccountTemplate {
 // RPC call. 
 #[wasm_bindgen]
 impl WebClient {
-    pub async fn testStoreAndRpc(&mut self) -> Result<JsValue, JsValue> {
+    pub async fn test_store_and_rpc(&mut self) -> Result<JsValue, JsValue> {
         if let Some(ref mut client) = self.get_mut_inner() {
-            let _ = client.store.insert_string("New account created".to_string()).await
-                .map(|_| JsValue::from_str("Account created successfully"))
-                .map_err(|_| JsValue::from_str("Failed to create new account"));
+            let _ = client.store.insert_string("Test string".to_string()).await
+                .map(|_| JsValue::from_str("Test string inserted successfully"))
+                .map_err(|_| JsValue::from_str("Failed to insert test string"));
 
             client.rpc_api.test_rpc().await // This is the new line
                 .map(|_| JsValue::from_str("RPC call successful"))
@@ -108,6 +108,20 @@ impl WebClient {
         }
     }
 
+    pub async fn get_accounts(
+        &mut self
+    ) -> () {
+        if let Some(ref mut client) = self.get_mut_inner() {
+            let message = client.get_accounts().await;
+            let js_value_message = JsValue::from_str(&message);
+            
+            // Print the message to the Chrome console
+            console::log_1(&js_value_message);
+        } else {
+            console::error_1(&"Client not initialized".into());
+        }
+    }
+
     pub async fn get_account(
         &mut self,
         account_id: String // TODO: Replace with AccountId
@@ -121,20 +135,6 @@ impl WebClient {
             // });
 
             let message = client.get_account(account_id).await;
-            let js_value_message = JsValue::from_str(&message);
-            
-            // Print the message to the Chrome console
-            console::log_1(&js_value_message);
-        } else {
-            console::error_1(&"Client not initialized".into());
-        }
-    }
-
-    pub async fn get_accounts(
-        &mut self
-    ) -> () {
-        if let Some(ref mut client) = self.get_mut_inner() {
-            let message = client.get_accounts().await;
             let js_value_message = JsValue::from_str(&message);
             
             // Print the message to the Chrome console

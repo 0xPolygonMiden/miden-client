@@ -118,6 +118,66 @@ export async function getAccountCode(
     }
 }
 
+export async function getAccountAssetVault(
+    vaultRoot
+) {
+    try {
+        // Fetch all records matching the given root
+        const allMatchingRecords = await accountVaults
+            .where('root')
+            .equals(vaultRoot)
+            .toArray();
+
+        if (allMatchingRecords.length === 0) {
+            console.log('No records found for given code root.');
+            return null; // No records found
+        }
+
+        // The first record is the only one due to the uniqueness constraint
+        const vaultRecord = allMatchingRecords[0];
+        console.log('Vault record found:', vaultRecord);
+
+        return {
+            root: vaultRecord.root,
+            assets: vaultRecord.assets
+        };
+    } catch (error) {
+        console.error('Error fetching code record:', error);
+        throw error; // Re-throw the error for further handling
+    }
+}
+
+export async function getAccountStorage(
+    storageRoot
+) {
+    try {
+        // Fetch all records matching the given root
+        const allMatchingRecords = await accountStorages
+            .where('root')
+            .equals(storageRoot)
+            .toArray();
+
+        if (allMatchingRecords.length === 0) {
+            console.log('No records found for given code root.');
+            return null; // No records found
+        }
+
+        // The first record is the only one due to the uniqueness constraint
+        const storageRecord = allMatchingRecords[0];
+        console.log('Vault record found:', vaultRecord);
+
+        // Convert the module Blob to an ArrayBuffer
+        const storageArrayBuffer = await storageRecord.storage.arrayBuffer();
+        return {
+            root: storageRecord.root,
+            storage: storageArrayBuffer
+        };
+    } catch (error) {
+        console.error('Error fetching code record:', error);
+        throw error; // Re-throw the error for further handling
+    }
+}
+
 export async function getAccountIds() {
     try {
         let allIds = new Set(); // Use a Set to ensure uniqueness

@@ -1,56 +1,73 @@
+use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::*;
+
 // Account IndexedDB Operations
 #[wasm_bindgen(module = "/js/db/accounts.js")]
 extern "C" {
     // GETS
+    // ================================================================================================
+
     #[wasm_bindgen(js_name = getAccountStub)]
-    fn idxdb_get_account_stub(
+    pub fn idxdb_get_account_stub(
         account_id: String
-    ) -> JsValue;
+    ) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = getAccountCode)]
-    fn idxdb_get_account_code(
-        root: String
-    ) -> JsValue;
+    pub fn idxdb_get_account_code(
+        code_root: String
+    ) -> js_sys::Promise;
+
+    #[wasm_bindgen(js_name = getAccountAssetVault)]
+    pub fn idxdb_get_account_asset_vault(
+        vault_root: String
+    ) -> js_sys::Promise;
+
+    #[wasm_bindgen(js_name = getAccountStorage)]
+    pub fn idxdb_get_account_storage(
+        storage_root: String
+    ) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = getAccountAuth)]
-    fn idxdb_get_account_auth(
+    pub fn idxdb_get_account_auth(
         account_id: String
-    ) -> JsValue;
+    ) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = getAllAccountStubs)]
-    fn idxdb_get_account_stubs() -> JsValue;
+    pub fn idxdb_get_account_stubs() -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = getAccountIds)]
-    fn idxdb_get_account_ids() -> JsValue;
+    pub fn idxdb_get_account_ids() -> js_sys::Promise;
 
     // INSERTS
+    // ================================================================================================
+
     #[wasm_bindgen(js_name = insertAccountCode)]
-    fn idxdb_insert_account_code(
+    pub fn idxdb_insert_account_code(
         code_root: String, 
         code: String, 
         module: Vec<u8>
     ) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = insertAccountStorage)]
-    fn idxdb_insert_account_storage(
+    pub fn idxdb_insert_account_storage(
         storage_root: String, 
         storage_slots: Vec<u8>
     ) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = insertAccountAssetVault)]
-    fn idxdb_insert_account_asset_vault(
+    pub fn idxdb_insert_account_asset_vault(
         vault_root: String, 
         assets: String
     ) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = insertAccountAuth)]
-    fn idxdb_insert_account_auth(
+    pub fn idxdb_insert_account_auth(
         id: String,
         auth_info: Vec<u8>
     ) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = insertAccountRecord)]
-    fn idxdb_insert_account_record(
+    pub fn idxdb_insert_account_record(
         id: String, 
         code_root: String, 
         storage_root: String, 

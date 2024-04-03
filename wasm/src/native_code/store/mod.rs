@@ -25,78 +25,31 @@ pub trait Store {
     // ACCOUNT
     // --------------------------------------------------------------------------------------------
 
-    // // TODO.. idk where this should be defined
-    // async fn get_account_code(
+    // async fn get_account_ids(&self) -> Result<Vec<AccountId>, ()>;
+
+    // async fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, ()>;
+
+    // async fn get_account_stub(
+    //     &self,
+    //     account_id: AccountId,
+    // ) -> Result<(AccountStub, Option<Word>), ()>;
+
+    // async fn get_account(
+    //     &self,
+    //     account_id: AccountId,
+    // ) -> Result<(Account, Option<Word>), ()>;
+
+    // async fn get_account_auth(
+    //     &self,
+    //     account_id: AccountId,
+    // ) -> Result<AuthInfo, ()>;
+
+    // async fn insert_account(
     //     &mut self,
-    //     root: Digest
-    // ) -> Result<(Vec<Digest>, ModuleAst), ()>;
-
-    // // TODO.. idk where this should be defined
-    // async fn get_account_storage(
-    //     &mut self,
-    //     root: Digest
-    // ) -> Result<AccountStorage, ()>;
-
-    // // TODO.. idk where this should be defined
-    // async fn get_vault_assets(
-    //     &mut self,
-    //     root: Digest
-    // ) -> Result<Vec<Asset>, ()>;
-
-    /// Returns the account IDs of all accounts stored in the database
-    async fn get_account_ids(&self) -> Result<Vec<AccountId>, ()>;
-
-    /// Returns a list of [AccountStub] of all accounts stored in the database along with the seeds
-    /// used to create them.
-    ///
-    /// Said accounts' state is the state after the last performed sync.
-    async fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, ()>;
-
-    /// Retrieves an [AccountStub] object for the specified [AccountId] along with the seed
-    /// used to create it. The seed will be returned if the account is new, otherwise it
-    /// will be `None`.
-    ///
-    /// Said account's state is the state according to the last sync performed.
-    ///
-    /// # Errors
-    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    async fn get_account_stub(
-        &self,
-        account_id: AccountId,
-    ) -> Result<(AccountStub, Option<Word>), ()>;
-
-    /// Retrieves a full [Account] object. The seed will be returned if the account is new,
-    /// otherwise it will be `None`.
-    ///
-    /// This function returns the [Account]'s latest state. If the account is new (that is, has
-    /// never executed a trasaction), the returned seed will be `Some(Word)`; otherwise the seed
-    /// will be `None`
-    ///
-    /// # Errors
-    ///
-    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    async fn get_account(
-        &self,
-        account_id: AccountId,
-    ) -> Result<(Account, Option<Word>), ()>;
-
-    /// Retrieves an account's [AuthInfo], utilized to authenticate the account.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    async fn get_account_auth(
-        &self,
-        account_id: AccountId,
-    ) -> Result<AuthInfo, ()>;
-
-    /// Inserts an [Account] along with the seed used to create it and its [AuthInfo]
-    async fn insert_account(
-        &mut self,
-        account: &Account,
-        account_seed: Option<Word>,
-        auth_info: &AuthInfo,
-    ) -> Result<(), ()>;
+    //     account: &Account,
+    //     account_seed: Option<Word>,
+    //     auth_info: &AuthInfo,
+    // ) -> Result<(), ()>;
 }
 
 // DATABASE AUTH INFO
