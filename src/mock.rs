@@ -17,6 +17,7 @@ use miden_objects::{
     crypto::{
         dsa::rpo_falcon512::KeyPair,
         merkle::{Mmr, MmrDelta, NodeIndex, SimpleSmt},
+        rand::RpoRandomCoin,
     },
     notes::{Note, NoteAssets, NoteInclusionProof, NoteScript},
     transaction::{InputNote, ProvenTransaction},
@@ -30,14 +31,17 @@ use crate::{
     client::{
         rpc::{NodeRpcClient, NodeRpcClientEndpoint, StateSyncInfo},
         sync::FILTER_ID_SHIFT,
-        transactions::{prepare_word, PaymentTransactionData, TransactionTemplate},
+        transactions::{
+            prepare_word,
+            transaction_request::{PaymentTransactionData, TransactionTemplate},
+        },
         Client,
     },
     errors::NodeRpcClientError,
     store::{sqlite_store::SqliteStore, AuthInfo},
 };
 
-pub type MockClient = Client<MockRpcApi, SqliteStore>;
+pub type MockClient = Client<MockRpcApi, RpoRandomCoin, SqliteStore>;
 
 // MOCK CONSTS
 // ================================================================================================
@@ -175,8 +179,6 @@ fn create_mock_sync_state_request_for_account_and_notes(
                 BlockHeader::mock(9, None, None, &[]),
                 mocked_tracked_headers[1],
             ];
-
-            dbg!(all_mocked_block_headers[0].hash());
 
             let mut mmr = Mmr::default();
             let mut mocked_mmr_deltas = vec![];
@@ -478,7 +480,8 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
         target_account.id(),
     ));
 
-    let transaction_execution_result = client.new_transaction(transaction_template).unwrap();
+    let transaction_request = client.build_transaction_request(transaction_template).unwrap();
+    let transaction_execution_result = client.new_transaction(transaction_request).unwrap();
 
     client.send_transaction(transaction_execution_result).await.unwrap();
 }

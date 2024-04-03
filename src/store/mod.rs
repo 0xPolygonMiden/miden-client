@@ -8,7 +8,7 @@ use miden_objects::{
     notes::{NoteId, NoteInclusionProof, Nullifier},
     transaction::TransactionId,
     utils::collections::BTreeMap,
-    BlockHeader, Digest, Word,
+    BlockHeader, Digest, Felt, Word,
 };
 use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 
@@ -268,6 +268,17 @@ impl AuthInfo {
     const fn type_byte(&self) -> u8 {
         match self {
             AuthInfo::RpoFalcon512(_) => RPO_FALCON512_AUTH,
+        }
+    }
+
+    /// Returns the authentication information as a tuple of (key, value)
+    /// that can be input to the advice map at the moment of transaction execution.
+    pub fn into_advice_inputs(self) -> (Word, Vec<Felt>) {
+        match self {
+            AuthInfo::RpoFalcon512(key) => (
+                key.public_key().into(),
+                key.to_bytes().iter().map(|a| Felt::new(*a as u64)).collect::<Vec<Felt>>(),
+            ),
         }
     }
 }

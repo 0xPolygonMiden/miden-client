@@ -1,29 +1,34 @@
-use std::{env::temp_dir, time::Duration};
+use std::{collections::BTreeMap, env::temp_dir, time::Duration};
 
 use miden_client::{
     client::{
         accounts::{AccountStorageMode, AccountTemplate},
+        get_random_coin,
         rpc::TonicRpcClient,
-        transactions::{PaymentTransactionData, TransactionTemplate},
+        transactions::transaction_request::{
+            PaymentTransactionData, TransactionRequest, TransactionTemplate,
+        },
         Client,
     },
     config::{ClientConfig, RpcConfig},
     errors::{ClientError, NodeRpcClientError},
-    store::{sqlite_store::SqliteStore, InputNoteRecord, NoteFilter, TransactionFilter},
+    store::{sqlite_store::SqliteStore, AuthInfo, NoteFilter, TransactionFilter},
 };
+use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{AccountData, AccountId, AccountStub},
+    accounts::{AccountId, AccountStub},
+    assembly::ProgramAst,
     assets::{Asset, FungibleAsset, TokenSymbol},
-    notes::NoteId,
-    utils::serde::Deserializable,
+    crypto::rand::{FeltRng, RpoRandomCoin},
+    notes::{Note, NoteId, NoteScript},
+    Felt, Word,
 };
-use miden_tx::{DataStoreError, TransactionExecutorError};
+use miden_tx::{utils::Serializable, DataStoreError, TransactionExecutorError};
 use uuid::Uuid;
 
-// TODO: Once this is ran as a regular test use the one in `miden_client::mock::ACCOUNT_ID_REGULAR`
 pub const ACCOUNT_ID_REGULAR: u64 = 0b0110111011u64 << 54;
 
-type TestClient = Client<TonicRpcClient, SqliteStore>;
+type TestClient = Client<TonicRpcClient, RpoRandomCoin, SqliteStore>;
 
 fn create_test_client() -> TestClient {
     let client_config = ClientConfig {
@@ -39,8 +44,10 @@ fn create_test_client() -> TestClient {
     let rpc_endpoint = client_config.rpc.endpoint.to_string();
     let store = SqliteStore::new((&client_config).into()).unwrap();
     let executor_store = SqliteStore::new((&client_config).into()).unwrap();
-    TestClient::new(TonicRpcClient::new(&rpc_endpoint), store, executor_store).unwrap()
+    let rng = get_random_coin();
+    TestClient::new(TonicRpcClient::new(&rpc_endpoint), rng, store, executor_store).unwrap()
 }
+
 fn create_test_store_path() -> std::path::PathBuf {
     let mut temp_file = temp_dir();
     temp_file.push(format!("{}.sqlite3", Uuid::new_v4()));
@@ -49,10 +56,10 @@ fn create_test_store_path() -> std::path::PathBuf {
 
 async fn execute_tx_and_sync(
     client: &mut TestClient,
-    tx_template: TransactionTemplate,
+    tx_request: TransactionRequest,
 ) {
     println!("Executing Transaction");
-    let transaction_execution_result = client.new_transaction(tx_template).unwrap();
+    let transaction_execution_result = client.new_transaction(tx_request).unwrap();
     let transaction_id = transaction_execution_result.executed_transaction().id();
 
     println!("Sending Transaction to node");
@@ -110,8 +117,14 @@ const TRANSFER_AMOUNT: u64 = 50;
 
 #[tokio::test]
 async fn main() {
+    // TODO: once issue 201
+    // (https://github.com/0xPolygonMiden/miden-client/issues/201#issuecomment-1989432215)
+    // gets fixed, we should set #[tokio::test] for the following functions individually
+    // and delete main() so tests are run in parallel and as individual tests
+
     test_p2id_transfer().await;
     test_p2idr_transfer().await;
+    test_transaction_request().await;
 
     println!("Test ran successfully!");
 }
@@ -178,12 +191,12 @@ async fn mint_note(
 
     // Create a Mint Tx for 1000 units of our fungible asset
     let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
-    let tx_template = TransactionTemplate::MintFungibleAsset {
-        asset: fungible_asset,
-        target_account_id: first_regular_account_id,
-    };
+    let tx_template =
+        TransactionTemplate::MintFungibleAsset(fungible_asset, first_regular_account_id);
+
     println!("Minting Asset");
-    execute_tx_and_sync(client, tx_template).await;
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(client, tx_request).await;
 
     // Check that note is committed
     println!("Fetching Pending Notes...");
@@ -197,7 +210,8 @@ async fn mint_note(
     let tx_template =
         TransactionTemplate::ConsumeNotes(first_regular_account_id, vec![notes[0].id()]);
     println!("Consuming Note...");
-    execute_tx_and_sync(client, tx_template).await;
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(client, tx_request).await;
 
     let (regular_account, _seed) = client.get_account(first_regular_account_id).unwrap();
 
@@ -213,12 +227,13 @@ async fn mint_note(
     // Mint some asset for an account not tracked by the client. It should not be stored as an
     // input note afterwards since it is not being tracked by the client
     let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
-    let tx_template = TransactionTemplate::MintFungibleAsset {
-        asset: fungible_asset,
-        target_account_id: AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap(),
-    };
+    let tx_template = TransactionTemplate::MintFungibleAsset(
+        fungible_asset,
+        AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap(),
+    );
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
     println!("Running Mint tx...");
-    execute_tx_and_sync(client, tx_template).await;
+    execute_tx_and_sync(client, tx_request).await;
 
     // Check that no new notes were added
     println!("Fetching Committed Notes...");
@@ -226,9 +241,6 @@ async fn mint_note(
     assert!(notes.is_empty());
 }
 
-// TODO: once [this issue](https://github.com/0xPolygonMiden/miden-client/issues/201#issuecomment-1989432215)
-// gets fixed, we should uncomment this and delete main so tests are run in parallel
-// #[tokio::test]
 async fn test_p2id_transfer() {
     let mut client = create_test_client();
 
@@ -250,7 +262,8 @@ async fn test_p2id_transfer() {
         to_account_id,
     ));
     println!("Running P2ID tx...");
-    execute_tx_and_sync(&mut client, tx_template).await;
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(&mut client, tx_request).await;
 
     // Check that note is committed for the second account to consume
     println!("Fetching Committed Notes...");
@@ -260,7 +273,8 @@ async fn test_p2id_transfer() {
     // Consume P2ID note
     let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![notes[0].id()]);
     println!("Consuming Note...");
-    execute_tx_and_sync(&mut client, tx_template).await;
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(&mut client, tx_request).await;
 
     // Ensure we have nothing else to consume
     let current_notes = client.get_input_notes(NoteFilter::Committed).unwrap();
@@ -293,9 +307,6 @@ async fn test_p2id_transfer() {
     assert_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].id()).await;
 }
 
-// TODO: once [this issue](https://github.com/0xPolygonMiden/miden-client/issues/201#issuecomment-1989432215)
-// gets fixed, we should uncomment this and delete main so tests are run in parallel
-// #[tokio::test]
 async fn test_p2idr_transfer() {
     let mut client = create_test_client();
 
@@ -331,7 +342,8 @@ async fn test_p2idr_transfer() {
         current_block_num + 50,
     );
     println!("Running P2IDR tx...");
-    execute_tx_and_sync(&mut client, tx_template).await;
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(&mut client, tx_request).await;
 
     // Check that note is committed for the second account to consume
     println!("Fetching Committed Notes...");
@@ -341,7 +353,8 @@ async fn test_p2idr_transfer() {
     // Make the `to_account_id` consume P2IDR note
     let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![notes[0].id()]);
     println!("Consuming Note...");
-    execute_tx_and_sync(&mut client, tx_template).await;
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(&mut client, tx_request).await;
 
     let (regular_account, seed) = client.get_account(from_account_id).unwrap();
     // The seed should not be retrieved due to the account not being new
@@ -380,7 +393,8 @@ async fn assert_note_cannot_be_consumed_twice(
     println!("Consuming Note...");
 
     // Double-spend error expected to be received since we are consuming the same note
-    match client.new_transaction(tx_template) {
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    match client.new_transaction(tx_request) {
         Err(ClientError::TransactionExecutionError(
             TransactionExecutorError::FetchTransactionInputsFailed(
                 DataStoreError::NoteAlreadyConsumed(_),
@@ -389,4 +403,217 @@ async fn assert_note_cannot_be_consumed_twice(
         Ok(_) => panic!("Double-spend error: Note should not be consumable!"),
         _ => panic!("Unexpected error: {}", note_to_consume_id.to_hex()),
     }
+}
+
+// TODO: We might want to move these functions related to custom transactions to their own module
+// file
+
+// CUSTOM TRANSACTION REQUEST
+// ================================================================================================
+//
+// The following functions are for testing custom transaction code. What the test does is:
+//
+// - Create a custom tx that mints a custom note which checks that the note args are as expected
+//   (ie, a word of 4 felts that represent [9, 12, 18, 3])
+//
+// - Create another transaction that consumes this note with custom code. This custom code only
+//   asserts that the {asserted_value} parameter is 0. To test this we first execute with
+//   an incorrect value passed in, and after that we try again with the correct value.
+//
+// Because it's currently not possible to create/consume notes without assets, the P2ID code
+// is used as the base for the note code.
+
+async fn test_transaction_request() {
+    let mut client = create_test_client();
+
+    let account_template = AccountTemplate::BasicWallet {
+        mutable_code: false,
+        storage_mode: AccountStorageMode::Local,
+    };
+
+    client.sync_state().await.unwrap();
+    // Insert Account
+    let (regular_account, _seed) = client.new_account(account_template).unwrap();
+
+    let account_template = AccountTemplate::FungibleFaucet {
+        token_symbol: TokenSymbol::new("TEST").unwrap(),
+        decimals: 5u8,
+        max_supply: 10_000u64,
+        storage_mode: AccountStorageMode::Local,
+    };
+    let (fungible_faucet, _seed) = client.new_account(account_template).unwrap();
+
+    // Execute mint transaction in order to create custom note
+    let note = mint_custom_note(&mut client, fungible_faucet.id(), regular_account.id()).await;
+
+    std::thread::sleep(Duration::from_secs(8));
+    client.sync_state().await.unwrap();
+
+    // Prepare transaction
+
+    // If these args were to be modified, the transaction would fail because the note code expects
+    // these exact arguments
+    let note_args = [[Felt::new(9), Felt::new(12), Felt::new(18), Felt::new(3)]];
+
+    let note_args_map = BTreeMap::from([(note.id(), Some(note_args[0]))]);
+
+    let code = "
+        use.miden::contracts::auth::basic->auth_tx
+        use.miden::kernels::tx::prologue
+        use.miden::kernels::tx::memory
+
+        begin
+            push.0 push.{asserted_value}
+            # => [0, {asserted_value}]
+            assert_eq
+
+            call.auth_tx::auth_tx_rpo_falcon512
+        end
+        ";
+
+    // FAILURE ATTEMPT
+
+    let failure_code = code.replace("{asserted_value}", "1");
+    let program = ProgramAst::parse(&failure_code).unwrap();
+
+    let tx_script = {
+        let account_auth = client.get_account_auth(regular_account.id()).unwrap();
+        let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
+            AuthInfo::RpoFalcon512(key) => (
+                key.public_key().into(),
+                key.to_bytes().iter().map(|a| Felt::new(*a as u64)).collect::<Vec<Felt>>(),
+            ),
+        };
+
+        let script_inputs = vec![(pubkey_input, advice_map)];
+        client.compile_tx_script(program, script_inputs, vec![]).unwrap()
+    };
+
+    let transaction_request = TransactionRequest::new(
+        regular_account.id(),
+        note_args_map.clone(),
+        vec![],
+        Some(tx_script),
+    );
+
+    // This fails becuase of {asserted_value} having the incorrect number passed in
+    assert!(client.new_transaction(transaction_request).is_err());
+
+    // SUCCESS EXECUTION
+
+    let success_code = code.replace("{asserted_value}", "0");
+    let program = ProgramAst::parse(&success_code).unwrap();
+
+    let tx_script = {
+        let account_auth = client.get_account_auth(regular_account.id()).unwrap();
+        let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
+            AuthInfo::RpoFalcon512(key) => (
+                key.public_key().into(),
+                key.to_bytes().iter().map(|a| Felt::new(*a as u64)).collect::<Vec<Felt>>(),
+            ),
+        };
+
+        let script_inputs = vec![(pubkey_input, advice_map)];
+        client.compile_tx_script(program, script_inputs, vec![]).unwrap()
+    };
+
+    let transaction_request =
+        TransactionRequest::new(regular_account.id(), note_args_map, vec![], Some(tx_script));
+
+    execute_tx_and_sync(&mut client, transaction_request).await;
+
+    client.sync_state().await.unwrap();
+}
+
+async fn mint_custom_note(
+    client: &mut TestClient,
+    faucet_account_id: AccountId,
+    target_account_id: AccountId,
+) -> Note {
+    // Prepare transaction
+    let mut random_coin = RpoRandomCoin::new(Default::default());
+    let note = create_custom_note(faucet_account_id, target_account_id, &mut random_coin);
+
+    let recipient = note
+        .recipient()
+        .iter()
+        .map(|x| x.as_int().to_string())
+        .collect::<Vec<_>>()
+        .join(".");
+
+    let code = "
+    use.miden::contracts::faucets::basic_fungible->faucet
+    use.miden::contracts::auth::basic->auth_tx
+    
+    begin
+        push.{recipient}
+        push.{tag}
+        push.{amount}
+        call.faucet::distribute
+    
+        call.auth_tx::auth_tx_rpo_falcon512
+        dropw dropw
+    end
+    "
+    .replace("{recipient}", &recipient)
+    .replace("{tag}", &Felt::new(Into::<u64>::into(target_account_id)).to_string())
+    .replace("{amount}", &Felt::new(10).to_string());
+
+    let program = ProgramAst::parse(&code).unwrap();
+
+    let tx_script = {
+        let account_auth = client.get_account_auth(faucet_account_id).unwrap();
+        let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
+            AuthInfo::RpoFalcon512(key) => (
+                key.public_key().into(),
+                key.to_bytes().iter().map(|a| Felt::new(*a as u64)).collect::<Vec<Felt>>(),
+            ),
+        };
+
+        let script_inputs = vec![(pubkey_input, advice_map)];
+        client.compile_tx_script(program, script_inputs, vec![]).unwrap()
+    };
+
+    let transaction_request = TransactionRequest::new(
+        faucet_account_id,
+        BTreeMap::new(),
+        vec![note.clone()],
+        Some(tx_script),
+    );
+
+    let _ = execute_tx_and_sync(client, transaction_request).await;
+    note
+}
+
+fn create_custom_note(
+    faucet_account_id: AccountId,
+    target_account_id: AccountId,
+    rng: &mut RpoRandomCoin,
+) -> Note {
+    let assembler = TransactionKernel::assembler();
+
+    let expected_note_arg = [Felt::new(9), Felt::new(12), Felt::new(18), Felt::new(3)]
+        .iter()
+        .map(|x| x.to_string())
+        .collect::<Vec<_>>()
+        .join(".");
+
+    let note_script =
+        include_str!("asm/custom_p2id.masm").replace("{expected_note_arg}", &expected_note_arg);
+    let note_script = ProgramAst::parse(&note_script).unwrap();
+    let (note_script, _) = NoteScript::new(note_script, &assembler).unwrap();
+
+    let inputs = [target_account_id.into()];
+    let tag: Felt = target_account_id.into();
+    let serial_num = rng.draw_word();
+
+    Note::new(
+        note_script,
+        &inputs,
+        &vec![FungibleAsset::new(faucet_account_id, 10).unwrap().into()],
+        serial_num,
+        faucet_account_id,
+        tag,
+    )
+    .unwrap()
 }
