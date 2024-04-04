@@ -327,13 +327,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             .collect::<Vec<_>>()
             .join(".");
 
+        let note_tag = created_note.metadata().tag().inner();
+
         let tx_script = ProgramAst::parse(
             &transaction_request::AUTH_SEND_ASSET_SCRIPT
                 .replace("{recipient}", &recipient)
-                .replace(
-                    "{tag}",
-                    &Felt::new(Into::<u64>::into(payment_data.target_account_id())).to_string(),
-                )
+                .replace("{tag}", &Felt::new(note_tag.into()).to_string())
                 .replace("{asset}", &prepare_word(&payment_data.asset().into()).to_string()),
         )
         .expect("shipped MASM is well-formed");
@@ -376,10 +375,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             .collect::<Vec<_>>()
             .join(".");
 
+        let note_tag = created_note.metadata().tag().inner();
+
         let tx_script = ProgramAst::parse(
             &transaction_request::DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT
                 .replace("{recipient}", &recipient)
-                .replace("{tag}", &Felt::new(Into::<u64>::into(target_account_id)).to_string())
+                .replace("{tag}", &Felt::new(note_tag.into()).to_string())
                 .replace("{amount}", &Felt::new(asset.amount()).to_string()),
         )
         .expect("shipped MASM is well-formed");

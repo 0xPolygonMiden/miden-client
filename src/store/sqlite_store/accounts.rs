@@ -470,6 +470,7 @@ mod tests {
         match actual {
             AuthInfo::RpoFalcon512(act_key_pair) => {
                 assert_eq!(exp_key_pair.to_bytes(), act_key_pair.to_bytes());
+                assert_eq!(exp_key_pair.public_key(), act_key_pair.public_key());
             },
         }
     }
@@ -492,6 +493,7 @@ mod tests {
         match account_auth {
             AuthInfo::RpoFalcon512(act_key_pair) => {
                 assert_eq!(exp_key_pair.to_bytes(), act_key_pair.to_bytes());
+                assert_eq!(exp_key_pair.public_key(), act_key_pair.public_key());
             },
         }
     }
