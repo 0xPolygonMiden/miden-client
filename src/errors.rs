@@ -25,7 +25,7 @@ pub enum ClientError {
     NoteError(NoteError),
     NoConsumableNoteForAccount(AccountId),
     NodeRpcClientError(NodeRpcClientError),
-    ScreenerError(Box<ScreenerError>),
+    ScreenerError(ScreenerError),
     StoreError(StoreError),
     TransactionExecutionError(TransactionExecutorError),
     TransactionProvingError(TransactionProverError),
@@ -115,7 +115,7 @@ impl From<TransactionProverError> for ClientError {
 
 impl From<ScreenerError> for ClientError {
     fn from(err: ScreenerError) -> Self {
-        Self::ScreenerError(Box::new(err))
+        Self::ScreenerError(err)
     }
 }
 
@@ -411,13 +411,13 @@ impl fmt::Display for NoteIdPrefixFetchError {
 /// Error when screening notes to check relevance to a client
 #[derive(Debug)]
 pub enum ScreenerError {
-    InvalidNoteInputsError(Box<InvalidNoteInputsError>),
+    InvalidNoteInputsError(InvalidNoteInputsError),
     StoreError(StoreError),
 }
 
 impl From<InvalidNoteInputsError> for ScreenerError {
     fn from(error: InvalidNoteInputsError) -> Self {
-        Self::InvalidNoteInputsError(Box::new(error))
+        Self::InvalidNoteInputsError(error)
     }
 }
 
