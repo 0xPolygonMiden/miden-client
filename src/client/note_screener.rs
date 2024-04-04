@@ -118,6 +118,8 @@ impl<'a, S: Store> NoteScreener<'a, S> {
     /// account check if it has enough of the wanted asset.
     /// This is also very inefficient as we're loading the full accounts. We should instead just
     /// load the account's vaults, or even have a function in the `Store` to do this.
+    ///
+    /// TODO: test/revisit this in the future
     fn check_swap_relevance(
         &self,
         note: &Note,
