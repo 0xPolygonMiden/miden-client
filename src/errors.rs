@@ -25,7 +25,7 @@ pub enum ClientError {
     NoteError(NoteError),
     NoConsumableNoteForAccount(AccountId),
     NodeRpcClientError(NodeRpcClientError),
-    ScreenerError(ScreenerError),
+    ScreenerError(Box<ScreenerError>),
     StoreError(StoreError),
     TransactionExecutionError(TransactionExecutorError),
     TransactionProvingError(TransactionProverError),
@@ -115,7 +115,7 @@ impl From<TransactionProverError> for ClientError {
 
 impl From<ScreenerError> for ClientError {
     fn from(err: ScreenerError) -> Self {
-        Self::ScreenerError(err)
+        Self::ScreenerError(Box::new(err))
     }
 }
 
@@ -411,27 +411,19 @@ impl fmt::Display for NoteIdPrefixFetchError {
 /// Error when screening notes to check relevance to a client
 #[derive(Debug)]
 pub enum ScreenerError {
-    AccountError(AccountError),
-    AssetError(AssetError),
-    InvalidNoteInputsError(NoteId),
+    InvalidNoteInputsError(Box<InvalidNoteInputsError>),
     StoreError(StoreError),
+}
+
+impl From<InvalidNoteInputsError> for ScreenerError {
+    fn from(error: InvalidNoteInputsError) -> Self {
+        Self::InvalidNoteInputsError(Box::new(error))
+    }
 }
 
 impl From<StoreError> for ScreenerError {
     fn from(error: StoreError) -> Self {
         Self::StoreError(error)
-    }
-}
-
-impl From<AssetError> for ScreenerError {
-    fn from(error: AssetError) -> Self {
-        Self::AssetError(error)
-    }
-}
-
-impl From<AccountError> for ScreenerError {
-    fn from(error: AccountError) -> Self {
-        Self::AccountError(error)
     }
 }
 
@@ -441,21 +433,49 @@ impl fmt::Display for ScreenerError {
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
         match self {
-            ScreenerError::AccountError(account_error) => {
-                write!(f, "account error: {account_error}")
-            },
-            ScreenerError::AssetError(asset_error) => {
-                write!(f, "asset error: {asset_error}")
-            },
-            ScreenerError::InvalidNoteInputsError(note_id) => {
-                write!(
-                    f,
-                    "expected note inputs amount didn't match for note with ID: {}",
-                    note_id.to_hex()
-                )
+            ScreenerError::InvalidNoteInputsError(note_inputs_err) => {
+                write!(f, "error while processing note inputs: {note_inputs_err}")
             },
             ScreenerError::StoreError(store_error) => {
                 write!(f, "error while fetching data from the store: {store_error}")
+            },
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum InvalidNoteInputsError {
+    AccountError(NoteId, AccountError),
+    AssetError(NoteId, AssetError),
+    AmountError(NoteId, usize),
+    BlockNumberError(NoteId, u64),
+}
+
+impl fmt::Display for InvalidNoteInputsError {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
+        match self {
+            InvalidNoteInputsError::AccountError(note_id, account_error) => {
+                write!(f, "account error for note with id {}: {account_error}", note_id.to_hex())
+            },
+            InvalidNoteInputsError::AssetError(note_id, asset_error) => {
+                write!(f, "asset error for note with id {}: {asset_error}", note_id.to_hex())
+            },
+            InvalidNoteInputsError::AmountError(note_id, expected_amount) => {
+                write!(
+                    f,
+                    "expected {expected_amount} note inputs for note with id {}",
+                    note_id.to_hex()
+                )
+            },
+            InvalidNoteInputsError::BlockNumberError(note_id, read_height) => {
+                write!(
+                    f,
+                    "note input representing block with value {read_height} for note with ID {}",
+                    note_id.to_hex()
+                )
             },
         }
     }

@@ -2,7 +2,10 @@ use std::collections::BTreeSet;
 
 use miden_objects::{accounts::AccountId, assets::Asset, notes::Note, Word};
 
-use crate::{errors::ScreenerError, store::Store};
+use crate::{
+    errors::{InvalidNoteInputsError, ScreenerError},
+    store::Store,
+};
 
 // KNOWN SCRIPT ROOTS
 // --------------------------------------------------------------------------------------------
@@ -60,13 +63,16 @@ impl<'a, S: Store> NoteScreener<'a, S> {
         let mut note_inputs_iter = note.inputs().values().iter();
         let account_id_felt = note_inputs_iter
             .next()
-            .ok_or(ScreenerError::InvalidNoteInputsError(note.id()))?;
+            .ok_or(InvalidNoteInputsError::AmountError(note.id(), 1))?;
 
         if note_inputs_iter.next().is_some() {
-            return Err(ScreenerError::InvalidNoteInputsError(note.id()));
+            return Err(InvalidNoteInputsError::AmountError(note.id(), 1).into());
         }
 
-        Ok(vec![(AccountId::try_from(*account_id_felt)?, NoteRelevance::Always)]
+        let account_id = AccountId::try_from(*account_id_felt)
+            .map_err(|err| InvalidNoteInputsError::AccountError(note.id(), err))?;
+
+        Ok(vec![(account_id, NoteRelevance::Always)]
             .into_iter()
             .filter(|(account_id, _relevance)| account_ids.contains(account_id))
             .collect())
@@ -79,20 +85,25 @@ impl<'a, S: Store> NoteScreener<'a, S> {
         let mut note_inputs_iter = note.inputs().values().iter();
         let account_id_felt = note_inputs_iter
             .next()
-            .ok_or(ScreenerError::InvalidNoteInputsError(note.id()))?;
+            .ok_or(InvalidNoteInputsError::AmountError(note.id(), 2))?;
         let recall_height_felt = note_inputs_iter
             .next()
-            .ok_or(ScreenerError::InvalidNoteInputsError(note.id()))?;
+            .ok_or(InvalidNoteInputsError::AmountError(note.id(), 2))?;
 
         if note_inputs_iter.next().is_some() {
-            return Err(ScreenerError::InvalidNoteInputsError(note.id()));
+            return Err(InvalidNoteInputsError::AmountError(note.id(), 2).into());
         }
 
         let sender = note.metadata().sender();
-        let recall_height = recall_height_felt.as_int() as u32;
+        let recall_height: u32 = recall_height_felt.as_int().try_into().map_err(|_err| {
+            InvalidNoteInputsError::BlockNumberError(note.id(), recall_height_felt.as_int())
+        })?;
+
+        let account_id = AccountId::try_from(*account_id_felt)
+            .map_err(|err| InvalidNoteInputsError::AccountError(note.id(), err))?;
 
         Ok(vec![
-            (AccountId::try_from(*account_id_felt)?, NoteRelevance::Always),
+            (account_id, NoteRelevance::Always),
             (sender, NoteRelevance::After(recall_height)),
         ]
         .into_iter()
@@ -120,8 +131,10 @@ impl<'a, S: Store> NoteScreener<'a, S> {
         // get the demanded asset from the note's inputs
         let asset: Asset =
             Word::from([note_inputs[4], note_inputs[5], note_inputs[6], note_inputs[7]])
-                .try_into()?;
-        let asset_faucet_id = AccountId::try_from(asset.vault_key()[3])?;
+                .try_into()
+                .map_err(|err| InvalidNoteInputsError::AssetError(note.id(), err))?;
+        let asset_faucet_id = AccountId::try_from(asset.vault_key()[3])
+            .map_err(|err| InvalidNoteInputsError::AccountError(note.id(), err))?;
 
         let mut accounts_with_relevance = Vec::new();
 
