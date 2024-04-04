@@ -37,7 +37,7 @@ pub mod transaction_request;
 pub struct TransactionResult {
     executed_transaction: ExecutedTransaction,
     output_notes: Vec<Note>,
-    relevant_notes: BTreeMap<usize, Vec<(AccountId, NoteRelevance)>>,
+    relevant_notes: Option<BTreeMap<usize, Vec<(AccountId, NoteRelevance)>>>,
 }
 
 impl TransactionResult {
@@ -45,15 +45,10 @@ impl TransactionResult {
         executed_transaction: ExecutedTransaction,
         created_notes: Vec<Note>,
     ) -> Self {
-        let mut relevant_notes = BTreeMap::new();
-        (0..created_notes.len()).for_each(|note_idx| {
-            relevant_notes.insert(note_idx, Vec::new());
-        });
-
         Self {
             executed_transaction,
             output_notes: created_notes,
-            relevant_notes,
+            relevant_notes: None,
         }
     }
 
@@ -66,17 +61,21 @@ impl TransactionResult {
     }
 
     pub fn relevant_notes(&self) -> Vec<&Note> {
-        self.relevant_notes
-            .keys()
-            .map(|note_index| &self.output_notes[*note_index])
-            .collect()
+        if let Some(relevant_notes) = &self.relevant_notes {
+            relevant_notes
+                .keys()
+                .map(|note_index| &self.output_notes[*note_index])
+                .collect()
+        } else {
+            self.created_notes().iter().collect()
+        }
     }
 
     pub fn set_relevant_notes(
         &mut self,
-        relevant_notes: &BTreeMap<usize, Vec<(AccountId, NoteRelevance)>>,
+        relevant_notes: BTreeMap<usize, Vec<(AccountId, NoteRelevance)>>,
     ) {
-        self.relevant_notes = relevant_notes.clone();
+        self.relevant_notes = Some(relevant_notes);
     }
 
     pub fn block_num(&self) -> u32 {
@@ -280,7 +279,7 @@ impl<N: NodeRpcClient, R: ClientRng, S: Store> Client<N, R, S> {
         }
 
         let mut tx_result = tx_result;
-        tx_result.set_relevant_notes(&relevant_notes);
+        tx_result.set_relevant_notes(relevant_notes);
 
         // Transaction was proven and submitted to the node correctly, persist note details and update account
         self.store.apply_transaction(tx_result)?;
