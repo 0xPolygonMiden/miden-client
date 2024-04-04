@@ -458,15 +458,15 @@ impl fmt::Display for InvalidNoteInputsError {
     ) -> fmt::Result {
         match self {
             InvalidNoteInputsError::AccountError(note_id, account_error) => {
-                write!(f, "account error for note with id {}: {account_error}", note_id.to_hex())
+                write!(f, "account error for note with ID {}: {account_error}", note_id.to_hex())
             },
             InvalidNoteInputsError::AssetError(note_id, asset_error) => {
-                write!(f, "asset error for note with id {}: {asset_error}", note_id.to_hex())
+                write!(f, "asset error for note with ID {}: {asset_error}", note_id.to_hex())
             },
             InvalidNoteInputsError::NumInputsError(note_id, expected_num_inputs) => {
                 write!(
                     f,
-                    "expected {expected_num_inputs} note inputs for note with id {}",
+                    "expected {expected_num_inputs} note inputs for note with ID {}",
                     note_id.to_hex()
                 )
             },
