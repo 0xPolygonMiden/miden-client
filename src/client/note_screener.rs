@@ -63,10 +63,10 @@ impl<'a, S: Store> NoteScreener<'a, S> {
         let mut note_inputs_iter = note.inputs().values().iter();
         let account_id_felt = note_inputs_iter
             .next()
-            .ok_or(InvalidNoteInputsError::AmountError(note.id(), 1))?;
+            .ok_or(InvalidNoteInputsError::NumInputsError(note.id(), 1))?;
 
         if note_inputs_iter.next().is_some() {
-            return Err(InvalidNoteInputsError::AmountError(note.id(), 1).into());
+            return Err(InvalidNoteInputsError::NumInputsError(note.id(), 1).into());
         }
 
         let account_id = AccountId::try_from(*account_id_felt)
@@ -85,13 +85,13 @@ impl<'a, S: Store> NoteScreener<'a, S> {
         let mut note_inputs_iter = note.inputs().values().iter();
         let account_id_felt = note_inputs_iter
             .next()
-            .ok_or(InvalidNoteInputsError::AmountError(note.id(), 2))?;
+            .ok_or(InvalidNoteInputsError::NumInputsError(note.id(), 2))?;
         let recall_height_felt = note_inputs_iter
             .next()
-            .ok_or(InvalidNoteInputsError::AmountError(note.id(), 2))?;
+            .ok_or(InvalidNoteInputsError::NumInputsError(note.id(), 2))?;
 
         if note_inputs_iter.next().is_some() {
-            return Err(InvalidNoteInputsError::AmountError(note.id(), 2).into());
+            return Err(InvalidNoteInputsError::NumInputsError(note.id(), 2).into());
         }
 
         let sender = note.metadata().sender();

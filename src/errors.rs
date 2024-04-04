@@ -447,7 +447,7 @@ impl fmt::Display for ScreenerError {
 pub enum InvalidNoteInputsError {
     AccountError(NoteId, AccountError),
     AssetError(NoteId, AssetError),
-    AmountError(NoteId, usize),
+    NumInputsError(NoteId, usize),
     BlockNumberError(NoteId, u64),
 }
 
@@ -463,10 +463,10 @@ impl fmt::Display for InvalidNoteInputsError {
             InvalidNoteInputsError::AssetError(note_id, asset_error) => {
                 write!(f, "asset error for note with id {}: {asset_error}", note_id.to_hex())
             },
-            InvalidNoteInputsError::AmountError(note_id, expected_amount) => {
+            InvalidNoteInputsError::NumInputsError(note_id, expected_num_inputs) => {
                 write!(
                     f,
-                    "expected {expected_amount} note inputs for note with id {}",
+                    "expected {expected_num_inputs} note inputs for note with id {}",
                     note_id.to_hex()
                 )
             },
