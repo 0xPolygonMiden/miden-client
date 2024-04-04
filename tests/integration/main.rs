@@ -124,8 +124,11 @@ async fn main() {
     // and delete main() so tests are run in parallel and as individual tests
 
     test_p2id_transfer().await;
+    println!("===== p2id_transfer ran successfully =====");
     test_p2idr_transfer().await;
+    println!("===== p2idr_transfer ran successfully =====");
     test_transaction_request().await;
+    println!("===== test_transfer ran successfully =====");
 
     println!("Test ran successfully!");
 }
@@ -521,6 +524,8 @@ async fn mint_custom_note(
         .collect::<Vec<_>>()
         .join(".");
 
+    let note_tag = note.metadata().tag().inner();
+
     let code = "
     use.miden::contracts::faucets::basic_fungible->faucet
     use.miden::contracts::auth::basic->auth_tx
@@ -536,7 +541,7 @@ async fn mint_custom_note(
     end
     "
     .replace("{recipient}", &recipient)
-    .replace("{tag}", &Felt::new(Into::<u64>::into(target_account_id)).to_string())
+    .replace("{tag}", &Felt::new(note_tag.into()).to_string())
     .replace("{amount}", &Felt::new(10).to_string());
 
     let program = ProgramAst::parse(&code).unwrap();
@@ -589,7 +594,9 @@ fn create_custom_note(
     let note_metadata = NoteMetadata::new(
         faucet_account_id,
         NoteType::OffChain,
-        NoteTag::from_account_id(target_account_id, NoteExecutionMode::Local).into(),
+        NoteTag::from_account_id(target_account_id, NoteExecutionMode::Local)
+            .unwrap()
+            .into(),
         Default::default(),
     )
     .unwrap();
