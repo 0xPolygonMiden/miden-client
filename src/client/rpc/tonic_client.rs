@@ -13,7 +13,7 @@ use miden_objects::{
     accounts::AccountId,
     notes::{NoteId, NoteMetadata, NoteType},
     transaction::ProvenTransaction,
-    BlockHeader, Digest, Felt,
+    BlockHeader, Digest,
 };
 use miden_tx::utils::Serializable;
 use tonic::transport::Channel;

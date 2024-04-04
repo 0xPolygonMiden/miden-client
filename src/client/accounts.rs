@@ -1,8 +1,13 @@
 use miden_lib::AuthScheme;
 use miden_objects::{
-    accounts::{Account, AccountData, AccountId, AccountStub, AccountType, AuthData}, assets::TokenSymbol, crypto::{dsa::rpo_falcon512::SecretKey, rand::{FeltRng, RpoRandomCoin}}, Digest, Felt, Word
+    accounts::{Account, AccountData, AccountId, AccountStub, AccountType, AuthData},
+    assets::TokenSymbol,
+    crypto::{
+        dsa::rpo_falcon512::SecretKey,
+        rand::{FeltRng, RpoRandomCoin},
+    },
+    Digest, Felt, Word,
 };
-use miden_tx::utils::Deserializable;
 
 use super::{rpc::NodeRpcClient, Client};
 use crate::{
@@ -70,7 +75,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         match account_data.auth {
             AuthData::RpoFalcon512Seed(key_pair_seed) => {
                 // NOTE: The seed should probably come from a different format from miden-base's AccountData
-                let key_pair_seed: [u8; 32] = key_pair_seed[..32].try_into().expect("Failed to convert");
+                let key_pair_seed: [u8; 32] =
+                    key_pair_seed[..32].try_into().expect("Failed to convert");
                 // TODO: Remove unwrap
                 let mut rng = RpoRandomCoin::new(Digest::try_from(&key_pair_seed).unwrap().into());
 
@@ -122,7 +128,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         };
 
         // we need to use an initial seed to create the wallet account
-        let mut init_seed = [0u8;32];
+        let mut init_seed = [0u8; 32];
         self.rng.fill_bytes(&mut init_seed);
 
         let (account, seed) = if !mutable_code {
@@ -162,7 +168,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         };
 
         // we need to use an initial seed to create the wallet account
-        let mut init_seed = [0u8;32];
+        let mut init_seed = [0u8; 32];
         self.rng.fill_bytes(&mut init_seed);
 
         let (account, seed) = miden_lib::accounts::faucets::create_basic_fungible_faucet(

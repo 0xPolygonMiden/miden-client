@@ -1,4 +1,4 @@
-use std::{any::Any, fmt};
+use std::fmt;
 
 use clap::error::Result;
 use miden_objects::{

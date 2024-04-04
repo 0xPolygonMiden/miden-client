@@ -276,10 +276,13 @@ impl AuthInfo {
     /// that can be input to the advice map at the moment of transaction execution.
     pub fn into_advice_inputs(self) -> (Word, Vec<Felt>) {
         match self {
-            AuthInfo::RpoFalcon512(key) => (
-                key.public_key().into(),
-                key.to_bytes().iter().map(|a| Felt::new(*a as u64)).collect::<Vec<Felt>>(),
-            ),
+            AuthInfo::RpoFalcon512(key) => {
+                let pub_key: Word = key.public_key().into();
+                let mut pk_sk_bytes = key.to_bytes();
+                pk_sk_bytes.append(&mut pub_key.to_bytes());
+
+                (pub_key, pk_sk_bytes.iter().map(|a| Felt::new(*a as u64)).collect::<Vec<Felt>>())
+            },
         }
     }
 }

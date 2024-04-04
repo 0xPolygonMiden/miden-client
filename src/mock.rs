@@ -12,7 +12,7 @@ use miden_node_proto::generated::{
 use miden_objects::{
     accounts::{
         get_account_seed_single, Account, AccountCode, AccountId, AccountStorage, AccountType,
-        SlotItem, StorageSlot, StorageSlotType,
+        SlotItem, StorageSlot,
     },
     assembly::{Assembler, ModuleAst, ProgramAst},
     assets::{Asset, AssetVault, FungibleAsset, TokenSymbol},

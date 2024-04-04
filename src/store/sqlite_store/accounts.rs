@@ -425,11 +425,13 @@ fn serialize_account_asset_vault(
 #[cfg(test)]
 mod tests {
     use miden_objects::{
-        accounts::AccountCode, assembly::ModuleAst, crypto::dsa::rpo_falcon512::SecretKey,
+        accounts::{AccountCode, AccountId},
+        assembly::ModuleAst,
+        crypto::dsa::rpo_falcon512::SecretKey,
     };
     use miden_tx::utils::{Deserializable, Serializable};
 
-    use super::AuthInfo;
+    use super::{insert_account_auth, AuthInfo};
     use crate::{
         mock::DEFAULT_ACCOUNT_CODE,
         store::sqlite_store::{accounts::insert_account_code, tests::create_test_store},
@@ -467,7 +469,29 @@ mod tests {
         let actual = AuthInfo::read_from_bytes(&bytes).unwrap();
         match actual {
             AuthInfo::RpoFalcon512(act_key_pair) => {
-                assert_eq!(exp_key_pair.public_key(), act_key_pair.public_key());
+                assert_eq!(exp_key_pair.to_bytes(), act_key_pair.to_bytes());
+            },
+        }
+    }
+
+    #[test]
+    fn test_auth_info_store() {
+        let exp_key_pair = SecretKey::new();
+
+        let mut store = create_test_store();
+
+        let account_id = AccountId::try_from(3238098370154045919u64).unwrap();
+        {
+            let tx = store.db.transaction().unwrap();
+            insert_account_auth(&tx, account_id, &AuthInfo::RpoFalcon512(exp_key_pair.clone()))
+                .unwrap();
+            tx.commit().unwrap();
+        }
+
+        let account_auth = store.get_account_auth(account_id).unwrap();
+        match account_auth {
+            AuthInfo::RpoFalcon512(act_key_pair) => {
+                assert_eq!(exp_key_pair.to_bytes(), act_key_pair.to_bytes());
             },
         }
     }
