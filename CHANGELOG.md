@@ -1,5 +1,6 @@
 # Changelog
 
+* Added `NoteScreener` struct capable of detecting notes consumable by a client (via heuristics).
 * Added `TransactionRequest` for defining transactions with arbitrary scripts, inputs and outputs and changed the client API to use this definition.
 * Added `ClientRng` trait for randomness component within `Client`.
 * Refactored integration tests to be ran as regular rust tests.
