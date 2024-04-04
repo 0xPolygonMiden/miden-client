@@ -23,7 +23,7 @@ use miden_objects::{
     assembly::ProgramAst,
     assets::{Asset, FungibleAsset, TokenSymbol},
     crypto::rand::{FeltRng, RpoRandomCoin},
-    notes::{Note, NoteId, NoteScript},
+    notes::{Note, NoteId, NoteMetadata, NoteScript, NoteTag, NoteType},
     Felt, Word,
 };
 use miden_tx::{utils::Serializable, DataStoreError, TransactionExecutorError};
@@ -586,14 +586,19 @@ fn create_custom_note(
     let inputs = [target_account_id.into()];
     let tag: Felt = target_account_id.into();
     let serial_num = rng.draw_word();
-
+    let note_metadata = NoteMetadata::new(
+        faucet_account_id,
+        NoteType::OffChain,
+        target_account_id.into(),
+        Default::default(),
+    )
+    .unwrap();
     Note::new(
         note_script,
         &inputs,
         &vec![FungibleAsset::new(faucet_account_id, 10).unwrap().into()],
         serial_num,
-        faucet_account_id,
-        tag,
+        note_metadata,
     )
     .unwrap()
 }

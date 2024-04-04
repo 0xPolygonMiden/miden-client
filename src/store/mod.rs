@@ -1,13 +1,14 @@
+use alloc::collections::BTreeMap;
+
 use clap::error::Result;
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
     crypto::{
-        dsa::rpo_falcon512::KeyPair,
+        dsa::rpo_falcon512::SecretKey,
         merkle::{InOrderIndex, MmrPeaks},
     },
     notes::{NoteId, NoteInclusionProof, Nullifier},
     transaction::TransactionId,
-    utils::collections::BTreeMap,
     BlockHeader, Digest, Felt, Word,
 };
 use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
@@ -258,7 +259,7 @@ pub trait Store {
 /// Represents the types of authentication information of accounts
 #[derive(Debug)]
 pub enum AuthInfo {
-    RpoFalcon512(KeyPair),
+    RpoFalcon512(SecretKey),
 }
 
 const RPO_FALCON512_AUTH: u8 = 0;
@@ -303,7 +304,7 @@ impl Deserializable for AuthInfo {
         let auth_type: u8 = source.read_u8()?;
         match auth_type {
             RPO_FALCON512_AUTH => {
-                let key_pair = KeyPair::read_from(source)?;
+                let key_pair = SecretKey::read_from(source)?;
                 Ok(AuthInfo::RpoFalcon512(key_pair))
             },
             val => Err(DeserializationError::InvalidValue(val.to_string())),

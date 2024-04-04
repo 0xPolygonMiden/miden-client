@@ -1,12 +1,10 @@
 use miden_lib::AuthScheme;
 use miden_objects::{
-    accounts::{Account, AccountData, AccountId, AccountStub, AccountType, AuthData},
-    assets::TokenSymbol,
-    crypto::{dsa::rpo_falcon512::KeyPair, rand::FeltRng},
-    Felt, Word,
+    accounts::{Account, AccountData, AccountId, AccountStub, AccountType, AuthData}, assets::TokenSymbol, crypto::{dsa::rpo_falcon512::SecretKey, rand::{FeltRng, RpoRandomCoin}}, Digest, Felt, Word
 };
+use miden_tx::utils::Deserializable;
 
-use super::{rpc::NodeRpcClient, Client, ClientRng};
+use super::{rpc::NodeRpcClient, Client};
 use crate::{
     errors::ClientError,
     store::{AuthInfo, Store},
@@ -70,8 +68,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         account_data: AccountData,
     ) -> Result<(), ClientError> {
         match account_data.auth {
-            AuthData::RpoFalcon512Seed(key_pair) => {
-                let keypair = KeyPair::from_seed(&key_pair)?;
+            AuthData::RpoFalcon512Seed(key_pair_seed) => {
+                // NOTE: The seed should probably come from a different format from miden-base's AccountData
+                let key_pair_seed: [u8; 32] = key_pair_seed[..32].try_into().expect("Failed to convert");
+                // TODO: Remove unwrap
+                let mut rng = RpoRandomCoin::new(Digest::try_from(&key_pair_seed).unwrap().into());
+
+                let keypair = SecretKey::with_rng(&mut rng);
 
                 let account_seed = if !account_data.account.is_new()
                     && account_data.account_seed.is_some()
@@ -111,14 +114,16 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             todo!("Recording the account on chain is not supported yet");
         }
 
-        let key_pair: KeyPair = KeyPair::new()?;
+        // TODO: This should be initialized with_rng
+        let key_pair = SecretKey::new();
 
         let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
             pub_key: key_pair.public_key(),
         };
 
         // we need to use an initial seed to create the wallet account
-        let init_seed: [u8; 32] = self.rng.get_random_seed();
+        let mut init_seed = [0u8;32];
+        self.rng.fill_bytes(&mut init_seed);
 
         let (account, seed) = if !mutable_code {
             miden_lib::accounts::wallets::create_basic_wallet(
@@ -149,14 +154,16 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             todo!("On-chain accounts are not supported yet");
         }
 
-        let key_pair: KeyPair = KeyPair::new()?;
+        // TODO: This should be initialized with_rng
+        let key_pair = SecretKey::new();
 
         let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
             pub_key: key_pair.public_key(),
         };
 
         // we need to use an initial seed to create the wallet account
-        let init_seed: [u8; 32] = self.rng.get_random_seed();
+        let mut init_seed = [0u8;32];
+        self.rng.fill_bytes(&mut init_seed);
 
         let (account, seed) = miden_lib::accounts::faucets::create_basic_fungible_faucet(
             init_seed,
@@ -237,7 +244,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 pub mod tests {
     use miden_objects::{
         accounts::{Account, AccountData, AccountId, AuthData},
-        crypto::dsa::rpo_falcon512::KeyPair,
+        crypto::dsa::rpo_falcon512::SecretKey,
         Word,
     };
 
@@ -282,12 +289,10 @@ pub mod tests {
             None,
         );
 
-        let key_pair: KeyPair = KeyPair::new()
-            .map_err(|err| format!("Error generating KeyPair: {}", err))
-            .unwrap();
+        let key_pair = SecretKey::new();
 
         assert!(client
-            .insert_account(&account, None, &AuthInfo::RpoFalcon512(key_pair))
+            .insert_account(&account, None, &AuthInfo::RpoFalcon512(key_pair.clone()))
             .is_err());
         assert!(client
             .insert_account(&account, Some(Word::default()), &AuthInfo::RpoFalcon512(key_pair))

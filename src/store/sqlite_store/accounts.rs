@@ -425,7 +425,7 @@ fn serialize_account_asset_vault(
 #[cfg(test)]
 mod tests {
     use miden_objects::{
-        accounts::AccountCode, assembly::ModuleAst, crypto::dsa::rpo_falcon512::KeyPair,
+        accounts::AccountCode, assembly::ModuleAst, crypto::dsa::rpo_falcon512::SecretKey,
     };
     use miden_tx::utils::{Deserializable, Serializable};
 
@@ -461,13 +461,13 @@ mod tests {
 
     #[test]
     fn test_auth_info_serialization() {
-        let exp_key_pair = KeyPair::new().unwrap();
-        let auth_info = AuthInfo::RpoFalcon512(exp_key_pair);
+        let exp_key_pair = SecretKey::new();
+        let auth_info = AuthInfo::RpoFalcon512(exp_key_pair.clone());
         let bytes = auth_info.to_bytes();
         let actual = AuthInfo::read_from_bytes(&bytes).unwrap();
         match actual {
             AuthInfo::RpoFalcon512(act_key_pair) => {
-                assert_eq!(exp_key_pair, act_key_pair)
+                assert_eq!(exp_key_pair.public_key(), act_key_pair.public_key());
             },
         }
     }

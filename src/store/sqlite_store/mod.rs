@@ -1,9 +1,10 @@
+use alloc::collections::BTreeMap;
+
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::{NoteId, NoteInclusionProof},
     transaction::TransactionId,
-    utils::collections::BTreeMap,
     BlockHeader, Digest, Word,
 };
 use rusqlite::Connection;

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use miden_node_proto::{
-    errors::ParseError,
+    errors::ConversionError,
     generated::{
         requests::{
             GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest, SyncStateRequest,
@@ -11,7 +11,7 @@ use miden_node_proto::{
 };
 use miden_objects::{
     accounts::AccountId,
-    notes::{NoteId, NoteMetadata},
+    notes::{NoteId, NoteMetadata, NoteType},
     transaction::ProvenTransaction,
     BlockHeader, Digest, Felt,
 };
@@ -93,7 +93,7 @@ impl NodeRpcClient for TonicRpcClient {
             .block_header
             .ok_or(NodeRpcClientError::ExpectedFieldMissing("BlockHeader".into()))?
             .try_into()
-            .map_err(|err: ParseError| NodeRpcClientError::ConversionFailure(err.to_string()))
+            .map_err(|err: ConversionError| NodeRpcClientError::ConversionFailure(err.to_string()))
     }
 
     /// Sends a sync state request to the Miden node, validates and converts the response
@@ -187,7 +187,15 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                 .sender
                 .ok_or(NodeRpcClientError::ExpectedFieldMissing("Notes.Sender".into()))?
                 .try_into()?;
-            let metadata = NoteMetadata::new(sender_account_id, Felt::new(note.tag));
+            // TODO: Note type and aux should eventually come from the node response
+            // TODO: Remove unwraps
+            let metadata = NoteMetadata::new(
+                sender_account_id,
+                NoteType::OffChain,
+                note.tag.try_into().unwrap(),
+                Default::default(),
+            )
+            .unwrap();
 
             let committed_note =
                 CommittedNote::new(note_id, note.note_index, merkle_path, metadata);

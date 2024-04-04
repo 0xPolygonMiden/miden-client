@@ -1,3 +1,5 @@
+use alloc::collections::BTreeMap;
+
 use async_trait::async_trait;
 use miden_lib::{transaction::TransactionKernel, AuthScheme};
 use miden_node_proto::generated::{
@@ -10,19 +12,18 @@ use miden_node_proto::generated::{
 use miden_objects::{
     accounts::{
         get_account_seed_single, Account, AccountCode, AccountId, AccountStorage, AccountType,
-        StorageSlotType,
+        SlotItem, StorageSlot, StorageSlotType,
     },
     assembly::{Assembler, ModuleAst, ProgramAst},
     assets::{Asset, AssetVault, FungibleAsset, TokenSymbol},
     crypto::{
-        dsa::rpo_falcon512::KeyPair,
+        dsa::rpo_falcon512::SecretKey,
         merkle::{Mmr, MmrDelta, NodeIndex, SimpleSmt},
         rand::RpoRandomCoin,
     },
-    notes::{Note, NoteAssets, NoteInclusionProof, NoteScript},
+    notes::{Note, NoteAssets, NoteInclusionProof, NoteMetadata, NoteScript, NoteType},
     transaction::{InputNote, ProvenTransaction},
-    utils::collections::BTreeMap,
-    BlockHeader, Felt, Word, NOTE_TREE_DEPTH, ZERO,
+    BlockHeader, Felt, Word, NOTE_TREE_DEPTH,
 };
 use rand::Rng;
 use tonic::{Response, Status};
@@ -378,9 +379,7 @@ pub async fn insert_mock_data(client: &mut MockClient) -> Vec<BlockHeader> {
     }
 
     // insert account
-    let key_pair: KeyPair = KeyPair::new()
-        .map_err(|err| format!("Error generating KeyPair: {}", err))
-        .unwrap();
+    let key_pair = SecretKey::new();
     client
         .insert_account(&account, Some(account_seed), &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
@@ -400,9 +399,7 @@ pub async fn insert_mock_data(client: &mut MockClient) -> Vec<BlockHeader> {
 }
 
 pub async fn create_mock_transaction(client: &mut MockClient) {
-    let key_pair: KeyPair = KeyPair::new()
-        .map_err(|err| format!("Error generating KeyPair: {}", err))
-        .unwrap();
+    let key_pair = SecretKey::new();
     let auth_scheme: miden_lib::AuthScheme = miden_lib::AuthScheme::RpoFalcon512 {
         pub_key: key_pair.public_key(),
     };
@@ -422,9 +419,7 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
         .insert_account(&sender_account, Some(seed), &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
-    let key_pair: KeyPair = KeyPair::new()
-        .map_err(|err| format!("Error generating KeyPair: {}", err))
-        .unwrap();
+    let key_pair = SecretKey::new();
     let auth_scheme: miden_lib::AuthScheme = miden_lib::AuthScheme::RpoFalcon512 {
         pub_key: key_pair.public_key(),
     };
@@ -444,9 +439,7 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
         .insert_account(&target_account, Some(seed), &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 
-    let key_pair: KeyPair = KeyPair::new()
-        .map_err(|err| format!("Error generating KeyPair: {}", err))
-        .unwrap();
+    let key_pair = SecretKey::new();
     let auth_scheme: miden_lib::AuthScheme = miden_lib::AuthScheme::RpoFalcon512 {
         pub_key: key_pair.public_key(),
     };
@@ -489,7 +482,7 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
 pub fn mock_fungible_faucet_account(
     id: AccountId,
     initial_balance: u64,
-    key_pair: KeyPair,
+    key_pair: SecretKey,
 ) -> Account {
     let mut rng = rand::thread_rng();
     let init_seed: [u8; 32] = rng.gen();
@@ -510,8 +503,14 @@ pub fn mock_fungible_faucet_account(
     let faucet_storage_slot_1 =
         [Felt::new(initial_balance), Felt::new(0), Felt::new(0), Felt::new(0)];
     let faucet_account_storage = AccountStorage::new(vec![
-        (0, (StorageSlotType::Value { value_arity: 0 }, key_pair.public_key().into())),
-        (1, (StorageSlotType::Value { value_arity: 0 }, faucet_storage_slot_1)),
+        SlotItem {
+            index: 0,
+            slot: StorageSlot::new_value(key_pair.public_key().into()),
+        },
+        SlotItem {
+            index: 1,
+            slot: StorageSlot::new_value(faucet_storage_slot_1),
+        },
     ])
     .unwrap();
 
@@ -550,30 +549,35 @@ pub fn mock_notes(assembler: &Assembler) -> (Vec<Note>, Vec<Note>) {
 
     // Created Notes
     const SERIAL_NUM_4: Word = [Felt::new(13), Felt::new(14), Felt::new(15), Felt::new(16)];
+    let note_metadata =
+        NoteMetadata::new(sender, NoteType::OffChain, 1u32.into(), Default::default()).unwrap();
     let created_note_1 = Note::new(
         note_script.clone(),
         &[Felt::new(1)],
         &[fungible_asset_1],
         SERIAL_NUM_4,
-        sender,
-        ZERO,
+        note_metadata,
     )
     .unwrap();
 
     const SERIAL_NUM_5: Word = [Felt::new(17), Felt::new(18), Felt::new(19), Felt::new(20)];
+    let note_metadata =
+        NoteMetadata::new(sender, NoteType::OffChain, 2u32.into(), Default::default()).unwrap();
+
     let created_note_2 = Note::new(
         note_script.clone(),
         &[Felt::new(2)],
         &[fungible_asset_2],
         SERIAL_NUM_5,
-        sender,
-        ZERO,
+        note_metadata,
     )
     .unwrap();
 
     const SERIAL_NUM_6: Word = [Felt::new(21), Felt::new(22), Felt::new(23), Felt::new(24)];
+    let note_metadata =
+        NoteMetadata::new(sender, NoteType::OffChain, 2u32.into(), Default::default()).unwrap();
     let created_note_3 =
-        Note::new(note_script, &[Felt::new(2)], &[fungible_asset_3], SERIAL_NUM_6, sender, ZERO)
+        Note::new(note_script, &[Felt::new(2)], &[fungible_asset_3], SERIAL_NUM_6, note_metadata)
             .unwrap();
 
     let created_notes = vec![created_note_1, created_note_2, created_note_3];
@@ -634,18 +638,21 @@ pub fn mock_notes(assembler: &Assembler) -> (Vec<Note>, Vec<Note>) {
 
     // Consumed Notes
     const SERIAL_NUM_1: Word = [Felt::new(1), Felt::new(2), Felt::new(3), Felt::new(4)];
+    let note_metadata =
+        NoteMetadata::new(sender, NoteType::OffChain, 1u32.into(), Default::default()).unwrap();
     let consumed_note_1 =
-        Note::new(note_1_script, &[Felt::new(1)], &[fungible_asset_1], SERIAL_NUM_1, sender, ZERO)
+        Note::new(note_1_script, &[Felt::new(1)], &[fungible_asset_1], SERIAL_NUM_1, note_metadata)
             .unwrap();
 
     const SERIAL_NUM_2: Word = [Felt::new(5), Felt::new(6), Felt::new(7), Felt::new(8)];
+    let note_metadata =
+        NoteMetadata::new(sender, NoteType::OffChain, 2u32.into(), Default::default()).unwrap();
     let consumed_note_2 = Note::new(
         note_2_script,
         &[Felt::new(2)],
         &[fungible_asset_2, fungible_asset_3],
         SERIAL_NUM_2,
-        sender,
-        ZERO,
+        note_metadata,
     )
     .unwrap();
 
@@ -665,9 +672,11 @@ fn get_account_with_nonce(
     let account_assembler = TransactionKernel::assembler();
 
     let account_code = AccountCode::new(account_code_ast, &account_assembler).unwrap();
-    let account_storage =
-        AccountStorage::new(vec![(0, (StorageSlotType::Value { value_arity: 0 }, public_key))])
-            .unwrap();
+    let slot_item = SlotItem {
+        index: 0,
+        slot: StorageSlot::new_value(public_key),
+    };
+    let account_storage = AccountStorage::new(vec![slot_item]).unwrap();
 
     let asset_vault = match assets {
         Some(asset) => AssetVault::new(&[asset]).unwrap(),

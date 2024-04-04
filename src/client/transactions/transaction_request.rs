@@ -1,9 +1,10 @@
+use alloc::collections::BTreeMap;
+
 use miden_objects::{
     accounts::AccountId,
     assets::{Asset, FungibleAsset},
     notes::{Note, NoteId},
     transaction::{TransactionArgs, TransactionScript},
-    utils::collections::BTreeMap,
     Word,
 };
 

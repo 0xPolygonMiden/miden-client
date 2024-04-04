@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{any::Any, fmt};
 
 use clap::error::Result;
 use miden_objects::{
@@ -564,10 +564,8 @@ pub(crate) fn serialize_output_note(
     };
     let recipient = note.recipient().to_hex();
 
-    let sender_id = note.metadata().sender();
-    let tag = note.metadata().tag();
-    let metadata = serde_json::to_string(&NoteMetadata::new(sender_id, tag))
-        .map_err(StoreError::InputSerializationError)?;
+    let metadata =
+        serde_json::to_string(note.metadata()).map_err(StoreError::InputSerializationError)?;
 
     let details = if let Some(details) = note.details() {
         Some(serde_json::to_string(&details).map_err(StoreError::InputSerializationError)?)

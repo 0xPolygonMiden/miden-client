@@ -1,9 +1,10 @@
+use alloc::collections::BTreeMap;
+
 use miden_objects::{
     accounts::{Account, AccountId},
     assembly::{AstSerdeOptions, ProgramAst},
     crypto::utils::{Deserializable, Serializable},
     transaction::{OutputNote, OutputNotes, ToNullifier, TransactionId, TransactionScript},
-    utils::collections::BTreeMap,
     Digest, Felt,
 };
 use rusqlite::{params, Transaction};

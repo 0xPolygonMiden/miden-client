@@ -9,7 +9,7 @@ use miden_client::{
 use miden_objects::{
     accounts::{AccountData, AccountId, AccountStorage, AccountType, StorageSlotType},
     assets::{Asset, TokenSymbol},
-    crypto::{dsa::rpo_falcon512::KeyPair, rand::FeltRng},
+    crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
     ZERO,
 };
 use miden_tx::utils::{bytes_to_hex_string, Deserializable, Serializable};
@@ -263,11 +263,11 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store>(
 
         match auth_info {
             miden_client::store::AuthInfo::RpoFalcon512(key_pair) => {
-                const KEY_PAIR_SIZE: usize = std::mem::size_of::<KeyPair>();
+                const KEY_PAIR_SIZE: usize = std::mem::size_of::<SecretKey>();
                 let auth_info: [u8; KEY_PAIR_SIZE] = key_pair
                     .to_bytes()
                     .try_into()
-                    .expect("Array size is const and should always exactly fit KeyPair");
+                    .expect("Array size is const and should always exactly fit SecretKey");
 
                 let mut table = Table::new();
                 table

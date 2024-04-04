@@ -1,15 +1,16 @@
+use alloc::collections::{BTreeMap, BTreeSet};
+
 use miden_lib::notes::{create_p2id_note, create_p2idr_note};
 use miden_objects::{
     accounts::{AccountDelta, AccountId},
     assembly::ProgramAst,
     assets::FungibleAsset,
     crypto::rand::RpoRandomCoin,
-    notes::{Note, NoteId},
+    notes::{Note, NoteId, NoteType},
     transaction::{
         ExecutedTransaction, OutputNote, OutputNotes, ProvenTransaction, TransactionArgs,
         TransactionId, TransactionScript,
     },
-    utils::collections::{BTreeMap, BTreeSet},
     Digest, Felt, Word,
 };
 use miden_tx::{ProvingOptions, ScriptTarget, TransactionProver};
@@ -17,7 +18,7 @@ use rand::Rng;
 use tracing::info;
 
 use self::transaction_request::{PaymentTransactionData, TransactionRequest, TransactionTemplate};
-use super::{rpc::NodeRpcClient, Client, ClientRng};
+use super::{rpc::NodeRpcClient, Client, FeltRng};
 use crate::{
     errors::ClientError,
     store::{AuthInfo, Store, TransactionFilter},
@@ -137,7 +138,7 @@ impl std::fmt::Display for TransactionStatus {
     }
 }
 
-impl<N: NodeRpcClient, R: ClientRng, S: Store> Client<N, R, S> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
@@ -305,6 +306,7 @@ impl<N: NodeRpcClient, R: ClientRng, S: Store> Client<N, R, S> {
                 payment_data.account_id(),
                 payment_data.target_account_id(),
                 vec![payment_data.asset()],
+                NoteType::OffChain, // TODO: Select correct note type
                 recall_height,
                 random_coin,
             )?
@@ -313,6 +315,7 @@ impl<N: NodeRpcClient, R: ClientRng, S: Store> Client<N, R, S> {
                 payment_data.account_id(),
                 payment_data.target_account_id(),
                 vec![payment_data.asset()],
+                NoteType::OffChain, // TODO: Select correct note type
                 random_coin,
             )?
         };
@@ -362,6 +365,7 @@ impl<N: NodeRpcClient, R: ClientRng, S: Store> Client<N, R, S> {
             asset.faucet_id(),
             target_account_id,
             vec![asset.into()],
+            NoteType::OffChain, // TODO: Select correct note type
             random_coin,
         )?;
 
