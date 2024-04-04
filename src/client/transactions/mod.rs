@@ -332,6 +332,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         let tx_script = ProgramAst::parse(
             &transaction_request::AUTH_SEND_ASSET_SCRIPT
                 .replace("{recipient}", &recipient)
+                .replace("{note_type}", &Felt::new(NoteType::OffChain as u64).to_string())
                 .replace("{tag}", &Felt::new(note_tag.into()).to_string())
                 .replace("{asset}", &prepare_word(&payment_data.asset().into()).to_string()),
         )

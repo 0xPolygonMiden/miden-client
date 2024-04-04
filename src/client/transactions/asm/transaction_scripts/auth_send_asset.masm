@@ -4,6 +4,7 @@ use.miden::contracts::wallets::basic->wallet
 begin
     push.{recipient}
     push.{tag}
+    push.{note_type}
     push.{asset}
     call.wallet::send_asset drop
     dropw dropw
