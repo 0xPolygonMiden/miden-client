@@ -115,23 +115,6 @@ async fn wait_for_node(client: &mut TestClient) {
 const MINT_AMOUNT: u64 = 1000;
 const TRANSFER_AMOUNT: u64 = 50;
 
-#[tokio::test]
-async fn main() {
-    // TODO: once issue 201
-    // (https://github.com/0xPolygonMiden/miden-client/issues/201#issuecomment-1989432215)
-    // gets fixed, we should set #[tokio::test] for the following functions individually
-    // and delete main() so tests are run in parallel and as individual tests
-
-    test_p2id_transfer().await;
-    println!("===== p2id_transfer ran successfully =====");
-    test_p2idr_transfer().await;
-    println!("===== p2idr_transfer ran successfully =====");
-    test_transaction_request().await;
-    println!("===== test_transfer ran successfully =====");
-
-    println!("Test ran successfully!");
-}
-
 async fn setup(client: &mut TestClient) -> (AccountStub, AccountStub, AccountStub) {
     // Enusre clean state
     assert!(client.get_accounts().unwrap().is_empty());
@@ -244,6 +227,7 @@ async fn mint_note(
     assert!(notes.is_empty());
 }
 
+#[tokio::test]
 async fn test_p2id_transfer() {
     let mut client = create_test_client();
 
@@ -310,6 +294,7 @@ async fn test_p2id_transfer() {
     assert_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].id()).await;
 }
 
+#[tokio::test]
 async fn test_p2idr_transfer() {
     let mut client = create_test_client();
 
@@ -426,6 +411,7 @@ async fn assert_note_cannot_be_consumed_twice(
 // Because it's currently not possible to create/consume notes without assets, the P2ID code
 // is used as the base for the note code.
 
+#[tokio::test]
 async fn test_transaction_request() {
     let mut client = create_test_client();
 
