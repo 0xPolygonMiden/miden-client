@@ -18,8 +18,9 @@ use rand::Rng;
 use tracing::info;
 
 use self::transaction_request::{PaymentTransactionData, TransactionRequest, TransactionTemplate};
-use super::{rpc::NodeRpcClient, Client, FeltRng};
+use super::{note_screener::NoteRelevance, rpc::NodeRpcClient, Client, FeltRng};
 use crate::{
+    client::NoteScreener,
     errors::ClientError,
     store::{AuthInfo, Store, TransactionFilter},
 };
@@ -31,11 +32,13 @@ pub mod transaction_request;
 
 /// Represents the result of executing a transaction by the client
 ///  
-/// It contains an [ExecutedTransaction] and a list of [Note] that describe the details of the
-/// notes created by the transaction execution
+/// It contains an [ExecutedTransaction], a list of [Note] that describe the details of the notes
+/// created by the transaction execution, and a list of `usize` `relevant_notes` that contain the
+/// indices of `output_notes` that are relevant to the client
 pub struct TransactionResult {
     executed_transaction: ExecutedTransaction,
     output_notes: Vec<Note>,
+    relevant_notes: Option<BTreeMap<usize, Vec<(AccountId, NoteRelevance)>>>,
 }
 
 impl TransactionResult {
@@ -46,6 +49,7 @@ impl TransactionResult {
         Self {
             executed_transaction,
             output_notes: created_notes,
+            relevant_notes: None,
         }
     }
 
@@ -55,6 +59,24 @@ impl TransactionResult {
 
     pub fn created_notes(&self) -> &Vec<Note> {
         &self.output_notes
+    }
+
+    pub fn relevant_notes(&self) -> Vec<&Note> {
+        if let Some(relevant_notes) = &self.relevant_notes {
+            relevant_notes
+                .keys()
+                .map(|note_index| &self.output_notes[*note_index])
+                .collect()
+        } else {
+            self.created_notes().iter().collect()
+        }
+    }
+
+    pub fn set_relevant_notes(
+        &mut self,
+        relevant_notes: BTreeMap<usize, Vec<(AccountId, NoteRelevance)>>,
+    ) {
+        self.relevant_notes = Some(relevant_notes);
     }
 
     pub fn block_num(&self) -> u32 {
@@ -246,6 +268,19 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         info!("Proved transaction, submitting to the node...");
 
         self.submit_proven_transaction_request(proven_transaction.clone()).await?;
+
+        let note_screener = NoteScreener::new(&self.store);
+        let mut relevant_notes = BTreeMap::new();
+
+        for (idx, note) in tx_result.created_notes().iter().enumerate() {
+            let account_relevance = note_screener.check_relevance(note)?;
+            if !account_relevance.is_empty() {
+                relevant_notes.insert(idx, account_relevance);
+            }
+        }
+
+        let mut tx_result = tx_result;
+        tx_result.set_relevant_notes(relevant_notes);
 
         // Transaction was proven and submitted to the node correctly, persist note details and update account
         self.store.apply_transaction(tx_result)?;

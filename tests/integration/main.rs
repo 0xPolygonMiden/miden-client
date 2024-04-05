@@ -1,21 +1,18 @@
-use std::{collections::BTreeMap, env::temp_dir, fs, time::Duration};
+use std::{collections::BTreeMap, env::temp_dir, time::Duration};
 
 use miden_client::{
     client::{
         accounts::{AccountStorageMode, AccountTemplate},
         get_random_coin,
         rpc::TonicRpcClient,
-        transactions::{
-            transaction_request::{
-                PaymentTransactionData, TransactionRequest, TransactionTemplate,
-            },
-            TransactionResult,
+        transactions::transaction_request::{
+            PaymentTransactionData, TransactionRequest, TransactionTemplate,
         },
         Client,
     },
     config::{ClientConfig, RpcConfig},
     errors::{ClientError, NodeRpcClientError},
-    store::{sqlite_store::SqliteStore, AuthInfo, InputNoteRecord, NoteFilter, TransactionFilter},
+    store::{sqlite_store::SqliteStore, AuthInfo, NoteFilter, TransactionFilter},
 };
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
@@ -28,6 +25,8 @@ use miden_objects::{
 };
 use miden_tx::{utils::Serializable, DataStoreError, TransactionExecutorError};
 use uuid::Uuid;
+
+pub const ACCOUNT_ID_REGULAR: u64 = 0b0110111011u64 << 54;
 
 type TestClient = Client<TonicRpcClient, RpoRandomCoin, SqliteStore>;
 
@@ -227,6 +226,22 @@ async fn mint_note(
     } else {
         panic!("ACCOUNT SHOULD HAVE A FUNGIBLE ASSET");
     }
+
+    // Mint some asset for an account not tracked by the client. It should not be stored as an
+    // input note afterwards since it is not being tracked by the client
+    let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
+    let tx_template = TransactionTemplate::MintFungibleAsset(
+        fungible_asset,
+        AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap(),
+    );
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    println!("Running Mint tx...");
+    execute_tx_and_sync(client, tx_request).await;
+
+    // Check that no new notes were added
+    println!("Fetching Committed Notes...");
+    let notes = client.get_input_notes(NoteFilter::Committed).unwrap();
+    assert!(notes.is_empty());
 }
 
 async fn test_p2id_transfer() {
@@ -264,7 +279,12 @@ async fn test_p2id_transfer() {
     let tx_request = client.build_transaction_request(tx_template).unwrap();
     execute_tx_and_sync(&mut client, tx_request).await;
 
+    // Ensure we have nothing else to consume
+    let current_notes = client.get_input_notes(NoteFilter::Committed).unwrap();
+    assert!(current_notes.is_empty());
+
     let (regular_account, seed) = client.get_account(from_account_id).unwrap();
+
     // The seed should not be retrieved due to the account not being new
     assert!(!regular_account.is_new() && seed.is_none());
     assert_eq!(regular_account.vault().assets().count(), 1);
@@ -589,7 +609,6 @@ fn create_custom_note(
     let (note_script, _) = NoteScript::new(note_script, &assembler).unwrap();
 
     let inputs = [target_account_id.into()];
-    let tag: Felt = target_account_id.into();
     let serial_num = rng.draw_word();
     let note_metadata = NoteMetadata::new(
         faucet_account_id,

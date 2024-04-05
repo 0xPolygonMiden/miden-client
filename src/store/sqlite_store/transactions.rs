@@ -90,8 +90,8 @@ impl SqliteStore {
         account.apply_delta(account_delta).map_err(StoreError::AccountError)?;
 
         let created_input_notes = tx_result
-            .created_notes()
-            .iter()
+            .relevant_notes()
+            .into_iter()
             .map(|note| InputNoteRecord::from(note.clone()))
             .collect::<Vec<_>>();
 

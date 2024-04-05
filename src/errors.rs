@@ -2,8 +2,8 @@ use core::fmt;
 
 use miden_node_proto::errors::ConversionError;
 use miden_objects::{
-    accounts::AccountId, crypto::merkle::MmrError, notes::NoteId, AccountError, AssetVaultError,
-    Digest, NoteError, TransactionScriptError,
+    accounts::AccountId, crypto::merkle::MmrError, notes::NoteId, AccountError, AssetError,
+    AssetVaultError, Digest, NoteError, TransactionScriptError,
 };
 use miden_tx::{
     utils::{DeserializationError, HexParseError},
@@ -16,12 +16,14 @@ use miden_tx::{
 #[derive(Debug)]
 pub enum ClientError {
     AccountError(AccountError),
+    AssetError(AssetError),
     DataDeserializationError(DeserializationError),
     ImportNewAccountWithoutSeed,
     MissingOutputNotes(Vec<NoteId>),
     NoteError(NoteError),
     NoConsumableNoteForAccount(AccountId),
     NodeRpcClientError(NodeRpcClientError),
+    ScreenerError(ScreenerError),
     StoreError(StoreError),
     TransactionExecutionError(TransactionExecutorError),
     TransactionProvingError(TransactionProverError),
@@ -37,6 +39,7 @@ impl fmt::Display for ClientError {
             ClientError::DataDeserializationError(err) => {
                 write!(f, "data deserialization error: {err}")
             },
+            ClientError::AssetError(err) => write!(f, "asset error: {err}"),
             ClientError::ImportNewAccountWithoutSeed => write!(
                 f,
                 "import account error: can't import a new account without its initial seed"
@@ -53,6 +56,7 @@ impl fmt::Display for ClientError {
             },
             ClientError::NoteError(err) => write!(f, "note error: {err}"),
             ClientError::NodeRpcClientError(err) => write!(f, "rpc api error: {err}"),
+            ClientError::ScreenerError(err) => write!(f, "note screener error: {err}"),
             ClientError::StoreError(err) => write!(f, "store error: {err}"),
             ClientError::TransactionExecutionError(err) => {
                 write!(f, "transaction executor error: {err}")
@@ -106,6 +110,12 @@ impl From<TransactionExecutorError> for ClientError {
 impl From<TransactionProverError> for ClientError {
     fn from(err: TransactionProverError) -> Self {
         Self::TransactionProvingError(err)
+    }
+}
+
+impl From<ScreenerError> for ClientError {
+    fn from(err: ScreenerError) -> Self {
+        Self::ScreenerError(err)
     }
 }
 
@@ -383,6 +393,82 @@ impl fmt::Display for NoteIdPrefixFetchError {
                 write!(
                     f,
                     "found more than one note for the provided ID {note_id} and only one match is expected."
+                )
+            },
+        }
+    }
+}
+
+// NOTE SCREENER ERROR
+// ================================================================================================
+
+/// Error when screening notes to check relevance to a client
+#[derive(Debug)]
+pub enum ScreenerError {
+    InvalidNoteInputsError(InvalidNoteInputsError),
+    StoreError(StoreError),
+}
+
+impl From<InvalidNoteInputsError> for ScreenerError {
+    fn from(error: InvalidNoteInputsError) -> Self {
+        Self::InvalidNoteInputsError(error)
+    }
+}
+
+impl From<StoreError> for ScreenerError {
+    fn from(error: StoreError) -> Self {
+        Self::StoreError(error)
+    }
+}
+
+impl fmt::Display for ScreenerError {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
+        match self {
+            ScreenerError::InvalidNoteInputsError(note_inputs_err) => {
+                write!(f, "error while processing note inputs: {note_inputs_err}")
+            },
+            ScreenerError::StoreError(store_error) => {
+                write!(f, "error while fetching data from the store: {store_error}")
+            },
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum InvalidNoteInputsError {
+    AccountError(NoteId, AccountError),
+    AssetError(NoteId, AssetError),
+    NumInputsError(NoteId, usize),
+    BlockNumberError(NoteId, u64),
+}
+
+impl fmt::Display for InvalidNoteInputsError {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
+        match self {
+            InvalidNoteInputsError::AccountError(note_id, account_error) => {
+                write!(f, "account error for note with ID {}: {account_error}", note_id.to_hex())
+            },
+            InvalidNoteInputsError::AssetError(note_id, asset_error) => {
+                write!(f, "asset error for note with ID {}: {asset_error}", note_id.to_hex())
+            },
+            InvalidNoteInputsError::NumInputsError(note_id, expected_num_inputs) => {
+                write!(
+                    f,
+                    "expected {expected_num_inputs} note inputs for note with ID {}",
+                    note_id.to_hex()
+                )
+            },
+            InvalidNoteInputsError::BlockNumberError(note_id, read_height) => {
+                write!(
+                    f,
+                    "note input representing block with value {read_height} for note with ID {}",
+                    note_id.to_hex()
                 )
             },
         }
