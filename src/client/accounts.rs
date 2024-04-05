@@ -269,7 +269,7 @@ pub mod tests {
         AccountData::new(
             account.clone(),
             Some(Word::default()),
-            AuthData::RpoFalcon512Seed([0; 40]),
+            AuthData::RpoFalcon512Seed([0; 32]),
         )
     }
 
