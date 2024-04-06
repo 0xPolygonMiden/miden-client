@@ -61,7 +61,7 @@ In order to execute a transaction, you first need to define which type of transa
 
     // Prove and submit the transaction, which is stored alongside created notes (if any)
     client
-        .send_transaction(transaction_execution_result)
+        .submit_transaction(transaction_execution_result)
         .await?
 ```
 

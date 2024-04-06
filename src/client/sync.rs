@@ -6,7 +6,7 @@ use miden_objects::{
     transaction::TransactionId,
     BlockHeader, Digest,
 };
-use tracing::{info, warn};
+use tracing::warn;
 
 use super::{
     rpc::{CommittedNote, NodeRpcClient},
@@ -223,7 +223,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             .iter()
             .filter_map(|commited_note| {
                 if pending_notes.contains(commited_note.note_id()) {
-                    println!("for block {} we got note index {}", block_header.block_num(), commited_note.note_index());
                     let note_inclusion_proof = NoteInclusionProof::new(
                         block_header.block_num(),
                         block_header.sub_hash(),

@@ -257,7 +257,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
     /// Proves the specified transaction witness, submits it to the node, and stores the transaction in
     /// the local database for tracking.
-    pub async fn send_transaction(
+    pub async fn submit_transaction(
         &mut self,
         tx_result: TransactionResult,
     ) -> Result<(), ClientError> {

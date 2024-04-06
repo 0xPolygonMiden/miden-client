@@ -95,7 +95,7 @@ async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store>(
 
     info!("Executed transaction, proving and then submitting...");
 
-    client.send_transaction(transaction_execution_result).await?;
+    client.submit_transaction(transaction_execution_result).await?;
 
     Ok(())
 }

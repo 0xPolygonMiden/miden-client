@@ -375,7 +375,11 @@ pub(crate) fn serialize_input_note(
             let note_root = proof.note_root();
 
             let inclusion_proof = serde_json::to_string(&NoteInclusionProof::new(
-                block_num, sub_hash, note_root, node_index, proof.note_path().clone(),
+                block_num,
+                sub_hash,
+                note_root,
+                node_index,
+                proof.note_path().clone(),
             )?)
             .map_err(StoreError::InputSerializationError)?;
 
@@ -520,7 +524,11 @@ pub(crate) fn serialize_output_note(
             let note_root = proof.note_root();
 
             let inclusion_proof = serde_json::to_string(&NoteInclusionProof::new(
-                block_num, sub_hash, note_root, node_index, proof.note_path().clone(),
+                block_num,
+                sub_hash,
+                note_root,
+                node_index,
+                proof.note_path().clone(),
             )?)
             .map_err(StoreError::InputSerializationError)?;
 

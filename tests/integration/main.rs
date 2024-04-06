@@ -16,11 +16,12 @@ use miden_client::{
 };
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{AccountId, AccountStub, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN},
+    accounts::{Account, AccountId, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN},
     assembly::ProgramAst,
     assets::{Asset, FungibleAsset, TokenSymbol},
     crypto::rand::{FeltRng, RpoRandomCoin},
     notes::{Note, NoteExecutionMode, NoteId, NoteMetadata, NoteScript, NoteTag, NoteType},
+    transaction::InputNote,
     Felt, Word,
 };
 use miden_tx::{utils::Serializable, DataStoreError, TransactionExecutorError};
@@ -63,7 +64,7 @@ async fn execute_tx_and_sync(
     let transaction_id = transaction_execution_result.executed_transaction().id();
 
     println!("Sending Transaction to node");
-    client.send_transaction(transaction_execution_result).await.unwrap();
+    client.submit_transaction(transaction_execution_result).await.unwrap();
 
     // wait until tx is committed
     loop {
@@ -115,31 +116,37 @@ async fn wait_for_node(client: &mut TestClient) {
 const MINT_AMOUNT: u64 = 1000;
 const TRANSFER_AMOUNT: u64 = 50;
 
-async fn setup(client: &mut TestClient) -> (AccountStub, AccountStub, AccountStub) {
+/// Sets up a basic client and returns (basic_account, basic_account, faucet_account)
+async fn setup(client: &mut TestClient) -> (Account, Account, Account) {
     // Enusre clean state
     assert!(client.get_accounts().unwrap().is_empty());
     assert!(client.get_transactions(TransactionFilter::All).unwrap().is_empty());
     assert!(client.get_input_notes(NoteFilter::All).unwrap().is_empty());
 
     // Create faucet account
-    client
+    let (faucet_account, _) = client
         .new_account(AccountTemplate::FungibleFaucet {
             token_symbol: TokenSymbol::new("MATIC").unwrap(),
             decimals: 8,
-            max_supply: 1000000,
+            max_supply: 1_000_000_000,
             storage_mode: AccountStorageMode::Local,
         })
         .unwrap();
 
     // Create regular accounts
-    for _ in 0..2 {
-        client
-            .new_account(AccountTemplate::BasicWallet {
-                mutable_code: false,
-                storage_mode: AccountStorageMode::Local,
-            })
-            .unwrap();
-    }
+    let (first_basic_account, _) = client
+        .new_account(AccountTemplate::BasicWallet {
+            mutable_code: false,
+            storage_mode: AccountStorageMode::Local,
+        })
+        .unwrap();
+
+    let (second_basic_account, _) = client
+        .new_account(AccountTemplate::BasicWallet {
+            mutable_code: false,
+            storage_mode: AccountStorageMode::Local,
+        })
+        .unwrap();
 
     wait_for_node(client).await;
 
@@ -148,59 +155,45 @@ async fn setup(client: &mut TestClient) -> (AccountStub, AccountStub, AccountStu
 
     // Get Faucet and regular accounts
     println!("Fetching Accounts...");
-    let accounts = client.get_accounts().unwrap();
-    assert_eq!(accounts.len(), 3);
-    let regular_account_stubs = accounts
-        .iter()
-        .filter(|(account, _seed)| account.id().is_regular_account())
-        .map(|(account, _seed)| account.clone())
-        .collect::<Vec<_>>();
-    let (faucet_account_stub, _seed) = accounts
-        .into_iter()
-        .find(|(account, _seed)| !account.id().is_regular_account())
-        .unwrap();
-
-    (
-        regular_account_stubs[0].clone(),
-        regular_account_stubs[1].clone(),
-        faucet_account_stub,
-    )
+    (first_basic_account, second_basic_account, faucet_account)
 }
 
+/// Mints a note from faucet_account_id for basic_account_id, waits for inclusion and returns it
 async fn mint_note(
     client: &mut TestClient,
-    first_regular_account_id: AccountId,
+    basic_account_id: AccountId,
     faucet_account_id: AccountId,
-) {
-    let (regular_account, _seed) = client.get_account(first_regular_account_id).unwrap();
+) -> InputNote {
+    let (regular_account, _seed) = client.get_account(basic_account_id).unwrap();
     assert_eq!(regular_account.vault().assets().count(), 0);
 
     // Create a Mint Tx for 1000 units of our fungible asset
     let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
-    let tx_template =
-        TransactionTemplate::MintFungibleAsset(fungible_asset, first_regular_account_id);
+    let tx_template = TransactionTemplate::MintFungibleAsset(fungible_asset, basic_account_id);
 
     println!("Minting Asset");
     let tx_request = client.build_transaction_request(tx_template).unwrap();
-    execute_tx_and_sync(client, tx_request).await;
+    let _ = execute_tx_and_sync(client, tx_request.clone()).await;
 
-    // Check that note is committed
-    println!("Fetching Pending Notes...");
-    let notes = client.get_input_notes(NoteFilter::Pending).unwrap();
-    assert!(notes.is_empty());
-
+    // Check that note is committed and return it
     println!("Fetching Committed Notes...");
-    let notes = client.get_input_notes(NoteFilter::Committed).unwrap();
-    let notes_l:Vec<_> = notes.iter().map(|x| x.id().to_string()).collect();
-    assert!(!notes.is_empty());
+    let note_id = tx_request.expected_output_notes()[0].id();
+    let note = client.get_input_note(note_id).unwrap();
+    note.try_into().unwrap()
+}
 
+async fn consume_notes(
+    client: &mut TestClient,
+    account_id: AccountId,
+    input_notes: &[InputNote],
+) {
     let tx_template =
-        TransactionTemplate::ConsumeNotes(first_regular_account_id, vec![notes[0].id()]);
+        TransactionTemplate::ConsumeNotes(account_id, input_notes.iter().map(|n| n.id()).collect());
     println!("Consuming Note...");
     let tx_request = client.build_transaction_request(tx_template).unwrap();
     execute_tx_and_sync(client, tx_request).await;
 
-    let (regular_account, _seed) = client.get_account(first_regular_account_id).unwrap();
+    let (regular_account, _seed) = client.get_account(account_id).unwrap();
 
     assert_eq!(regular_account.vault().assets().count(), 1);
     let asset = regular_account.vault().assets().next().unwrap();
@@ -210,22 +203,28 @@ async fn mint_note(
     } else {
         panic!("ACCOUNT SHOULD HAVE A FUNGIBLE ASSET");
     }
+}
 
+#[tokio::test]
+async fn test_added_notes() {
+    let mut client = create_test_client();
+
+    let (_, _, faucet_account_stub) = setup(&mut client).await;
     // Mint some asset for an account not tracked by the client. It should not be stored as an
     // input note afterwards since it is not being tracked by the client
-    let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
+    let fungible_asset = FungibleAsset::new(faucet_account_stub.id(), MINT_AMOUNT).unwrap();
     let tx_template = TransactionTemplate::MintFungibleAsset(
         fungible_asset,
         AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap(),
     );
     let tx_request = client.build_transaction_request(tx_template).unwrap();
     println!("Running Mint tx...");
-    execute_tx_and_sync(client, tx_request).await;
+    execute_tx_and_sync(&mut client, tx_request).await;
 
     // Check that no new notes were added
     println!("Fetching Committed Notes...");
     let notes = client.get_input_notes(NoteFilter::Committed).unwrap();
-    //assert!(notes.is_empty());
+    assert!(notes.is_empty())
 }
 
 #[tokio::test]
@@ -240,7 +239,8 @@ async fn test_p2id_transfer() {
     let faucet_account_id = faucet_account_stub.id();
 
     // First Mint necesary token
-    mint_note(&mut client, from_account_id, faucet_account_id).await;
+    let note = mint_note(&mut client, from_account_id, faucet_account_id).await;
+    consume_notes(&mut client, from_account_id, &[note]).await;
 
     // Do a transfer from first account to second account
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
@@ -307,9 +307,14 @@ async fn test_p2idr_transfer() {
     let faucet_account_id = faucet_account_stub.id();
 
     // First Mint necesary token
-    mint_note(&mut client, from_account_id, faucet_account_id).await;
+    let note = mint_note(&mut client, from_account_id, faucet_account_id).await;
+    println!("about to consume");
+
+    consume_notes(&mut client, from_account_id, &[note]).await;
+
     // Do a transfer from first account to second account with Recall. In this situation we'll do
     // the happy path where the `to_account_id` consumes the note
+    println!("getting balance");
     let from_account_balance = client
         .get_account(from_account_id)
         .unwrap()
