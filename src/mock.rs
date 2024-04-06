@@ -12,7 +12,7 @@ use miden_node_proto::generated::{
 use miden_objects::{
     accounts::{
         get_account_seed_single, Account, AccountCode, AccountId, AccountStorage, AccountType,
-        SlotItem, StorageSlot,
+        SlotItem, StorageSlot, ACCOUNT_ID_OFF_CHAIN_SENDER,
     },
     assembly::{Assembler, ModuleAst, ProgramAst},
     assets::{Asset, AssetVault, FungibleAsset, TokenSymbol},
@@ -48,7 +48,7 @@ pub type MockClient = Client<MockRpcApi, RpoRandomCoin, SqliteStore>;
 // ================================================================================================
 
 pub const ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN: u64 = 3238098370154045919;
-pub const ACCOUNT_ID_REGULAR: u64 = 0b0110111011u64 << 54;
+pub const ACCOUNT_ID_REGULAR: u64 = ACCOUNT_ID_OFF_CHAIN_SENDER;
 pub const ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN: u64 = 0b1010011100 << 54;
 pub const DEFAULT_ACCOUNT_CODE: &str = "
     use.miden::contracts::wallets::basic->basic_wallet

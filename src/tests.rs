@@ -2,7 +2,7 @@
 // ================================================================================================
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{AccountId, AccountStub},
+    accounts::{AccountId, AccountStub, ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN},
     assembly::{AstSerdeOptions, ModuleAst},
     assets::{FungibleAsset, TokenSymbol},
     crypto::dsa::rpo_falcon512::SecretKey,
@@ -336,7 +336,7 @@ async fn test_add_tag() {
 
 #[tokio::test]
 async fn test_mint_transaction() {
-    const FAUCET_ID: u64 = 10347894387879516201u64;
+    const FAUCET_ID: u64 = ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN;
     const INITIAL_BALANCE: u64 = 1000;
 
     // generate test client with a random store name
