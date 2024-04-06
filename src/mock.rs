@@ -12,7 +12,7 @@ use miden_node_proto::generated::{
 use miden_objects::{
     accounts::{
         get_account_seed_single, Account, AccountCode, AccountId, AccountStorage, AccountType,
-        SlotItem, StorageSlot,
+        SlotItem, StorageSlot, StorageSlotType,
     },
     assembly::{Assembler, ModuleAst, ProgramAst},
     assets::{Asset, AssetVault, FungibleAsset, TokenSymbol},
@@ -357,7 +357,7 @@ pub async fn insert_mock_data(client: &mut MockClient) -> Vec<BlockHeader> {
     let account_seed = get_account_seed_single(
         init_seed,
         account.account_type(),
-        true,
+        miden_objects::accounts::AccountStorageType::OffChain,
         account.code().root(),
         account.storage().root(),
     )

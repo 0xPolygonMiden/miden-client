@@ -6,7 +6,7 @@ use miden_objects::{
     transaction::TransactionId,
     BlockHeader, Digest,
 };
-use tracing::warn;
+use tracing::{info, warn};
 
 use super::{
     rpc::{CommittedNote, NodeRpcClient},
@@ -223,22 +223,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             .iter()
             .filter_map(|commited_note| {
                 if pending_notes.contains(commited_note.note_id()) {
-                    // FIXME: This removal is to accomodate a problem with how the node constructs paths where
-                    // they are constructed using note ID instead of authentication hash, so for now we remove the first
-                    // node here.
-                    //
-                    // See: https://github.com/0xPolygonMiden/miden-node/blob/main/store/src/state.rs#L274
-                    let mut merkle_path = commited_note.merkle_path().clone();
-                    if merkle_path.len() > 0 {
-                        let _ = merkle_path.remove(0);
-                    }
-
+                    println!("for block {} we got note index {}", block_header.block_num(), commited_note.note_index());
                     let note_inclusion_proof = NoteInclusionProof::new(
                         block_header.block_num(),
                         block_header.sub_hash(),
                         block_header.note_root(),
                         commited_note.note_index().into(),
-                        merkle_path,
+                        commited_note.merkle_path().clone(),
                     )
                     .map_err(ClientError::NoteError)
                     .map(|proof| (*commited_note.note_id(), proof));

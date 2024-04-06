@@ -35,10 +35,10 @@ clap = { version = "4.3", features = ["derive"] }
 comfy-table = "7.1.0"
 figment = { version = "0.10", features = ["toml", "env"] }
 lazy_static = "1.4.0"
-miden-lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false }
-miden-node-proto = { package = "miden-node-proto", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "next", default-features = false }
-miden-tx = { package = "miden-tx", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false }
-miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false }
+miden-lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next-test", default-features = false }
+miden-node-proto = { package = "miden-node-proto", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "igamigo-fix-id", default-features = false }
+miden-tx = { package = "miden-tx", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next-test", default-features = false }
+miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next-test", default-features = false }
 rand = { version = "0.8.5" }
 rusqlite = { version = "0.30.0", features = ["bundled"] }
 rusqlite_migration = { version = "1.0" }

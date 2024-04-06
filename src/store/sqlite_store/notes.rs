@@ -369,25 +369,13 @@ pub(crate) fn serialize_input_note(
 
     let (inclusion_proof, status) = match note.inclusion_proof() {
         Some(proof) => {
-            // FIXME: This removal is to accomodate a problem with how the node constructs paths where
-            // they are constructed using note ID instead of authentication hash, so for now we remove the first
-            // node here.
-            //
-            // Note: once removed we can also stop creating a new `NoteInclusionProof`
-            //
-            // See: https://github.com/0xPolygonMiden/miden-node/blob/main/store/src/state.rs#L274
-            let mut path = proof.note_path().clone();
-            if path.len() > 0 {
-                let _removed = path.remove(0);
-            }
-
             let block_num = proof.origin().block_num;
             let node_index = proof.origin().node_index.value();
             let sub_hash = proof.sub_hash();
             let note_root = proof.note_root();
 
             let inclusion_proof = serde_json::to_string(&NoteInclusionProof::new(
-                block_num, sub_hash, note_root, node_index, path,
+                block_num, sub_hash, note_root, node_index, proof.note_path().clone(),
             )?)
             .map_err(StoreError::InputSerializationError)?;
 
@@ -526,25 +514,13 @@ pub(crate) fn serialize_output_note(
     let note_assets = note.assets().to_bytes();
     let (inclusion_proof, status) = match note.inclusion_proof() {
         Some(proof) => {
-            // FIXME: This removal is to accomodate a problem with how the node constructs paths where
-            // they are constructed using note ID instead of authentication hash, so for now we remove the first
-            // node here.
-            //
-            // Note: once removed we can also stop creating a new `NoteInclusionProof`
-            //
-            // See: https://github.com/0xPolygonMiden/miden-node/blob/main/store/src/state.rs#L274
-            let mut path = proof.note_path().clone();
-            if path.len() > 0 {
-                let _removed = path.remove(0);
-            }
-
             let block_num = proof.origin().block_num;
             let node_index = proof.origin().node_index.value();
             let sub_hash = proof.sub_hash();
             let note_root = proof.note_root();
 
             let inclusion_proof = serde_json::to_string(&NoteInclusionProof::new(
-                block_num, sub_hash, note_root, node_index, path,
+                block_num, sub_hash, note_root, node_index, proof.note_path().clone(),
             )?)
             .map_err(StoreError::InputSerializationError)?;
 
