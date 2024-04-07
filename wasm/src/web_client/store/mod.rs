@@ -1,4 +1,4 @@
-use crate::native_code::store::Store; 
+use crate::native_code::store::{Store, NativeNoteFilter}; 
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::*;
@@ -6,6 +6,7 @@ use wasm_bindgen_futures::*;
 use async_trait::async_trait;
 
 pub mod accounts;
+pub mod notes;
 pub mod mock_example;
 
 // Initialize IndexedDB
@@ -71,5 +72,40 @@ impl Store for WebStore {
     //     account_id: AccountId,
     // ) -> Result<AuthInfo, ()> {
     //     self.get_account_auth(account_id)
+    // }
+
+    // NOTES
+    // async fn get_input_notes(
+    //     &mut self,
+    //     filter: NativeNoteFilter,
+    // ) -> Result<Vec<InputNoteRecord>, ()> {
+    //     self.get_input_notes(filter).await
+    // }
+
+    // async fn get_input_note(
+    //     &mut self,
+    //     note_id: NoteId,
+    // ) -> Result<InputNoteRecord, ()> {
+    //     self.get_input_note(note_id).await
+    // }
+
+    // async fn insert_input_note(
+    //     &mut self,
+    //     note: &InputNoteRecord,
+    // ) -> Result<(), ()> {
+    //     self.insert_input_note(note).await
+    // }
+
+    // async fn get_output_notes(
+    //     &mut self,
+    //     note_filter: NativeNoteFilter,
+    // ) -> Result<Vec<InputNoteRecord>, ()> {
+    //     self.get_output_notes(note_filter).await
+    // }
+
+    // async fn get_unspent_input_note_nullifiers(
+    //     &self
+    // ) -> Result<Vec<Nullifier>, ()> {
+    //     self.get_unspent_input_note_nullifiers().await
     // }
 }

@@ -1,4 +1,5 @@
 pub mod accounts;
+pub mod notes;
 
 pub mod store;
 use store::Store;

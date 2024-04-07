@@ -1,4 +1,5 @@
 pub mod account;
+pub mod notes;
 pub mod store;
 pub mod web_rpc_client;
 

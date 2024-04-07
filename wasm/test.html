@@ -28,6 +28,8 @@
             }
         }
 
+        // Accounts Tests
+
         async function testNewAccount(webClient) {
             const basicMutableTemplate = {
                 type: "BasicMutable"
@@ -85,6 +87,38 @@
             }
         }
 
+        // Notes Tests
+
+        async function testGetInputNotes(webClient) {
+            try {
+                await webClient.get_input_notes("Pending");
+
+            } catch (error) {
+                console.error('Failed to call get input notes:', error);
+            
+            }
+        }
+
+        async function testGetInputNote(webClient) {
+            try {
+                await webClient.get_input_note("TestString");
+
+            } catch (error) {
+                console.error('Failed to call get input note:', error);
+            
+            }
+        }
+
+        async function testImportInputNote(webClient) {
+            try {
+                await webClient.import_input_note(new Uint8Array(32));
+
+            } catch (error) {
+                console.error('Failed to call import input note:', error);
+            
+            }
+        }
+
         let webClient = await testCreateClient();
         await testStoreAndRpc(webClient);
         await testNewAccount(webClient);
@@ -92,6 +126,10 @@
         await testGetAccount(webClient);
         await testGetAccountStubById(webClient);
         await testGetAccountAuth(webClient);
+
+        await testGetInputNotes(webClient);
+        await testGetInputNote(webClient);
+        await testImportInputNote(webClient);
     </script>
 </body>
 </html>

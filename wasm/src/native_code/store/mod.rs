@@ -22,7 +22,7 @@ pub trait Store {
         data: String
     ) -> Result<(), ()>;
 
-    // ACCOUNT
+    // ACCOUNTS
     // --------------------------------------------------------------------------------------------
 
     // async fn get_account_ids(&self) -> Result<Vec<AccountId>, ()>;
@@ -50,6 +50,33 @@ pub trait Store {
     //     account_seed: Option<Word>,
     //     auth_info: &AuthInfo,
     // ) -> Result<(), ()>;
+
+    // NOTES
+    // --------------------------------------------------------------------------------------------
+
+    // async fn get_input_notes(
+    //     &mut self,
+    //     filter: NativeNoteFilter,
+    // ) -> Result<Vec<InputNoteRecord>, ()>;
+
+    // async fn get_input_note(
+    //     &self,
+    //     note_id: NoteId,
+    // ) -> Result<InputNoteRecord, ()>;
+
+    // async fn insert_input_note(
+    //     &mut self,
+    //     note: &InputNoteRecord,
+    // ) -> Result<(), ()>;
+
+    // async fn get_output_notes(
+    //     &self,
+    //     filter: NativeNoteFilter,
+    // ) -> Result<Vec<InputNoteRecord>, ()>;
+
+    // async fn get_unspent_input_note_nullifiers(
+    //     &self
+    // ) -> Result<Vec<Nullifier>, ()>;
 }
 
 // DATABASE AUTH INFO
@@ -98,3 +125,16 @@ pub trait Store {
 //         }
 //     }
 // }
+
+pub enum NativeNoteFilter {
+    /// Return a list of all [InputNoteRecord].
+    All,
+    /// Filter by consumed [InputNoteRecord]. notes that have been used as inputs in transactions.
+    Consumed,
+    /// Return a list of committed [InputNoteRecord]. These represent notes that the blockchain
+    /// has included in a block, and for which we are storing anchor data.
+    Committed,
+    /// Return a list of pending [InputNoteRecord]. These represent notes for which the store
+    /// does not have anchor data.
+    Pending,
+}

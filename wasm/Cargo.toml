@@ -18,3 +18,5 @@ serde-wasm-bindgen = "0.6.5"
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = ["console"] }
+miden-lib = { version= "0.1", default-features = false }
+miden-tx = { version= "0.1", default-features = false }

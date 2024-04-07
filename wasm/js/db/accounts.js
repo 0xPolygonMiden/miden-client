@@ -12,7 +12,7 @@ export async function getAccountStub(
 ) {
     try {
         // Fetch all records matching the given id
-        const allMatchingRecords = await db.accounts
+        const allMatchingRecords = await accounts
           .where('id')
           .equals(accountId)
           .toArray();
@@ -53,7 +53,7 @@ export async function getAccountStub(
 export async function getAllAccountStubs() {
     try {
         // Fetch all records
-        const allRecords = await db.accounts.toArray();
+        const allRecords = await accounts.toArray();
         
         // Use a Map to track the latest record for each id based on nonce
         const latestRecordsMap = new Map();
