@@ -13,7 +13,7 @@ use miden_node_proto::{
 use miden_objects::{
     accounts::{Account, AccountId},
     notes::{NoteId, NoteMetadata, NoteType},
-    transaction::ProvenTransaction,
+    transaction::{AccountDetails, ProvenTransaction},
     utils::Deserializable,
     BlockHeader, Digest,
 };
@@ -131,15 +131,11 @@ impl NodeRpcClient for TonicRpcClient {
     }
 
     /// TODO: fill description
-    async fn get_account_update(
+    async fn get_account_details(
         &mut self,
         account_id: AccountId,
-    ) -> Result<Account, NodeRpcClientError> {
-        if !account_id.is_on_chain() {
-            return Err(NodeRpcClientError::InvalidAccountReceived(
-                "should only get updates for offchain accounts".to_string(),
-            ));
-        }
+    ) -> Result<AccountDetails, NodeRpcClientError> {
+        debug_assert!(account_id.is_on_chain());
 
         let account_id = account_id.into();
         let request = GetAccountDetailsRequest {
@@ -154,17 +150,10 @@ impl NodeRpcClient for TonicRpcClient {
                 err.to_string(),
             )
         })?;
-        let response = response.into_inner();
-        let account_info = response.account.ok_or(NodeRpcClientError::ExpectedFieldMissing(
-            "GetAccountDetails response should have an `account`".to_string(),
-        ))?;
-
-        let details_bytes =
-            account_info.details.ok_or(NodeRpcClientError::ExpectedFieldMissing(
-                "GetAccountDetails response's account should have `details`".to_string(),
-            ))?;
-
-        let details = Account::read_from_bytes(&details_bytes)?;
+        let response = dbg!(response.into_inner());
+        // TODO: remove unwrap and use proper handling
+        let account_info = response.account.unwrap();
+        let details = AccountDetails::read_from_bytes(&account_info.details.unwrap())?;
 
         Ok(details)
     }

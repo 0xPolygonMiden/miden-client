@@ -25,7 +25,7 @@ use miden_objects::{
         Note, NoteAssets, NoteInclusionProof, NoteInputs, NoteMetadata, NoteRecipient, NoteScript,
         NoteType,
     },
-    transaction::{InputNote, ProvenTransaction},
+    transaction::{AccountDetails, InputNote, ProvenTransaction},
     BlockHeader, Felt, Word, NOTE_TREE_DEPTH,
 };
 use rand::Rng;
@@ -135,10 +135,10 @@ impl NodeRpcClient for MockRpcApi {
         Ok(())
     }
 
-    async fn get_account_update(
+    async fn get_account_details(
         &mut self,
         _account_id: AccountId,
-    ) -> Result<Account, NodeRpcClientError> {
+    ) -> Result<AccountDetails, NodeRpcClientError> {
         panic!("shouldn't be used for now")
     }
 }
