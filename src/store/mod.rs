@@ -219,6 +219,12 @@ pub trait Store {
         auth_info: &AuthInfo,
     ) -> Result<(), StoreError>;
 
+    /// Updates an existing account corresponding to the provided [Account]
+    fn update_account(
+        &mut self,
+        account: &Account,
+    ) -> Result<(), StoreError>;
+
     // SYNC
     // --------------------------------------------------------------------------------------------
 

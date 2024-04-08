@@ -230,6 +230,13 @@ impl Store for SqliteStore {
         self.insert_account(account, account_seed, auth_info)
     }
 
+    fn update_account(
+        &mut self,
+        account: &Account,
+    ) -> Result<(), StoreError> {
+        self.update_account(account)
+    }
+
     fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {
         self.get_account_ids()
     }
