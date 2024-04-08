@@ -132,6 +132,7 @@ impl Store for SqliteStore {
         committed_transactions: &[TransactionId],
         new_mmr_peaks: MmrPeaks,
         new_authentication_nodes: &[(InOrderIndex, Digest)],
+        updated_onchain_accounts: &[Account],
     ) -> Result<(), StoreError> {
         self.apply_state_sync(
             block_header,
@@ -140,6 +141,7 @@ impl Store for SqliteStore {
             committed_transactions,
             new_mmr_peaks,
             new_authentication_nodes,
+            updated_onchain_accounts,
         )
     }
 
@@ -226,6 +228,13 @@ impl Store for SqliteStore {
         auth_info: &AuthInfo,
     ) -> Result<(), StoreError> {
         self.insert_account(account, account_seed, auth_info)
+    }
+
+    fn update_account(
+        &mut self,
+        account: &Account,
+    ) -> Result<(), StoreError> {
+        self.update_account(account)
     }
 
     fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {

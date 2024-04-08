@@ -219,6 +219,12 @@ pub trait Store {
         auth_info: &AuthInfo,
     ) -> Result<(), StoreError>;
 
+    /// Updates an existing account corresponding to the provided [Account]
+    fn update_account(
+        &mut self,
+        account: &Account,
+    ) -> Result<(), StoreError>;
+
     // SYNC
     // --------------------------------------------------------------------------------------------
 
@@ -250,6 +256,7 @@ pub trait Store {
         committed_transactions: &[TransactionId],
         new_mmr_peaks: MmrPeaks,
         new_authentication_nodes: &[(InOrderIndex, Digest)],
+        updated_onchain_accounts: &[Account],
     ) -> Result<(), StoreError>;
 }
 
