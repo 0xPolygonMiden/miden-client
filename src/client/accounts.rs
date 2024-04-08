@@ -181,6 +181,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
                 .expect("u64 can be safely converted to a field element"),
             account_storage_mode.into(),
             auth_scheme,
+            account_storage_mode.into(),
         )?;
 
         self.insert_account(&account, Some(seed), &AuthInfo::RpoFalcon512(key_pair))?;
