@@ -35,6 +35,15 @@ pub enum AccountStorageMode {
     OnChain,
 }
 
+impl From<AccountStorageMode> for AccountStorageType {
+    fn from(mode: AccountStorageMode) -> Self {
+        match mode {
+            AccountStorageMode::Local => AccountStorageType::OffChain,
+            AccountStorageMode::OnChain => AccountStorageType::OnChain,
+        }
+    }
+}
+
 impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
@@ -108,20 +117,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     }
 
     /// Creates a new regular account and saves it in the store along with its seed and auth data
-    ///
-    /// # Panics
-    ///
-    /// If the passed [AccountStorageMode] is [AccountStorageMode::OnChain], this function panics
-    /// since this feature is not currently supported on Miden
     fn new_basic_wallet(
         &mut self,
         mutable_code: bool,
         account_storage_mode: AccountStorageMode,
     ) -> Result<(Account, Word), ClientError> {
-        if let AccountStorageMode::OnChain = account_storage_mode {
-            todo!("Recording the account on chain is not supported yet");
-        }
-
         // TODO: This should be initialized with_rng
         let key_pair = SecretKey::new();
 
@@ -138,14 +138,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
                 init_seed,
                 auth_scheme,
                 AccountType::RegularAccountImmutableCode,
-                AccountStorageType::OffChain,
+                account_storage_mode.into(),
             )
         } else {
             miden_lib::accounts::wallets::create_basic_wallet(
                 init_seed,
                 auth_scheme,
                 AccountType::RegularAccountUpdatableCode,
-                AccountStorageType::OffChain,
+                account_storage_mode.into(),
             )
         }?;
 
@@ -160,10 +160,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         max_supply: u64,
         account_storage_mode: AccountStorageMode,
     ) -> Result<(Account, Word), ClientError> {
-        if let AccountStorageMode::OnChain = account_storage_mode {
-            todo!("On-chain accounts are not supported yet");
-        }
-
         // TODO: This should be initialized with_rng
         let key_pair = SecretKey::new();
 
@@ -183,6 +179,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
                 .expect("u64 can be safely converted to a field element"),
             AccountStorageType::OffChain,
             auth_scheme,
+            account_storage_mode.into(),
         )?;
 
         self.insert_account(&account, Some(seed), &AuthInfo::RpoFalcon512(key_pair))?;

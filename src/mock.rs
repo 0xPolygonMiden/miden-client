@@ -469,6 +469,7 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
         Felt::try_from(max_supply.as_slice()).unwrap(),
         AccountStorageType::OffChain,
         auth_scheme,
+        AccountStorageType::OffChain,
     )
     .unwrap();
 
@@ -511,6 +512,7 @@ pub fn mock_fungible_faucet_account(
             .expect("u64 can be safely converted to a field element"),
         AccountStorageType::OffChain,
         auth_scheme,
+        AccountStorageType::OffChain,
     )
     .unwrap();
 
