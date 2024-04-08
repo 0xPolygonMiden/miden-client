@@ -3,7 +3,8 @@ use miden_node_proto::{
     errors::ConversionError,
     generated::{
         requests::{
-            GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest, SyncStateRequest,
+            GetAccountDetailsRequest, GetBlockHeaderByNumberRequest,
+            SubmitProvenTransactionRequest, SyncStateRequest,
         },
         responses::SyncStateResponse,
         rpc::api_client::ApiClient,
@@ -12,7 +13,8 @@ use miden_node_proto::{
 use miden_objects::{
     accounts::AccountId,
     notes::{NoteId, NoteMetadata, NoteType},
-    transaction::ProvenTransaction,
+    transaction::{AccountDetails, ProvenTransaction},
+    utils::Deserializable,
     BlockHeader, Digest,
 };
 use miden_tx::utils::Serializable;
@@ -126,6 +128,34 @@ impl NodeRpcClient for TonicRpcClient {
             )
         })?;
         response.into_inner().try_into()
+    }
+
+    /// TODO: fill description
+    async fn get_account_details(
+        &mut self,
+        account_id: AccountId,
+    ) -> Result<AccountDetails, NodeRpcClientError> {
+        debug_assert!(account_id.is_on_chain());
+
+        let account_id = account_id.into();
+        let request = GetAccountDetailsRequest {
+            account_id: Some(account_id),
+        };
+
+        let rpc_api = self.rpc_api().await?;
+
+        let response = rpc_api.get_account_details(request).await.map_err(|err| {
+            NodeRpcClientError::RequestError(
+                NodeRpcClientEndpoint::GetAccountDetails.to_string(),
+                err.to_string(),
+            )
+        })?;
+        let response = dbg!(response.into_inner());
+        // TODO: remove unwrap and use proper handling
+        let account_info = response.account.unwrap();
+        let details = AccountDetails::read_from_bytes(&account_info.details.unwrap())?;
+
+        Ok(details)
     }
 }
 

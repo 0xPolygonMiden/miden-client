@@ -5,7 +5,7 @@ use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{MerklePath, MmrDelta},
     notes::{NoteId, NoteMetadata},
-    transaction::ProvenTransaction,
+    transaction::{AccountDetails, ProvenTransaction},
     BlockHeader, Digest,
 };
 
@@ -56,6 +56,11 @@ pub trait NodeRpcClient {
         note_tags: &[u16],
         nullifiers_tags: &[u16],
     ) -> Result<StateSyncInfo, NodeRpcClientError>;
+
+    async fn get_account_details(
+        &mut self,
+        account_id: AccountId,
+    ) -> Result<AccountDetails, NodeRpcClientError>;
 }
 
 // STATE SYNC INFO
@@ -130,6 +135,7 @@ impl CommittedNote {
 //
 #[derive(Debug)]
 pub enum NodeRpcClientEndpoint {
+    GetAccountDetails,
     GetBlockHeaderByNumber,
     SyncState,
     SubmitProvenTx,
@@ -141,6 +147,7 @@ impl fmt::Display for NodeRpcClientEndpoint {
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
         match self {
+            NodeRpcClientEndpoint::GetAccountDetails => write!(f, "get_account_details"),
             NodeRpcClientEndpoint::GetBlockHeaderByNumber => {
                 write!(f, "get_block_header_by_number")
             },
