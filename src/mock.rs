@@ -1,7 +1,10 @@
 use alloc::collections::BTreeMap;
 
 use async_trait::async_trait;
-use miden_lib::{transaction::TransactionKernel, AuthScheme};
+use miden_lib::{
+    transaction::{memory::CREATED_NOTE_RECIPIENT_OFFSET, TransactionKernel},
+    AuthScheme,
+};
 use miden_node_proto::generated::{
     account::AccountId as ProtoAccountId,
     block_header::BlockHeader as NodeBlockHeader,
@@ -21,7 +24,10 @@ use miden_objects::{
         merkle::{Mmr, MmrDelta, NodeIndex, SimpleSmt},
         rand::RpoRandomCoin,
     },
-    notes::{Note, NoteAssets, NoteInclusionProof, NoteMetadata, NoteScript, NoteType},
+    notes::{
+        Note, NoteAssets, NoteInclusionProof, NoteInputs, NoteMetadata, NoteRecipient, NoteScript,
+        NoteType,
+    },
     transaction::{InputNote, ProvenTransaction},
     BlockHeader, Felt, Word, NOTE_TREE_DEPTH,
 };
@@ -551,34 +557,27 @@ pub fn mock_notes(assembler: &Assembler) -> (Vec<Note>, Vec<Note>) {
     const SERIAL_NUM_4: Word = [Felt::new(13), Felt::new(14), Felt::new(15), Felt::new(16)];
     let note_metadata =
         NoteMetadata::new(sender, NoteType::OffChain, 1u32.into(), Default::default()).unwrap();
-    let created_note_1 = Note::new(
-        note_script.clone(),
-        &[Felt::new(1)],
-        &[fungible_asset_1],
-        SERIAL_NUM_4,
-        note_metadata,
-    )
-    .unwrap();
+    let note_assets = NoteAssets::new(vec![fungible_asset_1]).unwrap();
+    let note_recipient =
+        NoteRecipient::new(SERIAL_NUM_1, note_script.clone(), NoteInputs::new(vec![]).unwrap());
+
+    let created_note_1 = Note::new(note_assets, note_metadata, note_recipient);
 
     const SERIAL_NUM_5: Word = [Felt::new(17), Felt::new(18), Felt::new(19), Felt::new(20)];
     let note_metadata =
         NoteMetadata::new(sender, NoteType::OffChain, 2u32.into(), Default::default()).unwrap();
-
-    let created_note_2 = Note::new(
-        note_script.clone(),
-        &[Felt::new(2)],
-        &[fungible_asset_2],
-        SERIAL_NUM_5,
-        note_metadata,
-    )
-    .unwrap();
+    let note_recipient =
+        NoteRecipient::new(SERIAL_NUM_5, note_script.clone(), NoteInputs::new(vec![]).unwrap());
+    let note_assets = NoteAssets::new(vec![fungible_asset_2]).unwrap();
+    let created_note_2 = Note::new(note_assets, note_metadata, note_recipient);
 
     const SERIAL_NUM_6: Word = [Felt::new(21), Felt::new(22), Felt::new(23), Felt::new(24)];
     let note_metadata =
         NoteMetadata::new(sender, NoteType::OffChain, 2u32.into(), Default::default()).unwrap();
-    let created_note_3 =
-        Note::new(note_script, &[Felt::new(2)], &[fungible_asset_3], SERIAL_NUM_6, note_metadata)
-            .unwrap();
+    let note_assets = NoteAssets::new(vec![fungible_asset_3]).unwrap();
+    let note_recipient =
+        NoteRecipient::new(SERIAL_NUM_6, note_script, NoteInputs::new(vec![Felt::new(2)]).unwrap());
+    let created_note_3 = Note::new(note_assets, note_metadata, note_recipient);
 
     let created_notes = vec![created_note_1, created_note_2, created_note_3];
 
@@ -606,10 +605,10 @@ pub fn mock_notes(assembler: &Assembler) -> (Vec<Note>, Vec<Note>) {
             drop dropw dropw
         end
     ",
-        created_note_0_recipient = prepare_word(&created_notes[0].recipient()),
+        created_note_0_recipient = prepare_word(&created_notes[0].recipient_digest()),
         created_note_0_tag = created_notes[0].metadata().tag(),
         created_note_0_asset = prepare_assets(created_notes[0].assets())[0],
-        created_note_1_recipient = prepare_word(&created_notes[1].recipient()),
+        created_note_1_recipient = prepare_word(&created_notes[1].recipient_digest()),
         created_note_1_tag = created_notes[1].metadata().tag(),
         created_note_1_asset = prepare_assets(created_notes[1].assets())[0],
     );
@@ -629,7 +628,7 @@ pub fn mock_notes(assembler: &Assembler) -> (Vec<Note>, Vec<Note>) {
             drop dropw dropw
         end
         ",
-        created_note_2_recipient = prepare_word(&created_notes[2].recipient()),
+        created_note_2_recipient = prepare_word(&created_notes[2].recipient_digest()),
         created_note_2_tag = created_notes[2].metadata().tag(),
         created_note_2_asset = prepare_assets(created_notes[2].assets())[0],
     );
@@ -640,21 +639,25 @@ pub fn mock_notes(assembler: &Assembler) -> (Vec<Note>, Vec<Note>) {
     const SERIAL_NUM_1: Word = [Felt::new(1), Felt::new(2), Felt::new(3), Felt::new(4)];
     let note_metadata =
         NoteMetadata::new(sender, NoteType::OffChain, 1u32.into(), Default::default()).unwrap();
-    let consumed_note_1 =
-        Note::new(note_1_script, &[Felt::new(1)], &[fungible_asset_1], SERIAL_NUM_1, note_metadata)
-            .unwrap();
+    let note_recipient = NoteRecipient::new(
+        SERIAL_NUM_1,
+        note_2_script.clone(),
+        NoteInputs::new(vec![Felt::new(1)]).unwrap(),
+    );
+    let note_assets = NoteAssets::new(vec![fungible_asset_1]).unwrap();
+    let consumed_note_1 = Note::new(note_assets, note_metadata, note_recipient);
 
     const SERIAL_NUM_2: Word = [Felt::new(5), Felt::new(6), Felt::new(7), Felt::new(8)];
     let note_metadata =
         NoteMetadata::new(sender, NoteType::OffChain, 2u32.into(), Default::default()).unwrap();
-    let consumed_note_2 = Note::new(
-        note_2_script,
-        &[Felt::new(2)],
-        &[fungible_asset_2, fungible_asset_3],
+    let note_assets = NoteAssets::new(vec![fungible_asset_2, fungible_asset_3]).unwrap();
+    let note_recipient = NoteRecipient::new(
         SERIAL_NUM_2,
-        note_metadata,
-    )
-    .unwrap();
+        note_2_script,
+        NoteInputs::new(vec![Felt::new(2)]).unwrap(),
+    );
+
+    let consumed_note_2 = Note::new(note_assets, note_metadata, note_recipient);
 
     let consumed_notes = vec![consumed_note_1, consumed_note_2];
 

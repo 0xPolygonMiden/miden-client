@@ -83,7 +83,7 @@ impl From<Note> for OutputNoteRecord {
     fn from(note: Note) -> Self {
         OutputNoteRecord {
             id: note.id(),
-            recipient: note.recipient(),
+            recipient: note.recipient_digest(),
             assets: note.assets().clone(),
             status: NoteStatus::Pending,
             metadata: *note.metadata(),
@@ -91,7 +91,7 @@ impl From<Note> for OutputNoteRecord {
             details: Some(NoteRecordDetails::new(
                 note.nullifier().to_string(),
                 note.script().clone(),
-                note.inputs().to_bytes(),
+                note.inputs().to_vec(),
                 note.serial_num(),
             )),
         }

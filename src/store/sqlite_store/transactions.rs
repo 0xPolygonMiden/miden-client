@@ -4,7 +4,7 @@ use miden_objects::{
     accounts::{Account, AccountId},
     assembly::{AstSerdeOptions, ProgramAst},
     crypto::utils::{Deserializable, Serializable},
-    transaction::{OutputNote, OutputNotes, ToNullifier, TransactionId, TransactionScript},
+    transaction::{OutputNotes, ToNullifier, TransactionId, TransactionScript},
     Digest, Felt,
 };
 use rusqlite::{params, Transaction};
@@ -315,7 +315,7 @@ fn parse_transaction(
     let input_note_nullifiers: Vec<Digest> =
         serde_json::from_str(&input_notes).map_err(StoreError::JsonDataDeserializationError)?;
 
-    let output_notes: OutputNotes<OutputNote> = OutputNotes::read_from_bytes(&output_notes)?;
+    let output_notes = OutputNotes::read_from_bytes(&output_notes)?;
 
     let transaction_script: Option<TransactionScript> = if script_hash.is_some() {
         let script_hash = script_hash

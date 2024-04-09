@@ -612,10 +612,8 @@ fn create_custom_note(
     .unwrap();
     Note::new(
         note_script,
-        &inputs,
+        note_metadata & inputs,
         &vec![FungibleAsset::new(faucet_account_id, 10).unwrap().into()],
-        serial_num,
-        note_metadata,
     )
     .unwrap()
 }

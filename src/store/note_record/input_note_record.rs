@@ -1,5 +1,7 @@
 use miden_objects::{
-    notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata},
+    notes::{
+        Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata, NoteRecipient,
+    },
     transaction::InputNote,
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
     Digest, NoteError,
@@ -127,7 +129,7 @@ impl From<Note> for InputNoteRecord {
     fn from(note: Note) -> Self {
         InputNoteRecord {
             id: note.id(),
-            recipient: note.recipient(),
+            recipient: note.recipient_digest(),
             assets: note.assets().clone(),
             status: NoteStatus::Pending,
             metadata: Some(*note.metadata()),
@@ -135,7 +137,7 @@ impl From<Note> for InputNoteRecord {
             details: NoteRecordDetails::new(
                 note.nullifier().to_string(),
                 note.script().clone(),
-                note.inputs().to_bytes(),
+                note.inputs().to_vec(),
                 note.serial_num(),
             ),
         }
@@ -146,14 +148,14 @@ impl From<InputNote> for InputNoteRecord {
     fn from(recorded_note: InputNote) -> Self {
         InputNoteRecord {
             id: recorded_note.note().id(),
-            recipient: recorded_note.note().recipient(),
+            recipient: recorded_note.note().recipient_digest(),
             assets: recorded_note.note().assets().clone(),
             status: NoteStatus::Pending,
             metadata: Some(*recorded_note.note().metadata()),
             details: NoteRecordDetails::new(
                 recorded_note.note().nullifier().to_string(),
                 recorded_note.note().script().clone(),
-                recorded_note.note().inputs().to_bytes(),
+                recorded_note.note().inputs().values().to_vec(),
                 recorded_note.note().serial_num(),
             ),
             inclusion_proof: Some(recorded_note.proof().clone()),
@@ -167,16 +169,11 @@ impl TryInto<InputNote> for InputNoteRecord {
     fn try_into(self) -> Result<InputNote, Self::Error> {
         match (self.inclusion_proof, self.metadata) {
             (Some(proof), Some(metadata)) => {
-                let inputs = NoteInputs::read_from_bytes(&self.details.inputs).map_err(|err| {
-                    ClientError::NoteError(NoteError::NoteDeserializationError(err))
-                })?;
-                let note = Note::from_parts(
-                    self.details.script.clone(),
-                    inputs,
-                    self.assets,
-                    self.details.serial_num,
-                    metadata,
-                );
+                // TODO: Write functions to get these fields more easily
+                let note_inputs = NoteInputs::new(self.details.inputs)?;
+                let note_recipient =
+                    NoteRecipient::new(self.details.serial_num, self.details.script, note_inputs);
+                let note = Note::new(self.assets, metadata, note_recipient);
                 Ok(InputNote::new(note, proof.clone()))
             },
 

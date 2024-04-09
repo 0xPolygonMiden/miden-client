@@ -105,7 +105,7 @@ pub struct TransactionRecord {
     pub init_account_state: Digest,
     pub final_account_state: Digest,
     pub input_note_nullifiers: Vec<Digest>,
-    pub output_notes: OutputNotes<OutputNote>,
+    pub output_notes: OutputNotes,
     pub transaction_script: Option<TransactionScript>,
     pub block_num: u32,
     pub transaction_status: TransactionStatus,
@@ -119,7 +119,7 @@ impl TransactionRecord {
         init_account_state: Digest,
         final_account_state: Digest,
         input_note_nullifiers: Vec<Digest>,
-        output_notes: OutputNotes<OutputNote>,
+        output_notes: OutputNotes,
         transaction_script: Option<TransactionScript>,
         block_num: u32,
         transaction_status: TransactionStatus,
@@ -356,7 +356,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         };
 
         let recipient = created_note
-            .recipient()
+            .recipient_digest()
             .iter()
             .map(|x| x.as_int().to_string())
             .collect::<Vec<_>>()
@@ -405,7 +405,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         )?;
 
         let recipient = created_note
-            .recipient()
+            .recipient_digest()
             .iter()
             .map(|x| x.as_int().to_string())
             .collect::<Vec<_>>()
