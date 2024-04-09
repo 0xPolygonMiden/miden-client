@@ -20,7 +20,10 @@ use miden_objects::{
     assembly::ProgramAst,
     assets::{Asset, FungibleAsset, TokenSymbol},
     crypto::rand::{FeltRng, RpoRandomCoin},
-    notes::{Note, NoteExecutionMode, NoteId, NoteMetadata, NoteScript, NoteTag, NoteType},
+    notes::{
+        Note, NoteAssets, NoteExecutionMode, NoteId, NoteInputs, NoteMetadata, NoteRecipient,
+        NoteScript, NoteTag, NoteType,
+    },
     transaction::InputNote,
     Felt, Word,
 };
@@ -599,7 +602,7 @@ fn create_custom_note(
     let note_script = ProgramAst::parse(&note_script).unwrap();
     let (note_script, _) = NoteScript::new(note_script, &assembler).unwrap();
 
-    let inputs = [target_account_id.into()];
+    let inputs = NoteInputs::new([target_account_id.into()]).unwrap();
     let serial_num = rng.draw_word();
     let note_metadata = NoteMetadata::new(
         faucet_account_id,
@@ -610,10 +613,8 @@ fn create_custom_note(
         Default::default(),
     )
     .unwrap();
-    Note::new(
-        note_script,
-        note_metadata & inputs,
-        &vec![FungibleAsset::new(faucet_account_id, 10).unwrap().into()],
-    )
-    .unwrap()
+    let note_assets =
+        NoteAssets::new(vec![FungibleAsset::new(faucet_account_id, 10).unwrap().into()]).unwrap();
+    let note_recipient = NoteRecipient::new(serial_num, note_script, inputs);
+    Note::new(note_script, note_metadata & inputs, note_recipient).unwrap()
 }
