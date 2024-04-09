@@ -8,8 +8,8 @@ use miden_objects::{
     crypto::rand::RpoRandomCoin,
     notes::{Note, NoteId, NoteType},
     transaction::{
-        ExecutedTransaction, OutputNote, OutputNotes, ProvenTransaction, TransactionArgs,
-        TransactionId, TransactionScript,
+        ExecutedTransaction, OutputNotes, ProvenTransaction, TransactionArgs, TransactionId,
+        TransactionScript,
     },
     Digest, Felt, Word,
 };

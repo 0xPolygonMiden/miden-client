@@ -1,6 +1,5 @@
 use miden_objects::{
     notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteMetadata},
-    utils::Serializable,
     Digest,
 };
 

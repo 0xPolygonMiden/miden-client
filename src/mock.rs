@@ -1,10 +1,7 @@
 use alloc::collections::BTreeMap;
 
 use async_trait::async_trait;
-use miden_lib::{
-    transaction::{memory::CREATED_NOTE_RECIPIENT_OFFSET, TransactionKernel},
-    AuthScheme,
-};
+use miden_lib::{transaction::TransactionKernel, AuthScheme};
 use miden_node_proto::generated::{
     account::AccountId as ProtoAccountId,
     block_header::BlockHeader as NodeBlockHeader,
@@ -559,7 +556,7 @@ pub fn mock_notes(assembler: &Assembler) -> (Vec<Note>, Vec<Note>) {
         NoteMetadata::new(sender, NoteType::OffChain, 1u32.into(), Default::default()).unwrap();
     let note_assets = NoteAssets::new(vec![fungible_asset_1]).unwrap();
     let note_recipient =
-        NoteRecipient::new(SERIAL_NUM_1, note_script.clone(), NoteInputs::new(vec![]).unwrap());
+        NoteRecipient::new(SERIAL_NUM_4, note_script.clone(), NoteInputs::new(vec![]).unwrap());
 
     let created_note_1 = Note::new(note_assets, note_metadata, note_recipient);
 
@@ -613,7 +610,7 @@ pub fn mock_notes(assembler: &Assembler) -> (Vec<Note>, Vec<Note>) {
         created_note_1_asset = prepare_assets(created_notes[1].assets())[0],
     );
     let note_1_script_ast = ProgramAst::parse(&note_1_script_src).unwrap();
-    let (note_1_script, _) = NoteScript::new(note_1_script_ast, assembler).unwrap();
+    let (_note_1_script, _) = NoteScript::new(note_1_script_ast, assembler).unwrap();
 
     // create note 2 script
     let note_2_script_src = format!(

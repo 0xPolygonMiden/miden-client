@@ -4,7 +4,7 @@ use miden_objects::{
     },
     transaction::InputNote,
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
-    Digest, NoteError,
+    Digest,
 };
 
 use super::{NoteRecordDetails, NoteStatus};
