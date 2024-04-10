@@ -11,8 +11,8 @@ use miden_node_proto::generated::{
 };
 use miden_objects::{
     accounts::{
-        get_account_seed_single, Account, AccountCode, AccountId, AccountStorage, AccountType,
-        SlotItem, StorageSlot, ACCOUNT_ID_OFF_CHAIN_SENDER,
+        get_account_seed_single, Account, AccountCode, AccountId, AccountStorage,
+        AccountStorageType, AccountType, SlotItem, StorageSlot, ACCOUNT_ID_OFF_CHAIN_SENDER,
     },
     assembly::{Assembler, ModuleAst, ProgramAst},
     assets::{Asset, AssetVault, FungibleAsset, TokenSymbol},
@@ -415,6 +415,7 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
         init_seed,
         auth_scheme,
         AccountType::RegularAccountImmutableCode,
+        AccountStorageType::OffChain,
     )
     .unwrap();
 
@@ -435,6 +436,7 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
         init_seed,
         auth_scheme,
         AccountType::RegularAccountImmutableCode,
+        AccountStorageType::OffChain,
     )
     .unwrap();
 
@@ -458,6 +460,7 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
         miden_objects::assets::TokenSymbol::new("MOCK").unwrap(),
         4u8,
         Felt::try_from(max_supply.as_slice()).unwrap(),
+        AccountStorageType::OffChain,
         auth_scheme,
     )
     .unwrap();
@@ -499,6 +502,7 @@ pub fn mock_fungible_faucet_account(
         10u8,
         Felt::try_from(initial_balance.to_le_bytes().as_slice())
             .expect("u64 can be safely converted to a field element"),
+        AccountStorageType::OffChain,
         auth_scheme,
     )
     .unwrap();

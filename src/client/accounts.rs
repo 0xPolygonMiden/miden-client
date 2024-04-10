@@ -1,6 +1,8 @@
 use miden_lib::AuthScheme;
 use miden_objects::{
-    accounts::{Account, AccountData, AccountId, AccountStub, AccountType, AuthData},
+    accounts::{
+        Account, AccountData, AccountId, AccountStorageType, AccountStub, AccountType, AuthData,
+    },
     assets::TokenSymbol,
     crypto::{
         dsa::rpo_falcon512::SecretKey,
@@ -136,12 +138,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
                 init_seed,
                 auth_scheme,
                 AccountType::RegularAccountImmutableCode,
+                AccountStorageType::OffChain,
             )
         } else {
             miden_lib::accounts::wallets::create_basic_wallet(
                 init_seed,
                 auth_scheme,
                 AccountType::RegularAccountUpdatableCode,
+                AccountStorageType::OffChain,
             )
         }?;
 
@@ -177,6 +181,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             decimals,
             Felt::try_from(max_supply.to_le_bytes().as_slice())
                 .expect("u64 can be safely converted to a field element"),
+            AccountStorageType::OffChain,
             auth_scheme,
         )?;
 
