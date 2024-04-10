@@ -632,7 +632,7 @@ async fn test_onchain_mint() {
     let mut client_1 = create_test_client();
     let mut client_2 = create_test_client();
 
-    let (first_regular_account, second_regular_account, faucet_account_stub) =
+    let (first_regular_account, _second_regular_account, faucet_account_stub) =
         setup(&mut client_1, AccountStorageMode::OnChain).await;
 
     let target_account_id = first_regular_account.id();

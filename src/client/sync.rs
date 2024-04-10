@@ -3,7 +3,7 @@ use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
     crypto::{self, rand::FeltRng},
     notes::{NoteId, NoteInclusionProof},
-    transaction::{AccountDetails, TransactionId},
+    transaction::TransactionId,
     BlockHeader, Digest,
 };
 use tracing::{info, warn};
@@ -308,14 +308,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
             if let Some(tracked_account) = current_account {
                 info!("On-chain account hash difference detected for account with ID: {}. Fetching node for updates...", tracked_account.id());
-                match dbg!(self.rpc_api.get_account_details(tracked_account.id()).await)? {
-                    AccountDetails::Full(account) => {
-                        accounts_to_update.push(account);
-                    },
-                    _ => {
-                        // TODO: Handle this
-                        panic!("unexpected account")
-                    },
+                if let Some(account) = self.rpc_api.get_account_update(tracked_account.id()).await?
+                {
+                    accounts_to_update.push(account);
                 }
             }
         }

@@ -5,7 +5,7 @@ use miden_objects::{
     accounts::{Account, AccountId},
     crypto::merkle::{MerklePath, MmrDelta},
     notes::{NoteId, NoteMetadata},
-    transaction::{AccountDetails, ProvenTransaction},
+    transaction::ProvenTransaction,
     BlockHeader, Digest,
 };
 
@@ -57,10 +57,10 @@ pub trait NodeRpcClient {
         nullifiers_tags: &[u16],
     ) -> Result<StateSyncInfo, NodeRpcClientError>;
 
-    async fn get_account_details(
+    async fn get_account_update(
         &mut self,
         account_id: AccountId,
-    ) -> Result<AccountDetails, NodeRpcClientError>;
+    ) -> Result<Option<Account>, NodeRpcClientError>;
 }
 
 // STATE SYNC INFO
