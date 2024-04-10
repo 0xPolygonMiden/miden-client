@@ -11,9 +11,9 @@ use miden_node_proto::{
     },
 };
 use miden_objects::{
-    accounts::AccountId,
+    accounts::{Account, AccountId},
     notes::{NoteId, NoteMetadata, NoteType},
-    transaction::{AccountDetails, ProvenTransaction},
+    transaction::ProvenTransaction,
     utils::Deserializable,
     BlockHeader, Digest,
 };
@@ -131,10 +131,10 @@ impl NodeRpcClient for TonicRpcClient {
     }
 
     /// TODO: fill description
-    async fn get_account_details(
+    async fn get_account_update(
         &mut self,
         account_id: AccountId,
-    ) -> Result<AccountDetails, NodeRpcClientError> {
+    ) -> Result<Option<Account>, NodeRpcClientError> {
         debug_assert!(account_id.is_on_chain());
 
         let account_id = account_id.into();
@@ -153,7 +153,10 @@ impl NodeRpcClient for TonicRpcClient {
         let response = dbg!(response.into_inner());
         // TODO: remove unwrap and use proper handling
         let account_info = response.account.unwrap();
-        let details = AccountDetails::read_from_bytes(&account_info.details.unwrap())?;
+        let details = account_info
+            .details
+            .map(|details| Account::read_from_bytes(&details))
+            .transpose()?;
 
         Ok(details)
     }
