@@ -6,7 +6,7 @@ use miden_objects::{
     transaction::{AccountDetails, TransactionId},
     BlockHeader, Digest,
 };
-use tracing::warn;
+use tracing::{info, warn};
 
 use super::{
     rpc::{CommittedNote, NodeRpcClient},
@@ -143,8 +143,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         let updated_onchain_accounts = self
             .get_updated_onchain_accounts(&response.account_hash_updates, &onchain_accounts)
             .await?;
-        self.check_local_account_hashes(&response.account_hash_updates, &offchain_accounts)
-            .await?;
+        self.validate_local_account_hashes(&response.account_hash_updates, &offchain_accounts)?;
 
         // Derive new nullifiers data
         let new_nullifiers = self.get_new_nullifiers(response.nullifiers)?;
@@ -302,13 +301,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     ) -> Result<Vec<Account>, ClientError> {
         let mut accounts_to_update: Vec<Account> = Vec::new();
         for (remote_account_id, remote_account_hash) in account_updates {
-            // ensure that if we track that account, it has the same hash
+            // check if this updated account is tracked by the client
             let current_account = current_onchain_accounts
                 .iter()
                 .find(|acc| *remote_account_id == acc.id() && *remote_account_hash != acc.hash());
 
             if let Some(tracked_account) = current_account {
-                match self.rpc_api.get_account_details(tracked_account.id()).await? {
+                info!("On-chain account hash difference detected for account with ID: {}. Fetching node for updates...", tracked_account.id());
+                match dbg!(self.rpc_api.get_account_details(tracked_account.id()).await)? {
                     AccountDetails::Full(account) => {
                         accounts_to_update.push(account);
                     },
@@ -323,19 +323,19 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     }
 
     /// Validates account hash updates and returns an error if there is a mismatch.
-    async fn check_local_account_hashes(
+    fn validate_local_account_hashes(
         &mut self,
         account_updates: &[(AccountId, Digest)],
         current_offchain_accounts: &[AccountStub],
     ) -> Result<(), ClientError> {
         for (remote_account_id, remote_account_hash) in account_updates {
             // ensure that if we track that account, it has the same hash
-            let current_account = current_offchain_accounts
+            let mismatched_accounts = current_offchain_accounts
                 .iter()
                 .find(|acc| *remote_account_id == acc.id() && *remote_account_hash != acc.hash());
 
-            if current_account.is_some() {
-                // OffChain accounts should always have the latest state known
+            // OffChain accounts should always have the latest known state
+            if mismatched_accounts.is_some() {
                 return Err(StoreError::AccountHashMismatch(*remote_account_id).into());
             }
         }
