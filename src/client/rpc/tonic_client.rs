@@ -150,7 +150,7 @@ impl NodeRpcClient for TonicRpcClient {
                 err.to_string(),
             )
         })?;
-        let response = dbg!(response.into_inner());
+        let response = response.into_inner();
         // TODO: remove unwrap and use proper handling
         let account_info = response.account.unwrap();
         let details = account_info
