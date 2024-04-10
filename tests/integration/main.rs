@@ -546,6 +546,7 @@ async fn mint_custom_note(
     
     begin
         push.{recipient}
+        push.{note_type}
         push.{tag}
         push.{amount}
         call.faucet::distribute
@@ -555,6 +556,7 @@ async fn mint_custom_note(
     end
     "
     .replace("{recipient}", &recipient)
+    .replace("{note_type}", &Felt::new(NoteType::OffChain as u64).to_string())
     .replace("{tag}", &Felt::new(note_tag.into()).to_string())
     .replace("{amount}", &Felt::new(10).to_string());
 
