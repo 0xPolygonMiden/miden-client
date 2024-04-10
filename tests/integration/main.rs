@@ -16,10 +16,7 @@ use miden_client::{
 };
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{
-        Account, AccountData, AccountId, AuthData,
-        ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
-    },
+    accounts::{Account, AccountId, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN},
     assembly::ProgramAst,
     assets::{Asset, FungibleAsset, TokenSymbol},
     crypto::rand::{FeltRng, RpoRandomCoin},
@@ -214,7 +211,7 @@ async fn consume_notes(
     }
 }
 
-// #[tokio::test]
+#[tokio::test]
 async fn test_added_notes() {
     let mut client = create_test_client();
 
@@ -635,20 +632,26 @@ async fn test_onchain_mint() {
     let (first_regular_account, _second_regular_account, faucet_account_stub) =
         setup(&mut client_1, AccountStorageMode::OnChain).await;
 
+    let (
+        second_client_first_regular_account,
+        _other_second_regular_account,
+        _other_faucet_account_stub,
+    ) = setup(&mut client_2, AccountStorageMode::Local).await;
+
     let target_account_id = first_regular_account.id();
+    let second_client_target_account_id = second_client_first_regular_account.id();
     let faucet_account_id = faucet_account_stub.id();
 
     let (_, faucet_seed) = client_1.get_account_stub_by_id(faucet_account_id).unwrap();
-    let account_data = AccountData::new(
-        faucet_account_stub.clone(),
-        faucet_seed,
-        AuthData::RpoFalcon512Seed([0; 32]),
-    );
-    client_2.import_account(account_data).unwrap();
+    let auth_info = client_1.get_account_auth(faucet_account_id).unwrap();
+    client_2.insert_account(&faucet_account_stub, faucet_seed, &auth_info).unwrap();
 
     // First Mint necesary token
+    println!("First client consuming note");
     let note = mint_note(&mut client_1, target_account_id, faucet_account_id).await;
 
+    // Update the state in the other client and ensure the onchain faucet hash is consistent
+    // between clients
     client_2.sync_state().await.unwrap();
 
     let (client_1_faucet, _) = client_1.get_account_stub_by_id(faucet_account_stub.id()).unwrap();
@@ -656,7 +659,21 @@ async fn test_onchain_mint() {
 
     assert_eq!(client_1_faucet.hash(), client_2_faucet.hash());
 
-    println!("about to consume");
+    // Now use the faucet in the second client to mint to its own account
+    println!("Second client consuming note");
+    let second_client_note =
+        mint_note(&mut client_2, second_client_target_account_id, faucet_account_id).await;
 
+    // Update the state in the other client and ensure the onchain faucet hash is consistent
+    // between clients
+    client_1.sync_state().await.unwrap();
+
+    println!("about to consume");
     consume_notes(&mut client_1, target_account_id, &[note]).await;
+    consume_notes(&mut client_2, second_client_target_account_id, &[second_client_note]).await;
+
+    let (client_1_faucet, _) = client_1.get_account_stub_by_id(faucet_account_stub.id()).unwrap();
+    let (client_2_faucet, _) = client_2.get_account_stub_by_id(faucet_account_stub.id()).unwrap();
+
+    assert_eq!(client_1_faucet.hash(), client_2_faucet.hash());
 }
