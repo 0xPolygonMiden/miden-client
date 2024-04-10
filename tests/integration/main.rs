@@ -649,6 +649,8 @@ async fn test_onchain_mint() {
     // First Mint necesary token
     let note = mint_note(&mut client_1, target_account_id, faucet_account_id).await;
 
+    client_2.sync_state().await.unwrap();
+
     let (client_1_faucet, _) = client_1.get_account_stub_by_id(faucet_account_stub.id()).unwrap();
     let (client_2_faucet, _) = client_2.get_account_stub_by_id(faucet_account_stub.id()).unwrap();
 
