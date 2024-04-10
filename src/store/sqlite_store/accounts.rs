@@ -184,17 +184,6 @@ impl SqliteStore {
 
         Ok(tx.commit()?)
     }
-
-    pub(crate) fn update_account(
-        &mut self,
-        account: &Account,
-    ) -> Result<(), StoreError> {
-        let tx = self.db.transaction()?;
-
-        update_account(&tx, account)?;
-
-        Ok(tx.commit()?)
-    }
 }
 
 // HELPERS
