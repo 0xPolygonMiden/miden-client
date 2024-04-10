@@ -30,7 +30,6 @@ pub enum AccountTemplate {
     },
 }
 
-// TODO: Review this enum and variant names to have a consistent naming across all crates
 #[derive(Debug, Clone, Copy)]
 pub enum AccountStorageMode {
     Local,
