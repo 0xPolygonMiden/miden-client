@@ -30,6 +30,7 @@ pub enum AccountTemplate {
     },
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum AccountStorageMode {
     Local,
     OnChain,
