@@ -236,7 +236,7 @@ async fn test_added_notes() {
     assert!(notes.is_empty())
 }
 
-// #[tokio::test]
+#[tokio::test]
 async fn test_p2id_transfer() {
     let mut client = create_test_client();
 
@@ -304,7 +304,7 @@ async fn test_p2id_transfer() {
     assert_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].id()).await;
 }
 
-// #[tokio::test]
+#[tokio::test]
 async fn test_p2idr_transfer() {
     let mut client = create_test_client();
 
@@ -425,7 +425,7 @@ async fn assert_note_cannot_be_consumed_twice(
 //
 // Because it's currently not possible to create/consume notes without assets, the P2ID code
 // is used as the base for the note code.
-// #[tokio::test]
+#[tokio::test]
 async fn test_transaction_request() {
     let mut client = create_test_client();
 
