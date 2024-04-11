@@ -63,7 +63,6 @@ async fn execute_tx_and_sync(
     tx_request: TransactionRequest,
 ) {
     println!("Executing transaction...");
-    //dbg!(&tx_request.expected_output_notes().get(0).unwrap());
     let transaction_execution_result = client.new_transaction(tx_request).unwrap();
     let transaction_id = transaction_execution_result.executed_transaction().id();
 
@@ -203,7 +202,6 @@ async fn consume_notes(
         TransactionTemplate::ConsumeNotes(account_id, input_notes.iter().map(|n| n.id()).collect());
     println!("Consuming Note...");
     let tx_request = client.build_transaction_request(tx_template).unwrap();
-    dbg!(&input_notes);
     execute_tx_and_sync(client, tx_request).await;
 
     let (regular_account, _seed) = client.get_account(account_id).unwrap();
