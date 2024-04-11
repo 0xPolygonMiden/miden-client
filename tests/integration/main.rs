@@ -245,13 +245,12 @@ async fn test_onchain_notes_flow() {
         .unwrap();
 
     // Create regular accounts
-    let (_basic_wallet_2, _) = client_3
+    let (basic_wallet_2, _) = client_3
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
             storage_mode: AccountStorageMode::Local,
         })
         .unwrap();
-
     client_1.sync_state().await.unwrap();
     client_2.sync_state().await.unwrap();
 
