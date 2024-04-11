@@ -13,7 +13,7 @@ use crate::errors::ClientError;
 // INPUT NOTE RECORD
 // ================================================================================================
 
-/// Represents a Note of which the [Store] can keep track and retrieve.
+/// Represents a Note of which the Store can keep track and retrieve.
 ///
 /// An [InputNoteRecord] contains all the information of a [Note], in addition of (optionally) the
 /// [NoteInclusionProof] that identifies when the note was included in the chain.

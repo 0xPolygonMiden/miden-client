@@ -196,15 +196,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
                 };
                 Ok(TransactionRequest::new(account_id, notes, vec![], Some(tx_script)))
             },
-            TransactionTemplate::MintFungibleAsset(asset, target_account_id) => {
-                self.build_mint_tx_request(asset, account_auth, target_account_id)
+            TransactionTemplate::MintFungibleAsset(asset, target_account_id, note_type) => {
+                self.build_mint_tx_request(asset, account_auth, target_account_id, note_type)
             },
-            TransactionTemplate::PayToId(payment_data) => {
-                self.build_p2id_tx_request(account_auth, payment_data, None)
+            TransactionTemplate::PayToId(payment_data, note_type) => {
+                self.build_p2id_tx_request(account_auth, payment_data, None, note_type)
             },
-            TransactionTemplate::PayToIdWithRecall(payment_data, recall_height) => {
-                self.build_p2id_tx_request(account_auth, payment_data, Some(recall_height))
-            },
+            TransactionTemplate::PayToIdWithRecall(payment_data, recall_height, note_type) => self
+                .build_p2id_tx_request(account_auth, payment_data, Some(recall_height), note_type),
         }
     }
 
@@ -213,8 +212,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     ///
     /// # Errors
     ///
-    /// - Returns [ClientError::OutputNotesDoNotMatch] if the [TransactionRequest] ouput notes do
-    /// not match the executor's output notes
+    /// - Returns [ClientError::MissingOutputNotes] if the [TransactionRequest] ouput notes are
+    ///   not a subset of executor's output notes
     /// - Returns a [ClientError::TransactionExecutionError]
     pub fn new_transaction(
         &mut self,
@@ -262,6 +261,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         tx_result: TransactionResult,
     ) -> Result<(), ClientError> {
         let transaction_prover = TransactionProver::new(ProvingOptions::default());
+
         let proven_transaction =
             transaction_prover.prove_transaction(tx_result.executed_transaction().clone())?;
 
@@ -333,6 +333,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         auth_info: AuthInfo,
         payment_data: PaymentTransactionData,
         recall_height: Option<u32>,
+        note_type: NoteType,
     ) -> Result<TransactionRequest, ClientError> {
         let random_coin = self.get_random_coin();
 
@@ -341,7 +342,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
                 payment_data.account_id(),
                 payment_data.target_account_id(),
                 vec![payment_data.asset()],
-                NoteType::OffChain, // TODO: Select correct note type
+                note_type,
                 recall_height,
                 random_coin,
             )?
@@ -350,7 +351,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
                 payment_data.account_id(),
                 payment_data.target_account_id(),
                 vec![payment_data.asset()],
-                NoteType::OffChain, // TODO: Select correct note type
+                note_type,
                 random_coin,
             )?
         };
@@ -367,7 +368,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         let tx_script = ProgramAst::parse(
             &transaction_request::AUTH_SEND_ASSET_SCRIPT
                 .replace("{recipient}", &recipient)
-                .replace("{note_type}", &Felt::new(NoteType::OffChain as u64).to_string())
+                .replace("{note_type}", &Felt::new(note_type as u64).to_string())
                 .replace("{tag}", &Felt::new(note_tag.into()).to_string())
                 .replace("{asset}", &prepare_word(&payment_data.asset().into()).to_string()),
         )
@@ -394,13 +395,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         asset: FungibleAsset,
         faucet_auth_info: AuthInfo,
         target_account_id: AccountId,
+        note_type: NoteType,
     ) -> Result<TransactionRequest, ClientError> {
         let random_coin = self.get_random_coin();
         let created_note = create_p2id_note(
             asset.faucet_id(),
             target_account_id,
             vec![asset.into()],
-            NoteType::OffChain, // TODO: Select correct note type
+            note_type,
             random_coin,
         )?;
 
@@ -416,7 +418,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         let tx_script = ProgramAst::parse(
             &transaction_request::DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT
                 .replace("{recipient}", &recipient)
-                .replace("{note_type}", &Felt::new(NoteType::OffChain as u64).to_string())
+                .replace("{note_type}", &Felt::new(note_type as u64).to_string())
                 .replace("{tag}", &Felt::new(note_tag.into()).to_string())
                 .replace("{amount}", &Felt::new(asset.amount()).to_string()),
         )

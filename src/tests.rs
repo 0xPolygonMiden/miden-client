@@ -362,6 +362,7 @@ async fn test_mint_transaction() {
     let transaction_template = TransactionTemplate::MintFungibleAsset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::from_hex("0x168187d729b31a84").unwrap(),
+        miden_objects::notes::NoteType::OffChain,
     );
 
     let transaction_request = client.build_transaction_request(transaction_template).unwrap();
