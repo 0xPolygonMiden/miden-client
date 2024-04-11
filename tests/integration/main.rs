@@ -82,7 +82,6 @@ async fn execute_tx_and_sync(
             .find(|uncommited_tx| uncommited_tx.id == transaction_id)
             .is_none();
         if is_tx_committed {
-            std::thread::sleep(std::time::Duration::new(3, 0));
             break;
         }
 
