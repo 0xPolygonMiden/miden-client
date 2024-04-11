@@ -625,7 +625,7 @@ fn create_custom_note(
 }
 
 #[tokio::test]
-async fn test_onchain_mint() {
+async fn test_onchain_mint_and_transfer() {
     let mut client_1 = create_test_client();
     let mut client_2 = create_test_client();
 
@@ -676,4 +676,67 @@ async fn test_onchain_mint() {
     let (client_2_faucet, _) = client_2.get_account_stub_by_id(faucet_account_stub.id()).unwrap();
 
     assert_eq!(client_1_faucet.hash(), client_2_faucet.hash());
+
+    // Now we'll try to do a p2id transfer from an account of one client to the other one
+    let from_account_id = target_account_id;
+    let to_account_id = second_client_target_account_id;
+
+    // get initial balances
+    let from_account_balance = client_1
+        .get_account(from_account_id)
+        .unwrap()
+        .0
+        .vault()
+        .get_balance(faucet_account_id)
+        .unwrap_or(0);
+    let to_account_balance = client_2
+        .get_account(to_account_id)
+        .unwrap()
+        .0
+        .vault()
+        .get_balance(faucet_account_id)
+        .unwrap_or(0);
+
+    let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
+    let tx_template = TransactionTemplate::PayToId(PaymentTransactionData::new(
+        Asset::Fungible(asset),
+        from_account_id,
+        to_account_id,
+    ));
+    println!("Running P2ID tx...");
+    let tx_request = client_1.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(&mut client, tx_request).await;
+
+    // sync on second client
+    println!("Syncing on second client...");
+    client_2.sync_state().await.unwrap();
+    let notes = client_2.get_input_notes(NoteFilter::Committed).unwrap();
+
+    // Consume the note
+    println!("Consuming note con second client...");
+    let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![notes[0].id()]);
+    let tx_request = client_2.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(&mut client_2, tx_request).await;
+
+    // sync on first client
+    println!("Syncing on first client...");
+    client_1.sync_state().await.unwrap();
+
+    let new_from_account_balance = client_1
+        .get_account(from_account_id)
+        .unwrap()
+        .0
+        .vault()
+        .get_balance(faucet_account_id)
+        .unwrap_or(0);
+    let new_to_account_balance = client_2
+        .get_account(to_account_id)
+        .unwrap()
+        .0
+        .vault()
+        .get_balance(faucet_account_id)
+        .unwrap_or(0);
+
+    assert_eq!(new_from_account_balance, from_account_balance - TRANSFER_AMOUNT);
+    assert_eq!(new_to_account_balance, to_account_balance + TRANSFER_AMOUNT);
 }
