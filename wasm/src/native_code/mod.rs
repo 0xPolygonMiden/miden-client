@@ -1,5 +1,7 @@
 pub mod accounts;
 pub mod notes;
+pub mod transactions;
+pub mod utils;
 
 pub mod store;
 use store::Store;
@@ -17,11 +19,20 @@ use rpc::NodeRpcClient;
 // TODO: Add back generic type for DataStore and get example working in browser
 pub struct Client<N: NodeRpcClient, S: Store> {
     pub store: S,
-    pub rpc_api: N
+    pub rpc_api: N,
+    // pub tx_executor: TransactionExecutor<ClientDataStore<S>>
 }
 
 impl<N: NodeRpcClient, S: Store> Client<N, S> {
-    pub fn new(api: N, store: S) -> Self {
-        Self { rpc_api: api, store }
+    pub fn new(
+        api: N, 
+        store: S,
+        //executor_store: S
+    ) -> Self {
+        Self { 
+            rpc_api: api,
+            store: store,
+            // tx_executor: TransactionExecutor::new(ClientDataStore::new(executor_store)) 
+        }
     }
 }

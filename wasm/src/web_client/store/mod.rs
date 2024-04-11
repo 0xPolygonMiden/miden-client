@@ -7,6 +7,7 @@ use async_trait::async_trait;
 
 pub mod accounts;
 pub mod notes;
+pub mod transactions;
 pub mod mock_example;
 
 // Initialize IndexedDB
@@ -34,6 +35,21 @@ impl Store for WebStore {
     ) -> Result<(), ()> {
         self.insert_string(data).await
     }
+
+    // TRANSACTIONS
+    // async fn get_transactions(
+    //     &mut self,
+    //     transaction_filter: TransactionFilter,
+    // ) -> Result<Vec<TransactionRecord>, ()> {
+    //     self.get_transactions(transaction_filter).await
+    // }
+
+    // async fn apply_transaction(
+    //     &mut self,
+    //     tx_result: TransactionResult,
+    // ) -> Result<(), ()> {
+    //     self.apply_transaction(tx_result).await
+    // }
 
     // ACCOUNTS
     // async fn insert_account(
@@ -108,4 +124,7 @@ impl Store for WebStore {
     // ) -> Result<Vec<Nullifier>, ()> {
     //     self.get_unspent_input_note_nullifiers().await
     // }
+
+    // TRANSACTIONS
+    
 }

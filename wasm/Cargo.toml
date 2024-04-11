@@ -7,10 +7,21 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib"]
 
+[features]
+concurrent = [
+    "miden-lib/concurrent",
+    "miden-objects/concurrent",
+    "miden-tx/concurrent",
+]
+default = ["miden-objects/serde"]
+
 [dependencies]
 async-trait = "0.1"
 futures = "0.3"
 getrandom = { version = "0.2", features = ["js"] }
+miden-lib = { version = "0.2" }
+miden-objects = { version = "0.2" }
+miden-tx = { version = "0.2" }
 rand = { version = "0.8.5" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -18,5 +29,3 @@ serde-wasm-bindgen = "0.6.5"
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = ["console"] }
-miden-lib = { version= "0.1", default-features = false }
-miden-tx = { version= "0.1", default-features = false }

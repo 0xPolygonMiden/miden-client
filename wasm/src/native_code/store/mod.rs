@@ -22,12 +22,29 @@ pub trait Store {
         data: String
     ) -> Result<(), ()>;
 
+    // TRANSACTIONS
+    // --------------------------------------------------------------------------------------------
+
+    // async fn get_transactions(
+    //     &mut self,
+    //     filter: NativeTransactionFilter,
+    // ) -> Result<Vec<TransactionRecord>, ()>;
+
+    // async fn apply_transaction(
+    //     &mut self,
+    //     tx_result: TransactionResult,
+    // ) -> Result<(), ()>;
+
     // ACCOUNTS
     // --------------------------------------------------------------------------------------------
 
-    // async fn get_account_ids(&self) -> Result<Vec<AccountId>, ()>;
+    // async fn get_account_ids(
+    //     &self
+    // ) -> Result<Vec<AccountId>, ()>;
 
-    // async fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, ()>;
+    // async fn get_account_stubs(
+    //     &self
+    // ) -> Result<Vec<(AccountStub, Option<Word>)>, ()>;
 
     // async fn get_account_stub(
     //     &self,
@@ -77,6 +94,11 @@ pub trait Store {
     // async fn get_unspent_input_note_nullifiers(
     //     &self
     // ) -> Result<Vec<Nullifier>, ()>;
+
+    // TRANSACTIONS
+    // --------------------------------------------------------------------------------------------
+    
+    
 }
 
 // DATABASE AUTH INFO
@@ -125,6 +147,14 @@ pub trait Store {
 //         }
 //     }
 // }
+
+pub enum NativeTransactionFilter {
+    /// Return all transactions.
+    All,
+    /// Filter by transactions that have not yet been committed to the blockchain as per the last
+    /// sync.
+    Uncomitted,
+}
 
 pub enum NativeNoteFilter {
     /// Return a list of all [InputNoteRecord].

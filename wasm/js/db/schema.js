@@ -20,6 +20,8 @@ const Table = {
   AccountVaults: 'accountVaults',
   AccountAuth: 'accountAuth',
   Accounts: 'accounts',
+  Transactions: 'transactions',
+  TransactionScripts: 'transactionScripts',
   InputNotes: 'inputNotes',
   OutputNotes: 'outputNotes',
   Greet: 'greets',
@@ -32,6 +34,8 @@ db.version(1).stores({
   [Table.AccountVaults]: indexes('root'),
   [Table.AccountAuth]: indexes('accountId'),
   [Table.Accounts]: indexes('[id+nonce]', 'codeRoot', 'storageRoot', 'vaultRoot'),
+  [Table.Transactions]: indexes('id', 'scriptHash', 'blockNum', 'commitHeight'),
+  [Table.TransactionScripts]: indexes('scriptHash'),
   [Table.InputNotes]: indexes('noteId', 'recipient', 'status'),
   [Table.OutputNotes]: indexes('noteId', 'recipient', 'status'),
   [Table.Greet]: '++id',
@@ -46,6 +50,8 @@ const accountStorages = db.table(Table.AccountStorage);
 const accountVaults = db.table(Table.AccountVaults);
 const accountAuths = db.table(Table.AccountAuth);
 const accounts = db.table(Table.Accounts);
+const transactions = db.table(Table.Transactions);
+const transactionScripts = db.table(Table.TransactionScripts);
 const inputNotes = db.table(Table.InputNotes);
 const outputNotes = db.table(Table.OutputNotes);
 const greets = db.table(Table.Greet);
@@ -56,6 +62,8 @@ export {
     accountVaults, 
     accountAuths, 
     accounts, 
+    transactions,
+    transactionScripts,
     inputNotes,
     outputNotes,
     greets,

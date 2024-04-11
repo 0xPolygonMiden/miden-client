@@ -103,7 +103,7 @@ impl WebStore {
     //     &mut self,
     //     note: &InputNoteRecord
     // ) -> Result<(), ()> {
-    //     insert_input_note_util(note).await
+    //     insert_input_note_tx(note).await
     // }
 
     // pub(crate) async fn get_output_notes(

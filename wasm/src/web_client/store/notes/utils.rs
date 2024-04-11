@@ -62,7 +62,7 @@ use super::js_bindings::*;
 //     Ok((note_id, note_assets, recipient, status, metadata, details, inclusion_proof))
 // }
 
-// pub(super) async fn insert_input_note_util(
+// pub(super) async fn insert_input_note_tx(
 //     note: &InputNoteRecord
 // ) -> Result<(), ()> {
 //     let (note_id, assets, recipient, status, metadata, details, inclusion_proof) =
@@ -83,7 +83,7 @@ use super::js_bindings::*;
 //     }
 // }
 
-// pub async fn insert_output_note(
+// pub async fn insert_output_note_tx(
 //     note: &InputNoteRecord
 // ) -> Result<(), ()> {
 //     let (note_id, assets, recipient, status, metadata, details, inclusion_proof) =

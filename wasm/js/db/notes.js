@@ -9,9 +9,9 @@ export async function getInputNotes() {
 
         // Fetch the records based on the filter
         if (filter === 'All') {
-            notes = await db.InputNotes.toArray();
+            notes = await inputNotes.toArray();
         } else {
-            notes = await db.InputNotes.where('status').equals(filter.toLowerCase()).toArray();
+            notes = await inputNotes.where('status').equals(filter.toLowerCase()).toArray();
         }
 
         // Process each note to convert 'blobField' from Blob to Uint8Array

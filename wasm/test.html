@@ -119,6 +119,28 @@
             }
         }
 
+        // Transaction Tests
+
+        async function testGetTransactions(webClient) {
+            try {
+                await webClient.get_transactions("All");
+
+            } catch (error) {
+                console.error('Failed to call get transactions:', error);
+            
+            }
+        }
+
+        async function testNewTransaction(webClient) {
+            try {
+                await webClient.new_transaction();
+
+            } catch (error) {
+                console.error('Failed to call new transaction:', error);
+            
+            }
+        }
+
         let webClient = await testCreateClient();
         await testStoreAndRpc(webClient);
         await testNewAccount(webClient);
@@ -130,6 +152,9 @@
         await testGetInputNotes(webClient);
         await testGetInputNote(webClient);
         await testImportInputNote(webClient);
+
+        await testGetTransactions(webClient);
+        await testNewTransaction(webClient);
     </script>
 </body>
 </html>
