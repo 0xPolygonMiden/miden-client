@@ -3,16 +3,18 @@ use miden_node_proto::{
     errors::ConversionError,
     generated::{
         requests::{
-            GetBlockHeaderByNumberRequest, SubmitProvenTransactionRequest, SyncStateRequest,
+            GetAccountDetailsRequest, GetBlockHeaderByNumberRequest,
+            SubmitProvenTransactionRequest, SyncStateRequest,
         },
         responses::SyncStateResponse,
         rpc::api_client::ApiClient,
     },
 };
 use miden_objects::{
-    accounts::AccountId,
+    accounts::{Account, AccountId},
     notes::{NoteId, NoteMetadata, NoteType},
     transaction::ProvenTransaction,
+    utils::Deserializable,
     BlockHeader, Digest,
 };
 use miden_tx::utils::Serializable;
@@ -126,6 +128,45 @@ impl NodeRpcClient for TonicRpcClient {
             )
         })?;
         response.into_inner().try_into()
+    }
+
+    /// TODO: fill description
+    async fn get_account_update(
+        &mut self,
+        account_id: AccountId,
+    ) -> Result<Account, NodeRpcClientError> {
+        if !account_id.is_on_chain() {
+            return Err(NodeRpcClientError::InvalidAccountReceived(
+                "should only get updates for offchain accounts".to_string(),
+            ));
+        }
+
+        let account_id = account_id.into();
+        let request = GetAccountDetailsRequest {
+            account_id: Some(account_id),
+        };
+
+        let rpc_api = self.rpc_api().await?;
+
+        let response = rpc_api.get_account_details(request).await.map_err(|err| {
+            NodeRpcClientError::RequestError(
+                NodeRpcClientEndpoint::GetAccountDetails.to_string(),
+                err.to_string(),
+            )
+        })?;
+        let response = response.into_inner();
+        let account_info = response.account.ok_or(NodeRpcClientError::ExpectedFieldMissing(
+            "GetAccountDetails response should have an `account`".to_string(),
+        ))?;
+
+        let details_bytes =
+            account_info.details.ok_or(NodeRpcClientError::ExpectedFieldMissing(
+                "GetAccountDetails response's account should have `details`".to_string(),
+            ))?;
+
+        let details = Account::read_from_bytes(&details_bytes)?;
+
+        Ok(details)
     }
 }
 

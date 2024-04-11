@@ -189,6 +189,20 @@ impl SqliteStore {
 // HELPERS
 // ================================================================================================
 
+/// Update previously-existing account after a transaction execution
+///
+/// Because the Client retrieves the account by account ID before applying the delta, we don't
+/// need to check that it exists here. This inserts a new row into the accounts table.
+/// We can later identify the proper account state by looking at the nonce.
+pub(crate) fn update_account(
+    tx: &Transaction<'_>,
+    new_account_state: &Account,
+) -> Result<(), StoreError> {
+    insert_account_storage(tx, new_account_state.storage())?;
+    insert_account_asset_vault(tx, new_account_state.vault())?;
+    insert_account_record(tx, new_account_state, None)
+}
+
 pub(super) fn insert_account_record(
     tx: &Transaction<'_>,
     account: &Account,

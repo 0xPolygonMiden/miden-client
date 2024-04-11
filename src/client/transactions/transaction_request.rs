@@ -5,6 +5,7 @@ use miden_objects::{
     assets::{Asset, FungibleAsset},
     notes::{Note, NoteId},
     transaction::{TransactionArgs, TransactionScript},
+    vm::AdviceMap,
     Word,
 };
 
@@ -88,7 +89,12 @@ impl TransactionRequest {
 impl From<TransactionRequest> for TransactionArgs {
     fn from(val: TransactionRequest) -> Self {
         let note_args = val.get_note_args();
-        TransactionArgs::new(val.tx_script, Some(note_args))
+        let mut tx_args = TransactionArgs::new(val.tx_script, Some(note_args), AdviceMap::new());
+
+        let output_notes = val.expected_output_notes.into_iter();
+        tx_args.extend_expected_output_notes(output_notes);
+
+        tx_args
     }
 }
 

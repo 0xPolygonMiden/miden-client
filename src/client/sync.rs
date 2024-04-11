@@ -1,12 +1,12 @@
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
-    accounts::{AccountId, AccountStub},
+    accounts::{Account, AccountId, AccountStub},
     crypto::{self, rand::FeltRng},
     notes::{NoteId, NoteInclusionProof},
     transaction::TransactionId,
     BlockHeader, Digest,
 };
-use tracing::warn;
+use tracing::{info, warn};
 
 use super::{
     rpc::{CommittedNote, NodeRpcClient},
@@ -137,8 +137,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         let committed_notes =
             self.build_inclusion_proofs(response.note_inclusions, &response.block_header)?;
 
-        // Check if the returned account hashes match latest account hashes in the database
-        check_account_hashes(&response.account_hash_updates, &accounts)?;
+        let (onchain_accounts, offchain_accounts): (Vec<_>, Vec<_>) =
+            accounts.into_iter().partition(|account_stub| account_stub.id().is_on_chain());
+
+        let updated_onchain_accounts = self
+            .get_updated_onchain_accounts(&response.account_hash_updates, &onchain_accounts)
+            .await?;
+        self.validate_local_account_hashes(&response.account_hash_updates, &offchain_accounts)?;
 
         // Derive new nullifiers data
         let new_nullifiers = self.get_new_nullifiers(response.nullifiers)?;
@@ -179,6 +184,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
                 &transactions_to_commit,
                 new_peaks,
                 &new_authentication_nodes,
+                &updated_onchain_accounts,
             )
             .map_err(ClientError::StoreError)?;
 
@@ -287,6 +293,47 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
         Ok(new_nullifiers)
     }
+
+    async fn get_updated_onchain_accounts(
+        &mut self,
+        account_updates: &[(AccountId, Digest)],
+        current_onchain_accounts: &[AccountStub],
+    ) -> Result<Vec<Account>, ClientError> {
+        let mut accounts_to_update: Vec<Account> = Vec::new();
+        for (remote_account_id, remote_account_hash) in account_updates {
+            // check if this updated account is tracked by the client
+            let current_account = current_onchain_accounts
+                .iter()
+                .find(|acc| *remote_account_id == acc.id() && *remote_account_hash != acc.hash());
+
+            if let Some(tracked_account) = current_account {
+                info!("On-chain account hash difference detected for account with ID: {}. Fetching node for updates...", tracked_account.id());
+                let account = self.rpc_api.get_account_update(tracked_account.id()).await?;
+                accounts_to_update.push(account);
+            }
+        }
+        Ok(accounts_to_update)
+    }
+
+    /// Validates account hash updates and returns an error if there is a mismatch.
+    fn validate_local_account_hashes(
+        &mut self,
+        account_updates: &[(AccountId, Digest)],
+        current_offchain_accounts: &[AccountStub],
+    ) -> Result<(), ClientError> {
+        for (remote_account_id, remote_account_hash) in account_updates {
+            // ensure that if we track that account, it has the same hash
+            let mismatched_accounts = current_offchain_accounts
+                .iter()
+                .find(|acc| *remote_account_id == acc.id() && *remote_account_hash != acc.hash());
+
+            // OffChain accounts should always have the latest known state
+            if mismatched_accounts.is_some() {
+                return Err(StoreError::AccountHashMismatch(*remote_account_id).into());
+            }
+        }
+        Ok(())
+    }
 }
 
 // UTILS
@@ -316,25 +363,6 @@ fn apply_mmr_changes(
         .collect();
 
     Ok((partial_mmr.peaks(), new_authentication_nodes))
-}
-
-/// Validates account hash updates and returns an error if there is a mismatch.
-fn check_account_hashes(
-    account_updates: &[(AccountId, Digest)],
-    current_accounts: &[AccountStub],
-) -> Result<(), StoreError> {
-    for (remote_account_id, remote_account_hash) in account_updates {
-        {
-            if let Some(local_account) =
-                current_accounts.iter().find(|acc| *remote_account_id == acc.id())
-            {
-                if *remote_account_hash != local_account.hash() {
-                    return Err(StoreError::AccountHashMismatch(*remote_account_id));
-                }
-            }
-        }
-    }
-    Ok(())
 }
 
 /// Returns the list of transactions that should be marked as committed based on the state update info
