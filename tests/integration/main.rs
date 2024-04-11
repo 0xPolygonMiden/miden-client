@@ -118,7 +118,7 @@ async fn wait_for_node(client: &mut TestClient) {
 }
 
 const MINT_AMOUNT: u64 = 1000;
-const TRANSFER_AMOUNT: u64 = 50;
+const TRANSFER_AMOUNT: u64 = 59;
 
 /// Sets up a basic client and returns (basic_account, basic_account, faucet_account)
 async fn setup(
