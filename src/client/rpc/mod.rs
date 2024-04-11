@@ -57,6 +57,9 @@ pub trait NodeRpcClient {
         nullifiers_tags: &[u16],
     ) -> Result<StateSyncInfo, NodeRpcClientError>;
 
+    /// Fetches the current state of an account from the node
+    ///
+    /// - `account_id` is the id of the wanted account.
     async fn get_account_update(
         &mut self,
         account_id: AccountId,
