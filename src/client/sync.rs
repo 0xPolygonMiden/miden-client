@@ -308,10 +308,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
             if let Some(tracked_account) = current_account {
                 info!("On-chain account hash difference detected for account with ID: {}. Fetching node for updates...", tracked_account.id());
-                if let Some(account) = self.rpc_api.get_account_update(tracked_account.id()).await?
-                {
-                    accounts_to_update.push(account);
-                }
+                let account = self.rpc_api.get_account_update(tracked_account.id()).await?;
+                accounts_to_update.push(account);
             }
         }
         Ok(accounts_to_update)

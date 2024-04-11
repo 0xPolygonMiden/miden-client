@@ -60,7 +60,7 @@ pub trait NodeRpcClient {
     async fn get_account_update(
         &mut self,
         account_id: AccountId,
-    ) -> Result<Option<Account>, NodeRpcClientError>;
+    ) -> Result<Account, NodeRpcClientError>;
 }
 
 // STATE SYNC INFO

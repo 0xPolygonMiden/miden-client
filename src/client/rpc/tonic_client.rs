@@ -134,8 +134,12 @@ impl NodeRpcClient for TonicRpcClient {
     async fn get_account_update(
         &mut self,
         account_id: AccountId,
-    ) -> Result<Option<Account>, NodeRpcClientError> {
-        debug_assert!(account_id.is_on_chain());
+    ) -> Result<Account, NodeRpcClientError> {
+        if !account_id.is_on_chain() {
+            return Err(NodeRpcClientError::InvalidAccountReceived(
+                "should only get updates for offchain accounts".to_string(),
+            ));
+        }
 
         let account_id = account_id.into();
         let request = GetAccountDetailsRequest {
@@ -151,12 +155,16 @@ impl NodeRpcClient for TonicRpcClient {
             )
         })?;
         let response = response.into_inner();
-        // TODO: remove unwrap and use proper handling
-        let account_info = response.account.unwrap();
-        let details = account_info
-            .details
-            .map(|details| Account::read_from_bytes(&details))
-            .transpose()?;
+        let account_info = response.account.ok_or(NodeRpcClientError::ExpectedFieldMissing(
+            "GetAccountDetails response should have an `account`".to_string(),
+        ))?;
+
+        let details_bytes =
+            account_info.details.ok_or(NodeRpcClientError::ExpectedFieldMissing(
+                "GetAccountDetails response's account should have `details`".to_string(),
+            ))?;
+
+        let details = Account::read_from_bytes(&details_bytes)?;
 
         Ok(details)
     }
