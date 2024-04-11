@@ -705,7 +705,7 @@ async fn test_onchain_mint_and_transfer() {
     ));
     println!("Running P2ID tx...");
     let tx_request = client_1.build_transaction_request(tx_template).unwrap();
-    execute_tx_and_sync(&mut client, tx_request).await;
+    execute_tx_and_sync(&mut client_1, tx_request).await;
 
     // sync on second client
     println!("Syncing on second client...");
