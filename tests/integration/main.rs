@@ -278,13 +278,7 @@ async fn test_onchain_notes_flow() {
     // Assert that the note is the same
     let received_note: InputNote = client_2.get_input_note(note.id()).unwrap().try_into().unwrap();
     assert_eq!(received_note.note().authentication_hash(), note.authentication_hash());
-
-    // Because the input notes are synced with more note inputs than the original note (padded with 0s)
-    // the P2ID script execution is failing with error code 0x20002 (too many inputs), so we are cutting
-    // the test short until this is solved
-    // println!("test_onchain_notes_flow() is truncated until we solve the input padding problem");
-    // return;
-    //assert_eq!(received_note.note(), &note);
+    assert_eq!(received_note.note(), &note);
 
     // consume the note
     consume_notes(&mut client_2, basic_wallet_1.id(), &[received_note]).await;
@@ -305,6 +299,7 @@ async fn test_onchain_notes_flow() {
     execute_tx_and_sync(&mut client_2, tx_request).await;
 
     // sync client 3 (basic account 2)
+    std::thread::sleep(Duration::from_secs(4));
     client_3.sync_state().await.unwrap();
     // client 3 should only have one note
     let note = client_3
@@ -743,7 +738,7 @@ fn create_custom_note(
 }
 
 #[tokio::test]
-async fn test_onchain_mint_and_transfer() {
+async fn test_onchain_accounts() {
     let mut client_1 = create_test_client();
     let mut client_2 = create_test_client();
 
@@ -835,14 +830,6 @@ async fn test_onchain_mint_and_transfer() {
         PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
         NoteType::Public,
     );
-
-    // Because the input notes are synced with more note inputs than the original note (padded with 0s)
-    // the P2ID script execution is failing with error code 0x20002 (too many inputs), so we are cutting
-    // the test short until this is solved
-    // println!(
-    //     "test_onchain_mint_and_transfer() is truncated until we solve the input padding problem"
-    // );
-    // return;
 
     println!("Running P2ID tx...");
     let tx_request = client_1.build_transaction_request(tx_template).unwrap();
