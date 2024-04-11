@@ -30,7 +30,7 @@ pub struct SyncedNewNotes {
     /// A list of public notes that have been received on sync
     new_public_notes: Vec<InputNote>,
     /// A list of note IDs alongside their inclusion proofs for locally-tracked
-    /// private notes
+    /// notes
     new_inclusion_proofs: Vec<(NoteId, NoteInclusionProof)>,
 }
 
