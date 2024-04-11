@@ -118,7 +118,7 @@ async fn wait_for_node(client: &mut TestClient) {
 }
 
 const MINT_AMOUNT: u64 = 1000;
-const TRANSFER_AMOUNT: u64 = 50;
+const TRANSFER_AMOUNT: u64 = 59;
 
 /// Sets up a basic client and returns (basic_account, basic_account, faucet_account)
 async fn setup(
@@ -224,7 +224,6 @@ async fn assert_account_has_single_asset(
     }
 }
 
-#[allow(unreachable_code)]
 #[tokio::test]
 async fn test_onchain_notes_flow() {
     // Client 1 is an offchain faucet which will mint an onchain note for client 2
@@ -325,19 +324,9 @@ async fn test_onchain_notes_flow() {
         TRANSFER_AMOUNT,
     )
     .await;
-    let to_account_balance = client_3
-        .get_account(basic_wallet_2.id())
-        .unwrap()
-        .0
-        .vault()
-        .get_balance(faucet_account.id())
-        .unwrap_or(0);
-
-    // assert that the balance is exactly what we transferred
-    assert_eq!(to_account_balance, 9);
 }
 
-// #[tokio::test]
+#[tokio::test]
 async fn test_added_notes() {
     let mut client = create_test_client();
 
@@ -360,7 +349,7 @@ async fn test_added_notes() {
     assert!(notes.is_empty())
 }
 
-// #[tokio::test]
+#[tokio::test]
 async fn test_p2id_transfer() {
     let mut client = create_test_client();
 
@@ -428,7 +417,7 @@ async fn test_p2id_transfer() {
     assert_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].id()).await;
 }
 
-// #[tokio::test]
+#[tokio::test]
 async fn test_p2idr_transfer() {
     let mut client = create_test_client();
 
@@ -551,7 +540,7 @@ async fn assert_note_cannot_be_consumed_twice(
 //
 // Because it's currently not possible to create/consume notes without assets, the P2ID code
 // is used as the base for the note code.
-// #[tokio::test]
+#[tokio::test]
 async fn test_transaction_request() {
     let mut client = create_test_client();
 
@@ -753,7 +742,6 @@ fn create_custom_note(
     Note::new(note_assets, note_metadata, note_recipient)
 }
 
-#[allow(unreachable_code)]
 #[tokio::test]
 async fn test_onchain_mint_and_transfer() {
     let mut client_1 = create_test_client();
