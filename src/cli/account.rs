@@ -1,6 +1,6 @@
 use std::{fs, path::PathBuf};
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     client::{accounts, rpc::NodeRpcClient, Client},
@@ -61,9 +61,15 @@ pub enum AccountCmd {
 #[clap()]
 pub enum AccountTemplate {
     /// Creates a basic account (Regular account with immutable code)
-    BasicImmutable,
+    BasicImmutable {
+        #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
+        storage_mode: AccountStorageMode,
+    },
     /// Creates a basic account (Regular account with mutable code)
-    BasicMutable,
+    BasicMutable {
+        #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
+        storage_mode: AccountStorageMode,
+    },
     /// Creates a faucet for fungible tokens
     FungibleFaucet {
         #[clap(short, long)]
@@ -72,9 +78,36 @@ pub enum AccountTemplate {
         decimals: u8,
         #[clap(short, long)]
         max_supply: u64,
+        #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
+        storage_mode: AccountStorageMode,
     },
     /// Creates a faucet for non-fungible tokens
-    NonFungibleFaucet,
+    NonFungibleFaucet {
+        #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
+        storage_mode: AccountStorageMode,
+    },
+}
+
+// TODO: Review this enum and variant names to have a consistent naming across all crates
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum AccountStorageMode {
+    OffChain,
+    OnChain,
+}
+
+impl From<AccountStorageMode> for accounts::AccountStorageMode {
+    fn from(value: AccountStorageMode) -> Self {
+        match value {
+            AccountStorageMode::OffChain => accounts::AccountStorageMode::Local,
+            AccountStorageMode::OnChain => accounts::AccountStorageMode::OnChain,
+        }
+    }
+}
+
+impl From<&AccountStorageMode> for accounts::AccountStorageMode {
+    fn from(value: &AccountStorageMode) -> Self {
+        accounts::AccountStorageMode::from(*value)
+    }
 }
 
 impl AccountCmd {
@@ -88,26 +121,31 @@ impl AccountCmd {
             },
             AccountCmd::New { template } => {
                 let client_template = match template {
-                    AccountTemplate::BasicImmutable => accounts::AccountTemplate::BasicWallet {
-                        mutable_code: false,
-                        storage_mode: accounts::AccountStorageMode::Local,
+                    AccountTemplate::BasicImmutable { storage_mode } => {
+                        accounts::AccountTemplate::BasicWallet {
+                            mutable_code: false,
+                            storage_mode: storage_mode.into(),
+                        }
                     },
-                    AccountTemplate::BasicMutable => accounts::AccountTemplate::BasicWallet {
-                        mutable_code: true,
-                        storage_mode: accounts::AccountStorageMode::Local,
+                    AccountTemplate::BasicMutable { storage_mode } => {
+                        accounts::AccountTemplate::BasicWallet {
+                            mutable_code: true,
+                            storage_mode: storage_mode.into(),
+                        }
                     },
                     AccountTemplate::FungibleFaucet {
                         token_symbol,
                         decimals,
                         max_supply,
+                        storage_mode,
                     } => accounts::AccountTemplate::FungibleFaucet {
                         token_symbol: TokenSymbol::new(token_symbol)
                             .map_err(|err| format!("error: token symbol is invalid: {}", err))?,
                         decimals: *decimals,
                         max_supply: *max_supply,
-                        storage_mode: accounts::AccountStorageMode::Local,
+                        storage_mode: storage_mode.into(),
                     },
-                    AccountTemplate::NonFungibleFaucet => todo!(),
+                    AccountTemplate::NonFungibleFaucet { storage_mode: _ } => todo!(),
                 };
                 let (_new_account, _account_seed) = client.new_account(client_template)?;
             },

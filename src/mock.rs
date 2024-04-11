@@ -163,6 +163,13 @@ impl NodeRpcClient for MockRpcApi {
         // TODO: add some basic validations to test error cases
         Ok(())
     }
+
+    async fn get_account_update(
+        &mut self,
+        _account_id: AccountId,
+    ) -> Result<Account, NodeRpcClientError> {
+        panic!("shouldn't be used for now")
+    }
 }
 
 // HELPERS

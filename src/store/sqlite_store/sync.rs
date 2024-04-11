@@ -1,4 +1,5 @@
 use miden_objects::{
+    accounts::Account,
     crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::NoteInclusionProof,
     transaction::TransactionId,
@@ -11,6 +12,7 @@ use crate::{
     client::sync::SyncedNewNotes, errors::StoreError,
     store::sqlite_store::notes::insert_input_note_tx,
 };
+use crate::{errors::StoreError, store::sqlite_store::accounts::update_account};
 
 impl SqliteStore {
     pub(crate) fn get_note_tags(&self) -> Result<Vec<u64>, StoreError> {
@@ -68,6 +70,7 @@ impl SqliteStore {
         committed_transactions: &[TransactionId],
         new_mmr_peaks: MmrPeaks,
         new_authentication_nodes: &[(InOrderIndex, Digest)],
+        updated_onchain_accounts: &[Account],
     ) -> Result<(), StoreError> {
         let tx = self.db.transaction()?;
 
@@ -146,6 +149,11 @@ impl SqliteStore {
             block_header.block_num(),
             committed_transactions,
         )?;
+
+        // Update onchain accounts on the db that have been updated onchain
+        for account in updated_onchain_accounts {
+            update_account(&tx, account)?;
+        }
 
         // Commit the updates
         tx.commit()?;

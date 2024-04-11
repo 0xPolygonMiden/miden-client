@@ -2,7 +2,7 @@ use core::fmt;
 
 use async_trait::async_trait;
 use miden_objects::{
-    accounts::AccountId,
+    accounts::{Account, AccountId},
     crypto::merkle::{MerklePath, MmrDelta},
     notes::{Note, NoteId, NoteMetadata, NoteTag},
     transaction::ProvenTransaction,
@@ -96,6 +96,11 @@ pub trait NodeRpcClient {
         note_tags: &[NoteTag],
         nullifiers_tags: &[u16],
     ) -> Result<StateSyncInfo, NodeRpcClientError>;
+
+    async fn get_account_update(
+        &mut self,
+        account_id: AccountId,
+    ) -> Result<Account, NodeRpcClientError>;
 }
 
 // STATE SYNC INFO
@@ -170,6 +175,7 @@ impl CommittedNote {
 //
 #[derive(Debug)]
 pub enum NodeRpcClientEndpoint {
+    GetAccountDetails,
     GetBlockHeaderByNumber,
     SyncState,
     SubmitProvenTx,
@@ -181,6 +187,7 @@ impl fmt::Display for NodeRpcClientEndpoint {
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
         match self {
+            NodeRpcClientEndpoint::GetAccountDetails => write!(f, "get_account_details"),
             NodeRpcClientEndpoint::GetBlockHeaderByNumber => {
                 write!(f, "get_block_header_by_number")
             },

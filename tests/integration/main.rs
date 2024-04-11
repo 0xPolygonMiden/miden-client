@@ -122,7 +122,10 @@ const MINT_AMOUNT: u64 = 1000;
 const TRANSFER_AMOUNT: u64 = 50;
 
 /// Sets up a basic client and returns (basic_account, basic_account, faucet_account)
-async fn setup(client: &mut TestClient) -> (Account, Account, Account) {
+async fn setup(
+    client: &mut TestClient,
+    accounts_storage_mode: AccountStorageMode,
+) -> (Account, Account, Account) {
     // Enusre clean state
     assert!(client.get_accounts().unwrap().is_empty());
     assert!(client.get_transactions(TransactionFilter::All).unwrap().is_empty());
@@ -134,7 +137,7 @@ async fn setup(client: &mut TestClient) -> (Account, Account, Account) {
             token_symbol: TokenSymbol::new("MATIC").unwrap(),
             decimals: 8,
             max_supply: 1_000_000_000,
-            storage_mode: AccountStorageMode::Local,
+            storage_mode: accounts_storage_mode,
         })
         .unwrap();
 
@@ -311,7 +314,7 @@ async fn test_onchain_notes_flow() {
 async fn test_added_notes() {
     let mut client = create_test_client();
 
-    let (_, _, faucet_account_stub) = setup(&mut client).await;
+    let (_, _, faucet_account_stub) = setup(&mut client, AccountStorageMode::Local).await;
     // Mint some asset for an account not tracked by the client. It should not be stored as an
     // input note afterwards since it is not being tracked by the client
     let fungible_asset = FungibleAsset::new(faucet_account_stub.id(), MINT_AMOUNT).unwrap();
@@ -335,7 +338,7 @@ async fn test_p2id_transfer() {
     let mut client = create_test_client();
 
     let (first_regular_account, second_regular_account, faucet_account_stub) =
-        setup(&mut client).await;
+        setup(&mut client, AccountStorageMode::Local).await;
 
     let from_account_id = first_regular_account.id();
     let to_account_id = second_regular_account.id();
@@ -402,7 +405,7 @@ async fn test_p2idr_transfer() {
     let mut client = create_test_client();
 
     let (first_regular_account, second_regular_account, faucet_account_stub) =
-        setup(&mut client).await;
+        setup(&mut client, AccountStorageMode::Local).await;
 
     let from_account_id = first_regular_account.id();
     let to_account_id = second_regular_account.id();
@@ -719,4 +722,58 @@ fn create_custom_note(
         NoteAssets::new(vec![FungibleAsset::new(faucet_account_id, 10).unwrap().into()]).unwrap();
     let note_recipient = NoteRecipient::new(serial_num, note_script, inputs);
     Note::new(note_assets, note_metadata, note_recipient)
+}
+
+#[tokio::test]
+async fn test_onchain_mint() {
+    let mut client_1 = create_test_client();
+    let mut client_2 = create_test_client();
+
+    let (first_regular_account, _second_regular_account, faucet_account_stub) =
+        setup(&mut client_1, AccountStorageMode::OnChain).await;
+
+    let (
+        second_client_first_regular_account,
+        _other_second_regular_account,
+        _other_faucet_account_stub,
+    ) = setup(&mut client_2, AccountStorageMode::Local).await;
+
+    let target_account_id = first_regular_account.id();
+    let second_client_target_account_id = second_client_first_regular_account.id();
+    let faucet_account_id = faucet_account_stub.id();
+
+    let (_, faucet_seed) = client_1.get_account_stub_by_id(faucet_account_id).unwrap();
+    let auth_info = client_1.get_account_auth(faucet_account_id).unwrap();
+    client_2.insert_account(&faucet_account_stub, faucet_seed, &auth_info).unwrap();
+
+    // First Mint necesary token
+    println!("First client consuming note");
+    let note = mint_note(&mut client_1, target_account_id, faucet_account_id).await;
+
+    // Update the state in the other client and ensure the onchain faucet hash is consistent
+    // between clients
+    client_2.sync_state().await.unwrap();
+
+    let (client_1_faucet, _) = client_1.get_account_stub_by_id(faucet_account_stub.id()).unwrap();
+    let (client_2_faucet, _) = client_2.get_account_stub_by_id(faucet_account_stub.id()).unwrap();
+
+    assert_eq!(client_1_faucet.hash(), client_2_faucet.hash());
+
+    // Now use the faucet in the second client to mint to its own account
+    println!("Second client consuming note");
+    let second_client_note =
+        mint_note(&mut client_2, second_client_target_account_id, faucet_account_id).await;
+
+    // Update the state in the other client and ensure the onchain faucet hash is consistent
+    // between clients
+    client_1.sync_state().await.unwrap();
+
+    println!("about to consume");
+    consume_notes(&mut client_1, target_account_id, &[note]).await;
+    consume_notes(&mut client_2, second_client_target_account_id, &[second_client_note]).await;
+
+    let (client_1_faucet, _) = client_1.get_account_stub_by_id(faucet_account_stub.id()).unwrap();
+    let (client_2_faucet, _) = client_2.get_account_stub_by_id(faucet_account_stub.id()).unwrap();
+
+    assert_eq!(client_1_faucet.hash(), client_2_faucet.hash());
 }
