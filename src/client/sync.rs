@@ -249,8 +249,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         let mut new_public_notes = vec![];
         let mut local_notes_proofs = vec![];
 
-        // TODO: Build a function into the store that returns all pending notes (input or output)
-        // in a HashSet
         let pending_input_notes =
             self.store.get_input_notes(NoteFilter::Pending)?.into_iter().map(|n| n.id());
 
