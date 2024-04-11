@@ -138,7 +138,7 @@ impl NodeRpcClient for MockRpcApi {
     async fn get_account_update(
         &mut self,
         _account_id: AccountId,
-    ) -> Result<Option<Account>, NodeRpcClientError> {
+    ) -> Result<Account, NodeRpcClientError> {
         panic!("shouldn't be used for now")
     }
 }
