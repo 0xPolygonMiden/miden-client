@@ -23,6 +23,40 @@ pub enum SyncStatus {
     SyncedToBlock(u32),
 }
 
+/// Contains information about new notes as consequence of a sync
+pub struct SyncedNewNotes {
+    /// A list of public notes that have been received on sync
+    new_public_notes: Vec<InputNote>,
+    /// A list of note IDs alongside their inclusion proofs for locally-tracked
+    /// notes
+    new_inclusion_proofs: Vec<(NoteId, NoteInclusionProof)>,
+}
+
+impl SyncedNewNotes {
+    pub fn new(
+        new_public_notes: Vec<InputNote>,
+        new_inclusion_proofs: Vec<(NoteId, NoteInclusionProof)>,
+    ) -> Self {
+        Self {
+            new_public_notes,
+            new_inclusion_proofs,
+        }
+    }
+
+    pub fn new_public_notes(&self) -> &[InputNote] {
+        &self.new_public_notes
+    }
+
+    pub fn new_inclusion_proofs(&self) -> &[(NoteId, NoteInclusionProof)] {
+        &self.new_inclusion_proofs
+    }
+
+    /// Returns whether no new note-related information has been retrieved
+    pub fn is_empty(&self) -> bool {
+        self.new_inclusion_proofs.is_empty() && self.new_public_notes.is_empty()
+    }
+}
+
 // CONSTANTS
 // ================================================================================================
 
