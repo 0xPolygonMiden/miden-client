@@ -22,8 +22,8 @@ use miden_objects::{
         rand::RpoRandomCoin,
     },
     notes::{
-        Note, NoteAssets, NoteInclusionProof, NoteInputs, NoteMetadata, NoteRecipient, NoteScript,
-        NoteType,
+        Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata, NoteRecipient,
+        NoteScript, NoteTag, NoteType,
     },
     transaction::{InputNote, ProvenTransaction},
     BlockHeader, Felt, Word, NOTE_TREE_DEPTH,
@@ -33,7 +33,9 @@ use tonic::{Response, Status};
 
 use crate::{
     client::{
-        rpc::{NodeRpcClient, NodeRpcClientEndpoint, StateSyncInfo},
+        rpc::{
+            NodeRpcClient, NodeRpcClientEndpoint, NoteDetails, NoteInclusionDetails, StateSyncInfo,
+        },
         sync::FILTER_ID_SHIFT,
         transactions::{
             prepare_word,
@@ -69,14 +71,16 @@ pub const DEFAULT_ACCOUNT_CODE: &str = "
 pub struct MockRpcApi {
     pub state_sync_requests: BTreeMap<SyncStateRequest, SyncStateResponse>,
     pub genesis_block: BlockHeader,
+    pub notes: BTreeMap<NoteId, InputNote>,
 }
 
 impl Default for MockRpcApi {
     fn default() -> Self {
-        let (genesis_block, state_sync_requests) = generate_state_sync_mock_requests();
+        let (genesis_block, state_sync_requests, notes) = generate_state_sync_mock_requests();
         Self {
             state_sync_requests,
             genesis_block,
+            notes,
         }
     }
 }
@@ -94,7 +98,7 @@ impl NodeRpcClient for MockRpcApi {
         &mut self,
         block_num: u32,
         _account_ids: &[AccountId],
-        _note_tags: &[u16],
+        _note_tags: &[NoteTag],
         _nullifiers_tags: &[u16],
     ) -> Result<StateSyncInfo, NodeRpcClientError> {
         // Match request -> response through block_num
@@ -125,6 +129,31 @@ impl NodeRpcClient for MockRpcApi {
             return Ok(self.genesis_block);
         }
         panic!("get_block_header_by_number is supposed to be only used for genesis block")
+    }
+
+    async fn get_notes_by_id(
+        &mut self,
+        note_ids: &[NoteId],
+    ) -> Result<Vec<NoteDetails>, NodeRpcClientError> {
+        // assume all off-chain notes for now
+        let hit_notes = note_ids.iter().filter_map(|id| self.notes.get(id));
+        let mut return_notes = vec![];
+        for note in hit_notes {
+            if note.note().metadata().note_type() != NoteType::Public {
+                panic!("this function assumes all notes are offchain for now");
+            }
+            let inclusion_details = NoteInclusionDetails::new(
+                note.proof().origin().block_num,
+                note.proof().origin().node_index.value() as u32,
+                note.proof().note_path().clone(),
+            );
+            return_notes.push(NoteDetails::OffChain(
+                note.id(),
+                *note.note().metadata(),
+                inclusion_details,
+            ));
+        }
+        Ok(return_notes)
     }
 
     async fn submit_proven_transaction(
@@ -233,7 +262,8 @@ fn create_mock_sync_state_request_for_account_and_notes(
                 note_index: 0,
                 note_id: Some(created_notes_iter.next().unwrap().id().into()),
                 sender: Some(account.id().into()),
-                tag: 0u64,
+                tag: 0u32,
+                note_type: NoteType::OffChain as u32,
                 merkle_path: Some(miden_node_proto::generated::merkle::MerklePath::default()),
             }],
             nullifiers: vec![NullifierUpdate {
@@ -248,8 +278,11 @@ fn create_mock_sync_state_request_for_account_and_notes(
 }
 
 /// Generates mock sync state requests and responses
-fn generate_state_sync_mock_requests(
-) -> (BlockHeader, BTreeMap<SyncStateRequest, SyncStateResponse>) {
+fn generate_state_sync_mock_requests() -> (
+    BlockHeader,
+    BTreeMap<SyncStateRequest, SyncStateResponse>,
+    BTreeMap<NoteId, InputNote>,
+) {
     let account_id = AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap();
 
     // create sync state requests
@@ -267,8 +300,8 @@ fn generate_state_sync_mock_requests(
         None,
         None,
     );
-
-    (genesis_block, state_sync_request_responses)
+    let input_notes = input_notes.iter().map(|n| (n.note().id(), n.clone())).collect();
+    (genesis_block, state_sync_request_responses, input_notes)
 }
 
 pub fn mock_full_chain_mmr_and_notes(
@@ -473,11 +506,10 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
 
     // Insert a P2ID transaction object
 
-    let transaction_template = TransactionTemplate::PayToId(PaymentTransactionData::new(
-        asset,
-        sender_account.id(),
-        target_account.id(),
-    ));
+    let transaction_template = TransactionTemplate::PayToId(
+        PaymentTransactionData::new(asset, sender_account.id(), target_account.id()),
+        NoteType::OffChain,
+    );
 
     let transaction_request = client.build_transaction_request(transaction_template).unwrap();
     let transaction_execution_result = client.new_transaction(transaction_request).unwrap();

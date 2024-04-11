@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use miden_objects::{
     accounts::AccountId,
     crypto::merkle::{MerklePath, MmrDelta},
-    notes::{NoteId, NoteMetadata},
+    notes::{Note, NoteId, NoteMetadata, NoteTag},
     transaction::ProvenTransaction,
     BlockHeader, Digest,
 };
@@ -13,6 +13,37 @@ use crate::errors::NodeRpcClientError;
 
 mod tonic_client;
 pub use tonic_client::TonicRpcClient;
+
+// NOTE DETAILS
+// ================================================================================================
+
+/// Describes the possible responses from  the `GetNotesById` endpoint for a single note
+pub enum NoteDetails {
+    OffChain(NoteId, NoteMetadata, NoteInclusionDetails),
+    Public(Note, NoteInclusionDetails),
+}
+
+/// Contains information related to the note inclusion, but not related to the block header
+/// that contains the note
+pub struct NoteInclusionDetails {
+    pub block_num: u32,
+    pub note_index: u32,
+    pub merkle_path: MerklePath,
+}
+
+impl NoteInclusionDetails {
+    pub fn new(
+        block_num: u32,
+        note_index: u32,
+        merkle_path: MerklePath,
+    ) -> Self {
+        Self {
+            block_num,
+            note_index,
+            merkle_path,
+        }
+    }
+}
 
 // NODE RPC CLIENT TRAIT
 // ================================================================================================
@@ -38,6 +69,15 @@ pub trait NodeRpcClient {
         block_number: Option<u32>,
     ) -> Result<BlockHeader, NodeRpcClientError>;
 
+    /// Fetches note-related data for a list of [NoteId]
+    ///
+    /// For any NoteType::Offchain note, the return data is only the [NoteMetadata], whereas
+    /// for NoteType::Onchain notes, the return data includes all details.
+    async fn get_notes_by_id(
+        &mut self,
+        note_ids: &[NoteId],
+    ) -> Result<Vec<NoteDetails>, NodeRpcClientError>;
+
     /// Fetches info from the node necessary to perform a state sync
     ///
     /// - `block_num` is the last block number known by the client. The returned [StateSyncInfo]
@@ -53,7 +93,7 @@ pub trait NodeRpcClient {
         &mut self,
         block_num: u32,
         account_ids: &[AccountId],
-        note_tags: &[u16],
+        note_tags: &[NoteTag],
         nullifiers_tags: &[u16],
     ) -> Result<StateSyncInfo, NodeRpcClientError>;
 }

@@ -8,7 +8,7 @@ use super::{NoteRecordDetails, NoteStatus};
 // OUTPUT NOTE RECORD
 // ================================================================================================
 
-/// Represents a Note which was the result of executing some transaction of which the [Store] can
+/// Represents a Note which was the result of executing some transaction of which the Store can
 /// keep track and retrieve.
 ///
 /// An [OutputNoteRecord] contains all the information of a [Note] while it allows for not knowing

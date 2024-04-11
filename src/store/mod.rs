@@ -7,14 +7,17 @@ use miden_objects::{
         dsa::rpo_falcon512::SecretKey,
         merkle::{InOrderIndex, MmrPeaks},
     },
-    notes::{NoteId, NoteInclusionProof, Nullifier},
+    notes::{NoteId, Nullifier},
     transaction::TransactionId,
     BlockHeader, Digest, Felt, Word,
 };
 use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 
 use crate::{
-    client::transactions::{TransactionRecord, TransactionResult},
+    client::{
+        sync::SyncedNewNotes,
+        transactions::{TransactionRecord, TransactionResult},
+    },
     errors::StoreError,
 };
 
@@ -246,7 +249,7 @@ pub trait Store {
         &mut self,
         block_header: BlockHeader,
         nullifiers: Vec<Digest>,
-        committed_notes: Vec<(NoteId, NoteInclusionProof)>,
+        new_note_details: SyncedNewNotes,
         committed_transactions: &[TransactionId],
         new_mmr_peaks: MmrPeaks,
         new_authentication_nodes: &[(InOrderIndex, Digest)],
