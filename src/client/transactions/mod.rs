@@ -236,7 +236,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             account_id,
             block_num,
             &note_ids,
-            Some(transaction_request.into()),
+            transaction_request.into(),
         )?;
 
         // Check that the expected output notes is a subset of the transaction's output notes
