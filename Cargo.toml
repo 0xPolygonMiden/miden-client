@@ -35,7 +35,7 @@ comfy-table = "7.1.0"
 figment = { version = "0.10", features = ["toml", "env"] }
 lazy_static = "1.4.0"
 miden-lib = { version = "0.2" }
-miden-node-proto = { package = "miden-node-proto", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "phklive-block-producer-onchain-notes", default-features = false }
+miden-node-proto = { package = "miden-node-proto", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "next", default-features = false }
 miden-tx = { version = "0.2" }
 miden-objects = { version = "0.2" }
 rand = { version = "0.8.5" }
