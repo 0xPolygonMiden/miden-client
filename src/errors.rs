@@ -321,6 +321,7 @@ pub enum NodeRpcClientError {
     DeserializationError(DeserializationError),
     ExpectedFieldMissing(String),
     InvalidAccountReceived(String),
+    NoteError(NoteError),
     RequestError(String, String),
 }
 
@@ -340,10 +341,13 @@ impl fmt::Display for NodeRpcClientError {
                 write!(f, "failed to deserialize RPC data: {err}")
             },
             NodeRpcClientError::ExpectedFieldMissing(err) => {
-                write!(f, "rpc API reponse missing an expected field: {err}")
+                write!(f, "rpc API response missing an expected field: {err}")
             },
             NodeRpcClientError::InvalidAccountReceived(account_error) => {
-                write!(f, "rpc API reponse contained an invalid account: {account_error}")
+                write!(f, "rpc API response contained an invalid account: {account_error}")
+            },
+            NodeRpcClientError::NoteError(err) => {
+                write!(f, "rpc API note failed to validate: {err}")
             },
             NodeRpcClientError::RequestError(endpoint, err) => {
                 write!(f, "rpc request failed for {endpoint}: {err}")
@@ -361,6 +365,12 @@ impl From<AccountError> for NodeRpcClientError {
 impl From<DeserializationError> for NodeRpcClientError {
     fn from(err: DeserializationError) -> Self {
         Self::DeserializationError(err)
+    }
+}
+
+impl From<NoteError> for NodeRpcClientError {
+    fn from(err: NoteError) -> Self {
+        Self::NoteError(err)
     }
 }
 

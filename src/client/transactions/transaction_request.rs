@@ -3,7 +3,7 @@ use alloc::collections::BTreeMap;
 use miden_objects::{
     accounts::AccountId,
     assets::{Asset, FungibleAsset},
-    notes::{Note, NoteId},
+    notes::{Note, NoteId, NoteType},
     transaction::{TransactionArgs, TransactionScript},
     vm::AdviceMap,
     Word,
@@ -105,14 +105,14 @@ impl From<TransactionRequest> for TransactionArgs {
 pub enum TransactionTemplate {
     /// Consume the specified notes against an account.
     ConsumeNotes(AccountId, Vec<NoteId>),
-    /// Mint fungible assets using a faucet account and creates a note that can be consumed by the target
-    /// Account ID
-    MintFungibleAsset(FungibleAsset, AccountId),
-    /// Creates a pay-to-id note directed to a specific account
-    PayToId(PaymentTransactionData),
+    /// Mint fungible assets using a faucet account and creates a note with the specified
+    /// type that can be consumed by the target Account ID
+    MintFungibleAsset(FungibleAsset, AccountId, NoteType),
+    /// Creates a pay-to-id note with the specified type directed to a specific account
+    PayToId(PaymentTransactionData, NoteType),
     /// Creates a pay-to-id note directed to a specific account, specifying a block height after
     /// which the note can be recalled
-    PayToIdWithRecall(PaymentTransactionData, u32),
+    PayToIdWithRecall(PaymentTransactionData, u32, NoteType),
 }
 
 impl TransactionTemplate {
@@ -120,9 +120,9 @@ impl TransactionTemplate {
     pub fn account_id(&self) -> AccountId {
         match self {
             TransactionTemplate::ConsumeNotes(account_id, _) => *account_id,
-            TransactionTemplate::MintFungibleAsset(asset, _) => asset.faucet_id(),
-            TransactionTemplate::PayToId(payment_data) => payment_data.account_id(),
-            TransactionTemplate::PayToIdWithRecall(payment_data, _) => payment_data.account_id(),
+            TransactionTemplate::MintFungibleAsset(asset, _, _) => asset.faucet_id(),
+            TransactionTemplate::PayToId(payment_data, _) => payment_data.account_id(),
+            TransactionTemplate::PayToIdWithRecall(payment_data, _, _) => payment_data.account_id(),
         }
     }
 }
