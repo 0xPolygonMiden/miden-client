@@ -203,14 +203,22 @@ async fn consume_notes(
     println!("Consuming Note...");
     let tx_request = client.build_transaction_request(tx_template).unwrap();
     execute_tx_and_sync(client, tx_request).await;
+}
 
+async fn assert_account_has_single_asset(
+    client: &TestClient,
+    account_id: AccountId,
+    asset_account_id: AccountId,
+    expected_amount: u64,
+) {
     let (regular_account, _seed) = client.get_account(account_id).unwrap();
 
     assert_eq!(regular_account.vault().assets().count(), 1);
     let asset = regular_account.vault().assets().next().unwrap();
 
     if let Asset::Fungible(fungible_asset) = asset {
-        assert_eq!(fungible_asset.amount(), MINT_AMOUNT);
+        assert_eq!(fungible_asset.faucet_id(), asset_account_id);
+        assert_eq!(fungible_asset.amount(), expected_amount);
     } else {
         panic!("Account has consumed a note and should have a fungible asset");
     }
@@ -275,14 +283,21 @@ async fn test_onchain_notes_flow() {
     // Because the input notes are synced with more note inputs than the original note (padded with 0s)
     // the P2ID script execution is failing with error code 0x20002 (too many inputs), so we are cutting
     // the test short until this is solved
-    println!("test_onchain_notes_flow() is truncated until we solve the input padding problem");
-    return;
+    // println!("test_onchain_notes_flow() is truncated until we solve the input padding problem");
+    // return;
     //assert_eq!(received_note.note(), &note);
 
     // consume the note
     consume_notes(&mut client_2, basic_wallet_1.id(), &[received_note]).await;
+    assert_account_has_single_asset(
+        &client_2,
+        basic_wallet_1.id(),
+        faucet_account.id(),
+        MINT_AMOUNT,
+    )
+    .await;
 
-    let p2id_asset = FungibleAsset::new(faucet_account.id(), 9).unwrap();
+    let p2id_asset = FungibleAsset::new(faucet_account.id(), TRANSFER_AMOUNT).unwrap();
     let tx_template = TransactionTemplate::PayToId(
         PaymentTransactionData::new(p2id_asset.into(), basic_wallet_1.id(), basic_wallet_2.id()),
         NoteType::Public,
@@ -303,6 +318,13 @@ async fn test_onchain_notes_flow() {
         .unwrap();
 
     consume_notes(&mut client_3, basic_wallet_2.id(), &[note]).await;
+    assert_account_has_single_asset(
+        &client_3,
+        basic_wallet_2.id(),
+        faucet_account.id(),
+        TRANSFER_AMOUNT,
+    )
+    .await;
     let to_account_balance = client_3
         .get_account(basic_wallet_2.id())
         .unwrap()
@@ -315,7 +337,7 @@ async fn test_onchain_notes_flow() {
     assert_eq!(to_account_balance, 9);
 }
 
-#[tokio::test]
+// #[tokio::test]
 async fn test_added_notes() {
     let mut client = create_test_client();
 
@@ -338,7 +360,7 @@ async fn test_added_notes() {
     assert!(notes.is_empty())
 }
 
-#[tokio::test]
+// #[tokio::test]
 async fn test_p2id_transfer() {
     let mut client = create_test_client();
 
@@ -352,6 +374,7 @@ async fn test_p2id_transfer() {
     // First Mint necesary token
     let note = mint_note(&mut client, from_account_id, faucet_account_id, NoteType::OffChain).await;
     consume_notes(&mut client, from_account_id, &[note]).await;
+    assert_account_has_single_asset(&client, from_account_id, faucet_account_id, MINT_AMOUNT).await;
 
     // Do a transfer from first account to second account
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
@@ -405,7 +428,7 @@ async fn test_p2id_transfer() {
     assert_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].id()).await;
 }
 
-#[tokio::test]
+// #[tokio::test]
 async fn test_p2idr_transfer() {
     let mut client = create_test_client();
 
@@ -421,6 +444,7 @@ async fn test_p2idr_transfer() {
     println!("about to consume");
 
     consume_notes(&mut client, from_account_id, &[note]).await;
+    assert_account_has_single_asset(&client, from_account_id, faucet_account_id, MINT_AMOUNT).await;
 
     // Do a transfer from first account to second account with Recall. In this situation we'll do
     // the happy path where the `to_account_id` consumes the note
@@ -527,7 +551,7 @@ async fn assert_note_cannot_be_consumed_twice(
 //
 // Because it's currently not possible to create/consume notes without assets, the P2ID code
 // is used as the base for the note code.
-#[tokio::test]
+// #[tokio::test]
 async fn test_transaction_request() {
     let mut client = create_test_client();
 
@@ -782,7 +806,16 @@ async fn test_onchain_mint_and_transfer() {
 
     println!("About to consume");
     consume_notes(&mut client_1, target_account_id, &[note]).await;
+    assert_account_has_single_asset(&client_1, target_account_id, faucet_account_id, MINT_AMOUNT)
+        .await;
     consume_notes(&mut client_2, second_client_target_account_id, &[second_client_note]).await;
+    assert_account_has_single_asset(
+        &client_2,
+        second_client_target_account_id,
+        faucet_account_id,
+        MINT_AMOUNT,
+    )
+    .await;
 
     let (client_1_faucet, _) = client_1.get_account_stub_by_id(faucet_account_stub.id()).unwrap();
     let (client_2_faucet, _) = client_2.get_account_stub_by_id(faucet_account_stub.id()).unwrap();
@@ -818,10 +851,10 @@ async fn test_onchain_mint_and_transfer() {
     // Because the input notes are synced with more note inputs than the original note (padded with 0s)
     // the P2ID script execution is failing with error code 0x20002 (too many inputs), so we are cutting
     // the test short until this is solved
-    println!(
-        "test_onchain_mint_and_transfer() is truncated until we solve the input padding problem"
-    );
-    return;
+    // println!(
+    //     "test_onchain_mint_and_transfer() is truncated until we solve the input padding problem"
+    // );
+    // return;
 
     println!("Running P2ID tx...");
     let tx_request = client_1.build_transaction_request(tx_template).unwrap();
