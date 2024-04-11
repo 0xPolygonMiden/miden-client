@@ -3,9 +3,7 @@ use miden_node_proto::{
     errors::ConversionError,
     generated::{
         requests::{
-            GetBlockHeaderByNumberRequest, GetNotesByIdRequest, SubmitProvenTransactionRequest,
-            SyncStateRequest,
-            GetAccountDetailsRequest, GetBlockHeaderByNumberRequest,
+            GetAccountDetailsRequest, GetBlockHeaderByNumberRequest, GetNotesByIdRequest,
             SubmitProvenTransactionRequest, SyncStateRequest,
         },
         responses::SyncStateResponse,
@@ -13,17 +11,13 @@ use miden_node_proto::{
     },
 };
 use miden_objects::{
-    accounts::AccountId,
+    accounts::{Account, AccountId},
     notes::{Note, NoteId, NoteMetadata, NoteTag, NoteType},
     transaction::ProvenTransaction,
-    BlockHeader, Digest, Felt,
-    accounts::{Account, AccountId},
-    notes::{NoteId, NoteMetadata, NoteType},
-    transaction::ProvenTransaction,
     utils::Deserializable,
-    BlockHeader, Digest,
+    BlockHeader, Digest, Felt,
 };
-use miden_tx::utils::{Deserializable, Serializable};
+use miden_tx::utils::Serializable;
 use tonic::transport::Channel;
 
 use super::{

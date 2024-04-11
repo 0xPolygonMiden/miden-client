@@ -748,7 +748,8 @@ async fn test_onchain_mint() {
 
     // First Mint necesary token
     println!("First client consuming note");
-    let note = mint_note(&mut client_1, target_account_id, faucet_account_id).await;
+    let note =
+        mint_note(&mut client_1, target_account_id, faucet_account_id, NoteType::OffChain).await;
 
     // Update the state in the other client and ensure the onchain faucet hash is consistent
     // between clients
@@ -761,14 +762,19 @@ async fn test_onchain_mint() {
 
     // Now use the faucet in the second client to mint to its own account
     println!("Second client consuming note");
-    let second_client_note =
-        mint_note(&mut client_2, second_client_target_account_id, faucet_account_id).await;
+    let second_client_note = mint_note(
+        &mut client_2,
+        second_client_target_account_id,
+        faucet_account_id,
+        NoteType::OffChain,
+    )
+    .await;
 
     // Update the state in the other client and ensure the onchain faucet hash is consistent
     // between clients
     client_1.sync_state().await.unwrap();
 
-    println!("about to consume");
+    println!("About to consume");
     consume_notes(&mut client_1, target_account_id, &[note]).await;
     consume_notes(&mut client_2, second_client_target_account_id, &[second_client_note]).await;
 

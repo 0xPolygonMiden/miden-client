@@ -9,10 +9,10 @@ use rusqlite::{named_params, params};
 
 use super::SqliteStore;
 use crate::{
-    client::sync::SyncedNewNotes, errors::StoreError,
-    store::sqlite_store::notes::insert_input_note_tx,
+    client::sync::SyncedNewNotes,
+    errors::StoreError,
+    store::sqlite_store::{accounts::update_account, notes::insert_input_note_tx},
 };
-use crate::{errors::StoreError, store::sqlite_store::accounts::update_account};
 
 impl SqliteStore {
     pub(crate) fn get_note_tags(&self) -> Result<Vec<u64>, StoreError> {
