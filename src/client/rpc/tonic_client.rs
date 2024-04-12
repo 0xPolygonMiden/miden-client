@@ -192,7 +192,18 @@ impl NodeRpcClient for TonicRpcClient {
         response.into_inner().try_into()
     }
 
-    /// TODO: fill description
+    /// Sends a [GetAccountDetailsRequest] to the Miden node, and extracts an [Account] from the
+    /// `GetAccountDetailsResponse` response.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if:
+    ///
+    /// - The provided account is not on-chain: this is due to the fact that for offchain accounts
+    /// the client is responsible
+    /// - There was an error sending the request to the node
+    /// - The answer had a `None` for its account, or the account had a `None` at the `details` field.
+    /// - There is an error during [Account] deserialization
     async fn get_account_update(
         &mut self,
         account_id: AccountId,

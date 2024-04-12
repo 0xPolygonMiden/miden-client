@@ -56,12 +56,14 @@ impl NoteInclusionDetails {
 #[async_trait]
 pub trait NodeRpcClient {
     /// Given a Proven Transaction, send it to the node for it to be included in a future block
+    /// using the `/SubmitProvenTransaction` rpc endpoint
     async fn submit_proven_transaction(
         &mut self,
         proven_transaction: ProvenTransaction,
     ) -> Result<(), NodeRpcClientError>;
 
     /// Given a block number, fetches the block header corresponding to that height from the node
+    /// using the `/GetBlockHeaderByNumber` endpoint
     ///
     /// When `None` is provided, returns info regarding the latest block
     async fn get_block_header_by_number(
@@ -69,7 +71,7 @@ pub trait NodeRpcClient {
         block_number: Option<u32>,
     ) -> Result<BlockHeader, NodeRpcClientError>;
 
-    /// Fetches note-related data for a list of [NoteId]
+    /// Fetches note-related data for a list of [NoteId] using the `/GetNotesById` rpc endpoint
     ///
     /// For any NoteType::Offchain note, the return data is only the [NoteMetadata], whereas
     /// for NoteType::Onchain notes, the return data includes all details.
@@ -78,7 +80,8 @@ pub trait NodeRpcClient {
         note_ids: &[NoteId],
     ) -> Result<Vec<NoteDetails>, NodeRpcClientError>;
 
-    /// Fetches info from the node necessary to perform a state sync
+    /// Fetches info from the node necessary to perform a state sync using the
+    /// `/SyncState` rpc endpoint
     ///
     /// - `block_num` is the last block number known by the client. The returned [StateSyncInfo]
     ///   should contain data starting from the next block, until the first block which contains a
@@ -97,6 +100,9 @@ pub trait NodeRpcClient {
         nullifiers_tags: &[u16],
     ) -> Result<StateSyncInfo, NodeRpcClientError>;
 
+    /// Fetches the current state of an account from the node using the `/GetAccountDetails` rpc endpoint
+    ///
+    /// - `account_id` is the id of the wanted account.
     async fn get_account_update(
         &mut self,
         account_id: AccountId,
