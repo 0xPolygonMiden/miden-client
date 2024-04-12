@@ -126,11 +126,11 @@ miden-client sync # Make sure we have an updated view of the state
 miden-client tx new p2id <regular-account-ID-A> <regular-account-ID-B> <faucet-account-ID> 50 # Transfers 50 tokens to account ID B
 ```
 
-This will generate a Pay-to-ID (`P2ID`) note containing 50 assets, transferred from one regular account to the other. If we sync, we can now make use of the note and consume it for the receiving account:
+This will generate a Pay-to-ID (`P2ID`) note containing 50 assets, transferred from one regular account to the other. You can see the new note by running `miden-client input-notes list`. If we sync, we can now make use of the note and consume it for the receiving account:
 
 ```bash
 miden-client sync # Make sure we have an updated view of the state
-miden-client tx new consume-notes <regular-account-ID-B> # Consume the note
+miden-client tx new consume-notes <regular-account-ID-B> <input-note-ID> # Consume the note
 ```
 
 That's it! You will now be able to see `950` fungible tokens in the first regular account, and `50` tokens in the remaining regular account:
