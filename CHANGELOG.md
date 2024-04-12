@@ -1,5 +1,6 @@
 # Changelog
 
+* Added an `init` command to the CLI.
 * Added support for on-chain accounts.
 * Added support for public notes.
 * Added `NoteScreener` struct capable of detecting notes consumable by a client (via heuristics), for storing only relevant notes.
