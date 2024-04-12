@@ -1,18 +1,22 @@
 use core::fmt;
 use std::path::PathBuf;
 
-use serde::Deserialize;
+use figment::{
+    value::{Dict, Map},
+    Metadata, Profile, Provider,
+};
+use serde::{Deserialize, Serialize};
 
 // CLIENT CONFIG
 // ================================================================================================
 
 /// Configuration options of Miden client.
-#[derive(Debug, Default, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ClientConfig {
-    /// Describes settings related to the store.
-    pub store: StoreConfig,
     /// Describes settings related to the RPC endpoint
     pub rpc: RpcConfig,
+    /// Describes settings related to the store.
+    pub store: StoreConfig,
 }
 
 impl ClientConfig {
@@ -25,10 +29,26 @@ impl ClientConfig {
     }
 }
 
+// Make `ClientConfig` a provider itself for composability.
+impl Provider for ClientConfig {
+    fn metadata(&self) -> Metadata {
+        Metadata::named("Library Config")
+    }
+
+    fn data(&self) -> Result<Map<Profile, Dict>, figment::Error> {
+        figment::providers::Serialized::defaults(ClientConfig::default()).data()
+    }
+
+    fn profile(&self) -> Option<Profile> {
+        // Optionally, a profile that's selected by default.
+        None
+    }
+}
+
 // ENDPOINT
 // ================================================================================================
 
-#[derive(Clone, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 pub struct Endpoint {
     protocol: String,
     host: String,
@@ -47,6 +67,20 @@ impl Endpoint {
             host,
             port,
         }
+    }
+}
+
+impl Endpoint {
+    pub fn protocol(&self) -> &str {
+        &self.protocol
+    }
+
+    pub fn host(&self) -> &str {
+        &self.host
+    }
+
+    pub fn port(&self) -> u16 {
+        self.port
     }
 }
 
@@ -74,7 +108,7 @@ impl Default for Endpoint {
 // STORE CONFIG
 // ================================================================================================
 
-#[derive(Debug, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct StoreConfig {
     pub database_filepath: String,
 }
@@ -125,7 +159,7 @@ impl Default for StoreConfig {
 // RPC CONFIG
 // ================================================================================================
 
-#[derive(Debug, Default, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct RpcConfig {
     /// Address of the Miden node to connect to.
     pub endpoint: Endpoint,
