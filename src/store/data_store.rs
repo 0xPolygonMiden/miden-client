@@ -1,10 +1,11 @@
+use alloc::collections::BTreeSet;
+
 use miden_objects::{
     accounts::AccountId,
     assembly::ModuleAst,
     crypto::merkle::{InOrderIndex, MerklePath, PartialMmr},
     notes::NoteId,
     transaction::{ChainMmr, InputNote, InputNotes},
-    utils::collections::BTreeSet,
     BlockHeader,
 };
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};

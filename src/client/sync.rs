@@ -1,15 +1,17 @@
+use std::collections::BTreeSet;
+
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
-    accounts::{AccountId, AccountStub},
+    accounts::{Account, AccountId, AccountStub},
     crypto::{self, rand::FeltRng},
-    notes::{NoteId, NoteInclusionProof},
-    transaction::TransactionId,
+    notes::{NoteExecutionMode, NoteId, NoteInclusionProof, NoteTag},
+    transaction::{InputNote, TransactionId},
     BlockHeader, Digest,
 };
-use tracing::warn;
+use tracing::{info, warn};
 
 use super::{
-    rpc::{CommittedNote, NodeRpcClient},
+    rpc::{CommittedNote, NodeRpcClient, NoteDetails},
     transactions::TransactionRecord,
     Client,
 };
@@ -21,6 +23,40 @@ use crate::{
 pub enum SyncStatus {
     SyncedToLastBlock(u32),
     SyncedToBlock(u32),
+}
+
+/// Contains information about new notes as consequence of a sync
+pub struct SyncedNewNotes {
+    /// A list of public notes that have been received on sync
+    new_public_notes: Vec<InputNote>,
+    /// A list of note IDs alongside their inclusion proofs for locally-tracked
+    /// notes
+    new_inclusion_proofs: Vec<(NoteId, NoteInclusionProof)>,
+}
+
+impl SyncedNewNotes {
+    pub fn new(
+        new_public_notes: Vec<InputNote>,
+        new_inclusion_proofs: Vec<(NoteId, NoteInclusionProof)>,
+    ) -> Self {
+        Self {
+            new_public_notes,
+            new_inclusion_proofs,
+        }
+    }
+
+    pub fn new_public_notes(&self) -> &[InputNote] {
+        &self.new_public_notes
+    }
+
+    pub fn new_inclusion_proofs(&self) -> &[(NoteId, NoteInclusionProof)] {
+        &self.new_inclusion_proofs
+    }
+
+    /// Returns whether no new note-related information has been retrieved
+    pub fn is_empty(&self) -> bool {
+        self.new_inclusion_proofs.is_empty() && self.new_public_notes.is_empty()
+    }
 }
 
 // CONSTANTS
@@ -107,10 +143,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             .map(|(acc_stub, _)| acc_stub)
             .collect();
 
-        let note_tags: Vec<u16> = accounts
+        let note_tags: Vec<NoteTag> = accounts
             .iter()
-            .map(|acc| ((u64::from(acc.id()) >> FILTER_ID_SHIFT) as u16))
-            .collect();
+            .map(|acc| NoteTag::from_account_id(acc.id(), NoteExecutionMode::Local))
+            .collect::<Result<Vec<_>, _>>()?;
 
         // To receive information about added nullifiers, we reduce them to the higher 16 bits
         // Note that besides filtering by nullifier prefixes, the node also filters by block number
@@ -134,11 +170,16 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             return Ok(SyncStatus::SyncedToLastBlock(current_block_num));
         }
 
-        let committed_notes =
-            self.build_inclusion_proofs(response.note_inclusions, &response.block_header)?;
+        let new_note_details =
+            self.get_note_details(response.note_inclusions, &response.block_header).await?;
 
-        // Check if the returned account hashes match latest account hashes in the database
-        check_account_hashes(&response.account_hash_updates, &accounts)?;
+        let (onchain_accounts, offchain_accounts): (Vec<_>, Vec<_>) =
+            accounts.into_iter().partition(|account_stub| account_stub.id().is_on_chain());
+
+        let updated_onchain_accounts = self
+            .get_updated_onchain_accounts(&response.account_hash_updates, &onchain_accounts)
+            .await?;
+        self.validate_local_account_hashes(&response.account_hash_updates, &offchain_accounts)?;
 
         // Derive new nullifiers data
         let new_nullifiers = self.get_new_nullifiers(response.nullifiers)?;
@@ -158,7 +199,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             )?
         };
 
-        let note_ids: Vec<NoteId> = committed_notes.iter().map(|(id, _)| (*id)).collect();
+        let note_ids: Vec<NoteId> =
+            new_note_details.new_inclusion_proofs.iter().map(|(id, _)| (*id)).collect();
 
         let uncommitted_transactions =
             self.store.get_transactions(TransactionFilter::Uncomitted)?;
@@ -175,10 +217,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             .apply_state_sync(
                 response.block_header,
                 new_nullifiers,
-                committed_notes,
+                new_note_details,
                 &transactions_to_commit,
                 new_peaks,
                 &new_authentication_nodes,
+                &updated_onchain_accounts,
             )
             .map_err(ClientError::StoreError)?;
 
@@ -194,61 +237,96 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
     /// Extracts information about notes that the client is interested in, creating the note inclusion
     /// proof in order to correctly update store data
-    fn build_inclusion_proofs(
-        &self,
+    async fn get_note_details(
+        &mut self,
         committed_notes: Vec<CommittedNote>,
         block_header: &BlockHeader,
-    ) -> Result<Vec<(NoteId, NoteInclusionProof)>, ClientError> {
+    ) -> Result<SyncedNewNotes, ClientError> {
         // We'll only pick committed notes that we are tracking as input/output notes. Since the
         // sync response contains notes matching either the provided accounts or the provided tag
         // we might get many notes when we only care about a few of those.
-        let pending_input_notes: Vec<NoteId> = self
-            .store
-            .get_input_notes(NoteFilter::Pending)?
-            .iter()
-            .map(|n| n.id())
-            .collect();
 
-        let pending_output_notes: Vec<NoteId> = self
-            .store
-            .get_output_notes(NoteFilter::Pending)?
-            .iter()
-            .map(|n| n.id())
-            .collect();
+        let mut new_public_notes = vec![];
+        let mut local_notes_proofs = vec![];
 
-        let mut pending_notes = [pending_input_notes, pending_output_notes].concat();
-        pending_notes.dedup();
+        let pending_input_notes =
+            self.store.get_input_notes(NoteFilter::Pending)?.into_iter().map(|n| n.id());
 
-        committed_notes
-            .iter()
-            .filter_map(|commited_note| {
-                if pending_notes.contains(commited_note.note_id()) {
-                    // FIXME: This removal is to accomodate a problem with how the node constructs paths where
-                    // they are constructed using note ID instead of authentication hash, so for now we remove the first
-                    // node here.
-                    //
-                    // See: https://github.com/0xPolygonMiden/miden-node/blob/main/store/src/state.rs#L274
-                    let mut merkle_path = commited_note.merkle_path().clone();
-                    if merkle_path.len() > 0 {
-                        let _ = merkle_path.remove(0);
-                    }
+        let pending_output_notes =
+            self.store.get_output_notes(NoteFilter::Pending)?.into_iter().map(|n| n.id());
 
+        let mut all_pending_notes: BTreeSet<NoteId> = BTreeSet::new();
+
+        pending_input_notes.chain(pending_output_notes).for_each(|id| {
+            all_pending_notes.insert(id);
+        });
+
+        for committed_note in committed_notes {
+            if all_pending_notes.contains(committed_note.note_id()) {
+                // The note belongs to our locally tracked set of pending notes, build the inclusion proof
+                let note_with_inclusion_proof = NoteInclusionProof::new(
+                    block_header.block_num(),
+                    block_header.sub_hash(),
+                    block_header.note_root(),
+                    committed_note.note_index().into(),
+                    committed_note.merkle_path().clone(),
+                )
+                .map_err(ClientError::NoteError)
+                .map(|proof| (*committed_note.note_id(), proof))?;
+
+                local_notes_proofs.push(note_with_inclusion_proof);
+            } else {
+                // The note is public and we are not tracking it, push to the list of IDs to query
+                new_public_notes.push(*committed_note.note_id());
+            }
+        }
+
+        // Query the node for input note data and build the entities
+        let new_public_notes =
+            self.fetch_public_note_details(&new_public_notes, block_header).await?;
+
+        Ok(SyncedNewNotes::new(new_public_notes, local_notes_proofs))
+    }
+
+    /// Queries the node for all received notes that are not being locally tracked in the client
+    ///
+    /// The client can receive metadata for private notes that it's not tracking. In this case,
+    /// notes are ignored for now as they become useless until details are imported.
+    async fn fetch_public_note_details(
+        &mut self,
+        query_notes: &[NoteId],
+        block_header: &BlockHeader,
+    ) -> Result<Vec<InputNote>, ClientError> {
+        if query_notes.is_empty() {
+            return Ok(vec![]);
+        }
+        info!("Getting note details for notes that are not being tracked.");
+
+        let notes_data = self.rpc_api.get_notes_by_id(query_notes).await?;
+        let mut return_notes = Vec::with_capacity(query_notes.len());
+        for note_data in notes_data {
+            match note_data {
+                NoteDetails::OffChain(id, _, _) => {
+                    // TODO: Is there any benefit to not ignoring these? In any case we do not have
+                    // the recipient which is mandatory right now.
+                    info!("Note {} is private but the client is not tracking it, ignoring.", id);
+                },
+                NoteDetails::Public(note, inclusion_proof) => {
+                    info!("Retrieved details for Note ID {}.", note.id());
                     let note_inclusion_proof = NoteInclusionProof::new(
                         block_header.block_num(),
                         block_header.sub_hash(),
                         block_header.note_root(),
-                        commited_note.note_index().into(),
-                        merkle_path,
+                        inclusion_proof.note_index as u64,
+                        inclusion_proof.merkle_path,
                     )
-                    .map_err(ClientError::NoteError)
-                    .map(|proof| (*commited_note.note_id(), proof));
+                    .map_err(ClientError::NoteError)?;
 
-                    Some(note_inclusion_proof)
-                } else {
-                    None
-                }
-            })
-            .collect()
+                    return_notes.push(InputNote::new(note, note_inclusion_proof))
+                },
+            }
+        }
+        Ok(return_notes)
     }
 
     /// Builds the current view of the chain's [PartialMmr]. Because we want to add all new
@@ -297,6 +375,47 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
         Ok(new_nullifiers)
     }
+
+    async fn get_updated_onchain_accounts(
+        &mut self,
+        account_updates: &[(AccountId, Digest)],
+        current_onchain_accounts: &[AccountStub],
+    ) -> Result<Vec<Account>, ClientError> {
+        let mut accounts_to_update: Vec<Account> = Vec::new();
+        for (remote_account_id, remote_account_hash) in account_updates {
+            // check if this updated account is tracked by the client
+            let current_account = current_onchain_accounts
+                .iter()
+                .find(|acc| *remote_account_id == acc.id() && *remote_account_hash != acc.hash());
+
+            if let Some(tracked_account) = current_account {
+                info!("On-chain account hash difference detected for account with ID: {}. Fetching node for updates...", tracked_account.id());
+                let account = self.rpc_api.get_account_update(tracked_account.id()).await?;
+                accounts_to_update.push(account);
+            }
+        }
+        Ok(accounts_to_update)
+    }
+
+    /// Validates account hash updates and returns an error if there is a mismatch.
+    fn validate_local_account_hashes(
+        &mut self,
+        account_updates: &[(AccountId, Digest)],
+        current_offchain_accounts: &[AccountStub],
+    ) -> Result<(), ClientError> {
+        for (remote_account_id, remote_account_hash) in account_updates {
+            // ensure that if we track that account, it has the same hash
+            let mismatched_accounts = current_offchain_accounts
+                .iter()
+                .find(|acc| *remote_account_id == acc.id() && *remote_account_hash != acc.hash());
+
+            // OffChain accounts should always have the latest known state
+            if mismatched_accounts.is_some() {
+                return Err(StoreError::AccountHashMismatch(*remote_account_id).into());
+            }
+        }
+        Ok(())
+    }
 }
 
 // UTILS
@@ -328,25 +447,6 @@ fn apply_mmr_changes(
     Ok((partial_mmr.peaks(), new_authentication_nodes))
 }
 
-/// Validates account hash updates and returns an error if there is a mismatch.
-fn check_account_hashes(
-    account_updates: &[(AccountId, Digest)],
-    current_accounts: &[AccountStub],
-) -> Result<(), StoreError> {
-    for (remote_account_id, remote_account_hash) in account_updates {
-        {
-            if let Some(local_account) =
-                current_accounts.iter().find(|acc| *remote_account_id == acc.id())
-            {
-                if *remote_account_hash != local_account.hash() {
-                    return Err(StoreError::AccountHashMismatch(*remote_account_id));
-                }
-            }
-        }
-    }
-    Ok(())
-}
-
 /// Returns the list of transactions that should be marked as committed based on the state update info
 ///
 /// To set an uncommitted transaction as committed three things must hold:
@@ -358,7 +458,7 @@ fn check_account_hashes(
 // final_account_state
 fn get_transactions_to_commit(
     uncommitted_transactions: &[TransactionRecord],
-    note_ids: &[NoteId],
+    _note_ids: &[NoteId],
     nullifiers: &[Digest],
     account_hash_updates: &[(AccountId, Digest)],
 ) -> Vec<TransactionId> {
@@ -370,8 +470,11 @@ fn get_transactions_to_commit(
             // that in the future it'll be possible to have many transactions modifying an
             // account be included in a single block. If that happens, we'll need to rewrite
             // this check
+
+            // TODO: Review this. Because we receive note IDs based on account ID tags,
+            // we cannot base the status change on output notes alone;
             t.input_note_nullifiers.iter().all(|n| nullifiers.contains(n))
-                && t.output_notes.iter().all(|n| note_ids.contains(&n.id()))
+                //&& t.output_notes.iter().all(|n| note_ids.contains(&n.id()))
                 && account_hash_updates.iter().any(|(account_id, account_hash)| {
                     *account_id == t.account_id && *account_hash == t.final_account_state
                 })

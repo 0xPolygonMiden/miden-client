@@ -33,7 +33,18 @@ With the Miden client, you can create and track local (not on-chain) accounts. W
     let (new_account, account_seed) = client.new_account(client_template)?;
 ```
 
-The `AccountTemplate` enum defines which type of account will be created. Note that once an account is created, it will be kept locally and its state will automatically be tracked by the client. Any number of accounts can be created and stored by the client.
+The `AccountTemplate` enum defines which type of account will be created. Note that once an account is created, it will be kept locally and its state will automatically be tracked by the client. Any number of accounts can be created and stored by the client. You can also create onchain accounts with: `accounts::AccountStorageMode::OnChain`
+
+```Rust
+    let account_template = AccountTemplate::BasicWallet {
+        mutable_code: false,
+        storage_mode: accounts::AccountStorageMode::OnChain,
+    };
+    
+    let (new_account, account_seed) = client.new_account(client_template)?;
+```
+
+The account's state is also tracked locally, but during sync the client updates the account state by querying the node for outdated on-chain accounts.
 
 ## Execute a transaction
 
@@ -61,7 +72,7 @@ In order to execute a transaction, you first need to define which type of transa
 
     // Prove and submit the transaction, which is stored alongside created notes (if any)
     client
-        .send_transaction(transaction_execution_result)
+        .submit_transaction(transaction_execution_result)
         .await?
 ```
 

@@ -1,19 +1,23 @@
+use alloc::collections::BTreeMap;
+
 use clap::error::Result;
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
     crypto::{
-        dsa::rpo_falcon512::KeyPair,
+        dsa::rpo_falcon512::SecretKey,
         merkle::{InOrderIndex, MmrPeaks},
     },
-    notes::{NoteId, NoteInclusionProof, Nullifier},
+    notes::{NoteId, Nullifier},
     transaction::TransactionId,
-    utils::collections::BTreeMap,
     BlockHeader, Digest, Felt, Word,
 };
 use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 
 use crate::{
-    client::transactions::{TransactionRecord, TransactionResult},
+    client::{
+        sync::SyncedNewNotes,
+        transactions::{TransactionRecord, TransactionResult},
+    },
     errors::StoreError,
 };
 
@@ -245,10 +249,11 @@ pub trait Store {
         &mut self,
         block_header: BlockHeader,
         nullifiers: Vec<Digest>,
-        committed_notes: Vec<(NoteId, NoteInclusionProof)>,
+        new_note_details: SyncedNewNotes,
         committed_transactions: &[TransactionId],
         new_mmr_peaks: MmrPeaks,
         new_authentication_nodes: &[(InOrderIndex, Digest)],
+        updated_onchain_accounts: &[Account],
     ) -> Result<(), StoreError>;
 }
 
@@ -258,7 +263,7 @@ pub trait Store {
 /// Represents the types of authentication information of accounts
 #[derive(Debug)]
 pub enum AuthInfo {
-    RpoFalcon512(KeyPair),
+    RpoFalcon512(SecretKey),
 }
 
 const RPO_FALCON512_AUTH: u8 = 0;
@@ -275,10 +280,13 @@ impl AuthInfo {
     /// that can be input to the advice map at the moment of transaction execution.
     pub fn into_advice_inputs(self) -> (Word, Vec<Felt>) {
         match self {
-            AuthInfo::RpoFalcon512(key) => (
-                key.public_key().into(),
-                key.to_bytes().iter().map(|a| Felt::new(*a as u64)).collect::<Vec<Felt>>(),
-            ),
+            AuthInfo::RpoFalcon512(key) => {
+                let pub_key: Word = key.public_key().into();
+                let mut pk_sk_bytes = key.to_bytes();
+                pk_sk_bytes.append(&mut pub_key.to_bytes());
+
+                (pub_key, pk_sk_bytes.iter().map(|a| Felt::new(*a as u64)).collect::<Vec<Felt>>())
+            },
         }
     }
 }
@@ -303,7 +311,7 @@ impl Deserializable for AuthInfo {
         let auth_type: u8 = source.read_u8()?;
         match auth_type {
             RPO_FALCON512_AUTH => {
-                let key_pair = KeyPair::read_from(source)?;
+                let key_pair = SecretKey::read_from(source)?;
                 Ok(AuthInfo::RpoFalcon512(key_pair))
             },
             val => Err(DeserializationError::InvalidValue(val.to_string())),

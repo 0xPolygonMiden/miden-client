@@ -10,11 +10,11 @@ use crate::{
 // KNOWN SCRIPT ROOTS
 // --------------------------------------------------------------------------------------------
 pub(crate) const P2ID_NOTE_SCRIPT_ROOT: &str =
-    "0x65c08aef0e3d11ce8a26662005a5272398e8810e5e13a903a993ee622d03675f";
+    "0xcdfd70344b952980272119bc02b837d14c07bbfc54f86a254422f39391b77b35";
 pub(crate) const P2IDR_NOTE_SCRIPT_ROOT: &str =
-    "0x03dd8f8fd57f015d821648292cee0ce42e16c4b80427c46b9cb874db44395f47";
+    "0x41e5727b99a12b36066c09854d39d64dd09d9265c442a9be3626897572bf1745";
 pub(crate) const SWAP_NOTE_SCRIPT_ROOT: &str =
-    "0x0270336bdc66b9cfd0b7988f56b2e3e1cb39c920ec37627e49390523280c1545";
+    "0x5852920f88985b651cf7ef5e48623f898b6c292f4a2c25dd788ff8b46dd90417";
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum NoteRelevance {
@@ -72,10 +72,10 @@ impl<'a, S: Store> NoteScreener<'a, S> {
         let account_id = AccountId::try_from(*account_id_felt)
             .map_err(|err| InvalidNoteInputsError::AccountError(note.id(), err))?;
 
-        Ok(vec![(account_id, NoteRelevance::Always)]
-            .into_iter()
-            .filter(|(account_id, _relevance)| account_ids.contains(account_id))
-            .collect())
+        if !account_ids.contains(&account_id) {
+            return Ok(vec![]);
+        }
+        Ok(vec![(account_id, NoteRelevance::Always)])
     }
 
     fn check_p2idr_relevance(
@@ -184,17 +184,13 @@ impl<'a, S: Store> NoteScreener<'a, S> {
 
 #[cfg(test)]
 mod tests {
-    use miden_lib::{
-        notes::{create_p2id_note, create_p2idr_note, create_swap_note},
-        AuthScheme,
-    };
+    use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
     use miden_objects::{
-        accounts::{AccountId, AccountType},
+        accounts::{AccountId, ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN},
         assets::FungibleAsset,
-        crypto::{dsa::rpo_falcon512::KeyPair, rand::RpoRandomCoin},
-        Felt,
+        crypto::rand::RpoRandomCoin,
+        notes::NoteType,
     };
-    use rand::Rng;
 
     use crate::client::note_screener::{
         P2IDR_NOTE_SCRIPT_ROOT, P2ID_NOTE_SCRIPT_ROOT, SWAP_NOTE_SCRIPT_ROOT,
@@ -205,35 +201,16 @@ mod tests {
     #[test]
     fn ensure_correct_script_roots() {
         // create dummy data for the notes
-        let faucet_id: AccountId = 10347894387879516201u64.try_into().unwrap();
-
-        let key_pair: KeyPair = KeyPair::new().unwrap();
-        let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
-            pub_key: key_pair.public_key(),
-        };
-
-        // we need to use an initial seed to create the wallet account
-        let mut rng = rand::thread_rng();
-        let init_seed: [u8; 32] = rng.gen();
-
-        let (account, _seed) = miden_lib::accounts::wallets::create_basic_wallet(
-            init_seed,
-            auth_scheme,
-            AccountType::RegularAccountImmutableCode,
-        )
-        .unwrap();
-        let account_id = account.id();
-
-        let rng = {
-            let coin_seed: [u64; 4] = rng.gen();
-            RpoRandomCoin::new(coin_seed.map(Felt::new))
-        };
+        let faucet_id: AccountId = ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN.try_into().unwrap();
+        let account_id: AccountId = ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN.try_into().unwrap();
+        let rng = RpoRandomCoin::new(Default::default());
 
         // create dummy notes to compare note script roots
         let p2id_note = create_p2id_note(
             account_id,
             account_id,
             vec![FungibleAsset::new(faucet_id, 100u64).unwrap().into()],
+            NoteType::OffChain,
             rng,
         )
         .unwrap();
@@ -241,6 +218,7 @@ mod tests {
             account_id,
             account_id,
             vec![FungibleAsset::new(faucet_id, 100u64).unwrap().into()],
+            NoteType::OffChain,
             10,
             rng,
         )
@@ -249,6 +227,7 @@ mod tests {
             account_id,
             FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
             FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
+            NoteType::OffChain,
             rng,
         )
         .unwrap();

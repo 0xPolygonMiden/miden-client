@@ -1,15 +1,16 @@
+use alloc::collections::{BTreeMap, BTreeSet};
+
 use miden_lib::notes::{create_p2id_note, create_p2idr_note};
 use miden_objects::{
     accounts::{AccountDelta, AccountId},
     assembly::ProgramAst,
     assets::FungibleAsset,
     crypto::rand::RpoRandomCoin,
-    notes::{Note, NoteId},
+    notes::{Note, NoteId, NoteType},
     transaction::{
-        ExecutedTransaction, OutputNote, OutputNotes, ProvenTransaction, TransactionArgs,
-        TransactionId, TransactionScript,
+        ExecutedTransaction, OutputNotes, ProvenTransaction, TransactionArgs, TransactionId,
+        TransactionScript,
     },
-    utils::collections::{BTreeMap, BTreeSet},
     Digest, Felt, Word,
 };
 use miden_tx::{ProvingOptions, ScriptTarget, TransactionProver};
@@ -17,7 +18,7 @@ use rand::Rng;
 use tracing::info;
 
 use self::transaction_request::{PaymentTransactionData, TransactionRequest, TransactionTemplate};
-use super::{note_screener::NoteRelevance, rpc::NodeRpcClient, Client, ClientRng};
+use super::{note_screener::NoteRelevance, rpc::NodeRpcClient, Client, FeltRng};
 use crate::{
     client::NoteScreener,
     errors::ClientError,
@@ -104,7 +105,7 @@ pub struct TransactionRecord {
     pub init_account_state: Digest,
     pub final_account_state: Digest,
     pub input_note_nullifiers: Vec<Digest>,
-    pub output_notes: OutputNotes<OutputNote>,
+    pub output_notes: OutputNotes,
     pub transaction_script: Option<TransactionScript>,
     pub block_num: u32,
     pub transaction_status: TransactionStatus,
@@ -118,7 +119,7 @@ impl TransactionRecord {
         init_account_state: Digest,
         final_account_state: Digest,
         input_note_nullifiers: Vec<Digest>,
-        output_notes: OutputNotes<OutputNote>,
+        output_notes: OutputNotes,
         transaction_script: Option<TransactionScript>,
         block_num: u32,
         transaction_status: TransactionStatus,
@@ -159,7 +160,7 @@ impl std::fmt::Display for TransactionStatus {
     }
 }
 
-impl<N: NodeRpcClient, R: ClientRng, S: Store> Client<N, R, S> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
@@ -195,15 +196,14 @@ impl<N: NodeRpcClient, R: ClientRng, S: Store> Client<N, R, S> {
                 };
                 Ok(TransactionRequest::new(account_id, notes, vec![], Some(tx_script)))
             },
-            TransactionTemplate::MintFungibleAsset(asset, target_account_id) => {
-                self.build_mint_tx_request(asset, account_auth, target_account_id)
+            TransactionTemplate::MintFungibleAsset(asset, target_account_id, note_type) => {
+                self.build_mint_tx_request(asset, account_auth, target_account_id, note_type)
             },
-            TransactionTemplate::PayToId(payment_data) => {
-                self.build_p2id_tx_request(account_auth, payment_data, None)
+            TransactionTemplate::PayToId(payment_data, note_type) => {
+                self.build_p2id_tx_request(account_auth, payment_data, None, note_type)
             },
-            TransactionTemplate::PayToIdWithRecall(payment_data, recall_height) => {
-                self.build_p2id_tx_request(account_auth, payment_data, Some(recall_height))
-            },
+            TransactionTemplate::PayToIdWithRecall(payment_data, recall_height, note_type) => self
+                .build_p2id_tx_request(account_auth, payment_data, Some(recall_height), note_type),
         }
     }
 
@@ -212,8 +212,8 @@ impl<N: NodeRpcClient, R: ClientRng, S: Store> Client<N, R, S> {
     ///
     /// # Errors
     ///
-    /// - Returns [ClientError::OutputNotesDoNotMatch] if the [TransactionRequest] ouput notes do
-    /// not match the executor's output notes
+    /// - Returns [ClientError::MissingOutputNotes] if the [TransactionRequest] ouput notes are
+    ///   not a subset of executor's output notes
     /// - Returns a [ClientError::TransactionExecutionError]
     pub fn new_transaction(
         &mut self,
@@ -235,7 +235,7 @@ impl<N: NodeRpcClient, R: ClientRng, S: Store> Client<N, R, S> {
             account_id,
             block_num,
             &note_ids,
-            Some(transaction_request.into()),
+            transaction_request.into(),
         )?;
 
         // Check that the expected output notes is a subset of the transaction's output notes
@@ -256,11 +256,12 @@ impl<N: NodeRpcClient, R: ClientRng, S: Store> Client<N, R, S> {
 
     /// Proves the specified transaction witness, submits it to the node, and stores the transaction in
     /// the local database for tracking.
-    pub async fn send_transaction(
+    pub async fn submit_transaction(
         &mut self,
         tx_result: TransactionResult,
     ) -> Result<(), ClientError> {
         let transaction_prover = TransactionProver::new(ProvingOptions::default());
+
         let proven_transaction =
             transaction_prover.prove_transaction(tx_result.executed_transaction().clone())?;
 
@@ -332,6 +333,7 @@ impl<N: NodeRpcClient, R: ClientRng, S: Store> Client<N, R, S> {
         auth_info: AuthInfo,
         payment_data: PaymentTransactionData,
         recall_height: Option<u32>,
+        note_type: NoteType,
     ) -> Result<TransactionRequest, ClientError> {
         let random_coin = self.get_random_coin();
 
@@ -340,6 +342,7 @@ impl<N: NodeRpcClient, R: ClientRng, S: Store> Client<N, R, S> {
                 payment_data.account_id(),
                 payment_data.target_account_id(),
                 vec![payment_data.asset()],
+                note_type,
                 recall_height,
                 random_coin,
             )?
@@ -348,24 +351,25 @@ impl<N: NodeRpcClient, R: ClientRng, S: Store> Client<N, R, S> {
                 payment_data.account_id(),
                 payment_data.target_account_id(),
                 vec![payment_data.asset()],
+                note_type,
                 random_coin,
             )?
         };
 
         let recipient = created_note
-            .recipient()
+            .recipient_digest()
             .iter()
             .map(|x| x.as_int().to_string())
             .collect::<Vec<_>>()
             .join(".");
 
+        let note_tag = created_note.metadata().tag().inner();
+
         let tx_script = ProgramAst::parse(
             &transaction_request::AUTH_SEND_ASSET_SCRIPT
                 .replace("{recipient}", &recipient)
-                .replace(
-                    "{tag}",
-                    &Felt::new(Into::<u64>::into(payment_data.target_account_id())).to_string(),
-                )
+                .replace("{note_type}", &Felt::new(note_type as u64).to_string())
+                .replace("{tag}", &Felt::new(note_tag.into()).to_string())
                 .replace("{asset}", &prepare_word(&payment_data.asset().into()).to_string()),
         )
         .expect("shipped MASM is well-formed");
@@ -391,26 +395,31 @@ impl<N: NodeRpcClient, R: ClientRng, S: Store> Client<N, R, S> {
         asset: FungibleAsset,
         faucet_auth_info: AuthInfo,
         target_account_id: AccountId,
+        note_type: NoteType,
     ) -> Result<TransactionRequest, ClientError> {
         let random_coin = self.get_random_coin();
         let created_note = create_p2id_note(
             asset.faucet_id(),
             target_account_id,
             vec![asset.into()],
+            note_type,
             random_coin,
         )?;
 
         let recipient = created_note
-            .recipient()
+            .recipient_digest()
             .iter()
             .map(|x| x.as_int().to_string())
             .collect::<Vec<_>>()
             .join(".");
 
+        let note_tag = created_note.metadata().tag().inner();
+
         let tx_script = ProgramAst::parse(
             &transaction_request::DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT
                 .replace("{recipient}", &recipient)
-                .replace("{tag}", &Felt::new(Into::<u64>::into(target_account_id)).to_string())
+                .replace("{note_type}", &Felt::new(note_type as u64).to_string())
+                .replace("{tag}", &Felt::new(note_tag.into()).to_string())
                 .replace("{amount}", &Felt::new(asset.amount()).to_string()),
         )
         .expect("shipped MASM is well-formed");

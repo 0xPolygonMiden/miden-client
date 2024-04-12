@@ -1,16 +1,17 @@
+use alloc::collections::BTreeMap;
+
 use miden_objects::{
-    accounts::{Account, AccountId},
+    accounts::AccountId,
     assembly::{AstSerdeOptions, ProgramAst},
     crypto::utils::{Deserializable, Serializable},
-    transaction::{OutputNote, OutputNotes, ToNullifier, TransactionId, TransactionScript},
-    utils::collections::BTreeMap,
+    transaction::{OutputNotes, ToNullifier, TransactionId, TransactionScript},
     Digest, Felt,
 };
 use rusqlite::{params, Transaction};
 use tracing::info;
 
 use super::{
-    accounts::{insert_account_asset_vault, insert_account_record, insert_account_storage},
+    accounts::update_account,
     notes::{insert_input_note_tx, insert_output_note_tx},
     SqliteStore,
 };
@@ -106,7 +107,7 @@ impl SqliteStore {
         insert_proven_transaction_data(&tx, tx_result)?;
 
         // Account Data
-        update_account(&tx, account)?;
+        update_account(&tx, &account)?;
 
         // Updates for notes
 
@@ -145,20 +146,6 @@ impl SqliteStore {
 
         Ok(rows)
     }
-}
-
-/// Update previously-existing account after a transaction execution
-///
-/// Because the Client retrieves the account by account ID before applying the delta, we don't
-/// need to check that it exists here. This inserts a new row into the accounts table.
-/// We can later identify the proper account state by looking at the nonce.
-fn update_account(
-    tx: &Transaction<'_>,
-    new_account_state: Account,
-) -> Result<(), StoreError> {
-    insert_account_storage(tx, new_account_state.storage())?;
-    insert_account_asset_vault(tx, new_account_state.vault())?;
-    insert_account_record(tx, &new_account_state, None)
 }
 
 pub(super) fn insert_proven_transaction_data(
@@ -314,7 +301,7 @@ fn parse_transaction(
     let input_note_nullifiers: Vec<Digest> =
         serde_json::from_str(&input_notes).map_err(StoreError::JsonDataDeserializationError)?;
 
-    let output_notes: OutputNotes<OutputNote> = OutputNotes::read_from_bytes(&output_notes)?;
+    let output_notes = OutputNotes::read_from_bytes(&output_notes)?;
 
     let transaction_script: Option<TransactionScript> = if script_hash.is_some() {
         let script_hash = script_hash

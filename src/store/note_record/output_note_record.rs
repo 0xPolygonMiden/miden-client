@@ -1,6 +1,5 @@
 use miden_objects::{
     notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteMetadata},
-    utils::Serializable,
     Digest,
 };
 
@@ -9,7 +8,7 @@ use super::{NoteRecordDetails, NoteStatus};
 // OUTPUT NOTE RECORD
 // ================================================================================================
 
-/// Represents a Note which was the result of executing some transaction of which the [Store] can
+/// Represents a Note which was the result of executing some transaction of which the Store can
 /// keep track and retrieve.
 ///
 /// An [OutputNoteRecord] contains all the information of a [Note] while it allows for not knowing
@@ -83,7 +82,7 @@ impl From<Note> for OutputNoteRecord {
     fn from(note: Note) -> Self {
         OutputNoteRecord {
             id: note.id(),
-            recipient: note.recipient(),
+            recipient: note.recipient_digest(),
             assets: note.assets().clone(),
             status: NoteStatus::Pending,
             metadata: *note.metadata(),
@@ -91,7 +90,7 @@ impl From<Note> for OutputNoteRecord {
             details: Some(NoteRecordDetails::new(
                 note.nullifier().to_string(),
                 note.script().clone(),
-                note.inputs().to_bytes(),
+                note.inputs().to_vec(),
                 note.serial_num(),
             )),
         }

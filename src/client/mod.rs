@@ -21,24 +21,6 @@ pub(crate) use note_screener::NoteScreener;
 
 use crate::store::data_store::ClientDataStore;
 
-// CLIENT RNG
-// ================================================================================================
-pub trait ClientRng: FeltRng {
-    fn get_random_seed(&mut self) -> [u8; 32] {
-        let mut seed = [0; 32];
-        let word = self.draw_word();
-
-        seed[0..8].copy_from_slice(&word[0].inner().to_le_bytes());
-        seed[8..16].copy_from_slice(&word[1].inner().to_le_bytes());
-        seed[16..24].copy_from_slice(&word[2].inner().to_le_bytes());
-        seed[24..32].copy_from_slice(&word[3].inner().to_le_bytes());
-
-        seed
-    }
-}
-
-impl<T: FeltRng> ClientRng for T {}
-
 // MIDEN CLIENT
 // ================================================================================================
 
@@ -50,10 +32,10 @@ impl<T: FeltRng> ClientRng for T {}
 /// - Connects to one or more Miden nodes to periodically sync with the current state of the
 ///   network.
 /// - Executes, proves, and submits transactions to the network as directed by the user.
-pub struct Client<N: NodeRpcClient, R: ClientRng, S: Store> {
+pub struct Client<N: NodeRpcClient, R: FeltRng, S: Store> {
     /// The client's store, which provides a way to write and read entities to provide persistence.
     store: S,
-    /// An instance of [ClientRng] which provides randomness tools for generating new keys,
+    /// An instance of [FeltRng] which provides randomness tools for generating new keys,
     /// serial numbers, etc.
     rng: R,
     /// An instance of [NodeRpcClient] which provides a way for the client to connect to the
@@ -62,7 +44,7 @@ pub struct Client<N: NodeRpcClient, R: ClientRng, S: Store> {
     tx_executor: TransactionExecutor<ClientDataStore<S>>,
 }
 
-impl<N: NodeRpcClient, R: ClientRng, S: Store> Client<N, R, S> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
 

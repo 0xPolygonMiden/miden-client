@@ -1,11 +1,9 @@
 use core::fmt;
 
-use miden_node_proto::errors::ParseError;
+use miden_node_proto::errors::ConversionError;
 use miden_objects::{
-    accounts::AccountId,
-    crypto::{dsa::rpo_falcon512::FalconError, merkle::MmrError},
-    notes::NoteId,
-    AccountError, AssetError, AssetVaultError, Digest, NoteError, TransactionScriptError,
+    accounts::AccountId, crypto::merkle::MmrError, notes::NoteId, AccountError, AssetError,
+    AssetVaultError, Digest, NoteError, TransactionScriptError,
 };
 use miden_tx::{
     utils::{DeserializationError, HexParseError},
@@ -19,7 +17,8 @@ use miden_tx::{
 pub enum ClientError {
     AccountError(AccountError),
     AssetError(AssetError),
-    AuthError(FalconError),
+    DataDeserializationError(DeserializationError),
+    HexParseError(HexParseError),
     ImportNewAccountWithoutSeed,
     MissingOutputNotes(Vec<NoteId>),
     NoteError(NoteError),
@@ -38,8 +37,11 @@ impl fmt::Display for ClientError {
     ) -> fmt::Result {
         match self {
             ClientError::AccountError(err) => write!(f, "account error: {err}"),
+            ClientError::DataDeserializationError(err) => {
+                write!(f, "data deserialization error: {err}")
+            },
             ClientError::AssetError(err) => write!(f, "asset error: {err}"),
-            ClientError::AuthError(err) => write!(f, "account auth error: {err}"),
+            ClientError::HexParseError(err) => write!(f, "error turning array to Digest: {err}"),
             ClientError::ImportNewAccountWithoutSeed => write!(
                 f,
                 "import account error: can't import a new account without its initial seed"
@@ -77,9 +79,15 @@ impl From<AccountError> for ClientError {
     }
 }
 
-impl From<FalconError> for ClientError {
-    fn from(err: FalconError) -> Self {
-        Self::AuthError(err)
+impl From<DeserializationError> for ClientError {
+    fn from(err: DeserializationError) -> Self {
+        Self::DataDeserializationError(err)
+    }
+}
+
+impl From<HexParseError> for ClientError {
+    fn from(err: HexParseError) -> Self {
+        Self::HexParseError(err)
     }
 }
 
@@ -158,7 +166,7 @@ pub enum StoreError {
     NoteTagAlreadyTracked(u64),
     ParsingError(String),
     QueryError(String),
-    RpcTypeConversionFailure(ParseError),
+    RpcTypeConversionFailure(ConversionError),
     TransactionScriptError(TransactionScriptError),
     VaultDataNotFound(Digest),
 }
@@ -205,12 +213,6 @@ impl From<rusqlite::Error> for StoreError {
 impl From<DeserializationError> for StoreError {
     fn from(value: DeserializationError) -> Self {
         StoreError::DataDeserializationError(value)
-    }
-}
-
-impl From<ParseError> for StoreError {
-    fn from(value: ParseError) -> Self {
-        StoreError::RpcTypeConversionFailure(value)
     }
 }
 
@@ -327,6 +329,7 @@ pub enum NodeRpcClientError {
     DeserializationError(DeserializationError),
     ExpectedFieldMissing(String),
     InvalidAccountReceived(String),
+    NoteError(NoteError),
     RequestError(String, String),
 }
 
@@ -346,10 +349,13 @@ impl fmt::Display for NodeRpcClientError {
                 write!(f, "failed to deserialize RPC data: {err}")
             },
             NodeRpcClientError::ExpectedFieldMissing(err) => {
-                write!(f, "rpc API reponse missing an expected field: {err}")
+                write!(f, "rpc API response missing an expected field: {err}")
             },
             NodeRpcClientError::InvalidAccountReceived(account_error) => {
-                write!(f, "rpc API reponse contained an invalid account: {account_error}")
+                write!(f, "rpc API response contained an invalid account: {account_error}")
+            },
+            NodeRpcClientError::NoteError(err) => {
+                write!(f, "rpc API note failed to validate: {err}")
             },
             NodeRpcClientError::RequestError(endpoint, err) => {
                 write!(f, "rpc request failed for {endpoint}: {err}")
@@ -370,8 +376,14 @@ impl From<DeserializationError> for NodeRpcClientError {
     }
 }
 
-impl From<ParseError> for NodeRpcClientError {
-    fn from(err: ParseError) -> Self {
+impl From<NoteError> for NodeRpcClientError {
+    fn from(err: NoteError) -> Self {
+        Self::NoteError(err)
+    }
+}
+
+impl From<ConversionError> for NodeRpcClientError {
+    fn from(err: ConversionError) -> Self {
         Self::ConversionFailure(err.to_string())
     }
 }

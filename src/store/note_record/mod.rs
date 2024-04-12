@@ -2,7 +2,7 @@ use miden_objects::{
     assembly::{Assembler, ProgramAst},
     notes::NoteScript,
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
-    Digest, Word,
+    Digest, Felt, Word,
 };
 use serde::{Deserialize, Serialize};
 
@@ -98,13 +98,14 @@ fn default_script() -> NoteScript {
     note_script
 }
 
+// NOTE: NoteInputs does not impl Serialize which is why we use Vec<Felt> here
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct NoteRecordDetails {
     nullifier: String,
     script_hash: Digest,
     #[serde(skip_serializing, skip_deserializing, default = "default_script")]
     script: NoteScript,
-    inputs: Vec<u8>,
+    inputs: Vec<Felt>,
     serial_num: Word,
 }
 
@@ -112,7 +113,7 @@ impl NoteRecordDetails {
     pub fn new(
         nullifier: String,
         script: NoteScript,
-        inputs: Vec<u8>,
+        inputs: Vec<Felt>,
         serial_num: Word,
     ) -> Self {
         let script_hash = script.hash();
@@ -137,7 +138,7 @@ impl NoteRecordDetails {
         &self.script
     }
 
-    pub fn inputs(&self) -> &Vec<u8> {
+    pub fn inputs(&self) -> &Vec<Felt> {
         &self.inputs
     }
 
@@ -157,8 +158,8 @@ impl Serializable for NoteRecordDetails {
 
         self.script().write_into(target);
 
-        target.write_usize(self.inputs().len());
-        target.write_bytes(self.inputs());
+        target.write_usize(self.inputs.len());
+        target.write_many(self.inputs());
 
         self.serial_num().write_into(target);
     }
@@ -173,8 +174,8 @@ impl Deserializable for NoteRecordDetails {
 
         let script = NoteScript::read_from(source)?;
 
-        let inputs_len = usize::read_from(source)?;
-        let inputs = source.read_vec(inputs_len)?;
+        let inputs_len = source.read_usize()?;
+        let inputs = source.read_many::<Felt>(inputs_len)?;
 
         let serial_num = Word::read_from(source)?;
 

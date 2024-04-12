@@ -2,10 +2,10 @@
 // ================================================================================================
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{AccountId, AccountStub},
+    accounts::{AccountId, AccountStub, ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN},
     assembly::{AstSerdeOptions, ModuleAst},
     assets::{FungibleAsset, TokenSymbol},
-    crypto::dsa::rpo_falcon512::KeyPair,
+    crypto::dsa::rpo_falcon512::SecretKey,
     Word,
 };
 
@@ -145,12 +145,10 @@ async fn insert_same_account_twice_fails() {
         None,
     );
 
-    let key_pair: KeyPair = KeyPair::new()
-        .map_err(|err| format!("Error generating KeyPair: {}", err))
-        .unwrap();
+    let key_pair = SecretKey::new();
 
     assert!(client
-        .insert_account(&account, Some(Word::default()), &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&account, Some(Word::default()), &AuthInfo::RpoFalcon512(key_pair.clone()))
         .is_ok());
     assert!(client
         .insert_account(&account, Some(Word::default()), &AuthInfo::RpoFalcon512(key_pair))
@@ -162,9 +160,7 @@ async fn test_account_code() {
     // generate test client with a random store name
     let mut client = create_test_client();
 
-    let key_pair: KeyPair = KeyPair::new()
-        .map_err(|err| format!("Error generating KeyPair: {}", err))
-        .unwrap();
+    let key_pair = SecretKey::new();
 
     let account = get_account_with_default_account_code(
         AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap(),
@@ -206,9 +202,7 @@ async fn test_get_account_by_id() {
         None,
     );
 
-    let key_pair: KeyPair = KeyPair::new()
-        .map_err(|err| format!("Error generating KeyPair: {}", err))
-        .unwrap();
+    let key_pair = SecretKey::new();
 
     client
         .insert_account(&account, Some(Word::default()), &AuthInfo::RpoFalcon512(key_pair))
@@ -342,21 +336,19 @@ async fn test_add_tag() {
 
 #[tokio::test]
 async fn test_mint_transaction() {
-    const FAUCET_ID: u64 = 10347894387879516201u64;
+    const FAUCET_ID: u64 = ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN;
     const INITIAL_BALANCE: u64 = 1000;
 
     // generate test client with a random store name
     let mut client = create_test_client();
 
     // Faucet account generation
-    let key_pair: KeyPair = KeyPair::new()
-        .map_err(|err| format!("Error generating KeyPair: {}", err))
-        .unwrap();
+    let key_pair = SecretKey::new();
 
     let faucet = mock_fungible_faucet_account(
         AccountId::try_from(FAUCET_ID).unwrap(),
         INITIAL_BALANCE,
-        key_pair,
+        key_pair.clone(),
     );
 
     client
@@ -370,6 +362,7 @@ async fn test_mint_transaction() {
     let transaction_template = TransactionTemplate::MintFungibleAsset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::from_hex("0x168187d729b31a84").unwrap(),
+        miden_objects::notes::NoteType::OffChain,
     );
 
     let transaction_request = client.build_transaction_request(transaction_template).unwrap();
