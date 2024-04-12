@@ -18,6 +18,7 @@ pub enum ClientError {
     AccountError(AccountError),
     AssetError(AssetError),
     DataDeserializationError(DeserializationError),
+    HexParseError(HexParseError),
     ImportNewAccountWithoutSeed,
     MissingOutputNotes(Vec<NoteId>),
     NoteError(NoteError),
@@ -40,6 +41,7 @@ impl fmt::Display for ClientError {
                 write!(f, "data deserialization error: {err}")
             },
             ClientError::AssetError(err) => write!(f, "asset error: {err}"),
+            ClientError::HexParseError(err) => write!(f, "error turning array to Digest: {err}"),
             ClientError::ImportNewAccountWithoutSeed => write!(
                 f,
                 "import account error: can't import a new account without its initial seed"
@@ -80,6 +82,12 @@ impl From<AccountError> for ClientError {
 impl From<DeserializationError> for ClientError {
     fn from(err: DeserializationError) -> Self {
         Self::DataDeserializationError(err)
+    }
+}
+
+impl From<HexParseError> for ClientError {
+    fn from(err: HexParseError) -> Self {
+        Self::HexParseError(err)
     }
 }
 

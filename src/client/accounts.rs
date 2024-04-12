@@ -88,12 +88,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         match account_data.auth {
             AuthData::RpoFalcon512Seed(key_pair_seed) => {
                 // NOTE: The seed should probably come from a different format from miden-base's AccountData
-                let key_pair_seed: [u8; 32] =
-                    key_pair_seed[..32].try_into().expect("Failed to convert");
-                // TODO: Remove unwrap
-                let mut rng = RpoRandomCoin::new(Digest::try_from(&key_pair_seed).unwrap().into());
+                let seed = Digest::try_from(&key_pair_seed)?.into();
+                let mut rng = RpoRandomCoin::new(seed);
 
-                let keypair = SecretKey::with_rng(&mut rng);
+                let key_pair = SecretKey::with_rng(&mut rng);
 
                 let account_seed = if !account_data.account.is_new()
                     && account_data.account_seed.is_some()
@@ -112,7 +110,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
                 self.insert_account(
                     &account_data.account,
                     account_seed,
-                    &AuthInfo::RpoFalcon512(keypair),
+                    &AuthInfo::RpoFalcon512(key_pair),
                 )
             },
         }
@@ -124,8 +122,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         mutable_code: bool,
         account_storage_mode: AccountStorageMode,
     ) -> Result<(Account, Word), ClientError> {
-        // TODO: This should be initialized with_rng
-        let key_pair = SecretKey::new();
+        let key_pair = SecretKey::with_rng(&mut self.rng);
 
         let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
             pub_key: key_pair.public_key(),
@@ -162,8 +159,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         max_supply: u64,
         account_storage_mode: AccountStorageMode,
     ) -> Result<(Account, Word), ClientError> {
-        // TODO: This should be initialized with_rng
-        let key_pair = SecretKey::new();
+        let key_pair = SecretKey::with_rng(&mut self.rng);
 
         let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
             pub_key: key_pair.public_key(),
