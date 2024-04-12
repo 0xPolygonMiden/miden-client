@@ -94,7 +94,7 @@ Running this command will update local data up to the chain tip. This is needed 
 Since we have now synced our local view of the blockchain and have account information, we are ready to execute and submit tranasctions. For a first test, we are going to mint a fungible asset for a regular account.
 
 ```bash
-miden-client tx new mint <regular-account-ID-A> <faucet-account-id> 1000
+miden-client tx new mint <regular-account-ID-A> <faucet-account-id> 1000 --note-type private
 ```
 
 This will execute, prove and submit a transaction that mints assets to the node. The account that executes this transaction will be the faucet as was defined in the node's configuration file. In this case, it is minting `1000` fungible tokens to `<regular-account-ID-A>`. 
@@ -106,7 +106,7 @@ This will add a transaction and an output note (containing the minted asset) to 
 After creating the note with the minted asset, the regular account can now consume it and add the tokens to its vault. You can do this the following way:
 
 ```bash
-miden-client tx new consume-notes <regular-account-ID-A> <input-note-ID>
+miden-client tx new consume-notes <regular-account-ID-A> <input-note-ID> 
 ```
 
 This will consume the input note identified by its ID, which you can get by listing them as explained in the previous step. Note that you can consume more than one note in a single transaction. Additionally, it's possible to provide just a prefix of a note's ID. For example, instead of `miden-client tx new consume-notes <regular-account-ID-A> 0x70b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0` you can do `miden-client tx new consume-notes <regular-account-ID-A> 0x70b7ec`. 
@@ -123,7 +123,7 @@ Some of the tokens we minted can now be transferred to our second regular accoun
 
 ```bash
 miden-client sync # Make sure we have an updated view of the state
-miden-client tx new p2id <regular-account-ID-A> <regular-account-ID-B> <faucet-account-ID> 50 # Transfers 50 tokens to account ID B
+miden-client tx new p2id <regular-account-ID-A> <regular-account-ID-B> <faucet-account-ID> 50 --note-type private # Transfers 50 tokens to account ID B
 ```
 
 This will generate a pay-to-ID (`P2ID`) note containing 50 assets, transferred from one regular account to the other. If we sync, we can now make use of the note and consume it for the receiving account:

@@ -63,12 +63,12 @@ pub enum AccountTemplate {
     /// Creates a basic account (Regular account with immutable code)
     BasicImmutable {
         #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
-        storage_mode: AccountStorageMode,
+        storage_type: AccountStorageMode,
     },
     /// Creates a basic account (Regular account with mutable code)
     BasicMutable {
         #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
-        storage_mode: AccountStorageMode,
+        storage_type: AccountStorageMode,
     },
     /// Creates a faucet for fungible tokens
     FungibleFaucet {
@@ -79,16 +79,15 @@ pub enum AccountTemplate {
         #[clap(short, long)]
         max_supply: u64,
         #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
-        storage_mode: AccountStorageMode,
+        storage_type: AccountStorageMode,
     },
     /// Creates a faucet for non-fungible tokens
     NonFungibleFaucet {
         #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
-        storage_mode: AccountStorageMode,
+        storage_type: AccountStorageMode,
     },
 }
 
-// TODO: Review this enum and variant names to have a consistent naming across all crates
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum AccountStorageMode {
     OffChain,
@@ -121,23 +120,23 @@ impl AccountCmd {
             },
             AccountCmd::New { template } => {
                 let client_template = match template {
-                    AccountTemplate::BasicImmutable { storage_mode } => {
-                        accounts::AccountTemplate::BasicWallet {
-                            mutable_code: false,
-                            storage_mode: storage_mode.into(),
-                        }
+                    AccountTemplate::BasicImmutable {
+                        storage_type: storage_mode,
+                    } => accounts::AccountTemplate::BasicWallet {
+                        mutable_code: false,
+                        storage_mode: storage_mode.into(),
                     },
-                    AccountTemplate::BasicMutable { storage_mode } => {
-                        accounts::AccountTemplate::BasicWallet {
-                            mutable_code: true,
-                            storage_mode: storage_mode.into(),
-                        }
+                    AccountTemplate::BasicMutable {
+                        storage_type: storage_mode,
+                    } => accounts::AccountTemplate::BasicWallet {
+                        mutable_code: true,
+                        storage_mode: storage_mode.into(),
                     },
                     AccountTemplate::FungibleFaucet {
                         token_symbol,
                         decimals,
                         max_supply,
-                        storage_mode,
+                        storage_type: storage_mode,
                     } => accounts::AccountTemplate::FungibleFaucet {
                         token_symbol: TokenSymbol::new(token_symbol)
                             .map_err(|err| format!("error: token symbol is invalid: {}", err))?,
@@ -145,7 +144,7 @@ impl AccountCmd {
                         max_supply: *max_supply,
                         storage_mode: storage_mode.into(),
                     },
-                    AccountTemplate::NonFungibleFaucet { storage_mode: _ } => todo!(),
+                    AccountTemplate::NonFungibleFaucet { storage_type: _ } => todo!(),
                 };
                 let (_new_account, _account_seed) = client.new_account(client_template)?;
             },
@@ -186,6 +185,7 @@ fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store>(
         "Vault Root",
         "Storage Root",
         "Type",
+        "Storage mode",
         "Nonce",
     ]);
     accounts.iter().for_each(|(acc, _acc_seed)| {
@@ -195,6 +195,7 @@ fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store>(
             acc.vault_root().to_string(),
             acc.storage_root().to_string(),
             account_type_display_name(&acc.id().account_type()),
+            storage_type_display_name(&acc.id()),
             acc.nonce().as_int().to_string(),
         ]);
     });
@@ -217,6 +218,7 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store>(
         "Account ID",
         "Account Hash",
         "Type",
+        "Storage mode",
         "Code Root",
         "Vault Root",
         "Storage Root",
@@ -226,6 +228,7 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store>(
         account.id().to_string(),
         account.hash().to_string(),
         account_type_display_name(&account.account_type()),
+        storage_type_display_name(&account_id),
         account.code().root().to_string(),
         account.vault().asset_tree().root().to_string(),
         account.nonce().to_string(),
@@ -391,6 +394,14 @@ fn account_type_display_name(account_type: &AccountType) -> String {
         AccountType::NonFungibleFaucet => "Non-fungible faucet",
         AccountType::RegularAccountImmutableCode => "Regular",
         AccountType::RegularAccountUpdatableCode => "Regular (updatable)",
+    }
+    .to_string()
+}
+
+fn storage_type_display_name(account: &AccountId) -> String {
+    match account.is_on_chain() {
+        true => "On-chain",
+        false => "Off-chain",
     }
     .to_string()
 }
