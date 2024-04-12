@@ -64,7 +64,8 @@ impl Cli {
         let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
         current_dir.push(CLIENT_CONFIG_FILE_NAME);
 
-        // Check if it's an init command
+        // Check if it's an init command before anything else. When we run the init command for the first time we won't
+        // have a config file and thus creating the store would not be possible.
         if matches!(&self.action, Command::Init) {
             init::initialize_client(current_dir.clone())?;
             return Ok(());
