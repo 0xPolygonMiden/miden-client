@@ -50,9 +50,9 @@ impl Provider for ClientConfig {
 
 #[derive(Clone, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 pub struct Endpoint {
-    pub protocol: String,
-    pub host: String,
-    pub port: u16,
+    protocol: String,
+    host: String,
+    port: u16,
 }
 
 impl Endpoint {
@@ -67,6 +67,20 @@ impl Endpoint {
             host,
             port,
         }
+    }
+}
+
+impl Endpoint {
+    pub fn protocol(&self) -> &str {
+        &self.protocol
+    }
+
+    pub fn host(&self) -> &str {
+        &self.host
+    }
+
+    pub fn port(&self) -> u16 {
+        self.port
     }
 }
 
