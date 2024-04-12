@@ -265,7 +265,7 @@ where
 
         let inputs = NoteInputs::new(input_note_record.details().inputs().clone())
             .map_err(ClientError::NoteError)?;
-        
+
         table.add_row(vec![
             input_note_record.id().inner().to_string(),
             script.hash().to_string(),
@@ -284,15 +284,14 @@ where
 
 fn note_record_type(note_record: &InputNoteRecord) -> String {
     match note_record.metadata() {
-        Some(metadata) => {
-            match metadata.note_type() {
-                miden_objects::notes::NoteType::OffChain => "OffChain",
-                miden_objects::notes::NoteType::Encrypted => "Encrypted",
-                miden_objects::notes::NoteType::Public => "Public",
-            }
+        Some(metadata) => match metadata.note_type() {
+            miden_objects::notes::NoteType::OffChain => "OffChain",
+            miden_objects::notes::NoteType::Encrypted => "Encrypted",
+            miden_objects::notes::NoteType::Public => "Public",
         },
-        None => {"-"},
-    }.to_string()
+        None => "-",
+    }
+    .to_string()
 }
 
 // TESTS

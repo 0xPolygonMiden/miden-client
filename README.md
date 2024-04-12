@@ -146,9 +146,6 @@ miden-client account show <regular-account-ID-B> -v # Show account B's vault ass
 miden-client account show <regular-account-ID-A> -v # Show account A's vault assets (950 fungible tokens)
 ```
 
-## Example: Transferring assets through public notes
-
-
 ### Clearing the state
 
 All state is maintained in `store.sqlite3`, located in the same directory where the client binary is. In case it needs to be cleared, the file can be deleted; it will later be created again when any command is executed.

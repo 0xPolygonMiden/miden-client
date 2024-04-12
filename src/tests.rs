@@ -2,7 +2,11 @@
 // ================================================================================================
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{AccountId, AccountStub, ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN}, assembly::{AstSerdeOptions, ModuleAst}, assets::{FungibleAsset, TokenSymbol}, crypto::dsa::rpo_falcon512::SecretKey, notes::Note, Word
+    accounts::{AccountId, AccountStub, ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN},
+    assembly::{AstSerdeOptions, ModuleAst},
+    assets::{FungibleAsset, TokenSymbol},
+    crypto::dsa::rpo_falcon512::SecretKey,
+    Word,
 };
 
 use crate::{
