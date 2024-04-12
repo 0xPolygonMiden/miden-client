@@ -1,13 +1,18 @@
 use miden_objects::{
+    accounts::Account,
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::{NoteId, NoteInclusionProof},
+    notes::NoteInclusionProof,
     transaction::TransactionId,
     BlockHeader, Digest,
 };
 use rusqlite::{named_params, params};
 
 use super::SqliteStore;
-use crate::errors::StoreError;
+use crate::{
+    client::sync::SyncedNewNotes,
+    errors::StoreError,
+    store::sqlite_store::{accounts::update_account, notes::insert_input_note_tx},
+};
 
 impl SqliteStore {
     pub(crate) fn get_note_tags(&self) -> Result<Vec<u64>, StoreError> {
@@ -61,10 +66,11 @@ impl SqliteStore {
         &mut self,
         block_header: BlockHeader,
         nullifiers: Vec<Digest>,
-        committed_notes: Vec<(NoteId, NoteInclusionProof)>,
+        committed_notes: SyncedNewNotes,
         committed_transactions: &[TransactionId],
         new_mmr_peaks: MmrPeaks,
         new_authentication_nodes: &[(InOrderIndex, Digest)],
+        updated_onchain_accounts: &[Account],
     ) -> Result<(), StoreError> {
         let tx = self.db.transaction()?;
 
@@ -93,7 +99,7 @@ impl SqliteStore {
         Self::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
 
         // Update tracked notes
-        for (note_id, inclusion_proof) in committed_notes.iter() {
+        for (note_id, inclusion_proof) in committed_notes.new_inclusion_proofs().iter() {
             let block_num = inclusion_proof.origin().block_num;
             let sub_hash = inclusion_proof.sub_hash();
             let note_root = inclusion_proof.note_root();
@@ -132,12 +138,22 @@ impl SqliteStore {
             )?;
         }
 
+        // Commit new public notes
+        for note in committed_notes.new_public_notes() {
+            insert_input_note_tx(&tx, &note.clone().into())?;
+        }
+
         // Mark transactions as committed
         Self::mark_transactions_as_committed(
             &tx,
             block_header.block_num(),
             committed_transactions,
         )?;
+
+        // Update onchain accounts on the db that have been updated onchain
+        for account in updated_onchain_accounts {
+            update_account(&tx, account)?;
+        }
 
         // Commit the updates
         tx.commit()?;

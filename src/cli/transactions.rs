@@ -1,3 +1,4 @@
+use clap::ValueEnum;
 use miden_client::{
     client::{
         rpc::NodeRpcClient,
@@ -9,12 +10,30 @@ use miden_client::{
     store::{Store, TransactionFilter},
 };
 use miden_objects::{
-    accounts::AccountId, assets::FungibleAsset, crypto::rand::FeltRng, notes::NoteId,
+    accounts::AccountId,
+    assets::FungibleAsset,
+    crypto::rand::FeltRng,
+    notes::{NoteId, NoteType as MidenNoteType},
 };
 use tracing::info;
 
 use super::{get_note_with_id_prefix, Client, Parser};
 use crate::cli::create_dynamic_table;
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum NoteType {
+    Public,
+    Private,
+}
+
+impl From<&NoteType> for MidenNoteType {
+    fn from(note_type: &NoteType) -> Self {
+        match note_type {
+            NoteType::Public => MidenNoteType::Public,
+            NoteType::Private => MidenNoteType::OffChain,
+        }
+    }
+}
 
 #[derive(Clone, Debug, Parser)]
 #[clap()]
@@ -25,6 +44,8 @@ pub enum TransactionType {
         target_account_id: String,
         faucet_id: String,
         amount: u64,
+        #[clap(short, long, value_enum)]
+        note_type: NoteType,
     },
     /// Mint `amount` tokens from the specified fungible faucet (corresponding to `faucet_id`). The created note can then be then consumed by
     /// `target_account_id`.
@@ -32,6 +53,8 @@ pub enum TransactionType {
         target_account_id: String,
         faucet_id: String,
         amount: u64,
+        #[clap(short, long, value_enum)]
+        note_type: NoteType,
     },
     /// Create a pay-to-id with recall transaction.
     P2IDR {
@@ -40,6 +63,8 @@ pub enum TransactionType {
         faucet_id: String,
         amount: u64,
         recall_height: u32,
+        #[clap(short, long, value_enum)]
+        note_type: NoteType,
     },
     /// Consume with the account corresponding to `account_id` all of the notes from `list_of_notes`.
     ConsumeNotes {
@@ -95,7 +120,7 @@ async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store>(
 
     info!("Executed transaction, proving and then submitting...");
 
-    client.send_transaction(transaction_execution_result).await?;
+    client.submit_transaction(transaction_execution_result).await?;
 
     Ok(())
 }
@@ -114,6 +139,7 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
             target_account_id,
             faucet_id,
             amount,
+            note_type,
         } => {
             let faucet_id = AccountId::from_hex(faucet_id).map_err(|err| err.to_string())?;
             let fungible_asset =
@@ -122,10 +148,11 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
                 AccountId::from_hex(sender_account_id).map_err(|err| err.to_string())?;
             let target_account_id =
                 AccountId::from_hex(target_account_id).map_err(|err| err.to_string())?;
+
             let payment_transaction =
                 PaymentTransactionData::new(fungible_asset, sender_account_id, target_account_id);
 
-            Ok(TransactionTemplate::PayToId(payment_transaction))
+            Ok(TransactionTemplate::PayToId(payment_transaction, note_type.into()))
         },
         TransactionType::P2IDR {
             sender_account_id,
@@ -133,6 +160,7 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
             faucet_id,
             amount,
             recall_height,
+            note_type,
         } => {
             let faucet_id = AccountId::from_hex(faucet_id).map_err(|err| err.to_string())?;
             let fungible_asset =
@@ -141,15 +169,20 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
                 AccountId::from_hex(sender_account_id).map_err(|err| err.to_string())?;
             let target_account_id =
                 AccountId::from_hex(target_account_id).map_err(|err| err.to_string())?;
+
             let payment_transaction =
                 PaymentTransactionData::new(fungible_asset, sender_account_id, target_account_id);
-
-            Ok(TransactionTemplate::PayToIdWithRecall(payment_transaction, *recall_height))
+            Ok(TransactionTemplate::PayToIdWithRecall(
+                payment_transaction,
+                *recall_height,
+                note_type.into(),
+            ))
         },
         TransactionType::Mint {
             faucet_id,
             target_account_id,
             amount,
+            note_type,
         } => {
             let faucet_id = AccountId::from_hex(faucet_id).map_err(|err| err.to_string())?;
             let fungible_asset =
@@ -157,7 +190,11 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
             let target_account_id =
                 AccountId::from_hex(target_account_id).map_err(|err| err.to_string())?;
 
-            Ok(TransactionTemplate::MintFungibleAsset(fungible_asset, target_account_id))
+            Ok(TransactionTemplate::MintFungibleAsset(
+                fungible_asset,
+                target_account_id,
+                note_type.into(),
+            ))
         },
         TransactionType::ConsumeNotes {
             account_id,

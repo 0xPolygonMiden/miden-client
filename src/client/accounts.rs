@@ -1,12 +1,17 @@
 use miden_lib::AuthScheme;
 use miden_objects::{
-    accounts::{Account, AccountData, AccountId, AccountStub, AccountType, AuthData},
+    accounts::{
+        Account, AccountData, AccountId, AccountStorageType, AccountStub, AccountType, AuthData,
+    },
     assets::TokenSymbol,
-    crypto::{dsa::rpo_falcon512::KeyPair, rand::FeltRng},
-    Felt, Word,
+    crypto::{
+        dsa::rpo_falcon512::SecretKey,
+        rand::{FeltRng, RpoRandomCoin},
+    },
+    Digest, Felt, Word,
 };
 
-use super::{rpc::NodeRpcClient, Client, ClientRng};
+use super::{rpc::NodeRpcClient, Client};
 use crate::{
     errors::ClientError,
     store::{AuthInfo, Store},
@@ -25,9 +30,20 @@ pub enum AccountTemplate {
     },
 }
 
+// TODO: Review this enum and variant names to have a consistent naming across all crates
+#[derive(Debug, Clone, Copy)]
 pub enum AccountStorageMode {
     Local,
     OnChain,
+}
+
+impl From<AccountStorageMode> for AccountStorageType {
+    fn from(mode: AccountStorageMode) -> Self {
+        match mode {
+            AccountStorageMode::Local => AccountStorageType::OffChain,
+            AccountStorageMode::OnChain => AccountStorageType::OnChain,
+        }
+    }
 }
 
 impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
@@ -70,8 +86,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         account_data: AccountData,
     ) -> Result<(), ClientError> {
         match account_data.auth {
-            AuthData::RpoFalcon512Seed(key_pair) => {
-                let keypair = KeyPair::from_seed(&key_pair)?;
+            AuthData::RpoFalcon512Seed(key_pair_seed) => {
+                // NOTE: The seed should probably come from a different format from miden-base's AccountData
+                let seed = Digest::try_from(&key_pair_seed)?.into();
+                let mut rng = RpoRandomCoin::new(seed);
+
+                let key_pair = SecretKey::with_rng(&mut rng);
 
                 let account_seed = if !account_data.account.is_new()
                     && account_data.account_seed.is_some()
@@ -90,47 +110,41 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
                 self.insert_account(
                     &account_data.account,
                     account_seed,
-                    &AuthInfo::RpoFalcon512(keypair),
+                    &AuthInfo::RpoFalcon512(key_pair),
                 )
             },
         }
     }
 
     /// Creates a new regular account and saves it in the store along with its seed and auth data
-    ///
-    /// # Panics
-    ///
-    /// If the passed [AccountStorageMode] is [AccountStorageMode::OnChain], this function panics
-    /// since this feature is not currently supported on Miden
     fn new_basic_wallet(
         &mut self,
         mutable_code: bool,
         account_storage_mode: AccountStorageMode,
     ) -> Result<(Account, Word), ClientError> {
-        if let AccountStorageMode::OnChain = account_storage_mode {
-            todo!("Recording the account on chain is not supported yet");
-        }
-
-        let key_pair: KeyPair = KeyPair::new()?;
+        let key_pair = SecretKey::with_rng(&mut self.rng);
 
         let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
             pub_key: key_pair.public_key(),
         };
 
         // we need to use an initial seed to create the wallet account
-        let init_seed: [u8; 32] = self.rng.get_random_seed();
+        let mut init_seed = [0u8; 32];
+        self.rng.fill_bytes(&mut init_seed);
 
         let (account, seed) = if !mutable_code {
             miden_lib::accounts::wallets::create_basic_wallet(
                 init_seed,
                 auth_scheme,
                 AccountType::RegularAccountImmutableCode,
+                account_storage_mode.into(),
             )
         } else {
             miden_lib::accounts::wallets::create_basic_wallet(
                 init_seed,
                 auth_scheme,
                 AccountType::RegularAccountUpdatableCode,
+                account_storage_mode.into(),
             )
         }?;
 
@@ -145,18 +159,15 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         max_supply: u64,
         account_storage_mode: AccountStorageMode,
     ) -> Result<(Account, Word), ClientError> {
-        if let AccountStorageMode::OnChain = account_storage_mode {
-            todo!("On-chain accounts are not supported yet");
-        }
-
-        let key_pair: KeyPair = KeyPair::new()?;
+        let key_pair = SecretKey::with_rng(&mut self.rng);
 
         let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
             pub_key: key_pair.public_key(),
         };
 
         // we need to use an initial seed to create the wallet account
-        let init_seed: [u8; 32] = self.rng.get_random_seed();
+        let mut init_seed = [0u8; 32];
+        self.rng.fill_bytes(&mut init_seed);
 
         let (account, seed) = miden_lib::accounts::faucets::create_basic_fungible_faucet(
             init_seed,
@@ -164,6 +175,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             decimals,
             Felt::try_from(max_supply.to_le_bytes().as_slice())
                 .expect("u64 can be safely converted to a field element"),
+            account_storage_mode.into(),
             auth_scheme,
         )?;
 
@@ -237,7 +249,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 pub mod tests {
     use miden_objects::{
         accounts::{Account, AccountData, AccountId, AuthData},
-        crypto::dsa::rpo_falcon512::KeyPair,
+        crypto::dsa::rpo_falcon512::SecretKey,
         Word,
     };
 
@@ -256,7 +268,7 @@ pub mod tests {
         AccountData::new(
             account.clone(),
             Some(Word::default()),
-            AuthData::RpoFalcon512Seed([0; 40]),
+            AuthData::RpoFalcon512Seed([0; 32]),
         )
     }
 
@@ -282,12 +294,10 @@ pub mod tests {
             None,
         );
 
-        let key_pair: KeyPair = KeyPair::new()
-            .map_err(|err| format!("Error generating KeyPair: {}", err))
-            .unwrap();
+        let key_pair = SecretKey::new();
 
         assert!(client
-            .insert_account(&account, None, &AuthInfo::RpoFalcon512(key_pair))
+            .insert_account(&account, None, &AuthInfo::RpoFalcon512(key_pair.clone()))
             .is_err());
         assert!(client
             .insert_account(&account, Some(Word::default()), &AuthInfo::RpoFalcon512(key_pair))

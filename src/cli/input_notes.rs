@@ -8,6 +8,7 @@ use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     client::rpc::NodeRpcClient,
+    errors::ClientError,
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
 };
 use miden_objects::{
@@ -224,8 +225,8 @@ fn show_input_note<N: NodeRpcClient, R: FeltRng, S: Store>(
     };
 
     if show_inputs {
-        let inputs = NoteInputs::read_from_bytes(input_note_record.details().inputs())
-            .map_err(|err| format!("Failed to parse the note record's inputs: {}", err))?;
+        let inputs = NoteInputs::new(input_note_record.details().inputs().clone())
+            .map_err(ClientError::NoteError)?;
 
         table
             .add_row(vec![
@@ -266,8 +267,8 @@ where
 
         let script = input_note_record.details().script();
 
-        let inputs = NoteInputs::read_from_bytes(input_note_record.details().inputs())
-            .map_err(|err| format!("Failed to parse the note record's inputs: {}", err))?;
+        let inputs = NoteInputs::new(input_note_record.details().inputs().clone())
+            .map_err(ClientError::NoteError)?;
 
         table.add_row(vec![
             input_note_record.id().inner().to_string(),

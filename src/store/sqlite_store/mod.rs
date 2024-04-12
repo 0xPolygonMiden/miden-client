@@ -1,9 +1,10 @@
+use alloc::collections::BTreeMap;
+
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::{NoteId, NoteInclusionProof},
+    notes::NoteId,
     transaction::TransactionId,
-    utils::collections::BTreeMap,
     BlockHeader, Digest, Word,
 };
 use rusqlite::Connection;
@@ -13,7 +14,10 @@ use super::{
     TransactionFilter,
 };
 use crate::{
-    client::transactions::{TransactionRecord, TransactionResult},
+    client::{
+        sync::SyncedNewNotes,
+        transactions::{TransactionRecord, TransactionResult},
+    },
     config::StoreConfig,
     errors::StoreError,
 };
@@ -127,10 +131,11 @@ impl Store for SqliteStore {
         &mut self,
         block_header: BlockHeader,
         nullifiers: Vec<Digest>,
-        committed_notes: Vec<(NoteId, NoteInclusionProof)>,
+        committed_notes: SyncedNewNotes,
         committed_transactions: &[TransactionId],
         new_mmr_peaks: MmrPeaks,
         new_authentication_nodes: &[(InOrderIndex, Digest)],
+        updated_onchain_accounts: &[Account],
     ) -> Result<(), StoreError> {
         self.apply_state_sync(
             block_header,
@@ -139,6 +144,7 @@ impl Store for SqliteStore {
             committed_transactions,
             new_mmr_peaks,
             new_authentication_nodes,
+            updated_onchain_accounts,
         )
     }
 

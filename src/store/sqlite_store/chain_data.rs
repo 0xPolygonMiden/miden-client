@@ -1,9 +1,9 @@
+use alloc::collections::BTreeMap;
 use std::num::NonZeroUsize;
 
 use clap::error::Result;
 use miden_objects::{
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    utils::collections::BTreeMap,
     BlockHeader, Digest,
 };
 use rusqlite::{params, OptionalExtension, Transaction};

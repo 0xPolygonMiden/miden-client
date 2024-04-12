@@ -189,6 +189,20 @@ impl SqliteStore {
 // HELPERS
 // ================================================================================================
 
+/// Update previously-existing account after a transaction execution
+///
+/// Because the Client retrieves the account by account ID before applying the delta, we don't
+/// need to check that it exists here. This inserts a new row into the accounts table.
+/// We can later identify the proper account state by looking at the nonce.
+pub(crate) fn update_account(
+    tx: &Transaction<'_>,
+    new_account_state: &Account,
+) -> Result<(), StoreError> {
+    insert_account_storage(tx, new_account_state.storage())?;
+    insert_account_asset_vault(tx, new_account_state.vault())?;
+    insert_account_record(tx, new_account_state, None)
+}
+
 pub(super) fn insert_account_record(
     tx: &Transaction<'_>,
     account: &Account,
@@ -425,11 +439,13 @@ fn serialize_account_asset_vault(
 #[cfg(test)]
 mod tests {
     use miden_objects::{
-        accounts::AccountCode, assembly::ModuleAst, crypto::dsa::rpo_falcon512::KeyPair,
+        accounts::{AccountCode, AccountId},
+        assembly::ModuleAst,
+        crypto::dsa::rpo_falcon512::SecretKey,
     };
     use miden_tx::utils::{Deserializable, Serializable};
 
-    use super::AuthInfo;
+    use super::{insert_account_auth, AuthInfo};
     use crate::{
         mock::DEFAULT_ACCOUNT_CODE,
         store::sqlite_store::{accounts::insert_account_code, tests::create_test_store},
@@ -461,13 +477,37 @@ mod tests {
 
     #[test]
     fn test_auth_info_serialization() {
-        let exp_key_pair = KeyPair::new().unwrap();
-        let auth_info = AuthInfo::RpoFalcon512(exp_key_pair);
+        let exp_key_pair = SecretKey::new();
+        let auth_info = AuthInfo::RpoFalcon512(exp_key_pair.clone());
         let bytes = auth_info.to_bytes();
         let actual = AuthInfo::read_from_bytes(&bytes).unwrap();
         match actual {
             AuthInfo::RpoFalcon512(act_key_pair) => {
-                assert_eq!(exp_key_pair, act_key_pair)
+                assert_eq!(exp_key_pair.to_bytes(), act_key_pair.to_bytes());
+                assert_eq!(exp_key_pair.public_key(), act_key_pair.public_key());
+            },
+        }
+    }
+
+    #[test]
+    fn test_auth_info_store() {
+        let exp_key_pair = SecretKey::new();
+
+        let mut store = create_test_store();
+
+        let account_id = AccountId::try_from(3238098370154045919u64).unwrap();
+        {
+            let tx = store.db.transaction().unwrap();
+            insert_account_auth(&tx, account_id, &AuthInfo::RpoFalcon512(exp_key_pair.clone()))
+                .unwrap();
+            tx.commit().unwrap();
+        }
+
+        let account_auth = store.get_account_auth(account_id).unwrap();
+        match account_auth {
+            AuthInfo::RpoFalcon512(act_key_pair) => {
+                assert_eq!(exp_key_pair.to_bytes(), act_key_pair.to_bytes());
+                assert_eq!(exp_key_pair.public_key(), act_key_pair.public_key());
             },
         }
     }
