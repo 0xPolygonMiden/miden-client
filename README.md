@@ -130,7 +130,6 @@ This will generate a Pay-to-ID (`P2ID`) note containing 50 assets, transferred f
 
 ```bash
 miden-client sync # Make sure we have an updated view of the state
-miden-client tx new consume-notes <regular-account-ID-B> # Consume the note
 miden-client tx new consume-notes <regular-account-ID-B> <input-note-ID> # Consume the note
 ```
 
