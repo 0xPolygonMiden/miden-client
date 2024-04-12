@@ -272,7 +272,6 @@ async fn test_onchain_notes_flow() {
     execute_tx_and_sync(&mut client_1, tx_request).await;
 
     // Client 2's account should receive the note here:
-    std::thread::sleep(Duration::from_secs(8));
     client_2.sync_state().await.unwrap();
 
     // Assert that the note is the same
@@ -299,7 +298,6 @@ async fn test_onchain_notes_flow() {
     execute_tx_and_sync(&mut client_2, tx_request).await;
 
     // sync client 3 (basic account 2)
-    std::thread::sleep(Duration::from_secs(4));
     client_3.sync_state().await.unwrap();
     // client 3 should only have one note
     let note = client_3
@@ -559,7 +557,6 @@ async fn test_transaction_request() {
     // Execute mint transaction in order to create custom note
     let note = mint_custom_note(&mut client, fungible_faucet.id(), regular_account.id()).await;
 
-    std::thread::sleep(Duration::from_secs(8));
     client.sync_state().await.unwrap();
 
     // Prepare transaction
@@ -837,12 +834,8 @@ async fn test_onchain_accounts() {
 
     // sync on second client until we receive the note
     println!("Syncing on second client...");
-    let mut notes = client_2.get_input_notes(NoteFilter::Committed).unwrap();
-    while notes.is_empty() {
-        std::thread::sleep(std::time::Duration::new(3, 0));
-        client_2.sync_state().await.unwrap();
-        notes = client_2.get_input_notes(NoteFilter::Committed).unwrap();
-    }
+    client_2.sync_state().await.unwrap();
+    let notes = client_2.get_input_notes(NoteFilter::Committed).unwrap();
 
     // Consume the note
     println!("Consuming note con second client...");
