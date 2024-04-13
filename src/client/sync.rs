@@ -39,10 +39,7 @@ impl SyncedNewNotes {
         new_public_notes: Vec<InputNote>,
         new_inclusion_proofs: Vec<(NoteId, NoteInclusionProof)>,
     ) -> Self {
-        Self {
-            new_public_notes,
-            new_inclusion_proofs,
-        }
+        Self { new_public_notes, new_inclusion_proofs }
     }
 
     pub fn new_public_notes(&self) -> &[InputNote] {
@@ -80,10 +77,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     }
 
     /// Adds a note tag for the client to track.
-    pub fn add_note_tag(
-        &mut self,
-        tag: u64,
-    ) -> Result<(), ClientError> {
+    pub fn add_note_tag(&mut self, tag: u64) -> Result<(), ClientError> {
         match self.store.add_note_tag(tag).map_err(|err| err.into()) {
             Ok(true) => Ok(()),
             Ok(false) => {
@@ -306,7 +300,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         let mut return_notes = Vec::with_capacity(query_notes.len());
         for note_data in notes_data {
             match note_data {
-                NoteDetails::OffChain(id, _, _) => {
+                NoteDetails::OffChain(id, ..) => {
                     // TODO: Is there any benefit to not ignoring these? In any case we do not have
                     // the recipient which is mandatory right now.
                     info!("Note {} is private but the client is not tracking it, ignoring.", id);
@@ -356,10 +350,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
     /// Extracts information about nullifiers for unspent input notes that the client is tracking
     /// from the received [SyncStateResponse]
-    fn get_new_nullifiers(
-        &self,
-        new_nullifiers: Vec<Digest>,
-    ) -> Result<Vec<Digest>, ClientError> {
+    fn get_new_nullifiers(&self, new_nullifiers: Vec<Digest>) -> Result<Vec<Digest>, ClientError> {
         // Get current unspent nullifiers
         let nullifiers = self
             .store

@@ -186,9 +186,7 @@ fn create_mock_sync_state_request_for_account_and_notes(
 ) -> BTreeMap<SyncStateRequest, SyncStateResponse> {
     let mut requests: BTreeMap<SyncStateRequest, SyncStateResponse> = BTreeMap::new();
 
-    let accounts = vec![ProtoAccountId {
-        id: u64::from(account_id),
-    }];
+    let accounts = vec![ProtoAccountId { id: u64::from(account_id) }];
 
     let nullifiers: Vec<u32> = consumed_notes
         .iter()
@@ -295,7 +293,7 @@ fn generate_state_sync_mock_requests() -> (
     // create sync state requests
     let assembler = TransactionKernel::assembler();
     let (consumed_notes, created_notes) = mock_notes(&assembler);
-    let (_, input_notes, _, _) = mock_full_chain_mmr_and_notes(consumed_notes);
+    let (_, input_notes, ..) = mock_full_chain_mmr_and_notes(consumed_notes);
 
     let genesis_block = BlockHeader::mock(0, None, None, &[]);
 
@@ -312,7 +310,7 @@ fn generate_state_sync_mock_requests() -> (
 }
 
 pub fn mock_full_chain_mmr_and_notes(
-    consumed_notes: Vec<Note>
+    consumed_notes: Vec<Note>,
 ) -> (Mmr, Vec<InputNote>, Vec<BlockHeader>, Vec<MmrDelta>) {
     let mut note_trees = Vec::new();
 
@@ -443,9 +441,8 @@ pub async fn insert_mock_data(client: &mut MockClient) -> Vec<BlockHeader> {
 
 pub async fn create_mock_transaction(client: &mut MockClient) {
     let key_pair = SecretKey::new();
-    let auth_scheme: miden_lib::AuthScheme = miden_lib::AuthScheme::RpoFalcon512 {
-        pub_key: key_pair.public_key(),
-    };
+    let auth_scheme: miden_lib::AuthScheme =
+        miden_lib::AuthScheme::RpoFalcon512 { pub_key: key_pair.public_key() };
 
     let mut rng = rand::thread_rng();
     // we need to use an initial seed to create the wallet account
@@ -464,9 +461,8 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
         .unwrap();
 
     let key_pair = SecretKey::new();
-    let auth_scheme: miden_lib::AuthScheme = miden_lib::AuthScheme::RpoFalcon512 {
-        pub_key: key_pair.public_key(),
-    };
+    let auth_scheme: miden_lib::AuthScheme =
+        miden_lib::AuthScheme::RpoFalcon512 { pub_key: key_pair.public_key() };
 
     let mut rng = rand::thread_rng();
     // we need to use an initial seed to create the wallet account
@@ -485,9 +481,8 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
         .unwrap();
 
     let key_pair = SecretKey::new();
-    let auth_scheme: miden_lib::AuthScheme = miden_lib::AuthScheme::RpoFalcon512 {
-        pub_key: key_pair.public_key(),
-    };
+    let auth_scheme: miden_lib::AuthScheme =
+        miden_lib::AuthScheme::RpoFalcon512 { pub_key: key_pair.public_key() };
 
     let mut rng = rand::thread_rng();
     // we need to use an initial seed to create the wallet account
@@ -531,9 +526,7 @@ pub fn mock_fungible_faucet_account(
 ) -> Account {
     let mut rng = rand::thread_rng();
     let init_seed: [u8; 32] = rng.gen();
-    let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
-        pub_key: key_pair.public_key(),
-    };
+    let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 { pub_key: key_pair.public_key() };
 
     let (faucet, _seed) = miden_lib::accounts::faucets::create_basic_fungible_faucet(
         init_seed,

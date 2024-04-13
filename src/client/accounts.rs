@@ -56,10 +56,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         template: AccountTemplate,
     ) -> Result<(Account, Word), ClientError> {
         let account_and_seed = match template {
-            AccountTemplate::BasicWallet {
-                mutable_code,
-                storage_mode,
-            } => self.new_basic_wallet(mutable_code, storage_mode),
+            AccountTemplate::BasicWallet { mutable_code, storage_mode } => {
+                self.new_basic_wallet(mutable_code, storage_mode)
+            },
             AccountTemplate::FungibleFaucet {
                 token_symbol,
                 decimals,
@@ -81,10 +80,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     ///
     /// Will panic when trying to import a non-new account without a seed since this functionality
     /// is not currently implemented
-    pub fn import_account(
-        &mut self,
-        account_data: AccountData,
-    ) -> Result<(), ClientError> {
+    pub fn import_account(&mut self, account_data: AccountData) -> Result<(), ClientError> {
         match account_data.auth {
             AuthData::RpoFalcon512Seed(key_pair_seed) => {
                 // NOTE: The seed should probably come from a different format from miden-base's AccountData
@@ -124,9 +120,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     ) -> Result<(Account, Word), ClientError> {
         let key_pair = SecretKey::with_rng(&mut self.rng);
 
-        let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
-            pub_key: key_pair.public_key(),
-        };
+        let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 { pub_key: key_pair.public_key() };
 
         // we need to use an initial seed to create the wallet account
         let mut init_seed = [0u8; 32];
@@ -161,9 +155,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     ) -> Result<(Account, Word), ClientError> {
         let key_pair = SecretKey::with_rng(&mut self.rng);
 
-        let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 {
-            pub_key: key_pair.public_key(),
-        };
+        let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 { pub_key: key_pair.public_key() };
 
         // we need to use an initial seed to create the wallet account
         let mut init_seed = [0u8; 32];
@@ -234,10 +226,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     ///
     /// Returns a [ClientError::StoreError] with a [StoreError::AccountDataNotFound](crate::errors::StoreError::AccountDataNotFound) if the provided ID does
     /// not correspond to an existing account.
-    pub fn get_account_auth(
-        &self,
-        account_id: AccountId,
-    ) -> Result<AuthInfo, ClientError> {
+    pub fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, ClientError> {
         self.store.get_account_auth(account_id).map_err(|err| err.into())
     }
 }

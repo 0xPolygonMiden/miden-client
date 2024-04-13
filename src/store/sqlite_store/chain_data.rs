@@ -165,10 +165,7 @@ fn insert_chain_mmr_node(
     Ok(())
 }
 
-fn parse_mmr_peaks(
-    forest: u32,
-    peaks_nodes: String,
-) -> Result<MmrPeaks, StoreError> {
+fn parse_mmr_peaks(forest: u32, peaks_nodes: String) -> Result<MmrPeaks, StoreError> {
     let mmr_peaks_nodes: Vec<Digest> =
         serde_json::from_str(&peaks_nodes).map_err(StoreError::JsonDataDeserializationError)?;
 
@@ -190,7 +187,7 @@ fn serialize_block_header(
 }
 
 fn parse_block_headers_columns(
-    row: &rusqlite::Row<'_>
+    row: &rusqlite::Row<'_>,
 ) -> Result<SerializedBlockHeaderParts, rusqlite::Error> {
     let block_num: i64 = row.get(0)?;
     let header: String = row.get(1)?;
@@ -201,7 +198,7 @@ fn parse_block_headers_columns(
 }
 
 fn parse_block_header(
-    serialized_block_header_parts: SerializedBlockHeaderParts
+    serialized_block_header_parts: SerializedBlockHeaderParts,
 ) -> Result<(BlockHeader, bool), StoreError> {
     let (_, header, _, has_client_notes) = serialized_block_header_parts;
 
@@ -221,7 +218,7 @@ fn serialize_chain_mmr_node(
 }
 
 fn parse_chain_mmr_nodes_columns(
-    row: &rusqlite::Row<'_>
+    row: &rusqlite::Row<'_>,
 ) -> Result<SerializedChainMmrNodeParts, rusqlite::Error> {
     let id: i64 = row.get(0)?;
     let node = row.get(1)?;
@@ -229,7 +226,7 @@ fn parse_chain_mmr_nodes_columns(
 }
 
 fn parse_chain_mmr_nodes(
-    serialized_chain_mmr_node_parts: SerializedChainMmrNodeParts
+    serialized_chain_mmr_node_parts: SerializedChainMmrNodeParts,
 ) -> Result<(InOrderIndex, Digest), StoreError> {
     let (id, node) = serialized_chain_mmr_node_parts;
 

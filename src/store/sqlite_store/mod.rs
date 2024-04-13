@@ -116,10 +116,7 @@ impl Store for SqliteStore {
         self.get_note_tags()
     }
 
-    fn add_note_tag(
-        &mut self,
-        tag: u64,
-    ) -> Result<bool, StoreError> {
+    fn add_note_tag(&mut self, tag: u64) -> Result<bool, StoreError> {
         self.add_note_tag(tag)
     }
 
@@ -155,17 +152,11 @@ impl Store for SqliteStore {
         self.get_transactions(transaction_filter)
     }
 
-    fn apply_transaction(
-        &mut self,
-        tx_result: TransactionResult,
-    ) -> Result<(), StoreError> {
+    fn apply_transaction(&mut self, tx_result: TransactionResult) -> Result<(), StoreError> {
         self.apply_transaction(tx_result)
     }
 
-    fn get_input_notes(
-        &self,
-        note_filter: NoteFilter,
-    ) -> Result<Vec<InputNoteRecord>, StoreError> {
+    fn get_input_notes(&self, note_filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError> {
         self.get_input_notes(note_filter)
     }
 
@@ -176,17 +167,11 @@ impl Store for SqliteStore {
         self.get_output_notes(note_filter)
     }
 
-    fn get_input_note(
-        &self,
-        note_id: NoteId,
-    ) -> Result<InputNoteRecord, StoreError> {
+    fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError> {
         self.get_input_note(note_id)
     }
 
-    fn insert_input_note(
-        &mut self,
-        note: &InputNoteRecord,
-    ) -> Result<(), StoreError> {
+    fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError> {
         self.insert_input_note(note)
     }
 
@@ -217,10 +202,7 @@ impl Store for SqliteStore {
         self.get_chain_mmr_nodes(filter)
     }
 
-    fn get_chain_mmr_peaks_by_block_num(
-        &self,
-        block_num: u32,
-    ) -> Result<MmrPeaks, StoreError> {
+    fn get_chain_mmr_peaks_by_block_num(&self, block_num: u32) -> Result<MmrPeaks, StoreError> {
         self.get_chain_mmr_peaks_by_block_num(block_num)
     }
 
@@ -248,17 +230,11 @@ impl Store for SqliteStore {
         self.get_account_stub(account_id)
     }
 
-    fn get_account(
-        &self,
-        account_id: AccountId,
-    ) -> Result<(Account, Option<Word>), StoreError> {
+    fn get_account(&self, account_id: AccountId) -> Result<(Account, Option<Word>), StoreError> {
         self.get_account(account_id)
     }
 
-    fn get_account_auth(
-        &self,
-        account_id: AccountId,
-    ) -> Result<AuthInfo, StoreError> {
+    fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, StoreError> {
         self.get_account_auth(account_id)
     }
 }

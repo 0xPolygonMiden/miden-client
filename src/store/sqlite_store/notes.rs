@@ -62,10 +62,7 @@ enum NoteTable {
 }
 
 impl fmt::Display for NoteTable {
-    fn fmt(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             NoteTable::InputNotes => write!(f, "input_notes"),
             NoteTable::OutputNotes => write!(f, "output_notes"),
@@ -78,10 +75,7 @@ impl fmt::Display for NoteTable {
 
 impl NoteFilter {
     /// Returns a [String] containing the query for this Filter
-    fn to_query(
-        &self,
-        notes_table: NoteTable,
-    ) -> String {
+    fn to_query(&self, notes_table: NoteTable) -> String {
         let base = format!(
             "SELECT 
                     note.assets, 
@@ -135,10 +129,7 @@ impl SqliteStore {
             .collect::<Result<Vec<OutputNoteRecord>, _>>()
     }
 
-    pub(crate) fn get_input_note(
-        &self,
-        note_id: NoteId,
-    ) -> Result<InputNoteRecord, StoreError> {
+    pub(crate) fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError> {
         let query_id = &note_id.inner().to_string();
 
         const QUERY: &str = "SELECT 
@@ -163,10 +154,7 @@ impl SqliteStore {
             .ok_or(StoreError::InputNoteNotFound(note_id))?
     }
 
-    pub(crate) fn insert_input_note(
-        &mut self,
-        note: &InputNoteRecord,
-    ) -> Result<(), StoreError> {
+    pub(crate) fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError> {
         let tx = self.db.transaction()?;
 
         insert_input_note_tx(&tx, note)?;
@@ -276,7 +264,7 @@ pub fn insert_output_note_tx(
 
 /// Parse input note columns from the provided row into native types.
 fn parse_input_note_columns(
-    row: &rusqlite::Row<'_>
+    row: &rusqlite::Row<'_>,
 ) -> Result<SerializedInputNoteParts, rusqlite::Error> {
     let assets: Vec<u8> = row.get(0)?;
     let details: String = row.get(1)?;
@@ -299,7 +287,7 @@ fn parse_input_note_columns(
 
 /// Parse a note from the provided parts.
 fn parse_input_note(
-    serialized_input_note_parts: SerializedInputNoteParts
+    serialized_input_note_parts: SerializedInputNoteParts,
 ) -> Result<InputNoteRecord, StoreError> {
     let (
         note_assets,
@@ -362,7 +350,7 @@ fn parse_input_note(
 
 /// Serialize the provided input note into database compatible types.
 pub(crate) fn serialize_input_note(
-    note: &InputNoteRecord
+    note: &InputNoteRecord,
 ) -> Result<SerializedInputNoteData, StoreError> {
     let note_id = note.id().inner().to_string();
     let note_assets = note.assets().to_bytes();
@@ -424,7 +412,7 @@ pub(crate) fn serialize_input_note(
 
 /// Parse input note columns from the provided row into native types.
 fn parse_output_note_columns(
-    row: &rusqlite::Row<'_>
+    row: &rusqlite::Row<'_>,
 ) -> Result<SerializedOutputNoteParts, rusqlite::Error> {
     let assets: Vec<u8> = row.get(0)?;
     let details: Option<String> = row.get(1)?;
@@ -447,7 +435,7 @@ fn parse_output_note_columns(
 
 /// Parse a note from the provided parts.
 fn parse_output_note(
-    serialized_output_note_parts: SerializedOutputNoteParts
+    serialized_output_note_parts: SerializedOutputNoteParts,
 ) -> Result<OutputNoteRecord, StoreError> {
     let (
         note_assets,
@@ -512,7 +500,7 @@ fn parse_output_note(
 
 /// Serialize the provided output note into database compatible types.
 pub(crate) fn serialize_output_note(
-    note: &OutputNoteRecord
+    note: &OutputNoteRecord,
 ) -> Result<SerializedOutputNoteData, StoreError> {
     let note_id = note.id().inner().to_string();
     let note_assets = note.assets().to_bytes();

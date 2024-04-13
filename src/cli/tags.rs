@@ -38,7 +38,7 @@ impl TagsCmd {
 // HELPERS
 // ================================================================================================
 fn list_tags<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: Client<N, R, S>
+    client: Client<N, R, S>,
 ) -> Result<(), String> {
     let tags = client.get_note_tags()?;
     println!("tags: {:?}", tags);

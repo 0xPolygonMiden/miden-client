@@ -58,10 +58,7 @@ fn create_test_store_path() -> std::path::PathBuf {
     temp_file
 }
 
-async fn execute_tx_and_sync(
-    client: &mut TestClient,
-    tx_request: TransactionRequest,
-) {
+async fn execute_tx_and_sync(client: &mut TestClient, tx_request: TransactionRequest) {
     println!("Executing transaction...");
     let transaction_execution_result = client.new_transaction(tx_request).unwrap();
     let transaction_id = transaction_execution_result.executed_transaction().id();
@@ -193,11 +190,7 @@ async fn mint_note(
 
 /// Consumes and wait until the transaction gets committed
 /// This assumes the notes contain assets
-async fn consume_notes(
-    client: &mut TestClient,
-    account_id: AccountId,
-    input_notes: &[InputNote],
-) {
+async fn consume_notes(client: &mut TestClient, account_id: AccountId, input_notes: &[InputNote]) {
     let tx_template =
         TransactionTemplate::ConsumeNotes(account_id, input_notes.iter().map(|n| n.id()).collect());
     println!("Consuming Note...");

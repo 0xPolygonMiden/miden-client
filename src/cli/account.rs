@@ -120,17 +120,17 @@ impl AccountCmd {
             },
             AccountCmd::New { template } => {
                 let client_template = match template {
-                    AccountTemplate::BasicImmutable {
-                        storage_type: storage_mode,
-                    } => accounts::AccountTemplate::BasicWallet {
-                        mutable_code: false,
-                        storage_mode: storage_mode.into(),
+                    AccountTemplate::BasicImmutable { storage_type: storage_mode } => {
+                        accounts::AccountTemplate::BasicWallet {
+                            mutable_code: false,
+                            storage_mode: storage_mode.into(),
+                        }
                     },
-                    AccountTemplate::BasicMutable {
-                        storage_type: storage_mode,
-                    } => accounts::AccountTemplate::BasicWallet {
-                        mutable_code: true,
-                        storage_mode: storage_mode.into(),
+                    AccountTemplate::BasicMutable { storage_type: storage_mode } => {
+                        accounts::AccountTemplate::BasicWallet {
+                            mutable_code: true,
+                            storage_mode: storage_mode.into(),
+                        }
                     },
                     AccountTemplate::FungibleFaucet {
                         token_symbol,
@@ -148,13 +148,7 @@ impl AccountCmd {
                 };
                 let (_new_account, _account_seed) = client.new_account(client_template)?;
             },
-            AccountCmd::Show {
-                id,
-                keys,
-                vault,
-                storage,
-                code,
-            } => {
+            AccountCmd::Show { id, keys, vault, storage, code } => {
                 let account_id: AccountId = AccountId::from_hex(id)
                     .map_err(|_| "Input number was not a valid Account Id")?;
                 show_account(client, account_id, *keys, *vault, *storage, *code)?;
@@ -175,7 +169,7 @@ impl AccountCmd {
 // ================================================================================================
 
 fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: Client<N, R, S>
+    client: Client<N, R, S>,
 ) -> Result<(), String> {
     let accounts = client.get_accounts()?;
 
@@ -276,22 +270,15 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store>(
             if idx == AccountStorage::SLOT_LAYOUT_COMMITMENT_INDEX as usize {
                 continue;
             }
-            if matches!(
-                entry,
-                StorageSlotType::Value {
-                    value_arity: _value_arity
-                }
-            ) && item == [ZERO; 4].into()
+            if matches!(entry, StorageSlotType::Value { value_arity: _value_arity })
+                && item == [ZERO; 4].into()
             {
                 continue;
             }
 
             let (slot_type, arity) = match entry {
                 StorageSlotType::Value { value_arity } => ("Value", value_arity),
-                StorageSlotType::Array {
-                    depth: _depth,
-                    value_arity,
-                } => ("Array", value_arity),
+                StorageSlotType::Array { depth: _depth, value_arity } => ("Array", value_arity),
                 StorageSlotType::Map { value_arity } => ("Map", value_arity),
             };
             table.add_row(vec![&idx.to_string(), slot_type, &arity.to_string(), &item.to_hex()]);
@@ -369,10 +356,7 @@ fn import_account<N: NodeRpcClient, R: FeltRng, S: Store>(
 
 /// Checks that all files exist, otherwise returns an error. It also ensures that all files have a
 /// specific extension
-fn validate_paths(
-    paths: &[PathBuf],
-    expected_extension: &str,
-) -> Result<(), String> {
+fn validate_paths(paths: &[PathBuf], expected_extension: &str) -> Result<(), String> {
     let invalid_path = paths.iter().find(|path| {
         !path.exists() || path.extension().map_or(false, |ext| ext != expected_extension)
     });

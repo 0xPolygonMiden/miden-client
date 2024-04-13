@@ -89,10 +89,7 @@ impl InputNoteRecord {
 }
 
 impl Serializable for InputNoteRecord {
-    fn write_into<W: ByteWriter>(
-        &self,
-        target: &mut W,
-    ) {
+    fn write_into<W: ByteWriter>(&self, target: &mut W) {
         self.id().write_into(target);
         self.recipient().write_into(target);
         self.assets().write_into(target);

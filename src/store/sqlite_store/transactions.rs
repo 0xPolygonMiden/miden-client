@@ -78,10 +78,7 @@ impl SqliteStore {
     }
 
     /// Inserts a transaction and updates the current state based on the `tx_result` changes
-    pub fn apply_transaction(
-        &mut self,
-        tx_result: TransactionResult,
-    ) -> Result<(), StoreError> {
+    pub fn apply_transaction(&mut self, tx_result: TransactionResult) -> Result<(), StoreError> {
         let account_id = tx_result.executed_transaction().account_id();
         let account_delta = tx_result.account_delta();
 
@@ -190,7 +187,7 @@ pub(super) fn insert_proven_transaction_data(
 }
 
 pub(super) fn serialize_transaction_data(
-    transaction_result: TransactionResult
+    transaction_result: TransactionResult,
 ) -> Result<SerializedTransactionData, StoreError> {
     let executed_transaction = transaction_result.executed_transaction();
     let transaction_id: String = executed_transaction.id().inner().into();
@@ -220,9 +217,8 @@ pub(super) fn serialize_transaction_data(
     let mut script_inputs = None;
 
     if let Some(tx_script) = transaction_args.tx_script() {
-        script_program = Some(tx_script.code().to_bytes(AstSerdeOptions {
-            serialize_imports: true,
-        }));
+        script_program =
+            Some(tx_script.code().to_bytes(AstSerdeOptions { serialize_imports: true }));
         script_hash = Some(tx_script.hash().to_bytes());
         script_inputs = Some(
             serde_json::to_string(&tx_script.inputs())
@@ -246,7 +242,7 @@ pub(super) fn serialize_transaction_data(
 }
 
 fn parse_transaction_columns(
-    row: &rusqlite::Row<'_>
+    row: &rusqlite::Row<'_>,
 ) -> Result<SerializedTransactionData, rusqlite::Error> {
     let id: String = row.get(0)?;
     let account_id: i64 = row.get(1)?;
@@ -277,7 +273,7 @@ fn parse_transaction_columns(
 
 /// Parse a transaction from the provided parts.
 fn parse_transaction(
-    serialized_transaction: SerializedTransactionData
+    serialized_transaction: SerializedTransactionData,
 ) -> Result<TransactionRecord, StoreError> {
     let (
         id,

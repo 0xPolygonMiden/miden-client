@@ -215,9 +215,7 @@ impl NodeRpcClient for TonicRpcClient {
         }
 
         let account_id = account_id.into();
-        let request = GetAccountDetailsRequest {
-            account_id: Some(account_id),
-        };
+        let request = GetAccountDetailsRequest { account_id: Some(account_id) };
 
         let rpc_api = self.rpc_api().await?;
 

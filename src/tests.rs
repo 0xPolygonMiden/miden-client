@@ -30,7 +30,7 @@ async fn test_input_notes_round_trip() {
 
     let assembler = TransactionKernel::assembler();
     let (consumed_notes, _created_notes) = mock_notes(&assembler);
-    let (_, consumed_notes, _, _) = mock_full_chain_mmr_and_notes(consumed_notes);
+    let (_, consumed_notes, ..) = mock_full_chain_mmr_and_notes(consumed_notes);
 
     // insert notes into database
     for note in consumed_notes.iter().cloned() {
@@ -174,9 +174,7 @@ async fn test_account_code() {
     account_module.clear_locations();
     account_module.clear_imports();
 
-    let account_module_bytes = account_module.to_bytes(AstSerdeOptions {
-        serialize_imports: true,
-    });
+    let account_module_bytes = account_module.to_bytes(AstSerdeOptions { serialize_imports: true });
     let reconstructed_ast = ModuleAst::from_bytes(&account_module_bytes).unwrap();
     assert_eq!(account_module, reconstructed_ast);
 

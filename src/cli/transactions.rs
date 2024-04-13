@@ -196,10 +196,7 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
                 note_type.into(),
             ))
         },
-        TransactionType::ConsumeNotes {
-            account_id,
-            list_of_notes,
-        } => {
+        TransactionType::ConsumeNotes { account_id, list_of_notes } => {
             let list_of_notes = list_of_notes
                 .iter()
                 .map(|note_id| {
@@ -219,7 +216,7 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
 // LIST TRANSACTIONS
 // ================================================================================================
 fn list_transactions<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: Client<N, R, S>
+    client: Client<N, R, S>,
 ) -> Result<(), String> {
     let transactions = client.get_transactions(TransactionFilter::All)?;
     print_transactions_summary(&transactions);

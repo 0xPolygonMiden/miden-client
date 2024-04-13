@@ -61,12 +61,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     /// # Errors
     ///
     /// Returns an error if the client could not be instantiated.
-    pub fn new(
-        api: N,
-        rng: R,
-        store: S,
-        executor_store: S,
-    ) -> Result<Self, ClientError> {
+    pub fn new(api: N, rng: R, store: S, executor_store: S) -> Result<Self, ClientError> {
         Ok(Self {
             store,
             rng,

@@ -32,16 +32,8 @@ pub struct NoteInclusionDetails {
 }
 
 impl NoteInclusionDetails {
-    pub fn new(
-        block_num: u32,
-        note_index: u32,
-        merkle_path: MerklePath,
-    ) -> Self {
-        Self {
-            block_num,
-            note_index,
-            merkle_path,
-        }
+    pub fn new(block_num: u32, note_index: u32, merkle_path: MerklePath) -> Self {
+        Self { block_num, note_index, merkle_path }
     }
 }
 
@@ -188,10 +180,7 @@ pub enum NodeRpcClientEndpoint {
 }
 
 impl fmt::Display for NodeRpcClientEndpoint {
-    fn fmt(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             NodeRpcClientEndpoint::GetAccountDetails => write!(f, "get_account_details"),
             NodeRpcClientEndpoint::GetBlockHeaderByNumber => {

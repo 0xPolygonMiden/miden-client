@@ -120,9 +120,9 @@ impl TransactionTemplate {
     pub fn account_id(&self) -> AccountId {
         match self {
             TransactionTemplate::ConsumeNotes(account_id, _) => *account_id,
-            TransactionTemplate::MintFungibleAsset(asset, _, _) => asset.faucet_id(),
+            TransactionTemplate::MintFungibleAsset(asset, ..) => asset.faucet_id(),
             TransactionTemplate::PayToId(payment_data, _) => payment_data.account_id(),
-            TransactionTemplate::PayToIdWithRecall(payment_data, _, _) => payment_data.account_id(),
+            TransactionTemplate::PayToIdWithRecall(payment_data, ..) => payment_data.account_id(),
         }
     }
 }

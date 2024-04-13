@@ -96,12 +96,7 @@ impl InputNotes {
 
                 list_input_notes(client, filter)?;
             },
-            InputNotes::Show {
-                id,
-                script,
-                vault,
-                inputs,
-            } => {
+            InputNotes::Show { id, script, vault, inputs } => {
                 show_input_note(client, id.to_owned(), *script, *vault, *inputs)?;
             },
             InputNotes::Export { id, filename } => {
@@ -332,9 +327,9 @@ mod tests {
         // generate test data
         let assembler = TransactionKernel::assembler();
         let (consumed_notes, created_notes) = mock_notes(&assembler);
-        let (_, commited_notes, _, _) = mock_full_chain_mmr_and_notes(consumed_notes);
+        let (_, committed_notes, ..) = mock_full_chain_mmr_and_notes(consumed_notes);
 
-        let committed_note: InputNoteRecord = commited_notes.first().unwrap().clone().into();
+        let committed_note: InputNoteRecord = committed_notes.first().unwrap().clone().into();
         let pending_note = InputNoteRecord::from(created_notes.first().unwrap().clone());
 
         client.import_input_note(committed_note.clone()).unwrap();
@@ -424,7 +419,7 @@ mod tests {
         // generate test data
         let assembler = TransactionKernel::assembler();
         let (consumed_notes, created_notes) = mock_notes(&assembler);
-        let (_, notes, _, _) = mock_full_chain_mmr_and_notes(consumed_notes);
+        let (_, notes, ..) = mock_full_chain_mmr_and_notes(consumed_notes);
 
         let committed_note: InputNoteRecord = notes.first().unwrap().clone().into();
         let pending_note = InputNoteRecord::from(created_notes.first().unwrap().clone());

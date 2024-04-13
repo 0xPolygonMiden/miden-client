@@ -74,10 +74,7 @@ impl TryFrom<u8> for NoteStatus {
 }
 
 impl Serializable for NoteStatus {
-    fn write_into<W: ByteWriter>(
-        &self,
-        target: &mut W,
-    ) {
+    fn write_into<W: ByteWriter>(&self, target: &mut W) {
         target.write_bytes(&[(*self).into()]);
     }
 }
@@ -110,12 +107,7 @@ pub struct NoteRecordDetails {
 }
 
 impl NoteRecordDetails {
-    pub fn new(
-        nullifier: String,
-        script: NoteScript,
-        inputs: Vec<Felt>,
-        serial_num: Word,
-    ) -> Self {
+    pub fn new(nullifier: String, script: NoteScript, inputs: Vec<Felt>, serial_num: Word) -> Self {
         let script_hash = script.hash();
         Self {
             nullifier,
@@ -148,10 +140,7 @@ impl NoteRecordDetails {
 }
 
 impl Serializable for NoteRecordDetails {
-    fn write_into<W: ByteWriter>(
-        &self,
-        target: &mut W,
-    ) {
+    fn write_into<W: ByteWriter>(&self, target: &mut W) {
         let nullifier_bytes = self.nullifier.as_bytes();
         target.write_usize(nullifier_bytes.len());
         target.write_bytes(nullifier_bytes);

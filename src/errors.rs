@@ -31,10 +31,7 @@ pub enum ClientError {
 }
 
 impl fmt::Display for ClientError {
-    fn fmt(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ClientError::AccountError(err) => write!(f, "account error: {err}"),
             ClientError::DataDeserializationError(err) => {
@@ -191,19 +188,17 @@ impl From<rusqlite_migration::Error> for StoreError {
 impl From<rusqlite::Error> for StoreError {
     fn from(value: rusqlite::Error) -> Self {
         match value {
-            rusqlite::Error::FromSqlConversionFailure(_, _, _)
-            | rusqlite::Error::IntegralValueOutOfRange(_, _)
+            rusqlite::Error::FromSqlConversionFailure(..)
+            | rusqlite::Error::IntegralValueOutOfRange(..)
             | rusqlite::Error::InvalidColumnIndex(_)
-            | rusqlite::Error::InvalidColumnType(_, _, _) => {
-                StoreError::ParsingError(value.to_string())
-            },
+            | rusqlite::Error::InvalidColumnType(..) => StoreError::ParsingError(value.to_string()),
             rusqlite::Error::InvalidParameterName(_)
             | rusqlite::Error::InvalidColumnName(_)
             | rusqlite::Error::StatementChangedRows(_)
             | rusqlite::Error::ExecuteReturnedResults
             | rusqlite::Error::InvalidQuery
             | rusqlite::Error::MultipleStatement
-            | rusqlite::Error::InvalidParameterCount(_, _)
+            | rusqlite::Error::InvalidParameterCount(..)
             | rusqlite::Error::QueryReturnedNoRows => StoreError::QueryError(value.to_string()),
             _ => StoreError::DatabaseError(value.to_string()),
         }
@@ -241,10 +236,7 @@ impl From<TransactionScriptError> for StoreError {
 }
 
 impl fmt::Display for StoreError {
-    fn fmt(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use StoreError::*;
         match self {
             AssetVaultError(err) => {
@@ -334,10 +326,7 @@ pub enum NodeRpcClientError {
 }
 
 impl fmt::Display for NodeRpcClientError {
-    fn fmt(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             NodeRpcClientError::ConnectionError(err) => {
                 write!(f, "failed to connect to the API server: {err}")
@@ -399,10 +388,7 @@ pub enum NoteIdPrefixFetchError {
 }
 
 impl fmt::Display for NoteIdPrefixFetchError {
-    fn fmt(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             NoteIdPrefixFetchError::NoMatch(note_id) => {
                 write!(f, "No matches were found with the input prefix {note_id}.")
@@ -440,10 +426,7 @@ impl From<StoreError> for ScreenerError {
 }
 
 impl fmt::Display for ScreenerError {
-    fn fmt(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ScreenerError::InvalidNoteInputsError(note_inputs_err) => {
                 write!(f, "error while processing note inputs: {note_inputs_err}")
@@ -464,10 +447,7 @@ pub enum InvalidNoteInputsError {
 }
 
 impl fmt::Display for InvalidNoteInputsError {
-    fn fmt(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             InvalidNoteInputsError::AccountError(note_id, account_error) => {
                 write!(f, "account error for note with ID {}: {account_error}", note_id.to_hex())

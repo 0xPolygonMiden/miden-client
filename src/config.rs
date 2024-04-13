@@ -21,10 +21,7 @@ pub struct ClientConfig {
 
 impl ClientConfig {
     /// Returns a new instance of [ClientConfig] with the specified store path and node endpoint.
-    pub const fn new(
-        store: StoreConfig,
-        rpc: RpcConfig,
-    ) -> Self {
+    pub const fn new(store: StoreConfig, rpc: RpcConfig) -> Self {
         Self { store, rpc }
     }
 }
@@ -57,16 +54,8 @@ pub struct Endpoint {
 
 impl Endpoint {
     /// Returns a new instance of [Endpoint] with the specified protocol, host, and port.
-    pub const fn new(
-        protocol: String,
-        host: String,
-        port: u16,
-    ) -> Self {
-        Self {
-            protocol,
-            host,
-            port,
-        }
+    pub const fn new(protocol: String, host: String, port: u16) -> Self {
+        Self { protocol, host, port }
     }
 }
 
@@ -85,10 +74,7 @@ impl Endpoint {
 }
 
 impl fmt::Display for Endpoint {
-    fn fmt(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}://{}:{}", self.protocol, self.host, self.port)
     }
 }
@@ -132,9 +118,7 @@ impl TryFrom<&str> for StoreConfig {
 impl TryFrom<String> for StoreConfig {
     type Error = String;
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        Ok(Self {
-            database_filepath: value,
-        })
+        Ok(Self { database_filepath: value })
     }
 }
 

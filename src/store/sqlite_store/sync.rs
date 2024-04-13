@@ -33,10 +33,7 @@ impl SqliteStore {
             .expect("state sync tags exist")
     }
 
-    pub(super) fn add_note_tag(
-        &mut self,
-        tag: u64,
-    ) -> Result<bool, StoreError> {
+    pub(super) fn add_note_tag(&mut self, tag: u64) -> Result<bool, StoreError> {
         let mut tags = self.get_note_tags()?;
         if tags.contains(&tag) {
             return Ok(false);
