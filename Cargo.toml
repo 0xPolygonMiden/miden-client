@@ -1,12 +1,12 @@
 [package]
 name = "miden-client"
-version = "0.1.0"
+version = "0.2.0"
 description = "Client library that facilitates interaction with the Miden rollup"
 authors = ["miden contributors"]
 readme = "README.md"
 license = "MIT"
 repository = "https://github.com/0xPolygonMiden/miden-client"
-documentation = "https://docs.rs/miden-client/0.1.0"
+documentation = "https://docs.rs/miden-client/0.2.0"
 keywords = ["miden", "client"]
 edition = "2021"
 rust-version = "1.75"

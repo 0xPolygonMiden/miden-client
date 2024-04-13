@@ -23,7 +23,7 @@ The client's main responsibility is to maintain a partial view of the blockchain
 
 ### Installing the CLI
 
-Before you can build and run the Miden client CLI, you'll need to make sure you have Rust [installed](https://www.rust-lang.org/tools/install). Miden client v0.1 requires Rust version **1.77** or later.
+Before you can build and run the Miden client CLI, you'll need to make sure you have Rust [installed](https://www.rust-lang.org/tools/install). Miden client v0.2 requires Rust version **1.77** or later.
 
 You can then install the CLI on your system:
 
@@ -152,7 +152,7 @@ All state is maintained in `store.sqlite3`, located in the same directory where 
 In order to utilize the `miden-client` library, you can add the dependency to your project's `Cargo.toml` file:
 
 ````toml
-miden-client = { version = "0.1", features = ["concurrent", "testing"]  }
+miden-client = { version = "0.2", features = ["concurrent", "testing"]  }
 ````
 
 ## Testing
