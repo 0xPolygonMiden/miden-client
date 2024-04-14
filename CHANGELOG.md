@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0 (2024-04-12)
+## 0.2.0 (2024-04-14)
 
 * Added an `init` command to the CLI.
 * Added support for on-chain accounts.
