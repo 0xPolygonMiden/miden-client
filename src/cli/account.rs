@@ -1,6 +1,6 @@
 use std::{fs, path::PathBuf};
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     client::{accounts, rpc::NodeRpcClient, Client},
@@ -9,7 +9,7 @@ use miden_client::{
 use miden_objects::{
     accounts::{AccountData, AccountId, AccountStorage, AccountType, StorageSlotType},
     assets::{Asset, TokenSymbol},
-    crypto::dsa::rpo_falcon512::KeyPair,
+    crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
     ZERO,
 };
 use miden_tx::utils::{bytes_to_hex_string, Deserializable, Serializable};
@@ -32,7 +32,7 @@ pub enum AccountCmd {
     Show {
         // TODO: We should create a value parser for catching input parsing errors earlier (ie AccountID) once complexity grows
         #[clap()]
-        id: Option<String>,
+        id: String,
         #[clap(short, long, default_value_t = false)]
         keys: bool,
         #[clap(short, long, default_value_t = false)]
@@ -61,9 +61,15 @@ pub enum AccountCmd {
 #[clap()]
 pub enum AccountTemplate {
     /// Creates a basic account (Regular account with immutable code)
-    BasicImmutable,
+    BasicImmutable {
+        #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
+        storage_type: AccountStorageMode,
+    },
     /// Creates a basic account (Regular account with mutable code)
-    BasicMutable,
+    BasicMutable {
+        #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
+        storage_type: AccountStorageMode,
+    },
     /// Creates a faucet for fungible tokens
     FungibleFaucet {
         #[clap(short, long)]
@@ -72,15 +78,41 @@ pub enum AccountTemplate {
         decimals: u8,
         #[clap(short, long)]
         max_supply: u64,
+        #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
+        storage_type: AccountStorageMode,
     },
     /// Creates a faucet for non-fungible tokens
-    NonFungibleFaucet,
+    NonFungibleFaucet {
+        #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
+        storage_type: AccountStorageMode,
+    },
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum AccountStorageMode {
+    OffChain,
+    OnChain,
+}
+
+impl From<AccountStorageMode> for accounts::AccountStorageMode {
+    fn from(value: AccountStorageMode) -> Self {
+        match value {
+            AccountStorageMode::OffChain => accounts::AccountStorageMode::Local,
+            AccountStorageMode::OnChain => accounts::AccountStorageMode::OnChain,
+        }
+    }
+}
+
+impl From<&AccountStorageMode> for accounts::AccountStorageMode {
+    fn from(value: &AccountStorageMode) -> Self {
+        accounts::AccountStorageMode::from(*value)
+    }
 }
 
 impl AccountCmd {
-    pub fn execute<N: NodeRpcClient, S: Store>(
+    pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store>(
         &self,
-        mut client: Client<N, S>,
+        mut client: Client<N, R, S>,
     ) -> Result<(), String> {
         match self {
             AccountCmd::List => {
@@ -88,40 +120,36 @@ impl AccountCmd {
             },
             AccountCmd::New { template } => {
                 let client_template = match template {
-                    AccountTemplate::BasicImmutable => accounts::AccountTemplate::BasicWallet {
-                        mutable_code: false,
-                        storage_mode: accounts::AccountStorageMode::Local,
+                    AccountTemplate::BasicImmutable { storage_type: storage_mode } => {
+                        accounts::AccountTemplate::BasicWallet {
+                            mutable_code: false,
+                            storage_mode: storage_mode.into(),
+                        }
                     },
-                    AccountTemplate::BasicMutable => accounts::AccountTemplate::BasicWallet {
-                        mutable_code: true,
-                        storage_mode: accounts::AccountStorageMode::Local,
+                    AccountTemplate::BasicMutable { storage_type: storage_mode } => {
+                        accounts::AccountTemplate::BasicWallet {
+                            mutable_code: true,
+                            storage_mode: storage_mode.into(),
+                        }
                     },
                     AccountTemplate::FungibleFaucet {
                         token_symbol,
                         decimals,
                         max_supply,
+                        storage_type: storage_mode,
                     } => accounts::AccountTemplate::FungibleFaucet {
                         token_symbol: TokenSymbol::new(token_symbol)
                             .map_err(|err| format!("error: token symbol is invalid: {}", err))?,
                         decimals: *decimals,
                         max_supply: *max_supply,
-                        storage_mode: accounts::AccountStorageMode::Local,
+                        storage_mode: storage_mode.into(),
                     },
-                    AccountTemplate::NonFungibleFaucet => todo!(),
+                    AccountTemplate::NonFungibleFaucet { storage_type: _ } => todo!(),
                 };
                 let (_new_account, _account_seed) = client.new_account(client_template)?;
             },
-            AccountCmd::Show { id: None, .. } => {
-                todo!("Default accounts are not supported yet")
-            },
-            AccountCmd::Show {
-                id: Some(v),
-                keys,
-                vault,
-                storage,
-                code,
-            } => {
-                let account_id: AccountId = AccountId::from_hex(v)
+            AccountCmd::Show { id, keys, vault, storage, code } => {
+                let account_id: AccountId = AccountId::from_hex(id)
                     .map_err(|_| "Input number was not a valid Account Id")?;
                 show_account(client, account_id, *keys, *vault, *storage, *code)?;
             },
@@ -140,7 +168,9 @@ impl AccountCmd {
 // LIST ACCOUNTS
 // ================================================================================================
 
-fn list_accounts<N: NodeRpcClient, S: Store>(client: Client<N, S>) -> Result<(), String> {
+fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store>(
+    client: Client<N, R, S>,
+) -> Result<(), String> {
     let accounts = client.get_accounts()?;
 
     let mut table = create_dynamic_table(&[
@@ -149,6 +179,7 @@ fn list_accounts<N: NodeRpcClient, S: Store>(client: Client<N, S>) -> Result<(),
         "Vault Root",
         "Storage Root",
         "Type",
+        "Storage mode",
         "Nonce",
     ]);
     accounts.iter().for_each(|(acc, _acc_seed)| {
@@ -158,6 +189,7 @@ fn list_accounts<N: NodeRpcClient, S: Store>(client: Client<N, S>) -> Result<(),
             acc.vault_root().to_string(),
             acc.storage_root().to_string(),
             account_type_display_name(&acc.id().account_type()),
+            storage_type_display_name(&acc.id()),
             acc.nonce().as_int().to_string(),
         ]);
     });
@@ -166,8 +198,8 @@ fn list_accounts<N: NodeRpcClient, S: Store>(client: Client<N, S>) -> Result<(),
     Ok(())
 }
 
-pub fn show_account<N: NodeRpcClient, S: Store>(
-    client: Client<N, S>,
+pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store>(
+    client: Client<N, R, S>,
     account_id: AccountId,
     show_keys: bool,
     show_vault: bool,
@@ -179,6 +211,7 @@ pub fn show_account<N: NodeRpcClient, S: Store>(
         "Account ID",
         "Account Hash",
         "Type",
+        "Storage mode",
         "Code Root",
         "Vault Root",
         "Storage Root",
@@ -188,6 +221,7 @@ pub fn show_account<N: NodeRpcClient, S: Store>(
         account.id().to_string(),
         account.hash().to_string(),
         account_type_display_name(&account.account_type()),
+        storage_type_display_name(&account_id),
         account.code().root().to_string(),
         account.vault().asset_tree().root().to_string(),
         account.storage().root().to_string(),
@@ -236,22 +270,15 @@ pub fn show_account<N: NodeRpcClient, S: Store>(
             if idx == AccountStorage::SLOT_LAYOUT_COMMITMENT_INDEX as usize {
                 continue;
             }
-            if matches!(
-                entry,
-                StorageSlotType::Value {
-                    value_arity: _value_arity
-                }
-            ) && item == [ZERO; 4].into()
+            if matches!(entry, StorageSlotType::Value { value_arity: _value_arity })
+                && item == [ZERO; 4].into()
             {
                 continue;
             }
 
             let (slot_type, arity) = match entry {
                 StorageSlotType::Value { value_arity } => ("Value", value_arity),
-                StorageSlotType::Array {
-                    depth: _depth,
-                    value_arity,
-                } => ("Array", value_arity),
+                StorageSlotType::Array { depth: _depth, value_arity } => ("Array", value_arity),
                 StorageSlotType::Map { value_arity } => ("Map", value_arity),
             };
             table.add_row(vec![&idx.to_string(), slot_type, &arity.to_string(), &item.to_hex()]);
@@ -264,11 +291,11 @@ pub fn show_account<N: NodeRpcClient, S: Store>(
 
         match auth_info {
             miden_client::store::AuthInfo::RpoFalcon512(key_pair) => {
-                const KEY_PAIR_SIZE: usize = std::mem::size_of::<KeyPair>();
+                const KEY_PAIR_SIZE: usize = std::mem::size_of::<SecretKey>();
                 let auth_info: [u8; KEY_PAIR_SIZE] = key_pair
                     .to_bytes()
                     .try_into()
-                    .expect("Array size is const and should always exactly fit KeyPair");
+                    .expect("Array size is const and should always exactly fit SecretKey");
 
                 let mut table = Table::new();
                 table
@@ -305,8 +332,8 @@ pub fn show_account<N: NodeRpcClient, S: Store>(
 // IMPORT ACCOUNT
 // ================================================================================================
 
-fn import_account<N: NodeRpcClient, S: Store>(
-    client: &mut Client<N, S>,
+fn import_account<N: NodeRpcClient, R: FeltRng, S: Store>(
+    client: &mut Client<N, R, S>,
     filename: &PathBuf,
 ) -> Result<(), String> {
     info!(
@@ -329,10 +356,7 @@ fn import_account<N: NodeRpcClient, S: Store>(
 
 /// Checks that all files exist, otherwise returns an error. It also ensures that all files have a
 /// specific extension
-fn validate_paths(
-    paths: &[PathBuf],
-    expected_extension: &str,
-) -> Result<(), String> {
+fn validate_paths(paths: &[PathBuf], expected_extension: &str) -> Result<(), String> {
     let invalid_path = paths.iter().find(|path| {
         !path.exists() || path.extension().map_or(false, |ext| ext != expected_extension)
     });
@@ -354,6 +378,14 @@ fn account_type_display_name(account_type: &AccountType) -> String {
         AccountType::NonFungibleFaucet => "Non-fungible faucet",
         AccountType::RegularAccountImmutableCode => "Regular",
         AccountType::RegularAccountUpdatableCode => "Regular (updatable)",
+    }
+    .to_string()
+}
+
+fn storage_type_display_name(account: &AccountId) -> String {
+    match account.is_on_chain() {
+        true => "On-chain",
+        false => "Off-chain",
     }
     .to_string()
 }

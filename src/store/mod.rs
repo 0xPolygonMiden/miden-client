@@ -1,28 +1,31 @@
+use alloc::collections::BTreeMap;
+
 use clap::error::Result;
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
     crypto::{
-        dsa::rpo_falcon512::KeyPair,
+        dsa::rpo_falcon512::SecretKey,
         merkle::{InOrderIndex, MmrPeaks},
     },
-    notes::{Note, NoteId, NoteInclusionProof, Nullifier},
-    transaction::{InputNote, TransactionId},
-    utils::collections::BTreeMap,
-    BlockHeader, Digest, Word,
+    notes::{NoteId, Nullifier},
+    transaction::TransactionId,
+    BlockHeader, Digest, Felt, Word,
 };
 use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
-use serde::{Deserialize, Serialize};
 
 use crate::{
-    client::transactions::{TransactionRecord, TransactionResult},
-    errors::{ClientError, StoreError},
+    client::{
+        sync::SyncedNewNotes,
+        transactions::{TransactionRecord, TransactionResult},
+    },
+    errors::StoreError,
 };
 
 pub mod data_store;
 pub mod sqlite_store;
 
-#[cfg(any(test, feature = "mock"))]
-pub mod mock_executor_data_store;
+mod note_record;
+pub use note_record::{InputNoteRecord, NoteRecordDetails, NoteStatus, OutputNoteRecord};
 
 // STORE TRAIT
 // ================================================================================================
@@ -50,25 +53,16 @@ pub trait Store {
     /// - Applying the resulting [AccountDelta](miden_objects::accounts::AccountDelta) and storing the new [Account] state
     /// - Storing new notes as a result of the transaction execution
     /// - Inserting the transaction into the store to track
-    fn apply_transaction(
-        &mut self,
-        tx_result: TransactionResult,
-    ) -> Result<(), StoreError>;
+    fn apply_transaction(&mut self, tx_result: TransactionResult) -> Result<(), StoreError>;
 
     // NOTES
     // --------------------------------------------------------------------------------------------
 
     /// Retrieves the input notes from the store
-    fn get_input_notes(
-        &self,
-        filter: NoteFilter,
-    ) -> Result<Vec<InputNoteRecord>, StoreError>;
+    fn get_input_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError>;
 
     /// Retrieves the output notes from the store
-    fn get_output_notes(
-        &self,
-        filter: NoteFilter,
-    ) -> Result<Vec<InputNoteRecord>, StoreError>;
+    fn get_output_notes(&self, filter: NoteFilter) -> Result<Vec<OutputNoteRecord>, StoreError>;
 
     /// Retrieves an [InputNoteRecord] for the input note corresponding to the specified ID from
     /// the store.
@@ -76,10 +70,7 @@ pub trait Store {
     /// # Errors
     ///
     /// Returns a [StoreError::InputNoteNotFound] if there is no Note with the provided ID
-    fn get_input_note(
-        &self,
-        note_id: NoteId,
-    ) -> Result<InputNoteRecord, StoreError>;
+    fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError>;
 
     /// Returns the nullifiers of all unspent input notes
     ///
@@ -88,17 +79,14 @@ pub trait Store {
         let nullifiers = self
             .get_input_notes(NoteFilter::Committed)?
             .iter()
-            .map(|input_note| input_note.note().nullifier())
-            .collect();
+            .map(|input_note| Ok(Nullifier::from(Digest::try_from(input_note.nullifier())?)))
+            .collect::<Result<Vec<_>, _>>();
 
-        Ok(nullifiers)
+        nullifiers
     }
 
     /// Inserts the provided input note into the database
-    fn insert_input_note(
-        &mut self,
-        note: &InputNoteRecord,
-    ) -> Result<(), StoreError>;
+    fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError>;
 
     // CHAIN DATA
     // --------------------------------------------------------------------------------------------
@@ -145,10 +133,7 @@ pub trait Store {
     /// Returns peaks information from the blockchain by a specific block number.
     ///
     /// If there is no chain MMR info stored for the provided block returns an empty [MmrPeaks]
-    fn get_chain_mmr_peaks_by_block_num(
-        &self,
-        block_num: u32,
-    ) -> Result<MmrPeaks, StoreError>;
+    fn get_chain_mmr_peaks_by_block_num(&self, block_num: u32) -> Result<MmrPeaks, StoreError>;
 
     /// Inserts a block header into the store, alongside peaks information at the block's height.
     ///
@@ -196,20 +181,14 @@ pub trait Store {
     /// # Errors
     ///
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    fn get_account(
-        &self,
-        account_id: AccountId,
-    ) -> Result<(Account, Option<Word>), StoreError>;
+    fn get_account(&self, account_id: AccountId) -> Result<(Account, Option<Word>), StoreError>;
 
     /// Retrieves an account's [AuthInfo], utilized to authenticate the account.
     ///
     /// # Errors
     ///
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    fn get_account_auth(
-        &self,
-        account_id: AccountId,
-    ) -> Result<AuthInfo, StoreError>;
+    fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, StoreError>;
 
     /// Inserts an [Account] along with the seed used to create it and its [AuthInfo]
     fn insert_account(
@@ -226,10 +205,7 @@ pub trait Store {
     fn get_note_tags(&self) -> Result<Vec<u64>, StoreError>;
 
     /// Adds a note tag to the list of tags that the client is interested in.
-    fn add_note_tag(
-        &mut self,
-        tag: u64,
-    ) -> Result<bool, StoreError>;
+    fn add_note_tag(&mut self, tag: u64) -> Result<bool, StoreError>;
 
     /// Returns the block number of the last state sync block.
     fn get_sync_height(&self) -> Result<u32, StoreError>;
@@ -246,10 +222,11 @@ pub trait Store {
         &mut self,
         block_header: BlockHeader,
         nullifiers: Vec<Digest>,
-        committed_notes: Vec<(NoteId, NoteInclusionProof)>,
+        new_note_details: SyncedNewNotes,
         committed_transactions: &[TransactionId],
         new_mmr_peaks: MmrPeaks,
         new_authentication_nodes: &[(InOrderIndex, Digest)],
+        updated_onchain_accounts: &[Account],
     ) -> Result<(), StoreError>;
 }
 
@@ -259,7 +236,7 @@ pub trait Store {
 /// Represents the types of authentication information of accounts
 #[derive(Debug)]
 pub enum AuthInfo {
-    RpoFalcon512(KeyPair),
+    RpoFalcon512(SecretKey),
 }
 
 const RPO_FALCON512_AUTH: u8 = 0;
@@ -271,13 +248,24 @@ impl AuthInfo {
             AuthInfo::RpoFalcon512(_) => RPO_FALCON512_AUTH,
         }
     }
+
+    /// Returns the authentication information as a tuple of (key, value)
+    /// that can be input to the advice map at the moment of transaction execution.
+    pub fn into_advice_inputs(self) -> (Word, Vec<Felt>) {
+        match self {
+            AuthInfo::RpoFalcon512(key) => {
+                let pub_key: Word = key.public_key().into();
+                let mut pk_sk_bytes = key.to_bytes();
+                pk_sk_bytes.append(&mut pub_key.to_bytes());
+
+                (pub_key, pk_sk_bytes.iter().map(|a| Felt::new(*a as u64)).collect::<Vec<Felt>>())
+            },
+        }
+    }
 }
 
 impl Serializable for AuthInfo {
-    fn write_into<W: ByteWriter>(
-        &self,
-        target: &mut W,
-    ) {
+    fn write_into<W: ByteWriter>(&self, target: &mut W) {
         let mut bytes = vec![self.type_byte()];
         match self {
             AuthInfo::RpoFalcon512(key_pair) => {
@@ -293,136 +281,11 @@ impl Deserializable for AuthInfo {
         let auth_type: u8 = source.read_u8()?;
         match auth_type {
             RPO_FALCON512_AUTH => {
-                let key_pair = KeyPair::read_from(source)?;
+                let key_pair = SecretKey::read_from(source)?;
                 Ok(AuthInfo::RpoFalcon512(key_pair))
             },
             val => Err(DeserializationError::InvalidValue(val.to_string())),
         }
-    }
-}
-
-// INPUT NOTE RECORD
-// ================================================================================================
-
-/// Represents a Note of which the [Store] can keep track and retrieve.
-///
-/// An [InputNoteRecord] contains all the information of a [Note], in addition of (optionally)
-/// the [NoteInclusionProof] that identifies when the note was included in the chain. Once the
-/// proof is set, the [InputNoteRecord] can be transformed into an [InputNote] and used as input
-/// for transactions.
-#[derive(Clone, Debug, PartialEq)]
-pub struct InputNoteRecord {
-    note: Note,
-    inclusion_proof: Option<NoteInclusionProof>,
-}
-
-impl InputNoteRecord {
-    pub fn new(
-        note: Note,
-        inclusion_proof: Option<NoteInclusionProof>,
-    ) -> InputNoteRecord {
-        InputNoteRecord {
-            note,
-            inclusion_proof,
-        }
-    }
-    pub fn note(&self) -> &Note {
-        &self.note
-    }
-
-    pub fn note_id(&self) -> NoteId {
-        self.note.id()
-    }
-
-    pub fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
-        self.inclusion_proof.as_ref()
-    }
-}
-
-impl Serializable for InputNoteRecord {
-    fn write_into<W: ByteWriter>(
-        &self,
-        target: &mut W,
-    ) {
-        self.note().write_into(target);
-        self.inclusion_proof.write_into(target);
-    }
-}
-
-impl Deserializable for InputNoteRecord {
-    fn read_from<R: ByteReader>(
-        source: &mut R
-    ) -> std::prelude::v1::Result<Self, DeserializationError> {
-        let note = Note::read_from(source)?;
-        let proof = Option::<NoteInclusionProof>::read_from(source)?;
-        Ok(InputNoteRecord::new(note, proof))
-    }
-}
-
-impl From<Note> for InputNoteRecord {
-    fn from(note: Note) -> Self {
-        InputNoteRecord {
-            note,
-            inclusion_proof: None,
-        }
-    }
-}
-
-impl From<InputNote> for InputNoteRecord {
-    fn from(recorded_note: InputNote) -> Self {
-        InputNoteRecord {
-            note: recorded_note.note().clone(),
-            inclusion_proof: Some(recorded_note.proof().clone()),
-        }
-    }
-}
-
-impl TryInto<InputNote> for InputNoteRecord {
-    type Error = ClientError;
-
-    fn try_into(self) -> Result<InputNote, Self::Error> {
-        match self.inclusion_proof() {
-            Some(proof) => Ok(InputNote::new(self.note().clone(), proof.clone())),
-            None => Err(ClientError::NoteError(miden_objects::NoteError::invalid_origin_index(
-                "Input Note Record contains no inclusion proof".to_string(),
-            ))),
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-struct NoteRecordDetails {
-    nullifier: String,
-    script: Vec<u8>,
-    inputs: Vec<u8>,
-    serial_num: Word,
-}
-
-impl NoteRecordDetails {
-    fn new(
-        nullifier: String,
-        script: Vec<u8>,
-        inputs: Vec<u8>,
-        serial_num: Word,
-    ) -> Self {
-        Self {
-            nullifier,
-            script,
-            inputs,
-            serial_num,
-        }
-    }
-
-    fn script(&self) -> &Vec<u8> {
-        &self.script
-    }
-
-    fn inputs(&self) -> &Vec<u8> {
-        &self.inputs
-    }
-
-    fn serial_num(&self) -> &Word {
-        &self.serial_num
     }
 }
 
@@ -451,14 +314,14 @@ pub enum TransactionFilter {
 // ================================================================================================
 
 pub enum NoteFilter {
-    /// Return a list of all [InputNoteRecord].
+    /// Return a list of all notes ([InputNoteRecord] or [OutputNoteRecord]).
     All,
-    /// Filter by consumed [InputNoteRecord]. notes that have been used as inputs in transactions.
+    /// Filter by consumed notes ([InputNoteRecord] or [OutputNoteRecord]). notes that have been used as inputs in transactions.
     Consumed,
-    /// Return a list of committed [InputNoteRecord]. These represent notes that the blockchain
+    /// Return a list of committed notes ([InputNoteRecord] or [OutputNoteRecord]). These represent notes that the blockchain
     /// has included in a block, and for which we are storing anchor data.
     Committed,
-    /// Return a list of pending [InputNoteRecord]. These represent notes for which the store
+    /// Return a list of pending notes ([InputNoteRecord] or [OutputNoteRecord]). These represent notes for which the store
     /// does not have anchor data.
     Pending,
 }

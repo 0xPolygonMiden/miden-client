@@ -1,10 +1,11 @@
+use alloc::collections::BTreeSet;
+
 use miden_objects::{
     accounts::AccountId,
     assembly::ModuleAst,
     crypto::merkle::{InOrderIndex, MerklePath, PartialMmr},
     notes::NoteId,
     transaction::{ChainMmr, InputNote, InputNotes},
-    utils::collections::BTreeSet,
     BlockHeader,
 };
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
@@ -38,7 +39,7 @@ impl<S: Store> DataStore for ClientDataStore<S> {
             .store
             .get_input_notes(NoteFilter::Committed)?
             .iter()
-            .map(|note_record| note_record.note_id())
+            .map(|note_record| note_record.id())
             .collect::<Vec<_>>();
 
         for note_id in notes {
@@ -90,10 +91,7 @@ impl<S: Store> DataStore for ClientDataStore<S> {
             .map_err(DataStoreError::InvalidTransactionInput)
     }
 
-    fn get_account_code(
-        &self,
-        account_id: AccountId,
-    ) -> Result<ModuleAst, DataStoreError> {
+    fn get_account_code(&self, account_id: AccountId) -> Result<ModuleAst, DataStoreError> {
         let (account, _seed) = self.store.get_account(account_id)?;
         let module_ast = account.code().module().clone();
 
@@ -180,10 +178,7 @@ pub fn get_authentication_path_for_blocks<S: Store>(
 /// Calculates the merkle path length for an MMR of a specific forest and a leaf index
 /// `leaf_index` is a 0-indexed leaf number and `forest` is the total amount of leaves
 /// in the MMR at this point.
-fn mmr_merkle_path_len(
-    leaf_index: usize,
-    forest: usize,
-) -> usize {
+fn mmr_merkle_path_len(leaf_index: usize, forest: usize) -> usize {
     let before = forest & leaf_index;
     let after = forest ^ before;
 

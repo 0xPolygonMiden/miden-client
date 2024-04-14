@@ -2,9 +2,9 @@ use core::fmt;
 
 use async_trait::async_trait;
 use miden_objects::{
-    accounts::AccountId,
+    accounts::{Account, AccountId},
     crypto::merkle::{MerklePath, MmrDelta},
-    notes::{NoteId, NoteMetadata},
+    notes::{Note, NoteId, NoteMetadata, NoteTag},
     transaction::ProvenTransaction,
     BlockHeader, Digest,
 };
@@ -13,6 +13,29 @@ use crate::errors::NodeRpcClientError;
 
 mod tonic_client;
 pub use tonic_client::TonicRpcClient;
+
+// NOTE DETAILS
+// ================================================================================================
+
+/// Describes the possible responses from  the `GetNotesById` endpoint for a single note
+pub enum NoteDetails {
+    OffChain(NoteId, NoteMetadata, NoteInclusionDetails),
+    Public(Note, NoteInclusionDetails),
+}
+
+/// Contains information related to the note inclusion, but not related to the block header
+/// that contains the note
+pub struct NoteInclusionDetails {
+    pub block_num: u32,
+    pub note_index: u32,
+    pub merkle_path: MerklePath,
+}
+
+impl NoteInclusionDetails {
+    pub fn new(block_num: u32, note_index: u32, merkle_path: MerklePath) -> Self {
+        Self { block_num, note_index, merkle_path }
+    }
+}
 
 // NODE RPC CLIENT TRAIT
 // ================================================================================================
@@ -25,12 +48,14 @@ pub use tonic_client::TonicRpcClient;
 #[async_trait]
 pub trait NodeRpcClient {
     /// Given a Proven Transaction, send it to the node for it to be included in a future block
+    /// using the `/SubmitProvenTransaction` rpc endpoint
     async fn submit_proven_transaction(
         &mut self,
         proven_transaction: ProvenTransaction,
     ) -> Result<(), NodeRpcClientError>;
 
     /// Given a block number, fetches the block header corresponding to that height from the node
+    /// using the `/GetBlockHeaderByNumber` endpoint
     ///
     /// When `None` is provided, returns info regarding the latest block
     async fn get_block_header_by_number(
@@ -38,7 +63,17 @@ pub trait NodeRpcClient {
         block_number: Option<u32>,
     ) -> Result<BlockHeader, NodeRpcClientError>;
 
-    /// Fetches info from the node necessary to perform a state sync
+    /// Fetches note-related data for a list of [NoteId] using the `/GetNotesById` rpc endpoint
+    ///
+    /// For any NoteType::Offchain note, the return data is only the [NoteMetadata], whereas
+    /// for NoteType::Onchain notes, the return data includes all details.
+    async fn get_notes_by_id(
+        &mut self,
+        note_ids: &[NoteId],
+    ) -> Result<Vec<NoteDetails>, NodeRpcClientError>;
+
+    /// Fetches info from the node necessary to perform a state sync using the
+    /// `/SyncState` rpc endpoint
     ///
     /// - `block_num` is the last block number known by the client. The returned [StateSyncInfo]
     ///   should contain data starting from the next block, until the first block which contains a
@@ -53,9 +88,17 @@ pub trait NodeRpcClient {
         &mut self,
         block_num: u32,
         account_ids: &[AccountId],
-        note_tags: &[u16],
+        note_tags: &[NoteTag],
         nullifiers_tags: &[u16],
     ) -> Result<StateSyncInfo, NodeRpcClientError>;
+
+    /// Fetches the current state of an account from the node using the `/GetAccountDetails` rpc endpoint
+    ///
+    /// - `account_id` is the id of the wanted account.
+    async fn get_account_update(
+        &mut self,
+        account_id: AccountId,
+    ) -> Result<Account, NodeRpcClientError>;
 }
 
 // STATE SYNC INFO
@@ -130,17 +173,16 @@ impl CommittedNote {
 //
 #[derive(Debug)]
 pub enum NodeRpcClientEndpoint {
+    GetAccountDetails,
     GetBlockHeaderByNumber,
     SyncState,
     SubmitProvenTx,
 }
 
 impl fmt::Display for NodeRpcClientEndpoint {
-    fn fmt(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            NodeRpcClientEndpoint::GetAccountDetails => write!(f, "get_account_details"),
             NodeRpcClientEndpoint::GetBlockHeaderByNumber => {
                 write!(f, "get_block_header_by_number")
             },

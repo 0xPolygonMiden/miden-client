@@ -2,21 +2,21 @@
 // ================================================================================================
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{AccountId, AccountStub},
+    accounts::{AccountId, AccountStub, ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN},
     assembly::{AstSerdeOptions, ModuleAst},
     assets::{FungibleAsset, TokenSymbol},
-    crypto::dsa::rpo_falcon512::KeyPair,
-    Felt, FieldElement, Word,
+    crypto::dsa::rpo_falcon512::SecretKey,
+    Word,
 };
 
 use crate::{
     client::{
         accounts::{AccountStorageMode, AccountTemplate},
-        transactions::TransactionTemplate,
+        transactions::transaction_request::TransactionTemplate,
     },
     mock::{
         get_account_with_default_account_code, mock_full_chain_mmr_and_notes,
-        mock_fungible_faucet_account, mock_notes, MockDataStore, ACCOUNT_ID_REGULAR,
+        mock_fungible_faucet_account, mock_notes, ACCOUNT_ID_REGULAR,
     },
     store::{sqlite_store::tests::create_test_client, AuthInfo, InputNoteRecord, NoteFilter},
 };
@@ -30,7 +30,7 @@ async fn test_input_notes_round_trip() {
 
     let assembler = TransactionKernel::assembler();
     let (consumed_notes, _created_notes) = mock_notes(&assembler);
-    let (_, consumed_notes, _, _) = mock_full_chain_mmr_and_notes(consumed_notes);
+    let (_, consumed_notes, ..) = mock_full_chain_mmr_and_notes(consumed_notes);
 
     // insert notes into database
     for note in consumed_notes.iter().cloned() {
@@ -45,7 +45,7 @@ async fn test_input_notes_round_trip() {
         consumed_notes.iter().map(|n| n.clone().into()).collect();
     // compare notes
     for (recorded_note, retrieved_note) in recorded_notes.iter().zip(retrieved_notes) {
-        assert_eq!(recorded_note.note_id(), retrieved_note.note_id());
+        assert_eq!(recorded_note.id(), retrieved_note.id());
     }
 }
 
@@ -65,7 +65,7 @@ async fn test_get_input_note() {
         client.get_input_note(created_notes.first().unwrap().clone().id()).unwrap();
 
     let recorded_note: InputNoteRecord = created_notes.first().unwrap().clone().into();
-    assert_eq!(recorded_note.note_id(), retrieved_note.note_id());
+    assert_eq!(recorded_note.id(), retrieved_note.id());
 }
 
 #[tokio::test]
@@ -145,12 +145,10 @@ async fn insert_same_account_twice_fails() {
         None,
     );
 
-    let key_pair: KeyPair = KeyPair::new()
-        .map_err(|err| format!("Error generating KeyPair: {}", err))
-        .unwrap();
+    let key_pair = SecretKey::new();
 
     assert!(client
-        .insert_account(&account, Some(Word::default()), &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&account, Some(Word::default()), &AuthInfo::RpoFalcon512(key_pair.clone()))
         .is_ok());
     assert!(client
         .insert_account(&account, Some(Word::default()), &AuthInfo::RpoFalcon512(key_pair))
@@ -162,9 +160,7 @@ async fn test_account_code() {
     // generate test client with a random store name
     let mut client = create_test_client();
 
-    let key_pair: KeyPair = KeyPair::new()
-        .map_err(|err| format!("Error generating KeyPair: {}", err))
-        .unwrap();
+    let key_pair = SecretKey::new();
 
     let account = get_account_with_default_account_code(
         AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap(),
@@ -178,9 +174,7 @@ async fn test_account_code() {
     account_module.clear_locations();
     account_module.clear_imports();
 
-    let account_module_bytes = account_module.to_bytes(AstSerdeOptions {
-        serialize_imports: true,
-    });
+    let account_module_bytes = account_module.to_bytes(AstSerdeOptions { serialize_imports: true });
     let reconstructed_ast = ModuleAst::from_bytes(&account_module_bytes).unwrap();
     assert_eq!(account_module, reconstructed_ast);
 
@@ -206,9 +200,7 @@ async fn test_get_account_by_id() {
         None,
     );
 
-    let key_pair: KeyPair = KeyPair::new()
-        .map_err(|err| format!("Error generating KeyPair: {}", err))
-        .unwrap();
+    let key_pair = SecretKey::new();
 
     client
         .insert_account(&account, Some(Word::default()), &AuthInfo::RpoFalcon512(key_pair))
@@ -342,36 +334,37 @@ async fn test_add_tag() {
 
 #[tokio::test]
 async fn test_mint_transaction() {
-    const FAUCET_ID: u64 = 10347894387879516201u64;
-    const FAUCET_SEED: Word = [Felt::ZERO, Felt::ZERO, Felt::ZERO, Felt::ZERO];
+    const FAUCET_ID: u64 = ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN;
     const INITIAL_BALANCE: u64 = 1000;
 
     // generate test client with a random store name
     let mut client = create_test_client();
 
     // Faucet account generation
-    let key_pair: KeyPair = KeyPair::new()
-        .map_err(|err| format!("Error generating KeyPair: {}", err))
-        .unwrap();
+    let key_pair = SecretKey::new();
 
     let faucet = mock_fungible_faucet_account(
         AccountId::try_from(FAUCET_ID).unwrap(),
         INITIAL_BALANCE,
-        key_pair,
+        key_pair.clone(),
     );
 
     client
         .store()
-        .insert_account(&faucet, Some(FAUCET_SEED), &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&faucet, None, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
-    client.set_data_store(MockDataStore::new(faucet.clone(), None, Some(vec![])));
+
+    client.sync_state().await.unwrap();
 
     // Test submitting a mint transaction
-    let transaction_template = TransactionTemplate::MintFungibleAsset {
-        asset: FungibleAsset::new(faucet.id(), 5u64).unwrap(),
-        target_account_id: AccountId::from_hex("0x168187d729b31a84").unwrap(),
-    };
+    let transaction_template = TransactionTemplate::MintFungibleAsset(
+        FungibleAsset::new(faucet.id(), 5u64).unwrap(),
+        AccountId::from_hex("0x168187d729b31a84").unwrap(),
+        miden_objects::notes::NoteType::OffChain,
+    );
 
-    let transaction = client.new_transaction(transaction_template).unwrap();
+    let transaction_request = client.build_transaction_request(transaction_template).unwrap();
+
+    let transaction = client.new_transaction(transaction_request).unwrap();
     assert!(transaction.executed_transaction().account_delta().nonce().is_some());
 }

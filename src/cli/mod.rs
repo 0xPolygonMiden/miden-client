@@ -6,23 +6,23 @@ use figment::{
     providers::{Format, Toml},
     Figment,
 };
-#[cfg(not(feature = "mock"))]
-use miden_client::client::rpc::TonicRpcClient;
-#[cfg(feature = "mock")]
-use miden_client::mock::MockClient;
-#[cfg(feature = "mock")]
-use miden_client::mock::MockDataStore;
-#[cfg(feature = "mock")]
-use miden_client::mock::MockRpcApi;
 use miden_client::{
-    client::{rpc::NodeRpcClient, Client},
+    client::{
+        get_random_coin,
+        rpc::{NodeRpcClient, TonicRpcClient},
+        Client,
+    },
     config::ClientConfig,
     errors::{ClientError, NoteIdPrefixFetchError},
     store::{sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
 };
+use miden_objects::crypto::rand::FeltRng;
+#[cfg(not(feature = "mock"))]
+use miden_objects::crypto::rand::RpoRandomCoin;
 
 mod account;
 mod info;
+mod init;
 mod input_notes;
 mod sync;
 mod tags;
@@ -44,6 +44,7 @@ pub struct Cli {
 pub enum Command {
     #[clap(subcommand)]
     Account(account::AccountCmd),
+    Init,
     #[clap(subcommand)]
     InputNotes(input_notes::InputNotes),
     /// Sync this client with the latest state of the Miden network.
@@ -55,54 +56,42 @@ pub enum Command {
     #[clap(subcommand, name = "tx")]
     #[clap(visible_alias = "transaction")]
     Transaction(transactions::Transaction),
-    #[cfg(feature = "mock")]
-    /// Insert mock data into the client. This is optional because it takes a few seconds
-    MockData {
-        #[clap(short, long)]
-        transaction: bool,
-    },
 }
 
 /// CLI entry point
 impl Cli {
     pub async fn execute(&self) -> Result<(), String> {
-        // Create the client
         let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
         current_dir.push(CLIENT_CONFIG_FILE_NAME);
 
+        // Check if it's an init command before anything else. When we run the init command for the first time we won't
+        // have a config file and thus creating the store would not be possible.
+        if matches!(&self.action, Command::Init) {
+            init::initialize_client(current_dir.clone())?;
+            return Ok(());
+        }
+
+        // Create the client
         let client_config = load_config(current_dir.as_path())?;
         let rpc_endpoint = client_config.rpc.endpoint.to_string();
         let store = SqliteStore::new((&client_config).into()).map_err(ClientError::StoreError)?;
+        let rng = get_random_coin();
+        let executor_store =
+            miden_client::store::sqlite_store::SqliteStore::new((&client_config).into())
+                .map_err(ClientError::StoreError)?;
 
-        #[cfg(not(feature = "mock"))]
-        let client: Client<TonicRpcClient, SqliteStore> = {
-            let executor_store =
-                miden_client::store::sqlite_store::SqliteStore::new((&client_config).into())
-                    .map_err(ClientError::StoreError)?;
-            Client::new(TonicRpcClient::new(&rpc_endpoint), store, executor_store)?
-        };
-
-        #[cfg(feature = "mock")]
-        let client: MockClient =
-            Client::new(MockRpcApi::new(&rpc_endpoint), store, MockDataStore::default())?;
+        let client: Client<TonicRpcClient, RpoRandomCoin, SqliteStore> =
+            Client::new(TonicRpcClient::new(&rpc_endpoint), rng, store, executor_store)?;
 
         // Execute cli command
         match &self.action {
             Command::Account(account) => account.execute(client),
+            Command::Init => Ok(()),
             Command::Info => info::print_client_info(&client),
             Command::InputNotes(notes) => notes.execute(client),
             Command::Sync => sync::sync_state(client).await,
             Command::Tags(tags) => tags.execute(client).await,
             Command::Transaction(transaction) => transaction.execute(client).await,
-            #[cfg(feature = "mock")]
-            Command::MockData { transaction } => {
-                let mut client = client;
-                miden_client::mock::insert_mock_data(&mut client).await;
-                if *transaction {
-                    miden_client::mock::create_mock_transaction(&mut client).await;
-                }
-                Ok(())
-            },
         }
     }
 }
@@ -140,8 +129,8 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
 /// `note_id_prefix` is a prefix of its id.
 /// - Returns [NoteIdPrefixFetchError::MultipleMatches] if there were more than one note found
 /// where `note_id_prefix` is a prefix of its id.
-pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, S: Store>(
-    client: &Client<N, S>,
+pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>(
+    client: &Client<N, R, S>,
     note_id_prefix: &str,
 ) -> Result<InputNoteRecord, NoteIdPrefixFetchError> {
     let input_note_records = client
@@ -151,7 +140,7 @@ pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, S: Store>(
             NoteIdPrefixFetchError::NoMatch(note_id_prefix.to_string())
         })?
         .into_iter()
-        .filter(|note_record| note_record.note_id().to_hex().starts_with(note_id_prefix))
+        .filter(|note_record| note_record.id().to_hex().starts_with(note_id_prefix))
         .collect::<Vec<_>>();
 
     if input_note_records.is_empty() {
@@ -160,7 +149,7 @@ pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, S: Store>(
     if input_note_records.len() > 1 {
         let input_note_record_ids = input_note_records
             .iter()
-            .map(|input_note_record| input_note_record.note_id())
+            .map(|input_note_record| input_note_record.id())
             .collect::<Vec<_>>();
         tracing::error!(
             "Multiple notes found for the prefix {}: {:?}",

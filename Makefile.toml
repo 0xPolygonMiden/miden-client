@@ -27,7 +27,7 @@ args = ["test", "--release", "--workspace", "--", "--nocapture"]
 [tasks.integration-test]
 description = "Run the integration test binary. Requires a node to connect to."
 command = "cargo"
-args = ["run", "--release", "--bin=integration", "--features", "${FEATURES_INTEGRATION_TESTING}"]
+args = ["test", "--release", "--test=integration", "--features", "${FEATURES_INTEGRATION_TESTING}"]
 
 [tasks.lint]
 dependencies = [
@@ -49,7 +49,7 @@ args = ["-rf", "miden-node"]
 description = "Clone or update miden-node repository and clean up files"
 script_runner = "bash"
 script = [
-    'if [ -d miden-node ]; then cd miden-node && git pull ; else git clone https://github.com/0xPolygonMiden/miden-node.git && cd miden-node; fi',
+    'if [ -d miden-node ]; then cd miden-node && git pull && cargo update; else git clone https://github.com/0xPolygonMiden/miden-node.git && cd miden-node && cargo update; fi',
     'rm -rf miden-store.sqlite3 miden-store.sqlite3-wal miden-store.sqlite3-shm',
     'cargo run --bin $NODE_BINARY --features $NODE_FEATURES_TESTING -- make-genesis --inputs-path node/genesis.toml --force'
 ]

@@ -1,11 +1,9 @@
 use core::fmt;
 
-use miden_node_proto::errors::ParseError;
+use miden_node_proto::errors::ConversionError;
 use miden_objects::{
-    accounts::AccountId,
-    crypto::{dsa::rpo_falcon512::FalconError, merkle::MmrError},
-    notes::NoteId,
-    AccountError, AssetVaultError, Digest, NoteError, TransactionScriptError,
+    accounts::AccountId, crypto::merkle::MmrError, notes::NoteId, AccountError, AssetError,
+    AssetVaultError, Digest, NoteError, TransactionScriptError,
 };
 use miden_tx::{
     utils::{DeserializationError, HexParseError},
@@ -18,33 +16,46 @@ use miden_tx::{
 #[derive(Debug)]
 pub enum ClientError {
     AccountError(AccountError),
-    AuthError(FalconError),
+    AssetError(AssetError),
+    DataDeserializationError(DeserializationError),
+    HexParseError(HexParseError),
     ImportNewAccountWithoutSeed,
+    MissingOutputNotes(Vec<NoteId>),
     NoteError(NoteError),
     NoConsumableNoteForAccount(AccountId),
     NodeRpcClientError(NodeRpcClientError),
+    ScreenerError(ScreenerError),
     StoreError(StoreError),
     TransactionExecutionError(TransactionExecutorError),
     TransactionProvingError(TransactionProverError),
 }
 
 impl fmt::Display for ClientError {
-    fn fmt(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ClientError::AccountError(err) => write!(f, "account error: {err}"),
-            ClientError::AuthError(err) => write!(f, "account auth error: {err}"),
+            ClientError::DataDeserializationError(err) => {
+                write!(f, "data deserialization error: {err}")
+            },
+            ClientError::AssetError(err) => write!(f, "asset error: {err}"),
+            ClientError::HexParseError(err) => write!(f, "error turning array to Digest: {err}"),
             ClientError::ImportNewAccountWithoutSeed => write!(
                 f,
                 "import account error: can't import a new account without its initial seed"
             ),
+            ClientError::MissingOutputNotes(note_ids) => {
+                write!(
+                    f,
+                    "transaction error: The transaction did not produce expected Note IDs: {}",
+                    note_ids.iter().map(|&id| id.to_hex()).collect::<Vec<_>>().join(", ")
+                )
+            },
             ClientError::NoConsumableNoteForAccount(account_id) => {
                 write!(f, "No consumable note for account ID {}", account_id)
             },
             ClientError::NoteError(err) => write!(f, "note error: {err}"),
             ClientError::NodeRpcClientError(err) => write!(f, "rpc api error: {err}"),
+            ClientError::ScreenerError(err) => write!(f, "note screener error: {err}"),
             ClientError::StoreError(err) => write!(f, "store error: {err}"),
             ClientError::TransactionExecutionError(err) => {
                 write!(f, "transaction executor error: {err}")
@@ -65,9 +76,15 @@ impl From<AccountError> for ClientError {
     }
 }
 
-impl From<FalconError> for ClientError {
-    fn from(err: FalconError) -> Self {
-        Self::AuthError(err)
+impl From<DeserializationError> for ClientError {
+    fn from(err: DeserializationError) -> Self {
+        Self::DataDeserializationError(err)
+    }
+}
+
+impl From<HexParseError> for ClientError {
+    fn from(err: HexParseError) -> Self {
+        Self::HexParseError(err)
     }
 }
 
@@ -98,6 +115,12 @@ impl From<TransactionExecutorError> for ClientError {
 impl From<TransactionProverError> for ClientError {
     fn from(err: TransactionProverError) -> Self {
         Self::TransactionProvingError(err)
+    }
+}
+
+impl From<ScreenerError> for ClientError {
+    fn from(err: ScreenerError) -> Self {
+        Self::ScreenerError(err)
     }
 }
 
@@ -140,7 +163,7 @@ pub enum StoreError {
     NoteTagAlreadyTracked(u64),
     ParsingError(String),
     QueryError(String),
-    RpcTypeConversionFailure(ParseError),
+    RpcTypeConversionFailure(ConversionError),
     TransactionScriptError(TransactionScriptError),
     VaultDataNotFound(Digest),
 }
@@ -165,19 +188,17 @@ impl From<rusqlite_migration::Error> for StoreError {
 impl From<rusqlite::Error> for StoreError {
     fn from(value: rusqlite::Error) -> Self {
         match value {
-            rusqlite::Error::FromSqlConversionFailure(_, _, _)
-            | rusqlite::Error::IntegralValueOutOfRange(_, _)
+            rusqlite::Error::FromSqlConversionFailure(..)
+            | rusqlite::Error::IntegralValueOutOfRange(..)
             | rusqlite::Error::InvalidColumnIndex(_)
-            | rusqlite::Error::InvalidColumnType(_, _, _) => {
-                StoreError::ParsingError(value.to_string())
-            },
+            | rusqlite::Error::InvalidColumnType(..) => StoreError::ParsingError(value.to_string()),
             rusqlite::Error::InvalidParameterName(_)
             | rusqlite::Error::InvalidColumnName(_)
             | rusqlite::Error::StatementChangedRows(_)
             | rusqlite::Error::ExecuteReturnedResults
             | rusqlite::Error::InvalidQuery
             | rusqlite::Error::MultipleStatement
-            | rusqlite::Error::InvalidParameterCount(_, _)
+            | rusqlite::Error::InvalidParameterCount(..)
             | rusqlite::Error::QueryReturnedNoRows => StoreError::QueryError(value.to_string()),
             _ => StoreError::DatabaseError(value.to_string()),
         }
@@ -187,12 +208,6 @@ impl From<rusqlite::Error> for StoreError {
 impl From<DeserializationError> for StoreError {
     fn from(value: DeserializationError) -> Self {
         StoreError::DataDeserializationError(value)
-    }
-}
-
-impl From<ParseError> for StoreError {
-    fn from(value: ParseError) -> Self {
-        StoreError::RpcTypeConversionFailure(value)
     }
 }
 
@@ -221,10 +236,7 @@ impl From<TransactionScriptError> for StoreError {
 }
 
 impl fmt::Display for StoreError {
-    fn fmt(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use StoreError::*;
         match self {
             AssetVaultError(err) => {
@@ -309,14 +321,12 @@ pub enum NodeRpcClientError {
     DeserializationError(DeserializationError),
     ExpectedFieldMissing(String),
     InvalidAccountReceived(String),
+    NoteError(NoteError),
     RequestError(String, String),
 }
 
 impl fmt::Display for NodeRpcClientError {
-    fn fmt(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             NodeRpcClientError::ConnectionError(err) => {
                 write!(f, "failed to connect to the API server: {err}")
@@ -328,10 +338,13 @@ impl fmt::Display for NodeRpcClientError {
                 write!(f, "failed to deserialize RPC data: {err}")
             },
             NodeRpcClientError::ExpectedFieldMissing(err) => {
-                write!(f, "rpc API reponse missing an expected field: {err}")
+                write!(f, "rpc API response missing an expected field: {err}")
             },
             NodeRpcClientError::InvalidAccountReceived(account_error) => {
-                write!(f, "rpc API reponse contained an invalid account: {account_error}")
+                write!(f, "rpc API response contained an invalid account: {account_error}")
+            },
+            NodeRpcClientError::NoteError(err) => {
+                write!(f, "rpc API note failed to validate: {err}")
             },
             NodeRpcClientError::RequestError(endpoint, err) => {
                 write!(f, "rpc request failed for {endpoint}: {err}")
@@ -352,8 +365,14 @@ impl From<DeserializationError> for NodeRpcClientError {
     }
 }
 
-impl From<ParseError> for NodeRpcClientError {
-    fn from(err: ParseError) -> Self {
+impl From<NoteError> for NodeRpcClientError {
+    fn from(err: NoteError) -> Self {
+        Self::NoteError(err)
+    }
+}
+
+impl From<ConversionError> for NodeRpcClientError {
+    fn from(err: ConversionError) -> Self {
         Self::ConversionFailure(err.to_string())
     }
 }
@@ -369,10 +388,7 @@ pub enum NoteIdPrefixFetchError {
 }
 
 impl fmt::Display for NoteIdPrefixFetchError {
-    fn fmt(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-    ) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             NoteIdPrefixFetchError::NoMatch(note_id) => {
                 write!(f, "No matches were found with the input prefix {note_id}.")
@@ -381,6 +397,76 @@ impl fmt::Display for NoteIdPrefixFetchError {
                 write!(
                     f,
                     "found more than one note for the provided ID {note_id} and only one match is expected."
+                )
+            },
+        }
+    }
+}
+
+// NOTE SCREENER ERROR
+// ================================================================================================
+
+/// Error when screening notes to check relevance to a client
+#[derive(Debug)]
+pub enum ScreenerError {
+    InvalidNoteInputsError(InvalidNoteInputsError),
+    StoreError(StoreError),
+}
+
+impl From<InvalidNoteInputsError> for ScreenerError {
+    fn from(error: InvalidNoteInputsError) -> Self {
+        Self::InvalidNoteInputsError(error)
+    }
+}
+
+impl From<StoreError> for ScreenerError {
+    fn from(error: StoreError) -> Self {
+        Self::StoreError(error)
+    }
+}
+
+impl fmt::Display for ScreenerError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ScreenerError::InvalidNoteInputsError(note_inputs_err) => {
+                write!(f, "error while processing note inputs: {note_inputs_err}")
+            },
+            ScreenerError::StoreError(store_error) => {
+                write!(f, "error while fetching data from the store: {store_error}")
+            },
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum InvalidNoteInputsError {
+    AccountError(NoteId, AccountError),
+    AssetError(NoteId, AssetError),
+    NumInputsError(NoteId, usize),
+    BlockNumberError(NoteId, u64),
+}
+
+impl fmt::Display for InvalidNoteInputsError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            InvalidNoteInputsError::AccountError(note_id, account_error) => {
+                write!(f, "account error for note with ID {}: {account_error}", note_id.to_hex())
+            },
+            InvalidNoteInputsError::AssetError(note_id, asset_error) => {
+                write!(f, "asset error for note with ID {}: {asset_error}", note_id.to_hex())
+            },
+            InvalidNoteInputsError::NumInputsError(note_id, expected_num_inputs) => {
+                write!(
+                    f,
+                    "expected {expected_num_inputs} note inputs for note with ID {}",
+                    note_id.to_hex()
+                )
+            },
+            InvalidNoteInputsError::BlockNumberError(note_id, read_height) => {
+                write!(
+                    f,
+                    "note input representing block with value {read_height} for note with ID {}",
+                    note_id.to_hex()
                 )
             },
         }

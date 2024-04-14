@@ -105,10 +105,7 @@ impl SqliteStore {
     }
 
     /// Retrieve account keys data by Account Id
-    pub(crate) fn get_account_auth(
-        &self,
-        account_id: AccountId,
-    ) -> Result<AuthInfo, StoreError> {
+    pub(crate) fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, StoreError> {
         let account_id_int: u64 = account_id.into();
         const QUERY: &str = "SELECT account_id, auth_info FROM account_auth WHERE account_id = ?";
         self.db
@@ -136,10 +133,7 @@ impl SqliteStore {
     }
 
     /// Retrieve account storage data by vault root
-    pub(super) fn get_account_storage(
-        &self,
-        root: Digest,
-    ) -> Result<AccountStorage, StoreError> {
+    pub(super) fn get_account_storage(&self, root: Digest) -> Result<AccountStorage, StoreError> {
         let root_serialized = &root.to_string();
 
         const QUERY: &str = "SELECT root, slots FROM account_storage WHERE root = ?";
@@ -152,10 +146,7 @@ impl SqliteStore {
     }
 
     /// Retrieve assets by vault root
-    pub(super) fn get_vault_assets(
-        &self,
-        root: Digest,
-    ) -> Result<Vec<Asset>, StoreError> {
+    pub(super) fn get_vault_assets(&self, root: Digest) -> Result<Vec<Asset>, StoreError> {
         let vault_root =
             serde_json::to_string(&root).map_err(StoreError::InputSerializationError)?;
 
@@ -189,6 +180,20 @@ impl SqliteStore {
 // HELPERS
 // ================================================================================================
 
+/// Update previously-existing account after a transaction execution
+///
+/// Because the Client retrieves the account by account ID before applying the delta, we don't
+/// need to check that it exists here. This inserts a new row into the accounts table.
+/// We can later identify the proper account state by looking at the nonce.
+pub(crate) fn update_account(
+    tx: &Transaction<'_>,
+    new_account_state: &Account,
+) -> Result<(), StoreError> {
+    insert_account_storage(tx, new_account_state.storage())?;
+    insert_account_asset_vault(tx, new_account_state.vault())?;
+    insert_account_record(tx, new_account_state, None)
+}
+
 pub(super) fn insert_account_record(
     tx: &Transaction<'_>,
     account: &Account,
@@ -207,10 +212,7 @@ pub(super) fn insert_account_record(
 }
 
 /// Inserts an [AccountCode]
-fn insert_account_code(
-    tx: &Transaction<'_>,
-    account_code: &AccountCode,
-) -> Result<(), StoreError> {
+fn insert_account_code(tx: &Transaction<'_>, account_code: &AccountCode) -> Result<(), StoreError> {
     let (code_root, code, module) = serialize_account_code(account_code)?;
     const QUERY: &str =
         "INSERT OR IGNORE INTO account_code (root, procedures, module) VALUES (?, ?, ?)";
@@ -254,7 +256,7 @@ pub(super) fn insert_account_auth(
 
 /// Parse accounts colums from the provided row into native types
 pub(super) fn parse_accounts_columns(
-    row: &rusqlite::Row<'_>
+    row: &rusqlite::Row<'_>,
 ) -> Result<SerializedAccountsParts, rusqlite::Error> {
     let id: i64 = row.get(0)?;
     let nonce: i64 = row.get(1)?;
@@ -267,7 +269,7 @@ pub(super) fn parse_accounts_columns(
 
 /// Parse an account from the provided parts.
 pub(super) fn parse_accounts(
-    serialized_account_parts: SerializedAccountsParts
+    serialized_account_parts: SerializedAccountsParts,
 ) -> Result<(AccountStub, Option<Word>), StoreError> {
     let (id, nonce, vault_root, storage_root, code_root, account_seed) = serialized_account_parts;
     let account_seed = account_seed.map(|seed| Word::read_from_bytes(&seed)).transpose()?;
@@ -301,7 +303,7 @@ fn serialize_account(account: &Account) -> Result<SerializedAccountData, StoreEr
 
 /// Parse account_auth columns from the provided row into native types
 fn parse_account_auth_columns(
-    row: &rusqlite::Row<'_>
+    row: &rusqlite::Row<'_>,
 ) -> Result<SerializedAccountAuthParts, rusqlite::Error> {
     let account_id: i64 = row.get(0)?;
     let auth_info_bytes: Vec<u8> = row.get(1)?;
@@ -310,7 +312,7 @@ fn parse_account_auth_columns(
 
 /// Parse an `AuthInfo` from the provided parts.
 fn parse_account_auth(
-    serialized_account_auth_parts: SerializedAccountAuthParts
+    serialized_account_auth_parts: SerializedAccountAuthParts,
 ) -> Result<AuthInfo, StoreError> {
     let (_, auth_info_bytes) = serialized_account_auth_parts;
     let auth_info = AuthInfo::read_from_bytes(&auth_info_bytes)?;
@@ -329,7 +331,7 @@ fn serialize_account_auth(
 
 /// Parse account_code columns from the provided row into native types.
 fn parse_account_code_columns(
-    row: &rusqlite::Row<'_>
+    row: &rusqlite::Row<'_>,
 ) -> Result<SerializedAccountCodeParts, rusqlite::Error> {
     let root: String = row.get(0)?;
     let procedures: String = row.get(1)?;
@@ -339,7 +341,7 @@ fn parse_account_code_columns(
 
 /// Parse an account_code from the provided parts.
 fn parse_account_code(
-    serialized_account_code_parts: SerializedAccountCodeParts
+    serialized_account_code_parts: SerializedAccountCodeParts,
 ) -> Result<(Vec<Digest>, ModuleAst), StoreError> {
     let (_, procedures, module) = serialized_account_code_parts;
 
@@ -351,21 +353,19 @@ fn parse_account_code(
 
 /// Serialize the provided account_code into database compatible types.
 fn serialize_account_code(
-    account_code: &AccountCode
+    account_code: &AccountCode,
 ) -> Result<SerializedAccountCodeData, StoreError> {
     let root = account_code.root().to_string();
     let procedures = serde_json::to_string(account_code.procedures())
         .map_err(StoreError::InputSerializationError)?;
-    let module = account_code.module().to_bytes(AstSerdeOptions {
-        serialize_imports: true,
-    });
+    let module = account_code.module().to_bytes(AstSerdeOptions { serialize_imports: true });
 
     Ok((root, procedures, module))
 }
 
 /// Parse account_storage columns from the provided row into native types.
 fn parse_account_storage_columns(
-    row: &rusqlite::Row<'_>
+    row: &rusqlite::Row<'_>,
 ) -> Result<SerializedAccountStorageParts, rusqlite::Error> {
     let root: String = row.get(0)?;
     let storage: Vec<u8> = row.get(1)?;
@@ -374,7 +374,7 @@ fn parse_account_storage_columns(
 
 /// Parse an account_storage from the provided parts.
 fn parse_account_storage(
-    serialized_account_storage_parts: SerializedAccountStorageParts
+    serialized_account_storage_parts: SerializedAccountStorageParts,
 ) -> Result<AccountStorage, StoreError> {
     let (_, storage) = serialized_account_storage_parts;
 
@@ -384,7 +384,7 @@ fn parse_account_storage(
 
 /// Serialize the provided account_storage into database compatible types.
 fn serialize_account_storage(
-    account_storage: &AccountStorage
+    account_storage: &AccountStorage,
 ) -> Result<SerializedAccountStorageData, StoreError> {
     let root = account_storage.root().to_string();
     let storage = account_storage.to_bytes();
@@ -394,7 +394,7 @@ fn serialize_account_storage(
 
 /// Parse account_vault columns from the provided row into native types.
 fn parse_account_asset_vault_columns(
-    row: &rusqlite::Row<'_>
+    row: &rusqlite::Row<'_>,
 ) -> Result<SerializedAccountVaultParts, rusqlite::Error> {
     let root: String = row.get(0)?;
     let assets: String = row.get(1)?;
@@ -403,7 +403,7 @@ fn parse_account_asset_vault_columns(
 
 /// Parse a vector of assets from the provided parts.
 fn parse_account_asset_vault(
-    serialized_account_asset_vault_parts: SerializedAccountVaultParts
+    serialized_account_asset_vault_parts: SerializedAccountVaultParts,
 ) -> Result<Vec<Asset>, StoreError> {
     let (_, assets) = serialized_account_asset_vault_parts;
 
@@ -413,7 +413,7 @@ fn parse_account_asset_vault(
 
 /// Serialize the provided asset_vault into database compatible types.
 fn serialize_account_asset_vault(
-    asset_vault: &AssetVault
+    asset_vault: &AssetVault,
 ) -> Result<SerializedAccountVaultData, StoreError> {
     let root = serde_json::to_string(&asset_vault.commitment())
         .map_err(StoreError::InputSerializationError)?;
@@ -425,11 +425,13 @@ fn serialize_account_asset_vault(
 #[cfg(test)]
 mod tests {
     use miden_objects::{
-        accounts::AccountCode, assembly::ModuleAst, crypto::dsa::rpo_falcon512::KeyPair,
+        accounts::{AccountCode, AccountId},
+        assembly::ModuleAst,
+        crypto::dsa::rpo_falcon512::SecretKey,
     };
     use miden_tx::utils::{Deserializable, Serializable};
 
-    use super::AuthInfo;
+    use super::{insert_account_auth, AuthInfo};
     use crate::{
         mock::DEFAULT_ACCOUNT_CODE,
         store::sqlite_store::{accounts::insert_account_code, tests::create_test_store},
@@ -461,13 +463,37 @@ mod tests {
 
     #[test]
     fn test_auth_info_serialization() {
-        let exp_key_pair = KeyPair::new().unwrap();
-        let auth_info = AuthInfo::RpoFalcon512(exp_key_pair);
+        let exp_key_pair = SecretKey::new();
+        let auth_info = AuthInfo::RpoFalcon512(exp_key_pair.clone());
         let bytes = auth_info.to_bytes();
         let actual = AuthInfo::read_from_bytes(&bytes).unwrap();
         match actual {
             AuthInfo::RpoFalcon512(act_key_pair) => {
-                assert_eq!(exp_key_pair, act_key_pair)
+                assert_eq!(exp_key_pair.to_bytes(), act_key_pair.to_bytes());
+                assert_eq!(exp_key_pair.public_key(), act_key_pair.public_key());
+            },
+        }
+    }
+
+    #[test]
+    fn test_auth_info_store() {
+        let exp_key_pair = SecretKey::new();
+
+        let mut store = create_test_store();
+
+        let account_id = AccountId::try_from(3238098370154045919u64).unwrap();
+        {
+            let tx = store.db.transaction().unwrap();
+            insert_account_auth(&tx, account_id, &AuthInfo::RpoFalcon512(exp_key_pair.clone()))
+                .unwrap();
+            tx.commit().unwrap();
+        }
+
+        let account_auth = store.get_account_auth(account_id).unwrap();
+        match account_auth {
+            AuthInfo::RpoFalcon512(act_key_pair) => {
+                assert_eq!(exp_key_pair.to_bytes(), act_key_pair.to_bytes());
+                assert_eq!(exp_key_pair.public_key(), act_key_pair.public_key());
             },
         }
     }
