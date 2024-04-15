@@ -7,7 +7,7 @@ use std::{
 use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
-    client::rpc::NodeRpcClient,
+    client::{rpc::NodeRpcClient, ConsumableNote, NoteRelevance},
     errors::ClientError,
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
 };
@@ -255,7 +255,7 @@ fn list_consumable_notes<N: NodeRpcClient, R: FeltRng, S: Store>(
     account_id: &Option<String>,
 ) -> Result<(), String> {
     let notes = client.get_consumable_notes(account_id)?;
-    print_notes_summary(&notes)?;
+    print_consumable_notes_summary(&notes)?;
     Ok(())
 }
 
@@ -293,6 +293,30 @@ where
             Digest::new(input_note_record.details().serial_num()).to_string(),
             commit_height,
         ]);
+    }
+
+    println!("{table}");
+
+    Ok(())
+}
+
+fn print_consumable_notes_summary<'a, I>(notes: I) -> Result<(), String>
+where
+    I: IntoIterator<Item = &'a ConsumableNote>,
+{
+    let mut table = create_dynamic_table(&["Note ID", "Account ID", "Relevance"]);
+
+    for note in notes {
+        for relevance in &note.1 {
+            table.add_row(vec![
+                note.0.id().inner().to_string(),
+                relevance.0.to_string(),
+                match relevance.1 {
+                    NoteRelevance::Always => "Always".to_string(),
+                    NoteRelevance::After(height) => format!("After block {}", height),
+                },
+            ]);
+        }
     }
 
     println!("{table}");

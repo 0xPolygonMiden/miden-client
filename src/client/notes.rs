@@ -1,11 +1,15 @@
 use miden_objects::{accounts::AccountId, crypto::rand::FeltRng, notes::NoteId};
 
-use super::{rpc::NodeRpcClient, Client};
+use super::{note_screener::NoteRelevance, rpc::NodeRpcClient, Client};
 use crate::{
     client::NoteScreener,
     errors::ClientError,
     store::{InputNoteRecord, NoteFilter, Store},
 };
+
+// TYPES
+// --------------------------------------------------------------------------------------------
+pub type ConsumableNote = (InputNoteRecord, Vec<(AccountId, NoteRelevance)>);
 
 impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     // INPUT NOTE DATA RETRIEVAL
@@ -19,11 +23,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     pub fn get_consumable_notes(
         &self,
         account_id: &Option<String>,
-    ) -> Result<Vec<InputNoteRecord>, ClientError> {
+    ) -> Result<Vec<ConsumableNote>, ClientError> {
         let commited_notes = self.store.get_input_notes(NoteFilter::Committed)?;
 
         let note_screener = NoteScreener::new(&self.store);
-        let mut relevant_notes = Vec::new();
+        let mut relevant_notes: Vec<ConsumableNote> = Vec::new();
 
         for input_note in commited_notes {
             let account_relevance =
@@ -32,10 +36,16 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
                 if account_id.is_some() {
                     let account_id = AccountId::from_hex(&account_id.clone().unwrap())?;
                     if account_relevance.iter().any(|(id, _)| *id == account_id) {
-                        relevant_notes.push(input_note);
+                        relevant_notes.push((
+                            input_note,
+                            account_relevance
+                                .into_iter()
+                                .filter(|(id, _)| *id == account_id)
+                                .collect(),
+                        ));
                     }
                 } else {
-                    relevant_notes.push(input_note);
+                    relevant_notes.push((input_note, account_relevance));
                 }
             }
         }
