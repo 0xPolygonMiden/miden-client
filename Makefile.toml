@@ -64,7 +64,7 @@ script = "cargo run --bin ${NODE_BINARY} --features ${NODE_FEATURES_TESTING} -- 
 [tasks.docs-deps]
 description = "Install documentation dependencies"
 command = "pip3"
-args = ["install", "-r", "requirements.txt"]
+args = ["install", "-r", "scripts/docs_requirements.txt"]
 
 [tasks.build-docs]
 description = "Build documentation"
