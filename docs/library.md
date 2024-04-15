@@ -8,7 +8,7 @@ miden-client = { version = "0.2" }
 
 ### Features
 
-The Miden client library supports the [`testing`](https://github.com/0xPolygonMiden/miden-client/blob/main/docs/install-and-run.md#testing-feature) and [`concurrent`](https://github.com/0xPolygonMiden/miden-client/blob/main/docs/install-and-run.md#concurrent-feature) feature which are both recommended for using the client for developing applications. In order to utilize them, you can add this to your project's `Cargo.toml`:
+The Miden client library supports the [`testing`](https://github.com/0xPolygonMiden/miden-client/blob/main/docs/install-and-run.md#testing-feature) and [`concurrent`](https://github.com/0xPolygonMiden/miden-client/blob/main/docs/install-and-run.md#concurrent-feature) features which are both recommended for developing applications with the client. To use them, add the following to your project's `Cargo.toml`:
 
 ```toml
 miden-client = { version = "0.2", features = ["testing", "concurrent"] }
