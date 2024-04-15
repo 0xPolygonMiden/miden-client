@@ -1,10 +1,10 @@
-use miden_objects::{crypto::rand::FeltRng, notes::NoteId, accounts::AccountId};
+use miden_objects::{accounts::AccountId, crypto::rand::FeltRng, notes::NoteId};
 
 use super::{rpc::NodeRpcClient, Client};
 use crate::{
+    client::NoteScreener,
     errors::ClientError,
     store::{InputNoteRecord, NoteFilter, Store},
-    client::NoteScreener,
 };
 
 impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
@@ -24,9 +24,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
         let note_screener = NoteScreener::new(&self.store);
         let mut relevant_notes = Vec::new();
-    
+
         for input_note in commited_notes {
-            let account_relevance = note_screener.check_relevance(&input_note.clone().try_into().unwrap())?;
+            let account_relevance =
+                note_screener.check_relevance(&input_note.clone().try_into().unwrap())?;
             if !account_relevance.is_empty() {
                 if account_id.is_some() {
                     let account_id = AccountId::from_hex(&account_id.clone().unwrap())?;

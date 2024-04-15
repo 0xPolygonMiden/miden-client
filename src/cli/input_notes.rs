@@ -113,9 +113,9 @@ impl InputNotes {
                 let note_id = import_note(&mut client, filename.clone())?;
                 println!("Succesfully imported note {}", note_id.inner());
             },
-            InputNotes::ListConsumable {account_id} => {
-               list_consumable_notes(client, account_id);
-            }
+            InputNotes::ListConsumable { account_id } => {
+                let _ = list_consumable_notes(client, account_id);
+            },
         }
         Ok(())
     }
