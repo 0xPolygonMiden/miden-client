@@ -1,10 +1,14 @@
 # Changelog
 
+* Added `CONTRIBUTING.MD` file.
+* Renamed `format` command from `Makefile.toml` to `check-format` and added a
+  new `format` command that applies the formatting.
+
 ## 0.2.1 (2024-04-24)
 
 * Added ability to start the client in debug mode (#283).
 
-## 0.2.0 (2024-04-14)
+## 0.2.0 (2024-04-12)
 
 * Added an `init` command to the CLI.
 * Added support for on-chain accounts.
