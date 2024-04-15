@@ -79,8 +79,10 @@ pub enum InputNotes {
         filename: PathBuf,
     },
 
+    /// List consumable input notes
     #[clap(short_flag = 'c')]
     ListConsumable {
+        /// Account ID used to filter list. Only notes consumable by this account will be shown.
         #[clap()]
         account_id: Option<String>,
     },
@@ -114,7 +116,7 @@ impl InputNotes {
                 println!("Succesfully imported note {}", note_id.inner());
             },
             InputNotes::ListConsumable { account_id } => {
-                let _ = list_consumable_notes(client, account_id);
+                list_consumable_notes(client, account_id)?;
             },
         }
         Ok(())
