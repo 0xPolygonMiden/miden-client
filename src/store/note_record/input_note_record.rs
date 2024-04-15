@@ -187,3 +187,31 @@ impl TryInto<InputNote> for InputNoteRecord {
         }
     }
 }
+
+impl TryInto<Note> for InputNoteRecord {
+    type Error = ClientError;
+
+    fn try_into(self) -> Result<Note, Self::Error> {
+        match (self.inclusion_proof, self.metadata) {
+            (Some(_proof), Some(metadata)) => {
+                // TODO: Write functions to get these fields more easily
+                let note_inputs = NoteInputs::new(self.details.inputs)?;
+                let note_recipient =
+                    NoteRecipient::new(self.details.serial_num, self.details.script, note_inputs);
+                let note = Note::new(self.assets, metadata, note_recipient);
+                Ok(note)
+            },
+
+            (None, _) => {
+                Err(ClientError::NoteError(miden_objects::NoteError::invalid_origin_index(
+                    "Input Note Record contains no inclusion proof".to_string(),
+                )))
+            },
+            (_, None) => {
+                Err(ClientError::NoteError(miden_objects::NoteError::invalid_origin_index(
+                    "Input Note Record contains no metadata".to_string(),
+                )))
+            },
+        }
+    }
+}

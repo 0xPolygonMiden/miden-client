@@ -78,6 +78,12 @@ pub enum InputNotes {
         #[clap()]
         filename: PathBuf,
     },
+
+    #[clap(short_flag = 'c')]
+    ListConsumable {
+        #[clap()]
+        account_id: Option<String>,
+    },
 }
 
 impl InputNotes {
@@ -107,6 +113,9 @@ impl InputNotes {
                 let note_id = import_note(&mut client, filename.clone())?;
                 println!("Succesfully imported note {}", note_id.inner());
             },
+            InputNotes::ListConsumable {account_id} => {
+               list_consumable_notes(client, account_id);
+            }
         }
         Ok(())
     }
@@ -236,6 +245,17 @@ fn show_input_note<N: NodeRpcClient, R: FeltRng, S: Store>(
     };
 
     println!("{table}");
+    Ok(())
+}
+
+// LIST CONSUMABLE INPUT NOTES
+// ================================================================================================
+fn list_consumable_notes<N: NodeRpcClient, R: FeltRng, S: Store>(
+    client: Client<N, R, S>,
+    account_id: &Option<String>,
+) -> Result<(), String> {
+    let notes = client.get_consumable_notes(account_id)?;
+    print_notes_summary(&notes)?;
     Ok(())
 }
 
