@@ -20,17 +20,17 @@ The Miden client currently consists of two components:
 
 The client's main responsibility is to maintain a partial view of the blockchain which allows for locally executing and proving transactions. It keeps a local store of various entities that periodically get updated by syncing with the node.
 
-## Usage
+## Dependencies
 
-### Dependencies
-
-#### Required
+### Required
 
 - [Rust installation](https://www.rust-lang.org/tools/install) with version 1.77 or higher.
 
-#### Optional
+### Optional
 
 - [Cargo Make](https://github.com/sagiegurari/cargo-make) (recommended)
+
+## Usage
 
 ### Adding miden-client as a dependency
 
