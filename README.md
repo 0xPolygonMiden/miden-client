@@ -28,7 +28,7 @@ The client's main responsibility is to maintain a partial view of the blockchain
 
 ### Optional
 
-- [Cargo Make](https://github.com/sagiegurari/cargo-make) (recommended)
+- [Cargo Make](https://github.com/sagiegurari/cargo-make)
 
 ## Usage
 
@@ -37,7 +37,7 @@ The client's main responsibility is to maintain a partial view of the blockchain
 In order to utilize the `miden-client` library, you can add the dependency to your project's `Cargo.toml` file:
 
 ````toml
-miden-client = { version = "0.2", features = ["concurrent", "testing"]  }
+miden-client = { version = "0.2" }
 ````
 
 ### Running miden-client from CLI
@@ -58,7 +58,7 @@ cargo install miden-client
 
 Check the official documentation for more details reagarding:
 
-- [Features](https://docs.polygon.technology/miden/miden-client/library/#features), such us faster PoW on account creation for development.
+- [Features](https://docs.polygon.technology/miden/miden-client/library/#features), such us faster PoW for account creation and lower PoW difficulty for development.
 - [Configuration](https://docs.polygon.technology/miden/miden-client/cli-config/)
 - [Examples](https://0xpolygonmiden.github.io/miden-base/introduction/getting-started.html)
 - [CLI Reference](https://docs.polygon.technology/miden/miden-client/cli-reference/#types-of-transaction)
@@ -77,7 +77,7 @@ You can keep track of the client's changes [here](./CHANGELOG.md).
 
 ## Contributing
 
-Interested in contributing in our project? Check [CONTRIBUTING.md](./CONTRIBUTING.md).
+Interested in contributing with the project? Check [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 This project is [MIT licensed](./LICENSE).
