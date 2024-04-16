@@ -72,12 +72,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     }
 
     /// Returns the list of note tags tracked by the client.
-    pub fn get_note_tags(&self) -> Result<Vec<u64>, ClientError> {
+    pub fn get_note_tags(&self) -> Result<Vec<NoteTag>, ClientError> {
         self.store.get_note_tags().map_err(|err| err.into())
     }
 
     /// Adds a note tag for the client to track.
-    pub fn add_note_tag(&mut self, tag: u64) -> Result<(), ClientError> {
+    pub fn add_note_tag(&mut self, tag: NoteTag) -> Result<(), ClientError> {
         match self.store.add_note_tag(tag).map_err(|err| err.into()) {
             Ok(true) => Ok(()),
             Ok(false) => {

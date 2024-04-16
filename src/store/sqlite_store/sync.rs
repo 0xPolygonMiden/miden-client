@@ -1,7 +1,7 @@
 use miden_objects::{
     accounts::Account,
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::NoteInclusionProof,
+    notes::{NoteInclusionProof, NoteTag},
     transaction::TransactionId,
     BlockHeader, Digest,
 };
@@ -15,7 +15,7 @@ use crate::{
 };
 
 impl SqliteStore {
-    pub(crate) fn get_note_tags(&self) -> Result<Vec<u64>, StoreError> {
+    pub(crate) fn get_note_tags(&self) -> Result<Vec<NoteTag>, StoreError> {
         const QUERY: &str = "SELECT tags FROM state_sync";
 
         self.db
@@ -33,7 +33,7 @@ impl SqliteStore {
             .expect("state sync tags exist")
     }
 
-    pub(super) fn add_note_tag(&mut self, tag: u64) -> Result<bool, StoreError> {
+    pub(super) fn add_note_tag(&mut self, tag: NoteTag) -> Result<bool, StoreError> {
         let mut tags = self.get_note_tags()?;
         if tags.contains(&tag) {
             return Ok(false);

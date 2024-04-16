@@ -6,6 +6,7 @@ use miden_objects::{
     assembly::{AstSerdeOptions, ModuleAst},
     assets::{FungibleAsset, TokenSymbol},
     crypto::dsa::rpo_falcon512::SecretKey,
+    notes::NoteTag,
     Word,
 };
 
@@ -317,19 +318,19 @@ async fn test_add_tag() {
     assert_eq!(client.get_note_tags().unwrap().len(), 0);
 
     // add a tag
-    const TAG_VALUE_1: u64 = 1;
-    const TAG_VALUE_2: u64 = 2;
-    client.add_note_tag(TAG_VALUE_1).unwrap();
-    client.add_note_tag(TAG_VALUE_2).unwrap();
+    let tag_1: NoteTag = 1.into();
+    let tag_2: NoteTag = 2.into();
+    client.add_note_tag(tag_1).unwrap();
+    client.add_note_tag(tag_2).unwrap();
 
     // verify that the tag is being tracked
-    assert_eq!(client.get_note_tags().unwrap(), vec![TAG_VALUE_1, TAG_VALUE_2]);
+    assert_eq!(client.get_note_tags().unwrap(), vec![tag_1, tag_2]);
 
     // attempt to add the same tag again
-    client.add_note_tag(TAG_VALUE_1).unwrap();
+    client.add_note_tag(tag_1).unwrap();
 
     // verify that the tag is still being tracked only once
-    assert_eq!(client.get_note_tags().unwrap(), vec![TAG_VALUE_1, TAG_VALUE_2]);
+    assert_eq!(client.get_note_tags().unwrap(), vec![tag_1, tag_2]);
 }
 
 #[tokio::test]

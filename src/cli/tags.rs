@@ -14,7 +14,7 @@ pub enum TagsCmd {
     #[clap(short_flag = 'a')]
     Add {
         #[clap()]
-        tag: u64,
+        tag: u32,
     },
 }
 
@@ -47,9 +47,9 @@ fn list_tags<N: NodeRpcClient, R: FeltRng, S: Store>(
 
 fn add_tag<N: NodeRpcClient, R: FeltRng, S: Store>(
     mut client: Client<N, R, S>,
-    tag: u64,
+    tag: u32,
 ) -> Result<(), String> {
-    client.add_note_tag(tag)?;
+    client.add_note_tag(tag.into())?;
     println!("tag {} added", tag);
     Ok(())
 }
