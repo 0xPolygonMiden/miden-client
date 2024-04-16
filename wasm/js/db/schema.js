@@ -24,6 +24,7 @@ const Table = {
   TransactionScripts: 'transactionScripts',
   InputNotes: 'inputNotes',
   OutputNotes: 'outputNotes',
+  StateSync: 'stateSync',
   Greet: 'greets',
 };
 
@@ -38,12 +39,18 @@ db.version(1).stores({
   [Table.TransactionScripts]: indexes('scriptHash'),
   [Table.InputNotes]: indexes('noteId', 'recipient', 'status'),
   [Table.OutputNotes]: indexes('noteId', 'recipient', 'status'),
+  [Table.StateSync]: indexes('id'),
   [Table.Greet]: '++id',
 });
 
 function indexes(...items) {
   return items.join(',');
 }
+
+db.on('populate', () => {
+  // Populate the stateSync table with default values
+  db.stateSync.put({ id: 1, blockNum: 0, tags: [] });
+});
 
 const accountCodes = db.table(Table.AccountCode);
 const accountStorages = db.table(Table.AccountStorage);
@@ -54,9 +61,11 @@ const transactions = db.table(Table.Transactions);
 const transactionScripts = db.table(Table.TransactionScripts);
 const inputNotes = db.table(Table.InputNotes);
 const outputNotes = db.table(Table.OutputNotes);
+const stateSync = db.table(Table.StateSync);
 const greets = db.table(Table.Greet);
 
 export { 
+    db,
     accountCodes, 
     accountStorages, 
     accountVaults, 
@@ -66,5 +75,6 @@ export {
     transactionScripts,
     inputNotes,
     outputNotes,
+    stateSync,
     greets,
 };

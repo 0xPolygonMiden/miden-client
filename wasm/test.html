@@ -141,8 +141,19 @@
             }
         }
 
+        async function testSyncState(webClient) {
+            try {
+                await webClient.sync_state();
+
+            } catch (error) {
+                console.error('Failed to call sync state:', error);
+            
+            }
+        }
+
         let webClient = await testCreateClient();
         await testStoreAndRpc(webClient);
+
         await testNewAccount(webClient);
         await testGetAccounts(webClient);
         await testGetAccount(webClient);
@@ -155,6 +166,8 @@
 
         await testGetTransactions(webClient);
         await testNewTransaction(webClient);
+
+        await testSyncState(webClient);
     </script>
 </body>
 </html>

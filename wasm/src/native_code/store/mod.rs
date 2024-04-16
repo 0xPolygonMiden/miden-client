@@ -22,6 +22,32 @@ pub trait Store {
         data: String
     ) -> Result<(), ()>;
 
+    // SYNC
+    // --------------------------------------------------------------------------------------------
+
+    // async fn get_note_tags(
+    //     &self
+    // ) -> Result<Vec<u64>, ()>;
+
+    // async fn add_note_tag(
+    //     &mut self,
+    //     tag: u64,
+    // ) -> Result<bool, ()>;
+
+    // async fn get_sync_height(
+    //     &self
+    // ) -> Result<u32, ()>;
+
+    // async fn apply_state_sync(
+    //     &mut self,
+    //     block_header: BlockHeader,
+    //     nullifiers: Vec<Digest>,
+    //     committed_notes: Vec<(NoteId, NoteInclusionProof)>,
+    //     committed_transactions: &[TransactionId],
+    //     new_mmr_peaks: MmrPeaks,
+    //     new_authentication_nodes: &[(InOrderIndex, Digest)],
+    // ) -> Result<(), ()>;
+
     // TRANSACTIONS
     // --------------------------------------------------------------------------------------------
 
@@ -94,11 +120,6 @@ pub trait Store {
     // async fn get_unspent_input_note_nullifiers(
     //     &self
     // ) -> Result<Vec<Nullifier>, ()>;
-
-    // TRANSACTIONS
-    // --------------------------------------------------------------------------------------------
-    
-    
 }
 
 // DATABASE AUTH INFO

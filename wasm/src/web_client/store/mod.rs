@@ -36,6 +36,44 @@ impl Store for WebStore {
         self.insert_string(data).await
     }
 
+    // async fn get_note_tags(
+    //     &self
+    // ) -> Result<Vec<u64>, ()> {
+    //     self.get_note_tags()
+    // }
+
+    // async fn add_note_tag(
+    //     &mut self,
+    //     tag: u64,
+    // ) -> Result<bool, ()> {
+    //     self.add_note_tag(tag)
+    // }
+
+    // async fn get_sync_height(
+    //     &self
+    // ) -> Result<u32, ()> {
+    //     self.get_sync_height()
+    // }
+
+    // async fn apply_state_sync(
+    //     &mut self,
+    //     block_header: BlockHeader,
+    //     nullifiers: Vec<Digest>,
+    //     committed_notes: Vec<(NoteId, NoteInclusionProof)>,
+    //     committed_transactions: &[TransactionId],
+    //     new_mmr_peaks: MmrPeaks,
+    //     new_authentication_nodes: &[(InOrderIndex, Digest)],
+    // ) -> Result<(), ()> {
+    //     self.apply_state_sync(
+    //         block_header,
+    //         nullifiers,
+    //         committed_notes,
+    //         committed_transactions,
+    //         new_mmr_peaks,
+    //         new_authentication_nodes,
+    //     )
+    // }
+
     // TRANSACTIONS
     // async fn get_transactions(
     //     &mut self,
