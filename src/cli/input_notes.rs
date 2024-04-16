@@ -12,6 +12,7 @@ use miden_client::{
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
 };
 use miden_objects::{
+    accounts::AccountId,
     crypto::rand::FeltRng,
     notes::{NoteId, NoteInputs},
     Digest,
@@ -256,6 +257,10 @@ fn list_consumable_notes<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: Client<N, R, S>,
     account_id: &Option<String>,
 ) -> Result<(), String> {
+    let account_id = match account_id {
+        Some(id) => Some(AccountId::from_hex(id.as_str()).map_err(|err| err.to_string())?),
+        None => None,
+    };
     let notes = client.get_consumable_notes(account_id)?;
     print_consumable_notes_summary(&notes)?;
     Ok(())

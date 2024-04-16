@@ -25,7 +25,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     /// If account_id is None then all consumable input notes are returned.
     pub fn get_consumable_notes(
         &self,
-        account_id: &Option<String>,
+        account_id: Option<AccountId>,
     ) -> Result<Vec<ConsumableNote>, ClientError> {
         let commited_notes = self.store.get_input_notes(NoteFilter::Committed)?;
 
@@ -38,8 +38,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             if account_relevance.is_empty() {
                 continue;
             }
-            if account_id.is_some() {
-                let account_id = AccountId::from_hex(&account_id.clone().unwrap())?;
+            if let Some(account_id) = account_id {
                 if account_relevance.iter().any(|(id, _)| *id == account_id) {
                     relevant_notes.push((
                         input_note,
