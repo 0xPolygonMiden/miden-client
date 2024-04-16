@@ -498,7 +498,10 @@ async fn test_p2idr_transfer_consumed_by_sender() {
     let faucet_account_id = faucet_account_stub.id();
 
     // First Mint necesary token
-    mint_note(&mut client, from_account_id, faucet_account_id, NoteType::OffChain).await;
+    let note = mint_note(&mut client, from_account_id, faucet_account_id, NoteType::OffChain).await;
+
+    consume_notes(&mut client, from_account_id, &[note]).await;
+    assert_account_has_single_asset(&client, from_account_id, faucet_account_id, MINT_AMOUNT).await;
     // Do a transfer from first account to second account with Recall. In this situation we'll do
     // the happy path where the `to_account_id` consumes the note
     let from_account_balance = client
@@ -513,7 +516,7 @@ async fn test_p2idr_transfer_consumed_by_sender() {
     let tx_template = TransactionTemplate::PayToIdWithRecall(
         PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
         current_block_num + 5,
-        NoteType::OffChain
+        NoteType::OffChain,
     );
     println!("Running P2IDR tx...");
     let tx_request = client.build_transaction_request(tx_template).unwrap();
