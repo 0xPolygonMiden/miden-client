@@ -20,7 +20,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         self.store.get_input_notes(filter).map_err(|err| err.into())
     }
 
-    /// Returns input notes that are abled to be consumed by the account_id. If account_id is None then all consumable input notes are returned.
+    /// Returns input notes that are able to be consumed by the account_id.
+    ///
+    /// If account_id is None then all consumable input notes are returned.
     pub fn get_consumable_notes(
         &self,
         account_id: &Option<String>,
