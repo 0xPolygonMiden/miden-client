@@ -47,6 +47,20 @@ impl SqliteStore {
         Ok(true)
     }
 
+    pub(super) fn remove_note_tag(&mut self, tag: NoteTag) -> Result<(), StoreError> {
+        let mut tags = self.get_note_tags()?;
+        if let Some(index_of_tag) = tags.iter().position(|&tag_candidate| tag_candidate == tag) {
+            tags.remove(index_of_tag);
+        }
+
+        let tags = serde_json::to_string(&tags).map_err(StoreError::InputSerializationError)?;
+
+        const QUERY: &str = "UPDATE state_sync SET tags = ?";
+        self.db.execute(QUERY, params![tags])?;
+
+        Ok(())
+    }
+
     pub(super) fn get_sync_height(&self) -> Result<u32, StoreError> {
         const QUERY: &str = "SELECT block_num FROM state_sync";
 

@@ -207,6 +207,9 @@ pub trait Store {
     /// Adds a note tag to the list of tags that the client is interested in.
     fn add_note_tag(&mut self, tag: NoteTag) -> Result<bool, StoreError>;
 
+    /// Removes a note tag from the list of tags that the client is interested in.
+    fn remove_note_tag(&mut self, tag: NoteTag) -> Result<(), StoreError>;
+
     /// Returns the block number of the last state sync block.
     fn get_sync_height(&self) -> Result<u32, StoreError>;
 

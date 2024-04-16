@@ -88,6 +88,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         }
     }
 
+    /// Removes a note tag for the client to track.
+    pub fn remove_note_tag(&mut self, tag: NoteTag) -> Result<(), ClientError> {
+        Ok(self.store.remove_note_tag(tag)?)
+    }
+
     /// Syncs the client's state with the current state of the Miden network.
     /// Before doing so, it ensures the genesis block exists in the local store.
     ///

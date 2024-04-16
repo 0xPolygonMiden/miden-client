@@ -120,6 +120,10 @@ impl Store for SqliteStore {
         self.add_note_tag(tag)
     }
 
+    fn remove_note_tag(&mut self, tag: NoteTag) -> Result<(), StoreError> {
+        self.remove_note_tag(tag)
+    }
+
     fn get_sync_height(&self) -> Result<u32, StoreError> {
         self.get_sync_height()
     }
