@@ -1,13 +1,18 @@
 use miden_objects::{
+    accounts::Account,
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::{NoteId, NoteInclusionProof},
+    notes::NoteInclusionProof,
     transaction::TransactionId,
     BlockHeader, Digest,
 };
 use rusqlite::{named_params, params};
 
 use super::SqliteStore;
-use crate::errors::StoreError;
+use crate::{
+    client::sync::SyncedNewNotes,
+    errors::StoreError,
+    store::sqlite_store::{accounts::update_account, notes::insert_input_note_tx},
+};
 
 impl SqliteStore {
     pub(crate) fn get_note_tags(&self) -> Result<Vec<u64>, StoreError> {
@@ -28,10 +33,7 @@ impl SqliteStore {
             .expect("state sync tags exist")
     }
 
-    pub(super) fn add_note_tag(
-        &mut self,
-        tag: u64,
-    ) -> Result<bool, StoreError> {
+    pub(super) fn add_note_tag(&mut self, tag: u64) -> Result<bool, StoreError> {
         let mut tags = self.get_note_tags()?;
         if tags.contains(&tag) {
             return Ok(false);
@@ -61,10 +63,11 @@ impl SqliteStore {
         &mut self,
         block_header: BlockHeader,
         nullifiers: Vec<Digest>,
-        committed_notes: Vec<(NoteId, NoteInclusionProof)>,
+        committed_notes: SyncedNewNotes,
         committed_transactions: &[TransactionId],
         new_mmr_peaks: MmrPeaks,
         new_authentication_nodes: &[(InOrderIndex, Digest)],
+        updated_onchain_accounts: &[Account],
     ) -> Result<(), StoreError> {
         let tx = self.db.transaction()?;
 
@@ -75,12 +78,12 @@ impl SqliteStore {
         // Update spent notes
         for nullifier in nullifiers.iter() {
             const SPENT_INPUT_NOTE_QUERY: &str =
-                "UPDATE input_notes SET status = 'consumed' WHERE json_extract(details, '$.nullifier') = ?";
+                "UPDATE input_notes SET status = 'Consumed' WHERE json_extract(details, '$.nullifier') = ?";
             let nullifier = nullifier.to_hex();
             tx.execute(SPENT_INPUT_NOTE_QUERY, params![nullifier])?;
 
             const SPENT_OUTPUT_NOTE_QUERY: &str =
-                "UPDATE output_notes SET status = 'consumed' WHERE json_extract(details, '$.nullifier') = ?";
+                "UPDATE output_notes SET status = 'Consumed' WHERE json_extract(details, '$.nullifier') = ?";
             tx.execute(SPENT_OUTPUT_NOTE_QUERY, params![nullifier])?;
         }
 
@@ -93,7 +96,7 @@ impl SqliteStore {
         Self::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
 
         // Update tracked notes
-        for (note_id, inclusion_proof) in committed_notes.iter() {
+        for (note_id, inclusion_proof) in committed_notes.new_inclusion_proofs().iter() {
             let block_num = inclusion_proof.origin().block_num;
             let sub_hash = inclusion_proof.sub_hash();
             let note_root = inclusion_proof.note_root();
@@ -109,27 +112,32 @@ impl SqliteStore {
             .map_err(StoreError::InputSerializationError)?;
 
             const COMMITTED_INPUT_NOTES_QUERY: &str =
-                "UPDATE input_notes SET status = 'committed', inclusion_proof = json(:inclusion_proof) WHERE note_id = :note_id";
+                "UPDATE input_notes SET status = 'Committed', inclusion_proof = json(:inclusion_proof) WHERE note_id = :note_id";
 
             tx.execute(
                 COMMITTED_INPUT_NOTES_QUERY,
                 named_params! {
                     ":inclusion_proof": inclusion_proof,
-                    ":note_id": note_id.inner().to_hex()
+                    ":note_id": note_id.inner().to_hex(),
                 },
             )?;
 
             // Update output notes
             const COMMITTED_OUTPUT_NOTES_QUERY: &str =
-                "UPDATE output_notes SET status = 'committed', inclusion_proof = json(:inclusion_proof) WHERE note_id = :note_id";
+                "UPDATE output_notes SET status = 'Committed', inclusion_proof = json(:inclusion_proof) WHERE note_id = :note_id";
 
             tx.execute(
                 COMMITTED_OUTPUT_NOTES_QUERY,
                 named_params! {
                     ":inclusion_proof": inclusion_proof,
-                    ":note_id": note_id.inner().to_hex()
+                    ":note_id": note_id.inner().to_hex(),
                 },
             )?;
+        }
+
+        // Commit new public notes
+        for note in committed_notes.new_public_notes() {
+            insert_input_note_tx(&tx, &note.clone().into())?;
         }
 
         // Mark transactions as committed
@@ -138,6 +146,11 @@ impl SqliteStore {
             block_header.block_num(),
             committed_transactions,
         )?;
+
+        // Update onchain accounts on the db that have been updated onchain
+        for account in updated_onchain_accounts {
+            update_account(&tx, account)?;
+        }
 
         // Commit the updates
         tx.commit()?;

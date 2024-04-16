@@ -1,8 +1,9 @@
 # Miden client
 
-<a href="https://github.com/0xPolygonMiden/miden-node/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-<a href="https://github.com/0xPolygonMiden/miden-client/actions/workflows/ci.yml"><img src="https://github.com/0xPolygonMiden/miden-client/actions/workflows/ci.yml/badge.svg?branch=main"></a>
-<a href="https://crates.io/crates/miden-client"><img src="https://img.shields.io/crates/v/miden-client"></a>
+[![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/0xPolygonMiden/miden-client/blob/main/LICENSE)
+[![CI](https://github.com/0xPolygonMiden/miden-client/actions/workflows/ci.yml/badge.svg)](https://github.com/0xPolygonMiden/miden-clinet/actions/workflows/ci.yml)
+[![RUST_VERSION](https://img.shields.io/badge/rustc-1.77+-lightgray.svg)]()
+[![crates.io](https://img.shields.io/crates/v/miden-client)](https://crates.io/crates/miden-client)
 
 This repository contains the Miden client, which provides a way to execute and prove transactions, facilitating the interaction with the Miden rollup.
 
@@ -23,7 +24,7 @@ The client's main responsibility is to maintain a partial view of the blockchain
 
 ### Installing the CLI
 
-Before you can build and run the Miden client CLI, you'll need to make sure you have Rust [installed](https://www.rust-lang.org/tools/install). Miden client v0.1 requires Rust version **1.75** or later.
+Before you can build and run the Miden client CLI, you'll need to make sure you have Rust [installed](https://www.rust-lang.org/tools/install). Miden client v0.2 requires Rust version **1.77** or later.
 
 You can then install the CLI on your system:
 
@@ -50,7 +51,9 @@ After installing the client, you can use it by running `miden-client`. In order 
 
 ### Connecting to the network
 
-The CLI can be configured through a TOML file ([`miden-client.toml`](miden-client.toml)). This file is expected to be located in the directory from where you are running the CLI. This is useful for connecting to a specific node when developing with the client, for example. 
+The CLI can be configured through a TOML file ([`miden-client.toml`](miden-client.toml)). This file is expected to be located in the directory from where you are running the CLI. This is useful for connecting to a specific node when developing with the client, for example.
+
+If you installed `miden-client` with `cargo install miden-client` there won't be a config file present. That's why there is an `init` command that creates one in the current directory with some default values.
 
 In the configuration file, you will find a section for defining the node's endpoint and the store's filename. By default, the node will run on `localhost:57291`, so the example file defines this as the RPC endpoint.
 
@@ -94,7 +97,7 @@ Running this command will update local data up to the chain tip. This is needed 
 Since we have now synced our local view of the blockchain and have account information, we are ready to execute and submit tranasctions. For a first test, we are going to mint a fungible asset for a regular account.
 
 ```bash
-miden-client tx new mint <regular-account-ID-A> <faucet-account-id> 1000
+miden-client tx new mint <regular-account-ID-A> <faucet-account-id> 1000 --note-type private
 ```
 
 This will execute, prove and submit a transaction that mints assets to the node. The account that executes this transaction will be the faucet as was defined in the node's configuration file. In this case, it is minting `1000` fungible tokens to `<regular-account-ID-A>`. 
@@ -106,7 +109,7 @@ This will add a transaction and an output note (containing the minted asset) to 
 After creating the note with the minted asset, the regular account can now consume it and add the tokens to its vault. You can do this the following way:
 
 ```bash
-miden-client tx new consume-notes <regular-account-ID-A> <input-note-ID>
+miden-client tx new consume-notes <regular-account-ID-A> <input-note-ID> 
 ```
 
 This will consume the input note identified by its ID, which you can get by listing them as explained in the previous step. Note that you can consume more than one note in a single transaction. Additionally, it's possible to provide just a prefix of a note's ID. For example, instead of `miden-client tx new consume-notes <regular-account-ID-A> 0x70b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0` you can do `miden-client tx new consume-notes <regular-account-ID-A> 0x70b7ec`. 
@@ -123,14 +126,14 @@ Some of the tokens we minted can now be transferred to our second regular accoun
 
 ```bash
 miden-client sync # Make sure we have an updated view of the state
-miden-client tx new p2id <regular-account-ID-A> <regular-account-ID-B> <faucet-account-ID> 50 # Transfers 50 tokens to account ID B
+miden-client tx new p2id <regular-account-ID-A> <regular-account-ID-B> <faucet-account-ID> 50 --note-type private # Transfers 50 tokens to account ID B
 ```
 
-This will generate a Pay-to-ID (`P2ID`) note containing 50 assets, transferred from one regular account to the other. If we sync, we can now make use of the note and consume it for the receiving account:
+This will generate a Pay-to-ID (`P2ID`) note containing 50 assets, transferred from one regular account to the other. You can see the new note by running `miden-client input-notes list`. If we sync, we can now make use of the note and consume it for the receiving account:
 
 ```bash
 miden-client sync # Make sure we have an updated view of the state
-miden-client tx new consume-notes <regular-account-ID-B> # Consume the note
+miden-client tx new consume-notes <regular-account-ID-B> <input-note-ID> # Consume the note
 ```
 
 That's it! You will now be able to see `950` fungible tokens in the first regular account, and `50` tokens in the remaining regular account:
@@ -150,7 +153,7 @@ All state is maintained in `store.sqlite3`, located in the same directory where 
 In order to utilize the `miden-client` library, you can add the dependency to your project's `Cargo.toml` file:
 
 ````toml
-miden-client = { version = "0.1", features = ["concurrent", "testing"]  }
+miden-client = { version = "0.2", features = ["concurrent", "testing"]  }
 ````
 
 ## Testing

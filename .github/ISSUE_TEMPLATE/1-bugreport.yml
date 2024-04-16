@@ -11,7 +11,7 @@ body:
     attributes:
       label: "Version"
       description: "Which client version are you running?"
-      placeholder: "v0.1.0"
+      placeholder: "v0.2.0"
     validations:
       required: true
   - type: textarea
@@ -19,7 +19,7 @@ body:
     attributes:
       label: "Packages versions"
       description: "Let us know the versions of other packages used. For example, which version of the node are you using when reproducing this bug?"
-      placeholder: "miden-node: 0.1.0"
+      placeholder: "miden-node: 0.2.0"
     validations:
       required: true
   - type: textarea

@@ -1,23 +1,24 @@
+use alloc::collections::BTreeMap;
+
 use miden_objects::{
-    accounts::{Account, AccountId},
+    accounts::AccountId,
     assembly::{AstSerdeOptions, ProgramAst},
-    transaction::{OutputNote, OutputNotes, TransactionId, TransactionScript},
-    utils::collections::BTreeMap,
+    crypto::utils::{Deserializable, Serializable},
+    transaction::{OutputNotes, ToNullifier, TransactionId, TransactionScript},
     Digest, Felt,
 };
-use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{params, Transaction};
 use tracing::info;
 
 use super::{
-    accounts::{insert_account_asset_vault, insert_account_record, insert_account_storage},
+    accounts::update_account,
     notes::{insert_input_note_tx, insert_output_note_tx},
     SqliteStore,
 };
 use crate::{
     client::transactions::{TransactionRecord, TransactionResult, TransactionStatus},
     errors::StoreError,
-    store::{InputNoteRecord, TransactionFilter},
+    store::{InputNoteRecord, OutputNoteRecord, TransactionFilter},
 };
 
 pub(crate) const INSERT_TRANSACTION_QUERY: &str =
@@ -77,10 +78,7 @@ impl SqliteStore {
     }
 
     /// Inserts a transaction and updates the current state based on the `tx_result` changes
-    pub fn apply_transaction(
-        &mut self,
-        tx_result: TransactionResult,
-    ) -> Result<(), StoreError> {
+    pub fn apply_transaction(&mut self, tx_result: TransactionResult) -> Result<(), StoreError> {
         let account_id = tx_result.executed_transaction().account_id();
         let account_delta = tx_result.account_delta();
 
@@ -88,10 +86,16 @@ impl SqliteStore {
 
         account.apply_delta(account_delta).map_err(StoreError::AccountError)?;
 
-        let created_notes = tx_result
+        let created_input_notes = tx_result
+            .relevant_notes()
+            .into_iter()
+            .map(|note| InputNoteRecord::from(note.clone()))
+            .collect::<Vec<_>>();
+
+        let created_output_notes = tx_result
             .created_notes()
             .iter()
-            .map(|note| InputNoteRecord::from(note.clone()))
+            .map(|note| OutputNoteRecord::from(note.clone()))
             .collect::<Vec<_>>();
 
         let tx = self.db.transaction()?;
@@ -100,17 +104,17 @@ impl SqliteStore {
         insert_proven_transaction_data(&tx, tx_result)?;
 
         // Account Data
-        update_account(&tx, account)?;
+        update_account(&tx, &account)?;
 
         // Updates for notes
 
         // TODO: see if we should filter the input notes we store to keep notes we can consume with
         // existing accounts
-        for note in &created_notes {
+        for note in &created_input_notes {
             insert_input_note_tx(&tx, note)?;
         }
 
-        for note in &created_notes {
+        for note in &created_output_notes {
             insert_output_note_tx(&tx, note)?;
         }
 
@@ -139,20 +143,6 @@ impl SqliteStore {
 
         Ok(rows)
     }
-}
-
-/// Update previously-existing account after a transaction execution
-///
-/// Because the Client retrieves the account by account ID before applying the delta, we don't
-/// need to check that it exists here. This inserts a new row into the accounts table.
-/// We can later identify the proper account state by looking at the nonce.
-fn update_account(
-    tx: &Transaction<'_>,
-    new_account_state: Account,
-) -> Result<(), StoreError> {
-    insert_account_storage(tx, new_account_state.storage())?;
-    insert_account_asset_vault(tx, new_account_state.vault())?;
-    insert_account_record(tx, &new_account_state, None)
 }
 
 pub(super) fn insert_proven_transaction_data(
@@ -197,7 +187,7 @@ pub(super) fn insert_proven_transaction_data(
 }
 
 pub(super) fn serialize_transaction_data(
-    transaction_result: TransactionResult
+    transaction_result: TransactionResult,
 ) -> Result<SerializedTransactionData, StoreError> {
     let executed_transaction = transaction_result.executed_transaction();
     let transaction_id: String = executed_transaction.id().inner().into();
@@ -206,8 +196,11 @@ pub(super) fn serialize_transaction_data(
     let final_account_state = &executed_transaction.final_account().hash().to_string();
 
     // TODO: Double check if saving nullifiers as input notes is enough
-    let nullifiers: Vec<Digest> =
-        executed_transaction.input_notes().iter().map(|x| x.id().inner()).collect();
+    let nullifiers: Vec<Digest> = executed_transaction
+        .input_notes()
+        .iter()
+        .map(|x| x.nullifier().inner())
+        .collect();
 
     let input_notes =
         serde_json::to_string(&nullifiers).map_err(StoreError::InputSerializationError)?;
@@ -224,9 +217,8 @@ pub(super) fn serialize_transaction_data(
     let mut script_inputs = None;
 
     if let Some(tx_script) = transaction_args.tx_script() {
-        script_program = Some(tx_script.code().to_bytes(AstSerdeOptions {
-            serialize_imports: true,
-        }));
+        script_program =
+            Some(tx_script.code().to_bytes(AstSerdeOptions { serialize_imports: true }));
         script_hash = Some(tx_script.hash().to_bytes());
         script_inputs = Some(
             serde_json::to_string(&tx_script.inputs())
@@ -250,7 +242,7 @@ pub(super) fn serialize_transaction_data(
 }
 
 fn parse_transaction_columns(
-    row: &rusqlite::Row<'_>
+    row: &rusqlite::Row<'_>,
 ) -> Result<SerializedTransactionData, rusqlite::Error> {
     let id: String = row.get(0)?;
     let account_id: i64 = row.get(1)?;
@@ -281,7 +273,7 @@ fn parse_transaction_columns(
 
 /// Parse a transaction from the provided parts.
 fn parse_transaction(
-    serialized_transaction: SerializedTransactionData
+    serialized_transaction: SerializedTransactionData,
 ) -> Result<TransactionRecord, StoreError> {
     let (
         id,
@@ -305,7 +297,7 @@ fn parse_transaction(
     let input_note_nullifiers: Vec<Digest> =
         serde_json::from_str(&input_notes).map_err(StoreError::JsonDataDeserializationError)?;
 
-    let output_notes: OutputNotes<OutputNote> = OutputNotes::read_from_bytes(&output_notes)?;
+    let output_notes = OutputNotes::read_from_bytes(&output_notes)?;
 
     let transaction_script: Option<TransactionScript> = if script_hash.is_some() {
         let script_hash = script_hash
