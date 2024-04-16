@@ -32,7 +32,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
         for input_note in commited_notes {
             let account_relevance =
-                note_screener.check_relevance(&input_note.clone().try_into().unwrap())?;
+                note_screener.check_relevance(&input_note.clone().try_into()?)?;
             if !account_relevance.is_empty() {
                 if account_id.is_some() {
                     let account_id = AccountId::from_hex(&account_id.clone().unwrap())?;
