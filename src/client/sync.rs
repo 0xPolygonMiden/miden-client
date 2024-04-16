@@ -142,10 +142,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             .map(|(acc_stub, _)| acc_stub)
             .collect();
 
-        let note_tags: Vec<NoteTag> = accounts
+        let account_note_tags: Vec<NoteTag> = accounts
             .iter()
             .map(|acc| NoteTag::from_account_id(acc.id(), NoteExecutionMode::Local))
             .collect::<Result<Vec<_>, _>>()?;
+
+        let stored_note_tags: Vec<NoteTag> = self.store.get_note_tags()?;
+
+        let note_tags = [account_note_tags, stored_note_tags].concat();
 
         // To receive information about added nullifiers, we reduce them to the higher 16 bits
         // Note that besides filtering by nullifier prefixes, the node also filters by block number
