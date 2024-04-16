@@ -7,7 +7,7 @@ use std::{
 use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
-    client::{rpc::NodeRpcClient, ConsumableNote, NoteRelevance},
+    client::{rpc::NodeRpcClient, ConsumableNote},
     errors::ClientError,
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
 };
@@ -316,12 +316,9 @@ where
     for note in notes {
         for relevance in &note.1 {
             table.add_row(vec![
-                note.0.id().inner().to_string(),
+                note.0.id().to_hex(),
                 relevance.0.to_string(),
-                match relevance.1 {
-                    NoteRelevance::Always => "Always".to_string(),
-                    NoteRelevance::After(height) => format!("After block {}", height),
-                },
+                relevance.1.to_string(),
             ]);
         }
     }
