@@ -30,24 +30,23 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         let commited_notes = self.store.get_input_notes(NoteFilter::Committed)?;
 
         let note_screener = NoteScreener::new(&self.store);
-        let mut relevant_notes: Vec<ConsumableNote> = Vec::new();
 
+        let mut relevant_notes = Vec::new();
         for input_note in commited_notes {
             let account_relevance =
                 note_screener.check_relevance(&input_note.clone().try_into()?)?;
+
             if account_relevance.is_empty() {
                 continue;
             }
-            if let Some(account_id) = account_id {
-                if account_relevance.iter().any(|(id, _)| *id == account_id) {
-                    relevant_notes.push((
-                        input_note,
-                        account_relevance.into_iter().filter(|(id, _)| *id == account_id).collect(),
-                    ));
-                }
-            } else {
-                relevant_notes.push((input_note, account_relevance));
-            }
+
+            relevant_notes.push((input_note, account_relevance));
+        }
+
+        if let Some(account_id) = account_id {
+            relevant_notes.retain(|(_input_note, relevance)| {
+                relevance.iter().any(|(id, _)| *id == account_id)
+            });
         }
 
         Ok(relevant_notes)
