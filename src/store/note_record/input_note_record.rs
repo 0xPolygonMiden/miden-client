@@ -174,16 +174,12 @@ impl TryInto<InputNote> for InputNoteRecord {
                 Ok(InputNote::new(note, proof.clone()))
             },
 
-            (None, _) => {
-                Err(ClientError::NoteError(miden_objects::NoteError::invalid_origin_index(
-                    "Input Note Record contains no inclusion proof".to_string(),
-                )))
-            },
-            (_, None) => {
-                Err(ClientError::NoteError(miden_objects::NoteError::invalid_origin_index(
-                    "Input Note Record contains no metadata".to_string(),
-                )))
-            },
+            (None, _) => Err(ClientError::NoteRecordError(
+                "Input Note Record contains no inclusion proof".to_string(),
+            )),
+            (_, None) => Err(ClientError::NoteRecordError(
+                "Input Note Record contains no metadata".to_string(),
+            )),
         }
     }
 }
@@ -200,9 +196,9 @@ impl TryInto<Note> for InputNoteRecord {
                 let note = Note::new(self.assets, metadata, note_recipient);
                 Ok(note)
             },
-            None => Err(ClientError::NoteError(miden_objects::NoteError::invalid_origin_index(
+            None => Err(ClientError::NoteRecordError(
                 "Input Note Record contains no metadata".to_string(),
-            ))),
+            )),
         }
     }
 }
