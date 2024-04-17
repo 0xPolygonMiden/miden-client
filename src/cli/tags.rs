@@ -1,5 +1,9 @@
 use miden_client::{client::rpc::NodeRpcClient, store::Store};
-use miden_objects::crypto::rand::FeltRng;
+use miden_objects::{
+    crypto::rand::FeltRng,
+    notes::{NoteExecutionMode, NoteTag},
+};
+use tracing::info;
 
 use super::{Client, Parser};
 
@@ -51,7 +55,7 @@ fn list_tags<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: Client<N, R, S>,
 ) -> Result<(), String> {
     let tags = client.get_note_tags()?;
-    println!("tags: {:?}", tags);
+    println!("Tags: {:?}", tags);
     Ok(())
 }
 
@@ -59,8 +63,18 @@ fn add_tag<N: NodeRpcClient, R: FeltRng, S: Store>(
     mut client: Client<N, R, S>,
     tag: u32,
 ) -> Result<(), String> {
-    client.add_note_tag(tag.into())?;
-    println!("tag {} added", tag);
+    let tag: NoteTag = tag.into();
+    let execution_mode = match tag.execution_mode() {
+        NoteExecutionMode::Local => "Local",
+        NoteExecutionMode::Network => "Network",
+    };
+    info!(
+        "adding tag - Single Target? {} - Execution mode: {}",
+        tag.is_single_target(),
+        execution_mode
+    );
+    client.add_note_tag(tag)?;
+    println!("Tag {} added", tag);
     Ok(())
 }
 
@@ -69,6 +83,6 @@ fn remove_tag<N: NodeRpcClient, R: FeltRng, S: Store>(
     tag: u32,
 ) -> Result<(), String> {
     client.remove_note_tag(tag.into())?;
-    println!("tag {} removed", tag);
+    println!("Tag {} removed", tag);
     Ok(())
 }

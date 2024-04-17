@@ -72,6 +72,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     }
 
     /// Returns the list of note tags tracked by the client.
+    ///
+    /// When syncing the state with the node, these tags will be added to the sync request and note-related information will be retrieved for notes that have matching tags.
+    ///
+    /// Note: Tags for accounts that are being tracked by the client are managed automatically by the client and do not need to be added here. That is, notes for managed accounts will be retrieved automatically by the client when syncing.
     pub fn get_note_tags(&self) -> Result<Vec<NoteTag>, ClientError> {
         self.store.get_note_tags().map_err(|err| err.into())
     }
@@ -90,7 +94,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
     /// Removes a note tag for the client to track.
     pub fn remove_note_tag(&mut self, tag: NoteTag) -> Result<(), ClientError> {
-        Ok(self.store.remove_note_tag(tag)?)
+        match self.store.remove_note_tag(tag)? {
+            true => Ok(()),
+            false => {
+                warn!("Tag {} wasn't being tracked", tag);
+                Ok(())
+            },
+        }
     }
 
     /// Syncs the client's state with the current state of the Miden network.

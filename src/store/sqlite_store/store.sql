@@ -171,7 +171,7 @@ CREATE TABLE state_sync (
 
 -- insert initial row into state_sync table
 INSERT OR IGNORE INTO state_sync (block_num, tags)
-SELECT 0, '[]'
+SELECT 0, '[0]'
 WHERE (
     SELECT COUNT(*) FROM state_sync
 ) = 0;

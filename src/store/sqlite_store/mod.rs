@@ -120,7 +120,7 @@ impl Store for SqliteStore {
         self.add_note_tag(tag)
     }
 
-    fn remove_note_tag(&mut self, tag: NoteTag) -> Result<(), StoreError> {
+    fn remove_note_tag(&mut self, tag: NoteTag) -> Result<bool, StoreError> {
         self.remove_note_tag(tag)
     }
 

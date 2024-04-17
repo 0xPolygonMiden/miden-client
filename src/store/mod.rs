@@ -205,10 +205,15 @@ pub trait Store {
     fn get_note_tags(&self) -> Result<Vec<NoteTag>, StoreError>;
 
     /// Adds a note tag to the list of tags that the client is interested in.
+    ///
+    /// If the tag was already being tracked, returns false since no new tags were actually added. Otherwise true.
     fn add_note_tag(&mut self, tag: NoteTag) -> Result<bool, StoreError>;
 
     /// Removes a note tag from the list of tags that the client is interested in.
-    fn remove_note_tag(&mut self, tag: NoteTag) -> Result<(), StoreError>;
+    ///
+    /// If the tag was not present in the store returns false since no tag was actually removed.
+    /// Otherwise returns true.
+    fn remove_note_tag(&mut self, tag: NoteTag) -> Result<bool, StoreError>;
 
     /// Returns the block number of the last state sync block.
     fn get_sync_height(&self) -> Result<u32, StoreError>;
