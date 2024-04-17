@@ -313,10 +313,10 @@ where
 {
     let mut table = create_dynamic_table(&["Note ID", "Account ID", "Relevance"]);
 
-    for note in notes {
-        for relevance in &note.1 {
+    for consumable_note in notes {
+        for relevance in &consumable_note.relevances {
             table.add_row(vec![
-                note.0.id().to_hex(),
+                consumable_note.note.id().to_hex(),
                 relevance.0.to_string(),
                 relevance.1.to_string(),
             ]);

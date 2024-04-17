@@ -9,7 +9,13 @@ use crate::{
 
 // TYPES
 // --------------------------------------------------------------------------------------------
-pub type ConsumableNote = (InputNoteRecord, Vec<(AccountId, NoteRelevance)>);
+/// Contains information about a note that can be consumed
+pub struct ConsumableNote {
+    /// The consumable note
+    pub note: InputNoteRecord,
+    /// Stores which accounts can consume the note and it's relevance
+    pub relevances: Vec<(AccountId, NoteRelevance)>,
+}
 
 impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     // INPUT NOTE DATA RETRIEVAL
@@ -40,13 +46,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
                 continue;
             }
 
-            relevant_notes.push((input_note, account_relevance));
+            relevant_notes.push(ConsumableNote {
+                note: input_note,
+                relevances: account_relevance,
+            });
         }
 
         if let Some(account_id) = account_id {
-            relevant_notes.retain(|(_input_note, relevance)| {
-                relevance.iter().any(|(id, _)| *id == account_id)
-            });
+            relevant_notes.retain(|note| note.relevances.iter().any(|(id, _)| *id == account_id));
         }
 
         Ok(relevant_notes)

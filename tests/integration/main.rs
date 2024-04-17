@@ -899,7 +899,7 @@ async fn test_get_consumable_notes() {
 
     // Check that note is consumable by both accounts
     let consumable_notes = client.get_consumable_notes(None).unwrap();
-    let relevant_accounts = &consumable_notes.first().unwrap().1;
+    let relevant_accounts = &consumable_notes.first().unwrap().relevances;
     assert_eq!(relevant_accounts.len(), 2);
     assert!(!client.get_consumable_notes(Some(from_account_id)).unwrap().is_empty());
     assert!(!client.get_consumable_notes(Some(to_account_id)).unwrap().is_empty());
