@@ -8,6 +8,8 @@ use async_trait::async_trait;
 pub mod accounts;
 pub mod notes;
 pub mod transactions;
+pub mod sync;
+pub mod chain_data;
 pub mod mock_example;
 
 // Initialize IndexedDB
@@ -36,23 +38,61 @@ impl Store for WebStore {
         self.insert_string(data).await
     }
 
+    // CHAIN DATA
+    // async fn get_block_headers(
+    //     &self,
+    //     block_numbers: &[u32],
+    // ) -> Result<Vec<(BlockHeader, bool)>, ()> {
+    //     self.get_block_headers(block_numbers).await
+    // }
+
+    // async fn insert_block_header(
+    //     &self,
+    //     block_header: BlockHeader,
+    //     chain_mmr_peaks: MmrPeaks,
+    //     has_client_notes: bool,
+    // ) -> Result<(), ()> {
+    //     self.insert_block_header(block_header, chain_mmr_peaks, has_client_notes).await
+    // }
+
+    // async fn get_tracked_block_headers(
+    //     &self
+    // ) -> Result<Vec<BlockHeader>, ()> {
+    //     self.get_tracked_block_headers().await
+    // }
+
+    // async fn get_chain_mmr_nodes(
+    //     &self,
+    //     filter: ChainMmrNodeFilter,
+    // ) -> Result<BTreeMap<InOrderIndex, Digest>, ()> {
+    //     self.get_chain_mmr_nodes(filter).await
+    // }
+
+    // async fn get_chain_mmr_peaks_by_block_num(
+    //     &self, 
+    //     block_num: u32
+    // ) -> Result<MmrPeaks, ()> {
+    //     self.get_chain_mmr_peaks_by_block_num(block_num).await
+    // }
+
+    // SYNC
     // async fn get_note_tags(
     //     &self
     // ) -> Result<Vec<u64>, ()> {
-    //     self.get_note_tags()
+    //     self.get_note_tags().await
     // }
 
     // async fn add_note_tag(
     //     &mut self,
     //     tag: u64,
     // ) -> Result<bool, ()> {
-    //     self.add_note_tag(tag)
+    //     self.add_note_tag(tag).await
     // }
 
     // async fn get_sync_height(
     //     &self
     // ) -> Result<u32, ()> {
-    //     self.get_sync_height()
+    //     self.get_sync_height().await
     // }
 
     // async fn apply_state_sync(
@@ -71,7 +111,7 @@ impl Store for WebStore {
     //         committed_transactions,
     //         new_mmr_peaks,
     //         new_authentication_nodes,
-    //     )
+    //     ).await
     // }
 
     // TRANSACTIONS
@@ -96,36 +136,36 @@ impl Store for WebStore {
     //     account_seed: Option<Word>,
     //     auth_info: &AuthInfo,
     // ) -> Result<(), ()> {
-    //     self.insert_account(account, account_seed, auth_info)
+    //     self.insert_account(account, account_seed, auth_info).await
     // }
 
     // async fn get_account_ids(&self) -> Result<Vec<AccountId>, ()> {
-    //     self.get_account_ids()
+    //     self.get_account_ids().await
     // }
 
     // async fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, ()> {
-    //     self.get_account_stubs()
+    //     self.get_account_stubs().await
     // }
 
     // async fn get_account_stub(
     //     &self,
     //     account_id: AccountId,
     // ) -> Result<(AccountStub, Option<Word>), ()> {
-    //     self.get_account_stub(account_id)
+    //     self.get_account_stub(account_id).await
     // }
 
     // async fn get_account(
     //     &self,
     //     account_id: AccountId,
     // ) -> Result<(Account, Option<Word>), ()> {
-    //     self.get_account(account_id)
+    //     self.get_account(account_id).await
     // }
 
     // async fn get_account_auth(
     //     &self,
     //     account_id: AccountId,
     // ) -> Result<AuthInfo, ()> {
-    //     self.get_account_auth(account_id)
+    //     self.get_account_auth(account_id).await
     // }
 
     // NOTES

@@ -22,6 +22,47 @@ pub trait Store {
         data: String
     ) -> Result<(), ()>;
 
+    // CHAIN DATA
+    // --------------------------------------------------------------------------------------------
+
+    // async fn get_block_headers(
+    //     &self,
+    //     block_numbers: &[u32],
+    // ) -> Result<Vec<(BlockHeader, bool)>, ()>;
+
+    // // TODO
+    // fn get_block_header_by_num(
+    //     &self,
+    //     block_number: u32,
+    // ) -> Result<(BlockHeader, bool), StoreError> {
+    //     self.get_block_headers(&[block_number])
+    //         .map(|block_headers_list| block_headers_list.first().cloned())
+    //         .and_then(|block_header| {
+    //             block_header.ok_or(StoreError::BlockHeaderNotFound(block_number))
+    //         })
+    // }
+
+    // async fn get_tracked_block_headers(
+    //     &self
+    // ) -> Result<Vec<BlockHeader>, ()>;
+
+    // async fn get_chain_mmr_nodes(
+    //     &self,
+    //     filter: ChainMmrNodeFilter,
+    // ) -> Result<BTreeMap<InOrderIndex, Digest>, ()>;
+
+    // async fn get_chain_mmr_peaks_by_block_num(
+    //     &self, 
+    //     block_num: u32
+    // ) -> Result<MmrPeaks, ()>;
+
+    // async fn insert_block_header(
+    //     &self,
+    //     block_header: BlockHeader,
+    //     chain_mmr_peaks: MmrPeaks,
+    //     has_client_notes: bool,
+    // ) -> Result<(), ()>;
+
     // SYNC
     // --------------------------------------------------------------------------------------------
 
@@ -167,6 +208,13 @@ pub trait Store {
 //             val => Err(DeserializationError::InvalidValue(val.to_string())),
 //         }
 //     }
+// }
+
+// pub enum ChainMmrNodeFilter<'a> {
+//     /// Return all nodes.
+//     All,
+//     /// Filter by the specified in-order indices.
+//     List(&'a [InOrderIndex]),
 // }
 
 pub enum NativeTransactionFilter {

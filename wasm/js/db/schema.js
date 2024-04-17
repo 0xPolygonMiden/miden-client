@@ -25,6 +25,8 @@ const Table = {
   InputNotes: 'inputNotes',
   OutputNotes: 'outputNotes',
   StateSync: 'stateSync',
+  BlockHeaders: 'blockHeaders',
+  ChainMmrNodes: 'chainMmrNodes',
   Greet: 'greets',
 };
 
@@ -40,6 +42,8 @@ db.version(1).stores({
   [Table.InputNotes]: indexes('noteId', 'recipient', 'status'),
   [Table.OutputNotes]: indexes('noteId', 'recipient', 'status'),
   [Table.StateSync]: indexes('id'),
+  [Table.BlockHeaders]: indexes('blockNum'),
+  [Table.ChainMmrNodes]: indexes('blockNum', 'hasClientNotes'),
   [Table.Greet]: '++id',
 });
 
@@ -62,6 +66,8 @@ const transactionScripts = db.table(Table.TransactionScripts);
 const inputNotes = db.table(Table.InputNotes);
 const outputNotes = db.table(Table.OutputNotes);
 const stateSync = db.table(Table.StateSync);
+const blockHeaders = db.table(Table.BlockHeaders);
+const chainMmrNodes = db.table(Table.ChainMmrNodes);
 const greets = db.table(Table.Greet);
 
 export { 
@@ -76,5 +82,7 @@ export {
     inputNotes,
     outputNotes,
     stateSync,
+    blockHeaders,
+    chainMmrNodes,
     greets,
 };

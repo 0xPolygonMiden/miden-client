@@ -3,7 +3,8 @@ import {
     stateSync,
     inputNotes,
     outputNotes,
-    transactions
+    transactions,
+    blockHeaders,
 } from './schema.js';
 
 export async function getNoteTags() {
@@ -51,16 +52,22 @@ export async function addNoteTag(
 
 export async function applyStateSync(
     blockNum,
+    blockHeader,
+    chainMmrPeaks,
     nullifiers,
     noteIds,
     inclusionProofs,
-    transactionIds
+    transactionIds,
+    nodeIndices,
+    nodes,
+    hasClientNotes
 ) {
-    return db.transaction('rw', stateSync, inputNotes, outputNotes, transactions, async (tx) => {
+    return db.transaction('rw', stateSync, inputNotes, outputNotes, transactions, blockHeaders, async (tx) => {
         await updateSyncHeight(tx, blockNum);
         await updateSpentNotes(tx, nullifiers);
         await updateCommittedNotes(tx, noteIds, inclusionProofs);
         await updateCommittedTransactions(tx, blockNum, transactionIds);
+        await updateBlockHeader(tx, blockNum, blockHeader, chainMmrPeaks, hasClientNotes);
     });
 }
 
@@ -167,5 +174,54 @@ async function updateCommittedTransactions(
     } catch (err) {
         console.error("Failed to mark transactions as committed: ", err);
         throw err;
+    }
+}
+
+async function updateBlockHeader(
+    tx,
+    blockNum, 
+    blockHeader,
+    chainMmrPeaks,
+    hasClientNotes
+) {
+    try {
+        const data = {
+            blockNum: blockNum,
+            header: blockHeader,
+            chainMmrPeaks: chainMmrPeaks,
+            hasClientNotes: hasClientNotes
+        };
+
+        await tx.blockHeaders.add(data);
+        return `Block header for block ${blockNum} inserted successfully.`
+    } catch (err) {
+        console.error("Failed to insert block header: ", err);
+        throw error;
+    }
+}
+
+async function updateChainMmrNodes(
+    tx,
+    nodeIndices,
+    nodes
+) {
+    try {
+        // Check if the arrays are not of the same length
+        if (nodeIndices.length !== nodes.length) {
+            throw new Error("nodeIndices and nodes arrays must be of the same length");
+        }
+
+        // Create the updates array with objects matching the structure expected by your IndexedDB schema
+        const updates = nodeIndices.map((index, i) => ({
+            index: index,  // Assuming 'index' is the primary key or part of it
+            node: nodes[i] // Other attributes of the object
+        }));
+
+        // Perform bulk update or insertion; assumes tx.chainMmrNodes is a valid table reference in a transaction
+        await tx.chainMmrNodes.bulkPut(updates);
+        return "Successfully updated chain MMR nodes";
+    } catch (err) {
+        console.error("Failed to update chain mmr nodes: ", err);
+        throw error;
     }
 }

@@ -24,9 +24,14 @@ extern "C" {
     #[wasm_bindgen(js_name = applyStateSync)]
     pub fn idxdb_apply_state_sync(
         block_num: String,
+        block_header: String,
+        chain_mmr_peaks: String,
         nullifiers: Vec<String>,
         note_ids: Vec<String>,
         inclusion_proofs: Vec<String>,
         transactions_to_commit: Vec<String>,
+        node_indices_as_str: Vec<String>,
+        nodes_as_str: Vec<String>,
+        has_client_notes: bool
     ) -> js_sys::Promise;
 }

@@ -2,6 +2,7 @@ pub mod accounts;
 pub mod notes;
 pub mod transactions;
 pub mod sync;
+pub mod chain_data;
 pub mod utils;
 
 pub mod store;
