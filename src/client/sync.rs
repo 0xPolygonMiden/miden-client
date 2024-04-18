@@ -193,15 +193,27 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             )?
         };
 
-        let note_ids: Vec<NoteId> =
-            new_note_details.new_inclusion_proofs.iter().map(|(id, _)| (*id)).collect();
-
         let uncommitted_transactions =
             self.store.get_transactions(TransactionFilter::Uncomitted)?;
 
+        let mut output_note_ids: Vec<NoteId> = Vec::new();
+        for tx in &uncommitted_transactions {
+            tx.output_notes.iter().for_each(|note| output_note_ids.push(note.id()))
+        }
+        let commited_note_ids: Vec<NoteId> = self
+            .rpc_api
+            .get_notes_by_id(&output_note_ids)
+            .await?
+            .iter()
+            .map(|detail| match detail {
+                NoteDetails::OffChain(id, ..) => *id,
+                NoteDetails::Public(note, _) => note.id(),
+            })
+            .collect();
+
         let transactions_to_commit = get_transactions_to_commit(
             &uncommitted_transactions,
-            &note_ids,
+            &commited_note_ids,
             &new_nullifiers,
             &response.account_hash_updates,
         );
@@ -449,7 +461,7 @@ fn apply_mmr_changes(
 // final_account_state
 fn get_transactions_to_commit(
     uncommitted_transactions: &[TransactionRecord],
-    _note_ids: &[NoteId],
+    commited_note_ids: &[NoteId],
     nullifiers: &[Digest],
     account_hash_updates: &[(AccountId, Digest)],
 ) -> Vec<TransactionId> {
@@ -465,7 +477,7 @@ fn get_transactions_to_commit(
             // TODO: Review this. Because we receive note IDs based on account ID tags,
             // we cannot base the status change on output notes alone;
             t.input_note_nullifiers.iter().all(|n| nullifiers.contains(n))
-                //&& t.output_notes.iter().all(|n| note_ids.contains(&n.id()))
+                && t.output_notes.iter().all(|n| commited_note_ids.contains(&n.id()))
                 && account_hash_updates.iter().any(|(account_id, account_hash)| {
                     *account_id == t.account_id && *account_hash == t.final_account_state
                 })
