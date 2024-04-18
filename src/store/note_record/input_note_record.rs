@@ -7,7 +7,7 @@ use miden_objects::{
     Digest,
 };
 
-use super::{NoteRecordDetails, NoteStatus};
+use super::{NoteRecordDetails, NoteStatus, OutputNoteRecord};
 use crate::errors::ClientError;
 
 // INPUT NOTE RECORD
@@ -199,6 +199,27 @@ impl TryInto<Note> for InputNoteRecord {
             None => Err(ClientError::NoteRecordError(
                 "Input Note Record contains no metadata".to_string(),
             )),
+        }
+    }
+}
+
+impl TryFrom<OutputNoteRecord> for InputNoteRecord {
+    type Error = ClientError;
+
+    fn try_from(output_note: OutputNoteRecord) -> Result<Self, Self::Error> {
+        match output_note.details() {
+            Some(details) => Ok(InputNoteRecord {
+                assets: output_note.assets().clone(),
+                details: details.clone(),
+                id: output_note.id(),
+                inclusion_proof: output_note.inclusion_proof().cloned(),
+                metadata: Some(*output_note.metadata()),
+                recipient: output_note.recipient(),
+                status: output_note.status(),
+            }),
+            None => Err(ClientError::NoteError(miden_objects::NoteError::invalid_origin_index(
+                "Output Note Record contains no details".to_string(),
+            ))),
         }
     }
 }

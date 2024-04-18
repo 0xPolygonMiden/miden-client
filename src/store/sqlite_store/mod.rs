@@ -3,7 +3,6 @@ use alloc::collections::BTreeMap;
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::NoteId,
     transaction::TransactionId,
     BlockHeader, Digest, Word,
 };
@@ -165,10 +164,6 @@ impl Store for SqliteStore {
         note_filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, StoreError> {
         self.get_output_notes(note_filter)
-    }
-
-    fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError> {
-        self.get_input_note(note_id)
     }
 
     fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError> {

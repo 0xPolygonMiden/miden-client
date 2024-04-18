@@ -157,7 +157,7 @@ pub enum StoreError {
     DatabaseError(String),
     DataDeserializationError(DeserializationError),
     HexParseError(HexParseError),
-    InputNoteNotFound(NoteId),
+    NoteNotFound(NoteId),
     InputSerializationError(serde_json::Error),
     JsonDataDeserializationError(serde_json::Error),
     MmrError(MmrError),
@@ -270,8 +270,8 @@ impl fmt::Display for StoreError {
             HexParseError(err) => {
                 write!(f, "error parsing hex: {err}")
             },
-            InputNoteNotFound(note_id) => {
-                write!(f, "input note with note id {} not found", note_id.inner())
+            NoteNotFound(note_id) => {
+                write!(f, "note with note id {} not found", note_id.inner())
             },
             InputSerializationError(err) => {
                 write!(f, "error trying to serialize inputs for the store: {err}")
@@ -304,7 +304,7 @@ impl From<StoreError> for DataStoreError {
                 DataStoreError::AccountNotFound(account_id)
             },
             StoreError::BlockHeaderNotFound(block_num) => DataStoreError::BlockNotFound(block_num),
-            StoreError::InputNoteNotFound(note_id) => DataStoreError::NoteNotFound(note_id),
+            StoreError::NoteNotFound(note_id) => DataStoreError::NoteNotFound(note_id),
             err => DataStoreError::InternalError(err.to_string()),
         }
     }

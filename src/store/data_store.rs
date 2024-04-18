@@ -58,7 +58,11 @@ impl<S: Store> DataStore for ClientDataStore<S> {
 
         let mut notes_blocks: Vec<u32> = vec![];
         for note_id in notes {
-            let input_note_record = self.store.get_input_note(*note_id)?;
+            let input_note_record = self
+                .store
+                .get_input_notes(NoteFilter::Unique(*note_id))?
+                .pop()
+                .ok_or(DataStoreError::NoteNotFound(*note_id))?;
 
             let input_note: InputNote = input_note_record
                 .try_into()

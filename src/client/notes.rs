@@ -3,8 +3,8 @@ use miden_objects::{accounts::AccountId, crypto::rand::FeltRng, notes::NoteId};
 use super::{note_screener::NoteRelevance, rpc::NodeRpcClient, Client};
 use crate::{
     client::NoteScreener,
-    errors::ClientError,
-    store::{InputNoteRecord, NoteFilter, Store},
+    errors::{ClientError, StoreError},
+    store::{InputNoteRecord, NoteFilter, OutputNoteRecord, Store},
 };
 
 // TYPES
@@ -61,7 +61,30 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
     /// Returns the input note with the specified hash.
     pub fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, ClientError> {
-        self.store.get_input_note(note_id).map_err(|err| err.into())
+        self.store
+            .get_input_notes(NoteFilter::Unique(note_id))
+            .map_err(<StoreError as Into<ClientError>>::into)?
+            .pop()
+            .ok_or(ClientError::StoreError(StoreError::NoteNotFound(note_id)))
+    }
+
+    // OUTPUT NOTE DATA RETRIEVAL
+    // --------------------------------------------------------------------------------------------
+
+    /// Returns output notes managed by this client.
+    pub fn get_output_notes(
+        &self,
+        filter: NoteFilter,
+    ) -> Result<Vec<OutputNoteRecord>, ClientError> {
+        self.store.get_output_notes(filter).map_err(|err| err.into())
+    }
+
+    /// Returns the output note with the specified hash.
+    pub fn get_output_note(&self, note_id: NoteId) -> Result<OutputNoteRecord, ClientError> {
+        self.store
+            .get_output_notes(NoteFilter::Unique(note_id))?
+            .pop()
+            .ok_or(ClientError::StoreError(StoreError::NoteNotFound(note_id)))
     }
 
     // INPUT NOTE CREATION

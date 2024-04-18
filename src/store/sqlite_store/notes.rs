@@ -6,7 +6,7 @@ use miden_objects::{
     notes::{NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, NoteScript, Nullifier},
     Digest,
 };
-use rusqlite::{named_params, params, Transaction};
+use rusqlite::{named_params, params, params_from_iter, Transaction};
 
 use super::SqliteStore;
 use crate::{
@@ -96,6 +96,7 @@ impl NoteFilter {
             NoteFilter::Committed => format!("{base} WHERE status = 'Committed'"),
             NoteFilter::Consumed => format!("{base} WHERE status = 'Consumed'"),
             NoteFilter::Pending => format!("{base} WHERE status = 'Pending'"),
+            NoteFilter::Unique(_) => format!("{base} WHERE note.note_id = ?"),
         }
     }
 }
@@ -108,12 +109,25 @@ impl SqliteStore {
         &self,
         filter: NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
-        self.db
+        let mut params = Vec::new();
+        if let NoteFilter::Unique(note_id) = filter {
+            params.push(note_id.inner().to_string());
+        }
+        let query_result = self
+            .db
             .prepare(&filter.to_query(NoteTable::InputNotes))?
-            .query_map([], parse_input_note_columns)
+            .query_map(params_from_iter(params), parse_input_note_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_input_note))
-            .collect::<Result<Vec<InputNoteRecord>, _>>()
+            .collect::<Result<Vec<InputNoteRecord>, _>>();
+        if let Ok(ref notes) = query_result {
+            if let NoteFilter::Unique(note_id) = filter {
+                if notes.is_empty() {
+                    return Err(StoreError::NoteNotFound(note_id));
+                }
+            }
+        }
+        query_result
     }
 
     /// Retrieves the output notes from the database
@@ -121,37 +135,25 @@ impl SqliteStore {
         &self,
         filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, StoreError> {
-        self.db
+        let mut params = Vec::new();
+        if let NoteFilter::Unique(note_id) = filter {
+            params.push(note_id.inner().to_string());
+        }
+        let query_result = self
+            .db
             .prepare(&filter.to_query(NoteTable::OutputNotes))?
-            .query_map([], parse_output_note_columns)
+            .query_map(params_from_iter(params), parse_output_note_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_output_note))
-            .collect::<Result<Vec<OutputNoteRecord>, _>>()
-    }
-
-    pub(crate) fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError> {
-        let query_id = &note_id.inner().to_string();
-
-        const QUERY: &str = "SELECT 
-                        note.assets, 
-                        note.details, 
-                        note.recipient,
-                        note.status,
-                        note.metadata,
-                        note.inclusion_proof,
-                        script.serialized_note_script
-                        from input_notes AS note 
-                        LEFT OUTER JOIN notes_scripts AS script
-                            ON note.details IS NOT NULL AND 
-                            json_extract(note.details, '$.script_hash') = script.script_hash
-                        WHERE note.note_id = ?";
-
-        self.db
-            .prepare(QUERY)?
-            .query_map(params![query_id.to_string()], parse_input_note_columns)?
-            .map(|result| Ok(result?).and_then(parse_input_note))
-            .next()
-            .ok_or(StoreError::InputNoteNotFound(note_id))?
+            .collect::<Result<Vec<OutputNoteRecord>, _>>();
+        if let Ok(ref notes) = query_result {
+            if let NoteFilter::Unique(note_id) = filter {
+                if notes.is_empty() {
+                    return Err(StoreError::NoteNotFound(note_id));
+                }
+            }
+        }
+        query_result
     }
 
     pub(crate) fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError> {

@@ -920,3 +920,50 @@ async fn test_get_consumable_notes() {
         .1;
     assert_eq!(to_account_relevance, NoteRelevance::Always);
 }
+
+#[tokio::test]
+async fn test_get_output_notes() {
+    let mut client = create_test_client();
+
+    let (first_regular_account, _, faucet_account_stub) =
+        setup(&mut client, AccountStorageMode::Local).await;
+
+    let from_account_id = first_regular_account.id();
+    let faucet_account_id = faucet_account_stub.id();
+    let random_account_id = AccountId::from_hex("0x0123456789abcdef").unwrap();
+
+    //No output notes initially
+    assert!(client.get_output_notes(NoteFilter::All).unwrap().is_empty());
+
+    // First Mint necesary token
+    let note = mint_note(&mut client, from_account_id, faucet_account_id, NoteType::OffChain).await;
+
+    // Check that there was an output note but it wasn't consumed
+    assert!(client.get_output_notes(NoteFilter::Consumed).unwrap().is_empty());
+    assert!(!client.get_output_notes(NoteFilter::All).unwrap().is_empty());
+
+    consume_notes(&mut client, from_account_id, &[note]).await;
+
+    //After consuming, the note is returned when using the [NoteFilter::Consumed] filter
+    assert!(!client.get_output_notes(NoteFilter::Consumed).unwrap().is_empty());
+
+    // Do a transfer from first account to second account
+    let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
+    let tx_template = TransactionTemplate::PayToId(
+        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, random_account_id),
+        NoteType::OffChain,
+    );
+    println!("Running P2ID tx...");
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+
+    let output_note_id = tx_request.expected_output_notes()[0].id();
+
+    //Before executing, the output note is not found
+    assert!(client.get_output_note(output_note_id).is_err());
+
+    execute_tx_and_sync(&mut client, tx_request).await;
+
+    //After executing, the note is only found in output notes
+    assert!(client.get_output_note(output_note_id).is_ok());
+    assert!(client.get_input_note(output_note_id).is_err());
+}
