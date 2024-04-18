@@ -788,13 +788,6 @@ async fn test_transaction_request() {
     .await;
 
     client.sync_state().await.unwrap();
-
-    let tx_template = TransactionTemplate::ConsumeNotes(regular_account.id(), vec![note.id()]);
-    println!("[1] Consuming Note...");
-    // consume
-    let tx_request = client.build_transaction_request(tx_template).unwrap();
-    client.new_transaction(tx_request).unwrap();
-
     // Prepare transaction
 
     // If these args were to be modified, the transaction would fail because the note code expects
@@ -930,12 +923,6 @@ async fn test_transaction_request_2() {
 
     client.sync_state().await.unwrap();
 
-    let tx_template = TransactionTemplate::ConsumeNotes(regular_account.id(), vec![note.id()]);
-    println!("[2] Consuming Note...");
-    // consume
-    let tx_request = client.build_transaction_request(tx_template).unwrap();
-    client.new_transaction(tx_request).unwrap();
-
     // Prepare transaction
 
     // If these args were to be modified, the transaction would fail because the note code expects
@@ -1070,12 +1057,6 @@ async fn test_transaction_request_3() {
     .await;
 
     client.sync_state().await.unwrap();
-
-    let tx_template = TransactionTemplate::ConsumeNotes(regular_account.id(), vec![note.id()]);
-    println!("[3] Consuming Note...");
-    // consume
-    let tx_request = client.build_transaction_request(tx_template).unwrap();
-    client.new_transaction(tx_request).unwrap();
 
     // Prepare transaction
 
