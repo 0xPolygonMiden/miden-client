@@ -9,6 +9,7 @@ use miden_objects::{
     BlockHeader,
 };
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
+use tracing::debug;
 
 use super::{ChainMmrNodeFilter, NoteFilter, Store};
 use crate::errors::{ClientError, StoreError};
@@ -35,6 +36,7 @@ impl<S: Store> DataStore for ClientDataStore<S> {
         notes: &[NoteId],
     ) -> Result<TransactionInputs, DataStoreError> {
         // First validate that no note has already been consumed
+        debug!("Fetching unspent notes");
         let unspent_notes = self
             .store
             .get_input_notes(NoteFilter::Committed)?
@@ -49,9 +51,11 @@ impl<S: Store> DataStore for ClientDataStore<S> {
         }
 
         // Construct Account
+        debug!("Fetching Account");
         let (account, seed) = self.store.get_account(account_id)?;
 
         // Get header data
+        debug!("Fetching Block header by number");
         let (block_header, _had_notes) = self.store.get_block_header_by_num(block_num)?;
 
         let mut list_of_notes = vec![];
@@ -80,13 +84,17 @@ impl<S: Store> DataStore for ClientDataStore<S> {
             .map(|(header, _has_notes)| *header)
             .collect();
 
+        debug!("Building Partial MMR");
         let partial_mmr = build_partial_mmr_with_paths(&self.store, block_num, &notes_blocks)?;
+        debug!("Building Chain MMR");
         let chain_mmr = ChainMmr::new(partial_mmr, notes_blocks)
             .map_err(|err| DataStoreError::InternalError(err.to_string()))?;
 
+        debug!("Building InputNotes");
         let input_notes =
             InputNotes::new(list_of_notes).map_err(DataStoreError::InvalidTransactionInput)?;
 
+        debug!("Building TransactionInputs");
         TransactionInputs::new(account, seed, block_header, chain_mmr, input_notes)
             .map_err(DataStoreError::InvalidTransactionInput)
     }

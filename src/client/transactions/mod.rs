@@ -224,6 +224,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
         let output_notes = transaction_request.expected_output_notes().to_vec();
 
+        info!("Before TX Execution");
         // Execute the transaction and get the witness
         let executed_transaction = self.tx_executor.execute_transaction(
             account_id,
@@ -231,6 +232,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             &note_ids,
             transaction_request.into(),
         )?;
+        info!("After TX Execution");
 
         // Check that the expected output notes is a subset of the transaction's output notes
         let tx_note_ids: BTreeSet<NoteId> =

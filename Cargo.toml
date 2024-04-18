@@ -50,6 +50,7 @@ toml = { version = "0.8" }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3" }
 uuid = { version = "1.6.1", features = ["serde", "v4"], optional = true }
+tracing-test = { version = "0.2", features = ["no-env-filter"]}
 
 [dev-dependencies]
 # needed for tests to run always with the test utils feature

@@ -28,6 +28,7 @@ use miden_objects::{
     Felt, Word,
 };
 use miden_tx::{utils::Serializable, DataStoreError, TransactionExecutorError};
+use tracing_test::traced_test;
 use uuid::Uuid;
 
 pub const ACCOUNT_ID_REGULAR: u64 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN;
@@ -732,6 +733,7 @@ fn create_custom_note(
     Note::new(note_assets, note_metadata, note_recipient)
 }
 
+#[traced_test]
 #[tokio::test]
 async fn test_transaction_request() {
     let mut client = create_test_client();
@@ -866,6 +868,7 @@ async fn test_transaction_request() {
     client.sync_state().await.unwrap();
 }
 
+#[traced_test]
 #[tokio::test]
 async fn test_transaction_request_2() {
     let mut client = create_test_client();
@@ -1001,6 +1004,7 @@ async fn test_transaction_request_2() {
     client.sync_state().await.unwrap();
 }
 
+#[traced_test]
 #[tokio::test]
 async fn test_transaction_request_3() {
     let mut client = create_test_client();
