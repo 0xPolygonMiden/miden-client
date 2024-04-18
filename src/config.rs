@@ -143,14 +143,19 @@ impl Default for StoreConfig {
 // RPC CONFIG
 // ================================================================================================
 
-#[derive(Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct RpcConfig {
     /// Address of the Miden node to connect to.
     pub endpoint: Endpoint,
+    /// Timeout for the rpc api requests
+    pub timeout_ms: u64,
 }
 
-impl From<Endpoint> for RpcConfig {
-    fn from(value: Endpoint) -> Self {
-        Self { endpoint: value }
+impl Default for RpcConfig {
+    fn default() -> Self {
+        Self {
+            endpoint: Endpoint::default(),
+            timeout_ms: 10000,
+        }
     }
 }
