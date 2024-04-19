@@ -665,14 +665,7 @@ async fn mint_custom_note(
 
     let tx_script = {
         let account_auth = client.get_account_auth(faucet_account_id).unwrap();
-        let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
-            AuthInfo::RpoFalcon512(key) => (
-                key.public_key().into(),
-                key.to_bytes().iter().map(|a| Felt::new(*a as u64)).collect::<Vec<Felt>>(),
-            ),
-        };
-
-        let script_inputs = vec![(pubkey_input, advice_map)];
+        let script_inputs = vec![account_auth.into_advice_inputs()];
         client.compile_tx_script(program, script_inputs, vec![]).unwrap()
     };
 
