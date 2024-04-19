@@ -12,7 +12,6 @@ use tracing::{info, warn};
 
 use super::{
     rpc::{CommittedNote, NodeRpcClient, NoteDetails},
-    transactions::TransactionRecord,
     Client,
 };
 use crate::{
@@ -193,11 +192,32 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             )?
         };
 
-        let uncommitted_transactions =
+        // To set an uncommitted transaction as committed three things must hold:
+        //
+        // - All of the transaction's output notes are committed
+        // - All of the transaction's input notes are consumed, which means we got their nullifiers as
+        // part of the update
+        // - The account corresponding to the transaction hash matches the transaction's
+        // final_account_state
+        // TODO: based on the discussion in
+        // https://github.com/0xPolygonMiden/miden-client/issues/144, we should be aware
+        // that in the future it'll be possible to have many transactions modifying an
+        // account be included in a single block. If that happens, we'll need to rewrite
+        // this check
+        let mut transactions_to_commit =
             self.store.get_transactions(TransactionFilter::Uncomitted)?;
 
+        transactions_to_commit.retain(|t| {
+            response.account_hash_updates.iter().any(|(account_id, account_hash)| {
+                *account_id == t.account_id && *account_hash == t.final_account_state
+            })
+        });
+
+        transactions_to_commit
+            .retain(|t| t.input_note_nullifiers.iter().all(|n| new_nullifiers.contains(n)));
+
         let mut output_note_ids: Vec<NoteId> = Vec::new();
-        for tx in &uncommitted_transactions {
+        for tx in &transactions_to_commit {
             tx.output_notes.iter().for_each(|note| output_note_ids.push(note.id()))
         }
         let commited_note_ids: Vec<NoteId> = self
@@ -210,13 +230,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
                 NoteDetails::Public(note, _) => note.id(),
             })
             .collect();
+        transactions_to_commit
+            .retain(|tx| tx.output_notes.iter().all(|n| commited_note_ids.contains(&n.id())));
 
-        let transactions_to_commit = get_transactions_to_commit(
-            &uncommitted_transactions,
-            &commited_note_ids,
-            &new_nullifiers,
-            &response.account_hash_updates,
-        );
+        let transactions_id_to_commit: Vec<TransactionId> =
+            transactions_to_commit.iter().map(|tx| tx.id).collect();
 
         // Apply received and computed updates to the store
         self.store
@@ -224,7 +242,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
                 response.block_header,
                 new_nullifiers,
                 new_note_details,
-                &transactions_to_commit,
+                &transactions_id_to_commit,
                 new_peaks,
                 &new_authentication_nodes,
                 &updated_onchain_accounts,
@@ -448,40 +466,4 @@ fn apply_mmr_changes(
         .collect();
 
     Ok((partial_mmr.peaks(), new_authentication_nodes))
-}
-
-/// Returns the list of transactions that should be marked as committed based on the state update info
-///
-/// To set an uncommitted transaction as committed three things must hold:
-///
-/// - All of the transaction's output notes are committed
-/// - All of the transaction's input notes are consumed, which means we got their nullifiers as
-/// part of the update
-/// - The account corresponding to the transaction hash matches the transaction's
-// final_account_state
-fn get_transactions_to_commit(
-    uncommitted_transactions: &[TransactionRecord],
-    commited_note_ids: &[NoteId],
-    nullifiers: &[Digest],
-    account_hash_updates: &[(AccountId, Digest)],
-) -> Vec<TransactionId> {
-    uncommitted_transactions
-        .iter()
-        .filter(|t| {
-            // TODO: based on the discussion in
-            // https://github.com/0xPolygonMiden/miden-client/issues/144, we should be aware
-            // that in the future it'll be possible to have many transactions modifying an
-            // account be included in a single block. If that happens, we'll need to rewrite
-            // this check
-
-            // TODO: Review this. Because we receive note IDs based on account ID tags,
-            // we cannot base the status change on output notes alone;
-            t.input_note_nullifiers.iter().all(|n| nullifiers.contains(n))
-                && t.output_notes.iter().all(|n| commited_note_ids.contains(&n.id()))
-                && account_hash_updates.iter().any(|(account_id, account_hash)| {
-                    *account_id == t.account_id && *account_hash == t.final_account_state
-                })
-        })
-        .map(|t| t.id)
-        .collect()
 }
