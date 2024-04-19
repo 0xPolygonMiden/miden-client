@@ -1,7 +1,7 @@
 use miden_objects::{
     accounts::Account,
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::NoteInclusionProof,
+    notes::{NoteInclusionProof, NoteTag},
     transaction::TransactionId,
     BlockHeader, Digest,
 };
@@ -15,7 +15,7 @@ use crate::{
 };
 
 impl SqliteStore {
-    pub(crate) fn get_note_tags(&self) -> Result<Vec<u64>, StoreError> {
+    pub(crate) fn get_note_tags(&self) -> Result<Vec<NoteTag>, StoreError> {
         const QUERY: &str = "SELECT tags FROM state_sync";
 
         self.db
@@ -33,7 +33,7 @@ impl SqliteStore {
             .expect("state sync tags exist")
     }
 
-    pub(super) fn add_note_tag(&mut self, tag: u64) -> Result<bool, StoreError> {
+    pub(super) fn add_note_tag(&mut self, tag: NoteTag) -> Result<bool, StoreError> {
         let mut tags = self.get_note_tags()?;
         if tags.contains(&tag) {
             return Ok(false);
@@ -45,6 +45,21 @@ impl SqliteStore {
         self.db.execute(QUERY, params![tags])?;
 
         Ok(true)
+    }
+
+    pub(super) fn remove_note_tag(&mut self, tag: NoteTag) -> Result<bool, StoreError> {
+        let mut tags = self.get_note_tags()?;
+        if let Some(index_of_tag) = tags.iter().position(|&tag_candidate| tag_candidate == tag) {
+            tags.remove(index_of_tag);
+
+            let tags = serde_json::to_string(&tags).map_err(StoreError::InputSerializationError)?;
+
+            const QUERY: &str = "UPDATE state_sync SET tags = ?";
+            self.db.execute(QUERY, params![tags])?;
+            return Ok(true);
+        }
+
+        Ok(false)
     }
 
     pub(super) fn get_sync_height(&self) -> Result<u32, StoreError> {

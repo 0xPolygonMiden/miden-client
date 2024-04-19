@@ -83,6 +83,7 @@ View and add tags.
 |---------|----------------------------------------------------------|---------|
 | `list`    | List all tags monitored by this client                   | -l      |
 | `add`     | Add a new tag to the list of tags monitored by this client | -a      |
+| `remove`  | Remove a tag from the list of tags monitored by this client | -r      |
 
 ### `tx` or `transaction`
 
