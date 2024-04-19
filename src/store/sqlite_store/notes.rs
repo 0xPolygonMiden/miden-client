@@ -113,21 +113,20 @@ impl SqliteStore {
         if let NoteFilter::Unique(note_id) = filter {
             params.push(note_id.inner().to_string());
         }
-        let query_result = self
+        let notes = self
             .db
             .prepare(&filter.to_query(NoteTable::InputNotes))?
             .query_map(params_from_iter(params), parse_input_note_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_input_note))
-            .collect::<Result<Vec<InputNoteRecord>, _>>();
-        if let Ok(ref notes) = query_result {
-            if let NoteFilter::Unique(note_id) = filter {
-                if notes.is_empty() {
-                    return Err(StoreError::NoteNotFound(note_id));
-                }
+            .collect::<Result<Vec<InputNoteRecord>, _>>()?;
+
+        if let NoteFilter::Unique(note_id) = filter {
+            if notes.is_empty() {
+                return Err(StoreError::NoteNotFound(note_id));
             }
         }
-        query_result
+        Ok(notes)
     }
 
     /// Retrieves the output notes from the database
@@ -139,21 +138,20 @@ impl SqliteStore {
         if let NoteFilter::Unique(note_id) = filter {
             params.push(note_id.inner().to_string());
         }
-        let query_result = self
+        let notes = self
             .db
             .prepare(&filter.to_query(NoteTable::OutputNotes))?
             .query_map(params_from_iter(params), parse_output_note_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_output_note))
-            .collect::<Result<Vec<OutputNoteRecord>, _>>();
-        if let Ok(ref notes) = query_result {
-            if let NoteFilter::Unique(note_id) = filter {
-                if notes.is_empty() {
-                    return Err(StoreError::NoteNotFound(note_id));
-                }
+            .collect::<Result<Vec<OutputNoteRecord>, _>>()?;
+
+        if let NoteFilter::Unique(note_id) = filter {
+            if notes.is_empty() {
+                return Err(StoreError::NoteNotFound(note_id));
             }
         }
-        query_result
+        Ok(notes)
     }
 
     pub(crate) fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError> {
