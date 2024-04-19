@@ -324,6 +324,6 @@ pub enum NoteFilter {
     /// Return a list of pending notes ([InputNoteRecord] or [OutputNoteRecord]). These represent notes for which the store
     /// does not have anchor data.
     Pending,
-    /// Return a list containing the note that matches with the provided NoteId.
+    /// Return a list containing the note that matches with the provided [NoteId].
     Unique(NoteId),
 }
