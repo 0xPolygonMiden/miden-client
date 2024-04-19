@@ -62,7 +62,7 @@ impl<S: Store> DataStore for ClientDataStore<S> {
                 .store
                 .get_input_notes(NoteFilter::Unique(*note_id))?
                 .pop()
-                .ok_or(DataStoreError::NoteNotFound(*note_id))?;
+                .expect("The vector always has one element for NoteFilter::Unique");
 
             let input_note: InputNote = input_note_record
                 .try_into()
