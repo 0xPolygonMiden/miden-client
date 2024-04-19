@@ -28,11 +28,10 @@ The `concurrent` flag enables optimizations that result in faster transaction ex
 
 ## Run the client 
 
-1. Make sure you have already [installed the client](#install-the-client).
+1. Make sure you have already [installed the client](#install-the-client). If you don't have a `miden-client.toml` file in your directory, create one or run `miden-client init` to iniatialize one at the current working directory.
 
 2. Run the client CLI using:
 
     ```sh
     miden-client
     ```
-    
