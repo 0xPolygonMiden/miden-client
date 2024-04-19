@@ -1,3 +1,5 @@
+use miden_objects::crypto::rand::FeltRng;
+
 use super::{
     rpc::NodeRpcClient, 
     Client, 
@@ -164,7 +166,7 @@ use super::{
 //     }
 // }
 
-impl<N: NodeRpcClient, S: Store> Client<N, S> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     pub async fn get_transactions(
         &mut self,
         filter: NativeTransactionFilter,

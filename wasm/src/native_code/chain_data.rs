@@ -1,10 +1,12 @@
+use miden_objects::crypto::rand::FeltRng;
+
 use super::{
     rpc::NodeRpcClient, 
     Client, 
     store::Store // TODO: Add AuthInfo
 };
 
-impl<N: NodeRpcClient, S: Store> Client<N, S> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     pub async fn get_block_headers(
         &self,
         block_numbers: &[u32],

@@ -34,14 +34,20 @@ export async function getAccountStub(
         const mostRecentRecord = sortedRecords[0];
         console.log('Most recent record found:', mostRecentRecord);
 
-        const account_seed_array_buffer = await data.account_seed.arrayBuffer();
+        let accountSeedBase64 = null;
+        if (mostRecentRecord.accountSeed) {
+            // Ensure accountSeed is processed as a Uint8Array and converted to Base64
+            let accountSeedArrayBuffer = await mostRecentRecord.accountSeed.arrayBuffer();
+            let accountSeedArray = new Uint8Array(accountSeedArrayBuffer);
+            accountSeedBase64 = uint8ArrayToBase64(accountSeedArray);
+        }
         const accountStub = {
-            id: data.id,
-            nonce: data.nonce,
-            vault_root: data.vaultRoot,
-            storage_root: data.storageRoot,
-            code_root: data.codeRoot,
-            account_seed: new Uint8Array(account_seed_array_buffer)
+            id: mostRecentRecord.id,
+            nonce: mostRecentRecord.nonce,
+            vault_root: mostRecentRecord.vaultRoot,
+            storage_root: mostRecentRecord.storageRoot,
+            code_root: mostRecentRecord.codeRoot,
+            account_seed: accountSeedBase64
         }
         return accountStub;
       } catch (error) {
@@ -69,17 +75,27 @@ export async function getAllAccountStubs() {
         const latestRecords = Array.from(latestRecordsMap.values());
 
         console.log('Latest account stub for each id:', latestRecords);
-        return latestRecords.map(record => {
-            // Convert fields as necessary, assuming account_seed is already in the correct format
+        const resultObject = await Promise.all(latestRecords.map(async record => {
+            let accountSeedBase64 = null;
+            if (record.accountSeed) {
+                // Ensure accountSeed is processed as a Uint8Array and converted to Base64
+                let accountSeedArrayBuffer = await record.accountSeed.arrayBuffer();
+                let accountSeedArray = new Uint8Array(accountSeedArrayBuffer);
+                accountSeedBase64 = uint8ArrayToBase64(accountSeedArray);
+            }
+
             return {
                 id: record.id,
                 nonce: record.nonce,
                 vault_root: record.vaultRoot,
                 storage_root: record.storageRoot,
                 code_root: record.codeRoot,
-                account_seed: record.account_seed // Adjust based on your actual data structure
+                account_seed: accountSeedBase64 // Now correctly formatted as Base64
             };
-        });
+        }));
+
+        console.log(resultObject[0]);
+        return resultObject;
     } catch (error) {
         console.error('Error fetching all latest account stubs:', error);
         throw error;
@@ -107,10 +123,12 @@ export async function getAccountCode(
 
         // Convert the module Blob to an ArrayBuffer
         const moduleArrayBuffer = await codeRecord.module.arrayBuffer();
+        const moduleArray = new Uint8Array(moduleArrayBuffer);
+        const moduleBase64 = uint8ArrayToBase64(moduleArray);
         return {
             root: codeRecord.root,
             procedures: codeRecord.procedures,
-            module: new Uint8Array(moduleArrayBuffer),
+            module: moduleBase64,
         };
     } catch (error) {
         console.error('Error fetching code record:', error);
@@ -164,16 +182,51 @@ export async function getAccountStorage(
 
         // The first record is the only one due to the uniqueness constraint
         const storageRecord = allMatchingRecords[0];
-        console.log('Vault record found:', vaultRecord);
+        console.log('Storage record found:', storageRecord);
 
         // Convert the module Blob to an ArrayBuffer
-        const storageArrayBuffer = await storageRecord.storage.arrayBuffer();
+        const storageArrayBuffer = await storageRecord.slots.arrayBuffer();
+        const storageArray = new Uint8Array(storageArrayBuffer);
+        const storageBase64 = uint8ArrayToBase64(storageArray);
         return {
             root: storageRecord.root,
-            storage: storageArrayBuffer
+            storage: storageBase64
         };
     } catch (error) {
         console.error('Error fetching code record:', error);
+        throw error; // Re-throw the error for further handling
+    }
+}
+
+export async function getAccountAuth(
+    accountId
+) {
+    try {
+        // Fetch all records matching the given id
+        const allMatchingRecords = await accountAuths
+            .where('accountId')
+            .equals(accountId)
+            .toArray();
+
+        if (allMatchingRecords.length === 0) {
+            console.log('No records found for given account ID.');
+            return null; // No records found
+        }
+
+        // The first record is the only one due to the uniqueness constraint
+        const authRecord = allMatchingRecords[0];
+        console.log('Auth record found:', authRecord);
+
+        // Convert the authInfo Blob to an ArrayBuffer
+        const authInfoArrayBuffer = await authRecord.authInfo.arrayBuffer();
+        const authInfoArray = new Uint8Array(authInfoArrayBuffer);
+        const authInfoBase64 = uint8ArrayToBase64(authInfoArray);
+        return {
+            id: authRecord.accountId,
+            auth_info: authInfoBase64
+        };
+    } catch (err) {
+        console.error('Error fetching account auth:', error);
         throw error; // Re-throw the error for further handling
     }
 }
@@ -214,7 +267,6 @@ export async function insertAccountCode(
 
         // Perform the insert using Dexie
         await accountCodes.add(data);
-        return `Successfully inserted code with root: ${codeRoot}`;
     } catch (error) {
         console.error(`Error inserting code with root: ${codeRoot}:`, error);
         throw error; // Rethrow the error to handle it further up the call chain if needed
@@ -236,7 +288,6 @@ export async function insertAccountStorage(
 
         // Perform the insert using Dexie
         await accountStorages.add(data);
-        return `Successfully inserted storage with root: ${storageRoot}`;
     } catch (error) {
         console.error(`Error inserting storage with root: ${storageRoot}:`, error);
         throw error; // Rethrow the error to handle it further up the call chain if needed
@@ -256,7 +307,6 @@ export async function insertAccountAssetVault(
 
         // Perform the insert using Dexie
         await accountVaults.add(data);
-        return `Successfully inserted vault with root: ${vaultRoot}`;
     } catch (error) {
         console.error(`Error inserting vault with root: ${vaultRoot}:`, error);
         throw error; // Rethrow the error to handle it further up the call chain if needed
@@ -265,20 +315,19 @@ export async function insertAccountAssetVault(
 
 export async function insertAccountAuth(
     accountId, 
-    auth
+    authInfo
 ) {
     try {
-        let authBlob = new Blob([auth]);
+        let authInfoBlob = new Blob([new Uint8Array(authInfo)]);
 
         // Prepare the data object to insert
         const data = {
             accountId: accountId, // Using accountId as the key
-            auth: authBlob,
+            authInfo: authInfoBlob,
         };
 
         // Perform the insert using Dexie
         await accountAuths.add(data);
-        return `Successfully inserted auth for account: ${accountId}`;
     } catch (error) {
         console.error(`Error inserting auth for account: ${accountId}:`, error);
         throw error; // Rethrow the error to handle it further up the call chain if needed
@@ -295,7 +344,13 @@ export async function insertAccountRecord(
     account_seed
 ) {
     try {
-        let accountSeedBlob = new Blob([account_seed]);
+        let accountSeedBlob = null;
+        console.log(account_seed);
+        if (account_seed) {
+            console.log(account_seed)
+            accountSeedBlob = new Blob([new Uint8Array(account_seed)]);
+        }
+        
 
         // Prepare the data object to insert
         const data = {
@@ -310,9 +365,13 @@ export async function insertAccountRecord(
 
         // Perform the insert using Dexie
         await accounts.add(data);
-        return `Successfully inserted account: ${accountId}`;
     } catch (error) {
         console.error(`Error inserting account: ${accountId}:`, error);
         throw error; // Rethrow the error to handle it further up the call chain if needed
     }
+}
+
+function uint8ArrayToBase64(bytes) {
+    const binary = bytes.reduce((acc, byte) => acc + String.fromCharCode(byte), '');
+    return btoa(binary);
 }

@@ -5,10 +5,29 @@
     <title>WASM Example</title>
 </head>
 <body>
+    <input type="file" id="fileInput">
     <script type="module" src="./dist/index.js"></script>
     <script type="module">
         // Example of using the exported WebClient in the browser
         import { WebClient } from './dist/index.js';
+
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+            const reader = new FileReader();
+
+            reader.onload = async function(e) {
+                const arrayBuffer = e.target.result;
+                const byteArray = new Uint8Array(arrayBuffer);
+                console.log(byteArray);  // Now you can work with the bytes
+
+                let result = await testImportAccount(webClient, byteArray);
+                console.log(result);
+            };
+
+            reader.readAsArrayBuffer(file);
+            }
+        });
         
         async function testCreateClient() {
             try {
@@ -36,20 +55,33 @@
             };
             const fungibleFaucetTemplate = {
                 type: "FungibleFaucet",
-                decimals: 18,
-                max_supply: 1000000
+                token_symbol: "TEST",
+                decimals: "18",
+                max_supply: "1000000"
             };
             try {
-                await webClient.new_account(basicMutableTemplate);
-                await webClient.new_account(fungibleFaucetTemplate);
+                let result = await webClient.new_account(basicMutableTemplate);
+                console.log(result);
+                //await webClient.new_account(fungibleFaucetTemplate);
             } catch (error) {
                 console.error('Failed to call create account:', error);
             }
         }
 
+        async function testImportAccount(webClient, accountAsBytes) {
+            try {
+                let result = await webClient.import_account(accountAsBytes);
+                console.log(result);
+
+            } catch (error) {
+                console.error('Failed to call import account:', error);
+            }
+        }
+
         async function testGetAccounts(webClient) {
             try {
-                await webClient.get_accounts();
+                let result = await webClient.get_accounts();
+                console.log(result);
 
             } catch (error) {
                 console.error('Failed to call get accounts:', error);
@@ -59,7 +91,8 @@
 
         async function testGetAccount(webClient) {
             try {
-                await webClient.get_account("0xTestAccounStringHex");
+                let result = await webClient.get_account("0x8d911ae1789cdb33");
+                console.log(result);
 
             } catch (error) {
                 console.error('Failed to call get account:', error);
@@ -69,7 +102,8 @@
 
         async function testGetAccountStubById(webClient) {
             try {
-                await webClient.get_account_stub_by_id("0xTestAccounStringHex");
+                let result = await webClient.get_account_stub_by_id("0x8d911ae1789cdb33");
+                console.log(result);
 
             } catch (error) {
                 console.error('Failed to call get account stub by id:', error);
@@ -79,7 +113,8 @@
 
         async function testGetAccountAuth(webClient) {
             try {
-                await webClient.get_account_auth("0xTestAccounStringHex");
+                let result = await webClient.get_account_auth("0x8d911ae1789cdb33");
+                console.log(result);
 
             } catch (error) {
                 console.error('Failed to call get account auth:', error);
@@ -154,20 +189,20 @@
         let webClient = await testCreateClient();
         await testStoreAndRpc(webClient);
 
-        await testNewAccount(webClient);
-        await testGetAccounts(webClient);
-        await testGetAccount(webClient);
-        await testGetAccountStubById(webClient);
-        await testGetAccountAuth(webClient);
+        // await testNewAccount(webClient);
+        // await testGetAccounts(webClient);
+        // await testGetAccount(webClient);
+        // await testGetAccountStubById(webClient);
+        // await testGetAccountAuth(webClient);
 
-        await testGetInputNotes(webClient);
-        await testGetInputNote(webClient);
-        await testImportInputNote(webClient);
+        // await testGetInputNotes(webClient);
+        // await testGetInputNote(webClient);
+        // await testImportInputNote(webClient);
 
-        await testGetTransactions(webClient);
-        await testNewTransaction(webClient);
+        // await testGetTransactions(webClient);
+        // await testNewTransaction(webClient);
 
-        await testSyncState(webClient);
+        // await testSyncState(webClient);
     </script>
 </body>
 </html>

@@ -1,3 +1,5 @@
+use miden_objects::crypto::rand::FeltRng;
+
 use crate::native_code::store::NativeNoteFilter;
 
 use super::{
@@ -6,7 +8,7 @@ use super::{
     store::Store // TODO: Add AuthInfo
 };
 
-impl<N: NodeRpcClient, S: Store> Client<N, S> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     // INPUT NOTE DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 

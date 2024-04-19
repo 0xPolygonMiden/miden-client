@@ -1,9 +1,13 @@
-use crate::native_code::store::{Store, NativeNoteFilter}; 
-
+use async_trait::async_trait;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::*;
 
-use async_trait::async_trait;
+use miden_objects::{
+    accounts::{Account, AccountId, AccountStub}, 
+    Word
+};
+
+use crate::native_code::store::{Store, AuthInfo}; 
 
 pub mod accounts;
 pub mod notes;
@@ -130,43 +134,47 @@ impl Store for WebStore {
     // }
 
     // ACCOUNTS
-    // async fn insert_account(
-    //     &mut self,
-    //     account: &Account,
-    //     account_seed: Option<Word>,
-    //     auth_info: &AuthInfo,
-    // ) -> Result<(), ()> {
-    //     self.insert_account(account, account_seed, auth_info).await
-    // }
+    async fn insert_account(
+        &mut self,
+        account: &Account,
+        account_seed: Option<Word>,
+        auth_info: &AuthInfo,
+    ) -> Result<(), ()> {
+        self.insert_account(account, account_seed, auth_info).await
+    }
 
-    // async fn get_account_ids(&self) -> Result<Vec<AccountId>, ()> {
-    //     self.get_account_ids().await
-    // }
+    async fn get_account_ids(
+        &mut self
+    ) -> Result<Vec<AccountId>, ()> {
+        self.get_account_ids().await
+    }
 
-    // async fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, ()> {
-    //     self.get_account_stubs().await
-    // }
+    async fn get_account_stubs(
+        &mut self
+    ) -> Result<Vec<(AccountStub, Option<Word>)>, ()> {
+        self.get_account_stubs().await
+    }
 
-    // async fn get_account_stub(
-    //     &self,
-    //     account_id: AccountId,
-    // ) -> Result<(AccountStub, Option<Word>), ()> {
-    //     self.get_account_stub(account_id).await
-    // }
+    async fn get_account_stub(
+        &mut self,
+        account_id: AccountId,
+    ) -> Result<(AccountStub, Option<Word>), ()> {
+        self.get_account_stub(account_id).await
+    }
 
-    // async fn get_account(
-    //     &self,
-    //     account_id: AccountId,
-    // ) -> Result<(Account, Option<Word>), ()> {
-    //     self.get_account(account_id).await
-    // }
+    async fn get_account(
+        &mut self,
+        account_id: AccountId,
+    ) -> Result<(Account, Option<Word>), ()> {
+        self.get_account(account_id).await
+    }
 
-    // async fn get_account_auth(
-    //     &self,
-    //     account_id: AccountId,
-    // ) -> Result<AuthInfo, ()> {
-    //     self.get_account_auth(account_id).await
-    // }
+    async fn get_account_auth(
+        &mut self,
+        account_id: AccountId,
+    ) -> Result<AuthInfo, ()> {
+        self.get_account_auth(account_id).await
+    }
 
     // NOTES
     // async fn get_input_notes(

@@ -1,9 +1,9 @@
-// use miden_objects::{
-//     accounts::Account,
-//     crypto::dsa::rpo_falcon512::KeyPair,
-//     Word,
-// };
-// use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
+use miden_objects::{
+    accounts::{Account, AccountId, AccountStub},
+    crypto::dsa::rpo_falcon512::SecretKey,
+    Felt, Word,
+};
+use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 
 use async_trait::async_trait;
 
@@ -105,35 +105,35 @@ pub trait Store {
     // ACCOUNTS
     // --------------------------------------------------------------------------------------------
 
-    // async fn get_account_ids(
-    //     &self
-    // ) -> Result<Vec<AccountId>, ()>;
+    async fn get_account_ids(
+        &mut self
+    ) -> Result<Vec<AccountId>, ()>;
 
-    // async fn get_account_stubs(
-    //     &self
-    // ) -> Result<Vec<(AccountStub, Option<Word>)>, ()>;
+    async fn get_account_stubs(
+        &mut self
+    ) -> Result<Vec<(AccountStub, Option<Word>)>, ()>;
 
-    // async fn get_account_stub(
-    //     &self,
-    //     account_id: AccountId,
-    // ) -> Result<(AccountStub, Option<Word>), ()>;
+    async fn get_account_stub(
+        &mut self,
+        account_id: AccountId,
+    ) -> Result<(AccountStub, Option<Word>), ()>;
 
-    // async fn get_account(
-    //     &self,
-    //     account_id: AccountId,
-    // ) -> Result<(Account, Option<Word>), ()>;
+    async fn get_account(
+        &mut self,
+        account_id: AccountId,
+    ) -> Result<(Account, Option<Word>), ()>;
 
-    // async fn get_account_auth(
-    //     &self,
-    //     account_id: AccountId,
-    // ) -> Result<AuthInfo, ()>;
+    async fn get_account_auth(
+        &mut self,
+        account_id: AccountId,
+    ) -> Result<AuthInfo, ()>;
 
-    // async fn insert_account(
-    //     &mut self,
-    //     account: &Account,
-    //     account_seed: Option<Word>,
-    //     auth_info: &AuthInfo,
-    // ) -> Result<(), ()>;
+    async fn insert_account(
+        &mut self,
+        account: &Account,
+        account_seed: Option<Word>,
+        auth_info: &AuthInfo,
+    ) -> Result<(), ()>;
 
     // NOTES
     // --------------------------------------------------------------------------------------------
@@ -166,49 +166,61 @@ pub trait Store {
 // DATABASE AUTH INFO
 // ================================================================================================
 
-// #[derive(Debug)]
-// pub enum AuthInfo {
-//     RpoFalcon512(KeyPair),
-// }
+/// Represents the types of authentication information of accounts
+#[derive(Debug)]
+pub enum AuthInfo {
+    RpoFalcon512(SecretKey),
+}
 
-// const RPO_FALCON512_AUTH: u8 = 0;
+const RPO_FALCON512_AUTH: u8 = 0;
 
-// impl AuthInfo {
-//     /// Returns byte identifier of specific AuthInfo
-//     const fn type_byte(&self) -> u8 {
-//         match self {
-//             AuthInfo::RpoFalcon512(_) => RPO_FALCON512_AUTH,
-//         }
-//     }
-// }
+impl AuthInfo {
+    /// Returns byte identifier of specific AuthInfo
+    const fn type_byte(&self) -> u8 {
+        match self {
+            AuthInfo::RpoFalcon512(_) => RPO_FALCON512_AUTH,
+        }
+    }
 
-// impl Serializable for AuthInfo {
-//     fn write_into<W: ByteWriter>(
-//         &self,
-//         target: &mut W,
-//     ) {
-//         let mut bytes = vec![self.type_byte()];
-//         match self {
-//             AuthInfo::RpoFalcon512(key_pair) => {
-//                 bytes.append(&mut key_pair.to_bytes());
-//                 target.write_bytes(&bytes);
-//             },
-//         }
-//     }
-// }
+    /// Returns the authentication information as a tuple of (key, value)
+    /// that can be input to the advice map at the moment of transaction execution.
+    pub fn into_advice_inputs(self) -> (Word, Vec<Felt>) {
+        match self {
+            AuthInfo::RpoFalcon512(key) => {
+                let pub_key: Word = key.public_key().into();
+                let mut pk_sk_bytes = key.to_bytes();
+                pk_sk_bytes.append(&mut pub_key.to_bytes());
 
-// impl Deserializable for AuthInfo {
-//     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
-//         let auth_type: u8 = source.read_u8()?;
-//         match auth_type {
-//             RPO_FALCON512_AUTH => {
-//                 let key_pair = KeyPair::read_from(source)?;
-//                 Ok(AuthInfo::RpoFalcon512(key_pair))
-//             },
-//             val => Err(DeserializationError::InvalidValue(val.to_string())),
-//         }
-//     }
-// }
+                (pub_key, pk_sk_bytes.iter().map(|a| Felt::new(*a as u64)).collect::<Vec<Felt>>())
+            },
+        }
+    }
+}
+
+impl Serializable for AuthInfo {
+    fn write_into<W: ByteWriter>(&self, target: &mut W) {
+        let mut bytes = vec![self.type_byte()];
+        match self {
+            AuthInfo::RpoFalcon512(key_pair) => {
+                bytes.append(&mut key_pair.to_bytes());
+                target.write_bytes(&bytes);
+            },
+        }
+    }
+}
+
+impl Deserializable for AuthInfo {
+    fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
+        let auth_type: u8 = source.read_u8()?;
+        match auth_type {
+            RPO_FALCON512_AUTH => {
+                let key_pair = SecretKey::read_from(source)?;
+                Ok(AuthInfo::RpoFalcon512(key_pair))
+            },
+            val => Err(DeserializationError::InvalidValue(val.to_string())),
+        }
+    }
+}
 
 // pub enum ChainMmrNodeFilter<'a> {
 //     /// Return all nodes.

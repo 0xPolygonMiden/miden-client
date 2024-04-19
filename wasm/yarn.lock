@@ -72,7 +72,7 @@
   resolved "https://registry.yarnpkg.com/@types/resolve/-/resolve-1.20.2.tgz#97d26e00cd4a0423b4af620abecf3e6f442b7975"
   integrity sha512-60BCwRFOZCQhDncwQdxxeOEEkbc5dIMccYLwbxsS4TUNeVECQ/pBJ0j09mrHOl/JJvpRPGwO9SvE4nR2Nb/a4Q==
 
-"@wasm-tool/rollup-plugin-rust@^2.4.2":
+"@wasm-tool/rollup-plugin-rust@^2.4.5":
   version "2.4.5"
   resolved "https://registry.yarnpkg.com/@wasm-tool/rollup-plugin-rust/-/rollup-plugin-rust-2.4.5.tgz#203e0be9196ad278533b0996bf29c6dae5b468ec"
   integrity sha512-rrgaHm/TmiOCKkt9mz8LMQMzigyn2xLHNZDtJAAv8HDrQt9QbksUkf+mYmsnQDF7gFmWtOEEJE5/7lfYuL0fEQ==
