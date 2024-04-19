@@ -29,6 +29,11 @@ description = "Run the integration test binary. Requires a node to connect to."
 command = "cargo"
 args = ["test", "--release", "--test=integration", "--features", "${FEATURES_INTEGRATION_TESTING}"]
 
+[tasks.repro-hanging-test]
+description = "Run the integration test reproduction that fails."
+command = "cargo"
+args = ["test", "--release", "--test=integration", "--features", "${FEATURES_INTEGRATION_TESTING}", "--", "--nocapture", "hanging_test"]
+
 [tasks.lint]
 dependencies = [
     "format",

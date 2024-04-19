@@ -36,12 +36,7 @@ type TestClient = Client<TonicRpcClient, RpoRandomCoin, SqliteStore>;
 
 fn create_test_client() -> TestClient {
     let client_config = ClientConfig {
-        store: create_test_store_path()
-            .into_os_string()
-            .into_string()
-            .unwrap()
-            .try_into()
-            .unwrap(),
+        store: "./repro_db.sqlite3".try_into().unwrap(),
         rpc: RpcConfig::default(),
     };
 
@@ -857,4 +852,17 @@ async fn test_onchain_accounts() {
 
     assert_eq!(new_from_account_balance, from_account_balance - TRANSFER_AMOUNT);
     assert_eq!(new_to_account_balance, to_account_balance + TRANSFER_AMOUNT);
+}
+
+#[tokio::test]
+async fn hanging_test() {
+    let mut client = create_test_client();
+    // Execute mint transaction in order to create custom note
+    let mut random_coin = RpoRandomCoin::new(Default::default());
+    let note = mint_custom_note(
+        &mut client,
+        AccountId::from_hex("0xa34f4eea6650cc88").unwrap(),
+        AccountId::from_hex("0x83f2546dcfbd810b").unwrap(),
+    )
+    .await;
 }
