@@ -40,6 +40,24 @@ In order to utilize the `miden-client` library, you can add the dependency to yo
 miden-client = { version = "0.2" }
 ````
 
+#### Features
+
+- `concurrent`: used to enable concurrent proofs generation
+- `testing`: useful feature that lowers PoW difficulty when enabled. Only use this during development and not on production.
+- `test_utils`: used on unit tests to use the mocked rpc api 
+- `integration`: only used to run integration tests and separate them from unit tests
+
+concurrent = [
+    "miden-lib/concurrent",
+    "miden-objects/concurrent",
+    "miden-tx/concurrent",
+]
+default = ["std"]
+integration = ["testing", "concurrent", "uuid"]
+std = ["miden-objects/std"]
+testing = ["miden-objects/testing", "miden-lib/testing"]
+test_utils = ["miden-objects/testing"]
+
 ### Running `miden-client`'s CLI
 
 You can either build from source with:
@@ -58,10 +76,11 @@ cargo install miden-client
 
 Check the official documentation for more details reagarding:
 
-- [Library Features](https://docs.polygon.technology/miden/miden-client/library/#features)
-- [Configuration](https://docs.polygon.technology/miden/miden-client/cli-config/)
+- [Library Features](./docs/library.md#features)
+- [Configuration](./docs/cli-config.md)
 - [Examples](https://0xpolygonmiden.github.io/miden-base/introduction/getting-started.html)
-- [CLI Reference](https://docs.polygon.technology/miden/miden-client/cli-reference/#types-of-transaction)
+- [CLI Reference](./docs/cli-reference.md#types-of-transaction)
+- [Online Documentation](https://docs.polygon.technology/miden/miden-client)
 
 ### Makefile
 
