@@ -40,7 +40,7 @@ In order to utilize the `miden-client` library, you can add the dependency to yo
 miden-client = { version = "0.2" }
 ````
 
-### Running miden-client from CLI
+### Running `miden-client`'s CLI
 
 You can either build from source with:
 
@@ -58,18 +58,18 @@ cargo install miden-client
 
 Check the official documentation for more details reagarding:
 
-- [Features](https://docs.polygon.technology/miden/miden-client/library/#features), such us faster PoW for account creation and lower PoW difficulty for development.
+- [Library Features](https://docs.polygon.technology/miden/miden-client/library/#features)
 - [Configuration](https://docs.polygon.technology/miden/miden-client/cli-config/)
 - [Examples](https://0xpolygonmiden.github.io/miden-base/introduction/getting-started.html)
 - [CLI Reference](https://docs.polygon.technology/miden/miden-client/cli-reference/#types-of-transaction)
 
 ### Makefile
 
-As mentioned before, we use `cargo-make` to encapsulate some tasks, such as running lints and tests. You can check [Makefile.toml](./Makefile.toml) for all possible tasks to run.
+As mentioned before, we use `cargo-make` to encapsulate some tasks, such as running lints and tests. You can check out [Makefile.toml](./Makefile.toml) for all possible tasks to run.
 
 ## Testing
 
-This crate has both unit tests (which can be run with `cargo test`) and integration tests. For more info on integration tests, refer to the [integration testing document](./tests/README.md)
+To test the project's code, we provide both unit tests (which can be run with `cargo test`) and integration tests. For more info on integration tests, refer to the [integration testing document](./tests/README.md)
 
 ## Changelog
 
