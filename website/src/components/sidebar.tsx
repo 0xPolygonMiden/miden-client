@@ -2,6 +2,7 @@ import Link from "next/link";
 
 const routes = {
   gettingStarted: '/',
+  greet: '/greet',
   accounts: '/accounts',
   notes: '/notes',
   transactions: '/transactions'
@@ -11,6 +12,10 @@ const menuItems = [
   {
     name: 'Getting Started',
     href: routes.gettingStarted,
+  },
+  {
+    name: 'Greet',
+    href: routes.greet,
   },
   {
     name: 'Accounts',

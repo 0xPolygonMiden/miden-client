@@ -5,7 +5,7 @@ export const useWasm = () => {
 
     useEffect(() => {
         if (wasm === null) {
-            import("@wasm").then((module) => {
+            import("wasm").then((module) => {
               module.default()
               return setWasm(module)
             });

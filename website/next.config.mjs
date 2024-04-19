@@ -7,6 +7,7 @@ const nextConfig = {
         asyncWebAssembly: true,
         syncWebAssembly: true,
         topLevelAwait: true,
+        layers: true,
       }
     }
     return config;

@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "preinstall": "cd ../wasm && wasm-pack build --target web",
+    "preinstall": "rm -rf node_modules/wasm  && rm yarn.lock && cd ../wasm && cargo clean && wasm-pack build --target web",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
-    "@wasm": "file:../wasm/pkg",
+    "wasm": "file:../wasm/pkg",
     "dexie": "^3.2.7",
     "dexie-react-hooks": "^1.1.7",
     "next": "14.1.4",
