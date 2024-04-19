@@ -967,3 +967,57 @@ async fn test_get_output_notes() {
     assert!(client.get_output_note(output_note_id).is_ok());
     assert!(client.get_input_note(output_note_id).is_err());
 }
+
+#[tokio::test]
+async fn test_onchain_notes_sync_with_tag() {
+    // Client 1 has an offchain faucet which will mint an onchain note for client 2
+    let mut client_1 = create_test_client();
+    // Client 2 will be used to sync and check that by adding the tag we can still fetch notes
+    // whose tag doesn't necessarily match any of its accounts
+    let mut client_2 = create_test_client();
+    // Client 3 will be the control client. We won't add any tags and expect the note not to be
+    // fetched
+    let mut client_3 = create_test_client();
+
+    // Create faucet account
+    let (faucet_account, _) = client_1
+        .new_account(AccountTemplate::FungibleFaucet {
+            token_symbol: TokenSymbol::new("MATIC").unwrap(),
+            decimals: 8,
+            max_supply: 1_000_000_000,
+            storage_mode: AccountStorageMode::Local,
+        })
+        .unwrap();
+
+    client_1.sync_state().await.unwrap();
+    client_2.sync_state().await.unwrap();
+    client_3.sync_state().await.unwrap();
+
+    let target_account_id = AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap();
+    let tx_template = TransactionTemplate::MintFungibleAsset(
+        FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap().into(),
+        target_account_id,
+        NoteType::Public,
+    );
+
+    let tx_request = client_1.build_transaction_request(tx_template).unwrap();
+    let note = tx_request.expected_output_notes()[0].clone();
+    execute_tx_and_sync(&mut client_1, tx_request).await;
+
+    // Load tag into client 2
+    client_2
+        .add_note_tag(
+            NoteTag::from_account_id(target_account_id, NoteExecutionMode::Local).unwrap(),
+        )
+        .unwrap();
+
+    // Client 2's account should receive the note here:
+    client_2.sync_state().await.unwrap();
+    client_3.sync_state().await.unwrap();
+
+    // Assert that the note is the same
+    let received_note: InputNote = client_2.get_input_note(note.id()).unwrap().try_into().unwrap();
+    assert_eq!(received_note.note().authentication_hash(), note.authentication_hash());
+    assert_eq!(received_note.note(), &note);
+    assert!(client_3.get_input_notes(NoteFilter::All).unwrap().is_empty());
+}
