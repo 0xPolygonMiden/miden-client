@@ -1,5 +1,6 @@
 # Changelog
 
+* Added nextest to be used as test runner
 * Added `CONTRIBUTING.MD` file.
 * Renamed `format` command from `Makefile.toml` to `check-format` and added a
   new `format` command that applies the formatting.
