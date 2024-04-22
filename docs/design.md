@@ -1,3 +1,7 @@
+---
+comments: true
+---
+
 The Miden client has the following architectural components:
 
 - [Store](#store)
