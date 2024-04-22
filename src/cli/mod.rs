@@ -16,9 +16,9 @@ use miden_client::{
     errors::{ClientError, IdPrefixFetchError},
     store::{sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
 };
-use miden_objects::crypto::rand::FeltRng;
 #[cfg(not(feature = "mock"))]
 use miden_objects::crypto::rand::RpoRandomCoin;
+use miden_objects::{accounts::AccountStub, crypto::rand::FeltRng};
 
 mod account;
 mod info;
@@ -160,4 +160,43 @@ pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>(
     }
 
     Ok(input_note_records[0].clone())
+}
+
+/// Returns all client's accounts whose ID starts with `account_id_prefix`
+///
+/// # Errors
+///
+/// - Returns [IdPrefixFetchError::NoMatch] if we were unable to find any note where
+/// `note_id_prefix` is a prefix of its id.
+/// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found
+/// where `note_id_prefix` is a prefix of its id.
+pub(crate) fn get_account_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>(
+    client: &Client<N, R, S>,
+    account_id_prefix: &str,
+) -> Result<AccountStub, IdPrefixFetchError> {
+    let accounts = client
+        .get_accounts()
+        .map_err(|err| {
+            tracing::error!("Error when fetching all accounts from the store: {err}");
+            IdPrefixFetchError::NoMatch(account_id_prefix.to_string())
+        })?
+        .into_iter()
+        .filter(|(account_stub, _)| account_stub.id().to_hex().starts_with(account_id_prefix))
+        .collect::<Vec<_>>();
+
+    if accounts.is_empty() {
+        return Err(IdPrefixFetchError::NoMatch(account_id_prefix.to_string()));
+    }
+    if accounts.len() > 1 {
+        let input_note_record_ids =
+            accounts.iter().map(|(account_stub, _)| account_stub.id()).collect::<Vec<_>>();
+        tracing::error!(
+            "Multiple accounts found for the prefix {}: {:?}",
+            account_id_prefix,
+            input_note_record_ids
+        );
+        return Err(IdPrefixFetchError::MultipleMatches(account_id_prefix.to_string()));
+    }
+
+    Ok(accounts[0].0.clone())
 }
