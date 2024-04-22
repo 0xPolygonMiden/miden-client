@@ -20,15 +20,18 @@ The Miden client currently consists of two components:
 
 The client's main responsibility is to maintain a partial view of the blockchain which allows for locally executing and proving transactions. It keeps a local store of various entities that periodically get updated by syncing with the node.
 
+For more info check:
+
+- [Get started](https://0xpolygonmiden.github.io/miden-base/introduction/getting-started.html)
+- [CLI Reference](./docs/cli-reference.md#types-of-transaction)
+    - [Configuration](./docs/cli-config.md)
+- [Library API](https://docs.rs/crate/miden-client/latest)
+- [Online Documentation](https://docs.polygon.technology/miden/miden-client)
+
 ## Dependencies
 
-### Required
-
 - [Rust installation](https://www.rust-lang.org/tools/install) with version 1.77 or higher.
-
-### Optional
-
-- [Cargo Make](https://github.com/sagiegurari/cargo-make)
+- sqlite3
 
 ## Usage
 
@@ -47,17 +50,6 @@ miden-client = { version = "0.2" }
 - `test_utils`: used on unit tests to use the mocked rpc api 
 - `integration`: only used to run integration tests and separate them from unit tests
 
-concurrent = [
-    "miden-lib/concurrent",
-    "miden-objects/concurrent",
-    "miden-tx/concurrent",
-]
-default = ["std"]
-integration = ["testing", "concurrent", "uuid"]
-std = ["miden-objects/std"]
-testing = ["miden-objects/testing", "miden-lib/testing"]
-test_utils = ["miden-objects/testing"]
-
 ### Running `miden-client`'s CLI
 
 You can either build from source with:
@@ -74,25 +66,13 @@ Or you can install the CLI from crates-io with:
 cargo install miden-client
 ```
 
-Check the official documentation for more details reagarding:
-
-- [Library Features](./docs/library.md#features)
-- [Configuration](./docs/cli-config.md)
-- [Examples](https://0xpolygonmiden.github.io/miden-base/introduction/getting-started.html)
-- [CLI Reference](./docs/cli-reference.md#types-of-transaction)
-- [Online Documentation](https://docs.polygon.technology/miden/miden-client)
-
 ### Makefile
 
-As mentioned before, we use `cargo-make` to encapsulate some tasks, such as running lints and tests. You can check out [Makefile.toml](./Makefile.toml) for all possible tasks to run.
+As mentioned before, we use [cargo-make](https://github.com/sagiegurari/cargo-make) to encapsulate some tasks, such as running lints and tests. You can check out [Makefile.toml](./Makefile.toml) for all possible tasks to run.
 
 ## Testing
 
 To test the project's code, we provide both unit tests (which can be run with `cargo test`) and integration tests. For more info on integration tests, refer to the [integration testing document](./tests/README.md)
-
-## Changelog
-
-You can keep track of the client's changes [here](./CHANGELOG.md).
 
 ## Contributing
 
