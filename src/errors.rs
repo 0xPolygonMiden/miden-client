@@ -382,21 +382,21 @@ impl From<ConversionError> for NodeRpcClientError {
 
 /// Error when Looking for a specific note ID from a partial ID
 #[derive(Debug, Eq, PartialEq)]
-pub enum NoteIdPrefixFetchError {
+pub enum IdPrefixFetchError {
     NoMatch(String),
     MultipleMatches(String),
 }
 
-impl fmt::Display for NoteIdPrefixFetchError {
+impl fmt::Display for IdPrefixFetchError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NoteIdPrefixFetchError::NoMatch(note_id) => {
-                write!(f, "No matches were found with the input prefix {note_id}.")
+            IdPrefixFetchError::NoMatch(id) => {
+                write!(f, "No matches were found with the input prefix {id}.")
             },
-            NoteIdPrefixFetchError::MultipleMatches(note_id) => {
+            IdPrefixFetchError::MultipleMatches(id) => {
                 write!(
                     f,
-                    "found more than one note for the provided ID {note_id} and only one match is expected."
+                    "found more than one element for the provided ID {id} and only one match is expected."
                 )
             },
         }

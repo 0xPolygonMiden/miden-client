@@ -304,7 +304,7 @@ mod tests {
     use miden_client::{
         client::get_random_coin,
         config::{ClientConfig, Endpoint},
-        errors::NoteIdPrefixFetchError,
+        errors::IdPrefixFetchError,
         mock::{mock_full_chain_mmr_and_notes, mock_notes, MockClient, MockRpcApi},
         store::{sqlite_store::SqliteStore, InputNoteRecord},
     };
@@ -427,7 +427,7 @@ mod tests {
         let non_existent_note_id = "0x123456";
         assert_eq!(
             get_note_with_id_prefix(&client, non_existent_note_id),
-            Err(NoteIdPrefixFetchError::NoMatch(non_existent_note_id.to_string()))
+            Err(IdPrefixFetchError::NoMatch(non_existent_note_id.to_string()))
         );
 
         // generate test data
@@ -454,7 +454,7 @@ mod tests {
         let note_id_with_many_matches = "0x";
         assert_eq!(
             get_note_with_id_prefix(&client, note_id_with_many_matches),
-            Err(NoteIdPrefixFetchError::MultipleMatches(note_id_with_many_matches.to_string()))
+            Err(IdPrefixFetchError::MultipleMatches(note_id_with_many_matches.to_string()))
         );
     }
 }

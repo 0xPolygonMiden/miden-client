@@ -13,7 +13,7 @@ use miden_client::{
         Client,
     },
     config::ClientConfig,
-    errors::{ClientError, NoteIdPrefixFetchError},
+    errors::{ClientError, IdPrefixFetchError},
     store::{sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
 };
 use miden_objects::crypto::rand::FeltRng;
@@ -125,26 +125,26 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
 ///
 /// # Errors
 ///
-/// - Returns [NoteIdPrefixFetchError::NoMatch] if we were unable to find any note where
+/// - Returns [IdPrefixFetchError::NoMatch] if we were unable to find any note where
 /// `note_id_prefix` is a prefix of its id.
-/// - Returns [NoteIdPrefixFetchError::MultipleMatches] if there were more than one note found
+/// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found
 /// where `note_id_prefix` is a prefix of its id.
 pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: &Client<N, R, S>,
     note_id_prefix: &str,
-) -> Result<InputNoteRecord, NoteIdPrefixFetchError> {
+) -> Result<InputNoteRecord, IdPrefixFetchError> {
     let input_note_records = client
         .get_input_notes(ClientNoteFilter::All)
         .map_err(|err| {
             tracing::error!("Error when fetching all notes from the store: {err}");
-            NoteIdPrefixFetchError::NoMatch(note_id_prefix.to_string())
+            IdPrefixFetchError::NoMatch(note_id_prefix.to_string())
         })?
         .into_iter()
         .filter(|note_record| note_record.id().to_hex().starts_with(note_id_prefix))
         .collect::<Vec<_>>();
 
     if input_note_records.is_empty() {
-        return Err(NoteIdPrefixFetchError::NoMatch(note_id_prefix.to_string()));
+        return Err(IdPrefixFetchError::NoMatch(note_id_prefix.to_string()));
     }
     if input_note_records.len() > 1 {
         let input_note_record_ids = input_note_records
@@ -156,7 +156,7 @@ pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>(
             note_id_prefix,
             input_note_record_ids
         );
-        return Err(NoteIdPrefixFetchError::MultipleMatches(note_id_prefix.to_string()));
+        return Err(IdPrefixFetchError::MultipleMatches(note_id_prefix.to_string()));
     }
 
     Ok(input_note_records[0].clone())
