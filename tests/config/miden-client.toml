@@ -8,4 +8,5 @@
 endpoint = { protocol = "http", host = "localhost", port = 57291 }
 
 [store]
-database_filepath = "store.sqlite3"
+# IGNORED ON INTEGRATION TESTS
+database_filepath = ""
