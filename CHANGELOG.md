@@ -3,6 +3,7 @@
 * Added `CONTRIBUTING.MD` file.
 * Renamed `format` command from `Makefile.toml` to `check-format` and added a
   new `format` command that applies the formatting.
+* Added a `input-notes list-consumable` command to the CLI.
 
 ## 0.2.0 (2024-04-12)
 
