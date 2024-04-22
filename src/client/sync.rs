@@ -16,6 +16,7 @@ use super::{
     Client,
 };
 use crate::{
+    client::rpc::AccountDetails,
     errors::{ClientError, StoreError},
     store::{ChainMmrNodeFilter, NoteFilter, Store, TransactionFilter},
 };
@@ -400,8 +401,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
             if let Some(tracked_account) = current_account {
                 info!("On-chain account hash difference detected for account with ID: {}. Fetching node for updates...", tracked_account.id());
-                let account = self.rpc_api.get_account_update(tracked_account.id()).await?;
-                accounts_to_update.push(account);
+                let account_details = self.rpc_api.get_account_update(tracked_account.id()).await?;
+                if let AccountDetails::Public(account, _) = account_details {
+                    accounts_to_update.push(account);
+                }
             }
         }
         Ok(accounts_to_update)

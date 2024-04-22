@@ -23,6 +23,26 @@ pub enum NoteDetails {
     Public(Note, NoteInclusionDetails),
 }
 
+/// Describes the possible responses from the `GetAccountDetails` endpoint for an account
+pub enum AccountDetails {
+    OffChain(AccountId, AccountUpdateSummary),
+    Public(Account, AccountUpdateSummary),
+}
+
+/// Contains public updated information about the account requested
+pub struct AccountUpdateSummary {
+    /// Account hash
+    pub hash: Digest,
+    /// Block number of last account update
+    pub last_block_num: u32,
+}
+
+impl AccountUpdateSummary {
+    pub fn new(hash: Digest, last_block_num: u32) -> Self {
+        Self { hash, last_block_num }
+    }
+}
+
 /// Contains information related to the note inclusion, but not related to the block header
 /// that contains the note
 pub struct NoteInclusionDetails {
@@ -98,7 +118,7 @@ pub trait NodeRpcClient {
     async fn get_account_update(
         &mut self,
         account_id: AccountId,
-    ) -> Result<Account, NodeRpcClientError>;
+    ) -> Result<AccountDetails, NodeRpcClientError>;
 }
 
 // STATE SYNC INFO
