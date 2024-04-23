@@ -76,12 +76,9 @@ impl Cli {
         let rpc_endpoint = client_config.rpc.endpoint.to_string();
         let store = SqliteStore::new((&client_config).into()).map_err(ClientError::StoreError)?;
         let rng = get_random_coin();
-        let executor_store =
-            miden_client::store::sqlite_store::SqliteStore::new((&client_config).into())
-                .map_err(ClientError::StoreError)?;
 
         let client: Client<TonicRpcClient, RpoRandomCoin, SqliteStore> =
-            Client::new(TonicRpcClient::new(&rpc_endpoint), rng, store, executor_store)?;
+            Client::new(TonicRpcClient::new(&rpc_endpoint), rng, store)?;
 
         // Execute cli command
         match &self.action {

@@ -350,7 +350,7 @@ async fn test_mint_transaction() {
     );
 
     client
-        .store()
+        .store_mut()
         .insert_account(&faucet, None, &AuthInfo::RpoFalcon512(key_pair))
         .unwrap();
 

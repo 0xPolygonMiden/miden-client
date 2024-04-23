@@ -1,4 +1,5 @@
-use std::collections::BTreeSet;
+use alloc::collections::BTreeSet;
+use core::cell::Ref;
 
 use miden_objects::{accounts::AccountId, assets::Asset, notes::Note, Word};
 
@@ -25,11 +26,11 @@ pub enum NoteRelevance {
 }
 
 pub struct NoteScreener<'a, S: Store> {
-    store: &'a S,
+    store: Ref<'a, S>,
 }
 
 impl<'a, S: Store> NoteScreener<'a, S> {
-    pub fn new(store: &'a S) -> Self {
+    pub fn new(store: Ref<'a, S>) -> Self {
         Self { store }
     }
 

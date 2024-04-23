@@ -1,5 +1,6 @@
 use alloc::collections::{BTreeMap, BTreeSet};
 
+
 use miden_lib::notes::{create_p2id_note, create_p2idr_note};
 use miden_objects::{
     accounts::{AccountDelta, AccountId},
@@ -163,7 +164,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         &self,
         filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, ClientError> {
-        self.store.get_transactions(filter).map_err(|err| err.into())
+        self.store().get_transactions(filter).map_err(|err| err.into())
     }
 
     // TRANSACTION
@@ -176,7 +177,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         transaction_template: TransactionTemplate,
     ) -> Result<TransactionRequest, ClientError> {
         let account_id = transaction_template.account_id();
-        let account_auth = self.store.get_account_auth(account_id)?;
+        let account_auth = self.store().get_account_auth(account_id)?;
 
         match transaction_template {
             TransactionTemplate::ConsumeNotes(_, notes) => {
@@ -218,7 +219,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             .load_account(account_id)
             .map_err(ClientError::TransactionExecutionError)?;
 
-        let block_num = self.store.get_sync_height()?;
+        let block_num = self.store().get_sync_height()?;
 
         let note_ids = transaction_request.get_input_note_ids();
 
@@ -263,21 +264,22 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
         self.submit_proven_transaction_request(proven_transaction.clone()).await?;
 
-        let note_screener = NoteScreener::new(&self.store);
         let mut relevant_notes = BTreeMap::new();
 
-        for (idx, note) in tx_result.created_notes().iter().enumerate() {
-            let account_relevance = note_screener.check_relevance(note)?;
-            if !account_relevance.is_empty() {
-                relevant_notes.insert(idx, account_relevance);
+        {
+            let note_screener = NoteScreener::new(self.store());
+
+            for (idx, note) in tx_result.created_notes().iter().enumerate() {
+                let account_relevance = note_screener.check_relevance(note)?;
+                if !account_relevance.is_empty() {
+                    relevant_notes.insert(idx, account_relevance);
+                }
             }
         }
-
         let mut tx_result = tx_result;
         tx_result.set_relevant_notes(relevant_notes);
-
         // Transaction was proven and submitted to the node correctly, persist note details and update account
-        self.store.apply_transaction(tx_result)?;
+        self.store_mut().apply_transaction(tx_result)?;
 
         Ok(())
     }

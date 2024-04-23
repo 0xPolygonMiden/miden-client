@@ -16,7 +16,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         start: u32,
         finish: u32,
     ) -> Result<Vec<(BlockHeader, bool)>, ClientError> {
-        self.store
+        self.store()
             .get_block_headers(&(start..=finish).collect::<Vec<u32>>())
             .map_err(ClientError::StoreError)
     }
@@ -25,6 +25,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         &self,
         block_numbers: &[u32],
     ) -> Result<Vec<(BlockHeader, bool)>, ClientError> {
-        self.store.get_block_headers(block_numbers).map_err(ClientError::StoreError)
+        self.store().get_block_headers(block_numbers).map_err(ClientError::StoreError)
     }
 }

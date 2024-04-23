@@ -49,7 +49,7 @@ fn create_test_client() -> TestClient {
     let store = SqliteStore::new((&client_config).into()).unwrap();
     let executor_store = SqliteStore::new((&client_config).into()).unwrap();
     let rng = get_random_coin();
-    TestClient::new(TonicRpcClient::new(&rpc_endpoint), rng, store, executor_store).unwrap()
+    TestClient::new(TonicRpcClient::new(&rpc_endpoint), rng, store).unwrap()
 }
 
 fn create_test_store_path() -> std::path::PathBuf {

@@ -1,4 +1,5 @@
-use alloc::collections::BTreeSet;
+use alloc::{collections::BTreeSet, rc::Rc};
+use core::cell::{Ref, RefCell};
 
 use miden_objects::{
     accounts::AccountId,
@@ -16,14 +17,15 @@ use crate::errors::{ClientError, StoreError};
 // DATA STORE
 // ================================================================================================
 
-pub struct ClientDataStore<S: Store> {
-    /// Local database containing information about the accounts managed by this client.
-    pub(crate) store: S,
-}
+pub struct ClientDataStore<S: Store>(Rc<RefCell<S>>);
 
 impl<S: Store> ClientDataStore<S> {
-    pub fn new(store: S) -> Self {
-        Self { store }
+    pub fn new(store: Rc<RefCell<S>>) -> Self {
+        ClientDataStore(store)
+    }
+
+    fn store(&self) -> Ref<'_, S> {
+        self.0.borrow()
     }
 }
 
@@ -36,7 +38,7 @@ impl<S: Store> DataStore for ClientDataStore<S> {
     ) -> Result<TransactionInputs, DataStoreError> {
         // First validate that no note has already been consumed
         let unspent_notes = self
-            .store
+            .store()
             .get_input_notes(NoteFilter::Committed)?
             .iter()
             .map(|note_record| note_record.id())
@@ -49,16 +51,16 @@ impl<S: Store> DataStore for ClientDataStore<S> {
         }
 
         // Construct Account
-        let (account, seed) = self.store.get_account(account_id)?;
+        let (account, seed) = self.store().get_account(account_id)?;
 
         // Get header data
-        let (block_header, _had_notes) = self.store.get_block_header_by_num(block_num)?;
+        let (block_header, _had_notes) = self.store().get_block_header_by_num(block_num)?;
 
         let mut list_of_notes = vec![];
 
         let mut notes_blocks: Vec<u32> = vec![];
         for note_id in notes {
-            let input_note_record = self.store.get_input_note(*note_id)?;
+            let input_note_record = self.store().get_input_note(*note_id)?;
 
             let input_note: InputNote = input_note_record
                 .try_into()
@@ -74,13 +76,13 @@ impl<S: Store> DataStore for ClientDataStore<S> {
         }
 
         let notes_blocks: Vec<BlockHeader> = self
-            .store
+            .store()
             .get_block_headers(&notes_blocks)?
             .iter()
             .map(|(header, _has_notes)| *header)
             .collect();
 
-        let partial_mmr = build_partial_mmr_with_paths(&self.store, block_num, &notes_blocks)?;
+        let partial_mmr = build_partial_mmr_with_paths(self.store(), block_num, &notes_blocks)?;
         let chain_mmr = ChainMmr::new(partial_mmr, notes_blocks)
             .map_err(|err| DataStoreError::InternalError(err.to_string()))?;
 
@@ -92,7 +94,7 @@ impl<S: Store> DataStore for ClientDataStore<S> {
     }
 
     fn get_account_code(&self, account_id: AccountId) -> Result<ModuleAst, DataStoreError> {
-        let (account, _seed) = self.store.get_account(account_id)?;
+        let (account, _seed) = self.store().get_account(account_id)?;
         let module_ast = account.code().module().clone();
 
         Ok(module_ast)
@@ -105,7 +107,7 @@ impl<S: Store> DataStore for ClientDataStore<S> {
 /// `authenticated_blocks` cannot contain `forest`. For authenticating the last block we have,
 /// the kernel extends the MMR which is why it's not needed here.
 fn build_partial_mmr_with_paths<S: Store>(
-    store: &S,
+    store: Ref<S>,
     forest: u32,
     authenticated_blocks: &[BlockHeader],
 ) -> Result<PartialMmr, DataStoreError> {
@@ -134,7 +136,7 @@ fn build_partial_mmr_with_paths<S: Store>(
 ///
 /// This method assumes `block_nums` cannot contain `forest`.
 pub fn get_authentication_path_for_blocks<S: Store>(
-    store: &S,
+    store: Ref<S>,
     block_nums: &[u32],
     forest: usize,
 ) -> Result<Vec<MerklePath>, StoreError> {

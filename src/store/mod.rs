@@ -11,7 +11,9 @@ use miden_objects::{
     transaction::TransactionId,
     BlockHeader, Digest, Felt, Word,
 };
-use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
+use miden_tx::{
+    utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
+};
 
 use crate::{
     client::{

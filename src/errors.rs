@@ -21,6 +21,7 @@ pub enum ClientError {
     HexParseError(HexParseError),
     ImportNewAccountWithoutSeed,
     MissingOutputNotes(Vec<NoteId>),
+    MutableStoreNoteAvailable,
     NoteError(NoteError),
     NoConsumableNoteForAccount(AccountId),
     NodeRpcClientError(NodeRpcClientError),
@@ -49,6 +50,9 @@ impl fmt::Display for ClientError {
                     "transaction error: The transaction did not produce expected Note IDs: {}",
                     note_ids.iter().map(|&id| id.to_hex()).collect::<Vec<_>>().join(", ")
                 )
+            },
+            ClientError::MutableStoreNoteAvailable => {
+                write!(f, "store error: Was not able to get a mutable reference to the store",)
             },
             ClientError::NoConsumableNoteForAccount(account_id) => {
                 write!(f, "No consumable note for account ID {}", account_id)

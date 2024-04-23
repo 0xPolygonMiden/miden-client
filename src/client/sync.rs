@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet};
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
@@ -68,17 +68,17 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
     /// Returns the block number of the last state sync block.
     pub fn get_sync_height(&self) -> Result<u32, ClientError> {
-        self.store.get_sync_height().map_err(|err| err.into())
+        self.store().get_sync_height().map_err(|err| err.into())
     }
 
     /// Returns the list of note tags tracked by the client.
     pub fn get_note_tags(&self) -> Result<Vec<u64>, ClientError> {
-        self.store.get_note_tags().map_err(|err| err.into())
+        self.store().get_note_tags().map_err(|err| err.into())
     }
 
     /// Adds a note tag for the client to track.
     pub fn add_note_tag(&mut self, tag: u64) -> Result<(), ClientError> {
-        match self.store.add_note_tag(tag).map_err(|err| err.into()) {
+        match self.store_mut().add_note_tag(tag).map_err(|err| err.into()) {
             Ok(true) => Ok(()),
             Ok(false) => {
                 warn!("Tag {} is already being tracked", tag);
@@ -89,7 +89,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     }
 
     /// Syncs the client's state with the current state of the Miden network.
-    /// Before doing so, it ensures the genesis block exists in the local store.
+    /// Before doing so, it ensures the genesis block exists in the local store().
     ///
     /// Returns the block number the client has been synced to.
     pub async fn sync_state(&mut self) -> Result<u32, ClientError> {
@@ -102,10 +102,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         }
     }
 
-    /// Attempts to retrieve the genesis block from the store. If not found,
+    /// Attempts to retrieve the genesis block from the store(). If not found,
     /// it requests it from the node and store it.
     async fn ensure_genesis_in_place(&mut self) -> Result<(), ClientError> {
-        let genesis = self.store.get_block_header_by_num(0);
+        let genesis = self.store().get_block_header_by_num(0);
 
         match genesis {
             Ok(_) => Ok(()),
@@ -123,15 +123,15 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks should not fail to instantiate");
         // NOTE: If genesis block data ever includes notes in the future, the third parameter in
         // this `insert_block_header` call may be `true`
-        self.store.insert_block_header(genesis_block, blank_mmr_peaks, false)?;
+        self.store().insert_block_header(genesis_block, blank_mmr_peaks, false)?;
         Ok(())
     }
 
     async fn sync_state_once(&mut self) -> Result<SyncStatus, ClientError> {
-        let current_block_num = self.store.get_sync_height()?;
+        let current_block_num = self.store().get_sync_height()?;
 
         let accounts: Vec<AccountStub> = self
-            .store
+            .store()
             .get_account_stubs()?
             .into_iter()
             .map(|(acc_stub, _)| acc_stub)
@@ -146,7 +146,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         // Note that besides filtering by nullifier prefixes, the node also filters by block number
         // (it only returns nullifiers from current_block_num until response.block_header.block_num())
         let nullifiers_tags: Vec<u16> = self
-            .store
+            .store()
             .get_unspent_input_note_nullifiers()?
             .iter()
             .map(|nullifier| (nullifier.inner()[3].as_int() >> FILTER_ID_SHIFT) as u16)
@@ -183,7 +183,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             let current_partial_mmr = self.build_current_partial_mmr()?;
 
             let (current_block, has_relevant_notes) =
-                self.store.get_block_header_by_num(current_block_num)?;
+                self.store().get_block_header_by_num(current_block_num)?;
 
             apply_mmr_changes(
                 current_partial_mmr,
@@ -197,7 +197,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             new_note_details.new_inclusion_proofs.iter().map(|(id, _)| (*id)).collect();
 
         let uncommitted_transactions =
-            self.store.get_transactions(TransactionFilter::Uncomitted)?;
+            self.store().get_transactions(TransactionFilter::Uncomitted)?;
 
         let transactions_to_commit = get_transactions_to_commit(
             &uncommitted_transactions,
@@ -205,9 +205,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             &new_nullifiers,
             &response.account_hash_updates,
         );
-
         // Apply received and computed updates to the store
-        self.store
+        self.store_mut()
             .apply_state_sync(
                 response.block_header,
                 new_nullifiers,
@@ -244,10 +243,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         let mut local_notes_proofs = vec![];
 
         let pending_input_notes =
-            self.store.get_input_notes(NoteFilter::Pending)?.into_iter().map(|n| n.id());
+            self.store().get_input_notes(NoteFilter::Pending)?.into_iter().map(|n| n.id());
 
         let pending_output_notes =
-            self.store.get_output_notes(NoteFilter::Pending)?.into_iter().map(|n| n.id());
+            self.store().get_output_notes(NoteFilter::Pending)?.into_iter().map(|n| n.id());
 
         let mut all_pending_notes: BTreeSet<NoteId> = BTreeSet::new();
 
@@ -330,13 +329,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     /// As part of the syncing process, we add the current block number so we don't need to
     /// track it here.
     pub(crate) fn build_current_partial_mmr(&self) -> Result<PartialMmr, ClientError> {
-        let current_block_num = self.store.get_sync_height()?;
+        let current_block_num = self.store().get_sync_height()?;
 
-        let tracked_nodes = self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All)?;
-        let current_peaks = self.store.get_chain_mmr_peaks_by_block_num(current_block_num)?;
+        let tracked_nodes = self.store().get_chain_mmr_nodes(ChainMmrNodeFilter::All)?;
+        let current_peaks = self.store().get_chain_mmr_peaks_by_block_num(current_block_num)?;
 
         let track_latest = if current_block_num != 0 {
-            match self.store.get_block_header_by_num(current_block_num - 1) {
+            match self.store().get_block_header_by_num(current_block_num - 1) {
                 Ok((_, previous_block_had_notes)) => Ok(previous_block_had_notes),
                 Err(StoreError::BlockHeaderNotFound(_)) => Ok(false),
                 Err(err) => Err(ClientError::StoreError(err)),
@@ -353,7 +352,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     fn get_new_nullifiers(&self, new_nullifiers: Vec<Digest>) -> Result<Vec<Digest>, ClientError> {
         // Get current unspent nullifiers
         let nullifiers = self
-            .store
+            .store()
             .get_unspent_input_note_nullifiers()?
             .iter()
             .map(|nullifier| nullifier.inner())

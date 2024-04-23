@@ -1,3 +1,5 @@
+
+
 use miden_lib::AuthScheme;
 use miden_objects::{
     accounts::{
@@ -191,7 +193,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             return Err(ClientError::ImportNewAccountWithoutSeed);
         }
 
-        self.store
+        self.store_mut()
             .insert_account(account, account_seed, auth_info)
             .map_err(ClientError::StoreError)
     }
@@ -201,7 +203,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
     /// Returns summary info about the accounts managed by this client.
     pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Option<Word>)>, ClientError> {
-        self.store.get_account_stubs().map_err(|err| err.into())
+        self.store().get_account_stubs().map_err(|err| err.into())
     }
 
     /// Returns summary info about the specified account.
@@ -209,7 +211,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         &self,
         account_id: AccountId,
     ) -> Result<(Account, Option<Word>), ClientError> {
-        self.store.get_account(account_id).map_err(|err| err.into())
+        self.store().get_account(account_id).map_err(|err| err.into())
     }
 
     /// Returns summary info about the specified account.
@@ -217,7 +219,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         &self,
         account_id: AccountId,
     ) -> Result<(AccountStub, Option<Word>), ClientError> {
-        self.store.get_account_stub(account_id).map_err(|err| err.into())
+        self.store().get_account_stub(account_id).map_err(|err| err.into())
     }
 
     /// Returns an [AuthInfo] object utilized to authenticate an account.
@@ -227,7 +229,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     /// Returns a [ClientError::StoreError] with a [StoreError::AccountDataNotFound](crate::errors::StoreError::AccountDataNotFound) if the provided ID does
     /// not correspond to an existing account.
     pub fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, ClientError> {
-        self.store.get_account_auth(account_id).map_err(|err| err.into())
+        self.store().get_account_auth(account_id).map_err(|err| err.into())
     }
 }
 

@@ -7,6 +7,7 @@ use miden_objects::{
     transaction::TransactionId,
     BlockHeader, Digest, Word,
 };
+
 use rusqlite::Connection;
 
 use super::{
@@ -270,9 +271,8 @@ pub mod tests {
         let rpc_endpoint = client_config.rpc.endpoint.to_string();
         let store = SqliteStore::new((&client_config).into()).unwrap();
         let rng = get_random_coin();
-        let executor_store = SqliteStore::new((&client_config).into()).unwrap();
 
-        MockClient::new(MockRpcApi::new(&rpc_endpoint), rng, store, executor_store).unwrap()
+        MockClient::new(MockRpcApi::new(&rpc_endpoint), rng, store).unwrap()
     }
 
     pub(crate) fn create_test_store_path() -> std::path::PathBuf {

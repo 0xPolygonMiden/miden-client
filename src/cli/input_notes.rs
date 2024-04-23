@@ -314,15 +314,9 @@ mod tests {
 
         let store = SqliteStore::new((&client_config).into()).unwrap();
         let rng = get_random_coin();
-        let executor_store = SqliteStore::new((&client_config).into()).unwrap();
 
-        let mut client = MockClient::new(
-            MockRpcApi::new(&Endpoint::default().to_string()),
-            rng,
-            store,
-            executor_store,
-        )
-        .unwrap();
+        let mut client =
+            MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store).unwrap();
 
         // generate test data
         let assembler = TransactionKernel::assembler();
@@ -365,15 +359,9 @@ mod tests {
             Endpoint::default().into(),
         );
         let store = SqliteStore::new((&client_config).into()).unwrap();
-        let executor_store = SqliteStore::new((&client_config).into()).unwrap();
 
-        let mut client = MockClient::new(
-            MockRpcApi::new(&Endpoint::default().to_string()),
-            rng,
-            store,
-            executor_store,
-        )
-        .unwrap();
+        let mut client =
+            MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store).unwrap();
 
         import_note(&mut client, filename_path).unwrap();
         let imported_note_record: InputNoteRecord =
@@ -399,15 +387,9 @@ mod tests {
 
         let store = SqliteStore::new((&client_config).into()).unwrap();
         let rng = get_random_coin();
-        let executor_store = SqliteStore::new((&client_config).into()).unwrap();
 
-        let mut client = MockClient::new(
-            MockRpcApi::new(&Endpoint::default().to_string()),
-            rng,
-            store,
-            executor_store,
-        )
-        .unwrap();
+        let mut client =
+            MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store).unwrap();
 
         // Ensure we get an error if no note is found
         let non_existent_note_id = "0x123456";
