@@ -402,7 +402,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     ///
     /// To set an uncommitted transaction as committed three things must hold:
     ///
-    /// - All of the transaction's output notes are committed
+    /// - All of the transaction's output notes are recognized by the chain.
     /// - All of the transaction's input notes are consumed, which means we got their nullifiers as
     /// part of the update
     /// - The account corresponding to the transaction hash matches the transaction's
