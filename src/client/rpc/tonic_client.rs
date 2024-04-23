@@ -230,9 +230,7 @@ impl NodeRpcClient for TonicRpcClient {
             "GetAccountDetails response's account should have an `account_hash`".to_string(),
         ))?;
 
-        let hash = Digest::try_from([hash.d0, hash.d1, hash.d2, hash.d3]).map_err(|_| {
-            NodeRpcClientError::InvalidAccountReceived("Invalid account hash".into())
-        })?;
+        let hash = hash.try_into()?;
 
         let update_summary = AccountUpdateSummary::new(hash, account_summary.block_num);
         if account_id.is_on_chain() {
