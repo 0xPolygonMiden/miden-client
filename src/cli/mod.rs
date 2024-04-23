@@ -1,4 +1,4 @@
-use std::{env, path::Path};
+use std::{env, fs::File, io::Write, path::Path};
 
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
@@ -179,4 +179,21 @@ pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>(
     }
 
     Ok(input_note_records[0].clone())
+}
+
+pub(crate) fn update_config(config_path: &Path, client_config: ClientConfig) -> Result<(), String> {
+    let config_as_toml_string = toml::to_string_pretty(&client_config)
+        .map_err(|err| format!("error formatting config: {err}"))?;
+
+    println!("Writing config file at: {:?}", config_path);
+    let mut file_handle = File::options()
+        .write(true)
+        .truncate(true)
+        .open(config_path)
+        .map_err(|err| format!("error opening the file: {err}"))?;
+    file_handle
+        .write(config_as_toml_string.as_bytes())
+        .map_err(|err| format!("error writing to file: {err}"))?;
+
+    Ok(())
 }
