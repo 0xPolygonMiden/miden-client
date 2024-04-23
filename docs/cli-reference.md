@@ -1,3 +1,7 @@
+---
+comments: true
+---
+
 The following document lists the commands that the CLI currently supports. 
 
 !!! note

@@ -1,3 +1,7 @@
+---
+comments: true
+---
+
 After [installation](install-and-run.md#install-the-client), use the client by running the following and adding the [relevant commands](cli-reference.md#commands):
 
 ```sh
