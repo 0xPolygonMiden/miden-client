@@ -38,12 +38,13 @@ View and manage input notes.
 
 #### Sub-commands
 
-| Command | Description                                                 | Aliases |
-|---------|-------------------------------------------------------------|---------|
-| `list`    | List input notes                                            | -l      |
-| `show`    | Show details of the input note for the specified note ID   | -s      |
-| `export`  | Export input note data to a binary file                    | -e      |
-| `import`  | Import input note data from a binary file                  | -i      |
+| Command           | Description                                                 | Aliases |
+|-------------------|-------------------------------------------------------------|---------|
+| `list`            | List input notes                                            | -l      |
+| `show`            | Show details of the input note for the specified note ID    | -s      |
+| `export`          | Export input note data to a binary file                     | -e      |
+| `import`          | Import input note data from a binary file                   | -i      |
+| `list-consumables`| List consumable notes by tracked accounts                   | -c      |
 
 The `show` subcommand also accepts a partial ID instead of the full ID. For example, instead of:
 
