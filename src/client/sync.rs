@@ -12,6 +12,7 @@ use tracing::{info, warn};
 
 use super::{
     rpc::{CommittedNote, NodeRpcClient, NoteDetails},
+    transactions::TransactionRecord,
     Client,
 };
 use crate::{
@@ -192,57 +193,16 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             )?
         };
 
-        // To set an uncommitted transaction as committed three things must hold:
-        //
-        // - All of the transaction's output notes are committed
-        // - All of the transaction's input notes are consumed, which means we got their nullifiers as
-        // part of the update
-        // - The account corresponding to the transaction hash matches the transaction's
-        // final_account_state
-        // TODO: based on the discussion in
-        // https://github.com/0xPolygonMiden/miden-client/issues/144, we should be aware
-        // that in the future it'll be possible to have many transactions modifying an
-        // account be included in a single block. If that happens, we'll need to rewrite
-        // this check
-        let mut transactions_to_commit =
-            self.store.get_transactions(TransactionFilter::Uncomitted)?;
+        let transaction_ids_to_commit = self
+            .get_transactions_to_commit(&new_nullifiers, &response.account_hash_updates)
+            .await?;
 
-        transactions_to_commit.retain(|t| {
-            response.account_hash_updates.iter().any(|(account_id, account_hash)| {
-                *account_id == t.account_id && *account_hash == t.final_account_state
-            })
-        });
-
-        transactions_to_commit
-            .retain(|t| t.input_note_nullifiers.iter().all(|n| new_nullifiers.contains(n)));
-
-        let mut output_note_ids: Vec<NoteId> = Vec::new();
-        for tx in &transactions_to_commit {
-            tx.output_notes.iter().for_each(|note| output_note_ids.push(note.id()))
-        }
-        let commited_note_ids: Vec<NoteId> = self
-            .rpc_api
-            .get_notes_by_id(&output_note_ids)
-            .await?
-            .iter()
-            .map(|detail| match detail {
-                NoteDetails::OffChain(id, ..) => *id,
-                NoteDetails::Public(note, _) => note.id(),
-            })
-            .collect();
-        transactions_to_commit
-            .retain(|tx| tx.output_notes.iter().all(|n| commited_note_ids.contains(&n.id())));
-
-        let transactions_id_to_commit: Vec<TransactionId> =
-            transactions_to_commit.iter().map(|tx| tx.id).collect();
-
-        // Apply received and computed updates to the store
         self.store
             .apply_state_sync(
                 response.block_header,
                 new_nullifiers,
                 new_note_details,
-                &transactions_id_to_commit,
+                &transaction_ids_to_commit,
                 new_peaks,
                 &new_authentication_nodes,
                 &updated_onchain_accounts,
@@ -436,6 +396,54 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             }
         }
         Ok(())
+    }
+
+    /// Returns the list of transactions that should be marked as committed based on the state update info
+    ///
+    /// To set an uncommitted transaction as committed three things must hold:
+    ///
+    /// - All of the transaction's output notes are committed
+    /// - All of the transaction's input notes are consumed, which means we got their nullifiers as
+    /// part of the update
+    /// - The account corresponding to the transaction hash matches the transaction's
+    /// final_account_state
+    // TODO: based on the discussion in
+    // https://github.com/0xPolygonMiden/miden-client/issues/144, we should be aware
+    // that in the future it'll be possible to have many transactions modifying an
+    // account be included in a single block. If that happens, we'll need to rewrite
+    // this check
+    async fn get_transactions_to_commit(
+        &mut self,
+        new_nullifiers: &[Digest],
+        account_hash_updates: &[(AccountId, Digest)],
+    ) -> Result<Vec<TransactionId>, ClientError> {
+        let mut transactions_to_commit: Vec<TransactionRecord> =
+            self.store.get_transactions(TransactionFilter::Uncomitted)?;
+
+        transactions_to_commit.retain(|tx| {
+            account_hash_updates.iter().any(|(account_id, account_hash)| {
+                *account_id == tx.account_id && *account_hash == tx.final_account_state
+            }) && tx.input_note_nullifiers.iter().all(|n| new_nullifiers.contains(n))
+        });
+
+        let mut output_note_ids: Vec<NoteId> = Vec::new();
+        for tx in &transactions_to_commit {
+            tx.output_notes.iter().for_each(|note| output_note_ids.push(note.id()))
+        }
+        let commited_note_ids: Vec<NoteId> = self
+            .rpc_api
+            .get_notes_by_id(&output_note_ids)
+            .await?
+            .iter()
+            .map(|detail| match detail {
+                NoteDetails::OffChain(id, ..) => *id,
+                NoteDetails::Public(note, _) => note.id(),
+            })
+            .collect();
+        transactions_to_commit
+            .retain(|tx| tx.output_notes.iter().all(|n| commited_note_ids.contains(&n.id())));
+
+        Ok(transactions_to_commit.iter().map(|tx| tx.id).collect())
     }
 }
 
