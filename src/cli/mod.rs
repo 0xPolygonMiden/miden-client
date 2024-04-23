@@ -110,7 +110,11 @@ impl Cli {
             Command::InputNotes(notes) => notes.execute(client),
             Command::Sync => sync::sync_state(client).await,
             Command::Tags(tags) => tags.execute(client).await,
-            Command::Transaction(transaction) => transaction.execute(client).await,
+            Command::Transaction(transaction) => {
+                let default_account_id =
+                    client_config.cli.and_then(|cli_conf| cli_conf.default_account_id);
+                transaction.execute(client, default_account_id).await
+            },
         }
     }
 }

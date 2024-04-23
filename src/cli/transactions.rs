@@ -41,7 +41,7 @@ pub enum TransactionType {
     /// Create a pay-to-id transaction.
     P2ID {
         #[clap(short = 's', long = "source")]
-        sender_account_id: String,
+        sender_account_id: Option<String>,
         #[clap(short = 't', long = "target")]
         target_account_id: String,
         #[clap(short = 'f', long = "faucet")]
@@ -64,7 +64,7 @@ pub enum TransactionType {
     /// Create a pay-to-id with recall transaction.
     P2IDR {
         #[clap(short = 's', long = "source")]
-        sender_account_id: String,
+        sender_account_id: Option<String>,
         #[clap(short = 't', long = "target")]
         target_account_id: String,
         #[clap(short = 'f', long = "faucet")]
@@ -76,8 +76,8 @@ pub enum TransactionType {
     },
     /// Consume with the account corresponding to `account_id` all of the notes from `list_of_notes`.
     ConsumeNotes {
-        #[clap(short = 's', long = "source")]
-        account_id: String,
+        #[clap(short = 'a', long = "account")]
+        account_id: Option<String>,
         /// A list of note IDs or the hex prefixes of their corresponding IDs
         list_of_notes: Vec<String>,
     },
@@ -102,13 +102,14 @@ impl Transaction {
     pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store>(
         &self,
         mut client: Client<N, R, S>,
+        default_account_id: Option<String>,
     ) -> Result<(), String> {
         match self {
             Transaction::List => {
                 list_transactions(client)?;
             },
             Transaction::New { transaction_type } => {
-                new_transaction(&mut client, transaction_type).await?;
+                new_transaction(&mut client, transaction_type, default_account_id).await?;
             },
         }
         Ok(())
@@ -120,9 +121,10 @@ impl Transaction {
 async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: &mut Client<N, R, S>,
     transaction_type: &TransactionType,
+    default_account_id: Option<String>,
 ) -> Result<(), String> {
     let transaction_template: TransactionTemplate =
-        build_transaction_template(client, transaction_type)?;
+        build_transaction_template(client, transaction_type, default_account_id)?;
 
     let transaction_request = client.build_transaction_request(transaction_template)?;
     let transaction_execution_result = client.new_transaction(transaction_request)?;
@@ -141,6 +143,7 @@ async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store>(
 fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: &Client<N, R, S>,
     transaction_type: &TransactionType,
+    default_account_id: Option<String>,
 ) -> Result<TransactionTemplate, String> {
     match transaction_type {
         TransactionType::P2ID {
@@ -153,8 +156,14 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
             let faucet_id = AccountId::from_hex(faucet_id).map_err(|err| err.to_string())?;
             let fungible_asset =
                 FungibleAsset::new(faucet_id, *amount).map_err(|err| err.to_string())?.into();
+
+            // try to use either the provided argument or the default account
+            let sender_account_id = sender_account_id
+                .clone()
+                .or(default_account_id)
+                .ok_or("Neither a sender nor a default account was provided".to_string())?;
             let sender_account_id =
-                AccountId::from_hex(sender_account_id).map_err(|err| err.to_string())?;
+                AccountId::from_hex(&sender_account_id).map_err(|err| err.to_string())?;
             let target_account_id =
                 AccountId::from_hex(target_account_id).map_err(|err| err.to_string())?;
 
@@ -174,8 +183,14 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
             let faucet_id = AccountId::from_hex(faucet_id).map_err(|err| err.to_string())?;
             let fungible_asset =
                 FungibleAsset::new(faucet_id, *amount).map_err(|err| err.to_string())?.into();
+
+            // try to use either the provided argument or the default account
+            let sender_account_id = sender_account_id
+                .clone()
+                .or(default_account_id)
+                .ok_or("Neither a sender nor a default account was provided".to_string())?;
             let sender_account_id =
-                AccountId::from_hex(sender_account_id).map_err(|err| err.to_string())?;
+                AccountId::from_hex(&sender_account_id).map_err(|err| err.to_string())?;
             let target_account_id =
                 AccountId::from_hex(target_account_id).map_err(|err| err.to_string())?;
 
@@ -215,7 +230,11 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
                 })
                 .collect::<Result<Vec<NoteId>, _>>()?;
 
-            let account_id = AccountId::from_hex(account_id).map_err(|err| err.to_string())?;
+            let account_id = account_id
+                .clone()
+                .or(default_account_id)
+                .ok_or("Neither a sender nor a default account was provided".to_string())?;
+            let account_id = AccountId::from_hex(&account_id).map_err(|err| err.to_string())?;
 
             Ok(TransactionTemplate::ConsumeNotes(account_id, list_of_notes))
         },
