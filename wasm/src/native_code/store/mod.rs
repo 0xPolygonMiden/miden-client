@@ -1,11 +1,15 @@
 use miden_objects::{
-    accounts::{Account, AccountId, AccountStub},
-    crypto::dsa::rpo_falcon512::SecretKey,
-    Felt, Word,
+    accounts::{Account, AccountId, AccountStub}, crypto::dsa::rpo_falcon512::SecretKey, notes::{NoteId, Nullifier}, Digest, Felt, Word
 };
 use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 
 use async_trait::async_trait;
+
+use self::note_record::{InputNoteRecord, OutputNoteRecord};
+
+use super::errors::StoreError;
+
+pub mod note_record;
 
 // Hoping that eventually, we can use the generic store type defined in client/store/mod.rs.
 // Might need to add conditional rendering to add async_trait to the trait definitions? 
@@ -138,29 +142,37 @@ pub trait Store {
     // NOTES
     // --------------------------------------------------------------------------------------------
 
-    // async fn get_input_notes(
-    //     &mut self,
-    //     filter: NativeNoteFilter,
-    // ) -> Result<Vec<InputNoteRecord>, ()>;
+    async fn get_input_notes(
+        &mut self,
+        filter: NoteFilter,
+    ) -> Result<Vec<InputNoteRecord>, StoreError>;
 
-    // async fn get_input_note(
-    //     &self,
-    //     note_id: NoteId,
-    // ) -> Result<InputNoteRecord, ()>;
+    async fn get_input_note(
+        &mut self,
+        note_id: NoteId,
+    ) -> Result<InputNoteRecord, StoreError>;
 
-    // async fn insert_input_note(
-    //     &mut self,
-    //     note: &InputNoteRecord,
-    // ) -> Result<(), ()>;
+    async fn insert_input_note(
+        &mut self,
+        note: &InputNoteRecord,
+    ) -> Result<(), StoreError>;
 
-    // async fn get_output_notes(
-    //     &self,
-    //     filter: NativeNoteFilter,
-    // ) -> Result<Vec<InputNoteRecord>, ()>;
+    async fn get_output_notes(
+        &mut self,
+        filter: NoteFilter,
+    ) -> Result<Vec<OutputNoteRecord>, StoreError>;
 
-    // async fn get_unspent_input_note_nullifiers(
-    //     &self
-    // ) -> Result<Vec<Nullifier>, ()>;
+    async fn get_unspent_input_note_nullifiers(
+        &mut self
+    ) -> Result<Vec<Nullifier>, StoreError> {
+        let nullifiers = self
+            .get_input_notes(NoteFilter::Committed).await.unwrap()
+            .iter()
+            .map(|input_note| Ok(Nullifier::from(Digest::try_from(input_note.nullifier())?)))
+            .collect::<Result<Vec<_>, _>>();
+
+        nullifiers
+    }
 }
 
 // DATABASE AUTH INFO
@@ -237,7 +249,7 @@ pub enum NativeTransactionFilter {
     Uncomitted,
 }
 
-pub enum NativeNoteFilter {
+pub enum NoteFilter {
     /// Return a list of all [InputNoteRecord].
     All,
     /// Filter by consumed [InputNoteRecord]. notes that have been used as inputs in transactions.

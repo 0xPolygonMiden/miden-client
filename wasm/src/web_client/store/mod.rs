@@ -3,11 +3,15 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::*;
 
 use miden_objects::{
-    accounts::{Account, AccountId, AccountStub}, 
-    Word
+    accounts::{Account, AccountId, AccountStub}, notes::NoteId, Word
 };
 
-use crate::native_code::store::{Store, AuthInfo}; 
+use crate::native_code::{
+    errors::StoreError, 
+    store::{
+        note_record::{InputNoteRecord, OutputNoteRecord}, AuthInfo, NoteFilter, Store
+    }
+}; 
 
 pub mod accounts;
 pub mod notes;
@@ -43,6 +47,8 @@ impl Store for WebStore {
     }
 
     // CHAIN DATA
+    // --------------------------------------------------------------------------------------------
+
     // async fn get_block_headers(
     //     &self,
     //     block_numbers: &[u32],
@@ -80,6 +86,8 @@ impl Store for WebStore {
     // }
 
     // SYNC
+    // --------------------------------------------------------------------------------------------
+
     // async fn get_note_tags(
     //     &self
     // ) -> Result<Vec<u64>, ()> {
@@ -119,6 +127,8 @@ impl Store for WebStore {
     // }
 
     // TRANSACTIONS
+    // --------------------------------------------------------------------------------------------
+
     // async fn get_transactions(
     //     &mut self,
     //     transaction_filter: TransactionFilter,
@@ -134,6 +144,8 @@ impl Store for WebStore {
     // }
 
     // ACCOUNTS
+    // --------------------------------------------------------------------------------------------
+
     async fn insert_account(
         &mut self,
         account: &Account,
@@ -177,40 +189,33 @@ impl Store for WebStore {
     }
 
     // NOTES
-    // async fn get_input_notes(
-    //     &mut self,
-    //     filter: NativeNoteFilter,
-    // ) -> Result<Vec<InputNoteRecord>, ()> {
-    //     self.get_input_notes(filter).await
-    // }
+    // --------------------------------------------------------------------------------------------
 
-    // async fn get_input_note(
-    //     &mut self,
-    //     note_id: NoteId,
-    // ) -> Result<InputNoteRecord, ()> {
-    //     self.get_input_note(note_id).await
-    // }
+    async fn get_input_notes(
+        &mut self,
+        filter: NoteFilter,
+    ) -> Result<Vec<InputNoteRecord>, StoreError> {
+        self.get_input_notes(filter).await
+    }
 
-    // async fn insert_input_note(
-    //     &mut self,
-    //     note: &InputNoteRecord,
-    // ) -> Result<(), ()> {
-    //     self.insert_input_note(note).await
-    // }
+    async fn get_input_note(
+        &mut self,
+        note_id: NoteId,
+    ) -> Result<InputNoteRecord, StoreError> {
+        self.get_input_note(note_id).await
+    }
 
-    // async fn get_output_notes(
-    //     &mut self,
-    //     note_filter: NativeNoteFilter,
-    // ) -> Result<Vec<InputNoteRecord>, ()> {
-    //     self.get_output_notes(note_filter).await
-    // }
+    async fn insert_input_note(
+        &mut self,
+        note: &InputNoteRecord,
+    ) -> Result<(), StoreError> {
+        self.insert_input_note(note).await
+    }
 
-    // async fn get_unspent_input_note_nullifiers(
-    //     &self
-    // ) -> Result<Vec<Nullifier>, ()> {
-    //     self.get_unspent_input_note_nullifiers().await
-    // }
-
-    // TRANSACTIONS
-    
+    async fn get_output_notes(
+        &mut self,
+        note_filter: NoteFilter,
+    ) -> Result<Vec<OutputNoteRecord>, StoreError> {
+        self.get_output_notes(note_filter).await
+    }
 }

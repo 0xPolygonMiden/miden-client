@@ -256,7 +256,7 @@ export async function insertAccountCode(
 ) {
     try {
         // Create a Blob from the ArrayBuffer
-        const moduleBlob = new Blob([module]);
+        const moduleBlob = new Blob([new Uint8Array(module)]);
 
         // Prepare the data object to insert
         const data = {
@@ -278,7 +278,7 @@ export async function insertAccountStorage(
     storageSlots
 ) {
     try {
-        const storageSlotsBlob = new Blob([storageSlots]);
+        const storageSlotsBlob = new Blob([new Uint8Array(storageSlots)]);
 
         // Prepare the data object to insert
         const data = {

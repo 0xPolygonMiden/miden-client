@@ -24,6 +24,7 @@ const Table = {
   TransactionScripts: 'transactionScripts',
   InputNotes: 'inputNotes',
   OutputNotes: 'outputNotes',
+  NotesScripts: 'notesScripts',
   StateSync: 'stateSync',
   BlockHeaders: 'blockHeaders',
   ChainMmrNodes: 'chainMmrNodes',
@@ -41,6 +42,7 @@ db.version(1).stores({
   [Table.TransactionScripts]: indexes('scriptHash'),
   [Table.InputNotes]: indexes('noteId', 'recipient', 'status'),
   [Table.OutputNotes]: indexes('noteId', 'recipient', 'status'),
+  [Table.NotesScripts]: indexes('scriptHash'),
   [Table.StateSync]: indexes('id'),
   [Table.BlockHeaders]: indexes('blockNum'),
   [Table.ChainMmrNodes]: indexes('blockNum', 'hasClientNotes'),
@@ -65,6 +67,7 @@ const transactions = db.table(Table.Transactions);
 const transactionScripts = db.table(Table.TransactionScripts);
 const inputNotes = db.table(Table.InputNotes);
 const outputNotes = db.table(Table.OutputNotes);
+const notesScripts = db.table(Table.NotesScripts);
 const stateSync = db.table(Table.StateSync);
 const blockHeaders = db.table(Table.BlockHeaders);
 const chainMmrNodes = db.table(Table.ChainMmrNodes);
@@ -81,6 +84,7 @@ export {
     transactionScripts,
     inputNotes,
     outputNotes,
+    notesScripts,
     stateSync,
     blockHeaders,
     chainMmrNodes,

@@ -68,6 +68,7 @@ export async function applyStateSync(
         await updateCommittedNotes(tx, noteIds, inclusionProofs);
         await updateCommittedTransactions(tx, blockNum, transactionIds);
         await updateBlockHeader(tx, blockNum, blockHeader, chainMmrPeaks, hasClientNotes);
+        await updateChainMmrNodes(tx, nodeIndices, nodes);
     });
 }
 

@@ -22,7 +22,7 @@ extern "C" {
         status: String
     ) -> js_sys::Promise;
 
-    #[wasm_bindgen(js_name = getUnpsentInputNoteNullifiers)]
+    #[wasm_bindgen(js_name = getUnspentInputNoteNullifiers)]
     pub fn idxdb_get_unspent_input_note_nullifiers() -> js_sys::Promise;
 
     // INSERTS
@@ -34,8 +34,10 @@ extern "C" {
         assets: Vec<u8>,
         recipient: String,
         status: String,
-        metadata: String,
+        metadata: Option<String>,
         details: String,
+        note_script_hash: String,
+        serialized_note_script: Vec<u8>,
         inclusion_proof: Option<String>
     ) -> js_sys::Promise;
 
@@ -46,7 +48,9 @@ extern "C" {
         recipient: String,
         status: String,
         metadata: String,
-        details: String,
+        details: Option<String>,
+        note_script_hash: Option<String>,
+        serialized_note_script: Option<Vec<u8>>,
         inclusion_proof: Option<String>
     ) -> js_sys::Promise;
 }

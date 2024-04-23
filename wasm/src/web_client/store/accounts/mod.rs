@@ -10,7 +10,7 @@ use miden_objects::{
 };
 use miden_objects::utils::Deserializable;
 
-use crate::native_code::store::{Store, AuthInfo, NativeNoteFilter}; 
+use crate::native_code::store::{Store, AuthInfo, NoteFilter}; 
 
 use super::WebStore;
 

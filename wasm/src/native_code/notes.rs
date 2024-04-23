@@ -1,11 +1,9 @@
-use miden_objects::crypto::rand::FeltRng;
+use miden_objects::{crypto::rand::FeltRng, notes::NoteId};
 
-use crate::native_code::store::NativeNoteFilter;
+use crate::native_code::store::NoteFilter;
 
 use super::{
-    rpc::NodeRpcClient, 
-    Client, 
-    store::Store // TODO: Add AuthInfo
+    errors::StoreError, rpc::NodeRpcClient, store::{note_record::InputNoteRecord, Store}, Client // TODO: Add AuthInfo
 };
 
 impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
@@ -14,22 +12,18 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
     /// Returns input notes managed by this client.
     pub async fn get_input_notes(
-        &self,
-        filter: NativeNoteFilter,
-    ) -> String { // TODO: Replace with Result<Vec<InputNoteRecord>, ()>
-        //self.store.get_input_notes(filter).map_err(|err| err.into())
-
-        "Called get_input_notes".to_string()
+        &mut self,
+        filter: NoteFilter,
+    ) -> Result<Vec<InputNoteRecord>, StoreError> {
+        self.store.get_input_notes(filter).await
     }
 
     /// Returns the input note with the specified hash.
     pub async fn get_input_note(
-        &self,
-        //note_id: NoteId,
-    ) -> String { // TODO: Replace with Result<InputNoteRecord, ()>
-        //self.store.get_input_note(note_id).map_err(|err| err.into())
-
-        "Called get_input_note".to_string()
+        &mut self,
+        note_id: NoteId,
+    ) -> Result<InputNoteRecord, StoreError> {
+        self.store.get_input_note(note_id).await
     }
 
     // INPUT NOTE CREATION
@@ -38,10 +32,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     /// Imports a new input note into the client's store.
     pub async fn import_input_note(
         &mut self,
-        //note: InputNoteRecord,
-    ) -> String { // TODO: Replace with Result<(), ()>
-        //self.store.insert_input_note(&note).map_err(|err| err.into())
-
-        "Called import_input_note".to_string()
+        note: InputNoteRecord,
+    ) -> Result<(), StoreError> {
+        self.store.insert_input_note(&note).await
     }
 }
