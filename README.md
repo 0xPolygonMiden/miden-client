@@ -28,12 +28,11 @@ For more info check:
 - [Library API](https://docs.rs/crate/miden-client/latest)
 - [Online Documentation](https://docs.polygon.technology/miden/miden-client)
 
-## Dependencies
-
-- [Rust installation](https://www.rust-lang.org/tools/install) with version 1.77 or higher.
-- sqlite3
-
 ## Usage
+
+Before you can use the Miden client, you'll need to make sure you have both
+[Rust](https://www.rust-lang.org/tools/install) and sqlite3 installed. Miden
+client v0.2 requires rust version 1.77 or higher.
 
 ### Adding miden-client as a dependency
 
