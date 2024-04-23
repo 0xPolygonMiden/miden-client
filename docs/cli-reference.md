@@ -37,6 +37,7 @@ Create accounts and inspect account details.
 | `show`    | Show details of the account for the specified ID   | -s      |
 | `new <ACCOUNT TYPE>`  | Create new account and store it locally  | -n      |
 | `import`  | Import accounts from binary files | -i      |
+| `default`  | Manage the setting for the default account | -i      |
 
 After creating an account with the `new` command, it is automatically stored and tracked by the client. This means the client can execute transactions that modify the state of accounts and track related changes by synchronizing with the Miden node.
 

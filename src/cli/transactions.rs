@@ -40,6 +40,7 @@ impl From<&NoteType> for MidenNoteType {
 pub enum TransactionType {
     /// Create a pay-to-id transaction.
     P2ID {
+        // Account sending the asset. If none is provided, the default account's ID is used instead
         #[clap(short = 's', long = "source")]
         sender_account_id: Option<String>,
         #[clap(short = 't', long = "target")]
@@ -63,6 +64,7 @@ pub enum TransactionType {
     },
     /// Create a pay-to-id with recall transaction.
     P2IDR {
+        // Account sending the asset. If none is provided, the default account's ID is used instead
         #[clap(short = 's', long = "source")]
         sender_account_id: Option<String>,
         #[clap(short = 't', long = "target")]
@@ -76,6 +78,8 @@ pub enum TransactionType {
     },
     /// Consume with the account corresponding to `account_id` all of the notes from `list_of_notes`.
     ConsumeNotes {
+        // The account ID to be used to consume the note. If none is provided, the default
+        // account's ID is used instead
         #[clap(short = 'a', long = "account")]
         account_id: Option<String>,
         /// A list of note IDs or the hex prefixes of their corresponding IDs
