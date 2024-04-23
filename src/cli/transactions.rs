@@ -40,8 +40,11 @@ impl From<&NoteType> for MidenNoteType {
 pub enum TransactionType {
     /// Create a pay-to-id transaction.
     P2ID {
+        #[clap(short = 's', long = "source")]
         sender_account_id: String,
+        #[clap(short = 't', long = "target")]
         target_account_id: String,
+        #[clap(short = 'f', long = "faucet")]
         faucet_id: String,
         amount: u64,
         #[clap(short, long, value_enum)]
@@ -50,7 +53,9 @@ pub enum TransactionType {
     /// Mint `amount` tokens from the specified fungible faucet (corresponding to `faucet_id`). The created note can then be then consumed by
     /// `target_account_id`.
     Mint {
+        #[clap(short = 't', long = "target")]
         target_account_id: String,
+        #[clap(short = 'f', long = "faucet")]
         faucet_id: String,
         amount: u64,
         #[clap(short, long, value_enum)]
@@ -58,8 +63,11 @@ pub enum TransactionType {
     },
     /// Create a pay-to-id with recall transaction.
     P2IDR {
+        #[clap(short = 's', long = "source")]
         sender_account_id: String,
+        #[clap(short = 't', long = "target")]
         target_account_id: String,
+        #[clap(short = 'f', long = "faucet")]
         faucet_id: String,
         amount: u64,
         recall_height: u32,
@@ -68,6 +76,7 @@ pub enum TransactionType {
     },
     /// Consume with the account corresponding to `account_id` all of the notes from `list_of_notes`.
     ConsumeNotes {
+        #[clap(short = 's', long = "source")]
         account_id: String,
         /// A list of note IDs or the hex prefixes of their corresponding IDs
         list_of_notes: Vec<String>,
