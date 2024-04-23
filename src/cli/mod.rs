@@ -166,10 +166,10 @@ pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>(
 ///
 /// # Errors
 ///
-/// - Returns [IdPrefixFetchError::NoMatch] if we were unable to find any note where
-/// `note_id_prefix` is a prefix of its id.
-/// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found
-/// where `note_id_prefix` is a prefix of its id.
+/// - Returns [IdPrefixFetchError::NoMatch] if we were unable to find any account where
+/// `account_id_prefix` is a prefix of its id.
+/// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one account found
+/// where `account_id_prefix` is a prefix of its id.
 pub(crate) fn get_account_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: &Client<N, R, S>,
     account_id_prefix: &str,
@@ -188,12 +188,12 @@ pub(crate) fn get_account_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>
         return Err(IdPrefixFetchError::NoMatch(account_id_prefix.to_string()));
     }
     if accounts.len() > 1 {
-        let input_note_record_ids =
+        let account_ids =
             accounts.iter().map(|(account_stub, _)| account_stub.id()).collect::<Vec<_>>();
         tracing::error!(
             "Multiple accounts found for the prefix {}: {:?}",
             account_id_prefix,
-            input_note_record_ids
+            account_ids
         );
         return Err(IdPrefixFetchError::MultipleMatches(account_id_prefix.to_string()));
     }

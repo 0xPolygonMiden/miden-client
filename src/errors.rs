@@ -377,10 +377,10 @@ impl From<ConversionError> for NodeRpcClientError {
     }
 }
 
-// NOTE ID PREFIX FETCH ERROR
+// ID PREFIX FETCH ERROR
 // ================================================================================================
 
-/// Error when Looking for a specific note ID from a partial ID
+/// Error when Looking for a specific ID from a partial ID
 #[derive(Debug, Eq, PartialEq)]
 pub enum IdPrefixFetchError {
     NoMatch(String),
