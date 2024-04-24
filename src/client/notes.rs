@@ -1,4 +1,9 @@
-use miden_objects::{crypto::rand::FeltRng, notes::NoteId};
+use miden_objects::{
+    assembly::ProgramAst,
+    crypto::rand::FeltRng,
+    notes::{NoteId, NoteScript},
+};
+use miden_tx::ScriptTarget;
 
 use super::{rpc::NodeRpcClient, Client};
 use crate::{
@@ -26,5 +31,18 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     /// Imports a new input note into the client's store.
     pub fn import_input_note(&mut self, note: InputNoteRecord) -> Result<(), ClientError> {
         self.store.insert_input_note(&note).map_err(|err| err.into())
+    }
+
+    /// Compiles the provided program into a [NoteScript] and checks (to the extent possible) if
+    /// the specified note program could be executed against all accounts with the specified
+    /// interfaces.
+    pub fn compile_note_script(
+        &self,
+        note_script_ast: ProgramAst,
+        target_account_procs: Vec<ScriptTarget>,
+    ) -> Result<NoteScript, ClientError> {
+        self.tx_executor
+            .compile_note_script(note_script_ast, target_account_procs)
+            .map_err(ClientError::TransactionExecutorError)
     }
 }
