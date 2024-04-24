@@ -4,8 +4,9 @@ use miden_objects::{
 };
 use miden_tx::TransactionExecutor;
 use rand::Rng;
+use tracing::info;
 
-use crate::{errors::ClientError, store::Store};
+use crate::store::Store;
 
 pub mod rpc;
 use rpc::NodeRpcClient;
@@ -54,22 +55,28 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     ///
     /// ## Arguments
     ///
-    /// - `api`: An instance of [NodeRpcClient] which provides a way for the client to connect to the Miden node.
-    /// - `store`: An instance of [Store], which provides a way to write and read entities to provide persistence.
+    /// - `api`: An instance of [NodeRpcClient] which provides a way for the client to connect
+    ///   to the Miden node.
+    /// - `store`: An instance of [Store], which provides a way to write and read entities to
+    ///   provide persistence.
     /// - `executor_store`: An instance of [Store] that provides a way for [TransactionExecutor] to
-    /// retrieve relevant inputs at the moment of transaction execution. It should be the same
-    /// store as the one for `store`, but it doesn't have to be the **same instance**
+    ///   retrieve relevant inputs at the moment of transaction execution. It should be the same
+    ///   store as the one for `store`, but it doesn't have to be the **same instance**.
+    /// - `in_debug_mode`: Instantiates the transaction executor (and in turn, its compiler)
+    ///   in debug mode, which will enable debug logs for scripts compiled with this mode for
+    ///   easier MASM debugging.
     ///
     /// # Errors
     ///
     /// Returns an error if the client could not be instantiated.
-    pub fn new(api: N, rng: R, store: S, executor_store: S) -> Result<Self, ClientError> {
-        Ok(Self {
-            store,
-            rng,
-            rpc_api: api,
-            tx_executor: TransactionExecutor::new(ClientDataStore::new(executor_store)),
-        })
+    pub fn new(api: N, rng: R, store: S, executor_store: S, in_debug_mode: bool) -> Self {
+        if in_debug_mode {
+            info!("Creating the Client in debug mode.");
+        }
+        let tx_executor = TransactionExecutor::new(ClientDataStore::new(executor_store))
+            .with_debug_mode(in_debug_mode);
+
+        Self { store, rng, rpc_api: api, tx_executor }
     }
 
     #[cfg(any(test, feature = "test_utils"))]

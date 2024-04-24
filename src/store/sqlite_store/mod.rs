@@ -272,7 +272,7 @@ pub mod tests {
         let rng = get_random_coin();
         let executor_store = SqliteStore::new((&client_config).into()).unwrap();
 
-        MockClient::new(MockRpcApi::new(&rpc_endpoint), rng, store, executor_store).unwrap()
+        MockClient::new(MockRpcApi::new(&rpc_endpoint), rng, store, executor_store, true)
     }
 
     pub(crate) fn create_test_store_path() -> std::path::PathBuf {

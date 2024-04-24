@@ -1,8 +1,9 @@
 # Miden client
 
-<a href="https://github.com/0xPolygonMiden/miden-node/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-<a href="https://github.com/0xPolygonMiden/miden-client/actions/workflows/ci.yml"><img src="https://github.com/0xPolygonMiden/miden-client/actions/workflows/ci.yml/badge.svg?branch=main"></a>
-<a href="https://crates.io/crates/miden-client"><img src="https://img.shields.io/crates/v/miden-client"></a>
+[![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/0xPolygonMiden/miden-client/blob/main/LICENSE)
+[![CI](https://github.com/0xPolygonMiden/miden-client/actions/workflows/ci.yml/badge.svg)](https://github.com/0xPolygonMiden/miden-clinet/actions/workflows/ci.yml)
+[![RUST_VERSION](https://img.shields.io/badge/rustc-1.77+-lightgray.svg)]()
+[![crates.io](https://img.shields.io/crates/v/miden-client)](https://crates.io/crates/miden-client)
 
 This repository contains the Miden client, which provides a way to execute and prove transactions, facilitating the interaction with the Miden rollup.
 

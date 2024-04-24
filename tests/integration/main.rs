@@ -1,5 +1,9 @@
 use std::{collections::BTreeMap, env::temp_dir, time::Duration};
 
+use figment::{
+    providers::{Format, Toml},
+    Figment,
+};
 use miden_client::{
     client::{
         accounts::{AccountStorageMode, AccountTemplate},
@@ -10,7 +14,7 @@ use miden_client::{
         },
         Client, NoteRelevance,
     },
-    config::{ClientConfig, RpcConfig},
+    config::ClientConfig,
     errors::{ClientError, NodeRpcClientError},
     store::{sqlite_store::SqliteStore, AuthInfo, NoteFilter, TransactionFilter},
 };
@@ -34,22 +38,32 @@ pub const ACCOUNT_ID_REGULAR: u64 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OF
 
 type TestClient = Client<TonicRpcClient, RpoRandomCoin, SqliteStore>;
 
+const TEST_CLIENT_CONFIG_FILE_PATH: &str = "./tests/config/miden-client.toml";
+/// Creates a `TestClient`
+///
+/// Creates the client using the config at `TEST_CLIENT_CONFIG_FILE_PATH`. The store's path is at a random temporary location, so the store section of the config file is ignored.
+///
+/// # Panics
+///
+/// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
+/// deserialized into a [ClientConfig]
 fn create_test_client() -> TestClient {
-    let client_config = ClientConfig {
-        store: create_test_store_path()
-            .into_os_string()
-            .into_string()
-            .unwrap()
-            .try_into()
-            .unwrap(),
-        rpc: RpcConfig::default(),
-    };
+    let mut client_config: ClientConfig = Figment::from(Toml::file(TEST_CLIENT_CONFIG_FILE_PATH))
+        .extract()
+        .expect("should be able to read test config at {TEST_CLIENT_CONFIG_FILE_PATH}");
+
+    client_config.store = create_test_store_path()
+        .into_os_string()
+        .into_string()
+        .unwrap()
+        .try_into()
+        .unwrap();
 
     let rpc_endpoint = client_config.rpc.endpoint.to_string();
     let store = SqliteStore::new((&client_config).into()).unwrap();
     let executor_store = SqliteStore::new((&client_config).into()).unwrap();
     let rng = get_random_coin();
-    TestClient::new(TonicRpcClient::new(&rpc_endpoint), rng, store, executor_store).unwrap()
+    TestClient::new(TonicRpcClient::new(&rpc_endpoint), rng, store, executor_store, true)
 }
 
 fn create_test_store_path() -> std::path::PathBuf {
@@ -152,8 +166,6 @@ async fn setup(
         })
         .unwrap();
 
-    wait_for_node(client).await;
-
     println!("Syncing State...");
     client.sync_state().await.unwrap();
 
@@ -225,6 +237,7 @@ async fn test_onchain_notes_flow() {
     let mut client_2 = create_test_client();
     // Client 3 will be transferred part of the assets by client 2's account
     let mut client_3 = create_test_client();
+    wait_for_node(&mut client_3).await;
 
     // Create faucet account
     let (faucet_account, _) = client_1
@@ -315,6 +328,7 @@ async fn test_onchain_notes_flow() {
 #[tokio::test]
 async fn test_added_notes() {
     let mut client = create_test_client();
+    wait_for_node(&mut client).await;
 
     let (_, _, faucet_account_stub) = setup(&mut client, AccountStorageMode::Local).await;
     // Mint some asset for an account not tracked by the client. It should not be stored as an
@@ -338,6 +352,7 @@ async fn test_added_notes() {
 #[tokio::test]
 async fn test_p2id_transfer() {
     let mut client = create_test_client();
+    wait_for_node(&mut client).await;
 
     let (first_regular_account, second_regular_account, faucet_account_stub) =
         setup(&mut client, AccountStorageMode::Local).await;
@@ -404,8 +419,9 @@ async fn test_p2id_transfer() {
 }
 
 #[tokio::test]
-async fn test_p2idr_transfer() {
+async fn test_p2idr_transfer_consumed_by_target() {
     let mut client = create_test_client();
+    wait_for_node(&mut client).await;
 
     let (first_regular_account, second_regular_account, faucet_account_stub) =
         setup(&mut client, AccountStorageMode::Local).await;
@@ -486,6 +502,95 @@ async fn test_p2idr_transfer() {
     assert_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].id()).await;
 }
 
+#[tokio::test]
+async fn test_p2idr_transfer_consumed_by_sender() {
+    let mut client = create_test_client();
+
+    let (first_regular_account, second_regular_account, faucet_account_stub) =
+        setup(&mut client, AccountStorageMode::Local).await;
+
+    let from_account_id = first_regular_account.id();
+    let to_account_id = second_regular_account.id();
+    let faucet_account_id = faucet_account_stub.id();
+
+    // First Mint necesary token
+    let note = mint_note(&mut client, from_account_id, faucet_account_id, NoteType::OffChain).await;
+
+    consume_notes(&mut client, from_account_id, &[note]).await;
+    assert_account_has_single_asset(&client, from_account_id, faucet_account_id, MINT_AMOUNT).await;
+    // Do a transfer from first account to second account with Recall. In this situation we'll do
+    // the happy path where the `to_account_id` consumes the note
+    let from_account_balance = client
+        .get_account(from_account_id)
+        .unwrap()
+        .0
+        .vault()
+        .get_balance(faucet_account_id)
+        .unwrap_or(0);
+    let current_block_num = client.get_sync_height().unwrap();
+    let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
+    let tx_template = TransactionTemplate::PayToIdWithRecall(
+        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
+        current_block_num + 5,
+        NoteType::OffChain,
+    );
+    println!("Running P2IDR tx...");
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(&mut client, tx_request).await;
+
+    // Check that note is committed
+    println!("Fetching Committed Notes...");
+    let notes = client.get_input_notes(NoteFilter::Committed).unwrap();
+    assert!(!notes.is_empty());
+
+    // Check that it's still too early to consume
+    let tx_template = TransactionTemplate::ConsumeNotes(from_account_id, vec![notes[0].id()]);
+    println!("Consuming Note (too early)...");
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    let transaction_execution_result = client.new_transaction(tx_request);
+    assert!(transaction_execution_result.is_err_and(|err| {
+        matches!(
+            err,
+            ClientError::TransactionExecutorError(
+                TransactionExecutorError::ExecuteTransactionProgramFailed(_)
+            )
+        )
+    }));
+
+    // Wait to consume with the sender account
+    println!("Waiting for note to be consumable by sender");
+    let current_block_num = client.get_sync_height().unwrap();
+
+    while client.get_sync_height().unwrap() < current_block_num + 5 {
+        client.sync_state().await.unwrap();
+    }
+
+    // Consume the note with the sender account
+    let tx_template = TransactionTemplate::ConsumeNotes(from_account_id, vec![notes[0].id()]);
+    println!("Consuming Note...");
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(&mut client, tx_request).await;
+
+    let (regular_account, seed) = client.get_account(from_account_id).unwrap();
+    // The seed should not be retrieved due to the account not being new
+    assert!(!regular_account.is_new() && seed.is_none());
+    assert_eq!(regular_account.vault().assets().count(), 1);
+    let asset = regular_account.vault().assets().next().unwrap();
+
+    // Validate the the sender hasn't lost funds
+    if let Asset::Fungible(fungible_asset) = asset {
+        assert_eq!(fungible_asset.amount(), from_account_balance);
+    } else {
+        panic!("Error: Account should have a fungible asset");
+    }
+
+    let (regular_account, _seed) = client.get_account(to_account_id).unwrap();
+    assert_eq!(regular_account.vault().assets().count(), 0);
+
+    // Check that the target can't consume the note anymore
+    assert_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].id()).await;
+}
+
 async fn assert_note_cannot_be_consumed_twice(
     client: &mut TestClient,
     consuming_account_id: AccountId,
@@ -499,7 +604,7 @@ async fn assert_note_cannot_be_consumed_twice(
     // Double-spend error expected to be received since we are consuming the same note
     let tx_request = client.build_transaction_request(tx_template).unwrap();
     match client.new_transaction(tx_request) {
-        Err(ClientError::TransactionExecutionError(
+        Err(ClientError::TransactionExecutorError(
             TransactionExecutorError::FetchTransactionInputsFailed(
                 DataStoreError::NoteAlreadyConsumed(_),
             ),
@@ -529,6 +634,7 @@ async fn assert_note_cannot_be_consumed_twice(
 #[tokio::test]
 async fn test_transaction_request() {
     let mut client = create_test_client();
+    wait_for_node(&mut client).await;
 
     let account_template = AccountTemplate::BasicWallet {
         mutable_code: false,
@@ -731,6 +837,7 @@ fn create_custom_note(
 async fn test_onchain_accounts() {
     let mut client_1 = create_test_client();
     let mut client_2 = create_test_client();
+    wait_for_node(&mut client_2).await;
 
     let (first_regular_account, _second_regular_account, faucet_account_stub) =
         setup(&mut client_1, AccountStorageMode::OnChain).await;
@@ -978,6 +1085,7 @@ async fn test_onchain_notes_sync_with_tag() {
     // Client 3 will be the control client. We won't add any tags and expect the note not to be
     // fetched
     let mut client_3 = create_test_client();
+    wait_for_node(&mut client_3).await;
 
     // Create faucet account
     let (faucet_account, _) = client_1
