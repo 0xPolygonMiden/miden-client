@@ -181,7 +181,7 @@ pub(crate) fn get_account_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>
     account_id_prefix: &str,
 ) -> Result<AccountStub, IdPrefixFetchError> {
     let mut accounts = client
-        .get_accounts()
+        .get_account_stubs()
         .map_err(|err| {
             tracing::error!("Error when fetching all accounts from the store: {err}");
             IdPrefixFetchError::NoMatch(

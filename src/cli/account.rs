@@ -173,7 +173,7 @@ impl AccountCmd {
 fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: Client<N, R, S>,
 ) -> Result<(), String> {
-    let accounts = client.get_accounts()?;
+    let accounts = client.get_account_stubs()?;
 
     let mut table = create_dynamic_table(&[
         "Account ID",
