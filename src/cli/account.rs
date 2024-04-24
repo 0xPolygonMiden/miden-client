@@ -187,7 +187,7 @@ impl AccountCmd {
                     .map_err(|_| "Input number was not a valid Account Id")?;
 
                 // Check whether we're tracking that account
-                let (account, _) = client.get_account(account_id)?;
+                let (account, _) = client.get_account_stub_by_id(account_id)?;
 
                 // load config
                 let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;

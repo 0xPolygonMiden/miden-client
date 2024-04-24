@@ -19,6 +19,7 @@ use miden_client::{
 use miden_objects::crypto::rand::FeltRng;
 #[cfg(not(feature = "mock"))]
 use miden_objects::crypto::rand::RpoRandomCoin;
+use tracing::info;
 
 mod account;
 mod info;
@@ -189,7 +190,7 @@ pub(crate) fn update_config(config_path: &Path, client_config: ClientConfig) -> 
     let config_as_toml_string = toml::to_string_pretty(&client_config)
         .map_err(|err| format!("error formatting config: {err}"))?;
 
-    println!("Writing config file at: {:?}", config_path);
+    info!("Writing config file at: {:?}", config_path);
     let mut file_handle = File::options()
         .write(true)
         .truncate(true)
@@ -199,5 +200,6 @@ pub(crate) fn update_config(config_path: &Path, client_config: ClientConfig) -> 
         .write(config_as_toml_string.as_bytes())
         .map_err(|err| format!("error writing to file: {err}"))?;
 
+    println!("Config updated successfully");
     Ok(())
 }

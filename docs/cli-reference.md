@@ -106,18 +106,23 @@ After a transaction gets executed, two entities start being tracked:
 
 | Command         | Explanation                                                                                                       |
 |-----------------|-------------------------------------------------------------------------------------------------------------------|
-| `p2id <SENDER ACCOUNT ID> <TARGET ACCOUNT ID> <FAUCET ID> <AMOUNT>`            | Pay-to-id transaction. Sender Account creates a note that a target Account ID can consume. The asset is identifed by the tuple `(FAUCET ID, AMOUNT)`. |
-| `mint <TARGET ACCOUNT ID> <FAUCET ID> <AMOUNT>`           | Creates a note that contains a specific amount tokens minted by a faucet, that the target Account ID can consume|
-| `consume-notes  <ACCOUNT ID> [NOTES]`  | Account ID consumes a list of notes, specified by their Note ID |
+| `p2id --sender <SENDER ACCOUNT ID> --target <TARGET ACCOUNT ID> --faucet <FAUCET ID> <AMOUNT> --note-type <NOTE_TYPE>`            | Pay-to-id transaction. Sender Account creates a note that a target Account ID can consume. The asset is identifed by the tuple `(FAUCET ID, AMOUNT)`. |
+| `p2idr --sender <SENDER ACCOUNT ID> --target <TARGET ACCOUNT ID> --faucet <FAUCET ID> <AMOUNT> <RECALL_HEIGHT> --note-type <NOTE_TYPE>`            | Pay-to-id With Recall transaction. Sender Account creates a note that a target Account ID can consume, but the Sender will also be able to consume it after `<RECALL_HEIGHT>` is reached. The asset is identifed by the tuple `(FAUCET ID, AMOUNT)`. |
+| `mint --target <TARGET ACCOUNT ID> --faucet <FAUCET ID> <AMOUNT> --note-type <NOTE_TYPE>`           | Creates a note that contains a specific amount tokens minted by a faucet, that the target Account ID can consume|
+| `consume-notes  --account <ACCOUNT ID> [NOTES]`  | Account ID consumes a list of notes, specified by their Note ID |
+
+`<NOTE_TYPE>` can be either `public` or `private`.
 
 For `consume-notes` subcommand, you can also provide a partial ID instead of the full ID for each note. So instead of 
 
 ```sh
-miden-client consume-notes <some-account-id> 0x70b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0 0x80b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0
+miden-client consume-notes --account <some-account-id> 0x70b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0 0x80b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0
 ``` 
 
 You can do: 
 
 ```sh
-miden-client consume-notes <some-account-id> 0x70b7ecb 0x80b7ecb
+miden-client consume-notes --account <some-account-id> 0x70b7ecb 0x80b7ecb
 ```
+
+Also, for `p2id`, `p2idr` and `consume-notes`, you can omit the `--sender` and `--account` flags to use the default account defined in the [config](./cli-config.md). If you omit the flag but have no default account defined in the config, you'll get an error instead.
