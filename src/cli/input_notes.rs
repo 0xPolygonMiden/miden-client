@@ -427,7 +427,9 @@ mod tests {
         let non_existent_note_id = "0x123456";
         assert_eq!(
             get_note_with_id_prefix(&client, non_existent_note_id),
-            Err(IdPrefixFetchError::NoMatch(non_existent_note_id.to_string()))
+            Err(IdPrefixFetchError::NoMatch(
+                format!("note ID prefix {non_existent_note_id}").to_string()
+            ))
         );
 
         // generate test data
@@ -454,7 +456,9 @@ mod tests {
         let note_id_with_many_matches = "0x";
         assert_eq!(
             get_note_with_id_prefix(&client, note_id_with_many_matches),
-            Err(IdPrefixFetchError::MultipleMatches(note_id_with_many_matches.to_string()))
+            Err(IdPrefixFetchError::MultipleMatches(
+                format!("note ID prefix {note_id_with_many_matches}").to_string()
+            ))
         );
     }
 }

@@ -137,14 +137,16 @@ pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>(
         .get_input_notes(ClientNoteFilter::All)
         .map_err(|err| {
             tracing::error!("Error when fetching all notes from the store: {err}");
-            IdPrefixFetchError::NoMatch(note_id_prefix.to_string())
+            IdPrefixFetchError::NoMatch(format!("note ID prefix {note_id_prefix}").to_string())
         })?
         .into_iter()
         .filter(|note_record| note_record.id().to_hex().starts_with(note_id_prefix))
         .collect::<Vec<_>>();
 
     if input_note_records.is_empty() {
-        return Err(IdPrefixFetchError::NoMatch(note_id_prefix.to_string()));
+        return Err(IdPrefixFetchError::NoMatch(
+            format!("note ID prefix {note_id_prefix}").to_string(),
+        ));
     }
     if input_note_records.len() > 1 {
         let input_note_record_ids = input_note_records
@@ -156,7 +158,9 @@ pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>(
             note_id_prefix,
             input_note_record_ids
         );
-        return Err(IdPrefixFetchError::MultipleMatches(note_id_prefix.to_string()));
+        return Err(IdPrefixFetchError::MultipleMatches(
+            format!("note ID prefix {note_id_prefix}").to_string(),
+        ));
     }
 
     Ok(input_note_records[0].clone())
@@ -178,14 +182,18 @@ pub(crate) fn get_account_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>
         .get_accounts()
         .map_err(|err| {
             tracing::error!("Error when fetching all accounts from the store: {err}");
-            IdPrefixFetchError::NoMatch(account_id_prefix.to_string())
+            IdPrefixFetchError::NoMatch(
+                format!("account ID prefix {account_id_prefix}").to_string(),
+            )
         })?
         .into_iter()
         .filter(|(account_stub, _)| account_stub.id().to_hex().starts_with(account_id_prefix))
         .collect::<Vec<_>>();
 
     if accounts.is_empty() {
-        return Err(IdPrefixFetchError::NoMatch(account_id_prefix.to_string()));
+        return Err(IdPrefixFetchError::NoMatch(
+            format!("account ID prefix {account_id_prefix}").to_string(),
+        ));
     }
     if accounts.len() > 1 {
         let account_ids =
@@ -195,7 +203,9 @@ pub(crate) fn get_account_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>
             account_id_prefix,
             account_ids
         );
-        return Err(IdPrefixFetchError::MultipleMatches(account_id_prefix.to_string()));
+        return Err(IdPrefixFetchError::MultipleMatches(
+            format!("account ID prefix {account_id_prefix}").to_string(),
+        ));
     }
 
     Ok(accounts[0].0.clone())
