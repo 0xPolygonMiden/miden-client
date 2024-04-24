@@ -121,7 +121,7 @@ You can do:
 miden-client consume-notes <some-account-id> 0x70b7ecb 0x80b7ecb
 ```
 
-For every command which needs an account id (either wallet or faucet), you can also provide a partial ID instead of the full ID for each account. So instead of
+For every command which needs an account ID (either wallet or faucet), you can also provide a partial ID instead of the full ID for each account. So instead of
 
 ```sh
 miden-client tx new p2id 0x80519a1c5e3680fc 0x8fd4b86a6387f8d8 0xa99c5c8764d4e011 100
