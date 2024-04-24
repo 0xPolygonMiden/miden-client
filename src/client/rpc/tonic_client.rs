@@ -200,7 +200,7 @@ impl NodeRpcClient for TonicRpcClient {
     /// This function will return an error if:
     ///
     /// - There was an error sending the request to the node
-    /// - The answer had a `None` for one of the needed fields (account, summary, account_hash, details).
+    /// - The answer had a `None` for one of the expected fields (account, summary, account_hash, details).
     /// - There is an error during [Account] deserialization
     async fn get_account_update(
         &mut self,
