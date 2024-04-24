@@ -6,6 +6,7 @@ use miden_objects::{
     assembly::{AstSerdeOptions, ModuleAst},
     assets::{FungibleAsset, TokenSymbol},
     crypto::dsa::rpo_falcon512::SecretKey,
+    notes::NoteTag,
     Word,
 };
 
@@ -306,6 +307,44 @@ async fn test_sync_state_mmr_state() {
 
     let mmr_proof = partial_mmr.open(4).unwrap().unwrap();
     assert!(partial_mmr.peaks().verify(tracked_block_headers[1].hash(), mmr_proof));
+}
+
+#[tokio::test]
+async fn test_tags() {
+    // generate test client with a random store name
+    let mut client = create_test_client();
+
+    // Assert that the store gets created with the tag 0 (used for notes consumable by any account)
+    let tag_1: NoteTag = 0.into();
+    assert_eq!(client.get_note_tags().unwrap(), vec![tag_1]);
+
+    // add a tag
+    let tag_2: NoteTag = 1.into();
+    let tag_3: NoteTag = 2.into();
+    client.add_note_tag(tag_2).unwrap();
+    client.add_note_tag(tag_3).unwrap();
+
+    // verify that the tag is being tracked
+    assert_eq!(client.get_note_tags().unwrap(), vec![tag_1, tag_2, tag_3]);
+
+    // attempt to add the same tag again
+    client.add_note_tag(tag_1).unwrap();
+
+    // verify that the tag is still being tracked only once
+    assert_eq!(client.get_note_tags().unwrap(), vec![tag_1, tag_2, tag_3]);
+
+    // Try removing non-existent tag
+    let tag_4: NoteTag = 4.into();
+    client.remove_note_tag(tag_4).unwrap();
+
+    // verify that the tracked tags are unchanged
+    assert_eq!(client.get_note_tags().unwrap(), vec![tag_1, tag_2, tag_3]);
+
+    // remove second tag
+    client.remove_note_tag(tag_2).unwrap();
+
+    // verify that tag_2 is not tracked anymore
+    assert_eq!(client.get_note_tags().unwrap(), vec![tag_1, tag_3]);
 }
 
 #[tokio::test]
