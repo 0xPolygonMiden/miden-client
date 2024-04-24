@@ -21,25 +21,26 @@ endpoint = { protocol = "http", host = "localhost", port = 57291 }
 
 [store]
 database_filepath = "store.sqlite3"
+
+[cli]
+default_account_id = "0x012345678"
 ```
 
 The TOML file should reside in same the directory from which you run the CLI.
 
-In the configuration file, you will find a section for defining the node's `endpoint` and the store's filename `database_filepath`. 
-
+In the configuration file, you will find a section for defining the node's
+`endpoint` and the store's filename `database_filepath`. 
 By default, the node is set up to run on `localhost:57291`.
 
 !!! note
     - Running the node locally for development is encouraged. 
     - However, the endpoint can point to any remote node.
 
-## CLI Configuration
+There's an additional **optional** section used for CLI configuration. It
+currently contains the default account id, which is used to execute
+transactions against it when the account flag is not provided.
 
-We store the CLI configuration using a [TOML](https://en.wikipedia.org/wiki/TOML) file `miden-cli.toml`. 
-
-The TOML file should reside in the `.miden-cli` which should be in the same directory from where you run the CLI. 
-
-Currently, the only option that can be set is the account ID of what we call the default account. By default none is set, but you can set and unset it with:
+By default none is set, but you can set and unset it with:
 
 ```sh
 miden-client account default set <ACCOUNT_ID>`

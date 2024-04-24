@@ -58,6 +58,7 @@ pub enum AccountCmd {
         filenames: Vec<PathBuf>,
     },
     /// Set/Unset default accounts
+    #[clap(short_flag = 'd')]
     Default {
         #[clap(subcommand)]
         default_cmd: DefaultAccountCmd,
