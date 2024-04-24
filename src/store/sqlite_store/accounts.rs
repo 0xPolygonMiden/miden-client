@@ -36,7 +36,7 @@ impl SqliteStore {
     pub(super) fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {
         const QUERY: &str = "SELECT DISTINCT id FROM accounts";
 
-        self.store_mut()
+        self.store()
             .prepare(QUERY)?
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
@@ -53,7 +53,7 @@ impl SqliteStore {
             FROM accounts a \
             WHERE a.nonce = (SELECT MAX(b.nonce) FROM accounts b WHERE b.id = a.id)";
 
-        self.store_mut()
+        self.store()
             .prepare(QUERY)?
             .query_map([], parse_accounts_columns)
             .expect("no binding parameters used in query")
@@ -70,7 +70,7 @@ impl SqliteStore {
             FROM accounts WHERE id = ? \
             ORDER BY nonce DESC \
             LIMIT 1";
-        self.store_mut()
+        self.store()
             .prepare(QUERY)?
             .query_map(params![account_id_int as i64], parse_accounts_columns)?
             .map(|result| Ok(result?).and_then(parse_accounts))
@@ -108,7 +108,7 @@ impl SqliteStore {
     pub(crate) fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, StoreError> {
         let account_id_int: u64 = account_id.into();
         const QUERY: &str = "SELECT account_id, auth_info FROM account_auth WHERE account_id = ?";
-        self.store_mut()
+        self.store()
             .prepare(QUERY)?
             .query_map(params![account_id_int as i64], parse_account_auth_columns)?
             .map(|result| Ok(result?).and_then(parse_account_auth))
@@ -124,7 +124,7 @@ impl SqliteStore {
         let root_serialized = root.to_string();
         const QUERY: &str = "SELECT root, procedures, module FROM account_code WHERE root = ?";
 
-        self.store_mut()
+        self.store()
             .prepare(QUERY)?
             .query_map(params![root_serialized], parse_account_code_columns)?
             .map(|result| Ok(result?).and_then(parse_account_code))
@@ -137,7 +137,7 @@ impl SqliteStore {
         let root_serialized = &root.to_string();
 
         const QUERY: &str = "SELECT root, slots FROM account_storage WHERE root = ?";
-        self.store_mut()
+        self.store()
             .prepare(QUERY)?
             .query_map(params![root_serialized], parse_account_storage_columns)?
             .map(|result| Ok(result?).and_then(parse_account_storage))
@@ -151,7 +151,7 @@ impl SqliteStore {
             serde_json::to_string(&root).map_err(StoreError::InputSerializationError)?;
 
         const QUERY: &str = "SELECT root, assets FROM account_vaults WHERE root = ?";
-        self.store_mut()
+        self.store()
             .prepare(QUERY)?
             .query_map(params![vault_root], parse_account_asset_vault_columns)?
             .map(|result| Ok(result?).and_then(parse_account_asset_vault))
@@ -165,7 +165,7 @@ impl SqliteStore {
         account_seed: Option<Word>,
         auth_info: &AuthInfo,
     ) -> Result<(), StoreError> {
-        let mut db = self.store_mut();
+        let mut db = self.store();
         let tx = db.transaction()?;
 
         insert_account_code(&tx, account.code())?;
@@ -444,7 +444,7 @@ mod tests {
         let assembler = miden_lib::transaction::TransactionKernel::assembler();
         let module_ast = ModuleAst::parse(DEFAULT_ACCOUNT_CODE).unwrap();
         let account_code = AccountCode::new(module_ast, &assembler).unwrap();
-        let mut db = store.store_mut();
+        let mut db = store.store();
         let tx = db.transaction().unwrap();
 
         // Table is empty at the beginning
@@ -485,7 +485,7 @@ mod tests {
 
         let account_id = AccountId::try_from(3238098370154045919u64).unwrap();
         {
-            let mut db = store.store_mut();
+            let mut db = store.store();
             let tx = db.transaction().unwrap();
             insert_account_auth(&tx, account_id, &AuthInfo::RpoFalcon512(exp_key_pair.clone()))
                 .unwrap();

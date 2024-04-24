@@ -69,7 +69,7 @@ impl SqliteStore {
         &self,
         filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, StoreError> {
-        self.store_mut()
+        self.store()
             .prepare(&filter.to_query())?
             .query_map([], parse_transaction_columns)
             .expect("no binding parameters used in query")
@@ -98,7 +98,7 @@ impl SqliteStore {
             .map(|note| OutputNoteRecord::from(note.clone()))
             .collect::<Vec<_>>();
 
-        let mut db = self.store_mut();
+        let mut db = self.store();
         let tx = db.transaction()?;
 
         // Transaction Data

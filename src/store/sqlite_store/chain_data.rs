@@ -52,7 +52,7 @@ impl SqliteStore {
             (block_num, header, chain_mmr_peaks, has_client_notes)
         VALUES (?, ?, ?, ?)";
 
-        self.store_mut()
+        self.store()
             .execute(QUERY, params![block_num, header, chain_mmr, has_client_notes])?;
 
         Ok(())
@@ -71,7 +71,7 @@ impl SqliteStore {
             "SELECT block_num, header, chain_mmr_peaks, has_client_notes FROM block_headers WHERE block_num IN ({})",
             formatted_block_numbers_list
         );
-        self.store_mut()
+        self.store()
             .prepare(&query)?
             .query_map(params![], parse_block_headers_columns)?
             .map(|result| Ok(result?).and_then(parse_block_header))
@@ -80,7 +80,7 @@ impl SqliteStore {
 
     pub(crate) fn get_tracked_block_headers(&self) -> Result<Vec<BlockHeader>, StoreError> {
         const QUERY: &str = "SELECT block_num, header, chain_mmr_peaks, has_client_notes FROM block_headers WHERE has_client_notes=true";
-        self.store_mut()
+        self.store()
             .prepare(QUERY)?
             .query_map(params![], parse_block_headers_columns)?
             .map(|result| Ok(result?).and_then(parse_block_header).map(|(block, _)| block))
@@ -91,7 +91,7 @@ impl SqliteStore {
         &self,
         filter: ChainMmrNodeFilter,
     ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
-        self.store_mut()
+        self.store()
             .prepare(&filter.to_query())?
             .query_map(params![], parse_chain_mmr_nodes_columns)?
             .map(|result| Ok(result?).and_then(parse_chain_mmr_nodes))
@@ -105,7 +105,7 @@ impl SqliteStore {
         const QUERY: &str = "SELECT chain_mmr_peaks FROM block_headers WHERE block_num = ?";
 
         let mmr_peaks = self
-            .store_mut()
+            .store()
             .prepare(QUERY)?
             .query_row(params![block_num], |row| {
                 let peaks: String = row.get(0)?;
@@ -248,7 +248,7 @@ mod test {
     fn insert_dummy_block_headers(store: &mut SqliteStore) -> Vec<BlockHeader> {
         let block_headers: Vec<BlockHeader> =
             (0..5).map(|block_num| BlockHeader::mock(block_num, None, None, &[])).collect();
-        let mut db = store.store_mut();
+        let mut db = store.store();
         let tx = db.transaction().unwrap();
         let dummy_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
         (0..5).for_each(|block_num| {

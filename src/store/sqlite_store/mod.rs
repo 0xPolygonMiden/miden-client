@@ -1,5 +1,5 @@
 use alloc::collections::BTreeMap;
-use core::cell::RefCell;
+use core::cell::{RefCell, RefMut};
 
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
@@ -107,7 +107,8 @@ impl SqliteStore {
         Ok(Self { db: RefCell::new(db) })
     }
 
-    pub fn store_mut(&self) -> core::cell::RefMut<'_, Connection> {
+    /// Returns a mutable reference to the internal [Connection] to the SQL DB
+    pub fn store(&self) -> RefMut<'_, Connection> {
         self.db.borrow_mut()
     }
 }
@@ -279,7 +280,6 @@ pub mod tests {
         let rpc_endpoint = client_config.rpc.endpoint.to_string();
         let store = SqliteStore::new((&client_config).into()).unwrap();
         let rng = get_random_coin();
-        let _executor_store = SqliteStore::new((&client_config).into()).unwrap();
 
         MockClient::new(MockRpcApi::new(&rpc_endpoint), rng, store, true)
     }
