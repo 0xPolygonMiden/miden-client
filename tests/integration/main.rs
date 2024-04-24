@@ -63,7 +63,7 @@ fn create_test_client() -> TestClient {
     let store = SqliteStore::new((&client_config).into()).unwrap();
     let executor_store = SqliteStore::new((&client_config).into()).unwrap();
     let rng = get_random_coin();
-    TestClient::new(TonicRpcClient::new(&rpc_endpoint), rng, store, executor_store).unwrap()
+    TestClient::new(TonicRpcClient::new(&rpc_endpoint), rng, store, executor_store, true)
 }
 
 fn create_test_store_path() -> std::path::PathBuf {
@@ -551,7 +551,7 @@ async fn test_p2idr_transfer_consumed_by_sender() {
     assert!(transaction_execution_result.is_err_and(|err| {
         matches!(
             err,
-            ClientError::TransactionExecutionError(
+            ClientError::TransactionExecutorError(
                 TransactionExecutorError::ExecuteTransactionProgramFailed(_)
             )
         )
@@ -604,7 +604,7 @@ async fn assert_note_cannot_be_consumed_twice(
     // Double-spend error expected to be received since we are consuming the same note
     let tx_request = client.build_transaction_request(tx_template).unwrap();
     match client.new_transaction(tx_request) {
-        Err(ClientError::TransactionExecutionError(
+        Err(ClientError::TransactionExecutorError(
             TransactionExecutorError::FetchTransactionInputsFailed(
                 DataStoreError::NoteAlreadyConsumed(_),
             ),

@@ -208,7 +208,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     ///
     /// - Returns [ClientError::MissingOutputNotes] if the [TransactionRequest] ouput notes are
     ///   not a subset of executor's output notes
-    /// - Returns a [ClientError::TransactionExecutionError]
+    /// - Returns a [ClientError::TransactionExecutorError] if the execution fails
     pub fn new_transaction(
         &mut self,
         transaction_request: TransactionRequest,
@@ -216,7 +216,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         let account_id = transaction_request.account_id();
         self.tx_executor
             .load_account(account_id)
-            .map_err(ClientError::TransactionExecutionError)?;
+            .map_err(ClientError::TransactionExecutorError)?;
 
         let block_num = self.store.get_sync_height()?;
 
@@ -296,7 +296,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     {
         self.tx_executor
             .compile_tx_script(program, inputs, target_account_procs)
-            .map_err(ClientError::TransactionExecutionError)
+            .map_err(ClientError::TransactionExecutorError)
     }
 
     async fn submit_proven_transaction_request(
