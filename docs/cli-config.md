@@ -32,3 +32,7 @@ By default, the node is set up to run on `localhost:57291`.
 !!! note
     - Running the node locally for development is encouraged. 
     - However, the endpoint can point to any remote node.
+
+### Environment variables
+
+- `MIDEN_DEBUG`: When set to `true`, enables debug mode on the transaction executor and the script compiler. For any script that has been compiled and executed in this mode, debug logs will be output in order to facilitate MASM debugging ([these instructions](https://0xpolygonmiden.github.io/miden-vm/user_docs/assembly/debugging.html) can be used to do so). This variable can be overriden by the `--debug` CLI flag. 
