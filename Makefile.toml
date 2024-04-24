@@ -26,12 +26,23 @@ args = ["doc", "--all-features", "--keep-going", "--release"]
 [tasks.test]
 description = "Run the client testing suite"
 command = "cargo"
-args = ["test", "--release", "--workspace", "--", "--nocapture"]
+args = ["nextest", "run", "--release", "--workspace"]
 
 [tasks.integration-test]
 description = "Run the integration test binary. Requires a node to connect to."
 command = "cargo"
-args = ["test", "--release", "--test=integration", "--features", "${FEATURES_INTEGRATION_TESTING}"]
+args = ["nextest", "run", "--release", "--test=integration", "--features", "${FEATURES_INTEGRATION_TESTING}"]
+
+# Same commands as above but using ci profile for nextest
+[tasks.ci-test]
+description = "Run the client testing suite"
+command = "cargo"
+args = ["nextest", "run", "--profile", "ci-default", "--release", "--workspace"]
+
+[tasks.ci-integration-test]
+description = "Run the integration test binary. Requires a node to connect to."
+command = "cargo"
+args = ["nextest", "run", "--profile", "ci-default", "--release", "--test=integration", "--features", "${FEATURES_INTEGRATION_TESTING}"]
 
 [tasks.lint]
 dependencies = [

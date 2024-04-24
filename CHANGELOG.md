@@ -1,5 +1,6 @@
 # Changelog
 
+* Added nextest to be used as test runner
 * Added config file to run integration tests against a remote node
 * Added `CONTRIBUTING.MD` file.
 * Renamed `format` command from `Makefile.toml` to `check-format` and added a
