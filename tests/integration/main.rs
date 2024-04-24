@@ -1,5 +1,9 @@
 use std::{collections::BTreeMap, env::temp_dir, time::Duration};
 
+use figment::{
+    providers::{Format, Toml},
+    Figment,
+};
 use miden_client::{
     client::{
         accounts::{AccountStorageMode, AccountTemplate},
@@ -10,7 +14,7 @@ use miden_client::{
         },
         Client,
     },
-    config::{ClientConfig, RpcConfig},
+    config::ClientConfig,
     errors::{ClientError, NodeRpcClientError},
     store::{sqlite_store::SqliteStore, AuthInfo, NoteFilter, TransactionFilter},
 };
@@ -34,16 +38,26 @@ pub const ACCOUNT_ID_REGULAR: u64 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OF
 
 type TestClient = Client<TonicRpcClient, RpoRandomCoin, SqliteStore>;
 
+const TEST_CLIENT_CONFIG_FILE_PATH: &str = "./tests/config/miden-client.toml";
+/// Creates a `TestClient`
+///
+/// Creates the client using the config at `TEST_CLIENT_CONFIG_FILE_PATH`. The store's path is at a random temporary location, so the store section of the config file is ignored.
+///
+/// # Panics
+///
+/// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
+/// deserialized into a [ClientConfig]
 fn create_test_client() -> TestClient {
-    let client_config = ClientConfig {
-        store: create_test_store_path()
-            .into_os_string()
-            .into_string()
-            .unwrap()
-            .try_into()
-            .unwrap(),
-        rpc: RpcConfig::default(),
-    };
+    let mut client_config: ClientConfig = Figment::from(Toml::file(TEST_CLIENT_CONFIG_FILE_PATH))
+        .extract()
+        .expect("should be able to read test config at {TEST_CLIENT_CONFIG_FILE_PATH}");
+
+    client_config.store = create_test_store_path()
+        .into_os_string()
+        .into_string()
+        .unwrap()
+        .try_into()
+        .unwrap();
 
     let rpc_endpoint = client_config.rpc.endpoint.to_string();
     let store = SqliteStore::new((&client_config).into()).unwrap();
@@ -152,8 +166,6 @@ async fn setup(
         })
         .unwrap();
 
-    wait_for_node(client).await;
-
     println!("Syncing State...");
     client.sync_state().await.unwrap();
 
@@ -225,6 +237,7 @@ async fn test_onchain_notes_flow() {
     let mut client_2 = create_test_client();
     // Client 3 will be transferred part of the assets by client 2's account
     let mut client_3 = create_test_client();
+    wait_for_node(&mut client_3).await;
 
     // Create faucet account
     let (faucet_account, _) = client_1
@@ -315,6 +328,7 @@ async fn test_onchain_notes_flow() {
 #[tokio::test]
 async fn test_added_notes() {
     let mut client = create_test_client();
+    wait_for_node(&mut client).await;
 
     let (_, _, faucet_account_stub) = setup(&mut client, AccountStorageMode::Local).await;
     // Mint some asset for an account not tracked by the client. It should not be stored as an
@@ -338,6 +352,7 @@ async fn test_added_notes() {
 #[tokio::test]
 async fn test_p2id_transfer() {
     let mut client = create_test_client();
+    wait_for_node(&mut client).await;
 
     let (first_regular_account, second_regular_account, faucet_account_stub) =
         setup(&mut client, AccountStorageMode::Local).await;
@@ -406,6 +421,7 @@ async fn test_p2id_transfer() {
 #[tokio::test]
 async fn test_p2idr_transfer_consumed_by_target() {
     let mut client = create_test_client();
+    wait_for_node(&mut client).await;
 
     let (first_regular_account, second_regular_account, faucet_account_stub) =
         setup(&mut client, AccountStorageMode::Local).await;
@@ -618,6 +634,7 @@ async fn assert_note_cannot_be_consumed_twice(
 #[tokio::test]
 async fn test_transaction_request() {
     let mut client = create_test_client();
+    wait_for_node(&mut client).await;
 
     let account_template = AccountTemplate::BasicWallet {
         mutable_code: false,
@@ -820,6 +837,7 @@ fn create_custom_note(
 async fn test_onchain_accounts() {
     let mut client_1 = create_test_client();
     let mut client_2 = create_test_client();
+    wait_for_node(&mut client_2).await;
 
     let (first_regular_account, _second_regular_account, faucet_account_stub) =
         setup(&mut client_1, AccountStorageMode::OnChain).await;
@@ -958,6 +976,7 @@ async fn test_onchain_notes_sync_with_tag() {
     // Client 3 will be the control client. We won't add any tags and expect the note not to be
     // fetched
     let mut client_3 = create_test_client();
+    wait_for_node(&mut client_3).await;
 
     // Create faucet account
     let (faucet_account, _) = client_1
