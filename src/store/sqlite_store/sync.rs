@@ -1,15 +1,9 @@
-use miden_objects::{
-    accounts::Account,
-    crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::{NoteInclusionProof, NoteTag},
-    transaction::TransactionId,
-    BlockHeader, Digest,
-};
+use miden_objects::notes::{NoteInclusionProof, NoteTag};
 use rusqlite::{named_params, params};
 
 use super::SqliteStore;
 use crate::{
-    client::sync::SyncedNewNotes,
+    client::sync::StateSyncUpdate,
     errors::StoreError,
     store::sqlite_store::{accounts::update_account, notes::insert_input_note_tx},
 };
@@ -76,14 +70,18 @@ impl SqliteStore {
 
     pub(super) fn apply_state_sync(
         &mut self,
-        block_header: BlockHeader,
-        nullifiers: Vec<Digest>,
-        committed_notes: SyncedNewNotes,
-        committed_transactions: &[TransactionId],
-        new_mmr_peaks: MmrPeaks,
-        new_authentication_nodes: &[(InOrderIndex, Digest)],
-        updated_onchain_accounts: &[Account],
+        state_sync_update: StateSyncUpdate,
     ) -> Result<(), StoreError> {
+        let StateSyncUpdate {
+            block_header,
+            nullifiers,
+            synced_new_notes: committed_notes,
+            transactions_to_commit: committed_transactions,
+            new_mmr_peaks,
+            new_authentication_nodes,
+            updated_onchain_accounts,
+            block_has_relevant_notes,
+        } = state_sync_update;
         let tx = self.db.transaction()?;
 
         // Update state sync block number
@@ -102,13 +100,10 @@ impl SqliteStore {
             tx.execute(SPENT_OUTPUT_NOTE_QUERY, params![nullifier])?;
         }
 
-        // TODO: Due to the fact that notes are returned based on fuzzy matching of tags,
-        // this process of marking if the header has notes needs to be revisited
-        let block_has_relevant_notes = !committed_notes.is_empty();
         Self::insert_block_header_tx(&tx, block_header, new_mmr_peaks, block_has_relevant_notes)?;
 
         // Insert new authentication nodes (inner nodes of the PartialMmr)
-        Self::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
+        Self::insert_chain_mmr_nodes(&tx, &new_authentication_nodes)?;
 
         // Update tracked notes
         for (note_id, inclusion_proof) in committed_notes.new_inclusion_proofs().iter() {
@@ -159,12 +154,12 @@ impl SqliteStore {
         Self::mark_transactions_as_committed(
             &tx,
             block_header.block_num(),
-            committed_transactions,
+            &committed_transactions,
         )?;
 
         // Update onchain accounts on the db that have been updated onchain
         for account in updated_onchain_accounts {
-            update_account(&tx, account)?;
+            update_account(&tx, &account)?;
         }
 
         // Commit the updates

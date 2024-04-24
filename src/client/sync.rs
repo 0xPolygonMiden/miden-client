@@ -1,10 +1,12 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
     crypto::{self, rand::FeltRng},
-    notes::{NoteExecutionMode, NoteId, NoteInclusionProof, NoteTag},
+    notes::{
+        Note, NoteExecutionMode, NoteId, NoteInclusionProof, NoteInputs, NoteRecipient, NoteTag,
+    },
     transaction::{InputNote, TransactionId},
     BlockHeader, Digest,
 };
@@ -13,11 +15,11 @@ use tracing::{info, warn};
 use super::{
     rpc::{CommittedNote, NodeRpcClient, NoteDetails},
     transactions::TransactionRecord,
-    Client,
+    Client, NoteScreener,
 };
 use crate::{
     errors::{ClientError, StoreError},
-    store::{ChainMmrNodeFilter, NoteFilter, Store, TransactionFilter},
+    store::{ChainMmrNodeFilter, InputNoteRecord, NoteFilter, Store, TransactionFilter},
 };
 
 pub enum SyncStatus {
@@ -54,6 +56,18 @@ impl SyncedNewNotes {
     pub fn is_empty(&self) -> bool {
         self.new_inclusion_proofs.is_empty() && self.new_public_notes.is_empty()
     }
+}
+
+/// Contains all information needed to perform the update after syncing with the node
+pub struct StateSyncUpdate {
+    pub block_header: BlockHeader,
+    pub nullifiers: Vec<Digest>,
+    pub synced_new_notes: SyncedNewNotes,
+    pub transactions_to_commit: Vec<TransactionId>,
+    pub new_mmr_peaks: MmrPeaks,
+    pub new_authentication_nodes: Vec<(InOrderIndex, Digest)>,
+    pub updated_onchain_accounts: Vec<Account>,
+    pub block_has_relevant_notes: bool,
 }
 
 // CONSTANTS
@@ -183,6 +197,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             return Ok(SyncStatus::SyncedToLastBlock(current_block_num));
         }
 
+        let incoming_block_has_relevant_notes = self
+            .check_block_relevance(&response.note_inclusions, &response.block_header)
+            .await?;
+
         let new_note_details =
             self.get_note_details(response.note_inclusions, &response.block_header).await?;
 
@@ -225,17 +243,20 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             &response.account_hash_updates,
         );
 
+        let state_sync_update = StateSyncUpdate {
+            block_header: response.block_header,
+            nullifiers: new_nullifiers,
+            synced_new_notes: new_note_details,
+            transactions_to_commit,
+            new_mmr_peaks: new_peaks,
+            new_authentication_nodes,
+            updated_onchain_accounts,
+            block_has_relevant_notes: incoming_block_has_relevant_notes,
+        };
+
         // Apply received and computed updates to the store
         self.store
-            .apply_state_sync(
-                response.block_header,
-                new_nullifiers,
-                new_note_details,
-                &transactions_to_commit,
-                new_peaks,
-                &new_authentication_nodes,
-                &updated_onchain_accounts,
-            )
+            .apply_state_sync(state_sync_update)
             .map_err(ClientError::StoreError)?;
 
         if response.chain_tip == response.block_header.block_num() {
@@ -340,6 +361,84 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             }
         }
         Ok(return_notes)
+    }
+
+    /// Extracts information about notes that the client is interested in, creating the note inclusion
+    /// proof in order to correctly update store data
+    async fn check_block_relevance(
+        &mut self,
+        committed_notes: &[CommittedNote],
+        block_header: &BlockHeader,
+    ) -> Result<bool, ClientError> {
+        // We'll only pick committed notes that we are tracking as input/output notes. Since the
+        // sync response contains notes matching either the provided accounts or the provided tag
+        // we might get many notes when we only care about a few of those.
+
+        let pending_input_notes: BTreeMap<NoteId, InputNoteRecord> = self
+            .store
+            .get_input_notes(NoteFilter::Pending)?
+            .into_iter()
+            .map(|n| (n.id(), n))
+            .collect();
+
+        let pending_output_note_ids: BTreeSet<NoteId> = self
+            .store
+            .get_input_notes(NoteFilter::Pending)?
+            .into_iter()
+            .map(|n| n.id())
+            .collect();
+
+        // Find all relevant Public Notes with the note checker
+        let new_public_notes = committed_notes
+            .iter()
+            .filter(|committed_note| {
+                !pending_input_notes.contains_key(committed_note.note_id())
+                    && !pending_output_note_ids.contains(committed_note.note_id())
+            })
+            .map(|committed_note| *committed_note.note_id())
+            .collect::<Vec<_>>();
+
+        // Query the node for input note data and build the entities
+        let public_notes = self.fetch_public_note_details(&new_public_notes, block_header).await?;
+
+        let note_screener = NoteScreener::new(&self.store);
+
+        // Find all relevant Input Notes with the note checker
+        let relevant_commited_notes = committed_notes
+            .iter()
+            .filter_map(|committed_note| {
+                pending_input_notes
+                    .get(committed_note.note_id())
+                    .map(|note_record| (committed_note, note_record))
+            })
+            .map(|(committed_note, note_record)| {
+                let note_inputs = NoteInputs::new(note_record.details().inputs().clone())?;
+                let note_recipient = NoteRecipient::new(
+                    note_record.details().serial_num(),
+                    note_record.details().script().clone(),
+                    note_inputs,
+                );
+                let note = Note::new(
+                    note_record.assets().clone(),
+                    committed_note.metadata(),
+                    note_recipient,
+                );
+                Ok(note_screener.check_relevance(&note)?)
+            })
+            .collect::<Result<Vec<_>, ClientError>>()?
+            .iter()
+            .filter(|note_relevance| !note_relevance.is_empty())
+            .count();
+
+        let relevant_public_notes = public_notes
+            .iter()
+            .map(|input_note| Ok(note_screener.check_relevance(input_note.note())?))
+            .collect::<Result<Vec<_>, ClientError>>()?
+            .iter()
+            .filter(|note_relevance| !note_relevance.is_empty())
+            .count();
+
+        Ok(relevant_commited_notes > 0 || relevant_public_notes > 0)
     }
 
     /// Builds the current view of the chain's [PartialMmr]. Because we want to add all new
