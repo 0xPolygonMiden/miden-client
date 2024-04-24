@@ -1,3 +1,5 @@
+use std::io;
+
 use clap::ValueEnum;
 use miden_client::{
     client::{
@@ -10,9 +12,11 @@ use miden_client::{
     store::{Store, TransactionFilter},
 };
 use miden_objects::{
-    assets::FungibleAsset,
+    accounts::AccountDelta,
+    assets::{Asset, FungibleAsset},
     crypto::rand::FeltRng,
     notes::{NoteId, NoteType as MidenNoteType},
+    Digest,
 };
 use tracing::info;
 
@@ -126,11 +130,77 @@ async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store>(
     let transaction_request = client.build_transaction_request(transaction_template)?;
     let transaction_execution_result = client.new_transaction(transaction_request)?;
 
-    info!("Executed transaction, proving and then submitting...");
+    println!("Executed transaction.");
+
+    // Show delta and ask for confirmation
+    print_transaction_delta(transaction_execution_result.account_delta());
+    println!("Proceed? (Y/N)");
+    let mut proceed_str: String = String::new();
+    io::stdin().read_line(&mut proceed_str).expect("Should read line");
+
+    if proceed_str.trim().to_lowercase() != "y" {
+        return Ok(());
+    }
+
+    info!("Proving and then submitting...");
 
     client.submit_transaction(transaction_execution_result).await?;
 
     Ok(())
+}
+
+fn print_transaction_delta(account_delta: &AccountDelta) {
+    let mut table = create_dynamic_table(&["Storage Slot", "Effect"]);
+
+    for cleared_item_slot in account_delta.storage().cleared_items.iter() {
+        table.add_row(vec![cleared_item_slot.to_string(), "CLEARED".to_string()]);
+    }
+
+    for (updated_item_slot, new_value) in account_delta.storage().updated_items.iter() {
+        let value_digest: Digest = new_value.into();
+        table.add_row(vec![
+            updated_item_slot.to_string(),
+            format!("Updated ({})", value_digest.to_hex()),
+        ]);
+    }
+
+    println!("Storage Changes:");
+    println!("{table}");
+
+    let mut table = create_dynamic_table(&["Asset Type", "Faucet ID", "Amount"]);
+
+    for asset in account_delta.vault().added_assets.iter() {
+        let (asset_type, faucet_id, amount) = match asset {
+            Asset::Fungible(fungible_asset) => {
+                ("Fungible Asset", fungible_asset.faucet_id(), fungible_asset.amount())
+            },
+            Asset::NonFungible(non_fungible_asset) => {
+                ("Non Fungible Asset", non_fungible_asset.faucet_id(), 1)
+            },
+        };
+        table.add_row(vec![asset_type, &faucet_id.to_hex(), &format!("+{}", amount)]);
+    }
+
+    for asset in account_delta.vault().removed_assets.iter() {
+        let (asset_type, faucet_id, amount) = match asset {
+            Asset::Fungible(fungible_asset) => {
+                ("Fungible Asset", fungible_asset.faucet_id(), fungible_asset.amount())
+            },
+            Asset::NonFungible(non_fungible_asset) => {
+                ("Non Fungible Asset", non_fungible_asset.faucet_id(), 1)
+            },
+        };
+        table.add_row(vec![asset_type, &faucet_id.to_hex(), &format!("-{}", amount)]);
+    }
+
+    println!("Vault Changes:");
+    println!("{table}");
+
+    if let Some(new_nonce) = account_delta.nonce() {
+        println!("New Nonce: {new_nonce}.")
+    } else {
+        println!("No Nonce changes.")
+    }
 }
 
 /// Builds a [TransactionTemplate] based on the transaction type provided via cli args
