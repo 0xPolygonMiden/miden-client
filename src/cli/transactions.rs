@@ -6,13 +6,12 @@ use miden_client::{
         rpc::NodeRpcClient,
         transactions::{
             transaction_request::{PaymentTransactionData, TransactionTemplate},
-            TransactionRecord,
+            TransactionRecord, TransactionResult,
         },
     },
     store::{Store, TransactionFilter},
 };
 use miden_objects::{
-    accounts::AccountDelta,
     assets::{Asset, FungibleAsset},
     crypto::rand::FeltRng,
     notes::{NoteId, NoteType as MidenNoteType},
@@ -137,7 +136,7 @@ async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store>(
     println!("Executed transaction.");
 
     // Show delta and ask for confirmation
-    print_transaction_delta(transaction_execution_result.account_delta());
+    print_transaction_details(&transaction_execution_result);
     if !force {
         println!("Proceed? (Y/N)");
         let mut proceed_str: String = String::new();
@@ -155,7 +154,13 @@ async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store>(
     Ok(())
 }
 
-fn print_transaction_delta(account_delta: &AccountDelta) {
+fn print_transaction_details(transaction_result: &TransactionResult) {
+    println!(
+        "Transaction Executed Against {}",
+        transaction_result.executed_transaction().account_id()
+    );
+
+    let account_delta = transaction_result.account_delta();
     let mut table = create_dynamic_table(&["Storage Slot", "Effect"]);
 
     for cleared_item_slot in account_delta.storage().cleared_items.iter() {
