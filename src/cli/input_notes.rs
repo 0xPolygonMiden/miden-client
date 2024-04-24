@@ -326,14 +326,13 @@ mod tests {
             Endpoint::default().into(),
         );
 
-        let store = SqliteStore::new((&client_config).into()).unwrap();
+        let _store = SqliteStore::new((&client_config).into()).unwrap();
         let rng = get_random_coin();
         let executor_store = SqliteStore::new((&client_config).into()).unwrap();
 
         let mut client = MockClient::new(
             MockRpcApi::new(&Endpoint::default().to_string()),
             rng,
-            store,
             executor_store,
             true,
         );
@@ -379,15 +378,10 @@ mod tests {
             Endpoint::default().into(),
         );
         let store = SqliteStore::new((&client_config).into()).unwrap();
-        let executor_store = SqliteStore::new((&client_config).into()).unwrap();
+        let _executor_store = SqliteStore::new((&client_config).into()).unwrap();
 
-        let mut client = MockClient::new(
-            MockRpcApi::new(&Endpoint::default().to_string()),
-            rng,
-            store,
-            executor_store,
-            true,
-        );
+        let mut client =
+            MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store, true);
 
         import_note(&mut client, filename_path).unwrap();
         let imported_note_record: InputNoteRecord =
@@ -411,14 +405,13 @@ mod tests {
             Endpoint::default().into(),
         );
 
-        let store = SqliteStore::new((&client_config).into()).unwrap();
+        let _store = SqliteStore::new((&client_config).into()).unwrap();
         let rng = get_random_coin();
         let executor_store = SqliteStore::new((&client_config).into()).unwrap();
 
         let mut client = MockClient::new(
             MockRpcApi::new(&Endpoint::default().to_string()),
             rng,
-            store,
             executor_store,
             true,
         );

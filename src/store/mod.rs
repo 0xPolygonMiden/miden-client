@@ -11,7 +11,10 @@ use miden_objects::{
     transaction::TransactionId,
     BlockHeader, Digest, Felt, Word,
 };
-use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
+use miden_tx::{
+    utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
+    DataStore,
+};
 
 use crate::{
     client::{
@@ -36,7 +39,7 @@ pub use note_record::{InputNoteRecord, NoteRecordDetails, NoteStatus, OutputNote
 /// All update functions are implied to be atomic. That is, if multiple entities are meant to be
 /// updated as part of any single function and an error is returned during its execution, any
 /// changes that might have happened up to that point need to be rolled back and discarded.
-pub trait Store {
+pub trait Store: DataStore {
     // TRANSACTIONS
     // --------------------------------------------------------------------------------------------
 
@@ -53,7 +56,7 @@ pub trait Store {
     /// - Applying the resulting [AccountDelta](miden_objects::accounts::AccountDelta) and storing the new [Account] state
     /// - Storing new notes as a result of the transaction execution
     /// - Inserting the transaction into the store to track
-    fn apply_transaction(&mut self, tx_result: TransactionResult) -> Result<(), StoreError>;
+    fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), StoreError>;
 
     // NOTES
     // --------------------------------------------------------------------------------------------
@@ -86,7 +89,7 @@ pub trait Store {
     }
 
     /// Inserts the provided input note into the database
-    fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError>;
+    fn insert_input_note(&self, note: &InputNoteRecord) -> Result<(), StoreError>;
 
     // CHAIN DATA
     // --------------------------------------------------------------------------------------------
@@ -192,7 +195,7 @@ pub trait Store {
 
     /// Inserts an [Account] along with the seed used to create it and its [AuthInfo]
     fn insert_account(
-        &mut self,
+        &self,
         account: &Account,
         account_seed: Option<Word>,
         auth_info: &AuthInfo,
@@ -207,13 +210,13 @@ pub trait Store {
     /// Adds a note tag to the list of tags that the client is interested in.
     ///
     /// If the tag was already being tracked, returns false since no new tags were actually added. Otherwise true.
-    fn add_note_tag(&mut self, tag: NoteTag) -> Result<bool, StoreError>;
+    fn add_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError>;
 
     /// Removes a note tag from the list of tags that the client is interested in.
     ///
     /// If the tag was not present in the store returns false since no tag was actually removed.
     /// Otherwise returns true.
-    fn remove_note_tag(&mut self, tag: NoteTag) -> Result<bool, StoreError>;
+    fn remove_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError>;
 
     /// Returns the block number of the last state sync block.
     fn get_sync_height(&self) -> Result<u32, StoreError>;
@@ -227,7 +230,7 @@ pub trait Store {
     /// `committed_transactions`
     /// - Storing new MMR authentication nodes
     fn apply_state_sync(
-        &mut self,
+        &self,
         block_header: BlockHeader,
         nullifiers: Vec<Digest>,
         new_note_details: SyncedNewNotes,

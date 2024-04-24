@@ -108,7 +108,7 @@ impl SqliteStore {
         &self,
         filter: NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
-        self.db
+        self.store_mut()
             .prepare(&filter.to_query(NoteTable::InputNotes))?
             .query_map([], parse_input_note_columns)
             .expect("no binding parameters used in query")
@@ -121,7 +121,7 @@ impl SqliteStore {
         &self,
         filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, StoreError> {
-        self.db
+        self.store_mut()
             .prepare(&filter.to_query(NoteTable::OutputNotes))?
             .query_map([], parse_output_note_columns)
             .expect("no binding parameters used in query")
@@ -146,7 +146,7 @@ impl SqliteStore {
                             json_extract(note.details, '$.script_hash') = script.script_hash
                         WHERE note.note_id = ?";
 
-        self.db
+        self.store_mut()
             .prepare(QUERY)?
             .query_map(params![query_id.to_string()], parse_input_note_columns)?
             .map(|result| Ok(result?).and_then(parse_input_note))
@@ -154,8 +154,9 @@ impl SqliteStore {
             .ok_or(StoreError::InputNoteNotFound(note_id))?
     }
 
-    pub(crate) fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError> {
-        let tx = self.db.transaction()?;
+    pub(crate) fn insert_input_note(&self, note: &InputNoteRecord) -> Result<(), StoreError> {
+        let mut db = self.store_mut();
+        let tx = db.transaction()?;
 
         insert_input_note_tx(&tx, note)?;
 
@@ -166,7 +167,7 @@ impl SqliteStore {
     pub fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
         const QUERY: &str = "SELECT json_extract(details, '$.nullifier') FROM input_notes WHERE status = 'Committed'";
 
-        self.db
+        self.store_mut()
             .prepare(QUERY)?
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")

@@ -1,4 +1,5 @@
 use alloc::collections::BTreeMap;
+use core::cell::RefCell;
 
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
@@ -91,7 +92,7 @@ mod transactions;
 /// - Thus, if needed you can create a struct representing the json values and use serde_json to
 /// simplify all of the serialization/deserialization logic
 pub struct SqliteStore {
-    pub(crate) db: Connection,
+    pub(crate) db: RefCell<Connection>,
 }
 
 impl SqliteStore {
@@ -103,7 +104,11 @@ impl SqliteStore {
         let mut db = Connection::open(config.database_filepath)?;
         migrations::update_to_latest(&mut db)?;
 
-        Ok(Self { db })
+        Ok(Self { db: RefCell::new(db) })
+    }
+
+    pub fn store_mut(&self) -> core::cell::RefMut<'_, Connection> {
+        self.db.borrow_mut()
     }
 }
 
@@ -116,11 +121,11 @@ impl Store for SqliteStore {
         self.get_note_tags()
     }
 
-    fn add_note_tag(&mut self, tag: NoteTag) -> Result<bool, StoreError> {
+    fn add_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError> {
         self.add_note_tag(tag)
     }
 
-    fn remove_note_tag(&mut self, tag: NoteTag) -> Result<bool, StoreError> {
+    fn remove_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError> {
         self.remove_note_tag(tag)
     }
 
@@ -129,7 +134,7 @@ impl Store for SqliteStore {
     }
 
     fn apply_state_sync(
-        &mut self,
+        &self,
         block_header: BlockHeader,
         nullifiers: Vec<Digest>,
         committed_notes: SyncedNewNotes,
@@ -156,7 +161,7 @@ impl Store for SqliteStore {
         self.get_transactions(transaction_filter)
     }
 
-    fn apply_transaction(&mut self, tx_result: TransactionResult) -> Result<(), StoreError> {
+    fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), StoreError> {
         self.apply_transaction(tx_result)
     }
 
@@ -175,7 +180,7 @@ impl Store for SqliteStore {
         self.get_input_note(note_id)
     }
 
-    fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError> {
+    fn insert_input_note(&self, note: &InputNoteRecord) -> Result<(), StoreError> {
         self.insert_input_note(note)
     }
 
@@ -211,7 +216,7 @@ impl Store for SqliteStore {
     }
 
     fn insert_account(
-        &mut self,
+        &self,
         account: &Account,
         account_seed: Option<Word>,
         auth_info: &AuthInfo,
@@ -248,7 +253,7 @@ impl Store for SqliteStore {
 
 #[cfg(test)]
 pub mod tests {
-    use std::env::temp_dir;
+    use std::{cell::RefCell, env::temp_dir};
 
     use rusqlite::Connection;
     use uuid::Uuid;
@@ -274,9 +279,9 @@ pub mod tests {
         let rpc_endpoint = client_config.rpc.endpoint.to_string();
         let store = SqliteStore::new((&client_config).into()).unwrap();
         let rng = get_random_coin();
-        let executor_store = SqliteStore::new((&client_config).into()).unwrap();
+        let _executor_store = SqliteStore::new((&client_config).into()).unwrap();
 
-        MockClient::new(MockRpcApi::new(&rpc_endpoint), rng, store, executor_store, true)
+        MockClient::new(MockRpcApi::new(&rpc_endpoint), rng, store, true)
     }
 
     pub(crate) fn create_test_store_path() -> std::path::PathBuf {
@@ -290,6 +295,6 @@ pub mod tests {
         let mut db = Connection::open(temp_file).unwrap();
         migrations::update_to_latest(&mut db).unwrap();
 
-        SqliteStore { db }
+        SqliteStore { db: RefCell::new(db) }
     }
 }

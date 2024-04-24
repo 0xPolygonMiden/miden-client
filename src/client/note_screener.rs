@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use alloc::collections::BTreeSet;
 
 use miden_objects::{accounts::AccountId, assets::Asset, notes::Note, Word};
 
@@ -186,7 +186,7 @@ impl<'a, S: Store> NoteScreener<'a, S> {
 mod tests {
     use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
     use miden_objects::{
-        accounts::{AccountId, ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN},
+        accounts::{account_id::testing::ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, AccountId},
         assets::FungibleAsset,
         crypto::rand::RpoRandomCoin,
         notes::NoteType,

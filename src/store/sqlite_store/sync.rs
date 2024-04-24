@@ -18,7 +18,7 @@ impl SqliteStore {
     pub(crate) fn get_note_tags(&self) -> Result<Vec<NoteTag>, StoreError> {
         const QUERY: &str = "SELECT tags FROM state_sync";
 
-        self.db
+        self.store_mut()
             .prepare(QUERY)?
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
@@ -33,7 +33,7 @@ impl SqliteStore {
             .expect("state sync tags exist")
     }
 
-    pub(super) fn add_note_tag(&mut self, tag: NoteTag) -> Result<bool, StoreError> {
+    pub(super) fn add_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError> {
         let mut tags = self.get_note_tags()?;
         if tags.contains(&tag) {
             return Ok(false);
@@ -42,12 +42,12 @@ impl SqliteStore {
         let tags = serde_json::to_string(&tags).map_err(StoreError::InputSerializationError)?;
 
         const QUERY: &str = "UPDATE state_sync SET tags = ?";
-        self.db.execute(QUERY, params![tags])?;
+        self.store_mut().execute(QUERY, params![tags])?;
 
         Ok(true)
     }
 
-    pub(super) fn remove_note_tag(&mut self, tag: NoteTag) -> Result<bool, StoreError> {
+    pub(super) fn remove_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError> {
         let mut tags = self.get_note_tags()?;
         if let Some(index_of_tag) = tags.iter().position(|&tag_candidate| tag_candidate == tag) {
             tags.remove(index_of_tag);
@@ -55,7 +55,7 @@ impl SqliteStore {
             let tags = serde_json::to_string(&tags).map_err(StoreError::InputSerializationError)?;
 
             const QUERY: &str = "UPDATE state_sync SET tags = ?";
-            self.db.execute(QUERY, params![tags])?;
+            self.store_mut().execute(QUERY, params![tags])?;
             return Ok(true);
         }
 
@@ -65,7 +65,7 @@ impl SqliteStore {
     pub(super) fn get_sync_height(&self) -> Result<u32, StoreError> {
         const QUERY: &str = "SELECT block_num FROM state_sync";
 
-        self.db
+        self.store_mut()
             .prepare(QUERY)?
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
@@ -75,7 +75,7 @@ impl SqliteStore {
     }
 
     pub(super) fn apply_state_sync(
-        &mut self,
+        &self,
         block_header: BlockHeader,
         nullifiers: Vec<Digest>,
         committed_notes: SyncedNewNotes,
@@ -84,7 +84,8 @@ impl SqliteStore {
         new_authentication_nodes: &[(InOrderIndex, Digest)],
         updated_onchain_accounts: &[Account],
     ) -> Result<(), StoreError> {
-        let tx = self.db.transaction()?;
+        let mut db = self.store_mut();
+        let tx = db.transaction()?;
 
         // Update state sync block number
         const BLOCK_NUMBER_QUERY: &str = "UPDATE state_sync SET block_num = ?";

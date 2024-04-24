@@ -41,9 +41,7 @@ impl TagsCmd {
             TagsCmd::Add { tag } => {
                 add_tag(client, *tag)?;
             },
-            TagsCmd::Remove { tag } => {
-                remove_tag(client, *tag)?;
-            },
+            TagsCmd::Remove { tag: _ } => {},
         }
         Ok(())
     }
@@ -75,14 +73,5 @@ fn add_tag<N: NodeRpcClient, R: FeltRng, S: Store>(
     );
     client.add_note_tag(tag)?;
     println!("Tag {} added", tag);
-    Ok(())
-}
-
-fn remove_tag<N: NodeRpcClient, R: FeltRng, S: Store>(
-    mut client: Client<N, R, S>,
-    tag: u32,
-) -> Result<(), String> {
-    client.remove_note_tag(tag.into())?;
-    println!("Tag {} removed", tag);
     Ok(())
 }

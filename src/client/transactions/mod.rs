@@ -1,4 +1,7 @@
-use alloc::collections::{BTreeMap, BTreeSet};
+use alloc::{
+    borrow::Borrow,
+    collections::{BTreeMap, BTreeSet},
+};
 
 use miden_lib::notes::{create_p2id_note, create_p2idr_note};
 use miden_objects::{
@@ -263,7 +266,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
         self.submit_proven_transaction_request(proven_transaction.clone()).await?;
 
-        let note_screener = NoteScreener::new(&self.store);
+        let note_screener: NoteScreener<'_, S> = NoteScreener::new(self.store.borrow());
         let mut relevant_notes = BTreeMap::new();
 
         for (idx, note) in tx_result.created_notes().iter().enumerate() {
