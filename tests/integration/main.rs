@@ -39,9 +39,18 @@ pub const ACCOUNT_ID_REGULAR: u64 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OF
 type TestClient = Client<TonicRpcClient, RpoRandomCoin, SqliteStore>;
 
 const TEST_CLIENT_CONFIG_FILE_PATH: &str = "./tests/config/miden-client.toml";
+/// Creates a `TestClient`
+///
+/// Creates the client using the config at `TEST_CLIENT_CONFIG_FILE_PATH`. The store's path is at a random temporary location, so the store section of the config file is ignored.
+///
+/// # Panics
+///
+/// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
+/// deserialized into a [ClientConfig]
 fn create_test_client() -> TestClient {
-    let mut client_config: ClientConfig =
-        Figment::from(Toml::file(TEST_CLIENT_CONFIG_FILE_PATH)).extract().unwrap();
+    let mut client_config: ClientConfig = Figment::from(Toml::file(TEST_CLIENT_CONFIG_FILE_PATH))
+        .extract()
+        .expect("should be able to read test config at {TEST_CLIENT_CONFIG_FILE_PATH}");
 
     client_config.store = create_test_store_path()
         .into_os_string()
