@@ -216,7 +216,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         let account_id = transaction_request.account_id();
         self.tx_executor
             .load_account(account_id)
-            .map_err(ClientError::TransactionExecutionError)?;
+            .map_err(ClientError::TransactionExecutorError)?;
 
         let block_num = self.store.get_sync_height()?;
 
@@ -296,7 +296,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     {
         self.tx_executor
             .compile_tx_script(program, inputs, target_account_procs)
-            .map_err(ClientError::TransactionExecutionError)
+            .map_err(ClientError::TransactionExecutorError)
     }
 
     async fn submit_proven_transaction_request(

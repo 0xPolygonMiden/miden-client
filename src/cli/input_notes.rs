@@ -321,8 +321,8 @@ mod tests {
             rng,
             store,
             executor_store,
-        )
-        .unwrap();
+            true,
+        );
 
         // generate test data
         let assembler = TransactionKernel::assembler();
@@ -372,8 +372,8 @@ mod tests {
             rng,
             store,
             executor_store,
-        )
-        .unwrap();
+            true,
+        );
 
         import_note(&mut client, filename_path).unwrap();
         let imported_note_record: InputNoteRecord =
@@ -406,8 +406,8 @@ mod tests {
             rng,
             store,
             executor_store,
-        )
-        .unwrap();
+            true,
+        );
 
         // Ensure we get an error if no note is found
         let non_existent_note_id = "0x123456";
