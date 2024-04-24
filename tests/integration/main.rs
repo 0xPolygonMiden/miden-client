@@ -123,7 +123,7 @@ async fn setup(
     accounts_storage_mode: AccountStorageMode,
 ) -> (Account, Account, Account) {
     // Enusre clean state
-    assert!(client.get_accounts().unwrap().is_empty());
+    assert!(client.get_account_stubs().unwrap().is_empty());
     assert!(client.get_transactions(TransactionFilter::All).unwrap().is_empty());
     assert!(client.get_input_notes(NoteFilter::All).unwrap().is_empty());
 
