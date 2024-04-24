@@ -79,8 +79,8 @@ let payment_transaction = PaymentTransactionData::new(
     target_account_id,
 );
 
-let transaction_template: TransactionTemplate = TransactionTemplate::P2ID(payment_transaction);
-let transaction_request = client.build_transaction_request(transaction_template).unwrap();
+let transaction_template: TransactionTemplate = TransactionTemplate::PayToId(payment_transaction, NoteType::OffChain);
+let transaction_request = client.build_transaction_request(transaction_template)?;
 
 // Execute transaction. No information is tracked after this.
 let transaction_execution_result = client.new_transaction(transaction_request.clone())?;
@@ -89,4 +89,5 @@ let transaction_execution_result = client.new_transaction(transaction_request.cl
 client.send_transaction(transaction_execution_result).await?
 ```
 
-You may also execute a transaction by manually defining a `TransactionRequest` instance. This allows you to run custom code, with custom note arguments as well.
+You can decide whether you want the note details to be public or private through the second parameter of the `TransactionTemplate` enum.
+You may also execute a transaction by manually defining a `TransactionRequest` instance. This allows you to run custom code, with custom note arguments as well. 
