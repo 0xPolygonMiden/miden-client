@@ -125,13 +125,40 @@ After a transaction gets executed, two entities start being tracked:
 For `consume-notes` subcommand, you can also provide a partial ID instead of the full ID for each note. So instead of 
 
 ```sh
-miden-client consume-notes <some-account-id> 0x70b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0 0x80b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0
+miden-client tx new consume-notes <some-account-id> 0x70b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0 0x80b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0
 ``` 
 
 You can do: 
 
 ```sh
-miden-client consume-notes <some-account-id> 0x70b7ecb 0x80b7ecb
+miden-client tx new consume-notes <some-account-id> 0x70b7ecb 0x80b7ecb
+```
+
+#### Transaction confirmation
+
+When creating a new transaction, a summary of the transaction updates will be shown and confirmation for those updates will be prompted:
+
+```sh
+miden-client tx new ...
+
+TX Summary:
+
+...
+
+Proceed? (Y/N)
+```
+
+This confirmation can be skipped in non-interactive environments by providing the `--force` flag:
+
+```sh
+miden-client tx new ...
+
+TX Summary:
+
+...
+
+# no "Proceed?" here
+Proving and then submitting...
 ```
 
 For every command which needs an account ID (either wallet or faucet), you can also provide a partial ID instead of the full ID for each account. So instead of

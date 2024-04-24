@@ -98,6 +98,9 @@ pub enum Transaction {
     New {
         #[clap(subcommand)]
         transaction_type: TransactionType,
+        /// Flag to submit the executed transaction without asking for confirmation
+        #[clap(short, long, default_value_t = false)]
+        force: bool,
     },
 }
 
@@ -110,8 +113,8 @@ impl Transaction {
             Transaction::List => {
                 list_transactions(client)?;
             },
-            Transaction::New { transaction_type } => {
-                new_transaction(&mut client, transaction_type).await?;
+            Transaction::New { transaction_type, force } => {
+                new_transaction(&mut client, transaction_type, *force).await?;
             },
         }
         Ok(())
@@ -123,6 +126,7 @@ impl Transaction {
 async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: &mut Client<N, R, S>,
     transaction_type: &TransactionType,
+    force: bool,
 ) -> Result<(), String> {
     let transaction_template: TransactionTemplate =
         build_transaction_template(client, transaction_type)?;
@@ -134,12 +138,14 @@ async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store>(
 
     // Show delta and ask for confirmation
     print_transaction_delta(transaction_execution_result.account_delta());
-    println!("Proceed? (Y/N)");
-    let mut proceed_str: String = String::new();
-    io::stdin().read_line(&mut proceed_str).expect("Should read line");
+    if !force {
+        println!("Proceed? (Y/N)");
+        let mut proceed_str: String = String::new();
+        io::stdin().read_line(&mut proceed_str).expect("Should read line");
 
-    if proceed_str.trim().to_lowercase() != "y" {
-        return Ok(());
+        if proceed_str.trim().to_lowercase() != "y" {
+            return Ok(());
+        }
     }
 
     info!("Proving and then submitting...");
