@@ -551,7 +551,7 @@ async fn test_p2idr_transfer_consumed_by_sender() {
     assert!(transaction_execution_result.is_err_and(|err| {
         matches!(
             err,
-            ClientError::TransactionExecutionError(
+            ClientError::TransactionExecutorError(
                 TransactionExecutorError::ExecuteTransactionProgramFailed(_)
             )
         )
