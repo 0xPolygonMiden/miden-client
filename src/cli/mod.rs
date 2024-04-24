@@ -121,7 +121,7 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
     table
 }
 
-/// Returns all client's notes whose ID starts with `note_id_prefix`
+/// Returns the client note whose ID starts with `note_id_prefix`
 ///
 /// # Errors
 ///
@@ -133,7 +133,7 @@ pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: &Client<N, R, S>,
     note_id_prefix: &str,
 ) -> Result<InputNoteRecord, IdPrefixFetchError> {
-    let input_note_records = client
+    let mut input_note_records = client
         .get_input_notes(ClientNoteFilter::All)
         .map_err(|err| {
             tracing::error!("Error when fetching all notes from the store: {err}");
@@ -163,10 +163,12 @@ pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>(
         ));
     }
 
-    Ok(input_note_records[0].clone())
+    Ok(input_note_records
+        .pop()
+        .expect("input_note_records should always have one element"))
 }
 
-/// Returns all client's accounts whose ID starts with `account_id_prefix`
+/// Returns the client account whose ID starts with `account_id_prefix`
 ///
 /// # Errors
 ///
@@ -178,7 +180,7 @@ pub(crate) fn get_account_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>
     client: &Client<N, R, S>,
     account_id_prefix: &str,
 ) -> Result<AccountStub, IdPrefixFetchError> {
-    let accounts = client
+    let mut accounts = client
         .get_accounts()
         .map_err(|err| {
             tracing::error!("Error when fetching all accounts from the store: {err}");
@@ -188,6 +190,7 @@ pub(crate) fn get_account_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>
         })?
         .into_iter()
         .filter(|(account_stub, _)| account_stub.id().to_hex().starts_with(account_id_prefix))
+        .map(|(acc, _)| acc)
         .collect::<Vec<_>>();
 
     if accounts.is_empty() {
@@ -196,8 +199,7 @@ pub(crate) fn get_account_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>
         ));
     }
     if accounts.len() > 1 {
-        let account_ids =
-            accounts.iter().map(|(account_stub, _)| account_stub.id()).collect::<Vec<_>>();
+        let account_ids = accounts.iter().map(|account_stub| account_stub.id()).collect::<Vec<_>>();
         tracing::error!(
             "Multiple accounts found for the prefix {}: {:?}",
             account_id_prefix,
@@ -208,5 +210,5 @@ pub(crate) fn get_account_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>
         ));
     }
 
-    Ok(accounts[0].0.clone())
+    Ok(accounts.pop().expect("account_ids should always have one element"))
 }
