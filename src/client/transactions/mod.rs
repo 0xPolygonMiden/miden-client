@@ -208,7 +208,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     ///
     /// - Returns [ClientError::MissingOutputNotes] if the [TransactionRequest] ouput notes are
     ///   not a subset of executor's output notes
-    /// - Returns a [ClientError::TransactionExecutionError]
+    /// - Returns a [ClientError::TransactionExecutorError] if the execution fails
     pub fn new_transaction(
         &mut self,
         transaction_request: TransactionRequest,
