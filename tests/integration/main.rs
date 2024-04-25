@@ -741,7 +741,7 @@ async fn mint_custom_note(
 ) -> Note {
     // Prepare transaction
     let mut random_coin = RpoRandomCoin::new(Default::default());
-    let note = create_custom_note(faucet_account_id, target_account_id, &mut random_coin);
+    let note = create_custom_note(client, faucet_account_id, target_account_id, &mut random_coin);
 
     let recipient = note
         .recipient_digest()
@@ -799,12 +799,11 @@ async fn mint_custom_note(
 }
 
 fn create_custom_note(
+    client: &TestClient,
     faucet_account_id: AccountId,
     target_account_id: AccountId,
     rng: &mut RpoRandomCoin,
 ) -> Note {
-    let assembler = TransactionKernel::assembler();
-
     let expected_note_arg = [Felt::new(9), Felt::new(12), Felt::new(18), Felt::new(3)]
         .iter()
         .map(|x| x.to_string())
@@ -814,7 +813,7 @@ fn create_custom_note(
     let note_script =
         include_str!("asm/custom_p2id.masm").replace("{expected_note_arg}", &expected_note_arg);
     let note_script = ProgramAst::parse(&note_script).unwrap();
-    let (note_script, _) = NoteScript::new(note_script, &assembler).unwrap();
+    let note_script = client.compile_note_script(note_script, vec![]).unwrap();
 
     let inputs = NoteInputs::new(vec![target_account_id.into()]).unwrap();
     let serial_num = rng.draw_word();
