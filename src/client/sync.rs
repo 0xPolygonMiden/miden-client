@@ -210,12 +210,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             return Ok(SyncStatus::SyncedToLastBlock(current_block_num));
         }
 
-        let incoming_block_has_relevant_notes = self
-            .check_block_relevance(&response.note_inclusions, &response.block_header)
-            .await?;
-
         let new_note_details =
             self.get_note_details(response.note_inclusions, &response.block_header).await?;
+
+        let incoming_block_has_relevant_notes =
+            self.check_block_relevance(&new_note_details).await?;
 
         let (onchain_accounts, offchain_accounts): (Vec<_>, Vec<_>) =
             accounts.into_iter().partition(|account_stub| account_stub.id().is_on_chain());
@@ -419,65 +418,23 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     /// proof in order to correctly update store data
     async fn check_block_relevance(
         &mut self,
-        committed_notes: &[CommittedNote],
-        block_header: &BlockHeader,
+        committed_notes: &SyncedNewNotes,
     ) -> Result<bool, ClientError> {
         // We'll only do the check for either incoming public notes or pending input notes as
         // output notes are not really candidates to be consumed here.
-
-        let pending_input_notes: BTreeMap<NoteId, InputNoteRecord> = self
-            .store
-            .get_input_notes(NoteFilter::Pending)?
-            .into_iter()
-            .map(|n| (n.id(), n))
-            .collect();
-
-        let pending_output_note_ids: BTreeSet<NoteId> = self
-            .store
-            .get_input_notes(NoteFilter::Pending)?
-            .into_iter()
-            .map(|n| n.id())
-            .collect();
-
-        // Find all relevant Public Notes with the note checker
-        let new_public_notes = committed_notes
-            .iter()
-            .filter(|committed_note| {
-                !pending_input_notes.contains_key(committed_note.note_id())
-                    && !pending_output_note_ids.contains(committed_note.note_id())
-            })
-            .map(|committed_note| *committed_note.note_id())
-            .collect::<Vec<_>>();
-
-        // Query the node for input note data and build the entities
-        let public_notes = self.fetch_public_note_details(&new_public_notes, block_header).await?;
 
         let note_screener = NoteScreener::new(&self.store);
 
         // Find all relevant Input Notes using the note checker
         let mut relevant_commited_notes_count = 0;
-        for committed_note in committed_notes {
-            if let Some(note_record) = pending_input_notes.get(committed_note.note_id()) {
-                let note_inputs = NoteInputs::new(note_record.details().inputs().clone())?;
-                let note_recipient = NoteRecipient::new(
-                    note_record.details().serial_num(),
-                    note_record.details().script().clone(),
-                    note_inputs,
-                );
-                let note = Note::new(
-                    note_record.assets().clone(),
-                    committed_note.metadata(),
-                    note_recipient,
-                );
-
-                if !note_screener.check_relevance(&note)?.is_empty() {
-                    relevant_commited_notes_count += 1;
-                }
+        for input_note in committed_notes.updated_input_notes() {
+            if !note_screener.check_relevance(input_note.note())?.is_empty() {
+                relevant_commited_notes_count += 1;
             }
         }
 
         let mut relevant_public_notes_count = 0;
-        for public_input_note in public_notes {
+        for public_input_note in committed_notes.new_public_notes() {
             if !note_screener.check_relevance(public_input_note.note())?.is_empty() {
                 relevant_public_notes_count += 1;
             }
