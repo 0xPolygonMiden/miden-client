@@ -159,7 +159,15 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
         let stored_note_tags: Vec<NoteTag> = self.store.get_note_tags()?;
 
-        let note_tags = [account_note_tags, stored_note_tags].concat();
+        let uncommited_note_tags: Vec<NoteTag> = self
+            .store
+            .get_input_notes(NoteFilter::Pending)?
+            .iter()
+            .filter(|note| note.metadata().is_some())
+            .map(|note| note.metadata().expect("Notes should have metadata after filter").tag())
+            .collect();
+
+        let note_tags = [account_note_tags, stored_note_tags, uncommited_note_tags].concat();
 
         // To receive information about added nullifiers, we reduce them to the higher 16 bits
         // Note that besides filtering by nullifier prefixes, the node also filters by block number
