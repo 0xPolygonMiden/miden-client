@@ -77,11 +77,15 @@ pub enum InputNotes {
         /// Path to the file that contains the input note data
         #[clap()]
         filename: PathBuf,
+
+        /// Verify note's existance in the chain
+        #[clap(short, long, default_value = "true")]
+        verify: bool,
     },
 }
 
 impl InputNotes {
-    pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store>(
+    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store>(
         &self,
         mut client: Client<N, R, S>,
     ) -> Result<(), String> {
@@ -103,8 +107,8 @@ impl InputNotes {
                 export_note(&client, id, filename.clone())?;
                 println!("Succesfully exported note {}", id);
             },
-            InputNotes::Import { filename } => {
-                let note_id = import_note(&mut client, filename.clone())?;
+            InputNotes::Import { filename, verify } => {
+                let note_id = import_note(&mut client, filename.clone(), *verify).await?;
                 println!("Succesfully imported note {}", note_id.inner());
             },
         }
@@ -150,9 +154,10 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store>(
 
 // IMPORT INPUT NOTE
 // ================================================================================================
-pub fn import_note<N: NodeRpcClient, R: FeltRng, S: Store>(
+pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: &mut Client<N, R, S>,
     filename: PathBuf,
+    verify: bool,
 ) -> Result<NoteId, String> {
     let mut contents = vec![];
     let mut _file = File::open(filename)
@@ -165,7 +170,10 @@ pub fn import_note<N: NodeRpcClient, R: FeltRng, S: Store>(
         InputNoteRecord::read_from_bytes(&contents).map_err(|err| err.to_string())?;
 
     let note_id = input_note_record.id();
-    client.import_input_note(input_note_record)?;
+    client
+        .import_input_note(input_note_record, verify)
+        .await
+        .map_err(|err| err.to_string())?;
 
     Ok(note_id)
 }
@@ -346,8 +354,8 @@ mod tests {
         let committed_note: InputNoteRecord = committed_notes.first().unwrap().clone().into();
         let pending_note = InputNoteRecord::from(created_notes.first().unwrap().clone());
 
-        client.import_input_note(committed_note.clone()).unwrap();
-        client.import_input_note(pending_note.clone()).unwrap();
+        client.import_input_note(committed_note.clone(), false).await.unwrap();
+        client.import_input_note(pending_note.clone(), false).await.unwrap();
         assert!(pending_note.inclusion_proof().is_none());
         assert!(committed_note.inclusion_proof().is_some());
 
@@ -389,13 +397,13 @@ mod tests {
             true,
         );
 
-        import_note(&mut client, filename_path).unwrap();
+        import_note(&mut client, filename_path, false).await.unwrap();
         let imported_note_record: InputNoteRecord =
             client.get_input_note(committed_note.id()).unwrap();
 
         assert_eq!(committed_note.id(), imported_note_record.id());
 
-        import_note(&mut client, filename_path_pending).unwrap();
+        import_note(&mut client, filename_path_pending, false).await.unwrap();
         let imported_pending_note_record = client.get_input_note(pending_note.id()).unwrap();
 
         assert_eq!(imported_pending_note_record.id(), pending_note.id());
@@ -438,8 +446,8 @@ mod tests {
         let committed_note: InputNoteRecord = notes.first().unwrap().clone().into();
         let pending_note = InputNoteRecord::from(created_notes.first().unwrap().clone());
 
-        client.import_input_note(committed_note.clone()).unwrap();
-        client.import_input_note(pending_note.clone()).unwrap();
+        client.import_input_note(committed_note.clone(), false).await.unwrap();
+        client.import_input_note(pending_note.clone(), false).await.unwrap();
         assert!(pending_note.inclusion_proof().is_none());
         assert!(committed_note.inclusion_proof().is_some());
 

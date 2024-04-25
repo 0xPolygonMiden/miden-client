@@ -29,7 +29,30 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     // --------------------------------------------------------------------------------------------
 
     /// Imports a new input note into the client's store.
-    pub fn import_input_note(&mut self, note: InputNoteRecord) -> Result<(), ClientError> {
+    pub async fn import_input_note(
+        &mut self,
+        note: InputNoteRecord,
+        verify: bool,
+    ) -> Result<(), ClientError> {
+        if verify {
+            let mut chain_notes = self.rpc_api.get_notes_by_id(&[note.id()]).await?;
+
+            if chain_notes.is_empty() {
+                return Err(ClientError::ExistanceVerificationError(note.id()));
+            }
+
+            let note_details =
+                chain_notes.pop().expect("chain_notes should have at least one element");
+
+            let inclusion_details = match note_details {
+                super::rpc::NoteDetails::OffChain(_, _, inclusion) => inclusion,
+                super::rpc::NoteDetails::Public(_, inclusion) => inclusion,
+            };
+
+            if self.get_sync_height()? > inclusion_details.block_num {
+                //Set inclusion proof
+            }
+        }
         self.store.insert_input_note(&note).map_err(|err| err.into())
     }
 
