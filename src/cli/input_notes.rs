@@ -355,6 +355,7 @@ mod tests {
         let pending_note = InputNoteRecord::from(created_notes.first().unwrap().clone());
 
         client.import_input_note(committed_note.clone(), false).await.unwrap();
+        assert!(client.import_input_note(pending_note.clone(), true).await.is_err());
         client.import_input_note(pending_note.clone(), false).await.unwrap();
         assert!(pending_note.inclusion_proof().is_none());
         assert!(committed_note.inclusion_proof().is_some());

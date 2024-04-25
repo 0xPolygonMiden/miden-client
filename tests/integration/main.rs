@@ -1020,3 +1020,57 @@ async fn test_onchain_notes_sync_with_tag() {
     assert_eq!(received_note.note(), &note);
     assert!(client_3.get_input_notes(NoteFilter::All).unwrap().is_empty());
 }
+
+#[tokio::test]
+async fn test_import_pending_notes() {
+    let mut client_1 = create_test_client();
+    let (first_basic_account, second_basic_account, faucet_account) =
+        setup(&mut client_1, AccountStorageMode::Local).await;
+    let mut client_2 = create_test_client();
+    wait_for_node(&mut client_2).await;
+    client_1.sync_state().await.unwrap();
+    client_2.sync_state().await.unwrap();
+
+    let tx_template = TransactionTemplate::MintFungibleAsset(
+        FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap().into(),
+        first_basic_account.id(),
+        NoteType::OffChain,
+    );
+
+    let tx_request = client_1.build_transaction_request(tx_template).unwrap();
+    let note = tx_request.expected_output_notes()[0].clone();
+
+    // If the verification is requested before execution then the import should fail
+    assert!(client_2.import_input_note(note.clone().into(), true).await.is_err());
+    execute_tx_and_sync(&mut client_1, tx_request).await;
+    client_2.sync_state().await.unwrap();
+
+    client_2.import_input_note(note.clone().into(), true).await.unwrap();
+    let input_note = client_2.get_input_note(note.id()).unwrap();
+
+    // If imported after execution then the inclusion proof should be Some
+    assert!(input_note.inclusion_proof().is_some());
+
+    let tx_template = TransactionTemplate::MintFungibleAsset(
+        FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap().into(),
+        first_basic_account.id(),
+        NoteType::OffChain,
+    );
+
+    let tx_request = client_1.build_transaction_request(tx_template).unwrap();
+    let note = tx_request.expected_output_notes()[0].clone();
+
+    // Import an uncommited note without verification
+    client_2.import_input_note(note.clone().into(), false).await.unwrap();
+    let input_note = client_2.get_input_note(note.id()).unwrap();
+
+    // If imported before execution then the inclusion proof should be None
+    assert!(input_note.inclusion_proof().is_none());
+
+    execute_tx_and_sync(&mut client_1, tx_request).await;
+    client_2.sync_state().await.unwrap();
+
+    // After sync, the imported note should have inclusion proof even if it's not relevant for its accounts.
+    let input_note = client_2.get_input_note(note.id()).unwrap();
+    assert!(input_note.inclusion_proof().is_some());
+}
