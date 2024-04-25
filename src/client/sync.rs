@@ -31,30 +31,43 @@ pub enum SyncStatus {
 pub struct SyncedNewNotes {
     /// A list of public notes that have been received on sync
     new_public_notes: Vec<InputNote>,
+    /// A list of input notes corresponding to updated locally-tracked input notes
+    updated_input_notes: Vec<InputNote>,
     /// A list of note IDs alongside their inclusion proofs for locally-tracked
-    /// notes
-    new_inclusion_proofs: Vec<(NoteId, NoteInclusionProof)>,
+    /// output notes
+    updated_output_notes: Vec<(NoteId, NoteInclusionProof)>,
 }
 
 impl SyncedNewNotes {
     pub fn new(
         new_public_notes: Vec<InputNote>,
-        new_inclusion_proofs: Vec<(NoteId, NoteInclusionProof)>,
+        updated_input_notes: Vec<InputNote>,
+        updated_output_notes: Vec<(NoteId, NoteInclusionProof)>,
     ) -> Self {
-        Self { new_public_notes, new_inclusion_proofs }
+        Self {
+            new_public_notes,
+            updated_input_notes,
+            updated_output_notes,
+        }
     }
 
     pub fn new_public_notes(&self) -> &[InputNote] {
         &self.new_public_notes
     }
 
-    pub fn new_inclusion_proofs(&self) -> &[(NoteId, NoteInclusionProof)] {
-        &self.new_inclusion_proofs
+    pub fn updated_input_notes(&self) -> &[InputNote] {
+        &self.updated_input_notes
+    }
+
+    pub fn updated_output_notes(&self) -> &[(NoteId, NoteInclusionProof)] {
+        &self.updated_output_notes
     }
 
     /// Returns whether no new note-related information has been retrieved
     pub fn is_empty(&self) -> bool {
-        self.new_inclusion_proofs.is_empty() && self.new_public_notes.is_empty()
+        self.updated_input_notes.is_empty()
+            && self.updated_output_notes.is_empty()
+            && self.new_public_notes.is_empty()
     }
 }
 
@@ -230,15 +243,18 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             )?
         };
 
-        let note_ids: Vec<NoteId> =
-            new_note_details.new_inclusion_proofs.iter().map(|(id, _)| (*id)).collect();
+        let updated_output_note_ids: Vec<NoteId> = new_note_details
+            .updated_output_notes()
+            .iter()
+            .map(|(output_note_id, _)| *output_note_id)
+            .collect();
 
         let uncommitted_transactions =
             self.store.get_transactions(TransactionFilter::Uncomitted)?;
 
         let transactions_to_commit = get_transactions_to_commit(
             &uncommitted_transactions,
-            &note_ids,
+            &updated_output_note_ids,
             &new_nullifiers,
             &response.account_hash_updates,
         );
@@ -281,35 +297,67 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         // we might get many notes when we only care about a few of those.
 
         let mut new_public_notes = vec![];
-        let mut local_notes_proofs = vec![];
+        let mut local_input_notes = vec![];
+        let mut local_output_notes_proofs = vec![];
 
-        let pending_input_notes =
-            self.store.get_input_notes(NoteFilter::Pending)?.into_iter().map(|n| n.id());
+        let pending_input_notes: BTreeMap<NoteId, InputNoteRecord> = self
+            .store
+            .get_input_notes(NoteFilter::Pending)?
+            .into_iter()
+            .map(|n| (n.id(), n))
+            .collect();
 
-        let pending_output_notes =
-            self.store.get_output_notes(NoteFilter::Pending)?.into_iter().map(|n| n.id());
-
-        let mut all_pending_notes: BTreeSet<NoteId> = BTreeSet::new();
-
-        pending_input_notes.chain(pending_output_notes).for_each(|id| {
-            all_pending_notes.insert(id);
-        });
+        let pending_output_notes: BTreeSet<NoteId> = self
+            .store
+            .get_output_notes(NoteFilter::Pending)?
+            .into_iter()
+            .map(|n| n.id())
+            .collect();
 
         for committed_note in committed_notes {
-            if all_pending_notes.contains(committed_note.note_id()) {
+            if let Some(note_record) = pending_input_notes.get(committed_note.note_id()) {
                 // The note belongs to our locally tracked set of pending notes, build the inclusion proof
-                let note_with_inclusion_proof = NoteInclusionProof::new(
+                let note_inclusion_proof = NoteInclusionProof::new(
+                    block_header.block_num(),
+                    block_header.sub_hash(),
+                    block_header.note_root(),
+                    committed_note.note_index().into(),
+                    committed_note.merkle_path().clone(),
+                )?;
+
+                let note_inputs = NoteInputs::new(note_record.details().inputs().clone())?;
+                let note_recipient = NoteRecipient::new(
+                    note_record.details().serial_num(),
+                    note_record.details().script().clone(),
+                    note_inputs,
+                );
+                let note = Note::new(
+                    note_record.assets().clone(),
+                    committed_note.metadata(),
+                    note_recipient,
+                );
+
+                let input_note = InputNote::new(note, note_inclusion_proof);
+
+                local_input_notes.push(input_note);
+            }
+
+            if pending_output_notes.contains(committed_note.note_id()) {
+                let note_id_with_inclusion_proof = NoteInclusionProof::new(
                     block_header.block_num(),
                     block_header.sub_hash(),
                     block_header.note_root(),
                     committed_note.note_index().into(),
                     committed_note.merkle_path().clone(),
                 )
-                .map_err(ClientError::NoteError)
-                .map(|proof| (*committed_note.note_id(), proof))?;
+                .map(|note_inclusion_proof| (*committed_note.note_id(), note_inclusion_proof))?;
 
-                local_notes_proofs.push(note_with_inclusion_proof);
-            } else {
+                local_output_notes_proofs.push(note_id_with_inclusion_proof);
+            }
+
+            if !pending_input_notes.contains_key(committed_note.note_id())
+                && !pending_output_notes.contains(committed_note.note_id())
+            {
                 // The note is public and we are not tracking it, push to the list of IDs to query
                 new_public_notes.push(*committed_note.note_id());
             }
@@ -319,7 +367,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         let new_public_notes =
             self.fetch_public_note_details(&new_public_notes, block_header).await?;
 
-        Ok(SyncedNewNotes::new(new_public_notes, local_notes_proofs))
+        Ok(SyncedNewNotes::new(
+            new_public_notes,
+            local_input_notes,
+            local_output_notes_proofs,
+        ))
     }
 
     /// Queries the node for all received notes that are not being locally tracked in the client
@@ -370,9 +422,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         committed_notes: &[CommittedNote],
         block_header: &BlockHeader,
     ) -> Result<bool, ClientError> {
-        // We'll only pick committed notes that we are tracking as input/output notes. Since the
-        // sync response contains notes matching either the provided accounts or the provided tag
-        // we might get many notes when we only care about a few of those.
+        // We'll only do the check for either incoming public notes or pending input notes as
+        // output notes are not really candidates to be consumed here.
 
         let pending_input_notes: BTreeMap<NoteId, InputNoteRecord> = self
             .store
@@ -403,15 +454,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
         let note_screener = NoteScreener::new(&self.store);
 
-        // Find all relevant Input Notes with the note checker
-        let relevant_commited_notes = committed_notes
-            .iter()
-            .filter_map(|committed_note| {
-                pending_input_notes
-                    .get(committed_note.note_id())
-                    .map(|note_record| (committed_note, note_record))
-            })
-            .map(|(committed_note, note_record)| {
+        // Find all relevant Input Notes using the note checker
+        let mut relevant_commited_notes_count = 0;
+        for committed_note in committed_notes {
+            if let Some(note_record) = pending_input_notes.get(committed_note.note_id()) {
                 let note_inputs = NoteInputs::new(note_record.details().inputs().clone())?;
                 let note_recipient = NoteRecipient::new(
                     note_record.details().serial_num(),
@@ -423,22 +469,21 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
                     committed_note.metadata(),
                     note_recipient,
                 );
-                Ok(note_screener.check_relevance(&note)?)
-            })
-            .collect::<Result<Vec<_>, ClientError>>()?
-            .iter()
-            .filter(|note_relevance| !note_relevance.is_empty())
-            .count();
 
-        let relevant_public_notes = public_notes
-            .iter()
-            .map(|input_note| Ok(note_screener.check_relevance(input_note.note())?))
-            .collect::<Result<Vec<_>, ClientError>>()?
-            .iter()
-            .filter(|note_relevance| !note_relevance.is_empty())
-            .count();
+                if !note_screener.check_relevance(&note)?.is_empty() {
+                    relevant_commited_notes_count += 1;
+                }
+            }
+        }
 
-        Ok(relevant_commited_notes > 0 || relevant_public_notes > 0)
+        let mut relevant_public_notes_count = 0;
+        for public_input_note in public_notes {
+            if !note_screener.check_relevance(public_input_note.note())?.is_empty() {
+                relevant_public_notes_count += 1;
+            }
+        }
+
+        Ok(relevant_commited_notes_count > 0 || relevant_public_notes_count > 0)
     }
 
     /// Builds the current view of the chain's [PartialMmr]. Because we want to add all new

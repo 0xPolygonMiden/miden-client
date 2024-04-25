@@ -105,8 +105,8 @@ impl SqliteStore {
         // Insert new authentication nodes (inner nodes of the PartialMmr)
         Self::insert_chain_mmr_nodes(&tx, &new_authentication_nodes)?;
 
-        // Update tracked notes
-        for (note_id, inclusion_proof) in committed_notes.new_inclusion_proofs().iter() {
+        // Update tracked output notes
+        for (note_id, inclusion_proof) in committed_notes.updated_output_notes().iter() {
             let block_num = inclusion_proof.origin().block_num;
             let sub_hash = inclusion_proof.sub_hash();
             let note_root = inclusion_proof.note_root();
@@ -121,17 +121,6 @@ impl SqliteStore {
             )?)
             .map_err(StoreError::InputSerializationError)?;
 
-            const COMMITTED_INPUT_NOTES_QUERY: &str =
-                "UPDATE input_notes SET status = 'Committed', inclusion_proof = json(:inclusion_proof) WHERE note_id = :note_id";
-
-            tx.execute(
-                COMMITTED_INPUT_NOTES_QUERY,
-                named_params! {
-                    ":inclusion_proof": inclusion_proof,
-                    ":note_id": note_id.inner().to_hex(),
-                },
-            )?;
-
             // Update output notes
             const COMMITTED_OUTPUT_NOTES_QUERY: &str =
                 "UPDATE output_notes SET status = 'Committed', inclusion_proof = json(:inclusion_proof) WHERE note_id = :note_id";
@@ -141,6 +130,29 @@ impl SqliteStore {
                 named_params! {
                     ":inclusion_proof": inclusion_proof,
                     ":note_id": note_id.inner().to_hex(),
+                },
+            )?;
+        }
+
+        // Update tracked input notes
+        for input_note in committed_notes.updated_input_notes().iter() {
+            let inclusion_proof = input_note.proof();
+            let metadata = input_note.note().metadata();
+
+            let inclusion_proof = serde_json::to_string(inclusion_proof)
+                .map_err(StoreError::InputSerializationError)?;
+            let metadata =
+                serde_json::to_string(metadata).map_err(StoreError::InputSerializationError)?;
+
+            const COMMITTED_INPUT_NOTES_QUERY: &str =
+                "UPDATE input_notes SET status = 'Committed', inclusion_proof = json(:inclusion_proof), metadata = json(:metadata) WHERE note_id = :note_id";
+
+            tx.execute(
+                COMMITTED_INPUT_NOTES_QUERY,
+                named_params! {
+                    ":inclusion_proof": inclusion_proof,
+                    ":metadata": metadata,
+                    ":note_id": input_note.id().inner().to_hex(),
                 },
             )?;
         }
