@@ -49,7 +49,7 @@ args = ["-rf", "miden-node"]
 description = "Clone or update miden-node repository and clean up files"
 script_runner = "bash"
 script = [
-    'if [ -d miden-node ]; then cd miden-node && git pull && cargo update; else git clone https://github.com/0xPolygonMiden/miden-node.git && cd miden-node && cargo update; fi',
+    'if [ -d miden-node ]; then cd miden-node && git checkout tags/v0.2.0; else git clone https://github.com/0xPolygonMiden/miden-node.git && cd miden-node && git checkout tags/v0.2.0; fi',
     'rm -rf miden-store.sqlite3 miden-store.sqlite3-wal miden-store.sqlite3-shm',
     'cargo run --bin $NODE_BINARY --features $NODE_FEATURES_TESTING -- make-genesis --inputs-path node/genesis.toml --force'
 ]
