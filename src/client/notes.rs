@@ -1,7 +1,7 @@
 use miden_objects::{
     assembly::ProgramAst,
     crypto::rand::FeltRng,
-    notes::{NoteId, NoteScript},
+    notes::{NoteId, NoteInclusionProof, NoteScript},
 };
 use miden_tx::ScriptTarget;
 
@@ -31,28 +31,55 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     /// Imports a new input note into the client's store.
     pub async fn import_input_note(
         &mut self,
-        note: InputNoteRecord,
+        mut note: InputNoteRecord,
         verify: bool,
     ) -> Result<(), ClientError> {
-        if verify {
-            let mut chain_notes = self.rpc_api.get_notes_by_id(&[note.id()]).await?;
-
-            if chain_notes.is_empty() {
-                return Err(ClientError::ExistanceVerificationError(note.id()));
-            }
-
-            let note_details =
-                chain_notes.pop().expect("chain_notes should have at least one element");
-
-            let inclusion_details = match note_details {
-                super::rpc::NoteDetails::OffChain(_, _, inclusion) => inclusion,
-                super::rpc::NoteDetails::Public(_, inclusion) => inclusion,
-            };
-
-            if self.get_sync_height()? > inclusion_details.block_num {
-                //Set inclusion proof
-            }
+        if !verify {
+            return self.store.insert_input_note(&note).map_err(|err| err.into());
         }
+
+        // Verify that note exists in chain
+        let mut chain_notes = self.rpc_api.get_notes_by_id(&[note.id()]).await?;
+
+        if chain_notes.is_empty() {
+            return Err(ClientError::ExistanceVerificationError(note.id()));
+        }
+
+        let note_details = chain_notes.pop().expect("chain_notes should have at least one element");
+
+        let inclusion_details = match note_details {
+            super::rpc::NoteDetails::OffChain(_, _, inclusion) => inclusion,
+            super::rpc::NoteDetails::Public(_, inclusion) => inclusion,
+        };
+
+        if note.inclusion_proof().is_none()
+            && self.get_sync_height()? >= inclusion_details.block_num
+        {
+            // Add the inclusion proof to the imported note
+            let block_header = self
+                .rpc_api
+                .get_block_header_by_number(Some(inclusion_details.block_num))
+                .await?;
+
+            let inclusion_proof = NoteInclusionProof::new(
+                inclusion_details.block_num,
+                block_header.sub_hash(),
+                block_header.note_root(),
+                inclusion_details.note_index.into(),
+                inclusion_details.merkle_path,
+            )?;
+
+            note = InputNoteRecord::new(
+                note.id(),
+                note.recipient(),
+                note.assets().clone(),
+                note.status(),
+                note.metadata().copied(),
+                Some(inclusion_proof),
+                note.details().clone(),
+            );
+        }
+
         self.store.insert_input_note(&note).map_err(|err| err.into())
     }
 
