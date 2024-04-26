@@ -1,10 +1,12 @@
 # Changelog
 
+* Added nextest to be used as test runner
+* Added config file to run integration tests against a remote node
 * Added `CONTRIBUTING.MD` file.
 * Renamed `format` command from `Makefile.toml` to `check-format` and added a
   new `format` command that applies the formatting.
 
-## 0.2.0 (2024-04-12)
+## 0.2.0 (2024-04-14)
 
 * Added an `init` command to the CLI.
 * Added support for on-chain accounts.

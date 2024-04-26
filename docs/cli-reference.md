@@ -1,3 +1,7 @@
+---
+comments: true
+---
+
 The following document lists the commands that the CLI currently supports. 
 
 !!! note
@@ -8,8 +12,16 @@ The following document lists the commands that the CLI currently supports.
 Call a command on the `miden-client` like this:
 
 ```sh
-miden-client <command> <sub-command> <--flag>
+miden-client <command> <sub-command>
 ```
+
+Optionally, you can include the `--debug` flag to run the command with debug mode, which enables debug output logs from scripts that were compiled in this mode:
+
+```sh
+miden-client --debug <command> <sub-command>
+```
+
+Note that the debug flag overrides the `MIDEN_DEBUG` environment variable.
 
 ## Commands
 
