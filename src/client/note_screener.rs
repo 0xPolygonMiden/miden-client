@@ -1,3 +1,4 @@
+use core::fmt;
 use std::collections::BTreeSet;
 
 use miden_objects::{accounts::AccountId, assets::Asset, notes::Note, Word};
@@ -22,6 +23,15 @@ pub enum NoteRelevance {
     Always,
     /// The note can be consumed after the block with the specified number.
     After(u32),
+}
+
+impl fmt::Display for NoteRelevance {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            NoteRelevance::Always => write!(f, "Always"),
+            NoteRelevance::After(height) => write!(f, "After block {}", height),
+        }
+    }
 }
 
 pub struct NoteScreener<'a, S: Store> {
