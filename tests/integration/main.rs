@@ -1025,25 +1025,12 @@ async fn test_onchain_notes_sync_with_tag() {
 async fn test_get_account_update() {
     let mut client = create_test_client();
 
-    let (basic_wallet_1, _) = client
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::OnChain,
-        })
-        .unwrap();
+    let (basic_wallet_1, _, faucet_account) = setup(&mut client, AccountStorageMode::Local).await;
 
     let (basic_wallet_2, _) = client
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_mode: AccountStorageMode::Local,
-        })
-        .unwrap();
-    let (faucet_account, _) = client
-        .new_account(AccountTemplate::FungibleFaucet {
-            token_symbol: TokenSymbol::new("MATIC").unwrap(),
-            decimals: 8,
-            max_supply: 1_000_000_000,
-            storage_mode: AccountStorageMode::Local,
+            storage_mode: AccountStorageMode::OnChain,
         })
         .unwrap();
 
@@ -1051,14 +1038,17 @@ async fn test_get_account_update() {
         mint_note(&mut client, basic_wallet_1.id(), faucet_account.id(), NoteType::OffChain).await;
     let note2 =
         mint_note(&mut client, basic_wallet_2.id(), faucet_account.id(), NoteType::OffChain).await;
+
+    client.sync_state().await.unwrap();
+
     consume_notes(&mut client, basic_wallet_1.id(), &[note1]).await;
     consume_notes(&mut client, basic_wallet_2.id(), &[note2]).await;
 
     wait_for_node(&mut client).await;
     client.sync_state().await.unwrap();
     let details1 = client.rpc_api().get_account_update(basic_wallet_1.id()).await.unwrap();
-    // let details2 = client.rpc_api().get_account_update(basic_wallet_2.id()).await.unwrap();
+    let details2 = client.rpc_api().get_account_update(basic_wallet_2.id()).await.unwrap();
 
-    // assert!(matches!(details1, AccountDetails::Public(_, _)));
-    // assert!(matches!(details2, AccountDetails::OffChain(_, _)));
+    assert!(matches!(details1, AccountDetails::OffChain(_, _)));
+    assert!(matches!(details2, AccountDetails::Public(_, _)));
 }
