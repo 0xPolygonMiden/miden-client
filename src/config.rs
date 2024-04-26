@@ -149,7 +149,12 @@ pub struct RpcConfig {
     /// Address of the Miden node to connect to.
     pub endpoint: Endpoint,
     /// Timeout for the rpc api requests
+    #[serde(default = "default_timeout")]
     pub timeout_ms: u64,
+}
+
+const fn default_timeout() -> u64 {
+    10000
 }
 
 impl Default for RpcConfig {
