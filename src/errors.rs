@@ -26,7 +26,7 @@ pub enum ClientError {
     NodeRpcClientError(NodeRpcClientError),
     ScreenerError(ScreenerError),
     StoreError(StoreError),
-    TransactionExecutionError(TransactionExecutorError),
+    TransactionExecutorError(TransactionExecutorError),
     TransactionProvingError(TransactionProverError),
 }
 
@@ -57,7 +57,7 @@ impl fmt::Display for ClientError {
             ClientError::NodeRpcClientError(err) => write!(f, "rpc api error: {err}"),
             ClientError::ScreenerError(err) => write!(f, "note screener error: {err}"),
             ClientError::StoreError(err) => write!(f, "store error: {err}"),
-            ClientError::TransactionExecutionError(err) => {
+            ClientError::TransactionExecutorError(err) => {
                 write!(f, "transaction executor error: {err}")
             },
             ClientError::TransactionProvingError(err) => {
@@ -108,7 +108,7 @@ impl From<StoreError> for ClientError {
 
 impl From<TransactionExecutorError> for ClientError {
     fn from(err: TransactionExecutorError) -> Self {
-        Self::TransactionExecutionError(err)
+        Self::TransactionExecutorError(err)
     }
 }
 

@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{env, path::Path};
 
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
@@ -37,6 +37,11 @@ const CLIENT_CONFIG_FILE_NAME: &str = "miden-client.toml";
 pub struct Cli {
     #[clap(subcommand)]
     action: Command,
+
+    /// Activates the executor's debug mode, which enables debug output for scripts
+    /// that were compiled and executed with this mode.
+    #[clap(short, long, default_value_t = false)]
+    debug: bool,
 }
 
 /// CLI actions
@@ -64,12 +69,21 @@ impl Cli {
         let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
         current_dir.push(CLIENT_CONFIG_FILE_NAME);
 
-        // Check if it's an init command before anything else. When we run the init command for the first time we won't
-        // have a config file and thus creating the store would not be possible.
+        // Check if it's an init command before anything else. When we run the init command for
+        // the first time we won't have a config file and thus creating the store would not be
+        // possible.
         if matches!(&self.action, Command::Init) {
             init::initialize_client(current_dir.clone())?;
             return Ok(());
         }
+
+        // Define whether we want to use the executor's debug mode based on the env var and
+        // the flag override
+
+        let in_debug_mode = match env::var("MIDEN_DEBUG") {
+            Ok(value) if value.to_lowercase() == "true" => true,
+            _ => self.debug,
+        };
 
         // Create the client
         let client_config = load_config(current_dir.as_path())?;
@@ -80,8 +94,13 @@ impl Cli {
             miden_client::store::sqlite_store::SqliteStore::new((&client_config).into())
                 .map_err(ClientError::StoreError)?;
 
-        let client: Client<TonicRpcClient, RpoRandomCoin, SqliteStore> =
-            Client::new(TonicRpcClient::new(&rpc_endpoint), rng, store, executor_store)?;
+        let client: Client<TonicRpcClient, RpoRandomCoin, SqliteStore> = Client::new(
+            TonicRpcClient::new(&rpc_endpoint),
+            rng,
+            store,
+            executor_store,
+            in_debug_mode,
+        );
 
         // Execute cli command
         match &self.action {
