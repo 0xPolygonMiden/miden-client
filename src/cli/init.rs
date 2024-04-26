@@ -21,7 +21,7 @@ pub struct InitCmd {
     testnet: bool,
     /// Rpc config in the form of "{hostname}:{port}" or "{hostname}". Unless `--default` is
     /// provided, the user is still asked for input to configure the store
-    #[clap(long, group = "rpc", conflicts_with = "testnet")]
+    #[clap(long, conflicts_with = "testnet")]
     rpc: Option<String>,
 }
 
