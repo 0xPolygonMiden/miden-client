@@ -86,7 +86,7 @@ impl SqliteStore {
                             FROM accounts \
                             JOIN account_code ON accounts.code_root = account_code.root \
                             JOIN account_storage ON accounts.storage_root = account_storage.root \
-                            JOIN account_vaults ON accounts.vault_root = aaccount_vaults.root \
+                            JOIN account_vaults ON accounts.vault_root = account_vaults.root \
                             WHERE accounts.id = ? \
                             ORDER BY accounts.nonce DESC \
                             LIMIT 1";
