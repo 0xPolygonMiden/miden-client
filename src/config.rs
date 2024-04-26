@@ -143,6 +143,7 @@ impl Default for StoreConfig {
 // RPC CONFIG
 // ================================================================================================
 
+/// Settings for the RPC client
 #[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct RpcConfig {
     /// Address of the Miden node to connect to.
