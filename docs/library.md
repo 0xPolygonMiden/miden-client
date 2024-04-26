@@ -1,13 +1,21 @@
+---
+comments: true
+---
+
 To use the Miden client library in a Rust project, include it as a dependency. 
 
-In your project's `cargo.toml`, add:
+In your project's `Cargo.toml`, add:
 
 ```toml
-miden_client = { 
-    package = "miden-client", 
-    git = "https://github.com/0xPolygonMiden/miden-client", 
-    branch = "main" 
-}
+miden-client = { version = "0.2" }
+```
+
+### Features
+
+The Miden client library supports the [`testing`](https://github.com/0xPolygonMiden/miden-client/blob/main/docs/install-and-run.md#testing-feature) and [`concurrent`](https://github.com/0xPolygonMiden/miden-client/blob/main/docs/install-and-run.md#concurrent-feature) features which are both recommended for developing applications with the client. To use them, add the following to your project's `Cargo.toml`:
+
+```toml
+miden-client = { version = "0.2", features = ["testing", "concurrent"] }
 ```
 
 ## Client instantiation
@@ -79,8 +87,8 @@ let payment_transaction = PaymentTransactionData::new(
     target_account_id,
 );
 
-let transaction_template: TransactionTemplate = TransactionTemplate::P2ID(payment_transaction);
-let transaction_request = client.build_transaction_request(transaction_template).unwrap();
+let transaction_template: TransactionTemplate = TransactionTemplate::PayToId(payment_transaction, NoteType::OffChain);
+let transaction_request = client.build_transaction_request(transaction_template)?;
 
 // Execute transaction. No information is tracked after this.
 let transaction_execution_result = client.new_transaction(transaction_request.clone())?;
@@ -89,4 +97,5 @@ let transaction_execution_result = client.new_transaction(transaction_request.cl
 client.send_transaction(transaction_execution_result).await?
 ```
 
-You may also execute a transaction by manually defining a `TransactionRequest` instance. This allows you to run custom code, with custom note arguments as well.
+You can decide whether you want the note details to be public or private through the second parameter of the `TransactionTemplate` enum.
+You may also execute a transaction by manually defining a `TransactionRequest` instance. This allows you to run custom code, with custom note arguments as well. 

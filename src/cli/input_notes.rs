@@ -251,6 +251,7 @@ where
         "Vault Vash",
         "Inputs Hash",
         "Serial Num",
+        "Type",
         "Commit Height",
     ]);
 
@@ -271,6 +272,7 @@ where
             input_note_record.assets().commitment().to_string(),
             inputs.commitment().to_string(),
             Digest::new(input_note_record.details().serial_num()).to_string(),
+            note_record_type(input_note_record),
             commit_height,
         ]);
     }
@@ -278,6 +280,18 @@ where
     println!("{table}");
 
     Ok(())
+}
+
+fn note_record_type(note_record: &InputNoteRecord) -> String {
+    match note_record.metadata() {
+        Some(metadata) => match metadata.note_type() {
+            miden_objects::notes::NoteType::OffChain => "OffChain",
+            miden_objects::notes::NoteType::Encrypted => "Encrypted",
+            miden_objects::notes::NoteType::Public => "Public",
+        },
+        None => "-",
+    }
+    .to_string()
 }
 
 // TESTS
@@ -321,8 +335,8 @@ mod tests {
             rng,
             store,
             executor_store,
-        )
-        .unwrap();
+            true,
+        );
 
         // generate test data
         let assembler = TransactionKernel::assembler();
@@ -372,8 +386,8 @@ mod tests {
             rng,
             store,
             executor_store,
-        )
-        .unwrap();
+            true,
+        );
 
         import_note(&mut client, filename_path).unwrap();
         let imported_note_record: InputNoteRecord =
@@ -406,8 +420,8 @@ mod tests {
             rng,
             store,
             executor_store,
-        )
-        .unwrap();
+            true,
+        );
 
         // Ensure we get an error if no note is found
         let non_existent_note_id = "0x123456";

@@ -3,7 +3,7 @@ use alloc::collections::BTreeMap;
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::NoteId,
+    notes::{NoteId, NoteTag},
     transaction::TransactionId,
     BlockHeader, Digest, Word,
 };
@@ -112,12 +112,16 @@ impl SqliteStore {
 // To simplify, all implementations rely on inner SqliteStore functions that map 1:1 by name
 // This way, the actual implementations are grouped by entity types in their own sub-modules
 impl Store for SqliteStore {
-    fn get_note_tags(&self) -> Result<Vec<u64>, StoreError> {
+    fn get_note_tags(&self) -> Result<Vec<NoteTag>, StoreError> {
         self.get_note_tags()
     }
 
-    fn add_note_tag(&mut self, tag: u64) -> Result<bool, StoreError> {
+    fn add_note_tag(&mut self, tag: NoteTag) -> Result<bool, StoreError> {
         self.add_note_tag(tag)
+    }
+
+    fn remove_note_tag(&mut self, tag: NoteTag) -> Result<bool, StoreError> {
+        self.remove_note_tag(tag)
     }
 
     fn get_sync_height(&self) -> Result<u32, StoreError> {
@@ -272,7 +276,7 @@ pub mod tests {
         let rng = get_random_coin();
         let executor_store = SqliteStore::new((&client_config).into()).unwrap();
 
-        MockClient::new(MockRpcApi::new(&rpc_endpoint), rng, store, executor_store).unwrap()
+        MockClient::new(MockRpcApi::new(&rpc_endpoint), rng, store, executor_store, true)
     }
 
     pub(crate) fn create_test_store_path() -> std::path::PathBuf {
