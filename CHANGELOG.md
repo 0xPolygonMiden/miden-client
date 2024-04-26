@@ -5,6 +5,8 @@
 * Added `CONTRIBUTING.MD` file.
 * Renamed `format` command from `Makefile.toml` to `check-format` and added a
   new `format` command that applies the formatting.
+* Added methods to get output notes from client.
+* Added a `input-notes list-consumable` command to the CLI.
 
 ## 0.2.0 (2024-04-14)
 

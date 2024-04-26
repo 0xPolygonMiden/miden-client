@@ -22,6 +22,7 @@ pub enum ClientError {
     ImportNewAccountWithoutSeed,
     MissingOutputNotes(Vec<NoteId>),
     NoteError(NoteError),
+    NoteRecordError(String),
     NoConsumableNoteForAccount(AccountId),
     NodeRpcClientError(NodeRpcClientError),
     ScreenerError(ScreenerError),
@@ -54,6 +55,7 @@ impl fmt::Display for ClientError {
                 write!(f, "No consumable note for account ID {}", account_id)
             },
             ClientError::NoteError(err) => write!(f, "note error: {err}"),
+            ClientError::NoteRecordError(err) => write!(f, "note record error: {err}"),
             ClientError::NodeRpcClientError(err) => write!(f, "rpc api error: {err}"),
             ClientError::ScreenerError(err) => write!(f, "note screener error: {err}"),
             ClientError::StoreError(err) => write!(f, "store error: {err}"),
@@ -155,7 +157,7 @@ pub enum StoreError {
     DatabaseError(String),
     DataDeserializationError(DeserializationError),
     HexParseError(HexParseError),
-    InputNoteNotFound(NoteId),
+    NoteNotFound(NoteId),
     InputSerializationError(serde_json::Error),
     JsonDataDeserializationError(serde_json::Error),
     MmrError(MmrError),
@@ -268,8 +270,8 @@ impl fmt::Display for StoreError {
             HexParseError(err) => {
                 write!(f, "error parsing hex: {err}")
             },
-            InputNoteNotFound(note_id) => {
-                write!(f, "input note with note id {} not found", note_id.inner())
+            NoteNotFound(note_id) => {
+                write!(f, "note with note id {} not found", note_id.inner())
             },
             InputSerializationError(err) => {
                 write!(f, "error trying to serialize inputs for the store: {err}")
@@ -302,7 +304,7 @@ impl From<StoreError> for DataStoreError {
                 DataStoreError::AccountNotFound(account_id)
             },
             StoreError::BlockHeaderNotFound(block_num) => DataStoreError::BlockNotFound(block_num),
-            StoreError::InputNoteNotFound(note_id) => DataStoreError::NoteNotFound(note_id),
+            StoreError::NoteNotFound(note_id) => DataStoreError::NoteNotFound(note_id),
             err => DataStoreError::InternalError(err.to_string()),
         }
     }
