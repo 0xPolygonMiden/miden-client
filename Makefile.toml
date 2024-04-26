@@ -3,7 +3,6 @@
 [env]
 FEATURES_INTEGRATION_TESTING="integration"
 NODE_FEATURES_TESTING="testing"
-NODE_BINARY="miden-node"
 
 [tasks.format]
 toolchain = "nightly"
@@ -65,17 +64,18 @@ args = ["-rf", "miden-node"]
 description = "Clone or update miden-node repository and clean up files"
 script_runner = "bash"
 script = [
-    'if [ -d miden-node ]; then cd miden-node && git pull && cargo update; else git clone https://github.com/0xPolygonMiden/miden-node.git && cd miden-node && cargo update; fi',
+    'if [ -d miden-node ]; then cd miden-node && git checkout main; else git clone https://github.com/0xPolygonMiden/miden-node.git && cd miden-node && git checkout main; fi',
     'rm -rf miden-store.sqlite3 miden-store.sqlite3-wal miden-store.sqlite3-shm',
-    'cargo run --bin $NODE_BINARY --features $NODE_FEATURES_TESTING -- make-genesis --inputs-path node/genesis.toml --force'
+    'cd bin/node',
+    'cargo run --features $NODE_FEATURES_TESTING -- make-genesis --force'
 ]
 
 [tasks.start-node]
 description = "Start the miden-node"
 dependencies = ["node"]
 script_runner = "bash"
-cwd = "./miden-node/"
-script = "cargo run --bin ${NODE_BINARY} --features ${NODE_FEATURES_TESTING} -- start --config node/miden-node.toml"
+cwd = "./miden-node/bin/node"
+script = "cargo run --features ${NODE_FEATURES_TESTING} -- start node"
 
 [tasks.docs-deps]
 description = "Install documentation dependencies"
