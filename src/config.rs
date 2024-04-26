@@ -42,6 +42,21 @@ impl Provider for ClientConfig {
     }
 }
 
+impl ClientConfig {
+    pub fn testnet() -> Self {
+        ClientConfig {
+            rpc: RpcConfig {
+                endpoint: Endpoint {
+                    protocol: "http".to_string(),
+                    host: "testnet.miden.io".to_string(),
+                    port: MIDEN_NODE_PORT,
+                },
+            },
+            store: StoreConfig::default(),
+        }
+    }
+}
+
 // ENDPOINT
 // ================================================================================================
 
@@ -79,15 +94,36 @@ impl fmt::Display for Endpoint {
     }
 }
 
+const MIDEN_NODE_PORT: u16 = 57291;
 impl Default for Endpoint {
     fn default() -> Self {
-        const MIDEN_NODE_PORT: u16 = 57291;
-
         Self {
             protocol: "http".to_string(),
             host: "localhost".to_string(),
             port: MIDEN_NODE_PORT,
         }
+    }
+}
+
+impl TryFrom<&str> for Endpoint {
+    type Error = String;
+
+    fn try_from(endpoint: &str) -> Result<Self, Self::Error> {
+        let port_separator_index = endpoint.rfind(':');
+
+        let (hostname, port) = if let Some(idx) = port_separator_index {
+            let (hostname, port) = endpoint.split_at(idx);
+            let port = port[1..].parse::<u16>().map_err(|err| err.to_string())?;
+            (hostname, port)
+        } else {
+            (endpoint, MIDEN_NODE_PORT)
+        };
+
+        Ok(Endpoint {
+            protocol: "http".to_string(),
+            host: hostname.to_string(),
+            port,
+        })
     }
 }
 
@@ -152,5 +188,40 @@ pub struct RpcConfig {
 impl From<Endpoint> for RpcConfig {
     fn from(value: Endpoint) -> Self {
         Self { endpoint: value }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::config::{Endpoint, MIDEN_NODE_PORT};
+
+    #[test]
+    fn test_endpoint_parsing_without_port() {
+        let endpoint = Endpoint::try_from("some.test.domain").unwrap();
+        let expected_endpoint = Endpoint {
+            protocol: "http".to_string(),
+            host: "some.test.domain".to_string(),
+            port: MIDEN_NODE_PORT,
+        };
+
+        assert_eq!(endpoint, expected_endpoint);
+    }
+
+    #[test]
+    fn test_endpoint_parsing_with_port() {
+        let endpoint = Endpoint::try_from("some.test.domain:8000").unwrap();
+        let expected_endpoint = Endpoint {
+            protocol: "http".to_string(),
+            host: "some.test.domain".to_string(),
+            port: 8000,
+        };
+
+        assert_eq!(endpoint, expected_endpoint);
+    }
+
+    #[test]
+    fn test_endpoint_parsing_should_fail_for_invalid_port() {
+        let endpoint = Endpoint::try_from("some.test.domain:8000/hello");
+        assert!(endpoint.is_err());
     }
 }
