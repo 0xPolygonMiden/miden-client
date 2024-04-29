@@ -42,7 +42,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         let mut chain_notes = self.rpc_api.get_notes_by_id(&[note.id()]).await?;
 
         if chain_notes.is_empty() {
-            return Err(ClientError::ExistanceVerificationError(note.id()));
+            return Err(ClientError::ExistenceVerificationError(note.id()));
         }
 
         let note_details = chain_notes.pop().expect("chain_notes should have at least one element");

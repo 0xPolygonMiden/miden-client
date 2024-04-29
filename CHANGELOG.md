@@ -1,6 +1,6 @@
 # Changelog
 
-* Added an option to verify note existance in the chain before importing.
+* Added an option to verify note existence in the chain before importing.
 * Added nextest to be used as test runner
 * Added config file to run integration tests against a remote node
 * Added `CONTRIBUTING.MD` file.

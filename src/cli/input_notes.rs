@@ -78,7 +78,7 @@ pub enum InputNotes {
         #[clap()]
         filename: PathBuf,
 
-        /// Verify note's existance in the chain
+        /// Verify note's existence in the chain
         #[clap(short, long, default_value = "true")]
         verify: bool,
     },
