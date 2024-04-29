@@ -35,6 +35,12 @@ miden-client init
 
 # You can use the --rpc flag to skip the interactive setup of the rpc config
 miden-client init --rpc testnet.miden.io
+# You can specify the port
+miden-client init --rpc testnet.miden.io:8080
+# You can also specify the protocol (http/https)
+miden-client init --rpc https://testnet.miden.io
+# You can specify both
+miden-client init --rpc https://testnet.miden.io:1234
 
 # You can use the --store_path flag to skip the interactive setup of the store config
 miden-client init --store_path db/store.sqlite3

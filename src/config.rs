@@ -109,18 +109,48 @@ impl TryFrom<&str> for Endpoint {
     type Error = String;
 
     fn try_from(endpoint: &str) -> Result<Self, Self::Error> {
+        let protocol_separator_index = endpoint.find("://");
         let port_separator_index = endpoint.rfind(':');
 
-        let (hostname, port) = if let Some(idx) = port_separator_index {
-            let (hostname, port) = endpoint.split_at(idx);
-            let port = port[1..].parse::<u16>().map_err(|err| err.to_string())?;
-            (hostname, port)
+        // port separator index might match with the protocol separator, if so that means there was
+        // no port defined
+        let port_separator_index = if port_separator_index == protocol_separator_index { 
+            None
         } else {
-            (endpoint, MIDEN_NODE_PORT)
+            port_separator_index
+        };
+
+        let (protocol, hostname, port) = match (protocol_separator_index, port_separator_index) {
+            (Some(protocol_idx), Some(port_idx)) => {
+                let (protocol_and_hostname, port) = endpoint.split_at(port_idx);
+                let port = port[1..].parse::<u16>().map_err(|err| err.to_string())?;
+
+                let (protocol, hostname) = protocol_and_hostname.split_at(protocol_idx);
+                // skip the separator
+                let hostname = &hostname[3..];
+
+                (protocol, hostname, port)
+            },
+            (Some(protocol_idx), None) => {
+                let (protocol, hostname) = endpoint.split_at(protocol_idx);
+                // skip the separator
+                let hostname = &hostname[3..];
+
+                (protocol, hostname, MIDEN_NODE_PORT)
+            },
+            (None, Some(port_idx)) => {
+                let (hostname, port) = endpoint.split_at(port_idx);
+                let port = port[1..].parse::<u16>().map_err(|err| err.to_string())?;
+
+                ("https", hostname, port)
+            },
+            (None, None) => {
+                ("https", endpoint, MIDEN_NODE_PORT)
+            },
         };
 
         Ok(Endpoint {
-            protocol: "http".to_string(),
+            protocol: protocol.to_string(),
             host: hostname.to_string(),
             port,
         })
@@ -196,10 +226,10 @@ mod test {
     use crate::config::{Endpoint, MIDEN_NODE_PORT};
 
     #[test]
-    fn test_endpoint_parsing_without_port() {
+    fn test_endpoint_parsing_with_hostname_only() {
         let endpoint = Endpoint::try_from("some.test.domain").unwrap();
         let expected_endpoint = Endpoint {
-            protocol: "http".to_string(),
+            protocol: "https".to_string(),
             host: "some.test.domain".to_string(),
             port: MIDEN_NODE_PORT,
         };
@@ -211,9 +241,33 @@ mod test {
     fn test_endpoint_parsing_with_port() {
         let endpoint = Endpoint::try_from("some.test.domain:8000").unwrap();
         let expected_endpoint = Endpoint {
-            protocol: "http".to_string(),
+            protocol: "https".to_string(),
             host: "some.test.domain".to_string(),
             port: 8000,
+        };
+
+        assert_eq!(endpoint, expected_endpoint);
+    }
+
+    #[test]
+    fn test_endpoint_parsing_with_protocol() {
+        let endpoint = Endpoint::try_from("http://some.test.domain").unwrap();
+        let expected_endpoint = Endpoint {
+            protocol: "http".to_string(),
+            host: "some.test.domain".to_string(),
+            port: MIDEN_NODE_PORT,
+        };
+
+        assert_eq!(endpoint, expected_endpoint);
+    }
+
+    #[test]
+    fn test_endpoint_parsing_with_both_protocol_and_port() {
+        let endpoint = Endpoint::try_from("http://some.test.domain:8080").unwrap();
+        let expected_endpoint = Endpoint {
+            protocol: "http".to_string(),
+            host: "some.test.domain".to_string(),
+            port: 8080,
         };
 
         assert_eq!(endpoint, expected_endpoint);

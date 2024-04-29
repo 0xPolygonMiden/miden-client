@@ -13,7 +13,8 @@ use miden_client::config::{ClientConfig, Endpoint};
 #[derive(Debug, Clone, Parser)]
 #[clap(about = "Initialize the client")]
 pub struct InitCmd {
-    /// Rpc config in the form of "{hostname}:{port}" or "{hostname}". If not provided user will be
+    /// Rpc config in the form of "{protocol}://{hostname}:{port}", being the protocol and port
+    /// optional. If not provided user will be
     /// asked for input
     #[clap(long)]
     rpc: Option<String>,
