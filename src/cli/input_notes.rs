@@ -326,7 +326,6 @@ mod tests {
             Endpoint::default().into(),
         );
 
-        let _store = SqliteStore::new((&client_config).into()).unwrap();
         let rng = get_random_coin();
         let executor_store = SqliteStore::new((&client_config).into()).unwrap();
 
@@ -378,7 +377,6 @@ mod tests {
             Endpoint::default().into(),
         );
         let store = SqliteStore::new((&client_config).into()).unwrap();
-        let _executor_store = SqliteStore::new((&client_config).into()).unwrap();
 
         let mut client =
             MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store, true);
@@ -405,7 +403,6 @@ mod tests {
             Endpoint::default().into(),
         );
 
-        let _store = SqliteStore::new((&client_config).into()).unwrap();
         let rng = get_random_coin();
         let executor_store = SqliteStore::new((&client_config).into()).unwrap();
 

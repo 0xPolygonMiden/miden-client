@@ -24,25 +24,10 @@ concurrent = [
     "miden-tx/concurrent",
 ]
 default = ["std"]
-integration = ["testing", "uuid"]
+integration = ["testing", "concurrent", "uuid"]
 std = ["miden-objects/std"]
 testing = ["miden-objects/testing", "miden-lib/testing"]
 test_utils = ["miden-objects/testing"]
-
-[build]
-rustflags = ["--cfg", "tokio_unstable"]
-
-[profile.release]
-opt-level = 1
-debug = false
-debug-assertions = false
-overflow-checks = false
-lto = false
-panic = 'unwind'
-incremental = false
-codegen-units = 16
-rpath = false
-
 
 [dependencies]
 async-trait = { version = "0.1" }
@@ -50,29 +35,21 @@ clap = { version = "4.3", features = ["derive"] }
 comfy-table = "7.1.0"
 figment = { version = "0.10", features = ["toml", "env"] }
 lazy_static = "1.4.0"
-#miden-lib = { version = "0.2", default-features = false }
-#miden-node-proto = { version = "0.2", default-features = false }
-miden-node-proto = { path = "../miden-node/crates/proto" }
-#miden-tx = { version = "0.2", default-features = false }
-#miden-objects = { version = "0.2", features = ["serde"] }
-
-miden-lib = { path="../miden-base/miden-lib" }
-miden-tx = { path="../miden-base/miden-tx" }
-miden-objects = { path="../miden-base/objects", features = ["serde"], default-features=false }
+miden-lib = { version = "0.2", default-features = false }
+miden-node-proto = { version = "0.2", default-features = false }
+miden-tx = { version = "0.2", default-features = false }
+miden-objects = { version = "0.2", features = ["serde"] }
 rand = { version = "0.8.5" }
 rusqlite = { version = "0.30.0", features = ["bundled"] }
 rusqlite_migration = { version = "1.0" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
-tokio = { version = "1.37", features = ["rt-multi-thread", "net", "macros","full", "tracing"] }
+tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"] }
 tonic = { version = "0.11" }
 toml = { version = "0.8" }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3" }
 uuid = { version = "1.6.1", features = ["serde", "v4"], optional = true }
-tracing-test = { version = "0.2", features = ["no-env-filter"]}
-console-subscriber = "0.2.0"
-actix-rt = "2.9.0"
 
 [dev-dependencies]
 # needed for tests to run always with the test utils feature
