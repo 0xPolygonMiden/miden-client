@@ -1,5 +1,4 @@
 use alloc::{
-    borrow::Borrow,
     collections::{BTreeMap, BTreeSet},
 };
 
@@ -266,7 +265,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
         self.submit_proven_transaction_request(proven_transaction.clone()).await?;
 
-        let note_screener: NoteScreener<'_, S> = NoteScreener::new(self.store.borrow());
+        let note_screener = NoteScreener::new(self.store.as_ref());
         let mut relevant_notes = BTreeMap::new();
 
         for (idx, note) in tx_result.created_notes().iter().enumerate() {

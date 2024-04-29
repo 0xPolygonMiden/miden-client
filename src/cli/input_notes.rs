@@ -375,14 +375,10 @@ mod tests {
         );
 
         let rng = get_random_coin();
-        let executor_store = SqliteStore::new((&client_config).into()).unwrap();
+        let store = SqliteStore::new((&client_config).into()).unwrap();
 
-        let mut client = MockClient::new(
-            MockRpcApi::new(&Endpoint::default().to_string()),
-            rng,
-            executor_store,
-            true,
-        );
+        let mut client =
+            MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store, true);
 
         // generate test data
         let assembler = TransactionKernel::assembler();
@@ -452,14 +448,10 @@ mod tests {
         );
 
         let rng = get_random_coin();
-        let executor_store = SqliteStore::new((&client_config).into()).unwrap();
+        let store = SqliteStore::new((&client_config).into()).unwrap();
 
-        let mut client = MockClient::new(
-            MockRpcApi::new(&Endpoint::default().to_string()),
-            rng,
-            executor_store,
-            true,
-        );
+        let mut client =
+            MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store, true);
 
         // Ensure we get an error if no note is found
         let non_existent_note_id = "0x123456";

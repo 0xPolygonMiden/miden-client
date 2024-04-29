@@ -61,7 +61,6 @@ fn create_test_client() -> TestClient {
 
     let rpc_endpoint = client_config.rpc.endpoint.to_string();
     let store = SqliteStore::new((&client_config).into()).unwrap();
-    let executor_store = SqliteStore::new((&client_config).into()).unwrap();
     let rng = get_random_coin();
     TestClient::new(TonicRpcClient::new(&rpc_endpoint), rng, store, true)
 }
