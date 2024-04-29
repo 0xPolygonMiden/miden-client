@@ -133,12 +133,10 @@ async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store>(
     let transaction_request = client.build_transaction_request(transaction_template)?;
     let transaction_execution_result = client.new_transaction(transaction_request)?;
 
-    println!("Executed transaction.");
-
     // Show delta and ask for confirmation
     print_transaction_details(&transaction_execution_result);
     if !force {
-        println!("Proceed? (Y/N)");
+        println!("Continue with proving and submission? Changes will be irreversible once the proof is finalized on the rollup (Y/N)");
         let mut proceed_str: String = String::new();
         io::stdin().read_line(&mut proceed_str).expect("Should read line");
 
@@ -156,7 +154,7 @@ async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store>(
 
 fn print_transaction_details(transaction_result: &TransactionResult) {
     println!(
-        "Transaction Executed Against {}",
+        "The transaction will have the following effects on the account with ID {}",
         transaction_result.executed_transaction().account_id()
     );
 
@@ -164,7 +162,7 @@ fn print_transaction_details(transaction_result: &TransactionResult) {
     let mut table = create_dynamic_table(&["Storage Slot", "Effect"]);
 
     for cleared_item_slot in account_delta.storage().cleared_items.iter() {
-        table.add_row(vec![cleared_item_slot.to_string(), "CLEARED".to_string()]);
+        table.add_row(vec![cleared_item_slot.to_string(), "Cleared".to_string()]);
     }
 
     for (updated_item_slot, new_value) in account_delta.storage().updated_items.iter() {
@@ -175,7 +173,7 @@ fn print_transaction_details(transaction_result: &TransactionResult) {
         ]);
     }
 
-    println!("Storage Changes:");
+    println!("Storage changes:");
     println!("{table}");
 
     let mut table = create_dynamic_table(&["Asset Type", "Faucet ID", "Amount"]);
@@ -204,13 +202,13 @@ fn print_transaction_details(transaction_result: &TransactionResult) {
         table.add_row(vec![asset_type, &faucet_id.to_hex(), &format!("-{}", amount)]);
     }
 
-    println!("Vault Changes:");
+    println!("Vault changes:");
     println!("{table}");
 
     if let Some(new_nonce) = account_delta.nonce() {
-        println!("New Nonce: {new_nonce}.")
+        println!("New nonce: {new_nonce}.")
     } else {
-        println!("No Nonce changes.")
+        println!("No nonce changes.")
     }
 }
 

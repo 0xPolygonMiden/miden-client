@@ -151,7 +151,7 @@ Proceed? (Y/N)
 This confirmation can be skipped in non-interactive environments by providing the `--force` flag:
 
 ```sh
-miden-client tx new ...
+miden-client tx new --force ...
 
 TX Summary:
 
