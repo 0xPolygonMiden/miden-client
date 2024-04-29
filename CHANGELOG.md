@@ -1,11 +1,13 @@
 # Changelog
 
-* [BREAKING] The store's `get_input_note` was replaced by `get_input_notes` and a `NoteFilter::Unique` was added
-* Added nextest to be used as test runner
-* Added config file to run integration tests against a remote node
+* [BREAKING] `Client::new()` now does not need a `data_store_store` parameter, and `SqliteStore`'s implements interior mutability.
+* [BREAKING] The store's `get_input_note` was replaced by `get_input_notes` and a `NoteFilter::Unique` was added.
+* Refactored `get_account` to create the account from a single query.
+* Admit partial account IDs for the commands that need them.
+* Added nextest to be used as test runner.
+* Added config file to run integration tests against a remote node.
 * Added `CONTRIBUTING.MD` file.
-* Renamed `format` command from `Makefile.toml` to `check-format` and added a
-  new `format` command that applies the formatting.
+* Renamed `format` command from `Makefile.toml` to `check-format` and added a new `format` command that applies the formatting.
 * Added methods to get output notes from client.
 * Added a `input-notes list-consumable` command to the CLI.
 
