@@ -1,6 +1,4 @@
-use alloc::{
-    collections::{BTreeMap, BTreeSet},
-};
+use alloc::collections::{BTreeMap, BTreeSet};
 
 use miden_lib::notes::{create_p2id_note, create_p2idr_note};
 use miden_objects::{

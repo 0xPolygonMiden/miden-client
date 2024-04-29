@@ -92,7 +92,7 @@ impl SqliteStore {
                             LIMIT 1";
 
         let result = self
-            .db
+            .db()
             .prepare(QUERY)?
             .query_map(params![account_id_int as i64], parse_account_columns)?
             .map(|result| Ok(result?).and_then(parse_account))
@@ -114,7 +114,7 @@ impl SqliteStore {
             .next()
             .ok_or(StoreError::AccountDataNotFound(account_id))?
     }
-  
+
     pub(crate) fn insert_account(
         &self,
         account: &Account,
