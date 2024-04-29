@@ -1,10 +1,13 @@
 # Changelog
 
+* [BREAKING] The store's `get_input_note` was replaced by `get_input_notes` and a `NoteFilter::Unique` was added
 * Added nextest to be used as test runner
 * Added config file to run integration tests against a remote node
 * Added `CONTRIBUTING.MD` file.
 * Renamed `format` command from `Makefile.toml` to `check-format` and added a
   new `format` command that applies the formatting.
+* Added methods to get output notes from client.
+* Added a `input-notes list-consumable` command to the CLI.
 
 ## 0.2.0 (2024-04-14)
 

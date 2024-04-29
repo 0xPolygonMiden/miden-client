@@ -20,7 +20,9 @@ mod note_screener;
 mod notes;
 pub(crate) mod sync;
 pub mod transactions;
+pub use note_screener::NoteRelevance;
 pub(crate) use note_screener::NoteScreener;
+pub use notes::ConsumableNote;
 
 // MIDEN CLIENT
 // ================================================================================================

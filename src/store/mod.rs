@@ -59,18 +59,18 @@ pub trait Store {
     // --------------------------------------------------------------------------------------------
 
     /// Retrieves the input notes from the store
-    fn get_input_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError>;
-
-    /// Retrieves the output notes from the store
-    fn get_output_notes(&self, filter: NoteFilter) -> Result<Vec<OutputNoteRecord>, StoreError>;
-
-    /// Retrieves an [InputNoteRecord] for the input note corresponding to the specified ID from
-    /// the store.
     ///
     /// # Errors
     ///
-    /// Returns a [StoreError::InputNoteNotFound] if there is no Note with the provided ID
-    fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError>;
+    /// Returns a [StoreError::NoteNotFound] if the filter is [NoteFilter::Unique] and there is no Note with the provided ID
+    fn get_input_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError>;
+
+    /// Retrieves the output notes from the store
+    ///
+    /// # Errors
+    ///
+    /// Returns a [StoreError::NoteNotFound] if the filter is [NoteFilter::Unique] and there is no Note with the provided ID
+    fn get_output_notes(&self, filter: NoteFilter) -> Result<Vec<OutputNoteRecord>, StoreError>;
 
     /// Returns the nullifiers of all unspent input notes
     ///
@@ -332,4 +332,6 @@ pub enum NoteFilter {
     /// Return a list of pending notes ([InputNoteRecord] or [OutputNoteRecord]). These represent notes for which the store
     /// does not have anchor data.
     Pending,
+    /// Return a list containing the note that matches with the provided [NoteId].
+    Unique(NoteId),
 }

@@ -7,11 +7,12 @@ use std::{
 use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
-    client::rpc::NodeRpcClient,
+    client::{rpc::NodeRpcClient, ConsumableNote},
     errors::ClientError,
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
 };
 use miden_objects::{
+    accounts::AccountId,
     crypto::rand::FeltRng,
     notes::{NoteId, NoteInputs},
     Digest,
@@ -78,6 +79,14 @@ pub enum InputNotes {
         #[clap()]
         filename: PathBuf,
     },
+
+    /// List consumable input notes
+    #[clap(short_flag = 'c')]
+    ListConsumable {
+        /// Account ID used to filter list. Only notes consumable by this account will be shown.
+        #[clap()]
+        account_id: Option<String>,
+    },
 }
 
 impl InputNotes {
@@ -106,6 +115,9 @@ impl InputNotes {
             InputNotes::Import { filename } => {
                 let note_id = import_note(&mut client, filename.clone())?;
                 println!("Succesfully imported note {}", note_id.inner());
+            },
+            InputNotes::ListConsumable { account_id } => {
+                list_consumable_notes(client, account_id)?;
             },
         }
         Ok(())
@@ -239,6 +251,21 @@ fn show_input_note<N: NodeRpcClient, R: FeltRng, S: Store>(
     Ok(())
 }
 
+// LIST CONSUMABLE INPUT NOTES
+// ================================================================================================
+fn list_consumable_notes<N: NodeRpcClient, R: FeltRng, S: Store>(
+    client: Client<N, R, S>,
+    account_id: &Option<String>,
+) -> Result<(), String> {
+    let account_id = match account_id {
+        Some(id) => Some(AccountId::from_hex(id.as_str()).map_err(|err| err.to_string())?),
+        None => None,
+    };
+    let notes = client.get_consumable_notes(account_id)?;
+    print_consumable_notes_summary(&notes)?;
+    Ok(())
+}
+
 // HELPERS
 // ================================================================================================
 fn print_notes_summary<'a, I>(notes: I) -> Result<(), String>
@@ -275,6 +302,27 @@ where
             note_record_type(input_note_record),
             commit_height,
         ]);
+    }
+
+    println!("{table}");
+
+    Ok(())
+}
+
+fn print_consumable_notes_summary<'a, I>(notes: I) -> Result<(), String>
+where
+    I: IntoIterator<Item = &'a ConsumableNote>,
+{
+    let mut table = create_dynamic_table(&["Note ID", "Account ID", "Relevance"]);
+
+    for consumable_note in notes {
+        for relevance in &consumable_note.relevances {
+            table.add_row(vec![
+                consumable_note.note.id().to_hex(),
+                relevance.0.to_string(),
+                relevance.1.to_string(),
+            ]);
+        }
     }
 
     println!("{table}");
