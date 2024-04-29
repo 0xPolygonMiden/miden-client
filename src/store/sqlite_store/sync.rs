@@ -18,7 +18,7 @@ impl SqliteStore {
     pub(crate) fn get_note_tags(&self) -> Result<Vec<NoteTag>, StoreError> {
         const QUERY: &str = "SELECT tags FROM state_sync";
 
-        self.store()
+        self.db()
             .prepare(QUERY)?
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
@@ -42,7 +42,7 @@ impl SqliteStore {
         let tags = serde_json::to_string(&tags).map_err(StoreError::InputSerializationError)?;
 
         const QUERY: &str = "UPDATE state_sync SET tags = ?";
-        self.store().execute(QUERY, params![tags])?;
+        self.db().execute(QUERY, params![tags])?;
 
         Ok(true)
     }
@@ -55,7 +55,7 @@ impl SqliteStore {
             let tags = serde_json::to_string(&tags).map_err(StoreError::InputSerializationError)?;
 
             const QUERY: &str = "UPDATE state_sync SET tags = ?";
-            self.store().execute(QUERY, params![tags])?;
+            self.db().execute(QUERY, params![tags])?;
             return Ok(true);
         }
 
@@ -65,7 +65,7 @@ impl SqliteStore {
     pub(super) fn get_sync_height(&self) -> Result<u32, StoreError> {
         const QUERY: &str = "SELECT block_num FROM state_sync";
 
-        self.store()
+        self.db()
             .prepare(QUERY)?
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
@@ -84,7 +84,7 @@ impl SqliteStore {
         new_authentication_nodes: &[(InOrderIndex, Digest)],
         updated_onchain_accounts: &[Account],
     ) -> Result<(), StoreError> {
-        let mut db = self.store();
+        let mut db = self.db();
         let tx = db.transaction()?;
 
         // Update state sync block number

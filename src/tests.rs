@@ -2,7 +2,7 @@
 // ================================================================================================
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{account_id::testing::ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, AccountId, AccountStub},
+    accounts::{AccountId, AccountStub, ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN},
     assembly::{AstSerdeOptions, ModuleAst},
     assets::{FungibleAsset, TokenSymbol},
     crypto::dsa::rpo_falcon512::SecretKey,

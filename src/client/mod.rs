@@ -8,7 +8,7 @@ use miden_tx::TransactionExecutor;
 use rand::Rng;
 use tracing::info;
 
-use crate::store::Store;
+use crate::store::{data_store::ClientDataStore, Store};
 
 pub mod rpc;
 use rpc::NodeRpcClient;
@@ -42,7 +42,7 @@ pub struct Client<N: NodeRpcClient, R: FeltRng, S: Store> {
     /// An instance of [NodeRpcClient] which provides a way for the client to connect to the
     /// Miden node.
     rpc_api: N,
-    tx_executor: TransactionExecutor<S>,
+    tx_executor: TransactionExecutor<ClientDataStore<S>>,
 }
 
 impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
@@ -73,7 +73,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         }
 
         let store = Rc::new(store);
-        let tx_executor = TransactionExecutor::new(store.clone());
+        let data_store = ClientDataStore::new(store.clone());
+        let tx_executor = TransactionExecutor::new(data_store);
 
         Self { store, rng, rpc_api: api, tx_executor }
     }

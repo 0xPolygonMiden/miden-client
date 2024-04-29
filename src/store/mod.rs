@@ -11,10 +11,7 @@ use miden_objects::{
     transaction::TransactionId,
     BlockHeader, Digest, Felt, Word,
 };
-use miden_tx::{
-    utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
-    DataStore,
-};
+use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 
 use crate::{
     client::{
@@ -39,7 +36,7 @@ pub use note_record::{InputNoteRecord, NoteRecordDetails, NoteStatus, OutputNote
 /// All update functions are implied to be atomic. That is, if multiple entities are meant to be
 /// updated as part of any single function and an error is returned during its execution, any
 /// changes that might have happened up to that point need to be rolled back and discarded.
-pub trait Store: DataStore {
+pub trait Store {
     // TRANSACTIONS
     // --------------------------------------------------------------------------------------------
 

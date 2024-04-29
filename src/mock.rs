@@ -11,9 +11,8 @@ use miden_node_proto::generated::{
 };
 use miden_objects::{
     accounts::{
-        account_id::testing::ACCOUNT_ID_OFF_CHAIN_SENDER, get_account_seed_single, Account,
-        AccountCode, AccountId, AccountStorage, AccountStorageType, AccountType, SlotItem,
-        StorageSlot,
+        get_account_seed_single, Account, AccountCode, AccountId, AccountStorage,
+        AccountStorageType, AccountType, SlotItem, StorageSlot, ACCOUNT_ID_OFF_CHAIN_SENDER,
     },
     assembly::{Assembler, ModuleAst, ProgramAst},
     assets::{Asset, AssetVault, FungibleAsset, TokenSymbol},
@@ -542,19 +541,16 @@ pub fn mock_fungible_faucet_account(
 
     let faucet_storage_slot_1 =
         [Felt::new(initial_balance), Felt::new(0), Felt::new(0), Felt::new(0)];
-    let faucet_account_storage = AccountStorage::new(
-        vec![
-            SlotItem {
-                index: 0,
-                slot: StorageSlot::new_value(key_pair.public_key().into()),
-            },
-            SlotItem {
-                index: 1,
-                slot: StorageSlot::new_value(faucet_storage_slot_1),
-            },
-        ],
-        vec![],
-    )
+    let faucet_account_storage = AccountStorage::new(vec![
+        SlotItem {
+            index: 0,
+            slot: StorageSlot::new_value(key_pair.public_key().into()),
+        },
+        SlotItem {
+            index: 1,
+            slot: StorageSlot::new_value(faucet_storage_slot_1),
+        },
+    ])
     .unwrap();
 
     Account::new(
@@ -716,7 +712,7 @@ fn get_account_with_nonce(
         index: 0,
         slot: StorageSlot::new_value(public_key),
     };
-    let account_storage = AccountStorage::new(vec![slot_item], vec![]).unwrap();
+    let account_storage = AccountStorage::new(vec![slot_item]).unwrap();
 
     let asset_vault = match assets {
         Some(asset) => AssetVault::new(&[asset]).unwrap(),

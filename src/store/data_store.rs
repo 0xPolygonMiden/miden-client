@@ -1,4 +1,4 @@
-use alloc::collections::BTreeSet;
+use alloc::{collections::BTreeSet, rc::Rc};
 
 use miden_objects::{
     accounts::AccountId,
@@ -10,11 +10,96 @@ use miden_objects::{
 };
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
 
-use super::{sqlite_store::SqliteStore, ChainMmrNodeFilter, NoteFilter, Store};
+use super::{ChainMmrNodeFilter, NoteFilter, Store};
 use crate::errors::{ClientError, StoreError};
 
 // DATA STORE
 // ================================================================================================
+
+/// Wrapper structure that helps automatically implement [DataStore] over any [Store]
+pub struct ClientDataStore<S: Store> {
+    /// Local database containing information about the accounts managed by this client.
+    pub(crate) store: Rc<S>,
+}
+
+impl<S: Store> ClientDataStore<S> {
+    pub fn new(store: Rc<S>) -> Self {
+        Self { store }
+    }
+}
+
+impl<S: Store> DataStore for ClientDataStore<S> {
+    fn get_transaction_inputs(
+        &self,
+        account_id: AccountId,
+        block_num: u32,
+        notes: &[NoteId],
+    ) -> Result<TransactionInputs, DataStoreError> {
+        // First validate that no note has already been consumed
+        let unspent_notes = self
+            .store
+            .get_input_notes(NoteFilter::Committed)?
+            .iter()
+            .map(|note_record| note_record.id())
+            .collect::<Vec<_>>();
+
+        for note_id in notes {
+            if !unspent_notes.contains(note_id) {
+                return Err(DataStoreError::NoteAlreadyConsumed(*note_id));
+            }
+        }
+
+        // Construct Account
+        let (account, seed) = self.store.get_account(account_id)?;
+
+        // Get header data
+        let (block_header, _had_notes) = self.store.get_block_header_by_num(block_num)?;
+
+        let mut list_of_notes = vec![];
+
+        let mut notes_blocks: Vec<u32> = vec![];
+        for note_id in notes {
+            let input_note_record = self.store.get_input_note(*note_id)?;
+
+            let input_note: InputNote = input_note_record
+                .try_into()
+                .map_err(|err: ClientError| DataStoreError::InternalError(err.to_string()))?;
+
+            list_of_notes.push(input_note.clone());
+
+            let note_block_num = input_note.proof().origin().block_num;
+
+            if note_block_num != block_num {
+                notes_blocks.push(note_block_num);
+            }
+        }
+
+        let notes_blocks: Vec<BlockHeader> = self
+            .store
+            .get_block_headers(&notes_blocks)?
+            .iter()
+            .map(|(header, _has_notes)| *header)
+            .collect();
+
+        let partial_mmr =
+            build_partial_mmr_with_paths(self.store.as_ref(), block_num, &notes_blocks)?;
+        let chain_mmr = ChainMmr::new(partial_mmr, notes_blocks)
+            .map_err(|err| DataStoreError::InternalError(err.to_string()))?;
+
+        let input_notes =
+            InputNotes::new(list_of_notes).map_err(DataStoreError::InvalidTransactionInput)?;
+
+        TransactionInputs::new(account, seed, block_header, chain_mmr, input_notes)
+            .map_err(DataStoreError::InvalidTransactionInput)
+    }
+
+    fn get_account_code(&self, account_id: AccountId) -> Result<ModuleAst, DataStoreError> {
+        let (account, _seed) = self.store.get_account(account_id)?;
+        let module_ast = account.code().module().clone();
+
+        Ok(module_ast)
+    }
+}
 
 /// Builds a [PartialMmr] with a specified forest number and a list of blocks that should be
 /// authenticated.

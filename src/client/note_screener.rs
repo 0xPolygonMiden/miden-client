@@ -186,7 +186,7 @@ impl<'a, S: Store> NoteScreener<'a, S> {
 mod tests {
     use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
     use miden_objects::{
-        accounts::{account_id::testing::ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, AccountId},
+        accounts::{AccountId, ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN},
         assets::FungibleAsset,
         crypto::rand::RpoRandomCoin,
         notes::NoteType,
