@@ -1,5 +1,6 @@
 # Changelog
 
+* Added validation using the `NoteScreener` to see if a block has relevant notes.
 * Added nextest to be used as test runner
 * Added config file to run integration tests against a remote node
 * Added `CONTRIBUTING.MD` file.
