@@ -1024,7 +1024,7 @@ async fn test_onchain_notes_sync_with_tag() {
 #[tokio::test]
 async fn test_import_pending_notes() {
     let mut client_1 = create_test_client();
-    let (first_basic_account, second_basic_account, faucet_account) =
+    let (first_basic_account, _second_basic_account, faucet_account) =
         setup(&mut client_1, AccountStorageMode::Local).await;
     let mut client_2 = create_test_client();
     wait_for_node(&mut client_2).await;
@@ -1073,4 +1073,7 @@ async fn test_import_pending_notes() {
     // After sync, the imported note should have inclusion proof even if it's not relevant for its accounts.
     let input_note = client_2.get_input_note(note.id()).unwrap();
     assert!(input_note.inclusion_proof().is_some());
+
+    // If inclusion proof is invalid this should panic
+    consume_notes(&mut client_1, first_basic_account.id(), &[input_note.try_into().unwrap()]).await;
 }
