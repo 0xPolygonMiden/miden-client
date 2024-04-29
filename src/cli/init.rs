@@ -13,28 +13,33 @@ use miden_client::config::{ClientConfig, Endpoint};
 #[derive(Debug, Clone, Parser)]
 #[clap(about = "Initialize the client")]
 pub struct InitCmd {
-    /// Rpc config in the form of "{hostname}:{port}" or "{hostname}".
-    #[clap(long, conflicts_with = "testnet")]
+    /// Rpc config in the form of "{hostname}:{port}" or "{hostname}". If not provided user will be
+    /// asked for input
+    #[clap(long)]
     rpc: Option<String>,
+
+    /// Store file path. If not provided user will be
+    /// asked for input
+    #[clap(long)]
+    store_path: Option<String>,
 }
 
 impl InitCmd {
     pub fn execute(&self, config_file_path: PathBuf) -> Result<(), String> {
-        let client_config = if let Some(endpoint) = &self.rpc {
-            let mut client_config = ClientConfig::default();
+        let mut client_config = ClientConfig::default();
+        if let Some(endpoint) = &self.rpc {
             let endpoint = Endpoint::try_from(endpoint.as_str()).map_err(|err| err.to_string())?;
 
             client_config.rpc.endpoint = endpoint;
-
-            client_config
         } else {
-            let mut client_config = ClientConfig::default();
-
             interactive_rpc_config(&mut client_config)?;
-            interactive_store_config(&mut client_config)?;
+        }
 
-            client_config
-        };
+        if let Some(path) = &self.store_path {
+            client_config.store.database_filepath = path.to_string();
+        } else {
+            interactive_store_config(&mut client_config)?;
+        }
 
         let config_as_toml_string = toml::to_string_pretty(&client_config)
             .map_err(|err| format!("error formatting config: {err}"))?;

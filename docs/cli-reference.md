@@ -25,6 +25,24 @@ Note that the debug flag overrides the `MIDEN_DEBUG` environment variable.
 
 ## Commands
 
+### `init` 
+
+Creates a configuration file for the client in the current directory. It asks for user input, although it also provides flags for non-interactive environments.
+ 
+```sh
+# This will start the interactive init
+miden-client init
+
+# You can use the --rpc flag to skip the interactive setup of the rpc config
+miden-client init --rpc testnet.miden.io
+
+# You can use the --store_path flag to skip the interactive setup of the store config
+miden-client init --store_path db/store.sqlite3
+
+# You can provide both flags for non-interactive environments
+miden-client init --rpc testnet.miden.io --store_path db/store.sqlite3
+```
+
 ### `account` 
 
 Create accounts and inspect account details.
