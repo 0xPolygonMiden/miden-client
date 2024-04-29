@@ -10,14 +10,13 @@ use miden_client::{
     store::{Store, TransactionFilter},
 };
 use miden_objects::{
-    accounts::AccountId,
     assets::FungibleAsset,
     crypto::rand::FeltRng,
     notes::{NoteId, NoteType as MidenNoteType},
 };
 use tracing::info;
 
-use super::{get_note_with_id_prefix, Client, Parser};
+use super::{get_account_with_id_prefix, get_note_with_id_prefix, Client, Parser};
 use crate::cli::create_dynamic_table;
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -40,8 +39,11 @@ impl From<&NoteType> for MidenNoteType {
 pub enum TransactionType {
     /// Create a pay-to-id transaction.
     P2ID {
+        /// Sender account ID or its hex prefix
         sender_account_id: String,
+        /// Target account ID or its hex prefix
         target_account_id: String,
+        /// Faucet account ID or its hex prefix
         faucet_id: String,
         amount: u64,
         #[clap(short, long, value_enum)]
@@ -50,7 +52,9 @@ pub enum TransactionType {
     /// Mint `amount` tokens from the specified fungible faucet (corresponding to `faucet_id`). The created note can then be then consumed by
     /// `target_account_id`.
     Mint {
+        /// Target account ID or its hex prefix
         target_account_id: String,
+        /// Faucet account ID or its hex prefix
         faucet_id: String,
         amount: u64,
         #[clap(short, long, value_enum)]
@@ -58,8 +62,11 @@ pub enum TransactionType {
     },
     /// Create a pay-to-id with recall transaction.
     P2IDR {
+        /// Sender account ID or its hex prefix
         sender_account_id: String,
+        /// Target account ID or its hex prefix
         target_account_id: String,
+        /// Faucet account ID or its hex prefix
         faucet_id: String,
         amount: u64,
         recall_height: u32,
@@ -68,6 +75,7 @@ pub enum TransactionType {
     },
     /// Consume with the account corresponding to `account_id` all of the notes from `list_of_notes`.
     ConsumeNotes {
+        /// Consumer account ID or its hex prefix
         account_id: String,
         /// A list of note IDs or the hex prefixes of their corresponding IDs
         list_of_notes: Vec<String>,
@@ -127,6 +135,9 @@ async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store>(
 
 /// Builds a [TransactionTemplate] based on the transaction type provided via cli args
 ///
+/// For all transactions it'll try to find the corresponding accounts by using the
+/// account IDs prefixes
+///
 /// For [TransactionTemplate::ConsumeNotes], it'll try to find the corresponding notes by using the
 /// provided IDs as prefixes
 fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
@@ -141,13 +152,17 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
             amount,
             note_type,
         } => {
-            let faucet_id = AccountId::from_hex(faucet_id).map_err(|err| err.to_string())?;
+            let faucet_id = get_account_with_id_prefix(client, faucet_id)
+                .map_err(|err| err.to_string())?
+                .id();
             let fungible_asset =
                 FungibleAsset::new(faucet_id, *amount).map_err(|err| err.to_string())?.into();
-            let sender_account_id =
-                AccountId::from_hex(sender_account_id).map_err(|err| err.to_string())?;
-            let target_account_id =
-                AccountId::from_hex(target_account_id).map_err(|err| err.to_string())?;
+            let sender_account_id = get_account_with_id_prefix(client, sender_account_id)
+                .map_err(|err| err.to_string())?
+                .id();
+            let target_account_id = get_account_with_id_prefix(client, target_account_id)
+                .map_err(|err| err.to_string())?
+                .id();
 
             let payment_transaction =
                 PaymentTransactionData::new(fungible_asset, sender_account_id, target_account_id);
@@ -162,13 +177,17 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
             recall_height,
             note_type,
         } => {
-            let faucet_id = AccountId::from_hex(faucet_id).map_err(|err| err.to_string())?;
+            let faucet_id = get_account_with_id_prefix(client, faucet_id)
+                .map_err(|err| err.to_string())?
+                .id();
             let fungible_asset =
                 FungibleAsset::new(faucet_id, *amount).map_err(|err| err.to_string())?.into();
-            let sender_account_id =
-                AccountId::from_hex(sender_account_id).map_err(|err| err.to_string())?;
-            let target_account_id =
-                AccountId::from_hex(target_account_id).map_err(|err| err.to_string())?;
+            let sender_account_id = get_account_with_id_prefix(client, sender_account_id)
+                .map_err(|err| err.to_string())?
+                .id();
+            let target_account_id = get_account_with_id_prefix(client, target_account_id)
+                .map_err(|err| err.to_string())?
+                .id();
 
             let payment_transaction =
                 PaymentTransactionData::new(fungible_asset, sender_account_id, target_account_id);
@@ -184,11 +203,14 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
             amount,
             note_type,
         } => {
-            let faucet_id = AccountId::from_hex(faucet_id).map_err(|err| err.to_string())?;
+            let faucet_id = get_account_with_id_prefix(client, faucet_id)
+                .map_err(|err| err.to_string())?
+                .id();
             let fungible_asset =
                 FungibleAsset::new(faucet_id, *amount).map_err(|err| err.to_string())?;
-            let target_account_id =
-                AccountId::from_hex(target_account_id).map_err(|err| err.to_string())?;
+            let target_account_id = get_account_with_id_prefix(client, target_account_id)
+                .map_err(|err| err.to_string())?
+                .id();
 
             Ok(TransactionTemplate::MintFungibleAsset(
                 fungible_asset,
@@ -206,7 +228,9 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
                 })
                 .collect::<Result<Vec<NoteId>, _>>()?;
 
-            let account_id = AccountId::from_hex(account_id).map_err(|err| err.to_string())?;
+            let account_id = get_account_with_id_prefix(client, account_id)
+                .map_err(|err| err.to_string())?
+                .id();
 
             Ok(TransactionTemplate::ConsumeNotes(account_id, list_of_notes))
         },
