@@ -163,8 +163,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             .store
             .get_input_notes(NoteFilter::Pending)?
             .iter()
-            .filter(|note| note.metadata().is_some())
-            .map(|note| note.metadata().expect("Notes should have metadata after filter").tag())
+            .filter_map(|note| note.metadata().map(|metadata| metadata.tag()))
             .collect();
 
         //TODO: Use BTreeSet to remove duplicates more efficiently once `Ord` is implemented for `NoteTag`
