@@ -1,5 +1,6 @@
 # Changelog
 
+* Add offchain account support for the tonic client method `get_account_update`.
 * Added nextest to be used as test runner
 * Added config file to run integration tests against a remote node
 * Added `CONTRIBUTING.MD` file.
