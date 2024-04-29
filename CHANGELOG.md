@@ -1,11 +1,15 @@
 # Changelog
 
 * Add offchain account support for the tonic client method `get_account_update`.
+* Refactorized `get_account` to create the account from a single query.
+* Admit partial account IDs for the commands that need them.
 * Added nextest to be used as test runner
 * Added config file to run integration tests against a remote node
 * Added `CONTRIBUTING.MD` file.
 * Renamed `format` command from `Makefile.toml` to `check-format` and added a
   new `format` command that applies the formatting.
+* Added methods to get output notes from client.
+* Added a `input-notes list-consumable` command to the CLI.
 
 ## 0.2.0 (2024-04-14)
 
