@@ -78,9 +78,9 @@ pub enum InputNotes {
         #[clap()]
         filename: PathBuf,
 
-        /// Verify note's existence in the chain
-        #[clap(short, long, default_value = "true")]
-        verify: bool,
+        /// Skip verification of note's existence in the chain
+        #[clap(short, long, default_value = "false")]
+        no_verify: bool,
     },
 }
 
@@ -107,8 +107,8 @@ impl InputNotes {
                 export_note(&client, id, filename.clone())?;
                 println!("Succesfully exported note {}", id);
             },
-            InputNotes::Import { filename, verify } => {
-                let note_id = import_note(&mut client, filename.clone(), *verify).await?;
+            InputNotes::Import { filename, no_verify } => {
+                let note_id = import_note(&mut client, filename.clone(), !(*no_verify)).await?;
                 println!("Succesfully imported note {}", note_id.inner());
             },
         }
