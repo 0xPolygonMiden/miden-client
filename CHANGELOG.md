@@ -1,5 +1,6 @@
 # Changelog
 
+* Added support for using an account as the default for the CLI
 * Added nextest to be used as test runner
 * Added config file to run integration tests against a remote node
 * Added `CONTRIBUTING.MD` file.
