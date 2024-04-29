@@ -1023,6 +1023,7 @@ async fn test_onchain_notes_sync_with_tag() {
 
 #[tokio::test]
 async fn test_get_account_update() {
+    // Create a client with both public and private accounts.
     let mut client = create_test_client();
 
     let (basic_wallet_1, _, faucet_account) = setup(&mut client, AccountStorageMode::Local).await;
@@ -1034,6 +1035,7 @@ async fn test_get_account_update() {
         })
         .unwrap();
 
+    // Mint and consume notes with both accounts so they are included in the node.
     let note1 =
         mint_note(&mut client, basic_wallet_1.id(), faucet_account.id(), NoteType::OffChain).await;
     let note2 =
@@ -1046,6 +1048,9 @@ async fn test_get_account_update() {
 
     wait_for_node(&mut client).await;
     client.sync_state().await.unwrap();
+
+    // Request updates from node for both accounts. The request should not fail and both types of
+    // [AccountDetails] should be received.
     let details1 = client.rpc_api().get_account_update(basic_wallet_1.id()).await.unwrap();
     let details2 = client.rpc_api().get_account_update(basic_wallet_2.id()).await.unwrap();
 
