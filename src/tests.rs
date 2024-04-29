@@ -386,3 +386,47 @@ async fn test_mint_transaction() {
     let transaction = client.new_transaction(transaction_request).unwrap();
     assert!(transaction.executed_transaction().account_delta().nonce().is_some());
 }
+
+#[tokio::test]
+async fn test_get_output_notes() {
+    const FAUCET_ID: u64 = ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN;
+    const INITIAL_BALANCE: u64 = 1000;
+
+    // generate test client with a random store name
+    let mut client = create_test_client();
+
+    // Faucet account generation
+    let key_pair = SecretKey::new();
+
+    let faucet = mock_fungible_faucet_account(
+        AccountId::try_from(FAUCET_ID).unwrap(),
+        INITIAL_BALANCE,
+        key_pair.clone(),
+    );
+
+    client
+        .store()
+        .insert_account(&faucet, None, &AuthInfo::RpoFalcon512(key_pair))
+        .unwrap();
+
+    client.sync_state().await.unwrap();
+
+    // Test submitting a mint transaction
+    let transaction_template = TransactionTemplate::MintFungibleAsset(
+        FungibleAsset::new(faucet.id(), 5u64).unwrap(),
+        AccountId::from_hex("0x168187d729b31a84").unwrap(),
+        miden_objects::notes::NoteType::OffChain,
+    );
+
+    let transaction_request = client.build_transaction_request(transaction_template).unwrap();
+
+    //Before executing transaction, there are no output notes
+    assert!(client.get_output_notes(NoteFilter::All).unwrap().is_empty());
+
+    let transaction = client.new_transaction(transaction_request).unwrap();
+    client.submit_transaction(transaction).await.unwrap();
+
+    // Check that there was an output note but it wasn't consumed
+    assert!(client.get_output_notes(NoteFilter::Consumed).unwrap().is_empty());
+    assert!(!client.get_output_notes(NoteFilter::All).unwrap().is_empty());
+}

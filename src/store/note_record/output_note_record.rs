@@ -3,7 +3,8 @@ use miden_objects::{
     Digest,
 };
 
-use super::{NoteRecordDetails, NoteStatus};
+use super::{InputNoteRecord, NoteRecordDetails, NoteStatus};
+use crate::errors::ClientError;
 
 // OUTPUT NOTE RECORD
 // ================================================================================================
@@ -93,6 +94,27 @@ impl From<Note> for OutputNoteRecord {
                 note.inputs().to_vec(),
                 note.serial_num(),
             )),
+        }
+    }
+}
+
+impl TryFrom<InputNoteRecord> for OutputNoteRecord {
+    type Error = ClientError;
+
+    fn try_from(input_note: InputNoteRecord) -> Result<Self, Self::Error> {
+        match input_note.metadata() {
+            Some(metadata) => Ok(OutputNoteRecord {
+                assets: input_note.assets().clone(),
+                details: Some(input_note.details().clone()),
+                id: input_note.id(),
+                inclusion_proof: input_note.inclusion_proof().cloned(),
+                metadata: *metadata,
+                recipient: input_note.recipient(),
+                status: input_note.status(),
+            }),
+            None => Err(ClientError::NoteError(miden_objects::NoteError::invalid_origin_index(
+                "Input Note Record contains no metadata".to_string(),
+            ))),
         }
     }
 }
