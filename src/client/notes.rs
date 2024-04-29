@@ -57,6 +57,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             super::rpc::NoteDetails::Public(_, inclusion) => inclusion,
         };
 
+        // Check to see if it's possible to create an inclusion proof if the note doesn't have one.
+        // Only do this if the note exists in the chain and the client is synced to a height equal or
+        // greater than the note's creation block.
         if note.inclusion_proof().is_none()
             && self.get_sync_height()? >= inclusion_details.block_num
         {
