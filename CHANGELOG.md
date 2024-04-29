@@ -1,5 +1,7 @@
 # Changelog
 
+* Refactorized `get_account` to create the account from a single query.
+* Admit partial account IDs for the commands that need them.
 * Added nextest to be used as test runner
 * Added config file to run integration tests against a remote node
 * Added `CONTRIBUTING.MD` file.
