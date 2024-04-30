@@ -1,6 +1,7 @@
 # Changelog
 
 * Replace instead of ignore note scripts with when inserting input/output notes with a previously-existing note script root to support adding debug statements.
+* Added RPC timeout configuration field
 * Add offchain account support for the tonic client method `get_account_update`.
 * Refactorized `get_account` to create the account from a single query.
 * Admit partial account IDs for the commands that need them.
