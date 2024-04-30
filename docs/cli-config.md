@@ -18,6 +18,7 @@ We configure the client using a [TOML](https://en.wikipedia.org/wiki/TOML) file 
 ```sh
 [rpc]
 endpoint = { protocol = "http", host = "localhost", port = 57291 }
+timeout_ms = 10000
 
 [store]
 database_filepath = "store.sqlite3"
@@ -28,8 +29,8 @@ default_account_id = "0x012345678"
 
 The TOML file should reside in same the directory from which you run the CLI.
 
-In the configuration file, you will find a section for defining the node's
-`endpoint` and the store's filename `database_filepath`. 
+In the configuration file, you will find a section for defining the node's rpc `endpoint` and timeout and the store's filename `database_filepath`. 
+
 By default, the node is set up to run on `localhost:57291`.
 
 !!! note

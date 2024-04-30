@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use async_trait::async_trait;
 use miden_node_proto::{
     errors::ConversionError,
@@ -24,7 +26,7 @@ use super::{
     AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
     NoteDetails, NoteInclusionDetails, StateSyncInfo,
 };
-use crate::errors::NodeRpcClientError;
+use crate::{config::RpcConfig, errors::NodeRpcClientError};
 
 // TONIC RPC CLIENT
 // ================================================================================================
@@ -35,14 +37,16 @@ use crate::errors::NodeRpcClientError;
 pub struct TonicRpcClient {
     rpc_api: Option<ApiClient<Channel>>,
     endpoint: String,
+    timeout_ms: u64,
 }
 
 impl TonicRpcClient {
     /// Returns a new instance of [TonicRpcClient] that'll do calls the `config_endpoint` provided
-    pub fn new(config_endpoint: &str) -> TonicRpcClient {
+    pub fn new(config: &RpcConfig) -> TonicRpcClient {
         TonicRpcClient {
             rpc_api: None,
-            endpoint: config_endpoint.to_string(),
+            endpoint: config.endpoint.to_string(),
+            timeout_ms: config.timeout_ms,
         }
     }
 
@@ -52,7 +56,10 @@ impl TonicRpcClient {
         if self.rpc_api.is_some() {
             Ok(self.rpc_api.as_mut().unwrap())
         } else {
-            let rpc_api = ApiClient::connect(self.endpoint.clone())
+            let endpoint = tonic::transport::Endpoint::try_from(self.endpoint.clone())
+                .map_err(|err| NodeRpcClientError::ConnectionError(err.to_string()))?
+                .timeout(Duration::from_millis(self.timeout_ms));
+            let rpc_api = ApiClient::connect(endpoint)
                 .await
                 .map_err(|err| NodeRpcClientError::ConnectionError(err.to_string()))?;
             Ok(self.rpc_api.insert(rpc_api))

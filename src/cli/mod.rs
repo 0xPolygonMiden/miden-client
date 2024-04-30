@@ -89,7 +89,6 @@ impl Cli {
 
         // Create the client
         let client_config = load_config(current_dir.as_path())?;
-        let rpc_endpoint = client_config.rpc.endpoint.to_string();
         let store = SqliteStore::new((&client_config).into()).map_err(ClientError::StoreError)?;
         let rng = get_random_coin();
         let executor_store =
@@ -97,7 +96,7 @@ impl Cli {
                 .map_err(ClientError::StoreError)?;
 
         let client: Client<TonicRpcClient, RpoRandomCoin, SqliteStore> = Client::new(
-            TonicRpcClient::new(&rpc_endpoint),
+            TonicRpcClient::new(&client_config.rpc),
             rng,
             store,
             executor_store,
