@@ -82,6 +82,12 @@ script = [
 
 [tasks.start-node]
 description = "Start the miden-node"
+script_runner = "bash"
+cwd = "./miden-node/bin/node"
+script = "cargo run --features ${NODE_FEATURES_TESTING} -- start node"
+
+[tasks.get-and-start-node]
+description = "Get's the Miden Node, sets it up and starts it"
 dependencies = ["node"]
 script_runner = "bash"
 cwd = "./miden-node/bin/node"
