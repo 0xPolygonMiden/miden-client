@@ -8,7 +8,7 @@ use miden_client::{
     client::{
         accounts::{AccountStorageMode, AccountTemplate},
         get_random_coin,
-        rpc::TonicRpcClient,
+        rpc::{AccountDetails, NodeRpcClient, TonicRpcClient},
         transactions::transaction_request::{
             PaymentTransactionData, TransactionRequest, TransactionTemplate,
         },
@@ -1127,4 +1127,41 @@ async fn test_onchain_notes_sync_with_tag() {
     assert_eq!(received_note.note().authentication_hash(), note.authentication_hash());
     assert_eq!(received_note.note(), &note);
     assert!(client_3.get_input_notes(NoteFilter::All).unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn test_get_account_update() {
+    // Create a client with both public and private accounts.
+    let mut client = create_test_client();
+
+    let (basic_wallet_1, _, faucet_account) = setup(&mut client, AccountStorageMode::Local).await;
+
+    let (basic_wallet_2, _) = client
+        .new_account(AccountTemplate::BasicWallet {
+            mutable_code: false,
+            storage_mode: AccountStorageMode::OnChain,
+        })
+        .unwrap();
+
+    // Mint and consume notes with both accounts so they are included in the node.
+    let note1 =
+        mint_note(&mut client, basic_wallet_1.id(), faucet_account.id(), NoteType::OffChain).await;
+    let note2 =
+        mint_note(&mut client, basic_wallet_2.id(), faucet_account.id(), NoteType::OffChain).await;
+
+    client.sync_state().await.unwrap();
+
+    consume_notes(&mut client, basic_wallet_1.id(), &[note1]).await;
+    consume_notes(&mut client, basic_wallet_2.id(), &[note2]).await;
+
+    wait_for_node(&mut client).await;
+    client.sync_state().await.unwrap();
+
+    // Request updates from node for both accounts. The request should not fail and both types of
+    // [AccountDetails] should be received.
+    let details1 = client.rpc_api().get_account_update(basic_wallet_1.id()).await.unwrap();
+    let details2 = client.rpc_api().get_account_update(basic_wallet_2.id()).await.unwrap();
+
+    assert!(matches!(details1, AccountDetails::OffChain(_, _)));
+    assert!(matches!(details2, AccountDetails::Public(_, _)));
 }
