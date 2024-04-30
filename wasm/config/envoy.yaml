@@ -1,0 +1,56 @@
+static_resources:
+  listeners:
+  - name: listener_0
+    address:
+      socket_address:
+        address: 0.0.0.0
+        port_value: 8080
+    filter_chains:
+    - filters:
+      - name: envoy.filters.network.http_connection_manager
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          stat_prefix: grpc_web
+          route_config:
+            name: local_route
+            virtual_hosts:
+            - name: local_service
+              domains: ["*"]
+              routes:
+              - match: { prefix: "/" }
+                route:
+                  cluster: grpc_server
+              cors:
+                allow_origin_string_match:
+                - safe_regex:
+                    google_re2: {}
+                    regex: "http://localhost:3000"
+                allow_methods: "GET, PUT, DELETE, POST, OPTIONS"
+                allow_headers: "content-type, x-grpc-web, x-user-agent"
+                max_age: "1728000"
+                expose_headers: "custom-header1, grpc-status, grpc-message"
+          http_filters:
+          - name: envoy.filters.http.cors
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors
+          - name: envoy.filters.http.grpc_web
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb
+          - name: envoy.filters.http.router
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+  clusters:
+  - name: grpc_server
+    connect_timeout: 0.25s
+    type: LOGICAL_DNS
+    lb_policy: ROUND_ROBIN
+    load_assignment:
+      cluster_name: grpc_server
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: host.docker.internal
+                port_value: 57291
+    http2_protocol_options: {}

@@ -1,7 +1,7 @@
 use super::WebClient;
 
 use base64::encode;
-use miden_objects::{accounts::{AccountData, AccountId}, assets::TokenSymbol};
+use miden_objects::{accounts::{AccountData, AccountId}, assets::TokenSymbol, notes::NoteId};
 use miden_tx::utils::{Deserializable, Serializable};
 
 use crate::native_code::accounts;

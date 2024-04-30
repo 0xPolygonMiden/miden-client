@@ -3,6 +3,7 @@ name = "miden-wasm"
 version = "1.0.0"
 description = "WebAssembly based toolkit for developing zero knowledge applications with Polygon Miden"
 edition = "2021"
+build = "build.rs"
 
 [lib]
 crate-type = ["cdylib"]
@@ -21,14 +22,22 @@ async-trait = "0.1"
 base64 = "0.13"
 futures = "0.3"
 getrandom = { version = "0.2", features = ["js"] }
+hex = { version = "0.4" }
 miden-lib = { version = "0.2", default-features = false }
 miden-objects = { version = "0.2", features = ["serde"] }
 miden-tx = { version = "0.2", default-features = false }
 rand = { version = "0.8.5" }
+prost = { version = "0.12.3" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde-wasm-bindgen = "0.6.5"
+thiserror = { version = "1.0" }
+tonic = { version="0.11.0", default-features = false, features=["prost","codegen"] }
+tonic-web-wasm-client = "0.5"
 tracing = { version = "0.1" }
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = ["console"] }
+
+[build-dependencies]
+tonic-build = { version="0.11.0", default-features = false, features = ["prost"]}

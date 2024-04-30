@@ -11,10 +11,10 @@ pub mod notes;
 pub mod transactions;
 pub mod sync;
 pub mod store;
-pub mod web_rpc_client;
+pub mod rpc;
 
 use store::WebStore;
-use web_rpc_client::WebRpcClient;
+use rpc::WebRpcClient;
 
 // My strategy here is to create a WebClient struct that has methods exposed
 // to the browser environment. When these methods are called, they will 
