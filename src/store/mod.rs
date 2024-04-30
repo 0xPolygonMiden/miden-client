@@ -321,7 +321,7 @@ pub enum TransactionFilter {
 // NOTE FILTER
 // ================================================================================================
 
-pub enum NoteFilter {
+pub enum NoteFilter<'a> {
     /// Return a list of all notes ([InputNoteRecord] or [OutputNoteRecord]).
     All,
     /// Filter by consumed notes ([InputNoteRecord] or [OutputNoteRecord]). notes that have been used as inputs in transactions.
@@ -332,6 +332,8 @@ pub enum NoteFilter {
     /// Return a list of pending notes ([InputNoteRecord] or [OutputNoteRecord]). These represent notes for which the store
     /// does not have anchor data.
     Pending,
+    /// Return a list containing the note that matches with the provided [NoteId].
+    List(&'a [NoteId]),
     /// Return a list containing the note that matches with the provided [NoteId].
     Unique(NoteId),
 }

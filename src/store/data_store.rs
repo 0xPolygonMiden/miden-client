@@ -57,16 +57,10 @@ impl<S: Store> DataStore for ClientDataStore<S> {
         let mut list_of_notes = vec![];
 
         let mut notes_blocks: Vec<u32> = vec![];
-        for note_id in notes {
-            // TODO: Add a way to get multiple input note recrods by an id array. This way we only
-            // need to query the store once.
-            let input_note_record = self
-                .store
-                .get_input_notes(NoteFilter::Unique(*note_id))?
-                .pop()
-                .expect("The vector always has one element for NoteFilter::Unique");
+        let input_note_records = self.store.get_input_notes(NoteFilter::List(notes))?;
 
-            let input_note: InputNote = input_note_record
+        for note_record in input_note_records {
+            let input_note: InputNote = note_record
                 .try_into()
                 .map_err(|err: ClientError| DataStoreError::InternalError(err.to_string()))?;
 

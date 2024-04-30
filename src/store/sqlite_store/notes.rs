@@ -1,3 +1,4 @@
+use alloc::rc::Rc;
 use std::fmt;
 
 use clap::error::Result;
@@ -6,7 +7,7 @@ use miden_objects::{
     notes::{NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, NoteScript, Nullifier},
     Digest,
 };
-use rusqlite::{named_params, params, params_from_iter, Transaction};
+use rusqlite::{named_params, params, params_from_iter, types::Value, Transaction};
 
 use super::SqliteStore;
 use crate::{
@@ -73,7 +74,7 @@ impl fmt::Display for NoteTable {
 // NOTE FILTER
 // ================================================================================================
 
-impl NoteFilter {
+impl<'a> NoteFilter<'a> {
     /// Returns a [String] containing the query for this Filter
     fn to_query(&self, notes_table: NoteTable) -> String {
         let base = format!(
@@ -96,7 +97,9 @@ impl NoteFilter {
             NoteFilter::Committed => format!("{base} WHERE status = 'Committed'"),
             NoteFilter::Consumed => format!("{base} WHERE status = 'Consumed'"),
             NoteFilter::Pending => format!("{base} WHERE status = 'Pending'"),
-            NoteFilter::Unique(_) => format!("{base} WHERE note.note_id = ?"),
+            NoteFilter::Unique(_) | NoteFilter::List(_) => {
+                format!("{base} WHERE note.note_id IN rarray(?)")
+            },
         }
     }
 }
@@ -110,8 +113,20 @@ impl SqliteStore {
         filter: NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
         let mut params = Vec::new();
-        if let NoteFilter::Unique(note_id) = filter {
-            params.push(note_id.inner().to_string());
+        match filter {
+            NoteFilter::Unique(note_id) => {
+                let note_ids_list = vec![Value::Text(note_id.inner().to_string())];
+                params.push(Rc::new(note_ids_list));
+            },
+            NoteFilter::List(note_ids) => {
+                let note_ids_list = note_ids
+                    .iter()
+                    .map(|note_id| Value::Text(note_id.inner().to_string()))
+                    .collect::<Vec<Value>>();
+
+                params.push(Rc::new(note_ids_list))
+            },
+            _ => {},
         }
         let notes = self
             .db
@@ -121,10 +136,18 @@ impl SqliteStore {
             .map(|result| Ok(result?).and_then(parse_input_note))
             .collect::<Result<Vec<InputNoteRecord>, _>>()?;
 
-        if let NoteFilter::Unique(note_id) = filter {
-            if notes.is_empty() {
+        match filter {
+            NoteFilter::Unique(note_id) if notes.is_empty() => {
                 return Err(StoreError::NoteNotFound(note_id));
-            }
+            },
+            NoteFilter::List(note_ids) if note_ids.len() != notes.len() => {
+                let missing_note_id = note_ids
+                    .iter()
+                    .find(|&note_id| !notes.iter().any(|note_record| note_record.id() == *note_id))
+                    .expect("should find one note id that wasn't retrieved by the db");
+                return Err(StoreError::NoteNotFound(*missing_note_id));
+            },
+            _ => {},
         }
         Ok(notes)
     }
@@ -135,8 +158,20 @@ impl SqliteStore {
         filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, StoreError> {
         let mut params = Vec::new();
-        if let NoteFilter::Unique(note_id) = filter {
-            params.push(note_id.inner().to_string());
+        match filter {
+            NoteFilter::Unique(note_id) => {
+                let note_ids_list = vec![Value::Text(note_id.inner().to_string())];
+                params.push(Rc::new(note_ids_list));
+            },
+            NoteFilter::List(note_ids) => {
+                let note_ids_list = note_ids
+                    .iter()
+                    .map(|note_id| Value::Text(note_id.inner().to_string()))
+                    .collect::<Vec<Value>>();
+
+                params.push(Rc::new(note_ids_list))
+            },
+            _ => {},
         }
         let notes = self
             .db
@@ -146,10 +181,18 @@ impl SqliteStore {
             .map(|result| Ok(result?).and_then(parse_output_note))
             .collect::<Result<Vec<OutputNoteRecord>, _>>()?;
 
-        if let NoteFilter::Unique(note_id) = filter {
-            if notes.is_empty() {
+        match filter {
+            NoteFilter::Unique(note_id) if notes.is_empty() => {
                 return Err(StoreError::NoteNotFound(note_id));
-            }
+            },
+            NoteFilter::List(note_ids) if note_ids.len() != notes.len() => {
+                let missing_note_id = note_ids
+                    .iter()
+                    .find(|&note_id| !notes.iter().any(|note_record| note_record.id() == *note_id))
+                    .expect("should find one note id that wasn't retrieved by the db");
+                return Err(StoreError::NoteNotFound(*missing_note_id));
+            },
+            _ => {},
         }
         Ok(notes)
     }
