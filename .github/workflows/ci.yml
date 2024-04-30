@@ -39,8 +39,8 @@ jobs:
           toolchain: stable
       - name: Install cargo make
         run: cargo install cargo-make
-      - name: cargo make - clippy
-        run: cargo make clippy
+      - name: cargo make - clippy-all
+        run: cargo make clippy-all
 
   rustfmt:
     name: rustfmt
