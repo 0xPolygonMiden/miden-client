@@ -31,7 +31,7 @@ For more info check:
 
 Before you can use the Miden client, you'll need to make sure you have both
 [Rust](https://www.rust-lang.org/tools/install) and sqlite3 installed. Miden
-client v0.2 requires rust version 1.77 or higher.
+client v0.2 requires rust version **1.77** or higher.
 
 ### Adding miden-client as a dependency
 
@@ -45,7 +45,7 @@ miden-client = { version = "0.2" }
 
 - `concurrent`: used to enable concurrent proofs generation
 - `testing`: useful feature that lowers PoW difficulty when enabled. Only use this during development and not on production.
-- `test_utils`: used on unit tests to use the mocked rpc api 
+- `test_utils`: used on unit tests to use the mocked RPC API.
 - `integration`: only used to run integration tests and separate them from unit tests
 
 ### Running `miden-client`'s CLI
@@ -66,7 +66,7 @@ cargo install miden-client
 
 ### Makefile
 
-As mentioned before, we use [cargo-make](https://github.com/sagiegurari/cargo-make) to encapsulate some tasks, such as running lints and tests. You can check out [Makefile.toml](./Makefile.toml) for all possible tasks to run.
+As mentioned before, we use [cargo-make](https://github.com/sagiegurari/cargo-make) to encapsulate some tasks, such as running lints and tests. You can check out [Makefile.toml](./Makefile.toml) for all available tasks.
 
 ## Testing
 
@@ -74,7 +74,7 @@ To test the project's code, we provide both unit tests (which can be run with `c
 
 ## Contributing
 
-Interested in contributing with the project? Check [CONTRIBUTING.md](./CONTRIBUTING.md).
+Interested in contributing? Check [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 This project is [MIT licensed](./LICENSE).
