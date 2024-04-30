@@ -200,7 +200,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     // --------------------------------------------------------------------------------------------
 
     /// Returns summary info about the accounts managed by this client.
-    pub fn get_accounts(&self) -> Result<Vec<(AccountStub, Option<Word>)>, ClientError> {
+    pub fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, ClientError> {
         self.store.get_account_stubs().map_err(|err| err.into())
     }
 
@@ -308,7 +308,7 @@ pub mod tests {
             .into_iter()
             .map(|account_data| account_data.account)
             .collect();
-        let accounts = client.get_accounts().unwrap();
+        let accounts = client.get_account_stubs().unwrap();
 
         assert_eq!(accounts.len(), 2);
         for (client_acc, expected_acc) in accounts.iter().zip(expected_accounts.iter()) {
