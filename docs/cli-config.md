@@ -37,7 +37,7 @@ By default, the node is set up to run on `localhost:57291`.
     - However, the endpoint can point to any remote node.
 
 There's an additional **optional** section used for CLI configuration. It
-currently contains the default account id, which is used to execute
+currently contains the default account ID, which is used to execute
 transactions against it when the account flag is not provided.
 
 By default none is set, but you can set and unset it with:
@@ -50,5 +50,3 @@ miden-client account default unset
 ### Environment variables
 
 - `MIDEN_DEBUG`: When set to `true`, enables debug mode on the transaction executor and the script compiler. For any script that has been compiled and executed in this mode, debug logs will be output in order to facilitate MASM debugging ([these instructions](https://0xpolygonmiden.github.io/miden-vm/user_docs/assembly/debugging.html) can be used to do so). This variable can be overriden by the `--debug` CLI flag. 
-||||||| parent of 94e83c8 (docs: update CLI docs)
-    - However, the endpoint can point to any remote node.
