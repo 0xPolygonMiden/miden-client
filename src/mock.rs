@@ -34,7 +34,8 @@ use tonic::{Response, Status};
 use crate::{
     client::{
         rpc::{
-            NodeRpcClient, NodeRpcClientEndpoint, NoteDetails, NoteInclusionDetails, StateSyncInfo,
+            AccountDetails, NodeRpcClient, NodeRpcClientEndpoint, NoteDetails,
+            NoteInclusionDetails, StateSyncInfo,
         },
         sync::FILTER_ID_SHIFT,
         transactions::{
@@ -167,7 +168,7 @@ impl NodeRpcClient for MockRpcApi {
     async fn get_account_update(
         &mut self,
         _account_id: AccountId,
-    ) -> Result<Account, NodeRpcClientError> {
+    ) -> Result<AccountDetails, NodeRpcClientError> {
         panic!("shouldn't be used for now")
     }
 }
