@@ -41,6 +41,18 @@ Create accounts and inspect account details.
 
 After creating an account with the `new` command, it is automatically stored and tracked by the client. This means the client can execute transactions that modify the state of accounts and track related changes by synchronizing with the Miden node.
 
+The `show` subcommand also accepts a partial ID instead of the full ID. For example, instead of:
+
+```sh
+miden-client account show 0x8fd4b86a6387f8d8
+```
+
+You can call:
+
+```sh
+miden-client account show 0x8fd4b86
+```
+
 ### `info`
 
 View a summary of the current client state.
@@ -51,12 +63,13 @@ View and manage input notes.
 
 #### Sub-commands
 
-| Command | Description                                                 | Aliases |
-|---------|-------------------------------------------------------------|---------|
-| `list`    | List input notes                                            | -l      |
-| `show`    | Show details of the input note for the specified note ID   | -s      |
-| `export`  | Export input note data to a binary file                    | -e      |
-| `import`  | Import input note data from a binary file                  | -i      |
+| Command           | Description                                                 | Aliases |
+|-------------------|-------------------------------------------------------------|---------|
+| `list`            | List input notes                                            | -l      |
+| `show`            | Show details of the input note for the specified note ID    | -s      |
+| `export`          | Export input note data to a binary file                     | -e      |
+| `import`          | Import input note data from a binary file                   | -i      |
+| `list-consumables`| List consumable notes by tracked accounts                   | -c      |
 
 The `show` subcommand also accepts a partial ID instead of the full ID. For example, instead of:
 
@@ -126,3 +139,15 @@ miden-client consume-notes --account <some-account-id> 0x70b7ecb 0x80b7ecb
 ```
 
 Also, for `p2id`, `p2idr` and `consume-notes`, you can omit the `--sender` and `--account` flags to use the default account defined in the [config](./cli-config.md). If you omit the flag but have no default account defined in the config, you'll get an error instead.
+
+For every command which needs an account ID (either wallet or faucet), you can also provide a partial ID instead of the full ID for each account. So instead of
+
+```sh
+miden-client tx new p2id --sender 0x80519a1c5e3680fc --target 0x8fd4b86a6387f8d8 --faucet 0xa99c5c8764d4e011 100
+```
+
+You can do:
+
+```sh
+miden-client tx new p2id --sender 0x80519 --target 0x8fd4b --faucet 0xa99c5 100
+```

@@ -16,7 +16,7 @@ use miden_objects::{
 use miden_tx::utils::{bytes_to_hex_string, Deserializable, Serializable};
 use tracing::info;
 
-use super::{load_config, update_config, CLIENT_CONFIG_FILE_NAME};
+use super::{get_account_with_id_prefix, load_config, update_config, CLIENT_CONFIG_FILE_NAME};
 use crate::cli::create_dynamic_table;
 
 // ACCOUNT COMMAND
@@ -29,10 +29,11 @@ pub enum AccountCmd {
     #[clap(short_flag = 'l')]
     List,
 
-    /// Show details of the account for the specified ID
+    /// Show details of the account for the specified ID or hex prefix
     #[clap(short_flag = 's')]
     Show {
         // TODO: We should create a value parser for catching input parsing errors earlier (ie AccountID) once complexity grows
+        /// ID of an account or hex prefix that matches with a single account.
         #[clap()]
         id: String,
         #[clap(short, long, default_value_t = false)]
@@ -169,8 +170,8 @@ impl AccountCmd {
                 let (_new_account, _account_seed) = client.new_account(client_template)?;
             },
             AccountCmd::Show { id, keys, vault, storage, code } => {
-                let account_id: AccountId = AccountId::from_hex(id)
-                    .map_err(|_| "Input number was not a valid Account Id")?;
+                let account_id =
+                    get_account_with_id_prefix(&client, id).map_err(|err| err.to_string())?.id();
                 show_account(client, account_id, *keys, *vault, *storage, *code)?;
             },
             AccountCmd::Import { filenames } => {
@@ -224,7 +225,7 @@ impl AccountCmd {
 fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: Client<N, R, S>,
 ) -> Result<(), String> {
-    let accounts = client.get_accounts()?;
+    let accounts = client.get_account_stubs()?;
 
     let mut table = create_dynamic_table(&[
         "Account ID",
