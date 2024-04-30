@@ -95,7 +95,7 @@ impl SqliteStore {
         }
 
         self.db
-            .prepare(dbg!(&filter.to_query()))?
+            .prepare(&filter.to_query())?
             .query_map(params_from_iter(params), parse_chain_mmr_nodes_columns)?
             .map(|result| Ok(result?).and_then(parse_chain_mmr_nodes))
             .collect()
