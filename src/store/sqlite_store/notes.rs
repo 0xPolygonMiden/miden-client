@@ -218,7 +218,7 @@ pub(super) fn insert_input_note_tx(
     .map(|_| ())?;
 
     const QUERY: &str =
-        "INSERT OR IGNORE INTO notes_scripts (script_hash, serialized_note_script) VALUES (?, ?)";
+        "INSERT OR REPLACE INTO notes_scripts (script_hash, serialized_note_script) VALUES (?, ?)";
     tx.execute(QUERY, params![note_script_hash, serialized_note_script,])
         .map_err(|err| StoreError::QueryError(err.to_string()))
         .map(|_| ())
@@ -257,7 +257,7 @@ pub fn insert_output_note_tx(
     .map(|_| ())?;
 
     const QUERY: &str =
-        "INSERT OR IGNORE INTO notes_scripts (script_hash, serialized_note_script) VALUES (?, ?)";
+        "INSERT OR REPLACE INTO notes_scripts (script_hash, serialized_note_script) VALUES (?, ?)";
     tx.execute(QUERY, params![note_script_hash, serialized_note_script,])
         .map_err(|err| StoreError::QueryError(err.to_string()))
         .map(|_| ())
