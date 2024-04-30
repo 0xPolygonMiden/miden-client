@@ -18,7 +18,6 @@ use miden_client::{
     errors::{ClientError, NodeRpcClientError},
     store::{sqlite_store::SqliteStore, AuthInfo, NoteFilter, TransactionFilter},
 };
-use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::{Account, AccountId, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN},
     assembly::ProgramAst,
@@ -26,7 +25,7 @@ use miden_objects::{
     crypto::rand::{FeltRng, RpoRandomCoin},
     notes::{
         Note, NoteAssets, NoteExecutionMode, NoteId, NoteInputs, NoteMetadata, NoteRecipient,
-        NoteScript, NoteTag, NoteType,
+        NoteTag, NoteType,
     },
     transaction::InputNote,
     Felt, Word,
@@ -88,10 +87,9 @@ async fn execute_tx_and_sync(client: &mut TestClient, tx_request: TransactionReq
         // Check if executed transaction got committed by the node
         let uncommited_transactions =
             client.get_transactions(TransactionFilter::Uncomitted).unwrap();
-        let is_tx_committed = uncommited_transactions
+        let is_tx_committed = !uncommited_transactions
             .iter()
-            .find(|uncommited_tx| uncommited_tx.id == transaction_id)
-            .is_none();
+            .any(|uncommited_tx| uncommited_tx.id == transaction_id);
 
         if is_tx_committed {
             break;
@@ -268,7 +266,7 @@ async fn test_onchain_notes_flow() {
     client_2.sync_state().await.unwrap();
 
     let tx_template = TransactionTemplate::MintFungibleAsset(
-        FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap().into(),
+        FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
         basic_wallet_1.id(),
         NoteType::Public,
     );
@@ -309,7 +307,7 @@ async fn test_onchain_notes_flow() {
     let note = client_3
         .get_input_notes(NoteFilter::Committed)
         .unwrap()
-        .get(0)
+        .first()
         .unwrap()
         .clone()
         .try_into()
@@ -820,9 +818,7 @@ fn create_custom_note(
     let note_metadata = NoteMetadata::new(
         faucet_account_id,
         NoteType::OffChain,
-        NoteTag::from_account_id(target_account_id, NoteExecutionMode::Local)
-            .unwrap()
-            .into(),
+        NoteTag::from_account_id(target_account_id, NoteExecutionMode::Local).unwrap(),
         Default::default(),
     )
     .unwrap();
@@ -1012,7 +1008,7 @@ async fn test_get_consumable_notes() {
 
     // Check that the note is only consumable after block 100 for the account that sent the transaction
     let from_account_relevance = relevant_accounts
-        .into_iter()
+        .iter()
         .find(|relevance| relevance.0 == from_account_id)
         .unwrap()
         .1;
@@ -1020,7 +1016,7 @@ async fn test_get_consumable_notes() {
 
     // Check that the note is always consumable for the account that received the transaction
     let to_account_relevance = relevant_accounts
-        .into_iter()
+        .iter()
         .find(|relevance| relevance.0 == to_account_id)
         .unwrap()
         .1;
@@ -1102,7 +1098,7 @@ async fn test_onchain_notes_sync_with_tag() {
 
     let target_account_id = AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap();
     let tx_template = TransactionTemplate::MintFungibleAsset(
-        FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap().into(),
+        FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
         target_account_id,
         NoteType::Public,
     );
