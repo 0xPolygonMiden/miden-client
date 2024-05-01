@@ -1,5 +1,6 @@
 # Changelog
 
+* Added support for using an account as the default for the CLI
 * Replace instead of ignore note scripts with when inserting input/output notes with a previously-existing note script root to support adding debug statements.
 * Added RPC timeout configuration field
 * Add offchain account support for the tonic client method `get_account_update`.

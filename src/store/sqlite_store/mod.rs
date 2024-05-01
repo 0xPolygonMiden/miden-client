@@ -258,15 +258,14 @@ pub mod tests {
     };
 
     pub fn create_test_client() -> MockClient {
-        let client_config = ClientConfig {
-            store: create_test_store_path()
-                .into_os_string()
-                .into_string()
-                .unwrap()
-                .try_into()
-                .unwrap(),
-            rpc: RpcConfig::default(),
-        };
+        let store = create_test_store_path()
+            .into_os_string()
+            .into_string()
+            .unwrap()
+            .try_into()
+            .unwrap();
+
+        let client_config = ClientConfig::new(store, RpcConfig::default());
 
         let rpc_endpoint = client_config.rpc.endpoint.to_string();
         let store = SqliteStore::new((&client_config).into()).unwrap();
