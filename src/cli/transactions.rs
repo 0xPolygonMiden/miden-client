@@ -39,11 +39,14 @@ impl From<&NoteType> for MidenNoteType {
 pub enum TransactionType {
     /// Create a pay-to-id transaction.
     P2ID {
-        /// Sender account ID or its hex prefix
-        sender_account_id: String,
+        /// Sender account ID or its hex prefix. If none is provided, the default account's ID is used instead
+        #[clap(short = 's', long = "source")]
+        sender_account_id: Option<String>,
         /// Target account ID or its hex prefix
+        #[clap(short = 't', long = "target")]
         target_account_id: String,
         /// Faucet account ID or its hex prefix
+        #[clap(short = 'f', long = "faucet")]
         faucet_id: String,
         amount: u64,
         #[clap(short, long, value_enum)]
@@ -53,8 +56,10 @@ pub enum TransactionType {
     /// `target_account_id`.
     Mint {
         /// Target account ID or its hex prefix
+        #[clap(short = 't', long = "target")]
         target_account_id: String,
         /// Faucet account ID or its hex prefix
+        #[clap(short = 'f', long = "faucet")]
         faucet_id: String,
         amount: u64,
         #[clap(short, long, value_enum)]
@@ -62,11 +67,14 @@ pub enum TransactionType {
     },
     /// Create a pay-to-id with recall transaction.
     P2IDR {
-        /// Sender account ID or its hex prefix
-        sender_account_id: String,
+        /// Sender account ID or its hex prefix. If none is provided, the default account's ID is used instead
+        #[clap(short = 's', long = "source")]
+        sender_account_id: Option<String>,
         /// Target account ID or its hex prefix
+        #[clap(short = 't', long = "target")]
         target_account_id: String,
         /// Faucet account ID or its hex prefix
+        #[clap(short = 'f', long = "faucet")]
         faucet_id: String,
         amount: u64,
         recall_height: u32,
@@ -75,8 +83,10 @@ pub enum TransactionType {
     },
     /// Consume with the account corresponding to `account_id` all of the notes from `list_of_notes`.
     ConsumeNotes {
-        /// Consumer account ID or its hex prefix
-        account_id: String,
+        /// The account ID to be used to consume the note or its hex prefix. If none is provided, the default
+        /// account's ID is used instead
+        #[clap(short = 'a', long = "account")]
+        account_id: Option<String>,
         /// A list of note IDs or the hex prefixes of their corresponding IDs
         list_of_notes: Vec<String>,
     },
@@ -101,13 +111,14 @@ impl Transaction {
     pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store>(
         &self,
         mut client: Client<N, R, S>,
+        default_account_id: Option<String>,
     ) -> Result<(), String> {
         match self {
             Transaction::List => {
                 list_transactions(client)?;
             },
             Transaction::New { transaction_type } => {
-                new_transaction(&mut client, transaction_type).await?;
+                new_transaction(&mut client, transaction_type, default_account_id).await?;
             },
         }
         Ok(())
@@ -119,9 +130,10 @@ impl Transaction {
 async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: &mut Client<N, R, S>,
     transaction_type: &TransactionType,
+    default_account_id: Option<String>,
 ) -> Result<(), String> {
     let transaction_template: TransactionTemplate =
-        build_transaction_template(client, transaction_type)?;
+        build_transaction_template(client, transaction_type, default_account_id)?;
 
     let transaction_request = client.build_transaction_request(transaction_template)?;
     let transaction_execution_result = client.new_transaction(transaction_request)?;
@@ -143,6 +155,7 @@ async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store>(
 fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: &Client<N, R, S>,
     transaction_type: &TransactionType,
+    default_account_id: Option<String>,
 ) -> Result<TransactionTemplate, String> {
     match transaction_type {
         TransactionType::P2ID {
@@ -157,7 +170,13 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
                 .id();
             let fungible_asset =
                 FungibleAsset::new(faucet_id, *amount).map_err(|err| err.to_string())?.into();
-            let sender_account_id = get_account_with_id_prefix(client, sender_account_id)
+
+            // try to use either the provided argument or the default account
+            let sender_account_id = sender_account_id
+                .clone()
+                .or(default_account_id)
+                .ok_or("Neither a sender nor a default account was provided".to_string())?;
+            let sender_account_id = get_account_with_id_prefix(client, &sender_account_id)
                 .map_err(|err| err.to_string())?
                 .id();
             let target_account_id = get_account_with_id_prefix(client, target_account_id)
@@ -182,7 +201,13 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
                 .id();
             let fungible_asset =
                 FungibleAsset::new(faucet_id, *amount).map_err(|err| err.to_string())?.into();
-            let sender_account_id = get_account_with_id_prefix(client, sender_account_id)
+
+            // try to use either the provided argument or the default account
+            let sender_account_id = sender_account_id
+                .clone()
+                .or(default_account_id)
+                .ok_or("Neither a sender nor a default account was provided".to_string())?;
+            let sender_account_id = get_account_with_id_prefix(client, &sender_account_id)
                 .map_err(|err| err.to_string())?
                 .id();
             let target_account_id = get_account_with_id_prefix(client, target_account_id)
@@ -228,7 +253,11 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
                 })
                 .collect::<Result<Vec<NoteId>, _>>()?;
 
-            let account_id = get_account_with_id_prefix(client, account_id)
+            let account_id = account_id
+                .clone()
+                .or(default_account_id)
+                .ok_or("Neither a sender nor a default account was provided".to_string())?;
+            let account_id = get_account_with_id_prefix(client, &account_id)
                 .map_err(|err| err.to_string())?
                 .id();
 
