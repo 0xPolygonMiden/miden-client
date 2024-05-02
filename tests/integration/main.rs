@@ -201,6 +201,7 @@ async fn test_p2idr_transfer_consumed_by_target() {
 #[tokio::test]
 async fn test_p2idr_transfer_consumed_by_sender() {
     let mut client = create_test_client();
+    wait_for_node(&mut client).await;
 
     let (first_regular_account, second_regular_account, faucet_account_stub) =
         setup(&mut client, AccountStorageMode::Local).await;

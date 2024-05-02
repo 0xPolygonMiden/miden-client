@@ -225,8 +225,7 @@ fn create_custom_note(
     let note_metadata = NoteMetadata::new(
         faucet_account_id,
         NoteType::OffChain,
-        NoteTag::from_account_id(target_account_id, NoteExecutionMode::Local)
-            .unwrap(),
+        NoteTag::from_account_id(target_account_id, NoteExecutionMode::Local).unwrap(),
         Default::default(),
     )
     .unwrap();
