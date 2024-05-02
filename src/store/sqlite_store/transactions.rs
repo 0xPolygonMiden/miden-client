@@ -69,7 +69,7 @@ impl SqliteStore {
         &self,
         filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, StoreError> {
-        self.db
+        self.db()
             .prepare(&filter.to_query())?
             .query_map([], parse_transaction_columns)
             .expect("no binding parameters used in query")
@@ -78,7 +78,7 @@ impl SqliteStore {
     }
 
     /// Inserts a transaction and updates the current state based on the `tx_result` changes
-    pub fn apply_transaction(&mut self, tx_result: TransactionResult) -> Result<(), StoreError> {
+    pub fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), StoreError> {
         let account_id = tx_result.executed_transaction().account_id();
         let account_delta = tx_result.account_delta();
 
@@ -98,7 +98,8 @@ impl SqliteStore {
             .map(|note| OutputNoteRecord::from(note.clone()))
             .collect::<Vec<_>>();
 
-        let tx = self.db.transaction()?;
+        let mut db = self.db();
+        let tx = db.transaction()?;
 
         // Transaction Data
         insert_proven_transaction_data(&tx, tx_result)?;
