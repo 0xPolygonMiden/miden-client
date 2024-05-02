@@ -71,11 +71,14 @@ jobs:
       - uses: taiki-e/install-action@nextest
       - run: cargo make reset
       - run: cargo make node
-      - run: cargo make start-node &
+      - run: cargo make start-node > ./node-output.out &
       - run: cargo make ci-integration-test
       - name: Kill miden-node
         if: always()
         run: cargo make kill-node
+      - name: Print node output
+        if: always()
+        run: cat ./node-output.out
 
   docs:
     name: build mkdocs
