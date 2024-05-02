@@ -1,4 +1,4 @@
-use std::{env, path::Path};
+use std::{env, fs::File, io::Write, path::Path};
 
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
@@ -16,9 +16,11 @@ use miden_client::{
     errors::{ClientError, IdPrefixFetchError},
     store::{sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
 };
-#[cfg(not(feature = "mock"))]
-use miden_objects::crypto::rand::RpoRandomCoin;
-use miden_objects::{accounts::AccountStub, crypto::rand::FeltRng};
+use miden_objects::{
+    accounts::AccountStub,
+    crypto::rand::{FeltRng, RpoRandomCoin},
+};
+use tracing::info;
 
 mod account;
 mod info;
@@ -104,7 +106,11 @@ impl Cli {
             Command::InputNotes(notes) => notes.execute(client),
             Command::Sync => sync::sync_state(client).await,
             Command::Tags(tags) => tags.execute(client).await,
-            Command::Transaction(transaction) => transaction.execute(client).await,
+            Command::Transaction(transaction) => {
+                let default_account_id =
+                    client_config.cli.and_then(|cli_conf| cli_conf.default_account_id);
+                transaction.execute(client, default_account_id).await
+            },
         }
     }
 }
@@ -224,4 +230,22 @@ pub(crate) fn get_account_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>
     }
 
     Ok(accounts.pop().expect("account_ids should always have one element"))
+}
+
+pub(crate) fn update_config(config_path: &Path, client_config: ClientConfig) -> Result<(), String> {
+    let config_as_toml_string = toml::to_string_pretty(&client_config)
+        .map_err(|err| format!("error formatting config: {err}"))?;
+
+    info!("Writing config file at: {:?}", config_path);
+    let mut file_handle = File::options()
+        .write(true)
+        .truncate(true)
+        .open(config_path)
+        .map_err(|err| format!("error opening the file: {err}"))?;
+    file_handle
+        .write(config_as_toml_string.as_bytes())
+        .map_err(|err| format!("error writing to file: {err}"))?;
+
+    println!("Config updated successfully");
+    Ok(())
 }

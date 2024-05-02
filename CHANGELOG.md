@@ -3,6 +3,7 @@
 * [BREAKING] `Client::new()` now does not need a `data_store_store` parameter, and `SqliteStore`'s implements interior mutability.
 * [BREAKING] The store's `get_input_note` was replaced by `get_input_notes` and a `NoteFilter::Unique` was added.
 * Refactored `get_account` to create the account from a single query.
+* Added support for using an account as the default for the CLI
 * Replace instead of ignore note scripts with when inserting input/output notes with a previously-existing note script root to support adding debug statements.
 * Added RPC timeout configuration field
 * Add offchain account support for the tonic client method `get_account_update`.

@@ -11,7 +11,7 @@ miden-client
 !!! info "Help" 
     Run `miden-client --help` for information on `miden-client` commands.
 
-## Configuration
+## Client Configuration
 
 We configure the client using a [TOML](https://en.wikipedia.org/wiki/TOML) file ([`miden-client.toml`](https://github.com/0xPolygonMiden/miden-client/blob/main/miden-client.toml)). 
 
@@ -22,6 +22,9 @@ timeout_ms = 10000
 
 [store]
 database_filepath = "store.sqlite3"
+
+[cli]
+default_account_id = "0x012345678"
 ```
 
 The TOML file should reside in same the directory from which you run the CLI.
@@ -33,6 +36,17 @@ By default, the node is set up to run on `localhost:57291`.
 !!! note
     - Running the node locally for development is encouraged. 
     - However, the endpoint can point to any remote node.
+
+There's an additional **optional** section used for CLI configuration. It
+currently contains the default account ID, which is used to execute
+transactions against it when the account flag is not provided.
+
+By default none is set, but you can set and unset it with:
+
+```sh
+miden-client account default set <ACCOUNT_ID>`
+miden-client account default unset
+```
 
 ### Environment variables
 

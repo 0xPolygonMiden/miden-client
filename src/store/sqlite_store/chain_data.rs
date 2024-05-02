@@ -1,4 +1,4 @@
-use alloc::collections::BTreeMap;
+use alloc::{collections::BTreeMap, rc::Rc};
 use std::num::NonZeroUsize;
 
 use clap::error::Result;
@@ -6,7 +6,7 @@ use miden_objects::{
     crypto::merkle::{InOrderIndex, MmrPeaks},
     BlockHeader, Digest,
 };
-use rusqlite::{params, OptionalExtension, Transaction};
+use rusqlite::{params, params_from_iter, types::Value, OptionalExtension, Transaction};
 
 use super::SqliteStore;
 use crate::{errors::StoreError, store::ChainMmrNodeFilter};
@@ -25,13 +25,8 @@ impl ChainMmrNodeFilter<'_> {
         let base = String::from("SELECT id, node FROM chain_mmr_nodes");
         match self {
             ChainMmrNodeFilter::All => base,
-            ChainMmrNodeFilter::List(ids) => {
-                let formatted_list = ids
-                    .iter()
-                    .map(|id| (Into::<u64>::into(*id)).to_string())
-                    .collect::<Vec<String>>()
-                    .join(",");
-                format!("{base} WHERE id IN ({})", formatted_list)
+            ChainMmrNodeFilter::List(_) => {
+                format!("{base} WHERE id IN rarray(?)")
             },
         }
     }
@@ -62,18 +57,16 @@ impl SqliteStore {
         &self,
         block_numbers: &[u32],
     ) -> Result<Vec<(BlockHeader, bool)>, StoreError> {
-        let formatted_block_numbers_list = block_numbers
+        let block_number_list = block_numbers
             .iter()
-            .map(|block_number| (*block_number as i64).to_string())
-            .collect::<Vec<String>>()
-            .join(",");
-        let query = format!(
-            "SELECT block_num, header, chain_mmr_peaks, has_client_notes FROM block_headers WHERE block_num IN ({})",
-            formatted_block_numbers_list
-        );
+            .map(|block_number| Value::Integer(*block_number as i64))
+            .collect::<Vec<Value>>();
+
+        const QUERY : &str = "SELECT block_num, header, chain_mmr_peaks, has_client_notes FROM block_headers WHERE block_num IN rarray(?)";
+
         self.db()
-            .prepare(&query)?
-            .query_map(params![], parse_block_headers_columns)?
+            .prepare(QUERY)?
+            .query_map(params![Rc::new(block_number_list)], parse_block_headers_columns)?
             .map(|result| Ok(result?).and_then(parse_block_header))
             .collect()
     }
@@ -91,9 +84,19 @@ impl SqliteStore {
         &self,
         filter: ChainMmrNodeFilter,
     ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
+        let mut params = Vec::new();
+        if let ChainMmrNodeFilter::List(ids) = filter {
+            let id_values = ids
+                .iter()
+                .map(|id| Value::Integer(Into::<u64>::into(*id) as i64))
+                .collect::<Vec<_>>();
+
+            params.push(Rc::new(id_values));
+        }
+
         self.db()
             .prepare(&filter.to_query())?
-            .query_map(params![], parse_chain_mmr_nodes_columns)?
+            .query_map(params_from_iter(params), parse_chain_mmr_nodes_columns)?
             .map(|result| Ok(result?).and_then(parse_chain_mmr_nodes))
             .collect()
     }
