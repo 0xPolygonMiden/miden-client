@@ -37,15 +37,16 @@ impl InitCmd {
         let config_as_toml_string = toml::to_string_pretty(&client_config)
             .map_err(|err| format!("error formatting config: {err}"))?;
 
-        println!("Creating config file at: {:?}", config_file_path);
         let mut file_handle = File::options()
             .write(true)
             .create_new(true)
-            .open(config_file_path)
+            .open(&config_file_path)
             .map_err(|err| format!("error opening the file: {err}"))?;
         file_handle
             .write(config_as_toml_string.as_bytes())
             .map_err(|err| format!("error writing to file: {err}"))?;
+
+        println!("Config file successfully created at: {:?}", config_file_path);
 
         Ok(())
     }

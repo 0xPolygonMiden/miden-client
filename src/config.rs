@@ -44,23 +44,6 @@ impl Provider for ClientConfig {
     }
 }
 
-impl ClientConfig {
-    pub fn testnet() -> Self {
-        ClientConfig {
-            cli: None,
-            rpc: RpcConfig {
-                endpoint: Endpoint {
-                    protocol: "http".to_string(),
-                    host: "testnet.miden.io".to_string(),
-                    port: MIDEN_NODE_PORT,
-                },
-                timeout_ms: default_timeout(),
-            },
-            store: StoreConfig::default(),
-        }
-    }
-}
-
 // ENDPOINT
 // ================================================================================================
 
@@ -260,11 +243,35 @@ mod test {
     }
 
     #[test]
+    fn test_endpoint_parsing_with_ip() {
+        let endpoint = Endpoint::try_from("192.168.0.1").unwrap();
+        let expected_endpoint = Endpoint {
+            protocol: "https".to_string(),
+            host: "192.168.0.1".to_string(),
+            port: MIDEN_NODE_PORT,
+        };
+
+        assert_eq!(endpoint, expected_endpoint);
+    }
+
+    #[test]
     fn test_endpoint_parsing_with_port() {
         let endpoint = Endpoint::try_from("some.test.domain:8000").unwrap();
         let expected_endpoint = Endpoint {
             protocol: "https".to_string(),
             host: "some.test.domain".to_string(),
+            port: 8000,
+        };
+
+        assert_eq!(endpoint, expected_endpoint);
+    }
+
+    #[test]
+    fn test_endpoint_parsing_with_ip_and_port() {
+        let endpoint = Endpoint::try_from("192.168.0.1:8000").unwrap();
+        let expected_endpoint = Endpoint {
+            protocol: "https".to_string(),
+            host: "192.168.0.1".to_string(),
             port: 8000,
         };
 
@@ -284,11 +291,35 @@ mod test {
     }
 
     #[test]
+    fn test_endpoint_parsing_with_protocol_and_ip() {
+        let endpoint = Endpoint::try_from("http://192.168.0.1").unwrap();
+        let expected_endpoint = Endpoint {
+            protocol: "http".to_string(),
+            host: "192.168.0.1".to_string(),
+            port: MIDEN_NODE_PORT,
+        };
+
+        assert_eq!(endpoint, expected_endpoint);
+    }
+
+    #[test]
     fn test_endpoint_parsing_with_both_protocol_and_port() {
         let endpoint = Endpoint::try_from("http://some.test.domain:8080").unwrap();
         let expected_endpoint = Endpoint {
             protocol: "http".to_string(),
             host: "some.test.domain".to_string(),
+            port: 8080,
+        };
+
+        assert_eq!(endpoint, expected_endpoint);
+    }
+
+    #[test]
+    fn test_endpoint_parsing_with_ip_and_protocol_and_port() {
+        let endpoint = Endpoint::try_from("http://192.168.0.1:8080").unwrap();
+        let expected_endpoint = Endpoint {
+            protocol: "http".to_string(),
+            host: "192.168.0.1".to_string(),
             port: 8080,
         };
 
