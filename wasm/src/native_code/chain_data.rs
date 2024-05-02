@@ -1,18 +1,14 @@
-use miden_objects::crypto::rand::FeltRng;
+use miden_objects::{crypto::rand::FeltRng, BlockHeader};
 
 use super::{
-    rpc::NodeRpcClient, 
-    Client, 
-    store::Store // TODO: Add AuthInfo
+    errors::ClientError, rpc::NodeRpcClient, store::Store, Client // TODO: Add AuthInfo
 };
 
 impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     pub async fn get_block_headers(
         &self,
         block_numbers: &[u32],
-    ) -> String { // TODO: Replace with Result<Vec<(BlockHeader, bool)>, ()>
-        //self.store.get_block_headers(block_numbers).map_err(|err| ())
-
-        "Called get_block_headers".to_string()
+    ) -> Result<Vec<(BlockHeader, bool)>, ClientError> {
+        self.store.get_block_headers(block_numbers).await.map_err(ClientError::StoreError)
     }
 }

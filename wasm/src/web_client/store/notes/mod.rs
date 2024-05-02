@@ -6,7 +6,12 @@ use wasm_bindgen_futures::*;
 
 use super::WebStore;
 use crate::native_code::errors::StoreError;
-use crate::native_code::store::note_record::{InputNoteRecord, NoteRecordDetails, NoteStatus, OutputNoteRecord};
+use crate::native_code::store::note_record::{
+    InputNoteRecord, 
+    NoteRecordDetails, 
+    NoteStatus, 
+    OutputNoteRecord
+};
 use crate::native_code::store::NoteFilter;
 use crate::web_client::notes::WebClientNoteFilter;
 
@@ -16,12 +21,12 @@ use js_bindings::*;
 mod models;
 use models::*;
 
-mod utils;
+pub(crate) mod utils;
 use utils::*;
 
 impl WebStore {
     pub(crate) async fn get_input_notes(
-        &mut self,
+        &self,
         filter: NoteFilter
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
         let filter_as_str = match filter {
@@ -90,7 +95,7 @@ impl WebStore {
     }
 
     pub(crate) async fn get_input_note(
-        &mut self,
+        &self,
         note_id: NoteId
     ) -> Result<InputNoteRecord, StoreError> {
         let note_id_str = &note_id.inner().to_string();
@@ -156,7 +161,7 @@ impl WebStore {
     }
 
     pub(crate) async fn get_output_notes(
-        &mut self,
+        &self,
         filter: NoteFilter
     ) -> Result<Vec<OutputNoteRecord>, StoreError> {
         let filter_as_str = match filter {
@@ -227,7 +232,7 @@ impl WebStore {
     }
 
     pub(crate) async fn get_unspent_input_note_nullifiers(
-        &mut self
+        &self
     ) -> Result<Vec<Nullifier>, StoreError>{
         let promise = idxdb_get_unspent_input_note_nullifiers();
         let js_value = JsFuture::from(promise).await.unwrap();

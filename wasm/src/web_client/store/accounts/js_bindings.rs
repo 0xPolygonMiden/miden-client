@@ -6,6 +6,11 @@ use wasm_bindgen_futures::*;
 extern "C" {
     // GETS
     // ================================================================================================
+    #[wasm_bindgen(js_name = getAccountIds)]
+    pub fn idxdb_get_account_ids() -> js_sys::Promise;
+
+    #[wasm_bindgen(js_name = getAllAccountStubs)]
+    pub fn idxdb_get_account_stubs() -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = getAccountStub)]
     pub fn idxdb_get_account_stub(
@@ -17,26 +22,20 @@ extern "C" {
         code_root: String
     ) -> js_sys::Promise;
 
-    #[wasm_bindgen(js_name = getAccountAssetVault)]
-    pub fn idxdb_get_account_asset_vault(
-        vault_root: String
-    ) -> js_sys::Promise;
-
     #[wasm_bindgen(js_name = getAccountStorage)]
     pub fn idxdb_get_account_storage(
         storage_root: String
+    ) -> js_sys::Promise;
+
+    #[wasm_bindgen(js_name = getAccountAssetVault)]
+    pub fn idxdb_get_account_asset_vault(
+        vault_root: String
     ) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = getAccountAuth)]
     pub fn idxdb_get_account_auth(
         account_id: String
     ) -> js_sys::Promise;
-
-    #[wasm_bindgen(js_name = getAllAccountStubs)]
-    pub fn idxdb_get_account_stubs() -> js_sys::Promise;
-
-    #[wasm_bindgen(js_name = getAccountIds)]
-    pub fn idxdb_get_account_ids() -> js_sys::Promise;
 
     // INSERTS
     // ================================================================================================
@@ -60,12 +59,6 @@ extern "C" {
         assets: String
     ) -> js_sys::Promise;
 
-    #[wasm_bindgen(js_name = insertAccountAuth)]
-    pub fn idxdb_insert_account_auth(
-        id: String,
-        auth_info: Vec<u8>
-    ) -> js_sys::Promise;
-
     #[wasm_bindgen(js_name = insertAccountRecord)]
     pub fn idxdb_insert_account_record(
         id: String, 
@@ -75,5 +68,11 @@ extern "C" {
         nonce: String, 
         committed: bool, 
         account_seed: Option<Vec<u8>>
+    ) -> js_sys::Promise;
+
+    #[wasm_bindgen(js_name = insertAccountAuth)]
+    pub fn idxdb_insert_account_auth(
+        id: String,
+        auth_info: Vec<u8>
     ) -> js_sys::Promise;
 }

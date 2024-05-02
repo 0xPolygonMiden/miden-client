@@ -24,24 +24,28 @@ export async function getTransactions(
         }, {});
 
         const processedTransactions = await Promise.all(transactionRecords.map(async transactionRecord => {
-            let scriptHashArrayBuffer = null;
-            let scriptProgramArrayBuffer = null;
-            
-            outputNotesArrayBuffer = await transactionRecord.outputNotes.arrayBuffer();
+            let scriptHashBase64 = null;
+            let scriptProgramBase64 = null;
+
             if (transactionRecord.scriptHash !== null) {
-                scriptHashArrayBuffer = await transactionRecord.scriptHash.arrayBuffer();
-            }
-            if (scriptMap[transactionRecord.scriptHash] !== null) {
-                scriptProgramArrayBuffer = await scriptMap[transactionRecord.scriptHash].arrayBuffer();
+                let scriptHashArrayBuffer = await transactionRecord.scriptHash.arrayBuffer();
+                let scriptHashArray = new Uint8Array(scriptHashArrayBuffer);
+                scriptHashBase64 = uint8ArrayToBase64(scriptHashArray);
             }
 
-            transactionRecord.outputNotes = new Uint8Array(outputNotesArrayBuffer);
-            if (scriptHashArrayBuffer !== null) {
-                transactionRecord.scriptHash = new Uint8Array(scriptHashArrayBuffer);
+            if (transactionRecord.scriptProgram !== null) {
+                let scriptProgramArrayBuffer = await transactionRecord.scriptProgram.arrayBuffer();
+                let scriptProgramArray = new Uint8Array(scriptProgramArrayBuffer);
+                scriptProgramBase64 = uint8ArrayToBase64(scriptProgramArray);
             }
-            if (scriptProgramArrayBuffer !== null) {
-                transactionRecord.scriptProgram = new Uint8Array(scriptProgramArrayBuffer);
-            }
+            
+            let outputNotesArrayBuffer = await transactionRecord.outputNotes.arrayBuffer();
+            let outputNotesArray = new Uint8Array(outputNotesArrayBuffer);
+            let outputNotesBase64 = uint8ArrayToBase64(outputNotesArray);
+
+            transactionRecord.scriptHash = scriptHashBase64;
+            transactionRecord.scriptProgram = scriptProgramBase64;
+            transactionRecord.outputNotes = outputNotesBase64;
 
             return transactionRecord;
         }));
@@ -59,11 +63,22 @@ export async function insertTransactionScript(
     scriptProgram
 ) {
     try {
-        if (scriptHash === null || scriptProgram === null) {
-            throw new Error("Script hash and program must be provided.");
+        // check if script hash already exists 
+        let record = await transactionScripts.where("scriptHash").equals(scriptHash).first();
+        if (record !== undefined) {
+            console.log("Transaction script already exists, ignoring.");
+            return;
         }
-        let scriptHashBlob = new Blob([scriptHash]);
-        let scriptProgramBlob = new Blob([scriptProgram]);
+
+        if (scriptHash === null) {
+            throw new Error("Script hash must be provided");
+        }
+        let scriptHashBlob = new Blob([new Uint8Array(scriptHash)]);
+        let scriptProgramBlob = null;
+
+        if (scriptProgram !== null) {
+            scriptProgramBlob = new Blob([new Uint8Array(scriptProgram)]);
+        }
 
         const data = {
             scriptHash: scriptHashBlob,
@@ -89,21 +104,16 @@ export async function insertProvenTransactionData(
     finalAccountState,
     inputNotes,
     outputNotes,
-    scriptProgram,
     scriptHash,
     scriptInputs,
     blockNum,
     committed
 ) {
     try {
-        let scriptProgramBlob = null;
         let scriptHashBlob = null;
-        let outputNotesBlob = new Blob([outputNotes]);
-        if (scriptProgram !== null) {
-            scriptProgramBlob = new Blob([scriptProgram]);
-        }
+        let outputNotesBlob = new Blob([new Uint8Array(outputNotes)]);
         if (scriptHash !== null) {
-            scriptHashBlob = new Blob([scriptHash]);
+            scriptHashBlob = new Blob([new Uint8Array(scriptHash)]);
         }
 
         const data = {
@@ -113,7 +123,6 @@ export async function insertProvenTransactionData(
             finalAccountState: finalAccountState,
             inputNotes: inputNotes,
             outputNotes: outputNotesBlob,
-            scriptProgram: scriptProgramBlob,
             scriptHash: scriptHashBlob,
             scriptInputs: scriptInputs,
             blockNum: blockNum,
@@ -137,9 +146,15 @@ export async function markTransactionsAsCommitted(
             commitHeight: blockNum
         }));
 
-        await transactions.bulkPut(updates);
+        const result = await transactions.bulkPut(updates);
+        return result.length;
     } catch (err) {
         console.error("Failed to mark transactions as committed: ", err);
         throw err;
     }
+}
+
+function uint8ArrayToBase64(bytes) {
+    const binary = bytes.reduce((acc, byte) => acc + String.fromCharCode(byte), '');
+    return btoa(binary);
 }

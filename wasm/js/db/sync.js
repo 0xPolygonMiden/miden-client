@@ -12,7 +12,7 @@ export async function getNoteTags() {
         const record = await stateSync.get(1);  // Since id is the primary key and always 1
         if (record) {
             console.log('Retrieved record:', record);
-            return record.tags;  // Accessing blockNum directly from the record
+            return record.tags;
         } else {
             console.log('No record found with id: 1');
             return null;
@@ -65,10 +65,10 @@ export async function applyStateSync(
     return db.transaction('rw', stateSync, inputNotes, outputNotes, transactions, blockHeaders, async (tx) => {
         await updateSyncHeight(tx, blockNum);
         await updateSpentNotes(tx, nullifiers);
-        await updateCommittedNotes(tx, noteIds, inclusionProofs);
-        await updateCommittedTransactions(tx, blockNum, transactionIds);
         await updateBlockHeader(tx, blockNum, blockHeader, chainMmrPeaks, hasClientNotes);
         await updateChainMmrNodes(tx, nodeIndices, nodes);
+        await updateCommittedNotes(tx, noteIds, inclusionProofs);
+        await updateCommittedTransactions(tx, blockNum, transactionIds);
     });
 }
 
@@ -78,6 +78,7 @@ async function updateSyncHeight(
 ) {
     try {
         await tx.stateSync.update(1, { blockNum: blockNum });
+        console.log("Sync height updated successfully.");
     } catch (error) {
         console.error("Failed to update sync height: ", error);
         throw error;
@@ -103,7 +104,7 @@ async function updateSpentNotes(
         for (const note of parsedInputNotes) {
             if (nullifiers.includes(note.details.nullifier)) {
                 // If the nullifier is in the list, update the note's status
-                await tx.inputNotes.update(note.noteId, { status: 'consumed' });
+                await tx.inputNotes.update(note.noteId, { status: 'Consumed' });
             }
         }
 
@@ -117,7 +118,7 @@ async function updateSpentNotes(
         for (const note of parsedOutputNotes) {
             if (nullifiers.includes(note.details.nullifier)) {
                 // If the nullifier is in the list, update the note's status
-                await tx.outputNotes.update(note.noteId, { status: 'consumed' });
+                await tx.outputNotes.update(note.noteId, { status: 'Consumed' });
             }
         }
 
@@ -125,56 +126,6 @@ async function updateSpentNotes(
     } catch (error) {
         console.error("Error updating input notes:", error);
         throw error;
-    }
-}
-
-async function updateCommittedNotes(
-    tx, 
-    noteIds, 
-    inclusionProofs
-) {
-    try {
-        if (noteIds.length !== inclusionProofs.length) {
-            throw new Error("Arrays noteIds and inclusionProofs must be of the same length");
-        }
-
-        for (let i = 0; i < noteIds.length; i++) {
-            const noteId = noteIds[i];
-            const inclusionProof = inclusionProofs[i];
-
-            // Update input notes
-            await tx.inputNotes.where({ noteId: noteId }).modify({
-                status: 'committed',
-                inclusion_proof: inclusionProof
-            });
-
-            // Update output notes
-            await tx.outputNotes.where({ noteId: noteId }).modify({
-                status: 'committed',
-                inclusion_proof: inclusionProof
-            });
-        }
-    } catch (error) {
-        console.error("Error updating committed notes:", error);
-        throw error;
-    }
-}
-
-async function updateCommittedTransactions(
-    tx, 
-    blockNum, 
-    transactionIds
-) {
-    try {
-        const updates = transactionIds.map(transactionId => ({
-            id: transactionId,
-            commitHeight: blockNum
-        }));
-
-        await tx.transactions.bulkPut(updates);
-    } catch (err) {
-        console.error("Failed to mark transactions as committed: ", err);
-        throw err;
     }
 }
 
@@ -194,7 +145,7 @@ async function updateBlockHeader(
         };
 
         await tx.blockHeaders.add(data);
-        return `Block header for block ${blockNum} inserted successfully.`
+        console.log(`Block header for block ${blockNum} inserted successfully.`);
     } catch (err) {
         console.error("Failed to insert block header: ", err);
         throw error;
@@ -219,10 +170,60 @@ async function updateChainMmrNodes(
         }));
 
         // Perform bulk update or insertion; assumes tx.chainMmrNodes is a valid table reference in a transaction
-        await tx.chainMmrNodes.bulkPut(updates);
-        return "Successfully updated chain MMR nodes";
+        await tx.chainMmrNodes.bulkAdd(updates);
+        console.log("Successfully updated chain MMR nodes");
     } catch (err) {
         console.error("Failed to update chain mmr nodes: ", err);
         throw error;
+    }
+}
+
+async function updateCommittedNotes(
+    tx, 
+    noteIds, 
+    inclusionProofs
+) {
+    try {
+        if (noteIds.length !== inclusionProofs.length) {
+            throw new Error("Arrays noteIds and inclusionProofs must be of the same length");
+        }
+
+        for (let i = 0; i < noteIds.length; i++) {
+            const noteId = noteIds[i];
+            const inclusionProof = inclusionProofs[i];
+
+            // Update input notes
+            await tx.inputNotes.where({ noteId: noteId }).modify({
+                status: 'Committed',
+                inclusion_proof: inclusionProof
+            });
+
+            // Update output notes
+            await tx.outputNotes.where({ noteId: noteId }).modify({
+                status: 'Committed',
+                inclusion_proof: inclusionProof
+            });
+        }
+    } catch (error) {
+        console.error("Error updating committed notes:", error);
+        throw error;
+    }
+}
+
+async function updateCommittedTransactions(
+    tx, 
+    blockNum, 
+    transactionIds
+) {
+    try {
+        const updates = transactionIds.map(transactionId => ({
+            id: transactionId,
+            commitHeight: blockNum
+        }));
+
+        await tx.transactions.bulkPut(updates);
+    } catch (err) {
+        console.error("Failed to mark transactions as committed: ", err);
+        throw err;
     }
 }

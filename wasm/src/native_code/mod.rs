@@ -3,6 +3,7 @@ use miden_objects::{
     crypto::rand::{FeltRng, RpoRandomCoin},
     Felt
 };
+use miden_tx::TransactionExecutor;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 pub mod accounts;
@@ -12,12 +13,15 @@ pub mod sync;
 pub mod chain_data;
 pub mod utils;
 pub mod errors;
+pub mod note_screener;
 
 pub mod store;
 use store::Store;
 
 pub mod rpc;
 use rpc::NodeRpcClient;
+
+use self::store::data_store::ClientDataStore;
 
 // Hoping that eventually we can use the generic store type defined in client/mod.rs.
 // For now, wanted to play around with creating a client with a WebStore implementation
@@ -31,7 +35,7 @@ pub struct Client<N: NodeRpcClient, R: FeltRng, S: Store> {
     pub store: S,
     pub rng: R,
     pub rpc_api: N,
-    // pub tx_executor: TransactionExecutor<ClientDataStore<S>>
+    pub tx_executor: TransactionExecutor<ClientDataStore<S>>
 }
 
 impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
@@ -39,13 +43,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         api: N,
         rng: R,
         store: S,
-        //executor_store: S
+        executor_store: S
     ) -> Self {
         Self { 
             store: store,
             rng: rng,
             rpc_api: api,
-            // tx_executor: TransactionExecutor::new(ClientDataStore::new(executor_store)) 
+            tx_executor: TransactionExecutor::new(ClientDataStore::new(executor_store)) 
         }
     }
 }

@@ -16,7 +16,7 @@ extern "C" {
     // INSERTS
     // ================================================================================================
 
-    #[wasm_bindgen(js_name = insertNoteTag)]
+    #[wasm_bindgen(js_name = addNoteTag)]
     pub fn idxdb_add_note_tag(
         tags: String
     ) -> js_sys::Promise;
@@ -24,14 +24,14 @@ extern "C" {
     #[wasm_bindgen(js_name = applyStateSync)]
     pub fn idxdb_apply_state_sync(
         block_num: String,
+        nullifiers: Vec<String>,
         block_header: String,
         chain_mmr_peaks: String,
-        nullifiers: Vec<String>,
+        has_client_notes: bool,
+        serialized_node_ids: Vec<String>,
+        serialized_nodes: Vec<String>,
         note_ids: Vec<String>,
         inclusion_proofs: Vec<String>,
         transactions_to_commit: Vec<String>,
-        node_indices_as_str: Vec<String>,
-        nodes_as_str: Vec<String>,
-        has_client_notes: bool
     ) -> js_sys::Promise;
 }

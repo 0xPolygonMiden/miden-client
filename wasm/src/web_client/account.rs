@@ -33,20 +33,6 @@ pub enum AccountTemplate {
 // RPC call. 
 #[wasm_bindgen]
 impl WebClient {
-    pub async fn test_store_and_rpc(&mut self) -> Result<JsValue, JsValue> {
-        if let Some(ref mut client) = self.get_mut_inner() {
-            let _ = client.store.insert_string("Test string".to_string()).await
-                .map(|_| JsValue::from_str("Test string inserted successfully"))
-                .map_err(|_| JsValue::from_str("Failed to insert test string"));
-
-            client.rpc_api.test_rpc().await // This is the new line
-                .map(|_| JsValue::from_str("RPC call successful"))
-                .map_err(|_| JsValue::from_str("RPC call failed"))
-        } else {
-            Err(JsValue::from_str("Client not initialized"))
-        }
-    }
-
     pub async fn import_account(
         &mut self,
         account_bytes: JsValue
@@ -58,7 +44,7 @@ impl WebClient {
 
             match client.import_account(account_data).await {
                 Ok(_) => {
-                    let message = format!("Import account with ID: {}", account_id);
+                    let message = format!("Imported account with ID: {}", account_id);
                     Ok(JsValue::from_str(&message))
                 },
                 Err(err) => {
@@ -130,9 +116,8 @@ impl WebClient {
     ) -> Result<JsValue, JsValue> {
         if let Some(ref mut client) = self.get_mut_inner() {
             let account_tuples = client.get_accounts().await.unwrap();
-            let accounts: Vec<String> = account_tuples.into_iter().map(|(account, word)| {
-                let word = word.map_or("No word".to_string(), |w| w[0].to_string());
-                format!("ID: {}, Word: {}", account.id().to_string(), word)
+            let accounts: Vec<String> = account_tuples.into_iter().map(|(account, _)| {
+                format!("{}", account.id().to_string())
             }).collect();
 
             // Convert the Vec<String> to JsValue

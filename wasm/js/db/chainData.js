@@ -19,13 +19,32 @@ export async function insertBlockHeader(
         };
 
         await blockHeaders.add(data);
-        return `Block header for block ${blockNum} inserted successfully.`
     } catch (err) {
         console.error("Failed to insert block header: ", err);
-        throw error;
+        throw err;
     }
 }
 
+export async function insertChainMmrNodes(
+    ids,
+    nodes
+) {
+    try {
+        const data = nodes.map((node, index) => {
+            return {
+                id: ids[index],
+                node: node
+            }
+        });
+
+        await chainMmrNodes.bulkAdd(data);
+    } catch (err) {
+        console.error("Failed to insert chain mmr nodes: ", err);
+        throw err;
+    }
+}
+
+// GET FUNCTIONS
 export async function getBlockHeaders(
     blockNumbers
 ) {
@@ -38,7 +57,7 @@ export async function getBlockHeaders(
         return results
     } catch (err) {
         console.error("Failed to get block headers: ", err);
-        throw error;
+        throw err;
     }
 }
 
@@ -49,9 +68,22 @@ export async function getTrackedBlockHeaders() {
             .where('hasClientNotes')
             .equals(true)
             .toArray();
-    } catch (error) {
+        return allMatchingRecords;
+    } catch (err) {
         console.error("Failed to get tracked block headers: ", err);
-        throw error;
+        throw err;
+    }
+}
+
+export async function getChainMmrPeaksByBlockNum(
+    blockNum
+) {
+    try {
+        const blockHeader = await blockHeaders.get(blockNum);
+        return blockHeader.chainMmrPeaks;
+    } catch (err) {
+        console.error("Failed to get chain mmr peaks: ", err);
+        throw err;
     }
 }
 
@@ -61,7 +93,7 @@ export async function getChainMmrNodesAll() {
         return chainMmrNodesAll;
     } catch (err) {
         console.error("Failed to get chain mmr nodes: ", err);
-        throw error;
+        throw err;
     }
 }
 
@@ -77,6 +109,6 @@ export async function getChainMmrNodes(
         return results;
     } catch (err) {
         console.error("Failed to get chain mmr nodes: ", err);
-        throw error;
+        throw err;
     }
 }

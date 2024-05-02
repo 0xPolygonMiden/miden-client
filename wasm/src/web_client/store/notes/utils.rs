@@ -96,7 +96,7 @@ pub(crate) fn serialize_input_note(
     ))
 }
 
-pub(super) async fn insert_input_note_tx(
+pub async fn insert_input_note_tx(
     note: &InputNoteRecord
 ) -> Result<(), StoreError> {
     let (

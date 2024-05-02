@@ -1,4 +1,6 @@
-use serde::{Deserialize, Serialize};
+use base64::{decode as base64_decode, DecodeError};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde::de::{Error, Unexpected};
 
 #[derive(Serialize, Deserialize)]
 pub struct TransactionIdxdbObject {
@@ -7,10 +9,34 @@ pub struct TransactionIdxdbObject {
     pub init_account_state: String,
     pub final_account_state: String,
     pub input_notes: String,
+    #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
     pub output_notes: Vec<u8>,
+    #[serde(deserialize_with = "base64_to_vec_u8_optional", default)]
     pub script_hash: Option<Vec<u8>>,
+    #[serde(deserialize_with = "base64_to_vec_u8_optional", default)]
     pub script_program: Option<Vec<u8>>,
     pub script_inputs: Option<String>,
     pub block_num: String, // usually u32
     pub commit_height: Option<String> // usually Option<u32>
+}
+
+fn base64_to_vec_u8_required<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let base64_str: String = Deserialize::deserialize(deserializer)?;
+    base64_decode(&base64_str).map_err(|e| Error::custom(format!("Base64 decode error: {}", e)))
+}
+
+fn base64_to_vec_u8_optional<'de, D>(deserializer: D) -> Result<Option<Vec<u8>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let base64_str: Option<String> = Option::deserialize(deserializer)?;
+    match base64_str {
+        Some(str) => base64_decode(&str)
+            .map(Some)
+            .map_err(|e| Error::custom(format!("Base64 decode error: {}", e))),
+        None => Ok(None),
+    }
 }

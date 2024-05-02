@@ -38,4 +38,10 @@ extern "C" {
         chain_mmr_peaks: String,
         has_client_notes: bool
     ) -> js_sys::Promise;
+
+    #[wasm_bindgen(js_name = insertChainMmrNodes)]
+    pub fn idxdb_insert_chain_mmr_nodes(
+        ids: Vec<String>,
+        nodes: Vec<String>
+    ) -> js_sys::Promise;
 }
