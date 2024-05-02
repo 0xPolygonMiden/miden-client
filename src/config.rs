@@ -17,12 +17,14 @@ pub struct ClientConfig {
     pub rpc: RpcConfig,
     /// Describes settings related to the store.
     pub store: StoreConfig,
+    /// Describes settings related to the CLI
+    pub cli: Option<CliConfig>,
 }
 
 impl ClientConfig {
     /// Returns a new instance of [ClientConfig] with the specified store path and node endpoint.
     pub const fn new(store: StoreConfig, rpc: RpcConfig) -> Self {
-        Self { store, rpc }
+        Self { store, rpc, cli: None }
     }
 }
 
@@ -143,14 +145,34 @@ impl Default for StoreConfig {
 // RPC CONFIG
 // ================================================================================================
 
-#[derive(Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+/// Settings for the RPC client
+#[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct RpcConfig {
     /// Address of the Miden node to connect to.
     pub endpoint: Endpoint,
+    /// Timeout for the rpc api requests
+    #[serde(default = "default_timeout")]
+    pub timeout_ms: u64,
 }
 
-impl From<Endpoint> for RpcConfig {
-    fn from(value: Endpoint) -> Self {
-        Self { endpoint: value }
+const fn default_timeout() -> u64 {
+    10000
+}
+
+impl Default for RpcConfig {
+    fn default() -> Self {
+        Self {
+            endpoint: Endpoint::default(),
+            timeout_ms: 10000,
+        }
     }
+}
+
+// CLI CONFIG
+// ================================================================================================
+
+#[derive(Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CliConfig {
+    /// Address of the Miden node to connect to.
+    pub default_account_id: Option<String>,
 }

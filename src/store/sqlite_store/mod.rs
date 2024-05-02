@@ -6,7 +6,7 @@ use miden_objects::{
     notes::NoteTag,
     BlockHeader, Digest, Word,
 };
-use rusqlite::Connection;
+use rusqlite::{vtab::array, Connection};
 
 use super::{
     AuthInfo, ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store,
@@ -100,6 +100,7 @@ impl SqliteStore {
     /// Returns a new instance of [Store] instantiated with the specified configuration options.
     pub fn new(config: StoreConfig) -> Result<Self, StoreError> {
         let mut db = Connection::open(config.database_filepath)?;
+        array::load_module(&db)?;
         migrations::update_to_latest(&mut db)?;
 
         Ok(Self { db })
@@ -228,7 +229,7 @@ impl Store for SqliteStore {
 pub mod tests {
     use std::env::temp_dir;
 
-    use rusqlite::Connection;
+    use rusqlite::{vtab::array, Connection};
     use uuid::Uuid;
 
     use super::{migrations, SqliteStore};
@@ -239,15 +240,14 @@ pub mod tests {
     };
 
     pub fn create_test_client() -> MockClient {
-        let client_config = ClientConfig {
-            store: create_test_store_path()
-                .into_os_string()
-                .into_string()
-                .unwrap()
-                .try_into()
-                .unwrap(),
-            rpc: RpcConfig::default(),
-        };
+        let store = create_test_store_path()
+            .into_os_string()
+            .into_string()
+            .unwrap()
+            .try_into()
+            .unwrap();
+
+        let client_config = ClientConfig::new(store, RpcConfig::default());
 
         let rpc_endpoint = client_config.rpc.endpoint.to_string();
         let store = SqliteStore::new((&client_config).into()).unwrap();
@@ -266,6 +266,7 @@ pub mod tests {
     pub(crate) fn create_test_store() -> SqliteStore {
         let temp_file = create_test_store_path();
         let mut db = Connection::open(temp_file).unwrap();
+        array::load_module(&db).unwrap();
         migrations::update_to_latest(&mut db).unwrap();
 
         SqliteStore { db }
