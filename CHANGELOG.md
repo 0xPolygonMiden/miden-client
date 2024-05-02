@@ -1,6 +1,7 @@
 # Changelog
 
 * Added flags to `init` command for non-interactive environments
+* Add new store note filter to fetch multiple notes by their id in a single query.
 * [BREAKING] `Client::new()` now does not need a `data_store_store` parameter, and `SqliteStore`'s implements interior mutability.
 * [BREAKING] The store's `get_input_note` was replaced by `get_input_notes` and a `NoteFilter::Unique` was added.
 * Refactored `get_account` to create the account from a single query.
