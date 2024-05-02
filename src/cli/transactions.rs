@@ -16,7 +16,7 @@ use miden_objects::{
 };
 use tracing::info;
 
-use super::{get_account_with_id_prefix, get_note_with_id_prefix, Client, Parser};
+use super::{get_note_with_id_prefix, parse_account_id, Client, Parser};
 use crate::cli::create_dynamic_table;
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -165,9 +165,7 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
             amount,
             note_type,
         } => {
-            let faucet_id = get_account_with_id_prefix(client, faucet_id)
-                .map_err(|err| err.to_string())?
-                .id();
+            let faucet_id = parse_account_id(client, faucet_id).map_err(|err| err.to_string())?;
             let fungible_asset =
                 FungibleAsset::new(faucet_id, *amount).map_err(|err| err.to_string())?.into();
 
@@ -176,12 +174,10 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
                 .clone()
                 .or(default_account_id)
                 .ok_or("Neither a sender nor a default account was provided".to_string())?;
-            let sender_account_id = get_account_with_id_prefix(client, &sender_account_id)
-                .map_err(|err| err.to_string())?
-                .id();
-            let target_account_id = get_account_with_id_prefix(client, target_account_id)
-                .map_err(|err| err.to_string())?
-                .id();
+            let sender_account_id =
+                parse_account_id(client, &sender_account_id).map_err(|err| err.to_string())?;
+            let target_account_id =
+                parse_account_id(client, target_account_id).map_err(|err| err.to_string())?;
 
             let payment_transaction =
                 PaymentTransactionData::new(fungible_asset, sender_account_id, target_account_id);
@@ -196,9 +192,7 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
             recall_height,
             note_type,
         } => {
-            let faucet_id = get_account_with_id_prefix(client, faucet_id)
-                .map_err(|err| err.to_string())?
-                .id();
+            let faucet_id = parse_account_id(client, faucet_id).map_err(|err| err.to_string())?;
             let fungible_asset =
                 FungibleAsset::new(faucet_id, *amount).map_err(|err| err.to_string())?.into();
 
@@ -207,12 +201,10 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
                 .clone()
                 .or(default_account_id)
                 .ok_or("Neither a sender nor a default account was provided".to_string())?;
-            let sender_account_id = get_account_with_id_prefix(client, &sender_account_id)
-                .map_err(|err| err.to_string())?
-                .id();
-            let target_account_id = get_account_with_id_prefix(client, target_account_id)
-                .map_err(|err| err.to_string())?
-                .id();
+            let sender_account_id =
+                parse_account_id(client, &sender_account_id).map_err(|err| err.to_string())?;
+            let target_account_id =
+                parse_account_id(client, target_account_id).map_err(|err| err.to_string())?;
 
             let payment_transaction =
                 PaymentTransactionData::new(fungible_asset, sender_account_id, target_account_id);
@@ -228,14 +220,11 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
             amount,
             note_type,
         } => {
-            let faucet_id = get_account_with_id_prefix(client, faucet_id)
-                .map_err(|err| err.to_string())?
-                .id();
+            let faucet_id = parse_account_id(client, faucet_id).map_err(|err| err.to_string())?;
             let fungible_asset =
                 FungibleAsset::new(faucet_id, *amount).map_err(|err| err.to_string())?;
-            let target_account_id = get_account_with_id_prefix(client, target_account_id)
-                .map_err(|err| err.to_string())?
-                .id();
+            let target_account_id =
+                parse_account_id(client, target_account_id).map_err(|err| err.to_string())?;
 
             Ok(TransactionTemplate::MintFungibleAsset(
                 fungible_asset,
@@ -257,9 +246,8 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
                 .clone()
                 .or(default_account_id)
                 .ok_or("Neither a sender nor a default account was provided".to_string())?;
-            let account_id = get_account_with_id_prefix(client, &account_id)
-                .map_err(|err| err.to_string())?
-                .id();
+            let account_id =
+                parse_account_id(client, &account_id).map_err(|err| err.to_string())?;
 
             Ok(TransactionTemplate::ConsumeNotes(account_id, list_of_notes))
         },
