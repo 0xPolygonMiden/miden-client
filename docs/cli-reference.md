@@ -27,13 +27,13 @@ Note that the debug flag overrides the `MIDEN_DEBUG` environment variable.
 
 ### `init` 
 
-Creates a configuration file for the client in the current directory. It asks for user input, although it also provides flags for non-interactive environments.
+Creates a configuration file for the client in the current directory.
  
 ```sh
-# This will start the interactive init
+# This will create a config using default values
 miden-client init
 
-# You can use the --rpc flag to skip the interactive setup of the rpc config
+# You can use the --rpc flag to override the default rpc config
 miden-client init --rpc testnet.miden.io
 # You can specify the port
 miden-client init --rpc testnet.miden.io:8080
@@ -42,10 +42,10 @@ miden-client init --rpc https://testnet.miden.io
 # You can specify both
 miden-client init --rpc https://testnet.miden.io:1234
 
-# You can use the --store_path flag to skip the interactive setup of the store config
+# You can use the --store_path flag to override the default store config
 miden-client init --store_path db/store.sqlite3
 
-# You can provide both flags for non-interactive environments
+# You can provide both flags
 miden-client init --rpc testnet.miden.io --store_path db/store.sqlite3
 ```
 
