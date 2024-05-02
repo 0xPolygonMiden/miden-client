@@ -129,13 +129,13 @@ After a transaction gets executed, two entities start being tracked:
 For `consume-notes` subcommand, you can also provide a partial ID instead of the full ID for each note. So instead of 
 
 ```sh
-miden-client consume-notes --account <some-account-id> 0x70b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0 0x80b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0
+miden-client tx new consume-notes --account <some-account-id> 0x70b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0 0x80b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0
 ``` 
 
 You can do: 
 
 ```sh
-miden-client consume-notes --account <some-account-id> 0x70b7ecb 0x80b7ecb
+miden-client tx new consume-notes --account <some-account-id> 0x70b7ecb 0x80b7ecb
 ```
 
 Also, for `p2id`, `p2idr` and `consume-notes`, you can omit the `--sender` and `--account` flags to use the default account defined in the [config](./cli-config.md). If you omit the flag but have no default account defined in the config, you'll get an error instead.
@@ -151,3 +151,19 @@ You can do:
 ```sh
 miden-client tx new p2id --sender 0x80519 --target 0x8fd4b --faucet 0xa99c5 100
 ```
+
+#### Transaction confirmation
+
+When creating a new transaction, a summary of the transaction updates will be shown and confirmation for those updates will be prompted:
+
+```sh
+miden-client tx new ...
+
+TX Summary:
+
+...
+
+Continue with proving and submission? Changes will be irreversible once the proof is finalized on the rollup (Y/N)
+```
+
+This confirmation can be skipped in non-interactive environments by providing the `--force` flag (`miden-client tx new --force ...`):
