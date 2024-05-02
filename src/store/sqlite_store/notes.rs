@@ -129,7 +129,7 @@ impl SqliteStore {
             _ => {},
         }
         let notes = self
-            .db
+            .db()
             .prepare(&filter.to_query(NoteTable::InputNotes))?
             .query_map(params_from_iter(params), parse_input_note_columns)
             .expect("no binding parameters used in query")
@@ -174,7 +174,7 @@ impl SqliteStore {
             _ => {},
         }
         let notes = self
-            .db
+            .db()
             .prepare(&filter.to_query(NoteTable::OutputNotes))?
             .query_map(params_from_iter(params), parse_output_note_columns)
             .expect("no binding parameters used in query")
@@ -197,8 +197,9 @@ impl SqliteStore {
         Ok(notes)
     }
 
-    pub(crate) fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError> {
-        let tx = self.db.transaction()?;
+    pub(crate) fn insert_input_note(&self, note: &InputNoteRecord) -> Result<(), StoreError> {
+        let mut db = self.db();
+        let tx = db.transaction()?;
 
         insert_input_note_tx(&tx, note)?;
 
@@ -209,7 +210,7 @@ impl SqliteStore {
     pub fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
         const QUERY: &str = "SELECT json_extract(details, '$.nullifier') FROM input_notes WHERE status = 'Committed'";
 
-        self.db
+        self.db()
             .prepare(QUERY)?
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
@@ -260,7 +261,7 @@ pub(super) fn insert_input_note_tx(
     .map(|_| ())?;
 
     const QUERY: &str =
-        "INSERT OR IGNORE INTO notes_scripts (script_hash, serialized_note_script) VALUES (?, ?)";
+        "INSERT OR REPLACE INTO notes_scripts (script_hash, serialized_note_script) VALUES (?, ?)";
     tx.execute(QUERY, params![note_script_hash, serialized_note_script,])
         .map_err(|err| StoreError::QueryError(err.to_string()))
         .map(|_| ())
@@ -299,7 +300,7 @@ pub fn insert_output_note_tx(
     .map(|_| ())?;
 
     const QUERY: &str =
-        "INSERT OR IGNORE INTO notes_scripts (script_hash, serialized_note_script) VALUES (?, ?)";
+        "INSERT OR REPLACE INTO notes_scripts (script_hash, serialized_note_script) VALUES (?, ?)";
     tx.execute(QUERY, params![note_script_hash, serialized_note_script,])
         .map_err(|err| StoreError::QueryError(err.to_string()))
         .map(|_| ())
