@@ -1,5 +1,5 @@
+use alloc::collections::BTreeSet;
 use core::fmt;
-use std::collections::BTreeSet;
 
 use miden_objects::{accounts::AccountId, assets::Asset, notes::Note, Word};
 

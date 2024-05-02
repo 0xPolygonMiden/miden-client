@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use alloc::collections::BTreeSet;
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
