@@ -35,7 +35,7 @@ impl SqliteStore {
     pub(super) fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {
         const QUERY: &str = "SELECT DISTINCT id FROM accounts";
 
-        self.db
+        self.db()
             .prepare(QUERY)?
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
@@ -52,7 +52,7 @@ impl SqliteStore {
             FROM accounts a \
             WHERE a.nonce = (SELECT MAX(b.nonce) FROM accounts b WHERE b.id = a.id)";
 
-        self.db
+        self.db()
             .prepare(QUERY)?
             .query_map([], parse_accounts_columns)
             .expect("no binding parameters used in query")
@@ -69,7 +69,7 @@ impl SqliteStore {
             FROM accounts WHERE id = ? \
             ORDER BY nonce DESC \
             LIMIT 1";
-        self.db
+        self.db()
             .prepare(QUERY)?
             .query_map(params![account_id_int as i64], parse_accounts_columns)?
             .map(|result| Ok(result?).and_then(parse_accounts))
@@ -92,7 +92,7 @@ impl SqliteStore {
                             LIMIT 1";
 
         let result = self
-            .db
+            .db()
             .prepare(QUERY)?
             .query_map(params![account_id_int as i64], parse_account_columns)?
             .map(|result| Ok(result?).and_then(parse_account))
@@ -107,7 +107,7 @@ impl SqliteStore {
     pub(crate) fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, StoreError> {
         let account_id_int: u64 = account_id.into();
         const QUERY: &str = "SELECT account_id, auth_info FROM account_auth WHERE account_id = ?";
-        self.db
+        self.db()
             .prepare(QUERY)?
             .query_map(params![account_id_int as i64], parse_account_auth_columns)?
             .map(|result| Ok(result?).and_then(parse_account_auth))
@@ -116,12 +116,13 @@ impl SqliteStore {
     }
 
     pub(crate) fn insert_account(
-        &mut self,
+        &self,
         account: &Account,
         account_seed: Option<Word>,
         auth_info: &AuthInfo,
     ) -> Result<(), StoreError> {
-        let tx = self.db.transaction()?;
+        let mut db = self.db();
+        let tx = db.transaction()?;
 
         insert_account_code(&tx, account.code())?;
         insert_account_storage(&tx, account.storage())?;
@@ -373,11 +374,12 @@ mod tests {
 
     #[test]
     fn test_account_code_insertion_no_duplicates() {
-        let mut store = create_test_store();
+        let store = create_test_store();
         let assembler = miden_lib::transaction::TransactionKernel::assembler();
         let module_ast = ModuleAst::parse(DEFAULT_ACCOUNT_CODE).unwrap();
         let account_code = AccountCode::new(module_ast, &assembler).unwrap();
-        let tx = store.db.transaction().unwrap();
+        let mut db = store.db();
+        let tx = db.transaction().unwrap();
 
         // Table is empty at the beginning
         let mut actual: usize =
@@ -413,11 +415,12 @@ mod tests {
     fn test_auth_info_store() {
         let exp_key_pair = SecretKey::new();
 
-        let mut store = create_test_store();
+        let store = create_test_store();
 
         let account_id = AccountId::try_from(3238098370154045919u64).unwrap();
         {
-            let tx = store.db.transaction().unwrap();
+            let mut db = store.db();
+            let tx = db.transaction().unwrap();
             insert_account_auth(&tx, account_id, &AuthInfo::RpoFalcon512(exp_key_pair.clone()))
                 .unwrap();
             tx.commit().unwrap();

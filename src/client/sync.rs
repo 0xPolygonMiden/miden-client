@@ -16,7 +16,8 @@ use super::{
     Client,
 };
 use crate::{
-    errors::{ClientError, StoreError},
+    client::rpc::AccountDetails,
+    errors::{ClientError, NodeRpcClientError, StoreError},
     store::{ChainMmrNodeFilter, NoteFilter, Store, TransactionFilter},
 };
 
@@ -415,8 +416,15 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
             if let Some(tracked_account) = current_account {
                 info!("On-chain account hash difference detected for account with ID: {}. Fetching node for updates...", tracked_account.id());
-                let account = self.rpc_api.get_account_update(tracked_account.id()).await?;
-                accounts_to_update.push(account);
+                let account_details = self.rpc_api.get_account_update(tracked_account.id()).await?;
+                if let AccountDetails::Public(account, _) = account_details {
+                    accounts_to_update.push(account);
+                } else {
+                    return Err(NodeRpcClientError::InvalidAccountReceived(
+                        "should only get updates for onchain accounts".to_string(),
+                    )
+                    .into());
+                }
             }
         }
         Ok(accounts_to_update)
@@ -483,7 +491,7 @@ fn apply_mmr_changes(
 // final_account_state
 fn get_transactions_to_commit(
     uncommitted_transactions: &[TransactionRecord],
-    _note_ids: &[NoteId],
+    note_ids: &[NoteId],
     nullifiers: &[Digest],
     account_hash_updates: &[(AccountId, Digest)],
 ) -> Vec<TransactionId> {
@@ -494,12 +502,10 @@ fn get_transactions_to_commit(
             // https://github.com/0xPolygonMiden/miden-client/issues/144, we should be aware
             // that in the future it'll be possible to have many transactions modifying an
             // account be included in a single block. If that happens, we'll need to rewrite
-            // this check
+            // this check.
 
-            // TODO: Review this. Because we receive note IDs based on account ID tags,
-            // we cannot base the status change on output notes alone;
             t.input_note_nullifiers.iter().all(|n| nullifiers.contains(n))
-                //&& t.output_notes.iter().all(|n| note_ids.contains(&n.id()))
+                && t.output_notes.iter().all(|n| note_ids.contains(&n.id()))
                 && account_hash_updates.iter().any(|(account_id, account_hash)| {
                     *account_id == t.account_id && *account_hash == t.final_account_state
                 })

@@ -41,7 +41,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     ) -> Result<Vec<ConsumableNote>, ClientError> {
         let commited_notes = self.store.get_input_notes(NoteFilter::Committed)?;
 
-        let note_screener = NoteScreener::new(&self.store);
+        let note_screener = NoteScreener::new(self.store.as_ref());
 
         let mut relevant_notes = Vec::new();
         for input_note in commited_notes {

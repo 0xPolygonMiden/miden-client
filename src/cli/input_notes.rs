@@ -359,7 +359,7 @@ mod tests {
 
     use miden_client::{
         client::get_random_coin,
-        config::{ClientConfig, Endpoint},
+        config::{ClientConfig, Endpoint, RpcConfig},
         errors::IdPrefixFetchError,
         mock::{mock_full_chain_mmr_and_notes, mock_notes, MockClient, MockRpcApi},
         store::{sqlite_store::SqliteStore, InputNoteRecord},
@@ -379,20 +379,14 @@ mod tests {
         path.push(Uuid::new_v4().to_string());
         let client_config = ClientConfig::new(
             path.into_os_string().into_string().unwrap().try_into().unwrap(),
-            Endpoint::default().into(),
+            RpcConfig::default(),
         );
 
-        let store = SqliteStore::new((&client_config).into()).unwrap();
         let rng = get_random_coin();
-        let executor_store = SqliteStore::new((&client_config).into()).unwrap();
+        let store = SqliteStore::new((&client_config).into()).unwrap();
 
-        let mut client = MockClient::new(
-            MockRpcApi::new(&Endpoint::default().to_string()),
-            rng,
-            store,
-            executor_store,
-            true,
-        );
+        let mut client =
+            MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store, true);
 
         // generate test data
         let assembler = TransactionKernel::assembler();
@@ -433,18 +427,12 @@ mod tests {
         path.push(Uuid::new_v4().to_string());
         let client_config = ClientConfig::new(
             path.into_os_string().into_string().unwrap().try_into().unwrap(),
-            Endpoint::default().into(),
+            RpcConfig::default(),
         );
         let store = SqliteStore::new((&client_config).into()).unwrap();
-        let executor_store = SqliteStore::new((&client_config).into()).unwrap();
 
-        let mut client = MockClient::new(
-            MockRpcApi::new(&Endpoint::default().to_string()),
-            rng,
-            store,
-            executor_store,
-            true,
-        );
+        let mut client =
+            MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store, true);
 
         import_note(&mut client, filename_path, false).await.unwrap();
         let imported_note_record: InputNoteRecord =
@@ -465,20 +453,14 @@ mod tests {
         path.push(Uuid::new_v4().to_string());
         let client_config = ClientConfig::new(
             path.into_os_string().into_string().unwrap().try_into().unwrap(),
-            Endpoint::default().into(),
+            RpcConfig::default(),
         );
 
-        let store = SqliteStore::new((&client_config).into()).unwrap();
         let rng = get_random_coin();
-        let executor_store = SqliteStore::new((&client_config).into()).unwrap();
+        let store = SqliteStore::new((&client_config).into()).unwrap();
 
-        let mut client = MockClient::new(
-            MockRpcApi::new(&Endpoint::default().to_string()),
-            rng,
-            store,
-            executor_store,
-            true,
-        );
+        let mut client =
+            MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store, true);
 
         // Ensure we get an error if no note is found
         let non_existent_note_id = "0x123456";

@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use async_trait::async_trait;
 use miden_node_proto::{
     errors::ConversionError,
@@ -21,10 +23,10 @@ use miden_tx::utils::Serializable;
 use tonic::transport::Channel;
 
 use super::{
-    CommittedNote, NodeRpcClient, NodeRpcClientEndpoint, NoteDetails, NoteInclusionDetails,
-    StateSyncInfo,
+    AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
+    NoteDetails, NoteInclusionDetails, StateSyncInfo,
 };
-use crate::errors::NodeRpcClientError;
+use crate::{config::RpcConfig, errors::NodeRpcClientError};
 
 // TONIC RPC CLIENT
 // ================================================================================================
@@ -35,14 +37,16 @@ use crate::errors::NodeRpcClientError;
 pub struct TonicRpcClient {
     rpc_api: Option<ApiClient<Channel>>,
     endpoint: String,
+    timeout_ms: u64,
 }
 
 impl TonicRpcClient {
     /// Returns a new instance of [TonicRpcClient] that'll do calls the `config_endpoint` provided
-    pub fn new(config_endpoint: &str) -> TonicRpcClient {
+    pub fn new(config: &RpcConfig) -> TonicRpcClient {
         TonicRpcClient {
             rpc_api: None,
-            endpoint: config_endpoint.to_string(),
+            endpoint: config.endpoint.to_string(),
+            timeout_ms: config.timeout_ms,
         }
     }
 
@@ -52,7 +56,10 @@ impl TonicRpcClient {
         if self.rpc_api.is_some() {
             Ok(self.rpc_api.as_mut().unwrap())
         } else {
-            let rpc_api = ApiClient::connect(self.endpoint.clone())
+            let endpoint = tonic::transport::Endpoint::try_from(self.endpoint.clone())
+                .map_err(|err| NodeRpcClientError::ConnectionError(err.to_string()))?
+                .timeout(Duration::from_millis(self.timeout_ms));
+            let rpc_api = ApiClient::connect(endpoint)
                 .await
                 .map_err(|err| NodeRpcClientError::ConnectionError(err.to_string()))?;
             Ok(self.rpc_api.insert(rpc_api))
@@ -192,30 +199,21 @@ impl NodeRpcClient for TonicRpcClient {
         response.into_inner().try_into()
     }
 
-    /// Sends a [GetAccountDetailsRequest] to the Miden node, and extracts an [Account] from the
+    /// Sends a [GetAccountDetailsRequest] to the Miden node, and extracts an [AccountDetails] from the
     /// `GetAccountDetailsResponse` response.
     ///
     /// # Errors
     ///
     /// This function will return an error if:
     ///
-    /// - The provided account is not on-chain: this is due to the fact that for offchain accounts
-    /// the client is responsible
     /// - There was an error sending the request to the node
-    /// - The answer had a `None` for its account, or the account had a `None` at the `details` field.
+    /// - The answer had a `None` for one of the expected fields (account, summary, account_hash, details).
     /// - There is an error during [Account] deserialization
     async fn get_account_update(
         &mut self,
         account_id: AccountId,
-    ) -> Result<Account, NodeRpcClientError> {
-        if !account_id.is_on_chain() {
-            return Err(NodeRpcClientError::InvalidAccountReceived(
-                "should only get updates for offchain accounts".to_string(),
-            ));
-        }
-
-        let account_id = account_id.into();
-        let request = GetAccountDetailsRequest { account_id: Some(account_id) };
+    ) -> Result<AccountDetails, NodeRpcClientError> {
+        let request = GetAccountDetailsRequest { account_id: Some(account_id.into()) };
 
         let rpc_api = self.rpc_api().await?;
 
@@ -230,14 +228,30 @@ impl NodeRpcClient for TonicRpcClient {
             "GetAccountDetails response should have an `account`".to_string(),
         ))?;
 
-        let details_bytes =
-            account_info.details.ok_or(NodeRpcClientError::ExpectedFieldMissing(
-                "GetAccountDetails response's account should have `details`".to_string(),
+        let account_summary =
+            account_info.summary.ok_or(NodeRpcClientError::ExpectedFieldMissing(
+                "GetAccountDetails response's account should have a `summary`".to_string(),
             ))?;
 
-        let details = Account::read_from_bytes(&details_bytes)?;
+        let hash = account_summary.account_hash.ok_or(NodeRpcClientError::ExpectedFieldMissing(
+            "GetAccountDetails response's account should have an `account_hash`".to_string(),
+        ))?;
 
-        Ok(details)
+        let hash = hash.try_into()?;
+
+        let update_summary = AccountUpdateSummary::new(hash, account_summary.block_num);
+        if account_id.is_on_chain() {
+            let details_bytes =
+                account_info.details.ok_or(NodeRpcClientError::ExpectedFieldMissing(
+                    "GetAccountDetails response's account should have `details`".to_string(),
+                ))?;
+
+            let account = Account::read_from_bytes(&details_bytes)?;
+
+            Ok(AccountDetails::Public(account, update_summary))
+        } else {
+            Ok(AccountDetails::OffChain(account_id, update_summary))
+        }
     }
 }
 
