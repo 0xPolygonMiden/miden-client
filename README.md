@@ -45,8 +45,6 @@ miden-client = { version = "0.2" }
 
 - `concurrent`: used to enable concurrent proofs generation
 - `testing`: useful feature that lowers PoW difficulty when enabled. Only use this during development and not on production.
-- `test_utils`: used on unit tests to use the mocked RPC API.
-- `integration`: only used to run integration tests and separate them from unit tests
 
 ### Running `miden-client`'s CLI
 
@@ -71,6 +69,11 @@ As mentioned before, we use [cargo-make](https://github.com/sagiegurari/cargo-ma
 ## Testing
 
 To test the project's code, we provide both unit tests (which can be run with `cargo test`) and integration tests. For more info on integration tests, refer to the [integration testing document](./tests/README.md)
+
+The crate also comes with 2 feature flags that are used exclusively on tests: 
+
+- `test_utils`: used on unit tests to use the mocked RPC API.
+- `integration`: only used to run integration tests and separate them from unit tests
 
 ## Contributing
 
