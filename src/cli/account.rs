@@ -4,6 +4,7 @@ use clap::{Parser, ValueEnum};
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     client::{accounts, rpc::NodeRpcClient, Client},
+    config::CliConfig,
     store::Store,
 };
 use miden_objects::{
@@ -15,7 +16,7 @@ use miden_objects::{
 use miden_tx::utils::{bytes_to_hex_string, Deserializable, Serializable};
 use tracing::info;
 
-use super::get_account_with_id_prefix;
+use super::{get_account_with_id_prefix, load_config, update_config, CLIENT_CONFIG_FILE_NAME};
 use crate::cli::create_dynamic_table;
 
 // ACCOUNT COMMAND
@@ -57,6 +58,24 @@ pub enum AccountCmd {
         #[arg()]
         filenames: Vec<PathBuf>,
     },
+    /// Set/Unset default accounts
+    #[clap(short_flag = 'd')]
+    Default {
+        #[clap(subcommand)]
+        default_cmd: DefaultAccountCmd,
+    },
+}
+
+#[derive(Debug, Parser, Clone)]
+#[clap()]
+pub enum DefaultAccountCmd {
+    /// Turn an account into the default sender account
+    Set {
+        #[clap()]
+        id: String,
+    },
+    /// Clear the default account setting
+    Unset,
 }
 
 #[derive(Debug, Parser, Clone)]
@@ -161,6 +180,39 @@ impl AccountCmd {
                     import_account(&mut client, filename)?;
                 }
                 println!("Imported {} accounts.", filenames.len());
+            },
+            AccountCmd::Default {
+                default_cmd: DefaultAccountCmd::Set { id },
+            } => {
+                let account_id: AccountId = AccountId::from_hex(id)
+                    .map_err(|_| "Input number was not a valid Account Id")?;
+
+                // Check whether we're tracking that account
+                let (account, _) = client.get_account_stub_by_id(account_id)?;
+
+                // load config
+                let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
+                current_dir.push(CLIENT_CONFIG_FILE_NAME);
+                let config_path = current_dir.as_path();
+                let mut current_config = load_config(config_path)?;
+
+                // set default account
+                current_config.cli = Some(CliConfig {
+                    default_account_id: Some(account.id().to_hex()),
+                });
+
+                update_config(config_path, current_config)?;
+            },
+            AccountCmd::Default { default_cmd: DefaultAccountCmd::Unset } => {
+                let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
+                current_dir.push(CLIENT_CONFIG_FILE_NAME);
+                let config_path = current_dir.as_path();
+                let mut current_config = load_config(config_path)?;
+
+                // unset default account
+                current_config.cli.replace(CliConfig { default_account_id: None });
+
+                update_config(config_path, current_config)?;
             },
         }
         Ok(())

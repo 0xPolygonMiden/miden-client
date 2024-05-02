@@ -6,6 +6,7 @@
 #   - database_filepath: path for the sqlite's database
 [rpc]
 endpoint = { protocol = "http", host = "localhost", port = 57291 }
+timeout = 10000
 
 [store]
 database_filepath = "store.sqlite3"
