@@ -1,4 +1,4 @@
-use std::{env, path::Path};
+use std::{env, fs::File, io::Write, path::Path};
 
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
@@ -13,12 +13,14 @@ use miden_client::{
         Client,
     },
     config::ClientConfig,
-    errors::{ClientError, NoteIdPrefixFetchError},
+    errors::{ClientError, IdPrefixFetchError},
     store::{sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
 };
-use miden_objects::crypto::rand::FeltRng;
-#[cfg(not(feature = "mock"))]
-use miden_objects::crypto::rand::RpoRandomCoin;
+use miden_objects::{
+    accounts::AccountStub,
+    crypto::rand::{FeltRng, RpoRandomCoin},
+};
+use tracing::info;
 
 mod account;
 mod info;
@@ -87,20 +89,14 @@ impl Cli {
 
         // Create the client
         let client_config = load_config(current_dir.as_path())?;
-        let rpc_endpoint = client_config.rpc.endpoint.to_string();
         let store = SqliteStore::new((&client_config).into()).map_err(ClientError::StoreError)?;
         let rng = get_random_coin();
-        let executor_store =
+        let _executor_store =
             miden_client::store::sqlite_store::SqliteStore::new((&client_config).into())
                 .map_err(ClientError::StoreError)?;
 
-        let client: Client<TonicRpcClient, RpoRandomCoin, SqliteStore> = Client::new(
-            TonicRpcClient::new(&rpc_endpoint),
-            rng,
-            store,
-            executor_store,
-            in_debug_mode,
-        );
+        let client: Client<TonicRpcClient, RpoRandomCoin, SqliteStore> =
+            Client::new(TonicRpcClient::new(&client_config.rpc), rng, store, in_debug_mode);
 
         // Execute cli command
         match &self.action {
@@ -110,7 +106,11 @@ impl Cli {
             Command::InputNotes(notes) => notes.execute(client),
             Command::Sync => sync::sync_state(client).await,
             Command::Tags(tags) => tags.execute(client).await,
-            Command::Transaction(transaction) => transaction.execute(client).await,
+            Command::Transaction(transaction) => {
+                let default_account_id =
+                    client_config.cli.and_then(|cli_conf| cli_conf.default_account_id);
+                transaction.execute(client, default_account_id).await
+            },
         }
     }
 }
@@ -140,30 +140,32 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
     table
 }
 
-/// Returns all client's notes whose ID starts with `note_id_prefix`
+/// Returns the client note whose ID starts with `note_id_prefix`
 ///
 /// # Errors
 ///
-/// - Returns [NoteIdPrefixFetchError::NoMatch] if we were unable to find any note where
+/// - Returns [IdPrefixFetchError::NoMatch] if we were unable to find any note where
 /// `note_id_prefix` is a prefix of its id.
-/// - Returns [NoteIdPrefixFetchError::MultipleMatches] if there were more than one note found
+/// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found
 /// where `note_id_prefix` is a prefix of its id.
 pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: &Client<N, R, S>,
     note_id_prefix: &str,
-) -> Result<InputNoteRecord, NoteIdPrefixFetchError> {
-    let input_note_records = client
+) -> Result<InputNoteRecord, IdPrefixFetchError> {
+    let mut input_note_records = client
         .get_input_notes(ClientNoteFilter::All)
         .map_err(|err| {
             tracing::error!("Error when fetching all notes from the store: {err}");
-            NoteIdPrefixFetchError::NoMatch(note_id_prefix.to_string())
+            IdPrefixFetchError::NoMatch(format!("note ID prefix {note_id_prefix}").to_string())
         })?
         .into_iter()
         .filter(|note_record| note_record.id().to_hex().starts_with(note_id_prefix))
         .collect::<Vec<_>>();
 
     if input_note_records.is_empty() {
-        return Err(NoteIdPrefixFetchError::NoMatch(note_id_prefix.to_string()));
+        return Err(IdPrefixFetchError::NoMatch(
+            format!("note ID prefix {note_id_prefix}").to_string(),
+        ));
     }
     if input_note_records.len() > 1 {
         let input_note_record_ids = input_note_records
@@ -175,8 +177,75 @@ pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>(
             note_id_prefix,
             input_note_record_ids
         );
-        return Err(NoteIdPrefixFetchError::MultipleMatches(note_id_prefix.to_string()));
+        return Err(IdPrefixFetchError::MultipleMatches(
+            format!("note ID prefix {note_id_prefix}").to_string(),
+        ));
     }
 
-    Ok(input_note_records[0].clone())
+    Ok(input_note_records
+        .pop()
+        .expect("input_note_records should always have one element"))
+}
+
+/// Returns the client account whose ID starts with `account_id_prefix`
+///
+/// # Errors
+///
+/// - Returns [IdPrefixFetchError::NoMatch] if we were unable to find any account where
+/// `account_id_prefix` is a prefix of its id.
+/// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one account found
+/// where `account_id_prefix` is a prefix of its id.
+pub(crate) fn get_account_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>(
+    client: &Client<N, R, S>,
+    account_id_prefix: &str,
+) -> Result<AccountStub, IdPrefixFetchError> {
+    let mut accounts = client
+        .get_account_stubs()
+        .map_err(|err| {
+            tracing::error!("Error when fetching all accounts from the store: {err}");
+            IdPrefixFetchError::NoMatch(
+                format!("account ID prefix {account_id_prefix}").to_string(),
+            )
+        })?
+        .into_iter()
+        .filter(|(account_stub, _)| account_stub.id().to_hex().starts_with(account_id_prefix))
+        .map(|(acc, _)| acc)
+        .collect::<Vec<_>>();
+
+    if accounts.is_empty() {
+        return Err(IdPrefixFetchError::NoMatch(
+            format!("account ID prefix {account_id_prefix}").to_string(),
+        ));
+    }
+    if accounts.len() > 1 {
+        let account_ids = accounts.iter().map(|account_stub| account_stub.id()).collect::<Vec<_>>();
+        tracing::error!(
+            "Multiple accounts found for the prefix {}: {:?}",
+            account_id_prefix,
+            account_ids
+        );
+        return Err(IdPrefixFetchError::MultipleMatches(
+            format!("account ID prefix {account_id_prefix}").to_string(),
+        ));
+    }
+
+    Ok(accounts.pop().expect("account_ids should always have one element"))
+}
+
+pub(crate) fn update_config(config_path: &Path, client_config: ClientConfig) -> Result<(), String> {
+    let config_as_toml_string = toml::to_string_pretty(&client_config)
+        .map_err(|err| format!("error formatting config: {err}"))?;
+
+    info!("Writing config file at: {:?}", config_path);
+    let mut file_handle = File::options()
+        .write(true)
+        .truncate(true)
+        .open(config_path)
+        .map_err(|err| format!("error opening the file: {err}"))?;
+    file_handle
+        .write(config_as_toml_string.as_bytes())
+        .map_err(|err| format!("error writing to file: {err}"))?;
+
+    println!("Config updated successfully");
+    Ok(())
 }

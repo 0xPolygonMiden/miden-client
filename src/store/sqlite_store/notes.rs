@@ -1,3 +1,4 @@
+use alloc::rc::Rc;
 use std::fmt;
 
 use clap::error::Result;
@@ -6,7 +7,7 @@ use miden_objects::{
     notes::{NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, NoteScript, Nullifier},
     Digest,
 };
-use rusqlite::{named_params, params, Transaction};
+use rusqlite::{named_params, params, params_from_iter, types::Value, Transaction};
 
 use super::SqliteStore;
 use crate::{
@@ -73,7 +74,7 @@ impl fmt::Display for NoteTable {
 // NOTE FILTER
 // ================================================================================================
 
-impl NoteFilter {
+impl<'a> NoteFilter<'a> {
     /// Returns a [String] containing the query for this Filter
     fn to_query(&self, notes_table: NoteTable) -> String {
         let base = format!(
@@ -96,6 +97,9 @@ impl NoteFilter {
             NoteFilter::Committed => format!("{base} WHERE status = 'Committed'"),
             NoteFilter::Consumed => format!("{base} WHERE status = 'Consumed'"),
             NoteFilter::Pending => format!("{base} WHERE status = 'Pending'"),
+            NoteFilter::Unique(_) | NoteFilter::List(_) => {
+                format!("{base} WHERE note.note_id IN rarray(?)")
+            },
         }
     }
 }
@@ -108,12 +112,44 @@ impl SqliteStore {
         &self,
         filter: NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
-        self.db
+        let mut params = Vec::new();
+        match filter {
+            NoteFilter::Unique(note_id) => {
+                let note_ids_list = vec![Value::Text(note_id.inner().to_string())];
+                params.push(Rc::new(note_ids_list));
+            },
+            NoteFilter::List(note_ids) => {
+                let note_ids_list = note_ids
+                    .iter()
+                    .map(|note_id| Value::Text(note_id.inner().to_string()))
+                    .collect::<Vec<Value>>();
+
+                params.push(Rc::new(note_ids_list))
+            },
+            _ => {},
+        }
+        let notes = self
+            .db()
             .prepare(&filter.to_query(NoteTable::InputNotes))?
-            .query_map([], parse_input_note_columns)
+            .query_map(params_from_iter(params), parse_input_note_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_input_note))
-            .collect::<Result<Vec<InputNoteRecord>, _>>()
+            .collect::<Result<Vec<InputNoteRecord>, _>>()?;
+
+        match filter {
+            NoteFilter::Unique(note_id) if notes.is_empty() => {
+                return Err(StoreError::NoteNotFound(note_id));
+            },
+            NoteFilter::List(note_ids) if note_ids.len() != notes.len() => {
+                let missing_note_id = note_ids
+                    .iter()
+                    .find(|&note_id| !notes.iter().any(|note_record| note_record.id() == *note_id))
+                    .expect("should find one note id that wasn't retrieved by the db");
+                return Err(StoreError::NoteNotFound(*missing_note_id));
+            },
+            _ => {},
+        }
+        Ok(notes)
     }
 
     /// Retrieves the output notes from the database
@@ -121,41 +157,49 @@ impl SqliteStore {
         &self,
         filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, StoreError> {
-        self.db
+        let mut params = Vec::new();
+        match filter {
+            NoteFilter::Unique(note_id) => {
+                let note_ids_list = vec![Value::Text(note_id.inner().to_string())];
+                params.push(Rc::new(note_ids_list));
+            },
+            NoteFilter::List(note_ids) => {
+                let note_ids_list = note_ids
+                    .iter()
+                    .map(|note_id| Value::Text(note_id.inner().to_string()))
+                    .collect::<Vec<Value>>();
+
+                params.push(Rc::new(note_ids_list))
+            },
+            _ => {},
+        }
+        let notes = self
+            .db()
             .prepare(&filter.to_query(NoteTable::OutputNotes))?
-            .query_map([], parse_output_note_columns)
+            .query_map(params_from_iter(params), parse_output_note_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_output_note))
-            .collect::<Result<Vec<OutputNoteRecord>, _>>()
+            .collect::<Result<Vec<OutputNoteRecord>, _>>()?;
+
+        match filter {
+            NoteFilter::Unique(note_id) if notes.is_empty() => {
+                return Err(StoreError::NoteNotFound(note_id));
+            },
+            NoteFilter::List(note_ids) if note_ids.len() != notes.len() => {
+                let missing_note_id = note_ids
+                    .iter()
+                    .find(|&note_id| !notes.iter().any(|note_record| note_record.id() == *note_id))
+                    .expect("should find one note id that wasn't retrieved by the db");
+                return Err(StoreError::NoteNotFound(*missing_note_id));
+            },
+            _ => {},
+        }
+        Ok(notes)
     }
 
-    pub(crate) fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError> {
-        let query_id = &note_id.inner().to_string();
-
-        const QUERY: &str = "SELECT 
-                        note.assets, 
-                        note.details, 
-                        note.recipient,
-                        note.status,
-                        note.metadata,
-                        note.inclusion_proof,
-                        script.serialized_note_script
-                        from input_notes AS note 
-                        LEFT OUTER JOIN notes_scripts AS script
-                            ON note.details IS NOT NULL AND 
-                            json_extract(note.details, '$.script_hash') = script.script_hash
-                        WHERE note.note_id = ?";
-
-        self.db
-            .prepare(QUERY)?
-            .query_map(params![query_id.to_string()], parse_input_note_columns)?
-            .map(|result| Ok(result?).and_then(parse_input_note))
-            .next()
-            .ok_or(StoreError::InputNoteNotFound(note_id))?
-    }
-
-    pub(crate) fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError> {
-        let tx = self.db.transaction()?;
+    pub(crate) fn insert_input_note(&self, note: &InputNoteRecord) -> Result<(), StoreError> {
+        let mut db = self.db();
+        let tx = db.transaction()?;
 
         insert_input_note_tx(&tx, note)?;
 
@@ -166,7 +210,7 @@ impl SqliteStore {
     pub fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
         const QUERY: &str = "SELECT json_extract(details, '$.nullifier') FROM input_notes WHERE status = 'Committed'";
 
-        self.db
+        self.db()
             .prepare(QUERY)?
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
@@ -217,7 +261,7 @@ pub(super) fn insert_input_note_tx(
     .map(|_| ())?;
 
     const QUERY: &str =
-        "INSERT OR IGNORE INTO notes_scripts (script_hash, serialized_note_script) VALUES (?, ?)";
+        "INSERT OR REPLACE INTO notes_scripts (script_hash, serialized_note_script) VALUES (?, ?)";
     tx.execute(QUERY, params![note_script_hash, serialized_note_script,])
         .map_err(|err| StoreError::QueryError(err.to_string()))
         .map(|_| ())
@@ -256,7 +300,7 @@ pub fn insert_output_note_tx(
     .map(|_| ())?;
 
     const QUERY: &str =
-        "INSERT OR IGNORE INTO notes_scripts (script_hash, serialized_note_script) VALUES (?, ?)";
+        "INSERT OR REPLACE INTO notes_scripts (script_hash, serialized_note_script) VALUES (?, ?)";
     tx.execute(QUERY, params![note_script_hash, serialized_note_script,])
         .map_err(|err| StoreError::QueryError(err.to_string()))
         .map(|_| ())

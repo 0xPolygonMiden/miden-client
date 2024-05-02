@@ -36,6 +36,10 @@ pub use note_record::{InputNoteRecord, NoteRecordDetails, NoteStatus, OutputNote
 /// All update functions are implied to be atomic. That is, if multiple entities are meant to be
 /// updated as part of any single function and an error is returned during its execution, any
 /// changes that might have happened up to that point need to be rolled back and discarded.
+///
+/// Because the [Store]'s ownership is shared between the executor and the client, interior
+/// mutability is expected to be implemented, which is why all methods receive `&self` and
+/// not `&mut self`.
 pub trait Store {
     // TRANSACTIONS
     // --------------------------------------------------------------------------------------------
@@ -53,24 +57,24 @@ pub trait Store {
     /// - Applying the resulting [AccountDelta](miden_objects::accounts::AccountDelta) and storing the new [Account] state
     /// - Storing new notes as a result of the transaction execution
     /// - Inserting the transaction into the store to track
-    fn apply_transaction(&mut self, tx_result: TransactionResult) -> Result<(), StoreError>;
+    fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), StoreError>;
 
     // NOTES
     // --------------------------------------------------------------------------------------------
 
     /// Retrieves the input notes from the store
-    fn get_input_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError>;
-
-    /// Retrieves the output notes from the store
-    fn get_output_notes(&self, filter: NoteFilter) -> Result<Vec<OutputNoteRecord>, StoreError>;
-
-    /// Retrieves an [InputNoteRecord] for the input note corresponding to the specified ID from
-    /// the store.
     ///
     /// # Errors
     ///
-    /// Returns a [StoreError::InputNoteNotFound] if there is no Note with the provided ID
-    fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, StoreError>;
+    /// Returns a [StoreError::NoteNotFound] if the filter is [NoteFilter::Unique] and there is no Note with the provided ID
+    fn get_input_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError>;
+
+    /// Retrieves the output notes from the store
+    ///
+    /// # Errors
+    ///
+    /// Returns a [StoreError::NoteNotFound] if the filter is [NoteFilter::Unique] and there is no Note with the provided ID
+    fn get_output_notes(&self, filter: NoteFilter) -> Result<Vec<OutputNoteRecord>, StoreError>;
 
     /// Returns the nullifiers of all unspent input notes
     ///
@@ -86,7 +90,7 @@ pub trait Store {
     }
 
     /// Inserts the provided input note into the database
-    fn insert_input_note(&mut self, note: &InputNoteRecord) -> Result<(), StoreError>;
+    fn insert_input_note(&self, note: &InputNoteRecord) -> Result<(), StoreError>;
 
     // CHAIN DATA
     // --------------------------------------------------------------------------------------------
@@ -192,7 +196,7 @@ pub trait Store {
 
     /// Inserts an [Account] along with the seed used to create it and its [AuthInfo]
     fn insert_account(
-        &mut self,
+        &self,
         account: &Account,
         account_seed: Option<Word>,
         auth_info: &AuthInfo,
@@ -207,13 +211,13 @@ pub trait Store {
     /// Adds a note tag to the list of tags that the client is interested in.
     ///
     /// If the tag was already being tracked, returns false since no new tags were actually added. Otherwise true.
-    fn add_note_tag(&mut self, tag: NoteTag) -> Result<bool, StoreError>;
+    fn add_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError>;
 
     /// Removes a note tag from the list of tags that the client is interested in.
     ///
     /// If the tag was not present in the store returns false since no tag was actually removed.
     /// Otherwise returns true.
-    fn remove_note_tag(&mut self, tag: NoteTag) -> Result<bool, StoreError>;
+    fn remove_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError>;
 
     /// Returns the block number of the last state sync block.
     fn get_sync_height(&self) -> Result<u32, StoreError>;
@@ -227,7 +231,7 @@ pub trait Store {
     /// `committed_transactions`
     /// - Storing new MMR authentication nodes
     fn apply_state_sync(
-        &mut self,
+        &self,
         block_header: BlockHeader,
         nullifiers: Vec<Digest>,
         new_note_details: SyncedNewNotes,
@@ -321,7 +325,7 @@ pub enum TransactionFilter {
 // NOTE FILTER
 // ================================================================================================
 
-pub enum NoteFilter {
+pub enum NoteFilter<'a> {
     /// Return a list of all notes ([InputNoteRecord] or [OutputNoteRecord]).
     All,
     /// Filter by consumed notes ([InputNoteRecord] or [OutputNoteRecord]). notes that have been used as inputs in transactions.
@@ -332,4 +336,8 @@ pub enum NoteFilter {
     /// Return a list of pending notes ([InputNoteRecord] or [OutputNoteRecord]). These represent notes for which the store
     /// does not have anchor data.
     Pending,
+    /// Return a list containing the note that matches with the provided [NoteId].
+    List(&'a [NoteId]),
+    /// Return a list containing the note that matches with the provided [NoteId].
+    Unique(NoteId),
 }

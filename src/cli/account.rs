@@ -4,6 +4,7 @@ use clap::{Parser, ValueEnum};
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     client::{accounts, rpc::NodeRpcClient, Client},
+    config::CliConfig,
     store::Store,
 };
 use miden_objects::{
@@ -15,6 +16,7 @@ use miden_objects::{
 use miden_tx::utils::{bytes_to_hex_string, Deserializable, Serializable};
 use tracing::info;
 
+use super::{get_account_with_id_prefix, load_config, update_config, CLIENT_CONFIG_FILE_NAME};
 use crate::cli::create_dynamic_table;
 
 // ACCOUNT COMMAND
@@ -27,10 +29,11 @@ pub enum AccountCmd {
     #[clap(short_flag = 'l')]
     List,
 
-    /// Show details of the account for the specified ID
+    /// Show details of the account for the specified ID or hex prefix
     #[clap(short_flag = 's')]
     Show {
         // TODO: We should create a value parser for catching input parsing errors earlier (ie AccountID) once complexity grows
+        /// ID of an account or hex prefix that matches with a single account.
         #[clap()]
         id: String,
         #[clap(short, long, default_value_t = false)]
@@ -55,6 +58,24 @@ pub enum AccountCmd {
         #[arg()]
         filenames: Vec<PathBuf>,
     },
+    /// Set/Unset default accounts
+    #[clap(short_flag = 'd')]
+    Default {
+        #[clap(subcommand)]
+        default_cmd: DefaultAccountCmd,
+    },
+}
+
+#[derive(Debug, Parser, Clone)]
+#[clap()]
+pub enum DefaultAccountCmd {
+    /// Turn an account into the default sender account
+    Set {
+        #[clap()]
+        id: String,
+    },
+    /// Clear the default account setting
+    Unset,
 }
 
 #[derive(Debug, Parser, Clone)]
@@ -149,8 +170,8 @@ impl AccountCmd {
                 let (_new_account, _account_seed) = client.new_account(client_template)?;
             },
             AccountCmd::Show { id, keys, vault, storage, code } => {
-                let account_id: AccountId = AccountId::from_hex(id)
-                    .map_err(|_| "Input number was not a valid Account Id")?;
+                let account_id =
+                    get_account_with_id_prefix(&client, id).map_err(|err| err.to_string())?.id();
                 show_account(client, account_id, *keys, *vault, *storage, *code)?;
             },
             AccountCmd::Import { filenames } => {
@@ -159,6 +180,39 @@ impl AccountCmd {
                     import_account(&mut client, filename)?;
                 }
                 println!("Imported {} accounts.", filenames.len());
+            },
+            AccountCmd::Default {
+                default_cmd: DefaultAccountCmd::Set { id },
+            } => {
+                let account_id: AccountId = AccountId::from_hex(id)
+                    .map_err(|_| "Input number was not a valid Account Id")?;
+
+                // Check whether we're tracking that account
+                let (account, _) = client.get_account_stub_by_id(account_id)?;
+
+                // load config
+                let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
+                current_dir.push(CLIENT_CONFIG_FILE_NAME);
+                let config_path = current_dir.as_path();
+                let mut current_config = load_config(config_path)?;
+
+                // set default account
+                current_config.cli = Some(CliConfig {
+                    default_account_id: Some(account.id().to_hex()),
+                });
+
+                update_config(config_path, current_config)?;
+            },
+            AccountCmd::Default { default_cmd: DefaultAccountCmd::Unset } => {
+                let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
+                current_dir.push(CLIENT_CONFIG_FILE_NAME);
+                let config_path = current_dir.as_path();
+                let mut current_config = load_config(config_path)?;
+
+                // unset default account
+                current_config.cli.replace(CliConfig { default_account_id: None });
+
+                update_config(config_path, current_config)?;
             },
         }
         Ok(())
@@ -171,7 +225,7 @@ impl AccountCmd {
 fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: Client<N, R, S>,
 ) -> Result<(), String> {
-    let accounts = client.get_accounts()?;
+    let accounts = client.get_account_stubs()?;
 
     let mut table = create_dynamic_table(&[
         "Account ID",

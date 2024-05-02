@@ -7,11 +7,12 @@ use std::{
 use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
-    client::rpc::NodeRpcClient,
+    client::{rpc::NodeRpcClient, ConsumableNote},
     errors::ClientError,
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
 };
 use miden_objects::{
+    accounts::AccountId,
     crypto::rand::FeltRng,
     notes::{NoteId, NoteInputs},
     Digest,
@@ -78,6 +79,14 @@ pub enum InputNotes {
         #[clap()]
         filename: PathBuf,
     },
+
+    /// List consumable input notes
+    #[clap(short_flag = 'c')]
+    ListConsumable {
+        /// Account ID used to filter list. Only notes consumable by this account will be shown.
+        #[clap()]
+        account_id: Option<String>,
+    },
 }
 
 impl InputNotes {
@@ -106,6 +115,9 @@ impl InputNotes {
             InputNotes::Import { filename } => {
                 let note_id = import_note(&mut client, filename.clone())?;
                 println!("Succesfully imported note {}", note_id.inner());
+            },
+            InputNotes::ListConsumable { account_id } => {
+                list_consumable_notes(client, account_id)?;
             },
         }
         Ok(())
@@ -239,6 +251,21 @@ fn show_input_note<N: NodeRpcClient, R: FeltRng, S: Store>(
     Ok(())
 }
 
+// LIST CONSUMABLE INPUT NOTES
+// ================================================================================================
+fn list_consumable_notes<N: NodeRpcClient, R: FeltRng, S: Store>(
+    client: Client<N, R, S>,
+    account_id: &Option<String>,
+) -> Result<(), String> {
+    let account_id = match account_id {
+        Some(id) => Some(AccountId::from_hex(id.as_str()).map_err(|err| err.to_string())?),
+        None => None,
+    };
+    let notes = client.get_consumable_notes(account_id)?;
+    print_consumable_notes_summary(&notes)?;
+    Ok(())
+}
+
 // HELPERS
 // ================================================================================================
 fn print_notes_summary<'a, I>(notes: I) -> Result<(), String>
@@ -282,6 +309,27 @@ where
     Ok(())
 }
 
+fn print_consumable_notes_summary<'a, I>(notes: I) -> Result<(), String>
+where
+    I: IntoIterator<Item = &'a ConsumableNote>,
+{
+    let mut table = create_dynamic_table(&["Note ID", "Account ID", "Relevance"]);
+
+    for consumable_note in notes {
+        for relevance in &consumable_note.relevances {
+            table.add_row(vec![
+                consumable_note.note.id().to_hex(),
+                relevance.0.to_string(),
+                relevance.1.to_string(),
+            ]);
+        }
+    }
+
+    println!("{table}");
+
+    Ok(())
+}
+
 fn note_record_type(note_record: &InputNoteRecord) -> String {
     match note_record.metadata() {
         Some(metadata) => match metadata.note_type() {
@@ -303,8 +351,8 @@ mod tests {
 
     use miden_client::{
         client::get_random_coin,
-        config::{ClientConfig, Endpoint},
-        errors::NoteIdPrefixFetchError,
+        config::{ClientConfig, Endpoint, RpcConfig},
+        errors::IdPrefixFetchError,
         mock::{mock_full_chain_mmr_and_notes, mock_notes, MockClient, MockRpcApi},
         store::{sqlite_store::SqliteStore, InputNoteRecord},
     };
@@ -323,20 +371,14 @@ mod tests {
         path.push(Uuid::new_v4().to_string());
         let client_config = ClientConfig::new(
             path.into_os_string().into_string().unwrap().try_into().unwrap(),
-            Endpoint::default().into(),
+            RpcConfig::default(),
         );
 
-        let store = SqliteStore::new((&client_config).into()).unwrap();
         let rng = get_random_coin();
-        let executor_store = SqliteStore::new((&client_config).into()).unwrap();
+        let store = SqliteStore::new((&client_config).into()).unwrap();
 
-        let mut client = MockClient::new(
-            MockRpcApi::new(&Endpoint::default().to_string()),
-            rng,
-            store,
-            executor_store,
-            true,
-        );
+        let mut client =
+            MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store, true);
 
         // generate test data
         let assembler = TransactionKernel::assembler();
@@ -376,18 +418,12 @@ mod tests {
         path.push(Uuid::new_v4().to_string());
         let client_config = ClientConfig::new(
             path.into_os_string().into_string().unwrap().try_into().unwrap(),
-            Endpoint::default().into(),
+            RpcConfig::default(),
         );
         let store = SqliteStore::new((&client_config).into()).unwrap();
-        let executor_store = SqliteStore::new((&client_config).into()).unwrap();
 
-        let mut client = MockClient::new(
-            MockRpcApi::new(&Endpoint::default().to_string()),
-            rng,
-            store,
-            executor_store,
-            true,
-        );
+        let mut client =
+            MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store, true);
 
         import_note(&mut client, filename_path).unwrap();
         let imported_note_record: InputNoteRecord =
@@ -408,26 +444,22 @@ mod tests {
         path.push(Uuid::new_v4().to_string());
         let client_config = ClientConfig::new(
             path.into_os_string().into_string().unwrap().try_into().unwrap(),
-            Endpoint::default().into(),
+            RpcConfig::default(),
         );
 
-        let store = SqliteStore::new((&client_config).into()).unwrap();
         let rng = get_random_coin();
-        let executor_store = SqliteStore::new((&client_config).into()).unwrap();
+        let store = SqliteStore::new((&client_config).into()).unwrap();
 
-        let mut client = MockClient::new(
-            MockRpcApi::new(&Endpoint::default().to_string()),
-            rng,
-            store,
-            executor_store,
-            true,
-        );
+        let mut client =
+            MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store, true);
 
         // Ensure we get an error if no note is found
         let non_existent_note_id = "0x123456";
         assert_eq!(
             get_note_with_id_prefix(&client, non_existent_note_id),
-            Err(NoteIdPrefixFetchError::NoMatch(non_existent_note_id.to_string()))
+            Err(IdPrefixFetchError::NoMatch(
+                format!("note ID prefix {non_existent_note_id}").to_string()
+            ))
         );
 
         // generate test data
@@ -454,7 +486,9 @@ mod tests {
         let note_id_with_many_matches = "0x";
         assert_eq!(
             get_note_with_id_prefix(&client, note_id_with_many_matches),
-            Err(NoteIdPrefixFetchError::MultipleMatches(note_id_with_many_matches.to_string()))
+            Err(IdPrefixFetchError::MultipleMatches(
+                format!("note ID prefix {note_id_with_many_matches}").to_string()
+            ))
         );
     }
 }
