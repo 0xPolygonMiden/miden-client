@@ -1,3 +1,5 @@
+use alloc::rc::Rc;
+
 use miden_objects::{
     crypto::rand::{FeltRng, RpoRandomCoin},
     Felt,
@@ -6,7 +8,7 @@ use miden_tx::TransactionExecutor;
 use rand::Rng;
 use tracing::info;
 
-use crate::store::Store;
+use crate::store::{data_store::ClientDataStore, Store};
 
 pub mod rpc;
 use rpc::NodeRpcClient;
@@ -22,8 +24,6 @@ pub use note_screener::NoteRelevance;
 pub(crate) use note_screener::NoteScreener;
 pub use notes::ConsumableNote;
 
-use crate::store::data_store::ClientDataStore;
-
 // MIDEN CLIENT
 // ================================================================================================
 
@@ -37,7 +37,7 @@ use crate::store::data_store::ClientDataStore;
 /// - Executes, proves, and submits transactions to the network as directed by the user.
 pub struct Client<N: NodeRpcClient, R: FeltRng, S: Store> {
     /// The client's store, which provides a way to write and read entities to provide persistence.
-    store: S,
+    store: Rc<S>,
     /// An instance of [FeltRng] which provides randomness tools for generating new keys,
     /// serial numbers, etc.
     rng: R,
@@ -69,12 +69,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     /// # Errors
     ///
     /// Returns an error if the client could not be instantiated.
-    pub fn new(api: N, rng: R, store: S, executor_store: S, in_debug_mode: bool) -> Self {
+    pub fn new(api: N, rng: R, store: S, in_debug_mode: bool) -> Self {
         if in_debug_mode {
             info!("Creating the Client in debug mode.");
         }
-        let tx_executor = TransactionExecutor::new(ClientDataStore::new(executor_store))
-            .with_debug_mode(in_debug_mode);
+
+        let store = Rc::new(store);
+        let data_store = ClientDataStore::new(store.clone());
+        let tx_executor = TransactionExecutor::new(data_store);
 
         Self { store, rng, rpc_api: api, tx_executor }
     }
@@ -85,8 +87,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     }
 
     #[cfg(any(test, feature = "test_utils"))]
-    pub fn store(&mut self) -> &mut S {
-        &mut self.store
+    pub fn store(&mut self) -> &S {
+        &self.store
     }
 }
 
