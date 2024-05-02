@@ -81,7 +81,7 @@ pub async fn execute_tx_and_sync(client: &mut TestClient, tx_request: Transactio
             client.get_transactions(TransactionFilter::Uncomitted).unwrap();
         let is_tx_committed = uncommited_transactions
             .iter()
-            .any(|uncommited_tx| uncommited_tx.id == transaction_id);
+            .all(|uncommited_tx| uncommited_tx.id != transaction_id);
 
         if is_tx_committed {
             break;
@@ -181,7 +181,7 @@ pub async fn mint_note(
 
     println!("Minting Asset");
     let tx_request = client.build_transaction_request(tx_template).unwrap();
-    let _ = execute_tx_and_sync(client, tx_request.clone()).await;
+    execute_tx_and_sync(client, tx_request.clone()).await;
 
     // Check that note is committed and return it
     println!("Fetching Committed Notes...");
