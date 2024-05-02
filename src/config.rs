@@ -17,12 +17,14 @@ pub struct ClientConfig {
     pub rpc: RpcConfig,
     /// Describes settings related to the store.
     pub store: StoreConfig,
+    /// Describes settings related to the CLI
+    pub cli: Option<CliConfig>,
 }
 
 impl ClientConfig {
     /// Returns a new instance of [ClientConfig] with the specified store path and node endpoint.
     pub const fn new(store: StoreConfig, rpc: RpcConfig) -> Self {
-        Self { store, rpc }
+        Self { store, rpc, cli: None }
     }
 }
 
@@ -45,12 +47,14 @@ impl Provider for ClientConfig {
 impl ClientConfig {
     pub fn testnet() -> Self {
         ClientConfig {
+            cli: None,
             rpc: RpcConfig {
                 endpoint: Endpoint {
                     protocol: "http".to_string(),
                     host: "testnet.miden.io".to_string(),
                     port: MIDEN_NODE_PORT,
                 },
+                timeout_ms: default_timeout(),
             },
             store: StoreConfig::default(),
         }
@@ -114,7 +118,7 @@ impl TryFrom<&str> for Endpoint {
 
         // port separator index might match with the protocol separator, if so that means there was
         // no port defined
-        let port_separator_index = if port_separator_index == protocol_separator_index { 
+        let port_separator_index = if port_separator_index == protocol_separator_index {
             None
         } else {
             port_separator_index
@@ -144,9 +148,7 @@ impl TryFrom<&str> for Endpoint {
 
                 ("https", hostname, port)
             },
-            (None, None) => {
-                ("https", endpoint, MIDEN_NODE_PORT)
-            },
+            (None, None) => ("https", endpoint, MIDEN_NODE_PORT),
         };
 
         Ok(Endpoint {
@@ -209,16 +211,36 @@ impl Default for StoreConfig {
 // RPC CONFIG
 // ================================================================================================
 
-#[derive(Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+/// Settings for the RPC client
+#[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct RpcConfig {
     /// Address of the Miden node to connect to.
     pub endpoint: Endpoint,
+    /// Timeout for the rpc api requests
+    #[serde(default = "default_timeout")]
+    pub timeout_ms: u64,
 }
 
-impl From<Endpoint> for RpcConfig {
-    fn from(value: Endpoint) -> Self {
-        Self { endpoint: value }
+const fn default_timeout() -> u64 {
+    10000
+}
+
+impl Default for RpcConfig {
+    fn default() -> Self {
+        Self {
+            endpoint: Endpoint::default(),
+            timeout_ms: 10000,
+        }
     }
+}
+
+// CLI CONFIG
+// ================================================================================================
+
+#[derive(Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CliConfig {
+    /// Address of the Miden node to connect to.
+    pub default_account_id: Option<String>,
 }
 
 #[cfg(test)]

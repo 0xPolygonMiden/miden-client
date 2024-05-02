@@ -88,6 +88,20 @@ fn interactive_rpc_config(client_config: &mut ClientConfig) -> Result<(), String
 
     client_config.rpc.endpoint = Endpoint::new(protocol, host, port);
 
+    println!("Rpc request timeout in ms (default: 10000):");
+    let mut timeout_ms_str: String = String::new();
+    io::stdin().read_line(&mut timeout_ms_str).expect("Should read line");
+    timeout_ms_str = timeout_ms_str.trim().to_string();
+    let timeout_ms: u64 = if !timeout_ms_str.is_empty() {
+        timeout_ms_str
+            .parse()
+            .map_err(|err| format!("Error parsing timeout ms: {err}"))?
+    } else {
+        client_config.rpc.timeout_ms
+    };
+
+    client_config.rpc.timeout_ms = timeout_ms;
+
     Ok(())
 }
 
