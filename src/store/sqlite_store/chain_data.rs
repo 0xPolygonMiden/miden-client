@@ -47,7 +47,7 @@ impl SqliteStore {
             (block_num, header, chain_mmr_peaks, has_client_notes)
         VALUES (?, ?, ?, ?)";
 
-        self.db
+        self.db()
             .execute(QUERY, params![block_num, header, chain_mmr, has_client_notes])?;
 
         Ok(())
@@ -64,7 +64,7 @@ impl SqliteStore {
 
         const QUERY : &str = "SELECT block_num, header, chain_mmr_peaks, has_client_notes FROM block_headers WHERE block_num IN rarray(?)";
 
-        self.db
+        self.db()
             .prepare(QUERY)?
             .query_map(params![Rc::new(block_number_list)], parse_block_headers_columns)?
             .map(|result| Ok(result?).and_then(parse_block_header))
@@ -73,7 +73,7 @@ impl SqliteStore {
 
     pub(crate) fn get_tracked_block_headers(&self) -> Result<Vec<BlockHeader>, StoreError> {
         const QUERY: &str = "SELECT block_num, header, chain_mmr_peaks, has_client_notes FROM block_headers WHERE has_client_notes=true";
-        self.db
+        self.db()
             .prepare(QUERY)?
             .query_map(params![], parse_block_headers_columns)?
             .map(|result| Ok(result?).and_then(parse_block_header).map(|(block, _)| block))
@@ -94,7 +94,7 @@ impl SqliteStore {
             params.push(Rc::new(id_values));
         }
 
-        self.db
+        self.db()
             .prepare(&filter.to_query())?
             .query_map(params_from_iter(params), parse_chain_mmr_nodes_columns)?
             .map(|result| Ok(result?).and_then(parse_chain_mmr_nodes))
@@ -108,7 +108,7 @@ impl SqliteStore {
         const QUERY: &str = "SELECT chain_mmr_peaks FROM block_headers WHERE block_num = ?";
 
         let mmr_peaks = self
-            .db
+            .db()
             .prepare(QUERY)?
             .query_row(params![block_num], |row| {
                 let peaks: String = row.get(0)?;
@@ -251,7 +251,8 @@ mod test {
     fn insert_dummy_block_headers(store: &mut SqliteStore) -> Vec<BlockHeader> {
         let block_headers: Vec<BlockHeader> =
             (0..5).map(|block_num| BlockHeader::mock(block_num, None, None, &[])).collect();
-        let tx = store.db.transaction().unwrap();
+        let mut db = store.db();
+        let tx = db.transaction().unwrap();
         let dummy_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
         (0..5).for_each(|block_num| {
             SqliteStore::insert_block_header_tx(

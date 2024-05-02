@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use alloc::collections::BTreeSet;
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
@@ -476,7 +476,7 @@ fn apply_mmr_changes(
 // final_account_state
 fn get_transactions_to_commit(
     uncommitted_transactions: &[TransactionRecord],
-    _note_ids: &[NoteId],
+    note_ids: &[NoteId],
     nullifiers: &[Digest],
     account_hash_updates: &[(AccountId, Digest)],
 ) -> Vec<TransactionId> {
@@ -487,12 +487,10 @@ fn get_transactions_to_commit(
             // https://github.com/0xPolygonMiden/miden-client/issues/144, we should be aware
             // that in the future it'll be possible to have many transactions modifying an
             // account be included in a single block. If that happens, we'll need to rewrite
-            // this check
+            // this check.
 
-            // TODO: Review this. Because we receive note IDs based on account ID tags,
-            // we cannot base the status change on output notes alone;
             t.input_note_nullifiers.iter().all(|n| nullifiers.contains(n))
-                //&& t.output_notes.iter().all(|n| note_ids.contains(&n.id()))
+                && t.output_notes.iter().all(|n| note_ids.contains(&n.id()))
                 && account_hash_updates.iter().any(|(account_id, account_hash)| {
                     *account_id == t.account_id && *account_hash == t.final_account_state
                 })
