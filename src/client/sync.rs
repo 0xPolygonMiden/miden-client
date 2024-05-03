@@ -1,4 +1,5 @@
-use std::collections::{BTreeSet, HashMap};
+use alloc::collections::BTreeSet;
+use std::collections::HashMap;
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
