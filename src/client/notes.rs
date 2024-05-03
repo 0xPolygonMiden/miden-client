@@ -97,7 +97,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     // INPUT NOTE CREATION
     // --------------------------------------------------------------------------------------------
 
-    /// Imports a new input note into the client's store. The `verify` parameter dictates weather or
+    /// Imports a new input note into the client's store. The `verify` parameter dictates whether or
     /// not the method verifies the existence of the note in the chain.
     ///
     /// If the imported note is verified to be on chain and it doesn't contain an inclusion proof
