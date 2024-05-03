@@ -424,7 +424,7 @@ async fn test_import_pending_notes() {
     client_2.import_input_note(note.clone().into(), true).await.unwrap();
     let input_note = client_2.get_input_note(note.id()).unwrap();
 
-    // If imported after execution then the inclusion proof should be Some
+    // If imported after execution and syncing then the inclusion proof should be Some
     assert!(input_note.inclusion_proof().is_some());
 
     let tx_template = TransactionTemplate::MintFungibleAsset(
