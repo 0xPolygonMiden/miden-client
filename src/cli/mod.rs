@@ -103,7 +103,7 @@ impl Cli {
             Command::Account(account) => account.execute(client),
             Command::Init => Ok(()),
             Command::Info => info::print_client_info(&client),
-            Command::InputNotes(notes) => notes.execute(client),
+            Command::InputNotes(notes) => notes.execute(client).await,
             Command::Sync => sync::sync_state(client).await,
             Command::Tags(tags) => tags.execute(client).await,
             Command::Transaction(transaction) => {
