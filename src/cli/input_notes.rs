@@ -358,13 +358,22 @@ mod tests {
     use std::env::temp_dir;
 
     use miden_client::{
-        client::get_random_coin,
+        client::{get_random_coin, transactions::transaction_request::TransactionTemplate},
         config::{ClientConfig, Endpoint, RpcConfig},
         errors::IdPrefixFetchError,
-        mock::{mock_full_chain_mmr_and_notes, mock_notes, MockClient, MockRpcApi},
-        store::{sqlite_store::SqliteStore, InputNoteRecord},
+        mock::{
+            mock_full_chain_mmr_and_notes, mock_fungible_faucet_account, mock_notes, MockClient,
+            MockRpcApi,
+        },
+        store::{sqlite_store::SqliteStore, AuthInfo, InputNoteRecord, NoteFilter},
     };
     use miden_lib::transaction::TransactionKernel;
+    use miden_objects::{
+        accounts::{AccountId, ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN},
+        assets::FungibleAsset,
+        crypto::dsa::rpo_falcon512::SecretKey,
+        notes::Note,
+    };
     use uuid::Uuid;
 
     use crate::cli::{
@@ -374,6 +383,13 @@ mod tests {
 
     #[tokio::test]
     async fn import_export_recorded_note() {
+        // This test will run a mint transaction that creates an output note and we'll try
+        // exporting that note and then importing it. So the client's state should be:
+        //
+        // 1. No notes at all
+        // 2. One output note
+        // 3. One output note, one input note. Both representing the same note.
+
         // generate test client
         let mut path = temp_dir();
         path.push(Uuid::new_v4().to_string());
@@ -388,61 +404,72 @@ mod tests {
         let mut client =
             MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store, true);
 
-        // generate test data
-        let assembler = TransactionKernel::assembler();
-        let (consumed_notes, created_notes) = mock_notes(&assembler);
-        let (_, committed_notes, ..) = mock_full_chain_mmr_and_notes(consumed_notes);
+        // Add a faucet account to run a mint tx against it
+        const FAUCET_ID: u64 = ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN;
+        const INITIAL_BALANCE: u64 = 1000;
+        let key_pair = SecretKey::new();
 
-        let committed_note: InputNoteRecord = committed_notes.first().unwrap().clone().into();
-        let pending_note = InputNoteRecord::from(created_notes.first().unwrap().clone());
+        let faucet = mock_fungible_faucet_account(
+            AccountId::try_from(FAUCET_ID).unwrap(),
+            INITIAL_BALANCE,
+            key_pair.clone(),
+        );
 
-        client.import_input_note(committed_note.clone()).unwrap();
-        client.import_input_note(pending_note.clone()).unwrap();
-        assert!(pending_note.inclusion_proof().is_none());
-        assert!(committed_note.inclusion_proof().is_some());
+        client.sync_state().await.unwrap();
+        client.insert_account(&faucet, None, &AuthInfo::RpoFalcon512(key_pair)).unwrap();
 
-        let mut filename_path = temp_dir();
-        filename_path.push("test_import");
+        // Ensure client has no notes
+        assert!(client.get_input_notes(NoteFilter::All).unwrap().is_empty());
+        assert!(client.get_output_notes(NoteFilter::All).unwrap().is_empty());
 
-        let mut filename_path_pending = temp_dir();
-        filename_path_pending.push("test_import_pending");
+        // mint asset to create an output note
+        // using a random account id will mean that the note won't be included in the input notes
+        // table.
+        let transaction_template = TransactionTemplate::MintFungibleAsset(
+            FungibleAsset::new(faucet.id(), 5u64).unwrap(),
+            AccountId::from_hex("0x168187d729b31a84").unwrap(),
+            miden_objects::notes::NoteType::OffChain,
+        );
 
-        export_note(&client, &committed_note.id().inner().to_string(), Some(filename_path.clone()))
+        let transaction_request = client.build_transaction_request(transaction_template).unwrap();
+        let transaction = client.new_transaction(transaction_request).unwrap();
+        let created_note = transaction.created_notes()[0].clone();
+        client.submit_transaction(transaction).await.unwrap();
+
+        // Ensure client has no input notes and one output note
+        assert!(client.get_input_notes(NoteFilter::All).unwrap().is_empty());
+        assert!(!client.get_output_notes(NoteFilter::All).unwrap().is_empty());
+        let exported_note = client
+            .get_output_notes(NoteFilter::Unique(created_note.id()))
+            .unwrap()
+            .pop()
             .unwrap();
 
-        assert!(filename_path.exists());
+        // export the note with the CLI function
+        let mut filename_path = temp_dir();
+        filename_path.push("test_import");
+        println!("exporting note to {}", filename_path.to_string_lossy());
+        export_note(&client, &exported_note.id().to_hex(), Some(filename_path.clone())).unwrap();
+        println!("exported!");
 
-        export_note(
-            &client,
-            &pending_note.id().inner().to_string(),
-            Some(filename_path_pending.clone()),
-        )
-        .unwrap();
+        // Try importing the same note with the CLI function
+        let imported_note_id = import_note(&mut client, filename_path).unwrap();
 
-        assert!(filename_path_pending.exists());
+        // Ensure client has one input note and one output note
+        assert_eq!(client.get_input_notes(NoteFilter::All).unwrap().len(), 1);
+        assert_eq!(client.get_output_notes(NoteFilter::All).unwrap().len(), 1);
 
-        // generate test client to import notes to
-        let mut path = temp_dir();
-        path.push(Uuid::new_v4().to_string());
-        let client_config = ClientConfig::new(
-            path.into_os_string().into_string().unwrap().try_into().unwrap(),
-            RpcConfig::default(),
-        );
-        let store = SqliteStore::new((&client_config).into()).unwrap();
+        let imported_note = client
+            .get_input_notes(NoteFilter::Unique(imported_note_id))
+            .unwrap()
+            .pop()
+            .unwrap();
 
-        let mut client =
-            MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store, true);
+        let exported_note: InputNoteRecord = exported_note.try_into().unwrap();
+        let exported_note: Note = exported_note.try_into().unwrap();
+        let imported_note: Note = imported_note.try_into().unwrap();
 
-        import_note(&mut client, filename_path).unwrap();
-        let imported_note_record: InputNoteRecord =
-            client.get_input_note(committed_note.id()).unwrap();
-
-        assert_eq!(committed_note.id(), imported_note_record.id());
-
-        import_note(&mut client, filename_path_pending).unwrap();
-        let imported_pending_note_record = client.get_input_note(pending_note.id()).unwrap();
-
-        assert_eq!(imported_pending_note_record.id(), pending_note.id());
+        assert_eq!(exported_note, imported_note);
     }
 
     #[tokio::test]
