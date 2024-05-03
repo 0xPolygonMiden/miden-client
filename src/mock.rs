@@ -412,12 +412,12 @@ pub async fn insert_mock_data(client: &mut MockClient) -> Vec<BlockHeader> {
 
     // insert notes into database
     for note in consumed_notes.clone() {
-        client.import_input_note(note.into()).unwrap();
+        client.import_input_note(note.into(), false).await.unwrap();
     }
 
     // insert notes into database
     for note in created_notes.clone() {
-        client.import_input_note(note.into()).unwrap();
+        client.import_input_note(note.into(), false).await.unwrap();
     }
 
     // insert account

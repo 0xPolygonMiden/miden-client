@@ -107,6 +107,8 @@ You can call:
 miden-client input-notes show 0x70b7ec
 ```
 
+The `import` subcommand verifies that the note that is about to be imported exists on chain. The user can add an optional flag `--no-verify` that skips this verification.
+
 ### `sync`
 
 Sync the client with the latest state of the Miden network.
