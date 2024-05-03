@@ -51,7 +51,7 @@ pub struct Cli {
 pub enum Command {
     #[clap(subcommand)]
     Account(account::AccountCmd),
-    Init,
+    Init(init::InitCmd),
     #[clap(subcommand)]
     InputNotes(input_notes::InputNotes),
     /// Sync this client with the latest state of the Miden network.
@@ -74,8 +74,8 @@ impl Cli {
         // Check if it's an init command before anything else. When we run the init command for
         // the first time we won't have a config file and thus creating the store would not be
         // possible.
-        if matches!(&self.action, Command::Init) {
-            init::initialize_client(current_dir.clone())?;
+        if let Command::Init(init_cmd) = &self.action {
+            init_cmd.execute(current_dir.clone())?;
             return Ok(());
         }
 
@@ -101,7 +101,7 @@ impl Cli {
         // Execute cli command
         match &self.action {
             Command::Account(account) => account.execute(client),
-            Command::Init => Ok(()),
+            Command::Init(_) => Ok(()),
             Command::Info => info::print_client_info(&client),
             Command::InputNotes(notes) => notes.execute(client).await,
             Command::Sync => sync::sync_state(client).await,
