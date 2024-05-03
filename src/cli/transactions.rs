@@ -1,22 +1,25 @@
+use std::io;
+
 use clap::ValueEnum;
 use miden_client::{
     client::{
         rpc::NodeRpcClient,
         transactions::{
             transaction_request::{PaymentTransactionData, TransactionTemplate},
-            TransactionRecord,
+            TransactionRecord, TransactionResult,
         },
     },
     store::{Store, TransactionFilter},
 };
 use miden_objects::{
-    assets::FungibleAsset,
+    assets::{Asset, FungibleAsset},
     crypto::rand::FeltRng,
     notes::{NoteId, NoteType as MidenNoteType},
+    Digest,
 };
 use tracing::info;
 
-use super::{get_account_with_id_prefix, get_note_with_id_prefix, Client, Parser};
+use super::{get_note_with_id_prefix, parse_account_id, Client, Parser};
 use crate::cli::create_dynamic_table;
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -104,6 +107,9 @@ pub enum Transaction {
     New {
         #[clap(subcommand)]
         transaction_type: TransactionType,
+        /// Flag to submit the executed transaction without asking for confirmation
+        #[clap(short, long, default_value_t = false)]
+        force: bool,
     },
 }
 
@@ -117,8 +123,8 @@ impl Transaction {
             Transaction::List => {
                 list_transactions(client)?;
             },
-            Transaction::New { transaction_type } => {
-                new_transaction(&mut client, transaction_type, default_account_id).await?;
+            Transaction::New { transaction_type, force } => {
+                new_transaction(&mut client, transaction_type, *force, default_account_id).await?;
             },
         }
         Ok(())
@@ -130,6 +136,7 @@ impl Transaction {
 async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: &mut Client<N, R, S>,
     transaction_type: &TransactionType,
+    force: bool,
     default_account_id: Option<String>,
 ) -> Result<(), String> {
     let transaction_template: TransactionTemplate =
@@ -138,11 +145,83 @@ async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store>(
     let transaction_request = client.build_transaction_request(transaction_template)?;
     let transaction_execution_result = client.new_transaction(transaction_request)?;
 
-    info!("Executed transaction, proving and then submitting...");
+    // Show delta and ask for confirmation
+    print_transaction_details(&transaction_execution_result);
+    if !force {
+        println!("Continue with proving and submission? Changes will be irreversible once the proof is finalized on the rollup (Y/N)");
+        let mut proceed_str: String = String::new();
+        io::stdin().read_line(&mut proceed_str).expect("Should read line");
+
+        if proceed_str.trim().to_lowercase() != "y" {
+            return Ok(());
+        }
+    }
+
+    info!("Proving and then submitting...");
 
     client.submit_transaction(transaction_execution_result).await?;
 
     Ok(())
+}
+
+fn print_transaction_details(transaction_result: &TransactionResult) {
+    println!(
+        "The transaction will have the following effects on the account with ID {}",
+        transaction_result.executed_transaction().account_id()
+    );
+
+    let account_delta = transaction_result.account_delta();
+    let mut table = create_dynamic_table(&["Storage Slot", "Effect"]);
+
+    for cleared_item_slot in account_delta.storage().cleared_items.iter() {
+        table.add_row(vec![cleared_item_slot.to_string(), "Cleared".to_string()]);
+    }
+
+    for (updated_item_slot, new_value) in account_delta.storage().updated_items.iter() {
+        let value_digest: Digest = new_value.into();
+        table.add_row(vec![
+            updated_item_slot.to_string(),
+            format!("Updated ({})", value_digest.to_hex()),
+        ]);
+    }
+
+    println!("Storage changes:");
+    println!("{table}");
+
+    let mut table = create_dynamic_table(&["Asset Type", "Faucet ID", "Amount"]);
+
+    for asset in account_delta.vault().added_assets.iter() {
+        let (asset_type, faucet_id, amount) = match asset {
+            Asset::Fungible(fungible_asset) => {
+                ("Fungible Asset", fungible_asset.faucet_id(), fungible_asset.amount())
+            },
+            Asset::NonFungible(non_fungible_asset) => {
+                ("Non Fungible Asset", non_fungible_asset.faucet_id(), 1)
+            },
+        };
+        table.add_row(vec![asset_type, &faucet_id.to_hex(), &format!("+{}", amount)]);
+    }
+
+    for asset in account_delta.vault().removed_assets.iter() {
+        let (asset_type, faucet_id, amount) = match asset {
+            Asset::Fungible(fungible_asset) => {
+                ("Fungible Asset", fungible_asset.faucet_id(), fungible_asset.amount())
+            },
+            Asset::NonFungible(non_fungible_asset) => {
+                ("Non Fungible Asset", non_fungible_asset.faucet_id(), 1)
+            },
+        };
+        table.add_row(vec![asset_type, &faucet_id.to_hex(), &format!("-{}", amount)]);
+    }
+
+    println!("Vault changes:");
+    println!("{table}");
+
+    if let Some(new_nonce) = account_delta.nonce() {
+        println!("New nonce: {new_nonce}.")
+    } else {
+        println!("No nonce changes.")
+    }
 }
 
 /// Builds a [TransactionTemplate] based on the transaction type provided via cli args
@@ -165,9 +244,7 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
             amount,
             note_type,
         } => {
-            let faucet_id = get_account_with_id_prefix(client, faucet_id)
-                .map_err(|err| err.to_string())?
-                .id();
+            let faucet_id = parse_account_id(client, faucet_id)?;
             let fungible_asset =
                 FungibleAsset::new(faucet_id, *amount).map_err(|err| err.to_string())?.into();
 
@@ -176,12 +253,8 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
                 .clone()
                 .or(default_account_id)
                 .ok_or("Neither a sender nor a default account was provided".to_string())?;
-            let sender_account_id = get_account_with_id_prefix(client, &sender_account_id)
-                .map_err(|err| err.to_string())?
-                .id();
-            let target_account_id = get_account_with_id_prefix(client, target_account_id)
-                .map_err(|err| err.to_string())?
-                .id();
+            let sender_account_id = parse_account_id(client, &sender_account_id)?;
+            let target_account_id = parse_account_id(client, target_account_id)?;
 
             let payment_transaction =
                 PaymentTransactionData::new(fungible_asset, sender_account_id, target_account_id);
@@ -196,9 +269,7 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
             recall_height,
             note_type,
         } => {
-            let faucet_id = get_account_with_id_prefix(client, faucet_id)
-                .map_err(|err| err.to_string())?
-                .id();
+            let faucet_id = parse_account_id(client, faucet_id)?;
             let fungible_asset =
                 FungibleAsset::new(faucet_id, *amount).map_err(|err| err.to_string())?.into();
 
@@ -207,12 +278,8 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
                 .clone()
                 .or(default_account_id)
                 .ok_or("Neither a sender nor a default account was provided".to_string())?;
-            let sender_account_id = get_account_with_id_prefix(client, &sender_account_id)
-                .map_err(|err| err.to_string())?
-                .id();
-            let target_account_id = get_account_with_id_prefix(client, target_account_id)
-                .map_err(|err| err.to_string())?
-                .id();
+            let sender_account_id = parse_account_id(client, &sender_account_id)?;
+            let target_account_id = parse_account_id(client, target_account_id)?;
 
             let payment_transaction =
                 PaymentTransactionData::new(fungible_asset, sender_account_id, target_account_id);
@@ -228,14 +295,10 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
             amount,
             note_type,
         } => {
-            let faucet_id = get_account_with_id_prefix(client, faucet_id)
-                .map_err(|err| err.to_string())?
-                .id();
+            let faucet_id = parse_account_id(client, faucet_id)?;
             let fungible_asset =
                 FungibleAsset::new(faucet_id, *amount).map_err(|err| err.to_string())?;
-            let target_account_id = get_account_with_id_prefix(client, target_account_id)
-                .map_err(|err| err.to_string())?
-                .id();
+            let target_account_id = parse_account_id(client, target_account_id)?;
 
             Ok(TransactionTemplate::MintFungibleAsset(
                 fungible_asset,
@@ -257,9 +320,7 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
                 .clone()
                 .or(default_account_id)
                 .ok_or("Neither a sender nor a default account was provided".to_string())?;
-            let account_id = get_account_with_id_prefix(client, &account_id)
-                .map_err(|err| err.to_string())?
-                .id();
+            let account_id = parse_account_id(client, &account_id)?;
 
             Ok(TransactionTemplate::ConsumeNotes(account_id, list_of_notes))
         },

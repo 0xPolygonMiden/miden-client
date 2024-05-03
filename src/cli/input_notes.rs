@@ -78,6 +78,10 @@ pub enum InputNotes {
         /// Path to the file that contains the input note data
         #[clap()]
         filename: PathBuf,
+
+        /// Skip verification of note's existence in the chain
+        #[clap(short, long, default_value = "false")]
+        no_verify: bool,
     },
 
     /// List consumable input notes
@@ -90,7 +94,7 @@ pub enum InputNotes {
 }
 
 impl InputNotes {
-    pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store>(
+    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store>(
         &self,
         mut client: Client<N, R, S>,
     ) -> Result<(), String> {
@@ -112,8 +116,8 @@ impl InputNotes {
                 export_note(&client, id, filename.clone())?;
                 println!("Succesfully exported note {}", id);
             },
-            InputNotes::Import { filename } => {
-                let note_id = import_note(&mut client, filename.clone())?;
+            InputNotes::Import { filename, no_verify } => {
+                let note_id = import_note(&mut client, filename.clone(), !(*no_verify)).await?;
                 println!("Succesfully imported note {}", note_id.inner());
             },
             InputNotes::ListConsumable { account_id } => {
@@ -170,9 +174,10 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store>(
 
 // IMPORT INPUT NOTE
 // ================================================================================================
-pub fn import_note<N: NodeRpcClient, R: FeltRng, S: Store>(
+pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: &mut Client<N, R, S>,
     filename: PathBuf,
+    verify: bool,
 ) -> Result<NoteId, String> {
     let mut contents = vec![];
     let mut _file = File::open(filename)
@@ -185,7 +190,10 @@ pub fn import_note<N: NodeRpcClient, R: FeltRng, S: Store>(
         InputNoteRecord::read_from_bytes(&contents).map_err(|err| err.to_string())?;
 
     let note_id = input_note_record.id();
-    client.import_input_note(input_note_record)?;
+    client
+        .import_input_note(input_note_record, verify)
+        .await
+        .map_err(|err| err.to_string())?;
 
     Ok(note_id)
 }
@@ -382,6 +390,37 @@ mod tests {
     };
 
     #[tokio::test]
+    async fn test_import_note_validation() {
+        // generate test client
+        let mut path = temp_dir();
+        path.push(Uuid::new_v4().to_string());
+        let client_config = ClientConfig::new(
+            path.into_os_string().into_string().unwrap().try_into().unwrap(),
+            RpcConfig::default(),
+        );
+
+        let rng = get_random_coin();
+        let store = SqliteStore::new((&client_config).into()).unwrap();
+
+        let mut client =
+            MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store, true);
+
+        // generate test data
+        let assembler = TransactionKernel::assembler();
+        let (consumed_notes, created_notes) = mock_notes(&assembler);
+        let (_, committed_notes, ..) = mock_full_chain_mmr_and_notes(consumed_notes);
+
+        let committed_note: InputNoteRecord = committed_notes.first().unwrap().clone().into();
+        let pending_note = InputNoteRecord::from(created_notes.first().unwrap().clone());
+
+        client.import_input_note(committed_note.clone(), false).await.unwrap();
+        assert!(client.import_input_note(pending_note.clone(), true).await.is_err());
+        client.import_input_note(pending_note.clone(), false).await.unwrap();
+        assert!(pending_note.inclusion_proof().is_none());
+        assert!(committed_note.inclusion_proof().is_some());
+    }
+
+    #[tokio::test]
     async fn import_export_recorded_note() {
         // This test will run a mint transaction that creates an output note and we'll try
         // exporting that note and then importing it. So the client's state should be:
@@ -453,7 +492,7 @@ mod tests {
         println!("exported!");
 
         // Try importing the same note with the CLI function
-        let imported_note_id = import_note(&mut client, filename_path).unwrap();
+        let imported_note_id = import_note(&mut client, filename_path, false).await.unwrap();
 
         // Ensure client has one input note and one output note
         assert_eq!(client.get_input_notes(NoteFilter::All).unwrap().len(), 1);
@@ -505,8 +544,8 @@ mod tests {
         let committed_note: InputNoteRecord = notes.first().unwrap().clone().into();
         let pending_note = InputNoteRecord::from(created_notes.first().unwrap().clone());
 
-        client.import_input_note(committed_note.clone()).unwrap();
-        client.import_input_note(pending_note.clone()).unwrap();
+        client.import_input_note(committed_note.clone(), false).await.unwrap();
+        client.import_input_note(pending_note.clone(), false).await.unwrap();
         assert!(pending_note.inclusion_proof().is_none());
         assert!(committed_note.inclusion_proof().is_some());
 

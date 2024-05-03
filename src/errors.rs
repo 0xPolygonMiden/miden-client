@@ -29,6 +29,7 @@ pub enum ClientError {
     StoreError(StoreError),
     TransactionExecutorError(TransactionExecutorError),
     TransactionProvingError(TransactionProverError),
+    ExistenceVerificationError(NoteId),
 }
 
 impl fmt::Display for ClientError {
@@ -64,6 +65,9 @@ impl fmt::Display for ClientError {
             },
             ClientError::TransactionProvingError(err) => {
                 write!(f, "transaction prover error: {err}")
+            },
+            ClientError::ExistenceVerificationError(note_id) => {
+                write!(f, "The note with ID {note_id} doesn't exist in the chain")
             },
         }
     }
