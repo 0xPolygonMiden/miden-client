@@ -246,12 +246,15 @@ fn get_account_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>(
 pub(crate) fn parse_account_id<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: &Client<N, R, S>,
     account_id: &str,
-) -> Result<AccountId, IdPrefixFetchError> {
+) -> Result<AccountId, String> {
     if let Ok(account_id) = AccountId::from_hex(account_id) {
         return Ok(account_id);
     }
 
-    Ok(get_account_with_id_prefix(client, account_id)?.id())
+    let account_id = get_account_with_id_prefix(client, account_id)
+        .map_err(|_err| "Input account ID {account_id} is neither a valid Account ID nor a prefix of a known Account ID")?
+        .id();
+    Ok(account_id)
 }
 
 pub(crate) fn update_config(config_path: &Path, client_config: ClientConfig) -> Result<(), String> {
