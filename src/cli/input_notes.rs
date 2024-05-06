@@ -21,7 +21,7 @@ pub enum NoteFilter {
 }
 
 #[derive(Debug, Parser, Clone)]
-#[clap(about = "View and manage input notes")]
+#[clap(about = "View and manage input notes. Defaults to `list` command with no filter.")]
 pub enum InputNotes {
     /// List input notes
     #[clap(short_flag = 'l')]
@@ -70,6 +70,12 @@ pub enum InputNotes {
         #[clap()]
         account_id: Option<String>,
     },
+}
+
+impl Default for InputNotes {
+    fn default() -> Self {
+        InputNotes::List { filter: None }
+    }
 }
 
 impl InputNotes {

@@ -50,22 +50,31 @@ pub struct Cli {
 /// CLI actions
 #[derive(Debug, Parser)]
 pub enum Command {
-    #[clap(subcommand)]
-    Account(account::AccountCmd),
+    Account {
+        #[clap(subcommand)]
+        cmd: Option<account::AccountCmd>,
+    },
     #[clap(subcommand)]
     Import(import::ImportCmd),
     Init(init::InitCmd),
-    #[clap(subcommand)]
-    InputNotes(input_notes::InputNotes),
+    InputNotes {
+        #[clap(subcommand)]
+        cmd: Option<input_notes::InputNotes>,
+    },
     /// Sync this client with the latest state of the Miden network.
     Sync,
     /// View a summary of the current client state
     Info,
-    #[clap(subcommand)]
-    Tags(tags::TagsCmd),
-    #[clap(subcommand, name = "tx")]
+    Tags {
+        #[clap(subcommand)]
+        cmd: Option<tags::TagsCmd>,
+    },
+    #[clap(name = "tx")]
     #[clap(visible_alias = "transaction")]
-    Transaction(transactions::Transaction),
+    Transaction {
+        #[clap(subcommand)]
+        cmd: Option<transactions::Transaction>,
+    },
 }
 
 /// CLI entry point
@@ -103,17 +112,27 @@ impl Cli {
 
         // Execute cli command
         match &self.action {
-            Command::Account(account) => account.execute(client),
+            Command::Account { cmd: account_cmd } => {
+                let account = account_cmd.clone().unwrap_or_default();
+                account.execute(client)
+            },
             Command::Import(import) => import.execute(client).await,
             Command::Init(_) => Ok(()),
             Command::Info => info::print_client_info(&client),
-            Command::InputNotes(notes) => notes.execute(client).await,
+            Command::InputNotes { cmd: notes_cmd } => {
+                let notes_cmd = notes_cmd.clone().unwrap_or_default();
+                notes_cmd.execute(client).await
+            },
             Command::Sync => sync::sync_state(client).await,
-            Command::Tags(tags) => tags.execute(client).await,
-            Command::Transaction(transaction) => {
+            Command::Tags { cmd: tags_cmd } => {
+                let tags_cmd = tags_cmd.clone().unwrap_or_default();
+                tags_cmd.execute(client).await
+            },
+            Command::Transaction { cmd: transaction_cmd } => {
+                let transaction_cmd = transaction_cmd.clone().unwrap_or_default();
                 let default_account_id =
                     client_config.cli.and_then(|cli_conf| cli_conf.default_account_id);
-                transaction.execute(client, default_account_id).await
+                transaction_cmd.execute(client, default_account_id).await
             },
         }
     }

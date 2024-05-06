@@ -18,11 +18,11 @@ use crate::cli::create_dynamic_table;
 
 // ACCOUNT COMMAND
 // ================================================================================================
-
-#[derive(Debug, Clone, Parser)]
-#[clap(about = "Create accounts and inspect account details")]
+#[derive(Default, Debug, Clone, Parser)]
+#[clap(about = "Create accounts and inspect account details. Defaults to `list` command.")]
 pub enum AccountCmd {
     /// List all accounts monitored by this client
+    #[default]
     #[clap(short_flag = 'l')]
     List,
 
