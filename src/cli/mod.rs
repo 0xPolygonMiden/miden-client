@@ -23,6 +23,7 @@ use miden_objects::{
 use tracing::info;
 
 mod account;
+mod import;
 mod info;
 mod init;
 mod input_notes;
@@ -51,6 +52,8 @@ pub struct Cli {
 pub enum Command {
     #[clap(subcommand)]
     Account(account::AccountCmd),
+    #[clap(subcommand)]
+    Import(import::ImportCmd),
     Init(init::InitCmd),
     #[clap(subcommand)]
     InputNotes(input_notes::InputNotes),
@@ -101,6 +104,7 @@ impl Cli {
         // Execute cli command
         match &self.action {
             Command::Account(account) => account.execute(client),
+            Command::Import(import) => import.execute(client).await,
             Command::Init(_) => Ok(()),
             Command::Info => info::print_client_info(&client),
             Command::InputNotes(notes) => notes.execute(client).await,

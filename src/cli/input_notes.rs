@@ -1,8 +1,4 @@
-use std::{
-    fs::File,
-    io::{Read, Write},
-    path::PathBuf,
-};
+use std::{fs::File, io::Write, path::PathBuf};
 
 use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
@@ -11,13 +7,8 @@ use miden_client::{
     errors::ClientError,
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
 };
-use miden_objects::{
-    accounts::AccountId,
-    crypto::rand::FeltRng,
-    notes::{NoteId, NoteInputs},
-    Digest,
-};
-use miden_tx::utils::{Deserializable, Serializable};
+use miden_objects::{accounts::AccountId, crypto::rand::FeltRng, notes::NoteInputs, Digest};
+use miden_tx::utils::Serializable;
 
 use super::{Client, Parser};
 use crate::cli::{create_dynamic_table, get_note_with_id_prefix};
@@ -72,18 +63,6 @@ pub enum InputNotes {
         filename: Option<PathBuf>,
     },
 
-    /// Import input note data from a binary file
-    #[clap(short_flag = 'i')]
-    Import {
-        /// Path to the file that contains the input note data
-        #[clap()]
-        filename: PathBuf,
-
-        /// Skip verification of note's existence in the chain
-        #[clap(short, long, default_value = "false")]
-        no_verify: bool,
-    },
-
     /// List consumable input notes
     #[clap(short_flag = 'c')]
     ListConsumable {
@@ -96,7 +75,7 @@ pub enum InputNotes {
 impl InputNotes {
     pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store>(
         &self,
-        mut client: Client<N, R, S>,
+        client: Client<N, R, S>,
     ) -> Result<(), String> {
         match self {
             InputNotes::List { filter } => {
@@ -115,10 +94,6 @@ impl InputNotes {
             InputNotes::Export { id, filename } => {
                 export_note(&client, id, filename.clone())?;
                 println!("Succesfully exported note {}", id);
-            },
-            InputNotes::Import { filename, no_verify } => {
-                let note_id = import_note(&mut client, filename.clone(), !(*no_verify)).await?;
-                println!("Succesfully imported note {}", note_id.inner());
             },
             InputNotes::ListConsumable { account_id } => {
                 list_consumable_notes(client, account_id)?;
@@ -162,32 +137,6 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store>(
     file.write_all(&note.to_bytes()).map_err(|err| err.to_string())?;
 
     Ok(file)
-}
-
-// IMPORT INPUT NOTE
-// ================================================================================================
-pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: &mut Client<N, R, S>,
-    filename: PathBuf,
-    verify: bool,
-) -> Result<NoteId, String> {
-    let mut contents = vec![];
-    let mut _file = File::open(filename)
-        .and_then(|mut f| f.read_to_end(&mut contents))
-        .map_err(|err| err.to_string());
-
-    // TODO: When importing a RecordedNote we want to make sure that the note actually exists in the chain (RPC call)
-    // and start monitoring its nullifiers (ie, update the list of relevant tags in the state sync table)
-    let input_note_record =
-        InputNoteRecord::read_from_bytes(&contents).map_err(|err| err.to_string())?;
-
-    let note_id = input_note_record.id();
-    client
-        .import_input_note(input_note_record, verify)
-        .await
-        .map_err(|err| err.to_string())?;
-
-    Ok(note_id)
 }
 
 // SHOW INPUT NOTE
@@ -348,156 +297,4 @@ fn note_record_type(note_record: &InputNoteRecord) -> String {
         None => "-",
     }
     .to_string()
-}
-
-// TESTS
-// ================================================================================================
-
-#[cfg(test)]
-mod tests {
-    use std::env::temp_dir;
-
-    use miden_client::{
-        client::get_random_coin,
-        config::{ClientConfig, Endpoint, RpcConfig},
-        errors::IdPrefixFetchError,
-        mock::{mock_full_chain_mmr_and_notes, mock_notes, MockClient, MockRpcApi},
-        store::{sqlite_store::SqliteStore, InputNoteRecord},
-    };
-    use miden_lib::transaction::TransactionKernel;
-    use uuid::Uuid;
-
-    use crate::cli::{
-        get_note_with_id_prefix,
-        input_notes::{export_note, import_note},
-    };
-
-    #[tokio::test]
-    async fn import_export_recorded_note() {
-        // generate test client
-        let mut path = temp_dir();
-        path.push(Uuid::new_v4().to_string());
-        let client_config = ClientConfig::new(
-            path.into_os_string().into_string().unwrap().try_into().unwrap(),
-            RpcConfig::default(),
-        );
-
-        let rng = get_random_coin();
-        let store = SqliteStore::new((&client_config).into()).unwrap();
-
-        let mut client =
-            MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store, true);
-
-        // generate test data
-        let assembler = TransactionKernel::assembler();
-        let (consumed_notes, created_notes) = mock_notes(&assembler);
-        let (_, committed_notes, ..) = mock_full_chain_mmr_and_notes(consumed_notes);
-
-        let committed_note: InputNoteRecord = committed_notes.first().unwrap().clone().into();
-        let pending_note = InputNoteRecord::from(created_notes.first().unwrap().clone());
-
-        client.import_input_note(committed_note.clone(), false).await.unwrap();
-        assert!(client.import_input_note(pending_note.clone(), true).await.is_err());
-        client.import_input_note(pending_note.clone(), false).await.unwrap();
-        assert!(pending_note.inclusion_proof().is_none());
-        assert!(committed_note.inclusion_proof().is_some());
-
-        let mut filename_path = temp_dir();
-        filename_path.push("test_import");
-
-        let mut filename_path_pending = temp_dir();
-        filename_path_pending.push("test_import_pending");
-
-        export_note(&client, &committed_note.id().inner().to_string(), Some(filename_path.clone()))
-            .unwrap();
-
-        assert!(filename_path.exists());
-
-        export_note(
-            &client,
-            &pending_note.id().inner().to_string(),
-            Some(filename_path_pending.clone()),
-        )
-        .unwrap();
-
-        assert!(filename_path_pending.exists());
-
-        // generate test client to import notes to
-        let mut path = temp_dir();
-        path.push(Uuid::new_v4().to_string());
-        let client_config = ClientConfig::new(
-            path.into_os_string().into_string().unwrap().try_into().unwrap(),
-            RpcConfig::default(),
-        );
-        let store = SqliteStore::new((&client_config).into()).unwrap();
-
-        let mut client =
-            MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store, true);
-
-        import_note(&mut client, filename_path, false).await.unwrap();
-        let imported_note_record: InputNoteRecord =
-            client.get_input_note(committed_note.id()).unwrap();
-
-        assert_eq!(committed_note.id(), imported_note_record.id());
-
-        import_note(&mut client, filename_path_pending, false).await.unwrap();
-        let imported_pending_note_record = client.get_input_note(pending_note.id()).unwrap();
-
-        assert_eq!(imported_pending_note_record.id(), pending_note.id());
-    }
-
-    #[tokio::test]
-    async fn get_input_note_with_prefix() {
-        // generate test client
-        let mut path = temp_dir();
-        path.push(Uuid::new_v4().to_string());
-        let client_config = ClientConfig::new(
-            path.into_os_string().into_string().unwrap().try_into().unwrap(),
-            RpcConfig::default(),
-        );
-
-        let rng = get_random_coin();
-        let store = SqliteStore::new((&client_config).into()).unwrap();
-
-        let mut client =
-            MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store, true);
-
-        // Ensure we get an error if no note is found
-        let non_existent_note_id = "0x123456";
-        assert_eq!(
-            get_note_with_id_prefix(&client, non_existent_note_id),
-            Err(IdPrefixFetchError::NoMatch(
-                format!("note ID prefix {non_existent_note_id}").to_string()
-            ))
-        );
-
-        // generate test data
-        let assembler = TransactionKernel::assembler();
-        let (consumed_notes, created_notes) = mock_notes(&assembler);
-        let (_, notes, ..) = mock_full_chain_mmr_and_notes(consumed_notes);
-
-        let committed_note: InputNoteRecord = notes.first().unwrap().clone().into();
-        let pending_note = InputNoteRecord::from(created_notes.first().unwrap().clone());
-
-        client.import_input_note(committed_note.clone(), false).await.unwrap();
-        client.import_input_note(pending_note.clone(), false).await.unwrap();
-        assert!(pending_note.inclusion_proof().is_none());
-        assert!(committed_note.inclusion_proof().is_some());
-
-        // Check that we can fetch Both notes
-        let note = get_note_with_id_prefix(&client, &committed_note.id().to_hex()).unwrap();
-        assert_eq!(note.id(), committed_note.id());
-
-        let note = get_note_with_id_prefix(&client, &pending_note.id().to_hex()).unwrap();
-        assert_eq!(note.id(), pending_note.id());
-
-        // Check that we get an error if many match
-        let note_id_with_many_matches = "0x";
-        assert_eq!(
-            get_note_with_id_prefix(&client, note_id_with_many_matches),
-            Err(IdPrefixFetchError::MultipleMatches(
-                format!("note ID prefix {note_id_with_many_matches}").to_string()
-            ))
-        );
-    }
 }

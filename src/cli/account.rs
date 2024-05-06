@@ -1,5 +1,3 @@
-use std::{fs, path::PathBuf};
-
 use clap::{Parser, ValueEnum};
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
@@ -8,13 +6,12 @@ use miden_client::{
     store::Store,
 };
 use miden_objects::{
-    accounts::{AccountData, AccountId, AccountStorage, AccountType, StorageSlotType},
+    accounts::{AccountId, AccountStorage, AccountType, StorageSlotType},
     assets::{Asset, TokenSymbol},
     crypto::{dsa::rpo_falcon512::SK_LEN, rand::FeltRng},
     ZERO,
 };
-use miden_tx::utils::{bytes_to_hex_string, Deserializable, Serializable};
-use tracing::info;
+use miden_tx::utils::{bytes_to_hex_string, Serializable};
 
 use super::{load_config, parse_account_id, update_config, CLIENT_CONFIG_FILE_NAME};
 use crate::cli::create_dynamic_table;
@@ -42,13 +39,6 @@ pub enum AccountCmd {
     New {
         #[clap(subcommand)]
         template: AccountTemplate,
-    },
-    /// Import accounts from binary files (with .mac extension)
-    #[clap(short_flag = 'i')]
-    Import {
-        /// Paths to the files that contains the account data
-        #[arg()]
-        filenames: Vec<PathBuf>,
     },
     /// Set/Unset default accounts
     #[clap(short_flag = 'd')]
@@ -164,13 +154,6 @@ impl AccountCmd {
             AccountCmd::Show { id } => {
                 let account_id = parse_account_id(&client, id)?;
                 show_account(client, account_id)?;
-            },
-            AccountCmd::Import { filenames } => {
-                validate_paths(filenames, "mac")?;
-                for filename in filenames {
-                    import_account(&mut client, filename)?;
-                }
-                println!("Imported {} accounts.", filenames.len());
             },
             AccountCmd::Default {
                 default_cmd: DefaultAccountCmd::Set { id },
@@ -375,48 +358,8 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store>(
     Ok(())
 }
 
-// IMPORT ACCOUNT
-// ================================================================================================
-
-fn import_account<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: &mut Client<N, R, S>,
-    filename: &PathBuf,
-) -> Result<(), String> {
-    info!(
-        "Attempting to import account data from {}...",
-        fs::canonicalize(filename).map_err(|err| err.to_string())?.as_path().display()
-    );
-    let account_data_file_contents = fs::read(filename).map_err(|err| err.to_string())?;
-    let account_data =
-        AccountData::read_from_bytes(&account_data_file_contents).map_err(|err| err.to_string())?;
-    let account_id = account_data.account.id();
-
-    client.import_account(account_data)?;
-    println!("Imported account with ID: {}", account_id);
-
-    Ok(())
-}
-
 // HELPERS
 // ================================================================================================
-
-/// Checks that all files exist, otherwise returns an error. It also ensures that all files have a
-/// specific extension
-fn validate_paths(paths: &[PathBuf], expected_extension: &str) -> Result<(), String> {
-    let invalid_path = paths.iter().find(|path| {
-        !path.exists() || path.extension().map_or(false, |ext| ext != expected_extension)
-    });
-
-    if let Some(path) = invalid_path {
-        Err(format!(
-            "The path `{}` does not exist or does not have the appropiate extension",
-            path.to_string_lossy()
-        )
-        .to_string())
-    } else {
-        Ok(())
-    }
-}
 
 fn account_type_display_name(account_type: &AccountType) -> String {
     match account_type {
