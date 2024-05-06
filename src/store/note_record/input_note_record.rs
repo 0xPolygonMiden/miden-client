@@ -126,7 +126,7 @@ impl From<Note> for InputNoteRecord {
     fn from(note: Note) -> Self {
         InputNoteRecord {
             id: note.id(),
-            recipient: note.recipient_digest(),
+            recipient: note.recipient().digest(),
             assets: note.assets().clone(),
             status: NoteStatus::Pending,
             metadata: Some(*note.metadata()),
@@ -145,7 +145,7 @@ impl From<InputNote> for InputNoteRecord {
     fn from(recorded_note: InputNote) -> Self {
         InputNoteRecord {
             id: recorded_note.note().id(),
-            recipient: recorded_note.note().recipient_digest(),
+            recipient: recorded_note.note().recipient().digest(),
             assets: recorded_note.note().assets().clone(),
             status: NoteStatus::Pending,
             metadata: Some(*recorded_note.note().metadata()),

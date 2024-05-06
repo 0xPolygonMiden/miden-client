@@ -17,7 +17,10 @@ use miden_objects::{
     notes::{NoteId, NoteInputs},
     Digest,
 };
-use miden_tx::utils::{Deserializable, Serializable};
+use miden_tx::{
+    utils::{Deserializable, Serializable},
+    TransactionAuthenticator,
+};
 
 use super::{Client, Parser};
 use crate::cli::{create_dynamic_table, get_note_with_id_prefix};
@@ -78,6 +81,10 @@ pub enum InputNotes {
         /// Path to the file that contains the input note data
         #[clap()]
         filename: PathBuf,
+
+        /// Skip verification of note's existence in the chain
+        #[clap(short, long, default_value = "false")]
+        no_verify: bool,
     },
 
     /// List consumable input notes
@@ -90,9 +97,9 @@ pub enum InputNotes {
 }
 
 impl InputNotes {
-    pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store>(
+    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
         &self,
-        mut client: Client<N, R, S>,
+        mut client: Client<N, R, S, A>,
     ) -> Result<(), String> {
         match self {
             InputNotes::List { filter } => {
@@ -112,8 +119,8 @@ impl InputNotes {
                 export_note(&client, id, filename.clone())?;
                 println!("Succesfully exported note {}", id);
             },
-            InputNotes::Import { filename } => {
-                let note_id = import_note(&mut client, filename.clone())?;
+            InputNotes::Import { filename, no_verify } => {
+                let note_id = import_note(&mut client, filename.clone(), !(*no_verify)).await?;
                 println!("Succesfully imported note {}", note_id.inner());
             },
             InputNotes::ListConsumable { account_id } => {
@@ -126,8 +133,8 @@ impl InputNotes {
 
 // LIST INPUT NOTES
 // ================================================================================================
-fn list_input_notes<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: Client<N, R, S>,
+fn list_input_notes<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    client: Client<N, R, S, A>,
     filter: ClientNoteFilter,
 ) -> Result<(), String> {
     let notes = client.get_input_notes(filter)?;
@@ -137,8 +144,8 @@ fn list_input_notes<N: NodeRpcClient, R: FeltRng, S: Store>(
 
 // EXPORT INPUT NOTE
 // ================================================================================================
-pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: &Client<N, R, S>,
+pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    client: &Client<N, R, S, A>,
     note_id: &str,
     filename: Option<PathBuf>,
 ) -> Result<File, String> {
@@ -162,9 +169,10 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store>(
 
 // IMPORT INPUT NOTE
 // ================================================================================================
-pub fn import_note<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: &mut Client<N, R, S>,
+pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    client: &mut Client<N, R, S, A>,
     filename: PathBuf,
+    verify: bool,
 ) -> Result<NoteId, String> {
     let mut contents = vec![];
     let mut _file = File::open(filename)
@@ -177,15 +185,18 @@ pub fn import_note<N: NodeRpcClient, R: FeltRng, S: Store>(
         InputNoteRecord::read_from_bytes(&contents).map_err(|err| err.to_string())?;
 
     let note_id = input_note_record.id();
-    client.import_input_note(input_note_record)?;
+    client
+        .import_input_note(input_note_record, verify)
+        .await
+        .map_err(|err| err.to_string())?;
 
     Ok(note_id)
 }
 
 // SHOW INPUT NOTE
 // ================================================================================================
-fn show_input_note<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: Client<N, R, S>,
+fn show_input_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    client: Client<N, R, S, A>,
     note_id: String,
     show_script: bool,
     show_vault: bool,
@@ -253,8 +264,8 @@ fn show_input_note<N: NodeRpcClient, R: FeltRng, S: Store>(
 
 // LIST CONSUMABLE INPUT NOTES
 // ================================================================================================
-fn list_consumable_notes<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: Client<N, R, S>,
+fn list_consumable_notes<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    client: Client<N, R, S, A>,
     account_id: &Option<String>,
 ) -> Result<(), String> {
     let account_id = match account_id {
@@ -347,10 +358,10 @@ fn note_record_type(note_record: &InputNoteRecord) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::env::temp_dir;
+    use std::{env::temp_dir, rc::Rc};
 
     use miden_client::{
-        client::get_random_coin,
+        client::{authenticator::StoreAuthenticator, get_random_coin},
         config::{ClientConfig, Endpoint, RpcConfig},
         errors::IdPrefixFetchError,
         mock::{mock_full_chain_mmr_and_notes, mock_notes, MockClient, MockRpcApi},
@@ -376,9 +387,17 @@ mod tests {
 
         let rng = get_random_coin();
         let store = SqliteStore::new((&client_config).into()).unwrap();
+        let store = Rc::new(store);
 
-        let mut client =
-            MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store, true);
+        let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
+
+        let mut client = MockClient::new(
+            MockRpcApi::new(&Endpoint::default().to_string()),
+            rng,
+            store,
+            authenticator,
+            true,
+        );
 
         // generate test data
         let assembler = TransactionKernel::assembler();
@@ -388,8 +407,9 @@ mod tests {
         let committed_note: InputNoteRecord = committed_notes.first().unwrap().clone().into();
         let pending_note = InputNoteRecord::from(created_notes.first().unwrap().clone());
 
-        client.import_input_note(committed_note.clone()).unwrap();
-        client.import_input_note(pending_note.clone()).unwrap();
+        client.import_input_note(committed_note.clone(), false).await.unwrap();
+        assert!(client.import_input_note(pending_note.clone(), true).await.is_err());
+        client.import_input_note(pending_note.clone(), false).await.unwrap();
         assert!(pending_note.inclusion_proof().is_none());
         assert!(committed_note.inclusion_proof().is_some());
 
@@ -421,17 +441,25 @@ mod tests {
             RpcConfig::default(),
         );
         let store = SqliteStore::new((&client_config).into()).unwrap();
+        let store = Rc::new(store);
 
-        let mut client =
-            MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store, true);
+        let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
 
-        import_note(&mut client, filename_path).unwrap();
+        let mut client = MockClient::new(
+            MockRpcApi::new(&Endpoint::default().to_string()),
+            rng,
+            store,
+            authenticator,
+            true,
+        );
+
+        import_note(&mut client, filename_path, false).await.unwrap();
         let imported_note_record: InputNoteRecord =
             client.get_input_note(committed_note.id()).unwrap();
 
         assert_eq!(committed_note.id(), imported_note_record.id());
 
-        import_note(&mut client, filename_path_pending).unwrap();
+        import_note(&mut client, filename_path_pending, false).await.unwrap();
         let imported_pending_note_record = client.get_input_note(pending_note.id()).unwrap();
 
         assert_eq!(imported_pending_note_record.id(), pending_note.id());
@@ -449,9 +477,17 @@ mod tests {
 
         let rng = get_random_coin();
         let store = SqliteStore::new((&client_config).into()).unwrap();
+        let store = Rc::new(store);
 
-        let mut client =
-            MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store, true);
+        let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
+
+        let mut client = MockClient::new(
+            MockRpcApi::new(&Endpoint::default().to_string()),
+            rng,
+            store,
+            authenticator,
+            true,
+        );
 
         // Ensure we get an error if no note is found
         let non_existent_note_id = "0x123456";
@@ -470,8 +506,8 @@ mod tests {
         let committed_note: InputNoteRecord = notes.first().unwrap().clone().into();
         let pending_note = InputNoteRecord::from(created_notes.first().unwrap().clone());
 
-        client.import_input_note(committed_note.clone()).unwrap();
-        client.import_input_note(pending_note.clone()).unwrap();
+        client.import_input_note(committed_note.clone(), false).await.unwrap();
+        client.import_input_note(pending_note.clone(), false).await.unwrap();
         assert!(pending_note.inclusion_proof().is_none());
         assert!(committed_note.inclusion_proof().is_some());
 

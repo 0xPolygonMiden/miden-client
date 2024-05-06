@@ -1,13 +1,15 @@
 use alloc::collections::BTreeSet;
+use std::collections::HashMap;
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
     crypto::{self, rand::FeltRng},
-    notes::{NoteExecutionMode, NoteId, NoteInclusionProof, NoteTag},
+    notes::{NoteId, NoteInclusionProof, NoteTag},
     transaction::{InputNote, TransactionId},
     BlockHeader, Digest,
 };
+use miden_tx::TransactionAuthenticator;
 use tracing::{info, warn};
 
 use super::{
@@ -63,7 +65,7 @@ impl SyncedNewNotes {
 /// The number of bits to shift identifiers for in use of filters.
 pub const FILTER_ID_SHIFT: u8 = 48;
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
     // SYNC STATE
     // --------------------------------------------------------------------------------------------
 
@@ -155,12 +157,29 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
         let account_note_tags: Vec<NoteTag> = accounts
             .iter()
-            .map(|acc| NoteTag::from_account_id(acc.id(), NoteExecutionMode::Local))
+            .map(|acc| {
+                NoteTag::from_account_id(acc.id(), miden_objects::notes::NoteExecutionHint::Local)
+            })
             .collect::<Result<Vec<_>, _>>()?;
 
         let stored_note_tags: Vec<NoteTag> = self.store.get_note_tags()?;
 
-        let note_tags = [account_note_tags, stored_note_tags].concat();
+        let uncommited_note_tags: Vec<NoteTag> = self
+            .store
+            .get_input_notes(NoteFilter::Pending)?
+            .iter()
+            .filter_map(|note| note.metadata().map(|metadata| metadata.tag()))
+            .collect();
+
+        //TODO: Use BTreeSet to remove duplicates more efficiently once `Ord` is implemented for `NoteTag`
+        let note_tags: Vec<NoteTag> = [account_note_tags, stored_note_tags, uncommited_note_tags]
+            .concat()
+            .into_iter()
+            .map(|tag| (tag.to_string(), tag))
+            .collect::<HashMap<String, NoteTag>>()
+            .values()
+            .cloned()
+            .collect();
 
         // To receive information about added nullifiers, we reduce them to the higher 16 bits
         // Note that besides filtering by nullifier prefixes, the node also filters by block number

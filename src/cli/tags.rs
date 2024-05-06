@@ -1,8 +1,9 @@
 use miden_client::{client::rpc::NodeRpcClient, store::Store};
 use miden_objects::{
     crypto::rand::FeltRng,
-    notes::{NoteExecutionMode, NoteTag},
+    notes::{NoteExecutionHint, NoteTag},
 };
+use miden_tx::TransactionAuthenticator;
 use tracing::info;
 
 use super::{Client, Parser};
@@ -30,9 +31,9 @@ pub enum TagsCmd {
 }
 
 impl TagsCmd {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store>(
+    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
         &self,
-        client: Client<N, R, S>,
+        client: Client<N, R, S, A>,
     ) -> Result<(), String> {
         match self {
             TagsCmd::List => {
@@ -51,22 +52,22 @@ impl TagsCmd {
 
 // HELPERS
 // ================================================================================================
-fn list_tags<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: Client<N, R, S>,
+fn list_tags<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    client: Client<N, R, S, A>,
 ) -> Result<(), String> {
     let tags = client.get_note_tags()?;
     println!("Tags: {:?}", tags);
     Ok(())
 }
 
-fn add_tag<N: NodeRpcClient, R: FeltRng, S: Store>(
-    mut client: Client<N, R, S>,
+fn add_tag<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    mut client: Client<N, R, S, A>,
     tag: u32,
 ) -> Result<(), String> {
     let tag: NoteTag = tag.into();
-    let execution_mode = match tag.execution_mode() {
-        NoteExecutionMode::Local => "Local",
-        NoteExecutionMode::Network => "Network",
+    let execution_mode = match tag.execution_hint() {
+        NoteExecutionHint::Local => "Local",
+        NoteExecutionHint::Network => "Network",
     };
     info!(
         "adding tag - Single Target? {} - Execution mode: {}",
@@ -78,8 +79,8 @@ fn add_tag<N: NodeRpcClient, R: FeltRng, S: Store>(
     Ok(())
 }
 
-fn remove_tag<N: NodeRpcClient, R: FeltRng, S: Store>(
-    mut client: Client<N, R, S>,
+fn remove_tag<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    mut client: Client<N, R, S, A>,
     tag: u32,
 ) -> Result<(), String> {
     client.remove_note_tag(tag.into())?;

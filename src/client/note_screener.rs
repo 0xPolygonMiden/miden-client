@@ -11,11 +11,11 @@ use crate::{
 // KNOWN SCRIPT ROOTS
 // --------------------------------------------------------------------------------------------
 pub(crate) const P2ID_NOTE_SCRIPT_ROOT: &str =
-    "0xcdfd70344b952980272119bc02b837d14c07bbfc54f86a254422f39391b77b35";
+    "0x0007b2229f7c8e3205a485a9879f1906798a2e27abd1706eaf58536e7cc3868b";
 pub(crate) const P2IDR_NOTE_SCRIPT_ROOT: &str =
-    "0x41e5727b99a12b36066c09854d39d64dd09d9265c442a9be3626897572bf1745";
+    "0x418ae31e80b53ddc99179d3cacbc4140c7b36ab04ddb26908b3a6ed2e40061d5";
 pub(crate) const SWAP_NOTE_SCRIPT_ROOT: &str =
-    "0x5852920f88985b651cf7ef5e48623f898b6c292f4a2c25dd788ff8b46dd90417";
+    "0xf08db4112793a0ccb12d43c552408a64d51a0a12600e7670d8df97f223276f74";
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum NoteRelevance {
@@ -196,7 +196,12 @@ impl<'a, S: Store> NoteScreener<'a, S> {
 mod tests {
     use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
     use miden_objects::{
-        accounts::{AccountId, ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN},
+        accounts::{
+            account_id::testing::{
+                ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
+            },
+            AccountId,
+        },
         assets::FungibleAsset,
         crypto::rand::RpoRandomCoin,
         notes::NoteType,
@@ -211,7 +216,7 @@ mod tests {
     #[test]
     fn ensure_correct_script_roots() {
         // create dummy data for the notes
-        let faucet_id: AccountId = ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN.try_into().unwrap();
+        let faucet_id: AccountId = ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN.try_into().unwrap();
         let account_id: AccountId = ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN.try_into().unwrap();
         let rng = RpoRandomCoin::new(Default::default());
 

@@ -6,11 +6,14 @@ use miden_objects::{
     assets::{Asset, AssetVault},
     Digest, Felt, Word,
 };
-use miden_tx::utils::{Deserializable, Serializable};
+use miden_tx::{
+    utils::{Deserializable, Serializable},
+    AuthSecretKey,
+};
 use rusqlite::{params, Transaction};
 
 use super::SqliteStore;
-use crate::{errors::StoreError, store::AuthInfo};
+use crate::errors::StoreError;
 
 // TYPES
 // ================================================================================================
@@ -104,7 +107,10 @@ impl SqliteStore {
     }
 
     /// Retrieve account keys data by Account Id
-    pub(crate) fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, StoreError> {
+    pub(crate) fn get_account_auth(
+        &self,
+        account_id: AccountId,
+    ) -> Result<AuthSecretKey, StoreError> {
         let account_id_int: u64 = account_id.into();
         const QUERY: &str = "SELECT account_id, auth_info FROM account_auth WHERE account_id = ?";
         self.db()
@@ -115,11 +121,21 @@ impl SqliteStore {
             .ok_or(StoreError::AccountDataNotFound(account_id))?
     }
 
+    /// Retrieve account keys data by Account Id
+    pub(crate) fn get_account_auths(&self) -> Result<Vec<AuthSecretKey>, StoreError> {
+        const QUERY: &str = "SELECT account_id,auth_info FROM account_auth";
+        self.db()
+            .prepare(QUERY)?
+            .query_map(params![], parse_account_auth_columns)?
+            .map(|result| Ok(result?).and_then(parse_account_auth))
+            .collect()
+    }
+
     pub(crate) fn insert_account(
         &self,
         account: &Account,
         account_seed: Option<Word>,
-        auth_info: &AuthInfo,
+        auth_info: &AuthSecretKey,
     ) -> Result<(), StoreError> {
         let mut db = self.db();
         let tx = db.transaction()?;
@@ -199,11 +215,11 @@ pub(super) fn insert_account_asset_vault(
     Ok(())
 }
 
-/// Inserts an [AuthInfo] for the account with id `account_id`
+/// Inserts an [AuthSecretKey] for the account with id `account_id`
 pub(super) fn insert_account_auth(
     tx: &Transaction<'_>,
     account_id: AccountId,
-    auth_info: &AuthInfo,
+    auth_info: &AuthSecretKey,
 ) -> Result<(), StoreError> {
     let (account_id, auth_info) = serialize_account_auth(account_id, auth_info)?;
     const QUERY: &str = "INSERT INTO account_auth (account_id, auth_info) VALUES (?, ?)";
@@ -293,19 +309,19 @@ fn parse_account_auth_columns(
     Ok((account_id, auth_info_bytes))
 }
 
-/// Parse an `AuthInfo` from the provided parts.
+/// Parse an `AuthSecretKey` from the provided parts.
 fn parse_account_auth(
     serialized_account_auth_parts: SerializedAccountAuthParts,
-) -> Result<AuthInfo, StoreError> {
+) -> Result<AuthSecretKey, StoreError> {
     let (_, auth_info_bytes) = serialized_account_auth_parts;
-    let auth_info = AuthInfo::read_from_bytes(&auth_info_bytes)?;
+    let auth_info = AuthSecretKey::read_from_bytes(&auth_info_bytes)?;
     Ok(auth_info)
 }
 
 /// Serialized the provided account_auth into database compatible types.
 fn serialize_account_auth(
     account_id: AccountId,
-    auth_info: &AuthInfo,
+    auth_info: &AuthSecretKey,
 ) -> Result<SerializedAccountAuthData, StoreError> {
     let account_id: u64 = account_id.into();
     let auth_info = auth_info.to_bytes();
@@ -366,7 +382,7 @@ mod tests {
     };
     use miden_tx::utils::{Deserializable, Serializable};
 
-    use super::{insert_account_auth, AuthInfo};
+    use super::{insert_account_auth, AuthSecretKey};
     use crate::{
         mock::DEFAULT_ACCOUNT_CODE,
         store::sqlite_store::{accounts::insert_account_code, tests::create_test_store},
@@ -400,11 +416,11 @@ mod tests {
     #[test]
     fn test_auth_info_serialization() {
         let exp_key_pair = SecretKey::new();
-        let auth_info = AuthInfo::RpoFalcon512(exp_key_pair.clone());
+        let auth_info = AuthSecretKey::RpoFalcon512(exp_key_pair.clone());
         let bytes = auth_info.to_bytes();
-        let actual = AuthInfo::read_from_bytes(&bytes).unwrap();
+        let actual = AuthSecretKey::read_from_bytes(&bytes).unwrap();
         match actual {
-            AuthInfo::RpoFalcon512(act_key_pair) => {
+            AuthSecretKey::RpoFalcon512(act_key_pair) => {
                 assert_eq!(exp_key_pair.to_bytes(), act_key_pair.to_bytes());
                 assert_eq!(exp_key_pair.public_key(), act_key_pair.public_key());
             },
@@ -421,14 +437,18 @@ mod tests {
         {
             let mut db = store.db();
             let tx = db.transaction().unwrap();
-            insert_account_auth(&tx, account_id, &AuthInfo::RpoFalcon512(exp_key_pair.clone()))
-                .unwrap();
+            insert_account_auth(
+                &tx,
+                account_id,
+                &AuthSecretKey::RpoFalcon512(exp_key_pair.clone()),
+            )
+            .unwrap();
             tx.commit().unwrap();
         }
 
         let account_auth = store.get_account_auth(account_id).unwrap();
         match account_auth {
-            AuthInfo::RpoFalcon512(act_key_pair) => {
+            AuthSecretKey::RpoFalcon512(act_key_pair) => {
                 assert_eq!(exp_key_pair.to_bytes(), act_key_pair.to_bytes());
                 assert_eq!(exp_key_pair.public_key(), act_key_pair.public_key());
             },

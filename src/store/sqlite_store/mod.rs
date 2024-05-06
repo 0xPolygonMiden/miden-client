@@ -8,11 +8,11 @@ use miden_objects::{
     transaction::TransactionId,
     BlockHeader, Digest, Word,
 };
+use miden_tx::AuthSecretKey;
 use rusqlite::{vtab::array, Connection};
 
 use super::{
-    AuthInfo, ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store,
-    TransactionFilter,
+    ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store, TransactionFilter,
 };
 use crate::{
     client::{
@@ -217,7 +217,7 @@ impl Store for SqliteStore {
         &self,
         account: &Account,
         account_seed: Option<Word>,
-        auth_info: &AuthInfo,
+        auth_info: &AuthSecretKey,
     ) -> Result<(), StoreError> {
         self.insert_account(account, account_seed, auth_info)
     }
@@ -241,7 +241,7 @@ impl Store for SqliteStore {
         self.get_account(account_id)
     }
 
-    fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, StoreError> {
+    fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, StoreError> {
         self.get_account_auth(account_id)
     }
 }
@@ -251,14 +251,14 @@ impl Store for SqliteStore {
 
 #[cfg(test)]
 pub mod tests {
-    use std::{cell::RefCell, env::temp_dir};
+    use std::{cell::RefCell, env::temp_dir, rc::Rc};
 
     use rusqlite::{vtab::array, Connection};
     use uuid::Uuid;
 
     use super::{migrations, SqliteStore};
     use crate::{
-        client::get_random_coin,
+        client::{authenticator::StoreAuthenticator, get_random_coin},
         config::{ClientConfig, RpcConfig},
         mock::{MockClient, MockRpcApi},
     };
@@ -275,9 +275,12 @@ pub mod tests {
 
         let rpc_endpoint = client_config.rpc.endpoint.to_string();
         let store = SqliteStore::new((&client_config).into()).unwrap();
-        let rng = get_random_coin();
+        let store = Rc::new(store);
 
-        MockClient::new(MockRpcApi::new(&rpc_endpoint), rng, store, true)
+        let rng = get_random_coin();
+        let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
+
+        MockClient::new(MockRpcApi::new(&rpc_endpoint), rng, store, authenticator, true)
     }
 
     pub(crate) fn create_test_store_path() -> std::path::PathBuf {

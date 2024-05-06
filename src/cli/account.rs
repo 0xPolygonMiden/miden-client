@@ -13,10 +13,13 @@ use miden_objects::{
     crypto::{dsa::rpo_falcon512::SK_LEN, rand::FeltRng},
     ZERO,
 };
-use miden_tx::utils::{bytes_to_hex_string, Deserializable, Serializable};
+use miden_tx::{
+    utils::{bytes_to_hex_string, Deserializable, Serializable},
+    AuthSecretKey, TransactionAuthenticator,
+};
 use tracing::info;
 
-use super::{get_account_with_id_prefix, load_config, update_config, CLIENT_CONFIG_FILE_NAME};
+use super::{load_config, parse_account_id, update_config, CLIENT_CONFIG_FILE_NAME};
 use crate::cli::create_dynamic_table;
 
 // ACCOUNT COMMAND
@@ -131,9 +134,9 @@ impl From<&AccountStorageMode> for accounts::AccountStorageMode {
 }
 
 impl AccountCmd {
-    pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store>(
+    pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
         &self,
-        mut client: Client<N, R, S>,
+        mut client: Client<N, R, S, A>,
     ) -> Result<(), String> {
         match self {
             AccountCmd::List => {
@@ -170,8 +173,7 @@ impl AccountCmd {
                 let (_new_account, _account_seed) = client.new_account(client_template)?;
             },
             AccountCmd::Show { id, keys, vault, storage, code } => {
-                let account_id =
-                    get_account_with_id_prefix(&client, id).map_err(|err| err.to_string())?.id();
+                let account_id = parse_account_id(&client, id)?;
                 show_account(client, account_id, *keys, *vault, *storage, *code)?;
             },
             AccountCmd::Import { filenames } => {
@@ -222,8 +224,8 @@ impl AccountCmd {
 // LIST ACCOUNTS
 // ================================================================================================
 
-fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: Client<N, R, S>,
+fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    client: Client<N, R, S, A>,
 ) -> Result<(), String> {
     let accounts = client.get_account_stubs()?;
 
@@ -252,8 +254,8 @@ fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store>(
     Ok(())
 }
 
-pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: Client<N, R, S>,
+pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    client: Client<N, R, S, A>,
     account_id: AccountId,
     show_keys: bool,
     show_vault: bool,
@@ -344,7 +346,7 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store>(
         let auth_info = client.get_account_auth(account_id)?;
 
         match auth_info {
-            miden_client::store::AuthInfo::RpoFalcon512(key_pair) => {
+            AuthSecretKey::RpoFalcon512(key_pair) => {
                 let auth_info: [u8; SK_LEN] = key_pair
                     .to_bytes()
                     .try_into()
@@ -385,8 +387,8 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store>(
 // IMPORT ACCOUNT
 // ================================================================================================
 
-fn import_account<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: &mut Client<N, R, S>,
+fn import_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    client: &mut Client<N, R, S, A>,
     filename: &PathBuf,
 ) -> Result<(), String> {
     info!(

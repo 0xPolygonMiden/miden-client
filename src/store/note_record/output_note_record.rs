@@ -83,7 +83,7 @@ impl From<Note> for OutputNoteRecord {
     fn from(note: Note) -> Self {
         OutputNoteRecord {
             id: note.id(),
-            recipient: note.recipient_digest(),
+            recipient: note.recipient().digest(),
             assets: note.assets().clone(),
             status: NoteStatus::Pending,
             metadata: *note.metadata(),

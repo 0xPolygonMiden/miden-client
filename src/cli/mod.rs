@@ -1,4 +1,4 @@
-use std::{env, fs::File, io::Write, path::Path};
+use std::{env, fs::File, io::Write, path::Path, rc::Rc};
 
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
@@ -8,6 +8,7 @@ use figment::{
 };
 use miden_client::{
     client::{
+        authenticator::StoreAuthenticator,
         get_random_coin,
         rpc::{NodeRpcClient, TonicRpcClient},
         Client,
@@ -17,9 +18,10 @@ use miden_client::{
     store::{sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
 };
 use miden_objects::{
-    accounts::AccountStub,
-    crypto::rand::{FeltRng, RpoRandomCoin},
+    accounts::{AccountId, AccountStub},
+    crypto::rand::FeltRng,
 };
+use miden_tx::TransactionAuthenticator;
 use tracing::info;
 
 mod account;
@@ -51,7 +53,7 @@ pub struct Cli {
 pub enum Command {
     #[clap(subcommand)]
     Account(account::AccountCmd),
-    Init,
+    Init(init::InitCmd),
     #[clap(subcommand)]
     InputNotes(input_notes::InputNotes),
     /// Sync this client with the latest state of the Miden network.
@@ -74,8 +76,8 @@ impl Cli {
         // Check if it's an init command before anything else. When we run the init command for
         // the first time we won't have a config file and thus creating the store would not be
         // possible.
-        if matches!(&self.action, Command::Init) {
-            init::initialize_client(current_dir.clone())?;
+        if let Command::Init(init_cmd) = &self.action {
+            init_cmd.execute(current_dir.clone())?;
             return Ok(());
         }
 
@@ -90,20 +92,25 @@ impl Cli {
         // Create the client
         let client_config = load_config(current_dir.as_path())?;
         let store = SqliteStore::new((&client_config).into()).map_err(ClientError::StoreError)?;
-        let rng = get_random_coin();
-        let _executor_store =
-            miden_client::store::sqlite_store::SqliteStore::new((&client_config).into())
-                .map_err(ClientError::StoreError)?;
+        let store = Rc::new(store);
 
-        let client: Client<TonicRpcClient, RpoRandomCoin, SqliteStore> =
-            Client::new(TonicRpcClient::new(&client_config.rpc), rng, store, in_debug_mode);
+        let rng = get_random_coin();
+        let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
+
+        let client = Client::new(
+            TonicRpcClient::new(&client_config.rpc),
+            rng,
+            store,
+            authenticator,
+            in_debug_mode,
+        );
 
         // Execute cli command
         match &self.action {
             Command::Account(account) => account.execute(client),
-            Command::Init => Ok(()),
+            Command::Init(_) => Ok(()),
             Command::Info => info::print_client_info(&client),
-            Command::InputNotes(notes) => notes.execute(client),
+            Command::InputNotes(notes) => notes.execute(client).await,
             Command::Sync => sync::sync_state(client).await,
             Command::Tags(tags) => tags.execute(client).await,
             Command::Transaction(transaction) => {
@@ -148,8 +155,13 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
 /// `note_id_prefix` is a prefix of its id.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found
 /// where `note_id_prefix` is a prefix of its id.
-pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: &Client<N, R, S>,
+pub(crate) fn get_note_with_id_prefix<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+>(
+    client: &Client<N, R, S, A>,
     note_id_prefix: &str,
 ) -> Result<InputNoteRecord, IdPrefixFetchError> {
     let mut input_note_records = client
@@ -195,8 +207,13 @@ pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>(
 /// `account_id_prefix` is a prefix of its id.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one account found
 /// where `account_id_prefix` is a prefix of its id.
-pub(crate) fn get_account_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: &Client<N, R, S>,
+fn get_account_with_id_prefix<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+>(
+    client: &Client<N, R, S, A>,
     account_id_prefix: &str,
 ) -> Result<AccountStub, IdPrefixFetchError> {
     let mut accounts = client
@@ -230,6 +247,36 @@ pub(crate) fn get_account_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>
     }
 
     Ok(accounts.pop().expect("account_ids should always have one element"))
+}
+
+/// Parses a user provided account id string and returns the corresponding `AccountId`
+///
+/// `account_id` can fall into two categories:
+///
+/// - it's a prefix of an account id of an account tracked by the client
+/// - it's a full account id
+///
+/// # Errors
+///
+/// - Will return a `IdPrefixFetchError` if the provided account id string can't be parsed as an
+/// `AccountId` and does not correspond to an account tracked by the client either.
+pub(crate) fn parse_account_id<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+>(
+    client: &Client<N, R, S, A>,
+    account_id: &str,
+) -> Result<AccountId, String> {
+    if let Ok(account_id) = AccountId::from_hex(account_id) {
+        return Ok(account_id);
+    }
+
+    let account_id = get_account_with_id_prefix(client, account_id)
+        .map_err(|_err| "Input account ID {account_id} is neither a valid Account ID nor a prefix of a known Account ID")?
+        .id();
+    Ok(account_id)
 }
 
 pub(crate) fn update_config(config_path: &Path, client_config: ClientConfig) -> Result<(), String> {

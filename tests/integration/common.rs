@@ -17,7 +17,10 @@ use miden_client::{
     store::{sqlite_store::SqliteStore, NoteFilter, TransactionFilter},
 };
 use miden_objects::{
-    accounts::{Account, AccountId, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN},
+    accounts::{
+        account_id::testing::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN, Account,
+        AccountId,
+    },
     assets::{Asset, FungibleAsset, TokenSymbol},
     crypto::rand::RpoRandomCoin,
     notes::{NoteId, NoteType},

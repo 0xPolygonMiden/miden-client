@@ -1,6 +1,7 @@
 use miden_objects::crypto::rand::FeltRng;
 #[cfg(test)]
 use miden_objects::BlockHeader;
+use miden_tx::TransactionAuthenticator;
 
 #[cfg(test)]
 use crate::{
@@ -10,7 +11,7 @@ use crate::{
 };
 
 #[cfg(test)]
-impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
     pub fn get_block_headers_in_range(
         &self,
         start: u32,

@@ -5,7 +5,7 @@ use miden_client::{
         accounts::{AccountStorageMode, AccountTemplate},
         transactions::transaction_request::TransactionRequest,
     },
-    store::AuthInfo,
+    store::AuthSecretKey,
 };
 use miden_objects::{
     accounts::AccountId,
@@ -13,7 +13,7 @@ use miden_objects::{
     assets::{FungibleAsset, TokenSymbol},
     crypto::rand::{FeltRng, RpoRandomCoin},
     notes::{
-        Note, NoteAssets, NoteExecutionMode, NoteInputs, NoteMetadata, NoteRecipient, NoteTag,
+        Note, NoteAssets, NoteExecutionHint, NoteInputs, NoteMetadata, NoteRecipient, NoteTag,
         NoteType,
     },
     Felt, Word,
@@ -93,7 +93,7 @@ async fn test_transaction_request() {
     let tx_script = {
         let account_auth = client.get_account_auth(regular_account.id()).unwrap();
         let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
-            AuthInfo::RpoFalcon512(key) => (
+            AuthSecretKey::RpoFalcon512(key) => (
                 key.public_key().into(),
                 key.to_bytes().iter().map(|a| Felt::new(*a as u64)).collect::<Vec<Felt>>(),
             ),
@@ -121,7 +121,7 @@ async fn test_transaction_request() {
     let tx_script = {
         let account_auth = client.get_account_auth(regular_account.id()).unwrap();
         let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
-            AuthInfo::RpoFalcon512(key) => (
+            AuthSecretKey::RpoFalcon512(key) => (
                 key.public_key().into(),
                 key.to_bytes().iter().map(|a| Felt::new(*a as u64)).collect::<Vec<Felt>>(),
             ),
@@ -149,7 +149,8 @@ async fn mint_custom_note(
     let note = create_custom_note(client, faucet_account_id, target_account_id, &mut random_coin);
 
     let recipient = note
-        .recipient_digest()
+        .recipient()
+        .digest()
         .iter()
         .map(|x| x.as_int().to_string())
         .collect::<Vec<_>>()
@@ -182,7 +183,7 @@ async fn mint_custom_note(
     let tx_script = {
         let account_auth = client.get_account_auth(faucet_account_id).unwrap();
         let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
-            AuthInfo::RpoFalcon512(key) => (
+            AuthSecretKey::RpoFalcon512(key) => (
                 key.public_key().into(),
                 key.to_bytes().iter().map(|a| Felt::new(*a as u64)).collect::<Vec<Felt>>(),
             ),
@@ -225,7 +226,7 @@ fn create_custom_note(
     let note_metadata = NoteMetadata::new(
         faucet_account_id,
         NoteType::OffChain,
-        NoteTag::from_account_id(target_account_id, NoteExecutionMode::Local).unwrap(),
+        NoteTag::from_account_id(target_account_id, NoteExecutionHint::Local).unwrap(),
         Default::default(),
     )
     .unwrap();

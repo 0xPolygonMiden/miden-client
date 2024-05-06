@@ -8,7 +8,7 @@ use miden_client::{
 use miden_objects::{
     accounts::AccountId,
     assets::{Asset, FungibleAsset, TokenSymbol},
-    notes::{NoteExecutionMode, NoteTag, NoteType},
+    notes::{NoteTag, NoteType},
     transaction::InputNote,
 };
 
@@ -283,7 +283,11 @@ async fn test_onchain_notes_sync_with_tag() {
     // Load tag into client 2
     client_2
         .add_note_tag(
-            NoteTag::from_account_id(target_account_id, NoteExecutionMode::Local).unwrap(),
+            NoteTag::from_account_id(
+                target_account_id,
+                miden_objects::notes::NoteExecutionHint::Local,
+            )
+            .unwrap(),
         )
         .unwrap();
 

@@ -14,9 +14,19 @@ toolchain = "nightly"
 command = "cargo"
 args = ["fmt", "--all", "--", "--check"]
 
+[tasks.clippy-all]
+dependencies = [
+    "clippy",
+    "clippy-integration-tests"
+]
+
 [tasks.clippy]
 command = "cargo"
 args = ["clippy","--workspace", "--all-targets", "--", "-D", "clippy::all", "-D", "warnings"]
+
+[tasks.clippy-integration-tests]
+command = "cargo"
+args = ["clippy","--workspace", "--tests", "--features", "integration", "--", "-D", "clippy::all", "-D", "warnings"]
 
 [tasks.docs]
 env = { "RUSTDOCFLAGS" = "-D warnings" }
@@ -47,7 +57,7 @@ args = ["nextest", "run", "--profile", "ci-default", "--release", "--test=integr
 [tasks.lint]
 dependencies = [
     "check-format",
-    "clippy",
+    "clippy-all",
     "docs"
 ]
 
@@ -72,7 +82,6 @@ script = [
 
 [tasks.start-node]
 description = "Start the miden-node"
-dependencies = ["node"]
 script_runner = "bash"
 cwd = "./miden-node/bin/node"
 script = "cargo run --features ${NODE_FEATURES_TESTING} -- start node"

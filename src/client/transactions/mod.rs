@@ -13,7 +13,9 @@ use miden_objects::{
     },
     Digest, Felt, Word,
 };
-use miden_tx::{ProvingOptions, ScriptTarget, TransactionProver};
+use miden_tx::{
+    AuthSecretKey, ProvingOptions, ScriptTarget, TransactionAuthenticator, TransactionProver,
+};
 use rand::Rng;
 use tracing::info;
 
@@ -22,7 +24,7 @@ use super::{note_screener::NoteRelevance, rpc::NodeRpcClient, Client, FeltRng};
 use crate::{
     client::NoteScreener,
     errors::ClientError,
-    store::{AuthInfo, Store, TransactionFilter},
+    store::{Store, TransactionFilter},
 };
 
 pub mod transaction_request;
@@ -154,7 +156,7 @@ impl std::fmt::Display for TransactionStatus {
     }
 }
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
@@ -178,26 +180,30 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         let account_id = transaction_template.account_id();
         let account_auth = self.store.get_account_auth(account_id)?;
 
+        let (_pk, _sk) = match account_auth {
+            AuthSecretKey::RpoFalcon512(key) => {
+                (key.public_key(), AuthSecretKey::RpoFalcon512(key))
+            },
+        };
+
         match transaction_template {
             TransactionTemplate::ConsumeNotes(_, notes) => {
                 let program_ast = ProgramAst::parse(transaction_request::AUTH_CONSUME_NOTES_SCRIPT)
                     .expect("shipped MASM is well-formed");
                 let notes = notes.iter().map(|id| (*id, None)).collect();
 
-                let tx_script = {
-                    let script_inputs = vec![account_auth.into_advice_inputs()];
-                    self.tx_executor.compile_tx_script(program_ast, script_inputs, vec![])?
-                };
+                let tx_script = self.tx_executor.compile_tx_script(program_ast, vec![], vec![])?;
                 Ok(TransactionRequest::new(account_id, notes, vec![], Some(tx_script)))
             },
             TransactionTemplate::MintFungibleAsset(asset, target_account_id, note_type) => {
-                self.build_mint_tx_request(asset, account_auth, target_account_id, note_type)
+                self.build_mint_tx_request(asset, target_account_id, note_type)
             },
             TransactionTemplate::PayToId(payment_data, note_type) => {
-                self.build_p2id_tx_request(account_auth, payment_data, None, note_type)
+                self.build_p2id_tx_request(payment_data, None, note_type)
             },
-            TransactionTemplate::PayToIdWithRecall(payment_data, recall_height, note_type) => self
-                .build_p2id_tx_request(account_auth, payment_data, Some(recall_height), note_type),
+            TransactionTemplate::PayToIdWithRecall(payment_data, recall_height, note_type) => {
+                self.build_p2id_tx_request(payment_data, Some(recall_height), note_type)
+            },
         }
     }
 
@@ -324,7 +330,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     /// - If recall_height is Some(), a P2IDR note will be created. Otherwise, a P2ID is created.
     fn build_p2id_tx_request(
         &self,
-        auth_info: AuthInfo,
         payment_data: PaymentTransactionData,
         recall_height: Option<u32>,
         note_type: NoteType,
@@ -351,7 +356,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         };
 
         let recipient = created_note
-            .recipient_digest()
+            .recipient()
+            .digest()
             .iter()
             .map(|x| x.as_int().to_string())
             .collect::<Vec<_>>()
@@ -368,10 +374,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         )
         .expect("shipped MASM is well-formed");
 
-        let tx_script = {
-            let script_inputs = vec![auth_info.into_advice_inputs()];
-            self.tx_executor.compile_tx_script(tx_script, script_inputs, vec![])?
-        };
+        let tx_script = self.tx_executor.compile_tx_script(tx_script, vec![], vec![])?;
 
         Ok(TransactionRequest::new(
             payment_data.account_id(),
@@ -387,7 +390,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     fn build_mint_tx_request(
         &self,
         asset: FungibleAsset,
-        faucet_auth_info: AuthInfo,
         target_account_id: AccountId,
         note_type: NoteType,
     ) -> Result<TransactionRequest, ClientError> {
@@ -401,7 +403,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         )?;
 
         let recipient = created_note
-            .recipient_digest()
+            .recipient()
+            .digest()
             .iter()
             .map(|x| x.as_int().to_string())
             .collect::<Vec<_>>()
@@ -418,10 +421,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         )
         .expect("shipped MASM is well-formed");
 
-        let tx_script = {
-            let script_inputs = vec![faucet_auth_info.into_advice_inputs()];
-            self.tx_executor.compile_tx_script(tx_script, script_inputs, vec![])?
-        };
+        let tx_script = self.tx_executor.compile_tx_script(tx_script, vec![], vec![])?;
 
         Ok(TransactionRequest::new(
             asset.faucet_id(),

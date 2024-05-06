@@ -2,13 +2,14 @@
 // ================================================================================================
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{AccountId, AccountStub, ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN},
+    accounts::{account_id::testing::ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, AccountId, AccountStub},
     assembly::{AstSerdeOptions, ModuleAst},
     assets::{FungibleAsset, TokenSymbol},
     crypto::dsa::rpo_falcon512::SecretKey,
     notes::NoteTag,
     Word,
 };
+use miden_tx::AuthSecretKey;
 
 use crate::{
     client::{
@@ -19,7 +20,7 @@ use crate::{
         get_account_with_default_account_code, mock_full_chain_mmr_and_notes,
         mock_fungible_faucet_account, mock_notes, ACCOUNT_ID_REGULAR,
     },
-    store::{sqlite_store::tests::create_test_client, AuthInfo, InputNoteRecord, NoteFilter},
+    store::{sqlite_store::tests::create_test_client, InputNoteRecord, NoteFilter},
 };
 
 #[tokio::test]
@@ -35,7 +36,7 @@ async fn test_input_notes_round_trip() {
 
     // insert notes into database
     for note in consumed_notes.iter().cloned() {
-        client.import_input_note(note.into()).unwrap();
+        client.import_input_note(note.into(), false).await.unwrap();
     }
 
     // retrieve notes from database
@@ -59,7 +60,10 @@ async fn test_get_input_note() {
     let (_consumed_notes, created_notes) = mock_notes(&assembler);
 
     // insert Note into database
-    client.import_input_note(created_notes.first().unwrap().clone().into()).unwrap();
+    client
+        .import_input_note(created_notes.first().unwrap().clone().into(), false)
+        .await
+        .unwrap();
 
     // retrieve note from database
     let retrieved_note =
@@ -149,10 +153,14 @@ async fn insert_same_account_twice_fails() {
     let key_pair = SecretKey::new();
 
     assert!(client
-        .insert_account(&account, Some(Word::default()), &AuthInfo::RpoFalcon512(key_pair.clone()))
+        .insert_account(
+            &account,
+            Some(Word::default()),
+            &AuthSecretKey::RpoFalcon512(key_pair.clone())
+        )
         .is_ok());
     assert!(client
-        .insert_account(&account, Some(Word::default()), &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
         .is_err());
 }
 
@@ -180,7 +188,7 @@ async fn test_account_code() {
     assert_eq!(account_module, reconstructed_ast);
 
     client
-        .insert_account(&account, Some(Word::default()), &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
         .unwrap();
     let (retrieved_acc, _) = client.get_account(account.id()).unwrap();
 
@@ -204,7 +212,7 @@ async fn test_get_account_by_id() {
     let key_pair = SecretKey::new();
 
     client
-        .insert_account(&account, Some(Word::default()), &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
         .unwrap();
 
     // Retrieving an existing account should succeed
@@ -366,7 +374,7 @@ async fn test_mint_transaction() {
 
     client
         .store()
-        .insert_account(&faucet, None, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&faucet, None, &AuthSecretKey::RpoFalcon512(key_pair))
         .unwrap();
 
     client.sync_state().await.unwrap();
@@ -403,7 +411,7 @@ async fn test_get_output_notes() {
 
     client
         .store()
-        .insert_account(&faucet, None, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&faucet, None, &AuthSecretKey::RpoFalcon512(key_pair))
         .unwrap();
 
     client.sync_state().await.unwrap();

@@ -126,8 +126,11 @@ impl NodeRpcClient for TonicRpcClient {
         let rpc_notes = api_response.into_inner().notes;
         let mut response_notes = Vec::with_capacity(rpc_notes.len());
         for note in rpc_notes {
-            let sender_id =
-                note.sender.ok_or(NodeRpcClientError::ExpectedFieldMissing("Sender".into()))?;
+            let sender_id = note
+                .metadata
+                .clone()
+                .and_then(|metadata| metadata.sender)
+                .ok_or(NodeRpcClientError::ExpectedFieldMissing("Metadata.Sender".into()))?;
 
             let inclusion_details = {
                 let merkle_path = note
@@ -147,7 +150,11 @@ impl NodeRpcClient for TonicRpcClient {
                 },
                 // Off-chain notes do not have details
                 None => {
-                    let note_tag = NoteTag::from(note.tag).validate(NoteType::OffChain)?;
+                    let tag = note
+                        .metadata
+                        .ok_or(NodeRpcClientError::ExpectedFieldMissing("Metadata".into()))?
+                        .tag;
+                    let note_tag = NoteTag::from(tag).validate(NoteType::OffChain)?;
                     let note_metadata = NoteMetadata::new(
                         sender_id.try_into()?,
                         NoteType::OffChain,
@@ -310,17 +317,26 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                 .try_into()?;
 
             let sender_account_id = note
-                .sender
-                .ok_or(NodeRpcClientError::ExpectedFieldMissing("Notes.Sender".into()))?
+                .metadata
+                .clone()
+                .and_then(|m| m.sender)
+                .ok_or(NodeRpcClientError::ExpectedFieldMissing("Notes.Metadata.Sender".into()))?
                 .try_into()?;
 
-            let note_type = NoteType::try_from(Felt::new(note.note_type.into()))?;
-            let metadata = NoteMetadata::new(
-                sender_account_id,
-                note_type,
-                note.tag.into(),
-                Default::default(),
-            )?;
+            let tag = note
+                .metadata
+                .clone()
+                .ok_or(NodeRpcClientError::ExpectedFieldMissing("Notes.Metadata".into()))?
+                .tag;
+
+            let note_type = note
+                .metadata
+                .ok_or(NodeRpcClientError::ExpectedFieldMissing("Notes.Metadata".into()))?
+                .note_type;
+
+            let note_type = NoteType::try_from(note_type)?;
+            let metadata =
+                NoteMetadata::new(sender_account_id, note_type, tag.into(), Default::default())?;
 
             let committed_note =
                 CommittedNote::new(note_id, note.note_index, merkle_path, metadata);

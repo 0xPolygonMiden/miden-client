@@ -17,9 +17,10 @@ use miden_objects::{
     notes::{NoteId, NoteType as MidenNoteType},
     Digest,
 };
+use miden_tx::TransactionAuthenticator;
 use tracing::info;
 
-use super::{get_account_with_id_prefix, get_note_with_id_prefix, Client, Parser};
+use super::{get_note_with_id_prefix, parse_account_id, Client, Parser};
 use crate::cli::create_dynamic_table;
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -114,9 +115,9 @@ pub enum Transaction {
 }
 
 impl Transaction {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store>(
+    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
         &self,
-        mut client: Client<N, R, S>,
+        mut client: Client<N, R, S, A>,
         default_account_id: Option<String>,
     ) -> Result<(), String> {
         match self {
@@ -133,8 +134,8 @@ impl Transaction {
 
 // NEW TRANSACTION
 // ================================================================================================
-async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: &mut Client<N, R, S>,
+async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    client: &mut Client<N, R, S, A>,
     transaction_type: &TransactionType,
     force: bool,
     default_account_id: Option<String>,
@@ -231,8 +232,13 @@ fn print_transaction_details(transaction_result: &TransactionResult) {
 ///
 /// For [TransactionTemplate::ConsumeNotes], it'll try to find the corresponding notes by using the
 /// provided IDs as prefixes
-fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: &Client<N, R, S>,
+fn build_transaction_template<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+>(
+    client: &Client<N, R, S, A>,
     transaction_type: &TransactionType,
     default_account_id: Option<String>,
 ) -> Result<TransactionTemplate, String> {
@@ -244,9 +250,7 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
             amount,
             note_type,
         } => {
-            let faucet_id = get_account_with_id_prefix(client, faucet_id)
-                .map_err(|err| err.to_string())?
-                .id();
+            let faucet_id = parse_account_id(client, faucet_id)?;
             let fungible_asset =
                 FungibleAsset::new(faucet_id, *amount).map_err(|err| err.to_string())?.into();
 
@@ -255,12 +259,8 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
                 .clone()
                 .or(default_account_id)
                 .ok_or("Neither a sender nor a default account was provided".to_string())?;
-            let sender_account_id = get_account_with_id_prefix(client, &sender_account_id)
-                .map_err(|err| err.to_string())?
-                .id();
-            let target_account_id = get_account_with_id_prefix(client, target_account_id)
-                .map_err(|err| err.to_string())?
-                .id();
+            let sender_account_id = parse_account_id(client, &sender_account_id)?;
+            let target_account_id = parse_account_id(client, target_account_id)?;
 
             let payment_transaction =
                 PaymentTransactionData::new(fungible_asset, sender_account_id, target_account_id);
@@ -275,9 +275,7 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
             recall_height,
             note_type,
         } => {
-            let faucet_id = get_account_with_id_prefix(client, faucet_id)
-                .map_err(|err| err.to_string())?
-                .id();
+            let faucet_id = parse_account_id(client, faucet_id)?;
             let fungible_asset =
                 FungibleAsset::new(faucet_id, *amount).map_err(|err| err.to_string())?.into();
 
@@ -286,12 +284,8 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
                 .clone()
                 .or(default_account_id)
                 .ok_or("Neither a sender nor a default account was provided".to_string())?;
-            let sender_account_id = get_account_with_id_prefix(client, &sender_account_id)
-                .map_err(|err| err.to_string())?
-                .id();
-            let target_account_id = get_account_with_id_prefix(client, target_account_id)
-                .map_err(|err| err.to_string())?
-                .id();
+            let sender_account_id = parse_account_id(client, &sender_account_id)?;
+            let target_account_id = parse_account_id(client, target_account_id)?;
 
             let payment_transaction =
                 PaymentTransactionData::new(fungible_asset, sender_account_id, target_account_id);
@@ -307,14 +301,10 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
             amount,
             note_type,
         } => {
-            let faucet_id = get_account_with_id_prefix(client, faucet_id)
-                .map_err(|err| err.to_string())?
-                .id();
+            let faucet_id = parse_account_id(client, faucet_id)?;
             let fungible_asset =
                 FungibleAsset::new(faucet_id, *amount).map_err(|err| err.to_string())?;
-            let target_account_id = get_account_with_id_prefix(client, target_account_id)
-                .map_err(|err| err.to_string())?
-                .id();
+            let target_account_id = parse_account_id(client, target_account_id)?;
 
             Ok(TransactionTemplate::MintFungibleAsset(
                 fungible_asset,
@@ -336,9 +326,7 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
                 .clone()
                 .or(default_account_id)
                 .ok_or("Neither a sender nor a default account was provided".to_string())?;
-            let account_id = get_account_with_id_prefix(client, &account_id)
-                .map_err(|err| err.to_string())?
-                .id();
+            let account_id = parse_account_id(client, &account_id)?;
 
             Ok(TransactionTemplate::ConsumeNotes(account_id, list_of_notes))
         },
@@ -347,8 +335,8 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
 
 // LIST TRANSACTIONS
 // ================================================================================================
-fn list_transactions<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: Client<N, R, S>,
+fn list_transactions<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    client: Client<N, R, S, A>,
 ) -> Result<(), String> {
     let transactions = client.get_transactions(TransactionFilter::All)?;
     print_transactions_summary(&transactions);

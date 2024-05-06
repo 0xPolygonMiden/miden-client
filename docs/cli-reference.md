@@ -25,6 +25,30 @@ Note that the debug flag overrides the `MIDEN_DEBUG` environment variable.
 
 ## Commands
 
+### `init` 
+
+Creates a configuration file for the client in the current directory.
+ 
+```sh
+# This will create a config using default values
+miden-client init
+
+# You can use the --rpc flag to override the default rpc config
+miden-client init --rpc testnet.miden.io
+# You can specify the port
+miden-client init --rpc testnet.miden.io:8080
+# You can also specify the protocol (http/https)
+miden-client init --rpc https://testnet.miden.io
+# You can specify both
+miden-client init --rpc https://testnet.miden.io:1234
+
+# You can use the --store_path flag to override the default store config
+miden-client init --store_path db/store.sqlite3
+
+# You can provide both flags
+miden-client init --rpc testnet.miden.io --store_path db/store.sqlite3
+```
+
 ### `account` 
 
 Create accounts and inspect account details.
@@ -82,6 +106,8 @@ You can call:
 ```sh
 miden-client input-notes show 0x70b7ec
 ```
+
+The `import` subcommand verifies that the note that is about to be imported exists on chain. The user can add an optional flag `--no-verify` that skips this verification.
 
 ### `sync`
 

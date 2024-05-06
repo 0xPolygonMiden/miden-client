@@ -10,12 +10,10 @@ use miden_objects::{
     },
     Digest, Felt, Word,
 };
+use miden_tx::{AuthSecretKey, TransactionAuthenticator};
 
 use super::{rpc::NodeRpcClient, Client};
-use crate::{
-    errors::ClientError,
-    store::{AuthInfo, Store},
-};
+use crate::{errors::ClientError, store::Store};
 
 pub enum AccountTemplate {
     BasicWallet {
@@ -46,7 +44,7 @@ impl From<AccountStorageMode> for AccountStorageType {
     }
 }
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 
@@ -106,7 +104,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
                 self.insert_account(
                     &account_data.account,
                     account_seed,
-                    &AuthInfo::RpoFalcon512(key_pair),
+                    &AuthSecretKey::RpoFalcon512(key_pair),
                 )
             },
         }
@@ -142,7 +140,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             )
         }?;
 
-        self.insert_account(&account, Some(seed), &AuthInfo::RpoFalcon512(key_pair))?;
+        self.insert_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair))?;
         Ok((account, seed))
     }
 
@@ -171,7 +169,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             auth_scheme,
         )?;
 
-        self.insert_account(&account, Some(seed), &AuthInfo::RpoFalcon512(key_pair))?;
+        self.insert_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair))?;
         Ok((account, seed))
     }
 
@@ -185,7 +183,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         &mut self,
         account: &Account,
         account_seed: Option<Word>,
-        auth_info: &AuthInfo,
+        auth_info: &AuthSecretKey,
     ) -> Result<(), ClientError> {
         if account.is_new() && account_seed.is_none() {
             return Err(ClientError::ImportNewAccountWithoutSeed);
@@ -220,13 +218,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         self.store.get_account_stub(account_id).map_err(|err| err.into())
     }
 
-    /// Returns an [AuthInfo] object utilized to authenticate an account.
+    /// Returns an [AuthSecretKey] object utilized to authenticate an account.
     ///
     /// # Errors
     ///
     /// Returns a [ClientError::StoreError] with a [StoreError::AccountDataNotFound](crate::errors::StoreError::AccountDataNotFound) if the provided ID does
     /// not correspond to an existing account.
-    pub fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, ClientError> {
+    pub fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, ClientError> {
         self.store.get_account_auth(account_id).map_err(|err| err.into())
     }
 }
@@ -241,13 +239,14 @@ pub mod tests {
         crypto::dsa::rpo_falcon512::SecretKey,
         Word,
     };
+    use miden_tx::AuthSecretKey;
 
     use crate::{
         mock::{
             get_account_with_default_account_code, get_new_account_with_default_account_code,
             ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN, ACCOUNT_ID_REGULAR,
         },
-        store::{sqlite_store::tests::create_test_client, AuthInfo},
+        store::sqlite_store::tests::create_test_client,
     };
 
     fn create_account_data(account_id: u64) -> AccountData {
@@ -286,10 +285,10 @@ pub mod tests {
         let key_pair = SecretKey::new();
 
         assert!(client
-            .insert_account(&account, None, &AuthInfo::RpoFalcon512(key_pair.clone()))
+            .insert_account(&account, None, &AuthSecretKey::RpoFalcon512(key_pair.clone()))
             .is_err());
         assert!(client
-            .insert_account(&account, Some(Word::default()), &AuthInfo::RpoFalcon512(key_pair))
+            .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
             .is_ok());
     }
 

@@ -2,9 +2,9 @@ use miden_objects::{
     accounts::AccountId,
     assembly::ProgramAst,
     crypto::rand::FeltRng,
-    notes::{NoteId, NoteScript},
+    notes::{NoteId, NoteInclusionProof, NoteScript},
 };
-use miden_tx::ScriptTarget;
+use miden_tx::{ScriptTarget, TransactionAuthenticator};
 
 use super::{note_screener::NoteRelevance, rpc::NodeRpcClient, Client};
 use crate::{
@@ -23,7 +23,7 @@ pub struct ConsumableNote {
     pub relevances: Vec<(AccountId, NoteRelevance)>,
 }
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
     // INPUT NOTE DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
@@ -97,8 +97,66 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     // INPUT NOTE CREATION
     // --------------------------------------------------------------------------------------------
 
-    /// Imports a new input note into the client's store.
-    pub fn import_input_note(&mut self, note: InputNoteRecord) -> Result<(), ClientError> {
+    /// Imports a new input note into the client's store. The `verify` parameter dictates whether or
+    /// not the method verifies the existence of the note in the chain.
+    ///
+    /// If the imported note is verified to be on chain and it doesn't contain an inclusion proof
+    /// the method tries to build one if possible.
+    /// If the verification fails then a [ClientError::ExistenceVerificationError] is raised.
+    pub async fn import_input_note(
+        &mut self,
+        mut note: InputNoteRecord,
+        verify: bool,
+    ) -> Result<(), ClientError> {
+        if !verify {
+            return self.store.insert_input_note(&note).map_err(|err| err.into());
+        }
+
+        // Verify that note exists in chain
+        let mut chain_notes = self.rpc_api.get_notes_by_id(&[note.id()]).await?;
+
+        if chain_notes.is_empty() {
+            return Err(ClientError::ExistenceVerificationError(note.id()));
+        }
+
+        let note_details = chain_notes.pop().expect("chain_notes should have at least one element");
+
+        let inclusion_details = match note_details {
+            super::rpc::NoteDetails::OffChain(_, _, inclusion) => inclusion,
+            super::rpc::NoteDetails::Public(_, inclusion) => inclusion,
+        };
+
+        // Check to see if it's possible to create an inclusion proof if the note doesn't have one.
+        // Only do this if the note exists in the chain and the client is synced to a height equal or
+        // greater than the note's creation block.
+        if note.inclusion_proof().is_none()
+            && self.get_sync_height()? >= inclusion_details.block_num
+        {
+            // Add the inclusion proof to the imported note
+            let block_header = self
+                .rpc_api
+                .get_block_header_by_number(Some(inclusion_details.block_num))
+                .await?;
+
+            let inclusion_proof = NoteInclusionProof::new(
+                inclusion_details.block_num,
+                block_header.sub_hash(),
+                block_header.note_root(),
+                inclusion_details.note_index.into(),
+                inclusion_details.merkle_path,
+            )?;
+
+            note = InputNoteRecord::new(
+                note.id(),
+                note.recipient(),
+                note.assets().clone(),
+                note.status(),
+                note.metadata().copied(),
+                Some(inclusion_proof),
+                note.details().clone(),
+            );
+        }
+
         self.store.insert_input_note(&note).map_err(|err| err.into())
     }
 

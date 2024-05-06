@@ -4,7 +4,7 @@ use miden_objects::{
     crypto::rand::{FeltRng, RpoRandomCoin},
     Felt,
 };
-use miden_tx::TransactionExecutor;
+use miden_tx::{TransactionAuthenticator, TransactionExecutor};
 use rand::Rng;
 use tracing::info;
 
@@ -14,6 +14,7 @@ pub mod rpc;
 use rpc::NodeRpcClient;
 
 pub mod accounts;
+pub mod authenticator;
 #[cfg(test)]
 mod chain_data;
 mod note_screener;
@@ -35,7 +36,7 @@ pub use notes::ConsumableNote;
 /// - Connects to one or more Miden nodes to periodically sync with the current state of the
 ///   network.
 /// - Executes, proves, and submits transactions to the network as directed by the user.
-pub struct Client<N: NodeRpcClient, R: FeltRng, S: Store> {
+pub struct Client<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> {
     /// The client's store, which provides a way to write and read entities to provide persistence.
     store: Rc<S>,
     /// An instance of [FeltRng] which provides randomness tools for generating new keys,
@@ -44,10 +45,10 @@ pub struct Client<N: NodeRpcClient, R: FeltRng, S: Store> {
     /// An instance of [NodeRpcClient] which provides a way for the client to connect to the
     /// Miden node.
     rpc_api: N,
-    tx_executor: TransactionExecutor<ClientDataStore<S>>,
+    tx_executor: TransactionExecutor<ClientDataStore<S>, A>,
 }
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
 
@@ -62,6 +63,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     /// - `executor_store`: An instance of [Store] that provides a way for [TransactionExecutor] to
     ///   retrieve relevant inputs at the moment of transaction execution. It should be the same
     ///   store as the one for `store`, but it doesn't have to be the **same instance**.
+    /// - `authenticator`: Defines the transaction authenticator that will be used by the
+    ///   transaction executor whenever a signature is requested from within the VM.
     /// - `in_debug_mode`: Instantiates the transaction executor (and in turn, its compiler)
     ///   in debug mode, which will enable debug logs for scripts compiled with this mode for
     ///   easier MASM debugging.
@@ -69,14 +72,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     /// # Errors
     ///
     /// Returns an error if the client could not be instantiated.
-    pub fn new(api: N, rng: R, store: S, in_debug_mode: bool) -> Self {
+    pub fn new(api: N, rng: R, store: Rc<S>, authenticator: A, in_debug_mode: bool) -> Self {
         if in_debug_mode {
             info!("Creating the Client in debug mode.");
         }
 
-        let store = Rc::new(store);
         let data_store = ClientDataStore::new(store.clone());
-        let tx_executor = TransactionExecutor::new(data_store);
+        let authenticator = Some(Rc::new(authenticator));
+        let tx_executor = TransactionExecutor::new(data_store, authenticator);
 
         Self { store, rng, rpc_api: api, tx_executor }
     }
