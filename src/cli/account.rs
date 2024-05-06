@@ -36,14 +36,6 @@ pub enum AccountCmd {
         /// ID of an account or hex prefix that matches with a single account.
         #[clap()]
         id: String,
-        #[clap(short, long, default_value_t = false)]
-        keys: bool,
-        #[clap(short, long, default_value_t = false)]
-        vault: bool,
-        #[clap(short, long, default_value_t = false)]
-        storage: bool,
-        #[clap(short, long, default_value_t = false)]
-        code: bool,
     },
     /// Create new account and store it locally
     #[clap(short_flag = 'n')]
@@ -169,9 +161,9 @@ impl AccountCmd {
                 };
                 let (_new_account, _account_seed) = client.new_account(client_template)?;
             },
-            AccountCmd::Show { id, keys, vault, storage, code } => {
+            AccountCmd::Show { id } => {
                 let account_id = parse_account_id(&client, id)?;
-                show_account(client, account_id, *keys, *vault, *storage, *code)?;
+                show_account(client, account_id)?;
             },
             AccountCmd::Import { filenames } => {
                 validate_paths(filenames, "mac")?;
@@ -254,10 +246,6 @@ fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store>(
 pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: Client<N, R, S>,
     account_id: AccountId,
-    show_keys: bool,
-    show_vault: bool,
-    show_storage: bool,
-    show_code: bool,
 ) -> Result<(), String> {
     let (account, _account_seed) = client.get_account(account_id)?;
     let mut table = create_dynamic_table(&[
@@ -282,7 +270,8 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store>(
     ]);
     println!("{table}\n");
 
-    if show_vault {
+    // Vault Table
+    {
         let assets = account.vault().assets();
 
         println!("Assets: ");
@@ -303,7 +292,8 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store>(
         println!("{table}\n");
     }
 
-    if show_storage {
+    // Storage Table
+    {
         let account_storage = account.storage();
 
         println!("Storage: \n");
@@ -339,7 +329,8 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store>(
         println!("{table}\n");
     }
 
-    if show_keys {
+    // Keys table
+    {
         let auth_info = client.get_account_auth(account_id)?;
 
         match auth_info {
@@ -361,19 +352,22 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store>(
         };
     }
 
-    if show_code {
+    // Code related table
+    {
         let module = account.code().module();
         let procedure_digests = account.code().procedures();
 
         println!("Account Code Info:");
 
         let mut table = create_dynamic_table(&["Procedure Digests"]);
+
         for digest in procedure_digests {
             table.add_row(vec![digest.to_hex()]);
         }
         println!("{table}\n");
 
         let mut code_table = create_dynamic_table(&["Code"]);
+        code_table.load_preset(presets::UTF8_HORIZONTAL_ONLY);
         code_table.add_row(vec![&module]);
         println!("{code_table}\n");
     }
