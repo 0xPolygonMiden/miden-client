@@ -188,8 +188,6 @@ pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store>(
         .and_then(|mut f| f.read_to_end(&mut contents))
         .map_err(|err| err.to_string());
 
-    // TODO: When importing a RecordedNote we want to make sure that the note actually exists in the chain (RPC call)
-    // and start monitoring its nullifiers (ie, update the list of relevant tags in the state sync table)
     let input_note_record =
         InputNoteRecord::read_from_bytes(&contents).map_err(|err| err.to_string())?;
 
