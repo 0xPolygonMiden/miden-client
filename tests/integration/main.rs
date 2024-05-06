@@ -408,7 +408,7 @@ async fn test_import_pending_notes() {
     client_2.sync_state().await.unwrap();
 
     let tx_template = TransactionTemplate::MintFungibleAsset(
-        FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap().into(),
+        FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
         first_basic_account.id(),
         NoteType::OffChain,
     );
@@ -428,7 +428,7 @@ async fn test_import_pending_notes() {
     assert!(input_note.inclusion_proof().is_some());
 
     let tx_template = TransactionTemplate::MintFungibleAsset(
-        FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap().into(),
+        FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
         first_basic_account.id(),
         NoteType::OffChain,
     );
