@@ -237,7 +237,7 @@ async fn test_sync_state() {
     let pending_notes = client.get_input_notes(NoteFilter::Pending).unwrap();
 
     // sync state
-    let block_num: u32 = client.sync_state().await.unwrap();
+    let block_num: u32 = client.sync_state().await.unwrap().block_num;
 
     // verify that the client is synced to the latest block
     assert_eq!(
@@ -267,7 +267,7 @@ async fn test_sync_state_mmr_state() {
     let tracked_block_headers = crate::mock::insert_mock_data(&mut client).await;
 
     // sync state
-    let block_num: u32 = client.sync_state().await.unwrap();
+    let block_num: u32 = client.sync_state().await.unwrap().block_num;
 
     // verify that the client is synced to the latest block
     assert_eq!(
