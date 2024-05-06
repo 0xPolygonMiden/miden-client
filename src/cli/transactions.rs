@@ -15,6 +15,7 @@ use miden_objects::{
     assets::{Asset, FungibleAsset},
     crypto::rand::FeltRng,
     notes::{NoteId, NoteType as MidenNoteType},
+    transaction::TransactionId,
     Digest,
 };
 use tracing::info;
@@ -124,7 +125,20 @@ impl Transaction {
                 list_transactions(client)?;
             },
             Transaction::New { transaction_type, force } => {
-                new_transaction(&mut client, transaction_type, *force, default_account_id).await?;
+                let transaction_id =
+                    new_transaction(&mut client, transaction_type, *force, default_account_id)
+                        .await?;
+                match transaction_id {
+                    Some((transaction_id, output_note_ids)) => {
+                        println!("Succesfully created transaction.");
+                        println!("Transaction ID: {}", transaction_id);
+                        println!("Output notes IDs created:");
+                        output_note_ids.iter().for_each(|note_id| println!("\t- {}", note_id));
+                    },
+                    None => {
+                        println!("Transaction was cancelled.");
+                    },
+                }
             },
         }
         Ok(())
@@ -138,11 +152,13 @@ async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store>(
     transaction_type: &TransactionType,
     force: bool,
     default_account_id: Option<String>,
-) -> Result<(), String> {
+) -> Result<Option<(TransactionId, Vec<NoteId>)>, String> {
     let transaction_template: TransactionTemplate =
         build_transaction_template(client, transaction_type, default_account_id)?;
 
     let transaction_request = client.build_transaction_request(transaction_template)?;
+
+    println!("Executing transaction...");
     let transaction_execution_result = client.new_transaction(transaction_request)?;
 
     // Show delta and ask for confirmation
@@ -153,15 +169,22 @@ async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store>(
         io::stdin().read_line(&mut proceed_str).expect("Should read line");
 
         if proceed_str.trim().to_lowercase() != "y" {
-            return Ok(());
+            return Ok(None);
         }
     }
 
     info!("Proving and then submitting...");
+    println!("Proving transaction and then submitting it to node...");
 
+    let transaction_id = transaction_execution_result.executed_transaction().id();
+    let output_notes = transaction_execution_result
+        .created_notes()
+        .iter()
+        .map(|note| note.id())
+        .collect::<Vec<_>>();
     client.submit_transaction(transaction_execution_result).await?;
 
-    Ok(())
+    Ok(Some((transaction_id, output_notes)))
 }
 
 fn print_transaction_details(transaction_result: &TransactionResult) {
