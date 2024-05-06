@@ -118,7 +118,11 @@ impl InputNotes {
             },
             InputNotes::Import { filename, no_verify } => {
                 let note_id = import_note(&mut client, filename.clone(), !(*no_verify)).await?;
-                println!("Succesfully imported note {}", note_id.inner());
+                println!("Succesfully imported note.");
+                println!(
+                    "To view note details execute `miden-client input-notes -s {}`",
+                    note_id.inner()
+                );
             },
             InputNotes::ListConsumable { account_id } => {
                 list_consumable_notes(client, account_id)?;
