@@ -9,18 +9,18 @@ use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     client::{rpc::NodeRpcClient, ConsumableNote},
     errors::ClientError,
-    store::{InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
+    store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
 };
 use miden_objects::{
     accounts::AccountId,
     crypto::rand::FeltRng,
-    notes::{NoteId, NoteInputs},
+    notes::{NoteId, NoteInputs, NoteMetadata},
     Digest,
 };
 use miden_tx::utils::{Deserializable, Serializable};
 
-use super::{Client, Parser};
-use crate::cli::{create_dynamic_table, get_note_with_id_prefix};
+use super::{get_output_note_with_id_prefix, Client, Parser};
+use crate::cli::{create_dynamic_table, get_input_note_with_id_prefix};
 
 #[derive(Clone, Debug, ValueEnum)]
 pub enum NoteFilter {
@@ -31,7 +31,7 @@ pub enum NoteFilter {
 
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "View and manage input notes")]
-pub enum InputNotes {
+pub enum Notes {
     /// List input notes
     #[clap(short_flag = 'l')]
     List {
@@ -93,13 +93,13 @@ pub enum InputNotes {
     },
 }
 
-impl InputNotes {
+impl Notes {
     pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store>(
         &self,
         mut client: Client<N, R, S>,
     ) -> Result<(), String> {
         match self {
-            InputNotes::List { filter } => {
+            Notes::List { filter } => {
                 let filter = match filter {
                     Some(NoteFilter::Committed) => ClientNoteFilter::Committed,
                     Some(NoteFilter::Consumed) => ClientNoteFilter::Consumed,
@@ -107,20 +107,20 @@ impl InputNotes {
                     None => ClientNoteFilter::All,
                 };
 
-                list_input_notes(client, filter)?;
+                list_notes(client, filter)?;
             },
-            InputNotes::Show { id, script, vault, inputs } => {
-                show_input_note(client, id.to_owned(), *script, *vault, *inputs)?;
+            Notes::Show { id, script, vault, inputs } => {
+                show_note(client, id.to_owned(), *script, *vault, *inputs)?;
             },
-            InputNotes::Export { id, filename } => {
+            Notes::Export { id, filename } => {
                 export_note(&client, id, filename.clone())?;
                 println!("Succesfully exported note {}", id);
             },
-            InputNotes::Import { filename, no_verify } => {
+            Notes::Import { filename, no_verify } => {
                 let note_id = import_note(&mut client, filename.clone(), !(*no_verify)).await?;
                 println!("Succesfully imported note {}", note_id.inner());
             },
-            InputNotes::ListConsumable { account_id } => {
+            Notes::ListConsumable { account_id } => {
                 list_consumable_notes(client, account_id)?;
             },
         }
@@ -130,12 +130,18 @@ impl InputNotes {
 
 // LIST INPUT NOTES
 // ================================================================================================
-fn list_input_notes<N: NodeRpcClient, R: FeltRng, S: Store>(
+fn list_notes<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: Client<N, R, S>,
     filter: ClientNoteFilter,
 ) -> Result<(), String> {
-    let notes = client.get_input_notes(filter)?;
-    print_notes_summary(&notes)?;
+    let input_notes = client.get_input_notes(filter.clone())?;
+    let output_notes = client.get_output_notes(filter)?;
+
+    println!("Input Notes:");
+    print_input_notes_summary(&input_notes)?;
+
+    println!("Output Notes:");
+    print_output_notes_summary(&output_notes)?;
     Ok(())
 }
 
@@ -200,70 +206,113 @@ pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store>(
 
 // SHOW INPUT NOTE
 // ================================================================================================
-fn show_input_note<N: NodeRpcClient, R: FeltRng, S: Store>(
+fn show_note<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: Client<N, R, S>,
     note_id: String,
     show_script: bool,
     show_vault: bool,
     show_inputs: bool,
 ) -> Result<(), String> {
-    let input_note_record =
-        get_note_with_id_prefix(&client, &note_id).map_err(|err| err.to_string())?;
+    let input_note_record = get_input_note_with_id_prefix(&client, &note_id).ok();
 
-    // print note summary
-    print_notes_summary(core::iter::once(&input_note_record))?;
+    let output_note_record = get_output_note_with_id_prefix(&client, &note_id).ok();
 
-    let mut table = Table::new();
-    table
-        .load_preset(presets::UTF8_HORIZONTAL_ONLY)
-        .set_content_arrangement(ContentArrangement::DynamicFullWidth);
+    if input_note_record.is_none() && output_note_record.is_none() {
+        return Err("There is no Note matching the specified ID or ID prefix".to_string());
+    }
 
-    // print note script
-    if show_script {
-        let script = input_note_record.details().script();
+    // only use the output note record if there is no input note record to avoid displaying
+    // duplicate information
+    if let Some(input_note_record) = input_note_record {
+        // print note summary
+        print_input_notes_summary(core::iter::once(&input_note_record))?;
 
+        let mut table = Table::new();
         table
-            .add_row(vec![
-                Cell::new("Note Script hash").add_attribute(Attribute::Bold),
-                Cell::new(script.hash()),
-            ])
-            .add_row(vec![
+            .load_preset(presets::UTF8_HORIZONTAL_ONLY)
+            .set_content_arrangement(ContentArrangement::DynamicFullWidth);
+
+        // print note script
+        if show_script {
+            let script = input_note_record.details().script();
+
+            table.add_row(vec![
                 Cell::new("Note Script code").add_attribute(Attribute::Bold),
                 Cell::new(script.code()),
             ]);
-    };
+        };
 
-    // print note vault
-    if show_vault {
+        // print note vault
+        if show_vault {
+            table.add_row(vec![Cell::new("Note Vault").add_attribute(Attribute::Bold)]);
+
+            input_note_record.assets().iter().for_each(|asset| {
+                table.add_row(vec![Cell::new(format!("{:?}", asset))]);
+            })
+        };
+
+        if show_inputs {
+            let inputs = NoteInputs::new(input_note_record.details().inputs().clone())
+                .map_err(ClientError::NoteError)?;
+
+            table.add_row(vec![Cell::new("Note Inputs").add_attribute(Attribute::Bold)]);
+
+            inputs.values().iter().enumerate().for_each(|(idx, input)| {
+                table
+                    .add_row(vec![Cell::new(idx).add_attribute(Attribute::Bold), Cell::new(input)]);
+            });
+        };
+
+        println!("{table}");
+    } else {
+        let output_note_record =
+            output_note_record.expect("At least one of the two records should be Some");
+        // print note summary
+        print_output_notes_summary(core::iter::once(&output_note_record))?;
+
+        let mut table = Table::new();
         table
-            .add_row(vec![
-                Cell::new("Note Vault hash").add_attribute(Attribute::Bold),
-                Cell::new(input_note_record.assets().commitment()),
-            ])
-            .add_row(vec![Cell::new("Note Vault").add_attribute(Attribute::Bold)]);
+            .load_preset(presets::UTF8_HORIZONTAL_ONLY)
+            .set_content_arrangement(ContentArrangement::DynamicFullWidth);
 
-        input_note_record.assets().iter().for_each(|asset| {
-            table.add_row(vec![Cell::new(format!("{:?}", asset))]);
-        })
-    };
+        // print note script
+        if show_script {
+            let script =
+                output_note_record.details().map(|details| details.script().code().to_string());
 
-    if show_inputs {
-        let inputs = NoteInputs::new(input_note_record.details().inputs().clone())
-            .map_err(ClientError::NoteError)?;
+            table.add_row(vec![
+                Cell::new("Note Script code").add_attribute(Attribute::Bold),
+                Cell::new(script.unwrap_or("-".to_string())),
+            ]);
+        };
 
-        table
-            .add_row(vec![
-                Cell::new("Note Inputs hash").add_attribute(Attribute::Bold),
-                Cell::new(inputs.commitment()),
-            ])
-            .add_row(vec![Cell::new("Note Inputs").add_attribute(Attribute::Bold)]);
+        // print note vault
+        if show_vault {
+            table.add_row(vec![Cell::new("Note Vault").add_attribute(Attribute::Bold)]);
 
-        inputs.values().iter().enumerate().for_each(|(idx, input)| {
-            table.add_row(vec![Cell::new(idx).add_attribute(Attribute::Bold), Cell::new(input)]);
-        });
-    };
+            output_note_record.assets().iter().for_each(|asset| {
+                table.add_row(vec![Cell::new(format!("{:?}", asset))]);
+            })
+        };
 
-    println!("{table}");
+        if show_inputs {
+            table.add_row(vec![Cell::new("Note Inputs").add_attribute(Attribute::Bold)]);
+
+            if let Some(details) = output_note_record.details() {
+                let inputs =
+                    NoteInputs::new(details.inputs().clone()).map_err(ClientError::NoteError)?;
+                inputs.values().iter().enumerate().for_each(|(idx, input)| {
+                    table.add_row(vec![
+                        Cell::new(idx).add_attribute(Attribute::Bold),
+                        Cell::new(input),
+                    ]);
+                });
+            };
+        };
+
+        println!("{table}");
+    }
+
     Ok(())
 }
 
@@ -284,7 +333,7 @@ fn list_consumable_notes<N: NodeRpcClient, R: FeltRng, S: Store>(
 
 // HELPERS
 // ================================================================================================
-fn print_notes_summary<'a, I>(notes: I) -> Result<(), String>
+fn print_input_notes_summary<'a, I>(notes: I) -> Result<(), String>
 where
     I: IntoIterator<Item = &'a InputNoteRecord>,
 {
@@ -315,7 +364,54 @@ where
             input_note_record.assets().commitment().to_string(),
             inputs.commitment().to_string(),
             Digest::new(input_note_record.details().serial_num()).to_string(),
-            note_record_type(input_note_record),
+            input_note_record.metadata().map(note_type).unwrap_or("-".to_string()),
+            commit_height,
+        ]);
+    }
+
+    println!("{table}");
+
+    Ok(())
+}
+
+fn print_output_notes_summary<'a, I>(notes: I) -> Result<(), String>
+where
+    I: IntoIterator<Item = &'a OutputNoteRecord>,
+{
+    let mut table = create_dynamic_table(&[
+        "Note ID",
+        "Script Hash",
+        "Vault Vash",
+        "Inputs Hash",
+        "Serial Num",
+        "Type",
+        "Commit Height",
+    ]);
+
+    for output_note_record in notes {
+        let commit_height = output_note_record
+            .inclusion_proof()
+            .map(|proof| proof.origin().block_num.to_string())
+            .unwrap_or("-".to_string());
+
+        let (script, inputs, serial_num) = match output_note_record.details() {
+            Some(details) => {
+                let inputs =
+                    NoteInputs::new(details.inputs().clone()).map_err(ClientError::NoteError)?;
+                (Some(details.script()), Some(inputs), Some(details.serial_num()))
+            },
+            None => (None, None, None),
+        };
+
+        table.add_row(vec![
+            output_note_record.id().inner().to_string(),
+            script.map(|script| script.hash().to_string()).unwrap_or("-".to_string()),
+            output_note_record.assets().commitment().to_string(),
+            inputs.map(|inputs| inputs.commitment().to_string()).unwrap_or("-".to_string()),
+            serial_num
+                .map(|serial_num| Digest::new(serial_num).to_string())
+                .unwrap_or("-".to_string()),
+            note_type(output_note_record.metadata()),
             commit_height,
         ]);
     }
@@ -346,14 +442,11 @@ where
     Ok(())
 }
 
-fn note_record_type(note_record: &InputNoteRecord) -> String {
-    match note_record.metadata() {
-        Some(metadata) => match metadata.note_type() {
-            miden_objects::notes::NoteType::OffChain => "OffChain",
-            miden_objects::notes::NoteType::Encrypted => "Encrypted",
-            miden_objects::notes::NoteType::Public => "Public",
-        },
-        None => "-",
+fn note_type(metadata: &NoteMetadata) -> String {
+    match metadata.note_type() {
+        miden_objects::notes::NoteType::OffChain => "OffChain",
+        miden_objects::notes::NoteType::Encrypted => "Encrypted",
+        miden_objects::notes::NoteType::Public => "Public",
     }
     .to_string()
 }
@@ -385,8 +478,8 @@ mod tests {
     use uuid::Uuid;
 
     use crate::cli::{
-        get_note_with_id_prefix,
-        input_notes::{export_note, import_note},
+        get_input_note_with_id_prefix,
+        notes::{export_note, import_note},
     };
 
     #[tokio::test]
@@ -530,7 +623,7 @@ mod tests {
         // Ensure we get an error if no note is found
         let non_existent_note_id = "0x123456";
         assert_eq!(
-            get_note_with_id_prefix(&client, non_existent_note_id),
+            get_input_note_with_id_prefix(&client, non_existent_note_id),
             Err(IdPrefixFetchError::NoMatch(
                 format!("note ID prefix {non_existent_note_id}").to_string()
             ))
@@ -550,16 +643,16 @@ mod tests {
         assert!(committed_note.inclusion_proof().is_some());
 
         // Check that we can fetch Both notes
-        let note = get_note_with_id_prefix(&client, &committed_note.id().to_hex()).unwrap();
+        let note = get_input_note_with_id_prefix(&client, &committed_note.id().to_hex()).unwrap();
         assert_eq!(note.id(), committed_note.id());
 
-        let note = get_note_with_id_prefix(&client, &pending_note.id().to_hex()).unwrap();
+        let note = get_input_note_with_id_prefix(&client, &pending_note.id().to_hex()).unwrap();
         assert_eq!(note.id(), pending_note.id());
 
         // Check that we get an error if many match
         let note_id_with_many_matches = "0x";
         assert_eq!(
-            get_note_with_id_prefix(&client, note_id_with_many_matches),
+            get_input_note_with_id_prefix(&client, note_id_with_many_matches),
             Err(IdPrefixFetchError::MultipleMatches(
                 format!("note ID prefix {note_id_with_many_matches}").to_string()
             ))

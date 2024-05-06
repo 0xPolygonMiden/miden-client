@@ -19,7 +19,7 @@ use miden_objects::{
 };
 use tracing::info;
 
-use super::{get_note_with_id_prefix, parse_account_id, Client, Parser};
+use super::{get_input_note_with_id_prefix, parse_account_id, Client, Parser};
 use crate::cli::create_dynamic_table;
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -310,7 +310,7 @@ fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
             let list_of_notes = list_of_notes
                 .iter()
                 .map(|note_id| {
-                    get_note_with_id_prefix(client, note_id)
+                    get_input_note_with_id_prefix(client, note_id)
                         .map(|note_record| note_record.id())
                         .map_err(|err| err.to_string())
                 })
