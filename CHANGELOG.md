@@ -1,5 +1,6 @@
 # Changelog
 
+* Added more feedback information to commands `account new`, `input-notes import`, `tx new` and `sync`.
 * Added flags to `init` command for non-interactive environments
 * Added an option to verify note existence in the chain before importing.
 * Add new store note filter to fetch multiple notes by their id in a single query.
