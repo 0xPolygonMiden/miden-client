@@ -1,12 +1,12 @@
 use alloc::collections::{BTreeMap, BTreeSet};
 
-use miden_lib::notes::{create_p2id_note, create_p2idr_note};
+use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
     accounts::{AccountDelta, AccountId, AuthSecretKey},
     assembly::ProgramAst,
     assets::FungibleAsset,
     crypto::rand::RpoRandomCoin,
-    notes::{Note, NoteId, NoteType},
+    notes::{Note, NoteDetails, NoteId, NoteType},
     transaction::{
         ExecutedTransaction, InputNotes, OutputNote, OutputNotes, ProvenTransaction,
         TransactionArgs, TransactionId, TransactionScript,
@@ -17,7 +17,7 @@ use miden_tx::{ProvingOptions, ScriptTarget, TransactionAuthenticator, Transacti
 use rand::Rng;
 use tracing::info;
 
-use self::transaction_request::{PaymentTransactionData, TransactionRequest, TransactionTemplate};
+use self::transaction_request::{PaymentTransactionData, SwapTransactionData, TransactionRequest, TransactionTemplate};
 use super::{rpc::NodeRpcClient, Client, FeltRng};
 use crate::{
     client::NoteScreener,
@@ -38,6 +38,7 @@ pub mod transaction_request;
 pub struct TransactionResult {
     transaction: ExecutedTransaction,
     relevant_notes: Vec<InputNoteRecord>,
+    payback_note_details: Vec<NoteDetails>,
 }
 
 impl TransactionResult {
@@ -45,6 +46,7 @@ impl TransactionResult {
     pub fn new<S: Store>(
         transaction: ExecutedTransaction,
         note_screener: NoteScreener<S>,
+        payback_note_details: Vec<NoteDetails>,
     ) -> Result<Self, ClientError> {
         let mut relevant_notes = vec![];
 
@@ -56,7 +58,7 @@ impl TransactionResult {
             }
         }
 
-        let tx_result = Self { transaction, relevant_notes };
+        let tx_result = Self { transaction, relevant_notes, payback_note_details };
 
         Ok(tx_result)
     }
@@ -71,6 +73,10 @@ impl TransactionResult {
 
     pub fn relevant_notes(&self) -> &[InputNoteRecord] {
         &self.relevant_notes
+    }
+
+    pub fn payback_note_details(&self) -> &Vec<NoteDetails> {
+        &self.payback_note_details
     }
 
     pub fn block_num(&self) -> u32 {
@@ -192,7 +198,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 let notes = notes.iter().map(|id| (*id, None)).collect();
 
                 let tx_script = self.tx_executor.compile_tx_script(program_ast, vec![], vec![])?;
-                Ok(TransactionRequest::new(account_id, notes, vec![], Some(tx_script)))
+                Ok(TransactionRequest::new(account_id, notes, vec![], vec![], Some(tx_script)))
             },
             TransactionTemplate::MintFungibleAsset(asset, target_account_id, note_type) => {
                 self.build_mint_tx_request(asset, target_account_id, note_type)
@@ -202,6 +208,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             },
             TransactionTemplate::PayToIdWithRecall(payment_data, recall_height, note_type) => {
                 self.build_p2id_tx_request(payment_data, Some(recall_height), note_type)
+            },
+            TransactionTemplate::Swap(swap_data, note_type) => {
+                self.build_swap_tx_request(swap_data, note_type)
             },
         }
     }
@@ -227,6 +236,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let note_ids = transaction_request.get_input_note_ids();
         let output_notes = transaction_request.expected_output_notes().to_vec();
+        let payback_note_details = transaction_request.expected_payback_note_details().to_vec();
 
         // Execute the transaction and get the witness
         let executed_transaction = self.tx_executor.execute_transaction(
@@ -257,7 +267,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let screener = NoteScreener::new(self.store.clone());
 
-        TransactionResult::new(executed_transaction, screener)
+        TransactionResult::new(executed_transaction, screener, payback_note_details)
     }
 
     /// Proves the specified transaction witness, submits it to the node, and stores the transaction in
@@ -373,6 +383,41 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             payment_data.account_id(),
             BTreeMap::new(),
             vec![created_note],
+            vec![],
+            Some(tx_script),
+        ))
+    }
+
+    /// Helper to build a [TransactionRequest] for Swap-type transactions easily.
+    ///
+    /// - auth_info has to be from the executor account
+    fn build_swap_tx_request(
+        &self,
+        swap_data: SwapTransactionData,
+        note_type: NoteType,
+    ) -> Result<TransactionRequest, ClientError> {
+        let random_coin = self.get_random_coin();
+
+        // The created note is the one that we need as the output of the tx, the other one is the
+        // one that we expect to receive and consume eventually
+        let (created_note, payback_note_details) = create_swap_note(
+            swap_data.account_id(),
+            swap_data.offered_asset(),
+            swap_data.requested_asset(),
+            note_type,
+            random_coin,
+        )?;
+
+        let tx_script = ProgramAst::parse(transaction_request::AUTH_SWAP_ASSET_SCRIPT)
+            .expect("shipped MASM is well-formed");
+
+        let tx_script = self.tx_executor.compile_tx_script(tx_script, vec![], vec![])?;
+
+        Ok(TransactionRequest::new(
+            swap_data.account_id(),
+            BTreeMap::new(),
+            vec![created_note],
+            vec![payback_note_details],
             Some(tx_script),
         ))
     }
@@ -420,6 +465,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             asset.faucet_id(),
             BTreeMap::new(),
             vec![created_note],
+            vec![],
             Some(tx_script),
         ))
     }

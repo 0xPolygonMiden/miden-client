@@ -5,7 +5,9 @@ use miden_client::{
     client::{
         rpc::NodeRpcClient,
         transactions::{
-            transaction_request::{PaymentTransactionData, TransactionTemplate},
+            transaction_request::{
+                PaymentTransactionData, SwapTransactionData, TransactionTemplate,
+            },
             TransactionRecord, TransactionResult,
         },
     },
@@ -93,6 +95,26 @@ pub enum TransactionType {
         account_id: Option<String>,
         /// A list of note IDs or the hex prefixes of their corresponding IDs
         list_of_notes: Vec<String>,
+    },
+    /// Create a swap transaction.
+    Swap {
+        /// Sender account ID or its hex prefix. If none is provided, the default account's ID is used instead
+        #[clap(short = 's', long = "source")]
+        sender_account_id: Option<String>,
+        /// Offered Faucet account ID or its hex prefix
+        #[clap(long = "offered_faucet")]
+        offered_asset_faucet_id: String,
+        /// Offered amount
+        #[clap(long = "offered_amount")]
+        offered_asset_amount: u64,
+        /// Requested Faucet account ID or its hex prefix
+        #[clap(long = "requested_faucet")]
+        requested_asset_faucet_id: String,
+        /// Requested amount
+        #[clap(long = "requested_amount")]
+        requested_asset_amount: u64,
+        #[clap(short, long, value_enum)]
+        note_type: NoteType,
     },
 }
 
@@ -351,6 +373,41 @@ fn build_transaction_template<
             let account_id = parse_account_id(client, &account_id)?;
 
             Ok(TransactionTemplate::ConsumeNotes(account_id, list_of_notes))
+        },
+        TransactionType::Swap {
+            sender_account_id,
+            offered_asset_faucet_id,
+            offered_asset_amount,
+            requested_asset_faucet_id,
+            requested_asset_amount,
+            note_type,
+        } => {
+            let offered_asset_faucet_id = parse_account_id(client, offered_asset_faucet_id)?;
+            let offered_fungible_asset =
+                FungibleAsset::new(offered_asset_faucet_id, *offered_asset_amount)
+                    .map_err(|err| err.to_string())?
+                    .into();
+
+            let requested_asset_faucet_id = parse_account_id(client, requested_asset_faucet_id)?;
+            let requested_fungible_asset =
+                FungibleAsset::new(requested_asset_faucet_id, *requested_asset_amount)
+                    .map_err(|err| err.to_string())?
+                    .into();
+
+            // try to use either the provided argument or the default account
+            let sender_account_id = sender_account_id
+                .clone()
+                .or(default_account_id)
+                .ok_or("Neither a sender nor a default account was provided".to_string())?;
+            let sender_account_id = parse_account_id(client, &sender_account_id)?;
+
+            let swap_transaction = SwapTransactionData::new(
+                sender_account_id,
+                offered_fungible_asset,
+                requested_fungible_asset,
+            );
+
+            Ok(TransactionTemplate::Swap(swap_transaction, note_type.into()))
         },
     }
 }
