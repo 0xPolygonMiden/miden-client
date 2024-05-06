@@ -173,7 +173,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             self.get_note_details(response.note_inclusions, &response.block_header).await?;
 
         let (onchain_accounts, offchain_accounts): (Vec<_>, Vec<_>) =
-            accounts.into_iter().partition(|account_stub| account_stub.id().is_on_chain());
+            accounts.into_iter().partition(|account_stub: &AccountStub| account_stub.id().is_on_chain());
 
         let updated_onchain_accounts = self
             .get_updated_onchain_accounts(&response.account_hash_updates, &onchain_accounts)
@@ -332,7 +332,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     /// track it here.
     pub(crate) async fn build_current_partial_mmr(&self) -> Result<PartialMmr, ClientError> {
         let current_block_num = self.store.get_sync_height().await?;
-
         let tracked_nodes = self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All).await?;
         let current_peaks = self.store.get_chain_mmr_peaks_by_block_num(current_block_num).await?;
 

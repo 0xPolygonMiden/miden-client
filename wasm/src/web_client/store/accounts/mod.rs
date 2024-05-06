@@ -95,13 +95,9 @@ impl WebStore {
         account_id: AccountId
     ) -> Result<(Account, Option<Word>), StoreError> {
         let (account_stub, seed) = self.get_account_stub(account_id).await.unwrap();
-
         let (_procedures, module_ast) = self.get_account_code(account_stub.code_root()).await.unwrap();
-
         let account_code = AccountCode::new(module_ast, &TransactionKernel::assembler()).unwrap();
-
         let account_storage = self.get_account_storage(account_stub.storage_root()).await.unwrap();
-
         let account_vault = self.get_vault_assets(account_stub.vault_root()).await.unwrap();
         let account_vault = AssetVault::new(&account_vault).unwrap();
 

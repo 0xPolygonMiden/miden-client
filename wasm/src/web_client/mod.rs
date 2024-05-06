@@ -41,17 +41,11 @@ impl WebClient {
     pub async fn create_client(&mut self) -> Result<JsValue, JsValue> {
         web_sys::console::log_1(&JsValue::from_str("create_client_1"));
         let rng = get_random_coin();
-        web_sys::console::log_1(&JsValue::from_str("create_client_2"));
         let web_store: WebStore = WebStore::new().await.map_err(|_| JsValue::from_str("Failed to initialize WebStore"))?;
-        web_sys::console::log_1(&JsValue::from_str("create_client_3"));
         let web_rpc_client = WebRpcClient::new("http://localhost:57291");
-        web_sys::console::log_1(&JsValue::from_str("create_client_4"));
         let executor_store = WebStore::new().await.map_err(|_| JsValue::from_str("Failed to initialize ExecutorStore"))?;
-        web_sys::console::log_1(&JsValue::from_str("create_client_5"));
 
         self.inner = Some(Client::new(web_rpc_client, rng, web_store, executor_store));
-
-        web_sys::console::log_1(&JsValue::from_str("create_client_5"));
 
         Ok(JsValue::from_str("Client created successfully"))
     }

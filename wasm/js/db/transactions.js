@@ -10,10 +10,15 @@ export async function getTransactions(
 
     try {
         if (filter === 'Uncomitted') {
-            transactionRecords = await transactions.where("commitHeight").equals(null).toArray();
+            transactionRecords = await transactions.filter(tx => tx.commitHeight === undefined).toArray();
         } else {
             transactionRecords = await transactions.toArray();
         }
+
+        if (transactionRecords.length === 0) {
+            return [];
+        }
+
         const scriptHashes = transactionRecords.map(transactionRecord => transactionRecord.scriptHash);
         const scripts = await transactionScripts.where("scriptHash").anyOf(scriptHashes).toArray();
 

@@ -54,14 +54,28 @@ impl WebStore {
 
         let promise = idxdb_get_block_headers(formatted_block_numbers_list);
         let js_value = JsFuture::from(promise).await.unwrap();
-        let block_headers_idxdb: Vec<BlockHeaderIdxdbObject> = from_value(js_value).unwrap();
+        let block_headers_idxdb: Vec<Option<BlockHeaderIdxdbObject>> = from_value(js_value).unwrap();
 
-        let results:Result<Vec<(BlockHeader, bool)>, StoreError> = block_headers_idxdb.into_iter().map(|record| {
-            let block_header = serde_json::from_str(&record.header).map_err(StoreError::JsonDataDeserializationError)?;
-            let has_client_notes = record.has_client_notes;
+        // Transform the list of Option<BlockHeaderIdxdbObject> to a list of results
+        let results: Result<Vec<(BlockHeader, bool)>, StoreError> = block_headers_idxdb.into_iter()
+            .enumerate()  // Adding enumerate for better error tracking/logging
+            .filter_map(|(index, record_option)| {
+                match record_option {
+                    Some(record) => Some(Ok(record)),
+                    None => {
+                        None // Skip over missing records instead of erroring out
+                    },
+                }
+            })
+            .map(|record_result: Result<BlockHeaderIdxdbObject, StoreError> |{
+                let record = record_result?;
+                let block_header = serde_json::from_str(&record.header)
+                    .map_err(StoreError::JsonDataDeserializationError)?;
+                let has_client_notes = record.has_client_notes;
 
-            Ok((block_header, has_client_notes))
-        }).collect();
+                Ok((block_header, has_client_notes))
+            })
+            .collect(); // Collects into Result<Vec<(BlockHeader, bool)>, StoreError>
 
         return results;
     }

@@ -53,8 +53,8 @@ impl WebRpcClient {
 }
 
 fn build_client() -> ApiClient<Client> {
-    let base_url = "http://localhost:8080".to_string(); // for use with envoy proxy
-    // let base_url = "http://localhost:57291".to_string(); // for use without envoy proxy
+    // let base_url = "http://localhost:8080".to_string(); // for use with envoy proxy
+    let base_url = "http://localhost:57291".to_string(); // for use without envoy proxy
     let wasm_client = Client::new(base_url);
 
     ApiClient::new(wasm_client)

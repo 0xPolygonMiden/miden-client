@@ -35,7 +35,7 @@ use utils::*;
 
 impl WebStore {
     pub async fn get_transactions(
-        &mut self,
+        &self,
         filter: TransactionFilter
     ) -> Result<Vec<TransactionRecord>, StoreError> {
         let filter_as_str = match filter {

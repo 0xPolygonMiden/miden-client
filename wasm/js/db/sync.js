@@ -27,8 +27,10 @@ export async function getSyncHeight() {
     try {
         const record = await stateSync.get(1);  // Since id is the primary key and always 1
         if (record) {
-            console.log('Retrieved record:', record);
-            return record.blockNum;  // Accessing blockNum directly from the record
+            let data = {
+                block_num: record.blockNum
+            };
+            return data;
         } else {
             console.log('No record found with id: 1');
             return null;
@@ -52,16 +54,26 @@ export async function addNoteTag(
 
 export async function applyStateSync(
     blockNum,
+    nullifiers,
     blockHeader,
     chainMmrPeaks,
-    nullifiers,
+    hasClientNotes,
+    nodeIndices,
+    nodes,
     noteIds,
     inclusionProofs,
     transactionIds,
-    nodeIndices,
-    nodes,
-    hasClientNotes
 ) {
+    console.log('blockNum: ', blockNum)
+    console.log('blockHeader: ', blockHeader)
+    console.log('chainMmrPeaks: ', chainMmrPeaks)
+    console.log('nullifiers: ', nullifiers)
+    console.log('noteIds: ', noteIds)
+    console.log('inclusionProofs: ', inclusionProofs)
+    console.log('transactionIds: ', transactionIds)
+    console.log('nodeIndices: ', nodeIndices)
+    console.log('nodes: ', nodes)
+    console.log('hasClientNotes: ', hasClientNotes)
     return db.transaction('rw', stateSync, inputNotes, outputNotes, transactions, blockHeaders, async (tx) => {
         await updateSyncHeight(tx, blockNum);
         await updateSpentNotes(tx, nullifiers);
@@ -163,6 +175,11 @@ async function updateChainMmrNodes(
             throw new Error("nodeIndices and nodes arrays must be of the same length");
         }
 
+        if (nodeIndices.length === 0) {
+            console.log("No chain MMR nodes to update");
+            return;
+        }
+
         // Create the updates array with objects matching the structure expected by your IndexedDB schema
         const updates = nodeIndices.map((index, i) => ({
             index: index,  // Assuming 'index' is the primary key or part of it
@@ -186,6 +203,11 @@ async function updateCommittedNotes(
     try {
         if (noteIds.length !== inclusionProofs.length) {
             throw new Error("Arrays noteIds and inclusionProofs must be of the same length");
+        }
+
+        if (noteIds.length === 0) {
+            console.log("No notes to update");
+            return;
         }
 
         for (let i = 0; i < noteIds.length; i++) {
@@ -216,6 +238,11 @@ async function updateCommittedTransactions(
     transactionIds
 ) {
     try {
+        if (transactionIds.length === 0) {
+            console.log("No transactions to update");
+            return;
+        }
+
         const updates = transactionIds.map(transactionId => ({
             id: transactionId,
             commitHeight: blockNum

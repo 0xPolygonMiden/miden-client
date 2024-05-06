@@ -91,7 +91,7 @@
 
         async function testGetAccount(webClient) {
             try {
-                let result = await webClient.get_account("0x8d911ae1789cdb33");
+                let result = await webClient.get_account("0x9daeab54109472e8");
                 console.log(result);
 
             } catch (error) {
@@ -178,8 +178,8 @@
 
         async function testSyncState(webClient) {
             try {
-                await webClient.sync_state();
-
+                let result = await webClient.sync_state();
+                console.log(result);
             } catch (error) {
                 console.error('Failed to call sync state:', error);
             
@@ -202,7 +202,7 @@
         // await testGetTransactions(webClient);
         // await testNewTransaction(webClient);
 
-        // await testSyncState(webClient);
+        await testSyncState(webClient);
     </script>
 </body>
 </html>

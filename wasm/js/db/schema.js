@@ -55,7 +55,7 @@ function indexes(...items) {
 
 db.on('populate', () => {
   // Populate the stateSync table with default values
-  db.stateSync.put({ id: 1, blockNum: 0, tags: [] });
+  db.stateSync.put({ id: 1, blockNum: "0", tags: [] });
 });
 
 const accountCodes = db.table(Table.AccountCode);

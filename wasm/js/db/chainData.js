@@ -54,6 +54,21 @@ export async function getBlockHeaders(
         );
 
         const results = await Promise.all(blockHeaderPromises);
+        
+        // replace any undefined values with null
+        results.forEach((result, index) => {
+            if (result === undefined) {
+                results[index] = null;
+            } else {
+                results[index] = {
+                    block_num: results[index].blockNum,
+                    header: results[index].header,
+                    chain_mmr: results[index].chainMmrPeaks,
+                    has_client_notes: results[index].hasClientNotes
+                }
+            }
+        });
+
         return results
     } catch (err) {
         console.error("Failed to get block headers: ", err);
@@ -80,7 +95,9 @@ export async function getChainMmrPeaksByBlockNum(
 ) {
     try {
         const blockHeader = await blockHeaders.get(blockNum);
-        return blockHeader.chainMmrPeaks;
+        return {
+            peaks: blockHeader.chainMmrPeaks
+        };
     } catch (err) {
         console.error("Failed to get chain mmr peaks: ", err);
         throw err;

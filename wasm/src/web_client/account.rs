@@ -89,11 +89,10 @@ impl WebClient {
                     };
 
                     match client.new_account(client_template).await {
-                        Ok((account, word)) => {
+                        Ok((account, _)) => {
                             // Create a struct or tuple to hold both values
-                            let result = (account, word);
                             // Convert directly to JsValue
-                            serde_wasm_bindgen::to_value(&result).map_err(|e| JsValue::from_str(&e.to_string()))
+                            serde_wasm_bindgen::to_value(&account.id().to_string()).map_err(|e| JsValue::from_str(&e.to_string()))
                         },
                         Err(err) => {
                             let error_message = format!("Failed to create new account: {:?}", err);
