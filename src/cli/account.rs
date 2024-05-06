@@ -167,7 +167,12 @@ impl AccountCmd {
                     },
                     AccountTemplate::NonFungibleFaucet { storage_type: _ } => todo!(),
                 };
-                let (_new_account, _account_seed) = client.new_account(client_template)?;
+                let (new_account, _account_seed) = client.new_account(client_template)?;
+                println!("Succesfully created new account.");
+                println!(
+                    "To view account details execute `miden-client account -s {}`",
+                    new_account.id()
+                );
             },
             AccountCmd::Show { id, keys, vault, storage, code } => {
                 let account_id = parse_account_id(&client, id)?;
