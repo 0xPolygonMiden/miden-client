@@ -28,7 +28,7 @@ use tracing::info;
 mod account;
 mod info;
 mod init;
-mod input_notes;
+mod notes;
 mod sync;
 mod tags;
 mod transactions;
@@ -56,7 +56,7 @@ pub enum Command {
     Account(account::AccountCmd),
     Init(init::InitCmd),
     #[clap(subcommand)]
-    InputNotes(input_notes::Notes),
+    InputNotes(notes::Notes),
     /// Sync this client with the latest state of the Miden network.
     Sync,
     /// View a summary of the current client state

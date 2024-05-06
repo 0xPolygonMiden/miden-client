@@ -478,7 +478,7 @@ mod tests {
 
     use crate::cli::{
         get_input_note_with_id_prefix,
-        input_notes::{export_note, import_note},
+        notes::{export_note, import_note},
     };
 
     #[tokio::test]
