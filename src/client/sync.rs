@@ -427,21 +427,19 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         let note_screener = NoteScreener::new(self.store.as_ref());
 
         // Find all relevant Input Notes using the note checker
-        let mut relevant_commited_notes_count = 0;
         for input_note in committed_notes.updated_input_notes() {
             if !note_screener.check_relevance(input_note.note())?.is_empty() {
-                relevant_commited_notes_count += 1;
+                return Ok(true);
             }
         }
 
-        let mut relevant_public_notes_count = 0;
         for public_input_note in committed_notes.new_public_notes() {
             if !note_screener.check_relevance(public_input_note.note())?.is_empty() {
-                relevant_public_notes_count += 1;
+                return Ok(true);
             }
         }
 
-        Ok(relevant_commited_notes_count > 0 || relevant_public_notes_count > 0)
+        Ok(false)
     }
 
     /// Builds the current view of the chain's [PartialMmr]. Because we want to add all new
