@@ -26,6 +26,8 @@ use crate::errors::ClientError;
 #[derive(Clone, Debug, PartialEq)]
 pub struct InputNoteRecord {
     assets: NoteAssets,
+    // TODO: see if we can replace `NoteRecordDetails` with `NoteDetails` after miden-base v0.3
+    // gets released
     details: NoteRecordDetails,
     id: NoteId,
     inclusion_proof: Option<NoteInclusionProof>,
