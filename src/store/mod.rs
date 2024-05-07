@@ -315,6 +315,7 @@ pub enum TransactionFilter {
 // NOTE FILTER
 // ================================================================================================
 
+#[derive(Debug, Clone)]
 pub enum NoteFilter<'a> {
     /// Return a list of all notes ([InputNoteRecord] or [OutputNoteRecord]).
     All,
