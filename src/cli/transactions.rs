@@ -18,7 +18,6 @@ use miden_objects::{
     transaction::TransactionId,
     Digest,
 };
-use tracing::info;
 
 use super::{get_input_note_with_id_prefix, parse_account_id, Client, Parser};
 use crate::cli::create_dynamic_table;
@@ -173,7 +172,6 @@ async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store>(
         }
     }
 
-    info!("Proving and then submitting...");
     println!("Proving transaction and then submitting it to node...");
 
     let transaction_id = transaction_execution_result.executed_transaction().id();
