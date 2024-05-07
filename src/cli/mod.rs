@@ -14,7 +14,10 @@ use miden_client::{
     },
     config::ClientConfig,
     errors::{ClientError, IdPrefixFetchError},
-    store::{sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter, Store},
+    store::{
+        sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter,
+        OutputNoteRecord, Store,
+    },
 };
 use miden_objects::{
     accounts::{AccountId, AccountStub},
@@ -26,7 +29,7 @@ mod account;
 mod import;
 mod info;
 mod init;
-mod input_notes;
+mod notes;
 mod sync;
 mod tags;
 mod transactions;
@@ -57,9 +60,9 @@ pub enum Command {
     #[clap(subcommand)]
     Import(import::ImportCmd),
     Init(init::InitCmd),
-    InputNotes {
+    Notes {
         #[clap(subcommand)]
-        cmd: Option<input_notes::InputNotes>,
+        cmd: Option<notes::Notes>,
     },
     /// Sync this client with the latest state of the Miden network.
     Sync,
@@ -119,7 +122,7 @@ impl Cli {
             Command::Import(import) => import.execute(client).await,
             Command::Init(_) => Ok(()),
             Command::Info => info::print_client_info(&client),
-            Command::InputNotes { cmd: notes_cmd } => {
+            Command::Notes { cmd: notes_cmd } => {
                 let notes_cmd = notes_cmd.clone().unwrap_or_default();
                 notes_cmd.execute(client).await
             },
@@ -163,7 +166,7 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
     table
 }
 
-/// Returns the client note whose ID starts with `note_id_prefix`
+/// Returns the client input note whose ID starts with `note_id_prefix`
 ///
 /// # Errors
 ///
@@ -171,7 +174,7 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
 /// `note_id_prefix` is a prefix of its id.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found
 /// where `note_id_prefix` is a prefix of its id.
-pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>(
+pub(crate) fn get_input_note_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: &Client<N, R, S>,
     note_id_prefix: &str,
 ) -> Result<InputNoteRecord, IdPrefixFetchError> {
@@ -206,6 +209,53 @@ pub(crate) fn get_note_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>(
     }
 
     Ok(input_note_records
+        .pop()
+        .expect("input_note_records should always have one element"))
+}
+
+/// Returns the client output note whose ID starts with `note_id_prefix`
+///
+/// # Errors
+///
+/// - Returns [IdPrefixFetchError::NoMatch] if we were unable to find any note where
+/// `note_id_prefix` is a prefix of its id.
+/// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found
+/// where `note_id_prefix` is a prefix of its id.
+pub(crate) fn get_output_note_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Store>(
+    client: &Client<N, R, S>,
+    note_id_prefix: &str,
+) -> Result<OutputNoteRecord, IdPrefixFetchError> {
+    let mut output_note_records = client
+        .get_output_notes(ClientNoteFilter::All)
+        .map_err(|err| {
+            tracing::error!("Error when fetching all notes from the store: {err}");
+            IdPrefixFetchError::NoMatch(format!("note ID prefix {note_id_prefix}").to_string())
+        })?
+        .into_iter()
+        .filter(|note_record| note_record.id().to_hex().starts_with(note_id_prefix))
+        .collect::<Vec<_>>();
+
+    if output_note_records.is_empty() {
+        return Err(IdPrefixFetchError::NoMatch(
+            format!("note ID prefix {note_id_prefix}").to_string(),
+        ));
+    }
+    if output_note_records.len() > 1 {
+        let output_note_record_ids = output_note_records
+            .iter()
+            .map(|input_note_record| input_note_record.id())
+            .collect::<Vec<_>>();
+        tracing::error!(
+            "Multiple notes found for the prefix {}: {:?}",
+            note_id_prefix,
+            output_note_record_ids
+        );
+        return Err(IdPrefixFetchError::MultipleMatches(
+            format!("note ID prefix {note_id_prefix}").to_string(),
+        ));
+    }
+
+    Ok(output_note_records
         .pop()
         .expect("input_note_records should always have one element"))
 }

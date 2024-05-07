@@ -8,14 +8,13 @@ use miden_objects::{
         merkle::{InOrderIndex, MmrPeaks},
     },
     notes::{NoteId, NoteTag, Nullifier},
-    transaction::TransactionId,
     BlockHeader, Digest, Felt, Word,
 };
 use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 
 use crate::{
     client::{
-        sync::SyncedNewNotes,
+        sync::StateSyncUpdate,
         transactions::{TransactionRecord, TransactionResult},
     },
     errors::StoreError,
@@ -230,16 +229,7 @@ pub trait Store {
     /// - Updating transactions in the store, marking as `committed` the ones provided with
     /// `committed_transactions`
     /// - Storing new MMR authentication nodes
-    fn apply_state_sync(
-        &self,
-        block_header: BlockHeader,
-        nullifiers: Vec<Digest>,
-        new_note_details: SyncedNewNotes,
-        committed_transactions: &[TransactionId],
-        new_mmr_peaks: MmrPeaks,
-        new_authentication_nodes: &[(InOrderIndex, Digest)],
-        updated_onchain_accounts: &[Account],
-    ) -> Result<(), StoreError>;
+    fn apply_state_sync(&self, state_sync_update: StateSyncUpdate) -> Result<(), StoreError>;
 }
 
 // DATABASE AUTH INFO
@@ -325,6 +315,7 @@ pub enum TransactionFilter {
 // NOTE FILTER
 // ================================================================================================
 
+#[derive(Debug, Clone)]
 pub enum NoteFilter<'a> {
     /// Return a list of all notes ([InputNoteRecord] or [OutputNoteRecord]).
     All,

@@ -146,7 +146,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::import_note;
-    use crate::cli::{get_note_with_id_prefix, input_notes::export_note};
+    use crate::cli::{get_input_note_with_id_prefix, notes::export_note};
 
     #[tokio::test]
     async fn import_export_recorded_note() {
@@ -241,7 +241,7 @@ mod tests {
         // Ensure we get an error if no note is found
         let non_existent_note_id = "0x123456";
         assert_eq!(
-            get_note_with_id_prefix(&client, non_existent_note_id),
+            get_input_note_with_id_prefix(&client, non_existent_note_id),
             Err(IdPrefixFetchError::NoMatch(
                 format!("note ID prefix {non_existent_note_id}").to_string()
             ))
@@ -261,16 +261,16 @@ mod tests {
         assert!(committed_note.inclusion_proof().is_some());
 
         // Check that we can fetch Both notes
-        let note = get_note_with_id_prefix(&client, &committed_note.id().to_hex()).unwrap();
+        let note = get_input_note_with_id_prefix(&client, &committed_note.id().to_hex()).unwrap();
         assert_eq!(note.id(), committed_note.id());
 
-        let note = get_note_with_id_prefix(&client, &pending_note.id().to_hex()).unwrap();
+        let note = get_input_note_with_id_prefix(&client, &pending_note.id().to_hex()).unwrap();
         assert_eq!(note.id(), pending_note.id());
 
         // Check that we get an error if many match
         let note_id_with_many_matches = "0x";
         assert_eq!(
-            get_note_with_id_prefix(&client, note_id_with_many_matches),
+            get_input_note_with_id_prefix(&client, note_id_with_many_matches),
             Err(IdPrefixFetchError::MultipleMatches(
                 format!("note ID prefix {note_id_with_many_matches}").to_string()
             ))
