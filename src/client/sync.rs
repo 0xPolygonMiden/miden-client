@@ -34,6 +34,8 @@ pub struct SyncSummary {
     pub new_nullifiers: usize,
     /// Number of on-chain accounts that have been updated
     pub updated_onchain_accounts: usize,
+    /// Number of commited transactions
+    pub commited_transactions: usize,
 }
 
 impl SyncSummary {
@@ -43,6 +45,7 @@ impl SyncSummary {
         new_inclusion_proofs: usize,
         new_nullifiers: usize,
         updated_onchain_accounts: usize,
+        commited_transactions: usize,
     ) -> Self {
         Self {
             block_num,
@@ -50,6 +53,7 @@ impl SyncSummary {
             new_inclusion_proofs,
             new_nullifiers,
             updated_onchain_accounts,
+            commited_transactions,
         }
     }
 
@@ -60,6 +64,7 @@ impl SyncSummary {
             new_inclusion_proofs: 0,
             new_nullifiers: 0,
             updated_onchain_accounts: 0,
+            commited_transactions: 0,
         }
     }
 
@@ -68,6 +73,14 @@ impl SyncSummary {
             && self.new_inclusion_proofs == 0
             && self.new_nullifiers == 0
             && self.updated_onchain_accounts == 0
+    }
+
+    pub fn add(&mut self, other: &Self) {
+        self.new_notes += other.new_notes;
+        self.new_inclusion_proofs += other.new_inclusion_proofs;
+        self.new_nullifiers += other.new_nullifiers;
+        self.updated_onchain_accounts += other.updated_onchain_accounts;
+        self.commited_transactions += other.commited_transactions;
     }
 }
 
@@ -167,11 +180,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
                 SyncStatus::SyncedToLastBlock(v) => v,
                 SyncStatus::SyncedToBlock(v) => v,
             };
+            total_sync_details.add(details);
             total_sync_details.block_num = details.block_num;
-            total_sync_details.new_notes += details.new_notes;
-            total_sync_details.new_inclusion_proofs += details.new_inclusion_proofs;
-            total_sync_details.new_nullifiers += details.new_nullifiers;
-            total_sync_details.updated_onchain_accounts += details.updated_onchain_accounts;
 
             if let SyncStatus::SyncedToLastBlock(_) = response {
                 return Ok(total_sync_details);
@@ -326,6 +336,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
                 num_new_inclusion_proofs,
                 num_new_nullifiers,
                 updated_onchain_accounts.len(),
+                transactions_to_commit.len(),
             )))
         } else {
             Ok(SyncStatus::SyncedToBlock(SyncSummary::new(
@@ -334,6 +345,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
                 num_new_inclusion_proofs,
                 num_new_nullifiers,
                 updated_onchain_accounts.len(),
+                transactions_to_commit.len(),
             )))
         }
     }

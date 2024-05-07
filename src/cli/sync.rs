@@ -13,5 +13,6 @@ pub async fn sync_state<N: NodeRpcClient, R: FeltRng, S: Store>(
     println!("Tracked notes updated: {}", new_details.new_inclusion_proofs);
     println!("Tracked notes consumed: {}", new_details.new_nullifiers);
     println!("Tracked accounts updated: {}", new_details.updated_onchain_accounts);
+    println!("Commited transactions: {}", new_details.commited_transactions);
     Ok(())
 }
