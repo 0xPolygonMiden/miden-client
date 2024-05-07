@@ -20,7 +20,7 @@ use crate::{
         notes_from_output, TransactionRecord, TransactionResult, TransactionStatus,
     },
     errors::StoreError,
-    store::{OutputNoteRecord, TransactionFilter},
+    store::{OutputNoteRecord, TransactionFilter, InputNoteRecord},
 };
 
 pub(crate) const INSERT_TRANSACTION_QUERY: &str =
@@ -101,6 +101,12 @@ impl SqliteStore {
         let consumed_note_ids =
             tx_result.consumed_notes().iter().map(|note| note.id()).collect::<Vec<_>>();
 
+        let payback_note_records = tx_result
+            .payback_note_details()
+            .iter()
+            .map(InputNoteRecord::from_details)
+            .collect::<Vec<_>>();
+
         let mut db = self.db();
         let tx = db.transaction()?;
 
@@ -121,6 +127,10 @@ impl SqliteStore {
 
         for note_id in consumed_note_ids {
             update_note_consumer_tx_id(&tx, note_id, transaction_id)?;
+        }
+
+        for payback_note_record in payback_note_records {
+            insert_input_note_tx(&tx, &payback_note_record)?;
         }
 
         tx.commit()?;

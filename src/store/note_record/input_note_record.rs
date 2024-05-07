@@ -1,7 +1,8 @@
 use miden_objects::{
     accounts::AccountId,
     notes::{
-        Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata, NoteRecipient,
+        Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata,
+        NoteRecipient,
     },
     transaction::InputNote,
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
@@ -62,6 +63,25 @@ impl InputNoteRecord {
             inclusion_proof,
             details,
             consumer_account_id,
+        }
+    }
+
+    pub fn from_details(note_details: &NoteDetails) -> InputNoteRecord {
+        InputNoteRecord {
+            id: note_details.id(),
+            assets: note_details.assets().clone(),
+            recipient: note_details.recipient().digest(),
+            metadata: None,
+            inclusion_proof: None,
+            status: NoteStatus::Pending,
+            details: NoteRecordDetails {
+                nullifier: note_details.nullifier().to_string(),
+                script_hash: note_details.script().hash(),
+                script: note_details.script().clone(),
+                inputs: note_details.inputs().to_vec(),
+                serial_num: note_details.serial_num(),
+            },
+            consumer_account_id: None,
         }
     }
 
