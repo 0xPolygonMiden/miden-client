@@ -8,6 +8,7 @@ use miden_objects::{
         dsa::rpo_falcon512::SecretKey,
         rand::{FeltRng, RpoRandomCoin},
     },
+    notes::NoteId,
     Digest, Felt, Word,
 };
 
@@ -228,6 +229,22 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     /// not correspond to an existing account.
     pub fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, ClientError> {
         self.store.get_account_auth(account_id).map_err(|err| err.into())
+    }
+
+    /// Retrieves (if possible) the [AccountId] of the consumer of the note with the provided ID.
+    /// If the note was consumed but the consumer account is not tracked, `None` is returned.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [ClientError::StoreError] with a [StoreError::NoteNotConsumed](crate::errors::StoreError::NoteNotConsumed) if the note with the provided ID
+    /// is not consumed.
+    /// Returns a [StoreError::][ClientError::StoreError] with a [StoreError::NoteNotFound](crate::errors::StoreError::NoteNotFound) if the note with the provided ID
+    /// is not found.
+    pub fn get_consumer_account_id(
+        &self,
+        note_id: NoteId,
+    ) -> Result<Option<AccountId>, ClientError> {
+        self.store.get_consumer_account_id(note_id).map_err(|err| err.into())
     }
 }
 
