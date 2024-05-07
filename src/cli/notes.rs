@@ -9,7 +9,7 @@ use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     client::{rpc::NodeRpcClient, ConsumableNote},
-    errors::ClientError,
+    errors::{ClientError, IdPrefixFetchError},
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
 };
 use miden_objects::{
@@ -231,12 +231,34 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store>(
     show_vault: bool,
     show_inputs: bool,
 ) -> Result<(), String> {
-    let input_note_record = get_input_note_with_id_prefix(&client, &note_id).ok();
+    let input_note_record = get_input_note_with_id_prefix(&client, &note_id);
+    let output_note_record = get_output_note_with_id_prefix(&client, &note_id);
 
-    let output_note_record = get_output_note_with_id_prefix(&client, &note_id).ok();
-
-    if input_note_record.is_none() && output_note_record.is_none() {
+    // If we don't find an input note nor an output note return an error
+    if matches!(input_note_record, Err(IdPrefixFetchError::NoMatch(_)))
+        && matches!(output_note_record, Err(IdPrefixFetchError::NoMatch(_)))
+    {
         return Err("Couldn't find notes matching the specified note ID".to_string());
+    }
+
+    // If either one of the two match with multiple notes return an error
+    if matches!(input_note_record, Err(IdPrefixFetchError::MultipleMatches(_)))
+        || matches!(output_note_record, Err(IdPrefixFetchError::MultipleMatches(_)))
+    {
+        return Err("The specified note ID hex prefix matched with more than one note.".to_string());
+    }
+
+    let input_note_record = input_note_record.ok();
+    let output_note_record = output_note_record.ok();
+
+    // If we match one note as the input note and another one as the output note return an error
+    match (&input_note_record, &output_note_record) {
+        (Some(input_record), Some(output_record)) if input_record.id() != output_record.id() => {
+            return Err(
+                "The specified note ID hex prefix matched with more than one note.".to_string()
+            );
+        },
+        _ => {},
     }
 
     // print note summary
