@@ -114,7 +114,7 @@ impl Notes {
                 list_notes(client, filter)?;
             },
             Notes::Show { id, script, vault, inputs } => {
-                show_input_note(client, id.to_owned(), *script, *vault, *inputs)?;
+                show_note(client, id.to_owned(), *script, *vault, *inputs)?;
             },
             Notes::Export { id, filename } => {
                 export_note(&client, id, filename.clone())?;
@@ -163,7 +163,7 @@ fn list_notes<N: NodeRpcClient, R: FeltRng, S: Store>(
     Ok(())
 }
 
-// EXPORT INPUT NOTE
+// EXPORT NOTE
 // ================================================================================================
 pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: &Client<N, R, S>,
@@ -196,7 +196,7 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store>(
     Ok(file)
 }
 
-// IMPORT INPUT NOTE
+// IMPORT NOTE
 // ================================================================================================
 pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: &mut Client<N, R, S>,
@@ -222,9 +222,9 @@ pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store>(
     Ok(note_id)
 }
 
-// SHOW INPUT NOTE
+// SHOW NOTE
 // ================================================================================================
-fn show_input_note<N: NodeRpcClient, R: FeltRng, S: Store>(
+fn show_note<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: Client<N, R, S>,
     note_id: String,
     show_script: bool,

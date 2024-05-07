@@ -56,7 +56,7 @@ pub enum Command {
     Account(account::AccountCmd),
     Init(init::InitCmd),
     #[clap(subcommand)]
-    InputNotes(notes::Notes),
+    Notes(notes::Notes),
     /// Sync this client with the latest state of the Miden network.
     Sync,
     /// View a summary of the current client state
@@ -106,7 +106,7 @@ impl Cli {
             Command::Account(account) => account.execute(client),
             Command::Init(_) => Ok(()),
             Command::Info => info::print_client_info(&client),
-            Command::InputNotes(notes) => notes.execute(client).await,
+            Command::Notes(notes) => notes.execute(client).await,
             Command::Sync => sync::sync_state(client).await,
             Command::Tags(tags) => tags.execute(client).await,
             Command::Transaction(transaction) => {
