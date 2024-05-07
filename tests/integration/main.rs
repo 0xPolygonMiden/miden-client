@@ -130,8 +130,15 @@ async fn test_p2idr_transfer_consumed_by_target() {
     let note = mint_note(&mut client, from_account_id, faucet_account_id, NoteType::OffChain).await;
     println!("about to consume");
 
-    consume_notes(&mut client, from_account_id, &[note]).await;
+    //Check that the note is not consumed by the target account
+    assert!(client.get_consumer_account_id(note.id()).is_err());
+
+    consume_notes(&mut client, from_account_id, &[note.clone()]).await;
     assert_account_has_single_asset(&client, from_account_id, faucet_account_id, MINT_AMOUNT).await;
+
+    // Check that the note is consumed by the target account
+    assert!(client.get_consumer_account_id(note.id()).unwrap().is_some());
+    assert_eq!(client.get_consumer_account_id(note.id()).unwrap().unwrap(), from_account_id);
 
     // Do a transfer from first account to second account with Recall. In this situation we'll do
     // the happy path where the `to_account_id` consumes the note

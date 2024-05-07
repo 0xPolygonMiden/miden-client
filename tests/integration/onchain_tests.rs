@@ -214,6 +214,9 @@ async fn test_onchain_accounts() {
     client_2.sync_state().await.unwrap();
     let notes = client_2.get_input_notes(NoteFilter::Committed).unwrap();
 
+    //Import the note on the first client so that we can later check its consumer account
+    client_1.import_input_note(notes[0].clone(), false).await.unwrap();
+
     // Consume the note
     println!("Consuming note con second client...");
     let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![notes[0].id()]);
@@ -223,6 +226,9 @@ async fn test_onchain_accounts() {
     // sync on first client
     println!("Syncing on first client...");
     client_1.sync_state().await.unwrap();
+
+    // Check that the client doesn't know who consumed the note
+    assert!(client_1.get_consumer_account_id(notes[0].id()).unwrap().is_none());
 
     let new_from_account_balance = client_1
         .get_account(from_account_id)
