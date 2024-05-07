@@ -14,11 +14,12 @@ use miden_client::{
     store::{Store, TransactionFilter},
 };
 use miden_objects::{
+    accounts::AccountId,
     assets::{Asset, FungibleAsset},
     crypto::rand::FeltRng,
-    notes::{NoteId, NoteType as MidenNoteType},
+    notes::{NoteExecutionHint, NoteId, NoteTag, NoteType as MidenNoteType},
     transaction::TransactionId,
-    Digest,
+    Digest, NoteError,
 };
 use miden_tx::TransactionAuthenticator;
 
@@ -205,6 +206,28 @@ async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionA
         .map(|note| note.id())
         .collect::<Vec<_>>();
     client.submit_transaction(transaction_execution_result).await?;
+
+    if let TransactionType::Swap {
+        sender_account_id: _,
+        offered_asset_faucet_id,
+        offered_asset_amount: _,
+        requested_asset_faucet_id,
+        requested_asset_amount: _,
+        note_type,
+    } = transaction_type
+    {
+        let payback_note_tag: u32 = build_swap_tag(
+            *note_type,
+            parse_account_id(client, offered_asset_faucet_id)?,
+            parse_account_id(client, requested_asset_faucet_id)?,
+        )
+        .map_err(|err| err.to_string())?
+        .into();
+        println!(
+            "To receive updates about the payback Swap Note run `miden tags add {}`",
+            payback_note_tag
+        );
+    }
 
     Ok(Some((transaction_id, output_notes)))
 }
@@ -452,4 +475,40 @@ where
     }
 
     println!("{table}");
+}
+
+/// Returns a note tag for a swap note with the specified parameters.
+///
+/// Use case ID for the returned tag is set to 0.
+///
+/// Tag payload is constructed by taking asset tags (8 bits of faucet ID) and concatenating them
+/// together as offered_asset_tag + requested_asset tag.
+///
+/// Network execution hint for the returned tag is set to `Local`.
+///
+/// Based on miden-base's implementation (https://github.com/0xPolygonMiden/miden-base/blob/9e4de88031b55bcc3524cb0ccfb269821d97fb29/miden-lib/src/notes/mod.rs#L153)
+fn build_swap_tag(
+    note_type: NoteType,
+    offered_asset_faucet_id: AccountId,
+    requested_asset_faucet_id: AccountId,
+) -> Result<NoteTag, NoteError> {
+    const SWAP_USE_CASE_ID: u16 = 0;
+
+    // get bits 4..12 from faucet IDs of both assets, these bits will form the tag payload; the
+    // reason we skip the 4 most significant bits is that these encode metadata of underlying
+    // faucets and are likely to be the same for many different faucets.
+
+    let offered_asset_id: u64 = offered_asset_faucet_id.into();
+    let offered_asset_tag = (offered_asset_id >> 52) as u8;
+
+    let requested_asset_id: u64 = requested_asset_faucet_id.into();
+    let requested_asset_tag = (requested_asset_id >> 52) as u8;
+
+    let payload = ((offered_asset_tag as u16) << 8) | (requested_asset_tag as u16);
+
+    let execution = NoteExecutionHint::Local;
+    match note_type {
+        NoteType::Public => NoteTag::for_public_use_case(SWAP_USE_CASE_ID, payload, execution),
+        _ => NoteTag::for_local_use_case(SWAP_USE_CASE_ID, payload),
+    }
 }
