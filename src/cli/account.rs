@@ -17,7 +17,7 @@ use miden_tx::utils::{bytes_to_hex_string, Deserializable, Serializable};
 use tracing::info;
 
 use super::{load_config, parse_account_id, update_config, CLIENT_CONFIG_FILE_NAME};
-use crate::cli::create_dynamic_table;
+use crate::cli::{create_dynamic_table, CLIENT_BINARY_NAME};
 
 // ACCOUNT COMMAND
 // ================================================================================================
@@ -170,7 +170,8 @@ impl AccountCmd {
                 let (new_account, _account_seed) = client.new_account(client_template)?;
                 println!("Succesfully created new account.");
                 println!(
-                    "To view account details execute `miden-client account -s {}`",
+                    "To view account details execute `{} account -s {}`",
+                    CLIENT_BINARY_NAME,
                     new_account.id()
                 );
             },

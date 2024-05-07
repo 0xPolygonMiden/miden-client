@@ -36,6 +36,9 @@ mod transactions;
 /// Config file name
 const CLIENT_CONFIG_FILE_NAME: &str = "miden-client.toml";
 
+/// Client binary name
+pub const CLIENT_BINARY_NAME: &str = "miden-client";
+
 /// Root CLI struct
 #[derive(Parser, Debug)]
 #[clap(name = "Miden", about = "Miden client", version, rename_all = "kebab-case")]

@@ -23,6 +23,7 @@ use miden_tx::utils::{Deserializable, Serializable};
 use super::{Client, Parser};
 use crate::cli::{
     create_dynamic_table, get_input_note_with_id_prefix, get_output_note_with_id_prefix,
+    CLIENT_BINARY_NAME,
 };
 
 #[derive(Clone, Debug, ValueEnum)]
@@ -124,7 +125,8 @@ impl Notes {
                 let note_id = import_note(&mut client, filename.clone(), !(*no_verify)).await?;
                 println!("Succesfully imported note.");
                 println!(
-                    "To view note details execute `miden-client input-notes -s {}`",
+                    "To view note details execute `{} input-notes -s {}`",
+                    CLIENT_BINARY_NAME,
                     note_id.inner()
                 );
             },
