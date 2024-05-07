@@ -313,8 +313,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         // we might get many notes when we only care about a few of those.
 
         let mut new_public_notes = vec![];
-        let mut local_input_notes = vec![];
-        let mut local_output_notes_proofs = vec![];
+        let mut tracked_input_notes = vec![];
+        let mut tracked_output_notes_proofs = vec![];
 
         let pending_input_notes: BTreeMap<NoteId, InputNoteRecord> = self
             .store
@@ -355,7 +355,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
                 let input_note = InputNote::new(note, note_inclusion_proof);
 
-                local_input_notes.push(input_note);
+                tracked_input_notes.push(input_note);
             }
 
             if pending_output_notes.contains(committed_note.note_id()) {
@@ -368,7 +368,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
                 )
                 .map(|note_inclusion_proof| (*committed_note.note_id(), note_inclusion_proof))?;
 
-                local_output_notes_proofs.push(note_id_with_inclusion_proof);
+                tracked_output_notes_proofs.push(note_id_with_inclusion_proof);
             }
 
             if !pending_input_notes.contains_key(committed_note.note_id())
@@ -385,8 +385,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
         Ok(SyncedNewNotes::new(
             new_public_notes,
-            local_input_notes,
-            local_output_notes_proofs,
+            tracked_input_notes,
+            tracked_output_notes_proofs,
         ))
     }
 
