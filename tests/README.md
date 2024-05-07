@@ -9,7 +9,9 @@ There are commands provided in the `Makefile.toml` to make running them easier. 
 ```bash
 # This will ensure we start from a clean node and client
 cargo make reset
-# This command will clone the node's repo and generate the accounts and genesis files and lastly start the node and run it on background
+# This command will clone the node's repo and generate the accounts and genesis files and lastly start the node 
+cargo make node
+# This command will run the node on background
 cargo make start-node &
 # This will run the integration test 
 cargo make integration-test

@@ -16,7 +16,7 @@ use miden_objects::{
 use miden_tx::utils::{bytes_to_hex_string, Deserializable, Serializable};
 use tracing::info;
 
-use super::{get_account_with_id_prefix, load_config, update_config, CLIENT_CONFIG_FILE_NAME};
+use super::{load_config, parse_account_id, update_config, CLIENT_CONFIG_FILE_NAME};
 use crate::cli::create_dynamic_table;
 
 // ACCOUNT COMMAND
@@ -170,8 +170,7 @@ impl AccountCmd {
                 let (_new_account, _account_seed) = client.new_account(client_template)?;
             },
             AccountCmd::Show { id, keys, vault, storage, code } => {
-                let account_id =
-                    get_account_with_id_prefix(&client, id).map_err(|err| err.to_string())?.id();
+                let account_id = parse_account_id(&client, id)?;
                 show_account(client, account_id, *keys, *vault, *storage, *code)?;
             },
             AccountCmd::Import { filenames } => {
