@@ -193,6 +193,33 @@ pub trait Store {
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
     fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, StoreError>;
 
+    /// Retrieves (if possible) the [AccountId] of the consumer of the note with the provided ID.
+    /// If the note was consumed but the consumer account is not tracked, `None` is returned.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [StoreError::NoteNotConsumed] if the note with the provided ID is not consumed.
+    /// Returns a [StoreError::NoteNotFound] if the note with the provided ID is not found.
+    fn get_consumer_account_id(&self, note_id: NoteId) -> Result<Option<AccountId>, StoreError> {
+        let note = self
+            .get_input_notes(NoteFilter::Unique(note_id))?
+            .pop()
+            .expect("Should return a note");
+
+        if note.status() != NoteStatus::Consumed {
+            return Err(StoreError::NoteNotConsumed(note_id));
+        }
+
+        let nullifier: Digest = note.nullifier().try_into()?;
+
+        let consumer_transaction = self
+            .get_transactions(TransactionFilter::All)?
+            .into_iter()
+            .find(|tx| tx.input_note_nullifiers.contains(&nullifier));
+
+        Ok(consumer_transaction.map(|tx| tx.account_id))
+    }
+
     /// Inserts an [Account] along with the seed used to create it and its [AuthInfo]
     fn insert_account(
         &self,

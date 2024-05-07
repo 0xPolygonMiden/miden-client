@@ -161,6 +161,7 @@ pub enum StoreError {
     DatabaseError(String),
     DataDeserializationError(DeserializationError),
     HexParseError(HexParseError),
+    NoteNotConsumed(NoteId),
     NoteNotFound(NoteId),
     InputSerializationError(serde_json::Error),
     JsonDataDeserializationError(serde_json::Error),
@@ -276,6 +277,9 @@ impl fmt::Display for StoreError {
             },
             NoteNotFound(note_id) => {
                 write!(f, "note with note id {} not found", note_id.inner())
+            },
+            NoteNotConsumed(note_id) => {
+                write!(f, "note with note id {} isn't consumed", note_id.inner())
             },
             InputSerializationError(err) => {
                 write!(f, "error trying to serialize inputs for the store: {err}")
