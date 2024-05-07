@@ -22,15 +22,21 @@ use crate::{
     store::{ChainMmrNodeFilter, NoteFilter, Store, TransactionFilter},
 };
 
-pub struct SyncNewDetails {
+/// Contains stats about the sync operation
+pub struct SyncSummary {
+    /// Block number up to which the client has been synced
     pub block_num: u32,
+    /// Number of new notes received
     pub new_notes: usize,
+    /// Number of tracked notes that received inclusion proofs
     pub new_inclusion_proofs: usize,
+    /// Number of new nullifiers received
     pub new_nullifiers: usize,
+    /// Number of on-chain accounts that have been updated
     pub updated_onchain_accounts: usize,
 }
 
-impl SyncNewDetails {
+impl SyncSummary {
     pub fn new(
         block_num: u32,
         new_notes: usize,
@@ -66,8 +72,8 @@ impl SyncNewDetails {
 }
 
 pub enum SyncStatus {
-    SyncedToLastBlock(SyncNewDetails),
-    SyncedToBlock(SyncNewDetails),
+    SyncedToLastBlock(SyncSummary),
+    SyncedToBlock(SyncSummary),
 }
 
 /// Contains information about new notes as consequence of a sync
@@ -152,9 +158,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     /// Before doing so, it ensures the genesis block exists in the local store.
     ///
     /// Returns the block number the client has been synced to.
-    pub async fn sync_state(&mut self) -> Result<SyncNewDetails, ClientError> {
+    pub async fn sync_state(&mut self) -> Result<SyncSummary, ClientError> {
         self.ensure_genesis_in_place().await?;
-        let mut total_sync_details = SyncNewDetails::new_empty(0);
+        let mut total_sync_details = SyncSummary::new_empty(0);
         loop {
             let response = self.sync_state_once().await?;
             let details = match &response {
@@ -251,7 +257,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
         // We don't need to continue if the chain has not advanced, there are no new changes
         if response.block_header.block_num() == current_block_num {
-            return Ok(SyncStatus::SyncedToLastBlock(SyncNewDetails::new_empty(current_block_num)));
+            return Ok(SyncStatus::SyncedToLastBlock(SyncSummary::new_empty(current_block_num)));
         }
 
         let new_note_details =
@@ -314,7 +320,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             .map_err(ClientError::StoreError)?;
 
         if response.chain_tip == response.block_header.block_num() {
-            Ok(SyncStatus::SyncedToLastBlock(SyncNewDetails::new(
+            Ok(SyncStatus::SyncedToLastBlock(SyncSummary::new(
                 response.chain_tip,
                 num_new_notes,
                 num_new_inclusion_proofs,
@@ -322,7 +328,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
                 updated_onchain_accounts.len(),
             )))
         } else {
-            Ok(SyncStatus::SyncedToBlock(SyncNewDetails::new(
+            Ok(SyncStatus::SyncedToBlock(SyncSummary::new(
                 response.block_header.block_num(),
                 num_new_notes,
                 num_new_inclusion_proofs,
