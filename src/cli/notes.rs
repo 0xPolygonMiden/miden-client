@@ -5,7 +5,7 @@ use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     client::{rpc::NodeRpcClient, ConsumableNote},
     errors::{ClientError, IdPrefixFetchError},
-    store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
+    store::{InputNoteRecord, NoteFilter as ClientNoteFilter, NoteStatus, OutputNoteRecord, Store},
 };
 use miden_objects::{
     accounts::AccountId,
@@ -264,7 +264,7 @@ where
         "Inputs Hash",
         "Serial Num",
         "Type",
-        "Commit Height",
+        "Status",
         "Exportable?",
     ]);
 
@@ -328,6 +328,18 @@ where
                 .or(output_note_record.map(|record| record.metadata())),
         );
 
+        let note_status = input_note_record
+            .map(|record| record.status())
+            .or(output_note_record.map(|record| record.status()))
+            .expect("One of the two records should be Some");
+
+        let note_status = match note_status {
+            NoteStatus::Committed => {
+                note_status.to_string() + format!(" (height {})", commit_height).as_str()
+            },
+            _ => note_status.to_string(),
+        };
+
         let exportable = if output_note_record.is_some() { "✔" } else { "✘" };
 
         table.add_row(vec![
@@ -337,7 +349,7 @@ where
             inputs_commitment_str,
             serial_num,
             note_type,
-            commit_height,
+            note_status,
             exportable.to_string(),
         ]);
     }
