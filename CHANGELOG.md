@@ -1,5 +1,6 @@
 # Changelog
 
+* Added a way to retrieve the ID of the tracked account that consumed a note.
 * Renamed the cli `input-notes` command to `notes`. Now we only export notes that were created on this client as the result of a transaction.
 * Added validation using the `NoteScreener` to see if a block has relevant notes.
 * Added flags to `init` command for non-interactive environments
