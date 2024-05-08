@@ -126,9 +126,8 @@ impl NodeRpcClient for MockRpcApi {
     async fn get_block_header_by_number(
         &mut self,
         block_num: Option<u32>,
+        include_mmr_proof: bool,
     ) -> Result<BlockHeader, NodeRpcClientError> {
-        let request = GetBlockHeaderByNumberRequest { block_num };
-
         if request.block_num == Some(0) {
             return Ok(self.genesis_block);
         }

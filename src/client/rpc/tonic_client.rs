@@ -90,8 +90,12 @@ impl NodeRpcClient for TonicRpcClient {
     async fn get_block_header_by_number(
         &mut self,
         block_num: Option<u32>,
+        include_mmr_proof: bool,
     ) -> Result<BlockHeader, NodeRpcClientError> {
-        let request = GetBlockHeaderByNumberRequest { block_num };
+        let request = GetBlockHeaderByNumberRequest {
+            block_num,
+            include_mmr_proof: Some(include_mmr_proof),
+        };
         let rpc_api = self.rpc_api().await?;
         let api_response = rpc_api.get_block_header_by_number(request).await.map_err(|err| {
             NodeRpcClientError::RequestError(

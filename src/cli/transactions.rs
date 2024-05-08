@@ -316,7 +316,7 @@ fn build_transaction_template<
             let list_of_notes = list_of_notes
                 .iter()
                 .map(|note_id| {
-                    get_note_with_id_prefix(client, note_id)
+                    get_input_note_with_id_prefix(client, note_id)
                         .map(|note_record| note_record.id())
                         .map_err(|err| err.to_string())
                 })

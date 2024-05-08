@@ -54,9 +54,15 @@ pub fn create_test_client() -> TestClient {
         .try_into()
         .unwrap();
 
-    let store = SqliteStore::new((&client_config).into()).unwrap();
+    let store = {
+        let sqlite_store = SqliteStore::new((&client_config).into()).unwrap();
+        Rc::new(store);
+    };
+
     let rng = get_random_coin();
-    TestClient::new(TonicRpcClient::new(&client_config.rpc), rng, store, true)
+
+    let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
+    TestClient::new(TonicRpcClient::new(&client_config.rpc), rng, store, authenticator, true)
 }
 
 pub fn create_test_store_path() -> std::path::PathBuf {

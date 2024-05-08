@@ -5,7 +5,6 @@ use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::NoteTag,
-    transaction::TransactionId,
     BlockHeader, Digest, Word,
 };
 use miden_tx::AuthSecretKey;
@@ -16,7 +15,7 @@ use super::{
 };
 use crate::{
     client::{
-        sync::SyncedNewNotes,
+        sync::StateSyncUpdate,
         transactions::{TransactionRecord, TransactionResult},
     },
     config::StoreConfig,
@@ -135,25 +134,8 @@ impl Store for SqliteStore {
         self.get_sync_height()
     }
 
-    fn apply_state_sync(
-        &self,
-        block_header: BlockHeader,
-        nullifiers: Vec<Digest>,
-        committed_notes: SyncedNewNotes,
-        committed_transactions: &[TransactionId],
-        new_mmr_peaks: MmrPeaks,
-        new_authentication_nodes: &[(InOrderIndex, Digest)],
-        updated_onchain_accounts: &[Account],
-    ) -> Result<(), StoreError> {
-        self.apply_state_sync(
-            block_header,
-            nullifiers,
-            committed_notes,
-            committed_transactions,
-            new_mmr_peaks,
-            new_authentication_nodes,
-            updated_onchain_accounts,
-        )
+    fn apply_state_sync(&self, state_sync_update: StateSyncUpdate) -> Result<(), StoreError> {
+        self.apply_state_sync(state_sync_update)
     }
 
     fn get_transactions(
