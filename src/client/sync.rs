@@ -4,9 +4,7 @@ use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
     crypto::{self, rand::FeltRng},
-    notes::{
-        Note, NoteExecutionMode, NoteId, NoteInclusionProof, NoteInputs, NoteRecipient, NoteTag,
-    },
+    notes::{Note, NoteId, NoteInclusionProof, NoteInputs, NoteRecipient, NoteTag},
     transaction::{InputNote, TransactionId},
     BlockHeader, Digest,
 };
@@ -161,7 +159,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// Calls `get_block_header_by_number` requesting the genesis block and storing it
     /// in the local database
     async fn retrieve_and_store_genesis(&mut self) -> Result<(), ClientError> {
-        let genesis_block = self.rpc_api.get_block_header_by_number(Some(0)).await?;
+        let genesis_block = self.rpc_api.get_block_header_by_number(Some(0), false).await?;
 
         let blank_mmr_peaks =
             MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks should not fail to instantiate");
@@ -197,14 +195,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             .filter_map(|note| note.metadata().map(|metadata| metadata.tag()))
             .collect();
 
-        //TODO: Use BTreeSet to remove duplicates more efficiently once `Ord` is implemented for `NoteTag`
         let note_tags: Vec<NoteTag> = [account_note_tags, stored_note_tags, uncommited_note_tags]
             .concat()
             .into_iter()
-            .map(|tag| (tag.to_string(), tag))
-            .collect::<HashMap<String, NoteTag>>()
-            .values()
-            .cloned()
+            .collect::<BTreeSet<NoteTag>>()
+            .into_iter()
             .collect();
 
         // To receive information about added nullifiers, we reduce them to the higher 16 bits

@@ -6,7 +6,11 @@ use miden_objects::{
 };
 use miden_tx::{ScriptTarget, TransactionAuthenticator};
 
-use super::{note_screener::NoteRelevance, rpc::NodeRpcClient, Client};
+use super::{
+    note_screener::NoteRelevance,
+    rpc::{NodeRpcClient, NoteDetails},
+    Client,
+};
 use crate::{
     client::NoteScreener,
     errors::ClientError,
@@ -122,8 +126,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let note_details = chain_notes.pop().expect("chain_notes should have at least one element");
 
         let inclusion_details = match note_details {
-            super::rpc::NoteDetails::OffChain(_, _, inclusion) => inclusion,
-            super::rpc::NoteDetails::Public(_, inclusion) => inclusion,
+            NoteDetails::OffChain(_, _, inclusion) => inclusion,
+            NoteDetails::Public(_, inclusion) => inclusion,
         };
 
         // Check to see if it's possible to create an inclusion proof if the note doesn't have one.
@@ -135,7 +139,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             // Add the inclusion proof to the imported note
             let block_header = self
                 .rpc_api
-                .get_block_header_by_number(Some(inclusion_details.block_num))
+                .get_block_header_by_number(Some(inclusion_details.block_num), false)
                 .await?;
 
             let inclusion_proof = NoteInclusionProof::new(

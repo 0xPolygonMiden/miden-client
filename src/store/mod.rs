@@ -5,7 +5,6 @@ use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::{NoteId, NoteTag, Nullifier},
-    transaction::TransactionId,
     BlockHeader, Digest, Word,
 };
 use miden_tx::AuthSecretKey;

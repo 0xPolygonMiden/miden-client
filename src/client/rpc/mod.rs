@@ -81,6 +81,7 @@ pub trait NodeRpcClient {
     async fn get_block_header_by_number(
         &mut self,
         block_number: Option<u32>,
+        include_mmr_proof: bool,
     ) -> Result<BlockHeader, NodeRpcClientError>;
 
     /// Fetches note-related data for a list of [NoteId] using the `/GetNotesById` rpc endpoint

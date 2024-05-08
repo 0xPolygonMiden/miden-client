@@ -18,7 +18,10 @@ use miden_objects::{
     notes::{NoteId, NoteInputs, NoteMetadata},
     Digest,
 };
-use miden_tx::utils::{Deserializable, Serializable};
+use miden_tx::{
+    utils::{Deserializable, Serializable},
+    TransactionAuthenticator,
+};
 
 use super::{Client, Parser};
 use crate::cli::{
@@ -98,9 +101,9 @@ pub enum Notes {
 }
 
 impl Notes {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store>(
+    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
         &self,
-        mut client: Client<N, R, S>,
+        mut client: Client<N, R, S, A>,
     ) -> Result<(), String> {
         match self {
             Notes::List { filter } => {
@@ -134,8 +137,8 @@ impl Notes {
 
 // LIST NOTES
 // ================================================================================================
-fn list_notes<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: Client<N, R, S>,
+fn list_notes<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    client: Client<N, R, S, A>,
     filter: ClientNoteFilter,
 ) -> Result<(), String> {
     let input_notes = client.get_input_notes(filter.clone())?;
@@ -165,8 +168,9 @@ fn list_notes<N: NodeRpcClient, R: FeltRng, S: Store>(
 
 // EXPORT NOTE
 // ================================================================================================
-pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: &Client<N, R, S>,
+
+pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    client: &Client<N, R, S, A>,
     note_id: &str,
     filename: Option<PathBuf>,
 ) -> Result<File, String> {
@@ -198,8 +202,8 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store>(
 
 // IMPORT NOTE
 // ================================================================================================
-pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: &mut Client<N, R, S>,
+pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    client: &mut Client<N, R, S, A>,
     filename: PathBuf,
     verify: bool,
 ) -> Result<NoteId, String> {
@@ -224,8 +228,8 @@ pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store>(
 
 // SHOW NOTE
 // ================================================================================================
-fn show_note<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: Client<N, R, S>,
+fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    client: Client<N, R, S, A>,
     note_id: String,
     show_script: bool,
     show_vault: bool,
@@ -330,8 +334,8 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store>(
 
 // LIST CONSUMABLE INPUT NOTES
 // ================================================================================================
-fn list_consumable_notes<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: Client<N, R, S>,
+fn list_consumable_notes<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    client: Client<N, R, S, A>,
     account_id: &Option<String>,
 ) -> Result<(), String> {
     let account_id = match account_id {

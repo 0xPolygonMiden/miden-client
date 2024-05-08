@@ -6,7 +6,7 @@ use miden_node_proto::generated::{
     account::AccountId as ProtoAccountId,
     block_header::BlockHeader as NodeBlockHeader,
     note::NoteSyncRecord,
-    requests::{GetBlockHeaderByNumberRequest, SyncStateRequest},
+    requests::SyncStateRequest,
     responses::{NullifierUpdate, SyncStateResponse},
 };
 use miden_objects::{
@@ -126,9 +126,9 @@ impl NodeRpcClient for MockRpcApi {
     async fn get_block_header_by_number(
         &mut self,
         block_num: Option<u32>,
-        include_mmr_proof: bool,
+        _include_mmr_proof: bool,
     ) -> Result<BlockHeader, NodeRpcClientError> {
-        if request.block_num == Some(0) {
+        if block_num == Some(0) {
             return Ok(self.genesis_block);
         }
         panic!("get_block_header_by_number is supposed to be only used for genesis block")

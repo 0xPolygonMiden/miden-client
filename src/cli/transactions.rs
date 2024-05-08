@@ -20,7 +20,7 @@ use miden_objects::{
 use miden_tx::TransactionAuthenticator;
 use tracing::info;
 
-use super::{get_note_with_id_prefix, parse_account_id, Client, Parser};
+use super::{get_input_note_with_id_prefix, parse_account_id, Client, Parser};
 use crate::cli::create_dynamic_table;
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
