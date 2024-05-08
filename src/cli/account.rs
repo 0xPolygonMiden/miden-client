@@ -170,8 +170,7 @@ impl AccountCmd {
                 let (new_account, _account_seed) = client.new_account(client_template)?;
                 println!("Succesfully created new account.");
                 println!(
-                    "To view account details execute `{} account -s {}`",
-                    CLIENT_BINARY_NAME,
+                    "To view account details execute `{CLIENT_BINARY_NAME} account -s {}`",
                     new_account.id()
                 );
             },

@@ -125,8 +125,7 @@ impl Notes {
                 let note_id = import_note(&mut client, filename.clone(), !(*no_verify)).await?;
                 println!("Succesfully imported note.");
                 println!(
-                    "To view note details execute `{} input-notes -s {}`",
-                    CLIENT_BINARY_NAME,
+                    "To view note details execute `{CLIENT_BINARY_NAME} input-notes -s {}`",
                     note_id.inner()
                 );
             },
