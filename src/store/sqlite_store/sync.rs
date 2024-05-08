@@ -1,15 +1,9 @@
-use miden_objects::{
-    accounts::Account,
-    crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::{NoteInclusionProof, NoteTag},
-    transaction::TransactionId,
-    BlockHeader, Digest,
-};
+use miden_objects::notes::{NoteInclusionProof, NoteTag};
 use rusqlite::{named_params, params};
 
 use super::SqliteStore;
 use crate::{
-    client::sync::SyncedNewNotes,
+    client::sync::StateSyncUpdate,
     errors::StoreError,
     store::sqlite_store::{accounts::update_account, notes::insert_input_note_tx},
 };
@@ -76,14 +70,19 @@ impl SqliteStore {
 
     pub(super) fn apply_state_sync(
         &self,
-        block_header: BlockHeader,
-        nullifiers: Vec<Digest>,
-        committed_notes: SyncedNewNotes,
-        committed_transactions: &[TransactionId],
-        new_mmr_peaks: MmrPeaks,
-        new_authentication_nodes: &[(InOrderIndex, Digest)],
-        updated_onchain_accounts: &[Account],
+        state_sync_update: StateSyncUpdate,
     ) -> Result<(), StoreError> {
+        let StateSyncUpdate {
+            block_header,
+            nullifiers,
+            synced_new_notes: committed_notes,
+            transactions_to_commit: committed_transactions,
+            new_mmr_peaks,
+            new_authentication_nodes,
+            updated_onchain_accounts,
+            block_has_relevant_notes,
+        } = state_sync_update;
+
         let mut db = self.db();
         let tx = db.transaction()?;
 
@@ -103,16 +102,13 @@ impl SqliteStore {
             tx.execute(SPENT_OUTPUT_NOTE_QUERY, params![nullifier])?;
         }
 
-        // TODO: Due to the fact that notes are returned based on fuzzy matching of tags,
-        // this process of marking if the header has notes needs to be revisited
-        let block_has_relevant_notes = !committed_notes.is_empty();
         Self::insert_block_header_tx(&tx, block_header, new_mmr_peaks, block_has_relevant_notes)?;
 
         // Insert new authentication nodes (inner nodes of the PartialMmr)
-        Self::insert_chain_mmr_nodes(&tx, new_authentication_nodes)?;
+        Self::insert_chain_mmr_nodes(&tx, &new_authentication_nodes)?;
 
-        // Update tracked notes
-        for (note_id, inclusion_proof) in committed_notes.new_inclusion_proofs().iter() {
+        // Update tracked output notes
+        for (note_id, inclusion_proof) in committed_notes.updated_output_notes().iter() {
             let block_num = inclusion_proof.origin().block_num;
             let sub_hash = inclusion_proof.sub_hash();
             let note_root = inclusion_proof.note_root();
@@ -127,17 +123,6 @@ impl SqliteStore {
             )?)
             .map_err(StoreError::InputSerializationError)?;
 
-            const COMMITTED_INPUT_NOTES_QUERY: &str =
-                "UPDATE input_notes SET status = 'Committed', inclusion_proof = json(:inclusion_proof) WHERE note_id = :note_id";
-
-            tx.execute(
-                COMMITTED_INPUT_NOTES_QUERY,
-                named_params! {
-                    ":inclusion_proof": inclusion_proof,
-                    ":note_id": note_id.inner().to_hex(),
-                },
-            )?;
-
             // Update output notes
             const COMMITTED_OUTPUT_NOTES_QUERY: &str =
                 "UPDATE output_notes SET status = 'Committed', inclusion_proof = json(:inclusion_proof) WHERE note_id = :note_id";
@@ -151,6 +136,29 @@ impl SqliteStore {
             )?;
         }
 
+        // Update tracked input notes
+        for input_note in committed_notes.updated_input_notes().iter() {
+            let inclusion_proof = input_note.proof();
+            let metadata = input_note.note().metadata();
+
+            let inclusion_proof = serde_json::to_string(inclusion_proof)
+                .map_err(StoreError::InputSerializationError)?;
+            let metadata =
+                serde_json::to_string(metadata).map_err(StoreError::InputSerializationError)?;
+
+            const COMMITTED_INPUT_NOTES_QUERY: &str =
+                "UPDATE input_notes SET status = 'Committed', inclusion_proof = json(:inclusion_proof), metadata = json(:metadata) WHERE note_id = :note_id";
+
+            tx.execute(
+                COMMITTED_INPUT_NOTES_QUERY,
+                named_params! {
+                    ":inclusion_proof": inclusion_proof,
+                    ":metadata": metadata,
+                    ":note_id": input_note.id().inner().to_hex(),
+                },
+            )?;
+        }
+
         // Commit new public notes
         for note in committed_notes.new_public_notes() {
             insert_input_note_tx(&tx, &note.clone().into())?;
@@ -160,12 +168,12 @@ impl SqliteStore {
         Self::mark_transactions_as_committed(
             &tx,
             block_header.block_num(),
-            committed_transactions,
+            &committed_transactions,
         )?;
 
         // Update onchain accounts on the db that have been updated onchain
         for account in updated_onchain_accounts {
-            update_account(&tx, account)?;
+            update_account(&tx, &account)?;
         }
 
         // Commit the updates
