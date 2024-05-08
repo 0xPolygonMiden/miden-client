@@ -130,7 +130,7 @@ async fn test_p2idr_transfer_consumed_by_target() {
     let note = mint_note(&mut client, from_account_id, faucet_account_id, NoteType::OffChain).await;
     println!("about to consume");
 
-    //Check that the note is not consumed by the target account
+    // Check that the note is not consumed by the target account
     assert!(client.get_consumer_account_id(note.id()).is_err());
 
     consume_notes(&mut client, from_account_id, &[note.clone()]).await;
