@@ -20,6 +20,7 @@ pub enum ClientError {
     DataDeserializationError(DeserializationError),
     HexParseError(HexParseError),
     ImportNewAccountWithoutSeed,
+    MissingOutputNotes(Vec<NoteId>),
     NoteError(NoteError),
     NoteRecordError(String),
     NoConsumableNoteForAccount(AccountId),
@@ -44,6 +45,13 @@ impl fmt::Display for ClientError {
                 f,
                 "import account error: can't import a new account without its initial seed"
             ),
+            ClientError::MissingOutputNotes(note_ids) => {
+                write!(
+                    f,
+                    "transaction error: The transaction did not produce the expected notes corresponding to Note IDs: {}",
+                    note_ids.iter().map(|&id| id.to_hex()).collect::<Vec<_>>().join(", ")
+                )
+            },
             ClientError::NoConsumableNoteForAccount(account_id) => {
                 write!(f, "No consumable note for account ID {}", account_id)
             },

@@ -1,12 +1,14 @@
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 
-use miden_lib::notes::{create_p2id_note, create_p2idr_note};
+use miden_lib::{
+    notes::{create_p2id_note, create_p2idr_note},
+};
 use miden_objects::{
     accounts::{AccountDelta, AccountId},
     assembly::ProgramAst,
     assets::FungibleAsset,
     crypto::rand::RpoRandomCoin,
-    notes::{Note, NoteType},
+    notes::{Note, NoteId, NoteType},
     transaction::{
         ExecutedTransaction, OutputNote, OutputNotes, ProvenTransaction, TransactionArgs,
         TransactionId, TransactionScript,
@@ -236,6 +238,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let block_num = self.store.get_sync_height()?;
 
         let note_ids = transaction_request.get_input_note_ids();
+        let output_notes = transaction_request.expected_output_notes().to_vec();
 
         // Execute the transaction and get the witness
         let executed_transaction = self.tx_executor.execute_transaction(
@@ -244,6 +247,29 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             &note_ids,
             transaction_request.into(),
         )?;
+
+        // Check that the expected output notes matches the transaction outcome.
+        let tx_note_auth_hashes: BTreeSet<Digest> = executed_transaction
+            .output_notes()
+            .iter()
+            .map(|n| match n {
+                OutputNote::Full(n) => n.authentication_hash(),
+                OutputNote::Header(_) => {
+                    panic!("ExecutedTransaction should always have every note's details")
+                },
+            })
+            .collect();
+
+        let missing_note_ids: Vec<NoteId> = output_notes
+            .iter()
+            .filter_map(|n| {
+                (!tx_note_auth_hashes.contains(&n.authentication_hash())).then_some(n.id())
+            })
+            .collect();
+
+        if !missing_note_ids.is_empty() {
+            return Err(ClientError::MissingOutputNotes(missing_note_ids));
+        }
 
         let screener = NoteScreener::new(self.store.clone());
 
