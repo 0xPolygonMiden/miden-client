@@ -238,7 +238,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     ///
     /// Returns a [ClientError::StoreError] with a [StoreError::NoteNotConsumed](crate::errors::StoreError::NoteNotConsumed) if the note with the provided ID
     /// is not consumed.
-    /// Returns a [StoreError::][ClientError::StoreError] with a [StoreError::NoteNotFound](crate::errors::StoreError::NoteNotFound) if the note with the provided ID
+    /// Returns a [ClientError::StoreError] with a [StoreError::NoteNotFound](crate::errors::StoreError::NoteNotFound) if the note with the provided ID
     /// is not found.
     pub fn get_consumer_account_id(
         &self,
