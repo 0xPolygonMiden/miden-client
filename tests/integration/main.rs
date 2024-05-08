@@ -5,7 +5,7 @@ use miden_client::{
         transactions::transaction_request::{PaymentTransactionData, TransactionTemplate},
         NoteRelevance,
     },
-    errors::ClientError,
+    errors::{ClientError, StoreError},
     store::NoteFilter,
 };
 use miden_objects::{
@@ -130,8 +130,11 @@ async fn test_p2idr_transfer_consumed_by_target() {
     let note = mint_note(&mut client, from_account_id, faucet_account_id, NoteType::OffChain).await;
     println!("about to consume");
 
-    // Check that the note is not consumed by the target account
-    assert!(client.get_consumer_account_id(note.id()).is_err());
+    //Check that the note is not consumed by the target account
+    assert!(matches!(
+        client.get_consumer_account_id(note.id()),
+        Err(ClientError::StoreError(StoreError::NoteNotConsumed(_)))
+    ));
 
     consume_notes(&mut client, from_account_id, &[note.clone()]).await;
     assert_account_has_single_asset(&client, from_account_id, faucet_account_id, MINT_AMOUNT).await;

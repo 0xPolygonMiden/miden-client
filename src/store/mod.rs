@@ -196,6 +196,8 @@ pub trait Store {
     /// Retrieves (if possible) the [AccountId] of the consumer of the note with the provided ID.
     /// If the note was consumed but the consumer account is not tracked, `None` is returned.
     ///
+    /// The default implementation of this method uses [Store::get_input_notes] and [Store::get_transactions].
+    ///
     /// # Errors
     ///
     /// Returns a [StoreError::NoteNotConsumed] if the note with the provided ID is not consumed.
