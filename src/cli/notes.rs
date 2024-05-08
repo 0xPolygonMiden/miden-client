@@ -481,12 +481,11 @@ fn note_record_type(note_record_metadata: Option<&NoteMetadata>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::env::temp_dir;
+    use std::{env::temp_dir, rc::Rc};
 
     use miden_client::{
         client::{
-            authenticator::{self, StoreAuthenticator},
-            get_random_coin,
+            authenticator::StoreAuthenticator, get_random_coin,
             transactions::transaction_request::TransactionTemplate,
         },
         config::{ClientConfig, Endpoint, RpcConfig},
@@ -495,15 +494,16 @@ mod tests {
             mock_full_chain_mmr_and_notes, mock_fungible_faucet_account, mock_notes, MockClient,
             MockRpcApi,
         },
-        store::{sqlite_store::SqliteStore, AuthInfo, InputNoteRecord, NoteFilter, Store},
+        store::{sqlite_store::SqliteStore, InputNoteRecord, NoteFilter},
     };
     use miden_lib::transaction::TransactionKernel;
     use miden_objects::{
-        accounts::{AccountId, ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN},
+        accounts::{account_id::testing::ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, AccountId},
         assets::FungibleAsset,
         crypto::dsa::rpo_falcon512::SecretKey,
         notes::Note,
     };
+    use miden_tx::AuthSecretKey;
     use uuid::Uuid;
 
     use crate::cli::{
@@ -522,8 +522,12 @@ mod tests {
         );
 
         let rng = get_random_coin();
-        let store = SqliteStore::new((&client_config).into()).unwrap();
-        let authenticator = StoreAuthenticator::new_with_rng(Rc::new(store), rng);
+        let store = {
+            let sqlite_store = SqliteStore::new((&client_config).into()).unwrap();
+            Rc::new(sqlite_store)
+        };
+
+        let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
         let mut client = MockClient::new(
             MockRpcApi::new(&Endpoint::default().to_string()),
             rng,
@@ -590,7 +594,9 @@ mod tests {
         );
 
         client.sync_state().await.unwrap();
-        client.insert_account(&faucet, None, &AuthInfo::RpoFalcon512(key_pair)).unwrap();
+        client
+            .insert_account(&faucet, None, &AuthSecretKey::RpoFalcon512(key_pair))
+            .unwrap();
 
         // Ensure client has no notes
         assert!(client.get_input_notes(NoteFilter::All).unwrap().is_empty());
@@ -659,7 +665,7 @@ mod tests {
         let rng = get_random_coin();
         let store = {
             let sqlite_store = SqliteStore::new((&client_config).into()).unwrap();
-            Rc::new(store)
+            Rc::new(sqlite_store)
         };
         let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
         let mut client = MockClient::new(

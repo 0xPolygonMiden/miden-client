@@ -18,7 +18,7 @@ use super::{
 use crate::{
     client::transactions::{TransactionRecord, TransactionResult, TransactionStatus},
     errors::StoreError,
-    store::{InputNoteRecord, OutputNoteRecord, TransactionFilter},
+    store::{OutputNoteRecord, TransactionFilter},
 };
 
 pub(crate) const INSERT_TRANSACTION_QUERY: &str =
@@ -86,12 +86,10 @@ impl SqliteStore {
 
         account.apply_delta(account_delta).map_err(StoreError::AccountError)?;
 
-        let created_input_notes = tx_result
-            .relevant_notes()
-            .into_iter()
-            .map(|note| InputNoteRecord::from(note.clone()))
-            .collect::<Vec<_>>();
+        // Save only input notes that we care for (based on the note screener assessment)
+        let created_input_notes = tx_result.relevant_notes().to_vec();
 
+        // Save all output notes
         let created_output_notes = tx_result
             .created_notes()
             .iter()
@@ -108,11 +106,8 @@ impl SqliteStore {
         update_account(&tx, &account)?;
 
         // Updates for notes
-
-        // TODO: see if we should filter the input notes we store to keep notes we can consume with
-        // existing accounts
-        for note in &created_input_notes {
-            insert_input_note_tx(&tx, note)?;
+        for note in created_input_notes {
+            insert_input_note_tx(&tx, &note)?;
         }
 
         for note in &created_output_notes {

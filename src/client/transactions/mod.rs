@@ -1,4 +1,4 @@
-use alloc::collections::{BTreeMap, BTreeSet};
+use alloc::collections::BTreeMap;
 
 use miden_lib::notes::{create_p2id_note, create_p2idr_note};
 use miden_objects::{
@@ -6,10 +6,10 @@ use miden_objects::{
     assembly::ProgramAst,
     assets::FungibleAsset,
     crypto::rand::RpoRandomCoin,
-    notes::{Note, NoteId, NoteType},
+    notes::{Note, NoteType},
     transaction::{
-        ExecutedTransaction, OutputNotes, ProvenTransaction, TransactionArgs, TransactionId,
-        TransactionScript,
+        ExecutedTransaction, OutputNote, OutputNotes, ProvenTransaction, TransactionArgs,
+        TransactionId, TransactionScript,
     },
     Digest, Felt, Word,
 };
@@ -20,11 +20,11 @@ use rand::Rng;
 use tracing::info;
 
 use self::transaction_request::{PaymentTransactionData, TransactionRequest, TransactionTemplate};
-use super::{note_screener::NoteRelevance, rpc::NodeRpcClient, Client, FeltRng};
+use super::{rpc::NodeRpcClient, Client, FeltRng};
 use crate::{
     client::NoteScreener,
     errors::ClientError,
-    store::{Store, TransactionFilter},
+    store::{InputNoteRecord, Store, TransactionFilter},
 };
 
 pub mod transaction_request;
@@ -35,47 +35,56 @@ pub mod transaction_request;
 /// Represents the result of executing a transaction by the client
 ///  
 /// It contains an [ExecutedTransaction], a list of [Note] that describe the details of the notes
-/// created by the transaction execution, and a list of `usize` `relevant_notes` that contain the
-/// indices of `output_notes` that are relevant to the client
+/// created by the transaction execution, and a list of `relevant_notes` that contains the
+/// `output_notes` that the client has to store as input notes, based on the NoteScreener output
 pub struct TransactionResult {
     executed_transaction: ExecutedTransaction,
-    output_notes: Vec<Note>,
-    relevant_notes: Option<BTreeMap<usize, Vec<(AccountId, NoteRelevance)>>>,
+    relevant_notes: Vec<InputNoteRecord>,
 }
 
 impl TransactionResult {
-    pub fn new(executed_transaction: ExecutedTransaction, created_notes: Vec<Note>) -> Self {
-        Self {
-            executed_transaction,
-            output_notes: created_notes,
-            relevant_notes: None,
+    /// Screens the output notes to store and track the relevant ones, and instantiates a [TransactionResult]
+    pub fn new<S: Store>(
+        executed_transaction: ExecutedTransaction,
+        note_screener: NoteScreener<S>,
+    ) -> Result<Self, ClientError> {
+        let mut relevant_notes = vec![];
+        let output_notes = executed_transaction.output_notes().iter().map(|n| match n {
+            OutputNote::Full(n) => n,
+            OutputNote::Header(_) => panic!("ExecutedTransaction should have all note details"),
+        });
+        for note in output_notes {
+            let account_relevance = note_screener.check_relevance(note)?;
+
+            if !account_relevance.is_empty() {
+                relevant_notes.push(note.clone().into());
+            }
         }
+
+        let tx_result = Self { executed_transaction, relevant_notes };
+
+        Ok(tx_result)
     }
 
     pub fn executed_transaction(&self) -> &ExecutedTransaction {
         &self.executed_transaction
     }
 
-    pub fn created_notes(&self) -> &Vec<Note> {
-        &self.output_notes
+    pub fn created_notes(&self) -> Vec<Note> {
+        // All output notes should be OutputNote::Full because they are shrinked
+        // only at the moment of proving (the ExecutedTransaction keeps all details)
+        self.executed_transaction
+            .output_notes()
+            .iter()
+            .map(|n| match n {
+                OutputNote::Full(n) => n.clone(),
+                OutputNote::Header(_) => panic!("ExecutedTransaction should have all note details"),
+            })
+            .collect()
     }
 
-    pub fn relevant_notes(&self) -> Vec<&Note> {
-        if let Some(relevant_notes) = &self.relevant_notes {
-            relevant_notes
-                .keys()
-                .map(|note_index| &self.output_notes[*note_index])
-                .collect()
-        } else {
-            self.created_notes().iter().collect()
-        }
-    }
-
-    pub fn set_relevant_notes(
-        &mut self,
-        relevant_notes: BTreeMap<usize, Vec<(AccountId, NoteRelevance)>>,
-    ) {
-        self.relevant_notes = Some(relevant_notes);
+    pub fn relevant_notes(&self) -> &[InputNoteRecord] {
+        &self.relevant_notes
     }
 
     pub fn block_num(&self) -> u32 {
@@ -228,8 +237,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let note_ids = transaction_request.get_input_note_ids();
 
-        let output_notes = transaction_request.expected_output_notes().to_vec();
-
         // Execute the transaction and get the witness
         let executed_transaction = self.tx_executor.execute_transaction(
             account_id,
@@ -238,20 +245,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             transaction_request.into(),
         )?;
 
-        // Check that the expected output notes is a subset of the transaction's output notes
-        let tx_note_ids: BTreeSet<NoteId> =
-            executed_transaction.output_notes().iter().map(|n| n.id()).collect();
+        let screener = NoteScreener::new(self.store.clone());
 
-        let missing_note_ids: Vec<NoteId> = output_notes
-            .iter()
-            .filter_map(|n| (!tx_note_ids.contains(&n.id())).then_some(n.id()))
-            .collect();
-
-        if !missing_note_ids.is_empty() {
-            return Err(ClientError::MissingOutputNotes(missing_note_ids));
-        }
-
-        Ok(TransactionResult::new(executed_transaction, output_notes))
+        TransactionResult::new(executed_transaction, screener)
     }
 
     /// Proves the specified transaction witness, submits it to the node, and stores the transaction in
@@ -269,18 +265,17 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         self.submit_proven_transaction_request(proven_transaction.clone()).await?;
 
-        let note_screener = NoteScreener::new(self.store.as_ref());
+        let note_screener = NoteScreener::new(self.store.clone());
         let mut relevant_notes = BTreeMap::new();
 
-        for (idx, note) in tx_result.created_notes().iter().enumerate() {
-            let account_relevance = note_screener.check_relevance(note)?;
-            if !account_relevance.is_empty() {
-                relevant_notes.insert(idx, account_relevance);
+        for (idx, note) in tx_result.executed_transaction.output_notes().iter().enumerate() {
+            if let OutputNote::Full(output_note) = note {
+                let account_relevance = note_screener.check_relevance(output_note)?;
+                if !account_relevance.is_empty() {
+                    relevant_notes.insert(idx, account_relevance);
+                }
             }
         }
-
-        let mut tx_result = tx_result;
-        tx_result.set_relevant_notes(relevant_notes);
 
         // Transaction was proven and submitted to the node correctly, persist note details and update account
         self.store.apply_transaction(tx_result)?;
