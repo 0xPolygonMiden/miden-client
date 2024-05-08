@@ -291,18 +291,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         self.submit_proven_transaction_request(proven_transaction.clone()).await?;
 
-        let note_screener = NoteScreener::new(self.store.clone());
-        let mut relevant_notes = BTreeMap::new();
-
-        for (idx, note) in tx_result.executed_transaction.output_notes().iter().enumerate() {
-            if let OutputNote::Full(output_note) = note {
-                let account_relevance = note_screener.check_relevance(output_note)?;
-                if !account_relevance.is_empty() {
-                    relevant_notes.insert(idx, account_relevance);
-                }
-            }
-        }
-
         // Transaction was proven and submitted to the node correctly, persist note details and update account
         self.store.apply_transaction(tx_result)?;
 
