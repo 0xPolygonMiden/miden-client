@@ -25,7 +25,9 @@ use miden_objects::{
 };
 use tracing::info;
 
-use self::{export::ExportCmd, import::ImportCmd, init::InitCmd, tags::TagsCmd};
+use self::{
+    account::AccountCmd, export::ExportCmd, import::ImportCmd, init::InitCmd, tags::TagsCmd,
+};
 
 mod account;
 mod export;
@@ -58,7 +60,7 @@ pub struct Cli {
 pub enum Command {
     Account {
         #[clap(subcommand)]
-        cmd: Option<account::AccountCmd>,
+        cmd: Option<AccountCmd>,
     },
     #[clap(subcommand)]
     Import(ImportCmd),
@@ -118,10 +120,10 @@ impl Cli {
         let client: Client<TonicRpcClient, RpoRandomCoin, SqliteStore> =
             Client::new(TonicRpcClient::new(&client_config.rpc), rng, store, in_debug_mode);
 
-        // Execute cli command
+        // Execute CLI command
         match &self.action {
-            Command::Account { cmd: account_cmd } => {
-                let account = account_cmd.clone().unwrap_or_default();
+            Command::Account { cmd } => {
+                let account = cmd.clone().unwrap_or_default();
                 account.execute(client)
             },
             Command::Import(import) => import.execute(client).await,

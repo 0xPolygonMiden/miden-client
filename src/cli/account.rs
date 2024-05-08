@@ -1,8 +1,10 @@
+use std::path::PathBuf;
+
 use clap::{Parser, ValueEnum};
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     client::{accounts, rpc::NodeRpcClient, Client},
-    config::CliConfig,
+    config::{CliConfig, ClientConfig},
     store::Store,
 };
 use miden_objects::{
@@ -18,30 +20,24 @@ use crate::cli::create_dynamic_table;
 
 // ACCOUNT COMMAND
 // ================================================================================================
+
 #[derive(Default, Debug, Clone, Parser)]
-#[clap(about = "Create accounts and inspect account details. Defaults to `list` command.")]
 pub enum AccountCmd {
     /// List all accounts monitored by this client
     #[default]
-    #[clap(short_flag = 'l')]
+    #[clap(short_flag = 'l', long_flag = "list")]
     List,
-
     /// Show details of the account for the specified ID or hex prefix
-    #[clap(short_flag = 's')]
-    Show {
-        // TODO: We should create a value parser for catching input parsing errors earlier (ie AccountID) once complexity grows
-        /// ID of an account or hex prefix that matches with a single account.
-        #[clap()]
-        id: String,
-    },
+    #[clap(short_flag = 's', long_flag = "show")]
+    Show { id: String },
     /// Create new account and store it locally
-    #[clap(short_flag = 'n')]
+    #[clap(short_flag = 'n', long_flag = "new")]
     New {
         #[clap(subcommand)]
         template: AccountTemplate,
     },
-    /// Set/Unset default accounts
-    #[clap(short_flag = 'd')]
+    /// Set/Unset default accounts for transaction execution
+    #[clap(short_flag = 'd', long_flag = "default")]
     Default {
         #[clap(subcommand)]
         default_cmd: DefaultAccountCmd,
@@ -56,6 +52,8 @@ pub enum DefaultAccountCmd {
         #[clap()]
         id: String,
     },
+    /// Show current default account
+    Show,
     /// Clear the default account setting
     Unset,
 }
@@ -165,28 +163,25 @@ impl AccountCmd {
                 let (account, _) = client.get_account_stub_by_id(account_id)?;
 
                 // load config
-                let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
-                current_dir.push(CLIENT_CONFIG_FILE_NAME);
-                let config_path = current_dir.as_path();
-                let mut current_config = load_config(config_path)?;
+                let (mut current_config, config_path) = load_config_file()?;
 
                 // set default account
                 current_config.cli = Some(CliConfig {
                     default_account_id: Some(account.id().to_hex()),
                 });
 
-                update_config(config_path, current_config)?;
+                update_config(&config_path, current_config)?;
             },
             AccountCmd::Default { default_cmd: DefaultAccountCmd::Unset } => {
-                let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
-                current_dir.push(CLIENT_CONFIG_FILE_NAME);
-                let config_path = current_dir.as_path();
-                let mut current_config = load_config(config_path)?;
+                let (mut current_config, path) = load_config_file()?;
 
                 // unset default account
                 current_config.cli.replace(CliConfig { default_account_id: None });
 
-                update_config(config_path, current_config)?;
+                update_config(&path, current_config)?;
+            },
+            AccountCmd::Default { default_cmd: DefaultAccountCmd::Show } => {
+                display_default_account_id()?;
             },
         }
         Ok(())
@@ -230,7 +225,7 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: Client<N, R, S>,
     account_id: AccountId,
 ) -> Result<(), String> {
-    let (account, _account_seed) = client.get_account(account_id)?;
+    let (account, _) = client.get_account(account_id)?;
     let mut table = create_dynamic_table(&[
         "Account ID",
         "Account Hash",
@@ -377,4 +372,29 @@ fn storage_type_display_name(account: &AccountId) -> String {
         false => "Off-chain",
     }
     .to_string()
+}
+
+/// Loads config file and displays current default account ID
+fn display_default_account_id() -> Result<(), String> {
+    let (miden_client_config, _) = load_config_file()?;
+    let cli_config = miden_client_config
+        .cli
+        .ok_or("No CLI options found in the client config file".to_string())?;
+
+    let default_account = cli_config.default_account_id.ok_or(
+        "No default account found in the CLI options from the client config file.".to_string(),
+    )?;
+    println!("Current default account ID: {default_account}");
+    Ok(())
+}
+
+/// Loads config file from current directory and default filename and returns it alongside its path
+fn load_config_file() -> Result<(ClientConfig, PathBuf), String> {
+    let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
+    current_dir.push(CLIENT_CONFIG_FILE_NAME);
+    let config_path = current_dir.as_path();
+
+    let client_config = load_config(config_path)?;
+
+    Ok((client_config, config_path.into()))
 }

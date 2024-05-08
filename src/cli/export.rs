@@ -1,22 +1,13 @@
-use std::{
-    fs::File,
-    io::Write,
-    path::PathBuf,
-};
+use std::{fs::File, io::Write, path::PathBuf};
 
 use miden_client::{
     client::{rpc::NodeRpcClient, Client},
     store::{InputNoteRecord, Store},
 };
-use miden_objects::{
-    crypto::rand::FeltRng,
-    Digest,
-};
+use miden_objects::{crypto::rand::FeltRng, Digest};
 use miden_tx::utils::Serializable;
 
-
 use super::Parser;
-
 
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "Export client objects")]
