@@ -1,5 +1,5 @@
 use alloc::collections::{BTreeMap, BTreeSet};
-use std::collections::HashMap;
+use std::{cmp::max, collections::HashMap};
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
@@ -77,7 +77,8 @@ impl SyncSummary {
             && self.updated_onchain_accounts == 0
     }
 
-    pub fn add(&mut self, other: &Self) {
+    pub fn combine_with(&mut self, other: &Self) {
+        self.block_num = max(self.block_num, other.block_num);
         self.new_notes += other.new_notes;
         self.new_inclusion_proofs += other.new_inclusion_proofs;
         self.new_nullifiers += other.new_nullifiers;
@@ -207,8 +208,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
                 SyncStatus::SyncedToLastBlock(v) => v,
                 SyncStatus::SyncedToBlock(v) => v,
             };
-            total_sync_details.add(details);
-            total_sync_details.block_num = details.block_num;
+            total_sync_details.combine_with(details);
 
             if let SyncStatus::SyncedToLastBlock(_) = response {
                 return Ok(total_sync_details);
