@@ -25,7 +25,10 @@ use miden_objects::{
 };
 use tracing::info;
 
+use self::{export::ExportCmd, import::ImportCmd, init::InitCmd, tags::TagsCmd};
+
 mod account;
+mod export;
 mod import;
 mod info;
 mod init;
@@ -58,8 +61,10 @@ pub enum Command {
         cmd: Option<account::AccountCmd>,
     },
     #[clap(subcommand)]
-    Import(import::ImportCmd),
-    Init(init::InitCmd),
+    Import(ImportCmd),
+    #[clap(subcommand)]
+    Export(ExportCmd),
+    Init(InitCmd),
     Notes {
         #[clap(subcommand)]
         cmd: Option<notes::Notes>,
@@ -70,7 +75,7 @@ pub enum Command {
     Info,
     Tags {
         #[clap(subcommand)]
-        cmd: Option<tags::TagsCmd>,
+        cmd: Option<TagsCmd>,
     },
     #[clap(name = "tx")]
     #[clap(visible_alias = "transaction")]
@@ -137,6 +142,7 @@ impl Cli {
                     client_config.cli.and_then(|cli_conf| cli_conf.default_account_id);
                 transaction_cmd.execute(client, default_account_id).await
             },
+            Command::Export(cmd) => cmd.execute(client),
         }
     }
 }

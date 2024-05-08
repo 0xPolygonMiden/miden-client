@@ -155,7 +155,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::import_note;
-    use crate::cli::{get_input_note_with_id_prefix, notes::export_note};
+    use crate::cli::{export::export_note, get_input_note_with_id_prefix};
 
     #[tokio::test]
     async fn import_export_recorded_note() {

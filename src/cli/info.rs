@@ -12,6 +12,7 @@ pub fn print_client_info<N: NodeRpcClient, R: FeltRng, S: Store>(
 
 // HELPERS
 // ================================================================================================
+
 fn print_block_number<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: &Client<N, R, S>,
 ) -> Result<(), String> {
