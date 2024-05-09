@@ -3,7 +3,9 @@ use std::collections::{HashMap, HashSet};
 use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
-    client::{rpc::NodeRpcClient, ConsumableNote},
+    client::{
+        rpc::NodeRpcClient, transactions::transaction_request::KnownScriptHash, ConsumableNote,
+    },
     errors::{ClientError, IdPrefixFetchError},
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, NoteStatus, OutputNoteRecord, Store},
 };
@@ -186,7 +188,7 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store>(
 
     let CliNoteSummary {
         note_id,
-        script_hash,
+        mut script_hash,
         assets_hash,
         inputs_commitment,
         serial_num,
@@ -196,6 +198,13 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store>(
 
     table.add_row(vec![Cell::new("Note Information").add_attribute(Attribute::Bold)]);
     table.add_row(vec![Cell::new("ID"), Cell::new(note_id)]);
+    match script_hash.clone().as_str() {
+        KnownScriptHash::P2ID => script_hash += " (P2ID)",
+        KnownScriptHash::P2IDR => script_hash += " (P2IDR)",
+        KnownScriptHash::SWAP => script_hash += " (SWAP)",
+        _ => {},
+    };
+
     table.add_row(vec![Cell::new("Script Hash"), Cell::new(script_hash)]);
     table.add_row(vec![Cell::new("Assets Hash"), Cell::new(assets_hash)]);
     table.add_row(vec![Cell::new("Inputs Hash"), Cell::new(inputs_commitment)]);
