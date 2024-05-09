@@ -131,7 +131,7 @@ impl Transaction {
                     Some((transaction_id, output_note_ids)) => {
                         println!("Succesfully created transaction.");
                         println!("Transaction ID: {}", transaction_id);
-                        println!("Output notes IDs created:");
+                        println!("Output notes:");
                         output_note_ids.iter().for_each(|note_id| println!("\t- {}", note_id));
                     },
                     None => {
