@@ -154,6 +154,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
                 note.metadata().copied(),
                 Some(inclusion_proof),
                 note.details().clone(),
+                None,
             );
         }
 
