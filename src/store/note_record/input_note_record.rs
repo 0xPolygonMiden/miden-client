@@ -1,4 +1,5 @@
 use miden_objects::{
+    accounts::AccountId,
     notes::{
         Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata, NoteRecipient,
     },
@@ -34,6 +35,7 @@ pub struct InputNoteRecord {
     metadata: Option<NoteMetadata>,
     recipient: Digest,
     status: NoteStatus,
+    consumer_account_id: Option<AccountId>,
 }
 
 impl InputNoteRecord {
@@ -45,6 +47,7 @@ impl InputNoteRecord {
         metadata: Option<NoteMetadata>,
         inclusion_proof: Option<NoteInclusionProof>,
         details: NoteRecordDetails,
+        consumer_account_id: Option<AccountId>,
     ) -> InputNoteRecord {
         InputNoteRecord {
             id,
@@ -54,6 +57,7 @@ impl InputNoteRecord {
             metadata,
             inclusion_proof,
             details,
+            consumer_account_id,
         }
     }
 
@@ -88,6 +92,10 @@ impl InputNoteRecord {
     pub fn details(&self) -> &NoteRecordDetails {
         &self.details
     }
+
+    pub fn consumer_account_id(&self) -> Option<AccountId> {
+        self.consumer_account_id
+    }
 }
 
 impl Serializable for InputNoteRecord {
@@ -120,6 +128,7 @@ impl Deserializable for InputNoteRecord {
             metadata,
             inclusion_proof,
             details,
+            consumer_account_id: None,
         })
     }
 }
@@ -139,6 +148,7 @@ impl From<Note> for InputNoteRecord {
                 note.inputs().to_vec(),
                 note.serial_num(),
             ),
+            consumer_account_id: None,
         }
     }
 }
@@ -158,6 +168,7 @@ impl From<InputNote> for InputNoteRecord {
                 recorded_note.note().serial_num(),
             ),
             inclusion_proof: Some(recorded_note.proof().clone()),
+            consumer_account_id: None,
         }
     }
 }
@@ -218,6 +229,7 @@ impl TryFrom<OutputNoteRecord> for InputNoteRecord {
                 metadata: Some(*output_note.metadata()),
                 recipient: output_note.recipient(),
                 status: output_note.status(),
+                consumer_account_id: output_note.consumer_account_id(),
             }),
             None => Err(ClientError::NoteError(miden_objects::NoteError::invalid_origin_index(
                 "Output Note Record contains no details".to_string(),
