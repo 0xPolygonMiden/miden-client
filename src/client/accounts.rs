@@ -83,7 +83,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     pub fn import_account(&mut self, account_data: AccountData) -> Result<(), ClientError> {
         match account_data.auth {
             AuthData::RpoFalcon512Seed(key_pair_seed) => {
-                // NOTE: The seed should probably come from a different format from miden-base's AccountData
                 let seed = Digest::try_from(&key_pair_seed)?.into();
                 let mut rng = RpoRandomCoin::new(seed);
 

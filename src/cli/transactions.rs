@@ -95,10 +95,11 @@ pub enum TransactionType {
     },
 }
 
-#[derive(Debug, Parser, Clone)]
-#[clap(about = "Execute and view transactions")]
+#[derive(Default, Debug, Parser, Clone)]
+#[clap(about = "Execute and view transactions. Defaults to `list` command.")]
 pub enum Transaction {
     /// List currently tracked transactions
+    #[default]
     #[clap(short_flag = 'l')]
     List,
     /// Execute a transaction, prove and submit it to the node. Once submitted, it
