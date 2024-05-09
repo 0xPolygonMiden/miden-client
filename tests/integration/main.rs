@@ -6,7 +6,7 @@ use miden_client::{
         NoteRelevance,
     },
     errors::ClientError,
-    store::NoteFilter,
+    store::{NoteFilter, NoteStatus},
 };
 use miden_objects::{
     accounts::AccountId,
@@ -130,8 +130,19 @@ async fn test_p2idr_transfer_consumed_by_target() {
     let note = mint_note(&mut client, from_account_id, faucet_account_id, NoteType::OffChain).await;
     println!("about to consume");
 
-    consume_notes(&mut client, from_account_id, &[note]).await;
+    //Check that the note is not consumed by the target account
+    assert!(matches!(
+        client.get_input_note(note.id()).unwrap().status(),
+        NoteStatus::Committed
+    ));
+
+    consume_notes(&mut client, from_account_id, &[note.clone()]).await;
     assert_account_has_single_asset(&client, from_account_id, faucet_account_id, MINT_AMOUNT).await;
+
+    // Check that the note is consumed by the target account
+    let input_note = client.get_input_note(note.id()).unwrap();
+    assert!(matches!(input_note.status(), NoteStatus::Consumed));
+    assert_eq!(input_note.consumer_account_id().unwrap(), from_account_id);
 
     // Do a transfer from first account to second account with Recall. In this situation we'll do
     // the happy path where the `to_account_id` consumes the note
