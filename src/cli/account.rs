@@ -16,7 +16,7 @@ use miden_objects::{
 use miden_tx::utils::{bytes_to_hex_string, Serializable};
 
 use super::{load_config, parse_account_id, update_config, CLIENT_CONFIG_FILE_NAME};
-use crate::cli::create_dynamic_table;
+use crate::cli::{create_dynamic_table, CLIENT_BINARY_NAME};
 
 // ACCOUNT COMMAND
 // ================================================================================================
@@ -147,7 +147,12 @@ impl AccountCmd {
                     },
                     AccountTemplate::NonFungibleFaucet { storage_type: _ } => todo!(),
                 };
-                let (_new_account, _account_seed) = client.new_account(client_template)?;
+                let (new_account, _account_seed) = client.new_account(client_template)?;
+                println!("Succesfully created new account.");
+                println!(
+                    "To view account details execute `{CLIENT_BINARY_NAME} account -s {}`",
+                    new_account.id()
+                );
             },
             AccountCmd::Show { id } => {
                 let account_id = parse_account_id(&client, id)?;
