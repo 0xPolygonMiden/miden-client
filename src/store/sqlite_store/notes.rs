@@ -3,8 +3,10 @@ use std::fmt;
 
 use clap::error::Result;
 use miden_objects::{
+    accounts::AccountId,
     crypto::utils::{Deserializable, Serializable},
     notes::{NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, NoteScript, Nullifier},
+    transaction::TransactionId,
     Digest,
 };
 use rusqlite::{named_params, params, params_from_iter, types::Value, Transaction};
@@ -18,8 +20,9 @@ use crate::{
 fn insert_note_query(table_name: NoteTable) -> String {
     format!("\
     INSERT INTO {table_name}
-        (note_id, assets, recipient, status, metadata, details, inclusion_proof) 
-     VALUES (:note_id, :assets, :recipient, :status, json(:metadata), json(:details), json(:inclusion_proof))")
+        (note_id, assets, recipient, status, metadata, details, inclusion_proof, consumer_transaction_id) 
+     VALUES (:note_id, :assets, :recipient, :status, json(:metadata), json(:details), json(:inclusion_proof), :consumer_transaction_id)",
+            table_name = table_name)
 }
 
 // TYPES
@@ -48,10 +51,26 @@ type SerializedOutputNoteData = (
     Option<String>,
 );
 
-type SerializedInputNoteParts =
-    (Vec<u8>, String, String, String, Option<String>, Option<String>, Vec<u8>);
-type SerializedOutputNoteParts =
-    (Vec<u8>, Option<String>, String, String, String, Option<String>, Option<Vec<u8>>);
+type SerializedInputNoteParts = (
+    Vec<u8>,
+    String,
+    String,
+    String,
+    Option<String>,
+    Option<String>,
+    Vec<u8>,
+    Option<i64>,
+);
+type SerializedOutputNoteParts = (
+    Vec<u8>,
+    Option<String>,
+    String,
+    String,
+    String,
+    Option<String>,
+    Option<Vec<u8>>,
+    Option<i64>,
+);
 
 // NOTE TABLE
 // ================================================================================================
@@ -85,11 +104,15 @@ impl<'a> NoteFilter<'a> {
                     note.status,
                     note.metadata,
                     note.inclusion_proof,
-                    script.serialized_note_script
+                    script.serialized_note_script,
+                    tx.account_id
                     from {notes_table} AS note 
                     LEFT OUTER JOIN notes_scripts AS script
                         ON note.details IS NOT NULL AND 
-                        json_extract(note.details, '$.script_hash') = script.script_hash"
+                        json_extract(note.details, '$.script_hash') = script.script_hash
+                    LEFT OUTER JOIN transactions AS tx
+                        ON note.consumer_transaction_id IS NOT NULL AND
+                        note.consumer_transaction_id = tx.id"
         );
 
         match self {
@@ -255,6 +278,7 @@ pub(super) fn insert_input_note_tx(
             ":metadata": metadata,
             ":details": details,
             ":inclusion_proof": inclusion_proof,
+            ":consumer_transaction_id": None::<String>,
         },
     )
     .map_err(|err| StoreError::QueryError(err.to_string()))
@@ -306,6 +330,25 @@ pub fn insert_output_note_tx(
         .map(|_| ())
 }
 
+pub fn update_note_consumer_tx_id(
+    tx: &Transaction<'_>,
+    note_id: NoteId,
+    consumer_tx_id: TransactionId,
+) -> Result<(), StoreError> {
+    const QUERY: &str = "UPDATE input_notes SET consumer_transaction_id = :consumer_transaction_id WHERE note_id = :note_id;
+                         UPDATE output_notes SET consumer_transaction_id = :consumer_transaction_id WHERE note_id = :note_id;";
+
+    tx.execute(
+        QUERY,
+        named_params! {
+            ":note_id": note_id.inner().to_string(),
+            ":consumer_transaction_id": consumer_tx_id.to_string(),
+        },
+    )
+    .map_err(|err| StoreError::QueryError(err.to_string()))
+    .map(|_| ())
+}
+
 /// Parse input note columns from the provided row into native types.
 fn parse_input_note_columns(
     row: &rusqlite::Row<'_>,
@@ -317,6 +360,7 @@ fn parse_input_note_columns(
     let metadata: Option<String> = row.get(4)?;
     let inclusion_proof: Option<String> = row.get(5)?;
     let serialized_note_script: Vec<u8> = row.get(6)?;
+    let consumer_account_id: Option<i64> = row.get(7)?;
 
     Ok((
         assets,
@@ -326,6 +370,7 @@ fn parse_input_note_columns(
         metadata,
         inclusion_proof,
         serialized_note_script,
+        consumer_account_id,
     ))
 }
 
@@ -341,6 +386,7 @@ fn parse_input_note(
         note_metadata,
         note_inclusion_proof,
         serialized_note_script,
+        consumer_account_id,
     ) = serialized_input_note_parts;
 
     // Merge the info that comes from the input notes table and the notes script table
@@ -380,7 +426,10 @@ fn parse_input_note(
     let id = NoteId::new(recipient, note_assets.commitment());
     let status: NoteStatus = serde_json::from_str(&format!("\"{status}\""))
         .map_err(StoreError::JsonDataDeserializationError)?;
-
+    let consumer_account_id: Option<AccountId> = match consumer_account_id {
+        Some(account_id) => Some(AccountId::try_from(account_id as u64)?),
+        None => None,
+    };
     Ok(InputNoteRecord::new(
         id,
         recipient,
@@ -389,6 +438,7 @@ fn parse_input_note(
         note_metadata,
         inclusion_proof,
         note_details,
+        consumer_account_id,
     ))
 }
 
@@ -465,6 +515,7 @@ fn parse_output_note_columns(
     let metadata: String = row.get(4)?;
     let inclusion_proof: Option<String> = row.get(5)?;
     let serialized_note_script: Option<Vec<u8>> = row.get(6)?;
+    let consumer_account_id: Option<i64> = row.get(7)?;
 
     Ok((
         assets,
@@ -474,6 +525,7 @@ fn parse_output_note_columns(
         metadata,
         inclusion_proof,
         serialized_note_script,
+        consumer_account_id,
     ))
 }
 
@@ -489,6 +541,7 @@ fn parse_output_note(
         note_metadata,
         note_inclusion_proof,
         serialized_note_script,
+        consumer_account_id,
     ) = serialized_output_note_parts;
 
     let note_details: Option<NoteRecordDetails> = if let Some(details_as_json_str) = note_details {
@@ -531,6 +584,11 @@ fn parse_output_note(
     let status: NoteStatus = serde_json::from_str(&format!("\"{status}\""))
         .map_err(StoreError::JsonDataDeserializationError)?;
 
+    let consumer_account_id: Option<AccountId> = match consumer_account_id {
+        Some(account_id) => Some(AccountId::try_from(account_id as u64)?),
+        None => None,
+    };
+
     Ok(OutputNoteRecord::new(
         id,
         recipient,
@@ -539,6 +597,7 @@ fn parse_output_note(
         note_metadata,
         inclusion_proof,
         note_details,
+        consumer_account_id,
     ))
 }
 
