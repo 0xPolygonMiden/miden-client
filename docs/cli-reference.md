@@ -12,13 +12,13 @@ The following document lists the commands that the CLI currently supports.
 Call a command on the `miden-client` like this:
 
 ```sh
-miden-client <command> <sub-command>
+miden <command> <sub-command>
 ```
 
 Optionally, you can include the `--debug` flag to run the command with debug mode, which enables debug output logs from scripts that were compiled in this mode:
 
 ```sh
-miden-client --debug <command> <sub-command>
+miden --debug <command> <sub-command>
 ```
 
 Note that the debug flag overrides the `MIDEN_DEBUG` environment variable.
@@ -31,22 +31,22 @@ Creates a configuration file for the client in the current directory.
  
 ```sh
 # This will create a config using default values
-miden-client init
+miden init
 
 # You can use the --rpc flag to override the default rpc config
-miden-client init --rpc testnet.miden.io
+miden init --rpc testnet.miden.io
 # You can specify the port
-miden-client init --rpc testnet.miden.io:8080
+miden init --rpc testnet.miden.io:8080
 # You can also specify the protocol (http/https)
-miden-client init --rpc https://testnet.miden.io
+miden init --rpc https://testnet.miden.io
 # You can specify both
-miden-client init --rpc https://testnet.miden.io:1234
+miden init --rpc https://testnet.miden.io:1234
 
 # You can use the --store_path flag to override the default store config
-miden-client init --store_path db/store.sqlite3
+miden init --store_path db/store.sqlite3
 
 # You can provide both flags
-miden-client init --rpc testnet.miden.io --store_path db/store.sqlite3
+miden init --rpc testnet.miden.io --store_path db/store.sqlite3
 ```
 
 ### `account` 
@@ -68,13 +68,13 @@ After creating an account with the `new` command, it is automatically stored and
 The `show` subcommand also accepts a partial ID instead of the full ID. For example, instead of:
 
 ```sh
-miden-client account show 0x8fd4b86a6387f8d8
+miden account show 0x8fd4b86a6387f8d8
 ```
 
 You can call:
 
 ```sh
-miden-client account show 0x8fd4b86
+miden account show 0x8fd4b86
 ```
 
 ### `info`
@@ -98,13 +98,13 @@ View and manage input notes.
 The `show` subcommand also accepts a partial ID instead of the full ID. For example, instead of:
 
 ```sh
-miden-client input-notes show 0x70b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0 
+miden input-notes show 0x70b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0 
 ```
 
 You can call:
 
 ```sh
-miden-client input-notes show 0x70b7ec
+miden input-notes show 0x70b7ec
 ```
 
 The `import` subcommand verifies that the note that is about to be imported exists on chain. The user can add an optional flag `--no-verify` that skips this verification.
@@ -155,13 +155,13 @@ After a transaction gets executed, two entities start being tracked:
 For `consume-notes` subcommand, you can also provide a partial ID instead of the full ID for each note. So instead of 
 
 ```sh
-miden-client tx new consume-notes --account <some-account-id> 0x70b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0 0x80b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0
+miden tx new consume-notes --account <some-account-id> 0x70b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0 0x80b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0
 ``` 
 
 You can do: 
 
 ```sh
-miden-client tx new consume-notes --account <some-account-id> 0x70b7ecb 0x80b7ecb
+miden tx new consume-notes --account <some-account-id> 0x70b7ecb 0x80b7ecb
 ```
 
 Also, for `p2id`, `p2idr` and `consume-notes`, you can omit the `--sender` and `--account` flags to use the default account defined in the [config](./cli-config.md). If you omit the flag but have no default account defined in the config, you'll get an error instead.
@@ -169,13 +169,13 @@ Also, for `p2id`, `p2idr` and `consume-notes`, you can omit the `--sender` and `
 For every command which needs an account ID (either wallet or faucet), you can also provide a partial ID instead of the full ID for each account. So instead of
 
 ```sh
-miden-client tx new p2id --sender 0x80519a1c5e3680fc --target 0x8fd4b86a6387f8d8 --faucet 0xa99c5c8764d4e011 100
+miden tx new p2id --sender 0x80519a1c5e3680fc --target 0x8fd4b86a6387f8d8 --faucet 0xa99c5c8764d4e011 100
 ```
 
 You can do:
 
 ```sh
-miden-client tx new p2id --sender 0x80519 --target 0x8fd4b --faucet 0xa99c5 100
+miden tx new p2id --sender 0x80519 --target 0x8fd4b --faucet 0xa99c5 100
 ```
 
 #### Transaction confirmation
@@ -183,7 +183,7 @@ miden-client tx new p2id --sender 0x80519 --target 0x8fd4b --faucet 0xa99c5 100
 When creating a new transaction, a summary of the transaction updates will be shown and confirmation for those updates will be prompted:
 
 ```sh
-miden-client tx new ...
+miden tx new ...
 
 TX Summary:
 
@@ -192,4 +192,4 @@ TX Summary:
 Continue with proving and submission? Changes will be irreversible once the proof is finalized on the rollup (Y/N)
 ```
 
-This confirmation can be skipped in non-interactive environments by providing the `--force` flag (`miden-client tx new --force ...`):
+This confirmation can be skipped in non-interactive environments by providing the `--force` flag (`miden tx new --force ...`):
