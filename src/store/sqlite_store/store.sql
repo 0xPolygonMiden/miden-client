@@ -92,6 +92,8 @@ CREATE TABLE input_notes (
     -- script_hash                                                 -- the note's script hash
     -- inputs                                                 -- the serialized NoteInputs, including inputs hash and list of inputs
     -- serial_num                                             -- the note serial number
+    consumer_transaction_id BLOB NULL,                      -- the transaction ID of the transaction that consumed the note
+    FOREIGN KEY (consumer_transaction_id) REFERENCES transactions(id) NULL,
     PRIMARY KEY (note_id)
 
     CONSTRAINT check_valid_inclusion_proof_json CHECK (
@@ -104,6 +106,7 @@ CREATE TABLE input_notes (
         json_extract(inclusion_proof, '$.note_path') IS NOT NULL
       ))
     CONSTRAINT check_valid_metadata_json CHECK (metadata IS NULL OR (json_extract(metadata, '$.sender') IS NOT NULL AND json_extract(metadata, '$.tag') IS NOT NULL))
+    CONSTRAINT check_valid_consumer_transaction_id CHECK (consumer_transaction_id IS NULL OR status = 'Consumed')
 );
 
 -- Create output notes table
@@ -131,6 +134,8 @@ CREATE TABLE output_notes (
     -- script                                                 -- the note's script hash
     -- inputs                                                 -- the serialized NoteInputs, including inputs hash and list of inputs
     -- serial_num                                             -- the note serial number
+    consumer_transaction_id BLOB NULL,                      -- the transaction ID of the transaction that consumed the note
+    FOREIGN KEY (consumer_transaction_id) REFERENCES transactions(id) NULL,
     PRIMARY KEY (note_id)
 
     CONSTRAINT check_valid_inclusion_proof_json CHECK (
@@ -150,7 +155,7 @@ CREATE TABLE output_notes (
         json_extract(details, '$.inputs') IS NOT NULL AND
         json_extract(details, '$.serial_num') IS NOT NULL
       ))
-
+    CONSTRAINT check_valid_consumer_transaction_id CHECK (consumer_transaction_id IS NULL OR status = 'Consumed')
 );
 
 -- Create note's scripts table, used for both input and output notes
