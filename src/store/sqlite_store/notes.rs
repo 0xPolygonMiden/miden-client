@@ -6,6 +6,7 @@ use miden_objects::{
     accounts::AccountId,
     crypto::utils::{Deserializable, Serializable},
     notes::{NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, NoteScript, Nullifier},
+    transaction::TransactionId,
     Digest,
 };
 use rusqlite::{named_params, params, params_from_iter, types::Value, Transaction};
@@ -327,6 +328,25 @@ pub fn insert_output_note_tx(
     tx.execute(QUERY, params![note_script_hash, serialized_note_script,])
         .map_err(|err| StoreError::QueryError(err.to_string()))
         .map(|_| ())
+}
+
+pub fn update_note_consumer_tx_id(
+    tx: &Transaction<'_>,
+    note_id: NoteId,
+    consumer_tx_id: TransactionId,
+) -> Result<(), StoreError> {
+    const QUERY: &str = "UPDATE input_notes SET consumer_transaction_id = :consumer_transaction_id WHERE note_id = :note_id;
+                         UPDATE output_notes SET consumer_transaction_id = :consumer_transaction_id WHERE note_id = :note_id;";
+
+    tx.execute(
+        QUERY,
+        named_params! {
+            ":note_id": note_id.inner().to_string(),
+            ":consumer_transaction_id": consumer_tx_id.to_string(),
+        },
+    )
+    .map_err(|err| StoreError::QueryError(err.to_string()))
+    .map(|_| ())
 }
 
 /// Parse input note columns from the provided row into native types.

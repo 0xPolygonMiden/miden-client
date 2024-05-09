@@ -39,14 +39,20 @@ pub struct TransactionResult {
     executed_transaction: ExecutedTransaction,
     output_notes: Vec<Note>,
     relevant_notes: Option<BTreeMap<usize, Vec<(AccountId, NoteRelevance)>>>,
+    consumed_notes: Vec<NoteId>,
 }
 
 impl TransactionResult {
-    pub fn new(executed_transaction: ExecutedTransaction, created_notes: Vec<Note>) -> Self {
+    pub fn new(
+        executed_transaction: ExecutedTransaction,
+        created_notes: Vec<Note>,
+        consumed_notes: Vec<NoteId>,
+    ) -> Self {
         Self {
             executed_transaction,
             output_notes: created_notes,
             relevant_notes: None,
+            consumed_notes,
         }
     }
 
@@ -86,6 +92,10 @@ impl TransactionResult {
 
     pub fn account_delta(&self) -> &AccountDelta {
         self.executed_transaction.account_delta()
+    }
+
+    pub fn consumed_notes(&self) -> &Vec<NoteId> {
+        &self.consumed_notes
     }
 }
 
@@ -245,7 +255,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             return Err(ClientError::MissingOutputNotes(missing_note_ids));
         }
 
-        Ok(TransactionResult::new(executed_transaction, output_notes))
+        Ok(TransactionResult::new(executed_transaction, output_notes, note_ids))
     }
 
     /// Proves the specified transaction witness, submits it to the node, and stores the transaction in
