@@ -6,7 +6,7 @@ use miden_objects::{
     assembly::ProgramAst,
     assets::FungibleAsset,
     crypto::rand::RpoRandomCoin,
-    notes::{Note, NoteId, NoteType},
+    notes::{NoteId, NoteType},
     transaction::{
         ExecutedTransaction, OutputNote, OutputNotes, ProvenTransaction, TransactionArgs,
         TransactionId, TransactionScript,
@@ -38,7 +38,7 @@ pub mod transaction_request;
 /// created by the transaction execution, and a list of `relevant_notes` that contains the
 /// `output_notes` that the client has to store as input notes, based on the NoteScreener output
 pub struct TransactionResult {
-    executed_transaction: ExecutedTransaction,
+    transaction: ExecutedTransaction,
     relevant_notes: Vec<InputNoteRecord>,
 }
 
@@ -49,9 +49,9 @@ impl TransactionResult {
         note_screener: NoteScreener<S>,
     ) -> Result<Self, ClientError> {
         let mut relevant_notes = vec![];
-        let output_notes = executed_transaction.output_notes().iter().map(|n| match n {
-            OutputNote::Full(n) => n,
-            OutputNote::Header(_) => panic!("ExecutedTransaction should have all note details"),
+        let output_notes = executed_transaction.output_notes().iter().filter_map(|n| match n {
+            OutputNote::Full(n) => Some(n),
+            OutputNote::Header(_) => None,
         });
         for note in output_notes {
             let account_relevance = note_screener.check_relevance(note)?;
@@ -61,26 +61,17 @@ impl TransactionResult {
             }
         }
 
-        let tx_result = Self { executed_transaction, relevant_notes };
+        let tx_result = Self { transaction: executed_transaction, relevant_notes };
 
         Ok(tx_result)
     }
 
     pub fn executed_transaction(&self) -> &ExecutedTransaction {
-        &self.executed_transaction
+        &self.transaction
     }
 
-    pub fn created_notes(&self) -> Vec<Note> {
-        // All output notes should be OutputNote::Full because they are shrinked
-        // only at the moment of proving (the ExecutedTransaction keeps all details)
-        self.executed_transaction
-            .output_notes()
-            .iter()
-            .map(|n| match n {
-                OutputNote::Full(n) => n.clone(),
-                OutputNote::Header(_) => panic!("ExecutedTransaction should have all note details"),
-            })
-            .collect()
+    pub fn created_notes(&self) -> &OutputNotes {
+        &self.transaction.output_notes()
     }
 
     pub fn relevant_notes(&self) -> &[InputNoteRecord] {
@@ -88,15 +79,15 @@ impl TransactionResult {
     }
 
     pub fn block_num(&self) -> u32 {
-        self.executed_transaction.block_header().block_num()
+        self.transaction.block_header().block_num()
     }
 
     pub fn transaction_arguments(&self) -> &TransactionArgs {
-        self.executed_transaction.tx_args()
+        self.transaction.tx_args()
     }
 
     pub fn account_delta(&self) -> &AccountDelta {
-        self.executed_transaction.account_delta()
+        self.transaction.account_delta()
     }
 }
 
