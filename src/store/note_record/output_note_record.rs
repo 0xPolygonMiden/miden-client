@@ -19,6 +19,10 @@ use crate::errors::ClientError;
 ///
 /// It is also possible to convert [Note] into [OutputNoteRecord] (we fill the `details` and
 /// `inclusion_proof` fields if possible)
+///
+/// The `consumer_account_id` field is used to keep track of the account that consumed the note. It
+/// is only valid if the `status` is [NoteStatus::Consumed]. If the note is consumed but the field
+/// is [None] it means that the note was consumed by an untracked account.
 #[derive(Clone, Debug, PartialEq)]
 pub struct OutputNoteRecord {
     assets: NoteAssets,

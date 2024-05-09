@@ -22,6 +22,10 @@ use crate::errors::ClientError;
 /// Once the proof is set, the [InputNoteRecord] can be transformed into an [InputNote] and used as
 /// input for transactions.
 ///
+/// The `consumer_account_id` field is used to keep track of the account that consumed the note. It
+/// is only valid if the `status` is [NoteStatus::Consumed]. If the note is consumed but the field
+/// is [None] it means that the note was consumed by an untracked account.
+///
 /// It is also possible to convert [Note] and [InputNote] into [InputNoteRecord] (we fill the
 /// `metadata` and `inclusion_proof` fields if possible)
 #[derive(Clone, Debug, PartialEq)]
