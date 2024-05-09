@@ -10,7 +10,11 @@ documentation = "https://docs.rs/miden-client/0.2.1"
 keywords = ["miden", "client"]
 edition = "2021"
 rust-version = "1.75"
-default-run = "miden-client"
+default-run = "miden"
+
+[[bin]]
+name = "miden"
+path = "src/main.rs"
 
 [[test]]
 name = "integration"
