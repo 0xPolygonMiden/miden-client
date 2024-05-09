@@ -237,16 +237,17 @@ async fn test_sync_state() {
     let pending_notes = client.get_input_notes(NoteFilter::Pending).unwrap();
 
     // sync state
-    let block_num: u32 = client.sync_state().await.unwrap();
+    let sync_details = client.sync_state().await.unwrap();
 
     // verify that the client is synced to the latest block
     assert_eq!(
-        block_num,
+        sync_details.block_num,
         client.rpc_api().state_sync_requests.first_key_value().unwrap().1.chain_tip
     );
 
     // verify that we now have one consumed note after syncing state
     assert_eq!(client.get_input_notes(NoteFilter::Consumed).unwrap().len(), 1);
+    assert_eq!(sync_details.new_nullifiers, 1);
 
     // verify that the pending note we had is now committed
     assert_ne!(client.get_input_notes(NoteFilter::Committed).unwrap(), pending_notes);
@@ -267,11 +268,11 @@ async fn test_sync_state_mmr_state() {
     let tracked_block_headers = crate::mock::insert_mock_data(&mut client).await;
 
     // sync state
-    let block_num: u32 = client.sync_state().await.unwrap();
+    let sync_details = client.sync_state().await.unwrap();
 
     // verify that the client is synced to the latest block
     assert_eq!(
-        block_num,
+        sync_details.block_num,
         client.rpc_api().state_sync_requests.first_key_value().unwrap().1.chain_tip
     );
 
@@ -283,7 +284,7 @@ async fn test_sync_state_mmr_state() {
 
     // verify that we inserted the latest block into the db via the client
     let latest_block = client.get_sync_height().unwrap();
-    assert_eq!(block_num, latest_block);
+    assert_eq!(sync_details.block_num, latest_block);
     assert_eq!(
         tracked_block_headers[tracked_block_headers.len() - 1],
         client.get_block_headers(&[latest_block]).unwrap()[0].0

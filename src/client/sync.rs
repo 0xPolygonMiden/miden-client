@@ -1,5 +1,5 @@
 use alloc::collections::{BTreeMap, BTreeSet};
-use std::collections::HashMap;
+use std::{cmp::max, collections::HashMap};
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
@@ -24,9 +24,72 @@ use crate::{
     store::{ChainMmrNodeFilter, InputNoteRecord, NoteFilter, Store, TransactionFilter},
 };
 
+/// Contains stats about the sync operation
+pub struct SyncSummary {
+    /// Block number up to which the client has been synced
+    pub block_num: u32,
+    /// Number of new notes received
+    pub new_notes: usize,
+    /// Number of tracked notes that received inclusion proofs
+    pub new_inclusion_proofs: usize,
+    /// Number of new nullifiers received
+    pub new_nullifiers: usize,
+    /// Number of on-chain accounts that have been updated
+    pub updated_onchain_accounts: usize,
+    /// Number of commited transactions
+    pub commited_transactions: usize,
+}
+
+impl SyncSummary {
+    pub fn new(
+        block_num: u32,
+        new_notes: usize,
+        new_inclusion_proofs: usize,
+        new_nullifiers: usize,
+        updated_onchain_accounts: usize,
+        commited_transactions: usize,
+    ) -> Self {
+        Self {
+            block_num,
+            new_notes,
+            new_inclusion_proofs,
+            new_nullifiers,
+            updated_onchain_accounts,
+            commited_transactions,
+        }
+    }
+
+    pub fn new_empty(block_num: u32) -> Self {
+        Self {
+            block_num,
+            new_notes: 0,
+            new_inclusion_proofs: 0,
+            new_nullifiers: 0,
+            updated_onchain_accounts: 0,
+            commited_transactions: 0,
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.new_notes == 0
+            && self.new_inclusion_proofs == 0
+            && self.new_nullifiers == 0
+            && self.updated_onchain_accounts == 0
+    }
+
+    pub fn combine_with(&mut self, other: &Self) {
+        self.block_num = max(self.block_num, other.block_num);
+        self.new_notes += other.new_notes;
+        self.new_inclusion_proofs += other.new_inclusion_proofs;
+        self.new_nullifiers += other.new_nullifiers;
+        self.updated_onchain_accounts += other.updated_onchain_accounts;
+        self.commited_transactions += other.commited_transactions;
+    }
+}
+
 pub enum SyncStatus {
-    SyncedToLastBlock(u32),
-    SyncedToBlock(u32),
+    SyncedToLastBlock(SyncSummary),
+    SyncedToBlock(SyncSummary),
 }
 
 /// Contains information about new notes as consequence of a sync
@@ -136,12 +199,19 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     /// Before doing so, it ensures the genesis block exists in the local store.
     ///
     /// Returns the block number the client has been synced to.
-    pub async fn sync_state(&mut self) -> Result<u32, ClientError> {
+    pub async fn sync_state(&mut self) -> Result<SyncSummary, ClientError> {
         self.ensure_genesis_in_place().await?;
+        let mut total_sync_details = SyncSummary::new_empty(0);
         loop {
             let response = self.sync_state_once().await?;
-            if let SyncStatus::SyncedToLastBlock(v) = response {
-                return Ok(v);
+            let details = match &response {
+                SyncStatus::SyncedToLastBlock(v) => v,
+                SyncStatus::SyncedToBlock(v) => v,
+            };
+            total_sync_details.combine_with(details);
+
+            if let SyncStatus::SyncedToLastBlock(_) = response {
+                return Ok(total_sync_details);
             }
         }
     }
@@ -222,9 +292,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             .sync_state(current_block_num, &account_ids, &note_tags, &nullifiers_tags)
             .await?;
 
-        // We don't need to continue if the chain has not advanced
+        // We don't need to continue if the chain has not advanced, there are no new changes
         if response.block_header.block_num() == current_block_num {
-            return Ok(SyncStatus::SyncedToLastBlock(current_block_num));
+            return Ok(SyncStatus::SyncedToLastBlock(SyncSummary::new_empty(current_block_num)));
         }
 
         let new_note_details =
@@ -275,14 +345,18 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             &response.account_hash_updates,
         );
 
+        let num_new_notes = new_note_details.new_public_notes.len();
+        let num_new_inclusion_proofs = new_note_details.updated_input_notes.len()
+            + new_note_details.updated_output_notes.len();
+        let num_new_nullifiers = new_nullifiers.len();
         let state_sync_update = StateSyncUpdate {
             block_header: response.block_header,
             nullifiers: new_nullifiers,
             synced_new_notes: new_note_details,
-            transactions_to_commit,
+            transactions_to_commit: transactions_to_commit.clone(),
             new_mmr_peaks: new_peaks,
             new_authentication_nodes,
-            updated_onchain_accounts,
+            updated_onchain_accounts: updated_onchain_accounts.clone(),
             block_has_relevant_notes: incoming_block_has_relevant_notes,
         };
 
@@ -292,9 +366,23 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             .map_err(ClientError::StoreError)?;
 
         if response.chain_tip == response.block_header.block_num() {
-            Ok(SyncStatus::SyncedToLastBlock(response.chain_tip))
+            Ok(SyncStatus::SyncedToLastBlock(SyncSummary::new(
+                response.chain_tip,
+                num_new_notes,
+                num_new_inclusion_proofs,
+                num_new_nullifiers,
+                updated_onchain_accounts.len(),
+                transactions_to_commit.len(),
+            )))
         } else {
-            Ok(SyncStatus::SyncedToBlock(response.block_header.block_num()))
+            Ok(SyncStatus::SyncedToBlock(SyncSummary::new(
+                response.block_header.block_num(),
+                num_new_notes,
+                num_new_inclusion_proofs,
+                num_new_nullifiers,
+                updated_onchain_accounts.len(),
+                transactions_to_commit.len(),
+            )))
         }
     }
 

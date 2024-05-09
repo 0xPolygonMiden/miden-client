@@ -501,3 +501,66 @@ async fn test_get_account_update() {
     assert!(matches!(details1, AccountDetails::OffChain(_, _)));
     assert!(matches!(details2, AccountDetails::Public(_, _)));
 }
+
+#[tokio::test]
+async fn test_sync_detail_values() {
+    let mut client1 = create_test_client();
+    let mut client2 = create_test_client();
+    wait_for_node(&mut client1).await;
+    wait_for_node(&mut client2).await;
+
+    let (first_regular_account, _, faucet_account_stub) =
+        setup(&mut client1, AccountStorageMode::Local).await;
+
+    let (second_regular_account, _) = client2
+        .new_account(AccountTemplate::BasicWallet {
+            mutable_code: false,
+            storage_mode: AccountStorageMode::Local,
+        })
+        .unwrap();
+
+    let from_account_id = first_regular_account.id();
+    let to_account_id = second_regular_account.id();
+    let faucet_account_id = faucet_account_stub.id();
+
+    // First Mint necesary token
+    let note =
+        mint_note(&mut client1, from_account_id, faucet_account_id, NoteType::OffChain).await;
+    consume_notes(&mut client1, from_account_id, &[note]).await;
+    assert_account_has_single_asset(&client1, from_account_id, faucet_account_id, MINT_AMOUNT)
+        .await;
+
+    // Second client sync shouldn't have any new changes
+    let new_details = client2.sync_state().await.unwrap();
+    assert!(new_details.is_empty());
+
+    // Do a transfer with recall from first account to second account
+    let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
+    let tx_template = TransactionTemplate::PayToIdWithRecall(
+        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
+        new_details.block_num + 5,
+        NoteType::Public,
+    );
+
+    let tx_request = client1.build_transaction_request(tx_template).unwrap();
+    let note_id = tx_request.expected_output_notes()[0].id();
+    execute_tx_and_sync(&mut client1, tx_request).await;
+
+    // Second client sync should have new note
+    let new_details = client2.sync_state().await.unwrap();
+    assert_eq!(new_details.new_notes, 1);
+    assert_eq!(new_details.new_inclusion_proofs, 0);
+    assert_eq!(new_details.new_nullifiers, 0);
+    assert_eq!(new_details.updated_onchain_accounts, 0);
+
+    // Consume the note with the second account
+    let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![note_id]);
+    let tx_request = client2.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(&mut client2, tx_request).await;
+
+    // First client sync should have a new nullifier as the note was consumed
+    let new_details = client1.sync_state().await.unwrap();
+    assert_eq!(new_details.new_notes, 0);
+    assert_eq!(new_details.new_inclusion_proofs, 0);
+    assert_eq!(new_details.new_nullifiers, 1);
+}
