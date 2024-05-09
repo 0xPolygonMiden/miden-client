@@ -1,5 +1,6 @@
 use miden_objects::{
-    notes::{Note, NoteAssets, NoteHeader, NoteId, NoteInclusionProof, NoteMetadata}, transaction::OutputNote, Digest
+    notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteMetadata},
+    Digest,
 };
 
 use super::{InputNoteRecord, NoteRecordDetails, NoteStatus};
@@ -81,32 +82,7 @@ impl OutputNoteRecord {
 // CONVERSIONS
 // ================================================================================================
 
-impl From<OutputNote> for OutputNoteRecord {
-    fn from(value: OutputNote) -> Self {
-        match value {
-            OutputNote::Full(note) => note.into(),
-            OutputNote::Header(header) => 
-                header.into(),
-        }
-    }
-}
-
-
-impl From<NoteHeader> for OutputNoteRecord {
-    fn from(value: NoteHeader) -> Self {
-        OutputNoteRecord {
-            id: value.id(),
-            recipient: value.recipient().digest(),
-            assets: value.metadata,
-            status: NoteStatus::Pending,
-            metadata: *value.metadata(),
-            inclusion_proof: None,
-            details: None,
-        }
-    }
-}
-
-
+// TODO: Improve conversions by implementing into_parts()
 impl From<Note> for OutputNoteRecord {
     fn from(note: Note) -> Self {
         OutputNoteRecord {

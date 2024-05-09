@@ -16,7 +16,9 @@ use super::{
     SqliteStore,
 };
 use crate::{
-    client::transactions::{TransactionRecord, TransactionResult, TransactionStatus},
+    client::transactions::{
+        notes_from_output, TransactionRecord, TransactionResult, TransactionStatus,
+    },
     errors::StoreError,
     store::{OutputNoteRecord, TransactionFilter},
 };
@@ -90,10 +92,9 @@ impl SqliteStore {
         let created_input_notes = tx_result.relevant_notes().to_vec();
 
         // Save all output notes
-        let created_output_notes = tx_result
-            .created_notes()
-            .iter()
-            .map(|note| OutputNoteRecord::from(note.clone()))
+        let created_output_notes = notes_from_output(tx_result.created_notes())
+            .cloned()
+            .map(OutputNoteRecord::from)
             .collect::<Vec<_>>();
 
         let mut db = self.db();

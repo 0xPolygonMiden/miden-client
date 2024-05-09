@@ -6,7 +6,7 @@ use miden_objects::{
     assembly::ProgramAst,
     assets::FungibleAsset,
     crypto::rand::RpoRandomCoin,
-    notes::{NoteId, NoteType},
+    notes::{Note, NoteId, NoteType},
     transaction::{
         ExecutedTransaction, OutputNote, OutputNotes, ProvenTransaction, TransactionArgs,
         TransactionId, TransactionScript,
@@ -45,15 +45,12 @@ pub struct TransactionResult {
 impl TransactionResult {
     /// Screens the output notes to store and track the relevant ones, and instantiates a [TransactionResult]
     pub fn new<S: Store>(
-        executed_transaction: ExecutedTransaction,
+        transaction: ExecutedTransaction,
         note_screener: NoteScreener<S>,
     ) -> Result<Self, ClientError> {
         let mut relevant_notes = vec![];
-        let output_notes = executed_transaction.output_notes().iter().filter_map(|n| match n {
-            OutputNote::Full(n) => Some(n),
-            OutputNote::Header(_) => None,
-        });
-        for note in output_notes {
+
+        for note in notes_from_output(transaction.output_notes()) {
             let account_relevance = note_screener.check_relevance(note)?;
 
             if !account_relevance.is_empty() {
@@ -61,7 +58,7 @@ impl TransactionResult {
             }
         }
 
-        let tx_result = Self { transaction: executed_transaction, relevant_notes };
+        let tx_result = Self { transaction, relevant_notes };
 
         Ok(tx_result)
     }
@@ -71,7 +68,7 @@ impl TransactionResult {
     }
 
     pub fn created_notes(&self) -> &OutputNotes {
-        &self.transaction.output_notes()
+        self.transaction.output_notes()
     }
 
     pub fn relevant_notes(&self) -> &[InputNoteRecord] {
@@ -238,16 +235,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         )?;
 
         // Check that the expected output notes matches the transaction outcome.
-        let tx_note_auth_hashes: BTreeSet<Digest> = executed_transaction
-            .output_notes()
-            .iter()
-            .map(|n| match n {
-                OutputNote::Full(n) => n.authentication_hash(),
-                OutputNote::Header(_) => {
-                    panic!("ExecutedTransaction should always have every note's details")
-                },
-            })
-            .collect();
+        // We comprae authentication hashes where possible since that involves note IDs + metadata
+        // (as opposed to just note ID which remains the same regardless of metadata)
+        let tx_note_auth_hashes: BTreeSet<Digest> =
+            notes_from_output(executed_transaction.output_notes())
+                .map(Note::authentication_hash)
+                .collect();
 
         let missing_note_ids: Vec<NoteId> = output_notes
             .iter()
@@ -435,4 +428,17 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
 pub(crate) fn prepare_word(word: &Word) -> String {
     word.iter().map(|x| x.as_int().to_string()).collect::<Vec<_>>().join(".")
+}
+
+/// Extracts notes from [OutputNotes]
+/// Used for:
+/// - checking the relevance of notes to save them as input notes
+/// - validate hashes versus expected output notes after a transaction is executed
+pub(crate) fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &Note> {
+    output_notes.iter().map(|n| match n {
+        OutputNote::Full(n) => n,
+        // The following todo!() applies until we have a way to support flows where we have
+        // partial details of the note
+        OutputNote::Header(_) => todo!("For now, all details should be held in OutputNote::Fulls"),
+    })
 }
