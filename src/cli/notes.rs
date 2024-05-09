@@ -99,6 +99,16 @@ impl Notes {
     }
 }
 
+struct CliNoteSummary {
+    note_id: String,
+    script_hash: String,
+    assets_hash: String,
+    inputs_commitment: String,
+    serial_num: String,
+    note_type: String,
+    note_status: String,
+}
+
 // LIST NOTES
 // ================================================================================================
 fn list_notes<N: NodeRpcClient, R: FeltRng, S: Store>(
@@ -169,16 +179,29 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store>(
         _ => {},
     }
 
-    // print note summary
-    print_notes_summary(core::iter::once((
-        input_note_record.as_ref(),
-        output_note_record.as_ref(),
-    )))?;
-
     let mut table = Table::new();
     table
         .load_preset(presets::UTF8_HORIZONTAL_ONLY)
         .set_content_arrangement(ContentArrangement::DynamicFullWidth);
+
+    let CliNoteSummary {
+        note_id,
+        script_hash,
+        assets_hash,
+        inputs_commitment,
+        serial_num,
+        note_type,
+        note_status,
+    } = note_summary(input_note_record.as_ref(), output_note_record.as_ref())?;
+
+    table.add_row(vec![Cell::new("Note Information").add_attribute(Attribute::Bold)]);
+    table.add_row(vec![Cell::new("ID"), Cell::new(note_id)]);
+    table.add_row(vec![Cell::new("Script Hash"), Cell::new(script_hash)]);
+    table.add_row(vec![Cell::new("Assets Hash"), Cell::new(assets_hash)]);
+    table.add_row(vec![Cell::new("Inputs Hash"), Cell::new(inputs_commitment)]);
+    table.add_row(vec![Cell::new("Serial Number"), Cell::new(serial_num)]);
+    table.add_row(vec![Cell::new("Type"), Cell::new(note_type)]);
+    table.add_row(vec![Cell::new("Status"), Cell::new(note_status)]);
 
     let (script, inputs) = match (&input_note_record, &output_note_record) {
         (Some(record), _) => {
@@ -260,7 +283,7 @@ where
     let mut table = create_dynamic_table(&[
         "Note ID",
         "Script Hash",
-        "Vault Hash",
+        "Assets Hash",
         "Inputs Hash",
         "Serial Num",
         "Type",
@@ -269,84 +292,23 @@ where
     ]);
 
     for (input_note_record, output_note_record) in notes {
-        let note_id = input_note_record
-            .map(|record| record.id())
-            .or(output_note_record.map(|record| record.id()))
-            .expect("One of the two records should be Some");
-
-        let commit_height = input_note_record
-            .map(|record| {
-                record
-                    .inclusion_proof()
-                    .map(|proof| proof.origin().block_num.to_string())
-                    .unwrap_or("-".to_string())
-            })
-            .or(output_note_record.map(|record| {
-                record
-                    .inclusion_proof()
-                    .map(|proof| proof.origin().block_num.to_string())
-                    .unwrap_or("-".to_string())
-            }))
-            .expect("One of the two records should be Some");
-
-        let assets_str = input_note_record
-            .map(|record| record.assets().commitment().to_string())
-            .or(output_note_record.map(|record| record.assets().commitment().to_string()))
-            .expect("One of the two records should be Some");
-
-        let (inputs_commitment_str, serial_num, script) =
-            match (input_note_record, output_note_record) {
-                (Some(record), _) => {
-                    let details = record.details();
-                    (
-                        NoteInputs::new(details.inputs().clone())
-                            .map_err(ClientError::NoteError)?
-                            .commitment()
-                            .to_string(),
-                        Digest::new(details.serial_num()).to_string(),
-                        details.script().hash().to_string(),
-                    )
-                },
-                (None, Some(record)) if record.details().is_some() => {
-                    let details = record.details().expect("output record should have details");
-                    (
-                        NoteInputs::new(details.inputs().clone())
-                            .map_err(ClientError::NoteError)?
-                            .commitment()
-                            .to_string(),
-                        Digest::new(details.serial_num()).to_string(),
-                        details.script().hash().to_string(),
-                    )
-                },
-                (None, Some(_record)) => ("-".to_string(), "-".to_string(), "-".to_string()),
-                (None, None) => panic!("One of the two records should be Some"),
-            };
-
-        let note_type = note_record_type(
-            input_note_record
-                .and_then(|record| record.metadata())
-                .or(output_note_record.map(|record| record.metadata())),
-        );
-
-        let note_status = input_note_record
-            .map(|record| record.status())
-            .or(output_note_record.map(|record| record.status()))
-            .expect("One of the two records should be Some");
-
-        let note_status = match note_status {
-            NoteStatus::Committed => {
-                note_status.to_string() + format!(" (height {})", commit_height).as_str()
-            },
-            _ => note_status.to_string(),
-        };
+        let CliNoteSummary {
+            note_id,
+            script_hash,
+            assets_hash,
+            inputs_commitment,
+            serial_num,
+            note_type,
+            note_status,
+        } = note_summary(input_note_record, output_note_record)?;
 
         let exportable = if output_note_record.is_some() { "✔" } else { "✘" };
 
         table.add_row(vec![
-            note_id.inner().to_string(),
-            script,
-            assets_str,
-            inputs_commitment_str,
+            note_id,
+            script_hash,
+            assets_hash,
+            inputs_commitment,
             serial_num,
             note_type,
             note_status,
@@ -390,6 +352,91 @@ fn note_record_type(note_record_metadata: Option<&NoteMetadata>) -> String {
         None => "-",
     }
     .to_string()
+}
+
+/// Given that one of the two records is Some, this function will return a summary of the note.
+fn note_summary(
+    input_note_record: Option<&InputNoteRecord>,
+    output_note_record: Option<&OutputNoteRecord>,
+) -> Result<CliNoteSummary, String> {
+    let note_id = input_note_record
+        .map(|record| record.id())
+        .or(output_note_record.map(|record| record.id()))
+        .expect("One of the two records should be Some");
+
+    let commit_height = input_note_record
+        .map(|record| {
+            record
+                .inclusion_proof()
+                .map(|proof| proof.origin().block_num.to_string())
+                .unwrap_or("-".to_string())
+        })
+        .or(output_note_record.map(|record| {
+            record
+                .inclusion_proof()
+                .map(|proof| proof.origin().block_num.to_string())
+                .unwrap_or("-".to_string())
+        }))
+        .expect("One of the two records should be Some");
+
+    let assets_hash = input_note_record
+        .map(|record| record.assets().commitment().to_string())
+        .or(output_note_record.map(|record| record.assets().commitment().to_string()))
+        .expect("One of the two records should be Some");
+
+    let (inputs_commitment_str, serial_num, script_hash) =
+        match (input_note_record, output_note_record) {
+            (Some(record), _) => {
+                let details = record.details();
+                (
+                    NoteInputs::new(details.inputs().clone())
+                        .map_err(ClientError::NoteError)?
+                        .commitment()
+                        .to_string(),
+                    Digest::new(details.serial_num()).to_string(),
+                    details.script().hash().to_string(),
+                )
+            },
+            (None, Some(record)) if record.details().is_some() => {
+                let details = record.details().expect("output record should have details");
+                (
+                    NoteInputs::new(details.inputs().clone())
+                        .map_err(ClientError::NoteError)?
+                        .commitment()
+                        .to_string(),
+                    Digest::new(details.serial_num()).to_string(),
+                    details.script().hash().to_string(),
+                )
+            },
+            (None, Some(_record)) => ("-".to_string(), "-".to_string(), "-".to_string()),
+            (None, None) => panic!("One of the two records should be Some"),
+        };
+
+    let note_type = note_record_type(
+        input_note_record
+            .and_then(|record| record.metadata())
+            .or(output_note_record.map(|record| record.metadata())),
+    );
+
+    let note_status = input_note_record
+        .map(|record| record.status())
+        .or(output_note_record.map(|record| record.status()))
+        .expect("One of the two records should be Some");
+    let note_status = match note_status {
+        NoteStatus::Committed => {
+            note_status.to_string() + format!(" (height {})", commit_height).as_str()
+        },
+        _ => note_status.to_string(),
+    };
+    Ok(CliNoteSummary {
+        note_id: note_id.inner().to_string(),
+        script_hash,
+        assets_hash,
+        inputs_commitment: inputs_commitment_str,
+        serial_num,
+        note_type,
+        note_status,
+    })
 }
 
 // TESTS
