@@ -16,7 +16,7 @@ Run the following command to install the miden-client:
 cargo install miden-client --features testing,concurrent
 ```
 
-This installs the `miden-client` binary (at `~/.cargo/bin/miden`) with the [`testing`](#testing-feature) and [`concurrent`](#concurrent-feature) features.
+This installs the `miden` binary (at `~/.cargo/bin/miden`) with the [`testing`](#testing-feature) and [`concurrent`](#concurrent-feature) features.
 
 ### `Testing` feature
 
