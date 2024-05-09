@@ -99,7 +99,8 @@ impl SqliteStore {
             .map(|note| OutputNoteRecord::from(note.clone()))
             .collect::<Vec<_>>();
 
-        let consumed_note_ids = tx_result.consumed_notes().clone();
+        let consumed_note_ids =
+            tx_result.consumed_notes().iter().map(|note| note.id()).collect::<Vec<_>>();
 
         let mut db = self.db();
         let tx = db.transaction()?;

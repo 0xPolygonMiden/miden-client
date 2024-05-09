@@ -8,8 +8,8 @@ use miden_objects::{
     crypto::rand::RpoRandomCoin,
     notes::{Note, NoteId, NoteType},
     transaction::{
-        ExecutedTransaction, OutputNotes, ProvenTransaction, TransactionArgs, TransactionId,
-        TransactionScript,
+        ExecutedTransaction, InputNotes, OutputNotes, ProvenTransaction, TransactionArgs,
+        TransactionId, TransactionScript,
     },
     Digest, Felt, Word,
 };
@@ -39,20 +39,14 @@ pub struct TransactionResult {
     executed_transaction: ExecutedTransaction,
     output_notes: Vec<Note>,
     relevant_notes: Option<BTreeMap<usize, Vec<(AccountId, NoteRelevance)>>>,
-    consumed_notes: Vec<NoteId>,
 }
 
 impl TransactionResult {
-    pub fn new(
-        executed_transaction: ExecutedTransaction,
-        created_notes: Vec<Note>,
-        consumed_notes: Vec<NoteId>,
-    ) -> Self {
+    pub fn new(executed_transaction: ExecutedTransaction, created_notes: Vec<Note>) -> Self {
         Self {
             executed_transaction,
             output_notes: created_notes,
             relevant_notes: None,
-            consumed_notes,
         }
     }
 
@@ -94,8 +88,8 @@ impl TransactionResult {
         self.executed_transaction.account_delta()
     }
 
-    pub fn consumed_notes(&self) -> &Vec<NoteId> {
-        &self.consumed_notes
+    pub fn consumed_notes(&self) -> &InputNotes {
+        self.executed_transaction.tx_inputs().input_notes()
     }
 }
 
@@ -255,7 +249,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             return Err(ClientError::MissingOutputNotes(missing_note_ids));
         }
 
-        Ok(TransactionResult::new(executed_transaction, output_notes, note_ids))
+        Ok(TransactionResult::new(executed_transaction, output_notes))
     }
 
     /// Proves the specified transaction witness, submits it to the node, and stores the transaction in
