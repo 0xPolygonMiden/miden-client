@@ -54,10 +54,11 @@ async fn test_transaction_request() {
         storage_mode: AccountStorageMode::Local,
     };
     let (fungible_faucet, _seed) = client.new_account(account_template).unwrap();
+    println!("sda1");
 
     // Execute mint transaction in order to create custom note
     let note = mint_custom_note(&mut client, fungible_faucet.id(), regular_account.id()).await;
-
+    println!("sda");
     client.sync_state().await.unwrap();
 
     // Prepare transaction
@@ -177,18 +178,7 @@ async fn mint_custom_note(
 
     let program = ProgramAst::parse(&code).unwrap();
 
-    let tx_script = {
-        let account_auth = client.get_account_auth(faucet_account_id).unwrap();
-        let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
-            AuthSecretKey::RpoFalcon512(key) => (
-                key.public_key().into(),
-                key.to_bytes().iter().map(|a| Felt::new(*a as u64)).collect::<Vec<Felt>>(),
-            ),
-        };
-
-        let script_inputs = vec![(pubkey_input, advice_map)];
-        client.compile_tx_script(program, script_inputs, vec![]).unwrap()
-    };
+    let tx_script = client.compile_tx_script(program, vec![], vec![]).unwrap();
 
     let transaction_request = TransactionRequest::new(
         faucet_account_id,
