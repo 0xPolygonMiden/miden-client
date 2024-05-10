@@ -4,7 +4,9 @@ use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement};
 use miden_client::{
     client::{
-        rpc::NodeRpcClient, transactions::transaction_request::KnownScriptHash, ConsumableNote,
+        rpc::NodeRpcClient,
+        transactions::transaction_request::known_script_hashs::{P2ID, P2IDR, SWAP},
+        ConsumableNote,
     },
     errors::{ClientError, IdPrefixFetchError},
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, NoteStatus, OutputNoteRecord, Store},
@@ -190,9 +192,9 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store>(
 
     table.add_row(vec![Cell::new("ID"), Cell::new(id)]);
     match script_hash.clone().as_str() {
-        KnownScriptHash::P2ID => script_hash += " (P2ID)",
-        KnownScriptHash::P2IDR => script_hash += " (P2IDR)",
-        KnownScriptHash::SWAP => script_hash += " (SWAP)",
+        P2ID => script_hash += " (P2ID)",
+        P2IDR => script_hash += " (P2IDR)",
+        SWAP => script_hash += " (SWAP)",
         _ => {},
     };
 

@@ -3,7 +3,7 @@ use core::fmt;
 
 use miden_objects::{accounts::AccountId, assets::Asset, notes::Note, Word};
 
-use super::transactions::transaction_request::KnownScriptHash;
+use super::transactions::transaction_request::known_script_hashs::{P2ID, P2IDR, SWAP};
 use crate::{
     errors::{InvalidNoteInputsError, ScreenerError},
     store::Store,
@@ -49,9 +49,9 @@ impl<'a, S: Store> NoteScreener<'a, S> {
 
         let script_hash = note.script().hash().to_string();
         let note_relevance = match script_hash.as_str() {
-            KnownScriptHash::P2ID => Self::check_p2id_relevance(note, &account_ids)?,
-            KnownScriptHash::P2IDR => Self::check_p2idr_relevance(note, &account_ids)?,
-            KnownScriptHash::SWAP => self.check_swap_relevance(note, &account_ids)?,
+            P2ID => Self::check_p2id_relevance(note, &account_ids)?,
+            P2IDR => Self::check_p2idr_relevance(note, &account_ids)?,
+            SWAP => self.check_swap_relevance(note, &account_ids)?,
             _ => self.check_script_relevance(note, &account_ids)?,
         };
 
@@ -194,7 +194,7 @@ mod tests {
         notes::NoteType,
     };
 
-    use crate::client::transactions::transaction_request::KnownScriptHash;
+    use crate::client::transactions::transaction_request::known_script_hashs::{P2ID, P2IDR, SWAP};
 
     // We need to make sure the script roots we use for filters are in line with the note scripts
     // coming from Miden objects
@@ -232,8 +232,8 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(p2id_note.script().hash().to_string(), KnownScriptHash::P2ID);
-        assert_eq!(p2idr_note.script().hash().to_string(), KnownScriptHash::P2IDR);
-        assert_eq!(swap_note.script().hash().to_string(), KnownScriptHash::SWAP);
+        assert_eq!(p2id_note.script().hash().to_string(), P2ID);
+        assert_eq!(p2idr_note.script().hash().to_string(), P2IDR);
+        assert_eq!(swap_note.script().hash().to_string(), SWAP);
     }
 }
