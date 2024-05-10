@@ -10,8 +10,7 @@ use miden_objects::{
     assets::{FungibleAsset, TokenSymbol},
     crypto::rand::{FeltRng, RpoRandomCoin},
     notes::{
-        Note, NoteAssets, NoteExecutionHint, NoteInputs, NoteMetadata, NoteRecipient, NoteTag,
-        NoteType,
+        Note, NoteAssets, NoteExecutionHint, NoteInputs, NoteMetadata, NoteRecipient, NoteScript, NoteTag, NoteType
     },
     Felt, Word,
 };
@@ -54,11 +53,9 @@ async fn test_transaction_request() {
         storage_mode: AccountStorageMode::Local,
     };
     let (fungible_faucet, _seed) = client.new_account(account_template).unwrap();
-    println!("sda1");
 
     // Execute mint transaction in order to create custom note
     let note = mint_custom_note(&mut client, fungible_faucet.id(), regular_account.id()).await;
-    println!("sda");
     client.sync_state().await.unwrap();
 
     // Prepare transaction
@@ -199,7 +196,7 @@ fn create_custom_note(
 ) -> Note {
     let expected_note_arg = [Felt::new(9), Felt::new(12), Felt::new(18), Felt::new(3)]
         .iter()
-        .map(|x| x.to_string())
+        .map(|x| x.as_int().to_string())
         .collect::<Vec<_>>()
         .join(".");
 

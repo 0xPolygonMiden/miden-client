@@ -15,7 +15,7 @@ pub(crate) const P2ID_NOTE_SCRIPT_ROOT: &str =
 pub(crate) const P2IDR_NOTE_SCRIPT_ROOT: &str =
     "0x418ae31e80b53ddc99179d3cacbc4140c7b36ab04ddb26908b3a6ed2e40061d5";
 pub(crate) const SWAP_NOTE_SCRIPT_ROOT: &str =
-    "0xf08db4112793a0ccb12d43c552408a64d51a0a12600e7670d8df97f223276f74";
+    "0x755c5dd2fd8d2aa8c2896e0e366a45bdc59c6d5ab543909db32ccfaf949c5826";
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum NoteRelevance {
