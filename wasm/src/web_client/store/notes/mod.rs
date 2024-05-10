@@ -176,7 +176,6 @@ impl WebStore {
         let output_notes_idxdb: Vec<OutputNoteIdxdbObject> = from_value(js_value).unwrap();
   
         let native_output_notes: Result<Vec<OutputNoteRecord>, StoreError> = output_notes_idxdb.into_iter().map(|note_idxdb| {
-
             let note_details: Option<NoteRecordDetails> = if let Some(details_as_json_str) = note_idxdb.details {
                 // Merge the info that comes from the input notes table and the notes script table
                 let serialized_note_script = note_idxdb.serialized_note_script
@@ -198,7 +197,6 @@ impl WebStore {
         
             let note_metadata: NoteMetadata =
                 serde_json::from_str(&note_idxdb.metadata).map_err(StoreError::JsonDataDeserializationError)?;
-        
             let note_assets = NoteAssets::read_from_bytes(&note_idxdb.assets)?;
         
             let inclusion_proof = match note_idxdb.inclusion_proof {

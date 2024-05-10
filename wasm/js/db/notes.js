@@ -1,4 +1,5 @@
 import { 
+    db,
     inputNotes,
     outputNotes,
     notesScripts,
@@ -14,12 +15,12 @@ export async function getOutputNotes(
         if (status === 'All') {
             notes = await outputNotes.toArray();
         } else {
-            notes = await outputNotes.where('status').equals(status.toLowerCase()).toArray();
+            notes = await outputNotes.where('status').equals(status).toArray();
         }
 
         // Fetch all scripts from the scripts table for joining
         const scripts = await notesScripts.toArray();
-        const scriptMap = new Map(scripts.map(script => [script.script_hash, script.serialized_note_script]));
+        const scriptMap = new Map(scripts.map(script => [script.scriptHash, script.serializedNoteScript]));
 
         // Process each note to convert 'blobField' from Blob to Uint8Array
         const processedNotes = await Promise.all(notes.map(async note => {
@@ -28,17 +29,28 @@ export async function getOutputNotes(
             const assetsBase64 = uint8ArrayToBase64(assetsArray);
             note.assets = assetsBase64;
 
+            let serializedNoteScriptBase64 = null;
             // Parse details JSON and perform a "join"
             if (note.details) {
                 const details = JSON.parse(note.details);
                 if (details.script_hash) {
-                    note.serialized_note_script = scriptMap.get(details.script_hash) || null;
+                    let serializedNoteScript = scriptMap.get(details.script_hash);
+                    let serializedNoteScriptArrayBuffer = await serializedNoteScript.arrayBuffer();
+                    const serializedNoteScriptArray = new Uint8Array(serializedNoteScriptArrayBuffer);
+                    serializedNoteScriptBase64 = uint8ArrayToBase64(serializedNoteScriptArray);
                 }
             }
 
-            return note;
+            return {
+                assets: note.assets,
+                details: note.details ? note.details : null,
+                recipient: note.recipient,
+                status: note.status,
+                metadata: note.metadata,
+                inclusion_proof: note.inclusionProof ? note.inclusionProof : null,
+                serialized_note_script: serializedNoteScriptBase64
+            };
         }));
-
         return processedNotes;
     } catch {
         console.error("Failed to get input notes: ", err);
@@ -56,12 +68,11 @@ export async function getInputNotes(
         if (status === 'All') {
             notes = await inputNotes.toArray();
         } else {
-            notes = await inputNotes.where('status').equals(status.toLowerCase()).toArray();
+            notes = await inputNotes.where('status').equals(status).toArray();
         }
-
         // Fetch all scripts from the scripts table for joining
         const scripts = await notesScripts.toArray();
-        const scriptMap = new Map(scripts.map(script => [script.script_hash, script.serialized_note_script]));
+        const scriptMap = new Map(scripts.map(script => [script.scriptHash, script.serializedNoteScript]));
 
         // Process each note to convert 'blobField' from Blob to Uint8Array
         const processedNotes = await Promise.all(notes.map(async note => {
@@ -70,17 +81,28 @@ export async function getInputNotes(
             const assetsBase64 = uint8ArrayToBase64(assetsArray);
             note.assets = assetsBase64;
 
+            let serializedNoteScriptBase64 = null;
             // Parse details JSON and perform a "join"
             if (note.details) {
                 const details = JSON.parse(note.details);
                 if (details.script_hash) {
-                    note.serialized_note_script = scriptMap.get(details.script_hash) || null;
+                    let serializedNoteScript = scriptMap.get(details.script_hash);
+                    let serializedNoteScriptArrayBuffer = await serializedNoteScript.arrayBuffer();
+                    const serializedNoteScriptArray = new Uint8Array(serializedNoteScriptArrayBuffer);
+                    serializedNoteScriptBase64 = uint8ArrayToBase64(serializedNoteScriptArray);
                 }
             }
 
-            return note;
+            return {
+                assets: note.assets,
+                details: note.details,
+                recipient: note.recipient,
+                status: note.status,
+                metadata: note.metadata ? note.metadata : null,
+                inclusion_proof: note.inclusionProof ? note.inclusionProof : null,
+                serialized_note_script: serializedNoteScriptBase64
+            };
         }));
-
         return processedNotes;
     } catch {
         console.error("Failed to get input notes: ", err);
@@ -98,22 +120,36 @@ export async function getInputNote(
         const assetsArray = new Uint8Array(assetsArrayBuffer);
         const assetsBase64 = uint8ArrayToBase64(assetsArray);
 
+
+        let serializedNoteScriptBase64 = null;
         if (note.details) {
             const details = JSON.parse(note.details);
             if (details.script_hash) {
-                const script = await notesScripts.get(details.script_hash);
-                note.serialized_note_script = script ? script.serialized_note_script : null;
+                let noteScriptRecord = await notesScripts.get(details.script_hash);
+                let serializedNoteScript = noteScriptRecord.serializedNoteScript;
+                let serializedNoteScriptArrayBuffer = await serializedNoteScript.arrayBuffer();
+                let serializedNoteScriptArray = new Uint8Array(serializedNoteScriptArrayBuffer);
+                serializedNoteScriptBase64 = uint8ArrayToBase64(serializedNoteScriptArray);
             }
         }
 
         note.assets = assetsBase64
 
-        return note
+        const data = {
+            assets: note.assets,
+            details: note.details,
+            recipient: note.recipient,
+            status: note.status,
+            metadata: note.metadata ? note.metadata : null,
+            inclusion_proof: note.inclusionProof ? note.inclusionProof : null,
+            serialized_note_script: serializedNoteScriptBase64
+        }
+
+        return data;
     } catch {
         console.error("Failed to get input note: ", err);
         throw err;
     }
-    
 }
 
 export async function insertInputNote(
@@ -137,8 +173,8 @@ export async function insertInputNote(
                 assets: assetsBlob,
                 recipient: recipient,
                 status: status,
-                metadata: metadata ? JSON.stringify(metadata) : null,
-                details: JSON.stringify(details),
+                metadata: metadata ? metadata : null,
+                details: details,
                 inclusionProof: inclusionProof ? JSON.stringify(inclusionProof) : null,
             };
 
@@ -183,8 +219,8 @@ export async function insertOutputNote(
                 assets: assetsBlob,
                 recipient: recipient,
                 status: status,
-                metadata: JSON.stringify(metadata),
-                details: details ? JSON.stringify(details) : null,
+                metadata: metadata,
+                details: details ? details : null,
                 inclusionProof: inclusionProof ? JSON.stringify(inclusionProof) : null,
             };
 

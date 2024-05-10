@@ -16,6 +16,7 @@ concurrent = [
 ]
 default = ["std"]
 std = ["miden-objects/std"]
+testing = ["miden-objects/testing", "miden-lib/testing"]
 
 [dependencies]
 async-trait = "0.1"

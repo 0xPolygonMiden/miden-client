@@ -5,16 +5,15 @@ import {
     outputNotes,
     transactions,
     blockHeaders,
+    chainMmrNodes,
 } from './schema.js';
 
 export async function getNoteTags() {
     try {
         const record = await stateSync.get(1);  // Since id is the primary key and always 1
         if (record) {
-            console.log('Retrieved record:', record);
             return record.tags;
         } else {
-            console.log('No record found with id: 1');
             return null;
         }
     } catch (error) {
@@ -32,7 +31,6 @@ export async function getSyncHeight() {
             };
             return data;
         } else {
-            console.log('No record found with id: 1');
             return null;
         }
     } catch (error) {
@@ -64,17 +62,7 @@ export async function applyStateSync(
     inclusionProofs,
     transactionIds,
 ) {
-    console.log('blockNum: ', blockNum)
-    console.log('blockHeader: ', blockHeader)
-    console.log('chainMmrPeaks: ', chainMmrPeaks)
-    console.log('nullifiers: ', nullifiers)
-    console.log('noteIds: ', noteIds)
-    console.log('inclusionProofs: ', inclusionProofs)
-    console.log('transactionIds: ', transactionIds)
-    console.log('nodeIndices: ', nodeIndices)
-    console.log('nodes: ', nodes)
-    console.log('hasClientNotes: ', hasClientNotes)
-    return db.transaction('rw', stateSync, inputNotes, outputNotes, transactions, blockHeaders, async (tx) => {
+    return db.transaction('rw', stateSync, inputNotes, outputNotes, transactions, blockHeaders, chainMmrNodes, async (tx) => {
         await updateSyncHeight(tx, blockNum);
         await updateSpentNotes(tx, nullifiers);
         await updateBlockHeader(tx, blockNum, blockHeader, chainMmrPeaks, hasClientNotes);
@@ -90,7 +78,6 @@ async function updateSyncHeight(
 ) {
     try {
         await tx.stateSync.update(1, { blockNum: blockNum });
-        console.log("Sync height updated successfully.");
     } catch (error) {
         console.error("Failed to update sync height: ", error);
         throw error;
@@ -134,7 +121,6 @@ async function updateSpentNotes(
             }
         }
 
-        console.log("Spent notes have been updated successfully.");
     } catch (error) {
         console.error("Error updating input notes:", error);
         throw error;
@@ -157,7 +143,6 @@ async function updateBlockHeader(
         };
 
         await tx.blockHeaders.add(data);
-        console.log(`Block header for block ${blockNum} inserted successfully.`);
     } catch (err) {
         console.error("Failed to insert block header: ", err);
         throw error;
@@ -176,19 +161,17 @@ async function updateChainMmrNodes(
         }
 
         if (nodeIndices.length === 0) {
-            console.log("No chain MMR nodes to update");
             return;
         }
 
         // Create the updates array with objects matching the structure expected by your IndexedDB schema
         const updates = nodeIndices.map((index, i) => ({
-            index: index,  // Assuming 'index' is the primary key or part of it
+            id: index,  // Assuming 'index' is the primary key or part of it
             node: nodes[i] // Other attributes of the object
         }));
 
         // Perform bulk update or insertion; assumes tx.chainMmrNodes is a valid table reference in a transaction
         await tx.chainMmrNodes.bulkAdd(updates);
-        console.log("Successfully updated chain MMR nodes");
     } catch (err) {
         console.error("Failed to update chain mmr nodes: ", err);
         throw error;
@@ -206,7 +189,6 @@ async function updateCommittedNotes(
         }
 
         if (noteIds.length === 0) {
-            console.log("No notes to update");
             return;
         }
 
@@ -217,13 +199,13 @@ async function updateCommittedNotes(
             // Update input notes
             await tx.inputNotes.where({ noteId: noteId }).modify({
                 status: 'Committed',
-                inclusion_proof: inclusionProof
+                inclusionProof: inclusionProof
             });
 
             // Update output notes
             await tx.outputNotes.where({ noteId: noteId }).modify({
                 status: 'Committed',
-                inclusion_proof: inclusionProof
+                inclusionProof: inclusionProof
             });
         }
     } catch (error) {
@@ -239,7 +221,6 @@ async function updateCommittedTransactions(
 ) {
     try {
         if (transactionIds.length === 0) {
-            console.log("No transactions to update");
             return;
         }
 

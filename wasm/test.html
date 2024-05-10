@@ -49,20 +49,28 @@
 
         // Accounts Tests
 
-        async function testNewAccount(webClient) {
+        async function testNewRegularAccount(webClient) {
             const basicMutableTemplate = {
                 type: "BasicMutable"
             };
+            try {
+                let result = await webClient.new_account(basicMutableTemplate);
+                return result;
+            } catch (error) {
+                console.error('Failed to call create account:', error);
+            }
+        }
+
+        async function testNewFaucetAccount(webClient) {
             const fungibleFaucetTemplate = {
                 type: "FungibleFaucet",
                 token_symbol: "TEST",
-                decimals: "18",
+                decimals: "10",
                 max_supply: "1000000"
             };
             try {
-                let result = await webClient.new_account(basicMutableTemplate);
-                console.log(result);
-                //await webClient.new_account(fungibleFaucetTemplate);
+                let result = await webClient.new_account(fungibleFaucetTemplate);
+                return result;
             } catch (error) {
                 console.error('Failed to call create account:', error);
             }
@@ -166,9 +174,41 @@
             }
         }
 
-        async function testNewTransaction(webClient) {
+        async function testNewTransaction(
+            webClient,
+            targetAccountId,
+            faucetAccountId
+        ) {
             try {
-                await webClient.new_transaction();
+                const mintTransactionTemplate = {
+                    type: "Mint",
+                    target_account_id: targetAccountId,
+                    faucet_id: faucetAccountId,
+                    amount: "1000",
+                    note_type: "Private",
+                };
+                let result = await webClient.new_transaction(mintTransactionTemplate);
+                console.log(result);
+
+            } catch (error) {
+                console.error('Failed to call new transaction:', error);
+            
+            }
+        }
+
+        async function testNewConsumeTransaction(
+            webClient,
+            targetAccountId,
+            listOfNotes
+        ) {
+            try {
+                const consumeTransactionTemplate = {
+                    type: "ConsumeNotes",
+                    account_id: targetAccountId,
+                    list_of_notes: listOfNotes
+                };
+                let result = await webClient.new_transaction(consumeTransactionTemplate);
+                console.log(result);
 
             } catch (error) {
                 console.error('Failed to call new transaction:', error);
@@ -189,7 +229,8 @@
         let webClient = await testCreateClient();
         //await testStoreAndRpc(webClient);
 
-        // await testNewAccount(webClient);
+        // let regularAccount = await testNewRegularAccount(webClient);
+        // let faucetAccount = await testNewFaucetAccount(webClient);
         // await testGetAccounts(webClient);
         // await testGetAccount(webClient);
         // await testGetAccountStubById(webClient);
@@ -200,9 +241,16 @@
         // await testImportInputNote(webClient);
 
         // await testGetTransactions(webClient);
-        // await testNewTransaction(webClient);
 
+        let regularAccount = await testNewRegularAccount(webClient);
+        let faucetAccount = await testNewFaucetAccount(webClient);
         await testSyncState(webClient);
+        await testNewTransaction(webClient, regularAccount, faucetAccount);
+        // await testSyncState(webClient);
+        
+        // await testNewConsumeTransaction(webClient, "0x92e4bd025c6a9aa0", ["0xadc497ac1478c8ae73c7a10b6c91843124351edbe31c06634fdad4f2fb381874"])
+        // await testSyncState(webClient);
+
     </script>
 </body>
 </html>

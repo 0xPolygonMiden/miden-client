@@ -25,6 +25,7 @@ use crate::native_code::{
 
 use serde::{Serialize, Deserialize};
 use serde_wasm_bindgen::from_value;
+
 use wasm_bindgen::prelude::*;
 use web_sys::console;
 
@@ -102,7 +103,9 @@ impl WebClient {
 
             let transaction_execution_result = client.new_transaction(transaction_request).await.unwrap();
 
+
             client.submit_transaction(transaction_execution_result).await.unwrap();
+
 
             Ok(JsValue::from_str("Transaction submitted successfully"))
         } else {
@@ -226,6 +229,7 @@ pub(crate) async fn get_note_with_id_prefix<N: NodeRpcClient, R: FeltRng, S: Sto
     client: &Client<N, R, S>,
     note_id_prefix: &str,
 ) -> Result<InputNoteRecord, NoteIdPrefixFetchError> {
+    // log the note_id_prefix
     let input_note_records = client
         .get_input_notes(NoteFilter::All).await
         .map_err(|err| NoteIdPrefixFetchError::NoMatch(note_id_prefix.to_string()))?

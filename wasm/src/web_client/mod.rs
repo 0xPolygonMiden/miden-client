@@ -39,7 +39,6 @@ impl WebClient {
 
     // Exposed method to JS to create an internal client
     pub async fn create_client(&mut self) -> Result<JsValue, JsValue> {
-        web_sys::console::log_1(&JsValue::from_str("create_client_1"));
         let rng = get_random_coin();
         let web_store: WebStore = WebStore::new().await.map_err(|_| JsValue::from_str("Failed to initialize WebStore"))?;
         let web_rpc_client = WebRpcClient::new("http://localhost:57291");

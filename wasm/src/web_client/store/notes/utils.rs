@@ -111,7 +111,7 @@ pub async fn insert_input_note_tx(
         inclusion_proof
     ) = serialize_input_note(note)?;
 
-    let result = JsFuture::from(idxdb_insert_input_note(
+    let promise = idxdb_insert_input_note(
         note_id,
         assets,
         recipient,
@@ -121,11 +121,10 @@ pub async fn insert_input_note_tx(
         note_script_hash,
         serialized_note_script,
         inclusion_proof
-    )).await; 
-    match result {
-        Ok(_) => Ok(()),
-        Err(_) => Err(StoreError::QueryError("Failed to insert input note".to_string())),
-    }
+    );
+    JsFuture::from(promise).await.unwrap();
+
+    Ok(())
 }
 
 pub(crate) fn serialize_output_note(

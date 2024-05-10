@@ -45,7 +45,7 @@ db.version(1).stores({
   [Table.NotesScripts]: indexes('scriptHash'),
   [Table.StateSync]: indexes('id'),
   [Table.BlockHeaders]: indexes('blockNum'),
-  [Table.ChainMmrNodes]: indexes('blockNum', 'hasClientNotes'),
+  [Table.ChainMmrNodes]: indexes('id'),
   [Table.Greet]: '++id',
 });
 
