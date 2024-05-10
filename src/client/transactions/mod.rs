@@ -392,7 +392,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             note_type,
             random_coin,
         )?;
-        
+
         let recipient = created_note
             .recipient()
             .digest()
