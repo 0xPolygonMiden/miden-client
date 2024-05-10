@@ -8,8 +8,8 @@ use miden_objects::{
     crypto::rand::RpoRandomCoin,
     notes::{Note, NoteId, NoteType},
     transaction::{
-        ExecutedTransaction, OutputNote, OutputNotes, ProvenTransaction, TransactionArgs,
-        TransactionId, TransactionScript,
+        ExecutedTransaction, InputNotes, OutputNote, OutputNotes, ProvenTransaction,
+        TransactionArgs, TransactionId, TransactionScript,
     },
     Digest, Felt, Word,
 };
@@ -88,7 +88,7 @@ impl TransactionResult {
     }
 
     pub fn consumed_notes(&self) -> &InputNotes {
-        self.executed_transaction.tx_inputs().input_notes()
+        self.transaction.tx_inputs().input_notes()
     }
 }
 
