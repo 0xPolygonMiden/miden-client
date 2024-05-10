@@ -1,9 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    fs::File,
-    io::{Read, Write},
-    path::PathBuf,
-};
+use std::collections::{HashMap, HashSet};
 
 use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
@@ -15,13 +10,10 @@ use miden_client::{
 use miden_objects::{
     accounts::AccountId,
     crypto::rand::FeltRng,
-    notes::{NoteId, NoteInputs, NoteMetadata},
+    notes::{NoteInputs, NoteMetadata},
     Digest,
 };
-use miden_tx::{
-    utils::{Deserializable, Serializable},
-    TransactionAuthenticator,
-};
+use miden_tx::TransactionAuthenticator;
 
 use super::{Client, Parser};
 use crate::cli::{
@@ -66,31 +58,6 @@ pub enum Notes {
         inputs: bool,
     },
 
-    /// Export note data to a binary file.
-    #[clap(short_flag = 'e')]
-    Export {
-        /// Note ID of the note to show. We only allow to export a note that has been created using
-        /// this client
-        #[clap()]
-        id: String,
-
-        /// Path to the file that will contain the note data. If not provided, the filename will be the input note ID
-        #[clap()]
-        filename: Option<PathBuf>,
-    },
-
-    /// Import note data from a binary file
-    #[clap(short_flag = 'i')]
-    Import {
-        /// Path to the file that contains the input note data
-        #[clap()]
-        filename: PathBuf,
-
-        /// Skip verification of note's existence in the chain
-        #[clap(short, long, default_value = "false")]
-        no_verify: bool,
-    },
-
     /// List consumable notes
     #[clap(short_flag = 'c')]
     ListConsumable {
@@ -100,10 +67,16 @@ pub enum Notes {
     },
 }
 
+impl Default for Notes {
+    fn default() -> Self {
+        Notes::List { filter: None }
+    }
+}
+
 impl Notes {
     pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
         &self,
-        mut client: Client<N, R, S, A>,
+        client: Client<N, R, S, A>,
     ) -> Result<(), String> {
         match self {
             Notes::List { filter } => {
@@ -118,14 +91,6 @@ impl Notes {
             },
             Notes::Show { id, script, vault, inputs } => {
                 show_note(client, id.to_owned(), *script, *vault, *inputs)?;
-            },
-            Notes::Export { id, filename } => {
-                export_note(&client, id, filename.clone())?;
-                println!("Succesfully exported note {}", id);
-            },
-            Notes::Import { filename, no_verify } => {
-                let note_id = import_note(&mut client, filename.clone(), !(*no_verify)).await?;
-                println!("Succesfully imported note {}", note_id.inner());
             },
             Notes::ListConsumable { account_id } => {
                 list_consumable_notes(client, account_id)?;
@@ -164,66 +129,6 @@ fn list_notes<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticato
 
     print_notes_summary(zipped_notes)?;
     Ok(())
-}
-
-// EXPORT NOTE
-// ================================================================================================
-
-pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: &Client<N, R, S, A>,
-    note_id: &str,
-    filename: Option<PathBuf>,
-) -> Result<File, String> {
-    let note_id = Digest::try_from(note_id)
-        .map_err(|err| format!("Failed to parse input note id: {}", err))?
-        .into();
-    let output_note = client
-        .get_output_notes(miden_client::store::NoteFilter::Unique(note_id))?
-        .pop()
-        .expect("should have an output note");
-
-    // Convert output note into input note before exporting
-    let input_note: InputNoteRecord = output_note
-        .try_into()
-        .map_err(|_err| format!("Can't export note with ID {}", note_id.to_hex()))?;
-
-    let file_path = filename.unwrap_or_else(|| {
-        let mut dir = PathBuf::new();
-        dir.push(note_id.inner().to_string());
-        dir
-    });
-
-    let mut file = File::create(file_path).map_err(|err| err.to_string())?;
-
-    file.write_all(&input_note.to_bytes()).map_err(|err| err.to_string())?;
-
-    Ok(file)
-}
-
-// IMPORT NOTE
-// ================================================================================================
-pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: &mut Client<N, R, S, A>,
-    filename: PathBuf,
-    verify: bool,
-) -> Result<NoteId, String> {
-    let mut contents = vec![];
-    let mut _file = File::open(filename)
-        .and_then(|mut f| f.read_to_end(&mut contents))
-        .map_err(|err| err.to_string());
-
-    // TODO: When importing a RecordedNote we want to make sure that the note actually exists in the chain (RPC call)
-    // and start monitoring its nullifiers (ie, update the list of relevant tags in the state sync table)
-    let input_note_record =
-        InputNoteRecord::read_from_bytes(&contents).map_err(|err| err.to_string())?;
-
-    let note_id = input_note_record.id();
-    client
-        .import_input_note(input_note_record, verify)
-        .await
-        .map_err(|err| err.to_string())?;
-
-    Ok(note_id)
 }
 
 // SHOW NOTE
@@ -481,12 +386,11 @@ fn note_record_type(note_record_metadata: Option<&NoteMetadata>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::env::temp_dir;
+    use std::{env::temp_dir, rc::Rc};
 
     use miden_client::{
         client::{
-            authenticator::{self, StoreAuthenticator},
-            get_random_coin,
+            authenticator::StoreAuthenticator, get_random_coin,
             transactions::transaction_request::TransactionTemplate,
         },
         config::{ClientConfig, Endpoint, RpcConfig},
@@ -495,21 +399,19 @@ mod tests {
             mock_full_chain_mmr_and_notes, mock_fungible_faucet_account, mock_notes, MockClient,
             MockRpcApi,
         },
-        store::{sqlite_store::SqliteStore, AuthInfo, InputNoteRecord, NoteFilter, Store},
+        store::{sqlite_store::SqliteStore, InputNoteRecord, NoteFilter},
     };
     use miden_lib::transaction::TransactionKernel;
     use miden_objects::{
-        accounts::{AccountId, ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN},
+        accounts::{account_id::testing::ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, AccountId},
         assets::FungibleAsset,
         crypto::dsa::rpo_falcon512::SecretKey,
         notes::Note,
     };
+    use miden_tx::AuthSecretKey;
     use uuid::Uuid;
 
-    use crate::cli::{
-        get_input_note_with_id_prefix,
-        notes::{export_note, import_note},
-    };
+    use crate::cli::{export::export_note, get_input_note_with_id_prefix, import::import_note};
 
     #[tokio::test]
     async fn test_import_note_validation() {
@@ -523,7 +425,8 @@ mod tests {
 
         let rng = get_random_coin();
         let store = SqliteStore::new((&client_config).into()).unwrap();
-        let authenticator = StoreAuthenticator::new_with_rng(Rc::new(store), rng);
+        let store = Rc::new(store);
+        let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
         let mut client = MockClient::new(
             MockRpcApi::new(&Endpoint::default().to_string()),
             rng,
@@ -590,7 +493,9 @@ mod tests {
         );
 
         client.sync_state().await.unwrap();
-        client.insert_account(&faucet, None, &AuthInfo::RpoFalcon512(key_pair)).unwrap();
+        client
+            .insert_account(&faucet, None, &AuthSecretKey::RpoFalcon512(key_pair))
+            .unwrap();
 
         // Ensure client has no notes
         assert!(client.get_input_notes(NoteFilter::All).unwrap().is_empty());
@@ -659,7 +564,7 @@ mod tests {
         let rng = get_random_coin();
         let store = {
             let sqlite_store = SqliteStore::new((&client_config).into()).unwrap();
-            Rc::new(store)
+            Rc::new(sqlite_store)
         };
         let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
         let mut client = MockClient::new(

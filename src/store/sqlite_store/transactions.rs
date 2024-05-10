@@ -12,7 +12,7 @@ use tracing::info;
 
 use super::{
     accounts::update_account,
-    notes::{insert_input_note_tx, insert_output_note_tx},
+    notes::{insert_input_note_tx, insert_output_note_tx, update_note_consumer_tx_id},
     SqliteStore,
 };
 use crate::{
@@ -79,6 +79,7 @@ impl SqliteStore {
 
     /// Inserts a transaction and updates the current state based on the `tx_result` changes
     pub fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), StoreError> {
+        let transaction_id = tx_result.executed_transaction().id();
         let account_id = tx_result.executed_transaction().account_id();
         let account_delta = tx_result.account_delta();
 
@@ -97,6 +98,9 @@ impl SqliteStore {
             .iter()
             .map(|note| OutputNoteRecord::from(note.clone()))
             .collect::<Vec<_>>();
+
+        let consumed_note_ids =
+            tx_result.consumed_notes().iter().map(|note| note.id()).collect::<Vec<_>>();
 
         let mut db = self.db();
         let tx = db.transaction()?;
@@ -117,6 +121,10 @@ impl SqliteStore {
 
         for note in &created_output_notes {
             insert_output_note_tx(&tx, note)?;
+        }
+
+        for note_id in consumed_note_ids {
+            update_note_consumer_tx_id(&tx, note_id, transaction_id)?;
         }
 
         tx.commit()?;

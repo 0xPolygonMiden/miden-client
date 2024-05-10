@@ -158,6 +158,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 note.metadata().copied(),
                 Some(inclusion_proof),
                 note.details().clone(),
+                None,
             );
         }
 

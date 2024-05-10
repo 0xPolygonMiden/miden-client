@@ -5,11 +5,11 @@ comments: true
 After [installation](install-and-run.md#install-the-client), use the client by running the following and adding the [relevant commands](cli-reference.md#commands):
 
 ```sh
-miden-client
+miden
 ```
 
 !!! info "Help" 
-    Run `miden-client --help` for information on `miden-client` commands.
+    Run `miden --help` for information on `miden` commands.
 
 ## Client Configuration
 
@@ -44,8 +44,8 @@ transactions against it when the account flag is not provided.
 By default none is set, but you can set and unset it with:
 
 ```sh
-miden-client account default set <ACCOUNT_ID>`
-miden-client account default unset
+miden account default set <ACCOUNT_ID>`
+miden account default unset
 ```
 
 ### Environment variables

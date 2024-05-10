@@ -1,4 +1,4 @@
-use std::{env::temp_dir, time::Duration};
+use std::{env::temp_dir, rc::Rc, time::Duration};
 
 use figment::{
     providers::{Format, Toml},
@@ -7,6 +7,7 @@ use figment::{
 use miden_client::{
     client::{
         accounts::{AccountStorageMode, AccountTemplate},
+        authenticator::StoreAuthenticator,
         get_random_coin,
         rpc::TonicRpcClient,
         transactions::transaction_request::{TransactionRequest, TransactionTemplate},
@@ -31,7 +32,8 @@ use uuid::Uuid;
 
 pub const ACCOUNT_ID_REGULAR: u64 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN;
 
-pub type TestClient = Client<TonicRpcClient, RpoRandomCoin, SqliteStore>;
+pub type TestClient =
+    Client<TonicRpcClient, RpoRandomCoin, SqliteStore, StoreAuthenticator<RpoRandomCoin>>;
 
 pub const TEST_CLIENT_CONFIG_FILE_PATH: &str = "./tests/config/miden-client.toml";
 /// Creates a `TestClient`
@@ -56,7 +58,7 @@ pub fn create_test_client() -> TestClient {
 
     let store = {
         let sqlite_store = SqliteStore::new((&client_config).into()).unwrap();
-        Rc::new(store);
+        Rc::new(sqlite_store)
     };
 
     let rng = get_random_coin();

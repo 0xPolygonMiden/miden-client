@@ -8,10 +8,11 @@ use tracing::info;
 
 use super::{Client, Parser};
 
-#[derive(Debug, Parser, Clone)]
-#[clap(about = "View and manage tags")]
+#[derive(Default, Debug, Parser, Clone)]
+#[clap(about = "View and manage tags. Defaults to `list` command.")]
 pub enum TagsCmd {
     /// List all tags monitored by this client
+    #[default]
     #[clap(short_flag = 'l')]
     List,
 
