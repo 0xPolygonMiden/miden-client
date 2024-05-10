@@ -103,13 +103,15 @@ impl Notes {
 }
 
 struct CliNoteSummary {
-    note_id: String,
+    id: String,
     script_hash: String,
     assets_hash: String,
     inputs_commitment: String,
     serial_num: String,
     note_type: String,
-    note_status: String,
+    status: String,
+    tag: String,
+    sender: String,
 }
 
 // LIST NOTES
@@ -188,16 +190,18 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store>(
         .set_content_arrangement(ContentArrangement::DynamicFullWidth);
 
     let CliNoteSummary {
-        note_id,
+        id,
         mut script_hash,
         assets_hash,
         inputs_commitment,
         serial_num,
         note_type,
-        note_status,
+        status,
+        tag,
+        sender,
     } = note_summary(input_note_record.as_ref(), output_note_record.as_ref())?;
 
-    table.add_row(vec![Cell::new("ID"), Cell::new(note_id)]);
+    table.add_row(vec![Cell::new("ID"), Cell::new(id)]);
     match script_hash.clone().as_str() {
         KnownScriptHash::P2ID => script_hash += " (P2ID)",
         KnownScriptHash::P2IDR => script_hash += " (P2IDR)",
@@ -210,7 +214,9 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store>(
     table.add_row(vec![Cell::new("Inputs Hash"), Cell::new(inputs_commitment)]);
     table.add_row(vec![Cell::new("Serial Number"), Cell::new(serial_num)]);
     table.add_row(vec![Cell::new("Type"), Cell::new(note_type)]);
-    table.add_row(vec![Cell::new("Status"), Cell::new(note_status)]);
+    table.add_row(vec![Cell::new("Status"), Cell::new(status)]);
+    table.add_row(vec![Cell::new("Tag"), Cell::new(tag)]);
+    table.add_row(vec![Cell::new("Sender"), Cell::new(sender)]);
 
     println!("{table}");
 
@@ -331,25 +337,27 @@ where
 
     for (input_note_record, output_note_record) in notes {
         let CliNoteSummary {
-            note_id,
+            id,
             script_hash,
             assets_hash,
             inputs_commitment,
             serial_num,
             note_type,
-            note_status,
+            status,
+            tag: _tag,
+            sender: _sender,
         } = note_summary(input_note_record, output_note_record)?;
 
         let exportable = if output_note_record.is_some() { "✔" } else { "✘" };
 
         table.add_row(vec![
-            note_id,
+            id,
             script_hash,
             assets_hash,
             inputs_commitment,
             serial_num,
             note_type,
-            note_status,
+            status,
             exportable.to_string(),
         ]);
     }
@@ -417,12 +425,12 @@ fn note_summary(
         }))
         .expect("One of the two records should be Some");
 
-    let assets_hash = input_note_record
+    let assets_hash_str = input_note_record
         .map(|record| record.assets().commitment().to_string())
         .or(output_note_record.map(|record| record.assets().commitment().to_string()))
         .expect("One of the two records should be Some");
 
-    let (inputs_commitment_str, serial_num, script_hash) =
+    let (inputs_commitment_str, serial_num, script_hash_str) =
         match (input_note_record, output_note_record) {
             (Some(record), _) => {
                 let details = record.details();
@@ -456,7 +464,7 @@ fn note_summary(
             .or(output_note_record.map(|record| record.metadata())),
     );
 
-    let note_status = input_note_record
+    let status = input_note_record
         .map(|record| record.status())
         .or(output_note_record.map(|record| record.status()))
         .expect("One of the two records should be Some");
@@ -466,28 +474,44 @@ fn note_summary(
         .or(output_note_record.map(|record| record.consumer_account_id()))
         .expect("One of the two records should be Some");
 
-    let note_status = match note_status {
+    let status = match status {
         NoteStatus::Committed => {
-            note_status.to_string() + format!(" (height {})", commit_height).as_str()
+            status.to_string() + format!(" (height {})", commit_height).as_str()
         },
         NoteStatus::Consumed => {
-            note_status.to_string()
+            status.to_string()
                 + format!(
                     " (by {})",
                     note_consumer.map(|id| id.to_string()).unwrap_or("?".to_string())
                 )
                 .as_str()
         },
-        _ => note_status.to_string(),
+        _ => status.to_string(),
     };
+
+    let note_metadata = input_note_record
+        .map(|record| record.metadata())
+        .or(output_note_record.map(|record| Some(record.metadata())))
+        .expect("One of the two records should be Some");
+
+    let note_tag_str = note_metadata
+        .map(|metadata| metadata.tag().to_string())
+        .unwrap_or("-".to_string());
+
+    let note_sender_str = note_metadata
+        .map(|metadata| metadata.sender().to_string())
+        .unwrap_or("-".to_string());
+
     Ok(CliNoteSummary {
-        note_id: note_id.inner().to_string(),
-        script_hash,
-        assets_hash,
+        id: note_id.inner().to_string(),
+        script_hash: script_hash_str,
+        assets_hash: assets_hash_str,
         inputs_commitment: inputs_commitment_str,
         serial_num,
         note_type,
-        note_status,
+        status,
+        tag: note_tag_str,
+        sender: note_sender_str,
     })
 }
 
