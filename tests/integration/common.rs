@@ -7,9 +7,9 @@ use figment::{
 use miden_client::{
     client::{
         accounts::{AccountStorageMode, AccountTemplate},
-        authenticator::StoreAuthenticator,
         get_random_coin,
         rpc::TonicRpcClient,
+        store_authenticator::StoreAuthenticator,
         transactions::transaction_request::{TransactionRequest, TransactionTemplate},
         Client,
     },
@@ -32,8 +32,12 @@ use uuid::Uuid;
 
 pub const ACCOUNT_ID_REGULAR: u64 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN;
 
-pub type TestClient =
-    Client<TonicRpcClient, RpoRandomCoin, SqliteStore, StoreAuthenticator<RpoRandomCoin>>;
+pub type TestClient = Client<
+    TonicRpcClient,
+    RpoRandomCoin,
+    SqliteStore,
+    StoreAuthenticator<RpoRandomCoin, SqliteStore>,
+>;
 
 pub const TEST_CLIENT_CONFIG_FILE_PATH: &str = "./tests/config/miden-client.toml";
 /// Creates a `TestClient`
