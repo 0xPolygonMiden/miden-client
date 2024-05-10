@@ -134,20 +134,16 @@ fn validate_paths(paths: &[PathBuf], expected_extension: &str) -> Result<(), Str
 
 #[cfg(test)]
 mod tests {
-    use std::{env::temp_dir, rc::Rc};
+    use std::env::temp_dir;
 
     use miden_client::{
-        client::{
-            authenticator::StoreAuthenticator, get_random_coin,
-            transactions::transaction_request::TransactionTemplate,
-        },
-        config::{ClientConfig, Endpoint, RpcConfig},
+        client::transactions::transaction_request::TransactionTemplate,
         errors::IdPrefixFetchError,
         mock::{
-            mock_full_chain_mmr_and_notes, mock_fungible_faucet_account, mock_notes, MockClient,
-            MockRpcApi,
+            create_test_client, mock_full_chain_mmr_and_notes, mock_fungible_faucet_account,
+            mock_notes,
         },
-        store::{sqlite_store::SqliteStore, InputNoteRecord, NoteFilter},
+        store::{InputNoteRecord, NoteFilter},
     };
     use miden_lib::transaction::TransactionKernel;
     use miden_objects::{
@@ -157,7 +153,6 @@ mod tests {
         notes::Note,
     };
     use miden_tx::AuthSecretKey;
-    use uuid::Uuid;
 
     use super::import_note;
     use crate::cli::{export::export_note, get_input_note_with_id_prefix};
@@ -172,26 +167,7 @@ mod tests {
         // 3. One output note, one input note. Both representing the same note.
 
         // generate test client
-        let mut path = temp_dir();
-        path.push(Uuid::new_v4().to_string());
-        let client_config = ClientConfig::new(
-            path.into_os_string().into_string().unwrap().try_into().unwrap(),
-            RpcConfig::default(),
-        );
-
-        let rng = get_random_coin();
-        let store = SqliteStore::new((&client_config).into()).unwrap();
-        let store = Rc::new(store);
-
-        let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
-
-        let mut client = MockClient::new(
-            MockRpcApi::new(&Endpoint::default().to_string()),
-            rng,
-            store,
-            authenticator,
-            true,
-        );
+        let mut client = create_test_client();
 
         // Add a faucet account to run a mint tx against it
         const FAUCET_ID: u64 = ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN;
@@ -264,26 +240,7 @@ mod tests {
     #[tokio::test]
     async fn get_input_note_with_prefix() {
         // generate test client
-        let mut path = temp_dir();
-        path.push(Uuid::new_v4().to_string());
-        let client_config = ClientConfig::new(
-            path.into_os_string().into_string().unwrap().try_into().unwrap(),
-            RpcConfig::default(),
-        );
-
-        let rng = get_random_coin();
-        let store = SqliteStore::new((&client_config).into()).unwrap();
-        let store = Rc::new(store);
-
-        let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
-
-        let mut client = MockClient::new(
-            MockRpcApi::new(&Endpoint::default().to_string()),
-            rng,
-            store,
-            authenticator,
-            true,
-        );
+        let mut client = create_test_client();
 
         // Ensure we get an error if no note is found
         let non_existent_note_id = "0x123456";

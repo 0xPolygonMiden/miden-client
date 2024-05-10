@@ -240,12 +240,10 @@ pub mod tests {
     };
     use miden_tx::AuthSecretKey;
 
-    use crate::{
-        mock::{
-            get_account_with_default_account_code, get_new_account_with_default_account_code,
-            ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN, ACCOUNT_ID_REGULAR,
-        },
-        store::sqlite_store::tests::create_test_client,
+    use crate::mock::{
+        create_test_client, get_account_with_default_account_code,
+        get_new_account_with_default_account_code, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
+        ACCOUNT_ID_REGULAR,
     };
 
     fn create_account_data(account_id: u64) -> AccountData {

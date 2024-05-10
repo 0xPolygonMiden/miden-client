@@ -24,7 +24,7 @@ use crate::{
 
 mod accounts;
 mod chain_data;
-mod migrations;
+pub(crate) mod migrations;
 mod notes;
 mod sync;
 mod transactions;
@@ -233,43 +233,12 @@ impl Store for SqliteStore {
 
 #[cfg(test)]
 pub mod tests {
-    use std::{cell::RefCell, env::temp_dir, rc::Rc};
+    use std::cell::RefCell;
 
     use rusqlite::{vtab::array, Connection};
-    use uuid::Uuid;
 
     use super::{migrations, SqliteStore};
-    use crate::{
-        client::{authenticator::StoreAuthenticator, get_random_coin},
-        config::{ClientConfig, RpcConfig},
-        mock::{MockClient, MockRpcApi},
-    };
-
-    pub fn create_test_client() -> MockClient {
-        let store = create_test_store_path()
-            .into_os_string()
-            .into_string()
-            .unwrap()
-            .try_into()
-            .unwrap();
-
-        let client_config = ClientConfig::new(store, RpcConfig::default());
-
-        let rpc_endpoint = client_config.rpc.endpoint.to_string();
-        let store = SqliteStore::new((&client_config).into()).unwrap();
-        let store = Rc::new(store);
-
-        let rng = get_random_coin();
-        let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
-
-        MockClient::new(MockRpcApi::new(&rpc_endpoint), rng, store, authenticator, true)
-    }
-
-    pub(crate) fn create_test_store_path() -> std::path::PathBuf {
-        let mut temp_file = temp_dir();
-        temp_file.push(format!("{}.sqlite3", Uuid::new_v4()));
-        temp_file
-    }
+    use crate::mock::create_test_store_path;
 
     pub(crate) fn create_test_store() -> SqliteStore {
         let temp_file = create_test_store_path();

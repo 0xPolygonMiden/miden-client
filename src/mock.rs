@@ -1,4 +1,5 @@
 use alloc::collections::BTreeMap;
+use std::{env::temp_dir, rc::Rc};
 
 use async_trait::async_trait;
 use miden_lib::{transaction::TransactionKernel, AuthScheme};
@@ -32,10 +33,12 @@ use miden_objects::{
 use miden_tx::AuthSecretKey;
 use rand::Rng;
 use tonic::{Response, Status};
+use uuid::Uuid;
 
 use crate::{
     client::{
         authenticator::StoreAuthenticator,
+        get_random_coin,
         rpc::{
             AccountDetails, NodeRpcClient, NodeRpcClientEndpoint, NoteDetails,
             NoteInclusionDetails, StateSyncInfo,
@@ -47,6 +50,7 @@ use crate::{
         },
         Client,
     },
+    config::{ClientConfig, RpcConfig},
     errors::NodeRpcClientError,
     store::sqlite_store::SqliteStore,
 };
@@ -757,4 +761,30 @@ fn prepare_assets(note_assets: &NoteAssets) -> Vec<String> {
         assets.push(asset_str);
     }
     assets
+}
+
+pub fn create_test_client() -> MockClient {
+    let store = create_test_store_path()
+        .into_os_string()
+        .into_string()
+        .unwrap()
+        .try_into()
+        .unwrap();
+
+    let client_config = ClientConfig::new(store, RpcConfig::default());
+
+    let rpc_endpoint = client_config.rpc.endpoint.to_string();
+    let store = SqliteStore::new((&client_config).into()).unwrap();
+    let store = Rc::new(store);
+
+    let rng = get_random_coin();
+    let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
+
+    MockClient::new(MockRpcApi::new(&rpc_endpoint), rng, store, authenticator, true)
+}
+
+pub(crate) fn create_test_store_path() -> std::path::PathBuf {
+    let mut temp_file = temp_dir();
+    temp_file.push(format!("{}.sqlite3", Uuid::new_v4()));
+    temp_file
 }
