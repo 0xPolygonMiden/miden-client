@@ -3,19 +3,11 @@ use core::fmt;
 
 use miden_objects::{accounts::AccountId, assets::Asset, notes::Note, Word};
 
+use super::transactions::transaction_request::known_script_hashs::{P2ID, P2IDR, SWAP};
 use crate::{
     errors::{InvalidNoteInputsError, ScreenerError},
     store::Store,
 };
-
-// KNOWN SCRIPT ROOTS
-// --------------------------------------------------------------------------------------------
-pub(crate) const P2ID_NOTE_SCRIPT_ROOT: &str =
-    "0xcdfd70344b952980272119bc02b837d14c07bbfc54f86a254422f39391b77b35";
-pub(crate) const P2IDR_NOTE_SCRIPT_ROOT: &str =
-    "0x41e5727b99a12b36066c09854d39d64dd09d9265c442a9be3626897572bf1745";
-pub(crate) const SWAP_NOTE_SCRIPT_ROOT: &str =
-    "0x5852920f88985b651cf7ef5e48623f898b6c292f4a2c25dd788ff8b46dd90417";
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum NoteRelevance {
@@ -57,9 +49,9 @@ impl<'a, S: Store> NoteScreener<'a, S> {
 
         let script_hash = note.script().hash().to_string();
         let note_relevance = match script_hash.as_str() {
-            P2ID_NOTE_SCRIPT_ROOT => Self::check_p2id_relevance(note, &account_ids)?,
-            P2IDR_NOTE_SCRIPT_ROOT => Self::check_p2idr_relevance(note, &account_ids)?,
-            SWAP_NOTE_SCRIPT_ROOT => self.check_swap_relevance(note, &account_ids)?,
+            P2ID => Self::check_p2id_relevance(note, &account_ids)?,
+            P2IDR => Self::check_p2idr_relevance(note, &account_ids)?,
+            SWAP => self.check_swap_relevance(note, &account_ids)?,
             _ => self.check_script_relevance(note, &account_ids)?,
         };
 
@@ -202,9 +194,7 @@ mod tests {
         notes::NoteType,
     };
 
-    use crate::client::note_screener::{
-        P2IDR_NOTE_SCRIPT_ROOT, P2ID_NOTE_SCRIPT_ROOT, SWAP_NOTE_SCRIPT_ROOT,
-    };
+    use crate::client::transactions::transaction_request::known_script_hashs::{P2ID, P2IDR, SWAP};
 
     // We need to make sure the script roots we use for filters are in line with the note scripts
     // coming from Miden objects
@@ -242,8 +232,8 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(p2id_note.script().hash().to_string(), P2ID_NOTE_SCRIPT_ROOT);
-        assert_eq!(p2idr_note.script().hash().to_string(), P2IDR_NOTE_SCRIPT_ROOT);
-        assert_eq!(swap_note.script().hash().to_string(), SWAP_NOTE_SCRIPT_ROOT);
+        assert_eq!(p2id_note.script().hash().to_string(), P2ID);
+        assert_eq!(p2idr_note.script().hash().to_string(), P2IDR);
+        assert_eq!(swap_note.script().hash().to_string(), SWAP);
     }
 }

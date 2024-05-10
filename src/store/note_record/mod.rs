@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use miden_objects::{
     assembly::{Assembler, ProgramAst},
     notes::NoteScript,
@@ -83,6 +85,16 @@ impl Deserializable for NoteStatus {
     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
         let enum_byte = u8::read_from(source)?;
         enum_byte.try_into()
+    }
+}
+
+impl Display for NoteStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NoteStatus::Pending => write!(f, "Pending"),
+            NoteStatus::Committed => write!(f, "Committed"),
+            NoteStatus::Consumed => write!(f, "Consumed"),
+        }
     }
 }
 
