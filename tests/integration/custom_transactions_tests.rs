@@ -10,7 +10,7 @@ use miden_objects::{
     assets::{FungibleAsset, TokenSymbol},
     crypto::rand::{FeltRng, RpoRandomCoin},
     notes::{
-        Note, NoteAssets, NoteExecutionHint, NoteInputs, NoteMetadata, NoteRecipient, NoteScript,
+        Note, NoteAssets, NoteExecutionHint, NoteInputs, NoteMetadata, NoteRecipient,
         NoteTag, NoteType,
     },
     Felt, Word,
