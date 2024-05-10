@@ -17,10 +17,10 @@ use crate::{
         transactions::transaction_request::TransactionTemplate,
     },
     mock::{
-        get_account_with_default_account_code, mock_full_chain_mmr_and_notes,
+        create_test_client, get_account_with_default_account_code, mock_full_chain_mmr_and_notes,
         mock_fungible_faucet_account, mock_notes, ACCOUNT_ID_REGULAR,
     },
-    store::{sqlite_store::tests::create_test_client, InputNoteRecord, NoteFilter},
+    store::{InputNoteRecord, NoteFilter},
 };
 
 #[tokio::test]
