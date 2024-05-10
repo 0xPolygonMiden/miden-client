@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use clap::ValueEnum;
-use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
+use comfy_table::{presets, Attribute, Cell, ContentArrangement};
 use miden_client::{
     client::{
         rpc::NodeRpcClient, transactions::transaction_request::KnownScriptHash, ConsumableNote,
@@ -11,6 +11,7 @@ use miden_client::{
 };
 use miden_objects::{
     accounts::AccountId,
+    assets::Asset,
     crypto::rand::FeltRng,
     notes::{NoteInputs, NoteMetadata},
     Digest,
@@ -181,7 +182,7 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store>(
         _ => {},
     }
 
-    let mut table = Table::new();
+    let mut table = create_dynamic_table(&["Note Information"]);
     table
         .load_preset(presets::UTF8_HORIZONTAL_ONLY)
         .set_content_arrangement(ContentArrangement::DynamicFullWidth);
@@ -196,7 +197,6 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store>(
         note_status,
     } = note_summary(input_note_record.as_ref(), output_note_record.as_ref())?;
 
-    table.add_row(vec![Cell::new("Note Information").add_attribute(Attribute::Bold)]);
     table.add_row(vec![Cell::new("ID"), Cell::new(note_id)]);
     match script_hash.clone().as_str() {
         KnownScriptHash::P2ID => script_hash += " (P2ID)",
@@ -211,6 +211,8 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store>(
     table.add_row(vec![Cell::new("Serial Number"), Cell::new(serial_num)]);
     table.add_row(vec![Cell::new("Type"), Cell::new(note_type)]);
     table.add_row(vec![Cell::new("Status"), Cell::new(note_status)]);
+
+    println!("{table}");
 
     let (script, inputs) = match (&input_note_record, &output_note_record) {
         (Some(record), _) => {
@@ -237,34 +239,56 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store>(
     // print note script
     if show_script && script.is_some() {
         let script = script.expect("Script should be Some");
+        let mut table = create_dynamic_table(&["Note Script Code"]);
+        table
+            .load_preset(presets::UTF8_HORIZONTAL_ONLY)
+            .set_content_arrangement(ContentArrangement::DynamicFullWidth);
 
-        table.add_row(vec![
-            Cell::new("Note Script code").add_attribute(Attribute::Bold),
-            Cell::new(script.code()),
-        ]);
+        table.add_row(vec![Cell::new(script.code())]);
+        println!("{table}");
     };
 
     // print note vault
     if show_vault {
-        table.add_row(vec![Cell::new("Note Vault").add_attribute(Attribute::Bold)]);
+        let mut table = create_dynamic_table(&["Note Assets"]);
+        table
+            .load_preset(presets::UTF8_HORIZONTAL_ONLY)
+            .set_content_arrangement(ContentArrangement::DynamicFullWidth);
 
-        assets.iter().for_each(|asset| {
-            table.add_row(vec![Cell::new(format!("{:?}", asset))]);
-        })
+        table.add_row(vec![
+            Cell::new("Type").add_attribute(Attribute::Bold),
+            Cell::new("Faucet ID").add_attribute(Attribute::Bold),
+            Cell::new("Amount").add_attribute(Attribute::Bold),
+        ]);
+        let assets = assets.iter();
+
+        for asset in assets {
+            let (asset_type, faucet_id, amount) = match asset {
+                Asset::Fungible(fungible_asset) => {
+                    ("Fungible Asset", fungible_asset.faucet_id(), fungible_asset.amount())
+                },
+                Asset::NonFungible(non_fungible_asset) => {
+                    ("Non Fungible Asset", non_fungible_asset.faucet_id(), 1)
+                },
+            };
+            table.add_row(vec![asset_type, &faucet_id.to_hex(), &amount.to_string()]);
+        }
+        println!("{table}");
     };
 
     if show_inputs && inputs.is_some() {
         let inputs = inputs.expect("Inputs should be Some");
         let inputs = NoteInputs::new(inputs.clone()).map_err(ClientError::NoteError)?;
-
-        table.add_row(vec![Cell::new("Note Inputs").add_attribute(Attribute::Bold)]);
-
+        let mut table = create_dynamic_table(&["Note Inputs"]);
+        table
+            .load_preset(presets::UTF8_HORIZONTAL_ONLY)
+            .set_content_arrangement(ContentArrangement::DynamicFullWidth);
         inputs.values().iter().enumerate().for_each(|(idx, input)| {
             table.add_row(vec![Cell::new(idx).add_attribute(Attribute::Bold), Cell::new(input)]);
         });
+        println!("{table}");
     };
 
-    println!("{table}");
     Ok(())
 }
 
