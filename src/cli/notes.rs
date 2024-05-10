@@ -283,6 +283,11 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store>(
         table
             .load_preset(presets::UTF8_HORIZONTAL_ONLY)
             .set_content_arrangement(ContentArrangement::DynamicFullWidth);
+        table.add_row(vec![
+            Cell::new("Index").add_attribute(Attribute::Bold),
+            Cell::new("Value").add_attribute(Attribute::Bold),
+        ]);
+
         inputs.values().iter().enumerate().for_each(|(idx, input)| {
             table.add_row(vec![Cell::new(idx).add_attribute(Attribute::Bold), Cell::new(input)]);
         });
