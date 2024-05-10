@@ -168,3 +168,13 @@ impl PaymentTransactionData {
         self.asset
     }
 }
+
+// KNOWN SCRIPT HASHES
+// --------------------------------------------------------------------------------------------
+pub struct KnownScriptHash;
+
+pub mod known_script_hashs {
+    pub const P2ID: &str = "0xcdfd70344b952980272119bc02b837d14c07bbfc54f86a254422f39391b77b35";
+    pub const P2IDR: &str = "0x41e5727b99a12b36066c09854d39d64dd09d9265c442a9be3626897572bf1745";
+    pub const SWAP: &str = "0x5852920f88985b651cf7ef5e48623f898b6c292f4a2c25dd788ff8b46dd90417";
+}

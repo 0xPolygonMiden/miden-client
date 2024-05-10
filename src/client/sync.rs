@@ -344,8 +344,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         );
 
         let num_new_notes = new_note_details.new_public_notes.len();
-        let num_new_inclusion_proofs = new_note_details.updated_input_notes.len()
-            + new_note_details.updated_output_notes.len();
+        let updated_ids: BTreeSet<NoteId> = new_note_details
+            .updated_input_notes
+            .iter()
+            .map(|n| n.note().id())
+            .chain(new_note_details.updated_output_notes.iter().map(|(id, _)| *id))
+            .collect();
+        let num_new_inclusion_proofs = updated_ids.len();
         let num_new_nullifiers = new_nullifiers.len();
         let state_sync_update = StateSyncUpdate {
             block_header: response.block_header,

@@ -138,7 +138,7 @@ impl Cli {
             },
             Command::Import(import) => import.execute(client).await,
             Command::Init(_) => Ok(()),
-            Command::Info => info::print_client_info(&client),
+            Command::Info => info::print_client_info(&client, &client_config),
             Command::Notes { cmd: notes_cmd } => {
                 let notes_cmd = notes_cmd.clone().unwrap_or_default();
                 notes_cmd.execute(client).await
