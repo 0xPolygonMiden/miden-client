@@ -1,6 +1,7 @@
 # Changelog
 
 * Added more feedback information to commands `info`, `notes list`, `notes show`, `account new`, `notes import`, `tx new` and `sync`.
+* Add `consumer_account_id` to `InputNoteRecord` with an implementation for sqlite store.
 * Renamed the cli `input-notes` command to `notes`. Now we only export notes that were created on this client as the result of a transaction.
 * Added validation using the `NoteScreener` to see if a block has relevant notes.
 * Added flags to `init` command for non-interactive environments
