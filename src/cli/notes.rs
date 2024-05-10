@@ -5,7 +5,7 @@ use comfy_table::{presets, Attribute, Cell, ContentArrangement};
 use miden_client::{
     client::{
         rpc::NodeRpcClient,
-        transactions::transaction_request::known_script_hashs::{P2ID, P2IDR, SWAP},
+        transactions::transaction_request::known_script_roots::{P2ID, P2IDR, SWAP},
         ConsumableNote,
     },
     errors::{ClientError, IdPrefixFetchError},

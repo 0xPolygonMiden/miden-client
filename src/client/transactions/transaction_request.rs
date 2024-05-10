@@ -169,12 +169,70 @@ impl PaymentTransactionData {
     }
 }
 
-// KNOWN SCRIPT HASHES
+// KNOWN SCRIPT ROOTS
 // --------------------------------------------------------------------------------------------
-pub struct KnownScriptHash;
 
-pub mod known_script_hashs {
+pub mod known_script_roots {
     pub const P2ID: &str = "0xcdfd70344b952980272119bc02b837d14c07bbfc54f86a254422f39391b77b35";
     pub const P2IDR: &str = "0x41e5727b99a12b36066c09854d39d64dd09d9265c442a9be3626897572bf1745";
     pub const SWAP: &str = "0x5852920f88985b651cf7ef5e48623f898b6c292f4a2c25dd788ff8b46dd90417";
+}
+
+#[cfg(test)]
+mod tests {
+    use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
+    use miden_objects::{
+        accounts::{
+            account_id::testing::{
+                ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
+            },
+            AccountId,
+        },
+        assets::FungibleAsset,
+        crypto::rand::RpoRandomCoin,
+        notes::NoteType,
+    };
+
+    use crate::client::transactions::transaction_request::known_script_roots::{P2ID, P2IDR, SWAP};
+
+    // We need to make sure the script roots we use for filters are in line with the note scripts
+    // coming from Miden objects
+    #[test]
+    fn ensure_correct_script_roots() {
+        // create dummy data for the notes
+        let faucet_id: AccountId = ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN.try_into().unwrap();
+        let account_id: AccountId = ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN.try_into().unwrap();
+        let rng = RpoRandomCoin::new(Default::default());
+
+        // create dummy notes to compare note script roots
+        let p2id_note = create_p2id_note(
+            account_id,
+            account_id,
+            vec![FungibleAsset::new(faucet_id, 100u64).unwrap().into()],
+            NoteType::OffChain,
+            rng,
+        )
+        .unwrap();
+        let p2idr_note = create_p2idr_note(
+            account_id,
+            account_id,
+            vec![FungibleAsset::new(faucet_id, 100u64).unwrap().into()],
+            NoteType::OffChain,
+            10,
+            rng,
+        )
+        .unwrap();
+        let (swap_note, _serial_num) = create_swap_note(
+            account_id,
+            FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
+            FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
+            NoteType::OffChain,
+            rng,
+        )
+        .unwrap();
+
+        assert_eq!(p2id_note.script().hash().to_string(), P2ID);
+        assert_eq!(p2idr_note.script().hash().to_string(), P2IDR);
+        assert_eq!(swap_note.script().hash().to_string(), SWAP);
+    }
 }

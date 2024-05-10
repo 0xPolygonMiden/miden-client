@@ -121,16 +121,6 @@ impl SqliteStore {
             .ok_or(StoreError::AccountDataNotFound(account_id))?
     }
 
-    /// Retrieve account keys data by Account Id
-    pub(crate) fn get_account_auths(&self) -> Result<Vec<AuthSecretKey>, StoreError> {
-        const QUERY: &str = "SELECT account_id,auth_info FROM account_auth";
-        self.db()
-            .prepare(QUERY)?
-            .query_map(params![], parse_account_auth_columns)?
-            .map(|result| Ok(result?).and_then(parse_account_auth))
-            .collect()
-    }
-
     pub(crate) fn insert_account(
         &self,
         account: &Account,

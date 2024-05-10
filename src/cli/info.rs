@@ -10,6 +10,7 @@ use miden_tx::TransactionAuthenticator;
 
 pub fn print_client_info<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
     client: &Client<N, R, S, A>,
+    config: &ClientConfig,
 ) -> Result<(), String> {
     println!("Client version: {}", env!("CARGO_PKG_VERSION"));
     print_config_stats(config)?;
@@ -18,7 +19,7 @@ pub fn print_client_info<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionA
 
 // HELPERS
 // ================================================================================================
-fn print_block_number<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+fn print_client_stats<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
     client: &Client<N, R, S, A>,
 ) -> Result<(), String> {
     println!("Block number: {}", client.get_sync_height().map_err(|e| e.to_string())?);
