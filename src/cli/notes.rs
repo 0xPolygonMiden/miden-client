@@ -112,6 +112,7 @@ struct CliNoteSummary {
     status: String,
     tag: String,
     sender: String,
+    exportable: bool,
 }
 
 // LIST NOTES
@@ -199,6 +200,7 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store>(
         status,
         tag,
         sender,
+        exportable,
     } = note_summary(input_note_record.as_ref(), output_note_record.as_ref())?;
 
     table.add_row(vec![Cell::new("ID"), Cell::new(id)]);
@@ -217,6 +219,7 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store>(
     table.add_row(vec![Cell::new("Status"), Cell::new(status)]);
     table.add_row(vec![Cell::new("Tag"), Cell::new(tag)]);
     table.add_row(vec![Cell::new("Sender"), Cell::new(sender)]);
+    table.add_row(vec![Cell::new("Exportable"), Cell::new(if exportable { "✔" } else { "✘" })]);
 
     println!("{table}");
 
@@ -346,9 +349,10 @@ where
             status,
             tag: _tag,
             sender: _sender,
+            exportable,
         } = note_summary(input_note_record, output_note_record)?;
 
-        let exportable = if output_note_record.is_some() { "✔" } else { "✘" };
+        let exportable = if exportable { "✔" } else { "✘" };
 
         table.add_row(vec![
             id,
@@ -512,6 +516,7 @@ fn note_summary(
         status,
         tag: note_tag_str,
         sender: note_sender_str,
+        exportable: output_note_record.is_some(),
     })
 }
 
