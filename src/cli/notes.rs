@@ -460,9 +460,23 @@ fn note_summary(
         .map(|record| record.status())
         .or(output_note_record.map(|record| record.status()))
         .expect("One of the two records should be Some");
+
+    let note_consumer = input_note_record
+        .map(|record| record.consumer_account_id())
+        .or(output_note_record.map(|record| record.consumer_account_id()))
+        .expect("One of the two records should be Some");
+
     let note_status = match note_status {
         NoteStatus::Committed => {
             note_status.to_string() + format!(" (height {})", commit_height).as_str()
+        },
+        NoteStatus::Consumed => {
+            note_status.to_string()
+                + format!(
+                    " (by {})",
+                    note_consumer.map(|id| id.to_string()).unwrap_or("?".to_string())
+                )
+                .as_str()
         },
         _ => note_status.to_string(),
     };
