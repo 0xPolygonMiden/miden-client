@@ -86,6 +86,10 @@ impl TransactionResult {
     pub fn account_delta(&self) -> &AccountDelta {
         self.transaction.account_delta()
     }
+
+    pub fn consumed_notes(&self) -> &InputNotes {
+        self.executed_transaction.tx_inputs().input_notes()
+    }
 }
 
 // TRANSACTION RECORD

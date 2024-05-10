@@ -27,7 +27,13 @@ use miden_objects::{
 use miden_tx::TransactionAuthenticator;
 use tracing::info;
 
+use self::{
+    account::AccountCmd, export::ExportCmd, import::ImportCmd, init::InitCmd, tags::TagsCmd,
+};
+
 mod account;
+mod export;
+mod import;
 mod info;
 mod init;
 mod notes;
@@ -37,6 +43,9 @@ mod transactions;
 
 /// Config file name
 const CLIENT_CONFIG_FILE_NAME: &str = "miden-client.toml";
+
+/// Client binary name
+pub const CLIENT_BINARY_NAME: &str = "miden";
 
 /// Root CLI struct
 #[derive(Parser, Debug)]
@@ -54,20 +63,33 @@ pub struct Cli {
 /// CLI actions
 #[derive(Debug, Parser)]
 pub enum Command {
+    Account {
+        #[clap(subcommand)]
+        cmd: Option<AccountCmd>,
+    },
     #[clap(subcommand)]
-    Account(account::AccountCmd),
-    Init(init::InitCmd),
+    Import(ImportCmd),
     #[clap(subcommand)]
-    Notes(notes::Notes),
+    Export(ExportCmd),
+    Init(InitCmd),
+    Notes {
+        #[clap(subcommand)]
+        cmd: Option<notes::Notes>,
+    },
     /// Sync this client with the latest state of the Miden network.
     Sync,
     /// View a summary of the current client state
     Info,
-    #[clap(subcommand)]
-    Tags(tags::TagsCmd),
-    #[clap(subcommand, name = "tx")]
+    Tags {
+        #[clap(subcommand)]
+        cmd: Option<TagsCmd>,
+    },
+    #[clap(name = "tx")]
     #[clap(visible_alias = "transaction")]
-    Transaction(transactions::Transaction),
+    Transaction {
+        #[clap(subcommand)]
+        cmd: Option<transactions::Transaction>,
+    },
 }
 
 /// CLI entry point
@@ -108,19 +130,31 @@ impl Cli {
             in_debug_mode,
         );
 
-        // Execute cli command
+        // Execute CLI command
         match &self.action {
-            Command::Account(account) => account.execute(client),
+            Command::Account { cmd } => {
+                let account = cmd.clone().unwrap_or_default();
+                account.execute(client)
+            },
+            Command::Import(import) => import.execute(client).await,
             Command::Init(_) => Ok(()),
             Command::Info => info::print_client_info(&client),
-            Command::Notes(notes) => notes.execute(client).await,
+            Command::Notes { cmd: notes_cmd } => {
+                let notes_cmd = notes_cmd.clone().unwrap_or_default();
+                notes_cmd.execute(client).await
+            },
             Command::Sync => sync::sync_state(client).await,
-            Command::Tags(tags) => tags.execute(client).await,
-            Command::Transaction(transaction) => {
+            Command::Tags { cmd: tags_cmd } => {
+                let tags_cmd = tags_cmd.clone().unwrap_or_default();
+                tags_cmd.execute(client).await
+            },
+            Command::Transaction { cmd: transaction_cmd } => {
+                let transaction_cmd = transaction_cmd.clone().unwrap_or_default();
                 let default_account_id =
                     client_config.cli.and_then(|cli_conf| cli_conf.default_account_id);
-                transaction.execute(client, default_account_id).await
+                transaction_cmd.execute(client, default_account_id).await
             },
+            Command::Export(cmd) => cmd.execute(client),
         }
     }
 }
