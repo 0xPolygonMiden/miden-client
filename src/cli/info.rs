@@ -11,7 +11,7 @@ pub fn print_client_info<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: &Client<N, R, S>,
     config: &ClientConfig,
 ) -> Result<(), String> {
-    println!("client version: {}", env!("CARGO_PKG_VERSION"));
+    println!("Client version: {}", env!("CARGO_PKG_VERSION"));
     print_config_stats(config)?;
     print_client_stats(client)
 }
@@ -21,26 +21,26 @@ pub fn print_client_info<N: NodeRpcClient, R: FeltRng, S: Store>(
 fn print_client_stats<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: &Client<N, R, S>,
 ) -> Result<(), String> {
-    println!("block number: {}", client.get_sync_height().map_err(|e| e.to_string())?);
+    println!("Block number: {}", client.get_sync_height().map_err(|e| e.to_string())?);
     println!(
-        "tracked accounts: {}",
+        "Tracked accounts: {}",
         client.get_account_stubs().map_err(|e| e.to_string())?.len()
     );
     println!(
-        "pending notes: {}",
+        "Pending notes: {}",
         client.get_input_notes(NoteFilter::Pending).map_err(|e| e.to_string())?.len()
     );
     Ok(())
 }
 
 fn print_config_stats(config: &ClientConfig) -> Result<(), String> {
-    println!("node address: {}", config.rpc.endpoint.host());
+    println!("Node address: {}", config.rpc.endpoint.host());
     let store_len = fs::metadata(config.store.database_filepath.clone())
         .map_err(|e| e.to_string())?
         .len();
-    println!("store size: {} kB", store_len / 1024);
+    println!("Store size: {} kB", store_len / 1024);
     println!(
-        "default account: {}",
+        "Default account: {}",
         config
             .cli
             .as_ref()
