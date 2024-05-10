@@ -53,6 +53,7 @@ async fn test_transaction_request() {
         storage_mode: AccountStorageMode::Local,
     };
     let (fungible_faucet, _seed) = client.new_account(account_template).unwrap();
+    println!("sda1");
 
     // Execute mint transaction in order to create custom note
     let note = mint_custom_note(&mut client, fungible_faucet.id(), regular_account.id()).await;
