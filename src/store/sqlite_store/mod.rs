@@ -226,6 +226,10 @@ impl Store for SqliteStore {
     fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, StoreError> {
         self.get_account_auth(account_id)
     }
+
+    fn get_account_auth_by_pub_key(&self, pub_key: Word) -> Result<AuthSecretKey, StoreError> {
+        self.get_account_auth_by_pub_key(pub_key)
+    }
 }
 
 // TESTS

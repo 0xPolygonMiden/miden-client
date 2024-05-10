@@ -8,9 +8,9 @@ use figment::{
 };
 use miden_client::{
     client::{
-        authenticator::StoreAuthenticator,
         get_random_coin,
         rpc::{NodeRpcClient, TonicRpcClient},
+        store_authenticator::StoreAuthenticator,
         Client,
     },
     config::ClientConfig,

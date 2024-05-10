@@ -190,6 +190,14 @@ pub trait Store {
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
     fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, StoreError>;
 
+    /// Retrieves an account's [AuthSecretKey] by pub key, utilized to authenticate the account.
+    /// This is mainly used for authentication in transactions.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `StoreError::AccountKeyNotFound` if there is no account for the provided key
+    fn get_account_auth_by_pub_key(&self, pub_key: Word) -> Result<AuthSecretKey, StoreError>;
+
     /// Inserts an [Account] along with the seed used to create it and its [AuthSecretKey]
     fn insert_account(
         &self,

@@ -37,12 +37,12 @@ use uuid::Uuid;
 
 use crate::{
     client::{
-        authenticator::StoreAuthenticator,
         get_random_coin,
         rpc::{
             AccountDetails, NodeRpcClient, NodeRpcClientEndpoint, NoteDetails,
             NoteInclusionDetails, StateSyncInfo,
         },
+        store_authenticator::StoreAuthenticator,
         sync::FILTER_ID_SHIFT,
         transactions::{
             prepare_word,
@@ -56,7 +56,7 @@ use crate::{
 };
 
 pub type MockClient =
-    Client<MockRpcApi, RpoRandomCoin, SqliteStore, StoreAuthenticator<RpoRandomCoin>>;
+    Client<MockRpcApi, RpoRandomCoin, SqliteStore, StoreAuthenticator<RpoRandomCoin, SqliteStore>>;
 
 // MOCK CONSTS
 // ================================================================================================

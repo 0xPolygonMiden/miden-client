@@ -20,7 +20,7 @@ use crate::errors::StoreError;
 type SerializedAccountData = (i64, String, String, String, i64, bool);
 type SerializedAccountsParts = (i64, i64, String, String, String, Option<Vec<u8>>);
 
-type SerializedAccountAuthData = (i64, Vec<u8>);
+type SerializedAccountAuthData = (i64, Vec<u8>, Vec<u8>);
 type SerializedAccountAuthParts = (i64, Vec<u8>);
 
 type SerializedAccountVaultData = (String, String);
@@ -148,6 +148,18 @@ impl SqliteStore {
 
         Ok(tx.commit()?)
     }
+
+    /// Returns an [AuthSecretKey] by a public key represented by a [Word]
+    pub fn get_account_auth_by_pub_key(&self, pub_key: Word) -> Result<AuthSecretKey, StoreError> {
+        let pub_key_bytes = pub_key.to_bytes();
+        const QUERY: &str = "SELECT account_id, auth_info FROM account_auth WHERE pub_key = ?";
+        self.db()
+            .prepare(QUERY)?
+            .query_map(params![pub_key_bytes], parse_account_auth_columns)?
+            .map(|result| Ok(result?).and_then(parse_account_auth))
+            .next()
+            .ok_or(StoreError::AccountKeyNotFound(pub_key))?
+    }
 }
 
 // HELPERS
@@ -221,9 +233,11 @@ pub(super) fn insert_account_auth(
     account_id: AccountId,
     auth_info: &AuthSecretKey,
 ) -> Result<(), StoreError> {
-    let (account_id, auth_info) = serialize_account_auth(account_id, auth_info)?;
-    const QUERY: &str = "INSERT INTO account_auth (account_id, auth_info) VALUES (?, ?)";
-    tx.execute(QUERY, params![account_id, auth_info])?;
+    let (account_id, auth_info, pub_key) = serialize_account_auth(account_id, auth_info)?;
+    const QUERY: &str =
+        "INSERT INTO account_auth (account_id, auth_info, pub_key) VALUES (?, ?, ?)";
+
+    tx.execute(QUERY, params![account_id, auth_info, pub_key])?;
     Ok(())
 }
 
@@ -323,9 +337,15 @@ fn serialize_account_auth(
     account_id: AccountId,
     auth_info: &AuthSecretKey,
 ) -> Result<SerializedAccountAuthData, StoreError> {
+    let pub_key = match auth_info {
+        AuthSecretKey::RpoFalcon512(secret) => Word::from(secret.public_key()),
+    }
+    .to_bytes();
+
     let account_id: u64 = account_id.into();
     let auth_info = auth_info.to_bytes();
-    Ok((account_id as i64, auth_info))
+
+    Ok((account_id as i64, auth_info, pub_key))
 }
 
 /// Serialize the provided account_code into database compatible types.

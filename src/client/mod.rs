@@ -14,11 +14,11 @@ pub mod rpc;
 use rpc::NodeRpcClient;
 
 pub mod accounts;
-pub mod authenticator;
 #[cfg(test)]
 mod chain_data;
 mod note_screener;
 mod notes;
+pub mod store_authenticator;
 pub(crate) mod sync;
 pub mod transactions;
 pub use note_screener::NoteRelevance;

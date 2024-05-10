@@ -3,31 +3,29 @@ use core::cell::RefCell;
 
 use miden_objects::{
     accounts::AccountDelta,
-    crypto::dsa::rpo_falcon512::{self, Polynomial, PublicKey},
+    crypto::dsa::rpo_falcon512::{self, Polynomial},
     Digest, Felt, Word,
 };
 use miden_tx::{AuthSecretKey, AuthenticationError, TransactionAuthenticator};
 use rand::Rng;
 
-use crate::store::sqlite_store::SqliteStore;
+use crate::store::Store;
 
-pub struct StoreAuthenticator<R> {
-    store: Rc<SqliteStore>,
+/// Represents an authenticator based on a [Store]
+pub struct StoreAuthenticator<R, S> {
+    store: Rc<S>,
     rng: RefCell<R>,
 }
 
-impl<R: Rng> StoreAuthenticator<R> {
-    pub fn new_with_rng(store: Rc<SqliteStore>, rng: R) -> Self {
+impl<R: Rng, S: Store> StoreAuthenticator<R, S> {
+    pub fn new_with_rng(store: Rc<S>, rng: R) -> Self {
         StoreAuthenticator { store, rng: RefCell::new(rng) }
     }
 }
 
-impl<R: Rng> TransactionAuthenticator for StoreAuthenticator<R> {
+impl<R: Rng, S: Store> TransactionAuthenticator for StoreAuthenticator<R, S> {
     /// Gets a signature over a message, given a public key.
     /// The key should be included in the `keys` map and should be a variant of [SecretKey].
-    ///
-    /// Supported signature schemes:
-    /// - RpoFalcon512
     ///
     /// # Errors
     /// If the public key is not contained in the `keys` map, [AuthenticationError::UnknownKey] is
@@ -39,17 +37,14 @@ impl<R: Rng> TransactionAuthenticator for StoreAuthenticator<R> {
         _account_delta: &AccountDelta,
     ) -> Result<Vec<Felt>, AuthenticationError> {
         let mut rng = self.rng.borrow_mut();
-        let keys = self.store.get_account_auths().unwrap();
 
-        let secret_key = keys
-            .iter()
-            .find(|k| match k {
-                AuthSecretKey::RpoFalcon512(k) => k.public_key() == PublicKey::new(pub_key),
-            })
-            .ok_or(AuthenticationError::UnknownKey(format!("{}", Digest::from(pub_key))))?;
+        let secret_key = self
+            .store
+            .get_account_auth_by_pub_key(pub_key)
+            .map_err(|_| AuthenticationError::UnknownKey(format!("{}", Digest::from(pub_key))))?;
 
         let AuthSecretKey::RpoFalcon512(k) = secret_key;
-        get_falcon_signature(k, message, &mut *rng)
+        get_falcon_signature(&k, message, &mut *rng)
     }
 }
 
