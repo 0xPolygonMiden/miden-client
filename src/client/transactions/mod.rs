@@ -408,8 +408,24 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             random_coin,
         )?;
 
-        let tx_script = ProgramAst::parse(transaction_request::AUTH_SWAP_ASSET_SCRIPT)
-            .expect("shipped MASM is well-formed");
+        let recipient = created_note
+            .recipient()
+            .digest()
+            .iter()
+            .map(|x| x.as_int().to_string())
+            .collect::<Vec<_>>()
+            .join(".");
+
+        let note_tag = created_note.metadata().tag().inner();
+
+        let tx_script = ProgramAst::parse(
+            &transaction_request::AUTH_SWAP_ASSET_SCRIPT
+                .replace("{recipient}", &recipient)
+                .replace("{note_type}", &Felt::new(note_type as u64).to_string())
+                .replace("{tag}", &Felt::new(note_tag.into()).to_string())
+                .replace("{asset}", &prepare_word(&swap_data.offered_asset().into()).to_string()),
+        )
+        .expect("shipped MASM is well-formed");
 
         let tx_script = self.tx_executor.compile_tx_script(tx_script, vec![], vec![])?;
 
