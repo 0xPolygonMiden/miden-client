@@ -46,18 +46,6 @@ pub enum Notes {
         /// Note ID of the note to show
         #[clap()]
         id: String,
-
-        /// Show note script
-        #[clap(short, long, default_value = "false")]
-        script: bool,
-
-        /// Show note vault
-        #[clap(short, long, default_value = "false")]
-        vault: bool,
-
-        /// Show note inputs
-        #[clap(short, long, default_value = "false")]
-        inputs: bool,
     },
 
     /// List consumable notes
@@ -91,8 +79,8 @@ impl Notes {
 
                 list_notes(client, filter)?;
             },
-            Notes::Show { id, script, vault, inputs } => {
-                show_note(client, id.to_owned(), *script, *vault, *inputs)?;
+            Notes::Show { id } => {
+                show_note(client, id.to_owned())?;
             },
             Notes::ListConsumable { account_id } => {
                 list_consumable_notes(client, account_id)?;
@@ -151,9 +139,6 @@ fn list_notes<N: NodeRpcClient, R: FeltRng, S: Store>(
 fn show_note<N: NodeRpcClient, R: FeltRng, S: Store>(
     client: Client<N, R, S>,
     note_id: String,
-    show_script: bool,
-    show_vault: bool,
-    show_inputs: bool,
 ) -> Result<(), String> {
     let input_note_record = get_input_note_with_id_prefix(&client, &note_id);
     let output_note_record = get_output_note_with_id_prefix(&client, &note_id);
@@ -246,7 +231,7 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store>(
         .expect("One of the two records should be Some");
 
     // print note script
-    if show_script && script.is_some() {
+    if script.is_some() {
         let script = script.expect("Script should be Some");
         let mut table = create_dynamic_table(&["Note Script Code"]);
         table
@@ -258,34 +243,32 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store>(
     };
 
     // print note vault
-    if show_vault {
-        let mut table = create_dynamic_table(&["Note Assets"]);
-        table
-            .load_preset(presets::UTF8_HORIZONTAL_ONLY)
-            .set_content_arrangement(ContentArrangement::DynamicFullWidth);
+    let mut table = create_dynamic_table(&["Note Assets"]);
+    table
+        .load_preset(presets::UTF8_HORIZONTAL_ONLY)
+        .set_content_arrangement(ContentArrangement::DynamicFullWidth);
 
-        table.add_row(vec![
-            Cell::new("Type").add_attribute(Attribute::Bold),
-            Cell::new("Faucet ID").add_attribute(Attribute::Bold),
-            Cell::new("Amount").add_attribute(Attribute::Bold),
-        ]);
-        let assets = assets.iter();
+    table.add_row(vec![
+        Cell::new("Type").add_attribute(Attribute::Bold),
+        Cell::new("Faucet ID").add_attribute(Attribute::Bold),
+        Cell::new("Amount").add_attribute(Attribute::Bold),
+    ]);
+    let assets = assets.iter();
 
-        for asset in assets {
-            let (asset_type, faucet_id, amount) = match asset {
-                Asset::Fungible(fungible_asset) => {
-                    ("Fungible Asset", fungible_asset.faucet_id(), fungible_asset.amount())
-                },
-                Asset::NonFungible(non_fungible_asset) => {
-                    ("Non Fungible Asset", non_fungible_asset.faucet_id(), 1)
-                },
-            };
-            table.add_row(vec![asset_type, &faucet_id.to_hex(), &amount.to_string()]);
-        }
-        println!("{table}");
-    };
+    for asset in assets {
+        let (asset_type, faucet_id, amount) = match asset {
+            Asset::Fungible(fungible_asset) => {
+                ("Fungible Asset", fungible_asset.faucet_id(), fungible_asset.amount())
+            },
+            Asset::NonFungible(non_fungible_asset) => {
+                ("Non Fungible Asset", non_fungible_asset.faucet_id(), 1)
+            },
+        };
+        table.add_row(vec![asset_type, &faucet_id.to_hex(), &amount.to_string()]);
+    }
+    println!("{table}");
 
-    if show_inputs && inputs.is_some() {
+    if inputs.is_some() {
         let inputs = inputs.expect("Inputs should be Some");
         let inputs = NoteInputs::new(inputs.clone()).map_err(ClientError::NoteError)?;
         let mut table = create_dynamic_table(&["Note Inputs"]);
