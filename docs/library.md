@@ -27,15 +27,19 @@ The current supported store is the `SqliteDataStore`, which is a SQLite implemen
 ```rust
 let client: Client<TonicRpcClient, SqliteDataStore> = {
     
-    let store = Store::new((&client_config).into()).map_err(ClientError::StoreError)?;
+    let store = SqliteStore::new((&client_config).into()).map_err(ClientError::StoreError)?;
+    let store = Rc::new(store);
 
-    Client::new(
-        
-        client_config,
-        TonicRpcClient::new(&rpc_endpoint),
-        SqliteDataStore::new(store),
+    let rng = miden_client::get_random_coin();
+    let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
 
-    )?
+    let client = Client::new(
+        TonicRpcClient::new(&client_config.rpc),
+        rng,
+        store,
+        authenticator,
+        false, // set to true if you want a client with debug mode
+    )
 };
 ```
 
