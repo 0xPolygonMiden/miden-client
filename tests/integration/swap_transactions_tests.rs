@@ -6,13 +6,13 @@ use super::common::*;
 #[tokio::test]
 async fn test_swap_fully_onchain() {
     let mut client1 = create_test_client();
-    wait_for_node(&mut client).await;
+    wait_for_node(&mut client1).await;
     let mut client2 = create_test_client();
     let mut client_with_faucets = create_test_client();
 
-    client1.sync_state().unwrap();
-    client2.sync_state().unwrap();
-    client_with_faucets.sync_state().unwrap();
+    client1.sync_state().await.unwrap();
+    client2.sync_state().await.unwrap();
+    client_with_faucets.sync_state().await.unwrap();
 
     // Create Client 1's basic wallet (We'll call it accountA)
 
