@@ -175,7 +175,7 @@ impl PaymentTransactionData {
 pub mod known_script_roots {
     pub const P2ID: &str = "0x0007b2229f7c8e3205a485a9879f1906798a2e27abd1706eaf58536e7cc3868b";
     pub const P2IDR: &str = "0x418ae31e80b53ddc99179d3cacbc4140c7b36ab04ddb26908b3a6ed2e40061d5";
-    pub const SWAP: &str = "0x755c5dd2fd8d2aa8c2896e0e366a45bdc59c6d5ab543909db32ccfaf949c5826";
+    pub const SWAP: &str = "0xebbc82ad1688925175599bee2fb56bde649ebb9986fbce957ebee3eb4be5f140";
 }
 
 #[cfg(test)]
