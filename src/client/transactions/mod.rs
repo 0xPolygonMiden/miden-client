@@ -35,7 +35,7 @@ pub mod transaction_request;
 /// Represents the result of executing a transaction by the client.
 ///  
 /// It contains an [ExecutedTransaction], and a list of `relevant_notes` that contains the
-/// `output_notes` that the client has to store as input notes, based on the NoteScreener 
+/// `output_notes` that the client has to store as input notes, based on the NoteScreener
 /// output from filtering the transaction's output notes.
 pub struct TransactionResult {
     transaction: ExecutedTransaction,
