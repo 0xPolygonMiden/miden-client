@@ -1,5 +1,7 @@
 # Changelog
 
+* [BREAKING] Separate `prove_transaction` from `submit_transaction` in `Client`.
+
 ## v0.3.0 (2024-05-17)
 
 * Added swap transactions and example flows on integration tests.
