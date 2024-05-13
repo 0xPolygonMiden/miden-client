@@ -272,24 +272,30 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         TransactionResult::new(executed_transaction, screener, partial_notes)
     }
 
+    pub fn prove_transaction(
+        &mut self,
+        executed_transaction: ExecutedTransaction,
+    ) -> Result<ProvenTransaction, ClientError> {
+        let transaction_prover = TransactionProver::new(ProvingOptions::default());
+
+        let proven_transaction = transaction_prover.prove_transaction(executed_transaction)?;
+        info!("Transaction proved");
+        Ok(proven_transaction)
+    }
+
     /// Proves the specified transaction witness, submits it to the node, and stores the transaction in
     /// the local database for tracking.
     pub async fn submit_transaction(
         &mut self,
         tx_result: TransactionResult,
+        proven_transaction: ProvenTransaction,
     ) -> Result<(), ClientError> {
-        let transaction_prover = TransactionProver::new(ProvingOptions::default());
-
-        let proven_transaction =
-            transaction_prover.prove_transaction(tx_result.executed_transaction().clone())?;
-
-        info!("Proved transaction, submitting to the node...");
-
-        self.submit_proven_transaction_request(proven_transaction.clone()).await?;
+        self.submit_proven_transaction_request(proven_transaction).await?;
+        info!("Transaction submitted");
 
         // Transaction was proven and submitted to the node correctly, persist note details and update account
         self.store.apply_transaction(tx_result)?;
-
+        info!("Transaction stored");
         Ok(())
     }
 
