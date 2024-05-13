@@ -48,6 +48,12 @@ miden account default set <ACCOUNT_ID>`
 miden account default unset
 ```
 
+You can also see the current default account ID with:
+
+```sh
+miden account default show
+```
+
 ### Environment variables
 
 - `MIDEN_DEBUG`: When set to `true`, enables debug mode on the transaction executor and the script compiler. For any script that has been compiled and executed in this mode, debug logs will be output in order to facilitate MASM debugging ([these instructions](https://0xpolygonmiden.github.io/miden-vm/user_docs/assembly/debugging.html) can be used to do so). This variable can be overriden by the `--debug` CLI flag. 

@@ -60,7 +60,6 @@ Create accounts and inspect account details.
 | `list`    | List all accounts monitored by this client         | -l      |
 | `show`    | Show details of the account for the specified ID   | -s      |
 | `new <ACCOUNT TYPE>`  | Create new account and store it locally  | -n      |
-| `import`  | Import accounts from binary files | -i      |
 | `default`  | Manage the setting for the default account | -d      |
 
 After creating an account with the `new` command, it is automatically stored and tracked by the client. This means the client can execute transactions that modify the state of accounts and track related changes by synchronizing with the Miden node.
@@ -81,9 +80,9 @@ miden account show 0x8fd4b86
 
 View a summary of the current client state.
 
-### `input-notes` 
+### `notes` 
 
-View and manage input notes. 
+View and manage notes. 
 
 #### Sub-commands
 
@@ -91,27 +90,23 @@ View and manage input notes.
 |-------------------|-------------------------------------------------------------|---------|
 | `list`            | List input notes                                            | -l      |
 | `show`            | Show details of the input note for the specified note ID    | -s      |
-| `export`          | Export input note data to a binary file                     | -e      |
-| `import`          | Import input note data from a binary file                   | -i      |
 | `list-consumables`| List consumable notes by tracked accounts                   | -c      |
 
 The `show` subcommand also accepts a partial ID instead of the full ID. For example, instead of:
 
 ```sh
-miden input-notes show 0x70b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0 
+miden notes show 0x70b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0 
 ```
 
 You can call:
 
 ```sh
-miden input-notes show 0x70b7ec
+miden notes show 0x70b7ec
 ```
-
-The `import` subcommand verifies that the note that is about to be imported exists on chain. The user can add an optional flag `--no-verify` that skips this verification.
 
 ### `sync`
 
-Sync the client with the latest state of the Miden network.
+Sync the client with the latest state of the Miden network. Shows a brief summary at the end.
 
 ### `tags`
 
@@ -193,3 +188,26 @@ Continue with proving and submission? Changes will be irreversible once the proo
 ```
 
 This confirmation can be skipped in non-interactive environments by providing the `--force` flag (`miden tx new --force ...`):
+
+### `import`
+
+Import entities managed by the client, such as accounts and notes.
+
+#### Sub-commands
+
+| Command | Description                                              | Aliases |
+|---------|----------------------------------------------------------|---------|
+| `account`  | Import accounts from binary files | -a      |
+| `note`     | Import input note data from a binary file | -n      |
+
+The `import note` subcommand verifies that the note that is about to be imported exists on chain. The user can add an optional flag `--no-verify` that skips this verification.
+
+### `export`
+
+Export entities managed by the client, such as accounts and notes.
+
+#### Sub-commands
+
+| Command | Description                                              | Aliases |
+|---------|----------------------------------------------------------|---------|
+| `note`          | Export input note data to a binary file        | -n      |
