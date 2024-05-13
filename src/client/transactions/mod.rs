@@ -17,7 +17,9 @@ use miden_tx::{ProvingOptions, ScriptTarget, TransactionAuthenticator, Transacti
 use rand::Rng;
 use tracing::info;
 
-use self::transaction_request::{PaymentTransactionData, SwapTransactionData, TransactionRequest, TransactionTemplate};
+use self::transaction_request::{
+    PaymentTransactionData, SwapTransactionData, TransactionRequest, TransactionTemplate,
+};
 use super::{rpc::NodeRpcClient, Client, FeltRng};
 use crate::{
     client::NoteScreener,
@@ -58,7 +60,11 @@ impl TransactionResult {
             }
         }
 
-        let tx_result = Self { transaction, relevant_notes, payback_note_details };
+        let tx_result = Self {
+            transaction,
+            relevant_notes,
+            payback_note_details,
+        };
 
         Ok(tx_result)
     }
@@ -499,10 +505,15 @@ pub(crate) fn prepare_word(word: &Word) -> String {
 /// - checking the relevance of notes to save them as input notes
 /// - validate hashes versus expected output notes after a transaction is executed
 pub(crate) fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &Note> {
-    output_notes.iter().map(|n| match n {
-        OutputNote::Full(n) => n,
-        // The following todo!() applies until we have a way to support flows where we have
-        // partial details of the note
-        OutputNote::Header(_) => todo!("For now, all details should be held in OutputNote::Fulls"),
-    })
+    output_notes
+        .iter()
+        .filter(|n| matches!(n, OutputNote::Full(_)))
+        .map(|n| match n {
+            OutputNote::Full(n) => n,
+            // The following todo!() applies until we have a way to support flows where we have
+            // partial details of the note
+            OutputNote::Header(_) => {
+                todo!("For now, all details should be held in OutputNote::Fulls")
+            },
+        })
 }

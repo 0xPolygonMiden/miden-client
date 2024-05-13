@@ -20,7 +20,7 @@ use crate::{
         notes_from_output, TransactionRecord, TransactionResult, TransactionStatus,
     },
     errors::StoreError,
-    store::{OutputNoteRecord, TransactionFilter, InputNoteRecord},
+    store::{InputNoteRecord, OutputNoteRecord, TransactionFilter},
 };
 
 pub(crate) const INSERT_TRANSACTION_QUERY: &str =
