@@ -32,9 +32,13 @@ pub struct AccountCmd {
     /// Show details of the account for the specified ID or hex prefix
     #[clap(short, long, group = "action", value_name = "ID")]
     show: Option<String>,
-    /// Set/Unset default accounts for transaction execution
+    /// Manages default account for transaction execution
+    ///
+    /// If no ID is provided it will display the current default account ID.
+    /// If "none" is provided it will remove the default account else
+    /// it will set the default account to the provided ID
     #[clap(short, long, group = "action", value_name = "ID")]
-    default: Option<String>,
+    default: Option<Option<String>>,
 }
 
 impl AccountCmd {
@@ -56,32 +60,29 @@ impl AccountCmd {
                 show: None,
                 default: Some(id),
             } => {
-                match id.as_str() {
-                    "none" => {
-                        let (mut current_config, path) = load_config_file()?;
-
-                        // unset default account
-                        current_config.cli.replace(CliConfig { default_account_id: None });
-
-                        update_config(&path, current_config)?;
-                    },
-                    "" => {
+                match id {
+                    None => {
                         display_default_account_id()?;
                     },
-                    id => {
-                        let account_id: AccountId = AccountId::from_hex(id)
-                            .map_err(|_| "Input number was not a valid Account Id")?;
+                    Some(id) => {
+                        let default_account = if id == "none" {
+                            None
+                        } else {
+                            let account_id: AccountId = AccountId::from_hex(id)
+                                .map_err(|_| "Input number was not a valid Account Id")?;
 
-                        // Check whether we're tracking that account
-                        let (account, _) = client.get_account_stub_by_id(account_id)?;
+                            // Check whether we're tracking that account
+                            let (account, _) = client.get_account_stub_by_id(account_id)?;
+
+                            Some(account.id().to_hex())
+                        };
 
                         // load config
                         let (mut current_config, config_path) = load_config_file()?;
 
                         // set default account
-                        current_config.cli = Some(CliConfig {
-                            default_account_id: Some(account.id().to_hex()),
-                        });
+                        current_config.cli =
+                            Some(CliConfig { default_account_id: default_account });
 
                         update_config(&config_path, current_config)?;
                     },
