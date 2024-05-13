@@ -65,10 +65,7 @@ pub struct Cli {
 /// CLI actions
 #[derive(Debug, Parser)]
 pub enum Command {
-    Account {
-        #[clap(subcommand)]
-        cmd: Option<AccountCmd>,
-    },
+    Account(AccountCmd),
     NewAccount(NewAccountCmd),
     #[clap(subcommand)]
     Import(ImportCmd),
@@ -135,10 +132,7 @@ impl Cli {
 
         // Execute CLI command
         match &self.action {
-            Command::Account { cmd } => {
-                let account = cmd.clone().unwrap_or_default();
-                account.execute(client)
-            },
+            Command::Account(account) => account.execute(client),
             Command::NewAccount(new_account) => new_account.execute(client),
             Command::Import(import) => import.execute(client).await,
             Command::Init(_) => Ok(()),

@@ -25,34 +25,16 @@ use crate::cli::create_dynamic_table;
 // ================================================================================================
 
 #[derive(Default, Debug, Clone, Parser)]
-pub enum AccountCmd {
-    /// List all accounts monitored by this client
-    #[default]
-    #[clap(short_flag = 'l', long_flag = "list")]
-    List,
+pub struct AccountCmd {
+    /// List all accounts monitored by this client (default action)
+    #[clap(short, long, group = "action")]
+    list: bool,
     /// Show details of the account for the specified ID or hex prefix
-    #[clap(short_flag = 's', long_flag = "show")]
-    Show { id: String },
+    #[clap(short, long, group = "action", value_name = "ID")]
+    show: Option<String>,
     /// Set/Unset default accounts for transaction execution
-    #[clap(short_flag = 'd', long_flag = "default")]
-    Default {
-        #[clap(subcommand)]
-        default_cmd: DefaultAccountCmd,
-    },
-}
-
-#[derive(Debug, Parser, Clone)]
-#[clap()]
-pub enum DefaultAccountCmd {
-    /// Turn an account into the default sender account
-    Set {
-        #[clap()]
-        id: String,
-    },
-    /// Show current default account
-    Show,
-    /// Clear the default account setting
-    Unset,
+    #[clap(short, long, group = "action", value_name = "ID")]
+    default: Option<String>,
 }
 
 impl AccountCmd {
@@ -61,42 +43,52 @@ impl AccountCmd {
         client: Client<N, R, S, A>,
     ) -> Result<(), String> {
         match self {
-            AccountCmd::List => {
-                list_accounts(client)?;
-            },
-            AccountCmd::Show { id } => {
+            AccountCmd {
+                list: false,
+                show: Some(id),
+                default: None,
+            } => {
                 let account_id = parse_account_id(&client, id)?;
                 show_account(client, account_id)?;
             },
-            AccountCmd::Default {
-                default_cmd: DefaultAccountCmd::Set { id },
+            AccountCmd {
+                list: false,
+                show: None,
+                default: Some(id),
             } => {
-                let account_id: AccountId = AccountId::from_hex(id)
-                    .map_err(|_| "Input number was not a valid Account Id")?;
+                match id.as_str() {
+                    "none" => {
+                        let (mut current_config, path) = load_config_file()?;
 
-                // Check whether we're tracking that account
-                let (account, _) = client.get_account_stub_by_id(account_id)?;
+                        // unset default account
+                        current_config.cli.replace(CliConfig { default_account_id: None });
 
-                // load config
-                let (mut current_config, config_path) = load_config_file()?;
+                        update_config(&path, current_config)?;
+                    },
+                    "" => {
+                        display_default_account_id()?;
+                    },
+                    id => {
+                        let account_id: AccountId = AccountId::from_hex(id)
+                            .map_err(|_| "Input number was not a valid Account Id")?;
 
-                // set default account
-                current_config.cli = Some(CliConfig {
-                    default_account_id: Some(account.id().to_hex()),
-                });
+                        // Check whether we're tracking that account
+                        let (account, _) = client.get_account_stub_by_id(account_id)?;
 
-                update_config(&config_path, current_config)?;
+                        // load config
+                        let (mut current_config, config_path) = load_config_file()?;
+
+                        // set default account
+                        current_config.cli = Some(CliConfig {
+                            default_account_id: Some(account.id().to_hex()),
+                        });
+
+                        update_config(&config_path, current_config)?;
+                    },
+                }
             },
-            AccountCmd::Default { default_cmd: DefaultAccountCmd::Unset } => {
-                let (mut current_config, path) = load_config_file()?;
-
-                // unset default account
-                current_config.cli.replace(CliConfig { default_account_id: None });
-
-                update_config(&path, current_config)?;
-            },
-            AccountCmd::Default { default_cmd: DefaultAccountCmd::Show } => {
-                display_default_account_id()?;
+            _ => {
+                list_accounts(client)?;
             },
         }
         Ok(())
