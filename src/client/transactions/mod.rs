@@ -272,6 +272,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         TransactionResult::new(executed_transaction, screener, partial_notes)
     }
 
+    /// Proves the specified transaction witness, and returns a [ProvenTransaction] that can be
+    /// submitted to the node.
     pub fn prove_transaction(
         &mut self,
         executed_transaction: ExecutedTransaction,
@@ -283,7 +285,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         Ok(proven_transaction)
     }
 
-    /// Proves the specified transaction witness, submits it to the node, and stores the transaction in
+    /// Submits a [ProvenTransaction] to the node, and stores the transaction in
     /// the local database for tracking.
     pub async fn submit_transaction(
         &mut self,
