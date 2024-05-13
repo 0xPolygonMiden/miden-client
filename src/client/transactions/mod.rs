@@ -32,11 +32,11 @@ pub mod transaction_request;
 // TRANSACTION RESULT
 // --------------------------------------------------------------------------------------------
 
-/// Represents the result of executing a transaction by the client
+/// Represents the result of executing a transaction by the client.
 ///  
-/// It contains an [ExecutedTransaction], a list of [Note] that describe the details of the notes
-/// created by the transaction execution, and a list of `relevant_notes` that contains the
-/// `output_notes` that the client has to store as input notes, based on the NoteScreener output
+/// It contains an [ExecutedTransaction], and a list of `relevant_notes` that contains the
+/// `output_notes` that the client has to store as input notes, based on the NoteScreener 
+/// output from filtering the transaction's output notes.
 pub struct TransactionResult {
     transaction: ExecutedTransaction,
     relevant_notes: Vec<InputNoteRecord>,
