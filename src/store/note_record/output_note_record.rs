@@ -91,6 +91,10 @@ impl OutputNoteRecord {
     }
 }
 
+// CONVERSIONS
+// ================================================================================================
+
+// TODO: Improve conversions by implementing into_parts()
 impl From<Note> for OutputNoteRecord {
     fn from(note: Note) -> Self {
         OutputNoteRecord {

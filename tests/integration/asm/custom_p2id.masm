@@ -47,6 +47,9 @@ proc.add_note_assets_to_account
 end
 
 begin
+    # drop the note script root
+    dropw
+    
     # => [NOTE_ARG] 
     push.{expected_note_arg} assert_eqw
     # drop the note script root

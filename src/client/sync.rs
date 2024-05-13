@@ -531,7 +531,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         // We'll only do the check for either incoming public notes or pending input notes as
         // output notes are not really candidates to be consumed here.
 
-        let note_screener = NoteScreener::new(self.store.as_ref());
+        let note_screener = NoteScreener::new(self.store.clone());
 
         // Find all relevant Input Notes using the note checker
         for input_note in committed_notes.updated_input_notes() {
