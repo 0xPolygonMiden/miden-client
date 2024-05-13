@@ -1,15 +1,15 @@
 use std::path::PathBuf;
 
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
-    client::{accounts, rpc::NodeRpcClient, Client},
+    client::{rpc::NodeRpcClient, Client},
     config::{CliConfig, ClientConfig},
     store::Store,
 };
 use miden_objects::{
-    accounts::{AccountId, AccountStorage, AccountType, AuthSecretKey, StorageSlotType},
-    assets::{Asset, TokenSymbol},
+    accounts::{AccountId, AccountStorage, AccountType, StorageSlotType},
+    assets::Asset,
     crypto::{dsa::rpo_falcon512::SK_LEN, rand::FeltRng},
     ZERO,
 };
@@ -19,7 +19,7 @@ use miden_tx::{
 };
 
 use super::{load_config, parse_account_id, update_config, CLIENT_CONFIG_FILE_NAME};
-use crate::cli::{create_dynamic_table, CLIENT_BINARY_NAME};
+use crate::cli::create_dynamic_table;
 
 // ACCOUNT COMMAND
 // ================================================================================================
@@ -33,12 +33,6 @@ pub enum AccountCmd {
     /// Show details of the account for the specified ID or hex prefix
     #[clap(short_flag = 's', long_flag = "show")]
     Show { id: String },
-    /// Create new account and store it locally
-    #[clap(short_flag = 'n', long_flag = "new")]
-    New {
-        #[clap(subcommand)]
-        template: AccountTemplate,
-    },
     /// Set/Unset default accounts for transaction execution
     #[clap(short_flag = 'd', long_flag = "default")]
     Default {
@@ -61,101 +55,14 @@ pub enum DefaultAccountCmd {
     Unset,
 }
 
-#[derive(Debug, Parser, Clone)]
-#[clap()]
-pub enum AccountTemplate {
-    /// Creates a basic account (Regular account with immutable code)
-    BasicImmutable {
-        #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
-        storage_type: AccountStorageMode,
-    },
-    /// Creates a basic account (Regular account with mutable code)
-    BasicMutable {
-        #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
-        storage_type: AccountStorageMode,
-    },
-    /// Creates a faucet for fungible tokens
-    FungibleFaucet {
-        #[clap(short, long)]
-        token_symbol: String,
-        #[clap(short, long)]
-        decimals: u8,
-        #[clap(short, long)]
-        max_supply: u64,
-        #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
-        storage_type: AccountStorageMode,
-    },
-    /// Creates a faucet for non-fungible tokens
-    NonFungibleFaucet {
-        #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
-        storage_type: AccountStorageMode,
-    },
-}
-
-#[derive(Debug, Clone, Copy, ValueEnum)]
-pub enum AccountStorageMode {
-    OffChain,
-    OnChain,
-}
-
-impl From<AccountStorageMode> for accounts::AccountStorageMode {
-    fn from(value: AccountStorageMode) -> Self {
-        match value {
-            AccountStorageMode::OffChain => accounts::AccountStorageMode::Local,
-            AccountStorageMode::OnChain => accounts::AccountStorageMode::OnChain,
-        }
-    }
-}
-
-impl From<&AccountStorageMode> for accounts::AccountStorageMode {
-    fn from(value: &AccountStorageMode) -> Self {
-        accounts::AccountStorageMode::from(*value)
-    }
-}
-
 impl AccountCmd {
     pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
         &self,
-        mut client: Client<N, R, S, A>,
+        client: Client<N, R, S, A>,
     ) -> Result<(), String> {
         match self {
             AccountCmd::List => {
                 list_accounts(client)?;
-            },
-            AccountCmd::New { template } => {
-                let client_template = match template {
-                    AccountTemplate::BasicImmutable { storage_type: storage_mode } => {
-                        accounts::AccountTemplate::BasicWallet {
-                            mutable_code: false,
-                            storage_mode: storage_mode.into(),
-                        }
-                    },
-                    AccountTemplate::BasicMutable { storage_type: storage_mode } => {
-                        accounts::AccountTemplate::BasicWallet {
-                            mutable_code: true,
-                            storage_mode: storage_mode.into(),
-                        }
-                    },
-                    AccountTemplate::FungibleFaucet {
-                        token_symbol,
-                        decimals,
-                        max_supply,
-                        storage_type: storage_mode,
-                    } => accounts::AccountTemplate::FungibleFaucet {
-                        token_symbol: TokenSymbol::new(token_symbol)
-                            .map_err(|err| format!("error: token symbol is invalid: {}", err))?,
-                        decimals: *decimals,
-                        max_supply: *max_supply,
-                        storage_mode: storage_mode.into(),
-                    },
-                    AccountTemplate::NonFungibleFaucet { storage_type: _ } => todo!(),
-                };
-                let (new_account, _account_seed) = client.new_account(client_template)?;
-                println!("Succesfully created new account.");
-                println!(
-                    "To view account details execute `{CLIENT_BINARY_NAME} account -s {}`",
-                    new_account.id()
-                );
             },
             AccountCmd::Show { id } => {
                 let account_id = parse_account_id(&client, id)?;

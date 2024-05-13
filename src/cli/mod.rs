@@ -28,7 +28,8 @@ use miden_tx::TransactionAuthenticator;
 use tracing::info;
 
 use self::{
-    account::AccountCmd, export::ExportCmd, import::ImportCmd, init::InitCmd, tags::TagsCmd,
+    account::AccountCmd, export::ExportCmd, import::ImportCmd, init::InitCmd,
+    new_account::NewAccountCmd, tags::TagsCmd,
 };
 
 mod account;
@@ -36,6 +37,7 @@ mod export;
 mod import;
 mod info;
 mod init;
+mod new_account;
 mod notes;
 mod sync;
 mod tags;
@@ -67,6 +69,7 @@ pub enum Command {
         #[clap(subcommand)]
         cmd: Option<AccountCmd>,
     },
+    NewAccount(NewAccountCmd),
     #[clap(subcommand)]
     Import(ImportCmd),
     #[clap(subcommand)]
@@ -136,6 +139,7 @@ impl Cli {
                 let account = cmd.clone().unwrap_or_default();
                 account.execute(client)
             },
+            Command::NewAccount(new_account) => new_account.execute(client),
             Command::Import(import) => import.execute(client).await,
             Command::Init(_) => Ok(()),
             Command::Info => info::print_client_info(&client, &client_config),
