@@ -17,6 +17,8 @@ use super::common::*;
 async fn test_swap_fully_onchain() {
     const OFFERED_ASSET_AMOUNT: u64 = 1;
     const REQUESTED_ASSET_AMOUNT: u64 = 25;
+    const BTC_MINT_AMOUNT: u64 = 1000;
+    const ETH_MINT_AMOUNT: u64 = 1000;
     let mut client1 = create_test_client();
     wait_for_node(&mut client1).await;
     let mut client2 = create_test_client();
@@ -62,19 +64,21 @@ async fn test_swap_fully_onchain() {
         .unwrap();
 
     // mint 1000 BTC for accountA
-    mint_note(
+    mint(
         &mut client_with_faucets,
         account_a.id(),
         btc_faucet_account.id(),
         NoteType::Public,
+        BTC_MINT_AMOUNT,
     )
     .await;
     // mint 1000 ETH for accountB
-    mint_note(
+    mint(
         &mut client_with_faucets,
         account_b.id(),
         btc_faucet_account.id(),
         NoteType::Public,
+        ETH_MINT_AMOUNT,
     )
     .await;
 
@@ -256,19 +260,21 @@ async fn test_swap_offchain() {
         .unwrap();
 
     // mint 1000 BTC for accountA
-    mint_note(
+    mint(
         &mut client_with_faucets,
         account_a.id(),
         btc_faucet_account.id(),
         NoteType::Public,
+        BTC_MINT_AMOUNT,
     )
     .await;
     // mint 1000 ETH for accountB
-    mint_note(
+    mint(
         &mut client_with_faucets,
         account_b.id(),
         btc_faucet_account.id(),
         NoteType::Public,
+        ETH_MINT_AMOUNT,
     )
     .await;
 
@@ -431,4 +437,25 @@ fn build_swap_tag(
         _ => NoteTag::for_local_use_case(SWAP_USE_CASE_ID, payload),
     }
     .unwrap()
+}
+
+/// Mints a note from faucet_account_id for basic_account_id, waits for inclusion and returns it
+/// with 1000 units of the corresponding fungible asset
+///
+/// `basic_account_id` does not need to be tracked by the client, but `faucet_account_id` does
+async fn mint(
+    client: &mut TestClient,
+    basic_account_id: AccountId,
+    faucet_account_id: AccountId,
+    note_type: NoteType,
+    mint_amount: u64,
+) -> InputNote {
+    // Create a Mint Tx for 1000 units of our fungible asset
+    let fungible_asset = FungibleAsset::new(faucet_account_id, mint_amount).unwrap();
+    let tx_template =
+        TransactionTemplate::MintFungibleAsset(fungible_asset, basic_account_id, note_type);
+
+    println!("Minting Asset");
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(client, tx_request.clone()).await;
 }
