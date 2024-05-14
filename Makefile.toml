@@ -77,8 +77,7 @@ script = [
     'if [ -d miden-node ]; then cd miden-node ; else git clone https://github.com/0xPolygonMiden/miden-node.git && cd miden-node; fi',
     'git checkout next && git pull origin next && cargo update',
     'rm -rf miden-store.sqlite3 miden-store.sqlite3-wal miden-store.sqlite3-shm',
-    'cd bin/node',
-    'cargo run --features $NODE_FEATURES_TESTING -- make-genesis --force'
+    'cargo run --bin miden-node --features $NODE_FEATURES_TESTING -- make-genesis --inputs-path ./config/genesis.toml --force'
 ]
 
 [tasks.start-node]
