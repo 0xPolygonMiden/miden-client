@@ -2,12 +2,11 @@ use alloc::collections::BTreeMap;
 
 use clap::error::Result;
 use miden_objects::{
-    accounts::{Account, AccountId, AccountStub},
+    accounts::{Account, AccountId, AccountStub, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::{NoteId, NoteTag, Nullifier},
     BlockHeader, Digest, Word,
 };
-use miden_tx::AuthSecretKey;
 
 use crate::{
     client::{

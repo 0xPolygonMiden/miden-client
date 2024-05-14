@@ -13,8 +13,8 @@ use miden_node_proto::generated::{
 use miden_objects::{
     accounts::{
         account_id::testing::ACCOUNT_ID_OFF_CHAIN_SENDER, get_account_seed_single, Account,
-        AccountCode, AccountId, AccountStorage, AccountStorageType, AccountType, SlotItem,
-        StorageSlot,
+        AccountCode, AccountId, AccountStorage, AccountStorageType, AccountType, AuthSecretKey,
+        SlotItem, StorageSlot,
     },
     assembly::{Assembler, ModuleAst, ProgramAst},
     assets::{Asset, AssetVault, FungibleAsset, TokenSymbol},
@@ -30,7 +30,6 @@ use miden_objects::{
     transaction::{InputNote, ProvenTransaction},
     BlockHeader, Felt, Word, NOTE_TREE_DEPTH,
 };
-use miden_tx::AuthSecretKey;
 use rand::Rng;
 use tonic::{Response, Status};
 use uuid::Uuid;

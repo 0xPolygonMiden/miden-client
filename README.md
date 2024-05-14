@@ -2,7 +2,7 @@
 
 [![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/0xPolygonMiden/miden-client/blob/main/LICENSE)
 [![CI](https://github.com/0xPolygonMiden/miden-client/actions/workflows/ci.yml/badge.svg)](https://github.com/0xPolygonMiden/miden-clinet/actions/workflows/ci.yml)
-[![RUST_VERSION](https://img.shields.io/badge/rustc-1.77+-lightgray.svg)]()
+[![RUST_VERSION](https://img.shields.io/badge/rustc-1.78+-lightgray.svg)]()
 [![crates.io](https://img.shields.io/crates/v/miden-client)](https://crates.io/crates/miden-client)
 
 This repository contains the Miden client, which provides a way to execute and prove transactions, facilitating the interaction with the Miden rollup.
@@ -31,7 +31,7 @@ For more info check:
 
 Before you can use the Miden client, you'll need to make sure you have both
 [Rust](https://www.rust-lang.org/tools/install) and sqlite3 installed. Miden
-client v0.2 requires rust version **1.77** or higher.
+client v0.2 requires rust version **1.78** or higher.
 
 ### Adding miden-client as a dependency
 

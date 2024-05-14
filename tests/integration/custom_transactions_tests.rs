@@ -5,7 +5,7 @@ use miden_client::client::{
     transactions::transaction_request::TransactionRequest,
 };
 use miden_objects::{
-    accounts::AccountId,
+    accounts::{AccountId, AuthSecretKey},
     assembly::ProgramAst,
     assets::{FungibleAsset, TokenSymbol},
     crypto::rand::{FeltRng, RpoRandomCoin},
@@ -15,7 +15,7 @@ use miden_objects::{
     },
     Felt, Word,
 };
-use miden_tx::{utils::Serializable, AuthSecretKey};
+use miden_tx::utils::Serializable;
 
 use super::common::*;
 

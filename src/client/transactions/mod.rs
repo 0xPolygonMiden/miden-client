@@ -2,7 +2,7 @@ use alloc::collections::{BTreeMap, BTreeSet};
 
 use miden_lib::notes::{create_p2id_note, create_p2idr_note};
 use miden_objects::{
-    accounts::{AccountDelta, AccountId},
+    accounts::{AccountDelta, AccountId, AuthSecretKey},
     assembly::ProgramAst,
     assets::FungibleAsset,
     crypto::rand::RpoRandomCoin,
@@ -13,9 +13,7 @@ use miden_objects::{
     },
     Digest, Felt, Word,
 };
-use miden_tx::{
-    AuthSecretKey, ProvingOptions, ScriptTarget, TransactionAuthenticator, TransactionProver,
-};
+use miden_tx::{ProvingOptions, ScriptTarget, TransactionAuthenticator, TransactionProver};
 use rand::Rng;
 use tracing::info;
 

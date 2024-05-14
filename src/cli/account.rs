@@ -8,14 +8,14 @@ use miden_client::{
     store::Store,
 };
 use miden_objects::{
-    accounts::{AccountId, AccountStorage, AccountType, StorageSlotType},
+    accounts::{AccountId, AccountStorage, AccountType, AuthSecretKey, StorageSlotType},
     assets::{Asset, TokenSymbol},
     crypto::{dsa::rpo_falcon512::SK_LEN, rand::FeltRng},
     ZERO,
 };
 use miden_tx::{
     utils::{bytes_to_hex_string, Serializable},
-    AuthSecretKey, TransactionAuthenticator,
+    TransactionAuthenticator,
 };
 
 use super::{load_config, parse_account_id, update_config, CLIENT_CONFIG_FILE_NAME};

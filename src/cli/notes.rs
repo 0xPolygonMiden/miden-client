@@ -524,12 +524,13 @@ mod tests {
     };
     use miden_lib::transaction::TransactionKernel;
     use miden_objects::{
-        accounts::{account_id::testing::ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, AccountId},
+        accounts::{
+            account_id::testing::ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, AccountId, AuthSecretKey,
+        },
         assets::FungibleAsset,
         crypto::dsa::rpo_falcon512::SecretKey,
         notes::Note,
     };
-    use miden_tx::AuthSecretKey;
 
     use crate::cli::{export::export_note, get_input_note_with_id_prefix, import::import_note};
 

@@ -1,16 +1,14 @@
 use miden_lib::AuthScheme;
 use miden_objects::{
     accounts::{
-        Account, AccountData, AccountId, AccountStorageType, AccountStub, AccountType, AuthData,
+        Account, AccountData, AccountId, AccountStorageType, AccountStub, AccountType,
+        AuthSecretKey,
     },
     assets::TokenSymbol,
-    crypto::{
-        dsa::rpo_falcon512::SecretKey,
-        rand::{FeltRng, RpoRandomCoin},
-    },
-    Digest, Felt, Word,
+    crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
+    Felt, Word,
 };
-use miden_tx::{AuthSecretKey, TransactionAuthenticator};
+use miden_tx::TransactionAuthenticator;
 
 use super::{rpc::NodeRpcClient, Client};
 use crate::{errors::ClientError, store::Store};
@@ -79,34 +77,20 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// Will panic when trying to import a non-new account without a seed since this functionality
     /// is not currently implemented
     pub fn import_account(&mut self, account_data: AccountData) -> Result<(), ClientError> {
-        match account_data.auth {
-            AuthData::RpoFalcon512Seed(key_pair_seed) => {
-                let seed = Digest::try_from(&key_pair_seed)?.into();
-                let mut rng = RpoRandomCoin::new(seed);
+        let account_seed = if !account_data.account.is_new() && account_data.account_seed.is_some()
+        {
+            tracing::warn!("Imported an existing account and still provided a seed when it is not needed. It's possible that the account's file was incorrectly generated. The seed will be ignored.");
+            // Ignore the seed since it's not a new account
 
-                let key_pair = SecretKey::with_rng(&mut rng);
+            // TODO: The alternative approach to this is to store the seed anyway, but
+            // ignore it at the point of executing against this transaction, but that
+            // approach seems a little bit more incorrect
+            None
+        } else {
+            account_data.account_seed
+        };
 
-                let account_seed = if !account_data.account.is_new()
-                    && account_data.account_seed.is_some()
-                {
-                    tracing::warn!("Imported an existing account and still provided a seed when it is not needed. It's possible that the account's file was incorrectly generated. The seed will be ignored.");
-                    // Ignore the seed since it's not a new account
-
-                    // TODO: The alternative approach to this is to store the seed anyway, but
-                    // ignore it at the point of executing against this transaction, but that
-                    // approach seems a little bit more incorrect
-                    None
-                } else {
-                    account_data.account_seed
-                };
-
-                self.insert_account(
-                    &account_data.account,
-                    account_seed,
-                    &AuthSecretKey::RpoFalcon512(key_pair),
-                )
-            },
-        }
+        self.insert_account(&account_data.account, account_seed, &account_data.auth_secret_key)
     }
 
     /// Creates a new regular account and saves it in the store along with its seed and auth data
@@ -234,11 +218,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 #[cfg(test)]
 pub mod tests {
     use miden_objects::{
-        accounts::{Account, AccountData, AccountId, AuthData},
+        accounts::{Account, AccountData, AccountId, AuthSecretKey},
         crypto::dsa::rpo_falcon512::SecretKey,
         Word,
     };
-    use miden_tx::AuthSecretKey;
 
     use crate::mock::{
         create_test_client, get_account_with_default_account_code,
@@ -253,7 +236,7 @@ pub mod tests {
         AccountData::new(
             account.clone(),
             Some(Word::default()),
-            AuthData::RpoFalcon512Seed([0; 32]),
+            AuthSecretKey::RpoFalcon512(SecretKey::new()),
         )
     }
 

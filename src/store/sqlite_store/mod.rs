@@ -2,12 +2,11 @@ use alloc::collections::BTreeMap;
 use core::cell::{RefCell, RefMut};
 
 use miden_objects::{
-    accounts::{Account, AccountId, AccountStub},
+    accounts::{Account, AccountId, AccountStub, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::NoteTag,
     BlockHeader, Digest, Word,
 };
-use miden_tx::AuthSecretKey;
 use rusqlite::{vtab::array, Connection};
 
 use super::{

@@ -2,11 +2,11 @@ use alloc::rc::Rc;
 use core::cell::RefCell;
 
 use miden_objects::{
-    accounts::AccountDelta,
+    accounts::{AccountDelta, AuthSecretKey},
     crypto::dsa::rpo_falcon512::{self, Polynomial},
     Digest, Felt, Word,
 };
-use miden_tx::{AuthSecretKey, AuthenticationError, TransactionAuthenticator};
+use miden_tx::{AuthenticationError, TransactionAuthenticator};
 use rand::Rng;
 
 use crate::store::Store;
@@ -47,9 +47,10 @@ impl<R: Rng, S: Store> TransactionAuthenticator for StoreAuthenticator<R, S> {
         get_falcon_signature(&k, message, &mut *rng)
     }
 }
-
 // HELPER FUNCTIONS
 // ================================================================================================
+
+// TODO: Remove the falcon signature function once it's available on base and made public
 
 /// Retrieves a falcon signature over a message.
 /// Gets as input a [Word] containing a secret key, and a [Word] representing a message and

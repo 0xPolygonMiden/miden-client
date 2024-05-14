@@ -1,15 +1,12 @@
 use clap::error::Result;
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub},
+    accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub, AuthSecretKey},
     assembly::{AstSerdeOptions, ModuleAst},
     assets::{Asset, AssetVault},
     Digest, Felt, Word,
 };
-use miden_tx::{
-    utils::{Deserializable, Serializable},
-    AuthSecretKey,
-};
+use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{params, Transaction};
 
 use super::SqliteStore;
