@@ -10,25 +10,18 @@ use super::{Client, Parser};
 
 #[derive(Default, Debug, Parser, Clone)]
 #[clap(about = "View and manage tags. Defaults to `list` command.")]
-pub enum TagsCmd {
+pub struct TagsCmd {
     /// List all tags monitored by this client
-    #[default]
-    #[clap(short_flag = 'l')]
-    List,
+    #[clap(short, long, group = "action")]
+    list: bool,
 
     /// Add a new tag to the list of tags monitored by this client
-    #[clap(short_flag = 'a')]
-    Add {
-        #[clap()]
-        tag: u32,
-    },
+    #[clap(short, long, group = "action", value_name = "tag")]
+    add: Option<u32>,
 
     /// Removes a tag from the list of tags monitored by this client
-    #[clap(short_flag = 'r')]
-    Remove {
-        #[clap()]
-        tag: u32,
-    },
+    #[clap(short, long, group = "action", value_name = "tag")]
+    remove: Option<u32>,
 }
 
 impl TagsCmd {
@@ -37,14 +30,14 @@ impl TagsCmd {
         client: Client<N, R, S, A>,
     ) -> Result<(), String> {
         match self {
-            TagsCmd::List => {
-                list_tags(client)?;
-            },
-            TagsCmd::Add { tag } => {
+            TagsCmd { add: Some(tag), .. } => {
                 add_tag(client, *tag)?;
             },
-            TagsCmd::Remove { tag } => {
+            TagsCmd { remove: Some(tag), .. } => {
                 remove_tag(client, *tag)?;
+            },
+            _ => {
+                list_tags(client)?;
             },
         }
         Ok(())

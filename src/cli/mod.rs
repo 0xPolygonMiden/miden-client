@@ -81,10 +81,7 @@ pub enum Command {
     Sync,
     /// View a summary of the current client state
     Info,
-    Tags {
-        #[clap(subcommand)]
-        cmd: Option<TagsCmd>,
-    },
+    Tags(TagsCmd),
     #[clap(name = "tx")]
     #[clap(visible_alias = "transaction")]
     Transaction {
@@ -141,10 +138,7 @@ impl Cli {
             Command::Info => info::print_client_info(&client, &client_config),
             Command::Notes(notes) => notes.execute(client).await,
             Command::Sync => sync::sync_state(client).await,
-            Command::Tags { cmd: tags_cmd } => {
-                let tags_cmd = tags_cmd.clone().unwrap_or_default();
-                tags_cmd.execute(client).await
-            },
+            Command::Tags(tags) => tags.execute(client).await,
             Command::Transaction { cmd: transaction_cmd } => {
                 let transaction_cmd = transaction_cmd.clone().unwrap_or_default();
                 let default_account_id =
