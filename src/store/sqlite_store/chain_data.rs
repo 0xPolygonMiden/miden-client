@@ -39,17 +39,12 @@ impl SqliteStore {
         chain_mmr_peaks: MmrPeaks,
         has_client_notes: bool,
     ) -> Result<(), StoreError> {
-        let chain_mmr_peaks = chain_mmr_peaks.peaks().to_vec();
-        let (block_num, header, chain_mmr, has_client_notes) =
-            serialize_block_header(block_header, chain_mmr_peaks, has_client_notes)?;
-        const QUERY: &str = "\
-        INSERT INTO block_headers
-            (block_num, header, chain_mmr_peaks, has_client_notes)
-        VALUES (?, ?, ?, ?)";
+        let mut db = self.db();
+        let tx = db.transaction()?;
 
-        self.db()
-            .execute(QUERY, params![block_num, header, chain_mmr, has_client_notes])?;
+        Self::insert_block_header_tx(&tx, block_header, chain_mmr_peaks, has_client_notes)?;
 
+        tx.commit()?;
         Ok(())
     }
 
@@ -123,8 +118,20 @@ impl SqliteStore {
         Ok(MmrPeaks::new(0, vec![])?)
     }
 
+    pub fn insert_chain_mmr_nodes(
+        &self,
+        nodes: &[(InOrderIndex, Digest)],
+    ) -> Result<(), StoreError> {
+        let mut db = self.db();
+        let tx = db.transaction()?;
+
+        Self::insert_chain_mmr_nodes_tx(&tx, nodes)?;
+
+        Ok(tx.commit().map(|_| ())?)
+    }
+
     /// Inserts a list of MMR authentication nodes to the Chain MMR nodes table.
-    pub(crate) fn insert_chain_mmr_nodes(
+    pub(crate) fn insert_chain_mmr_nodes_tx(
         tx: &Transaction<'_>,
         nodes: &[(InOrderIndex, Digest)],
     ) -> Result<(), StoreError> {
@@ -145,7 +152,7 @@ impl SqliteStore {
         let (block_num, header, chain_mmr, has_client_notes) =
             serialize_block_header(block_header, chain_mmr_peaks, has_client_notes)?;
         const QUERY: &str = "\
-        INSERT INTO block_headers
+        INSERT OR IGNORE INTO block_headers
             (block_num, header, chain_mmr_peaks, has_client_notes)
         VALUES (?, ?, ?, ?)";
         tx.execute(QUERY, params![block_num, header, chain_mmr, has_client_notes])?;
@@ -163,7 +170,7 @@ fn insert_chain_mmr_node(
     node: Digest,
 ) -> Result<(), StoreError> {
     let (id, node) = serialize_chain_mmr_node(id, node)?;
-    const QUERY: &str = "INSERT INTO chain_mmr_nodes (id, node) VALUES (?, ?)";
+    const QUERY: &str = "INSERT OR IGNORE INTO chain_mmr_nodes (id, node) VALUES (?, ?)";
     tx.execute(QUERY, params![id, node])?;
     Ok(())
 }
