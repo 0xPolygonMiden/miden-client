@@ -101,8 +101,8 @@ impl SqliteStore {
         let consumed_note_ids =
             tx_result.consumed_notes().iter().map(|note| note.id()).collect::<Vec<_>>();
 
-        let payback_note_records = tx_result
-            .payback_note_details()
+        let partial_notes = tx_result
+            .partial_output_notes()
             .iter()
             .map(InputNoteRecord::from_details)
             .collect::<Vec<_>>();
@@ -129,8 +129,8 @@ impl SqliteStore {
             update_note_consumer_tx_id(&tx, note_id, transaction_id)?;
         }
 
-        for payback_note_record in payback_note_records {
-            insert_input_note_tx(&tx, &payback_note_record)?;
+        for partial_note_record in partial_notes {
+            insert_input_note_tx(&tx, &partial_note_record)?;
         }
 
         tx.commit()?;

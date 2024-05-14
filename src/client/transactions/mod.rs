@@ -40,7 +40,7 @@ pub mod transaction_request;
 pub struct TransactionResult {
     transaction: ExecutedTransaction,
     relevant_notes: Vec<InputNoteRecord>,
-    payback_note_details: Vec<NoteDetails>,
+    partial_output_notes: Vec<NoteDetails>,
 }
 
 impl TransactionResult {
@@ -48,7 +48,7 @@ impl TransactionResult {
     pub fn new<S: Store>(
         transaction: ExecutedTransaction,
         note_screener: NoteScreener<S>,
-        payback_note_details: Vec<NoteDetails>,
+        partial_output_notes: Vec<NoteDetails>,
     ) -> Result<Self, ClientError> {
         let mut relevant_notes = vec![];
 
@@ -63,7 +63,7 @@ impl TransactionResult {
         let tx_result = Self {
             transaction,
             relevant_notes,
-            payback_note_details,
+            partial_output_notes,
         };
 
         Ok(tx_result)
@@ -81,8 +81,8 @@ impl TransactionResult {
         &self.relevant_notes
     }
 
-    pub fn payback_note_details(&self) -> &Vec<NoteDetails> {
-        &self.payback_note_details
+    pub fn partial_output_notes(&self) -> &Vec<NoteDetails> {
+        &self.partial_output_notes
     }
 
     pub fn block_num(&self) -> u32 {
@@ -242,7 +242,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let note_ids = transaction_request.get_input_note_ids();
         let output_notes = transaction_request.expected_output_notes().to_vec();
-        let payback_note_details = transaction_request.expected_payback_note_details().to_vec();
+        let partial_output_notes = transaction_request.expected_partial_output_notes().to_vec();
 
         // Execute the transaction and get the witness
         let executed_transaction = self.tx_executor.execute_transaction(
@@ -253,19 +253,32 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         )?;
 
         // Check that the expected output notes matches the transaction outcome.
-        // We comprae authentication hashes where possible since that involves note IDs + metadata
+        // We comprare authentication hashes where possible since that involves note IDs + metadata
         // (as opposed to just note ID which remains the same regardless of metadata)
+        // We also do the check for partial output notes
         let tx_note_auth_hashes: BTreeSet<Digest> =
             notes_from_output(executed_transaction.output_notes())
                 .map(Note::authentication_hash)
                 .collect();
 
-        let missing_note_ids: Vec<NoteId> = output_notes
+        let mut missing_note_ids: Vec<NoteId> = output_notes
             .iter()
             .filter_map(|n| {
                 (!tx_note_auth_hashes.contains(&n.authentication_hash())).then_some(n.id())
             })
             .collect();
+
+        let tx_partial_notes_ids: BTreeSet<NoteId> = executed_transaction
+            .output_notes()
+            .iter()
+            .filter(|n| matches!(n, OutputNote::Header(_)))
+            .map(|n| n.id())
+            .collect();
+        for note in partial_output_notes.iter() {
+            if !tx_partial_notes_ids.contains(&note.id()) {
+                missing_note_ids.push(note.id());
+            }
+        }
 
         if !missing_note_ids.is_empty() {
             return Err(ClientError::MissingOutputNotes(missing_note_ids));
@@ -273,7 +286,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let screener = NoteScreener::new(self.store.clone());
 
-        TransactionResult::new(executed_transaction, screener, payback_note_details)
+        TransactionResult::new(executed_transaction, screener, partial_output_notes)
     }
 
     /// Proves the specified transaction witness, submits it to the node, and stores the transaction in
