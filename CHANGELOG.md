@@ -1,5 +1,6 @@
 # Changelog
 
+* Added swap transactions and example flows on integration tests.
 * Added a mechanism to retrieve MMR data whenever a note created on a past block is imported.
 * Changed the way notes are added to the database based on `ExecutedTransaction`.
 * Added more feedback information to commands `info`, `notes list`, `notes show`, `account new`, `notes import`, `tx new` and `sync`.
