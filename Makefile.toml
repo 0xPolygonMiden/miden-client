@@ -77,17 +77,14 @@ script = [
     'if [ -d miden-node ]; then cd miden-node ; else git clone https://github.com/0xPolygonMiden/miden-node.git && cd miden-node; fi',
     'git checkout next && git pull origin next && cargo update',
     'rm -rf miden-store.sqlite3 miden-store.sqlite3-wal miden-store.sqlite3-shm',
-    'cargo run --bin miden-node --features $NODE_FEATURES_TESTING -- make-genesis --inputs-path ./config/genesis.toml --force',
-    'sed -i "" "s/\/opt\/miden\/genesis.dat/.\/genesis.dat/g" ./config/miden-node.toml',
-    'sed -i "" "s/\/opt\/miden\/miden-store.sqlite3/.\/miden-store.sqlite3/g" ./config/miden-node.toml',
-    'sed -i "" "s/\/opt\/miden\/blocks/.\/blocks/g" ./config/miden-node.toml'
+    'cargo run --bin miden-node --features $NODE_FEATURES_TESTING -- make-genesis --inputs-path ../tests/config/genesis.toml --force',
 ]
 
 [tasks.start-node]
 description = "Start the miden-node"
 script_runner = "bash"
 cwd = "./miden-node"
-script = "cargo run --bin miden-node --features $NODE_FEATURES_TESTING -- start --config ./config/miden-node.toml node"
+script = "cargo run --bin miden-node --features $NODE_FEATURES_TESTING -- start --config ../tests/config/miden-node.toml node"
 
 [tasks.docs-deps]
 description = "Install documentation dependencies"
