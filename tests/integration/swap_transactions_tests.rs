@@ -215,6 +215,8 @@ async fn test_swap_fully_onchain() {
 async fn test_swap_offchain() {
     const OFFERED_ASSET_AMOUNT: u64 = 1;
     const REQUESTED_ASSET_AMOUNT: u64 = 25;
+    const BTC_MINT_AMOUNT: u64 = 1000;
+    const ETH_MINT_AMOUNT: u64 = 1000;
     let mut client1 = create_test_client();
     wait_for_node(&mut client1).await;
     let mut client2 = create_test_client();
@@ -449,7 +451,7 @@ async fn mint(
     faucet_account_id: AccountId,
     note_type: NoteType,
     mint_amount: u64,
-) -> InputNote {
+) {
     // Create a Mint Tx for 1000 units of our fungible asset
     let fungible_asset = FungibleAsset::new(faucet_account_id, mint_amount).unwrap();
     let tx_template =
