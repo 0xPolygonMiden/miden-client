@@ -64,6 +64,7 @@ async fn test_swap_fully_onchain() {
         .unwrap();
 
     // mint 1000 BTC for accountA
+    println!("minting 1000 btc for account A");
     mint(
         &mut client_with_faucets,
         account_a.id(),
@@ -72,11 +73,12 @@ async fn test_swap_fully_onchain() {
         BTC_MINT_AMOUNT,
     )
     .await;
+    println!("minting 1000 eth for account B");
     // mint 1000 ETH for accountB
     mint(
         &mut client_with_faucets,
         account_b.id(),
-        btc_faucet_account.id(),
+        eth_faucet_account.id(),
         NoteType::Public,
         ETH_MINT_AMOUNT,
     )
@@ -106,6 +108,7 @@ async fn test_swap_fully_onchain() {
 
     // Create ONCHAIN swap note (clientA offers 1 BTC in exchange of 25 ETH)
     // check that account now has 1 less BTC
+    println!("creating swap note with accountA");
     let offered_asset = FungibleAsset::new(btc_faucet_account.id(), OFFERED_ASSET_AMOUNT).unwrap();
     let requested_asset =
         FungibleAsset::new(eth_faucet_account.id(), REQUESTED_ASSET_AMOUNT).unwrap();
@@ -133,6 +136,7 @@ async fn test_swap_fully_onchain() {
     // add swap note's tag to both client 1 and client 2 (TODO: check if it's needed for both)
     // we could technically avoid this step, but for the first iteration of swap notes we'll
     // require to manually add tags
+    println!("Adding swap tags");
     client1.add_note_tag(payback_note_tag).unwrap();
     client2.add_note_tag(payback_note_tag).unwrap();
 
@@ -163,10 +167,12 @@ async fn test_swap_fully_onchain() {
 
     // first reload the account
     let (account_a, _) = client1.get_account(account_a.id()).unwrap();
-    assert_eq!(account_a.vault().assets().count(), 2);
+    let account_a_assets = account_a.vault().assets();
+    assert_eq!(account_a_assets.count(), 2);
+    let mut account_a_assets = account_a.vault().assets();
 
-    let asset_1 = account_a.vault().assets().next().unwrap();
-    let asset_2 = account_a.vault().assets().next().unwrap();
+    let asset_1 = account_a_assets.next().unwrap();
+    let asset_2 = account_a_assets.next().unwrap();
 
     match (asset_1, asset_2) {
         (Asset::Fungible(btc_asset), Asset::Fungible(eth_asset))
@@ -187,9 +193,12 @@ async fn test_swap_fully_onchain() {
     }
 
     let (account_b, _) = client2.get_account(account_b.id()).unwrap();
+    let account_b_assets = account_b.vault().assets();
+    assert_eq!(account_b_assets.count(), 2);
+    let mut account_b_assets = account_b.vault().assets();
 
-    let asset_1 = account_b.vault().assets().next().unwrap();
-    let asset_2 = account_b.vault().assets().next().unwrap();
+    let asset_1 = account_b_assets.next().unwrap();
+    let asset_2 = account_b_assets.next().unwrap();
 
     match (asset_1, asset_2) {
         (Asset::Fungible(btc_asset), Asset::Fungible(eth_asset))
@@ -262,6 +271,7 @@ async fn test_swap_offchain() {
         .unwrap();
 
     // mint 1000 BTC for accountA
+    println!("minting 1000 btc for account A");
     mint(
         &mut client_with_faucets,
         account_a.id(),
@@ -271,6 +281,7 @@ async fn test_swap_offchain() {
     )
     .await;
     // mint 1000 ETH for accountB
+    println!("minting 1000 eth for account B");
     mint(
         &mut client_with_faucets,
         account_b.id(),
@@ -304,6 +315,7 @@ async fn test_swap_offchain() {
 
     // Create ONCHAIN swap note (clientA offers 1 BTC in exchange of 25 ETH)
     // check that account now has 1 less BTC
+    println!("creating swap note with accountA");
     let offered_asset = FungibleAsset::new(btc_faucet_account.id(), OFFERED_ASSET_AMOUNT).unwrap();
     let requested_asset =
         FungibleAsset::new(eth_faucet_account.id(), REQUESTED_ASSET_AMOUNT).unwrap();
@@ -357,10 +369,12 @@ async fn test_swap_offchain() {
 
     // first reload the account
     let (account_a, _) = client1.get_account(account_a.id()).unwrap();
-    assert_eq!(account_a.vault().assets().count(), 2);
+    let account_a_assets = account_a.vault().assets();
+    assert_eq!(account_a_assets.count(), 2);
+    let mut account_a_assets = account_a.vault().assets();
 
-    let asset_1 = account_a.vault().assets().next().unwrap();
-    let asset_2 = account_a.vault().assets().next().unwrap();
+    let asset_1 = account_a_assets.next().unwrap();
+    let asset_2 = account_a_assets.next().unwrap();
 
     match (asset_1, asset_2) {
         (Asset::Fungible(btc_asset), Asset::Fungible(eth_asset))
@@ -381,9 +395,12 @@ async fn test_swap_offchain() {
     }
 
     let (account_b, _) = client2.get_account(account_b.id()).unwrap();
+    let account_b_assets = account_b.vault().assets();
+    assert_eq!(account_b_assets.count(), 2);
+    let mut account_b_assets = account_b.vault().assets();
 
-    let asset_1 = account_b.vault().assets().next().unwrap();
-    let asset_2 = account_b.vault().assets().next().unwrap();
+    let asset_1 = account_b_assets.next().unwrap();
+    let asset_2 = account_b_assets.next().unwrap();
 
     match (asset_1, asset_2) {
         (Asset::Fungible(btc_asset), Asset::Fungible(eth_asset))
