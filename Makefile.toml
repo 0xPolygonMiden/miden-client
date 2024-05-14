@@ -83,8 +83,8 @@ script = [
 [tasks.start-node]
 description = "Start the miden-node"
 script_runner = "bash"
-cwd = "./miden-node/bin/node"
-script = "cargo run --features ${NODE_FEATURES_TESTING} -- start node"
+cwd = "./miden-node"
+script = "cargo run --bin miden-node --features $NODE_FEATURES_TESTING -- start --config ./config/miden-node.toml node"
 
 [tasks.docs-deps]
 description = "Install documentation dependencies"
