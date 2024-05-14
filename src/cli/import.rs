@@ -9,7 +9,10 @@ use miden_client::{
     store::{InputNoteRecord, Store},
 };
 use miden_objects::{
-    accounts::AccountData, crypto::rand::FeltRng, notes::NoteId, utils::Deserializable,
+    accounts::{AccountData, AccountId},
+    crypto::rand::FeltRng,
+    notes::NoteId,
+    utils::Deserializable,
 };
 use miden_tx::TransactionAuthenticator;
 use tracing::info;
@@ -18,25 +21,13 @@ use super::Parser;
 
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "Import client objects such as accounts and notes")]
-pub enum ImportCmd {
-    /// Import accounts from binary files (with .mac extension)
-    #[clap(short_flag = 'a')]
-    Account {
-        /// Paths to the files that contains the account data
-        #[arg()]
-        filenames: Vec<PathBuf>,
-    },
-    /// Import note data from a binary file
-    #[clap(short_flag = 'n')]
-    Note {
-        /// Path to the file that contains the input note data
-        #[clap()]
-        filename: PathBuf,
-
-        /// Skip verification of note's existence in the chain
-        #[clap(short, long, default_value = "false")]
-        no_verify: bool,
-    },
+pub struct ImportCmd {
+    /// Paths to the files that contains the account/note data
+    #[arg()]
+    filenames: Vec<PathBuf>,
+    /// Skip verification of note's existence in the chain (Only when importing notes)
+    #[clap(short, long, default_value = "false")]
+    no_verify: bool,
 }
 
 impl ImportCmd {
@@ -44,18 +35,16 @@ impl ImportCmd {
         &self,
         mut client: Client<N, R, S, A>,
     ) -> Result<(), String> {
-        match self {
-            ImportCmd::Account { filenames } => {
-                validate_paths(filenames, "mac")?;
-                for filename in filenames {
-                    import_account(&mut client, filename)?;
-                }
-                println!("Imported {} accounts.", filenames.len());
-            },
-            ImportCmd::Note { filename, no_verify } => {
-                let note_id = import_note(&mut client, filename.clone(), !(*no_verify)).await?;
-                println!("Succesfully imported note {}", note_id.inner());
-            },
+        validate_paths(&self.filenames, None)?;
+        for filename in &self.filenames {
+            let note_id = import_note(&mut client, filename.clone(), !self.no_verify).await;
+            if note_id.is_ok() {
+                println!("Succesfully imported note {}", note_id.unwrap().inner());
+                continue;
+            }
+            let account_id = import_account(&mut client, filename)
+                .map_err(|_| format!("Failed to parse file {}", filename.to_string_lossy()))?;
+            println!("Succesfully imported account {}", account_id);
         }
         Ok(())
     }
@@ -67,7 +56,7 @@ impl ImportCmd {
 fn import_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
     client: &mut Client<N, R, S, A>,
     filename: &PathBuf,
-) -> Result<(), String> {
+) -> Result<AccountId, String> {
     info!(
         "Attempting to import account data from {}...",
         fs::canonicalize(filename).map_err(|err| err.to_string())?.as_path().display()
@@ -78,9 +67,8 @@ fn import_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenti
     let account_id = account_data.account.id();
 
     client.import_account(account_data)?;
-    println!("Imported account with ID: {}", account_id);
 
-    Ok(())
+    Ok(account_id)
 }
 
 // IMPORT NOTE
@@ -113,9 +101,12 @@ pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionA
 
 /// Checks that all files exist, otherwise returns an error. It also ensures that all files have a
 /// specific extension
-fn validate_paths(paths: &[PathBuf], expected_extension: &str) -> Result<(), String> {
+fn validate_paths(paths: &[PathBuf], expected_extension: Option<&str>) -> Result<(), String> {
     let invalid_path = paths.iter().find(|path| {
-        !path.exists() || path.extension().map_or(false, |ext| ext != expected_extension)
+        !path.exists()
+            || expected_extension.is_some_and(|expected_extension| {
+                path.extension().map_or(false, |ext| ext != expected_extension)
+            })
     });
 
     if let Some(path) = invalid_path {

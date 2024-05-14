@@ -73,7 +73,6 @@ pub enum Command {
     Account(AccountCmd),
     NewFaucet(NewFaucetCmd),
     NewWallet(NewWalletCmd),
-    #[clap(subcommand)]
     Import(ImportCmd),
     #[clap(subcommand)]
     Export(ExportCmd),
