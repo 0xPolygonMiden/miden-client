@@ -30,63 +30,48 @@ pub enum NoteFilter {
     Pending,
     Committed,
     Consumed,
+    Consumable,
 }
 
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "View and manage notes")]
-pub enum Notes {
-    /// List notes
-    #[clap(short_flag = 'l')]
-    List {
-        /// Filter the displayed note list
-        #[clap(short, long)]
-        filter: Option<NoteFilter>,
-    },
-
-    /// Show details of the note for the specified note ID
-    #[clap(short_flag = 's')]
-    Show {
-        /// Note ID of the note to show
-        #[clap()]
-        id: String,
-    },
-
-    /// List consumable notes
-    #[clap(short_flag = 'c')]
-    ListConsumable {
-        /// Account ID used to filter list. Only notes consumable by this account will be shown.
-        #[clap()]
-        account_id: Option<String>,
-    },
+pub struct NotesCmd {
+    /// List notes with the specified filter. If no filter is provided, all notes will be listed.
+    #[clap(short, long, group = "action", value_name = "filter")]
+    list: Option<NoteFilter>,
+    /// Show note with the specified ID.
+    #[clap(short, long, group = "action", value_name = "note_id")]
+    show: Option<String>,
+    /// (only for `--list consumable`) Account ID used to filter list. Only notes consumable by this account will be shown.
+    #[clap(short, long, value_name = "account_id")]
+    account_id: Option<String>,
 }
 
-impl Default for Notes {
-    fn default() -> Self {
-        Notes::List { filter: None }
-    }
-}
-
-impl Notes {
+impl NotesCmd {
     pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
         &self,
         client: Client<N, R, S, A>,
     ) -> Result<(), String> {
         match self {
-            Notes::List { filter } => {
-                let filter = match filter {
-                    Some(NoteFilter::Committed) => ClientNoteFilter::Committed,
-                    Some(NoteFilter::Consumed) => ClientNoteFilter::Consumed,
-                    Some(NoteFilter::Pending) => ClientNoteFilter::Pending,
-                    None => ClientNoteFilter::All,
-                };
-
-                list_notes(client, filter)?;
+            NotesCmd { list: Some(filter), .. } => match filter {
+                NoteFilter::Consumable => {
+                    list_consumable_notes(client, &self.account_id)?;
+                },
+                NoteFilter::Committed => {
+                    list_notes(client, ClientNoteFilter::Committed)?;
+                },
+                NoteFilter::Consumed => {
+                    list_notes(client, ClientNoteFilter::Consumed)?;
+                },
+                NoteFilter::Pending => {
+                    list_notes(client, ClientNoteFilter::Pending)?;
+                },
             },
-            Notes::Show { id } => {
+            NotesCmd { show: Some(id), .. } => {
                 show_note(client, id.to_owned())?;
             },
-            Notes::ListConsumable { account_id } => {
-                list_consumable_notes(client, account_id)?;
+            _ => {
+                list_notes(client, ClientNoteFilter::All)?;
             },
         }
         Ok(())

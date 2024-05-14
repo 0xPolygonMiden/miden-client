@@ -8,7 +8,7 @@ use miden_client::{
     store::Store,
 };
 use miden_objects::{
-    accounts::{AccountId, AccountStorage, AccountType, StorageSlotType},
+    accounts::{AccountId, AccountStorage, AccountType, AuthSecretKey, StorageSlotType},
     assets::Asset,
     crypto::{dsa::rpo_falcon512::SK_LEN, rand::FeltRng},
     ZERO,

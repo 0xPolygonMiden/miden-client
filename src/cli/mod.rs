@@ -33,6 +33,7 @@ use self::{
     import::ImportCmd,
     init::InitCmd,
     new_account::{NewFaucetCmd, NewWalletCmd},
+    notes::NotesCmd,
     tags::TagsCmd,
 };
 
@@ -77,10 +78,7 @@ pub enum Command {
     #[clap(subcommand)]
     Export(ExportCmd),
     Init(InitCmd),
-    Notes {
-        #[clap(subcommand)]
-        cmd: Option<notes::Notes>,
-    },
+    Notes(NotesCmd),
     /// Sync this client with the latest state of the Miden network.
     Sync,
     /// View a summary of the current client state
@@ -143,10 +141,7 @@ impl Cli {
             Command::Import(import) => import.execute(client).await,
             Command::Init(_) => Ok(()),
             Command::Info => info::print_client_info(&client, &client_config),
-            Command::Notes { cmd: notes_cmd } => {
-                let notes_cmd = notes_cmd.clone().unwrap_or_default();
-                notes_cmd.execute(client).await
-            },
+            Command::Notes(notes) => notes.execute(client).await,
             Command::Sync => sync::sync_state(client).await,
             Command::Tags { cmd: tags_cmd } => {
                 let tags_cmd = tags_cmd.clone().unwrap_or_default();
