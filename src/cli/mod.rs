@@ -74,7 +74,6 @@ pub enum Command {
     NewFaucet(NewFaucetCmd),
     NewWallet(NewWalletCmd),
     Import(ImportCmd),
-    #[clap(subcommand)]
     Export(ExportCmd),
     Init(InitCmd),
     Notes(NotesCmd),

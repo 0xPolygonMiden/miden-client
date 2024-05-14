@@ -11,18 +11,14 @@ use super::Parser;
 
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "Export client objects")]
-pub enum ExportCmd {
-    /// Export note data into a binary file
-    #[clap(short_flag = 'n')]
-    Note {
-        /// ID of the output note to export
-        #[clap()]
-        id: String,
+pub struct ExportCmd {
+    /// ID of the output note to export
+    #[clap()]
+    id: String,
 
-        /// Desired filename for the binary file. Defaults to the note ID if not provided
-        #[clap(short, long, default_value = "false")]
-        filename: Option<PathBuf>,
-    },
+    /// Desired filename for the binary file. Defaults to the note ID if not provided
+    #[clap(short, long, default_value = "false")]
+    filename: Option<PathBuf>,
 }
 
 impl ExportCmd {
@@ -30,12 +26,8 @@ impl ExportCmd {
         &self,
         client: Client<N, R, S, A>,
     ) -> Result<(), String> {
-        match self {
-            ExportCmd::Note { id, filename } => {
-                export_note(&client, id, filename.clone())?;
-                println!("Succesfully exported note {}", id);
-            },
-        }
+        export_note(&client, self.id.as_str(), self.filename.clone())?;
+        println!("Succesfully exported note {}", self.id.as_str());
         Ok(())
     }
 }
