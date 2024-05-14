@@ -220,7 +220,7 @@ impl Default for RpcConfig {
 // CLI CONFIG
 // ================================================================================================
 
-#[derive(Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct CliConfig {
     /// Address of the Miden node to connect to.
     pub default_account_id: Option<String>,

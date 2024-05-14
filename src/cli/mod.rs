@@ -26,6 +26,7 @@ use miden_objects::{
 };
 use miden_tx::TransactionAuthenticator;
 use tracing::info;
+use transactions::TransactionCmd;
 
 use self::{
     account::AccountCmd,
@@ -33,6 +34,7 @@ use self::{
     import::ImportCmd,
     init::InitCmd,
     new_account::{NewFaucetCmd, NewWalletCmd},
+    new_transactions::{ConsumeNotesCmd, MintCmd, NewTransactionCmd, P2IDCmd},
     notes::NotesCmd,
     tags::TagsCmd,
 };
@@ -43,6 +45,7 @@ mod import;
 mod info;
 mod init;
 mod new_account;
+mod new_transactions;
 mod notes;
 mod sync;
 mod tags;
@@ -83,11 +86,11 @@ pub enum Command {
     Info,
     Tags(TagsCmd),
     #[clap(name = "tx")]
-    #[clap(visible_alias = "transaction")]
-    Transaction {
-        #[clap(subcommand)]
-        cmd: Option<transactions::Transaction>,
-    },
+    Transaction(TransactionCmd),
+    Mint(MintCmd),
+    P2ID(P2IDCmd),
+    P2IDR(P2IDCmd),
+    ConsumeNotes(ConsumeNotesCmd),
 }
 
 /// CLI entry point
@@ -128,6 +131,9 @@ impl Cli {
             in_debug_mode,
         );
 
+        let default_account_id =
+            client_config.cli.clone().and_then(|cli_conf| cli_conf.default_account_id);
+
         // Execute CLI command
         match &self.action {
             Command::Account(account) => account.execute(client),
@@ -139,13 +145,14 @@ impl Cli {
             Command::Notes(notes) => notes.execute(client).await,
             Command::Sync => sync::sync_state(client).await,
             Command::Tags(tags) => tags.execute(client).await,
-            Command::Transaction { cmd: transaction_cmd } => {
-                let transaction_cmd = transaction_cmd.clone().unwrap_or_default();
-                let default_account_id =
-                    client_config.cli.and_then(|cli_conf| cli_conf.default_account_id);
-                transaction_cmd.execute(client, default_account_id).await
-            },
+            Command::Transaction(transaction) => transaction.execute(client).await,
             Command::Export(cmd) => cmd.execute(client),
+            Command::Mint(mint) => mint.clone().execute(client, default_account_id).await,
+            Command::P2ID(p2id) => p2id.clone().execute(client, default_account_id).await,
+            Command::P2IDR(p2idr) => p2idr.clone().execute(client, default_account_id).await,
+            Command::ConsumeNotes(consume_notes) => {
+                consume_notes.clone().execute(client, default_account_id).await
+            },
         }
     }
 }
