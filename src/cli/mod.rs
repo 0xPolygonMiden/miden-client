@@ -28,8 +28,12 @@ use miden_tx::TransactionAuthenticator;
 use tracing::info;
 
 use self::{
-    account::AccountCmd, export::ExportCmd, import::ImportCmd, init::InitCmd,
-    new_account::NewAccountCmd, tags::TagsCmd,
+    account::AccountCmd,
+    export::ExportCmd,
+    import::ImportCmd,
+    init::InitCmd,
+    new_account::{NewFaucetCmd, NewWalletCmd},
+    tags::TagsCmd,
 };
 
 mod account;
@@ -66,7 +70,8 @@ pub struct Cli {
 #[derive(Debug, Parser)]
 pub enum Command {
     Account(AccountCmd),
-    NewAccount(NewAccountCmd),
+    NewFaucet(NewFaucetCmd),
+    NewWallet(NewWalletCmd),
     #[clap(subcommand)]
     Import(ImportCmd),
     #[clap(subcommand)]
@@ -133,7 +138,8 @@ impl Cli {
         // Execute CLI command
         match &self.action {
             Command::Account(account) => account.execute(client),
-            Command::NewAccount(new_account) => new_account.execute(client),
+            Command::NewFaucet(new_faucet) => new_faucet.execute(client),
+            Command::NewWallet(new_wallet) => new_wallet.execute(client),
             Command::Import(import) => import.execute(client).await,
             Command::Init(_) => Ok(()),
             Command::Info => info::print_client_info(&client, &client_config),
