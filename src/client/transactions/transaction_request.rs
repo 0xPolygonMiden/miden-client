@@ -18,8 +18,6 @@ pub const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
     include_str!("asm/transaction_scripts/distribute_fungible_asset.masm");
 pub const AUTH_SEND_ASSET_SCRIPT: &str =
     include_str!("asm/transaction_scripts/auth_send_asset.masm");
-pub const AUTH_SWAP_ASSET_SCRIPT: &str =
-    include_str!("asm/transaction_scripts/auth_swap_asset.masm");
 
 // TRANSACTION REQUEST
 // --------------------------------------------------------------------------------------------

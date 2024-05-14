@@ -438,7 +438,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let note_tag = created_note.metadata().tag().inner();
 
         let tx_script = ProgramAst::parse(
-            &transaction_request::AUTH_SWAP_ASSET_SCRIPT
+            &transaction_request::AUTH_SEND_ASSET_SCRIPT
                 .replace("{recipient}", &recipient)
                 .replace("{note_type}", &Felt::new(note_type as u64).to_string())
                 .replace("{tag}", &Felt::new(note_tag.into()).to_string())
