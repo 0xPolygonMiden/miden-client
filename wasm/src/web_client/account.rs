@@ -1,4 +1,5 @@
 use super::WebClient;
+use crate::web_client::models::accounts::SerializedAccountStub;
 
 use base64::encode;
 use miden_objects::{accounts::{AccountData, AccountId}, assets::TokenSymbol, notes::NoteId};
@@ -17,14 +18,21 @@ use web_sys::console;
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum AccountTemplate {
-    BasicImmutable,
-    BasicMutable,
+    BasicImmutable {
+        storage_mode: String // AccountStorageMode
+    },
+    BasicMutable {
+        storage_mode: String // AccountStorageMode
+    },
     FungibleFaucet {
         token_symbol: String,
         decimals: String, // u8
-        max_supply: String // u64
+        max_supply: String, // u64
+        storage_mode: String
     },
-    NonFungibleFaucet,
+    NonFungibleFaucet {
+        storage_mode: String
+    },
 }
 
 // Account functions to be exposed to the JavaScript environment
@@ -67,32 +75,52 @@ impl WebClient {
             match account_template_result {
                 Ok(account_template) => {
                     let client_template = match account_template {
-                        AccountTemplate::BasicImmutable => accounts::AccountTemplate::BasicWallet {
+                        AccountTemplate::BasicImmutable {
+                            storage_mode
+                        } => accounts::AccountTemplate::BasicWallet {
                             mutable_code: false,
-                            storage_mode: accounts::AccountStorageMode::Local,
+                            storage_mode: match storage_mode.as_str() {
+                                "Local" => accounts::AccountStorageMode::Local,
+                                "OnChain" => accounts::AccountStorageMode::OnChain,
+                                _ => panic!("Invalid storage mode")
+                            },
                         },
-                        AccountTemplate::BasicMutable => accounts::AccountTemplate::BasicWallet {
+                        AccountTemplate::BasicMutable {
+                            storage_mode
+                        } => accounts::AccountTemplate::BasicWallet {
                             mutable_code: true,
-                            storage_mode: accounts::AccountStorageMode::Local,
+                            storage_mode: match storage_mode.as_str() {
+                                "Local" => accounts::AccountStorageMode::Local,
+                                "OnChain" => accounts::AccountStorageMode::OnChain,
+                                _ => panic!("Invalid storage mode")
+                            },
                         },
                         AccountTemplate::FungibleFaucet {
                             token_symbol,
                             decimals,
                             max_supply,
+                            storage_mode
                         } => accounts::AccountTemplate::FungibleFaucet {
                             token_symbol: TokenSymbol::new(&token_symbol).unwrap(),
                             decimals: decimals.parse::<u8>().unwrap(),
                             max_supply: max_supply.parse::<u64>().unwrap(),
-                            storage_mode: accounts::AccountStorageMode::Local,
+                            storage_mode: match storage_mode.as_str() {
+                                "Local" => accounts::AccountStorageMode::Local,
+                                "OnChain" => accounts::AccountStorageMode::OnChain,
+                                _ => panic!("Invalid storage mode")
+                            },
                         },
-                        AccountTemplate::NonFungibleFaucet => todo!(),
+                        AccountTemplate::NonFungibleFaucet {
+                            storage_mode
+                        } => todo!(),
                     };
 
                     match client.new_account(client_template).await {
                         Ok((account, _)) => {
                             // Create a struct or tuple to hold both values
                             // Convert directly to JsValue
-                            serde_wasm_bindgen::to_value(&account.id().to_string()).map_err(|e| JsValue::from_str(&e.to_string()))
+                            serde_wasm_bindgen::to_value(&account.id().to_string())
+                                .map_err(|e| JsValue::from_str(&e.to_string()))
                         },
                         Err(err) => {
                             let error_message = format!("Failed to create new account: {:?}", err);
@@ -115,12 +143,20 @@ impl WebClient {
     ) -> Result<JsValue, JsValue> {
         if let Some(ref mut client) = self.get_mut_inner() {
             let account_tuples = client.get_accounts().await.unwrap();
-            let accounts: Vec<String> = account_tuples.into_iter().map(|(account, _)| {
-                format!("{}", account.id().to_string())
+            let accounts: Vec<SerializedAccountStub> = account_tuples.into_iter().map(|(account, _)| {
+                SerializedAccountStub::new(
+                    account.id().to_string(),
+                    account.nonce().to_string(),
+                    account.vault_root().to_string(),
+                    account.storage_root().to_string(),
+                    account.code_root().to_string(),
+                )
             }).collect();
 
-            // Convert the Vec<String> to JsValue
-            serde_wasm_bindgen::to_value(&accounts).map_err(|e| JsValue::from_str(&e.to_string()))
+            let accounts_as_js_value = serde_wasm_bindgen::to_value(&accounts)
+                .unwrap_or_else(|_| wasm_bindgen::throw_val(JsValue::from_str("Serialization error")));
+
+            Ok(accounts_as_js_value)
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
@@ -135,8 +171,8 @@ impl WebClient {
 
             let result = client.get_account(native_account_id).await.unwrap();
 
-            let word = result.1.map_or("No word".to_string(), |w| w[0].to_string());
-            Ok(JsValue::from_str(&format!("ID: {}, Word: {}", result.0.id().to_string(), word)))
+            serde_wasm_bindgen::to_value(&result.0.id().to_string())
+                .map_err(|e| JsValue::from_str(&e.to_string()))
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }

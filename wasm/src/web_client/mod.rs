@@ -12,6 +12,7 @@ pub mod transactions;
 pub mod sync;
 pub mod store;
 pub mod rpc;
+pub mod models;
 
 use store::WebStore;
 use rpc::WebRpcClient;

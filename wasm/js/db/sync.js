@@ -224,11 +224,16 @@ async function updateCommittedTransactions(
             return;
         }
 
-        const updates = transactionIds.map(transactionId => ({
-            id: transactionId,
-            commitHeight: blockNum
+        // Fetch existing records
+        const existingRecords = await tx.transactions.where('id').anyOf(transactionIds).toArray();
+
+        // Create updates by merging existing records with the new values
+        const updates = existingRecords.map(record => ({
+            ...record, // Spread existing fields
+            commitHeight: blockNum // Update specific field
         }));
 
+        // Perform the update
         await tx.transactions.bulkPut(updates);
     } catch (err) {
         console.error("Failed to mark transactions as committed: ", err);

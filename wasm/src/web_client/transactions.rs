@@ -8,6 +8,7 @@ use miden_objects::{
 };
 
 use super::WebClient;
+use crate::web_client::models::transactions::NewTransactionResult;
 
 use crate::native_code::{
     errors::NoteIdPrefixFetchError, 
@@ -71,22 +72,15 @@ impl WebClient {
         &mut self
     ) -> Result<JsValue, JsValue> {
         if let Some(ref mut client) = self.get_mut_inner() {
+
             let transactions = client.get_transactions(TransactionFilter::All).await.unwrap();
-            let formatted_transactions: Vec<Vec<String>> = transactions.iter().map(|transaction| {
-                vec![
-                    transaction.id.to_string(),
-                    transaction.transaction_status.to_string(),
-                    transaction.account_id.to_string(),
-                    transaction.transaction_script
-                        .as_ref()
-                        .map(|x| x.hash().to_string())
-                        .unwrap_or("-".to_string()),
-                    transaction.input_note_nullifiers.len().to_string(),
-                    transaction.output_notes.num_notes().to_string(),
-                ]
+
+            let transactionIds: Vec<String> = transactions.iter().map(|transaction| {
+                transaction.id.to_string()
             }).collect();
 
-            serde_wasm_bindgen::to_value(&formatted_transactions).map_err(|e| JsValue::from_str(&e.to_string()))
+
+            serde_wasm_bindgen::to_value(&transactionIds).map_err(|e| JsValue::from_str(&e.to_string()))
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
@@ -95,19 +89,21 @@ impl WebClient {
     pub async fn new_transaction(
         &mut self,
         transaction_type: JsValue
-    ) -> Result<JsValue, JsValue> {
+    ) -> Result<NewTransactionResult, JsValue> {
         if let Some(ref mut client) = self.get_mut_inner() {
             let transaction_type: TransactionType = from_value(transaction_type).unwrap();
             let transaction_template: TransactionTemplate = build_transaction_template(client, &transaction_type).await.unwrap();
             let transaction_request = client.build_transaction_request(transaction_template).await.unwrap();
 
             let transaction_execution_result = client.new_transaction(transaction_request).await.unwrap();
-
+            let result = NewTransactionResult::new(
+                transaction_execution_result.executed_transaction().id().to_string(),
+                transaction_execution_result.created_notes().iter().map(|note| note.id().to_string()).collect()
+            );
 
             client.submit_transaction(transaction_execution_result).await.unwrap();
 
-
-            Ok(JsValue::from_str("Transaction submitted successfully"))
+            Ok(result)
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
@@ -202,6 +198,7 @@ async fn build_transaction_template<N: NodeRpcClient, R: FeltRng, S: Store>(
             ))
         },
         TransactionType::ConsumeNotes { account_id, list_of_notes } => {
+
             let mut note_ids = Vec::new();
             for note_id in list_of_notes.iter() {
                 let note_record = get_note_with_id_prefix(client, note_id).await

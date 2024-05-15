@@ -1,4 +1,4 @@
-use miden_objects::{notes::NoteId, Digest};
+use miden_objects::{notes::NoteId, utils::Serializable, Digest};
 use miden_tx::utils::Deserializable;
 use wasm_bindgen::prelude::*;
 use serde::{Serialize, Deserialize};
@@ -57,9 +57,7 @@ impl WebClient {
                 .into();
             let note: InputNoteRecord = client.get_input_note(note_id).await.unwrap();
 
-            let message = format!("Note ID: {}", note.id().to_string());
-            Ok(JsValue::from_str(&message))
-            
+            serde_wasm_bindgen::to_value(&note.id().to_string()).map_err(|e| JsValue::from_str(&e.to_string()))
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
@@ -81,6 +79,27 @@ impl WebClient {
                 },
                 Err(err) => Err(JsValue::from_str(&err.to_string()))
             }
+        } else {
+            Err(JsValue::from_str("Client not initialized"))
+        }
+    }
+
+    pub async fn export_input_note(
+        &mut self,
+        note_id: &str
+    ) -> Result<JsValue, JsValue>{
+        if let Some(ref mut client) = self.get_mut_inner() {
+
+            let note_id: NoteId = Digest::try_from(note_id)
+                .map_err(|err| format!("Failed to parse input note id: {}", err))?
+                .into();
+
+            let note: InputNoteRecord = client.get_input_note(note_id).await.unwrap();
+
+            let note_bytes = &note.to_bytes();
+
+
+            serde_wasm_bindgen::to_value(&note_bytes).map_err(|e| JsValue::from_str(&e.to_string()))
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }

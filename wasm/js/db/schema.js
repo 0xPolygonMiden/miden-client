@@ -14,6 +14,19 @@ export async function openDatabase() {
   }
 }
 
+export async function dropDatabase() {
+  console.log('Dropping database...')
+  try {
+      await db.delete();
+      console.log("Database dropped successfully");
+      return true;
+  } catch (err) {
+      console.error("Failed to drop database: ", err);
+      return false;
+  }
+
+}
+
 const Table = {
   AccountCode: 'accountCode',
   AccountStorage: 'accountStorage',
@@ -38,7 +51,7 @@ db.version(1).stores({
   [Table.AccountVaults]: indexes('root'),
   [Table.AccountAuth]: indexes('accountId'),
   [Table.Accounts]: indexes('[id+nonce]', 'codeRoot', 'storageRoot', 'vaultRoot'),
-  [Table.Transactions]: indexes('id', 'scriptHash', 'blockNum', 'commitHeight'),
+  [Table.Transactions]: indexes('id'),
   [Table.TransactionScripts]: indexes('scriptHash'),
   [Table.InputNotes]: indexes('noteId', 'recipient', 'status'),
   [Table.OutputNotes]: indexes('noteId', 'recipient', 'status'),

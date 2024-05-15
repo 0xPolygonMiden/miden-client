@@ -92,7 +92,6 @@ export async function getAccountStub(
     
         // The first record is the most recent one due to the sorting
         const mostRecentRecord = sortedRecords[0];
-        console.log('Most recent record found:', mostRecentRecord);
 
         let accountSeedBase64 = null;
         if (mostRecentRecord.accountSeed) {
@@ -133,7 +132,6 @@ export async function getAccountCode(
 
         // The first record is the only one due to the uniqueness constraint
         const codeRecord = allMatchingRecords[0];
-        console.log('Code record found:', codeRecord);
 
         // Convert the module Blob to an ArrayBuffer
         const moduleArrayBuffer = await codeRecord.module.arrayBuffer();
@@ -167,7 +165,6 @@ export async function getAccountStorage(
 
         // The first record is the only one due to the uniqueness constraint
         const storageRecord = allMatchingRecords[0];
-        console.log('Storage record found:', storageRecord);
 
         // Convert the module Blob to an ArrayBuffer
         const storageArrayBuffer = await storageRecord.slots.arrayBuffer();
@@ -200,7 +197,6 @@ export async function getAccountAssetVault(
 
         // The first record is the only one due to the uniqueness constraint
         const vaultRecord = allMatchingRecords[0];
-        console.log('Vault record found:', vaultRecord);
 
         return {
             root: vaultRecord.root,
@@ -229,7 +225,6 @@ export async function getAccountAuth(
 
         // The first record is the only one due to the uniqueness constraint
         const authRecord = allMatchingRecords[0];
-        console.log('Auth record found:', authRecord);
 
         // Convert the authInfo Blob to an ArrayBuffer
         const authInfoArrayBuffer = await authRecord.authInfo.arrayBuffer();
@@ -322,9 +317,7 @@ export async function insertAccountRecord(
 ) {
     try {
         let accountSeedBlob = null;
-        console.log(account_seed);
         if (account_seed) {
-            console.log(account_seed)
             accountSeedBlob = new Blob([new Uint8Array(account_seed)]);
         }
         
