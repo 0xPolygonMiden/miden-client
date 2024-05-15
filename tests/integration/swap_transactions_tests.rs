@@ -284,7 +284,7 @@ async fn test_swap_offchain() {
     mint(
         &mut client_with_faucets,
         account_b.id(),
-        btc_faucet_account.id(),
+        eth_faucet_account.id(),
         NoteType::Public,
         ETH_MINT_AMOUNT,
     )
@@ -338,10 +338,14 @@ async fn test_swap_offchain() {
 
     // Export note from client 1 to client 2
     let exported_note = client1.get_output_note(expected_output_notes[0].id()).unwrap();
+
     client2
         .import_input_note(exported_note.try_into().unwrap(), true)
         .await
         .unwrap();
+
+    // Sync so we get the inclusion proof info
+    client2.sync_state().await.unwrap();
 
     // consume swap note with accountB, and check that the vault changed appropiately
     println!("Consuming swap note on second client...");
