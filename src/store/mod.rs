@@ -129,6 +129,11 @@ pub trait Store {
         filter: ChainMmrNodeFilter,
     ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError>;
 
+    /// Inserts MMR authentication nodes.
+    ///
+    /// In the case where the [InOrderIndex] already exists on the table, the insertion is ignored
+    fn insert_chain_mmr_nodes(&self, nodes: &[(InOrderIndex, Digest)]) -> Result<(), StoreError>;
+
     /// Returns peaks information from the blockchain by a specific block number.
     ///
     /// If there is no chain MMR info stored for the provided block returns an empty [MmrPeaks]

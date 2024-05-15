@@ -105,7 +105,7 @@ impl SqliteStore {
         Self::insert_block_header_tx(&tx, block_header, new_mmr_peaks, block_has_relevant_notes)?;
 
         // Insert new authentication nodes (inner nodes of the PartialMmr)
-        Self::insert_chain_mmr_nodes(&tx, &new_authentication_nodes)?;
+        Self::insert_chain_mmr_nodes_tx(&tx, &new_authentication_nodes)?;
 
         // Update tracked output notes
         for (note_id, inclusion_proof) in committed_notes.updated_output_notes().iter() {

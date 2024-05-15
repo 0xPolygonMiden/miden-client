@@ -190,6 +190,10 @@ impl Store for SqliteStore {
         self.get_chain_mmr_nodes(filter)
     }
 
+    fn insert_chain_mmr_nodes(&self, nodes: &[(InOrderIndex, Digest)]) -> Result<(), StoreError> {
+        self.insert_chain_mmr_nodes(nodes)
+    }
+
     fn get_chain_mmr_peaks_by_block_num(&self, block_num: u32) -> Result<MmrPeaks, StoreError> {
         self.get_chain_mmr_peaks_by_block_num(block_num)
     }
