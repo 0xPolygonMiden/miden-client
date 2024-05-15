@@ -100,7 +100,7 @@ pub struct SendCmd {
     #[clap(short, long, value_enum)]
     note_type: NoteType,
     /// Flag to submit the executed transaction without asking for confirmation
-    #[clap(short, long, default_value_t = false)]
+    #[clap(long, default_value_t = false)]
     force: bool,
     /// Set the recall height for the transaction. If the note was not consumed by this height, the sender may consume it back.
     ///
