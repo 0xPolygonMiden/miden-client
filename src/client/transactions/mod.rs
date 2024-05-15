@@ -261,24 +261,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 .map(Note::authentication_hash)
                 .collect();
 
-        let mut missing_note_ids: Vec<NoteId> = output_notes
+        let missing_note_ids: Vec<NoteId> = output_notes
             .iter()
             .filter_map(|n| {
                 (!tx_note_auth_hashes.contains(&n.authentication_hash())).then_some(n.id())
             })
             .collect();
-
-        let tx_partial_notes_ids: BTreeSet<NoteId> = executed_transaction
-            .output_notes()
-            .iter()
-            .filter(|n| matches!(n, OutputNote::Header(_)))
-            .map(|n| n.id())
-            .collect();
-        for note in partial_output_notes.iter() {
-            if !tx_partial_notes_ids.contains(&note.id()) {
-                missing_note_ids.push(note.id());
-            }
-        }
 
         if !missing_note_ids.is_empty() {
             return Err(ClientError::MissingOutputNotes(missing_note_ids));
