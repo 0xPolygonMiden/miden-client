@@ -75,17 +75,16 @@ description = "Clone or update miden-node repository and clean up files"
 script_runner = "bash"
 script = [
     'if [ -d miden-node ]; then cd miden-node ; else git clone https://github.com/0xPolygonMiden/miden-node.git && cd miden-node; fi',
-    'git checkout next && git pull origin next && cargo update',
+    'git checkout main && git pull origin main && cargo update',
     'rm -rf miden-store.sqlite3 miden-store.sqlite3-wal miden-store.sqlite3-shm',
-    'cd bin/node',
-    'cargo run --features $NODE_FEATURES_TESTING -- make-genesis --force'
+    'cargo run --bin miden-node --features $NODE_FEATURES_TESTING -- make-genesis --inputs-path ../tests/config/genesis.toml --force',
 ]
 
 [tasks.start-node]
 description = "Start the miden-node"
 script_runner = "bash"
-cwd = "./miden-node/bin/node"
-script = "cargo run --features ${NODE_FEATURES_TESTING} -- start node"
+cwd = "./miden-node"
+script = "cargo run --bin miden-node --features $NODE_FEATURES_TESTING -- start --config ../tests/config/miden-node.toml node"
 
 [tasks.docs-deps]
 description = "Install documentation dependencies"

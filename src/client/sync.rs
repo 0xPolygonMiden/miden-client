@@ -1,10 +1,10 @@
+use core::cmp::max;
 use alloc::collections::{BTreeMap, BTreeSet};
-use std::cmp::max;
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
-    crypto::{self, rand::FeltRng},
+    crypto::{self, merkle::MerklePath, rand::FeltRng},
     notes::{Note, NoteId, NoteInclusionProof, NoteInputs, NoteRecipient, NoteTag},
     transaction::{InputNote, TransactionId},
     BlockHeader, Digest,
@@ -230,7 +230,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// Calls `get_block_header_by_number` requesting the genesis block and storing it
     /// in the local database
     async fn retrieve_and_store_genesis(&mut self) -> Result<(), ClientError> {
-        let genesis_block = self.rpc_api.get_block_header_by_number(Some(0), false).await?;
+        let (genesis_block, _) = self.rpc_api.get_block_header_by_number(Some(0), false).await?;
 
         let blank_mmr_peaks =
             MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks should not fail to instantiate");
@@ -639,6 +639,54 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             }
         }
         Ok(())
+    }
+
+    /// Retrieves and stores a [BlockHeader] by number, and stores its authentication data as well.
+    pub(crate) async fn get_and_store_authenticated_block(
+        &mut self,
+        block_num: u32,
+    ) -> Result<BlockHeader, ClientError> {
+        let mut current_partial_mmr = self.build_current_partial_mmr()?;
+
+        if current_partial_mmr.is_tracked(block_num as usize) {
+            warn!("Current partial MMR already contains the requested data");
+            let (block_header, _) = self.store().get_block_header_by_num(block_num)?;
+            return Ok(block_header);
+        }
+
+        let (block_header, mmr_proof) =
+            self.rpc_api.get_block_header_by_number(Some(block_num), true).await?;
+
+        let mut path_nodes: Vec<(InOrderIndex, Digest)> = vec![];
+
+        let mmr_proof = mmr_proof
+            .expect("NodeRpcApi::get_block_header_by_number() should have returned an MMR proof");
+        // Trim merkle path to keep nodes relevant to our current PartialMmr
+        let rightmost_index = InOrderIndex::from_leaf_pos(current_partial_mmr.forest() - 1);
+        let mut idx = InOrderIndex::from_leaf_pos(block_num as usize);
+        for node in mmr_proof.merkle_path {
+            idx = idx.sibling();
+            // Rightmost index is always the biggest value, so if the path contains any node
+            // past it, we can discard it for our version of the forest
+            if idx > rightmost_index {
+                continue;
+            }
+            path_nodes.push((idx, node));
+            idx = idx.parent();
+        }
+
+        let merkle_path = MerklePath::new(path_nodes.iter().map(|(_, n)| *n).collect());
+
+        current_partial_mmr
+            .track(block_num as usize, block_header.hash(), &merkle_path)
+            .map_err(StoreError::MmrError)?;
+
+        // Insert header and MMR nodes
+        self.store
+            .insert_block_header(block_header, current_partial_mmr.peaks(), true)?;
+        self.store.insert_chain_mmr_nodes(&path_nodes)?;
+
+        Ok(block_header)
     }
 }
 

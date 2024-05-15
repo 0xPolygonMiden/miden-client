@@ -10,6 +10,7 @@ use miden_client::{
         get_random_coin,
         rpc::TonicRpcClient,
         store_authenticator::StoreAuthenticator,
+        sync::SyncSummary,
         transactions::transaction_request::{TransactionRequest, TransactionTemplate},
         Client,
     },
@@ -99,6 +100,24 @@ pub async fn execute_tx_and_sync(client: &mut TestClient, tx_request: Transactio
 
         if is_tx_committed {
             break;
+        }
+
+        std::thread::sleep(std::time::Duration::new(3, 0));
+    }
+}
+
+// Syncs until `amount_of_blocks` have been created onchain compared to client's sync height
+pub async fn wait_for_blocks(client: &mut TestClient, amount_of_blocks: u32) -> SyncSummary {
+    let current_block = client.get_sync_height().unwrap();
+    let final_block = current_block + amount_of_blocks;
+    println!("Syncing until block {}...", final_block);
+    // wait until tx is committed
+    loop {
+        let summary = client.sync_state().await.unwrap();
+        println!("Synced to block {} (syncing until {})...", summary.block_num, final_block);
+
+        if summary.block_num >= final_block {
+            return summary;
         }
 
         std::thread::sleep(std::time::Duration::new(3, 0));
