@@ -34,7 +34,7 @@ use self::{
     import::ImportCmd,
     init::InitCmd,
     new_account::{NewFaucetCmd, NewWalletCmd},
-    new_transactions::{ConsumeNotesCmd, MintCmd, NewTransactionCmd, SendCmd},
+    new_transactions::{ConsumeNotesCmd, MintCmd, SendCmd},
     notes::NotesCmd,
     tags::TagsCmd,
 };

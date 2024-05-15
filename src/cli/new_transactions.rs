@@ -15,7 +15,6 @@ use miden_objects::{
     assets::{Asset, FungibleAsset},
     crypto::rand::FeltRng,
     notes::{NoteId, NoteType as MidenNoteType},
-    transaction::TransactionId,
     Digest,
 };
 use miden_tx::TransactionAuthenticator;
@@ -38,38 +37,6 @@ impl From<&NoteType> for MidenNoteType {
     }
 }
 
-pub trait NewTransactionCmd {
-    fn into_template<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        self,
-        client: &Client<N, R, S, A>,
-        default_account_id: Option<String>,
-    ) -> Result<TransactionTemplate, String>;
-    fn force(&self) -> bool;
-    async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        self,
-        mut client: Client<N, R, S, A>,
-        default_account_id: Option<String>,
-    ) -> Result<(), String>
-    where
-        Self: Sized,
-    {
-        let force = self.force();
-        let transaction_id = new_transaction(&mut client, self, force, default_account_id).await?;
-        match transaction_id {
-            Some((transaction_id, output_note_ids)) => {
-                println!("Succesfully created transaction.");
-                println!("Transaction ID: {}", transaction_id);
-                println!("Output notes:");
-                output_note_ids.iter().for_each(|note_id| println!("\t- {}", note_id));
-            },
-            None => {
-                println!("Transaction was cancelled.");
-            },
-        }
-        Ok(())
-    }
-}
-
 #[derive(Debug, Parser, Clone)]
 /// Mint tokens from a fungible faucet to a wallet.
 pub struct MintCmd {
@@ -89,9 +56,15 @@ pub struct MintCmd {
     force: bool,
 }
 
-impl NewTransactionCmd for MintCmd {
-    fn force(&self) -> bool {
-        self.force
+impl MintCmd {
+    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+        self,
+        mut client: Client<N, R, S, A>,
+        default_account_id: Option<String>,
+    ) -> Result<(), String> {
+        let force = self.force;
+        let transaction_template = self.into_template(&client, default_account_id)?;
+        execute_transaction(&mut client, transaction_template, force).await
     }
 
     fn into_template<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
@@ -138,9 +111,15 @@ pub struct SendCmd {
     amount: u64,
 }
 
-impl NewTransactionCmd for SendCmd {
-    fn force(&self) -> bool {
-        self.force
+impl SendCmd {
+    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+        self,
+        mut client: Client<N, R, S, A>,
+        default_account_id: Option<String>,
+    ) -> Result<(), String> {
+        let force = self.force;
+        let transaction_template = self.into_template(&client, default_account_id)?;
+        execute_transaction(&mut client, transaction_template, force).await
     }
 
     fn into_template<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
@@ -190,9 +169,15 @@ pub struct ConsumeNotesCmd {
     force: bool,
 }
 
-impl NewTransactionCmd for ConsumeNotesCmd {
-    fn force(&self) -> bool {
-        self.force
+impl ConsumeNotesCmd {
+    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+        self,
+        mut client: Client<N, R, S, A>,
+        default_account_id: Option<String>,
+    ) -> Result<(), String> {
+        let force = self.force;
+        let transaction_template = self.into_template(&client, default_account_id)?;
+        execute_transaction(&mut client, transaction_template, force).await
     }
 
     fn into_template<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
@@ -221,15 +206,18 @@ impl NewTransactionCmd for ConsumeNotesCmd {
     }
 }
 
-// NEW TRANSACTION
+// EXECUTE TRANSACTION
 // ================================================================================================
-async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+async fn execute_transaction<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+>(
     client: &mut Client<N, R, S, A>,
-    transaction: impl NewTransactionCmd,
+    transaction_template: TransactionTemplate,
     force: bool,
-    default_account_id: Option<String>,
-) -> Result<Option<(TransactionId, Vec<NoteId>)>, String> {
-    let transaction_template = transaction.into_template(client, default_account_id)?;
+) -> Result<(), String> {
     let transaction_request = client.build_transaction_request(transaction_template)?;
 
     println!("Executing transaction...");
@@ -243,7 +231,8 @@ async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionA
         io::stdin().read_line(&mut proceed_str).expect("Should read line");
 
         if proceed_str.trim().to_lowercase() != "y" {
-            return Ok(None);
+            println!("Transaction was cancelled.");
+            return Ok(());
         }
     }
 
@@ -257,7 +246,12 @@ async fn new_transaction<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionA
         .collect::<Vec<_>>();
     client.submit_transaction(transaction_execution_result).await?;
 
-    Ok(Some((transaction_id, output_notes)))
+    println!("Succesfully created transaction.");
+    println!("Transaction ID: {}", transaction_id);
+    println!("Output notes:");
+    output_notes.iter().for_each(|note_id| println!("\t- {}", note_id));
+
+    Ok(())
 }
 
 fn print_transaction_details(transaction_result: &TransactionResult) {
