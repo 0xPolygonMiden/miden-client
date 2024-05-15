@@ -1,5 +1,5 @@
 use alloc::collections::{BTreeMap, BTreeSet};
-use std::cmp::max;
+use core::cmp::max;
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{

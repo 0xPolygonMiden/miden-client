@@ -27,66 +27,61 @@ use crate::cli::{
 
 #[derive(Clone, Debug, ValueEnum)]
 pub enum NoteFilter {
+    All,
     Pending,
     Committed,
     Consumed,
+    Consumable,
+}
+
+impl TryInto<ClientNoteFilter<'_>> for NoteFilter {
+    type Error = String;
+
+    fn try_into(self) -> Result<ClientNoteFilter<'static>, Self::Error> {
+        match self {
+            NoteFilter::All => Ok(ClientNoteFilter::All),
+            NoteFilter::Pending => Ok(ClientNoteFilter::Pending),
+            NoteFilter::Committed => Ok(ClientNoteFilter::Committed),
+            NoteFilter::Consumed => Ok(ClientNoteFilter::Consumed),
+            NoteFilter::Consumable => Err("Consumable filter is not supported".to_string()),
+        }
+    }
 }
 
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "View and manage notes")]
-pub enum Notes {
-    /// List notes
-    #[clap(short_flag = 'l')]
-    List {
-        /// Filter the displayed note list
-        #[clap(short, long)]
-        filter: Option<NoteFilter>,
-    },
-
-    /// Show details of the note for the specified note ID
-    #[clap(short_flag = 's')]
-    Show {
-        /// Note ID of the note to show
-        #[clap()]
-        id: String,
-    },
-
-    /// List consumable notes
-    #[clap(short_flag = 'c')]
-    ListConsumable {
-        /// Account ID used to filter list. Only notes consumable by this account will be shown.
-        #[clap()]
-        account_id: Option<String>,
-    },
+pub struct NotesCmd {
+    /// List notes with the specified filter. If no filter is provided, all notes will be listed.
+    #[clap(short, long, group = "action", default_missing_value="all", num_args=0..=1, value_name = "filter")]
+    list: Option<NoteFilter>,
+    /// Show note with the specified ID.
+    #[clap(short, long, group = "action", value_name = "note_id")]
+    show: Option<String>,
+    /// (only has effect on `--list consumable`) Account ID used to filter list. Only notes consumable by this account will be shown.
+    #[clap(short, long, value_name = "account_id")]
+    account_id: Option<String>,
 }
 
-impl Default for Notes {
-    fn default() -> Self {
-        Notes::List { filter: None }
-    }
-}
-
-impl Notes {
+impl NotesCmd {
     pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
         &self,
         client: Client<N, R, S, A>,
     ) -> Result<(), String> {
         match self {
-            Notes::List { filter } => {
-                let filter = match filter {
-                    Some(NoteFilter::Committed) => ClientNoteFilter::Committed,
-                    Some(NoteFilter::Consumed) => ClientNoteFilter::Consumed,
-                    Some(NoteFilter::Pending) => ClientNoteFilter::Pending,
-                    None => ClientNoteFilter::All,
-                };
-
-                list_notes(client, filter)?;
+            NotesCmd { list: Some(NoteFilter::Consumable), .. } => {
+                list_consumable_notes(client, &None)?;
             },
-            Notes::Show { id } => {
+            NotesCmd { list: Some(filter), .. } => {
+                list_notes(
+                    client,
+                    filter.clone().try_into().expect("Filter shouldn't be consumable"),
+                )?;
+            },
+            NotesCmd { show: Some(id), .. } => {
                 show_note(client, id.to_owned())?;
             },
-            Notes::ListConsumable { account_id } => {
-                list_consumable_notes(client, account_id)?;
+            _ => {
+                list_notes(client, ClientNoteFilter::All)?;
             },
         }
         Ok(())

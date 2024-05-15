@@ -1,15 +1,15 @@
 use std::path::PathBuf;
 
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
-    client::{accounts, rpc::NodeRpcClient, Client},
+    client::{rpc::NodeRpcClient, Client},
     config::{CliConfig, ClientConfig},
     store::Store,
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorage, AccountType, AuthSecretKey, StorageSlotType},
-    assets::{Asset, TokenSymbol},
+    assets::Asset,
     crypto::{dsa::rpo_falcon512::SK_LEN, rand::FeltRng},
     ZERO,
 };
@@ -19,177 +19,85 @@ use miden_tx::{
 };
 
 use super::{load_config, parse_account_id, update_config, CLIENT_CONFIG_FILE_NAME};
-use crate::cli::{create_dynamic_table, CLIENT_BINARY_NAME};
+use crate::cli::create_dynamic_table;
 
 // ACCOUNT COMMAND
 // ================================================================================================
 
 #[derive(Default, Debug, Clone, Parser)]
-pub enum AccountCmd {
-    /// List all accounts monitored by this client
-    #[default]
-    #[clap(short_flag = 'l', long_flag = "list")]
-    List,
+/// View and manage accounts. Defaults to `list` command.
+pub struct AccountCmd {
+    /// List all accounts monitored by this client (default action)
+    #[clap(short, long, group = "action")]
+    list: bool,
     /// Show details of the account for the specified ID or hex prefix
-    #[clap(short_flag = 's', long_flag = "show")]
-    Show { id: String },
-    /// Create new account and store it locally
-    #[clap(short_flag = 'n', long_flag = "new")]
-    New {
-        #[clap(subcommand)]
-        template: AccountTemplate,
-    },
-    /// Set/Unset default accounts for transaction execution
-    #[clap(short_flag = 'd', long_flag = "default")]
-    Default {
-        #[clap(subcommand)]
-        default_cmd: DefaultAccountCmd,
-    },
-}
-
-#[derive(Debug, Parser, Clone)]
-#[clap()]
-pub enum DefaultAccountCmd {
-    /// Turn an account into the default sender account
-    Set {
-        #[clap()]
-        id: String,
-    },
-    /// Show current default account
-    Show,
-    /// Clear the default account setting
-    Unset,
-}
-
-#[derive(Debug, Parser, Clone)]
-#[clap()]
-pub enum AccountTemplate {
-    /// Creates a basic account (Regular account with immutable code)
-    BasicImmutable {
-        #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
-        storage_type: AccountStorageMode,
-    },
-    /// Creates a basic account (Regular account with mutable code)
-    BasicMutable {
-        #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
-        storage_type: AccountStorageMode,
-    },
-    /// Creates a faucet for fungible tokens
-    FungibleFaucet {
-        #[clap(short, long)]
-        token_symbol: String,
-        #[clap(short, long)]
-        decimals: u8,
-        #[clap(short, long)]
-        max_supply: u64,
-        #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
-        storage_type: AccountStorageMode,
-    },
-    /// Creates a faucet for non-fungible tokens
-    NonFungibleFaucet {
-        #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
-        storage_type: AccountStorageMode,
-    },
-}
-
-#[derive(Debug, Clone, Copy, ValueEnum)]
-pub enum AccountStorageMode {
-    OffChain,
-    OnChain,
-}
-
-impl From<AccountStorageMode> for accounts::AccountStorageMode {
-    fn from(value: AccountStorageMode) -> Self {
-        match value {
-            AccountStorageMode::OffChain => accounts::AccountStorageMode::Local,
-            AccountStorageMode::OnChain => accounts::AccountStorageMode::OnChain,
-        }
-    }
-}
-
-impl From<&AccountStorageMode> for accounts::AccountStorageMode {
-    fn from(value: &AccountStorageMode) -> Self {
-        accounts::AccountStorageMode::from(*value)
-    }
+    #[clap(short, long, group = "action", value_name = "ID")]
+    show: Option<String>,
+    /// Manages default account for transaction execution
+    ///
+    /// If no ID is provided it will display the current default account ID.
+    /// If "none" is provided it will remove the default account else
+    /// it will set the default account to the provided ID
+    #[clap(short, long, group = "action", value_name = "ID")]
+    default: Option<Option<String>>,
 }
 
 impl AccountCmd {
     pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
         &self,
-        mut client: Client<N, R, S, A>,
+        client: Client<N, R, S, A>,
     ) -> Result<(), String> {
         match self {
-            AccountCmd::List => {
-                list_accounts(client)?;
-            },
-            AccountCmd::New { template } => {
-                let client_template = match template {
-                    AccountTemplate::BasicImmutable { storage_type: storage_mode } => {
-                        accounts::AccountTemplate::BasicWallet {
-                            mutable_code: false,
-                            storage_mode: storage_mode.into(),
-                        }
-                    },
-                    AccountTemplate::BasicMutable { storage_type: storage_mode } => {
-                        accounts::AccountTemplate::BasicWallet {
-                            mutable_code: true,
-                            storage_mode: storage_mode.into(),
-                        }
-                    },
-                    AccountTemplate::FungibleFaucet {
-                        token_symbol,
-                        decimals,
-                        max_supply,
-                        storage_type: storage_mode,
-                    } => accounts::AccountTemplate::FungibleFaucet {
-                        token_symbol: TokenSymbol::new(token_symbol)
-                            .map_err(|err| format!("error: token symbol is invalid: {}", err))?,
-                        decimals: *decimals,
-                        max_supply: *max_supply,
-                        storage_mode: storage_mode.into(),
-                    },
-                    AccountTemplate::NonFungibleFaucet { storage_type: _ } => todo!(),
-                };
-                let (new_account, _account_seed) = client.new_account(client_template)?;
-                println!("Succesfully created new account.");
-                println!(
-                    "To view account details execute `{CLIENT_BINARY_NAME} account -s {}`",
-                    new_account.id()
-                );
-            },
-            AccountCmd::Show { id } => {
+            AccountCmd {
+                list: false,
+                show: Some(id),
+                default: None,
+            } => {
                 let account_id = parse_account_id(&client, id)?;
                 show_account(client, account_id)?;
             },
-            AccountCmd::Default {
-                default_cmd: DefaultAccountCmd::Set { id },
+            AccountCmd {
+                list: false,
+                show: None,
+                default: Some(id),
             } => {
-                let account_id: AccountId = AccountId::from_hex(id)
-                    .map_err(|_| "Input number was not a valid Account Id")?;
+                match id {
+                    None => {
+                        display_default_account_id()?;
+                    },
+                    Some(id) => {
+                        let default_account = if id == "none" {
+                            None
+                        } else {
+                            let account_id: AccountId = AccountId::from_hex(id)
+                                .map_err(|_| "Input number was not a valid Account Id")?;
 
-                // Check whether we're tracking that account
-                let (account, _) = client.get_account_stub_by_id(account_id)?;
+                            // Check whether we're tracking that account
+                            let (account, _) = client.get_account_stub_by_id(account_id)?;
 
-                // load config
-                let (mut current_config, config_path) = load_config_file()?;
+                            Some(account.id().to_hex())
+                        };
 
-                // set default account
-                current_config.cli = Some(CliConfig {
-                    default_account_id: Some(account.id().to_hex()),
-                });
+                        // load config
+                        let (mut current_config, config_path) = load_config_file()?;
 
-                update_config(&config_path, current_config)?;
+                        // set default account
+                        current_config.cli = Some(CliConfig {
+                            default_account_id: default_account.clone(),
+                        });
+
+                        if let Some(id) = default_account {
+                            println!("Setting default account to {id}...");
+                        } else {
+                            println!("Removing default account...");
+                        }
+
+                        update_config(&config_path, current_config)?;
+                    },
+                }
             },
-            AccountCmd::Default { default_cmd: DefaultAccountCmd::Unset } => {
-                let (mut current_config, path) = load_config_file()?;
-
-                // unset default account
-                current_config.cli.replace(CliConfig { default_account_id: None });
-
-                update_config(&path, current_config)?;
-            },
-            AccountCmd::Default { default_cmd: DefaultAccountCmd::Show } => {
-                display_default_account_id()?;
+            _ => {
+                list_accounts(client)?;
             },
         }
         Ok(())

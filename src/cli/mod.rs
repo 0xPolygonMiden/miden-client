@@ -26,9 +26,17 @@ use miden_objects::{
 };
 use miden_tx::TransactionAuthenticator;
 use tracing::info;
+use transactions::TransactionCmd;
 
 use self::{
-    account::AccountCmd, export::ExportCmd, import::ImportCmd, init::InitCmd, tags::TagsCmd,
+    account::AccountCmd,
+    export::ExportCmd,
+    import::ImportCmd,
+    init::InitCmd,
+    new_account::{NewFaucetCmd, NewWalletCmd},
+    new_transactions::{ConsumeNotesCmd, MintCmd, SendCmd, SwapCmd},
+    notes::NotesCmd,
+    tags::TagsCmd,
 };
 
 mod account;
@@ -36,6 +44,8 @@ mod export;
 mod import;
 mod info;
 mod init;
+mod new_account;
+mod new_transactions;
 mod notes;
 mod sync;
 mod tags;
@@ -63,33 +73,24 @@ pub struct Cli {
 /// CLI actions
 #[derive(Debug, Parser)]
 pub enum Command {
-    Account {
-        #[clap(subcommand)]
-        cmd: Option<AccountCmd>,
-    },
-    #[clap(subcommand)]
+    Account(AccountCmd),
+    NewFaucet(NewFaucetCmd),
+    NewWallet(NewWalletCmd),
     Import(ImportCmd),
-    #[clap(subcommand)]
     Export(ExportCmd),
     Init(InitCmd),
-    Notes {
-        #[clap(subcommand)]
-        cmd: Option<notes::Notes>,
-    },
+    Notes(NotesCmd),
     /// Sync this client with the latest state of the Miden network.
     Sync,
     /// View a summary of the current client state
     Info,
-    Tags {
-        #[clap(subcommand)]
-        cmd: Option<TagsCmd>,
-    },
+    Tags(TagsCmd),
     #[clap(name = "tx")]
-    #[clap(visible_alias = "transaction")]
-    Transaction {
-        #[clap(subcommand)]
-        cmd: Option<transactions::Transaction>,
-    },
+    Transaction(TransactionCmd),
+    Mint(MintCmd),
+    Send(SendCmd),
+    Swap(SwapCmd),
+    ConsumeNotes(ConsumeNotesCmd),
 }
 
 /// CLI entry point
@@ -130,31 +131,28 @@ impl Cli {
             in_debug_mode,
         );
 
+        let default_account_id =
+            client_config.cli.clone().and_then(|cli_conf| cli_conf.default_account_id);
+
         // Execute CLI command
         match &self.action {
-            Command::Account { cmd } => {
-                let account = cmd.clone().unwrap_or_default();
-                account.execute(client)
-            },
+            Command::Account(account) => account.execute(client),
+            Command::NewFaucet(new_faucet) => new_faucet.execute(client),
+            Command::NewWallet(new_wallet) => new_wallet.execute(client),
             Command::Import(import) => import.execute(client).await,
             Command::Init(_) => Ok(()),
             Command::Info => info::print_client_info(&client, &client_config),
-            Command::Notes { cmd: notes_cmd } => {
-                let notes_cmd = notes_cmd.clone().unwrap_or_default();
-                notes_cmd.execute(client).await
-            },
+            Command::Notes(notes) => notes.execute(client).await,
             Command::Sync => sync::sync_state(client).await,
-            Command::Tags { cmd: tags_cmd } => {
-                let tags_cmd = tags_cmd.clone().unwrap_or_default();
-                tags_cmd.execute(client).await
-            },
-            Command::Transaction { cmd: transaction_cmd } => {
-                let transaction_cmd = transaction_cmd.clone().unwrap_or_default();
-                let default_account_id =
-                    client_config.cli.and_then(|cli_conf| cli_conf.default_account_id);
-                transaction_cmd.execute(client, default_account_id).await
-            },
+            Command::Tags(tags) => tags.execute(client).await,
+            Command::Transaction(transaction) => transaction.execute(client).await,
             Command::Export(cmd) => cmd.execute(client),
+            Command::Mint(mint) => mint.clone().execute(client, default_account_id).await,
+            Command::Send(send) => send.clone().execute(client, default_account_id).await,
+            Command::Swap(swap) => swap.clone().execute(client, default_account_id).await,
+            Command::ConsumeNotes(consume_notes) => {
+                consume_notes.clone().execute(client, default_account_id).await
+            },
         }
     }
 }
