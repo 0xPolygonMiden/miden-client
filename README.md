@@ -31,14 +31,14 @@ For more info check:
 
 Before you can use the Miden client, you'll need to make sure you have both
 [Rust](https://www.rust-lang.org/tools/install) and sqlite3 installed. Miden
-client v0.2 requires rust version **1.78** or higher.
+client requires rust version **1.78** or higher.
 
 ### Adding miden-client as a dependency
 
 In order to utilize the `miden-client` library, you can add the dependency to your project's `Cargo.toml` file:
 
 ````toml
-miden-client = { version = "0.2" }
+miden-client = { version = "0.3" }
 ````
 
 #### Features
