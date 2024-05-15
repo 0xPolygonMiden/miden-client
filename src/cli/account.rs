@@ -82,8 +82,15 @@ impl AccountCmd {
                         let (mut current_config, config_path) = load_config_file()?;
 
                         // set default account
-                        current_config.cli =
-                            Some(CliConfig { default_account_id: default_account });
+                        current_config.cli = Some(CliConfig {
+                            default_account_id: default_account.clone(),
+                        });
+
+                        if let Some(id) = default_account {
+                            println!("Setting default account to {id}...");
+                        } else {
+                            println!("Removing default account...");
+                        }
 
                         update_config(&config_path, current_config)?;
                     },
