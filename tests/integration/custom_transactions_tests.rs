@@ -104,6 +104,7 @@ async fn test_transaction_request() {
         regular_account.id(),
         note_args_map.clone(),
         vec![],
+        vec![],
         Some(tx_script),
     );
 
@@ -128,8 +129,13 @@ async fn test_transaction_request() {
         client.compile_tx_script(program, script_inputs, vec![]).unwrap()
     };
 
-    let transaction_request =
-        TransactionRequest::new(regular_account.id(), note_args_map, vec![], Some(tx_script));
+    let transaction_request = TransactionRequest::new(
+        regular_account.id(),
+        note_args_map,
+        vec![],
+        vec![],
+        Some(tx_script),
+    );
 
     execute_tx_and_sync(&mut client, transaction_request).await;
 
@@ -183,6 +189,7 @@ async fn mint_custom_note(
         faucet_account_id,
         BTreeMap::new(),
         vec![note.clone()],
+        vec![],
         Some(tx_script),
     );
 

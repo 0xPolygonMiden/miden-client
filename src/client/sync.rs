@@ -295,6 +295,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             return Ok(SyncStatus::SyncedToLastBlock(SyncSummary::new_empty(current_block_num)));
         }
 
+        let committed_note_ids: Vec<NoteId> = response
+            .note_inclusions
+            .iter()
+            .map(|committed_note| *(committed_note.note_id()))
+            .collect();
+
         let new_note_details =
             self.get_note_details(response.note_inclusions, &response.block_header).await?;
 
@@ -327,18 +333,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             )?
         };
 
-        let updated_output_note_ids: Vec<NoteId> = new_note_details
-            .updated_output_notes()
-            .iter()
-            .map(|(output_note_id, _)| *output_note_id)
-            .collect();
-
         let uncommitted_transactions =
             self.store.get_transactions(TransactionFilter::Uncomitted)?;
 
         let transactions_to_commit = get_transactions_to_commit(
             &uncommitted_transactions,
-            &updated_output_note_ids,
+            &committed_note_ids,
             &new_nullifiers,
             &response.account_hash_updates,
         );

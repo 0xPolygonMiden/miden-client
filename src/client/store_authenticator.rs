@@ -25,10 +25,11 @@ impl<R: Rng, S: Store> StoreAuthenticator<R, S> {
 
 impl<R: Rng, S: Store> TransactionAuthenticator for StoreAuthenticator<R, S> {
     /// Gets a signature over a message, given a public key.
-    /// The key should be included in the `keys` map and should be a variant of [SecretKey].
+    ///
+    /// The pub key should correspond to one of the keys tracked by the authenticator's store.
     ///
     /// # Errors
-    /// If the public key is not contained in the `keys` map, [AuthenticationError::UnknownKey] is
+    /// If the public key is not found in the store, [AuthenticationError::UnknownKey] is
     /// returned.
     fn get_signature(
         &self,
@@ -67,6 +68,9 @@ impl<R: Rng, S: Store> TransactionAuthenticator for StoreAuthenticator<R, S> {
 /// Will return an error if either:
 /// - The secret key is malformed due to either incorrect length or failed decoding.
 /// - The signature generation failed.
+///
+/// TODO: once this gets made public in miden base, remve this implementation and use the one from
+/// base
 fn get_falcon_signature<R: Rng>(
     key: &rpo_falcon512::SecretKey,
     message: Word,

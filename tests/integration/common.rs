@@ -198,6 +198,7 @@ pub async fn setup(
 }
 
 /// Mints a note from faucet_account_id for basic_account_id, waits for inclusion and returns it
+/// with 1000 units of the corresponding fungible asset
 pub async fn mint_note(
     client: &mut TestClient,
     basic_account_id: AccountId,

@@ -34,7 +34,7 @@ use self::{
     import::ImportCmd,
     init::InitCmd,
     new_account::{NewFaucetCmd, NewWalletCmd},
-    new_transactions::{ConsumeNotesCmd, MintCmd, SendCmd},
+    new_transactions::{ConsumeNotesCmd, MintCmd, SendCmd, SwapCmd},
     notes::NotesCmd,
     tags::TagsCmd,
 };
@@ -89,6 +89,7 @@ pub enum Command {
     Transaction(TransactionCmd),
     Mint(MintCmd),
     Send(SendCmd),
+    Swap(SwapCmd),
     ConsumeNotes(ConsumeNotesCmd),
 }
 
@@ -148,6 +149,7 @@ impl Cli {
             Command::Export(cmd) => cmd.execute(client),
             Command::Mint(mint) => mint.clone().execute(client, default_account_id).await,
             Command::Send(send) => send.clone().execute(client, default_account_id).await,
+            Command::Swap(swap) => swap.clone().execute(client, default_account_id).await,
             Command::ConsumeNotes(consume_notes) => {
                 consume_notes.clone().execute(client, default_account_id).await
             },
