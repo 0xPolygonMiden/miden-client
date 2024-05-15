@@ -5,17 +5,20 @@ use miden_client::{
     client::{
         rpc::NodeRpcClient,
         transactions::{
-            transaction_request::{PaymentTransactionData, TransactionTemplate},
+            transaction_request::{
+                PaymentTransactionData, SwapTransactionData, TransactionTemplate,
+            },
             TransactionResult,
         },
     },
     store::Store,
 };
 use miden_objects::{
+    accounts::AccountId,
     assets::{Asset, FungibleAsset},
     crypto::rand::FeltRng,
-    notes::{NoteId, NoteType as MidenNoteType},
-    Digest,
+    notes::{NoteExecutionHint, NoteId, NoteTag, NoteType as MidenNoteType},
+    Digest, NoteError,
 };
 use miden_tx::TransactionAuthenticator;
 
@@ -156,6 +159,77 @@ impl SendCmd {
 }
 
 #[derive(Debug, Parser, Clone)]
+/// Create a pay-to-id transaction.
+pub struct SwapCmd {
+    /// Sender account ID or its hex prefix. If none is provided, the default account's ID is used instead
+    #[clap(short = 's', long = "source")]
+    sender_account_id: Option<String>,
+    /// Offered Faucet account ID or its hex prefix
+    #[clap(long = "offered_faucet")]
+    offered_asset_faucet_id: String,
+    /// Offered amount
+    #[clap(long = "offered_amount")]
+    offered_asset_amount: u64,
+    /// Requested Faucet account ID or its hex prefix
+    #[clap(long = "requested_faucet")]
+    requested_asset_faucet_id: String,
+    /// Requested amount
+    #[clap(long = "requested_amount")]
+    requested_asset_amount: u64,
+    #[clap(short, long, value_enum)]
+    note_type: NoteType,
+    /// Flag to submit the executed transaction without asking for confirmation
+    #[clap(long, default_value_t = false)]
+    force: bool,
+}
+
+impl SwapCmd {
+    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+        self,
+        mut client: Client<N, R, S, A>,
+        default_account_id: Option<String>,
+    ) -> Result<(), String> {
+        let force = self.force;
+        let transaction_template = self.into_template(&client, default_account_id)?;
+        execute_transaction(&mut client, transaction_template, force).await
+    }
+
+    fn into_template<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+        self,
+        client: &Client<N, R, S, A>,
+        default_account_id: Option<String>,
+    ) -> Result<TransactionTemplate, String> {
+        let offered_asset_faucet_id = parse_account_id(client, &self.offered_asset_faucet_id)?;
+        let offered_fungible_asset =
+            FungibleAsset::new(offered_asset_faucet_id, self.offered_asset_amount)
+                .map_err(|err| err.to_string())?
+                .into();
+
+        let requested_asset_faucet_id = parse_account_id(client, &self.requested_asset_faucet_id)?;
+        let requested_fungible_asset =
+            FungibleAsset::new(requested_asset_faucet_id, self.requested_asset_amount)
+                .map_err(|err| err.to_string())?
+                .into();
+
+        // try to use either the provided argument or the default account
+        let sender_account_id = self
+            .sender_account_id
+            .clone()
+            .or(default_account_id)
+            .ok_or("Neither a sender nor a default account was provided".to_string())?;
+        let sender_account_id = parse_account_id(client, &sender_account_id)?;
+
+        let swap_transaction = SwapTransactionData::new(
+            sender_account_id,
+            offered_fungible_asset,
+            requested_fungible_asset,
+        );
+
+        Ok(TransactionTemplate::Swap(swap_transaction, (&self.note_type).into()))
+    }
+}
+
+#[derive(Debug, Parser, Clone)]
 /// Consume with the account corresponding to `account_id` all of the notes from `list_of_notes`.
 pub struct ConsumeNotesCmd {
     /// The account ID to be used to consume the note or its hex prefix. If none is provided, the default
@@ -218,7 +292,7 @@ async fn execute_transaction<
     transaction_template: TransactionTemplate,
     force: bool,
 ) -> Result<(), String> {
-    let transaction_request = client.build_transaction_request(transaction_template)?;
+    let transaction_request = client.build_transaction_request(transaction_template.clone())?;
 
     println!("Executing transaction...");
     let transaction_execution_result = client.new_transaction(transaction_request)?;
@@ -245,6 +319,20 @@ async fn execute_transaction<
         .map(|note| note.id())
         .collect::<Vec<_>>();
     client.submit_transaction(transaction_execution_result).await?;
+
+    if let TransactionTemplate::Swap(swap_data, note_type) = transaction_template {
+        let payback_note_tag: u32 = build_swap_tag(
+            note_type,
+            swap_data.offered_asset().faucet_id(),
+            swap_data.requested_asset().faucet_id(),
+        )
+        .map_err(|err| err.to_string())?
+        .into();
+        println!(
+            "To receive updates about the payback Swap Note run `miden tags add {}`",
+            payback_note_tag
+        );
+    }
 
     println!("Succesfully created transaction.");
     println!("Transaction ID: {}", transaction_id);
@@ -311,5 +399,47 @@ fn print_transaction_details(transaction_result: &TransactionResult) {
         println!("New nonce: {new_nonce}.")
     } else {
         println!("No nonce changes.")
+    }
+}
+
+// HELPERS
+// ================================================================================================
+
+/// Returns a note tag for a swap note with the specified parameters.
+///
+/// Use case ID for the returned tag is set to 0.
+///
+/// Tag payload is constructed by taking asset tags (8 bits of faucet ID) and concatenating them
+/// together as offered_asset_tag + requested_asset tag.
+///
+/// Network execution hint for the returned tag is set to `Local`.
+///
+/// Based on miden-base's implementation (<https://github.com/0xPolygonMiden/miden-base/blob/9e4de88031b55bcc3524cb0ccfb269821d97fb29/miden-lib/src/notes/mod.rs#L153>)
+///
+/// TODO: we should make the function in base public and once that gets released use that one and
+/// delete this implementation.
+fn build_swap_tag(
+    note_type: MidenNoteType,
+    offered_asset_faucet_id: AccountId,
+    requested_asset_faucet_id: AccountId,
+) -> Result<NoteTag, NoteError> {
+    const SWAP_USE_CASE_ID: u16 = 0;
+
+    // get bits 4..12 from faucet IDs of both assets, these bits will form the tag payload; the
+    // reason we skip the 4 most significant bits is that these encode metadata of underlying
+    // faucets and are likely to be the same for many different faucets.
+
+    let offered_asset_id: u64 = offered_asset_faucet_id.into();
+    let offered_asset_tag = (offered_asset_id >> 52) as u8;
+
+    let requested_asset_id: u64 = requested_asset_faucet_id.into();
+    let requested_asset_tag = (requested_asset_id >> 52) as u8;
+
+    let payload = ((offered_asset_tag as u16) << 8) | (requested_asset_tag as u16);
+
+    let execution = NoteExecutionHint::Local;
+    match note_type {
+        MidenNoteType::Public => NoteTag::for_public_use_case(SWAP_USE_CASE_ID, payload, execution),
+        _ => NoteTag::for_local_use_case(SWAP_USE_CASE_ID, payload),
     }
 }

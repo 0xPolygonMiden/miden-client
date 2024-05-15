@@ -168,6 +168,14 @@ Creates a note that contains a specific amount tokens minted by a faucet, that t
 Usage: `miden mint --target <TARGET ACCOUNT ID> --faucet <FAUCET ID> <AMOUNT> --note-type <NOTE_TYPE>`
 
 #### `consume-notes`
+=======
+| Command         | Explanation                                                                                                       |
+|-----------------|-------------------------------------------------------------------------------------------------------------------|
+| `p2id --sender <SENDER ACCOUNT ID> --target <TARGET ACCOUNT ID> --faucet <FAUCET ID> <AMOUNT> --note-type <NOTE_TYPE>`            | Pay-to-id transaction. Sender Account creates a note that a target Account ID can consume. The asset is identifed by the tuple `(FAUCET ID, AMOUNT)`. |
+| `p2idr --sender <SENDER ACCOUNT ID> --target <TARGET ACCOUNT ID> --faucet <FAUCET ID> <AMOUNT> <RECALL_HEIGHT> --note-type <NOTE_TYPE>`            | Pay-to-id With Recall transaction. Sender Account creates a note that a target Account ID can consume, but the Sender will also be able to consume it after `<RECALL_HEIGHT>` is reached. The asset is identifed by the tuple `(FAUCET ID, AMOUNT)`. |
+| `mint --target <TARGET ACCOUNT ID> --faucet <FAUCET ID> <AMOUNT> --note-type <NOTE_TYPE>`           | Creates a note that contains a specific amount tokens minted by a faucet, that the target Account ID can consume|
+| `swap --source <SOURCE ACCOUNT ID> --offered_faucet <OFFERED FAUCET ID> --offered_amount <OFFERED AMOUNT> --requested_faucet <REQUESTED FAUCET ID> --requested_amount <REQUESTED AMOUNT> --note-type <NOTE_TYPE>`           | Swap transaction. Source Account creates a swap note that offers some asset in exchange for some other asset. When another account consumes that note, it'll receive the offered amount and it'll have the requested amount removed from its assets. Consuming the note will fail if it doesn't have enough of the requested asset. |
+| `consume-notes  --account <ACCOUNT ID> [NOTES]`  | Account ID consumes a list of notes, specified by their Note ID |
 
 Account ID consumes a list of notes, specified by their Note ID.
 

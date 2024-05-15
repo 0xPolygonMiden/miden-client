@@ -124,7 +124,7 @@ impl NodeRpcClient for MockRpcApi {
         response.into_inner().try_into()
     }
 
-    /// Creates and executes a [GetBlockHeaderByNumberRequest].
+    /// Creates and executes a [GetBlockHeaderByNumberRequest](miden_node_proto::generated::requests::GetBlockHeaderByNumberRequest).
     /// Only used for retrieving genesis block right now so that's the only case we need to cover.
     async fn get_block_header_by_number(
         &mut self,

@@ -20,6 +20,7 @@ use common::*;
 
 mod custom_transactions_tests;
 mod onchain_tests;
+mod swap_transactions_tests;
 
 #[tokio::test]
 async fn test_added_notes() {
