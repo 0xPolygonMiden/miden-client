@@ -34,7 +34,7 @@ use self::{
     import::ImportCmd,
     init::InitCmd,
     new_account::{NewFaucetCmd, NewWalletCmd},
-    new_transactions::{ConsumeNotesCmd, MintCmd, NewTransactionCmd, P2IDCmd},
+    new_transactions::{ConsumeNotesCmd, MintCmd, NewTransactionCmd, SendCmd},
     notes::NotesCmd,
     tags::TagsCmd,
 };
@@ -88,8 +88,7 @@ pub enum Command {
     #[clap(name = "tx")]
     Transaction(TransactionCmd),
     Mint(MintCmd),
-    P2ID(P2IDCmd),
-    P2IDR(P2IDCmd),
+    Send(SendCmd),
     ConsumeNotes(ConsumeNotesCmd),
 }
 
@@ -148,8 +147,7 @@ impl Cli {
             Command::Transaction(transaction) => transaction.execute(client).await,
             Command::Export(cmd) => cmd.execute(client),
             Command::Mint(mint) => mint.clone().execute(client, default_account_id).await,
-            Command::P2ID(p2id) => p2id.clone().execute(client, default_account_id).await,
-            Command::P2IDR(p2idr) => p2idr.clone().execute(client, default_account_id).await,
+            Command::Send(send) => send.clone().execute(client, default_account_id).await,
             Command::ConsumeNotes(consume_notes) => {
                 consume_notes.clone().execute(client, default_account_id).await
             },

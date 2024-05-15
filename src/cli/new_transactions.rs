@@ -114,7 +114,7 @@ impl NewTransactionCmd for MintCmd {
 
 #[derive(Debug, Parser, Clone)]
 /// Create a pay-to-id transaction.
-pub struct P2IDCmd {
+pub struct SendCmd {
     /// Sender account ID or its hex prefix. If none is provided, the default account's ID is used instead
     #[clap(short = 's', long = "sender")]
     sender_account_id: Option<String>,
@@ -124,17 +124,21 @@ pub struct P2IDCmd {
     /// Faucet account ID or its hex prefix
     #[clap(short = 'f', long = "faucet")]
     faucet_id: String,
-    /// Amount of tokens to mint
-    #[clap(short, long)]
-    amount: u64,
     #[clap(short, long, value_enum)]
     note_type: NoteType,
     /// Flag to submit the executed transaction without asking for confirmation
     #[clap(short, long, default_value_t = false)]
     force: bool,
+    /// Set the recall height for the transaction. If the note was not consumed by this height, the sender may consume it back.
+    ///
+    /// Setting this flag turns the transaction from a PayToId to a PayToIdWithRecall.
+    #[clap(short, long)]
+    recall_height: Option<u32>,
+    /// Amount of tokens to mint
+    amount: u64,
 }
 
-impl NewTransactionCmd for P2IDCmd {
+impl NewTransactionCmd for SendCmd {
     fn force(&self) -> bool {
         self.force
     }
@@ -160,67 +164,15 @@ impl NewTransactionCmd for P2IDCmd {
 
         let payment_transaction =
             PaymentTransactionData::new(fungible_asset, sender_account_id, target_account_id);
-
-        Ok(TransactionTemplate::PayToId(payment_transaction, (&self.note_type).into()))
-    }
-}
-
-#[derive(Debug, Parser, Clone)]
-/// Create a pay-to-id with recall transaction.
-pub struct P2IDRCmd {
-    /// Sender account ID or its hex prefix. If none is provided, the default account's ID is used instead
-    #[clap(short = 's', long = "sender")]
-    sender_account_id: Option<String>,
-    /// Target account ID or its hex prefix
-    #[clap(short = 't', long = "target")]
-    target_account_id: String,
-    /// Faucet account ID or its hex prefix
-    #[clap(short = 'f', long = "faucet")]
-    faucet_id: String,
-    /// Amount of tokens to mint
-    #[clap(short, long)]
-    amount: u64,
-    #[clap(short, long)]
-    recall_height: u32,
-    #[clap(short, long, value_enum)]
-    note_type: NoteType,
-    /// Flag to submit the executed transaction without asking for confirmation
-    #[clap(short, long, default_value_t = false)]
-    force: bool,
-}
-
-impl NewTransactionCmd for P2IDRCmd {
-    fn force(&self) -> bool {
-        self.force
-    }
-
-    fn into_template<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        self,
-        client: &Client<N, R, S, A>,
-        default_account_id: Option<String>,
-    ) -> Result<TransactionTemplate, String> {
-        let faucet_id = parse_account_id(client, self.faucet_id.as_str())?;
-        let fungible_asset = FungibleAsset::new(faucet_id, self.amount)
-            .map_err(|err| err.to_string())?
-            .into();
-
-        // try to use either the provided argument or the default account
-        let sender_account_id = self
-            .sender_account_id
-            .clone()
-            .or(default_account_id)
-            .ok_or("Neither a sender nor a default account was provided".to_string())?;
-        let sender_account_id = parse_account_id(client, &sender_account_id)?;
-        let target_account_id = parse_account_id(client, self.target_account_id.as_str())?;
-
-        let payment_transaction =
-            PaymentTransactionData::new(fungible_asset, sender_account_id, target_account_id);
-
-        Ok(TransactionTemplate::PayToIdWithRecall(
-            payment_transaction,
-            self.recall_height,
-            (&self.note_type).into(),
-        ))
+        if let Some(recall_height) = self.recall_height {
+            Ok(TransactionTemplate::PayToIdWithRecall(
+                payment_transaction,
+                recall_height,
+                (&self.note_type).into(),
+            ))
+        } else {
+            Ok(TransactionTemplate::PayToId(payment_transaction, (&self.note_type).into()))
+        }
     }
 }
 
