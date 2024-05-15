@@ -27,6 +27,7 @@ use crate::cli::{
 
 #[derive(Clone, Debug, ValueEnum)]
 pub enum NoteFilter {
+    All,
     Pending,
     Committed,
     Consumed,
@@ -38,6 +39,7 @@ impl TryInto<ClientNoteFilter<'_>> for NoteFilter {
 
     fn try_into(self) -> Result<ClientNoteFilter<'static>, Self::Error> {
         match self {
+            NoteFilter::All => Ok(ClientNoteFilter::All),
             NoteFilter::Pending => Ok(ClientNoteFilter::Pending),
             NoteFilter::Committed => Ok(ClientNoteFilter::Committed),
             NoteFilter::Consumed => Ok(ClientNoteFilter::Consumed),
@@ -50,8 +52,8 @@ impl TryInto<ClientNoteFilter<'_>> for NoteFilter {
 #[clap(about = "View and manage notes")]
 pub struct NotesCmd {
     /// List notes with the specified filter. If no filter is provided, all notes will be listed.
-    #[clap(short, long, group = "action", value_name = "filter")]
-    list: Option<Option<NoteFilter>>,
+    #[clap(short, long, group = "action", default_missing_value="all", num_args=0..=1, value_name = "filter")]
+    list: Option<NoteFilter>,
     /// Show note with the specified ID.
     #[clap(short, long, group = "action", value_name = "note_id")]
     show: Option<String>,
@@ -66,15 +68,10 @@ impl NotesCmd {
         client: Client<N, R, S, A>,
     ) -> Result<(), String> {
         match self {
-            NotesCmd { list: Some(None), .. } => {
-                list_notes(client, ClientNoteFilter::All)?;
-            },
-            NotesCmd {
-                list: Some(Some(NoteFilter::Consumable)), ..
-            } => {
+            NotesCmd { list: Some(NoteFilter::Consumable), .. } => {
                 list_consumable_notes(client, &None)?;
             },
-            NotesCmd { list: Some(Some(filter)), .. } => {
+            NotesCmd { list: Some(filter), .. } => {
                 list_notes(
                     client,
                     filter.clone().try_into().expect("Filter shouldn't be consumable"),
