@@ -191,6 +191,12 @@ Sends assets to another account. Sender Account creates a note that a target Acc
 
 Usage: `miden send --sender <SENDER ACCOUNT ID> --target <TARGET ACCOUNT ID> --faucet <FAUCET ID>  --note-type <NOTE_TYPE> <AMOUNT> <RECALL_HEIGHT>`
 
+#### `swap`
+
+The source account creates a Swap note that offers some asset in exchange for some other asset. When another account consumes that note, it'll receive the offered amount and it'll have the requested amount removed from its assets (and put into a new note which the first account can then consume). Consuming the note will fail if the account doesn't have enough of the requested asset. 
+
+Usage:  `miden swap --source <SOURCE ACCOUNT ID> --offered_faucet <OFFERED FAUCET ID> --offered_amount <OFFERED AMOUNT> --requested_faucet <REQUESTED FAUCET ID> --requested_amount <REQUESTED AMOUNT> --note-type <NOTE_TYPE>`
+
 #### Tips
 For `send` and `consume-notes`, you can omit the `--sender` and `--account` flags to use the default account defined in the [config](./cli-config.md). If you omit the flag but have no default account defined in the config, you'll get an error instead.
 
