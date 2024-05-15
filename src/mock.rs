@@ -20,7 +20,7 @@ use miden_objects::{
     assets::{Asset, AssetVault, FungibleAsset, TokenSymbol},
     crypto::{
         dsa::rpo_falcon512::SecretKey,
-        merkle::{Mmr, MmrDelta, NodeIndex, SimpleSmt},
+        merkle::{Mmr, MmrDelta, MmrProof, NodeIndex, SimpleSmt},
         rand::RpoRandomCoin,
     },
     notes::{
@@ -130,9 +130,9 @@ impl NodeRpcClient for MockRpcApi {
         &mut self,
         block_num: Option<u32>,
         _include_mmr_proof: bool,
-    ) -> Result<BlockHeader, NodeRpcClientError> {
+    ) -> Result<(BlockHeader, Option<MmrProof>), NodeRpcClientError> {
         if block_num == Some(0) {
-            return Ok(self.genesis_block);
+            return Ok((self.genesis_block, None));
         }
         panic!("get_block_header_by_number is supposed to be only used for genesis block")
     }

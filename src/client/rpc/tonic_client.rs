@@ -14,6 +14,7 @@ use miden_node_proto::{
 };
 use miden_objects::{
     accounts::{Account, AccountId},
+    crypto::merkle::{MerklePath, MmrProof},
     notes::{Note, NoteId, NoteMetadata, NoteTag, NoteType},
     transaction::ProvenTransaction,
     utils::Deserializable,
@@ -91,11 +92,12 @@ impl NodeRpcClient for TonicRpcClient {
         &mut self,
         block_num: Option<u32>,
         include_mmr_proof: bool,
-    ) -> Result<BlockHeader, NodeRpcClientError> {
+    ) -> Result<(BlockHeader, Option<MmrProof>), NodeRpcClientError> {
         let request = GetBlockHeaderByNumberRequest {
             block_num,
             include_mmr_proof: Some(include_mmr_proof),
         };
+
         let rpc_api = self.rpc_api().await?;
         let api_response = rpc_api.get_block_header_by_number(request).await.map_err(|err| {
             NodeRpcClientError::RequestError(
@@ -104,12 +106,38 @@ impl NodeRpcClient for TonicRpcClient {
             )
         })?;
 
-        api_response
-            .into_inner()
+        let response = api_response.into_inner();
+
+        let block_header: BlockHeader = response
             .block_header
             .ok_or(NodeRpcClientError::ExpectedFieldMissing("BlockHeader".into()))?
             .try_into()
-            .map_err(|err: ConversionError| NodeRpcClientError::ConversionFailure(err.to_string()))
+            .map_err(|err: ConversionError| {
+                NodeRpcClientError::ConversionFailure(err.to_string())
+            })?;
+
+        let mmr_proof = if include_mmr_proof {
+            let forest = response
+                .chain_length
+                .ok_or(NodeRpcClientError::ExpectedFieldMissing("ChainLength".into()))?;
+            let merkle_path: MerklePath = response
+                .mmr_path
+                .ok_or(NodeRpcClientError::ExpectedFieldMissing("MmrPath".into()))?
+                .try_into()
+                .map_err(|err: ConversionError| {
+                    NodeRpcClientError::ConversionFailure(err.to_string())
+                })?;
+
+            Some(MmrProof {
+                forest: forest as usize,
+                position: block_header.block_num() as usize,
+                merkle_path,
+            })
+        } else {
+            None
+        };
+
+        Ok((block_header, mmr_proof))
     }
 
     async fn get_notes_by_id(

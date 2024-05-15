@@ -22,6 +22,7 @@ pub enum ClientError {
     ImportNewAccountWithoutSeed,
     MissingOutputNotes(Vec<NoteId>),
     NoteError(NoteError),
+    NoteImportError(String),
     NoteRecordError(String),
     NoConsumableNoteForAccount(AccountId),
     NodeRpcClientError(NodeRpcClientError),
@@ -56,6 +57,7 @@ impl fmt::Display for ClientError {
                 write!(f, "No consumable note for account ID {}", account_id)
             },
             ClientError::NoteError(err) => write!(f, "note error: {err}"),
+            ClientError::NoteImportError(err) => write!(f, "error importing note: {err}"),
             ClientError::NoteRecordError(err) => write!(f, "note record error: {err}"),
             ClientError::NodeRpcClientError(err) => write!(f, "rpc api error: {err}"),
             ClientError::ScreenerError(err) => write!(f, "note screener error: {err}"),
