@@ -124,7 +124,7 @@ async fn test_swap_fully_onchain() {
     let tx_request = client1.build_transaction_request(tx_template).unwrap();
 
     let expected_output_notes = tx_request.expected_output_notes().to_vec();
-    let expected_payback_note_details = tx_request.expected_partial_output_notes().to_vec();
+    let expected_payback_note_details = tx_request.expected_partial_notes().to_vec();
     assert_eq!(expected_output_notes.len(), 1);
     assert_eq!(expected_payback_note_details.len(), 1);
 
@@ -220,7 +220,6 @@ async fn test_swap_fully_onchain() {
 }
 
 #[tokio::test]
-#[ignore = "Currently we're unable to import offchain notes from blocks we are not tracking. Once https://github.com/0xPolygonMiden/miden-client/pull/337 gets merged we should be able to remove this ignore."]
 async fn test_swap_offchain() {
     const OFFERED_ASSET_AMOUNT: u64 = 1;
     const REQUESTED_ASSET_AMOUNT: u64 = 25;
@@ -331,7 +330,7 @@ async fn test_swap_offchain() {
     let tx_request = client1.build_transaction_request(tx_template).unwrap();
 
     let expected_output_notes = tx_request.expected_output_notes().to_vec();
-    let expected_payback_note_details = tx_request.expected_partial_output_notes().to_vec();
+    let expected_payback_note_details = tx_request.expected_partial_notes().to_vec();
     assert_eq!(expected_output_notes.len(), 1);
     assert_eq!(expected_payback_note_details.len(), 1);
 

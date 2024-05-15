@@ -487,6 +487,9 @@ where
 /// Network execution hint for the returned tag is set to `Local`.
 ///
 /// Based on miden-base's implementation (<https://github.com/0xPolygonMiden/miden-base/blob/9e4de88031b55bcc3524cb0ccfb269821d97fb29/miden-lib/src/notes/mod.rs#L153>)
+///
+/// TODO: we should make the function in base public and once that gets released use that one and
+/// delete this implementation.
 fn build_swap_tag(
     note_type: NoteType,
     offered_asset_faucet_id: AccountId,

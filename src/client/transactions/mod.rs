@@ -48,7 +48,7 @@ impl TransactionResult {
     pub fn new<S: Store>(
         transaction: ExecutedTransaction,
         note_screener: NoteScreener<S>,
-        partial_output_notes: Vec<NoteDetails>,
+        partial_notes: Vec<NoteDetails>,
     ) -> Result<Self, ClientError> {
         let mut relevant_notes = vec![];
 
@@ -61,7 +61,7 @@ impl TransactionResult {
         }
 
         // Include partial output notes into the relevant notes
-        relevant_notes.extend(partial_output_notes.iter().map(InputNoteRecord::from_details));
+        relevant_notes.extend(partial_notes.iter().map(InputNoteRecord::from));
 
         let tx_result = Self { transaction, relevant_notes };
 
@@ -237,7 +237,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let note_ids = transaction_request.get_input_note_ids();
         let output_notes = transaction_request.expected_output_notes().to_vec();
-        let partial_output_notes = transaction_request.expected_partial_output_notes().to_vec();
+        let partial_notes = transaction_request.expected_partial_notes().to_vec();
 
         // Execute the transaction and get the witness
         let executed_transaction = self.tx_executor.execute_transaction(
@@ -269,7 +269,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let screener = NoteScreener::new(self.store.clone());
 
-        TransactionResult::new(executed_transaction, screener, partial_output_notes)
+        TransactionResult::new(executed_transaction, screener, partial_notes)
     }
 
     /// Proves the specified transaction witness, submits it to the node, and stores the transaction in

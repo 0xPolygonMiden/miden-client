@@ -66,25 +66,6 @@ impl InputNoteRecord {
         }
     }
 
-    pub fn from_details(note_details: &NoteDetails) -> InputNoteRecord {
-        InputNoteRecord {
-            id: note_details.id(),
-            assets: note_details.assets().clone(),
-            recipient: note_details.recipient().digest(),
-            metadata: None,
-            inclusion_proof: None,
-            status: NoteStatus::Pending,
-            details: NoteRecordDetails {
-                nullifier: note_details.nullifier().to_string(),
-                script_hash: note_details.script().hash(),
-                script: note_details.script().clone(),
-                inputs: note_details.inputs().to_vec(),
-                serial_num: note_details.serial_num(),
-            },
-            consumer_account_id: None,
-        }
-    }
-
     pub fn id(&self) -> NoteId {
         self.id
     }
@@ -119,6 +100,27 @@ impl InputNoteRecord {
 
     pub fn consumer_account_id(&self) -> Option<AccountId> {
         self.consumer_account_id
+    }
+}
+
+impl From<&NoteDetails> for InputNoteRecord {
+    fn from(note_details: &NoteDetails) -> Self {
+        InputNoteRecord {
+            id: note_details.id(),
+            assets: note_details.assets().clone(),
+            recipient: note_details.recipient().digest(),
+            metadata: None,
+            inclusion_proof: None,
+            status: NoteStatus::Pending,
+            details: NoteRecordDetails {
+                nullifier: note_details.nullifier().to_string(),
+                script_hash: note_details.script().hash(),
+                script: note_details.script().clone(),
+                inputs: note_details.inputs().to_vec(),
+                serial_num: note_details.serial_num(),
+            },
+            consumer_account_id: None,
+        }
     }
 }
 
