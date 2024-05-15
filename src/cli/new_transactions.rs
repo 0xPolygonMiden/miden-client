@@ -159,22 +159,22 @@ impl SendCmd {
 }
 
 #[derive(Debug, Parser, Clone)]
-/// Create a pay-to-id transaction.
+/// Create a swap transaction.
 pub struct SwapCmd {
     /// Sender account ID or its hex prefix. If none is provided, the default account's ID is used instead
     #[clap(short = 's', long = "source")]
     sender_account_id: Option<String>,
     /// Offered Faucet account ID or its hex prefix
-    #[clap(long = "offered_faucet")]
+    #[clap(long = "offered-faucet")]
     offered_asset_faucet_id: String,
     /// Offered amount
-    #[clap(long = "offered_amount")]
+    #[clap(long = "offered-amount")]
     offered_asset_amount: u64,
     /// Requested Faucet account ID or its hex prefix
-    #[clap(long = "requested_faucet")]
+    #[clap(long = "requested-faucet")]
     requested_asset_faucet_id: String,
     /// Requested amount
-    #[clap(long = "requested_amount")]
+    #[clap(long = "requested-amount")]
     requested_asset_amount: u64,
     #[clap(short, long, value_enum)]
     note_type: NoteType,
