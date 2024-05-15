@@ -13,7 +13,7 @@ use miden_tx::TransactionAuthenticator;
 use crate::cli::CLIENT_BINARY_NAME;
 
 #[derive(Debug, Parser, Clone)]
-/// Create a new faucet account and store it locally
+/// Create a new faucet account
 pub struct NewFaucetCmd {
     #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
     /// Storage type of the account
@@ -69,7 +69,7 @@ impl NewFaucetCmd {
 }
 
 #[derive(Debug, Parser, Clone)]
-/// Create a new wallet account and store it locally
+/// Create a new wallet account
 pub struct NewWalletCmd {
     #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
     /// Storage type of the account
