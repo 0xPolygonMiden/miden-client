@@ -1,5 +1,5 @@
-use core::cmp::max;
 use alloc::collections::{BTreeMap, BTreeSet};
+use core::cmp::max;
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
@@ -650,7 +650,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         if current_partial_mmr.is_tracked(block_num as usize) {
             warn!("Current partial MMR already contains the requested data");
-            let (block_header, _) = self.store().get_block_header_by_num(block_num)?;
+            let (block_header, _) = self.store.get_block_header_by_num(block_num)?;
             return Ok(block_header);
         }
 
