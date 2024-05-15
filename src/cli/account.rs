@@ -25,6 +25,7 @@ use crate::cli::create_dynamic_table;
 // ================================================================================================
 
 #[derive(Default, Debug, Clone, Parser)]
+/// View and manage accounts. Defaults to `list` command.
 pub struct AccountCmd {
     /// List all accounts monitored by this client (default action)
     #[clap(short, long, group = "action")]

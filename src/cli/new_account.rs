@@ -9,16 +9,22 @@ use miden_tx::TransactionAuthenticator;
 use crate::cli::CLIENT_BINARY_NAME;
 
 #[derive(Debug, Parser, Clone)]
+/// Create a new faucet account and store it locally
 pub struct NewFaucetCmd {
     #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
+    /// Storage type of the account
     pub storage_type: AccountStorageMode,
     #[clap(short, long)]
+    /// Defines if the account assets are non-fungible (by default it is fungible)
     pub non_fungible: bool,
     #[clap(short, long)]
+    /// Token symbol of the faucet
     token_symbol: Option<String>,
     #[clap(short, long)]
+    /// Decimals of the faucet
     decimals: Option<u8>,
     #[clap(short, long)]
+    /// Max supply of the faucet
     max_supply: Option<u64>,
 }
 
@@ -60,10 +66,13 @@ impl NewFaucetCmd {
 }
 
 #[derive(Debug, Parser, Clone)]
+/// Create a new wallet account and store it locally
 pub struct NewWalletCmd {
     #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
+    /// Storage type of the account
     pub storage_type: AccountStorageMode,
     #[clap(short, long)]
+    /// Defines if the account code is mutable (by default it is not mutable)
     pub mutable: bool,
 }
 
