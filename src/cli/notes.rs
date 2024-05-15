@@ -51,11 +51,11 @@ impl TryInto<ClientNoteFilter<'_>> for NoteFilter {
 pub struct NotesCmd {
     /// List notes with the specified filter. If no filter is provided, all notes will be listed.
     #[clap(short, long, group = "action", value_name = "filter")]
-    list: Option<NoteFilter>,
+    list: Option<Option<NoteFilter>>,
     /// Show note with the specified ID.
     #[clap(short, long, group = "action", value_name = "note_id")]
     show: Option<String>,
-    /// (only for `--list consumable`) Account ID used to filter list. Only notes consumable by this account will be shown.
+    /// (only has effect on `--list consumable`) Account ID used to filter list. Only notes consumable by this account will be shown.
     #[clap(short, long, value_name = "account_id")]
     account_id: Option<String>,
 }
@@ -66,10 +66,15 @@ impl NotesCmd {
         client: Client<N, R, S, A>,
     ) -> Result<(), String> {
         match self {
-            NotesCmd { list: Some(NoteFilter::Consumable), .. } => {
+            NotesCmd { list: Some(None), .. } => {
+                list_notes(client, ClientNoteFilter::All)?;
+            },
+            NotesCmd {
+                list: Some(Some(NoteFilter::Consumable)), ..
+            } => {
                 list_consumable_notes(client, &None)?;
             },
-            NotesCmd { list: Some(filter), .. } => {
+            NotesCmd { list: Some(Some(filter)), .. } => {
                 list_notes(
                     client,
                     filter.clone().try_into().expect("Filter shouldn't be consumable"),
