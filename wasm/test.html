@@ -31,8 +31,10 @@
         
         async function createMidenWebClient() {
             try {
+                let local_rpc_url = "http://localhost:57291"
+                let envoy_proxy_url = "http://localhost:8080"
                 const webClient = new WebClient();
-                await webClient.create_client();
+                await webClient.create_client(local_rpc_url);
                 return webClient;
             } catch (error) {
                 console.error('Failed to create client with web store:', error);

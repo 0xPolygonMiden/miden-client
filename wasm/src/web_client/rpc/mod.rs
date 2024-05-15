@@ -50,14 +50,11 @@ impl WebRpcClient {
             endpoint: endpoint.to_string()
         }
     }
-}
 
-fn build_client() -> ApiClient<Client> {
-    // let base_url = "http://localhost:8080".to_string(); // for use with envoy proxy
-    let base_url = "http://localhost:57291".to_string(); // for use without envoy proxy
-    let wasm_client = Client::new(base_url);
-
-    ApiClient::new(wasm_client)
+    pub fn build_api_client(&self) -> ApiClient<Client> {
+        let wasm_client = Client::new(self.endpoint.clone());
+        ApiClient::new(wasm_client)
+    }
 }
 
 #[async_trait(?Send)]
@@ -77,7 +74,7 @@ impl NodeRpcClient for WebRpcClient {
         &mut self,
         proven_transaction: ProvenTransaction,
     ) -> Result<(), NodeRpcClientError> {
-        let mut query_client = build_client();
+        let mut query_client = self.build_api_client();
 
         let request = SubmitProvenTransactionRequest {
             transaction: proven_transaction.to_bytes(),
@@ -97,7 +94,7 @@ impl NodeRpcClient for WebRpcClient {
         &mut self,
         block_num: Option<u32>,
     ) -> Result<BlockHeader, NodeRpcClientError> {
-        let mut query_client = build_client();
+        let mut query_client = self.build_api_client();
 
         let request = GetBlockHeaderByNumberRequest {
             block_num: block_num,
@@ -124,7 +121,7 @@ impl NodeRpcClient for WebRpcClient {
         &mut self,
         note_ids: &[NoteId],
     ) -> Result<Vec<NoteDetails>, NodeRpcClientError> {
-        let mut query_client = build_client();
+        let mut query_client = self.build_api_client();
 
         let request = GetNotesByIdRequest {
             note_ids: note_ids.iter().map(|id| id.inner().into()).collect(),
@@ -191,7 +188,7 @@ impl NodeRpcClient for WebRpcClient {
         note_tags: &[NoteTag],
         nullifiers_tags: &[u16],
     ) -> Result<StateSyncInfo, NodeRpcClientError> {
-        let mut query_client = build_client();
+        let mut query_client = self.build_api_client();
 
         let account_ids = account_ids.iter().map(|acc| (*acc).into()).collect();
         let nullifiers = nullifiers_tags.iter().map(|&nullifier| nullifier as u32).collect();
@@ -229,7 +226,7 @@ impl NodeRpcClient for WebRpcClient {
         &mut self,
         account_id: AccountId
     ) -> Result<Account, NodeRpcClientError> {
-        let mut query_client = build_client();
+        let mut query_client = self.build_api_client();
 
         let account_id = account_id.into();
         let request = GetAccountDetailsRequest { account_id: Some(account_id) };
