@@ -10,7 +10,7 @@ use miden_tx::{utils::Serializable, TransactionAuthenticator};
 use super::Parser;
 
 #[derive(Debug, Parser, Clone)]
-#[clap(about = "Export client objects")]
+#[clap(about = "Export client notes")]
 pub struct ExportCmd {
     /// ID of the output note to export
     #[clap()]

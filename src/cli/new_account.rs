@@ -1,6 +1,10 @@
 use clap::{Parser, ValueEnum};
 use miden_client::{
-    client::{accounts, rpc::NodeRpcClient, Client},
+    client::{
+        accounts::{self, AccountTemplate},
+        rpc::NodeRpcClient,
+        Client,
+    },
     store::Store,
 };
 use miden_objects::{assets::TokenSymbol, crypto::rand::FeltRng};
@@ -13,10 +17,10 @@ use crate::cli::CLIENT_BINARY_NAME;
 pub struct NewFaucetCmd {
     #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
     /// Storage type of the account
-    pub storage_type: AccountStorageMode,
+    storage_type: AccountStorageMode,
     #[clap(short, long)]
     /// Defines if the account assets are non-fungible (by default it is fungible)
-    pub non_fungible: bool,
+    non_fungible: bool,
     #[clap(short, long)]
     /// Token symbol of the faucet
     token_symbol: Option<String>,
@@ -24,7 +28,6 @@ pub struct NewFaucetCmd {
     /// Decimals of the faucet
     decimals: Option<u8>,
     #[clap(short, long)]
-    /// Max supply of the faucet
     max_supply: Option<u64>,
 }
 
@@ -34,17 +37,17 @@ impl NewFaucetCmd {
         mut client: Client<N, R, S, A>,
     ) -> Result<(), String> {
         if self.non_fungible {
-            return Err("Non-fungible faucets are not supported yet".to_string());
+            todo!("Non-fungible faucets are not supported yet");
         }
 
         if self.token_symbol.is_none() || self.decimals.is_none() || self.max_supply.is_none() {
             return Err(
-                "Token symbol, decimals and max supply must be provided for a fungible faucet"
+                "`token-symbol`, `decimals` and `max-supply` flags must be provided for a fungible faucet"
                     .to_string(),
             );
         }
 
-        let client_template = accounts::AccountTemplate::FungibleFaucet {
+        let client_template = AccountTemplate::FungibleFaucet {
             token_symbol: TokenSymbol::new(
                 self.token_symbol.clone().expect("token symbol must be provided").as_str(),
             )
@@ -81,7 +84,7 @@ impl NewWalletCmd {
         &self,
         mut client: Client<N, R, S, A>,
     ) -> Result<(), String> {
-        let client_template = accounts::AccountTemplate::BasicWallet {
+        let client_template = AccountTemplate::BasicWallet {
             mutable_code: self.mutable,
             storage_mode: self.storage_type.into(),
         };

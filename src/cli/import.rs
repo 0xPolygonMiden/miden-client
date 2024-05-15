@@ -35,7 +35,7 @@ impl ImportCmd {
         &self,
         mut client: Client<N, R, S, A>,
     ) -> Result<(), String> {
-        validate_paths(&self.filenames, None)?;
+        validate_paths(&self.filenames)?;
         for filename in &self.filenames {
             let note_id = import_note(&mut client, filename.clone(), !self.no_verify).await;
             if note_id.is_ok() {
@@ -101,20 +101,11 @@ pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionA
 
 /// Checks that all files exist, otherwise returns an error. It also ensures that all files have a
 /// specific extension
-fn validate_paths(paths: &[PathBuf], expected_extension: Option<&str>) -> Result<(), String> {
-    let invalid_path = paths.iter().find(|path| {
-        !path.exists()
-            || expected_extension.is_some_and(|expected_extension| {
-                path.extension().map_or(false, |ext| ext != expected_extension)
-            })
-    });
+fn validate_paths(paths: &[PathBuf]) -> Result<(), String> {
+    let invalid_path = paths.iter().find(|path| !path.exists());
 
     if let Some(path) = invalid_path {
-        Err(format!(
-            "The path `{}` does not exist or does not have the appropiate extension",
-            path.to_string_lossy()
-        )
-        .to_string())
+        Err(format!("The path `{}` does not exist", path.to_string_lossy()).to_string())
     } else {
         Ok(())
     }

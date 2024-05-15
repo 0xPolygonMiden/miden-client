@@ -33,6 +33,19 @@ pub enum NoteFilter {
     Consumable,
 }
 
+impl TryInto<ClientNoteFilter<'_>> for NoteFilter {
+    type Error = String;
+
+    fn try_into(self) -> Result<ClientNoteFilter<'static>, Self::Error> {
+        match self {
+            NoteFilter::Pending => Ok(ClientNoteFilter::Pending),
+            NoteFilter::Committed => Ok(ClientNoteFilter::Committed),
+            NoteFilter::Consumed => Ok(ClientNoteFilter::Consumed),
+            NoteFilter::Consumable => Err("Consumable filter is not supported".to_string()),
+        }
+    }
+}
+
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "View and manage notes")]
 pub struct NotesCmd {
@@ -53,19 +66,14 @@ impl NotesCmd {
         client: Client<N, R, S, A>,
     ) -> Result<(), String> {
         match self {
-            NotesCmd { list: Some(filter), .. } => match filter {
-                NoteFilter::Consumable => {
-                    list_consumable_notes(client, &self.account_id)?;
-                },
-                NoteFilter::Committed => {
-                    list_notes(client, ClientNoteFilter::Committed)?;
-                },
-                NoteFilter::Consumed => {
-                    list_notes(client, ClientNoteFilter::Consumed)?;
-                },
-                NoteFilter::Pending => {
-                    list_notes(client, ClientNoteFilter::Pending)?;
-                },
+            NotesCmd { list: Some(NoteFilter::Consumable), .. } => {
+                list_consumable_notes(client, &None)?;
+            },
+            NotesCmd { list: Some(filter), .. } => {
+                list_notes(
+                    client,
+                    filter.clone().try_into().expect("Filter shouldn't be consumable"),
+                )?;
             },
             NotesCmd { show: Some(id), .. } => {
                 show_note(client, id.to_owned())?;
