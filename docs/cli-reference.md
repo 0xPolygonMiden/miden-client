@@ -168,7 +168,6 @@ Creates a note that contains a specific amount tokens minted by a faucet, that t
 Usage: `miden mint --target <TARGET ACCOUNT ID> --faucet <FAUCET ID> <AMOUNT> --note-type <NOTE_TYPE>`
 
 #### `consume-notes`
-=======
 
 Account ID consumes a list of notes, specified by their Note ID.
 
