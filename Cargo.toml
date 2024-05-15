@@ -1,15 +1,15 @@
 [package]
 name = "miden-client"
-version = "0.2.1"
+version = "0.3.0"
 description = "Client library that facilitates interaction with the Miden rollup"
 authors = ["miden contributors"]
 readme = "README.md"
 license = "MIT"
 repository = "https://github.com/0xPolygonMiden/miden-client"
-documentation = "https://docs.rs/miden-client/0.2.1"
+documentation = "https://docs.rs/miden-client/0.3.0"
 keywords = ["miden", "client"]
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.78"
 default-run = "miden"
 
 [[bin]]
@@ -22,11 +22,7 @@ path = "tests/integration/main.rs"
 required-features = ["integration"]
 
 [features]
-concurrent = [
-    "miden-lib/concurrent",
-    "miden-objects/concurrent",
-    "miden-tx/concurrent",
-]
+concurrent = ["miden-lib/concurrent", "miden-objects/concurrent", "miden-tx/concurrent"]
 default = ["std"]
 integration = ["testing", "concurrent", "uuid"]
 std = ["miden-objects/std"]
