@@ -36,11 +36,11 @@ pub mod transaction_request;
 ///  
 /// It contains an [ExecutedTransaction], and a list of `relevant_notes` that contains the
 /// `output_notes` that the client has to store as input notes, based on the NoteScreener
-/// output from filtering the transaction's output notes.
+/// output from filtering the transaction's output notes or some partial note we expect to receive
+/// in the future (you can check at swap notes for an example of this).
 pub struct TransactionResult {
     transaction: ExecutedTransaction,
     relevant_notes: Vec<InputNoteRecord>,
-    partial_output_notes: Vec<NoteDetails>,
 }
 
 impl TransactionResult {
@@ -60,11 +60,10 @@ impl TransactionResult {
             }
         }
 
-        let tx_result = Self {
-            transaction,
-            relevant_notes,
-            partial_output_notes,
-        };
+        // Include partial output notes into the relevant notes
+        relevant_notes.extend(partial_output_notes.iter().map(InputNoteRecord::from_details));
+
+        let tx_result = Self { transaction, relevant_notes };
 
         Ok(tx_result)
     }
@@ -79,10 +78,6 @@ impl TransactionResult {
 
     pub fn relevant_notes(&self) -> &[InputNoteRecord] {
         &self.relevant_notes
-    }
-
-    pub fn partial_output_notes(&self) -> &Vec<NoteDetails> {
-        &self.partial_output_notes
     }
 
     pub fn block_num(&self) -> u32 {
