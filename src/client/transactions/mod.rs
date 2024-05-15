@@ -1,28 +1,30 @@
 use alloc::collections::{BTreeMap, BTreeSet};
 
-use miden_lib::notes::{create_p2id_note, create_p2idr_note};
+use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
-    accounts::{AccountDelta, AccountId},
+    accounts::{AccountDelta, AccountId, AuthSecretKey},
     assembly::ProgramAst,
     assets::FungibleAsset,
     crypto::rand::RpoRandomCoin,
-    notes::{Note, NoteId, NoteType},
+    notes::{Note, NoteDetails, NoteId, NoteType},
     transaction::{
-        ExecutedTransaction, InputNotes, OutputNotes, ProvenTransaction, TransactionArgs,
-        TransactionId, TransactionScript,
+        ExecutedTransaction, InputNotes, OutputNote, OutputNotes, ProvenTransaction,
+        TransactionArgs, TransactionId, TransactionScript,
     },
     Digest, Felt, Word,
 };
-use miden_tx::{ProvingOptions, ScriptTarget, TransactionProver};
+use miden_tx::{ProvingOptions, ScriptTarget, TransactionAuthenticator, TransactionProver};
 use rand::Rng;
 use tracing::info;
 
-use self::transaction_request::{PaymentTransactionData, TransactionRequest, TransactionTemplate};
-use super::{note_screener::NoteRelevance, rpc::NodeRpcClient, Client, FeltRng};
+use self::transaction_request::{
+    PaymentTransactionData, SwapTransactionData, TransactionRequest, TransactionTemplate,
+};
+use super::{rpc::NodeRpcClient, Client, FeltRng};
 use crate::{
     client::NoteScreener,
     errors::ClientError,
-    store::{AuthInfo, Store, TransactionFilter},
+    store::{InputNoteRecord, Store, TransactionFilter},
 };
 
 pub mod transaction_request;
@@ -30,66 +32,68 @@ pub mod transaction_request;
 // TRANSACTION RESULT
 // --------------------------------------------------------------------------------------------
 
-/// Represents the result of executing a transaction by the client
+/// Represents the result of executing a transaction by the client.
 ///  
-/// It contains an [ExecutedTransaction], a list of [Note] that describe the details of the notes
-/// created by the transaction execution, and a list of `usize` `relevant_notes` that contain the
-/// indices of `output_notes` that are relevant to the client
+/// It contains an [ExecutedTransaction], and a list of `relevant_notes` that contains the
+/// `output_notes` that the client has to store as input notes, based on the NoteScreener
+/// output from filtering the transaction's output notes or some partial note we expect to receive
+/// in the future (you can check at swap notes for an example of this).
 pub struct TransactionResult {
-    executed_transaction: ExecutedTransaction,
-    output_notes: Vec<Note>,
-    relevant_notes: Option<BTreeMap<usize, Vec<(AccountId, NoteRelevance)>>>,
+    transaction: ExecutedTransaction,
+    relevant_notes: Vec<InputNoteRecord>,
 }
 
 impl TransactionResult {
-    pub fn new(executed_transaction: ExecutedTransaction, created_notes: Vec<Note>) -> Self {
-        Self {
-            executed_transaction,
-            output_notes: created_notes,
-            relevant_notes: None,
+    /// Screens the output notes to store and track the relevant ones, and instantiates a [TransactionResult]
+    pub fn new<S: Store>(
+        transaction: ExecutedTransaction,
+        note_screener: NoteScreener<S>,
+        partial_notes: Vec<NoteDetails>,
+    ) -> Result<Self, ClientError> {
+        let mut relevant_notes = vec![];
+
+        for note in notes_from_output(transaction.output_notes()) {
+            let account_relevance = note_screener.check_relevance(note)?;
+
+            if !account_relevance.is_empty() {
+                relevant_notes.push(note.clone().into());
+            }
         }
+
+        // Include partial output notes into the relevant notes
+        relevant_notes.extend(partial_notes.iter().map(InputNoteRecord::from));
+
+        let tx_result = Self { transaction, relevant_notes };
+
+        Ok(tx_result)
     }
 
     pub fn executed_transaction(&self) -> &ExecutedTransaction {
-        &self.executed_transaction
+        &self.transaction
     }
 
-    pub fn created_notes(&self) -> &Vec<Note> {
-        &self.output_notes
+    pub fn created_notes(&self) -> &OutputNotes {
+        self.transaction.output_notes()
     }
 
-    pub fn relevant_notes(&self) -> Vec<&Note> {
-        if let Some(relevant_notes) = &self.relevant_notes {
-            relevant_notes
-                .keys()
-                .map(|note_index| &self.output_notes[*note_index])
-                .collect()
-        } else {
-            self.created_notes().iter().collect()
-        }
-    }
-
-    pub fn set_relevant_notes(
-        &mut self,
-        relevant_notes: BTreeMap<usize, Vec<(AccountId, NoteRelevance)>>,
-    ) {
-        self.relevant_notes = Some(relevant_notes);
+    pub fn relevant_notes(&self) -> &[InputNoteRecord] {
+        &self.relevant_notes
     }
 
     pub fn block_num(&self) -> u32 {
-        self.executed_transaction.block_header().block_num()
+        self.transaction.block_header().block_num()
     }
 
     pub fn transaction_arguments(&self) -> &TransactionArgs {
-        self.executed_transaction.tx_args()
+        self.transaction.tx_args()
     }
 
     pub fn account_delta(&self) -> &AccountDelta {
-        self.executed_transaction.account_delta()
+        self.transaction.account_delta()
     }
 
     pub fn consumed_notes(&self) -> &InputNotes {
-        self.executed_transaction.tx_inputs().input_notes()
+        self.transaction.tx_inputs().input_notes()
     }
 }
 
@@ -158,7 +162,7 @@ impl std::fmt::Display for TransactionStatus {
     }
 }
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
@@ -182,26 +186,33 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         let account_id = transaction_template.account_id();
         let account_auth = self.store.get_account_auth(account_id)?;
 
+        let (_pk, _sk) = match account_auth {
+            AuthSecretKey::RpoFalcon512(key) => {
+                (key.public_key(), AuthSecretKey::RpoFalcon512(key))
+            },
+        };
+
         match transaction_template {
             TransactionTemplate::ConsumeNotes(_, notes) => {
                 let program_ast = ProgramAst::parse(transaction_request::AUTH_CONSUME_NOTES_SCRIPT)
                     .expect("shipped MASM is well-formed");
                 let notes = notes.iter().map(|id| (*id, None)).collect();
 
-                let tx_script = {
-                    let script_inputs = vec![account_auth.into_advice_inputs()];
-                    self.tx_executor.compile_tx_script(program_ast, script_inputs, vec![])?
-                };
-                Ok(TransactionRequest::new(account_id, notes, vec![], Some(tx_script)))
+                let tx_script = self.tx_executor.compile_tx_script(program_ast, vec![], vec![])?;
+                Ok(TransactionRequest::new(account_id, notes, vec![], vec![], Some(tx_script)))
             },
             TransactionTemplate::MintFungibleAsset(asset, target_account_id, note_type) => {
-                self.build_mint_tx_request(asset, account_auth, target_account_id, note_type)
+                self.build_mint_tx_request(asset, target_account_id, note_type)
             },
             TransactionTemplate::PayToId(payment_data, note_type) => {
-                self.build_p2id_tx_request(account_auth, payment_data, None, note_type)
+                self.build_p2id_tx_request(payment_data, None, note_type)
             },
-            TransactionTemplate::PayToIdWithRecall(payment_data, recall_height, note_type) => self
-                .build_p2id_tx_request(account_auth, payment_data, Some(recall_height), note_type),
+            TransactionTemplate::PayToIdWithRecall(payment_data, recall_height, note_type) => {
+                self.build_p2id_tx_request(payment_data, Some(recall_height), note_type)
+            },
+            TransactionTemplate::Swap(swap_data, note_type) => {
+                self.build_swap_tx_request(swap_data, note_type)
+            },
         }
     }
 
@@ -225,8 +236,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         let block_num = self.store.get_sync_height()?;
 
         let note_ids = transaction_request.get_input_note_ids();
-
         let output_notes = transaction_request.expected_output_notes().to_vec();
+        let partial_notes = transaction_request.expected_partial_notes().to_vec();
 
         // Execute the transaction and get the witness
         let executed_transaction = self.tx_executor.execute_transaction(
@@ -236,20 +247,29 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             transaction_request.into(),
         )?;
 
-        // Check that the expected output notes is a subset of the transaction's output notes
-        let tx_note_ids: BTreeSet<NoteId> =
-            executed_transaction.output_notes().iter().map(|n| n.id()).collect();
+        // Check that the expected output notes matches the transaction outcome.
+        // We comprare authentication hashes where possible since that involves note IDs + metadata
+        // (as opposed to just note ID which remains the same regardless of metadata)
+        // We also do the check for partial output notes
+        let tx_note_auth_hashes: BTreeSet<Digest> =
+            notes_from_output(executed_transaction.output_notes())
+                .map(Note::authentication_hash)
+                .collect();
 
         let missing_note_ids: Vec<NoteId> = output_notes
             .iter()
-            .filter_map(|n| (!tx_note_ids.contains(&n.id())).then_some(n.id()))
+            .filter_map(|n| {
+                (!tx_note_auth_hashes.contains(&n.authentication_hash())).then_some(n.id())
+            })
             .collect();
 
         if !missing_note_ids.is_empty() {
             return Err(ClientError::MissingOutputNotes(missing_note_ids));
         }
 
-        Ok(TransactionResult::new(executed_transaction, output_notes))
+        let screener = NoteScreener::new(self.store.clone());
+
+        TransactionResult::new(executed_transaction, screener, partial_notes)
     }
 
     /// Proves the specified transaction witness, submits it to the node, and stores the transaction in
@@ -266,19 +286,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         info!("Proved transaction, submitting to the node...");
 
         self.submit_proven_transaction_request(proven_transaction.clone()).await?;
-
-        let note_screener = NoteScreener::new(self.store.as_ref());
-        let mut relevant_notes = BTreeMap::new();
-
-        for (idx, note) in tx_result.created_notes().iter().enumerate() {
-            let account_relevance = note_screener.check_relevance(note)?;
-            if !account_relevance.is_empty() {
-                relevant_notes.insert(idx, account_relevance);
-            }
-        }
-
-        let mut tx_result = tx_result;
-        tx_result.set_relevant_notes(relevant_notes);
 
         // Transaction was proven and submitted to the node correctly, persist note details and update account
         self.store.apply_transaction(tx_result)?;
@@ -328,7 +335,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     /// - If recall_height is Some(), a P2IDR note will be created. Otherwise, a P2ID is created.
     fn build_p2id_tx_request(
         &self,
-        auth_info: AuthInfo,
         payment_data: PaymentTransactionData,
         recall_height: Option<u32>,
         note_type: NoteType,
@@ -355,7 +361,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         };
 
         let recipient = created_note
-            .recipient_digest()
+            .recipient()
+            .digest()
             .iter()
             .map(|x| x.as_int().to_string())
             .collect::<Vec<_>>()
@@ -372,15 +379,63 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         )
         .expect("shipped MASM is well-formed");
 
-        let tx_script = {
-            let script_inputs = vec![auth_info.into_advice_inputs()];
-            self.tx_executor.compile_tx_script(tx_script, script_inputs, vec![])?
-        };
+        let tx_script = self.tx_executor.compile_tx_script(tx_script, vec![], vec![])?;
 
         Ok(TransactionRequest::new(
             payment_data.account_id(),
             BTreeMap::new(),
             vec![created_note],
+            vec![],
+            Some(tx_script),
+        ))
+    }
+
+    /// Helper to build a [TransactionRequest] for Swap-type transactions easily.
+    ///
+    /// - auth_info has to be from the executor account
+    fn build_swap_tx_request(
+        &self,
+        swap_data: SwapTransactionData,
+        note_type: NoteType,
+    ) -> Result<TransactionRequest, ClientError> {
+        let random_coin = self.get_random_coin();
+
+        // The created note is the one that we need as the output of the tx, the other one is the
+        // one that we expect to receive and consume eventually
+        let (created_note, payback_note_details) = create_swap_note(
+            swap_data.account_id(),
+            swap_data.offered_asset(),
+            swap_data.requested_asset(),
+            note_type,
+            random_coin,
+        )?;
+
+        let recipient = created_note
+            .recipient()
+            .digest()
+            .iter()
+            .map(|x| x.as_int().to_string())
+            .collect::<Vec<_>>()
+            .join(".");
+
+        let note_tag = created_note.metadata().tag().inner();
+
+        let tx_script = ProgramAst::parse(
+            &transaction_request::AUTH_SEND_ASSET_SCRIPT
+                .replace("{recipient}", &recipient)
+                .replace("{note_type}", &Felt::new(note_type as u64).to_string())
+                .replace("{tag}", &Felt::new(note_tag.into()).to_string())
+                .replace("{asset}", &prepare_word(&swap_data.offered_asset().into()).to_string()),
+        )
+        .expect("shipped MASM is well-formed");
+
+        let tx_script = self.tx_executor.compile_tx_script(tx_script, vec![], vec![])?;
+
+        Ok(TransactionRequest::new(
+            swap_data.account_id(),
+            BTreeMap::new(),
+            vec![created_note],
+            vec![payback_note_details],
             Some(tx_script),
         ))
     }
@@ -391,7 +446,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     fn build_mint_tx_request(
         &self,
         asset: FungibleAsset,
-        faucet_auth_info: AuthInfo,
         target_account_id: AccountId,
         note_type: NoteType,
     ) -> Result<TransactionRequest, ClientError> {
@@ -405,7 +459,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         )?;
 
         let recipient = created_note
-            .recipient_digest()
+            .recipient()
+            .digest()
             .iter()
             .map(|x| x.as_int().to_string())
             .collect::<Vec<_>>()
@@ -422,15 +477,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         )
         .expect("shipped MASM is well-formed");
 
-        let tx_script = {
-            let script_inputs = vec![faucet_auth_info.into_advice_inputs()];
-            self.tx_executor.compile_tx_script(tx_script, script_inputs, vec![])?
-        };
+        let tx_script = self.tx_executor.compile_tx_script(tx_script, vec![], vec![])?;
 
         Ok(TransactionRequest::new(
             asset.faucet_id(),
             BTreeMap::new(),
             vec![created_note],
+            vec![],
             Some(tx_script),
         ))
     }
@@ -441,4 +494,22 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
 pub(crate) fn prepare_word(word: &Word) -> String {
     word.iter().map(|x| x.as_int().to_string()).collect::<Vec<_>>().join(".")
+}
+
+/// Extracts notes from [OutputNotes]
+/// Used for:
+/// - checking the relevance of notes to save them as input notes
+/// - validate hashes versus expected output notes after a transaction is executed
+pub(crate) fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &Note> {
+    output_notes
+        .iter()
+        .filter(|n| matches!(n, OutputNote::Full(_)))
+        .map(|n| match n {
+            OutputNote::Full(n) => n,
+            // The following todo!() applies until we have a way to support flows where we have
+            // partial details of the note
+            OutputNote::Header(_) => {
+                todo!("For now, all details should be held in OutputNote::Fulls")
+            },
+        })
 }

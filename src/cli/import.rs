@@ -9,52 +9,42 @@ use miden_client::{
     store::{InputNoteRecord, Store},
 };
 use miden_objects::{
-    accounts::AccountData, crypto::rand::FeltRng, notes::NoteId, utils::Deserializable,
+    accounts::{AccountData, AccountId},
+    crypto::rand::FeltRng,
+    notes::NoteId,
+    utils::Deserializable,
 };
+use miden_tx::TransactionAuthenticator;
 use tracing::info;
 
 use super::Parser;
 
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "Import client objects such as accounts and notes")]
-pub enum ImportCmd {
-    /// Import accounts from binary files (with .mac extension)
-    #[clap(short_flag = 'a')]
-    Account {
-        /// Paths to the files that contains the account data
-        #[arg()]
-        filenames: Vec<PathBuf>,
-    },
-    /// Import note data from a binary file
-    #[clap(short_flag = 'n')]
-    Note {
-        /// Path to the file that contains the input note data
-        #[clap()]
-        filename: PathBuf,
-
-        /// Skip verification of note's existence in the chain
-        #[clap(short, long, default_value = "false")]
-        no_verify: bool,
-    },
+pub struct ImportCmd {
+    /// Paths to the files that contains the account/note data
+    #[arg()]
+    filenames: Vec<PathBuf>,
+    /// Skip verification of note's existence in the chain (Only when importing notes)
+    #[clap(short, long, default_value = "false")]
+    no_verify: bool,
 }
 
 impl ImportCmd {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store>(
+    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
         &self,
-        mut client: Client<N, R, S>,
+        mut client: Client<N, R, S, A>,
     ) -> Result<(), String> {
-        match self {
-            ImportCmd::Account { filenames } => {
-                validate_paths(filenames, "mac")?;
-                for filename in filenames {
-                    import_account(&mut client, filename)?;
-                }
-                println!("Imported {} accounts.", filenames.len());
-            },
-            ImportCmd::Note { filename, no_verify } => {
-                let note_id = import_note(&mut client, filename.clone(), !(*no_verify)).await?;
-                println!("Succesfully imported note {}", note_id.inner());
-            },
+        validate_paths(&self.filenames)?;
+        for filename in &self.filenames {
+            let note_id = import_note(&mut client, filename.clone(), !self.no_verify).await;
+            if note_id.is_ok() {
+                println!("Succesfully imported note {}", note_id.unwrap().inner());
+                continue;
+            }
+            let account_id = import_account(&mut client, filename)
+                .map_err(|_| format!("Failed to parse file {}", filename.to_string_lossy()))?;
+            println!("Succesfully imported account {}", account_id);
         }
         Ok(())
     }
@@ -63,10 +53,10 @@ impl ImportCmd {
 // IMPORT ACCOUNT
 // ================================================================================================
 
-fn import_account<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: &mut Client<N, R, S>,
+fn import_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    client: &mut Client<N, R, S, A>,
     filename: &PathBuf,
-) -> Result<(), String> {
+) -> Result<AccountId, String> {
     info!(
         "Attempting to import account data from {}...",
         fs::canonicalize(filename).map_err(|err| err.to_string())?.as_path().display()
@@ -77,16 +67,15 @@ fn import_account<N: NodeRpcClient, R: FeltRng, S: Store>(
     let account_id = account_data.account.id();
 
     client.import_account(account_data)?;
-    println!("Imported account with ID: {}", account_id);
 
-    Ok(())
+    Ok(account_id)
 }
 
 // IMPORT NOTE
 // ================================================================================================
 
-pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: &mut Client<N, R, S>,
+pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    client: &mut Client<N, R, S, A>,
     filename: PathBuf,
     verify: bool,
 ) -> Result<NoteId, String> {
@@ -112,17 +101,11 @@ pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store>(
 
 /// Checks that all files exist, otherwise returns an error. It also ensures that all files have a
 /// specific extension
-fn validate_paths(paths: &[PathBuf], expected_extension: &str) -> Result<(), String> {
-    let invalid_path = paths.iter().find(|path| {
-        !path.exists() || path.extension().map_or(false, |ext| ext != expected_extension)
-    });
+fn validate_paths(paths: &[PathBuf]) -> Result<(), String> {
+    let invalid_path = paths.iter().find(|path| !path.exists());
 
     if let Some(path) = invalid_path {
-        Err(format!(
-            "The path `{}` does not exist or does not have the appropiate extension",
-            path.to_string_lossy()
-        )
-        .to_string())
+        Err(format!("The path `{}` does not exist", path.to_string_lossy()).to_string())
     } else {
         Ok(())
     }
@@ -136,23 +119,23 @@ mod tests {
     use std::env::temp_dir;
 
     use miden_client::{
-        client::{get_random_coin, transactions::transaction_request::TransactionTemplate},
-        config::{ClientConfig, Endpoint, RpcConfig},
+        client::transactions::transaction_request::TransactionTemplate,
         errors::IdPrefixFetchError,
         mock::{
-            mock_full_chain_mmr_and_notes, mock_fungible_faucet_account, mock_notes, MockClient,
-            MockRpcApi,
+            create_test_client, mock_full_chain_mmr_and_notes, mock_fungible_faucet_account,
+            mock_notes,
         },
-        store::{sqlite_store::SqliteStore, AuthInfo, InputNoteRecord, NoteFilter},
+        store::{InputNoteRecord, NoteFilter},
     };
     use miden_lib::transaction::TransactionKernel;
     use miden_objects::{
-        accounts::{AccountId, ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN},
+        accounts::{
+            account_id::testing::ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, AccountId, AuthSecretKey,
+        },
         assets::FungibleAsset,
         crypto::dsa::rpo_falcon512::SecretKey,
         notes::Note,
     };
-    use uuid::Uuid;
 
     use super::import_note;
     use crate::cli::{export::export_note, get_input_note_with_id_prefix};
@@ -167,18 +150,7 @@ mod tests {
         // 3. One output note, one input note. Both representing the same note.
 
         // generate test client
-        let mut path = temp_dir();
-        path.push(Uuid::new_v4().to_string());
-        let client_config = ClientConfig::new(
-            path.into_os_string().into_string().unwrap().try_into().unwrap(),
-            RpcConfig::default(),
-        );
-
-        let rng = get_random_coin();
-        let store = SqliteStore::new((&client_config).into()).unwrap();
-
-        let mut client =
-            MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store, true);
+        let mut client = create_test_client();
 
         // Add a faucet account to run a mint tx against it
         const FAUCET_ID: u64 = ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN;
@@ -192,7 +164,9 @@ mod tests {
         );
 
         client.sync_state().await.unwrap();
-        client.insert_account(&faucet, None, &AuthInfo::RpoFalcon512(key_pair)).unwrap();
+        client
+            .insert_account(&faucet, None, &AuthSecretKey::RpoFalcon512(key_pair))
+            .unwrap();
 
         // Ensure client has no notes
         assert!(client.get_input_notes(NoteFilter::All).unwrap().is_empty());
@@ -209,7 +183,7 @@ mod tests {
 
         let transaction_request = client.build_transaction_request(transaction_template).unwrap();
         let transaction = client.new_transaction(transaction_request).unwrap();
-        let created_note = transaction.created_notes()[0].clone();
+        let created_note = transaction.created_notes().get_note(0).clone();
         client.submit_transaction(transaction).await.unwrap();
 
         // Ensure client has no input notes and one output note
@@ -249,18 +223,7 @@ mod tests {
     #[tokio::test]
     async fn get_input_note_with_prefix() {
         // generate test client
-        let mut path = temp_dir();
-        path.push(Uuid::new_v4().to_string());
-        let client_config = ClientConfig::new(
-            path.into_os_string().into_string().unwrap().try_into().unwrap(),
-            RpcConfig::default(),
-        );
-
-        let rng = get_random_coin();
-        let store = SqliteStore::new((&client_config).into()).unwrap();
-
-        let mut client =
-            MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store, true);
+        let mut client = create_test_client();
 
         // Ensure we get an error if no note is found
         let non_existent_note_id = "0x123456";

@@ -15,8 +15,7 @@ pub struct InitCmd {
     #[clap(long)]
     rpc: Option<String>,
 
-    /// Store file path. If not provided user will be
-    /// asked for input
+    /// Store file path
     #[clap(long)]
     store_path: Option<String>,
 }

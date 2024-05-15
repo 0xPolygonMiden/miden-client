@@ -1,7 +1,8 @@
 use miden_objects::{
     accounts::AccountId,
     notes::{
-        Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata, NoteRecipient,
+        Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata,
+        NoteRecipient,
     },
     transaction::InputNote,
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
@@ -102,6 +103,27 @@ impl InputNoteRecord {
     }
 }
 
+impl From<&NoteDetails> for InputNoteRecord {
+    fn from(note_details: &NoteDetails) -> Self {
+        InputNoteRecord {
+            id: note_details.id(),
+            assets: note_details.assets().clone(),
+            recipient: note_details.recipient().digest(),
+            metadata: None,
+            inclusion_proof: None,
+            status: NoteStatus::Pending,
+            details: NoteRecordDetails {
+                nullifier: note_details.nullifier().to_string(),
+                script_hash: note_details.script().hash(),
+                script: note_details.script().clone(),
+                inputs: note_details.inputs().to_vec(),
+                serial_num: note_details.serial_num(),
+            },
+            consumer_account_id: None,
+        }
+    }
+}
+
 impl Serializable for InputNoteRecord {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
         self.id().write_into(target);
@@ -141,7 +163,7 @@ impl From<Note> for InputNoteRecord {
     fn from(note: Note) -> Self {
         InputNoteRecord {
             id: note.id(),
-            recipient: note.recipient_digest(),
+            recipient: note.recipient().digest(),
             assets: note.assets().clone(),
             status: NoteStatus::Pending,
             metadata: Some(*note.metadata()),
@@ -161,7 +183,7 @@ impl From<InputNote> for InputNoteRecord {
     fn from(recorded_note: InputNote) -> Self {
         InputNoteRecord {
             id: recorded_note.note().id(),
-            recipient: recorded_note.note().recipient_digest(),
+            recipient: recorded_note.note().recipient().digest(),
             assets: recorded_note.note().assets().clone(),
             status: NoteStatus::Pending,
             metadata: Some(*recorded_note.note().metadata()),

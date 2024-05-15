@@ -14,6 +14,7 @@ use miden_node_proto::{
 };
 use miden_objects::{
     accounts::{Account, AccountId},
+    crypto::merkle::{MerklePath, MmrProof},
     notes::{Note, NoteId, NoteMetadata, NoteTag, NoteType},
     transaction::ProvenTransaction,
     utils::Deserializable,
@@ -90,8 +91,13 @@ impl NodeRpcClient for TonicRpcClient {
     async fn get_block_header_by_number(
         &mut self,
         block_num: Option<u32>,
-    ) -> Result<BlockHeader, NodeRpcClientError> {
-        let request = GetBlockHeaderByNumberRequest { block_num };
+        include_mmr_proof: bool,
+    ) -> Result<(BlockHeader, Option<MmrProof>), NodeRpcClientError> {
+        let request = GetBlockHeaderByNumberRequest {
+            block_num,
+            include_mmr_proof: Some(include_mmr_proof),
+        };
+
         let rpc_api = self.rpc_api().await?;
         let api_response = rpc_api.get_block_header_by_number(request).await.map_err(|err| {
             NodeRpcClientError::RequestError(
@@ -100,12 +106,38 @@ impl NodeRpcClient for TonicRpcClient {
             )
         })?;
 
-        api_response
-            .into_inner()
+        let response = api_response.into_inner();
+
+        let block_header: BlockHeader = response
             .block_header
             .ok_or(NodeRpcClientError::ExpectedFieldMissing("BlockHeader".into()))?
             .try_into()
-            .map_err(|err: ConversionError| NodeRpcClientError::ConversionFailure(err.to_string()))
+            .map_err(|err: ConversionError| {
+                NodeRpcClientError::ConversionFailure(err.to_string())
+            })?;
+
+        let mmr_proof = if include_mmr_proof {
+            let forest = response
+                .chain_length
+                .ok_or(NodeRpcClientError::ExpectedFieldMissing("ChainLength".into()))?;
+            let merkle_path: MerklePath = response
+                .mmr_path
+                .ok_or(NodeRpcClientError::ExpectedFieldMissing("MmrPath".into()))?
+                .try_into()
+                .map_err(|err: ConversionError| {
+                    NodeRpcClientError::ConversionFailure(err.to_string())
+                })?;
+
+            Some(MmrProof {
+                forest: forest as usize,
+                position: block_header.block_num() as usize,
+                merkle_path,
+            })
+        } else {
+            None
+        };
+
+        Ok((block_header, mmr_proof))
     }
 
     async fn get_notes_by_id(
@@ -126,8 +158,11 @@ impl NodeRpcClient for TonicRpcClient {
         let rpc_notes = api_response.into_inner().notes;
         let mut response_notes = Vec::with_capacity(rpc_notes.len());
         for note in rpc_notes {
-            let sender_id =
-                note.sender.ok_or(NodeRpcClientError::ExpectedFieldMissing("Sender".into()))?;
+            let sender_id = note
+                .metadata
+                .clone()
+                .and_then(|metadata| metadata.sender)
+                .ok_or(NodeRpcClientError::ExpectedFieldMissing("Metadata.Sender".into()))?;
 
             let inclusion_details = {
                 let merkle_path = note
@@ -147,7 +182,11 @@ impl NodeRpcClient for TonicRpcClient {
                 },
                 // Off-chain notes do not have details
                 None => {
-                    let note_tag = NoteTag::from(note.tag).validate(NoteType::OffChain)?;
+                    let tag = note
+                        .metadata
+                        .ok_or(NodeRpcClientError::ExpectedFieldMissing("Metadata".into()))?
+                        .tag;
+                    let note_tag = NoteTag::from(tag).validate(NoteType::OffChain)?;
                     let note_metadata = NoteMetadata::new(
                         sender_id.try_into()?,
                         NoteType::OffChain,
@@ -310,17 +349,26 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                 .try_into()?;
 
             let sender_account_id = note
-                .sender
-                .ok_or(NodeRpcClientError::ExpectedFieldMissing("Notes.Sender".into()))?
+                .metadata
+                .clone()
+                .and_then(|m| m.sender)
+                .ok_or(NodeRpcClientError::ExpectedFieldMissing("Notes.Metadata.Sender".into()))?
                 .try_into()?;
 
-            let note_type = NoteType::try_from(Felt::new(note.note_type.into()))?;
-            let metadata = NoteMetadata::new(
-                sender_account_id,
-                note_type,
-                note.tag.into(),
-                Default::default(),
-            )?;
+            let tag = note
+                .metadata
+                .clone()
+                .ok_or(NodeRpcClientError::ExpectedFieldMissing("Notes.Metadata".into()))?
+                .tag;
+
+            let note_type = note
+                .metadata
+                .ok_or(NodeRpcClientError::ExpectedFieldMissing("Notes.Metadata".into()))?
+                .note_type;
+
+            let note_type = NoteType::try_from(note_type)?;
+            let metadata =
+                NoteMetadata::new(sender_account_id, note_type, tag.into(), Default::default())?;
 
             let committed_note =
                 CommittedNote::new(note_id, note.note_index, merkle_path, metadata);

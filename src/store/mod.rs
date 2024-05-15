@@ -2,15 +2,11 @@ use alloc::collections::BTreeMap;
 
 use clap::error::Result;
 use miden_objects::{
-    accounts::{Account, AccountId, AccountStub},
-    crypto::{
-        dsa::rpo_falcon512::SecretKey,
-        merkle::{InOrderIndex, MmrPeaks},
-    },
+    accounts::{Account, AccountId, AccountStub, AuthSecretKey},
+    crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::{NoteId, NoteTag, Nullifier},
-    BlockHeader, Digest, Felt, Word,
+    BlockHeader, Digest, Word,
 };
-use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 
 use crate::{
     client::{
@@ -54,7 +50,7 @@ pub trait Store {
     ///
     /// An update involves:
     /// - Applying the resulting [AccountDelta](miden_objects::accounts::AccountDelta) and storing the new [Account] state
-    /// - Storing new notes as a result of the transaction execution
+    /// - Storing new notes and payback note details as a result of the transaction execution
     /// - Inserting the transaction into the store to track
     fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), StoreError>;
 
@@ -133,6 +129,11 @@ pub trait Store {
         filter: ChainMmrNodeFilter,
     ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError>;
 
+    /// Inserts MMR authentication nodes.
+    ///
+    /// In the case where the [InOrderIndex] already exists on the table, the insertion is ignored
+    fn insert_chain_mmr_nodes(&self, nodes: &[(InOrderIndex, Digest)]) -> Result<(), StoreError>;
+
     /// Returns peaks information from the blockchain by a specific block number.
     ///
     /// If there is no chain MMR info stored for the provided block returns an empty [MmrPeaks]
@@ -186,19 +187,27 @@ pub trait Store {
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
     fn get_account(&self, account_id: AccountId) -> Result<(Account, Option<Word>), StoreError>;
 
-    /// Retrieves an account's [AuthInfo], utilized to authenticate the account.
+    /// Retrieves an account's [AuthSecretKey], utilized to authenticate the account.
     ///
     /// # Errors
     ///
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, StoreError>;
+    fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, StoreError>;
 
-    /// Inserts an [Account] along with the seed used to create it and its [AuthInfo]
+    /// Retrieves an account's [AuthSecretKey] by pub key, utilized to authenticate the account.
+    /// This is mainly used for authentication in transactions.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `StoreError::AccountKeyNotFound` if there is no account for the provided key
+    fn get_account_auth_by_pub_key(&self, pub_key: Word) -> Result<AuthSecretKey, StoreError>;
+
+    /// Inserts an [Account] along with the seed used to create it and its [AuthSecretKey]
     fn insert_account(
         &self,
         account: &Account,
         account_seed: Option<Word>,
-        auth_info: &AuthInfo,
+        auth_info: &AuthSecretKey,
     ) -> Result<(), StoreError>;
 
     // SYNC
@@ -230,65 +239,6 @@ pub trait Store {
     /// `committed_transactions`
     /// - Storing new MMR authentication nodes
     fn apply_state_sync(&self, state_sync_update: StateSyncUpdate) -> Result<(), StoreError>;
-}
-
-// DATABASE AUTH INFO
-// ================================================================================================
-
-/// Represents the types of authentication information of accounts
-#[derive(Debug)]
-pub enum AuthInfo {
-    RpoFalcon512(SecretKey),
-}
-
-const RPO_FALCON512_AUTH: u8 = 0;
-
-impl AuthInfo {
-    /// Returns byte identifier of specific AuthInfo
-    const fn type_byte(&self) -> u8 {
-        match self {
-            AuthInfo::RpoFalcon512(_) => RPO_FALCON512_AUTH,
-        }
-    }
-
-    /// Returns the authentication information as a tuple of (key, value)
-    /// that can be input to the advice map at the moment of transaction execution.
-    pub fn into_advice_inputs(self) -> (Word, Vec<Felt>) {
-        match self {
-            AuthInfo::RpoFalcon512(key) => {
-                let pub_key: Word = key.public_key().into();
-                let mut pk_sk_bytes = key.to_bytes();
-                pk_sk_bytes.append(&mut pub_key.to_bytes());
-
-                (pub_key, pk_sk_bytes.iter().map(|a| Felt::new(*a as u64)).collect::<Vec<Felt>>())
-            },
-        }
-    }
-}
-
-impl Serializable for AuthInfo {
-    fn write_into<W: ByteWriter>(&self, target: &mut W) {
-        let mut bytes = vec![self.type_byte()];
-        match self {
-            AuthInfo::RpoFalcon512(key_pair) => {
-                bytes.append(&mut key_pair.to_bytes());
-                target.write_bytes(&bytes);
-            },
-        }
-    }
-}
-
-impl Deserializable for AuthInfo {
-    fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
-        let auth_type: u8 = source.read_u8()?;
-        match auth_type {
-            RPO_FALCON512_AUTH => {
-                let key_pair = SecretKey::read_from(source)?;
-                Ok(AuthInfo::RpoFalcon512(key_pair))
-            },
-            val => Err(DeserializationError::InvalidValue(val.to_string())),
-        }
-    }
 }
 
 // CHAIN MMR NODE FILTER

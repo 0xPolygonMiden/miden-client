@@ -1,4 +1,4 @@
-use std::{env::temp_dir, time::Duration};
+use std::{env::temp_dir, rc::Rc, time::Duration};
 
 use figment::{
     providers::{Format, Toml},
@@ -9,6 +9,8 @@ use miden_client::{
         accounts::{AccountStorageMode, AccountTemplate},
         get_random_coin,
         rpc::TonicRpcClient,
+        store_authenticator::StoreAuthenticator,
+        sync::SyncSummary,
         transactions::transaction_request::{TransactionRequest, TransactionTemplate},
         Client,
     },
@@ -17,7 +19,10 @@ use miden_client::{
     store::{sqlite_store::SqliteStore, NoteFilter, TransactionFilter},
 };
 use miden_objects::{
-    accounts::{Account, AccountId, ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN},
+    accounts::{
+        account_id::testing::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN, Account,
+        AccountId,
+    },
     assets::{Asset, FungibleAsset, TokenSymbol},
     crypto::rand::RpoRandomCoin,
     notes::{NoteId, NoteType},
@@ -28,7 +33,12 @@ use uuid::Uuid;
 
 pub const ACCOUNT_ID_REGULAR: u64 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN;
 
-pub type TestClient = Client<TonicRpcClient, RpoRandomCoin, SqliteStore>;
+pub type TestClient = Client<
+    TonicRpcClient,
+    RpoRandomCoin,
+    SqliteStore,
+    StoreAuthenticator<RpoRandomCoin, SqliteStore>,
+>;
 
 pub const TEST_CLIENT_CONFIG_FILE_PATH: &str = "./tests/config/miden-client.toml";
 /// Creates a `TestClient`
@@ -51,9 +61,15 @@ pub fn create_test_client() -> TestClient {
         .try_into()
         .unwrap();
 
-    let store = SqliteStore::new((&client_config).into()).unwrap();
+    let store = {
+        let sqlite_store = SqliteStore::new((&client_config).into()).unwrap();
+        Rc::new(sqlite_store)
+    };
+
     let rng = get_random_coin();
-    TestClient::new(TonicRpcClient::new(&client_config.rpc), rng, store, true)
+
+    let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
+    TestClient::new(TonicRpcClient::new(&client_config.rpc), rng, store, authenticator, true)
 }
 
 pub fn create_test_store_path() -> std::path::PathBuf {
@@ -84,6 +100,24 @@ pub async fn execute_tx_and_sync(client: &mut TestClient, tx_request: Transactio
 
         if is_tx_committed {
             break;
+        }
+
+        std::thread::sleep(std::time::Duration::new(3, 0));
+    }
+}
+
+// Syncs until `amount_of_blocks` have been created onchain compared to client's sync height
+pub async fn wait_for_blocks(client: &mut TestClient, amount_of_blocks: u32) -> SyncSummary {
+    let current_block = client.get_sync_height().unwrap();
+    let final_block = current_block + amount_of_blocks;
+    println!("Syncing until block {}...", final_block);
+    // wait until tx is committed
+    loop {
+        let summary = client.sync_state().await.unwrap();
+        println!("Synced to block {} (syncing until {})...", summary.block_num, final_block);
+
+        if summary.block_num >= final_block {
+            return summary;
         }
 
         std::thread::sleep(std::time::Duration::new(3, 0));
@@ -164,6 +198,7 @@ pub async fn setup(
 }
 
 /// Mints a note from faucet_account_id for basic_account_id, waits for inclusion and returns it
+/// with 1000 units of the corresponding fungible asset
 pub async fn mint_note(
     client: &mut TestClient,
     basic_account_id: AccountId,

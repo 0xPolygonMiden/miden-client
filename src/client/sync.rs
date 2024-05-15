@@ -1,16 +1,15 @@
 use alloc::collections::{BTreeMap, BTreeSet};
-use std::{cmp::max, collections::HashMap};
+use core::cmp::max;
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
-    crypto::{self, rand::FeltRng},
-    notes::{
-        Note, NoteExecutionMode, NoteId, NoteInclusionProof, NoteInputs, NoteRecipient, NoteTag,
-    },
+    crypto::{self, merkle::MerklePath, rand::FeltRng},
+    notes::{Note, NoteId, NoteInclusionProof, NoteInputs, NoteRecipient, NoteTag},
     transaction::{InputNote, TransactionId},
     BlockHeader, Digest,
 };
+use miden_tx::TransactionAuthenticator;
 use tracing::{info, warn};
 
 use super::{
@@ -154,7 +153,7 @@ pub struct StateSyncUpdate {
 /// The number of bits to shift identifiers for in use of filters.
 pub const FILTER_ID_SHIFT: u8 = 48;
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
     // SYNC STATE
     // --------------------------------------------------------------------------------------------
 
@@ -231,7 +230,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
     /// Calls `get_block_header_by_number` requesting the genesis block and storing it
     /// in the local database
     async fn retrieve_and_store_genesis(&mut self) -> Result<(), ClientError> {
-        let genesis_block = self.rpc_api.get_block_header_by_number(Some(0)).await?;
+        let (genesis_block, _) = self.rpc_api.get_block_header_by_number(Some(0), false).await?;
 
         let blank_mmr_peaks =
             MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks should not fail to instantiate");
@@ -253,7 +252,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
 
         let account_note_tags: Vec<NoteTag> = accounts
             .iter()
-            .map(|acc| NoteTag::from_account_id(acc.id(), NoteExecutionMode::Local))
+            .map(|acc| {
+                NoteTag::from_account_id(acc.id(), miden_objects::notes::NoteExecutionHint::Local)
+            })
             .collect::<Result<Vec<_>, _>>()?;
 
         let stored_note_tags: Vec<NoteTag> = self.store.get_note_tags()?;
@@ -265,14 +266,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             .filter_map(|note| note.metadata().map(|metadata| metadata.tag()))
             .collect();
 
-        //TODO: Use BTreeSet to remove duplicates more efficiently once `Ord` is implemented for `NoteTag`
         let note_tags: Vec<NoteTag> = [account_note_tags, stored_note_tags, uncommited_note_tags]
             .concat()
             .into_iter()
-            .map(|tag| (tag.to_string(), tag))
-            .collect::<HashMap<String, NoteTag>>()
-            .values()
-            .cloned()
+            .collect::<BTreeSet<NoteTag>>()
+            .into_iter()
             .collect();
 
         // To receive information about added nullifiers, we reduce them to the higher 16 bits
@@ -296,6 +294,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         if response.block_header.block_num() == current_block_num {
             return Ok(SyncStatus::SyncedToLastBlock(SyncSummary::new_empty(current_block_num)));
         }
+
+        let committed_note_ids: Vec<NoteId> = response
+            .note_inclusions
+            .iter()
+            .map(|committed_note| *(committed_note.note_id()))
+            .collect();
 
         let new_note_details =
             self.get_note_details(response.note_inclusions, &response.block_header).await?;
@@ -329,18 +333,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             )?
         };
 
-        let updated_output_note_ids: Vec<NoteId> = new_note_details
-            .updated_output_notes()
-            .iter()
-            .map(|(output_note_id, _)| *output_note_id)
-            .collect();
-
         let uncommitted_transactions =
             self.store.get_transactions(TransactionFilter::Uncomitted)?;
 
         let transactions_to_commit = get_transactions_to_commit(
             &uncommitted_transactions,
-            &updated_output_note_ids,
+            &committed_note_ids,
             &new_nullifiers,
             &response.account_hash_updates,
         );
@@ -533,7 +531,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
         // We'll only do the check for either incoming public notes or pending input notes as
         // output notes are not really candidates to be consumed here.
 
-        let note_screener = NoteScreener::new(self.store.as_ref());
+        let note_screener = NoteScreener::new(self.store.clone());
 
         // Find all relevant Input Notes using the note checker
         for input_note in committed_notes.updated_input_notes() {
@@ -641,6 +639,54 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store> Client<N, R, S> {
             }
         }
         Ok(())
+    }
+
+    /// Retrieves and stores a [BlockHeader] by number, and stores its authentication data as well.
+    pub(crate) async fn get_and_store_authenticated_block(
+        &mut self,
+        block_num: u32,
+    ) -> Result<BlockHeader, ClientError> {
+        let mut current_partial_mmr = self.build_current_partial_mmr()?;
+
+        if current_partial_mmr.is_tracked(block_num as usize) {
+            warn!("Current partial MMR already contains the requested data");
+            let (block_header, _) = self.store.get_block_header_by_num(block_num)?;
+            return Ok(block_header);
+        }
+
+        let (block_header, mmr_proof) =
+            self.rpc_api.get_block_header_by_number(Some(block_num), true).await?;
+
+        let mut path_nodes: Vec<(InOrderIndex, Digest)> = vec![];
+
+        let mmr_proof = mmr_proof
+            .expect("NodeRpcApi::get_block_header_by_number() should have returned an MMR proof");
+        // Trim merkle path to keep nodes relevant to our current PartialMmr
+        let rightmost_index = InOrderIndex::from_leaf_pos(current_partial_mmr.forest() - 1);
+        let mut idx = InOrderIndex::from_leaf_pos(block_num as usize);
+        for node in mmr_proof.merkle_path {
+            idx = idx.sibling();
+            // Rightmost index is always the biggest value, so if the path contains any node
+            // past it, we can discard it for our version of the forest
+            if idx > rightmost_index {
+                continue;
+            }
+            path_nodes.push((idx, node));
+            idx = idx.parent();
+        }
+
+        let merkle_path = MerklePath::new(path_nodes.iter().map(|(_, n)| *n).collect());
+
+        current_partial_mmr
+            .track(block_num as usize, block_header.hash(), &merkle_path)
+            .map_err(StoreError::MmrError)?;
+
+        // Insert header and MMR nodes
+        self.store
+            .insert_block_header(block_header, current_partial_mmr.peaks(), true)?;
+        self.store.insert_chain_mmr_nodes(&path_nodes)?;
+
+        Ok(block_header)
     }
 }
 

@@ -5,45 +5,37 @@ use miden_client::{
     store::{InputNoteRecord, Store},
 };
 use miden_objects::{crypto::rand::FeltRng, Digest};
-use miden_tx::utils::Serializable;
+use miden_tx::{utils::Serializable, TransactionAuthenticator};
 
 use super::Parser;
 
 #[derive(Debug, Parser, Clone)]
-#[clap(about = "Export client objects")]
-pub enum ExportCmd {
-    /// Export note data into a binary file
-    #[clap(short_flag = 'n')]
-    Note {
-        /// ID of the output note to export
-        #[clap()]
-        id: String,
+#[clap(about = "Export client notes")]
+pub struct ExportCmd {
+    /// ID of the output note to export
+    #[clap()]
+    id: String,
 
-        /// Desired filename for the binary file. Defaults to the note ID if not provided
-        #[clap(short, long, default_value = "false")]
-        filename: Option<PathBuf>,
-    },
+    /// Desired filename for the binary file. Defaults to the note ID if not provided
+    #[clap(short, long, default_value = "false")]
+    filename: Option<PathBuf>,
 }
 
 impl ExportCmd {
-    pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store>(
+    pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
         &self,
-        client: Client<N, R, S>,
+        client: Client<N, R, S, A>,
     ) -> Result<(), String> {
-        match self {
-            ExportCmd::Note { id, filename } => {
-                export_note(&client, id, filename.clone())?;
-                println!("Succesfully exported note {}", id);
-            },
-        }
+        export_note(&client, self.id.as_str(), self.filename.clone())?;
+        println!("Succesfully exported note {}", self.id.as_str());
         Ok(())
     }
 }
 
 // EXPORT NOTE
 // ================================================================================================
-pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: &Client<N, R, S>,
+pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    client: &Client<N, R, S, A>,
     note_id: &str,
     filename: Option<PathBuf>,
 ) -> Result<File, String> {

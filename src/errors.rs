@@ -3,7 +3,7 @@ use core::fmt;
 use miden_node_proto::errors::ConversionError;
 use miden_objects::{
     accounts::AccountId, crypto::merkle::MmrError, notes::NoteId, AccountError, AssetError,
-    AssetVaultError, Digest, NoteError, TransactionScriptError,
+    AssetVaultError, Digest, NoteError, TransactionScriptError, Word,
 };
 use miden_tx::{
     utils::{DeserializationError, HexParseError},
@@ -22,6 +22,7 @@ pub enum ClientError {
     ImportNewAccountWithoutSeed,
     MissingOutputNotes(Vec<NoteId>),
     NoteError(NoteError),
+    NoteImportError(String),
     NoteRecordError(String),
     NoConsumableNoteForAccount(AccountId),
     NodeRpcClientError(NodeRpcClientError),
@@ -48,7 +49,7 @@ impl fmt::Display for ClientError {
             ClientError::MissingOutputNotes(note_ids) => {
                 write!(
                     f,
-                    "transaction error: The transaction did not produce expected Note IDs: {}",
+                    "transaction error: The transaction did not produce the expected notes corresponding to Note IDs: {}",
                     note_ids.iter().map(|&id| id.to_hex()).collect::<Vec<_>>().join(", ")
                 )
             },
@@ -56,6 +57,7 @@ impl fmt::Display for ClientError {
                 write!(f, "No consumable note for account ID {}", account_id)
             },
             ClientError::NoteError(err) => write!(f, "note error: {err}"),
+            ClientError::NoteImportError(err) => write!(f, "error importing note: {err}"),
             ClientError::NoteRecordError(err) => write!(f, "note record error: {err}"),
             ClientError::NodeRpcClientError(err) => write!(f, "rpc api error: {err}"),
             ClientError::ScreenerError(err) => write!(f, "note screener error: {err}"),
@@ -155,6 +157,7 @@ pub enum StoreError {
     AccountDataNotFound(AccountId),
     AccountError(AccountError),
     AccountHashMismatch(AccountId),
+    AccountKeyNotFound(Word),
     AccountStorageNotFound(Digest),
     BlockHeaderNotFound(u32),
     ChainMmrNodeNotFound(u64),
@@ -257,6 +260,9 @@ impl fmt::Display for StoreError {
             AccountError(err) => write!(f, "error instantiating Account: {err}"),
             AccountHashMismatch(account_id) => {
                 write!(f, "account hash mismatch for account {account_id}")
+            },
+            AccountKeyNotFound(pub_key) => {
+                write!(f, "error: Public Key {} not found", Digest::from(pub_key))
             },
             AccountStorageNotFound(root) => {
                 write!(f, "account storage data with root {} not found", root)

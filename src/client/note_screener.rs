@@ -1,9 +1,9 @@
-use alloc::collections::BTreeSet;
+use alloc::{collections::BTreeSet, rc::Rc};
 use core::fmt;
 
 use miden_objects::{accounts::AccountId, assets::Asset, notes::Note, Word};
 
-use super::transactions::transaction_request::known_script_hashs::{P2ID, P2IDR, SWAP};
+use super::transactions::transaction_request::known_script_roots::{P2ID, P2IDR, SWAP};
 use crate::{
     errors::{InvalidNoteInputsError, ScreenerError},
     store::Store,
@@ -26,12 +26,12 @@ impl fmt::Display for NoteRelevance {
     }
 }
 
-pub struct NoteScreener<'a, S: Store> {
-    store: &'a S,
+pub struct NoteScreener<S: Store> {
+    store: Rc<S>,
 }
 
-impl<'a, S: Store> NoteScreener<'a, S> {
-    pub fn new(store: &'a S) -> Self {
+impl<S: Store> NoteScreener<S> {
+    pub fn new(store: Rc<S>) -> Self {
         Self { store }
     }
 
@@ -181,59 +181,5 @@ impl<'a, S: Store> NoteScreener<'a, S> {
             .iter()
             .map(|account_id| (*account_id, NoteRelevance::Always))
             .collect())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
-    use miden_objects::{
-        accounts::{AccountId, ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN},
-        assets::FungibleAsset,
-        crypto::rand::RpoRandomCoin,
-        notes::NoteType,
-    };
-
-    use crate::client::transactions::transaction_request::known_script_hashs::{P2ID, P2IDR, SWAP};
-
-    // We need to make sure the script roots we use for filters are in line with the note scripts
-    // coming from Miden objects
-    #[test]
-    fn ensure_correct_script_roots() {
-        // create dummy data for the notes
-        let faucet_id: AccountId = ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN.try_into().unwrap();
-        let account_id: AccountId = ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN.try_into().unwrap();
-        let rng = RpoRandomCoin::new(Default::default());
-
-        // create dummy notes to compare note script roots
-        let p2id_note = create_p2id_note(
-            account_id,
-            account_id,
-            vec![FungibleAsset::new(faucet_id, 100u64).unwrap().into()],
-            NoteType::OffChain,
-            rng,
-        )
-        .unwrap();
-        let p2idr_note = create_p2idr_note(
-            account_id,
-            account_id,
-            vec![FungibleAsset::new(faucet_id, 100u64).unwrap().into()],
-            NoteType::OffChain,
-            10,
-            rng,
-        )
-        .unwrap();
-        let (swap_note, _serial_num) = create_swap_note(
-            account_id,
-            FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
-            FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
-            NoteType::OffChain,
-            rng,
-        )
-        .unwrap();
-
-        assert_eq!(p2id_note.script().hash().to_string(), P2ID);
-        assert_eq!(p2idr_note.script().hash().to_string(), P2IDR);
-        assert_eq!(swap_note.script().hash().to_string(), SWAP);
     }
 }

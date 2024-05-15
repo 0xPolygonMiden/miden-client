@@ -2,7 +2,7 @@ use alloc::collections::BTreeMap;
 use core::cell::{RefCell, RefMut};
 
 use miden_objects::{
-    accounts::{Account, AccountId, AccountStub},
+    accounts::{Account, AccountId, AccountStub, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::NoteTag,
     BlockHeader, Digest, Word,
@@ -10,8 +10,7 @@ use miden_objects::{
 use rusqlite::{vtab::array, Connection};
 
 use super::{
-    AuthInfo, ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store,
-    TransactionFilter,
+    ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store, TransactionFilter,
 };
 use crate::{
     client::{
@@ -24,7 +23,7 @@ use crate::{
 
 mod accounts;
 mod chain_data;
-mod migrations;
+pub(crate) mod migrations;
 mod notes;
 mod sync;
 mod transactions;
@@ -191,6 +190,10 @@ impl Store for SqliteStore {
         self.get_chain_mmr_nodes(filter)
     }
 
+    fn insert_chain_mmr_nodes(&self, nodes: &[(InOrderIndex, Digest)]) -> Result<(), StoreError> {
+        self.insert_chain_mmr_nodes(nodes)
+    }
+
     fn get_chain_mmr_peaks_by_block_num(&self, block_num: u32) -> Result<MmrPeaks, StoreError> {
         self.get_chain_mmr_peaks_by_block_num(block_num)
     }
@@ -199,7 +202,7 @@ impl Store for SqliteStore {
         &self,
         account: &Account,
         account_seed: Option<Word>,
-        auth_info: &AuthInfo,
+        auth_info: &AuthSecretKey,
     ) -> Result<(), StoreError> {
         self.insert_account(account, account_seed, auth_info)
     }
@@ -223,8 +226,12 @@ impl Store for SqliteStore {
         self.get_account(account_id)
     }
 
-    fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, StoreError> {
+    fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, StoreError> {
         self.get_account_auth(account_id)
+    }
+
+    fn get_account_auth_by_pub_key(&self, pub_key: Word) -> Result<AuthSecretKey, StoreError> {
+        self.get_account_auth_by_pub_key(pub_key)
     }
 }
 
@@ -233,40 +240,12 @@ impl Store for SqliteStore {
 
 #[cfg(test)]
 pub mod tests {
-    use std::{cell::RefCell, env::temp_dir};
+    use std::cell::RefCell;
 
     use rusqlite::{vtab::array, Connection};
-    use uuid::Uuid;
 
     use super::{migrations, SqliteStore};
-    use crate::{
-        client::get_random_coin,
-        config::{ClientConfig, RpcConfig},
-        mock::{MockClient, MockRpcApi},
-    };
-
-    pub fn create_test_client() -> MockClient {
-        let store = create_test_store_path()
-            .into_os_string()
-            .into_string()
-            .unwrap()
-            .try_into()
-            .unwrap();
-
-        let client_config = ClientConfig::new(store, RpcConfig::default());
-
-        let rpc_endpoint = client_config.rpc.endpoint.to_string();
-        let store = SqliteStore::new((&client_config).into()).unwrap();
-        let rng = get_random_coin();
-
-        MockClient::new(MockRpcApi::new(&rpc_endpoint), rng, store, true)
-    }
-
-    pub(crate) fn create_test_store_path() -> std::path::PathBuf {
-        let mut temp_file = temp_dir();
-        temp_file.push(format!("{}.sqlite3", Uuid::new_v4()));
-        temp_file
-    }
+    use crate::mock::create_test_store_path;
 
     pub(crate) fn create_test_store() -> SqliteStore {
         let temp_file = create_test_store_path();

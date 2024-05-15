@@ -44,8 +44,14 @@ transactions against it when the account flag is not provided.
 By default none is set, but you can set and unset it with:
 
 ```sh
-miden account default set <ACCOUNT_ID>`
-miden account default unset
+miden account --default <ACCOUNT_ID> #Sets default account
+miden account --default none #Unsets default account
+```
+
+You can also see the current default account ID with:
+
+```sh
+miden account --default
 ```
 
 ### Environment variables

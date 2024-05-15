@@ -5,7 +5,7 @@ use comfy_table::{presets, Attribute, Cell, ContentArrangement};
 use miden_client::{
     client::{
         rpc::NodeRpcClient,
-        transactions::transaction_request::known_script_hashs::{P2ID, P2IDR, SWAP},
+        transactions::transaction_request::known_script_roots::{P2ID, P2IDR, SWAP},
         ConsumableNote,
     },
     errors::{ClientError, IdPrefixFetchError},
@@ -18,6 +18,7 @@ use miden_objects::{
     notes::{NoteInputs, NoteMetadata},
     Digest,
 };
+use miden_tx::TransactionAuthenticator;
 
 use super::{Client, Parser};
 use crate::cli::{
@@ -26,66 +27,61 @@ use crate::cli::{
 
 #[derive(Clone, Debug, ValueEnum)]
 pub enum NoteFilter {
+    All,
     Pending,
     Committed,
     Consumed,
+    Consumable,
+}
+
+impl TryInto<ClientNoteFilter<'_>> for NoteFilter {
+    type Error = String;
+
+    fn try_into(self) -> Result<ClientNoteFilter<'static>, Self::Error> {
+        match self {
+            NoteFilter::All => Ok(ClientNoteFilter::All),
+            NoteFilter::Pending => Ok(ClientNoteFilter::Pending),
+            NoteFilter::Committed => Ok(ClientNoteFilter::Committed),
+            NoteFilter::Consumed => Ok(ClientNoteFilter::Consumed),
+            NoteFilter::Consumable => Err("Consumable filter is not supported".to_string()),
+        }
+    }
 }
 
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "View and manage notes")]
-pub enum Notes {
-    /// List notes
-    #[clap(short_flag = 'l')]
-    List {
-        /// Filter the displayed note list
-        #[clap(short, long)]
-        filter: Option<NoteFilter>,
-    },
-
-    /// Show details of the note for the specified note ID
-    #[clap(short_flag = 's')]
-    Show {
-        /// Note ID of the note to show
-        #[clap()]
-        id: String,
-    },
-
-    /// List consumable notes
-    #[clap(short_flag = 'c')]
-    ListConsumable {
-        /// Account ID used to filter list. Only notes consumable by this account will be shown.
-        #[clap()]
-        account_id: Option<String>,
-    },
+pub struct NotesCmd {
+    /// List notes with the specified filter. If no filter is provided, all notes will be listed.
+    #[clap(short, long, group = "action", default_missing_value="all", num_args=0..=1, value_name = "filter")]
+    list: Option<NoteFilter>,
+    /// Show note with the specified ID.
+    #[clap(short, long, group = "action", value_name = "note_id")]
+    show: Option<String>,
+    /// (only has effect on `--list consumable`) Account ID used to filter list. Only notes consumable by this account will be shown.
+    #[clap(short, long, value_name = "account_id")]
+    account_id: Option<String>,
 }
 
-impl Default for Notes {
-    fn default() -> Self {
-        Notes::List { filter: None }
-    }
-}
-
-impl Notes {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store>(
+impl NotesCmd {
+    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
         &self,
-        client: Client<N, R, S>,
+        client: Client<N, R, S, A>,
     ) -> Result<(), String> {
         match self {
-            Notes::List { filter } => {
-                let filter = match filter {
-                    Some(NoteFilter::Committed) => ClientNoteFilter::Committed,
-                    Some(NoteFilter::Consumed) => ClientNoteFilter::Consumed,
-                    Some(NoteFilter::Pending) => ClientNoteFilter::Pending,
-                    None => ClientNoteFilter::All,
-                };
-
-                list_notes(client, filter)?;
+            NotesCmd { list: Some(NoteFilter::Consumable), .. } => {
+                list_consumable_notes(client, &None)?;
             },
-            Notes::Show { id } => {
+            NotesCmd { list: Some(filter), .. } => {
+                list_notes(
+                    client,
+                    filter.clone().try_into().expect("Filter shouldn't be consumable"),
+                )?;
+            },
+            NotesCmd { show: Some(id), .. } => {
                 show_note(client, id.to_owned())?;
             },
-            Notes::ListConsumable { account_id } => {
-                list_consumable_notes(client, account_id)?;
+            _ => {
+                list_notes(client, ClientNoteFilter::All)?;
             },
         }
         Ok(())
@@ -107,8 +103,8 @@ struct CliNoteSummary {
 
 // LIST NOTES
 // ================================================================================================
-fn list_notes<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: Client<N, R, S>,
+fn list_notes<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    client: Client<N, R, S, A>,
     filter: ClientNoteFilter,
 ) -> Result<(), String> {
     let input_notes = client.get_input_notes(filter.clone())?;
@@ -138,8 +134,8 @@ fn list_notes<N: NodeRpcClient, R: FeltRng, S: Store>(
 
 // SHOW NOTE
 // ================================================================================================
-fn show_note<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: Client<N, R, S>,
+fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    client: Client<N, R, S, A>,
     note_id: String,
 ) -> Result<(), String> {
     let input_note_record = get_input_note_with_id_prefix(&client, &note_id);
@@ -293,8 +289,8 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store>(
 
 // LIST CONSUMABLE INPUT NOTES
 // ================================================================================================
-fn list_consumable_notes<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: Client<N, R, S>,
+fn list_consumable_notes<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    client: Client<N, R, S, A>,
     account_id: &Option<String>,
 ) -> Result<(), String> {
     let account_id = match account_id {
@@ -513,41 +509,30 @@ mod tests {
     use std::env::temp_dir;
 
     use miden_client::{
-        client::{get_random_coin, transactions::transaction_request::TransactionTemplate},
-        config::{ClientConfig, Endpoint, RpcConfig},
+        client::transactions::transaction_request::TransactionTemplate,
         errors::IdPrefixFetchError,
         mock::{
-            mock_full_chain_mmr_and_notes, mock_fungible_faucet_account, mock_notes, MockClient,
-            MockRpcApi,
+            create_test_client, mock_full_chain_mmr_and_notes, mock_fungible_faucet_account,
+            mock_notes,
         },
-        store::{sqlite_store::SqliteStore, AuthInfo, InputNoteRecord, NoteFilter},
+        store::{InputNoteRecord, NoteFilter},
     };
     use miden_lib::transaction::TransactionKernel;
     use miden_objects::{
-        accounts::{AccountId, ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN},
+        accounts::{
+            account_id::testing::ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, AccountId, AuthSecretKey,
+        },
         assets::FungibleAsset,
         crypto::dsa::rpo_falcon512::SecretKey,
         notes::Note,
     };
-    use uuid::Uuid;
 
     use crate::cli::{export::export_note, get_input_note_with_id_prefix, import::import_note};
 
     #[tokio::test]
     async fn test_import_note_validation() {
         // generate test client
-        let mut path = temp_dir();
-        path.push(Uuid::new_v4().to_string());
-        let client_config = ClientConfig::new(
-            path.into_os_string().into_string().unwrap().try_into().unwrap(),
-            RpcConfig::default(),
-        );
-
-        let rng = get_random_coin();
-        let store = SqliteStore::new((&client_config).into()).unwrap();
-
-        let mut client =
-            MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store, true);
+        let mut client = create_test_client();
 
         // generate test data
         let assembler = TransactionKernel::assembler();
@@ -574,18 +559,7 @@ mod tests {
         // 3. One output note, one input note. Both representing the same note.
 
         // generate test client
-        let mut path = temp_dir();
-        path.push(Uuid::new_v4().to_string());
-        let client_config = ClientConfig::new(
-            path.into_os_string().into_string().unwrap().try_into().unwrap(),
-            RpcConfig::default(),
-        );
-
-        let rng = get_random_coin();
-        let store = SqliteStore::new((&client_config).into()).unwrap();
-
-        let mut client =
-            MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store, true);
+        let mut client = create_test_client();
 
         // Add a faucet account to run a mint tx against it
         const FAUCET_ID: u64 = ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN;
@@ -599,7 +573,9 @@ mod tests {
         );
 
         client.sync_state().await.unwrap();
-        client.insert_account(&faucet, None, &AuthInfo::RpoFalcon512(key_pair)).unwrap();
+        client
+            .insert_account(&faucet, None, &AuthSecretKey::RpoFalcon512(key_pair))
+            .unwrap();
 
         // Ensure client has no notes
         assert!(client.get_input_notes(NoteFilter::All).unwrap().is_empty());
@@ -616,7 +592,7 @@ mod tests {
 
         let transaction_request = client.build_transaction_request(transaction_template).unwrap();
         let transaction = client.new_transaction(transaction_request).unwrap();
-        let created_note = transaction.created_notes()[0].clone();
+        let created_note = transaction.created_notes().get_note(0).clone();
         client.submit_transaction(transaction).await.unwrap();
 
         // Ensure client has no input notes and one output note
@@ -658,18 +634,7 @@ mod tests {
     #[tokio::test]
     async fn get_input_note_with_prefix() {
         // generate test client
-        let mut path = temp_dir();
-        path.push(Uuid::new_v4().to_string());
-        let client_config = ClientConfig::new(
-            path.into_os_string().into_string().unwrap().try_into().unwrap(),
-            RpcConfig::default(),
-        );
-
-        let rng = get_random_coin();
-        let store = SqliteStore::new((&client_config).into()).unwrap();
-
-        let mut client =
-            MockClient::new(MockRpcApi::new(&Endpoint::default().to_string()), rng, store, true);
+        let mut client = create_test_client();
 
         // Ensure we get an error if no note is found
         let non_existent_note_id = "0x123456";

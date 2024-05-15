@@ -20,6 +20,7 @@ use common::*;
 
 mod custom_transactions_tests;
 mod onchain_tests;
+mod swap_transactions_tests;
 
 #[tokio::test]
 async fn test_added_notes() {
@@ -372,7 +373,7 @@ async fn test_get_output_notes() {
     let faucet_account_id = faucet_account_stub.id();
     let random_account_id = AccountId::from_hex("0x0123456789abcdef").unwrap();
 
-    //No output notes initially
+    // No output notes initially
     assert!(client.get_output_notes(NoteFilter::All).unwrap().is_empty());
 
     // First Mint necesary token
@@ -398,12 +399,12 @@ async fn test_get_output_notes() {
 
     let output_note_id = tx_request.expected_output_notes()[0].id();
 
-    //Before executing, the output note is not found
+    // Before executing, the output note is not found
     assert!(client.get_output_note(output_note_id).is_err());
 
     execute_tx_and_sync(&mut client, tx_request).await;
 
-    //After executing, the note is only found in output notes
+    // After executing, the note is only found in output notes
     assert!(client.get_output_note(output_note_id).is_ok());
     assert!(client.get_input_note(output_note_id).is_err());
 }
@@ -413,30 +414,44 @@ async fn test_import_pending_notes() {
     let mut client_1 = create_test_client();
     let (first_basic_account, _second_basic_account, faucet_account) =
         setup(&mut client_1, AccountStorageMode::Local).await;
+
     let mut client_2 = create_test_client();
+    let (client_2_account, _seed) = client_2
+        .new_account(AccountTemplate::BasicWallet {
+            mutable_code: true,
+            storage_mode: AccountStorageMode::Local,
+        })
+        .unwrap();
+
     wait_for_node(&mut client_2).await;
-    client_1.sync_state().await.unwrap();
-    client_2.sync_state().await.unwrap();
 
     let tx_template = TransactionTemplate::MintFungibleAsset(
         FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
-        first_basic_account.id(),
+        client_2_account.id(),
         NoteType::OffChain,
     );
 
     let tx_request = client_1.build_transaction_request(tx_template).unwrap();
     let note = tx_request.expected_output_notes()[0].clone();
+    client_2.sync_state().await.unwrap();
 
     // If the verification is requested before execution then the import should fail
     assert!(client_2.import_input_note(note.clone().into(), true).await.is_err());
     execute_tx_and_sync(&mut client_1, tx_request).await;
-    client_2.sync_state().await.unwrap();
 
+    // Use client 1 to wait until a couple of blocks have passed
+    wait_for_blocks(&mut client_1, 3).await;
+
+    let new_sync_data = client_2.sync_state().await.unwrap();
     client_2.import_input_note(note.clone().into(), true).await.unwrap();
     let input_note = client_2.get_input_note(note.id()).unwrap();
+    assert!(new_sync_data.block_num > input_note.inclusion_proof().unwrap().origin().block_num + 1);
 
     // If imported after execution and syncing then the inclusion proof should be Some
     assert!(input_note.inclusion_proof().is_some());
+
+    // If client 2 succesfully consumes the note, we confirm we have MMR and block header data
+    consume_notes(&mut client_2, client_2_account.id(), &[input_note.try_into().unwrap()]).await;
 
     let tx_template = TransactionTemplate::MintFungibleAsset(
         FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
