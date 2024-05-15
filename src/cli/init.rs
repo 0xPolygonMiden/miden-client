@@ -1,8 +1,4 @@
-use std::{
-    fs::File,
-    io::{self, Write},
-    path::{Path, PathBuf},
-};
+use std::{fs::File, io::Write, path::PathBuf};
 
 use clap::Parser;
 use miden_client::config::{ClientConfig, Endpoint};
@@ -19,8 +15,7 @@ pub struct InitCmd {
     #[clap(long)]
     rpc: Option<String>,
 
-    /// Store file path. If not provided user will be
-    /// asked for input
+    /// Store file path
     #[clap(long)]
     store_path: Option<String>,
 }
@@ -36,14 +31,6 @@ impl InitCmd {
 
         if let Some(path) = &self.store_path {
             client_config.store.database_filepath = path.to_string();
-        } else {
-            println!("Please provide the store file path:");
-            let mut store_path: String = String::new();
-            io::stdin().read_line(&mut store_path).expect("Should read line");
-            if !Path::new(&store_path.trim()).exists() {
-                return Err("The provided path does not exist".to_string());
-            }
-            client_config.store.database_filepath = store_path.trim().to_string();
         }
 
         let config_as_toml_string = toml::to_string_pretty(&client_config)
