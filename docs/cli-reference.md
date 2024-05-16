@@ -34,19 +34,19 @@ Creates a configuration file for the client in the current directory.
 miden init
 
 # You can use the --rpc flag to override the default rpc config
-miden init --rpc testnet.miden.io
+miden init --rpc 18.203.155.106
 # You can specify the port
-miden init --rpc testnet.miden.io:8080
+miden init --rpc 18.203.155.106:8080
 # You can also specify the protocol (http/https)
-miden init --rpc https://testnet.miden.io
+miden init --rpc https://18.203.155.106
 # You can specify both
-miden init --rpc https://testnet.miden.io:1234
+miden init --rpc https://18.203.155.106:1234
 
 # You can use the --store_path flag to override the default store config
 miden init --store_path db/store.sqlite3
 
 # You can provide both flags
-miden init --rpc testnet.miden.io --store_path db/store.sqlite3
+miden init --rpc 18.203.155.106 --store_path db/store.sqlite3
 ```
 
 ### `account` 
