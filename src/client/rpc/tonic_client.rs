@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use async_trait::async_trait;
 use miden_node_proto::{
     errors::ConversionError,
@@ -12,6 +14,7 @@ use miden_node_proto::{
 };
 use miden_objects::{
     accounts::{Account, AccountId},
+    crypto::merkle::{MerklePath, MmrProof},
     notes::{Note, NoteId, NoteMetadata, NoteTag, NoteType},
     transaction::ProvenTransaction,
     utils::Deserializable,
@@ -21,10 +24,10 @@ use miden_tx::utils::Serializable;
 use tonic::transport::Channel;
 
 use super::{
-    CommittedNote, NodeRpcClient, NodeRpcClientEndpoint, NoteDetails, NoteInclusionDetails,
-    StateSyncInfo,
+    AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
+    NoteDetails, NoteInclusionDetails, StateSyncInfo,
 };
-use crate::errors::NodeRpcClientError;
+use crate::{config::RpcConfig, errors::NodeRpcClientError};
 
 // TONIC RPC CLIENT
 // ================================================================================================
@@ -35,14 +38,16 @@ use crate::errors::NodeRpcClientError;
 pub struct TonicRpcClient {
     rpc_api: Option<ApiClient<Channel>>,
     endpoint: String,
+    timeout_ms: u64,
 }
 
 impl TonicRpcClient {
     /// Returns a new instance of [TonicRpcClient] that'll do calls the `config_endpoint` provided
-    pub fn new(config_endpoint: &str) -> TonicRpcClient {
+    pub fn new(config: &RpcConfig) -> TonicRpcClient {
         TonicRpcClient {
             rpc_api: None,
-            endpoint: config_endpoint.to_string(),
+            endpoint: config.endpoint.to_string(),
+            timeout_ms: config.timeout_ms,
         }
     }
 
@@ -52,7 +57,10 @@ impl TonicRpcClient {
         if self.rpc_api.is_some() {
             Ok(self.rpc_api.as_mut().unwrap())
         } else {
-            let rpc_api = ApiClient::connect(self.endpoint.clone())
+            let endpoint = tonic::transport::Endpoint::try_from(self.endpoint.clone())
+                .map_err(|err| NodeRpcClientError::ConnectionError(err.to_string()))?
+                .timeout(Duration::from_millis(self.timeout_ms));
+            let rpc_api = ApiClient::connect(endpoint)
                 .await
                 .map_err(|err| NodeRpcClientError::ConnectionError(err.to_string()))?;
             Ok(self.rpc_api.insert(rpc_api))
@@ -83,8 +91,13 @@ impl NodeRpcClient for TonicRpcClient {
     async fn get_block_header_by_number(
         &mut self,
         block_num: Option<u32>,
-    ) -> Result<BlockHeader, NodeRpcClientError> {
-        let request = GetBlockHeaderByNumberRequest { block_num };
+        include_mmr_proof: bool,
+    ) -> Result<(BlockHeader, Option<MmrProof>), NodeRpcClientError> {
+        let request = GetBlockHeaderByNumberRequest {
+            block_num,
+            include_mmr_proof: Some(include_mmr_proof),
+        };
+
         let rpc_api = self.rpc_api().await?;
         let api_response = rpc_api.get_block_header_by_number(request).await.map_err(|err| {
             NodeRpcClientError::RequestError(
@@ -93,12 +106,38 @@ impl NodeRpcClient for TonicRpcClient {
             )
         })?;
 
-        api_response
-            .into_inner()
+        let response = api_response.into_inner();
+
+        let block_header: BlockHeader = response
             .block_header
             .ok_or(NodeRpcClientError::ExpectedFieldMissing("BlockHeader".into()))?
             .try_into()
-            .map_err(|err: ConversionError| NodeRpcClientError::ConversionFailure(err.to_string()))
+            .map_err(|err: ConversionError| {
+                NodeRpcClientError::ConversionFailure(err.to_string())
+            })?;
+
+        let mmr_proof = if include_mmr_proof {
+            let forest = response
+                .chain_length
+                .ok_or(NodeRpcClientError::ExpectedFieldMissing("ChainLength".into()))?;
+            let merkle_path: MerklePath = response
+                .mmr_path
+                .ok_or(NodeRpcClientError::ExpectedFieldMissing("MmrPath".into()))?
+                .try_into()
+                .map_err(|err: ConversionError| {
+                    NodeRpcClientError::ConversionFailure(err.to_string())
+                })?;
+
+            Some(MmrProof {
+                forest: forest as usize,
+                position: block_header.block_num() as usize,
+                merkle_path,
+            })
+        } else {
+            None
+        };
+
+        Ok((block_header, mmr_proof))
     }
 
     async fn get_notes_by_id(
@@ -119,8 +158,11 @@ impl NodeRpcClient for TonicRpcClient {
         let rpc_notes = api_response.into_inner().notes;
         let mut response_notes = Vec::with_capacity(rpc_notes.len());
         for note in rpc_notes {
-            let sender_id =
-                note.sender.ok_or(NodeRpcClientError::ExpectedFieldMissing("Sender".into()))?;
+            let sender_id = note
+                .metadata
+                .clone()
+                .and_then(|metadata| metadata.sender)
+                .ok_or(NodeRpcClientError::ExpectedFieldMissing("Metadata.Sender".into()))?;
 
             let inclusion_details = {
                 let merkle_path = note
@@ -140,7 +182,11 @@ impl NodeRpcClient for TonicRpcClient {
                 },
                 // Off-chain notes do not have details
                 None => {
-                    let note_tag = NoteTag::from(note.tag).validate(NoteType::OffChain)?;
+                    let tag = note
+                        .metadata
+                        .ok_or(NodeRpcClientError::ExpectedFieldMissing("Metadata".into()))?
+                        .tag;
+                    let note_tag = NoteTag::from(tag).validate(NoteType::OffChain)?;
                     let note_metadata = NoteMetadata::new(
                         sender_id.try_into()?,
                         NoteType::OffChain,
@@ -192,30 +238,21 @@ impl NodeRpcClient for TonicRpcClient {
         response.into_inner().try_into()
     }
 
-    /// Sends a [GetAccountDetailsRequest] to the Miden node, and extracts an [Account] from the
+    /// Sends a [GetAccountDetailsRequest] to the Miden node, and extracts an [AccountDetails] from the
     /// `GetAccountDetailsResponse` response.
     ///
     /// # Errors
     ///
     /// This function will return an error if:
     ///
-    /// - The provided account is not on-chain: this is due to the fact that for offchain accounts
-    /// the client is responsible
     /// - There was an error sending the request to the node
-    /// - The answer had a `None` for its account, or the account had a `None` at the `details` field.
+    /// - The answer had a `None` for one of the expected fields (account, summary, account_hash, details).
     /// - There is an error during [Account] deserialization
     async fn get_account_update(
         &mut self,
         account_id: AccountId,
-    ) -> Result<Account, NodeRpcClientError> {
-        if !account_id.is_on_chain() {
-            return Err(NodeRpcClientError::InvalidAccountReceived(
-                "should only get updates for offchain accounts".to_string(),
-            ));
-        }
-
-        let account_id = account_id.into();
-        let request = GetAccountDetailsRequest { account_id: Some(account_id) };
+    ) -> Result<AccountDetails, NodeRpcClientError> {
+        let request = GetAccountDetailsRequest { account_id: Some(account_id.into()) };
 
         let rpc_api = self.rpc_api().await?;
 
@@ -230,14 +267,30 @@ impl NodeRpcClient for TonicRpcClient {
             "GetAccountDetails response should have an `account`".to_string(),
         ))?;
 
-        let details_bytes =
-            account_info.details.ok_or(NodeRpcClientError::ExpectedFieldMissing(
-                "GetAccountDetails response's account should have `details`".to_string(),
+        let account_summary =
+            account_info.summary.ok_or(NodeRpcClientError::ExpectedFieldMissing(
+                "GetAccountDetails response's account should have a `summary`".to_string(),
             ))?;
 
-        let details = Account::read_from_bytes(&details_bytes)?;
+        let hash = account_summary.account_hash.ok_or(NodeRpcClientError::ExpectedFieldMissing(
+            "GetAccountDetails response's account should have an `account_hash`".to_string(),
+        ))?;
 
-        Ok(details)
+        let hash = hash.try_into()?;
+
+        let update_summary = AccountUpdateSummary::new(hash, account_summary.block_num);
+        if account_id.is_on_chain() {
+            let details_bytes =
+                account_info.details.ok_or(NodeRpcClientError::ExpectedFieldMissing(
+                    "GetAccountDetails response's account should have `details`".to_string(),
+                ))?;
+
+            let account = Account::read_from_bytes(&details_bytes)?;
+
+            Ok(AccountDetails::Public(account, update_summary))
+        } else {
+            Ok(AccountDetails::OffChain(account_id, update_summary))
+        }
     }
 }
 
@@ -296,17 +349,26 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                 .try_into()?;
 
             let sender_account_id = note
-                .sender
-                .ok_or(NodeRpcClientError::ExpectedFieldMissing("Notes.Sender".into()))?
+                .metadata
+                .clone()
+                .and_then(|m| m.sender)
+                .ok_or(NodeRpcClientError::ExpectedFieldMissing("Notes.Metadata.Sender".into()))?
                 .try_into()?;
 
-            let note_type = NoteType::try_from(Felt::new(note.note_type.into()))?;
-            let metadata = NoteMetadata::new(
-                sender_account_id,
-                note_type,
-                note.tag.into(),
-                Default::default(),
-            )?;
+            let tag = note
+                .metadata
+                .clone()
+                .ok_or(NodeRpcClientError::ExpectedFieldMissing("Notes.Metadata".into()))?
+                .tag;
+
+            let note_type = note
+                .metadata
+                .ok_or(NodeRpcClientError::ExpectedFieldMissing("Notes.Metadata".into()))?
+                .note_type;
+
+            let note_type = NoteType::try_from(note_type)?;
+            let metadata =
+                NoteMetadata::new(sender_account_id, note_type, tag.into(), Default::default())?;
 
             let committed_note =
                 CommittedNote::new(note_id, note.note_index, merkle_path, metadata);

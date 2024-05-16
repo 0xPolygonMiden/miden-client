@@ -1,164 +1,103 @@
-use std::{fs, path::PathBuf};
+use std::path::PathBuf;
 
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
-    client::{accounts, rpc::NodeRpcClient, Client},
+    client::{rpc::NodeRpcClient, Client},
+    config::{CliConfig, ClientConfig},
     store::Store,
 };
 use miden_objects::{
-    accounts::{AccountData, AccountId, AccountStorage, AccountType, StorageSlotType},
-    assets::{Asset, TokenSymbol},
-    crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
+    accounts::{AccountId, AccountStorage, AccountType, AuthSecretKey, StorageSlotType},
+    assets::Asset,
+    crypto::{dsa::rpo_falcon512::SK_LEN, rand::FeltRng},
     ZERO,
 };
-use miden_tx::utils::{bytes_to_hex_string, Deserializable, Serializable};
-use tracing::info;
+use miden_tx::{
+    utils::{bytes_to_hex_string, Serializable},
+    TransactionAuthenticator,
+};
 
+use super::{load_config, parse_account_id, update_config, CLIENT_CONFIG_FILE_NAME};
 use crate::cli::create_dynamic_table;
 
 // ACCOUNT COMMAND
 // ================================================================================================
 
-#[derive(Debug, Clone, Parser)]
-#[clap(about = "Create accounts and inspect account details")]
-pub enum AccountCmd {
-    /// List all accounts monitored by this client
-    #[clap(short_flag = 'l')]
-    List,
-
-    /// Show details of the account for the specified ID
-    #[clap(short_flag = 's')]
-    Show {
-        // TODO: We should create a value parser for catching input parsing errors earlier (ie AccountID) once complexity grows
-        #[clap()]
-        id: String,
-        #[clap(short, long, default_value_t = false)]
-        keys: bool,
-        #[clap(short, long, default_value_t = false)]
-        vault: bool,
-        #[clap(short, long, default_value_t = false)]
-        storage: bool,
-        #[clap(short, long, default_value_t = false)]
-        code: bool,
-    },
-    /// Create new account and store it locally
-    #[clap(short_flag = 'n')]
-    New {
-        #[clap(subcommand)]
-        template: AccountTemplate,
-    },
-    /// Import accounts from binary files (with .mac extension)
-    #[clap(short_flag = 'i')]
-    Import {
-        /// Paths to the files that contains the account data
-        #[arg()]
-        filenames: Vec<PathBuf>,
-    },
-}
-
-#[derive(Debug, Parser, Clone)]
-#[clap()]
-pub enum AccountTemplate {
-    /// Creates a basic account (Regular account with immutable code)
-    BasicImmutable {
-        #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
-        storage_type: AccountStorageMode,
-    },
-    /// Creates a basic account (Regular account with mutable code)
-    BasicMutable {
-        #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
-        storage_type: AccountStorageMode,
-    },
-    /// Creates a faucet for fungible tokens
-    FungibleFaucet {
-        #[clap(short, long)]
-        token_symbol: String,
-        #[clap(short, long)]
-        decimals: u8,
-        #[clap(short, long)]
-        max_supply: u64,
-        #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
-        storage_type: AccountStorageMode,
-    },
-    /// Creates a faucet for non-fungible tokens
-    NonFungibleFaucet {
-        #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
-        storage_type: AccountStorageMode,
-    },
-}
-
-#[derive(Debug, Clone, Copy, ValueEnum)]
-pub enum AccountStorageMode {
-    OffChain,
-    OnChain,
-}
-
-impl From<AccountStorageMode> for accounts::AccountStorageMode {
-    fn from(value: AccountStorageMode) -> Self {
-        match value {
-            AccountStorageMode::OffChain => accounts::AccountStorageMode::Local,
-            AccountStorageMode::OnChain => accounts::AccountStorageMode::OnChain,
-        }
-    }
-}
-
-impl From<&AccountStorageMode> for accounts::AccountStorageMode {
-    fn from(value: &AccountStorageMode) -> Self {
-        accounts::AccountStorageMode::from(*value)
-    }
+#[derive(Default, Debug, Clone, Parser)]
+/// View and manage accounts. Defaults to `list` command.
+pub struct AccountCmd {
+    /// List all accounts monitored by this client (default action)
+    #[clap(short, long, group = "action")]
+    list: bool,
+    /// Show details of the account for the specified ID or hex prefix
+    #[clap(short, long, group = "action", value_name = "ID")]
+    show: Option<String>,
+    /// Manages default account for transaction execution
+    ///
+    /// If no ID is provided it will display the current default account ID.
+    /// If "none" is provided it will remove the default account else
+    /// it will set the default account to the provided ID
+    #[clap(short, long, group = "action", value_name = "ID")]
+    default: Option<Option<String>>,
 }
 
 impl AccountCmd {
-    pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store>(
+    pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
         &self,
-        mut client: Client<N, R, S>,
+        client: Client<N, R, S, A>,
     ) -> Result<(), String> {
         match self {
-            AccountCmd::List => {
-                list_accounts(client)?;
+            AccountCmd {
+                list: false,
+                show: Some(id),
+                default: None,
+            } => {
+                let account_id = parse_account_id(&client, id)?;
+                show_account(client, account_id)?;
             },
-            AccountCmd::New { template } => {
-                let client_template = match template {
-                    AccountTemplate::BasicImmutable { storage_type: storage_mode } => {
-                        accounts::AccountTemplate::BasicWallet {
-                            mutable_code: false,
-                            storage_mode: storage_mode.into(),
+            AccountCmd {
+                list: false,
+                show: None,
+                default: Some(id),
+            } => {
+                match id {
+                    None => {
+                        display_default_account_id()?;
+                    },
+                    Some(id) => {
+                        let default_account = if id == "none" {
+                            None
+                        } else {
+                            let account_id: AccountId = AccountId::from_hex(id)
+                                .map_err(|_| "Input number was not a valid Account Id")?;
+
+                            // Check whether we're tracking that account
+                            let (account, _) = client.get_account_stub_by_id(account_id)?;
+
+                            Some(account.id().to_hex())
+                        };
+
+                        // load config
+                        let (mut current_config, config_path) = load_config_file()?;
+
+                        // set default account
+                        current_config.cli = Some(CliConfig {
+                            default_account_id: default_account.clone(),
+                        });
+
+                        if let Some(id) = default_account {
+                            println!("Setting default account to {id}...");
+                        } else {
+                            println!("Removing default account...");
                         }
+
+                        update_config(&config_path, current_config)?;
                     },
-                    AccountTemplate::BasicMutable { storage_type: storage_mode } => {
-                        accounts::AccountTemplate::BasicWallet {
-                            mutable_code: true,
-                            storage_mode: storage_mode.into(),
-                        }
-                    },
-                    AccountTemplate::FungibleFaucet {
-                        token_symbol,
-                        decimals,
-                        max_supply,
-                        storage_type: storage_mode,
-                    } => accounts::AccountTemplate::FungibleFaucet {
-                        token_symbol: TokenSymbol::new(token_symbol)
-                            .map_err(|err| format!("error: token symbol is invalid: {}", err))?,
-                        decimals: *decimals,
-                        max_supply: *max_supply,
-                        storage_mode: storage_mode.into(),
-                    },
-                    AccountTemplate::NonFungibleFaucet { storage_type: _ } => todo!(),
-                };
-                let (_new_account, _account_seed) = client.new_account(client_template)?;
-            },
-            AccountCmd::Show { id, keys, vault, storage, code } => {
-                let account_id: AccountId = AccountId::from_hex(id)
-                    .map_err(|_| "Input number was not a valid Account Id")?;
-                show_account(client, account_id, *keys, *vault, *storage, *code)?;
-            },
-            AccountCmd::Import { filenames } => {
-                validate_paths(filenames, "mac")?;
-                for filename in filenames {
-                    import_account(&mut client, filename)?;
                 }
-                println!("Imported {} accounts.", filenames.len());
+            },
+            _ => {
+                list_accounts(client)?;
             },
         }
         Ok(())
@@ -168,10 +107,10 @@ impl AccountCmd {
 // LIST ACCOUNTS
 // ================================================================================================
 
-fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: Client<N, R, S>,
+fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    client: Client<N, R, S, A>,
 ) -> Result<(), String> {
-    let accounts = client.get_accounts()?;
+    let accounts = client.get_account_stubs()?;
 
     let mut table = create_dynamic_table(&[
         "Account ID",
@@ -198,15 +137,11 @@ fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store>(
     Ok(())
 }
 
-pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: Client<N, R, S>,
+pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    client: Client<N, R, S, A>,
     account_id: AccountId,
-    show_keys: bool,
-    show_vault: bool,
-    show_storage: bool,
-    show_code: bool,
 ) -> Result<(), String> {
-    let (account, _account_seed) = client.get_account(account_id)?;
+    let (account, _) = client.get_account(account_id)?;
     let mut table = create_dynamic_table(&[
         "Account ID",
         "Account Hash",
@@ -229,7 +164,8 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store>(
     ]);
     println!("{table}\n");
 
-    if show_vault {
+    // Vault Table
+    {
         let assets = account.vault().assets();
 
         println!("Assets: ");
@@ -250,7 +186,8 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store>(
         println!("{table}\n");
     }
 
-    if show_storage {
+    // Storage Table
+    {
         let account_storage = account.storage();
 
         println!("Storage: \n");
@@ -286,13 +223,13 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store>(
         println!("{table}\n");
     }
 
-    if show_keys {
+    // Keys table
+    {
         let auth_info = client.get_account_auth(account_id)?;
 
         match auth_info {
-            miden_client::store::AuthInfo::RpoFalcon512(key_pair) => {
-                const KEY_PAIR_SIZE: usize = std::mem::size_of::<SecretKey>();
-                let auth_info: [u8; KEY_PAIR_SIZE] = key_pair
+            AuthSecretKey::RpoFalcon512(key_pair) => {
+                let auth_info: [u8; SK_LEN] = key_pair
                     .to_bytes()
                     .try_into()
                     .expect("Array size is const and should always exactly fit SecretKey");
@@ -309,19 +246,22 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store>(
         };
     }
 
-    if show_code {
+    // Code related table
+    {
         let module = account.code().module();
         let procedure_digests = account.code().procedures();
 
         println!("Account Code Info:");
 
         let mut table = create_dynamic_table(&["Procedure Digests"]);
+
         for digest in procedure_digests {
             table.add_row(vec![digest.to_hex()]);
         }
         println!("{table}\n");
 
         let mut code_table = create_dynamic_table(&["Code"]);
+        code_table.load_preset(presets::UTF8_HORIZONTAL_ONLY);
         code_table.add_row(vec![&module]);
         println!("{code_table}\n");
     }
@@ -329,48 +269,8 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store>(
     Ok(())
 }
 
-// IMPORT ACCOUNT
-// ================================================================================================
-
-fn import_account<N: NodeRpcClient, R: FeltRng, S: Store>(
-    client: &mut Client<N, R, S>,
-    filename: &PathBuf,
-) -> Result<(), String> {
-    info!(
-        "Attempting to import account data from {}...",
-        fs::canonicalize(filename).map_err(|err| err.to_string())?.as_path().display()
-    );
-    let account_data_file_contents = fs::read(filename).map_err(|err| err.to_string())?;
-    let account_data =
-        AccountData::read_from_bytes(&account_data_file_contents).map_err(|err| err.to_string())?;
-    let account_id = account_data.account.id();
-
-    client.import_account(account_data)?;
-    println!("Imported account with ID: {}", account_id);
-
-    Ok(())
-}
-
 // HELPERS
 // ================================================================================================
-
-/// Checks that all files exist, otherwise returns an error. It also ensures that all files have a
-/// specific extension
-fn validate_paths(paths: &[PathBuf], expected_extension: &str) -> Result<(), String> {
-    let invalid_path = paths.iter().find(|path| {
-        !path.exists() || path.extension().map_or(false, |ext| ext != expected_extension)
-    });
-
-    if let Some(path) = invalid_path {
-        Err(format!(
-            "The path `{}` does not exist or does not have the appropiate extension",
-            path.to_string_lossy()
-        )
-        .to_string())
-    } else {
-        Ok(())
-    }
-}
 
 fn account_type_display_name(account_type: &AccountType) -> String {
     match account_type {
@@ -388,4 +288,29 @@ fn storage_type_display_name(account: &AccountId) -> String {
         false => "Off-chain",
     }
     .to_string()
+}
+
+/// Loads config file and displays current default account ID
+fn display_default_account_id() -> Result<(), String> {
+    let (miden_client_config, _) = load_config_file()?;
+    let cli_config = miden_client_config
+        .cli
+        .ok_or("No CLI options found in the client config file".to_string())?;
+
+    let default_account = cli_config.default_account_id.ok_or(
+        "No default account found in the CLI options from the client config file.".to_string(),
+    )?;
+    println!("Current default account ID: {default_account}");
+    Ok(())
+}
+
+/// Loads config file from current directory and default filename and returns it alongside its path
+fn load_config_file() -> Result<(ClientConfig, PathBuf), String> {
+    let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
+    current_dir.push(CLIENT_CONFIG_FILE_NAME);
+    let config_path = current_dir.as_path();
+
+    let client_config = load_config(config_path)?;
+
+    Ok((client_config, config_path.into()))
 }

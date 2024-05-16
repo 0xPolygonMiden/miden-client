@@ -1,4 +1,4 @@
-use alloc::collections::BTreeSet;
+use alloc::{collections::BTreeSet, rc::Rc};
 
 use miden_objects::{
     accounts::AccountId,
@@ -16,13 +16,14 @@ use crate::errors::{ClientError, StoreError};
 // DATA STORE
 // ================================================================================================
 
+/// Wrapper structure that helps automatically implement [DataStore] over any [Store]
 pub struct ClientDataStore<S: Store> {
     /// Local database containing information about the accounts managed by this client.
-    pub(crate) store: S,
+    pub(crate) store: Rc<S>,
 }
 
 impl<S: Store> ClientDataStore<S> {
-    pub fn new(store: S) -> Self {
+    pub fn new(store: Rc<S>) -> Self {
         Self { store }
     }
 }
@@ -57,10 +58,10 @@ impl<S: Store> DataStore for ClientDataStore<S> {
         let mut list_of_notes = vec![];
 
         let mut notes_blocks: Vec<u32> = vec![];
-        for note_id in notes {
-            let input_note_record = self.store.get_input_note(*note_id)?;
+        let input_note_records = self.store.get_input_notes(NoteFilter::List(notes))?;
 
-            let input_note: InputNote = input_note_record
+        for note_record in input_note_records {
+            let input_note: InputNote = note_record
                 .try_into()
                 .map_err(|err: ClientError| DataStoreError::InternalError(err.to_string()))?;
 
@@ -80,7 +81,8 @@ impl<S: Store> DataStore for ClientDataStore<S> {
             .map(|(header, _has_notes)| *header)
             .collect();
 
-        let partial_mmr = build_partial_mmr_with_paths(&self.store, block_num, &notes_blocks)?;
+        let partial_mmr =
+            build_partial_mmr_with_paths(self.store.as_ref(), block_num, &notes_blocks)?;
         let chain_mmr = ChainMmr::new(partial_mmr, notes_blocks)
             .map_err(|err| DataStoreError::InternalError(err.to_string()))?;
 

@@ -12,13 +12,15 @@ use tracing::info;
 
 use super::{
     accounts::update_account,
-    notes::{insert_input_note_tx, insert_output_note_tx},
+    notes::{insert_input_note_tx, insert_output_note_tx, update_note_consumer_tx_id},
     SqliteStore,
 };
 use crate::{
-    client::transactions::{TransactionRecord, TransactionResult, TransactionStatus},
+    client::transactions::{
+        notes_from_output, TransactionRecord, TransactionResult, TransactionStatus,
+    },
     errors::StoreError,
-    store::{InputNoteRecord, OutputNoteRecord, TransactionFilter},
+    store::{OutputNoteRecord, TransactionFilter},
 };
 
 pub(crate) const INSERT_TRANSACTION_QUERY: &str =
@@ -69,7 +71,7 @@ impl SqliteStore {
         &self,
         filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, StoreError> {
-        self.db
+        self.db()
             .prepare(&filter.to_query())?
             .query_map([], parse_transaction_columns)
             .expect("no binding parameters used in query")
@@ -78,7 +80,8 @@ impl SqliteStore {
     }
 
     /// Inserts a transaction and updates the current state based on the `tx_result` changes
-    pub fn apply_transaction(&mut self, tx_result: TransactionResult) -> Result<(), StoreError> {
+    pub fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), StoreError> {
+        let transaction_id = tx_result.executed_transaction().id();
         let account_id = tx_result.executed_transaction().account_id();
         let account_delta = tx_result.account_delta();
 
@@ -86,19 +89,20 @@ impl SqliteStore {
 
         account.apply_delta(account_delta).map_err(StoreError::AccountError)?;
 
-        let created_input_notes = tx_result
-            .relevant_notes()
-            .into_iter()
-            .map(|note| InputNoteRecord::from(note.clone()))
+        // Save only input notes that we care for (based on the note screener assessment)
+        let created_input_notes = tx_result.relevant_notes().to_vec();
+
+        // Save all output notes
+        let created_output_notes = notes_from_output(tx_result.created_notes())
+            .cloned()
+            .map(OutputNoteRecord::from)
             .collect::<Vec<_>>();
 
-        let created_output_notes = tx_result
-            .created_notes()
-            .iter()
-            .map(|note| OutputNoteRecord::from(note.clone()))
-            .collect::<Vec<_>>();
+        let consumed_note_ids =
+            tx_result.consumed_notes().iter().map(|note| note.id()).collect::<Vec<_>>();
 
-        let tx = self.db.transaction()?;
+        let mut db = self.db();
+        let tx = db.transaction()?;
 
         // Transaction Data
         insert_proven_transaction_data(&tx, tx_result)?;
@@ -107,15 +111,16 @@ impl SqliteStore {
         update_account(&tx, &account)?;
 
         // Updates for notes
-
-        // TODO: see if we should filter the input notes we store to keep notes we can consume with
-        // existing accounts
-        for note in &created_input_notes {
-            insert_input_note_tx(&tx, note)?;
+        for note in created_input_notes {
+            insert_input_note_tx(&tx, &note)?;
         }
 
         for note in &created_output_notes {
             insert_output_note_tx(&tx, note)?;
+        }
+
+        for note_id in consumed_note_ids {
+            update_note_consumer_tx_id(&tx, note_id, transaction_id)?;
         }
 
         tx.commit()?;

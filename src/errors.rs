@@ -3,7 +3,7 @@ use core::fmt;
 use miden_node_proto::errors::ConversionError;
 use miden_objects::{
     accounts::AccountId, crypto::merkle::MmrError, notes::NoteId, AccountError, AssetError,
-    AssetVaultError, Digest, NoteError, TransactionScriptError,
+    AssetVaultError, Digest, NoteError, TransactionScriptError, Word,
 };
 use miden_tx::{
     utils::{DeserializationError, HexParseError},
@@ -22,12 +22,15 @@ pub enum ClientError {
     ImportNewAccountWithoutSeed,
     MissingOutputNotes(Vec<NoteId>),
     NoteError(NoteError),
+    NoteImportError(String),
+    NoteRecordError(String),
     NoConsumableNoteForAccount(AccountId),
     NodeRpcClientError(NodeRpcClientError),
     ScreenerError(ScreenerError),
     StoreError(StoreError),
     TransactionExecutorError(TransactionExecutorError),
     TransactionProvingError(TransactionProverError),
+    ExistenceVerificationError(NoteId),
 }
 
 impl fmt::Display for ClientError {
@@ -46,7 +49,7 @@ impl fmt::Display for ClientError {
             ClientError::MissingOutputNotes(note_ids) => {
                 write!(
                     f,
-                    "transaction error: The transaction did not produce expected Note IDs: {}",
+                    "transaction error: The transaction did not produce the expected notes corresponding to Note IDs: {}",
                     note_ids.iter().map(|&id| id.to_hex()).collect::<Vec<_>>().join(", ")
                 )
             },
@@ -54,6 +57,8 @@ impl fmt::Display for ClientError {
                 write!(f, "No consumable note for account ID {}", account_id)
             },
             ClientError::NoteError(err) => write!(f, "note error: {err}"),
+            ClientError::NoteImportError(err) => write!(f, "error importing note: {err}"),
+            ClientError::NoteRecordError(err) => write!(f, "note record error: {err}"),
             ClientError::NodeRpcClientError(err) => write!(f, "rpc api error: {err}"),
             ClientError::ScreenerError(err) => write!(f, "note screener error: {err}"),
             ClientError::StoreError(err) => write!(f, "store error: {err}"),
@@ -62,6 +67,9 @@ impl fmt::Display for ClientError {
             },
             ClientError::TransactionProvingError(err) => {
                 write!(f, "transaction prover error: {err}")
+            },
+            ClientError::ExistenceVerificationError(note_id) => {
+                write!(f, "The note with ID {note_id} doesn't exist in the chain")
             },
         }
     }
@@ -149,13 +157,14 @@ pub enum StoreError {
     AccountDataNotFound(AccountId),
     AccountError(AccountError),
     AccountHashMismatch(AccountId),
+    AccountKeyNotFound(Word),
     AccountStorageNotFound(Digest),
     BlockHeaderNotFound(u32),
     ChainMmrNodeNotFound(u64),
     DatabaseError(String),
     DataDeserializationError(DeserializationError),
     HexParseError(HexParseError),
-    InputNoteNotFound(NoteId),
+    NoteNotFound(NoteId),
     InputSerializationError(serde_json::Error),
     JsonDataDeserializationError(serde_json::Error),
     MmrError(MmrError),
@@ -252,6 +261,9 @@ impl fmt::Display for StoreError {
             AccountHashMismatch(account_id) => {
                 write!(f, "account hash mismatch for account {account_id}")
             },
+            AccountKeyNotFound(pub_key) => {
+                write!(f, "error: Public Key {} not found", Digest::from(pub_key))
+            },
             AccountStorageNotFound(root) => {
                 write!(f, "account storage data with root {} not found", root)
             },
@@ -268,8 +280,8 @@ impl fmt::Display for StoreError {
             HexParseError(err) => {
                 write!(f, "error parsing hex: {err}")
             },
-            InputNoteNotFound(note_id) => {
-                write!(f, "input note with note id {} not found", note_id.inner())
+            NoteNotFound(note_id) => {
+                write!(f, "note with note id {} not found", note_id.inner())
             },
             InputSerializationError(err) => {
                 write!(f, "error trying to serialize inputs for the store: {err}")
@@ -302,7 +314,7 @@ impl From<StoreError> for DataStoreError {
                 DataStoreError::AccountNotFound(account_id)
             },
             StoreError::BlockHeaderNotFound(block_num) => DataStoreError::BlockNotFound(block_num),
-            StoreError::InputNoteNotFound(note_id) => DataStoreError::NoteNotFound(note_id),
+            StoreError::NoteNotFound(note_id) => DataStoreError::NoteNotFound(note_id),
             err => DataStoreError::InternalError(err.to_string()),
         }
     }
@@ -377,26 +389,26 @@ impl From<ConversionError> for NodeRpcClientError {
     }
 }
 
-// NOTE ID PREFIX FETCH ERROR
+// ID PREFIX FETCH ERROR
 // ================================================================================================
 
-/// Error when Looking for a specific note ID from a partial ID
+/// Error when Looking for a specific ID from a partial ID
 #[derive(Debug, Eq, PartialEq)]
-pub enum NoteIdPrefixFetchError {
+pub enum IdPrefixFetchError {
     NoMatch(String),
     MultipleMatches(String),
 }
 
-impl fmt::Display for NoteIdPrefixFetchError {
+impl fmt::Display for IdPrefixFetchError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NoteIdPrefixFetchError::NoMatch(note_id) => {
-                write!(f, "No matches were found with the input prefix {note_id}.")
+            IdPrefixFetchError::NoMatch(id) => {
+                write!(f, "No matches were found with the {id}.")
             },
-            NoteIdPrefixFetchError::MultipleMatches(note_id) => {
+            IdPrefixFetchError::MultipleMatches(id) => {
                 write!(
                     f,
-                    "found more than one note for the provided ID {note_id} and only one match is expected."
+                    "Found more than one element for the provided {id} and only one match is expected."
                 )
             },
         }

@@ -2,10 +2,14 @@
 // ================================================================================================
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{AccountId, AccountStub, ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN},
+    accounts::{
+        account_id::testing::ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, AccountId, AccountStub,
+        AuthSecretKey,
+    },
     assembly::{AstSerdeOptions, ModuleAst},
     assets::{FungibleAsset, TokenSymbol},
     crypto::dsa::rpo_falcon512::SecretKey,
+    notes::NoteTag,
     Word,
 };
 
@@ -15,10 +19,10 @@ use crate::{
         transactions::transaction_request::TransactionTemplate,
     },
     mock::{
-        get_account_with_default_account_code, mock_full_chain_mmr_and_notes,
+        create_test_client, get_account_with_default_account_code, mock_full_chain_mmr_and_notes,
         mock_fungible_faucet_account, mock_notes, ACCOUNT_ID_REGULAR,
     },
-    store::{sqlite_store::tests::create_test_client, AuthInfo, InputNoteRecord, NoteFilter},
+    store::{InputNoteRecord, NoteFilter},
 };
 
 #[tokio::test]
@@ -34,7 +38,7 @@ async fn test_input_notes_round_trip() {
 
     // insert notes into database
     for note in consumed_notes.iter().cloned() {
-        client.import_input_note(note.into()).unwrap();
+        client.import_input_note(note.into(), false).await.unwrap();
     }
 
     // retrieve notes from database
@@ -58,7 +62,10 @@ async fn test_get_input_note() {
     let (_consumed_notes, created_notes) = mock_notes(&assembler);
 
     // insert Note into database
-    client.import_input_note(created_notes.first().unwrap().clone().into()).unwrap();
+    client
+        .import_input_note(created_notes.first().unwrap().clone().into(), false)
+        .await
+        .unwrap();
 
     // retrieve note from database
     let retrieved_note =
@@ -148,10 +155,14 @@ async fn insert_same_account_twice_fails() {
     let key_pair = SecretKey::new();
 
     assert!(client
-        .insert_account(&account, Some(Word::default()), &AuthInfo::RpoFalcon512(key_pair.clone()))
+        .insert_account(
+            &account,
+            Some(Word::default()),
+            &AuthSecretKey::RpoFalcon512(key_pair.clone())
+        )
         .is_ok());
     assert!(client
-        .insert_account(&account, Some(Word::default()), &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
         .is_err());
 }
 
@@ -179,7 +190,7 @@ async fn test_account_code() {
     assert_eq!(account_module, reconstructed_ast);
 
     client
-        .insert_account(&account, Some(Word::default()), &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
         .unwrap();
     let (retrieved_acc, _) = client.get_account(account.id()).unwrap();
 
@@ -203,7 +214,7 @@ async fn test_get_account_by_id() {
     let key_pair = SecretKey::new();
 
     client
-        .insert_account(&account, Some(Word::default()), &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
         .unwrap();
 
     // Retrieving an existing account should succeed
@@ -233,16 +244,17 @@ async fn test_sync_state() {
     let pending_notes = client.get_input_notes(NoteFilter::Pending).unwrap();
 
     // sync state
-    let block_num: u32 = client.sync_state().await.unwrap();
+    let sync_details = client.sync_state().await.unwrap();
 
     // verify that the client is synced to the latest block
     assert_eq!(
-        block_num,
+        sync_details.block_num,
         client.rpc_api().state_sync_requests.first_key_value().unwrap().1.chain_tip
     );
 
     // verify that we now have one consumed note after syncing state
     assert_eq!(client.get_input_notes(NoteFilter::Consumed).unwrap().len(), 1);
+    assert_eq!(sync_details.new_nullifiers, 1);
 
     // verify that the pending note we had is now committed
     assert_ne!(client.get_input_notes(NoteFilter::Committed).unwrap(), pending_notes);
@@ -263,11 +275,11 @@ async fn test_sync_state_mmr_state() {
     let tracked_block_headers = crate::mock::insert_mock_data(&mut client).await;
 
     // sync state
-    let block_num: u32 = client.sync_state().await.unwrap();
+    let sync_details = client.sync_state().await.unwrap();
 
     // verify that the client is synced to the latest block
     assert_eq!(
-        block_num,
+        sync_details.block_num,
         client.rpc_api().state_sync_requests.first_key_value().unwrap().1.chain_tip
     );
 
@@ -279,7 +291,7 @@ async fn test_sync_state_mmr_state() {
 
     // verify that we inserted the latest block into the db via the client
     let latest_block = client.get_sync_height().unwrap();
-    assert_eq!(block_num, latest_block);
+    assert_eq!(sync_details.block_num, latest_block);
     assert_eq!(
         tracked_block_headers[tracked_block_headers.len() - 1],
         client.get_block_headers(&[latest_block]).unwrap()[0].0
@@ -309,27 +321,40 @@ async fn test_sync_state_mmr_state() {
 }
 
 #[tokio::test]
-async fn test_add_tag() {
+async fn test_tags() {
     // generate test client with a random store name
     let mut client = create_test_client();
 
-    // assert that no tags are being tracked
-    assert_eq!(client.get_note_tags().unwrap().len(), 0);
+    // Assert that the store gets created with the tag 0 (used for notes consumable by any account)
+    assert_eq!(client.get_note_tags().unwrap(), vec![]);
 
     // add a tag
-    const TAG_VALUE_1: u64 = 1;
-    const TAG_VALUE_2: u64 = 2;
-    client.add_note_tag(TAG_VALUE_1).unwrap();
-    client.add_note_tag(TAG_VALUE_2).unwrap();
+    let tag_1: NoteTag = 1.into();
+    let tag_2: NoteTag = 2.into();
+    client.add_note_tag(tag_1).unwrap();
+    client.add_note_tag(tag_2).unwrap();
 
     // verify that the tag is being tracked
-    assert_eq!(client.get_note_tags().unwrap(), vec![TAG_VALUE_1, TAG_VALUE_2]);
+    assert_eq!(client.get_note_tags().unwrap(), vec![tag_1, tag_2]);
 
     // attempt to add the same tag again
-    client.add_note_tag(TAG_VALUE_1).unwrap();
+    client.add_note_tag(tag_1).unwrap();
 
     // verify that the tag is still being tracked only once
-    assert_eq!(client.get_note_tags().unwrap(), vec![TAG_VALUE_1, TAG_VALUE_2]);
+    assert_eq!(client.get_note_tags().unwrap(), vec![tag_1, tag_2]);
+
+    // Try removing non-existent tag
+    let tag_4: NoteTag = 4.into();
+    client.remove_note_tag(tag_4).unwrap();
+
+    // verify that the tracked tags are unchanged
+    assert_eq!(client.get_note_tags().unwrap(), vec![tag_1, tag_2]);
+
+    // remove second tag
+    client.remove_note_tag(tag_1).unwrap();
+
+    // verify that tag_1 is not tracked anymore
+    assert_eq!(client.get_note_tags().unwrap(), vec![tag_2]);
 }
 
 #[tokio::test]
@@ -351,7 +376,7 @@ async fn test_mint_transaction() {
 
     client
         .store()
-        .insert_account(&faucet, None, &AuthInfo::RpoFalcon512(key_pair))
+        .insert_account(&faucet, None, &AuthSecretKey::RpoFalcon512(key_pair))
         .unwrap();
 
     client.sync_state().await.unwrap();
@@ -367,4 +392,48 @@ async fn test_mint_transaction() {
 
     let transaction = client.new_transaction(transaction_request).unwrap();
     assert!(transaction.executed_transaction().account_delta().nonce().is_some());
+}
+
+#[tokio::test]
+async fn test_get_output_notes() {
+    const FAUCET_ID: u64 = ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN;
+    const INITIAL_BALANCE: u64 = 1000;
+
+    // generate test client with a random store name
+    let mut client = create_test_client();
+
+    // Faucet account generation
+    let key_pair = SecretKey::new();
+
+    let faucet = mock_fungible_faucet_account(
+        AccountId::try_from(FAUCET_ID).unwrap(),
+        INITIAL_BALANCE,
+        key_pair.clone(),
+    );
+
+    client
+        .store()
+        .insert_account(&faucet, None, &AuthSecretKey::RpoFalcon512(key_pair))
+        .unwrap();
+
+    client.sync_state().await.unwrap();
+
+    // Test submitting a mint transaction
+    let transaction_template = TransactionTemplate::MintFungibleAsset(
+        FungibleAsset::new(faucet.id(), 5u64).unwrap(),
+        AccountId::from_hex("0x168187d729b31a84").unwrap(),
+        miden_objects::notes::NoteType::OffChain,
+    );
+
+    let transaction_request = client.build_transaction_request(transaction_template).unwrap();
+
+    //Before executing transaction, there are no output notes
+    assert!(client.get_output_notes(NoteFilter::All).unwrap().is_empty());
+
+    let transaction = client.new_transaction(transaction_request).unwrap();
+    client.submit_transaction(transaction).await.unwrap();
+
+    // Check that there was an output note but it wasn't consumed
+    assert!(client.get_output_notes(NoteFilter::Consumed).unwrap().is_empty());
+    assert!(!client.get_output_notes(NoteFilter::All).unwrap().is_empty());
 }

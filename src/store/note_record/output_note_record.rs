@@ -1,9 +1,11 @@
 use miden_objects::{
+    accounts::AccountId,
     notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteMetadata},
     Digest,
 };
 
-use super::{NoteRecordDetails, NoteStatus};
+use super::{InputNoteRecord, NoteRecordDetails, NoteStatus};
+use crate::errors::ClientError;
 
 // OUTPUT NOTE RECORD
 // ================================================================================================
@@ -17,6 +19,10 @@ use super::{NoteRecordDetails, NoteStatus};
 ///
 /// It is also possible to convert [Note] into [OutputNoteRecord] (we fill the `details` and
 /// `inclusion_proof` fields if possible)
+///
+/// The `consumer_account_id` field is used to keep track of the account that consumed the note. It
+/// is only valid if the `status` is [NoteStatus::Consumed]. If the note is consumed but the field
+/// is [None] it means that the note was consumed by an untracked account.
 #[derive(Clone, Debug, PartialEq)]
 pub struct OutputNoteRecord {
     assets: NoteAssets,
@@ -26,6 +32,7 @@ pub struct OutputNoteRecord {
     metadata: NoteMetadata,
     recipient: Digest,
     status: NoteStatus,
+    consumer_account_id: Option<AccountId>,
 }
 
 impl OutputNoteRecord {
@@ -37,6 +44,7 @@ impl OutputNoteRecord {
         metadata: NoteMetadata,
         inclusion_proof: Option<NoteInclusionProof>,
         details: Option<NoteRecordDetails>,
+        consumer_account_id: Option<AccountId>,
     ) -> OutputNoteRecord {
         OutputNoteRecord {
             id,
@@ -46,6 +54,7 @@ impl OutputNoteRecord {
             metadata,
             inclusion_proof,
             details,
+            consumer_account_id,
         }
     }
 
@@ -76,13 +85,21 @@ impl OutputNoteRecord {
     pub fn details(&self) -> Option<&NoteRecordDetails> {
         self.details.as_ref()
     }
+
+    pub fn consumer_account_id(&self) -> Option<AccountId> {
+        self.consumer_account_id
+    }
 }
 
+// CONVERSIONS
+// ================================================================================================
+
+// TODO: Improve conversions by implementing into_parts()
 impl From<Note> for OutputNoteRecord {
     fn from(note: Note) -> Self {
         OutputNoteRecord {
             id: note.id(),
-            recipient: note.recipient_digest(),
+            recipient: note.recipient().digest(),
             assets: note.assets().clone(),
             status: NoteStatus::Pending,
             metadata: *note.metadata(),
@@ -93,6 +110,29 @@ impl From<Note> for OutputNoteRecord {
                 note.inputs().to_vec(),
                 note.serial_num(),
             )),
+            consumer_account_id: None,
+        }
+    }
+}
+
+impl TryFrom<InputNoteRecord> for OutputNoteRecord {
+    type Error = ClientError;
+
+    fn try_from(input_note: InputNoteRecord) -> Result<Self, Self::Error> {
+        match input_note.metadata() {
+            Some(metadata) => Ok(OutputNoteRecord {
+                assets: input_note.assets().clone(),
+                details: Some(input_note.details().clone()),
+                id: input_note.id(),
+                inclusion_proof: input_note.inclusion_proof().cloned(),
+                metadata: *metadata,
+                recipient: input_note.recipient(),
+                status: input_note.status(),
+                consumer_account_id: input_note.consumer_account_id(),
+            }),
+            None => Err(ClientError::NoteError(miden_objects::NoteError::invalid_origin_index(
+                "Input Note Record contains no metadata".to_string(),
+            ))),
         }
     }
 }

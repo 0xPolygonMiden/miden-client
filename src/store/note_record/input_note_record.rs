@@ -1,13 +1,15 @@
 use miden_objects::{
+    accounts::AccountId,
     notes::{
-        Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata, NoteRecipient,
+        Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata,
+        NoteRecipient,
     },
     transaction::InputNote,
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
     Digest,
 };
 
-use super::{NoteRecordDetails, NoteStatus};
+use super::{NoteRecordDetails, NoteStatus, OutputNoteRecord};
 use crate::errors::ClientError;
 
 // INPUT NOTE RECORD
@@ -21,17 +23,24 @@ use crate::errors::ClientError;
 /// Once the proof is set, the [InputNoteRecord] can be transformed into an [InputNote] and used as
 /// input for transactions.
 ///
+/// The `consumer_account_id` field is used to keep track of the account that consumed the note. It
+/// is only valid if the `status` is [NoteStatus::Consumed]. If the note is consumed but the field
+/// is [None] it means that the note was consumed by an untracked account.
+///
 /// It is also possible to convert [Note] and [InputNote] into [InputNoteRecord] (we fill the
 /// `metadata` and `inclusion_proof` fields if possible)
 #[derive(Clone, Debug, PartialEq)]
 pub struct InputNoteRecord {
     assets: NoteAssets,
+    // TODO: see if we can replace `NoteRecordDetails` with `NoteDetails` after miden-base v0.3
+    // gets released
     details: NoteRecordDetails,
     id: NoteId,
     inclusion_proof: Option<NoteInclusionProof>,
     metadata: Option<NoteMetadata>,
     recipient: Digest,
     status: NoteStatus,
+    consumer_account_id: Option<AccountId>,
 }
 
 impl InputNoteRecord {
@@ -43,6 +52,7 @@ impl InputNoteRecord {
         metadata: Option<NoteMetadata>,
         inclusion_proof: Option<NoteInclusionProof>,
         details: NoteRecordDetails,
+        consumer_account_id: Option<AccountId>,
     ) -> InputNoteRecord {
         InputNoteRecord {
             id,
@@ -52,6 +62,7 @@ impl InputNoteRecord {
             metadata,
             inclusion_proof,
             details,
+            consumer_account_id,
         }
     }
 
@@ -86,6 +97,31 @@ impl InputNoteRecord {
     pub fn details(&self) -> &NoteRecordDetails {
         &self.details
     }
+
+    pub fn consumer_account_id(&self) -> Option<AccountId> {
+        self.consumer_account_id
+    }
+}
+
+impl From<&NoteDetails> for InputNoteRecord {
+    fn from(note_details: &NoteDetails) -> Self {
+        InputNoteRecord {
+            id: note_details.id(),
+            assets: note_details.assets().clone(),
+            recipient: note_details.recipient().digest(),
+            metadata: None,
+            inclusion_proof: None,
+            status: NoteStatus::Pending,
+            details: NoteRecordDetails {
+                nullifier: note_details.nullifier().to_string(),
+                script_hash: note_details.script().hash(),
+                script: note_details.script().clone(),
+                inputs: note_details.inputs().to_vec(),
+                serial_num: note_details.serial_num(),
+            },
+            consumer_account_id: None,
+        }
+    }
 }
 
 impl Serializable for InputNoteRecord {
@@ -118,6 +154,7 @@ impl Deserializable for InputNoteRecord {
             metadata,
             inclusion_proof,
             details,
+            consumer_account_id: None,
         })
     }
 }
@@ -126,7 +163,7 @@ impl From<Note> for InputNoteRecord {
     fn from(note: Note) -> Self {
         InputNoteRecord {
             id: note.id(),
-            recipient: note.recipient_digest(),
+            recipient: note.recipient().digest(),
             assets: note.assets().clone(),
             status: NoteStatus::Pending,
             metadata: Some(*note.metadata()),
@@ -137,6 +174,7 @@ impl From<Note> for InputNoteRecord {
                 note.inputs().to_vec(),
                 note.serial_num(),
             ),
+            consumer_account_id: None,
         }
     }
 }
@@ -145,7 +183,7 @@ impl From<InputNote> for InputNoteRecord {
     fn from(recorded_note: InputNote) -> Self {
         InputNoteRecord {
             id: recorded_note.note().id(),
-            recipient: recorded_note.note().recipient_digest(),
+            recipient: recorded_note.note().recipient().digest(),
             assets: recorded_note.note().assets().clone(),
             status: NoteStatus::Pending,
             metadata: Some(*recorded_note.note().metadata()),
@@ -156,6 +194,7 @@ impl From<InputNote> for InputNoteRecord {
                 recorded_note.note().serial_num(),
             ),
             inclusion_proof: Some(recorded_note.proof().clone()),
+            consumer_account_id: None,
         }
     }
 }
@@ -174,16 +213,53 @@ impl TryInto<InputNote> for InputNoteRecord {
                 Ok(InputNote::new(note, proof.clone()))
             },
 
-            (None, _) => {
-                Err(ClientError::NoteError(miden_objects::NoteError::invalid_origin_index(
-                    "Input Note Record contains no inclusion proof".to_string(),
-                )))
+            (None, _) => Err(ClientError::NoteRecordError(
+                "Input Note Record contains no inclusion proof".to_string(),
+            )),
+            (_, None) => Err(ClientError::NoteRecordError(
+                "Input Note Record contains no metadata".to_string(),
+            )),
+        }
+    }
+}
+
+impl TryInto<Note> for InputNoteRecord {
+    type Error = ClientError;
+
+    fn try_into(self) -> Result<Note, Self::Error> {
+        match self.metadata {
+            Some(metadata) => {
+                let note_inputs = NoteInputs::new(self.details.inputs)?;
+                let note_recipient =
+                    NoteRecipient::new(self.details.serial_num, self.details.script, note_inputs);
+                let note = Note::new(self.assets, metadata, note_recipient);
+                Ok(note)
             },
-            (_, None) => {
-                Err(ClientError::NoteError(miden_objects::NoteError::invalid_origin_index(
-                    "Input Note Record contains no metadata".to_string(),
-                )))
-            },
+            None => Err(ClientError::NoteRecordError(
+                "Input Note Record contains no metadata".to_string(),
+            )),
+        }
+    }
+}
+
+impl TryFrom<OutputNoteRecord> for InputNoteRecord {
+    type Error = ClientError;
+
+    fn try_from(output_note: OutputNoteRecord) -> Result<Self, Self::Error> {
+        match output_note.details() {
+            Some(details) => Ok(InputNoteRecord {
+                assets: output_note.assets().clone(),
+                details: details.clone(),
+                id: output_note.id(),
+                inclusion_proof: output_note.inclusion_proof().cloned(),
+                metadata: Some(*output_note.metadata()),
+                recipient: output_note.recipient(),
+                status: output_note.status(),
+                consumer_account_id: output_note.consumer_account_id(),
+            }),
+            None => Err(ClientError::NoteError(miden_objects::NoteError::invalid_origin_index(
+                "Output Note Record contains no details".to_string(),
+            ))),
         }
     }
 }

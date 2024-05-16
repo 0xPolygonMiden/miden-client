@@ -1,7 +1,7 @@
 use clap::error::Result;
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub},
+    accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub, AuthSecretKey},
     assembly::{AstSerdeOptions, ModuleAst},
     assets::{Asset, AssetVault},
     Digest, Felt, Word,
@@ -10,24 +10,23 @@ use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{params, Transaction};
 
 use super::SqliteStore;
-use crate::{errors::StoreError, store::AuthInfo};
+use crate::errors::StoreError;
 
 // TYPES
 // ================================================================================================
 type SerializedAccountData = (i64, String, String, String, i64, bool);
 type SerializedAccountsParts = (i64, i64, String, String, String, Option<Vec<u8>>);
 
-type SerializedAccountAuthData = (i64, Vec<u8>);
+type SerializedAccountAuthData = (i64, Vec<u8>, Vec<u8>);
 type SerializedAccountAuthParts = (i64, Vec<u8>);
 
 type SerializedAccountVaultData = (String, String);
-type SerializedAccountVaultParts = (String, String);
 
 type SerializedAccountCodeData = (String, String, Vec<u8>);
-type SerializedAccountCodeParts = (String, String, Vec<u8>);
 
 type SerializedAccountStorageData = (String, Vec<u8>);
-type SerializedAccountStorageParts = (String, Vec<u8>);
+
+type SerializedFullAccountParts = (i64, i64, Option<Vec<u8>>, Vec<u8>, Vec<u8>, String);
 
 impl SqliteStore {
     // ACCOUNTS
@@ -36,7 +35,7 @@ impl SqliteStore {
     pub(super) fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {
         const QUERY: &str = "SELECT DISTINCT id FROM accounts";
 
-        self.db
+        self.db()
             .prepare(QUERY)?
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
@@ -53,7 +52,7 @@ impl SqliteStore {
             FROM accounts a \
             WHERE a.nonce = (SELECT MAX(b.nonce) FROM accounts b WHERE b.id = a.id)";
 
-        self.db
+        self.db()
             .prepare(QUERY)?
             .query_map([], parse_accounts_columns)
             .expect("no binding parameters used in query")
@@ -70,7 +69,7 @@ impl SqliteStore {
             FROM accounts WHERE id = ? \
             ORDER BY nonce DESC \
             LIMIT 1";
-        self.db
+        self.db()
             .prepare(QUERY)?
             .query_map(params![account_id_int as i64], parse_accounts_columns)?
             .map(|result| Ok(result?).and_then(parse_accounts))
@@ -78,37 +77,40 @@ impl SqliteStore {
             .ok_or(StoreError::AccountDataNotFound(account_id))?
     }
 
-    // TODO: Get all parts from a single query
     pub(crate) fn get_account(
         &self,
         account_id: AccountId,
     ) -> Result<(Account, Option<Word>), StoreError> {
-        let (account_stub, seed) = self.get_account_stub(account_id)?;
-        let (_procedures, module_ast) = self.get_account_code(account_stub.code_root())?;
+        let account_id_int: u64 = account_id.into();
+        const QUERY: &str = "SELECT accounts.id, accounts.nonce, accounts.account_seed, account_code.module, account_storage.slots, account_vaults.assets \
+                            FROM accounts \
+                            JOIN account_code ON accounts.code_root = account_code.root \
+                            JOIN account_storage ON accounts.storage_root = account_storage.root \
+                            JOIN account_vaults ON accounts.vault_root = account_vaults.root \
+                            WHERE accounts.id = ? \
+                            ORDER BY accounts.nonce DESC \
+                            LIMIT 1";
 
-        let account_code = AccountCode::new(module_ast, &TransactionKernel::assembler()).unwrap();
+        let result = self
+            .db()
+            .prepare(QUERY)?
+            .query_map(params![account_id_int as i64], parse_account_columns)?
+            .map(|result| Ok(result?).and_then(parse_account))
+            .next()
+            .ok_or(StoreError::AccountDataNotFound(account_id))?;
+        let (account, account_seed) = result?;
 
-        let account_storage = self.get_account_storage(account_stub.storage_root())?;
-
-        let account_vault = self.get_vault_assets(account_stub.vault_root())?;
-        let account_vault = AssetVault::new(&account_vault)?;
-
-        let account = Account::new(
-            account_stub.id(),
-            account_vault,
-            account_storage,
-            account_code,
-            account_stub.nonce(),
-        );
-
-        Ok((account, seed))
+        Ok((account, account_seed))
     }
 
     /// Retrieve account keys data by Account Id
-    pub(crate) fn get_account_auth(&self, account_id: AccountId) -> Result<AuthInfo, StoreError> {
+    pub(crate) fn get_account_auth(
+        &self,
+        account_id: AccountId,
+    ) -> Result<AuthSecretKey, StoreError> {
         let account_id_int: u64 = account_id.into();
         const QUERY: &str = "SELECT account_id, auth_info FROM account_auth WHERE account_id = ?";
-        self.db
+        self.db()
             .prepare(QUERY)?
             .query_map(params![account_id_int as i64], parse_account_auth_columns)?
             .map(|result| Ok(result?).and_then(parse_account_auth))
@@ -116,56 +118,14 @@ impl SqliteStore {
             .ok_or(StoreError::AccountDataNotFound(account_id))?
     }
 
-    /// Retrieve account code-related data by code root
-    pub(super) fn get_account_code(
-        &self,
-        root: Digest,
-    ) -> Result<(Vec<Digest>, ModuleAst), StoreError> {
-        let root_serialized = root.to_string();
-        const QUERY: &str = "SELECT root, procedures, module FROM account_code WHERE root = ?";
-
-        self.db
-            .prepare(QUERY)?
-            .query_map(params![root_serialized], parse_account_code_columns)?
-            .map(|result| Ok(result?).and_then(parse_account_code))
-            .next()
-            .ok_or(StoreError::AccountCodeDataNotFound(root))?
-    }
-
-    /// Retrieve account storage data by vault root
-    pub(super) fn get_account_storage(&self, root: Digest) -> Result<AccountStorage, StoreError> {
-        let root_serialized = &root.to_string();
-
-        const QUERY: &str = "SELECT root, slots FROM account_storage WHERE root = ?";
-        self.db
-            .prepare(QUERY)?
-            .query_map(params![root_serialized], parse_account_storage_columns)?
-            .map(|result| Ok(result?).and_then(parse_account_storage))
-            .next()
-            .ok_or(StoreError::AccountStorageNotFound(root))?
-    }
-
-    /// Retrieve assets by vault root
-    pub(super) fn get_vault_assets(&self, root: Digest) -> Result<Vec<Asset>, StoreError> {
-        let vault_root =
-            serde_json::to_string(&root).map_err(StoreError::InputSerializationError)?;
-
-        const QUERY: &str = "SELECT root, assets FROM account_vaults WHERE root = ?";
-        self.db
-            .prepare(QUERY)?
-            .query_map(params![vault_root], parse_account_asset_vault_columns)?
-            .map(|result| Ok(result?).and_then(parse_account_asset_vault))
-            .next()
-            .ok_or(StoreError::VaultDataNotFound(root))?
-    }
-
     pub(crate) fn insert_account(
-        &mut self,
+        &self,
         account: &Account,
         account_seed: Option<Word>,
-        auth_info: &AuthInfo,
+        auth_info: &AuthSecretKey,
     ) -> Result<(), StoreError> {
-        let tx = self.db.transaction()?;
+        let mut db = self.db();
+        let tx = db.transaction()?;
 
         insert_account_code(&tx, account.code())?;
         insert_account_storage(&tx, account.storage())?;
@@ -174,6 +134,18 @@ impl SqliteStore {
         insert_account_auth(&tx, account.id(), auth_info)?;
 
         Ok(tx.commit()?)
+    }
+
+    /// Returns an [AuthSecretKey] by a public key represented by a [Word]
+    pub fn get_account_auth_by_pub_key(&self, pub_key: Word) -> Result<AuthSecretKey, StoreError> {
+        let pub_key_bytes = pub_key.to_bytes();
+        const QUERY: &str = "SELECT account_id, auth_info FROM account_auth WHERE pub_key = ?";
+        self.db()
+            .prepare(QUERY)?
+            .query_map(params![pub_key_bytes], parse_account_auth_columns)?
+            .map(|result| Ok(result?).and_then(parse_account_auth))
+            .next()
+            .ok_or(StoreError::AccountKeyNotFound(pub_key))?
     }
 }
 
@@ -242,15 +214,17 @@ pub(super) fn insert_account_asset_vault(
     Ok(())
 }
 
-/// Inserts an [AuthInfo] for the account with id `account_id`
+/// Inserts an [AuthSecretKey] for the account with id `account_id`
 pub(super) fn insert_account_auth(
     tx: &Transaction<'_>,
     account_id: AccountId,
-    auth_info: &AuthInfo,
+    auth_info: &AuthSecretKey,
 ) -> Result<(), StoreError> {
-    let (account_id, auth_info) = serialize_account_auth(account_id, auth_info)?;
-    const QUERY: &str = "INSERT INTO account_auth (account_id, auth_info) VALUES (?, ?)";
-    tx.execute(QUERY, params![account_id, auth_info])?;
+    let (account_id, auth_info, pub_key) = serialize_account_auth(account_id, auth_info)?;
+    const QUERY: &str =
+        "INSERT INTO account_auth (account_id, auth_info, pub_key) VALUES (?, ?, ?)";
+
+    tx.execute(QUERY, params![account_id, auth_info, pub_key])?;
     Ok(())
 }
 
@@ -288,6 +262,32 @@ pub(super) fn parse_accounts(
     ))
 }
 
+/// Parse an account from the provided parts.
+pub(super) fn parse_account(
+    serialized_account_parts: SerializedFullAccountParts,
+) -> Result<(Account, Option<Word>), StoreError> {
+    let (id, nonce, account_seed, module, storage, assets) = serialized_account_parts;
+    let account_seed = account_seed.map(|seed| Word::read_from_bytes(&seed)).transpose()?;
+    let account_id: AccountId = (id as u64)
+        .try_into()
+        .expect("Conversion from stored AccountID should not panic");
+    let account_module = ModuleAst::from_bytes(&module)?;
+    let account_storage = AccountStorage::read_from_bytes(&storage)?;
+    let account_assets: Vec<Asset> =
+        serde_json::from_str(&assets).map_err(StoreError::JsonDataDeserializationError)?;
+
+    Ok((
+        Account::new(
+            account_id,
+            AssetVault::new(&account_assets)?,
+            account_storage,
+            AccountCode::new(account_module, &TransactionKernel::assembler())?,
+            Felt::new(nonce as u64),
+        ),
+        account_seed,
+    ))
+}
+
 /// Serialized the provided account into database compatible types.
 fn serialize_account(account: &Account) -> Result<SerializedAccountData, StoreError> {
     let id: u64 = account.id().into();
@@ -310,45 +310,29 @@ fn parse_account_auth_columns(
     Ok((account_id, auth_info_bytes))
 }
 
-/// Parse an `AuthInfo` from the provided parts.
+/// Parse an `AuthSecretKey` from the provided parts.
 fn parse_account_auth(
     serialized_account_auth_parts: SerializedAccountAuthParts,
-) -> Result<AuthInfo, StoreError> {
+) -> Result<AuthSecretKey, StoreError> {
     let (_, auth_info_bytes) = serialized_account_auth_parts;
-    let auth_info = AuthInfo::read_from_bytes(&auth_info_bytes)?;
+    let auth_info = AuthSecretKey::read_from_bytes(&auth_info_bytes)?;
     Ok(auth_info)
 }
 
 /// Serialized the provided account_auth into database compatible types.
 fn serialize_account_auth(
     account_id: AccountId,
-    auth_info: &AuthInfo,
+    auth_info: &AuthSecretKey,
 ) -> Result<SerializedAccountAuthData, StoreError> {
+    let pub_key = match auth_info {
+        AuthSecretKey::RpoFalcon512(secret) => Word::from(secret.public_key()),
+    }
+    .to_bytes();
+
     let account_id: u64 = account_id.into();
     let auth_info = auth_info.to_bytes();
-    Ok((account_id as i64, auth_info))
-}
 
-/// Parse account_code columns from the provided row into native types.
-fn parse_account_code_columns(
-    row: &rusqlite::Row<'_>,
-) -> Result<SerializedAccountCodeParts, rusqlite::Error> {
-    let root: String = row.get(0)?;
-    let procedures: String = row.get(1)?;
-    let module: Vec<u8> = row.get(2)?;
-    Ok((root, procedures, module))
-}
-
-/// Parse an account_code from the provided parts.
-fn parse_account_code(
-    serialized_account_code_parts: SerializedAccountCodeParts,
-) -> Result<(Vec<Digest>, ModuleAst), StoreError> {
-    let (_, procedures, module) = serialized_account_code_parts;
-
-    let procedures =
-        serde_json::from_str(&procedures).map_err(StoreError::JsonDataDeserializationError)?;
-    let module = ModuleAst::from_bytes(&module)?;
-    Ok((procedures, module))
+    Ok((account_id as i64, auth_info, pub_key))
 }
 
 /// Serialize the provided account_code into database compatible types.
@@ -363,25 +347,6 @@ fn serialize_account_code(
     Ok((root, procedures, module))
 }
 
-/// Parse account_storage columns from the provided row into native types.
-fn parse_account_storage_columns(
-    row: &rusqlite::Row<'_>,
-) -> Result<SerializedAccountStorageParts, rusqlite::Error> {
-    let root: String = row.get(0)?;
-    let storage: Vec<u8> = row.get(1)?;
-    Ok((root, storage))
-}
-
-/// Parse an account_storage from the provided parts.
-fn parse_account_storage(
-    serialized_account_storage_parts: SerializedAccountStorageParts,
-) -> Result<AccountStorage, StoreError> {
-    let (_, storage) = serialized_account_storage_parts;
-
-    let storage = AccountStorage::read_from_bytes(&storage)?;
-    Ok(storage)
-}
-
 /// Serialize the provided account_storage into database compatible types.
 fn serialize_account_storage(
     account_storage: &AccountStorage,
@@ -390,25 +355,6 @@ fn serialize_account_storage(
     let storage = account_storage.to_bytes();
 
     Ok((root, storage))
-}
-
-/// Parse account_vault columns from the provided row into native types.
-fn parse_account_asset_vault_columns(
-    row: &rusqlite::Row<'_>,
-) -> Result<SerializedAccountVaultParts, rusqlite::Error> {
-    let root: String = row.get(0)?;
-    let assets: String = row.get(1)?;
-    Ok((root, assets))
-}
-
-/// Parse a vector of assets from the provided parts.
-fn parse_account_asset_vault(
-    serialized_account_asset_vault_parts: SerializedAccountVaultParts,
-) -> Result<Vec<Asset>, StoreError> {
-    let (_, assets) = serialized_account_asset_vault_parts;
-
-    let assets = serde_json::from_str(&assets).map_err(StoreError::JsonDataDeserializationError)?;
-    Ok(assets)
 }
 
 /// Serialize the provided asset_vault into database compatible types.
@@ -422,6 +368,18 @@ fn serialize_account_asset_vault(
     Ok((root, assets))
 }
 
+/// Parse accounts parts from the provided row into native types
+pub(super) fn parse_account_columns(
+    row: &rusqlite::Row<'_>,
+) -> Result<SerializedFullAccountParts, rusqlite::Error> {
+    let id: i64 = row.get(0)?;
+    let nonce: i64 = row.get(1)?;
+    let account_seed: Option<Vec<u8>> = row.get(2)?;
+    let module: Vec<u8> = row.get(3)?;
+    let storage: Vec<u8> = row.get(4)?;
+    let assets: String = row.get(5)?;
+    Ok((id, nonce, account_seed, module, storage, assets))
+}
 #[cfg(test)]
 mod tests {
     use miden_objects::{
@@ -431,7 +389,7 @@ mod tests {
     };
     use miden_tx::utils::{Deserializable, Serializable};
 
-    use super::{insert_account_auth, AuthInfo};
+    use super::{insert_account_auth, AuthSecretKey};
     use crate::{
         mock::DEFAULT_ACCOUNT_CODE,
         store::sqlite_store::{accounts::insert_account_code, tests::create_test_store},
@@ -439,11 +397,12 @@ mod tests {
 
     #[test]
     fn test_account_code_insertion_no_duplicates() {
-        let mut store = create_test_store();
+        let store = create_test_store();
         let assembler = miden_lib::transaction::TransactionKernel::assembler();
         let module_ast = ModuleAst::parse(DEFAULT_ACCOUNT_CODE).unwrap();
         let account_code = AccountCode::new(module_ast, &assembler).unwrap();
-        let tx = store.db.transaction().unwrap();
+        let mut db = store.db();
+        let tx = db.transaction().unwrap();
 
         // Table is empty at the beginning
         let mut actual: usize =
@@ -464,11 +423,11 @@ mod tests {
     #[test]
     fn test_auth_info_serialization() {
         let exp_key_pair = SecretKey::new();
-        let auth_info = AuthInfo::RpoFalcon512(exp_key_pair.clone());
+        let auth_info = AuthSecretKey::RpoFalcon512(exp_key_pair.clone());
         let bytes = auth_info.to_bytes();
-        let actual = AuthInfo::read_from_bytes(&bytes).unwrap();
+        let actual = AuthSecretKey::read_from_bytes(&bytes).unwrap();
         match actual {
-            AuthInfo::RpoFalcon512(act_key_pair) => {
+            AuthSecretKey::RpoFalcon512(act_key_pair) => {
                 assert_eq!(exp_key_pair.to_bytes(), act_key_pair.to_bytes());
                 assert_eq!(exp_key_pair.public_key(), act_key_pair.public_key());
             },
@@ -479,19 +438,24 @@ mod tests {
     fn test_auth_info_store() {
         let exp_key_pair = SecretKey::new();
 
-        let mut store = create_test_store();
+        let store = create_test_store();
 
         let account_id = AccountId::try_from(3238098370154045919u64).unwrap();
         {
-            let tx = store.db.transaction().unwrap();
-            insert_account_auth(&tx, account_id, &AuthInfo::RpoFalcon512(exp_key_pair.clone()))
-                .unwrap();
+            let mut db = store.db();
+            let tx = db.transaction().unwrap();
+            insert_account_auth(
+                &tx,
+                account_id,
+                &AuthSecretKey::RpoFalcon512(exp_key_pair.clone()),
+            )
+            .unwrap();
             tx.commit().unwrap();
         }
 
         let account_auth = store.get_account_auth(account_id).unwrap();
         match account_auth {
-            AuthInfo::RpoFalcon512(act_key_pair) => {
+            AuthSecretKey::RpoFalcon512(act_key_pair) => {
                 assert_eq!(exp_key_pair.to_bytes(), act_key_pair.to_bytes());
                 assert_eq!(exp_key_pair.public_key(), act_key_pair.public_key());
             },

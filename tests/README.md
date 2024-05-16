@@ -4,17 +4,17 @@ This document describes the current state of the organization of integration tes
 
 ## Running integration tests
 
-There are commands provided in the `Makefile` to make running them easier. To run the current integration test, you should run:
+There are commands provided in the `Makefile.toml` to make running them easier. To run the current integration test, you should run:
 
 ```bash
 # This will ensure we start from a clean node and client
-make reset
-# This command will clone the node's repo and generate the accounts and genesis files and lastly start the node and run it on background
-make start-node &
+cargo make reset
+# This command will clone the node's repo and generate the accounts and genesis files and lastly start the node 
+cargo make node
+# This command will run the node on background
+cargo make start-node &
 # This will run the integration test 
-make integration-test
-# After tests are done, we can kill the node process
-make kill-node
+cargo make integration-test
 ```
 
 ## Integration Test Flow
@@ -26,50 +26,28 @@ and transferring assets which runs against a running node.
 
 Before running the tests though, there is a setup we need to perform to have a
 node up and running. This is accomplished with the `node` command from the
-`Makefile` and what it does is:
+`Makefile.toml` and what it does is:
 
 - Clone the node repo if it doesn't exist.
 - Delete previously existing data.
 - Generate genesis and account data with `cargo run --release --bin miden-node --features testing -- make-genesis --inputs-path node/genesis.toml`.
 
-After that we can start the node, again done in the `start-node` command from the `Makefile`
+After that we can start the node, again done in the `start-node` command from
+the `Makefile.toml`. Killing the node process after running the test is also
+the user's responsibilty.
 
 ### Test Run
 
-To run the integration test you just need to run `make integration-test`. It'll
-run the rust binary for the integration test and report whether there was an
-error or not and the exit code if so. Lastly it kills the node's process.
+To run the integration test you just need to run `cargo make integration-test`.
+It'll run the integration tests as a cargo test using the `integration` feature
+which is used to separate regular tests from integration tests.
 
-### The test itself
+### Running tests against a remote node
 
-The current integration test at `./integration/main.rs` goes through the following steps:
-
-0. Wait for the node to be reachable (this is mainly so you can run `make start-node` 
-   and `make integration-test` in parallel without major issues).
-   This is done with a sync request, although in the future we might use a
-   health check endpoint or similar.
-1. Load accounts (1 regular *A*, 1 faucet *C*) created with the `make-genesis`
-   command of the node
-2. Create an extra regular account *C*
-3. Sync up the client
-4. Mint an asset (this creates a note for the regular account *A*) and sync
-   again
-5. Consume the note and sync again. (After this point the account *A* should
-   have an asset from faucet *C*)
-6. Run a P2ID transaction to transfer some of the minted asset from account *A*
-   to *B*. Sync again
-7. Consume the P2ID note for account *B*. Now both accounts should have some of
-   asset from faucet *C*
-8. A double-spend is attempted to check that the client does not allow this
-
-In short, we're testing:
-
-- Account importing.
-- Account creation.
-- Sync and entity tracking.
-- Mint tx.
-- Consume note tx (both for an imported and a created account).
-- P2ID tx.
+You can run the integration tests against a remote node by overwriting the rpc
+section of the configuration file at `./config/miden-client.toml`. Note that
+the store configuration part of the file is ignored as each test creates its
+own database.
 
 ## CI integration
 

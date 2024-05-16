@@ -3,7 +3,7 @@ use core::fmt;
 use async_trait::async_trait;
 use miden_objects::{
     accounts::{Account, AccountId},
-    crypto::merkle::{MerklePath, MmrDelta},
+    crypto::merkle::{MerklePath, MmrDelta, MmrProof},
     notes::{Note, NoteId, NoteMetadata, NoteTag},
     transaction::ProvenTransaction,
     BlockHeader, Digest,
@@ -21,6 +21,35 @@ pub use tonic_client::TonicRpcClient;
 pub enum NoteDetails {
     OffChain(NoteId, NoteMetadata, NoteInclusionDetails),
     Public(Note, NoteInclusionDetails),
+}
+
+impl NoteDetails {
+    pub fn inclusion_details(&self) -> &NoteInclusionDetails {
+        match self {
+            NoteDetails::OffChain(_, _, inclusion_details) => inclusion_details,
+            NoteDetails::Public(_, inclusion_details) => inclusion_details,
+        }
+    }
+}
+
+/// Describes the possible responses from the `GetAccountDetails` endpoint for an account
+pub enum AccountDetails {
+    OffChain(AccountId, AccountUpdateSummary),
+    Public(Account, AccountUpdateSummary),
+}
+
+/// Contains public updated information about the account requested
+pub struct AccountUpdateSummary {
+    /// Account hash
+    pub hash: Digest,
+    /// Block number of last account update
+    pub last_block_num: u32,
+}
+
+impl AccountUpdateSummary {
+    pub fn new(hash: Digest, last_block_num: u32) -> Self {
+        Self { hash, last_block_num }
+    }
 }
 
 /// Contains information related to the note inclusion, but not related to the block header
@@ -55,13 +84,16 @@ pub trait NodeRpcClient {
     ) -> Result<(), NodeRpcClientError>;
 
     /// Given a block number, fetches the block header corresponding to that height from the node
-    /// using the `/GetBlockHeaderByNumber` endpoint
+    /// using the `/GetBlockHeaderByNumber` endpoint.
+    /// If `include_mmr_proof` is set to true and the function returns an `Ok`, the second value
+    /// of the return tuple should always be Some(MmrProof)   
     ///
     /// When `None` is provided, returns info regarding the latest block
     async fn get_block_header_by_number(
         &mut self,
-        block_number: Option<u32>,
-    ) -> Result<BlockHeader, NodeRpcClientError>;
+        block_num: Option<u32>,
+        include_mmr_proof: bool,
+    ) -> Result<(BlockHeader, Option<MmrProof>), NodeRpcClientError>;
 
     /// Fetches note-related data for a list of [NoteId] using the `/GetNotesById` rpc endpoint
     ///
@@ -98,7 +130,7 @@ pub trait NodeRpcClient {
     async fn get_account_update(
         &mut self,
         account_id: AccountId,
-    ) -> Result<Account, NodeRpcClientError>;
+    ) -> Result<AccountDetails, NodeRpcClientError>;
 }
 
 // STATE SYNC INFO
@@ -162,7 +194,6 @@ impl CommittedNote {
         &self.merkle_path
     }
 
-    #[allow(dead_code)]
     pub fn metadata(&self) -> NoteMetadata {
         self.metadata
     }

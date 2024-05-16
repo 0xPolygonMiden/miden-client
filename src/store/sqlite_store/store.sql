@@ -24,6 +24,7 @@ CREATE TABLE account_vaults (
 CREATE TABLE account_auth (
     account_id UNSIGNED BIG INT NOT NULL,  -- ID of the account
     auth_info BLOB NOT NULL,               -- Serialized representation of information needed for authentication
+    pub_key BLOB NOT NULL,                 -- Public key for easier authenticator use
     PRIMARY KEY (account_id)
 );
 
@@ -40,7 +41,7 @@ CREATE TABLE accounts (
     FOREIGN KEY (code_root) REFERENCES account_code(root),
     FOREIGN KEY (storage_root) REFERENCES account_storage(root),
     FOREIGN KEY (vault_root) REFERENCES account_vaults(root)
-    
+
     CONSTRAINT check_seed_nonzero CHECK (NOT (nonce = 0 AND account_seed IS NULL))
 );
 
@@ -51,11 +52,11 @@ CREATE TABLE transactions (
     init_account_state BLOB NOT NULL,                -- Hash of the account state before the transaction was executed.
     final_account_state BLOB NOT NULL,               -- Hash of the account state after the transaction was executed.
     input_notes BLOB,                                -- Serialized list of input note hashes
-    output_notes BLOB,                               -- Serialized list of output note hashes 
+    output_notes BLOB,                               -- Serialized list of output note hashes
     script_hash BLOB,                                -- Transaction script hash
     script_inputs BLOB,                              -- Transaction script inputs
     block_num UNSIGNED BIG INT,                      -- Block number for the block against which the transaction was executed.
-    commit_height UNSIGNED BIG INT NULL,             -- Block number of the block at which the transaction was included in the chain. 
+    commit_height UNSIGNED BIG INT NULL,             -- Block number of the block at which the transaction was included in the chain.
     FOREIGN KEY (script_hash) REFERENCES transaction_scripts(script_hash),
     PRIMARY KEY (id)
 );
@@ -82,7 +83,7 @@ CREATE TABLE input_notes (
     -- sub_hash                                               -- sub hash of the block the note was included in stored as a hex string
     -- note_root                                              -- the note root of the block the note was created in
     -- note_path                                              -- the Merkle path to the note in the note Merkle tree of the block the note was created in, stored as an array of digests
-    
+
     metadata JSON NULL,                                     -- JSON consisting of the following fields:
     -- sender_id                                              -- the account ID of the sender
     -- tag                                                    -- the note tag
@@ -92,10 +93,12 @@ CREATE TABLE input_notes (
     -- script_hash                                                 -- the note's script hash
     -- inputs                                                 -- the serialized NoteInputs, including inputs hash and list of inputs
     -- serial_num                                             -- the note serial number
+    consumer_transaction_id BLOB NULL,                      -- the transaction ID of the transaction that consumed the note
+    FOREIGN KEY (consumer_transaction_id) REFERENCES transactions(id)
     PRIMARY KEY (note_id)
 
     CONSTRAINT check_valid_inclusion_proof_json CHECK (
-      inclusion_proof IS NULL OR 
+      inclusion_proof IS NULL OR
       (
         json_extract(inclusion_proof, '$.origin.block_num') IS NOT NULL AND
         json_extract(inclusion_proof, '$.origin.node_index') IS NOT NULL AND
@@ -104,6 +107,7 @@ CREATE TABLE input_notes (
         json_extract(inclusion_proof, '$.note_path') IS NOT NULL
       ))
     CONSTRAINT check_valid_metadata_json CHECK (metadata IS NULL OR (json_extract(metadata, '$.sender') IS NOT NULL AND json_extract(metadata, '$.tag') IS NOT NULL))
+    CONSTRAINT check_valid_consumer_transaction_id CHECK (consumer_transaction_id IS NULL OR status != 'Pending')
 );
 
 -- Create output notes table
@@ -121,7 +125,7 @@ CREATE TABLE output_notes (
     -- sub_hash                                               -- sub hash of the block the note was included in stored as a hex string
     -- note_root                                              -- the note root of the block the note was created in
     -- note_path                                              -- the Merkle path to the note in the note Merkle tree of the block the note was created in, stored as an array of digests
-    
+
     metadata JSON NOT NULL,                                 -- JSON consisting of the following fields:
     -- sender_id                                              -- the account ID of the sender
     -- tag                                                    -- the note tag
@@ -131,10 +135,12 @@ CREATE TABLE output_notes (
     -- script                                                 -- the note's script hash
     -- inputs                                                 -- the serialized NoteInputs, including inputs hash and list of inputs
     -- serial_num                                             -- the note serial number
+    consumer_transaction_id BLOB NULL,                      -- the transaction ID of the transaction that consumed the note
+    FOREIGN KEY (consumer_transaction_id) REFERENCES transactions(id)
     PRIMARY KEY (note_id)
 
     CONSTRAINT check_valid_inclusion_proof_json CHECK (
-      inclusion_proof IS NULL OR 
+      inclusion_proof IS NULL OR
       (
         json_extract(inclusion_proof, '$.origin.block_num') IS NOT NULL AND
         json_extract(inclusion_proof, '$.origin.node_index') IS NOT NULL AND
@@ -143,14 +149,14 @@ CREATE TABLE output_notes (
         json_extract(inclusion_proof, '$.note_path') IS NOT NULL
       ))
     CONSTRAINT check_valid_details_json CHECK (
-      details IS NULL OR 
+      details IS NULL OR
       (
         json_extract(details, '$.nullifier') IS NOT NULL AND
         json_extract(details, '$.script_hash') IS NOT NULL AND
         json_extract(details, '$.inputs') IS NOT NULL AND
         json_extract(details, '$.serial_num') IS NOT NULL
       ))
-
+    CONSTRAINT check_valid_consumer_transaction_id CHECK (consumer_transaction_id IS NULL OR status != 'Pending')
 );
 
 -- Create note's scripts table, used for both input and output notes
