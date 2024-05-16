@@ -292,7 +292,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         tx_result: TransactionResult,
         proven_transaction: ProvenTransaction,
     ) -> Result<(), ClientError> {
-        self.submit_proven_transaction_request(proven_transaction).await?;
+        self.rpc_api.submit_proven_transaction(proven_transaction).await?;
         info!("Transaction submitted");
 
         // Transaction was proven and submitted to the node correctly, persist note details and update account
