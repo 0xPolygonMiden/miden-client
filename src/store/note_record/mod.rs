@@ -51,6 +51,7 @@ pub enum NoteStatus {
     Pending,
     Committed,
     Consumed,
+    Consuming,
 }
 
 impl From<NoteStatus> for u8 {
@@ -59,6 +60,7 @@ impl From<NoteStatus> for u8 {
             NoteStatus::Pending => 0,
             NoteStatus::Committed => 1,
             NoteStatus::Consumed => 2,
+            NoteStatus::Consuming => 3,
         }
     }
 }
@@ -70,6 +72,7 @@ impl TryFrom<u8> for NoteStatus {
             0 => Ok(NoteStatus::Pending),
             1 => Ok(NoteStatus::Committed),
             2 => Ok(NoteStatus::Consumed),
+            3 => Ok(NoteStatus::Consuming),
             _ => Err(DeserializationError::InvalidValue(value.to_string())),
         }
     }
@@ -94,6 +97,7 @@ impl Display for NoteStatus {
             NoteStatus::Pending => write!(f, "Pending"),
             NoteStatus::Committed => write!(f, "Committed"),
             NoteStatus::Consumed => write!(f, "Consumed"),
+            NoteStatus::Consuming => write!(f, "Consuming"),
         }
     }
 }
