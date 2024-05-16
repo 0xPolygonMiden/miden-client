@@ -317,13 +317,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             .map_err(ClientError::TransactionExecutorError)
     }
 
-    async fn submit_proven_transaction_request(
-        &mut self,
-        proven_transaction: ProvenTransaction,
-    ) -> Result<(), ClientError> {
-        Ok(self.rpc_api.submit_proven_transaction(proven_transaction).await?)
-    }
-
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
