@@ -326,36 +326,35 @@ async fn test_tags() {
     let mut client = create_test_client();
 
     // Assert that the store gets created with the tag 0 (used for notes consumable by any account)
-    let tag_1: NoteTag = 0.into();
-    assert_eq!(client.get_note_tags().unwrap(), vec![tag_1]);
+    assert_eq!(client.get_note_tags().unwrap(), vec![]);
 
     // add a tag
-    let tag_2: NoteTag = 1.into();
-    let tag_3: NoteTag = 2.into();
+    let tag_1: NoteTag = 1.into();
+    let tag_2: NoteTag = 2.into();
+    client.add_note_tag(tag_1).unwrap();
     client.add_note_tag(tag_2).unwrap();
-    client.add_note_tag(tag_3).unwrap();
 
     // verify that the tag is being tracked
-    assert_eq!(client.get_note_tags().unwrap(), vec![tag_1, tag_2, tag_3]);
+    assert_eq!(client.get_note_tags().unwrap(), vec![tag_1, tag_2]);
 
     // attempt to add the same tag again
     client.add_note_tag(tag_1).unwrap();
 
     // verify that the tag is still being tracked only once
-    assert_eq!(client.get_note_tags().unwrap(), vec![tag_1, tag_2, tag_3]);
+    assert_eq!(client.get_note_tags().unwrap(), vec![tag_1, tag_2]);
 
     // Try removing non-existent tag
     let tag_4: NoteTag = 4.into();
     client.remove_note_tag(tag_4).unwrap();
 
     // verify that the tracked tags are unchanged
-    assert_eq!(client.get_note_tags().unwrap(), vec![tag_1, tag_2, tag_3]);
+    assert_eq!(client.get_note_tags().unwrap(), vec![tag_1, tag_2]);
 
     // remove second tag
-    client.remove_note_tag(tag_2).unwrap();
+    client.remove_note_tag(tag_1).unwrap();
 
-    // verify that tag_2 is not tracked anymore
-    assert_eq!(client.get_note_tags().unwrap(), vec![tag_1, tag_3]);
+    // verify that tag_1 is not tracked anymore
+    assert_eq!(client.get_note_tags().unwrap(), vec![tag_2]);
 }
 
 #[tokio::test]
