@@ -5,13 +5,20 @@
     <title>WASM Example</title>
 </head>
 <body>
-    <input type="file" id="fileInput">
+    <label for="accountFileInput" class="custom-file-upload">
+        Choose Account File
+    </label>
+    <input type="file" id="accountFileInput" style="display: none;">
+    <label for="noteFileInput" class="custom-file-upload">
+        Choose Note File
+    </label>
+    <input type="file" id="noteFileInput" style="display: none;">
     <script type="module" src="./dist/index.js"></script>
     <script type="module">
         // Example of using the exported WebClient in the browser
         import { WebClient } from './dist/index.js';
 
-        document.getElementById('fileInput').addEventListener('change', function(event) {
+        document.getElementById('accountFileInput').addEventListener('change', function(event) {
             const file = event.target.files[0];
             if (file) {
             const reader = new FileReader();
@@ -28,6 +35,26 @@
             reader.readAsArrayBuffer(file);
             }
         });
+        
+        function setupNoteFileInputListener(webClient) {
+            document.getElementById('noteFileInput').addEventListener('change', function(event) {
+                const file = event.target.files[0];
+                if (file) {
+                const reader = new FileReader();
+
+                reader.onload = async function(e) {
+                    const arrayBuffer = e.target.result;
+                    const byteArray = new Uint8Array(arrayBuffer);
+                    console.log(byteArray);  // Now you can work with the bytes
+
+                    let result = await importInputNote(webClient, byteArray);
+                    console.log(result);
+                };
+
+                reader.readAsArrayBuffer(file);
+                }
+            });
+        }
         
         async function createMidenWebClient() {
             try {
@@ -695,44 +722,109 @@
             let webClient = await createMidenWebClient();
 
             // Create accounts and sync
-            let regularAccountTemplate = createBasicMutableAccountTemplate("Local");
-            let fungibleFaucetAccountTemplate = createFungibleFaucetAccountTemplate(
+            let senderAccountTemplate = createBasicMutableAccountTemplate("Local");
+            let faucetAccountTemplate = createFungibleFaucetAccountTemplate(
                 "DEN",
                 "10",
                 "1000000",
                 "Local"
             );
-            let regularAccountId = await createNewAccount(webClient, regularAccountTemplate);
-            let faucetId = await createNewAccount(webClient, fungibleFaucetAccountTemplate);
+            let senderAccountId = await createNewAccount(webClient, senderAccountTemplate);
+            let faucetId = await createNewAccount(webClient, faucetAccountTemplate);
             await syncState(webClient);
             await new Promise(r => setTimeout(r, 10000));
 
             // Create mint transaction and sync
-            let transactionTemplate = createMintTransactionTemplate(
-                regularAccountId,
+            let mintTransactionTemplate = createMintTransactionTemplate(
+                senderAccountId,
                 faucetId,
                 "1000",
                 "Private"
             );
-            let createTransactionResult = await createTransaction(webClient, transactionTemplate);
-            await new Promise(r => setTimeout(r, 10000));
-            await syncState(webClient);
+            let mintTransactionResult = await createTransaction(webClient, mintTransactionTemplate);
+            // await new Promise(r => setTimeout(r, 20000));
+            // await syncState(webClient);
 
-            await exportInputNote(webClient, createTransactionResult.created_note_ids[0]);
+            // // Create consume transaction and sync
+            // let consumeMintedAssetsTransactionTemplate = createConsumeNotesTransactionTemplate(
+            //     senderAccountId,
+            //     mintTransactionResult.created_note_ids
+            // );
+            // await createTransaction(webClient, consumeMintedAssetsTransactionTemplate);
+            // await new Promise(r => setTimeout(r, 20000));
+            // await syncState(webClient);
 
-            console.log("testExportInputNote finished");
+            // // Create P2ID transaction and sync
+            // let p2idTransactionTemplate = createP2IDTransactionTemplate(
+            //     senderAccountId,
+            //     "0x9f148e149de3e776",
+            //     faucetId,
+            //     "500",
+            //     "Private"
+            // );
+            // let p2idTransactionResult = await createTransaction(webClient, p2idTransactionTemplate);
+            // await new Promise(r => setTimeout(r, 20000));
+            // await syncState(webClient);
+
+            // console.log(p2idTransactionResult);
+            // console.log(p2idTransactionResult.created_note_ids);
+            // console.log(p2idTransactionResult.created_note_ids[0]);
+            // let result = await exportInputNote(webClient, p2idTransactionResult.created_note_ids[0]);
+
+            // const blob = new Blob([result], {type: 'application/octet-stream'});
+
+            // // Create a URL for the Blob
+            // const url = URL.createObjectURL(blob);
+
+            // // Create a temporary anchor element
+            // const a = document.createElement('a');
+            // a.href = url;
+            // a.download = 'note.mno'; // Specify the file name
+
+            // // Append the anchor to the document
+            // document.body.appendChild(a);
+
+            // // Programmatically click the anchor to trigger the download
+            // a.click();
+
+            // // Remove the anchor from the document
+            // document.body.removeChild(a);
+
+            // // Revoke the object URL to free up resources
+            // URL.revokeObjectURL(url);
+
+            // console.log("testExportInputNote finished");
         }
-        
+       
+        async function testImportInputNote() {
+            let webClient = await createMidenWebClient();
+
+            setupNoteFileInputListener(webClient);
+
+            let regularAccountTemplate = await createBasicMutableAccountTemplate("Local");
+            await createNewAccount(webClient, regularAccountTemplate);
+
+            // Create consume transaction and sync
+            // let consumeTransactionTemplate = createConsumeNotesTransactionTemplate(
+            //     "0x912ea536cab38f1b",
+            //     ["0x8888c1474034b1aad083b58642d3547e7fea9c2b4061087d8ae128ef0a6ae3ca"]
+            // );
+            // await createTransaction(webClient, consumeTransactionTemplate);
+            // await new Promise(r => setTimeout(r, 10000));
+            // await syncState(webClient);
+        }
+
         // await testCreateAllAccountTypes();
         // await testGetAccount();
         // await testGetAccounts();
         // await testGetNotes();
         // await testGetNote();
-        // await testExportInputNote();
+        await testExportInputNote();
         // await testMintAsset();
         // await testP2IDTransaction();
         // await testP2IDRTransaction();
         // await testGetTransactions();
+        // await testImportInputNote();
 
     </script>
 </body>
