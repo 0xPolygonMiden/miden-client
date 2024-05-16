@@ -430,6 +430,14 @@ fn parse_input_note(
         Some(account_id) => Some(AccountId::try_from(account_id as u64)?),
         None => None,
     };
+
+    // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
+    let status = if let (NoteStatus::Committed, Some(_)) = (status, consumer_account_id) {
+        NoteStatus::Consuming
+    } else {
+        status
+    };
+
     Ok(InputNoteRecord::new(
         id,
         recipient,
