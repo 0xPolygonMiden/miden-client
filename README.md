@@ -54,13 +54,15 @@ You can either build from source with:
 cargo build --release
 ```
 
-Once the binary is built, you can find it on `./target/release/miden-client`.
+Once the binary is built, you can find it on `./target/release/miden`.
 
 Or you can install the CLI from crates-io with:
 
 ```bash
 cargo install miden-client
 ```
+
+Note that binary name for the client is just `miden`.
 
 ### Makefile
 
