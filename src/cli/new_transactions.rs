@@ -323,12 +323,12 @@ async fn execute_transaction<
     let proven_transaction =
         client.prove_transaction(transaction_execution_result.executed_transaction().clone())?;
     println!("Proving took: {}ms", start.elapsed().as_millis());
-    println!("Submitting transaction to node...");
+    println!("Submitting transaction to node and storing in database...");
     let start = Instant::now();
     client
         .submit_transaction(transaction_execution_result, proven_transaction)
         .await?;
-    println!("Submission took: {}ms", start.elapsed().as_millis());
+    println!("Submission and storage took: {}ms", start.elapsed().as_millis());
 
     if let TransactionTemplate::Swap(swap_data, note_type) = transaction_template {
         let payback_note_tag: u32 = build_swap_tag(
