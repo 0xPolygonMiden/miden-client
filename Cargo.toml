@@ -30,6 +30,7 @@ testing = ["miden-objects/testing", "miden-lib/testing"]
 test_utils = ["miden-objects/testing"]
 
 [dependencies]
+assert_cmd = { version = "2.0" }
 async-trait = { version = "0.1" }
 clap = { version = "4.3", features = ["derive"] }
 comfy-table = "7.1.0"
