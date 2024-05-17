@@ -336,11 +336,15 @@ async fn execute_transaction<
 
     println!("Succesfully created transaction.");
     println!("Transaction ID: {}", transaction_id);
-    if output_notes.is_empty() {
-        println!("The transaction did not generate any output notes.");
-    } else {
-        println!("Output notes:");
-        output_notes.iter().for_each(|note_id| println!("\t- {}", note_id));
+
+    // Only show this if --force was provided since we would show duplicate info otherwise
+    if force {
+        if output_notes.is_empty() {
+            println!("The transaction did not generate any output notes.");
+        } else {
+            println!("Output notes:");
+            output_notes.iter().for_each(|note_id| println!("\t- {}", note_id));
+        }
     }
 
     Ok(())

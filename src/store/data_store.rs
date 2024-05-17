@@ -55,9 +55,8 @@ impl<S: Store> DataStore for ClientDataStore<S> {
 
             match note_record.status() {
                 NoteStatus::Pending => {
-                    // Should have an error to say that note is not ready to be consumed
                     return Err(DataStoreError::InternalError(format!(
-                        "note with ID {} is not ready to be consumed.",
+                        "The input note ID {} does not contain a note origin.",
                         note_id.to_hex()
                     )));
                 },
