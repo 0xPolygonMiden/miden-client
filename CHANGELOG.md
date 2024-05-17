@@ -1,6 +1,6 @@
 # Changelog
 
-* Changed `consume-notes` to pick up the default account ID if none is provided, and to consume all notes that are consumable by the ID if no notes are provided to the list.
+* Changed `consume-notes` to pick up the default account ID if none is provided, and to consume all notes that are consumable by the ID if no notes are provided to the list (#350)
 
 ## v0.3.0 (2024-05-17)
 
