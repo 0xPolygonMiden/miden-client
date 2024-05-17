@@ -69,11 +69,11 @@ impl MintCmd {
         mut client: Client<N, R, S, A>,
     ) -> Result<(), String> {
         let force = self.force;
-        let transaction_template = self.into_template(&client)?;
+        let transaction_template = self.get_template(&client)?;
         execute_transaction(&mut client, transaction_template, force).await
     }
 
-    fn into_template<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    fn get_template<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
         &self,
         client: &Client<N, R, S, A>,
     ) -> Result<TransactionTemplate, String> {
@@ -122,11 +122,11 @@ impl SendCmd {
         mut client: Client<N, R, S, A>,
     ) -> Result<(), String> {
         let force = self.force;
-        let transaction_template = self.into_template(&client)?;
+        let transaction_template = self.get_template(&client)?;
         execute_transaction(&mut client, transaction_template, force).await
     }
 
-    fn into_template<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    fn get_template<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
         &self,
         client: &Client<N, R, S, A>,
     ) -> Result<TransactionTemplate, String> {
@@ -185,11 +185,11 @@ impl SwapCmd {
         mut client: Client<N, R, S, A>,
     ) -> Result<(), String> {
         let force = self.force;
-        let transaction_template = self.into_template(&client)?;
+        let transaction_template = self.get_template(&client)?;
         execute_transaction(&mut client, transaction_template, force).await
     }
 
-    fn into_template<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    fn get_template<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
         &self,
         client: &Client<N, R, S, A>,
     ) -> Result<TransactionTemplate, String> {
@@ -241,11 +241,11 @@ impl ConsumeNotesCmd {
         mut client: Client<N, R, S, A>,
     ) -> Result<(), String> {
         let force = self.force;
-        let transaction_template = self.into_template(&client)?;
+        let transaction_template = self.get_template(&client)?;
         execute_transaction(&mut client, transaction_template, force).await
     }
 
-    fn into_template<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    fn get_template<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
         &self,
         client: &Client<N, R, S, A>,
     ) -> Result<TransactionTemplate, String> {
@@ -278,6 +278,7 @@ impl ConsumeNotesCmd {
 
 // EXECUTE TRANSACTION
 // ================================================================================================
+
 async fn execute_transaction<
     N: NodeRpcClient,
     R: FeltRng,

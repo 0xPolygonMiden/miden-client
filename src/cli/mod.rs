@@ -1,15 +1,10 @@
 use std::{
     env,
-    path::{Path, PathBuf},
     rc::Rc,
 };
 
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
-use figment::{
-    providers::{Format, Toml},
-    Figment,
-};
 use miden_client::{
     client::{
         get_random_coin,
@@ -17,7 +12,6 @@ use miden_client::{
         store_authenticator::StoreAuthenticator,
         Client,
     },
-    config::ClientConfig,
     errors::{ClientError, IdPrefixFetchError},
     store::{
         sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter,
@@ -38,6 +32,7 @@ use self::{
     new_transactions::{ConsumeNotesCmd, MintCmd, SendCmd, SwapCmd},
     notes::NotesCmd,
     tags::TagsCmd,
+    util::load_config,
 };
 
 mod account;
@@ -152,27 +147,6 @@ impl Cli {
             Command::ConsumeNotes(consume_notes) => consume_notes.execute(client).await,
         }
     }
-}
-
-/// Loads config file from current directory and default filename and returns it alongside its path
-///
-/// This function will look for the configuration file at the provided path. If the path is
-/// relative, searches in parent directories all the way to the root as well.
-pub(super) fn load_config_file() -> Result<(ClientConfig, PathBuf), String> {
-    let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
-    current_dir.push(CLIENT_CONFIG_FILE_NAME);
-    let config_path = current_dir.as_path();
-
-    let client_config = load_config(config_path)?;
-
-    Ok((client_config, config_path.into()))
-}
-
-/// Loads the client configuration.
-pub fn load_config(config_file: &Path) -> Result<ClientConfig, String> {
-    Figment::from(Toml::file(config_file))
-        .extract()
-        .map_err(|err| format!("Failed to load {} config file: {err}", config_file.display()))
 }
 
 pub fn create_dynamic_table(headers: &[&str]) -> Table {
