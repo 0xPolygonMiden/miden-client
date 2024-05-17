@@ -1,6 +1,6 @@
 use std::env::{set_current_dir, temp_dir};
 
-use assert_cmd::{cargo::CommandCargoExt, Command};
+use assert_cmd::Command;
 
 use crate::create_test_store_path;
 
@@ -16,11 +16,11 @@ fn test_init_without_params() {
     set_current_dir(temp_dir).unwrap();
 
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
-    init_cmd.args(&["init"]);
+    init_cmd.args(["init"]);
     init_cmd.assert().success();
 
     let mut sync_cmd = Command::cargo_bin("miden").unwrap();
-    sync_cmd.args(&["sync"]);
+    sync_cmd.args(["sync"]);
     sync_cmd.assert().success();
 }
 
@@ -34,11 +34,11 @@ fn test_init_with_params() {
     set_current_dir(temp_dir).unwrap();
 
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
-    init_cmd.args(&["init", "--rpc", "localhost", "--store-path", store_path.to_str().unwrap()]);
+    init_cmd.args(["init", "--rpc", "localhost", "--store-path", store_path.to_str().unwrap()]);
     init_cmd.assert().success();
 
     let mut sync_cmd = Command::cargo_bin("miden").unwrap();
-    sync_cmd.args(&["sync"]);
+    sync_cmd.args(["sync"]);
     sync_cmd.assert().success();
 }
 
@@ -67,7 +67,7 @@ fn test_import_genesis_accounts() {
     set_current_dir(temp_dir).unwrap();
 
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
-    init_cmd.args(&["init", "--store-path", store_path.to_str().unwrap()]);
+    init_cmd.args(["init", "--store-path", store_path.to_str().unwrap()]);
     init_cmd.assert().success();
 
     // Import genesis accounts
@@ -80,7 +80,7 @@ fn test_import_genesis_accounts() {
     import_cmd.assert().success();
 
     let mut sync_cmd = Command::cargo_bin("miden").unwrap();
-    sync_cmd.args(&["sync"]);
+    sync_cmd.args(["sync"]);
     sync_cmd.assert().success();
 
     // Ensure they've been importing by
