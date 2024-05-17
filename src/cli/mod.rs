@@ -32,7 +32,7 @@ use self::{
     new_transactions::{ConsumeNotesCmd, MintCmd, SendCmd, SwapCmd},
     notes::NotesCmd,
     tags::TagsCmd,
-    util::load_config,
+    utils::load_config,
 };
 
 mod account;
@@ -46,7 +46,7 @@ mod notes;
 mod sync;
 mod tags;
 mod transactions;
-mod util;
+mod utils;
 
 /// Config file name
 const CLIENT_CONFIG_FILE_NAME: &str = "miden-client.toml";

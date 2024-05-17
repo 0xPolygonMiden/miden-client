@@ -16,7 +16,7 @@ use miden_tx::{
     TransactionAuthenticator,
 };
 
-use super::util::{load_config_file, parse_account_id, update_config};
+use super::utils::{load_config_file, parse_account_id, update_config};
 use crate::cli::create_dynamic_table;
 
 // ACCOUNT COMMAND

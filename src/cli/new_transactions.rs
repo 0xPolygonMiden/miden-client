@@ -24,10 +24,10 @@ use tracing::info;
 
 use super::{
     get_input_note_with_id_prefix,
-    util::{get_input_acc_id_by_prefix_or_default, parse_account_id},
+    utils::{get_input_acc_id_by_prefix_or_default, parse_account_id},
     Client,
 };
-use crate::cli::{create_dynamic_table, util::build_swap_tag};
+use crate::cli::{create_dynamic_table, utils::build_swap_tag};
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum NoteType {
