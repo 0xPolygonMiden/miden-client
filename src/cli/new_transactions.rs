@@ -47,7 +47,7 @@ pub struct MintCmd {
     #[clap(short = 't', long = "target")]
     target_account_id: String,
 
-    /// asset in the format <AMOUNT>::<FAUCET_ID_HEX_OR_PREFIX> or <AMOUNT>::<TOKEN_SYMBOL>
+    /// asset in the format <AMOUNT>::<FAUCET_ID_HEX_OR_PREFIX>
     #[clap(short, long, value_parser = parse_fungible_asset)]
     asset: (u64, String),
 
@@ -97,7 +97,7 @@ pub struct SendCmd {
     #[clap(short = 't', long = "target")]
     target_account_id: String,
 
-    /// asset in the format <AMOUNT>::<FAUCET_ID_HEX_OR_PREFIX> or <AMOUNT>::<TOKEN_SYMBOL>
+    /// asset in the format <AMOUNT>::<FAUCET_ID_HEX_OR_PREFIX>
     #[clap(short, long, value_parser = parse_fungible_asset)]
     asset: (u64, String),
 
@@ -164,11 +164,11 @@ pub struct SwapCmd {
     #[clap(short = 's', long = "source")]
     sender_account_id: Option<String>,
 
-    /// offered asset in the format <AMOUNT>::<FAUCET_ID_HEX_OR_PREFIX> or <AMOUNT>::<TOKEN_SYMBOL>
+    /// offered asset in the format <AMOUNT>::<FAUCET_ID_HEX_OR_PREFIX>
     #[clap(long = "offered-asset", value_parser = parse_fungible_asset)]
     offered_asset: (u64, String),
 
-    /// requested asset in the format <AMOUNT>::<FAUCET_ID_HEX_OR_PREFIX> or <AMOUNT>::<TOKEN_SYMBOL>
+    /// requested asset in the format <AMOUNT>::<FAUCET_ID_HEX_OR_PREFIX>
     #[clap(short, long, value_parser = parse_fungible_asset)]
     requested_asset: (u64, String),
 
@@ -493,7 +493,7 @@ fn build_swap_tag(
 ///
 /// # Errors
 ///
-/// Will return an error if the provided `&str` matches one of the
+/// Will return an error if the provided `&str` doesn't match one of the
 /// two:
 ///
 /// - `<AMOUNT>::<TOKEN_SYMBOL>`, such as `100::ETH`
