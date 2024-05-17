@@ -14,16 +14,20 @@ use miden_client::{
     store::Store,
 };
 use miden_objects::{
-    accounts::AccountId,
     assets::{Asset, FungibleAsset},
     crypto::rand::FeltRng,
-    notes::{NoteExecutionHint, NoteId, NoteTag, NoteType as MidenNoteType},
-    Digest, NoteError,
+    notes::{NoteId, NoteType as MidenNoteType},
+    Digest,
 };
 use miden_tx::TransactionAuthenticator;
+use tracing::info;
 
-use super::{get_input_note_with_id_prefix, parse_account_id, Client};
-use crate::cli::create_dynamic_table;
+use super::{
+    get_input_note_with_id_prefix,
+    util::{get_input_acc_id_by_prefix_or_default, parse_account_id},
+    Client,
+};
+use crate::cli::{create_dynamic_table, util::build_swap_tag};
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum NoteType {
@@ -61,19 +65,17 @@ pub struct MintCmd {
 
 impl MintCmd {
     pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        self,
+        &self,
         mut client: Client<N, R, S, A>,
-        default_account_id: Option<String>,
     ) -> Result<(), String> {
         let force = self.force;
-        let transaction_template = self.into_template(&client, default_account_id)?;
+        let transaction_template = self.into_template(&client)?;
         execute_transaction(&mut client, transaction_template, force).await
     }
 
     fn into_template<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        self,
+        &self,
         client: &Client<N, R, S, A>,
-        _default_account_id: Option<String>,
     ) -> Result<TransactionTemplate, String> {
         let faucet_id = parse_account_id(client, self.faucet_id.as_str())?;
         let fungible_asset =
@@ -116,19 +118,17 @@ pub struct SendCmd {
 
 impl SendCmd {
     pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        self,
+        &self,
         mut client: Client<N, R, S, A>,
-        default_account_id: Option<String>,
     ) -> Result<(), String> {
         let force = self.force;
-        let transaction_template = self.into_template(&client, default_account_id)?;
+        let transaction_template = self.into_template(&client)?;
         execute_transaction(&mut client, transaction_template, force).await
     }
 
     fn into_template<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        self,
+        &self,
         client: &Client<N, R, S, A>,
-        default_account_id: Option<String>,
     ) -> Result<TransactionTemplate, String> {
         let faucet_id = parse_account_id(client, self.faucet_id.as_str())?;
         let fungible_asset = FungibleAsset::new(faucet_id, self.amount)
@@ -136,12 +136,8 @@ impl SendCmd {
             .into();
 
         // try to use either the provided argument or the default account
-        let sender_account_id = self
-            .sender_account_id
-            .clone()
-            .or(default_account_id)
-            .ok_or("Neither a sender nor a default account was provided".to_string())?;
-        let sender_account_id = parse_account_id(client, &sender_account_id)?;
+        let sender_account_id =
+            get_input_acc_id_by_prefix_or_default(client, self.sender_account_id.clone())?;
         let target_account_id = parse_account_id(client, self.target_account_id.as_str())?;
 
         let payment_transaction =
@@ -185,19 +181,17 @@ pub struct SwapCmd {
 
 impl SwapCmd {
     pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        self,
+        &self,
         mut client: Client<N, R, S, A>,
-        default_account_id: Option<String>,
     ) -> Result<(), String> {
         let force = self.force;
-        let transaction_template = self.into_template(&client, default_account_id)?;
+        let transaction_template = self.into_template(&client)?;
         execute_transaction(&mut client, transaction_template, force).await
     }
 
     fn into_template<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        self,
+        &self,
         client: &Client<N, R, S, A>,
-        default_account_id: Option<String>,
     ) -> Result<TransactionTemplate, String> {
         let offered_asset_faucet_id = parse_account_id(client, &self.offered_asset_faucet_id)?;
         let offered_fungible_asset =
@@ -212,12 +206,8 @@ impl SwapCmd {
                 .into();
 
         // try to use either the provided argument or the default account
-        let sender_account_id = self
-            .sender_account_id
-            .clone()
-            .or(default_account_id)
-            .ok_or("Neither a sender nor a default account was provided".to_string())?;
-        let sender_account_id = parse_account_id(client, &sender_account_id)?;
+        let sender_account_id =
+            get_input_acc_id_by_prefix_or_default(client, self.sender_account_id.clone())?;
 
         let swap_transaction = SwapTransactionData::new(
             sender_account_id,
@@ -231,6 +221,8 @@ impl SwapCmd {
 
 #[derive(Debug, Parser, Clone)]
 /// Consume with the account corresponding to `account_id` all of the notes from `list_of_notes`.
+/// If no account ID is provided, the default one is used. If no notes are provided, any notes
+/// that are identified to be owned by the account ID are consumed.
 pub struct ConsumeNotesCmd {
     /// The account ID to be used to consume the note or its hex prefix. If none is provided, the default
     /// account's ID is used instead
@@ -245,21 +237,19 @@ pub struct ConsumeNotesCmd {
 
 impl ConsumeNotesCmd {
     pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        self,
+        &self,
         mut client: Client<N, R, S, A>,
-        default_account_id: Option<String>,
     ) -> Result<(), String> {
         let force = self.force;
-        let transaction_template = self.into_template(&client, default_account_id)?;
+        let transaction_template = self.into_template(&client)?;
         execute_transaction(&mut client, transaction_template, force).await
     }
 
     fn into_template<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        self,
+        &self,
         client: &Client<N, R, S, A>,
-        default_account_id: Option<String>,
     ) -> Result<TransactionTemplate, String> {
-        let list_of_notes = self
+        let mut list_of_notes = self
             .list_of_notes
             .iter()
             .map(|note_id| {
@@ -269,12 +259,18 @@ impl ConsumeNotesCmd {
             })
             .collect::<Result<Vec<NoteId>, _>>()?;
 
-        let account_id = self
-            .account_id
-            .clone()
-            .or(default_account_id)
-            .ok_or("Neither a sender nor a default account was provided".to_string())?;
-        let account_id = parse_account_id(client, &account_id)?;
+        let account_id = get_input_acc_id_by_prefix_or_default(client, self.account_id.clone())?;
+
+        if list_of_notes.is_empty() {
+            info!("No input note IDs provided, getting all notes consumable by {}", account_id);
+            let consumable_notes = client.get_consumable_notes(Some(account_id))?;
+
+            list_of_notes.extend(consumable_notes.iter().map(|n| n.note.id()));
+        }
+
+        if list_of_notes.is_empty() {
+            return Err(format!("No input notes were provided and the store does not contain any notes consumable by {account_id}"));
+        }
 
         Ok(TransactionTemplate::ConsumeNotes(account_id, list_of_notes))
     }
@@ -300,7 +296,7 @@ async fn execute_transaction<
     // Show delta and ask for confirmation
     print_transaction_details(&transaction_execution_result);
     if !force {
-        println!("Continue with proving and submission? Changes will be irreversible once the proof is finalized on the rollup (Y/N)");
+        println!("/nContinue with proving and submission? Changes will be irreversible once the proof is finalized on the rollup (Y/N)");
         let mut proceed_str: String = String::new();
         io::stdin().read_line(&mut proceed_str).expect("Should read line");
 
@@ -399,47 +395,5 @@ fn print_transaction_details(transaction_result: &TransactionResult) {
         println!("New nonce: {new_nonce}.")
     } else {
         println!("No nonce changes.")
-    }
-}
-
-// HELPERS
-// ================================================================================================
-
-/// Returns a note tag for a swap note with the specified parameters.
-///
-/// Use case ID for the returned tag is set to 0.
-///
-/// Tag payload is constructed by taking asset tags (8 bits of faucet ID) and concatenating them
-/// together as offered_asset_tag + requested_asset tag.
-///
-/// Network execution hint for the returned tag is set to `Local`.
-///
-/// Based on miden-base's implementation (<https://github.com/0xPolygonMiden/miden-base/blob/9e4de88031b55bcc3524cb0ccfb269821d97fb29/miden-lib/src/notes/mod.rs#L153>)
-///
-/// TODO: we should make the function in base public and once that gets released use that one and
-/// delete this implementation.
-fn build_swap_tag(
-    note_type: MidenNoteType,
-    offered_asset_faucet_id: AccountId,
-    requested_asset_faucet_id: AccountId,
-) -> Result<NoteTag, NoteError> {
-    const SWAP_USE_CASE_ID: u16 = 0;
-
-    // get bits 4..12 from faucet IDs of both assets, these bits will form the tag payload; the
-    // reason we skip the 4 most significant bits is that these encode metadata of underlying
-    // faucets and are likely to be the same for many different faucets.
-
-    let offered_asset_id: u64 = offered_asset_faucet_id.into();
-    let offered_asset_tag = (offered_asset_id >> 52) as u8;
-
-    let requested_asset_id: u64 = requested_asset_faucet_id.into();
-    let requested_asset_tag = (requested_asset_id >> 52) as u8;
-
-    let payload = ((offered_asset_tag as u16) << 8) | (requested_asset_tag as u16);
-
-    let execution = NoteExecutionHint::Local;
-    match note_type {
-        MidenNoteType::Public => NoteTag::for_public_use_case(SWAP_USE_CASE_ID, payload, execution),
-        _ => NoteTag::for_local_use_case(SWAP_USE_CASE_ID, payload),
     }
 }

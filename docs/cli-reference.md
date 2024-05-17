@@ -185,6 +185,8 @@ You can do:
 miden consume-notes --account <some-account-id> 0x70b7ecb 0x80b7ecb
 ```
 
+Additionally, you can optionally not specify note IDs, in which case any note that is known to be consumable by the executor account ID will be consumed.
+
 #### `send`
 
 Sends assets to another account. Sender Account creates a note that a target Account ID can consume. The asset is identifed by the tuple `(FAUCET ID, AMOUNT)`. The note can be configured to be recallable making the sender able to consume it after a height is reached.

@@ -1,4 +1,8 @@
-use std::{env, fs::File, io::Write, path::Path, rc::Rc};
+use std::{
+    env,
+    path::{Path, PathBuf},
+    rc::Rc,
+};
 
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
@@ -20,10 +24,7 @@ use miden_client::{
         OutputNoteRecord, Store,
     },
 };
-use miden_objects::{
-    accounts::{AccountId, AccountStub},
-    crypto::rand::FeltRng,
-};
+use miden_objects::{accounts::AccountStub, crypto::rand::FeltRng};
 use miden_tx::TransactionAuthenticator;
 use tracing::info;
 use transactions::TransactionCmd;
@@ -50,6 +51,7 @@ mod notes;
 mod sync;
 mod tags;
 mod transactions;
+mod util;
 
 /// Config file name
 const CLIENT_CONFIG_FILE_NAME: &str = "miden-client.toml";
@@ -131,9 +133,6 @@ impl Cli {
             in_debug_mode,
         );
 
-        let default_account_id =
-            client_config.cli.clone().and_then(|cli_conf| cli_conf.default_account_id);
-
         // Execute CLI command
         match &self.action {
             Command::Account(account) => account.execute(client),
@@ -147,20 +146,29 @@ impl Cli {
             Command::Tags(tags) => tags.execute(client).await,
             Command::Transaction(transaction) => transaction.execute(client).await,
             Command::Export(cmd) => cmd.execute(client),
-            Command::Mint(mint) => mint.clone().execute(client, default_account_id).await,
-            Command::Send(send) => send.clone().execute(client, default_account_id).await,
-            Command::Swap(swap) => swap.clone().execute(client, default_account_id).await,
-            Command::ConsumeNotes(consume_notes) => {
-                consume_notes.clone().execute(client, default_account_id).await
-            },
+            Command::Mint(mint) => mint.execute(client).await,
+            Command::Send(send) => send.execute(client).await,
+            Command::Swap(swap) => swap.execute(client).await,
+            Command::ConsumeNotes(consume_notes) => consume_notes.execute(client).await,
         }
     }
 }
 
-/// Loads the client configuration.
+/// Loads config file from current directory and default filename and returns it alongside its path
 ///
 /// This function will look for the configuration file at the provided path. If the path is
 /// relative, searches in parent directories all the way to the root as well.
+pub(super) fn load_config_file() -> Result<(ClientConfig, PathBuf), String> {
+    let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
+    current_dir.push(CLIENT_CONFIG_FILE_NAME);
+    let config_path = current_dir.as_path();
+
+    let client_config = load_config(config_path)?;
+
+    Ok((client_config, config_path.into()))
+}
+
+/// Loads the client configuration.
 pub fn load_config(config_file: &Path) -> Result<ClientConfig, String> {
     Figment::from(Toml::file(config_file))
         .extract()
@@ -334,52 +342,4 @@ fn get_account_with_id_prefix<
     }
 
     Ok(accounts.pop().expect("account_ids should always have one element"))
-}
-
-/// Parses a user provided account id string and returns the corresponding `AccountId`
-///
-/// `account_id` can fall into two categories:
-///
-/// - it's a prefix of an account id of an account tracked by the client
-/// - it's a full account id
-///
-/// # Errors
-///
-/// - Will return a `IdPrefixFetchError` if the provided account id string can't be parsed as an
-/// `AccountId` and does not correspond to an account tracked by the client either.
-pub(crate) fn parse_account_id<
-    N: NodeRpcClient,
-    R: FeltRng,
-    S: Store,
-    A: TransactionAuthenticator,
->(
-    client: &Client<N, R, S, A>,
-    account_id: &str,
-) -> Result<AccountId, String> {
-    if let Ok(account_id) = AccountId::from_hex(account_id) {
-        return Ok(account_id);
-    }
-
-    let account_id = get_account_with_id_prefix(client, account_id)
-        .map_err(|_err| "Input account ID {account_id} is neither a valid Account ID nor a prefix of a known Account ID")?
-        .id();
-    Ok(account_id)
-}
-
-pub(crate) fn update_config(config_path: &Path, client_config: ClientConfig) -> Result<(), String> {
-    let config_as_toml_string = toml::to_string_pretty(&client_config)
-        .map_err(|err| format!("error formatting config: {err}"))?;
-
-    info!("Writing config file at: {:?}", config_path);
-    let mut file_handle = File::options()
-        .write(true)
-        .truncate(true)
-        .open(config_path)
-        .map_err(|err| format!("error opening the file: {err}"))?;
-    file_handle
-        .write(config_as_toml_string.as_bytes())
-        .map_err(|err| format!("error writing to file: {err}"))?;
-
-    println!("Config updated successfully");
-    Ok(())
 }

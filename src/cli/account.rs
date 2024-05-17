@@ -1,10 +1,8 @@
-use std::path::PathBuf;
-
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     client::{rpc::NodeRpcClient, Client},
-    config::{CliConfig, ClientConfig},
+    config::CliConfig,
     store::Store,
 };
 use miden_objects::{
@@ -18,7 +16,10 @@ use miden_tx::{
     TransactionAuthenticator,
 };
 
-use super::{load_config, parse_account_id, update_config, CLIENT_CONFIG_FILE_NAME};
+use super::{
+    load_config_file,
+    util::{parse_account_id, update_config},
+};
 use crate::cli::create_dynamic_table;
 
 // ACCOUNT COMMAND
@@ -302,15 +303,4 @@ fn display_default_account_id() -> Result<(), String> {
     )?;
     println!("Current default account ID: {default_account}");
     Ok(())
-}
-
-/// Loads config file from current directory and default filename and returns it alongside its path
-fn load_config_file() -> Result<(ClientConfig, PathBuf), String> {
-    let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
-    current_dir.push(CLIENT_CONFIG_FILE_NAME);
-    let config_path = current_dir.as_path();
-
-    let client_config = load_config(config_path)?;
-
-    Ok((client_config, config_path.into()))
 }
