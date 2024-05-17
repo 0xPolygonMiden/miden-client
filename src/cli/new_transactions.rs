@@ -297,7 +297,7 @@ async fn execute_transaction<
     // Show delta and ask for confirmation
     print_transaction_details(&transaction_execution_result);
     if !force {
-        println!("/nContinue with proving and submission? Changes will be irreversible once the proof is finalized on the rollup (Y/N)");
+        println!("\nContinue with proving and submission? Changes will be irreversible once the proof is finalized on the rollup (Y/N)");
         let mut proceed_str: String = String::new();
         io::stdin().read_line(&mut proceed_str).expect("Should read line");
 
