@@ -165,7 +165,7 @@ After a transaction gets executed, two entities start being tracked:
 
 Creates a note that contains a specific amount tokens minted by a faucet, that the target Account ID can consume.
 
-Usage: `miden mint --target <TARGET ACCOUNT ID> --faucet <FAUCET ID> <AMOUNT> --note-type <NOTE_TYPE>`
+Usage: `miden mint --target <TARGET ACCOUNT ID> --asset <AMOUNT>::<FAUCET ID> --note-type <NOTE_TYPE>`
 
 #### `consume-notes`
 
@@ -189,13 +189,13 @@ miden consume-notes --account <some-account-id> 0x70b7ecb 0x80b7ecb
 
 Sends assets to another account. Sender Account creates a note that a target Account ID can consume. The asset is identifed by the tuple `(FAUCET ID, AMOUNT)`. The note can be configured to be recallable making the sender able to consume it after a height is reached.
 
-Usage: `miden send --sender <SENDER ACCOUNT ID> --target <TARGET ACCOUNT ID> --faucet <FAUCET ID>  --note-type <NOTE_TYPE> <AMOUNT> <RECALL_HEIGHT>`
+Usage: `miden send --sender <SENDER ACCOUNT ID> --target <TARGET ACCOUNT ID> --asset <AMOUNT>::<FAUCET ID> --note-type <NOTE_TYPE> <RECALL_HEIGHT>`
 
 #### `swap`
 
 The source account creates a Swap note that offers some asset in exchange for some other asset. When another account consumes that note, it'll receive the offered amount and it'll have the requested amount removed from its assets (and put into a new note which the first account can then consume). Consuming the note will fail if the account doesn't have enough of the requested asset. 
 
-Usage:  `miden swap --source <SOURCE ACCOUNT ID> --offered_faucet <OFFERED FAUCET ID> --offered_amount <OFFERED AMOUNT> --requested_faucet <REQUESTED FAUCET ID> --requested_amount <REQUESTED AMOUNT> --note-type <NOTE_TYPE>`
+Usage:  `miden swap --source <SOURCE ACCOUNT ID> --offered-asset <OFFERED AMOUNT>::<OFFERED FAUCET ID> --requested-asset <REQUESTED AMOUNT>::<REQUESTED FAUCET ID> --note-type <NOTE_TYPE>`
 
 #### Tips
 For `send` and `consume-notes`, you can omit the `--sender` and `--account` flags to use the default account defined in the [config](./cli-config.md). If you omit the flag but have no default account defined in the config, you'll get an error instead.
@@ -203,13 +203,13 @@ For `send` and `consume-notes`, you can omit the `--sender` and `--account` flag
 For every command which needs an account ID (either wallet or faucet), you can also provide a partial ID instead of the full ID for each account. So instead of
 
 ```sh
-miden send --sender 0x80519a1c5e3680fc --target 0x8fd4b86a6387f8d8 --faucet 0xa99c5c8764d4e011 100
+miden send --sender 0x80519a1c5e3680fc --target 0x8fd4b86a6387f8d8 --asset 100::0xa99c5c8764d4e011
 ```
 
 You can do:
 
 ```sh
-miden send --sender 0x80519 --target 0x8fd4b --faucet 0xa99c5 100
+miden send --sender 0x80519 --target 0x8fd4b --asset 100::0xa99c5
 ```
 
 #### Transaction confirmation
@@ -217,7 +217,7 @@ miden send --sender 0x80519 --target 0x8fd4b --faucet 0xa99c5 100
 When creating a new transaction, a summary of the transaction updates will be shown and confirmation for those updates will be prompted:
 
 ```sh
-miden tx new ...
+miden <tx command> ...
 
 TX Summary:
 
