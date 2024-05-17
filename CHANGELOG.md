@@ -1,5 +1,7 @@
 # Changelog
 
+* Changed `consume-notes` to pick up the default account ID if none is provided, and to consume all notes that are consumable by the ID if no notes are provided to the list.
+
 ## v0.3.0 (2024-05-17)
 
 * Added swap transactions and example flows on integration tests.
