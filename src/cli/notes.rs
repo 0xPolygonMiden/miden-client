@@ -1,5 +1,3 @@
-use std::collections::{HashMap, HashSet};
-
 use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement};
 use miden_client::{
@@ -107,26 +105,15 @@ fn list_notes<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticato
     client: Client<N, R, S, A>,
     filter: ClientNoteFilter,
 ) -> Result<(), String> {
-    let input_notes = client.get_input_notes(filter.clone())?;
-    let output_notes = client.get_output_notes(filter.clone())?;
+    let input_notes = client.get_input_notes(filter.clone())?.into_iter().map(Some);
+    let output_notes = client.get_output_notes(filter.clone())?.into_iter().map(Some);
 
-    let mut all_note_ids = HashSet::new();
-    let mut input_note_records = HashMap::new();
-    let mut output_note_records = HashMap::new();
-
-    for note in input_notes {
-        all_note_ids.insert(note.id().to_hex());
-        input_note_records.insert(note.id().to_hex(), note);
-    }
-
-    for note in output_notes {
-        all_note_ids.insert(note.id().to_hex());
-        output_note_records.insert(note.id().to_hex(), note);
-    }
-
-    let zipped_notes = all_note_ids
-        .iter()
-        .map(|note_id| (input_note_records.get(note_id), output_note_records.get(note_id)));
+    let zipped_notes: Vec<(Option<InputNoteRecord>, Option<OutputNoteRecord>)> =
+        if input_notes.len() > output_notes.len() {
+            input_notes.zip(output_notes.chain(std::iter::repeat(None))).collect()
+        } else {
+            input_notes.chain(std::iter::repeat(None)).zip(output_notes).collect()
+        };
 
     print_notes_summary(zipped_notes)?;
     Ok(())
@@ -304,47 +291,34 @@ fn list_consumable_notes<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionA
 
 // HELPERS
 // ================================================================================================
-fn print_notes_summary<'a, I>(notes: I) -> Result<(), String>
+fn print_notes_summary<I>(notes: I) -> Result<(), String>
 where
-    I: IntoIterator<Item = (Option<&'a InputNoteRecord>, Option<&'a OutputNoteRecord>)>,
+    I: IntoIterator<Item = (Option<InputNoteRecord>, Option<OutputNoteRecord>)>,
 {
-    let mut table = create_dynamic_table(&[
-        "Note ID",
-        "Script Hash",
-        "Assets Hash",
-        "Inputs Hash",
-        "Serial Num",
-        "Type",
-        "Status",
-        "Exportable?",
+    let mut table = create_dynamic_table(&["Input notes", "", "Output notes", ""]);
+    table.load_preset(presets::UTF8_HORIZONTAL_ONLY);
+
+    table.add_row(vec![
+        Cell::new("ID").add_attribute(Attribute::Bold),
+        Cell::new("Status").add_attribute(Attribute::Bold),
+        Cell::new("ID").add_attribute(Attribute::Bold),
+        Cell::new("Status").add_attribute(Attribute::Bold),
     ]);
 
     for (input_note_record, output_note_record) in notes {
-        let CliNoteSummary {
-            id,
-            script_hash,
-            assets_hash,
-            inputs_commitment,
-            serial_num,
-            note_type,
-            status,
-            tag: _tag,
-            sender: _sender,
-            exportable,
-        } = note_summary(input_note_record, output_note_record)?;
+        let mut row: Vec<String> = vec![String::new(); 4];
+        if let Some(input_note_record) = input_note_record {
+            let input_cli_summary = note_summary(Some(&input_note_record), None)?;
+            row[0] = input_cli_summary.id;
+            row[1] = input_cli_summary.status;
+        }
+        if let Some(output_note_record) = output_note_record {
+            let output_cli_summary = note_summary(None, Some(&output_note_record))?;
+            row[2] = output_cli_summary.id;
+            row[3] = output_cli_summary.status;
+        }
 
-        let exportable = if exportable { "✔" } else { "✘" };
-
-        table.add_row(vec![
-            id,
-            script_hash,
-            assets_hash,
-            inputs_commitment,
-            serial_num,
-            note_type,
-            status,
-            exportable.to_string(),
-        ]);
+        table.add_row(row);
     }
 
     println!("{table}");
