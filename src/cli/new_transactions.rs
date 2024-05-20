@@ -337,14 +337,11 @@ async fn execute_transaction<
     println!("Succesfully created transaction.");
     println!("Transaction ID: {}", transaction_id);
 
-    // Only show this if --force was provided since we would show duplicate info otherwise
-    if force {
-        if output_notes.is_empty() {
-            println!("The transaction did not generate any output notes.");
-        } else {
-            println!("Output notes:");
-            output_notes.iter().for_each(|note_id| println!("\t- {}", note_id));
-        }
+    if output_notes.is_empty() {
+        println!("The transaction did not generate any output notes.");
+    } else {
+        println!("Output notes:");
+        output_notes.iter().for_each(|note_id| println!("\t- {}", note_id));
     }
 
     Ok(())
@@ -371,19 +368,11 @@ fn print_transaction_details(transaction_result: &TransactionResult) {
     println!();
 
     // OUTPUT NOTES
-    let output_note_ids = transaction_result
-        .executed_transaction()
-        .output_notes()
-        .iter()
-        .map(|note| note.id())
-        .collect::<Vec<_>>();
-    if output_note_ids.is_empty() {
+    let output_note_count = transaction_result.executed_transaction().output_notes().iter().count();
+    if output_note_count == 0 {
         println!("No notes will be created as a result of this transaction.");
     } else {
-        println!("The following notes will be created:");
-        for output_note_id in output_note_ids {
-            println!("\t- {}", output_note_id.to_hex());
-        }
+        println!("{output_note_count} notes will be created as a result of this transaction.");
     }
     println!();
 
