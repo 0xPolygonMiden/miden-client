@@ -22,7 +22,7 @@ The client's main responsibility is to maintain a partial view of the blockchain
 
 For more info check:
 
-- [Getting started](https://0xpolygonmiden.github.io/miden-base/introduction/getting-started.html)
+- [Getting started](https://docs.polygon.technology/miden/miden-base/introduction/get-started/create-account-use-faucet/)
 - [CLI Reference](./docs/cli-reference.md#types-of-transaction)
     - [Configuration](./docs/cli-config.md)
 - [Online Documentation](https://docs.polygon.technology/miden/miden-client)
