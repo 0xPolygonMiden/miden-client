@@ -209,8 +209,11 @@ miden send --sender 0x80519a1c5e3680fc --target 0x8fd4b86a6387f8d8 --asset 100::
 You can do:
 
 ```sh
-miden send --sender 0x80519 --target 0x8fd4b --asset 100::0xa99c5
+miden send --sender 0x80519 --target 0x8fd4b --asset 100::0xa99c5c8764d4e011
 ```
+
+!!! note
+    The only exception is for using IDs as part of the asset, those should have the full faucet's account ID.
 
 #### Transaction confirmation
 

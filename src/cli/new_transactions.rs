@@ -47,7 +47,7 @@ pub struct MintCmd {
     #[clap(short = 't', long = "target")]
     target_account_id: String,
 
-    /// asset in the format <AMOUNT>::<FAUCET_ID_HEX_OR_PREFIX>
+    /// asset in the format <AMOUNT>::<FAUCET_ID_HEX>
     #[clap(short, long, value_parser = parse_fungible_asset)]
     asset: (u64, String),
 
@@ -97,7 +97,7 @@ pub struct SendCmd {
     #[clap(short = 't', long = "target")]
     target_account_id: String,
 
-    /// asset in the format <AMOUNT>::<FAUCET_ID_HEX_OR_PREFIX>
+    /// asset in the format <AMOUNT>::<FAUCET_ID_HEX>
     #[clap(short, long, value_parser = parse_fungible_asset)]
     asset: (u64, String),
 
@@ -164,11 +164,11 @@ pub struct SwapCmd {
     #[clap(short = 's', long = "source")]
     sender_account_id: Option<String>,
 
-    /// offered asset in the format <AMOUNT>::<FAUCET_ID_HEX_OR_PREFIX>
+    /// offered asset in the format <AMOUNT>::<FAUCET_ID_HEX>
     #[clap(long = "offered-asset", value_parser = parse_fungible_asset)]
     offered_asset: (u64, String),
 
-    /// requested asset in the format <AMOUNT>::<FAUCET_ID_HEX_OR_PREFIX>
+    /// requested asset in the format <AMOUNT>::<FAUCET_ID_HEX>
     #[clap(short, long, value_parser = parse_fungible_asset)]
     requested_asset: (u64, String),
 
@@ -489,7 +489,7 @@ fn build_swap_tag(
 }
 
 /// Parses a fungible asset and returns it as a tuple of the amount and the faucet identifier (ID
-/// as hex or hex prefix, or token symbol).
+/// as hex, or token symbol).
 ///
 /// # Errors
 ///
@@ -502,8 +502,10 @@ fn parse_fungible_asset(arg: &str) -> Result<(u64, String), String> {
     let (amount, faucet) = arg.split_once("::").ok_or("Separator `::` not found!")?;
     let amount = amount.parse::<u64>().map_err(|err| err.to_string())?;
 
-    if !faucet.starts_with("0x") && TokenSymbol::new(faucet).is_err() {
-        return Err(format!("{faucet} couldn't be interpreted as neither an account ID (or hex prefix) nor a token symbol"));
+    if AccountId::from_hex("0x").is_err() && TokenSymbol::new(faucet).is_err() {
+        return Err(format!(
+            "{faucet} couldn't be interpreted as neither an account ID nor a token symbol"
+        ));
     }
 
     Ok((amount, faucet.to_string()))
