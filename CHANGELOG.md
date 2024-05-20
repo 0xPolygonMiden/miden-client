@@ -1,5 +1,7 @@
 # Changelog
 
+* Simplified and separated the `notes --list` table (#356).
+
 ## v0.3.0 (2024-05-17)
 
 * Added swap transactions and example flows on integration tests.
