@@ -1,6 +1,6 @@
 # Changelog
 
-* New note status added to reflect more possible states.
+* New note status added to reflect more possible states (#355).
 
 ## v0.3.0 (2024-05-17)
 
