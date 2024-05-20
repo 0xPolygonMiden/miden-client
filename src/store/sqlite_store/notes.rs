@@ -117,9 +117,15 @@ impl<'a> NoteFilter<'a> {
 
         match self {
             NoteFilter::All => base,
-            NoteFilter::Committed => format!("{base} WHERE status = 'Committed'"),
-            NoteFilter::Consumed => format!("{base} WHERE status = 'Consumed'"),
-            NoteFilter::Pending => format!("{base} WHERE status = 'Pending'"),
+            NoteFilter::Committed => {
+                format!("{base} WHERE status = '{}'", NoteStatus::Committed)
+            },
+            NoteFilter::Consumed => {
+                format!("{base} WHERE status = '{}'", NoteStatus::Consumed)
+            },
+            NoteFilter::Pending => {
+                format!("{base} WHERE status = '{}'", NoteStatus::Pending)
+            },
             NoteFilter::Unique(_) | NoteFilter::List(_) => {
                 format!("{base} WHERE note.note_id IN rarray(?)")
             },
@@ -231,11 +237,12 @@ impl SqliteStore {
 
     /// Returns the nullifiers of all unspent input notes
     pub fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
-        const QUERY: &str = "SELECT json_extract(details, '$.nullifier') FROM input_notes WHERE status = 'Committed'";
+        const QUERY: &str =
+            "SELECT json_extract(details, '$.nullifier') FROM input_notes WHERE status = ?";
 
         self.db()
             .prepare(QUERY)?
-            .query_map([], |row| row.get(0))
+            .query_map([NoteStatus::Committed.to_string()], |row| row.get(0))
             .expect("no binding parameters used in query")
             .map(|result| {
                 result.map_err(|err| StoreError::ParsingError(err.to_string())).and_then(
