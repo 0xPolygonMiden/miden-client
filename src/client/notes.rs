@@ -46,6 +46,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let mut relevant_notes = Vec::new();
         for input_note in commited_notes {
+            if input_note.consumer_account_id().is_some() {
+                continue;
+            }
+
             let account_relevance =
                 note_screener.check_relevance(&input_note.clone().try_into()?)?;
 
