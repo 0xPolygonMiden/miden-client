@@ -112,23 +112,11 @@ fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthentic
 ) -> Result<(), String> {
     let accounts = client.get_account_stubs()?;
 
-    let mut table = create_dynamic_table(&[
-        "Account ID",
-        "Code Root",
-        "Vault Root",
-        "Storage Root",
-        "Type",
-        "Storage mode",
-        "Nonce",
-    ]);
+    let mut table = create_dynamic_table(&["Account ID", "Type", "Nonce"]);
     accounts.iter().for_each(|(acc, _acc_seed)| {
         table.add_row(vec![
             acc.id().to_string(),
-            acc.code_root().to_string(),
-            acc.vault_root().to_string(),
-            acc.storage_root().to_string(),
             account_type_display_name(&acc.id().account_type()),
-            storage_type_display_name(&acc.id()),
             acc.nonce().as_int().to_string(),
         ]);
     });
