@@ -1,5 +1,7 @@
 # Changelog
 
+* New note status added to reflect more possible states.
+
 ## v0.3.0 (2024-05-17)
 
 * Added swap transactions and example flows on integration tests.
