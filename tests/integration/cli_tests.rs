@@ -113,10 +113,18 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
 
     sync_cli(&temp_dir);
 
+    {
+        let client = create_test_client_with_store_path(&store_path);
+        let accounts = client.get_account_stubs().unwrap();
+
+        dbg!(accounts.iter().map(|(acc, _seed)| acc.id().to_hex()).collect::<Vec<_>>());
+    };
+
     // Ensure they've been importing by showing them
     // TODO: Once show is fixed for faucet account do the full iteration without skipping the
     // faucet
     for account_id in &GENESIS_ACCOUNTS_IDS[..=1] {
+        dbg!(account_id);
         let args = vec!["account", "--show", account_id];
         let mut show_cmd = Command::cargo_bin("miden").unwrap();
         show_cmd.args(&args);

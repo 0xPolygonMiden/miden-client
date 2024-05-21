@@ -52,7 +52,7 @@ args = ["nextest", "run", "--profile", "ci-default", "--release", "--workspace"]
 [tasks.ci-integration-test]
 description = "Run the integration test binary. Requires a node to connect to."
 command = "cargo"
-args = ["nextest", "run", "--profile", "ci-default", "--release", "--test=integration", "--features", "${FEATURES_INTEGRATION_TESTING}"]
+args = ["nextest", "run", "--nocapture", "--profile", "ci-default", "--release", "--test=integration", "--features", "${FEATURES_INTEGRATION_TESTING}"]
 
 [tasks.lint]
 dependencies = [
