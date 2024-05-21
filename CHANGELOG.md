@@ -1,6 +1,8 @@
 # Changelog
 
-* Changed `consume-notes` to pick up the default account ID if none is provided, and to consume all notes that are consumable by the ID if no notes are provided to the list (#350)
+* Changed `consume-notes` to pick up the default account ID if none is provided, and to consume all notes that are consumable by the ID if no notes are provided to the list. (#350)
+* Added created and consumed note info when printing the transaction summary on the CLI. (#348)
+* Fixed the error message when trying to consume a pending note (now it shows that the transaction is not yet ready to be consumed).
 
 ## v0.3.0 (2024-05-17)
 

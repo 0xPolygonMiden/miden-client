@@ -1,11 +1,10 @@
 use std::collections::BTreeMap;
 
 use miden_client::client::{
-    accounts::{AccountStorageMode, AccountTemplate},
-    transactions::transaction_request::TransactionRequest,
+    accounts::AccountTemplate, transactions::transaction_request::TransactionRequest,
 };
 use miden_objects::{
-    accounts::{AccountId, AuthSecretKey},
+    accounts::{AccountId, AccountStorageType, AuthSecretKey},
     assembly::ProgramAst,
     assets::{FungibleAsset, TokenSymbol},
     crypto::rand::{FeltRng, RpoRandomCoin},
@@ -40,7 +39,7 @@ async fn test_transaction_request() {
 
     let account_template = AccountTemplate::BasicWallet {
         mutable_code: false,
-        storage_mode: AccountStorageMode::Local,
+        storage_type: AccountStorageType::OffChain,
     };
 
     client.sync_state().await.unwrap();
@@ -51,7 +50,7 @@ async fn test_transaction_request() {
         token_symbol: TokenSymbol::new("TEST").unwrap(),
         decimals: 5u8,
         max_supply: 10_000u64,
-        storage_mode: AccountStorageMode::Local,
+        storage_type: AccountStorageType::OffChain,
     };
     let (fungible_faucet, _seed) = client.new_account(account_template).unwrap();
     println!("sda1");
