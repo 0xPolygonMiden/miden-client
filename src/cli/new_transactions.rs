@@ -47,7 +47,7 @@ pub struct MintCmd {
     #[clap(short = 't', long = "target")]
     target_account_id: String,
 
-    /// asset in the format `<AMOUNT>::<FAUCET_ID_HEX>`
+    /// Asset in the format `<AMOUNT>::<FAUCET_ID_HEX>`
     #[clap(short, long, value_parser = parse_fungible_asset)]
     asset: (u64, AccountId),
 
@@ -97,7 +97,7 @@ pub struct SendCmd {
     #[clap(short = 't', long = "target")]
     target_account_id: String,
 
-    /// asset in the format `<AMOUNT>::<FAUCET_ID_HEX>`
+    /// Asset in the format `<AMOUNT>::<FAUCET_ID_HEX>`
     #[clap(short, long, value_parser = parse_fungible_asset)]
     asset: (u64, AccountId),
 
@@ -164,11 +164,11 @@ pub struct SwapCmd {
     #[clap(short = 's', long = "source")]
     sender_account_id: Option<String>,
 
-    /// offered asset in the format `<AMOUNT>::<FAUCET_ID_HEX>`
+    /// offered Asset in the format `<AMOUNT>::<FAUCET_ID_HEX>`
     #[clap(long = "offered-asset", value_parser = parse_fungible_asset)]
     offered_asset: (u64, AccountId),
 
-    /// requested asset in the format `<AMOUNT>::<FAUCET_ID_HEX>`
+    /// requested Asset in the format `<AMOUNT>::<FAUCET_ID_HEX>`
     #[clap(short, long, value_parser = parse_fungible_asset)]
     requested_asset: (u64, AccountId),
 
@@ -488,7 +488,7 @@ fn build_swap_tag(
     }
 }
 
-/// Parses a fungible asset and returns it as a tuple of the amount and the faucet account ID hex.
+/// Parses a fungible Asset and returns it as a tuple of the amount and the faucet account ID hex.
 ///
 /// TODO: currently we'll only parse AccountId, however once we tackle [#258](https://github.com/0xPolygonMiden/miden-client/issues/258) we should also add the possibility to parse account aliases / token symbols dependeing on the path we choose
 ///
