@@ -65,8 +65,6 @@ fn test_init_with_params() {
 
 // Accounts 0 and 1 should be basic wallets and account2 should be a fungible faucet
 const GENESIS_ACCOUNTS_FILENAMES: [&str; 3] = ["account0.mac", "account1.mac", "account2.mac"];
-const GENESIS_ACCOUNTS_IDS: [&str; 3] =
-    ["0x8add712899d6ab76", "0x86bac4a17250e9f6", "0xa1834e02152a0f08"];
 
 // This tests that it's possible to import the genesis accounts and interact with them. To do so it:
 //
@@ -80,9 +78,6 @@ const GENESIS_ACCOUNTS_IDS: [&str; 3] =
 // against possible changes in the node that would affect the resulting account IDs.
 #[test]
 fn test_import_genesis_accounts_can_be_used_for_transactions() {
-    let first_basic_account_id = GENESIS_ACCOUNTS_IDS[0];
-    let second_basic_account_id = GENESIS_ACCOUNTS_IDS[1];
-    let fungible_faucet_account_id = GENESIS_ACCOUNTS_IDS[2];
     // For now sleep to ensure node's up
     std::thread::sleep(std::time::Duration::new(30, 0));
 
@@ -113,18 +108,28 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
 
     sync_cli(&temp_dir);
 
-    {
+    let (first_basic_account_id, second_basic_account_id, fungible_faucet_account_id) = {
         let client = create_test_client_with_store_path(&store_path);
         let accounts = client.get_account_stubs().unwrap();
 
-        dbg!(accounts.iter().map(|(acc, _seed)| acc.id().to_hex()).collect::<Vec<_>>());
+        let account_ids = accounts.iter().map(|(acc, _seed)| acc.id()).collect::<Vec<_>>();
+        let regular_accounts = account_ids.iter().filter(|id| !id.is_faucet()).collect::<Vec<_>>();
+        let faucet_accounts = account_ids.iter().filter(|id| id.is_faucet()).collect::<Vec<_>>();
+
+        assert_eq!(regular_accounts.len(), 2);
+        assert_eq!(faucet_accounts.len(), 1);
+
+        (
+            regular_accounts[0].to_hex(),
+            regular_accounts[1].to_hex(),
+            faucet_accounts[0].to_hex(),
+        )
     };
 
     // Ensure they've been importing by showing them
     // TODO: Once show is fixed for faucet account do the full iteration without skipping the
     // faucet
-    for account_id in &GENESIS_ACCOUNTS_IDS[..=1] {
-        dbg!(account_id);
+    for account_id in [&first_basic_account_id, &second_basic_account_id] {
         let args = vec!["account", "--show", account_id];
         let mut show_cmd = Command::cargo_bin("miden").unwrap();
         show_cmd.args(&args);
@@ -136,7 +141,7 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
     mint_cmd.args([
         "mint",
         "--target",
-        first_basic_account_id,
+        &first_basic_account_id,
         "--asset",
         &format!("100::{fungible_faucet_account_id}"),
         "-n",
@@ -161,7 +166,7 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
     consume_note_cmd.args([
         "consume-notes",
         "--account",
-        first_basic_account_id,
+        &first_basic_account_id,
         "--force",
         &note_to_consume_id,
     ]);
@@ -176,9 +181,9 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
     p2id_cmd.args([
         "send",
         "--sender",
-        first_basic_account_id,
+        &first_basic_account_id,
         "--target",
-        second_basic_account_id,
+        &second_basic_account_id,
         "--asset",
         &format!("25::{fungible_faucet_account_id}"),
         "-n",
@@ -203,7 +208,7 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
     consume_note_cmd.args([
         "consume-notes",
         "--account",
-        second_basic_account_id,
+        &second_basic_account_id,
         "--force",
         &note_to_consume_id,
     ]);
@@ -231,13 +236,11 @@ fn test_cli_export_import_note() {
     let store_path_1 = create_test_store_path();
     let mut temp_dir_1 = temp_dir();
     temp_dir_1.push(format!("{}", uuid::Uuid::new_v4()));
-    dbg!(&temp_dir_1);
     std::fs::create_dir(temp_dir_1.clone()).unwrap();
 
     let store_path_2 = create_test_store_path();
     let mut temp_dir_2 = temp_dir();
     temp_dir_2.push(format!("{}", uuid::Uuid::new_v4()));
-    dbg!(&temp_dir_2);
     std::fs::create_dir(temp_dir_2.clone()).unwrap();
 
     // Init and create basic wallet on second client
@@ -259,7 +262,7 @@ fn test_cli_export_import_note() {
 
     // On first client import the faucet and mint
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
-    init_cmd.args(["init", "--store-path", dbg!(&store_path_1.to_str().unwrap())]);
+    init_cmd.args(["init", "--store-path", store_path_1.to_str().unwrap()]);
     init_cmd.current_dir(&temp_dir_1).assert().success();
 
     // Create faucet account
