@@ -46,12 +46,11 @@ pub struct MintCmd {
     /// Target account ID or its hex prefix
     #[clap(short = 't', long = "target")]
     target_account_id: String,
-    /// Faucet account ID or its hex prefix
-    #[clap(short = 'f', long = "faucet")]
-    faucet_id: String,
-    /// Amount of tokens to mint
-    #[clap(short, long)]
-    amount: u64,
+
+    /// Asset in the format `<AMOUNT>::<FAUCET_ID_HEX>`
+    #[clap(short, long, value_parser = parse_fungible_asset)]
+    asset: (u64, AccountId),
+
     #[clap(short, long, value_enum)]
     note_type: NoteType,
     /// Flag to submit the executed transaction without asking for confirmation
@@ -75,9 +74,9 @@ impl MintCmd {
         client: &Client<N, R, S, A>,
         _default_account_id: Option<String>,
     ) -> Result<TransactionTemplate, String> {
-        let faucet_id = parse_account_id(client, self.faucet_id.as_str())?;
+        let faucet_id = self.asset.1;
         let fungible_asset =
-            FungibleAsset::new(faucet_id, self.amount).map_err(|err| err.to_string())?;
+            FungibleAsset::new(faucet_id, self.asset.0).map_err(|err| err.to_string())?;
         let target_account_id = parse_account_id(client, self.target_account_id.as_str())?;
 
         Ok(TransactionTemplate::MintFungibleAsset(
@@ -97,9 +96,11 @@ pub struct SendCmd {
     /// Target account ID or its hex prefix
     #[clap(short = 't', long = "target")]
     target_account_id: String,
-    /// Faucet account ID or its hex prefix
-    #[clap(short = 'f', long = "faucet")]
-    faucet_id: String,
+
+    /// Asset in the format `<AMOUNT>::<FAUCET_ID_HEX>`
+    #[clap(short, long, value_parser = parse_fungible_asset)]
+    asset: (u64, AccountId),
+
     #[clap(short, long, value_enum)]
     note_type: NoteType,
     /// Flag to submit the executed transaction without asking for confirmation
@@ -110,8 +111,6 @@ pub struct SendCmd {
     /// Setting this flag turns the transaction from a PayToId to a PayToIdWithRecall.
     #[clap(short, long)]
     recall_height: Option<u32>,
-    /// Amount of tokens to mint
-    amount: u64,
 }
 
 impl SendCmd {
@@ -130,8 +129,8 @@ impl SendCmd {
         client: &Client<N, R, S, A>,
         default_account_id: Option<String>,
     ) -> Result<TransactionTemplate, String> {
-        let faucet_id = parse_account_id(client, self.faucet_id.as_str())?;
-        let fungible_asset = FungibleAsset::new(faucet_id, self.amount)
+        let faucet_id = self.asset.1;
+        let fungible_asset = FungibleAsset::new(faucet_id, self.asset.0)
             .map_err(|err| err.to_string())?
             .into();
 
@@ -164,18 +163,15 @@ pub struct SwapCmd {
     /// Sender account ID or its hex prefix. If none is provided, the default account's ID is used instead
     #[clap(short = 's', long = "source")]
     sender_account_id: Option<String>,
-    /// Offered Faucet account ID or its hex prefix
-    #[clap(long = "offered-faucet")]
-    offered_asset_faucet_id: String,
-    /// Offered amount
-    #[clap(long = "offered-amount")]
-    offered_asset_amount: u64,
-    /// Requested Faucet account ID or its hex prefix
-    #[clap(long = "requested-faucet")]
-    requested_asset_faucet_id: String,
-    /// Requested amount
-    #[clap(long = "requested-amount")]
-    requested_asset_amount: u64,
+
+    /// offered Asset in the format `<AMOUNT>::<FAUCET_ID_HEX>`
+    #[clap(long = "offered-asset", value_parser = parse_fungible_asset)]
+    offered_asset: (u64, AccountId),
+
+    /// requested Asset in the format `<AMOUNT>::<FAUCET_ID_HEX>`
+    #[clap(short, long, value_parser = parse_fungible_asset)]
+    requested_asset: (u64, AccountId),
+
     #[clap(short, long, value_enum)]
     note_type: NoteType,
     /// Flag to submit the executed transaction without asking for confirmation
@@ -199,15 +195,15 @@ impl SwapCmd {
         client: &Client<N, R, S, A>,
         default_account_id: Option<String>,
     ) -> Result<TransactionTemplate, String> {
-        let offered_asset_faucet_id = parse_account_id(client, &self.offered_asset_faucet_id)?;
+        let offered_asset_faucet_id = self.offered_asset.1;
         let offered_fungible_asset =
-            FungibleAsset::new(offered_asset_faucet_id, self.offered_asset_amount)
+            FungibleAsset::new(offered_asset_faucet_id, self.offered_asset.0)
                 .map_err(|err| err.to_string())?
                 .into();
 
-        let requested_asset_faucet_id = parse_account_id(client, &self.requested_asset_faucet_id)?;
+        let requested_asset_faucet_id = self.requested_asset.1;
         let requested_fungible_asset =
-            FungibleAsset::new(requested_asset_faucet_id, self.requested_asset_amount)
+            FungibleAsset::new(requested_asset_faucet_id, self.requested_asset.0)
                 .map_err(|err| err.to_string())?
                 .into();
 
@@ -490,4 +486,21 @@ fn build_swap_tag(
         MidenNoteType::Public => NoteTag::for_public_use_case(SWAP_USE_CASE_ID, payload, execution),
         _ => NoteTag::for_local_use_case(SWAP_USE_CASE_ID, payload),
     }
+}
+
+/// Parses a fungible Asset and returns it as a tuple of the amount and the faucet account ID hex.
+///
+/// TODO: currently we'll only parse AccountId, however once we tackle [#258](https://github.com/0xPolygonMiden/miden-client/issues/258) we should also add the possibility to parse account aliases / token symbols dependeing on the path we choose
+///
+/// # Errors
+///
+/// Will return an error if the provided `&str` doesn't match one of the expected format:
+///
+/// - `<AMOUNT>::<FAUCET_ID>`, such as `100::0x123456789`
+fn parse_fungible_asset(arg: &str) -> Result<(u64, AccountId), String> {
+    let (amount, faucet) = arg.split_once("::").ok_or("Separator `::` not found!")?;
+    let amount = amount.parse::<u64>().map_err(|err| err.to_string())?;
+    let faucet_id = AccountId::from_hex(faucet).map_err(|err| err.to_string())?;
+
+    Ok((amount, faucet_id))
 }
