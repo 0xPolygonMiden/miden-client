@@ -1,10 +1,10 @@
 use std::{
     env::{set_current_dir, temp_dir},
-    path::PathBuf,
+    path::Path,
     rc::Rc,
 };
 
-use assert_cmd::{assert::OutputAssertExt, Command};
+use assert_cmd::Command;
 use miden_client::{
     client::{get_random_coin, rpc::TonicRpcClient, store_authenticator::StoreAuthenticator},
     config::ClientConfig,
@@ -345,7 +345,7 @@ fn sync_cli() {
     sync_cmd.assert().success();
 }
 
-fn create_test_client_with_store_path(store_path: &PathBuf) -> TestClient {
+fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
     let client_config = ClientConfig {
         store: store_path.to_str().unwrap().try_into().unwrap(),
         ..Default::default()
