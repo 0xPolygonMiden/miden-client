@@ -1,5 +1,8 @@
 # Changelog
 
+* Added created and consumed note info when printing the transaction summary on the CLI
+* Fixed the error message when trying to consume a pending note (now it shows that the transaction is not yet ready to be consumed).
+
 ## v0.3.0 (2024-05-17)
 
 * Added swap transactions and example flows on integration tests.
