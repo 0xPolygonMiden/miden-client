@@ -1,5 +1,6 @@
 # Changelog
 
+* [BREAKING] Updated CLI commands so assets are now passed as `<AMOUNT>::<FAUCET_ACCOUNT_ID>` (#349)
 * Added created and consumed note info when printing the transaction summary on the CLI
 * Fixed the error message when trying to consume a pending note (now it shows that the transaction is not yet ready to be consumed).
 
