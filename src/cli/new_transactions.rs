@@ -15,7 +15,7 @@ use miden_client::{
 };
 use miden_objects::{
     accounts::AccountId,
-    assets::{Asset, FungibleAsset, TokenSymbol},
+    assets::{Asset, FungibleAsset},
     crypto::rand::FeltRng,
     notes::{NoteExecutionHint, NoteId, NoteTag, NoteType as MidenNoteType},
     Digest, NoteError,
@@ -47,9 +47,9 @@ pub struct MintCmd {
     #[clap(short = 't', long = "target")]
     target_account_id: String,
 
-    /// asset in the format <AMOUNT>::<FAUCET_ID_HEX>
+    /// asset in the format `<AMOUNT>::<FAUCET_ID_HEX>`
     #[clap(short, long, value_parser = parse_fungible_asset)]
-    asset: (u64, String),
+    asset: (u64, AccountId),
 
     #[clap(short, long, value_enum)]
     note_type: NoteType,
@@ -74,7 +74,7 @@ impl MintCmd {
         client: &Client<N, R, S, A>,
         _default_account_id: Option<String>,
     ) -> Result<TransactionTemplate, String> {
-        let faucet_id = parse_account_id(client, &self.asset.1)?;
+        let faucet_id = self.asset.1;
         let fungible_asset =
             FungibleAsset::new(faucet_id, self.asset.0).map_err(|err| err.to_string())?;
         let target_account_id = parse_account_id(client, self.target_account_id.as_str())?;
@@ -97,9 +97,9 @@ pub struct SendCmd {
     #[clap(short = 't', long = "target")]
     target_account_id: String,
 
-    /// asset in the format <AMOUNT>::<FAUCET_ID_HEX>
+    /// asset in the format `<AMOUNT>::<FAUCET_ID_HEX>`
     #[clap(short, long, value_parser = parse_fungible_asset)]
-    asset: (u64, String),
+    asset: (u64, AccountId),
 
     #[clap(short, long, value_enum)]
     note_type: NoteType,
@@ -129,7 +129,7 @@ impl SendCmd {
         client: &Client<N, R, S, A>,
         default_account_id: Option<String>,
     ) -> Result<TransactionTemplate, String> {
-        let faucet_id = parse_account_id(client, &self.asset.1)?;
+        let faucet_id = self.asset.1;
         let fungible_asset = FungibleAsset::new(faucet_id, self.asset.0)
             .map_err(|err| err.to_string())?
             .into();
@@ -164,13 +164,13 @@ pub struct SwapCmd {
     #[clap(short = 's', long = "source")]
     sender_account_id: Option<String>,
 
-    /// offered asset in the format <AMOUNT>::<FAUCET_ID_HEX>
+    /// offered asset in the format `<AMOUNT>::<FAUCET_ID_HEX>`
     #[clap(long = "offered-asset", value_parser = parse_fungible_asset)]
-    offered_asset: (u64, String),
+    offered_asset: (u64, AccountId),
 
-    /// requested asset in the format <AMOUNT>::<FAUCET_ID_HEX>
+    /// requested asset in the format `<AMOUNT>::<FAUCET_ID_HEX>`
     #[clap(short, long, value_parser = parse_fungible_asset)]
-    requested_asset: (u64, String),
+    requested_asset: (u64, AccountId),
 
     #[clap(short, long, value_enum)]
     note_type: NoteType,
@@ -195,13 +195,13 @@ impl SwapCmd {
         client: &Client<N, R, S, A>,
         default_account_id: Option<String>,
     ) -> Result<TransactionTemplate, String> {
-        let offered_asset_faucet_id = parse_account_id(client, &self.offered_asset.1)?;
+        let offered_asset_faucet_id = self.offered_asset.1;
         let offered_fungible_asset =
             FungibleAsset::new(offered_asset_faucet_id, self.offered_asset.0)
                 .map_err(|err| err.to_string())?
                 .into();
 
-        let requested_asset_faucet_id = parse_account_id(client, &self.requested_asset.1)?;
+        let requested_asset_faucet_id = self.requested_asset.1;
         let requested_fungible_asset =
             FungibleAsset::new(requested_asset_faucet_id, self.requested_asset.0)
                 .map_err(|err| err.to_string())?
@@ -488,25 +488,17 @@ fn build_swap_tag(
     }
 }
 
-/// Parses a fungible asset and returns it as a tuple of the amount and the faucet identifier (ID
-/// as hex, or token symbol).
+/// Parses a fungible asset and returns it as a tuple of the amount and the faucet account ID hex.
 ///
 /// # Errors
 ///
-/// Will return an error if the provided `&str` doesn't match one of the
-/// two:
+/// Will return an error if the provided `&str` doesn't match one of the expected format:
 ///
-/// - `<AMOUNT>::<TOKEN_SYMBOL>`, such as `100::ETH`
 /// - `<AMOUNT>::<FAUCET_ID>`, such as `100::0x123456789`
-fn parse_fungible_asset(arg: &str) -> Result<(u64, String), String> {
+fn parse_fungible_asset(arg: &str) -> Result<(u64, AccountId), String> {
     let (amount, faucet) = arg.split_once("::").ok_or("Separator `::` not found!")?;
     let amount = amount.parse::<u64>().map_err(|err| err.to_string())?;
+    let faucet_id = AccountId::from_hex(faucet).map_err(|err| err.to_string())?;
 
-    if AccountId::from_hex("0x").is_err() && TokenSymbol::new(faucet).is_err() {
-        return Err(format!(
-            "{faucet} couldn't be interpreted as neither an account ID nor a token symbol"
-        ));
-    }
-
-    Ok((amount, faucet.to_string()))
+    Ok((amount, faucet_id))
 }
