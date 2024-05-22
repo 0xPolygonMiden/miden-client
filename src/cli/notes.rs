@@ -567,7 +567,9 @@ mod tests {
         let transaction_request = client.build_transaction_request(transaction_template).unwrap();
         let transaction = client.new_transaction(transaction_request).unwrap();
         let created_note = transaction.created_notes().get_note(0).clone();
-        client.submit_transaction(transaction).await.unwrap();
+        let proven_transaction =
+            client.prove_transaction(transaction.executed_transaction().clone()).unwrap();
+        client.submit_transaction(transaction, proven_transaction).await.unwrap();
 
         // Ensure client has no input notes and one output note
         assert!(client.get_input_notes(NoteFilter::All).unwrap().is_empty());
