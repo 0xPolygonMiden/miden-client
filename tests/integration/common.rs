@@ -84,7 +84,13 @@ pub async fn execute_tx_and_sync(client: &mut TestClient, tx_request: Transactio
     let transaction_id = transaction_execution_result.executed_transaction().id();
 
     println!("Sending transaction to node");
-    client.submit_transaction(transaction_execution_result).await.unwrap();
+    let proven_transaction = client
+        .prove_transaction(transaction_execution_result.executed_transaction().clone())
+        .unwrap();
+    client
+        .submit_transaction(transaction_execution_result, proven_transaction)
+        .await
+        .unwrap();
 
     // wait until tx is committed
     loop {
