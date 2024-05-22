@@ -158,3 +158,22 @@ pub(super) fn load_config(config_file: &Path) -> Result<ClientConfig, String> {
         .extract()
         .map_err(|err| format!("Failed to load {} config file: {err}", config_file.display()))
 }
+
+/// Parses a fungible Asset and returns it as a tuple of the amount and the faucet account ID hex.
+///
+/// TODO: currently we'll only parse AccountId, however once we tackle
+/// [#258](https://github.com/0xPolygonMiden/miden-client/issues/258) we should also add the
+/// possibility to parse account aliases / token symbols dependeing on the path we choose.
+///
+/// # Errors
+///
+/// Will return an error if the provided `arg` doesn't match one of the expected format:
+///
+/// - `<AMOUNT>::<FAUCET_ID>`, such as `100::0x123456789`
+pub fn parse_fungible_asset(arg: &str) -> Result<(u64, AccountId), String> {
+    let (amount, faucet) = arg.split_once("::").ok_or("Separator `::` not found!")?;
+    let amount = amount.parse::<u64>().map_err(|err| err.to_string())?;
+    let faucet_id = AccountId::from_hex(faucet).map_err(|err| err.to_string())?;
+
+    Ok((amount, faucet_id))
+}
