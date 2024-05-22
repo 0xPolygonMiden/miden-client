@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.3.1 (2024-05-22)
+
+* No changes; re-publishing to crates.io to re-build documentation on docs.rs.
+
 ## v0.3.0 (2024-05-17)
 
 * Added swap transactions and example flows on integration tests.
