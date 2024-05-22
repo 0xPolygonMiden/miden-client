@@ -1,6 +1,7 @@
 # Changelog
 
-* Fixed bug when exporting a note into a file
+* Changed `cargo-make` usage for `make` and `Makefile.toml` for a regular `Makefile` (#359).
+* Fixed bug when exporting a note into a file (#368).
 * Simplified and separated the `notes --list` table (#356).
 * [BREAKING] Separate `prove_transaction` from `submit_transaction` in `Client`. (#339)
 * [BREAKING] Updated CLI commands so assets are now passed as `<AMOUNT>::<FAUCET_ACCOUNT_ID>` (#349)

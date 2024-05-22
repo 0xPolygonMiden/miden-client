@@ -21,11 +21,9 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{matrix.toolchain}}
-      - name: Install cargo make
-        run: cargo install cargo-make
       - uses: taiki-e/install-action@nextest
-      - name: cargo make - test
-        run: cargo make ci-test
+      - name: make - test
+        run: make ci-test
 
   clippy:
     name: Clippy
@@ -37,10 +35,8 @@ jobs:
         with:
           components: clippy
           toolchain: stable
-      - name: Install cargo make
-        run: cargo install cargo-make
-      - name: cargo make - clippy-all
-        run: cargo make clippy-all
+      - name: make - clippy-all
+        run: make clippy-all
 
   rustfmt:
     name: rustfmt
@@ -51,10 +47,8 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt
-      - name: Install cargo make
-        run: cargo install cargo-make
-      - name: cargo make - format
-        run: cargo make format
+      - name: make - format
+        run: make format
 
   integration_tests:
     name: integration_tests
@@ -66,16 +60,14 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-      - name: Install cargo make
-        run: cargo install cargo-make
       - uses: taiki-e/install-action@nextest
-      - run: cargo make reset
-      - run: cargo make node
-      - run: cargo make start-node > /dev/null &
-      - run: cargo make ci-integration-test
+      - run: make clean-node
+      - run: make node
+      - run: make start-node > /dev/null &
+      - run: make ci-integration-test
       - name: Kill miden-node
         if: always()
-        run: cargo make kill-node
+        run: make kill-node
 
   docs:
     name: build mkdocs
@@ -89,8 +81,6 @@ jobs:
           toolchain: stable
           components: rustfmt
           override: true
-      - name: Install cargo make
-        run: cargo install cargo-make
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
@@ -101,4 +91,4 @@ jobs:
           path: .cache
           restore-keys: |
             mkdocs-material-
-      - run: cargo make build-docs 
+      - run: make doc-build 

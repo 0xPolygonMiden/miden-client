@@ -64,7 +64,7 @@ cargo install miden-client
 
 ### Makefile
 
-As mentioned before, we use [cargo-make](https://github.com/sagiegurari/cargo-make) to encapsulate some tasks, such as running lints and tests. You can check out [Makefile.toml](./Makefile.toml) for all available tasks.
+As mentioned before, we use `make` to encapsulate some tasks, such as running lints and tests. You can check out [Makefile](./Makefile) for all available tasks.
 
 ## Testing
 

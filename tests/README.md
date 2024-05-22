@@ -4,17 +4,17 @@ This document describes the current state of the organization of integration tes
 
 ## Running integration tests
 
-There are commands provided in the `Makefile.toml` to make running them easier. To run the current integration test, you should run:
+There are commands provided in the `Makefile` to make running them easier. To run the current integration test, you should run:
 
 ```bash
 # This will ensure we start from a clean node and client
-cargo make reset
-# This command will clone the node's repo and generate the accounts and genesis files and lastly start the node 
-cargo make node
+make clean-node
+# This command will clone the node's repo and generate the accounts and genesis files
+make node
 # This command will run the node on background
-cargo make start-node &
+make start-node &
 # This will run the integration test 
-cargo make integration-test
+make integration-test
 ```
 
 ## Integration Test Flow
@@ -26,21 +26,21 @@ and transferring assets which runs against a running node.
 
 Before running the tests though, there is a setup we need to perform to have a
 node up and running. This is accomplished with the `node` command from the
-`Makefile.toml` and what it does is:
+`Makefile` and what it does is:
 
 - Clone the node repo if it doesn't exist.
 - Delete previously existing data.
 - Generate genesis and account data with `cargo run --release --bin miden-node --features testing -- make-genesis --inputs-path node/genesis.toml`.
 
 After that we can start the node, again done in the `start-node` command from
-the `Makefile.toml`. Killing the node process after running the test is also
+the `Makefile`. Killing the node process after running the test is also
 the user's responsibilty.
 
 ### Test Run
 
-To run the integration test you just need to run `cargo make integration-test`.
-It'll run the integration tests as a cargo test using the `integration` feature
-which is used to separate regular tests from integration tests.
+To run the integration test you just need to run `make integration-test`. It'll
+run the integration tests as a cargo test using the `integration` feature which
+is used to separate regular tests from integration tests.
 
 ### Running tests against a remote node
 
