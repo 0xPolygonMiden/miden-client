@@ -1,5 +1,5 @@
 use clap::ValueEnum;
-use comfy_table::{presets, Attribute, Cell, ContentArrangement};
+use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     client::{
         rpc::NodeRpcClient,
@@ -105,18 +105,19 @@ fn list_notes<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticato
     client: Client<N, R, S, A>,
     filter: ClientNoteFilter,
 ) -> Result<(), String> {
-    let input_notes = client.get_input_notes(filter.clone())?.into_iter().map(Some);
-    let output_notes = client.get_output_notes(filter.clone())?.into_iter().map(Some);
+    let input_notes = client
+        .get_input_notes(filter.clone())?
+        .into_iter()
+        .map(|input_note_record| note_summary(Some(&input_note_record), None))
+        .collect::<Result<Vec<CliNoteSummary>, String>>()?;
+    let output_notes = client
+        .get_output_notes(filter.clone())?
+        .into_iter()
+        .map(|output_note_record| note_summary(None, Some(&output_note_record)))
+        .collect::<Result<Vec<CliNoteSummary>, String>>()?;
 
-    let zipped_notes: Vec<(Option<InputNoteRecord>, Option<OutputNoteRecord>)> =
-        if input_notes.len() > output_notes.len() {
-            input_notes.zip(output_notes.chain(std::iter::repeat(None))).collect()
-        } else {
-            input_notes.chain(std::iter::repeat(None)).zip(output_notes).collect()
-        };
-
-    print_notes_summary(zipped_notes)?;
-    Ok(())
+    print_notes_summary(input_notes, "Input Notes")?;
+    print_notes_summary(output_notes, "Output Notes")
 }
 
 // SHOW NOTE
@@ -291,37 +292,20 @@ fn list_consumable_notes<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionA
 
 // HELPERS
 // ================================================================================================
-fn print_notes_summary<I>(notes: I) -> Result<(), String>
+fn print_notes_summary<I>(notes: I, header: &str) -> Result<(), String>
 where
-    I: IntoIterator<Item = (Option<InputNoteRecord>, Option<OutputNoteRecord>)>,
+    I: IntoIterator<Item = CliNoteSummary>,
 {
-    let mut table = create_dynamic_table(&["Input notes", "", "Output notes", ""]);
-    table.load_preset(presets::UTF8_HORIZONTAL_ONLY);
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_NO_BORDERS)
+        .set_content_arrangement(ContentArrangement::DynamicFullWidth);
+    table.set_header(vec![Cell::new(header).add_attribute(Attribute::Bold)]);
+    println!("\n{table}");
 
-    table.add_row(vec![
-        Cell::new("ID").add_attribute(Attribute::Bold),
-        Cell::new("Status").add_attribute(Attribute::Bold),
-        Cell::new("ID").add_attribute(Attribute::Bold),
-        Cell::new("Status").add_attribute(Attribute::Bold),
-    ]);
-
-    for (input_note_record, output_note_record) in notes {
-        let mut row: Vec<String> = vec![String::new(); 4];
-        if let Some(input_note_record) = input_note_record {
-            let input_cli_summary = note_summary(Some(&input_note_record), None)?;
-            row[0] = input_cli_summary.id;
-            row[1] = input_cli_summary.status;
-        }
-        if let Some(output_note_record) = output_note_record {
-            let output_cli_summary = note_summary(None, Some(&output_note_record))?;
-            row[2] = output_cli_summary.id;
-            row[3] = output_cli_summary.status;
-        }
-
-        table.add_row(row);
+    for summary in notes {
+        println!(" {} {}", summary.id, summary.status);
     }
-
-    println!("{table}");
 
     Ok(())
 }
