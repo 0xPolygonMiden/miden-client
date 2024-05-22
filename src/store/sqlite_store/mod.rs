@@ -159,7 +159,7 @@ impl Store for SqliteStore {
         self.get_output_notes(note_filter)
     }
 
-    fn insert_input_note(&self, note: &InputNoteRecord) -> Result<(), StoreError> {
+    fn insert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError> {
         self.insert_input_note(note)
     }
 

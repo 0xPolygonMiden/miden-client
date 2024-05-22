@@ -19,7 +19,7 @@ use crate::{
 
 fn insert_note_query(table_name: NoteTable) -> String {
     format!("\
-    INSERT INTO {table_name}
+    INSERT OR REPLACE INTO {table_name}
         (note_id, assets, recipient, status, metadata, details, inclusion_proof, consumer_transaction_id) 
      VALUES (:note_id, :assets, :recipient, :status, json(:metadata), json(:details), json(:inclusion_proof), :consumer_transaction_id)",
             table_name = table_name)
@@ -220,11 +220,11 @@ impl SqliteStore {
         Ok(notes)
     }
 
-    pub(crate) fn insert_input_note(&self, note: &InputNoteRecord) -> Result<(), StoreError> {
+    pub(crate) fn insert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError> {
         let mut db = self.db();
         let tx = db.transaction()?;
 
-        insert_input_note_tx(&tx, note)?;
+        insert_input_note_tx(&tx, &note)?;
 
         Ok(tx.commit()?)
     }

@@ -110,7 +110,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         verify: bool,
     ) -> Result<(), ClientError> {
         if !verify {
-            return self.store.insert_input_note(&note).map_err(|err| err.into());
+            return self.store.insert_input_note(note).map_err(|err| err.into());
         }
 
         // Verify that note exists in chain
@@ -165,7 +165,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             note.details().clone(),
             None,
         );
-        self.store.insert_input_note(&note).map_err(|err| err.into())
+        self.store.insert_input_note(note).map_err(|err| err.into())
     }
 
     /// Compiles the provided program into a [NoteScript] and checks (to the extent possible) if

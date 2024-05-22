@@ -30,6 +30,13 @@ impl NoteDetails {
             NoteDetails::Public(_, inclusion_details) => inclusion_details,
         }
     }
+
+    pub fn id(&self) -> NoteId {
+        match self {
+            NoteDetails::OffChain(id, ..) => *id,
+            NoteDetails::Public(note, _) => note.id(),
+        }
+    }
 }
 
 /// Describes the possible responses from the `GetAccountDetails` endpoint for an account
@@ -85,8 +92,8 @@ pub trait NodeRpcClient {
 
     /// Given a block number, fetches the block header corresponding to that height from the node
     /// using the `/GetBlockHeaderByNumber` endpoint.
-    /// If `include_mmr_proof` is set to true and the function returns an `Ok`, the second value
-    /// of the return tuple should always be Some(MmrProof)   
+    /// If `include_mmr_proof` is set to true and the function does not return an error, the second
+    /// value of the return tuple should always be Some(MmrProof)   
     ///
     /// When `None` is provided, returns info regarding the latest block
     async fn get_block_header_by_number(

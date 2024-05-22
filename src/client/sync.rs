@@ -58,6 +58,25 @@ impl SyncSummary {
         }
     }
 
+    pub fn from_sync_update(sync_update: &StateSyncUpdate, block_num: u32) -> Self {
+        let updated_output_note_ids =
+            sync_update.synced_new_notes.updated_output_notes.iter().map(|(id, _)| *id);
+        let updated_input_note_ids =
+            sync_update.synced_new_notes.updated_input_notes.iter().map(|n| n.note().id());
+
+        let updated_note_set: BTreeSet<NoteId> =
+            updated_input_note_ids.chain(updated_output_note_ids).collect();
+
+        SyncSummary::new(
+            block_num,
+            sync_update.synced_new_notes.new_public_notes().len(),
+            updated_note_set.len(),
+            sync_update.nullifiers.len(),
+            sync_update.updated_onchain_accounts.len(),
+            sync_update.transactions_to_commit.len(),
+        )
+    }
+
     pub fn new_empty(block_num: u32) -> Self {
         Self {
             block_num,
@@ -135,7 +154,7 @@ impl SyncedNewNotes {
     }
 }
 
-/// Contains all information needed to perform the update after syncing with the node
+/// Contains all information needed to apply the update in the store after syncing with the node
 pub struct StateSyncUpdate {
     pub block_header: BlockHeader,
     pub nullifiers: Vec<Digest>,
@@ -210,9 +229,81 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             total_sync_details.combine_with(details);
 
             if let SyncStatus::SyncedToLastBlock(_) = response {
+                // Synced to last block, let's check for notes left without proofs
+                let leftover_notes_summary = self.get_leftover_notes().await?;
+                total_sync_details.combine_with(&leftover_notes_summary);
+
                 return Ok(total_sync_details);
             }
         }
+    }
+
+    /// Retrieves leftover notes data (inclusion proof and MMR data).
+    /// Here, "leftover" means any notes that were not updated after syncing to the chain tip.
+    ///
+    /// There are several scenario where this can happen. TODO: Explain more
+    async fn get_leftover_notes(&mut self) -> Result<SyncSummary, ClientError> {
+        // From notes with no inclusion proof, we need to get note details and for notes with
+        // inclusion proofs we need block MMR data if we don't have it
+
+        // Only input notes matter here, because output notes are handled by the sync
+        let pending_notes: Vec<InputNoteRecord> = self.get_input_notes(NoteFilter::Pending)?;
+        let commited_notes = self.get_input_notes(NoteFilter::Committed)?;
+
+        let commited_notes_blocks = commited_notes.iter().map(|n| {
+            n.inclusion_proof()
+                .expect("Note should have inclusion proof")
+                .origin()
+                .block_num
+        });
+
+        let request_ids: Vec<NoteId> = pending_notes.iter().map(|n| n.id()).collect();
+        let note_details = self.rpc_api().get_notes_by_id(&request_ids).await?;
+
+        // Get all notes we need to request
+        let mut blocks_to_get = BTreeSet::from_iter(commited_notes_blocks);
+        for details in note_details.iter() {
+            let inclusion_details = details.inclusion_details();
+            blocks_to_get.insert(inclusion_details.block_num);
+        }
+
+        let mut blocks: BTreeMap<u32, BlockHeader> = BTreeMap::new();
+        for block_num in blocks_to_get {
+            let block_header = self.get_and_store_authenticated_block(block_num).await?;
+            blocks.insert(block_num, block_header);
+        }
+
+        // Now that we have block data for all notes, build inclusion proofs (if needed)
+        //let mut updated_notes = Vec::with_capacity(note_details.len());
+        for details in &note_details {
+            // TODO: Remove expect
+            let note_block = blocks
+                .get(&details.inclusion_details().block_num)
+                .expect("Block should be available");
+
+            let note_inclusion_proof = NoteInclusionProof::new(
+                note_block.block_num(),
+                note_block.sub_hash(),
+                note_block.note_root(),
+                details.inclusion_details().note_index as u64,
+                details.inclusion_details().merkle_path.clone(),
+            )
+            .map_err(ClientError::NoteError)?;
+
+            let mut note = pending_notes
+                .iter()
+                .find(|n| n.id() == details.id())
+                .expect("note_details is a subset of the original list")
+                .clone();
+            note.set_inclusion_proof(Some(note_inclusion_proof));
+            //updated_notes.push(note);
+            self.store.insert_input_note(note)?;
+        }
+        
+        let mut sync_summary = SyncSummary::new_empty(0);
+        sync_summary.new_inclusion_proofs = note_details.len();
+
+        Ok(sync_summary)
     }
 
     /// Attempts to retrieve the genesis block from the store. If not found,
@@ -259,14 +350,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let stored_note_tags: Vec<NoteTag> = self.store.get_note_tags()?;
 
-        let uncommited_note_tags: Vec<NoteTag> = self
-            .store
-            .get_input_notes(NoteFilter::Pending)?
-            .iter()
-            .filter_map(|note| note.metadata().map(|metadata| metadata.tag()))
-            .collect();
-
-        let note_tags: Vec<NoteTag> = [account_note_tags, stored_note_tags, uncommited_note_tags]
+        let note_tags: Vec<NoteTag> = [account_note_tags, stored_note_tags]
             .concat()
             .into_iter()
             .collect::<BTreeSet<NoteTag>>()
@@ -313,6 +397,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let updated_onchain_accounts = self
             .get_updated_onchain_accounts(&response.account_hash_updates, &onchain_accounts)
             .await?;
+
         self.validate_local_account_hashes(&response.account_hash_updates, &offchain_accounts)?;
 
         // Derive new nullifiers data
@@ -343,15 +428,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             &response.account_hash_updates,
         );
 
-        let num_new_notes = new_note_details.new_public_notes.len();
-        let updated_ids: BTreeSet<NoteId> = new_note_details
-            .updated_input_notes
-            .iter()
-            .map(|n| n.note().id())
-            .chain(new_note_details.updated_output_notes.iter().map(|(id, _)| *id))
-            .collect();
-        let num_new_inclusion_proofs = updated_ids.len();
-        let num_new_nullifiers = new_nullifiers.len();
         let state_sync_update = StateSyncUpdate {
             block_header: response.block_header,
             nullifiers: new_nullifiers,
@@ -363,29 +439,19 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             block_has_relevant_notes: incoming_block_has_relevant_notes,
         };
 
+        // Store summary to return later
+        let sync_summary =
+            SyncSummary::from_sync_update(&state_sync_update, response.block_header.block_num());
+
         // Apply received and computed updates to the store
         self.store
             .apply_state_sync(state_sync_update)
             .map_err(ClientError::StoreError)?;
 
         if response.chain_tip == response.block_header.block_num() {
-            Ok(SyncStatus::SyncedToLastBlock(SyncSummary::new(
-                response.chain_tip,
-                num_new_notes,
-                num_new_inclusion_proofs,
-                num_new_nullifiers,
-                updated_onchain_accounts.len(),
-                transactions_to_commit.len(),
-            )))
+            Ok(SyncStatus::SyncedToLastBlock(sync_summary))
         } else {
-            Ok(SyncStatus::SyncedToBlock(SyncSummary::new(
-                response.block_header.block_num(),
-                num_new_notes,
-                num_new_inclusion_proofs,
-                num_new_nullifiers,
-                updated_onchain_accounts.len(),
-                transactions_to_commit.len(),
-            )))
+            Ok(SyncStatus::SyncedToBlock(sync_summary))
         }
     }
 
@@ -642,6 +708,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     }
 
     /// Retrieves and stores a [BlockHeader] by number, and stores its authentication data as well.
+    ///
+    /// If the store already contains MMR data for the requested block number, the request is not
+    /// done and the stored block header is returned.
     pub(crate) async fn get_and_store_authenticated_block(
         &mut self,
         block_num: u32,
@@ -682,6 +751,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             .map_err(StoreError::MmrError)?;
 
         // Insert header and MMR nodes
+        // TODO: store these in a single transaction
         self.store
             .insert_block_header(block_header, current_partial_mmr.peaks(), true)?;
         self.store.insert_chain_mmr_nodes(&path_nodes)?;

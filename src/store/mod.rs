@@ -85,7 +85,7 @@ pub trait Store {
     }
 
     /// Inserts the provided input note into the database
-    fn insert_input_note(&self, note: &InputNoteRecord) -> Result<(), StoreError>;
+    fn insert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError>;
 
     // CHAIN DATA
     // --------------------------------------------------------------------------------------------
