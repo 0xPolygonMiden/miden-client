@@ -1,6 +1,5 @@
 use alloc::{
     collections::{BTreeMap, BTreeSet},
-    sync,
 };
 use core::cmp::max;
 
