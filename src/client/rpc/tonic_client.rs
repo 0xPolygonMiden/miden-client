@@ -22,6 +22,7 @@ use miden_objects::{
 };
 use miden_tx::utils::Serializable;
 use tonic::transport::Channel;
+use tracing::info;
 
 use super::{
     AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
@@ -97,6 +98,8 @@ impl NodeRpcClient for TonicRpcClient {
             block_num,
             include_mmr_proof: Some(include_mmr_proof),
         };
+
+        info!("Calling GetBlockHeaderByNumber: {:?}", request);
 
         let rpc_api = self.rpc_api().await?;
         let api_response = rpc_api.get_block_header_by_number(request).await.map_err(|err| {

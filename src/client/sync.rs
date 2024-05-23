@@ -1,4 +1,7 @@
-use alloc::collections::{BTreeMap, BTreeSet};
+use alloc::{
+    collections::{BTreeMap, BTreeSet},
+    sync,
+};
 use core::cmp::max;
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
@@ -183,9 +186,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
     /// Returns the list of note tags tracked by the client.
     ///
-    /// When syncing the state with the node, these tags will be added to the sync request and note-related information will be retrieved for notes that have matching tags.
+    /// When syncing the state with the node, these tags will be added to the sync request and
+    /// note-related information will be retrieved for notes that have matching tags.
     ///
-    /// Note: Tags for accounts that are being tracked by the client are managed automatically by the client and do not need to be added here. That is, notes for managed accounts will be retrieved automatically by the client when syncing.
+    /// Note: Tags for accounts that are being tracked by the client are managed automatically
+    /// by the client and do not need to be added here. That is, notes for managed accounts will
+    /// be retrieved automatically by the client when syncing.
     pub fn get_note_tags(&self) -> Result<Vec<NoteTag>, ClientError> {
         self.store.get_note_tags().map_err(|err| err.into())
     }
@@ -248,9 +254,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         // Only input notes matter here, because output notes are handled by the sync
         let pending_notes: Vec<InputNoteRecord> = self.get_input_notes(NoteFilter::Pending)?;
-        let commited_notes = self.get_input_notes(NoteFilter::Committed)?;
+        let committed_notes = self.get_input_notes(NoteFilter::Committed)?;
 
-        let commited_notes_blocks = commited_notes.iter().map(|n| {
+        let committed_notes_blocks = committed_notes.iter().map(|n| {
             n.inclusion_proof()
                 .expect("Note should have inclusion proof")
                 .origin()
@@ -258,18 +264,24 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         });
 
         let request_ids: Vec<NoteId> = pending_notes.iter().map(|n| n.id()).collect();
-        let note_details = self.rpc_api().get_notes_by_id(&request_ids).await?;
+        let note_details = self.rpc_api.get_notes_by_id(&request_ids).await?;
 
         // Get all notes we need to request
-        let mut blocks_to_get = BTreeSet::from_iter(commited_notes_blocks);
-        for details in note_details.iter() {
-            let inclusion_details = details.inclusion_details();
-            blocks_to_get.insert(inclusion_details.block_num);
-        }
+        let blocks_to_get = {
+            let mut block_numbers = BTreeSet::from_iter(committed_notes_blocks);
+            for details in note_details.iter() {
+                let inclusion_details = details.inclusion_details();
+                block_numbers.insert(inclusion_details.block_num);
+            }
+            block_numbers
+        };
 
         let mut blocks: BTreeMap<u32, BlockHeader> = BTreeMap::new();
+        let mut current_partial_mmr = self.build_current_partial_mmr(true)?;
         for block_num in blocks_to_get {
-            let block_header = self.get_and_store_authenticated_block(block_num).await?;
+            let block_header = self
+                .get_and_store_authenticated_block(block_num, &mut current_partial_mmr)
+                .await?;
             blocks.insert(block_num, block_header);
         }
 
@@ -299,7 +311,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             //updated_notes.push(note);
             self.store.insert_input_note(note)?;
         }
-        
+
         let mut sync_summary = SyncSummary::new_empty(0);
         sync_summary.new_inclusion_proofs = note_details.len();
 
@@ -405,7 +417,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         // Build PartialMmr with current data and apply updates
         let (new_peaks, new_authentication_nodes) = {
-            let current_partial_mmr = self.build_current_partial_mmr()?;
+            let current_partial_mmr = self.build_current_partial_mmr(false)?;
 
             let (current_block, has_relevant_notes) =
                 self.store.get_block_header_by_num(current_block_num)?;
@@ -619,9 +631,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// authentication nodes that could come from applying the MMR updates, we need to track all
     /// known leaves thus far.
     ///
-    /// As part of the syncing process, we add the current block number so we don't need to
-    /// track it here.
-    pub(crate) fn build_current_partial_mmr(&self) -> Result<PartialMmr, ClientError> {
+    /// If `include_current_block`, the latest stored block header is added to the MMR as a leaf.
+    /// This is not always wanted (as part of the sync process the block is added separately)
+    pub(crate) fn build_current_partial_mmr(
+        &self,
+        include_current_block: bool,
+    ) -> Result<PartialMmr, ClientError> {
         let current_block_num = self.store.get_sync_height()?;
 
         let tracked_nodes = self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All)?;
@@ -637,7 +652,16 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             false
         };
 
-        Ok(PartialMmr::from_parts(current_peaks, tracked_nodes, track_latest))
+        let mut current_partial_mmr =
+            PartialMmr::from_parts(current_peaks, tracked_nodes, track_latest);
+
+        if include_current_block {
+            let (current_block, has_client_notes) =
+                self.store.get_block_header_by_num(current_block_num)?;
+            current_partial_mmr.add(current_block.hash(), has_client_notes);
+        }
+
+        Ok(current_partial_mmr)
     }
 
     /// Extracts information about nullifiers for unspent input notes that the client is tracking
@@ -714,9 +738,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     pub(crate) async fn get_and_store_authenticated_block(
         &mut self,
         block_num: u32,
+        current_partial_mmr: &mut PartialMmr,
     ) -> Result<BlockHeader, ClientError> {
-        let mut current_partial_mmr = self.build_current_partial_mmr()?;
-
         if current_partial_mmr.is_tracked(block_num as usize) {
             warn!("Current partial MMR already contains the requested data");
             let (block_header, _) = self.store.get_block_header_by_num(block_num)?;
@@ -732,15 +755,16 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             .expect("NodeRpcApi::get_block_header_by_number() should have returned an MMR proof");
         // Trim merkle path to keep nodes relevant to our current PartialMmr
         let rightmost_index = InOrderIndex::from_leaf_pos(current_partial_mmr.forest() - 1);
+
         let mut idx = InOrderIndex::from_leaf_pos(block_num as usize);
+
         for node in mmr_proof.merkle_path {
             idx = idx.sibling();
             // Rightmost index is always the biggest value, so if the path contains any node
             // past it, we can discard it for our version of the forest
-            if idx > rightmost_index {
-                continue;
+            if idx <= rightmost_index {
+                path_nodes.push((idx, node));
             }
-            path_nodes.push((idx, node));
             idx = idx.parent();
         }
 
