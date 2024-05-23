@@ -734,14 +734,15 @@ fn get_transactions_to_commit(
     nullifiers: &[Digest],
     account_hash_updates: &[(AccountId, Digest)],
 ) -> Vec<TransactionId> {
-    uncommitted_transactions
+    let committed_transactions_from_update = uncommitted_transactions
         .iter()
         .filter(|t| {
             // TODO: based on the discussion in
             // https://github.com/0xPolygonMiden/miden-client/issues/144, we should be aware
             // that in the future it'll be possible to have many transactions modifying an
             // account be included in a single block. If that happens, we'll need to rewrite
-            // this check.
+            // this check. We'll also probably need to revisit this once the node gets
+            // de-centralized
 
             t.input_note_nullifiers.iter().all(|n| nullifiers.contains(n))
                 && t.output_notes.iter().all(|n| note_ids.contains(&n.id()))
@@ -749,6 +750,26 @@ fn get_transactions_to_commit(
                     *account_id == t.account_id && *account_hash == t.final_account_state
                 })
         })
-        .map(|t| t.id)
-        .collect()
+        .collect::<Vec<_>>();
+
+    // If a TX with (start_hash, end_hash) gets committed and there's a second uncommitted TX with
+    // (start_hash', end_hash') with end_hash' == start_hash, then we should mark that TX as
+    // committed. The following code computes the transitive closure on that relation.
+    let mut uncommitted_transaction_by_end_hash = BTreeMap::new();
+    for tx in uncommitted_transactions {
+        uncommitted_transaction_by_end_hash.insert(tx.final_account_state, tx);
+    }
+
+    let mut transitive_commited_transactions = Vec::new();
+    for committed_tx in committed_transactions_from_update {
+        let mut current_tx = committed_tx;
+        transitive_commited_transactions.push(current_tx.id);
+
+        while uncommitted_transaction_by_end_hash.contains_key(&current_tx.init_account_state) {
+            current_tx = uncommitted_transaction_by_end_hash[&current_tx.init_account_state];
+            transitive_commited_transactions.push(current_tx.id);
+        }
+    }
+
+    transitive_commited_transactions
 }

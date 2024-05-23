@@ -1,7 +1,4 @@
-use std::{
-    env,
-    rc::Rc,
-};
+use std::{env, rc::Rc};
 
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
