@@ -1,5 +1,6 @@
 # Changelog
 
+* Simplified and separated the `notes --list` table (#356).
 * [BREAKING] Separate `prove_transaction` from `submit_transaction` in `Client`. (#339)
 * [BREAKING] Updated CLI commands so assets are now passed as `<AMOUNT>::<FAUCET_ACCOUNT_ID>` (#349)
 * Added created and consumed note info when printing the transaction summary on the CLI
