@@ -323,11 +323,15 @@ pub fn insert_output_note_tx(
     .map_err(|err| StoreError::QueryError(err.to_string()))
     .map(|_| ())?;
 
-    const QUERY: &str =
-        "INSERT OR REPLACE INTO notes_scripts (script_hash, serialized_note_script) VALUES (?, ?)";
-    tx.execute(QUERY, params![note_script_hash, serialized_note_script,])
-        .map_err(|err| StoreError::QueryError(err.to_string()))
-        .map(|_| ())
+    if note_script_hash.is_some() {
+        const QUERY: &str =
+            "INSERT OR REPLACE INTO notes_scripts (script_hash, serialized_note_script) VALUES (?, ?)";
+        tx.execute(QUERY, params![note_script_hash, serialized_note_script,])
+            .map_err(|err| StoreError::QueryError(err.to_string()))
+            .map(|_| ())?;
+    }
+
+    Ok(())
 }
 
 pub fn update_note_consumer_tx_id(
