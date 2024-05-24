@@ -15,20 +15,14 @@ use miden_objects::{
         account_id::testing::ACCOUNT_ID_OFF_CHAIN_SENDER, get_account_seed_single, Account,
         AccountCode, AccountId, AccountStorage, AccountStorageType, AccountType, AuthSecretKey,
         SlotItem, StorageSlot,
-    },
-    assembly::{Assembler, ModuleAst, ProgramAst},
-    assets::{Asset, AssetVault, FungibleAsset, TokenSymbol},
-    crypto::{
+    }, assembly::{Assembler, ModuleAst, ProgramAst}, assets::{Asset, AssetVault, FungibleAsset, TokenSymbol}, block::Block, crypto::{
         dsa::rpo_falcon512::SecretKey,
         merkle::{Mmr, MmrDelta, MmrProof, NodeIndex, SimpleSmt},
         rand::RpoRandomCoin,
-    },
-    notes::{
+    }, notes::{
         Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata, NoteRecipient,
         NoteScript, NoteTag, NoteType,
-    },
-    transaction::{InputNote, ProvenTransaction},
-    BlockHeader, Felt, Word, NOTE_TREE_DEPTH,
+    }, transaction::{InputNote, ProvenTransaction}, BlockHeader, Felt, Word, NOTE_TREE_DEPTH
 };
 use rand::Rng;
 use tonic::{Response, Status};
@@ -80,15 +74,19 @@ pub struct MockRpcApi {
     pub state_sync_requests: BTreeMap<u32, SyncStateResponse>,
     pub genesis_block: BlockHeader,
     pub notes: BTreeMap<NoteId, InputNote>,
+    pub mmr: Mmr,
+    pub blocks: Vec<BlockHeader>
 }
 
 impl Default for MockRpcApi {
     fn default() -> Self {
-        let (genesis_block, state_sync_requests, notes) = generate_state_sync_mock_requests();
+        let (genesis_block, state_sync_requests, notes, mmr, blocks) = generate_state_sync_mock_requests();
         Self {
             state_sync_requests,
             genesis_block,
             notes,
+            mmr,
+            blocks
         }
     }
 }
@@ -129,12 +127,21 @@ impl NodeRpcClient for MockRpcApi {
     async fn get_block_header_by_number(
         &mut self,
         block_num: Option<u32>,
-        _include_mmr_proof: bool,
+        include_mmr_proof: bool,
     ) -> Result<(BlockHeader, Option<MmrProof>), NodeRpcClientError> {
         if block_num == Some(0) {
             return Ok((self.genesis_block, None));
         }
-        panic!("get_block_header_by_number is supposed to be only used for genesis block")
+        println!("the block we reequested was {:?}", block_num);
+        let block = self.blocks.iter().find(|b| b.block_num()==block_num.unwrap()).unwrap();
+
+        let mmr_proof = if include_mmr_proof {
+            Some(self.mmr.open(block_num.unwrap() as usize, self.mmr.forest()).unwrap())
+        } else{
+            None
+        };
+
+       Ok((block.clone(), mmr_proof))
     }
 
     async fn get_notes_by_id(
@@ -278,7 +285,7 @@ fn create_mock_sync_state_request_for_account_and_notes(
             accounts: vec![],
             notes: vec![NoteSyncRecord {
                 note_index: 0,
-                note_id: Some(created_notes_iter.next().unwrap().id().into()),
+                note_id: Some(created_notes_iter.next(). unwrap().id().into()),
                 metadata: Some(metadata),
                 merkle_path: Some(miden_node_proto::generated::merkle::MerklePath::default()),
             }],
@@ -295,13 +302,13 @@ fn create_mock_sync_state_request_for_account_and_notes(
 
 /// Generates mock sync state requests and responses
 fn generate_state_sync_mock_requests(
-) -> (BlockHeader, BTreeMap<u32, SyncStateResponse>, BTreeMap<NoteId, InputNote>) {
+) -> (BlockHeader, BTreeMap<u32, SyncStateResponse>, BTreeMap<NoteId, InputNote>, Mmr, Vec<BlockHeader>) {
     let account_id = AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap();
 
     // create sync state requests
     let assembler = TransactionKernel::assembler();
     let (consumed_notes, created_notes) = mock_notes(&assembler);
-    let (_, input_notes, ..) = mock_full_chain_mmr_and_notes(consumed_notes);
+    let (mmr, input_notes, blocks,..) = mock_full_chain_mmr_and_notes(consumed_notes);
 
     let genesis_block = BlockHeader::mock(0, None, None, &[]);
 
@@ -314,7 +321,7 @@ fn generate_state_sync_mock_requests(
         None,
     );
     let input_notes = input_notes.iter().map(|n| (n.note().id(), n.clone())).collect();
-    (genesis_block, state_sync_request_responses, input_notes)
+    (genesis_block, state_sync_request_responses,input_notes, mmr, blocks)
 }
 
 pub fn mock_full_chain_mmr_and_notes(
@@ -387,7 +394,7 @@ pub fn mock_full_chain_mmr_and_notes(
     (
         mmr,
         recorded_notes,
-        vec![block_chain[2], block_chain[4], block_chain[6]],
+        block_chain,
         mmr_deltas,
     )
 }
@@ -416,6 +423,8 @@ pub async fn insert_mock_data(client: &mut MockClient) -> Vec<BlockHeader> {
     let (consumed_notes, created_notes) = mock_notes(&assembler);
     let (_mmr, consumed_notes, tracked_block_headers, mmr_deltas) =
         mock_full_chain_mmr_and_notes(consumed_notes);
+
+    let tracked_block_headers = vec![tracked_block_headers[2], tracked_block_headers[4], tracked_block_headers[6]];
 
     // insert notes into database
     for note in consumed_notes.clone() {

@@ -60,24 +60,6 @@ impl SyncSummary {
         }
     }
 
-    pub fn from_sync_update(sync_update: &StateSyncUpdate, block_num: u32) -> Self {
-        let updated_output_note_ids =
-            sync_update.synced_new_notes.updated_output_notes.iter().map(|(id, _)| *id);
-        let updated_input_note_ids =
-            sync_update.synced_new_notes.updated_input_notes.iter().map(|n| n.note().id());
-
-        let updated_note_set: BTreeSet<NoteId> =
-            updated_input_note_ids.chain(updated_output_note_ids).collect();
-
-        SyncSummary::new(
-            block_num,
-            sync_update.synced_new_notes.new_public_notes().len(),
-            updated_note_set.len(),
-            sync_update.nullifiers.len(),
-            sync_update.updated_onchain_accounts.len(),
-            sync_update.transactions_to_commit.len(),
-        )
-    }
 
     pub fn new_empty(block_num: u32) -> Self {
         Self {
@@ -104,6 +86,27 @@ impl SyncSummary {
         self.new_nullifiers += other.new_nullifiers;
         self.updated_onchain_accounts += other.updated_onchain_accounts;
         self.commited_transactions += other.commited_transactions;
+    }
+}
+
+impl From<&StateSyncUpdate> for SyncSummary {
+    fn from(sync_update: &StateSyncUpdate) -> Self {
+        let updated_output_note_ids =
+            sync_update.synced_new_notes.updated_output_notes.iter().map(|(id, _)| *id);
+        let updated_input_note_ids =
+            sync_update.synced_new_notes.updated_input_notes.iter().map(|n| n.note().id());
+
+        let updated_note_set: BTreeSet<NoteId> =
+            updated_input_note_ids.chain(updated_output_note_ids).collect();
+
+        SyncSummary::new(
+            sync_update.block_header.block_num(),
+            sync_update.synced_new_notes.new_public_notes().len(),
+            updated_note_set.len(),
+            sync_update.nullifiers.len(),
+            sync_update.updated_onchain_accounts.len(),
+            sync_update.transactions_to_commit.len(),
+        )
     }
 }
 
@@ -235,7 +238,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
             if let SyncStatus::SyncedToLastBlock(_) = response {
                 // Synced to last block, let's check for notes left without proofs
-                let leftover_notes_summary = self.get_leftover_notes().await?;
+                let leftover_notes_summary = self.retrieve_leftover_notes().await?;
                 total_sync_details.combine_with(&leftover_notes_summary);
 
                 return Ok(total_sync_details);
@@ -245,13 +248,22 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
     /// Retrieves leftover notes data (inclusion proof and MMR data).
     /// Here, "leftover" means any notes that were not updated after syncing to the chain tip.
-    ///
-    /// There are several scenario where this can happen. TODO: Explain more
-    async fn get_leftover_notes(&mut self) -> Result<SyncSummary, ClientError> {
+    /// There are 2 main groups in this category:
+    /// 
+    /// 1 - Pending notes, meaning any note for which we don't have an origin (inclusion proof
+    /// for the note tree). If these were not updated during the sync, it could be that the tag
+    /// was not requested from the client, and/or the note was created in a past block. We need
+    /// to: a) make sure we retrieve the details with `GetNotesById`, and retrieve MMR data
+    /// 
+    /// 2 - Committed notes with no MMR data. It could be that notes were imported with an
+    /// inclusion proof, but they were created on a past block. If they are imported with 
+    /// `verify`==`false`, the MMR data is not fetched for the block in which they it was
+    /// created. For this, we only need to retrieve MMR data with `GetBlockHeaderByNum`
+    async fn retrieve_leftover_notes(&mut self) -> Result<SyncSummary, ClientError> {
         // From notes with no inclusion proof, we need to get note details and for notes with
         // inclusion proofs we need block MMR data if we don't have it
-
         // Only input notes matter here, because output notes are handled by the sync
+
         let pending_notes: Vec<InputNoteRecord> = self.get_input_notes(NoteFilter::Pending)?;
         let committed_notes = self.get_input_notes(NoteFilter::Committed)?;
 
@@ -265,7 +277,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let request_ids: Vec<NoteId> = pending_notes.iter().map(|n| n.id()).collect();
         let note_details = self.rpc_api.get_notes_by_id(&request_ids).await?;
 
-        // Get all notes we need to request
+        // Get all blocks we need to request
+        // These are the ones from the pending notes we received, plus the ones from committed notes
         let blocks_to_get = {
             let mut block_numbers = BTreeSet::from_iter(committed_notes_blocks);
             for details in note_details.iter() {
@@ -285,7 +298,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         }
 
         // Now that we have block data for all notes, build inclusion proofs (if needed)
-        //let mut updated_notes = Vec::with_capacity(note_details.len());
         for details in &note_details {
             // TODO: Remove expect
             let note_block = blocks
@@ -306,11 +318,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 .find(|n| n.id() == details.id())
                 .expect("note_details is a subset of the original list")
                 .clone();
+            
             note.set_inclusion_proof(Some(note_inclusion_proof));
-            //updated_notes.push(note);
             self.store.insert_input_note(note)?;
         }
 
+        // Because this function was created after syncing, it's OK to return a sync summary
+        // with block_num = 0 
         let mut sync_summary = SyncSummary::new_empty(0);
         sync_summary.new_inclusion_proofs = note_details.len();
 
@@ -451,8 +465,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         };
 
         // Store summary to return later
-        let sync_summary =
-            SyncSummary::from_sync_update(&state_sync_update, response.block_header.block_num());
+        let sync_summary = SyncSummary::from(&state_sync_update);
 
         // Apply received and computed updates to the store
         self.store
