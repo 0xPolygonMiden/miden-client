@@ -1,6 +1,7 @@
 use miden_objects::{
     accounts::AccountId,
-    notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteMetadata},
+    notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, PartialNote},
+    transaction::OutputNote,
     Digest,
 };
 
@@ -111,6 +112,39 @@ impl From<Note> for OutputNoteRecord {
                 note.serial_num(),
             )),
             consumer_account_id: None,
+        }
+    }
+}
+
+impl From<PartialNote> for OutputNoteRecord {
+    fn from(partial_note: PartialNote) -> Self {
+        OutputNoteRecord::new(
+            partial_note.id(),
+            partial_note.recipient_digest(),
+            partial_note.assets().clone(),
+            NoteStatus::Pending,
+            *partial_note.metadata(),
+            None,
+            None,
+            None,
+        )
+    }
+}
+
+/// [OutputNote] can always be turned into an [OutputNoteRecord] when they're either
+/// [OutputNote::Full] or [OutputNote::Partial] and always fail the conversion if it's
+/// [OutputNote::Header]. This also mean that `output_note.try_from()` can also be used as a way to
+/// filter the full and partial output notes
+impl TryFrom<OutputNote> for OutputNoteRecord {
+    type Error = ClientError;
+
+    fn try_from(output_note: OutputNote) -> Result<Self, Self::Error> {
+        match output_note {
+            OutputNote::Full(note) => Ok(note.into()),
+            OutputNote::Partial(partial_note)=> {
+                Ok(partial_note.into())
+            },
+            OutputNote::Header(_) => Err(ClientError::NoteRecordError("Cannot transform a Header output note into an OutputNoteRecord: not enough information".to_string()))
         }
     }
 }
