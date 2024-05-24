@@ -6,7 +6,7 @@ use miden_client::{
         NoteRelevance,
     },
     errors::ClientError,
-    store::{NoteFilter, NoteStatus},
+    store::{NoteFilter, NoteStatus, TransactionFilter},
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorageType},
@@ -579,4 +579,78 @@ async fn test_sync_detail_values() {
     assert_eq!(new_details.new_notes, 0);
     assert_eq!(new_details.new_inclusion_proofs, 0);
     assert_eq!(new_details.new_nullifiers, 1);
+}
+
+#[tokio::test]
+async fn test_mint_twice_before_sync() {
+    let mut client = create_test_client();
+    wait_for_node(&mut client).await;
+
+    let (regular_account, _, faucet_account_stub) =
+        setup(&mut client, AccountStorageType::OffChain).await;
+
+    let target_account_id = regular_account.id();
+    let faucet_account_id = faucet_account_stub.id();
+
+    // Mint twice
+    mint_note_without_sync(&mut client, target_account_id, faucet_account_id, NoteType::OffChain)
+        .await
+        .unwrap();
+
+    // TODO: we might be able to replace this with checking with `GetNotesByID` once we expose it
+    // from the client
+    while mint_note_without_sync(
+        &mut client,
+        target_account_id,
+        faucet_account_id,
+        NoteType::OffChain,
+    )
+    .await
+    .is_err()
+    {}
+
+    // Wait a bit so both mints get committed
+    // TODO: As mentioned above, once we expose the `GetNotesByID` we should replace this with
+    // polling until we see the note got included
+    std::thread::sleep(std::time::Duration::from_secs(25));
+
+    client.sync_state().await.unwrap();
+
+    let all_transactions = client.get_transactions(TransactionFilter::All).unwrap();
+    let uncommitted_transactions = client.get_transactions(TransactionFilter::Uncomitted).unwrap();
+    // Ensure Both transactions got committed
+    assert_eq!(all_transactions.len(), 2);
+    assert!(uncommitted_transactions.is_empty());
+}
+
+/// Mints a note from faucet_account_id for basic_account_id, waits for inclusion and returns it
+/// with 1000 units of the corresponding fungible asset
+pub async fn mint_note_without_sync(
+    client: &mut TestClient,
+    basic_account_id: AccountId,
+    faucet_account_id: AccountId,
+    note_type: NoteType,
+) -> Result<(), ClientError> {
+    let (regular_account, _seed) = client.get_account(basic_account_id).unwrap();
+    assert_eq!(regular_account.vault().assets().count(), 0);
+
+    // Create a Mint Tx for 1000 units of our fungible asset
+    let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
+    let tx_template =
+        TransactionTemplate::MintFungibleAsset(fungible_asset, basic_account_id, note_type);
+
+    println!("Minting Asset");
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+
+    // Execute TX
+    println!("Executing transaction...");
+    let transaction_execution_result = client.new_transaction(tx_request).unwrap();
+
+    println!("Sending transaction to node");
+    let proven_transaction = client
+        .prove_transaction(transaction_execution_result.executed_transaction().clone())
+        .unwrap();
+    client
+        .submit_transaction(transaction_execution_result, proven_transaction)
+        .await
 }

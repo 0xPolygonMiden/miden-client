@@ -760,16 +760,16 @@ fn get_transactions_to_commit(
         uncommitted_transaction_by_end_hash.insert(tx.final_account_state, tx);
     }
 
-    let mut transitive_commited_transactions = Vec::new();
+    let mut transitive_committed_transactions = Vec::new();
     for committed_tx in committed_transactions_from_update {
         let mut current_tx = committed_tx;
-        transitive_commited_transactions.push(current_tx.id);
+        transitive_committed_transactions.push(current_tx.id);
 
         while uncommitted_transaction_by_end_hash.contains_key(&current_tx.init_account_state) {
             current_tx = uncommitted_transaction_by_end_hash[&current_tx.init_account_state];
-            transitive_commited_transactions.push(current_tx.id);
+            transitive_committed_transactions.push(current_tx.id);
         }
     }
 
-    transitive_commited_transactions
+    transitive_committed_transactions
 }
