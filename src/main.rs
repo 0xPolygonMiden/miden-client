@@ -10,7 +10,5 @@ async fn main() -> Result<(), String> {
     let cli = Cli::parse();
 
     // execute cli action
-    cli.execute().await?;
-
-    Ok(())
+    cli.execute().await
 }

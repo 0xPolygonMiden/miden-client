@@ -1,11 +1,15 @@
-use std::{env::temp_dir, path::Path, rc::Rc};
+use std::{env::temp_dir, fs::File, io::Read, path::Path, rc::Rc};
 
 use assert_cmd::Command;
 use miden_client::{
-    client::{get_random_coin, rpc::TonicRpcClient, store_authenticator::StoreAuthenticator},
+    client::{
+        accounts::AccountTemplate, get_random_coin, rpc::TonicRpcClient,
+        store_authenticator::StoreAuthenticator,
+    },
     config::ClientConfig,
     store::{sqlite_store::SqliteStore, NoteFilter},
 };
+use miden_objects::accounts::AccountStorageType;
 
 use crate::{create_test_store_path, TestClient};
 
@@ -29,9 +33,6 @@ use crate::{create_test_store_path, TestClient};
 
 #[test]
 fn test_init_without_params() {
-    // For now sleep to ensure node's up
-    std::thread::sleep(std::time::Duration::new(30, 0));
-
     let mut temp_dir = temp_dir();
     temp_dir.push(format!("{}", uuid::Uuid::new_v4()));
     std::fs::create_dir(temp_dir.clone()).unwrap();
@@ -40,14 +41,16 @@ fn test_init_without_params() {
     init_cmd.args(["init"]);
     init_cmd.current_dir(&temp_dir).assert().success();
 
-    sync_cli(&temp_dir)
+    sync_cli(&temp_dir);
+
+    // Trying to init twice should result in an error
+    let mut init_cmd = Command::cargo_bin("miden").unwrap();
+    init_cmd.args(["init"]);
+    init_cmd.current_dir(&temp_dir).assert().failure();
 }
 
 #[test]
 fn test_init_with_params() {
-    // For now sleep to ensure node's up
-    std::thread::sleep(std::time::Duration::new(30, 0));
-
     let store_path = create_test_store_path();
     let mut temp_dir = temp_dir();
     temp_dir.push(format!("{}", uuid::Uuid::new_v4()));
@@ -57,7 +60,80 @@ fn test_init_with_params() {
     init_cmd.args(["init", "--rpc", "localhost", "--store-path", store_path.to_str().unwrap()]);
     init_cmd.current_dir(&temp_dir).assert().success();
 
-    sync_cli(&temp_dir)
+    // Assert the config file contains the specified contents
+    let mut config_path = temp_dir.clone();
+    config_path.push("miden-client.toml");
+    let mut config_file = File::open(config_path).unwrap();
+    let mut config_file_str = String::new();
+    config_file.read_to_string(&mut config_file_str).unwrap();
+
+    assert!(config_file_str.contains(store_path.to_str().unwrap()));
+    assert!(config_file_str.contains("localhost"));
+
+    sync_cli(&temp_dir);
+
+    // Trying to init twice should result in an error
+    let mut init_cmd = Command::cargo_bin("miden").unwrap();
+    init_cmd.args(["init", "--rpc", "localhost", "--store-path", store_path.to_str().unwrap()]);
+    init_cmd.current_dir(&temp_dir).assert().failure();
+}
+
+// TX TESTS
+// ================================================================================================
+
+/// This test tries to run a mint TX using the CLI for an account that is not tracked.
+#[test]
+fn test_mint_with_untracked_account() {
+    let store_path = create_test_store_path();
+    let mut temp_dir = temp_dir();
+    temp_dir.push(format!("{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(temp_dir.clone()).unwrap();
+
+    let target_account_id = {
+        let other_store_path = create_test_store_path();
+        let mut client = create_test_client_with_store_path(&other_store_path);
+        let account_template = AccountTemplate::BasicWallet {
+            mutable_code: false,
+            storage_type: AccountStorageType::OffChain,
+        };
+        let (account, _seed) = client.new_account(account_template).unwrap();
+
+        account.id().to_hex()
+    };
+
+    // On CLI create the faucet and mint
+    let mut init_cmd = Command::cargo_bin("miden").unwrap();
+    init_cmd.args(["init", "--store-path", store_path.to_str().unwrap()]);
+    init_cmd.current_dir(&temp_dir).assert().success();
+
+    // Create faucet account
+    let mut create_faucet_cmd = Command::cargo_bin("miden").unwrap();
+    create_faucet_cmd.args([
+        "new-faucet",
+        "-s",
+        "off-chain",
+        "-t",
+        "BTC",
+        "-d",
+        "8",
+        "-m",
+        "100000",
+    ]);
+    create_faucet_cmd.current_dir(&temp_dir).assert().success();
+
+    let fungible_faucet_account_id = {
+        let client = create_test_client_with_store_path(&store_path);
+        let accounts = client.get_account_stubs().unwrap();
+
+        accounts.first().unwrap().0.id().to_hex()
+    };
+
+    sync_cli(&temp_dir);
+
+    // Let's try and mint
+    mint_cli(&temp_dir, &target_account_id, &fungible_faucet_account_id);
+
+    sync_cli(&temp_dir);
 }
 
 // IMPORT TESTS
@@ -78,9 +154,6 @@ const GENESIS_ACCOUNTS_FILENAMES: [&str; 3] = ["account0.mac", "account1.mac", "
 // against possible changes in the node that would affect the resulting account IDs.
 #[test]
 fn test_import_genesis_accounts_can_be_used_for_transactions() {
-    // For now sleep to ensure node's up
-    std::thread::sleep(std::time::Duration::new(30, 0));
-
     let store_path = create_test_store_path();
     let mut temp_dir = temp_dir();
     temp_dir.push(format!("{}", uuid::Uuid::new_v4()));
@@ -137,18 +210,7 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
     }
 
     // Let's try and mint
-    let mut mint_cmd = Command::cargo_bin("miden").unwrap();
-    mint_cmd.args([
-        "mint",
-        "--target",
-        &first_basic_account_id,
-        "--asset",
-        &format!("100::{fungible_faucet_account_id}"),
-        "-n",
-        "private",
-        "--force",
-    ]);
-    mint_cmd.current_dir(&temp_dir).assert().success();
+    mint_cli(&temp_dir, &first_basic_account_id[..8], &fungible_faucet_account_id);
 
     // Sleep for a while to ensure the note is committed on the node
     std::thread::sleep(std::time::Duration::new(15, 0));
@@ -162,35 +224,19 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
         notes.first().unwrap().id().to_hex()
     };
 
-    let mut consume_note_cmd = Command::cargo_bin("miden").unwrap();
-    consume_note_cmd.args([
-        "consume-notes",
-        "--account",
-        &first_basic_account_id,
-        "--force",
-        &note_to_consume_id,
-    ]);
-    consume_note_cmd.current_dir(&temp_dir).assert().success();
+    consume_note_cli(&temp_dir, &first_basic_account_id, &[&note_to_consume_id]);
 
     // Sleep for a while to ensure the consumption is done on the node
     std::thread::sleep(std::time::Duration::new(15, 0));
     sync_cli(&temp_dir);
 
     // Send assets to second account
-    let mut p2id_cmd = Command::cargo_bin("miden").unwrap();
-    p2id_cmd.args([
-        "send",
-        "--sender",
+    send_cli(
+        &temp_dir,
         &first_basic_account_id,
-        "--target",
         &second_basic_account_id,
-        "--asset",
-        &format!("25::{fungible_faucet_account_id}"),
-        "-n",
-        "private",
-        "--force",
-    ]);
-    p2id_cmd.current_dir(&temp_dir).assert().success();
+        &fungible_faucet_account_id,
+    );
 
     // Sleep for a while to ensure the consumption is done on the node
     std::thread::sleep(std::time::Duration::new(15, 0));
@@ -204,15 +250,7 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
         notes.first().unwrap().id().to_hex()
     };
 
-    let mut consume_note_cmd = Command::cargo_bin("miden").unwrap();
-    consume_note_cmd.args([
-        "consume-notes",
-        "--account",
-        &second_basic_account_id,
-        "--force",
-        &note_to_consume_id,
-    ]);
-    consume_note_cmd.current_dir(&temp_dir).assert().success();
+    consume_note_cli(&temp_dir, &second_basic_account_id, &[&note_to_consume_id]);
 
     // Sleep for a while to ensure the consumption is done on the node
     std::thread::sleep(std::time::Duration::new(15, 0));
@@ -229,9 +267,6 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
 fn test_cli_export_import_note() {
     /// This te
     const NOTE_FILENAME: &str = "test_note.mno";
-
-    // For now sleep to ensure node's up
-    std::thread::sleep(std::time::Duration::new(30, 0));
 
     let store_path_1 = create_test_store_path();
     let mut temp_dir_1 = temp_dir();
@@ -260,7 +295,7 @@ fn test_cli_export_import_note() {
         accounts.first().unwrap().0.id().to_hex()
     };
 
-    // On first client import the faucet and mint
+    // On first client init, create a faucet and mint
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
     init_cmd.args(["init", "--store-path", store_path_1.to_str().unwrap()]);
     init_cmd.current_dir(&temp_dir_1).assert().success();
@@ -290,18 +325,7 @@ fn test_cli_export_import_note() {
     sync_cli(&temp_dir_1);
 
     // Let's try and mint
-    let mut mint_cmd = Command::cargo_bin("miden").unwrap();
-    mint_cmd.args([
-        "mint",
-        "--target",
-        &first_basic_account_id,
-        "--asset",
-        &format!("100::{fungible_faucet_account_id}"),
-        "-n",
-        "private",
-        "--force",
-    ]);
-    mint_cmd.current_dir(&temp_dir_1).assert().success();
+    mint_cli(&temp_dir_1, &first_basic_account_id, &fungible_faucet_account_id);
 
     // Create a Client to get notes
     let note_to_export_id = {
@@ -333,25 +357,68 @@ fn test_cli_export_import_note() {
     sync_cli(&temp_dir_2);
 
     // Consume the note
-    let mut consume_note_cmd = Command::cargo_bin("miden").unwrap();
-    consume_note_cmd.args([
-        "consume-notes",
-        "--account",
-        &first_basic_account_id,
-        "--force",
-        &note_to_export_id,
-    ]);
-    consume_note_cmd.current_dir(&temp_dir_2).assert().success();
+    consume_note_cli(&temp_dir_2, &first_basic_account_id, &[&note_to_export_id]);
 }
 
 // HELPERS
 // ================================================================================================
 
-// Syncs CLI on directory
+// Syncs CLI on directory. It'll try syncing until the command executes successfully. If it never
+// executes successfully, eventually the test will time out (provided the nextest config has a
+// timeout set).
 fn sync_cli(cli_path: &Path) {
-    let mut sync_cmd = Command::cargo_bin("miden").unwrap();
-    sync_cmd.args(["sync"]);
-    sync_cmd.current_dir(cli_path).assert().success();
+    loop {
+        let mut sync_cmd = Command::cargo_bin("miden").unwrap();
+        sync_cmd.args(["sync"]);
+        if sync_cmd.current_dir(cli_path).assert().try_success().is_ok() {
+            break;
+        }
+    }
+}
+
+/// Mints 100 units of the corresponding faucet using the cli and checks that the command runs
+/// successfully given account using the CLI given by `cli_path`.
+fn mint_cli(cli_path: &Path, target_account_id: &str, faucet_id: &str) {
+    let mut mint_cmd = Command::cargo_bin("miden").unwrap();
+    mint_cmd.args([
+        "mint",
+        "--target",
+        target_account_id,
+        "--asset",
+        &format!("100::{faucet_id}"),
+        "-n",
+        "private",
+        "--force",
+    ]);
+    mint_cmd.current_dir(cli_path).assert().success();
+}
+
+/// Sends 25 units of the corresponding faucet and checks that the command runs successfully given
+/// account using the CLI given by `cli_path`.
+fn send_cli(cli_path: &Path, from_account_id: &str, to_account_id: &str, faucet_id: &str) {
+    let mut send_cmd = Command::cargo_bin("miden").unwrap();
+    send_cmd.args([
+        "send",
+        "--sender",
+        &from_account_id[0..8],
+        "--target",
+        &to_account_id[0..8],
+        "--asset",
+        &format!("25::{faucet_id}"),
+        "-n",
+        "private",
+        "--force",
+    ]);
+    send_cmd.current_dir(cli_path).assert().success();
+}
+
+/// Consumes a series of notes with a given account using the CLI given by `cli_path`.
+fn consume_note_cli(cli_path: &Path, account_id: &str, note_ids: &[&str]) {
+    let mut consume_note_cmd = Command::cargo_bin("miden").unwrap();
+    let mut cli_args = vec!["consume-notes", "--account", &account_id[0..8], "--force"];
+    cli_args.extend_from_slice(note_ids);
+    consume_note_cmd.args(&cli_args);
+    consume_note_cmd.current_dir(cli_path).assert().success();
 }
 
 fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
