@@ -16,11 +16,9 @@ use super::{
     SqliteStore,
 };
 use crate::{
-    client::transactions::{
-        notes_from_output, TransactionRecord, TransactionResult, TransactionStatus,
-    },
+    client::transactions::{TransactionRecord, TransactionResult, TransactionStatus},
     errors::StoreError,
-    store::{OutputNoteRecord, TransactionFilter},
+    store::TransactionFilter,
 };
 
 pub(crate) const INSERT_TRANSACTION_QUERY: &str =
@@ -93,9 +91,11 @@ impl SqliteStore {
         let created_input_notes = tx_result.relevant_notes().to_vec();
 
         // Save all output notes
-        let created_output_notes = notes_from_output(tx_result.created_notes())
+        let created_output_notes = tx_result
+            .created_notes()
+            .iter()
             .cloned()
-            .map(OutputNoteRecord::from)
+            .filter_map(|output_note| output_note.try_into().ok())
             .collect::<Vec<_>>();
 
         let consumed_note_ids =

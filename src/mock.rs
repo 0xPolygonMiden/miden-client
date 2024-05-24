@@ -570,7 +570,7 @@ pub fn mock_fungible_faucet_account(
     )
     .unwrap();
 
-    Account::new(
+    Account::from_parts(
         id,
         AssetVault::new(&[]).unwrap(),
         faucet_account_storage.clone(),
@@ -739,7 +739,7 @@ fn get_account_with_nonce(
         None => AssetVault::new(&[]).unwrap(),
     };
 
-    Account::new(account_id, asset_vault, account_storage, account_code, Felt::new(nonce))
+    Account::from_parts(account_id, asset_vault, account_storage, account_code, Felt::new(nonce))
 }
 
 pub fn get_account_with_default_account_code(
