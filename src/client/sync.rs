@@ -1,6 +1,4 @@
-use alloc::{
-    collections::{BTreeMap, BTreeSet},
-};
+use alloc::collections::{BTreeMap, BTreeSet};
 use core::cmp::max;
 
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
@@ -60,7 +58,6 @@ impl SyncSummary {
         }
     }
 
-
     pub fn new_empty(block_num: u32) -> Self {
         Self {
             block_num,
@@ -113,6 +110,15 @@ impl From<&StateSyncUpdate> for SyncSummary {
 pub enum SyncStatus {
     SyncedToLastBlock(SyncSummary),
     SyncedToBlock(SyncSummary),
+}
+
+impl SyncStatus {
+    pub fn sync_summary(&self) -> &SyncSummary {
+        match self {
+            SyncStatus::SyncedToLastBlock(summary) => summary,
+            SyncStatus::SyncedToBlock(summary) => summary,
+        }
+    }
 }
 
 /// Contains information about new notes as consequence of a sync
@@ -227,21 +233,17 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// Returns the block number the client has been synced to.
     pub async fn sync_state(&mut self) -> Result<SyncSummary, ClientError> {
         self.ensure_genesis_in_place().await?;
-        let mut total_sync_details = SyncSummary::new_empty(0);
+        let mut total_sync_summary = SyncSummary::new_empty(0);
         loop {
             let response = self.sync_state_once().await?;
-            let details = match &response {
-                SyncStatus::SyncedToLastBlock(v) => v,
-                SyncStatus::SyncedToBlock(v) => v,
-            };
-            total_sync_details.combine_with(details);
+            total_sync_summary.combine_with(response.sync_summary());
 
             if let SyncStatus::SyncedToLastBlock(_) = response {
                 // Synced to last block, let's check for notes left without proofs
                 let leftover_notes_summary = self.retrieve_leftover_notes().await?;
-                total_sync_details.combine_with(&leftover_notes_summary);
+                total_sync_summary.combine_with(&leftover_notes_summary);
 
-                return Ok(total_sync_details);
+                return Ok(total_sync_summary);
             }
         }
     }
@@ -249,14 +251,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// Retrieves leftover notes data (inclusion proof and MMR data).
     /// Here, "leftover" means any notes that were not updated after syncing to the chain tip.
     /// There are 2 main groups in this category:
-    /// 
+    ///
     /// 1 - Pending notes, meaning any note for which we don't have an origin (inclusion proof
     /// for the note tree). If these were not updated during the sync, it could be that the tag
     /// was not requested from the client, and/or the note was created in a past block. We need
     /// to: a) make sure we retrieve the details with `GetNotesById`, and retrieve MMR data
-    /// 
+    ///
     /// 2 - Committed notes with no MMR data. It could be that notes were imported with an
-    /// inclusion proof, but they were created on a past block. If they are imported with 
+    /// inclusion proof, but they were created on a past block. If they are imported with
     /// `verify`==`false`, the MMR data is not fetched for the block in which they it was
     /// created. For this, we only need to retrieve MMR data with `GetBlockHeaderByNum`
     async fn retrieve_leftover_notes(&mut self) -> Result<SyncSummary, ClientError> {
@@ -318,13 +320,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 .find(|n| n.id() == details.id())
                 .expect("note_details is a subset of the original list")
                 .clone();
-            
+
             note.set_inclusion_proof(Some(note_inclusion_proof));
             self.store.insert_input_note(note)?;
         }
 
         // Because this function was created after syncing, it's OK to return a sync summary
-        // with block_num = 0 
+        // with block_num = 0
         let mut sync_summary = SyncSummary::new_empty(0);
         sync_summary.new_inclusion_proofs = note_details.len();
 
