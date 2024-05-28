@@ -8,6 +8,7 @@ help: ## Show description of all commands
 
 FEATURES_INTEGRATION_TESTING="integration"
 NODE_FEATURES_TESTING="testing"
+WARNINGS=RUSTDOCFLAGS="-D warnings"
 
 # --- Testing ----------------------------------------------------------------------------------------
 .PHONY: test
@@ -78,4 +79,4 @@ doc-serve: doc-deps ## Serve documentation site
 # --- Rust documentation ----------------------------------------------------------------------------------------
 .PHONY: doc
 doc: ## Generates & checks rust documentation
-	cargo doc --all--features --keep-going --release
+	$(WARNINGS) cargo doc --all-features --keep-going --release
