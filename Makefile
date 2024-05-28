@@ -14,19 +14,10 @@ NODE_FEATURES_TESTING="testing"
 test: ## Run tests
 	cargo nextest run --release --workspace
 
-.PHONY: ci-test
-ci-test: ## Run tests with CI profile
-	cargo nextest run --profile ci-default --release --workspace
-
 # --- Integration testing ----------------------------------------------------------------------------------------
 .PHONY: integration-test
 integration-test: ## Run integration tests
 	cargo nextest run --release --test=integration --features $(FEATURES_INTEGRATION_TESTING)
-
-
-.PHONY: ci-integration-test
-ci-integration-test: ## Run integration tests with CI profile
-	cargo nextest run --profile ci-default --release --test=integration --features $(FEATURES_INTEGRATION_TESTING)
 
 .PHONY: kill-node
 kill-node: ## Kill node process
