@@ -1,11 +1,13 @@
 use miden_client::{
-    client::{rpc::NodeRpcClient, transactions::TransactionRecord},
+    rpc::NodeRpcClient,
     store::{Store, TransactionFilter},
+    transactions::TransactionRecord,
+    Client,
 };
 use miden_objects::crypto::rand::FeltRng;
 use miden_tx::auth::TransactionAuthenticator;
 
-use super::{Client, Parser};
+use super::Parser;
 use crate::cli::create_dynamic_table;
 
 #[derive(Default, Debug, Parser, Clone)]

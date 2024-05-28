@@ -5,8 +5,9 @@ use std::{
 };
 
 use miden_client::{
-    client::{rpc::NodeRpcClient, Client},
+    rpc::NodeRpcClient,
     store::{InputNoteRecord, Store},
+    Client,
 };
 use miden_objects::{
     accounts::{AccountData, AccountId},
@@ -119,13 +120,13 @@ mod tests {
     use std::env::temp_dir;
 
     use miden_client::{
-        client::transactions::transaction_request::TransactionTemplate,
         errors::IdPrefixFetchError,
         mock::{
             create_test_client, mock_full_chain_mmr_and_notes, mock_fungible_faucet_account,
             mock_notes,
         },
         store::{InputNoteRecord, NoteFilter},
+        transactions::transaction_request::TransactionTemplate,
     };
     use miden_lib::transaction::TransactionKernel;
     use miden_objects::{

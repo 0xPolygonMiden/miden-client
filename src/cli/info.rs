@@ -1,9 +1,10 @@
 use std::fs;
 
 use miden_client::{
-    client::{rpc::NodeRpcClient, Client},
     config::ClientConfig,
+    rpc::NodeRpcClient,
     store::{NoteFilter, Store},
+    Client,
 };
 use miden_objects::crypto::rand::FeltRng;
 use miden_tx::auth::TransactionAuthenticator;

@@ -1,10 +1,6 @@
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
-use miden_client::{
-    client::{rpc::NodeRpcClient, Client},
-    config::CliConfig,
-    store::Store,
-};
+use miden_client::{config::CliConfig, rpc::NodeRpcClient, store::Store, Client};
 use miden_objects::{
     accounts::{AccountId, AccountStorage, AccountType, AuthSecretKey, StorageSlotType},
     assets::Asset,

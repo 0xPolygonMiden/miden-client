@@ -1,5 +1,6 @@
 # Changelog
 
+* [BREAKING] Library API reorganization. (#PR_NUMBER)
 * Fixed bug when exporting a note into a file
 * Simplified and separated the `notes --list` table (#356).
 * [BREAKING] Separate `prove_transaction` from `submit_transaction` in `Client`. (#339)

@@ -2,16 +2,13 @@ use std::{io, time::Instant};
 
 use clap::{Parser, ValueEnum};
 use miden_client::{
-    client::{
-        rpc::NodeRpcClient,
-        transactions::{
-            transaction_request::{
-                PaymentTransactionData, SwapTransactionData, TransactionTemplate,
-            },
-            TransactionResult,
-        },
-    },
+    rpc::NodeRpcClient,
     store::Store,
+    transactions::{
+        transaction_request::{PaymentTransactionData, SwapTransactionData, TransactionTemplate},
+        TransactionResult,
+    },
+    Client,
 };
 use miden_objects::{
     accounts::AccountId,
@@ -26,7 +23,6 @@ use tracing::info;
 use super::{
     get_input_note_with_id_prefix,
     utils::{get_input_acc_id_by_prefix_or_default, parse_account_id, parse_fungible_asset},
-    Client,
 };
 use crate::cli::{create_dynamic_table, utils::build_swap_tag};
 

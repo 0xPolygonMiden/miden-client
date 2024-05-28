@@ -1,12 +1,9 @@
 use miden_client::{
-    client::{
-        accounts::AccountTemplate,
-        rpc::{AccountDetails, NodeRpcClient},
-        transactions::transaction_request::{PaymentTransactionData, TransactionTemplate},
-        NoteRelevance,
-    },
     errors::ClientError,
+    rpc::{AccountDetails, NodeRpcClient},
     store::{NoteFilter, NoteStatus},
+    transactions::transaction_request::{PaymentTransactionData, TransactionTemplate},
+    AccountTemplate, NoteRelevance,
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorageType},

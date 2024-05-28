@@ -5,18 +5,14 @@ use figment::{
     Figment,
 };
 use miden_client::{
-    client::{
-        accounts::AccountTemplate,
-        get_random_coin,
-        rpc::TonicRpcClient,
-        store_authenticator::StoreAuthenticator,
-        sync::SyncSummary,
-        transactions::transaction_request::{TransactionRequest, TransactionTemplate},
-        Client,
-    },
     config::ClientConfig,
     errors::{ClientError, NodeRpcClientError},
+    rpc::TonicRpcClient,
+    state_sync::SyncSummary,
     store::{sqlite_store::SqliteStore, NoteFilter, TransactionFilter},
+    transactions::transaction_request::{TransactionRequest, TransactionTemplate},
+    utils::get_random_coin,
+    AccountTemplate, Client, StoreAuthenticator,
 };
 use miden_objects::{
     accounts::{

@@ -1,13 +1,11 @@
 use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
-    client::{
-        rpc::NodeRpcClient,
-        transactions::transaction_request::known_script_roots::{P2ID, P2IDR, SWAP},
-        ConsumableNote,
-    },
     errors::{ClientError, IdPrefixFetchError},
+    rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, NoteStatus, OutputNoteRecord, Store},
+    transactions::transaction_request::known_script_roots::{P2ID, P2IDR, SWAP},
+    Client, ConsumableNote,
 };
 use miden_objects::{
     accounts::AccountId,
@@ -18,7 +16,7 @@ use miden_objects::{
 };
 use miden_tx::auth::TransactionAuthenticator;
 
-use super::{Client, Parser};
+use super::Parser;
 use crate::cli::{
     create_dynamic_table, get_input_note_with_id_prefix, get_output_note_with_id_prefix,
 };
@@ -467,13 +465,13 @@ mod tests {
     use std::env::temp_dir;
 
     use miden_client::{
-        client::transactions::transaction_request::TransactionTemplate,
         errors::IdPrefixFetchError,
         mock::{
             create_test_client, mock_full_chain_mmr_and_notes, mock_fungible_faucet_account,
             mock_notes,
         },
         store::{InputNoteRecord, NoteFilter},
+        transactions::transaction_request::TransactionTemplate,
     };
     use miden_lib::transaction::TransactionKernel;
     use miden_objects::{

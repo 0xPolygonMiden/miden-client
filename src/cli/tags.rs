@@ -1,4 +1,4 @@
-use miden_client::{client::rpc::NodeRpcClient, store::Store};
+use miden_client::{rpc::NodeRpcClient, store::Store, Client};
 use miden_objects::{
     crypto::rand::FeltRng,
     notes::{NoteExecutionHint, NoteTag},
@@ -6,7 +6,7 @@ use miden_objects::{
 use miden_tx::auth::TransactionAuthenticator;
 use tracing::info;
 
-use super::{Client, Parser};
+use super::Parser;
 
 #[derive(Default, Debug, Parser, Clone)]
 #[clap(about = "View and manage tags. Defaults to `list` command.")]

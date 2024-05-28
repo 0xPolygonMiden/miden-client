@@ -8,11 +8,7 @@ use figment::{
     providers::{Format, Toml},
     Figment,
 };
-use miden_client::{
-    client::{rpc::NodeRpcClient, Client},
-    config::ClientConfig,
-    store::Store,
-};
+use miden_client::{config::ClientConfig, rpc::NodeRpcClient, store::Store, Client};
 use miden_objects::{
     accounts::AccountId,
     crypto::rand::FeltRng,
