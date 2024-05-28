@@ -4,12 +4,12 @@ use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     errors::{ClientError, IdPrefixFetchError},
+    get_random_coin,
     rpc::{NodeRpcClient, TonicRpcClient},
     store::{
         sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter,
         OutputNoteRecord, Store,
     },
-    utils::get_random_coin,
     Client, StoreAuthenticator,
 };
 use miden_objects::{accounts::AccountStub, crypto::rand::FeltRng};
@@ -108,7 +108,7 @@ impl Cli {
 
         // Create the client
         let client_config = load_config(current_dir.as_path())?;
-        let store = SqliteStore::new((&client_config).into()).map_err(ClientError::StoreError)?;
+        let store = SqliteStore::new(&client_config.store).map_err(ClientError::StoreError)?;
         let store = Rc::new(store);
 
         let rng = get_random_coin();

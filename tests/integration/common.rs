@@ -7,11 +7,11 @@ use figment::{
 use miden_client::{
     config::ClientConfig,
     errors::{ClientError, NodeRpcClientError},
+    get_random_coin,
     rpc::TonicRpcClient,
     state_sync::SyncSummary,
     store::{sqlite_store::SqliteStore, NoteFilter, TransactionFilter},
     transactions::transaction_request::{TransactionRequest, TransactionTemplate},
-    utils::get_random_coin,
     AccountTemplate, Client, StoreAuthenticator,
 };
 use miden_objects::{
@@ -46,9 +46,10 @@ pub const TEST_CLIENT_CONFIG_FILE_PATH: &str = "./tests/config/miden-client.toml
 /// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
 /// deserialized into a [ClientConfig]
 pub fn create_test_client() -> TestClient {
-    let mut client_config: ClientConfig = Figment::from(Toml::file(TEST_CLIENT_CONFIG_FILE_PATH))
-        .extract()
-        .expect("should be able to read test config at {TEST_CLIENT_CONFIG_FILE_PATH}");
+    let mut client_config: ClientConfig<SqliteStore> =
+        Figment::from(Toml::file(TEST_CLIENT_CONFIG_FILE_PATH))
+            .extract()
+            .expect("should be able to read test config at {TEST_CLIENT_CONFIG_FILE_PATH}");
 
     client_config.store = create_test_store_path()
         .into_os_string()
@@ -58,7 +59,7 @@ pub fn create_test_client() -> TestClient {
         .unwrap();
 
     let store = {
-        let sqlite_store = SqliteStore::new((&client_config).into()).unwrap();
+        let sqlite_store = SqliteStore::new(&client_config.store).unwrap();
         Rc::new(sqlite_store)
     };
 

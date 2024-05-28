@@ -1,5 +1,4 @@
 use core::fmt;
-use std::path::PathBuf;
 
 use figment::{
     value::{Dict, Map},
@@ -7,35 +6,47 @@ use figment::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::store::Store;
+
 // CLIENT CONFIG
 // ================================================================================================
 
 /// Configuration options of Miden client.
-#[derive(Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
-pub struct ClientConfig {
+#[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ClientConfig<S: Store> {
     /// Describes settings related to the RPC endpoint
     pub rpc: RpcConfig,
     /// Describes settings related to the store.
-    pub store: StoreConfig,
+    pub store: S::StoreConfig,
     /// Describes settings related to the CLI
     pub cli: Option<CliConfig>,
 }
 
-impl ClientConfig {
+impl<S: Store> Default for ClientConfig<S> {
+    fn default() -> Self {
+        Self {
+            rpc: RpcConfig::default(),
+            store: S::StoreConfig::default(),
+            cli: None,
+        }
+    }
+}
+
+impl<S: Store> ClientConfig<S> {
     /// Returns a new instance of [ClientConfig] with the specified store path and node endpoint.
-    pub const fn new(store: StoreConfig, rpc: RpcConfig) -> Self {
+    pub const fn new(store: S::StoreConfig, rpc: RpcConfig) -> Self {
         Self { store, rpc, cli: None }
     }
 }
 
 // Make `ClientConfig` a provider itself for composability.
-impl Provider for ClientConfig {
+impl<S: Store> Provider for ClientConfig<S> {
     fn metadata(&self) -> Metadata {
         Metadata::named("Library Config")
     }
 
     fn data(&self) -> Result<Map<Profile, Dict>, figment::Error> {
-        figment::providers::Serialized::defaults(ClientConfig::default()).data()
+        figment::providers::Serialized::defaults(ClientConfig::<S>::default()).data()
     }
 
     fn profile(&self) -> Option<Profile> {
@@ -139,55 +150,6 @@ impl TryFrom<&str> for Endpoint {
             host: hostname.to_string(),
             port,
         })
-    }
-}
-
-// STORE CONFIG
-// ================================================================================================
-
-#[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct StoreConfig {
-    pub database_filepath: String,
-}
-
-impl From<&ClientConfig> for StoreConfig {
-    fn from(config: &ClientConfig) -> Self {
-        Self {
-            database_filepath: config.store.database_filepath.clone(),
-        }
-    }
-}
-
-impl TryFrom<&str> for StoreConfig {
-    type Error = String;
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        StoreConfig::try_from(value.to_string())
-    }
-}
-
-// TODO: Implement error checking for invalid paths, or make it based on Path types
-impl TryFrom<String> for StoreConfig {
-    type Error = String;
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Ok(Self { database_filepath: value })
-    }
-}
-
-impl Default for StoreConfig {
-    fn default() -> Self {
-        const STORE_FILENAME: &str = "store.sqlite3";
-
-        // Get current directory
-        let exec_dir = PathBuf::new();
-
-        // Append filepath
-        let database_filepath = exec_dir
-            .join(STORE_FILENAME)
-            .into_os_string()
-            .into_string()
-            .expect("Creating the hardcoded store path should not panic");
-
-        Self { database_filepath }
     }
 }
 

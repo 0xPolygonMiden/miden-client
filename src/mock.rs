@@ -51,7 +51,7 @@ use crate::{
     },
     config::{ClientConfig, RpcConfig},
     errors::NodeRpcClientError,
-    store::sqlite_store::SqliteStore,
+    store::sqlite_store::{config::SqliteStoreConfig, SqliteStore},
 };
 
 pub type MockClient =
@@ -769,17 +769,17 @@ fn prepare_assets(note_assets: &NoteAssets) -> Vec<String> {
 }
 
 pub fn create_test_client() -> MockClient {
-    let store = create_test_store_path()
+    let store: SqliteStoreConfig = create_test_store_path()
         .into_os_string()
         .into_string()
         .unwrap()
         .try_into()
         .unwrap();
 
-    let client_config = ClientConfig::new(store, RpcConfig::default());
+    let client_config = ClientConfig::<SqliteStore>::new(store.clone(), RpcConfig::default());
 
     let rpc_endpoint = client_config.rpc.endpoint.to_string();
-    let store = SqliteStore::new((&client_config).into()).unwrap();
+    let store = SqliteStore::new(&store).unwrap();
     let store = Rc::new(store);
 
     let rng = get_random_coin();

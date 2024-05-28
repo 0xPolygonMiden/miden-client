@@ -1,7 +1,10 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
 use clap::Parser;
-use miden_client::config::{ClientConfig, Endpoint};
+use miden_client::{
+    config::{ClientConfig, Endpoint},
+    store::sqlite_store::SqliteStore,
+};
 
 // Init COMMAND
 // ================================================================================================
@@ -22,7 +25,7 @@ pub struct InitCmd {
 
 impl InitCmd {
     pub fn execute(&self, config_file_path: PathBuf) -> Result<(), String> {
-        let mut client_config = ClientConfig::default();
+        let mut client_config = ClientConfig::<SqliteStore>::default();
         if let Some(endpoint) = &self.rpc {
             let endpoint = Endpoint::try_from(endpoint.as_str()).map_err(|err| err.to_string())?;
 

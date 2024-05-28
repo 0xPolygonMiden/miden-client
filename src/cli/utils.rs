@@ -8,7 +8,12 @@ use figment::{
     providers::{Format, Toml},
     Figment,
 };
-use miden_client::{config::ClientConfig, rpc::NodeRpcClient, store::Store, Client};
+use miden_client::{
+    config::ClientConfig,
+    rpc::NodeRpcClient,
+    store::{sqlite_store::SqliteStore, Store},
+    Client,
+};
 use miden_objects::{
     accounts::AccountId,
     crypto::rand::FeltRng,
@@ -76,7 +81,10 @@ pub(crate) fn parse_account_id<
     Ok(account_id)
 }
 
-pub(crate) fn update_config(config_path: &Path, client_config: ClientConfig) -> Result<(), String> {
+pub(crate) fn update_config(
+    config_path: &Path,
+    client_config: ClientConfig<SqliteStore>,
+) -> Result<(), String> {
     let config_as_toml_string = toml::to_string_pretty(&client_config)
         .map_err(|err| format!("error formatting config: {err}"))?;
 
@@ -138,7 +146,7 @@ pub fn build_swap_tag(
 ///
 /// This function will look for the configuration file at the provided path. If the path is
 /// relative, searches in parent directories all the way to the root as well.
-pub(super) fn load_config_file() -> Result<(ClientConfig, PathBuf), String> {
+pub(super) fn load_config_file() -> Result<(ClientConfig<SqliteStore>, PathBuf), String> {
     let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
     current_dir.push(CLIENT_CONFIG_FILE_NAME);
     let config_path = current_dir.as_path();
@@ -149,7 +157,7 @@ pub(super) fn load_config_file() -> Result<(ClientConfig, PathBuf), String> {
 }
 
 /// Loads the client configuration.
-pub(super) fn load_config(config_file: &Path) -> Result<ClientConfig, String> {
+pub(super) fn load_config<S: Store>(config_file: &Path) -> Result<ClientConfig<S>, String> {
     Figment::from(Toml::file(config_file))
         .extract()
         .map_err(|err| format!("Failed to load {} config file: {err}", config_file.display()))

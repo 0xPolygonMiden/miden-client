@@ -9,6 +9,7 @@ use miden_objects::{
 };
 use rusqlite::{vtab::array, Connection};
 
+use self::config::SqliteStoreConfig;
 use super::{
     ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store, TransactionFilter,
 };
@@ -17,12 +18,12 @@ use crate::{
         sync::StateSyncUpdate,
         transactions::{TransactionRecord, TransactionResult},
     },
-    config::StoreConfig,
     errors::StoreError,
 };
 
 mod accounts;
 mod chain_data;
+pub mod config;
 pub(crate) mod migrations;
 mod notes;
 mod sync;
@@ -98,8 +99,8 @@ impl SqliteStore {
     // --------------------------------------------------------------------------------------------
 
     /// Returns a new instance of [Store] instantiated with the specified configuration options.
-    pub fn new(config: StoreConfig) -> Result<Self, StoreError> {
-        let mut db = Connection::open(config.database_filepath)?;
+    pub fn new(config: &SqliteStoreConfig) -> Result<Self, StoreError> {
+        let mut db = Connection::open(config.database_filepath.clone())?;
         array::load_module(&db)?;
         migrations::update_to_latest(&mut db)?;
 
@@ -117,6 +118,8 @@ impl SqliteStore {
 // To simplify, all implementations rely on inner SqliteStore functions that map 1:1 by name
 // This way, the actual implementations are grouped by entity types in their own sub-modules
 impl Store for SqliteStore {
+    type StoreConfig = SqliteStoreConfig;
+
     fn get_note_tags(&self) -> Result<Vec<NoteTag>, StoreError> {
         self.get_note_tags()
     }

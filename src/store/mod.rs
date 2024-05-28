@@ -7,6 +7,7 @@ use miden_objects::{
     notes::{NoteId, NoteTag, Nullifier},
     BlockHeader, Digest, Word,
 };
+use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
     client::{
@@ -36,6 +37,7 @@ pub use note_record::{InputNoteRecord, NoteRecordDetails, NoteStatus, OutputNote
 /// mutability is expected to be implemented, which is why all methods receive `&self` and
 /// not `&mut self`.
 pub trait Store {
+    type StoreConfig: Default + Serialize + DeserializeOwned;
     // TRANSACTIONS
     // --------------------------------------------------------------------------------------------
 
