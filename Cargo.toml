@@ -22,7 +22,7 @@ path = "tests/integration/main.rs"
 required-features = ["integration"]
 
 [features]
-concurrent = ["miden-lib/concurrent", "miden-objects/concurrent", "miden-tx/concurrent"]
+concurrent = ["miden-lib/concurrent", "miden-objects/concurrent", "miden-tx/concurrent", "std"]
 default = ["std", "sqlite", "tonic"]
 integration = ["testing", "concurrent", "uuid"]
 std = ["miden-objects/std"]
