@@ -23,11 +23,12 @@ required-features = ["integration"]
 
 [features]
 concurrent = ["miden-lib/concurrent", "miden-objects/concurrent", "miden-tx/concurrent"]
-default = ["std"]
+default = ["std", "sqlite"]
 integration = ["testing", "concurrent", "uuid"]
 std = ["miden-objects/std"]
 testing = ["miden-objects/testing", "miden-lib/testing"]
 test_utils = ["miden-objects/testing"]
+sqlite = ["rusqlite", "rusqlite_migration"]
 
 [dependencies]
 async-trait = { version = "0.1" }
@@ -40,8 +41,8 @@ miden-node-proto = { package = "miden-node-proto", git = "https://github.com/0xP
 miden-tx = { package = "miden-tx", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false }
 miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["serde"] }
 rand = { version = "0.8.5" }
-rusqlite = { version = "0.30.0", features = ["vtab", "array", "bundled"] }
-rusqlite_migration = { version = "1.0" }
+rusqlite = { version = "0.30.0", features = ["vtab", "array", "bundled"], optional = true }
+rusqlite_migration = { version = "1.0", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
 tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"] }
@@ -56,4 +57,5 @@ uuid = { version = "1.6.1", features = ["serde", "v4"], optional = true }
 miden_client = { package = "miden-client", path = ".", features = [
     "test_utils",
     "uuid",
+    "sqlite",
 ] }

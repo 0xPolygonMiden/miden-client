@@ -18,6 +18,8 @@ use crate::{
 };
 
 pub mod data_store;
+
+#[cfg(feature = "sqlite")]
 pub mod sqlite_store;
 
 mod note_record;
