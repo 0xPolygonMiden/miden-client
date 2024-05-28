@@ -11,7 +11,9 @@ use miden_objects::{
 
 use crate::errors::NodeRpcClientError;
 
+#[cfg(feature = "tonic")]
 mod tonic_client;
+#[cfg(feature = "tonic")]
 pub use tonic_client::TonicRpcClient;
 
 // NOTE DETAILS

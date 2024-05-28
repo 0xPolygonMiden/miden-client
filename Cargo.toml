@@ -23,12 +23,13 @@ required-features = ["integration"]
 
 [features]
 concurrent = ["miden-lib/concurrent", "miden-objects/concurrent", "miden-tx/concurrent"]
-default = ["std", "sqlite"]
+default = ["std", "sqlite", "tonic"]
 integration = ["testing", "concurrent", "uuid"]
 std = ["miden-objects/std"]
 testing = ["miden-objects/testing", "miden-lib/testing"]
 test_utils = ["miden-objects/testing"]
 sqlite = ["rusqlite", "rusqlite_migration"]
+tonic = ["dep:tonic", "miden-node-proto"]
 
 [dependencies]
 async-trait = { version = "0.1" }
@@ -37,7 +38,7 @@ comfy-table = "7.1.0"
 figment = { version = "0.10", features = ["toml", "env"] }
 lazy_static = "1.4.0"
 miden-lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false }
-miden-node-proto = { package = "miden-node-proto", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "mFragaBA-next-0.4", default-features = false }
+miden-node-proto = { package = "miden-node-proto", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "mFragaBA-next-0.4", default-features = false, optional = true }
 miden-tx = { package = "miden-tx", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false }
 miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["serde"] }
 rand = { version = "0.8.5" }
@@ -46,7 +47,7 @@ rusqlite_migration = { version = "1.0", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
 tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"] }
-tonic = { version = "0.11" }
+tonic = { version = "0.11", optional = true }
 toml = { version = "0.8" }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3" }
