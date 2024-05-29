@@ -386,13 +386,13 @@ fn sync_cli(cli_path: &Path) {
 /// Shows note details using the cli and checks that the command runs
 /// successfully given account using the CLI given by `cli_path`.
 fn show_note_cli(cli_path: &Path, note_id: &str, should_fail: bool) {
-    let mut show_cmd = Command::cargo_bin("miden").unwrap();
-    show_cmd.args(["notes", "--show", note_id]);
+    let mut show_note_cmd = Command::cargo_bin("miden").unwrap();
+    show_note_cmd.args(["notes", "--show", note_id]);
 
     if should_fail {
-        show_cmd.current_dir(cli_path).assert().success();
+        show_note_cmd.current_dir(cli_path).assert().failure();
     } else {
-        show_cmd.current_dir(cli_path).assert().failure();
+        show_note_cmd.current_dir(cli_path).assert().success();
     }
 }
 
