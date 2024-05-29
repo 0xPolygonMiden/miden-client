@@ -238,6 +238,13 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
         &fungible_faucet_account_id,
     );
 
+    // Using the full note id should find it.
+    show_note_cli(&temp_dir, &note_to_consume_id, false);
+    // Querying a non existant note id should fail.
+    show_note_cli(&temp_dir, "0x1234567890", true);
+    // Querying a note id hex that matches many should fail.
+    show_note_cli(&temp_dir, "0x", true);
+
     // Sleep for a while to ensure the consumption is done on the node
     std::thread::sleep(std::time::Duration::new(15, 0));
     sync_cli(&temp_dir);
@@ -373,6 +380,19 @@ fn sync_cli(cli_path: &Path) {
         if sync_cmd.current_dir(cli_path).assert().try_success().is_ok() {
             break;
         }
+    }
+}
+
+/// Shows note details using the cli and checks that the command runs
+/// successfully given account using the CLI given by `cli_path`.
+fn show_note_cli(cli_path: &Path, note_id: &str, should_fail: bool) {
+    let mut show_cmd = Command::cargo_bin("miden").unwrap();
+    show_cmd.args(["notes", "--show", note_id]);
+
+    if should_fail {
+        show_cmd.current_dir(cli_path).assert().success();
+    } else {
+        show_cmd.current_dir(cli_path).assert().failure();
     }
 }
 
