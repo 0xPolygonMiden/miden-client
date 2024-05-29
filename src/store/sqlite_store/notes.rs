@@ -451,7 +451,7 @@ fn parse_input_note(
 
     // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
     let status = if let (NoteStatus::Committed, Some(_)) = (status, consumer_account_id) {
-        NoteStatus::Consuming
+        NoteStatus::Processing
     } else {
         status
     };
