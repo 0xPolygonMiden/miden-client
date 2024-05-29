@@ -23,7 +23,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         self.store.get_input_notes(filter).map_err(|err| err.into())
     }
 
-    /// Returns input notes that are able to be consumed by the account_id.
+    /// Returns the input notes and their consumability.
     ///
     /// If account_id is None then all consumable input notes are returned.
     pub fn get_consumable_notes(
@@ -40,19 +40,18 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 continue;
             }
 
-            let account_relevance =
+            let mut account_relevance =
                 note_screener.check_relevance(&input_note.clone().try_into()?)?;
+
+            if let Some(account_id) = account_id {
+                account_relevance.retain(|(id, _)| *id == account_id);
+            }
 
             if account_relevance.is_empty() {
                 continue;
             }
 
             relevant_notes.push((input_note, account_relevance));
-        }
-
-        if let Some(account_id) = account_id {
-            relevant_notes
-                .retain(|(_, relevances)| relevances.iter().any(|(id, _)| *id == account_id));
         }
 
         Ok(relevant_notes)
