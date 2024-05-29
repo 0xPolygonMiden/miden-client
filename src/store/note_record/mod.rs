@@ -48,13 +48,13 @@ pub use output_note_record::OutputNoteRecord;
 // ================================================================================================
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum NoteStatus {
-    // Note is pending to be commited on chain
+    /// Note is pending to be commited on chain
     Pending,
-    // Note has been commited on chain
+    /// Note has been commited on chain
     Committed,
-    // Note has been consumed locally but not yet nullified on chain
+    /// Note has been consumed locally but not yet nullified on chain
     Processing,
-    // Note has been nullified on chain
+    /// Note has been nullified on chain
     Consumed,
 }
 
