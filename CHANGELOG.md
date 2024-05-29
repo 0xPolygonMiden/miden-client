@@ -1,6 +1,13 @@
 # Changelog
 
 * New note status added to reflect more possible states (#355).
+* Simplified and separated the `notes --list` table (#356).
+* [BREAKING] Separate `prove_transaction` from `submit_transaction` in `Client`. (#339)
+* [BREAKING] Updated CLI commands so assets are now passed as `<AMOUNT>::<FAUCET_ACCOUNT_ID>` (#349)
+* Added created and consumed note info when printing the transaction summary on the CLI
+* Changed `consume-notes` to pick up the default account ID if none is provided, and to consume all notes that are consumable by the ID if no notes are provided to the list. (#350)
+* Added created and consumed note info when printing the transaction summary on the CLI. (#348)
+* Fixed the error message when trying to consume a pending note (now it shows that the transaction is not yet ready to be consumed).
 
 ## v0.3.0 (2024-05-17)
 

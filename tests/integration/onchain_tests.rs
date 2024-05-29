@@ -1,12 +1,12 @@
 use miden_client::{
     client::{
-        accounts::{AccountStorageMode, AccountTemplate},
+        accounts::AccountTemplate,
         transactions::transaction_request::{PaymentTransactionData, TransactionTemplate},
     },
     store::{NoteFilter, NoteStatus},
 };
 use miden_objects::{
-    accounts::AccountId,
+    accounts::{AccountId, AccountStorageType},
     assets::{Asset, FungibleAsset, TokenSymbol},
     notes::{NoteTag, NoteType},
     transaction::InputNote,
@@ -30,7 +30,7 @@ async fn test_onchain_notes_flow() {
             token_symbol: TokenSymbol::new("MATIC").unwrap(),
             decimals: 8,
             max_supply: 1_000_000_000,
-            storage_mode: AccountStorageMode::Local,
+            storage_type: AccountStorageType::OffChain,
         })
         .unwrap();
 
@@ -38,7 +38,7 @@ async fn test_onchain_notes_flow() {
     let (basic_wallet_1, _) = client_2
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_mode: AccountStorageMode::Local,
+            storage_type: AccountStorageType::OffChain,
         })
         .unwrap();
 
@@ -46,7 +46,7 @@ async fn test_onchain_notes_flow() {
     let (basic_wallet_2, _) = client_3
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_mode: AccountStorageMode::Local,
+            storage_type: AccountStorageType::OffChain,
         })
         .unwrap();
     client_1.sync_state().await.unwrap();
@@ -117,13 +117,13 @@ async fn test_onchain_accounts() {
     wait_for_node(&mut client_2).await;
 
     let (first_regular_account, _second_regular_account, faucet_account_stub) =
-        setup(&mut client_1, AccountStorageMode::OnChain).await;
+        setup(&mut client_1, AccountStorageType::OnChain).await;
 
     let (
         second_client_first_regular_account,
         _other_second_regular_account,
         _other_faucet_account_stub,
-    ) = setup(&mut client_2, AccountStorageMode::Local).await;
+    ) = setup(&mut client_2, AccountStorageType::OffChain).await;
 
     let target_account_id = first_regular_account.id();
     let second_client_target_account_id = second_client_first_regular_account.id();
@@ -269,7 +269,7 @@ async fn test_onchain_notes_sync_with_tag() {
             token_symbol: TokenSymbol::new("MATIC").unwrap(),
             decimals: 8,
             max_supply: 1_000_000_000,
-            storage_mode: AccountStorageMode::Local,
+            storage_type: AccountStorageType::OffChain,
         })
         .unwrap();
 

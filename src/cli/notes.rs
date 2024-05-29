@@ -1,7 +1,5 @@
-use std::collections::{HashMap, HashSet};
-
 use clap::ValueEnum;
-use comfy_table::{presets, Attribute, Cell, ContentArrangement};
+use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     client::{
         rpc::NodeRpcClient,
@@ -107,29 +105,19 @@ fn list_notes<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticato
     client: Client<N, R, S, A>,
     filter: ClientNoteFilter,
 ) -> Result<(), String> {
-    let input_notes = client.get_input_notes(filter.clone())?;
-    let output_notes = client.get_output_notes(filter.clone())?;
+    let input_notes = client
+        .get_input_notes(filter.clone())?
+        .into_iter()
+        .map(|input_note_record| note_summary(Some(&input_note_record), None))
+        .collect::<Result<Vec<CliNoteSummary>, String>>()?;
+    let output_notes = client
+        .get_output_notes(filter.clone())?
+        .into_iter()
+        .map(|output_note_record| note_summary(None, Some(&output_note_record)))
+        .collect::<Result<Vec<CliNoteSummary>, String>>()?;
 
-    let mut all_note_ids = HashSet::new();
-    let mut input_note_records = HashMap::new();
-    let mut output_note_records = HashMap::new();
-
-    for note in input_notes {
-        all_note_ids.insert(note.id().to_hex());
-        input_note_records.insert(note.id().to_hex(), note);
-    }
-
-    for note in output_notes {
-        all_note_ids.insert(note.id().to_hex());
-        output_note_records.insert(note.id().to_hex(), note);
-    }
-
-    let zipped_notes = all_note_ids
-        .iter()
-        .map(|note_id| (input_note_records.get(note_id), output_note_records.get(note_id)));
-
-    print_notes_summary(zipped_notes)?;
-    Ok(())
+    print_notes_summary(input_notes, "Input Notes")?;
+    print_notes_summary(output_notes, "Output Notes")
 }
 
 // SHOW NOTE
@@ -304,50 +292,20 @@ fn list_consumable_notes<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionA
 
 // HELPERS
 // ================================================================================================
-fn print_notes_summary<'a, I>(notes: I) -> Result<(), String>
+fn print_notes_summary<I>(notes: I, header: &str) -> Result<(), String>
 where
-    I: IntoIterator<Item = (Option<&'a InputNoteRecord>, Option<&'a OutputNoteRecord>)>,
+    I: IntoIterator<Item = CliNoteSummary>,
 {
-    let mut table = create_dynamic_table(&[
-        "Note ID",
-        "Script Hash",
-        "Assets Hash",
-        "Inputs Hash",
-        "Serial Num",
-        "Type",
-        "Status",
-        "Exportable?",
-    ]);
+    let mut table = Table::new();
+    table
+        .load_preset(presets::UTF8_NO_BORDERS)
+        .set_content_arrangement(ContentArrangement::DynamicFullWidth);
+    table.set_header(vec![Cell::new(header).add_attribute(Attribute::Bold)]);
+    println!("\n{table}");
 
-    for (input_note_record, output_note_record) in notes {
-        let CliNoteSummary {
-            id,
-            script_hash,
-            assets_hash,
-            inputs_commitment,
-            serial_num,
-            note_type,
-            status,
-            tag: _tag,
-            sender: _sender,
-            exportable,
-        } = note_summary(input_note_record, output_note_record)?;
-
-        let exportable = if exportable { "✔" } else { "✘" };
-
-        table.add_row(vec![
-            id,
-            script_hash,
-            assets_hash,
-            inputs_commitment,
-            serial_num,
-            note_type,
-            status,
-            exportable.to_string(),
-        ]);
+    for summary in notes {
+        println!(" {} {}", summary.id, summary.status);
     }
-
-    println!("{table}");
 
     Ok(())
 }
@@ -593,7 +551,9 @@ mod tests {
         let transaction_request = client.build_transaction_request(transaction_template).unwrap();
         let transaction = client.new_transaction(transaction_request).unwrap();
         let created_note = transaction.created_notes().get_note(0).clone();
-        client.submit_transaction(transaction).await.unwrap();
+        let proven_transaction =
+            client.prove_transaction(transaction.executed_transaction().clone()).unwrap();
+        client.submit_transaction(transaction, proven_transaction).await.unwrap();
 
         // Ensure client has no input notes and one output note
         assert!(client.get_input_notes(NoteFilter::All).unwrap().is_empty());
