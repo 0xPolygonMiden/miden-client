@@ -4,17 +4,18 @@ use miden_client::{
     client::{rpc::NodeRpcClient, Client},
     store::{InputNoteRecord, Store},
 };
-use miden_objects::{crypto::rand::FeltRng};
+use miden_objects::crypto::rand::FeltRng;
 use miden_tx::{utils::Serializable, TransactionAuthenticator};
 use tracing::info;
 
+use crate::cli::get_output_note_with_id_prefix;
+
 use super::Parser;
-use crate::cli::get_input_note_with_id_prefix;
 
 #[derive(Debug, Parser, Clone)]
-#[clap(about = "Export client notes")]
+#[clap(about = "Export client output notes")]
 pub struct ExportCmd {
-    /// ID of the output note to export
+    /// ID (or a valid prefix) of the output note to export
     #[clap()]
     id: String,
 
@@ -40,7 +41,7 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthent
     note_id: &str,
     filename: Option<PathBuf>,
 ) -> Result<File, String> {
-    let note_id = get_input_note_with_id_prefix(client, note_id)
+    let note_id = get_output_note_with_id_prefix(client, note_id)
         .map_err(|err| err.to_string())?
         .id();
 
