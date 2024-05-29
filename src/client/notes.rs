@@ -7,22 +7,12 @@ use miden_objects::{
 use miden_tx::{ScriptTarget, TransactionAuthenticator};
 use tracing::info;
 
-use super::{note_screener::NoteRelevance, rpc::NodeRpcClient, Client};
+use super::{note_screener::NoteConsumability, rpc::NodeRpcClient, Client};
 use crate::{
     client::NoteScreener,
     errors::ClientError,
     store::{InputNoteRecord, NoteFilter, OutputNoteRecord, Store},
 };
-
-// TYPES
-// --------------------------------------------------------------------------------------------
-/// Contains information about a note that can be consumed
-pub struct ConsumableNote {
-    /// The consumable note
-    pub note: InputNoteRecord,
-    /// Stores which accounts can consume the note and it's relevance
-    pub relevances: Vec<(AccountId, NoteRelevance)>,
-}
 
 impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
     // INPUT NOTE DATA RETRIEVAL
@@ -39,7 +29,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     pub fn get_consumable_notes(
         &self,
         account_id: Option<AccountId>,
-    ) -> Result<Vec<ConsumableNote>, ClientError> {
+    ) -> Result<Vec<(InputNoteRecord, Vec<NoteConsumability>)>, ClientError> {
         let commited_notes = self.store.get_input_notes(NoteFilter::Committed)?;
 
         let note_screener = NoteScreener::new(self.store.clone());
@@ -57,14 +47,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 continue;
             }
 
-            relevant_notes.push(ConsumableNote {
-                note: input_note,
-                relevances: account_relevance,
-            });
+            relevant_notes.push((input_note, account_relevance));
         }
 
         if let Some(account_id) = account_id {
-            relevant_notes.retain(|note| note.relevances.iter().any(|(id, _)| *id == account_id));
+            relevant_notes
+                .retain(|(_, relevances)| relevances.iter().any(|(id, _)| *id == account_id));
         }
 
         Ok(relevant_notes)

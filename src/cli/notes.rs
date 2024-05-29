@@ -6,7 +6,7 @@ use miden_client::{
     client::{
         rpc::NodeRpcClient,
         transactions::transaction_request::known_script_roots::{P2ID, P2IDR, SWAP},
-        ConsumableNote,
+        NoteConsumability,
     },
     errors::{ClientError, IdPrefixFetchError},
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, NoteStatus, OutputNoteRecord, Store},
@@ -354,14 +354,14 @@ where
 
 fn print_consumable_notes_summary<'a, I>(notes: I) -> Result<(), String>
 where
-    I: IntoIterator<Item = &'a ConsumableNote>,
+    I: IntoIterator<Item = &'a (InputNoteRecord, Vec<NoteConsumability>)>,
 {
     let mut table = create_dynamic_table(&["Note ID", "Account ID", "Relevance"]);
 
-    for consumable_note in notes {
-        for relevance in &consumable_note.relevances {
+    for (note, relevances) in notes {
+        for relevance in relevances {
             table.add_row(vec![
-                consumable_note.note.id().to_hex(),
+                note.id().to_hex(),
                 relevance.0.to_string(),
                 relevance.1.to_string(),
             ]);
