@@ -4,10 +4,12 @@ use miden_client::{
     client::{rpc::NodeRpcClient, Client},
     store::{InputNoteRecord, Store},
 };
-use miden_objects::{crypto::rand::FeltRng, Digest};
+use miden_objects::{crypto::rand::FeltRng};
 use miden_tx::{utils::Serializable, TransactionAuthenticator};
+use tracing::info;
 
 use super::Parser;
+use crate::cli::get_input_note_with_id_prefix;
 
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "Export client notes")]
@@ -17,7 +19,7 @@ pub struct ExportCmd {
     id: String,
 
     /// Desired filename for the binary file. Defaults to the note ID if not provided
-    #[clap(short, long, default_value = "false")]
+    #[clap(short, long)]
     filename: Option<PathBuf>,
 }
 
@@ -27,7 +29,6 @@ impl ExportCmd {
         client: Client<N, R, S, A>,
     ) -> Result<(), String> {
         export_note(&client, self.id.as_str(), self.filename.clone())?;
-        println!("Succesfully exported note {}", self.id.as_str());
         Ok(())
     }
 }
@@ -39,9 +40,10 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthent
     note_id: &str,
     filename: Option<PathBuf>,
 ) -> Result<File, String> {
-    let note_id = Digest::try_from(note_id)
-        .map_err(|err| format!("Failed to parse input note id: {}", err))?
-        .into();
+    let note_id = get_input_note_with_id_prefix(client, note_id)
+        .map_err(|err| err.to_string())?
+        .id();
+
     let output_note = client
         .get_output_notes(miden_client::store::NoteFilter::Unique(note_id))?
         .pop()
@@ -52,15 +54,17 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthent
         .try_into()
         .map_err(|_err| format!("Can't export note with ID {}", note_id.to_hex()))?;
 
-    let file_path = filename.unwrap_or_else(|| {
-        let mut dir = PathBuf::new();
-        dir.push(note_id.inner().to_string());
-        dir
-    });
+    let file_path = if let Some(filename) = filename {
+        filename
+    } else {
+        let current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
+        current_dir.join(format!("{}.mno", note_id.inner()))
+    };
 
+    info!("Writing file to {}", file_path.to_string_lossy());
     let mut file = File::create(file_path).map_err(|err| err.to_string())?;
-
     file.write_all(&input_note.to_bytes()).map_err(|err| err.to_string())?;
 
+    println!("Succesfully exported note {}", note_id);
     Ok(file)
 }
