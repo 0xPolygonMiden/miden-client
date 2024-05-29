@@ -9,7 +9,6 @@ use figment::{
     Figment,
 };
 use miden_client::{
-    config::ClientConfig,
     rpc::NodeRpcClient,
     store::{sqlite_store::SqliteStore, Store},
     Client,
@@ -22,7 +21,7 @@ use miden_objects::{
 };
 use miden_tx::auth::TransactionAuthenticator;
 
-use super::{get_account_with_id_prefix, CLIENT_CONFIG_FILE_NAME};
+use super::{config::CliConfig, get_account_with_id_prefix, CLIENT_CONFIG_FILE_NAME};
 use crate::cli::info;
 
 /// Returns a tracked Account ID matching a hex string or the default one defined in the Client config
@@ -38,14 +37,11 @@ pub(crate) fn get_input_acc_id_by_prefix_or_default<
     let account_id_str = if let Some(account_id_prefix) = account_id {
         account_id_prefix
     } else {
-        let (miden_client_config, _) = load_config_file()?;
+        let (cli_config, _) = load_config_file()?;
 
-        let default_account_id = miden_client_config
-            .cli
-            .ok_or("No CLI config found in the configuration file")?
-            .default_account_id;
-
-        default_account_id.ok_or("No input account ID nor default account defined")?
+        cli_config
+            .default_account_id
+            .ok_or("No input account ID nor default account defined")?
     };
 
     parse_account_id(client, &account_id_str)
@@ -83,7 +79,7 @@ pub(crate) fn parse_account_id<
 
 pub(crate) fn update_config(
     config_path: &Path,
-    client_config: ClientConfig<SqliteStore>,
+    client_config: CliConfig<SqliteStore>,
 ) -> Result<(), String> {
     let config_as_toml_string = toml::to_string_pretty(&client_config)
         .map_err(|err| format!("error formatting config: {err}"))?;
@@ -146,18 +142,18 @@ pub fn build_swap_tag(
 ///
 /// This function will look for the configuration file at the provided path. If the path is
 /// relative, searches in parent directories all the way to the root as well.
-pub(super) fn load_config_file() -> Result<(ClientConfig<SqliteStore>, PathBuf), String> {
+pub(super) fn load_config_file() -> Result<(CliConfig<SqliteStore>, PathBuf), String> {
     let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
     current_dir.push(CLIENT_CONFIG_FILE_NAME);
     let config_path = current_dir.as_path();
 
-    let client_config = load_config(config_path)?;
+    let cli_config = load_config(config_path)?;
 
-    Ok((client_config, config_path.into()))
+    Ok((cli_config, config_path.into()))
 }
 
 /// Loads the client configuration.
-pub(super) fn load_config<S: Store>(config_file: &Path) -> Result<ClientConfig<S>, String> {
+pub(super) fn load_config(config_file: &Path) -> Result<CliConfig<SqliteStore>, String> {
     Figment::from(Toml::file(config_file))
         .extract()
         .map_err(|err| format!("Failed to load {} config file: {err}", config_file.display()))

@@ -30,6 +30,7 @@ use self::{
 };
 
 mod account;
+mod config;
 mod export;
 mod import;
 mod info;
@@ -107,7 +108,8 @@ impl Cli {
         };
 
         // Create the client
-        let client_config = load_config(current_dir.as_path())?;
+        let cli_config = load_config(current_dir.as_path())?;
+        let client_config = &cli_config.client_config;
         let store = SqliteStore::new(&client_config.store).map_err(ClientError::StoreError)?;
         let store = Rc::new(store);
 
@@ -129,7 +131,7 @@ impl Cli {
             Command::NewWallet(new_wallet) => new_wallet.execute(client),
             Command::Import(import) => import.execute(client).await,
             Command::Init(_) => Ok(()),
-            Command::Info => info::print_client_info(&client, &client_config),
+            Command::Info => info::print_client_info(&client, &cli_config),
             Command::Notes(notes) => notes.execute(client).await,
             Command::Sync => sync::sync_state(client).await,
             Command::Tags(tags) => tags.execute(client).await,

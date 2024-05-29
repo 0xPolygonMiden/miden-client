@@ -46,6 +46,20 @@ pub const TEST_CLIENT_CONFIG_FILE_PATH: &str = "./tests/config/miden-client.toml
 /// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
 /// deserialized into a [ClientConfig]
 pub fn create_test_client() -> TestClient {
+    let client_config = get_client_config();
+
+    let store = {
+        let sqlite_store = SqliteStore::new(&client_config.store).unwrap();
+        Rc::new(sqlite_store)
+    };
+
+    let rng = get_random_coin();
+
+    let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
+    TestClient::new(TonicRpcClient::new(&client_config.rpc), rng, store, authenticator, true)
+}
+
+pub fn get_client_config() -> ClientConfig<SqliteStore> {
     let mut client_config: ClientConfig<SqliteStore> =
         Figment::from(Toml::file(TEST_CLIENT_CONFIG_FILE_PATH))
             .extract()
@@ -58,15 +72,7 @@ pub fn create_test_client() -> TestClient {
         .try_into()
         .unwrap();
 
-    let store = {
-        let sqlite_store = SqliteStore::new(&client_config.store).unwrap();
-        Rc::new(sqlite_store)
-    };
-
-    let rng = get_random_coin();
-
-    let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
-    TestClient::new(TonicRpcClient::new(&client_config.rpc), rng, store, authenticator, true)
+    client_config
 }
 
 pub fn create_test_store_path() -> std::path::PathBuf {

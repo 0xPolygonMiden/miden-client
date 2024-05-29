@@ -1,6 +1,6 @@
 use miden_client::{
     errors::ClientError,
-    rpc::{AccountDetails, NodeRpcClient},
+    rpc::{AccountDetails, NodeRpcClient, TonicRpcClient},
     store::{NoteFilter, NoteStatus},
     transactions::transaction_request::{PaymentTransactionData, TransactionTemplate},
     AccountTemplate, NoteRelevance,
@@ -508,8 +508,10 @@ async fn test_get_account_update() {
 
     // Request updates from node for both accounts. The request should not fail and both types of
     // [AccountDetails] should be received.
-    let details1 = client.rpc_api().get_account_update(basic_wallet_1.id()).await.unwrap();
-    let details2 = client.rpc_api().get_account_update(basic_wallet_2.id()).await.unwrap();
+    // TODO: should we expose the `get_account_update` endpoint from the Client?
+    let mut rpc_api = TonicRpcClient::new(&get_client_config().rpc);
+    let details1 = rpc_api.get_account_update(basic_wallet_1.id()).await.unwrap();
+    let details2 = rpc_api.get_account_update(basic_wallet_2.id()).await.unwrap();
 
     assert!(matches!(details1, AccountDetails::OffChain(_, _)));
     assert!(matches!(details2, AccountDetails::Public(_, _)));

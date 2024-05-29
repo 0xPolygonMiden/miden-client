@@ -1,9 +1,5 @@
-use core::fmt;
+use core::fmt::{self, Debug};
 
-use figment::{
-    value::{Dict, Map},
-    Metadata, Profile, Provider,
-};
 use serde::{Deserialize, Serialize};
 
 use crate::store::Store;
@@ -18,8 +14,6 @@ pub struct ClientConfig<S: Store> {
     pub rpc: RpcConfig,
     /// Describes settings related to the store.
     pub store: S::StoreConfig,
-    /// Describes settings related to the CLI
-    pub cli: Option<CliConfig>,
 }
 
 impl<S: Store> Default for ClientConfig<S> {
@@ -27,7 +21,6 @@ impl<S: Store> Default for ClientConfig<S> {
         Self {
             rpc: RpcConfig::default(),
             store: S::StoreConfig::default(),
-            cli: None,
         }
     }
 }
@@ -35,23 +28,7 @@ impl<S: Store> Default for ClientConfig<S> {
 impl<S: Store> ClientConfig<S> {
     /// Returns a new instance of [ClientConfig] with the specified store path and node endpoint.
     pub const fn new(store: S::StoreConfig, rpc: RpcConfig) -> Self {
-        Self { store, rpc, cli: None }
-    }
-}
-
-// Make `ClientConfig` a provider itself for composability.
-impl<S: Store> Provider for ClientConfig<S> {
-    fn metadata(&self) -> Metadata {
-        Metadata::named("Library Config")
-    }
-
-    fn data(&self) -> Result<Map<Profile, Dict>, figment::Error> {
-        figment::providers::Serialized::defaults(ClientConfig::<S>::default()).data()
-    }
-
-    fn profile(&self) -> Option<Profile> {
-        // Optionally, a profile that's selected by default.
-        None
+        Self { store, rpc }
     }
 }
 
@@ -177,15 +154,6 @@ impl Default for RpcConfig {
             timeout_ms: 10000,
         }
     }
-}
-
-// CLI CONFIG
-// ================================================================================================
-
-#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
-pub struct CliConfig {
-    /// Address of the Miden node to connect to.
-    pub default_account_id: Option<String>,
 }
 
 #[cfg(test)]

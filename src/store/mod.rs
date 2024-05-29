@@ -1,4 +1,5 @@
 use alloc::collections::BTreeMap;
+use core::fmt::Debug;
 
 use clap::error::Result;
 use miden_objects::{
@@ -39,7 +40,7 @@ pub use note_record::{InputNoteRecord, NoteRecordDetails, NoteStatus, OutputNote
 /// mutability is expected to be implemented, which is why all methods receive `&self` and
 /// not `&mut self`.
 pub trait Store {
-    type StoreConfig: Default + Serialize + DeserializeOwned;
+    type StoreConfig: Default + Debug + Serialize + DeserializeOwned + Eq + PartialEq;
     // TRANSACTIONS
     // --------------------------------------------------------------------------------------------
 

@@ -1,6 +1,6 @@
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
-use miden_client::{config::CliConfig, rpc::NodeRpcClient, store::Store, Client};
+use miden_client::{rpc::NodeRpcClient, store::Store, Client};
 use miden_objects::{
     accounts::{AccountId, AccountStorage, AccountType, AuthSecretKey, StorageSlotType},
     assets::Asset,
@@ -73,12 +73,10 @@ impl AccountCmd {
                         };
 
                         // load config
-                        let (mut current_config, config_path) = load_config_file()?;
+                        let (mut cli_config, config_path) = load_config_file()?;
 
                         // set default account
-                        current_config.cli = Some(CliConfig {
-                            default_account_id: default_account.clone(),
-                        });
+                        cli_config.default_account_id.clone_from(&default_account);
 
                         if let Some(id) = default_account {
                             println!("Setting default account to {id}...");
@@ -86,7 +84,7 @@ impl AccountCmd {
                             println!("Removing default account...");
                         }
 
-                        update_config(&config_path, current_config)?;
+                        update_config(&config_path, cli_config)?;
                     },
                 }
             },
@@ -275,10 +273,7 @@ fn storage_type_display_name(account: &AccountId) -> String {
 
 /// Loads config file and displays current default account ID
 fn display_default_account_id() -> Result<(), String> {
-    let (miden_client_config, _) = load_config_file()?;
-    let cli_config = miden_client_config
-        .cli
-        .ok_or("No CLI options found in the client config file".to_string())?;
+    let (cli_config, _) = load_config_file()?;
 
     let default_account = cli_config.default_account_id.ok_or(
         "No default account found in the CLI options from the client config file.".to_string(),
