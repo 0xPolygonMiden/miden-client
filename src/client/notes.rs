@@ -58,6 +58,17 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         Ok(relevant_notes)
     }
 
+    /// Returns the consumability of the provided note.
+    pub fn get_note_consumability(
+        &self,
+        note: InputNoteRecord,
+    ) -> Result<Vec<NoteConsumability>, ClientError> {
+        let note_screener = NoteScreener::new(self.store.clone());
+        note_screener
+            .check_relevance(&note.clone().try_into()?)
+            .map_err(|err| err.into())
+    }
+
     /// Returns the input note with the specified hash.
     pub fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, ClientError> {
         Ok(self
