@@ -24,7 +24,7 @@ required-features = ["integration"]
 [features]
 concurrent = ["miden-lib/concurrent", "miden-objects/concurrent", "miden-tx/concurrent", "std"]
 default = ["std", "sqlite", "tonic"]
-integration = ["testing", "concurrent", "uuid"]
+integration = ["testing", "concurrent"]
 std = ["miden-objects/std"]
 testing = ["miden-objects/testing", "miden-lib/testing"]
 test_utils = ["miden-objects/testing"]
@@ -51,12 +51,9 @@ tonic = { version = "0.11", optional = true }
 toml = { version = "0.8" }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3" }
-uuid = { version = "1.6.1", features = ["serde", "v4"], optional = true }
 
 [dev-dependencies]
-# needed for tests to run always with the test utils feature
-miden_client = { package = "miden-client", path = ".", features = [
-    "test_utils",
-    "uuid",
-    "sqlite",
-] }
+# To enable testing feature during tests
+miden-lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["testing"] }
+miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["serde", "testing"] }
+uuid = { version = "1.6.1", features = ["serde", "v4"] }

@@ -83,12 +83,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         Self { store, rng, rpc_api: api, tx_executor }
     }
 
-    #[cfg(any(test, feature = "test_utils"))]
+    #[cfg(test)]
     pub fn rpc_api(&mut self) -> &mut N {
         &mut self.rpc_api
     }
 
-    #[cfg(any(test, feature = "test_utils"))]
+    #[cfg(test)]
     pub fn store(&mut self) -> &S {
         &self.store
     }

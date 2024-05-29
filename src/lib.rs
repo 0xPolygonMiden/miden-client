@@ -23,7 +23,7 @@ pub mod config;
 pub mod errors;
 pub mod store;
 
-#[cfg(any(test, feature = "test_utils"))]
+#[cfg(test)]
 pub mod mock;
 
 #[cfg(test)]
