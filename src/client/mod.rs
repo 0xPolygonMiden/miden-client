@@ -21,8 +21,8 @@ mod notes;
 pub mod store_authenticator;
 pub mod sync;
 pub mod transactions;
-pub use note_screener::NoteConsumability;
 pub(crate) use note_screener::NoteScreener;
+pub use note_screener::{NoteConsumability, NoteRelevance};
 
 // MIDEN CLIENT
 // ================================================================================================
