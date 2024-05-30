@@ -380,6 +380,7 @@ fn sync_cli(cli_path: &Path) {
         if sync_cmd.current_dir(cli_path).assert().try_success().is_ok() {
             break;
         }
+        std::thread::sleep(std::time::Duration::new(3, 0));
     }
 }
 
