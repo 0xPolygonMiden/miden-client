@@ -70,9 +70,8 @@ As mentioned before, we use [cargo-make](https://github.com/sagiegurari/cargo-ma
 
 To test the project's code, we provide both unit tests (which can be run with `cargo test`) and integration tests. For more info on integration tests, refer to the [integration testing document](./tests/README.md)
 
-The crate also comes with 2 feature flags that are used exclusively on tests: 
+The crate also comes with one feature flag that is used exclusively on tests: 
 
-- `test_utils`: used on unit tests to use the mocked RPC API.
 - `integration`: only used to run integration tests and separate them from unit tests
 
 ## Contributing

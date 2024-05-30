@@ -25,11 +25,10 @@ required-features = ["integration"]
 concurrent = ["miden-lib/concurrent", "miden-objects/concurrent", "miden-tx/concurrent", "std"]
 default = ["std", "sqlite", "tonic"]
 integration = ["testing", "concurrent"]
+sqlite = ["dep:rusqlite", "dep:rusqlite_migration"]
 std = ["miden-objects/std"]
 testing = ["miden-objects/testing", "miden-lib/testing"]
-test_utils = ["miden-objects/testing"]
-sqlite = ["rusqlite", "rusqlite_migration"]
-tonic = ["dep:tonic", "miden-node-proto"]
+tonic = ["dep:tonic", "dep:miden-node-proto"]
 
 [dependencies]
 async-trait = { version = "0.1" }
