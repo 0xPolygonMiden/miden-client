@@ -11,11 +11,20 @@ There are commands provided in the `Makefile` to make running them easier. To ru
 make clean-node
 # This command will clone the node's repo and generate the accounts and genesis files
 make node
-# This command will run the node on background
-make start-node &
+# This command will run the node
+make start-node
+```
+
+And on a second terminal do:
+
+```bash
 # This will run the integration test 
 make integration-test
 ```
+
+Note that in order to run this as part of a CI/CD workflow (at least on
+github), you'll need to use `make start-node &` instead so the process keeps
+running on background.
 
 ## Integration Test Flow
 
