@@ -8,9 +8,8 @@ use miden_objects::crypto::rand::FeltRng;
 use miden_tx::{utils::Serializable, TransactionAuthenticator};
 use tracing::info;
 
-use crate::cli::get_output_note_with_id_prefix;
-
 use super::Parser;
+use crate::cli::get_output_note_with_id_prefix;
 
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "Export client output notes")]

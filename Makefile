@@ -61,7 +61,7 @@ clippy-integration-tests: ## Runs clippy integration tests with config
 clippy-all: clippy clippy-integration-tests ## Runs over all targets
 
 .PHONY: lint
-lint: check-format clippy-all doc ## Runs all linting tasks at once (clippy, formatting, doc)
+lint: format-check clippy-all doc ## Runs all linting tasks at once (clippy, formatting, doc)
 
 # --- Documentation site ----------------------------------------------------------------------------------------
 .PHONY: doc-deps

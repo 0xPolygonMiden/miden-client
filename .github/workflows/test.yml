@@ -1,0 +1,49 @@
+name: Test
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, repoened, synchronize]
+  workflow_run:
+    workflows: [Lint]
+    types: [completed]
+
+jobs:
+  test:
+    name: Test Rust ${{matrix.toolchain}} on ${{matrix.os}}
+    runs-on: ${{matrix.os}}-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [stable, nightly]
+        os: [ubuntu]
+    steps:
+      - uses: actions/checkout@main
+      - name: Install rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{matrix.toolchain}}
+      - uses: taiki-e/install-action@nextest
+      - name: make - test
+        run: make test
+
+  integration_tests:
+    name: integration_tests
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - uses: actions/checkout@main
+      - name: Install minimal stable with rustfmt
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - uses: taiki-e/install-action@nextest
+      - run: make clean-node
+      - run: make node
+      - run: make start-node > /dev/null &
+      - run: make integration-test
+      - name: Kill miden-node
+        if: always()
+        run: make kill-node
