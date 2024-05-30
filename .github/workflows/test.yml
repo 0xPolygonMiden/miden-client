@@ -1,6 +1,9 @@
 name: Test
 on:
-  workflow_call:
+  push:
+    branches: [main, next]
+  pull_request:
+    types: [opened, repoened, synchronize]
 
 jobs:
   test:

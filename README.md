@@ -1,7 +1,7 @@
 # Miden client
 
 [![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/0xPolygonMiden/miden-client/blob/main/LICENSE)
-[![CI](https://github.com/0xPolygonMiden/miden-client/actions/workflows/ci.yml/badge.svg)](https://github.com/0xPolygonMiden/miden-clinet/actions/workflows/ci.yml)
+[![test](https://github.com/0xPolygonMiden/miden-client/actions/workflows/test.yml/badge.svg)](https://github.com/0xPolygonMiden/miden-clinet/actions/workflows/test.yml)
 [![RUST_VERSION](https://img.shields.io/badge/rustc-1.78+-lightgray.svg)]()
 [![crates.io](https://img.shields.io/crates/v/miden-client)](https://crates.io/crates/miden-client)
 

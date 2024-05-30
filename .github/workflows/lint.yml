@@ -1,6 +1,9 @@
 name: Lint
 on:
-  workflow_call:
+  push:
+    branches: [main, next]
+  pull_request:
+    types: [opened, repoened, synchronize]
 
 jobs:
   clippy:
@@ -62,4 +65,5 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
-      - run: make doc
+      - name: make - doc
+        run: make doc
