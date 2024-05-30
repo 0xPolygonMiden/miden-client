@@ -1,19 +1,11 @@
 name: Test
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    types: [opened, repoened, synchronize]
-  workflow_run:
-    workflows: [Lint]
-    types: [completed]
+  workflow_call:
 
 jobs:
   test:
     name: Test Rust ${{matrix.toolchain}} on ${{matrix.os}}
     runs-on: ${{matrix.os}}-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     strategy:
       fail-fast: false
       matrix:
@@ -32,7 +24,6 @@ jobs:
   integration_tests:
     name: integration_tests
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - uses: actions/checkout@main
       - name: Install minimal stable with rustfmt

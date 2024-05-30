@@ -1,0 +1,17 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, repoened, synchronize]
+
+jobs:
+  lint:
+    name: "Lint"
+    uses: ./.github/workflows/lint.yml
+  test:
+    name: "Test"
+    needs: lint
+    uses: ./.github/workflows/test.yml
