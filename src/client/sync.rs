@@ -763,24 +763,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let (block_header, mmr_proof) =
             self.rpc_api.get_block_header_by_number(Some(block_num), true).await?;
 
-        let mut path_nodes: Vec<(InOrderIndex, Digest)> = vec![];
-
         let mmr_proof = mmr_proof
             .expect("NodeRpcApi::get_block_header_by_number() should have returned an MMR proof");
         // Trim merkle path to keep nodes relevant to our current PartialMmr
-        let rightmost_index = InOrderIndex::from_leaf_pos(current_partial_mmr.forest() - 1);
-
-        let mut idx = InOrderIndex::from_leaf_pos(block_num as usize);
-
-        for node in mmr_proof.merkle_path {
-            idx = idx.sibling();
-            // Rightmost index is always the biggest value, so if the path contains any node
-            // past it, we can discard it for our version of the forest
-            if idx <= rightmost_index {
-                path_nodes.push((idx, node));
-            }
-            idx = idx.parent();
-        }
+        let path_nodes = adjust_merkle_path_for_forest(
+            &mmr_proof.merkle_path,
+            block_num as usize,
+            current_partial_mmr.forest(),
+        );
 
         let merkle_path = MerklePath::new(path_nodes.iter().map(|(_, n)| *n).collect());
 
@@ -800,6 +790,40 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
 // UTILS
 // --------------------------------------------------------------------------------------------
+
+/// Returns a merkle path nodes for a specific block adjusted for a defined forest size.
+/// This function trims the merkle path to include only the nodes that are relevant for
+/// the MMR forest.
+///
+/// # Parameters
+/// - `merkle_path`: Original merkle path.
+/// - `block_num`: The block number for which the path is computed.
+/// - `forest`: The size of the forest
+fn adjust_merkle_path_for_forest(
+    merkle_path: &MerklePath,
+    block_num: usize,
+    forest: usize,
+) -> Vec<(InOrderIndex, Digest)> {
+    if forest - 1 < block_num {
+        panic!("Can't adjust merkle path for a forest that does not include the block number");
+    }
+
+    let rightmost_index = InOrderIndex::from_leaf_pos(forest - 1);
+
+    let mut idx = InOrderIndex::from_leaf_pos(block_num);
+    let mut path_nodes = vec![];
+    for node in merkle_path.iter() {
+        idx = idx.sibling();
+        // Rightmost index is always the biggest value, so if the path contains any node
+        // past it, we can discard it for our version of the forest
+        if idx <= rightmost_index {
+            path_nodes.push((idx, *node));
+        }
+        idx = idx.parent();
+    }
+
+    path_nodes
+}
 
 /// Applies changes to the Mmr structure, storing authentication nodes for leaves we track
 /// and returns the updated [PartialMmr]
