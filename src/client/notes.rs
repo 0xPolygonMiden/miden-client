@@ -29,13 +29,20 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // --------------------------------------------------------------------------------------------
 
     /// Returns input notes managed by this client.
+    #[cfg(not(feature = "wasm"))]
     pub fn get_input_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, ClientError> {
         self.store.get_input_notes(filter).map_err(|err| err.into())
+    }
+
+    #[cfg(feature = "wasm")]
+    pub async fn get_input_notes(&mut self, filter: NoteFilter<'_>) -> Result<Vec<InputNoteRecord>, ClientError> {
+        self.store().get_input_notes(filter).await.map_err(|err| err.into())
     }
 
     /// Returns input notes that are able to be consumed by the account_id.
     ///
     /// If account_id is None then all consumable input notes are returned.
+    #[cfg(not(feature = "wasm"))]
     pub fn get_consumable_notes(
         &self,
         account_id: Option<AccountId>,
@@ -66,7 +73,39 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         Ok(relevant_notes)
     }
 
+    #[cfg(feature = "wasm")]
+    pub async fn get_consumable_notes(
+        &mut self,
+        account_id: Option<AccountId>,
+    ) -> Result<Vec<ConsumableNote>, ClientError> {
+        let commited_notes = self.store().get_input_notes(NoteFilter::Committed).await?;
+
+        let note_screener = NoteScreener::new(self.store.clone());
+
+        let mut relevant_notes = Vec::new();
+        for input_note in commited_notes {
+            let account_relevance =
+                note_screener.check_relevance(&input_note.clone().try_into()?).await?;
+
+            if account_relevance.is_empty() {
+                continue;
+            }
+
+            relevant_notes.push(ConsumableNote {
+                note: input_note,
+                relevances: account_relevance,
+            });
+        }
+
+        if let Some(account_id) = account_id {
+            relevant_notes.retain(|note| note.relevances.iter().any(|(id, _)| *id == account_id));
+        }
+
+        Ok(relevant_notes)
+    }
+
     /// Returns the input note with the specified hash.
+    #[cfg(not(feature = "wasm"))]
     pub fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, ClientError> {
         Ok(self
             .store
@@ -75,10 +114,20 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             .expect("The vector always has one element for NoteFilter::Unique"))
     }
 
+    #[cfg(feature = "wasm")]
+    pub async fn get_input_note(&mut self, note_id: NoteId) -> Result<InputNoteRecord, ClientError> {
+        Ok(self
+            .store()
+            .get_input_notes(NoteFilter::Unique(note_id)).await?
+            .pop()
+            .expect("The vector always has one element for NoteFilter::Unique"))
+    }
+
     // OUTPUT NOTE DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
     /// Returns output notes managed by this client.
+    #[cfg(not(feature = "wasm"))]
     pub fn get_output_notes(
         &self,
         filter: NoteFilter,
@@ -86,11 +135,29 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         self.store.get_output_notes(filter).map_err(|err| err.into())
     }
 
+    #[cfg(feature = "wasm")]
+    pub async fn get_output_notes(
+        &mut self,
+        filter: NoteFilter<'_>,
+    ) -> Result<Vec<OutputNoteRecord>, ClientError> {
+        self.store().get_output_notes(filter).await.map_err(|err| err.into())
+    }
+
     /// Returns the output note with the specified hash.
+    #[cfg(not(feature = "wasm"))]
     pub fn get_output_note(&self, note_id: NoteId) -> Result<OutputNoteRecord, ClientError> {
         Ok(self
             .store
             .get_output_notes(NoteFilter::Unique(note_id))?
+            .pop()
+            .expect("The vector always has one element for NoteFilter::Unique"))
+    }
+
+    #[cfg(feature = "wasm")]
+    pub async fn get_output_note(&mut self, note_id: NoteId) -> Result<OutputNoteRecord, ClientError> {
+        Ok(self
+            .store()
+            .get_output_notes(NoteFilter::Unique(note_id)).await?
             .pop()
             .expect("The vector always has one element for NoteFilter::Unique"))
     }
@@ -110,11 +177,19 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         verify: bool,
     ) -> Result<(), ClientError> {
         if !verify {
+            #[cfg(not(feature = "wasm"))]
             return self.store.insert_input_note(&note).map_err(|err| err.into());
+
+            #[cfg(feature = "wasm")]
+            return self.store().insert_input_note(&note).await.map_err(|err| err.into());
         }
 
         // Verify that note exists in chain
+        #[cfg(not(feature = "wasm"))]
         let mut chain_notes = self.rpc_api.get_notes_by_id(&[note.id()]).await?;
+
+        #[cfg(feature = "wasm")]
+        let mut chain_notes = self.rpc_api().get_notes_by_id(&[note.id()]).await?;
 
         if chain_notes.is_empty() {
             return Err(ClientError::ExistenceVerificationError(note.id()));
@@ -126,7 +201,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         // If the note exists in the chain and the client is synced to a height equal or
         // greater than the note's creation block, get MMR and block header data for the
         // note's block. Additionally create the inclusion proof if none is provided.
-        let inclusion_proof = if self.get_sync_height()? >= inclusion_details.block_num {
+        #[cfg(not(feature = "wasm"))]
+        let sync_height = self.get_sync_height()?;
+
+        #[cfg(feature = "wasm")]
+        let sync_height = self.get_sync_height().await?;
+
+        let inclusion_proof = if sync_height >= inclusion_details.block_num {
             // Add the inclusion proof to the imported note
             info!("Requesting MMR data for past block num {}", inclusion_details.block_num);
             let block_header =
@@ -165,7 +246,16 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             note.details().clone(),
             None,
         );
-        self.store.insert_input_note(&note).map_err(|err| err.into())
+
+        #[cfg(not(feature = "wasm"))]
+        {
+            return self.store.insert_input_note(&note).map_err(|err| err.into());
+        }
+
+        #[cfg(feature = "wasm")]
+        {
+            return self.store().insert_input_note(&note).await.map_err(|err| err.into());
+        }
     }
 
     /// Compiles the provided program into a [NoteScript] and checks (to the extent possible) if

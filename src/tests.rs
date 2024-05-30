@@ -1,3 +1,6 @@
+// Exclude this file when the target is wasm32
+#![cfg(not(feature = "wasm"))]
+
 // TESTS
 // ================================================================================================
 use miden_lib::transaction::TransactionKernel;

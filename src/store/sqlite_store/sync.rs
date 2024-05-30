@@ -1,3 +1,5 @@
+// Exclude this file when the target is wasm32
+#![cfg(not(feature = "wasm"))]
 use miden_objects::notes::{NoteInclusionProof, NoteTag};
 use rusqlite::{named_params, params};
 

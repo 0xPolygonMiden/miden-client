@@ -1,3 +1,6 @@
+// Exclude this file when compiling for wasm
+#![cfg(not(feature = "wasm"))]
+
 use std::time::Duration;
 
 use async_trait::async_trait;

@@ -41,6 +41,7 @@ impl<S: Store> NoteScreener<S> {
     /// Does a fast check for known scripts (P2ID, P2IDR, SWAP). We're currently
     /// unable to execute notes that are not committed so a slow check for other scripts is currently
     /// not available.
+    #[cfg(not(feature = "wasm"))]
     pub fn check_relevance(
         &self,
         note: &Note,
@@ -52,6 +53,24 @@ impl<S: Store> NoteScreener<S> {
             P2ID => Self::check_p2id_relevance(note, &account_ids)?,
             P2IDR => Self::check_p2idr_relevance(note, &account_ids)?,
             SWAP => self.check_swap_relevance(note, &account_ids)?,
+            _ => self.check_script_relevance(note, &account_ids)?,
+        };
+
+        Ok(note_relevance)
+    }
+
+    #[cfg(feature = "wasm")]
+    pub async fn check_relevance(
+        &self,
+        note: &Note,
+    ) -> Result<Vec<(AccountId, NoteRelevance)>, ScreenerError> {
+        let account_ids = BTreeSet::from_iter(self.store.get_account_ids().await?);
+
+        let script_hash = note.script().hash().to_string();
+        let note_relevance = match script_hash.as_str() {
+            P2ID => Self::check_p2id_relevance(note, &account_ids)?,
+            P2IDR => Self::check_p2idr_relevance(note, &account_ids)?,
+            SWAP => self.check_swap_relevance(note, &account_ids).await?,
             _ => self.check_script_relevance(note, &account_ids)?,
         };
 
@@ -122,6 +141,7 @@ impl<S: Store> NoteScreener<S> {
     /// load the account's vaults, or even have a function in the `Store` to do this.
     ///
     /// TODO: test/revisit this in the future
+    #[cfg(not(feature = "wasm"))]
     fn check_swap_relevance(
         &self,
         note: &Note,
@@ -144,6 +164,55 @@ impl<S: Store> NoteScreener<S> {
 
         for account_id in account_ids {
             let (account, _) = self.store.get_account(*account_id)?;
+
+            // Check that the account can cover the demanded asset
+            match asset {
+                Asset::NonFungible(_non_fungible_asset)
+                    if account.vault().has_non_fungible_asset(asset).expect(
+                        "Should be able to query has_non_fungible_asset for an Asset::NonFungible",
+                    ) =>
+                {
+                    accounts_with_relevance.push((*account_id, NoteRelevance::Always))
+                },
+                Asset::Fungible(fungible_asset)
+                    if account
+                        .vault()
+                        .get_balance(asset_faucet_id)
+                        .expect("Should be able to query get_balance for an Asset::Fungible")
+                        >= fungible_asset.amount() =>
+                {
+                    accounts_with_relevance.push((*account_id, NoteRelevance::Always))
+                },
+                _ => {},
+            }
+        }
+
+        Ok(accounts_with_relevance)
+    }
+
+    #[cfg(feature = "wasm")]
+    async fn check_swap_relevance(
+        &self,
+        note: &Note,
+        account_ids: &BTreeSet<AccountId>,
+    ) -> Result<Vec<(AccountId, NoteRelevance)>, ScreenerError> {
+        let note_inputs = note.inputs().to_vec();
+        if note_inputs.len() != 9 {
+            return Ok(Vec::new());
+        }
+
+        // get the demanded asset from the note's inputs
+        let asset: Asset =
+            Word::from([note_inputs[4], note_inputs[5], note_inputs[6], note_inputs[7]])
+                .try_into()
+                .map_err(|err| InvalidNoteInputsError::AssetError(note.id(), err))?;
+        let asset_faucet_id = AccountId::try_from(asset.vault_key()[3])
+            .map_err(|err| InvalidNoteInputsError::AccountError(note.id(), err))?;
+
+        let mut accounts_with_relevance = Vec::new();
+
+        for account_id in account_ids {
+            let (account, _) = self.store.get_account(*account_id).await?;
 
             // Check that the account can cover the demanded asset
             match asset {

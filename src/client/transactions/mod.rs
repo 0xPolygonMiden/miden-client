@@ -1,4 +1,11 @@
+#[cfg(not(feature = "wasm"))]
+use rand::Rng;
+
+#[cfg(feature = "wasm")]
+use rand::{rngs::StdRng, Rng, SeedableRng};
+
 use alloc::collections::{BTreeMap, BTreeSet};
+use tracing::info;
 
 use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
@@ -14,8 +21,6 @@ use miden_objects::{
     Digest, Felt, Word,
 };
 use miden_tx::{ProvingOptions, ScriptTarget, TransactionAuthenticator, TransactionProver};
-use rand::Rng;
-use tracing::info;
 
 use self::transaction_request::{
     PaymentTransactionData, SwapTransactionData, TransactionRequest, TransactionTemplate,
@@ -45,6 +50,7 @@ pub struct TransactionResult {
 
 impl TransactionResult {
     /// Screens the output notes to store and track the relevant ones, and instantiates a [TransactionResult]
+    #[cfg(not(feature = "wasm"))]
     pub fn new<S: Store>(
         transaction: ExecutedTransaction,
         note_screener: NoteScreener<S>,
@@ -54,6 +60,30 @@ impl TransactionResult {
 
         for note in notes_from_output(transaction.output_notes()) {
             let account_relevance = note_screener.check_relevance(note)?;
+
+            if !account_relevance.is_empty() {
+                relevant_notes.push(note.clone().into());
+            }
+        }
+
+        // Include partial output notes into the relevant notes
+        relevant_notes.extend(partial_notes.iter().map(InputNoteRecord::from));
+
+        let tx_result = Self { transaction, relevant_notes };
+
+        Ok(tx_result)
+    }
+
+    #[cfg(feature = "wasm")]
+    pub async fn new<S: Store>(
+        transaction: ExecutedTransaction,
+        note_screener: NoteScreener<S>,
+        partial_notes: Vec<NoteDetails>,
+    ) -> Result<Self, ClientError> {
+        let mut relevant_notes = vec![];
+
+        for note in notes_from_output(transaction.output_notes()) {
+            let account_relevance = note_screener.check_relevance(note).await?;
 
             if !account_relevance.is_empty() {
                 relevant_notes.push(note.clone().into());
@@ -167,6 +197,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // --------------------------------------------------------------------------------------------
 
     /// Retrieves tracked transactions, filtered by [TransactionFilter].
+    #[cfg(not(feature = "wasm"))]
     pub fn get_transactions(
         &self,
         filter: TransactionFilter,
@@ -174,17 +205,64 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         self.store.get_transactions(filter).map_err(|err| err.into())
     }
 
+    #[cfg(feature = "wasm")]
+    pub async fn get_transactions(
+        &mut self,
+        filter: TransactionFilter,
+    ) -> Result<Vec<TransactionRecord>, ClientError> {
+        self.store().get_transactions(filter).await.map_err(|err| err.into())
+    }
+
     // TRANSACTION
     // --------------------------------------------------------------------------------------------
 
     /// Compiles a [TransactionTemplate] into a [TransactionRequest] that can be then executed by the
     /// client
+    #[cfg(not(feature = "wasm"))]
     pub fn build_transaction_request(
         &mut self,
         transaction_template: TransactionTemplate,
     ) -> Result<TransactionRequest, ClientError> {
         let account_id = transaction_template.account_id();
         let account_auth = self.store.get_account_auth(account_id)?;
+
+        let (_pk, _sk) = match account_auth {
+            AuthSecretKey::RpoFalcon512(key) => {
+                (key.public_key(), AuthSecretKey::RpoFalcon512(key))
+            },
+        };
+
+        match transaction_template {
+            TransactionTemplate::ConsumeNotes(_, notes) => {
+                let program_ast = ProgramAst::parse(transaction_request::AUTH_CONSUME_NOTES_SCRIPT)
+                    .expect("shipped MASM is well-formed");
+                let notes = notes.iter().map(|id| (*id, None)).collect();
+
+                let tx_script = self.tx_executor.compile_tx_script(program_ast, vec![], vec![])?;
+                Ok(TransactionRequest::new(account_id, notes, vec![], vec![], Some(tx_script)))
+            },
+            TransactionTemplate::MintFungibleAsset(asset, target_account_id, note_type) => {
+                self.build_mint_tx_request(asset, target_account_id, note_type)
+            },
+            TransactionTemplate::PayToId(payment_data, note_type) => {
+                self.build_p2id_tx_request(payment_data, None, note_type)
+            },
+            TransactionTemplate::PayToIdWithRecall(payment_data, recall_height, note_type) => {
+                self.build_p2id_tx_request(payment_data, Some(recall_height), note_type)
+            },
+            TransactionTemplate::Swap(swap_data, note_type) => {
+                self.build_swap_tx_request(swap_data, note_type)
+            },
+        }
+    }
+
+    #[cfg(feature = "wasm")]
+    pub async fn build_transaction_request(
+        &mut self,
+        transaction_template: TransactionTemplate,
+    ) -> Result<TransactionRequest, ClientError> {
+        let account_id = transaction_template.account_id();
+        let account_auth = self.store().get_account_auth(account_id).await?;
 
         let (_pk, _sk) = match account_auth {
             AuthSecretKey::RpoFalcon512(key) => {
@@ -224,6 +302,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// - Returns [ClientError::MissingOutputNotes] if the [TransactionRequest] ouput notes are
     ///   not a subset of executor's output notes
     /// - Returns a [ClientError::TransactionExecutorError] if the execution fails
+    #[cfg(not(feature = "wasm"))]
     pub fn new_transaction(
         &mut self,
         transaction_request: TransactionRequest,
@@ -272,8 +351,58 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         TransactionResult::new(executed_transaction, screener, partial_notes)
     }
 
+    #[cfg(feature = "wasm")]
+    pub async fn new_transaction(
+        &mut self,
+        transaction_request: TransactionRequest,
+    ) -> Result<TransactionResult, ClientError> {
+        let account_id = transaction_request.account_id();
+        self.tx_executor
+            .load_account(account_id).await
+            .map_err(ClientError::TransactionExecutorError)?;
+
+        let block_num = self.store().get_sync_height().await?;
+
+        let note_ids = transaction_request.get_input_note_ids();
+        let output_notes = transaction_request.expected_output_notes().to_vec();
+        let partial_notes = transaction_request.expected_partial_notes().to_vec();
+
+        // Execute the transaction and get the witness
+        let executed_transaction = self.tx_executor.execute_transaction(
+            account_id,
+            block_num,
+            &note_ids,
+            transaction_request.into(),
+        ).await?;
+
+        // Check that the expected output notes matches the transaction outcome.
+        // We comprare authentication hashes where possible since that involves note IDs + metadata
+        // (as opposed to just note ID which remains the same regardless of metadata)
+        // We also do the check for partial output notes
+        let tx_note_auth_hashes: BTreeSet<Digest> =
+            notes_from_output(executed_transaction.output_notes())
+                .map(Note::authentication_hash)
+                .collect();
+
+        let missing_note_ids: Vec<NoteId> = output_notes
+            .iter()
+            .filter_map(|n| {
+                (!tx_note_auth_hashes.contains(&n.authentication_hash())).then_some(n.id())
+            })
+            .collect();
+
+        if !missing_note_ids.is_empty() {
+            return Err(ClientError::MissingOutputNotes(missing_note_ids));
+        }
+
+        let screener = NoteScreener::new(self.store.clone());
+
+        TransactionResult::new(executed_transaction, screener, partial_notes).await
+    }
+
     /// Proves the specified transaction witness, submits it to the node, and stores the transaction in
     /// the local database for tracking.
+    #[cfg(not(feature = "wasm"))]
     pub async fn submit_transaction(
         &mut self,
         tx_result: TransactionResult,
@@ -289,6 +418,26 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         // Transaction was proven and submitted to the node correctly, persist note details and update account
         self.store.apply_transaction(tx_result)?;
+
+        Ok(())
+    }
+
+    #[cfg(feature = "wasm")]
+    pub async fn submit_transaction(
+        &mut self,
+        tx_result: TransactionResult,
+    ) -> Result<(), ClientError> {
+        let transaction_prover = TransactionProver::new(ProvingOptions::default());
+
+        let proven_transaction =
+            transaction_prover.prove_transaction(tx_result.executed_transaction().clone())?;
+
+        info!("Proved transaction, submitting to the node...");
+
+        self.submit_proven_transaction_request(proven_transaction.clone()).await?;
+
+        // Transaction was proven and submitted to the node correctly, persist note details and update account
+        self.store().apply_transaction(tx_result).await?;
 
         Ok(())
     }
@@ -310,6 +459,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             .map_err(ClientError::TransactionExecutorError)
     }
 
+    #[cfg(not(feature = "wasm"))]
     async fn submit_proven_transaction_request(
         &mut self,
         proven_transaction: ProvenTransaction,
@@ -317,13 +467,31 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         Ok(self.rpc_api.submit_proven_transaction(proven_transaction).await?)
     }
 
+    #[cfg(feature = "wasm")]
+    async fn submit_proven_transaction_request(
+        &mut self,
+        proven_transaction: ProvenTransaction,
+    ) -> Result<(), ClientError> {
+        Ok(self.rpc_api().submit_proven_transaction(proven_transaction).await?)
+    }
+
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
     /// Gets [RpoRandomCoin] from the client
+    #[cfg(not(feature = "wasm"))]
     fn get_random_coin(&self) -> RpoRandomCoin {
         // TODO: Initialize coin status once along with the client and persist status for retrieval
         let mut rng = rand::thread_rng();
+        let coin_seed: [u64; 4] = rng.gen();
+
+        RpoRandomCoin::new(coin_seed.map(Felt::new))
+    }
+
+    #[cfg(feature = "wasm")]
+    fn get_random_coin(&self) -> RpoRandomCoin {
+        // TODO: Initialize coin status once along with the client and persist status for retrieval
+        let mut rng = StdRng::from_entropy();
         let coin_seed: [u64; 4] = rng.gen();
 
         RpoRandomCoin::new(coin_seed.map(Felt::new))
@@ -500,7 +668,7 @@ pub(crate) fn prepare_word(word: &Word) -> String {
 /// Used for:
 /// - checking the relevance of notes to save them as input notes
 /// - validate hashes versus expected output notes after a transaction is executed
-pub(crate) fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &Note> {
+pub fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &Note> {
     output_notes
         .iter()
         .filter(|n| matches!(n, OutputNote::Full(_)))
@@ -510,6 +678,6 @@ pub(crate) fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Ite
             // partial details of the note
             OutputNote::Header(_) => {
                 todo!("For now, all details should be held in OutputNote::Fulls")
-            },
+            }
         })
 }

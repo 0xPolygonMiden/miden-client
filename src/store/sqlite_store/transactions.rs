@@ -1,3 +1,5 @@
+// Exclude this file when the target is wasm32
+#![cfg(not(feature = "wasm"))]
 use alloc::collections::BTreeMap;
 
 use miden_objects::{
