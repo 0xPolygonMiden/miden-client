@@ -74,7 +74,7 @@ CREATE TABLE input_notes (
     recipient BLOB NOT NULL,                                -- the note recipient
     assets BLOB NOT NULL,                                   -- the serialized NoteAssets, including vault hash and list of assets
     status TEXT CHECK( status IN (                          -- the status of the note - either pending, committed or consumed
-        'Pending', 'Committed', 'Consumed'
+        'Pending', 'Committed', 'Processing', 'Consumed'
         )),
 
     inclusion_proof JSON NULL,                              -- JSON consisting of the following fields:
@@ -107,7 +107,7 @@ CREATE TABLE input_notes (
         json_extract(inclusion_proof, '$.note_path') IS NOT NULL
       ))
     CONSTRAINT check_valid_metadata_json CHECK (metadata IS NULL OR (json_extract(metadata, '$.sender') IS NOT NULL AND json_extract(metadata, '$.tag') IS NOT NULL))
-    CONSTRAINT check_valid_consumer_transaction_id CHECK (consumer_transaction_id IS NULL OR status != 'Pending')
+    CONSTRAINT check_valid_consumer_transaction_id CHECK (consumer_transaction_id IS NULL OR status in ('Processing', 'Consumed'))
 );
 
 -- Create output notes table
@@ -116,7 +116,7 @@ CREATE TABLE output_notes (
     recipient BLOB NOT NULL,                                -- the note recipient
     assets BLOB NOT NULL,                                   -- the serialized NoteAssets, including vault hash and list of assets
     status TEXT CHECK( status IN (                          -- the status of the note - either pending, committed or consumed
-        'Pending', 'Committed', 'Consumed'
+        'Pending', 'Committed', 'Processing', 'Consumed'
         )),
 
     inclusion_proof JSON NULL,                              -- JSON consisting of the following fields:
@@ -156,7 +156,7 @@ CREATE TABLE output_notes (
         json_extract(details, '$.inputs') IS NOT NULL AND
         json_extract(details, '$.serial_num') IS NOT NULL
       ))
-    CONSTRAINT check_valid_consumer_transaction_id CHECK (consumer_transaction_id IS NULL OR status != 'Pending')
+    CONSTRAINT check_valid_consumer_transaction_id CHECK (consumer_transaction_id IS NULL OR status in ('Processing', 'Consumed'))
 );
 
 -- Create note's scripts table, used for both input and output notes

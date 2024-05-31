@@ -238,11 +238,17 @@ impl SqliteStore {
     /// Returns the nullifiers of all unspent input notes
     pub fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
         const QUERY: &str =
-            "SELECT json_extract(details, '$.nullifier') FROM input_notes WHERE status = ?";
+            "SELECT json_extract(details, '$.nullifier') FROM input_notes WHERE status IN rarray(?)";
 
         self.db()
             .prepare(QUERY)?
-            .query_map([NoteStatus::Committed.to_string()], |row| row.get(0))
+            .query_map(
+                params_from_iter([
+                    NoteStatus::Committed.to_string(),
+                    NoteStatus::Processing.to_string(),
+                ]),
+                |row| row.get(0),
+            )
             .expect("no binding parameters used in query")
             .map(|result| {
                 result.map_err(|err| StoreError::ParsingError(err.to_string())).and_then(
@@ -342,24 +348,26 @@ pub fn update_note_consumer_tx_id(
     note_id: NoteId,
     consumer_tx_id: TransactionId,
 ) -> Result<(), StoreError> {
-    const UPDATE_INPUT_NOTES_QUERY: &str = "UPDATE input_notes SET consumer_transaction_id = :consumer_transaction_id WHERE note_id = :note_id;";
+    const UPDATE_INPUT_NOTES_QUERY: &str = "UPDATE input_notes SET status = :status, consumer_transaction_id = :consumer_transaction_id WHERE note_id = :note_id;";
 
     tx.execute(
         UPDATE_INPUT_NOTES_QUERY,
         named_params! {
             ":note_id": note_id.inner().to_string(),
             ":consumer_transaction_id": consumer_tx_id.to_string(),
+            ":status": NoteStatus::Processing.to_string(),
         },
     )
     .map_err(|err| StoreError::QueryError(err.to_string()))?;
 
-    const UPDATE_OUTPUT_NOTES_QUERY: &str = "UPDATE output_notes SET consumer_transaction_id = :consumer_transaction_id WHERE note_id = :note_id;";
+    const UPDATE_OUTPUT_NOTES_QUERY: &str = "UPDATE output_notes SET status = :status, consumer_transaction_id = :consumer_transaction_id WHERE note_id = :note_id;";
 
     tx.execute(
         UPDATE_OUTPUT_NOTES_QUERY,
         named_params! {
             ":note_id": note_id.inner().to_string(),
             ":consumer_transaction_id": consumer_tx_id.to_string(),
+            ":status": NoteStatus::Processing.to_string(),
         },
     )
     .map_err(|err| StoreError::QueryError(err.to_string()))?;
@@ -447,13 +455,6 @@ fn parse_input_note(
     let consumer_account_id: Option<AccountId> = match consumer_account_id {
         Some(account_id) => Some(AccountId::try_from(account_id as u64)?),
         None => None,
-    };
-
-    // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
-    let status = if let (NoteStatus::Committed, Some(_)) = (status, consumer_account_id) {
-        NoteStatus::Processing
-    } else {
-        status
     };
 
     Ok(InputNoteRecord::new(
