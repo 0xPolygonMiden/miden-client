@@ -19,7 +19,7 @@ pub enum NoteRelevance {
 
 /// Represents the consumability of a note by a specific account.
 ///
-/// The tuple contains the account id that may consume the note and the moment it will become relevant.
+/// The tuple contains the account ID that may consume the note and the moment it will become relevant.
 pub type NoteConsumability = (AccountId, NoteRelevance);
 
 impl fmt::Display for NoteRelevance {
