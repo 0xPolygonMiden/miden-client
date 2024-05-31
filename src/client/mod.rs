@@ -12,11 +12,13 @@ use miden_objects::{
     crypto::rand::{FeltRng, RpoRandomCoin},
     Felt,
 };
-use miden_tx::{TransactionAuthenticator, TransactionExecutor};
+use miden_tx::{auth::TransactionAuthenticator, TransactionExecutor};
+
 #[cfg(not(feature = "wasm"))]
 use rand::Rng;
 #[cfg(feature = "wasm")]
 use rand::{rngs::StdRng, Rng, SeedableRng};
+
 use tracing::info;
 
 use crate::store::{data_store::ClientDataStore, Store};

@@ -13,11 +13,13 @@ use miden_objects::{
     },
     Digest, Felt, Word,
 };
-use miden_tx::{ProvingOptions, ScriptTarget, TransactionAuthenticator, TransactionProver};
+use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, ScriptTarget, TransactionProver};
+
 #[cfg(not(feature = "wasm"))]
 use rand::Rng;
 #[cfg(feature = "wasm")]
 use rand::{rngs::StdRng, Rng, SeedableRng};
+
 use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
 

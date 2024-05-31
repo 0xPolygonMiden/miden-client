@@ -3,7 +3,7 @@ use miden_client::{
     store::Store,
 };
 use miden_objects::crypto::rand::FeltRng;
-use miden_tx::TransactionAuthenticator;
+use miden_tx::auth::TransactionAuthenticator;
 
 pub async fn sync_state<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
     mut client: Client<N, R, S, A>,

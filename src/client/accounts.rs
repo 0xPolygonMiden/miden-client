@@ -8,7 +8,7 @@ use miden_objects::{
     crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
     Felt, Word,
 };
-use miden_tx::TransactionAuthenticator;
+use miden_tx::auth::TransactionAuthenticator;
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use super::{rpc::NodeRpcClient, Client};
