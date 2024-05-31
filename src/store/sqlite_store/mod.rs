@@ -1,13 +1,14 @@
 use alloc::collections::BTreeMap;
 use core::cell::{RefCell, RefMut};
+use std::rc::Rc;
 
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::NoteTag,
+    notes::{NoteTag, Nullifier},
     BlockHeader, Digest, Word,
 };
-use rusqlite::{vtab::array, Connection};
+use rusqlite::{types::Value, vtab::array, Connection};
 
 use super::{
     ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store, TransactionFilter,
@@ -19,6 +20,7 @@ use crate::{
     },
     config::StoreConfig,
     errors::StoreError,
+    store::NoteStatus,
 };
 
 mod accounts;
@@ -232,6 +234,27 @@ impl Store for SqliteStore {
 
     fn get_account_auth_by_pub_key(&self, pub_key: Word) -> Result<AuthSecretKey, StoreError> {
         self.get_account_auth_by_pub_key(pub_key)
+    }
+
+    fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
+        const QUERY: &str =
+                "SELECT json_extract(details, '$.nullifier') FROM input_notes WHERE status IN rarray(?)";
+        let unspent_filters = Rc::new(vec![
+            Value::from(NoteStatus::Committed.to_string()),
+            Value::from(NoteStatus::Processing.to_string()),
+        ]);
+        self.db()
+            .prepare(QUERY)?
+            .query_map([unspent_filters], |row| row.get(0))
+            .expect("no binding parameters used in query")
+            .map(|result| {
+                result.map_err(|err| StoreError::ParsingError(err.to_string())).and_then(
+                    |v: String| {
+                        Digest::try_from(v).map(Nullifier::from).map_err(StoreError::HexParseError)
+                    },
+                )
+            })
+            .collect::<Result<Vec<Nullifier>, _>>()
     }
 }
 

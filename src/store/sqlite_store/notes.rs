@@ -5,7 +5,7 @@ use clap::error::Result;
 use miden_objects::{
     accounts::AccountId,
     crypto::utils::{Deserializable, Serializable},
-    notes::{NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, NoteScript, Nullifier},
+    notes::{NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, NoteScript},
     transaction::TransactionId,
     Digest,
 };
@@ -233,31 +233,6 @@ impl SqliteStore {
         insert_input_note_tx(&tx, note)?;
 
         Ok(tx.commit()?)
-    }
-
-    /// Returns the nullifiers of all unspent input notes
-    pub fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
-        const QUERY: &str =
-            "SELECT json_extract(details, '$.nullifier') FROM input_notes WHERE status IN rarray(?)";
-
-        self.db()
-            .prepare(QUERY)?
-            .query_map(
-                params_from_iter([
-                    NoteStatus::Committed.to_string(),
-                    NoteStatus::Processing.to_string(),
-                ]),
-                |row| row.get(0),
-            )
-            .expect("no binding parameters used in query")
-            .map(|result| {
-                result.map_err(|err| StoreError::ParsingError(err.to_string())).and_then(
-                    |v: String| {
-                        Digest::try_from(v).map(Nullifier::from).map_err(StoreError::HexParseError)
-                    },
-                )
-            })
-            .collect::<Result<Vec<Nullifier>, _>>()
     }
 }
 
