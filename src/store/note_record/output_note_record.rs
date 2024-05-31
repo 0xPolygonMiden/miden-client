@@ -108,7 +108,7 @@ impl From<Note> for OutputNoteRecord {
             details: Some(NoteRecordDetails::new(
                 note.nullifier().to_string(),
                 note.script().clone(),
-                note.inputs().to_vec(),
+                note.inputs().values().to_vec(),
                 note.serial_num(),
             )),
             consumer_account_id: None,

@@ -19,7 +19,7 @@ use miden_objects::{
     notes::{NoteExecutionHint, NoteTag, NoteType},
     NoteError,
 };
-use miden_tx::TransactionAuthenticator;
+use miden_tx::auth::TransactionAuthenticator;
 
 use super::{get_account_with_id_prefix, CLIENT_CONFIG_FILE_NAME};
 use crate::cli::info;

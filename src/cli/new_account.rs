@@ -4,7 +4,7 @@ use miden_client::{
     store::Store,
 };
 use miden_objects::{accounts::AccountStorageType, assets::TokenSymbol, crypto::rand::FeltRng};
-use miden_tx::TransactionAuthenticator;
+use miden_tx::auth::TransactionAuthenticator;
 
 use crate::cli::CLIENT_BINARY_NAME;
 

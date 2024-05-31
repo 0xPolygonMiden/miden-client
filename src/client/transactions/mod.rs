@@ -13,7 +13,7 @@ use miden_objects::{
     },
     Digest, Felt, Word,
 };
-use miden_tx::{ProvingOptions, ScriptTarget, TransactionAuthenticator, TransactionProver};
+use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, ScriptTarget, TransactionProver};
 use rand::Rng;
 use tracing::info;
 

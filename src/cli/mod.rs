@@ -16,7 +16,7 @@ use miden_client::{
     },
 };
 use miden_objects::{accounts::AccountStub, crypto::rand::FeltRng};
-use miden_tx::TransactionAuthenticator;
+use miden_tx::auth::TransactionAuthenticator;
 use tracing::info;
 use transactions::TransactionCmd;
 

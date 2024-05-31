@@ -14,7 +14,7 @@ use miden_objects::{
     notes::NoteId,
     utils::Deserializable,
 };
-use miden_tx::TransactionAuthenticator;
+use miden_tx::auth::TransactionAuthenticator;
 use tracing::info;
 
 use super::Parser;

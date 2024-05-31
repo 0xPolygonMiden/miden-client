@@ -5,7 +5,7 @@ use miden_client::{
     store::{InputNoteRecord, Store},
 };
 use miden_objects::crypto::rand::FeltRng;
-use miden_tx::{utils::Serializable, TransactionAuthenticator};
+use miden_tx::{auth::TransactionAuthenticator, utils::Serializable};
 use tracing::info;
 
 use crate::cli::get_output_note_with_id_prefix;
