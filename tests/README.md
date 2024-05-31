@@ -14,7 +14,7 @@ cargo make node
 # This command will run the node on background
 cargo make start-node &
 # This will run the integration test 
-cargo make integration-test
+cargo make integration-test-full
 ```
 
 ## Integration Test Flow
@@ -41,6 +41,24 @@ the user's responsibilty.
 To run the integration test you just need to run `cargo make integration-test`.
 It'll run the integration tests as a cargo test using the `integration` feature
 which is used to separate regular tests from integration tests.
+
+### Ignored Tests
+
+Currently, we have one ignored test because it requires having the genesis data
+from the node it is running against which might not always be possible. You can
+run it manually by doing:
+
+```bash
+cargo nextest run --profile ci-default --release --test=integration --features integration --run-ignored ignored-only -- test_import_genesis_accounts_can_be_used_for_transactions
+```
+
+Or run `cargo make integration-test-full` to run all integration tests with
+that included. On the other hand, if you want to run integration tests without
+that one you can just instead do:
+
+```bash
+cargo make integration-test
+```
 
 ### Running tests against a remote node
 
