@@ -4,7 +4,7 @@ use miden_objects::{
     crypto::rand::{FeltRng, RpoRandomCoin},
     Felt,
 };
-use miden_tx::{TransactionAuthenticator, TransactionExecutor};
+use miden_tx::{auth::TransactionAuthenticator, TransactionExecutor};
 use rand::Rng;
 use tracing::info;
 

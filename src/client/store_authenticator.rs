@@ -6,7 +6,7 @@ use miden_objects::{
     crypto::dsa::rpo_falcon512::{self, Polynomial},
     Digest, Felt, Word,
 };
-use miden_tx::{AuthenticationError, TransactionAuthenticator};
+use miden_tx::{auth::TransactionAuthenticator, AuthenticationError};
 use rand::Rng;
 
 use crate::store::Store;

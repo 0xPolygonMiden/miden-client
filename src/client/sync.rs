@@ -9,7 +9,7 @@ use miden_objects::{
     transaction::{InputNote, TransactionId},
     BlockHeader, Digest,
 };
-use miden_tx::TransactionAuthenticator;
+use miden_tx::auth::TransactionAuthenticator;
 use tracing::{info, warn};
 
 use super::{
