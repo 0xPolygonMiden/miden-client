@@ -29,6 +29,7 @@ pub enum NoteFilter {
     Pending,
     Committed,
     Consumed,
+    Processing,
     Consumable,
 }
 
@@ -41,6 +42,7 @@ impl TryInto<ClientNoteFilter<'_>> for NoteFilter {
             NoteFilter::Pending => Ok(ClientNoteFilter::Pending),
             NoteFilter::Committed => Ok(ClientNoteFilter::Committed),
             NoteFilter::Consumed => Ok(ClientNoteFilter::Consumed),
+            NoteFilter::Processing => Ok(ClientNoteFilter::Processing),
             NoteFilter::Consumable => Err("Consumable filter is not supported".to_string()),
         }
     }

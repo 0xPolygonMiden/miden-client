@@ -126,6 +126,9 @@ impl<'a> NoteFilter<'a> {
             NoteFilter::Pending => {
                 format!("{base} WHERE status = '{}'", NoteStatus::Pending)
             },
+            NoteFilter::Processing => {
+                format!("{base} WHERE status = '{}'", NoteStatus::Processing)
+            },
             NoteFilter::Unique(_) | NoteFilter::List(_) => {
                 format!("{base} WHERE note.note_id IN rarray(?)")
             },
