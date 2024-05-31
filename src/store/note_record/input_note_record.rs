@@ -116,7 +116,7 @@ impl From<&NoteDetails> for InputNoteRecord {
                 nullifier: note_details.nullifier().to_string(),
                 script_hash: note_details.script().hash(),
                 script: note_details.script().clone(),
-                inputs: note_details.inputs().to_vec(),
+                inputs: note_details.inputs().values().to_vec(),
                 serial_num: note_details.serial_num(),
             },
             consumer_account_id: None,
@@ -171,7 +171,7 @@ impl From<Note> for InputNoteRecord {
             details: NoteRecordDetails::new(
                 note.nullifier().to_string(),
                 note.script().clone(),
-                note.inputs().to_vec(),
+                note.inputs().values().to_vec(),
                 note.serial_num(),
             ),
             consumer_account_id: None,
