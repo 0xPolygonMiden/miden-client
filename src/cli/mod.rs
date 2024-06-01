@@ -109,15 +109,14 @@ impl Cli {
 
         // Create the client
         let cli_config = load_config(current_dir.as_path())?;
-        let client_config = &cli_config.client_config;
-        let store = SqliteStore::new(&client_config.store).map_err(ClientError::StoreError)?;
+        let store = SqliteStore::new(&cli_config.store).map_err(ClientError::StoreError)?;
         let store = Rc::new(store);
 
         let rng = get_random_coin();
         let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
 
         let client = Client::new(
-            TonicRpcClient::new(&client_config.rpc),
+            TonicRpcClient::new(&cli_config.rpc),
             rng,
             store,
             authenticator,

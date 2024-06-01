@@ -9,10 +9,9 @@ use miden_client::{
     errors::{ClientError, NodeRpcClientError},
     get_random_coin,
     rpc::TonicRpcClient,
-    state_sync::SyncSummary,
     store::{sqlite_store::SqliteStore, NoteFilter, TransactionFilter},
     transactions::transaction_request::{TransactionRequest, TransactionTemplate},
-    AccountTemplate, Client, StoreAuthenticator,
+    AccountTemplate, Client, StoreAuthenticator, SyncSummary,
 };
 use miden_objects::{
     accounts::{

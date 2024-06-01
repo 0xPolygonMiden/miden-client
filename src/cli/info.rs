@@ -2,7 +2,7 @@ use std::fs;
 
 use miden_client::{
     rpc::NodeRpcClient,
-    store::{sqlite_store::SqliteStore, NoteFilter, Store},
+    store::{NoteFilter, Store},
     Client,
 };
 use miden_objects::crypto::rand::FeltRng;
@@ -12,7 +12,7 @@ use super::config::CliConfig;
 
 pub fn print_client_info<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
     client: &Client<N, R, S, A>,
-    config: &CliConfig<SqliteStore>,
+    config: &CliConfig,
 ) -> Result<(), String> {
     println!("Client version: {}", env!("CARGO_PKG_VERSION"));
     print_config_stats(config)?;
@@ -36,9 +36,9 @@ fn print_client_stats<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuth
     Ok(())
 }
 
-fn print_config_stats(config: &CliConfig<SqliteStore>) -> Result<(), String> {
-    println!("Node address: {}", config.client_config.rpc.endpoint.host());
-    let store_len = fs::metadata(config.client_config.store.database_filepath.clone())
+fn print_config_stats(config: &CliConfig) -> Result<(), String> {
+    println!("Node address: {}", config.rpc.endpoint.host());
+    let store_len = fs::metadata(config.store.database_filepath.clone())
         .map_err(|e| e.to_string())?
         .len();
     println!("Store size: {} kB", store_len / 1024);

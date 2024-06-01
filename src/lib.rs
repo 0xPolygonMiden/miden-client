@@ -3,21 +3,9 @@ extern crate alloc;
 mod client;
 
 pub use client::{
-    accounts::AccountTemplate, get_random_coin, store_authenticator::StoreAuthenticator, Client,
-    ConsumableNote, NoteRelevance,
+    accounts::AccountTemplate, get_random_coin, rpc, store_authenticator::StoreAuthenticator,
+    sync::SyncSummary, transactions, Client, ConsumableNote, NoteRelevance,
 };
-
-pub mod rpc {
-    pub use super::client::rpc::*;
-}
-
-pub mod state_sync {
-    pub use super::client::sync::SyncSummary;
-}
-
-pub mod transactions {
-    pub use super::client::transactions::*;
-}
 
 pub mod config;
 pub mod errors;
