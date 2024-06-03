@@ -303,7 +303,7 @@ pub enum NoteFilter<'a> {
     Committed,
     /// Return a list of pending notes ([InputNoteRecord] or [OutputNoteRecord]). These represent notes for which the store
     /// does not have anchor data.
-    Pending,
+    Expected,
     /// Return a list of notes that are currently being processed.
     Processing,
     /// Return a list containing the note that matches with the provided [NoteId].

@@ -238,7 +238,7 @@ async fn test_sync_state() {
     // assert that we have no consumed nor pending notes prior to syncing state
     assert_eq!(client.get_input_notes(NoteFilter::Consumed).unwrap().len(), 0);
 
-    let pending_notes = client.get_input_notes(NoteFilter::Pending).unwrap();
+    let pending_notes = client.get_input_notes(NoteFilter::Expected).unwrap();
 
     // sync state
     let sync_details = client.sync_state().await.unwrap();

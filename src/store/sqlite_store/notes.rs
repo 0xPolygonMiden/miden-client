@@ -140,7 +140,7 @@ impl<'a> NoteFilter<'a> {
             NoteFilter::Consumed => {
                 format!("{base} WHERE status = '{NOTE_STATUS_CONSUMED}'")
             },
-            NoteFilter::Pending => {
+            NoteFilter::Expected => {
                 format!("{base} WHERE status = '{NOTE_STATUS_EXPECTED}'")
             },
             NoteFilter::Processing => {

@@ -113,7 +113,7 @@ impl From<PartialNote> for OutputNoteRecord {
             partial_note.id(),
             partial_note.recipient_digest(),
             partial_note.assets().clone(),
-            NoteStatus::Pending { created_at: 0 },
+            NoteStatus::Expected { created_at: 0 },
             *partial_note.metadata(),
             None,
             None,
