@@ -118,8 +118,6 @@ impl SqliteStore {
 // To simplify, all implementations rely on inner SqliteStore functions that map 1:1 by name
 // This way, the actual implementations are grouped by entity types in their own sub-modules
 impl Store for SqliteStore {
-    type StoreConfig = SqliteStoreConfig;
-
     fn get_note_tags(&self) -> Result<Vec<NoteTag>, StoreError> {
         self.get_note_tags()
     }

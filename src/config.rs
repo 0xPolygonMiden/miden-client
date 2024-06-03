@@ -2,36 +2,6 @@ use core::fmt::{self, Debug};
 
 use serde::{Deserialize, Serialize};
 
-use crate::store::Store;
-
-// CLIENT CONFIG
-// ================================================================================================
-
-/// Configuration options of Miden client.
-#[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct ClientConfig<S: Store> {
-    /// Describes settings related to the RPC endpoint
-    pub rpc: RpcConfig,
-    /// Describes settings related to the store.
-    pub store: S::StoreConfig,
-}
-
-impl<S: Store> Default for ClientConfig<S> {
-    fn default() -> Self {
-        Self {
-            rpc: RpcConfig::default(),
-            store: S::StoreConfig::default(),
-        }
-    }
-}
-
-impl<S: Store> ClientConfig<S> {
-    /// Returns a new instance of [ClientConfig] with the specified store path and node endpoint.
-    pub const fn new(store: S::StoreConfig, rpc: RpcConfig) -> Self {
-        Self { store, rpc }
-    }
-}
-
 // ENDPOINT
 // ================================================================================================
 

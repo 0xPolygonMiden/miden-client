@@ -5,11 +5,14 @@ use figment::{
     Figment,
 };
 use miden_client::{
-    config::ClientConfig,
+    config::RpcConfig,
     errors::{ClientError, RpcError},
     get_random_coin,
     rpc::TonicRpcClient,
-    store::{sqlite_store::SqliteStore, NoteFilter, TransactionFilter},
+    store::{
+        sqlite_store::{config::SqliteStoreConfig, SqliteStore},
+        NoteFilter, TransactionFilter,
+    },
     transactions::transaction_request::{TransactionRequest, TransactionTemplate},
     AccountTemplate, Client, StoreAuthenticator, SyncSummary,
 };
@@ -35,7 +38,7 @@ pub type TestClient = Client<
     StoreAuthenticator<RpoRandomCoin, SqliteStore>,
 >;
 
-pub const TEST_CLIENT_CONFIG_FILE_PATH: &str = "./tests/config/miden-client.toml";
+pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./tests/config/miden-client-rpc.toml";
 /// Creates a `TestClient`
 ///
 /// Creates the client using the config at `TEST_CLIENT_CONFIG_FILE_PATH`. The store's path is at a random temporary location, so the store section of the config file is ignored.
@@ -45,33 +48,32 @@ pub const TEST_CLIENT_CONFIG_FILE_PATH: &str = "./tests/config/miden-client.toml
 /// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
 /// deserialized into a [ClientConfig]
 pub fn create_test_client() -> TestClient {
-    let client_config = get_client_config();
+    let (rpc_config, store_config) = get_client_config();
 
     let store = {
-        let sqlite_store = SqliteStore::new(&client_config.store).unwrap();
+        let sqlite_store = SqliteStore::new(&store_config).unwrap();
         Rc::new(sqlite_store)
     };
 
     let rng = get_random_coin();
 
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
-    TestClient::new(TonicRpcClient::new(&client_config.rpc), rng, store, authenticator, true)
+    TestClient::new(TonicRpcClient::new(&rpc_config), rng, store, authenticator, true)
 }
 
-pub fn get_client_config() -> ClientConfig<SqliteStore> {
-    let mut client_config: ClientConfig<SqliteStore> =
-        Figment::from(Toml::file(TEST_CLIENT_CONFIG_FILE_PATH))
-            .extract()
-            .expect("should be able to read test config at {TEST_CLIENT_CONFIG_FILE_PATH}");
+pub fn get_client_config() -> (RpcConfig, SqliteStoreConfig) {
+    let rpc_config: RpcConfig = Figment::from(Toml::file(TEST_CLIENT_RPC_CONFIG_FILE_PATH))
+        .extract()
+        .expect("should be able to read test config at {TEST_CLIENT_CONFIG_FILE_PATH}");
 
-    client_config.store = create_test_store_path()
+    let store_config = create_test_store_path()
         .into_os_string()
         .into_string()
         .unwrap()
         .try_into()
         .unwrap();
 
-    client_config
+    (rpc_config, store_config)
 }
 
 pub fn create_test_store_path() -> std::path::PathBuf {

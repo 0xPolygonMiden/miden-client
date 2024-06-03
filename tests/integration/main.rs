@@ -509,7 +509,8 @@ async fn test_get_account_update() {
     // Request updates from node for both accounts. The request should not fail and both types of
     // [AccountDetails] should be received.
     // TODO: should we expose the `get_account_update` endpoint from the Client?
-    let mut rpc_api = TonicRpcClient::new(&get_client_config().rpc);
+    let (rpc_config, _) = get_client_config();
+    let mut rpc_api = TonicRpcClient::new(&rpc_config);
     let details1 = rpc_api.get_account_update(basic_wallet_1.id()).await.unwrap();
     let details2 = rpc_api.get_account_update(basic_wallet_2.id()).await.unwrap();
 

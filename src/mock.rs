@@ -49,7 +49,7 @@ use crate::{
         },
         Client,
     },
-    config::{ClientConfig, RpcConfig},
+    config::RpcConfig,
     errors::RpcError,
     store::sqlite_store::{config::SqliteStoreConfig, SqliteStore},
 };
@@ -773,9 +773,8 @@ pub fn create_test_client() -> MockClient {
         .try_into()
         .unwrap();
 
-    let client_config = ClientConfig::<SqliteStore>::new(store.clone(), RpcConfig::default());
-
-    let rpc_endpoint = client_config.rpc.endpoint.to_string();
+    let rpc_config = RpcConfig::default();
+    let rpc_endpoint = rpc_config.endpoint.to_string();
     let store = SqliteStore::new(&store).unwrap();
     let store = Rc::new(store);
 
