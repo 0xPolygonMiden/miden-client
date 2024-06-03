@@ -11,11 +11,13 @@ NODE_FEATURES_TESTING="testing"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
 
 # --- Testing ----------------------------------------------------------------------------------------
+
 .PHONY: test
 test: ## Run tests
 	cargo nextest run --release --workspace
 
 # --- Integration testing ----------------------------------------------------------------------------------------
+
 .PHONY: integration-test
 integration-test: ## Run integration tests
 	cargo nextest run --release --test=integration --features $(FEATURES_INTEGRATION_TESTING)
@@ -45,6 +47,10 @@ start-node: ## Run node
 clippy: ## Runs clippy on all targets with config
 	cargo +nightly clippy --workspace --tests --all-targets --all-features -- -D clippy::all -D warnings
 
+.PHONY: fix
+fix: ## Runs Fix with configs
+	cargo +nightly fix --allow-staged --allow-dirty --all-targets --all-features
+
 .PHONY: format
 format: ## Runs format using nightly toolchain
 	cargo +nightly fmt --all
@@ -57,6 +63,7 @@ format-check: ## Runs format using nightly toolchain but only in check mode
 lint: format fix clippy ## Runs all linting tasks at once (clippy, fixing, formatting)
 
 # --- Documentation site ----------------------------------------------------------------------------------------
+
 .PHONY: doc-deps
 doc-deps: ## Install dependencies to build and serve documentation site
 	pip3 install -r scripts/docs_requirements.txt
@@ -70,6 +77,7 @@ doc-serve: doc-deps ## Serve documentation site
 	mkdocs serve
 
 # --- Rust documentation ----------------------------------------------------------------------------------------
+
 .PHONY: doc
 doc: ## Generates & checks rust documentation
 	$(WARNINGS) cargo doc --all-features --keep-going --release
