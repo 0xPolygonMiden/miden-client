@@ -74,7 +74,7 @@ pub enum ClientError {
     NoteImportError(String),
     NoteRecordError(String),
     NoConsumableNoteForAccount(AccountId),
-    NodeRpcClientError(RpcError),
+    NodeError(RpcError),
     ScreenerError(NoteScreenerError),
     StoreError(StoreError),
     TransactionExecutorError(TransactionExecutorError),
@@ -108,7 +108,7 @@ impl fmt::Display for ClientError {
             ClientError::NoteError(err) => write!(f, "note error: {err}"),
             ClientError::NoteImportError(err) => write!(f, "error importing note: {err}"),
             ClientError::NoteRecordError(err) => write!(f, "note record error: {err}"),
-            ClientError::NodeRpcClientError(err) => write!(f, "rpc api error: {err}"),
+            ClientError::NodeError(err) => write!(f, "rpc api error: {err}"),
             ClientError::ScreenerError(err) => write!(f, "note screener error: {err}"),
             ClientError::StoreError(err) => write!(f, "store error: {err}"),
             ClientError::TransactionExecutorError(err) => {
@@ -153,7 +153,7 @@ impl From<NoteError> for ClientError {
 
 impl From<RpcError> for ClientError {
     fn from(err: RpcError) -> Self {
-        Self::NodeRpcClientError(err)
+        Self::NodeError(err)
     }
 }
 
@@ -181,13 +181,6 @@ impl From<NoteScreenerError> for ClientError {
     }
 }
 
-#[cfg(feature = "sqlite")]
-impl From<rusqlite::Error> for ClientError {
-    fn from(err: rusqlite::Error) -> Self {
-        Self::StoreError(StoreError::from(err))
-    }
-}
-
 impl From<ClientError> for String {
     fn from(err: ClientError) -> String {
         err.to_string()
@@ -211,8 +204,8 @@ pub enum StoreError {
     AccountStorageNotFound(Digest),
     BlockHeaderNotFound(u32),
     ChainMmrNodeNotFound(u64),
-    DatabaseError(String),
     DataDeserializationError(DeserializationError),
+    DatabaseError(String),
     HexParseError(HexParseError),
     NoteNotFound(NoteId),
     InputSerializationError(serde_json::Error),
@@ -222,7 +215,6 @@ pub enum StoreError {
     NoteTagAlreadyTracked(u64),
     ParsingError(String),
     QueryError(String),
-    RpcTypeConversionFailure(ConversionError),
     TransactionScriptError(TransactionScriptError),
     VaultDataNotFound(Digest),
 }
@@ -236,34 +228,6 @@ impl From<AssetVaultError> for StoreError {
 impl From<AccountError> for StoreError {
     fn from(value: AccountError) -> Self {
         StoreError::AccountError(value)
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl From<rusqlite_migration::Error> for StoreError {
-    fn from(value: rusqlite_migration::Error) -> Self {
-        StoreError::DatabaseError(value.to_string())
-    }
-}
-
-#[cfg(feature = "sqlite")]
-impl From<rusqlite::Error> for StoreError {
-    fn from(value: rusqlite::Error) -> Self {
-        match value {
-            rusqlite::Error::FromSqlConversionFailure(..)
-            | rusqlite::Error::IntegralValueOutOfRange(..)
-            | rusqlite::Error::InvalidColumnIndex(_)
-            | rusqlite::Error::InvalidColumnType(..) => StoreError::ParsingError(value.to_string()),
-            rusqlite::Error::InvalidParameterName(_)
-            | rusqlite::Error::InvalidColumnName(_)
-            | rusqlite::Error::StatementChangedRows(_)
-            | rusqlite::Error::ExecuteReturnedResults
-            | rusqlite::Error::InvalidQuery
-            | rusqlite::Error::MultipleStatement
-            | rusqlite::Error::InvalidParameterCount(..)
-            | rusqlite::Error::QueryReturnedNoRows => StoreError::QueryError(value.to_string()),
-            _ => StoreError::DatabaseError(value.to_string()),
-        }
     }
 }
 
@@ -326,10 +290,10 @@ impl fmt::Display for StoreError {
             ChainMmrNodeNotFound(node_index) => {
                 write!(f, "chain mmr node at index {} not found", node_index)
             },
-            DatabaseError(err) => write!(f, "database-related non-query error: {err}"),
             DataDeserializationError(err) => {
                 write!(f, "error deserializing data from the store: {err}")
             },
+            DatabaseError(err) => write!(f, "database-related non-query error: {err}"),
             HexParseError(err) => {
                 write!(f, "error parsing hex: {err}")
             },
@@ -355,7 +319,6 @@ impl fmt::Display for StoreError {
                 write!(f, "error instantiating transaction script: {err}")
             },
             VaultDataNotFound(root) => write!(f, "account vault data for root {} not found", root),
-            RpcTypeConversionFailure(err) => write!(f, "failed to convert data: {err}"),
         }
     }
 }

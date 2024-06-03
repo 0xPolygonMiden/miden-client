@@ -238,7 +238,7 @@ impl SqliteStore {
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
             .map(|result| {
-                result.map_err(|err| StoreError::ParsingError(err.to_string())).and_then(
+                result.map_err(|err| StoreError::ParsingError(err.to_string()).into()).and_then(
                     |v: String| {
                         Digest::try_from(v).map(Nullifier::from).map_err(StoreError::HexParseError)
                     },
@@ -280,9 +280,7 @@ pub(super) fn insert_input_note_tx(
             ":inclusion_proof": inclusion_proof,
             ":consumer_transaction_id": None::<String>,
         },
-    )
-    .map_err(|err| StoreError::QueryError(err.to_string()))
-    .map(|_| ())?;
+    )?;
 
     const QUERY: &str =
         "INSERT OR REPLACE INTO notes_scripts (script_hash, serialized_note_script) VALUES (?, ?)";
@@ -319,16 +317,12 @@ pub fn insert_output_note_tx(
             ":details": details,
             ":inclusion_proof": inclusion_proof,
         },
-    )
-    .map_err(|err| StoreError::QueryError(err.to_string()))
-    .map(|_| ())?;
+    )?;
 
     if note_script_hash.is_some() {
         const QUERY: &str =
             "INSERT OR REPLACE INTO notes_scripts (script_hash, serialized_note_script) VALUES (?, ?)";
-        tx.execute(QUERY, params![note_script_hash, serialized_note_script,])
-            .map_err(|err| StoreError::QueryError(err.to_string()))
-            .map(|_| ())?;
+        tx.execute(QUERY, params![note_script_hash, serialized_note_script,])?;
     }
 
     Ok(())
@@ -347,8 +341,7 @@ pub fn update_note_consumer_tx_id(
             ":note_id": note_id.inner().to_string(),
             ":consumer_transaction_id": consumer_tx_id.to_string(),
         },
-    )
-    .map_err(|err| StoreError::QueryError(err.to_string()))?;
+    )?;
 
     const UPDATE_OUTPUT_NOTES_QUERY: &str = "UPDATE output_notes SET consumer_transaction_id = :consumer_transaction_id WHERE note_id = :note_id;";
 
@@ -358,8 +351,7 @@ pub fn update_note_consumer_tx_id(
             ":note_id": note_id.inner().to_string(),
             ":consumer_transaction_id": consumer_tx_id.to_string(),
         },
-    )
-    .map_err(|err| StoreError::QueryError(err.to_string()))?;
+    )?;
 
     Ok(())
 }
