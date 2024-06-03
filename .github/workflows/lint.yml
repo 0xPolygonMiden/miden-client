@@ -16,8 +16,8 @@ jobs:
         with:
           components: clippy
           toolchain: stable
-      - name: make - clippy-all
-        run: make clippy-all
+      - name: make - clippy
+        run: make clippy
 
   rustfmt:
     name: rustfmt

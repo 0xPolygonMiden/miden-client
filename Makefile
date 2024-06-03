@@ -41,6 +41,10 @@ start-node: ## Run node
 
 # --- Linting ----------------------------------------------------------------------------------------
 
+.PHONY: clippy
+clippy: ## Runs clippy on all targets with config
+	cargo +nightly clippy --workspace --tests --all-targets --all-features -- -D clippy::all -D warnings
+
 .PHONY: format
 format: ## Runs format using nightly toolchain
 	cargo +nightly fmt --all
@@ -49,19 +53,8 @@ format: ## Runs format using nightly toolchain
 format-check: ## Runs format using nightly toolchain but only in check mode
 	cargo +nightly fmt --all --check
 
-.PHONY: clippy
-clippy: ## Runs clippy on all targets (except integration tests) with config
-	cargo clippy --workspace --all-targets -- -D clippy::all -D warnings
-
-.PHONY: clippy-integration-tests
-clippy-integration-tests: ## Runs clippy integration tests with config
-	cargo clippy --workspace --tests --features integration -- -D clippy::all -D warnings
-
-.PHONY: clippy-all
-clippy-all: clippy clippy-integration-tests ## Runs over all targets
-
 .PHONY: lint
-lint: format-check clippy-all doc ## Runs all linting tasks at once (clippy, formatting, doc)
+lint: format fix clippy ## Runs all linting tasks at once (clippy, fixing, formatting)
 
 # --- Documentation site ----------------------------------------------------------------------------------------
 .PHONY: doc-deps
