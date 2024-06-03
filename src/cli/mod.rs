@@ -3,7 +3,7 @@ use std::{env, rc::Rc};
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
-    errors::{ClientError, IdPrefixFetchError},
+    errors::ClientError,
     get_random_coin,
     rpc::{NodeRpcClient, TonicRpcClient},
     store::{
@@ -19,6 +19,7 @@ use transactions::TransactionCmd;
 
 use self::{
     account::AccountCmd,
+    errors::*,
     export::ExportCmd,
     import::ImportCmd,
     init::InitCmd,
@@ -31,6 +32,7 @@ use self::{
 
 mod account;
 mod config;
+mod errors;
 mod export;
 mod import;
 mod info;

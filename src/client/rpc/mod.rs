@@ -9,7 +9,7 @@ use miden_objects::{
     BlockHeader, Digest,
 };
 
-use crate::errors::NodeRpcClientError;
+use crate::errors::RpcError;
 
 #[cfg(feature = "tonic")]
 mod tonic_client;
@@ -83,7 +83,7 @@ pub trait NodeRpcClient {
     async fn submit_proven_transaction(
         &mut self,
         proven_transaction: ProvenTransaction,
-    ) -> Result<(), NodeRpcClientError>;
+    ) -> Result<(), RpcError>;
 
     /// Given a block number, fetches the block header corresponding to that height from the node
     /// using the `/GetBlockHeaderByNumber` endpoint.
@@ -95,16 +95,13 @@ pub trait NodeRpcClient {
         &mut self,
         block_num: Option<u32>,
         include_mmr_proof: bool,
-    ) -> Result<(BlockHeader, Option<MmrProof>), NodeRpcClientError>;
+    ) -> Result<(BlockHeader, Option<MmrProof>), RpcError>;
 
     /// Fetches note-related data for a list of [NoteId] using the `/GetNotesById` rpc endpoint
     ///
     /// For any NoteType::Offchain note, the return data is only the [NoteMetadata], whereas
     /// for NoteType::Onchain notes, the return data includes all details.
-    async fn get_notes_by_id(
-        &mut self,
-        note_ids: &[NoteId],
-    ) -> Result<Vec<NoteDetails>, NodeRpcClientError>;
+    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NoteDetails>, RpcError>;
 
     /// Fetches info from the node necessary to perform a state sync using the
     /// `/SyncState` rpc endpoint
@@ -124,7 +121,7 @@ pub trait NodeRpcClient {
         account_ids: &[AccountId],
         note_tags: &[NoteTag],
         nullifiers_tags: &[u16],
-    ) -> Result<StateSyncInfo, NodeRpcClientError>;
+    ) -> Result<StateSyncInfo, RpcError>;
 
     /// Fetches the current state of an account from the node using the `/GetAccountDetails` rpc endpoint
     ///
@@ -132,7 +129,7 @@ pub trait NodeRpcClient {
     async fn get_account_update(
         &mut self,
         account_id: AccountId,
-    ) -> Result<AccountDetails, NodeRpcClientError>;
+    ) -> Result<AccountDetails, RpcError>;
 }
 
 // STATE SYNC INFO

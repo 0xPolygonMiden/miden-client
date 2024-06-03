@@ -6,7 +6,7 @@ use figment::{
 };
 use miden_client::{
     config::ClientConfig,
-    errors::{ClientError, NodeRpcClientError},
+    errors::{ClientError, RpcError},
     get_random_coin,
     rpc::TonicRpcClient,
     store::{sqlite_store::SqliteStore, NoteFilter, TransactionFilter},
@@ -146,7 +146,7 @@ pub async fn wait_for_node(client: &mut TestClient) {
 
     for _try_number in 0..NUMBER_OF_NODE_ATTEMPTS {
         match client.sync_state().await {
-            Err(ClientError::NodeRpcClientError(NodeRpcClientError::ConnectionError(_))) => {
+            Err(ClientError::NodeRpcClientError(RpcError::ConnectionError(_))) => {
                 std::thread::sleep(Duration::from_secs(NODE_TIME_BETWEEN_ATTEMPTS));
             },
             Err(other_error) => {

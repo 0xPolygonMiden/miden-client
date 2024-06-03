@@ -19,7 +19,7 @@ use super::{
 };
 use crate::{
     client::rpc::AccountDetails,
-    errors::{ClientError, NodeRpcClientError, StoreError},
+    errors::{ClientError, RpcError, StoreError},
     store::{ChainMmrNodeFilter, InputNoteRecord, NoteFilter, Store, TransactionFilter},
 };
 
@@ -611,7 +611,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 if let AccountDetails::Public(account, _) = account_details {
                     accounts_to_update.push(account);
                 } else {
-                    return Err(NodeRpcClientError::InvalidAccountReceived(
+                    return Err(RpcError::InvalidAccountReceived(
                         "should only get updates for onchain accounts".to_string(),
                     )
                     .into());

@@ -50,7 +50,7 @@ use crate::{
         Client,
     },
     config::{ClientConfig, RpcConfig},
-    errors::NodeRpcClientError,
+    errors::RpcError,
     store::sqlite_store::{config::SqliteStoreConfig, SqliteStore},
 };
 
@@ -108,14 +108,14 @@ impl NodeRpcClient for MockRpcApi {
         _account_ids: &[AccountId],
         _note_tags: &[NoteTag],
         _nullifiers_tags: &[u16],
-    ) -> Result<StateSyncInfo, NodeRpcClientError> {
+    ) -> Result<StateSyncInfo, RpcError> {
         // Match request -> response through block_num
         let response = match self.state_sync_requests.get(&block_num) {
             Some(response) => {
                 let response = response.clone();
                 Ok(Response::new(response))
             },
-            None => Err(NodeRpcClientError::RequestError(
+            None => Err(RpcError::RequestError(
                 NodeRpcClientEndpoint::SyncState.to_string(),
                 Status::not_found("no response for sync state request").to_string(),
             )),
@@ -130,17 +130,14 @@ impl NodeRpcClient for MockRpcApi {
         &mut self,
         block_num: Option<u32>,
         _include_mmr_proof: bool,
-    ) -> Result<(BlockHeader, Option<MmrProof>), NodeRpcClientError> {
+    ) -> Result<(BlockHeader, Option<MmrProof>), RpcError> {
         if block_num == Some(0) {
             return Ok((self.genesis_block, None));
         }
         panic!("get_block_header_by_number is supposed to be only used for genesis block")
     }
 
-    async fn get_notes_by_id(
-        &mut self,
-        note_ids: &[NoteId],
-    ) -> Result<Vec<NoteDetails>, NodeRpcClientError> {
+    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NoteDetails>, RpcError> {
         // assume all off-chain notes for now
         let hit_notes = note_ids.iter().filter_map(|id| self.notes.get(id));
         let mut return_notes = vec![];
@@ -165,7 +162,7 @@ impl NodeRpcClient for MockRpcApi {
     async fn submit_proven_transaction(
         &mut self,
         _proven_transaction: ProvenTransaction,
-    ) -> std::result::Result<(), NodeRpcClientError> {
+    ) -> std::result::Result<(), RpcError> {
         // TODO: add some basic validations to test error cases
         Ok(())
     }
@@ -173,7 +170,7 @@ impl NodeRpcClient for MockRpcApi {
     async fn get_account_update(
         &mut self,
         _account_id: AccountId,
-    ) -> Result<AccountDetails, NodeRpcClientError> {
+    ) -> Result<AccountDetails, RpcError> {
         panic!("shouldn't be used for now")
     }
 }

@@ -1,7 +1,7 @@
 use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
-    errors::{ClientError, IdPrefixFetchError},
+    errors::ClientError,
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, NoteStatus, OutputNoteRecord, Store},
     transactions::transaction_request::known_script_roots::{P2ID, P2IDR, SWAP},
@@ -19,6 +19,7 @@ use miden_tx::auth::TransactionAuthenticator;
 use super::Parser;
 use crate::cli::{
     create_dynamic_table, get_input_note_with_id_prefix, get_output_note_with_id_prefix,
+    IdPrefixFetchError,
 };
 
 #[derive(Clone, Debug, ValueEnum)]
