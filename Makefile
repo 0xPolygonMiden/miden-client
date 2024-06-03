@@ -10,37 +10,6 @@ FEATURES_INTEGRATION_TESTING="integration"
 NODE_FEATURES_TESTING="testing"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
 
-# --- Testing ----------------------------------------------------------------------------------------
-
-.PHONY: test
-test: ## Run tests
-	cargo nextest run --release --workspace
-
-# --- Integration testing ----------------------------------------------------------------------------------------
-
-.PHONY: integration-test
-integration-test: ## Run integration tests
-	cargo nextest run --release --test=integration --features $(FEATURES_INTEGRATION_TESTING)
-
-.PHONY: kill-node
-kill-node: ## Kill node process
-	pkill miden-node || echo 'process not running'
-
-.PHONY: clean-node
-clean-node: ## Clean node directory
-	rm -rf miden-node
-
-.PHONY: node
-node: ## Setup node
-	if [ -d miden-node ]; then cd miden-node ; else git clone https://github.com/0xPolygonMiden/miden-node.git && cd miden-node; fi
-	cd miden-node && git checkout main && git pull origin main && cargo update
-	cd miden-node && rm -rf miden-store.sqlite3 miden-store.sqlite3-wal miden-store.sqlite3-shm
-	cd miden-node && cargo run --bin miden-node --features $(NODE_FEATURES_TESTING) -- make-genesis --inputs-path ../tests/config/genesis.toml --force
-
-.PHONY: start-node
-start-node: ## Run node
-	cd miden-node && cargo run --bin miden-node --features $(NODE_FEATURES_TESTING) -- start --config ../tests/config/miden-node.toml node
-
 # --- Linting ----------------------------------------------------------------------------------------
 
 .PHONY: clippy
@@ -81,3 +50,34 @@ doc-serve: doc-deps ## Serve documentation site
 .PHONY: doc
 doc: ## Generates & checks rust documentation
 	$(WARNINGS) cargo doc --all-features --keep-going --release
+
+# --- Testing ----------------------------------------------------------------------------------------
+
+.PHONY: test
+test: ## Run tests
+	cargo nextest run --release --workspace
+
+# --- Integration testing ----------------------------------------------------------------------------------------
+
+.PHONY: integration-test
+integration-test: ## Run integration tests
+	cargo nextest run --release --test=integration --features $(FEATURES_INTEGRATION_TESTING)
+
+.PHONY: kill-node
+kill-node: ## Kill node process
+	pkill miden-node || echo 'process not running'
+
+.PHONY: clean-node
+clean-node: ## Clean node directory
+	rm -rf miden-node
+
+.PHONY: node
+node: ## Setup node
+	if [ -d miden-node ]; then cd miden-node ; else git clone https://github.com/0xPolygonMiden/miden-node.git && cd miden-node; fi
+	cd miden-node && git checkout main && git pull origin main && cargo update
+	cd miden-node && rm -rf miden-store.sqlite3 miden-store.sqlite3-wal miden-store.sqlite3-shm
+	cd miden-node && cargo run --bin miden-node --features $(NODE_FEATURES_TESTING) -- make-genesis --inputs-path ../tests/config/genesis.toml --force
+
+.PHONY: start-node
+start-node: ## Run node
+	cd miden-node && cargo run --bin miden-node --features $(NODE_FEATURES_TESTING) -- start --config ../tests/config/miden-node.toml node
