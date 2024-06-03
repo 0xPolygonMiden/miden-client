@@ -6,14 +6,13 @@ use figment::{
 };
 use miden_client::{
     config::RpcConfig,
-    errors::{ClientError, RpcError},
-    rpc::TonicRpcClient,
+    rpc::{RpcError, TonicRpcClient},
     store::{
         sqlite_store::{config::SqliteStoreConfig, SqliteStore},
         NoteFilter, TransactionFilter,
     },
     transactions::transaction_request::{TransactionRequest, TransactionTemplate},
-    AccountTemplate, Client, StoreAuthenticator, SyncSummary,
+    AccountTemplate, Client, ClientError, StoreAuthenticator, SyncSummary,
 };
 use miden_objects::{
     accounts::{

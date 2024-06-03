@@ -1,9 +1,8 @@
 use miden_client::{
-    errors::ClientError,
     rpc::{AccountDetails, NodeRpcClient, TonicRpcClient},
     store::{NoteFilter, NoteStatus},
     transactions::transaction_request::{PaymentTransactionData, TransactionTemplate},
-    AccountTemplate, NoteRelevance,
+    AccountTemplate, ClientError, NoteRelevance,
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorageType},

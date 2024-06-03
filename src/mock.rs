@@ -48,7 +48,7 @@ use crate::{
         Client,
     },
     config::RpcConfig,
-    errors::RpcError,
+    rpc::RpcError,
     store::sqlite_store::{config::SqliteStoreConfig, SqliteStore},
 };
 

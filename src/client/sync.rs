@@ -19,7 +19,7 @@ use super::{
     Client, NoteScreener,
 };
 use crate::{
-    rpc::{RpcError, AccountDetails},
+    rpc::{AccountDetails, RpcError},
     store::{
         ChainMmrNodeFilter, InputNoteRecord, NoteFilter, Store, StoreError, TransactionFilter,
     },
