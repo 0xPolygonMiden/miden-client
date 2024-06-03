@@ -1,5 +1,6 @@
 # Changelog
 
+* Added a new check on account creation / import on the CLI to set the account as the default one if none is set.
 * Fixed bug when exporting a note into a file
 * Simplified and separated the `notes --list` table (#356).
 * [BREAKING] Separate `prove_transaction` from `submit_transaction` in `Client`. (#339)
