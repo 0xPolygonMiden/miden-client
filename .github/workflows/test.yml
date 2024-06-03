@@ -16,10 +16,8 @@ jobs:
         os: [ubuntu]
     steps:
       - uses: actions/checkout@main
-      - name: Install rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{matrix.toolchain}}
+      - name: Install Rust with ${{matrix.toolchain}} toolchain
+        run: rustup update --no-self-update ${{ matrix.toolchain }}
       - uses: taiki-e/install-action@nextest
       - name: make - test
         run: make test
@@ -29,10 +27,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
-      - name: Install minimal stable with rustfmt
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
+      - name: Install Rust
+        run: rustup update --no-self-update
       - uses: taiki-e/install-action@nextest
       - run: make clean-node
       - run: make node

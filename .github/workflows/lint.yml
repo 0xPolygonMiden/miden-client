@@ -11,11 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
-      - name: Install minimal stable with clippy
-        uses: dtolnay/rust-toolchain@master
-        with:
-          components: clippy
-          toolchain: stable
+      - name: Install Rust with clippy
+        run: |
+          rustup update --no-self-update nightly
+          rustup +nightly component add clippy
       - name: make - clippy
         run: make clippy
 
@@ -24,18 +23,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
-      - name: Install minimal nightly with rustfmt
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: rustfmt
-      - name: make - format
-        run: make format
+      - name: Install Rust with rustfmt
+        run: |
+          rustup update --no-self-update nightly
+          rustup +nightly component add rustfmt
+      - name: make - format-check
+        run: make format-check
 
   mkdocs:
     name: build mkdocs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@main
       - name: Install minimal stable with rustfmt
         uses: actions-rs/toolchain@v1
         with:
@@ -59,11 +58,8 @@ jobs:
     name: build rust documentation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Install minimal stable with rustfmt
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
+      - uses: actions/checkout@main
+      - name: Install Rust
+        run: rustup update --no-self-update
       - name: make - doc
         run: make doc
