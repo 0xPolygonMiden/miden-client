@@ -9,7 +9,7 @@ use miden_client::{
         sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter,
         OutputNoteRecord, Store,
     },
-    Client, StoreAuthenticator,
+    Client, ClientError, StoreAuthenticator,
 };
 use miden_objects::{
     accounts::AccountStub,

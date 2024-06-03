@@ -12,9 +12,8 @@ use miden_objects::{
 use rusqlite::{named_params, params, params_from_iter, types::Value, Transaction};
 
 use super::SqliteStore;
-use crate::{
-    errors::StoreError,
-    store::{InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord},
+use crate::store::{
+    InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord, StoreError,
 };
 
 fn insert_note_query(table_name: NoteTable) -> String {

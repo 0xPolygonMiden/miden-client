@@ -19,9 +19,11 @@ use super::{
     Client, NoteScreener,
 };
 use crate::{
-    client::rpc::AccountDetails,
-    errors::{ClientError, RpcError, StoreError},
-    store::{ChainMmrNodeFilter, InputNoteRecord, NoteFilter, Store, TransactionFilter},
+    rpc::{RpcError, AccountDetails},
+    store::{
+        ChainMmrNodeFilter, InputNoteRecord, NoteFilter, Store, StoreError, TransactionFilter,
+    },
+    ClientError,
 };
 
 /// Contains stats about the sync operation
@@ -610,8 +612,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 if let AccountDetails::Public(account, _) = account_details {
                     accounts_to_update.push(account);
                 } else {
-                    return Err(RpcError::InvalidAccountReceived(
-                        "should only get updates for onchain accounts".to_string(),
+                    return Err(RpcError::AccountUpdateForPrivateAccountReceived(
+                        account_details.account_id(),
                     )
                     .into());
                 }

@@ -11,8 +11,8 @@ use winter_maybe_async::{maybe_async, maybe_await};
 use super::{note_screener::NoteRelevance, rpc::NodeRpcClient, Client};
 use crate::{
     client::NoteScreener,
-    errors::ClientError,
     store::{InputNoteRecord, NoteFilter, OutputNoteRecord, Store},
+    ClientError,
 };
 
 // TYPES

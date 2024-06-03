@@ -4,8 +4,10 @@ use rusqlite::{named_params, params};
 use super::SqliteStore;
 use crate::{
     client::sync::StateSyncUpdate,
-    errors::StoreError,
-    store::sqlite_store::{accounts::update_account, notes::insert_input_note_tx},
+    store::{
+        sqlite_store::{accounts::update_account, notes::insert_input_note_tx},
+        StoreError,
+    },
 };
 
 impl SqliteStore {

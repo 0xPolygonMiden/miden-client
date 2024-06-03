@@ -23,10 +23,10 @@ use miden_tx::utils::Serializable;
 use tonic::transport::Channel;
 
 use super::{
-    AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
-    NoteDetails, NoteInclusionDetails, StateSyncInfo,
+    errors::RpcError, AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient,
+    NodeRpcClientEndpoint, NoteDetails, NoteInclusionDetails, StateSyncInfo,
 };
-use crate::{config::RpcConfig, errors::RpcError};
+use crate::config::RpcConfig;
 
 // TONIC RPC CLIENT
 // ================================================================================================
@@ -110,7 +110,7 @@ impl NodeRpcClient for TonicRpcClient {
             .block_header
             .ok_or(RpcError::ExpectedFieldMissing("BlockHeader".into()))?
             .try_into()
-            .map_err(|err: ConversionError| RpcError::ConversionFailure(err.to_string()))?;
+            .map_err(|err: ConversionError| RpcError::DeserializationError(err.to_string()))?;
 
         let mmr_proof = if include_mmr_proof {
             let forest = response
@@ -120,7 +120,7 @@ impl NodeRpcClient for TonicRpcClient {
                 .mmr_path
                 .ok_or(RpcError::ExpectedFieldMissing("MmrPath".into()))?
                 .try_into()
-                .map_err(|err: ConversionError| RpcError::ConversionFailure(err.to_string()))?;
+                .map_err(|err: ConversionError| RpcError::DeserializationError(err.to_string()))?;
 
             Some(MmrProof {
                 forest: forest as usize,
@@ -366,7 +366,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                     .ok_or(RpcError::ExpectedFieldMissing("Nullifier".into()))
                     .and_then(|n| {
                         Digest::try_from(n)
-                            .map_err(|err| RpcError::ConversionFailure(err.to_string()))
+                            .map_err(|err| RpcError::DeserializationError(err.to_string()))
                     })
             })
             .collect::<Result<Vec<Digest>, RpcError>>()?;
@@ -379,5 +379,14 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
             note_inclusions,
             nullifiers,
         })
+    }
+}
+
+// ERROR CONVERSIONS
+// ================================================================================================
+
+impl From<ConversionError> for RpcError {
+    fn from(err: ConversionError) -> Self {
+        Self::DeserializationError(err.to_string())
     }
 }

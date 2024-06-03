@@ -6,7 +6,7 @@ use miden_objects::{
 };
 
 use super::{InputNoteRecord, NoteRecordDetails, NoteStatus};
-use crate::errors::ClientError;
+use crate::ClientError;
 
 // OUTPUT NOTE RECORD
 // ================================================================================================

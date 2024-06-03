@@ -1,11 +1,10 @@
 use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
-    errors::{ClientError, IdPrefixFetchError},
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, NoteStatus, OutputNoteRecord, Store},
     transactions::transaction_request::known_script_roots::{P2ID, P2IDR, SWAP},
-    Client, ConsumableNote,
+    Client, ClientError, ConsumableNote, IdPrefixFetchError,
 };
 use miden_objects::{
     accounts::AccountId,
