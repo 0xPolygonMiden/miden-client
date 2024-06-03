@@ -18,7 +18,7 @@ use super::{
 use crate::{
     errors::StoreError,
     rpc::TransactionUpdate,
-    store::TransactionFilter,
+    store::{StoreError, TransactionFilter},
     transactions::{TransactionRecord, TransactionResult, TransactionStatus},
 };
 

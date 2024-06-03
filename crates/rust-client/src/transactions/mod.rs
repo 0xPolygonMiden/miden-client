@@ -19,9 +19,9 @@ use self::transaction_request::{
 };
 use super::{rpc::NodeRpcClient, Client, FeltRng};
 use crate::{
-    errors::ClientError,
     notes::NoteScreener,
     store::{InputNoteRecord, NoteFilter, Store, TransactionFilter},
+    ClientError,
 };
 
 pub mod transaction_request;

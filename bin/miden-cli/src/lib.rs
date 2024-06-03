@@ -12,7 +12,7 @@ use miden_client::{
         sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter,
         OutputNoteRecord, Store,
     },
-    Client, Felt,
+    Client, Felt, ClientError,
 };
 use rand::Rng;
 

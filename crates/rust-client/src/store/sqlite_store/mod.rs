@@ -15,9 +15,9 @@ use super::{
     ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store, TransactionFilter,
 };
 use crate::{
-    errors::StoreError,
     sync::StateSyncUpdate,
     transactions::{TransactionRecord, TransactionResult},
+    store::StoreError,
 };
 
 mod accounts;

@@ -13,15 +13,12 @@ use miden_tx::utils::DeserializationError;
 use rusqlite::{named_params, params, params_from_iter, types::Value, Transaction};
 
 use super::SqliteStore;
-use crate::{
-    errors::StoreError,
-    store::{
-        note_record::{
-            NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED, NOTE_STATUS_EXPECTED,
-            NOTE_STATUS_PROCESSING,
-        },
-        InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord,
+use crate::store::{
+    note_record::{
+        NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED, NOTE_STATUS_EXPECTED,
+        NOTE_STATUS_PROCESSING,
     },
+    InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord, StoreError,
 };
 
 fn insert_note_query(table_name: NoteTable) -> String {

@@ -13,7 +13,7 @@ use miden_tx::auth::TransactionAuthenticator;
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use super::{rpc::NodeRpcClient, Client};
-use crate::{errors::ClientError, store::Store};
+use crate::{store::Store, ClientError};
 
 pub enum AccountTemplate {
     BasicWallet {

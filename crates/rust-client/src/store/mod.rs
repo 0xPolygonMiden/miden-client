@@ -10,12 +10,13 @@ use miden_objects::{
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
-    errors::StoreError,
     sync::StateSyncUpdate,
     transactions::{TransactionRecord, TransactionResult},
 };
 
 pub mod data_store;
+mod errors;
+pub use errors::*;
 
 #[cfg(feature = "sqlite")]
 pub mod sqlite_store;

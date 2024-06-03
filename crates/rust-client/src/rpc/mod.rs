@@ -2,6 +2,9 @@
 
 use core::fmt;
 
+mod errors;
+pub use errors::RpcError;
+
 use miden_objects::{
     accounts::{Account, AccountId},
     crypto::merkle::{MerklePath, MmrDelta, MmrProof},
@@ -9,8 +12,6 @@ use miden_objects::{
     transaction::{ProvenTransaction, TransactionId},
     BlockHeader, Digest,
 };
-
-use crate::errors::RpcError;
 
 #[cfg(any(feature = "tonic", feature = "web-tonic"))]
 mod domain;
@@ -63,6 +64,15 @@ impl NoteDetails {
 pub enum AccountDetails {
     OffChain(AccountId, AccountUpdateSummary),
     Public(Account, AccountUpdateSummary),
+}
+
+impl AccountDetails {
+    pub fn account_id(&self) -> AccountId {
+        match self {
+            Self::OffChain(account_id, _) => *account_id,
+            Self::Public(account, _) => account.id(),
+        }
+    }
 }
 
 /// Contains public updated information about the account requested

@@ -21,9 +21,10 @@ use tonic::transport::Channel;
 use tracing::info;
 
 use super::{
-    AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
-    NoteDetails, NoteInclusionDetails, NullifierUpdate, StateSyncInfo, TransactionUpdate,
+    errors::RpcError, AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient,
+    NodeRpcClientEndpoint, NoteDetails, NoteInclusionDetails, NullifierUpdate, StateSyncInfo, TransactionUpdate,
 };
+
 use crate::{
     config::RpcConfig,
     errors::{RpcConversionError, RpcError},
@@ -116,7 +117,7 @@ impl NodeRpcClient for TonicRpcClient {
             .block_header
             .ok_or(RpcError::ExpectedFieldMissing("BlockHeader".into()))?
             .try_into()
-            .map_err(|err: RpcConversionError| RpcError::ConversionFailure(err.to_string()))?;
+            .map_err(|err: RpcConversionError| RpcError::DeserializationError(err.to_string()))?;
 
         let mmr_proof = if include_mmr_proof {
             let forest = response
@@ -126,7 +127,7 @@ impl NodeRpcClient for TonicRpcClient {
                 .mmr_path
                 .ok_or(RpcError::ExpectedFieldMissing("MmrPath".into()))?
                 .try_into()
-                .map_err(|err: RpcConversionError| RpcError::ConversionFailure(err.to_string()))?;
+                .map_err(|err: RpcConversionError| RpcError::DeserializationError(err.to_string()))?;
 
             Some(MmrProof {
                 forest: forest as usize,
@@ -345,7 +346,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                     .ok_or(RpcError::ExpectedFieldMissing("Nullifier".into()))?;
 
                 let nullifier_digest = Digest::try_from(nullifier_digest)
-                    .map_err(|err| RpcError::ConversionFailure(err.to_string()))?;
+                    .map_err(|err| RpcError::DeserializationError(err.to_string()))?;
 
                 let nullifier_block_num = nul_update.block_num;
 
@@ -391,5 +392,14 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
             nullifiers,
             transactions,
         })
+    }
+}
+
+// ERROR CONVERSIONS
+// ================================================================================================
+
+impl From<ConversionError> for RpcError {
+    fn from(err: ConversionError) -> Self {
+        Self::DeserializationError(err.to_string())
     }
 }

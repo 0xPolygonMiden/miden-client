@@ -15,7 +15,7 @@ use miden_tx::{DataStore, DataStoreError, TransactionInputs};
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use super::{ChainMmrNodeFilter, InputNoteRecord, NoteFilter, NoteStatus, Store};
-use crate::errors::{ClientError, StoreError};
+use crate::{store::StoreError, ClientError};
 
 // DATA STORE
 // ================================================================================================

@@ -152,7 +152,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     pub fn get_block_headers(
         &self,
         block_numbers: &[u32],
-    ) -> Result<Vec<(miden_objects::BlockHeader, bool)>, crate::errors::ClientError> {
+    ) -> Result<Vec<(miden_objects::BlockHeader, bool)>, crate::ClientError> {
         let result = winter_maybe_async::maybe_await!(self.store.get_block_headers(block_numbers))?;
         Ok(result)
     }

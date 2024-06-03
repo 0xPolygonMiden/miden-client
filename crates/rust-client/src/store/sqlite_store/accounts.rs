@@ -9,7 +9,7 @@ use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{params, Transaction};
 
 use super::SqliteStore;
-use crate::errors::StoreError;
+use crate::store::StoreError;
 
 // TYPES
 // ================================================================================================
