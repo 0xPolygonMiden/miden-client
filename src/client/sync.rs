@@ -429,7 +429,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         for committed_note in committed_notes {
             if let Some(note_record) = expected_input_notes.get(committed_note.note_id()) {
-                // The note belongs to our locally tracked set of pending notes, build the inclusion proof
+                // The note belongs to our locally tracked set of expected notes, build the inclusion proof
                 let note_inclusion_proof = NoteInclusionProof::new(
                     block_header.block_num(),
                     block_header.sub_hash(),
@@ -534,7 +534,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         &mut self,
         committed_notes: &SyncedNewNotes,
     ) -> Result<bool, ClientError> {
-        // We'll only do the check for either incoming public notes or pending input notes as
+        // We'll only do the check for either incoming public notes or expected input notes as
         // output notes are not really candidates to be consumed here.
 
         let note_screener = NoteScreener::new(self.store.clone());

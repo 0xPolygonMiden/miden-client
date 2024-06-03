@@ -301,7 +301,7 @@ pub enum NoteFilter<'a> {
     /// Return a list of committed notes ([InputNoteRecord] or [OutputNoteRecord]). These represent notes that the blockchain
     /// has included in a block, and for which we are storing anchor data.
     Committed,
-    /// Return a list of pending notes ([InputNoteRecord] or [OutputNoteRecord]). These represent notes for which the store
+    /// Return a list of expected notes ([InputNoteRecord] or [OutputNoteRecord]). These represent notes for which the store
     /// does not have anchor data.
     Expected,
     /// Return a list of notes that are currently being processed.
