@@ -166,7 +166,7 @@ pub async fn wait_for_node(client: &mut TestClient) {
 
     for _try_number in 0..NUMBER_OF_NODE_ATTEMPTS {
         match client.sync_state().await {
-            Err(ClientError::NodeRpcClientError(RpcError::ConnectionError(_))) => {
+            Err(ClientError::NodeError(RpcError::ConnectionError(_))) => {
                 std::thread::sleep(Duration::from_secs(NODE_TIME_BETWEEN_ATTEMPTS));
             },
             Err(other_error) => {
