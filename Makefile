@@ -4,13 +4,13 @@
 help: ## Show description of all commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
-# --- Variables ----------------------------------------------------------------------------------------
+# --- Variables -----------------------------------------------------------------------------------
 
 FEATURES_INTEGRATION_TESTING="integration"
 NODE_FEATURES_TESTING="testing"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
 
-# --- Linting ----------------------------------------------------------------------------------------
+# --- Linting -------------------------------------------------------------------------------------
 
 .PHONY: clippy
 clippy: ## Runs clippy on all targets with config
@@ -31,7 +31,7 @@ format-check: ## Runs format using nightly toolchain but only in check mode
 .PHONY: lint
 lint: format fix clippy ## Runs all linting tasks at once (clippy, fixing, formatting)
 
-# --- Documentation site ----------------------------------------------------------------------------------------
+# --- Documentation site --------------------------------------------------------------------------
 
 .PHONY: doc-deps
 doc-deps: ## Install dependencies to build and serve documentation site
@@ -45,19 +45,19 @@ doc-build: doc-deps ## Build documentation site
 doc-serve: doc-deps ## Serve documentation site
 	mkdocs serve
 
-# --- Rust documentation ----------------------------------------------------------------------------------------
+# --- Rust documentation --------------------------------------------------------------------------
 
 .PHONY: doc
 doc: ## Generates & checks rust documentation
 	$(WARNINGS) cargo doc --all-features --keep-going --release
 
-# --- Testing ----------------------------------------------------------------------------------------
+# --- Testing -------------------------------------------------------------------------------------
 
 .PHONY: test
 test: ## Run tests
 	cargo nextest run --release --workspace
 
-# --- Integration testing ----------------------------------------------------------------------------------------
+# --- Integration testing -------------------------------------------------------------------------
 
 .PHONY: integration-test
 integration-test: ## Run integration tests
@@ -75,7 +75,7 @@ clean-node: ## Clean node directory
 node: ## Setup node
 	if [ -d miden-node ]; then cd miden-node ; else git clone https://github.com/0xPolygonMiden/miden-node.git && cd miden-node; fi
 	cd miden-node && git checkout main && git pull origin main && cargo update
-	cd miden-node && rm -rf miden-store.sqlite3 miden-store.sqlite3-wal miden-store.sqlite3-shm
+	cd miden-node && rm -rf miden-store.sqlite3*
 	cd miden-node && cargo run --bin miden-node --features $(NODE_FEATURES_TESTING) -- make-genesis --inputs-path ../tests/config/genesis.toml --force
 
 .PHONY: start-node
