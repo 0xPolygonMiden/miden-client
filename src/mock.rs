@@ -42,7 +42,7 @@ use crate::{
         Client,
     },
     config::RpcConfig,
-    errors::RpcError,
+    rpc::RpcError,
     rpc::generated::{
         self,
         account::AccountId as ProtoAccountId,

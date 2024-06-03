@@ -25,6 +25,7 @@ use crate::{
 mod accounts;
 mod chain_data;
 pub mod config;
+mod errors;
 pub(crate) mod migrations;
 mod notes;
 mod sync;

@@ -8,14 +8,13 @@ use miden_client::{
     accounts::AccountTemplate,
     auth::StoreAuthenticator,
     config::RpcConfig,
-    errors::{ClientError, RpcError},
-    rpc::TonicRpcClient,
+    rpc::{RpcError, TonicRpcClient},
     store::{
         sqlite_store::{config::SqliteStoreConfig, SqliteStore},
         NoteFilter, TransactionFilter,
     },
     transactions::transaction_request::{TransactionRequest, TransactionTemplate},
-    Client, SyncSummary,
+    Client, ClientError, SyncSummary,
 };
 use miden_objects::{
     accounts::{
