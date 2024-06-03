@@ -18,7 +18,7 @@ use crate::{
     errors::StoreError,
     store::{
         note_record::{
-            NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED, NOTE_STATUS_PENDING,
+            NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED, NOTE_STATUS_EXPECTED,
             NOTE_STATUS_PROCESSING,
         },
         InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, Nullifier, OutputNoteRecord,
@@ -141,7 +141,7 @@ impl<'a> NoteFilter<'a> {
                 format!("{base} WHERE status = '{NOTE_STATUS_CONSUMED}'")
             },
             NoteFilter::Pending => {
-                format!("{base} WHERE status = '{NOTE_STATUS_PENDING}'")
+                format!("{base} WHERE status = '{NOTE_STATUS_EXPECTED}'")
             },
             NoteFilter::Processing => {
                 format!("{base} WHERE status = '{NOTE_STATUS_PROCESSING}'")
@@ -488,7 +488,7 @@ fn parse_input_note(
 
     // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
     let status = match status.as_str() {
-        NOTE_STATUS_PENDING => NoteStatus::Pending { created_at },
+        NOTE_STATUS_EXPECTED => NoteStatus::Expected { created_at },
         NOTE_STATUS_COMMITTED => NoteStatus::Committed {
             block_height: inclusion_proof
                 .clone()
@@ -549,7 +549,7 @@ pub(crate) fn serialize_input_note(
             (Some(inclusion_proof), status)
         },
         None => {
-            let status = NOTE_STATUS_PENDING.to_string();
+            let status = NOTE_STATUS_EXPECTED.to_string();
 
             (None, status)
         },
@@ -674,7 +674,7 @@ fn parse_output_note(
 
     // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
     let status = match status.as_str() {
-        NOTE_STATUS_PENDING => NoteStatus::Pending { created_at },
+        NOTE_STATUS_EXPECTED => NoteStatus::Expected { created_at },
         NOTE_STATUS_COMMITTED => NoteStatus::Committed {
             block_height: inclusion_proof
                 .clone()
@@ -735,7 +735,7 @@ pub(crate) fn serialize_output_note(
             (Some(inclusion_proof), status)
         },
         None => {
-            let status = NOTE_STATUS_PENDING.to_string();
+            let status = NOTE_STATUS_EXPECTED.to_string();
 
             (None, status)
         },
