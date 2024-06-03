@@ -20,7 +20,7 @@ impl SqliteStore {
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
             .map(|result| {
-                result.map_err(|err| StoreError::ParsingError(err.to_string()).into()).and_then(
+                result.map_err(|err| StoreError::ParsingError(err.to_string())).and_then(
                     |v: String| {
                         serde_json::from_str(&v).map_err(StoreError::JsonDataDeserializationError)
                     },

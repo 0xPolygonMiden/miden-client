@@ -29,7 +29,6 @@ use uuid::Uuid;
 
 use crate::{
     config::RpcConfig,
-    errors::RpcError,
     rpc::{
         generated::{
             self,
@@ -40,7 +39,7 @@ use crate::{
             responses::{NullifierUpdate, SyncStateResponse},
         },
         AccountDetails, NodeRpcClient, NodeRpcClientEndpoint, NoteDetails, NoteInclusionDetails,
-        StateSyncInfo,
+        RpcError, StateSyncInfo,
     },
     store::{
         sqlite_store::{config::SqliteStoreConfig, SqliteStore},

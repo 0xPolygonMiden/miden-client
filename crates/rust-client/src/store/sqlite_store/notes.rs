@@ -270,7 +270,7 @@ impl SqliteStore {
             .query_map([unspent_filters], |row| row.get(0))
             .expect("no binding parameters used in query")
             .map(|result| {
-                result.map_err(|err| StoreError::ParsingError(err.to_string()).into()).and_then(
+                result.map_err(|err| StoreError::ParsingError(err.to_string())).and_then(
                     |v: String| {
                         Digest::try_from(v).map(Nullifier::from).map_err(StoreError::HexParseError)
                     },
