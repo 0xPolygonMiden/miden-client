@@ -298,21 +298,20 @@ pub(crate) fn set_default_account(account_id: Option<AccountId>) -> Result<(), S
     update_config(&config_path, current_config)
 }
 
-/// Sets the provided account ID as the default account, if not set already.
+/// Sets the provided account ID as the default account and updates the config file, if not set already.
 pub(crate) fn maybe_set_default_account(
-    current_config: &ClientConfig,
+    current_config: &mut ClientConfig,
     account_id: AccountId,
 ) -> Result<(), String> {
-    if current_config
-        .cli
-        .as_ref()
-        .is_some_and(|cli_config| cli_config.default_account_id.is_some())
-    {
-        set_default_account(Some(account_id))?;
-        let account_id = account_id.to_hex();
-        println!("Setting account {account_id} as the default account ID.");
-        println!("You can unset it with `{CLIENT_BINARY_NAME} account --default none`.");
+    if let Some(CliConfig { default_account_id: Some(_) }) = current_config.cli {
+        return Ok(());
     }
+
+    set_default_account(Some(account_id))?;
+    let account_id = account_id.to_hex();
+    println!("Setting account {account_id} as the default account ID.");
+    println!("You can unset it with `{CLIENT_BINARY_NAME} account --default none`.");
+    current_config.cli = Some(CliConfig { default_account_id: Some(account_id) });
 
     Ok(())
 }

@@ -92,8 +92,8 @@ impl NewWalletCmd {
             new_account.id()
         );
 
-        let (current_config, _) = load_config_file()?;
-        maybe_set_default_account(&current_config, new_account.id())?;
+        let (mut current_config, _) = load_config_file()?;
+        maybe_set_default_account(&mut current_config, new_account.id())?;
 
         Ok(())
     }

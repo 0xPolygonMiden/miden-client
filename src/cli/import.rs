@@ -37,7 +37,7 @@ impl ImportCmd {
         mut client: Client<N, R, S, A>,
     ) -> Result<(), String> {
         validate_paths(&self.filenames)?;
-        let (current_config, _) = load_config_file()?;
+        let (mut current_config, _) = load_config_file()?;
         for filename in &self.filenames {
             let note_id = import_note(&mut client, filename.clone(), !self.no_verify).await;
             if note_id.is_ok() {
@@ -49,7 +49,7 @@ impl ImportCmd {
             println!("Succesfully imported account {}", account_id);
 
             if account_id.is_regular_account() {
-                maybe_set_default_account(&current_config, account_id)?;
+                maybe_set_default_account(&mut current_config, account_id)?;
             }
         }
         Ok(())
