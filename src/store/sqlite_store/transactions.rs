@@ -17,9 +17,8 @@ use super::{
 };
 use crate::{
     client::transactions::{TransactionRecord, TransactionResult, TransactionStatus},
-    errors::StoreError,
+    store::{StoreError, TransactionFilter},
     rpc::TransactionUpdate,
-    store::TransactionFilter,
 };
 
 pub(crate) const INSERT_TRANSACTION_QUERY: &str =

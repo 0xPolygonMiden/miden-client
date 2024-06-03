@@ -1,10 +1,9 @@
 extern crate alloc;
 
 mod client;
-pub use client::{rpc, sync::SyncSummary, Client};
+pub use client::{rpc, sync::SyncSummary, Client, ClientError, IdPrefixFetchError};
 
 pub mod config;
-pub mod errors;
 pub mod store;
 
 // MIDEN BASE RE-EXPORTS

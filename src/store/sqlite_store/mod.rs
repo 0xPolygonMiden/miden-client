@@ -19,7 +19,7 @@ use crate::{
         sync::StateSyncUpdate,
         transactions::{TransactionRecord, TransactionResult},
     },
-    errors::StoreError,
+    store::StoreError,
 };
 
 mod accounts;

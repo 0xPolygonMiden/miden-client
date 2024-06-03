@@ -15,8 +15,8 @@ use super::{
 };
 use crate::{
     client::NoteScreener,
-    errors::{ClientError, StoreError},
-    store::{InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord, Store},
+    store::{InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord, Store, StoreError},
+    ClientError,
 };
 
 impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {

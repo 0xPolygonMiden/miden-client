@@ -10,7 +10,7 @@ use miden_client::{
         sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter,
         OutputNoteRecord, Store,
     },
-    Client,
+    Client, ClientError,
 };
 use miden_objects::{
     accounts::AccountStub,

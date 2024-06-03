@@ -1,4 +1,4 @@
-use crate::errors::StoreError;
+use crate::store::StoreError;
 
 // STORE ERROR
 // ================================================================================================

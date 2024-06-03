@@ -9,7 +9,7 @@ use miden_objects::{
 use rusqlite::{params, params_from_iter, types::Value, OptionalExtension, Transaction};
 
 use super::SqliteStore;
-use crate::{errors::StoreError, store::ChainMmrNodeFilter};
+use crate::store::{ChainMmrNodeFilter, StoreError};
 
 type SerializedBlockHeaderData = (i64, String, String, bool);
 type SerializedBlockHeaderParts = (u64, String, String, bool);
