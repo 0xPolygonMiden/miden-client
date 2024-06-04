@@ -118,7 +118,10 @@ impl<'a> NoteFilter<'a> {
         match self {
             NoteFilter::All => base,
             NoteFilter::Committed => {
-                format!("{base} WHERE status = '{}'", NoteStatus::Committed)
+                format!(
+                    "{base} WHERE status = '{}' AND consumer_transaction_id IS NULL",
+                    NoteStatus::Committed
+                )
             },
             NoteFilter::Consumed => {
                 format!("{base} WHERE status = '{}'", NoteStatus::Consumed)
@@ -127,7 +130,10 @@ impl<'a> NoteFilter<'a> {
                 format!("{base} WHERE status = '{}'", NoteStatus::Pending)
             },
             NoteFilter::Processing => {
-                format!("{base} WHERE status = '{}'", NoteStatus::Processing)
+                format!(
+                    "{base} WHERE status = '{}' AND consumer_transaction_id IS NOT NULL",
+                    NoteStatus::Committed,
+                )
             },
             NoteFilter::Unique(_) | NoteFilter::List(_) => {
                 format!("{base} WHERE note.note_id IN rarray(?)")
@@ -326,26 +332,24 @@ pub fn update_note_consumer_tx_id(
     note_id: NoteId,
     consumer_tx_id: TransactionId,
 ) -> Result<(), StoreError> {
-    const UPDATE_INPUT_NOTES_QUERY: &str = "UPDATE input_notes SET status = :status, consumer_transaction_id = :consumer_transaction_id WHERE note_id = :note_id;";
+    const UPDATE_INPUT_NOTES_QUERY: &str = "UPDATE input_notes SET consumer_transaction_id = :consumer_transaction_id WHERE note_id = :note_id;";
 
     tx.execute(
         UPDATE_INPUT_NOTES_QUERY,
         named_params! {
             ":note_id": note_id.inner().to_string(),
             ":consumer_transaction_id": consumer_tx_id.to_string(),
-            ":status": NoteStatus::Processing.to_string(),
         },
     )
     .map_err(|err| StoreError::QueryError(err.to_string()))?;
 
-    const UPDATE_OUTPUT_NOTES_QUERY: &str = "UPDATE output_notes SET status = :status, consumer_transaction_id = :consumer_transaction_id WHERE note_id = :note_id;";
+    const UPDATE_OUTPUT_NOTES_QUERY: &str = "UPDATE output_notes SET consumer_transaction_id = :consumer_transaction_id WHERE note_id = :note_id;";
 
     tx.execute(
         UPDATE_OUTPUT_NOTES_QUERY,
         named_params! {
             ":note_id": note_id.inner().to_string(),
             ":consumer_transaction_id": consumer_tx_id.to_string(),
-            ":status": NoteStatus::Processing.to_string(),
         },
     )
     .map_err(|err| StoreError::QueryError(err.to_string()))?;
@@ -433,6 +437,13 @@ fn parse_input_note(
     let consumer_account_id: Option<AccountId> = match consumer_account_id {
         Some(account_id) => Some(AccountId::try_from(account_id as u64)?),
         None => None,
+    };
+
+    // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
+    let status = if let (NoteStatus::Committed, Some(_)) = (status, consumer_account_id) {
+        NoteStatus::Processing
+    } else {
+        status
     };
 
     Ok(InputNoteRecord::new(
