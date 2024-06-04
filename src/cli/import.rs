@@ -12,7 +12,8 @@ use miden_client::{
 use miden_objects::{
     accounts::{AccountData, AccountId},
     crypto::rand::FeltRng,
-    notes::NoteId,
+    notes::{NoteFile, NoteId},
+    transaction::InputNote,
     utils::Deserializable,
 };
 use miden_tx::auth::TransactionAuthenticator;
@@ -40,17 +41,20 @@ impl ImportCmd {
         validate_paths(&self.filenames)?;
         let (mut current_config, _) = load_config_file()?;
         for filename in &self.filenames {
-            let note_id = import_note(&mut client, filename.clone(), !self.no_verify).await;
-            if note_id.is_ok() {
-                println!("Succesfully imported note {}", note_id.unwrap().inner());
-                continue;
-            }
-            let account_id = import_account(&mut client, filename)
-                .map_err(|_| format!("Failed to parse file {}", filename.to_string_lossy()))?;
-            println!("Succesfully imported account {}", account_id);
+            if is_note_file(filename) {
+                let note_id = import_note(&mut client, filename.clone(), !self.no_verify)
+                    .await
+                    .map_err(|_| format!("Failed to parse file {}", filename.to_string_lossy()))?;
 
-            if account_id.is_regular_account() {
-                maybe_set_default_account(&mut current_config, account_id)?;
+                println!("Succesfully imported note {}", note_id.inner());
+            } else {
+                let account_id = import_account(&mut client, filename)
+                    .map_err(|_| format!("Failed to parse file {}", filename.to_string_lossy()))?;
+                println!("Succesfully imported account {}", account_id);
+
+                if account_id.is_regular_account() {
+                    maybe_set_default_account(&mut current_config, account_id)?;
+                }
             }
         }
         Ok(())
@@ -91,8 +95,15 @@ pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionA
         .and_then(|mut f| f.read_to_end(&mut contents))
         .map_err(|err| err.to_string());
 
-    let input_note_record =
-        InputNoteRecord::read_from_bytes(&contents).map_err(|err| err.to_string())?;
+    let note_file = NoteFile::read_from_bytes(&contents).map_err(|err| err.to_string())?;
+
+    let input_note_record: InputNoteRecord = match note_file {
+        NoteFile::NoteId(_) => todo!("Importing note ID is not supported yet"),
+        NoteFile::NoteDetails(details) => (&details).into(),
+        NoteFile::NoteWithProof(note, inclusion_proof) => {
+            InputNote::authenticated(note, inclusion_proof).into()
+        },
+    };
 
     let note_id = input_note_record.id();
     client
@@ -116,4 +127,13 @@ fn validate_paths(paths: &[PathBuf]) -> Result<(), String> {
     } else {
         Ok(())
     }
+}
+
+fn is_note_file(filename: &PathBuf) -> bool {
+    let file_contents = fs::read(filename).expect("Filename should exist");
+    if file_contents.len() >= 4 {
+        let magic_bytes = &file_contents[..4];
+        return magic_bytes == b"note";
+    }
+    false
 }
