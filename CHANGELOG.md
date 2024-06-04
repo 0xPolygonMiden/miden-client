@@ -1,7 +1,7 @@
 # Changelog
 
-* Added a new check on account creation / import on the CLI to set the account as the default one if none is set.
-* Fixed bug when exporting a note into a file
+* Added a new check on account creation / import on the CLI to set the account as the default one if none is set (#372).
+* Fixed bug when exporting a note into a file (#368).
 * Simplified and separated the `notes --list` table (#356).
 * [BREAKING] Separate `prove_transaction` from `submit_transaction` in `Client`. (#339)
 * [BREAKING] Updated CLI commands so assets are now passed as `<AMOUNT>::<FAUCET_ACCOUNT_ID>` (#349)
