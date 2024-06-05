@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use miden_objects::{
+    accounts::AccountId,
     assembly::{Assembler, ProgramAst},
     notes::NoteScript,
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
@@ -46,62 +47,88 @@ pub use output_note_record::OutputNoteRecord;
 
 // NOTE STATUS
 // ================================================================================================
+pub const NOTE_STATUS_PENDING: &str = "Pending";
+pub const NOTE_STATUS_COMMITTED: &str = "Committed";
+pub const NOTE_STATUS_CONSUMED: &str = "Consumed";
+pub const NOTE_STATUS_PROCESSING: &str = "Processing";
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum NoteStatus {
-    /// Note is pending to be commited on chain
-    Pending,
+    /// Note is pending to be commited on chain.
+    Pending { created_at: u64 },
     /// Note has been commited on chain
-    Committed,
+    Committed { block_height: u64 },
     /// Note has been consumed locally but not yet nullified on chain
-    Processing,
+    Processing {
+        consumer_account_id: AccountId,
+        submited_at: u64,
+    },
     /// Note has been nullified on chain
-    Consumed,
-}
-
-impl From<NoteStatus> for u8 {
-    fn from(value: NoteStatus) -> Self {
-        match value {
-            NoteStatus::Pending => 0,
-            NoteStatus::Committed => 1,
-            NoteStatus::Consumed => 2,
-            NoteStatus::Processing => 3,
-        }
-    }
-}
-
-impl TryFrom<u8> for NoteStatus {
-    type Error = DeserializationError;
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(NoteStatus::Pending),
-            1 => Ok(NoteStatus::Committed),
-            2 => Ok(NoteStatus::Consumed),
-            3 => Ok(NoteStatus::Processing),
-            _ => Err(DeserializationError::InvalidValue(value.to_string())),
-        }
-    }
+    Consumed {
+        consumer_account_id: Option<AccountId>,
+        block_height: u64,
+    },
 }
 
 impl Serializable for NoteStatus {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
-        target.write_bytes(&[(*self).into()]);
+        match self {
+            NoteStatus::Pending { created_at } => {
+                target.write_u8(0);
+                target.write_u64(*created_at);
+            },
+            NoteStatus::Committed { block_height } => {
+                target.write_u8(1);
+                target.write_u64(*block_height);
+            },
+            NoteStatus::Processing { consumer_account_id, submited_at } => {
+                target.write_u8(2);
+                target.write_u64(*submited_at);
+                consumer_account_id.write_into(target);
+            },
+            NoteStatus::Consumed { consumer_account_id, block_height } => {
+                target.write_u8(3);
+                target.write_u64(*block_height);
+                consumer_account_id.write_into(target);
+            },
+        }
     }
 }
 
 impl Deserializable for NoteStatus {
     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
-        let enum_byte = u8::read_from(source)?;
-        enum_byte.try_into()
+        let status = source.read_u8()?;
+        match status {
+            0 => {
+                let created_at = source.read_u64()?;
+                Ok(NoteStatus::Pending { created_at })
+            },
+            1 => {
+                let block_height = source.read_u64()?;
+                Ok(NoteStatus::Committed { block_height })
+            },
+            2 => {
+                let submited_at = source.read_u64()?;
+                let consumer_account_id = AccountId::read_from(source)?;
+                Ok(NoteStatus::Processing { consumer_account_id, submited_at })
+            },
+            3 => {
+                let block_height = source.read_u64()?;
+                let consumer_account_id = Option::<AccountId>::read_from(source)?;
+                Ok(NoteStatus::Consumed { consumer_account_id, block_height })
+            },
+            _ => Err(DeserializationError::InvalidValue("NoteStatus".to_string())),
+        }
     }
 }
 
 impl Display for NoteStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            NoteStatus::Pending => write!(f, "Pending"),
-            NoteStatus::Committed => write!(f, "Committed"),
-            NoteStatus::Consumed => write!(f, "Consumed"),
-            NoteStatus::Processing => write!(f, "Processing"),
+            NoteStatus::Pending { .. } => write!(f, "{NOTE_STATUS_PENDING}"),
+            NoteStatus::Committed { .. } => write!(f, "{NOTE_STATUS_COMMITTED}"),
+            NoteStatus::Processing { .. } => write!(f, "{NOTE_STATUS_PROCESSING}"),
+            NoteStatus::Consumed { .. } => write!(f, "{NOTE_STATUS_CONSUMED}"),
         }
     }
 }
