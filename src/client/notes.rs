@@ -36,10 +36,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let mut relevant_notes = Vec::new();
         for input_note in commited_notes {
-            if input_note.consumer_account_id().is_some() {
-                continue;
-            }
-
             let mut account_relevance =
                 note_screener.check_relevance(&input_note.clone().try_into()?)?;
 
@@ -165,7 +161,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             note.metadata().copied(),
             inclusion_proof,
             note.details().clone(),
-            None,
         );
         self.store.insert_input_note(&note).map_err(|err| err.into())
     }

@@ -467,7 +467,6 @@ fn parse_input_note(
         note_metadata,
         inclusion_proof,
         note_details,
-        consumer_account_id,
     ))
 }
 
@@ -606,12 +605,28 @@ fn parse_output_note(
 
     let recipient = Digest::try_from(recipient)?;
     let id = NoteId::new(recipient, note_assets.commitment());
-    let status: NoteStatus = serde_json::from_str(&format!("\"{status}\""))
-        .map_err(StoreError::JsonDataDeserializationError)?;
 
     let consumer_account_id: Option<AccountId> = match consumer_account_id {
         Some(account_id) => Some(AccountId::try_from(account_id as u64)?),
         None => None,
+    };
+
+    // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
+    let status = match status.as_str() {
+        NOTE_STATUS_PENDING => NoteStatus::Pending { created_at: 0 },
+        NOTE_STATUS_COMMITTED => {
+            if let Some(consumer_account_id) = consumer_account_id {
+                NoteStatus::Processing { consumer_account_id, submited_at: 0 }
+            } else {
+                NoteStatus::Committed { block_height: 0 }
+            }
+        },
+        NOTE_STATUS_CONSUMED => NoteStatus::Consumed { consumer_account_id, block_height: 0 },
+        _ => {
+            return Err(StoreError::DataDeserializationError(DeserializationError::InvalidValue(
+                format!("NoteStatus: {}", status),
+            )))
+        },
     };
 
     Ok(OutputNoteRecord::new(
@@ -622,7 +637,6 @@ fn parse_output_note(
         note_metadata,
         inclusion_proof,
         note_details,
-        consumer_account_id,
     ))
 }
 
