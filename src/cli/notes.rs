@@ -355,21 +355,6 @@ fn note_summary(
         .or(output_note_record.map(|record| record.id()))
         .expect("One of the two records should be Some");
 
-    let commit_height = input_note_record
-        .map(|record| {
-            record
-                .inclusion_proof()
-                .map(|proof| proof.origin().block_num.to_string())
-                .unwrap_or("-".to_string())
-        })
-        .or(output_note_record.map(|record| {
-            record
-                .inclusion_proof()
-                .map(|proof| proof.origin().block_num.to_string())
-                .unwrap_or("-".to_string())
-        }))
-        .expect("One of the two records should be Some");
-
     let assets_hash_str = input_note_record
         .map(|record| record.assets().commitment().to_string())
         .or(output_note_record.map(|record| record.assets().commitment().to_string()))
@@ -414,20 +399,15 @@ fn note_summary(
         .or(output_note_record.map(|record| record.status()))
         .expect("One of the two records should be Some");
 
-    let note_consumer = input_note_record
-        .map(|record| record.consumer_account_id())
-        .or(output_note_record.map(|record| record.consumer_account_id()))
-        .expect("One of the two records should be Some");
-
     let status = match status {
-        NoteStatus::Committed => {
-            status.to_string() + format!(" (height {})", commit_height).as_str()
+        NoteStatus::Committed { block_height } => {
+            status.to_string() + format!(" (height {})", block_height).as_str()
         },
-        NoteStatus::Consumed => {
+        NoteStatus::Consumed { consumer_account_id, .. } => {
             status.to_string()
                 + format!(
                     " (by {})",
-                    note_consumer.map(|id| id.to_string()).unwrap_or("?".to_string())
+                    consumer_account_id.map(|id| id.to_string()).unwrap_or("?".to_string())
                 )
                 .as_str()
         },

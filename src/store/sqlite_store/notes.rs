@@ -9,12 +9,16 @@ use miden_objects::{
     transaction::TransactionId,
     Digest,
 };
+use miden_tx::utils::DeserializationError;
 use rusqlite::{named_params, params, params_from_iter, types::Value, Transaction};
 
 use super::SqliteStore;
 use crate::{
     errors::StoreError,
-    store::{InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord},
+    store::{
+        note_record::{NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED, NOTE_STATUS_PENDING},
+        InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord,
+    },
 };
 
 fn insert_note_query(table_name: NoteTable) -> String {
@@ -120,19 +124,19 @@ impl<'a> NoteFilter<'a> {
             NoteFilter::Committed => {
                 format!(
                     "{base} WHERE status = '{}' AND consumer_transaction_id IS NULL",
-                    NoteStatus::Committed
+                    NOTE_STATUS_COMMITTED
                 )
             },
             NoteFilter::Consumed => {
-                format!("{base} WHERE status = '{}'", NoteStatus::Consumed)
+                format!("{base} WHERE status = '{}'", NOTE_STATUS_CONSUMED)
             },
             NoteFilter::Pending => {
-                format!("{base} WHERE status = '{}'", NoteStatus::Pending)
+                format!("{base} WHERE status = '{}'", NOTE_STATUS_PENDING)
             },
             NoteFilter::Processing => {
                 format!(
                     "{base} WHERE status = '{}' AND consumer_transaction_id IS NOT NULL",
-                    NoteStatus::Committed,
+                    NOTE_STATUS_COMMITTED,
                 )
             },
             NoteFilter::Unique(_) | NoteFilter::List(_) => {
@@ -432,18 +436,27 @@ fn parse_input_note(
 
     let recipient = Digest::try_from(recipient)?;
     let id = NoteId::new(recipient, note_assets.commitment());
-    let status: NoteStatus = serde_json::from_str(&format!("\"{status}\""))
-        .map_err(StoreError::JsonDataDeserializationError)?;
     let consumer_account_id: Option<AccountId> = match consumer_account_id {
         Some(account_id) => Some(AccountId::try_from(account_id as u64)?),
         None => None,
     };
 
     // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
-    let status = if let (NoteStatus::Committed, Some(_)) = (status, consumer_account_id) {
-        NoteStatus::Processing
-    } else {
-        status
+    let status = match status.as_str() {
+        NOTE_STATUS_PENDING => NoteStatus::Pending { created_at: 0 },
+        NOTE_STATUS_COMMITTED => {
+            if let Some(consumer_account_id) = consumer_account_id {
+                NoteStatus::Processing { consumer_account_id, submited_at: 0 }
+            } else {
+                NoteStatus::Committed { block_height: 0 }
+            }
+        },
+        NOTE_STATUS_CONSUMED => NoteStatus::Consumed { consumer_account_id, block_height: 0 },
+        _ => {
+            return Err(StoreError::DataDeserializationError(DeserializationError::InvalidValue(
+                format!("NoteStatus: {}", status),
+            )))
+        },
     };
 
     Ok(InputNoteRecord::new(
@@ -481,15 +494,11 @@ pub(crate) fn serialize_input_note(
             )?)
             .map_err(StoreError::InputSerializationError)?;
 
-            let status = serde_json::to_string(&NoteStatus::Committed)
-                .map_err(StoreError::InputSerializationError)?
-                .replace('\"', "");
+            let status = NOTE_STATUS_COMMITTED.to_string();
             (Some(inclusion_proof), status)
         },
         None => {
-            let status = serde_json::to_string(&NoteStatus::Pending)
-                .map_err(StoreError::InputSerializationError)?
-                .replace('\"', "");
+            let status = NOTE_STATUS_PENDING.to_string();
 
             (None, status)
         },
@@ -639,16 +648,12 @@ pub(crate) fn serialize_output_note(
             )?)
             .map_err(StoreError::InputSerializationError)?;
 
-            let status = serde_json::to_string(&NoteStatus::Committed)
-                .map_err(StoreError::InputSerializationError)?
-                .replace('\"', "");
+            let status = NOTE_STATUS_COMMITTED.to_string();
 
             (Some(inclusion_proof), status)
         },
         None => {
-            let status = serde_json::to_string(&NoteStatus::Pending)
-                .map_err(StoreError::InputSerializationError)?
-                .replace('\"', "");
+            let status = NOTE_STATUS_PENDING.to_string();
 
             (None, status)
         },

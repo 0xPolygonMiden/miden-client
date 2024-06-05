@@ -101,7 +101,7 @@ impl From<Note> for OutputNoteRecord {
             id: note.id(),
             recipient: note.recipient().digest(),
             assets: note.assets().clone(),
-            status: NoteStatus::Pending,
+            status: NoteStatus::Pending { created_at: 0 },
             metadata: *note.metadata(),
             inclusion_proof: None,
             details: Some(NoteRecordDetails::new(

@@ -20,7 +20,7 @@ use crate::{
     },
     config::StoreConfig,
     errors::StoreError,
-    store::NoteStatus,
+    store::note_record::{NOTE_STATUS_COMMITTED, NOTE_STATUS_PROCESSING},
 };
 
 mod accounts;
@@ -240,8 +240,8 @@ impl Store for SqliteStore {
         const QUERY: &str =
                 "SELECT json_extract(details, '$.nullifier') FROM input_notes WHERE status IN rarray(?)";
         let unspent_filters = Rc::new(vec![
-            Value::from(NoteStatus::Committed.to_string()),
-            Value::from(NoteStatus::Processing.to_string()),
+            Value::from(NOTE_STATUS_COMMITTED.to_string()),
+            Value::from(NOTE_STATUS_PROCESSING.to_string()),
         ]);
         self.db()
             .prepare(QUERY)?

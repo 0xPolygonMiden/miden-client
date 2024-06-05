@@ -6,8 +6,8 @@ use crate::{
     client::sync::StateSyncUpdate,
     errors::StoreError,
     store::{
+        note_record::{NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED},
         sqlite_store::{accounts::update_account, notes::insert_input_note_tx},
-        NoteStatus,
     },
 };
 
@@ -100,14 +100,14 @@ impl SqliteStore {
             let nullifier = nullifier.to_hex();
             tx.execute(
                 SPENT_INPUT_NOTE_QUERY,
-                params![NoteStatus::Consumed.to_string(), nullifier],
+                params![NOTE_STATUS_CONSUMED.to_string(), nullifier],
             )?;
 
             const SPENT_OUTPUT_NOTE_QUERY: &str =
                 "UPDATE output_notes SET status = ? WHERE json_extract(details, '$.nullifier') = ?";
             tx.execute(
                 SPENT_OUTPUT_NOTE_QUERY,
-                params![NoteStatus::Consumed.to_string(), nullifier],
+                params![NOTE_STATUS_CONSUMED.to_string(), nullifier],
             )?;
         }
 
@@ -141,7 +141,7 @@ impl SqliteStore {
                 named_params! {
                     ":inclusion_proof": inclusion_proof,
                     ":note_id": note_id.inner().to_hex(),
-                    ":status": NoteStatus::Committed.to_string(),
+                    ":status": NOTE_STATUS_COMMITTED.to_string(),
                 },
             )?;
         }
@@ -165,7 +165,7 @@ impl SqliteStore {
                     ":inclusion_proof": inclusion_proof,
                     ":metadata": metadata,
                     ":note_id": input_note.id().inner().to_hex(),
-                    ":status": NoteStatus::Committed.to_string(),
+                    ":status": NOTE_STATUS_COMMITTED.to_string(),
                 },
             )?;
         }
