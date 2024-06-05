@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+extern crate chrono;
+use chrono::DateTime;
 use miden_objects::{
     accounts::AccountId,
     assembly::{Assembler, ProgramAst},
@@ -125,10 +127,26 @@ impl Deserializable for NoteStatus {
 impl Display for NoteStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            NoteStatus::Pending { .. } => write!(f, "{NOTE_STATUS_PENDING}"),
-            NoteStatus::Committed { .. } => write!(f, "{NOTE_STATUS_COMMITTED}"),
-            NoteStatus::Processing { .. } => write!(f, "{NOTE_STATUS_PROCESSING}"),
-            NoteStatus::Consumed { .. } => write!(f, "{NOTE_STATUS_CONSUMED}"),
+            NoteStatus::Pending { created_at } => write!(
+                f,
+                "{NOTE_STATUS_PENDING} (created at {})",
+                DateTime::from_timestamp(*created_at as i64, 0).expect("timestamp should be valid")
+            ),
+            NoteStatus::Committed { block_height } => {
+                write!(f, "{NOTE_STATUS_COMMITTED} (block height {block_height})")
+            },
+            NoteStatus::Processing { consumer_account_id, submited_at } => write!(
+                f,
+                "{NOTE_STATUS_PROCESSING} (submited at {} by account {})",
+                DateTime::from_timestamp(*submited_at as i64, 0)
+                    .expect("timestamp should be valid"),
+                consumer_account_id.to_hex()
+            ),
+            NoteStatus::Consumed { consumer_account_id, block_height } => write!(
+                f,
+                "{NOTE_STATUS_CONSUMED} (consumed at block height {block_height} by account {}  )",
+                consumer_account_id.map(|id| id.to_hex()).unwrap_or("?".to_string())
+            ),
         }
     }
 }

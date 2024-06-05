@@ -7,7 +7,7 @@ use miden_client::{
         NoteConsumability,
     },
     errors::{ClientError, IdPrefixFetchError},
-    store::{InputNoteRecord, NoteFilter as ClientNoteFilter, NoteStatus, OutputNoteRecord, Store},
+    store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
 };
 use miden_objects::{
     accounts::AccountId,
@@ -397,22 +397,8 @@ fn note_summary(
     let status = input_note_record
         .map(|record| record.status())
         .or(output_note_record.map(|record| record.status()))
-        .expect("One of the two records should be Some");
-
-    let status = match status {
-        NoteStatus::Committed { block_height } => {
-            status.to_string() + format!(" (height {})", block_height).as_str()
-        },
-        NoteStatus::Consumed { consumer_account_id, .. } => {
-            status.to_string()
-                + format!(
-                    " (by {})",
-                    consumer_account_id.map(|id| id.to_string()).unwrap_or("?".to_string())
-                )
-                .as_str()
-        },
-        _ => status.to_string(),
-    };
+        .expect("One of the two records should be Some")
+        .to_string();
 
     let note_metadata = input_note_record
         .map(|record| record.metadata())
