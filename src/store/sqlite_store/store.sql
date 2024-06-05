@@ -94,6 +94,9 @@ CREATE TABLE input_notes (
     -- inputs                                                 -- the serialized NoteInputs, including inputs hash and list of inputs
     -- serial_num                                             -- the note serial number
     consumer_transaction_id BLOB NULL,                      -- the transaction ID of the transaction that consumed the note
+    created_at UNSIGNED BIG INT NOT NULL,                   -- timestamp of the note creation/import
+    submited_at UNSIGNED BIG INT NULL,                      -- timestamp of the note submission to node
+    nullifier_height UNSIGNED BIG INT NULL,                 -- block height when the nullifier arrived
     FOREIGN KEY (consumer_transaction_id) REFERENCES transactions(id)
     PRIMARY KEY (note_id)
 
@@ -136,6 +139,9 @@ CREATE TABLE output_notes (
     -- inputs                                                 -- the serialized NoteInputs, including inputs hash and list of inputs
     -- serial_num                                             -- the note serial number
     consumer_transaction_id BLOB NULL,                      -- the transaction ID of the transaction that consumed the note
+    created_at UNSIGNED BIG INT NOT NULL,                   -- timestamp of the note creation/import
+    submited_at UNSIGNED BIG INT NULL,                      -- timestamp of the note submission to node
+    nullifier_height UNSIGNED BIG INT NULL,                 -- block height when the nullifier arrived
     FOREIGN KEY (consumer_transaction_id) REFERENCES transactions(id)
     PRIMARY KEY (note_id)
 

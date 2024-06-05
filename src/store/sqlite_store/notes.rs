@@ -1,6 +1,7 @@
 use alloc::rc::Rc;
 use std::fmt;
 
+use chrono::Utc;
 use clap::error::Result;
 use miden_objects::{
     accounts::AccountId,
@@ -24,8 +25,8 @@ use crate::{
 fn insert_note_query(table_name: NoteTable) -> String {
     format!("\
     INSERT INTO {table_name}
-        (note_id, assets, recipient, status, metadata, details, inclusion_proof, consumer_transaction_id) 
-     VALUES (:note_id, :assets, :recipient, :status, json(:metadata), json(:details), json(:inclusion_proof), :consumer_transaction_id)",
+        (note_id, assets, recipient, status, metadata, details, inclusion_proof, consumer_transaction_id, created_at) 
+     VALUES (:note_id, :assets, :recipient, :status, json(:metadata), json(:details), json(:inclusion_proof), :consumer_transaction_id, unixepoch(current_timestamp)|);",
             table_name = table_name)
 }
 
@@ -64,6 +65,9 @@ type SerializedInputNoteParts = (
     Option<String>,
     Vec<u8>,
     Option<i64>,
+    u64,
+    Option<u64>,
+    Option<u64>,
 );
 type SerializedOutputNoteParts = (
     Vec<u8>,
@@ -74,6 +78,9 @@ type SerializedOutputNoteParts = (
     Option<String>,
     Option<Vec<u8>>,
     Option<i64>,
+    u64,
+    Option<u64>,
+    Option<u64>,
 );
 
 // NOTE TABLE
@@ -109,7 +116,10 @@ impl<'a> NoteFilter<'a> {
                     note.metadata,
                     note.inclusion_proof,
                     script.serialized_note_script,
-                    tx.account_id
+                    tx.account_id,
+                    note.created_at,
+                    note.submited_at,
+                    note.nullifier_height
                     from {notes_table} AS note 
                     LEFT OUTER JOIN notes_scripts AS script
                         ON note.details IS NOT NULL AND 
@@ -336,24 +346,26 @@ pub fn update_note_consumer_tx_id(
     note_id: NoteId,
     consumer_tx_id: TransactionId,
 ) -> Result<(), StoreError> {
-    const UPDATE_INPUT_NOTES_QUERY: &str = "UPDATE input_notes SET consumer_transaction_id = :consumer_transaction_id WHERE note_id = :note_id;";
+    const UPDATE_INPUT_NOTES_QUERY: &str = "UPDATE input_notes SET consumer_transaction_id = :consumer_transaction_id, submited_at = :submited_at WHERE note_id = :note_id;";
 
     tx.execute(
         UPDATE_INPUT_NOTES_QUERY,
         named_params! {
             ":note_id": note_id.inner().to_string(),
             ":consumer_transaction_id": consumer_tx_id.to_string(),
+            ":submited_at": Utc::now().timestamp(),
         },
     )
     .map_err(|err| StoreError::QueryError(err.to_string()))?;
 
-    const UPDATE_OUTPUT_NOTES_QUERY: &str = "UPDATE output_notes SET consumer_transaction_id = :consumer_transaction_id WHERE note_id = :note_id;";
+    const UPDATE_OUTPUT_NOTES_QUERY: &str = "UPDATE output_notes SET consumer_transaction_id = :consumer_transaction_id, submited_at = :submited_at WHERE note_id = :note_id;";
 
     tx.execute(
         UPDATE_OUTPUT_NOTES_QUERY,
         named_params! {
             ":note_id": note_id.inner().to_string(),
             ":consumer_transaction_id": consumer_tx_id.to_string(),
+            ":submited_at": Utc::now().timestamp(),
         },
     )
     .map_err(|err| StoreError::QueryError(err.to_string()))?;
@@ -373,6 +385,9 @@ fn parse_input_note_columns(
     let inclusion_proof: Option<String> = row.get(5)?;
     let serialized_note_script: Vec<u8> = row.get(6)?;
     let consumer_account_id: Option<i64> = row.get(7)?;
+    let created_at: u64 = row.get(8)?;
+    let submited_at: Option<u64> = row.get(9)?;
+    let nullifier_height: Option<u64> = row.get(10)?;
 
     Ok((
         assets,
@@ -383,6 +398,9 @@ fn parse_input_note_columns(
         inclusion_proof,
         serialized_note_script,
         consumer_account_id,
+        created_at,
+        submited_at,
+        nullifier_height,
     ))
 }
 
@@ -399,6 +417,9 @@ fn parse_input_note(
         note_inclusion_proof,
         serialized_note_script,
         consumer_account_id,
+        created_at,
+        submited_at,
+        nullifier_height,
     ) = serialized_input_note_parts;
 
     // Merge the info that comes from the input notes table and the notes script table
@@ -443,15 +464,26 @@ fn parse_input_note(
 
     // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
     let status = match status.as_str() {
-        NOTE_STATUS_PENDING => NoteStatus::Pending { created_at: 0 },
+        NOTE_STATUS_PENDING => NoteStatus::Pending { created_at },
         NOTE_STATUS_COMMITTED => {
             if let Some(consumer_account_id) = consumer_account_id {
-                NoteStatus::Processing { consumer_account_id, submited_at: 0 }
+                NoteStatus::Processing {
+                    consumer_account_id,
+                    submited_at: submited_at.unwrap_or(0),
+                }
             } else {
-                NoteStatus::Committed { block_height: 0 }
+                NoteStatus::Committed {
+                    block_height: inclusion_proof
+                        .clone()
+                        .map(|proof| proof.origin().block_num as u64)
+                        .unwrap_or(0),
+                }
             }
         },
-        NOTE_STATUS_CONSUMED => NoteStatus::Consumed { consumer_account_id, block_height: 0 },
+        NOTE_STATUS_CONSUMED => NoteStatus::Consumed {
+            consumer_account_id,
+            block_height: nullifier_height.unwrap_or(0),
+        },
         _ => {
             return Err(StoreError::DataDeserializationError(DeserializationError::InvalidValue(
                 format!("NoteStatus: {}", status),
@@ -540,6 +572,9 @@ fn parse_output_note_columns(
     let inclusion_proof: Option<String> = row.get(5)?;
     let serialized_note_script: Option<Vec<u8>> = row.get(6)?;
     let consumer_account_id: Option<i64> = row.get(7)?;
+    let created_at: u64 = row.get(8)?;
+    let submited_at: Option<u64> = row.get(9)?;
+    let nullifier_height: Option<u64> = row.get(10)?;
 
     Ok((
         assets,
@@ -550,6 +585,9 @@ fn parse_output_note_columns(
         inclusion_proof,
         serialized_note_script,
         consumer_account_id,
+        created_at,
+        submited_at,
+        nullifier_height,
     ))
 }
 
@@ -566,6 +604,9 @@ fn parse_output_note(
         note_inclusion_proof,
         serialized_note_script,
         consumer_account_id,
+        created_at,
+        submited_at,
+        nullifier_height,
     ) = serialized_output_note_parts;
 
     let note_details: Option<NoteRecordDetails> = if let Some(details_as_json_str) = note_details {
@@ -613,15 +654,26 @@ fn parse_output_note(
 
     // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
     let status = match status.as_str() {
-        NOTE_STATUS_PENDING => NoteStatus::Pending { created_at: 0 },
+        NOTE_STATUS_PENDING => NoteStatus::Pending { created_at },
         NOTE_STATUS_COMMITTED => {
             if let Some(consumer_account_id) = consumer_account_id {
-                NoteStatus::Processing { consumer_account_id, submited_at: 0 }
+                NoteStatus::Processing {
+                    consumer_account_id,
+                    submited_at: submited_at.unwrap_or(0),
+                }
             } else {
-                NoteStatus::Committed { block_height: 0 }
+                NoteStatus::Committed {
+                    block_height: inclusion_proof
+                        .clone()
+                        .map(|proof| proof.origin().block_num as u64)
+                        .unwrap_or(0),
+                }
             }
         },
-        NOTE_STATUS_CONSUMED => NoteStatus::Consumed { consumer_account_id, block_height: 0 },
+        NOTE_STATUS_CONSUMED => NoteStatus::Consumed {
+            consumer_account_id,
+            block_height: nullifier_height.unwrap_or(0),
+        },
         _ => {
             return Err(StoreError::DataDeserializationError(DeserializationError::InvalidValue(
                 format!("NoteStatus: {}", status),
