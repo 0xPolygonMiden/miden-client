@@ -442,7 +442,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     note_recipient,
                 );
 
-                let input_note = InputNote::new(note, note_inclusion_proof);
+                let input_note = InputNote::authenticated(note, note_inclusion_proof);
 
                 tracked_input_notes.push(input_note);
             }
@@ -513,7 +513,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     )
                     .map_err(ClientError::NoteError)?;
 
-                    return_notes.push(InputNote::new(note, note_inclusion_proof))
+                    return_notes.push(InputNote::authenticated(note, note_inclusion_proof))
                 },
             }
         }
