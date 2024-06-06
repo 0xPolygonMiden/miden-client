@@ -49,10 +49,13 @@ description = "Run the client testing suite"
 command = "cargo"
 args = ["nextest", "run", "--profile", "ci-default", "--release", "--workspace"]
 
-[tasks.ci-integration-test]
-description = "Run the integration test binary. Requires a node to connect to."
-command = "cargo"
-args = ["nextest", "run", "--profile", "ci-default", "--release", "--test=integration", "--features", "${FEATURES_INTEGRATION_TESTING}"]
+[tasks.integration-test-full]
+description = "Run the integration test binary with ignored tests included"
+script_runner = "bash"
+script = [
+  'cargo nextest run --profile ci-default --release --test=integration --features $FEATURES_INTEGRATION_TESTING',
+  'cargo nextest run --profile ci-default --release --test=integration --features $FEATURES_INTEGRATION_TESTING --run-ignored ignored-only -- test_import_genesis_accounts_can_be_used_for_transactions'
+]
 
 [tasks.lint]
 dependencies = [

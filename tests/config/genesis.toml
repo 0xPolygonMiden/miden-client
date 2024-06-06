@@ -8,6 +8,12 @@ auth_scheme = "RpoFalcon512"
 auth_seed = "0xb123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
 [[accounts]]
+type = "BasicWallet"
+init_seed = "0xa123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdea"
+auth_scheme = "RpoFalcon512"
+auth_seed = "0xb123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdea"
+
+[[accounts]]
 type = "BasicFungibleFaucet"
 init_seed = "0xc123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 auth_scheme = "RpoFalcon512"
