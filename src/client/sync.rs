@@ -668,10 +668,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             idx = idx.sibling();
             // Rightmost index is always the biggest value, so if the path contains any node
             // past it, we can discard it for our version of the forest
-            if idx > rightmost_index {
-                continue;
+            if idx <= rightmost_index {
+                path_nodes.push((idx, node));
             }
-            path_nodes.push((idx, node));
             idx = idx.parent();
         }
 

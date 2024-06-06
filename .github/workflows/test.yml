@@ -33,7 +33,7 @@ jobs:
       - run: make clean-node
       - run: make node
       - run: make start-node > /dev/null &
-      - run: make integration-test
+      - run: make integration-test-full
       - name: Kill miden-node
         if: always()
         run: make kill-node

@@ -63,6 +63,11 @@ test: ## Run tests
 integration-test: ## Run integration tests
 	cargo nextest run --release --test=integration --features $(FEATURES_INTEGRATION_TESTING)
 
+.PHONY: integration-test-full
+integration-test-full: ## Run the integration test binary with ignored tests included
+	cargo nextest run --release --test=integration --features $(FEATURES_INTEGRATION_TESTING)
+	cargo nextest run --release --test=integration --features $(FEATURES_INTEGRATION_TESTING) --run-ignored ignored-only -- test_import_genesis_accounts_can_be_used_for_transactions
+
 .PHONY: kill-node
 kill-node: ## Kill node process
 	pkill miden-node || echo 'process not running'

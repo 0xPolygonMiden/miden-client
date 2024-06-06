@@ -153,7 +153,7 @@ pub(super) fn load_config_file() -> Result<(ClientConfig, PathBuf), String> {
 }
 
 /// Loads the client configuration.
-pub(super) fn load_config(config_file: &Path) -> Result<ClientConfig, String> {
+fn load_config(config_file: &Path) -> Result<ClientConfig, String> {
     Figment::from(Toml::file(config_file))
         .extract()
         .map_err(|err| format!("Failed to load {} config file: {err}", config_file.display()))

@@ -19,7 +19,7 @@ And on a second terminal do:
 
 ```bash
 # This will run the integration test 
-make integration-test
+make integration-test-full
 ```
 
 Note that in order to run this as part of a CI/CD workflow (at least on github), you'll need to use `make start-node &` instead so the process keeps running on background.
@@ -41,6 +41,24 @@ After that we can start the node, again done in the `start-node` command from th
 ### Test Run
 
 To run the integration test you just need to run `make integration-test`. It'll run the integration tests as a cargo test using the `integration` feature which is used to separate regular tests from integration tests.
+
+### Ignored Tests
+
+Currently, we have one ignored test because it requires having the genesis data
+from the node it is running against which might not always be possible. You can
+run it manually by doing:
+
+```bash
+cargo nextest run --release --test=integration --features integration --run-ignored ignored-only -- test_import_genesis_accounts_can_be_used_for_transactions
+```
+
+Or run `make integration-test-full` to run all integration tests with
+that included. On the other hand, if you want to run integration tests without
+that one you can just instead do:
+
+```bash
+make integration-test
+```
 
 ### Running tests against a remote node
 
