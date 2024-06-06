@@ -71,13 +71,13 @@ For example, a new change to the `miden-node-store` crate might have the followi
     // ================================================================================
     ```
 
-- [Rustfmt](https://github.com/rust-lang/rustfmt), [Clippy](https://github.com/rust-lang/rust-clippy) and [Rustdoc](https://doc.rust-lang.org/rustdoc/index.html) linting is included in CI pipeline. Anyways it's preferable to run linting locally before push. To simplify running these commands in a reproducible manner we use [cargo-make](https://github.com/sagiegurari/cargo-make), you can run:
+- [Rustfmt](https://github.com/rust-lang/rustfmt), [Clippy](https://github.com/rust-lang/rust-clippy) and [Rustdoc](https://doc.rust-lang.org/rustdoc/index.html) linting is included in CI pipeline. Anyways it's preferable to run linting locally before push. To simplify running these commands in a reproducible manner we use `make`, you can run:
 
     ```
-    cargo make lint
+    make lint
     ```
 
-You can find more information about the `cargo make` commands in the [Makefile](Makefile.toml)
+You can find more information about other `make` commands in the [Makefile](Makefile)
 
 ### Versioning
 We use [semver](https://semver.org/) naming convention.

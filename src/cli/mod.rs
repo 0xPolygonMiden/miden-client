@@ -166,9 +166,9 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
 /// # Errors
 ///
 /// - Returns [IdPrefixFetchError::NoMatch] if we were unable to find any note where
-/// `note_id_prefix` is a prefix of its id.
+///   `note_id_prefix` is a prefix of its id.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found
-/// where `note_id_prefix` is a prefix of its id.
+///   where `note_id_prefix` is a prefix of its id.
 pub(crate) fn get_input_note_with_id_prefix<
     N: NodeRpcClient,
     R: FeltRng,
@@ -218,9 +218,9 @@ pub(crate) fn get_input_note_with_id_prefix<
 /// # Errors
 ///
 /// - Returns [IdPrefixFetchError::NoMatch] if we were unable to find any note where
-/// `note_id_prefix` is a prefix of its id.
+///   `note_id_prefix` is a prefix of its id.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found
-/// where `note_id_prefix` is a prefix of its id.
+///   where `note_id_prefix` is a prefix of its id.
 pub(crate) fn get_output_note_with_id_prefix<
     N: NodeRpcClient,
     R: FeltRng,
@@ -270,9 +270,9 @@ pub(crate) fn get_output_note_with_id_prefix<
 /// # Errors
 ///
 /// - Returns [IdPrefixFetchError::NoMatch] if we were unable to find any account where
-/// `account_id_prefix` is a prefix of its id.
+///   `account_id_prefix` is a prefix of its id.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one account found
-/// where `account_id_prefix` is a prefix of its id.
+///   where `account_id_prefix` is a prefix of its id.
 fn get_account_with_id_prefix<
     N: NodeRpcClient,
     R: FeltRng,
