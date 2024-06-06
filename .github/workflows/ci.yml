@@ -72,7 +72,7 @@ jobs:
       - run: cargo make reset
       - run: cargo make node
       - run: cargo make start-node > /dev/null &
-      - run: cargo make ci-integration-test
+      - run: cargo make integration-test-full
       - name: Kill miden-node
         if: always()
         run: cargo make kill-node
