@@ -83,7 +83,13 @@ impl<S: Store> DataStore for ClientDataStore<S> {
 
             list_of_notes.push(input_note.clone());
 
-            let note_block_num = input_note.proof().origin().block_num;
+            let note_block_num = input_note
+                .proof()
+                .ok_or(DataStoreError::InternalError(
+                    "Input note doesn't have inclusion proof".to_string(),
+                ))?
+                .origin()
+                .block_num;
 
             if note_block_num != block_num {
                 notes_blocks.push(note_block_num);
