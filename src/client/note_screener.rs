@@ -127,7 +127,7 @@ impl<S: Store> NoteScreener<S> {
         note: &Note,
         account_ids: &BTreeSet<AccountId>,
     ) -> Result<Vec<(AccountId, NoteRelevance)>, NoteScreenerError> {
-        let note_inputs = note.inputs().values();
+        let note_inputs = note.inputs().values().to_vec();
         if note_inputs.len() != 9 {
             return Ok(Vec::new());
         }

@@ -12,8 +12,11 @@ use miden_tx::{
     utils::{bytes_to_hex_string, Serializable},
 };
 
-use super::utils::{load_config_file, parse_account_id, update_config};
-use crate::cli::create_dynamic_table;
+use super::{
+    config::CliConfig,
+    utils::{load_config_file, parse_account_id, update_config},
+};
+use crate::cli::{create_dynamic_table, CLIENT_BINARY_NAME};
 
 // ACCOUNT COMMAND
 // ================================================================================================
@@ -69,22 +72,17 @@ impl AccountCmd {
                             // Check whether we're tracking that account
                             let (account, _) = client.get_account_stub_by_id(account_id)?;
 
-                            Some(account.id().to_hex())
+                            Some(account.id())
                         };
 
-                        // load config
-                        let (mut cli_config, config_path) = load_config_file()?;
-
-                        // set default account
-                        cli_config.default_account_id.clone_from(&default_account);
+                        set_default_account(default_account)?;
 
                         if let Some(id) = default_account {
+                            let id = id.to_hex();
                             println!("Setting default account to {id}...");
                         } else {
                             println!("Removing default account...");
                         }
-
-                        update_config(&config_path, cli_config)?;
                     },
                 }
             },
@@ -279,5 +277,35 @@ fn display_default_account_id() -> Result<(), String> {
         "No default account found in the CLI options from the client config file.".to_string(),
     )?;
     println!("Current default account ID: {default_account}");
+    Ok(())
+}
+
+/// Sets the provided account ID as the default account ID if provided. Unsets the current default
+/// account ID if `None` is provided.
+pub(crate) fn set_default_account(account_id: Option<AccountId>) -> Result<(), String> {
+    // load config
+    let (mut current_config, config_path) = load_config_file()?;
+
+    // set default account
+    current_config.default_account_id = account_id.map(|id| id.to_hex());
+
+    update_config(&config_path, current_config)
+}
+
+/// Sets the provided account ID as the default account and updates the config file, if not set already.
+pub(crate) fn maybe_set_default_account(
+    current_config: &mut CliConfig,
+    account_id: AccountId,
+) -> Result<(), String> {
+    if current_config.default_account_id.is_some() {
+        return Ok(());
+    }
+
+    set_default_account(Some(account_id))?;
+    let account_id = account_id.to_hex();
+    println!("Setting account {account_id} as the default account ID.");
+    println!("You can unset it with `{CLIENT_BINARY_NAME} account --default none`.");
+    current_config.default_account_id = Some(account_id);
+
     Ok(())
 }

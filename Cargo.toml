@@ -56,3 +56,4 @@ tracing-subscriber = { version = "0.3" }
 miden-lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["testing"] }
 miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["serde", "testing"] }
 uuid = { version = "1.6.1", features = ["serde", "v4"] }
+assert_cmd = { version = "2.0" }

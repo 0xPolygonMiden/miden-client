@@ -27,7 +27,7 @@ use self::{
     new_transactions::{ConsumeNotesCmd, MintCmd, SendCmd, SwapCmd},
     notes::NotesCmd,
     tags::TagsCmd,
-    utils::load_config,
+    utils::load_config_file,
 };
 
 mod account;
@@ -110,7 +110,7 @@ impl Cli {
         };
 
         // Create the client
-        let cli_config = load_config(current_dir.as_path())?;
+        let (cli_config, _config_path) = load_config_file()?;
         let store = SqliteStore::new(&cli_config.store).map_err(ClientError::StoreError)?;
         let store = Rc::new(store);
 
