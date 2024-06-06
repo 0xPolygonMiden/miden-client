@@ -358,7 +358,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         recall_height: Option<u32>,
         note_type: NoteType,
     ) -> Result<TransactionRequest, ClientError> {
-        let random_coin = self.get_random_coin();
+        let mut random_coin = self.get_random_coin();
 
         let created_note = if let Some(recall_height) = recall_height {
             create_p2idr_note(
@@ -367,7 +367,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 vec![payment_data.asset()],
                 note_type,
                 recall_height,
-                random_coin,
+                &mut random_coin,
             )?
         } else {
             create_p2id_note(
@@ -375,7 +375,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 payment_data.target_account_id(),
                 vec![payment_data.asset()],
                 note_type,
-                random_coin,
+                &mut random_coin,
             )?
         };
 
@@ -417,7 +417,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         swap_data: SwapTransactionData,
         note_type: NoteType,
     ) -> Result<TransactionRequest, ClientError> {
-        let random_coin = self.get_random_coin();
+        let mut random_coin = self.get_random_coin();
 
         // The created note is the one that we need as the output of the tx, the other one is the
         // one that we expect to receive and consume eventually
@@ -426,7 +426,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             swap_data.offered_asset(),
             swap_data.requested_asset(),
             note_type,
-            random_coin,
+            &mut random_coin,
         )?;
 
         let recipient = created_note
@@ -468,13 +468,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         target_account_id: AccountId,
         note_type: NoteType,
     ) -> Result<TransactionRequest, ClientError> {
-        let random_coin = self.get_random_coin();
+        let mut random_coin = self.get_random_coin();
         let created_note = create_p2id_note(
             asset.faucet_id(),
             target_account_id,
             vec![asset.into()],
             note_type,
-            random_coin,
+            &mut random_coin,
         )?;
 
         let recipient = created_note

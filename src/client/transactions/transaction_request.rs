@@ -255,7 +255,7 @@ mod tests {
         // create dummy data for the notes
         let faucet_id: AccountId = ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN.try_into().unwrap();
         let account_id: AccountId = ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN.try_into().unwrap();
-        let rng = RpoRandomCoin::new(Default::default());
+        let mut rng = RpoRandomCoin::new(Default::default());
 
         // create dummy notes to compare note script roots
         let p2id_note = create_p2id_note(
@@ -263,7 +263,7 @@ mod tests {
             account_id,
             vec![FungibleAsset::new(faucet_id, 100u64).unwrap().into()],
             NoteType::OffChain,
-            rng,
+            &mut rng,
         )
         .unwrap();
         let p2idr_note = create_p2idr_note(
@@ -272,7 +272,7 @@ mod tests {
             vec![FungibleAsset::new(faucet_id, 100u64).unwrap().into()],
             NoteType::OffChain,
             10,
-            rng,
+            &mut rng,
         )
         .unwrap();
         let (swap_note, _serial_num) = create_swap_note(
@@ -280,7 +280,7 @@ mod tests {
             FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
             FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
             NoteType::OffChain,
-            rng,
+            &mut rng,
         )
         .unwrap();
 
