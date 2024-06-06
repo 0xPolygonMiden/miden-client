@@ -7,6 +7,7 @@ help: ## Show description of all commands
 # --- Variables -----------------------------------------------------------------------------------
 
 FEATURES_INTEGRATION_TESTING="integration"
+FEATURES_CLI="testing,concurrent"
 NODE_FEATURES_TESTING="testing"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
 
@@ -86,3 +87,13 @@ node: ## Setup node
 .PHONY: start-node
 start-node: ## Run node
 	cd miden-node && cargo run --bin miden-node --features $(NODE_FEATURES_TESTING) -- start --config ../tests/config/miden-node.toml node
+
+# --- Installing ----------------------------------------------------------------------------------
+
+install: ## Installs the CLI binary using the current dir
+	cargo install --features $(FEATURES_CLI) --path .
+
+# --- Building ------------------------------------------------------------------------------------
+
+build: ## Builds the CLI binary and client library in release mode
+	cargo build --release --features $(FEATURES_CLI)
