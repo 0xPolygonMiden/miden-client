@@ -1,8 +1,8 @@
 # Miden client
 
 [![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/0xPolygonMiden/miden-client/blob/main/LICENSE)
-[![CI](https://github.com/0xPolygonMiden/miden-client/actions/workflows/ci.yml/badge.svg)](https://github.com/0xPolygonMiden/miden-clinet/actions/workflows/ci.yml)
-[![RUST_VERSION](https://img.shields.io/badge/rustc-1.78+-lightgray.svg)]()
+[![test](https://github.com/0xPolygonMiden/miden-client/actions/workflows/test.yml/badge.svg)](https://github.com/0xPolygonMiden/miden-clinet/actions/workflows/test.yml)
+[![RUST_VERSION](https://img.shields.io/badge/rustc-1.78+-lightgray.svg)](https://www.rust-lang.org/tools/install)
 [![crates.io](https://img.shields.io/crates/v/miden-client)](https://crates.io/crates/miden-client)
 
 This repository contains the Miden client, which provides a way to execute and prove transactions, facilitating the interaction with the Miden rollup.
@@ -66,7 +66,11 @@ Note that binary name for the client is just `miden`.
 
 ### Makefile
 
-As mentioned before, we use [cargo-make](https://github.com/sagiegurari/cargo-make) to encapsulate some tasks, such as running lints and tests. You can check out [Makefile.toml](./Makefile.toml) for all available tasks.
+As mentioned before, we use `make` to encapsulate some tasks, such as running lints and tests. You can check out [Makefile](./Makefile) for all available tasks or just run the following command:
+
+```bash
+make
+```
 
 ## Testing
 
