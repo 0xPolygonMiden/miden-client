@@ -5,7 +5,7 @@ use miden_client::{
     store::{InputNoteRecord, Store},
     Client,
 };
-use miden_objects::crypto::rand::FeltRng;
+use miden_objects::{crypto::rand::FeltRng, notes::NoteFile};
 use miden_tx::{auth::TransactionAuthenticator, utils::Serializable};
 use tracing::info;
 
@@ -56,6 +56,14 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthent
         .try_into()
         .map_err(|_err| format!("Can't export note with ID {}", note_id.to_hex()))?;
 
+    let note_file = if let (Some(inclusion_proof), Some(_)) =
+        (input_note.inclusion_proof().cloned(), input_note.metadata())
+    {
+        NoteFile::NoteWithProof(input_note.try_into()?, inclusion_proof)
+    } else {
+        NoteFile::NoteDetails(input_note.into())
+    };
+
     let file_path = if let Some(filename) = filename {
         filename
     } else {
@@ -65,7 +73,7 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthent
 
     info!("Writing file to {}", file_path.to_string_lossy());
     let mut file = File::create(file_path).map_err(|err| err.to_string())?;
-    file.write_all(&input_note.to_bytes()).map_err(|err| err.to_string())?;
+    file.write_all(&note_file.to_bytes()).map_err(|err| err.to_string())?;
 
     println!("Succesfully exported note {}", note_id);
     Ok(file)

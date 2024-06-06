@@ -115,6 +115,19 @@ impl From<&NoteDetails> for InputNoteRecord {
     }
 }
 
+impl From<InputNoteRecord> for NoteDetails {
+    fn from(val: InputNoteRecord) -> Self {
+        NoteDetails::new(
+            val.assets,
+            NoteRecipient::new(
+                val.details.serial_num,
+                val.details.script,
+                NoteInputs::new(val.details.inputs).unwrap(),
+            ),
+        )
+    }
+}
+
 impl Serializable for InputNoteRecord {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
         self.id().write_into(target);
