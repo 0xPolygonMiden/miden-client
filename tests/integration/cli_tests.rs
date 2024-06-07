@@ -265,7 +265,7 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
     sync_cli(&temp_dir);
 }
 
-// This tests that it's possible to export and import accounts into other CLIs. To do so it:
+// This tests that it's possible to export and import notes into other CLIs. To do so it:
 //
 // 1. Creates a client A with a faucet
 // 2. Creates a client B with a regular account
@@ -273,7 +273,6 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
 // 4. On client B imports the note and consumes it
 #[test]
 fn test_cli_export_import_note() {
-    /// This te
     const NOTE_FILENAME: &str = "test_note.mno";
 
     let store_path_1 = create_test_store_path();
@@ -360,8 +359,6 @@ fn test_cli_export_import_note() {
     import_cmd.args(["import", "--no-verify", NOTE_FILENAME]);
     import_cmd.current_dir(&temp_dir_2).assert().success();
 
-    // Sleep for a while to ensure the note is committed on the node
-    std::thread::sleep(std::time::Duration::new(15, 0));
     sync_cli(&temp_dir_2);
 
     // Consume the note

@@ -288,6 +288,7 @@ fn create_mock_sync_state_request_for_account_and_notes(
                 nullifier: Some(consumed_notes.first().unwrap().note().nullifier().inner().into()),
                 block_num: 7,
             }],
+            transactions: vec![],
         };
         requests.insert(request.block_num, response);
     }

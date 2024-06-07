@@ -226,9 +226,9 @@ impl SwapTransactionData {
 // --------------------------------------------------------------------------------------------
 
 pub mod known_script_roots {
-    pub const P2ID: &str = "0x0e869f7419bf0dd2e49e241bc7e0406a12589943dbe1783ff446efb022c9ef41";
-    pub const P2IDR: &str = "0x162fbb439faef7aeda6bd3ee03f55cbf538664b34859f15672cca28e52f8b86b";
-    pub const SWAP: &str = "0x785b3a6fbd7c9b7d90768989a1460280b081f2f1e94724275b9be812cd4101d5";
+    pub const P2ID: &str = "0x3df15bd183c3239332dcb535c6d0a25c668ead19a317fefe66fc2754e49ce4f1";
+    pub const P2IDR: &str = "0xf6513a4c607de61288263e1d9346889e9393f3c4024bfb42efc0e2ce3c64ee72";
+    pub const SWAP: &str = "0x242a406000a940107acc7c6d279a7dea95e0ceeb697a22476212b9b237f578a0";
 }
 
 #[cfg(all(test, not(feature = "wasm")))]
