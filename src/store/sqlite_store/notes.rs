@@ -26,7 +26,7 @@ fn insert_note_query(table_name: NoteTable) -> String {
     format!("\
     INSERT INTO {table_name}
         (note_id, assets, recipient, status, metadata, details, inclusion_proof, consumer_transaction_id, created_at) 
-     VALUES (:note_id, :assets, :recipient, :status, json(:metadata), json(:details), json(:inclusion_proof), :consumer_transaction_id, unixepoch(current_timestamp)|);",
+     VALUES (:note_id, :assets, :recipient, :status, json(:metadata), json(:details), json(:inclusion_proof), :consumer_transaction_id, unixepoch(current_timestamp));",
             table_name = table_name)
 }
 
