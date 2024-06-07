@@ -1,4 +1,4 @@
-use std::{env::temp_dir, fs::File, io::Read, path::Path, rc::Rc};
+use std::{env::temp_dir, fs::File, io::Read, path::Path, rc::Rc, thread, time::Duration};
 
 use assert_cmd::Command;
 use miden_client::{
@@ -133,6 +133,8 @@ fn test_mint_with_untracked_account() {
     // Let's try and mint
     mint_cli(&temp_dir, &target_account_id, &fungible_faucet_account_id);
 
+    // Sleep for a while to ensure the note is committed on the node
+    std::thread::sleep(std::time::Duration::from_secs(20));
     sync_cli(&temp_dir);
 }
 
@@ -214,7 +216,7 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
     mint_cli(&temp_dir, &first_basic_account_id[..8], &fungible_faucet_account_id);
 
     // Sleep for a while to ensure the note is committed on the node
-    std::thread::sleep(std::time::Duration::new(15, 0));
+    std::thread::sleep(std::time::Duration::from_secs(20));
     sync_cli(&temp_dir);
 
     // Consume the note
@@ -228,7 +230,7 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
     consume_note_cli(&temp_dir, &first_basic_account_id, &[&note_to_consume_id]);
 
     // Sleep for a while to ensure the consumption is done on the node
-    std::thread::sleep(std::time::Duration::new(15, 0));
+    std::thread::sleep(std::time::Duration::from_secs(20));
     sync_cli(&temp_dir);
 
     // Send assets to second account
@@ -247,7 +249,7 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
     show_note_cli(&temp_dir, "0x", true);
 
     // Sleep for a while to ensure the consumption is done on the node
-    std::thread::sleep(std::time::Duration::new(15, 0));
+    std::thread::sleep(std::time::Duration::from_secs(20));
     sync_cli(&temp_dir);
 
     // Consume note for second account
@@ -261,7 +263,7 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
     consume_note_cli(&temp_dir, &second_basic_account_id, &[&note_to_consume_id]);
 
     // Sleep for a while to ensure the consumption is done on the node
-    std::thread::sleep(std::time::Duration::new(15, 0));
+    std::thread::sleep(std::time::Duration::from_secs(20));
     sync_cli(&temp_dir);
 }
 
@@ -359,6 +361,9 @@ fn test_cli_export_import_note() {
     import_cmd.args(["import", "--no-verify", NOTE_FILENAME]);
     import_cmd.current_dir(&temp_dir_2).assert().success();
 
+    // Sleep for a while to ensure the note is committed on the node
+    thread::sleep(Duration::from_secs(20));
+
     sync_cli(&temp_dir_2);
 
     // Consume the note
@@ -378,7 +383,7 @@ fn sync_cli(cli_path: &Path) {
         if sync_cmd.current_dir(cli_path).assert().try_success().is_ok() {
             break;
         }
-        std::thread::sleep(std::time::Duration::new(3, 0));
+        std::thread::sleep(std::time::Duration::from_secs(3));
     }
 }
 
