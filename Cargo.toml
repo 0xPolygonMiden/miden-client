@@ -43,7 +43,7 @@ getrandom = { version = "0.2", features = ["js"], optional = true }
 hex = { version = "0.4", optional = true }
 lazy_static = { version = "1.4.0", optional = true }
 miden-lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false }
-miden-node-proto = { package = "miden-node-proto", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "mFragaBA-next-0.4", default-features = false, optional = true }
+miden-node-proto = { package = "miden-node-proto", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "next", default-features = false, optional = true }
 miden-tx = { package = "miden-tx", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false }
 miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["serde"] }
 prost = { version = "0.12.3", optional = true }
