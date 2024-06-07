@@ -237,7 +237,7 @@ pub trait Store {
     /// - Updating the notes, marking them as `committed` or `consumed` based on incoming
     ///   inclusion proofs and nullifiers
     /// - Updating transactions in the store, marking as `committed` the ones provided with
-    /// `committed_transactions`
+    ///   `committed_transactions`
     /// - Storing new MMR authentication nodes
     fn apply_state_sync(&self, state_sync_update: StateSyncUpdate) -> Result<(), StoreError>;
 }

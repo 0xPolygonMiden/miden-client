@@ -41,7 +41,7 @@ mod transactions;
 /// In the case of json, some caveats must be taken:
 ///
 /// - To insert json values you must use sqlite's `json` function in the query alongside named
-/// parameters, and the provided parameter must be a valid json. That is:
+///   parameters, and the provided parameter must be a valid json. That is:
 ///
 /// ```sql
 /// INSERT INTO SOME_TABLE
@@ -56,14 +56,14 @@ mod transactions;
 /// (Using raw string literals for the jsons is encouraged if possible)
 ///
 /// - To get data from any of the json fields you can use the `json_extract` function (in some
-/// cases you'll need to do some explicit type casting to help rusqlite figure out types):
+///   cases you'll need to do some explicit type casting to help rusqlite figure out types):
 ///
 /// ```sql
 /// SELECT CAST(json_extract(some_json_col, '$.some_json_field') AS TEXT) from some_table
 /// ```
 ///
 /// - For some datatypes you'll need to do some manual serialization/deserialization. For example,
-/// suppose one of your json fields is an array of digests. Then you'll need to
+///   suppose one of your json fields is an array of digests. Then you'll need to
 ///     - Create the json with an array of strings representing the digests:
 ///
 ///     ```ignore
@@ -81,7 +81,7 @@ mod transactions;
 ///     ```
 ///
 ///     - When deserializing, handling the extra symbols (`[`, `]`, `,`, `"`). For that you can use
-///     the `parse_json_array` function:
+///       the `parse_json_array` function:
 ///
 ///     ```ignore
 ///         let some_array = parse_json_array(some_array_field)
@@ -90,7 +90,7 @@ mod transactions;
 ///         .collect::<Result<Vec<u8>, _>>()?;
 ///     ```
 /// - Thus, if needed you can create a struct representing the json values and use serde_json to
-/// simplify all of the serialization/deserialization logic
+///   simplify all of the serialization/deserialization logic
 pub struct SqliteStore {
     pub(crate) db: RefCell<Connection>,
 }

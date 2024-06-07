@@ -6,7 +6,7 @@ use miden_client::{
 use miden_objects::{accounts::AccountStorageType, assets::TokenSymbol, crypto::rand::FeltRng};
 use miden_tx::TransactionAuthenticator;
 
-use crate::cli::CLIENT_BINARY_NAME;
+use crate::cli::{account::maybe_set_default_account, utils::load_config_file, CLIENT_BINARY_NAME};
 
 #[derive(Debug, Parser, Clone)]
 /// Create a new faucet account
@@ -91,6 +91,9 @@ impl NewWalletCmd {
             "To view account details execute `{CLIENT_BINARY_NAME} account -s {}`",
             new_account.id()
         );
+
+        let (mut current_config, _) = load_config_file()?;
+        maybe_set_default_account(&mut current_config, new_account.id())?;
 
         Ok(())
     }
