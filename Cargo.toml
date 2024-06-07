@@ -48,6 +48,7 @@ thiserror = { version = "1.0" }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3" }
 uuid = { version = "1.6.1", features = ["serde", "v4"], optional = true }
+assert_cmd = { version = "2.0", optional = true }
 
 [target.'cfg(all(not(wasm), not(target_arch = "wasm32")))'.dependencies]
 clap = { version = "4.3", features = ["derive"] }
@@ -60,13 +61,6 @@ rusqlite_migration = { version = "1.0" }
 tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"] }
 tonic = { version = "0.11" }
 toml = { version = "0.8" }
-<<<<<<< HEAD
-=======
-tracing = { version = "0.1" }
-tracing-subscriber = { version = "0.3" }
-uuid = { version = "1.6.1", features = ["serde", "v4"], optional = true }
-assert_cmd = { version = "2.0", optional = true }
->>>>>>> upstream/next
 
 [dev-dependencies]
 # needed for tests to run always with the test utils feature

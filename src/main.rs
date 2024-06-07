@@ -2,6 +2,7 @@
 use clap::Parser;
 
 extern crate alloc;
+#[cfg(not(feature = "wasm"))]
 mod cli;
 
 #[cfg(not(feature = "wasm"))]

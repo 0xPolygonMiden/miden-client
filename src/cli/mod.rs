@@ -1,13 +1,7 @@
-#[cfg(not(feature = "wasm"))]
 use std::{env, rc::Rc};
-
-#[cfg(not(feature = "wasm"))]
 use clap::Parser;
-
-#[cfg(not(feature = "wasm"))]
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 
-#[cfg(not(feature = "wasm"))]
 use miden_client::{
     client::{
         get_random_coin,
@@ -22,28 +16,12 @@ use miden_client::{
     },
 };
 
-#[cfg(feature = "wasm")]
-use super::{
-    client::{
-        get_random_coin,
-        rpc::NodeRpcClient,
-        Client,
-    },
-    errors::{ClientError, IdPrefixFetchError},
-    store::{
-        InputNoteRecord, NoteFilter as ClientNoteFilter,
-        OutputNoteRecord, Store,
-    },
-};
-
 use miden_objects::{accounts::AccountStub, crypto::rand::FeltRng};
 use miden_tx::TransactionAuthenticator;
 use tracing::info;
 
-#[cfg(not(feature = "wasm"))]
 use transactions::TransactionCmd;
 
-#[cfg(not(feature = "wasm"))]
 use self::{
     account::AccountCmd,
     export::ExportCmd,
@@ -56,52 +34,26 @@ use self::{
     utils::load_config_file,
 };
 
-#[cfg(not(feature = "wasm"))]
 mod account;
-
-#[cfg(not(feature = "wasm"))]
 mod export;
-
-#[cfg(not(feature = "wasm"))]
 mod import;
-
-#[cfg(not(feature = "wasm"))]
 mod info;
-
-#[cfg(not(feature = "wasm"))]
 mod init;
-
-#[cfg(not(feature = "wasm"))]
 mod new_account;
-
-#[cfg(not(feature = "wasm"))]
 mod new_transactions;
-
-#[cfg(not(feature = "wasm"))]
 mod notes;
-
-#[cfg(not(feature = "wasm"))]
 mod sync;
-
-#[cfg(not(feature = "wasm"))]
 mod tags;
-
-#[cfg(not(feature = "wasm"))]
 mod transactions;
-
-#[cfg(not(feature = "wasm"))]
 mod utils;
 
-#[cfg(not(feature = "wasm"))]
 /// Config file name
 const CLIENT_CONFIG_FILE_NAME: &str = "miden-client.toml";
 
-#[cfg(not(feature = "wasm"))]
 /// Client binary name
 pub const CLIENT_BINARY_NAME: &str = "miden";
 
 /// Root CLI struct
-#[cfg(not(feature = "wasm"))]
 #[derive(Parser, Debug)]
 #[clap(name = "Miden", about = "Miden client", version, rename_all = "kebab-case")]
 pub struct Cli {
@@ -115,7 +67,6 @@ pub struct Cli {
 }
 
 /// CLI actions
-#[cfg(not(feature = "wasm"))]
 #[derive(Debug, Parser)]
 pub enum Command {
     Account(AccountCmd),
@@ -139,7 +90,6 @@ pub enum Command {
 }
 
 /// CLI entry point
-#[cfg(not(feature = "wasm"))]
 impl Cli {
     pub async fn execute(&self) -> Result<(), String> {
         let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
@@ -221,7 +171,6 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
 ///   `note_id_prefix` is a prefix of its id.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found
 ///   where `note_id_prefix` is a prefix of its id.
-#[cfg(not(feature = "wasm"))]
 pub(crate) fn get_input_note_with_id_prefix<
     N: NodeRpcClient,
     R: FeltRng,
@@ -274,7 +223,6 @@ pub(crate) fn get_input_note_with_id_prefix<
 ///   `note_id_prefix` is a prefix of its id.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found
 ///   where `note_id_prefix` is a prefix of its id.
-#[cfg(not(feature = "wasm"))]
 pub(crate) fn get_output_note_with_id_prefix<
     N: NodeRpcClient,
     R: FeltRng,
