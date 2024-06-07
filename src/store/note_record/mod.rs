@@ -136,7 +136,7 @@ impl Display for NoteStatus {
                     .expect("timestamp should be valid")
             ),
             NoteStatus::Committed { block_height } => {
-                write!(f, "{NOTE_STATUS_COMMITTED} (block height {block_height})")
+                write!(f, "{NOTE_STATUS_COMMITTED} (at block height {block_height})")
             },
             NoteStatus::Processing { consumer_account_id, submited_at } => write!(
                 f,
@@ -149,7 +149,7 @@ impl Display for NoteStatus {
             ),
             NoteStatus::Consumed { consumer_account_id, block_height } => write!(
                 f,
-                "{NOTE_STATUS_CONSUMED} (consumed at block height {block_height} by account {})",
+                "{NOTE_STATUS_CONSUMED} (at block height {block_height} by account {})",
                 consumer_account_id.map(|id| id.to_hex()).unwrap_or("?".to_string())
             ),
         }
