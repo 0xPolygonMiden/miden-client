@@ -1,17 +1,11 @@
 #[cfg(not(feature = "wasm"))]
-use std::{env, fs::File, io::Write, path::Path, rc::Rc};
+use std::{env, rc::Rc};
 
 #[cfg(not(feature = "wasm"))]
 use clap::Parser;
 
 #[cfg(not(feature = "wasm"))]
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
-
-#[cfg(not(feature = "wasm"))]
-use figment::{
-    providers::{Format, Toml},
-    Figment,
-};
 
 #[cfg(not(feature = "wasm"))]
 use miden_client::{
@@ -21,13 +15,30 @@ use miden_client::{
         store_authenticator::StoreAuthenticator,
         Client,
     },
-    config::ClientConfig,
     errors::{ClientError, IdPrefixFetchError},
     store::{
         sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter,
         OutputNoteRecord, Store,
     },
 };
+
+#[cfg(feature = "wasm")]
+use super::{
+    client::{
+        get_random_coin,
+        rpc::NodeRpcClient,
+        Client,
+    },
+    errors::{ClientError, IdPrefixFetchError},
+    store::{
+        InputNoteRecord, NoteFilter as ClientNoteFilter,
+        OutputNoteRecord, Store,
+    },
+};
+
+use miden_objects::{accounts::AccountStub, crypto::rand::FeltRng};
+use miden_tx::TransactionAuthenticator;
+use tracing::info;
 
 #[cfg(not(feature = "wasm"))]
 use transactions::TransactionCmd;
@@ -42,6 +53,7 @@ use self::{
     new_transactions::{ConsumeNotesCmd, MintCmd, SendCmd, SwapCmd},
     notes::NotesCmd,
     tags::TagsCmd,
+    utils::load_config_file,
 };
 
 #[cfg(not(feature = "wasm"))]
@@ -78,33 +90,15 @@ mod tags;
 mod transactions;
 
 #[cfg(not(feature = "wasm"))]
+mod utils;
+
+#[cfg(not(feature = "wasm"))]
 /// Config file name
 const CLIENT_CONFIG_FILE_NAME: &str = "miden-client.toml";
 
 #[cfg(not(feature = "wasm"))]
 /// Client binary name
 pub const CLIENT_BINARY_NAME: &str = "miden";
-
-#[cfg(feature = "wasm")]
-use super::{
-    client::{
-        get_random_coin,
-        rpc::NodeRpcClient,
-        Client,
-    },
-    errors::{ClientError, IdPrefixFetchError},
-    store::{
-        InputNoteRecord, NoteFilter as ClientNoteFilter,
-        OutputNoteRecord, Store,
-    },
-};
-
-use miden_objects::{
-    accounts::{AccountId, AccountStub},
-    crypto::rand::FeltRng,
-};
-use miden_tx::TransactionAuthenticator;
-use tracing::info;
 
 /// Root CLI struct
 #[cfg(not(feature = "wasm"))]
@@ -168,7 +162,7 @@ impl Cli {
         };
 
         // Create the client
-        let client_config = load_config(current_dir.as_path())?;
+        let (client_config, _config_path) = load_config_file()?;
         let store = SqliteStore::new((&client_config).into()).map_err(ClientError::StoreError)?;
         let store = Rc::new(store);
 
@@ -183,9 +177,6 @@ impl Cli {
             in_debug_mode,
         );
 
-        let default_account_id =
-            client_config.cli.clone().and_then(|cli_conf| cli_conf.default_account_id);
-
         // Execute CLI command
         match &self.action {
             Command::Account(account) => account.execute(client),
@@ -199,28 +190,14 @@ impl Cli {
             Command::Tags(tags) => tags.execute(client).await,
             Command::Transaction(transaction) => transaction.execute(client).await,
             Command::Export(cmd) => cmd.execute(client),
-            Command::Mint(mint) => mint.clone().execute(client, default_account_id).await,
-            Command::Send(send) => send.clone().execute(client, default_account_id).await,
-            Command::Swap(swap) => swap.clone().execute(client, default_account_id).await,
-            Command::ConsumeNotes(consume_notes) => {
-                consume_notes.clone().execute(client, default_account_id).await
-            },
+            Command::Mint(mint) => mint.execute(client).await,
+            Command::Send(send) => send.execute(client).await,
+            Command::Swap(swap) => swap.execute(client).await,
+            Command::ConsumeNotes(consume_notes) => consume_notes.execute(client).await,
         }
     }
 }
 
-/// Loads the client configuration.
-///
-/// This function will look for the configuration file at the provided path. If the path is
-/// relative, searches in parent directories all the way to the root as well.
-#[cfg(not(feature = "wasm"))]
-pub fn load_config(config_file: &Path) -> Result<ClientConfig, String> {
-    Figment::from(Toml::file(config_file))
-        .extract()
-        .map_err(|err| format!("Failed to load {} config file: {err}", config_file.display()))
-}
-
-#[cfg(not(feature = "wasm"))]
 pub fn create_dynamic_table(headers: &[&str]) -> Table {
     let header_cells = headers
         .iter()
@@ -241,9 +218,9 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
 /// # Errors
 ///
 /// - Returns [IdPrefixFetchError::NoMatch] if we were unable to find any note where
-/// `note_id_prefix` is a prefix of its id.
+///   `note_id_prefix` is a prefix of its id.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found
-/// where `note_id_prefix` is a prefix of its id.
+///   where `note_id_prefix` is a prefix of its id.
 #[cfg(not(feature = "wasm"))]
 pub(crate) fn get_input_note_with_id_prefix<
     N: NodeRpcClient,
@@ -289,59 +266,14 @@ pub(crate) fn get_input_note_with_id_prefix<
         .expect("input_note_records should always have one element"))
 }
 
-#[cfg(feature = "wasm")]
-pub async fn get_input_note_with_id_prefix<
-    N: NodeRpcClient,
-    R: FeltRng,
-    S: Store,
-    A: TransactionAuthenticator,
->(
-    client: &mut Client<N, R, S, A>,
-    note_id_prefix: &str,
-) -> Result<InputNoteRecord, IdPrefixFetchError> {
-    let mut input_note_records = client
-        .get_input_notes(ClientNoteFilter::All).await
-        .map_err(|err| {
-            tracing::error!("Error when fetching all notes from the store: {err}");
-            IdPrefixFetchError::NoMatch(format!("note ID prefix {note_id_prefix}").to_string())
-        })?
-        .into_iter()
-        .filter(|note_record| note_record.id().to_hex().starts_with(note_id_prefix))
-        .collect::<Vec<_>>();
-
-    if input_note_records.is_empty() {
-        return Err(IdPrefixFetchError::NoMatch(
-            format!("note ID prefix {note_id_prefix}").to_string(),
-        ));
-    }
-    if input_note_records.len() > 1 {
-        let input_note_record_ids = input_note_records
-            .iter()
-            .map(|input_note_record| input_note_record.id())
-            .collect::<Vec<_>>();
-        tracing::error!(
-            "Multiple notes found for the prefix {}: {:?}",
-            note_id_prefix,
-            input_note_record_ids
-        );
-        return Err(IdPrefixFetchError::MultipleMatches(
-            format!("note ID prefix {note_id_prefix}").to_string(),
-        ));
-    }
-
-    Ok(input_note_records
-        .pop()
-        .expect("input_note_records should always have one element"))
-}
-
 /// Returns the client output note whose ID starts with `note_id_prefix`
 ///
 /// # Errors
 ///
 /// - Returns [IdPrefixFetchError::NoMatch] if we were unable to find any note where
-/// `note_id_prefix` is a prefix of its id.
+///   `note_id_prefix` is a prefix of its id.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found
-/// where `note_id_prefix` is a prefix of its id.
+///   where `note_id_prefix` is a prefix of its id.
 #[cfg(not(feature = "wasm"))]
 pub(crate) fn get_output_note_with_id_prefix<
     N: NodeRpcClient,
@@ -387,60 +319,14 @@ pub(crate) fn get_output_note_with_id_prefix<
         .expect("input_note_records should always have one element"))
 }
 
-#[cfg(feature = "wasm")]
-pub async fn get_output_note_with_id_prefix<
-    N: NodeRpcClient,
-    R: FeltRng,
-    S: Store,
-    A: TransactionAuthenticator,
->(
-    client: &mut Client<N, R, S, A>,
-    note_id_prefix: &str,
-) -> Result<OutputNoteRecord, IdPrefixFetchError> {
-    let mut output_note_records = client
-        .get_output_notes(ClientNoteFilter::All).await
-        .map_err(|err| {
-            tracing::error!("Error when fetching all notes from the store: {err}");
-            IdPrefixFetchError::NoMatch(format!("note ID prefix {note_id_prefix}").to_string())
-        })?
-        .into_iter()
-        .filter(|note_record| note_record.id().to_hex().starts_with(note_id_prefix))
-        .collect::<Vec<_>>();
-
-    if output_note_records.is_empty() {
-        return Err(IdPrefixFetchError::NoMatch(
-            format!("note ID prefix {note_id_prefix}").to_string(),
-        ));
-    }
-    if output_note_records.len() > 1 {
-        let output_note_record_ids = output_note_records
-            .iter()
-            .map(|input_note_record| input_note_record.id())
-            .collect::<Vec<_>>();
-        tracing::error!(
-            "Multiple notes found for the prefix {}: {:?}",
-            note_id_prefix,
-            output_note_record_ids
-        );
-        return Err(IdPrefixFetchError::MultipleMatches(
-            format!("note ID prefix {note_id_prefix}").to_string(),
-        ));
-    }
-
-    Ok(output_note_records
-        .pop()
-        .expect("input_note_records should always have one element"))
-}
-
 /// Returns the client account whose ID starts with `account_id_prefix`
 ///
 /// # Errors
 ///
 /// - Returns [IdPrefixFetchError::NoMatch] if we were unable to find any account where
-/// `account_id_prefix` is a prefix of its id.
+///   `account_id_prefix` is a prefix of its id.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one account found
-/// where `account_id_prefix` is a prefix of its id.
-#[cfg(not(feature = "wasm"))]
+///   where `account_id_prefix` is a prefix of its id.
 fn get_account_with_id_prefix<
     N: NodeRpcClient,
     R: FeltRng,
@@ -481,54 +367,4 @@ fn get_account_with_id_prefix<
     }
 
     Ok(accounts.pop().expect("account_ids should always have one element"))
-}
-
-/// Parses a user provided account id string and returns the corresponding `AccountId`
-///
-/// `account_id` can fall into two categories:
-///
-/// - it's a prefix of an account id of an account tracked by the client
-/// - it's a full account id
-///
-/// # Errors
-///
-/// - Will return a `IdPrefixFetchError` if the provided account id string can't be parsed as an
-/// `AccountId` and does not correspond to an account tracked by the client either.
-#[cfg(not(feature = "wasm"))]
-pub(crate) fn parse_account_id<
-    N: NodeRpcClient,
-    R: FeltRng,
-    S: Store,
-    A: TransactionAuthenticator,
->(
-    client: &Client<N, R, S, A>,
-    account_id: &str,
-) -> Result<AccountId, String> {
-    if let Ok(account_id) = AccountId::from_hex(account_id) {
-        return Ok(account_id);
-    }
-
-    let account_id = get_account_with_id_prefix(client, account_id)
-        .map_err(|_err| "Input account ID {account_id} is neither a valid Account ID nor a prefix of a known Account ID")?
-        .id();
-    Ok(account_id)
-}
-
-#[cfg(not(feature = "wasm"))]
-pub(crate) fn update_config(config_path: &Path, client_config: ClientConfig) -> Result<(), String> {
-    let config_as_toml_string = toml::to_string_pretty(&client_config)
-        .map_err(|err| format!("error formatting config: {err}"))?;
-
-    info!("Writing config file at: {:?}", config_path);
-    let mut file_handle = File::options()
-        .write(true)
-        .truncate(true)
-        .open(config_path)
-        .map_err(|err| format!("error opening the file: {err}"))?;
-    file_handle
-        .write(config_as_toml_string.as_bytes())
-        .map_err(|err| format!("error writing to file: {err}"))?;
-
-    println!("Config updated successfully");
-    Ok(())
 }

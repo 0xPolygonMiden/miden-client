@@ -1,16 +1,12 @@
 use clap::{Parser, ValueEnum};
 use miden_client::{
-    client::{
-        accounts::{self, AccountTemplate},
-        rpc::NodeRpcClient,
-        Client,
-    },
+    client::{accounts::AccountTemplate, rpc::NodeRpcClient, Client},
     store::Store,
 };
-use miden_objects::{assets::TokenSymbol, crypto::rand::FeltRng};
+use miden_objects::{accounts::AccountStorageType, assets::TokenSymbol, crypto::rand::FeltRng};
 use miden_tx::TransactionAuthenticator;
 
-use crate::cli::CLIENT_BINARY_NAME;
+use crate::cli::{account::maybe_set_default_account, utils::load_config_file, CLIENT_BINARY_NAME};
 
 #[derive(Debug, Parser, Clone)]
 /// Create a new faucet account
@@ -54,7 +50,7 @@ impl NewFaucetCmd {
             .map_err(|err| format!("error: token symbol is invalid: {}", err))?,
             decimals: self.decimals.expect("decimals must be provided"),
             max_supply: self.max_supply.expect("max supply must be provided"),
-            storage_mode: self.storage_type.into(),
+            storage_type: self.storage_type.into(),
         };
 
         let (new_account, _account_seed) = client.new_account(client_template)?;
@@ -86,7 +82,7 @@ impl NewWalletCmd {
     ) -> Result<(), String> {
         let client_template = AccountTemplate::BasicWallet {
             mutable_code: self.mutable,
-            storage_mode: self.storage_type.into(),
+            storage_type: self.storage_type.into(),
         };
 
         let (new_account, _account_seed) = client.new_account(client_template)?;
@@ -95,6 +91,9 @@ impl NewWalletCmd {
             "To view account details execute `{CLIENT_BINARY_NAME} account -s {}`",
             new_account.id()
         );
+
+        let (mut current_config, _) = load_config_file()?;
+        maybe_set_default_account(&mut current_config, new_account.id())?;
 
         Ok(())
     }
@@ -106,17 +105,17 @@ pub enum AccountStorageMode {
     OnChain,
 }
 
-impl From<AccountStorageMode> for accounts::AccountStorageMode {
+impl From<AccountStorageMode> for AccountStorageType {
     fn from(value: AccountStorageMode) -> Self {
         match value {
-            AccountStorageMode::OffChain => accounts::AccountStorageMode::Local,
-            AccountStorageMode::OnChain => accounts::AccountStorageMode::OnChain,
+            AccountStorageMode::OffChain => AccountStorageType::OffChain,
+            AccountStorageMode::OnChain => AccountStorageType::OnChain,
         }
     }
 }
 
-impl From<&AccountStorageMode> for accounts::AccountStorageMode {
+impl From<&AccountStorageMode> for AccountStorageType {
     fn from(value: &AccountStorageMode) -> Self {
-        accounts::AccountStorageMode::from(*value)
+        AccountStorageType::from(*value)
     }
 }

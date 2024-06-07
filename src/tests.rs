@@ -6,8 +6,8 @@
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::{
-        account_id::testing::ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, AccountId, AccountStub,
-        AuthSecretKey,
+        account_id::testing::ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, AccountId, AccountStorageType,
+        AccountStub, AuthSecretKey,
     },
     assembly::{AstSerdeOptions, ModuleAst},
     assets::{FungibleAsset, TokenSymbol},
@@ -17,10 +17,7 @@ use miden_objects::{
 };
 
 use crate::{
-    client::{
-        accounts::{AccountStorageMode, AccountTemplate},
-        transactions::transaction_request::TransactionTemplate,
-    },
+    client::{accounts::AccountTemplate, transactions::transaction_request::TransactionTemplate},
     mock::{
         create_test_client, get_account_with_default_account_code, mock_full_chain_mmr_and_notes,
         mock_fungible_faucet_account, mock_notes, ACCOUNT_ID_REGULAR,
@@ -85,7 +82,7 @@ async fn insert_basic_account() {
 
     let account_template = AccountTemplate::BasicWallet {
         mutable_code: true,
-        storage_mode: AccountStorageMode::Local,
+        storage_type: AccountStorageType::OffChain,
     };
 
     // Insert Account
@@ -119,7 +116,7 @@ async fn insert_faucet_account() {
         token_symbol: TokenSymbol::new("TEST").unwrap(),
         decimals: 10,
         max_supply: 9999999999,
-        storage_mode: AccountStorageMode::Local,
+        storage_type: AccountStorageType::OffChain,
     };
 
     // Insert Account
@@ -434,7 +431,9 @@ async fn test_get_output_notes() {
     assert!(client.get_output_notes(NoteFilter::All).unwrap().is_empty());
 
     let transaction = client.new_transaction(transaction_request).unwrap();
-    client.submit_transaction(transaction).await.unwrap();
+    let proven_transaction =
+        client.prove_transaction(transaction.executed_transaction().clone()).unwrap();
+    client.submit_transaction(transaction, proven_transaction).await.unwrap();
 
     // Check that there was an output note but it wasn't consumed
     assert!(client.get_output_notes(NoteFilter::Consumed).unwrap().is_empty());

@@ -17,7 +17,8 @@ use miden_objects::{
 use miden_tx::TransactionAuthenticator;
 use tracing::info;
 
-use super::Parser;
+use super::{utils::load_config_file, Parser};
+use crate::cli::account::maybe_set_default_account;
 
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "Import client objects such as accounts and notes")]
@@ -36,6 +37,7 @@ impl ImportCmd {
         mut client: Client<N, R, S, A>,
     ) -> Result<(), String> {
         validate_paths(&self.filenames)?;
+        let (mut current_config, _) = load_config_file()?;
         for filename in &self.filenames {
             let note_id = import_note(&mut client, filename.clone(), !self.no_verify).await;
             if note_id.is_ok() {
@@ -45,6 +47,10 @@ impl ImportCmd {
             let account_id = import_account(&mut client, filename)
                 .map_err(|_| format!("Failed to parse file {}", filename.to_string_lossy()))?;
             println!("Succesfully imported account {}", account_id);
+
+            if account_id.is_regular_account() {
+                maybe_set_default_account(&mut current_config, account_id)?;
+            }
         }
         Ok(())
     }
@@ -184,7 +190,10 @@ mod tests {
         let transaction_request = client.build_transaction_request(transaction_template).unwrap();
         let transaction = client.new_transaction(transaction_request).unwrap();
         let created_note = transaction.created_notes().get_note(0).clone();
-        client.submit_transaction(transaction).await.unwrap();
+        let proven_transaction =
+            client.prove_transaction(transaction.executed_transaction().clone()).unwrap();
+
+        client.submit_transaction(transaction, proven_transaction).await.unwrap();
 
         // Ensure client has no input notes and one output note
         assert!(client.get_input_notes(NoteFilter::All).unwrap().is_empty());

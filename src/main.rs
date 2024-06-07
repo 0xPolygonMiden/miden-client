@@ -9,15 +9,13 @@ use cli::Cli;
 
 #[cfg(not(feature = "wasm"))]
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), String> {
     tracing_subscriber::fmt::init();
     // read command-line args
     let cli = Cli::parse();
 
     // execute cli action
-    if let Err(error) = cli.execute().await {
-        println!("{}", error);
-    }
+    cli.execute().await
 }
 
 #[cfg(feature = "wasm")]

@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
@@ -18,8 +16,8 @@ use miden_tx::{
     TransactionAuthenticator,
 };
 
-use super::{load_config, parse_account_id, update_config, CLIENT_CONFIG_FILE_NAME};
-use crate::cli::create_dynamic_table;
+use super::utils::{load_config_file, parse_account_id, update_config};
+use crate::cli::{create_dynamic_table, CLIENT_BINARY_NAME};
 
 // ACCOUNT COMMAND
 // ================================================================================================
@@ -75,24 +73,17 @@ impl AccountCmd {
                             // Check whether we're tracking that account
                             let (account, _) = client.get_account_stub_by_id(account_id)?;
 
-                            Some(account.id().to_hex())
+                            Some(account.id())
                         };
 
-                        // load config
-                        let (mut current_config, config_path) = load_config_file()?;
-
-                        // set default account
-                        current_config.cli = Some(CliConfig {
-                            default_account_id: default_account.clone(),
-                        });
+                        set_default_account(default_account)?;
 
                         if let Some(id) = default_account {
+                            let id = id.to_hex();
                             println!("Setting default account to {id}...");
                         } else {
                             println!("Removing default account...");
                         }
-
-                        update_config(&config_path, current_config)?;
                     },
                 }
             },
@@ -112,21 +103,10 @@ fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthentic
 ) -> Result<(), String> {
     let accounts = client.get_account_stubs()?;
 
-    let mut table = create_dynamic_table(&[
-        "Account ID",
-        "Code Root",
-        "Vault Root",
-        "Storage Root",
-        "Type",
-        "Storage mode",
-        "Nonce",
-    ]);
+    let mut table = create_dynamic_table(&["Account ID", "Type", "Storage Mode", "Nonce"]);
     accounts.iter().for_each(|(acc, _acc_seed)| {
         table.add_row(vec![
             acc.id().to_string(),
-            acc.code_root().to_string(),
-            acc.vault_root().to_string(),
-            acc.storage_root().to_string(),
             account_type_display_name(&acc.id().account_type()),
             storage_type_display_name(&acc.id()),
             acc.nonce().as_int().to_string(),
@@ -304,13 +284,34 @@ fn display_default_account_id() -> Result<(), String> {
     Ok(())
 }
 
-/// Loads config file from current directory and default filename and returns it alongside its path
-fn load_config_file() -> Result<(ClientConfig, PathBuf), String> {
-    let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
-    current_dir.push(CLIENT_CONFIG_FILE_NAME);
-    let config_path = current_dir.as_path();
+/// Sets the provided account ID as the default account ID if provided. Unsets the current default
+/// account ID if `None` is provided.
+pub(crate) fn set_default_account(account_id: Option<AccountId>) -> Result<(), String> {
+    // load config
+    let (mut current_config, config_path) = load_config_file()?;
 
-    let client_config = load_config(config_path)?;
+    // set default account
+    current_config.cli = Some(CliConfig {
+        default_account_id: account_id.map(|id| id.to_hex()),
+    });
 
-    Ok((client_config, config_path.into()))
+    update_config(&config_path, current_config)
+}
+
+/// Sets the provided account ID as the default account and updates the config file, if not set already.
+pub(crate) fn maybe_set_default_account(
+    current_config: &mut ClientConfig,
+    account_id: AccountId,
+) -> Result<(), String> {
+    if let Some(CliConfig { default_account_id: Some(_) }) = current_config.cli {
+        return Ok(());
+    }
+
+    set_default_account(Some(account_id))?;
+    let account_id = account_id.to_hex();
+    println!("Setting account {account_id} as the default account ID.");
+    println!("You can unset it with `{CLIENT_BINARY_NAME} account --default none`.");
+    current_config.cli = Some(CliConfig { default_account_id: Some(account_id) });
+
+    Ok(())
 }

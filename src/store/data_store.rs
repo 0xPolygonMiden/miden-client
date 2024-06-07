@@ -1,7 +1,7 @@
-#[cfg(feature = "wasm")]
-use async_trait::async_trait;
-
-use alloc::{collections::BTreeSet, rc::Rc};
+use alloc::{
+    collections::{BTreeMap, BTreeSet},
+    rc::Rc,
+};
 
 use miden_objects::{
     accounts::AccountId,
@@ -13,7 +13,7 @@ use miden_objects::{
 };
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
 
-use super::{ChainMmrNodeFilter, NoteFilter, Store};
+use super::{ChainMmrNodeFilter, InputNoteRecord, NoteFilter, NoteStatus, Store};
 use crate::errors::{ClientError, StoreError};
 
 // DATA STORE
@@ -39,17 +39,32 @@ impl<S: Store> DataStore for ClientDataStore<S> {
         block_num: u32,
         notes: &[NoteId],
     ) -> Result<TransactionInputs, DataStoreError> {
-        // First validate that no note has already been consumed
-        let unspent_notes = self
+        let input_note_records: BTreeMap<NoteId, InputNoteRecord> = self
             .store
-            .get_input_notes(NoteFilter::Committed)?
-            .iter()
-            .map(|note_record| note_record.id())
-            .collect::<Vec<_>>();
+            .get_input_notes(NoteFilter::List(notes))?
+            .into_iter()
+            .map(|note_record| (note_record.id(), note_record))
+            .collect();
 
+        // First validate that all notes were found and can be consumed
         for note_id in notes {
-            if !unspent_notes.contains(note_id) {
-                return Err(DataStoreError::NoteAlreadyConsumed(*note_id));
+            if !input_note_records.contains_key(note_id) {
+                return Err(DataStoreError::NoteNotFound(*note_id));
+            }
+
+            let note_record = input_note_records.get(note_id).expect("should have key");
+
+            match note_record.status() {
+                NoteStatus::Pending => {
+                    return Err(DataStoreError::InternalError(format!(
+                        "The input note ID {} does not contain a note origin.",
+                        note_id.to_hex()
+                    )));
+                },
+                NoteStatus::Consumed => {
+                    return Err(DataStoreError::NoteAlreadyConsumed(*note_id));
+                },
+                _ => {},
             }
         }
 
@@ -60,11 +75,9 @@ impl<S: Store> DataStore for ClientDataStore<S> {
         let (block_header, _had_notes) = self.store.get_block_header_by_num(block_num)?;
 
         let mut list_of_notes = vec![];
-
         let mut notes_blocks: Vec<u32> = vec![];
-        let input_note_records = self.store.get_input_notes(NoteFilter::List(notes))?;
 
-        for note_record in input_note_records {
+        for (_note_id, note_record) in input_note_records {
             let input_note: InputNote = note_record
                 .try_into()
                 .map_err(|err: ClientError| DataStoreError::InternalError(err.to_string()))?;
@@ -113,17 +126,32 @@ impl<S: Store> DataStore for ClientDataStore<S> {
         block_num: u32,
         notes: &[NoteId],
     ) -> Result<TransactionInputs, DataStoreError> {
-        // First validate that no note has already been consumed
-        let unspent_notes = self
+        let input_note_records: BTreeMap<NoteId, InputNoteRecord> = self
             .store
-            .get_input_notes(NoteFilter::Committed).await?
-            .iter()
-            .map(|note_record| note_record.id())
-            .collect::<Vec<_>>();
+            .get_input_notes(NoteFilter::List(notes)).await?
+            .into_iter()
+            .map(|note_record| (note_record.id(), note_record))
+            .collect();
 
+        // First validate that all notes were found and can be consumed
         for note_id in notes {
-            if !unspent_notes.contains(note_id) {
-                return Err(DataStoreError::NoteAlreadyConsumed(*note_id));
+            if !input_note_records.contains_key(note_id) {
+                return Err(DataStoreError::NoteNotFound(*note_id));
+            }
+
+            let note_record = input_note_records.get(note_id).expect("should have key");
+
+            match note_record.status() {
+                NoteStatus::Pending => {
+                    return Err(DataStoreError::InternalError(format!(
+                        "The input note ID {} does not contain a note origin.",
+                        note_id.to_hex()
+                    )));
+                },
+                NoteStatus::Consumed => {
+                    return Err(DataStoreError::NoteAlreadyConsumed(*note_id));
+                },
+                _ => {},
             }
         }
 
@@ -134,11 +162,9 @@ impl<S: Store> DataStore for ClientDataStore<S> {
         let (block_header, _had_notes) = self.store.get_block_header_by_num(block_num).await?;
 
         let mut list_of_notes = vec![];
-
         let mut notes_blocks: Vec<u32> = vec![];
-        let input_note_records = self.store.get_input_notes(NoteFilter::List(notes)).await?;
 
-        for note_record in input_note_records {
+        for (_note_id, note_record) in input_note_records {
             let input_note: InputNote = note_record
                 .try_into()
                 .map_err(|err: ClientError| DataStoreError::InternalError(err.to_string()))?;

@@ -16,30 +16,14 @@ use crate::{errors::ClientError, store::Store};
 pub enum AccountTemplate {
     BasicWallet {
         mutable_code: bool,
-        storage_mode: AccountStorageMode,
+        storage_type: AccountStorageType,
     },
     FungibleFaucet {
         token_symbol: TokenSymbol,
         decimals: u8,
         max_supply: u64,
-        storage_mode: AccountStorageMode,
+        storage_type: AccountStorageType,
     },
-}
-
-// TODO: Review this enum and variant names to have a consistent naming across all crates
-#[derive(Debug, Clone, Copy)]
-pub enum AccountStorageMode {
-    Local,
-    OnChain,
-}
-
-impl From<AccountStorageMode> for AccountStorageType {
-    fn from(mode: AccountStorageMode) -> Self {
-        match mode {
-            AccountStorageMode::Local => AccountStorageType::OffChain,
-            AccountStorageMode::OnChain => AccountStorageType::OnChain,
-        }
-    }
 }
 
 impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
@@ -53,14 +37,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         template: AccountTemplate,
     ) -> Result<(Account, Word), ClientError> {
         let account_and_seed = match template {
-            AccountTemplate::BasicWallet { mutable_code, storage_mode } => {
+            AccountTemplate::BasicWallet { mutable_code, storage_type: storage_mode } => {
                 self.new_basic_wallet(mutable_code, storage_mode)
             },
             AccountTemplate::FungibleFaucet {
                 token_symbol,
                 decimals,
                 max_supply,
-                storage_mode,
+                storage_type: storage_mode,
             } => self.new_fungible_faucet(token_symbol, decimals, max_supply, storage_mode),
         }?;
 
@@ -73,14 +57,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         template: AccountTemplate,
     ) -> Result<(Account, Word), ClientError> {
         let account_and_seed = match template {
-            AccountTemplate::BasicWallet { mutable_code, storage_mode } => {
+            AccountTemplate::BasicWallet { mutable_code, storage_type: storage_mode } => {
                 self.new_basic_wallet(mutable_code, storage_mode).await
             },
             AccountTemplate::FungibleFaucet {
                 token_symbol,
                 decimals,
                 max_supply,
-                storage_mode,
+                storage_type: storage_mode,
             } => self.new_fungible_faucet(token_symbol, decimals, max_supply, storage_mode).await,
         }?;
 
@@ -138,7 +122,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     fn new_basic_wallet(
         &mut self,
         mutable_code: bool,
-        account_storage_mode: AccountStorageMode,
+        account_storage_type: AccountStorageType,
     ) -> Result<(Account, Word), ClientError> {
         let key_pair = SecretKey::with_rng(&mut self.rng);
 
@@ -153,14 +137,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 init_seed,
                 auth_scheme,
                 AccountType::RegularAccountImmutableCode,
-                account_storage_mode.into(),
+                account_storage_type,
             )
         } else {
             miden_lib::accounts::wallets::create_basic_wallet(
                 init_seed,
                 auth_scheme,
                 AccountType::RegularAccountUpdatableCode,
-                account_storage_mode.into(),
+                account_storage_type,
             )
         }?;
 
@@ -172,7 +156,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     async fn new_basic_wallet(
         &mut self,
         mutable_code: bool,
-        account_storage_mode: AccountStorageMode,
+        account_storage_type: AccountStorageType,
     ) -> Result<(Account, Word), ClientError> {
         let key_pair = SecretKey::with_rng(&mut self.rng());
 
@@ -187,14 +171,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 init_seed,
                 auth_scheme,
                 AccountType::RegularAccountImmutableCode,
-                account_storage_mode.into(),
+                account_storage_type,
             )
         } else {
             miden_lib::accounts::wallets::create_basic_wallet(
                 init_seed,
                 auth_scheme,
                 AccountType::RegularAccountUpdatableCode,
-                account_storage_mode.into(),
+                account_storage_type,
             )
         }?;
 
@@ -208,7 +192,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         token_symbol: TokenSymbol,
         decimals: u8,
         max_supply: u64,
-        account_storage_mode: AccountStorageMode,
+        account_storage_type: AccountStorageType,
     ) -> Result<(Account, Word), ClientError> {
         let key_pair = SecretKey::with_rng(&mut self.rng);
 
@@ -224,7 +208,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             decimals,
             Felt::try_from(max_supply.to_le_bytes().as_slice())
                 .expect("u64 can be safely converted to a field element"),
-            account_storage_mode.into(),
+            account_storage_type,
             auth_scheme,
         )?;
 
@@ -238,7 +222,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         token_symbol: TokenSymbol,
         decimals: u8,
         max_supply: u64,
-        account_storage_mode: AccountStorageMode,
+        account_storage_type: AccountStorageType,
     ) -> Result<(Account, Word), ClientError> {
         let key_pair = SecretKey::with_rng(&mut self.rng());
 
@@ -254,7 +238,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             decimals,
             Felt::try_from(max_supply.to_le_bytes().as_slice())
                 .expect("u64 can be safely converted to a field element"),
-            account_storage_mode.into(),
+            account_storage_type,
             auth_scheme,
         )?;
 
