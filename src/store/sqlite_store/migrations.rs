@@ -1,5 +1,3 @@
-// Exclude this file when the target is wasm32
-#![cfg(not(feature = "wasm"))]
 use lazy_static::lazy_static;
 use rusqlite::Connection;
 use rusqlite_migration::{Migrations, M};

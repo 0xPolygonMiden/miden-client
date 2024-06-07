@@ -1,6 +1,3 @@
-// Exclude this file when the target is wasm32
-#![cfg(not(feature = "wasm"))]
-
 use alloc::collections::BTreeMap;
 use core::cell::{RefCell, RefMut};
 
