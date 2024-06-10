@@ -132,22 +132,16 @@ impl<'a> NoteFilter<'a> {
         match self {
             NoteFilter::All => base,
             NoteFilter::Committed => {
-                format!(
-                    "{base} WHERE status = '{}' AND consumer_transaction_id IS NULL",
-                    NOTE_STATUS_COMMITTED
-                )
+                format!("{base} WHERE status = '{NOTE_STATUS_COMMITTED}' AND consumer_transaction_id IS NULL")
             },
             NoteFilter::Consumed => {
-                format!("{base} WHERE status = '{}'", NOTE_STATUS_CONSUMED)
+                format!("{base} WHERE status = '{NOTE_STATUS_CONSUMED}'")
             },
             NoteFilter::Pending => {
-                format!("{base} WHERE status = '{}'", NOTE_STATUS_PENDING)
+                format!("{base} WHERE status = '{NOTE_STATUS_PENDING}'")
             },
             NoteFilter::Processing => {
-                format!(
-                    "{base} WHERE status = '{}' AND consumer_transaction_id IS NOT NULL",
-                    NOTE_STATUS_COMMITTED,
-                )
+                format!("{base} WHERE status = '{NOTE_STATUS_COMMITTED}' AND consumer_transaction_id IS NOT NULL")
             },
             NoteFilter::Unique(_) | NoteFilter::List(_) => {
                 format!("{base} WHERE note.note_id IN rarray(?)")
@@ -469,20 +463,21 @@ fn parse_input_note(
             if let Some(consumer_account_id) = consumer_account_id {
                 NoteStatus::Processing {
                     consumer_account_id,
-                    submitted_at: submitted_at.unwrap_or(0),
+                    submitted_at: submitted_at
+                        .expect("Processing note should have submition timestamp"),
                 }
             } else {
                 NoteStatus::Committed {
                     block_height: inclusion_proof
                         .clone()
                         .map(|proof| proof.origin().block_num as u64)
-                        .unwrap_or(0),
+                        .expect("Committed note should have inclusion proof"),
                 }
             }
         },
         NOTE_STATUS_CONSUMED => NoteStatus::Consumed {
             consumer_account_id,
-            block_height: nullifier_height.unwrap_or(0),
+            block_height: nullifier_height.expect("Consumed note should have nullifier height"),
         },
         _ => {
             return Err(StoreError::DataDeserializationError(DeserializationError::InvalidValue(
@@ -659,20 +654,21 @@ fn parse_output_note(
             if let Some(consumer_account_id) = consumer_account_id {
                 NoteStatus::Processing {
                     consumer_account_id,
-                    submitted_at: submitted_at.unwrap_or(0),
+                    submitted_at: submitted_at
+                        .expect("Processing note should have submition timestamp"),
                 }
             } else {
                 NoteStatus::Committed {
                     block_height: inclusion_proof
                         .clone()
                         .map(|proof| proof.origin().block_num as u64)
-                        .unwrap_or(0),
+                        .expect("Committed note should have inclusion proof"),
                 }
             }
         },
         NOTE_STATUS_CONSUMED => NoteStatus::Consumed {
             consumer_account_id,
-            block_height: nullifier_height.unwrap_or(0),
+            block_height: nullifier_height.expect("Consumed note should have nullifier height"),
         },
         _ => {
             return Err(StoreError::DataDeserializationError(DeserializationError::InvalidValue(
