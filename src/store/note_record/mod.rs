@@ -63,7 +63,7 @@ pub enum NoteStatus {
     /// Note has been consumed locally but not yet nullified on chain
     Processing {
         consumer_account_id: AccountId,
-        submited_at: u64,
+        submitted_at: u64,
     },
     /// Note has been nullified on chain
     Consumed {
@@ -83,9 +83,9 @@ impl Serializable for NoteStatus {
                 target.write_u8(1);
                 target.write_u64(*block_height);
             },
-            NoteStatus::Processing { consumer_account_id, submited_at } => {
+            NoteStatus::Processing { consumer_account_id, submitted_at } => {
                 target.write_u8(2);
-                target.write_u64(*submited_at);
+                target.write_u64(*submitted_at);
                 consumer_account_id.write_into(target);
             },
             NoteStatus::Consumed { consumer_account_id, block_height } => {
@@ -110,9 +110,9 @@ impl Deserializable for NoteStatus {
                 Ok(NoteStatus::Committed { block_height })
             },
             2 => {
-                let submited_at = source.read_u64()?;
+                let submitted_at = source.read_u64()?;
                 let consumer_account_id = AccountId::read_from(source)?;
-                Ok(NoteStatus::Processing { consumer_account_id, submited_at })
+                Ok(NoteStatus::Processing { consumer_account_id, submitted_at })
             },
             3 => {
                 let block_height = source.read_u64()?;
@@ -138,11 +138,11 @@ impl Display for NoteStatus {
             NoteStatus::Committed { block_height } => {
                 write!(f, "{NOTE_STATUS_COMMITTED} (at block height {block_height})")
             },
-            NoteStatus::Processing { consumer_account_id, submited_at } => write!(
+            NoteStatus::Processing { consumer_account_id, submitted_at } => write!(
                 f,
-                "{NOTE_STATUS_PROCESSING} (submited at {} by account {})",
+                "{NOTE_STATUS_PROCESSING} (submitted at {} by account {})",
                 Local
-                    .timestamp_opt(*submited_at as i64, 0)
+                    .timestamp_opt(*submitted_at as i64, 0)
                     .single()
                     .expect("timestamp should be valid"),
                 consumer_account_id.to_hex()

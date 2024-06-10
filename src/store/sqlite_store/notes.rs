@@ -25,7 +25,7 @@ use crate::{
 fn insert_note_query(table_name: NoteTable) -> String {
     format!("\
     INSERT INTO {table_name}
-        (note_id, assets, recipient, status, metadata, details, inclusion_proof, consumer_transaction_id, created_at) 
+        (note_id, assets, recipient, status, metadata, details, inclusion_proof, consumer_transaction_id, created_at)
      VALUES (:note_id, :assets, :recipient, :status, json(:metadata), json(:details), json(:inclusion_proof), :consumer_transaction_id, unixepoch(current_timestamp));",
             table_name = table_name)
 }
@@ -108,9 +108,9 @@ impl<'a> NoteFilter<'a> {
     /// Returns a [String] containing the query for this Filter
     fn to_query(&self, notes_table: NoteTable) -> String {
         let base = format!(
-            "SELECT 
-                    note.assets, 
-                    note.details, 
+            "SELECT
+                    note.assets,
+                    note.details,
                     note.recipient,
                     note.status,
                     note.metadata,
@@ -118,11 +118,11 @@ impl<'a> NoteFilter<'a> {
                     script.serialized_note_script,
                     tx.account_id,
                     note.created_at,
-                    note.submited_at,
+                    note.submitted_at,
                     note.nullifier_height
-                    from {notes_table} AS note 
+                    from {notes_table} AS note
                     LEFT OUTER JOIN notes_scripts AS script
-                        ON note.details IS NOT NULL AND 
+                        ON note.details IS NOT NULL AND
                         json_extract(note.details, '$.script_hash') = script.script_hash
                     LEFT OUTER JOIN transactions AS tx
                         ON note.consumer_transaction_id IS NOT NULL AND
@@ -346,26 +346,26 @@ pub fn update_note_consumer_tx_id(
     note_id: NoteId,
     consumer_tx_id: TransactionId,
 ) -> Result<(), StoreError> {
-    const UPDATE_INPUT_NOTES_QUERY: &str = "UPDATE input_notes SET consumer_transaction_id = :consumer_transaction_id, submited_at = :submited_at WHERE note_id = :note_id;";
+    const UPDATE_INPUT_NOTES_QUERY: &str = "UPDATE input_notes SET consumer_transaction_id = :consumer_transaction_id, submitted_at = :submitted_at WHERE note_id = :note_id;";
 
     tx.execute(
         UPDATE_INPUT_NOTES_QUERY,
         named_params! {
             ":note_id": note_id.inner().to_string(),
             ":consumer_transaction_id": consumer_tx_id.to_string(),
-            ":submited_at": Utc::now().timestamp(),
+            ":submitted_at": Utc::now().timestamp(),
         },
     )
     .map_err(|err| StoreError::QueryError(err.to_string()))?;
 
-    const UPDATE_OUTPUT_NOTES_QUERY: &str = "UPDATE output_notes SET consumer_transaction_id = :consumer_transaction_id, submited_at = :submited_at WHERE note_id = :note_id;";
+    const UPDATE_OUTPUT_NOTES_QUERY: &str = "UPDATE output_notes SET consumer_transaction_id = :consumer_transaction_id, submitted_at = :submitted_at WHERE note_id = :note_id;";
 
     tx.execute(
         UPDATE_OUTPUT_NOTES_QUERY,
         named_params! {
             ":note_id": note_id.inner().to_string(),
             ":consumer_transaction_id": consumer_tx_id.to_string(),
-            ":submited_at": Utc::now().timestamp(),
+            ":submitted_at": Utc::now().timestamp(),
         },
     )
     .map_err(|err| StoreError::QueryError(err.to_string()))?;
@@ -386,7 +386,7 @@ fn parse_input_note_columns(
     let serialized_note_script: Vec<u8> = row.get(6)?;
     let consumer_account_id: Option<i64> = row.get(7)?;
     let created_at: u64 = row.get(8)?;
-    let submited_at: Option<u64> = row.get(9)?;
+    let submitted_at: Option<u64> = row.get(9)?;
     let nullifier_height: Option<u64> = row.get(10)?;
 
     Ok((
@@ -399,7 +399,7 @@ fn parse_input_note_columns(
         serialized_note_script,
         consumer_account_id,
         created_at,
-        submited_at,
+        submitted_at,
         nullifier_height,
     ))
 }
@@ -418,7 +418,7 @@ fn parse_input_note(
         serialized_note_script,
         consumer_account_id,
         created_at,
-        submited_at,
+        submitted_at,
         nullifier_height,
     ) = serialized_input_note_parts;
 
@@ -469,7 +469,7 @@ fn parse_input_note(
             if let Some(consumer_account_id) = consumer_account_id {
                 NoteStatus::Processing {
                     consumer_account_id,
-                    submited_at: submited_at.unwrap_or(0),
+                    submitted_at: submitted_at.unwrap_or(0),
                 }
             } else {
                 NoteStatus::Committed {
@@ -573,7 +573,7 @@ fn parse_output_note_columns(
     let serialized_note_script: Option<Vec<u8>> = row.get(6)?;
     let consumer_account_id: Option<i64> = row.get(7)?;
     let created_at: u64 = row.get(8)?;
-    let submited_at: Option<u64> = row.get(9)?;
+    let submitted_at: Option<u64> = row.get(9)?;
     let nullifier_height: Option<u64> = row.get(10)?;
 
     Ok((
@@ -586,7 +586,7 @@ fn parse_output_note_columns(
         serialized_note_script,
         consumer_account_id,
         created_at,
-        submited_at,
+        submitted_at,
         nullifier_height,
     ))
 }
@@ -605,7 +605,7 @@ fn parse_output_note(
         serialized_note_script,
         consumer_account_id,
         created_at,
-        submited_at,
+        submitted_at,
         nullifier_height,
     ) = serialized_output_note_parts;
 
@@ -659,7 +659,7 @@ fn parse_output_note(
             if let Some(consumer_account_id) = consumer_account_id {
                 NoteStatus::Processing {
                     consumer_account_id,
-                    submited_at: submited_at.unwrap_or(0),
+                    submitted_at: submitted_at.unwrap_or(0),
                 }
             } else {
                 NoteStatus::Committed {
