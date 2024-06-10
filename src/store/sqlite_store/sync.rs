@@ -94,7 +94,7 @@ impl SqliteStore {
         tx.execute(BLOCK_NUMBER_QUERY, params![block_header.block_num()])?;
 
         // Update spent notes
-        for nullifier in nullifiers.iter() {
+        for (nullifier, _block_height) in nullifiers.iter() {
             const SPENT_INPUT_NOTE_QUERY: &str =
                 "UPDATE input_notes SET status = ?, nullifier_height = ? WHERE json_extract(details, '$.nullifier') = ?";
             let nullifier = nullifier.to_hex();
@@ -178,11 +178,7 @@ impl SqliteStore {
         }
 
         // Mark transactions as committed
-        Self::mark_transactions_as_committed(
-            &tx,
-            block_header.block_num(),
-            &committed_transactions,
-        )?;
+        Self::mark_transactions_as_committed(&tx, &committed_transactions)?;
 
         // Update onchain accounts on the db that have been updated onchain
         for account in updated_onchain_accounts {

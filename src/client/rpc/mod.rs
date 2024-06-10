@@ -5,8 +5,8 @@ use core::fmt;
 use miden_objects::{
     accounts::{Account, AccountId},
     crypto::merkle::{MerklePath, MmrDelta, MmrProof},
-    notes::{Note, NoteId, NoteMetadata, NoteTag},
-    transaction::ProvenTransaction,
+    notes::{Note, NoteId, NoteMetadata, NoteTag, Nullifier},
+    transaction::{ProvenTransaction, TransactionId},
     BlockHeader, Digest,
 };
 
@@ -148,7 +148,10 @@ pub struct StateSyncInfo {
     /// List of tuples of Note ID, Note Index and Merkle Path for all new notes
     pub note_inclusions: Vec<CommittedNote>,
     /// List of nullifiers that identify spent notes
-    pub nullifiers: Vec<Digest>,
+    pub nullifiers: Vec<(Nullifier, u32)>,
+    /// List of transaction IDs of transaction that were included in (current_block.num,
+    /// incoming_block_header.num-1)
+    pub transactions: Vec<(TransactionId, u32)>,
 }
 
 // COMMITTED NOTE

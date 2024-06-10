@@ -14,8 +14,8 @@ use miden_node_proto::{
 use miden_objects::{
     accounts::{Account, AccountId},
     crypto::merkle::{MerklePath, MmrProof},
-    notes::{Note, NoteId, NoteTag},
-    transaction::ProvenTransaction,
+    notes::{Note, NoteId, NoteTag, Nullifier},
+    transaction::{ProvenTransaction, TransactionId},
     utils::Deserializable,
     BlockHeader, Digest,
 };
@@ -281,7 +281,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
         let chain_tip = value.chain_tip;
 
         // Validate and convert block header
-        let block_header = value
+        let block_header: BlockHeader = value
             .block_header
             .ok_or(RpcError::ExpectedFieldMissing("BlockHeader".into()))?
             .try_into()?;
@@ -341,11 +341,29 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                     .nullifier
                     .ok_or(RpcError::ExpectedFieldMissing("Nullifier".into()))
                     .and_then(|n| {
-                        Digest::try_from(n)
-                            .map_err(|err| RpcError::ConversionFailure(err.to_string()))
+                        let nullifier_digest = Digest::try_from(n).map_err(|err| {
+                            RpcError::ConversionFailure(err.to_string())
+                        })?;
+
+                        // TODO: once #380 from miden-node is addressed, replace the block number for
+                        // the one that comes with the response
+                        Ok((nullifier_digest.into(), block_header.block_num()))
                     })
             })
-            .collect::<Result<Vec<Digest>, RpcError>>()?;
+            .collect::<Result<Vec<(Nullifier, u32)>, RpcError>>()?;
+
+        let transactions = value
+            .transactions
+            .iter()
+            .map(|transaction_id| {
+                let tx_id_digest = Digest::try_from(transaction_id)
+                    .map_err(|err| NodeRpcClientError::ConversionFailure(err.to_string()))?;
+
+                // TODO: once #380 from miden-node is addressed, replace the block number for
+                // the one that comes with the response
+                Ok((tx_id_digest.into(), block_header.block_num()))
+            })
+            .collect::<Result<Vec<(TransactionId, u32)>, RpcError>>()?;
 
         Ok(Self {
             chain_tip,
@@ -354,6 +372,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
             account_hash_updates,
             note_inclusions,
             nullifiers,
+            transactions,
         })
     }
 }
