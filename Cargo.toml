@@ -35,7 +35,7 @@ sqlite = ["dep:rusqlite", "dep:rusqlite_migration", "dep:lazy_static"]
 std = ["miden-objects/std"]
 testing = ["miden-objects/testing", "miden-lib/testing"]
 tonic = ["dep:tonic", "dep:miden-node-proto"]
-toml = ["dep:toml"]
+toml = ["dep:toml", "dep:figment"]
 
 [dependencies]
 clap = { version = "4.3", features = ["derive"], optional = true }
