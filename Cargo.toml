@@ -37,7 +37,7 @@ comfy-table = "7.1.0"
 figment = { version = "0.10", features = ["toml", "env"] }
 lazy_static = "1.4.0"
 miden-lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false }
-miden-node-proto = { package = "miden-node-proto", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "mFragaBA-next-0.4", default-features = false, optional = true }
+miden-node-proto = { package = "miden-node-proto", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "polydez-tx-ids-in-sync", default-features = false, optional = true }
 miden-tx = { package = "miden-tx", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false }
 miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["serde"] }
 rand = { version = "0.8.5" }

@@ -1,6 +1,8 @@
 # Changelog
 
 * [BREAKING] Library API reorganization (#367).
+* Changed `cargo-make` usage for `make` and `Makefile.toml` for a regular `Makefile` (#359).
+* Added integration tests using the CLI (#353).
 * Added a new check on account creation / import on the CLI to set the account as the default one if none is set (#372).
 * Fixed bug when exporting a note into a file (#368).
 * Simplified and separated the `notes --list` table (#356).

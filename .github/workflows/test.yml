@@ -1,0 +1,39 @@
+name: Test
+on:
+  push:
+    branches: [main, next]
+  pull_request:
+    types: [opened, repoened, synchronize]
+
+jobs:
+  test:
+    name: Test Rust ${{matrix.toolchain}} on ${{matrix.os}}
+    runs-on: ${{matrix.os}}-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [stable, nightly]
+        os: [ubuntu]
+    steps:
+      - uses: actions/checkout@main
+      - name: Install Rust with ${{matrix.toolchain}} toolchain
+        run: rustup update --no-self-update ${{ matrix.toolchain }}
+      - uses: taiki-e/install-action@nextest
+      - name: make - test
+        run: make test
+
+  integration_tests:
+    name: integration_tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - name: Install Rust
+        run: rustup update --no-self-update
+      - uses: taiki-e/install-action@nextest
+      - run: make clean-node
+      - run: make node
+      - run: make start-node > /dev/null &
+      - run: make integration-test-full
+      - name: Kill miden-node
+        if: always()
+        run: make kill-node
