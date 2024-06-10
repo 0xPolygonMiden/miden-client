@@ -1,6 +1,5 @@
 use std::fmt::Display;
 
-extern crate chrono;
 use chrono::{Local, TimeZone};
 use miden_objects::{
     accounts::AccountId,
@@ -57,17 +56,27 @@ pub const NOTE_STATUS_PROCESSING: &str = "Processing";
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum NoteStatus {
     /// Note is pending to be commited on chain.
-    Pending { created_at: u64 },
-    /// Note has been commited on chain
-    Committed { block_height: u64 },
-    /// Note has been consumed locally but not yet nullified on chain
+    Pending {
+        /// Timestamp (in seconds) when the note (either new or imported) started being tracked by the client.
+        created_at: u64,
+    },
+    /// Note has been commited on chain.
+    Committed {
+        /// Block height at which the note was commited.
+        block_height: u64,
+    },
+    /// Note has been consumed locally but not yet nullified on chain.
     Processing {
+        /// ID of account that is consuming the note.
         consumer_account_id: AccountId,
+        /// Timestamp (in seconds) of the note's consumption.
         submitted_at: u64,
     },
-    /// Note has been nullified on chain
+    /// Note has been nullified on chain.
     Consumed {
+        /// ID of account that consumed the note. If the consumer account is not known, this field will be `None`.
         consumer_account_id: Option<AccountId>,
+        /// Block height at which the note was consumed.
         block_height: u64,
     },
 }
