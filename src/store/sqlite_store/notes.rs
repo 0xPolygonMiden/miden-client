@@ -17,7 +17,10 @@ use super::SqliteStore;
 use crate::{
     errors::StoreError,
     store::{
-        note_record::{NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED, NOTE_STATUS_PENDING},
+        note_record::{
+            NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED, NOTE_STATUS_PENDING,
+            NOTE_STATUS_PROCESSING,
+        },
         InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord,
     },
 };
@@ -132,7 +135,7 @@ impl<'a> NoteFilter<'a> {
         match self {
             NoteFilter::All => base,
             NoteFilter::Committed => {
-                format!("{base} WHERE status = '{NOTE_STATUS_COMMITTED}' AND consumer_transaction_id IS NULL")
+                format!("{base} WHERE status = '{NOTE_STATUS_COMMITTED}'")
             },
             NoteFilter::Consumed => {
                 format!("{base} WHERE status = '{NOTE_STATUS_CONSUMED}'")
@@ -141,7 +144,7 @@ impl<'a> NoteFilter<'a> {
                 format!("{base} WHERE status = '{NOTE_STATUS_PENDING}'")
             },
             NoteFilter::Processing => {
-                format!("{base} WHERE status = '{NOTE_STATUS_COMMITTED}' AND consumer_transaction_id IS NOT NULL")
+                format!("{base} WHERE status = '{NOTE_STATUS_PROCESSING}'")
             },
             NoteFilter::Unique(_) | NoteFilter::List(_) => {
                 format!("{base} WHERE note.note_id IN rarray(?)")
@@ -340,7 +343,7 @@ pub fn update_note_consumer_tx_id(
     note_id: NoteId,
     consumer_tx_id: TransactionId,
 ) -> Result<(), StoreError> {
-    const UPDATE_INPUT_NOTES_QUERY: &str = "UPDATE input_notes SET consumer_transaction_id = :consumer_transaction_id, submitted_at = :submitted_at WHERE note_id = :note_id;";
+    const UPDATE_INPUT_NOTES_QUERY: &str = "UPDATE input_notes SET status = :status, consumer_transaction_id = :consumer_transaction_id, submitted_at = :submitted_at WHERE note_id = :note_id;";
 
     tx.execute(
         UPDATE_INPUT_NOTES_QUERY,
@@ -348,11 +351,12 @@ pub fn update_note_consumer_tx_id(
             ":note_id": note_id.inner().to_string(),
             ":consumer_transaction_id": consumer_tx_id.to_string(),
             ":submitted_at": Utc::now().timestamp(),
+            ":status": NOTE_STATUS_PROCESSING,
         },
     )
     .map_err(|err| StoreError::QueryError(err.to_string()))?;
 
-    const UPDATE_OUTPUT_NOTES_QUERY: &str = "UPDATE output_notes SET consumer_transaction_id = :consumer_transaction_id, submitted_at = :submitted_at WHERE note_id = :note_id;";
+    const UPDATE_OUTPUT_NOTES_QUERY: &str = "UPDATE output_notes SET status = :status, consumer_transaction_id = :consumer_transaction_id, submitted_at = :submitted_at WHERE note_id = :note_id;";
 
     tx.execute(
         UPDATE_OUTPUT_NOTES_QUERY,
@@ -360,6 +364,7 @@ pub fn update_note_consumer_tx_id(
             ":note_id": note_id.inner().to_string(),
             ":consumer_transaction_id": consumer_tx_id.to_string(),
             ":submitted_at": Utc::now().timestamp(),
+            ":status": NOTE_STATUS_PROCESSING,
         },
     )
     .map_err(|err| StoreError::QueryError(err.to_string()))?;
@@ -459,21 +464,16 @@ fn parse_input_note(
     // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
     let status = match status.as_str() {
         NOTE_STATUS_PENDING => NoteStatus::Pending { created_at },
-        NOTE_STATUS_COMMITTED => {
-            if let Some(consumer_account_id) = consumer_account_id {
-                NoteStatus::Processing {
-                    consumer_account_id,
-                    submitted_at: submitted_at
-                        .expect("Processing note should have submition timestamp"),
-                }
-            } else {
-                NoteStatus::Committed {
-                    block_height: inclusion_proof
-                        .clone()
-                        .map(|proof| proof.origin().block_num as u64)
-                        .expect("Committed note should have inclusion proof"),
-                }
-            }
+        NOTE_STATUS_COMMITTED => NoteStatus::Committed {
+            block_height: inclusion_proof
+                .clone()
+                .map(|proof| proof.origin().block_num as u64)
+                .expect("Committed note should have inclusion proof"),
+        },
+        NOTE_STATUS_PROCESSING => NoteStatus::Processing {
+            consumer_account_id: consumer_account_id
+                .expect("Processing note should have consumer account id"),
+            submitted_at: submitted_at.expect("Processing note should have submition timestamp"),
         },
         NOTE_STATUS_CONSUMED => NoteStatus::Consumed {
             consumer_account_id,
@@ -650,21 +650,16 @@ fn parse_output_note(
     // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
     let status = match status.as_str() {
         NOTE_STATUS_PENDING => NoteStatus::Pending { created_at },
-        NOTE_STATUS_COMMITTED => {
-            if let Some(consumer_account_id) = consumer_account_id {
-                NoteStatus::Processing {
-                    consumer_account_id,
-                    submitted_at: submitted_at
-                        .expect("Processing note should have submition timestamp"),
-                }
-            } else {
-                NoteStatus::Committed {
-                    block_height: inclusion_proof
-                        .clone()
-                        .map(|proof| proof.origin().block_num as u64)
-                        .expect("Committed note should have inclusion proof"),
-                }
-            }
+        NOTE_STATUS_COMMITTED => NoteStatus::Committed {
+            block_height: inclusion_proof
+                .clone()
+                .map(|proof| proof.origin().block_num as u64)
+                .expect("Committed note should have inclusion proof"),
+        },
+        NOTE_STATUS_PROCESSING => NoteStatus::Processing {
+            consumer_account_id: consumer_account_id
+                .expect("Processing note should have consumer account id"),
+            submitted_at: submitted_at.expect("Processing note should have submition timestamp"),
         },
         NOTE_STATUS_CONSUMED => NoteStatus::Consumed {
             consumer_account_id,
