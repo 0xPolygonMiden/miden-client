@@ -8,7 +8,7 @@ use miden_objects::{
     crypto::rand::RpoRandomCoin,
     notes::{Note, NoteDetails, NoteId, NoteType},
     transaction::{
-        ExecutedTransaction, InputNotes, OutputNote, OutputNotes, ProvenTransaction,
+        ExecutedTransaction, InputNote, InputNotes, OutputNote, OutputNotes, ProvenTransaction,
         TransactionArgs, TransactionId, TransactionScript,
     },
     Digest, Felt, Word,
@@ -99,7 +99,7 @@ impl TransactionResult {
         self.transaction.account_delta()
     }
 
-    pub fn consumed_notes(&self) -> &InputNotes {
+    pub fn consumed_notes(&self) -> &InputNotes<InputNote> {
         self.transaction.tx_inputs().input_notes()
     }
 }
