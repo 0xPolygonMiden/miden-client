@@ -61,7 +61,7 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthent
     {
         NoteFile::NoteWithProof(input_note.try_into()?, inclusion_proof)
     } else {
-        NoteFile::NoteDetails(input_note.into())
+        NoteFile::NoteDetails(input_note.into(), None)
     };
 
     let file_path = if let Some(filename) = filename {

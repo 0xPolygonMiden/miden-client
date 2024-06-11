@@ -99,7 +99,7 @@ pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionA
 
     let input_note_record: InputNoteRecord = match note_file {
         NoteFile::NoteId(_) => todo!("Importing note ID is not supported yet"),
-        NoteFile::NoteDetails(details) => (&details).into(),
+        NoteFile::NoteDetails(details, _) => (&details).into(),
         NoteFile::NoteWithProof(note, inclusion_proof) => {
             InputNote::authenticated(note, inclusion_proof).into()
         },
