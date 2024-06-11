@@ -80,7 +80,7 @@ clean-node: ## Clean node directory
 .PHONY: node
 node: ## Setup node
 	if [ -d miden-node ]; then cd miden-node ; else git clone https://github.com/0xPolygonMiden/miden-node.git && cd miden-node; fi
-	cd miden-node && git checkout next && git pull origin next && cargo update
+	cd miden-node && git checkout igamigo-fix-tx-ordering && git pull origin igamigo-fix-tx-ordering && cargo update
 	cd miden-node && rm -rf miden-store.sqlite3*
 	cd miden-node && cargo run --bin miden-node --features $(NODE_FEATURES_TESTING) -- make-genesis --inputs-path ../tests/config/genesis.toml --force
 
