@@ -35,7 +35,7 @@ async fn test_input_notes_round_trip() {
 
     // insert notes into database
     for note in consumed_notes.iter().cloned() {
-        client.import_input_note(note.into(), false).await.unwrap();
+        client.import_note(note.into(), false).await.unwrap();
     }
 
     // retrieve notes from database
@@ -60,7 +60,7 @@ async fn test_get_input_note() {
 
     // insert Note into database
     client
-        .import_input_note(created_notes.first().unwrap().clone().into(), false)
+        .import_note(created_notes.first().unwrap().clone().into(), false)
         .await
         .unwrap();
 

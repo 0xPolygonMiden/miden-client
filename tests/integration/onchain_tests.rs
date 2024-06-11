@@ -213,7 +213,7 @@ async fn test_onchain_accounts() {
     let notes = client_2.get_input_notes(NoteFilter::Committed).unwrap();
 
     //Import the note on the first client so that we can later check its consumer account
-    client_1.import_input_note(notes[0].clone(), false).await.unwrap();
+    client_1.import_note(notes[0].clone(), false).await.unwrap();
 
     // Consume the note
     println!("Consuming note con second client...");

@@ -107,7 +107,7 @@ pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionA
 
     let note_id = input_note_record.id();
     client
-        .import_input_note(input_note_record, verify)
+        .import_note(input_note_record, verify)
         .await
         .map_err(|err| err.to_string())?;
 

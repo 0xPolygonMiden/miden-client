@@ -339,10 +339,7 @@ async fn test_swap_offchain() {
     // Export note from client 1 to client 2
     let exported_note = client1.get_output_note(expected_output_notes[0].id()).unwrap();
 
-    client2
-        .import_input_note(exported_note.try_into().unwrap(), true)
-        .await
-        .unwrap();
+    client2.import_note(exported_note.try_into().unwrap(), true).await.unwrap();
 
     // Sync so we get the inclusion proof info
     client2.sync_state().await.unwrap();

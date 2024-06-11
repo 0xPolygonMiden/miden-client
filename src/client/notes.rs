@@ -107,7 +107,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// If the imported note is verified to be on chain and it doesn't contain an inclusion proof
     /// the method tries to build one.
     /// If the verification fails then a [ClientError::ExistenceVerificationError] is raised.
-    pub async fn import_input_note(
+    pub async fn import_note(
         &mut self,
         note: InputNoteRecord,
         verify: bool,
