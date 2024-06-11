@@ -63,7 +63,7 @@ test: ## Run tests
 
 .PHONY: integration-test
 integration-test: ## Run integration tests
-	cargo nextest run --release --test=integration --features $(FEATURES_INTEGRATION_TESTING)
+	cargo nextest run --no-capture --release --test=integration --features $(FEATURES_INTEGRATION_TESTING)
 
 .PHONY: integration-test-full
 integration-test-full: ## Run the integration test binary with ignored tests included
@@ -86,7 +86,7 @@ node: ## Setup node
 	cd miden-node && cargo run --bin miden-node --features $(NODE_FEATURES_TESTING) -- make-genesis --inputs-path ../tests/config/genesis.toml --force
 
 .PHONY: start-node
-start-node: node ## Run node
+start-node: ## Run node. This requires the node repo to be present at `miden-node`
 	cd miden-node && cargo run --bin miden-node --features $(NODE_FEATURES_TESTING) -- start --config ../tests/config/miden-node.toml node
 
 # --- Installing ----------------------------------------------------------------------------------
