@@ -13,7 +13,6 @@ use miden_objects::{
     accounts::{AccountData, AccountId},
     crypto::rand::FeltRng,
     notes::{NoteFile, NoteId},
-    transaction::InputNote,
     utils::Deserializable,
 };
 use miden_tx::auth::TransactionAuthenticator;
@@ -97,21 +96,7 @@ pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionA
 
     let note_file = NoteFile::read_from_bytes(&contents).map_err(|err| err.to_string())?;
 
-    let input_note_record: InputNoteRecord = match note_file {
-        NoteFile::NoteId(_) => todo!("Importing note ID is not supported yet"),
-        NoteFile::NoteDetails(details, _) => (&details).into(),
-        NoteFile::NoteWithProof(note, inclusion_proof) => {
-            InputNote::authenticated(note, inclusion_proof).into()
-        },
-    };
-
-    let note_id = input_note_record.id();
-    client
-        .import_note(input_note_record, verify)
-        .await
-        .map_err(|err| err.to_string())?;
-
-    Ok(note_id)
+    client.import_note(note_file, verify).await.map_err(|err| err.to_string())
 }
 
 // HELPERS

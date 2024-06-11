@@ -2,7 +2,8 @@ use miden_objects::{
     accounts::AccountId,
     assembly::ProgramAst,
     crypto::rand::FeltRng,
-    notes::{NoteId, NoteInclusionProof, NoteScript},
+    notes::{NoteFile, NoteId, NoteInclusionProof, NoteScript},
+    transaction::InputNote,
 };
 use miden_tx::{auth::TransactionAuthenticator, ScriptTarget};
 use tracing::info;
@@ -11,7 +12,7 @@ use winter_maybe_async::{maybe_async, maybe_await};
 use super::{note_screener::NoteConsumability, rpc::NodeRpcClient, Client};
 use crate::{
     client::NoteScreener,
-    errors::ClientError,
+    errors::{ClientError, StoreError},
     store::{InputNoteRecord, NoteFilter, OutputNoteRecord, Store},
 };
 
@@ -109,11 +110,24 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// If the verification fails then a [ClientError::ExistenceVerificationError] is raised.
     pub async fn import_note(
         &mut self,
-        note: InputNoteRecord,
+        note_file: NoteFile,
         verify: bool,
-    ) -> Result<(), ClientError> {
+    ) -> Result<NoteId, ClientError> {
+        let note: InputNoteRecord = match note_file {
+            NoteFile::NoteId(_) => todo!("Importing note ID is not supported yet"),
+            NoteFile::NoteDetails(details, _) => (&details).into(),
+            NoteFile::NoteWithProof(note, inclusion_proof) => {
+                InputNote::authenticated(note, inclusion_proof).into()
+            },
+        };
+        let id = note.id();
+
         if !verify {
-            return maybe_await!(self.store.insert_input_note(&note)).map_err(|err| err.into());
+            maybe_await!(self
+                .store
+                .insert_input_note(&note)
+                .map_err(<StoreError as Into<ClientError>>::into))?;
+            return Ok(id);
         }
 
         // Verify that note exists in chain
@@ -174,7 +188,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             note.details().clone(),
         );
 
-        maybe_await!(self.store.insert_input_note(&note)).map_err(|err| err.into())
+        maybe_await!(self
+            .store
+            .insert_input_note(&note)
+            .map_err(<StoreError as Into<ClientError>>::into))?;
+        Ok(id)
     }
 
     /// Compiles the provided program into a [NoteScript] and checks (to the extent possible) if

@@ -35,6 +35,7 @@ async fn test_input_notes_round_trip() {
 
     // insert notes into database
     for note in consumed_notes.iter().cloned() {
+        let note: InputNoteRecord = note.into();
         client.import_note(note.into(), false).await.unwrap();
     }
 
@@ -59,10 +60,8 @@ async fn test_get_input_note() {
     let (_consumed_notes, created_notes) = mock_notes(&assembler);
 
     // insert Note into database
-    client
-        .import_note(created_notes.first().unwrap().clone().into(), false)
-        .await
-        .unwrap();
+    let note: InputNoteRecord = created_notes.first().unwrap().clone().into();
+    client.import_note(note.into(), false).await.unwrap();
 
     // retrieve note from database
     let retrieved_note =

@@ -50,7 +50,10 @@ use crate::{
     },
     config::RpcConfig,
     errors::RpcError,
-    store::sqlite_store::{config::SqliteStoreConfig, SqliteStore},
+    store::{
+        sqlite_store::{config::SqliteStoreConfig, SqliteStore},
+        InputNoteRecord,
+    },
 };
 
 pub type MockClient =
@@ -428,11 +431,13 @@ pub async fn insert_mock_data(client: &mut MockClient) -> Vec<BlockHeader> {
 
     // insert notes into database
     for note in consumed_notes.clone() {
+        let note: InputNoteRecord = note.into();
         client.import_note(note.into(), false).await.unwrap();
     }
 
     // insert notes into database
     for note in created_notes.clone() {
+        let note: InputNoteRecord = note.into();
         client.import_note(note.into(), false).await.unwrap();
     }
 
