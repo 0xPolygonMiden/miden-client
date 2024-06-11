@@ -33,6 +33,13 @@ impl NoteDetails {
             NoteDetails::Public(_, inclusion_details) => inclusion_details,
         }
     }
+
+    pub fn metadata(&self) -> &NoteMetadata {
+        match self {
+            NoteDetails::OffChain(_, metadata, _) => metadata,
+            NoteDetails::Public(note, _) => note.metadata(),
+        }
+    }
 }
 
 /// Describes the possible responses from the `GetAccountDetails` endpoint for an account
