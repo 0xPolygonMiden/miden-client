@@ -1,6 +1,7 @@
 use miden_client::{
     transactions::transaction_request::{SwapTransactionData, TransactionTemplate},
     AccountTemplate,
+    store::InputNoteRecord,
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorageType},
@@ -337,9 +338,13 @@ async fn test_swap_offchain() {
     execute_tx_and_sync(&mut client1, tx_request).await;
 
     // Export note from client 1 to client 2
-    let exported_note = client1.get_output_note(expected_output_notes[0].id()).unwrap();
+    let exported_note: InputNoteRecord = client1
+        .get_output_note(expected_output_notes[0].id())
+        .unwrap()
+        .try_into()
+        .unwrap();
 
-    client2.import_note(exported_note.try_into().unwrap(), true).await.unwrap();
+    client2.import_note(exported_note.into(), true).await.unwrap();
 
     // Sync so we get the inclusion proof info
     client2.sync_state().await.unwrap();

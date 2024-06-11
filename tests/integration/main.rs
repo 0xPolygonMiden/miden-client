@@ -1,7 +1,7 @@
 use miden_client::{
     errors::ClientError,
     rpc::{AccountDetails, NodeRpcClient, TonicRpcClient},
-    store::{NoteFilter, NoteStatus, TransactionFilter},
+    store::{InputNoteRecord, NoteFilter, NoteStatus, TransactionFilter},
     transactions::{
         transaction_request::{PaymentTransactionData, TransactionTemplate},
         TransactionStatus,
@@ -441,7 +441,7 @@ async fn test_import_expected_notes() {
     );
 
     let tx_request = client_1.build_transaction_request(tx_template).unwrap();
-    let note = tx_request.expected_output_notes()[0].clone();
+    let note: InputNoteRecord = tx_request.expected_output_notes()[0].clone().into();
     client_2.sync_state().await.unwrap();
 
     // If the verification is requested before execution then the import should fail
@@ -469,7 +469,7 @@ async fn test_import_expected_notes() {
     );
 
     let tx_request = client_1.build_transaction_request(tx_template).unwrap();
-    let note = tx_request.expected_output_notes()[0].clone();
+    let note: InputNoteRecord = tx_request.expected_output_notes()[0].clone().into();
 
     // Import an uncommited note without verification
     client_2.import_note(note.clone().into(), false).await.unwrap();
