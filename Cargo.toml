@@ -25,6 +25,7 @@ path = "tests/integration/main.rs"
 required-features = ["integration"]
 
 [features]
+async = []
 concurrent = ["miden-lib/concurrent", "miden-objects/concurrent", "miden-tx/concurrent"]
 default = ["std"]
 integration = ["testing", "concurrent", "uuid", "assert_cmd"]
