@@ -92,6 +92,28 @@ pub trait Store {
         nullifiers
     }
 
+    /// Returns the notes that don't have their block header tracked
+    fn get_notes_without_block_header(&self) -> Result<Vec<InputNoteRecord>, StoreError> {
+        let tracked_block_nums: Vec<u32> = self
+            .get_tracked_block_headers()?
+            .iter()
+            .map(|header| header.block_num())
+            .collect();
+        Ok(self
+            .get_input_notes(NoteFilter::Committed)?
+            .into_iter()
+            .filter(|note| {
+                !tracked_block_nums.contains(
+                    &note
+                        .inclusion_proof()
+                        .expect("Committed note should have inclusion proof")
+                        .origin()
+                        .block_num,
+                )
+            })
+            .collect())
+    }
+
     /// Inserts the provided input note into the database
     #[maybe_async]
     fn insert_input_note(&self, note: &InputNoteRecord) -> Result<(), StoreError>;
