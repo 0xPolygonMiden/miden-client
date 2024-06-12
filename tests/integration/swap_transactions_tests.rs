@@ -1,7 +1,7 @@
 use miden_client::{
+    store::InputNoteRecord,
     transactions::transaction_request::{SwapTransactionData, TransactionTemplate},
     AccountTemplate,
-    store::InputNoteRecord,
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorageType},

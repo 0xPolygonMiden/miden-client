@@ -97,6 +97,9 @@ CREATE TABLE input_notes (
     created_at UNSIGNED BIG INT NOT NULL,                   -- timestamp of the note creation/import
     submitted_at UNSIGNED BIG INT NULL,                      -- timestamp of the note submission to node
     nullifier_height UNSIGNED BIG INT NULL,                 -- block height when the nullifier arrived
+    ignored BOOLEAN NOT NULL DEFAULT 0,                     -- whether the note is ignored in sync
+    imported_tag UNSIGNED INT NULL,                         -- imported tag for the note
+
     FOREIGN KEY (consumer_transaction_id) REFERENCES transactions(id)
     PRIMARY KEY (note_id)
 
@@ -144,6 +147,9 @@ CREATE TABLE output_notes (
     created_at UNSIGNED BIG INT NOT NULL,                   -- timestamp of the note creation/import
     submitted_at UNSIGNED BIG INT NULL,                      -- timestamp of the note submission to node
     nullifier_height UNSIGNED BIG INT NULL,                 -- block height when the nullifier arrived
+    ignored BOOLEAN NOT NULL DEFAULT 0,                     -- whether the note is ignored in sync
+    imported_tag UNSIGNED INT NULL,                         -- imported tag for the note
+
     FOREIGN KEY (consumer_transaction_id) REFERENCES transactions(id)
     PRIMARY KEY (note_id)
 

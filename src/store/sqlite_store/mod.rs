@@ -174,7 +174,7 @@ impl Store for SqliteStore {
     }
 
     #[maybe_async]
-    fn insert_input_note(&self, note: &InputNoteRecord) -> Result<(), StoreError> {
+    fn insert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError> {
         self.insert_input_note(note)
     }
 

@@ -116,7 +116,7 @@ pub trait Store {
 
     /// Inserts the provided input note into the database
     #[maybe_async]
-    fn insert_input_note(&self, note: &InputNoteRecord) -> Result<(), StoreError>;
+    fn insert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError>;
 
     // CHAIN DATA
     // --------------------------------------------------------------------------------------------
@@ -328,6 +328,8 @@ pub enum NoteFilter<'a> {
     Expected,
     /// Return a list of notes that are currently being processed.
     Processing,
+    /// Return a list of notes that the client ignores in sync.
+    Ignored,
     /// Return a list containing the note that matches with the provided [NoteId].
     List(&'a [NoteId]),
     /// Return a list containing the note that matches with the provided [NoteId].

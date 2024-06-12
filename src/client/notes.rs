@@ -186,11 +186,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             note.metadata().copied(),
             inclusion_proof,
             note.details().clone(),
+            false,
+            None,
         );
 
         maybe_await!(self
             .store
-            .insert_input_note(&note)
+            .insert_input_note(note)
             .map_err(<StoreError as Into<ClientError>>::into))?;
         Ok(id)
     }

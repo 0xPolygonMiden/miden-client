@@ -175,7 +175,7 @@ impl SqliteStore {
 
         // Commit new public notes
         for note in committed_notes.new_public_notes() {
-            insert_input_note_tx(&tx, &note.clone().into())?;
+            insert_input_note_tx(&tx, note.clone().into())?;
         }
 
         // Mark transactions as committed
