@@ -13,9 +13,18 @@ use crate::{
 use alloc::rc::Rc;
 use tracing::info;
 
+#[cfg(not(feature = "wasm"))]
 use miden_objects::{
     crypto::rand::{FeltRng, RpoRandomCoin},
-    Felt,
+    Felt
+};
+
+#[cfg(feature = "wasm")]
+use miden_objects::{
+    accounts::AccountId,
+    notes::{NoteExecutionHint, NoteTag, NoteType},
+    crypto::rand::{FeltRng, RpoRandomCoin},
+    Felt, NoteError
 };
 use miden_tx::{TransactionAuthenticator, TransactionExecutor};
 
@@ -180,4 +189,31 @@ pub async fn get_input_note_with_id_prefix<
     Ok(input_note_records
         .pop()
         .expect("input_note_records should always have one element"))
+}
+
+#[cfg(feature = "wasm")]
+pub fn build_swap_tag(
+    note_type: NoteType,
+    offered_asset_faucet_id: AccountId,
+    requested_asset_faucet_id: AccountId,
+) -> Result<NoteTag, NoteError> {
+    const SWAP_USE_CASE_ID: u16 = 0;
+
+    // get bits 4..12 from faucet IDs of both assets, these bits will form the tag payload; the
+    // reason we skip the 4 most significant bits is that these encode metadata of underlying
+    // faucets and are likely to be the same for many different faucets.
+
+    let offered_asset_id: u64 = offered_asset_faucet_id.into();
+    let offered_asset_tag = (offered_asset_id >> 52) as u8;
+
+    let requested_asset_id: u64 = requested_asset_faucet_id.into();
+    let requested_asset_tag = (requested_asset_id >> 52) as u8;
+
+    let payload = ((offered_asset_tag as u16) << 8) | (requested_asset_tag as u16);
+
+    let execution = NoteExecutionHint::Local;
+    match note_type {
+        NoteType::Public => NoteTag::for_public_use_case(SWAP_USE_CASE_ID, payload, execution),
+        _ => NoteTag::for_local_use_case(SWAP_USE_CASE_ID, payload),
+    }
 }

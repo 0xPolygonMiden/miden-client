@@ -14,7 +14,7 @@ use crate::store::Store;
 /// Represents an authenticator based on a [Store]
 pub struct StoreAuthenticator<R, S> {
     store: Rc<S>,
-    rng: RefCell<R>
+    rng: RefCell<R>,
 }
 
 impl<R: Rng, S: Store> StoreAuthenticator<R, S> {
@@ -43,7 +43,6 @@ impl<R: Rng, S: Store> TransactionAuthenticator for StoreAuthenticator<R, S> {
             .store
             .get_account_auth_by_pub_key(pub_key)
             .map_err(|_| AuthenticationError::UnknownKey(format!("{}", Digest::from(pub_key))))?;
-        
 
         let AuthSecretKey::RpoFalcon512(k) = secret_key;
         get_falcon_signature(&k, message, &mut *rng)

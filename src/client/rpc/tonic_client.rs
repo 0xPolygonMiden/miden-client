@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use async_trait::async_trait;
 use miden_node_proto::{
     errors::ConversionError,
     generated::{
@@ -68,7 +67,6 @@ impl TonicRpcClient {
     }
 }
 
-#[async_trait]
 impl NodeRpcClient for TonicRpcClient {
     async fn submit_proven_transaction(
         &mut self,
