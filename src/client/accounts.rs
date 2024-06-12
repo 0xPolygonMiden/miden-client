@@ -214,7 +214,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ///
     /// # Errors
     ///
-    /// Returns a [ClientError::StoreError] with a [StoreError::AccountDataNotFound](crate::errors::StoreError::AccountDataNotFound) if the provided ID does
+    /// Returns a [ClientError::StoreError] with a [StoreError::AccountDataNotFound](crate::store::StoreError::AccountDataNotFound) if the provided ID does
     /// not correspond to an existing account.
     #[maybe_async]
     pub fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, ClientError> {
