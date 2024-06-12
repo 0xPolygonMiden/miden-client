@@ -10,6 +10,7 @@ FEATURES_INTEGRATION_TESTING="integration"
 FEATURES_CLI="testing,concurrent"
 NODE_FEATURES_TESTING="testing"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
+NODE_BRANCH="next"
 
 # --- Linting -------------------------------------------------------------------------------------
 
@@ -62,7 +63,7 @@ test: ## Run tests
 
 .PHONY: integration-test
 integration-test: ## Run integration tests
-	cargo nextest run --release --test=integration --features $(FEATURES_INTEGRATION_TESTING)
+	cargo nextest run --no-capture --release --test=integration --features $(FEATURES_INTEGRATION_TESTING)
 
 .PHONY: integration-test-full
 integration-test-full: ## Run the integration test binary with ignored tests included
@@ -80,12 +81,12 @@ clean-node: ## Clean node directory
 .PHONY: node
 node: ## Setup node
 	if [ -d miden-node ]; then cd miden-node ; else git clone https://github.com/0xPolygonMiden/miden-node.git && cd miden-node; fi
-	cd miden-node && git checkout polydez-tx-ids-in-sync && git pull origin polydez-tx-ids-in-sync && cargo update
+	cd miden-node && git checkout $(NODE_BRANCH) && git pull origin $(NODE_BRANCH) && cargo update
 	cd miden-node && rm -rf miden-store.sqlite3*
 	cd miden-node && cargo run --bin miden-node --features $(NODE_FEATURES_TESTING) -- make-genesis --inputs-path ../tests/config/genesis.toml --force
 
 .PHONY: start-node
-start-node: node ## Run node
+start-node: ## Run node. This requires the node repo to be present at `miden-node`
 	cd miden-node && cargo run --bin miden-node --features $(NODE_FEATURES_TESTING) -- start --config ../tests/config/miden-node.toml node
 
 # --- Installing ----------------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-use std::{env::temp_dir, fs::File, io::Read, path::Path, rc::Rc, thread, time::Duration};
+use std::{env::temp_dir, fs::File, io::Read, path::Path, rc::Rc};
 
 use assert_cmd::Command;
 use miden_client::{
@@ -433,10 +433,11 @@ fn send_cli(cli_path: &Path, from_account_id: &str, to_account_id: &str, faucet_
 
 /// Syncs until there are no input notes satisfying the provided filter
 fn sync_until_no_notes(store_path: &Path, cli_path: &Path, filter: NoteFilter) {
-    let client = create_test_client_with_store_path(&store_path);
+    let client = create_test_client_with_store_path(store_path);
 
-    while !client.get_input_notes(NoteFilter::Pending).unwrap().is_empty() {
-        sync_cli(&cli_path);
+    while !client.get_input_notes(filter.clone()).unwrap().is_empty() {
+        sync_cli(cli_path);
+        std::thread::sleep(std::time::Duration::from_secs(1));
     }
 }
 

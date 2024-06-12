@@ -4,7 +4,7 @@ use miden_objects::{
     accounts::AccountId,
     assembly::{AstSerdeOptions, ProgramAst},
     crypto::utils::{Deserializable, Serializable},
-    transaction::{OutputNotes, ToNullifier, TransactionId, TransactionScript},
+    transaction::{OutputNotes, ToInputNoteCommitments, TransactionId, TransactionScript},
     Digest, Felt,
 };
 use rusqlite::{params, Transaction};
