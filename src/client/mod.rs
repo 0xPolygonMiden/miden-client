@@ -127,19 +127,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 // --------------------------------------------------------------------------------------------
 
 /// Gets [RpoRandomCoin] from the client
-#[cfg(not(feature = "wasm"))]
 pub fn get_random_coin() -> RpoRandomCoin {
     // TODO: Initialize coin status once along with the client and persist status for retrieval
+    #[cfg(not(feature = "wasm"))]
     let mut rng = rand::thread_rng();
-    let coin_seed: [u64; 4] = rng.gen();
-
-    RpoRandomCoin::new(coin_seed.map(Felt::new))
-}
-
-/// Gets [RpoRandomCoin] from the client. Uses StdRng for wasm32 target
-#[cfg(feature = "wasm")]
-pub fn get_random_coin() -> RpoRandomCoin {
-    // TODO: Initialize coin status once along with the client and persist status for retrieval
+    #[cfg(feature = "wasm")]
     let mut rng = StdRng::from_entropy();
     let coin_seed: [u64; 4] = rng.gen();
 
