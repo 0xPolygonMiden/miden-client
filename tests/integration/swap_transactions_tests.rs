@@ -6,7 +6,7 @@ use miden_client::{
 use miden_objects::{
     accounts::{AccountId, AccountStorageType},
     assets::{Asset, FungibleAsset, TokenSymbol},
-    notes::{NoteExecutionHint, NoteTag, NoteType},
+    notes::{NoteExecutionHint, NoteFile, NoteTag, NoteType},
 };
 
 use super::common::*;
@@ -344,7 +344,10 @@ async fn test_swap_offchain() {
         .try_into()
         .unwrap();
 
-    client2.import_note(exported_note.into(), true).await.unwrap();
+    client2
+        .import_note(NoteFile::NoteDetails(exported_note.into(), None))
+        .await
+        .unwrap();
 
     // Sync so we get the inclusion proof info
     client2.sync_state().await.unwrap();

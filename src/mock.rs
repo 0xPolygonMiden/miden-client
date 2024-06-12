@@ -24,8 +24,8 @@ use miden_objects::{
         rand::RpoRandomCoin,
     },
     notes::{
-        Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata, NoteRecipient,
-        NoteScript, NoteTag, NoteType,
+        Note, NoteAssets, NoteFile, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata,
+        NoteRecipient, NoteScript, NoteTag, NoteType,
     },
     transaction::{InputNote, ProvenTransaction},
     BlockHeader, Felt, Word,
@@ -432,13 +432,13 @@ pub async fn insert_mock_data(client: &mut MockClient) -> Vec<BlockHeader> {
     // insert notes into database
     for note in consumed_notes.clone() {
         let note: InputNoteRecord = note.into();
-        client.import_note(note.into(), false).await.unwrap();
+        client.import_note(NoteFile::NoteDetails(note.into(), None)).await.unwrap();
     }
 
     // insert notes into database
     for note in created_notes.clone() {
         let note: InputNoteRecord = note.into();
-        client.import_note(note.into(), false).await.unwrap();
+        client.import_note(NoteFile::NoteDetails(note.into(), None)).await.unwrap();
     }
 
     // insert account

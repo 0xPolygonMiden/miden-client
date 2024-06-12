@@ -87,7 +87,7 @@ fn import_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenti
 pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
     client: &mut Client<N, R, S, A>,
     filename: PathBuf,
-    verify: bool,
+    _verify: bool,
 ) -> Result<NoteId, String> {
     let mut contents = vec![];
     let mut _file = File::open(filename)
@@ -96,7 +96,7 @@ pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionA
 
     let note_file = NoteFile::read_from_bytes(&contents).map_err(|err| err.to_string())?;
 
-    client.import_note(note_file, verify).await.map_err(|err| err.to_string())
+    client.import_note(note_file).await.map_err(|err| err.to_string())
 }
 
 // HELPERS

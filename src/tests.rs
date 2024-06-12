@@ -9,7 +9,7 @@ use miden_objects::{
     assembly::{AstSerdeOptions, ModuleAst},
     assets::{FungibleAsset, TokenSymbol},
     crypto::dsa::rpo_falcon512::SecretKey,
-    notes::NoteTag,
+    notes::{NoteFile, NoteTag},
     Word,
 };
 
@@ -36,7 +36,7 @@ async fn test_input_notes_round_trip() {
     // insert notes into database
     for note in consumed_notes.iter().cloned() {
         let note: InputNoteRecord = note.into();
-        client.import_note(note.into(), false).await.unwrap();
+        client.import_note(NoteFile::NoteDetails(note.into(), None)).await.unwrap();
     }
 
     // retrieve notes from database
@@ -61,7 +61,7 @@ async fn test_get_input_note() {
 
     // insert Note into database
     let note: InputNoteRecord = created_notes.first().unwrap().clone().into();
-    client.import_note(note.into(), false).await.unwrap();
+    client.import_note(NoteFile::NoteDetails(note.into(), None)).await.unwrap();
 
     // retrieve note from database
     let retrieved_note =

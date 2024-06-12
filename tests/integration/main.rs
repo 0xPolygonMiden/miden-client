@@ -11,7 +11,7 @@ use miden_client::{
 use miden_objects::{
     accounts::{AccountId, AccountStorageType},
     assets::{Asset, FungibleAsset},
-    notes::NoteType,
+    notes::{NoteFile, NoteType},
 };
 use miden_tx::TransactionExecutorError;
 
@@ -445,14 +445,18 @@ async fn test_import_expected_notes() {
     client_2.sync_state().await.unwrap();
 
     // If the verification is requested before execution then the import should fail
-    assert!(client_2.import_note(note.clone().into(), true).await.is_err());
+    assert!(client_2.import_note(NoteFile::NoteId(note.id())).await.is_err());
     execute_tx_and_sync(&mut client_1, tx_request).await;
 
     // Use client 1 to wait until a couple of blocks have passed
     wait_for_blocks(&mut client_1, 3).await;
 
     let new_sync_data = client_2.sync_state().await.unwrap();
-    client_2.import_note(note.clone().into(), true).await.unwrap();
+    client_2
+        .import_note(NoteFile::NoteDetails(note.clone().into(), None))
+        .await
+        .unwrap();
+    client_2.sync_state().await.unwrap();
     let input_note = client_2.get_input_note(note.id()).unwrap();
     assert!(new_sync_data.block_num > input_note.inclusion_proof().unwrap().origin().block_num + 1);
 
@@ -472,7 +476,10 @@ async fn test_import_expected_notes() {
     let note: InputNoteRecord = tx_request.expected_output_notes()[0].clone().into();
 
     // Import an uncommited note without verification
-    client_2.import_note(note.clone().into(), false).await.unwrap();
+    client_2
+        .import_note(NoteFile::NoteDetails(note.clone().into(), None))
+        .await
+        .unwrap();
     let input_note = client_2.get_input_note(note.id()).unwrap();
 
     // If imported before execution then the inclusion proof should be None
