@@ -569,7 +569,7 @@ pub fn mock_fungible_faucet_account(
                 slot: StorageSlot::new_value(faucet_storage_slot_1),
             },
         ],
-        vec![],
+        BTreeMap::new(),
     )
     .unwrap();
 
@@ -735,7 +735,7 @@ fn get_account_with_nonce(
         index: 0,
         slot: StorageSlot::new_value(public_key),
     };
-    let account_storage = AccountStorage::new(vec![slot_item], vec![]).unwrap();
+    let account_storage = AccountStorage::new(vec![slot_item], BTreeMap::new()).unwrap();
 
     let asset_vault = match assets {
         Some(asset) => AssetVault::new(&[asset]).unwrap(),
