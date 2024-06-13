@@ -282,6 +282,49 @@ impl SqliteStore {
             })
             .collect::<Result<Vec<Nullifier>, _>>()
     }
+
+    /// Updates the inclusion proof of the input note with the provided ID
+    pub fn update_note_inclusion_proof(
+        &self,
+        note_id: NoteId,
+        inclusion_proof: NoteInclusionProof,
+    ) -> Result<(), StoreError> {
+        const QUERY: &str = "UPDATE input_notes SET inclusion_proof = json(:inclusion_proof), status = 'Committed' WHERE note_id = :note_id";
+
+        self.db()
+            .execute(
+                QUERY,
+                named_params! {
+                    ":note_id": note_id.inner().to_string(),
+                    ":inclusion_proof": serde_json::to_string(&inclusion_proof).map_err(StoreError::JsonDataDeserializationError)?,
+                },
+            )
+            .map_err(|err| StoreError::QueryError(err.to_string()))?;
+
+        Ok(())
+    }
+
+    /// Updates the metadata of the input note with the provided ID
+    pub fn update_note_metadata(
+        &self,
+        note_id: NoteId,
+        metadata: NoteMetadata,
+    ) -> Result<(), StoreError> {
+        const QUERY: &str =
+            "UPDATE input_notes SET metadata = json(:metadata) WHERE note_id = :note_id";
+
+        self.db()
+            .execute(
+                QUERY,
+                named_params! {
+                    ":note_id": note_id.inner().to_string(),
+                    ":metadata": serde_json::to_string(&metadata).map_err(StoreError::JsonDataDeserializationError)?,
+                },
+            )
+            .map_err(|err| StoreError::QueryError(err.to_string()))?;
+
+        Ok(())
+    }
 }
 
 // HELPERS

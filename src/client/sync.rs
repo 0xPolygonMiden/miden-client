@@ -243,6 +243,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
             if let SyncStatus::SyncedToLastBlock(_) = response {
                 self.update_mmr_data().await?;
+
+                let ignored_notes_sync = self.update_ignored_notes().await?;
+                total_sync_details.combine_with(&ignored_notes_sync);
+
                 return Ok(total_sync_summary);
             }
         }
@@ -252,11 +256,52 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// imported with an inclusion proof, but its block header is not tracked.
     async fn update_mmr_data(&mut self) -> Result<(), ClientError> {
         for note in self.store.get_notes_without_block_header()? {
-            let block_num = note.inclusion_proof().expect("Commited notes should have inclusion proofs").origin().block_num;
+            let block_num = note
+                .inclusion_proof()
+                .expect("Commited notes should have inclusion proofs")
+                .origin()
+                .block_num;
             self.get_and_store_authenticated_block(block_num).await?;
         }
 
         Ok(())
+    }
+
+    async fn update_ignored_notes(&mut self) -> Result<SyncSummary, ClientError> {
+        let ignored_notes_ids = self
+            .get_input_notes(NoteFilter::Ignored)?
+            .iter()
+            .map(|note| note.id())
+            .collect::<Vec<_>>();
+
+        let note_details = self.rpc_api.get_notes_by_id(&ignored_notes_ids).await?;
+
+        let updated_notes = note_details.len();
+
+        for details in note_details {
+            let note_block = self
+                .get_and_store_authenticated_block(details.inclusion_details().block_num)
+                .await?;
+
+            let note_inclusion_proof = NoteInclusionProof::new(
+                note_block.block_num(),
+                note_block.sub_hash(),
+                note_block.note_root(),
+                details.inclusion_details().note_index as u64,
+                details.inclusion_details().merkle_path.clone(),
+            )
+            .map_err(ClientError::NoteError)?;
+
+            self.store.update_note_inclusion_proof(details.id(), note_inclusion_proof)?;
+            self.store.update_note_metadata(details.id(), *details.metadata())?;
+        }
+
+        // Because this function was created after syncing, it's OK to return a sync summary
+        // with block_num = 0
+        let mut sync_summary = SyncSummary::new_empty(0);
+        sync_summary.new_inclusion_proofs = updated_notes;
+
+        Ok(sync_summary)
     }
 
     /// Attempts to retrieve the genesis block from the store. If not found,

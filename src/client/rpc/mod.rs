@@ -40,6 +40,13 @@ impl NoteDetails {
             NoteDetails::Public(note, _) => note.metadata(),
         }
     }
+
+    pub fn id(&self) -> NoteId {
+        match self {
+            NoteDetails::OffChain(id, ..) => *id,
+            NoteDetails::Public(note, _) => note.id(),
+        }
+    }
 }
 
 /// Describes the possible responses from the `GetAccountDetails` endpoint for an account

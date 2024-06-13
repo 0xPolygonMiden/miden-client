@@ -4,7 +4,7 @@ use core::fmt::Debug;
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::{NoteId, NoteTag, Nullifier},
+    notes::{NoteId, NoteInclusionProof, NoteMetadata, NoteTag, Nullifier},
     BlockHeader, Digest, Word,
 };
 use winter_maybe_async::{maybe_async, maybe_await};
@@ -117,6 +117,20 @@ pub trait Store {
     /// Inserts the provided input note into the database
     #[maybe_async]
     fn insert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError>;
+
+    /// Updates the inclusion proof of the input note with the provided ID
+    fn update_note_inclusion_proof(
+        &self,
+        note_id: NoteId,
+        inclusion_proof: NoteInclusionProof,
+    ) -> Result<(), StoreError>;
+
+    /// Updates the metadata of the input note with the provided ID
+    fn update_note_metadata(
+        &self,
+        note_id: NoteId,
+        metadata: NoteMetadata,
+    ) -> Result<(), StoreError>;
 
     // CHAIN DATA
     // --------------------------------------------------------------------------------------------
