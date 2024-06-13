@@ -248,9 +248,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     async fn sync_state_once(&mut self) -> Result<SyncStatus, ClientError> {
         let current_block_num = maybe_await!(self.store.get_sync_height())?;
 
-        let accounts: Vec<AccountStub> = maybe_await!(self
-            .store
-            .get_account_stubs())?
+        let accounts: Vec<AccountStub> = maybe_await!(self.store.get_account_stubs())?
             .into_iter()
             .map(|(acc_stub, _)| acc_stub)
             .collect();
@@ -264,12 +262,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let stored_note_tags: Vec<NoteTag> = maybe_await!(self.store.get_note_tags())?;
 
-        let uncommited_note_tags: Vec<NoteTag> = maybe_await!(self
-            .store
-            .get_input_notes(NoteFilter::Pending))?
-            .iter()
-            .filter_map(|note| note.metadata().map(|metadata| metadata.tag()))
-            .collect();
+        let uncommited_note_tags: Vec<NoteTag> =
+            maybe_await!(self.store.get_input_notes(NoteFilter::Pending))?
+                .iter()
+                .filter_map(|note| note.metadata().map(|metadata| metadata.tag()))
+                .collect();
 
         let note_tags: Vec<NoteTag> = [account_note_tags, stored_note_tags, uncommited_note_tags]
             .concat()
@@ -281,12 +278,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         // To receive information about added nullifiers, we reduce them to the higher 16 bits
         // Note that besides filtering by nullifier prefixes, the node also filters by block number
         // (it only returns nullifiers from current_block_num until response.block_header.block_num())
-        let nullifiers_tags: Vec<u16> = maybe_await!(self
-            .store
-            .get_unspent_input_note_nullifiers())?
-            .iter()
-            .map(|nullifier| (nullifier.inner()[3].as_int() >> FILTER_ID_SHIFT) as u16)
-            .collect();
+        let nullifiers_tags: Vec<u16> =
+            maybe_await!(self.store.get_unspent_input_note_nullifiers())?
+                .iter()
+                .map(|nullifier| (nullifier.inner()[3].as_int() >> FILTER_ID_SHIFT) as u16)
+                .collect();
 
         // Send request
         let account_ids: Vec<AccountId> = accounts.iter().map(|acc| acc.id()).collect();
@@ -369,8 +365,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         };
 
         // Apply received and computed updates to the store
-        maybe_await!(self.store
-            .apply_state_sync(state_sync_update))
+        maybe_await!(self.store.apply_state_sync(state_sync_update))
             .map_err(ClientError::StoreError)?;
 
         if response.chain_tip == response.block_header.block_num() {
@@ -412,19 +407,17 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let mut tracked_input_notes = vec![];
         let mut tracked_output_notes_proofs = vec![];
 
-        let pending_input_notes: BTreeMap<NoteId, InputNoteRecord> = maybe_await!(self
-            .store
-            .get_input_notes(NoteFilter::Pending))?
-            .into_iter()
-            .map(|n| (n.id(), n))
-            .collect();
+        let pending_input_notes: BTreeMap<NoteId, InputNoteRecord> =
+            maybe_await!(self.store.get_input_notes(NoteFilter::Pending))?
+                .into_iter()
+                .map(|n| (n.id(), n))
+                .collect();
 
-        let pending_output_notes: BTreeSet<NoteId> = maybe_await!(self
-            .store
-            .get_output_notes(NoteFilter::Pending))?
-            .into_iter()
-            .map(|n| n.id())
-            .collect();
+        let pending_output_notes: BTreeSet<NoteId> =
+            maybe_await!(self.store.get_output_notes(NoteFilter::Pending))?
+                .into_iter()
+                .map(|n| n.id())
+                .collect();
 
         for committed_note in committed_notes {
             if let Some(note_record) = pending_input_notes.get(committed_note.note_id()) {
@@ -565,7 +558,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let current_block_num = maybe_await!(self.store.get_sync_height())?;
 
         let tracked_nodes = maybe_await!(self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All))?;
-        let current_peaks = maybe_await!(self.store.get_chain_mmr_peaks_by_block_num(current_block_num))?;
+        let current_peaks =
+            maybe_await!(self.store.get_chain_mmr_peaks_by_block_num(current_block_num))?;
 
         let track_latest = if current_block_num != 0 {
             match maybe_await!(self.store.get_block_header_by_num(current_block_num - 1)) {
@@ -585,9 +579,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     #[maybe_async]
     fn get_new_nullifiers(&self, new_nullifiers: Vec<Digest>) -> Result<Vec<Digest>, ClientError> {
         // Get current unspent nullifiers
-        let nullifiers = maybe_await!(self
-            .store
-            .get_unspent_input_note_nullifiers())?
+        let nullifiers = maybe_await!(self.store.get_unspent_input_note_nullifiers())?
             .iter()
             .map(|nullifier| nullifier.inner())
             .collect::<Vec<_>>();
@@ -688,8 +680,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             .map_err(StoreError::MmrError)?;
 
         // Insert header and MMR nodes
-        maybe_await!(self.store
-            .insert_block_header(block_header, current_partial_mmr.peaks(), true))?;
+        maybe_await!(self.store.insert_block_header(
+            block_header,
+            current_partial_mmr.peaks(),
+            true
+        ))?;
         maybe_await!(self.store.insert_chain_mmr_nodes(&path_nodes))?;
 
         Ok(block_header)

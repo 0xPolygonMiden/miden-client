@@ -46,7 +46,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 decimals,
                 max_supply,
                 storage_type: storage_mode,
-            } => maybe_await!(self.new_fungible_faucet(token_symbol, decimals, max_supply, storage_mode)),
+            } => maybe_await!(self.new_fungible_faucet(
+                token_symbol,
+                decimals,
+                max_supply,
+                storage_mode
+            )),
         }?;
 
         Ok(account_and_seed)
@@ -77,7 +82,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             account_data.account_seed
         };
 
-        maybe_await!(self.insert_account(&account_data.account, account_seed, &account_data.auth_secret_key))
+        maybe_await!(self.insert_account(
+            &account_data.account,
+            account_seed,
+            &account_data.auth_secret_key
+        ))
     }
 
     /// Creates a new regular account and saves it in the store along with its seed and auth data
@@ -111,7 +120,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             )
         }?;
 
-        maybe_await!(self.insert_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair)))?;
+        maybe_await!(self.insert_account(
+            &account,
+            Some(seed),
+            &AuthSecretKey::RpoFalcon512(key_pair)
+        ))?;
         Ok((account, seed))
     }
 
@@ -141,7 +154,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             auth_scheme,
         )?;
 
-        maybe_await!(self.insert_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair)))?;
+        maybe_await!(self.insert_account(
+            &account,
+            Some(seed),
+            &AuthSecretKey::RpoFalcon512(key_pair)
+        ))?;
         Ok((account, seed))
     }
 
@@ -162,8 +179,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             return Err(ClientError::ImportNewAccountWithoutSeed);
         }
 
-        maybe_await!(self.store
-            .insert_account(account, account_seed, auth_info))
+        maybe_await!(self.store.insert_account(account, account_seed, auth_info))
             .map_err(ClientError::StoreError)
     }
 

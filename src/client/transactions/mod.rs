@@ -239,8 +239,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         transaction_request: TransactionRequest,
     ) -> Result<TransactionResult, ClientError> {
         let account_id = transaction_request.account_id();
-        maybe_await!(self.tx_executor
-            .load_account(account_id))
+        maybe_await!(self.tx_executor.load_account(account_id))
             .map_err(ClientError::TransactionExecutorError)?;
 
         let block_num = maybe_await!(self.store.get_sync_height())?;
@@ -530,6 +529,6 @@ pub fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &No
             // partial details of the note
             OutputNote::Header(_) => {
                 todo!("For now, all details should be held in OutputNote::Fulls")
-            }
+            },
         })
 }

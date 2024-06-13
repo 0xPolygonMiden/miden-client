@@ -1,6 +1,6 @@
-use std::{env, rc::Rc};
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
+use std::{env, rc::Rc};
 
 use miden_client::{
     client::{

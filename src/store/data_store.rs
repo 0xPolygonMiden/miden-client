@@ -40,12 +40,11 @@ impl<S: Store> DataStore for ClientDataStore<S> {
         block_num: u32,
         notes: &[NoteId],
     ) -> Result<TransactionInputs, DataStoreError> {
-        let input_note_records: BTreeMap<NoteId, InputNoteRecord> = maybe_await!(self
-            .store
-            .get_input_notes(NoteFilter::List(notes)))?
-            .into_iter()
-            .map(|note_record| (note_record.id(), note_record))
-            .collect();
+        let input_note_records: BTreeMap<NoteId, InputNoteRecord> =
+            maybe_await!(self.store.get_input_notes(NoteFilter::List(notes)))?
+                .into_iter()
+                .map(|note_record| (note_record.id(), note_record))
+                .collect();
 
         // First validate that all notes were found and can be consumed
         for note_id in notes {
@@ -73,7 +72,8 @@ impl<S: Store> DataStore for ClientDataStore<S> {
         let (account, seed) = maybe_await!(self.store.get_account(account_id))?;
 
         // Get header data
-        let (block_header, _had_notes) = maybe_await!(self.store.get_block_header_by_num(block_num))?;
+        let (block_header, _had_notes) =
+            maybe_await!(self.store.get_block_header_by_num(block_num))?;
 
         let mut list_of_notes = vec![];
         let mut notes_blocks: Vec<u32> = vec![];
@@ -92,15 +92,17 @@ impl<S: Store> DataStore for ClientDataStore<S> {
             }
         }
 
-        let notes_blocks: Vec<BlockHeader> = maybe_await!(self
-            .store
-            .get_block_headers(&notes_blocks))?
-            .iter()
-            .map(|(header, _has_notes)| *header)
-            .collect();
+        let notes_blocks: Vec<BlockHeader> =
+            maybe_await!(self.store.get_block_headers(&notes_blocks))?
+                .iter()
+                .map(|(header, _has_notes)| *header)
+                .collect();
 
-        let partial_mmr =
-            maybe_await!(build_partial_mmr_with_paths(self.store.as_ref(), block_num, &notes_blocks));
+        let partial_mmr = maybe_await!(build_partial_mmr_with_paths(
+            self.store.as_ref(),
+            block_num,
+            &notes_blocks
+        ));
         let chain_mmr = ChainMmr::new(partial_mmr?, notes_blocks)
             .map_err(|err| DataStoreError::InternalError(err.to_string()))?;
 

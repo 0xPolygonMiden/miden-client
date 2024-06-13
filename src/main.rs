@@ -29,5 +29,4 @@ pub mod store;
 pub mod errors;
 
 #[cfg(feature = "wasm")]
-fn main() {
-}
+fn main() {}

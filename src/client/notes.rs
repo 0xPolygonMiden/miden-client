@@ -5,8 +5,8 @@ use miden_objects::{
     notes::{NoteId, NoteInclusionProof, NoteScript},
 };
 use miden_tx::{ScriptTarget, TransactionAuthenticator};
-use winter_maybe_async::{maybe_async, maybe_await};
 use tracing::info;
+use winter_maybe_async::{maybe_async, maybe_await};
 
 use super::{note_screener::NoteRelevance, rpc::NodeRpcClient, Client};
 use crate::{
@@ -36,7 +36,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     }
 
     #[cfg(feature = "wasm")]
-    pub async fn get_input_notes(&self, filter: NoteFilter<'_>) -> Result<Vec<InputNoteRecord>, ClientError> {
+    pub async fn get_input_notes(
+        &self,
+        filter: NoteFilter<'_>,
+    ) -> Result<Vec<InputNoteRecord>, ClientError> {
         self.store.get_input_notes(filter).await.map_err(|err| err.into())
     }
 
@@ -77,9 +80,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// Returns the input note with the specified hash.
     #[maybe_async]
     pub fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, ClientError> {
-        Ok(maybe_await!(self
-            .store
-            .get_input_notes(NoteFilter::Unique(note_id)))?
+        Ok(maybe_await!(self.store.get_input_notes(NoteFilter::Unique(note_id)))?
             .pop()
             .expect("The vector always has one element for NoteFilter::Unique"))
     }
@@ -107,9 +108,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// Returns the output note with the specified hash.
     #[maybe_async]
     pub fn get_output_note(&self, note_id: NoteId) -> Result<OutputNoteRecord, ClientError> {
-        Ok(maybe_await!(self
-            .store
-            .get_output_notes(NoteFilter::Unique(note_id)))?
+        Ok(maybe_await!(self.store.get_output_notes(NoteFilter::Unique(note_id)))?
             .pop()
             .expect("The vector always has one element for NoteFilter::Unique"))
     }
@@ -144,7 +143,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         // If the note exists in the chain and the client is synced to a height equal or
         // greater than the note's creation block, get MMR and block header data for the
         // note's block. Additionally create the inclusion proof if none is provided.
-        let inclusion_proof = if maybe_await!(self.get_sync_height())? >= inclusion_details.block_num {
+        let inclusion_proof = if maybe_await!(self.get_sync_height())?
+            >= inclusion_details.block_num
+        {
             // Add the inclusion proof to the imported note
             info!("Requesting MMR data for past block num {}", inclusion_details.block_num);
             let block_header =
@@ -184,7 +185,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             None,
         );
 
-        return maybe_await!(self.store.insert_input_note(&note)).map_err(|err| err.into());
+        maybe_await!(self.store.insert_input_note(&note)).map_err(|err| err.into())
     }
 
     /// Compiles the provided program into a [NoteScript] and checks (to the extent possible) if

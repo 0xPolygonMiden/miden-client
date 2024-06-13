@@ -16,22 +16,19 @@ use tracing::info;
 #[cfg(not(feature = "wasm"))]
 use miden_objects::{
     crypto::rand::{FeltRng, RpoRandomCoin},
-    Felt
+    Felt,
 };
 
 #[cfg(feature = "wasm")]
 use miden_objects::{
     accounts::AccountId,
-    notes::{NoteExecutionHint, NoteTag, NoteType},
     crypto::rand::{FeltRng, RpoRandomCoin},
-    Felt, NoteError
+    notes::{NoteExecutionHint, NoteTag, NoteType},
+    Felt, NoteError,
 };
 use miden_tx::{TransactionAuthenticator, TransactionExecutor};
 
-use crate::store::{
-    data_store::ClientDataStore,
-    Store
-};
+use crate::store::{data_store::ClientDataStore, Store};
 
 pub mod rpc;
 use rpc::NodeRpcClient;
@@ -144,7 +141,8 @@ pub async fn get_input_note_with_id_prefix<
     note_id_prefix: &str,
 ) -> Result<InputNoteRecord, IdPrefixFetchError> {
     let mut input_note_records = client
-        .get_input_notes(ClientNoteFilter::All).await
+        .get_input_notes(ClientNoteFilter::All)
+        .await
         .map_err(|err| {
             tracing::error!("Error when fetching all notes from the store: {err}");
             IdPrefixFetchError::NoMatch(format!("note ID prefix {note_id_prefix}").to_string())

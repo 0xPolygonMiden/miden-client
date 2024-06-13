@@ -84,8 +84,7 @@ pub trait Store {
     /// The default implementation of this method uses [Store::get_input_notes].
     #[maybe_async]
     fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
-        let nullifiers = maybe_await!(self
-            .get_input_notes(NoteFilter::Committed))?
+        let nullifiers = maybe_await!(self.get_input_notes(NoteFilter::Committed))?
             .iter()
             .map(|input_note| Ok(Nullifier::from(Digest::try_from(input_note.nullifier())?)))
             .collect::<Result<Vec<_>, _>>();
