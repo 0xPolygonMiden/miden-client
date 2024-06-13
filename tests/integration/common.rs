@@ -21,7 +21,12 @@ use miden_objects::{
     accounts::{
         account_id::testing::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN, Account,
         AccountId, AccountStorageType,
-    }, assets::{Asset, FungibleAsset, TokenSymbol}, crypto::rand::RpoRandomCoin, notes::{NoteId, NoteType}, transaction::InputNote, Felt, Word
+    },
+    assets::{Asset, FungibleAsset, TokenSymbol},
+    crypto::rand::RpoRandomCoin,
+    notes::{NoteId, NoteType},
+    transaction::InputNote,
+    Felt, Word,
 };
 use miden_tx::{DataStoreError, TransactionExecutorError};
 use rand::Rng;
