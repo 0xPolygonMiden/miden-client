@@ -295,7 +295,7 @@ async fn test_sync_state_mmr() {
     );
 
     // Try reconstructing the chain_mmr from what's in the database
-    let partial_mmr = client.build_current_partial_mmr().unwrap();
+    let partial_mmr = client.build_current_partial_mmr(true).unwrap();
 
     // Since Mocked data contains three sync updates we should be "tracking" those blocks
     // However, remember that we don't actually update the partial_mmr with the latest block but up
