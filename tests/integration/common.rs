@@ -26,7 +26,7 @@ use miden_objects::{
     crypto::rand::RpoRandomCoin,
     notes::{NoteId, NoteType},
     transaction::InputNote,
-    Felt, Word,
+    Felt,
 };
 use miden_tx::{DataStoreError, TransactionExecutorError};
 use rand::Rng;
