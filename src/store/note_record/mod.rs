@@ -14,6 +14,7 @@ mod output_note_record;
 pub use input_note_record::InputNoteRecord;
 pub use output_note_record::OutputNoteRecord;
 
+#[allow(rustdoc::broken_intra_doc_links)]
 /// This module defines common structs to be used within the [Store](crate::store::Store) for notes
 /// that are available to be consumed ([InputNoteRecord]) and notes that have been produced as a
 /// result of executing a transaction ([OutputNoteRecord]).

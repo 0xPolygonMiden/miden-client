@@ -1,8 +1,7 @@
-#[cfg(not(feature = "wasm"))]
-use clap::error::Result;
-
 use alloc::collections::BTreeMap;
 
+#[cfg(not(feature = "wasm"))]
+use clap::error::Result;
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},

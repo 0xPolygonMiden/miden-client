@@ -574,6 +574,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         Ok(PartialMmr::from_parts(current_peaks, tracked_nodes, track_latest))
     }
 
+    #[allow(rustdoc::broken_intra_doc_links)]
     /// Extracts information about nullifiers for unspent input notes that the client is tracking
     /// from the received [SyncStateResponse]
     #[maybe_async]

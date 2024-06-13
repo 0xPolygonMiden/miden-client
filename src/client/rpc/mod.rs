@@ -3,9 +3,6 @@
 #[cfg(not(feature = "wasm"))]
 mod tonic_client;
 
-#[cfg(not(feature = "wasm"))]
-pub use tonic_client::TonicRpcClient;
-
 use core::fmt;
 
 use miden_objects::{
@@ -15,6 +12,8 @@ use miden_objects::{
     transaction::ProvenTransaction,
     BlockHeader, Digest,
 };
+#[cfg(not(feature = "wasm"))]
+pub use tonic_client::TonicRpcClient;
 
 use crate::errors::NodeRpcClientError;
 

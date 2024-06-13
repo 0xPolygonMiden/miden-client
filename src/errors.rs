@@ -1,17 +1,11 @@
-#[cfg(not(feature = "wasm"))]
-use miden_node_proto::errors::ConversionError;
-
-#[cfg(feature = "wasm")]
-use thiserror::Error;
-
+use core::fmt;
 #[cfg(feature = "wasm")]
 use std::any::type_name;
 
+#[cfg(not(feature = "wasm"))]
+use miden_node_proto::errors::ConversionError;
 #[cfg(feature = "wasm")]
 use miden_objects::crypto::merkle::{SmtLeafError, SmtProofError};
-
-use core::fmt;
-
 use miden_objects::{
     accounts::AccountId, crypto::merkle::MmrError, notes::NoteId, AccountError, AssetError,
     AssetVaultError, Digest, NoteError, TransactionScriptError, Word,
@@ -20,6 +14,8 @@ use miden_tx::{
     utils::{DeserializationError, HexParseError},
     DataStoreError, TransactionExecutorError, TransactionProverError,
 };
+#[cfg(feature = "wasm")]
+use thiserror::Error;
 
 #[cfg(feature = "wasm")]
 #[derive(Debug, Clone, PartialEq, Error)]

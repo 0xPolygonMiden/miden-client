@@ -1,11 +1,4 @@
-#[cfg(not(feature = "wasm"))]
-use rand::Rng;
-
-#[cfg(feature = "wasm")]
-use rand::{rngs::StdRng, Rng, SeedableRng};
-
 use alloc::collections::{BTreeMap, BTreeSet};
-use tracing::info;
 
 use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
@@ -21,6 +14,11 @@ use miden_objects::{
     Digest, Felt, Word,
 };
 use miden_tx::{ProvingOptions, ScriptTarget, TransactionAuthenticator, TransactionProver};
+#[cfg(not(feature = "wasm"))]
+use rand::Rng;
+#[cfg(feature = "wasm")]
+use rand::{rngs::StdRng, Rng, SeedableRng};
+use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use self::transaction_request::{

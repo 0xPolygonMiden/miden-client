@@ -1,5 +1,4 @@
 use miden_objects::crypto::rand::FeltRng;
-
 #[cfg(test)]
 use miden_objects::BlockHeader;
 use miden_tx::TransactionAuthenticator;

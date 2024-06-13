@@ -1,7 +1,7 @@
-use clap::Parser;
-use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use std::{env, rc::Rc};
 
+use clap::Parser;
+use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     client::{
         get_random_coin,
@@ -15,11 +15,9 @@ use miden_client::{
         OutputNoteRecord, Store,
     },
 };
-
 use miden_objects::{accounts::AccountStub, crypto::rand::FeltRng};
 use miden_tx::TransactionAuthenticator;
 use tracing::info;
-
 use transactions::TransactionCmd;
 
 use self::{

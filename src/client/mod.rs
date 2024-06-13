@@ -1,23 +1,4 @@
-#[cfg(not(feature = "wasm"))]
-use rand::Rng;
-
-#[cfg(feature = "wasm")]
-use rand::{rngs::StdRng, Rng, SeedableRng};
-
-#[cfg(feature = "wasm")]
-use crate::{
-    errors::IdPrefixFetchError,
-    store::{InputNoteRecord, NoteFilter as ClientNoteFilter},
-};
-
 use alloc::rc::Rc;
-use tracing::info;
-
-#[cfg(not(feature = "wasm"))]
-use miden_objects::{
-    crypto::rand::{FeltRng, RpoRandomCoin},
-    Felt,
-};
 
 #[cfg(feature = "wasm")]
 use miden_objects::{
@@ -26,15 +7,30 @@ use miden_objects::{
     notes::{NoteExecutionHint, NoteTag, NoteType},
     Felt, NoteError,
 };
+#[cfg(not(feature = "wasm"))]
+use miden_objects::{
+    crypto::rand::{FeltRng, RpoRandomCoin},
+    Felt,
+};
 use miden_tx::{TransactionAuthenticator, TransactionExecutor};
+#[cfg(not(feature = "wasm"))]
+use rand::Rng;
+#[cfg(feature = "wasm")]
+use rand::{rngs::StdRng, Rng, SeedableRng};
+use tracing::info;
 
 use crate::store::{data_store::ClientDataStore, Store};
+#[cfg(feature = "wasm")]
+use crate::{
+    errors::IdPrefixFetchError,
+    store::{InputNoteRecord, NoteFilter as ClientNoteFilter},
+};
 
 pub mod rpc;
 use rpc::NodeRpcClient;
 
 pub mod accounts;
-#[cfg(test)]
+#[cfg(all(test, not(feature = "wasm")))]
 mod chain_data;
 mod note_screener;
 mod notes;
