@@ -154,17 +154,11 @@ impl NoteRecordDetails {
 impl Serializable for NoteRecordDetails {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
         let nullifier_bytes = self.nullifier.as_bytes();
-        #[cfg(not(feature = "wasm"))]
-        target.write_usize(nullifier_bytes.len());
-        #[cfg(feature = "wasm")]
         target.write_u64(nullifier_bytes.len() as u64);
         target.write_bytes(nullifier_bytes);
 
         self.script().write_into(target);
 
-        #[cfg(not(feature = "wasm"))]
-        target.write_usize(self.inputs.len());
-        #[cfg(feature = "wasm")]
         target.write_u64(self.inputs.len() as u64);
         target.write_many(self.inputs());
 
@@ -174,9 +168,6 @@ impl Serializable for NoteRecordDetails {
 
 impl Deserializable for NoteRecordDetails {
     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
-        #[cfg(not(feature = "wasm"))]
-        let nullifier_len = usize::read_from(source)?;
-        #[cfg(feature = "wasm")]
         let nullifier_len = u64::read_from(source)? as usize;
         let nullifier_bytes = source.read_vec(nullifier_len)?;
         let nullifier =
@@ -184,9 +175,6 @@ impl Deserializable for NoteRecordDetails {
 
         let script = NoteScript::read_from(source)?;
 
-        #[cfg(not(feature = "wasm"))]
-        let inputs_len = source.read_usize()?;
-        #[cfg(feature = "wasm")]
         let inputs_len = source.read_u64()? as usize;
         let inputs = source.read_many::<Felt>(inputs_len)?;
 

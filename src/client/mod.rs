@@ -38,9 +38,9 @@ use rpc::NodeRpcClient;
 
 pub mod accounts;
 #[cfg(test)]
-pub mod chain_data;
-pub mod note_screener;
-pub mod notes;
+mod chain_data;
+mod note_screener;
+mod notes;
 pub mod store_authenticator;
 pub mod sync;
 pub mod transactions;
@@ -107,7 +107,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         Self { store, rng, rpc_api: api, tx_executor }
     }
 
-    #[cfg(any(test, feature = "test_utils", feature = "wasm"))]
+    #[cfg(any(test, feature = "test_utils"))]
     pub fn rpc_api(&mut self) -> &mut N {
         &mut self.rpc_api
     }
@@ -115,11 +115,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     #[cfg(any(test, feature = "test_utils", feature = "wasm"))]
     pub fn store(&mut self) -> &S {
         &self.store
-    }
-
-    #[cfg(any(test, feature = "test_utils", feature = "wasm"))]
-    pub fn rng(&mut self) -> &mut R {
-        &mut self.rng
     }
 }
 

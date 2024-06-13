@@ -36,7 +36,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     }
 
     #[cfg(feature = "wasm")]
-    pub async fn get_input_notes(&mut self, filter: NoteFilter<'_>) -> Result<Vec<InputNoteRecord>, ClientError> {
+    pub async fn get_input_notes(&self, filter: NoteFilter<'_>) -> Result<Vec<InputNoteRecord>, ClientError> {
         self.store.get_input_notes(filter).await.map_err(|err| err.into())
     }
 
@@ -98,7 +98,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
     #[cfg(feature = "wasm")]
     pub async fn get_output_notes(
-        &mut self,
+        &self,
         filter: NoteFilter<'_>,
     ) -> Result<Vec<OutputNoteRecord>, ClientError> {
         self.store.get_output_notes(filter).await.map_err(|err| err.into())

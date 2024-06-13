@@ -1,12 +1,13 @@
-## USAGE:
-## ================================================================================================
-# [rpc]: Settings for the RPC client used to communicate with the node
-#   - endpoint: tuple indicating the protocol (http, https), the host, and the port where the node is listening.
-# [store]: Settings for the client's Store
-#   - database_filepath: path for the sqlite's database
 [rpc]
-endpoint = { protocol = "http", host = "localhost", port = 57291 }
-timeout = 10000
+timeout_ms = 10000
+
+[rpc.endpoint]
+protocol = "http"
+host = "18.203.155.106"
+port = 57291
 
 [store]
 database_filepath = "store.sqlite3"
+
+[cli]
+default_account_id = "0x8ac6e3aadc723cc7"
