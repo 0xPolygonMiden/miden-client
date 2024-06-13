@@ -242,9 +242,21 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             total_sync_summary.combine_with(response.sync_summary());
 
             if let SyncStatus::SyncedToLastBlock(_) = response {
+                self.update_mmr_data().await?;
                 return Ok(total_sync_summary);
             }
         }
+    }
+
+    /// Updates committed notes with no MMR data. These could be notes that were
+    /// imported with an inclusion proof, but its block header is not tracked.
+    async fn update_mmr_data(&mut self) -> Result<(), ClientError> {
+        for note in self.store.get_notes_without_block_header()? {
+            let block_num = note.inclusion_proof().expect("Commited notes should have inclusion proofs").origin().block_num;
+            self.get_and_store_authenticated_block(block_num).await?;
+        }
+
+        Ok(())
     }
 
     /// Attempts to retrieve the genesis block from the store. If not found,
