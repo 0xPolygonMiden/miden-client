@@ -5,7 +5,10 @@ use miden_client::{
     store::{InputNoteRecord, Store},
     Client,
 };
-use miden_objects::{crypto::rand::FeltRng, notes::NoteFile};
+use miden_objects::{
+    crypto::rand::FeltRng,
+    notes::{NoteFile, NoteTag},
+};
 use miden_tx::{auth::TransactionAuthenticator, utils::Serializable};
 use tracing::info;
 
@@ -22,6 +25,21 @@ pub struct ExportCmd {
     /// Desired filename for the binary file. Defaults to the note ID if not provided
     #[clap(short, long)]
     filename: Option<PathBuf>,
+
+    /// Exported note type
+    #[clap(short, long, value_enum)]
+    export_type: ExportType,
+
+    /// Optional tracking tag for partial export
+    #[clap(short, long)]
+    tag: Option<u32>,
+}
+
+#[derive(clap::ValueEnum, Clone, Debug)]
+pub enum ExportType {
+    Id,
+    Full,
+    Partial,
 }
 
 impl ExportCmd {
@@ -29,7 +47,13 @@ impl ExportCmd {
         &self,
         client: Client<N, R, S, A>,
     ) -> Result<(), String> {
-        export_note(&client, self.id.as_str(), self.filename.clone())?;
+        export_note(
+            &client,
+            self.id.as_str(),
+            self.filename.clone(),
+            self.export_type.clone(),
+            self.tag,
+        )?;
         Ok(())
     }
 }
@@ -41,6 +65,8 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthent
     client: &Client<N, R, S, A>,
     note_id: &str,
     filename: Option<PathBuf>,
+    export_type: ExportType,
+    tag: Option<u32>,
 ) -> Result<File, String> {
     let note_id = get_output_note_with_id_prefix(client, note_id)
         .map_err(|err| err.to_string())?
@@ -56,12 +82,15 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthent
         .try_into()
         .map_err(|_err| format!("Can't export note with ID {}", note_id.to_hex()))?;
 
-    let note_file = if let (Some(inclusion_proof), Some(_)) =
-        (input_note.inclusion_proof().cloned(), input_note.metadata())
-    {
-        NoteFile::NoteWithProof(input_note.try_into()?, inclusion_proof)
-    } else {
-        NoteFile::NoteDetails(input_note.into(), None)
+    let note_file = match export_type {
+        ExportType::Id => NoteFile::NoteId(input_note.id()),
+        ExportType::Full => match (input_note.inclusion_proof(), input_note.metadata()) {
+            (Some(inclusion_proof), Some(_)) => {
+                NoteFile::NoteWithProof(input_note.clone().try_into()?, inclusion_proof.clone())
+            },
+            _ => return Err("Note does not have inclusion proof or metadata".to_string()),
+        },
+        ExportType::Partial => NoteFile::NoteDetails(input_note.into(), tag.map(NoteTag::from)),
     };
 
     let file_path = if let Some(filename) = filename {

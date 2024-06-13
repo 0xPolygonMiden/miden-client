@@ -358,6 +358,8 @@ pub fn insert_output_note_tx(
             ":metadata": metadata,
             ":details": details,
             ":inclusion_proof": inclusion_proof,
+            ":ignored": 0,
+            ":imported_tag": None::<u32>,
         },
     )
     .map_err(|err| StoreError::QueryError(err.to_string()))

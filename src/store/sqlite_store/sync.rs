@@ -41,7 +41,8 @@ impl SqliteStore {
         const QUERY: &str = "UPDATE state_sync SET tags = ?";
         self.db().execute(QUERY, params![tags])?;
 
-        const IGNORED_NOTES_QUERY: &str = "UPDATE input_notes SET ignored = 0 WHERE import_tag = ?";
+        const IGNORED_NOTES_QUERY: &str =
+            "UPDATE input_notes SET ignored = 0 WHERE imported_tag = ?";
         self.db().execute(IGNORED_NOTES_QUERY, params![u32::from(tag)])?;
 
         Ok(true)
