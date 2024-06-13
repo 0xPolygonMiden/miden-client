@@ -1,11 +1,7 @@
 use alloc::rc::Rc;
 
-use miden_objects::{
-    crypto::rand::{FeltRng, RpoRandomCoin},
-    Felt,
-};
+use miden_objects::crypto::rand::FeltRng;
 use miden_tx::{auth::TransactionAuthenticator, TransactionExecutor};
-use rand::Rng;
 use tracing::info;
 
 use crate::store::{data_store::ClientDataStore, Store};
@@ -93,16 +89,4 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     pub fn store(&mut self) -> &S {
         &self.store
     }
-}
-
-// HELPERS
-// --------------------------------------------------------------------------------------------
-
-/// Gets [RpoRandomCoin] from the client
-pub fn get_random_coin() -> RpoRandomCoin {
-    // TODO: Initialize coin status once along with the client and persist status for retrieval
-    let mut rng = rand::thread_rng();
-    let coin_seed: [u64; 4] = rng.gen();
-
-    RpoRandomCoin::new(coin_seed.map(Felt::new))
 }

@@ -3,6 +3,8 @@ use std::{fs::File, io::Write, path::PathBuf};
 use clap::Parser;
 use miden_client::config::{ClientConfig, Endpoint};
 
+use crate::cli::CLIENT_CONFIG_FILE_NAME;
+
 // Init COMMAND
 // ================================================================================================
 
@@ -22,6 +24,14 @@ pub struct InitCmd {
 
 impl InitCmd {
     pub fn execute(&self, config_file_path: PathBuf) -> Result<(), String> {
+        if config_file_path.exists() {
+            return Err(format!(
+                "The file \"{}\" already exists in the working directory.",
+                CLIENT_CONFIG_FILE_NAME
+            )
+            .to_string());
+        }
+
         let mut client_config = ClientConfig::default();
         if let Some(endpoint) = &self.rpc {
             let endpoint = Endpoint::try_from(endpoint.as_str()).map_err(|err| err.to_string())?;
@@ -34,16 +44,17 @@ impl InitCmd {
         }
 
         let config_as_toml_string = toml::to_string_pretty(&client_config)
-            .map_err(|err| format!("error formatting config: {err}"))?;
+            .map_err(|err| format!("Error formatting config: {err}"))?;
 
         let mut file_handle = File::options()
             .write(true)
             .create_new(true)
             .open(&config_file_path)
-            .map_err(|err| format!("error opening the file: {err}"))?;
+            .map_err(|err| format!("Error opening the file: {err}"))?;
+
         file_handle
             .write(config_as_toml_string.as_bytes())
-            .map_err(|err| format!("error writing to file: {err}"))?;
+            .map_err(|err| format!("Error writing to file: {err}"))?;
 
         println!("Config file successfully created at: {:?}", config_file_path);
 

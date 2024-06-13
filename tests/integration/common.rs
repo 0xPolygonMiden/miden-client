@@ -7,7 +7,6 @@ use figment::{
 use miden_client::{
     client::{
         accounts::AccountTemplate,
-        get_random_coin,
         rpc::TonicRpcClient,
         store_authenticator::StoreAuthenticator,
         sync::SyncSummary,
@@ -22,13 +21,10 @@ use miden_objects::{
     accounts::{
         account_id::testing::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN, Account,
         AccountId, AccountStorageType,
-    },
-    assets::{Asset, FungibleAsset, TokenSymbol},
-    crypto::rand::RpoRandomCoin,
-    notes::{NoteId, NoteType},
-    transaction::InputNote,
+    }, assets::{Asset, FungibleAsset, TokenSymbol}, crypto::rand::RpoRandomCoin, notes::{NoteId, NoteType}, transaction::InputNote, Felt, Word
 };
 use miden_tx::{DataStoreError, TransactionExecutorError};
+use rand::Rng;
 use uuid::Uuid;
 
 pub const ACCOUNT_ID_REGULAR: u64 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN;
@@ -66,7 +62,10 @@ pub fn create_test_client() -> TestClient {
         Rc::new(sqlite_store)
     };
 
-    let rng = get_random_coin();
+    let mut rng = rand::thread_rng();
+    let coin_seed: [u64; 4] = rng.gen();
+
+    let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
     TestClient::new(TonicRpcClient::new(&client_config.rpc), rng, store, authenticator, true)

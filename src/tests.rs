@@ -264,7 +264,7 @@ async fn test_sync_state() {
 }
 
 #[tokio::test]
-async fn test_sync_state_mmr_state() {
+async fn test_sync_state_mmr() {
     // generate test client with a random store name
     let mut client = create_test_client();
 
@@ -301,7 +301,7 @@ async fn test_sync_state_mmr_state() {
     // However, remember that we don't actually update the partial_mmr with the latest block but up
     // to one block before instead. This is because the prologue will already build the
     // authentication path for that block.
-    assert_eq!(partial_mmr.forest(), 6);
+    assert_eq!(partial_mmr.forest(), 7);
     assert!(partial_mmr.open(0).unwrap().is_none());
     assert!(partial_mmr.open(1).unwrap().is_none());
     assert!(partial_mmr.open(2).unwrap().is_some());

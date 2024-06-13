@@ -5,7 +5,6 @@ use miden_objects::{
     accounts::{AccountDelta, AccountId, AuthSecretKey},
     assembly::ProgramAst,
     assets::FungibleAsset,
-    crypto::rand::RpoRandomCoin,
     notes::{Note, NoteDetails, NoteId, NoteType},
     transaction::{
         ExecutedTransaction, InputNote, InputNotes, OutputNote, OutputNotes, ProvenTransaction,
@@ -14,7 +13,6 @@ use miden_objects::{
     Digest, Felt, Word,
 };
 use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, ScriptTarget, TransactionProver};
-use rand::Rng;
 use tracing::info;
 
 use self::transaction_request::{
@@ -320,27 +318,16 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
-    /// Gets [RpoRandomCoin] from the client
-    fn get_random_coin(&self) -> RpoRandomCoin {
-        // TODO: Initialize coin status once along with the client and persist status for retrieval
-        let mut rng = rand::thread_rng();
-        let coin_seed: [u64; 4] = rng.gen();
-
-        RpoRandomCoin::new(coin_seed.map(Felt::new))
-    }
-
     /// Helper to build a [TransactionRequest] for P2ID-type transactions easily.
     ///
     /// - auth_info has to be from the executor account
     /// - If recall_height is Some(), a P2IDR note will be created. Otherwise, a P2ID is created.
     fn build_p2id_tx_request(
-        &self,
+        &mut self,
         payment_data: PaymentTransactionData,
         recall_height: Option<u32>,
         note_type: NoteType,
     ) -> Result<TransactionRequest, ClientError> {
-        let mut random_coin = self.get_random_coin();
-
         let created_note = if let Some(recall_height) = recall_height {
             create_p2idr_note(
                 payment_data.account_id(),
@@ -348,7 +335,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 vec![payment_data.asset()],
                 note_type,
                 recall_height,
-                &mut random_coin,
+                &mut self.rng,
             )?
         } else {
             create_p2id_note(
@@ -356,7 +343,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 payment_data.target_account_id(),
                 vec![payment_data.asset()],
                 note_type,
-                &mut random_coin,
+                &mut self.rng,
             )?
         };
 
@@ -394,12 +381,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ///
     /// - auth_info has to be from the executor account
     fn build_swap_tx_request(
-        &self,
+        &mut self,
         swap_data: SwapTransactionData,
         note_type: NoteType,
     ) -> Result<TransactionRequest, ClientError> {
-        let mut random_coin = self.get_random_coin();
-
         // The created note is the one that we need as the output of the tx, the other one is the
         // one that we expect to receive and consume eventually
         let (created_note, payback_note_details) = create_swap_note(
@@ -407,7 +392,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             swap_data.offered_asset(),
             swap_data.requested_asset(),
             note_type,
-            &mut random_coin,
+            &mut self.rng,
         )?;
 
         let recipient = created_note
@@ -444,18 +429,17 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ///
     /// - faucet_auth_info has to be from the faucet account
     fn build_mint_tx_request(
-        &self,
+        &mut self,
         asset: FungibleAsset,
         target_account_id: AccountId,
         note_type: NoteType,
     ) -> Result<TransactionRequest, ClientError> {
-        let mut random_coin = self.get_random_coin();
         let created_note = create_p2id_note(
             asset.faucet_id(),
             target_account_id,
             vec![asset.into()],
             note_type,
-            &mut random_coin,
+            &mut self.rng,
         )?;
 
         let recipient = created_note
@@ -508,10 +492,7 @@ pub(crate) fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Ite
             OutputNote::Full(n) => n,
             // The following todo!() applies until we have a way to support flows where we have
             // partial details of the note
-            OutputNote::Partial(_) => {
-                todo!("For now, all details should be held in OutputNote::Fulls")
-            },
-            OutputNote::Header(_) => {
+            OutputNote::Header(_) | OutputNote::Partial(_) => {
                 todo!("For now, all details should be held in OutputNote::Fulls")
             },
         })

@@ -4,7 +4,6 @@ use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     client::{
-        get_random_coin,
         rpc::{NodeRpcClient, TonicRpcClient},
         store_authenticator::StoreAuthenticator,
         Client,
@@ -15,8 +14,13 @@ use miden_client::{
         OutputNoteRecord, Store,
     },
 };
-use miden_objects::{accounts::AccountStub, crypto::rand::FeltRng};
+use miden_objects::{
+    accounts::AccountStub,
+    crypto::rand::{FeltRng, RpoRandomCoin},
+    Felt,
+};
 use miden_tx::auth::TransactionAuthenticator;
+use rand::Rng;
 use tracing::info;
 use transactions::TransactionCmd;
 
@@ -114,7 +118,10 @@ impl Cli {
         let store = SqliteStore::new((&client_config).into()).map_err(ClientError::StoreError)?;
         let store = Rc::new(store);
 
-        let rng = get_random_coin();
+        let mut rng = rand::thread_rng();
+        let coin_seed: [u64; 4] = rng.gen();
+
+        let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
         let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
 
         let client = Client::new(
