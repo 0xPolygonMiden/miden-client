@@ -1,8 +1,14 @@
+#[cfg(not(feature = "wasm"))]
 use clap::Parser;
 
+extern crate alloc;
+#[cfg(not(feature = "wasm"))]
 mod cli;
+
+#[cfg(not(feature = "wasm"))]
 use cli::Cli;
 
+#[cfg(not(feature = "wasm"))]
 #[tokio::main]
 async fn main() -> Result<(), String> {
     tracing_subscriber::fmt::init();
@@ -12,3 +18,15 @@ async fn main() -> Result<(), String> {
     // execute cli action
     cli.execute().await
 }
+
+#[cfg(feature = "wasm")]
+pub mod client;
+
+#[cfg(feature = "wasm")]
+pub mod store;
+
+#[cfg(feature = "wasm")]
+pub mod errors;
+
+#[cfg(feature = "wasm")]
+fn main() {}

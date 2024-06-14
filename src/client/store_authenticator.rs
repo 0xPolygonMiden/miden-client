@@ -48,6 +48,7 @@ impl<R: Rng, S: Store> TransactionAuthenticator for StoreAuthenticator<R, S> {
         get_falcon_signature(&k, message, &mut *rng)
     }
 }
+
 // HELPER FUNCTIONS
 // ================================================================================================
 

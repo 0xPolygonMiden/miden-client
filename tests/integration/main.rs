@@ -1,3 +1,5 @@
+#![cfg(not(feature = "wasm"))]
+
 use miden_client::{
     client::{
         accounts::AccountTemplate,

@@ -6,6 +6,7 @@ use miden_objects::{
 };
 use miden_tx::{ScriptTarget, TransactionAuthenticator};
 use tracing::info;
+use winter_maybe_async::{maybe_async, maybe_await};
 
 use super::{note_screener::NoteRelevance, rpc::NodeRpcClient, Client};
 use crate::{
@@ -29,25 +30,30 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // --------------------------------------------------------------------------------------------
 
     /// Returns input notes managed by this client.
-    pub fn get_input_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, ClientError> {
-        self.store.get_input_notes(filter).map_err(|err| err.into())
+    #[maybe_async]
+    pub fn get_input_notes(
+        &self,
+        filter: NoteFilter<'_>,
+    ) -> Result<Vec<InputNoteRecord>, ClientError> {
+        maybe_await!(self.store.get_input_notes(filter)).map_err(|err| err.into())
     }
 
     /// Returns input notes that are able to be consumed by the account_id.
     ///
     /// If account_id is None then all consumable input notes are returned.
+    #[maybe_async]
     pub fn get_consumable_notes(
         &self,
         account_id: Option<AccountId>,
     ) -> Result<Vec<ConsumableNote>, ClientError> {
-        let commited_notes = self.store.get_input_notes(NoteFilter::Committed)?;
+        let commited_notes = maybe_await!(self.store.get_input_notes(NoteFilter::Committed))?;
 
         let note_screener = NoteScreener::new(self.store.clone());
 
         let mut relevant_notes = Vec::new();
         for input_note in commited_notes {
             let account_relevance =
-                note_screener.check_relevance(&input_note.clone().try_into()?)?;
+                maybe_await!(note_screener.check_relevance(&input_note.clone().try_into()?))?;
 
             if account_relevance.is_empty() {
                 continue;
@@ -67,10 +73,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     }
 
     /// Returns the input note with the specified hash.
+    #[maybe_async]
     pub fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, ClientError> {
-        Ok(self
-            .store
-            .get_input_notes(NoteFilter::Unique(note_id))?
+        Ok(maybe_await!(self.store.get_input_notes(NoteFilter::Unique(note_id)))?
             .pop()
             .expect("The vector always has one element for NoteFilter::Unique"))
     }
@@ -79,18 +84,18 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // --------------------------------------------------------------------------------------------
 
     /// Returns output notes managed by this client.
+    #[maybe_async]
     pub fn get_output_notes(
         &self,
-        filter: NoteFilter,
+        filter: NoteFilter<'_>,
     ) -> Result<Vec<OutputNoteRecord>, ClientError> {
-        self.store.get_output_notes(filter).map_err(|err| err.into())
+        maybe_await!(self.store.get_output_notes(filter)).map_err(|err| err.into())
     }
 
     /// Returns the output note with the specified hash.
+    #[maybe_async]
     pub fn get_output_note(&self, note_id: NoteId) -> Result<OutputNoteRecord, ClientError> {
-        Ok(self
-            .store
-            .get_output_notes(NoteFilter::Unique(note_id))?
+        Ok(maybe_await!(self.store.get_output_notes(NoteFilter::Unique(note_id)))?
             .pop()
             .expect("The vector always has one element for NoteFilter::Unique"))
     }
@@ -110,12 +115,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         verify: bool,
     ) -> Result<(), ClientError> {
         if !verify {
-            return self.store.insert_input_note(&note).map_err(|err| err.into());
+            return maybe_await!(self.store.insert_input_note(&note)).map_err(|err| err.into());
         }
 
         // Verify that note exists in chain
         let mut chain_notes = self.rpc_api.get_notes_by_id(&[note.id()]).await?;
-
         if chain_notes.is_empty() {
             return Err(ClientError::ExistenceVerificationError(note.id()));
         }
@@ -126,7 +130,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         // If the note exists in the chain and the client is synced to a height equal or
         // greater than the note's creation block, get MMR and block header data for the
         // note's block. Additionally create the inclusion proof if none is provided.
-        let inclusion_proof = if self.get_sync_height()? >= inclusion_details.block_num {
+        let inclusion_proof = if maybe_await!(self.get_sync_height())?
+            >= inclusion_details.block_num
+        {
             // Add the inclusion proof to the imported note
             info!("Requesting MMR data for past block num {}", inclusion_details.block_num);
             let block_header =
@@ -165,7 +171,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             note.details().clone(),
             None,
         );
-        self.store.insert_input_note(&note).map_err(|err| err.into())
+
+        maybe_await!(self.store.insert_input_note(&note)).map_err(|err| err.into())
     }
 
     /// Compiles the provided program into a [NoteScript] and checks (to the extent possible) if

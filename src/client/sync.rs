@@ -11,6 +11,7 @@ use miden_objects::{
 };
 use miden_tx::TransactionAuthenticator;
 use tracing::{info, warn};
+use winter_maybe_async::{maybe_async, maybe_await};
 
 use super::{
     rpc::{CommittedNote, NodeRpcClient, NoteDetails},
@@ -158,8 +159,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // --------------------------------------------------------------------------------------------
 
     /// Returns the block number of the last state sync block.
+    #[maybe_async]
     pub fn get_sync_height(&self) -> Result<u32, ClientError> {
-        self.store.get_sync_height().map_err(|err| err.into())
+        maybe_await!(self.store.get_sync_height()).map_err(|err| err.into())
     }
 
     /// Returns the list of note tags tracked by the client.
@@ -167,13 +169,15 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// When syncing the state with the node, these tags will be added to the sync request and note-related information will be retrieved for notes that have matching tags.
     ///
     /// Note: Tags for accounts that are being tracked by the client are managed automatically by the client and do not need to be added here. That is, notes for managed accounts will be retrieved automatically by the client when syncing.
+    #[maybe_async]
     pub fn get_note_tags(&self) -> Result<Vec<NoteTag>, ClientError> {
-        self.store.get_note_tags().map_err(|err| err.into())
+        maybe_await!(self.store.get_note_tags()).map_err(|err| err.into())
     }
 
     /// Adds a note tag for the client to track.
+    #[maybe_async]
     pub fn add_note_tag(&mut self, tag: NoteTag) -> Result<(), ClientError> {
-        match self.store.add_note_tag(tag).map_err(|err| err.into()) {
+        match maybe_await!(self.store.add_note_tag(tag)).map_err(|err| err.into()) {
             Ok(true) => Ok(()),
             Ok(false) => {
                 warn!("Tag {} is already being tracked", tag);
@@ -184,8 +188,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     }
 
     /// Removes a note tag for the client to track.
+    #[maybe_async]
     pub fn remove_note_tag(&mut self, tag: NoteTag) -> Result<(), ClientError> {
-        match self.store.remove_note_tag(tag)? {
+        match maybe_await!(self.store.remove_note_tag(tag))? {
             true => Ok(()),
             false => {
                 warn!("Tag {} wasn't being tracked", tag);
@@ -218,7 +223,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// Attempts to retrieve the genesis block from the store. If not found,
     /// it requests it from the node and store it.
     async fn ensure_genesis_in_place(&mut self) -> Result<(), ClientError> {
-        let genesis = self.store.get_block_header_by_num(0);
+        let genesis = maybe_await!(self.store.get_block_header_by_num(0));
 
         match genesis {
             Ok(_) => Ok(()),
@@ -236,16 +241,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks should not fail to instantiate");
         // NOTE: If genesis block data ever includes notes in the future, the third parameter in
         // this `insert_block_header` call may be `true`
-        self.store.insert_block_header(genesis_block, blank_mmr_peaks, false)?;
+        maybe_await!(self.store.insert_block_header(genesis_block, blank_mmr_peaks, false))?;
         Ok(())
     }
 
     async fn sync_state_once(&mut self) -> Result<SyncStatus, ClientError> {
-        let current_block_num = self.store.get_sync_height()?;
+        let current_block_num = maybe_await!(self.store.get_sync_height())?;
 
-        let accounts: Vec<AccountStub> = self
-            .store
-            .get_account_stubs()?
+        let accounts: Vec<AccountStub> = maybe_await!(self.store.get_account_stubs())?
             .into_iter()
             .map(|(acc_stub, _)| acc_stub)
             .collect();
@@ -257,14 +260,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        let stored_note_tags: Vec<NoteTag> = self.store.get_note_tags()?;
+        let stored_note_tags: Vec<NoteTag> = maybe_await!(self.store.get_note_tags())?;
 
-        let uncommited_note_tags: Vec<NoteTag> = self
-            .store
-            .get_input_notes(NoteFilter::Pending)?
-            .iter()
-            .filter_map(|note| note.metadata().map(|metadata| metadata.tag()))
-            .collect();
+        let uncommited_note_tags: Vec<NoteTag> =
+            maybe_await!(self.store.get_input_notes(NoteFilter::Pending))?
+                .iter()
+                .filter_map(|note| note.metadata().map(|metadata| metadata.tag()))
+                .collect();
 
         let note_tags: Vec<NoteTag> = [account_note_tags, stored_note_tags, uncommited_note_tags]
             .concat()
@@ -276,12 +278,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         // To receive information about added nullifiers, we reduce them to the higher 16 bits
         // Note that besides filtering by nullifier prefixes, the node also filters by block number
         // (it only returns nullifiers from current_block_num until response.block_header.block_num())
-        let nullifiers_tags: Vec<u16> = self
-            .store
-            .get_unspent_input_note_nullifiers()?
-            .iter()
-            .map(|nullifier| (nullifier.inner()[3].as_int() >> FILTER_ID_SHIFT) as u16)
-            .collect();
+        let nullifiers_tags: Vec<u16> =
+            maybe_await!(self.store.get_unspent_input_note_nullifiers())?
+                .iter()
+                .map(|nullifier| (nullifier.inner()[3].as_int() >> FILTER_ID_SHIFT) as u16)
+                .collect();
 
         // Send request
         let account_ids: Vec<AccountId> = accounts.iter().map(|acc| acc.id()).collect();
@@ -316,14 +317,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         self.validate_local_account_hashes(&response.account_hash_updates, &offchain_accounts)?;
 
         // Derive new nullifiers data
-        let new_nullifiers = self.get_new_nullifiers(response.nullifiers)?;
+        let new_nullifiers = maybe_await!(self.get_new_nullifiers(response.nullifiers))?;
 
         // Build PartialMmr with current data and apply updates
         let (new_peaks, new_authentication_nodes) = {
-            let current_partial_mmr = self.build_current_partial_mmr()?;
+            let current_partial_mmr = maybe_await!(self.build_current_partial_mmr())?;
 
             let (current_block, has_relevant_notes) =
-                self.store.get_block_header_by_num(current_block_num)?;
+                maybe_await!(self.store.get_block_header_by_num(current_block_num))?;
 
             apply_mmr_changes(
                 current_partial_mmr,
@@ -334,7 +335,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         };
 
         let uncommitted_transactions =
-            self.store.get_transactions(TransactionFilter::Uncomitted)?;
+            maybe_await!(self.store.get_transactions(TransactionFilter::Uncomitted))?;
 
         let transactions_to_commit = get_transactions_to_commit(
             &uncommitted_transactions,
@@ -364,8 +365,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         };
 
         // Apply received and computed updates to the store
-        self.store
-            .apply_state_sync(state_sync_update)
+        maybe_await!(self.store.apply_state_sync(state_sync_update))
             .map_err(ClientError::StoreError)?;
 
         if response.chain_tip == response.block_header.block_num() {
@@ -407,19 +407,17 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let mut tracked_input_notes = vec![];
         let mut tracked_output_notes_proofs = vec![];
 
-        let pending_input_notes: BTreeMap<NoteId, InputNoteRecord> = self
-            .store
-            .get_input_notes(NoteFilter::Pending)?
-            .into_iter()
-            .map(|n| (n.id(), n))
-            .collect();
+        let pending_input_notes: BTreeMap<NoteId, InputNoteRecord> =
+            maybe_await!(self.store.get_input_notes(NoteFilter::Pending))?
+                .into_iter()
+                .map(|n| (n.id(), n))
+                .collect();
 
-        let pending_output_notes: BTreeSet<NoteId> = self
-            .store
-            .get_output_notes(NoteFilter::Pending)?
-            .into_iter()
-            .map(|n| n.id())
-            .collect();
+        let pending_output_notes: BTreeSet<NoteId> =
+            maybe_await!(self.store.get_output_notes(NoteFilter::Pending))?
+                .into_iter()
+                .map(|n| n.id())
+                .collect();
 
         for committed_note in committed_notes {
             if let Some(note_record) = pending_input_notes.get(committed_note.note_id()) {
@@ -535,13 +533,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         // Find all relevant Input Notes using the note checker
         for input_note in committed_notes.updated_input_notes() {
-            if !note_screener.check_relevance(input_note.note())?.is_empty() {
+            if !maybe_await!(note_screener.check_relevance(input_note.note()))?.is_empty() {
                 return Ok(true);
             }
         }
 
         for public_input_note in committed_notes.new_public_notes() {
-            if !note_screener.check_relevance(public_input_note.note())?.is_empty() {
+            if !maybe_await!(note_screener.check_relevance(public_input_note.note()))?.is_empty() {
                 return Ok(true);
             }
         }
@@ -555,14 +553,16 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ///
     /// As part of the syncing process, we add the current block number so we don't need to
     /// track it here.
+    #[maybe_async]
     pub(crate) fn build_current_partial_mmr(&self) -> Result<PartialMmr, ClientError> {
-        let current_block_num = self.store.get_sync_height()?;
+        let current_block_num = maybe_await!(self.store.get_sync_height())?;
 
-        let tracked_nodes = self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All)?;
-        let current_peaks = self.store.get_chain_mmr_peaks_by_block_num(current_block_num)?;
+        let tracked_nodes = maybe_await!(self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All))?;
+        let current_peaks =
+            maybe_await!(self.store.get_chain_mmr_peaks_by_block_num(current_block_num))?;
 
         let track_latest = if current_block_num != 0 {
-            match self.store.get_block_header_by_num(current_block_num - 1) {
+            match maybe_await!(self.store.get_block_header_by_num(current_block_num - 1)) {
                 Ok((_, previous_block_had_notes)) => Ok(previous_block_had_notes),
                 Err(StoreError::BlockHeaderNotFound(_)) => Ok(false),
                 Err(err) => Err(ClientError::StoreError(err)),
@@ -574,13 +574,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         Ok(PartialMmr::from_parts(current_peaks, tracked_nodes, track_latest))
     }
 
+    #[cfg_attr(feature = "wasm", allow(rustdoc::broken_intra_doc_links))]
     /// Extracts information about nullifiers for unspent input notes that the client is tracking
     /// from the received [SyncStateResponse]
+    #[maybe_async]
     fn get_new_nullifiers(&self, new_nullifiers: Vec<Digest>) -> Result<Vec<Digest>, ClientError> {
         // Get current unspent nullifiers
-        let nullifiers = self
-            .store
-            .get_unspent_input_note_nullifiers()?
+        let nullifiers = maybe_await!(self.store.get_unspent_input_note_nullifiers())?
             .iter()
             .map(|nullifier| nullifier.inner())
             .collect::<Vec<_>>();
@@ -646,11 +646,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         &mut self,
         block_num: u32,
     ) -> Result<BlockHeader, ClientError> {
-        let mut current_partial_mmr = self.build_current_partial_mmr()?;
+        let mut current_partial_mmr = maybe_await!(self.build_current_partial_mmr())?;
 
         if current_partial_mmr.is_tracked(block_num as usize) {
             warn!("Current partial MMR already contains the requested data");
-            let (block_header, _) = self.store.get_block_header_by_num(block_num)?;
+            let (block_header, _) = maybe_await!(self.store.get_block_header_by_num(block_num))?;
             return Ok(block_header);
         }
 
@@ -681,9 +681,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             .map_err(StoreError::MmrError)?;
 
         // Insert header and MMR nodes
-        self.store
-            .insert_block_header(block_header, current_partial_mmr.peaks(), true)?;
-        self.store.insert_chain_mmr_nodes(&path_nodes)?;
+        maybe_await!(self.store.insert_block_header(
+            block_header,
+            current_partial_mmr.peaks(),
+            true
+        ))?;
+        maybe_await!(self.store.insert_chain_mmr_nodes(&path_nodes))?;
 
         Ok(block_header)
     }
