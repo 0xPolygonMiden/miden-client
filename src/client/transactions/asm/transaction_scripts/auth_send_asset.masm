@@ -4,6 +4,7 @@ use.miden::contracts::wallets::basic->wallet
 begin
     push.{recipient}
     push.{note_type}
+    push.{aux}
     push.{tag}
     push.{asset}
     call.wallet::send_asset 

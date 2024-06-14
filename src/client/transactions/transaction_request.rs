@@ -244,6 +244,7 @@ mod tests {
         assets::FungibleAsset,
         crypto::rand::RpoRandomCoin,
         notes::NoteType,
+        Felt, FieldElement,
     };
 
     use crate::client::transactions::transaction_request::known_script_roots::{P2ID, P2IDR, SWAP};
@@ -263,6 +264,7 @@ mod tests {
             account_id,
             vec![FungibleAsset::new(faucet_id, 100u64).unwrap().into()],
             NoteType::OffChain,
+            Felt::ZERO,
             &mut rng,
         )
         .unwrap();
@@ -271,6 +273,7 @@ mod tests {
             account_id,
             vec![FungibleAsset::new(faucet_id, 100u64).unwrap().into()],
             NoteType::OffChain,
+            Felt::ZERO,
             10,
             &mut rng,
         )
@@ -280,6 +283,7 @@ mod tests {
             FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
             FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
             NoteType::OffChain,
+            Felt::ZERO,
             &mut rng,
         )
         .unwrap();

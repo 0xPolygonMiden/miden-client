@@ -11,7 +11,7 @@ use miden_objects::{
         ExecutedTransaction, InputNote, InputNotes, OutputNote, OutputNotes, ProvenTransaction,
         TransactionArgs, TransactionId, TransactionScript,
     },
-    Digest, Felt, Word,
+    Digest, Felt, FieldElement, Word,
 };
 use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, ScriptTarget, TransactionProver};
 #[cfg(not(feature = "wasm"))]
@@ -364,7 +364,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 payment_data.target_account_id(),
                 vec![payment_data.asset()],
                 note_type,
-                Default::default(),
+                Felt::ZERO,
                 recall_height,
                 &mut random_coin,
             )?
@@ -374,7 +374,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 payment_data.target_account_id(),
                 vec![payment_data.asset()],
                 note_type,
-                Default::default(),
+                Felt::ZERO,
                 &mut random_coin,
             )?
         };
@@ -393,6 +393,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             &transaction_request::AUTH_SEND_ASSET_SCRIPT
                 .replace("{recipient}", &recipient)
                 .replace("{note_type}", &Felt::new(note_type as u64).to_string())
+                .replace("{aux}", &created_note.metadata().aux().to_string())
                 .replace("{tag}", &Felt::new(note_tag.into()).to_string())
                 .replace("{asset}", &prepare_word(&payment_data.asset().into()).to_string()),
         )
@@ -426,7 +427,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             swap_data.offered_asset(),
             swap_data.requested_asset(),
             note_type,
-            Default::default(),
+            Felt::ZERO,
             &mut random_coin,
         )?;
 
@@ -444,6 +445,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             &transaction_request::AUTH_SEND_ASSET_SCRIPT
                 .replace("{recipient}", &recipient)
                 .replace("{note_type}", &Felt::new(note_type as u64).to_string())
+                .replace("{aux}", &created_note.metadata().aux().to_string())
                 .replace("{tag}", &Felt::new(note_tag.into()).to_string())
                 .replace("{asset}", &prepare_word(&swap_data.offered_asset().into()).to_string()),
         )
@@ -475,7 +477,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             target_account_id,
             vec![asset.into()],
             note_type,
-            Default::default(),
+            Felt::ZERO,
             &mut random_coin,
         )?;
 
@@ -493,6 +495,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             &transaction_request::DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT
                 .replace("{recipient}", &recipient)
                 .replace("{note_type}", &Felt::new(note_type as u64).to_string())
+                .replace("{aux}", &created_note.metadata().aux().to_string())
                 .replace("{tag}", &Felt::new(note_tag.into()).to_string())
                 .replace("{amount}", &Felt::new(asset.amount()).to_string()),
         )
