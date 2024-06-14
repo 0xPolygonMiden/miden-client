@@ -60,13 +60,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     }
 
     /// Returns the consumability of the provided note.
+    #[maybe_async]
     pub fn get_note_consumability(
         &self,
         note: InputNoteRecord,
     ) -> Result<Vec<NoteConsumability>, ClientError> {
         let note_screener = NoteScreener::new(self.store.clone());
-        note_screener
-            .check_relevance(&note.clone().try_into()?)
+        maybe_await!(note_screener.check_relevance(&note.clone().try_into()?))
             .map_err(|err| err.into())
     }
 
