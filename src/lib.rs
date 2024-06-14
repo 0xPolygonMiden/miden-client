@@ -11,8 +11,8 @@ pub mod config;
 pub mod errors;
 pub mod store;
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "wasm")))]
 pub mod mock;
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "wasm")))]
 mod tests;

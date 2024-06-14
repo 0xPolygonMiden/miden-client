@@ -1,6 +1,11 @@
 use core::fmt;
+#[cfg(not(feature = "tonic"))]
+use std::any::type_name;
 
+#[cfg(feature = "tonic")]
 use miden_node_proto::errors::ConversionError;
+#[cfg(not(feature = "tonic"))]
+use miden_objects::crypto::merkle::{SmtLeafError, SmtProofError};
 use miden_objects::{
     accounts::AccountId, crypto::merkle::MmrError, notes::NoteId, AccountError, AssetError,
     AssetVaultError, Digest, NoteError, TransactionScriptError, Word,
@@ -9,6 +14,50 @@ use miden_tx::{
     utils::{DeserializationError, HexParseError},
     DataStoreError, TransactionExecutorError, TransactionProverError,
 };
+#[cfg(not(feature = "tonic"))]
+use thiserror::Error;
+
+#[cfg(not(feature = "tonic"))]
+#[derive(Debug, Clone, PartialEq, Error)]
+pub enum ConversionError {
+    #[error("Hex error: {0}")]
+    HexError(#[from] hex::FromHexError),
+    #[error("SMT leaf error: {0}")]
+    SmtLeafError(#[from] SmtLeafError),
+    #[error("SMT proof error: {0}")]
+    SmtProofError(#[from] SmtProofError),
+    #[error("Too much data, expected {expected}, got {got}")]
+    TooMuchData { expected: usize, got: usize },
+    #[error("Not enough data, expected {expected}, got {got}")]
+    InsufficientData { expected: usize, got: usize },
+    #[error("Value is not in the range 0..MODULUS")]
+    NotAValidFelt,
+    #[error("Invalid note type value: {0}")]
+    NoteTypeError(#[from] NoteError),
+    #[error("Field `{field_name}` required to be filled in protobuf representation of {entity}")]
+    MissingFieldInProtobufRepresentation {
+        entity: &'static str,
+        field_name: &'static str,
+    },
+}
+
+#[cfg(not(feature = "tonic"))]
+impl Eq for ConversionError {}
+
+#[cfg(not(feature = "tonic"))]
+pub trait MissingFieldHelper {
+    fn missing_field(field_name: &'static str) -> ConversionError;
+}
+
+#[cfg(not(feature = "tonic"))]
+impl<T: prost::Message> MissingFieldHelper for T {
+    fn missing_field(field_name: &'static str) -> ConversionError {
+        ConversionError::MissingFieldInProtobufRepresentation {
+            entity: type_name::<T>(),
+            field_name,
+        }
+    }
+}
 
 // CLIENT ERROR
 // ================================================================================================
@@ -132,6 +181,7 @@ impl From<NoteScreenerError> for ClientError {
     }
 }
 
+#[cfg(feature = "sqlite")]
 impl From<rusqlite::Error> for ClientError {
     fn from(err: rusqlite::Error) -> Self {
         Self::StoreError(StoreError::from(err))
@@ -189,11 +239,14 @@ impl From<AccountError> for StoreError {
     }
 }
 
+#[cfg(feature = "sqlite")]
 impl From<rusqlite_migration::Error> for StoreError {
     fn from(value: rusqlite_migration::Error) -> Self {
         StoreError::DatabaseError(value.to_string())
     }
 }
+
+#[cfg(feature = "sqlite")]
 impl From<rusqlite::Error> for StoreError {
     fn from(value: rusqlite::Error) -> Self {
         match value {
@@ -453,6 +506,32 @@ impl fmt::Display for InvalidNoteInputsError {
                     f,
                     "note input representing block with value {read_height} for note with ID {}",
                     note_id.to_hex()
+                )
+            },
+        }
+    }
+}
+
+// ID PREFIX FETCH ERROR
+// ================================================================================================
+
+/// Error when Looking for a specific ID from a partial ID
+#[derive(Debug, Eq, PartialEq)]
+pub enum IdPrefixFetchError {
+    NoMatch(String),
+    MultipleMatches(String),
+}
+
+impl fmt::Display for IdPrefixFetchError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            IdPrefixFetchError::NoMatch(id) => {
+                write!(f, "No matches were found with the {id}.")
+            },
+            IdPrefixFetchError::MultipleMatches(id) => {
+                write!(
+                    f,
+                    "Found more than one element for the provided {id} and only one match is expected."
                 )
             },
         }

@@ -231,7 +231,7 @@ pub mod known_script_roots {
     pub const SWAP: &str = "0x6de2624c7809c0fea41f03c11ae3acc26f93bdc6c64a914117b05aebf4934510";
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "wasm")))]
 mod tests {
     use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
     use miden_objects::{
@@ -244,6 +244,7 @@ mod tests {
         assets::FungibleAsset,
         crypto::rand::RpoRandomCoin,
         notes::NoteType,
+        Felt, FieldElement,
     };
 
     use crate::client::transactions::transaction_request::known_script_roots::{P2ID, P2IDR, SWAP};
@@ -263,6 +264,7 @@ mod tests {
             account_id,
             vec![FungibleAsset::new(faucet_id, 100u64).unwrap().into()],
             NoteType::OffChain,
+            Felt::ZERO,
             &mut rng,
         )
         .unwrap();
@@ -271,6 +273,7 @@ mod tests {
             account_id,
             vec![FungibleAsset::new(faucet_id, 100u64).unwrap().into()],
             NoteType::OffChain,
+            Felt::ZERO,
             10,
             &mut rng,
         )
@@ -280,6 +283,7 @@ mod tests {
             FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
             FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
             NoteType::OffChain,
+            Felt::ZERO,
             &mut rng,
         )
         .unwrap();

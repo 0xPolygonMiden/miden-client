@@ -380,7 +380,7 @@ pub(super) fn parse_account_columns(
     let assets: String = row.get(5)?;
     Ok((id, nonce, account_seed, module, storage, assets))
 }
-#[cfg(test)]
+#[cfg(all(test, not(feature = "wasm")))]
 mod tests {
     use miden_objects::{
         accounts::{AccountCode, AccountId},

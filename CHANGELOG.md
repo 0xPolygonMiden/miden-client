@@ -13,6 +13,10 @@
 * Added created and consumed note info when printing the transaction summary on the CLI. (#348)
 * Fixed the error message when trying to consume a pending note (now it shows that the transaction is not yet ready to be consumed).
 
+## v0.3.1 (2024-05-22)
+
+* No changes; re-publishing to crates.io to re-build documentation on docs.rs.
+
 ## v0.3.0 (2024-05-17)
 
 * Added swap transactions and example flows on integration tests.
