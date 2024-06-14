@@ -13,12 +13,10 @@ use miden_objects::{
     Felt,
 };
 use miden_tx::{auth::TransactionAuthenticator, TransactionExecutor};
-
 #[cfg(not(feature = "wasm"))]
 use rand::Rng;
 #[cfg(feature = "wasm")]
 use rand::{rngs::StdRng, Rng, SeedableRng};
-
 use tracing::info;
 
 use crate::store::{data_store::ClientDataStore, Store};

@@ -14,12 +14,10 @@ use miden_objects::{
     Digest, Felt, Word,
 };
 use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, ScriptTarget, TransactionProver};
-
 #[cfg(not(feature = "wasm"))]
 use rand::Rng;
 #[cfg(feature = "wasm")]
 use rand::{rngs::StdRng, Rng, SeedableRng};
-
 use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
 
@@ -366,6 +364,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 payment_data.target_account_id(),
                 vec![payment_data.asset()],
                 note_type,
+                Default::default(),
                 recall_height,
                 &mut random_coin,
             )?
@@ -375,6 +374,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 payment_data.target_account_id(),
                 vec![payment_data.asset()],
                 note_type,
+                Default::default(),
                 &mut random_coin,
             )?
         };
@@ -426,6 +426,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             swap_data.offered_asset(),
             swap_data.requested_asset(),
             note_type,
+            Default::default(),
             &mut random_coin,
         )?;
 
@@ -474,6 +475,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             target_account_id,
             vec![asset.into()],
             note_type,
+            Default::default(),
             &mut random_coin,
         )?;
 
