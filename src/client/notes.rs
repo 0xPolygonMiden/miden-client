@@ -30,17 +30,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // --------------------------------------------------------------------------------------------
 
     /// Returns input notes managed by this client.
-    #[cfg(not(feature = "wasm"))]
-    pub fn get_input_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, ClientError> {
-        self.store.get_input_notes(filter).map_err(|err| err.into())
-    }
-
-    #[cfg(feature = "wasm")]
-    pub async fn get_input_notes(
+    #[maybe_async]
+    pub fn get_input_notes(
         &self,
         filter: NoteFilter<'_>,
     ) -> Result<Vec<InputNoteRecord>, ClientError> {
-        self.store.get_input_notes(filter).await.map_err(|err| err.into())
+        maybe_await!(self.store.get_input_notes(filter)).map_err(|err| err.into())
     }
 
     /// Returns input notes that are able to be consumed by the account_id.
@@ -89,20 +84,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // --------------------------------------------------------------------------------------------
 
     /// Returns output notes managed by this client.
-    #[cfg(not(feature = "wasm"))]
+    #[maybe_async]
     pub fn get_output_notes(
-        &self,
-        filter: NoteFilter,
-    ) -> Result<Vec<OutputNoteRecord>, ClientError> {
-        self.store.get_output_notes(filter).map_err(|err| err.into())
-    }
-
-    #[cfg(feature = "wasm")]
-    pub async fn get_output_notes(
         &self,
         filter: NoteFilter<'_>,
     ) -> Result<Vec<OutputNoteRecord>, ClientError> {
-        self.store.get_output_notes(filter).await.map_err(|err| err.into())
+        maybe_await!(self.store.get_output_notes(filter)).map_err(|err| err.into())
     }
 
     /// Returns the output note with the specified hash.

@@ -126,6 +126,9 @@ pub fn get_random_coin() -> RpoRandomCoin {
     RpoRandomCoin::new(coin_seed.map(Felt::new))
 }
 
+// TODO - move to a more appropriate place. This is duplicated code from cli/mod.rs
+// because the cli code is compiled out under the "wasm" feature and
+// we need to be able to import this function from the wasm code.
 #[cfg(feature = "wasm")]
 pub async fn get_input_note_with_id_prefix<
     N: NodeRpcClient,
@@ -172,6 +175,9 @@ pub async fn get_input_note_with_id_prefix<
         .expect("input_note_records should always have one element"))
 }
 
+// TODO - move to a more appropriate place. This is duplicated code from cli/utils.rs
+// because the cli code is compiled out under the "wasm" feature and
+// we need to be able to import this function from the wasm code.
 #[cfg(feature = "wasm")]
 pub fn build_swap_tag(
     note_type: NoteType,
