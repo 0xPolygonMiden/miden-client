@@ -3,7 +3,7 @@ use miden_client::{
     store::{Store, TransactionFilter},
 };
 use miden_objects::crypto::rand::FeltRng;
-use miden_tx::TransactionAuthenticator;
+use miden_tx::auth::TransactionAuthenticator;
 
 use super::{Client, Parser};
 use crate::cli::create_dynamic_table;

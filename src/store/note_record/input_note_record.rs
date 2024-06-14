@@ -108,7 +108,7 @@ impl From<&NoteDetails> for InputNoteRecord {
                 nullifier: note_details.nullifier().to_string(),
                 script_hash: note_details.script().hash(),
                 script: note_details.script().clone(),
-                inputs: note_details.inputs().to_vec(),
+                inputs: note_details.inputs().values().to_vec(),
                 serial_num: note_details.serial_num(),
             },
         }
@@ -161,7 +161,7 @@ impl From<Note> for InputNoteRecord {
             details: NoteRecordDetails::new(
                 note.nullifier().to_string(),
                 note.script().clone(),
-                note.inputs().to_vec(),
+                note.inputs().values().to_vec(),
                 note.serial_num(),
             ),
         }
@@ -182,7 +182,7 @@ impl From<InputNote> for InputNoteRecord {
                 recorded_note.note().inputs().values().to_vec(),
                 recorded_note.note().serial_num(),
             ),
-            inclusion_proof: Some(recorded_note.proof().clone()),
+            inclusion_proof: recorded_note.proof().cloned(),
         }
     }
 }
@@ -198,7 +198,7 @@ impl TryInto<InputNote> for InputNoteRecord {
                 let note_recipient =
                     NoteRecipient::new(self.details.serial_num, self.details.script, note_inputs);
                 let note = Note::new(self.assets, metadata, note_recipient);
-                Ok(InputNote::new(note, proof.clone()))
+                Ok(InputNote::authenticated(note, proof.clone()))
             },
 
             (None, _) => Err(ClientError::NoteRecordError(

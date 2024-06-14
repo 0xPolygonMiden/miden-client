@@ -20,7 +20,7 @@ use miden_objects::{
     notes::{NoteId, NoteType as MidenNoteType},
     Digest,
 };
-use miden_tx::TransactionAuthenticator;
+use miden_tx::auth::TransactionAuthenticator;
 use tracing::info;
 
 use super::{

@@ -4,7 +4,7 @@ use miden_objects::{
     crypto::rand::FeltRng,
     notes::{NoteId, NoteInclusionProof, NoteScript},
 };
-use miden_tx::{ScriptTarget, TransactionAuthenticator};
+use miden_tx::{auth::TransactionAuthenticator, ScriptTarget};
 use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
 

@@ -16,7 +16,7 @@ use miden_objects::{
     notes::{NoteInputs, NoteMetadata},
     Digest,
 };
-use miden_tx::TransactionAuthenticator;
+use miden_tx::auth::TransactionAuthenticator;
 
 use super::{Client, Parser};
 use crate::cli::{

@@ -133,7 +133,8 @@ fn test_mint_with_untracked_account() {
     // Let's try and mint
     mint_cli(&temp_dir, &target_account_id, &fungible_faucet_account_id);
 
-    sync_cli(&temp_dir);
+    // Sleep for a while to ensure the note is committed on the node
+    sync_until_no_notes(&store_path, &temp_dir, NoteFilter::Pending);
 }
 
 // IMPORT TESTS
@@ -213,9 +214,8 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
     // Let's try and mint
     mint_cli(&temp_dir, &first_basic_account_id[..8], &fungible_faucet_account_id);
 
-    // Sleep for a while to ensure the note is committed on the node
-    std::thread::sleep(std::time::Duration::new(15, 0));
-    sync_cli(&temp_dir);
+    // Wait until the note is committed on the node
+    sync_until_no_notes(&store_path, &temp_dir, NoteFilter::Pending);
 
     // Consume the note
     let note_to_consume_id = {
@@ -227,9 +227,8 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
 
     consume_note_cli(&temp_dir, &first_basic_account_id, &[&note_to_consume_id]);
 
-    // Sleep for a while to ensure the consumption is done on the node
-    std::thread::sleep(std::time::Duration::new(15, 0));
-    sync_cli(&temp_dir);
+    // Wait until the note is consumed on the node
+    sync_until_no_notes(&store_path, &temp_dir, NoteFilter::Committed);
 
     // Send assets to second account
     send_cli(
@@ -246,9 +245,8 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
     // Querying a note id hex that matches many should fail.
     show_note_cli(&temp_dir, "0x", true);
 
-    // Sleep for a while to ensure the consumption is done on the node
-    std::thread::sleep(std::time::Duration::new(15, 0));
-    sync_cli(&temp_dir);
+    // Wait until the note is committed on the node
+    sync_until_no_notes(&store_path, &temp_dir, NoteFilter::Pending);
 
     // Consume note for second account
     let note_to_consume_id = {
@@ -260,12 +258,11 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
 
     consume_note_cli(&temp_dir, &second_basic_account_id, &[&note_to_consume_id]);
 
-    // Sleep for a while to ensure the consumption is done on the node
-    std::thread::sleep(std::time::Duration::new(15, 0));
-    sync_cli(&temp_dir);
+    // Wait until the note is consumed on the node
+    sync_until_no_notes(&store_path, &temp_dir, NoteFilter::Committed);
 }
 
-// This tests that it's possible to export and import accounts into other CLIs. To do so it:
+// This tests that it's possible to export and import notes into other CLIs. To do so it:
 //
 // 1. Creates a client A with a faucet
 // 2. Creates a client B with a regular account
@@ -273,7 +270,6 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
 // 4. On client B imports the note and consumes it
 #[test]
 fn test_cli_export_import_note() {
-    /// This te
     const NOTE_FILENAME: &str = "test_note.mno";
 
     let store_path_1 = create_test_store_path();
@@ -360,9 +356,8 @@ fn test_cli_export_import_note() {
     import_cmd.args(["import", "--no-verify", NOTE_FILENAME]);
     import_cmd.current_dir(&temp_dir_2).assert().success();
 
-    // Sleep for a while to ensure the note is committed on the node
-    std::thread::sleep(std::time::Duration::new(15, 0));
-    sync_cli(&temp_dir_2);
+    // Wait until the note is committed on the node
+    sync_until_no_notes(&store_path_2, &temp_dir_2, NoteFilter::Pending);
 
     // Consume the note
     consume_note_cli(&temp_dir_2, &first_basic_account_id, &[&note_to_export_id]);
@@ -381,7 +376,7 @@ fn sync_cli(cli_path: &Path) {
         if sync_cmd.current_dir(cli_path).assert().try_success().is_ok() {
             break;
         }
-        std::thread::sleep(std::time::Duration::new(3, 0));
+        std::thread::sleep(std::time::Duration::from_secs(3));
     }
 }
 
@@ -432,6 +427,16 @@ fn send_cli(cli_path: &Path, from_account_id: &str, to_account_id: &str, faucet_
         "--force",
     ]);
     send_cmd.current_dir(cli_path).assert().success();
+}
+
+/// Syncs until there are no input notes satisfying the provided filter
+fn sync_until_no_notes(store_path: &Path, cli_path: &Path, filter: NoteFilter) {
+    let client = create_test_client_with_store_path(store_path);
+
+    while !client.get_input_notes(filter.clone()).unwrap().is_empty() {
+        sync_cli(cli_path);
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
 }
 
 /// Consumes a series of notes with a given account using the CLI given by `cli_path`.

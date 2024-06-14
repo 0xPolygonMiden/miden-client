@@ -148,7 +148,9 @@ impl SqliteStore {
 
         // Update tracked input notes
         for input_note in committed_notes.updated_input_notes().iter() {
-            let inclusion_proof = input_note.proof();
+            let inclusion_proof = input_note.proof().ok_or(StoreError::DatabaseError(
+                "Input note doesn't have inclusion proof".to_string(),
+            ))?;
             let metadata = input_note.note().metadata();
 
             let inclusion_proof = serde_json::to_string(inclusion_proof)
