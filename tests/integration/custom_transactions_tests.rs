@@ -165,6 +165,7 @@ async fn mint_custom_note(
     begin
         push.{recipient}
         push.{note_type}
+        push.0
         push.{tag}
         push.{amount}
         call.faucet::distribute
