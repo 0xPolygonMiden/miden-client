@@ -6,7 +6,7 @@ use miden_client::{
     store::{NoteFilter, Store},
 };
 use miden_objects::crypto::rand::FeltRng;
-use miden_tx::TransactionAuthenticator;
+use miden_tx::auth::TransactionAuthenticator;
 
 pub fn print_client_info<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
     client: &Client<N, R, S, A>,

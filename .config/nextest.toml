@@ -4,3 +4,7 @@ status-level = "skip"
 failure-output = "immediate-final"
 fail-fast = false
 slow-timeout = { period = "3m", terminate-after = 4}
+
+[[profile.default.overrides]]
+filter = "test(test_import_genesis_accounts_can_be_used_for_transactions)"
+retries = 0

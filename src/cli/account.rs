@@ -12,8 +12,8 @@ use miden_objects::{
     ZERO,
 };
 use miden_tx::{
+    auth::TransactionAuthenticator,
     utils::{bytes_to_hex_string, Serializable},
-    TransactionAuthenticator,
 };
 
 use super::utils::{load_config_file, parse_account_id, update_config};

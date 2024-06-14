@@ -1,5 +1,6 @@
 # Changelog
 
+* Added `wasm` and `async` feature to make the code compatible with WASM-32 target (#378).
 * Changed `cargo-make` usage for `make` and `Makefile.toml` for a regular `Makefile` (#359).
 * Added integration tests using the CLI (#353).
 * Added a new check on account creation / import on the CLI to set the account as the default one if none is set (#372).
@@ -11,6 +12,10 @@
 * Changed `consume-notes` to pick up the default account ID if none is provided, and to consume all notes that are consumable by the ID if no notes are provided to the list. (#350)
 * Added created and consumed note info when printing the transaction summary on the CLI. (#348)
 * Fixed the error message when trying to consume a pending note (now it shows that the transaction is not yet ready to be consumed).
+
+## v0.3.1 (2024-05-22)
+
+* No changes; re-publishing to crates.io to re-build documentation on docs.rs.
 
 ## v0.3.0 (2024-05-17)
 

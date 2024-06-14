@@ -8,12 +8,12 @@ use miden_objects::{
     crypto::rand::RpoRandomCoin,
     notes::{Note, NoteDetails, NoteId, NoteType},
     transaction::{
-        ExecutedTransaction, InputNotes, OutputNote, OutputNotes, ProvenTransaction,
+        ExecutedTransaction, InputNote, InputNotes, OutputNote, OutputNotes, ProvenTransaction,
         TransactionArgs, TransactionId, TransactionScript,
     },
-    Digest, Felt, Word,
+    Digest, Felt, FieldElement, Word,
 };
-use miden_tx::{ProvingOptions, ScriptTarget, TransactionAuthenticator, TransactionProver};
+use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, ScriptTarget, TransactionProver};
 #[cfg(not(feature = "wasm"))]
 use rand::Rng;
 #[cfg(feature = "wasm")]
@@ -97,7 +97,7 @@ impl TransactionResult {
         self.transaction.account_delta()
     }
 
-    pub fn consumed_notes(&self) -> &InputNotes {
+    pub fn consumed_notes(&self) -> &InputNotes<InputNote> {
         self.transaction.tx_inputs().input_notes()
     }
 }
@@ -356,7 +356,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         recall_height: Option<u32>,
         note_type: NoteType,
     ) -> Result<TransactionRequest, ClientError> {
-        let random_coin = self.get_random_coin();
+        let mut random_coin = self.get_random_coin();
 
         let created_note = if let Some(recall_height) = recall_height {
             create_p2idr_note(
@@ -364,8 +364,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 payment_data.target_account_id(),
                 vec![payment_data.asset()],
                 note_type,
+                Felt::ZERO,
                 recall_height,
-                random_coin,
+                &mut random_coin,
             )?
         } else {
             create_p2id_note(
@@ -373,7 +374,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 payment_data.target_account_id(),
                 vec![payment_data.asset()],
                 note_type,
-                random_coin,
+                Felt::ZERO,
+                &mut random_coin,
             )?
         };
 
@@ -391,6 +393,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             &transaction_request::AUTH_SEND_ASSET_SCRIPT
                 .replace("{recipient}", &recipient)
                 .replace("{note_type}", &Felt::new(note_type as u64).to_string())
+                .replace("{aux}", &created_note.metadata().aux().to_string())
                 .replace("{tag}", &Felt::new(note_tag.into()).to_string())
                 .replace("{asset}", &prepare_word(&payment_data.asset().into()).to_string()),
         )
@@ -415,7 +418,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         swap_data: SwapTransactionData,
         note_type: NoteType,
     ) -> Result<TransactionRequest, ClientError> {
-        let random_coin = self.get_random_coin();
+        let mut random_coin = self.get_random_coin();
 
         // The created note is the one that we need as the output of the tx, the other one is the
         // one that we expect to receive and consume eventually
@@ -424,7 +427,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             swap_data.offered_asset(),
             swap_data.requested_asset(),
             note_type,
-            random_coin,
+            Felt::ZERO,
+            &mut random_coin,
         )?;
 
         let recipient = created_note
@@ -441,6 +445,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             &transaction_request::AUTH_SEND_ASSET_SCRIPT
                 .replace("{recipient}", &recipient)
                 .replace("{note_type}", &Felt::new(note_type as u64).to_string())
+                .replace("{aux}", &created_note.metadata().aux().to_string())
                 .replace("{tag}", &Felt::new(note_tag.into()).to_string())
                 .replace("{asset}", &prepare_word(&swap_data.offered_asset().into()).to_string()),
         )
@@ -466,13 +471,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         target_account_id: AccountId,
         note_type: NoteType,
     ) -> Result<TransactionRequest, ClientError> {
-        let random_coin = self.get_random_coin();
+        let mut random_coin = self.get_random_coin();
         let created_note = create_p2id_note(
             asset.faucet_id(),
             target_account_id,
             vec![asset.into()],
             note_type,
-            random_coin,
+            Felt::ZERO,
+            &mut random_coin,
         )?;
 
         let recipient = created_note
@@ -489,6 +495,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             &transaction_request::DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT
                 .replace("{recipient}", &recipient)
                 .replace("{note_type}", &Felt::new(note_type as u64).to_string())
+                .replace("{aux}", &created_note.metadata().aux().to_string())
                 .replace("{tag}", &Felt::new(note_tag.into()).to_string())
                 .replace("{amount}", &Felt::new(asset.amount()).to_string()),
         )
@@ -525,6 +532,9 @@ pub fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &No
             OutputNote::Full(n) => n,
             // The following todo!() applies until we have a way to support flows where we have
             // partial details of the note
+            OutputNote::Partial(_) => {
+                todo!("For now, all details should be held in OutputNote::Fulls")
+            },
             OutputNote::Header(_) => {
                 todo!("For now, all details should be held in OutputNote::Fulls")
             },

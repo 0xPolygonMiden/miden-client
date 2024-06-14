@@ -1,12 +1,12 @@
 [package]
 name = "miden-client"
-version = "0.3.0"
+version = "0.3.1"
 description = "Client library that facilitates interaction with the Miden rollup"
 authors = ["miden contributors"]
 readme = "README.md"
 license = "MIT"
 repository = "https://github.com/0xPolygonMiden/miden-client"
-documentation = "https://docs.rs/miden-client/0.3.0"
+documentation = "https://docs.rs/miden-client/0.3.1"
 keywords = ["miden", "client"]
 edition = "2021"
 rust-version = "1.78"
@@ -42,10 +42,10 @@ figment = { version = "0.10", features = ["toml", "env"], optional = true }
 getrandom = { version = "0.2", features = ["js"], optional = true }
 hex = { version = "0.4", optional = true }
 lazy_static = { version = "1.4.0", optional = true }
-miden-lib = { version = "0.3.1", default-features = false }
-miden-tx = { version = "0.3.1", default-features = false }
-miden-node-proto = { version = "0.3", default-features = false, optional = true }
-miden-objects = { version = "0.3.1", default-features = false, features = ["serde"] }
+miden-lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false }
+miden-node-proto = { package = "miden-node-proto", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "next", default-features = false, optional = true }
+miden-tx = { package = "miden-tx", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false }
+miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["serde"] }
 prost = { version = "0.12.3", optional = true }
 rand = { version = "0.8.5" }
 rusqlite = { version = "0.30.0", features = ["vtab", "array", "bundled"], optional = true }
