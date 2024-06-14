@@ -133,9 +133,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
                 // Add the inclusion proof to the imported note
                 info!("Requesting MMR data for past block num {}", inclusion_details.block_num);
-                let block_header =
-                    self.get_and_store_authenticated_block(inclusion_details.block_num).await?;
-                let inclusion_proof: NoteInclusionProof = NoteInclusionProof::new(
+                let mut current_partial_mmr = self.build_current_partial_mmr(true)?;
+                let block_header = self
+                    .get_and_store_authenticated_block(
+                        inclusion_details.block_num,
+                        &mut current_partial_mmr,
+                    )
+                    .await?;
+                let inclusion_proof = NoteInclusionProof::new(
                     inclusion_details.block_num,
                     block_header.sub_hash(),
                     block_header.note_root(),

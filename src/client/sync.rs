@@ -245,7 +245,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 self.update_mmr_data().await?;
 
                 let ignored_notes_sync = self.update_ignored_notes().await?;
-                total_sync_details.combine_with(&ignored_notes_sync);
+                total_sync_summary.combine_with(&ignored_notes_sync);
 
                 return Ok(total_sync_summary);
             }
@@ -261,7 +261,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 .expect("Commited notes should have inclusion proofs")
                 .origin()
                 .block_num;
-            self.get_and_store_authenticated_block(block_num).await?;
+            let mut current_partial_mmr = self.build_current_partial_mmr(true)?;
+            self.get_and_store_authenticated_block(block_num, &mut current_partial_mmr)
+                .await?;
         }
 
         Ok(())
@@ -279,8 +281,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let updated_notes = note_details.len();
 
         for details in note_details {
+            let mut current_partial_mmr = self.build_current_partial_mmr(true)?;
             let note_block = self
-                .get_and_store_authenticated_block(details.inclusion_details().block_num)
+                .get_and_store_authenticated_block(
+                    details.inclusion_details().block_num,
+                    &mut current_partial_mmr,
+                )
                 .await?;
 
             let note_inclusion_proof = NoteInclusionProof::new(
