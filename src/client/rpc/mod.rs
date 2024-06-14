@@ -1,6 +1,10 @@
+#![allow(async_fn_in_trait)]
+
+#[cfg(not(feature = "wasm"))]
+mod tonic_client;
+
 use core::fmt;
 
-use async_trait::async_trait;
 use miden_objects::{
     accounts::{Account, AccountId},
     crypto::merkle::{MerklePath, MmrDelta, MmrProof},
@@ -8,11 +12,10 @@ use miden_objects::{
     transaction::ProvenTransaction,
     BlockHeader, Digest,
 };
+#[cfg(not(feature = "wasm"))]
+pub use tonic_client::TonicRpcClient;
 
 use crate::errors::NodeRpcClientError;
-
-mod tonic_client;
-pub use tonic_client::TonicRpcClient;
 
 // NOTE DETAILS
 // ================================================================================================
@@ -74,7 +77,6 @@ impl NoteInclusionDetails {
 /// The implementers are responsible for connecting to the Miden node, handling endpoint
 /// requests/responses, and translating responses into domain objects relevant for each of the
 /// endpoints.
-#[async_trait]
 pub trait NodeRpcClient {
     /// Given a Proven Transaction, send it to the node for it to be included in a future block
     /// using the `/SubmitProvenTransaction` rpc endpoint

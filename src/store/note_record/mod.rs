@@ -16,6 +16,7 @@ mod output_note_record;
 pub use input_note_record::InputNoteRecord;
 pub use output_note_record::OutputNoteRecord;
 
+#[cfg_attr(feature = "wasm", allow(rustdoc::broken_intra_doc_links))]
 /// This module defines common structs to be used within the [Store](crate::store::Store) for notes
 /// that are available to be consumed ([InputNoteRecord]) and notes that have been produced as a
 /// result of executing a transaction ([OutputNoteRecord]).
@@ -221,12 +222,12 @@ impl NoteRecordDetails {
 impl Serializable for NoteRecordDetails {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
         let nullifier_bytes = self.nullifier.as_bytes();
-        target.write_usize(nullifier_bytes.len());
+        target.write_u64(nullifier_bytes.len() as u64);
         target.write_bytes(nullifier_bytes);
 
         self.script().write_into(target);
 
-        target.write_usize(self.inputs.len());
+        target.write_u64(self.inputs.len() as u64);
         target.write_many(self.inputs());
 
         self.serial_num().write_into(target);
@@ -235,14 +236,14 @@ impl Serializable for NoteRecordDetails {
 
 impl Deserializable for NoteRecordDetails {
     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
-        let nullifier_len = usize::read_from(source)?;
+        let nullifier_len = u64::read_from(source)? as usize;
         let nullifier_bytes = source.read_vec(nullifier_len)?;
         let nullifier =
             String::from_utf8(nullifier_bytes).expect("Nullifier String bytes should be readable.");
 
         let script = NoteScript::read_from(source)?;
 
-        let inputs_len = source.read_usize()?;
+        let inputs_len = source.read_u64()? as usize;
         let inputs = source.read_many::<Felt>(inputs_len)?;
 
         let serial_num = Word::read_from(source)?;

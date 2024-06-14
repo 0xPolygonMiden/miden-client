@@ -2,6 +2,7 @@ use alloc::{collections::BTreeSet, rc::Rc};
 use core::fmt;
 
 use miden_objects::{accounts::AccountId, assets::Asset, notes::Note, Word};
+use winter_maybe_async::{maybe_async, maybe_await};
 
 use super::transactions::transaction_request::known_script_roots::{P2ID, P2IDR, SWAP};
 use crate::{
@@ -46,14 +47,15 @@ impl<S: Store> NoteScreener<S> {
     /// Does a fast check for known scripts (P2ID, P2IDR, SWAP). We're currently
     /// unable to execute notes that are not committed so a slow check for other scripts is currently
     /// not available.
+    #[maybe_async]
     pub fn check_relevance(&self, note: &Note) -> Result<Vec<NoteConsumability>, ScreenerError> {
-        let account_ids = BTreeSet::from_iter(self.store.get_account_ids()?);
+        let account_ids = BTreeSet::from_iter(maybe_await!(self.store.get_account_ids())?);
 
         let script_hash = note.script().hash().to_string();
         let note_relevance = match script_hash.as_str() {
             P2ID => Self::check_p2id_relevance(note, &account_ids)?,
             P2IDR => Self::check_p2idr_relevance(note, &account_ids)?,
-            SWAP => self.check_swap_relevance(note, &account_ids)?,
+            SWAP => maybe_await!(self.check_swap_relevance(note, &account_ids))?,
             _ => self.check_script_relevance(note, &account_ids)?,
         };
 
@@ -124,6 +126,7 @@ impl<S: Store> NoteScreener<S> {
     /// load the account's vaults, or even have a function in the `Store` to do this.
     ///
     /// TODO: test/revisit this in the future
+    #[maybe_async]
     fn check_swap_relevance(
         &self,
         note: &Note,
@@ -145,7 +148,7 @@ impl<S: Store> NoteScreener<S> {
         let mut accounts_with_relevance = Vec::new();
 
         for account_id in account_ids {
-            let (account, _) = self.store.get_account(*account_id)?;
+            let (account, _) = maybe_await!(self.store.get_account(*account_id))?;
 
             // Check that the account can cover the demanded asset
             match asset {

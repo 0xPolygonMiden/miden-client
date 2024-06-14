@@ -1,7 +1,6 @@
 use alloc::collections::BTreeMap;
 use std::{env::temp_dir, rc::Rc};
 
-use async_trait::async_trait;
 use miden_lib::{transaction::TransactionKernel, AuthScheme};
 use miden_node_proto::generated::{
     account::AccountId as ProtoAccountId,
@@ -99,7 +98,6 @@ impl MockRpcApi {
     }
 }
 
-#[async_trait]
 impl NodeRpcClient for MockRpcApi {
     /// Executes the specified sync state request and returns the response.
     async fn sync_state(

@@ -1,20 +1,36 @@
 use alloc::rc::Rc;
 
+#[cfg(feature = "wasm")]
+use miden_objects::{
+    accounts::AccountId,
+    crypto::rand::{FeltRng, RpoRandomCoin},
+    notes::{NoteExecutionHint, NoteTag, NoteType},
+    Felt, NoteError,
+};
+#[cfg(not(feature = "wasm"))]
 use miden_objects::{
     crypto::rand::{FeltRng, RpoRandomCoin},
     Felt,
 };
 use miden_tx::{TransactionAuthenticator, TransactionExecutor};
+#[cfg(not(feature = "wasm"))]
 use rand::Rng;
+#[cfg(feature = "wasm")]
+use rand::{rngs::StdRng, Rng, SeedableRng};
 use tracing::info;
 
 use crate::store::{data_store::ClientDataStore, Store};
+#[cfg(feature = "wasm")]
+use crate::{
+    errors::IdPrefixFetchError,
+    store::{InputNoteRecord, NoteFilter as ClientNoteFilter},
+};
 
 pub mod rpc;
 use rpc::NodeRpcClient;
 
 pub mod accounts;
-#[cfg(test)]
+#[cfg(all(test, not(feature = "wasm")))]
 mod chain_data;
 mod note_screener;
 mod notes;
@@ -88,7 +104,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         &mut self.rpc_api
     }
 
-    #[cfg(any(test, feature = "test_utils"))]
+    #[cfg(any(test, feature = "test_utils", feature = "wasm"))]
     pub fn store(&mut self) -> &S {
         &self.store
     }
@@ -100,8 +116,90 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 /// Gets [RpoRandomCoin] from the client
 pub fn get_random_coin() -> RpoRandomCoin {
     // TODO: Initialize coin status once along with the client and persist status for retrieval
+    #[cfg(not(feature = "wasm"))]
     let mut rng = rand::thread_rng();
+    #[cfg(feature = "wasm")]
+    let mut rng = StdRng::from_entropy();
     let coin_seed: [u64; 4] = rng.gen();
 
     RpoRandomCoin::new(coin_seed.map(Felt::new))
+}
+
+// TODO - move to a more appropriate place. This is duplicated code from cli/mod.rs
+// because the cli code is compiled out under the "wasm" feature and
+// we need to be able to import this function from the wasm code.
+#[cfg(feature = "wasm")]
+pub async fn get_input_note_with_id_prefix<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+>(
+    client: &mut Client<N, R, S, A>,
+    note_id_prefix: &str,
+) -> Result<InputNoteRecord, IdPrefixFetchError> {
+    let mut input_note_records = client
+        .get_input_notes(ClientNoteFilter::All)
+        .await
+        .map_err(|err| {
+            tracing::error!("Error when fetching all notes from the store: {err}");
+            IdPrefixFetchError::NoMatch(format!("note ID prefix {note_id_prefix}").to_string())
+        })?
+        .into_iter()
+        .filter(|note_record| note_record.id().to_hex().starts_with(note_id_prefix))
+        .collect::<Vec<_>>();
+
+    if input_note_records.is_empty() {
+        return Err(IdPrefixFetchError::NoMatch(
+            format!("note ID prefix {note_id_prefix}").to_string(),
+        ));
+    }
+    if input_note_records.len() > 1 {
+        let input_note_record_ids = input_note_records
+            .iter()
+            .map(|input_note_record| input_note_record.id())
+            .collect::<Vec<_>>();
+        tracing::error!(
+            "Multiple notes found for the prefix {}: {:?}",
+            note_id_prefix,
+            input_note_record_ids
+        );
+        return Err(IdPrefixFetchError::MultipleMatches(
+            format!("note ID prefix {note_id_prefix}").to_string(),
+        ));
+    }
+
+    Ok(input_note_records
+        .pop()
+        .expect("input_note_records should always have one element"))
+}
+
+// TODO - move to a more appropriate place. This is duplicated code from cli/utils.rs
+// because the cli code is compiled out under the "wasm" feature and
+// we need to be able to import this function from the wasm code.
+#[cfg(feature = "wasm")]
+pub fn build_swap_tag(
+    note_type: NoteType,
+    offered_asset_faucet_id: AccountId,
+    requested_asset_faucet_id: AccountId,
+) -> Result<NoteTag, NoteError> {
+    const SWAP_USE_CASE_ID: u16 = 0;
+
+    // get bits 4..12 from faucet IDs of both assets, these bits will form the tag payload; the
+    // reason we skip the 4 most significant bits is that these encode metadata of underlying
+    // faucets and are likely to be the same for many different faucets.
+
+    let offered_asset_id: u64 = offered_asset_faucet_id.into();
+    let offered_asset_tag = (offered_asset_id >> 52) as u8;
+
+    let requested_asset_id: u64 = requested_asset_faucet_id.into();
+    let requested_asset_tag = (requested_asset_id >> 52) as u8;
+
+    let payload = ((offered_asset_tag as u16) << 8) | (requested_asset_tag as u16);
+
+    let execution = NoteExecutionHint::Local;
+    match note_type {
+        NoteType::Public => NoteTag::for_public_use_case(SWAP_USE_CASE_ID, payload, execution),
+        _ => NoteTag::for_local_use_case(SWAP_USE_CASE_ID, payload),
+    }
 }

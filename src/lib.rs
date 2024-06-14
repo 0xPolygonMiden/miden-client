@@ -1,12 +1,13 @@
 extern crate alloc;
 
 pub mod client;
+#[cfg(not(feature = "wasm"))]
 pub mod config;
 pub mod errors;
 pub mod store;
 
-#[cfg(any(test, feature = "test_utils"))]
+#[cfg(all(any(test, feature = "test_utils"), not(feature = "wasm")))]
 pub mod mock;
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "wasm")))]
 mod tests;

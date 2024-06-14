@@ -1,6 +1,11 @@
 use core::fmt;
+#[cfg(feature = "wasm")]
+use std::any::type_name;
 
+#[cfg(not(feature = "wasm"))]
 use miden_node_proto::errors::ConversionError;
+#[cfg(feature = "wasm")]
+use miden_objects::crypto::merkle::{SmtLeafError, SmtProofError};
 use miden_objects::{
     accounts::AccountId, crypto::merkle::MmrError, notes::NoteId, AccountError, AssetError,
     AssetVaultError, Digest, NoteError, TransactionScriptError, Word,
@@ -9,6 +14,50 @@ use miden_tx::{
     utils::{DeserializationError, HexParseError},
     DataStoreError, TransactionExecutorError, TransactionProverError,
 };
+#[cfg(feature = "wasm")]
+use thiserror::Error;
+
+#[cfg(feature = "wasm")]
+#[derive(Debug, Clone, PartialEq, Error)]
+pub enum ConversionError {
+    #[error("Hex error: {0}")]
+    HexError(#[from] hex::FromHexError),
+    #[error("SMT leaf error: {0}")]
+    SmtLeafError(#[from] SmtLeafError),
+    #[error("SMT proof error: {0}")]
+    SmtProofError(#[from] SmtProofError),
+    #[error("Too much data, expected {expected}, got {got}")]
+    TooMuchData { expected: usize, got: usize },
+    #[error("Not enough data, expected {expected}, got {got}")]
+    InsufficientData { expected: usize, got: usize },
+    #[error("Value is not in the range 0..MODULUS")]
+    NotAValidFelt,
+    #[error("Invalid note type value: {0}")]
+    NoteTypeError(#[from] NoteError),
+    #[error("Field `{field_name}` required to be filled in protobuf representation of {entity}")]
+    MissingFieldInProtobufRepresentation {
+        entity: &'static str,
+        field_name: &'static str,
+    },
+}
+
+#[cfg(feature = "wasm")]
+impl Eq for ConversionError {}
+
+#[cfg(feature = "wasm")]
+pub trait MissingFieldHelper {
+    fn missing_field(field_name: &'static str) -> ConversionError;
+}
+
+#[cfg(feature = "wasm")]
+impl<T: prost::Message> MissingFieldHelper for T {
+    fn missing_field(field_name: &'static str) -> ConversionError {
+        ConversionError::MissingFieldInProtobufRepresentation {
+            entity: type_name::<T>(),
+            field_name,
+        }
+    }
+}
 
 // CLIENT ERROR
 // ================================================================================================
@@ -132,6 +181,7 @@ impl From<ScreenerError> for ClientError {
     }
 }
 
+#[cfg(not(feature = "wasm"))]
 impl From<rusqlite::Error> for ClientError {
     fn from(err: rusqlite::Error) -> Self {
         Self::StoreError(StoreError::from(err))
@@ -189,11 +239,14 @@ impl From<AccountError> for StoreError {
     }
 }
 
+#[cfg(not(feature = "wasm"))]
 impl From<rusqlite_migration::Error> for StoreError {
     fn from(value: rusqlite_migration::Error) -> Self {
         StoreError::DatabaseError(value.to_string())
     }
 }
+
+#[cfg(not(feature = "wasm"))]
 impl From<rusqlite::Error> for StoreError {
     fn from(value: rusqlite::Error) -> Self {
         match value {
