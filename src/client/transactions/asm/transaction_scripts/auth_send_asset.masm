@@ -7,7 +7,7 @@ begin
     push.{aux}
     push.{tag}
     push.{asset}
-    call.wallet::send_asset 
-    drop drop dropw dropw 
+    call.wallet::send_asset
+    dropw dropw dropw dropw
     call.auth_tx::auth_tx_rpo_falcon512
 end
