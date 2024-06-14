@@ -3,7 +3,7 @@ use miden_objects::{
     crypto::rand::FeltRng,
     notes::{NoteExecutionHint, NoteTag},
 };
-use miden_tx::TransactionAuthenticator;
+use miden_tx::auth::TransactionAuthenticator;
 use tracing::info;
 
 use super::{Client, Parser};

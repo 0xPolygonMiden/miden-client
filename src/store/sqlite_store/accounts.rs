@@ -277,7 +277,7 @@ pub(super) fn parse_account(
         serde_json::from_str(&assets).map_err(StoreError::JsonDataDeserializationError)?;
 
     Ok((
-        Account::new(
+        Account::from_parts(
             account_id,
             AssetVault::new(&account_assets)?,
             account_storage,

@@ -1,5 +1,6 @@
 # Changelog
 
+* Added `wasm` and `async` feature to make the code compatible with WASM-32 target (#378).
 * Changed `cargo-make` usage for `make` and `Makefile.toml` for a regular `Makefile` (#359).
 * Added integration tests using the CLI (#353).
 * Added a new check on account creation / import on the CLI to set the account as the default one if none is set (#372).

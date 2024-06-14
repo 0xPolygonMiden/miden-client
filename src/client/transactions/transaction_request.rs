@@ -226,9 +226,9 @@ impl SwapTransactionData {
 // --------------------------------------------------------------------------------------------
 
 pub mod known_script_roots {
-    pub const P2ID: &str = "0x0007b2229f7c8e3205a485a9879f1906798a2e27abd1706eaf58536e7cc3868b";
-    pub const P2IDR: &str = "0x418ae31e80b53ddc99179d3cacbc4140c7b36ab04ddb26908b3a6ed2e40061d5";
-    pub const SWAP: &str = "0xebbc82ad1688925175599bee2fb56bde649ebb9986fbce957ebee3eb4be5f140";
+    pub const P2ID: &str = "0x3df15bd183c3239332dcb535c6d0a25c668ead19a317fefe66fc2754e49ce4f1";
+    pub const P2IDR: &str = "0xf6513a4c607de61288263e1d9346889e9393f3c4024bfb42efc0e2ce3c64ee72";
+    pub const SWAP: &str = "0x5040bdb39e3e71d8ae4a93d65ff44d152f56192df97018a63b6b6342e87f97d5";
 }
 
 #[cfg(all(test, not(feature = "wasm")))]
@@ -244,6 +244,7 @@ mod tests {
         assets::FungibleAsset,
         crypto::rand::RpoRandomCoin,
         notes::NoteType,
+        Felt, FieldElement,
     };
 
     use crate::client::transactions::transaction_request::known_script_roots::{P2ID, P2IDR, SWAP};
@@ -255,7 +256,7 @@ mod tests {
         // create dummy data for the notes
         let faucet_id: AccountId = ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN.try_into().unwrap();
         let account_id: AccountId = ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN.try_into().unwrap();
-        let rng = RpoRandomCoin::new(Default::default());
+        let mut rng = RpoRandomCoin::new(Default::default());
 
         // create dummy notes to compare note script roots
         let p2id_note = create_p2id_note(
@@ -263,7 +264,8 @@ mod tests {
             account_id,
             vec![FungibleAsset::new(faucet_id, 100u64).unwrap().into()],
             NoteType::OffChain,
-            rng,
+            Felt::ZERO,
+            &mut rng,
         )
         .unwrap();
         let p2idr_note = create_p2idr_note(
@@ -271,8 +273,9 @@ mod tests {
             account_id,
             vec![FungibleAsset::new(faucet_id, 100u64).unwrap().into()],
             NoteType::OffChain,
+            Felt::ZERO,
             10,
-            rng,
+            &mut rng,
         )
         .unwrap();
         let (swap_note, _serial_num) = create_swap_note(
@@ -280,7 +283,8 @@ mod tests {
             FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
             FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
             NoteType::OffChain,
-            rng,
+            Felt::ZERO,
+            &mut rng,
         )
         .unwrap();
 

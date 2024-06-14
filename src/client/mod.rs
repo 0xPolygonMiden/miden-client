@@ -12,7 +12,7 @@ use miden_objects::{
     crypto::rand::{FeltRng, RpoRandomCoin},
     Felt,
 };
-use miden_tx::{TransactionAuthenticator, TransactionExecutor};
+use miden_tx::{auth::TransactionAuthenticator, TransactionExecutor};
 #[cfg(not(feature = "wasm"))]
 use rand::Rng;
 #[cfg(feature = "wasm")]
