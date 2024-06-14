@@ -122,7 +122,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 let note_details =
                     chain_notes.pop().expect("chain_notes should have at least one element");
 
-                let (note, inclusion_details) = match note_details {
+                let (node_note, inclusion_details) = match note_details {
                     NoteDetails::OffChain(..) => {
                         return Err(ClientError::NoteImportError(
                             "Incomplete imported note is private".to_string(),
@@ -148,26 +148,39 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     inclusion_details.merkle_path.clone(),
                 )?;
 
-                let details = NoteRecordDetails::new(
-                    note.nullifier().to_string(),
-                    note.script().clone(),
-                    note.inputs().values().to_vec(),
-                    note.serial_num(),
-                );
+                let tracked_note = self.get_input_note(id);
 
-                InputNoteRecord::new(
-                    note.id(),
-                    note.recipient().digest(),
-                    note.assets().clone(),
-                    NoteStatus::Committed {
-                        block_height: inclusion_proof.origin().block_num as u64,
-                    },
-                    Some(*note.metadata()),
-                    Some(inclusion_proof),
-                    details,
-                    false,
-                    None,
-                )
+                if let Err(ClientError::StoreError(StoreError::NoteNotFound(_))) = tracked_note {
+                    // If note is not tracked, we create a new one.
+                    let details = NoteRecordDetails::new(
+                        node_note.nullifier().to_string(),
+                        node_note.script().clone(),
+                        node_note.inputs().values().to_vec(),
+                        node_note.serial_num(),
+                    );
+
+                    InputNoteRecord::new(
+                        node_note.id(),
+                        node_note.recipient().digest(),
+                        node_note.assets().clone(),
+                        NoteStatus::Committed {
+                            block_height: inclusion_proof.origin().block_num as u64,
+                        },
+                        Some(*node_note.metadata()),
+                        Some(inclusion_proof),
+                        details,
+                        false,
+                        None,
+                    )
+                } else {
+                    // If note is already tracked, we update the inclusion proof and metadata.
+                    let tracked_note = tracked_note?;
+
+                    self.store.update_note_inclusion_proof(tracked_note.id(), inclusion_proof)?;
+                    self.store.update_note_metadata(tracked_note.id(), *node_note.metadata())?;
+
+                    return Ok(tracked_note.id());
+                }
             },
             NoteFile::NoteDetails(details, None) => {
                 let record_details = NoteRecordDetails::new(
