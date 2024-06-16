@@ -57,7 +57,7 @@ doc: ## Generates & checks rust documentation
 
 .PHONY: test
 test: ## Run tests
-	cargo nextest run --release --workspace --features execumaketable --no-default-features
+	cargo nextest run --release --workspace --features executable --no-default-features
 
 # --- Integration testing -------------------------------------------------------------------------
 
