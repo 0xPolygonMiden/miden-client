@@ -6,8 +6,8 @@ help: ## Show description of all commands
 
 # --- Variables -----------------------------------------------------------------------------------
 
-FEATURES_INTEGRATION_TESTING="integration"
-FEATURES_CLI="testing,concurrent"
+FEATURES_INTEGRATION_TESTING="concurrent, executable, testing"
+FEATURES_CLI="testing, executable, concurrent"
 NODE_FEATURES_TESTING="testing"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
 NODE_BRANCH="next"

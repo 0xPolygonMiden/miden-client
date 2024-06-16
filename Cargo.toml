@@ -18,6 +18,7 @@ crate-type = ["lib"]
 [[bin]]
 name = "miden"
 path = "src/main.rs"
+required-features = ["executable"]
 
 [[test]]
 name = "integration"
@@ -26,14 +27,15 @@ required-features = ["integration"]
 
 [features]
 concurrent = ["miden-lib/concurrent", "miden-objects/concurrent", "miden-tx/concurrent", "std"]
-default = ["std", "sqlite", "tonic", "clap", "comfy-table", "figment", "lazy_static", "tokio", "toml"]
-integration = ["testing", "concurrent"]
-sqlite = ["dep:rusqlite", "dep:rusqlite_migration"]
+# TODO: Remove "std", "thiserror", "hex" and "prost" from "default".
+default = ["std", "async", "dep:getrandom", "dep:hex", "dep:thiserror", "dep:prost"]
+executable = ["std", "sqlite", "tonic", "dep:clap", "dep:comfy-table", "dep:figment", "tokio", "toml"]
+integration = ["concurrent", "executable", "testing"]
+sqlite = ["dep:rusqlite", "dep:rusqlite_migration", "dep:lazy_static"]
 async = ["miden-tx/async"]
 std = ["miden-objects/std"]
 testing = ["miden-objects/testing", "miden-lib/testing"]
 tonic = ["dep:tonic", "dep:miden-node-proto"]
-wasm = ["std", "async", "getrandom", "hex", "thiserror", "prost"]
 
 [dependencies]
 clap = { version = "4.3", features = ["derive"], optional = true }

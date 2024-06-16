@@ -231,7 +231,7 @@ pub mod known_script_roots {
     pub const SWAP: &str = "0x5040bdb39e3e71d8ae4a93d65ff44d152f56192df97018a63b6b6342e87f97d5";
 }
 
-#[cfg(all(test, not(feature = "wasm")))]
+#[cfg(test)]
 mod tests {
     use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
     use miden_objects::{

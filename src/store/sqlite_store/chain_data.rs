@@ -246,7 +246,7 @@ fn parse_chain_mmr_nodes(
     Ok((id, node))
 }
 
-#[cfg(all(test, not(feature = "wasm")))]
+#[cfg(test)]
 mod test {
     use miden_objects::{crypto::merkle::MmrPeaks, BlockHeader};
 

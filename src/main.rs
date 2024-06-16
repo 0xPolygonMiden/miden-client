@@ -1,35 +1,19 @@
-#[cfg(not(feature = "wasm"))]
+#[cfg(feature = "executable")]
 use clap::Parser;
 
 extern crate alloc;
-#[cfg(not(feature = "wasm"))]
+#[cfg(feature = "executable")]
 mod cli;
 
-#[cfg(not(feature = "wasm"))]
-use cli::Cli;
-
-#[cfg(not(feature = "wasm"))]
 #[tokio::main]
 async fn main() -> Result<(), String> {
-    tracing_subscriber::fmt::init();
-    // read command-line args
-    let cli = Cli::parse();
+    #[cfg(feature = "executable")]
+    {
+        tracing_subscriber::fmt::init();
+        // read command-line args
+        let cli = cli::Cli::parse();
 
-    // execute cli action
-    cli.execute().await
+        // execute cli action
+        cli.execute().await
+    }
 }
-
-#[cfg(feature = "wasm")]
-pub mod client;
-
-#[cfg(feature = "wasm")]
-pub mod config;
-
-#[cfg(feature = "wasm")]
-pub mod store;
-
-#[cfg(feature = "wasm")]
-pub mod errors;
-
-#[cfg(feature = "wasm")]
-fn main() {}

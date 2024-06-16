@@ -265,7 +265,7 @@ impl Store for SqliteStore {
 // TESTS
 // ================================================================================================
 
-#[cfg(all(test, not(feature = "wasm")))]
+#[cfg(test)]
 pub mod tests {
     use std::cell::RefCell;
 

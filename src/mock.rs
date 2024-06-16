@@ -35,7 +35,6 @@ use uuid::Uuid;
 
 use crate::{
     client::{
-        get_random_coin,
         rpc::{
             AccountDetails, NodeRpcClient, NodeRpcClientEndpoint, NoteDetails,
             NoteInclusionDetails, StateSyncInfo,
@@ -778,16 +777,21 @@ pub fn create_test_client() -> MockClient {
 
     let rpc_config = RpcConfig::default();
     let rpc_endpoint = rpc_config.endpoint.to_string();
+
     let store = SqliteStore::new(&store).unwrap();
     let store = Rc::new(store);
 
-    let rng = get_random_coin();
+    let mut rng = rand::thread_rng();
+    let coin_seed: [u64; 4] = rng.gen();
+
+    let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
+
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
 
     MockClient::new(MockRpcApi::new(&rpc_endpoint), rng, store, authenticator, true)
 }
 
-pub(crate) fn create_test_store_path() -> std::path::PathBuf {
+pub fn create_test_store_path() -> std::path::PathBuf {
     let mut temp_file = temp_dir();
     temp_file.push(format!("{}.sqlite3", Uuid::new_v4()));
     temp_file

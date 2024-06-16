@@ -38,13 +38,19 @@ client requires rust version **1.78** or higher.
 In order to utilize the `miden-client` library, you can add the dependency to your project's `Cargo.toml` file:
 
 ````toml
-miden-client = { version = "0.3" }
+miden-client = { version = "0.3.1" }
 ````
+
+By default, the library is `no_std` compatible. 
 
 #### Features
 
-- `concurrent`: used to enable concurrent proofs generation
-- `testing`: useful feature that lowers PoW difficulty when enabled. Only use this during development and not on production.
+- `concurrent`: used to enable concurrency during execution and proof generation.
+- `testing`: useful feature that lowers PoW difficulty when enabled, meant to be used during development and not on production. 
+- `sqlite`: includes `SqliteStore`, a SQLite implementation of the `Store` trait that can be used as a component of `Client`.
+- `async`: enables async traits. Disabled by default.
+- `tonic`: includes `TonicRpcClient`, a Tonic client to communicate with Miden node, that can be used as a component of `Client`. 
+- `executable`: builds the CLI, based on `SqliteStore` and `TonicRpcClient`.
 
 ### Running `miden-client`'s CLI
 
@@ -76,7 +82,7 @@ To test the project's code, we provide both unit tests (which can be run with `c
 
 The crate also comes with one feature flag that is used exclusively on tests: 
 
-- `integration`: only used to run integration tests and separate them from unit tests
+- `integration`: only used to run integration tests and separate them from unit tests.
 
 ## Contributing
 

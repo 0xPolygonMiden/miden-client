@@ -3,7 +3,6 @@ use std::{env::temp_dir, fs::File, io::Read, path::Path, rc::Rc};
 use assert_cmd::Command;
 use miden_client::{
     config::RpcConfig,
-    get_random_coin,
     rpc::TonicRpcClient,
     store::{
         sqlite_store::{config::SqliteStoreConfig, SqliteStore},
@@ -11,7 +10,8 @@ use miden_client::{
     },
     AccountTemplate, StoreAuthenticator,
 };
-use miden_objects::accounts::AccountStorageType;
+use miden_objects::{accounts::AccountStorageType, crypto::rand::RpoRandomCoin, Felt};
+use rand::Rng;
 
 use crate::{create_test_store_path, TestClient};
 
@@ -459,7 +459,10 @@ fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
         Rc::new(sqlite_store)
     };
 
-    let rng = get_random_coin();
+    let mut rng = rand::thread_rng();
+    let coin_seed: [u64; 4] = rng.gen();
+
+    let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
     TestClient::new(TonicRpcClient::new(&rpc_config), rng, store, authenticator, true)

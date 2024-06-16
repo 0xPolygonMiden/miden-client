@@ -4,7 +4,6 @@ use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     errors::{ClientError, IdPrefixFetchError},
-    get_random_coin,
     rpc::{NodeRpcClient, TonicRpcClient},
     store::{
         sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter,
@@ -12,10 +11,16 @@ use miden_client::{
     },
     Client, StoreAuthenticator,
 };
-use miden_objects::{accounts::AccountStub, crypto::rand::FeltRng};
+use miden_objects::{
+    accounts::AccountStub,
+    crypto::rand::{FeltRng, RpoRandomCoin},
+    Felt,
+};
 use miden_tx::auth::TransactionAuthenticator;
+use rand::Rng;
 use tracing::info;
 use transactions::TransactionCmd;
+use winter_maybe_async::{maybe_async, maybe_await};
 
 use self::{
     account::AccountCmd,
@@ -112,7 +117,10 @@ impl Cli {
         let store = SqliteStore::new(&cli_config.store).map_err(ClientError::StoreError)?;
         let store = Rc::new(store);
 
-        let rng = get_random_coin();
+        let mut rng = rand::thread_rng();
+        let coin_seed: [u64; 4] = rng.gen();
+
+        let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
         let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
 
         let client = Client::new(
@@ -167,6 +175,7 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
 ///   `note_id_prefix` is a prefix of its id.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found
 ///   where `note_id_prefix` is a prefix of its id.
+#[maybe_async]
 pub(crate) fn get_input_note_with_id_prefix<
     N: NodeRpcClient,
     R: FeltRng,
@@ -176,8 +185,7 @@ pub(crate) fn get_input_note_with_id_prefix<
     client: &Client<N, R, S, A>,
     note_id_prefix: &str,
 ) -> Result<InputNoteRecord, IdPrefixFetchError> {
-    let mut input_note_records = client
-        .get_input_notes(ClientNoteFilter::All)
+    let mut input_note_records = maybe_await!(client.get_input_notes(ClientNoteFilter::All))
         .map_err(|err| {
             tracing::error!("Error when fetching all notes from the store: {err}");
             IdPrefixFetchError::NoMatch(format!("note ID prefix {note_id_prefix}").to_string())
@@ -219,6 +227,7 @@ pub(crate) fn get_input_note_with_id_prefix<
 ///   `note_id_prefix` is a prefix of its id.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found
 ///   where `note_id_prefix` is a prefix of its id.
+#[maybe_async]
 pub(crate) fn get_output_note_with_id_prefix<
     N: NodeRpcClient,
     R: FeltRng,
@@ -228,8 +237,7 @@ pub(crate) fn get_output_note_with_id_prefix<
     client: &Client<N, R, S, A>,
     note_id_prefix: &str,
 ) -> Result<OutputNoteRecord, IdPrefixFetchError> {
-    let mut output_note_records = client
-        .get_output_notes(ClientNoteFilter::All)
+    let mut output_note_records = maybe_await!(client.get_output_notes(ClientNoteFilter::All))
         .map_err(|err| {
             tracing::error!("Error when fetching all notes from the store: {err}");
             IdPrefixFetchError::NoMatch(format!("note ID prefix {note_id_prefix}").to_string())
@@ -271,6 +279,7 @@ pub(crate) fn get_output_note_with_id_prefix<
 ///   `account_id_prefix` is a prefix of its id.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one account found
 ///   where `account_id_prefix` is a prefix of its id.
+#[maybe_async]
 fn get_account_with_id_prefix<
     N: NodeRpcClient,
     R: FeltRng,
@@ -280,8 +289,7 @@ fn get_account_with_id_prefix<
     client: &Client<N, R, S, A>,
     account_id_prefix: &str,
 ) -> Result<AccountStub, IdPrefixFetchError> {
-    let mut accounts = client
-        .get_account_stubs()
+    let mut accounts = maybe_await!(client.get_account_stubs())
         .map_err(|err| {
             tracing::error!("Error when fetching all accounts from the store: {err}");
             IdPrefixFetchError::NoMatch(

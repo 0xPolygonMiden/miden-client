@@ -36,6 +36,7 @@ impl ExportCmd {
 
 // EXPORT NOTE
 // ================================================================================================
+
 pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
     client: &Client<N, R, S, A>,
     note_id: &str,

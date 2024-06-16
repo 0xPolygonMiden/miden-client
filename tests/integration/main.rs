@@ -1,5 +1,3 @@
-#![cfg(not(feature = "wasm"))]
-
 use miden_client::{
     errors::ClientError,
     rpc::{AccountDetails, NodeRpcClient, TonicRpcClient},
