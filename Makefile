@@ -6,7 +6,7 @@ help: ## Show description of all commands
 
 # --- Variables -----------------------------------------------------------------------------------
 
-FEATURES_INTEGRATION_TESTING="concurrent, executable, testing"
+FEATURES_INTEGRATION_TESTING="integration"
 FEATURES_CLI="testing, executable, concurrent"
 NODE_FEATURES_TESTING="testing"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
@@ -57,13 +57,13 @@ doc: ## Generates & checks rust documentation
 
 .PHONY: test
 test: ## Run tests
-	cargo nextest run --release --workspace
+	cargo nextest run --release --workspace --features executable --no-default-features
 
 # --- Integration testing -------------------------------------------------------------------------
 
 .PHONY: integration-test
 integration-test: ## Run integration tests
-	cargo nextest run --no-capture --release --test=integration --features $(FEATURES_INTEGRATION_TESTING)
+	cargo nextest run --no-capture --release --test=integration --features $(FEATURES_INTEGRATION_TESTING) --no-default-features
 
 .PHONY: integration-test-full
 integration-test-full: ## Run the integration test binary with ignored tests included
