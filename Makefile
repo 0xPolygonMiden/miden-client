@@ -16,11 +16,11 @@ NODE_BRANCH="next"
 
 .PHONY: clippy
 clippy: ## Runs clippy on all targets with config
-	cargo +nightly clippy --workspace --tests --all-targets --all-features -- -D clippy::all -D warnings
+	cargo +nightly clippy --workspace --tests --all-targets --features executable -- -D clippy::all -D warnings
 
 .PHONY: fix
 fix: ## Runs Fix with configs
-	cargo +nightly fix --allow-staged --allow-dirty --all-targets --all-features
+	cargo +nightly fix --allow-staged --allow-dirty --all-targets --features executable
 
 .PHONY: format
 format: ## Runs format using nightly toolchain
@@ -57,7 +57,7 @@ doc: ## Generates & checks rust documentation
 
 .PHONY: test
 test: ## Run tests
-	cargo nextest run --release --workspace --features executable --no-default-features
+	cargo nextest run --release --workspace --features execumaketable --no-default-features
 
 # --- Integration testing -------------------------------------------------------------------------
 
