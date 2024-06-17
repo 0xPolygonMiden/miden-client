@@ -30,7 +30,10 @@ let client: Client<TonicRpcClient, SqliteDataStore> = {
     let store = SqliteStore::new((&client_config).into()).map_err(ClientError::StoreError)?;
     let store = Rc::new(store);
 
-    let rng = miden_client::get_random_coin();
+    let mut rng = rand::thread_rng();
+    let coin_seed: [u64; 4] = rng.gen();
+
+    let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
 
     let client = Client::new(

@@ -1,6 +1,6 @@
-use miden_client::client::{
-    accounts::AccountTemplate,
+use miden_client::{
     transactions::transaction_request::{SwapTransactionData, TransactionTemplate},
+    AccountTemplate,
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorageType},

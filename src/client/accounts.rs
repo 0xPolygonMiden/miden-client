@@ -191,6 +191,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     pub fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, ClientError> {
         maybe_await!(self.store.get_account_stubs()).map_err(|err| err.into())
     }
+
     /// Returns summary info about the specified account.
     #[maybe_async]
     pub fn get_account(
@@ -224,7 +225,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 // TESTS
 // ================================================================================================
 
-#[cfg(all(test, not(feature = "wasm")))]
+#[cfg(all(test, feature = "executable"))]
 pub mod tests {
     use miden_objects::{
         accounts::{Account, AccountData, AccountId, AuthSecretKey},
