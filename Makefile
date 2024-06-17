@@ -98,3 +98,6 @@ install: ## Installs the CLI binary using the current dir
 
 build: ## Builds the CLI binary and client library in release mode
 	cargo build --release --features $(FEATURES_CLI)
+
+build-wasm: ## Builds the CLI binary for wasm32
+	cargo build --target wasm32-unknown-unknown --features async 
