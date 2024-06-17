@@ -436,3 +436,23 @@ async fn test_get_output_notes() {
     assert!(client.get_output_notes(NoteFilter::Consumed).unwrap().is_empty());
     assert!(!client.get_output_notes(NoteFilter::All).unwrap().is_empty());
 }
+
+#[tokio::test]
+async fn test_import_note_validation() {
+    // generate test client
+    let mut client = create_test_client();
+
+    // generate test data
+    let assembler = TransactionKernel::assembler();
+    let (consumed_notes, created_notes) = mock_notes(&assembler);
+    let (_, committed_notes, ..) = mock_full_chain_mmr_and_notes(consumed_notes);
+
+    let committed_note: InputNoteRecord = committed_notes.first().unwrap().clone().into();
+    let pending_note = InputNoteRecord::from(created_notes.first().unwrap().clone());
+
+    client.import_input_note(committed_note.clone(), false).await.unwrap();
+    assert!(client.import_input_note(pending_note.clone(), true).await.is_err());
+    client.import_input_note(pending_note.clone(), false).await.unwrap();
+    assert!(pending_note.inclusion_proof().is_none());
+    assert!(committed_note.inclusion_proof().is_some());
+}

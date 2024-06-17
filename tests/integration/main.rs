@@ -1,14 +1,9 @@
-#![cfg(not(feature = "wasm"))]
-
 use miden_client::{
-    client::{
-        accounts::AccountTemplate,
-        rpc::{AccountDetails, NodeRpcClient},
-        transactions::transaction_request::{PaymentTransactionData, TransactionTemplate},
-        NoteRelevance,
-    },
     errors::ClientError,
+    rpc::{AccountDetails, NodeRpcClient, TonicRpcClient},
     store::{NoteFilter, NoteStatus},
+    transactions::transaction_request::{PaymentTransactionData, TransactionTemplate},
+    AccountTemplate, NoteRelevance,
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorageType},
@@ -514,8 +509,11 @@ async fn test_get_account_update() {
 
     // Request updates from node for both accounts. The request should not fail and both types of
     // [AccountDetails] should be received.
-    let details1 = client.rpc_api().get_account_update(basic_wallet_1.id()).await.unwrap();
-    let details2 = client.rpc_api().get_account_update(basic_wallet_2.id()).await.unwrap();
+    // TODO: should we expose the `get_account_update` endpoint from the Client?
+    let (rpc_config, _) = get_client_config();
+    let mut rpc_api = TonicRpcClient::new(&rpc_config);
+    let details1 = rpc_api.get_account_update(basic_wallet_1.id()).await.unwrap();
+    let details2 = rpc_api.get_account_update(basic_wallet_2.id()).await.unwrap();
 
     assert!(matches!(details1, AccountDetails::OffChain(_, _)));
     assert!(matches!(details2, AccountDetails::Public(_, _)));

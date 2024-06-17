@@ -5,18 +5,15 @@ use figment::{
     Figment,
 };
 use miden_client::{
-    client::{
-        accounts::AccountTemplate,
-        get_random_coin,
-        rpc::TonicRpcClient,
-        store_authenticator::StoreAuthenticator,
-        sync::SyncSummary,
-        transactions::transaction_request::{TransactionRequest, TransactionTemplate},
-        Client,
+    config::RpcConfig,
+    errors::{ClientError, RpcError},
+    rpc::TonicRpcClient,
+    store::{
+        sqlite_store::{config::SqliteStoreConfig, SqliteStore},
+        NoteFilter, TransactionFilter,
     },
-    config::ClientConfig,
-    errors::{ClientError, NodeRpcClientError},
-    store::{sqlite_store::SqliteStore, NoteFilter, TransactionFilter},
+    transactions::transaction_request::{TransactionRequest, TransactionTemplate},
+    AccountTemplate, Client, StoreAuthenticator, SyncSummary,
 };
 use miden_objects::{
     accounts::{
@@ -27,8 +24,10 @@ use miden_objects::{
     crypto::rand::RpoRandomCoin,
     notes::{NoteId, NoteType},
     transaction::InputNote,
+    Felt,
 };
 use miden_tx::{DataStoreError, TransactionExecutorError};
+use rand::Rng;
 use uuid::Uuid;
 
 pub const ACCOUNT_ID_REGULAR: u64 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN;
@@ -40,7 +39,7 @@ pub type TestClient = Client<
     StoreAuthenticator<RpoRandomCoin, SqliteStore>,
 >;
 
-pub const TEST_CLIENT_CONFIG_FILE_PATH: &str = "./tests/config/miden-client.toml";
+pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./tests/config/miden-client-rpc.toml";
 /// Creates a `TestClient`
 ///
 /// Creates the client using the config at `TEST_CLIENT_CONFIG_FILE_PATH`. The store's path is at a random temporary location, so the store section of the config file is ignored.
@@ -50,26 +49,35 @@ pub const TEST_CLIENT_CONFIG_FILE_PATH: &str = "./tests/config/miden-client.toml
 /// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
 /// deserialized into a [ClientConfig]
 pub fn create_test_client() -> TestClient {
-    let mut client_config: ClientConfig = Figment::from(Toml::file(TEST_CLIENT_CONFIG_FILE_PATH))
+    let (rpc_config, store_config) = get_client_config();
+
+    let store = {
+        let sqlite_store = SqliteStore::new(&store_config).unwrap();
+        Rc::new(sqlite_store)
+    };
+
+    let mut rng = rand::thread_rng();
+    let coin_seed: [u64; 4] = rng.gen();
+
+    let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
+
+    let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
+    TestClient::new(TonicRpcClient::new(&rpc_config), rng, store, authenticator, true)
+}
+
+pub fn get_client_config() -> (RpcConfig, SqliteStoreConfig) {
+    let rpc_config: RpcConfig = Figment::from(Toml::file(TEST_CLIENT_RPC_CONFIG_FILE_PATH))
         .extract()
         .expect("should be able to read test config at {TEST_CLIENT_CONFIG_FILE_PATH}");
 
-    client_config.store = create_test_store_path()
+    let store_config = create_test_store_path()
         .into_os_string()
         .into_string()
         .unwrap()
         .try_into()
         .unwrap();
 
-    let store = {
-        let sqlite_store = SqliteStore::new((&client_config).into()).unwrap();
-        Rc::new(sqlite_store)
-    };
-
-    let rng = get_random_coin();
-
-    let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
-    TestClient::new(TonicRpcClient::new(&client_config.rpc), rng, store, authenticator, true)
+    (rpc_config, store_config)
 }
 
 pub fn create_test_store_path() -> std::path::PathBuf {
@@ -144,7 +152,7 @@ pub async fn wait_for_node(client: &mut TestClient) {
 
     for _try_number in 0..NUMBER_OF_NODE_ATTEMPTS {
         match client.sync_state().await {
-            Err(ClientError::NodeRpcClientError(NodeRpcClientError::ConnectionError(_))) => {
+            Err(ClientError::NodeRpcClientError(RpcError::ConnectionError(_))) => {
                 std::thread::sleep(Duration::from_secs(NODE_TIME_BETWEEN_ATTEMPTS));
             },
             Err(other_error) => {

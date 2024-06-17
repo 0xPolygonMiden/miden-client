@@ -275,12 +275,13 @@ mod test {
         block_headers
     }
 
-    #[test]
-    fn insert_and_get_block_headers_by_number() {
+    #[tokio::test]
+    async fn insert_and_get_block_headers_by_number() {
         let mut store = create_test_store();
         let block_headers = insert_dummy_block_headers(&mut store);
 
-        let block_header = store.get_block_header_by_num(3).unwrap();
+        let block_header =
+            winter_maybe_async::maybe_await!(store.get_block_header_by_num(3)).unwrap();
         assert_eq!(block_headers[3], block_header.0);
     }
 

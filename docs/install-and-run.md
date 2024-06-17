@@ -13,7 +13,7 @@ We currently recommend installing and running the client with the [`testing`](#t
 Run the following command to install the miden-client:
 
 ```sh
-cargo install miden-client --features testing,concurrent
+cargo install miden-client --features concurrent,executable,testing
 ```
 
 This installs the `miden` binary (at `~/.cargo/bin/miden`) with the [`testing`](#testing-feature) and [`concurrent`](#concurrent-feature) features.

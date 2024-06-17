@@ -1,8 +1,5 @@
 use clap::{Parser, ValueEnum};
-use miden_client::{
-    client::{accounts::AccountTemplate, rpc::NodeRpcClient, Client},
-    store::Store,
-};
+use miden_client::{rpc::NodeRpcClient, store::Store, AccountTemplate, Client};
 use miden_objects::{accounts::AccountStorageType, assets::TokenSymbol, crypto::rand::FeltRng};
 use miden_tx::auth::TransactionAuthenticator;
 
