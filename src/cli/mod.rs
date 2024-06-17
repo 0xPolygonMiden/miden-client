@@ -183,7 +183,8 @@ pub(crate) fn get_input_note_with_id_prefix<
     client: &Client<N, R, S, A>,
     note_id_prefix: &str,
 ) -> Result<InputNoteRecord, IdPrefixFetchError> {
-    let mut input_note_records = client.get_input_notes(ClientNoteFilter::All)
+    let mut input_note_records = client
+        .get_input_notes(ClientNoteFilter::All)
         .map_err(|err| {
             tracing::error!("Error when fetching all notes from the store: {err}");
             IdPrefixFetchError::NoMatch(format!("note ID prefix {note_id_prefix}").to_string())
@@ -234,7 +235,8 @@ pub(crate) fn get_output_note_with_id_prefix<
     client: &Client<N, R, S, A>,
     note_id_prefix: &str,
 ) -> Result<OutputNoteRecord, IdPrefixFetchError> {
-    let mut output_note_records = client.get_output_notes(ClientNoteFilter::All)
+    let mut output_note_records = client
+        .get_output_notes(ClientNoteFilter::All)
         .map_err(|err| {
             tracing::error!("Error when fetching all notes from the store: {err}");
             IdPrefixFetchError::NoMatch(format!("note ID prefix {note_id_prefix}").to_string())
@@ -285,7 +287,8 @@ fn get_account_with_id_prefix<
     client: &Client<N, R, S, A>,
     account_id_prefix: &str,
 ) -> Result<AccountStub, IdPrefixFetchError> {
-    let mut accounts = client.get_account_stubs()
+    let mut accounts = client
+        .get_account_stubs()
         .map_err(|err| {
             tracing::error!("Error when fetching all accounts from the store: {err}");
             IdPrefixFetchError::NoMatch(
