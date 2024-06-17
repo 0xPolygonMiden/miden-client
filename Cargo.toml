@@ -28,7 +28,6 @@ required-features = ["integration"]
 [features]
 async = ["miden-tx/async"]
 concurrent = ["miden-lib/concurrent", "miden-objects/concurrent", "miden-tx/concurrent", "std"]
-# TODO: Remove "std", "thiserror", "hex" and "prost" from "default".
 default = ["std", "dep:getrandom", "dep:hex", "dep:thiserror", "dep:prost"]
 executable = ["std", "sqlite", "tonic", "dep:clap", "dep:comfy-table", "dep:figment", "dep:tokio", "dep:toml"]
 integration = ["concurrent", "executable", "testing"]
