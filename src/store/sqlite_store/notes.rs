@@ -21,7 +21,7 @@ use crate::{
             NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED, NOTE_STATUS_PENDING,
             NOTE_STATUS_PROCESSING,
         },
-        InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord,
+        InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, Nullifier, OutputNoteRecord,
     },
 };
 
@@ -253,6 +253,27 @@ impl SqliteStore {
         insert_input_note_tx(&tx, note)?;
 
         Ok(tx.commit()?)
+    }
+
+    pub(crate) fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
+        const QUERY: &str =
+                "SELECT json_extract(details, '$.nullifier') FROM input_notes WHERE status IN rarray(?)";
+        let unspent_filters = Rc::new(vec![
+            Value::from(NOTE_STATUS_COMMITTED.to_string()),
+            Value::from(NOTE_STATUS_PROCESSING.to_string()),
+        ]);
+        self.db()
+            .prepare(QUERY)?
+            .query_map([unspent_filters], |row| row.get(0))
+            .expect("no binding parameters used in query")
+            .map(|result| {
+                result.map_err(|err| StoreError::ParsingError(err.to_string())).and_then(
+                    |v: String| {
+                        Digest::try_from(v).map(Nullifier::from).map_err(StoreError::HexParseError)
+                    },
+                )
+            })
+            .collect::<Result<Vec<Nullifier>, _>>()
     }
 }
 
