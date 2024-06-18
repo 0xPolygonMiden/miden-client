@@ -136,10 +136,10 @@ impl SqliteStore {
     /// database transaction fail.
     pub(crate) fn mark_transactions_as_committed(
         tx: &Transaction<'_>,
-        transactions_to_commit: &[(TransactionId, u32)],
+        transactions_to_commit: &[(TransactionId, u32, AccountId)],
     ) -> Result<usize, StoreError> {
         let mut rows = 0;
-        for (transaction_id, tx_block_num) in transactions_to_commit {
+        for (transaction_id, tx_block_num, _account_id) in transactions_to_commit {
             const QUERY: &str = "UPDATE transactions set commit_height=? where id=?";
             rows += tx.execute(QUERY, params![Some(tx_block_num), transaction_id.to_string()])?;
         }

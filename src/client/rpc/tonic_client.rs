@@ -336,34 +336,43 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
             .nullifiers
             .iter()
             .map(|nul_update| {
-                nul_update
-                    .clone()
+                let nullifier_digest = nul_update
                     .nullifier
-                    .ok_or(RpcError::ExpectedFieldMissing("Nullifier".into()))
-                    .and_then(|n| {
-                        let nullifier_digest = Digest::try_from(n).map_err(|err| {
-                            RpcError::ConversionFailure(err.to_string())
-                        })?;
+                    .clone()
+                    .ok_or(RpcError::ExpectedFieldMissing("Nullifier".into()))?;
 
-                        // TODO: once #380 from miden-node is addressed, replace the block number for
-                        // the one that comes with the response
-                        Ok((nullifier_digest.into(), block_header.block_num()))
-                    })
+                let nullifier_digest = Digest::try_from(nullifier_digest)
+                    .map_err(|err| RpcError::ConversionFailure(err.to_string()))?;
+
+                let nullifier_block_num = nul_update.block_num;
+
+                Ok((nullifier_digest.into(), nullifier_block_num))
             })
             .collect::<Result<Vec<(Nullifier, u32)>, RpcError>>()?;
 
         let transactions = value
             .transactions
             .iter()
-            .map(|transaction_id| {
-                let tx_id_digest = Digest::try_from(transaction_id)
-                    .map_err(|err| NodeRpcClientError::ConversionFailure(err.to_string()))?;
+            .map(|transaction_summary| {
+                let transaction_id = transaction_summary.transaction_id.clone().ok_or(
+                    RpcError::ExpectedFieldMissing("TransactionSummary.TransactionId".into()),
+                )?;
+                let transaction_id = TransactionId::try_from(transaction_id)
+                    .map_err(|err| RpcError::ConversionFailure(err.to_string()))?;
+
+                let transaction_block_num = transaction_summary.block_num;
+
+                let transaction_account_id = transaction_summary.account_id.clone().ok_or(
+                    RpcError::ExpectedFieldMissing("TransactionSummary.TransactionId".into()),
+                )?;
+                let transaction_account_id = AccountId::try_from(transaction_account_id)
+                    .map_err(|err| RpcError::ConversionFailure(err.to_string()))?;
 
                 // TODO: once #380 from miden-node is addressed, replace the block number for
                 // the one that comes with the response
-                Ok((tx_id_digest.into(), block_header.block_num()))
+                Ok((transaction_id, transaction_block_num, transaction_account_id))
             })
-            .collect::<Result<Vec<(TransactionId, u32)>, RpcError>>()?;
+            .collect::<Result<Vec<(TransactionId, u32, AccountId)>, RpcError>>()?;
 
         Ok(Self {
             chain_tip,

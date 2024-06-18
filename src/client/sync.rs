@@ -170,7 +170,7 @@ pub struct StateSyncUpdate {
     pub block_header: BlockHeader,
     pub nullifiers: Vec<(Nullifier, u32)>,
     pub synced_new_notes: SyncedNewNotes,
-    pub transactions_to_commit: Vec<(TransactionId, u32)>,
+    pub transactions_to_commit: Vec<(TransactionId, u32, AccountId)>,
     pub new_mmr_peaks: MmrPeaks,
     pub new_authentication_nodes: Vec<(InOrderIndex, Digest)>,
     pub updated_onchain_accounts: Vec<Account>,
@@ -355,7 +355,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             )?
         };
 
-        let transactions_to_commit = self.get_transactions_to_commit(response.transactions)?;
+        let transactions_to_commit =
+            maybe_await!(self.get_transactions_to_commit(response.transactions))?;
 
         let state_sync_update = StateSyncUpdate {
             block_header: response.block_header,
@@ -583,7 +584,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// Extracts information about nullifiers for unspent input notes that the client is tracking
     /// from the received list of nullifiers in the sync response
     #[maybe_async]
-    fn get_new_nullifiers(&self, mut new_nullifiers: Vec<(Nullifier, u32)>) -> Result<Vec<(Nullifier, u32)>, ClientError> {
+    fn get_new_nullifiers(
+        &self,
+        mut new_nullifiers: Vec<(Nullifier, u32)>,
+    ) -> Result<Vec<(Nullifier, u32)>, ClientError> {
         // Get current unspent nullifiers
         let nullifiers = maybe_await!(self.store.get_unspent_input_note_nullifiers())?;
 
@@ -594,20 +598,20 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
     /// Extracts information about transactions for uncommitted transactions that the client is tracking
     /// from the received [SyncStateResponse]
+    #[maybe_async]
     fn get_transactions_to_commit(
         &self,
-        mut transactions: Vec<(TransactionId, u32)>,
-    ) -> Result<Vec<(TransactionId, u32)>, ClientError> {
+        mut transactions: Vec<(TransactionId, u32, AccountId)>,
+    ) -> Result<Vec<(TransactionId, u32, AccountId)>, ClientError> {
         // Get current uncommitted transactions
-        let uncommitted_transaction_ids = self
-            .store
-            .get_transactions(TransactionFilter::Uncomitted)?
-            .into_iter()
-            .map(|tx| tx.id)
-            .collect::<Vec<_>>();
+        let uncommitted_transaction_ids =
+            maybe_await!(self.store.get_transactions(TransactionFilter::Uncomitted))?
+                .into_iter()
+                .map(|tx| tx.id)
+                .collect::<Vec<_>>();
 
         transactions
-            .retain(|(transaction_id, _)| uncommitted_transaction_ids.contains(transaction_id));
+            .retain(|(transaction_id, ..)| uncommitted_transaction_ids.contains(transaction_id));
 
         Ok(transactions)
     }

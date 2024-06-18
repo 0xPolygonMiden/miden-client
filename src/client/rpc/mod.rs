@@ -151,7 +151,7 @@ pub struct StateSyncInfo {
     pub nullifiers: Vec<(Nullifier, u32)>,
     /// List of transaction IDs of transaction that were included in (current_block.num,
     /// incoming_block_header.num-1)
-    pub transactions: Vec<(TransactionId, u32)>,
+    pub transactions: Vec<(TransactionId, u32, AccountId)>,
 }
 
 // COMMITTED NOTE
