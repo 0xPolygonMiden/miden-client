@@ -2,7 +2,7 @@ use miden_objects::{
     accounts::AccountId,
     assembly::ProgramAst,
     crypto::rand::FeltRng,
-    notes::{NoteFile, NoteId, NoteInclusionProof, NoteScript},
+    notes::{NoteExecutionHint, NoteFile, NoteId, NoteInclusionProof, NoteScript, NoteTag},
 };
 use miden_tx::{auth::TransactionAuthenticator, ScriptTarget};
 use tracing::info;
@@ -204,7 +204,21 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             },
             NoteFile::NoteDetails(details, Some(tag)) => {
                 let tracked_tags = self.get_note_tags()?;
-                let ignored = tracked_tags.contains(&tag);
+
+                let account_tags = self
+                    .get_account_stubs()?
+                    .into_iter()
+                    .map(|(stub, _)| NoteTag::from_account_id(stub.id(), NoteExecutionHint::Local))
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                let uncommited_note_tags = self
+                    .get_input_notes(NoteFilter::Pending)?
+                    .into_iter()
+                    .filter_map(|note| note.metadata().map(|metadata| metadata.tag()))
+                    .collect::<Vec<_>>();
+
+                let ignored =
+                    [tracked_tags, account_tags, uncommited_note_tags].concat().contains(&tag);
 
                 let record_details = NoteRecordDetails::new(
                     details.nullifier().to_string(),
