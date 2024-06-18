@@ -230,7 +230,7 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
     consume_note_cli(&temp_dir, &first_basic_account_id, &[&note_to_consume_id]);
 
     // Wait until the note is consumed on the node
-    sync_until_no_notes(&store_path, &temp_dir, NoteFilter::Committed);
+    sync_until_no_notes(&store_path, &temp_dir, NoteFilter::Processing);
 
     // Send assets to second account
     send_cli(
@@ -261,7 +261,7 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
     consume_note_cli(&temp_dir, &second_basic_account_id, &[&note_to_consume_id]);
 
     // Wait until the note is consumed on the node
-    sync_until_no_notes(&store_path, &temp_dir, NoteFilter::Committed);
+    sync_until_no_notes(&store_path, &temp_dir, NoteFilter::Processing);
 }
 
 // This tests that it's possible to export and import notes into other CLIs. To do so it:
