@@ -18,6 +18,7 @@ crate-type = ["lib"]
 [[bin]]
 name = "miden"
 path = "src/main.rs"
+required-features = ["executable"]
 
 [[test]]
 name = "integration"
@@ -26,21 +27,20 @@ required-features = ["integration"]
 
 [features]
 async = ["miden-tx/async"]
-concurrent = ["miden-lib/concurrent", "miden-objects/concurrent", "miden-tx/concurrent"]
-default = ["std", "clap", "comfy-table", "figment", "lazy_static", "miden-node-proto", "rusqlite", "rusqlite_migration", "tokio", "tonic", "toml"]
-integration = ["testing", "concurrent", "uuid", "assert_cmd"]
+concurrent = ["miden-lib/concurrent", "miden-objects/concurrent", "miden-tx/concurrent", "std"]
+default = ["std", "dep:hex", "dep:thiserror", "dep:prost"]
+executable = ["std", "sqlite", "tonic", "dep:clap", "dep:comfy-table", "dep:figment", "dep:tokio", "dep:toml"]
+integration = ["concurrent", "executable", "testing"]
+sqlite = ["dep:rusqlite", "dep:rusqlite_migration", "dep:lazy_static"]
 std = ["miden-objects/std"]
 testing = ["miden-objects/testing", "miden-lib/testing"]
-test_utils = ["miden-objects/testing"]
-wasm = ["std", "async", "getrandom", "hex", "thiserror", "prost"]
+tonic = ["dep:tonic", "dep:miden-node-proto"]
 
 [dependencies]
-assert_cmd = { version = "2.0", optional = true }
 chrono = { version = "0.4", optional = false }
 clap = { version = "4.3", features = ["derive"], optional = true }
 comfy-table = { version = "7.1.0", optional = true } 
 figment = { version = "0.10", features = ["toml", "env"], optional = true }
-getrandom = { version = "0.2", features = ["js"], optional = true }
 hex = { version = "0.4", optional = true }
 lazy_static = { version = "1.4.0", optional = true }
 miden-lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false }
@@ -53,18 +53,20 @@ rusqlite = { version = "0.30.0", features = ["vtab", "array", "bundled"], option
 rusqlite_migration = { version = "1.0", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
-thiserror = { version = "1.0", optional = true }
 tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"], optional = true }
-toml = { version = "0.8", optional = true }
 tonic = { version = "0.11", optional = true }
+toml = { version = "0.8", optional = true }
+thiserror = { version = "1.0", optional = true }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3" }
-uuid = { version = "1.6.1", features = ["serde", "v4"], optional = true }
 winter-maybe-async = "0.10.0"
 
+[target.'wasm32-unknown-unknown'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }
+
 [dev-dependencies]
-# needed for tests to run always with the test utils feature
-miden_client = { package = "miden-client", path = ".", features = [
-    "test_utils",
-    "uuid",
-] }
+# To enable testing feature during tests
+miden-lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["testing"] }
+miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["serde", "testing"] }
+uuid = { version = "1.6.1", features = ["serde", "v4"] }
+assert_cmd = { version = "2.0" }

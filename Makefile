@@ -7,7 +7,7 @@ help: ## Show description of all commands
 # --- Variables -----------------------------------------------------------------------------------
 
 FEATURES_INTEGRATION_TESTING="integration"
-FEATURES_CLI="testing,concurrent"
+FEATURES_CLI="testing, executable, concurrent"
 NODE_FEATURES_TESTING="testing"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
 NODE_BRANCH="next"
@@ -16,11 +16,11 @@ NODE_BRANCH="next"
 
 .PHONY: clippy
 clippy: ## Runs clippy on all targets with config
-	cargo +nightly clippy --workspace --tests --all-targets --all-features -- -D clippy::all -D warnings
+	cargo +nightly clippy --workspace --tests --all-targets --features executable -- -D clippy::all -D warnings
 
 .PHONY: fix
 fix: ## Runs Fix with configs
-	cargo +nightly fix --allow-staged --allow-dirty --all-targets --all-features
+	cargo +nightly fix --allow-staged --allow-dirty --all-targets --features executable
 
 .PHONY: format
 format: ## Runs format using nightly toolchain
@@ -57,13 +57,13 @@ doc: ## Generates & checks rust documentation
 
 .PHONY: test
 test: ## Run tests
-	cargo nextest run --release --workspace
+	cargo nextest run --release --workspace --features $(FEATURES_CLI)
 
 # --- Integration testing -------------------------------------------------------------------------
 
 .PHONY: integration-test
 integration-test: ## Run integration tests
-	cargo nextest run --no-capture --release --test=integration --features $(FEATURES_INTEGRATION_TESTING)
+	cargo nextest run --no-capture --release --test=integration --features $(FEATURES_INTEGRATION_TESTING) --no-default-features
 
 .PHONY: integration-test-full
 integration-test-full: ## Run the integration test binary with ignored tests included
@@ -98,3 +98,6 @@ install: ## Installs the CLI binary using the current dir
 
 build: ## Builds the CLI binary and client library in release mode
 	cargo build --release --features $(FEATURES_CLI)
+
+build-wasm: ## Builds the CLI binary for wasm32
+	cargo build --target wasm32-unknown-unknown --features async 

@@ -1,8 +1,9 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
 use miden_client::{
-    client::{rpc::NodeRpcClient, Client},
+    rpc::NodeRpcClient,
     store::{InputNoteRecord, Store},
+    Client,
 };
 use miden_objects::crypto::rand::FeltRng;
 use miden_tx::{auth::TransactionAuthenticator, utils::Serializable};
@@ -35,6 +36,7 @@ impl ExportCmd {
 
 // EXPORT NOTE
 // ================================================================================================
+
 pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
     client: &Client<N, R, S, A>,
     note_id: &str,

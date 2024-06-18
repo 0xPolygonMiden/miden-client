@@ -9,7 +9,9 @@ use miden_objects::{
     BlockHeader, Digest, Word,
 };
 use rusqlite::{types::Value, vtab::array, Connection};
+use winter_maybe_async::maybe_async;
 
+use self::config::SqliteStoreConfig;
 use super::{
     ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store, TransactionFilter,
 };
@@ -18,13 +20,13 @@ use crate::{
         sync::StateSyncUpdate,
         transactions::{TransactionRecord, TransactionResult},
     },
-    config::StoreConfig,
     errors::StoreError,
     store::note_record::{NOTE_STATUS_COMMITTED, NOTE_STATUS_PROCESSING},
 };
 
 mod accounts;
 mod chain_data;
+pub mod config;
 pub(crate) mod migrations;
 mod notes;
 mod sync;
@@ -100,8 +102,8 @@ impl SqliteStore {
     // --------------------------------------------------------------------------------------------
 
     /// Returns a new instance of [Store] instantiated with the specified configuration options.
-    pub fn new(config: StoreConfig) -> Result<Self, StoreError> {
-        let mut db = Connection::open(config.database_filepath)?;
+    pub fn new(config: &SqliteStoreConfig) -> Result<Self, StoreError> {
+        let mut db = Connection::open(config.database_filepath.clone())?;
         array::load_module(&db)?;
         migrations::update_to_latest(&mut db)?;
 
@@ -119,26 +121,32 @@ impl SqliteStore {
 // To simplify, all implementations rely on inner SqliteStore functions that map 1:1 by name
 // This way, the actual implementations are grouped by entity types in their own sub-modules
 impl Store for SqliteStore {
+    #[maybe_async]
     fn get_note_tags(&self) -> Result<Vec<NoteTag>, StoreError> {
         self.get_note_tags()
     }
 
+    #[maybe_async]
     fn add_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError> {
         self.add_note_tag(tag)
     }
 
+    #[maybe_async]
     fn remove_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError> {
         self.remove_note_tag(tag)
     }
 
+    #[maybe_async]
     fn get_sync_height(&self) -> Result<u32, StoreError> {
         self.get_sync_height()
     }
 
+    #[maybe_async]
     fn apply_state_sync(&self, state_sync_update: StateSyncUpdate) -> Result<(), StoreError> {
         self.apply_state_sync(state_sync_update)
     }
 
+    #[maybe_async]
     fn get_transactions(
         &self,
         transaction_filter: TransactionFilter,
@@ -146,25 +154,33 @@ impl Store for SqliteStore {
         self.get_transactions(transaction_filter)
     }
 
+    #[maybe_async]
     fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), StoreError> {
         self.apply_transaction(tx_result)
     }
 
-    fn get_input_notes(&self, note_filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError> {
+    #[maybe_async]
+    fn get_input_notes(
+        &self,
+        note_filter: NoteFilter<'_>,
+    ) -> Result<Vec<InputNoteRecord>, StoreError> {
         self.get_input_notes(note_filter)
     }
 
+    #[maybe_async]
     fn get_output_notes(
         &self,
-        note_filter: NoteFilter,
+        note_filter: NoteFilter<'_>,
     ) -> Result<Vec<OutputNoteRecord>, StoreError> {
         self.get_output_notes(note_filter)
     }
 
+    #[maybe_async]
     fn insert_input_note(&self, note: &InputNoteRecord) -> Result<(), StoreError> {
         self.insert_input_note(note)
     }
 
+    #[maybe_async]
     fn insert_block_header(
         &self,
         block_header: BlockHeader,
@@ -174,6 +190,7 @@ impl Store for SqliteStore {
         self.insert_block_header(block_header, chain_mmr_peaks, has_client_notes)
     }
 
+    #[maybe_async]
     fn get_block_headers(
         &self,
         block_numbers: &[u32],
@@ -181,25 +198,30 @@ impl Store for SqliteStore {
         self.get_block_headers(block_numbers)
     }
 
+    #[maybe_async]
     fn get_tracked_block_headers(&self) -> Result<Vec<BlockHeader>, StoreError> {
         self.get_tracked_block_headers()
     }
 
+    #[maybe_async]
     fn get_chain_mmr_nodes(
         &self,
-        filter: ChainMmrNodeFilter,
+        filter: ChainMmrNodeFilter<'_>,
     ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
         self.get_chain_mmr_nodes(filter)
     }
 
+    #[maybe_async]
     fn insert_chain_mmr_nodes(&self, nodes: &[(InOrderIndex, Digest)]) -> Result<(), StoreError> {
         self.insert_chain_mmr_nodes(nodes)
     }
 
+    #[maybe_async]
     fn get_chain_mmr_peaks_by_block_num(&self, block_num: u32) -> Result<MmrPeaks, StoreError> {
         self.get_chain_mmr_peaks_by_block_num(block_num)
     }
 
+    #[maybe_async]
     fn insert_account(
         &self,
         account: &Account,
@@ -209,14 +231,17 @@ impl Store for SqliteStore {
         self.insert_account(account, account_seed, auth_info)
     }
 
+    #[maybe_async]
     fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {
         self.get_account_ids()
     }
 
+    #[maybe_async]
     fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, StoreError> {
         self.get_account_stubs()
     }
 
+    #[maybe_async]
     fn get_account_stub(
         &self,
         account_id: AccountId,
@@ -224,10 +249,12 @@ impl Store for SqliteStore {
         self.get_account_stub(account_id)
     }
 
+    #[maybe_async]
     fn get_account(&self, account_id: AccountId) -> Result<(Account, Option<Word>), StoreError> {
         self.get_account(account_id)
     }
 
+    #[maybe_async]
     fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, StoreError> {
         self.get_account_auth(account_id)
     }

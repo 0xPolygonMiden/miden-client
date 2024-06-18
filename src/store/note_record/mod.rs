@@ -16,7 +16,6 @@ mod output_note_record;
 pub use input_note_record::InputNoteRecord;
 pub use output_note_record::OutputNoteRecord;
 
-#[cfg_attr(feature = "wasm", allow(rustdoc::broken_intra_doc_links))]
 /// This module defines common structs to be used within the [Store](crate::store::Store) for notes
 /// that are available to be consumed ([InputNoteRecord]) and notes that have been produced as a
 /// result of executing a transaction ([OutputNoteRecord]).
@@ -26,9 +25,9 @@ pub use output_note_record::OutputNoteRecord;
 /// ## Serialization / Deserialization
 ///
 /// We provide serialization and deserialization support via [Serializable] and [Deserializable]
-/// traits implementations, and also via [Serialize] and [Deserialize] from `serde` to provide the
+/// traits implementations, and also via [Serialize] and [Deserialize] from `serde`, to provide the
 /// ability to serialize most fields into JSON. This is useful for example if you want to store
-/// some fields as json columns like we do in
+/// some fields as JSON columns like we do in
 /// [SqliteStore](crate::store::sqlite_store::SqliteStore). For example, suppose we want to store
 /// [InputNoteRecord]'s metadata field in a JSON column. In that case, we could do something like:
 ///
@@ -45,7 +44,7 @@ pub use output_note_record::OutputNoteRecord;
 ///
 /// We also facilitate converting from/into [InputNote](miden_objects::transaction::InputNote) /
 /// [Note](miden_objects::notes::Note), although this is not always possible. Check both
-/// [InputNoteRecord]'s and [OutputNoteRecord]'s documentation for more details into this
+/// [InputNoteRecord]'s and [OutputNoteRecord]'s documentation for more details about this.
 
 // NOTE STATUS
 // ================================================================================================

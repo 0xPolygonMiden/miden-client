@@ -6,7 +6,7 @@ use winter_maybe_async::{maybe_async, maybe_await};
 
 use super::transactions::transaction_request::known_script_roots::{P2ID, P2IDR, SWAP};
 use crate::{
-    errors::{InvalidNoteInputsError, ScreenerError},
+    errors::{InvalidNoteInputsError, NoteScreenerError},
     store::Store,
 };
 
@@ -48,7 +48,10 @@ impl<S: Store> NoteScreener<S> {
     /// unable to execute notes that are not committed so a slow check for other scripts is currently
     /// not available.
     #[maybe_async]
-    pub fn check_relevance(&self, note: &Note) -> Result<Vec<NoteConsumability>, ScreenerError> {
+    pub fn check_relevance(
+        &self,
+        note: &Note,
+    ) -> Result<Vec<NoteConsumability>, NoteScreenerError> {
         let account_ids = BTreeSet::from_iter(maybe_await!(self.store.get_account_ids())?);
 
         let script_hash = note.script().hash().to_string();
@@ -65,7 +68,7 @@ impl<S: Store> NoteScreener<S> {
     fn check_p2id_relevance(
         note: &Note,
         account_ids: &BTreeSet<AccountId>,
-    ) -> Result<Vec<NoteConsumability>, ScreenerError> {
+    ) -> Result<Vec<NoteConsumability>, NoteScreenerError> {
         let mut note_inputs_iter = note.inputs().values().iter();
         let account_id_felt = note_inputs_iter
             .next()
@@ -87,7 +90,7 @@ impl<S: Store> NoteScreener<S> {
     fn check_p2idr_relevance(
         note: &Note,
         account_ids: &BTreeSet<AccountId>,
-    ) -> Result<Vec<NoteConsumability>, ScreenerError> {
+    ) -> Result<Vec<NoteConsumability>, NoteScreenerError> {
         let mut note_inputs_iter = note.inputs().values().iter();
         let account_id_felt = note_inputs_iter
             .next()
@@ -131,7 +134,7 @@ impl<S: Store> NoteScreener<S> {
         &self,
         note: &Note,
         account_ids: &BTreeSet<AccountId>,
-    ) -> Result<Vec<NoteConsumability>, ScreenerError> {
+    ) -> Result<Vec<NoteConsumability>, NoteScreenerError> {
         let note_inputs = note.inputs().values().to_vec();
         if note_inputs.len() != 9 {
             return Ok(Vec::new());
@@ -179,7 +182,7 @@ impl<S: Store> NoteScreener<S> {
         &self,
         _note: &Note,
         account_ids: &BTreeSet<AccountId>,
-    ) -> Result<Vec<NoteConsumability>, ScreenerError> {
+    ) -> Result<Vec<NoteConsumability>, NoteScreenerError> {
         // TODO: try to execute the note script against relevant accounts; this will
         // require querying data from the store
         Ok(account_ids

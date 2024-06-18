@@ -1,7 +1,6 @@
 use alloc::collections::BTreeMap;
+use core::fmt::Debug;
 
-#[cfg(not(feature = "wasm"))]
-use clap::error::Result;
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
@@ -19,7 +18,8 @@ use crate::{
 };
 
 pub mod data_store;
-#[cfg(not(feature = "wasm"))]
+
+#[cfg(feature = "sqlite")]
 pub mod sqlite_store;
 
 mod note_record;

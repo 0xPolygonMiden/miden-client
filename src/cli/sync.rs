@@ -1,7 +1,4 @@
-use miden_client::{
-    client::{rpc::NodeRpcClient, Client},
-    store::Store,
-};
+use miden_client::{rpc::NodeRpcClient, store::Store, Client};
 use miden_objects::crypto::rand::FeltRng;
 use miden_tx::auth::TransactionAuthenticator;
 

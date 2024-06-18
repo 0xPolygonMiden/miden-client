@@ -3,20 +3,21 @@ use std::{env, rc::Rc};
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
-    client::{
-        get_random_coin,
-        rpc::{NodeRpcClient, TonicRpcClient},
-        store_authenticator::StoreAuthenticator,
-        Client,
-    },
     errors::{ClientError, IdPrefixFetchError},
+    rpc::{NodeRpcClient, TonicRpcClient},
     store::{
         sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter,
         OutputNoteRecord, Store,
     },
+    Client, StoreAuthenticator,
 };
-use miden_objects::{accounts::AccountStub, crypto::rand::FeltRng};
+use miden_objects::{
+    accounts::AccountStub,
+    crypto::rand::{FeltRng, RpoRandomCoin},
+    Felt,
+};
 use miden_tx::auth::TransactionAuthenticator;
+use rand::Rng;
 use tracing::info;
 use transactions::TransactionCmd;
 
@@ -33,6 +34,7 @@ use self::{
 };
 
 mod account;
+mod config;
 mod export;
 mod import;
 mod info;
@@ -110,15 +112,18 @@ impl Cli {
         };
 
         // Create the client
-        let (client_config, _config_path) = load_config_file()?;
-        let store = SqliteStore::new((&client_config).into()).map_err(ClientError::StoreError)?;
+        let (cli_config, _config_path) = load_config_file()?;
+        let store = SqliteStore::new(&cli_config.store).map_err(ClientError::StoreError)?;
         let store = Rc::new(store);
 
-        let rng = get_random_coin();
+        let mut rng = rand::thread_rng();
+        let coin_seed: [u64; 4] = rng.gen();
+
+        let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
         let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
 
         let client = Client::new(
-            TonicRpcClient::new(&client_config.rpc),
+            TonicRpcClient::new(&cli_config.rpc),
             rng,
             store,
             authenticator,
@@ -132,7 +137,7 @@ impl Cli {
             Command::NewWallet(new_wallet) => new_wallet.execute(client),
             Command::Import(import) => import.execute(client).await,
             Command::Init(_) => Ok(()),
-            Command::Info => info::print_client_info(&client, &client_config),
+            Command::Info => info::print_client_info(&client, &cli_config),
             Command::Notes(notes) => notes.execute(client).await,
             Command::Sync => sync::sync_state(client).await,
             Command::Tags(tags) => tags.execute(client).await,
