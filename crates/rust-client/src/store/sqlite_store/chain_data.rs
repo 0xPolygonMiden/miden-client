@@ -245,7 +245,7 @@ fn parse_chain_mmr_nodes(
     Ok((id, node))
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "executable"))]
 mod test {
     use miden_objects::{crypto::merkle::MmrPeaks, BlockHeader};
 
