@@ -87,9 +87,39 @@ impl SyncSummary {
     }
 }
 
+impl From<&StateSyncUpdate> for SyncSummary {
+    fn from(sync_update: &StateSyncUpdate) -> Self {
+        let updated_output_note_ids =
+            sync_update.synced_new_notes.updated_output_notes.iter().map(|(id, _)| *id);
+        let updated_input_note_ids =
+            sync_update.synced_new_notes.updated_input_notes.iter().map(|n| n.note().id());
+
+        let updated_note_set: BTreeSet<NoteId> =
+            updated_input_note_ids.chain(updated_output_note_ids).collect();
+
+        SyncSummary::new(
+            sync_update.block_header.block_num(),
+            sync_update.synced_new_notes.new_public_notes().len(),
+            updated_note_set.len(),
+            sync_update.nullifiers.len(),
+            sync_update.updated_onchain_accounts.len(),
+            sync_update.transactions_to_commit.len(),
+        )
+    }
+}
+
 pub enum SyncStatus {
     SyncedToLastBlock(SyncSummary),
     SyncedToBlock(SyncSummary),
+}
+
+impl SyncStatus {
+    pub fn sync_summary(&self) -> &SyncSummary {
+        match self {
+            SyncStatus::SyncedToLastBlock(summary) => summary,
+            SyncStatus::SyncedToBlock(summary) => summary,
+        }
+    }
 }
 
 /// Contains information about new notes as consequence of a sync
@@ -136,7 +166,7 @@ impl SyncedNewNotes {
     }
 }
 
-/// Contains all information needed to perform the update after syncing with the node
+/// Contains all information needed to apply the update in the store after syncing with the node
 pub struct StateSyncUpdate {
     pub block_header: BlockHeader,
     pub nullifiers: Vec<Digest>,
@@ -166,7 +196,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
     /// Returns the list of note tags tracked by the client.
     ///
-    /// When syncing the state with the node, these tags will be added to the sync request and note-related information will be retrieved for notes that have matching tags.
+    /// When syncing the state with the node, these tags will be added to the sync request and
+    /// note-related information will be retrieved for notes that have matching tags.
     ///
     /// Note: Tags for accounts that are being tracked by the client are managed automatically by the client and do not need to be added here. That is, notes for managed accounts will be retrieved automatically by the client when syncing.
     #[maybe_async]
@@ -205,17 +236,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// Returns the block number the client has been synced to.
     pub async fn sync_state(&mut self) -> Result<SyncSummary, ClientError> {
         self.ensure_genesis_in_place().await?;
-        let mut total_sync_details = SyncSummary::new_empty(0);
+        let mut total_sync_summary = SyncSummary::new_empty(0);
         loop {
             let response = self.sync_state_once().await?;
-            let details = match &response {
-                SyncStatus::SyncedToLastBlock(v) => v,
-                SyncStatus::SyncedToBlock(v) => v,
-            };
-            total_sync_details.combine_with(details);
+            total_sync_summary.combine_with(response.sync_summary());
 
             if let SyncStatus::SyncedToLastBlock(_) = response {
-                return Ok(total_sync_details);
+                return Ok(total_sync_summary);
             }
         }
     }
@@ -314,6 +341,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let updated_onchain_accounts = self
             .get_updated_onchain_accounts(&response.account_hash_updates, &onchain_accounts)
             .await?;
+
         self.validate_local_account_hashes(&response.account_hash_updates, &offchain_accounts)?;
 
         // Derive new nullifiers data
@@ -321,7 +349,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         // Build PartialMmr with current data and apply updates
         let (new_peaks, new_authentication_nodes) = {
-            let current_partial_mmr = maybe_await!(self.build_current_partial_mmr())?;
+            let current_partial_mmr = maybe_await!(self.build_current_partial_mmr(false))?;
 
             let (current_block, has_relevant_notes) =
                 maybe_await!(self.store.get_block_header_by_num(current_block_num))?;
@@ -344,15 +372,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             &response.account_hash_updates,
         );
 
-        let num_new_notes = new_note_details.new_public_notes.len();
-        let updated_ids: BTreeSet<NoteId> = new_note_details
-            .updated_input_notes
-            .iter()
-            .map(|n| n.note().id())
-            .chain(new_note_details.updated_output_notes.iter().map(|(id, _)| *id))
-            .collect();
-        let num_new_inclusion_proofs = updated_ids.len();
-        let num_new_nullifiers = new_nullifiers.len();
         let state_sync_update = StateSyncUpdate {
             block_header: response.block_header,
             nullifiers: new_nullifiers,
@@ -364,28 +383,17 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             block_has_relevant_notes: incoming_block_has_relevant_notes,
         };
 
+        // Store summary to return later
+        let sync_summary = SyncSummary::from(&state_sync_update);
+
         // Apply received and computed updates to the store
         maybe_await!(self.store.apply_state_sync(state_sync_update))
             .map_err(ClientError::StoreError)?;
 
         if response.chain_tip == response.block_header.block_num() {
-            Ok(SyncStatus::SyncedToLastBlock(SyncSummary::new(
-                response.chain_tip,
-                num_new_notes,
-                num_new_inclusion_proofs,
-                num_new_nullifiers,
-                updated_onchain_accounts.len(),
-                transactions_to_commit.len(),
-            )))
+            Ok(SyncStatus::SyncedToLastBlock(sync_summary))
         } else {
-            Ok(SyncStatus::SyncedToBlock(SyncSummary::new(
-                response.block_header.block_num(),
-                num_new_notes,
-                num_new_inclusion_proofs,
-                num_new_nullifiers,
-                updated_onchain_accounts.len(),
-                transactions_to_commit.len(),
-            )))
+            Ok(SyncStatus::SyncedToBlock(sync_summary))
         }
     }
 
@@ -554,7 +562,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// As part of the syncing process, we add the current block number so we don't need to
     /// track it here.
     #[maybe_async]
-    pub(crate) fn build_current_partial_mmr(&self) -> Result<PartialMmr, ClientError> {
+    pub(crate) fn build_current_partial_mmr(
+        &self,
+        include_current_block: bool,
+    ) -> Result<PartialMmr, ClientError> {
         let current_block_num = maybe_await!(self.store.get_sync_height())?;
 
         let tracked_nodes = maybe_await!(self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All))?;
@@ -571,7 +582,17 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             false
         };
 
-        Ok(PartialMmr::from_parts(current_peaks, tracked_nodes, track_latest))
+        let mut current_partial_mmr =
+            PartialMmr::from_parts(current_peaks, tracked_nodes, track_latest);
+
+        if include_current_block {
+            let (current_block, has_client_notes) =
+                maybe_await!(self.store.get_block_header_by_num(current_block_num))?;
+
+            current_partial_mmr.add(current_block.hash(), has_client_notes);
+        }
+
+        Ok(current_partial_mmr)
     }
 
     /// Extracts information about nullifiers for unspent input notes that the client is tracking
@@ -641,12 +662,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     }
 
     /// Retrieves and stores a [BlockHeader] by number, and stores its authentication data as well.
+    ///
+    /// If the store already contains MMR data for the requested block number, the request is not
+    /// done and the stored block header is returned.
     pub(crate) async fn get_and_store_authenticated_block(
         &mut self,
         block_num: u32,
+        current_partial_mmr: &mut PartialMmr,
     ) -> Result<BlockHeader, ClientError> {
-        let mut current_partial_mmr = maybe_await!(self.build_current_partial_mmr())?;
-
         if current_partial_mmr.is_tracked(block_num as usize) {
             warn!("Current partial MMR already contains the requested data");
             let (block_header, _) = maybe_await!(self.store.get_block_header_by_num(block_num))?;
@@ -656,22 +679,15 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let (block_header, mmr_proof) =
             self.rpc_api.get_block_header_by_number(Some(block_num), true).await?;
 
-        let mut path_nodes: Vec<(InOrderIndex, Digest)> = vec![];
-
         let mmr_proof = mmr_proof
             .expect("NodeRpcApi::get_block_header_by_number() should have returned an MMR proof");
-        // Trim merkle path to keep nodes relevant to our current PartialMmr
-        let rightmost_index = InOrderIndex::from_leaf_pos(current_partial_mmr.forest() - 1);
-        let mut idx = InOrderIndex::from_leaf_pos(block_num as usize);
-        for node in mmr_proof.merkle_path {
-            idx = idx.sibling();
-            // Rightmost index is always the biggest value, so if the path contains any node
-            // past it, we can discard it for our version of the forest
-            if idx <= rightmost_index {
-                path_nodes.push((idx, node));
-            }
-            idx = idx.parent();
-        }
+        // Trim merkle path to keep nodes relevant to our current PartialMmr since the node's MMR
+        // might be of a forest arbitrarily higher
+        let path_nodes = adjust_merkle_path_for_forest(
+            &mmr_proof.merkle_path,
+            block_num as usize,
+            current_partial_mmr.forest(),
+        );
 
         let merkle_path = MerklePath::new(path_nodes.iter().map(|(_, n)| *n).collect());
 
@@ -693,6 +709,40 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
 // UTILS
 // --------------------------------------------------------------------------------------------
+
+/// Returns a merkle path nodes for a specific block adjusted for a defined forest size.
+/// This function trims the merkle path to include only the nodes that are relevant for
+/// the MMR forest.
+///
+/// # Parameters
+/// - `merkle_path`: Original merkle path.
+/// - `block_num`: The block number for which the path is computed.
+/// - `forest`: The target size of the forest
+fn adjust_merkle_path_for_forest(
+    merkle_path: &MerklePath,
+    block_num: usize,
+    forest: usize,
+) -> Vec<(InOrderIndex, Digest)> {
+    if forest - 1 < block_num {
+        panic!("Can't adjust merkle path for a forest that does not include the block number");
+    }
+
+    let rightmost_index = InOrderIndex::from_leaf_pos(forest - 1);
+
+    let mut idx = InOrderIndex::from_leaf_pos(block_num);
+    let mut path_nodes = vec![];
+    for node in merkle_path.iter() {
+        idx = idx.sibling();
+        // Rightmost index is always the biggest value, so if the path contains any node
+        // past it, we can discard it for our version of the forest
+        if idx <= rightmost_index {
+            path_nodes.push((idx, *node));
+        }
+        idx = idx.parent();
+    }
+
+    path_nodes
+}
 
 /// Applies changes to the Mmr structure, storing authentication nodes for leaves we track
 /// and returns the updated [PartialMmr]
