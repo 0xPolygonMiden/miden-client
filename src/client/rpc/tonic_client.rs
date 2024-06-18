@@ -14,13 +14,14 @@ use miden_node_proto::{
 use miden_objects::{
     accounts::{Account, AccountId},
     crypto::merkle::{MerklePath, MmrProof},
-    notes::{Note, NoteId, NoteMetadata, NoteTag, NoteType},
+    notes::{Note, NoteId, NoteTag},
     transaction::ProvenTransaction,
     utils::Deserializable,
-    BlockHeader, Digest, Felt,
+    BlockHeader, Digest,
 };
 use miden_tx::utils::Serializable;
 use tonic::transport::Channel;
+use tracing::info;
 
 use super::{
     AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
@@ -96,6 +97,8 @@ impl NodeRpcClient for TonicRpcClient {
             include_mmr_proof: Some(include_mmr_proof),
         };
 
+        info!("Calling GetBlockHeaderByNumber: {:?}", request);
+
         let rpc_api = self.rpc_api().await?;
         let api_response = rpc_api.get_block_header_by_number(request).await.map_err(|err| {
             RpcError::RequestError(
@@ -149,12 +152,6 @@ impl NodeRpcClient for TonicRpcClient {
         let rpc_notes = api_response.into_inner().notes;
         let mut response_notes = Vec::with_capacity(rpc_notes.len());
         for note in rpc_notes {
-            let sender_id = note
-                .metadata
-                .clone()
-                .and_then(|metadata| metadata.sender)
-                .ok_or(RpcError::ExpectedFieldMissing("Metadata.Sender".into()))?;
-
             let inclusion_details = {
                 let merkle_path = note
                     .merkle_path
@@ -173,16 +170,12 @@ impl NodeRpcClient for TonicRpcClient {
                 },
                 // Off-chain notes do not have details
                 None => {
-                    let tag =
-                        note.metadata.ok_or(RpcError::ExpectedFieldMissing("Metadata".into()))?.tag;
-                    let note_tag = NoteTag::from(tag).validate(NoteType::OffChain)?;
-                    let note_metadata = NoteMetadata::new(
-                        sender_id.try_into()?,
-                        NoteType::OffChain,
-                        note_tag,
-                        Felt::default(),
-                    )?;
-                    let note_id: miden_objects::Digest = note
+                    let note_metadata = note
+                        .metadata
+                        .ok_or(RpcError::ExpectedFieldMissing("Metadata".into()))?
+                        .try_into()?;
+
+                    let note_id: Digest = note
                         .note_id
                         .ok_or(RpcError::ExpectedFieldMissing("Notes.NoteId".into()))?
                         .try_into()?;
@@ -328,27 +321,10 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                 .ok_or(RpcError::ExpectedFieldMissing("Notes.MerklePath".into()))?
                 .try_into()?;
 
-            let sender_account_id = note
+            let metadata = note
                 .metadata
-                .clone()
-                .and_then(|m| m.sender)
-                .ok_or(RpcError::ExpectedFieldMissing("Notes.Metadata.Sender".into()))?
+                .ok_or(RpcError::ExpectedFieldMissing("Metadata".into()))?
                 .try_into()?;
-
-            let tag = note
-                .metadata
-                .clone()
-                .ok_or(RpcError::ExpectedFieldMissing("Notes.Metadata".into()))?
-                .tag;
-
-            let note_type = note
-                .metadata
-                .ok_or(RpcError::ExpectedFieldMissing("Notes.Metadata".into()))?
-                .note_type;
-
-            let note_type = NoteType::try_from(note_type)?;
-            let metadata =
-                NoteMetadata::new(sender_account_id, note_type, tag.into(), Default::default())?;
 
             let committed_note =
                 CommittedNote::new(note_id, note.note_index, merkle_path, metadata);
