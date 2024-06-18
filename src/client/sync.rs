@@ -349,7 +349,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         // Build PartialMmr with current data and apply updates
         let (new_peaks, new_authentication_nodes) = {
-            let current_partial_mmr = maybe_await!(self.build_current_partial_mmr())?;
+            let current_partial_mmr = maybe_await!(self.build_current_partial_mmr(false))?;
 
             let (current_block, has_relevant_notes) =
                 maybe_await!(self.store.get_block_header_by_num(current_block_num))?;
@@ -562,7 +562,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// As part of the syncing process, we add the current block number so we don't need to
     /// track it here.
     #[maybe_async]
-    pub(crate) fn build_current_partial_mmr(&self) -> Result<PartialMmr, ClientError> {
+    pub(crate) fn build_current_partial_mmr(
+        &self,
+        include_current_block: bool,
+    ) -> Result<PartialMmr, ClientError> {
         let current_block_num = maybe_await!(self.store.get_sync_height())?;
 
         let tracked_nodes = maybe_await!(self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All))?;
@@ -584,7 +587,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         if include_current_block {
             let (current_block, has_client_notes) =
-                self.store.get_block_header_by_num(current_block_num)?;
+                maybe_await!(self.store.get_block_header_by_num(current_block_num))?;
+
             current_partial_mmr.add(current_block.hash(), has_client_notes);
         }
 
@@ -666,8 +670,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         block_num: u32,
         current_partial_mmr: &mut PartialMmr,
     ) -> Result<BlockHeader, ClientError> {
-        let mut current_partial_mmr = maybe_await!(self.build_current_partial_mmr())?;
-
         if current_partial_mmr.is_tracked(block_num as usize) {
             warn!("Current partial MMR already contains the requested data");
             let (block_header, _) = maybe_await!(self.store.get_block_header_by_num(block_num))?;

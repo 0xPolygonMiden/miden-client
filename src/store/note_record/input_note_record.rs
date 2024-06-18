@@ -101,10 +101,6 @@ impl InputNoteRecord {
     pub fn consumer_account_id(&self) -> Option<AccountId> {
         self.consumer_account_id
     }
-
-    pub fn set_inclusion_proof(&mut self, inclusion_proof: Option<NoteInclusionProof>) {
-        self.inclusion_proof = inclusion_proof;
-    }
 }
 
 impl From<&NoteDetails> for InputNoteRecord {

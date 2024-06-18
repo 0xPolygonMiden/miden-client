@@ -31,7 +31,7 @@ use miden_objects::{
     BlockHeader, Felt, Word,
 };
 use rand::Rng;
-use tonic::{async_trait, Response, Status};
+use tonic::{Response, Status};
 use uuid::Uuid;
 
 use crate::{
@@ -133,7 +133,7 @@ impl NodeRpcClient for MockRpcApi {
         &mut self,
         block_num: Option<u32>,
         include_mmr_proof: bool,
-    ) -> Result<(BlockHeader, Option<MmrProof>), RpcClientError> {
+    ) -> Result<(BlockHeader, Option<MmrProof>), RpcError> {
         if block_num == Some(0) {
             return Ok((self.genesis_block, None));
         }
@@ -381,7 +381,6 @@ pub fn mock_full_chain_mmr_and_notes(
         .enumerate()
         .map(|(index, note)| {
             let block_header = &block_chain[index];
-            let auth_index = NodeIndex::new(NOTE_TREE_DEPTH, index as u64).unwrap();
             InputNote::authenticated(
                 note,
                 NoteInclusionProof::new(

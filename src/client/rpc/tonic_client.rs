@@ -20,7 +20,7 @@ use miden_objects::{
     BlockHeader, Digest,
 };
 use miden_tx::utils::Serializable;
-use tonic::{async_trait, transport::Channel};
+use tonic::transport::Channel;
 use tracing::info;
 
 use super::{
@@ -67,7 +67,7 @@ impl TonicRpcClient {
         }
     }
 }
-#[async_trait]
+
 impl NodeRpcClient for TonicRpcClient {
     async fn submit_proven_transaction(
         &mut self,
@@ -172,7 +172,7 @@ impl NodeRpcClient for TonicRpcClient {
                 None => {
                     let note_metadata = note
                         .metadata
-                        .ok_or(NodeRpcClientError::ExpectedFieldMissing("Metadata".into()))?
+                        .ok_or(RpcError::ExpectedFieldMissing("Metadata".into()))?
                         .try_into()?;
 
                     let note_id: Digest = note
@@ -323,7 +323,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
 
             let metadata = note
                 .metadata
-                .ok_or(NodeRpcClientError::ExpectedFieldMissing("Metadata".into()))?
+                .ok_or(RpcError::ExpectedFieldMissing("Metadata".into()))?
                 .try_into()?;
 
             let committed_note =

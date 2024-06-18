@@ -1,9 +1,9 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
 use clap::Parser;
-use miden_client::config::{ClientConfig, Endpoint};
+use miden_client::config::Endpoint;
 
-use crate::cli::CLIENT_CONFIG_FILE_NAME;
+use crate::cli::{config::CliConfig, CLIENT_CONFIG_FILE_NAME};
 
 // Init COMMAND
 // ================================================================================================
@@ -44,7 +44,7 @@ impl InitCmd {
             cli_config.store.database_filepath = path.to_string();
         }
 
-        let config_as_toml_string = toml::to_string_pretty(&client_config)
+        let config_as_toml_string = toml::to_string_pretty(&cli_config)
             .map_err(|err| format!("Error formatting config: {err}"))?;
 
         let mut file_handle = File::options()
