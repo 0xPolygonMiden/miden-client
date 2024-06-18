@@ -395,12 +395,3 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
         })
     }
 }
-
-// ERROR CONVERSIONS
-// ================================================================================================
-
-impl From<ConversionError> for RpcError {
-    fn from(err: ConversionError) -> Self {
-        Self::DeserializationError(err.to_string())
-    }
-}

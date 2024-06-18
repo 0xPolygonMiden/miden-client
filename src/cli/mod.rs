@@ -4,13 +4,12 @@ use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     auth::StoreAuthenticator,
-    errors::{ClientError, IdPrefixFetchError},
     rpc::{NodeRpcClient, TonicRpcClient},
     store::{
         sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter,
         OutputNoteRecord, Store,
     },
-    Client, ClientError,
+    Client, ClientError, IdPrefixFetchError,
 };
 use miden_objects::{
     accounts::AccountStub,

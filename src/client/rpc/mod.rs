@@ -4,7 +4,6 @@ use core::fmt;
 
 mod errors;
 pub use errors::RpcError;
-
 use miden_objects::{
     accounts::{Account, AccountId},
     crypto::merkle::{MerklePath, MmrDelta, MmrProof},
