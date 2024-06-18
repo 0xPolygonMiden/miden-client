@@ -308,6 +308,7 @@ async fn test_sync_state_mmr() {
     assert!(partial_mmr.open(3).unwrap().is_none());
     assert!(partial_mmr.open(4).unwrap().is_some());
     assert!(partial_mmr.open(5).unwrap().is_none());
+    assert!(partial_mmr.open(6).unwrap().is_none());
 
     // Ensure the proofs are valid
     let mmr_proof = partial_mmr.open(2).unwrap().unwrap();

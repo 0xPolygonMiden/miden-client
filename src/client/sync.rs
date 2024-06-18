@@ -679,7 +679,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let mmr_proof = mmr_proof
             .expect("NodeRpcApi::get_block_header_by_number() should have returned an MMR proof");
-        // Trim merkle path to keep nodes relevant to our current PartialMmr
+        // Trim merkle path to keep nodes relevant to our current PartialMmr since the node's MMR
+        // might be of a forest arbitrarily higher
         let path_nodes = adjust_merkle_path_for_forest(
             &mmr_proof.merkle_path,
             block_num as usize,
@@ -714,7 +715,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 /// # Parameters
 /// - `merkle_path`: Original merkle path.
 /// - `block_num`: The block number for which the path is computed.
-/// - `forest`: The size of the forest
+/// - `forest`: The target size of the forest
 fn adjust_merkle_path_for_forest(
     merkle_path: &MerklePath,
     block_num: usize,
