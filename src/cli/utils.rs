@@ -8,11 +8,7 @@ use figment::{
     providers::{Format, Toml},
     Figment,
 };
-use miden_client::{
-    client::{rpc::NodeRpcClient, Client},
-    config::ClientConfig,
-    store::Store,
-};
+use miden_client::{rpc::NodeRpcClient, store::Store, Client};
 use miden_objects::{
     accounts::AccountId,
     crypto::rand::FeltRng,
@@ -21,7 +17,7 @@ use miden_objects::{
 };
 use miden_tx::auth::TransactionAuthenticator;
 
-use super::{get_account_with_id_prefix, CLIENT_CONFIG_FILE_NAME};
+use super::{config::CliConfig, get_account_with_id_prefix, CLIENT_CONFIG_FILE_NAME};
 use crate::cli::info;
 
 /// Returns a tracked Account ID matching a hex string or the default one defined in the Client config
@@ -37,14 +33,11 @@ pub(crate) fn get_input_acc_id_by_prefix_or_default<
     let account_id_str = if let Some(account_id_prefix) = account_id {
         account_id_prefix
     } else {
-        let (miden_client_config, _) = load_config_file()?;
+        let (cli_config, _) = load_config_file()?;
 
-        let default_account_id = miden_client_config
-            .cli
-            .ok_or("No CLI config found in the configuration file")?
-            .default_account_id;
-
-        default_account_id.ok_or("No input account ID nor default account defined")?
+        cli_config
+            .default_account_id
+            .ok_or("No input account ID nor default account defined")?
     };
 
     parse_account_id(client, &account_id_str)
@@ -80,7 +73,7 @@ pub(crate) fn parse_account_id<
     Ok(account_id)
 }
 
-pub(crate) fn update_config(config_path: &Path, client_config: ClientConfig) -> Result<(), String> {
+pub(crate) fn update_config(config_path: &Path, client_config: CliConfig) -> Result<(), String> {
     let config_as_toml_string = toml::to_string_pretty(&client_config)
         .map_err(|err| format!("error formatting config: {err}"))?;
 
@@ -97,6 +90,46 @@ pub(crate) fn update_config(config_path: &Path, client_config: ClientConfig) -> 
 
     println!("Config updated successfully");
     Ok(())
+}
+
+/// Loads config file from current directory and default filename and returns it alongside its path
+///
+/// This function will look for the configuration file at the provided path. If the path is
+/// relative, searches in parent directories all the way to the root as well.
+pub(super) fn load_config_file() -> Result<(CliConfig, PathBuf), String> {
+    let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
+    current_dir.push(CLIENT_CONFIG_FILE_NAME);
+    let config_path = current_dir.as_path();
+
+    let cli_config = load_config(config_path)?;
+
+    Ok((cli_config, config_path.into()))
+}
+
+/// Loads the client configuration.
+fn load_config(config_file: &Path) -> Result<CliConfig, String> {
+    Figment::from(Toml::file(config_file))
+        .extract()
+        .map_err(|err| format!("Failed to load {} config file: {err}", config_file.display()))
+}
+
+/// Parses a fungible Asset and returns it as a tuple of the amount and the faucet account ID hex.
+///
+/// TODO: currently we'll only parse AccountId, however once we tackle
+/// [#258](https://github.com/0xPolygonMiden/miden-client/issues/258) we should also add the
+/// possibility to parse account aliases / token symbols dependeing on the path we choose.
+///
+/// # Errors
+///
+/// Will return an error if the provided `arg` doesn't match one of the expected format:
+///
+/// - `<AMOUNT>::<FAUCET_ID>`, such as `100::0x123456789`
+pub fn parse_fungible_asset(arg: &str) -> Result<(u64, AccountId), String> {
+    let (amount, faucet) = arg.split_once("::").ok_or("Separator `::` not found!")?;
+    let amount = amount.parse::<u64>().map_err(|err| err.to_string())?;
+    let faucet_id = AccountId::from_hex(faucet).map_err(|err| err.to_string())?;
+
+    Ok((amount, faucet_id))
 }
 
 /// Returns a note tag for a swap note with the specified parameters.
@@ -136,44 +169,4 @@ pub fn build_swap_tag(
         NoteType::Public => NoteTag::for_public_use_case(SWAP_USE_CASE_ID, payload, execution),
         _ => NoteTag::for_local_use_case(SWAP_USE_CASE_ID, payload),
     }
-}
-
-/// Loads config file from current directory and default filename and returns it alongside its path
-///
-/// This function will look for the configuration file at the provided path. If the path is
-/// relative, searches in parent directories all the way to the root as well.
-pub(super) fn load_config_file() -> Result<(ClientConfig, PathBuf), String> {
-    let mut current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
-    current_dir.push(CLIENT_CONFIG_FILE_NAME);
-    let config_path = current_dir.as_path();
-
-    let client_config = load_config(config_path)?;
-
-    Ok((client_config, config_path.into()))
-}
-
-/// Loads the client configuration.
-fn load_config(config_file: &Path) -> Result<ClientConfig, String> {
-    Figment::from(Toml::file(config_file))
-        .extract()
-        .map_err(|err| format!("Failed to load {} config file: {err}", config_file.display()))
-}
-
-/// Parses a fungible Asset and returns it as a tuple of the amount and the faucet account ID hex.
-///
-/// TODO: currently we'll only parse AccountId, however once we tackle
-/// [#258](https://github.com/0xPolygonMiden/miden-client/issues/258) we should also add the
-/// possibility to parse account aliases / token symbols dependeing on the path we choose.
-///
-/// # Errors
-///
-/// Will return an error if the provided `arg` doesn't match one of the expected format:
-///
-/// - `<AMOUNT>::<FAUCET_ID>`, such as `100::0x123456789`
-pub fn parse_fungible_asset(arg: &str) -> Result<(u64, AccountId), String> {
-    let (amount, faucet) = arg.split_once("::").ok_or("Separator `::` not found!")?;
-    let amount = amount.parse::<u64>().map_err(|err| err.to_string())?;
-    let faucet_id = AccountId::from_hex(faucet).map_err(|err| err.to_string())?;
-
-    Ok((amount, faucet_id))
 }

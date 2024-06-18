@@ -228,7 +228,7 @@ impl SwapTransactionData {
 pub mod known_script_roots {
     pub const P2ID: &str = "0x3df15bd183c3239332dcb535c6d0a25c668ead19a317fefe66fc2754e49ce4f1";
     pub const P2IDR: &str = "0xf6513a4c607de61288263e1d9346889e9393f3c4024bfb42efc0e2ce3c64ee72";
-    pub const SWAP: &str = "0x6de2624c7809c0fea41f03c11ae3acc26f93bdc6c64a914117b05aebf4934510";
+    pub const SWAP: &str = "0x5040bdb39e3e71d8ae4a93d65ff44d152f56192df97018a63b6b6342e87f97d5";
 }
 
 #[cfg(test)]
@@ -244,6 +244,7 @@ mod tests {
         assets::FungibleAsset,
         crypto::rand::RpoRandomCoin,
         notes::NoteType,
+        Felt, FieldElement,
     };
 
     use crate::client::transactions::transaction_request::known_script_roots::{P2ID, P2IDR, SWAP};
@@ -263,6 +264,7 @@ mod tests {
             account_id,
             vec![FungibleAsset::new(faucet_id, 100u64).unwrap().into()],
             NoteType::OffChain,
+            Felt::ZERO,
             &mut rng,
         )
         .unwrap();
@@ -271,6 +273,7 @@ mod tests {
             account_id,
             vec![FungibleAsset::new(faucet_id, 100u64).unwrap().into()],
             NoteType::OffChain,
+            Felt::ZERO,
             10,
             &mut rng,
         )
@@ -280,6 +283,7 @@ mod tests {
             FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
             FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
             NoteType::OffChain,
+            Felt::ZERO,
             &mut rng,
         )
         .unwrap();

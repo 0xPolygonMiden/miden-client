@@ -9,6 +9,7 @@ use miden_objects::{
     Felt, Word,
 };
 use miden_tx::auth::TransactionAuthenticator;
+use winter_maybe_async::{maybe_async, maybe_await};
 
 use super::{rpc::NodeRpcClient, Client};
 use crate::{errors::ClientError, store::Store};
@@ -31,20 +32,26 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // --------------------------------------------------------------------------------------------
 
     /// Creates a new [Account] based on an [AccountTemplate] and saves it in the store
+    #[maybe_async]
     pub fn new_account(
         &mut self,
         template: AccountTemplate,
     ) -> Result<(Account, Word), ClientError> {
         let account_and_seed = match template {
             AccountTemplate::BasicWallet { mutable_code, storage_type: storage_mode } => {
-                self.new_basic_wallet(mutable_code, storage_mode)
+                maybe_await!(self.new_basic_wallet(mutable_code, storage_mode))
             },
             AccountTemplate::FungibleFaucet {
                 token_symbol,
                 decimals,
                 max_supply,
                 storage_type: storage_mode,
-            } => self.new_fungible_faucet(token_symbol, decimals, max_supply, storage_mode),
+            } => maybe_await!(self.new_fungible_faucet(
+                token_symbol,
+                decimals,
+                max_supply,
+                storage_mode
+            )),
         }?;
 
         Ok(account_and_seed)
@@ -60,6 +67,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ///
     /// Will panic when trying to import a non-new account without a seed since this functionality
     /// is not currently implemented
+    #[maybe_async]
     pub fn import_account(&mut self, account_data: AccountData) -> Result<(), ClientError> {
         let account_seed = if !account_data.account.is_new() && account_data.account_seed.is_some()
         {
@@ -74,10 +82,15 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             account_data.account_seed
         };
 
-        self.insert_account(&account_data.account, account_seed, &account_data.auth_secret_key)
+        maybe_await!(self.insert_account(
+            &account_data.account,
+            account_seed,
+            &account_data.auth_secret_key
+        ))
     }
 
     /// Creates a new regular account and saves it in the store along with its seed and auth data
+    #[maybe_async]
     fn new_basic_wallet(
         &mut self,
         mutable_code: bool,
@@ -107,10 +120,15 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             )
         }?;
 
-        self.insert_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair))?;
+        maybe_await!(self.insert_account(
+            &account,
+            Some(seed),
+            &AuthSecretKey::RpoFalcon512(key_pair)
+        ))?;
         Ok((account, seed))
     }
 
+    #[maybe_async]
     fn new_fungible_faucet(
         &mut self,
         token_symbol: TokenSymbol,
@@ -136,7 +154,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             auth_scheme,
         )?;
 
-        self.insert_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair))?;
+        maybe_await!(self.insert_account(
+            &account,
+            Some(seed),
+            &AuthSecretKey::RpoFalcon512(key_pair)
+        ))?;
         Ok((account, seed))
     }
 
@@ -146,6 +168,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ///
     /// If an account is new and no seed is provided, the function errors out because the client
     /// cannot execute transactions against new accounts for which it does not know the seed.
+    #[maybe_async]
     pub fn insert_account(
         &mut self,
         account: &Account,
@@ -156,8 +179,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             return Err(ClientError::ImportNewAccountWithoutSeed);
         }
 
-        self.store
-            .insert_account(account, account_seed, auth_info)
+        maybe_await!(self.store.insert_account(account, account_seed, auth_info))
             .map_err(ClientError::StoreError)
     }
 
@@ -165,24 +187,27 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // --------------------------------------------------------------------------------------------
 
     /// Returns summary info about the accounts managed by this client.
+    #[maybe_async]
     pub fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, ClientError> {
-        self.store.get_account_stubs().map_err(|err| err.into())
+        maybe_await!(self.store.get_account_stubs()).map_err(|err| err.into())
     }
 
     /// Returns summary info about the specified account.
+    #[maybe_async]
     pub fn get_account(
         &self,
         account_id: AccountId,
     ) -> Result<(Account, Option<Word>), ClientError> {
-        self.store.get_account(account_id).map_err(|err| err.into())
+        maybe_await!(self.store.get_account(account_id)).map_err(|err| err.into())
     }
 
     /// Returns summary info about the specified account.
+    #[maybe_async]
     pub fn get_account_stub_by_id(
         &self,
         account_id: AccountId,
     ) -> Result<(AccountStub, Option<Word>), ClientError> {
-        self.store.get_account_stub(account_id).map_err(|err| err.into())
+        maybe_await!(self.store.get_account_stub(account_id)).map_err(|err| err.into())
     }
 
     /// Returns an [AuthSecretKey] object utilized to authenticate an account.
@@ -191,15 +216,16 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ///
     /// Returns a [ClientError::StoreError] with a [StoreError::AccountDataNotFound](crate::errors::StoreError::AccountDataNotFound) if the provided ID does
     /// not correspond to an existing account.
+    #[maybe_async]
     pub fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, ClientError> {
-        self.store.get_account_auth(account_id).map_err(|err| err.into())
+        maybe_await!(self.store.get_account_auth(account_id)).map_err(|err| err.into())
     }
 }
 
 // TESTS
 // ================================================================================================
 
-#[cfg(test)]
+#[cfg(all(test, feature = "executable"))]
 pub mod tests {
     use miden_objects::{
         accounts::{Account, AccountData, AccountId, AuthSecretKey},

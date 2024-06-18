@@ -1,6 +1,11 @@
 use core::fmt;
+#[cfg(not(feature = "tonic"))]
+use std::any::type_name;
 
+#[cfg(feature = "tonic")]
 use miden_node_proto::errors::ConversionError;
+#[cfg(not(feature = "tonic"))]
+use miden_objects::crypto::merkle::{SmtLeafError, SmtProofError};
 use miden_objects::{
     accounts::AccountId, crypto::merkle::MmrError, notes::NoteId, AccountError, AssetError,
     AssetVaultError, Digest, NoteError, TransactionScriptError, Word,
@@ -9,6 +14,50 @@ use miden_tx::{
     utils::{DeserializationError, HexParseError},
     DataStoreError, TransactionExecutorError, TransactionProverError,
 };
+#[cfg(not(feature = "tonic"))]
+use thiserror::Error;
+
+#[cfg(not(feature = "tonic"))]
+#[derive(Debug, Clone, PartialEq, Error)]
+pub enum ConversionError {
+    #[error("Hex error: {0}")]
+    HexError(#[from] hex::FromHexError),
+    #[error("SMT leaf error: {0}")]
+    SmtLeafError(#[from] SmtLeafError),
+    #[error("SMT proof error: {0}")]
+    SmtProofError(#[from] SmtProofError),
+    #[error("Too much data, expected {expected}, got {got}")]
+    TooMuchData { expected: usize, got: usize },
+    #[error("Not enough data, expected {expected}, got {got}")]
+    InsufficientData { expected: usize, got: usize },
+    #[error("Value is not in the range 0..MODULUS")]
+    NotAValidFelt,
+    #[error("Invalid note type value: {0}")]
+    NoteTypeError(#[from] NoteError),
+    #[error("Field `{field_name}` required to be filled in protobuf representation of {entity}")]
+    MissingFieldInProtobufRepresentation {
+        entity: &'static str,
+        field_name: &'static str,
+    },
+}
+
+#[cfg(not(feature = "tonic"))]
+impl Eq for ConversionError {}
+
+#[cfg(not(feature = "tonic"))]
+pub trait MissingFieldHelper {
+    fn missing_field(field_name: &'static str) -> ConversionError;
+}
+
+#[cfg(not(feature = "tonic"))]
+impl<T: prost::Message> MissingFieldHelper for T {
+    fn missing_field(field_name: &'static str) -> ConversionError {
+        ConversionError::MissingFieldInProtobufRepresentation {
+            entity: type_name::<T>(),
+            field_name,
+        }
+    }
+}
 
 // CLIENT ERROR
 // ================================================================================================
@@ -25,8 +74,8 @@ pub enum ClientError {
     NoteImportError(String),
     NoteRecordError(String),
     NoConsumableNoteForAccount(AccountId),
-    NodeRpcClientError(NodeRpcClientError),
-    ScreenerError(ScreenerError),
+    NodeRpcClientError(RpcError),
+    ScreenerError(NoteScreenerError),
     StoreError(StoreError),
     TransactionExecutorError(TransactionExecutorError),
     TransactionProvingError(TransactionProverError),
@@ -102,8 +151,8 @@ impl From<NoteError> for ClientError {
     }
 }
 
-impl From<NodeRpcClientError> for ClientError {
-    fn from(err: NodeRpcClientError) -> Self {
+impl From<RpcError> for ClientError {
+    fn from(err: RpcError) -> Self {
         Self::NodeRpcClientError(err)
     }
 }
@@ -126,12 +175,13 @@ impl From<TransactionProverError> for ClientError {
     }
 }
 
-impl From<ScreenerError> for ClientError {
-    fn from(err: ScreenerError) -> Self {
+impl From<NoteScreenerError> for ClientError {
+    fn from(err: NoteScreenerError) -> Self {
         Self::ScreenerError(err)
     }
 }
 
+#[cfg(feature = "sqlite")]
 impl From<rusqlite::Error> for ClientError {
     fn from(err: rusqlite::Error) -> Self {
         Self::StoreError(StoreError::from(err))
@@ -189,11 +239,14 @@ impl From<AccountError> for StoreError {
     }
 }
 
+#[cfg(feature = "sqlite")]
 impl From<rusqlite_migration::Error> for StoreError {
     fn from(value: rusqlite_migration::Error) -> Self {
         StoreError::DatabaseError(value.to_string())
     }
 }
+
+#[cfg(feature = "sqlite")]
 impl From<rusqlite::Error> for StoreError {
     fn from(value: rusqlite::Error) -> Self {
         match value {
@@ -327,7 +380,7 @@ impl std::error::Error for StoreError {}
 // ================================================================================================
 
 #[derive(Debug)]
-pub enum NodeRpcClientError {
+pub enum RpcError {
     ConnectionError(String),
     ConversionFailure(String),
     DeserializationError(DeserializationError),
@@ -337,81 +390,55 @@ pub enum NodeRpcClientError {
     RequestError(String, String),
 }
 
-impl fmt::Display for NodeRpcClientError {
+impl fmt::Display for RpcError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NodeRpcClientError::ConnectionError(err) => {
+            RpcError::ConnectionError(err) => {
                 write!(f, "failed to connect to the API server: {err}")
             },
-            NodeRpcClientError::ConversionFailure(err) => {
+            RpcError::ConversionFailure(err) => {
                 write!(f, "failed to convert RPC data: {err}")
             },
-            NodeRpcClientError::DeserializationError(err) => {
+            RpcError::DeserializationError(err) => {
                 write!(f, "failed to deserialize RPC data: {err}")
             },
-            NodeRpcClientError::ExpectedFieldMissing(err) => {
+            RpcError::ExpectedFieldMissing(err) => {
                 write!(f, "rpc API response missing an expected field: {err}")
             },
-            NodeRpcClientError::InvalidAccountReceived(account_error) => {
+            RpcError::InvalidAccountReceived(account_error) => {
                 write!(f, "rpc API response contained an invalid account: {account_error}")
             },
-            NodeRpcClientError::NoteError(err) => {
+            RpcError::NoteError(err) => {
                 write!(f, "rpc API note failed to validate: {err}")
             },
-            NodeRpcClientError::RequestError(endpoint, err) => {
+            RpcError::RequestError(endpoint, err) => {
                 write!(f, "rpc request failed for {endpoint}: {err}")
             },
         }
     }
 }
 
-impl From<AccountError> for NodeRpcClientError {
+impl From<AccountError> for RpcError {
     fn from(err: AccountError) -> Self {
         Self::InvalidAccountReceived(err.to_string())
     }
 }
 
-impl From<DeserializationError> for NodeRpcClientError {
+impl From<DeserializationError> for RpcError {
     fn from(err: DeserializationError) -> Self {
         Self::DeserializationError(err)
     }
 }
 
-impl From<NoteError> for NodeRpcClientError {
+impl From<NoteError> for RpcError {
     fn from(err: NoteError) -> Self {
         Self::NoteError(err)
     }
 }
 
-impl From<ConversionError> for NodeRpcClientError {
+impl From<ConversionError> for RpcError {
     fn from(err: ConversionError) -> Self {
         Self::ConversionFailure(err.to_string())
-    }
-}
-
-// ID PREFIX FETCH ERROR
-// ================================================================================================
-
-/// Error when Looking for a specific ID from a partial ID
-#[derive(Debug, Eq, PartialEq)]
-pub enum IdPrefixFetchError {
-    NoMatch(String),
-    MultipleMatches(String),
-}
-
-impl fmt::Display for IdPrefixFetchError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            IdPrefixFetchError::NoMatch(id) => {
-                write!(f, "No matches were found with the {id}.")
-            },
-            IdPrefixFetchError::MultipleMatches(id) => {
-                write!(
-                    f,
-                    "Found more than one element for the provided {id} and only one match is expected."
-                )
-            },
-        }
     }
 }
 
@@ -420,30 +447,30 @@ impl fmt::Display for IdPrefixFetchError {
 
 /// Error when screening notes to check relevance to a client
 #[derive(Debug)]
-pub enum ScreenerError {
+pub enum NoteScreenerError {
     InvalidNoteInputsError(InvalidNoteInputsError),
     StoreError(StoreError),
 }
 
-impl From<InvalidNoteInputsError> for ScreenerError {
+impl From<InvalidNoteInputsError> for NoteScreenerError {
     fn from(error: InvalidNoteInputsError) -> Self {
         Self::InvalidNoteInputsError(error)
     }
 }
 
-impl From<StoreError> for ScreenerError {
+impl From<StoreError> for NoteScreenerError {
     fn from(error: StoreError) -> Self {
         Self::StoreError(error)
     }
 }
 
-impl fmt::Display for ScreenerError {
+impl fmt::Display for NoteScreenerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ScreenerError::InvalidNoteInputsError(note_inputs_err) => {
+            NoteScreenerError::InvalidNoteInputsError(note_inputs_err) => {
                 write!(f, "error while processing note inputs: {note_inputs_err}")
             },
-            ScreenerError::StoreError(store_error) => {
+            NoteScreenerError::StoreError(store_error) => {
                 write!(f, "error while fetching data from the store: {store_error}")
             },
         }
@@ -479,6 +506,32 @@ impl fmt::Display for InvalidNoteInputsError {
                     f,
                     "note input representing block with value {read_height} for note with ID {}",
                     note_id.to_hex()
+                )
+            },
+        }
+    }
+}
+
+// ID PREFIX FETCH ERROR
+// ================================================================================================
+
+/// Error when Looking for a specific ID from a partial ID
+#[derive(Debug, Eq, PartialEq)]
+pub enum IdPrefixFetchError {
+    NoMatch(String),
+    MultipleMatches(String),
+}
+
+impl fmt::Display for IdPrefixFetchError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            IdPrefixFetchError::NoMatch(id) => {
+                write!(f, "No matches were found with the {id}.")
+            },
+            IdPrefixFetchError::MultipleMatches(id) => {
+                write!(
+                    f,
+                    "Found more than one element for the provided {id} and only one match is expected."
                 )
             },
         }

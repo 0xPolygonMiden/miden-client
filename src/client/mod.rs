@@ -10,15 +10,12 @@ pub mod rpc;
 use rpc::NodeRpcClient;
 
 pub mod accounts;
-#[cfg(test)]
-mod chain_data;
 mod note_screener;
 mod notes;
 pub mod store_authenticator;
 pub mod sync;
 pub mod transactions;
-pub use note_screener::NoteRelevance;
-pub(crate) use note_screener::NoteScreener;
+pub use note_screener::{NoteRelevance, NoteScreener};
 pub use notes::ConsumableNote;
 
 // MIDEN CLIENT
@@ -80,13 +77,26 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         Self { store, rng, rpc_api: api, tx_executor }
     }
 
-    #[cfg(any(test, feature = "test_utils"))]
+    // TEST HELPERS
+    // --------------------------------------------------------------------------------------------
+
+    #[cfg(any(test, feature = "testing"))]
     pub fn rpc_api(&mut self) -> &mut N {
         &mut self.rpc_api
     }
 
-    #[cfg(any(test, feature = "test_utils"))]
+    #[cfg(any(test, feature = "testing"))]
     pub fn store(&mut self) -> &S {
         &self.store
+    }
+
+    #[cfg(any(test, feature = "testing"))]
+    #[winter_maybe_async::maybe_async]
+    pub fn get_block_headers(
+        &self,
+        block_numbers: &[u32],
+    ) -> Result<Vec<(miden_objects::BlockHeader, bool)>, crate::errors::ClientError> {
+        let result = winter_maybe_async::maybe_await!(self.store.get_block_headers(block_numbers))?;
+        Ok(result)
     }
 }

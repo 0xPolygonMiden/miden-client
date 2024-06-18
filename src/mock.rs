@@ -48,9 +48,9 @@ use crate::{
         },
         Client,
     },
-    config::{ClientConfig, RpcConfig},
-    errors::NodeRpcClientError,
-    store::sqlite_store::SqliteStore,
+    config::RpcConfig,
+    errors::RpcError,
+    store::sqlite_store::{config::SqliteStoreConfig, SqliteStore},
 };
 
 pub type MockClient =
@@ -103,7 +103,6 @@ impl MockRpcApi {
     }
 }
 
-#[async_trait]
 impl NodeRpcClient for MockRpcApi {
     /// Executes the specified sync state request and returns the response.
     async fn sync_state(
@@ -112,14 +111,14 @@ impl NodeRpcClient for MockRpcApi {
         _account_ids: &[AccountId],
         _note_tags: &[NoteTag],
         _nullifiers_tags: &[u16],
-    ) -> Result<StateSyncInfo, NodeRpcClientError> {
+    ) -> Result<StateSyncInfo, RpcError> {
         // Match request -> response through block_num
         let response = match self.state_sync_requests.get(&block_num) {
             Some(response) => {
                 let response = response.clone();
                 Ok(Response::new(response))
             },
-            None => Err(NodeRpcClientError::RequestError(
+            None => Err(RpcError::RequestError(
                 NodeRpcClientEndpoint::SyncState.to_string(),
                 Status::not_found("no response for sync state request").to_string(),
             )),
@@ -134,7 +133,7 @@ impl NodeRpcClient for MockRpcApi {
         &mut self,
         block_num: Option<u32>,
         include_mmr_proof: bool,
-    ) -> Result<(BlockHeader, Option<MmrProof>), NodeRpcClientError> {
+    ) -> Result<(BlockHeader, Option<MmrProof>), RpcClientError> {
         if block_num == Some(0) {
             return Ok((self.genesis_block, None));
         }
@@ -149,10 +148,7 @@ impl NodeRpcClient for MockRpcApi {
         Ok((*block, mmr_proof))
     }
 
-    async fn get_notes_by_id(
-        &mut self,
-        note_ids: &[NoteId],
-    ) -> Result<Vec<NoteDetails>, NodeRpcClientError> {
+    async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NoteDetails>, RpcError> {
         // assume all off-chain notes for now
         let hit_notes = note_ids.iter().filter_map(|id| self.notes.get(id));
         let mut return_notes = vec![];
@@ -181,7 +177,7 @@ impl NodeRpcClient for MockRpcApi {
     async fn submit_proven_transaction(
         &mut self,
         _proven_transaction: ProvenTransaction,
-    ) -> std::result::Result<(), NodeRpcClientError> {
+    ) -> std::result::Result<(), RpcError> {
         // TODO: add some basic validations to test error cases
         Ok(())
     }
@@ -189,7 +185,7 @@ impl NodeRpcClient for MockRpcApi {
     async fn get_account_update(
         &mut self,
         _account_id: AccountId,
-    ) -> Result<AccountDetails, NodeRpcClientError> {
+    ) -> Result<AccountDetails, RpcError> {
         panic!("shouldn't be used for now")
     }
 }
@@ -384,7 +380,8 @@ pub fn mock_full_chain_mmr_and_notes(
         .into_iter()
         .enumerate()
         .map(|(index, note)| {
-            let block_header = &block_chain[2];
+            let block_header = &block_chain[index];
+            let auth_index = NodeIndex::new(NOTE_TREE_DEPTH, index as u64).unwrap();
             InputNote::authenticated(
                 note,
                 NoteInclusionProof::new(
@@ -782,26 +779,30 @@ fn prepare_assets(note_assets: &NoteAssets) -> Vec<String> {
 }
 
 pub fn create_test_client() -> MockClient {
-    let store = create_test_store_path()
+    let store: SqliteStoreConfig = create_test_store_path()
         .into_os_string()
         .into_string()
         .unwrap()
         .try_into()
         .unwrap();
 
-    let client_config = ClientConfig::new(store, RpcConfig::default());
+    let rpc_config = RpcConfig::default();
+    let rpc_endpoint = rpc_config.endpoint.to_string();
 
-    let rpc_endpoint = client_config.rpc.endpoint.to_string();
-    let store = SqliteStore::new((&client_config).into()).unwrap();
+    let store = SqliteStore::new(&store).unwrap();
     let store = Rc::new(store);
 
-    let rng = RpoRandomCoin::new(Default::default());
+    let mut rng = rand::thread_rng();
+    let coin_seed: [u64; 4] = rng.gen();
+
+    let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
+
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
 
     MockClient::new(MockRpcApi::new(&rpc_endpoint), rng, store, authenticator, true)
 }
 
-pub(crate) fn create_test_store_path() -> std::path::PathBuf {
+pub fn create_test_store_path() -> std::path::PathBuf {
     let mut temp_file = temp_dir();
     temp_file.push(format!("{}.sqlite3", Uuid::new_v4()));
     temp_file

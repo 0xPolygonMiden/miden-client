@@ -1,8 +1,6 @@
 use std::collections::BTreeMap;
 
-use miden_client::client::{
-    accounts::AccountTemplate, transactions::transaction_request::TransactionRequest,
-};
+use miden_client::{transactions::transaction_request::TransactionRequest, AccountTemplate};
 use miden_objects::{
     accounts::{AccountId, AccountStorageType, AuthSecretKey},
     assembly::ProgramAst,
@@ -167,6 +165,7 @@ async fn mint_custom_note(
     begin
         push.{recipient}
         push.{note_type}
+        push.0
         push.{tag}
         push.{amount}
         call.faucet::distribute

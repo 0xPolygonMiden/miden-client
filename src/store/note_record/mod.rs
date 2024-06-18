@@ -23,9 +23,9 @@ pub use output_note_record::OutputNoteRecord;
 /// ## Serialization / Deserialization
 ///
 /// We provide serialization and deserialization support via [Serializable] and [Deserializable]
-/// traits implementations, and also via [Serialize] and [Deserialize] from `serde` to provide the
+/// traits implementations, and also via [Serialize] and [Deserialize] from `serde`, to provide the
 /// ability to serialize most fields into JSON. This is useful for example if you want to store
-/// some fields as json columns like we do in
+/// some fields as JSON columns like we do in
 /// [SqliteStore](crate::store::sqlite_store::SqliteStore). For example, suppose we want to store
 /// [InputNoteRecord]'s metadata field in a JSON column. In that case, we could do something like:
 ///
@@ -42,7 +42,7 @@ pub use output_note_record::OutputNoteRecord;
 ///
 /// We also facilitate converting from/into [InputNote](miden_objects::transaction::InputNote) /
 /// [Note](miden_objects::notes::Note), although this is not always possible. Check both
-/// [InputNoteRecord]'s and [OutputNoteRecord]'s documentation for more details into this
+/// [InputNoteRecord]'s and [OutputNoteRecord]'s documentation for more details about this.
 
 // NOTE STATUS
 // ================================================================================================
@@ -154,12 +154,12 @@ impl NoteRecordDetails {
 impl Serializable for NoteRecordDetails {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
         let nullifier_bytes = self.nullifier.as_bytes();
-        target.write_usize(nullifier_bytes.len());
+        target.write_u64(nullifier_bytes.len() as u64);
         target.write_bytes(nullifier_bytes);
 
         self.script().write_into(target);
 
-        target.write_usize(self.inputs.len());
+        target.write_u64(self.inputs.len() as u64);
         target.write_many(self.inputs());
 
         self.serial_num().write_into(target);
@@ -168,14 +168,14 @@ impl Serializable for NoteRecordDetails {
 
 impl Deserializable for NoteRecordDetails {
     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
-        let nullifier_len = usize::read_from(source)?;
+        let nullifier_len = u64::read_from(source)? as usize;
         let nullifier_bytes = source.read_vec(nullifier_len)?;
         let nullifier =
             String::from_utf8(nullifier_bytes).expect("Nullifier String bytes should be readable.");
 
         let script = NoteScript::read_from(source)?;
 
-        let inputs_len = source.read_usize()?;
+        let inputs_len = source.read_u64()? as usize;
         let inputs = source.read_many::<Felt>(inputs_len)?;
 
         let serial_num = Word::read_from(source)?;

@@ -1,10 +1,6 @@
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
-use miden_client::{
-    client::{rpc::NodeRpcClient, Client},
-    config::{CliConfig, ClientConfig},
-    store::Store,
-};
+use miden_client::{rpc::NodeRpcClient, store::Store, Client};
 use miden_objects::{
     accounts::{AccountId, AccountStorage, AccountType, AuthSecretKey, StorageSlotType},
     assets::Asset,
@@ -16,7 +12,10 @@ use miden_tx::{
     utils::{bytes_to_hex_string, Serializable},
 };
 
-use super::utils::{load_config_file, parse_account_id, update_config};
+use super::{
+    config::CliConfig,
+    utils::{load_config_file, parse_account_id, update_config},
+};
 use crate::cli::{create_dynamic_table, CLIENT_BINARY_NAME};
 
 // ACCOUNT COMMAND
@@ -272,10 +271,7 @@ fn storage_type_display_name(account: &AccountId) -> String {
 
 /// Loads config file and displays current default account ID
 fn display_default_account_id() -> Result<(), String> {
-    let (miden_client_config, _) = load_config_file()?;
-    let cli_config = miden_client_config
-        .cli
-        .ok_or("No CLI options found in the client config file".to_string())?;
+    let (cli_config, _) = load_config_file()?;
 
     let default_account = cli_config.default_account_id.ok_or(
         "No default account found in the CLI options from the client config file.".to_string(),
@@ -291,19 +287,17 @@ pub(crate) fn set_default_account(account_id: Option<AccountId>) -> Result<(), S
     let (mut current_config, config_path) = load_config_file()?;
 
     // set default account
-    current_config.cli = Some(CliConfig {
-        default_account_id: account_id.map(|id| id.to_hex()),
-    });
+    current_config.default_account_id = account_id.map(|id| id.to_hex());
 
     update_config(&config_path, current_config)
 }
 
 /// Sets the provided account ID as the default account and updates the config file, if not set already.
 pub(crate) fn maybe_set_default_account(
-    current_config: &mut ClientConfig,
+    current_config: &mut CliConfig,
     account_id: AccountId,
 ) -> Result<(), String> {
-    if let Some(CliConfig { default_account_id: Some(_) }) = current_config.cli {
+    if current_config.default_account_id.is_some() {
         return Ok(());
     }
 
@@ -311,7 +305,7 @@ pub(crate) fn maybe_set_default_account(
     let account_id = account_id.to_hex();
     println!("Setting account {account_id} as the default account ID.");
     println!("You can unset it with `{CLIENT_BINARY_NAME} account --default none`.");
-    current_config.cli = Some(CliConfig { default_account_id: Some(account_id) });
+    current_config.default_account_id = Some(account_id);
 
     Ok(())
 }

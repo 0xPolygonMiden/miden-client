@@ -10,10 +10,11 @@ use miden_objects::{
         ExecutedTransaction, InputNote, InputNotes, OutputNote, OutputNotes, ProvenTransaction,
         TransactionArgs, TransactionId, TransactionScript,
     },
-    Digest, Felt, Word,
+    Digest, Felt, FieldElement, Word,
 };
 use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, ScriptTarget, TransactionProver};
 use tracing::info;
+use winter_maybe_async::{maybe_async, maybe_await};
 
 use self::transaction_request::{
     PaymentTransactionData, SwapTransactionData, TransactionRequest, TransactionTemplate,
@@ -43,6 +44,7 @@ pub struct TransactionResult {
 
 impl TransactionResult {
     /// Screens the output notes to store and track the relevant ones, and instantiates a [TransactionResult]
+    #[maybe_async]
     pub fn new<S: Store>(
         transaction: ExecutedTransaction,
         note_screener: NoteScreener<S>,
@@ -51,7 +53,7 @@ impl TransactionResult {
         let mut relevant_notes = vec![];
 
         for note in notes_from_output(transaction.output_notes()) {
-            let account_relevance = note_screener.check_relevance(note)?;
+            let account_relevance = maybe_await!(note_screener.check_relevance(note))?;
 
             if !account_relevance.is_empty() {
                 relevant_notes.push(note.clone().into());
@@ -165,11 +167,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // --------------------------------------------------------------------------------------------
 
     /// Retrieves tracked transactions, filtered by [TransactionFilter].
+    #[maybe_async]
     pub fn get_transactions(
         &self,
         filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, ClientError> {
-        self.store.get_transactions(filter).map_err(|err| err.into())
+        maybe_await!(self.store.get_transactions(filter)).map_err(|err| err.into())
     }
 
     // TRANSACTION
@@ -177,12 +180,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
     /// Compiles a [TransactionTemplate] into a [TransactionRequest] that can be then executed by the
     /// client
+    #[maybe_async]
     pub fn build_transaction_request(
         &mut self,
         transaction_template: TransactionTemplate,
     ) -> Result<TransactionRequest, ClientError> {
         let account_id = transaction_template.account_id();
-        let account_auth = self.store.get_account_auth(account_id)?;
+        let account_auth = maybe_await!(self.store.get_account_auth(account_id))?;
 
         let (_pk, _sk) = match account_auth {
             AuthSecretKey::RpoFalcon512(key) => {
@@ -222,28 +226,28 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// - Returns [ClientError::MissingOutputNotes] if the [TransactionRequest] ouput notes are
     ///   not a subset of executor's output notes
     /// - Returns a [ClientError::TransactionExecutorError] if the execution fails
+    #[maybe_async]
     pub fn new_transaction(
         &mut self,
         transaction_request: TransactionRequest,
     ) -> Result<TransactionResult, ClientError> {
         let account_id = transaction_request.account_id();
-        self.tx_executor
-            .load_account(account_id)
+        maybe_await!(self.tx_executor.load_account(account_id))
             .map_err(ClientError::TransactionExecutorError)?;
 
-        let block_num = self.store.get_sync_height()?;
+        let block_num = maybe_await!(self.store.get_sync_height())?;
 
         let note_ids = transaction_request.get_input_note_ids();
         let output_notes = transaction_request.expected_output_notes().to_vec();
         let partial_notes = transaction_request.expected_partial_notes().to_vec();
 
         // Execute the transaction and get the witness
-        let executed_transaction = self.tx_executor.execute_transaction(
+        let executed_transaction = maybe_await!(self.tx_executor.execute_transaction(
             account_id,
             block_num,
             &note_ids,
             transaction_request.into(),
-        )?;
+        ))?;
 
         // Check that the expected output notes matches the transaction outcome.
         // We comprare authentication hashes where possible since that involves note IDs + metadata
@@ -267,7 +271,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let screener = NoteScreener::new(self.store.clone());
 
-        TransactionResult::new(executed_transaction, screener, partial_notes)
+        maybe_await!(TransactionResult::new(executed_transaction, screener, partial_notes))
     }
 
     /// Proves the specified transaction witness, and returns a [ProvenTransaction] that can be
@@ -293,7 +297,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         info!("Transaction submitted");
 
         // Transaction was proven and submitted to the node correctly, persist note details and update account
-        self.store.apply_transaction(tx_result)?;
+        maybe_await!(self.store.apply_transaction(tx_result))?;
         info!("Transaction stored");
         Ok(())
     }
@@ -334,6 +338,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 payment_data.target_account_id(),
                 vec![payment_data.asset()],
                 note_type,
+                Felt::ZERO,
                 recall_height,
                 &mut self.rng,
             )?
@@ -343,6 +348,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 payment_data.target_account_id(),
                 vec![payment_data.asset()],
                 note_type,
+                Felt::ZERO,
                 &mut self.rng,
             )?
         };
@@ -361,6 +367,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             &transaction_request::AUTH_SEND_ASSET_SCRIPT
                 .replace("{recipient}", &recipient)
                 .replace("{note_type}", &Felt::new(note_type as u64).to_string())
+                .replace("{aux}", &created_note.metadata().aux().to_string())
                 .replace("{tag}", &Felt::new(note_tag.into()).to_string())
                 .replace("{asset}", &prepare_word(&payment_data.asset().into()).to_string()),
         )
@@ -392,6 +399,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             swap_data.offered_asset(),
             swap_data.requested_asset(),
             note_type,
+            Felt::ZERO,
             &mut self.rng,
         )?;
 
@@ -409,6 +417,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             &transaction_request::AUTH_SEND_ASSET_SCRIPT
                 .replace("{recipient}", &recipient)
                 .replace("{note_type}", &Felt::new(note_type as u64).to_string())
+                .replace("{aux}", &created_note.metadata().aux().to_string())
                 .replace("{tag}", &Felt::new(note_tag.into()).to_string())
                 .replace("{asset}", &prepare_word(&swap_data.offered_asset().into()).to_string()),
         )
@@ -439,6 +448,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             target_account_id,
             vec![asset.into()],
             note_type,
+            Felt::ZERO,
             &mut self.rng,
         )?;
 
@@ -456,6 +466,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             &transaction_request::DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT
                 .replace("{recipient}", &recipient)
                 .replace("{note_type}", &Felt::new(note_type as u64).to_string())
+                .replace("{aux}", &created_note.metadata().aux().to_string())
                 .replace("{tag}", &Felt::new(note_tag.into()).to_string())
                 .replace("{amount}", &Felt::new(asset.amount()).to_string()),
         )
@@ -484,7 +495,7 @@ pub(crate) fn prepare_word(word: &Word) -> String {
 /// Used for:
 /// - checking the relevance of notes to save them as input notes
 /// - validate hashes versus expected output notes after a transaction is executed
-pub(crate) fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &Note> {
+pub fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &Note> {
     output_notes
         .iter()
         .filter(|n| matches!(n, OutputNote::Full(_)))

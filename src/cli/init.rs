@@ -32,15 +32,16 @@ impl InitCmd {
             .to_string());
         }
 
-        let mut client_config = ClientConfig::default();
+        let mut cli_config = CliConfig::default();
+
         if let Some(endpoint) = &self.rpc {
             let endpoint = Endpoint::try_from(endpoint.as_str()).map_err(|err| err.to_string())?;
 
-            client_config.rpc.endpoint = endpoint;
+            cli_config.rpc.endpoint = endpoint;
         }
 
         if let Some(path) = &self.store_path {
-            client_config.store.database_filepath = path.to_string();
+            cli_config.store.database_filepath = path.to_string();
         }
 
         let config_as_toml_string = toml::to_string_pretty(&client_config)

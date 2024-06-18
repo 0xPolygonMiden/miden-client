@@ -62,7 +62,7 @@ make integration-test
 
 ### Running tests against a remote node
 
-You can run the integration tests against a remote node by overwriting the rpc section of the configuration file at `./config/miden-client.toml`. Note that the store configuration part of the file is ignored as each test creates its own database.
+You can run the integration tests against a remote node by overwriting the rpc section of the configuration file at `./config/miden-client-rpc.toml`.
 
 ## CI integration
 

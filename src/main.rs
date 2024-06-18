@@ -1,14 +1,18 @@
-use clap::Parser;
+extern crate alloc;
 
 mod cli;
-use cli::Cli;
 
 #[tokio::main]
 async fn main() -> Result<(), String> {
-    tracing_subscriber::fmt::init();
-    // read command-line args
-    let cli = Cli::parse();
+    #[cfg(feature = "executable")]
+    {
+        use clap::Parser;
 
-    // execute cli action
-    cli.execute().await
+        tracing_subscriber::fmt::init();
+        // read command-line args
+        let cli = cli::Cli::parse();
+
+        // execute cli action
+        cli.execute().await
+    }
 }
