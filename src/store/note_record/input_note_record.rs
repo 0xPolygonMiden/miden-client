@@ -1,6 +1,6 @@
 use miden_objects::{
     notes::{
-        Note, NoteAssets, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteInputs,
+        Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteInputs,
         NoteMetadata, NoteRecipient, NoteTag,
     },
     transaction::InputNote,
@@ -132,20 +132,6 @@ impl From<&NoteDetails> for InputNoteRecord {
             },
             ignored: false,
             imported_tag: None,
-        }
-    }
-}
-
-impl From<InputNoteRecord> for NoteFile {
-    fn from(val: InputNoteRecord) -> NoteFile {
-        match (val.inclusion_proof().cloned(), val.metadata()) {
-            (_, None) => NoteFile::NoteId(val.id()),
-            (None, Some(metadata)) => {
-                NoteFile::NoteDetails(val.clone().into(), Some(metadata.tag()))
-            },
-            (Some(proof), Some(_)) => {
-                NoteFile::NoteWithProof(val.try_into().expect("self should have metadata"), proof)
-            },
         }
     }
 }
