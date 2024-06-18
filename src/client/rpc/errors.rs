@@ -41,7 +41,9 @@ pub enum ConversionError {
 #[cfg(not(feature = "tonic"))]
 impl Eq for ConversionError {}
 
+// TODO: temporary until https://github.com/0xPolygonMiden/miden-client/pull/378#discussion_r1639948388 gets addressed.
 #[cfg(not(feature = "tonic"))]
+#[allow(dead_code)]
 pub trait MissingFieldHelper {
     fn missing_field(field_name: &'static str) -> ConversionError;
 }
