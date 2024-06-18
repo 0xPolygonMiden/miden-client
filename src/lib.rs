@@ -3,7 +3,7 @@ extern crate alloc;
 mod client;
 pub use client::{
     accounts::AccountTemplate, rpc, store_authenticator::StoreAuthenticator, sync::SyncSummary,
-    transactions, Client, ClientError, ConsumableNote, NoteRelevance,
+    transactions, Client, ClientError, ConsumableNote, IdPrefixFetchError, NoteRelevance,
 };
 
 pub mod config;

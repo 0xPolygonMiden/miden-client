@@ -266,7 +266,7 @@ impl Store for SqliteStore {
 // TESTS
 // ================================================================================================
 
-#[cfg(test)]
+#[cfg(all(test, feature = "executable"))]
 pub mod tests {
     use std::cell::RefCell;
 

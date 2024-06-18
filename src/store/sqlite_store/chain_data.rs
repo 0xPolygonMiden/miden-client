@@ -1,7 +1,6 @@
 use alloc::{collections::BTreeMap, rc::Rc};
 use std::num::NonZeroUsize;
 
-use clap::error::Result;
 use miden_objects::{
     crypto::merkle::{InOrderIndex, MmrPeaks},
     BlockHeader, Digest,
@@ -246,7 +245,7 @@ fn parse_chain_mmr_nodes(
     Ok((id, node))
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "executable"))]
 mod test {
     use miden_objects::{crypto::merkle::MmrPeaks, BlockHeader};
 

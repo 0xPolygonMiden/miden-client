@@ -1,7 +1,6 @@
 use alloc::rc::Rc;
 use std::fmt;
 
-use clap::error::Result;
 use miden_objects::{
     accounts::AccountId,
     crypto::utils::{Deserializable, Serializable},

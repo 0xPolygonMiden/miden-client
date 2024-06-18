@@ -8,59 +8,6 @@ use miden_tx::{
 
 use crate::{client::NoteScreenerError, rpc::RpcError, store::StoreError};
 
-#[cfg(not(feature = "tonic"))]
-use std::any::type_name;
-
-#[cfg(feature = "tonic")]
-use miden_node_proto::errors::ConversionError;
-#[cfg(not(feature = "tonic"))]
-use miden_objects::crypto::merkle::{SmtLeafError, SmtProofError};
-
-#[cfg(not(feature = "tonic"))]
-use thiserror::Error;
-
-#[cfg(not(feature = "tonic"))]
-#[derive(Debug, Clone, PartialEq, Error)]
-pub enum ConversionError {
-    #[error("Hex error: {0}")]
-    HexError(#[from] hex::FromHexError),
-    #[error("SMT leaf error: {0}")]
-    SmtLeafError(#[from] SmtLeafError),
-    #[error("SMT proof error: {0}")]
-    SmtProofError(#[from] SmtProofError),
-    #[error("Too much data, expected {expected}, got {got}")]
-    TooMuchData { expected: usize, got: usize },
-    #[error("Not enough data, expected {expected}, got {got}")]
-    InsufficientData { expected: usize, got: usize },
-    #[error("Value is not in the range 0..MODULUS")]
-    NotAValidFelt,
-    #[error("Invalid note type value: {0}")]
-    NoteTypeError(#[from] NoteError),
-    #[error("Field `{field_name}` required to be filled in protobuf representation of {entity}")]
-    MissingFieldInProtobufRepresentation {
-        entity: &'static str,
-        field_name: &'static str,
-    },
-}
-
-#[cfg(not(feature = "tonic"))]
-impl Eq for ConversionError {}
-
-#[cfg(not(feature = "tonic"))]
-pub trait MissingFieldHelper {
-    fn missing_field(field_name: &'static str) -> ConversionError;
-}
-
-#[cfg(not(feature = "tonic"))]
-impl<T: prost::Message> MissingFieldHelper for T {
-    fn missing_field(field_name: &'static str) -> ConversionError {
-        ConversionError::MissingFieldInProtobufRepresentation {
-            entity: type_name::<T>(),
-            field_name,
-        }
-    }
-}
-
 // CLIENT ERROR
 // ================================================================================================
 

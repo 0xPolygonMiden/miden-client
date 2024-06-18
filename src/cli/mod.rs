@@ -3,13 +3,12 @@ use std::{env, rc::Rc};
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
-    errors::{ClientError, IdPrefixFetchError},
     rpc::{NodeRpcClient, TonicRpcClient},
     store::{
         sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter,
         OutputNoteRecord, Store,
     },
-    Client, ClientError, StoreAuthenticator,
+    Client, ClientError, IdPrefixFetchError, StoreAuthenticator,
 };
 use miden_objects::{
     accounts::AccountStub,
