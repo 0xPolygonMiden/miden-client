@@ -1,5 +1,4 @@
 use core::fmt;
-use miden_objects::crypto::merkle::{SmtLeafError, SmtProofError};
 use miden_objects::{accounts::AccountId, utils::DeserializationError, NoteError};
 
 // RPC ERROR
