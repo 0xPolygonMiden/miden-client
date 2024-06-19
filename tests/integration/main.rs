@@ -132,7 +132,7 @@ async fn test_p2idr_transfer_consumed_by_target() {
     //Check that the note is not consumed by the target account
     assert!(matches!(
         client.get_input_note(note.id()).unwrap().status(),
-        NoteStatus::Committed
+        NoteStatus::Committed { .. }
     ));
 
     consume_notes(&mut client, from_account_id, &[note.clone()]).await;
@@ -140,8 +140,16 @@ async fn test_p2idr_transfer_consumed_by_target() {
 
     // Check that the note is consumed by the target account
     let input_note = client.get_input_note(note.id()).unwrap();
-    assert!(matches!(input_note.status(), NoteStatus::Consumed));
-    assert_eq!(input_note.consumer_account_id().unwrap(), from_account_id);
+    assert!(matches!(input_note.status(), NoteStatus::Consumed { .. }));
+    if let NoteStatus::Consumed {
+        consumer_account_id: Some(consumer_account_id),
+        ..
+    } = input_note.status()
+    {
+        assert_eq!(consumer_account_id, from_account_id);
+    } else {
+        panic!("Note should be consumed");
+    }
 
     // Do a transfer from first account to second account with Recall. In this situation we'll do
     // the happy path where the `to_account_id` consumes the note
@@ -338,7 +346,7 @@ async fn test_get_consumable_notes() {
 
     // Check that note is consumable by both accounts
     let consumable_notes = client.get_consumable_notes(None).unwrap();
-    let relevant_accounts = &consumable_notes.first().unwrap().relevances;
+    let relevant_accounts = &consumable_notes.first().unwrap().1;
     assert_eq!(relevant_accounts.len(), 2);
     assert!(!client.get_consumable_notes(Some(from_account_id)).unwrap().is_empty());
     assert!(!client.get_consumable_notes(Some(to_account_id)).unwrap().is_empty());

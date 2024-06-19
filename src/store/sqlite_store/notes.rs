@@ -1,27 +1,35 @@
 use alloc::rc::Rc;
 use std::fmt;
 
+use chrono::Utc;
 use clap::error::Result;
 use miden_objects::{
     accounts::AccountId,
     crypto::utils::{Deserializable, Serializable},
-    notes::{NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, NoteScript, Nullifier},
+    notes::{NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, NoteScript},
     transaction::TransactionId,
     Digest,
 };
+use miden_tx::utils::DeserializationError;
 use rusqlite::{named_params, params, params_from_iter, types::Value, Transaction};
 
 use super::SqliteStore;
 use crate::{
     errors::StoreError,
-    store::{InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord},
+    store::{
+        note_record::{
+            NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED, NOTE_STATUS_PENDING,
+            NOTE_STATUS_PROCESSING,
+        },
+        InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, Nullifier, OutputNoteRecord,
+    },
 };
 
 fn insert_note_query(table_name: NoteTable) -> String {
     format!("\
     INSERT INTO {table_name}
-        (note_id, assets, recipient, status, metadata, details, inclusion_proof, consumer_transaction_id) 
-     VALUES (:note_id, :assets, :recipient, :status, json(:metadata), json(:details), json(:inclusion_proof), :consumer_transaction_id)",
+        (note_id, assets, recipient, status, metadata, details, inclusion_proof, consumer_transaction_id, created_at)
+     VALUES (:note_id, :assets, :recipient, :status, json(:metadata), json(:details), json(:inclusion_proof), :consumer_transaction_id, unixepoch(current_timestamp));",
             table_name = table_name)
 }
 
@@ -60,6 +68,9 @@ type SerializedInputNoteParts = (
     Option<String>,
     Vec<u8>,
     Option<i64>,
+    u64,
+    Option<u64>,
+    Option<u64>,
 );
 type SerializedOutputNoteParts = (
     Vec<u8>,
@@ -70,6 +81,9 @@ type SerializedOutputNoteParts = (
     Option<String>,
     Option<Vec<u8>>,
     Option<i64>,
+    u64,
+    Option<u64>,
+    Option<u64>,
 );
 
 // NOTE TABLE
@@ -97,18 +111,21 @@ impl<'a> NoteFilter<'a> {
     /// Returns a [String] containing the query for this Filter
     fn to_query(&self, notes_table: NoteTable) -> String {
         let base = format!(
-            "SELECT 
-                    note.assets, 
-                    note.details, 
+            "SELECT
+                    note.assets,
+                    note.details,
                     note.recipient,
                     note.status,
                     note.metadata,
                     note.inclusion_proof,
                     script.serialized_note_script,
-                    tx.account_id
-                    from {notes_table} AS note 
+                    tx.account_id,
+                    note.created_at,
+                    note.submitted_at,
+                    note.nullifier_height
+                    from {notes_table} AS note
                     LEFT OUTER JOIN notes_scripts AS script
-                        ON note.details IS NOT NULL AND 
+                        ON note.details IS NOT NULL AND
                         json_extract(note.details, '$.script_hash') = script.script_hash
                     LEFT OUTER JOIN transactions AS tx
                         ON note.consumer_transaction_id IS NOT NULL AND
@@ -117,9 +134,18 @@ impl<'a> NoteFilter<'a> {
 
         match self {
             NoteFilter::All => base,
-            NoteFilter::Committed => format!("{base} WHERE status = 'Committed'"),
-            NoteFilter::Consumed => format!("{base} WHERE status = 'Consumed'"),
-            NoteFilter::Pending => format!("{base} WHERE status = 'Pending'"),
+            NoteFilter::Committed => {
+                format!("{base} WHERE status = '{NOTE_STATUS_COMMITTED}'")
+            },
+            NoteFilter::Consumed => {
+                format!("{base} WHERE status = '{NOTE_STATUS_CONSUMED}'")
+            },
+            NoteFilter::Pending => {
+                format!("{base} WHERE status = '{NOTE_STATUS_PENDING}'")
+            },
+            NoteFilter::Processing => {
+                format!("{base} WHERE status = '{NOTE_STATUS_PROCESSING}'")
+            },
             NoteFilter::Unique(_) | NoteFilter::List(_) => {
                 format!("{base} WHERE note.note_id IN rarray(?)")
             },
@@ -229,13 +255,16 @@ impl SqliteStore {
         Ok(tx.commit()?)
     }
 
-    /// Returns the nullifiers of all unspent input notes
-    pub fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
-        const QUERY: &str = "SELECT json_extract(details, '$.nullifier') FROM input_notes WHERE status = 'Committed'";
-
+    pub(crate) fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
+        const QUERY: &str =
+                "SELECT json_extract(details, '$.nullifier') FROM input_notes WHERE status IN rarray(?)";
+        let unspent_filters = Rc::new(vec![
+            Value::from(NOTE_STATUS_COMMITTED.to_string()),
+            Value::from(NOTE_STATUS_PROCESSING.to_string()),
+        ]);
         self.db()
             .prepare(QUERY)?
-            .query_map([], |row| row.get(0))
+            .query_map([unspent_filters], |row| row.get(0))
             .expect("no binding parameters used in query")
             .map(|result| {
                 result.map_err(|err| StoreError::ParsingError(err.to_string())).and_then(
@@ -339,24 +368,28 @@ pub fn update_note_consumer_tx_id(
     note_id: NoteId,
     consumer_tx_id: TransactionId,
 ) -> Result<(), StoreError> {
-    const UPDATE_INPUT_NOTES_QUERY: &str = "UPDATE input_notes SET consumer_transaction_id = :consumer_transaction_id WHERE note_id = :note_id;";
+    const UPDATE_INPUT_NOTES_QUERY: &str = "UPDATE input_notes SET status = :status, consumer_transaction_id = :consumer_transaction_id, submitted_at = :submitted_at WHERE note_id = :note_id;";
 
     tx.execute(
         UPDATE_INPUT_NOTES_QUERY,
         named_params! {
             ":note_id": note_id.inner().to_string(),
             ":consumer_transaction_id": consumer_tx_id.to_string(),
+            ":submitted_at": Utc::now().timestamp(),
+            ":status": NOTE_STATUS_PROCESSING,
         },
     )
     .map_err(|err| StoreError::QueryError(err.to_string()))?;
 
-    const UPDATE_OUTPUT_NOTES_QUERY: &str = "UPDATE output_notes SET consumer_transaction_id = :consumer_transaction_id WHERE note_id = :note_id;";
+    const UPDATE_OUTPUT_NOTES_QUERY: &str = "UPDATE output_notes SET status = :status, consumer_transaction_id = :consumer_transaction_id, submitted_at = :submitted_at WHERE note_id = :note_id;";
 
     tx.execute(
         UPDATE_OUTPUT_NOTES_QUERY,
         named_params! {
             ":note_id": note_id.inner().to_string(),
             ":consumer_transaction_id": consumer_tx_id.to_string(),
+            ":submitted_at": Utc::now().timestamp(),
+            ":status": NOTE_STATUS_PROCESSING,
         },
     )
     .map_err(|err| StoreError::QueryError(err.to_string()))?;
@@ -376,6 +409,9 @@ fn parse_input_note_columns(
     let inclusion_proof: Option<String> = row.get(5)?;
     let serialized_note_script: Vec<u8> = row.get(6)?;
     let consumer_account_id: Option<i64> = row.get(7)?;
+    let created_at: u64 = row.get(8)?;
+    let submitted_at: Option<u64> = row.get(9)?;
+    let nullifier_height: Option<u64> = row.get(10)?;
 
     Ok((
         assets,
@@ -386,6 +422,9 @@ fn parse_input_note_columns(
         inclusion_proof,
         serialized_note_script,
         consumer_account_id,
+        created_at,
+        submitted_at,
+        nullifier_height,
     ))
 }
 
@@ -402,6 +441,9 @@ fn parse_input_note(
         note_inclusion_proof,
         serialized_note_script,
         consumer_account_id,
+        created_at,
+        submitted_at,
+        nullifier_height,
     ) = serialized_input_note_parts;
 
     // Merge the info that comes from the input notes table and the notes script table
@@ -439,12 +481,36 @@ fn parse_input_note(
 
     let recipient = Digest::try_from(recipient)?;
     let id = NoteId::new(recipient, note_assets.commitment());
-    let status: NoteStatus = serde_json::from_str(&format!("\"{status}\""))
-        .map_err(StoreError::JsonDataDeserializationError)?;
     let consumer_account_id: Option<AccountId> = match consumer_account_id {
         Some(account_id) => Some(AccountId::try_from(account_id as u64)?),
         None => None,
     };
+
+    // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
+    let status = match status.as_str() {
+        NOTE_STATUS_PENDING => NoteStatus::Pending { created_at },
+        NOTE_STATUS_COMMITTED => NoteStatus::Committed {
+            block_height: inclusion_proof
+                .clone()
+                .map(|proof| proof.origin().block_num as u64)
+                .expect("Committed note should have inclusion proof"),
+        },
+        NOTE_STATUS_PROCESSING => NoteStatus::Processing {
+            consumer_account_id: consumer_account_id
+                .expect("Processing note should have consumer account id"),
+            submitted_at: submitted_at.expect("Processing note should have submition timestamp"),
+        },
+        NOTE_STATUS_CONSUMED => NoteStatus::Consumed {
+            consumer_account_id,
+            block_height: nullifier_height.expect("Consumed note should have nullifier height"),
+        },
+        _ => {
+            return Err(StoreError::DataDeserializationError(DeserializationError::InvalidValue(
+                format!("NoteStatus: {}", status),
+            )))
+        },
+    };
+
     Ok(InputNoteRecord::new(
         id,
         recipient,
@@ -453,7 +519,6 @@ fn parse_input_note(
         note_metadata,
         inclusion_proof,
         note_details,
-        consumer_account_id,
     ))
 }
 
@@ -480,15 +545,11 @@ pub(crate) fn serialize_input_note(
             )?)
             .map_err(StoreError::InputSerializationError)?;
 
-            let status = serde_json::to_string(&NoteStatus::Committed)
-                .map_err(StoreError::InputSerializationError)?
-                .replace('\"', "");
+            let status = NOTE_STATUS_COMMITTED.to_string();
             (Some(inclusion_proof), status)
         },
         None => {
-            let status = serde_json::to_string(&NoteStatus::Pending)
-                .map_err(StoreError::InputSerializationError)?
-                .replace('\"', "");
+            let status = NOTE_STATUS_PENDING.to_string();
 
             (None, status)
         },
@@ -531,6 +592,9 @@ fn parse_output_note_columns(
     let inclusion_proof: Option<String> = row.get(5)?;
     let serialized_note_script: Option<Vec<u8>> = row.get(6)?;
     let consumer_account_id: Option<i64> = row.get(7)?;
+    let created_at: u64 = row.get(8)?;
+    let submitted_at: Option<u64> = row.get(9)?;
+    let nullifier_height: Option<u64> = row.get(10)?;
 
     Ok((
         assets,
@@ -541,6 +605,9 @@ fn parse_output_note_columns(
         inclusion_proof,
         serialized_note_script,
         consumer_account_id,
+        created_at,
+        submitted_at,
+        nullifier_height,
     ))
 }
 
@@ -557,6 +624,9 @@ fn parse_output_note(
         note_inclusion_proof,
         serialized_note_script,
         consumer_account_id,
+        created_at,
+        submitted_at,
+        nullifier_height,
     ) = serialized_output_note_parts;
 
     let note_details: Option<NoteRecordDetails> = if let Some(details_as_json_str) = note_details {
@@ -596,12 +666,35 @@ fn parse_output_note(
 
     let recipient = Digest::try_from(recipient)?;
     let id = NoteId::new(recipient, note_assets.commitment());
-    let status: NoteStatus = serde_json::from_str(&format!("\"{status}\""))
-        .map_err(StoreError::JsonDataDeserializationError)?;
 
     let consumer_account_id: Option<AccountId> = match consumer_account_id {
         Some(account_id) => Some(AccountId::try_from(account_id as u64)?),
         None => None,
+    };
+
+    // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
+    let status = match status.as_str() {
+        NOTE_STATUS_PENDING => NoteStatus::Pending { created_at },
+        NOTE_STATUS_COMMITTED => NoteStatus::Committed {
+            block_height: inclusion_proof
+                .clone()
+                .map(|proof| proof.origin().block_num as u64)
+                .expect("Committed note should have inclusion proof"),
+        },
+        NOTE_STATUS_PROCESSING => NoteStatus::Processing {
+            consumer_account_id: consumer_account_id
+                .expect("Processing note should have consumer account id"),
+            submitted_at: submitted_at.expect("Processing note should have submition timestamp"),
+        },
+        NOTE_STATUS_CONSUMED => NoteStatus::Consumed {
+            consumer_account_id,
+            block_height: nullifier_height.expect("Consumed note should have nullifier height"),
+        },
+        _ => {
+            return Err(StoreError::DataDeserializationError(DeserializationError::InvalidValue(
+                format!("NoteStatus: {}", status),
+            )))
+        },
     };
 
     Ok(OutputNoteRecord::new(
@@ -612,7 +705,6 @@ fn parse_output_note(
         note_metadata,
         inclusion_proof,
         note_details,
-        consumer_account_id,
     ))
 }
 
@@ -638,16 +730,12 @@ pub(crate) fn serialize_output_note(
             )?)
             .map_err(StoreError::InputSerializationError)?;
 
-            let status = serde_json::to_string(&NoteStatus::Committed)
-                .map_err(StoreError::InputSerializationError)?
-                .replace('\"', "");
+            let status = NOTE_STATUS_COMMITTED.to_string();
 
             (Some(inclusion_proof), status)
         },
         None => {
-            let status = serde_json::to_string(&NoteStatus::Pending)
-                .map_err(StoreError::InputSerializationError)?
-                .replace('\"', "");
+            let status = NOTE_STATUS_PENDING.to_string();
 
             (None, status)
         },

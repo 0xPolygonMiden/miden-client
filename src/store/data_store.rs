@@ -55,13 +55,13 @@ impl<S: Store> DataStore for ClientDataStore<S> {
             let note_record = input_note_records.get(note_id).expect("should have key");
 
             match note_record.status() {
-                NoteStatus::Pending => {
+                NoteStatus::Pending { .. } => {
                     return Err(DataStoreError::InternalError(format!(
                         "The input note ID {} does not contain a note origin.",
                         note_id.to_hex()
                     )));
                 },
-                NoteStatus::Consumed => {
+                NoteStatus::Consumed { .. } => {
                     return Err(DataStoreError::NoteAlreadyConsumed(*note_id));
                 },
                 _ => {},

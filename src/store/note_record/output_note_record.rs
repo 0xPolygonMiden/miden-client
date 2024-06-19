@@ -1,5 +1,4 @@
 use miden_objects::{
-    accounts::AccountId,
     notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, PartialNote},
     transaction::OutputNote,
     Digest,
@@ -33,7 +32,6 @@ pub struct OutputNoteRecord {
     metadata: NoteMetadata,
     recipient: Digest,
     status: NoteStatus,
-    consumer_account_id: Option<AccountId>,
 }
 
 impl OutputNoteRecord {
@@ -45,7 +43,6 @@ impl OutputNoteRecord {
         metadata: NoteMetadata,
         inclusion_proof: Option<NoteInclusionProof>,
         details: Option<NoteRecordDetails>,
-        consumer_account_id: Option<AccountId>,
     ) -> OutputNoteRecord {
         OutputNoteRecord {
             id,
@@ -55,7 +52,6 @@ impl OutputNoteRecord {
             metadata,
             inclusion_proof,
             details,
-            consumer_account_id,
         }
     }
 
@@ -86,10 +82,6 @@ impl OutputNoteRecord {
     pub fn details(&self) -> Option<&NoteRecordDetails> {
         self.details.as_ref()
     }
-
-    pub fn consumer_account_id(&self) -> Option<AccountId> {
-        self.consumer_account_id
-    }
 }
 
 // CONVERSIONS
@@ -102,7 +94,7 @@ impl From<Note> for OutputNoteRecord {
             id: note.id(),
             recipient: note.recipient().digest(),
             assets: note.assets().clone(),
-            status: NoteStatus::Pending,
+            status: NoteStatus::Pending { created_at: 0 },
             metadata: *note.metadata(),
             inclusion_proof: None,
             details: Some(NoteRecordDetails::new(
@@ -111,7 +103,6 @@ impl From<Note> for OutputNoteRecord {
                 note.inputs().values().to_vec(),
                 note.serial_num(),
             )),
-            consumer_account_id: None,
         }
     }
 }
@@ -122,9 +113,8 @@ impl From<PartialNote> for OutputNoteRecord {
             partial_note.id(),
             partial_note.recipient_digest(),
             partial_note.assets().clone(),
-            NoteStatus::Pending,
+            NoteStatus::Pending { created_at: 0 },
             *partial_note.metadata(),
-            None,
             None,
             None,
         )
@@ -162,7 +152,6 @@ impl TryFrom<InputNoteRecord> for OutputNoteRecord {
                 metadata: *metadata,
                 recipient: input_note.recipient(),
                 status: input_note.status(),
-                consumer_account_id: input_note.consumer_account_id(),
             }),
             None => Err(ClientError::NoteError(miden_objects::NoteError::invalid_origin_index(
                 "Input Note Record contains no metadata".to_string(),

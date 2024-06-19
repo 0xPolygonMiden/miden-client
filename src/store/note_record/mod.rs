@@ -1,6 +1,8 @@
 use std::fmt::Display;
 
+use chrono::{Local, TimeZone};
 use miden_objects::{
+    accounts::AccountId,
     assembly::{Assembler, ProgramAst},
     notes::NoteScript,
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
@@ -46,54 +48,119 @@ pub use output_note_record::OutputNoteRecord;
 
 // NOTE STATUS
 // ================================================================================================
+pub const NOTE_STATUS_PENDING: &str = "Pending";
+pub const NOTE_STATUS_COMMITTED: &str = "Committed";
+pub const NOTE_STATUS_CONSUMED: &str = "Consumed";
+pub const NOTE_STATUS_PROCESSING: &str = "Processing";
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum NoteStatus {
-    Pending,
-    Committed,
-    Consumed,
-}
-
-impl From<NoteStatus> for u8 {
-    fn from(value: NoteStatus) -> Self {
-        match value {
-            NoteStatus::Pending => 0,
-            NoteStatus::Committed => 1,
-            NoteStatus::Consumed => 2,
-        }
-    }
-}
-
-impl TryFrom<u8> for NoteStatus {
-    type Error = DeserializationError;
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(NoteStatus::Pending),
-            1 => Ok(NoteStatus::Committed),
-            2 => Ok(NoteStatus::Consumed),
-            _ => Err(DeserializationError::InvalidValue(value.to_string())),
-        }
-    }
+    /// Note is pending to be commited on chain.
+    Pending {
+        /// UNIX epoch-based timestamp (in seconds) when the note (either new or imported) started being tracked by the client.
+        created_at: u64,
+    },
+    /// Note has been commited on chain.
+    Committed {
+        /// Block height at which the note was commited.
+        block_height: u64,
+    },
+    /// Note has been consumed locally but not yet nullified on chain.
+    Processing {
+        /// ID of account that is consuming the note.
+        consumer_account_id: AccountId,
+        /// UNIX epoch-based timestamp (in seconds) of the note's consumption.
+        submitted_at: u64,
+    },
+    /// Note has been nullified on chain.
+    Consumed {
+        /// ID of account that consumed the note. If the consumer account is not known, this field will be `None`.
+        consumer_account_id: Option<AccountId>,
+        /// Block height at which the note was consumed.
+        block_height: u64,
+    },
 }
 
 impl Serializable for NoteStatus {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
-        target.write_bytes(&[(*self).into()]);
+        match self {
+            NoteStatus::Pending { created_at } => {
+                target.write_u8(0);
+                target.write_u64(*created_at);
+            },
+            NoteStatus::Committed { block_height } => {
+                target.write_u8(1);
+                target.write_u64(*block_height);
+            },
+            NoteStatus::Processing { consumer_account_id, submitted_at } => {
+                target.write_u8(2);
+                target.write_u64(*submitted_at);
+                consumer_account_id.write_into(target);
+            },
+            NoteStatus::Consumed { consumer_account_id, block_height } => {
+                target.write_u8(3);
+                target.write_u64(*block_height);
+                consumer_account_id.write_into(target);
+            },
+        }
     }
 }
 
 impl Deserializable for NoteStatus {
     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
-        let enum_byte = u8::read_from(source)?;
-        enum_byte.try_into()
+        let status = source.read_u8()?;
+        match status {
+            0 => {
+                let created_at = source.read_u64()?;
+                Ok(NoteStatus::Pending { created_at })
+            },
+            1 => {
+                let block_height = source.read_u64()?;
+                Ok(NoteStatus::Committed { block_height })
+            },
+            2 => {
+                let submitted_at = source.read_u64()?;
+                let consumer_account_id = AccountId::read_from(source)?;
+                Ok(NoteStatus::Processing { consumer_account_id, submitted_at })
+            },
+            3 => {
+                let block_height = source.read_u64()?;
+                let consumer_account_id = Option::<AccountId>::read_from(source)?;
+                Ok(NoteStatus::Consumed { consumer_account_id, block_height })
+            },
+            _ => Err(DeserializationError::InvalidValue("NoteStatus".to_string())),
+        }
     }
 }
 
 impl Display for NoteStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            NoteStatus::Pending => write!(f, "Pending"),
-            NoteStatus::Committed => write!(f, "Committed"),
-            NoteStatus::Consumed => write!(f, "Consumed"),
+            NoteStatus::Pending { created_at } => write!(
+                f,
+                "{NOTE_STATUS_PENDING} (created at {})",
+                Local
+                    .timestamp_opt(*created_at as i64, 0)
+                    .single()
+                    .expect("timestamp should be valid")
+            ),
+            NoteStatus::Committed { block_height } => {
+                write!(f, "{NOTE_STATUS_COMMITTED} (at block height {block_height})")
+            },
+            NoteStatus::Processing { consumer_account_id, submitted_at } => write!(
+                f,
+                "{NOTE_STATUS_PROCESSING} (submitted at {} by account {})",
+                Local
+                    .timestamp_opt(*submitted_at as i64, 0)
+                    .single()
+                    .expect("timestamp should be valid"),
+                consumer_account_id.to_hex()
+            ),
+            NoteStatus::Consumed { consumer_account_id, block_height } => write!(
+                f,
+                "{NOTE_STATUS_CONSUMED} (at block height {block_height} by account {})",
+                consumer_account_id.map(|id| id.to_hex()).unwrap_or("?".to_string())
+            ),
         }
     }
 }

@@ -1,5 +1,4 @@
 use miden_objects::{
-    accounts::AccountId,
     notes::{
         Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata,
         NoteRecipient,
@@ -40,7 +39,6 @@ pub struct InputNoteRecord {
     metadata: Option<NoteMetadata>,
     recipient: Digest,
     status: NoteStatus,
-    consumer_account_id: Option<AccountId>,
 }
 
 impl InputNoteRecord {
@@ -52,7 +50,6 @@ impl InputNoteRecord {
         metadata: Option<NoteMetadata>,
         inclusion_proof: Option<NoteInclusionProof>,
         details: NoteRecordDetails,
-        consumer_account_id: Option<AccountId>,
     ) -> InputNoteRecord {
         InputNoteRecord {
             id,
@@ -62,7 +59,6 @@ impl InputNoteRecord {
             metadata,
             inclusion_proof,
             details,
-            consumer_account_id,
         }
     }
 
@@ -97,10 +93,6 @@ impl InputNoteRecord {
     pub fn details(&self) -> &NoteRecordDetails {
         &self.details
     }
-
-    pub fn consumer_account_id(&self) -> Option<AccountId> {
-        self.consumer_account_id
-    }
 }
 
 impl From<&NoteDetails> for InputNoteRecord {
@@ -111,7 +103,7 @@ impl From<&NoteDetails> for InputNoteRecord {
             recipient: note_details.recipient().digest(),
             metadata: None,
             inclusion_proof: None,
-            status: NoteStatus::Pending,
+            status: NoteStatus::Pending { created_at: 0 },
             details: NoteRecordDetails {
                 nullifier: note_details.nullifier().to_string(),
                 script_hash: note_details.script().hash(),
@@ -119,7 +111,6 @@ impl From<&NoteDetails> for InputNoteRecord {
                 inputs: note_details.inputs().values().to_vec(),
                 serial_num: note_details.serial_num(),
             },
-            consumer_account_id: None,
         }
     }
 }
@@ -154,7 +145,6 @@ impl Deserializable for InputNoteRecord {
             metadata,
             inclusion_proof,
             details,
-            consumer_account_id: None,
         })
     }
 }
@@ -165,7 +155,7 @@ impl From<Note> for InputNoteRecord {
             id: note.id(),
             recipient: note.recipient().digest(),
             assets: note.assets().clone(),
-            status: NoteStatus::Pending,
+            status: NoteStatus::Pending { created_at: 0 },
             metadata: Some(*note.metadata()),
             inclusion_proof: None,
             details: NoteRecordDetails::new(
@@ -174,7 +164,6 @@ impl From<Note> for InputNoteRecord {
                 note.inputs().values().to_vec(),
                 note.serial_num(),
             ),
-            consumer_account_id: None,
         }
     }
 }
@@ -185,7 +174,7 @@ impl From<InputNote> for InputNoteRecord {
             id: recorded_note.note().id(),
             recipient: recorded_note.note().recipient().digest(),
             assets: recorded_note.note().assets().clone(),
-            status: NoteStatus::Pending,
+            status: NoteStatus::Pending { created_at: 0 },
             metadata: Some(*recorded_note.note().metadata()),
             details: NoteRecordDetails::new(
                 recorded_note.note().nullifier().to_string(),
@@ -194,7 +183,6 @@ impl From<InputNote> for InputNoteRecord {
                 recorded_note.note().serial_num(),
             ),
             inclusion_proof: recorded_note.proof().cloned(),
-            consumer_account_id: None,
         }
     }
 }
@@ -255,7 +243,6 @@ impl TryFrom<OutputNoteRecord> for InputNoteRecord {
                 metadata: Some(*output_note.metadata()),
                 recipient: output_note.recipient(),
                 status: output_note.status(),
-                consumer_account_id: output_note.consumer_account_id(),
             }),
             None => Err(ClientError::NoteError(miden_objects::NoteError::invalid_origin_index(
                 "Output Note Record contains no details".to_string(),

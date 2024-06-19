@@ -1,5 +1,6 @@
 # Changelog
 
+* New note status added to reflect more possible states (#355).
 * [BREAKING] Library API reorganization (#367).
 * Added `wasm` and `async` feature to make the code compatible with WASM-32 target (#378).
 * Changed `cargo-make` usage for `make` and `Makefile.toml` for a regular `Makefile` (#359).

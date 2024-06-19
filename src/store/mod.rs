@@ -85,6 +85,7 @@ pub trait Store {
     fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
         let nullifiers = maybe_await!(self.get_input_notes(NoteFilter::Committed))?
             .iter()
+            .chain(maybe_await!(self.get_input_notes(NoteFilter::Processing))?.iter())
             .map(|input_note| Ok(Nullifier::from(Digest::try_from(input_note.nullifier())?)))
             .collect::<Result<Vec<_>, _>>();
 
@@ -303,6 +304,8 @@ pub enum NoteFilter<'a> {
     /// Return a list of pending notes ([InputNoteRecord] or [OutputNoteRecord]). These represent notes for which the store
     /// does not have anchor data.
     Pending,
+    /// Return a list of notes that are currently being processed.
+    Processing,
     /// Return a list containing the note that matches with the provided [NoteId].
     List(&'a [NoteId]),
     /// Return a list containing the note that matches with the provided [NoteId].
