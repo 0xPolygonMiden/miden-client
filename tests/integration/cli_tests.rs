@@ -136,7 +136,7 @@ fn test_mint_with_untracked_account() {
     mint_cli(&temp_dir, &target_account_id, &fungible_faucet_account_id);
 
     // Sleep for a while to ensure the note is committed on the node
-    sync_until_no_notes(&store_path, &temp_dir, NoteFilter::Pending);
+    sync_until_no_notes(&store_path, &temp_dir, NoteFilter::Expected);
 }
 
 // IMPORT TESTS
@@ -217,7 +217,7 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
     mint_cli(&temp_dir, &first_basic_account_id[..8], &fungible_faucet_account_id);
 
     // Wait until the note is committed on the node
-    sync_until_no_notes(&store_path, &temp_dir, NoteFilter::Pending);
+    sync_until_no_notes(&store_path, &temp_dir, NoteFilter::Expected);
 
     // Consume the note
     let note_to_consume_id = {
@@ -230,7 +230,7 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
     consume_note_cli(&temp_dir, &first_basic_account_id, &[&note_to_consume_id]);
 
     // Wait until the note is consumed on the node
-    sync_until_no_notes(&store_path, &temp_dir, NoteFilter::Committed);
+    sync_until_no_notes(&store_path, &temp_dir, NoteFilter::Processing);
 
     // Send assets to second account
     send_cli(
@@ -248,7 +248,7 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
     show_note_cli(&temp_dir, "0x", true);
 
     // Wait until the note is committed on the node
-    sync_until_no_notes(&store_path, &temp_dir, NoteFilter::Pending);
+    sync_until_no_notes(&store_path, &temp_dir, NoteFilter::Expected);
 
     // Consume note for second account
     let note_to_consume_id = {
@@ -261,7 +261,7 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
     consume_note_cli(&temp_dir, &second_basic_account_id, &[&note_to_consume_id]);
 
     // Wait until the note is consumed on the node
-    sync_until_no_notes(&store_path, &temp_dir, NoteFilter::Committed);
+    sync_until_no_notes(&store_path, &temp_dir, NoteFilter::Processing);
 }
 
 // This tests that it's possible to export and import notes into other CLIs. To do so it:
@@ -359,7 +359,7 @@ fn test_cli_export_import_note() {
     import_cmd.current_dir(&temp_dir_2).assert().success();
 
     // Wait until the note is committed on the node
-    sync_until_no_notes(&store_path_2, &temp_dir_2, NoteFilter::Pending);
+    sync_until_no_notes(&store_path_2, &temp_dir_2, NoteFilter::Expected);
 
     // Consume the note
     consume_note_cli(&temp_dir_2, &first_basic_account_id, &[&note_to_export_id]);

@@ -416,7 +416,7 @@ async fn test_get_output_notes() {
 }
 
 #[tokio::test]
-async fn test_import_pending_notes() {
+async fn test_import_expected_notes() {
     let mut client_1 = create_test_client();
     let (first_basic_account, _second_basic_account, faucet_account) =
         setup(&mut client_1, AccountStorageType::OffChain).await;

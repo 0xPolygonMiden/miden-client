@@ -290,7 +290,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let stored_note_tags: Vec<NoteTag> = maybe_await!(self.store.get_note_tags())?;
 
         let uncommited_note_tags: Vec<NoteTag> =
-            maybe_await!(self.store.get_input_notes(NoteFilter::Pending))?
+            maybe_await!(self.store.get_input_notes(NoteFilter::Expected))?
                 .iter()
                 .filter_map(|note| note.metadata().map(|metadata| metadata.tag()))
                 .collect();
@@ -415,21 +415,21 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let mut tracked_input_notes = vec![];
         let mut tracked_output_notes_proofs = vec![];
 
-        let pending_input_notes: BTreeMap<NoteId, InputNoteRecord> =
-            maybe_await!(self.store.get_input_notes(NoteFilter::Pending))?
+        let expected_input_notes: BTreeMap<NoteId, InputNoteRecord> =
+            maybe_await!(self.store.get_input_notes(NoteFilter::Expected))?
                 .into_iter()
                 .map(|n| (n.id(), n))
                 .collect();
 
-        let pending_output_notes: BTreeSet<NoteId> =
-            maybe_await!(self.store.get_output_notes(NoteFilter::Pending))?
+        let expected_output_notes: BTreeSet<NoteId> =
+            maybe_await!(self.store.get_output_notes(NoteFilter::Expected))?
                 .into_iter()
                 .map(|n| n.id())
                 .collect();
 
         for committed_note in committed_notes {
-            if let Some(note_record) = pending_input_notes.get(committed_note.note_id()) {
-                // The note belongs to our locally tracked set of pending notes, build the inclusion proof
+            if let Some(note_record) = expected_input_notes.get(committed_note.note_id()) {
+                // The note belongs to our locally tracked set of expected notes, build the inclusion proof
                 let note_inclusion_proof = NoteInclusionProof::new(
                     block_header.block_num(),
                     block_header.sub_hash(),
@@ -455,7 +455,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 tracked_input_notes.push(input_note);
             }
 
-            if pending_output_notes.contains(committed_note.note_id()) {
+            if expected_output_notes.contains(committed_note.note_id()) {
                 let note_id_with_inclusion_proof = NoteInclusionProof::new(
                     block_header.block_num(),
                     block_header.sub_hash(),
@@ -468,8 +468,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 tracked_output_notes_proofs.push(note_id_with_inclusion_proof);
             }
 
-            if !pending_input_notes.contains_key(committed_note.note_id())
-                && !pending_output_notes.contains(committed_note.note_id())
+            if !expected_input_notes.contains_key(committed_note.note_id())
+                && !expected_output_notes.contains(committed_note.note_id())
             {
                 // The note is public and we are not tracking it, push to the list of IDs to query
                 new_public_notes.push(*committed_note.note_id());
@@ -534,7 +534,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         &mut self,
         committed_notes: &SyncedNewNotes,
     ) -> Result<bool, ClientError> {
-        // We'll only do the check for either incoming public notes or pending input notes as
+        // We'll only do the check for either incoming public notes or expected input notes as
         // output notes are not really candidates to be consumed here.
 
         let note_screener = NoteScreener::new(self.store.clone());

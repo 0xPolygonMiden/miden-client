@@ -24,7 +24,7 @@ use crate::cli::{
 #[derive(Clone, Debug, ValueEnum)]
 pub enum NoteFilter {
     All,
-    Pending,
+    Expected,
     Committed,
     Consumed,
     Processing,
@@ -37,7 +37,7 @@ impl TryInto<ClientNoteFilter<'_>> for NoteFilter {
     fn try_into(self) -> Result<ClientNoteFilter<'static>, Self::Error> {
         match self {
             NoteFilter::All => Ok(ClientNoteFilter::All),
-            NoteFilter::Pending => Ok(ClientNoteFilter::Pending),
+            NoteFilter::Expected => Ok(ClientNoteFilter::Expected),
             NoteFilter::Committed => Ok(ClientNoteFilter::Committed),
             NoteFilter::Consumed => Ok(ClientNoteFilter::Consumed),
             NoteFilter::Processing => Ok(ClientNoteFilter::Processing),

@@ -30,8 +30,8 @@ fn print_client_stats<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuth
         client.get_account_stubs().map_err(|e| e.to_string())?.len()
     );
     println!(
-        "Pending notes: {}",
-        client.get_input_notes(NoteFilter::Pending).map_err(|e| e.to_string())?.len()
+        "Expected notes: {}",
+        client.get_input_notes(NoteFilter::Expected).map_err(|e| e.to_string())?.len()
     );
     Ok(())
 }
