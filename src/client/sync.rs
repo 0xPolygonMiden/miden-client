@@ -5,8 +5,8 @@ use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
     crypto::{self, merkle::MerklePath, rand::FeltRng},
-    notes::{Note, NoteId, NoteInclusionProof, NoteInputs, NoteRecipient, NoteTag, Nullifier},
-    transaction::{InputNote, TransactionId},
+    notes::{Note, NoteId, NoteInclusionProof, NoteInputs, NoteRecipient, NoteTag},
+    transaction::InputNote,
     BlockHeader, Digest,
 };
 use miden_tx::auth::TransactionAuthenticator;
@@ -20,6 +20,7 @@ use super::{
 use crate::{
     client::rpc::AccountDetails,
     errors::{ClientError, RpcError, StoreError},
+    rpc::{NullifierUpdate, TransactionUpdate},
     store::{ChainMmrNodeFilter, InputNoteRecord, NoteFilter, Store, TransactionFilter},
 };
 
@@ -168,9 +169,9 @@ impl SyncedNewNotes {
 /// Contains all information needed to apply the update in the store after syncing with the node
 pub struct StateSyncUpdate {
     pub block_header: BlockHeader,
-    pub nullifiers: Vec<(Nullifier, u32)>,
+    pub nullifiers: Vec<NullifierUpdate>,
     pub synced_new_notes: SyncedNewNotes,
-    pub transactions_to_commit: Vec<(TransactionId, u32, AccountId)>,
+    pub transactions_to_commit: Vec<TransactionUpdate>,
     pub new_mmr_peaks: MmrPeaks,
     pub new_authentication_nodes: Vec<(InOrderIndex, Digest)>,
     pub updated_onchain_accounts: Vec<Account>,
@@ -586,12 +587,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     #[maybe_async]
     fn get_new_nullifiers(
         &self,
-        mut new_nullifiers: Vec<(Nullifier, u32)>,
-    ) -> Result<Vec<(Nullifier, u32)>, ClientError> {
+        mut new_nullifiers: Vec<NullifierUpdate>,
+    ) -> Result<Vec<NullifierUpdate>, ClientError> {
         // Get current unspent nullifiers
         let nullifiers = maybe_await!(self.store.get_unspent_input_note_nullifiers())?;
 
-        new_nullifiers.retain(|(new_nullifier, _)| nullifiers.contains(new_nullifier));
+        new_nullifiers.retain(|nullifier_update| nullifiers.contains(&nullifier_update.nullifier));
 
         Ok(new_nullifiers)
     }
@@ -601,8 +602,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     #[maybe_async]
     fn get_transactions_to_commit(
         &self,
-        mut transactions: Vec<(TransactionId, u32, AccountId)>,
-    ) -> Result<Vec<(TransactionId, u32, AccountId)>, ClientError> {
+        mut transactions: Vec<TransactionUpdate>,
+    ) -> Result<Vec<TransactionUpdate>, ClientError> {
         // Get current uncommitted transactions
         let uncommitted_transaction_ids =
             maybe_await!(self.store.get_transactions(TransactionFilter::Uncomitted))?
@@ -610,8 +611,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 .map(|tx| tx.id)
                 .collect::<Vec<_>>();
 
-        transactions
-            .retain(|(transaction_id, ..)| uncommitted_transaction_ids.contains(transaction_id));
+        transactions.retain(|transaction_update| {
+            uncommitted_transaction_ids.contains(&transaction_update.transaction_id)
+        });
 
         Ok(transactions)
     }

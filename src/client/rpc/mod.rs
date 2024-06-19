@@ -147,11 +147,31 @@ pub struct StateSyncInfo {
     pub account_hash_updates: Vec<(AccountId, Digest)>,
     /// List of tuples of Note ID, Note Index and Merkle Path for all new notes
     pub note_inclusions: Vec<CommittedNote>,
-    /// List of nullifiers that identify spent notes
-    pub nullifiers: Vec<(Nullifier, u32)>,
-    /// List of transaction IDs of transaction that were included in (current_block.num,
-    /// incoming_block_header.num-1)
-    pub transactions: Vec<(TransactionId, u32, AccountId)>,
+    /// List of nullifiers that identify spent notes along with the block number at which they were
+    /// consumed
+    pub nullifiers: Vec<NullifierUpdate>,
+    /// List of transaction IDs of transaction that were included in (request.block_num,
+    /// response.block_num-1) along with the account the tx was executed against and the block
+    /// number the transaction was included in.
+    pub transactions: Vec<TransactionUpdate>,
+}
+
+/// Represents a transaction that was included in the node at a certain block.
+pub struct TransactionUpdate {
+    /// The transaction Identifier
+    pub transaction_id: TransactionId,
+    /// The number of the block in which the transaction was included
+    pub block_num: u32,
+    /// The account that the transcation was executed against
+    pub account_id: AccountId,
+}
+
+/// Represents a note that was consumed in the node at a certain block.
+pub struct NullifierUpdate {
+    /// The nullifier of the consumed note
+    pub nullifier: Nullifier,
+    /// The number of the block in which the note consumption was registered.
+    pub block_num: u32,
 }
 
 // COMMITTED NOTE

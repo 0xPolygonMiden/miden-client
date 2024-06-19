@@ -14,7 +14,7 @@ use miden_node_proto::{
 use miden_objects::{
     accounts::{Account, AccountId},
     crypto::merkle::{MerklePath, MmrProof},
-    notes::{Note, NoteId, NoteTag, Nullifier},
+    notes::{Note, NoteId, NoteTag},
     transaction::{ProvenTransaction, TransactionId},
     utils::Deserializable,
     BlockHeader, Digest,
@@ -25,7 +25,7 @@ use tracing::info;
 
 use super::{
     AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
-    NoteDetails, NoteInclusionDetails, StateSyncInfo,
+    NoteDetails, NoteInclusionDetails, NullifierUpdate, StateSyncInfo, TransactionUpdate,
 };
 use crate::{config::RpcConfig, errors::RpcError};
 
@@ -346,9 +346,12 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
 
                 let nullifier_block_num = nul_update.block_num;
 
-                Ok((nullifier_digest.into(), nullifier_block_num))
+                Ok(NullifierUpdate {
+                    nullifier: nullifier_digest.into(),
+                    block_num: nullifier_block_num,
+                })
             })
-            .collect::<Result<Vec<(Nullifier, u32)>, RpcError>>()?;
+            .collect::<Result<Vec<NullifierUpdate>, RpcError>>()?;
 
         let transactions = value
             .transactions
@@ -368,11 +371,13 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                 let transaction_account_id = AccountId::try_from(transaction_account_id)
                     .map_err(|err| RpcError::ConversionFailure(err.to_string()))?;
 
-                // TODO: once #380 from miden-node is addressed, replace the block number for
-                // the one that comes with the response
-                Ok((transaction_id, transaction_block_num, transaction_account_id))
+                Ok(TransactionUpdate {
+                    transaction_id,
+                    block_num: transaction_block_num,
+                    account_id: transaction_account_id,
+                })
             })
-            .collect::<Result<Vec<(TransactionId, u32, AccountId)>, RpcError>>()?;
+            .collect::<Result<Vec<TransactionUpdate>, RpcError>>()?;
 
         Ok(Self {
             chain_tip,

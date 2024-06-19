@@ -94,20 +94,21 @@ impl SqliteStore {
         tx.execute(BLOCK_NUMBER_QUERY, params![block_header.block_num()])?;
 
         // Update spent notes
-        for (nullifier, _block_height) in nullifiers.iter() {
+        for nullifier_update in nullifiers.iter() {
             const SPENT_INPUT_NOTE_QUERY: &str =
                 "UPDATE input_notes SET status = ?, nullifier_height = ? WHERE json_extract(details, '$.nullifier') = ?";
-            let nullifier = nullifier.to_hex();
+            let nullifier = nullifier_update.nullifier.to_hex();
+            let block_num = nullifier_update.block_num;
             tx.execute(
                 SPENT_INPUT_NOTE_QUERY,
-                params![NOTE_STATUS_CONSUMED.to_string(), block_header.block_num(), nullifier],
+                params![NOTE_STATUS_CONSUMED.to_string(), block_num, nullifier],
             )?;
 
             const SPENT_OUTPUT_NOTE_QUERY: &str =
                 "UPDATE output_notes SET status = ?, nullifier_height = ? WHERE json_extract(details, '$.nullifier') = ?";
             tx.execute(
                 SPENT_OUTPUT_NOTE_QUERY,
-                params![NOTE_STATUS_CONSUMED.to_string(), block_header.block_num(), nullifier],
+                params![NOTE_STATUS_CONSUMED.to_string(), block_num, nullifier],
             )?;
         }
 
