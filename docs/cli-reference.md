@@ -111,7 +111,7 @@ View and manage notes.
 | `--show <ID>`     | Show details of the input note for the specified note ID    | `-s`       |
 
 The `--list` flag receives an optional filter:
-    - pending: Only lists pending notes.
+    - expected: Only lists expected notes.
     - commited: Only lists commited notes.
     - consumed: Only lists consumed notes.
     - consumable: Only lists consumable notes. An additional `--account-id <ID>` flag may be added to only show notes consumable by the specified account.
@@ -157,7 +157,7 @@ View transactions.
 
 After a transaction gets executed, two entities start being tracked:
 
-- The transaction itself: It follows a lifecycle from `pending` (initial state) and `committed` (after the node receives it).
+- The transaction itself: It follows a lifecycle from `expected` (initial state) and `committed` (after the node receives it).
 - Output notes that might have been created as part of the transaction (for example, when executing a pay-to-id transaction).
 
 ### Transaction creation commands

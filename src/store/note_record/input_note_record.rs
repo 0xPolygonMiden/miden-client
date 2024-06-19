@@ -103,7 +103,7 @@ impl From<&NoteDetails> for InputNoteRecord {
             recipient: note_details.recipient().digest(),
             metadata: None,
             inclusion_proof: None,
-            status: NoteStatus::Pending { created_at: 0 },
+            status: NoteStatus::Expected { created_at: 0 },
             details: NoteRecordDetails {
                 nullifier: note_details.nullifier().to_string(),
                 script_hash: note_details.script().hash(),
@@ -155,7 +155,7 @@ impl From<Note> for InputNoteRecord {
             id: note.id(),
             recipient: note.recipient().digest(),
             assets: note.assets().clone(),
-            status: NoteStatus::Pending { created_at: 0 },
+            status: NoteStatus::Expected { created_at: 0 },
             metadata: Some(*note.metadata()),
             inclusion_proof: None,
             details: NoteRecordDetails::new(
@@ -174,7 +174,7 @@ impl From<InputNote> for InputNoteRecord {
             id: recorded_note.note().id(),
             recipient: recorded_note.note().recipient().digest(),
             assets: recorded_note.note().assets().clone(),
-            status: NoteStatus::Pending { created_at: 0 },
+            status: NoteStatus::Expected { created_at: 0 },
             metadata: Some(*recorded_note.note().metadata()),
             details: NoteRecordDetails::new(
                 recorded_note.note().nullifier().to_string(),

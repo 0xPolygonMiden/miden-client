@@ -48,15 +48,15 @@ pub use output_note_record::OutputNoteRecord;
 
 // NOTE STATUS
 // ================================================================================================
-pub const NOTE_STATUS_PENDING: &str = "Pending";
+pub const NOTE_STATUS_EXPECTED: &str = "Expected";
 pub const NOTE_STATUS_COMMITTED: &str = "Committed";
 pub const NOTE_STATUS_CONSUMED: &str = "Consumed";
 pub const NOTE_STATUS_PROCESSING: &str = "Processing";
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum NoteStatus {
-    /// Note is pending to be commited on chain.
-    Pending {
+    /// Note is expected to be commited on chain.
+    Expected {
         /// UNIX epoch-based timestamp (in seconds) when the note (either new or imported) started being tracked by the client.
         created_at: u64,
     },
@@ -84,7 +84,7 @@ pub enum NoteStatus {
 impl Serializable for NoteStatus {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
         match self {
-            NoteStatus::Pending { created_at } => {
+            NoteStatus::Expected { created_at } => {
                 target.write_u8(0);
                 target.write_u64(*created_at);
             },
@@ -112,7 +112,7 @@ impl Deserializable for NoteStatus {
         match status {
             0 => {
                 let created_at = source.read_u64()?;
-                Ok(NoteStatus::Pending { created_at })
+                Ok(NoteStatus::Expected { created_at })
             },
             1 => {
                 let block_height = source.read_u64()?;
@@ -136,9 +136,9 @@ impl Deserializable for NoteStatus {
 impl Display for NoteStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            NoteStatus::Pending { created_at } => write!(
+            NoteStatus::Expected { created_at } => write!(
                 f,
-                "{NOTE_STATUS_PENDING} (created at {})",
+                "{NOTE_STATUS_EXPECTED} (created at {})",
                 Local
                     .timestamp_opt(*created_at as i64, 0)
                     .single()

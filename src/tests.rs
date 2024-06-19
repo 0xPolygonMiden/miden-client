@@ -235,10 +235,10 @@ async fn test_sync_state() {
     // generate test data
     crate::mock::insert_mock_data(&mut client).await;
 
-    // assert that we have no consumed nor pending notes prior to syncing state
+    // assert that we have no consumed nor expected notes prior to syncing state
     assert_eq!(client.get_input_notes(NoteFilter::Consumed).unwrap().len(), 0);
 
-    let pending_notes = client.get_input_notes(NoteFilter::Pending).unwrap();
+    let expected_notes = client.get_input_notes(NoteFilter::Expected).unwrap();
 
     // sync state
     let sync_details = client.sync_state().await.unwrap();
@@ -253,8 +253,8 @@ async fn test_sync_state() {
     assert_eq!(client.get_input_notes(NoteFilter::Consumed).unwrap().len(), 1);
     assert_eq!(sync_details.new_nullifiers, 1);
 
-    // verify that the pending note we had is now committed
-    assert_ne!(client.get_input_notes(NoteFilter::Committed).unwrap(), pending_notes);
+    // verify that the expected note we had is now committed
+    assert_ne!(client.get_input_notes(NoteFilter::Committed).unwrap(), expected_notes);
 
     // verify that the latest block number has been updated
     assert_eq!(
@@ -449,11 +449,11 @@ async fn test_import_note_validation() {
     let (_, committed_notes, ..) = mock_full_chain_mmr_and_notes(consumed_notes);
 
     let committed_note: InputNoteRecord = committed_notes.first().unwrap().clone().into();
-    let pending_note = InputNoteRecord::from(created_notes.first().unwrap().clone());
+    let expected_note = InputNoteRecord::from(created_notes.first().unwrap().clone());
 
     client.import_input_note(committed_note.clone(), false).await.unwrap();
-    assert!(client.import_input_note(pending_note.clone(), true).await.is_err());
-    client.import_input_note(pending_note.clone(), false).await.unwrap();
-    assert!(pending_note.inclusion_proof().is_none());
+    assert!(client.import_input_note(expected_note.clone(), true).await.is_err());
+    client.import_input_note(expected_note.clone(), false).await.unwrap();
+    assert!(expected_note.inclusion_proof().is_none());
     assert!(committed_note.inclusion_proof().is_some());
 }
