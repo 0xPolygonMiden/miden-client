@@ -794,6 +794,10 @@ fn get_transactions_to_commit(
             // account be included in a single block. If that happens, we'll need to rewrite
             // this check.
 
+            // TODO: If all input notes were consumed but the account hashes don't match, it means that
+            // another transaction consumed them and that the current transaction failed. We should
+            // handle this case in the future and rollback the store accordingly.
+
             t.input_note_nullifiers.iter().all(|n| nullifiers.contains(n))
                 && t.output_notes.iter().all(|n| note_ids.contains(&n.id()))
                 && account_hash_updates.iter().any(|(account_id, account_hash)| {

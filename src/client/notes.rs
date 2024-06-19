@@ -8,22 +8,12 @@ use miden_tx::{auth::TransactionAuthenticator, ScriptTarget};
 use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
 
-use super::{note_screener::NoteRelevance, rpc::NodeRpcClient, Client};
+use super::{note_screener::NoteConsumability, rpc::NodeRpcClient, Client};
 use crate::{
     client::NoteScreener,
     errors::ClientError,
     store::{InputNoteRecord, NoteFilter, OutputNoteRecord, Store},
 };
-
-// TYPES
-// --------------------------------------------------------------------------------------------
-/// Contains information about a note that can be consumed
-pub struct ConsumableNote {
-    /// The consumable note
-    pub note: InputNoteRecord,
-    /// Stores which accounts can consume the note and it's relevance
-    pub relevances: Vec<(AccountId, NoteRelevance)>,
-}
 
 impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
     // INPUT NOTE DATA RETRIEVAL
@@ -38,38 +28,46 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         maybe_await!(self.store.get_input_notes(filter)).map_err(|err| err.into())
     }
 
-    /// Returns input notes that are able to be consumed by the account_id.
+    /// Returns the input notes and their consumability.
     ///
     /// If account_id is None then all consumable input notes are returned.
     #[maybe_async]
     pub fn get_consumable_notes(
         &self,
         account_id: Option<AccountId>,
-    ) -> Result<Vec<ConsumableNote>, ClientError> {
+    ) -> Result<Vec<(InputNoteRecord, Vec<NoteConsumability>)>, ClientError> {
         let commited_notes = maybe_await!(self.store.get_input_notes(NoteFilter::Committed))?;
 
         let note_screener = NoteScreener::new(self.store.clone());
 
         let mut relevant_notes = Vec::new();
         for input_note in commited_notes {
-            let account_relevance =
+            let mut account_relevance =
                 maybe_await!(note_screener.check_relevance(&input_note.clone().try_into()?))?;
+
+            if let Some(account_id) = account_id {
+                account_relevance.retain(|(id, _)| *id == account_id);
+            }
 
             if account_relevance.is_empty() {
                 continue;
             }
 
-            relevant_notes.push(ConsumableNote {
-                note: input_note,
-                relevances: account_relevance,
-            });
-        }
-
-        if let Some(account_id) = account_id {
-            relevant_notes.retain(|note| note.relevances.iter().any(|(id, _)| *id == account_id));
+            relevant_notes.push((input_note, account_relevance));
         }
 
         Ok(relevant_notes)
+    }
+
+    /// Returns the consumability of the provided note.
+    #[maybe_async]
+    pub fn get_note_consumability(
+        &self,
+        note: InputNoteRecord,
+    ) -> Result<Vec<NoteConsumability>, ClientError> {
+        let note_screener = NoteScreener::new(self.store.clone());
+        maybe_await!(note_screener.check_relevance(&note.clone().try_into()?))
+            .map_err(|err| err.into())
     }
 
     /// Returns the input note with the specified hash.
@@ -174,7 +172,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             note.metadata().copied(),
             inclusion_proof,
             note.details().clone(),
-            None,
         );
 
         maybe_await!(self.store.insert_input_note(&note)).map_err(|err| err.into())

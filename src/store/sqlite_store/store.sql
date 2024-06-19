@@ -73,8 +73,8 @@ CREATE TABLE input_notes (
     note_id BLOB NOT NULL,                                  -- the note id
     recipient BLOB NOT NULL,                                -- the note recipient
     assets BLOB NOT NULL,                                   -- the serialized NoteAssets, including vault hash and list of assets
-    status TEXT CHECK( status IN (                          -- the status of the note - either pending, committed or consumed
-        'Pending', 'Committed', 'Consumed'
+    status TEXT CHECK( status IN (                          -- the status of the note - either pending, committed, processing or consumed
+        'Pending', 'Committed', 'Processing', 'Consumed'
         )),
 
     inclusion_proof JSON NULL,                              -- JSON consisting of the following fields:
@@ -94,6 +94,9 @@ CREATE TABLE input_notes (
     -- inputs                                                 -- the serialized NoteInputs, including inputs hash and list of inputs
     -- serial_num                                             -- the note serial number
     consumer_transaction_id BLOB NULL,                      -- the transaction ID of the transaction that consumed the note
+    created_at UNSIGNED BIG INT NOT NULL,                   -- timestamp of the note creation/import
+    submitted_at UNSIGNED BIG INT NULL,                      -- timestamp of the note submission to node
+    nullifier_height UNSIGNED BIG INT NULL,                 -- block height when the nullifier arrived
     FOREIGN KEY (consumer_transaction_id) REFERENCES transactions(id)
     PRIMARY KEY (note_id)
 
@@ -108,6 +111,8 @@ CREATE TABLE input_notes (
       ))
     CONSTRAINT check_valid_metadata_json CHECK (metadata IS NULL OR (json_extract(metadata, '$.sender') IS NOT NULL AND json_extract(metadata, '$.tag') IS NOT NULL))
     CONSTRAINT check_valid_consumer_transaction_id CHECK (consumer_transaction_id IS NULL OR status != 'Pending')
+    CONSTRAINT check_valid_submitted_at CHECK (submitted_at IS NOT NULL OR status != 'Processing')
+    CONSTRAINT check_valid_nullifier_height CHECK (nullifier_height IS NOT NULL OR status != 'Consumed')
 );
 
 -- Create output notes table
@@ -115,8 +120,8 @@ CREATE TABLE output_notes (
     note_id BLOB NOT NULL,                                  -- the note id
     recipient BLOB NOT NULL,                                -- the note recipient
     assets BLOB NOT NULL,                                   -- the serialized NoteAssets, including vault hash and list of assets
-    status TEXT CHECK( status IN (                          -- the status of the note - either pending, committed or consumed
-        'Pending', 'Committed', 'Consumed'
+    status TEXT CHECK( status IN (                          -- the status of the note - either pending, committed, processing or consumed
+        'Pending', 'Committed', 'Processing', 'Consumed'
         )),
 
     inclusion_proof JSON NULL,                              -- JSON consisting of the following fields:
@@ -136,6 +141,9 @@ CREATE TABLE output_notes (
     -- inputs                                                 -- the serialized NoteInputs, including inputs hash and list of inputs
     -- serial_num                                             -- the note serial number
     consumer_transaction_id BLOB NULL,                      -- the transaction ID of the transaction that consumed the note
+    created_at UNSIGNED BIG INT NOT NULL,                   -- timestamp of the note creation/import
+    submitted_at UNSIGNED BIG INT NULL,                      -- timestamp of the note submission to node
+    nullifier_height UNSIGNED BIG INT NULL,                 -- block height when the nullifier arrived
     FOREIGN KEY (consumer_transaction_id) REFERENCES transactions(id)
     PRIMARY KEY (note_id)
 
@@ -157,6 +165,8 @@ CREATE TABLE output_notes (
         json_extract(details, '$.serial_num') IS NOT NULL
       ))
     CONSTRAINT check_valid_consumer_transaction_id CHECK (consumer_transaction_id IS NULL OR status != 'Pending')
+    CONSTRAINT check_valid_submitted_at CHECK (submitted_at IS NOT NULL OR status != 'Processing')
+    CONSTRAINT check_valid_nullifier_height CHECK (nullifier_height IS NOT NULL OR status != 'Consumed')
 );
 
 -- Create note's scripts table, used for both input and output notes

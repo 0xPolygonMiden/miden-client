@@ -258,7 +258,7 @@ impl ConsumeNotesCmd {
             info!("No input note IDs provided, getting all notes consumable by {}", account_id);
             let consumable_notes = client.get_consumable_notes(Some(account_id))?;
 
-            list_of_notes.extend(consumable_notes.iter().map(|n| n.note.id()));
+            list_of_notes.extend(consumable_notes.iter().map(|(note, _)| note.id()));
         }
 
         if list_of_notes.is_empty() {

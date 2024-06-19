@@ -4,7 +4,7 @@ use core::cell::{RefCell, RefMut};
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::NoteTag,
+    notes::{NoteTag, Nullifier},
     BlockHeader, Digest, Word,
 };
 use rusqlite::{vtab::array, Connection};
@@ -259,6 +259,11 @@ impl Store for SqliteStore {
 
     fn get_account_auth_by_pub_key(&self, pub_key: Word) -> Result<AuthSecretKey, StoreError> {
         self.get_account_auth_by_pub_key(pub_key)
+    }
+
+    #[maybe_async]
+    fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
+        self.get_unspent_input_note_nullifiers()
     }
 }
 

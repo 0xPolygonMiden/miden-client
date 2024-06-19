@@ -3,9 +3,9 @@ use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     errors::{ClientError, IdPrefixFetchError},
     rpc::NodeRpcClient,
-    store::{InputNoteRecord, NoteFilter as ClientNoteFilter, NoteStatus, OutputNoteRecord, Store},
+    store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
     transactions::transaction_request::known_script_roots::{P2ID, P2IDR, SWAP},
-    Client, ConsumableNote,
+    Client, NoteConsumability,
 };
 use miden_objects::{
     accounts::AccountId,
@@ -27,6 +27,7 @@ pub enum NoteFilter {
     Pending,
     Committed,
     Consumed,
+    Processing,
     Consumable,
 }
 
@@ -39,6 +40,7 @@ impl TryInto<ClientNoteFilter<'_>> for NoteFilter {
             NoteFilter::Pending => Ok(ClientNoteFilter::Pending),
             NoteFilter::Committed => Ok(ClientNoteFilter::Committed),
             NoteFilter::Consumed => Ok(ClientNoteFilter::Consumed),
+            NoteFilter::Processing => Ok(ClientNoteFilter::Processing),
             NoteFilter::Consumable => Err("Consumable filter is not supported".to_string()),
         }
     }
@@ -310,14 +312,14 @@ where
 
 fn print_consumable_notes_summary<'a, I>(notes: I) -> Result<(), String>
 where
-    I: IntoIterator<Item = &'a ConsumableNote>,
+    I: IntoIterator<Item = &'a (InputNoteRecord, Vec<NoteConsumability>)>,
 {
     let mut table = create_dynamic_table(&["Note ID", "Account ID", "Relevance"]);
 
-    for consumable_note in notes {
-        for relevance in &consumable_note.relevances {
+    for (note, relevances) in notes {
+        for relevance in relevances {
             table.add_row(vec![
-                consumable_note.note.id().to_hex(),
+                note.id().to_hex(),
                 relevance.0.to_string(),
                 relevance.1.to_string(),
             ]);
@@ -349,21 +351,6 @@ fn note_summary(
     let note_id = input_note_record
         .map(|record| record.id())
         .or(output_note_record.map(|record| record.id()))
-        .expect("One of the two records should be Some");
-
-    let commit_height = input_note_record
-        .map(|record| {
-            record
-                .inclusion_proof()
-                .map(|proof| proof.origin().block_num.to_string())
-                .unwrap_or("-".to_string())
-        })
-        .or(output_note_record.map(|record| {
-            record
-                .inclusion_proof()
-                .map(|proof| proof.origin().block_num.to_string())
-                .unwrap_or("-".to_string())
-        }))
         .expect("One of the two records should be Some");
 
     let assets_hash_str = input_note_record
@@ -408,27 +395,8 @@ fn note_summary(
     let status = input_note_record
         .map(|record| record.status())
         .or(output_note_record.map(|record| record.status()))
-        .expect("One of the two records should be Some");
-
-    let note_consumer = input_note_record
-        .map(|record| record.consumer_account_id())
-        .or(output_note_record.map(|record| record.consumer_account_id()))
-        .expect("One of the two records should be Some");
-
-    let status = match status {
-        NoteStatus::Committed => {
-            status.to_string() + format!(" (height {})", commit_height).as_str()
-        },
-        NoteStatus::Consumed => {
-            status.to_string()
-                + format!(
-                    " (by {})",
-                    note_consumer.map(|id| id.to_string()).unwrap_or("?".to_string())
-                )
-                .as_str()
-        },
-        _ => status.to_string(),
-    };
+        .expect("One of the two records should be Some")
+        .to_string();
 
     let note_metadata = input_note_record
         .map(|record| record.metadata())

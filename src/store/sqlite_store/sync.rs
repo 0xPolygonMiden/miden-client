@@ -5,7 +5,10 @@ use super::SqliteStore;
 use crate::{
     client::sync::StateSyncUpdate,
     errors::StoreError,
-    store::sqlite_store::{accounts::update_account, notes::insert_input_note_tx},
+    store::{
+        note_record::{NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED},
+        sqlite_store::{accounts::update_account, notes::insert_input_note_tx},
+    },
 };
 
 impl SqliteStore {
@@ -93,13 +96,19 @@ impl SqliteStore {
         // Update spent notes
         for nullifier in nullifiers.iter() {
             const SPENT_INPUT_NOTE_QUERY: &str =
-                "UPDATE input_notes SET status = 'Consumed' WHERE json_extract(details, '$.nullifier') = ?";
+                "UPDATE input_notes SET status = ?, nullifier_height = ? WHERE json_extract(details, '$.nullifier') = ?";
             let nullifier = nullifier.to_hex();
-            tx.execute(SPENT_INPUT_NOTE_QUERY, params![nullifier])?;
+            tx.execute(
+                SPENT_INPUT_NOTE_QUERY,
+                params![NOTE_STATUS_CONSUMED.to_string(), block_header.block_num(), nullifier],
+            )?;
 
             const SPENT_OUTPUT_NOTE_QUERY: &str =
-                "UPDATE output_notes SET status = 'Consumed' WHERE json_extract(details, '$.nullifier') = ?";
-            tx.execute(SPENT_OUTPUT_NOTE_QUERY, params![nullifier])?;
+                "UPDATE output_notes SET status = ?, nullifier_height = ? WHERE json_extract(details, '$.nullifier') = ?";
+            tx.execute(
+                SPENT_OUTPUT_NOTE_QUERY,
+                params![NOTE_STATUS_CONSUMED.to_string(), block_header.block_num(), nullifier],
+            )?;
         }
 
         Self::insert_block_header_tx(&tx, block_header, new_mmr_peaks, block_has_relevant_notes)?;
@@ -125,13 +134,14 @@ impl SqliteStore {
 
             // Update output notes
             const COMMITTED_OUTPUT_NOTES_QUERY: &str =
-                "UPDATE output_notes SET status = 'Committed', inclusion_proof = json(:inclusion_proof) WHERE note_id = :note_id";
+                "UPDATE output_notes SET status = :status , inclusion_proof = json(:inclusion_proof) WHERE note_id = :note_id";
 
             tx.execute(
                 COMMITTED_OUTPUT_NOTES_QUERY,
                 named_params! {
                     ":inclusion_proof": inclusion_proof,
                     ":note_id": note_id.inner().to_hex(),
+                    ":status": NOTE_STATUS_COMMITTED.to_string(),
                 },
             )?;
         }
@@ -149,7 +159,7 @@ impl SqliteStore {
                 serde_json::to_string(metadata).map_err(StoreError::InputSerializationError)?;
 
             const COMMITTED_INPUT_NOTES_QUERY: &str =
-                "UPDATE input_notes SET status = 'Committed', inclusion_proof = json(:inclusion_proof), metadata = json(:metadata) WHERE note_id = :note_id";
+                "UPDATE input_notes SET status = :status , inclusion_proof = json(:inclusion_proof), metadata = json(:metadata) WHERE note_id = :note_id";
 
             tx.execute(
                 COMMITTED_INPUT_NOTES_QUERY,
@@ -157,6 +167,7 @@ impl SqliteStore {
                     ":inclusion_proof": inclusion_proof,
                     ":metadata": metadata,
                     ":note_id": input_note.id().inner().to_hex(),
+                    ":status": NOTE_STATUS_COMMITTED.to_string(),
                 },
             )?;
         }
