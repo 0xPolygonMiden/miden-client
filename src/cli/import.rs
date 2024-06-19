@@ -23,9 +23,6 @@ pub struct ImportCmd {
     /// Paths to the files that contains the account/note data
     #[arg()]
     filenames: Vec<PathBuf>,
-    /// Skip verification of note's existence in the chain (Only when importing notes)
-    #[clap(short, long, default_value = "false")]
-    no_verify: bool,
 }
 
 impl ImportCmd {
@@ -37,7 +34,7 @@ impl ImportCmd {
         let (mut current_config, _) = load_config_file()?;
         for filename in &self.filenames {
             if is_note_file(filename) {
-                let note_id = import_note(&mut client, filename.clone(), !self.no_verify).await?;
+                let note_id = import_note(&mut client, filename.clone()).await?;
 
                 println!("Succesfully imported note {}", note_id.inner());
             } else {
@@ -81,7 +78,6 @@ fn import_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenti
 pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
     client: &mut Client<N, R, S, A>,
     filename: PathBuf,
-    _verify: bool,
 ) -> Result<NoteId, String> {
     let mut contents = vec![];
     let mut _file = File::open(filename)

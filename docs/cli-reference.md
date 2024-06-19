@@ -237,8 +237,6 @@ This confirmation can be skipped in non-interactive environments by providing th
 
 Import entities managed by the client, such as accounts and notes. The type of entitie is inferred.
 
-When importing notes the CLI verifies that they exist on chain. The user can add an optional flag `--no-verify` that skips this verification.
-
 ### `export`
 
 Export input note data to a binary file .
