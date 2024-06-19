@@ -10,12 +10,7 @@ use miden_client::{
     },
     AccountTemplate, StoreAuthenticator,
 };
-use miden_objects::{
-    accounts::{AccountId, AccountStorageType},
-    crypto::rand::RpoRandomCoin,
-    notes::{NoteExecutionHint, NoteTag},
-    Felt,
-};
+use miden_objects::{accounts::AccountStorageType, crypto::rand::RpoRandomCoin, Felt};
 use rand::Rng;
 
 use crate::{create_test_store_path, TestClient};
@@ -348,11 +343,6 @@ fn test_cli_export_import_note() {
 
     // Export the note
     let mut export_cmd = Command::cargo_bin("miden").unwrap();
-    let tag = NoteTag::from_account_id(
-        AccountId::from_hex(&first_basic_account_id).unwrap(),
-        NoteExecutionHint::Local,
-    )
-    .unwrap();
     export_cmd.args([
         "export",
         &note_to_export_id,
@@ -360,8 +350,6 @@ fn test_cli_export_import_note() {
         NOTE_FILENAME,
         "--export-type",
         "partial",
-        "--tag",
-        &u32::from(tag).to_string(),
     ]);
     export_cmd.current_dir(&temp_dir_1).assert().success();
 

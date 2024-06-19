@@ -5,10 +5,7 @@ use miden_client::{
     store::{InputNoteRecord, Store},
     Client,
 };
-use miden_objects::{
-    crypto::rand::FeltRng,
-    notes::{NoteFile, NoteTag},
-};
+use miden_objects::{crypto::rand::FeltRng, notes::NoteFile};
 use miden_tx::{auth::TransactionAuthenticator, utils::Serializable};
 use tracing::info;
 
@@ -29,10 +26,6 @@ pub struct ExportCmd {
     /// Exported note type
     #[clap(short, long, value_enum)]
     export_type: ExportType,
-
-    /// Optional tracking tag for partial export
-    #[clap(short, long)]
-    tag: Option<u32>,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
@@ -47,13 +40,7 @@ impl ExportCmd {
         &self,
         client: Client<N, R, S, A>,
     ) -> Result<(), String> {
-        export_note(
-            &client,
-            self.id.as_str(),
-            self.filename.clone(),
-            self.export_type.clone(),
-            self.tag,
-        )?;
+        export_note(&client, self.id.as_str(), self.filename.clone(), self.export_type.clone())?;
         Ok(())
     }
 }
@@ -66,7 +53,6 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthent
     note_id: &str,
     filename: Option<PathBuf>,
     export_type: ExportType,
-    tag: Option<u32>,
 ) -> Result<File, String> {
     let note_id = get_output_note_with_id_prefix(client, note_id)
         .map_err(|err| err.to_string())?
@@ -90,7 +76,10 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthent
             },
             _ => return Err("Note does not have inclusion proof or metadata".to_string()),
         },
-        ExportType::Partial => NoteFile::NoteDetails(input_note.into(), tag.map(NoteTag::from)),
+        ExportType::Partial => NoteFile::NoteDetails(
+            input_note.clone().into(),
+            input_note.metadata().map(|metadata| metadata.tag()),
+        ),
     };
 
     let file_path = if let Some(filename) = filename {
