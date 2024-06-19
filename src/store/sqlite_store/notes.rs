@@ -15,8 +15,7 @@ use rusqlite::{named_params, params, params_from_iter, types::Value, Transaction
 use super::SqliteStore;
 use crate::store::{
     note_record::{
-        NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED, NOTE_STATUS_EXPECTED,
-        NOTE_STATUS_PROCESSING,
+        NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED, NOTE_STATUS_EXPECTED, NOTE_STATUS_PROCESSING,
     },
     InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord, StoreError,
 };
