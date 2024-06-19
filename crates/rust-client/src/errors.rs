@@ -25,7 +25,7 @@ pub enum ClientError {
     NoteImportError(String),
     NoteRecordError(String),
     NoConsumableNoteForAccount(AccountId),
-    NodeError(RpcError),
+    RpcError(RpcError),
     NoteScreenerError(NoteScreenerError),
     StoreError(StoreError),
     TransactionExecutorError(TransactionExecutorError),
@@ -62,7 +62,7 @@ impl fmt::Display for ClientError {
             ClientError::NoteError(err) => write!(f, "note error: {err}"),
             ClientError::NoteImportError(err) => write!(f, "error importing note: {err}"),
             ClientError::NoteRecordError(err) => write!(f, "note record error: {err}"),
-            ClientError::NodeError(err) => write!(f, "rpc api error: {err}"),
+            ClientError::RpcError(err) => write!(f, "rpc api error: {err}"),
             ClientError::NoteScreenerError(err) => write!(f, "note screener error: {err}"),
             ClientError::StoreError(err) => write!(f, "store error: {err}"),
             ClientError::TransactionExecutorError(err) => {
@@ -107,7 +107,7 @@ impl From<NoteError> for ClientError {
 
 impl From<RpcError> for ClientError {
     fn from(err: RpcError) -> Self {
-        Self::NodeError(err)
+        Self::RpcError(err)
     }
 }
 

@@ -197,7 +197,7 @@ impl<S: Store> NoteScreener<S> {
     }
 }
 
-// NOTE SCREENER ERROR
+// NOTE SCREENER ERRORS
 // ================================================================================================
 
 /// Error when screening notes to check relevance to a client
