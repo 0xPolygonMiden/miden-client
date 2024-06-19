@@ -111,6 +111,8 @@ CREATE TABLE input_notes (
       ))
     CONSTRAINT check_valid_metadata_json CHECK (metadata IS NULL OR (json_extract(metadata, '$.sender') IS NOT NULL AND json_extract(metadata, '$.tag') IS NOT NULL))
     CONSTRAINT check_valid_consumer_transaction_id CHECK (consumer_transaction_id IS NULL OR status != 'Pending')
+    CONSTRAINT check_valid_submitted_at CHECK (submitted_at IS NOT NULL OR status != 'Processing')
+    CONSTRAINT check_valid_nullifier_height CHECK (nullifier_height IS NOT NULL OR status != 'Consumed')
 );
 
 -- Create output notes table
@@ -163,6 +165,8 @@ CREATE TABLE output_notes (
         json_extract(details, '$.serial_num') IS NOT NULL
       ))
     CONSTRAINT check_valid_consumer_transaction_id CHECK (consumer_transaction_id IS NULL OR status != 'Pending')
+    CONSTRAINT check_valid_submitted_at CHECK (submitted_at IS NOT NULL OR status != 'Processing')
+    CONSTRAINT check_valid_nullifier_height CHECK (nullifier_height IS NOT NULL OR status != 'Consumed')
 );
 
 -- Create note's scripts table, used for both input and output notes

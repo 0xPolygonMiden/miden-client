@@ -57,7 +57,7 @@ pub const NOTE_STATUS_PROCESSING: &str = "Processing";
 pub enum NoteStatus {
     /// Note is pending to be commited on chain.
     Pending {
-        /// Timestamp (in seconds) when the note (either new or imported) started being tracked by the client.
+        /// UNIX epoch-based timestamp (in seconds) when the note (either new or imported) started being tracked by the client.
         created_at: u64,
     },
     /// Note has been commited on chain.
@@ -69,7 +69,7 @@ pub enum NoteStatus {
     Processing {
         /// ID of account that is consuming the note.
         consumer_account_id: AccountId,
-        /// Timestamp (in seconds) of the note's consumption.
+        /// UNIX epoch-based timestamp (in seconds) of the note's consumption.
         submitted_at: u64,
     },
     /// Note has been nullified on chain.
