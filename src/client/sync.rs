@@ -352,18 +352,23 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let stored_note_tags: Vec<NoteTag> = maybe_await!(self.store.get_note_tags())?;
 
-        let uncommited_note_tags: Vec<NoteTag> =
-            maybe_await!(self.store.get_input_notes(NoteFilter::Expected))?
-                .iter()
-                .filter_map(|note| note.metadata().map(|metadata| metadata.tag()))
-                .collect();
+        let expected_notes = maybe_await!(self.store.get_input_notes(NoteFilter::Expected))?;
 
-        let note_tags: Vec<NoteTag> = [account_note_tags, stored_note_tags, uncommited_note_tags]
-            .concat()
-            .into_iter()
-            .collect::<BTreeSet<NoteTag>>()
-            .into_iter()
+        let uncommited_note_tags: Vec<NoteTag> = expected_notes
+            .iter()
+            .filter_map(|note| note.metadata().map(|metadata| metadata.tag()))
             .collect();
+
+        let imported_tags: Vec<NoteTag> =
+            expected_notes.iter().filter_map(|note| note.imported_tag()).collect();
+
+        let note_tags: Vec<NoteTag> =
+            [account_note_tags, stored_note_tags, uncommited_note_tags, imported_tags]
+                .concat()
+                .into_iter()
+                .collect::<BTreeSet<NoteTag>>()
+                .into_iter()
+                .collect();
 
         // To receive information about added nullifiers, we reduce them to the higher 16 bits
         // Note that besides filtering by nullifier prefixes, the node also filters by block number

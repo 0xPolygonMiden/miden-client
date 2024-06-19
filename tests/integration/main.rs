@@ -11,7 +11,7 @@ use miden_client::{
 use miden_objects::{
     accounts::{AccountId, AccountStorageType},
     assets::{Asset, FungibleAsset},
-    notes::{NoteFile, NoteType},
+    notes::{NoteExecutionHint, NoteFile, NoteTag, NoteType},
 };
 use miden_tx::TransactionExecutorError;
 
@@ -437,7 +437,7 @@ async fn test_import_expected_notes() {
     let tx_template = TransactionTemplate::MintFungibleAsset(
         FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
         client_2_account.id(),
-        NoteType::OffChain,
+        NoteType::Public,
     );
 
     let tx_request = client_1.build_transaction_request(tx_template).unwrap();
@@ -452,10 +452,9 @@ async fn test_import_expected_notes() {
     wait_for_blocks(&mut client_1, 3).await;
 
     let new_sync_data = client_2.sync_state().await.unwrap();
-    client_2
-        .import_note(NoteFile::NoteDetails(note.clone().into(), None))
-        .await
-        .unwrap();
+
+    client_2.add_note_tag(note.metadata().unwrap().tag()).unwrap();
+    client_2.import_note(NoteFile::NoteId(note.clone().id())).await.unwrap();
     client_2.sync_state().await.unwrap();
     let input_note = client_2.get_input_note(note.id()).unwrap();
     assert!(new_sync_data.block_num > input_note.inclusion_proof().unwrap().origin().block_num + 1);
@@ -476,8 +475,9 @@ async fn test_import_expected_notes() {
     let note: InputNoteRecord = tx_request.expected_output_notes()[0].clone().into();
 
     // Import an uncommited note without verification
+    let tag = NoteTag::from_account_id(first_basic_account.id(), NoteExecutionHint::Local).unwrap();
     client_2
-        .import_note(NoteFile::NoteDetails(note.clone().into(), None))
+        .import_note(NoteFile::NoteDetails(note.clone().into(), Some(tag)))
         .await
         .unwrap();
     let input_note = client_2.get_input_note(note.id()).unwrap();

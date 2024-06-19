@@ -213,13 +213,10 @@ async fn test_onchain_accounts() {
     let notes = client_2.get_input_notes(NoteFilter::Committed).unwrap();
 
     //Import the note on the first client so that we can later check its consumer account
-    client_1
-        .import_note(NoteFile::NoteDetails(notes[0].clone().into(), None))
-        .await
-        .unwrap();
+    client_1.import_note(NoteFile::NoteId(notes[0].id())).await.unwrap();
 
     // Consume the note
-    println!("Consuming note con second client...");
+    println!("Consuming note on second client...");
     let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![notes[0].id()]);
     let tx_request = client_2.build_transaction_request(tx_template).unwrap();
     execute_tx_and_sync(&mut client_2, tx_request).await;

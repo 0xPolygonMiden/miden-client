@@ -37,9 +37,7 @@ impl ImportCmd {
         let (mut current_config, _) = load_config_file()?;
         for filename in &self.filenames {
             if is_note_file(filename) {
-                let note_id = import_note(&mut client, filename.clone(), !self.no_verify)
-                    .await
-                    .map_err(|_| format!("Failed to parse file {}", filename.to_string_lossy()))?;
+                let note_id = import_note(&mut client, filename.clone(), !self.no_verify).await?;
 
                 println!("Succesfully imported note {}", note_id.inner());
             } else {

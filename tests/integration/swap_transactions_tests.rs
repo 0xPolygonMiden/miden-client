@@ -343,9 +343,11 @@ async fn test_swap_offchain() {
         .unwrap()
         .try_into()
         .unwrap();
-
+    let tag =
+        build_swap_tag(NoteType::OffChain, offered_asset.faucet_id(), requested_asset.faucet_id());
+    client2.add_note_tag(tag).unwrap();
     client2
-        .import_note(NoteFile::NoteDetails(exported_note.into(), None))
+        .import_note(NoteFile::NoteDetails(exported_note.into(), Some(tag)))
         .await
         .unwrap();
 

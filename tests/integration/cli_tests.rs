@@ -10,7 +10,12 @@ use miden_client::{
     },
     AccountTemplate, StoreAuthenticator,
 };
-use miden_objects::{accounts::AccountStorageType, crypto::rand::RpoRandomCoin, Felt};
+use miden_objects::{
+    accounts::{AccountId, AccountStorageType},
+    crypto::rand::RpoRandomCoin,
+    notes::{NoteExecutionHint, NoteTag},
+    Felt,
+};
 use rand::Rng;
 
 use crate::{create_test_store_path, TestClient};
@@ -343,7 +348,21 @@ fn test_cli_export_import_note() {
 
     // Export the note
     let mut export_cmd = Command::cargo_bin("miden").unwrap();
-    export_cmd.args(["export", &note_to_export_id, "--filename", NOTE_FILENAME]);
+    let tag = NoteTag::from_account_id(
+        AccountId::from_hex(&first_basic_account_id).unwrap(),
+        NoteExecutionHint::Local,
+    )
+    .unwrap();
+    export_cmd.args([
+        "export",
+        &note_to_export_id,
+        "--filename",
+        NOTE_FILENAME,
+        "--export-type",
+        "partial",
+        "--tag",
+        &u32::from(tag).to_string(),
+    ]);
     export_cmd.current_dir(&temp_dir_1).assert().success();
 
     // Copy the note
@@ -355,7 +374,7 @@ fn test_cli_export_import_note() {
 
     // Import Note on second client
     let mut import_cmd = Command::cargo_bin("miden").unwrap();
-    import_cmd.args(["import", "--no-verify", NOTE_FILENAME]);
+    import_cmd.args(["import", NOTE_FILENAME]);
     import_cmd.current_dir(&temp_dir_2).assert().success();
 
     // Wait until the note is committed on the node

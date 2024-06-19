@@ -218,7 +218,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     .collect::<Vec<_>>();
 
                 let ignored =
-                    [tracked_tags, account_tags, uncommited_note_tags].concat().contains(&tag);
+                    ![tracked_tags, account_tags, uncommited_note_tags].concat().contains(&tag);
+
+                if ignored {
+                    info!("Ignoring note with tag {}", tag);
+                }
 
                 let record_details = NoteRecordDetails::new(
                     details.nullifier().to_string(),

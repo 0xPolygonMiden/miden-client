@@ -138,19 +138,19 @@ impl<'a> NoteFilter<'a> {
                         note.consumer_transaction_id = tx.id"
         );
 
-        match self {
+        match self {    
             NoteFilter::All => base,
             NoteFilter::Committed => {
-                format!("{base} WHERE status = '{NOTE_STATUS_COMMITTED} AND ignored = 0'")
+                format!("{base} WHERE status = '{NOTE_STATUS_COMMITTED}' AND ignored = 0")
             },
             NoteFilter::Consumed => {
-                format!("{base} WHERE status = '{NOTE_STATUS_CONSUMED} AND ignored = 0'")
+                format!("{base} WHERE status = '{NOTE_STATUS_CONSUMED}' AND ignored = 0")
             },
             NoteFilter::Expected => {
-                format!("{base} WHERE status = '{NOTE_STATUS_EXPECTED} AND ignored = 0'")
+                format!("{base} WHERE status = '{NOTE_STATUS_EXPECTED}' AND ignored = 0")
             },
             NoteFilter::Processing => {
-                format!("{base} WHERE status = '{NOTE_STATUS_PROCESSING} AND ignored = 0'")
+                format!("{base} WHERE status = '{NOTE_STATUS_PROCESSING}' AND ignored = 0")
             },
             NoteFilter::Ignored => format!("{base} WHERE ignored = 1"),
             NoteFilter::Unique(_) | NoteFilter::List(_) => {

@@ -34,9 +34,14 @@ async fn test_input_notes_round_trip() {
     let (_, consumed_notes, ..) = mock_full_chain_mmr_and_notes(consumed_notes);
 
     // insert notes into database
-    for note in consumed_notes.iter().cloned() {
-        let note: InputNoteRecord = note.into();
-        client.import_note(NoteFile::NoteDetails(note.into(), None)).await.unwrap();
+    for note in consumed_notes.iter() {
+        client
+            .import_note(NoteFile::NoteWithProof(
+                note.note().clone(),
+                note.proof().expect("These notes should be authenticated").clone(),
+            ))
+            .await
+            .unwrap();
     }
 
     // retrieve notes from database
@@ -450,9 +455,15 @@ async fn test_import_note_validation() {
     let committed_note: InputNoteRecord = committed_notes.first().unwrap().clone().into();
     let expected_note = InputNoteRecord::from(created_notes.first().unwrap().clone());
 
-    client.import_input_note(committed_note.clone(), false).await.unwrap();
-    assert!(client.import_input_note(expected_note.clone(), true).await.is_err());
-    client.import_input_note(expected_note.clone(), false).await.unwrap();
+    client
+        .import_note(NoteFile::NoteDetails(committed_note.clone().into(), None))
+        .await
+        .unwrap();
+    assert!(client.import_note(NoteFile::NoteId(expected_note.id())).await.is_err());
+    client
+        .import_note(NoteFile::NoteDetails(expected_note.clone().into(), None))
+        .await
+        .unwrap();
     assert!(expected_note.inclusion_proof().is_none());
     assert!(committed_note.inclusion_proof().is_some());
 }
