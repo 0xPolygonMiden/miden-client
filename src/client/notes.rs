@@ -212,7 +212,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     .collect::<Result<Vec<_>, _>>()?;
 
                 let uncommited_note_tags = self
-                    .get_input_notes(NoteFilter::Pending)?
+                    .get_input_notes(NoteFilter::Expected)?
                     .into_iter()
                     .filter_map(|note| note.metadata().map(|metadata| metadata.tag()))
                     .collect::<Vec<_>>();

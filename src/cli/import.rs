@@ -4,11 +4,7 @@ use std::{
     path::PathBuf,
 };
 
-use miden_client::{
-    rpc::NodeRpcClient,
-    store::{InputNoteRecord, Store},
-    Client,
-};
+use miden_client::{rpc::NodeRpcClient, store::Store, Client};
 use miden_objects::{
     accounts::{AccountData, AccountId},
     crypto::rand::FeltRng,

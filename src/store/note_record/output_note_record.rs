@@ -1,5 +1,8 @@
 use miden_objects::{
-    notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, PartialNote},
+    notes::{
+        Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata,
+        NoteRecipient, PartialNote,
+    },
     transaction::OutputNote,
     Digest,
 };

@@ -1,7 +1,7 @@
 use miden_objects::{
     notes::{
-        Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteInputs,
-        NoteMetadata, NoteRecipient, NoteTag,
+        Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata,
+        NoteRecipient, NoteTag,
     },
     transaction::InputNote,
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
