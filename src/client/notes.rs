@@ -137,7 +137,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
                 // Add the inclusion proof to the imported note
                 info!("Requesting MMR data for past block num {}", inclusion_details.block_num);
-                let mut current_partial_mmr = self.build_current_partial_mmr(true)?;
+                let mut current_partial_mmr = maybe_await!(self.build_current_partial_mmr(true))?;
                 let block_header = self
                     .get_and_store_authenticated_block(
                         inclusion_details.block_num,
@@ -152,7 +152,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     inclusion_details.merkle_path.clone(),
                 )?;
 
-                let tracked_note = self.get_input_note(id);
+                let tracked_note = maybe_await!(self.get_input_note(id));
 
                 if let Err(ClientError::StoreError(StoreError::NoteNotFound(_))) = tracked_note {
                     // If note is not tracked, we create a new one.
@@ -208,19 +208,18 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 )
             },
             NoteFile::NoteDetails(details, Some(tag)) => {
-                let tracked_tags = self.get_note_tags()?;
+                let tracked_tags = maybe_await!(self.get_note_tags())?;
 
-                let account_tags = self
-                    .get_account_stubs()?
+                let account_tags = maybe_await!(self.get_account_stubs())?
                     .into_iter()
                     .map(|(stub, _)| NoteTag::from_account_id(stub.id(), NoteExecutionHint::Local))
                     .collect::<Result<Vec<_>, _>>()?;
 
-                let uncommited_note_tags = self
-                    .get_input_notes(NoteFilter::Expected)?
-                    .into_iter()
-                    .filter_map(|note| note.metadata().map(|metadata| metadata.tag()))
-                    .collect::<Vec<_>>();
+                let uncommited_note_tags =
+                    maybe_await!(self.get_input_notes(NoteFilter::Expected))?
+                        .into_iter()
+                        .filter_map(|note| note.metadata().map(|metadata| metadata.tag()))
+                        .collect::<Vec<_>>();
 
                 let ignored =
                     ![tracked_tags, account_tags, uncommited_note_tags].concat().contains(&tag);
@@ -273,10 +272,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         };
         let id = note.id();
 
-        maybe_await!(self
-            .store
-            .insert_input_note(note)
-            .map_err(<StoreError as Into<ClientError>>::into))?;
+        maybe_await!(self.store.insert_input_note(note))
+            .map_err(<StoreError as Into<ClientError>>::into)?;
         Ok(id)
     }
 

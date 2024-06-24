@@ -93,14 +93,13 @@ pub trait Store {
     }
 
     /// Returns the notes that don't have their block header tracked
+    #[maybe_async]
     fn get_notes_without_block_header(&self) -> Result<Vec<InputNoteRecord>, StoreError> {
-        let tracked_block_nums: Vec<u32> = self
-            .get_tracked_block_headers()?
+        let tracked_block_nums: Vec<u32> = maybe_await!(self.get_tracked_block_headers())?
             .iter()
             .map(|header| header.block_num())
             .collect();
-        Ok(self
-            .get_input_notes(NoteFilter::Committed)?
+        Ok(maybe_await!(self.get_input_notes(NoteFilter::Committed))?
             .into_iter()
             .filter(|note| {
                 !tracked_block_nums.contains(
