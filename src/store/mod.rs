@@ -198,7 +198,7 @@ pub trait Store {
     /// otherwise it will be `None`.
     ///
     /// This function returns the [Account]'s latest state. If the account is new (that is, has
-    /// never executed a trasaction), the returned seed will be `Some(Word)`; otherwise the seed
+    /// never executed a transaction), the returned seed will be `Some(Word)`; otherwise the seed
     /// will be `None`
     ///
     /// # Errors

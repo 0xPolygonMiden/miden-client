@@ -1,8 +1,11 @@
 use miden_client::{
     errors::ClientError,
     rpc::{AccountDetails, NodeRpcClient, TonicRpcClient},
-    store::{NoteFilter, NoteStatus},
-    transactions::transaction_request::{PaymentTransactionData, TransactionTemplate},
+    store::{NoteFilter, NoteStatus, TransactionFilter},
+    transactions::{
+        transaction_request::{PaymentTransactionData, TransactionTemplate},
+        TransactionStatus,
+    },
     AccountTemplate, NoteRelevance,
 };
 use miden_objects::{
@@ -588,4 +591,147 @@ async fn test_sync_detail_values() {
     assert_eq!(new_details.new_notes, 0);
     assert_eq!(new_details.new_inclusion_proofs, 0);
     assert_eq!(new_details.new_nullifiers, 1);
+}
+
+/// This test runs 3 mint transactions that get included in different blocks so that once we sync
+/// we can check that each transaction gets marked as committed in the corresponding block
+#[tokio::test]
+async fn test_multiple_transactions_can_be_committed_in_different_blocks_without_sync() {
+    let mut client = create_test_client();
+
+    let (first_regular_account, _second_regular_account, faucet_account_stub) =
+        setup(&mut client, AccountStorageType::OffChain).await;
+
+    let from_account_id = first_regular_account.id();
+    let faucet_account_id = faucet_account_stub.id();
+
+    // Mint first note
+    let (first_note_id, first_note_tx_id) = {
+        // Create a Mint Tx for 1000 units of our fungible asset
+        let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
+        let tx_template = TransactionTemplate::MintFungibleAsset(
+            fungible_asset,
+            from_account_id,
+            NoteType::OffChain,
+        );
+
+        println!("Minting Asset");
+        let tx_request = client.build_transaction_request(tx_template).unwrap();
+
+        println!("Executing transaction...");
+        let transaction_execution_result = client.new_transaction(tx_request.clone()).unwrap();
+        let transaction_id = transaction_execution_result.executed_transaction().id();
+
+        println!("Sending transaction to node");
+        let note_id = tx_request.expected_output_notes()[0].id();
+        let proven_transaction = client
+            .prove_transaction(transaction_execution_result.executed_transaction().clone())
+            .unwrap();
+        client
+            .submit_transaction(transaction_execution_result, proven_transaction)
+            .await
+            .unwrap();
+
+        (note_id, transaction_id)
+    };
+
+    // Mint second note
+    let (second_note_id, second_note_tx_id) = {
+        // Create a Mint Tx for 1000 units of our fungible asset
+        let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
+        let tx_template = TransactionTemplate::MintFungibleAsset(
+            fungible_asset,
+            from_account_id,
+            NoteType::OffChain,
+        );
+
+        println!("Minting Asset");
+        let tx_request = client.build_transaction_request(tx_template).unwrap();
+
+        println!("Executing transaction...");
+        let transaction_execution_result = client.new_transaction(tx_request.clone()).unwrap();
+        let transaction_id = transaction_execution_result.executed_transaction().id();
+
+        println!("Sending transaction to node");
+        let proven_transaction = client
+            .prove_transaction(transaction_execution_result.executed_transaction().clone())
+            .unwrap();
+
+        // May need a few attempts until it gets included
+        let note_id = tx_request.expected_output_notes()[0].id();
+        while client.rpc_api().get_notes_by_id(&[first_note_id]).await.unwrap().is_empty() {
+            std::thread::sleep(std::time::Duration::from_secs(3));
+        }
+        client
+            .submit_transaction(transaction_execution_result, proven_transaction)
+            .await
+            .unwrap();
+
+        (note_id, transaction_id)
+    };
+
+    // Mint third note
+    let (third_note_id, third_note_tx_id) = {
+        // Create a Mint Tx for 1000 units of our fungible asset
+        let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
+        let tx_template = TransactionTemplate::MintFungibleAsset(
+            fungible_asset,
+            from_account_id,
+            NoteType::OffChain,
+        );
+
+        println!("Minting Asset");
+        let tx_request = client.build_transaction_request(tx_template).unwrap();
+
+        println!("Executing transaction...");
+        let transaction_execution_result = client.new_transaction(tx_request.clone()).unwrap();
+        let transaction_id = transaction_execution_result.executed_transaction().id();
+
+        println!("Sending transaction to node");
+        let proven_transaction = client
+            .prove_transaction(transaction_execution_result.executed_transaction().clone())
+            .unwrap();
+
+        // May need a few attempts until it gets included
+        let note_id = tx_request.expected_output_notes()[0].id();
+        while client.rpc_api().get_notes_by_id(&[second_note_id]).await.unwrap().is_empty() {
+            std::thread::sleep(std::time::Duration::from_secs(3));
+        }
+        client
+            .submit_transaction(transaction_execution_result, proven_transaction)
+            .await
+            .unwrap();
+
+        (note_id, transaction_id)
+    };
+
+    // Wait until the note gets comitted in the node (without syncing)
+    while client.rpc_api().get_notes_by_id(&[third_note_id]).await.unwrap().is_empty() {
+        std::thread::sleep(std::time::Duration::from_secs(3));
+    }
+
+    client.sync_state().await.unwrap();
+
+    let all_transactions = client.get_transactions(TransactionFilter::All).unwrap();
+    let first_tx = all_transactions.iter().find(|tx| tx.id == first_note_tx_id).unwrap();
+    let second_tx = all_transactions.iter().find(|tx| tx.id == second_note_tx_id).unwrap();
+    let third_tx = all_transactions.iter().find(|tx| tx.id == third_note_tx_id).unwrap();
+
+    match (
+        first_tx.transaction_status.clone(),
+        second_tx.transaction_status.clone(),
+        third_tx.transaction_status.clone(),
+    ) {
+        (
+            TransactionStatus::Committed(first_tx_commit_height),
+            TransactionStatus::Committed(second_tx_commit_height),
+            TransactionStatus::Committed(third_tx_commit_height),
+        ) => {
+            assert!(first_tx_commit_height < second_tx_commit_height);
+            assert!(second_tx_commit_height < third_tx_commit_height);
+        },
+        _ => {
+            panic!("All three TXs should be committed in different blocks")
+        },
+    }
 }
