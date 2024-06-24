@@ -105,12 +105,16 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // INPUT NOTE CREATION
     // --------------------------------------------------------------------------------------------
 
-    /// Imports a new input note into the client's store. The `verify` parameter dictates whether or
-    /// not the method verifies the existence of the note in the chain.
+    /// Imports a new input note into the client's store. The information stored depends on the
+    /// type of note file provided.
     ///
-    /// If the imported note is verified to be on chain and it doesn't contain an inclusion proof
-    /// the method tries to build one.
-    /// If the verification fails then a [ClientError::ExistenceVerificationError] is raised.
+    /// If the note file is a [NoteFile::NoteId], the note is fecthed from the node and stored in
+    /// the client's store. If the note is private or does not exist, an error is returned. If the
+    /// ID was already stored, the inclusion proof and metadata are updated.
+    /// If the note file is a [NoteFile::NoteDetails], a new note is created with the provided
+    /// details. The note is marked as ignored if it contains no tag or if the tag is not relevant.
+    /// If the note file is a [NoteFile::NoteWithProof], the note is stored with the provided
+    /// inclusion proof and metadata. The MMR data is not fetched from the node.
     pub async fn import_note(&mut self, note_file: NoteFile) -> Result<NoteId, ClientError> {
         let note = match note_file {
             NoteFile::NoteId(id) => {
