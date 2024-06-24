@@ -6,7 +6,7 @@ use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
     crypto::{self, merkle::MerklePath, rand::FeltRng},
     notes::{Note, NoteId, NoteInclusionProof, NoteInputs, NoteRecipient, NoteTag},
-    transaction::{InputNote, TransactionId},
+    transaction::InputNote,
     BlockHeader, Digest,
 };
 use miden_tx::auth::TransactionAuthenticator;
@@ -15,12 +15,12 @@ use winter_maybe_async::{maybe_async, maybe_await};
 
 use super::{
     rpc::{CommittedNote, NodeRpcClient, NoteDetails},
-    transactions::TransactionRecord,
     Client, NoteScreener,
 };
 use crate::{
     client::rpc::AccountDetails,
     errors::{ClientError, RpcError, StoreError},
+    rpc::{NullifierUpdate, TransactionUpdate},
     store::{ChainMmrNodeFilter, InputNoteRecord, NoteFilter, Store, TransactionFilter},
 };
 
@@ -169,9 +169,9 @@ impl SyncedNewNotes {
 /// Contains all information needed to apply the update in the store after syncing with the node
 pub struct StateSyncUpdate {
     pub block_header: BlockHeader,
-    pub nullifiers: Vec<Digest>,
+    pub nullifiers: Vec<NullifierUpdate>,
     pub synced_new_notes: SyncedNewNotes,
-    pub transactions_to_commit: Vec<TransactionId>,
+    pub transactions_to_commit: Vec<TransactionUpdate>,
     pub new_mmr_peaks: MmrPeaks,
     pub new_authentication_nodes: Vec<(InOrderIndex, Digest)>,
     pub updated_onchain_accounts: Vec<Account>,
@@ -323,12 +323,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             return Ok(SyncStatus::SyncedToLastBlock(SyncSummary::new_empty(current_block_num)));
         }
 
-        let committed_note_ids: Vec<NoteId> = response
-            .note_inclusions
-            .iter()
-            .map(|committed_note| *(committed_note.note_id()))
-            .collect();
-
         let new_note_details =
             self.get_note_details(response.note_inclusions, &response.block_header).await?;
 
@@ -362,21 +356,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             )?
         };
 
-        let uncommitted_transactions =
-            maybe_await!(self.store.get_transactions(TransactionFilter::Uncomitted))?;
-
-        let transactions_to_commit = get_transactions_to_commit(
-            &uncommitted_transactions,
-            &committed_note_ids,
-            &new_nullifiers,
-            &response.account_hash_updates,
-        );
+        let transactions_to_commit =
+            maybe_await!(self.get_transactions_to_commit(response.transactions))?;
 
         let state_sync_update = StateSyncUpdate {
             block_header: response.block_header,
             nullifiers: new_nullifiers,
             synced_new_notes: new_note_details,
-            transactions_to_commit: transactions_to_commit.clone(),
+            transactions_to_commit,
             new_mmr_peaks: new_peaks,
             new_authentication_nodes,
             updated_onchain_accounts: updated_onchain_accounts.clone(),
@@ -598,19 +585,37 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// Extracts information about nullifiers for unspent input notes that the client is tracking
     /// from the received list of nullifiers in the sync response
     #[maybe_async]
-    fn get_new_nullifiers(&self, new_nullifiers: Vec<Digest>) -> Result<Vec<Digest>, ClientError> {
+    fn get_new_nullifiers(
+        &self,
+        mut new_nullifiers: Vec<NullifierUpdate>,
+    ) -> Result<Vec<NullifierUpdate>, ClientError> {
         // Get current unspent nullifiers
-        let nullifiers = maybe_await!(self.store.get_unspent_input_note_nullifiers())?
-            .iter()
-            .map(|nullifier| nullifier.inner())
-            .collect::<Vec<_>>();
+        let nullifiers = maybe_await!(self.store.get_unspent_input_note_nullifiers())?;
 
-        let new_nullifiers = new_nullifiers
-            .into_iter()
-            .filter(|nullifier| nullifiers.contains(nullifier))
-            .collect();
+        new_nullifiers.retain(|nullifier_update| nullifiers.contains(&nullifier_update.nullifier));
 
         Ok(new_nullifiers)
+    }
+
+    /// Extracts information about transactions for uncommitted transactions that the client is tracking
+    /// from the received [SyncStateResponse]
+    #[maybe_async]
+    fn get_transactions_to_commit(
+        &self,
+        mut transactions: Vec<TransactionUpdate>,
+    ) -> Result<Vec<TransactionUpdate>, ClientError> {
+        // Get current uncommitted transactions
+        let uncommitted_transaction_ids =
+            maybe_await!(self.store.get_transactions(TransactionFilter::Uncomitted))?
+                .into_iter()
+                .map(|tx| tx.id)
+                .collect::<Vec<_>>();
+
+        transactions.retain(|transaction_update| {
+            uncommitted_transaction_ids.contains(&transaction_update.transaction_id)
+        });
+
+        Ok(transactions)
     }
 
     async fn get_updated_onchain_accounts(
@@ -768,42 +773,4 @@ fn apply_mmr_changes(
         .collect();
 
     Ok((partial_mmr.peaks(), new_authentication_nodes))
-}
-
-/// Returns the list of transactions that should be marked as committed based on the state update info
-///
-/// To set an uncommitted transaction as committed three things must hold:
-///
-/// - All of the transaction's output notes are committed
-/// - All of the transaction's input notes are consumed, which means we got their nullifiers as
-///   part of the update
-/// - The account corresponding to the transaction hash matches the transaction's
-// final_account_state
-fn get_transactions_to_commit(
-    uncommitted_transactions: &[TransactionRecord],
-    note_ids: &[NoteId],
-    nullifiers: &[Digest],
-    account_hash_updates: &[(AccountId, Digest)],
-) -> Vec<TransactionId> {
-    uncommitted_transactions
-        .iter()
-        .filter(|t| {
-            // TODO: based on the discussion in
-            // https://github.com/0xPolygonMiden/miden-client/issues/144, we should be aware
-            // that in the future it'll be possible to have many transactions modifying an
-            // account be included in a single block. If that happens, we'll need to rewrite
-            // this check.
-
-            // TODO: If all input notes were consumed but the account hashes don't match, it means that
-            // another transaction consumed them and that the current transaction failed. We should
-            // handle this case in the future and rollback the store accordingly.
-
-            t.input_note_nullifiers.iter().all(|n| nullifiers.contains(n))
-                && t.output_notes.iter().all(|n| note_ids.contains(&n.id()))
-                && account_hash_updates.iter().any(|(account_id, account_hash)| {
-                    *account_id == t.account_id && *account_hash == t.final_account_state
-                })
-        })
-        .map(|t| t.id)
-        .collect()
 }

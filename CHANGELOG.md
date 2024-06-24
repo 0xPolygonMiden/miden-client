@@ -1,5 +1,6 @@
 # Changelog
 
+* Receive executed transaction info (id, commit height, account_id) from sync state RPC endpoint (#387).
 * Rename "pending" notes to "expected" notes (#373).
 * New note status added to reflect more possible states (#355).
 * [BREAKING] Library API reorganization (#367).
