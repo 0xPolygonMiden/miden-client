@@ -126,14 +126,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 let note_details =
                     chain_notes.pop().expect("chain_notes should have at least one element");
 
-                let (node_note, inclusion_details) = match note_details {
-                    NoteDetails::OffChain(..) => {
-                        return Err(ClientError::NoteImportError(
-                            "Incomplete imported note is private".to_string(),
-                        ))
-                    },
-                    NoteDetails::Public(note, inclusion_proof) => (note, inclusion_proof),
-                };
+                let inclusion_details = note_details.inclusion_details();
 
                 // Add the inclusion proof to the imported note
                 info!("Requesting MMR data for past block num {}", inclusion_details.block_num);
@@ -155,6 +148,15 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 let tracked_note = maybe_await!(self.get_input_note(id));
 
                 if let Err(ClientError::StoreError(StoreError::NoteNotFound(_))) = tracked_note {
+                    let node_note = match note_details {
+                        NoteDetails::Public(note, _) => note,
+                        NoteDetails::OffChain(..) => {
+                            return Err(ClientError::NoteImportError(
+                                "Incomplete imported note is private".to_string(),
+                            ))
+                        },
+                    };
+
                     // If note is not tracked, we create a new one.
                     let details = NoteRecordDetails::new(
                         node_note.nullifier().to_string(),
@@ -182,7 +184,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
                     // TODO: Join these calls to one method that updates both fields with one query
                     self.store.update_note_inclusion_proof(tracked_note.id(), inclusion_proof)?;
-                    self.store.update_note_metadata(tracked_note.id(), *node_note.metadata())?;
+                    self.store.update_note_metadata(tracked_note.id(), *note_details.metadata())?;
 
                     return Ok(tracked_note.id());
                 }
