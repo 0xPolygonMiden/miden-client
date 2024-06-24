@@ -16,7 +16,6 @@ use super::{
     SqliteStore,
 };
 use crate::{
-    errors::StoreError,
     rpc::TransactionUpdate,
     store::{StoreError, TransactionFilter},
     transactions::{TransactionRecord, TransactionResult, TransactionStatus},

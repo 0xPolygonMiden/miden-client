@@ -22,7 +22,8 @@ use tracing::info;
 
 use super::{
     errors::RpcError, AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient,
-    NodeRpcClientEndpoint, NoteDetails, NoteInclusionDetails, NullifierUpdate, StateSyncInfo, TransactionUpdate,
+    NodeRpcClientEndpoint, NoteDetails, NoteInclusionDetails, NullifierUpdate, StateSyncInfo,
+    TransactionUpdate,
 };
 
 use crate::{
@@ -365,7 +366,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                     RpcError::ExpectedFieldMissing("TransactionSummary.TransactionId".into()),
                 )?;
                 let transaction_id = TransactionId::try_from(transaction_id)
-                    .map_err(|err| RpcError::ConversionFailure(err.to_string()))?;
+                    .map_err(|err| RpcError::DeserializationError(err.to_string()))?;
 
                 let transaction_block_num = transaction_summary.block_num;
 
@@ -373,7 +374,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                     RpcError::ExpectedFieldMissing("TransactionSummary.TransactionId".into()),
                 )?;
                 let transaction_account_id = AccountId::try_from(transaction_account_id)
-                    .map_err(|err| RpcError::ConversionFailure(err.to_string()))?;
+                    .map_err(|err| RpcError::DeserializationError(err.to_string()))?;
 
                 Ok(TransactionUpdate {
                     transaction_id,
