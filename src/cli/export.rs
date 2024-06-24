@@ -1,10 +1,6 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
-use miden_client::{
-    rpc::NodeRpcClient,
-    store::{InputNoteRecord, Store},
-    Client,
-};
+use miden_client::{rpc::NodeRpcClient, store::Store, Client};
 use miden_objects::{crypto::rand::FeltRng, notes::NoteFile};
 use miden_tx::{auth::TransactionAuthenticator, utils::Serializable};
 use tracing::info;
@@ -63,22 +59,17 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthent
         .pop()
         .expect("should have an output note");
 
-    // Convert output note into InputNoteRecord before exporting
-    let input_note: InputNoteRecord = output_note
-        .try_into()
-        .map_err(|_err| format!("Can't export note with ID {}", note_id.to_hex()))?;
-
     let note_file = match export_type {
-        ExportType::Id => NoteFile::NoteId(input_note.id()),
-        ExportType::Full => match (input_note.inclusion_proof(), input_note.metadata()) {
-            (Some(inclusion_proof), Some(_)) => {
-                NoteFile::NoteWithProof(input_note.clone().try_into()?, inclusion_proof.clone())
+        ExportType::Id => NoteFile::NoteId(output_note.id()),
+        ExportType::Full => match output_note.inclusion_proof() {
+            Some(inclusion_proof) => {
+                NoteFile::NoteWithProof(output_note.clone().try_into()?, inclusion_proof.clone())
             },
-            _ => return Err("Note does not have inclusion proof or metadata".to_string()),
+            None => return Err("Note does not have inclusion proofx".to_string()),
         },
         ExportType::Partial => NoteFile::NoteDetails(
-            input_note.clone().into(),
-            input_note.metadata().map(|metadata| metadata.tag()),
+            output_note.clone().try_into()?,
+            Some(output_note.metadata().tag()),
         ),
     };
 
