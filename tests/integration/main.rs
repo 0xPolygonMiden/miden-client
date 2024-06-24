@@ -286,7 +286,7 @@ async fn test_p2idr_transfer_consumed_by_sender() {
     assert_eq!(regular_account.vault().assets().count(), 1);
     let asset = regular_account.vault().assets().next().unwrap();
 
-    // Validate the the sender hasn't lost funds
+    // Validate the sender hasn't lost funds
     if let Asset::Fungible(fungible_asset) = asset {
         assert_eq!(fungible_asset.amount(), from_account_balance);
     } else {
