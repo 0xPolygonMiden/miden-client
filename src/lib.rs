@@ -13,19 +13,27 @@ pub mod store;
 /// Miden Base re-exports
 pub mod objects {
     pub use miden_objects::{
-        accounts::{Account, AccountData, AccountId, AccountStorageType, AuthSecretKey},
-        assembly::ProgramAst,
-        assets::{Asset, FungibleAsset, TokenSymbol},
+        accounts::{
+            Account, AccountCode, AccountData, AccountId, AccountStorage, AccountStorageType,
+            AccountStub, AuthSecretKey,
+        },
+        assembly::{AstSerdeOptions, ModuleAst, ProgramAst},
+        assets::{Asset, AssetVault, FungibleAsset, TokenSymbol},
         crypto::{
-            merkle::{InOrderIndex, MerklePath, MmrDelta, MmrPeaks, MmrProof},
+            merkle::{
+                InOrderIndex, LeafIndex, MerklePath, MmrDelta, MmrPeaks, MmrProof, SmtLeaf,
+                SmtProof,
+            },
             rand::{FeltRng, RpoRandomCoin},
         },
         notes::{
-            Note, NoteAssets, NoteExecutionHint, NoteId, NoteInputs, NoteMetadata, NoteRecipient,
-            NoteScript, NoteTag, NoteType,
+            Note, NoteAssets, NoteExecutionHint, NoteId, NoteInclusionProof, NoteInputs,
+            NoteMetadata, NoteRecipient, NoteScript, NoteTag, NoteType, Nullifier,
         },
-        transaction::{InputNote, ProvenTransaction, TransactionId},
-        BlockHeader, Digest, Felt, Word,
+        transaction::{
+            InputNote, OutputNotes, ProvenTransaction, TransactionId, TransactionScript,
+        },
+        BlockHeader, Digest, Felt, StarkField, Word,
     };
 
     #[cfg(feature = "testing")]
