@@ -255,13 +255,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// Updates committed notes with no MMR data. These could be notes that were
     /// imported with an inclusion proof, but its block header is not tracked.
     async fn update_mmr_data(&mut self) -> Result<(), ClientError> {
+        let mut current_partial_mmr = self.build_current_partial_mmr(true)?;
         for note in self.store.get_notes_without_block_header()? {
             let block_num = note
                 .inclusion_proof()
                 .expect("Commited notes should have inclusion proofs")
                 .origin()
                 .block_num;
-            let mut current_partial_mmr = self.build_current_partial_mmr(true)?;
             self.get_and_store_authenticated_block(block_num, &mut current_partial_mmr)
                 .await?;
         }
@@ -269,6 +269,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         Ok(())
     }
 
+    /// Updates the inclusion proof and metadata for notes that are being ignored
+    /// by the client. This will not change their ignored status.
     async fn update_ignored_notes(&mut self) -> Result<SyncSummary, ClientError> {
         let ignored_notes_ids = self
             .get_input_notes(NoteFilter::Ignored)?

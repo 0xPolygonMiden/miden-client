@@ -138,7 +138,7 @@ impl<'a> NoteFilter<'a> {
                         note.consumer_transaction_id = tx.id"
         );
 
-        match self {    
+        match self {
             NoteFilter::All => base,
             NoteFilter::Committed => {
                 format!("{base} WHERE status = '{NOTE_STATUS_COMMITTED}' AND ignored = 0")
