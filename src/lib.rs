@@ -16,15 +16,30 @@ pub mod objects {
         accounts::{Account, AccountData, AccountId, AccountStorageType, AuthSecretKey},
         assembly::ProgramAst,
         assets::{Asset, FungibleAsset, TokenSymbol},
-        crypto::merkle::{InOrderIndex, MerklePath, MmrDelta, MmrPeaks, MmrProof},
-        notes::{NoteId, NoteMetadata, NoteScript, NoteTag, NoteType},
-        transaction::{ProvenTransaction, TransactionId},
+        crypto::{
+            merkle::{InOrderIndex, MerklePath, MmrDelta, MmrPeaks, MmrProof},
+            rand::{FeltRng, RpoRandomCoin},
+        },
+        notes::{
+            Note, NoteAssets, NoteExecutionHint, NoteId, NoteInputs, NoteMetadata, NoteRecipient,
+            NoteScript, NoteTag, NoteType,
+        },
+        transaction::{InputNote, ProvenTransaction, TransactionId},
         BlockHeader, Digest, Felt, Word,
     };
+
+    #[cfg(feature = "testing")]
+    pub mod testing {
+        pub use miden_objects::accounts::account_id::testing::*;
+    }
 }
 
 pub mod tx {
-    pub use miden_tx::{auth::TransactionAuthenticator, ScriptTarget};
+    pub use miden_tx::{
+        auth::TransactionAuthenticator,
+        utils::{Deserializable, Serializable},
+        DataStoreError, ScriptTarget, TransactionExecutorError,
+    };
 }
 
 #[cfg(all(test, feature = "executable"))]
