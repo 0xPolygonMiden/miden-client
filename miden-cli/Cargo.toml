@@ -27,10 +27,10 @@ figment = { version = "0.10", features = ["toml", "env"] }
 miden-client = { path = "../miden-client", features = ["sqlite", "tonic", "testing", "concurrent"] }
 miden-tx = { package = "miden-tx", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false }
 miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["serde"] }
-rand = { version = "0.8.5" }
+rand = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
-tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"] }
+tokio = { workspace = true }
 tonic = { version = "0.11" }
 toml = { version = "0.8" }
 tracing = { version = "0.1" }
