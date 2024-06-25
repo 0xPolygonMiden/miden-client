@@ -15,7 +15,7 @@ use crate::errors::RpcError;
 #[cfg(feature = "tonic")]
 mod tonic_client;
 #[cfg(feature = "tonic")]
-pub use tonic_client::TonicRpcClient;
+pub use tonic_client::{domain, generated, TonicRpcClient};
 
 // NOTE DETAILS
 // ================================================================================================
