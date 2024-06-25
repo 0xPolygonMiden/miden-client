@@ -28,7 +28,7 @@ required-features = ["integration"]
 [features]
 async = ["miden-tx/async"]
 concurrent = ["miden-lib/concurrent", "miden-objects/concurrent", "miden-tx/concurrent", "std"]
-default = ["std", "executable"]
+default = ["std"]
 executable = ["std", "sqlite", "tonic", "dep:clap", "dep:comfy-table", "dep:figment", "dep:tokio", "dep:toml"]
 integration = ["concurrent", "executable", "testing"]
 sqlite = ["dep:rusqlite", "dep:rusqlite_migration", "dep:lazy_static"]
@@ -48,7 +48,7 @@ miden-tx = { package = "miden-tx", git = "https://github.com/0xPolygonMiden/mide
 miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["serde"] }
 prost = { version = "0.12", optional = true }
 rand = { version = "0.8.5" }
-rusqlite = { version = "0.30.0", features = ["vtab", "array", "bundled"], optional = true }
+rusqlite = { version = "0.30.0", features = ["vtab", "array", "brundled"], optional = true }
 rusqlite_migration = { version = "1.0", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
@@ -72,7 +72,7 @@ proptest = { version = "1.2" }
 uuid = { version = "1.6.1", features = ["serde", "v4"] }
 
 [build-dependencies]
-miden-rpc-proto = { package = "miden-rpc-proto", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "igamigo-rpc-proto", optional = true }
+miden-rpc-proto = { package = "miden-rpc-proto", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "igamigo-rpc-proto" }
 miette = { version = "7.0", features = ["fancy"] }
 prost = { version = "0.12" }
 prost-build = { version = "0.12" }
