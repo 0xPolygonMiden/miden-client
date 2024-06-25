@@ -1,6 +1,6 @@
 extern crate alloc;
 
-mod client;
+pub mod client;
 pub use client::{
     accounts::AccountTemplate, rpc, store_authenticator::StoreAuthenticator, sync::SyncSummary,
     transactions, Client, NoteConsumability, NoteRelevance,

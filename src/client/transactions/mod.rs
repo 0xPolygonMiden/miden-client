@@ -37,6 +37,7 @@ pub mod transaction_request;
 /// `output_notes` that the client has to store as input notes, based on the NoteScreener
 /// output from filtering the transaction's output notes or some partial note we expect to receive
 /// in the future (you can check at swap notes for an example of this).
+#[derive(Clone)]
 pub struct TransactionResult {
     transaction: ExecutedTransaction,
     relevant_notes: Vec<InputNoteRecord>,
@@ -104,6 +105,7 @@ impl TransactionResult {
 ///
 /// Currently, the `commit_height` (and `committed` status) is set based on the height
 /// at which the transaction's output notes are committed.
+#[derive(Debug)]
 pub struct TransactionRecord {
     pub id: TransactionId,
     pub account_id: AccountId,
@@ -144,6 +146,7 @@ impl TransactionRecord {
 }
 
 /// Represents the status of a transaction
+#[derive(Debug, Clone)]
 pub enum TransactionStatus {
     /// Transaction has been submitted but not yet committed
     Pending,
@@ -495,7 +498,7 @@ pub(crate) fn prepare_word(word: &Word) -> String {
 /// Used for:
 /// - checking the relevance of notes to save them as input notes
 /// - validate hashes versus expected output notes after a transaction is executed
-pub fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &Note> {
+fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &Note> {
     output_notes
         .iter()
         .filter(|n| matches!(n, OutputNote::Full(_)))

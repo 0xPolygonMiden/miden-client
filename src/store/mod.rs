@@ -22,7 +22,7 @@ pub mod data_store;
 #[cfg(feature = "sqlite")]
 pub mod sqlite_store;
 
-mod note_record;
+pub mod note_record;
 pub use note_record::{InputNoteRecord, NoteRecordDetails, NoteStatus, OutputNoteRecord};
 
 // STORE TRAIT
@@ -198,7 +198,7 @@ pub trait Store {
     /// otherwise it will be `None`.
     ///
     /// This function returns the [Account]'s latest state. If the account is new (that is, has
-    /// never executed a trasaction), the returned seed will be `Some(Word)`; otherwise the seed
+    /// never executed a transaction), the returned seed will be `Some(Word)`; otherwise the seed
     /// will be `None`
     ///
     /// # Errors

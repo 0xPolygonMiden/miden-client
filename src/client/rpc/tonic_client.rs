@@ -15,7 +15,7 @@ use miden_objects::{
     accounts::{Account, AccountId},
     crypto::merkle::{MerklePath, MmrProof},
     notes::{Note, NoteId, NoteTag},
-    transaction::ProvenTransaction,
+    transaction::{ProvenTransaction, TransactionId},
     utils::Deserializable,
     BlockHeader, Digest,
 };
@@ -25,7 +25,7 @@ use tracing::info;
 
 use super::{
     AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
-    NoteDetails, NoteInclusionDetails, StateSyncInfo,
+    NoteDetails, NoteInclusionDetails, NullifierUpdate, StateSyncInfo, TransactionUpdate,
 };
 use crate::{config::RpcConfig, errors::RpcError};
 
@@ -281,7 +281,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
         let chain_tip = value.chain_tip;
 
         // Validate and convert block header
-        let block_header = value
+        let block_header: BlockHeader = value
             .block_header
             .ok_or(RpcError::ExpectedFieldMissing("BlockHeader".into()))?
             .try_into()?;
@@ -336,16 +336,48 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
             .nullifiers
             .iter()
             .map(|nul_update| {
-                nul_update
-                    .clone()
+                let nullifier_digest = nul_update
                     .nullifier
-                    .ok_or(RpcError::ExpectedFieldMissing("Nullifier".into()))
-                    .and_then(|n| {
-                        Digest::try_from(n)
-                            .map_err(|err| RpcError::ConversionFailure(err.to_string()))
-                    })
+                    .clone()
+                    .ok_or(RpcError::ExpectedFieldMissing("Nullifier".into()))?;
+
+                let nullifier_digest = Digest::try_from(nullifier_digest)
+                    .map_err(|err| RpcError::ConversionFailure(err.to_string()))?;
+
+                let nullifier_block_num = nul_update.block_num;
+
+                Ok(NullifierUpdate {
+                    nullifier: nullifier_digest.into(),
+                    block_num: nullifier_block_num,
+                })
             })
-            .collect::<Result<Vec<Digest>, RpcError>>()?;
+            .collect::<Result<Vec<NullifierUpdate>, RpcError>>()?;
+
+        let transactions = value
+            .transactions
+            .iter()
+            .map(|transaction_summary| {
+                let transaction_id = transaction_summary.transaction_id.clone().ok_or(
+                    RpcError::ExpectedFieldMissing("TransactionSummary.TransactionId".into()),
+                )?;
+                let transaction_id = TransactionId::try_from(transaction_id)
+                    .map_err(|err| RpcError::ConversionFailure(err.to_string()))?;
+
+                let transaction_block_num = transaction_summary.block_num;
+
+                let transaction_account_id = transaction_summary.account_id.clone().ok_or(
+                    RpcError::ExpectedFieldMissing("TransactionSummary.TransactionId".into()),
+                )?;
+                let transaction_account_id = AccountId::try_from(transaction_account_id)
+                    .map_err(|err| RpcError::ConversionFailure(err.to_string()))?;
+
+                Ok(TransactionUpdate {
+                    transaction_id,
+                    block_num: transaction_block_num,
+                    account_id: transaction_account_id,
+                })
+            })
+            .collect::<Result<Vec<TransactionUpdate>, RpcError>>()?;
 
         Ok(Self {
             chain_tip,
@@ -354,6 +386,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
             account_hash_updates,
             note_inclusions,
             nullifiers,
+            transactions,
         })
     }
 }
