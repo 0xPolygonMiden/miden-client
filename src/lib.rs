@@ -1,10 +1,4 @@
-#![no_std]
-
-#[macro_use]
 extern crate alloc;
-
-#[cfg(feature = "std")]
-extern crate std;
 
 mod client;
 pub use client::{
