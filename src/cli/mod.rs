@@ -18,6 +18,7 @@ use miden_objects::{
 };
 use miden_tx::auth::TransactionAuthenticator;
 use rand::Rng;
+use sync::SyncCmd;
 use tracing::info;
 use transactions::TransactionCmd;
 
@@ -76,8 +77,7 @@ pub enum Command {
     Export(ExportCmd),
     Init(InitCmd),
     Notes(NotesCmd),
-    /// Sync this client with the latest state of the Miden network.
-    Sync,
+    Sync(SyncCmd),
     /// View a summary of the current client state
     Info,
     Tags(TagsCmd),
@@ -139,7 +139,7 @@ impl Cli {
             Command::Init(_) => Ok(()),
             Command::Info => info::print_client_info(&client, &cli_config),
             Command::Notes(notes) => notes.execute(client).await,
-            Command::Sync => sync::sync_state(client).await,
+            Command::Sync(sync) => sync.execute(client).await,
             Command::Tags(tags) => tags.execute(client).await,
             Command::Transaction(transaction) => transaction.execute(client).await,
             Command::Export(cmd) => cmd.execute(client),

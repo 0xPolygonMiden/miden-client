@@ -475,9 +475,12 @@ async fn test_import_expected_notes() {
     let note: InputNoteRecord = tx_request.expected_output_notes()[0].clone().into();
 
     // Import an uncommited note without verification
-    let tag = NoteTag::from_account_id(first_basic_account.id(), NoteExecutionHint::Local).unwrap();
+    client_2.add_note_tag(note.metadata().unwrap().tag()).unwrap();
     client_2
-        .import_note(NoteFile::NoteDetails(note.clone().into(), Some(tag)))
+        .import_note(NoteFile::NoteDetails(
+            note.clone().into(),
+            Some(note.metadata().unwrap().tag()),
+        ))
         .await
         .unwrap();
     let input_note = client_2.get_input_note(note.id()).unwrap();

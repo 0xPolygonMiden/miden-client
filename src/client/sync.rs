@@ -244,9 +244,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             if let SyncStatus::SyncedToLastBlock(_) = response {
                 self.update_mmr_data().await?;
 
-                let ignored_notes_sync = self.update_ignored_notes().await?;
-                total_sync_summary.combine_with(&ignored_notes_sync);
-
                 return Ok(total_sync_summary);
             }
         }
@@ -271,7 +268,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
     /// Updates the inclusion proof and metadata for notes that are being ignored
     /// by the client. This will not change their ignored status.
-    async fn update_ignored_notes(&mut self) -> Result<SyncSummary, ClientError> {
+    pub async fn update_ignored_notes(&mut self) -> Result<SyncSummary, ClientError> {
         let ignored_notes_ids = maybe_await!(self.get_input_notes(NoteFilter::Ignored))?
             .iter()
             .map(|note| note.id())
