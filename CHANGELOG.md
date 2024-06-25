@@ -1,11 +1,11 @@
 # Changelog
 
+* Note importing in client now uses the `NoteFile` type (#375).
 * Receive executed transaction info (id, commit height, account_id) from sync state RPC endpoint (#387).
 * Rename "pending" notes to "expected" notes (#373).
 * New note status added to reflect more possible states (#355).
 * [BREAKING] Library API reorganization (#367).
 * Added `wasm` and `async` feature to make the code compatible with WASM-32 target (#378).
-* Note importing in client now uses the `NoteFile` type (#375).
 * Changed `cargo-make` usage for `make` and `Makefile.toml` for a regular `Makefile` (#359).
 * Added integration tests using the CLI (#353).
 * Added a new check on account creation / import on the CLI to set the account as the default one if none is set (#372).

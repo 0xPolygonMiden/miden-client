@@ -242,11 +242,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             total_sync_summary.combine_with(response.sync_summary());
 
             if let SyncStatus::SyncedToLastBlock(_) = response {
-                self.update_mmr_data().await?;
-
-                return Ok(total_sync_summary);
+                break;
             }
         }
+        self.update_mmr_data().await?;
+
+        Ok(total_sync_summary)
     }
 
     /// Updates committed notes with no MMR data. These could be notes that were
@@ -268,6 +269,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
     /// Updates the inclusion proof and metadata for notes that are being ignored
     /// by the client. This will not change their ignored status.
+    ///
+    /// This function will not update the current block number as the notes will
+    /// not be updated via a sync request. Because of this, the returned
+    /// [SyncSummary] will not have the corresponding block number.
     pub async fn update_ignored_notes(&mut self) -> Result<SyncSummary, ClientError> {
         let ignored_notes_ids = maybe_await!(self.get_input_notes(NoteFilter::Ignored))?
             .iter()
@@ -300,8 +305,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             self.store.update_note_metadata(details.id(), *details.metadata())?;
         }
 
-        // Because this function was created after syncing, it's OK to return a sync summary
-        // with block_num = 0
         let mut sync_summary = SyncSummary::new_empty(0);
         sync_summary.new_inclusion_proofs = updated_notes;
 

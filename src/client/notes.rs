@@ -274,8 +274,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         };
         let id = note.id();
 
-        maybe_await!(self.store.insert_input_note(note))
-            .map_err(<StoreError as Into<ClientError>>::into)?;
+        maybe_await!(self.store.insert_input_note(note))?;
         Ok(id)
     }
 

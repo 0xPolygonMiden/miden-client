@@ -33,9 +33,9 @@ impl ImportCmd {
         validate_paths(&self.filenames)?;
         let (mut current_config, _) = load_config_file()?;
         for filename in &self.filenames {
-            if is_note_file(filename) {
-                let note_id = import_note(&mut client, filename.clone()).await?;
+            let note_id = import_note(&mut client, filename.clone()).await;
 
+            if let Ok(note_id) = note_id {
                 println!("Succesfully imported note {}", note_id.inner());
             } else {
                 let account_id = import_account(&mut client, filename)
@@ -102,13 +102,4 @@ fn validate_paths(paths: &[PathBuf]) -> Result<(), String> {
     } else {
         Ok(())
     }
-}
-
-fn is_note_file(filename: &PathBuf) -> bool {
-    let file_contents = fs::read(filename).expect("Filename should exist");
-    if file_contents.len() >= 4 {
-        let magic_bytes = &file_contents[..4];
-        return magic_bytes == b"note";
-    }
-    false
 }
