@@ -29,7 +29,7 @@ fn compile_types() -> miette::Result<()> {
     let out = env::var("OUT_DIR").into_diagnostic()?;
     let file_descriptor_path = PathBuf::from(out).join("file_descriptor_set.bin");
 
-    // Compile the proto file for all servers APIs
+    // Compile the proto file
     let protos = &[proto_dir.join("rpc.proto")];
     let includes = &[proto_dir];
     let file_descriptors = protox::compile(protos, includes)?;

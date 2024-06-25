@@ -2,7 +2,7 @@ use core::fmt;
 
 use miden_objects::{
     accounts::AccountId,
-    crypto::merkle::{MmrError, SmtProofError},
+    crypto::merkle::{MmrError},
     notes::NoteId,
     AccountError, AssetError, AssetVaultError, Digest, NoteError, TransactionScriptError, Word,
 };
@@ -495,15 +495,6 @@ impl fmt::Display for IdPrefixFetchError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ConversionError {
-    SmtProofError(SmtProofError),
-    TooMuchData {
-        expected: usize,
-        got: usize,
-    },
-    InsufficientData {
-        expected: usize,
-        got: usize,
-    },
     NotAValidFelt,
     NoteTypeError(NoteError),
     MissingFieldInProtobufRepresentation {
@@ -515,13 +506,6 @@ pub enum ConversionError {
 impl core::fmt::Display for ConversionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ConversionError::SmtProofError(err) => write!(f, "SMT proof error: {}", err),
-            ConversionError::TooMuchData { expected, got } => {
-                write!(f, "Too much data, expected {}, got {}", expected, got)
-            },
-            ConversionError::InsufficientData { expected, got } => {
-                write!(f, "Not enough data, expected {}, got {}", expected, got)
-            },
             ConversionError::NotAValidFelt => write!(f, "Value is not in the range 0..MODULUS"),
             ConversionError::NoteTypeError(err) => write!(f, "Invalid note type value: {}", err),
             ConversionError::MissingFieldInProtobufRepresentation { entity, field_name } => write!(
@@ -534,12 +518,6 @@ impl core::fmt::Display for ConversionError {
 }
 
 impl Eq for ConversionError {}
-
-impl From<SmtProofError> for ConversionError {
-    fn from(error: SmtProofError) -> Self {
-        ConversionError::SmtProofError(error)
-    }
-}
 
 impl From<NoteError> for ConversionError {
     fn from(error: NoteError) -> Self {
