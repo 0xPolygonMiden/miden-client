@@ -1,4 +1,3 @@
-use crate::errors::StoreError;
 use miden_objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub, AuthSecretKey},
     assembly::AstSerdeOptions,
@@ -10,6 +9,7 @@ use miden_tx::utils::Serializable;
 use wasm_bindgen_futures::*;
 
 use super::{js_bindings::*, models::*};
+use crate::errors::StoreError;
 
 pub async fn insert_account_code(account_code: &AccountCode) -> Result<(), ()> {
     let root = account_code.root().to_string();

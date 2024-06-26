@@ -1,8 +1,10 @@
-use crate::store::{InputNoteRecord, NoteFilter};
 use miden_objects::{utils::Serializable, Digest};
 use wasm_bindgen::prelude::*;
 
-use crate::web_client::WebClient;
+use crate::{
+    store::{InputNoteRecord, NoteFilter},
+    web_client::WebClient,
+};
 
 #[wasm_bindgen]
 impl WebClient {

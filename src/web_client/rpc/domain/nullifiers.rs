@@ -1,10 +1,12 @@
-use crate::errors::{ConversionError, MissingFieldHelper};
 use miden_objects::{
     crypto::{hash::rpo::RpoDigest, merkle::SmtProof},
     notes::Nullifier,
 };
 
-use crate::web_client::rpc::client_grpc::{digest::Digest, responses::NullifierBlockInputRecord};
+use crate::{
+    errors::{ConversionError, MissingFieldHelper},
+    web_client::rpc::client_grpc::{digest::Digest, responses::NullifierBlockInputRecord},
+};
 
 // FROM NULLIFIER
 // ================================================================================================

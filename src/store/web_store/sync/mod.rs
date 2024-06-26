@@ -1,4 +1,3 @@
-use crate::{client::sync::StateSyncUpdate, errors::StoreError};
 use miden_objects::notes::{NoteInclusionProof, NoteTag};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
@@ -7,6 +6,7 @@ use super::{
     chain_data::utils::serialize_chain_mmr_node, notes::utils::insert_input_note_tx,
     transactions::utils::update_account, WebStore,
 };
+use crate::{client::sync::StateSyncUpdate, errors::StoreError};
 
 mod js_bindings;
 use js_bindings::*;

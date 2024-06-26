@@ -1,13 +1,5 @@
 use std::collections::BTreeMap;
 
-use crate::{
-    client::{
-        rpc::TransactionUpdate,
-        transactions::{TransactionRecord, TransactionResult, TransactionStatus},
-    },
-    errors::StoreError,
-    store::TransactionFilter,
-};
 use miden_objects::{
     accounts::AccountId,
     assembly::ProgramAst,
@@ -20,7 +12,15 @@ use wasm_bindgen_futures::*;
 
 use super::{
     notes::utils::{insert_input_note_tx, insert_output_note_tx, update_note_consumer_tx_id},
-    WebStore
+    WebStore,
+};
+use crate::{
+    client::{
+        rpc::TransactionUpdate,
+        transactions::{TransactionRecord, TransactionResult, TransactionStatus},
+    },
+    errors::StoreError,
+    store::TransactionFilter,
 };
 
 mod js_bindings;

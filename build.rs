@@ -1,7 +1,4 @@
-use std::env;
-use std::fs;
-use std::path::Path;
-use std::io;
+use std::{env, fs, io, path::Path};
 
 fn main() -> io::Result<()> {
     // Log that the build script is running
@@ -11,15 +8,12 @@ fn main() -> io::Result<()> {
     let is_wasm = env::var("CARGO_FEATURE_WASM").is_ok();
 
     // Set the crate type based on the enabled feature
-    let crate_type = if is_wasm {
-        "cdylib"
-    } else {
-        "lib"
-    };
+    let crate_type = if is_wasm { "cdylib" } else { "lib" };
 
     // Read the existing Cargo.toml
     let cargo_toml_path = Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap()).join("Cargo.toml");
-    let cargo_toml_content = fs::read_to_string(&cargo_toml_path).expect("Unable to read Cargo.toml");
+    let cargo_toml_content =
+        fs::read_to_string(&cargo_toml_path).expect("Unable to read Cargo.toml");
 
     // Modify the crate-type line
     let mut new_cargo_toml_content = String::new();

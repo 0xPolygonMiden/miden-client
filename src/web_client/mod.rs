@@ -1,9 +1,10 @@
 use alloc::rc::Rc;
 
-use crate::client::{store_authenticator::StoreAuthenticator, Client};
 use miden_objects::{crypto::rand::RpoRandomCoin, Felt};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use wasm_bindgen::prelude::*;
+
+use crate::client::{store_authenticator::StoreAuthenticator, Client};
 
 pub mod account;
 pub mod export;
@@ -18,6 +19,7 @@ pub mod tags;
 pub mod transactions;
 
 use rpc::WebRpcClient;
+
 use crate::store::web_store::WebStore;
 
 #[wasm_bindgen]

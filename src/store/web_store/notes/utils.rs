@@ -1,14 +1,4 @@
 use chrono::Utc;
-use crate::{
-    errors::StoreError,
-    store::{
-        note_record::{
-            NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED, NOTE_STATUS_EXPECTED,
-            NOTE_STATUS_PROCESSING,
-        },
-        InputNoteRecord, NoteRecordDetails, NoteStatus, OutputNoteRecord,
-    },
-};
 use miden_objects::{
     accounts::AccountId,
     notes::{NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, NoteScript},
@@ -20,6 +10,16 @@ use miden_tx::utils::{DeserializationError, Serializable};
 use wasm_bindgen_futures::*;
 
 use super::{js_bindings::*, InputNoteIdxdbObject, OutputNoteIdxdbObject};
+use crate::{
+    errors::StoreError,
+    store::{
+        note_record::{
+            NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED, NOTE_STATUS_EXPECTED,
+            NOTE_STATUS_PROCESSING,
+        },
+        InputNoteRecord, NoteRecordDetails, NoteStatus, OutputNoteRecord,
+    },
+};
 
 // TYPES
 // ================================================================================================

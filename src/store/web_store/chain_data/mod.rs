@@ -1,6 +1,5 @@
 use std::{collections::BTreeMap, num::NonZeroUsize};
 
-use crate::{errors::StoreError, store::ChainMmrNodeFilter};
 use miden_objects::{
     crypto::merkle::{InOrderIndex, MmrPeaks},
     BlockHeader, Digest,
@@ -9,6 +8,7 @@ use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::JsFuture;
 
 use super::WebStore;
+use crate::{errors::StoreError, store::ChainMmrNodeFilter};
 
 mod js_bindings;
 use js_bindings::*;

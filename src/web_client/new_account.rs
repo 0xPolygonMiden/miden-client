@@ -1,8 +1,8 @@
-use crate::client::accounts::AccountTemplate;
 use miden_objects::{accounts::AccountStorageType, assets::TokenSymbol};
 use wasm_bindgen::prelude::*;
 
 use super::WebClient;
+use crate::client::accounts::AccountTemplate;
 
 #[wasm_bindgen]
 impl WebClient {

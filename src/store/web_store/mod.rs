@@ -1,5 +1,15 @@
 use std::collections::BTreeMap;
 
+use miden_objects::{
+    accounts::{Account, AccountId, AccountStub, AuthSecretKey},
+    crypto::merkle::{InOrderIndex, MmrPeaks},
+    notes::{NoteTag, Nullifier},
+    BlockHeader, Digest, Word,
+};
+use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::*;
+use winter_maybe_async::{maybe_async, maybe_await};
+
 use crate::{
     client::{
         sync::StateSyncUpdate,
@@ -10,15 +20,6 @@ use crate::{
         ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store, TransactionFilter,
     },
 };
-use miden_objects::{
-    accounts::{Account, AccountId, AccountStub, AuthSecretKey},
-    crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::{NoteTag, Nullifier},
-    BlockHeader, Digest, Word,
-};
-use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::*;
-use winter_maybe_async::{maybe_async, maybe_await};
 
 pub mod accounts;
 pub mod chain_data;
@@ -91,10 +92,7 @@ impl Store for WebStore {
     // --------------------------------------------------------------------------------------------
 
     #[maybe_async]
-    fn get_input_notes(
-        &self,
-        filter: NoteFilter<'_>,
-    ) -> Result<Vec<InputNoteRecord>, StoreError> {
+    fn get_input_notes(&self, filter: NoteFilter<'_>) -> Result<Vec<InputNoteRecord>, StoreError> {
         maybe_await!(self.get_input_notes(filter))
     }
 
@@ -146,18 +144,12 @@ impl Store for WebStore {
     }
 
     #[maybe_async]
-    fn insert_chain_mmr_nodes(
-        &self,
-        nodes: &[(InOrderIndex, Digest)],
-    ) -> Result<(), StoreError> {
+    fn insert_chain_mmr_nodes(&self, nodes: &[(InOrderIndex, Digest)]) -> Result<(), StoreError> {
         maybe_await!(self.insert_chain_mmr_nodes(nodes))
     }
 
     #[maybe_async]
-    fn get_chain_mmr_peaks_by_block_num(
-        &self,
-        block_num: u32,
-    ) -> Result<MmrPeaks, StoreError> {
+    fn get_chain_mmr_peaks_by_block_num(&self, block_num: u32) -> Result<MmrPeaks, StoreError> {
         maybe_await!(self.get_chain_mmr_peaks_by_block_num(block_num))
     }
 
@@ -193,10 +185,7 @@ impl Store for WebStore {
     }
 
     #[maybe_async]
-    fn get_account(
-        &self,
-        account_id: AccountId,
-    ) -> Result<(Account, Option<Word>), StoreError> {
+    fn get_account(&self, account_id: AccountId) -> Result<(Account, Option<Word>), StoreError> {
         maybe_await!(self.get_account(account_id))
     }
 

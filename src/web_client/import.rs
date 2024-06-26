@@ -1,9 +1,8 @@
-use crate::store::InputNoteRecord;
 use miden_objects::{accounts::AccountData, utils::Deserializable};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen::prelude::*;
 
-use crate::web_client::WebClient;
+use crate::{store::InputNoteRecord, web_client::WebClient};
 
 #[wasm_bindgen]
 impl WebClient {

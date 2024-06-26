@@ -1,7 +1,9 @@
-use crate::errors::{ConversionError, MissingFieldHelper};
 use miden_objects::BlockHeader;
 
-use crate::web_client::rpc::client_grpc::block_header;
+use crate::{
+    errors::{ConversionError, MissingFieldHelper},
+    web_client::rpc::client_grpc::block_header,
+};
 
 // BLOCK HEADER
 // ================================================================================================

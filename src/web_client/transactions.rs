@@ -1,7 +1,7 @@
-use crate::{client::transactions::TransactionRecord, store::TransactionFilter};
 use wasm_bindgen::prelude::*;
 
 use super::WebClient;
+use crate::{client::transactions::TransactionRecord, store::TransactionFilter};
 
 #[wasm_bindgen]
 impl WebClient {

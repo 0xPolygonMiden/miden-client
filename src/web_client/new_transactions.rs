@@ -1,14 +1,16 @@
-use crate::client::{
-    build_swap_tag, get_input_note_with_id_prefix,
-    transactions::transaction_request::{
-        PaymentTransactionData, SwapTransactionData, TransactionTemplate,
-    },
-};
 use miden_objects::{accounts::AccountId, assets::FungibleAsset, notes::NoteType as MidenNoteType};
 use wasm_bindgen::prelude::*;
 
 use super::WebClient;
-use crate::web_client::models::transactions::{NewSwapTransactionResult, NewTransactionResult};
+use crate::{
+    client::{
+        build_swap_tag, get_input_note_with_id_prefix,
+        transactions::transaction_request::{
+            PaymentTransactionData, SwapTransactionData, TransactionTemplate,
+        },
+    },
+    web_client::models::transactions::{NewSwapTransactionResult, NewTransactionResult},
+};
 
 #[wasm_bindgen]
 impl WebClient {

@@ -1,5 +1,6 @@
-use crate::errors::StoreError;
 use miden_objects::{crypto::merkle::InOrderIndex, BlockHeader, Digest};
+
+use crate::errors::StoreError;
 // use crate::native_code::errors::StoreError;
 
 type SerializedBlockHeaderData = (String, String, String, bool);

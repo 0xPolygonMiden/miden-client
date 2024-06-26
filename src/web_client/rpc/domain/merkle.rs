@@ -1,11 +1,13 @@
-use crate::errors::{ConversionError, MissingFieldHelper};
 use miden_objects::{
     crypto::merkle::{LeafIndex, MerklePath, MmrDelta, SmtLeaf, SmtProof},
     Digest, Word,
 };
 
 use super::{convert, try_convert};
-use crate::web_client::rpc::client_grpc;
+use crate::{
+    errors::{ConversionError, MissingFieldHelper},
+    web_client::rpc::client_grpc,
+};
 
 // MERKLE PATH
 // ================================================================================================

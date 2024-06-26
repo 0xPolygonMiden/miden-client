@@ -1,8 +1,8 @@
-use crate::errors::ConversionError;
 use miden_objects::{crypto::hash::rpo::RpoDigest, transaction::TransactionId};
 
-use crate::web_client::rpc::client_grpc::{
-    digest::Digest, transaction::TransactionId as TransactionIdPb,
+use crate::{
+    errors::ConversionError,
+    web_client::rpc::client_grpc::{digest::Digest, transaction::TransactionId as TransactionIdPb},
 };
 
 // FROM TRANSACTION ID

@@ -6,13 +6,6 @@ use client_grpc::{
     responses::SyncStateResponse,
     rpc::api_client::ApiClient,
 };
-use crate::{
-    client::rpc::{
-        AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
-        NoteDetails, NoteInclusionDetails, NullifierUpdate, StateSyncInfo, TransactionUpdate,
-    },
-    errors::{ConversionError, RpcError},
-};
 use miden_objects::{
     accounts::{Account, AccountId},
     crypto::merkle::{MerklePath, MmrProof},
@@ -23,6 +16,14 @@ use miden_objects::{
 };
 use miden_tx::utils::Serializable;
 use tonic_web_wasm_client::Client;
+
+use crate::{
+    client::rpc::{
+        AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
+        NoteDetails, NoteInclusionDetails, NullifierUpdate, StateSyncInfo, TransactionUpdate,
+    },
+    errors::{ConversionError, RpcError},
+};
 
 pub mod client_grpc;
 pub mod domain;

@@ -1,10 +1,9 @@
 use std::fmt::{Display, Formatter};
 
 use hex::{FromHex, ToHex};
-use crate::errors::ConversionError;
 use miden_objects::{notes::NoteId, Digest, Felt, StarkField};
 
-use crate::web_client::rpc::client_grpc::digest;
+use crate::{errors::ConversionError, web_client::rpc::client_grpc::digest};
 
 // CONSTANTS
 // ================================================================================================

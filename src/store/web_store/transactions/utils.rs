@@ -1,4 +1,3 @@
-use crate::{client::transactions::TransactionResult, errors::StoreError};
 use miden_objects::{
     accounts::Account, assembly::AstSerdeOptions, transaction::ToInputNoteCommitments, Digest,
 };
@@ -6,7 +5,13 @@ use miden_tx::utils::Serializable;
 use wasm_bindgen_futures::*;
 
 use super::js_bindings::*;
-use crate::store::web_store::accounts::utils::{insert_account_asset_vault, insert_account_record, insert_account_storage,};
+use crate::{
+    client::transactions::TransactionResult,
+    errors::StoreError,
+    store::web_store::accounts::utils::{
+        insert_account_asset_vault, insert_account_record, insert_account_storage,
+    },
+};
 
 // TYPES
 // ================================================================================================

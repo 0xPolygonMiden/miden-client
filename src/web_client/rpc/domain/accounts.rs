@@ -1,6 +1,5 @@
 use std::fmt::{Debug, Display, Formatter};
 
-use crate::errors::{ConversionError, MissingFieldHelper};
 use miden_objects::{
     accounts::{Account, AccountId},
     crypto::{hash::rpo::RpoDigest, merkle::MerklePath},
@@ -9,11 +8,15 @@ use miden_objects::{
 };
 
 use super::format_opt;
-use crate::web_client::rpc::client_grpc::{
-    account::{
-        AccountId as AccountIdPb, AccountInfo as AccountInfoPb, AccountSummary as AccountSummaryPb,
+use crate::{
+    errors::{ConversionError, MissingFieldHelper},
+    web_client::rpc::client_grpc::{
+        account::{
+            AccountId as AccountIdPb, AccountInfo as AccountInfoPb,
+            AccountSummary as AccountSummaryPb,
+        },
+        responses::{AccountBlockInputRecord, AccountTransactionInputRecord},
     },
-    responses::{AccountBlockInputRecord, AccountTransactionInputRecord},
 };
 
 // ACCOUNT ID
