@@ -28,13 +28,13 @@ required-features = ["integration"]
 [features]
 async = ["miden-tx/async"]
 concurrent = ["miden-lib/concurrent", "miden-objects/concurrent", "miden-tx/concurrent", "std"]
-default = ["std"]
+default = ["std", "executable", "testing"]
 executable = ["std", "sqlite", "tonic", "dep:clap", "dep:comfy-table", "dep:figment", "dep:tokio", "dep:toml"]
 integration = ["concurrent", "executable", "testing"]
 sqlite = ["dep:rusqlite", "dep:rusqlite_migration", "dep:lazy_static"]
 std = ["miden-objects/std"]
 testing = ["miden-objects/testing", "miden-lib/testing"]
-tonic = ["dep:hex", "dep:miden-rpc-proto", "dep:prost","dep:tonic"]
+tonic = ["dep:hex", "dep:prost","dep:tonic"]
 
 [dependencies]
 chrono = { version = "0.4", optional = false }
@@ -44,7 +44,6 @@ figment = { version = "0.10", features = ["toml", "env"], optional = true }
 hex = { version = "0.4" , optional = true}
 lazy_static = { version = "1.4.0", optional = true }
 miden-lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false }
-miden-rpc-proto = { package = "miden-rpc-proto", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "igamigo-rpc-proto", optional = true }
 miden-tx = { package = "miden-tx", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false }
 miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["serde"] }
 prost = { version = "0.12", optional = true }

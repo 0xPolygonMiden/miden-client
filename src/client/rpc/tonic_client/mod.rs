@@ -30,6 +30,8 @@ use crate::{
 };
 
 pub mod domain;
+#[rustfmt::skip]
+#[cfg(feature="testing")]
 pub mod generated;
 
 // TONIC RPC CLIENT

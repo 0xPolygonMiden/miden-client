@@ -15,12 +15,12 @@ NODE_BRANCH="next"
 # --- Linting -------------------------------------------------------------------------------------
 
 .PHONY: clippy
-clippy: ## Runs clippy on all targets with config
-	cargo +nightly clippy --workspace --tests --all-targets --features executable -- -D clippy::all -D warnings
+ clippy: ## Runs Clippy with configs
+	cargo +nightly clippy --workspace --all-targets --features $(FEATURES_CLI) -- -D warnings
 
 .PHONY: fix
 fix: ## Runs Fix with configs
-	cargo +nightly fix --allow-staged --allow-dirty --all-targets --features executable
+	cargo +nightly fix --allow-staged --allow-dirty --all-targets --features $(FEATURES_CLI)
 
 .PHONY: format
 format: ## Runs format using nightly toolchain
