@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display, Formatter};
 use hex::ToHex;
 use miden_objects::{notes::NoteId, Digest, Felt, StarkField};
 
-use crate::{errors::ConversionError, rpc::tonic_client::generated::digest};
+use crate::{errors::RpcConversionError, rpc::tonic_client::generated::digest};
 
 // CONSTANTS
 // ================================================================================================
@@ -91,14 +91,14 @@ impl From<NoteId> for digest::Digest {
 // ================================================================================================
 
 impl TryFrom<digest::Digest> for [Felt; 4] {
-    type Error = ConversionError;
+    type Error = RpcConversionError;
 
     fn try_from(value: digest::Digest) -> Result<Self, Self::Error> {
         if ![value.d0, value.d1, value.d2, value.d3]
             .iter()
             .all(|v| *v < <Felt as StarkField>::MODULUS)
         {
-            Err(ConversionError::NotAValidFelt)
+            Err(RpcConversionError::NotAValidFelt)
         } else {
             Ok([
                 Felt::new(value.d0),
@@ -111,7 +111,7 @@ impl TryFrom<digest::Digest> for [Felt; 4] {
 }
 
 impl TryFrom<digest::Digest> for Digest {
-    type Error = ConversionError;
+    type Error = RpcConversionError;
 
     fn try_from(value: digest::Digest) -> Result<Self, Self::Error> {
         Ok(Self::new(value.try_into()?))
@@ -119,7 +119,7 @@ impl TryFrom<digest::Digest> for Digest {
 }
 
 impl TryFrom<&digest::Digest> for [Felt; 4] {
-    type Error = ConversionError;
+    type Error = RpcConversionError;
 
     fn try_from(value: &digest::Digest) -> Result<Self, Self::Error> {
         value.clone().try_into()
@@ -127,7 +127,7 @@ impl TryFrom<&digest::Digest> for [Felt; 4] {
 }
 
 impl TryFrom<&digest::Digest> for Digest {
-    type Error = ConversionError;
+    type Error = RpcConversionError;
 
     fn try_from(value: &digest::Digest) -> Result<Self, Self::Error> {
         value.clone().try_into()

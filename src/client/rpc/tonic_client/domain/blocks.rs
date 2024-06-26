@@ -1,7 +1,7 @@
 use miden_objects::BlockHeader;
 
 use super::MissingFieldHelper;
-use crate::{errors::ConversionError, rpc::tonic_client::generated::block_header};
+use crate::{errors::RpcConversionError, rpc::tonic_client::generated::block_header};
 
 // BLOCK HEADER
 // ================================================================================================
@@ -30,7 +30,7 @@ impl From<BlockHeader> for block_header::BlockHeader {
 }
 
 impl TryFrom<&block_header::BlockHeader> for BlockHeader {
-    type Error = ConversionError;
+    type Error = RpcConversionError;
 
     fn try_from(value: &block_header::BlockHeader) -> Result<Self, Self::Error> {
         value.clone().try_into()
@@ -38,7 +38,7 @@ impl TryFrom<&block_header::BlockHeader> for BlockHeader {
 }
 
 impl TryFrom<block_header::BlockHeader> for BlockHeader {
-    type Error = ConversionError;
+    type Error = RpcConversionError;
 
     fn try_from(value: block_header::BlockHeader) -> Result<Self, Self::Error> {
         Ok(BlockHeader::new(

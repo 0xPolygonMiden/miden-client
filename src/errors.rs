@@ -506,11 +506,13 @@ impl core::fmt::Display for RpcConversionError {
         match self {
             RpcConversionError::NotAValidFelt => write!(f, "Value is not in the range 0..MODULUS"),
             RpcConversionError::NoteTypeError(err) => write!(f, "Invalid note type value: {}", err),
-            RpcConversionError::MissingFieldInProtobufRepresentation { entity, field_name } => write!(
-                f,
-                "Field `{}` required to be filled in protobuf representation of {}",
-                field_name, entity
-            ),
+            RpcConversionError::MissingFieldInProtobufRepresentation { entity, field_name } => {
+                write!(
+                    f,
+                    "Field `{}` required to be filled in protobuf representation of {}",
+                    field_name, entity
+                )
+            },
         }
     }
 }

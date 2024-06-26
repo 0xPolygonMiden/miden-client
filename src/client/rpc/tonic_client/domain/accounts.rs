@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display, Formatter};
 use miden_objects::accounts::AccountId;
 
 use crate::{
-    errors::ConversionError, rpc::tonic_client::generated::account::AccountId as AccountIdPb,
+    errors::RpcConversionError, rpc::tonic_client::generated::account::AccountId as AccountIdPb,
 };
 
 // ACCOUNT ID
@@ -34,9 +34,9 @@ impl From<AccountId> for AccountIdPb {
 // ------------------------------------------------------------------------------------------------
 
 impl TryFrom<AccountIdPb> for AccountId {
-    type Error = ConversionError;
+    type Error = RpcConversionError;
 
     fn try_from(account_id: AccountIdPb) -> Result<Self, Self::Error> {
-        account_id.id.try_into().map_err(|_| ConversionError::NotAValidFelt)
+        account_id.id.try_into().map_err(|_| RpcConversionError::NotAValidFelt)
     }
 }

@@ -26,7 +26,7 @@ use super::{
 };
 use crate::{
     config::RpcConfig,
-    errors::{ConversionError, RpcError},
+    errors::{RpcConversionError, RpcError},
 };
 
 pub mod domain;
@@ -116,7 +116,7 @@ impl NodeRpcClient for TonicRpcClient {
             .block_header
             .ok_or(RpcError::ExpectedFieldMissing("BlockHeader".into()))?
             .try_into()
-            .map_err(|err: ConversionError| RpcError::ConversionFailure(err.to_string()))?;
+            .map_err(|err: RpcConversionError| RpcError::ConversionFailure(err.to_string()))?;
 
         let mmr_proof = if include_mmr_proof {
             let forest = response
@@ -126,7 +126,7 @@ impl NodeRpcClient for TonicRpcClient {
                 .mmr_path
                 .ok_or(RpcError::ExpectedFieldMissing("MmrPath".into()))?
                 .try_into()
-                .map_err(|err: ConversionError| RpcError::ConversionFailure(err.to_string()))?;
+                .map_err(|err: RpcConversionError| RpcError::ConversionFailure(err.to_string()))?;
 
             Some(MmrProof {
                 forest: forest as usize,
