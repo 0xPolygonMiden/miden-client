@@ -6,27 +6,19 @@ use std::{
 use miden_rpc_proto::write_proto;
 use miette::IntoDiagnostic;
 use prost::Message;
+use tempfile::TempDir;
 
-const PROTO_DIR: &str = "./src/client/rpc/proto";
+const OUT_DIR: &str = "src/client/rpc/tonic_client/generated";
 
 fn main() -> miette::Result<()> {
-    let proto_dir = Path::new(PROTO_DIR);
-    if !proto_dir.exists() {
-        fs::create_dir(proto_dir).into_diagnostic()?;
-    }
+    let temp_proto_dir = TempDir::new().into_diagnostic()?;
 
-    write_proto(proto_dir).unwrap();
-
-    compile_types()
+    write_proto(temp_proto_dir.path()).unwrap();
+    compile_types(temp_proto_dir.path())
 }
 
 /// Compiles the protobuf files into a file descriptor used to generate Rust types
-fn compile_types() -> miette::Result<()> {
-    // Compute the directory of the `proto` definitions
-    let cwd: PathBuf = env::current_dir().into_diagnostic()?;
-
-    let proto_dir: PathBuf = cwd.join(PROTO_DIR);
-
+fn compile_types(proto_dir: &Path) -> miette::Result<()> {
     // Compute the compiler's target file path.
     let out = env::var("OUT_DIR").into_diagnostic()?;
     let file_descriptor_path = PathBuf::from(out).join("file_descriptor_set.bin");
@@ -44,7 +36,7 @@ fn compile_types() -> miette::Result<()> {
     tonic_build::configure()
         .file_descriptor_set_path(&file_descriptor_path)
         .skip_protoc_run()
-        .out_dir("src/client/rpc/tonic_client/generated")
+        .out_dir(OUT_DIR)
         .compile_with_config(prost_config, protos, includes)
         .into_diagnostic()?;
 
