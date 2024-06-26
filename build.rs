@@ -7,8 +7,10 @@ use miden_rpc_proto::write_proto;
 use miette::IntoDiagnostic;
 use prost::Message;
 
+const PROTO_DIR: &str = "./src/client/rpc/tonic_client/proto";
+
 fn main() -> miette::Result<()> {
-    let proto_dir = Path::new("./src/client/rpc/proto");
+    let proto_dir = Path::new(PROTO_DIR);
     if !proto_dir.exists() {
         fs::create_dir(proto_dir).into_diagnostic()?;
     }
@@ -23,7 +25,7 @@ fn compile_types() -> miette::Result<()> {
     // Compute the directory of the `proto` definitions
     let cwd: PathBuf = env::current_dir().into_diagnostic()?;
 
-    let proto_dir: PathBuf = cwd.join("src/client/rpc/tonic_client/proto");
+    let proto_dir: PathBuf = cwd.join(PROTO_DIR);
 
     // Compute the compiler's target file path.
     let out = env::var("OUT_DIR").into_diagnostic()?;

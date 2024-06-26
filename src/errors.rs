@@ -172,7 +172,7 @@ pub enum StoreError {
     NoteTagAlreadyTracked(u64),
     ParsingError(String),
     QueryError(String),
-    RpcConversionError(ConversionError),
+    RpcConversionError(RpcConversionError),
     TransactionScriptError(TransactionScriptError),
     VaultDataNotFound(Digest),
 }
@@ -386,8 +386,8 @@ impl From<NoteError> for RpcError {
     }
 }
 
-impl From<ConversionError> for RpcError {
-    fn from(err: ConversionError) -> Self {
+impl From<RpcConversionError> for RpcError {
+    fn from(err: RpcConversionError) -> Self {
         Self::ConversionFailure(err.to_string())
     }
 }
@@ -488,11 +488,11 @@ impl fmt::Display for IdPrefixFetchError {
     }
 }
 
-// CONVERSION ERROR
+// RPC CONVERSION ERROR
 // ================================================================================================
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ConversionError {
+pub enum RpcConversionError {
     NotAValidFelt,
     NoteTypeError(NoteError),
     MissingFieldInProtobufRepresentation {
@@ -501,12 +501,12 @@ pub enum ConversionError {
     },
 }
 
-impl core::fmt::Display for ConversionError {
+impl core::fmt::Display for RpcConversionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ConversionError::NotAValidFelt => write!(f, "Value is not in the range 0..MODULUS"),
-            ConversionError::NoteTypeError(err) => write!(f, "Invalid note type value: {}", err),
-            ConversionError::MissingFieldInProtobufRepresentation { entity, field_name } => write!(
+            RpcConversionError::NotAValidFelt => write!(f, "Value is not in the range 0..MODULUS"),
+            RpcConversionError::NoteTypeError(err) => write!(f, "Invalid note type value: {}", err),
+            RpcConversionError::MissingFieldInProtobufRepresentation { entity, field_name } => write!(
                 f,
                 "Field `{}` required to be filled in protobuf representation of {}",
                 field_name, entity
@@ -515,10 +515,10 @@ impl core::fmt::Display for ConversionError {
     }
 }
 
-impl Eq for ConversionError {}
+impl Eq for RpcConversionError {}
 
-impl From<NoteError> for ConversionError {
+impl From<NoteError> for RpcConversionError {
     fn from(error: NoteError) -> Self {
-        ConversionError::NoteTypeError(error)
+        RpcConversionError::NoteTypeError(error)
     }
 }
