@@ -7,7 +7,7 @@ use miden_rpc_proto::write_proto;
 use miette::IntoDiagnostic;
 use prost::Message;
 
-const PROTO_DIR: &str = "./src/client/rpc/tonic_client/proto";
+const PROTO_DIR: &str = "./src/client/rpc/proto";
 
 fn main() -> miette::Result<()> {
     let proto_dir = Path::new(PROTO_DIR);
