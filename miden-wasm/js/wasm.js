@@ -1,1 +1,1 @@
-export { default } from "../Cargo.toml";
+export { default } from "../../Cargo.toml";

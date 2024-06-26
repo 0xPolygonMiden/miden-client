@@ -3,4 +3,4 @@ export {
     NewTransactionResult,
     SerializedAccountStub,
     NewSwapTransactionResult
-} from "./crates/miden_wasm";
+} from "./crates/miden_client";

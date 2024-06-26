@@ -11,6 +11,7 @@ keywords = ["miden", "client"]
 edition = "2021"
 rust-version = "1.78"
 default-run = "miden"
+build = "build.rs"
 
 [lib]
 crate-type = ["lib"]
@@ -35,6 +36,7 @@ sqlite = ["dep:rusqlite", "dep:rusqlite_migration", "dep:lazy_static"]
 std = ["miden-objects/std"]
 testing = ["miden-objects/testing", "miden-lib/testing"]
 tonic = ["dep:tonic", "dep:miden-node-proto"]
+wasm = ["async", "testing", "dep:base64", "dep:getrandom", "dep:serde-wasm-bindgen", "dep:tonic", "dep:tonic-web-wasm-client", "dep:wasm-bindgen", "dep:wasm-bindgen-futures"]
 
 [dependencies]
 chrono = { version = "0.4", optional = false }
@@ -54,15 +56,19 @@ rusqlite_migration = { version = "1.0", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
 tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"], optional = true }
-tonic = { version = "0.11", optional = true }
+# tonic = { version = "0.11", optional = true }
 toml = { version = "0.8", optional = true }
 thiserror = { version = "1.0", optional = true }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3" }
 winter-maybe-async = "0.10.0"
-
-[target.'wasm32-unknown-unknown'.dependencies]
-getrandom = { version = "0.2", features = ["js"] }
+base64 = { version = "0.13", optional = true }
+getrandom = { version = "0.2", features = ["js"], optional = true }
+serde-wasm-bindgen = { version = "0.6.5", optional = true }
+tonic = { package = "tonic", version="0.11.0", default-features = false, features=["prost","codegen"], optional = true }
+tonic-web-wasm-client = { version = "0.5", optional = true }
+wasm-bindgen = { version = "0.2", features = ["serde-serialize"], optional = true }
+wasm-bindgen-futures = { version = "0.4", optional = true }
 
 [dev-dependencies]
 # To enable testing feature during tests
@@ -70,3 +76,6 @@ miden-lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/mi
 miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["serde", "testing"] }
 uuid = { version = "1.6.1", features = ["serde", "v4"] }
 assert_cmd = { version = "2.0" }
+
+[build-dependencies]
+tonic-build = { version="0.11.0", default-features = false, features = ["prost"]}

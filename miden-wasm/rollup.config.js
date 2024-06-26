@@ -16,9 +16,9 @@ export default [
         plugins: [
             rust({
                 cargoArgs: [
-                    "--features", "testing",
+                    "--features", "wasm",
                     "--config", `build.rustflags=["-C", "target-feature=+atomics,+bulk-memory,+mutable-globals", "-C", "link-arg=--max-memory=4294967296"]`,
-                    "--no-default-features",
+                    // "--no-default-features",
                     // "-Z", "build-std=panic_abort,std",
                 ],
 
@@ -39,5 +39,9 @@ export default [
             format: "es",
             sourcemap: true,
         },
+        plugins: [
+            resolve(), // Ensure this resolves node modules
+            commonjs(), // Convert CommonJS modules to ES6
+        ],
     }
 ];

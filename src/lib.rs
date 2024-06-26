@@ -6,6 +6,9 @@ pub use client::{
     transactions, Client, NoteConsumability, NoteRelevance,
 };
 
+#[cfg(feature = "wasm")]
+pub mod web_client;
+
 pub mod config;
 pub mod errors;
 pub mod store;

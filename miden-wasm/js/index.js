@@ -4,7 +4,7 @@ const {
     WebClient
 } = await wasm({
     importHook: () => {
-        return new URL("assets/miden_wasm.wasm", import.meta.url);
+        return new URL("assets/miden_client.wasm", import.meta.url);
     },
 });
 

@@ -22,6 +22,9 @@ pub mod data_store;
 #[cfg(feature = "sqlite")]
 pub mod sqlite_store;
 
+#[cfg(feature = "wasm")]
+pub mod web_store;
+
 pub mod note_record;
 pub use note_record::{InputNoteRecord, NoteRecordDetails, NoteStatus, OutputNoteRecord};
 

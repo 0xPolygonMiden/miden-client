@@ -5,10 +5,10 @@ target/
 
 miden-node/
 
-wasm/node_modules/
-wasm/dist/
-wasm/pkg/
-wasm/target/
+miden-wasm/node_modules/
+miden-wasm/dist/
+miden-wasm/pkg/
+miden-wasm/target/
 
 # Remove Cargo.lock from gitignore if creating an executable, leave it for libraries
 # More information here https://doc.rust-lang.org/cargo/guide/cargo-toml-vs-cargo-lock.html
