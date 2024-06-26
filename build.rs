@@ -6,15 +6,15 @@ use std::{
 use miden_rpc_proto::write_proto;
 use miette::IntoDiagnostic;
 use prost::Message;
-use tempfile::TempDir;
 
-const OUT_DIR: &str = "src/client/rpc/tonic_client/generated";
+const PROTO_OUT_DIR: &str = "src/client/rpc/tonic_client/generated";
 
 fn main() -> miette::Result<()> {
-    let temp_proto_dir = TempDir::new().into_diagnostic()?;
+    let out_dir = env::var("OUT_DIR").expect("OUT_DIR should be set");
+    let dest_path = PathBuf::from(out_dir);
 
-    write_proto(temp_proto_dir.path()).unwrap();
-    compile_types(temp_proto_dir.path())
+    write_proto(&dest_path).unwrap();
+    compile_types(&dest_path)
 }
 
 /// Compiles the protobuf files into a file descriptor used to generate Rust types
@@ -36,7 +36,7 @@ fn compile_types(proto_dir: &Path) -> miette::Result<()> {
     tonic_build::configure()
         .file_descriptor_set_path(&file_descriptor_path)
         .skip_protoc_run()
-        .out_dir(OUT_DIR)
+        .out_dir(PROTO_OUT_DIR)
         .compile_with_config(prost_config, protos, includes)
         .into_diagnostic()?;
 

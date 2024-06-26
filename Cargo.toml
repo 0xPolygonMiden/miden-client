@@ -78,4 +78,3 @@ prost = { version = "0.12" }
 prost-build = { version = "0.12" }
 protox = { version = "0.6" }
 tonic-build = { version = "0.11" }
-tempfile = { version = "3.10" }
