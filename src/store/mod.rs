@@ -99,18 +99,20 @@ pub trait Store {
             .iter()
             .map(|header| header.block_num())
             .collect();
-        Ok(maybe_await!(self.get_input_notes(NoteFilter::Committed))?
-            .into_iter()
-            .filter(|note| {
-                !tracked_block_nums.contains(
-                    &note
-                        .inclusion_proof()
-                        .expect("Committed note should have inclusion proof")
-                        .origin()
-                        .block_num,
-                )
-            })
-            .collect())
+        let notes_without_block_header: Vec<InputNoteRecord> =
+            maybe_await!(self.get_input_notes(NoteFilter::Committed))?
+                .into_iter()
+                .filter(|note| {
+                    !tracked_block_nums.contains(
+                        &note
+                            .inclusion_proof()
+                            .expect("Committed note should have inclusion proof")
+                            .origin()
+                            .block_num,
+                    )
+                })
+                .collect();
+        Ok(notes_without_block_header)
     }
 
     /// Inserts the provided input note into the database

@@ -141,18 +141,18 @@ impl<'a> NoteFilter<'a> {
         match self {
             NoteFilter::All => base,
             NoteFilter::Committed => {
-                format!("{base} WHERE status = '{NOTE_STATUS_COMMITTED}' AND ignored = 0")
+                format!("{base} WHERE status = '{NOTE_STATUS_COMMITTED}' AND NOT(ignored)")
             },
             NoteFilter::Consumed => {
-                format!("{base} WHERE status = '{NOTE_STATUS_CONSUMED}' AND ignored = 0")
+                format!("{base} WHERE status = '{NOTE_STATUS_CONSUMED}' AND NOT(ignored)")
             },
             NoteFilter::Expected => {
-                format!("{base} WHERE status = '{NOTE_STATUS_EXPECTED}' AND ignored = 0")
+                format!("{base} WHERE status = '{NOTE_STATUS_EXPECTED}' AND NOT(ignored)")
             },
             NoteFilter::Processing => {
-                format!("{base} WHERE status = '{NOTE_STATUS_PROCESSING}' AND ignored = 0")
+                format!("{base} WHERE status = '{NOTE_STATUS_PROCESSING}' AND NOT(ignored)")
             },
-            NoteFilter::Ignored => format!("{base} WHERE ignored = 1"),
+            NoteFilter::Ignored => format!("{base} WHERE ignored"),
             NoteFilter::Unique(_) | NoteFilter::List(_) => {
                 format!("{base} WHERE note.note_id IN rarray(?)")
             },
@@ -401,7 +401,7 @@ pub fn insert_output_note_tx(
             ":metadata": metadata,
             ":details": details,
             ":inclusion_proof": inclusion_proof,
-            ":ignored": 0,
+            ":ignored": false,
             ":imported_tag": None::<u32>,
         },
     )

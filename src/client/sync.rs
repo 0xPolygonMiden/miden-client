@@ -283,8 +283,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let updated_notes = note_details.len();
 
+        let mut current_partial_mmr = maybe_await!(self.build_current_partial_mmr(true))?;
         for details in note_details {
-            let mut current_partial_mmr = maybe_await!(self.build_current_partial_mmr(true))?;
             let note_block = self
                 .get_and_store_authenticated_block(
                     details.inclusion_details().block_num,
