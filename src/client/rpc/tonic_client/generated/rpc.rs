@@ -2,7 +2,8 @@
 /// Generated client implementations.
 pub mod api_client {
     #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
-    use tonic::codegen::{http::Uri, *};
+    use tonic::codegen::*;
+    use tonic::codegen::http::Uri;
     #[derive(Debug, Clone)]
     pub struct ApiClient<T> {
         inner: tonic::client::Grpc<T>,
@@ -33,7 +34,10 @@ pub mod api_client {
             let inner = tonic::client::Grpc::with_origin(inner, origin);
             Self { inner }
         }
-        pub fn with_interceptor<F>(inner: T, interceptor: F) -> ApiClient<InterceptedService<T, F>>
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> ApiClient<InterceptedService<T, F>>
         where
             F: tonic::service::Interceptor,
             T::ResponseBody: Default,
@@ -43,8 +47,9 @@ pub mod api_client {
                     <T as tonic::client::GrpcService<tonic::body::BoxBody>>::ResponseBody,
                 >,
             >,
-            <T as tonic::codegen::Service<http::Request<tonic::body::BoxBody>>>::Error:
-                Into<StdError> + Send + Sync,
+            <T as tonic::codegen::Service<
+                http::Request<tonic::body::BoxBody>,
+            >>::Error: Into<StdError> + Send + Sync,
         {
             ApiClient::new(InterceptedService::new(inner, interceptor))
         }
@@ -81,17 +86,22 @@ pub mod api_client {
         }
         pub async fn check_nullifiers(
             &mut self,
-            request: impl tonic::IntoRequest<super::super::requests::CheckNullifiersRequest>,
+            request: impl tonic::IntoRequest<
+                super::super::requests::CheckNullifiersRequest,
+            >,
         ) -> std::result::Result<
             tonic::Response<super::super::responses::CheckNullifiersResponse>,
             tonic::Status,
         > {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static("/rpc.Api/CheckNullifiers");
             let mut req = request.into_request();
@@ -100,36 +110,48 @@ pub mod api_client {
         }
         pub async fn get_account_details(
             &mut self,
-            request: impl tonic::IntoRequest<super::super::requests::GetAccountDetailsRequest>,
+            request: impl tonic::IntoRequest<
+                super::super::requests::GetAccountDetailsRequest,
+            >,
         ) -> std::result::Result<
             tonic::Response<super::super::responses::GetAccountDetailsResponse>,
             tonic::Status,
         > {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/rpc.Api/GetAccountDetails");
+            let path = http::uri::PathAndQuery::from_static(
+                "/rpc.Api/GetAccountDetails",
+            );
             let mut req = request.into_request();
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "GetAccountDetails"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn get_block_by_number(
             &mut self,
-            request: impl tonic::IntoRequest<super::super::requests::GetBlockByNumberRequest>,
+            request: impl tonic::IntoRequest<
+                super::super::requests::GetBlockByNumberRequest,
+            >,
         ) -> std::result::Result<
             tonic::Response<super::super::responses::GetBlockByNumberResponse>,
             tonic::Status,
         > {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static("/rpc.Api/GetBlockByNumber");
             let mut req = request.into_request();
@@ -138,19 +160,26 @@ pub mod api_client {
         }
         pub async fn get_block_header_by_number(
             &mut self,
-            request: impl tonic::IntoRequest<super::super::requests::GetBlockHeaderByNumberRequest>,
+            request: impl tonic::IntoRequest<
+                super::super::requests::GetBlockHeaderByNumberRequest,
+            >,
         ) -> std::result::Result<
             tonic::Response<super::super::responses::GetBlockHeaderByNumberResponse>,
             tonic::Status,
         > {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/rpc.Api/GetBlockHeaderByNumber");
+            let path = http::uri::PathAndQuery::from_static(
+                "/rpc.Api/GetBlockHeaderByNumber",
+            );
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("rpc.Api", "GetBlockHeaderByNumber"));
@@ -163,12 +192,15 @@ pub mod api_client {
             tonic::Response<super::super::responses::GetNotesByIdResponse>,
             tonic::Status,
         > {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static("/rpc.Api/GetNotesById");
             let mut req = request.into_request();
@@ -177,19 +209,26 @@ pub mod api_client {
         }
         pub async fn submit_proven_transaction(
             &mut self,
-            request: impl tonic::IntoRequest<super::super::requests::SubmitProvenTransactionRequest>,
+            request: impl tonic::IntoRequest<
+                super::super::requests::SubmitProvenTransactionRequest,
+            >,
         ) -> std::result::Result<
             tonic::Response<super::super::responses::SubmitProvenTransactionResponse>,
             tonic::Status,
         > {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/rpc.Api/SubmitProvenTransaction");
+            let path = http::uri::PathAndQuery::from_static(
+                "/rpc.Api/SubmitProvenTransaction",
+            );
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("rpc.Api", "SubmitProvenTransaction"));
@@ -202,12 +241,15 @@ pub mod api_client {
             tonic::Response<super::super::responses::SyncStateResponse>,
             tonic::Status,
         > {
-            self.inner.ready().await.map_err(|e| {
-                tonic::Status::new(
-                    tonic::Code::Unknown,
-                    format!("Service was not ready: {}", e.into()),
-                )
-            })?;
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static("/rpc.Api/SyncState");
             let mut req = request.into_request();
@@ -246,7 +288,9 @@ pub mod api_server {
         >;
         async fn get_block_header_by_number(
             &self,
-            request: tonic::Request<super::super::requests::GetBlockHeaderByNumberRequest>,
+            request: tonic::Request<
+                super::super::requests::GetBlockHeaderByNumberRequest,
+            >,
         ) -> std::result::Result<
             tonic::Response<super::super::responses::GetBlockHeaderByNumberResponse>,
             tonic::Status,
@@ -260,7 +304,9 @@ pub mod api_server {
         >;
         async fn submit_proven_transaction(
             &self,
-            request: tonic::Request<super::super::requests::SubmitProvenTransactionRequest>,
+            request: tonic::Request<
+                super::super::requests::SubmitProvenTransactionRequest,
+            >,
         ) -> std::result::Result<
             tonic::Response<super::super::responses::SubmitProvenTransactionResponse>,
             tonic::Status,
@@ -296,7 +342,10 @@ pub mod api_server {
                 max_encoding_message_size: None,
             }
         }
-        pub fn with_interceptor<F>(inner: T, interceptor: F) -> InterceptedService<Self, F>
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> InterceptedService<Self, F>
         where
             F: tonic::service::Interceptor,
         {
@@ -352,19 +401,26 @@ pub mod api_server {
                 "/rpc.Api/CheckNullifiers" => {
                     #[allow(non_camel_case_types)]
                     struct CheckNullifiersSvc<T: Api>(pub Arc<T>);
-                    impl<T: Api>
-                        tonic::server::UnaryService<super::super::requests::CheckNullifiersRequest>
-                        for CheckNullifiersSvc<T>
-                    {
+                    impl<
+                        T: Api,
+                    > tonic::server::UnaryService<
+                        super::super::requests::CheckNullifiersRequest,
+                    > for CheckNullifiersSvc<T> {
                         type Response = super::super::responses::CheckNullifiersResponse;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::super::requests::CheckNullifiersRequest>,
+                            request: tonic::Request<
+                                super::super::requests::CheckNullifiersRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
-                            let fut =
-                                async move { <T as Api>::check_nullifiers(&inner, request).await };
+                            let fut = async move {
+                                <T as Api>::check_nullifiers(&inner, request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -390,17 +446,20 @@ pub mod api_server {
                         Ok(res)
                     };
                     Box::pin(fut)
-                },
+                }
                 "/rpc.Api/GetAccountDetails" => {
                     #[allow(non_camel_case_types)]
                     struct GetAccountDetailsSvc<T: Api>(pub Arc<T>);
-                    impl<T: Api>
-                        tonic::server::UnaryService<
-                            super::super::requests::GetAccountDetailsRequest,
-                        > for GetAccountDetailsSvc<T>
-                    {
+                    impl<
+                        T: Api,
+                    > tonic::server::UnaryService<
+                        super::super::requests::GetAccountDetailsRequest,
+                    > for GetAccountDetailsSvc<T> {
                         type Response = super::super::responses::GetAccountDetailsResponse;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<
@@ -436,16 +495,20 @@ pub mod api_server {
                         Ok(res)
                     };
                     Box::pin(fut)
-                },
+                }
                 "/rpc.Api/GetBlockByNumber" => {
                     #[allow(non_camel_case_types)]
                     struct GetBlockByNumberSvc<T: Api>(pub Arc<T>);
-                    impl<T: Api>
-                        tonic::server::UnaryService<super::super::requests::GetBlockByNumberRequest>
-                        for GetBlockByNumberSvc<T>
-                    {
+                    impl<
+                        T: Api,
+                    > tonic::server::UnaryService<
+                        super::super::requests::GetBlockByNumberRequest,
+                    > for GetBlockByNumberSvc<T> {
                         type Response = super::super::responses::GetBlockByNumberResponse;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<
@@ -481,17 +544,20 @@ pub mod api_server {
                         Ok(res)
                     };
                     Box::pin(fut)
-                },
+                }
                 "/rpc.Api/GetBlockHeaderByNumber" => {
                     #[allow(non_camel_case_types)]
                     struct GetBlockHeaderByNumberSvc<T: Api>(pub Arc<T>);
-                    impl<T: Api>
-                        tonic::server::UnaryService<
-                            super::super::requests::GetBlockHeaderByNumberRequest,
-                        > for GetBlockHeaderByNumberSvc<T>
-                    {
+                    impl<
+                        T: Api,
+                    > tonic::server::UnaryService<
+                        super::super::requests::GetBlockHeaderByNumberRequest,
+                    > for GetBlockHeaderByNumberSvc<T> {
                         type Response = super::super::responses::GetBlockHeaderByNumberResponse;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<
@@ -500,7 +566,8 @@ pub mod api_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as Api>::get_block_header_by_number(&inner, request).await
+                                <T as Api>::get_block_header_by_number(&inner, request)
+                                    .await
                             };
                             Box::pin(fut)
                         }
@@ -527,23 +594,30 @@ pub mod api_server {
                         Ok(res)
                     };
                     Box::pin(fut)
-                },
+                }
                 "/rpc.Api/GetNotesById" => {
                     #[allow(non_camel_case_types)]
                     struct GetNotesByIdSvc<T: Api>(pub Arc<T>);
-                    impl<T: Api>
-                        tonic::server::UnaryService<super::super::requests::GetNotesByIdRequest>
-                        for GetNotesByIdSvc<T>
-                    {
+                    impl<
+                        T: Api,
+                    > tonic::server::UnaryService<
+                        super::super::requests::GetNotesByIdRequest,
+                    > for GetNotesByIdSvc<T> {
                         type Response = super::super::responses::GetNotesByIdResponse;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::super::requests::GetNotesByIdRequest>,
+                            request: tonic::Request<
+                                super::super::requests::GetNotesByIdRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
-                            let fut =
-                                async move { <T as Api>::get_notes_by_id(&inner, request).await };
+                            let fut = async move {
+                                <T as Api>::get_notes_by_id(&inner, request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -569,17 +643,20 @@ pub mod api_server {
                         Ok(res)
                     };
                     Box::pin(fut)
-                },
+                }
                 "/rpc.Api/SubmitProvenTransaction" => {
                     #[allow(non_camel_case_types)]
                     struct SubmitProvenTransactionSvc<T: Api>(pub Arc<T>);
-                    impl<T: Api>
-                        tonic::server::UnaryService<
-                            super::super::requests::SubmitProvenTransactionRequest,
-                        > for SubmitProvenTransactionSvc<T>
-                    {
+                    impl<
+                        T: Api,
+                    > tonic::server::UnaryService<
+                        super::super::requests::SubmitProvenTransactionRequest,
+                    > for SubmitProvenTransactionSvc<T> {
                         type Response = super::super::responses::SubmitProvenTransactionResponse;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
                             request: tonic::Request<
@@ -615,22 +692,30 @@ pub mod api_server {
                         Ok(res)
                     };
                     Box::pin(fut)
-                },
+                }
                 "/rpc.Api/SyncState" => {
                     #[allow(non_camel_case_types)]
                     struct SyncStateSvc<T: Api>(pub Arc<T>);
-                    impl<T: Api>
-                        tonic::server::UnaryService<super::super::requests::SyncStateRequest>
-                        for SyncStateSvc<T>
-                    {
+                    impl<
+                        T: Api,
+                    > tonic::server::UnaryService<
+                        super::super::requests::SyncStateRequest,
+                    > for SyncStateSvc<T> {
                         type Response = super::super::responses::SyncStateResponse;
-                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::super::requests::SyncStateRequest>,
+                            request: tonic::Request<
+                                super::super::requests::SyncStateRequest,
+                            >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
-                            let fut = async move { <T as Api>::sync_state(&inner, request).await };
+                            let fut = async move {
+                                <T as Api>::sync_state(&inner, request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -656,15 +741,19 @@ pub mod api_server {
                         Ok(res)
                     };
                     Box::pin(fut)
-                },
-                _ => Box::pin(async move {
-                    Ok(http::Response::builder()
-                        .status(200)
-                        .header("grpc-status", "12")
-                        .header("content-type", "application/grpc")
-                        .body(empty_body())
-                        .unwrap())
-                }),
+                }
+                _ => {
+                    Box::pin(async move {
+                        Ok(
+                            http::Response::builder()
+                                .status(200)
+                                .header("grpc-status", "12")
+                                .header("content-type", "application/grpc")
+                                .body(empty_body())
+                                .unwrap(),
+                        )
+                    })
+                }
             }
         }
     }
