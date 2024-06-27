@@ -5,16 +5,17 @@ use miden_objects::{
 
 use super::MissingFieldHelper;
 use crate::{
-    errors::RpcConversionError, rpc::tonic_client::generated::note::NoteMetadata as NoteMetadataPb,
+    errors::RpcConversionError,
+    rpc::tonic_client::generated::note::NoteMetadata as ProtoNoteMetadata,
 };
 
-impl TryFrom<NoteMetadataPb> for NoteMetadata {
+impl TryFrom<ProtoNoteMetadata> for NoteMetadata {
     type Error = RpcConversionError;
 
-    fn try_from(value: NoteMetadataPb) -> Result<Self, Self::Error> {
+    fn try_from(value: ProtoNoteMetadata) -> Result<Self, Self::Error> {
         let sender = value
             .sender
-            .ok_or_else(|| NoteMetadataPb::missing_field("Sender"))?
+            .ok_or_else(|| ProtoNoteMetadata::missing_field("Sender"))?
             .try_into()?;
         let note_type = NoteType::try_from(value.note_type as u64)?;
         let tag = NoteTag::from(value.tag);

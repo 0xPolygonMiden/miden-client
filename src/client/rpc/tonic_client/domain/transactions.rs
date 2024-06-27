@@ -2,7 +2,9 @@ use miden_objects::{crypto::hash::rpo::RpoDigest, transaction::TransactionId};
 
 use crate::{
     errors::RpcConversionError,
-    rpc::tonic_client::generated::{digest::Digest, transaction::TransactionId as TransactionIdPb},
+    rpc::tonic_client::generated::{
+        digest::Digest, transaction::TransactionId as ProtoTransactionId,
+    },
 };
 
 // INTO TRANSACTION ID
@@ -17,10 +19,10 @@ impl TryFrom<Digest> for TransactionId {
     }
 }
 
-impl TryFrom<TransactionIdPb> for TransactionId {
+impl TryFrom<ProtoTransactionId> for TransactionId {
     type Error = RpcConversionError;
 
-    fn try_from(value: TransactionIdPb) -> Result<Self, Self::Error> {
+    fn try_from(value: ProtoTransactionId) -> Result<Self, Self::Error> {
         value
             .id
             .ok_or(RpcConversionError::MissingFieldInProtobufRepresentation {
