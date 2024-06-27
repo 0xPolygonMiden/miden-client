@@ -1,7 +1,8 @@
 # Changelog
 
-* Receive executed transaction info (id, commit height, account_id) from sync state RPC endpoint (#387).
-* Rename "pending" notes to "expected" notes (#373).
+* Added build script to import Miden node protobuf files to generate types for `tonic_client` and removed `miden-node-proto` dependency (#395).
+* Implemented retrieval of executed transaction info (id, commit height, account_id) from sync state RPC endpoint (#387).
+* Renamed "pending" notes to "expected" notes (#373).
 * New note status added to reflect more possible states (#355).
 * [BREAKING] Library API reorganization (#367).
 * Added `wasm` and `async` feature to make the code compatible with WASM-32 target (#378).
@@ -10,7 +11,7 @@
 * Added a new check on account creation / import on the CLI to set the account as the default one if none is set (#372).
 * Fixed bug when exporting a note into a file (#368).
 * Simplified and separated the `notes --list` table (#356).
-* [BREAKING] Separate `prove_transaction` from `submit_transaction` in `Client`. (#339)
+* [BREAKING] Separated `prove_transaction` from `submit_transaction` in `Client`. (#339)
 * [BREAKING] Updated CLI commands so assets are now passed as `<AMOUNT>::<FAUCET_ACCOUNT_ID>` (#349)
 * Added created and consumed note info when printing the transaction summary on the CLI
 * Changed `consume-notes` to pick up the default account ID if none is provided, and to consume all notes that are consumable by the ID if no notes are provided to the list. (#350)
