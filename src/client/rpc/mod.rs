@@ -14,7 +14,7 @@ use miden_objects::{
 
 #[cfg(feature = "tonic")]
 mod tonic_client;
-#[cfg(feature = "tonic")]
+#[cfg(test)]
 pub use tonic_client::generated;
 #[cfg(feature = "tonic")]
 pub use tonic_client::TonicRpcClient;

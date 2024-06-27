@@ -15,7 +15,10 @@ use super::{
 };
 use crate::{
     client::NoteScreener,
-    store::{InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord, Store, StoreError},
+    store::{
+        InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord, Store,
+        StoreError,
+    },
     ClientError,
 };
 
