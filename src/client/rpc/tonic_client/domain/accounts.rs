@@ -2,8 +2,8 @@ use std::fmt::{Debug, Display, Formatter};
 
 use miden_objects::accounts::AccountId;
 
-use crate::{
-    errors::RpcConversionError, rpc::tonic_client::generated::account::AccountId as ProtoAccountId,
+use crate::rpc::{
+    errors::RpcConversionError, tonic_client::generated::account::AccountId as ProtoAccountId,
 };
 
 // ACCOUNT ID

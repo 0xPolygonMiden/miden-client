@@ -1,10 +1,8 @@
 use miden_objects::{crypto::hash::rpo::RpoDigest, transaction::TransactionId};
 
-use crate::{
+use crate::rpc::{
     errors::RpcConversionError,
-    rpc::tonic_client::generated::{
-        digest::Digest, transaction::TransactionId as ProtoTransactionId,
-    },
+    tonic_client::generated::{digest::Digest, transaction::TransactionId as ProtoTransactionId},
 };
 
 // INTO TRANSACTION ID

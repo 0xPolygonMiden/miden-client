@@ -1,6 +1,6 @@
 use miden_objects::{crypto::hash::rpo::RpoDigest, notes::Nullifier};
 
-use crate::{errors::RpcConversionError, rpc::tonic_client::generated::digest::Digest};
+use crate::rpc::{errors::RpcConversionError, tonic_client::generated::digest::Digest};
 
 // INTO NULLIFIER
 // ================================================================================================

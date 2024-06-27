@@ -42,14 +42,16 @@ use crate::{
         Client,
     },
     config::RpcConfig,
-    rpc::RpcError,
-    rpc::generated::{
-        self,
-        account::AccountId as ProtoAccountId,
-        block_header::BlockHeader as NodeBlockHeader,
-        note::NoteSyncRecord,
-        requests::SyncStateRequest,
-        responses::{NullifierUpdate, SyncStateResponse},
+    rpc::{
+        generated::{
+            self,
+            account::AccountId as ProtoAccountId,
+            block_header::BlockHeader as NodeBlockHeader,
+            note::NoteSyncRecord,
+            requests::SyncStateRequest,
+            responses::{NullifierUpdate, SyncStateResponse},
+        },
+        RpcError,
     },
     store::{
         sqlite_store::{config::SqliteStoreConfig, SqliteStore},
