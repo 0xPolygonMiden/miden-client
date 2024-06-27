@@ -5,8 +5,11 @@ use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
     rpc::{NodeRpcClient, NoteDetails},
-    store::{InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord, Store},
-    Client, ClientError
+    store::{
+        InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord, Store,
+        StoreError,
+    },
+    Client, ClientError,
 };
 
 mod note_screener;
