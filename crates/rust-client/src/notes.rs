@@ -183,8 +183,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     let tracked_note = tracked_note?;
 
                     // TODO: Join these calls to one method that updates both fields with one query (issue #404)
-                    self.store.update_note_inclusion_proof(tracked_note.id(), inclusion_proof)?;
-                    self.store.update_note_metadata(tracked_note.id(), *note_details.metadata())?;
+                    maybe_await!(self
+                        .store
+                        .update_note_inclusion_proof(tracked_note.id(), inclusion_proof))?;
+                    maybe_await!(self
+                        .store
+                        .update_note_metadata(tracked_note.id(), *note_details.metadata()))?;
 
                     return Ok(tracked_note.id());
                 }
