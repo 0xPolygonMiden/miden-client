@@ -92,7 +92,9 @@ pub trait Store {
         nullifiers
     }
 
-    /// Returns the notes that don't have their block header tracked
+    /// Returns the committed notes that don't have their block header tracked
+    ///
+    /// The default implementation of this method uses [Store::get_tracked_block_headers] and [Store::get_input_notes].
     #[maybe_async]
     fn get_notes_without_block_header(&self) -> Result<Vec<InputNoteRecord>, StoreError> {
         let tracked_block_nums: Vec<u32> = maybe_await!(self.get_tracked_block_headers())?
