@@ -22,7 +22,7 @@ pub mod data_store;
 #[cfg(feature = "sqlite")]
 pub mod sqlite_store;
 
-#[cfg(feature = "wasm")]
+#[cfg(feature = "idxdb")]
 pub mod web_store;
 
 pub mod note_record;

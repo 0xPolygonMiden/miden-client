@@ -178,6 +178,8 @@ impl WebStore {
     }
 
     /// Fetches an [AuthSecretKey] by a public key represented by a [Word] and caches it in the store
+    /// Used by the web_client so silencing the dead code warning for now
+    #[allow(dead_code)]
     pub(crate) async fn fetch_and_cache_account_auth_by_pub_key(
         &self,
         account_id: String,
