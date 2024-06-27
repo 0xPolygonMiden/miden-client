@@ -3,7 +3,7 @@ use miden_objects::{
     Digest,
 };
 
-use crate::errors::RpcConversionError;
+use crate::rpc::errors::RpcConversionError;
 #[cfg(feature = "tonic")]
 use crate::rpc::tonic_client::generated;
 #[cfg(feature = "web-tonic")]

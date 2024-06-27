@@ -17,7 +17,7 @@ mod domain;
 
 #[cfg(feature = "tonic")]
 mod tonic_client;
-#[cfg(feature = "testing")]
+#[cfg(feature = "tonic")]
 pub use tonic_client::generated;
 #[cfg(feature = "tonic")]
 pub use tonic_client::TonicRpcClient;

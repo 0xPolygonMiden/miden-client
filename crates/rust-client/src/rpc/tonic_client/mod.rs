@@ -21,14 +21,12 @@ use tonic::transport::Channel;
 use tracing::info;
 
 use super::{
-    errors::RpcError, AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient,
-    NodeRpcClientEndpoint, NoteDetails, NoteInclusionDetails, NullifierUpdate, StateSyncInfo,
-    TransactionUpdate,
+    AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
+    NoteDetails, NoteInclusionDetails, NullifierUpdate, StateSyncInfo, TransactionUpdate,
 };
-
 use crate::{
     config::RpcConfig,
-    errors::{RpcConversionError, RpcError},
+    rpc::errors::{RpcConversionError, RpcError},
 };
 
 #[rustfmt::skip]
@@ -128,7 +126,9 @@ impl NodeRpcClient for TonicRpcClient {
                 .mmr_path
                 .ok_or(RpcError::ExpectedFieldMissing("MmrPath".into()))?
                 .try_into()
-                .map_err(|err: RpcConversionError| RpcError::DeserializationError(err.to_string()))?;
+                .map_err(|err: RpcConversionError| {
+                    RpcError::DeserializationError(err.to_string())
+                })?;
 
             Some(MmrProof {
                 forest: forest as usize,

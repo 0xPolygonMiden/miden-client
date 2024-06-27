@@ -1,6 +1,6 @@
 use miden_objects::{crypto::hash::rpo::RpoDigest, transaction::TransactionId};
 
-use crate::errors::RpcConversionError;
+use crate::rpc::errors::RpcConversionError;
 #[cfg(feature = "tonic")]
 use crate::rpc::tonic_client::generated::{
     digest::Digest, transaction::TransactionId as ProtoTransactionId,

@@ -2,7 +2,7 @@ use std::fmt::{Debug, Display, Formatter};
 
 use miden_objects::accounts::AccountId;
 
-use crate::errors::RpcConversionError;
+use crate::rpc::errors::RpcConversionError;
 #[cfg(feature = "tonic")]
 use crate::rpc::tonic_client::generated::account::AccountId as ProtoAccountId;
 #[cfg(feature = "web-tonic")]
