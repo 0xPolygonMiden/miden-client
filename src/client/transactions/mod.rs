@@ -2,7 +2,7 @@ use alloc::collections::{BTreeMap, BTreeSet};
 
 use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
-    accounts::{AccountDelta, AccountId, AuthSecretKey},
+    accounts::{AccountDelta, AccountId},
     assembly::ProgramAst,
     assets::FungibleAsset,
     notes::{Note, NoteDetails, NoteId, NoteType},
@@ -188,17 +188,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         &mut self,
         transaction_template: TransactionTemplate,
     ) -> Result<TransactionRequest, ClientError> {
-        let account_id = transaction_template.account_id();
-        let account_auth = maybe_await!(self.store.get_account_auth(account_id))?;
-
-        let (_pk, _sk) = match account_auth {
-            AuthSecretKey::RpoFalcon512(key) => {
-                (key.public_key(), AuthSecretKey::RpoFalcon512(key))
-            },
-        };
-
         match transaction_template {
-            TransactionTemplate::ConsumeNotes(_, notes) => {
+            TransactionTemplate::ConsumeNotes(account_id, notes) => {
                 let program_ast = ProgramAst::parse(transaction_request::AUTH_CONSUME_NOTES_SCRIPT)
                     .expect("shipped MASM is well-formed");
                 let notes = notes.iter().map(|id| (*id, None)).collect();
