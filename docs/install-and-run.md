@@ -23,7 +23,7 @@ This installs the `miden` binary (at `~/.cargo/bin/miden`) with the [`testing`](
 The `testing` feature speeds up account creation. 
 
 !!! warning "Install the `testing` feature on node and client"
-    - When using the the client CLI alongside a locally-running node, make sure to install/execute the node with the `testing` feature. 
+    - When using the client CLI alongside a locally-running node, make sure to install/execute the node with the `testing` feature. 
     - Some validations can fail if the flag does not match on both the client and the node.
 
 ### `Concurrent` feature
