@@ -1,11 +1,5 @@
 use core::fmt;
-#[cfg(not(feature = "tonic"))]
-use std::any::type_name;
 
-#[cfg(feature = "tonic")]
-use miden_node_proto::errors::ConversionError;
-#[cfg(not(feature = "tonic"))]
-use miden_objects::crypto::merkle::{SmtLeafError, SmtProofError};
 use miden_objects::{
     accounts::AccountId, crypto::merkle::MmrError, notes::NoteId, AccountError, AssetError,
     AssetVaultError, Digest, NoteError, TransactionScriptError, Word,
@@ -14,50 +8,6 @@ use miden_tx::{
     utils::{DeserializationError, HexParseError},
     DataStoreError, TransactionExecutorError, TransactionProverError,
 };
-#[cfg(not(feature = "tonic"))]
-use thiserror::Error;
-
-#[cfg(not(feature = "tonic"))]
-#[derive(Debug, Clone, PartialEq, Error)]
-pub enum ConversionError {
-    #[error("Hex error: {0}")]
-    HexError(#[from] hex::FromHexError),
-    #[error("SMT leaf error: {0}")]
-    SmtLeafError(#[from] SmtLeafError),
-    #[error("SMT proof error: {0}")]
-    SmtProofError(#[from] SmtProofError),
-    #[error("Too much data, expected {expected}, got {got}")]
-    TooMuchData { expected: usize, got: usize },
-    #[error("Not enough data, expected {expected}, got {got}")]
-    InsufficientData { expected: usize, got: usize },
-    #[error("Value is not in the range 0..MODULUS")]
-    NotAValidFelt,
-    #[error("Invalid note type value: {0}")]
-    NoteTypeError(#[from] NoteError),
-    #[error("Field `{field_name}` required to be filled in protobuf representation of {entity}")]
-    MissingFieldInProtobufRepresentation {
-        entity: &'static str,
-        field_name: &'static str,
-    },
-}
-
-#[cfg(not(feature = "tonic"))]
-impl Eq for ConversionError {}
-
-#[cfg(not(feature = "tonic"))]
-pub trait MissingFieldHelper {
-    fn missing_field(field_name: &'static str) -> ConversionError;
-}
-
-#[cfg(not(feature = "tonic"))]
-impl<T: prost::Message> MissingFieldHelper for T {
-    fn missing_field(field_name: &'static str) -> ConversionError {
-        ConversionError::MissingFieldInProtobufRepresentation {
-            entity: type_name::<T>(),
-            field_name,
-        }
-    }
-}
 
 // CLIENT ERROR
 // ================================================================================================
@@ -222,7 +172,7 @@ pub enum StoreError {
     NoteTagAlreadyTracked(u64),
     ParsingError(String),
     QueryError(String),
-    RpcTypeConversionFailure(ConversionError),
+    RpcConversionError(RpcConversionError),
     TransactionScriptError(TransactionScriptError),
     VaultDataNotFound(Digest),
 }
@@ -355,7 +305,7 @@ impl fmt::Display for StoreError {
                 write!(f, "error instantiating transaction script: {err}")
             },
             VaultDataNotFound(root) => write!(f, "account vault data for root {} not found", root),
-            RpcTypeConversionFailure(err) => write!(f, "failed to convert data: {err}"),
+            RpcConversionError(err) => write!(f, "failed to convert data: {err}"),
         }
     }
 }
@@ -436,8 +386,8 @@ impl From<NoteError> for RpcError {
     }
 }
 
-impl From<ConversionError> for RpcError {
-    fn from(err: ConversionError) -> Self {
+impl From<RpcConversionError> for RpcError {
+    fn from(err: RpcConversionError) -> Self {
         Self::ConversionFailure(err.to_string())
     }
 }
@@ -535,5 +485,42 @@ impl fmt::Display for IdPrefixFetchError {
                 )
             },
         }
+    }
+}
+
+// RPC CONVERSION ERROR
+// ================================================================================================
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum RpcConversionError {
+    NotAValidFelt,
+    NoteTypeError(NoteError),
+    MissingFieldInProtobufRepresentation {
+        entity: &'static str,
+        field_name: &'static str,
+    },
+}
+
+impl core::fmt::Display for RpcConversionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RpcConversionError::NotAValidFelt => write!(f, "Value is not in the range 0..MODULUS"),
+            RpcConversionError::NoteTypeError(err) => write!(f, "Invalid note type value: {}", err),
+            RpcConversionError::MissingFieldInProtobufRepresentation { entity, field_name } => {
+                write!(
+                    f,
+                    "Field `{}` required to be filled in protobuf representation of {}",
+                    field_name, entity
+                )
+            },
+        }
+    }
+}
+
+impl Eq for RpcConversionError {}
+
+impl From<NoteError> for RpcConversionError {
+    fn from(error: NoteError) -> Self {
+        RpcConversionError::NoteTypeError(error)
     }
 }

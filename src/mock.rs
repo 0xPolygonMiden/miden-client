@@ -2,13 +2,6 @@ use alloc::collections::BTreeMap;
 use std::{env::temp_dir, rc::Rc};
 
 use miden_lib::{transaction::TransactionKernel, AuthScheme};
-use miden_node_proto::generated::{
-    account::AccountId as ProtoAccountId,
-    block_header::BlockHeader as NodeBlockHeader,
-    note::NoteSyncRecord,
-    requests::SyncStateRequest,
-    responses::{NullifierUpdate, SyncStateResponse},
-};
 use miden_objects::{
     accounts::{
         account_id::testing::ACCOUNT_ID_OFF_CHAIN_SENDER, get_account_seed_single, Account,
@@ -50,6 +43,14 @@ use crate::{
     },
     config::RpcConfig,
     errors::RpcError,
+    rpc::generated::{
+        self,
+        account::AccountId as ProtoAccountId,
+        block_header::BlockHeader as NodeBlockHeader,
+        note::NoteSyncRecord,
+        requests::SyncStateRequest,
+        responses::{NullifierUpdate, SyncStateResponse},
+    },
     store::sqlite_store::{config::SqliteStoreConfig, SqliteStore},
 };
 
@@ -127,7 +128,7 @@ impl NodeRpcClient for MockRpcApi {
         response.into_inner().try_into()
     }
 
-    /// Creates and executes a [GetBlockHeaderByNumberRequest](miden_node_proto::generated::requests::GetBlockHeaderByNumberRequest).
+    /// Creates and executes a [GetBlockHeaderByNumberRequest].
     /// Only used for retrieving genesis block right now so that's the only case we need to cover.
     async fn get_block_header_by_number(
         &mut self,
@@ -275,7 +276,7 @@ fn create_mock_sync_state_request_for_account_and_notes(
             nullifiers: nullifiers.clone(),
         };
 
-        let metadata = miden_node_proto::generated::note::NoteMetadata {
+        let metadata = generated::note::NoteMetadata {
             sender: Some(account.id().into()),
             note_type: NoteType::OffChain as u32,
             tag: NoteTag::for_local_use_case(1u16, 0u16).unwrap().into(),
@@ -285,14 +286,14 @@ fn create_mock_sync_state_request_for_account_and_notes(
         // create a state sync response
         let response = SyncStateResponse {
             chain_tip,
-            mmr_delta: deltas_iter.next().map(miden_node_proto::generated::mmr::MmrDelta::from),
+            mmr_delta: deltas_iter.next().map(generated::mmr::MmrDelta::from),
             block_header: Some(NodeBlockHeader::from(*block_header)),
             accounts: vec![],
             notes: vec![NoteSyncRecord {
                 note_index: 0,
                 note_id: Some(created_notes_iter.next().unwrap().id().into()),
                 metadata: Some(metadata),
-                merkle_path: Some(miden_node_proto::generated::merkle::MerklePath::default()),
+                merkle_path: Some(generated::merkle::MerklePath::default()),
             }],
             nullifiers: vec![NullifierUpdate {
                 nullifier: Some(consumed_notes.first().unwrap().note().nullifier().inner().into()),
