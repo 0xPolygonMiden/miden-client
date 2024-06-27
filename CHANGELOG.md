@@ -1,7 +1,7 @@
 # Changelog
 
 * Added build script to import Miden node protobuf files to generate types for `tonic_client` and removed `miden-node-proto` dependency (#395).
-* Changed  executed transaction info (id, commit height, account_id) from sync state RPC endpoint (#387).
+* Implemented retrieval of executed transaction info (id, commit height, account_id) from sync state RPC endpoint (#387).
 * Renamed "pending" notes to "expected" notes (#373).
 * New note status added to reflect more possible states (#355).
 * [BREAKING] Library API reorganization (#367).
