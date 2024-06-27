@@ -82,8 +82,8 @@ pub mod testing {
     pub use miden_objects::accounts::account_id::testing::*;
 }
 
-#[cfg(all(test, feature = "executable"))]
+#[cfg(test)]
 pub mod mock;
 
-#[cfg(all(test, feature = "executable"))]
+#[cfg(test)]
 pub mod tests;

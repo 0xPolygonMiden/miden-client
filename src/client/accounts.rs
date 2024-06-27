@@ -225,7 +225,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 // TESTS
 // ================================================================================================
 
-#[cfg(all(test, feature = "executable"))]
+#[cfg(test)]
 pub mod tests {
     use miden_objects::{
         accounts::{Account, AccountData, AccountId, AuthSecretKey},
@@ -282,8 +282,8 @@ pub mod tests {
             .is_ok());
     }
 
-    #[tokio::test]
-    async fn load_accounts_test() {
+    #[test]
+    fn load_accounts_test() {
         // generate test client
         let mut client = create_test_client();
 
