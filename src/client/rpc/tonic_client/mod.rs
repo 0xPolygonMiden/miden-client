@@ -24,10 +24,7 @@ use super::{
     AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
     NoteDetails, NoteInclusionDetails, NullifierUpdate, StateSyncInfo, TransactionUpdate,
 };
-use crate::{
-    config::RpcConfig,
-    rpc::errors::{RpcConversionError, RpcError},
-};
+use crate::{config::RpcConfig, rpc::errors::RpcError};
 
 pub mod domain;
 #[rustfmt::skip]
@@ -116,8 +113,7 @@ impl NodeRpcClient for TonicRpcClient {
         let block_header: BlockHeader = response
             .block_header
             .ok_or(RpcError::ExpectedFieldMissing("BlockHeader".into()))?
-            .try_into()
-            .map_err(|err: RpcConversionError| RpcError::DeserializationError(err.to_string()))?;
+            .try_into()?;
 
         let mmr_proof = if include_mmr_proof {
             let forest = response
@@ -126,10 +122,7 @@ impl NodeRpcClient for TonicRpcClient {
             let merkle_path: MerklePath = response
                 .mmr_path
                 .ok_or(RpcError::ExpectedFieldMissing("MmrPath".into()))?
-                .try_into()
-                .map_err(|err: RpcConversionError| {
-                    RpcError::DeserializationError(err.to_string())
-                })?;
+                .try_into()?;
 
             Some(MmrProof {
                 forest: forest as usize,
