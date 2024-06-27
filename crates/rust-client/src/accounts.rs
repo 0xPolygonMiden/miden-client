@@ -283,8 +283,8 @@ pub mod tests {
             .is_ok());
     }
 
-    #[tokio::test]
-    async fn load_accounts_test() {
+    #[test]
+    fn load_accounts_test() {
         // generate test client
         let mut client = create_test_client();
 
