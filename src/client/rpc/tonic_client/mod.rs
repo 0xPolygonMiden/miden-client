@@ -1,15 +1,12 @@
 use std::time::Duration;
 
-use miden_node_proto::{
-    errors::ConversionError,
-    generated::{
-        requests::{
-            GetAccountDetailsRequest, GetBlockHeaderByNumberRequest, GetNotesByIdRequest,
-            SubmitProvenTransactionRequest, SyncStateRequest,
-        },
-        responses::SyncStateResponse,
-        rpc::api_client::ApiClient,
+use generated::{
+    requests::{
+        GetAccountDetailsRequest, GetBlockHeaderByNumberRequest, GetNotesByIdRequest,
+        SubmitProvenTransactionRequest, SyncStateRequest,
     },
+    responses::SyncStateResponse,
+    rpc::api_client::ApiClient,
 };
 use miden_objects::{
     accounts::{Account, AccountId},
@@ -27,7 +24,14 @@ use super::{
     AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
     NoteDetails, NoteInclusionDetails, NullifierUpdate, StateSyncInfo, TransactionUpdate,
 };
-use crate::{config::RpcConfig, errors::RpcError};
+use crate::{
+    config::RpcConfig,
+    errors::{RpcConversionError, RpcError},
+};
+
+pub mod domain;
+#[rustfmt::skip]
+pub mod generated;
 
 // TONIC RPC CLIENT
 // ================================================================================================
@@ -113,7 +117,7 @@ impl NodeRpcClient for TonicRpcClient {
             .block_header
             .ok_or(RpcError::ExpectedFieldMissing("BlockHeader".into()))?
             .try_into()
-            .map_err(|err: ConversionError| RpcError::ConversionFailure(err.to_string()))?;
+            .map_err(|err: RpcConversionError| RpcError::ConversionFailure(err.to_string()))?;
 
         let mmr_proof = if include_mmr_proof {
             let forest = response
@@ -123,7 +127,7 @@ impl NodeRpcClient for TonicRpcClient {
                 .mmr_path
                 .ok_or(RpcError::ExpectedFieldMissing("MmrPath".into()))?
                 .try_into()
-                .map_err(|err: ConversionError| RpcError::ConversionFailure(err.to_string()))?;
+                .map_err(|err: RpcConversionError| RpcError::ConversionFailure(err.to_string()))?;
 
             Some(MmrProof {
                 forest: forest as usize,
