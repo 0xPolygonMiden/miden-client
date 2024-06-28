@@ -17,12 +17,14 @@ path = "src/main.rs"
 
 [features]
 default = ["dep:clap", "dep:comfy-table", "dep:figment", "dep:tokio", "dep:toml"]
+testing = ["miden-client/testing"]
+concurrent = ["miden-client/concurrent"]
 
 [dependencies]
 clap = { version = "4.3", features = ["derive"], optional = true }
 comfy-table = { version = "7.1.0", optional = true } 
 figment = { version = "0.10", features = ["toml", "env"], optional = true }
-miden-client = { path = "../../crates/miden-client", features = ["sqlite", "tonic", "testing", "concurrent"] }
+miden-client = { path = "../../crates/miden-client", features = ["sqlite", "tonic"] }
 miden-tx = { package = "miden-tx", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false }
 miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["serde"] }
 rand = { version = "0.8.5" }

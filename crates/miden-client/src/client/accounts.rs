@@ -225,7 +225,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 // TESTS
 // ================================================================================================
 
-#[cfg(all(test, feature = "executable"))]
+#[cfg(test)]
 pub mod tests {
     use miden_objects::{
         accounts::{Account, AccountData, AccountId, AuthSecretKey},

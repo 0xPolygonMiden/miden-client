@@ -7,7 +7,7 @@ help: ## Show description of all commands
 # --- Variables -----------------------------------------------------------------------------------
 
 FEATURES_INTEGRATION_TESTING="integration"
-FEATURES_CLI="testing, executable, concurrent"
+FEATURES_CLI="testing, concurrent"
 NODE_FEATURES_TESTING="testing"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
 NODE_BRANCH="polydez-future-notes"
@@ -92,7 +92,7 @@ start-node: ## Run node. This requires the node repo to be present at `miden-nod
 # --- Installing ----------------------------------------------------------------------------------
 
 install: ## Installs the CLI binary using the current dir
-	cargo install --path miden-cli
+	cargo install --features $(FEATURES_CLI) --path bin/miden-cli
 
 # --- Building ------------------------------------------------------------------------------------
 

@@ -10,8 +10,8 @@ pub mod config;
 pub mod errors;
 pub mod store;
 
-#[cfg(all(test, feature = "executable"))]
+#[cfg(test)]
 pub mod mock;
 
-#[cfg(all(test, feature = "executable"))]
+#[cfg(test)]
 pub mod tests;
