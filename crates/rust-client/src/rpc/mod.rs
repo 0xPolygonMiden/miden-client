@@ -19,6 +19,11 @@ pub use tonic_client::generated;
 #[cfg(feature = "tonic")]
 pub use tonic_client::TonicRpcClient;
 
+#[cfg(feature = "web-tonic")]
+mod web_tonic_client;
+#[cfg(feature = "web-tonic")]
+pub use web_tonic_client::WebTonicRpcClient;
+
 // NOTE DETAILS
 // ================================================================================================
 
