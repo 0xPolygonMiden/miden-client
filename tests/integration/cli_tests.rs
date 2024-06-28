@@ -343,7 +343,14 @@ fn test_cli_export_import_note() {
 
     // Export the note
     let mut export_cmd = Command::cargo_bin("miden").unwrap();
-    export_cmd.args(["export", &note_to_export_id, "--filename", NOTE_FILENAME]);
+    export_cmd.args([
+        "export",
+        &note_to_export_id,
+        "--filename",
+        NOTE_FILENAME,
+        "--export-type",
+        "partial",
+    ]);
     export_cmd.current_dir(&temp_dir_1).assert().success();
 
     // Copy the note
@@ -355,7 +362,7 @@ fn test_cli_export_import_note() {
 
     // Import Note on second client
     let mut import_cmd = Command::cargo_bin("miden").unwrap();
-    import_cmd.args(["import", "--no-verify", NOTE_FILENAME]);
+    import_cmd.args(["import", NOTE_FILENAME]);
     import_cmd.current_dir(&temp_dir_2).assert().success();
 
     // Wait until the note is committed on the node

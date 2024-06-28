@@ -1,5 +1,8 @@
 use miden_objects::{
-    notes::{Note, NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, PartialNote},
+    notes::{
+        Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata,
+        NoteRecipient, PartialNote,
+    },
     transaction::OutputNote,
     Digest,
 };
@@ -156,6 +159,44 @@ impl TryFrom<InputNoteRecord> for OutputNoteRecord {
             None => Err(ClientError::NoteError(miden_objects::NoteError::invalid_origin_index(
                 "Input Note Record contains no metadata".to_string(),
             ))),
+        }
+    }
+}
+
+impl TryFrom<OutputNoteRecord> for NoteDetails {
+    type Error = ClientError;
+    fn try_from(value: OutputNoteRecord) -> Result<Self, Self::Error> {
+        match value.details() {
+            Some(details) => Ok(NoteDetails::new(
+                value.assets.clone(),
+                NoteRecipient::new(
+                    details.serial_num,
+                    details.script.clone(),
+                    NoteInputs::new(details.inputs.clone())?,
+                ),
+            )),
+            None => Err(ClientError::NoteRecordError(
+                "Output Note Record contains no details".to_string(),
+            )),
+        }
+    }
+}
+
+impl TryFrom<OutputNoteRecord> for Note {
+    type Error = ClientError;
+
+    fn try_from(value: OutputNoteRecord) -> Result<Self, Self::Error> {
+        match value.details {
+            Some(details) => {
+                let note_inputs = NoteInputs::new(details.inputs)?;
+                let note_recipient =
+                    NoteRecipient::new(details.serial_num, details.script, note_inputs);
+                let note = Note::new(value.assets, value.metadata, note_recipient);
+                Ok(note)
+            },
+            None => Err(ClientError::NoteRecordError(
+                "Output Note Record contains no details".to_string(),
+            )),
         }
     }
 }

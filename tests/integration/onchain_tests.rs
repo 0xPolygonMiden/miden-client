@@ -6,7 +6,7 @@ use miden_client::{
 use miden_objects::{
     accounts::{AccountId, AccountStorageType},
     assets::{Asset, FungibleAsset, TokenSymbol},
-    notes::{NoteTag, NoteType},
+    notes::{NoteFile, NoteTag, NoteType},
     transaction::InputNote,
 };
 
@@ -65,7 +65,7 @@ async fn test_onchain_notes_flow() {
 
     // Assert that the note is the same
     let received_note: InputNote = client_2.get_input_note(note.id()).unwrap().try_into().unwrap();
-    assert_eq!(received_note.note().authentication_hash(), note.authentication_hash());
+    assert_eq!(received_note.note().hash(), note.hash());
     assert_eq!(received_note.note(), &note);
 
     // consume the note
@@ -213,10 +213,10 @@ async fn test_onchain_accounts() {
     let notes = client_2.get_input_notes(NoteFilter::Committed).unwrap();
 
     //Import the note on the first client so that we can later check its consumer account
-    client_1.import_input_note(notes[0].clone(), false).await.unwrap();
+    client_1.import_note(NoteFile::NoteId(notes[0].id())).await.unwrap();
 
     // Consume the note
-    println!("Consuming note con second client...");
+    println!("Consuming note on second client...");
     let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![notes[0].id()]);
     let tx_request = client_2.build_transaction_request(tx_template).unwrap();
     execute_tx_and_sync(&mut client_2, tx_request).await;
@@ -308,7 +308,7 @@ async fn test_onchain_notes_sync_with_tag() {
 
     // Assert that the note is the same
     let received_note: InputNote = client_2.get_input_note(note.id()).unwrap().try_into().unwrap();
-    assert_eq!(received_note.note().authentication_hash(), note.authentication_hash());
+    assert_eq!(received_note.note().hash(), note.hash());
     assert_eq!(received_note.note(), &note);
     assert!(client_3.get_input_notes(NoteFilter::All).unwrap().is_empty());
 }

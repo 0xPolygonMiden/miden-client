@@ -97,6 +97,9 @@ CREATE TABLE input_notes (
     created_at UNSIGNED BIG INT NOT NULL,                   -- timestamp of the note creation/import
     submitted_at UNSIGNED BIG INT NULL,                      -- timestamp of the note submission to node
     nullifier_height UNSIGNED BIG INT NULL,                 -- block height when the nullifier arrived
+    ignored BOOLEAN NOT NULL DEFAULT 0,                     -- whether the note is ignored in sync
+    imported_tag UNSIGNED INT NULL,                         -- imported tag for the note
+
     FOREIGN KEY (consumer_transaction_id) REFERENCES transactions(id)
     PRIMARY KEY (note_id)
 
@@ -144,6 +147,9 @@ CREATE TABLE output_notes (
     created_at UNSIGNED BIG INT NOT NULL,                   -- timestamp of the note creation/import
     submitted_at UNSIGNED BIG INT NULL,                      -- timestamp of the note submission to node
     nullifier_height UNSIGNED BIG INT NULL,                 -- block height when the nullifier arrived
+    ignored BOOLEAN NOT NULL DEFAULT 0,                     -- whether the note is ignored in sync
+    imported_tag UNSIGNED INT NULL,                         -- imported tag for the note
+
     FOREIGN KEY (consumer_transaction_id) REFERENCES transactions(id)
     PRIMARY KEY (note_id)
 
@@ -164,9 +170,10 @@ CREATE TABLE output_notes (
         json_extract(details, '$.inputs') IS NOT NULL AND
         json_extract(details, '$.serial_num') IS NOT NULL
       ))
-    CONSTRAINT check_valid_consumer_transaction_id CHECK (consumer_transaction_id IS NULL OR status != 'Expecte, Messid')
+    CONSTRAINT check_valid_consumer_transaction_id CHECK (consumer_transaction_id IS NULL OR status != 'Expected')
     CONSTRAINT check_valid_submitted_at CHECK (submitted_at IS NOT NULL OR status != 'Processing')
     CONSTRAINT check_valid_nullifier_height CHECK (nullifier_height IS NOT NULL OR status != 'Consumed')
+    CONSTRAINT check_ignored_output_notes CHECK (NOT(ignored)) -- Output notes shouldn't be ignored. This check will be removed when we refactor the output notes table.
 );
 
 -- Create note's scripts table, used for both input and output notes

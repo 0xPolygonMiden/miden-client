@@ -17,8 +17,8 @@ use miden_objects::{
         rand::RpoRandomCoin,
     },
     notes::{
-        Note, NoteAssets, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata, NoteRecipient,
-        NoteScript, NoteTag, NoteType,
+        Note, NoteAssets, NoteFile, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata,
+        NoteRecipient, NoteScript, NoteTag, NoteType,
     },
     transaction::{InputNote, ProvenTransaction},
     BlockHeader, Felt, Word,
@@ -51,7 +51,10 @@ use crate::{
         requests::SyncStateRequest,
         responses::{NullifierUpdate, SyncStateResponse},
     },
-    store::sqlite_store::{config::SqliteStoreConfig, SqliteStore},
+    store::{
+        sqlite_store::{config::SqliteStoreConfig, SqliteStore},
+        InputNoteRecord,
+    },
 };
 
 pub type MockClient =
@@ -154,7 +157,7 @@ impl NodeRpcClient for MockRpcApi {
         let hit_notes = note_ids.iter().filter_map(|id| self.notes.get(id));
         let mut return_notes = vec![];
         for note in hit_notes {
-            if note.note().metadata().note_type() != NoteType::Public {
+            if note.note().metadata().note_type() != NoteType::OffChain {
                 panic!("this function assumes all notes are offchain for now");
             }
             let inclusion_details = NoteInclusionDetails::new(
@@ -381,7 +384,7 @@ pub fn mock_full_chain_mmr_and_notes(
         .into_iter()
         .enumerate()
         .map(|(index, note)| {
-            let block_header = &block_chain[index];
+            let block_header = &block_chain[2];
             InputNote::authenticated(
                 note,
                 NoteInclusionProof::new(
@@ -429,12 +432,22 @@ pub async fn insert_mock_data(client: &mut MockClient) -> Vec<BlockHeader> {
 
     // insert notes into database
     for note in consumed_notes.clone() {
-        client.import_input_note(note.into(), false).await.unwrap();
+        let note: InputNoteRecord = note.into();
+        client
+            .import_note(NoteFile::NoteWithProof(
+                note.clone().try_into().unwrap(),
+                note.inclusion_proof().unwrap().clone(),
+            ))
+            .await
+            .unwrap();
     }
 
     // insert notes into database
     for note in created_notes.clone() {
-        client.import_input_note(note.into(), false).await.unwrap();
+        let note: InputNoteRecord = note.into();
+        let tag = note.metadata().unwrap().tag();
+        client.add_note_tag(tag).unwrap();
+        client.import_note(NoteFile::NoteDetails(note.into(), Some(tag))).await.unwrap();
     }
 
     // insert account

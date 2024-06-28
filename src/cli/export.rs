@@ -1,11 +1,7 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
-use miden_client::{
-    rpc::NodeRpcClient,
-    store::{InputNoteRecord, Store},
-    Client,
-};
-use miden_objects::crypto::rand::FeltRng;
+use miden_client::{rpc::NodeRpcClient, store::Store, Client};
+use miden_objects::{crypto::rand::FeltRng, notes::NoteFile};
 use miden_tx::{auth::TransactionAuthenticator, utils::Serializable};
 use tracing::info;
 
@@ -22,6 +18,17 @@ pub struct ExportCmd {
     /// Desired filename for the binary file. Defaults to the note ID if not provided
     #[clap(short, long)]
     filename: Option<PathBuf>,
+
+    /// Exported note type
+    #[clap(short, long, value_enum)]
+    export_type: ExportType,
+}
+
+#[derive(clap::ValueEnum, Clone, Debug)]
+pub enum ExportType {
+    Id,
+    Full,
+    Partial,
 }
 
 impl ExportCmd {
@@ -29,7 +36,7 @@ impl ExportCmd {
         &self,
         client: Client<N, R, S, A>,
     ) -> Result<(), String> {
-        export_note(&client, self.id.as_str(), self.filename.clone())?;
+        export_note(&client, self.id.as_str(), self.filename.clone(), self.export_type.clone())?;
         Ok(())
     }
 }
@@ -41,6 +48,7 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthent
     client: &Client<N, R, S, A>,
     note_id: &str,
     filename: Option<PathBuf>,
+    export_type: ExportType,
 ) -> Result<File, String> {
     let note_id = get_output_note_with_id_prefix(client, note_id)
         .map_err(|err| err.to_string())?
@@ -51,10 +59,19 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthent
         .pop()
         .expect("should have an output note");
 
-    // Convert output note into InputNoteRecord before exporting
-    let input_note: InputNoteRecord = output_note
-        .try_into()
-        .map_err(|_err| format!("Can't export note with ID {}", note_id.to_hex()))?;
+    let note_file = match export_type {
+        ExportType::Id => NoteFile::NoteId(output_note.id()),
+        ExportType::Full => match output_note.inclusion_proof() {
+            Some(inclusion_proof) => {
+                NoteFile::NoteWithProof(output_note.clone().try_into()?, inclusion_proof.clone())
+            },
+            None => return Err("Note does not have inclusion proofx".to_string()),
+        },
+        ExportType::Partial => NoteFile::NoteDetails(
+            output_note.clone().try_into()?,
+            Some(output_note.metadata().tag()),
+        ),
+    };
 
     let file_path = if let Some(filename) = filename {
         filename
@@ -65,7 +82,7 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthent
 
     info!("Writing file to {}", file_path.to_string_lossy());
     let mut file = File::create(file_path).map_err(|err| err.to_string())?;
-    file.write_all(&input_note.to_bytes()).map_err(|err| err.to_string())?;
+    file.write_all(&note_file.to_bytes()).map_err(|err| err.to_string())?;
 
     println!("Succesfully exported note {}", note_id);
     Ok(file)

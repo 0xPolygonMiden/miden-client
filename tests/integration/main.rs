@@ -1,7 +1,7 @@
 use miden_client::{
     errors::ClientError,
     rpc::{AccountDetails, NodeRpcClient, TonicRpcClient},
-    store::{NoteFilter, NoteStatus, TransactionFilter},
+    store::{InputNoteRecord, NoteFilter, NoteStatus, TransactionFilter},
     transactions::{
         transaction_request::{PaymentTransactionData, TransactionTemplate},
         TransactionStatus,
@@ -11,7 +11,7 @@ use miden_client::{
 use miden_objects::{
     accounts::{AccountId, AccountStorageType},
     assets::{Asset, FungibleAsset},
-    notes::NoteType,
+    notes::{NoteFile, NoteTag, NoteType},
 };
 use miden_tx::TransactionExecutorError;
 
@@ -29,6 +29,7 @@ async fn test_added_notes() {
     wait_for_node(&mut client).await;
 
     let (_, _, faucet_account_stub) = setup(&mut client, AccountStorageType::OffChain).await;
+    
     // Mint some asset for an account not tracked by the client. It should not be stored as an
     // input note afterwards since it is not being tracked by the client
     let fungible_asset = FungibleAsset::new(faucet_account_stub.id(), MINT_AMOUNT).unwrap();
@@ -437,22 +438,25 @@ async fn test_import_expected_notes() {
     let tx_template = TransactionTemplate::MintFungibleAsset(
         FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
         client_2_account.id(),
-        NoteType::OffChain,
+        NoteType::Public,
     );
 
     let tx_request = client_1.build_transaction_request(tx_template).unwrap();
-    let note = tx_request.expected_output_notes()[0].clone();
+    let note: InputNoteRecord = tx_request.expected_output_notes()[0].clone().into();
     client_2.sync_state().await.unwrap();
 
     // If the verification is requested before execution then the import should fail
-    assert!(client_2.import_input_note(note.clone().into(), true).await.is_err());
+    assert!(client_2.import_note(NoteFile::NoteId(note.id())).await.is_err());
     execute_tx_and_sync(&mut client_1, tx_request).await;
 
     // Use client 1 to wait until a couple of blocks have passed
     wait_for_blocks(&mut client_1, 3).await;
 
     let new_sync_data = client_2.sync_state().await.unwrap();
-    client_2.import_input_note(note.clone().into(), true).await.unwrap();
+
+    client_2.add_note_tag(note.metadata().unwrap().tag()).unwrap();
+    client_2.import_note(NoteFile::NoteId(note.clone().id())).await.unwrap();
+    client_2.sync_state().await.unwrap();
     let input_note = client_2.get_input_note(note.id()).unwrap();
     assert!(new_sync_data.block_num > input_note.inclusion_proof().unwrap().origin().block_num + 1);
 
@@ -469,10 +473,17 @@ async fn test_import_expected_notes() {
     );
 
     let tx_request = client_1.build_transaction_request(tx_template).unwrap();
-    let note = tx_request.expected_output_notes()[0].clone();
+    let note: InputNoteRecord = tx_request.expected_output_notes()[0].clone().into();
 
     // Import an uncommited note without verification
-    client_2.import_input_note(note.clone().into(), false).await.unwrap();
+    client_2.add_note_tag(note.metadata().unwrap().tag()).unwrap();
+    client_2
+        .import_note(NoteFile::NoteDetails(
+            note.clone().into(),
+            Some(note.metadata().unwrap().tag()),
+        ))
+        .await
+        .unwrap();
     let input_note = client_2.get_input_note(note.id()).unwrap();
 
     // If imported before execution then the inclusion proof should be None
@@ -734,4 +745,111 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
             panic!("All three TXs should be committed in different blocks")
         },
     }
+}
+
+#[tokio::test]
+async fn test_import_ignored_notes() {
+    let mut client_1 = create_test_client();
+    let (_first_basic_account, _second_basic_account, faucet_account) =
+        setup(&mut client_1, AccountStorageType::OffChain).await;
+
+    let mut client_2 = create_test_client();
+    let (client_2_account, _seed) = client_2
+        .new_account(AccountTemplate::BasicWallet {
+            mutable_code: true,
+            storage_type: AccountStorageType::OffChain,
+        })
+        .unwrap();
+
+    wait_for_node(&mut client_2).await;
+
+    let tx_template = TransactionTemplate::MintFungibleAsset(
+        FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
+        client_2_account.id(),
+        NoteType::OffChain,
+    );
+
+    let tx_request = client_1.build_transaction_request(tx_template).unwrap();
+    let note: InputNoteRecord = tx_request.expected_output_notes()[0].clone().into();
+    execute_tx_and_sync(&mut client_1, tx_request).await;
+
+    client_2.sync_state().await.unwrap();
+
+    // Import note details without tag so the note is ignored
+    client_2
+        .import_note(NoteFile::NoteDetails(note.clone().into(), None))
+        .await
+        .unwrap();
+
+    // Ignored notes are only retrieved for "Ignored" or "All" filters
+    assert_eq!(client_2.get_input_notes(NoteFilter::All).unwrap().len(), 1);
+    assert_eq!(client_2.get_input_notes(NoteFilter::Ignored).unwrap().len(), 1);
+    assert_eq!(client_2.get_input_notes(NoteFilter::Expected).unwrap().len(), 0);
+
+    client_2.sync_state().await.unwrap();
+
+    // After sync the note shouldn't change status as it is ignored
+    let ignored_note = client_2.get_input_note(note.id()).unwrap();
+    assert!(matches!(ignored_note.status(), NoteStatus::Expected { .. }));
+
+    // Specifically update ignored notes
+    client_2.update_ignored_notes().await.unwrap();
+    let ignored_note = client_2.get_input_note(note.id()).unwrap();
+    assert!(matches!(ignored_note.status(), NoteStatus::Committed { .. }));
+    assert!(ignored_note.inclusion_proof().is_some());
+
+    // If client 2 successfully consumes the note, we confirm we have MMR and block header data
+    consume_notes(&mut client_2, client_2_account.id(), &[ignored_note.try_into().unwrap()]).await;
+
+    client_2.sync_state().await.unwrap();
+    let ignored_note = client_2.get_input_note(note.id()).unwrap();
+    assert!(matches!(ignored_note.status(), NoteStatus::Consumed { .. }));
+}
+
+#[tokio::test]
+async fn test_update_ignored_tag() {
+    let mut client_1 = create_test_client();
+    let (_first_basic_account, _second_basic_account, faucet_account) =
+        setup(&mut client_1, AccountStorageType::OffChain).await;
+
+    let mut client_2 = create_test_client();
+    let (client_2_account, _seed) = client_2
+        .new_account(AccountTemplate::BasicWallet {
+            mutable_code: true,
+            storage_type: AccountStorageType::OffChain,
+        })
+        .unwrap();
+
+    wait_for_node(&mut client_2).await;
+
+    let tx_template = TransactionTemplate::MintFungibleAsset(
+        FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
+        client_2_account.id(),
+        NoteType::OffChain,
+    );
+
+    let tx_request = client_1.build_transaction_request(tx_template).unwrap();
+    let note: InputNoteRecord = tx_request.expected_output_notes()[0].clone().into();
+    execute_tx_and_sync(&mut client_1, tx_request).await;
+
+    client_2.sync_state().await.unwrap();
+
+    // Import note details with untracked tag so the note is ignored
+    let untracked_tag = NoteTag::from(123);
+    client_2
+        .import_note(NoteFile::NoteDetails(note.clone().into(), Some(untracked_tag)))
+        .await
+        .unwrap();
+
+    // Ignored notes are only retrieved for "Ignored" or "All" filters
+    assert_eq!(client_2.get_input_notes(NoteFilter::All).unwrap().len(), 1);
+    assert_eq!(client_2.get_input_notes(NoteFilter::Ignored).unwrap().len(), 1);
+    assert_eq!(client_2.get_input_notes(NoteFilter::Expected).unwrap().len(), 0);
+
+    client_2.add_note_tag(untracked_tag).unwrap();
+
+    // After adding tag, the note stops being ignored
+    assert_eq!(client_2.get_input_notes(NoteFilter::All).unwrap().len(), 1);
+    assert_eq!(client_2.get_input_notes(NoteFilter::Ignored).unwrap().len(), 0);
+    assert_eq!(client_2.get_input_notes(NoteFilter::Expected).unwrap().len(), 1);
 }

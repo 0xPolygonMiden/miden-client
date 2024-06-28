@@ -2,17 +2,21 @@ use miden_objects::{
     accounts::AccountId,
     assembly::ProgramAst,
     crypto::rand::FeltRng,
-    notes::{NoteId, NoteInclusionProof, NoteScript},
+    notes::{NoteExecutionHint, NoteFile, NoteId, NoteInclusionProof, NoteScript, NoteTag},
 };
 use miden_tx::{auth::TransactionAuthenticator, ScriptTarget};
 use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
 
-use super::{note_screener::NoteConsumability, rpc::NodeRpcClient, Client};
+use super::{
+    note_screener::NoteConsumability,
+    rpc::{NodeRpcClient, NoteDetails},
+    Client,
+};
 use crate::{
     client::NoteScreener,
-    errors::ClientError,
-    store::{InputNoteRecord, NoteFilter, OutputNoteRecord, Store},
+    errors::{ClientError, StoreError},
+    store::{InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord, Store},
 };
 
 impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
@@ -101,80 +105,177 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // INPUT NOTE CREATION
     // --------------------------------------------------------------------------------------------
 
-    /// Imports a new input note into the client's store. The `verify` parameter dictates whether or
-    /// not the method verifies the existence of the note in the chain.
+    /// Imports a new input note into the client's store. The information stored depends on the
+    /// type of note file provided.
     ///
-    /// If the imported note is verified to be on chain and it doesn't contain an inclusion proof
-    /// the method tries to build one.
-    /// If the verification fails then a [ClientError::ExistenceVerificationError] is raised.
-    pub async fn import_input_note(
-        &mut self,
-        note: InputNoteRecord,
-        verify: bool,
-    ) -> Result<(), ClientError> {
-        if !verify {
-            return maybe_await!(self.store.insert_input_note(&note)).map_err(|err| err.into());
-        }
-
-        // Verify that note exists in chain
-        let mut chain_notes = self.rpc_api.get_notes_by_id(&[note.id()]).await?;
-        if chain_notes.is_empty() {
-            return Err(ClientError::ExistenceVerificationError(note.id()));
-        }
-
-        let note_details = chain_notes.pop().expect("chain_notes should have at least one element");
-        let inclusion_details = note_details.inclusion_details();
-
-        // If the note exists in the chain and the client is synced to a height equal or
-        // greater than the note's creation block, get MMR and block header data for the
-        // note's block. Additionally create the inclusion proof if none is provided.
-        let inclusion_proof = if maybe_await!(self.get_sync_height())?
-            >= inclusion_details.block_num
-        {
-            // Add the inclusion proof to the imported note
-            info!("Requesting MMR data for past block num {}", inclusion_details.block_num);
-            let mut current_partial_mmr = maybe_await!(self.build_current_partial_mmr(true))?;
-            let block_header = self
-                .get_and_store_authenticated_block(
-                    inclusion_details.block_num,
-                    &mut current_partial_mmr,
-                )
-                .await?;
-
-            let built_inclusion_proof = NoteInclusionProof::new(
-                inclusion_details.block_num,
-                block_header.sub_hash(),
-                block_header.note_root(),
-                inclusion_details.note_index.into(),
-                inclusion_details.merkle_path.clone(),
-            )?;
-
-            // If the imported note already provides an inclusion proof, check that
-            // it equals the one we constructed from node data.
-            if let Some(proof) = note.inclusion_proof() {
-                if proof != &built_inclusion_proof {
-                    return Err(ClientError::NoteImportError(
-                        "Constructed inclusion proof does not equal the provided one".to_string(),
-                    ));
+    /// If the note file is a [NoteFile::NoteId], the note is fecthed from the node and stored in
+    /// the client's store. If the note is private or does not exist, an error is returned. If the
+    /// ID was already stored, the inclusion proof and metadata are updated.
+    /// If the note file is a [NoteFile::NoteDetails], a new note is created with the provided
+    /// details. The note is marked as ignored if it contains no tag or if the tag is not relevant.
+    /// If the note file is a [NoteFile::NoteWithProof], the note is stored with the provided
+    /// inclusion proof and metadata. The MMR data is not fetched from the node.
+    pub async fn import_note(&mut self, note_file: NoteFile) -> Result<NoteId, ClientError> {
+        let note = match note_file {
+            NoteFile::NoteId(id) => {
+                let mut chain_notes = self.rpc_api.get_notes_by_id(&[id]).await?;
+                if chain_notes.is_empty() {
+                    return Err(ClientError::ExistenceVerificationError(id));
                 }
-            }
 
-            Some(built_inclusion_proof)
-        } else {
-            None
+                let note_details =
+                    chain_notes.pop().expect("chain_notes should have at least one element");
+
+                let inclusion_details = note_details.inclusion_details();
+
+                // Add the inclusion proof to the imported note
+                info!("Requesting MMR data for past block num {}", inclusion_details.block_num);
+                let mut current_partial_mmr = maybe_await!(self.build_current_partial_mmr(true))?;
+                let block_header = self
+                    .get_and_store_authenticated_block(
+                        inclusion_details.block_num,
+                        &mut current_partial_mmr,
+                    )
+                    .await?;
+                let inclusion_proof = NoteInclusionProof::new(
+                    inclusion_details.block_num,
+                    block_header.sub_hash(),
+                    block_header.note_root(),
+                    inclusion_details.note_index.into(),
+                    inclusion_details.merkle_path.clone(),
+                )?;
+
+                let tracked_note = maybe_await!(self.get_input_note(id));
+
+                if let Err(ClientError::StoreError(StoreError::NoteNotFound(_))) = tracked_note {
+                    let node_note = match note_details {
+                        NoteDetails::Public(note, _) => note,
+                        NoteDetails::OffChain(..) => {
+                            return Err(ClientError::NoteImportError(
+                                "Incomplete imported note is private".to_string(),
+                            ))
+                        },
+                    };
+
+                    // If note is not tracked, we create a new one.
+                    let details = NoteRecordDetails::new(
+                        node_note.nullifier().to_string(),
+                        node_note.script().clone(),
+                        node_note.inputs().values().to_vec(),
+                        node_note.serial_num(),
+                    );
+
+                    InputNoteRecord::new(
+                        node_note.id(),
+                        node_note.recipient().digest(),
+                        node_note.assets().clone(),
+                        NoteStatus::Committed {
+                            block_height: inclusion_proof.origin().block_num as u64,
+                        },
+                        Some(*node_note.metadata()),
+                        Some(inclusion_proof),
+                        details,
+                        false,
+                        None,
+                    )
+                } else {
+                    // If note is already tracked, we update the inclusion proof and metadata.
+                    let tracked_note = tracked_note?;
+
+                    // TODO: Join these calls to one method that updates both fields with one query (issue #404)
+                    self.store.update_note_inclusion_proof(tracked_note.id(), inclusion_proof)?;
+                    self.store.update_note_metadata(tracked_note.id(), *note_details.metadata())?;
+
+                    return Ok(tracked_note.id());
+                }
+            },
+            NoteFile::NoteDetails(details, None) => {
+                let record_details = NoteRecordDetails::new(
+                    details.nullifier().to_string(),
+                    details.script().clone(),
+                    details.inputs().values().to_vec(),
+                    details.serial_num(),
+                );
+
+                InputNoteRecord::new(
+                    details.id(),
+                    details.recipient().digest(),
+                    details.assets().clone(),
+                    NoteStatus::Expected { created_at: 0 },
+                    None,
+                    None,
+                    record_details,
+                    true,
+                    None,
+                )
+            },
+            NoteFile::NoteDetails(details, Some(tag)) => {
+                let tracked_tags = maybe_await!(self.get_note_tags())?;
+
+                let account_tags = maybe_await!(self.get_account_stubs())?
+                    .into_iter()
+                    .map(|(stub, _)| NoteTag::from_account_id(stub.id(), NoteExecutionHint::Local))
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                let uncommited_note_tags =
+                    maybe_await!(self.get_input_notes(NoteFilter::Expected))?
+                        .into_iter()
+                        .filter_map(|note| note.metadata().map(|metadata| metadata.tag()))
+                        .collect::<Vec<_>>();
+
+                let ignored =
+                    ![tracked_tags, account_tags, uncommited_note_tags].concat().contains(&tag);
+
+                if ignored {
+                    info!("Ignoring note with tag {}", tag);
+                }
+
+                let record_details = NoteRecordDetails::new(
+                    details.nullifier().to_string(),
+                    details.script().clone(),
+                    details.inputs().values().to_vec(),
+                    details.serial_num(),
+                );
+
+                InputNoteRecord::new(
+                    details.id(),
+                    details.recipient().digest(),
+                    details.assets().clone(),
+                    NoteStatus::Expected { created_at: 0 },
+                    None,
+                    None,
+                    record_details,
+                    ignored,
+                    Some(tag),
+                )
+            },
+            NoteFile::NoteWithProof(note, inclusion_proof) => {
+                let details = NoteRecordDetails::new(
+                    note.nullifier().to_string(),
+                    note.script().clone(),
+                    note.inputs().values().to_vec(),
+                    note.serial_num(),
+                );
+
+                InputNoteRecord::new(
+                    note.id(),
+                    note.recipient().digest(),
+                    note.assets().clone(),
+                    NoteStatus::Committed {
+                        block_height: inclusion_proof.origin().block_num as u64,
+                    },
+                    Some(*note.metadata()),
+                    Some(inclusion_proof),
+                    details,
+                    false,
+                    None,
+                )
+            },
         };
+        let id = note.id();
 
-        let note = InputNoteRecord::new(
-            note.id(),
-            note.recipient(),
-            note.assets().clone(),
-            note.status(),
-            note.metadata().copied(),
-            inclusion_proof,
-            note.details().clone(),
-        );
-
-        maybe_await!(self.store.insert_input_note(&note)).map_err(|err| err.into())
+        maybe_await!(self.store.insert_input_note(note))?;
+        Ok(id)
     }
 
     /// Compiles the provided program into a [NoteScript] and checks (to the extent possible) if

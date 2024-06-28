@@ -4,15 +4,11 @@ use std::{
     path::PathBuf,
 };
 
-use miden_client::{
-    rpc::NodeRpcClient,
-    store::{InputNoteRecord, Store},
-    Client,
-};
+use miden_client::{rpc::NodeRpcClient, store::Store, Client};
 use miden_objects::{
     accounts::{AccountData, AccountId},
     crypto::rand::FeltRng,
-    notes::NoteId,
+    notes::{NoteFile, NoteId},
     utils::Deserializable,
 };
 use miden_tx::auth::TransactionAuthenticator;
@@ -27,9 +23,6 @@ pub struct ImportCmd {
     /// Paths to the files that contains the account/note data
     #[arg()]
     filenames: Vec<PathBuf>,
-    /// Skip verification of note's existence in the chain (Only when importing notes)
-    #[clap(short, long, default_value = "false")]
-    no_verify: bool,
 }
 
 impl ImportCmd {
@@ -40,17 +33,18 @@ impl ImportCmd {
         validate_paths(&self.filenames)?;
         let (mut current_config, _) = load_config_file()?;
         for filename in &self.filenames {
-            let note_id = import_note(&mut client, filename.clone(), !self.no_verify).await;
-            if note_id.is_ok() {
-                println!("Succesfully imported note {}", note_id.unwrap().inner());
-                continue;
-            }
-            let account_id = import_account(&mut client, filename)
-                .map_err(|_| format!("Failed to parse file {}", filename.to_string_lossy()))?;
-            println!("Succesfully imported account {}", account_id);
+            let note_id = import_note(&mut client, filename.clone()).await;
 
-            if account_id.is_regular_account() {
-                maybe_set_default_account(&mut current_config, account_id)?;
+            if let Ok(note_id) = note_id {
+                println!("Succesfully imported note {}", note_id.inner());
+            } else {
+                let account_id = import_account(&mut client, filename)
+                    .map_err(|_| format!("Failed to parse file {}", filename.to_string_lossy()))?;
+                println!("Succesfully imported account {}", account_id);
+
+                if account_id.is_regular_account() {
+                    maybe_set_default_account(&mut current_config, account_id)?;
+                }
             }
         }
         Ok(())
@@ -84,23 +78,15 @@ fn import_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenti
 pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
     client: &mut Client<N, R, S, A>,
     filename: PathBuf,
-    verify: bool,
 ) -> Result<NoteId, String> {
     let mut contents = vec![];
     let mut _file = File::open(filename)
         .and_then(|mut f| f.read_to_end(&mut contents))
         .map_err(|err| err.to_string());
 
-    let input_note_record =
-        InputNoteRecord::read_from_bytes(&contents).map_err(|err| err.to_string())?;
+    let note_file = NoteFile::read_from_bytes(&contents).map_err(|err| err.to_string())?;
 
-    let note_id = input_note_record.id();
-    client
-        .import_input_note(input_note_record, verify)
-        .await
-        .map_err(|err| err.to_string())?;
-
-    Ok(note_id)
+    client.import_note(note_file).await.map_err(|err| err.to_string())
 }
 
 // HELPERS

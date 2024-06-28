@@ -41,6 +41,10 @@ impl SqliteStore {
         const QUERY: &str = "UPDATE state_sync SET tags = ?";
         self.db().execute(QUERY, params![tags])?;
 
+        const IGNORED_NOTES_QUERY: &str =
+            "UPDATE input_notes SET ignored = 0 WHERE imported_tag = ?";
+        self.db().execute(IGNORED_NOTES_QUERY, params![u32::from(tag)])?;
+
         Ok(true)
     }
 
@@ -175,7 +179,7 @@ impl SqliteStore {
 
         // Commit new public notes
         for note in committed_notes.new_public_notes() {
-            insert_input_note_tx(&tx, &note.clone().into())?;
+            insert_input_note_tx(&tx, note.clone().into())?;
         }
 
         // Mark transactions as committed

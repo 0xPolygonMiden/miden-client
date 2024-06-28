@@ -1,11 +1,12 @@
 use miden_client::{
+    store::InputNoteRecord,
     transactions::transaction_request::{SwapTransactionData, TransactionTemplate},
     AccountTemplate,
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorageType},
     assets::{Asset, FungibleAsset, TokenSymbol},
-    notes::{NoteExecutionHint, NoteTag, NoteType},
+    notes::{NoteExecutionHint, NoteFile, NoteTag, NoteType},
 };
 
 use super::common::*;
@@ -337,10 +338,16 @@ async fn test_swap_offchain() {
     execute_tx_and_sync(&mut client1, tx_request).await;
 
     // Export note from client 1 to client 2
-    let exported_note = client1.get_output_note(expected_output_notes[0].id()).unwrap();
-
+    let exported_note: InputNoteRecord = client1
+        .get_output_note(expected_output_notes[0].id())
+        .unwrap()
+        .try_into()
+        .unwrap();
+    let tag =
+        build_swap_tag(NoteType::OffChain, offered_asset.faucet_id(), requested_asset.faucet_id());
+    client2.add_note_tag(tag).unwrap();
     client2
-        .import_input_note(exported_note.try_into().unwrap(), true)
+        .import_note(NoteFile::NoteDetails(exported_note.into(), Some(tag)))
         .await
         .unwrap();
 

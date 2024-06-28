@@ -113,7 +113,7 @@ impl SqliteStore {
 
         // Updates for notes
         for note in created_input_notes {
-            insert_input_note_tx(&tx, &note)?;
+            insert_input_note_tx(&tx, note)?;
         }
 
         for note in &created_output_notes {
