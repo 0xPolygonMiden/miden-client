@@ -79,7 +79,7 @@ clean-node: ## Clean node directory
 	rm -rf miden-node
 
 .PHONY: node
-node: ## Setup node
+node: ## Setup node directory
 	if [ -d miden-node ]; then cd miden-node ; else git clone https://github.com/0xPolygonMiden/miden-node.git && cd miden-node; fi
 	cd miden-node && git checkout $(NODE_BRANCH) && git pull origin $(NODE_BRANCH) && cargo update
 	cd miden-node && rm -rf miden-store.sqlite3*
@@ -91,7 +91,7 @@ start-node: ## Run node. This requires the node repo to be present at `miden-nod
 
 # --- Installing ----------------------------------------------------------------------------------
 
-install: ## Installs the CLI binary using the current dir
+install: ## Installs the CLI binary
 	cargo install --features $(FEATURES_CLI) --path bin/miden-cli
 
 # --- Building ------------------------------------------------------------------------------------
@@ -99,5 +99,5 @@ install: ## Installs the CLI binary using the current dir
 build: ## Builds the CLI binary and client library in release mode
 	cargo build --release --features $(FEATURES_CLI)
 
-build-wasm: ## Builds the CLI binary for wasm32
+build-wasm: ## Builds the client library for wasm32
 	cargo build --target wasm32-unknown-unknown --features async --no-default-features --package miden-client
