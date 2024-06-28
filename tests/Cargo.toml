@@ -1,0 +1,25 @@
+[package]
+name = "miden-client-tests"
+version = "0.3.1"
+description = "Integration Tests for the miden client library and CLI"
+readme = "README.md"
+publish = false
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+edition.workspace = true
+
+[dev-dependencies]
+figment = { version = "0.10", features = ["toml", "env"] }
+miden-client = { path = "../crates/miden-client", features = ["executable", "testing"] }
+miden-tx = { package = "miden-tx", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false }
+miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["serde"] }
+assert_cmd = { version = "2.0" }
+uuid = { version = "1.6.1", features = ["serde", "v4"] }
+rand = { workspace = true }
+tokio = { workspace = true }
+
+[[test]]
+name = "integration"
+path = "integration/main.rs"
