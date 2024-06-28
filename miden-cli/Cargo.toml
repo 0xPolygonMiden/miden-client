@@ -1,0 +1,35 @@
+[package]
+name = "miden-cli"
+version = "0.3.1"
+description = "CLI binary application that facilitates interaction with the Miden rollup"
+readme = "README.md"
+documentation = "https://docs.rs/miden-client/0.3.1"
+keywords = ["miden", "client"]
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "miden"
+path = "src/main.rs"
+
+[features]
+default = ["dep:clap", "dep:comfy-table", "dep:figment", "dep:tokio", "dep:toml"]
+
+[dependencies]
+clap = { version = "4.3", features = ["derive"], optional = true }
+comfy-table = { version = "7.1.0", optional = true } 
+figment = { version = "0.10", features = ["toml", "env"], optional = true }
+miden-client = { path = "../miden-client", features = ["sqlite", "tonic", "testing", "concurrent"] }
+miden-tx = { package = "miden-tx", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false }
+miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["serde"] }
+rand = { version = "0.8.5" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0", features = ["raw_value"] }
+tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"], optional = true }
+tonic = { version = "0.11", optional = true }
+toml = { version = "0.8", optional = true }
+tracing = { version = "0.1" }
+tracing-subscriber = { version = "0.3" }

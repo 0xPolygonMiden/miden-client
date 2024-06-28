@@ -265,6 +265,7 @@ impl Store for SqliteStore {
     fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
         self.get_unspent_input_note_nullifiers()
     }
+
     fn update_note_inclusion_proof(
         &self,
         note_id: miden_objects::notes::NoteId,
@@ -277,7 +278,7 @@ impl Store for SqliteStore {
         &self,
         note_id: miden_objects::notes::NoteId,
         metadata: miden_objects::notes::NoteMetadata,
-    ) -> clap::error::Result<(), StoreError> {
+    ) -> Result<(), StoreError> {
         self.update_note_metadata(note_id, metadata)
     }
 }

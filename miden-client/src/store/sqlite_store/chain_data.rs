@@ -1,7 +1,6 @@
 use alloc::{collections::BTreeMap, rc::Rc};
 use std::num::NonZeroUsize;
 
-use clap::error::Result;
 use miden_objects::{
     crypto::merkle::{InOrderIndex, MmrPeaks},
     BlockHeader, Digest,

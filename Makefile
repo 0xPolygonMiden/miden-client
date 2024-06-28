@@ -92,7 +92,7 @@ start-node: ## Run node. This requires the node repo to be present at `miden-nod
 # --- Installing ----------------------------------------------------------------------------------
 
 install: ## Installs the CLI binary using the current dir
-	cargo install --features $(FEATURES_CLI) --path .
+	cargo install --path miden-cli
 
 # --- Building ------------------------------------------------------------------------------------
 
