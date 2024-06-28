@@ -65,7 +65,7 @@ async fn test_onchain_notes_flow() {
 
     // Assert that the note is the same
     let received_note: InputNote = client_2.get_input_note(note.id()).unwrap().try_into().unwrap();
-    assert_eq!(received_note.note().authentication_hash(), note.authentication_hash());
+    assert_eq!(received_note.note().hash(), note.hash());
     assert_eq!(received_note.note(), &note);
 
     // consume the note
@@ -308,7 +308,7 @@ async fn test_onchain_notes_sync_with_tag() {
 
     // Assert that the note is the same
     let received_note: InputNote = client_2.get_input_note(note.id()).unwrap().try_into().unwrap();
-    assert_eq!(received_note.note().authentication_hash(), note.authentication_hash());
+    assert_eq!(received_note.note().hash(), note.hash());
     assert_eq!(received_note.note(), &note);
     assert!(client_3.get_input_notes(NoteFilter::All).unwrap().is_empty());
 }
