@@ -33,24 +33,21 @@ miden-lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/mi
 miden-tx = { package = "miden-tx", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false }
 miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["serde"] }
 prost = { version = "0.12", optional = true }
-rand = { version = "0.8.5" }
+rand = { workspace = true }
 rusqlite = { version = "0.30.0", features = ["vtab", "array", "bundled"], optional = true }
 rusqlite_migration = { version = "1.0", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
-tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"], optional = true }
+tokio = { workspace = true , optional = true }
 tonic = { version = "0.11", optional = true }
 thiserror = { version = "1.0", optional = true }
-tracing = { version = "0.1" }
-tracing-subscriber = { version = "0.3" }
+tracing = { workspace = true }
 winter-maybe-async = "0.10.0"
 
 [target.'wasm32-unknown-unknown'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
 
 [dev-dependencies]
-# To enable testing feature during tests
-assert_cmd = { version = "2.0" }
 miden-lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["testing"] }
 miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["serde", "testing"] }
 proptest = { version = "1.2" }

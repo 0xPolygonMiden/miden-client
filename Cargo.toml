@@ -12,3 +12,8 @@ rust-version = "1.78"
 license = "MIT"
 authors = ["miden contributors"]
 repository = "https://github.com/0xPolygonMiden/miden-client"
+
+[workspace.dependencies]
+rand = { version = "0.8.5" }
+tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"] }
+tracing = { version = "0.1" }
