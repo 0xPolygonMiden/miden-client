@@ -49,7 +49,6 @@ getrandom = { version = "0.2", features = ["js"] }
 [dev-dependencies]
 miden-lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["testing"] }
 miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["serde", "testing"] }
-proptest = { version = "1.2" }
 uuid = { version = "1.6.1", features = ["serde", "v4"] }
 miden-client = { path = ".", features = ["testing", "concurrent", "sqlite", "tonic", "tokio"]}
 
