@@ -2,8 +2,8 @@
 resolver = "2"
 
 members = [
-  "miden-cli",
-  "miden-client"
+  "bin/miden-cli",
+  "crates/miden-client"
 ]
 
 [workspace.package]
