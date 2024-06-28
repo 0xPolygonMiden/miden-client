@@ -4,7 +4,7 @@ use core::fmt::Debug;
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::{NoteId, NoteTag, Nullifier},
+    notes::{NoteId, NoteInclusionProof, NoteMetadata, NoteTag, Nullifier},
     BlockHeader, Digest, Word,
 };
 use winter_maybe_async::{maybe_async, maybe_await};
@@ -92,9 +92,48 @@ pub trait Store {
         nullifiers
     }
 
+    /// Returns the committed notes that don't have their block header tracked
+    ///
+    /// The default implementation of this method uses [Store::get_tracked_block_headers] and [Store::get_input_notes].
+    #[maybe_async]
+    fn get_notes_without_block_header(&self) -> Result<Vec<InputNoteRecord>, StoreError> {
+        let tracked_block_nums: Vec<u32> = maybe_await!(self.get_tracked_block_headers())?
+            .iter()
+            .map(|header| header.block_num())
+            .collect();
+        let notes_without_block_header: Vec<InputNoteRecord> =
+            maybe_await!(self.get_input_notes(NoteFilter::Committed))?
+                .into_iter()
+                .filter(|note| {
+                    !tracked_block_nums.contains(
+                        &note
+                            .inclusion_proof()
+                            .expect("Committed note should have inclusion proof")
+                            .origin()
+                            .block_num,
+                    )
+                })
+                .collect();
+        Ok(notes_without_block_header)
+    }
+
     /// Inserts the provided input note into the database
     #[maybe_async]
-    fn insert_input_note(&self, note: &InputNoteRecord) -> Result<(), StoreError>;
+    fn insert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError>;
+
+    /// Updates the inclusion proof of the input note with the provided ID
+    fn update_note_inclusion_proof(
+        &self,
+        note_id: NoteId,
+        inclusion_proof: NoteInclusionProof,
+    ) -> Result<(), StoreError>;
+
+    /// Updates the metadata of the input note with the provided ID
+    fn update_note_metadata(
+        &self,
+        note_id: NoteId,
+        metadata: NoteMetadata,
+    ) -> Result<(), StoreError>;
 
     // CHAIN DATA
     // --------------------------------------------------------------------------------------------
@@ -306,6 +345,8 @@ pub enum NoteFilter<'a> {
     Expected,
     /// Return a list of notes that are currently being processed.
     Processing,
+    /// Return a list of notes that the client ignores in sync.
+    Ignored,
     /// Return a list containing the note that matches with the provided [NoteId].
     List(&'a [NoteId]),
     /// Return a list containing the note that matches with the provided [NoteId].

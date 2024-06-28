@@ -25,7 +25,7 @@ Note that the debug flag overrides the `MIDEN_DEBUG` environment variable.
 
 ## Commands
 
-### `init` 
+### `init`
 
 Creates a configuration file for the client in the current directory.
  
@@ -133,6 +133,10 @@ miden notes --show 0x70b7ec
 
 Sync the client with the latest state of the Miden network. Shows a brief summary at the end.
 
+| Flags             | Description                                                 | Short Flag |
+|-------------------|-------------------------------------------------------------|------------|
+|`--update-ignored` | Update ignored notes in sync                                | `-u`       |
+
 ### `tags`
 
 View and add tags.
@@ -233,12 +237,24 @@ Continue with proving and submission? Changes will be irreversible once the proo
 
 This confirmation can be skipped in non-interactive environments by providing the `--force` flag (`miden send --force ...`):
 
-### `import`
+### Importing and exporting
 
-Import entities managed by the client, such as accounts and notes. The type of entitie is inferred.
-
-When importing notes the CLI verifies that they exist on chain. The user can add an optional flag `--no-verify` that skips this verification.
-
-### `export`
+#### `export`
 
 Export input note data to a binary file .
+
+| Flag                           | Description                                    | Aliases |
+|--------------------------------|------------------------------------------------|---------|
+| `--filename <FILENAME>`        | Desired filename for the binary file.          | `-f`    |
+| `--export-type <EXPORT_TYPE>`  | Exported note type.                            | `-e`    |
+
+##### Export type
+
+The user needs to specify how the note should be exported via the `--export-type` flag. The following options are available:
+- `id`: Only the note ID is exported. When importing, if the note ID is already tracked by the client, the note will be updated with missing information fetched from the node, this works for both public and private notes. If the note isn't tracked and the note is public, the whole note is fetched from the node and start being tracked.
+- `full`: The note is exported with all of its information (metadata and inclusion proof). When importing, the note is considered committed. The note may not be consumed directly after importing as it's block header will not be stored in the client. The block header will be fetched during the next sync.
+- `partial`: The note is exported with minimal information and may be imported even if the note is not committed on chain. When importing, the note will be considered to be "expected" and will be updated after a sync when the original note is committed.
+
+#### `import`
+
+Import entities managed by the client, such as accounts and notes. The type of entities is inferred.

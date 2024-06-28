@@ -1,7 +1,7 @@
 use miden_objects::{
     notes::{
         Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata,
-        NoteRecipient,
+        NoteRecipient, NoteTag,
     },
     transaction::InputNote,
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
@@ -39,9 +39,12 @@ pub struct InputNoteRecord {
     metadata: Option<NoteMetadata>,
     recipient: Digest,
     status: NoteStatus,
+    ignored: bool,
+    imported_tag: Option<NoteTag>,
 }
 
 impl InputNoteRecord {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: NoteId,
         recipient: Digest,
@@ -50,6 +53,8 @@ impl InputNoteRecord {
         metadata: Option<NoteMetadata>,
         inclusion_proof: Option<NoteInclusionProof>,
         details: NoteRecordDetails,
+        ignored: bool,
+        imported_tag: Option<NoteTag>,
     ) -> InputNoteRecord {
         InputNoteRecord {
             id,
@@ -59,6 +64,8 @@ impl InputNoteRecord {
             metadata,
             inclusion_proof,
             details,
+            ignored,
+            imported_tag,
         }
     }
 
@@ -93,6 +100,18 @@ impl InputNoteRecord {
     pub fn details(&self) -> &NoteRecordDetails {
         &self.details
     }
+
+    pub fn set_inclusion_proof(&mut self, inclusion_proof: Option<NoteInclusionProof>) {
+        self.inclusion_proof = inclusion_proof;
+    }
+
+    pub fn ignored(&self) -> bool {
+        self.ignored
+    }
+
+    pub fn imported_tag(&self) -> Option<NoteTag> {
+        self.imported_tag
+    }
 }
 
 impl From<&NoteDetails> for InputNoteRecord {
@@ -111,7 +130,22 @@ impl From<&NoteDetails> for InputNoteRecord {
                 inputs: note_details.inputs().values().to_vec(),
                 serial_num: note_details.serial_num(),
             },
+            ignored: false,
+            imported_tag: None,
         }
+    }
+}
+
+impl From<InputNoteRecord> for NoteDetails {
+    fn from(val: InputNoteRecord) -> Self {
+        NoteDetails::new(
+            val.assets,
+            NoteRecipient::new(
+                val.details.serial_num,
+                val.details.script,
+                NoteInputs::new(val.details.inputs).unwrap(),
+            ),
+        )
     }
 }
 
@@ -145,6 +179,8 @@ impl Deserializable for InputNoteRecord {
             metadata,
             inclusion_proof,
             details,
+            ignored: false,
+            imported_tag: None,
         })
     }
 }
@@ -164,6 +200,8 @@ impl From<Note> for InputNoteRecord {
                 note.inputs().values().to_vec(),
                 note.serial_num(),
             ),
+            ignored: false,
+            imported_tag: None,
         }
     }
 }
@@ -183,6 +221,8 @@ impl From<InputNote> for InputNoteRecord {
                 recorded_note.note().serial_num(),
             ),
             inclusion_proof: recorded_note.proof().cloned(),
+            ignored: false,
+            imported_tag: None,
         }
     }
 }
@@ -243,6 +283,8 @@ impl TryFrom<OutputNoteRecord> for InputNoteRecord {
                 metadata: Some(*output_note.metadata()),
                 recipient: output_note.recipient(),
                 status: output_note.status(),
+                ignored: false,
+                imported_tag: None,
             }),
             None => Err(ClientError::NoteError(miden_objects::NoteError::invalid_origin_index(
                 "Output Note Record contains no details".to_string(),
