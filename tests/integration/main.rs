@@ -29,6 +29,7 @@ async fn test_added_notes() {
     wait_for_node(&mut client).await;
 
     let (_, _, faucet_account_stub) = setup(&mut client, AccountStorageType::OffChain).await;
+    
     // Mint some asset for an account not tracked by the client. It should not be stored as an
     // input note afterwards since it is not being tracked by the client
     let fungible_asset = FungibleAsset::new(faucet_account_stub.id(), MINT_AMOUNT).unwrap();
