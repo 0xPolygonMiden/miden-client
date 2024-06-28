@@ -62,11 +62,11 @@ test: ## Run tests
 # --- Integration testing -------------------------------------------------------------------------
 
 .PHONY: integration-test
-integration-test: ## Run integration tests
+integration-test: build ## Run integration tests
 	cargo nextest run --release --test=integration --features $(FEATURES_INTEGRATION_TESTING) --no-default-features
 
 .PHONY: integration-test-full
-integration-test-full: ## Run the integration test binary with ignored tests included
+integration-test-full: build ## Run the integration test binary with ignored tests included
 	cargo nextest run --release --test=integration --features $(FEATURES_INTEGRATION_TESTING)
 	cargo nextest run --release --test=integration --features $(FEATURES_INTEGRATION_TESTING) --run-ignored ignored-only -- test_import_genesis_accounts_can_be_used_for_transactions
 
