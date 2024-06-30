@@ -10,6 +10,9 @@ repository.workspace = true
 rust-version.workspace = true
 edition.workspace = true
 
+[features]
+integration = ["miden-client/integration"]
+
 [dev-dependencies]
 figment = { version = "0.10", features = ["toml", "env"] }
 miden-client = { path = "../crates/miden-client", features = ["testing"] }
@@ -23,3 +26,4 @@ tokio = { workspace = true }
 [[test]]
 name = "integration"
 path = "integration/main.rs"
+required-features = ["integration"]
