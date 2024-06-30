@@ -1,10 +1,10 @@
 use core::fmt;
 
-use miden_objects::{
+pub use miden_objects::{
     accounts::AccountId, crypto::merkle::MmrError, notes::NoteId, AccountError, AssetError,
     AssetVaultError, Digest, NoteError, TransactionScriptError, Word,
 };
-use miden_tx::{
+pub use miden_tx::{
     utils::{DeserializationError, HexParseError},
     DataStoreError, TransactionExecutorError, TransactionProverError,
 };

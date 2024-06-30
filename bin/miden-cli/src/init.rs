@@ -3,7 +3,7 @@ use std::{fs::File, io::Write, path::PathBuf};
 use clap::Parser;
 use miden_client::config::Endpoint;
 
-use crate::cli::{config::CliConfig, CLIENT_CONFIG_FILE_NAME};
+use crate::{config::CliConfig, CLIENT_CONFIG_FILE_NAME};
 
 // Init COMMAND
 // ================================================================================================

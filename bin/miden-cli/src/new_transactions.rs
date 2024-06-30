@@ -2,6 +2,11 @@ use std::{io, time::Instant};
 
 use clap::{Parser, ValueEnum};
 use miden_client::{
+    accounts::AccountId,
+    assets::{Asset, FungibleAsset},
+    auth::TransactionAuthenticator,
+    crypto::{Digest, FeltRng},
+    notes::{NoteId, NoteType as MidenNoteType},
     rpc::NodeRpcClient,
     store::Store,
     transactions::{
@@ -10,21 +15,13 @@ use miden_client::{
     },
     Client,
 };
-use miden_objects::{
-    accounts::AccountId,
-    assets::{Asset, FungibleAsset},
-    crypto::rand::FeltRng,
-    notes::{NoteId, NoteType as MidenNoteType},
-    Digest,
-};
-use miden_tx::auth::TransactionAuthenticator;
 use tracing::info;
 
 use super::{
     get_input_note_with_id_prefix,
     utils::{get_input_acc_id_by_prefix_or_default, parse_account_id, parse_fungible_asset},
 };
-use crate::cli::{create_dynamic_table, utils::build_swap_tag};
+use crate::{create_dynamic_table, utils::build_swap_tag};
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum NoteType {

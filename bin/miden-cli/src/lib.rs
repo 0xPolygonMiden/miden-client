@@ -3,23 +3,19 @@ use std::{env, rc::Rc};
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
+    accounts::AccountStub,
+    auth::{StoreAuthenticator, TransactionAuthenticator},
+    crypto::{FeltRng, RpoRandomCoin},
     errors::{ClientError, IdPrefixFetchError},
     rpc::{NodeRpcClient, TonicRpcClient},
     store::{
         sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter,
         OutputNoteRecord, Store,
     },
-    Client, StoreAuthenticator,
+    Client, Felt,
 };
-use miden_objects::{
-    accounts::AccountStub,
-    crypto::rand::{FeltRng, RpoRandomCoin},
-    Felt,
-};
-use miden_tx::auth::TransactionAuthenticator;
 use rand::Rng;
 use sync::SyncCmd;
-use tracing::info;
 use transactions::TransactionCmd;
 
 use self::{

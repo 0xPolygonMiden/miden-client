@@ -8,17 +8,19 @@ use figment::{
     providers::{Format, Toml},
     Figment,
 };
-use miden_client::{rpc::NodeRpcClient, store::Store, Client};
-use miden_objects::{
+use miden_client::{
     accounts::AccountId,
-    crypto::rand::FeltRng,
+    auth::TransactionAuthenticator,
+    crypto::FeltRng,
+    errors::NoteError,
     notes::{NoteExecutionHint, NoteTag, NoteType},
-    NoteError,
+    rpc::NodeRpcClient,
+    store::Store,
+    Client,
 };
-use miden_tx::auth::TransactionAuthenticator;
+use tracing::info;
 
 use super::{config::CliConfig, get_account_with_id_prefix, CLIENT_CONFIG_FILE_NAME};
-use crate::cli::info;
 
 /// Returns a tracked Account ID matching a hex string or the default one defined in the Client config
 pub(crate) fn get_input_acc_id_by_prefix_or_default<

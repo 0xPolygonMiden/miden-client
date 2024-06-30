@@ -1,9 +1,15 @@
 use clap::{Parser, ValueEnum};
-use miden_client::{rpc::NodeRpcClient, store::Store, AccountTemplate, Client};
-use miden_objects::{accounts::AccountStorageType, assets::TokenSymbol, crypto::rand::FeltRng};
-use miden_tx::auth::TransactionAuthenticator;
+use miden_client::{
+    accounts::{AccountStorageType, AccountTemplate},
+    assets::TokenSymbol,
+    auth::TransactionAuthenticator,
+    crypto::FeltRng,
+    rpc::NodeRpcClient,
+    store::Store,
+    Client,
+};
 
-use crate::cli::{account::maybe_set_default_account, utils::load_config_file, CLIENT_BINARY_NAME};
+use crate::{account::maybe_set_default_account, utils::load_config_file, CLIENT_BINARY_NAME};
 
 #[derive(Debug, Parser, Clone)]
 /// Create a new faucet account

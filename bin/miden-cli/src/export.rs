@@ -1,12 +1,13 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
-use miden_client::{rpc::NodeRpcClient, store::Store, Client};
-use miden_objects::{crypto::rand::FeltRng, notes::NoteFile};
-use miden_tx::{auth::TransactionAuthenticator, utils::Serializable};
+use miden_client::{
+    auth::TransactionAuthenticator, crypto::FeltRng, notes::NoteFile, rpc::NodeRpcClient,
+    store::Store, utils::Serializable, Client,
+};
 use tracing::info;
 
 use super::Parser;
-use crate::cli::get_output_note_with_id_prefix;
+use crate::get_output_note_with_id_prefix;
 
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "Export client output notes")]

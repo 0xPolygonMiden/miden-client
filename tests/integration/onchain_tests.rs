@@ -1,7 +1,7 @@
 use miden_client::{
+    accounts::AccountTemplate,
     store::{NoteFilter, NoteStatus},
     transactions::transaction_request::{PaymentTransactionData, TransactionTemplate},
-    AccountTemplate,
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorageType},

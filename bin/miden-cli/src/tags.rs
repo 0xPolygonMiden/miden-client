@@ -1,9 +1,11 @@
-use miden_client::{rpc::NodeRpcClient, store::Store, Client};
-use miden_objects::{
-    crypto::rand::FeltRng,
+use miden_client::{
+    auth::TransactionAuthenticator,
+    crypto::FeltRng,
     notes::{NoteExecutionHint, NoteTag},
+    rpc::NodeRpcClient,
+    store::Store,
+    Client,
 };
-use miden_tx::auth::TransactionAuthenticator;
 use tracing::info;
 
 use super::Parser;

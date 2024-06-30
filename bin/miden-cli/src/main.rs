@@ -1,6 +1,6 @@
-extern crate alloc;
+use miden_cli::Cli;
 
-mod cli;
+extern crate alloc;
 
 #[tokio::main]
 async fn main() -> Result<(), String> {
@@ -8,7 +8,7 @@ async fn main() -> Result<(), String> {
 
     tracing_subscriber::fmt::init();
     // read command-line args
-    let cli = cli::Cli::parse();
+    let cli = Cli::parse();
 
     // execute cli action
     cli.execute().await

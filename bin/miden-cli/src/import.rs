@@ -4,18 +4,20 @@ use std::{
     path::PathBuf,
 };
 
-use miden_client::{rpc::NodeRpcClient, store::Store, Client};
-use miden_objects::{
+use miden_client::{
     accounts::{AccountData, AccountId},
-    crypto::rand::FeltRng,
+    auth::TransactionAuthenticator,
+    crypto::FeltRng,
     notes::{NoteFile, NoteId},
+    rpc::NodeRpcClient,
+    store::Store,
     utils::Deserializable,
+    Client,
 };
-use miden_tx::auth::TransactionAuthenticator;
 use tracing::info;
 
 use super::{utils::load_config_file, Parser};
-use crate::cli::account::maybe_set_default_account;
+use crate::account::maybe_set_default_account;
 
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "Import client objects such as accounts and notes")]

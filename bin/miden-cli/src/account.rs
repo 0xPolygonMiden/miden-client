@@ -1,22 +1,20 @@
 use clap::Parser;
-use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
-use miden_client::{rpc::NodeRpcClient, store::Store, Client};
-use miden_objects::{
-    accounts::{AccountId, AccountStorage, AccountType, AuthSecretKey, StorageSlotType},
+use comfy_table::presets;
+use miden_client::{
+    accounts::{AccountId, AccountStorage, AccountType, StorageSlotType},
     assets::Asset,
-    crypto::{dsa::rpo_falcon512::SK_LEN, rand::FeltRng},
-    ZERO,
-};
-use miden_tx::{
     auth::TransactionAuthenticator,
-    utils::{bytes_to_hex_string, Serializable},
+    crypto::{FeltRng, ZERO},
+    rpc::NodeRpcClient,
+    store::Store,
+    Client,
 };
 
 use super::{
     config::CliConfig,
     utils::{load_config_file, parse_account_id, update_config},
 };
-use crate::cli::{create_dynamic_table, CLIENT_BINARY_NAME};
+use crate::{create_dynamic_table, CLIENT_BINARY_NAME};
 
 // ACCOUNT COMMAND
 // ================================================================================================
@@ -200,29 +198,6 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
             table.add_row(vec![&idx.to_string(), slot_type, &arity.to_string(), &item.to_hex()]);
         }
         println!("{table}\n");
-    }
-
-    // Keys table
-    {
-        let auth_info = client.get_account_auth(account_id)?;
-
-        match auth_info {
-            AuthSecretKey::RpoFalcon512(key_pair) => {
-                let auth_info: [u8; SK_LEN] = key_pair
-                    .to_bytes()
-                    .try_into()
-                    .expect("Array size is const and should always exactly fit SecretKey");
-
-                let mut table = Table::new();
-                table
-                    .load_preset(presets::UTF8_HORIZONTAL_ONLY)
-                    .set_content_arrangement(ContentArrangement::DynamicFullWidth)
-                    .set_header(vec![Cell::new("Key Pair").add_attribute(Attribute::Bold)]);
-
-                table.add_row(vec![format!("0x{}\n", bytes_to_hex_string(auth_info))]);
-                println!("{table}\n");
-            },
-        };
     }
 
     // Code related table

@@ -2,13 +2,14 @@ use std::{env::temp_dir, fs::File, io::Read, path::Path, rc::Rc};
 
 use assert_cmd::Command;
 use miden_client::{
+    accounts::AccountTemplate,
+    auth::StoreAuthenticator,
     config::RpcConfig,
     rpc::TonicRpcClient,
     store::{
         sqlite_store::{config::SqliteStoreConfig, SqliteStore},
         NoteFilter,
     },
-    AccountTemplate, StoreAuthenticator,
 };
 use miden_objects::{accounts::AccountStorageType, crypto::rand::RpoRandomCoin, Felt};
 use rand::Rng;

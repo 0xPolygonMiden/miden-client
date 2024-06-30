@@ -1,25 +1,20 @@
 use clap::ValueEnum;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
+    accounts::AccountId,
+    assets::Asset,
+    auth::TransactionAuthenticator,
+    crypto::{Digest, FeltRng},
     errors::{ClientError, IdPrefixFetchError},
+    notes::{NoteConsumability, NoteInputs, NoteMetadata},
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
     transactions::transaction_request::known_script_roots::{P2ID, P2IDR, SWAP},
-    Client, NoteConsumability,
+    Client,
 };
-use miden_objects::{
-    accounts::AccountId,
-    assets::Asset,
-    crypto::rand::FeltRng,
-    notes::{NoteInputs, NoteMetadata},
-    Digest,
-};
-use miden_tx::auth::TransactionAuthenticator;
 
 use super::Parser;
-use crate::cli::{
-    create_dynamic_table, get_input_note_with_id_prefix, get_output_note_with_id_prefix,
-};
+use crate::{create_dynamic_table, get_input_note_with_id_prefix, get_output_note_with_id_prefix};
 
 #[derive(Clone, Debug, ValueEnum)]
 pub enum NoteFilter {
@@ -334,9 +329,9 @@ where
 fn note_record_type(note_record_metadata: Option<&NoteMetadata>) -> String {
     match note_record_metadata {
         Some(metadata) => match metadata.note_type() {
-            miden_objects::notes::NoteType::OffChain => "OffChain",
-            miden_objects::notes::NoteType::Encrypted => "Encrypted",
-            miden_objects::notes::NoteType::Public => "Public",
+            miden_client::notes::NoteType::OffChain => "OffChain",
+            miden_client::notes::NoteType::Encrypted => "Encrypted",
+            miden_client::notes::NoteType::Public => "Public",
         },
         None => "-",
     }
