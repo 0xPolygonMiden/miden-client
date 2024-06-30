@@ -1,12 +1,13 @@
 use miden_client::{
+    accounts::AccountTemplate,
     errors::ClientError,
+    notes::NoteRelevance,
     rpc::{AccountDetails, NodeRpcClient, TonicRpcClient},
     store::{InputNoteRecord, NoteFilter, NoteStatus, TransactionFilter},
     transactions::{
         transaction_request::{PaymentTransactionData, TransactionTemplate},
         TransactionStatus,
     },
-    AccountTemplate, NoteRelevance,
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorageType},
