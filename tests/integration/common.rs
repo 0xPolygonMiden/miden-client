@@ -5,6 +5,8 @@ use figment::{
     Figment,
 };
 use miden_client::{
+    accounts::AccountTemplate,
+    auth::StoreAuthenticator,
     config::RpcConfig,
     errors::{ClientError, RpcError},
     rpc::TonicRpcClient,
@@ -13,7 +15,7 @@ use miden_client::{
         NoteFilter, TransactionFilter,
     },
     transactions::transaction_request::{TransactionRequest, TransactionTemplate},
-    AccountTemplate, Client, StoreAuthenticator, SyncSummary,
+    Client, SyncSummary,
 };
 use miden_objects::{
     accounts::{
