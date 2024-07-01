@@ -6,7 +6,7 @@ use miden_client::{
 use miden_objects::{
     accounts::{AccountId, AccountStorageType},
     assets::{Asset, FungibleAsset, TokenSymbol},
-    notes::{NoteExecutionHint, NoteFile, NoteTag, NoteType},
+    notes::{NoteExecutionHint, NoteFile, NoteId, NoteTag, NoteType},
 };
 
 use super::common::*;
@@ -66,7 +66,7 @@ async fn test_swap_fully_onchain() {
 
     // mint 1000 BTC for accountA
     println!("minting 1000 btc for account A");
-    mint(
+    let account_a_mint_note_id = mint(
         &mut client_with_faucets,
         account_a.id(),
         btc_faucet_account.id(),
@@ -74,9 +74,9 @@ async fn test_swap_fully_onchain() {
         BTC_MINT_AMOUNT,
     )
     .await;
-    println!("minting 1000 eth for account B");
     // mint 1000 ETH for accountB
-    mint(
+    println!("minting 1000 eth for account B");
+    let account_b_mint_note_id = mint(
         &mut client_with_faucets,
         account_b.id(),
         eth_faucet_account.id(),
@@ -87,23 +87,27 @@ async fn test_swap_fully_onchain() {
 
     // Sync and consume note for accountA
     client1.sync_state().await.unwrap();
-    let client_1_notes = client1.get_input_notes(miden_client::store::NoteFilter::All).unwrap();
-    assert_eq!(client_1_notes.len(), 1);
+    let client_1_consumable_notes = client1.get_consumable_notes(Some(account_a.id())).unwrap();
+    assert!(client_1_consumable_notes
+        .iter()
+        .any(|(note, _)| note.id() == account_a_mint_note_id));
 
     println!("Consuming mint note on first client...");
     let tx_template =
-        TransactionTemplate::ConsumeNotes(account_a.id(), vec![client_1_notes[0].id()]);
+        TransactionTemplate::ConsumeNotes(account_a.id(), vec![account_a_mint_note_id]);
     let tx_request = client1.build_transaction_request(tx_template).unwrap();
     execute_tx_and_sync(&mut client1, tx_request).await;
 
     // Sync and consume note for accountB
     client2.sync_state().await.unwrap();
-    let client_2_notes = client2.get_input_notes(miden_client::store::NoteFilter::All).unwrap();
-    assert_eq!(client_2_notes.len(), 1);
+    let client_2_consumable_notes = client2.get_consumable_notes(Some(account_b.id())).unwrap();
+    assert!(client_2_consumable_notes
+        .iter()
+        .any(|(note, _)| note.id() == account_b_mint_note_id));
 
     println!("Consuming mint note on second client...");
     let tx_template =
-        TransactionTemplate::ConsumeNotes(account_b.id(), vec![client_2_notes[0].id()]);
+        TransactionTemplate::ConsumeNotes(account_b.id(), vec![account_b_mint_note_id]);
     let tx_request = client2.build_transaction_request(tx_template).unwrap();
     execute_tx_and_sync(&mut client2, tx_request).await;
 
@@ -272,7 +276,7 @@ async fn test_swap_offchain() {
 
     // mint 1000 BTC for accountA
     println!("minting 1000 btc for account A");
-    mint(
+    let account_a_mint_note_id = mint(
         &mut client_with_faucets,
         account_a.id(),
         btc_faucet_account.id(),
@@ -282,7 +286,7 @@ async fn test_swap_offchain() {
     .await;
     // mint 1000 ETH for accountB
     println!("minting 1000 eth for account B");
-    mint(
+    let account_b_mint_note_id = mint(
         &mut client_with_faucets,
         account_b.id(),
         eth_faucet_account.id(),
@@ -293,23 +297,27 @@ async fn test_swap_offchain() {
 
     // Sync and consume note for accountA
     client1.sync_state().await.unwrap();
-    let client_1_notes = client1.get_input_notes(miden_client::store::NoteFilter::All).unwrap();
-    assert_eq!(client_1_notes.len(), 1);
+    let client_1_consumable_notes = client1.get_consumable_notes(Some(account_a.id())).unwrap();
+    assert!(client_1_consumable_notes
+        .iter()
+        .any(|(note, _)| note.id() == account_a_mint_note_id));
 
     println!("Consuming mint note on first client...");
     let tx_template =
-        TransactionTemplate::ConsumeNotes(account_a.id(), vec![client_1_notes[0].id()]);
+        TransactionTemplate::ConsumeNotes(account_a.id(), vec![account_a_mint_note_id]);
     let tx_request = client1.build_transaction_request(tx_template).unwrap();
     execute_tx_and_sync(&mut client1, tx_request).await;
 
     // Sync and consume note for accountB
     client2.sync_state().await.unwrap();
-    let client_2_notes = client2.get_input_notes(miden_client::store::NoteFilter::All).unwrap();
-    assert_eq!(client_2_notes.len(), 1);
+    let client_2_consumable_notes = client2.get_consumable_notes(Some(account_b.id())).unwrap();
+    assert!(client_2_consumable_notes
+        .iter()
+        .any(|(note, _)| note.id() == account_b_mint_note_id));
 
     println!("Consuming mint note on second client...");
     let tx_template =
-        TransactionTemplate::ConsumeNotes(account_b.id(), vec![client_2_notes[0].id()]);
+        TransactionTemplate::ConsumeNotes(account_b.id(), vec![account_b_mint_note_id]);
     let tx_request = client2.build_transaction_request(tx_template).unwrap();
     execute_tx_and_sync(&mut client2, tx_request).await;
 
@@ -468,8 +476,7 @@ fn build_swap_tag(
     .unwrap()
 }
 
-/// Mints a note from faucet_account_id for basic_account_id, waits for inclusion and returns it
-/// with 1000 units of the corresponding fungible asset
+/// Mints a note from faucet_account_id for basic_account_id with 1000 units of the corresponding fungible asset, waits for inclusion and returns the note id.
 ///
 /// `basic_account_id` does not need to be tracked by the client, but `faucet_account_id` does
 async fn mint(
@@ -478,7 +485,7 @@ async fn mint(
     faucet_account_id: AccountId,
     note_type: NoteType,
     mint_amount: u64,
-) {
+) -> NoteId {
     // Create a Mint Tx for 1000 units of our fungible asset
     let fungible_asset = FungibleAsset::new(faucet_account_id, mint_amount).unwrap();
     let tx_template =
@@ -487,4 +494,6 @@ async fn mint(
     println!("Minting Asset");
     let tx_request = client.build_transaction_request(tx_template).unwrap();
     execute_tx_and_sync(client, tx_request.clone()).await;
+
+    tx_request.expected_output_notes()[0].id()
 }
