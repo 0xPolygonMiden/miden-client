@@ -10,7 +10,7 @@ FEATURES_INTEGRATION_TESTING="integration"
 FEATURES_CLI="testing, executable, concurrent"
 NODE_FEATURES_TESTING="testing"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
-NODE_BRANCH="polydez-future-notes"
+NODE_BRANCH="next"
 
 # --- Linting -------------------------------------------------------------------------------------
 
