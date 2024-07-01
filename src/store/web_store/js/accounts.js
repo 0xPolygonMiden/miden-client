@@ -24,14 +24,11 @@ export async function getAccountIds() {
 }
 
 export async function getAllAccountStubs() {
-    try {
-        // Fetch all records
-        const allRecords = await accounts.toArray();
-        
+    try {        
         // Use a Map to track the latest record for each id based on nonce
         const latestRecordsMap = new Map();
 
-        allRecords.forEach(record => {
+        await accounts.each(record => {
             const existingRecord = latestRecordsMap.get(record.id);
             if (!existingRecord || BigInt(record.nonce) > BigInt(existingRecord.nonce)) {
                 latestRecordsMap.set(record.id, record);
@@ -71,7 +68,6 @@ export async function getAccountStub(
     accountId
 ) {
     try {
-        let allRecords = await accounts.toArray();
         // Fetch all records matching the given id
         const allMatchingRecords = await accounts
           .where('id')

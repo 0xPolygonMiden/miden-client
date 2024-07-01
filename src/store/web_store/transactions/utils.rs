@@ -16,55 +16,43 @@ use crate::{
 // TYPES
 // ================================================================================================
 
-type SerializedTransactionData = (
-    String,
-    String,
-    String,
-    String,
-    String,
-    Vec<u8>,
-    Option<Vec<u8>>,
-    Option<Vec<u8>>,
-    Option<String>,
-    String,
-    Option<String>,
-);
+pub struct SerializedTransactionData {
+    pub transaction_id: String,
+    pub account_id: String,
+    pub init_account_state: String,
+    pub final_account_state: String,
+    pub input_notes: String,
+    pub output_notes: Vec<u8>,
+    pub script_program: Option<Vec<u8>>,
+    pub script_hash: Option<Vec<u8>>,
+    pub script_inputs: Option<String>,
+    pub block_num: String,
+    pub commit_height: Option<String>,
+}
 
 // ================================================================================================
 
 pub async fn insert_proven_transaction_data(
     transaction_result: TransactionResult,
 ) -> Result<(), StoreError> {
-    let (
-        transaction_id,
-        account_id,
-        init_account_state,
-        final_account_state,
-        input_notes,
-        output_notes,
-        script_program,
-        script_hash,
-        script_inputs,
-        block_num,
-        committed,
-    ) = serialize_transaction_data(transaction_result)?;
+    let serialized_data = serialize_transaction_data(transaction_result)?;
 
-    if let Some(hash) = script_hash.clone() {
-        let promise = idxdb_insert_transaction_script(hash, script_program.clone());
+    if let Some(hash) = serialized_data.script_hash.clone() {
+        let promise = idxdb_insert_transaction_script(hash, serialized_data.script_program.clone());
         JsFuture::from(promise).await.unwrap();
     }
 
     let promise = idxdb_insert_proven_transaction_data(
-        transaction_id,
-        account_id,
-        init_account_state,
-        final_account_state,
-        input_notes,
-        output_notes,
-        script_hash.clone(),
-        script_inputs.clone(),
-        block_num,
-        committed,
+        serialized_data.transaction_id,
+        serialized_data.account_id,
+        serialized_data.init_account_state,
+        serialized_data.final_account_state,
+        serialized_data.input_notes,
+        serialized_data.output_notes,
+        serialized_data.script_hash.clone(),
+        serialized_data.script_inputs.clone(),
+        serialized_data.block_num,
+        serialized_data.commit_height,
     );
     JsFuture::from(promise).await.unwrap();
 
@@ -109,19 +97,19 @@ pub(super) fn serialize_transaction_data(
         );
     }
 
-    Ok((
+    Ok(SerializedTransactionData {
         transaction_id,
-        account_id_as_str,
-        init_account_state.to_owned(),
-        final_account_state.to_owned(),
+        account_id: account_id_as_str,
+        init_account_state: init_account_state.to_owned(),
+        final_account_state: final_account_state.to_owned(),
         input_notes,
-        output_notes.to_bytes(),
+        output_notes: output_notes.to_bytes(),
         script_program,
         script_hash,
         script_inputs,
-        transaction_result.block_num().to_string(),
-        None,
-    ))
+        block_num: transaction_result.block_num().to_string(),
+        commit_height: None,
+    })
 }
 
 pub async fn update_account(new_account_state: &Account) -> Result<(), ()> {

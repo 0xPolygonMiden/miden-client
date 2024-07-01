@@ -154,38 +154,6 @@ export async function insertProvenTransactionData(
     }
 }
 
-export async function markTransactionsAsCommitted(
-    blockNums,
-    transactionIds
-) {
-    try {
-        if (transactionIds.length === 0) {
-            return;
-        }
-
-        // Fetch existing records
-        const existingRecords = await tx.transactions.where('id').anyOf(transactionIds).toArray();
-
-        // Create a mapping of transaction IDs to block numbers
-        const transactionBlockMap = transactionIds.reduce((map, id, index) => {
-            map[id] = blockNums[index];
-            return map;
-        }, {});
-
-        // Create updates by merging existing records with the new values
-        const updates = existingRecords.map(record => ({
-            ...record, // Spread existing fields
-            commitHeight: transactionBlockMap[record.id] // Update specific field
-        }));
-
-        // Perform the update
-        await tx.transactions.bulkPut(updates);
-    } catch (err) {
-        console.error("Failed to mark transactions as committed: ", err);
-        throw err;
-    }
-}
-
 function uint8ArrayToBase64(bytes) {
     const binary = bytes.reduce((acc, byte) => acc + String.fromCharCode(byte), '');
     return btoa(binary);

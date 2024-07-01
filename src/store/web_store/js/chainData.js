@@ -18,7 +18,13 @@ export async function insertBlockHeader(
             hasClientNotes: hasClientNotes
         };
 
-        await blockHeaders.add(data);
+        const existingBlockHeader = await blockHeaders.get(blockNum);
+        
+        if (!existingBlockHeader) {
+            await blockHeaders.add(data);
+        } else {
+            console.log("Block header already exists, ignoring.");
+        }
     } catch (err) {
         console.error("Failed to insert block header: ", err);
         throw err;
@@ -49,11 +55,7 @@ export async function getBlockHeaders(
     blockNumbers
 ) {
     try {
-        const blockHeaderPromises = blockNumbers.map(blockNum => 
-            blockHeaders.get(blockNum)
-        );
-
-        const results = await Promise.all(blockHeaderPromises);
+        const results = await blockHeaders.bulkGet(blockNumbers);
         
         results.forEach((result, index) => {
             if (result === undefined) {
@@ -117,11 +119,8 @@ export async function getChainMmrNodes(
     ids
 ) {
     try {
-        const chainMmrNodesPromises = ids.map(id =>
-            chainMmrNodes.get(id)
-        );
+        const results = await chainMmrNodes.bulkGet(ids);
 
-        const results = await Promise.all(chainMmrNodesPromises);
         return results;
     } catch (err) {
         console.error("Failed to get chain mmr nodes: ", err);

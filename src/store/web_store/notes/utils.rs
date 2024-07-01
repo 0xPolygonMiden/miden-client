@@ -24,31 +24,31 @@ use crate::{
 // TYPES
 // ================================================================================================
 
-type SerializedInputNoteData = (
-    String,
-    Vec<u8>,
-    String,
-    String,
-    Option<String>,
-    String,
-    String,
-    Vec<u8>,
-    Option<String>,
-    String,
-);
+pub struct SerializedInputNoteData {
+    pub note_id: String,
+    pub note_assets: Vec<u8>,
+    pub recipient: String,
+    pub status: String,
+    pub metadata: Option<String>,
+    pub details: String,
+    pub note_script_hash: String,
+    pub note_script: Vec<u8>,
+    pub inclusion_proof: Option<String>,
+    pub created_at: String,
+}
 
-type SerializedOutputNoteData = (
-    String,
-    Vec<u8>,
-    String,
-    String,
-    String,
-    Option<String>,
-    Option<String>,
-    Option<Vec<u8>>,
-    Option<String>,
-    String,
-);
+pub struct SerializedOutputNoteData {
+    pub note_id: String,
+    pub note_assets: Vec<u8>,
+    pub recipient: String,
+    pub status: String,
+    pub metadata: String,
+    pub details: Option<String>,
+    pub note_script_hash: Option<String>,
+    pub note_script: Option<Vec<u8>>,
+    pub inclusion_proof: Option<String>,
+    pub created_at: String,
+}
 
 // ================================================================================================
 
@@ -112,10 +112,10 @@ pub(crate) fn serialize_input_note(
     let details =
         serde_json::to_string(&note.details()).map_err(StoreError::InputSerializationError)?;
     let note_script_hash = note.details().script_hash().to_hex();
-    let serialized_note_script = note.details().script().to_bytes();
-    let serialized_created_at = Utc::now().timestamp().to_string();
+    let note_script = note.details().script().to_bytes();
+    let created_at = Utc::now().timestamp().to_string();
 
-    Ok((
+    Ok(SerializedInputNoteData {
         note_id,
         note_assets,
         recipient,
@@ -123,37 +123,26 @@ pub(crate) fn serialize_input_note(
         metadata,
         details,
         note_script_hash,
-        serialized_note_script,
+        note_script,
         inclusion_proof,
-        serialized_created_at,
-    ))
+        created_at,
+    })
 }
 
 pub async fn insert_input_note_tx(note: &InputNoteRecord) -> Result<(), StoreError> {
-    let (
-        note_id,
-        assets,
-        recipient,
-        status,
-        metadata,
-        details,
-        note_script_hash,
-        serialized_note_script,
-        inclusion_proof,
-        serialized_created_at,
-    ) = serialize_input_note(note)?;
+    let serialized_data = serialize_input_note(note)?;
 
     let promise = idxdb_insert_input_note(
-        note_id,
-        assets,
-        recipient,
-        status,
-        metadata,
-        details,
-        note_script_hash,
-        serialized_note_script,
-        inclusion_proof,
-        serialized_created_at,
+        serialized_data.note_id,
+        serialized_data.note_assets,
+        serialized_data.recipient,
+        serialized_data.status,
+        serialized_data.metadata,
+        serialized_data.details,
+        serialized_data.note_script_hash,
+        serialized_data.note_script,
+        serialized_data.inclusion_proof,
+        serialized_data.created_at,
     );
     JsFuture::from(promise).await.unwrap();
 
@@ -202,10 +191,10 @@ pub(crate) fn serialize_output_note(
         None
     };
     let note_script_hash = note.details().map(|details| details.script_hash().to_hex());
-    let serialized_note_script = note.details().map(|details| details.script().to_bytes());
-    let serialized_created_at = Utc::now().timestamp().to_string();
+    let note_script = note.details().map(|details| details.script().to_bytes());
+    let created_at = Utc::now().timestamp().to_string();
 
-    Ok((
+    Ok(SerializedOutputNoteData {
         note_id,
         note_assets,
         recipient,
@@ -213,37 +202,26 @@ pub(crate) fn serialize_output_note(
         metadata,
         details,
         note_script_hash,
-        serialized_note_script,
+        note_script,
         inclusion_proof,
-        serialized_created_at,
-    ))
+        created_at,
+    })
 }
 
 pub async fn insert_output_note_tx(note: &OutputNoteRecord) -> Result<(), StoreError> {
-    let (
-        note_id,
-        assets,
-        recipient,
-        status,
-        metadata,
-        details,
-        note_script_hash,
-        serialized_note_script,
-        inclusion_proof,
-        serialized_created_at,
-    ) = serialize_output_note(note)?;
+    let serialized_data = serialize_output_note(note)?;
 
     let result = JsFuture::from(idxdb_insert_output_note(
-        note_id,
-        assets,
-        recipient,
-        status,
-        metadata,
-        details,
-        note_script_hash,
-        serialized_note_script,
-        inclusion_proof,
-        serialized_created_at,
+        serialized_data.note_id,
+        serialized_data.note_assets,
+        serialized_data.recipient,
+        serialized_data.status,
+        serialized_data.metadata,
+        serialized_data.details,
+        serialized_data.note_script_hash,
+        serialized_data.note_script,
+        serialized_data.inclusion_proof,
+        serialized_data.created_at,
     ))
     .await;
     match result {

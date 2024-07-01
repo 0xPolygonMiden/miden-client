@@ -67,7 +67,7 @@ export async function applyStateSync(
     blockHeader,
     chainMmrPeaks,
     hasClientNotes,
-    nodeIndices,
+    nodeIndexes,
     nodes,
     outputNoteIds,
     outputNoteInclusionProofs,
@@ -81,7 +81,7 @@ export async function applyStateSync(
         await updateSyncHeight(tx, blockNum);
         await updateSpentNotes(tx, nullifierBlockNums, nullifiers);
         await updateBlockHeader(tx, blockNum, blockHeader, chainMmrPeaks, hasClientNotes);
-        await updateChainMmrNodes(tx, nodeIndices, nodes);
+        await updateChainMmrNodes(tx, nodeIndexes, nodes);
         await updateCommittedNotes(tx, outputNoteIds, outputNoteInclusionProofs, inputNoteIds, inputNoteInluclusionProofs, inputeNoteMetadatas);
         await updateCommittedTransactions(tx, transactionBlockNums, transactionIds);
     });
@@ -99,6 +99,7 @@ async function updateSyncHeight(
     }
 }
 
+// NOTE: nullifierBlockNums are the same length and ordered consistently with nullifiers
 async function updateSpentNotes(
     tx,
     nullifierBlockNums,
@@ -172,21 +173,21 @@ async function updateBlockHeader(
 
 async function updateChainMmrNodes(
     tx,
-    nodeIndices,
+    nodeIndexes,
     nodes
 ) {
     try {
         // Check if the arrays are not of the same length
-        if (nodeIndices.length !== nodes.length) {
-            throw new Error("nodeIndices and nodes arrays must be of the same length");
+        if (nodeIndexes.length !== nodes.length) {
+            throw new Error("nodeIndexes and nodes arrays must be of the same length");
         }
 
-        if (nodeIndices.length === 0) {
+        if (nodeIndexes.length === 0) {
             return;
         }
 
         // Create the updates array with objects matching the structure expected by your IndexedDB schema
-        const updates = nodeIndices.map((index, i) => ({
+        const updates = nodeIndexes.map((index, i) => ({
             id: index,  // Assuming 'index' is the primary key or part of it
             node: nodes[i] // Other attributes of the object
         }));

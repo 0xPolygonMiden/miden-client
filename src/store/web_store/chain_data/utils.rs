@@ -1,10 +1,23 @@
+use std::{collections::BTreeMap, num::NonZeroUsize};
 use miden_objects::{crypto::merkle::InOrderIndex, BlockHeader, Digest};
 
-use crate::errors::StoreError;
-// use crate::native_code::errors::StoreError;
+use serde_wasm_bindgen::from_value;
+use wasm_bindgen::JsValue;
 
-type SerializedBlockHeaderData = (String, String, String, bool);
-type SerializedChainMmrNodeData = (String, String);
+use crate::errors::StoreError;
+use crate::store::web_store::chain_data::ChainMmrNodeIdxdbObject;
+
+pub struct SerializedBlockHeaderData {
+    pub block_num: String,
+    pub header: String,
+    pub chain_mmr_peaks: String,
+    pub has_client_notes: bool,
+}
+
+pub struct SerializedChainMmrNodeData {
+    pub id: String,
+    pub node: String,
+}
 
 pub fn serialize_block_header(
     block_header: BlockHeader,
@@ -17,7 +30,7 @@ pub fn serialize_block_header(
     let chain_mmr_peaks =
         serde_json::to_string(&chain_mmr_peaks).map_err(StoreError::InputSerializationError)?;
 
-    Ok((block_num, header, chain_mmr_peaks, has_client_notes))
+    Ok(SerializedBlockHeaderData { block_num, header, chain_mmr_peaks, has_client_notes })
 }
 
 pub fn serialize_chain_mmr_node(
@@ -27,5 +40,22 @@ pub fn serialize_chain_mmr_node(
     let id: u64 = id.into();
     let id_as_str = id.to_string();
     let node = serde_json::to_string(&node).map_err(StoreError::InputSerializationError)?;
-    Ok((id_as_str, node))
+    Ok(SerializedChainMmrNodeData { id: id_as_str, node })
+}
+
+pub fn process_chain_mmr_nodes_from_js_value(js_value: JsValue) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
+    let chain_mmr_nodes_idxdb: Vec<ChainMmrNodeIdxdbObject> = from_value(js_value).unwrap();
+
+    let results: Result<BTreeMap<InOrderIndex, Digest>, StoreError> = chain_mmr_nodes_idxdb
+        .into_iter()
+        .map(|record| {
+            let id_as_u64: u64 = record.id.parse::<u64>().unwrap();
+            let id = InOrderIndex::new(NonZeroUsize::new(id_as_u64 as usize).unwrap());
+            let node: Digest = serde_json::from_str(&record.node)
+                .map_err(StoreError::JsonDataDeserializationError)?;
+            Ok((id, node))
+        })
+        .collect();
+
+    results
 }

@@ -14,19 +14,6 @@ export async function openDatabase() {
   }
 }
 
-export async function dropDatabase() {
-  console.log('Dropping database...')
-  try {
-      await db.delete();
-      console.log("Database dropped successfully");
-      return true;
-  } catch (err) {
-      console.error("Failed to drop database: ", err);
-      return false;
-  }
-
-}
-
 const Table = {
   AccountCode: 'accountCode',
   AccountStorage: 'accountStorage',

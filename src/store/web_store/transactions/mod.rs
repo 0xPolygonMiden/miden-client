@@ -15,10 +15,7 @@ use super::{
     WebStore,
 };
 use crate::{
-    client::{
-        rpc::TransactionUpdate,
-        transactions::{TransactionRecord, TransactionResult, TransactionStatus},
-    },
+    client::transactions::{TransactionRecord, TransactionResult, TransactionStatus},
     errors::StoreError,
     store::TransactionFilter,
 };
@@ -160,30 +157,5 @@ impl WebStore {
         }
 
         Ok(())
-    }
-
-    /// This function is not used in this crate, rather it is used in the 'miden-client' crate.
-    /// https://github.com/0xPolygonMiden/miden-client/blob/c273847726ed325d2e627e4db18bf9f3ab8c28ba/src/store/sqlite_store/sync.rs#L168
-    /// It is duplicated here due to its reliance on the store.
-    #[allow(dead_code)]
-    pub(crate) async fn mark_transactions_as_committed(
-        &self,
-        transactions_to_commit: &[TransactionUpdate],
-    ) -> Result<usize, StoreError> {
-        let block_nums_as_str = transactions_to_commit
-            .iter()
-            .map(|tx_update| tx_update.block_num.to_string())
-            .collect::<Vec<String>>();
-        let transaction_ids_as_str = transactions_to_commit
-            .iter()
-            .map(|tx_update| tx_update.transaction_id.to_string())
-            .collect::<Vec<String>>();
-
-        let promise =
-            idxdb_mark_transactions_as_committed(block_nums_as_str, transaction_ids_as_str);
-        let js_value = JsFuture::from(promise).await.unwrap();
-        let result: usize = from_value(js_value).unwrap();
-
-        Ok(result)
     }
 }

@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, num::NonZeroUsize};
+use std::collections::BTreeMap;
 
 use miden_objects::{
     crypto::merkle::{InOrderIndex, MmrPeaks},
@@ -27,10 +27,9 @@ impl WebStore {
         has_client_notes: bool,
     ) -> Result<(), StoreError> {
         let chain_mmr_peaks = chain_mmr_peaks.peaks().to_vec();
-        let (block_num, header, chain_mmr, has_client_notes) =
-            serialize_block_header(block_header, chain_mmr_peaks, has_client_notes)?;
+        let serialized_data = serialize_block_header(block_header, chain_mmr_peaks, has_client_notes)?;
 
-        let promise = idxdb_insert_block_header(block_num, header, chain_mmr, has_client_notes);
+        let promise = idxdb_insert_block_header(serialized_data.block_num, serialized_data.header, serialized_data.chain_mmr_peaks, serialized_data.has_client_notes);
         JsFuture::from(promise).await.unwrap();
 
         Ok(())
@@ -92,23 +91,7 @@ impl WebStore {
             ChainMmrNodeFilter::All => {
                 let promise = idxdb_get_chain_mmr_nodes_all();
                 let js_value = JsFuture::from(promise).await.unwrap();
-                let chain_mmr_nodes_idxdb: Vec<ChainMmrNodeIdxdbObject> =
-                    from_value(js_value).unwrap();
-
-                let results: Result<BTreeMap<InOrderIndex, Digest>, StoreError> =
-                    chain_mmr_nodes_idxdb
-                        .into_iter()
-                        .map(|record| {
-                            let id_as_u64: u64 = record.id.parse::<u64>().unwrap();
-                            let id =
-                                InOrderIndex::new(NonZeroUsize::new(id_as_u64 as usize).unwrap());
-                            let node: Digest = serde_json::from_str(&record.node)
-                                .map_err(StoreError::JsonDataDeserializationError)?;
-                            Ok((id, node))
-                        })
-                        .collect();
-
-                results
+                process_chain_mmr_nodes_from_js_value(js_value)
             },
             ChainMmrNodeFilter::List(ids) => {
                 let formatted_list: Vec<String> =
@@ -116,23 +99,7 @@ impl WebStore {
 
                 let promise = idxdb_get_chain_mmr_nodes(formatted_list);
                 let js_value = JsFuture::from(promise).await.unwrap();
-                let chain_mmr_nodes_idxdb: Vec<ChainMmrNodeIdxdbObject> =
-                    from_value(js_value).unwrap();
-
-                let results: Result<BTreeMap<InOrderIndex, Digest>, StoreError> =
-                    chain_mmr_nodes_idxdb
-                        .into_iter()
-                        .map(|record| {
-                            let id_as_u64: u64 = record.id.parse::<u64>().unwrap();
-                            let id =
-                                InOrderIndex::new(NonZeroUsize::new(id_as_u64 as usize).unwrap());
-                            let node: Digest = serde_json::from_str(&record.node)
-                                .map_err(StoreError::JsonDataDeserializationError)?;
-                            Ok((id, node))
-                        })
-                        .collect();
-
-                results
+                process_chain_mmr_nodes_from_js_value(js_value)
             },
         }
     }
@@ -165,9 +132,9 @@ impl WebStore {
         let mut serialized_node_ids = Vec::new();
         let mut serialized_nodes = Vec::new();
         for (id, node) in nodes.iter() {
-            let (serialized_id, serialized_node) = serialize_chain_mmr_node(*id, *node)?;
-            serialized_node_ids.push(serialized_id);
-            serialized_nodes.push(serialized_node);
+            let serialized_data = serialize_chain_mmr_node(*id, *node)?;
+            serialized_node_ids.push(serialized_data.id);
+            serialized_nodes.push(serialized_data.node);
         }
 
         let promise = idxdb_insert_chain_mmr_nodes(serialized_node_ids, serialized_nodes);
@@ -186,10 +153,9 @@ impl WebStore {
         has_client_notes: bool,
     ) -> Result<(), StoreError> {
         let chain_mmr_peaks = chain_mmr_peaks.peaks().to_vec();
-        let (block_num, header, chain_mmr, has_client_notes) =
-            serialize_block_header(block_header, chain_mmr_peaks, has_client_notes)?;
+        let serialized_data = serialize_block_header(block_header, chain_mmr_peaks, has_client_notes)?;
 
-        let promise = idxdb_insert_block_header(block_num, header, chain_mmr, has_client_notes);
+        let promise = idxdb_insert_block_header(serialized_data.block_num, serialized_data.header, serialized_data.chain_mmr_peaks, serialized_data.has_client_notes);
         JsFuture::from(promise).await.unwrap();
 
         Ok(())

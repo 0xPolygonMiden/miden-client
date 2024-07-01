@@ -30,10 +30,4 @@ extern "C" {
         block_num: String,
         committed: Option<String>,
     ) -> js_sys::Promise;
-
-    #[wasm_bindgen(js_name = markTransactionsAsCommitted)]
-    pub fn idxdb_mark_transactions_as_committed(
-        block_nums: Vec<String>,
-        transaction_ids: Vec<String>,
-    ) -> js_sys::Promise;
 }

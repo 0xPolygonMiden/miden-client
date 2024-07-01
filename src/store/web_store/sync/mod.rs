@@ -100,9 +100,9 @@ impl WebStore {
         let mut serialized_node_ids = Vec::new();
         let mut serialized_nodes = Vec::new();
         for (id, node) in new_authentication_nodes.iter() {
-            let (serialized_id, serialized_node) = serialize_chain_mmr_node(*id, *node)?;
-            serialized_node_ids.push(serialized_id);
-            serialized_nodes.push(serialized_node);
+            let serialized_data = serialize_chain_mmr_node(*id, *node)?;
+            serialized_node_ids.push(serialized_data.id);
+            serialized_nodes.push(serialized_data.node);
         }
 
         // Serialize data for updating committed notes
