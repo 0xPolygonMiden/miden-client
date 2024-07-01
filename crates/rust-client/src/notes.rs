@@ -1,23 +1,23 @@
-use miden_objects::{
-    accounts::AccountId,
-    assembly::ProgramAst,
-    crypto::rand::FeltRng,
-    notes::{NoteExecutionHint, NoteFile, NoteId, NoteInclusionProof, NoteScript, NoteTag},
+pub use miden_objects::notes::{
+    Note, NoteAssets, NoteExecutionHint, NoteFile, NoteId, NoteInclusionProof, NoteInputs,
+    NoteMetadata, NoteRecipient, NoteScript, NoteTag, NoteType, Nullifier,
 };
+use miden_objects::{accounts::AccountId, assembly::ProgramAst, crypto::rand::FeltRng};
 use miden_tx::{auth::TransactionAuthenticator, ScriptTarget};
 use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
 
-use super::{
-    note_screener::NoteConsumability,
+pub use crate::note_screener::{NoteConsumability, NoteRelevance};
+use crate::{
+    errors::{ClientError, StoreError},
+    note_screener::NoteScreener,
     rpc::{NodeRpcClient, NoteDetails},
+    store::{InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord, Store},
     Client,
 };
-use crate::{
-    client::NoteScreener,
-    errors::{ClientError, StoreError},
-    store::{InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord, Store},
-};
+
+// MIDEN CLIENT
+// ================================================================================================
 
 impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
     // INPUT NOTE DATA RETRIEVAL

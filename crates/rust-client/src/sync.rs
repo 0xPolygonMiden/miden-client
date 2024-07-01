@@ -13,15 +13,15 @@ use miden_tx::auth::TransactionAuthenticator;
 use tracing::{info, warn};
 use winter_maybe_async::{maybe_async, maybe_await};
 
-use super::{
-    rpc::{CommittedNote, NodeRpcClient, NoteDetails},
-    Client, NoteScreener,
-};
 use crate::{
-    client::rpc::AccountDetails,
     errors::{ClientError, RpcError, StoreError},
-    rpc::{NullifierUpdate, TransactionUpdate},
+    note_screener::NoteScreener,
+    rpc::{
+        AccountDetails, CommittedNote, NodeRpcClient, NoteDetails, NullifierUpdate,
+        TransactionUpdate,
+    },
     store::{ChainMmrNodeFilter, InputNoteRecord, NoteFilter, Store, TransactionFilter},
+    Client,
 };
 
 /// Contains stats about the sync operation
@@ -108,7 +108,7 @@ impl From<&StateSyncUpdate> for SyncSummary {
     }
 }
 
-pub enum SyncStatus {
+enum SyncStatus {
     SyncedToLastBlock(SyncSummary),
     SyncedToBlock(SyncSummary),
 }

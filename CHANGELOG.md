@@ -1,6 +1,6 @@
 # Changelog
 
-* Split cli and client into workspace (#407).
+* [BREAKING] Split cli and client into workspace (#407).
 * Note importing in client now uses the `NoteFile` type (#375).
 * Added build script to import Miden node protobuf files to generate types for `tonic_client` and removed `miden-node-proto` dependency (#395).
 * Implemented retrieval of executed transaction info (id, commit height, account_id) from sync state RPC endpoint (#387).

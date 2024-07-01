@@ -16,10 +16,10 @@ use super::{
     SqliteStore,
 };
 use crate::{
-    client::transactions::{TransactionRecord, TransactionResult, TransactionStatus},
     errors::StoreError,
     rpc::TransactionUpdate,
     store::TransactionFilter,
+    transactions::{TransactionRecord, TransactionResult, TransactionStatus},
 };
 
 pub(crate) const INSERT_TRANSACTION_QUERY: &str =

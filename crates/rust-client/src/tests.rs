@@ -14,12 +14,13 @@ use miden_objects::{
 };
 
 use crate::{
-    client::{accounts::AccountTemplate, transactions::transaction_request::TransactionTemplate},
+    accounts::AccountTemplate,
     mock::{
         create_test_client, get_account_with_default_account_code, mock_full_chain_mmr_and_notes,
         mock_fungible_faucet_account, mock_notes, ACCOUNT_ID_REGULAR,
     },
     store::{InputNoteRecord, NoteFilter},
+    transactions::transaction_request::TransactionTemplate,
 };
 
 #[tokio::test]

@@ -6,13 +6,10 @@ use miden_objects::{
     assembly::ProgramAst,
     assets::FungibleAsset,
     notes::{Note, NoteDetails, NoteId, NoteType},
-    transaction::{
-        ExecutedTransaction, InputNote, InputNotes, OutputNote, OutputNotes, ProvenTransaction,
-        TransactionArgs, TransactionId, TransactionScript,
-    },
+    transaction::{InputNotes, TransactionArgs},
     Digest, Felt, FieldElement, Word,
 };
-use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, ScriptTarget, TransactionProver};
+use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, TransactionProver};
 use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
 
@@ -21,12 +18,18 @@ use self::transaction_request::{
 };
 use super::{rpc::NodeRpcClient, Client, FeltRng};
 use crate::{
-    client::NoteScreener,
     errors::ClientError,
+    note_screener::NoteScreener,
     store::{InputNoteRecord, Store, TransactionFilter},
 };
 
 pub mod transaction_request;
+
+pub use miden_objects::transaction::{
+    ExecutedTransaction, InputNote, OutputNote, OutputNotes, ProvenTransaction, TransactionId,
+    TransactionScript,
+};
+pub use miden_tx::{DataStoreError, ScriptTarget, TransactionExecutorError};
 
 // TRANSACTION RESULT
 // --------------------------------------------------------------------------------------------

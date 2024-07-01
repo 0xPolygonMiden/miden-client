@@ -14,11 +14,12 @@ use miden_client::{
         sqlite_store::{config::SqliteStoreConfig, SqliteStore},
         NoteFilter, TransactionFilter,
     },
+    sync::SyncSummary,
     transactions::{
         transaction_request::{TransactionRequest, TransactionTemplate},
         DataStoreError, TransactionExecutorError,
     },
-    Client, SyncSummary,
+    Client,
 };
 use miden_objects::{
     accounts::{

@@ -4,10 +4,10 @@ use miden_client::{
     accounts::{AccountId, AccountStorage, AccountType, StorageSlotType},
     assets::Asset,
     auth::TransactionAuthenticator,
-    crypto::{FeltRng, ZERO},
+    crypto::FeltRng,
     rpc::NodeRpcClient,
     store::Store,
-    Client,
+    Client, ZERO,
 };
 
 use crate::{
