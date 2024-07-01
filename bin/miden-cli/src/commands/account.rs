@@ -10,11 +10,12 @@ use miden_client::{
     Client,
 };
 
-use super::{
+use crate::{
     config::CliConfig,
+    create_dynamic_table,
     utils::{load_config_file, parse_account_id, update_config},
+    CLIENT_BINARY_NAME,
 };
-use crate::{create_dynamic_table, CLIENT_BINARY_NAME};
 
 // ACCOUNT COMMAND
 // ================================================================================================

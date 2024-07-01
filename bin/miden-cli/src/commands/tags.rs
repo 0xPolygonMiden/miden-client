@@ -8,7 +8,7 @@ use miden_client::{
 };
 use tracing::info;
 
-use super::Parser;
+use crate::Parser;
 
 #[derive(Default, Debug, Parser, Clone)]
 #[clap(about = "View and manage tags. Defaults to `list` command.")]

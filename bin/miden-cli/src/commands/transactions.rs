@@ -7,8 +7,7 @@ use miden_client::{
     Client,
 };
 
-use super::Parser;
-use crate::create_dynamic_table;
+use crate::{create_dynamic_table, Parser};
 
 #[derive(Default, Debug, Parser, Clone)]
 #[clap(about = "Manage and view transactions. Defaults to `list` command.")]

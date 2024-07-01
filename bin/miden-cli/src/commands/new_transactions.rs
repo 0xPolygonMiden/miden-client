@@ -17,11 +17,13 @@ use miden_client::{
 };
 use tracing::info;
 
-use super::{
-    get_input_note_with_id_prefix,
-    utils::{get_input_acc_id_by_prefix_or_default, parse_account_id, parse_fungible_asset},
+use crate::{
+    create_dynamic_table, get_input_note_with_id_prefix,
+    utils::{
+        build_swap_tag, get_input_acc_id_by_prefix_or_default, parse_account_id,
+        parse_fungible_asset,
+    },
 };
-use crate::{create_dynamic_table, utils::build_swap_tag};
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum NoteType {

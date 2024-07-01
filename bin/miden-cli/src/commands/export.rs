@@ -6,8 +6,7 @@ use miden_client::{
 };
 use tracing::info;
 
-use super::Parser;
-use crate::get_output_note_with_id_prefix;
+use crate::{get_output_note_with_id_prefix, Parser};
 
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "Export client output notes")]

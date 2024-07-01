@@ -15,10 +15,10 @@ use miden_client::{
     Client, Felt,
 };
 use rand::Rng;
-use sync::SyncCmd;
-use transactions::TransactionCmd;
 
-use self::{
+mod commands;
+
+use commands::{
     account::AccountCmd,
     export::ExportCmd,
     import::ImportCmd,
@@ -26,22 +26,15 @@ use self::{
     new_account::{NewFaucetCmd, NewWalletCmd},
     new_transactions::{ConsumeNotesCmd, MintCmd, SendCmd, SwapCmd},
     notes::NotesCmd,
+    sync::SyncCmd,
     tags::TagsCmd,
-    utils::load_config_file,
+    transactions::TransactionCmd,
 };
 
-mod account;
+use self::utils::load_config_file;
+
 mod config;
-mod export;
-mod import;
 mod info;
-mod init;
-mod new_account;
-mod new_transactions;
-mod notes;
-mod sync;
-mod tags;
-mod transactions;
 mod utils;
 
 /// Config file name

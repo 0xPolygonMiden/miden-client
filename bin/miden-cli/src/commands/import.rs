@@ -16,8 +16,7 @@ use miden_client::{
 };
 use tracing::info;
 
-use super::{utils::load_config_file, Parser};
-use crate::account::maybe_set_default_account;
+use crate::{commands::account::maybe_set_default_account, utils::load_config_file, Parser};
 
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "Import client objects such as accounts and notes")]

@@ -13,8 +13,9 @@ use miden_client::{
     Client,
 };
 
-use super::Parser;
-use crate::{create_dynamic_table, get_input_note_with_id_prefix, get_output_note_with_id_prefix};
+use crate::{
+    create_dynamic_table, get_input_note_with_id_prefix, get_output_note_with_id_prefix, Parser,
+};
 
 #[derive(Clone, Debug, ValueEnum)]
 pub enum NoteFilter {
