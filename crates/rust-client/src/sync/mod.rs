@@ -335,7 +335,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             .get_updated_onchain_accounts(&response.account_hash_updates, &onchain_accounts)
             .await?;
 
-        self.validate_local_account_hashes(&response.account_hash_updates, &offchain_accounts)?;
+        self.validate_local_account_hashes(&response.account_hash_updates, &offchain_accounts)
+            .await?;
 
         // Derive new nullifiers data
         let new_nullifiers = maybe_await!(self.get_new_nullifiers(response.nullifiers))?;
@@ -594,7 +595,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     }
 
     /// Validates account hash updates and returns an error if there is a mismatch.
-    fn validate_local_account_hashes(
+    async fn validate_local_account_hashes(
         &mut self,
         account_updates: &[(AccountId, Digest)],
         current_offchain_accounts: &[AccountStub],
@@ -605,9 +606,17 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 .iter()
                 .find(|acc| *remote_account_id == acc.id() && *remote_account_hash != acc.hash());
 
-            // OffChain accounts should always have the latest known state
+            // OffChain accounts should always have the latest known state. If we receive a stale
+            // update we ignore it.
             if mismatched_accounts.is_some() {
-                return Err(StoreError::AccountHashMismatch(*remote_account_id).into());
+                let account_history =
+                    maybe_await!(self.store.get_account_stub_history(*remote_account_id))?;
+                let hash_matches_old_account = &account_history[1..]
+                    .iter()
+                    .any(|account_stub| account_stub.hash() == *remote_account_hash);
+                if !hash_matches_old_account {
+                    return Err(StoreError::AccountHashMismatch(*remote_account_id).into());
+                }
             }
         }
         Ok(())
