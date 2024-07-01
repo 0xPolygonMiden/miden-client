@@ -81,6 +81,24 @@ impl SqliteStore {
             .ok_or(StoreError::AccountDataNotFound(account_id))?
     }
 
+    pub(crate) fn get_account_stub_history(
+        &self,
+        account_id: AccountId,
+    ) -> Result<Vec<AccountStub>, StoreError> {
+        let account_id_int: u64 = account_id.into();
+        const QUERY: &str = "SELECT id, nonce, vault_root, storage_root, code_root, account_seed \
+            FROM accounts WHERE id = ? \
+            ORDER BY nonce DESC";
+        self.db()
+            .prepare(QUERY)?
+            .query_map(params![account_id_int as i64], parse_accounts_columns)?
+            .map(|result| {
+                let result = result?;
+                Ok(parse_accounts(result)?.0)
+            })
+            .collect()
+    }
+
     pub(crate) fn get_account(
         &self,
         account_id: AccountId,
