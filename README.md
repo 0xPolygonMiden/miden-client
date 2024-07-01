@@ -16,7 +16,7 @@ The Miden client is still under heavy development and the project can be conside
 The Miden client currently consists of two components:
 
 - `miden-client` library, which can be used by other project to programmatically interact with the Miden rollup. You can find more information about the library in the [Rust Client Library](./crates/rust-client/README.md) section.
-- `miden-client` binary which is a wrapper around the library exposing its functionality via a simple command-line interface (CLI). You can find more information about the CLI in the [Miden Client CLI](./bin/miden-cli/README.md) section.
+- _Miden CLI_, which is a wrapper around the library exposing its functionality via a simple command-line interface (CLI). You can find more information about the CLI in the [Miden Client CLI](./bin/miden-cli/README.md) section.
 
 The client's main responsibility is to maintain a partial view of the blockchain which allows for locally executing and proving transactions. It keeps a local store of various entities that periodically get updated by syncing with the node.
 
