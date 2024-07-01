@@ -15,7 +15,7 @@ integration = ["miden-client/integration"]
 
 [dev-dependencies]
 figment = { version = "0.10", features = ["toml", "env"] }
-miden-client = { path = "../crates/miden-client", features = ["testing"] }
+miden-client = { path = "../crates/rust-client", features = ["testing"] }
 miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["serde"] }
 assert_cmd = { version = "2.0" }
 uuid = { version = "1.6", features = ["serde", "v4"] }
