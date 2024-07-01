@@ -578,7 +578,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 info!("On-chain account hash difference detected for account with ID: {}. Fetching node for updates...", tracked_account.id());
                 let account_details = self.rpc_api.get_account_update(tracked_account.id()).await?;
                 if let AccountDetails::Public(account, _) = account_details {
-                    accounts_to_update.push(account);
+                    // We should only do the update if it's newer, otherwise we ignore it
+                    if account.nonce().as_int() > tracked_account.nonce().as_int() {
+                        accounts_to_update.push(account);
+                    }
                 } else {
                     return Err(RpcError::AccountUpdateForPrivateAccountReceived(
                         account_details.account_id(),
