@@ -51,7 +51,7 @@ doc-serve: doc-deps ## Serve documentation site
 
 .PHONY: doc
 doc: ## Generates & checks rust documentation
-	$(WARNINGS) cargo doc --all-features --keep-going --release
+	$(WARNINGS) cargo doc --all-features --keep-going --release -p miden-client
 
 # --- Testing -------------------------------------------------------------------------------------
 
