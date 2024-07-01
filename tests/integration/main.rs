@@ -6,7 +6,7 @@ use miden_client::{
     store::{InputNoteRecord, NoteFilter, NoteStatus, TransactionFilter},
     transactions::{
         transaction_request::{PaymentTransactionData, TransactionTemplate},
-        TransactionStatus,
+        TransactionExecutorError, TransactionStatus,
     },
 };
 use miden_objects::{
@@ -14,7 +14,6 @@ use miden_objects::{
     assets::{Asset, FungibleAsset},
     notes::{NoteFile, NoteTag, NoteType},
 };
-use miden_tx::TransactionExecutorError;
 
 mod common;
 use common::*;
