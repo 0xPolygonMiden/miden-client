@@ -31,7 +31,7 @@ For more info check:
 
 The workspace is organized as follows:
 - The `bin` folder contains crates that are meant to be compiled into binaries (like the CLI).
-- The `crates` folder contains the library crates that are meant to be used as dependencies (like the rust client library).
+- The `crates` folder contains the library crates that are meant to be used as dependencies (like the Rust client library).
 - The `tests` folder contains integration tests for the workspace crates.
 
 ### Makefile
