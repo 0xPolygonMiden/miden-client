@@ -1,8 +1,9 @@
 use core::fmt;
 
+use miden_objects::{accounts::AccountId, notes::NoteId, Digest, Word};
 pub use miden_objects::{
-    accounts::AccountId, crypto::merkle::MmrError, notes::NoteId, AccountError, AssetError,
-    AssetVaultError, Digest, NoteError, TransactionScriptError, Word,
+    crypto::merkle::MmrError, AccountError, AssetError, AssetVaultError, NoteError,
+    TransactionScriptError,
 };
 pub use miden_tx::{
     utils::{DeserializationError, HexParseError},
