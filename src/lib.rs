@@ -1,10 +1,9 @@
 extern crate alloc;
 
 mod client;
-pub use client::{rpc, sync::SyncSummary, Client};
+pub use client::{rpc, sync::SyncSummary, Client, ClientError, IdPrefixFetchError};
 
 pub mod config;
-pub mod errors;
 pub mod store;
 
 // MIDEN BASE RE-EXPORTS
@@ -83,8 +82,8 @@ pub mod testing {
     pub use miden_objects::accounts::account_id::testing::*;
 }
 
-#[cfg(all(test, feature = "executable"))]
+#[cfg(test)]
 pub mod mock;
 
-#[cfg(all(test, feature = "executable"))]
+#[cfg(test)]
 pub mod tests;

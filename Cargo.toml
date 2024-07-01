@@ -66,6 +66,7 @@ getrandom = { version = "0.2", features = ["js"] }
 [dev-dependencies]
 # To enable testing feature during tests
 assert_cmd = { version = "2.0" }
+miden-client = { path = ".", features = ["testing", "executable"] }
 miden-lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["testing"] }
 miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["serde", "testing"] }
 proptest = { version = "1.2" }

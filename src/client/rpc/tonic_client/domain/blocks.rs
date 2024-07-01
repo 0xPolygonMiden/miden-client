@@ -1,7 +1,7 @@
 use miden_objects::BlockHeader;
 
 use super::MissingFieldHelper;
-use crate::{errors::RpcConversionError, rpc::tonic_client::generated::block_header};
+use crate::rpc::{errors::RpcConversionError, tonic_client::generated::block_header};
 
 // BLOCK HEADER
 // ================================================================================================

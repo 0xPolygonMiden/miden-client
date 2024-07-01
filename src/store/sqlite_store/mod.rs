@@ -19,12 +19,13 @@ use crate::{
         sync::StateSyncUpdate,
         transactions::{TransactionRecord, TransactionResult},
     },
-    errors::StoreError,
+    store::StoreError,
 };
 
 mod accounts;
 mod chain_data;
 pub mod config;
+mod errors;
 pub(crate) mod migrations;
 mod notes;
 mod sync;

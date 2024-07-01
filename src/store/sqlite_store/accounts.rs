@@ -1,4 +1,3 @@
-use clap::error::Result;
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub, AuthSecretKey},
@@ -10,7 +9,7 @@ use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{params, Transaction};
 
 use super::SqliteStore;
-use crate::errors::StoreError;
+use crate::store::StoreError;
 
 // TYPES
 // ================================================================================================
@@ -380,6 +379,7 @@ pub(super) fn parse_account_columns(
     let assets: String = row.get(5)?;
     Ok((id, nonce, account_seed, module, storage, assets))
 }
+
 #[cfg(test)]
 mod tests {
     use miden_objects::{

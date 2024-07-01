@@ -4,9 +4,8 @@ use miden_objects::{
 };
 
 use super::MissingFieldHelper;
-use crate::{
-    errors::RpcConversionError,
-    rpc::tonic_client::generated::note::NoteMetadata as ProtoNoteMetadata,
+use crate::rpc::{
+    errors::RpcConversionError, tonic_client::generated::note::NoteMetadata as ProtoNoteMetadata,
 };
 
 impl TryFrom<ProtoNoteMetadata> for NoteMetadata {

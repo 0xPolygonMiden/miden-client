@@ -3,7 +3,7 @@ use miden_objects::{
     Digest,
 };
 
-use crate::{errors::RpcConversionError, rpc::tonic_client::generated};
+use crate::rpc::{errors::RpcConversionError, tonic_client::generated};
 
 // MERKLE PATH
 // ================================================================================================

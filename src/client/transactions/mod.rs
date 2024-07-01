@@ -22,8 +22,8 @@ use self::transaction_request::{
 use super::{rpc::NodeRpcClient, Client, FeltRng};
 use crate::{
     client::NoteScreener,
-    errors::ClientError,
     store::{InputNoteRecord, Store, TransactionFilter},
+    ClientError,
 };
 
 pub mod transaction_request;
