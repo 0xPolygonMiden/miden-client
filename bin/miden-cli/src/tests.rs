@@ -8,19 +8,19 @@ use std::{
 
 use assert_cmd::Command;
 use miden_client::{
-    accounts::AccountTemplate,
+    accounts::{AccountStorageType, AccountTemplate},
     auth::StoreAuthenticator,
     config::RpcConfig,
+    crypto::RpoRandomCoin,
     rpc::TonicRpcClient,
     store::{
         sqlite_store::{config::SqliteStoreConfig, SqliteStore},
         NoteFilter,
     },
+    Client, Felt,
 };
-use miden_objects::{accounts::AccountStorageType, crypto::rand::RpoRandomCoin, Felt};
 use rand::Rng;
-
-use crate::{create_test_store_path, TestClient};
+use uuid::Uuid;
 
 /// CLI TESTS
 ///
@@ -468,6 +468,19 @@ fn consume_note_cli(cli_path: &Path, account_id: &str, note_ids: &[&str]) {
     consume_note_cmd.args(&cli_args);
     consume_note_cmd.current_dir(cli_path).assert().success();
 }
+
+pub fn create_test_store_path() -> std::path::PathBuf {
+    let mut temp_file = temp_dir();
+    temp_file.push(format!("{}.sqlite3", Uuid::new_v4()));
+    temp_file
+}
+
+pub type TestClient = Client<
+    TonicRpcClient,
+    RpoRandomCoin,
+    SqliteStore,
+    StoreAuthenticator<RpoRandomCoin, SqliteStore>,
+>;
 
 fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
     let store_config = SqliteStoreConfig::try_from(store_path.to_str().unwrap()).unwrap();
