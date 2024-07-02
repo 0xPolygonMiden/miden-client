@@ -15,9 +15,9 @@ use super::{
     WebStore,
 };
 use crate::{
-    client::transactions::{TransactionRecord, TransactionResult, TransactionStatus},
     errors::StoreError,
     store::TransactionFilter,
+    transactions::{TransactionRecord, TransactionResult, TransactionStatus},
 };
 
 mod js_bindings;

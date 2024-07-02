@@ -11,14 +11,12 @@ use wasm_bindgen_futures::*;
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
-    client::{
-        sync::StateSyncUpdate,
-        transactions::{TransactionRecord, TransactionResult},
-    },
     errors::StoreError,
     store::{
         ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store, TransactionFilter,
     },
+    sync::StateSyncUpdate,
+    transactions::{TransactionRecord, TransactionResult},
 };
 
 pub mod accounts;

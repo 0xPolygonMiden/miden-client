@@ -6,7 +6,7 @@ use super::{
     chain_data::utils::serialize_chain_mmr_node, notes::utils::insert_input_note_tx,
     transactions::utils::update_account, WebStore,
 };
-use crate::{client::sync::StateSyncUpdate, errors::StoreError};
+use crate::{errors::StoreError, sync::StateSyncUpdate};
 
 mod js_bindings;
 use js_bindings::*;

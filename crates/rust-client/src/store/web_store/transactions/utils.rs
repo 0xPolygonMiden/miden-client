@@ -6,11 +6,11 @@ use wasm_bindgen_futures::*;
 
 use super::js_bindings::*;
 use crate::{
-    client::transactions::TransactionResult,
     errors::StoreError,
     store::web_store::accounts::utils::{
         insert_account_asset_vault, insert_account_record, insert_account_storage,
     },
+    transactions::TransactionResult,
 };
 
 // TYPES
