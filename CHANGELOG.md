@@ -1,5 +1,6 @@
 # Changelog
 
+* Move cli tests to the `miden-cli` crate (#413).
 * Added WebTonicClient to the miden-client to support WASM-compatible RPC calls (#409).
 * Added WebStore to the miden-client to support WASM-compatible store mechanisms (#401).
 * [BREAKING] Split cli and client into workspace (#407).
