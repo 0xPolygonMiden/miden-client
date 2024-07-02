@@ -1,7 +1,7 @@
 use chrono::Utc;
 use miden_objects::{
     accounts::AccountId,
-    notes::{NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, NoteScript},
+    notes::{NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, NoteScript, NoteTag},
     transaction::TransactionId,
     utils::Deserializable,
     Digest,
@@ -35,6 +35,8 @@ pub struct SerializedInputNoteData {
     pub note_script: Vec<u8>,
     pub inclusion_proof: Option<String>,
     pub created_at: String,
+    pub ignored: bool,
+    pub imported_tag: Option<String>,
 }
 
 pub struct SerializedOutputNoteData {
@@ -71,7 +73,7 @@ pub(crate) async fn update_note_consumer_tx_id(
 }
 
 pub(crate) fn serialize_input_note(
-    note: &InputNoteRecord,
+    note: InputNoteRecord,
 ) -> Result<SerializedInputNoteData, StoreError> {
     let note_id = note.id().inner().to_string();
     let note_assets = note.assets().to_bytes();
@@ -114,6 +116,9 @@ pub(crate) fn serialize_input_note(
     let note_script_hash = note.details().script_hash().to_hex();
     let note_script = note.details().script().to_bytes();
     let created_at = Utc::now().timestamp().to_string();
+    let ignored = note.ignored();
+    let imported_tag: Option<u32> = note.imported_tag().map(|tag| tag.into());
+    let imported_tag_str: Option<String> = imported_tag.map(|tag| tag.to_string());
 
     Ok(SerializedInputNoteData {
         note_id,
@@ -126,10 +131,12 @@ pub(crate) fn serialize_input_note(
         note_script,
         inclusion_proof,
         created_at,
+        ignored,
+        imported_tag: imported_tag_str,
     })
 }
 
-pub async fn insert_input_note_tx(note: &InputNoteRecord) -> Result<(), StoreError> {
+pub async fn insert_input_note_tx(note: InputNoteRecord) -> Result<(), StoreError> {
     let serialized_data = serialize_input_note(note)?;
 
     let promise = idxdb_insert_input_note(
@@ -143,6 +150,8 @@ pub async fn insert_input_note_tx(note: &InputNoteRecord) -> Result<(), StoreErr
         serialized_data.note_script,
         serialized_data.inclusion_proof,
         serialized_data.created_at,
+        serialized_data.ignored,
+        serialized_data.imported_tag,
     );
     JsFuture::from(promise).await.unwrap();
 
@@ -306,6 +315,9 @@ pub fn parse_input_note_idxdb_object(
         },
     };
 
+    let imported_tag_as_u32: Option<u32> =
+        note_idxdb.imported_tag.as_ref().map(|tag| tag.parse::<u32>().ok()).flatten();
+
     Ok(InputNoteRecord::new(
         id,
         recipient,
@@ -314,6 +326,8 @@ pub fn parse_input_note_idxdb_object(
         note_metadata,
         inclusion_proof,
         note_details,
+        note_idxdb.ignored,
+        imported_tag_as_u32.map(NoteTag::from),
     ))
 }
 

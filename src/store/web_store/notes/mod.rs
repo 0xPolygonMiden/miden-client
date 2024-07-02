@@ -1,4 +1,7 @@
-use miden_objects::{notes::Nullifier, Digest};
+use miden_objects::{
+    notes::{NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
+    Digest,
+};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
 
@@ -40,6 +43,7 @@ impl WebStore {
                 // Assuming `js_fetch_notes` is your JavaScript function that handles simple string filters
                 idxdb_get_input_notes(filter_as_str.to_string())
             },
+            NoteFilter::Ignored => idxdb_get_ignored_input_notes(),
             NoteFilter::List(ids) => {
                 let note_ids_as_str: Vec<String> =
                     ids.iter().map(|id| id.inner().to_string()).collect();
@@ -105,6 +109,7 @@ impl WebStore {
 
                 idxdb_get_output_notes(filter_as_str.to_string())
             },
+            NoteFilter::Ignored => idxdb_get_ignored_output_notes(),
             NoteFilter::List(ids) => {
                 let note_ids_as_str: Vec<String> =
                     ids.iter().map(|id| id.inner().to_string()).collect();
@@ -148,10 +153,6 @@ impl WebStore {
         native_output_notes
     }
 
-    pub(crate) async fn insert_input_note(&self, note: &InputNoteRecord) -> Result<(), StoreError> {
-        insert_input_note_tx(note).await
-    }
-
     pub(crate) async fn get_unspent_input_note_nullifiers(
         &self,
     ) -> Result<Vec<Nullifier>, StoreError> {
@@ -163,5 +164,37 @@ impl WebStore {
             .into_iter()
             .map(|s| Digest::try_from(s).map(Nullifier::from).map_err(StoreError::HexParseError))
             .collect::<Result<Vec<Nullifier>, _>>()
+    }
+
+    pub(crate) async fn insert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError> {
+        insert_input_note_tx(note).await
+    }
+
+    pub async fn update_note_inclusion_proof(
+        &self,
+        note_id: NoteId,
+        inclusion_proof: NoteInclusionProof,
+    ) -> Result<(), StoreError> {
+        let note_id_as_str = note_id.inner().to_string();
+        let inclusion_proof_as_str = serde_json::to_string(&inclusion_proof).unwrap();
+
+        let promise = idxdb_update_note_inclusion_proof(note_id_as_str, inclusion_proof_as_str);
+        let _ = JsFuture::from(promise).await.unwrap();
+
+        Ok(())
+    }
+
+    pub async fn update_note_metadata(
+        &self,
+        note_id: NoteId,
+        metadata: NoteMetadata,
+    ) -> Result<(), StoreError> {
+        let note_id_as_str = note_id.inner().to_string();
+        let metadata_as_str = serde_json::to_string(&metadata).unwrap();
+
+        let promise = idxdb_update_note_metadata(note_id_as_str, metadata_as_str);
+        let _ = JsFuture::from(promise).await.unwrap();
+
+        Ok(())
     }
 }

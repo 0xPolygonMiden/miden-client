@@ -1,11 +1,10 @@
 use std::{collections::BTreeMap, num::NonZeroUsize};
-use miden_objects::{crypto::merkle::InOrderIndex, BlockHeader, Digest};
 
+use miden_objects::{crypto::merkle::InOrderIndex, BlockHeader, Digest};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen::JsValue;
 
-use crate::errors::StoreError;
-use crate::store::web_store::chain_data::ChainMmrNodeIdxdbObject;
+use crate::{errors::StoreError, store::web_store::chain_data::ChainMmrNodeIdxdbObject};
 
 pub struct SerializedBlockHeaderData {
     pub block_num: String,
@@ -30,7 +29,12 @@ pub fn serialize_block_header(
     let chain_mmr_peaks =
         serde_json::to_string(&chain_mmr_peaks).map_err(StoreError::InputSerializationError)?;
 
-    Ok(SerializedBlockHeaderData { block_num, header, chain_mmr_peaks, has_client_notes })
+    Ok(SerializedBlockHeaderData {
+        block_num,
+        header,
+        chain_mmr_peaks,
+        has_client_notes,
+    })
 }
 
 pub fn serialize_chain_mmr_node(
@@ -43,7 +47,9 @@ pub fn serialize_chain_mmr_node(
     Ok(SerializedChainMmrNodeData { id: id_as_str, node })
 }
 
-pub fn process_chain_mmr_nodes_from_js_value(js_value: JsValue) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
+pub fn process_chain_mmr_nodes_from_js_value(
+    js_value: JsValue,
+) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
     let chain_mmr_nodes_idxdb: Vec<ChainMmrNodeIdxdbObject> = from_value(js_value).unwrap();
 
     let results: Result<BTreeMap<InOrderIndex, Digest>, StoreError> = chain_mmr_nodes_idxdb

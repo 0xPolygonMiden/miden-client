@@ -11,6 +11,12 @@ extern "C" {
     #[wasm_bindgen(js_name = getInputNotes)]
     pub fn idxdb_get_input_notes(status: String) -> js_sys::Promise;
 
+    #[wasm_bindgen(js_name = getIgnoredInputNotes)]
+    pub fn idxdb_get_ignored_input_notes() -> js_sys::Promise;
+
+    #[wasm_bindgen(js_name = getIgnoredOutputNotes)]
+    pub fn idxdb_get_ignored_output_notes() -> js_sys::Promise;
+
     #[wasm_bindgen(js_name = getInputNotesFromIds)]
     pub fn idxdb_get_input_notes_from_ids(note_ids: Vec<String>) -> js_sys::Promise;
 
@@ -38,6 +44,8 @@ extern "C" {
         serialized_note_script: Vec<u8>,
         inclusion_proof: Option<String>,
         serialized_created_at: String,
+        ignored: bool,
+        imported_tag: Option<String>,
     ) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = insertOutputNote)]
@@ -60,4 +68,13 @@ extern "C" {
         consumer_tx_id: String,
         submitted_at: String,
     ) -> js_sys::Promise;
+
+    #[wasm_bindgen(js_name = updateNoteInclusionProof)]
+    pub fn idxdb_update_note_inclusion_proof(
+        note_id: String,
+        inclusion_proof: String,
+    ) -> js_sys::Promise;
+
+    #[wasm_bindgen(js_name = updateNoteMetadata)]
+    pub fn idxdb_update_note_metadata(note_id: String, metadata: String) -> js_sys::Promise;
 }

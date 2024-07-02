@@ -282,3 +282,19 @@ async function updateCommittedTransactions(
         throw err;
     }
 }
+
+async function updateIgnoredNotesForTag(
+    tag
+) {
+    try {
+        await inputNotes
+            .where('importedTag')
+            .equals(tag)
+            .modify(note => {
+                note.ignored = false;
+            });
+    } catch (err) {
+        console.error("Failed to update ignored field for notes: ", err);
+        throw err;
+    }
+}

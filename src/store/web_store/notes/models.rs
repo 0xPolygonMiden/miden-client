@@ -16,6 +16,8 @@ pub struct InputNoteIdxdbObject {
     pub created_at: String,
     pub submitted_at: Option<String>,
     pub nullifier_height: Option<String>,
+    pub ignored: bool,
+    pub imported_tag: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]

@@ -36,7 +36,11 @@ export async function getInputNotes(
         if (status === 'All') {
             notes = await inputNotes.toArray();
         } else {
-            notes = await inputNotes.where('status').equals(status).toArray();
+            notes = await inputNotes
+                .where('status')
+                .equals(status)
+                .and(note => note.ignored === false)
+                .toArray();
         }
 
         return await processInputNotes(notes);
@@ -44,6 +48,35 @@ export async function getInputNotes(
         console.error("Failed to get input notes: ", err);
         throw err;
     }
+}
+
+export async function getIgnoredInputNotes() {
+    try {
+        const notes = await inputNotes
+            .where('ignored')
+            .equals(true)
+            .toArray();
+
+        return await processInputNotes(notes);
+    } catch (err) {
+        console.error("Failed to get ignored input notes: ", err);
+        throw err;
+    }
+}
+
+export async function getIgnoredOutputNotes() {
+    try {
+        const notes = await outputNotes
+            .where('ignored')
+            .equals(true)
+            .toArray();
+
+        return await processOutputNotes(notes);
+    } catch (err) {
+        console.error("Failed to get ignored output notes: ", err);
+        throw err;
+    }
+
 }
 
 export async function getInputNotesFromIds(
@@ -103,7 +136,9 @@ export async function insertInputNote(
     noteScriptHash,
     serializedNoteScript,
     inclusionProof,
-    serializedCreatedAt
+    serializedCreatedAt,
+    ignored,
+    importedTag
 ) {
     return db.transaction('rw', inputNotes, notesScripts, async (tx) => {
         try {
@@ -119,7 +154,9 @@ export async function insertInputNote(
                 details: details,
                 inclusionProof: inclusionProof ? JSON.stringify(inclusionProof) : null,
                 consumerTransactionId: null,
-                createdAt: serializedCreatedAt
+                createdAt: serializedCreatedAt,
+                ignored: ignored,
+                importedTag: importedTag ? importedTag : null
             };
 
             // Perform the insert using Dexie
@@ -150,7 +187,7 @@ export async function insertOutputNote(
     noteScriptHash,
     serializedNoteScript,
     inclusionProof,
-    serializedCreatedAt
+    serializedCreatedAt,
 ) {
     return db.transaction('rw', outputNotes, notesScripts, async (tx) => {
         try {
@@ -166,7 +203,9 @@ export async function insertOutputNote(
                 details: details ? details : null,
                 inclusionProof: inclusionProof ? JSON.stringify(inclusionProof) : null,
                 consumerTransactionId: null,
-                createdAt: serializedCreatedAt
+                createdAt: serializedCreatedAt,
+                ignored: false,
+                imported_tag: null
             };
 
             // Perform the insert using Dexie
@@ -219,6 +258,38 @@ export async function updateNoteConsumerTxId(noteId, consumerTxId, submittedAt) 
     }
 }
 
+export async function updateNoteInclusionProof(
+    noteId, 
+    inclusionProof
+) {
+    try {
+        await inputNotes
+            .where('noteId')
+            .equals(noteId)
+            .modify({ inclusionProof: inclusionProof, status: "Committed" });
+
+    } catch (err) {
+        console.error("Failed to update inclusion proof: ", err);
+        throw err;
+    }
+}
+
+export async function updateNoteMetadata(
+    noteId, 
+    metadata
+) {
+    try {
+        await inputNotes
+            .where('noteId')
+            .equals(noteId)
+            .modify({ metadata: metadata });
+
+    } catch (err) {
+        console.error("Failed to update inclusion proof: ", err);
+        throw err;
+    }
+}
+
 async function processInputNotes(
     notes
 ) {
@@ -266,7 +337,9 @@ async function processInputNotes(
             consumer_account_id: consumerAccountId,
             created_at: note.createdAt,
             submitted_at: note.submittedAt ? note.submittedAt : null,
-            nullifier_height: note.nullifierHeight ? note.nullifierHeight : null
+            nullifier_height: note.nullifierHeight ? note.nullifierHeight : null,
+            ignored: note.ignored,
+            imported_tag: note.importedTag ? note.importedTag : null
         };
     }));
     return processedNotes;
@@ -318,7 +391,9 @@ async function processOutputNotes(
             consumer_account_id: consumerAccountId,
             created_at: note.createdAt,
             submitted_at: note.submittedAt ? note.submittedAt : null,
-            nullifier_height: note.nullifierHeight ? note.nullifierHeight : null
+            nullifier_height: note.nullifierHeight ? note.nullifierHeight : null,
+            ignored: note.ignored,
+            imported_tag: note.importedTag ? note.importedTag : null
         };
     }));
     return processedNotes;

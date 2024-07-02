@@ -124,6 +124,7 @@ pub trait Store {
     #[maybe_async]
     fn insert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError>;
 
+    #[maybe_async]
     /// Updates the inclusion proof of the input note with the provided ID
     fn update_note_inclusion_proof(
         &self,
@@ -131,6 +132,7 @@ pub trait Store {
         inclusion_proof: NoteInclusionProof,
     ) -> Result<(), StoreError>;
 
+    #[maybe_async]
     /// Updates the metadata of the input note with the provided ID
     fn update_note_metadata(
         &self,
