@@ -16,20 +16,20 @@ name = "miden"
 path = "src/main.rs"
 
 [features]
-default = ["dep:clap", "dep:comfy-table", "dep:figment", "dep:tokio", "dep:toml"]
+default = []
 testing = ["miden-client/testing"]
 concurrent = ["miden-client/concurrent"]
 
 [dependencies]
-clap = { version = "4.3", features = ["derive"], optional = true }
-comfy-table = { version = "7.1", optional = true } 
-figment = { version = "0.10", features = ["toml", "env"], optional = true }
+clap = { version = "4.3", features = ["derive"] }
+comfy-table = { version = "7.1" }
+figment = { version = "0.10", features = ["toml", "env"] }
 miden-client = { path = "../../crates/rust-client", version = "0.3", features = ["sqlite", "tonic"] }
 rand = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
-tokio = { workspace = true , optional = true }
-tonic = { version = "0.11", optional = true }
-toml = { version = "0.8", optional = true }
+tokio = { workspace = true  }
+tonic = { version = "0.11" }
+toml = { version = "0.8" }
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3" }
