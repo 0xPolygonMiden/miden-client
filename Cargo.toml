@@ -30,6 +30,7 @@ async = ["miden-tx/async"]
 concurrent = ["miden-lib/concurrent", "miden-objects/concurrent", "miden-tx/concurrent", "std"]
 default = ["std"]
 executable = ["std", "sqlite", "tonic", "dep:clap", "dep:comfy-table", "dep:figment", "dep:tokio", "dep:toml"]
+idxdb = ["async", "dep:base64", "dep:serde-wasm-bindgen", "dep:wasm-bindgen", "dep:wasm-bindgen-futures"]
 integration = ["concurrent", "executable", "testing"]
 sqlite = ["dep:rusqlite", "dep:rusqlite_migration", "dep:lazy_static"]
 std = ["miden-objects/std"]
@@ -37,6 +38,7 @@ testing = ["miden-objects/testing", "miden-lib/testing"]
 tonic = ["dep:hex", "dep:prost","dep:tonic"]
 
 [dependencies]
+base64 = { version = "0.13", optional = true }
 chrono = { version = "0.4", optional = false }
 clap = { version = "4.3", features = ["derive"], optional = true }
 comfy-table = { version = "7.1.0", optional = true } 
@@ -52,12 +54,15 @@ rusqlite = { version = "0.30.0", features = ["vtab", "array", "bundled"], option
 rusqlite_migration = { version = "1.0", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
+serde-wasm-bindgen = { version = "0.6", optional = true }
 tokio = { version = "1.29", features = ["rt-multi-thread", "net", "macros"], optional = true }
 tonic = { version = "0.11", optional = true }
 toml = { version = "0.8", optional = true }
 thiserror = { version = "1.0", optional = true }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3" }
+wasm-bindgen = { version = "0.2", features = ["serde-serialize"], optional = true }
+wasm-bindgen-futures = { version = "0.4", optional = true }
 winter-maybe-async = "0.10.0"
 
 [target.'wasm32-unknown-unknown'.dependencies]

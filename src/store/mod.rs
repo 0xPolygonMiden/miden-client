@@ -22,6 +22,9 @@ pub mod data_store;
 #[cfg(feature = "sqlite")]
 pub mod sqlite_store;
 
+#[cfg(feature = "idxdb")]
+pub mod web_store;
+
 mod note_record;
 pub use note_record::{InputNoteRecord, NoteRecordDetails, NoteStatus, OutputNoteRecord};
 
@@ -121,6 +124,7 @@ pub trait Store {
     #[maybe_async]
     fn insert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError>;
 
+    #[maybe_async]
     /// Updates the inclusion proof of the input note with the provided ID
     fn update_note_inclusion_proof(
         &self,
@@ -128,6 +132,7 @@ pub trait Store {
         inclusion_proof: NoteInclusionProof,
     ) -> Result<(), StoreError>;
 
+    #[maybe_async]
     /// Updates the metadata of the input note with the provided ID
     fn update_note_metadata(
         &self,
