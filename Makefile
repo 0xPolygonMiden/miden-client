@@ -7,10 +7,10 @@ help: ## Show description of all commands
 # --- Variables -----------------------------------------------------------------------------------
 
 FEATURES_INTEGRATION_TESTING="integration"
-FEATURES_CLI="testing, executable, concurrent"
+FEATURES_CLI="testing, concurrent"
 NODE_FEATURES_TESTING="testing"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
-NODE_BRANCH="polydez-future-notes"
+NODE_BRANCH="next"
 
 # --- Linting -------------------------------------------------------------------------------------
 
@@ -51,7 +51,7 @@ doc-serve: doc-deps ## Serve documentation site
 
 .PHONY: doc
 doc: ## Generates & checks rust documentation
-	$(WARNINGS) cargo doc --all-features --keep-going --release
+	$(WARNINGS) cargo doc --all-features --keep-going --release -p miden-client
 
 # --- Testing -------------------------------------------------------------------------------------
 
@@ -62,11 +62,11 @@ test: ## Run tests
 # --- Integration testing -------------------------------------------------------------------------
 
 .PHONY: integration-test
-integration-test: ## Run integration tests
+integration-test: build ## Run integration tests
 	cargo nextest run --release --test=integration --features $(FEATURES_INTEGRATION_TESTING) --no-default-features
 
 .PHONY: integration-test-full
-integration-test-full: ## Run the integration test binary with ignored tests included
+integration-test-full: build ## Run the integration test binary with ignored tests included
 	cargo nextest run --release --test=integration --features $(FEATURES_INTEGRATION_TESTING)
 	cargo nextest run --release --test=integration --features $(FEATURES_INTEGRATION_TESTING) --run-ignored ignored-only -- test_import_genesis_accounts_can_be_used_for_transactions
 
@@ -79,7 +79,7 @@ clean-node: ## Clean node directory
 	rm -rf miden-node
 
 .PHONY: node
-node: ## Setup node
+node: ## Setup node directory
 	if [ -d miden-node ]; then cd miden-node ; else git clone https://github.com/0xPolygonMiden/miden-node.git && cd miden-node; fi
 	cd miden-node && git checkout $(NODE_BRANCH) && git pull origin $(NODE_BRANCH) && cargo update
 	cd miden-node && rm -rf miden-store.sqlite3*
@@ -91,13 +91,13 @@ start-node: ## Run node. This requires the node repo to be present at `miden-nod
 
 # --- Installing ----------------------------------------------------------------------------------
 
-install: ## Installs the CLI binary using the current dir
-	cargo install --features $(FEATURES_CLI) --path .
+install: ## Installs the CLI binary
+	cargo install --features $(FEATURES_CLI) --path bin/miden-cli
 
 # --- Building ------------------------------------------------------------------------------------
 
 build: ## Builds the CLI binary and client library in release mode
 	cargo build --release --features $(FEATURES_CLI)
 
-build-wasm: ## Builds the CLI binary for wasm32
-	cargo build --target wasm32-unknown-unknown --features async --no-default-features
+build-wasm: ## Builds the client library for wasm32
+	cargo build --target wasm32-unknown-unknown --features async --no-default-features --package miden-client
