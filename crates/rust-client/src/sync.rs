@@ -301,8 +301,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             )
             .map_err(ClientError::NoteError)?;
 
-            self.store.update_note_inclusion_proof(details.id(), note_inclusion_proof)?;
-            self.store.update_note_metadata(details.id(), *details.metadata())?;
+            maybe_await!(self
+                .store
+                .update_note_inclusion_proof(details.id(), note_inclusion_proof))?;
+            maybe_await!(self.store.update_note_metadata(details.id(), *details.metadata()))?;
         }
 
         let mut sync_summary = SyncSummary::new_empty(0);
