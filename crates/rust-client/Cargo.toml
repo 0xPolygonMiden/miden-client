@@ -1,0 +1,61 @@
+[package]
+name = "miden-client"
+version = "0.3.1"
+description = "Client library that facilitates interaction with the Miden rollup"
+readme = "README.md"
+documentation = "https://docs.rs/miden-client/0.3.1"
+keywords = ["miden", "client"]
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+edition.workspace = true
+
+[lib]
+crate-type = ["lib"]
+
+[features]
+async = ["miden-tx/async"]
+concurrent = ["miden-lib/concurrent", "miden-objects/concurrent", "miden-tx/concurrent", "std"]
+default = ["std"]
+integration = ["concurrent", "testing", "std", "sqlite", "tonic"]
+sqlite = ["dep:rusqlite", "dep:rusqlite_migration", "dep:lazy_static"]
+std = ["miden-objects/std"]
+testing = ["miden-objects/testing", "miden-lib/testing"]
+tonic = ["dep:hex", "dep:prost","dep:tonic"]
+
+[dependencies]
+chrono = { version = "0.4", optional = false }
+hex = { version = "0.4" , optional = true}
+lazy_static = { version = "1.4", optional = true }
+miden-lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false }
+miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["serde"] }
+miden-tx = { package = "miden-tx", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false }
+prost = { version = "0.12", optional = true }
+rand = { workspace = true }
+rusqlite = { version = "0.30", features = ["vtab", "array", "bundled"], optional = true }
+rusqlite_migration = { version = "1.0", optional = true }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0", features = ["raw_value"] }
+thiserror = { version = "1.0", optional = true }
+tokio = { workspace = true , optional = true }
+tonic = { version = "0.11", optional = true }
+tracing = { workspace = true }
+winter-maybe-async = "0.10.0"
+
+[target.'wasm32-unknown-unknown'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }
+
+[dev-dependencies]
+miden-client = { path = ".", features = ["testing", "concurrent", "sqlite", "tonic", "tokio"]}
+miden-lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["testing"] }
+miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["serde", "testing"] }
+uuid = { version = "1.6", features = ["serde", "v4"] }
+
+[build-dependencies]
+miden-rpc-proto = { package = "miden-rpc-proto", git = "https://github.com/0xPolygonMiden/miden-node.git", branch = "next" }
+miette = { version = "7.0", features = ["fancy"] }
+prost = { version = "0.12" }
+prost-build = { version = "0.12" }
+protox = { version = "0.6" }
+tonic-build = { version = "0.11" }

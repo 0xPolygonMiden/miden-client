@@ -14,8 +14,12 @@ use miden_client::{
         sqlite_store::{config::SqliteStoreConfig, SqliteStore},
         NoteFilter, TransactionFilter,
     },
-    transactions::transaction_request::{TransactionRequest, TransactionTemplate},
-    Client, SyncSummary,
+    sync::SyncSummary,
+    transactions::{
+        transaction_request::{TransactionRequest, TransactionTemplate},
+        DataStoreError, TransactionExecutorError,
+    },
+    Client,
 };
 use miden_objects::{
     accounts::{
@@ -28,7 +32,6 @@ use miden_objects::{
     transaction::InputNote,
     Felt,
 };
-use miden_tx::{DataStoreError, TransactionExecutorError};
 use rand::Rng;
 use uuid::Uuid;
 

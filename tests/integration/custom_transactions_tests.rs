@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use miden_client::{
     accounts::AccountTemplate, transactions::transaction_request::TransactionRequest,
+    utils::Serializable,
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorageType, AuthSecretKey},
@@ -14,7 +15,6 @@ use miden_objects::{
     },
     Felt, Word,
 };
-use miden_tx::utils::Serializable;
 
 use super::common::*;
 

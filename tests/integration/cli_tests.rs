@@ -1,4 +1,10 @@
-use std::{env::temp_dir, fs::File, io::Read, path::Path, rc::Rc};
+use std::{
+    env::{self, temp_dir},
+    fs::File,
+    io::Read,
+    path::Path,
+    rc::Rc,
+};
 
 use assert_cmd::Command;
 use miden_client::{
@@ -167,8 +173,13 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
     for genesis_account_filename in GENESIS_ACCOUNTS_FILENAMES {
         let mut new_file_path = temp_dir.clone();
         new_file_path.push(genesis_account_filename);
-        std::fs::copy(format!("./miden-node/accounts/{}", genesis_account_filename), new_file_path)
-            .unwrap();
+
+        let cargo_workspace_dir =
+            env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is not set");
+        let source_path =
+            format!("{}/../miden-node/accounts/{}", cargo_workspace_dir, genesis_account_filename);
+
+        std::fs::copy(source_path, new_file_path).unwrap();
     }
 
     let mut init_cmd = Command::cargo_bin("miden").unwrap();
