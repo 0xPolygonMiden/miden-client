@@ -2,7 +2,8 @@ extern crate alloc;
 
 pub mod accounts;
 pub mod config;
-pub mod errors;
+mod errors;
+pub use errors::{ClientError, IdPrefixFetchError};
 pub mod notes;
 pub mod rpc;
 pub mod store;

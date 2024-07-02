@@ -7,7 +7,7 @@ use miden_tx::{
 };
 
 use crate::transactions::transaction_request::TransactionRequestError;
-use crate::{client::NoteScreenerError, rpc::RpcError, store::StoreError};
+use crate::{notes::NoteScreenerError, rpc::RpcError, store::StoreError};
 
 // CLIENT ERROR
 // ================================================================================================

@@ -18,7 +18,7 @@ use miden_client::{
         transaction_request::{TransactionRequest, TransactionTemplate},
         DataStoreError, TransactionExecutorError,
     },
-    Client, ClientError, SyncSummary,
+    Client, ClientError,
 };
 use miden_objects::{
     accounts::{

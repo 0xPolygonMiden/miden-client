@@ -1,4 +1,11 @@
 use miden_objects::{accounts::AccountId, assembly::ProgramAst, crypto::rand::FeltRng};
+pub use miden_objects::{
+    notes::{
+        Note, NoteAssets, NoteExecutionHint, NoteFile, NoteId, NoteInclusionProof, NoteInputs,
+        NoteMetadata, NoteRecipient, NoteScript, NoteTag, NoteType, Nullifier,
+    },
+    NoteError,
+};
 use miden_tx::{auth::TransactionAuthenticator, ScriptTarget};
 use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
