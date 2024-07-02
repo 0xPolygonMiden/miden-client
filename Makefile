@@ -6,7 +6,7 @@ help: ## Show description of all commands
 
 # --- Variables -----------------------------------------------------------------------------------
 
-FEATURES_INTEGRATION_TESTING="testing, concurrent, integration"
+FEATURES_INTEGRATION_TESTING="testing, concurrent, std, sqlite, tonic"
 FEATURES_CLI="testing, concurrent"
 NODE_FEATURES_TESTING="testing"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
@@ -59,7 +59,7 @@ doc: ## Generates & checks rust documentation
 
 .PHONY: test
 test: ## Run tests
-	cargo nextest run --release --workspace --features $(FEATURES_CLI)
+	cargo nextest run --release --lib --features $(FEATURES_CLI)
 
 # --- Integration testing -------------------------------------------------------------------------
 
