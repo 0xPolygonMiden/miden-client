@@ -7,7 +7,7 @@ use miden_rpc_proto::write_proto;
 use miette::IntoDiagnostic;
 use prost::Message;
 
-const TONIC_CLIENT_PROTO_OUT_DIR: &str = "src/client/rpc/tonic_client/generated";
+const TONIC_CLIENT_PROTO_OUT_DIR: &str = "src/rpc/tonic_client/generated";
 
 fn main() -> miette::Result<()> {
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR should be set");
