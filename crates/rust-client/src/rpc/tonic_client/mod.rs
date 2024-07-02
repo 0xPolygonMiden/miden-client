@@ -29,7 +29,6 @@ use crate::{
     errors::{RpcConversionError, RpcError},
 };
 
-pub mod domain;
 #[rustfmt::skip]
 pub mod generated;
 

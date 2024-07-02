@@ -3,7 +3,11 @@ use std::fmt::{Debug, Display, Formatter};
 use hex::ToHex;
 use miden_objects::{notes::NoteId, Digest, Felt, StarkField};
 
-use crate::{errors::RpcConversionError, rpc::tonic_client::generated::digest};
+use crate::errors::RpcConversionError;
+#[cfg(feature = "tonic")]
+use crate::rpc::tonic_client::generated::digest;
+#[cfg(feature = "web-tonic")]
+use crate::rpc::web_tonic_client::generated::digest;
 
 // CONSTANTS
 // ================================================================================================

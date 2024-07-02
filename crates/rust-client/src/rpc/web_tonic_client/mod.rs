@@ -18,14 +18,13 @@ use miden_tx::utils::Serializable;
 use tonic_web_wasm_client::Client;
 
 use crate::{
-    client::rpc::{
+    errors::{RpcConversionError, RpcError},
+    rpc::{
         AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
         NoteDetails, NoteInclusionDetails, NullifierUpdate, StateSyncInfo, TransactionUpdate,
     },
-    errors::{RpcConversionError, RpcError},
 };
 
-pub mod domain;
 pub mod generated;
 
 pub struct WebTonicRpcClient {

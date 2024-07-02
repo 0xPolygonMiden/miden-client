@@ -45,7 +45,7 @@ fn compile_tonic_client_proto(proto_dir: &Path) -> miette::Result<()> {
         .out_dir(WEB_TONIC_CLIENT_PROTO_OUT_DIR)
         .compile_with_config(web_tonic_prost_config, protos, includes)
         .into_diagnostic()?;
-    
+
     tonic_build::configure()
         .file_descriptor_set_path(&file_descriptor_path)
         .skip_protoc_run()

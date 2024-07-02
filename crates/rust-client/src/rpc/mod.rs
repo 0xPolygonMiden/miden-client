@@ -12,6 +12,8 @@ use miden_objects::{
 
 use crate::errors::RpcError;
 
+pub mod domain;
+
 #[cfg(feature = "tonic")]
 mod tonic_client;
 #[cfg(feature = "testing")]
