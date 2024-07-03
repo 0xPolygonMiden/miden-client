@@ -2,6 +2,7 @@
 
 ## v0.5.0 (TBD)
 
+* Ignore stale updates received during sync process (#412).
 * Add conversions for `NoteRecordDetails` (#392).
 
 ## v0.4.0 (2024-07-05)
