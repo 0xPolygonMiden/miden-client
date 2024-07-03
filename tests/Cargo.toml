@@ -10,13 +10,9 @@ repository.workspace = true
 rust-version.workspace = true
 edition.workspace = true
 
-[features]
-integration = ["miden-client/integration"]
-
 [dev-dependencies]
-assert_cmd = { version = "2.0" }
 figment = { version = "0.10", features = ["toml", "env"] }
-miden-client = { path = "../crates/rust-client", features = ["testing"] }
+miden-client = { path = "../crates/rust-client", features = ["concurrent", "testing", "std", "sqlite", "tonic"] }
 miden-objects = { package = "miden-objects", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false, features = ["serde"] }
 rand = { workspace = true }
 tokio = { workspace = true }
@@ -25,4 +21,3 @@ uuid = { version = "1.6", features = ["serde", "v4"] }
 [[test]]
 name = "integration"
 path = "integration/main.rs"
-required-features = ["integration"]
