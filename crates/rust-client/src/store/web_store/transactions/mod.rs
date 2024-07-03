@@ -15,8 +15,7 @@ use super::{
     WebStore,
 };
 use crate::{
-    errors::StoreError,
-    store::TransactionFilter,
+    store::{StoreError, TransactionFilter},
     transactions::{TransactionRecord, TransactionResult, TransactionStatus},
 };
 

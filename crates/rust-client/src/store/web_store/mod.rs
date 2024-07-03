@@ -11,9 +11,9 @@ use wasm_bindgen_futures::*;
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
-    errors::StoreError,
     store::{
-        ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store, TransactionFilter,
+        ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store, StoreError,
+        TransactionFilter,
     },
     sync::StateSyncUpdate,
     transactions::{TransactionRecord, TransactionResult},

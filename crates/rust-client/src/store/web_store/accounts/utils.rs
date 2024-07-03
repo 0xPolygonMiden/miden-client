@@ -9,7 +9,7 @@ use miden_tx::utils::Serializable;
 use wasm_bindgen_futures::*;
 
 use super::{js_bindings::*, models::*};
-use crate::errors::StoreError;
+use crate::store::StoreError;
 
 pub async fn insert_account_code(account_code: &AccountCode) -> Result<(), ()> {
     let root = account_code.root().to_string();
