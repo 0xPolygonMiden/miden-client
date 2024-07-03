@@ -29,6 +29,7 @@ web-tonic = ["dep:hex", "dep:prost", "dep:tonic", "dep:tonic-web-wasm-client", "
 [dependencies]
 base64 = { version = "0.13", optional = true }
 chrono = { version = "0.4", optional = false }
+getrandom = { version = "0.2", features = ["js"], optional = true }
 hex = { version = "0.4" , optional = true}
 lazy_static = { version = "1.4", optional = true }
 miden-lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false }
@@ -49,7 +50,6 @@ tracing = { workspace = true }
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"], optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
 winter-maybe-async = "0.10.0"
-getrandom = { version = "0.2", features = ["js"] }
 
 [dev-dependencies]
 miden-client = { path = ".", features = ["testing", "concurrent", "sqlite", "tonic", "tokio"]}
