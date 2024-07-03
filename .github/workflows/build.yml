@@ -1,0 +1,38 @@
+name: Test
+on:
+  push:
+    branches: [main, next]
+  pull_request:
+    types: [opened, repoened, synchronize]
+
+jobs:
+  build:
+    name: Build Client and CLI with Rust ${{matrix.toolchain}} on ${{matrix.os}}
+    runs-on: ${{matrix.os}}-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [stable, nightly]
+        os: [ubuntu]
+    steps:
+      - uses: actions/checkout@main
+      - name: Install Rust with ${{matrix.toolchain}} toolchain
+        run: rustup update --no-self-update ${{ matrix.toolchain }}
+      - name: make - build
+        run: make build
+  build-wasm:
+    name: Build Client with Rust ${{matrix.toolchain}} on ${{matrix.os}} for wasm
+    runs-on: ${{matrix.os}}-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [stable, nightly]
+        os: [ubuntu]
+    steps:
+      - uses: actions/checkout@main
+      - name: Install Rust with ${{matrix.toolchain}} toolchain
+        run: rustup update --no-self-update ${{ matrix.toolchain }}
+      - name: Add wasm32-unknown-unknown target
+        run: rustup target add wasm32-unknown-unknown
+      - name: make - build-wasm
+        run: make build-wasm
