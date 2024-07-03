@@ -10,8 +10,8 @@ use miden_objects::{
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
+    client_sync::StateSyncUpdate,
     errors::StoreError,
-    sync::StateSyncUpdate,
     transactions::{TransactionRecord, TransactionResult},
 };
 

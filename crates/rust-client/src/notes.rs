@@ -1,16 +1,16 @@
-pub use miden_objects::notes::{
-    Note, NoteAssets, NoteExecutionHint, NoteFile, NoteId, NoteInclusionProof, NoteInputs,
-    NoteMetadata, NoteRecipient, NoteScript, NoteTag, NoteType, Nullifier,
+use miden_objects::{
+    accounts::AccountId,
+    assembly::ProgramAst,
+    crypto::rand::FeltRng,
+    notes::{NoteExecutionHint, NoteFile, NoteId, NoteInclusionProof, NoteScript, NoteTag},
 };
-use miden_objects::{accounts::AccountId, assembly::ProgramAst, crypto::rand::FeltRng};
 use miden_tx::{auth::TransactionAuthenticator, ScriptTarget};
 use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
 
-pub use crate::note_screener::{NoteConsumability, NoteRelevance};
 use crate::{
     errors::{ClientError, StoreError},
-    note_screener::NoteScreener,
+    note_screener::{NoteConsumability, NoteScreener},
     rpc::{NodeRpcClient, NoteDetails},
     store::{InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord, Store},
     Client,

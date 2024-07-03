@@ -3,12 +3,12 @@ use rusqlite::{named_params, params};
 
 use super::SqliteStore;
 use crate::{
+    client_sync::StateSyncUpdate,
     errors::StoreError,
     store::{
         note_record::{NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED},
         sqlite_store::{accounts::update_account, notes::insert_input_note_tx},
     },
-    sync::StateSyncUpdate,
 };
 
 impl SqliteStore {

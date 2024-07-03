@@ -28,6 +28,7 @@ use tonic::{Response, Status};
 use uuid::Uuid;
 
 use crate::{
+    client_sync::FILTER_ID_SHIFT,
     config::RpcConfig,
     errors::RpcError,
     rpc::{
@@ -47,7 +48,6 @@ use crate::{
         InputNoteRecord,
     },
     store_authenticator::StoreAuthenticator,
-    sync::FILTER_ID_SHIFT,
     transactions::{
         prepare_word,
         transaction_request::{PaymentTransactionData, TransactionTemplate},

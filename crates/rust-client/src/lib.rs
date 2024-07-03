@@ -1,14 +1,21 @@
 extern crate alloc;
 
-pub mod accounts;
 pub mod config;
 pub mod errors;
-pub(crate) mod note_screener;
-pub mod notes;
 pub mod rpc;
 pub mod store;
-pub mod sync;
-pub mod transactions;
+
+mod note_screener;
+mod store_authenticator;
+
+#[path = "accounts.rs"]
+mod client_accounts;
+#[path = "notes.rs"]
+mod client_notes;
+#[path = "sync.rs"]
+mod client_sync;
+#[path = "transactions/mod.rs"]
+mod client_transactions;
 
 #[cfg(test)]
 pub mod mock;
@@ -19,6 +26,15 @@ pub mod tests;
 // RE-EXPORTS
 // ================================================================================================
 
+pub mod accounts {
+    pub use miden_objects::accounts::{
+        Account, AccountCode, AccountData, AccountId, AccountStorage, AccountStorageType,
+        AccountStub, AccountType, StorageSlotType,
+    };
+
+    pub use crate::client_accounts::AccountTemplate;
+}
+
 pub mod assembly {
     pub use miden_objects::assembly::{AstSerdeOptions, ModuleAst, ProgramAst};
 }
@@ -27,7 +43,6 @@ pub mod assets {
     pub use miden_objects::assets::{Asset, AssetVault, FungibleAsset, TokenSymbol};
 }
 
-mod store_authenticator;
 pub mod auth {
     pub use miden_objects::accounts::AuthSecretKey;
     pub use miden_tx::auth::TransactionAuthenticator;
@@ -53,6 +68,29 @@ pub mod crypto {
 }
 
 pub use miden_objects::{Felt, StarkField, Word, ONE, ZERO};
+
+pub mod notes {
+    pub use miden_objects::notes::{
+        Note, NoteAssets, NoteExecutionHint, NoteFile, NoteId, NoteInclusionProof, NoteInputs,
+        NoteMetadata, NoteRecipient, NoteScript, NoteTag, NoteType, Nullifier,
+    };
+
+    pub use crate::note_screener::{NoteConsumability, NoteRelevance};
+}
+
+pub mod sync {
+    pub use crate::client_sync::SyncSummary;
+}
+
+pub mod transactions {
+    pub use miden_objects::transaction::{
+        ExecutedTransaction, InputNote, OutputNote, OutputNotes, ProvenTransaction, TransactionId,
+        TransactionScript,
+    };
+    pub use miden_tx::{DataStoreError, ScriptTarget, TransactionExecutorError};
+
+    pub use super::client_transactions::*;
+}
 
 pub mod utils {
     pub use miden_tx::utils::{

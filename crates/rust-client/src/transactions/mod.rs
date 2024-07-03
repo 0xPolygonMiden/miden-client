@@ -25,12 +25,11 @@ use crate::{
 
 pub mod transaction_request;
 
-pub use miden_objects::transaction::{
+use miden_objects::transaction::{
     ExecutedTransaction, InputNote, OutputNote, OutputNotes, ProvenTransaction, TransactionId,
     TransactionScript,
 };
-pub use miden_tx::{DataStoreError, ScriptTarget, TransactionExecutorError};
-
+use miden_tx::ScriptTarget;
 // TRANSACTION RESULT
 // --------------------------------------------------------------------------------------------
 
