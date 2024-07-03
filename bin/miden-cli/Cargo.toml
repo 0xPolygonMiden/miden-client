@@ -20,6 +20,15 @@ default = []
 testing = ["miden-client/testing"]
 concurrent = ["miden-client/concurrent"]
 
+[[test]]
+name = "integration"
+path = "src/tests.rs"
+required-features = ["testing", "concurrent"]
+
+[dev-dependencies]
+assert_cmd = { version = "2.0" }
+uuid = { version = "1.6", features = ["serde", "v4"] }
+
 [dependencies]
 clap = { version = "4.3", features = ["derive"] }
 comfy-table = { version = "7.1" }

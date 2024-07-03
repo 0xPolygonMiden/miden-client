@@ -6,7 +6,7 @@ help: ## Show description of all commands
 
 # --- Variables -----------------------------------------------------------------------------------
 
-FEATURES_INTEGRATION_TESTING="integration"
+FEATURES_CLIENT="testing, concurrent"
 FEATURES_CLI="testing, concurrent"
 NODE_FEATURES_TESTING="testing"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
@@ -59,18 +59,18 @@ doc: ## Generates & checks rust documentation
 
 .PHONY: test
 test: ## Run tests
-	cargo nextest run --release --workspace --features $(FEATURES_CLI)
+	cargo nextest run --release --lib --features $(FEATURES_CLIENT)
 
 # --- Integration testing -------------------------------------------------------------------------
 
 .PHONY: integration-test
-integration-test: build ## Run integration tests
-	cargo nextest run --release --test=integration --features $(FEATURES_INTEGRATION_TESTING) --no-default-features
+integration-test: ## Run integration tests
+	cargo nextest run --release --test=integration --features $(FEATURES_CLI) --no-default-features
 
 .PHONY: integration-test-full
-integration-test-full: build ## Run the integration test binary with ignored tests included
-	cargo nextest run --release --test=integration --features $(FEATURES_INTEGRATION_TESTING)
-	cargo nextest run --release --test=integration --features $(FEATURES_INTEGRATION_TESTING) --run-ignored ignored-only -- test_import_genesis_accounts_can_be_used_for_transactions
+integration-test-full: ## Run the integration test binary with ignored tests included
+	cargo nextest run --release --test=integration --features $(FEATURES_CLI)
+	cargo nextest run --release --test=integration --features $(FEATURES_CLI) --run-ignored ignored-only -- test_import_genesis_accounts_can_be_used_for_transactions
 
 .PHONY: kill-node
 kill-node: ## Kill node process
