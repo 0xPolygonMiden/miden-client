@@ -240,10 +240,13 @@ impl TryInto<InputNote> for InputNoteRecord {
                 let note = Note::new(self.assets, metadata, note_recipient);
                 Ok(InputNote::authenticated(note, proof.clone()))
             },
-
-            (None, _) => Err(ClientError::NoteRecordError(
-                "Input Note Record contains no inclusion proof".to_string(),
-            )),
+            (None, Some(metadata)) => {
+                let note_inputs = NoteInputs::new(self.details.inputs)?;
+                let note_recipient =
+                    NoteRecipient::new(self.details.serial_num, self.details.script, note_inputs);
+                let note = Note::new(self.assets, metadata, note_recipient);
+                Ok(InputNote::unauthenticated(note))
+            },
             (_, None) => Err(ClientError::NoteRecordError(
                 "Input Note Record contains no metadata".to_string(),
             )),
