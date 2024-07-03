@@ -7,6 +7,7 @@ pub use errors::{ClientError, IdPrefixFetchError};
 pub mod notes;
 pub mod rpc;
 pub mod store;
+mod store_authenticator;
 pub mod sync;
 pub mod transactions;
 
@@ -53,6 +54,7 @@ pub mod crypto {
     };
 }
 
+pub use errors::{ClientError, IdPrefixFetchError};
 pub use miden_objects::{Felt, StarkField, Word, ONE, ZERO};
 
 pub mod utils {
