@@ -51,7 +51,9 @@ doc-serve: doc-deps ## Serve documentation site
 
 .PHONY: doc
 doc: ## Generates & checks rust documentation
-	$(WARNINGS) cargo doc --all-features --keep-going --release -p miden-client
+	@cd crates/rust-client && \
+	FEATURES=$$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "miden-client") | .features | keys[] | select(. != "web-tonic")' | tr '\n' ',') && \
+	RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --features "$$FEATURES" --keep-going --release
 
 # --- Testing -------------------------------------------------------------------------------------
 

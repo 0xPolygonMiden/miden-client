@@ -1,7 +1,11 @@
 use miden_objects::BlockHeader;
 
 use super::MissingFieldHelper;
-use crate::{errors::RpcConversionError, rpc::tonic_client::generated::block_header};
+use crate::errors::RpcConversionError;
+#[cfg(feature = "tonic")]
+use crate::rpc::tonic_client::generated::block_header;
+#[cfg(feature = "web-tonic")]
+use crate::rpc::web_tonic_client::generated::block_header;
 
 // BLOCK HEADER
 // ================================================================================================
