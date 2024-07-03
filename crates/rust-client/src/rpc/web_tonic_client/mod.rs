@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use generated::{
     requests::{
         GetAccountDetailsRequest, GetBlockHeaderByNumberRequest, GetNotesByIdRequest,
@@ -17,70 +15,45 @@ use miden_objects::{
     BlockHeader, Digest,
 };
 use miden_tx::utils::Serializable;
-use tonic::transport::Channel;
-use tracing::info;
+use tonic_web_wasm_client::Client;
 
-use super::{
-    AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
-    NoteDetails, NoteInclusionDetails, NullifierUpdate, StateSyncInfo, TransactionUpdate,
-};
 use crate::{
-    config::RpcConfig,
     errors::{RpcConversionError, RpcError},
+    rpc::{
+        AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
+        NoteDetails, NoteInclusionDetails, NullifierUpdate, StateSyncInfo, TransactionUpdate,
+    },
 };
 
-#[rustfmt::skip]
 pub mod generated;
 
-// TONIC RPC CLIENT
-// ================================================================================================
-
-/// Client for the Node RPC API using tonic
-///
-/// Wraps the ApiClient which defers establishing a connection with a node until necessary
-pub struct TonicRpcClient {
-    rpc_api: Option<ApiClient<Channel>>,
+pub struct WebTonicRpcClient {
     endpoint: String,
-    timeout_ms: u64,
 }
 
-impl TonicRpcClient {
-    /// Returns a new instance of [TonicRpcClient] that'll do calls the `config_endpoint` provided
-    pub fn new(config: &RpcConfig) -> TonicRpcClient {
-        TonicRpcClient {
-            rpc_api: None,
-            endpoint: config.endpoint.to_string(),
-            timeout_ms: config.timeout_ms,
-        }
+impl WebTonicRpcClient {
+    pub fn new(endpoint: &str) -> Self {
+        Self { endpoint: endpoint.to_string() }
     }
 
-    /// Takes care of establishing the RPC connection if not connected yet and returns a reference
-    /// to the inner ApiClient
-    async fn rpc_api(&mut self) -> Result<&mut ApiClient<Channel>, RpcError> {
-        if self.rpc_api.is_some() {
-            Ok(self.rpc_api.as_mut().unwrap())
-        } else {
-            let endpoint = tonic::transport::Endpoint::try_from(self.endpoint.clone())
-                .map_err(|err| RpcError::ConnectionError(err.to_string()))?
-                .timeout(Duration::from_millis(self.timeout_ms));
-            let rpc_api = ApiClient::connect(endpoint)
-                .await
-                .map_err(|err| RpcError::ConnectionError(err.to_string()))?;
-            Ok(self.rpc_api.insert(rpc_api))
-        }
+    pub fn build_api_client(&self) -> ApiClient<Client> {
+        let wasm_client = Client::new(self.endpoint.clone());
+        ApiClient::new(wasm_client)
     }
 }
 
-impl NodeRpcClient for TonicRpcClient {
+impl NodeRpcClient for WebTonicRpcClient {
     async fn submit_proven_transaction(
         &mut self,
         proven_transaction: ProvenTransaction,
     ) -> Result<(), RpcError> {
+        let mut query_client = self.build_api_client();
+
         let request = SubmitProvenTransactionRequest {
             transaction: proven_transaction.to_bytes(),
         };
-        let rpc_api = self.rpc_api().await?;
-        rpc_api.submit_proven_transaction(request).await.map_err(|err| {
+
+        query_client.submit_proven_transaction(request).await.map_err(|err| {
             RpcError::RequestError(
                 NodeRpcClientEndpoint::SubmitProvenTx.to_string(),
                 err.to_string(),
@@ -95,20 +68,22 @@ impl NodeRpcClient for TonicRpcClient {
         block_num: Option<u32>,
         include_mmr_proof: bool,
     ) -> Result<(BlockHeader, Option<MmrProof>), RpcError> {
+        let mut query_client = self.build_api_client();
+
         let request = GetBlockHeaderByNumberRequest {
             block_num,
             include_mmr_proof: Some(include_mmr_proof),
         };
 
-        info!("Calling GetBlockHeaderByNumber: {:?}", request);
-
-        let rpc_api = self.rpc_api().await?;
-        let api_response = rpc_api.get_block_header_by_number(request).await.map_err(|err| {
-            RpcError::RequestError(
-                NodeRpcClientEndpoint::GetBlockHeaderByNumber.to_string(),
-                err.to_string(),
-            )
-        })?;
+        // Attempt to send the request and process the response
+        let api_response =
+            query_client.get_block_header_by_number(request).await.map_err(|err| {
+                // log to console all the properties of block header
+                RpcError::RequestError(
+                    NodeRpcClientEndpoint::GetBlockHeaderByNumber.to_string(),
+                    err.to_string(),
+                )
+            })?;
 
         let response = api_response.into_inner();
 
@@ -141,11 +116,13 @@ impl NodeRpcClient for TonicRpcClient {
     }
 
     async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NoteDetails>, RpcError> {
+        let mut query_client = self.build_api_client();
+
         let request = GetNotesByIdRequest {
             note_ids: note_ids.iter().map(|id| id.inner().into()).collect(),
         };
-        let rpc_api = self.rpc_api().await?;
-        let api_response = rpc_api.get_notes_by_id(request).await.map_err(|err| {
+
+        let api_response = query_client.get_notes_by_id(request).await.map_err(|err| {
             RpcError::RequestError(
                 NodeRpcClientEndpoint::GetBlockHeaderByNumber.to_string(),
                 err.to_string(),
@@ -177,8 +154,7 @@ impl NodeRpcClient for TonicRpcClient {
                         .metadata
                         .ok_or(RpcError::ExpectedFieldMissing("Metadata".into()))?
                         .try_into()?;
-
-                    let note_id: Digest = note
+                    let note_id: miden_objects::Digest = note
                         .note_id
                         .ok_or(RpcError::ExpectedFieldMissing("Notes.NoteId".into()))?
                         .try_into()?;
@@ -200,10 +176,10 @@ impl NodeRpcClient for TonicRpcClient {
         note_tags: &[NoteTag],
         nullifiers_tags: &[u16],
     ) -> Result<StateSyncInfo, RpcError> {
+        let mut query_client = self.build_api_client();
+
         let account_ids = account_ids.iter().map(|acc| (*acc).into()).collect();
-
         let nullifiers = nullifiers_tags.iter().map(|&nullifier| nullifier as u32).collect();
-
         let note_tags = note_tags.iter().map(|&note_tag| note_tag.into()).collect();
 
         let request = SyncStateRequest {
@@ -213,37 +189,39 @@ impl NodeRpcClient for TonicRpcClient {
             nullifiers,
         };
 
-        let rpc_api = self.rpc_api().await?;
-        let response = rpc_api.sync_state(request).await.map_err(|err| {
+        let response = query_client.sync_state(request).await.map_err(|err| {
             RpcError::RequestError(NodeRpcClientEndpoint::SyncState.to_string(), err.to_string())
         })?;
         response.into_inner().try_into()
     }
 
-    /// Sends a [GetAccountDetailsRequest] to the Miden node, and extracts an [AccountDetails] from the
+    /// Sends a [GetAccountDetailsRequest] to the Miden node, and extracts an [Account] from the
     /// `GetAccountDetailsResponse` response.
     ///
     /// # Errors
     ///
     /// This function will return an error if:
     ///
+    /// - The provided account is not on-chain: this is due to the fact that for offchain accounts
+    ///   the client is responsible
     /// - There was an error sending the request to the node
-    /// - The answer had a `None` for one of the expected fields (account, summary, account_hash, details).
+    /// - The answer had a `None` for its account, or the account had a `None` at the `details` field.
     /// - There is an error during [Account] deserialization
     async fn get_account_update(
         &mut self,
         account_id: AccountId,
     ) -> Result<AccountDetails, RpcError> {
+        let mut query_client = self.build_api_client();
+
         let request = GetAccountDetailsRequest { account_id: Some(account_id.into()) };
 
-        let rpc_api = self.rpc_api().await?;
-
-        let response = rpc_api.get_account_details(request).await.map_err(|err| {
+        let response = query_client.get_account_details(request).await.map_err(|err| {
             RpcError::RequestError(
                 NodeRpcClientEndpoint::GetAccountDetails.to_string(),
                 err.to_string(),
             )
         })?;
+
         let response = response.into_inner();
         let account_info = response.account.ok_or(RpcError::ExpectedFieldMissing(
             "GetAccountDetails response should have an `account`".to_string(),

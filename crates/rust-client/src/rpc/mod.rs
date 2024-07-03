@@ -12,12 +12,20 @@ use miden_objects::{
 
 use crate::errors::RpcError;
 
+#[cfg(any(feature = "tonic", feature = "web-tonic"))]
+mod domain;
+
 #[cfg(feature = "tonic")]
 mod tonic_client;
 #[cfg(feature = "testing")]
 pub use tonic_client::generated;
 #[cfg(feature = "tonic")]
 pub use tonic_client::TonicRpcClient;
+
+#[cfg(feature = "web-tonic")]
+mod web_tonic_client;
+#[cfg(feature = "web-tonic")]
+pub use web_tonic_client::WebTonicRpcClient;
 
 // NOTE DETAILS
 // ================================================================================================

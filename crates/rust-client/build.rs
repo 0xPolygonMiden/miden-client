@@ -8,6 +8,7 @@ use miette::IntoDiagnostic;
 use prost::Message;
 
 const TONIC_CLIENT_PROTO_OUT_DIR: &str = "src/rpc/tonic_client/generated";
+const WEB_TONIC_CLIENT_PROTO_OUT_DIR: &str = "src/rpc/web_tonic_client/generated";
 
 fn main() -> miette::Result<()> {
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR should be set");
@@ -17,7 +18,7 @@ fn main() -> miette::Result<()> {
     compile_tonic_client_proto(&dest_path)
 }
 
-/// Compiles the protobuf files into a file descriptor used to generate Rust types
+// Compiles the protobuf files into a file descriptor used to generate Rust types
 fn compile_tonic_client_proto(proto_dir: &Path) -> miette::Result<()> {
     // Compute the compiler's target file path.
     let out = env::var("OUT_DIR").into_diagnostic()?;
@@ -32,7 +33,19 @@ fn compile_tonic_client_proto(proto_dir: &Path) -> miette::Result<()> {
     let mut prost_config = prost_build::Config::new();
     prost_config.skip_debug(["AccountId", "Digest"]);
 
+    let mut web_tonic_prost_config = prost_build::Config::new();
+    web_tonic_prost_config.skip_debug(["AccountId", "Digest"]);
+
     // Generate the stub of the user facing server from its proto file
+    tonic_build::configure()
+        .build_transport(false)
+        .build_server(false)
+        .file_descriptor_set_path(&file_descriptor_path)
+        .skip_protoc_run()
+        .out_dir(WEB_TONIC_CLIENT_PROTO_OUT_DIR)
+        .compile_with_config(web_tonic_prost_config, protos, includes)
+        .into_diagnostic()?;
+
     tonic_build::configure()
         .file_descriptor_set_path(&file_descriptor_path)
         .skip_protoc_run()

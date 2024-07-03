@@ -23,11 +23,13 @@ integration = ["concurrent", "testing", "std", "sqlite", "tonic"]
 sqlite = ["dep:rusqlite", "dep:rusqlite_migration", "dep:lazy_static"]
 std = ["miden-objects/std"]
 testing = ["miden-objects/testing", "miden-lib/testing"]
-tonic = ["dep:hex", "dep:prost","dep:tonic"]
+tonic = ["dep:hex", "dep:prost", "dep:tonic", "tonic/transport"]
+web-tonic = ["dep:hex", "dep:prost", "dep:tonic", "dep:tonic-web-wasm-client", "getrandom/js"]
 
 [dependencies]
 base64 = { version = "0.13", optional = true }
 chrono = { version = "0.4", optional = false }
+getrandom = { version = "0.2", features = ["js"], optional = true }
 hex = { version = "0.4" , optional = true}
 lazy_static = { version = "1.4", optional = true }
 miden-lib = { package = "miden-lib", git = "https://github.com/0xPolygonMiden/miden-base.git", branch = "next", default-features = false }
@@ -42,14 +44,12 @@ serde_json = { version = "1.0", features = ["raw_value"] }
 serde-wasm-bindgen = { version = "0.6", optional = true }
 thiserror = { version = "1.0", optional = true }
 tokio = { workspace = true , optional = true }
-tonic = { version = "0.11", optional = true }
+tonic = { version = "0.11", default-features = false, optional = true, features = ["prost", "codegen"] }
+tonic-web-wasm-client = { version = "0.5", optional = true }
 tracing = { workspace = true }
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"], optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
 winter-maybe-async = "0.10.0"
-
-[target.'wasm32-unknown-unknown'.dependencies]
-getrandom = { version = "0.2", features = ["js"] }
 
 [dev-dependencies]
 miden-client = { path = ".", features = ["testing", "concurrent", "sqlite", "tonic", "tokio"]}
