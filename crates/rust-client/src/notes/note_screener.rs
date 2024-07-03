@@ -4,10 +4,10 @@ use core::fmt;
 use miden_objects::{accounts::AccountId, assets::Asset, notes::Note, Word};
 use winter_maybe_async::{maybe_async, maybe_await};
 
-use super::transactions::transaction_request::known_script_roots::{P2ID, P2IDR, SWAP};
 use crate::{
     errors::{InvalidNoteInputsError, NoteScreenerError},
     store::Store,
+    transactions::transaction_request::known_script_roots::{P2ID, P2IDR, SWAP},
 };
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]

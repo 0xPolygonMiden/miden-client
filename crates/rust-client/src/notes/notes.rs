@@ -9,8 +9,8 @@ use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
+    client_notes::note_screener::{NoteConsumability, NoteScreener},
     errors::{ClientError, StoreError},
-    note_screener::{NoteConsumability, NoteScreener},
     rpc::{NodeRpcClient, NoteDetails},
     store::{InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord, Store},
     Client,

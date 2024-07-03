@@ -14,8 +14,8 @@ use tracing::{info, warn};
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
+    client_notes::NoteScreener,
     errors::{ClientError, RpcError, StoreError},
-    note_screener::NoteScreener,
     rpc::{
         AccountDetails, CommittedNote, NodeRpcClient, NoteDetails, NullifierUpdate,
         TransactionUpdate,

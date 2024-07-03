@@ -18,8 +18,8 @@ use self::transaction_request::{
 };
 use super::{rpc::NodeRpcClient, Client, FeltRng};
 use crate::{
+    client_notes::NoteScreener,
     errors::ClientError,
-    note_screener::NoteScreener,
     store::{InputNoteRecord, Store, TransactionFilter},
 };
 

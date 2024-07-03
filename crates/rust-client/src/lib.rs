@@ -5,12 +5,11 @@ pub mod errors;
 pub mod rpc;
 pub mod store;
 
-mod note_screener;
 mod store_authenticator;
 
 #[path = "accounts.rs"]
 mod client_accounts;
-#[path = "notes.rs"]
+#[path = "notes/mod.rs"]
 mod client_notes;
 #[path = "sync.rs"]
 mod client_sync;
@@ -75,7 +74,7 @@ pub mod notes {
         NoteMetadata, NoteRecipient, NoteScript, NoteTag, NoteType, Nullifier,
     };
 
-    pub use crate::note_screener::{NoteConsumability, NoteRelevance};
+    pub use crate::client_notes::{NoteConsumability, NoteRelevance};
 }
 
 pub mod sync {
