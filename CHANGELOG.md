@@ -1,5 +1,7 @@
 # Changelog
 
+* Added WebTonicClient to the miden-client to support WASM-compatible RPC calls
+* Added WebStore to the miden-client to support WASM-compatible store mechanisms
 * [BREAKING] Split cli and client into workspace (#407).
 * Note importing in client now uses the `NoteFile` type (#375).
 * Added build script to import Miden node protobuf files to generate types for `tonic_client` and removed `miden-node-proto` dependency (#395).
