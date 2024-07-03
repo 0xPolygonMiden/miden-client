@@ -11,7 +11,7 @@ mod store_authenticator;
 mod client_accounts;
 #[path = "notes/mod.rs"]
 mod client_notes;
-#[path = "sync.rs"]
+#[path = "sync/mod.rs"]
 mod client_sync;
 #[path = "transactions/mod.rs"]
 mod client_transactions;
