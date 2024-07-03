@@ -112,6 +112,55 @@ export async function getAccountStub(
       }
 }
 
+export async function getAccountStubHistory(
+    accountId
+) {
+    try {
+        // Fetch all records matching the given id
+        const allMatchingRecords = await accounts
+          .where('id')
+          .equals(accountId)
+          .toArray();
+    
+        if (allMatchingRecords.length === 0) {
+          console.log('No records found for given ID.');
+          return null; // No records found
+        }
+    
+        // Convert nonce to BigInt and sort descending by nonce
+        // Note: This assumes all nonces are valid BigInt strings.
+        const sortedRecords = allMatchingRecords.sort((a, b) => {
+          const bigIntA = BigInt(a.nonce);
+          const bigIntB = BigInt(b.nonce);
+          return bigIntA > bigIntB ? -1 : bigIntA < bigIntB ? 1 : 0;
+        });
+    
+        const resultObject = await Promise.all(sortedRecords.map(async record => {
+            let accountSeedBase64 = null;
+            if (record.accountSeed) {
+                // Ensure accountSeed is processed as a Uint8Array and converted to Base64
+                let accountSeedArrayBuffer = await record.accountSeed.arrayBuffer();
+                let accountSeedArray = new Uint8Array(accountSeedArrayBuffer);
+                accountSeedBase64 = uint8ArrayToBase64(accountSeedArray);
+            }
+
+            return {
+                id: record.id,
+                nonce: record.nonce,
+                vault_root: record.vaultRoot,
+                storage_root: record.storageRoot,
+                code_root: record.codeRoot,
+                account_seed: accountSeedBase64 // Now correctly formatted as Base64
+            };
+        }));
+        
+        return resultObject;
+      } catch (error) {
+        console.error('Error fetching most recent account record:', error);
+        throw error; // Re-throw the error for further handling
+      }
+}
+
 export async function getAccountCode(
     codeRoot
 ) {

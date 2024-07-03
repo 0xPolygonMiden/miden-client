@@ -66,6 +66,28 @@ impl WebStore {
         parse_account_record_idxdb_object(account_stub_idxdb)
     }
 
+    pub(crate) async fn get_account_stub_history(
+        &self,
+        account_id: AccountId,
+    ) -> Result<Vec<AccountStub>, StoreError> {
+        let account_id_str = account_id.to_string();
+
+        let promise = idxdb_get_account_stub_history(account_id_str);
+        let js_value = JsFuture::from(promise).await.unwrap();
+        let account_stubs_idxdb: Vec<AccountRecordIdxdbOjbect> = from_value(js_value).unwrap();
+
+        let account_stubs: Result<Vec<AccountStub>, StoreError> = account_stubs_idxdb
+            .into_iter()
+            .map(|account_record| {
+                let (account_stub, _account_seed) =
+                    parse_account_record_idxdb_object(account_record)?;
+                Ok(account_stub)
+            })
+            .collect(); // Collect results into a single Result
+
+        account_stubs
+    }
+
     pub(crate) async fn get_account(
         &self,
         account_id: AccountId,

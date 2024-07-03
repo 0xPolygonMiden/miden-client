@@ -201,6 +201,14 @@ impl Store for WebStore {
     }
 
     #[maybe_async]
+    fn get_account_stub_history(
+        &self,
+        account_id: AccountId,
+    ) -> Result<Vec<AccountStub>, StoreError> {
+        maybe_await!(self.get_account_stub_history(account_id))
+    }
+
+    #[maybe_async]
     fn get_account(&self, account_id: AccountId) -> Result<(Account, Option<Word>), StoreError> {
         maybe_await!(self.get_account(account_id))
     }
