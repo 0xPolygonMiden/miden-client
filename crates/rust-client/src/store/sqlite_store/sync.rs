@@ -97,30 +97,6 @@ impl SqliteStore {
         const BLOCK_NUMBER_QUERY: &str = "UPDATE state_sync SET block_num = ?";
         tx.execute(BLOCK_NUMBER_QUERY, params![block_header.block_num()])?;
 
-        // Update spent notes
-        for nullifier_update in nullifiers.iter() {
-            const SPENT_INPUT_NOTE_QUERY: &str =
-                "UPDATE input_notes SET status = ?, nullifier_height = ? WHERE json_extract(details, '$.nullifier') = ?";
-            let nullifier = nullifier_update.nullifier.to_hex();
-            let block_num = nullifier_update.block_num;
-            tx.execute(
-                SPENT_INPUT_NOTE_QUERY,
-                params![NOTE_STATUS_CONSUMED.to_string(), block_num, nullifier],
-            )?;
-
-            const SPENT_OUTPUT_NOTE_QUERY: &str =
-                "UPDATE output_notes SET status = ?, nullifier_height = ? WHERE json_extract(details, '$.nullifier') = ?";
-            tx.execute(
-                SPENT_OUTPUT_NOTE_QUERY,
-                params![NOTE_STATUS_CONSUMED.to_string(), block_num, nullifier],
-            )?;
-        }
-
-        Self::insert_block_header_tx(&tx, block_header, new_mmr_peaks, block_has_relevant_notes)?;
-
-        // Insert new authentication nodes (inner nodes of the PartialMmr)
-        Self::insert_chain_mmr_nodes_tx(&tx, &new_authentication_nodes)?;
-
         // Update tracked output notes
         for (note_id, inclusion_proof) in committed_notes.updated_output_notes().iter() {
             let block_num = inclusion_proof.origin().block_num;
@@ -181,6 +157,30 @@ impl SqliteStore {
         for note in committed_notes.new_public_notes() {
             insert_input_note_tx(&tx, note.clone().into())?;
         }
+
+        // Update spent notes
+        for nullifier_update in nullifiers.iter() {
+            const SPENT_INPUT_NOTE_QUERY: &str =
+                "UPDATE input_notes SET status = ?, nullifier_height = ? WHERE json_extract(details, '$.nullifier') = ?";
+            let nullifier = nullifier_update.nullifier.to_hex();
+            let block_num = nullifier_update.block_num;
+            tx.execute(
+                SPENT_INPUT_NOTE_QUERY,
+                params![NOTE_STATUS_CONSUMED.to_string(), block_num, nullifier],
+            )?;
+
+            const SPENT_OUTPUT_NOTE_QUERY: &str =
+                "UPDATE output_notes SET status = ?, nullifier_height = ? WHERE json_extract(details, '$.nullifier') = ?";
+            tx.execute(
+                SPENT_OUTPUT_NOTE_QUERY,
+                params![NOTE_STATUS_CONSUMED.to_string(), block_num, nullifier],
+            )?;
+        }
+
+        Self::insert_block_header_tx(&tx, block_header, new_mmr_peaks, block_has_relevant_notes)?;
+
+        // Insert new authentication nodes (inner nodes of the PartialMmr)
+        Self::insert_chain_mmr_nodes_tx(&tx, &new_authentication_nodes)?;
 
         // Mark transactions as committed
         Self::mark_transactions_as_committed(&tx, &committed_transactions)?;
