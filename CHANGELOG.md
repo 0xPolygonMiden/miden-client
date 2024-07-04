@@ -1,5 +1,6 @@
 # Changelog
 
+* [BREAKING] Added unauthenticated notes to `TransactionRequest` and necessary changes to consume unauthenticated notes with the client (#417).
 * Move cli tests to the `miden-cli` crate (#413).
 * Added WebTonicClient to the miden-client to support WASM-compatible RPC calls (#409).
 * Added WebStore to the miden-client to support WASM-compatible store mechanisms (#401).
