@@ -100,11 +100,13 @@ async fn test_transaction_request() {
 
     let transaction_request = TransactionRequest::new(
         regular_account.id(),
+        vec![],
         note_args_map.clone(),
         vec![],
         vec![],
         Some(tx_script),
-    );
+    )
+    .unwrap();
 
     // This fails becuase of {asserted_value} having the incorrect number passed in
     assert!(client.new_transaction(transaction_request).is_err());
@@ -129,11 +131,13 @@ async fn test_transaction_request() {
 
     let transaction_request = TransactionRequest::new(
         regular_account.id(),
+        vec![],
         note_args_map,
         vec![],
         vec![],
         Some(tx_script),
-    );
+    )
+    .unwrap();
 
     execute_tx_and_sync(&mut client, transaction_request).await;
 
@@ -186,11 +190,13 @@ async fn mint_custom_note(
 
     let transaction_request = TransactionRequest::new(
         faucet_account_id,
+        vec![],
         BTreeMap::new(),
         vec![note.clone()],
         vec![],
         Some(tx_script),
-    );
+    )
+    .unwrap();
 
     let _ = execute_tx_and_sync(client, transaction_request).await;
     note
