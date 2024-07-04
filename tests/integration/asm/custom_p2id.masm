@@ -1,13 +1,16 @@
 # Custom P2ID note script
 #
 # This note script asserts that the note args are exactly the same as passed 
-# (currently defined as {expected_note_arg}).
+# (currently defined as {expected_note_arg_1} and {expected_note_arg_2}).
+# Since the args are too big to fit in a single note arg, we provide them via advice inputs and 
+# address them via their commitment
 # This note script is based off of the P2ID note script because notes currently need to have 
 # assets, otherwise it could have been boiled down to the assert. 
 
 use.miden::account
 use.miden::note
 use.miden::contracts::wallets::basic->wallet
+use.std::mem
 
 
 proc.add_note_assets_to_account
@@ -49,11 +52,35 @@ end
 begin
     # drop the note script root
     dropw
-    
-    # => [NOTE_ARG] 
-    push.{expected_note_arg} assert_eqw
-    # drop the note script root
+    # => [NOTE_ARG_COMMITMENT] 
+    # memory address where to write the data
+    push.{mem_address}
+    # => [target_mem_addr, NOTE_ARG_COMMITMENT]
+    # number of words
+    push.2
+    # => [number_of_words, target_mem_addr, NOTE_ARG_COMMITMENT]
+    exec.mem::pipe_preimage_to_memory
+    # => [target_mem_addr']
     dropw
+    # => []
+
+    # read first word
+    push.{mem_address}
+    # => [data_mem_address]
+    mem_loadw
+    # => [NOTE_ARG_1]
+    
+    push.{expected_note_arg_1} assert_eqw
+    # => []
+
+    # read second word
+    push.{mem_address_2}
+    # => [data_mem_address_2]
+    mem_loadw
+    # => [NOTE_ARG_2]
+    
+    push.{expected_note_arg_2} assert_eqw
+    # => []
 
     # store the note inputs to memory starting at address 0
     push.0 exec.note::get_inputs
