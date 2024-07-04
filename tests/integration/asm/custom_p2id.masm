@@ -68,13 +68,13 @@ begin
     # => [target_mem_addr']
     dropw
     # => []
-
+    
     # read first word
     push.{mem_address}
     # => [data_mem_address]
     mem_loadw
     # => [NOTE_ARG_1]
-
+    
     push.{expected_note_arg_1} assert_eqw
     # => []
 
