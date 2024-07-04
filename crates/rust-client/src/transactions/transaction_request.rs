@@ -126,11 +126,13 @@ impl From<TransactionRequest> for TransactionArgs {
 #[derive(Debug)]
 pub enum TransactionRequestError {
     NotesMapNotIncludingUnauthenticatedNotes,
+    ConsumingUncommittedAuthenticatedNotes,
 }
 impl fmt::Display for TransactionRequestError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::NotesMapNotIncludingUnauthenticatedNotes => write!(f, "The input notes map should include keys for all provided unauthenticated input notes")
+            Self::NotesMapNotIncludingUnauthenticatedNotes => write!(f, "The input notes map should include keys for all provided unauthenticated input notes"),
+            Self::ConsumingUncommittedAuthenticatedNotes => write!(f, "Every authenticated note to be consumed should be committed"),
         }
     }
 }

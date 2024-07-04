@@ -20,7 +20,8 @@ use super::{rpc::NodeRpcClient, Client, FeltRng};
 use crate::{
     errors::ClientError,
     note_screener::NoteScreener,
-    store::{InputNoteRecord, Store, TransactionFilter},
+    store::{InputNoteRecord, NoteFilter, NoteStatus, Store, TransactionFilter},
+    transactions::transaction_request::TransactionRequestError,
 };
 
 pub mod transaction_request;
@@ -238,6 +239,29 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let account_id = transaction_request.account_id();
         maybe_await!(self.tx_executor.load_account(account_id))
             .map_err(ClientError::TransactionExecutorError)?;
+
+        // Ensure authenticated notes have their inclusion proofs (a.k.a they're in a committed
+        // state). TODO: we should consider refactoring this in a way we can handle this in
+        // `get_transaction_inputs`
+        let unauthenticated_note_ids: BTreeSet<NoteId> = BTreeSet::from_iter(
+            transaction_request.unauthenticated_input_notes().iter().map(|note| note.id()),
+        );
+
+        let authenticated_input_note_ids: Vec<NoteId> = transaction_request
+            .input_notes()
+            .iter()
+            .map(|(note_id, _)| *note_id)
+            .filter(|note_id| !unauthenticated_note_ids.contains(note_id))
+            .collect();
+        let authenticated_note_records =
+            self.store.get_input_notes(NoteFilter::List(&authenticated_input_note_ids))?;
+        for authenticated_note_record in authenticated_note_records {
+            if !matches!(authenticated_note_record.status(), NoteStatus::Committed { .. }) {
+                return Err(ClientError::TransactionRequestError(
+                    TransactionRequestError::ConsumingUncommittedAuthenticatedNotes,
+                ));
+            }
+        }
 
         // If tx request contains unauthenticated_input_notes we should insert them
         for unauthenticated_input_note in transaction_request.unauthenticated_input_notes() {
