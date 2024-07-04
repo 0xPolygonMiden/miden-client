@@ -7,7 +7,7 @@ use miden_tx::auth::TransactionAuthenticator;
 use tracing::warn;
 use winter_maybe_async::{maybe_async, maybe_await};
 
-use super::sync::SyncedNewNotes;
+use super::SyncedNewNotes;
 use crate::{
     client_notes::NoteScreener,
     errors::{ClientError, StoreError},

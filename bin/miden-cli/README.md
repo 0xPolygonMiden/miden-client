@@ -1,6 +1,6 @@
 # Miden Client CLI
 
-This binary allows the user to interact with the Miden rollup via a simple command-line interface (CLI). It's a wrapper around the [Miden client](https://crates.io/crates/miden-client/0.3.1/dependencies) library exposing its functionality in order to create accounts, create and consume notes, all executed and proved using the Miden VM.
+This binary allows the user to interact with the Miden rollup via a simple command-line interface (CLI). It's a wrapper around the [Miden client](https://crates.io/crates/miden-client) library exposing its functionality in order to create accounts, create and consume notes, all executed and proved using the Miden VM.
 
 ## Usage
 
