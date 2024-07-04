@@ -10,6 +10,8 @@ pub use miden_tx::{
     DataStoreError, TransactionExecutorError, TransactionProverError,
 };
 
+use crate::transactions::transaction_request::TransactionRequestError;
+
 // CLIENT ERROR
 // ================================================================================================
 
@@ -28,6 +30,7 @@ pub enum ClientError {
     NodeRpcClientError(RpcError),
     ScreenerError(NoteScreenerError),
     StoreError(StoreError),
+    TransactionRequestError(TransactionRequestError),
     TransactionExecutorError(TransactionExecutorError),
     TransactionProvingError(TransactionProverError),
     ExistenceVerificationError(NoteId),
@@ -62,6 +65,9 @@ impl fmt::Display for ClientError {
             ClientError::NodeRpcClientError(err) => write!(f, "rpc api error: {err}"),
             ClientError::ScreenerError(err) => write!(f, "note screener error: {err}"),
             ClientError::StoreError(err) => write!(f, "store error: {err}"),
+            ClientError::TransactionRequestError(err) => {
+                write!(f, "transaction request error: {err}")
+            },
             ClientError::TransactionExecutorError(err) => {
                 write!(f, "transaction executor error: {err}")
             },
@@ -129,6 +135,12 @@ impl From<TransactionProverError> for ClientError {
 impl From<NoteScreenerError> for ClientError {
     fn from(err: NoteScreenerError) -> Self {
         Self::ScreenerError(err)
+    }
+}
+
+impl From<TransactionRequestError> for ClientError {
+    fn from(err: TransactionRequestError) -> Self {
+        Self::TransactionRequestError(err)
     }
 }
 

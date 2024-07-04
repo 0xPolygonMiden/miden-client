@@ -198,7 +198,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 let notes = notes.iter().map(|id| (*id, None)).collect();
 
                 let tx_script = self.tx_executor.compile_tx_script(program_ast, vec![], vec![])?;
-                Ok(TransactionRequest::new(account_id, notes, vec![], vec![], Some(tx_script)))
+                Ok(TransactionRequest::new(
+                    account_id,
+                    vec![],
+                    notes,
+                    vec![],
+                    vec![],
+                    Some(tx_script),
+                )?)
             },
             TransactionTemplate::MintFungibleAsset(asset, target_account_id, note_type) => {
                 self.build_mint_tx_request(asset, target_account_id, note_type)
@@ -231,6 +238,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let account_id = transaction_request.account_id();
         maybe_await!(self.tx_executor.load_account(account_id))
             .map_err(ClientError::TransactionExecutorError)?;
+
+        // If tx request contains unauthenticated_input_notes we should insert them
+        for unauthenticated_input_note in transaction_request.unauthenticated_input_notes() {
+            // TODO: run this as a single TX
+            self.store.insert_input_note(unauthenticated_input_note.clone().into())?;
+        }
 
         let block_num = maybe_await!(self.store.get_sync_height())?;
 
@@ -372,11 +385,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         Ok(TransactionRequest::new(
             payment_data.account_id(),
+            vec![],
             BTreeMap::new(),
             vec![created_note],
             vec![],
             Some(tx_script),
-        ))
+        )?)
     }
 
     /// Helper to build a [TransactionRequest] for Swap-type transactions easily.
@@ -422,11 +436,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         Ok(TransactionRequest::new(
             swap_data.account_id(),
+            vec![],
             BTreeMap::new(),
             vec![created_note],
             vec![payback_note_details],
             Some(tx_script),
-        ))
+        )?)
     }
 
     /// Helper to build a [TransactionRequest] for transaction to mint fungible tokens.
@@ -471,11 +486,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         Ok(TransactionRequest::new(
             asset.faucet_id(),
+            vec![],
             BTreeMap::new(),
             vec![created_note],
             vec![],
             Some(tx_script),
-        ))
+        )?)
     }
 }
 
