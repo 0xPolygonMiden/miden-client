@@ -29,7 +29,7 @@ use miden_objects::{
     assets::{Asset, FungibleAsset, TokenSymbol},
     crypto::rand::RpoRandomCoin,
     notes::{NoteId, NoteType},
-    transaction::InputNote,
+    transaction::{InputNote, TransactionId},
     Felt,
 };
 use rand::Rng;
@@ -91,7 +91,7 @@ pub fn create_test_store_path() -> std::path::PathBuf {
     temp_file
 }
 
-pub async fn execute_tx_and_sync(client: &mut TestClient, tx_request: TransactionRequest) {
+pub async fn execute_tx(client: &mut TestClient, tx_request: TransactionRequest) -> TransactionId {
     println!("Executing transaction...");
     let transaction_execution_result = client.new_transaction(tx_request).unwrap();
     let transaction_id = transaction_execution_result.executed_transaction().id();
@@ -104,6 +104,12 @@ pub async fn execute_tx_and_sync(client: &mut TestClient, tx_request: Transactio
         .submit_transaction(transaction_execution_result, proven_transaction)
         .await
         .unwrap();
+
+    transaction_id
+}
+
+pub async fn execute_tx_and_sync(client: &mut TestClient, tx_request: TransactionRequest) {
+    let transaction_id = execute_tx(client, tx_request).await;
 
     // wait until tx is committed
     loop {
