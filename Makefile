@@ -102,4 +102,4 @@ build: ## Builds the CLI binary and client library in release mode
 	cargo build --release --features $(FEATURES_CLI)
 
 build-wasm: ## Builds the client library for wasm32
-	cargo build --target wasm32-unknown-unknown --features async,idxdb,web-tonic --no-default-features --package miden-client
+	cargo build --target wasm32-unknown-unknown --features idxdb,web-tonic --no-default-features --package miden-client
