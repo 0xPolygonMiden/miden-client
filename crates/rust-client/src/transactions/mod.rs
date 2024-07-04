@@ -253,8 +253,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             .map(|(note_id, _)| *note_id)
             .filter(|note_id| !unauthenticated_note_ids.contains(note_id))
             .collect();
-        let authenticated_note_records =
-            self.store.get_input_notes(NoteFilter::List(&authenticated_input_note_ids))?;
+        let authenticated_note_records = maybe_await!(self
+            .store
+            .get_input_notes(NoteFilter::List(&authenticated_input_note_ids)))?;
         for authenticated_note_record in authenticated_note_records {
             if !matches!(authenticated_note_record.status(), NoteStatus::Committed { .. }) {
                 return Err(ClientError::TransactionRequestError(
@@ -266,7 +267,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         // If tx request contains unauthenticated_input_notes we should insert them
         for unauthenticated_input_note in transaction_request.unauthenticated_input_notes() {
             // TODO: run this as a single TX
-            self.store.insert_input_note(unauthenticated_input_note.clone().into())?;
+            maybe_await!(self.store.insert_input_note(unauthenticated_input_note.clone().into()))?;
         }
 
         let block_num = maybe_await!(self.store.get_sync_height())?;
