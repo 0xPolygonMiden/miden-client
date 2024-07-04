@@ -53,6 +53,11 @@ begin
     # drop the note script root
     dropw
     # => [NOTE_ARG_COMMITMENT] 
+    
+    # push data from the advice map into the advice stack
+    adv.push_mapval
+    # => [NOTE_ARG_COMMITMENT] 
+
     # memory address where to write the data
     push.{mem_address}
     # => [target_mem_addr, NOTE_ARG_COMMITMENT]
@@ -69,7 +74,7 @@ begin
     # => [data_mem_address]
     mem_loadw
     # => [NOTE_ARG_1]
-    
+
     push.{expected_note_arg_1} assert_eqw
     # => []
 
@@ -78,7 +83,7 @@ begin
     # => [data_mem_address_2]
     mem_loadw
     # => [NOTE_ARG_2]
-    
+
     push.{expected_note_arg_2} assert_eqw
     # => []
 
