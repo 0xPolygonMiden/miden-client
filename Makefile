@@ -50,7 +50,7 @@ doc-serve: doc-deps ## Serve documentation site
 # --- Rust documentation --------------------------------------------------------------------------
 
 .PHONY: doc
-doc: ## Generates & checks rust documentation
+doc: ## Generates & checks rust documentation. You'll need `jq` in order for this to run.
 	@cd crates/rust-client && \
 	FEATURES=$$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "miden-client") | .features | keys[] | select(. != "web-tonic")' | tr '\n' ',') && \
 	RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --features "$$FEATURES" --keep-going --release
@@ -102,4 +102,4 @@ build: ## Builds the CLI binary and client library in release mode
 	cargo build --release --features $(FEATURES_CLI)
 
 build-wasm: ## Builds the client library for wasm32
-	cargo build --target wasm32-unknown-unknown --features async --no-default-features --package miden-client
+	cargo build --target wasm32-unknown-unknown --features idxdb,web-tonic --no-default-features --package miden-client
