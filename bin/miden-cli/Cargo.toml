@@ -33,7 +33,7 @@ uuid = { version = "1.6", features = ["serde", "v4"] }
 clap = { version = "4.3", features = ["derive"] }
 comfy-table = { version = "7.1" }
 figment = { version = "0.10", features = ["toml", "env"] }
-miden-client = { path = "../../crates/rust-client", version = "0.3", features = ["sqlite", "tonic", "std"] }
+miden-client = { path = "../../crates/rust-client", version = "0.3", features = ["sqlite", "tonic"] }
 rand = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
