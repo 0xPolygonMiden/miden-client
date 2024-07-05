@@ -128,7 +128,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let data_store = ClientDataStore::new(store.clone());
         let authenticator = Some(Rc::new(authenticator));
-        let tx_executor = TransactionExecutor::new(data_store, authenticator);
+        let tx_executor =
+            TransactionExecutor::new(data_store, authenticator).with_debug_mode(in_debug_mode);
 
         Self { store, rng, rpc_api: api, tx_executor }
     }
