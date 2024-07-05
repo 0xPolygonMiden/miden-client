@@ -42,6 +42,7 @@ fn compile_tonic_client_proto(proto_dir: &Path) -> miette::Result<()> {
         .build_server(false)
         .file_descriptor_set_path(&file_descriptor_path)
         .skip_protoc_run()
+        .build_server(false)
         .out_dir(WEB_TONIC_CLIENT_PROTO_OUT_DIR)
         .compile_with_config(web_tonic_prost_config, protos, includes)
         .into_diagnostic()?;
@@ -49,6 +50,7 @@ fn compile_tonic_client_proto(proto_dir: &Path) -> miette::Result<()> {
     tonic_build::configure()
         .file_descriptor_set_path(&file_descriptor_path)
         .skip_protoc_run()
+        .build_server(false)
         .out_dir(TONIC_CLIENT_PROTO_OUT_DIR)
         .compile_with_config(prost_config, protos, includes)
         .into_diagnostic()?;
