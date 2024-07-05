@@ -3,7 +3,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use std::fmt;
+use core::fmt;
 
 use chrono::Utc;
 use miden_objects::{
