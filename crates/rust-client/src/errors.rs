@@ -10,6 +10,8 @@ pub use miden_tx::{
     DataStoreError, TransactionExecutorError, TransactionProverError,
 };
 
+use crate::transactions::transaction_request::TransactionRequestError;
+
 // CLIENT ERROR
 // ================================================================================================
 
@@ -18,6 +20,7 @@ pub enum ClientError {
     AccountError(AccountError),
     AssetError(AssetError),
     DataDeserializationError(DeserializationError),
+    ExistenceVerificationError(NoteId),
     HexParseError(HexParseError),
     ImportNewAccountWithoutSeed,
     MissingOutputNotes(Vec<NoteId>),
@@ -30,17 +33,20 @@ pub enum ClientError {
     StoreError(StoreError),
     TransactionExecutorError(TransactionExecutorError),
     TransactionProvingError(TransactionProverError),
-    ExistenceVerificationError(NoteId),
+    TransactionRequestError(TransactionRequestError),
 }
 
 impl fmt::Display for ClientError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ClientError::AccountError(err) => write!(f, "account error: {err}"),
+            ClientError::AssetError(err) => write!(f, "asset error: {err}"),
             ClientError::DataDeserializationError(err) => {
                 write!(f, "data deserialization error: {err}")
             },
-            ClientError::AssetError(err) => write!(f, "asset error: {err}"),
+            ClientError::ExistenceVerificationError(note_id) => {
+                write!(f, "The note with ID {note_id} doesn't exist in the chain")
+            },
             ClientError::HexParseError(err) => write!(f, "error turning array to Digest: {err}"),
             ClientError::ImportNewAccountWithoutSeed => write!(
                 f,
@@ -68,8 +74,8 @@ impl fmt::Display for ClientError {
             ClientError::TransactionProvingError(err) => {
                 write!(f, "transaction prover error: {err}")
             },
-            ClientError::ExistenceVerificationError(note_id) => {
-                write!(f, "The note with ID {note_id} doesn't exist in the chain")
+            ClientError::TransactionRequestError(err) => {
+                write!(f, "transaction request error: {err}")
             },
         }
     }
@@ -129,6 +135,12 @@ impl From<TransactionProverError> for ClientError {
 impl From<NoteScreenerError> for ClientError {
     fn from(err: NoteScreenerError) -> Self {
         Self::ScreenerError(err)
+    }
+}
+
+impl From<TransactionRequestError> for ClientError {
+    fn from(err: TransactionRequestError) -> Self {
+        Self::TransactionRequestError(err)
     }
 }
 

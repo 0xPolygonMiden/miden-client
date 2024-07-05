@@ -54,17 +54,8 @@ impl<S: Store> DataStore for ClientDataStore<S> {
 
             let note_record = input_note_records.get(note_id).expect("should have key");
 
-            match note_record.status() {
-                NoteStatus::Expected { .. } => {
-                    return Err(DataStoreError::InternalError(format!(
-                        "The input note ID {} does not contain a note origin.",
-                        note_id.to_hex()
-                    )));
-                },
-                NoteStatus::Consumed { .. } => {
-                    return Err(DataStoreError::NoteAlreadyConsumed(*note_id));
-                },
-                _ => {},
+            if let NoteStatus::Consumed { .. } = note_record.status() {
+                return Err(DataStoreError::NoteAlreadyConsumed(*note_id));
             }
         }
 
@@ -85,16 +76,13 @@ impl<S: Store> DataStore for ClientDataStore<S> {
 
             list_of_notes.push(input_note.clone());
 
-            let note_block_num = input_note
-                .proof()
-                .ok_or(DataStoreError::InternalError(
-                    "Input note doesn't have inclusion proof".to_string(),
-                ))?
-                .origin()
-                .block_num;
+            // Include block if note is authenticated
+            if let Some(inclusion_proof) = input_note.proof() {
+                let note_block_num = inclusion_proof.origin().block_num;
 
-            if note_block_num != block_num {
-                notes_blocks.push(note_block_num);
+                if note_block_num != block_num {
+                    notes_blocks.push(note_block_num);
+                }
             }
         }
 

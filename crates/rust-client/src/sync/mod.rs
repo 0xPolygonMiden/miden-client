@@ -399,17 +399,29 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let mut tracked_input_notes = vec![];
         let mut tracked_output_notes_proofs = vec![];
 
-        let expected_input_notes: BTreeMap<NoteId, InputNoteRecord> =
+        let mut expected_input_notes: BTreeMap<NoteId, InputNoteRecord> =
             maybe_await!(self.store.get_input_notes(NoteFilter::Expected))?
                 .into_iter()
                 .map(|n| (n.id(), n))
                 .collect();
 
-        let expected_output_notes: BTreeSet<NoteId> =
+        expected_input_notes.extend(
+            maybe_await!(self.store.get_input_notes(NoteFilter::Processing))?
+                .into_iter()
+                .map(|input_note| (input_note.id(), input_note)),
+        );
+
+        let mut expected_output_notes: BTreeSet<NoteId> =
             maybe_await!(self.store.get_output_notes(NoteFilter::Expected))?
                 .into_iter()
                 .map(|n| n.id())
                 .collect();
+
+        expected_output_notes.extend(
+            maybe_await!(self.store.get_output_notes(NoteFilter::Processing))?
+                .into_iter()
+                .map(|output_note| output_note.id()),
+        );
 
         for committed_note in committed_notes {
             if let Some(note_record) = expected_input_notes.get(committed_note.note_id()) {

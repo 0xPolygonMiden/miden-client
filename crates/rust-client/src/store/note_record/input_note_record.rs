@@ -112,6 +112,17 @@ impl InputNoteRecord {
     pub fn imported_tag(&self) -> Option<NoteTag> {
         self.imported_tag
     }
+
+    /// Returns whether the note record contains a valid inclusion proof correlated with its
+    /// status
+    pub fn is_authenticated(&self) -> bool {
+        match self.status {
+            NoteStatus::Expected { .. } => false,
+            NoteStatus::Committed { .. }
+            | NoteStatus::Processing { .. }
+            | NoteStatus::Consumed { .. } => self.inclusion_proof.is_some(),
+        }
+    }
 }
 
 impl From<&NoteDetails> for InputNoteRecord {
@@ -240,10 +251,13 @@ impl TryInto<InputNote> for InputNoteRecord {
                 let note = Note::new(self.assets, metadata, note_recipient);
                 Ok(InputNote::authenticated(note, proof.clone()))
             },
-
-            (None, _) => Err(ClientError::NoteRecordError(
-                "Input Note Record contains no inclusion proof".to_string(),
-            )),
+            (None, Some(metadata)) => {
+                let note_inputs = NoteInputs::new(self.details.inputs)?;
+                let note_recipient =
+                    NoteRecipient::new(self.details.serial_num, self.details.script, note_inputs);
+                let note = Note::new(self.assets, metadata, note_recipient);
+                Ok(InputNote::unauthenticated(note))
+            },
             (_, None) => Err(ClientError::NoteRecordError(
                 "Input Note Record contains no metadata".to_string(),
             )),
