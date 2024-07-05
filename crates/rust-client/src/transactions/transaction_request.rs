@@ -74,7 +74,7 @@ impl TransactionRequest {
             expected_partial_notes,
             tx_script,
             advice_map: advice_map.unwrap_or_default(),
-        }
+        })
     }
 
     // PUBLIC ACCESSORS

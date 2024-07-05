@@ -11,6 +11,7 @@ use miden_objects::{
 };
 use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, TransactionProver};
 use tracing::info;
+use transaction_request::TransactionRequestError;
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use self::transaction_request::{
@@ -20,7 +21,7 @@ use super::{rpc::NodeRpcClient, Client, FeltRng};
 use crate::{
     errors::ClientError,
     notes::NoteScreener,
-    store::{InputNoteRecord, Store, TransactionFilter},
+    store::{InputNoteRecord, NoteFilter, Store, TransactionFilter},
 };
 
 pub mod transaction_request;
@@ -199,19 +200,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
                 let tx_script = self.tx_executor.compile_tx_script(program_ast, vec![], vec![])?;
                 Ok(TransactionRequest::new(
-                    
                     account_id,
-                   
                     vec![],
                     notes,
-                   
                     vec![],
-                   
                     vec![],
-                   
                     Some(tx_script),
                     None,
-                ,
                 )?)
             },
             TransactionTemplate::MintFungibleAsset(asset, target_account_id, note_type) => {
@@ -416,7 +411,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             vec![],
             Some(tx_script),
             None,
-        ))
+        )?)
     }
 
     /// Helper to build a [TransactionRequest] for Swap-type transactions easily.
@@ -468,7 +463,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             vec![payback_note_details],
             Some(tx_script),
             None,
-        ))
+        )?)
     }
 
     /// Helper to build a [TransactionRequest] for transaction to mint fungible tokens.
@@ -519,7 +514,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             vec![],
             Some(tx_script),
             None,
-        ))
+        )?)
     }
 }
 
