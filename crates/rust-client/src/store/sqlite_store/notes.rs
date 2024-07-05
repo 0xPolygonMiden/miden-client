@@ -13,15 +13,11 @@ use miden_tx::utils::DeserializationError;
 use rusqlite::{named_params, params, params_from_iter, types::Value, Transaction};
 
 use super::SqliteStore;
-use crate::{
-    errors::StoreError,
-    store::{
-        note_record::{
-            NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED, NOTE_STATUS_EXPECTED,
-            NOTE_STATUS_PROCESSING,
-        },
-        InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord,
+use crate::store::{
+    note_record::{
+        NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED, NOTE_STATUS_EXPECTED, NOTE_STATUS_PROCESSING,
     },
+    InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord, StoreError,
 };
 
 fn insert_note_query(table_name: NoteTable) -> String {
@@ -362,9 +358,7 @@ pub(super) fn insert_input_note_tx(
             ":ignored": ignored,
             ":imported_tag": imported_tag,
         },
-    )
-    .map_err(|err| StoreError::QueryError(err.to_string()))
-    .map(|_| ())?;
+    )?;
 
     const QUERY: &str =
         "INSERT OR REPLACE INTO notes_scripts (script_hash, serialized_note_script) VALUES (?, ?)";
@@ -403,16 +397,12 @@ pub fn insert_output_note_tx(
             ":ignored": false,
             ":imported_tag": None::<u32>,
         },
-    )
-    .map_err(|err| StoreError::QueryError(err.to_string()))
-    .map(|_| ())?;
+    )?;
 
     if note_script_hash.is_some() {
         const QUERY: &str =
             "INSERT OR REPLACE INTO notes_scripts (script_hash, serialized_note_script) VALUES (?, ?)";
-        tx.execute(QUERY, params![note_script_hash, serialized_note_script,])
-            .map_err(|err| StoreError::QueryError(err.to_string()))
-            .map(|_| ())?;
+        tx.execute(QUERY, params![note_script_hash, serialized_note_script,])?;
     }
 
     Ok(())
@@ -433,8 +423,7 @@ pub fn update_note_consumer_tx_id(
             ":submitted_at": Utc::now().timestamp(),
             ":status": NOTE_STATUS_PROCESSING,
         },
-    )
-    .map_err(|err| StoreError::QueryError(err.to_string()))?;
+    )?;
 
     const UPDATE_OUTPUT_NOTES_QUERY: &str = "UPDATE output_notes SET status = :status, consumer_transaction_id = :consumer_transaction_id, submitted_at = :submitted_at WHERE note_id = :note_id;";
 
@@ -446,8 +435,7 @@ pub fn update_note_consumer_tx_id(
             ":submitted_at": Utc::now().timestamp(),
             ":status": NOTE_STATUS_PROCESSING,
         },
-    )
-    .map_err(|err| StoreError::QueryError(err.to_string()))?;
+    )?;
 
     Ok(())
 }

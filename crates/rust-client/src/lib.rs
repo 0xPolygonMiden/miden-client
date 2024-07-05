@@ -2,14 +2,13 @@ extern crate alloc;
 
 pub mod accounts;
 pub mod config;
-pub mod errors;
+mod errors;
 pub mod notes;
 pub mod rpc;
 pub mod store;
+mod store_authenticator;
 pub mod sync;
 pub mod transactions;
-
-mod store_authenticator;
 
 #[cfg(test)]
 pub mod mock;
@@ -52,6 +51,7 @@ pub mod crypto {
     };
 }
 
+pub use errors::{ClientError, IdPrefixFetchError};
 pub use miden_objects::{Felt, StarkField, Word, ONE, ZERO};
 
 pub mod utils {
@@ -152,7 +152,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     pub fn get_block_headers(
         &self,
         block_numbers: &[u32],
-    ) -> Result<Vec<(miden_objects::BlockHeader, bool)>, crate::errors::ClientError> {
+    ) -> Result<Vec<(miden_objects::BlockHeader, bool)>, crate::ClientError> {
         let result = winter_maybe_async::maybe_await!(self.store.get_block_headers(block_numbers))?;
         Ok(result)
     }

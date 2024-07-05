@@ -6,13 +6,12 @@ use miden_client::{
     accounts::AccountStub,
     auth::{StoreAuthenticator, TransactionAuthenticator},
     crypto::{FeltRng, RpoRandomCoin},
-    errors::{ClientError, IdPrefixFetchError},
     rpc::{NodeRpcClient, TonicRpcClient},
     store::{
         sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter,
         OutputNoteRecord, Store,
     },
-    Client, Felt,
+    Client, ClientError, Felt, IdPrefixFetchError,
 };
 use rand::Rng;
 

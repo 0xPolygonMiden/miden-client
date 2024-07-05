@@ -8,7 +8,7 @@ use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::JsFuture;
 
 use super::WebStore;
-use crate::{errors::StoreError, store::ChainMmrNodeFilter};
+use crate::store::{ChainMmrNodeFilter, StoreError};
 
 mod js_bindings;
 use js_bindings::*;

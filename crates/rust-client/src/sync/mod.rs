@@ -14,13 +14,12 @@ use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
-    errors::{ClientError, RpcError, StoreError},
     rpc::{
-        AccountDetails, CommittedNote, NodeRpcClient, NoteDetails, NullifierUpdate,
+        AccountDetails, CommittedNote, NodeRpcClient, NoteDetails, NullifierUpdate, RpcError,
         TransactionUpdate,
     },
-    store::{InputNoteRecord, NoteFilter, Store, TransactionFilter},
-    Client,
+    store::{InputNoteRecord, NoteFilter, Store, StoreError, TransactionFilter},
+    Client, ClientError,
 };
 
 mod block_headers;
@@ -578,8 +577,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 if let AccountDetails::Public(account, _) = account_details {
                     accounts_to_update.push(account);
                 } else {
-                    return Err(RpcError::InvalidAccountReceived(
-                        "should only get updates for onchain accounts".to_string(),
+                    return Err(RpcError::AccountUpdateForPrivateAccountReceived(
+                        account_details.account_id(),
                     )
                     .into());
                 }

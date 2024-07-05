@@ -4,7 +4,7 @@ use miden_objects::{crypto::merkle::InOrderIndex, BlockHeader, Digest};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen::JsValue;
 
-use crate::{errors::StoreError, store::web_store::chain_data::ChainMmrNodeIdxdbObject};
+use crate::store::{web_store::chain_data::ChainMmrNodeIdxdbObject, StoreError};
 
 pub struct SerializedBlockHeaderData {
     pub block_num: String,
