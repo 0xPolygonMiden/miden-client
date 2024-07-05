@@ -9,11 +9,10 @@ use winter_maybe_async::{maybe_async, maybe_await};
 
 use super::SyncedNewNotes;
 use crate::{
-    errors::{ClientError, StoreError},
     notes::NoteScreener,
     rpc::NodeRpcClient,
-    store::{ChainMmrNodeFilter, Store},
-    Client,
+    store::{ChainMmrNodeFilter, Store, StoreError},
+    Client, ClientError,
 };
 
 impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {

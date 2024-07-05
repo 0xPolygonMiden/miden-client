@@ -6,10 +6,7 @@ use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
 
 use super::WebStore;
-use crate::{
-    errors::StoreError,
-    store::{InputNoteRecord, NoteFilter, OutputNoteRecord},
-};
+use crate::store::{InputNoteRecord, NoteFilter, OutputNoteRecord, StoreError};
 
 mod js_bindings;
 use js_bindings::*;

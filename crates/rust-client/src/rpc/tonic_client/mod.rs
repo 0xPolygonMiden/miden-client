@@ -24,10 +24,7 @@ use super::{
     AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
     NoteDetails, NoteInclusionDetails, NullifierUpdate, StateSyncInfo, TransactionUpdate,
 };
-use crate::{
-    config::RpcConfig,
-    errors::{RpcConversionError, RpcError},
-};
+use crate::{config::RpcConfig, rpc::RpcError};
 
 #[rustfmt::skip]
 pub mod generated;
@@ -115,8 +112,7 @@ impl NodeRpcClient for TonicRpcClient {
         let block_header: BlockHeader = response
             .block_header
             .ok_or(RpcError::ExpectedFieldMissing("BlockHeader".into()))?
-            .try_into()
-            .map_err(|err: RpcConversionError| RpcError::ConversionFailure(err.to_string()))?;
+            .try_into()?;
 
         let mmr_proof = if include_mmr_proof {
             let forest = response
@@ -125,8 +121,7 @@ impl NodeRpcClient for TonicRpcClient {
             let merkle_path: MerklePath = response
                 .mmr_path
                 .ok_or(RpcError::ExpectedFieldMissing("MmrPath".into()))?
-                .try_into()
-                .map_err(|err: RpcConversionError| RpcError::ConversionFailure(err.to_string()))?;
+                .try_into()?;
 
             Some(MmrProof {
                 forest: forest as usize,
@@ -220,7 +215,7 @@ impl NodeRpcClient for TonicRpcClient {
         response.into_inner().try_into()
     }
 
-    /// Sends a [GetAccountDetailsRequest] to the Miden node, and extracts an [AccountDetails] from the
+    /// Sends a `GetAccountDetailsRequest` to the Miden node, and extracts an [AccountDetails] from the
     /// `GetAccountDetailsResponse` response.
     ///
     /// # Errors
@@ -345,7 +340,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                     .ok_or(RpcError::ExpectedFieldMissing("Nullifier".into()))?;
 
                 let nullifier_digest = Digest::try_from(nullifier_digest)
-                    .map_err(|err| RpcError::ConversionFailure(err.to_string()))?;
+                    .map_err(|err| RpcError::DeserializationError(err.to_string()))?;
 
                 let nullifier_block_num = nul_update.block_num;
 
@@ -364,7 +359,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                     RpcError::ExpectedFieldMissing("TransactionSummary.TransactionId".into()),
                 )?;
                 let transaction_id = TransactionId::try_from(transaction_id)
-                    .map_err(|err| RpcError::ConversionFailure(err.to_string()))?;
+                    .map_err(|err| RpcError::DeserializationError(err.to_string()))?;
 
                 let transaction_block_num = transaction_summary.block_num;
 
@@ -372,7 +367,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                     RpcError::ExpectedFieldMissing("TransactionSummary.TransactionId".into()),
                 )?;
                 let transaction_account_id = AccountId::try_from(transaction_account_id)
-                    .map_err(|err| RpcError::ConversionFailure(err.to_string()))?;
+                    .map_err(|err| RpcError::DeserializationError(err.to_string()))?;
 
                 Ok(TransactionUpdate {
                     transaction_id,

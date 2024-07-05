@@ -5,12 +5,11 @@ use miden_client::{
     assets::Asset,
     auth::TransactionAuthenticator,
     crypto::{Digest, FeltRng},
-    errors::{ClientError, IdPrefixFetchError},
     notes::{NoteConsumability, NoteInputs, NoteMetadata},
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
     transactions::known_script_roots::{P2ID, P2IDR, SWAP},
-    Client,
+    Client, ClientError, IdPrefixFetchError,
 };
 
 use crate::{

@@ -17,12 +17,9 @@ use miden_objects::{
 use miden_tx::utils::Serializable;
 use tonic_web_wasm_client::Client;
 
-use crate::{
-    errors::{RpcConversionError, RpcError},
-    rpc::{
-        AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
-        NoteDetails, NoteInclusionDetails, NullifierUpdate, StateSyncInfo, TransactionUpdate,
-    },
+use crate::rpc::{
+    AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
+    NoteDetails, NoteInclusionDetails, NullifierUpdate, RpcError, StateSyncInfo, TransactionUpdate,
 };
 
 pub mod generated;
@@ -90,8 +87,7 @@ impl NodeRpcClient for WebTonicRpcClient {
         let block_header: BlockHeader = response
             .block_header
             .ok_or(RpcError::ExpectedFieldMissing("BlockHeader".into()))?
-            .try_into()
-            .map_err(|err: RpcConversionError| RpcError::ConversionFailure(err.to_string()))?;
+            .try_into()?;
 
         let mmr_proof = if include_mmr_proof {
             let forest = response
@@ -100,8 +96,7 @@ impl NodeRpcClient for WebTonicRpcClient {
             let merkle_path: MerklePath = response
                 .mmr_path
                 .ok_or(RpcError::ExpectedFieldMissing("MmrPath".into()))?
-                .try_into()
-                .map_err(|err: RpcConversionError| RpcError::ConversionFailure(err.to_string()))?;
+                .try_into()?;
 
             Some(MmrProof {
                 forest: forest as usize,
@@ -322,8 +317,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                     .clone()
                     .ok_or(RpcError::ExpectedFieldMissing("Nullifier".into()))?;
 
-                let nullifier_digest = Digest::try_from(nullifier_digest)
-                    .map_err(|err| RpcError::ConversionFailure(err.to_string()))?;
+                let nullifier_digest = Digest::try_from(nullifier_digest)?;
 
                 let nullifier_block_num = nul_update.block_num;
 
@@ -341,16 +335,14 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                 let transaction_id = transaction_summary.transaction_id.clone().ok_or(
                     RpcError::ExpectedFieldMissing("TransactionSummary.TransactionId".into()),
                 )?;
-                let transaction_id = TransactionId::try_from(transaction_id)
-                    .map_err(|err| RpcError::ConversionFailure(err.to_string()))?;
+                let transaction_id = TransactionId::try_from(transaction_id)?;
 
                 let transaction_block_num = transaction_summary.block_num;
 
                 let transaction_account_id = transaction_summary.account_id.clone().ok_or(
                     RpcError::ExpectedFieldMissing("TransactionSummary.TransactionId".into()),
                 )?;
-                let transaction_account_id = AccountId::try_from(transaction_account_id)
-                    .map_err(|err| RpcError::ConversionFailure(err.to_string()))?;
+                let transaction_account_id = AccountId::try_from(transaction_account_id)?;
 
                 Ok(TransactionUpdate {
                     transaction_id,

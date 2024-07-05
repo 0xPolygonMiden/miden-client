@@ -2,6 +2,9 @@
 
 use core::fmt;
 
+mod errors;
+pub(crate) use errors::RpcConversionError;
+pub use errors::RpcError;
 use miden_objects::{
     accounts::{Account, AccountId},
     crypto::merkle::{MerklePath, MmrDelta, MmrProof},
@@ -10,14 +13,12 @@ use miden_objects::{
     BlockHeader, Digest,
 };
 
-use crate::errors::RpcError;
-
 #[cfg(any(feature = "tonic", feature = "web-tonic"))]
 mod domain;
 
 #[cfg(feature = "tonic")]
 mod tonic_client;
-#[cfg(feature = "testing")]
+#[cfg(test)]
 pub use tonic_client::generated;
 #[cfg(feature = "tonic")]
 pub use tonic_client::TonicRpcClient;
@@ -63,6 +64,15 @@ impl NoteDetails {
 pub enum AccountDetails {
     OffChain(AccountId, AccountUpdateSummary),
     Public(Account, AccountUpdateSummary),
+}
+
+impl AccountDetails {
+    pub fn account_id(&self) -> AccountId {
+        match self {
+            Self::OffChain(account_id, _) => *account_id,
+            Self::Public(account, _) => account.id(),
+        }
+    }
 }
 
 /// Contains public updated information about the account requested

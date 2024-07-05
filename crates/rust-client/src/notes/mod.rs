@@ -4,19 +4,28 @@ use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
-    errors::{ClientError, StoreError},
     rpc::{NodeRpcClient, NoteDetails},
-    store::{InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord, Store},
-    Client,
+    store::{
+        InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord, Store,
+        StoreError,
+    },
+    Client, ClientError,
 };
 
 mod note_screener;
-pub use miden_objects::notes::{
-    Note, NoteAssets, NoteExecutionHint, NoteFile, NoteId, NoteInclusionProof, NoteInputs,
-    NoteMetadata, NoteRecipient, NoteScript, NoteTag, NoteType, Nullifier,
+
+// RE-EXPORTS
+// ================================================================================================
+
+pub use miden_objects::{
+    notes::{
+        Note, NoteAssets, NoteExecutionHint, NoteFile, NoteId, NoteInclusionProof, NoteInputs,
+        NoteMetadata, NoteRecipient, NoteScript, NoteTag, NoteType, Nullifier,
+    },
+    NoteError,
 };
 pub(crate) use note_screener::NoteScreener;
-pub use note_screener::{NoteConsumability, NoteRelevance};
+pub use note_screener::{NoteConsumability, NoteRelevance, NoteScreenerError};
 
 // MIDEN CLIENT
 // ================================================================================================
