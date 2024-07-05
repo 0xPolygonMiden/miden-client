@@ -1,5 +1,6 @@
 # Changelog
 
+* [BREAKING] Added unauthenticated notes to `TransactionRequest` and necessary changes to consume unauthenticated notes with the client (#417).
 * Added advice map to `TransactionRequest` and updated integration test with example using the advice map to provide more than a single `Word` as `NoteArgs` for a note (#422).
 * Restructured the client crate module organization (#417).
 * Moved CLI tests to the `miden-cli` crate (#413).

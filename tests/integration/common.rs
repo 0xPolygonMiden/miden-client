@@ -29,7 +29,7 @@ use miden_objects::{
     assets::{Asset, FungibleAsset, TokenSymbol},
     crypto::rand::RpoRandomCoin,
     notes::{NoteId, NoteType},
-    transaction::InputNote,
+    transaction::{InputNote, TransactionId},
     Felt,
 };
 use rand::Rng;
@@ -91,7 +91,7 @@ pub fn create_test_store_path() -> std::path::PathBuf {
     temp_file
 }
 
-pub async fn execute_tx_and_sync(client: &mut TestClient, tx_request: TransactionRequest) {
+pub async fn execute_tx(client: &mut TestClient, tx_request: TransactionRequest) -> TransactionId {
     println!("Executing transaction...");
     let transaction_execution_result = client.new_transaction(tx_request).unwrap();
     let transaction_id = transaction_execution_result.executed_transaction().id();
@@ -105,6 +105,15 @@ pub async fn execute_tx_and_sync(client: &mut TestClient, tx_request: Transactio
         .await
         .unwrap();
 
+    transaction_id
+}
+
+pub async fn execute_tx_and_sync(client: &mut TestClient, tx_request: TransactionRequest) {
+    let transaction_id = execute_tx(client, tx_request).await;
+    wait_for_tx(client, transaction_id).await;
+}
+
+pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId) {
     // wait until tx is committed
     loop {
         println!("Syncing State...");
@@ -224,9 +233,6 @@ pub async fn mint_note(
     faucet_account_id: AccountId,
     note_type: NoteType,
 ) -> InputNote {
-    let (regular_account, _seed) = client.get_account(basic_account_id).unwrap();
-    assert_eq!(regular_account.vault().assets().count(), 0);
-
     // Create a Mint Tx for 1000 units of our fungible asset
     let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
     let tx_template =
@@ -295,6 +301,6 @@ pub async fn assert_note_cannot_be_consumed_twice(
             ),
         )) => {},
         Ok(_) => panic!("Double-spend error: Note should not be consumable!"),
-        _ => panic!("Unexpected error: {}", note_to_consume_id.to_hex()),
+        err => panic!("Unexpected error {:?} for note ID: {}", err, note_to_consume_id.to_hex()),
     }
 }

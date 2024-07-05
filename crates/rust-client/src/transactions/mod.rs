@@ -11,6 +11,7 @@ use miden_objects::{
 };
 use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, TransactionProver};
 use tracing::info;
+use transaction_request::TransactionRequestError;
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use self::transaction_request::{
@@ -20,7 +21,7 @@ use super::{rpc::NodeRpcClient, Client, FeltRng};
 use crate::{
     errors::ClientError,
     notes::NoteScreener,
-    store::{InputNoteRecord, Store, TransactionFilter},
+    store::{InputNoteRecord, NoteFilter, Store, TransactionFilter},
 };
 
 pub mod transaction_request;
@@ -40,7 +41,7 @@ pub use transaction_request::known_script_roots;
 /// `output_notes` that the client has to store as input notes, based on the NoteScreener
 /// output from filtering the transaction's output notes or some partial note we expect to receive
 /// in the future (you can check at swap notes for an example of this).
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TransactionResult {
     transaction: ExecutedTransaction,
     relevant_notes: Vec<InputNoteRecord>,
@@ -200,12 +201,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 let tx_script = self.tx_executor.compile_tx_script(program_ast, vec![], vec![])?;
                 Ok(TransactionRequest::new(
                     account_id,
+                    vec![],
                     notes,
                     vec![],
                     vec![],
                     Some(tx_script),
                     None,
-                ))
+                )?)
             },
             TransactionTemplate::MintFungibleAsset(asset, target_account_id, note_type) => {
                 self.build_mint_tx_request(asset, target_account_id, note_type)
@@ -239,6 +241,30 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         maybe_await!(self.tx_executor.load_account(account_id))
             .map_err(ClientError::TransactionExecutorError)?;
 
+        // Ensure authenticated notes have their inclusion proofs (a.k.a they're in a committed
+        // state). TODO: we should consider refactoring this in a way we can handle this in
+        // `get_transaction_inputs`
+        let authenticated_input_note_ids: Vec<NoteId> =
+            transaction_request.authenticated_input_note_ids().collect::<Vec<_>>();
+
+        let authenticated_note_records = maybe_await!(self
+            .store
+            .get_input_notes(NoteFilter::List(&authenticated_input_note_ids)))?;
+
+        for authenticated_note_record in authenticated_note_records {
+            if !authenticated_note_record.is_authenticated() {
+                return Err(ClientError::TransactionRequestError(
+                    TransactionRequestError::InputNoteNotAuthenticated,
+                ));
+            }
+        }
+
+        // If tx request contains unauthenticated_input_notes we should insert them
+        for unauthenticated_input_note in transaction_request.unauthenticated_input_notes() {
+            // TODO: run this as a single TX
+            maybe_await!(self.store.insert_input_note(unauthenticated_input_note.clone().into()))?;
+        }
+
         let block_num = maybe_await!(self.store.get_sync_height())?;
 
         let note_ids = transaction_request.get_input_note_ids();
@@ -254,7 +280,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         ))?;
 
         // Check that the expected output notes matches the transaction outcome.
-        // We comprare authentication hashes where possible since that involves note IDs + metadata
+        // We compare authentication hashes where possible since that involves note IDs + metadata
         // (as opposed to just note ID which remains the same regardless of metadata)
         // We also do the check for partial output notes
         let tx_note_auth_hashes: BTreeSet<Digest> =
@@ -379,12 +405,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         Ok(TransactionRequest::new(
             payment_data.account_id(),
+            vec![],
             BTreeMap::new(),
             vec![created_note],
             vec![],
             Some(tx_script),
             None,
-        ))
+        )?)
     }
 
     /// Helper to build a [TransactionRequest] for Swap-type transactions easily.
@@ -430,12 +457,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         Ok(TransactionRequest::new(
             swap_data.account_id(),
+            vec![],
             BTreeMap::new(),
             vec![created_note],
             vec![payback_note_details],
             Some(tx_script),
             None,
-        ))
+        )?)
     }
 
     /// Helper to build a [TransactionRequest] for transaction to mint fungible tokens.
@@ -480,12 +508,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         Ok(TransactionRequest::new(
             asset.faucet_id(),
+            vec![],
             BTreeMap::new(),
             vec![created_note],
             vec![],
             Some(tx_script),
             None,
-        ))
+        )?)
     }
 }
 

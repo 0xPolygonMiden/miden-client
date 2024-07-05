@@ -191,6 +191,8 @@ miden consume-notes --account <some-account-id> 0x70b7ecb 0x80b7ecb
 
 Additionally, you can optionally not specify note IDs, in which case any note that is known to be consumable by the executor account ID will be consumed.
 
+Either `Expected` or `Committed` notes may be consumed by this command, changing their state to `Processing`. It's status will be updated to `Consumed` after the next sync.
+
 #### `send`
 
 Sends assets to another account. Sender Account creates a note that a target Account ID can consume. The asset is identifed by the tuple `(FAUCET ID, AMOUNT)`. The note can be configured to be recallable making the sender able to consume it after a height is reached.
@@ -253,7 +255,7 @@ Export input note data to a binary file .
 The user needs to specify how the note should be exported via the `--export-type` flag. The following options are available:
 - `id`: Only the note ID is exported. When importing, if the note ID is already tracked by the client, the note will be updated with missing information fetched from the node, this works for both public and private notes. If the note isn't tracked and the note is public, the whole note is fetched from the node and start being tracked.
 - `full`: The note is exported with all of its information (metadata and inclusion proof). When importing, the note is considered committed. The note may not be consumed directly after importing as it's block header will not be stored in the client. The block header will be fetched during the next sync.
-- `partial`: The note is exported with minimal information and may be imported even if the note is not committed on chain. When importing, the note will be considered to be "expected" and will be updated after a sync when the original note is committed.
+- `partial`: The note is exported with minimal information and may be imported even if the note is not committed on chain. When importing, the note will be considered to be "expected" and will be updated after a sync when the original note is committed. The note may not be consumed directly after importing as its metadata will not be stored in the client. The metadata will be fetched during the next sync.
 
 #### `import`
 

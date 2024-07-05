@@ -180,7 +180,7 @@ async fn test_p2idr_transfer_consumed_by_target() {
     );
     println!("Running P2IDR tx...");
     let tx_request = client.build_transaction_request(tx_template).unwrap();
-    execute_tx_and_sync(&mut client, tx_request).await;
+    execute_tx_and_sync(&mut client, tx_request.clone()).await;
 
     // Check that note is committed for the second account to consume
     println!("Fetching Committed Notes...");
@@ -188,11 +188,11 @@ async fn test_p2idr_transfer_consumed_by_target() {
     assert!(!notes.is_empty());
 
     // Make the `to_account_id` consume P2IDR note
-    let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![notes[0].id()]);
+    let note_id = tx_request.expected_output_notes().first().unwrap().id();
+    let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![note_id]);
     println!("Consuming Note...");
     let tx_request = client.build_transaction_request(tx_template).unwrap();
     execute_tx_and_sync(&mut client, tx_request).await;
-
     let (regular_account, seed) = client.get_account(from_account_id).unwrap();
     // The seed should not be retrieved due to the account not being new
     assert!(!regular_account.is_new() && seed.is_none());
@@ -216,7 +216,7 @@ async fn test_p2idr_transfer_consumed_by_target() {
         panic!("Error: Account should have a fungible asset");
     }
 
-    assert_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].id()).await;
+    assert_note_cannot_be_consumed_twice(&mut client, to_account_id, note_id).await;
 }
 
 #[tokio::test]
@@ -851,4 +851,68 @@ async fn test_update_ignored_tag() {
     assert_eq!(client_2.get_input_notes(NoteFilter::All).unwrap().len(), 1);
     assert_eq!(client_2.get_input_notes(NoteFilter::Ignored).unwrap().len(), 0);
     assert_eq!(client_2.get_input_notes(NoteFilter::Expected).unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn test_consume_expected_note() {
+    let mut client = create_test_client();
+    wait_for_node(&mut client).await;
+
+    let (_, _, faucet_account_stub) = setup(&mut client, AccountStorageType::OffChain).await;
+
+    let mut unauth_client = create_test_client();
+    // Create regular accounts
+    let (target_basic_account, _) = unauth_client
+        .new_account(AccountTemplate::BasicWallet {
+            mutable_code: false,
+            storage_type: AccountStorageType::OffChain,
+        })
+        .unwrap();
+    unauth_client.sync_state().await.unwrap();
+    let to_account_id = target_basic_account.id();
+    let faucet_account_id = faucet_account_stub.id();
+
+    // First Mint necesary Token
+    let fungible_asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
+    let tx_template =
+        TransactionTemplate::MintFungibleAsset(fungible_asset, to_account_id, NoteType::OffChain);
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+
+    println!("Minting Asset");
+    execute_tx_and_sync(&mut client, tx_request.clone()).await;
+
+    // Consume notes with target account
+    let note = tx_request.expected_output_notes().first().unwrap();
+    let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![note.id()]);
+
+    println!("Executing consume notes tx without sync...");
+    let mut tx_request = client.build_transaction_request(tx_template).unwrap();
+    // set the note as unauthenticated
+    tx_request.set_unauthenticated_input_notes(vec![note.clone()]);
+    let tx_id = execute_tx(&mut unauth_client, tx_request).await;
+
+    // Check that note is expected for the account to consume
+    println!("Fetching processing notes...");
+    let notes = unauth_client.get_input_notes(NoteFilter::Processing).unwrap();
+    assert!(!notes.is_empty());
+
+    wait_for_tx(&mut unauth_client, tx_id).await;
+
+    // Ensure we have nothing else to consume
+    let current_notes = unauth_client.get_input_notes(NoteFilter::Expected).unwrap();
+    assert!(current_notes.is_empty());
+
+    // The note now should be consumed
+    let current_notes = unauth_client.get_input_notes(NoteFilter::Consumed).unwrap();
+    assert!(!current_notes.is_empty());
+
+    let (regular_account, _seed) = unauth_client.get_account(to_account_id).unwrap();
+    assert_eq!(regular_account.vault().assets().count(), 1);
+    let asset = regular_account.vault().assets().next().unwrap();
+
+    if let Asset::Fungible(fungible_asset) = asset {
+        assert_eq!(fungible_asset.amount(), TRANSFER_AMOUNT);
+    } else {
+        panic!("Error: Account should have a fungible asset");
+    }
 }
