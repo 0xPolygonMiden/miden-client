@@ -9,8 +9,8 @@ use winter_maybe_async::{maybe_async, maybe_await};
 
 use super::SyncedNewNotes;
 use crate::{
-    client_notes::NoteScreener,
     errors::{ClientError, StoreError},
+    notes::NoteScreener,
     rpc::NodeRpcClient,
     store::{ChainMmrNodeFilter, Store},
     Client,

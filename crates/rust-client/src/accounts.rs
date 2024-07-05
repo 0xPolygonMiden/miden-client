@@ -1,9 +1,10 @@
 use miden_lib::AuthScheme;
+pub use miden_objects::accounts::{
+    Account, AccountCode, AccountData, AccountId, AccountStorage, AccountStorageType, AccountStub,
+    AccountType, StorageSlotType,
+};
 use miden_objects::{
-    accounts::{
-        Account, AccountData, AccountId, AccountStorageType, AccountStub, AccountType,
-        AuthSecretKey,
-    },
+    accounts::AuthSecretKey,
     assets::TokenSymbol,
     crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
     Felt, Word,

@@ -18,18 +18,19 @@ use self::transaction_request::{
 };
 use super::{rpc::NodeRpcClient, Client, FeltRng};
 use crate::{
-    client_notes::NoteScreener,
     errors::ClientError,
+    notes::NoteScreener,
     store::{InputNoteRecord, Store, TransactionFilter},
 };
 
 pub mod transaction_request;
 
-use miden_objects::transaction::{
+pub use miden_objects::transaction::{
     ExecutedTransaction, InputNote, OutputNote, OutputNotes, ProvenTransaction, TransactionId,
     TransactionScript,
 };
-use miden_tx::ScriptTarget;
+pub use miden_tx::{DataStoreError, ScriptTarget, TransactionExecutorError};
+
 // TRANSACTION RESULT
 // --------------------------------------------------------------------------------------------
 

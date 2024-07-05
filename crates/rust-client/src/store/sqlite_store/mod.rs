@@ -15,8 +15,8 @@ use super::{
     ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store, TransactionFilter,
 };
 use crate::{
-    client_sync::StateSyncUpdate,
     errors::StoreError,
+    sync::StateSyncUpdate,
     transactions::{TransactionRecord, TransactionResult},
 };
 
