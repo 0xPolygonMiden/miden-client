@@ -7,7 +7,7 @@ use winter_maybe_async::{maybe_async, maybe_await};
 use crate::{
     errors::{InvalidNoteInputsError, NoteScreenerError},
     store::Store,
-    transactions::transaction_request::known_script_roots::{P2ID, P2IDR, SWAP},
+    transactions::known_script_roots::{P2ID, P2IDR, SWAP},
 };
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]

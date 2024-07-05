@@ -15,7 +15,7 @@ pub use miden_objects::notes::{
     Note, NoteAssets, NoteExecutionHint, NoteFile, NoteId, NoteInclusionProof, NoteInputs,
     NoteMetadata, NoteRecipient, NoteScript, NoteTag, NoteType, Nullifier,
 };
-pub(crate) use note_screener::*;
+pub(crate) use note_screener::NoteScreener;
 pub use note_screener::{NoteConsumability, NoteRelevance};
 
 // MIDEN CLIENT
