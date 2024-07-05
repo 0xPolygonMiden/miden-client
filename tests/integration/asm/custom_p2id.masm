@@ -3,7 +3,7 @@
 # This note script asserts that the note args are exactly the same as passed 
 # (currently defined as {expected_note_arg_1} and {expected_note_arg_2}).
 # Since the args are too big to fit in a single note arg, we provide them via advice inputs and 
-# address them via their commitment
+# address them via their commitment (noted as NOTE_ARG)
 # This note script is based off of the P2ID note script because notes currently need to have 
 # assets, otherwise it could have been boiled down to the assert. 
 
@@ -52,11 +52,11 @@ end
 begin
     # drop the note script root
     dropw
-    # => [NOTE_ARG_COMMITMENT] 
+    # => [NOTE_ARG] 
     
     # push data from the advice map into the advice stack
     adv.push_mapval
-    # => [NOTE_ARG_COMMITMENT] 
+    # => [NOTE_ARG] 
 
     # memory address where to write the data
     push.{mem_address}
