@@ -20,7 +20,7 @@ use super::{rpc::NodeRpcClient, Client, FeltRng};
 use crate::{
     errors::ClientError,
     note_screener::NoteScreener,
-    store::{InputNoteRecord, NoteFilter, NoteStatus, Store, TransactionFilter},
+    store::{InputNoteRecord, NoteFilter, Store, TransactionFilter},
     transactions::transaction_request::TransactionRequestError,
 };
 

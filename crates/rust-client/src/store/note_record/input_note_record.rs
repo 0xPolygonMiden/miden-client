@@ -117,10 +117,10 @@ impl InputNoteRecord {
     /// status
     pub fn is_authenticated(&self) -> bool {
         match self.status {
-            NoteStatus::Expected { .. } => return false,
+            NoteStatus::Expected { .. } => false,
             NoteStatus::Committed { .. }
             | NoteStatus::Processing { .. }
-            | NoteStatus::Consumed { .. } => return self.inclusion_proof.is_some(),
+            | NoteStatus::Consumed { .. } => self.inclusion_proof.is_some(),
         }
     }
 }
