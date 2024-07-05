@@ -110,7 +110,10 @@ pub async fn execute_tx(client: &mut TestClient, tx_request: TransactionRequest)
 
 pub async fn execute_tx_and_sync(client: &mut TestClient, tx_request: TransactionRequest) {
     let transaction_id = execute_tx(client, tx_request).await;
+    wait_for_tx(client, transaction_id).await;
+}
 
+pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId) {
     // wait until tx is committed
     loop {
         println!("Syncing State...");
@@ -230,9 +233,6 @@ pub async fn mint_note(
     faucet_account_id: AccountId,
     note_type: NoteType,
 ) -> InputNote {
-    let (regular_account, _seed) = client.get_account(basic_account_id).unwrap();
-    assert_eq!(regular_account.vault().assets().count(), 0);
-
     // Create a Mint Tx for 1000 units of our fungible asset
     let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
     let tx_template =

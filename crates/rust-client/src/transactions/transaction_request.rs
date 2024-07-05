@@ -83,6 +83,11 @@ impl TransactionRequest {
         &self.unauthenticated_input_notes
     }
 
+    #[cfg(feature = "testing")]
+    pub fn set_unauthenticated_input_notes(&mut self, unauthenticated_input_notes: Vec<Note>) {
+        self.unauthenticated_input_notes = unauthenticated_input_notes;
+    }
+
     pub fn input_notes(&self) -> &BTreeMap<NoteId, Option<NoteArgs>> {
         &self.input_notes
     }
