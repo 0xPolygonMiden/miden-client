@@ -4,11 +4,11 @@ use miden_objects::{
 };
 
 use super::MissingFieldHelper;
-use crate::rpc::errors::RpcConversionError;
 #[cfg(feature = "tonic")]
 use crate::rpc::tonic_client::generated::note::NoteMetadata as ProtoNoteMetadata;
 #[cfg(feature = "web-tonic")]
 use crate::rpc::web_tonic_client::generated::note::NoteMetadata as ProtoNoteMetadata;
+use crate::rpc::RpcConversionError;
 
 impl TryFrom<ProtoNoteMetadata> for NoteMetadata {
     type Error = RpcConversionError;

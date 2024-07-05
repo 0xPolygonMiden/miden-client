@@ -3,6 +3,7 @@
 use core::fmt;
 
 mod errors;
+pub(crate) use errors::RpcConversionError;
 pub use errors::RpcError;
 use miden_objects::{
     accounts::{Account, AccountId},

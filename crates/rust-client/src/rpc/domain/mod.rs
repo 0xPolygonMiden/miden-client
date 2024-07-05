@@ -1,6 +1,6 @@
 use core::any::type_name;
 
-use crate::rpc::errors::RpcConversionError;
+use crate::rpc::RpcConversionError;
 
 pub mod accounts;
 pub mod blocks;

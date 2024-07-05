@@ -24,7 +24,7 @@ use super::{
     AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
     NoteDetails, NoteInclusionDetails, NullifierUpdate, StateSyncInfo, TransactionUpdate,
 };
-use crate::{config::RpcConfig, rpc::errors::RpcError};
+use crate::{config::RpcConfig, rpc::RpcError};
 
 #[rustfmt::skip]
 pub mod generated;

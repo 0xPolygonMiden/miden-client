@@ -18,9 +18,8 @@ use miden_tx::utils::Serializable;
 use tonic_web_wasm_client::Client;
 
 use crate::rpc::{
-    errors::RpcError, AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient,
-    NodeRpcClientEndpoint, NoteDetails, NoteInclusionDetails, NullifierUpdate, StateSyncInfo,
-    TransactionUpdate,
+    AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
+    NoteDetails, NoteInclusionDetails, NullifierUpdate, RpcError, StateSyncInfo, TransactionUpdate,
 };
 
 pub mod generated;
