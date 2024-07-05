@@ -60,7 +60,7 @@ impl TransactionRequest {
             .iter()
             .any(|note| !input_notes.contains_key(&note.id()))
         {
-            return Err(TransactionRequestError::NotesMapNotIncludingUnauthenticatedNotes);
+            return Err(TransactionRequestError::InputNotesMapMissingUnauthenticatedNotes);
         }
 
         Ok(Self {
@@ -140,13 +140,13 @@ impl From<TransactionRequest> for TransactionArgs {
 
 #[derive(Debug)]
 pub enum TransactionRequestError {
-    NotesMapNotIncludingUnauthenticatedNotes,
+    InputNotesMapMissingUnauthenticatedNotes,
     InputNoteNotAuthenticated,
 }
 impl fmt::Display for TransactionRequestError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::NotesMapNotIncludingUnauthenticatedNotes => write!(f, "The input notes map should include keys for all provided unauthenticated input notes"),
+            Self::InputNotesMapMissingUnauthenticatedNotes => write!(f, "The input notes map should include keys for all provided unauthenticated input notes"),
             Self::InputNoteNotAuthenticated => write!(f, "Every authenticated note to be consumed should be committed and contain a valid inclusion proof"),
         }
     }
