@@ -20,6 +20,7 @@ pub enum ClientError {
     AccountError(AccountError),
     AssetError(AssetError),
     DataDeserializationError(DeserializationError),
+    ExistenceVerificationError(NoteId),
     HexParseError(HexParseError),
     ImportNewAccountWithoutSeed,
     MissingOutputNotes(Vec<NoteId>),
@@ -30,20 +31,22 @@ pub enum ClientError {
     NodeRpcClientError(RpcError),
     ScreenerError(NoteScreenerError),
     StoreError(StoreError),
-    TransactionRequestError(TransactionRequestError),
     TransactionExecutorError(TransactionExecutorError),
     TransactionProvingError(TransactionProverError),
-    ExistenceVerificationError(NoteId),
+    TransactionRequestError(TransactionRequestError),
 }
 
 impl fmt::Display for ClientError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ClientError::AccountError(err) => write!(f, "account error: {err}"),
+            ClientError::AssetError(err) => write!(f, "asset error: {err}"),
             ClientError::DataDeserializationError(err) => {
                 write!(f, "data deserialization error: {err}")
             },
-            ClientError::AssetError(err) => write!(f, "asset error: {err}"),
+            ClientError::ExistenceVerificationError(note_id) => {
+                write!(f, "The note with ID {note_id} doesn't exist in the chain")
+            },
             ClientError::HexParseError(err) => write!(f, "error turning array to Digest: {err}"),
             ClientError::ImportNewAccountWithoutSeed => write!(
                 f,
@@ -65,17 +68,14 @@ impl fmt::Display for ClientError {
             ClientError::NodeRpcClientError(err) => write!(f, "rpc api error: {err}"),
             ClientError::ScreenerError(err) => write!(f, "note screener error: {err}"),
             ClientError::StoreError(err) => write!(f, "store error: {err}"),
-            ClientError::TransactionRequestError(err) => {
-                write!(f, "transaction request error: {err}")
-            },
             ClientError::TransactionExecutorError(err) => {
                 write!(f, "transaction executor error: {err}")
             },
             ClientError::TransactionProvingError(err) => {
                 write!(f, "transaction prover error: {err}")
             },
-            ClientError::ExistenceVerificationError(note_id) => {
-                write!(f, "The note with ID {note_id} doesn't exist in the chain")
+            ClientError::TransactionRequestError(err) => {
+                write!(f, "transaction request error: {err}")
             },
         }
     }
