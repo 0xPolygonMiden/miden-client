@@ -881,11 +881,11 @@ async fn test_consume_expected_note() {
     println!("Minting Asset");
     execute_tx_and_sync(&mut client, tx_request.clone()).await;
 
-    // Do a transfer from first account to second account
+    // Consume notes with target account
     let note = tx_request.expected_output_notes().first().unwrap();
     let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![note.id()]);
 
-    println!("Executing P2ID tx without sync...");
+    println!("Executing consume notes tx without sync...");
     let mut tx_request = client.build_transaction_request(tx_template).unwrap();
     // set the note as unauthenticated
     tx_request.set_unauthenticated_input_notes(vec![note.clone()]);
@@ -902,7 +902,7 @@ async fn test_consume_expected_note() {
     let current_notes = unauth_client.get_input_notes(NoteFilter::Expected).unwrap();
     assert!(current_notes.is_empty());
 
-    // The expected note now should be consumed
+    // The note now should be consumed
     let current_notes = unauth_client.get_input_notes(NoteFilter::Consumed).unwrap();
     assert!(!current_notes.is_empty());
 
