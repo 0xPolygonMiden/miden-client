@@ -1,7 +1,8 @@
 # Changelog
 
 * Added advice map to `TransactionRequest` and updated integration test with example using the advice map to provide more than a single `Word` as `NoteArgs` for a note (#422).
-* Moved cli tests to the `miden-cli` crate (#413).
+* Restructured the client crate module organization (#417).
+* Moved CLI tests to the `miden-cli` crate (#413).
 * Added WebTonicClient to the miden-client to support WASM-compatible RPC calls (#409).
 * Added WebStore to the miden-client to support WASM-compatible store mechanisms (#401).
 * [BREAKING] Split cli and client into workspace (#407).

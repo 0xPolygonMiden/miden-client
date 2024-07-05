@@ -3,12 +3,13 @@ extern crate alloc;
 pub mod accounts;
 pub mod config;
 pub mod errors;
-pub(crate) mod note_screener;
 pub mod notes;
 pub mod rpc;
 pub mod store;
 pub mod sync;
 pub mod transactions;
+
+mod store_authenticator;
 
 #[cfg(test)]
 pub mod mock;
@@ -27,7 +28,6 @@ pub mod assets {
     pub use miden_objects::assets::{Asset, AssetVault, FungibleAsset, TokenSymbol};
 }
 
-mod store_authenticator;
 pub mod auth {
     pub use miden_objects::accounts::AuthSecretKey;
     pub use miden_tx::auth::TransactionAuthenticator;
