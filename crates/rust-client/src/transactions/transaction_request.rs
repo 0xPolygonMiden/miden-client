@@ -1,5 +1,6 @@
 use alloc::collections::BTreeMap;
 use core::fmt;
+use std::collections::BTreeSet;
 
 use miden_objects::{
     accounts::AccountId,
@@ -81,6 +82,20 @@ impl TransactionRequest {
 
     pub fn unauthenticated_input_notes(&self) -> &[Note] {
         &self.unauthenticated_input_notes
+    }
+
+    pub fn unauthenticated_input_note_ids(&self) -> impl Iterator<Item = NoteId> + '_ {
+        self.unauthenticated_input_notes.iter().map(|note| note.id())
+    }
+
+    pub fn authenticated_input_note_ids(&self) -> impl Iterator<Item = NoteId> + '_ {
+        let unauthenticated_note_ids: BTreeSet<NoteId> =
+            BTreeSet::from_iter(self.unauthenticated_input_note_ids());
+
+        self.input_notes()
+            .iter()
+            .map(|(note_id, _)| *note_id)
+            .filter(move |note_id| !unauthenticated_note_ids.contains(note_id))
     }
 
     pub fn input_notes(&self) -> &BTreeMap<NoteId, Option<NoteArgs>> {
