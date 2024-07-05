@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Display, Formatter};
+use core::fmt::{self, Debug, Display, Formatter};
 
 use miden_objects::accounts::AccountId;
 
@@ -12,13 +12,13 @@ use crate::rpc::RpcConversionError;
 // ================================================================================================
 
 impl Display for ProtoAccountId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!("0x{:x}", self.id))
     }
 }
 
 impl Debug for ProtoAccountId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(self, f)
     }
 }

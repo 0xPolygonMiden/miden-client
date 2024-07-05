@@ -1,3 +1,8 @@
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
+
 use chrono::Utc;
 use miden_objects::{
     accounts::AccountId,

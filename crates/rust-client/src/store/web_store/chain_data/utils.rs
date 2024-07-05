@@ -1,4 +1,9 @@
-use std::{collections::BTreeMap, num::NonZeroUsize};
+use alloc::{
+    collections::BTreeMap,
+    string::{String, ToString},
+    vec::Vec,
+};
+use core::num::NonZeroUsize;
 
 use miden_objects::{crypto::merkle::InOrderIndex, BlockHeader, Digest};
 use serde_wasm_bindgen::from_value;

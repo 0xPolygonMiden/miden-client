@@ -1,6 +1,8 @@
-use alloc::{collections::BTreeMap, vec::Vec};
+use alloc::{
+    collections::{BTreeMap, BTreeSet},
+    vec::Vec,
+};
 use core::fmt;
-use std::collections::BTreeSet;
 
 use miden_objects::{
     accounts::AccountId,

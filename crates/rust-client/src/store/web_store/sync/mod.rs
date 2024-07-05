@@ -1,3 +1,8 @@
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
+
 use miden_objects::notes::{NoteInclusionProof, NoteTag};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
