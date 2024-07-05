@@ -1,5 +1,6 @@
 use std::{
     env, fs,
+    io::Write,
     path::{Path, PathBuf},
 };
 
@@ -15,7 +16,10 @@ fn main() -> miette::Result<()> {
     let dest_path = PathBuf::from(out_dir);
 
     write_proto(&dest_path).unwrap();
-    compile_tonic_client_proto(&dest_path)
+    compile_tonic_client_proto(&dest_path)?;
+    replace_no_std_types();
+
+    Ok(())
 }
 
 // Compiles the protobuf files into a file descriptor used to generate Rust types
@@ -55,4 +59,13 @@ fn compile_tonic_client_proto(proto_dir: &Path) -> miette::Result<()> {
         .into_diagnostic()?;
 
     Ok(())
+}
+
+fn replace_no_std_types() {
+    let path = WEB_TONIC_CLIENT_PROTO_OUT_DIR.to_string() + "/rpc.rs";
+    let file_str = fs::read_to_string(&path).unwrap();
+    let new_file_str = file_str.replace("std::result", "core::result");
+
+    let mut f = std::fs::OpenOptions::new().write(true).open(path).unwrap();
+    f.write_all(new_file_str.as_bytes()).unwrap();
 }
