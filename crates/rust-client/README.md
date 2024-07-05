@@ -27,4 +27,4 @@ The library user can provide their own implementations of `Store` and `RpcClient
 The `sqlite` and `tonic` features provide implementations for these traits using [Rusqlite](https://github.com/rusqlite/rusqlite) and [Tonic](https://github.com/hyperium/tonic) respectively.
 
 ## License
-This project is [MIT licensed](./LICENSE).
+This project is [MIT licensed](../../LICENSE).

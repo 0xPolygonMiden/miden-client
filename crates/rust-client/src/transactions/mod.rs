@@ -19,18 +19,17 @@ use self::transaction_request::{
 use super::{rpc::NodeRpcClient, Client, FeltRng};
 use crate::{
     errors::ClientError,
-    note_screener::NoteScreener,
-    store::{InputNoteRecord, NoteFilter, Store, TransactionFilter},
-    transactions::transaction_request::TransactionRequestError,
+    notes::NoteScreener,
+    store::{InputNoteRecord, Store, TransactionFilter},
 };
 
 pub mod transaction_request;
-
 pub use miden_objects::transaction::{
     ExecutedTransaction, InputNote, OutputNote, OutputNotes, ProvenTransaction, TransactionId,
     TransactionScript,
 };
 pub use miden_tx::{DataStoreError, ScriptTarget, TransactionExecutorError};
+pub use transaction_request::known_script_roots;
 
 // TRANSACTION RESULT
 // --------------------------------------------------------------------------------------------
@@ -200,12 +199,19 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
                 let tx_script = self.tx_executor.compile_tx_script(program_ast, vec![], vec![])?;
                 Ok(TransactionRequest::new(
+                    
                     account_id,
+                   
                     vec![],
                     notes,
+                   
                     vec![],
+                   
                     vec![],
+                   
                     Some(tx_script),
+                    None,
+                ,
                 )?)
             },
             TransactionTemplate::MintFungibleAsset(asset, target_account_id, note_type) => {
@@ -409,7 +415,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             vec![created_note],
             vec![],
             Some(tx_script),
-        )?)
+            None,
+        ))
     }
 
     /// Helper to build a [TransactionRequest] for Swap-type transactions easily.
@@ -460,7 +467,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             vec![created_note],
             vec![payback_note_details],
             Some(tx_script),
-        )?)
+            None,
+        ))
     }
 
     /// Helper to build a [TransactionRequest] for transaction to mint fungible tokens.
@@ -510,7 +518,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             vec![created_note],
             vec![],
             Some(tx_script),
-        )?)
+            None,
+        ))
     }
 }
 

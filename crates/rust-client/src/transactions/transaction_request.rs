@@ -42,6 +42,8 @@ pub struct TransactionRequest {
     expected_partial_notes: Vec<NoteDetails>,
     /// Optional transaction script (together with its arguments).
     tx_script: Option<TransactionScript>,
+    /// Initial state of the `AdviceMap` that provides data during runtime.
+    advice_map: AdviceMap,
 }
 
 impl TransactionRequest {
@@ -55,6 +57,7 @@ impl TransactionRequest {
         expected_output_notes: Vec<Note>,
         expected_partial_notes: Vec<NoteDetails>,
         tx_script: Option<TransactionScript>,
+        advice_map: Option<AdviceMap>,
     ) -> Result<Self, TransactionRequestError> {
         if unauthenticated_input_notes
             .iter()
@@ -70,7 +73,8 @@ impl TransactionRequest {
             expected_output_notes,
             expected_partial_notes,
             tx_script,
-        })
+            advice_map: advice_map.unwrap_or_default(),
+        }
     }
 
     // PUBLIC ACCESSORS
@@ -134,7 +138,7 @@ impl TransactionRequest {
 impl From<TransactionRequest> for TransactionArgs {
     fn from(val: TransactionRequest) -> Self {
         let note_args = val.get_note_args();
-        let mut tx_args = TransactionArgs::new(val.tx_script, Some(note_args), AdviceMap::new());
+        let mut tx_args = TransactionArgs::new(val.tx_script, Some(note_args), val.advice_map);
 
         let output_notes = val.expected_output_notes.into_iter();
         tx_args.extend_expected_output_notes(output_notes);
@@ -301,7 +305,7 @@ mod tests {
         Felt, FieldElement,
     };
 
-    use crate::transactions::transaction_request::known_script_roots::{P2ID, P2IDR, SWAP};
+    use crate::transactions::known_script_roots::{P2ID, P2IDR, SWAP};
 
     // We need to make sure the script roots we use for filters are in line with the note scripts
     // coming from Miden objects
