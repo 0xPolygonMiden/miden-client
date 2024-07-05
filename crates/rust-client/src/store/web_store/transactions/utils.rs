@@ -1,3 +1,9 @@
+use alloc::{
+    borrow::ToOwned,
+    string::{String, ToString},
+    vec::Vec,
+};
+
 use miden_objects::{
     accounts::Account, assembly::AstSerdeOptions, transaction::ToInputNoteCommitments, Digest,
 };

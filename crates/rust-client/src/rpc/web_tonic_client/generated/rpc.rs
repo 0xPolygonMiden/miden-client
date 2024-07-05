@@ -78,7 +78,7 @@ pub mod api_client {
             request: impl tonic::IntoRequest<
                 super::super::requests::CheckNullifiersRequest,
             >,
-        ) -> std::result::Result<
+        ) -> core::result::Result<
             tonic::Response<super::super::responses::CheckNullifiersResponse>,
             tonic::Status,
         > {
@@ -102,7 +102,7 @@ pub mod api_client {
             request: impl tonic::IntoRequest<
                 super::super::requests::GetAccountDetailsRequest,
             >,
-        ) -> std::result::Result<
+        ) -> core::result::Result<
             tonic::Response<super::super::responses::GetAccountDetailsResponse>,
             tonic::Status,
         > {
@@ -128,7 +128,7 @@ pub mod api_client {
             request: impl tonic::IntoRequest<
                 super::super::requests::GetBlockByNumberRequest,
             >,
-        ) -> std::result::Result<
+        ) -> core::result::Result<
             tonic::Response<super::super::responses::GetBlockByNumberResponse>,
             tonic::Status,
         > {
@@ -152,7 +152,7 @@ pub mod api_client {
             request: impl tonic::IntoRequest<
                 super::super::requests::GetBlockHeaderByNumberRequest,
             >,
-        ) -> std::result::Result<
+        ) -> core::result::Result<
             tonic::Response<super::super::responses::GetBlockHeaderByNumberResponse>,
             tonic::Status,
         > {
@@ -177,7 +177,7 @@ pub mod api_client {
         pub async fn get_notes_by_id(
             &mut self,
             request: impl tonic::IntoRequest<super::super::requests::GetNotesByIdRequest>,
-        ) -> std::result::Result<
+        ) -> core::result::Result<
             tonic::Response<super::super::responses::GetNotesByIdResponse>,
             tonic::Status,
         > {
@@ -201,7 +201,7 @@ pub mod api_client {
             request: impl tonic::IntoRequest<
                 super::super::requests::SubmitProvenTransactionRequest,
             >,
-        ) -> std::result::Result<
+        ) -> core::result::Result<
             tonic::Response<super::super::responses::SubmitProvenTransactionResponse>,
             tonic::Status,
         > {
@@ -226,7 +226,7 @@ pub mod api_client {
         pub async fn sync_state(
             &mut self,
             request: impl tonic::IntoRequest<super::super::requests::SyncStateRequest>,
-        ) -> std::result::Result<
+        ) -> core::result::Result<
             tonic::Response<super::super::responses::SyncStateResponse>,
             tonic::Status,
         > {

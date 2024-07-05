@@ -1,4 +1,8 @@
-use alloc::collections::BTreeMap;
+use alloc::{
+    collections::BTreeMap,
+    string::{String, ToString},
+    vec::Vec,
+};
 use std::{env::temp_dir, rc::Rc};
 
 use miden_lib::{transaction::TransactionKernel, AuthScheme};

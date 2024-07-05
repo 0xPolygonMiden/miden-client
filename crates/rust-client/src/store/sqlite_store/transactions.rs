@@ -1,4 +1,9 @@
-use alloc::collections::BTreeMap;
+use alloc::{
+    borrow::ToOwned,
+    collections::BTreeMap,
+    string::{String, ToString},
+    vec::Vec,
+};
 
 use miden_objects::{
     accounts::AccountId,

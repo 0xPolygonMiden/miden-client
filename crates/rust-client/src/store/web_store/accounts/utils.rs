@@ -1,3 +1,5 @@
+use alloc::{string::ToString, vec::Vec};
+
 use miden_objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub, AuthSecretKey},
     assembly::AstSerdeOptions,

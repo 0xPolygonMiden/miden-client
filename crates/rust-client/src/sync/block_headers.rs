@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use crypto::merkle::{InOrderIndex, MmrDelta, MmrPeaks, PartialMmr};
 use miden_objects::{
     crypto::{self, merkle::MerklePath, rand::FeltRng},

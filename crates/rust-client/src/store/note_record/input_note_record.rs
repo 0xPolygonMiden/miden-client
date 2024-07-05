@@ -1,3 +1,5 @@
+use alloc::string::ToString;
+
 use miden_objects::{
     notes::{
         Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata,

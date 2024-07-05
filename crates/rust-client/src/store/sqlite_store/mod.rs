@@ -1,4 +1,4 @@
-use alloc::collections::BTreeMap;
+use alloc::{collections::BTreeMap, vec::Vec};
 use core::cell::{RefCell, RefMut};
 
 use miden_objects::{

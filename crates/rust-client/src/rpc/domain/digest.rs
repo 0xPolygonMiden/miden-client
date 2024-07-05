@@ -1,4 +1,5 @@
-use std::fmt::{Debug, Display, Formatter};
+use alloc::{string::String, vec::Vec};
+use core::fmt::{self, Debug, Display, Formatter};
 
 use hex::ToHex;
 use miden_objects::{notes::NoteId, Digest, Felt, StarkField};
@@ -18,13 +19,13 @@ pub const DIGEST_DATA_SIZE: usize = 32;
 // ================================================================================================
 
 impl Display for digest::Digest {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_str(&self.encode_hex::<String>())
     }
 }
 
 impl Debug for digest::Digest {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(self, f)
     }
 }
