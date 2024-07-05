@@ -1,4 +1,8 @@
-use alloc::rc::Rc;
+use alloc::{
+    rc::Rc,
+    string::{String, ToString},
+    vec::Vec,
+};
 use std::fmt;
 
 use chrono::Utc;

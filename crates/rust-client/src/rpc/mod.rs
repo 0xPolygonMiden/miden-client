@@ -1,5 +1,6 @@
 #![allow(async_fn_in_trait)]
 
+use alloc::vec::Vec;
 use core::fmt;
 
 mod errors;

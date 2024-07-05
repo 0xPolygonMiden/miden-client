@@ -1,3 +1,4 @@
+use alloc::{string::String, vec::Vec};
 use std::fmt::{Debug, Display, Formatter};
 
 use hex::ToHex;

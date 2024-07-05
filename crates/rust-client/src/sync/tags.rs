@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use miden_objects::{crypto::rand::FeltRng, notes::NoteTag};
 use miden_tx::auth::TransactionAuthenticator;
 use tracing::warn;

@@ -1,6 +1,7 @@
 // STORE CONFIG
 // ================================================================================================
 
+use alloc::string::{String, ToString};
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};

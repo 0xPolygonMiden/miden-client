@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 // TESTS
 // ================================================================================================
 use miden_lib::transaction::TransactionKernel;

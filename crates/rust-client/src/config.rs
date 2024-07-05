@@ -1,3 +1,4 @@
+use alloc::string::{String, ToString};
 use core::fmt::{self, Debug};
 
 use serde::{Deserialize, Serialize};
@@ -128,6 +129,8 @@ impl Default for RpcConfig {
 
 #[cfg(test)]
 mod test {
+    use alloc::string::ToString;
+
     use crate::config::{Endpoint, MIDEN_NODE_PORT};
 
     #[test]

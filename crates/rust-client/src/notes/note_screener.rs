@@ -1,4 +1,4 @@
-use alloc::{collections::BTreeSet, rc::Rc};
+use alloc::{collections::BTreeSet, rc::Rc, string::ToString, vec::Vec};
 use core::fmt;
 
 use miden_objects::{

@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use miden_objects::{
     crypto::merkle::{MerklePath, MmrDelta},
     Digest,

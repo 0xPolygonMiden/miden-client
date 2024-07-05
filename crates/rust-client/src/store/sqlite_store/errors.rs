@@ -1,3 +1,5 @@
+use alloc::string::ToString;
+
 use crate::store::StoreError;
 
 // STORE ERROR

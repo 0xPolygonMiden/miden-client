@@ -1,4 +1,10 @@
+#![no_std]
+
+#[macro_use]
 extern crate alloc;
+
+#[cfg(feature = "std")]
+extern crate std;
 
 pub mod accounts;
 pub mod config;
@@ -66,7 +72,7 @@ pub mod testing {
     pub use miden_objects::accounts::account_id::testing::*;
 }
 
-use alloc::rc::Rc;
+use alloc::{rc::Rc, vec::Vec};
 
 use miden_objects::crypto::rand::FeltRng;
 use miden_tx::{auth::TransactionAuthenticator, TransactionExecutor};

@@ -1,3 +1,8 @@
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
+
 use miden_objects::notes::{NoteInclusionProof, NoteTag};
 use rusqlite::{named_params, params};
 
