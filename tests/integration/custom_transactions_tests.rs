@@ -37,6 +37,18 @@ use super::common::*;
 //
 // Because it's currently not possible to create/consume notes without assets, the P2ID code
 // is used as the base for the note code.
+
+const NOTE_ARGS: [Felt; 8] = [
+    Felt::new(9),
+    Felt::new(12),
+    Felt::new(18),
+    Felt::new(3),
+    Felt::new(3),
+    Felt::new(18),
+    Felt::new(12),
+    Felt::new(9),
+];
+
 #[tokio::test]
 async fn test_transaction_request() {
     let mut client = create_test_client();
@@ -67,21 +79,11 @@ async fn test_transaction_request() {
 
     // If these args were to be modified, the transaction would fail because the note code expects
     // these exact arguments
-    let note_args = [
-        Felt::new(9),
-        Felt::new(12),
-        Felt::new(18),
-        Felt::new(3),
-        Felt::new(3),
-        Felt::new(18),
-        Felt::new(12),
-        Felt::new(9),
-    ];
-    let note_args_commitment = Rpo256::hash_elements(&note_args);
+    let note_args_commitment = Rpo256::hash_elements(&NOTE_ARGS);
 
     let note_args_map = BTreeMap::from([(note.id(), Some(note_args_commitment.into()))]);
     let mut advice_map = AdviceMap::new();
-    advice_map.insert(note_args_commitment, note_args.to_vec());
+    advice_map.insert(note_args_commitment, NOTE_ARGS.to_vec());
 
     let code = "
         use.miden::contracts::auth::basic->auth_tx
@@ -222,25 +224,13 @@ fn create_custom_note(
     target_account_id: AccountId,
     rng: &mut RpoRandomCoin,
 ) -> Note {
-    let expected_note_arg = [
-        Felt::new(9),
-        Felt::new(12),
-        Felt::new(18),
-        Felt::new(3),
-        Felt::new(3),
-        Felt::new(18),
-        Felt::new(12),
-        Felt::new(9),
-    ]
-    .iter()
-    .map(|x| x.as_int().to_string())
-    .collect::<Vec<_>>();
+    let expected_note_args = NOTE_ARGS.iter().map(|x| x.as_int().to_string()).collect::<Vec<_>>();
 
     let mem_addr: u32 = 1000;
 
     let note_script = include_str!("asm/custom_p2id.masm")
-        .replace("{expected_note_arg_1}", &expected_note_arg[0..=3].join("."))
-        .replace("{expected_note_arg_2}", &expected_note_arg[4..=7].join("."))
+        .replace("{expected_note_arg_1}", &expected_note_args[0..=3].join("."))
+        .replace("{expected_note_arg_2}", &expected_note_args[4..=7].join("."))
         .replace("{mem_address}", &mem_addr.to_string())
         .replace("{mem_address_2}", &(mem_addr + 1).to_string());
     let note_script = ProgramAst::parse(&note_script).unwrap();
