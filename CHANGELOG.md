@@ -1,31 +1,37 @@
 # Changelog
 
-* Make the client `no_std` compatible (#428).
+## v0.4.0 (2024-07-05)
+
+### Features
+
+* [BREAKING] Separated `prove_transaction` from `submit_transaction` in `Client`. (#339)
+* Note importing in client now uses the `NoteFile` type (#375).
+* Added `wasm` and `async` feature to make the code compatible with WASM-32 target (#378).
+* Added WebStore to the miden-client to support WASM-compatible store mechanisms (#401).
+* Added WebTonicClient to the miden-client to support WASM-compatible RPC calls (#409).
 * [BREAKING] Added unauthenticated notes to `TransactionRequest` and necessary changes to consume unauthenticated notes with the client (#417).
 * Added advice map to `TransactionRequest` and updated integration test with example using the advice map to provide more than a single `Word` as `NoteArgs` for a note (#422).
-* Restructured the client crate module organization (#417).
-* Moved CLI tests to the `miden-cli` crate (#413).
-* Added WebTonicClient to the miden-client to support WASM-compatible RPC calls (#409).
-* Added WebStore to the miden-client to support WASM-compatible store mechanisms (#401).
-* [BREAKING] Split cli and client into workspace (#407).
-* Note importing in client now uses the `NoteFile` type (#375).
-* Added build script to import Miden node protobuf files to generate types for `tonic_client` and removed `miden-node-proto` dependency (#395).
-* Implemented retrieval of executed transaction info (id, commit height, account_id) from sync state RPC endpoint (#387).
-* Renamed "pending" notes to "expected" notes (#373).
-* New note status added to reflect more possible states (#355).
-* [BREAKING] Library API reorganization (#367).
-* Added `wasm` and `async` feature to make the code compatible with WASM-32 target (#378).
-* Changed `cargo-make` usage for `make` and `Makefile.toml` for a regular `Makefile` (#359).
-* Added integration tests using the CLI (#353).
-* Added a new check on account creation / import on the CLI to set the account as the default one if none is set (#372).
-* Fixed bug when exporting a note into a file (#368).
-* Simplified and separated the `notes --list` table (#356).
-* [BREAKING] Separated `prove_transaction` from `submit_transaction` in `Client`. (#339)
-* [BREAKING] Updated CLI commands so assets are now passed as `<AMOUNT>::<FAUCET_ACCOUNT_ID>` (#349)
-* Added created and consumed note info when printing the transaction summary on the CLI
-* Changed `consume-notes` to pick up the default account ID if none is provided, and to consume all notes that are consumable by the ID if no notes are provided to the list. (#350)
-* Added created and consumed note info when printing the transaction summary on the CLI. (#348)
+* Made the client `no_std` compatible (#428).
+
+### Enhancements
+
 * Fixed the error message when trying to consume a pending note (now it shows that the transaction is not yet ready to be consumed).
+* Added created and consumed note info when printing the transaction summary on the CLI. (#348).
+* [BREAKING] Updated CLI commands so assets are now passed as `<AMOUNT>::<FAUCET_ACCOUNT_ID>` (#349).
+* Changed `consume-notes` to pick up the default account ID if none is provided, and to consume all notes that are consumable by the ID if no notes are provided to the list. (#350).
+* Added integration tests using the CLI (#353).
+* Simplified and separated the `notes --list` table (#356).
+* Fixed bug when exporting a note into a file (#368).
+* Added a new check on account creation / import on the CLI to set the account as the default one if none is set (#372).
+* Changed `cargo-make` usage for `make` and `Makefile.toml` for a regular `Makefile` (#359).
+* [BREAKING] Library API reorganization (#367).
+* New note status added to reflect more possible states (#355).
+* Renamed "pending" notes to "expected" notes (#373).
+* Implemented retrieval of executed transaction info (id, commit height, account_id) from sync state RPC endpoint (#387).
+* Added build script to import Miden node protobuf files to generate types for `tonic_client` and removed `miden-node-proto` dependency (#395).
+* [BREAKING] Split cli and client into workspace (#407).
+* Moved CLI tests to the `miden-cli` crate (#413).
+* Restructured the client crate module organization (#417).
 
 ## v0.3.1 (2024-05-22)
 
