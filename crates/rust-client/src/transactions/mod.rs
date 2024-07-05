@@ -243,16 +243,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         // Ensure authenticated notes have their inclusion proofs (a.k.a they're in a committed
         // state). TODO: we should consider refactoring this in a way we can handle this in
         // `get_transaction_inputs`
-        let unauthenticated_note_ids: BTreeSet<NoteId> = BTreeSet::from_iter(
-            transaction_request.unauthenticated_input_notes().iter().map(|note| note.id()),
-        );
-
-        let authenticated_input_note_ids: Vec<NoteId> = transaction_request
-            .input_notes()
-            .iter()
-            .map(|(note_id, _)| *note_id)
-            .filter(|note_id| !unauthenticated_note_ids.contains(note_id))
-            .collect();
+        let authenticated_input_note_ids: Vec<NoteId> =
+            transaction_request.authenticated_input_note_ids().collect::<Vec<_>>();
 
         let authenticated_note_records = maybe_await!(self
             .store

@@ -1,5 +1,6 @@
 use alloc::collections::BTreeMap;
 use core::fmt;
+use std::collections::BTreeSet;
 
 use miden_objects::{
     accounts::AccountId,
@@ -59,7 +60,7 @@ impl TransactionRequest {
             .iter()
             .any(|note| !input_notes.contains_key(&note.id()))
         {
-            return Err(TransactionRequestError::NotesMapNotIncludingUnauthenticatedNotes);
+            return Err(TransactionRequestError::InputNotesMapMissingUnauthenticatedNotes);
         }
 
         Ok(Self {
@@ -86,6 +87,20 @@ impl TransactionRequest {
     #[cfg(feature = "testing")]
     pub fn set_unauthenticated_input_notes(&mut self, unauthenticated_input_notes: Vec<Note>) {
         self.unauthenticated_input_notes = unauthenticated_input_notes;
+    }
+
+    pub fn unauthenticated_input_note_ids(&self) -> impl Iterator<Item = NoteId> + '_ {
+        self.unauthenticated_input_notes.iter().map(|note| note.id())
+    }
+
+    pub fn authenticated_input_note_ids(&self) -> impl Iterator<Item = NoteId> + '_ {
+        let unauthenticated_note_ids: BTreeSet<NoteId> =
+            BTreeSet::from_iter(self.unauthenticated_input_note_ids());
+
+        self.input_notes()
+            .iter()
+            .map(|(note_id, _)| *note_id)
+            .filter(move |note_id| !unauthenticated_note_ids.contains(note_id))
     }
 
     pub fn input_notes(&self) -> &BTreeMap<NoteId, Option<NoteArgs>> {
@@ -130,13 +145,13 @@ impl From<TransactionRequest> for TransactionArgs {
 
 #[derive(Debug)]
 pub enum TransactionRequestError {
-    NotesMapNotIncludingUnauthenticatedNotes,
+    InputNotesMapMissingUnauthenticatedNotes,
     InputNoteNotAuthenticated,
 }
 impl fmt::Display for TransactionRequestError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::NotesMapNotIncludingUnauthenticatedNotes => write!(f, "The input notes map should include keys for all provided unauthenticated input notes"),
+            Self::InputNotesMapMissingUnauthenticatedNotes => write!(f, "The input notes map should include keys for all provided unauthenticated input notes"),
             Self::InputNoteNotAuthenticated => write!(f, "Every authenticated note to be consumed should be committed and contain a valid inclusion proof"),
         }
     }
