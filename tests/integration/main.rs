@@ -180,7 +180,7 @@ async fn test_p2idr_transfer_consumed_by_target() {
     );
     println!("Running P2IDR tx...");
     let tx_request = client.build_transaction_request(tx_template).unwrap();
-    execute_tx_and_sync(&mut client, tx_request).await;
+    execute_tx_and_sync(&mut client, tx_request.clone()).await;
 
     // Check that note is committed for the second account to consume
     println!("Fetching Committed Notes...");
@@ -188,11 +188,11 @@ async fn test_p2idr_transfer_consumed_by_target() {
     assert!(!notes.is_empty());
 
     // Make the `to_account_id` consume P2IDR note
-    let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![notes[0].id()]);
+    let note_id = tx_request.expected_output_notes().first().unwrap().id();
+    let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![note_id]);
     println!("Consuming Note...");
     let tx_request = client.build_transaction_request(tx_template).unwrap();
     execute_tx_and_sync(&mut client, tx_request).await;
-
     let (regular_account, seed) = client.get_account(from_account_id).unwrap();
     // The seed should not be retrieved due to the account not being new
     assert!(!regular_account.is_new() && seed.is_none());
@@ -216,7 +216,7 @@ async fn test_p2idr_transfer_consumed_by_target() {
         panic!("Error: Account should have a fungible asset");
     }
 
-    assert_note_cannot_be_consumed_twice(&mut client, to_account_id, notes[0].id()).await;
+    assert_note_cannot_be_consumed_twice(&mut client, to_account_id, note_id).await;
 }
 
 #[tokio::test]

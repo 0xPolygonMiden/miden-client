@@ -41,7 +41,7 @@ pub use miden_tx::{DataStoreError, ScriptTarget, TransactionExecutorError};
 /// `output_notes` that the client has to store as input notes, based on the NoteScreener
 /// output from filtering the transaction's output notes or some partial note we expect to receive
 /// in the future (you can check at swap notes for an example of this).
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TransactionResult {
     transaction: ExecutedTransaction,
     relevant_notes: Vec<InputNoteRecord>,
@@ -253,13 +253,15 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             .map(|(note_id, _)| *note_id)
             .filter(|note_id| !unauthenticated_note_ids.contains(note_id))
             .collect();
+
         let authenticated_note_records = maybe_await!(self
             .store
             .get_input_notes(NoteFilter::List(&authenticated_input_note_ids)))?;
+
         for authenticated_note_record in authenticated_note_records {
-            if !matches!(authenticated_note_record.status(), NoteStatus::Committed { .. }) {
+            if !authenticated_note_record.is_authenticated() {
                 return Err(ClientError::TransactionRequestError(
-                    TransactionRequestError::ConsumingUncommittedAuthenticatedNotes,
+                    TransactionRequestError::InputNoteNotAuthenticated,
                 ));
             }
         }
@@ -285,7 +287,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         ))?;
 
         // Check that the expected output notes matches the transaction outcome.
-        // We comprare authentication hashes where possible since that involves note IDs + metadata
+        // We compare authentication hashes where possible since that involves note IDs + metadata
         // (as opposed to just note ID which remains the same regardless of metadata)
         // We also do the check for partial output notes
         let tx_note_auth_hashes: BTreeSet<Digest> =

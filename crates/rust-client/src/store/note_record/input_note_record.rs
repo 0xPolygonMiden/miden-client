@@ -112,6 +112,17 @@ impl InputNoteRecord {
     pub fn imported_tag(&self) -> Option<NoteTag> {
         self.imported_tag
     }
+
+    /// Returns whether the note record contains a valid inclusion proof correlated with its
+    /// status
+    pub fn is_authenticated(&self) -> bool {
+        match self.status {
+            NoteStatus::Expected { .. } => return false,
+            NoteStatus::Committed { .. }
+            | NoteStatus::Processing { .. }
+            | NoteStatus::Consumed { .. } => return self.inclusion_proof.is_some(),
+        }
+    }
 }
 
 impl From<&NoteDetails> for InputNoteRecord {

@@ -301,6 +301,6 @@ pub async fn assert_note_cannot_be_consumed_twice(
             ),
         )) => {},
         Ok(_) => panic!("Double-spend error: Note should not be consumable!"),
-        _ => panic!("Unexpected error: {}", note_to_consume_id.to_hex()),
+        err => panic!("Unexpected error {:?} for note ID: {}", err, note_to_consume_id.to_hex()),
     }
 }
