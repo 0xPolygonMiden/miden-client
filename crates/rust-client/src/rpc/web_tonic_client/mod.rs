@@ -27,6 +27,7 @@ use crate::rpc::{
     NoteDetails, NoteInclusionDetails, NullifierUpdate, RpcError, StateSyncInfo, TransactionUpdate,
 };
 
+#[rustfmt::skip]
 pub mod generated;
 
 pub struct WebTonicRpcClient {
