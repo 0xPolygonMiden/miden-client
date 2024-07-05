@@ -6,8 +6,10 @@ use miden_tx::{
     TransactionExecutorError, TransactionProverError,
 };
 
-use crate::transactions::transaction_request::TransactionRequestError;
-use crate::{notes::NoteScreenerError, rpc::RpcError, store::StoreError};
+use crate::{
+    notes::NoteScreenerError, rpc::RpcError, store::StoreError,
+    transactions::transaction_request::TransactionRequestError,
+};
 
 // CLIENT ERROR
 // ================================================================================================
