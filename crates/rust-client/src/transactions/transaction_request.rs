@@ -247,7 +247,7 @@ mod tests {
         Felt, FieldElement,
     };
 
-    use crate::transactions::transaction_request::known_script_roots::{P2ID, P2IDR, SWAP};
+    use crate::transactions::known_script_roots::{P2ID, P2IDR, SWAP};
 
     // We need to make sure the script roots we use for filters are in line with the note scripts
     // coming from Miden objects
