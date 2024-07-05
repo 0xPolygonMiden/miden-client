@@ -23,7 +23,7 @@ The client's main responsibility is to maintain a partial view of the blockchain
 
 For more info check:
 
-- [Getting started](https://docs.polygon.technology/miden/miden-base/introduction/get-started/create-account-use-faucet/)
+- [Getting started](https://docs.polygon.technology/miden/miden-base/introduction/get-started/prerequisites/)
 - [CLI Reference](./docs/cli-reference.md#types-of-transaction)
     - [Configuration](./docs/cli-config.md)
 - [Online Documentation](https://docs.polygon.technology/miden/miden-client)
@@ -34,8 +34,6 @@ The workspace is organized as follows:
 - The `bin` folder contains crates that are meant to be compiled into binaries (like the CLI).
 - The `crates` folder contains the library crates that are meant to be used as dependencies (like the Rust client library).
 - The `tests` folder contains integration tests for the workspace crates.
-
-Note that binary name for the client is just `miden`.
 
 ### Makefile
 
