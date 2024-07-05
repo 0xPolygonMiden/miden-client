@@ -1,3 +1,8 @@
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
+
 use generated::{
     requests::{
         GetAccountDetailsRequest, GetBlockHeaderByNumberRequest, GetNotesByIdRequest,

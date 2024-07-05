@@ -1,4 +1,4 @@
-use alloc::{collections::BTreeMap, rc::Rc};
+use alloc::{collections::BTreeMap, rc::Rc, string::String, vec::Vec};
 use std::num::NonZeroUsize;
 
 use miden_objects::{
@@ -247,6 +247,8 @@ fn parse_chain_mmr_nodes(
 
 #[cfg(test)]
 mod test {
+    use alloc::vec::Vec;
+
     use miden_objects::{crypto::merkle::MmrPeaks, BlockHeader};
 
     use crate::store::{

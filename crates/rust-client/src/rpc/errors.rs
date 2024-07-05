@@ -1,3 +1,4 @@
+use alloc::string::{String, ToString};
 use core::fmt;
 
 use miden_objects::{accounts::AccountId, utils::DeserializationError, NoteError};

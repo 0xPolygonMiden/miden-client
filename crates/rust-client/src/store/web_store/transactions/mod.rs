@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use alloc::{collections::BTreeMap, string::ToString, vec::Vec};
 
 use miden_objects::{
     accounts::AccountId,

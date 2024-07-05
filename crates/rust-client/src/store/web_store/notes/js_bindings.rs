@@ -1,3 +1,5 @@
+use alloc::{string::String, vec::Vec};
+
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::*;
 

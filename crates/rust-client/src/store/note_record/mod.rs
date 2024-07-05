@@ -1,4 +1,8 @@
-use std::fmt::Display;
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
+use core::fmt::{self, Display};
 
 use chrono::{Local, TimeZone};
 use miden_objects::{
@@ -134,7 +138,7 @@ impl Deserializable for NoteStatus {
 }
 
 impl Display for NoteStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             NoteStatus::Expected { created_at } => write!(
                 f,

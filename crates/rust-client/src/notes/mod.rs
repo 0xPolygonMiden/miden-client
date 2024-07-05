@@ -1,3 +1,5 @@
+use alloc::{string::ToString, vec::Vec};
+
 use miden_objects::{accounts::AccountId, assembly::ProgramAst, crypto::rand::FeltRng};
 use miden_tx::{auth::TransactionAuthenticator, ScriptTarget};
 use tracing::info;

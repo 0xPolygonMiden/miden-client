@@ -1,6 +1,8 @@
 use alloc::{
     collections::{BTreeMap, BTreeSet},
     rc::Rc,
+    string::ToString,
+    vec::Vec,
 };
 
 use miden_objects::{

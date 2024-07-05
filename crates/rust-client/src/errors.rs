@@ -1,3 +1,7 @@
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 use core::fmt;
 
 use miden_objects::{accounts::AccountId, notes::NoteId, AccountError, AssetError, NoteError};

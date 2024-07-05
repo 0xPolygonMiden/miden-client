@@ -1,3 +1,5 @@
+use alloc::{string::String, vec::Vec};
+
 use base64::decode as base64_decode;
 use serde::{de::Error, Deserialize, Deserializer, Serialize};
 

@@ -1,4 +1,8 @@
-use std::collections::BTreeMap;
+use alloc::{
+    collections::BTreeMap,
+    string::{String, ToString},
+    vec::Vec,
+};
 
 use miden_objects::{
     crypto::merkle::{InOrderIndex, MmrPeaks},

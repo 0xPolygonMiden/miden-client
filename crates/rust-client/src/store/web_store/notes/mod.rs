@@ -1,3 +1,8 @@
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
+
 use miden_objects::{
     notes::{NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
     Digest,

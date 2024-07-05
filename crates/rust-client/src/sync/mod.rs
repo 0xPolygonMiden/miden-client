@@ -1,4 +1,7 @@
-use alloc::collections::{BTreeMap, BTreeSet};
+use alloc::{
+    collections::{BTreeMap, BTreeSet},
+    vec::Vec,
+};
 use core::cmp::max;
 
 use crypto::merkle::{InOrderIndex, MmrPeaks};

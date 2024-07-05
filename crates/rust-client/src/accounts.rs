@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use miden_lib::AuthScheme;
 pub use miden_objects::accounts::{
     Account, AccountCode, AccountData, AccountId, AccountStorage, AccountStorageType, AccountStub,
@@ -228,6 +230,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
 #[cfg(test)]
 pub mod tests {
+    use alloc::vec::Vec;
+
     use miden_objects::{
         accounts::{Account, AccountData, AccountId, AuthSecretKey},
         crypto::dsa::rpo_falcon512::SecretKey,

@@ -1,6 +1,8 @@
-use alloc::collections::BTreeMap;
+use alloc::{
+    collections::{BTreeMap, BTreeSet},
+    vec::Vec,
+};
 use core::fmt;
-use std::collections::BTreeSet;
 
 use miden_objects::{
     accounts::AccountId,
@@ -291,6 +293,8 @@ pub mod known_script_roots {
 
 #[cfg(test)]
 mod tests {
+    use alloc::string::ToString;
+
     use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
     use miden_objects::{
         accounts::{
