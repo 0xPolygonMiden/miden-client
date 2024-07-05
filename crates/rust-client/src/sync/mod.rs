@@ -18,9 +18,7 @@ use crate::{
         AccountDetails, CommittedNote, NodeRpcClient, NoteDetails, NullifierUpdate, RpcError,
         TransactionUpdate,
     },
-    store::{
-        InputNoteRecord, NoteFilter, Store, StoreError, TransactionFilter,
-    },
+    store::{InputNoteRecord, NoteFilter, Store, StoreError, TransactionFilter},
     Client, ClientError,
 };
 

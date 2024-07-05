@@ -10,7 +10,6 @@ use miden_objects::{
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
-    notes::{InvalidNoteInputsError, NoteScreenerError},
     store::{Store, StoreError},
     transactions::known_script_roots::{P2ID, P2IDR, SWAP},
 };

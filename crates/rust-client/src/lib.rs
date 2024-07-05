@@ -3,15 +3,12 @@ extern crate alloc;
 pub mod accounts;
 pub mod config;
 mod errors;
-pub use errors::{ClientError, IdPrefixFetchError};
 pub mod notes;
 pub mod rpc;
 pub mod store;
 mod store_authenticator;
 pub mod sync;
 pub mod transactions;
-
-mod store_authenticator;
 
 #[cfg(test)]
 pub mod mock;

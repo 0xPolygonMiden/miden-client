@@ -1,11 +1,4 @@
 use miden_objects::{accounts::AccountId, assembly::ProgramAst, crypto::rand::FeltRng};
-pub use miden_objects::{
-    notes::{
-        Note, NoteAssets, NoteExecutionHint, NoteFile, NoteId, NoteInclusionProof, NoteInputs,
-        NoteMetadata, NoteRecipient, NoteScript, NoteTag, NoteType, Nullifier,
-    },
-    NoteError,
-};
 use miden_tx::{auth::TransactionAuthenticator, ScriptTarget};
 use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
@@ -20,12 +13,19 @@ use crate::{
 };
 
 mod note_screener;
-pub use miden_objects::notes::{
-    Note, NoteAssets, NoteExecutionHint, NoteFile, NoteId, NoteInclusionProof, NoteInputs,
-    NoteMetadata, NoteRecipient, NoteScript, NoteTag, NoteType, Nullifier,
+
+// RE-EXPORTS
+// ================================================================================================
+
+pub use miden_objects::{
+    notes::{
+        Note, NoteAssets, NoteExecutionHint, NoteFile, NoteId, NoteInclusionProof, NoteInputs,
+        NoteMetadata, NoteRecipient, NoteScript, NoteTag, NoteType, Nullifier,
+    },
+    NoteError,
 };
 pub(crate) use note_screener::NoteScreener;
-pub use note_screener::{NoteConsumability, NoteRelevance};
+pub use note_screener::{NoteConsumability, NoteRelevance, NoteScreenerError};
 
 // MIDEN CLIENT
 // ================================================================================================

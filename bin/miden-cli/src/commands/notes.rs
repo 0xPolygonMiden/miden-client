@@ -9,7 +9,7 @@ use miden_client::{
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
     transactions::known_script_roots::{P2ID, P2IDR, SWAP},
-    Client, ClientError, IdPrefixFetchError
+    Client, ClientError, IdPrefixFetchError,
 };
 
 use crate::{
