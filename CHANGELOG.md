@@ -1,5 +1,7 @@
 # Changelog
 
+## v0.5.0 (TBD)
+
 ## v0.4.0 (2024-07-05)
 
 ### Features

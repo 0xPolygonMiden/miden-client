@@ -1,9 +1,9 @@
 [package]
 name = "miden-cli"
-version = "0.4.0"
+version = "0.5.0"
 description = "CLI binary application that facilitates interaction with the Miden rollup"
 readme = "README.md"
-documentation = "https://docs.rs/miden-cli/0.4.0"
+documentation = "https://docs.rs/miden-cli/0.5.0"
 categories = ["command-line-utilities"]
 keywords = ["miden", "client", "cli"]
 license.workspace = true
@@ -34,7 +34,7 @@ uuid = { version = "1.6", features = ["serde", "v4"] }
 clap = { version = "4.3", features = ["derive"] }
 comfy-table = { version = "7.1" }
 figment = { version = "0.10", features = ["toml", "env"] }
-miden-client = { path = "../../crates/rust-client", version = "0.4", features = ["sqlite", "tonic"] }
+miden-client = { path = "../../crates/rust-client", version = "0.5", features = ["sqlite", "tonic"] }
 rand = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
