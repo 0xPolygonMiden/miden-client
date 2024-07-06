@@ -1,0 +1,45 @@
+[package]
+name = "miden-cli"
+version = "0.4.0"
+description = "CLI binary application that facilitates interaction with the Miden rollup"
+readme = "README.md"
+documentation = "https://docs.rs/miden-cli/0.4.0"
+categories = ["command-line-utilities"]
+keywords = ["miden", "client", "cli"]
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "miden"
+path = "src/main.rs"
+
+[features]
+default = []
+testing = ["miden-client/testing"]
+concurrent = ["miden-client/concurrent"]
+
+[[test]]
+name = "integration"
+path = "src/tests.rs"
+required-features = ["testing", "concurrent"]
+
+[dev-dependencies]
+assert_cmd = { version = "2.0" }
+uuid = { version = "1.6", features = ["serde", "v4"] }
+
+[dependencies]
+clap = { version = "4.3", features = ["derive"] }
+comfy-table = { version = "7.1" }
+figment = { version = "0.10", features = ["toml", "env"] }
+miden-client = { path = "../../crates/rust-client", version = "0.4", features = ["sqlite", "tonic"] }
+rand = { workspace = true }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0", features = ["raw_value"] }
+tokio = { workspace = true  }
+tonic = { version = "0.11" }
+toml = { version = "0.8" }
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3" }

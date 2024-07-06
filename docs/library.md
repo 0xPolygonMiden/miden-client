@@ -7,7 +7,7 @@ To use the Miden client library in a Rust project, include it as a dependency.
 In your project's `Cargo.toml`, add:
 
 ```toml
-miden-client = { version = "0.3" }
+miden-client = { version = "0.4" }
 ```
 
 ### Features
@@ -15,7 +15,7 @@ miden-client = { version = "0.3" }
 The Miden client library supports the [`testing`](https://github.com/0xPolygonMiden/miden-client/blob/main/docs/install-and-run.md#testing-feature) and [`concurrent`](https://github.com/0xPolygonMiden/miden-client/blob/main/docs/install-and-run.md#concurrent-feature) features which are both recommended for developing applications with the client. To use them, add the following to your project's `Cargo.toml`:
 
 ```toml
-miden-client = { version = "0.3", features = ["testing", "concurrent"] }
+miden-client = { version = "0.4", features = ["testing", "concurrent"] }
 ```
 
 ## Client instantiation
@@ -30,7 +30,10 @@ let client: Client<TonicRpcClient, SqliteDataStore> = {
     let store = SqliteStore::new((&client_config).into()).map_err(ClientError::StoreError)?;
     let store = Rc::new(store);
 
-    let rng = miden_client::get_random_coin();
+    let mut rng = rand::thread_rng();
+    let coin_seed: [u64; 4] = rng.gen();
+
+    let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
 
     let client = Client::new(

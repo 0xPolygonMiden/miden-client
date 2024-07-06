@@ -1,8 +1,9 @@
 # Miden client
 
 [![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/0xPolygonMiden/miden-client/blob/main/LICENSE)
-[![CI](https://github.com/0xPolygonMiden/miden-client/actions/workflows/ci.yml/badge.svg)](https://github.com/0xPolygonMiden/miden-clinet/actions/workflows/ci.yml)
-[![RUST_VERSION](https://img.shields.io/badge/rustc-1.78+-lightgray.svg)]()
+[![test](https://github.com/0xPolygonMiden/miden-client/actions/workflows/test.yml/badge.svg)](https://github.com/0xPolygonMiden/miden-clinet/actions/workflows/test.yml)
+[![build](https://github.com/0xPolygonMiden/miden-client/actions/workflows/build.yml/badge.svg)](https://github.com/0xPolygonMiden/miden-client/actions/workflows/build.yml)
+[![RUST_VERSION](https://img.shields.io/badge/rustc-1.78+-lightgray.svg)](https://www.rust-lang.org/tools/install)
 [![crates.io](https://img.shields.io/crates/v/miden-client)](https://crates.io/crates/miden-client)
 
 This repository contains the Miden client, which provides a way to execute and prove transactions, facilitating the interaction with the Miden rollup.
@@ -15,67 +16,40 @@ The Miden client is still under heavy development and the project can be conside
 
 The Miden client currently consists of two components:
 
-- `miden-client` library, which can be used by other project to programmatically interact with the Miden rollup. 
-- `miden-client` binary which is a wrapper around the library exposing its functionality via a simple command-line interface (CLI).
+- `miden-client` library, which can be used by other project to programmatically interact with the Miden rollup. You can find more information about the library in the [Rust Client Library](./crates/rust-client/README.md) section.
+- _Miden CLI_, which is a wrapper around the library exposing its functionality via a simple command-line interface (CLI). You can find more information about the CLI in the [Miden Client CLI](./bin/miden-cli/README.md) section.
 
 The client's main responsibility is to maintain a partial view of the blockchain which allows for locally executing and proving transactions. It keeps a local store of various entities that periodically get updated by syncing with the node.
 
 For more info check:
 
-- [Getting started](https://docs.polygon.technology/miden/miden-base/introduction/get-started/create-account-use-faucet/)
+- [Getting started](https://docs.polygon.technology/miden/miden-base/introduction/get-started/prerequisites/)
 - [CLI Reference](./docs/cli-reference.md#types-of-transaction)
     - [Configuration](./docs/cli-config.md)
 - [Online Documentation](https://docs.polygon.technology/miden/miden-client)
 
-## Usage
+## Workspace structure
 
-Before you can use the Miden client, you'll need to make sure you have both
-[Rust](https://www.rust-lang.org/tools/install) and sqlite3 installed. Miden
-client requires rust version **1.78** or higher.
-
-### Adding miden-client as a dependency
-
-In order to utilize the `miden-client` library, you can add the dependency to your project's `Cargo.toml` file:
-
-````toml
-miden-client = { version = "0.3" }
-````
-
-#### Features
-
-- `concurrent`: used to enable concurrent proofs generation
-- `testing`: useful feature that lowers PoW difficulty when enabled. Only use this during development and not on production.
-
-### Running `miden-client`'s CLI
-
-You can either build from source with:
-
-```bash
-cargo build --release
-```
-
-Once the binary is built, you can find it on `./target/release/miden`.
-
-Or you can install the CLI from crates-io with:
-
-```bash
-cargo install miden-client
-```
-
-Note that binary name for the client is just `miden`.
+The workspace is organized as follows:
+- The `bin` folder contains crates that are meant to be compiled into binaries (like the CLI).
+- The `crates` folder contains the library crates that are meant to be used as dependencies (like the Rust client library).
+- The `tests` folder contains integration tests for the workspace crates.
 
 ### Makefile
 
-As mentioned before, we use [cargo-make](https://github.com/sagiegurari/cargo-make) to encapsulate some tasks, such as running lints and tests. You can check out [Makefile.toml](./Makefile.toml) for all available tasks.
+We use `make` to encapsulate some tasks, such as running lints and tests. You can check out [Makefile](./Makefile) for all available tasks or just run the following command:
+
+```bash
+make
+```
 
 ## Testing
 
 To test the project's code, we provide both unit tests (which can be run with `cargo test`) and integration tests. For more info on integration tests, refer to the [integration testing document](./tests/README.md)
 
-The crate also comes with 2 feature flags that are used exclusively on tests: 
+The crate also comes with one feature flag that is used exclusively on tests: 
 
-- `test_utils`: used on unit tests to use the mocked RPC API.
-- `integration`: only used to run integration tests and separate them from unit tests
+- `integration`: only used to run integration tests and separate them from unit tests.
 
 ## Contributing
 

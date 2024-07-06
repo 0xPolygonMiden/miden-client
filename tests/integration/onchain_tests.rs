@@ -1,14 +1,12 @@
 use miden_client::{
-    client::{
-        accounts::{AccountStorageMode, AccountTemplate},
-        transactions::transaction_request::{PaymentTransactionData, TransactionTemplate},
-    },
+    accounts::AccountTemplate,
     store::{NoteFilter, NoteStatus},
+    transactions::transaction_request::{PaymentTransactionData, TransactionTemplate},
 };
 use miden_objects::{
-    accounts::AccountId,
+    accounts::{AccountId, AccountStorageType},
     assets::{Asset, FungibleAsset, TokenSymbol},
-    notes::{NoteTag, NoteType},
+    notes::{NoteFile, NoteTag, NoteType},
     transaction::InputNote,
 };
 
@@ -30,7 +28,7 @@ async fn test_onchain_notes_flow() {
             token_symbol: TokenSymbol::new("MATIC").unwrap(),
             decimals: 8,
             max_supply: 1_000_000_000,
-            storage_mode: AccountStorageMode::Local,
+            storage_type: AccountStorageType::OffChain,
         })
         .unwrap();
 
@@ -38,7 +36,7 @@ async fn test_onchain_notes_flow() {
     let (basic_wallet_1, _) = client_2
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_mode: AccountStorageMode::Local,
+            storage_type: AccountStorageType::OffChain,
         })
         .unwrap();
 
@@ -46,7 +44,7 @@ async fn test_onchain_notes_flow() {
     let (basic_wallet_2, _) = client_3
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_mode: AccountStorageMode::Local,
+            storage_type: AccountStorageType::OffChain,
         })
         .unwrap();
     client_1.sync_state().await.unwrap();
@@ -67,7 +65,7 @@ async fn test_onchain_notes_flow() {
 
     // Assert that the note is the same
     let received_note: InputNote = client_2.get_input_note(note.id()).unwrap().try_into().unwrap();
-    assert_eq!(received_note.note().authentication_hash(), note.authentication_hash());
+    assert_eq!(received_note.note().hash(), note.hash());
     assert_eq!(received_note.note(), &note);
 
     // consume the note
@@ -117,13 +115,13 @@ async fn test_onchain_accounts() {
     wait_for_node(&mut client_2).await;
 
     let (first_regular_account, _second_regular_account, faucet_account_stub) =
-        setup(&mut client_1, AccountStorageMode::OnChain).await;
+        setup(&mut client_1, AccountStorageType::OnChain).await;
 
     let (
         second_client_first_regular_account,
         _other_second_regular_account,
         _other_faucet_account_stub,
-    ) = setup(&mut client_2, AccountStorageMode::Local).await;
+    ) = setup(&mut client_2, AccountStorageType::OffChain).await;
 
     let target_account_id = first_regular_account.id();
     let second_client_target_account_id = second_client_first_regular_account.id();
@@ -215,10 +213,10 @@ async fn test_onchain_accounts() {
     let notes = client_2.get_input_notes(NoteFilter::Committed).unwrap();
 
     //Import the note on the first client so that we can later check its consumer account
-    client_1.import_input_note(notes[0].clone(), false).await.unwrap();
+    client_1.import_note(NoteFile::NoteId(notes[0].id())).await.unwrap();
 
     // Consume the note
-    println!("Consuming note con second client...");
+    println!("Consuming note on second client...");
     let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![notes[0].id()]);
     let tx_request = client_2.build_transaction_request(tx_template).unwrap();
     execute_tx_and_sync(&mut client_2, tx_request).await;
@@ -229,8 +227,13 @@ async fn test_onchain_accounts() {
 
     // Check that the client doesn't know who consumed the note
     let input_note = client_1.get_input_note(notes[0].id()).unwrap();
-    assert!(matches!(input_note.status(), NoteStatus::Consumed));
-    assert!(input_note.consumer_account_id().is_none());
+    assert!(matches!(
+        input_note.status(),
+        NoteStatus::Consumed {
+            consumer_account_id: None,
+            block_height: _
+        }
+    ));
 
     let new_from_account_balance = client_1
         .get_account(from_account_id)
@@ -269,7 +272,7 @@ async fn test_onchain_notes_sync_with_tag() {
             token_symbol: TokenSymbol::new("MATIC").unwrap(),
             decimals: 8,
             max_supply: 1_000_000_000,
-            storage_mode: AccountStorageMode::Local,
+            storage_type: AccountStorageType::OffChain,
         })
         .unwrap();
 
@@ -305,7 +308,7 @@ async fn test_onchain_notes_sync_with_tag() {
 
     // Assert that the note is the same
     let received_note: InputNote = client_2.get_input_note(note.id()).unwrap().try_into().unwrap();
-    assert_eq!(received_note.note().authentication_hash(), note.authentication_hash());
+    assert_eq!(received_note.note().hash(), note.hash());
     assert_eq!(received_note.note(), &note);
     assert!(client_3.get_input_notes(NoteFilter::All).unwrap().is_empty());
 }

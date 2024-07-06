@@ -5,30 +5,33 @@ use figment::{
     Figment,
 };
 use miden_client::{
-    client::{
-        accounts::{AccountStorageMode, AccountTemplate},
-        get_random_coin,
-        rpc::TonicRpcClient,
-        store_authenticator::StoreAuthenticator,
-        sync::SyncSummary,
-        transactions::transaction_request::{TransactionRequest, TransactionTemplate},
-        Client,
+    accounts::AccountTemplate,
+    auth::StoreAuthenticator,
+    config::RpcConfig,
+    rpc::{RpcError, TonicRpcClient},
+    store::{
+        sqlite_store::{config::SqliteStoreConfig, SqliteStore},
+        NoteFilter, TransactionFilter,
     },
-    config::ClientConfig,
-    errors::{ClientError, NodeRpcClientError},
-    store::{sqlite_store::SqliteStore, NoteFilter, TransactionFilter},
+    sync::SyncSummary,
+    transactions::{
+        transaction_request::{TransactionRequest, TransactionTemplate},
+        DataStoreError, TransactionExecutorError,
+    },
+    Client, ClientError,
 };
 use miden_objects::{
     accounts::{
         account_id::testing::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN, Account,
-        AccountId,
+        AccountId, AccountStorageType,
     },
     assets::{Asset, FungibleAsset, TokenSymbol},
     crypto::rand::RpoRandomCoin,
     notes::{NoteId, NoteType},
-    transaction::InputNote,
+    transaction::{InputNote, TransactionId},
+    Felt,
 };
-use miden_tx::{DataStoreError, TransactionExecutorError};
+use rand::Rng;
 use uuid::Uuid;
 
 pub const ACCOUNT_ID_REGULAR: u64 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN;
@@ -40,7 +43,7 @@ pub type TestClient = Client<
     StoreAuthenticator<RpoRandomCoin, SqliteStore>,
 >;
 
-pub const TEST_CLIENT_CONFIG_FILE_PATH: &str = "./tests/config/miden-client.toml";
+pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./tests/config/miden-client-rpc.toml";
 /// Creates a `TestClient`
 ///
 /// Creates the client using the config at `TEST_CLIENT_CONFIG_FILE_PATH`. The store's path is at a random temporary location, so the store section of the config file is ignored.
@@ -50,26 +53,35 @@ pub const TEST_CLIENT_CONFIG_FILE_PATH: &str = "./tests/config/miden-client.toml
 /// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
 /// deserialized into a [ClientConfig]
 pub fn create_test_client() -> TestClient {
-    let mut client_config: ClientConfig = Figment::from(Toml::file(TEST_CLIENT_CONFIG_FILE_PATH))
+    let (rpc_config, store_config) = get_client_config();
+
+    let store = {
+        let sqlite_store = SqliteStore::new(&store_config).unwrap();
+        Rc::new(sqlite_store)
+    };
+
+    let mut rng = rand::thread_rng();
+    let coin_seed: [u64; 4] = rng.gen();
+
+    let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
+
+    let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
+    TestClient::new(TonicRpcClient::new(&rpc_config), rng, store, authenticator, true)
+}
+
+pub fn get_client_config() -> (RpcConfig, SqliteStoreConfig) {
+    let rpc_config: RpcConfig = Figment::from(Toml::file(TEST_CLIENT_RPC_CONFIG_FILE_PATH))
         .extract()
         .expect("should be able to read test config at {TEST_CLIENT_CONFIG_FILE_PATH}");
 
-    client_config.store = create_test_store_path()
+    let store_config = create_test_store_path()
         .into_os_string()
         .into_string()
         .unwrap()
         .try_into()
         .unwrap();
 
-    let store = {
-        let sqlite_store = SqliteStore::new((&client_config).into()).unwrap();
-        Rc::new(sqlite_store)
-    };
-
-    let rng = get_random_coin();
-
-    let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
-    TestClient::new(TonicRpcClient::new(&client_config.rpc), rng, store, authenticator, true)
+    (rpc_config, store_config)
 }
 
 pub fn create_test_store_path() -> std::path::PathBuf {
@@ -78,14 +90,29 @@ pub fn create_test_store_path() -> std::path::PathBuf {
     temp_file
 }
 
-pub async fn execute_tx_and_sync(client: &mut TestClient, tx_request: TransactionRequest) {
+pub async fn execute_tx(client: &mut TestClient, tx_request: TransactionRequest) -> TransactionId {
     println!("Executing transaction...");
     let transaction_execution_result = client.new_transaction(tx_request).unwrap();
     let transaction_id = transaction_execution_result.executed_transaction().id();
 
     println!("Sending transaction to node");
-    client.submit_transaction(transaction_execution_result).await.unwrap();
+    let proven_transaction = client
+        .prove_transaction(transaction_execution_result.executed_transaction().clone())
+        .unwrap();
+    client
+        .submit_transaction(transaction_execution_result, proven_transaction)
+        .await
+        .unwrap();
 
+    transaction_id
+}
+
+pub async fn execute_tx_and_sync(client: &mut TestClient, tx_request: TransactionRequest) {
+    let transaction_id = execute_tx(client, tx_request).await;
+    wait_for_tx(client, transaction_id).await;
+}
+
+pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId) {
     // wait until tx is committed
     loop {
         println!("Syncing State...");
@@ -138,7 +165,7 @@ pub async fn wait_for_node(client: &mut TestClient) {
 
     for _try_number in 0..NUMBER_OF_NODE_ATTEMPTS {
         match client.sync_state().await {
-            Err(ClientError::NodeRpcClientError(NodeRpcClientError::ConnectionError(_))) => {
+            Err(ClientError::RpcError(RpcError::ConnectionError(_))) => {
                 std::thread::sleep(Duration::from_secs(NODE_TIME_BETWEEN_ATTEMPTS));
             },
             Err(other_error) => {
@@ -157,7 +184,7 @@ pub const TRANSFER_AMOUNT: u64 = 59;
 /// Sets up a basic client and returns (basic_account, basic_account, faucet_account)
 pub async fn setup(
     client: &mut TestClient,
-    accounts_storage_mode: AccountStorageMode,
+    accounts_storage_mode: AccountStorageType,
 ) -> (Account, Account, Account) {
     // Enusre clean state
     assert!(client.get_account_stubs().unwrap().is_empty());
@@ -170,7 +197,7 @@ pub async fn setup(
             token_symbol: TokenSymbol::new("MATIC").unwrap(),
             decimals: 8,
             max_supply: 1_000_000_000,
-            storage_mode: accounts_storage_mode,
+            storage_type: accounts_storage_mode,
         })
         .unwrap();
 
@@ -178,14 +205,14 @@ pub async fn setup(
     let (first_basic_account, _) = client
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_mode: AccountStorageMode::Local,
+            storage_type: AccountStorageType::OffChain,
         })
         .unwrap();
 
     let (second_basic_account, _) = client
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_mode: AccountStorageMode::Local,
+            storage_type: AccountStorageType::OffChain,
         })
         .unwrap();
 
@@ -205,9 +232,6 @@ pub async fn mint_note(
     faucet_account_id: AccountId,
     note_type: NoteType,
 ) -> InputNote {
-    let (regular_account, _seed) = client.get_account(basic_account_id).unwrap();
-    assert_eq!(regular_account.vault().assets().count(), 0);
-
     // Create a Mint Tx for 1000 units of our fungible asset
     let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
     let tx_template =
@@ -276,6 +300,6 @@ pub async fn assert_note_cannot_be_consumed_twice(
             ),
         )) => {},
         Ok(_) => panic!("Double-spend error: Note should not be consumable!"),
-        _ => panic!("Unexpected error: {}", note_to_consume_id.to_hex()),
+        err => panic!("Unexpected error {:?} for note ID: {}", err, note_to_consume_id.to_hex()),
     }
 }
