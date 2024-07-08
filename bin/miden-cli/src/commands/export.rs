@@ -65,7 +65,7 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthent
             Some(inclusion_proof) => {
                 NoteFile::NoteWithProof(output_note.clone().try_into()?, inclusion_proof.clone())
             },
-            None => return Err("Note does not have inclusion proofx".to_string()),
+            None => return Err("Note does not have inclusion proof".to_string()),
         },
         ExportType::Partial => NoteFile::NoteDetails(
             output_note.clone().try_into()?,
