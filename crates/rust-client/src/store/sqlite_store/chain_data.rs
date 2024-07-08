@@ -141,6 +141,9 @@ impl SqliteStore {
     }
 
     /// Inserts a block header using a [rusqlite::Transaction]
+    ///
+    /// If the block header exists and `has_client_notes` is `true` then the `has_client_notes`
+    /// column is updated to `true` to signify that the block now contains a relevant note
     pub(crate) fn insert_block_header_tx(
         tx: &Transaction<'_>,
         block_header: BlockHeader,

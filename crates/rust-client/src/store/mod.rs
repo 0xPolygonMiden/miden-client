@@ -201,6 +201,8 @@ pub trait Store {
     ///
     /// `has_client_notes` describes whether the block has relevant notes to the client; this means
     /// the client might want to authenticate merkle paths based on this value.
+    /// If the block header exists and `has_client_notes` is `true` then the `has_client_notes`
+    /// column is updated to `true` to signify that the block now contains a relevant note.
     #[maybe_async]
     fn insert_block_header(
         &self,
