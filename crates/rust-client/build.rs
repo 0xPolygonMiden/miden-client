@@ -15,9 +15,13 @@ fn main() -> miette::Result<()> {
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR should be set");
     let dest_path = PathBuf::from(out_dir);
 
-    write_proto(&dest_path).unwrap();
-    compile_tonic_client_proto(&dest_path)?;
-    replace_no_std_types();
+    // updates the generated files from protobuf. Only do so when this is not docs.rs building the
+    // documentation.
+    if env::var("DOCS_RS").is_err() {
+        write_proto(&dest_path).unwrap();
+        compile_tonic_client_proto(&dest_path)?;
+        replace_no_std_types();
+    }
 
     Ok(())
 }
