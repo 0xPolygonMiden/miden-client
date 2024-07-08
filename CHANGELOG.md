@@ -2,6 +2,7 @@
 
 ## v0.5.0 (TBD)
 
+* Fix `get_consumable_notes` to consider block header information for consumability (#432).
 * Add conversions for `NoteRecordDetails` (#392).
 
 ## v0.4.0 (2024-07-05)
