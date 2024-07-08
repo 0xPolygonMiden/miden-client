@@ -54,29 +54,37 @@ impl TransactionRequest {
 
     pub fn new(
         account_id: AccountId,
-        unauthenticated_input_notes: Vec<Note>,
-        input_notes: BTreeMap<NoteId, Option<NoteArgs>>,
         expected_output_notes: Vec<Note>,
         expected_partial_notes: Vec<NoteDetails>,
         tx_script: Option<TransactionScript>,
-        advice_map: Option<AdviceMap>,
-    ) -> Result<Self, TransactionRequestError> {
-        if unauthenticated_input_notes
-            .iter()
-            .any(|note| !input_notes.contains_key(&note.id()))
-        {
-            return Err(TransactionRequestError::InputNotesMapMissingUnauthenticatedNotes);
-        }
-
-        Ok(Self {
+    ) -> Self {
+        Self {
             account_id,
-            unauthenticated_input_notes,
-            input_notes,
+            unauthenticated_input_notes: vec![],
+            input_notes: BTreeMap::new(),
             expected_output_notes,
             expected_partial_notes,
             tx_script,
-            advice_map: advice_map.unwrap_or_default(),
-        })
+            advice_map: AdviceMap::default(),
+        }
+    }
+
+    pub fn with_advice_map(
+        account_id: AccountId,
+        expected_output_notes: Vec<Note>,
+        expected_partial_notes: Vec<NoteDetails>,
+        tx_script: Option<TransactionScript>,
+        advice_map: AdviceMap,
+    ) -> Self {
+        Self {
+            account_id,
+            unauthenticated_input_notes: vec![],
+            input_notes: BTreeMap::new(),
+            expected_output_notes,
+            expected_partial_notes,
+            tx_script,
+            advice_map,
+        }
     }
 
     // PUBLIC ACCESSORS
@@ -88,11 +96,6 @@ impl TransactionRequest {
 
     pub fn unauthenticated_input_notes(&self) -> &[Note] {
         &self.unauthenticated_input_notes
-    }
-
-    #[cfg(feature = "testing")]
-    pub fn set_unauthenticated_input_notes(&mut self, unauthenticated_input_notes: Vec<Note>) {
-        self.unauthenticated_input_notes = unauthenticated_input_notes;
     }
 
     pub fn unauthenticated_input_note_ids(&self) -> impl Iterator<Item = NoteId> + '_ {
@@ -107,6 +110,19 @@ impl TransactionRequest {
             .iter()
             .map(|(note_id, _)| *note_id)
             .filter(move |note_id| !unauthenticated_note_ids.contains(note_id))
+    }
+
+    pub fn add_unauthenticated_input_notes(&mut self, notes: Vec<(Note, Option<NoteArgs>)>) {
+        for (note, argument) in notes {
+            self.input_notes.insert(note.id(), argument);
+            self.unauthenticated_input_notes.push(note);
+        }
+    }
+
+    pub fn add_authenticated_input_notes(&mut self, notes: Vec<(NoteId, Option<NoteArgs>)>) {
+        for (note_id, argument) in notes {
+            self.input_notes.insert(note_id, argument);
+        }
     }
 
     pub fn input_notes(&self) -> &BTreeMap<NoteId, Option<NoteArgs>> {
