@@ -51,11 +51,20 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         account_id: Option<AccountId>,
     ) -> Result<Vec<(InputNoteRecord, Vec<NoteConsumability>)>, ClientError> {
         let commited_notes = maybe_await!(self.store.get_input_notes(NoteFilter::Committed))?;
+        let unconsumable_committed_note_ids: Vec<NoteId> =
+            maybe_await!(self.store.get_notes_without_block_header())?
+                .into_iter()
+                .map(|note| note.id())
+                .collect();
 
         let note_screener = NoteScreener::new(self.store.clone());
 
         let mut relevant_notes = Vec::new();
         for input_note in commited_notes {
+            if unconsumable_committed_note_ids.contains(&input_note.id()) {
+                continue;
+            }
+
             let mut account_relevance =
                 maybe_await!(note_screener.check_relevance(&input_note.clone().try_into()?))?;
 

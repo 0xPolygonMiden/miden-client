@@ -150,11 +150,20 @@ impl SqliteStore {
         let chain_mmr_peaks = chain_mmr_peaks.peaks().to_vec();
         let (block_num, header, chain_mmr, has_client_notes) =
             serialize_block_header(block_header, chain_mmr_peaks, has_client_notes)?;
-        const QUERY: &str = "\
+        const INSERT_QUERY: &str = "\
         INSERT OR IGNORE INTO block_headers
             (block_num, header, chain_mmr_peaks, has_client_notes)
         VALUES (?, ?, ?, ?)";
-        tx.execute(QUERY, params![block_num, header, chain_mmr, has_client_notes])?;
+        tx.execute(INSERT_QUERY, params![block_num, header, chain_mmr, has_client_notes])?;
+
+        if has_client_notes {
+            // Only update to change has_client_notes to true if it was false previously
+            const UPDATE_QUERY: &str = "\
+            UPDATE block_headers
+                SET has_client_notes=TRUE
+                WHERE block_num=? AND has_client_notes=FALSE;";
+            tx.execute(UPDATE_QUERY, params![block_num])?;
+        }
         Ok(())
     }
 }
