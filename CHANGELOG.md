@@ -2,6 +2,8 @@
 
 ## v0.5.0 (TBD)
 
+* Add conversions for `NoteRecordDetails` (#392).
+
 ## v0.4.0 (2024-07-05)
 
 ### Features

@@ -102,12 +102,7 @@ impl From<Note> for OutputNoteRecord {
             status: NoteStatus::Expected { created_at: 0 },
             metadata: *note.metadata(),
             inclusion_proof: None,
-            details: Some(NoteRecordDetails::new(
-                note.nullifier().to_string(),
-                note.script().clone(),
-                note.inputs().values().to_vec(),
-                note.serial_num(),
-            )),
+            details: Some(note.into()),
         }
     }
 }

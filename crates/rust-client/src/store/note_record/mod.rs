@@ -8,7 +8,7 @@ use chrono::{Local, TimeZone};
 use miden_objects::{
     accounts::AccountId,
     assembly::{Assembler, ProgramAst},
-    notes::NoteScript,
+    notes::{Note, NoteDetails, NoteScript},
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
     Digest, Felt, Word,
 };
@@ -252,5 +252,27 @@ impl Deserializable for NoteRecordDetails {
         let serial_num = Word::read_from(source)?;
 
         Ok(NoteRecordDetails::new(nullifier, script, inputs, serial_num))
+    }
+}
+
+impl From<Note> for NoteRecordDetails {
+    fn from(note: Note) -> Self {
+        Self::new(
+            note.nullifier().to_string(),
+            note.script().clone(),
+            note.inputs().values().to_vec(),
+            note.serial_num(),
+        )
+    }
+}
+
+impl From<NoteDetails> for NoteRecordDetails {
+    fn from(details: NoteDetails) -> Self {
+        Self::new(
+            details.nullifier().to_string(),
+            details.script().clone(),
+            details.inputs().values().to_vec(),
+            details.serial_num(),
+        )
     }
 }
