@@ -207,12 +207,7 @@ impl From<Note> for InputNoteRecord {
             status: NoteStatus::Expected { created_at: 0 },
             metadata: Some(*note.metadata()),
             inclusion_proof: None,
-            details: NoteRecordDetails::new(
-                note.nullifier().to_string(),
-                note.script().clone(),
-                note.inputs().values().to_vec(),
-                note.serial_num(),
-            ),
+            details: note.into(),
             ignored: false,
             imported_tag: None,
         }
@@ -227,12 +222,7 @@ impl From<InputNote> for InputNoteRecord {
             assets: recorded_note.note().assets().clone(),
             status: NoteStatus::Expected { created_at: 0 },
             metadata: Some(*recorded_note.note().metadata()),
-            details: NoteRecordDetails::new(
-                recorded_note.note().nullifier().to_string(),
-                recorded_note.note().script().clone(),
-                recorded_note.note().inputs().values().to_vec(),
-                recorded_note.note().serial_num(),
-            ),
+            details: recorded_note.note().clone().into(),
             inclusion_proof: recorded_note.proof().cloned(),
             ignored: false,
             imported_tag: None,

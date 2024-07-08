@@ -7,10 +7,7 @@ use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
     rpc::{NodeRpcClient, NoteDetails},
-    store::{
-        InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord, Store,
-        StoreError,
-    },
+    store::{InputNoteRecord, NoteFilter, NoteStatus, OutputNoteRecord, Store, StoreError},
     Client, ClientError,
 };
 
@@ -171,12 +168,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     };
 
                     // If note is not tracked, we create a new one.
-                    let details = NoteRecordDetails::new(
-                        node_note.nullifier().to_string(),
-                        node_note.script().clone(),
-                        node_note.inputs().values().to_vec(),
-                        node_note.serial_num(),
-                    );
+                    let details = node_note.clone().into();
 
                     InputNoteRecord::new(
                         node_note.id(),
@@ -207,12 +199,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 }
             },
             NoteFile::NoteDetails(details, None) => {
-                let record_details = NoteRecordDetails::new(
-                    details.nullifier().to_string(),
-                    details.script().clone(),
-                    details.inputs().values().to_vec(),
-                    details.serial_num(),
-                );
+                let record_details = details.clone().into();
 
                 InputNoteRecord::new(
                     details.id(),
@@ -247,12 +234,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     info!("Ignoring note with tag {}", tag);
                 }
 
-                let record_details = NoteRecordDetails::new(
-                    details.nullifier().to_string(),
-                    details.script().clone(),
-                    details.inputs().values().to_vec(),
-                    details.serial_num(),
-                );
+                let record_details = details.clone().into();
 
                 InputNoteRecord::new(
                     details.id(),
@@ -267,12 +249,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 )
             },
             NoteFile::NoteWithProof(note, inclusion_proof) => {
-                let details = NoteRecordDetails::new(
-                    note.nullifier().to_string(),
-                    note.script().clone(),
-                    note.inputs().values().to_vec(),
-                    note.serial_num(),
-                );
+                let details = note.clone().into();
 
                 InputNoteRecord::new(
                     note.id(),
