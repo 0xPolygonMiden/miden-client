@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.4.1 (2024-07-08) - `miden-client` crete only
+
+* Fixed the build script to avoid updating generated files in docs.rs environment (#433).
+
 ## v0.4.0 (2024-07-05)
 
 ### Features
