@@ -609,12 +609,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             // OffChain accounts should always have the latest known state. If we receive a stale
             // update we ignore it.
             if mismatched_accounts.is_some() {
-                let account_history =
-                    maybe_await!(self.store.get_account_stub_history(*remote_account_id))?;
-                let hash_matches_old_account = &account_history[1..]
-                    .iter()
-                    .any(|account_stub| account_stub.hash() == *remote_account_hash);
-                if !hash_matches_old_account {
+                let current_account = self.store.get_account_stub(*remote_account_id)?.0;
+                let account_by_hash = self.store.get_account_stub_by_hash(*remote_account_hash)?;
+
+                if account_by_hash.is_none()
+                    || account_by_hash.expect("account should be some").nonce()
+                        == current_account.nonce()
+                {
                     return Err(StoreError::AccountHashMismatch(*remote_account_id).into());
                 }
             }

@@ -3,7 +3,7 @@
 ## v0.5.0 (TBD)
 
 * Ignored stale updates received during sync process (#412).
-* Fixex flaky integration tests (#410).
+* Fixed flaky integration tests (#410).
 * Added conversions for `NoteRecordDetails` (#392).
 
 ## v0.4.0 (2024-07-05)

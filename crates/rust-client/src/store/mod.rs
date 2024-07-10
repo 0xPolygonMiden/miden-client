@@ -237,19 +237,13 @@ pub trait Store {
         account_id: AccountId,
     ) -> Result<(AccountStub, Option<Word>), StoreError>;
 
-    /// Returns a list of [AccountStub] corresponding to all the stored account states given its
-    /// account ID.
-    ///
-    /// The list should be sorted in descending order by nonce
-    ///
-    /// # Errors
-    ///
-    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
+    /// Returns an [AccountStub] corresponding to the stored account state that matches the given
+    /// hash. If no account state matches the provided hash, `None` is returned.
     #[maybe_async]
-    fn get_account_stub_history(
+    fn get_account_stub_by_hash(
         &self,
-        account_id: AccountId,
-    ) -> Result<Vec<AccountStub>, StoreError>;
+        account_hash: Digest,
+    ) -> Result<Option<AccountStub>, StoreError>;
 
     /// Retrieves a full [Account] object. The seed will be returned if the account is new,
     /// otherwise it will be `None`.
