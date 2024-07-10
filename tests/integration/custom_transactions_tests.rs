@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use miden_client::{
     accounts::AccountTemplate, transactions::transaction_request::TransactionRequest,
     utils::Serializable,
@@ -81,7 +79,7 @@ async fn test_transaction_request() {
     // these exact arguments
     let note_args_commitment = Rpo256::hash_elements(&NOTE_ARGS);
 
-    let note_args_map = BTreeMap::from([(note.id(), Some(note_args_commitment.into()))]);
+    let note_args_map = vec![(note.id(), Some(note_args_commitment.into()))];
     let mut advice_map = AdviceMap::new();
     advice_map.insert(note_args_commitment, NOTE_ARGS.to_vec());
 
@@ -117,16 +115,14 @@ async fn test_transaction_request() {
         client.compile_tx_script(program, script_inputs, vec![]).unwrap()
     };
 
-    let transaction_request = TransactionRequest::new(
+    let mut transaction_request = TransactionRequest::with_advice_map(
         regular_account.id(),
-        vec![],
-        note_args_map.clone(),
         vec![],
         vec![],
         Some(tx_script),
-        Some(advice_map.clone()),
-    )
-    .unwrap();
+        advice_map.clone(),
+    );
+    transaction_request.add_authenticated_input_notes(note_args_map.clone());
 
     // This fails becuase of {asserted_value} having the incorrect number passed in
     assert!(client.new_transaction(transaction_request).is_err());
@@ -149,16 +145,14 @@ async fn test_transaction_request() {
         client.compile_tx_script(program, script_inputs, vec![]).unwrap()
     };
 
-    let transaction_request = TransactionRequest::new(
+    let mut transaction_request = TransactionRequest::with_advice_map(
         regular_account.id(),
-        vec![],
-        note_args_map,
         vec![],
         vec![],
         Some(tx_script),
-        Some(advice_map),
-    )
-    .unwrap();
+        advice_map,
+    );
+    transaction_request.add_authenticated_input_notes(note_args_map);
 
     execute_tx_and_sync(&mut client, transaction_request).await;
 
@@ -209,16 +203,8 @@ async fn mint_custom_note(
 
     let tx_script = client.compile_tx_script(program, vec![], vec![]).unwrap();
 
-    let transaction_request = TransactionRequest::new(
-        faucet_account_id,
-        vec![],
-        BTreeMap::new(),
-        vec![note.clone()],
-        vec![],
-        Some(tx_script),
-        None,
-    )
-    .unwrap();
+    let transaction_request =
+        TransactionRequest::new(faucet_account_id, vec![note.clone()], vec![], Some(tx_script));
 
     let _ = execute_tx_and_sync(client, transaction_request).await;
     note
