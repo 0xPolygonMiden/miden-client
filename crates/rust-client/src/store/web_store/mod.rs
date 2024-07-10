@@ -201,11 +201,11 @@ impl Store for WebStore {
     }
 
     #[maybe_async]
-    fn get_account_stub_history(
+    fn get_account_stub_by_hash(
         &self,
-        account_id: AccountId,
-    ) -> Result<Vec<AccountStub>, StoreError> {
-        maybe_await!(self.get_account_stub_history(account_id))
+        account_hash: Digest,
+    ) -> Result<Option<AccountStub>, StoreError> {
+        maybe_await!(self.get_account_stub_by_hash(account_hash))
     }
 
     #[maybe_async]

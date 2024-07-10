@@ -112,49 +112,40 @@ export async function getAccountStub(
       }
 }
 
-export async function getAccountStubHistory(
-    accountId
+export async function getAccountStubByHash(
+    accountHash
 ) {
     try {
-        // Fetch all records matching the given id
+        // Fetch all records matching the given hash
         const allMatchingRecords = await accounts
-          .where('id')
-          .equals(accountId)
+          .where('accountHash')
+          .equals(accountHash)
           .toArray();
-    
+
         if (allMatchingRecords.length === 0) {
-          console.log('No records found for given ID.');
+          console.log('No records found for given hash.');
           return null; // No records found
         }
-    
-        // Convert nonce to BigInt and sort descending by nonce
-        // Note: This assumes all nonces are valid BigInt strings.
-        const sortedRecords = allMatchingRecords.sort((a, b) => {
-          const bigIntA = BigInt(a.nonce);
-          const bigIntB = BigInt(b.nonce);
-          return bigIntA > bigIntB ? -1 : bigIntA < bigIntB ? 1 : 0;
-        });
-    
-        const resultObject = await Promise.all(sortedRecords.map(async record => {
-            let accountSeedBase64 = null;
-            if (record.accountSeed) {
-                // Ensure accountSeed is processed as a Uint8Array and converted to Base64
-                let accountSeedArrayBuffer = await record.accountSeed.arrayBuffer();
-                let accountSeedArray = new Uint8Array(accountSeedArrayBuffer);
-                accountSeedBase64 = uint8ArrayToBase64(accountSeedArray);
-            }
 
-            return {
-                id: record.id,
-                nonce: record.nonce,
-                vault_root: record.vaultRoot,
-                storage_root: record.storageRoot,
-                code_root: record.codeRoot,
-                account_seed: accountSeedBase64 // Now correctly formatted as Base64
-            };
-        }));
-        
-        return resultObject;
+        // There should be only one match
+        const matchingRecord = allMatchingRecords[0];
+
+        let accountSeedBase64 = null;
+        if (matchingRecord.accountSeed) {
+            // Ensure accountSeed is processed as a Uint8Array and converted to Base64
+            let accountSeedArrayBuffer = await matchingRecord.accountSeed.arrayBuffer();
+            let accountSeedArray = new Uint8Array(accountSeedArrayBuffer);
+            accountSeedBase64 = uint8ArrayToBase64(accountSeedArray);
+        }
+        const accountStub = {
+            id: matchingRecord.id,
+            nonce: matchingRecord.nonce,
+            vault_root: matchingRecord.vaultRoot,
+            storage_root: matchingRecord.storageRoot,
+            code_root: matchingRecord.codeRoot,
+            account_seed: accountSeedBase64
+        }
+        return accountStub;
       } catch (error) {
         console.error('Error fetching most recent account record:', error);
         throw error; // Re-throw the error for further handling
