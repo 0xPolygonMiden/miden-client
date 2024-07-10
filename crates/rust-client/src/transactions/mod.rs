@@ -12,7 +12,7 @@ use miden_objects::{
     assets::FungibleAsset,
     notes::{Note, NoteDetails, NoteId, NoteType},
     transaction::{InputNotes, TransactionArgs},
-    Digest, Felt, FieldElement, Word,
+    AccountError, Digest, Felt, FieldElement, Word,
 };
 use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, TransactionProver};
 use tracing::info;
@@ -326,6 +326,17 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         tx_result: TransactionResult,
         proven_transaction: ProvenTransaction,
     ) -> Result<(), ClientError> {
+        let (current_account, _) = maybe_await!(self
+            .store
+            .get_account_stub(tx_result.executed_transaction().account_id()))?;
+
+        if tx_result.account_delta().nonce().is_none() && current_account.nonce().as_int() == 0 {
+            return Err(ClientError::AccountError(AccountError::NonceNotMonotonicallyIncreasing {
+                current: 0,
+                new: 0,
+            }));
+        }
+
         self.rpc_api.submit_proven_transaction(proven_transaction).await?;
         info!("Transaction submitted");
 
