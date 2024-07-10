@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use miden_client::{
     accounts::AccountTemplate, transactions::transaction_request::TransactionRequest,
-    utils::Serializable,
+    utils::Serializable, ClientError,
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorageType, AuthSecretKey},
@@ -163,6 +163,65 @@ async fn test_transaction_request() {
     execute_tx_and_sync(&mut client, transaction_request).await;
 
     client.sync_state().await.unwrap();
+}
+
+#[tokio::test]
+async fn test_no_nonce_change_transaction_request() {
+    let mut client = create_test_client();
+    wait_for_node(&mut client).await;
+
+    let account_template = AccountTemplate::BasicWallet {
+        mutable_code: false,
+        storage_type: AccountStorageType::OffChain,
+    };
+
+    client.sync_state().await.unwrap();
+    // Insert Account
+    let (regular_account, _seed) = client.new_account(account_template).unwrap();
+
+    // Prepare transaction
+
+    let code = "
+        use.miden::kernels::tx::prologue
+        use.miden::kernels::tx::memory
+
+        begin
+            push.1 push.2
+            # => [1, 2]
+
+            add push.3
+            # => [1+2, 3]
+
+            assert_eq
+        end
+        ";
+
+    let program = ProgramAst::parse(code).unwrap();
+
+    let tx_script = client.compile_tx_script(program, [], vec![]).unwrap();
+
+    let transaction_request = TransactionRequest::new(
+        regular_account.id(),
+        vec![],
+        BTreeMap::new(),
+        vec![],
+        vec![],
+        Some(tx_script),
+        None,
+    )
+    .unwrap();
+
+    println!("Executing transaction...");
+    let transaction_execution_result = client.new_transaction(transaction_request).unwrap();
+
+    println!("Sending transaction to node");
+    let proven_transaction = client
+        .prove_transaction(transaction_execution_result.executed_transaction().clone())
+        .unwrap();
+    let result = client
+        .submit_transaction(transaction_execution_result, proven_transaction)
+        .await;
+    assert!(matches!(result, Err(ClientError::AccountError(_))));
 }
 
 async fn mint_custom_note(
