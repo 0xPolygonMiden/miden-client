@@ -2,6 +2,7 @@
 
 ## v0.5.0 (TBD)
 
+* Refactor `TransactionRequest` constructor (#434).
 * Fix flaky integration tests (#410).
 * Add conversions for `NoteRecordDetails` (#392).
 
