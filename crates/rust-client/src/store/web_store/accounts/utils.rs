@@ -74,6 +74,7 @@ pub async fn insert_account_record(
     let committed = account.is_on_chain();
     let nonce = account.nonce().to_string();
     let account_seed = account_seed.map(|seed| seed.to_bytes());
+    let hash = account.hash().to_string();
 
     let promise = idxdb_insert_account_record(
         account_id_str,
@@ -83,6 +84,7 @@ pub async fn insert_account_record(
         nonce,
         committed,
         account_seed,
+        hash,
     );
     let _ = JsFuture::from(promise).await;
 

@@ -412,7 +412,8 @@ export async function insertAccountRecord(
     vault_root,
     nonce,
     committed,
-    account_seed
+    account_seed,
+    hash
 ) {
     try {
         let accountSeedBlob = null;
@@ -430,6 +431,7 @@ export async function insertAccountRecord(
             nonce: nonce,
             committed: committed,
             accountSeed: accountSeedBlob,
+            accountHash: hash,
         };
 
         // Perform the insert using Dexie

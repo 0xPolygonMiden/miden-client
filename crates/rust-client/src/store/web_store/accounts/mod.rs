@@ -76,10 +76,9 @@ impl WebStore {
         let js_value = JsFuture::from(promise).await.unwrap();
         let account_stub_idxdb: Option<AccountRecordIdxdbOjbect> = from_value(js_value).unwrap();
 
-        let account_stub: Result<Option<AccountStub>, StoreError> = account_stub_idxdb
-            .map_or(Ok(None), |account_record| {
-                let result =
-                parse_account_record_idxdb_object(account_record);
+        let account_stub: Result<Option<AccountStub>, StoreError> =
+            account_stub_idxdb.map_or(Ok(None), |account_record| {
+                let result = parse_account_record_idxdb_object(account_record);
 
                 result.map(|(account_stub, _account_seed)| Some(account_stub))
             });
