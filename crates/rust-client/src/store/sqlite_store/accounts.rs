@@ -18,7 +18,7 @@ use crate::store::StoreError;
 
 // TYPES
 // ================================================================================================
-type SerializedAccountData = (i64, String, String, String, i64, bool);
+type SerializedAccountData = (i64, String, String, String, i64, bool, String);
 type SerializedAccountsParts = (i64, i64, String, String, String, Option<Vec<u8>>);
 
 type SerializedAccountAuthData = (i64, Vec<u8>, Vec<u8>);
@@ -193,14 +193,15 @@ pub(super) fn insert_account_record(
     account: &Account,
     account_seed: Option<Word>,
 ) -> Result<(), StoreError> {
-    let (id, code_root, storage_root, vault_root, nonce, committed) = serialize_account(account)?;
+    let (id, code_root, storage_root, vault_root, nonce, committed, hash) =
+        serialize_account(account)?;
 
     let account_seed = account_seed.map(|seed| seed.to_bytes());
 
-    const QUERY: &str =  "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed) VALUES (?, ?, ?, ?, ?, ?, ?)";
+    const QUERY: &str =  "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed, account_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
     tx.execute(
         QUERY,
-        params![id, code_root, storage_root, vault_root, nonce, committed, account_seed],
+        params![id, code_root, storage_root, vault_root, nonce, committed, account_seed, hash],
     )?;
     Ok(())
 }
@@ -319,8 +320,9 @@ fn serialize_account(account: &Account) -> Result<SerializedAccountData, StoreEr
         .map_err(StoreError::InputSerializationError)?;
     let committed = account.is_on_chain();
     let nonce = account.nonce().as_int() as i64;
+    let hash = account.hash().to_string();
 
-    Ok((id as i64, code_root, storage_root, vault_root, nonce, committed))
+    Ok((id as i64, code_root, storage_root, vault_root, nonce, committed, hash))
 }
 
 /// Parse account_auth columns from the provided row into native types
