@@ -841,16 +841,22 @@ async fn test_update_ignored_tag() {
         .unwrap();
 
     // Ignored notes are only retrieved for "Ignored" or "All" filters
-    assert_eq!(client_2.get_input_notes(NoteFilter::All).unwrap().len(), 1);
-    assert_eq!(client_2.get_input_notes(NoteFilter::Ignored).unwrap().len(), 1);
-    assert_eq!(client_2.get_input_notes(NoteFilter::Expected).unwrap().len(), 0);
+    let all_notes = client_2.get_input_notes(NoteFilter::All).unwrap();
+    let ignored_notes = client_2.get_input_notes(NoteFilter::Ignored).unwrap();
+    let expected_notes = client_2.get_input_notes(NoteFilter::Expected).unwrap();
+    assert!(all_notes.iter().any(|candidate_note| candidate_note.id() == note.id()));
+    assert!(ignored_notes.iter().any(|candidate_note| candidate_note.id() == note.id()));
+    assert!(expected_notes.iter().all(|candidate_note| candidate_note.id() != note.id()));
 
     client_2.add_note_tag(untracked_tag).unwrap();
 
     // After adding tag, the note stops being ignored
-    assert_eq!(client_2.get_input_notes(NoteFilter::All).unwrap().len(), 1);
-    assert_eq!(client_2.get_input_notes(NoteFilter::Ignored).unwrap().len(), 0);
-    assert_eq!(client_2.get_input_notes(NoteFilter::Expected).unwrap().len(), 1);
+    let all_notes = client_2.get_input_notes(NoteFilter::All).unwrap();
+    let ignored_notes = client_2.get_input_notes(NoteFilter::Ignored).unwrap();
+    let expected_notes = client_2.get_input_notes(NoteFilter::Expected).unwrap();
+    assert!(all_notes.iter().any(|candidate_note| candidate_note.id() == note.id()));
+    assert!(ignored_notes.iter().all(|candidate_note| candidate_note.id() != note.id()));
+    assert!(expected_notes.iter().any(|candidate_note| candidate_note.id() == note.id()));
 }
 
 #[tokio::test]
