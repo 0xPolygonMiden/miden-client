@@ -14,7 +14,7 @@ use miden_objects::{
         Note, NoteAssets, NoteExecutionHint, NoteInputs, NoteMetadata, NoteRecipient, NoteTag,
         NoteType,
     },
-    vm::AdviceMap,
+    vm::{AdviceInputs, AdviceMap},
     Felt, Word,
 };
 
@@ -115,10 +115,11 @@ async fn test_transaction_request() {
         client.compile_tx_script(program, script_inputs, vec![]).unwrap()
     };
 
+    let advice_inputs = AdviceInputs::default().with_map(advice_map.clone());
     let transaction_request = TransactionRequest::new(regular_account.id())
         .with_authenticated_input_notes(note_args_map.clone())
         .with_tx_script(tx_script)
-        .extend_advice_map(advice_map.clone());
+        .extend_advice_inputs(advice_inputs);
 
     // This fails becuase of {asserted_value} having the incorrect number passed in
     assert!(client.new_transaction(transaction_request).is_err());
@@ -141,10 +142,11 @@ async fn test_transaction_request() {
         client.compile_tx_script(program, script_inputs, vec![]).unwrap()
     };
 
+    let advice_inputs = AdviceInputs::default().with_map(advice_map);
     let transaction_request = TransactionRequest::new(regular_account.id())
         .with_authenticated_input_notes(note_args_map)
         .with_tx_script(tx_script)
-        .extend_advice_map(advice_map);
+        .extend_advice_inputs(advice_inputs);
 
     execute_tx_and_sync(&mut client, transaction_request).await;
 

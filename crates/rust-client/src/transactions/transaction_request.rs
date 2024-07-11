@@ -9,8 +9,8 @@ use miden_objects::{
     assets::{Asset, FungibleAsset},
     notes::{Note, NoteDetails, NoteId, NoteType},
     transaction::{TransactionArgs, TransactionScript},
-    vm::AdviceMap,
-    Digest, Felt, Word,
+    vm::AdviceInputs,
+    Word,
 };
 
 // MASM SCRIPTS
@@ -44,8 +44,8 @@ pub struct TransactionRequest {
     expected_future_notes: Vec<NoteDetails>,
     /// Optional transaction script (together with its arguments).
     tx_script: Option<TransactionScript>,
-    /// Initial state of the `AdviceMap` that provides data during runtime.
-    advice_map: AdviceMap,
+    /// Initial state of the `AdviceInputs` that provides data during runtime.
+    advice_inputs: AdviceInputs,
 }
 
 impl TransactionRequest {
@@ -60,7 +60,7 @@ impl TransactionRequest {
             expected_output_notes: vec![],
             expected_future_notes: vec![],
             tx_script: None,
-            advice_map: AdviceMap::default(),
+            advice_inputs: AdviceInputs::default(),
         }
     }
 
@@ -100,11 +100,8 @@ impl TransactionRequest {
         self
     }
 
-    pub fn extend_advice_map<T: IntoIterator<Item = (Digest, Vec<Felt>)>>(
-        mut self,
-        iter: T,
-    ) -> Self {
-        self.advice_map.extend(iter);
+    pub fn extend_advice_inputs(mut self, inputs: AdviceInputs) -> Self {
+        self.advice_inputs.extend(inputs);
         self
     }
 
@@ -164,7 +161,7 @@ impl TransactionRequest {
 impl From<TransactionRequest> for TransactionArgs {
     fn from(val: TransactionRequest) -> Self {
         let note_args = val.get_note_args();
-        let mut tx_args = TransactionArgs::new(val.tx_script, Some(note_args), val.advice_map);
+        let mut tx_args = TransactionArgs::new(val.tx_script, Some(note_args), val.advice_inputs);
 
         let output_notes = val.expected_output_notes.into_iter();
         tx_args.extend_expected_output_notes(output_notes);
