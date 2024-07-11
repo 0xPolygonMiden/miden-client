@@ -333,7 +333,7 @@ async fn test_swap_offchain() {
             Asset::Fungible(offered_asset),
             Asset::Fungible(requested_asset),
         ),
-        NoteType::OffChain,
+        NoteType::Private,
     );
     println!("Running SWAP tx...");
     let tx_request = client1.build_transaction_request(tx_template).unwrap();
@@ -352,7 +352,7 @@ async fn test_swap_offchain() {
         .try_into()
         .unwrap();
     let tag =
-        build_swap_tag(NoteType::OffChain, offered_asset.faucet_id(), requested_asset.faucet_id());
+        build_swap_tag(NoteType::Private, offered_asset.faucet_id(), requested_asset.faucet_id());
     client2.add_note_tag(tag).unwrap();
     client2
         .import_note(NoteFile::NoteDetails(exported_note.into(), Some(tag)))

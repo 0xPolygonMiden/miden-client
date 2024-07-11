@@ -329,7 +329,7 @@ where
 fn note_record_type(note_record_metadata: Option<&NoteMetadata>) -> String {
     match note_record_metadata {
         Some(metadata) => match metadata.note_type() {
-            miden_client::notes::NoteType::OffChain => "OffChain",
+            miden_client::notes::NoteType::Private => "Private",
             miden_client::notes::NoteType::Encrypted => "Encrypted",
             miden_client::notes::NoteType::Public => "Public",
         },

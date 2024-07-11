@@ -187,7 +187,7 @@ async fn mint_custom_note(
     end
     "
     .replace("{recipient}", &recipient)
-    .replace("{note_type}", &Felt::new(NoteType::OffChain as u64).to_string())
+    .replace("{note_type}", &Felt::new(NoteType::Private as u64).to_string())
     .replace("{tag}", &Felt::new(note_tag.into()).to_string())
     .replace("{amount}", &Felt::new(10).to_string());
 
@@ -225,7 +225,7 @@ fn create_custom_note(
     let serial_num = rng.draw_word();
     let note_metadata = NoteMetadata::new(
         faucet_account_id,
-        NoteType::OffChain,
+        NoteType::Private,
         NoteTag::from_account_id(target_account_id, NoteExecutionHint::Local).unwrap(),
         Default::default(),
     )

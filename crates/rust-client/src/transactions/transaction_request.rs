@@ -349,7 +349,7 @@ mod tests {
             account_id,
             account_id,
             vec![FungibleAsset::new(faucet_id, 100u64).unwrap().into()],
-            NoteType::OffChain,
+            NoteType::Private,
             Felt::ZERO,
             &mut rng,
         )
@@ -358,7 +358,7 @@ mod tests {
             account_id,
             account_id,
             vec![FungibleAsset::new(faucet_id, 100u64).unwrap().into()],
-            NoteType::OffChain,
+            NoteType::Private,
             Felt::ZERO,
             10,
             &mut rng,
@@ -368,7 +368,7 @@ mod tests {
             account_id,
             FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
             FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
-            NoteType::OffChain,
+            NoteType::Private,
             Felt::ZERO,
             &mut rng,
         )
