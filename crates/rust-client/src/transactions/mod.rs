@@ -271,7 +271,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let note_ids = transaction_request.get_input_note_ids();
         let output_notes = transaction_request.expected_output_notes().to_vec();
-        let partial_notes = transaction_request.expected_partial_notes().to_vec();
+        let future_notes = transaction_request.expected_future_notes().to_vec();
 
         // Execute the transaction and get the witness
         let executed_transaction = maybe_await!(self.tx_executor.execute_transaction(
@@ -301,7 +301,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let screener = NoteScreener::new(self.store.clone());
 
-        maybe_await!(TransactionResult::new(executed_transaction, screener, partial_notes))
+        maybe_await!(TransactionResult::new(executed_transaction, screener, future_notes))
     }
 
     /// Proves the specified transaction witness, and returns a [ProvenTransaction] that can be
@@ -453,7 +453,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         Ok(TransactionRequest::new(swap_data.account_id())
             .with_expected_output_notes(vec![created_note])
-            .with_expected_partial_notes(vec![payback_note_details])
+            .with_expected_future_notes(vec![payback_note_details])
             .with_tx_script(tx_script))
     }
 
