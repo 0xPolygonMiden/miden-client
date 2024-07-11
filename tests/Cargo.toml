@@ -13,7 +13,7 @@ edition.workspace = true
 [dev-dependencies]
 figment = { version = "0.10", features = ["toml", "env"] }
 miden-client = { path = "../crates/rust-client", features = ["concurrent", "testing", "std", "sqlite", "tonic"] }
-miden-objects = { version = "0.4", default-features = false, features = ["serde"] }
+miden-objects = { default-features = false, features = ["serde"] , git = "https://github.com/0xPolygonMiden/miden-base", branch = "tomyrd-tx-args-advice-inputs" }
 rand = { workspace = true }
 tokio = { workspace = true }
 uuid = { version = "1.9", features = ["serde", "v4"] }
