@@ -52,39 +52,57 @@ impl TransactionRequest {
     // CONSTRUCTORS
     // --------------------------------------------------------------------------------------------
 
-    pub fn new(
-        account_id: AccountId,
-        expected_output_notes: Vec<Note>,
-        expected_partial_notes: Vec<NoteDetails>,
-        tx_script: Option<TransactionScript>,
-    ) -> Self {
+    pub fn new(account_id: AccountId) -> Self {
         Self {
             account_id,
             unauthenticated_input_notes: vec![],
             input_notes: BTreeMap::new(),
-            expected_output_notes,
-            expected_partial_notes,
-            tx_script,
+            expected_output_notes: vec![],
+            expected_partial_notes: vec![],
+            tx_script: None,
             advice_map: AdviceMap::default(),
         }
     }
 
-    pub fn with_advice_map(
-        account_id: AccountId,
-        expected_output_notes: Vec<Note>,
-        expected_partial_notes: Vec<NoteDetails>,
-        tx_script: Option<TransactionScript>,
-        advice_map: AdviceMap,
+    pub fn with_unauthenticated_input_notes(
+        mut self,
+        notes: Vec<(Note, Option<NoteArgs>)>,
     ) -> Self {
-        Self {
-            account_id,
-            unauthenticated_input_notes: vec![],
-            input_notes: BTreeMap::new(),
-            expected_output_notes,
-            expected_partial_notes,
-            tx_script,
-            advice_map,
+        for (note, argument) in notes {
+            self.input_notes.insert(note.id(), argument);
+            self.unauthenticated_input_notes.push(note);
         }
+        self
+    }
+
+    pub fn with_authenticated_input_notes(
+        mut self,
+        notes: Vec<(NoteId, Option<NoteArgs>)>,
+    ) -> Self {
+        for (note_id, argument) in notes {
+            self.input_notes.insert(note_id, argument);
+        }
+        self
+    }
+
+    pub fn with_expected_output_notes(mut self, notes: Vec<Note>) -> Self {
+        self.expected_output_notes = notes;
+        self
+    }
+
+    pub fn with_expected_partial_notes(mut self, notes: Vec<NoteDetails>) -> Self {
+        self.expected_partial_notes = notes;
+        self
+    }
+
+    pub fn with_tx_script(mut self, tx_script: TransactionScript) -> Self {
+        self.tx_script = Some(tx_script);
+        self
+    }
+
+    pub fn with_advice_map(mut self, advice_map: AdviceMap) -> Self {
+        self.advice_map = advice_map;
+        self
     }
 
     // PUBLIC ACCESSORS
@@ -110,19 +128,6 @@ impl TransactionRequest {
             .iter()
             .map(|(note_id, _)| *note_id)
             .filter(move |note_id| !unauthenticated_note_ids.contains(note_id))
-    }
-
-    pub fn add_unauthenticated_input_notes(&mut self, notes: Vec<(Note, Option<NoteArgs>)>) {
-        for (note, argument) in notes {
-            self.input_notes.insert(note.id(), argument);
-            self.unauthenticated_input_notes.push(note);
-        }
-    }
-
-    pub fn add_authenticated_input_notes(&mut self, notes: Vec<(NoteId, Option<NoteArgs>)>) {
-        for (note_id, argument) in notes {
-            self.input_notes.insert(note_id, argument);
-        }
     }
 
     pub fn input_notes(&self) -> &BTreeMap<NoteId, Option<NoteArgs>> {

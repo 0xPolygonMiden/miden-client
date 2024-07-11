@@ -205,9 +205,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
                 let tx_script = self.tx_executor.compile_tx_script(program_ast, vec![], vec![])?;
 
-                let mut tx_request =
-                    TransactionRequest::new(account_id, vec![], vec![], Some(tx_script));
-                tx_request.add_authenticated_input_notes(notes);
+                let tx_request = TransactionRequest::new(account_id)
+                    .with_authenticated_input_notes(notes)
+                    .with_tx_script(tx_script);
 
                 Ok(tx_request)
             },
@@ -405,12 +405,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let tx_script = self.tx_executor.compile_tx_script(tx_script, vec![], vec![])?;
 
-        Ok(TransactionRequest::new(
-            payment_data.account_id(),
-            vec![created_note],
-            vec![],
-            Some(tx_script),
-        ))
+        Ok(TransactionRequest::new(payment_data.account_id())
+            .with_expected_output_notes(vec![created_note])
+            .with_tx_script(tx_script))
     }
 
     /// Helper to build a [TransactionRequest] for Swap-type transactions easily.
@@ -454,12 +451,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let tx_script = self.tx_executor.compile_tx_script(tx_script, vec![], vec![])?;
 
-        Ok(TransactionRequest::new(
-            swap_data.account_id(),
-            vec![created_note],
-            vec![payback_note_details],
-            Some(tx_script),
-        ))
+        Ok(TransactionRequest::new(swap_data.account_id())
+            .with_expected_output_notes(vec![created_note])
+            .with_expected_partial_notes(vec![payback_note_details])
+            .with_tx_script(tx_script))
     }
 
     /// Helper to build a [TransactionRequest] for transaction to mint fungible tokens.
@@ -502,12 +497,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let tx_script = self.tx_executor.compile_tx_script(tx_script, vec![], vec![])?;
 
-        Ok(TransactionRequest::new(
-            asset.faucet_id(),
-            vec![created_note],
-            vec![],
-            Some(tx_script),
-        ))
+        Ok(TransactionRequest::new(asset.faucet_id())
+            .with_expected_output_notes(vec![created_note])
+            .with_tx_script(tx_script))
     }
 }
 

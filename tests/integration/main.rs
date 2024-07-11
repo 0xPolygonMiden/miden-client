@@ -892,9 +892,11 @@ async fn test_consume_expected_note() {
     let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![note.id()]);
 
     println!("Executing consume notes tx without sync...");
-    let mut tx_request = client.build_transaction_request(tx_template).unwrap();
-    // set the note as unauthenticated
-    tx_request.add_unauthenticated_input_notes(vec![(note.clone(), None)]);
+    let tx_request = client
+        .build_transaction_request(tx_template)
+        .unwrap()
+        .with_unauthenticated_input_notes(vec![(note.clone(), None)]);
+
     let tx_id = execute_tx(&mut unauth_client, tx_request).await;
 
     // Check that note is expected for the account to consume

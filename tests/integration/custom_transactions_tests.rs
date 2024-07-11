@@ -115,14 +115,10 @@ async fn test_transaction_request() {
         client.compile_tx_script(program, script_inputs, vec![]).unwrap()
     };
 
-    let mut transaction_request = TransactionRequest::with_advice_map(
-        regular_account.id(),
-        vec![],
-        vec![],
-        Some(tx_script),
-        advice_map.clone(),
-    );
-    transaction_request.add_authenticated_input_notes(note_args_map.clone());
+    let transaction_request = TransactionRequest::new(regular_account.id())
+        .with_authenticated_input_notes(note_args_map.clone())
+        .with_tx_script(tx_script)
+        .with_advice_map(advice_map.clone());
 
     // This fails becuase of {asserted_value} having the incorrect number passed in
     assert!(client.new_transaction(transaction_request).is_err());
@@ -145,14 +141,10 @@ async fn test_transaction_request() {
         client.compile_tx_script(program, script_inputs, vec![]).unwrap()
     };
 
-    let mut transaction_request = TransactionRequest::with_advice_map(
-        regular_account.id(),
-        vec![],
-        vec![],
-        Some(tx_script),
-        advice_map,
-    );
-    transaction_request.add_authenticated_input_notes(note_args_map);
+    let transaction_request = TransactionRequest::new(regular_account.id())
+        .with_authenticated_input_notes(note_args_map)
+        .with_tx_script(tx_script)
+        .with_advice_map(advice_map);
 
     execute_tx_and_sync(&mut client, transaction_request).await;
 
@@ -203,8 +195,9 @@ async fn mint_custom_note(
 
     let tx_script = client.compile_tx_script(program, vec![], vec![]).unwrap();
 
-    let transaction_request =
-        TransactionRequest::new(faucet_account_id, vec![note.clone()], vec![], Some(tx_script));
+    let transaction_request = TransactionRequest::new(faucet_account_id)
+        .with_expected_output_notes(vec![note.clone()])
+        .with_tx_script(tx_script);
 
     let _ = execute_tx_and_sync(client, transaction_request).await;
     note
