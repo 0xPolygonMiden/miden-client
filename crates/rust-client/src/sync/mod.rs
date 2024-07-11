@@ -335,8 +335,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             .get_updated_onchain_accounts(&response.account_hash_updates, &onchain_accounts)
             .await?;
 
-        self.validate_local_account_hashes(&response.account_hash_updates, &offchain_accounts)
-            .await?;
+        maybe_await!(
+            self.validate_local_account_hashes(&response.account_hash_updates, &offchain_accounts)
+        )?;
 
         // Derive new nullifiers data
         let new_nullifiers = maybe_await!(self.get_new_nullifiers(response.nullifiers))?;
@@ -595,7 +596,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     }
 
     /// Validates account hash updates and returns an error if there is a mismatch.
-    async fn validate_local_account_hashes(
+    #[maybe_async]
+    fn validate_local_account_hashes(
         &mut self,
         account_updates: &[(AccountId, Digest)],
         current_offchain_accounts: &[AccountStub],
@@ -609,15 +611,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             // OffChain accounts should always have the latest known state. If we receive a stale
             // update we ignore it.
             if mismatched_accounts.is_some() {
-                let current_account =
-                    maybe_await!(self.store.get_account_stub(*remote_account_id))?.0;
                 let account_by_hash =
                     maybe_await!(self.store.get_account_stub_by_hash(*remote_account_hash))?;
 
-                if account_by_hash.is_none()
-                    || account_by_hash.expect("account should be some").nonce()
-                        == current_account.nonce()
-                {
+                if account_by_hash.is_none() {
                     return Err(StoreError::AccountHashMismatch(*remote_account_id).into());
                 }
             }
