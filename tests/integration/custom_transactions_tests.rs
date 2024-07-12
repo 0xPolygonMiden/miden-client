@@ -1,6 +1,6 @@
 use miden_client::{
     accounts::AccountTemplate, transactions::transaction_request::TransactionRequest,
-    utils::Serializable, StarkField, ZERO,
+    utils::Serializable, ZERO,
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorageType, AuthSecretKey},
@@ -15,7 +15,7 @@ use miden_objects::{
         Note, NoteAssets, NoteExecutionHint, NoteInputs, NoteMetadata, NoteRecipient, NoteTag,
         NoteType,
     },
-    vm::{AdviceInputs, AdviceMap},
+    vm::AdviceMap,
     Felt, Word,
 };
 
@@ -116,11 +116,10 @@ async fn test_transaction_request() {
         client.compile_tx_script(program, script_inputs, vec![]).unwrap()
     };
 
-    let advice_inputs = AdviceInputs::default().with_map(advice_map.clone());
     let transaction_request = TransactionRequest::new(regular_account.id())
         .with_authenticated_input_notes(note_args_map.clone())
         .with_tx_script(tx_script)
-        .extend_advice_inputs(advice_inputs);
+        .extend_advice_map(advice_map.clone());
 
     // This fails becuase of {asserted_value} having the incorrect number passed in
     assert!(client.new_transaction(transaction_request).is_err());
@@ -143,11 +142,10 @@ async fn test_transaction_request() {
         client.compile_tx_script(program, script_inputs, vec![]).unwrap()
     };
 
-    let advice_inputs = AdviceInputs::default().with_map(advice_map);
     let transaction_request = TransactionRequest::new(regular_account.id())
         .with_authenticated_input_notes(note_args_map)
         .with_tx_script(tx_script)
-        .extend_advice_inputs(advice_inputs);
+        .extend_advice_map(advice_map);
 
     execute_tx_and_sync(&mut client, transaction_request).await;
 
@@ -196,8 +194,7 @@ async fn test_merkle_store() {
     let num_leaves = leaves.len();
     let merkle_tree = MerkleTree::new(leaves).unwrap();
     let merkle_root = merkle_tree.root();
-    let merkle_store = MerkleStore::from(&merkle_tree);
-    let advice_stack: Vec<u64> = merkle_root.iter().map(StarkField::as_int).collect();
+    let merkle_store: MerkleStore = MerkleStore::from(&merkle_tree);
 
     let mut code = format!(
         "
@@ -211,8 +208,9 @@ async fn test_merkle_store() {
                                 push.{num_leaves} push.1000 mem_store
 
                                 # merkle root -> mem[1001]
-                                adv_push.4 push.1001 mem_storew dropw
-                        "
+                                push.{} push.1001 mem_storew dropw
+                        ",
+        merkle_root.to_hex()
     );
 
     for pos in 0..(num_leaves as u64) {
@@ -249,17 +247,11 @@ async fn test_merkle_store() {
         client.compile_tx_script(program, script_inputs, vec![]).unwrap()
     };
 
-    // Add the map, merkle store and stack to advice input
-    let advice_inputs = AdviceInputs::default()
-        .with_map(advice_map)
-        .with_merkle_store(merkle_store)
-        .with_stack_values(advice_stack)
-        .unwrap();
-
     let transaction_request = TransactionRequest::new(regular_account.id())
         .with_authenticated_input_notes(note_args_map)
         .with_tx_script(tx_script)
-        .extend_advice_inputs(advice_inputs);
+        .extend_advice_map(advice_map)
+        .extend_merkle_store(merkle_store.inner_nodes());
 
     execute_tx_and_sync(&mut client, transaction_request).await;
 

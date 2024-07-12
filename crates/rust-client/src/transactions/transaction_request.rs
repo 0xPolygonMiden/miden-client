@@ -7,10 +7,11 @@ use core::fmt;
 use miden_objects::{
     accounts::AccountId,
     assets::{Asset, FungibleAsset},
+    crypto::merkle::InnerNodeInfo,
     notes::{Note, NoteDetails, NoteId, NoteType},
     transaction::{TransactionArgs, TransactionScript},
     vm::AdviceInputs,
-    Word,
+    Digest, Felt, Word,
 };
 
 // MASM SCRIPTS
@@ -100,8 +101,16 @@ impl TransactionRequest {
         self
     }
 
-    pub fn extend_advice_inputs(mut self, inputs: AdviceInputs) -> Self {
-        self.advice_inputs.extend(inputs);
+    pub fn extend_advice_map<T: IntoIterator<Item = (Digest, Vec<Felt>)>>(
+        mut self,
+        iter: T,
+    ) -> Self {
+        self.advice_inputs.extend_map(iter);
+        self
+    }
+
+    pub fn extend_merkle_store<T: IntoIterator<Item = InnerNodeInfo>>(mut self, iter: T) -> Self {
+        self.advice_inputs.extend_merkle_store(iter.into_iter());
         self
     }
 
