@@ -10,7 +10,7 @@ use miden_objects::{
     notes::{Note, NoteDetails, NoteId, NoteType},
     transaction::{TransactionArgs, TransactionScript},
     vm::AdviceMap,
-    Word,
+    Digest, Felt, Word,
 };
 
 // MASM SCRIPTS
@@ -100,8 +100,11 @@ impl TransactionRequest {
         self
     }
 
-    pub fn with_advice_map(mut self, advice_map: AdviceMap) -> Self {
-        self.advice_map = advice_map;
+    pub fn extend_advice_map<T: IntoIterator<Item = (Digest, Vec<Felt>)>>(
+        mut self,
+        iter: T,
+    ) -> Self {
+        self.advice_map.extend(iter);
         self
     }
 

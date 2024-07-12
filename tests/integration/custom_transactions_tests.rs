@@ -118,7 +118,7 @@ async fn test_transaction_request() {
     let transaction_request = TransactionRequest::new(regular_account.id())
         .with_authenticated_input_notes(note_args_map.clone())
         .with_tx_script(tx_script)
-        .with_advice_map(advice_map.clone());
+        .extend_advice_map(advice_map.clone());
 
     // This fails becuase of {asserted_value} having the incorrect number passed in
     assert!(client.new_transaction(transaction_request).is_err());
@@ -144,7 +144,7 @@ async fn test_transaction_request() {
     let transaction_request = TransactionRequest::new(regular_account.id())
         .with_authenticated_input_notes(note_args_map)
         .with_tx_script(tx_script)
-        .with_advice_map(advice_map);
+        .extend_advice_map(advice_map);
 
     execute_tx_and_sync(&mut client, transaction_request).await;
 
