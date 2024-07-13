@@ -32,9 +32,9 @@ chrono = { version = "0.4", optional = false }
 getrandom = { version = "0.2", features = ["js"], optional = true }
 hex = { version = "0.4" , optional = true}
 lazy_static = { version = "1.5", optional = true }
-miden-lib = { default-features = false, git = "https://github.com/0xPolygonMiden/miden-base", branch = "tomyrd-tx-args-advice-inputs"}
-miden-objects = { default-features = false, features = ["serde"], git = "https://github.com/0xPolygonMiden/miden-base", branch = "tomyrd-tx-args-advice-inputs" }
-miden-tx = { default-features = false , git = "https://github.com/0xPolygonMiden/miden-base", branch = "tomyrd-tx-args-advice-inputs" }
+miden-lib = { default-features = false, git = "https://github.com/0xPolygonMiden/miden-base", branch = "next"}
+miden-objects = { default-features = false, features = ["serde"], git = "https://github.com/0xPolygonMiden/miden-base", branch = "next" }
+miden-tx = { default-features = false , git = "https://github.com/0xPolygonMiden/miden-base", branch = "next" }
 prost = { version = "0.12", optional = true, default-features = false, features = ["derive"] }
 rand = { workspace = true }
 rusqlite = { version = "0.31", features = ["vtab", "array", "bundled"], optional = true }
@@ -53,8 +53,8 @@ winter-maybe-async = "0.10"
 
 [dev-dependencies]
 miden-client = { path = ".", features = ["testing", "concurrent", "sqlite", "tonic", "tokio"]}
-miden-lib = { default-features = false, features = ["testing"], git = "https://github.com/0xPolygonMiden/miden-base", branch = "tomyrd-tx-args-advice-inputs" }
-miden-objects = {default-features = false, features = ["serde", "testing"], git = "https://github.com/0xPolygonMiden/miden-base", branch = "tomyrd-tx-args-advice-inputs" }
+miden-lib = { default-features = false, features = ["testing"], git = "https://github.com/0xPolygonMiden/miden-base", branch = "next" }
+miden-objects = {default-features = false, features = ["serde", "testing"], git = "https://github.com/0xPolygonMiden/miden-base", branch = "next" }
 uuid = { version = "1.9", features = ["serde", "v4"] }
 
 [build-dependencies]
