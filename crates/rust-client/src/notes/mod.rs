@@ -51,6 +51,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         account_id: Option<AccountId>,
     ) -> Result<Vec<(InputNoteRecord, Vec<NoteConsumability>)>, ClientError> {
         let commited_notes = maybe_await!(self.store.get_input_notes(NoteFilter::Committed))?;
+
+        // For a committed note to be consumable its block header and mmr info must be tracked
         let unconsumable_committed_note_ids: BTreeSet<NoteId> =
             maybe_await!(self.store.get_notes_without_block_header())?
                 .into_iter()
