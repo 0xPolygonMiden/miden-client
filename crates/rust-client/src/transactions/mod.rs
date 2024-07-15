@@ -10,7 +10,7 @@ use miden_objects::{
     accounts::{AccountDelta, AccountId},
     assembly::ProgramAst,
     assets::FungibleAsset,
-    notes::{Note, NoteDetails, NoteId, NoteType},
+    notes::{Note, NoteDetails, NoteId, NoteType, PartialNote},
     transaction::{InputNotes, TransactionArgs},
     Digest, Felt, FieldElement, Word,
 };
@@ -199,15 +199,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ) -> Result<TransactionRequest, ClientError> {
         match transaction_template {
             TransactionTemplate::ConsumeNotes(account_id, notes) => {
-                let program_ast = ProgramAst::parse(transaction_request::AUTH_CONSUME_NOTES_SCRIPT)
-                    .expect("shipped MASM is well-formed");
                 let notes = notes.iter().map(|id| (*id, None)).collect();
 
-                let tx_script = self.tx_executor.compile_tx_script(program_ast, vec![], vec![])?;
-
-                let tx_request = TransactionRequest::new(account_id)
-                    .with_authenticated_input_notes(notes)
-                    .with_tx_script(tx_script);
+                let tx_request =
+                    TransactionRequest::new(account_id).with_authenticated_input_notes(notes);
 
                 Ok(tx_request)
             },
@@ -273,13 +268,30 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let output_notes = transaction_request.expected_output_notes().to_vec();
         let future_notes = transaction_request.expected_future_notes().to_vec();
 
+        let tx_args = {
+            let note_args = transaction_request.get_note_args();
+
+            let tx_script = self.build_script_from_native_notes(
+                account_id,
+                transaction_request.native_output_notes(),
+            )?;
+            let mut tx_args = TransactionArgs::new(
+                Some(tx_script),
+                Some(note_args),
+                transaction_request.advice_map().clone(),
+            );
+
+            let output_notes = transaction_request.expected_output_notes().to_vec();
+            tx_args.extend_expected_output_notes(output_notes);
+            tx_args.extend_merkle_store(transaction_request.merkle_store().inner_nodes());
+
+            tx_args
+        };
+
         // Execute the transaction and get the witness
-        let executed_transaction = maybe_await!(self.tx_executor.execute_transaction(
-            account_id,
-            block_num,
-            &note_ids,
-            transaction_request.into(),
-        ))?;
+        let executed_transaction = maybe_await!(self
+            .tx_executor
+            .execute_transaction(account_id, block_num, &note_ids, tx_args,))?;
 
         // Check that the expected output notes matches the transaction outcome.
         // We compare authentication hashes where possible since that involves note IDs + metadata
@@ -383,31 +395,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             )?
         };
 
-        let recipient = created_note
-            .recipient()
-            .digest()
-            .iter()
-            .map(|x| x.as_int().to_string())
-            .collect::<Vec<_>>()
-            .join(".");
-
-        let note_tag = created_note.metadata().tag().inner();
-
-        let tx_script = ProgramAst::parse(
-            &transaction_request::AUTH_SEND_ASSET_SCRIPT
-                .replace("{recipient}", &recipient)
-                .replace("{note_type}", &Felt::new(note_type as u64).to_string())
-                .replace("{aux}", &created_note.metadata().aux().to_string())
-                .replace("{tag}", &Felt::new(note_tag.into()).to_string())
-                .replace("{asset}", &prepare_word(&payment_data.asset().into()).to_string()),
-        )
-        .expect("shipped MASM is well-formed");
-
-        let tx_script = self.tx_executor.compile_tx_script(tx_script, vec![], vec![])?;
+        let native_note = created_note.clone().into();
 
         Ok(TransactionRequest::new(payment_data.account_id())
             .with_expected_output_notes(vec![created_note])
-            .with_tx_script(tx_script))
+            .with_native_output_notes(vec![native_note]))
     }
 
     /// Helper to build a [TransactionRequest] for Swap-type transactions easily.
@@ -429,32 +421,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             &mut self.rng,
         )?;
 
-        let recipient = created_note
-            .recipient()
-            .digest()
-            .iter()
-            .map(|x| x.as_int().to_string())
-            .collect::<Vec<_>>()
-            .join(".");
-
-        let note_tag = created_note.metadata().tag().inner();
-
-        let tx_script = ProgramAst::parse(
-            &transaction_request::AUTH_SEND_ASSET_SCRIPT
-                .replace("{recipient}", &recipient)
-                .replace("{note_type}", &Felt::new(note_type as u64).to_string())
-                .replace("{aux}", &created_note.metadata().aux().to_string())
-                .replace("{tag}", &Felt::new(note_tag.into()).to_string())
-                .replace("{asset}", &prepare_word(&swap_data.offered_asset().into()).to_string()),
-        )
-        .expect("shipped MASM is well-formed");
-
-        let tx_script = self.tx_executor.compile_tx_script(tx_script, vec![], vec![])?;
+        let native_note = created_note.clone().into();
 
         Ok(TransactionRequest::new(swap_data.account_id())
             .with_expected_output_notes(vec![created_note])
             .with_expected_future_notes(vec![payback_note_details])
-            .with_tx_script(tx_script))
+            .with_native_output_notes(vec![native_note]))
     }
 
     /// Helper to build a [TransactionRequest] for transaction to mint fungible tokens.
@@ -475,31 +447,81 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             &mut self.rng,
         )?;
 
-        let recipient = created_note
-            .recipient()
-            .digest()
-            .iter()
-            .map(|x| x.as_int().to_string())
-            .collect::<Vec<_>>()
-            .join(".");
-
-        let note_tag = created_note.metadata().tag().inner();
-
-        let tx_script = ProgramAst::parse(
-            &transaction_request::DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT
-                .replace("{recipient}", &recipient)
-                .replace("{note_type}", &Felt::new(note_type as u64).to_string())
-                .replace("{aux}", &created_note.metadata().aux().to_string())
-                .replace("{tag}", &Felt::new(note_tag.into()).to_string())
-                .replace("{amount}", &Felt::new(asset.amount()).to_string()),
-        )
-        .expect("shipped MASM is well-formed");
-
-        let tx_script = self.tx_executor.compile_tx_script(tx_script, vec![], vec![])?;
+        let native_note = created_note.clone().into();
 
         Ok(TransactionRequest::new(asset.faucet_id())
             .with_expected_output_notes(vec![created_note])
-            .with_tx_script(tx_script))
+            .with_native_output_notes(vec![native_note]))
+    }
+
+    fn build_script_from_native_notes(
+        &self,
+        account_id: AccountId,
+        native_output_notes: &[PartialNote],
+    ) -> Result<TransactionScript, ClientError> {
+        let mut includes: String = String::from("use.miden::contracts::auth::basic->auth_tx\n");
+
+        if account_id.is_faucet() {
+            includes.push_str("use.miden::contracts::faucets::basic_fungible->faucet\n");
+        } else {
+            includes.push_str("use.miden::contracts::wallets::basic->wallet\n");
+        }
+
+        let mut body = String::new();
+
+        for partial_note in native_output_notes.iter() {
+            if partial_note.metadata().sender() != account_id {
+                return Err(ClientError::TransactionRequestError(
+                    TransactionRequestError::InvalidSenderAccount(partial_note.metadata().sender()),
+                ));
+            }
+
+            for asset in partial_note.assets().iter() {
+                body.push_str(&format!(
+                    "
+                    push.{recipient}
+                    push.{note_type}
+                    push.{aux}
+                    push.{tag}
+                    ",
+                    recipient = prepare_word(&partial_note.recipient_digest()),
+                    note_type = Felt::new(partial_note.metadata().note_type() as u64),
+                    aux = partial_note.metadata().aux(),
+                    tag = Felt::new(partial_note.metadata().tag().inner().into()),
+                ));
+
+                if account_id.is_faucet() {
+                    body.push_str(&format!(
+                        "
+                        push.{amount}
+                        call.faucet::distribute dropw dropw
+                        ",
+                        amount = asset.unwrap_fungible().amount()
+                    ));
+                } else {
+                    body.push_str(&format!(
+                        "
+                        push.{asset}
+                        call.wallet::send_asset dropw dropw dropw dropw
+                        ",
+                        asset = prepare_word(&asset.into())
+                    ));
+                }
+            }
+        }
+
+        body.push_str("call.auth_tx::auth_tx_rpo_falcon512\n");
+
+        let script = format!("{} begin {} end", includes, body);
+
+        let program_ast = ProgramAst::parse(&script).map_err(|err| {
+            ClientError::TransactionRequestError(TransactionRequestError::InvalidTransactionScript(
+                err.into(),
+            ))
+        })?;
+
+        let tx_script = self.tx_executor.compile_tx_script(program_ast, vec![], vec![])?;
+        Ok(tx_script)
     }
 }
 
