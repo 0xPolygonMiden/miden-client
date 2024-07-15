@@ -181,11 +181,21 @@ impl TransactionRequest {
 impl From<TransactionRequest> for TransactionArgs {
     fn from(val: TransactionRequest) -> Self {
         let note_args = val.get_note_args();
-        let mut tx_args =
-            TransactionArgs::new(val.tx_script.clone(), Some(note_args), val.advice_map().clone());
-        tx_args.extend_merkle_store(val.merkle_store().clone().inner_nodes());
+        let TransactionRequest {
+            account_id: _,
+            unauthenticated_input_notes: _,
+            input_notes: _,
+            expected_output_notes,
+            expected_future_notes: _,
+            tx_script,
+            advice_map,
+            merkle_store,
+        } = val;
 
-        let output_notes = val.expected_output_notes.into_iter();
+        let mut tx_args = TransactionArgs::new(tx_script, Some(note_args), advice_map);
+        tx_args.extend_merkle_store(merkle_store.inner_nodes());
+
+        let output_notes = expected_output_notes.into_iter();
         tx_args.extend_expected_output_notes(output_notes);
 
         tx_args
