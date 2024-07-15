@@ -7,10 +7,10 @@ use core::fmt;
 use miden_objects::{
     accounts::AccountId,
     assets::{Asset, FungibleAsset},
-    crypto::merkle::InnerNodeInfo,
+    crypto::merkle::{InnerNodeInfo, MerkleStore},
     notes::{Note, NoteDetails, NoteId, NoteType},
     transaction::{TransactionArgs, TransactionScript},
-    vm::AdviceInputs,
+    vm::AdviceMap,
     Digest, Felt, Word,
 };
 
@@ -45,8 +45,10 @@ pub struct TransactionRequest {
     expected_future_notes: Vec<NoteDetails>,
     /// Optional transaction script (together with its arguments).
     tx_script: Option<TransactionScript>,
-    /// Initial state of the `AdviceInputs` that provides data during runtime.
-    advice_inputs: AdviceInputs,
+    /// Initial state of the `AdviceMap` that provides data during runtime.
+    advice_map: AdviceMap,
+    /// Initial state of the `MerkleStore` that provides data during runtime.
+    merkle_store: MerkleStore,
 }
 
 impl TransactionRequest {
@@ -61,7 +63,8 @@ impl TransactionRequest {
             expected_output_notes: vec![],
             expected_future_notes: vec![],
             tx_script: None,
-            advice_inputs: AdviceInputs::default(),
+            advice_map: AdviceMap::default(),
+            merkle_store: MerkleStore::default(),
         }
     }
 
@@ -105,12 +108,12 @@ impl TransactionRequest {
         mut self,
         iter: T,
     ) -> Self {
-        self.advice_inputs.extend_map(iter);
+        self.advice_map.extend(iter);
         self
     }
 
     pub fn extend_merkle_store<T: IntoIterator<Item = InnerNodeInfo>>(mut self, iter: T) -> Self {
-        self.advice_inputs.extend_merkle_store(iter.into_iter());
+        self.merkle_store.extend(iter);
         self
     }
 
@@ -165,12 +168,22 @@ impl TransactionRequest {
     pub fn tx_script(&self) -> Option<&TransactionScript> {
         self.tx_script.as_ref()
     }
+
+    pub fn advice_map(&self) -> &AdviceMap {
+        &self.advice_map
+    }
+
+    pub fn merkle_store(&self) -> &MerkleStore {
+        &self.merkle_store
+    }
 }
 
 impl From<TransactionRequest> for TransactionArgs {
     fn from(val: TransactionRequest) -> Self {
         let note_args = val.get_note_args();
-        let mut tx_args = TransactionArgs::new(val.tx_script, Some(note_args), val.advice_inputs);
+        let mut tx_args =
+            TransactionArgs::new(val.tx_script.clone(), Some(note_args), val.advice_map().clone());
+        tx_args.extend_merkle_store(val.merkle_store().clone().inner_nodes());
 
         let output_notes = val.expected_output_notes.into_iter();
         tx_args.extend_expected_output_notes(output_notes);
