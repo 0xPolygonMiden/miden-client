@@ -335,7 +335,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             .get_updated_onchain_accounts(&response.account_hash_updates, &onchain_accounts)
             .await?;
 
-        self.validate_local_account_hashes(&response.account_hash_updates, &offchain_accounts)?;
+        maybe_await!(
+            self.validate_local_account_hashes(&response.account_hash_updates, &offchain_accounts)
+        )?;
 
         // Derive new nullifiers data
         let new_nullifiers = maybe_await!(self.get_new_nullifiers(response.nullifiers))?;
@@ -578,7 +580,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 info!("On-chain account hash difference detected for account with ID: {}. Fetching node for updates...", tracked_account.id());
                 let account_details = self.rpc_api.get_account_update(tracked_account.id()).await?;
                 if let AccountDetails::Public(account, _) = account_details {
-                    accounts_to_update.push(account);
+                    // We should only do the update if it's newer, otherwise we ignore it
+                    if account.nonce().as_int() > tracked_account.nonce().as_int() {
+                        accounts_to_update.push(account);
+                    }
                 } else {
                     return Err(RpcError::AccountUpdateForPrivateAccountReceived(
                         account_details.account_id(),
@@ -591,6 +596,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     }
 
     /// Validates account hash updates and returns an error if there is a mismatch.
+    #[maybe_async]
     fn validate_local_account_hashes(
         &mut self,
         account_updates: &[(AccountId, Digest)],
@@ -602,9 +608,15 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 .iter()
                 .find(|acc| *remote_account_id == acc.id() && *remote_account_hash != acc.hash());
 
-            // OffChain accounts should always have the latest known state
+            // OffChain accounts should always have the latest known state. If we receive a stale
+            // update we ignore it.
             if mismatched_accounts.is_some() {
-                return Err(StoreError::AccountHashMismatch(*remote_account_id).into());
+                let account_by_hash =
+                    maybe_await!(self.store.get_account_stub_by_hash(*remote_account_hash))?;
+
+                if account_by_hash.is_none() {
+                    return Err(StoreError::AccountHashMismatch(*remote_account_id).into());
+                }
             }
         }
         Ok(())

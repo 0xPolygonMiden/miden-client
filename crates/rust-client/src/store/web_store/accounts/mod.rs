@@ -66,6 +66,26 @@ impl WebStore {
         parse_account_record_idxdb_object(account_stub_idxdb)
     }
 
+    pub(crate) async fn get_account_stub_by_hash(
+        &self,
+        account_hash: Digest,
+    ) -> Result<Option<AccountStub>, StoreError> {
+        let account_hash_str = account_hash.to_string();
+
+        let promise = idxdb_get_account_stub_by_hash(account_hash_str);
+        let js_value = JsFuture::from(promise).await.unwrap();
+        let account_stub_idxdb: Option<AccountRecordIdxdbOjbect> = from_value(js_value).unwrap();
+
+        let account_stub: Result<Option<AccountStub>, StoreError> =
+            account_stub_idxdb.map_or(Ok(None), |account_record| {
+                let result = parse_account_record_idxdb_object(account_record);
+
+                result.map(|(account_stub, _account_seed)| Some(account_stub))
+            });
+
+        account_stub
+    }
+
     pub(crate) async fn get_account(
         &self,
         account_id: AccountId,

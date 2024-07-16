@@ -94,7 +94,7 @@ let payment_transaction = PaymentTransactionData::new(
     target_account_id,
 );
 
-let transaction_template: TransactionTemplate = TransactionTemplate::PayToId(payment_transaction, NoteType::OffChain);
+let transaction_template: TransactionTemplate = TransactionTemplate::PayToId(payment_transaction, NoteType::Private);
 let transaction_request = client.build_transaction_request(transaction_template)?;
 
 // Execute transaction. No information is tracked after this.

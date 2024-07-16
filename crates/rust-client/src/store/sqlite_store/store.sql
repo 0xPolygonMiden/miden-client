@@ -37,6 +37,7 @@ CREATE TABLE accounts (
     nonce BIGINT NOT NULL,         -- Account nonce.
     committed BOOLEAN NOT NULL,    -- True if recorded, false if not.
     account_seed BLOB NULL,        -- Account seed used to generate the ID. Expected to be NULL for non-new accounts
+    account_hash BLOB NOT NULL UNIQUE,    -- Account state hash
     PRIMARY KEY (id, nonce),
     FOREIGN KEY (code_root) REFERENCES account_code(root),
     FOREIGN KEY (storage_root) REFERENCES account_storage(root),
@@ -44,6 +45,8 @@ CREATE TABLE accounts (
 
     CONSTRAINT check_seed_nonzero CHECK (NOT (nonce = 0 AND account_seed IS NULL))
 );
+
+CREATE UNIQUE INDEX idx_account_hash ON accounts(account_hash);
 
 -- Create transactions table
 CREATE TABLE transactions (

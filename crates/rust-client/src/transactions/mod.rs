@@ -1,5 +1,5 @@
 use alloc::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeSet,
     string::{String, ToString},
     vec::Vec,
 };
@@ -204,15 +204,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 let notes = notes.iter().map(|id| (*id, None)).collect();
 
                 let tx_script = self.tx_executor.compile_tx_script(program_ast, vec![], vec![])?;
-                Ok(TransactionRequest::new(
-                    account_id,
-                    vec![],
-                    notes,
-                    vec![],
-                    vec![],
-                    Some(tx_script),
-                    None,
-                )?)
+
+                let tx_request = TransactionRequest::new(account_id)
+                    .with_authenticated_input_notes(notes)
+                    .with_tx_script(tx_script);
+
+                Ok(tx_request)
             },
             TransactionTemplate::MintFungibleAsset(asset, target_account_id, note_type) => {
                 self.build_mint_tx_request(asset, target_account_id, note_type)
@@ -274,7 +271,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let note_ids = transaction_request.get_input_note_ids();
         let output_notes = transaction_request.expected_output_notes().to_vec();
-        let partial_notes = transaction_request.expected_partial_notes().to_vec();
+        let future_notes = transaction_request.expected_future_notes().to_vec();
 
         // Execute the transaction and get the witness
         let executed_transaction = maybe_await!(self.tx_executor.execute_transaction(
@@ -304,7 +301,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let screener = NoteScreener::new(self.store.clone());
 
-        maybe_await!(TransactionResult::new(executed_transaction, screener, partial_notes))
+        maybe_await!(TransactionResult::new(executed_transaction, screener, future_notes))
     }
 
     /// Proves the specified transaction witness, and returns a [ProvenTransaction] that can be
@@ -408,15 +405,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let tx_script = self.tx_executor.compile_tx_script(tx_script, vec![], vec![])?;
 
-        Ok(TransactionRequest::new(
-            payment_data.account_id(),
-            vec![],
-            BTreeMap::new(),
-            vec![created_note],
-            vec![],
-            Some(tx_script),
-            None,
-        )?)
+        Ok(TransactionRequest::new(payment_data.account_id())
+            .with_expected_output_notes(vec![created_note])
+            .with_tx_script(tx_script))
     }
 
     /// Helper to build a [TransactionRequest] for Swap-type transactions easily.
@@ -460,15 +451,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let tx_script = self.tx_executor.compile_tx_script(tx_script, vec![], vec![])?;
 
-        Ok(TransactionRequest::new(
-            swap_data.account_id(),
-            vec![],
-            BTreeMap::new(),
-            vec![created_note],
-            vec![payback_note_details],
-            Some(tx_script),
-            None,
-        )?)
+        Ok(TransactionRequest::new(swap_data.account_id())
+            .with_expected_output_notes(vec![created_note])
+            .with_expected_future_notes(vec![payback_note_details])
+            .with_tx_script(tx_script))
     }
 
     /// Helper to build a [TransactionRequest] for transaction to mint fungible tokens.
@@ -511,15 +497,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let tx_script = self.tx_executor.compile_tx_script(tx_script, vec![], vec![])?;
 
-        Ok(TransactionRequest::new(
-            asset.faucet_id(),
-            vec![],
-            BTreeMap::new(),
-            vec![created_note],
-            vec![],
-            Some(tx_script),
-            None,
-        )?)
+        Ok(TransactionRequest::new(asset.faucet_id())
+            .with_expected_output_notes(vec![created_note])
+            .with_tx_script(tx_script))
     }
 }
 

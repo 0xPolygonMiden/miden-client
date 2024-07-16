@@ -247,6 +247,14 @@ impl Store for SqliteStore {
     }
 
     #[maybe_async]
+    fn get_account_stub_by_hash(
+        &self,
+        account_hash: Digest,
+    ) -> Result<Option<AccountStub>, StoreError> {
+        self.get_account_stub_by_hash(account_hash)
+    }
+
+    #[maybe_async]
     fn get_account(&self, account_id: AccountId) -> Result<(Account, Option<Word>), StoreError> {
         self.get_account(account_id)
     }
