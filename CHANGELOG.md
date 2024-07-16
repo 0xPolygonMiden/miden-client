@@ -5,6 +5,7 @@
 * Ignored stale updates received during sync process (#412).
 * Fixed flaky integration tests (#410).
 * Added conversions for `NoteRecordDetails` (#392).
+* Changed `TransactionRequest` to use `AdviceInputs` instead of `AdviceMap` (#436).
 
 ## v0.4.0 (2024-07-05)
 

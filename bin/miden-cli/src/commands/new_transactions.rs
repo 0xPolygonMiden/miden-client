@@ -35,7 +35,7 @@ impl From<&NoteType> for MidenNoteType {
     fn from(note_type: &NoteType) -> Self {
         match note_type {
             NoteType::Public => MidenNoteType::Public,
-            NoteType::Private => MidenNoteType::OffChain,
+            NoteType::Private => MidenNoteType::Private,
         }
     }
 }
