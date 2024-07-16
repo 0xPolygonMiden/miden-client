@@ -275,10 +275,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             let tx_script = if let Some(custom_script) = custom_script {
                 custom_script
             } else {
-                self.build_script_from_native_notes(
+                maybe_await!(self.build_script_from_native_notes(
                     account_id,
                     transaction_request.native_output_notes(),
-                )?
+                ))?
             };
 
             let mut tx_args = TransactionArgs::new(
@@ -460,6 +460,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             .with_native_output_notes(vec![native_note]))
     }
 
+    #[maybe_async]
     fn build_script_from_native_notes(
         &self,
         account_id: AccountId,
@@ -516,7 +517,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             }
         }
 
-        match self.get_account_auth(account_id)? {
+        match maybe_await!(self.get_account_auth(account_id))? {
             miden_objects::accounts::AuthSecretKey::RpoFalcon512(_) => {
                 body.push_str("call.auth_tx::auth_tx_rpo_falcon512\n");
             },
