@@ -28,7 +28,7 @@ use miden_objects::{
     assets::{Asset, FungibleAsset, TokenSymbol},
     crypto::rand::RpoRandomCoin,
     notes::{NoteId, NoteType},
-    transaction::{InputNote, TransactionId},
+    transaction::{InputNote, TransactionId, TransactionScript},
     Felt,
 };
 use rand::Rng;
@@ -90,9 +90,13 @@ pub fn create_test_store_path() -> std::path::PathBuf {
     temp_file
 }
 
-pub async fn execute_tx(client: &mut TestClient, tx_request: TransactionRequest) -> TransactionId {
+pub async fn execute_tx(
+    client: &mut TestClient,
+    tx_request: TransactionRequest,
+    custom_script: Option<TransactionScript>,
+) -> TransactionId {
     println!("Executing transaction...");
-    let transaction_execution_result = client.new_transaction(tx_request).unwrap();
+    let transaction_execution_result = client.new_transaction(tx_request, custom_script).unwrap();
     let transaction_id = transaction_execution_result.executed_transaction().id();
 
     println!("Sending transaction to node");
@@ -108,8 +112,18 @@ pub async fn execute_tx(client: &mut TestClient, tx_request: TransactionRequest)
 }
 
 pub async fn execute_tx_and_sync(client: &mut TestClient, tx_request: TransactionRequest) {
-    let transaction_id = execute_tx(client, tx_request).await;
+    let transaction_id = execute_tx(client, tx_request, None).await;
     wait_for_tx(client, transaction_id).await;
+}
+
+pub async fn execute_custom_tx_and_sync(
+    client: &mut TestClient,
+    tx_request: TransactionRequest,
+    custom_script: TransactionScript,
+) -> TransactionId {
+    let transaction_id = execute_tx(client, tx_request, Some(custom_script)).await;
+    wait_for_tx(client, transaction_id).await;
+    transaction_id
 }
 
 pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId) {
@@ -293,7 +307,7 @@ pub async fn assert_note_cannot_be_consumed_twice(
 
     // Double-spend error expected to be received since we are consuming the same note
     let tx_request = client.build_transaction_request(tx_template).unwrap();
-    match client.new_transaction(tx_request) {
+    match client.new_transaction(tx_request, None) {
         Err(ClientError::TransactionExecutorError(
             TransactionExecutorError::FetchTransactionInputsFailed(
                 DataStoreError::NoteAlreadyConsumed(_),

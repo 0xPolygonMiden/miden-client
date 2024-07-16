@@ -395,7 +395,7 @@ async fn test_mint_transaction() {
 
     let transaction_request = client.build_transaction_request(transaction_template).unwrap();
 
-    let transaction = client.new_transaction(transaction_request).unwrap();
+    let transaction = client.new_transaction(transaction_request, None).unwrap();
     assert!(transaction.executed_transaction().account_delta().nonce().is_some());
 }
 
@@ -435,7 +435,7 @@ async fn test_get_output_notes() {
     //Before executing transaction, there are no output notes
     assert!(client.get_output_notes(NoteFilter::All).unwrap().is_empty());
 
-    let transaction = client.new_transaction(transaction_request).unwrap();
+    let transaction = client.new_transaction(transaction_request, None).unwrap();
     let proven_transaction =
         client.prove_transaction(transaction.executed_transaction().clone()).unwrap();
     client.submit_transaction(transaction, proven_transaction).await.unwrap();

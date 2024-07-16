@@ -546,7 +546,7 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
     );
 
     let transaction_request = client.build_transaction_request(transaction_template).unwrap();
-    let transaction_execution_result = client.new_transaction(transaction_request).unwrap();
+    let transaction_execution_result = client.new_transaction(transaction_request, None).unwrap();
     let proven_transaction = client
         .prove_transaction(transaction_execution_result.executed_transaction().clone())
         .unwrap();

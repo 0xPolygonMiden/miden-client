@@ -103,7 +103,7 @@ async fn test_transaction_request() {
     let failure_code = code.replace("{asserted_value}", "1");
     let program = ProgramAst::parse(&failure_code).unwrap();
 
-    let _tx_script = {
+    let tx_script = {
         let account_auth = client.get_account_auth(regular_account.id()).unwrap();
         let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
             AuthSecretKey::RpoFalcon512(key) => (
@@ -121,14 +121,14 @@ async fn test_transaction_request() {
         .extend_advice_map(advice_map.clone());
 
     // This fails becuase of {asserted_value} having the incorrect number passed in
-    assert!(client.new_transaction(transaction_request).is_err());
+    assert!(client.new_transaction(transaction_request, Some(tx_script)).is_err());
 
     // SUCCESS EXECUTION
 
     let success_code = code.replace("{asserted_value}", "0");
     let program = ProgramAst::parse(&success_code).unwrap();
 
-    let _tx_script = {
+    let tx_script = {
         let account_auth = client.get_account_auth(regular_account.id()).unwrap();
         let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
             AuthSecretKey::RpoFalcon512(key) => (
@@ -145,7 +145,7 @@ async fn test_transaction_request() {
         .with_authenticated_input_notes(note_args_map)
         .extend_advice_map(advice_map);
 
-    execute_tx_and_sync(&mut client, transaction_request).await;
+    execute_custom_tx_and_sync(&mut client, transaction_request, tx_script).await;
 
     client.sync_state().await.unwrap();
 }
@@ -247,11 +247,10 @@ async fn test_merkle_store() {
 
     let transaction_request = TransactionRequest::new(regular_account.id())
         .with_authenticated_input_notes(note_args_map)
-        .with_tx_script(tx_script)
         .extend_advice_map(advice_map)
         .extend_merkle_store(merkle_store.inner_nodes());
 
-    execute_tx_and_sync(&mut client, transaction_request).await;
+    execute_custom_tx_and_sync(&mut client, transaction_request, tx_script).await;
 
     client.sync_state().await.unwrap();
 }
@@ -298,12 +297,12 @@ async fn mint_custom_note(
 
     let program = ProgramAst::parse(&code).unwrap();
 
-    let _tx_script = client.compile_tx_script(program, vec![], vec![]).unwrap();
+    let tx_script = client.compile_tx_script(program, vec![], vec![]).unwrap();
 
     let transaction_request =
         TransactionRequest::new(faucet_account_id).with_expected_output_notes(vec![note.clone()]);
 
-    let _ = execute_tx_and_sync(client, transaction_request).await;
+    let _ = execute_custom_tx_and_sync(client, transaction_request, tx_script).await;
     note
 }
 

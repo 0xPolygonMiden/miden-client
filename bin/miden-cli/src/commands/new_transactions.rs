@@ -284,7 +284,7 @@ async fn execute_transaction<
     let transaction_request = client.build_transaction_request(transaction_template.clone())?;
 
     println!("Executing transaction...");
-    let transaction_execution_result = client.new_transaction(transaction_request)?;
+    let transaction_execution_result = client.new_transaction(transaction_request, None)?;
 
     // Show delta and ask for confirmation
     print_transaction_details(&transaction_execution_result);

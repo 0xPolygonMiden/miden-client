@@ -233,6 +233,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     pub fn new_transaction(
         &mut self,
         transaction_request: TransactionRequest,
+        custom_script: Option<TransactionScript>,
     ) -> Result<TransactionResult, ClientError> {
         let account_id = transaction_request.account_id();
         maybe_await!(self.tx_executor.load_account(account_id))
@@ -271,10 +272,15 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let tx_args = {
             let note_args = transaction_request.get_note_args();
 
-            let tx_script = self.build_script_from_native_notes(
-                account_id,
-                transaction_request.native_output_notes(),
-            )?;
+            let tx_script = if let Some(custom_script) = custom_script {
+                custom_script
+            } else {
+                self.build_script_from_native_notes(
+                    account_id,
+                    transaction_request.native_output_notes(),
+                )?
+            };
+
             let mut tx_args = TransactionArgs::new(
                 Some(tx_script),
                 Some(note_args),
