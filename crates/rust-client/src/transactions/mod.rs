@@ -510,7 +510,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             }
         }
 
-        body.push_str("call.auth_tx::auth_tx_rpo_falcon512\n");
+        match self.get_account_auth(account_id)? {
+            miden_objects::accounts::AuthSecretKey::RpoFalcon512(_) => {
+                body.push_str("call.auth_tx::auth_tx_rpo_falcon512\n");
+            },
+        }
 
         let script = format!("{} begin {} end", includes, body);
 
