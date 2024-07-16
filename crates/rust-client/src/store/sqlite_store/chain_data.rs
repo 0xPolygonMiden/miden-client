@@ -160,7 +160,7 @@ impl SqliteStore {
         tx.execute(QUERY, params![block_num, header, chain_mmr, has_client_notes])?;
 
         if has_client_notes {
-            block_header_has_client_notes(tx, block_num as u64)?;
+            set_block_header_has_client_notes(tx, block_num as u64)?;
         }
         Ok(())
     }
@@ -252,7 +252,7 @@ fn parse_chain_mmr_nodes(
     Ok((id, node))
 }
 
-fn block_header_has_client_notes(tx: &Transaction<'_>, block_num: u64) -> Result<(), StoreError> {
+fn set_block_header_has_client_notes(tx: &Transaction<'_>, block_num: u64) -> Result<(), StoreError> {
     // Only update to change has_client_notes to true if it was false previously
     const QUERY: &str = "\
     UPDATE block_headers
