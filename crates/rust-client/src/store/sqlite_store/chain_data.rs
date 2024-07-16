@@ -141,6 +141,9 @@ impl SqliteStore {
     }
 
     /// Inserts a block header using a [rusqlite::Transaction]
+    ///
+    /// If the block header exists and `has_client_notes` is `true` then the `has_client_notes`
+    /// column is updated to `true` to signify that the block now contains a relevant note
     pub(crate) fn insert_block_header_tx(
         tx: &Transaction<'_>,
         block_header: BlockHeader,
@@ -155,6 +158,8 @@ impl SqliteStore {
             (block_num, header, chain_mmr_peaks, has_client_notes)
         VALUES (?, ?, ?, ?)";
         tx.execute(QUERY, params![block_num, header, chain_mmr, has_client_notes])?;
+
+        set_block_header_has_client_notes(tx, block_num as u64, has_client_notes)?;
         Ok(())
     }
 }
@@ -243,6 +248,20 @@ fn parse_chain_mmr_nodes(
     let node: Digest =
         serde_json::from_str(&node).map_err(StoreError::JsonDataDeserializationError)?;
     Ok((id, node))
+}
+
+fn set_block_header_has_client_notes(
+    tx: &Transaction<'_>,
+    block_num: u64,
+    has_client_notes: bool,
+) -> Result<(), StoreError> {
+    // Only update to change has_client_notes to true if it was false previously
+    const QUERY: &str = "\
+    UPDATE block_headers
+        SET has_client_notes=?
+        WHERE block_num=? AND has_client_notes=FALSE;";
+    tx.execute(QUERY, params![has_client_notes, block_num])?;
+    Ok(())
 }
 
 #[cfg(test)]
