@@ -11,8 +11,13 @@ use miden_tx::{
 };
 
 use crate::{
-    notes::NoteScreenerError, rpc::RpcError, store::StoreError,
-    transactions::transaction_request::TransactionRequestError,
+    notes::NoteScreenerError,
+    rpc::RpcError,
+    store::StoreError,
+    transactions::{
+        transaction_args_builder::TransactionArgsBuilderError,
+        transaction_request::TransactionRequestError,
+    },
 };
 
 // CLIENT ERROR
@@ -37,6 +42,7 @@ pub enum ClientError {
     TransactionExecutorError(TransactionExecutorError),
     TransactionProvingError(TransactionProverError),
     TransactionRequestError(TransactionRequestError),
+    TransactionArgsBuilderError(TransactionArgsBuilderError),
 }
 
 impl fmt::Display for ClientError {
@@ -79,6 +85,9 @@ impl fmt::Display for ClientError {
             },
             ClientError::TransactionRequestError(err) => {
                 write!(f, "transaction request error: {err}")
+            },
+            ClientError::TransactionArgsBuilderError(err) => {
+                write!(f, "transaction args builder error: {err}")
             },
         }
     }

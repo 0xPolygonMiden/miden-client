@@ -10,12 +10,13 @@ use miden_objects::{
     accounts::{AccountDelta, AccountId},
     assembly::ProgramAst,
     assets::FungibleAsset,
-    notes::{Note, NoteDetails, NoteId, NoteType, PartialNote},
+    notes::{Note, NoteDetails, NoteId, NoteType},
     transaction::{InputNotes, TransactionArgs},
     Digest, Felt, FieldElement, Word,
 };
 use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, TransactionProver};
 use tracing::info;
+use transaction_args_builder::TransactionArgsBuilder;
 use transaction_request::TransactionRequestError;
 use winter_maybe_async::{maybe_async, maybe_await};
 
@@ -29,6 +30,7 @@ use crate::{
     ClientError,
 };
 
+pub mod transaction_args_builder;
 pub mod transaction_request;
 pub use miden_objects::transaction::{
     ExecutedTransaction, InputNote, OutputNote, OutputNotes, ProvenTransaction, TransactionId,
@@ -269,30 +271,20 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let output_notes = transaction_request.expected_output_notes().to_vec();
         let future_notes = transaction_request.expected_future_notes().to_vec();
 
-        let tx_args = {
-            let note_args = transaction_request.get_note_args();
+        let tx_args_builder = TransactionArgsBuilder::new(
+            maybe_await!(self.get_account_auth(account_id))?,
+            transaction_request,
+        );
 
-            let tx_script = if let Some(custom_script) = custom_script {
-                custom_script
-            } else {
-                maybe_await!(self.build_script_from_native_notes(
-                    account_id,
-                    transaction_request.native_output_notes(),
-                ))?
-            };
-
-            let mut tx_args = TransactionArgs::new(
-                Some(tx_script),
-                Some(note_args),
-                transaction_request.advice_map().clone(),
-            );
-
-            let output_notes = transaction_request.expected_output_notes().to_vec();
-            tx_args.extend_expected_output_notes(output_notes);
-            tx_args.extend_merkle_store(transaction_request.merkle_store().inner_nodes());
-
-            tx_args
+        let tx_args_builder = if let Some(custom_script) = custom_script {
+            tx_args_builder.with_custom_script(custom_script)
+        } else {
+            tx_args_builder
+                .with_native_output_notes(&self.tx_executor)
+                .map_err(ClientError::TransactionArgsBuilderError)?
         };
+
+        let tx_args = tx_args_builder.build();
 
         // Execute the transaction and get the witness
         let executed_transaction = maybe_await!(self
@@ -458,81 +450,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         Ok(TransactionRequest::new(asset.faucet_id())
             .with_expected_output_notes(vec![created_note])
             .with_native_output_notes(vec![native_note]))
-    }
-
-    #[maybe_async]
-    fn build_script_from_native_notes(
-        &self,
-        account_id: AccountId,
-        native_output_notes: &[PartialNote],
-    ) -> Result<TransactionScript, ClientError> {
-        let mut includes: String = String::from("use.miden::contracts::auth::basic->auth_tx\n");
-
-        if account_id.is_faucet() {
-            includes.push_str("use.miden::contracts::faucets::basic_fungible->faucet\n");
-        } else {
-            includes.push_str("use.miden::contracts::wallets::basic->wallet\n");
-        }
-
-        let mut body = String::new();
-
-        for partial_note in native_output_notes.iter() {
-            if partial_note.metadata().sender() != account_id {
-                return Err(ClientError::TransactionRequestError(
-                    TransactionRequestError::InvalidSenderAccount(partial_note.metadata().sender()),
-                ));
-            }
-
-            for asset in partial_note.assets().iter() {
-                body.push_str(&format!(
-                    "
-                    push.{recipient}
-                    push.{note_type}
-                    push.{aux}
-                    push.{tag}
-                    ",
-                    recipient = prepare_word(&partial_note.recipient_digest()),
-                    note_type = Felt::new(partial_note.metadata().note_type() as u64),
-                    aux = partial_note.metadata().aux(),
-                    tag = Felt::new(partial_note.metadata().tag().inner().into()),
-                ));
-
-                if account_id.is_faucet() {
-                    body.push_str(&format!(
-                        "
-                        push.{amount}
-                        call.faucet::distribute dropw dropw
-                        ",
-                        amount = asset.unwrap_fungible().amount()
-                    ));
-                } else {
-                    body.push_str(&format!(
-                        "
-                        push.{asset}
-                        call.wallet::send_asset dropw dropw dropw dropw
-                        ",
-                        asset = prepare_word(&asset.into())
-                    ));
-                }
-            }
-        }
-
-        match maybe_await!(self.get_account_auth(account_id))? {
-            miden_objects::accounts::AuthSecretKey::RpoFalcon512(_) => {
-                body.push_str("call.auth_tx::auth_tx_rpo_falcon512\n");
-            },
-        }
-
-        let script = format!("{} begin {} end", includes, body);
-
-        let program_ast = ProgramAst::parse(&script).map_err(|err| {
-            ClientError::TransactionRequestError(TransactionRequestError::InvalidTransactionScript(
-                err.into(),
-            ))
-        })?;
-
-        let tx_script = self.tx_executor.compile_tx_script(program_ast, vec![], vec![])?;
-        Ok(tx_script)
     }
 }
 
