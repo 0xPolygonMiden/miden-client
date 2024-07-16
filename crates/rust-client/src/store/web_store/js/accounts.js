@@ -112,6 +112,46 @@ export async function getAccountStub(
       }
 }
 
+export async function getAccountStubByHash(
+    accountHash
+) {
+    try {
+        // Fetch all records matching the given hash
+        const allMatchingRecords = await accounts
+          .where('accountHash')
+          .equals(accountHash)
+          .toArray();
+
+        if (allMatchingRecords.length === 0) {
+          console.log('No records found for given hash.');
+          return null; // No records found
+        }
+
+        // There should be only one match
+        const matchingRecord = allMatchingRecords[0];
+
+        let accountSeedBase64 = null;
+        if (matchingRecord.accountSeed) {
+            // Ensure accountSeed is processed as a Uint8Array and converted to Base64
+            let accountSeedArrayBuffer = await matchingRecord.accountSeed.arrayBuffer();
+            let accountSeedArray = new Uint8Array(accountSeedArrayBuffer);
+            accountSeedBase64 = uint8ArrayToBase64(accountSeedArray);
+        }
+        const accountStub = {
+            id: matchingRecord.id,
+            nonce: matchingRecord.nonce,
+            vault_root: matchingRecord.vaultRoot,
+            storage_root: matchingRecord.storageRoot,
+            code_root: matchingRecord.codeRoot,
+            account_seed: accountSeedBase64
+        }
+        return accountStub;
+      } catch (error) {
+        console.error('Error fetching most recent account record:', error);
+        throw error; // Re-throw the error for further handling
+      }
+}
+
 export async function getAccountCode(
     codeRoot
 ) {
@@ -372,7 +412,8 @@ export async function insertAccountRecord(
     vault_root,
     nonce,
     committed,
-    account_seed
+    account_seed,
+    hash
 ) {
     try {
         let accountSeedBlob = null;
@@ -390,6 +431,7 @@ export async function insertAccountRecord(
             nonce: nonce,
             committed: committed,
             accountSeed: accountSeedBlob,
+            accountHash: hash,
         };
 
         // Perform the insert using Dexie

@@ -237,6 +237,14 @@ pub trait Store {
         account_id: AccountId,
     ) -> Result<(AccountStub, Option<Word>), StoreError>;
 
+    /// Returns an [AccountStub] corresponding to the stored account state that matches the given
+    /// hash. If no account state matches the provided hash, `None` is returned.
+    #[maybe_async]
+    fn get_account_stub_by_hash(
+        &self,
+        account_hash: Digest,
+    ) -> Result<Option<AccountStub>, StoreError>;
+
     /// Retrieves a full [Account] object. The seed will be returned if the account is new,
     /// otherwise it will be `None`.
     ///
