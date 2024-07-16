@@ -3,6 +3,7 @@
 ## v0.5.0 (TBD)
 
 * Ignored stale updates received during sync process (#412).
+* Refactor `TransactionRequest` constructor (#434).
 * Fixed flaky integration tests (#410).
 * Added conversions for `NoteRecordDetails` (#392).
 * Changed `TransactionRequest` to use `AdviceInputs` instead of `AdviceMap` (#436).
