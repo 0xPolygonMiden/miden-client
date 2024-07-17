@@ -265,7 +265,7 @@ async fn test_p2idr_transfer_consumed_by_sender() {
     let tx_template = TransactionTemplate::ConsumeNotes(from_account_id, vec![notes[0].id()]);
     println!("Consuming Note (too early)...");
     let tx_request = client.build_transaction_request(tx_template).unwrap();
-    let transaction_execution_result = client.new_transaction(tx_request, None);
+    let transaction_execution_result = client.new_transaction(tx_request);
     assert!(transaction_execution_result.is_err_and(|err| {
         matches!(
             err,
@@ -628,8 +628,7 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
         let tx_request = client.build_transaction_request(tx_template).unwrap();
 
         println!("Executing transaction...");
-        let transaction_execution_result =
-            client.new_transaction(tx_request.clone(), None).unwrap();
+        let transaction_execution_result = client.new_transaction(tx_request.clone()).unwrap();
         let transaction_id = transaction_execution_result.executed_transaction().id();
 
         println!("Sending transaction to node");
@@ -659,8 +658,7 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
         let tx_request = client.build_transaction_request(tx_template).unwrap();
 
         println!("Executing transaction...");
-        let transaction_execution_result =
-            client.new_transaction(tx_request.clone(), None).unwrap();
+        let transaction_execution_result = client.new_transaction(tx_request.clone()).unwrap();
         let transaction_id = transaction_execution_result.executed_transaction().id();
 
         println!("Sending transaction to node");
@@ -695,8 +693,7 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
         let tx_request = client.build_transaction_request(tx_template).unwrap();
 
         println!("Executing transaction...");
-        let transaction_execution_result =
-            client.new_transaction(tx_request.clone(), None).unwrap();
+        let transaction_execution_result = client.new_transaction(tx_request.clone()).unwrap();
         let transaction_id = transaction_execution_result.executed_transaction().id();
 
         println!("Sending transaction to node");
@@ -899,7 +896,7 @@ async fn test_consume_expected_note() {
         .unwrap()
         .with_unauthenticated_input_notes(vec![(note.clone(), None)]);
 
-    let tx_id = execute_tx(&mut unauth_client, tx_request, None).await;
+    let tx_id = execute_tx(&mut unauth_client, tx_request).await;
 
     // Check that note is expected for the account to consume
     println!("Fetching processing notes...");

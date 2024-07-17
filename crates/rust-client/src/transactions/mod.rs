@@ -16,7 +16,7 @@ use miden_objects::{
 };
 use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, TransactionProver};
 use tracing::info;
-use transaction_request::TransactionRequestError;
+use transaction_request::{ScriptSource, TransactionRequestError};
 use transaction_script_builder::{
     AccountCapabilities, AccountSpecification, TransactionScriptBuilder,
 };
@@ -237,7 +237,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     pub fn new_transaction(
         &mut self,
         transaction_request: TransactionRequest,
-        custom_script: Option<TransactionScript>,
     ) -> Result<TransactionResult, ClientError> {
         let account_id = transaction_request.account_id();
         maybe_await!(self.tx_executor.load_account(account_id))
@@ -288,10 +287,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             capabilities: account_capabilities,
         });
 
-        let tx_script = match custom_script {
-            Some(script) => script,
-            None => tx_script_builder
-                .build_from_notes(&self.tx_executor, transaction_request.native_output_notes())?,
+        let tx_script = match transaction_request.script_source() {
+            ScriptSource::CustomScript(script) => script.clone(),
+            ScriptSource::NativeOutputNotes(notes) => {
+                tx_script_builder.build_from_notes(&self.tx_executor, notes)?
+            },
         };
 
         let mut tx_args = TransactionArgs::new(
