@@ -7,7 +7,7 @@ use core::fmt;
 
 use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
-    accounts::{AccountDelta, AccountId},
+    accounts::{AccountDelta, AccountId, AccountType},
     assembly::ProgramAst,
     assets::FungibleAsset,
     notes::{Note, NoteDetails, NoteId, NoteType},
@@ -16,8 +16,10 @@ use miden_objects::{
 };
 use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, TransactionProver};
 use tracing::info;
-use transaction_args_builder::TransactionArgsBuilder;
 use transaction_request::TransactionRequestError;
+use transaction_script_builder::{
+    AccountCapabilities, AccountSpecification, TransactionScriptBuilder,
+};
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use self::transaction_request::{
@@ -30,8 +32,8 @@ use crate::{
     ClientError,
 };
 
-pub mod transaction_args_builder;
 pub mod transaction_request;
+pub mod transaction_script_builder;
 pub use miden_objects::transaction::{
     ExecutedTransaction, InputNote, OutputNote, OutputNotes, ProvenTransaction, TransactionId,
     TransactionScript,
@@ -271,20 +273,35 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let output_notes = transaction_request.expected_output_notes().to_vec();
         let future_notes = transaction_request.expected_future_notes().to_vec();
 
-        let tx_args_builder = TransactionArgsBuilder::new(
-            maybe_await!(self.get_account_auth(account_id))?,
-            transaction_request,
-        );
+        let account_auth = maybe_await!(self.get_account_auth(account_id))?;
+        let account_capabilities =
+            match maybe_await!(self.get_account(account_id))?.0.account_type() {
+                AccountType::FungibleFaucet => AccountCapabilities::BasicFungibleFaucet,
+                AccountType::NonFungibleFaucet => todo!("Non fungible faucet not supported yet"),
+                AccountType::RegularAccountImmutableCode
+                | AccountType::RegularAccountUpdatableCode => AccountCapabilities::BasicWallet,
+            };
 
-        let tx_args_builder = if let Some(custom_script) = custom_script {
-            tx_args_builder.with_custom_script(custom_script)
-        } else {
-            tx_args_builder
-                .with_native_output_notes(&self.tx_executor)
-                .map_err(ClientError::TransactionArgsBuilderError)?
+        let tx_script_builder = TransactionScriptBuilder::new(AccountSpecification {
+            account_id,
+            auth: account_auth,
+            capabilities: account_capabilities,
+        });
+
+        let tx_script = match custom_script {
+            Some(script) => script,
+            None => tx_script_builder
+                .build_from_notes(&self.tx_executor, transaction_request.native_output_notes())?,
         };
 
-        let tx_args = tx_args_builder.build();
+        let mut tx_args = TransactionArgs::new(
+            Some(tx_script),
+            transaction_request.get_note_args().into(),
+            transaction_request.advice_map().clone(),
+        );
+
+        tx_args.extend_expected_output_notes(transaction_request.expected_output_notes().to_vec());
+        tx_args.extend_merkle_store(transaction_request.merkle_store().inner_nodes());
 
         // Execute the transaction and get the witness
         let executed_transaction = maybe_await!(self

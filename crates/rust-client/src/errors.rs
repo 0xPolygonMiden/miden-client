@@ -15,8 +15,8 @@ use crate::{
     rpc::RpcError,
     store::StoreError,
     transactions::{
-        transaction_args_builder::TransactionArgsBuilderError,
         transaction_request::TransactionRequestError,
+        transaction_script_builder::TransactionScriptBuilderError,
     },
 };
 
@@ -42,7 +42,7 @@ pub enum ClientError {
     TransactionExecutorError(TransactionExecutorError),
     TransactionProvingError(TransactionProverError),
     TransactionRequestError(TransactionRequestError),
-    TransactionArgsBuilderError(TransactionArgsBuilderError),
+    TransactionScriptBuilderError(TransactionScriptBuilderError),
 }
 
 impl fmt::Display for ClientError {
@@ -86,7 +86,7 @@ impl fmt::Display for ClientError {
             ClientError::TransactionRequestError(err) => {
                 write!(f, "transaction request error: {err}")
             },
-            ClientError::TransactionArgsBuilderError(err) => {
+            ClientError::TransactionScriptBuilderError(err) => {
                 write!(f, "transaction args builder error: {err}")
             },
         }
@@ -159,6 +159,12 @@ impl From<TransactionRequestError> for ClientError {
 impl From<ClientError> for String {
     fn from(err: ClientError) -> String {
         err.to_string()
+    }
+}
+
+impl From<TransactionScriptBuilderError> for ClientError {
+    fn from(err: TransactionScriptBuilderError) -> Self {
+        Self::TransactionScriptBuilderError(err)
     }
 }
 
