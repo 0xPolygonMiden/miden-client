@@ -10,7 +10,8 @@ use miden_client::{
 };
 
 use crate::{
-    commands::account::maybe_set_default_account, utils::load_config_file, CLIENT_BINARY_NAME,
+    commands::account::maybe_set_default_account, config::CliConfig,
+    token_symbol_mappings::TokenSymbolMappings, utils::load_config_file, CLIENT_BINARY_NAME,
 };
 
 #[derive(Debug, Parser, Clone)]
@@ -36,6 +37,7 @@ impl NewFaucetCmd {
     pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
         &self,
         mut client: Client<N, R, S, A>,
+        config: &CliConfig,
     ) -> Result<(), String> {
         if self.non_fungible {
             todo!("Non-fungible faucets are not supported yet");
@@ -64,6 +66,12 @@ impl NewFaucetCmd {
             "To view account details execute `{CLIENT_BINARY_NAME} account -s {}`",
             new_account.id()
         );
+
+        let mappings = TokenSymbolMappings::new(config.token_symbol_mappings_file.clone().into());
+        mappings.set_token_symbol(
+            &new_account.id(),
+            self.token_symbol.clone().expect("token symbol must be provided"),
+        )?;
 
         Ok(())
     }

@@ -122,7 +122,7 @@ impl Cli {
         // Execute CLI command
         match &self.action {
             Command::Account(account) => account.execute(client),
-            Command::NewFaucet(new_faucet) => new_faucet.execute(client),
+            Command::NewFaucet(new_faucet) => new_faucet.execute(client, &cli_config),
             Command::NewWallet(new_wallet) => new_wallet.execute(client),
             Command::Import(import) => import.execute(client).await,
             Command::Init(_) => Ok(()),
