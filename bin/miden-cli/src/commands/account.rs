@@ -13,6 +13,7 @@ use miden_client::{
 use crate::{
     config::CliConfig,
     create_dynamic_table,
+    token_symbol_mappings::TokenSymbolMappings,
     utils::{load_config_file, parse_account_id, update_config},
     CLIENT_BINARY_NAME,
 };
@@ -102,14 +103,14 @@ fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthentic
     let accounts = client.get_account_stubs()?;
 
     let mut table = create_dynamic_table(&["Account ID", "Type", "Storage Mode", "Nonce"]);
-    accounts.iter().for_each(|(acc, _acc_seed)| {
+    for (acc, _acc_seed) in accounts.iter() {
         table.add_row(vec![
             acc.id().to_string(),
-            account_type_display_name(&acc.id().account_type()),
+            account_type_display_name(&acc.id())?,
             storage_type_display_name(&acc.id()),
             acc.nonce().as_int().to_string(),
         ]);
-    });
+    }
 
     println!("{table}");
     Ok(())
@@ -133,7 +134,7 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
     table.add_row(vec![
         account.id().to_string(),
         account.hash().to_string(),
-        account_type_display_name(&account.account_type()),
+        account_type_display_name(&account_id)?,
         storage_type_display_name(&account_id),
         account.code().root().to_string(),
         account.vault().asset_tree().root().to_string(),
@@ -227,14 +228,23 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
 // HELPERS
 // ================================================================================================
 
-fn account_type_display_name(account_type: &AccountType) -> String {
-    match account_type {
-        AccountType::FungibleFaucet => "Fungible faucet",
-        AccountType::NonFungibleFaucet => "Non-fungible faucet",
-        AccountType::RegularAccountImmutableCode => "Regular",
-        AccountType::RegularAccountUpdatableCode => "Regular (updatable)",
-    }
-    .to_string()
+fn account_type_display_name(account_id: &AccountId) -> Result<String, String> {
+    Ok(match account_id.account_type() {
+        AccountType::FungibleFaucet => {
+            let (config, _) = load_config_file()?;
+            let token_symbol_mappings =
+                TokenSymbolMappings::new(config.token_symbol_mappings_file.into());
+            let token_symbol = token_symbol_mappings
+                .get_token_symbol(account_id)
+                .map_err(|err| format!("Failed to get token symbol: {}", err))
+                .unwrap_or("Unknown".to_string());
+
+            format!("Fungible faucet (token symbol: {token_symbol})")
+        },
+        AccountType::NonFungibleFaucet => "Non-fungible faucet".to_string(),
+        AccountType::RegularAccountImmutableCode => "Regular".to_string(),
+        AccountType::RegularAccountUpdatableCode => "Regular (updatable)".to_string(),
+    })
 }
 
 fn storage_type_display_name(account: &AccountId) -> String {

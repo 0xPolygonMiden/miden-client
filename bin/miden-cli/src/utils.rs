@@ -20,6 +20,7 @@ use miden_client::{
 use tracing::info;
 
 use super::{config::CliConfig, get_account_with_id_prefix, CLIENT_CONFIG_FILE_NAME};
+use crate::token_symbol_mappings::TokenSymbolMappings;
 
 /// Returns a tracked Account ID matching a hex string or the default one defined in the Client config
 pub(crate) fn get_input_acc_id_by_prefix_or_default<
@@ -116,19 +117,23 @@ fn load_config(config_file: &Path) -> Result<CliConfig, String> {
 
 /// Parses a fungible Asset and returns it as a tuple of the amount and the faucet account ID hex.
 ///
-/// TODO: currently we'll only parse AccountId, however once we tackle
-/// [#258](https://github.com/0xPolygonMiden/miden-client/issues/258) we should also add the
-/// possibility to parse account aliases / token symbols dependeing on the path we choose.
-///
 /// # Errors
 ///
 /// Will return an error if the provided `arg` doesn't match one of the expected format:
 ///
 /// - `<AMOUNT>::<FAUCET_ID>`, such as `100::0x123456789`
+/// - `<AMOUNT>::<TOKEN_SYMBOL>`, such as `100::ETH`
 pub fn parse_fungible_asset(arg: &str) -> Result<(u64, AccountId), String> {
-    let (amount, faucet) = arg.split_once("::").ok_or("Separator `::` not found!")?;
+    let (amount, asset) = arg.split_once("::").ok_or("Separator `::` not found!")?;
     let amount = amount.parse::<u64>().map_err(|err| err.to_string())?;
-    let faucet_id = AccountId::from_hex(faucet).map_err(|err| err.to_string())?;
+    let faucet_id = if asset.starts_with("0x") {
+        AccountId::from_hex(asset).map_err(|err| err.to_string())?
+    } else {
+        let (config, _) = load_config_file()?;
+        let token_symbol_mappings =
+            TokenSymbolMappings::new(config.token_symbol_mappings_file.into());
+        token_symbol_mappings.get_faucet_id(&asset.to_string())?
+    };
 
     Ok((amount, faucet_id))
 }
