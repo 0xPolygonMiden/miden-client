@@ -129,9 +129,7 @@ pub fn parse_fungible_asset(arg: &str) -> Result<(u64, AccountId), String> {
     let faucet_id = if asset.starts_with("0x") {
         AccountId::from_hex(asset).map_err(|err| err.to_string())?
     } else {
-        let (config, _) = load_config_file()?;
-        let token_symbol_mappings =
-            TokenSymbolMappings::new(config.token_symbol_mappings_file.into());
+        let token_symbol_mappings = get_token_mappings()?;
         token_symbol_mappings.get_faucet_id(&asset.to_string())?
     };
 
@@ -175,4 +173,10 @@ pub fn build_swap_tag(
         NoteType::Public => NoteTag::for_public_use_case(SWAP_USE_CASE_ID, payload, execution),
         _ => NoteTag::for_local_use_case(SWAP_USE_CASE_ID, payload),
     }
+}
+
+/// Returns the token symbol mappings from the config file.
+pub fn get_token_mappings() -> Result<TokenSymbolMappings, String> {
+    let (config, _) = load_config_file()?;
+    Ok(TokenSymbolMappings::new(config.token_symbol_mappings_file.into()))
 }

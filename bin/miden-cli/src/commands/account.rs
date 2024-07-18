@@ -13,8 +13,7 @@ use miden_client::{
 use crate::{
     config::CliConfig,
     create_dynamic_table,
-    token_symbol_mappings::TokenSymbolMappings,
-    utils::{load_config_file, parse_account_id, update_config},
+    utils::{get_token_mappings, load_config_file, parse_account_id, update_config},
     CLIENT_BINARY_NAME,
 };
 
@@ -146,20 +145,29 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
     // Vault Table
     {
         let assets = account.vault().assets();
-
+        let token_symbol_mappings = get_token_mappings()?;
         println!("Assets: ");
 
-        let mut table = create_dynamic_table(&["Asset Type", "Faucet ID", "Amount"]);
+        let mut table =
+            create_dynamic_table(&["Asset Type", "Faucet ID", "Token Symbol", "Amount"]);
         for asset in assets {
-            let (asset_type, faucet_id, amount) = match asset {
-                Asset::Fungible(fungible_asset) => {
-                    ("Fungible Asset", fungible_asset.faucet_id(), fungible_asset.amount())
-                },
+            let (asset_type, faucet_id, token_symbol, amount) = match asset {
+                Asset::Fungible(fungible_asset) => (
+                    "Fungible Asset",
+                    fungible_asset.faucet_id(),
+                    token_symbol_mappings.get_token_symbol(&fungible_asset.faucet_id())?,
+                    fungible_asset.amount(),
+                ),
                 Asset::NonFungible(non_fungible_asset) => {
-                    ("Non Fungible Asset", non_fungible_asset.faucet_id(), 1)
+                    ("Non Fungible Asset", non_fungible_asset.faucet_id(), "-".to_string(), 1)
                 },
             };
-            table.add_row(vec![asset_type, &faucet_id.to_hex(), &amount.to_string()]);
+            table.add_row(vec![
+                asset_type,
+                &faucet_id.to_hex(),
+                token_symbol.as_str(),
+                &amount.to_string(),
+            ]);
         }
 
         println!("{table}\n");
@@ -231,9 +239,7 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
 fn account_type_display_name(account_id: &AccountId) -> Result<String, String> {
     Ok(match account_id.account_type() {
         AccountType::FungibleFaucet => {
-            let (config, _) = load_config_file()?;
-            let token_symbol_mappings =
-                TokenSymbolMappings::new(config.token_symbol_mappings_file.into());
+            let token_symbol_mappings = get_token_mappings()?;
             let token_symbol = token_symbol_mappings
                 .get_token_symbol(account_id)
                 .map_err(|err| format!("Failed to get token symbol: {}", err))
