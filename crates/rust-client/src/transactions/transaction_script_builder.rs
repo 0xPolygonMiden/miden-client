@@ -13,6 +13,8 @@ use miden_tx::{
 
 use super::prepare_word;
 
+// ACCOUNT CAPABILITIES
+// --------------------------------------------------------------------------------------------
 pub struct AccountCapabilities {
     pub account_id: AccountId,
     pub auth: AuthSecretKey,
@@ -42,20 +44,14 @@ impl AccountInterface {
                 ));
             }
 
-            if partial_note.assets().num_assets() > 1 {
-                return Err(TransactionScriptBuilderError::TooManyAssets(
+            if partial_note.assets().num_assets() != 1 {
+                return Err(TransactionScriptBuilderError::InvalidAssetAmount(
                     partial_note.assets().num_assets(),
                 ));
             }
 
             let asset = partial_note.assets().iter().next();
             if let Some(asset) = asset {
-                if let AccountInterface::BasicFungibleFaucet = self {
-                    if asset.faucet_id() != account_id {
-                        return Err(TransactionScriptBuilderError::InvalidAsset(asset.faucet_id()));
-                    }
-                }
-
                 body.push_str(&format!(
                     "
                     push.{recipient}
@@ -71,6 +67,12 @@ impl AccountInterface {
 
                 match self {
                     AccountInterface::BasicFungibleFaucet => {
+                        if asset.faucet_id() != account_id {
+                            return Err(TransactionScriptBuilderError::InvalidAsset(
+                                asset.faucet_id(),
+                            ));
+                        }
+
                         body.push_str(&format!(
                             "
                             push.{amount}
@@ -105,6 +107,8 @@ impl AccountInterface {
     }
 }
 
+// TRANSACTION SCRIPT BUILDER
+// --------------------------------------------------------------------------------------------
 pub struct TransactionScriptBuilder {
     account_capabilities: AccountCapabilities,
 }
@@ -169,13 +173,16 @@ impl TransactionScriptBuilder {
     }
 }
 
+// TRANSACTION SCRIPT BUILDER ERROR
+// --------------------------------------------------------------------------------------------
+
 #[derive(Debug)]
 pub enum TransactionScriptBuilderError {
     InvalidAsset(AccountId),
+    InvalidAssetAmount(usize),
     InvalidTransactionScript(AssemblyError),
     InvalidSenderAccount(AccountId),
     TransactionExecutorError(TransactionExecutorError),
-    TooManyAssets(usize),
 }
 
 impl core::fmt::Display for TransactionScriptBuilderError {
@@ -183,6 +190,9 @@ impl core::fmt::Display for TransactionScriptBuilderError {
         match self {
             TransactionScriptBuilderError::InvalidAsset(account_id) => {
                 write!(f, "Invalid asset: {}", account_id)
+            },
+            TransactionScriptBuilderError::InvalidAssetAmount(num_assets) => {
+                write!(f, "Only notes with 1 type of asset are supported, but this note contains {} assets", num_assets)
             },
             TransactionScriptBuilderError::InvalidTransactionScript(err) => {
                 write!(f, "Invalid transaction script: {}", err)
@@ -192,9 +202,6 @@ impl core::fmt::Display for TransactionScriptBuilderError {
             },
             TransactionScriptBuilderError::TransactionExecutorError(err) => {
                 write!(f, "Transaction executor error: {}", err)
-            },
-            TransactionScriptBuilderError::TooManyAssets(num_assets) => {
-                write!(f, "Only notes with 0 or 1 different assets are supported, but this note contains {} assets", num_assets)
             },
         }
     }
