@@ -36,6 +36,24 @@ pub enum TransactionScriptTemplate {
     OutputNotes(Vec<PartialNote>),
 }
 
+#[derive(Clone, Debug)]
+pub enum NativeNote {
+    Full(Note),
+    Partial(PartialNote),
+}
+
+impl From<Note> for NativeNote {
+    fn from(note: Note) -> Self {
+        NativeNote::Full(note)
+    }
+}
+
+impl From<PartialNote> for NativeNote {
+    fn from(note: PartialNote) -> Self {
+        NativeNote::Partial(note)
+    }
+}
+
 /// Represents the most general way of defining an executable transaction
 #[derive(Clone, Debug)]
 pub struct TransactionRequest {
@@ -96,18 +114,29 @@ impl TransactionRequest {
         self
     }
 
-    pub fn with_native_output_notes(mut self, notes: Vec<PartialNote>) -> Self {
+    pub fn with_native_output_notes(mut self, notes: Vec<NativeNote>) -> Self {
+        let expected_output_notes: Vec<Note> = notes
+            .iter()
+            .filter_map(|note| match note {
+                NativeNote::Full(note) => Some(note.clone()),
+                NativeNote::Partial(_) => None,
+            })
+            .collect();
+        self.expected_output_notes = expected_output_notes;
+
+        let notes: Vec<PartialNote> = notes
+            .into_iter()
+            .map(|note| match note {
+                NativeNote::Full(note) => note.into(),
+                NativeNote::Partial(note) => note,
+            })
+            .collect();
         self.script_template = TransactionScriptTemplate::OutputNotes(notes);
         self
     }
 
     pub fn with_custom_script(mut self, script: TransactionScript) -> Self {
         self.script_template = TransactionScriptTemplate::CustomScript(script);
-        self
-    }
-
-    pub fn with_expected_output_notes(mut self, notes: Vec<Note>) -> Self {
-        self.expected_output_notes = notes;
         self
     }
 

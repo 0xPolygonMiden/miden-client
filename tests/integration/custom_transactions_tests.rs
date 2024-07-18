@@ -303,8 +303,8 @@ async fn mint_custom_note(
     let tx_script = client.compile_tx_script(program, vec![], vec![]).unwrap();
 
     let transaction_request = TransactionRequest::new(faucet_account_id)
-        .with_custom_script(tx_script)
-        .with_expected_output_notes(vec![note.clone()]);
+        .with_native_output_notes(vec![note.clone().into()])
+        .with_custom_script(tx_script);
 
     let _ = execute_tx_and_sync(client, transaction_request).await;
     note

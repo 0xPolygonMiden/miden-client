@@ -397,11 +397,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             )?
         };
 
-        let native_note = created_note.clone().into();
-
         Ok(TransactionRequest::new(payment_data.account_id())
-            .with_expected_output_notes(vec![created_note])
-            .with_native_output_notes(vec![native_note]))
+            .with_native_output_notes(vec![created_note.into()]))
     }
 
     /// Helper to build a [TransactionRequest] for Swap-type transactions easily.
@@ -423,12 +420,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             &mut self.rng,
         )?;
 
-        let native_note = created_note.clone().into();
-
         Ok(TransactionRequest::new(swap_data.account_id())
-            .with_expected_output_notes(vec![created_note])
             .with_expected_future_notes(vec![payback_note_details])
-            .with_native_output_notes(vec![native_note]))
+            .with_native_output_notes(vec![created_note.into()]))
     }
 
     /// Helper to build a [TransactionRequest] for transaction to mint fungible tokens.
@@ -449,11 +443,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             &mut self.rng,
         )?;
 
-        let native_note = created_note.clone().into();
-
         Ok(TransactionRequest::new(asset.faucet_id())
-            .with_expected_output_notes(vec![created_note])
-            .with_native_output_notes(vec![native_note]))
+            .with_native_output_notes(vec![created_note.into()]))
     }
 
     /// Retrieves the account capabilities for the specified account.
