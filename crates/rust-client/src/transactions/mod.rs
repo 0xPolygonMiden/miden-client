@@ -16,10 +16,8 @@ use miden_objects::{
 };
 use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, TransactionProver};
 use tracing::info;
-use transaction_request::{ScriptSource, TransactionRequestError};
-use transaction_script_builder::{
-    AccountCapabilities, AccountSpecification, TransactionScriptBuilder,
-};
+use transaction_request::{TransactionRequestError, TransactionScriptTemplate};
+use transaction_script_builder::{AccountCapabilities, AccountInterface, TransactionScriptBuilder};
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use self::transaction_request::{
@@ -275,21 +273,21 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let account_auth = maybe_await!(self.get_account_auth(account_id))?;
         let account_capabilities =
             match maybe_await!(self.get_account(account_id))?.0.account_type() {
-                AccountType::FungibleFaucet => AccountCapabilities::BasicFungibleFaucet,
+                AccountType::FungibleFaucet => AccountInterface::BasicFungibleFaucet,
                 AccountType::NonFungibleFaucet => todo!("Non fungible faucet not supported yet"),
                 AccountType::RegularAccountImmutableCode
-                | AccountType::RegularAccountUpdatableCode => AccountCapabilities::BasicWallet,
+                | AccountType::RegularAccountUpdatableCode => AccountInterface::BasicWallet,
             };
 
-        let tx_script_builder = TransactionScriptBuilder::new(AccountSpecification {
+        let tx_script_builder = TransactionScriptBuilder::new(AccountCapabilities {
             account_id,
             auth: account_auth,
-            capabilities: account_capabilities,
+            interfaces: account_capabilities,
         });
 
-        let tx_script = match transaction_request.script_source() {
-            ScriptSource::CustomScript(script) => script.clone(),
-            ScriptSource::NativeOutputNotes(notes) => {
+        let tx_script = match transaction_request.script_template() {
+            TransactionScriptTemplate::CustomScript(script) => script.clone(),
+            TransactionScriptTemplate::OutputNotes(notes) => {
                 tx_script_builder.build_from_notes(&self.tx_executor, notes)?
             },
         };

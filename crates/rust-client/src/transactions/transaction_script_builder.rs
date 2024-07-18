@@ -13,20 +13,20 @@ use miden_tx::{
 
 use super::prepare_word;
 
-pub struct AccountSpecification {
+pub struct AccountCapabilities {
     pub account_id: AccountId,
     pub auth: AuthSecretKey,
-    pub capabilities: AccountCapabilities,
+    pub interfaces: AccountInterface,
 }
 
-pub enum AccountCapabilities {
+pub enum AccountInterface {
     /// The account exposes procedures of the basic wallet.
     BasicWallet,
     /// The account is a fungible faucet and exposes procedures of the basic fungible faucet.
     BasicFungibleFaucet,
 }
 
-impl AccountCapabilities {
+impl AccountInterface {
     /// Returns the script body that sends notes to the recipients.
     fn send_note_procedure(
         &self,
@@ -50,7 +50,7 @@ impl AccountCapabilities {
 
             let asset = partial_note.assets().iter().next();
             if let Some(asset) = asset {
-                if let AccountCapabilities::BasicFungibleFaucet = self {
+                if let AccountInterface::BasicFungibleFaucet = self {
                     if asset.faucet_id() != account_id {
                         return Err(TransactionScriptBuilderError::InvalidAsset(asset.faucet_id()));
                     }
@@ -70,7 +70,7 @@ impl AccountCapabilities {
                 ));
 
                 match self {
-                    AccountCapabilities::BasicFungibleFaucet => {
+                    AccountInterface::BasicFungibleFaucet => {
                         body.push_str(&format!(
                             "
                             push.{amount}
@@ -79,7 +79,7 @@ impl AccountCapabilities {
                             amount = asset.unwrap_fungible().amount()
                         ));
                     },
-                    AccountCapabilities::BasicWallet => {
+                    AccountInterface::BasicWallet => {
                         body.push_str(&format!(
                             "
                             push.{asset}
@@ -97,8 +97,8 @@ impl AccountCapabilities {
 
     fn script_includes(&self) -> &str {
         match self {
-            AccountCapabilities::BasicWallet => "use.miden::contracts::wallets::basic->wallet\n",
-            AccountCapabilities::BasicFungibleFaucet => {
+            AccountInterface::BasicWallet => "use.miden::contracts::wallets::basic->wallet\n",
+            AccountInterface::BasicFungibleFaucet => {
                 "use.miden::contracts::faucets::basic_fungible->faucet\n"
             },
         }
@@ -106,12 +106,12 @@ impl AccountCapabilities {
 }
 
 pub struct TransactionScriptBuilder {
-    account_spec: AccountSpecification,
+    account_capabilities: AccountCapabilities,
 }
 
 impl TransactionScriptBuilder {
-    pub fn new(account_spec: AccountSpecification) -> Self {
-        Self { account_spec }
+    pub fn new(account_capabilities: AccountCapabilities) -> Self {
+        Self { account_capabilities }
     }
 
     pub fn build_from_notes<D: DataStore, A: TransactionAuthenticator>(
@@ -135,9 +135,9 @@ impl TransactionScriptBuilder {
     fn script_includes(&self) -> String {
         let mut includes = String::new();
 
-        includes.push_str(self.account_spec.capabilities.script_includes());
+        includes.push_str(self.account_capabilities.interfaces.script_includes());
 
-        match self.account_spec.auth {
+        match self.account_capabilities.auth {
             AuthSecretKey::RpoFalcon512(_) => {
                 includes.push_str("use.miden::contracts::auth::basic->auth_tx\n");
             },
@@ -154,12 +154,12 @@ impl TransactionScriptBuilder {
 
         body.push_str(
             &self
-                .account_spec
-                .capabilities
-                .send_note_procedure(self.account_spec.account_id, output_notes)?,
+                .account_capabilities
+                .interfaces
+                .send_note_procedure(self.account_capabilities.account_id, output_notes)?,
         );
 
-        match self.account_spec.auth {
+        match self.account_capabilities.auth {
             AuthSecretKey::RpoFalcon512(_) => {
                 body.push_str("call.auth_tx::auth_tx_rpo_falcon512\n");
             },
