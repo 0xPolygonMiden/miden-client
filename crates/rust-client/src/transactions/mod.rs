@@ -270,24 +270,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let output_notes = transaction_request.expected_output_notes().to_vec();
         let future_notes = transaction_request.expected_future_notes().to_vec();
 
-        let account_auth = maybe_await!(self.get_account_auth(account_id))?;
-        let account_capabilities =
-            match maybe_await!(self.get_account(account_id))?.0.account_type() {
-                AccountType::FungibleFaucet => AccountInterface::BasicFungibleFaucet,
-                AccountType::NonFungibleFaucet => todo!("Non fungible faucet not supported yet"),
-                AccountType::RegularAccountImmutableCode
-                | AccountType::RegularAccountUpdatableCode => AccountInterface::BasicWallet,
-            };
-
-        let tx_script_builder = TransactionScriptBuilder::new(AccountCapabilities {
-            account_id,
-            auth: account_auth,
-            interfaces: account_capabilities,
-        });
-
         let tx_script = match transaction_request.script_template() {
             TransactionScriptTemplate::CustomScript(script) => script.clone(),
             TransactionScriptTemplate::OutputNotes(notes) => {
+                let tx_script_builder = TransactionScriptBuilder::new(maybe_await!(
+                    self.get_account_capabilities(account_id)
+                )?);
+
                 tx_script_builder.build_from_notes(&self.tx_executor, notes)?
             },
         };
@@ -465,6 +454,30 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         Ok(TransactionRequest::new(asset.faucet_id())
             .with_expected_output_notes(vec![created_note])
             .with_native_output_notes(vec![native_note]))
+    }
+
+    /// Retrieves the account capabilities for the specified account.
+    #[maybe_async]
+    fn get_account_capabilities(
+        &self,
+        account_id: AccountId,
+    ) -> Result<AccountCapabilities, ClientError> {
+        let account = maybe_await!(self.get_account(account_id))?.0;
+        let account_auth = maybe_await!(self.get_account_auth(account_id))?;
+
+        let account_capabilities = match account.account_type() {
+            AccountType::FungibleFaucet => AccountInterface::BasicFungibleFaucet,
+            AccountType::NonFungibleFaucet => todo!("Non fungible faucet not supported yet"),
+            AccountType::RegularAccountImmutableCode | AccountType::RegularAccountUpdatableCode => {
+                AccountInterface::BasicWallet
+            },
+        };
+
+        Ok(AccountCapabilities {
+            account_id,
+            auth: account_auth,
+            interfaces: account_capabilities,
+        })
     }
 }
 
