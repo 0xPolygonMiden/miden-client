@@ -50,47 +50,44 @@ impl AccountInterface {
                 ));
             }
 
-            let asset = partial_note.assets().iter().next();
-            if let Some(asset) = asset {
-                body.push_str(&format!(
-                    "
-                    push.{recipient}
-                    push.{note_type}
-                    push.{aux}
-                    push.{tag}
-                    ",
-                    recipient = prepare_word(&partial_note.recipient_digest()),
-                    note_type = Felt::new(partial_note.metadata().note_type() as u64),
-                    aux = partial_note.metadata().aux(),
-                    tag = Felt::new(partial_note.metadata().tag().inner().into()),
-                ));
+            let asset = partial_note.assets().iter().next().expect("There should be an asset");
 
-                match self {
-                    AccountInterface::BasicFungibleFaucet => {
-                        if asset.faucet_id() != account_id {
-                            return Err(TransactionScriptBuilderError::InvalidAsset(
-                                asset.faucet_id(),
-                            ));
-                        }
+            body.push_str(&format!(
+                "
+                push.{recipient}
+                push.{note_type}
+                push.{aux}
+                push.{tag}
+                ",
+                recipient = prepare_word(&partial_note.recipient_digest()),
+                note_type = Felt::new(partial_note.metadata().note_type() as u64),
+                aux = partial_note.metadata().aux(),
+                tag = Felt::new(partial_note.metadata().tag().inner().into()),
+            ));
 
-                        body.push_str(&format!(
-                            "
-                            push.{amount}
-                            call.faucet::distribute dropw dropw
-                            ",
-                            amount = asset.unwrap_fungible().amount()
-                        ));
-                    },
-                    AccountInterface::BasicWallet => {
-                        body.push_str(&format!(
-                            "
-                            push.{asset}
-                            call.wallet::send_asset dropw dropw dropw dropw
-                            ",
-                            asset = prepare_word(&asset.into())
-                        ));
-                    },
-                }
+            match self {
+                AccountInterface::BasicFungibleFaucet => {
+                    if asset.faucet_id() != account_id {
+                        return Err(TransactionScriptBuilderError::InvalidAsset(asset.faucet_id()));
+                    }
+
+                    body.push_str(&format!(
+                        "
+                        push.{amount}
+                        call.faucet::distribute dropw dropw
+                        ",
+                        amount = asset.unwrap_fungible().amount()
+                    ));
+                },
+                AccountInterface::BasicWallet => {
+                    body.push_str(&format!(
+                        "
+                        push.{asset}
+                        call.wallet::send_asset dropw dropw dropw dropw
+                        ",
+                        asset = prepare_word(&asset.into())
+                    ));
+                },
             }
         }
 
