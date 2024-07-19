@@ -11,7 +11,7 @@ use miden_objects::{
     assets::{Asset, FungibleAsset},
     crypto::merkle::{InnerNodeInfo, MerkleStore},
     notes::{Note, NoteDetails, NoteId, NoteType, PartialNote},
-    transaction::{OutputNote, TransactionScript},
+    transaction::{OutputNote, TransactionArgs, TransactionScript},
     vm::AdviceMap,
     Digest, Felt, Word,
 };
@@ -34,7 +34,7 @@ pub type NoteArgs = Word;
 #[derive(Clone, Debug)]
 pub enum TransactionScriptTemplate {
     CustomScript(TransactionScript),
-    OutputNotes(Vec<PartialNote>),
+    CreateNotes(Vec<PartialNote>),
 }
 
 /// Represents the most general way of defining an executable transaction
@@ -123,7 +123,7 @@ impl TransactionRequest {
 
         self.expected_output_notes =
             BTreeMap::from_iter(expected_output_notes.into_iter().map(|note| (note.id(), note)));
-        self.script_template = Some(TransactionScriptTemplate::OutputNotes(native_notes));
+        self.script_template = Some(TransactionScriptTemplate::CreateNotes(native_notes));
         Ok(self)
     }
 
@@ -214,7 +214,9 @@ impl TransactionRequest {
     }
 
     pub fn script_template(&self) -> TransactionScriptTemplate {
-        self.script_template.clone().unwrap_or(TransactionScriptTemplate::OutputNotes(vec![]))
+        self.script_template
+            .clone()
+            .unwrap_or(TransactionScriptTemplate::CreateNotes(vec![]))
     }
 
     pub fn advice_map(&self) -> &AdviceMap {
@@ -223,6 +225,23 @@ impl TransactionRequest {
 
     pub fn merkle_store(&self) -> &MerkleStore {
         &self.merkle_store
+    }
+
+    pub fn into_transaction_args(self, tx_script: TransactionScript) -> TransactionArgs {
+        let note_args = self.get_note_args();
+        let TransactionRequest {
+            expected_output_notes,
+            advice_map,
+            merkle_store,
+            ..
+        } = self;
+
+        let mut tx_args = TransactionArgs::new(Some(tx_script), note_args.into(), advice_map);
+
+        tx_args.extend_expected_output_notes(expected_output_notes.into_values());
+        tx_args.extend_merkle_store(merkle_store.inner_nodes());
+
+        tx_args
     }
 }
 

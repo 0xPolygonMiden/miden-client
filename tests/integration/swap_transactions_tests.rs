@@ -1,12 +1,13 @@
 use miden_client::{
     accounts::AccountTemplate,
+    notes::Note,
     store::InputNoteRecord,
     transactions::request::{SwapTransactionData, TransactionTemplate},
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorageType},
     assets::{Asset, FungibleAsset, TokenSymbol},
-    notes::{NoteExecutionHint, NoteFile, NoteId, NoteTag, NoteType},
+    notes::{NoteDetails, NoteExecutionHint, NoteFile, NoteId, NoteTag, NoteType},
 };
 
 use super::common::*;
@@ -128,9 +129,9 @@ async fn test_swap_fully_onchain() {
     println!("Running SWAP tx...");
     let tx_request = client1.build_transaction_request(tx_template).unwrap();
 
-    let expected_output_notes = tx_request.expected_output_notes().cloned().collect::<Vec<_>>();
-    let expected_payback_note_details =
-        tx_request.expected_future_notes().cloned().collect::<Vec<_>>();
+    let expected_output_notes: Vec<Note> = tx_request.expected_output_notes().cloned().collect();
+    let expected_payback_note_details: Vec<NoteDetails> =
+        tx_request.expected_future_notes().cloned().collect();
     assert_eq!(expected_output_notes.len(), 1);
     assert_eq!(expected_payback_note_details.len(), 1);
 
@@ -339,7 +340,7 @@ async fn test_swap_offchain() {
     println!("Running SWAP tx...");
     let tx_request = client1.build_transaction_request(tx_template).unwrap();
 
-    let expected_output_notes = tx_request.expected_output_notes().cloned().collect::<Vec<_>>();
+    let expected_output_notes: Vec<Note> = tx_request.expected_output_notes().cloned().collect();
     let expected_payback_note_details =
         tx_request.expected_future_notes().cloned().collect::<Vec<_>>();
     assert_eq!(expected_output_notes.len(), 1);

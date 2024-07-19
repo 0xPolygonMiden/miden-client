@@ -267,12 +267,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let block_num = maybe_await!(self.store.get_sync_height())?;
 
         let note_ids = transaction_request.get_input_note_ids();
-        let output_notes = transaction_request.expected_output_notes();
-        let future_notes = transaction_request.expected_future_notes();
+        let output_notes: Vec<Note> =
+            transaction_request.expected_output_notes().cloned().collect();
+        let future_notes: Vec<NoteDetails> =
+            transaction_request.expected_future_notes().cloned().collect();
 
         let tx_script = match transaction_request.script_template() {
             TransactionScriptTemplate::CustomScript(script) => script,
-            TransactionScriptTemplate::OutputNotes(notes) => {
+            TransactionScriptTemplate::CreateNotes(notes) => {
                 let tx_script_builder = TransactionScriptBuilder::new(maybe_await!(
                     self.get_account_capabilities(account_id)
                 )?);
@@ -305,6 +307,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 .collect();
 
         let missing_note_ids: Vec<NoteId> = output_notes
+            .iter()
             .filter_map(|n| (!tx_note_auth_hashes.contains(&n.hash())).then_some(n.id()))
             .collect();
 
@@ -314,11 +317,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let screener = NoteScreener::new(self.store.clone());
 
-        maybe_await!(TransactionResult::new(
-            executed_transaction,
-            screener,
-            future_notes.into_iter().cloned().collect()
-        ))
+        maybe_await!(TransactionResult::new(executed_transaction, screener, future_notes))
     }
 
     /// Proves the specified transaction witness, and returns a [ProvenTransaction] that can be
