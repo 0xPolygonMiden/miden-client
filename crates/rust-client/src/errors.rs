@@ -15,8 +15,7 @@ use crate::{
     rpc::RpcError,
     store::StoreError,
     transactions::{
-        transaction_request::TransactionRequestError,
-        transaction_script_builder::TransactionScriptBuilderError,
+        request::TransactionRequestError, script_builder::TransactionScriptBuilderError,
     },
 };
 

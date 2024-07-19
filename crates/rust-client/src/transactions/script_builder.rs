@@ -14,7 +14,7 @@ use miden_tx::{
 use super::prepare_word;
 
 // ACCOUNT CAPABILITIES
-// --------------------------------------------------------------------------------------------
+// ============================================================================================
 pub struct AccountCapabilities {
     pub account_id: AccountId,
     pub auth: AuthSecretKey,
@@ -108,7 +108,7 @@ impl AccountInterface {
 }
 
 // TRANSACTION SCRIPT BUILDER
-// --------------------------------------------------------------------------------------------
+// ============================================================================================
 pub struct TransactionScriptBuilder {
     account_capabilities: AccountCapabilities,
 }
@@ -174,7 +174,7 @@ impl TransactionScriptBuilder {
 }
 
 // TRANSACTION SCRIPT BUILDER ERROR
-// --------------------------------------------------------------------------------------------
+// ============================================================================================
 
 #[derive(Debug)]
 pub enum TransactionScriptBuilderError {

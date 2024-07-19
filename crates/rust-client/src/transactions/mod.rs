@@ -15,12 +15,12 @@ use miden_objects::{
     Digest, Felt, FieldElement, Word,
 };
 use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, TransactionProver};
+use request::{TransactionRequestError, TransactionScriptTemplate};
+use script_builder::{AccountCapabilities, AccountInterface, TransactionScriptBuilder};
 use tracing::info;
-use transaction_request::{TransactionRequestError, TransactionScriptTemplate};
-use transaction_script_builder::{AccountCapabilities, AccountInterface, TransactionScriptBuilder};
 use winter_maybe_async::{maybe_async, maybe_await};
 
-use self::transaction_request::{
+use self::request::{
     PaymentTransactionData, SwapTransactionData, TransactionRequest, TransactionTemplate,
 };
 use super::{rpc::NodeRpcClient, Client, FeltRng};
@@ -30,14 +30,14 @@ use crate::{
     ClientError,
 };
 
-pub mod transaction_request;
-pub mod transaction_script_builder;
+pub mod request;
+pub mod script_builder;
 pub use miden_objects::transaction::{
     ExecutedTransaction, InputNote, OutputNote, OutputNotes, ProvenTransaction, TransactionId,
     TransactionScript,
 };
 pub use miden_tx::{DataStoreError, ScriptTarget, TransactionExecutorError};
-pub use transaction_request::known_script_roots;
+pub use request::known_script_roots;
 
 // TRANSACTION RESULT
 // --------------------------------------------------------------------------------------------
@@ -456,6 +456,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let account = maybe_await!(self.get_account(account_id))?.0;
         let account_auth = maybe_await!(self.get_account_auth(account_id))?;
 
+        // TODO: we should check if the account actually exposes the interfaces we're trying to use
         let account_capabilities = match account.account_type() {
             AccountType::FungibleFaucet => AccountInterface::BasicFungibleFaucet,
             AccountType::NonFungibleFaucet => todo!("Non fungible faucet not supported yet"),

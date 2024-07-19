@@ -4,7 +4,7 @@ use miden_client::{
     rpc::{AccountDetails, NodeRpcClient, TonicRpcClient},
     store::{InputNoteRecord, NoteFilter, NoteStatus, TransactionFilter},
     transactions::{
-        transaction_request::{PaymentTransactionData, TransactionTemplate},
+        request::{PaymentTransactionData, TransactionTemplate},
         TransactionExecutorError, TransactionStatus,
     },
     ClientError,

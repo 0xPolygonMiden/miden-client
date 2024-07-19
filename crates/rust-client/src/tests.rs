@@ -22,7 +22,7 @@ use crate::{
         mock_fungible_faucet_account, mock_notes, ACCOUNT_ID_REGULAR,
     },
     store::{InputNoteRecord, NoteFilter},
-    transactions::transaction_request::TransactionTemplate,
+    transactions::request::TransactionTemplate,
 };
 
 #[tokio::test]

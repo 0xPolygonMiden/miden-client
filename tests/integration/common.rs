@@ -15,7 +15,7 @@ use miden_client::{
     },
     sync::SyncSummary,
     transactions::{
-        transaction_request::{TransactionRequest, TransactionTemplate},
+        request::{TransactionRequest, TransactionTemplate},
         DataStoreError, TransactionExecutorError,
     },
     Client, ClientError,
