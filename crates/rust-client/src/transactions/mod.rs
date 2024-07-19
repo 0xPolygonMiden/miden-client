@@ -271,13 +271,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let future_notes = transaction_request.expected_future_notes();
 
         let tx_script = match transaction_request.script_template() {
-            TransactionScriptTemplate::CustomScript(script) => script.clone(),
+            TransactionScriptTemplate::CustomScript(script) => script,
             TransactionScriptTemplate::OutputNotes(notes) => {
                 let tx_script_builder = TransactionScriptBuilder::new(maybe_await!(
                     self.get_account_capabilities(account_id)
                 )?);
 
-                tx_script_builder.build_from_notes(&self.tx_executor, notes)?
+                tx_script_builder.build_from_notes(&self.tx_executor, &notes)?
             },
         };
 
