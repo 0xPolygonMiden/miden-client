@@ -10,7 +10,7 @@ use miden_objects::{
     assets::{Asset, FungibleAsset},
     crypto::merkle::{InnerNodeInfo, MerkleStore},
     notes::{Note, NoteDetails, NoteId, NoteType, PartialNote},
-    transaction::TransactionScript,
+    transaction::{OutputNote, TransactionScript},
     vm::AdviceMap,
     Digest, Felt, Word,
 };
@@ -34,24 +34,6 @@ pub type NoteArgs = Word;
 pub enum TransactionScriptTemplate {
     CustomScript(TransactionScript),
     OutputNotes(Vec<PartialNote>),
-}
-
-#[derive(Clone, Debug)]
-pub enum NativeNote {
-    Full(Note),
-    Partial(PartialNote),
-}
-
-impl From<Note> for NativeNote {
-    fn from(note: Note) -> Self {
-        NativeNote::Full(note)
-    }
-}
-
-impl From<PartialNote> for NativeNote {
-    fn from(note: PartialNote) -> Self {
-        NativeNote::Partial(note)
-    }
 }
 
 /// Represents the most general way of defining an executable transaction
@@ -114,25 +96,27 @@ impl TransactionRequest {
         self
     }
 
-    pub fn with_native_output_notes(mut self, notes: Vec<NativeNote>) -> Self {
-        let expected_output_notes: Vec<Note> = notes
-            .iter()
-            .filter_map(|note| match note {
-                NativeNote::Full(note) => Some(note.clone()),
-                NativeNote::Partial(_) => None,
-            })
-            .collect();
-        self.expected_output_notes = expected_output_notes;
+    pub fn with_native_output_notes(
+        mut self,
+        notes: Vec<OutputNote>,
+    ) -> Result<Self, TransactionRequestError> {
+        let mut expected_output_notes = Vec::new();
+        let mut native_notes = Vec::new();
 
-        let notes: Vec<PartialNote> = notes
-            .into_iter()
-            .map(|note| match note {
-                NativeNote::Full(note) => note.into(),
-                NativeNote::Partial(note) => note,
-            })
-            .collect();
-        self.script_template = TransactionScriptTemplate::OutputNotes(notes);
-        self
+        for note in notes {
+            match note {
+                OutputNote::Full(note) => {
+                    expected_output_notes.push(note.clone());
+                    native_notes.push(note.into());
+                },
+                OutputNote::Partial(note) => native_notes.push(note),
+                OutputNote::Header(_) => return Err(TransactionRequestError::InvalidNoteVariant),
+            }
+        }
+
+        self.expected_output_notes = expected_output_notes;
+        self.script_template = TransactionScriptTemplate::OutputNotes(native_notes);
+        Ok(self)
     }
 
     pub fn with_custom_script(mut self, script: TransactionScript) -> Self {
@@ -223,6 +207,7 @@ impl TransactionRequest {
 pub enum TransactionRequestError {
     InputNoteNotAuthenticated,
     InputNotesMapMissingUnauthenticatedNotes,
+    InvalidNoteVariant,
     InvalidSenderAccount(AccountId),
     InvalidTransactionScript(AssemblyError),
 }
@@ -231,6 +216,7 @@ impl fmt::Display for TransactionRequestError {
         match self {
             Self::InputNoteNotAuthenticated => write!(f, "Every authenticated note to be consumed should be committed and contain a valid inclusion proof"),
             Self::InputNotesMapMissingUnauthenticatedNotes => write!(f, "The input notes map should include keys for all provided unauthenticated input notes"),
+            Self::InvalidNoteVariant => write!(f, "Native notes should be either full or partial, but not header"),
             Self::InvalidSenderAccount(account_id) => write!(f, "Invalid sender account ID: {}", account_id),
             Self::InvalidTransactionScript(err) => write!(f, "Invalid transaction script: {}", err),
         }

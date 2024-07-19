@@ -15,6 +15,7 @@ use miden_objects::{
         Note, NoteAssets, NoteExecutionHint, NoteInputs, NoteMetadata, NoteRecipient, NoteTag,
         NoteType,
     },
+    transaction::OutputNote,
     vm::AdviceMap,
     Felt, Word,
 };
@@ -267,46 +268,11 @@ async fn mint_custom_note(
     let mut random_coin = RpoRandomCoin::new(Default::default());
     let note = create_custom_note(client, faucet_account_id, target_account_id, &mut random_coin);
 
-    let recipient = note
-        .recipient()
-        .digest()
-        .iter()
-        .map(|x| x.as_int().to_string())
-        .collect::<Vec<_>>()
-        .join(".");
-
-    let note_tag = note.metadata().tag().inner();
-
-    let code = "
-    use.miden::contracts::faucets::basic_fungible->faucet
-    use.miden::contracts::auth::basic->auth_tx
-    
-    begin
-        push.{recipient}
-        push.{note_type}
-        push.0
-        push.{tag}
-        push.{amount}
-        call.faucet::distribute
-    
-        call.auth_tx::auth_tx_rpo_falcon512
-        dropw dropw
-    end
-    "
-    .replace("{recipient}", &recipient)
-    .replace("{note_type}", &Felt::new(NoteType::Private as u64).to_string())
-    .replace("{tag}", &Felt::new(note_tag.into()).to_string())
-    .replace("{amount}", &Felt::new(10).to_string());
-
-    let program = ProgramAst::parse(&code).unwrap();
-
-    let tx_script = client.compile_tx_script(program, vec![], vec![]).unwrap();
-
     let transaction_request = TransactionRequest::new(faucet_account_id)
-        .with_native_output_notes(vec![note.clone().into()])
-        .with_custom_script(tx_script);
+        .with_native_output_notes(vec![OutputNote::Full(note.clone())])
+        .unwrap();
 
-    let _ = execute_tx_and_sync(client, transaction_request).await;
+    execute_tx_and_sync(client, transaction_request).await;
     note
 }
 
