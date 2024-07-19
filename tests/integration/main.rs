@@ -188,7 +188,7 @@ async fn test_p2idr_transfer_consumed_by_target() {
     assert!(!notes.is_empty());
 
     // Make the `to_account_id` consume P2IDR note
-    let note_id = tx_request.expected_output_notes().first().unwrap().id();
+    let note_id = tx_request.expected_output_notes().next().unwrap().id();
     let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![note_id]);
     println!("Consuming Note...");
     let tx_request = client.build_transaction_request(tx_template).unwrap();
@@ -406,7 +406,7 @@ async fn test_get_output_notes() {
     println!("Running P2ID tx...");
     let tx_request = client.build_transaction_request(tx_template).unwrap();
 
-    let output_note_id = tx_request.expected_output_notes()[0].id();
+    let output_note_id = tx_request.expected_output_notes().next().unwrap().id();
 
     // Before executing, the output note is not found
     assert!(client.get_output_note(output_note_id).is_err());
@@ -441,7 +441,7 @@ async fn test_import_expected_notes() {
     );
 
     let tx_request = client_1.build_transaction_request(tx_template).unwrap();
-    let note: InputNoteRecord = tx_request.expected_output_notes()[0].clone().into();
+    let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
     client_2.sync_state().await.unwrap();
 
     // If the verification is requested before execution then the import should fail
@@ -472,7 +472,7 @@ async fn test_import_expected_notes() {
     );
 
     let tx_request = client_1.build_transaction_request(tx_template).unwrap();
-    let note: InputNoteRecord = tx_request.expected_output_notes()[0].clone().into();
+    let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
 
     // Import an uncommited note without verification
     client_2.add_note_tag(note.metadata().unwrap().tag()).unwrap();
@@ -580,7 +580,7 @@ async fn test_sync_detail_values() {
     );
 
     let tx_request = client1.build_transaction_request(tx_template).unwrap();
-    let note_id = tx_request.expected_output_notes()[0].id();
+    let note_id = tx_request.expected_output_notes().next().unwrap().id();
     execute_tx_and_sync(&mut client1, tx_request).await;
 
     // Second client sync should have new note
@@ -632,7 +632,7 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
         let transaction_id = transaction_execution_result.executed_transaction().id();
 
         println!("Sending transaction to node");
-        let note_id = tx_request.expected_output_notes()[0].id();
+        let note_id = tx_request.expected_output_notes().next().unwrap().id();
         let proven_transaction = client
             .prove_transaction(transaction_execution_result.executed_transaction().clone())
             .unwrap();
@@ -667,7 +667,7 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
             .unwrap();
 
         // May need a few attempts until it gets included
-        let note_id = tx_request.expected_output_notes()[0].id();
+        let note_id = tx_request.expected_output_notes().next().unwrap().id();
         while client.rpc_api().get_notes_by_id(&[first_note_id]).await.unwrap().is_empty() {
             std::thread::sleep(std::time::Duration::from_secs(3));
         }
@@ -702,7 +702,7 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
             .unwrap();
 
         // May need a few attempts until it gets included
-        let note_id = tx_request.expected_output_notes()[0].id();
+        let note_id = tx_request.expected_output_notes().next().unwrap().id();
         while client.rpc_api().get_notes_by_id(&[second_note_id]).await.unwrap().is_empty() {
             std::thread::sleep(std::time::Duration::from_secs(3));
         }
@@ -768,7 +768,7 @@ async fn test_import_ignored_notes() {
     );
 
     let tx_request = client_1.build_transaction_request(tx_template).unwrap();
-    let note: InputNoteRecord = tx_request.expected_output_notes()[0].clone().into();
+    let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
     execute_tx_and_sync(&mut client_1, tx_request).await;
 
     client_2.sync_state().await.unwrap();
@@ -827,7 +827,7 @@ async fn test_update_ignored_tag() {
     );
 
     let tx_request = client_1.build_transaction_request(tx_template).unwrap();
-    let note: InputNoteRecord = tx_request.expected_output_notes()[0].clone().into();
+    let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
     execute_tx_and_sync(&mut client_1, tx_request).await;
 
     client_2.sync_state().await.unwrap();
@@ -887,7 +887,7 @@ async fn test_consume_expected_note() {
     execute_tx_and_sync(&mut client, tx_request.clone()).await;
 
     // Consume notes with target account
-    let note = tx_request.expected_output_notes().first().unwrap();
+    let note = tx_request.expected_output_notes().next().unwrap().clone();
     let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![note.id()]);
 
     println!("Executing consume notes tx without sync...");
