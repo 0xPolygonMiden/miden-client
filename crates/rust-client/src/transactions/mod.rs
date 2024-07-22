@@ -223,7 +223,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         }
     }
 
-    /// Creates and executes a transaction specified by the template, but does not change the
+    /// Creates and executes a transaction specified by the request, but does not change the
     /// local database.
     ///
     /// # Errors
@@ -231,6 +231,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// - Returns [ClientError::MissingOutputNotes] if the [TransactionRequest] ouput notes are
     ///   not a subset of executor's output notes
     /// - Returns a [ClientError::TransactionExecutorError] if the execution fails
+    /// - Returns a [ClientError::TransactionRequestError] if the request is invalid
     #[maybe_async]
     pub fn new_transaction(
         &mut self,

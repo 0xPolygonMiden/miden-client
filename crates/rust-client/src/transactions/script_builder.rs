@@ -107,6 +107,8 @@ impl AccountInterface {
 // TRANSACTION SCRIPT BUILDER
 // ============================================================================================
 pub struct TransactionScriptBuilder {
+    /// Capabilities of the account for which the script is being built. The capabilities
+    /// specify the authentication method and the interfaces exposed by the account.
     account_capabilities: AccountCapabilities,
 }
 
@@ -115,6 +117,7 @@ impl TransactionScriptBuilder {
         Self { account_capabilities }
     }
 
+    /// Builds a transaction script which sends the specified notes with the corresponding authentication.
     pub fn build_from_notes<D: DataStore, A: TransactionAuthenticator>(
         &self,
         tx_executor: &TransactionExecutor<D, A>,
@@ -142,6 +145,7 @@ impl TransactionScriptBuilder {
         Ok(tx_script)
     }
 
+    /// Builds a simple authentication script for the account that doesn't send any notes.
     pub fn build_simple_authentication_script<D: DataStore, A: TransactionAuthenticator>(
         &self,
         tx_executor: &TransactionExecutor<D, A>,
