@@ -82,7 +82,7 @@ impl TransactionRequest {
 
     pub fn with_unauthenticated_input_notes(
         mut self,
-        notes: Vec<(Note, Option<NoteArgs>)>,
+        notes: impl IntoIterator< Item = (Note, Option<NoteArgs>)>,
     ) -> Self {
         for (note, argument) in notes {
             self.input_notes.insert(note.id(), argument);
@@ -93,7 +93,7 @@ impl TransactionRequest {
 
     pub fn with_authenticated_input_notes(
         mut self,
-        notes: Vec<(NoteId, Option<NoteArgs>)>,
+        notes: impl IntoIterator< Item = (NoteId, Option<NoteArgs>)>,
     ) -> Self {
         for (note_id, argument) in notes {
             self.input_notes.insert(note_id, argument);
@@ -103,7 +103,7 @@ impl TransactionRequest {
 
     pub fn with_own_output_notes(
         mut self,
-        notes: Vec<OutputNote>,
+        notes: impl IntoIterator<Item = OutputNote>,
     ) -> Result<Self, TransactionRequestError> {
         if self.script_template.is_some() {
             return Err(TransactionRequestError::ScriptTemplateError(
