@@ -271,7 +271,7 @@ async fn mint_custom_note(
     let note = create_custom_note(client, faucet_account_id, target_account_id, &mut random_coin);
 
     let transaction_request = TransactionRequest::new(faucet_account_id)
-        .with_native_output_notes(vec![OutputNote::Full(note.clone())])
+        .with_own_output_notes(vec![OutputNote::Full(note.clone())])
         .unwrap();
 
     execute_tx_and_sync(client, transaction_request).await;

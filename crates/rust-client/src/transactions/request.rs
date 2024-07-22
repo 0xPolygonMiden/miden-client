@@ -34,7 +34,7 @@ pub type NoteArgs = Word;
 #[derive(Clone, Debug)]
 pub enum TransactionScriptTemplate {
     CustomScript(TransactionScript),
-    CreateNotes(Vec<PartialNote>),
+    SendNotes(Vec<PartialNote>),
 }
 
 /// A request for executing a transaction against a specific account.
@@ -101,33 +101,30 @@ impl TransactionRequest {
         self
     }
 
-    pub fn with_native_output_notes(
+    pub fn with_own_output_notes(
         mut self,
         notes: Vec<OutputNote>,
     ) -> Result<Self, TransactionRequestError> {
         if self.script_template.is_some() {
             return Err(TransactionRequestError::ScriptTemplateError(
-                "Cannot set native notes when a script template is already set".to_string(),
+                "Cannot set own notes when a script template is already set".to_string(),
             ));
         }
 
-        let mut expected_output_notes = Vec::new();
-        let mut native_notes = Vec::new();
+        let mut own_notes = Vec::new();
 
         for note in notes {
             match note {
                 OutputNote::Full(note) => {
-                    expected_output_notes.push(note.clone());
-                    native_notes.push(note.into());
+                    self.expected_output_notes.insert(note.id(), note.clone());
+                    own_notes.push(note.into());
                 },
-                OutputNote::Partial(note) => native_notes.push(note),
+                OutputNote::Partial(note) => own_notes.push(note),
                 OutputNote::Header(_) => return Err(TransactionRequestError::InvalidNoteVariant),
             }
         }
 
-        self.expected_output_notes =
-            BTreeMap::from_iter(expected_output_notes.into_iter().map(|note| (note.id(), note)));
-        self.script_template = Some(TransactionScriptTemplate::CreateNotes(native_notes));
+        self.script_template = Some(TransactionScriptTemplate::SendNotes(own_notes));
         Ok(self)
     }
 
@@ -220,7 +217,7 @@ impl TransactionRequest {
     pub fn script_template(&self) -> TransactionScriptTemplate {
         self.script_template
             .clone()
-            .unwrap_or(TransactionScriptTemplate::CreateNotes(vec![]))
+            .unwrap_or(TransactionScriptTemplate::SendNotes(vec![]))
     }
 
     pub fn advice_map(&self) -> &AdviceMap {
@@ -266,7 +263,7 @@ impl fmt::Display for TransactionRequestError {
         match self {
             Self::InputNoteNotAuthenticated => write!(f, "Every authenticated note to be consumed should be committed and contain a valid inclusion proof"),
             Self::InputNotesMapMissingUnauthenticatedNotes => write!(f, "The input notes map should include keys for all provided unauthenticated input notes"),
-            Self::InvalidNoteVariant => write!(f, "Native notes should be either full or partial, but not header"),
+            Self::InvalidNoteVariant => write!(f, "Own notes should be either full or partial, but not header"),
             Self::InvalidSenderAccount(account_id) => write!(f, "Invalid sender account ID: {}", account_id),
             Self::InvalidTransactionScript(err) => write!(f, "Invalid transaction script: {}", err),
             Self::ScriptTemplateError(err) => write!(f, "Transaction script template error: {}", err),
