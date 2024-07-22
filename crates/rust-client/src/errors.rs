@@ -73,7 +73,7 @@ impl fmt::Display for ClientError {
             ClientError::NoteError(err) => write!(f, "Note error: {err}"),
             ClientError::NoteImportError(err) => write!(f, "Error importing note: {err}"),
             ClientError::NoteRecordError(err) => write!(f, "Note record error: {err}"),
-            ClientError::RpcError(err) => write!(f, "Rpc api error: {err}"),
+            ClientError::RpcError(err) => write!(f, "RPC api error: {err}"),
             ClientError::NoteScreenerError(err) => write!(f, "Note screener error: {err}"),
             ClientError::StoreError(err) => write!(f, "Store error: {err}"),
             ClientError::TransactionExecutorError(err) => {

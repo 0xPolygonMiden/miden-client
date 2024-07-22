@@ -15,7 +15,7 @@ use miden_objects::{
     Digest, Felt, FieldElement, Word,
 };
 use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, TransactionProver};
-use request::{NoteArgs, TransactionRequestError, TransactionScriptTemplate};
+use request::{TransactionRequestError, TransactionScriptTemplate};
 use script_builder::{AccountCapabilities, AccountInterface, TransactionScriptBuilder};
 use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
@@ -201,7 +201,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ) -> Result<TransactionRequest, ClientError> {
         match transaction_template {
             TransactionTemplate::ConsumeNotes(account_id, notes) => {
-                let notes = notes.iter().map(|id| (*id, None::<NoteArgs>));
+                let notes = notes.iter().map(|id| (*id, None));
 
                 let tx_request =
                     TransactionRequest::new(account_id).with_authenticated_input_notes(notes);

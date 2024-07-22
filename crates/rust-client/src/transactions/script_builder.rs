@@ -15,13 +15,13 @@ use super::prepare_word;
 
 // ACCOUNT CAPABILITIES
 // ============================================================================================
-pub struct AccountCapabilities {
+pub(crate) struct AccountCapabilities {
     pub account_id: AccountId,
     pub auth: AuthSecretKey,
     pub interfaces: AccountInterface,
 }
 
-pub enum AccountInterface {
+pub(crate) enum AccountInterface {
     /// The account exposes procedures of the basic wallet.
     BasicWallet,
     /// The account is a fungible faucet and exposes procedures of the basic fungible faucet.
@@ -106,7 +106,7 @@ impl AccountInterface {
 
 // TRANSACTION SCRIPT BUILDER
 // ============================================================================================
-pub struct TransactionScriptBuilder {
+pub(crate) struct TransactionScriptBuilder {
     /// Capabilities of the account for which the script is being built. The capabilities
     /// specify the authentication method and the interfaces exposed by the account.
     account_capabilities: AccountCapabilities,
