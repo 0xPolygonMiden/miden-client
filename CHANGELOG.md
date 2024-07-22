@@ -2,6 +2,7 @@
 
 ## v0.5.0 (TBD)
 
+* [BREAKING] Refactored `TransactionRequest` to represent a generalized transaction (#438).
 * Fix `get_consumable_notes` to consider block header information for consumability (#432).
 * Ignored stale updates received during sync process (#412).
 * Refactor `TransactionRequest` constructor (#434).

@@ -53,7 +53,7 @@ use crate::{
     sync::FILTER_ID_SHIFT,
     transactions::{
         prepare_word,
-        transaction_request::{PaymentTransactionData, TransactionTemplate},
+        request::{PaymentTransactionData, TransactionTemplate},
     },
     Client,
 };

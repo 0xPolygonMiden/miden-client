@@ -1,7 +1,7 @@
 use miden_client::{
     accounts::AccountTemplate,
     store::{NoteFilter, NoteStatus},
-    transactions::transaction_request::{PaymentTransactionData, TransactionTemplate},
+    transactions::request::{PaymentTransactionData, TransactionTemplate},
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorageType},
@@ -57,7 +57,7 @@ async fn test_onchain_notes_flow() {
     );
 
     let tx_request = client_1.build_transaction_request(tx_template).unwrap();
-    let note = tx_request.expected_output_notes()[0].clone();
+    let note = tx_request.expected_output_notes().next().unwrap().clone();
     execute_tx_and_sync(&mut client_1, tx_request).await;
 
     // Client 2's account should receive the note here:
@@ -288,7 +288,7 @@ async fn test_onchain_notes_sync_with_tag() {
     );
 
     let tx_request = client_1.build_transaction_request(tx_template).unwrap();
-    let note = tx_request.expected_output_notes()[0].clone();
+    let note = tx_request.expected_output_notes().next().unwrap().clone();
     execute_tx_and_sync(&mut client_1, tx_request).await;
 
     // Load tag into client 2

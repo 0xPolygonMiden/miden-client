@@ -22,7 +22,7 @@ use crate::{
         mock_fungible_faucet_account, mock_notes, ACCOUNT_ID_REGULAR,
     },
     store::{InputNoteRecord, NoteFilter},
-    transactions::transaction_request::TransactionTemplate,
+    transactions::request::TransactionTemplate,
 };
 
 #[tokio::test]
@@ -394,8 +394,8 @@ async fn test_mint_transaction() {
     );
 
     let transaction_request = client.build_transaction_request(transaction_template).unwrap();
-
     let transaction = client.new_transaction(transaction_request).unwrap();
+
     assert!(transaction.executed_transaction().account_delta().nonce().is_some());
 }
 
