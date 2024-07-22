@@ -47,46 +47,46 @@ pub enum ClientError {
 impl fmt::Display for ClientError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ClientError::AccountError(err) => write!(f, "account error: {err}"),
-            ClientError::AssetError(err) => write!(f, "asset error: {err}"),
+            ClientError::AccountError(err) => write!(f, "Account error: {err}"),
+            ClientError::AssetError(err) => write!(f, "Asset error: {err}"),
             ClientError::DataDeserializationError(err) => {
-                write!(f, "data deserialization error: {err}")
+                write!(f, "Data deserialization error: {err}")
             },
             ClientError::ExistenceVerificationError(note_id) => {
                 write!(f, "The note with ID {note_id} doesn't exist in the chain")
             },
-            ClientError::HexParseError(err) => write!(f, "error turning array to Digest: {err}"),
+            ClientError::HexParseError(err) => write!(f, "Error turning array to Digest: {err}"),
             ClientError::ImportNewAccountWithoutSeed => write!(
                 f,
-                "import account error: can't import a new account without its initial seed"
+                "Import account error: can't import a new account without its initial seed"
             ),
             ClientError::MissingOutputNotes(note_ids) => {
                 write!(
                     f,
-                    "transaction error: The transaction did not produce the expected notes corresponding to Note IDs: {}",
+                    "Transaction error: The transaction did not produce the expected notes corresponding to Note IDs: {}",
                     note_ids.iter().map(|&id| id.to_hex()).collect::<Vec<_>>().join(", ")
                 )
             },
             ClientError::NoConsumableNoteForAccount(account_id) => {
                 write!(f, "No consumable note for account ID {}", account_id)
             },
-            ClientError::NoteError(err) => write!(f, "note error: {err}"),
-            ClientError::NoteImportError(err) => write!(f, "error importing note: {err}"),
-            ClientError::NoteRecordError(err) => write!(f, "note record error: {err}"),
-            ClientError::RpcError(err) => write!(f, "rpc api error: {err}"),
-            ClientError::NoteScreenerError(err) => write!(f, "note screener error: {err}"),
-            ClientError::StoreError(err) => write!(f, "store error: {err}"),
+            ClientError::NoteError(err) => write!(f, "Note error: {err}"),
+            ClientError::NoteImportError(err) => write!(f, "Error importing note: {err}"),
+            ClientError::NoteRecordError(err) => write!(f, "Note record error: {err}"),
+            ClientError::RpcError(err) => write!(f, "Rpc api error: {err}"),
+            ClientError::NoteScreenerError(err) => write!(f, "Note screener error: {err}"),
+            ClientError::StoreError(err) => write!(f, "Store error: {err}"),
             ClientError::TransactionExecutorError(err) => {
-                write!(f, "transaction executor error: {err}")
+                write!(f, "Transaction executor error: {err}")
             },
             ClientError::TransactionProvingError(err) => {
-                write!(f, "transaction prover error: {err}")
+                write!(f, "Transaction prover error: {err}")
             },
             ClientError::TransactionRequestError(err) => {
-                write!(f, "transaction request error: {err}")
+                write!(f, "Transaction request error: {err}")
             },
             ClientError::TransactionScriptBuilderError(err) => {
-                write!(f, "transaction args builder error: {err}")
+                write!(f, "Transaction script builder error: {err}")
             },
         }
     }
