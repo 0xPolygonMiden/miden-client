@@ -273,24 +273,30 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             transaction_request.expected_future_notes().cloned().collect();
 
         let tx_script = match transaction_request.script_template() {
-            TransactionScriptTemplate::CustomScript(script) => script,
-            TransactionScriptTemplate::SendNotes(notes) => {
+            Some(TransactionScriptTemplate::CustomScript(script)) => script.clone(),
+            Some(TransactionScriptTemplate::SendNotes(notes)) => {
                 let tx_script_builder = TransactionScriptBuilder::new(maybe_await!(
                     self.get_account_capabilities(account_id)
                 )?);
 
-                tx_script_builder.build_from_notes(&self.tx_executor, &notes)?
+                tx_script_builder.build_from_notes(&self.tx_executor, notes)?
+            },
+            None => {
+                if transaction_request.input_notes().is_empty() {
+                    return Err(ClientError::TransactionRequestError(
+                        TransactionRequestError::NoInputNotes,
+                    ));
+                }
+
+                let tx_script_builder = TransactionScriptBuilder::new(maybe_await!(
+                    self.get_account_capabilities(account_id)
+                )?);
+
+                tx_script_builder.build_simple_authentication_script(&self.tx_executor)?
             },
         };
 
-        let mut tx_args = TransactionArgs::new(
-            Some(tx_script),
-            transaction_request.get_note_args().into(),
-            transaction_request.advice_map().clone(),
-        );
-
-        tx_args.extend_expected_output_notes(transaction_request.expected_output_notes().cloned());
-        tx_args.extend_merkle_store(transaction_request.merkle_store().inner_nodes());
+        let tx_args = transaction_request.into_transaction_args(tx_script);
 
         // Execute the transaction and get the witness
         let executed_transaction = maybe_await!(self

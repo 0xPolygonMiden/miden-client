@@ -120,8 +120,34 @@ impl TransactionScriptBuilder {
         tx_executor: &TransactionExecutor<D, A>,
         output_notes: &[PartialNote],
     ) -> Result<TransactionScript, TransactionScriptBuilderError> {
+        let send_note_procedure = self
+            .account_capabilities
+            .interfaces
+            .send_note_procedure(self.account_capabilities.account_id, output_notes)?;
+
+        let script = format!(
+            "{} begin {} {} end",
+            self.script_includes(),
+            send_note_procedure,
+            self.script_authentication()
+        );
+
+        let program_ast = ProgramAst::parse(&script)
+            .map_err(|err| TransactionScriptBuilderError::InvalidTransactionScript(err.into()))?;
+
+        let tx_script = tx_executor
+            .compile_tx_script(program_ast, vec![], vec![])
+            .map_err(TransactionScriptBuilderError::TransactionExecutorError)?;
+
+        Ok(tx_script)
+    }
+
+    pub fn build_simple_authentication_script<D: DataStore, A: TransactionAuthenticator>(
+        &self,
+        tx_executor: &TransactionExecutor<D, A>,
+    ) -> Result<TransactionScript, TransactionScriptBuilderError> {
         let script =
-            format!("{} begin {} end", self.script_includes(), self.script_body(output_notes)?);
+            format!("{} begin {} end", self.script_includes(), self.script_authentication());
 
         let program_ast = ProgramAst::parse(&script)
             .map_err(|err| TransactionScriptBuilderError::InvalidTransactionScript(err.into()))?;
@@ -147,18 +173,8 @@ impl TransactionScriptBuilder {
         includes
     }
 
-    fn script_body(
-        &self,
-        output_notes: &[PartialNote],
-    ) -> Result<String, TransactionScriptBuilderError> {
+    fn script_authentication(&self) -> String {
         let mut body = String::new();
-
-        body.push_str(
-            &self
-                .account_capabilities
-                .interfaces
-                .send_note_procedure(self.account_capabilities.account_id, output_notes)?,
-        );
 
         match self.account_capabilities.auth {
             AuthSecretKey::RpoFalcon512(_) => {
@@ -166,7 +182,7 @@ impl TransactionScriptBuilder {
             },
         }
 
-        Ok(body)
+        body
     }
 }
 

@@ -82,7 +82,7 @@ impl TransactionRequest {
 
     pub fn with_unauthenticated_input_notes(
         mut self,
-        notes: impl IntoIterator< Item = (Note, Option<NoteArgs>)>,
+        notes: impl IntoIterator<Item = (Note, Option<NoteArgs>)>,
     ) -> Self {
         for (note, argument) in notes {
             self.input_notes.insert(note.id(), argument);
@@ -93,7 +93,7 @@ impl TransactionRequest {
 
     pub fn with_authenticated_input_notes(
         mut self,
-        notes: impl IntoIterator< Item = (NoteId, Option<NoteArgs>)>,
+        notes: impl IntoIterator<Item = (NoteId, Option<NoteArgs>)>,
     ) -> Self {
         for (note_id, argument) in notes {
             self.input_notes.insert(note_id, argument);
@@ -214,10 +214,8 @@ impl TransactionRequest {
         self.expected_future_notes.values()
     }
 
-    pub fn script_template(&self) -> TransactionScriptTemplate {
-        self.script_template
-            .clone()
-            .unwrap_or(TransactionScriptTemplate::SendNotes(vec![]))
+    pub fn script_template(&self) -> &Option<TransactionScriptTemplate> {
+        &self.script_template
     }
 
     pub fn advice_map(&self) -> &AdviceMap {
@@ -256,6 +254,7 @@ pub enum TransactionRequestError {
     InvalidNoteVariant,
     InvalidSenderAccount(AccountId),
     InvalidTransactionScript(AssemblyError),
+    NoInputNotes,
     ScriptTemplateError(String),
 }
 impl fmt::Display for TransactionRequestError {
@@ -266,6 +265,7 @@ impl fmt::Display for TransactionRequestError {
             Self::InvalidNoteVariant => write!(f, "Own notes should be either full or partial, but not header"),
             Self::InvalidSenderAccount(account_id) => write!(f, "Invalid sender account ID: {}", account_id),
             Self::InvalidTransactionScript(err) => write!(f, "Invalid transaction script: {}", err),
+            Self::NoInputNotes => write!(f, "A transaction without output notes must have at least one input note"),
             Self::ScriptTemplateError(err) => write!(f, "Transaction script template error: {}", err),
         }
     }
