@@ -280,7 +280,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     self.get_account_capabilities(account_id)
                 )?);
 
-                tx_script_builder.build_from_notes(&self.tx_executor, notes)?
+                tx_script_builder.build_send_notes_script(&self.tx_executor, notes)?
             },
             None => {
                 if transaction_request.input_notes().is_empty() {
@@ -293,7 +293,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     self.get_account_capabilities(account_id)
                 )?);
 
-                tx_script_builder.build_simple_authentication_script(&self.tx_executor)?
+                tx_script_builder.build_auth_script(&self.tx_executor)?
             },
         };
 

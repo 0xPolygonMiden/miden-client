@@ -30,6 +30,14 @@ pub(crate) enum AccountInterface {
 
 impl AccountInterface {
     /// Returns the script body that sends notes to the recipients.
+    ///
+    /// Errors:
+    /// - [TransactionScriptBuilderError::InvalidSenderAccount] if the sender of the note is not
+    ///   the account for which the script is being built.
+    /// - [TransactionScriptBuilderError::InvalidAssetAmount] if the note does not contain exactly
+    ///   one asset.
+    /// - [TransactionScriptBuilderError::InvalidAsset] if a faucet tries to distribute an asset
+    ///   with a different faucet ID.
     fn send_note_procedure(
         &self,
         account_id: AccountId,
@@ -60,9 +68,9 @@ impl AccountInterface {
                 push.{tag}
                 ",
                 recipient = prepare_word(&partial_note.recipient_digest()),
-                note_type = Felt::new(partial_note.metadata().note_type() as u64),
+                note_type = Felt::from(partial_note.metadata().note_type()),
                 aux = partial_note.metadata().aux(),
-                tag = Felt::new(partial_note.metadata().tag().inner().into()),
+                tag = Felt::from(partial_note.metadata().tag()),
             ));
 
             match self {
@@ -117,8 +125,9 @@ impl TransactionScriptBuilder {
         Self { account_capabilities }
     }
 
-    /// Builds a transaction script which sends the specified notes with the corresponding authentication.
-    pub fn build_from_notes<D: DataStore, A: TransactionAuthenticator>(
+    /// Builds a transaction script which sends the specified notes with the corresponding
+    /// authentication.
+    pub fn build_send_notes_script<D: DataStore, A: TransactionAuthenticator>(
         &self,
         tx_executor: &TransactionExecutor<D, A>,
         output_notes: &[PartialNote],
@@ -146,7 +155,7 @@ impl TransactionScriptBuilder {
     }
 
     /// Builds a simple authentication script for the account that doesn't send any notes.
-    pub fn build_simple_authentication_script<D: DataStore, A: TransactionAuthenticator>(
+    pub fn build_auth_script<D: DataStore, A: TransactionAuthenticator>(
         &self,
         tx_executor: &TransactionExecutor<D, A>,
     ) -> Result<TransactionScript, TransactionScriptBuilderError> {

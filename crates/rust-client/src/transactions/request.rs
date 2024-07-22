@@ -238,7 +238,7 @@ impl TransactionRequest {
         &self.merkle_store
     }
 
-    pub fn into_transaction_args(self, tx_script: TransactionScript) -> TransactionArgs {
+    pub(super) fn into_transaction_args(self, tx_script: TransactionScript) -> TransactionArgs {
         let note_args = self.get_note_args();
         let TransactionRequest {
             expected_output_notes,
