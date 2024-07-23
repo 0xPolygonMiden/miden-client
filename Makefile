@@ -91,6 +91,10 @@ node: ## Setup node directory
 start-node: ## Run node. This requires the node repo to be present at `miden-node`
 	cd miden-node && cargo run --bin miden-node --features $(NODE_FEATURES_TESTING) -- start --config ../tests/config/miden-node.toml node
 
+.PHONY: integration-test-deps
+integration-test-deps: ## Install dependencies for integration tests
+	cargo install cargo-nextest
+
 # --- Installing ----------------------------------------------------------------------------------
 
 install: ## Installs the CLI binary
