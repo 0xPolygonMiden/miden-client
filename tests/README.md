@@ -18,6 +18,8 @@ make start-node
 And on a second terminal do:
 
 ```bash
+# This will install the required dependencies for the integration test
+make integration-test-deps
 # This will run the integration test 
 make integration-test-full
 ```
