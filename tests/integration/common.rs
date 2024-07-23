@@ -96,11 +96,8 @@ pub async fn execute_tx(client: &mut TestClient, tx_request: TransactionRequest)
     let transaction_id = transaction_execution_result.executed_transaction().id();
 
     println!("Sending transaction to node");
-    let proven_transaction = client
-        .prove_transaction(transaction_execution_result.executed_transaction().clone())
-        .unwrap();
     client
-        .submit_transaction(transaction_execution_result, proven_transaction)
+        .submit_transaction(transaction_execution_result)
         .await
         .unwrap();
 
