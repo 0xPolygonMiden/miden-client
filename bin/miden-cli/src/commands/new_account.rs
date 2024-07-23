@@ -50,12 +50,13 @@ impl NewFaucetCmd {
             );
         }
 
+        let decimals = self.decimals.expect("decimals must be provided");
+        let token_symbol = self.token_symbol.clone().expect("token symbol must be provided");
+
         let client_template = AccountTemplate::FungibleFaucet {
-            token_symbol: TokenSymbol::new(
-                self.token_symbol.clone().expect("token symbol must be provided").as_str(),
-            )
-            .map_err(|err| format!("error: token symbol is invalid: {}", err))?,
-            decimals: self.decimals.expect("decimals must be provided"),
+            token_symbol: TokenSymbol::new(token_symbol.as_str())
+                .map_err(|err| format!("error: token symbol is invalid: {}", err))?,
+            decimals,
             max_supply: self.max_supply.expect("max supply must be provided"),
             storage_type: self.storage_type.into(),
         };
@@ -68,10 +69,7 @@ impl NewFaucetCmd {
         );
 
         let token_symbol_mappings = get_token_mappings()?;
-        token_symbol_mappings.set_token_symbol(
-            &new_account.id(),
-            self.token_symbol.clone().expect("token symbol must be provided"),
-        )?;
+        token_symbol_mappings.set_token_symbol(new_account.id(), decimals, token_symbol)?;
 
         Ok(())
     }
