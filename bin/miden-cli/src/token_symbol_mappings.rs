@@ -41,7 +41,8 @@ impl TokenSymbolMappings {
             ));
         }
 
-        if let Some((existing_token_symbol, _)) = mappings.iter().find(|(_, faucet)| faucet.id == faucet_id)
+        if let Some((existing_token_symbol, _)) =
+            mappings.iter().find(|(_, faucet)| faucet.id == faucet_id)
         {
             return Err(format!(
                 "Faucet ID '{}' is already defined for token symbol '{}', it will not be added as a mapping for token symbol '{}'",
@@ -55,10 +56,10 @@ impl TokenSymbolMappings {
 
     pub fn get_faucet_id(&self, token_symbol: &String) -> Result<AccountId, String> {
         let mappings = self.load_mappings()?;
-        let faucet_id = mappings
-            .get(token_symbol)
-            .map(|faucet| faucet.id.clone())
-            .ok_or_else(|| format!("Token symbol '{}' was not found in the mappings", token_symbol))?;
+        let faucet_id =
+            mappings.get(token_symbol).map(|faucet| faucet.id.clone()).ok_or_else(|| {
+                format!("Token symbol '{}' was not found in the mappings", token_symbol)
+            })?;
 
         AccountId::from_hex(&faucet_id).map_err(|err| format!("Failed to parse faucet ID: {}", err))
     }

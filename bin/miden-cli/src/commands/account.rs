@@ -242,7 +242,6 @@ fn account_type_display_name(account_id: &AccountId) -> Result<String, String> {
             let token_symbol_mappings = get_token_mappings()?;
             let token_symbol = token_symbol_mappings
                 .get_token_symbol(account_id)
-                .map_err(|err| format!("Failed to get token symbol: {}", err))
                 .unwrap_or("Unknown".to_string());
 
             format!("Fungible faucet (token symbol: {token_symbol})")

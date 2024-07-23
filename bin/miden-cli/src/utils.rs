@@ -116,13 +116,13 @@ fn load_config(config_file: &Path) -> Result<CliConfig, String> {
 }
 
 /// Parses a fungible Asset and returns it as a tuple of the amount and the faucet account ID hex.
+/// The provided `arg` should be in the format `<AMOUNT>::<ASSET>` where `<AMOUNT>` is the amount
+/// of the asset and `<ASSET>` is either the faucet account ID hex or a token symbol tracked by
+/// the mappings file. Some examples of valid `arg` values are `100::0x123456789` and `100::POL`.
 ///
 /// # Errors
 ///
-/// Will return an error if the provided `arg` doesn't match one of the expected format:
-///
-/// - `<AMOUNT>::<FAUCET_ID>`, such as `100::0x123456789`
-/// - `<AMOUNT>::<TOKEN_SYMBOL>`, such as `100::ETH`
+/// Will return an error if the provided `arg` doesn't match one of the expected formats.
 pub fn parse_fungible_asset(arg: &str) -> Result<(u64, AccountId), String> {
     let (amount, asset) = arg.split_once("::").ok_or("Separator `::` not found!")?;
     let amount = amount.parse::<u64>().map_err(|err| err.to_string())?;
