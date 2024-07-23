@@ -22,7 +22,7 @@ impl TokenSymbolMappings {
         mappings
             .iter()
             .find(|(_, faucet)| faucet.id == faucet_id.to_hex())
-            .ok_or_else(|| format!("Faucet ID '{}' is not defined", faucet_id))
+            .ok_or_else(|| format!("Faucet ID '{}' was not found in the mappings", faucet_id))
             .map(|(symbol, _)| symbol.clone())
     }
 
@@ -36,16 +36,16 @@ impl TokenSymbolMappings {
         let faucet_id = faucet_id.to_hex();
         if let Some(details) = mappings.get(&token_symbol) {
             return Err(format!(
-                "Token symbol '{}' is already defined for faucet ID '{}'",
-                token_symbol, details.id
+                "Token symbol '{}' is already defined for faucet ID '{}', it will not be added as a mapping for faucet ID '{}'",
+                token_symbol, details.id, faucet_id
             ));
         }
 
-        if let Some((token_symbol, _)) = mappings.iter().find(|(_, faucet)| faucet.id == faucet_id)
+        if let Some((existing_token_symbol, _)) = mappings.iter().find(|(_, faucet)| faucet.id == faucet_id)
         {
             return Err(format!(
-                "Faucet ID '{}' is already defined for token symbol '{}'",
-                faucet_id, token_symbol
+                "Faucet ID '{}' is already defined for token symbol '{}', it will not be added as a mapping for token symbol '{}'",
+                faucet_id, existing_token_symbol, token_symbol
             ));
         }
 
@@ -58,7 +58,7 @@ impl TokenSymbolMappings {
         let faucet_id = mappings
             .get(token_symbol)
             .map(|faucet| faucet.id.clone())
-            .ok_or_else(|| format!("Token symbol '{}' is not defined", token_symbol))?;
+            .ok_or_else(|| format!("Token symbol '{}' was not found in the mappings", token_symbol))?;
 
         AccountId::from_hex(&faucet_id).map_err(|err| format!("Failed to parse faucet ID: {}", err))
     }
