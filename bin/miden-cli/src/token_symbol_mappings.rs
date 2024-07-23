@@ -81,7 +81,7 @@ impl TokenSymbolMappings {
     }
 
     fn save_mappings(&self, mappings: &BTreeMap<String, FaucetDetails>) -> Result<(), String> {
-        let content = toml::to_string_pretty(mappings)
+        let content = toml_edit::ser::to_string(mappings)
             .map_err(|err| format!("Failed to serialize mappings: {}", err))?;
 
         std::fs::write(&self.mappings_file, content)
