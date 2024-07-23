@@ -130,7 +130,9 @@ pub fn parse_fungible_asset(arg: &str) -> Result<(u64, AccountId), String> {
         AccountId::from_hex(asset).map_err(|err| err.to_string())?
     } else {
         let token_symbol_mappings = get_token_mappings()?;
-        token_symbol_mappings.get_faucet_id(&asset.to_string())?
+        token_symbol_mappings
+            .get_faucet_id(&asset.to_string())?
+            .ok_or(format!("Token symbol `{asset}` not found in mappings file"))?
     };
 
     Ok((amount, faucet_id))

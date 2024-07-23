@@ -17,13 +17,12 @@ impl TokenSymbolMappings {
         Self { mappings_file }
     }
 
-    pub fn get_token_symbol(&self, faucet_id: &AccountId) -> Result<String, String> {
+    pub fn get_token_symbol(&self, faucet_id: &AccountId) -> Result<Option<String>, String> {
         let mappings = self.load_mappings()?;
-        mappings
+        Ok(mappings
             .iter()
             .find(|(_, faucet)| faucet.id == faucet_id.to_hex())
-            .ok_or_else(|| format!("Faucet ID '{}' was not found in the mappings", faucet_id))
-            .map(|(symbol, _)| symbol.clone())
+            .map(|(symbol, _)| symbol.clone()))
     }
 
     pub fn set_token_symbol(
@@ -54,14 +53,17 @@ impl TokenSymbolMappings {
         self.save_mappings(&mappings)
     }
 
-    pub fn get_faucet_id(&self, token_symbol: &String) -> Result<AccountId, String> {
+    pub fn get_faucet_id(&self, token_symbol: &String) -> Result<Option<AccountId>, String> {
         let mappings = self.load_mappings()?;
-        let faucet_id =
-            mappings.get(token_symbol).map(|faucet| faucet.id.clone()).ok_or_else(|| {
-                format!("Token symbol '{}' was not found in the mappings", token_symbol)
-            })?;
 
-        AccountId::from_hex(&faucet_id).map_err(|err| format!("Failed to parse faucet ID: {}", err))
+        if let Some(faucet_id) = mappings.get(token_symbol).map(|faucet| faucet.id.clone()) {
+            Ok(Some(
+                AccountId::from_hex(&faucet_id)
+                    .map_err(|err| format!("Failed to parse faucet ID: {}", err))?,
+            ))
+        } else {
+            Ok(None)
+        }
     }
 
     fn load_mappings(&self) -> Result<BTreeMap<String, FaucetDetails>, String> {
