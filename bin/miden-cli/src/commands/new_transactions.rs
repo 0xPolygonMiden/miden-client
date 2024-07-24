@@ -307,7 +307,6 @@ async fn execute_transaction<
         .iter()
         .map(|note| note.id())
         .collect::<Vec<_>>();
-    println!("Proving and submitting transaction...");
 
     client
         .submit_transaction(transaction_execution_result)
