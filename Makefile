@@ -61,6 +61,10 @@ doc: ## Generates & checks rust documentation. You'll need `jq` in order for thi
 test: ## Run tests
 	cargo nextest run --release --lib --features $(FEATURES_CLIENT)
 
+.PHONY: test-deps
+test-deps: ## Install dependencies for tests
+	cargo install cargo-nextest
+
 # --- Integration testing -------------------------------------------------------------------------
 
 .PHONY: integration-test
@@ -90,10 +94,6 @@ node: ## Setup node directory
 .PHONY: start-node
 start-node: ## Run node. This requires the node repo to be present at `miden-node`
 	cd miden-node && cargo run --bin miden-node --features $(NODE_FEATURES_TESTING) -- start --config ../tests/config/miden-node.toml node
-
-.PHONY: integration-test-deps
-integration-test-deps: ## Install dependencies for integration tests
-	cargo install cargo-nextest
 
 # --- Installing ----------------------------------------------------------------------------------
 
