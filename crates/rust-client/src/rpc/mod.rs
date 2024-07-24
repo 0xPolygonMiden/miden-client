@@ -168,6 +168,12 @@ pub trait NodeRpcClient {
         &mut self,
         account_id: AccountId,
     ) -> Result<AccountDetails, RpcError>;
+
+    /// Fetches the nullifiers corresponding to a list of prefixes using the `/CheckNullifiersByPrefix` rpc endpoint
+    async fn check_nullifiers_by_prefix(
+        &mut self,
+        prefix: &[u16],
+    ) -> Result<Vec<(Nullifier, u32)>, RpcError>;
 }
 
 // STATE SYNC INFO
@@ -269,6 +275,7 @@ pub enum NodeRpcClientEndpoint {
     GetBlockHeaderByNumber,
     SyncState,
     SubmitProvenTx,
+    CheckNullifiersByPrefix,
 }
 
 impl fmt::Display for NodeRpcClientEndpoint {
@@ -280,6 +287,9 @@ impl fmt::Display for NodeRpcClientEndpoint {
             },
             NodeRpcClientEndpoint::SyncState => write!(f, "sync_state"),
             NodeRpcClientEndpoint::SubmitProvenTx => write!(f, "submit_proven_transaction"),
+            NodeRpcClientEndpoint::CheckNullifiersByPrefix => {
+                write!(f, "check_nullifiers_by_prefix")
+            },
         }
     }
 }
