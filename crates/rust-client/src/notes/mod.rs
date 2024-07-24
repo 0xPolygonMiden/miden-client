@@ -10,6 +10,7 @@ use winter_maybe_async::{maybe_async, maybe_await};
 use crate::{
     rpc::{NodeRpcClient, NoteDetails},
     store::{InputNoteRecord, NoteFilter, NoteStatus, OutputNoteRecord, Store, StoreError},
+    sync::FILTER_ID_SHIFT,
     Client, ClientError, IdPrefixFetchError,
 };
 
@@ -174,13 +175,32 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     // If note is not tracked, we create a new one.
                     let details = node_note.clone().into();
 
+                    let nullifiers = self
+                        .rpc_api
+                        .check_nullifiers_by_prefix(&[((node_note.nullifier().inner()[3].as_int()
+                            >> FILTER_ID_SHIFT)
+                            as u16)])
+                        .await
+                        .unwrap();
+
+                    let status = if let Some((_, block_num)) =
+                        nullifiers.iter().find(|(nullifier, _)| nullifier == &node_note.nullifier())
+                    {
+                        NoteStatus::Consumed {
+                            consumer_account_id: None,
+                            block_height: *block_num as u64,
+                        }
+                    } else {
+                        NoteStatus::Committed {
+                            block_height: inclusion_proof.location().block_num() as u64,
+                        }
+                    };
+
                     InputNoteRecord::new(
                         node_note.id(),
                         node_note.recipient().digest(),
                         node_note.assets().clone(),
-                        NoteStatus::Committed {
-                            block_height: inclusion_proof.location().block_num() as u64,
-                        },
+                        status,
                         Some(*node_note.metadata()),
                         Some(inclusion_proof),
                         details,
@@ -272,13 +292,32 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             NoteFile::NoteWithProof(note, inclusion_proof) => {
                 let details = note.clone().into();
 
+                let nullifiers = self
+                    .rpc_api
+                    .check_nullifiers_by_prefix(&[((note.nullifier().inner()[3].as_int()
+                        >> FILTER_ID_SHIFT)
+                        as u16)])
+                    .await
+                    .unwrap();
+
+                let status = if let Some((_, block_num)) =
+                    nullifiers.iter().find(|(nullifier, _)| nullifier == &note.nullifier())
+                {
+                    NoteStatus::Consumed {
+                        consumer_account_id: None,
+                        block_height: *block_num as u64,
+                    }
+                } else {
+                    NoteStatus::Committed {
+                        block_height: inclusion_proof.location().block_num() as u64,
+                    }
+                };
+
                 InputNoteRecord::new(
                     note.id(),
                     note.recipient().digest(),
                     note.assets().clone(),
-                    NoteStatus::Committed {
-                        block_height: inclusion_proof.location().block_num() as u64,
-                    },
+                    status,
                     Some(*note.metadata()),
                     Some(inclusion_proof),
                     details,
