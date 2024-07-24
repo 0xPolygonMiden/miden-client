@@ -11,7 +11,7 @@ use miden_client::{
 
 use crate::{
     commands::account::maybe_set_default_account,
-    utils::{get_token_mappings, load_config_file},
+    utils::load_config_file,
     CLIENT_BINARY_NAME,
 };
 
@@ -67,9 +67,6 @@ impl NewFaucetCmd {
             "To view account details execute `{CLIENT_BINARY_NAME} account -s {}`",
             new_account.id()
         );
-
-        let token_symbol_mappings = get_token_mappings()?;
-        token_symbol_mappings.set_token_symbol(new_account.id(), decimals, token_symbol)?;
 
         Ok(())
     }

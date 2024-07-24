@@ -25,34 +25,6 @@ impl TokenSymbolMappings {
             .map(|(symbol, _)| symbol.clone()))
     }
 
-    pub fn set_token_symbol(
-        &self,
-        faucet_id: AccountId,
-        decimals: u8,
-        token_symbol: String,
-    ) -> Result<(), String> {
-        let mut mappings = self.load_mappings()?;
-        let faucet_id = faucet_id.to_hex();
-        if let Some(details) = mappings.get(&token_symbol) {
-            return Err(format!(
-                "Token symbol '{}' is already defined for faucet ID '{}', it will not be added as a mapping for faucet ID '{}'",
-                token_symbol, details.id, faucet_id
-            ));
-        }
-
-        if let Some((existing_token_symbol, _)) =
-            mappings.iter().find(|(_, faucet)| faucet.id == faucet_id)
-        {
-            return Err(format!(
-                "Faucet ID '{}' is already defined for token symbol '{}', it will not be added as a mapping for token symbol '{}'",
-                faucet_id, existing_token_symbol, token_symbol
-            ));
-        }
-
-        mappings.insert(token_symbol, FaucetDetails { id: faucet_id, decimals });
-        self.save_mappings(&mappings)
-    }
-
     pub fn get_faucet_id(&self, token_symbol: &String) -> Result<Option<AccountId>, String> {
         let mappings = self.load_mappings()?;
 
@@ -81,13 +53,5 @@ impl TokenSymbolMappings {
         };
 
         Ok(mappings)
-    }
-
-    fn save_mappings(&self, mappings: &BTreeMap<String, FaucetDetails>) -> Result<(), String> {
-        let content = toml_edit::ser::to_string(mappings)
-            .map_err(|err| format!("Failed to serialize mappings: {}", err))?;
-
-        std::fs::write(&self.mappings_file, content)
-            .map_err(|err| format!("Failed to write mappings file: {}", err))
     }
 }
