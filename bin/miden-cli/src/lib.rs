@@ -34,7 +34,7 @@ use self::utils::load_config_file;
 
 mod config;
 mod info;
-mod token_symbol_mappings;
+mod token_symbol_map;
 mod utils;
 
 /// Config file name

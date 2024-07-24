@@ -1,4 +1,5 @@
 use core::fmt::Debug;
+use std::path::{Path, PathBuf};
 
 use figment::{
     value::{Dict, Map},
@@ -21,7 +22,7 @@ pub struct CliConfig {
     /// Address of the Miden node to connect to.
     pub default_account_id: Option<String>,
     /// Path to the file containing token symbol mappings.
-    pub token_symbol_mappings_file: String,
+    pub token_symbol_map_filepath: PathBuf,
 }
 
 // Make `ClientConfig` a provider itself for composability.
@@ -46,7 +47,7 @@ impl Default for CliConfig {
             rpc: RpcConfig::default(),
             store: SqliteStoreConfig::default(),
             default_account_id: None,
-            token_symbol_mappings_file: TOKEN_SYMBOL_MAPPINGS_FILE_NAME.to_string(),
+            token_symbol_map_filepath: Path::new(TOKEN_SYMBOL_MAPPINGS_FILE_NAME).to_path_buf(),
         }
     }
 }

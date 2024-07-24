@@ -20,7 +20,7 @@ use miden_client::{
 use tracing::info;
 
 use super::{config::CliConfig, get_account_with_id_prefix, CLIENT_CONFIG_FILE_NAME};
-use crate::token_symbol_mappings::TokenSymbolMappings;
+use crate::token_symbol_map::TokenSymbolMap;
 
 /// Returns a tracked Account ID matching a hex string or the default one defined in the Client config
 pub(crate) fn get_input_acc_id_by_prefix_or_default<
@@ -129,7 +129,7 @@ pub fn parse_fungible_asset(arg: &str) -> Result<(u64, AccountId), String> {
     let faucet_id = if asset.starts_with("0x") {
         AccountId::from_hex(asset).map_err(|err| err.to_string())?
     } else {
-        let token_symbol_mappings = get_token_mappings()?;
+        let token_symbol_mappings = load_token_map()?;
         token_symbol_mappings
             .get_faucet_id(&asset.to_string())?
             .ok_or(format!("Token symbol `{asset}` not found in mappings file"))?
@@ -178,7 +178,7 @@ pub fn build_swap_tag(
 }
 
 /// Returns the token symbol mappings from the config file.
-pub fn get_token_mappings() -> Result<TokenSymbolMappings, String> {
+pub fn load_token_map() -> Result<TokenSymbolMap, String> {
     let (config, _) = load_config_file()?;
-    Ok(TokenSymbolMappings::new(config.token_symbol_mappings_file.into()))
+    Ok(TokenSymbolMap::new(config.token_symbol_map_filepath))
 }

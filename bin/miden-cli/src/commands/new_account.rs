@@ -10,9 +10,7 @@ use miden_client::{
 };
 
 use crate::{
-    commands::account::maybe_set_default_account,
-    utils::load_config_file,
-    CLIENT_BINARY_NAME,
+    commands::account::maybe_set_default_account, utils::load_config_file, CLIENT_BINARY_NAME,
 };
 
 #[derive(Debug, Parser, Clone)]

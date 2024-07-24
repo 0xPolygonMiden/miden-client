@@ -8,11 +8,11 @@ pub struct FaucetDetails {
     pub id: String,
     pub decimals: u8,
 }
-pub struct TokenSymbolMappings {
+pub struct TokenSymbolMap {
     mappings_file: PathBuf,
 }
 
-impl TokenSymbolMappings {
+impl TokenSymbolMap {
     pub fn new(mappings_file: PathBuf) -> Self {
         Self { mappings_file }
     }

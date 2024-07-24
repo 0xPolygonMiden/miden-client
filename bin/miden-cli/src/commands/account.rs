@@ -13,7 +13,7 @@ use miden_client::{
 use crate::{
     config::CliConfig,
     create_dynamic_table,
-    utils::{get_token_mappings, load_config_file, parse_account_id, update_config},
+    utils::{load_token_map, load_config_file, parse_account_id, update_config},
     CLIENT_BINARY_NAME,
 };
 
@@ -145,7 +145,7 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
     // Vault Table
     {
         let assets = account.vault().assets();
-        let token_symbol_mappings = get_token_mappings()?;
+        let token_symbol_mappings = load_token_map()?;
         println!("Assets: ");
 
         let mut table =
@@ -241,7 +241,7 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
 fn account_type_display_name(account_id: &AccountId) -> Result<String, String> {
     Ok(match account_id.account_type() {
         AccountType::FungibleFaucet => {
-            let token_symbol_mappings = get_token_mappings()?;
+            let token_symbol_mappings = load_token_map()?;
             let token_symbol = token_symbol_mappings
                 .get_token_symbol(account_id)?
                 .unwrap_or("Unknown".to_string());
