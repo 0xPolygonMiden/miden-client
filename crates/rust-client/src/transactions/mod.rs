@@ -336,7 +336,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let transaction_prover = TransactionProver::new(ProvingOptions::default());
 
         info!("Proving transaction...");
-        let proven_transaction = transaction_prover.prove_transaction(tx_result.executed_transaction().clone())?;
+        let proven_transaction =
+            transaction_prover.prove_transaction(tx_result.executed_transaction().clone())?;
         info!("Transaction proved.");
 
         info!("Submitting transaction to the network...");

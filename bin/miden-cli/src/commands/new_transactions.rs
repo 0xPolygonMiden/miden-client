@@ -308,9 +308,7 @@ async fn execute_transaction<
         .map(|note| note.id())
         .collect::<Vec<_>>();
 
-    client
-        .submit_transaction(transaction_execution_result)
-        .await?;
+    client.submit_transaction(transaction_execution_result).await?;
 
     if let TransactionTemplate::Swap(swap_data, note_type) = transaction_template {
         let payback_note_tag: u32 = build_swap_tag(

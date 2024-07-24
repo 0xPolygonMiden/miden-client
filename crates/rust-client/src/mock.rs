@@ -548,10 +548,7 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
     let transaction_request = client.build_transaction_request(transaction_template).unwrap();
     let transaction_execution_result = client.new_transaction(transaction_request).unwrap();
 
-    client
-        .submit_transaction(transaction_execution_result)
-        .await
-        .unwrap();
+    client.submit_transaction(transaction_execution_result).await.unwrap();
 }
 
 pub fn mock_fungible_faucet_account(
