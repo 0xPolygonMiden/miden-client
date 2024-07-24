@@ -1,4 +1,3 @@
-use std::time::Instant;
 use alloc::{
     collections::BTreeSet,
     string::{String, ToString},
@@ -328,26 +327,26 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         maybe_await!(TransactionResult::new(executed_transaction, screener, future_notes))
     }
 
-    ///  Proves the specified transaction witness, submits a [ProvenTransaction] to the node, and stores the transaction in
+    /// Proves the specified transaction, submits it to the network, and saves the transaction into
     /// the local database for tracking.
     pub async fn submit_transaction(
         &mut self,
         tx_result: TransactionResult,
     ) -> Result<(), ClientError> {
-        let start_proving = Instant::now();
         let transaction_prover = TransactionProver::new(ProvingOptions::default());
-        info!("Proving took: {}ms", start_proving.elapsed().as_millis());
 
+        info!("Proving transaction...");
         let proven_transaction = transaction_prover.prove_transaction(tx_result.executed_transaction().clone())?;
+        info!("Transaction proved.");
 
-        let start_submitting = Instant::now();
+        info!("Submitting transaction to the network...");
         self.rpc_api.submit_proven_transaction(proven_transaction).await?;
-        info!("Submitting took: {}ms", start_submitting.elapsed().as_millis());
+        info!("Transaction submitted.");
 
         // Transaction was proven and submitted to the node correctly, persist note details and update account
-        let start_store = Instant::now();
+        info!("Applying transaction to the local store...");
         maybe_await!(self.store.apply_transaction(tx_result))?;
-        info!("Storing took: {}ms", start_store.elapsed().as_millis());
+        info!("Transaction stored.");
         Ok(())
     }
 
