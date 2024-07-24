@@ -4,6 +4,7 @@ use alloc::{
     vec::Vec,
 };
 use core::fmt;
+use std::collections::BTreeMap;
 
 use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
@@ -297,6 +298,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             },
         };
 
+        // Validates the transaction request before executing
+        self.validate_transaction(&transaction_request)?;
+
         let tx_args = transaction_request.into_transaction_args(tx_script);
 
         // Execute the transaction and get the witness
@@ -370,6 +374,65 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
     // HELPERS
     // --------------------------------------------------------------------------------------------
+
+    fn validate_transaction(
+        &self,
+        transaction_request: &TransactionRequest,
+    ) -> Result<(), ClientError> {
+        use miden_objects::{
+            assets::Asset::{Fungible, NonFungible},
+            AssetError,
+        };
+
+        // Get client assets
+        let (account, _) = self.get_account(transaction_request.account_id())?;
+        let account_assets = account.vault().assets();
+
+        // Get transaction output notes assets
+        let output_notes_assets = transaction_request
+            .expected_output_notes()
+            .flat_map(|notes| notes.assets().iter());
+
+        // Create a map of the fungible assets in the output notes
+        let fungible_balance_map: BTreeMap<AccountId, u64> =
+            output_notes_assets.into_iter().fold(BTreeMap::new(), |mut acc, item| {
+                match item {
+                    Fungible(asset) => {
+                        *acc.entry(asset.faucet_id()).or_insert(0) += asset.amount();
+                    },
+                    NonFungible(asset) => {
+                        *acc.entry(asset.faucet_id()).or_insert(0) += 1;
+                    },
+                };
+                acc
+            });
+
+        // Check if the output notes assets are less than or equal to the account assets
+        for item in account_assets {
+            match item {
+                Fungible(asset) => {
+                    if let Some(amount) = fungible_balance_map.get(&asset.faucet_id()) {
+                        if asset.amount() < *amount {
+                            return Err(ClientError::AssetError(
+                                AssetError::AssetAmountNotSufficient(asset.amount(), *amount),
+                            ));
+                        }
+                    };
+                },
+                NonFungible(asset) => {
+                    if let Some(amount) = fungible_balance_map.get(&asset.faucet_id()) {
+                        if *amount < 1 {
+                            return Err(ClientError::AssetError(
+                                AssetError::AssetAmountNotSufficient(1, *amount),
+                            ));
+                        }
+                    };
+                },
+            }
+        }
+
+        Ok(())
+    }
 
     /// Helper to build a [TransactionRequest] for P2ID-type transactions easily.
     ///
