@@ -25,6 +25,11 @@ impl TokenSymbolMap {
             .map(|(symbol, _)| symbol.clone()))
     }
 
+    pub fn get_token_symbol_or_default(&self, faucet_id: &AccountId) -> Result<String, String> {
+        self.get_token_symbol(faucet_id)
+            .map(|symbol| symbol.unwrap_or("Unknown".to_string()))
+    }
+
     pub fn get_faucet_id(&self, token_symbol: &String) -> Result<Option<AccountId>, String> {
         let mappings = self.load_mappings()?;
 

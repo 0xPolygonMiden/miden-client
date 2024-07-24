@@ -13,7 +13,7 @@ use miden_client::{
 use crate::{
     config::CliConfig,
     create_dynamic_table,
-    utils::{load_token_map, load_config_file, parse_account_id, update_config},
+    utils::{load_config_file, load_token_map, parse_account_id, update_config},
     CLIENT_BINARY_NAME,
 };
 
@@ -156,8 +156,7 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
                     "Fungible Asset",
                     fungible_asset.faucet_id(),
                     token_symbol_mappings
-                        .get_token_symbol(&fungible_asset.faucet_id())?
-                        .unwrap_or("Unknown".to_string()),
+                        .get_token_symbol_or_default(&fungible_asset.faucet_id())?,
                     fungible_asset.amount(),
                 ),
                 Asset::NonFungible(non_fungible_asset) => {
@@ -242,9 +241,7 @@ fn account_type_display_name(account_id: &AccountId) -> Result<String, String> {
     Ok(match account_id.account_type() {
         AccountType::FungibleFaucet => {
             let token_symbol_mappings = load_token_map()?;
-            let token_symbol = token_symbol_mappings
-                .get_token_symbol(account_id)?
-                .unwrap_or("Unknown".to_string());
+            let token_symbol = token_symbol_mappings.get_token_symbol_or_default(account_id)?;
 
             format!("Fungible faucet (token symbol: {token_symbol})")
         },
