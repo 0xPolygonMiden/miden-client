@@ -6,8 +6,8 @@ use std::time::Duration;
 
 use generated::{
     requests::{
-        GetAccountDetailsRequest, GetBlockHeaderByNumberRequest, GetNotesByIdRequest,
-        SubmitProvenTransactionRequest, SyncNoteRequest, SyncStateRequest,
+        CheckNullifiersByPrefixRequest, GetAccountDetailsRequest, GetBlockHeaderByNumberRequest,
+        GetNotesByIdRequest, SubmitProvenTransactionRequest, SyncNoteRequest, SyncStateRequest,
     },
     responses::{SyncNoteResponse, SyncStateResponse},
     rpc::api_client::ApiClient,
@@ -289,6 +289,36 @@ impl NodeRpcClient for TonicRpcClient {
         })?;
 
         response.into_inner().try_into()
+    }
+
+    async fn check_nullifiers_by_prefix(
+        &mut self,
+        prefixes: &[u16],
+    ) -> Result<Vec<(miden_objects::notes::Nullifier, u32)>, RpcError> {
+        let request = CheckNullifiersByPrefixRequest {
+            nullifiers: prefixes.iter().map(|&x| x as u32).collect(),
+            prefix_len: 16,
+        };
+        let rpc_api = self.rpc_api().await?;
+        let response = rpc_api.check_nullifiers_by_prefix(request).await.map_err(|err| {
+            RpcError::RequestError(
+                NodeRpcClientEndpoint::CheckNullifiersByPrefix.to_string(),
+                err.to_string(),
+            )
+        })?;
+        let response = response.into_inner();
+        let nullifiers = response
+            .nullifiers
+            .iter()
+            .map(|nul| {
+                let nullifier = nul.nullifier.clone().ok_or(RpcError::ExpectedFieldMissing(
+                    "CheckNullifiersByPrefix response should have a `nullifier`".to_string(),
+                ))?;
+                let nullifier = nullifier.try_into()?;
+                Ok((nullifier, nul.block_num))
+            })
+            .collect::<Result<Vec<(miden_objects::notes::Nullifier, u32)>, RpcError>>()?;
+        Ok(nullifiers)
     }
 }
 

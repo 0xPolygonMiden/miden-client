@@ -269,6 +269,13 @@ impl NodeRpcClient for WebTonicRpcClient {
             Ok(AccountDetails::OffChain(account_id, update_summary))
         }
     }
+
+    async fn check_nullifiers_by_prefix(
+        &mut self,
+        _prefixes: &[u16],
+    ) -> Result<Vec<(miden_objects::notes::Nullifier, u32)>, RpcError> {
+        todo!();
+    }
 }
 
 // NOTE SYNC INFO CONVERSION

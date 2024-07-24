@@ -174,6 +174,12 @@ pub trait NodeRpcClient {
         block_num: u32,
         note_tags: &[NoteTag],
     ) -> Result<NoteSyncInfo, RpcError>;
+
+    /// Fetches the nullifiers corresponding to a list of prefixes using the `/CheckNullifiersByPrefix` rpc endpoint
+    async fn check_nullifiers_by_prefix(
+        &mut self,
+        prefix: &[u16],
+    ) -> Result<Vec<(Nullifier, u32)>, RpcError>;
 }
 
 // SYNC NOTE
@@ -292,6 +298,7 @@ impl CommittedNote {
 //
 #[derive(Debug)]
 pub enum NodeRpcClientEndpoint {
+    CheckNullifiersByPrefix,
     GetAccountDetails,
     GetBlockHeaderByNumber,
     SyncState,
@@ -302,6 +309,9 @@ pub enum NodeRpcClientEndpoint {
 impl fmt::Display for NodeRpcClientEndpoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            NodeRpcClientEndpoint::CheckNullifiersByPrefix => {
+                write!(f, "check_nullifiers_by_prefix")
+            },
             NodeRpcClientEndpoint::GetAccountDetails => write!(f, "get_account_details"),
             NodeRpcClientEndpoint::GetBlockHeaderByNumber => {
                 write!(f, "get_block_header_by_number")

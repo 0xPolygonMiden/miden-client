@@ -215,6 +215,14 @@ impl NodeRpcClient for MockRpcApi {
     ) -> Result<AccountDetails, RpcError> {
         panic!("shouldn't be used for now")
     }
+
+    async fn check_nullifiers_by_prefix(
+        &mut self,
+        _prefix: &[u16],
+    ) -> Result<Vec<(miden_objects::notes::Nullifier, u32)>, RpcError> {
+        // Always return an empty list for now since it's only used when importing
+        Ok(vec![])
+    }
 }
 
 // HELPERS
