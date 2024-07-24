@@ -8,7 +8,7 @@ use miden_client::{
     accounts::{AccountData, AccountId},
     auth::TransactionAuthenticator,
     crypto::FeltRng,
-    notes::{NoteFile, NoteId},
+    notes::NoteFile,
     rpc::NodeRpcClient,
     store::Store,
     utils::Deserializable,
@@ -34,9 +34,10 @@ impl ImportCmd {
         validate_paths(&self.filenames)?;
         let (mut current_config, _) = load_config_file()?;
         for filename in &self.filenames {
-            let note_id = import_note(&mut client, filename.clone()).await;
+            let note_file = read_note_file(filename.clone()).await;
 
-            if let Ok(note_id) = note_id {
+            if let Ok(note_file) = note_file {
+                let note_id = client.import_note(note_file).await.map_err(|err| err.to_string())?;
                 println!("Succesfully imported note {}", note_id.inner());
             } else {
                 let account_id = import_account(&mut client, filename)
@@ -76,18 +77,13 @@ fn import_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenti
 // IMPORT NOTE
 // ================================================================================================
 
-pub async fn import_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: &mut Client<N, R, S, A>,
-    filename: PathBuf,
-) -> Result<NoteId, String> {
+pub async fn read_note_file(filename: PathBuf) -> Result<NoteFile, String> {
     let mut contents = vec![];
     let mut _file = File::open(filename)
         .and_then(|mut f| f.read_to_end(&mut contents))
         .map_err(|err| err.to_string());
 
-    let note_file = NoteFile::read_from_bytes(&contents).map_err(|err| err.to_string())?;
-
-    client.import_note(note_file).await.map_err(|err| err.to_string())
+    NoteFile::read_from_bytes(&contents).map_err(|err| err.to_string())
 }
 
 // HELPERS
