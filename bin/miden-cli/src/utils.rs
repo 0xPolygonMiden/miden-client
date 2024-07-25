@@ -117,8 +117,9 @@ fn load_config(config_file: &Path) -> Result<CliConfig, String> {
 
 /// Parses a fungible Asset and returns it as a tuple of the amount and the faucet account ID hex.
 /// The provided `arg` should be in the format `<AMOUNT>::<ASSET>` where `<AMOUNT>` is the amount
-/// of the asset and `<ASSET>` is either the faucet account ID hex or a token symbol tracked by
-/// the mappings file. Some examples of valid `arg` values are `100::0x123456789` and `100::POL`.
+/// of the asset and `<ASSET>` is either the faucet account ID hex or a symbol tracked by
+/// the token symbol map file. Some examples of valid `arg` values are `100::0x123456789` and
+/// `100::POL`.
 ///
 /// # Errors
 ///
@@ -129,10 +130,10 @@ pub fn parse_fungible_asset(arg: &str) -> Result<(u64, AccountId), String> {
     let faucet_id = if asset.starts_with("0x") {
         AccountId::from_hex(asset).map_err(|err| err.to_string())?
     } else {
-        let token_symbol_mappings = load_token_map()?;
-        token_symbol_mappings
+        let token_symbol_map = load_token_map()?;
+        token_symbol_map
             .get_faucet_id(&asset.to_string())?
-            .ok_or(format!("Token symbol `{asset}` not found in mappings file"))?
+            .ok_or(format!("Token symbol `{asset}` not found in token symbol map file"))?
     };
 
     Ok((amount, faucet_id))
@@ -177,7 +178,7 @@ pub fn build_swap_tag(
     }
 }
 
-/// Returns the token symbol mappings from the config file.
+/// Returns the token symbol map from the config file.
 pub fn load_token_map() -> Result<TokenSymbolMap, String> {
     let (config, _) = load_config_file()?;
     TokenSymbolMap::new(config.token_symbol_map_filepath)

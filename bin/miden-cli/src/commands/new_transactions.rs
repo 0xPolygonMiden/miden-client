@@ -50,8 +50,8 @@ pub struct MintCmd {
     /// Asset to be minted.
     ///
     /// The asset should be in the format `<AMOUNT>::<ASSET>` where `<AMOUNT>` is the amount
-    /// of the asset and `<ASSET>` is either the faucet account ID hex or a token symbol tracked
-    /// by the mappings file. For example, `100::0xabcdef0123456789` or `20::POL`.
+    /// of the asset and `<ASSET>` is either the faucet account ID hex or a symbol tracked
+    /// by the token symbol file. For example, `100::0xabcdef0123456789` or `20::POL`.
     #[clap(short, long, value_parser = parse_fungible_asset)]
     asset: (u64, AccountId),
 
@@ -102,8 +102,8 @@ pub struct SendCmd {
     /// Asset to be sent.
     ///
     /// The asset should be in the format `<AMOUNT>::<ASSET>` where `<AMOUNT>` is the amount
-    /// of the asset and `<ASSET>` is either the faucet account ID hex or a token symbol tracked
-    /// by the mappings file. For example, `100::0xabcdef0123456789` or `20::POL`.
+    /// of the asset and `<ASSET>` is either the faucet account ID hex or a symbol tracked
+    /// by the token symbol file. For example, `100::0xabcdef0123456789` or `20::POL`.
     #[clap(short, long, value_parser = parse_fungible_asset)]
     asset: (u64, AccountId),
 
@@ -167,16 +167,16 @@ pub struct SwapCmd {
     /// Asset offered.
     ///
     /// The asset should be in the format `<AMOUNT>::<ASSET>` where `<AMOUNT>` is the amount
-    /// of the asset and `<ASSET>` is either the faucet account ID hex or a token symbol tracked
-    /// by the mappings file. For example, `100::0xabcdef0123456789` or `20::POL`.
+    /// of the asset and `<ASSET>` is either the faucet account ID hex or a symbol tracked
+    /// by the token symbol file. For example, `100::0xabcdef0123456789` or `20::POL`.
     #[clap(long = "offered-asset", value_parser = parse_fungible_asset)]
     offered_asset: (u64, AccountId),
 
     /// Asset requested.
     ///
     /// The asset should be in the format `<AMOUNT>::<ASSET>` where `<AMOUNT>` is the amount
-    /// of the asset and `<ASSET>` is either the faucet account ID hex or a token symbol tracked
-    /// by the mappings file. For example, `100::0xabcdef0123456789` or `20::POL`.
+    /// of the asset and `<ASSET>` is either the faucet account ID hex or a symbol tracked
+    /// by the token symbol file. For example, `100::0xabcdef0123456789` or `20::POL`.
     #[clap(short, long, value_parser = parse_fungible_asset)]
     requested_asset: (u64, AccountId),
 

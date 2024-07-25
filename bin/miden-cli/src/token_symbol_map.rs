@@ -14,29 +14,34 @@ pub struct FaucetDetails {
 pub struct TokenSymbolMap(BTreeMap<String, FaucetDetails>);
 
 impl TokenSymbolMap {
-    pub fn new(mappings_file: PathBuf) -> Result<Self, String> {
-        let mappings: BTreeMap<String, FaucetDetails> = match std::fs::read_to_string(mappings_file)
-        {
-            Ok(content) => match toml::from_str(&content) {
-                Ok(mappings) => mappings,
-                Err(err) => return Err(format!("Failed to parse mappings file: {}", err)),
-            },
-            Err(err) => {
-                if err.kind() != std::io::ErrorKind::NotFound {
-                    return Err(format!("Failed to read mappings file: {}", err));
-                }
-                BTreeMap::new()
-            },
-        };
+    pub fn new(token_symbol_map_filepath: PathBuf) -> Result<Self, String> {
+        let token_symbol_map: BTreeMap<String, FaucetDetails> =
+            match std::fs::read_to_string(token_symbol_map_filepath) {
+                Ok(content) => match toml::from_str(&content) {
+                    Ok(token_symbol_map) => token_symbol_map,
+                    Err(err) => {
+                        return Err(format!("Failed to parse token_symbol_map file: {}", err))
+                    },
+                },
+                Err(err) => {
+                    if err.kind() != std::io::ErrorKind::NotFound {
+                        return Err(format!("Failed to read token_symbol_map file: {}", err));
+                    }
+                    BTreeMap::new()
+                },
+            };
 
         let mut faucet_ids = BTreeSet::new();
-        for faucet in mappings.values() {
+        for faucet in token_symbol_map.values() {
             if !faucet_ids.insert(faucet.id.clone()) {
-                return Err(format!("Faucet ID '{}' appears more than once", faucet.id));
+                return Err(format!(
+                    "Faucet ID '{}' appears more than once in the token symbol map",
+                    faucet.id
+                ));
             }
         }
 
-        Ok(Self(mappings))
+        Ok(Self(token_symbol_map))
     }
 
     pub fn get_token_symbol(&self, faucet_id: &AccountId) -> Option<String> {
