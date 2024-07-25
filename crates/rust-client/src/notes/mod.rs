@@ -179,7 +179,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                             >> FILTER_ID_SHIFT)
                             as u16)])
                         .await
-                        .unwrap();
+                        .map_err(ClientError::RpcError)?;
 
                     let status = if let Some((_, block_num)) =
                         nullifiers.iter().find(|(nullifier, _)| nullifier == &node_note.nullifier())
@@ -279,7 +279,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                         >> FILTER_ID_SHIFT)
                         as u16)])
                     .await
-                    .unwrap();
+                    .map_err(ClientError::RpcError)?;
 
                 let status = if let Some((_, block_num)) =
                     nullifiers.iter().find(|(nullifier, _)| nullifier == &note.nullifier())
