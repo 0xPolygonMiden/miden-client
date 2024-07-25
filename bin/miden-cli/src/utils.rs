@@ -180,5 +180,5 @@ pub fn build_swap_tag(
 /// Returns the token symbol mappings from the config file.
 pub fn load_token_map() -> Result<TokenSymbolMap, String> {
     let (config, _) = load_config_file()?;
-    Ok(TokenSymbolMap::new(config.token_symbol_map_filepath))
+    TokenSymbolMap::new(config.token_symbol_map_filepath)
 }

@@ -155,8 +155,7 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
                 Asset::Fungible(fungible_asset) => (
                     "Fungible Asset",
                     fungible_asset.faucet_id(),
-                    token_symbol_mappings
-                        .get_token_symbol_or_default(&fungible_asset.faucet_id())?,
+                    token_symbol_mappings.get_token_symbol_or_default(&fungible_asset.faucet_id()),
                     fungible_asset.amount(),
                 ),
                 Asset::NonFungible(non_fungible_asset) => {
@@ -241,7 +240,7 @@ fn account_type_display_name(account_id: &AccountId) -> Result<String, String> {
     Ok(match account_id.account_type() {
         AccountType::FungibleFaucet => {
             let token_symbol_mappings = load_token_map()?;
-            let token_symbol = token_symbol_mappings.get_token_symbol_or_default(account_id)?;
+            let token_symbol = token_symbol_mappings.get_token_symbol_or_default(account_id);
 
             format!("Fungible faucet (token symbol: {token_symbol})")
         },
