@@ -20,6 +20,7 @@ use miden_client::{
 use tracing::info;
 
 use super::{config::CliConfig, get_account_with_id_prefix, CLIENT_CONFIG_FILE_NAME};
+use crate::token_symbol_map::TokenSymbolMap;
 
 /// Returns a tracked Account ID matching a hex string or the default one defined in the Client config
 pub(crate) fn get_input_acc_id_by_prefix_or_default<
@@ -115,20 +116,25 @@ fn load_config(config_file: &Path) -> Result<CliConfig, String> {
 }
 
 /// Parses a fungible Asset and returns it as a tuple of the amount and the faucet account ID hex.
-///
-/// TODO: currently we'll only parse AccountId, however once we tackle
-/// [#258](https://github.com/0xPolygonMiden/miden-client/issues/258) we should also add the
-/// possibility to parse account aliases / token symbols dependeing on the path we choose.
+/// The provided `arg` should be in the format `<AMOUNT>::<ASSET>` where `<AMOUNT>` is the amount
+/// of the asset and `<ASSET>` is either the faucet account ID hex or a symbol tracked by
+/// the token symbol map file. Some examples of valid `arg` values are `100::0x123456789` and
+/// `100::POL`.
 ///
 /// # Errors
 ///
-/// Will return an error if the provided `arg` doesn't match one of the expected format:
-///
-/// - `<AMOUNT>::<FAUCET_ID>`, such as `100::0x123456789`
+/// Will return an error if the provided `arg` doesn't match one of the expected formats.
 pub fn parse_fungible_asset(arg: &str) -> Result<(u64, AccountId), String> {
-    let (amount, faucet) = arg.split_once("::").ok_or("Separator `::` not found!")?;
+    let (amount, asset) = arg.split_once("::").ok_or("Separator `::` not found!")?;
     let amount = amount.parse::<u64>().map_err(|err| err.to_string())?;
-    let faucet_id = AccountId::from_hex(faucet).map_err(|err| err.to_string())?;
+    let faucet_id = if asset.starts_with("0x") {
+        AccountId::from_hex(asset).map_err(|err| err.to_string())?
+    } else {
+        let token_symbol_map = load_token_map()?;
+        token_symbol_map
+            .get_faucet_id(&asset.to_string())?
+            .ok_or(format!("Token symbol `{asset}` not found in token symbol map file"))?
+    };
 
     Ok((amount, faucet_id))
 }
@@ -170,4 +176,10 @@ pub fn build_swap_tag(
         NoteType::Public => NoteTag::for_public_use_case(SWAP_USE_CASE_ID, payload, execution),
         _ => NoteTag::for_local_use_case(SWAP_USE_CASE_ID, payload),
     }
+}
+
+/// Returns the token symbol map from the config file.
+pub fn load_token_map() -> Result<TokenSymbolMap, String> {
+    let (config, _) = load_config_file()?;
+    TokenSymbolMap::new(config.token_symbol_map_filepath)
 }
