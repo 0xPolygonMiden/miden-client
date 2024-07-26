@@ -119,9 +119,9 @@ fn load_config(config_file: &Path) -> Result<CliConfig, String> {
 /// # Errors
 ///
 /// Will return an error if the provided `arg` doesn't match one of the expected formats.
-pub fn parse_fungible_asset(arg: &str) -> Result<(u64, AccountId), String> {
+pub fn parse_fungible_asset(arg: &str) -> Result<(f64, AccountId), String> {
     let (amount, asset) = arg.split_once("::").ok_or("Separator `::` not found!")?;
-    let amount = amount.parse::<u64>().map_err(|err| err.to_string())?;
+    let amount = amount.parse::<f64>().map_err(|err| err.to_string())?;
     let faucet_id = if asset.starts_with("0x") {
         AccountId::from_hex(asset).map_err(|err| err.to_string())?
     } else {
@@ -138,4 +138,56 @@ pub fn parse_fungible_asset(arg: &str) -> Result<(u64, AccountId), String> {
 pub fn load_token_map() -> Result<TokenSymbolMap, String> {
     let (config, _) = load_config_file()?;
     TokenSymbolMap::new(config.token_symbol_map_filepath)
+}
+
+pub fn get_faucet_units_from_amount<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+>(
+    client: &Client<N, R, S, A>,
+    amount: f64,
+    faucet_id: AccountId,
+) -> Result<u64, String> {
+    let (faucet, _) = client
+        .get_account(faucet_id)
+        .map_err(|err| format!("Error fetching faucet account: {err}"))?;
+
+    let metadata = faucet.storage().get_item(1);
+    let decimals: u8 = metadata.as_elements()[1]
+        .try_into()
+        .map_err(|err| format!("Error parsing faucet metadata: {err}"))?;
+
+    let units = amount * 10.0_f64.powi(decimals as i32);
+
+    if units > units.floor() {
+        return Err(format!("The amount can't have more than {} decimals", decimals));
+    }
+
+    Ok(units as u64)
+}
+
+pub fn get_amount_from_faucet_units<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+>(
+    client: &Client<N, R, S, A>,
+    units: u64,
+    faucet_id: AccountId,
+) -> Result<f64, String> {
+    let (faucet, _) = client
+        .get_account(faucet_id)
+        .map_err(|err| format!("Error fetching faucet account: {err}"))?;
+
+    let metadata = faucet.storage().get_item(1);
+    let decimals: u8 = metadata.as_elements()[1]
+        .try_into()
+        .map_err(|err| format!("Error parsing faucet metadata: {err}"))?;
+
+    let amount = units as f64 / 10.0_f64.powi(decimals as i32);
+
+    Ok(amount)
 }

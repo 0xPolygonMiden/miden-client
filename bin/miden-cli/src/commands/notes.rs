@@ -12,7 +12,10 @@ use miden_client::{
     Client, ClientError, IdPrefixFetchError,
 };
 
-use crate::{create_dynamic_table, get_output_note_with_id_prefix, Parser};
+use crate::{
+    create_dynamic_table, get_output_note_with_id_prefix, utils::get_amount_from_faucet_units,
+    Parser,
+};
 
 #[derive(Clone, Debug, ValueEnum)]
 pub enum NoteFilter {
@@ -236,11 +239,17 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator
 
     for asset in assets {
         let (asset_type, faucet_id, amount) = match asset {
-            Asset::Fungible(fungible_asset) => {
-                ("Fungible Asset", fungible_asset.faucet_id(), fungible_asset.amount())
-            },
+            Asset::Fungible(fungible_asset) => (
+                "Fungible Asset",
+                fungible_asset.faucet_id(),
+                get_amount_from_faucet_units(
+                    &client,
+                    fungible_asset.amount(),
+                    fungible_asset.faucet_id(),
+                )?,
+            ),
             Asset::NonFungible(non_fungible_asset) => {
-                ("Non Fungible Asset", non_fungible_asset.faucet_id(), 1)
+                ("Non Fungible Asset", non_fungible_asset.faucet_id(), 1.0)
             },
         };
         table.add_row(vec![asset_type, &faucet_id.to_hex(), &amount.to_string()]);

@@ -13,7 +13,10 @@ use miden_client::{
 use crate::{
     config::CliConfig,
     create_dynamic_table,
-    utils::{load_config_file, load_token_map, parse_account_id, update_config},
+    utils::{
+        get_amount_from_faucet_units, load_config_file, load_token_map, parse_account_id,
+        update_config,
+    },
     CLIENT_BINARY_NAME,
 };
 
@@ -156,10 +159,14 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
                     "Fungible Asset",
                     fungible_asset.faucet_id(),
                     token_symbol_map.get_token_symbol_or_default(&fungible_asset.faucet_id()),
-                    fungible_asset.amount(),
+                    get_amount_from_faucet_units(
+                        &client,
+                        fungible_asset.amount(),
+                        fungible_asset.faucet_id(),
+                    )?,
                 ),
                 Asset::NonFungible(non_fungible_asset) => {
-                    ("Non Fungible Asset", non_fungible_asset.faucet_id(), "-".to_string(), 1)
+                    ("Non Fungible Asset", non_fungible_asset.faucet_id(), "-".to_string(), 1.0)
                 },
             };
             table.add_row(vec![
