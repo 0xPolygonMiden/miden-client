@@ -216,11 +216,19 @@ impl From<Note> for InputNoteRecord {
 
 impl From<InputNote> for InputNoteRecord {
     fn from(recorded_note: InputNote) -> Self {
+        let status = if let Some(inclusion_proof) = recorded_note.proof() {
+            NoteStatus::Committed {
+                block_height: inclusion_proof.origin().block_num as u64,
+            }
+        } else {
+            NoteStatus::Expected { created_at: 0 }
+        };
+
         InputNoteRecord {
             id: recorded_note.note().id(),
             recipient: recorded_note.note().recipient().digest(),
             assets: recorded_note.note().assets().clone(),
-            status: NoteStatus::Expected { created_at: 0 },
+            status,
             metadata: Some(*recorded_note.note().metadata()),
             details: recorded_note.note().clone().into(),
             inclusion_proof: recorded_note.proof().cloned(),
