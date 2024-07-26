@@ -20,7 +20,10 @@ use tracing::info;
 
 use crate::{
     create_dynamic_table,
-    utils::{get_input_acc_id_by_prefix_or_default, parse_account_id, parse_fungible_asset},
+    utils::{
+        get_amount_from_faucet_units, get_faucet_units_from_amount,
+        get_input_acc_id_by_prefix_or_default, parse_account_id, parse_fungible_asset,
+    },
 };
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -51,7 +54,7 @@ pub struct MintCmd {
     /// of the asset and `<ASSET>` is either the faucet account ID hex or a symbol tracked
     /// by the token symbol file. For example, `100::0xabcdef0123456789` or `20::POL`.
     #[clap(short, long, value_parser = parse_fungible_asset)]
-    asset: (u64, AccountId),
+    asset: (f64, AccountId),
 
     #[clap(short, long, value_enum)]
     note_type: NoteType,
@@ -75,8 +78,11 @@ impl MintCmd {
         client: &Client<N, R, S, A>,
     ) -> Result<TransactionTemplate, String> {
         let faucet_id = self.asset.1;
-        let fungible_asset =
-            FungibleAsset::new(faucet_id, self.asset.0).map_err(|err| err.to_string())?;
+        let fungible_asset = FungibleAsset::new(
+            faucet_id,
+            get_faucet_units_from_amount(client, self.asset.0, faucet_id)?,
+        )
+        .map_err(|err| err.to_string())?;
         let target_account_id = parse_account_id(client, self.target_account_id.as_str())?;
 
         Ok(TransactionTemplate::MintFungibleAsset(
@@ -103,7 +109,7 @@ pub struct SendCmd {
     /// of the asset and `<ASSET>` is either the faucet account ID hex or a symbol tracked
     /// by the token symbol file. For example, `100::0xabcdef0123456789` or `20::POL`.
     #[clap(short, long, value_parser = parse_fungible_asset)]
-    asset: (u64, AccountId),
+    asset: (f64, AccountId),
 
     #[clap(short, long, value_enum)]
     note_type: NoteType,
@@ -132,9 +138,12 @@ impl SendCmd {
         client: &Client<N, R, S, A>,
     ) -> Result<TransactionTemplate, String> {
         let faucet_id = self.asset.1;
-        let fungible_asset = FungibleAsset::new(faucet_id, self.asset.0)
-            .map_err(|err| err.to_string())?
-            .into();
+        let fungible_asset = FungibleAsset::new(
+            faucet_id,
+            get_faucet_units_from_amount(client, self.asset.0, faucet_id)?,
+        )
+        .map_err(|err| err.to_string())?
+        .into();
 
         // try to use either the provided argument or the default account
         let sender_account_id =
@@ -168,7 +177,7 @@ pub struct SwapCmd {
     /// of the asset and `<ASSET>` is either the faucet account ID hex or a symbol tracked
     /// by the token symbol file. For example, `100::0xabcdef0123456789` or `20::POL`.
     #[clap(long = "offered-asset", value_parser = parse_fungible_asset)]
-    offered_asset: (u64, AccountId),
+    offered_asset: (f64, AccountId),
 
     /// Asset requested.
     ///
@@ -176,7 +185,7 @@ pub struct SwapCmd {
     /// of the asset and `<ASSET>` is either the faucet account ID hex or a symbol tracked
     /// by the token symbol file. For example, `100::0xabcdef0123456789` or `20::POL`.
     #[clap(short, long, value_parser = parse_fungible_asset)]
-    requested_asset: (u64, AccountId),
+    requested_asset: (f64, AccountId),
 
     #[clap(short, long, value_enum)]
     note_type: NoteType,
@@ -200,16 +209,20 @@ impl SwapCmd {
         client: &Client<N, R, S, A>,
     ) -> Result<TransactionTemplate, String> {
         let offered_asset_faucet_id = self.offered_asset.1;
-        let offered_fungible_asset =
-            FungibleAsset::new(offered_asset_faucet_id, self.offered_asset.0)
-                .map_err(|err| err.to_string())?
-                .into();
+        let offered_fungible_asset = FungibleAsset::new(
+            offered_asset_faucet_id,
+            get_faucet_units_from_amount(client, self.offered_asset.0, offered_asset_faucet_id)?,
+        )
+        .map_err(|err| err.to_string())?
+        .into();
 
         let requested_asset_faucet_id = self.requested_asset.1;
-        let requested_fungible_asset =
-            FungibleAsset::new(requested_asset_faucet_id, self.requested_asset.0)
-                .map_err(|err| err.to_string())?
-                .into();
+        let requested_fungible_asset = FungibleAsset::new(
+            requested_asset_faucet_id,
+            get_faucet_units_from_amount(client, self.offered_asset.0, requested_asset_faucet_id)?,
+        )
+        .map_err(|err| err.to_string())?
+        .into();
 
         // try to use either the provided argument or the default account
         let sender_account_id =
@@ -301,7 +314,7 @@ async fn execute_transaction<
     let transaction_execution_result = client.new_transaction(transaction_request)?;
 
     // Show delta and ask for confirmation
-    print_transaction_details(&transaction_execution_result);
+    print_transaction_details(client, &transaction_execution_result)?;
     if !force {
         println!("\nContinue with proving and submission? Changes will be irreversible once the proof is finalized on the rollup (Y/N)");
         let mut proceed_str: String = String::new();
@@ -351,7 +364,15 @@ async fn execute_transaction<
     Ok(())
 }
 
-fn print_transaction_details(transaction_result: &TransactionResult) {
+fn print_transaction_details<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+>(
+    client: &Client<N, R, S, A>,
+    transaction_result: &TransactionResult,
+) -> Result<(), String> {
     println!("The transaction will have the following effects:\n");
 
     // INPUT NOTES
@@ -419,11 +440,17 @@ fn print_transaction_details(transaction_result: &TransactionResult) {
 
         for asset in account_delta.vault().added_assets.iter() {
             let (asset_type, faucet_id, amount) = match asset {
-                Asset::Fungible(fungible_asset) => {
-                    ("Fungible Asset", fungible_asset.faucet_id(), fungible_asset.amount())
-                },
+                Asset::Fungible(fungible_asset) => (
+                    "Fungible Asset",
+                    fungible_asset.faucet_id(),
+                    get_amount_from_faucet_units(
+                        client,
+                        fungible_asset.amount(),
+                        fungible_asset.faucet_id(),
+                    )?,
+                ),
                 Asset::NonFungible(non_fungible_asset) => {
-                    ("Non Fungible Asset", non_fungible_asset.faucet_id(), 1)
+                    ("Non Fungible Asset", non_fungible_asset.faucet_id(), 1.0)
                 },
             };
             table.add_row(vec![asset_type, &faucet_id.to_hex(), &format!("+{}", amount)]);
@@ -431,11 +458,17 @@ fn print_transaction_details(transaction_result: &TransactionResult) {
 
         for asset in account_delta.vault().removed_assets.iter() {
             let (asset_type, faucet_id, amount) = match asset {
-                Asset::Fungible(fungible_asset) => {
-                    ("Fungible Asset", fungible_asset.faucet_id(), fungible_asset.amount())
-                },
+                Asset::Fungible(fungible_asset) => (
+                    "Fungible Asset",
+                    fungible_asset.faucet_id(),
+                    get_amount_from_faucet_units(
+                        client,
+                        fungible_asset.amount(),
+                        fungible_asset.faucet_id(),
+                    )?,
+                ),
                 Asset::NonFungible(non_fungible_asset) => {
-                    ("Non Fungible Asset", non_fungible_asset.faucet_id(), 1)
+                    ("Non Fungible Asset", non_fungible_asset.faucet_id(), 1.0)
                 },
             };
             table.add_row(vec![asset_type, &faucet_id.to_hex(), &format!("-{}", amount)]);
@@ -452,4 +485,6 @@ fn print_transaction_details(transaction_result: &TransactionResult) {
     } else {
         println!("No nonce changes.")
     }
+
+    Ok(())
 }
