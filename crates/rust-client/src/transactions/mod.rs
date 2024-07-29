@@ -1,10 +1,9 @@
 use alloc::{
-    collections::BTreeSet,
+    collections::{BTreeSet, BTreeMap},
     string::{String, ToString},
     vec::Vec,
 };
 use core::fmt;
-use std::collections::BTreeMap;
 
 use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
@@ -239,7 +238,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         transaction_request: TransactionRequest,
     ) -> Result<TransactionResult, ClientError> {
         // Validates the transaction request before executing
-        self.validate_transaction(&transaction_request)?;
+        self.validate_request(&transaction_request)?;
 
         let account_id = transaction_request.account_id();
         maybe_await!(self.tx_executor.load_account(account_id))
@@ -374,8 +373,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
     // HELPERS
     // --------------------------------------------------------------------------------------------
-
-    fn validate_transaction(
+    #[maybe_async]
+    fn validate_request(
         &self,
         transaction_request: &TransactionRequest,
     ) -> Result<(), ClientError> {
@@ -385,7 +384,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         };
 
         // Get client assets
-        let (account, _) = self.get_account(transaction_request.account_id())?;
+        let (account, _) = maybe_await!(self.get_account(transaction_request.account_id()))?;
         let account_assets = account.vault().assets();
 
         // Get transaction output notes assets
