@@ -126,7 +126,7 @@ fn test_mint_with_untracked_account() {
         "-d",
         "8",
         "-m",
-        "100000",
+        "1000000000000",
     ]);
     create_faucet_cmd.current_dir(&temp_dir).assert().success();
 
@@ -331,7 +331,7 @@ fn test_cli_export_import_note() {
         "-d",
         "8",
         "-m",
-        "100000",
+        "100000000000",
     ]);
     create_faucet_cmd.current_dir(&temp_dir_1).assert().success();
 
