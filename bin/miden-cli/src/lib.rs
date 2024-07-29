@@ -30,8 +30,8 @@ use commands::{
 use self::utils::load_config_file;
 
 mod config;
+mod faucet_details_provider;
 mod info;
-mod token_symbol_map;
 mod utils;
 
 /// Config file name

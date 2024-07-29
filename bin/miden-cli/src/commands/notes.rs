@@ -13,7 +13,7 @@ use miden_client::{
 };
 
 use crate::{
-    create_dynamic_table, get_output_note_with_id_prefix, utils::get_amount_from_faucet_units,
+    create_dynamic_table, get_output_note_with_id_prefix, utils::load_faucet_details_provider,
     Parser,
 };
 
@@ -235,24 +235,22 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator
         Cell::new("Faucet ID").add_attribute(Attribute::Bold),
         Cell::new("Amount").add_attribute(Attribute::Bold),
     ]);
+    let faucet_details_provider = load_faucet_details_provider()?;
     let assets = assets.iter();
 
     for asset in assets {
         let (asset_type, faucet_id, amount) = match asset {
-            Asset::Fungible(fungible_asset) => (
-                "Fungible Asset",
-                fungible_asset.faucet_id(),
-                get_amount_from_faucet_units(
-                    &client,
-                    fungible_asset.amount(),
-                    fungible_asset.faucet_id(),
-                )?,
-            ),
+            Asset::Fungible(fungible_asset) => {
+                let (faucet_id, amount) =
+                    faucet_details_provider.format_fungible_asset(&client, fungible_asset)?;
+
+                ("Fungible Asset", faucet_id, amount)
+            },
             Asset::NonFungible(non_fungible_asset) => {
-                ("Non Fungible Asset", non_fungible_asset.faucet_id(), 1.0)
+                ("Non Fungible Asset", non_fungible_asset.faucet_id().to_hex(), 1.0)
             },
         };
-        table.add_row(vec![asset_type, &faucet_id.to_hex(), &amount.to_string()]);
+        table.add_row(vec![asset_type, &faucet_id, &amount.to_string()]);
     }
     println!("{table}");
 
