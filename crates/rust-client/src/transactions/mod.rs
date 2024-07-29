@@ -338,7 +338,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         info!("Proving transaction...");
         let proven_transaction =
             transaction_prover.prove_transaction(tx_result.executed_transaction().clone())?;
-        info!("Transaction proved.");
+        info!("Transaction proven.");
 
         info!("Submitting transaction to the network...");
         self.rpc_api.submit_proven_transaction(proven_transaction).await?;
