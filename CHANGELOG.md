@@ -2,6 +2,7 @@
 
 ## v0.5.0 (TBD)
 
+* Added support for decimal values in the CLI (#454).
 * Added the Web Client Crate
 * [BREAKING] Refactored `Client` to merge submit_transaction and prove_transaction (#445)
 * Tracked token symbols with config file (#441).
