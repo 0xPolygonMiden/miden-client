@@ -13,7 +13,7 @@ use miden_client::{
 use crate::{
     config::CliConfig,
     create_dynamic_table,
-    utils::{load_config_file, parse_account_id, update_config},
+    utils::{load_config_file, load_token_map, parse_account_id, update_config},
     CLIENT_BINARY_NAME,
 };
 
@@ -102,14 +102,14 @@ fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthentic
     let accounts = client.get_account_stubs()?;
 
     let mut table = create_dynamic_table(&["Account ID", "Type", "Storage Mode", "Nonce"]);
-    accounts.iter().for_each(|(acc, _acc_seed)| {
+    for (acc, _acc_seed) in accounts.iter() {
         table.add_row(vec![
             acc.id().to_string(),
-            account_type_display_name(&acc.id().account_type()),
+            account_type_display_name(&acc.id())?,
             storage_type_display_name(&acc.id()),
             acc.nonce().as_int().to_string(),
         ]);
-    });
+    }
 
     println!("{table}");
     Ok(())
@@ -133,7 +133,7 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
     table.add_row(vec![
         account.id().to_string(),
         account.hash().to_string(),
-        account_type_display_name(&account.account_type()),
+        account_type_display_name(&account_id)?,
         storage_type_display_name(&account_id),
         account.code().root().to_string(),
         account.vault().asset_tree().root().to_string(),
@@ -145,20 +145,29 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
     // Vault Table
     {
         let assets = account.vault().assets();
-
+        let token_symbol_map = load_token_map()?;
         println!("Assets: ");
 
-        let mut table = create_dynamic_table(&["Asset Type", "Faucet ID", "Amount"]);
+        let mut table =
+            create_dynamic_table(&["Asset Type", "Faucet ID", "Token Symbol", "Amount"]);
         for asset in assets {
-            let (asset_type, faucet_id, amount) = match asset {
-                Asset::Fungible(fungible_asset) => {
-                    ("Fungible Asset", fungible_asset.faucet_id(), fungible_asset.amount())
-                },
+            let (asset_type, faucet_id, token_symbol, amount) = match asset {
+                Asset::Fungible(fungible_asset) => (
+                    "Fungible Asset",
+                    fungible_asset.faucet_id(),
+                    token_symbol_map.get_token_symbol_or_default(&fungible_asset.faucet_id()),
+                    fungible_asset.amount(),
+                ),
                 Asset::NonFungible(non_fungible_asset) => {
-                    ("Non Fungible Asset", non_fungible_asset.faucet_id(), 1)
+                    ("Non Fungible Asset", non_fungible_asset.faucet_id(), "-".to_string(), 1)
                 },
             };
-            table.add_row(vec![asset_type, &faucet_id.to_hex(), &amount.to_string()]);
+            table.add_row(vec![
+                asset_type,
+                &faucet_id.to_hex(),
+                token_symbol.as_str(),
+                &amount.to_string(),
+            ]);
         }
 
         println!("{table}\n");
@@ -227,14 +236,18 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
 // HELPERS
 // ================================================================================================
 
-fn account_type_display_name(account_type: &AccountType) -> String {
-    match account_type {
-        AccountType::FungibleFaucet => "Fungible faucet",
-        AccountType::NonFungibleFaucet => "Non-fungible faucet",
-        AccountType::RegularAccountImmutableCode => "Regular",
-        AccountType::RegularAccountUpdatableCode => "Regular (updatable)",
-    }
-    .to_string()
+fn account_type_display_name(account_id: &AccountId) -> Result<String, String> {
+    Ok(match account_id.account_type() {
+        AccountType::FungibleFaucet => {
+            let token_symbol_map = load_token_map()?;
+            let token_symbol = token_symbol_map.get_token_symbol_or_default(account_id);
+
+            format!("Fungible faucet (token symbol: {token_symbol})")
+        },
+        AccountType::NonFungibleFaucet => "Non-fungible faucet".to_string(),
+        AccountType::RegularAccountImmutableCode => "Regular".to_string(),
+        AccountType::RegularAccountUpdatableCode => "Regular (updatable)".to_string(),
+    })
 }
 
 fn storage_type_display_name(account: &AccountId) -> String {

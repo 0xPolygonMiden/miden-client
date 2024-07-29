@@ -3,8 +3,9 @@
 ## v0.5.0 (TBD)
 
 * [BREAKING] Refactored `Client` to merge submit_transaction and prove_transaction (#445)
+* Tracked token symbols with config file (#441).
 * [BREAKING] Refactored `TransactionRequest` to represent a generalized transaction (#438).
-* Fix `get_consumable_notes` to consider block header information for consumability (#432).
+* Fixed `get_consumable_notes` to consider block header information for consumability (#432).
 * Ignored stale updates received during sync process (#412).
 * Refactor `TransactionRequest` constructor (#434).
 * Fixed flaky integration tests (#410).
