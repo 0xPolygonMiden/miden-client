@@ -105,7 +105,7 @@ fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthentic
     for (acc, _acc_seed) in accounts.iter() {
         table.add_row(vec![
             acc.id().to_string(),
-            account_type_display_name(&acc.id())?,
+            account_type_display_name(&acc.id(), &client)?,
             storage_type_display_name(&acc.id()),
             acc.nonce().as_int().to_string(),
         ]);
@@ -133,7 +133,7 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
     table.add_row(vec![
         account.id().to_string(),
         account.hash().to_string(),
-        account_type_display_name(&account_id)?,
+        account_type_display_name(&account_id, &client)?,
         storage_type_display_name(&account_id),
         account.code().commitment().to_string(),
         account.vault().asset_tree().root().to_string(),
@@ -145,7 +145,7 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
     // Vault Table
     {
         let assets = account.vault().assets();
-        let faucet_details_provider = load_faucet_details_provider()?;
+        let faucet_details_provider = load_faucet_details_provider(&client)?;
         println!("Assets: ");
 
         let mut table =
@@ -154,7 +154,7 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
             let (asset_type, faucet_id, token_symbol, amount) = match asset {
                 Asset::Fungible(fungible_asset) => {
                     let (faucet_id, amount) =
-                        faucet_details_provider.format_fungible_asset(&client, &fungible_asset)?;
+                        faucet_details_provider.format_fungible_asset(&fungible_asset)?;
                     (
                         "Fungible Asset",
                         faucet_id,
@@ -239,10 +239,18 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
 // HELPERS
 // ================================================================================================
 
-fn account_type_display_name(account_id: &AccountId) -> Result<String, String> {
+fn account_type_display_name<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+>(
+    account_id: &AccountId,
+    client: &Client<N, R, S, A>,
+) -> Result<String, String> {
     Ok(match account_id.account_type() {
         AccountType::FungibleFaucet => {
-            let faucet_details_provider = load_faucet_details_provider()?;
+            let faucet_details_provider = load_faucet_details_provider(client)?;
             let token_symbol = faucet_details_provider.get_token_symbol_or_default(account_id);
 
             format!("Fungible faucet (token symbol: {token_symbol})")

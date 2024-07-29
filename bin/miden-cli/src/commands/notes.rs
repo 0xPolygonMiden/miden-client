@@ -235,14 +235,14 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator
         Cell::new("Faucet ID").add_attribute(Attribute::Bold),
         Cell::new("Amount").add_attribute(Attribute::Bold),
     ]);
-    let faucet_details_provider = load_faucet_details_provider()?;
+    let faucet_details_provider = load_faucet_details_provider(&client)?;
     let assets = assets.iter();
 
     for asset in assets {
         let (asset_type, faucet_id, amount) = match asset {
             Asset::Fungible(fungible_asset) => {
                 let (faucet_id, amount) =
-                    faucet_details_provider.format_fungible_asset(&client, fungible_asset)?;
+                    faucet_details_provider.format_fungible_asset(fungible_asset)?;
 
                 ("Fungible Asset", faucet_id, amount)
             },
