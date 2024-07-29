@@ -429,7 +429,10 @@ fn print_transaction_details<
             let (asset_type, faucet_id, amount) = match asset {
                 Asset::Fungible(fungible_asset) => {
                     let (faucet_id, amount) =
-                        faucet_details_provider.format_fungible_asset(fungible_asset)?;
+                        faucet_details_provider.format_fungible_asset(fungible_asset).unwrap_or((
+                            fungible_asset.faucet_id().to_hex(),
+                            fungible_asset.amount() as f64,
+                        ));
                     ("Fungible Asset", faucet_id, amount)
                 },
                 Asset::NonFungible(non_fungible_asset) => {
@@ -443,7 +446,10 @@ fn print_transaction_details<
             let (asset_type, faucet_id, amount) = match asset {
                 Asset::Fungible(fungible_asset) => {
                     let (faucet_id, amount) =
-                        faucet_details_provider.format_fungible_asset(fungible_asset)?;
+                        faucet_details_provider.format_fungible_asset(fungible_asset).unwrap_or((
+                            fungible_asset.faucet_id().to_hex(),
+                            fungible_asset.amount() as f64,
+                        ));
                     ("Fungible Asset", faucet_id, amount)
                 },
                 Asset::NonFungible(non_fungible_asset) => {
