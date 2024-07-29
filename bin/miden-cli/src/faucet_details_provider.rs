@@ -14,10 +14,24 @@ pub struct FaucetDetails {
     pub id: String,
     pub decimals: u8,
 }
-pub struct FaucetDetailsProvider(BTreeMap<String, FaucetDetails>);
+pub struct FaucetDetailsProvider<
+    'a,
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+> {
+    token_symbol_map: BTreeMap<String, FaucetDetails>,
+    client: &'a Client<N, R, S, A>,
+}
 
-impl FaucetDetailsProvider {
-    pub fn new(token_symbol_map_filepath: PathBuf) -> Result<Self, String> {
+impl<'a, N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>
+    FaucetDetailsProvider<'a, N, R, S, A>
+{
+    pub fn new(
+        token_symbol_map_filepath: PathBuf,
+        client: &'a Client<N, R, S, A>,
+    ) -> Result<Self, String> {
         let token_symbol_map: BTreeMap<String, FaucetDetails> =
             match std::fs::read_to_string(token_symbol_map_filepath) {
                 Ok(content) => match toml::from_str(&content) {
@@ -44,11 +58,11 @@ impl FaucetDetailsProvider {
             }
         }
 
-        Ok(Self(token_symbol_map))
+        Ok(Self { token_symbol_map, client })
     }
 
     pub fn get_token_symbol(&self, faucet_id: &AccountId) -> Option<String> {
-        self.0
+        self.token_symbol_map
             .iter()
             .find(|(_, faucet)| faucet.id == faucet_id.to_hex())
             .map(|(symbol, _)| symbol.clone())
@@ -59,7 +73,9 @@ impl FaucetDetailsProvider {
     }
 
     pub fn get_faucet_id(&self, token_symbol: &String) -> Result<Option<AccountId>, String> {
-        if let Some(faucet_id) = self.0.get(token_symbol).map(|faucet| faucet.id.clone()) {
+        if let Some(faucet_id) =
+            self.token_symbol_map.get(token_symbol).map(|faucet| faucet.id.clone())
+        {
             Ok(Some(
                 AccountId::from_hex(&faucet_id)
                     .map_err(|err| format!("Failed to parse faucet ID: {}", err))?,
@@ -78,16 +94,7 @@ impl FaucetDetailsProvider {
     /// # Errors
     ///
     /// Will return an error if the provided `arg` doesn't match one of the expected formats.
-    pub fn parse_fungible_asset<
-        N: NodeRpcClient,
-        R: FeltRng,
-        S: Store,
-        A: TransactionAuthenticator,
-    >(
-        &self,
-        client: &Client<N, R, S, A>,
-        arg: &str,
-    ) -> Result<FungibleAsset, String> {
+    pub fn parse_fungible_asset(&self, arg: &str) -> Result<FungibleAsset, String> {
         let (amount, asset) = arg.split_once("::").ok_or("Separator `::` not found!")?;
         let amount = amount.parse::<f64>().map_err(|err| err.to_string())?;
         let faucet_id = if asset.starts_with("0x") {
@@ -97,35 +104,23 @@ impl FaucetDetailsProvider {
                 .ok_or(format!("Token symbol `{asset}` not found in token symbol map file"))?
         };
 
-        let amount = self.faucet_units_from_amount(client, amount, faucet_id)?;
+        let amount = self.faucet_units_from_amount(amount, faucet_id)?;
 
         FungibleAsset::new(faucet_id, amount).map_err(|err| err.to_string())
     }
 
-    pub fn format_fungible_asset<
-        N: NodeRpcClient,
-        R: FeltRng,
-        S: Store,
-        A: TransactionAuthenticator,
-    >(
-        &self,
-        client: &Client<N, R, S, A>,
-        asset: &FungibleAsset,
-    ) -> Result<(String, f64), String> {
+    pub fn format_fungible_asset(&self, asset: &FungibleAsset) -> Result<(String, f64), String> {
         let faucet_id = asset.faucet_id().to_hex();
-        let amount = self.amount_from_faucet_units(client, asset.amount(), asset.faucet_id())?;
+        let amount = self.amount_from_faucet_units(asset.amount(), asset.faucet_id())?;
         Ok((faucet_id, amount))
     }
 
     // HELPERS
     // ================================================================================================
 
-    fn get_faucet_decimals<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        &self,
-        client: &Client<N, R, S, A>,
-        faucet_id: AccountId,
-    ) -> Result<u8, String> {
-        let (faucet, _) = client
+    fn get_faucet_decimals(&self, faucet_id: AccountId) -> Result<u8, String> {
+        let (faucet, _) = self
+            .client
             .get_account(faucet_id)
             .map_err(|err| format!("Error fetching faucet account: {err}"))?;
 
@@ -137,18 +132,8 @@ impl FaucetDetailsProvider {
         Ok(decimals)
     }
 
-    fn faucet_units_from_amount<
-        N: NodeRpcClient,
-        R: FeltRng,
-        S: Store,
-        A: TransactionAuthenticator,
-    >(
-        &self,
-        client: &Client<N, R, S, A>,
-        amount: f64,
-        faucet_id: AccountId,
-    ) -> Result<u64, String> {
-        let decimals = self.get_faucet_decimals(client, faucet_id)?;
+    fn faucet_units_from_amount(&self, amount: f64, faucet_id: AccountId) -> Result<u64, String> {
+        let decimals = self.get_faucet_decimals(faucet_id)?;
         let units = amount * 10.0_f64.powi(decimals as i32);
 
         if units > units.floor() {
@@ -158,18 +143,8 @@ impl FaucetDetailsProvider {
         Ok(units as u64)
     }
 
-    fn amount_from_faucet_units<
-        N: NodeRpcClient,
-        R: FeltRng,
-        S: Store,
-        A: TransactionAuthenticator,
-    >(
-        &self,
-        client: &Client<N, R, S, A>,
-        units: u64,
-        faucet_id: AccountId,
-    ) -> Result<f64, String> {
-        let decimals = self.get_faucet_decimals(client, faucet_id)?;
+    fn amount_from_faucet_units(&self, units: u64, faucet_id: AccountId) -> Result<f64, String> {
+        let decimals = self.get_faucet_decimals(faucet_id)?;
 
         let amount = units as f64 / 10.0_f64.powi(decimals as i32);
 

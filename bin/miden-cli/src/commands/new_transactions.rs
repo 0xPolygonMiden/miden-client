@@ -75,9 +75,9 @@ impl MintCmd {
         &self,
         client: &Client<N, R, S, A>,
     ) -> Result<TransactionTemplate, String> {
-        let faucet_details_provider = load_faucet_details_provider()?;
+        let faucet_details_provider = load_faucet_details_provider(client)?;
 
-        let fungible_asset = faucet_details_provider.parse_fungible_asset(client, &self.asset)?;
+        let fungible_asset = faucet_details_provider.parse_fungible_asset(&self.asset)?;
 
         let target_account_id = parse_account_id(client, self.target_account_id.as_str())?;
 
@@ -133,9 +133,9 @@ impl SendCmd {
         &self,
         client: &Client<N, R, S, A>,
     ) -> Result<TransactionTemplate, String> {
-        let faucet_details_provider = load_faucet_details_provider()?;
+        let faucet_details_provider = load_faucet_details_provider(client)?;
 
-        let fungible_asset = faucet_details_provider.parse_fungible_asset(client, &self.asset)?;
+        let fungible_asset = faucet_details_provider.parse_fungible_asset(&self.asset)?;
 
         // try to use either the provided argument or the default account
         let sender_account_id =
@@ -203,12 +203,12 @@ impl SwapCmd {
         &self,
         client: &Client<N, R, S, A>,
     ) -> Result<TransactionTemplate, String> {
-        let faucet_details_provider = load_faucet_details_provider()?;
+        let faucet_details_provider = load_faucet_details_provider(client)?;
 
         let offered_fungible_asset =
-            faucet_details_provider.parse_fungible_asset(client, &self.offered_asset)?;
+            faucet_details_provider.parse_fungible_asset(&self.offered_asset)?;
         let requested_fungible_asset =
-            faucet_details_provider.parse_fungible_asset(client, &self.requested_asset)?;
+            faucet_details_provider.parse_fungible_asset(&self.requested_asset)?;
 
         // try to use either the provided argument or the default account
         let sender_account_id =
@@ -422,14 +422,14 @@ fn print_transaction_details<
         || !account_delta.vault().removed_assets.is_empty();
 
     if has_vault_changes {
-        let faucet_details_provider = load_faucet_details_provider()?;
+        let faucet_details_provider = load_faucet_details_provider(client)?;
         let mut table = create_dynamic_table(&["Asset Type", "Faucet ID", "Amount"]);
 
         for asset in account_delta.vault().added_assets.iter() {
             let (asset_type, faucet_id, amount) = match asset {
                 Asset::Fungible(fungible_asset) => {
                     let (faucet_id, amount) =
-                        faucet_details_provider.format_fungible_asset(client, fungible_asset)?;
+                        faucet_details_provider.format_fungible_asset(fungible_asset)?;
                     ("Fungible Asset", faucet_id, amount)
                 },
                 Asset::NonFungible(non_fungible_asset) => {
@@ -443,7 +443,7 @@ fn print_transaction_details<
             let (asset_type, faucet_id, amount) = match asset {
                 Asset::Fungible(fungible_asset) => {
                     let (faucet_id, amount) =
-                        faucet_details_provider.format_fungible_asset(client, fungible_asset)?;
+                        faucet_details_provider.format_fungible_asset(fungible_asset)?;
                     ("Fungible Asset", faucet_id, amount)
                 },
                 Asset::NonFungible(non_fungible_asset) => {
