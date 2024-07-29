@@ -13,10 +13,7 @@ use miden_client::{
 use crate::{
     config::CliConfig,
     create_dynamic_table,
-    utils::{
-        get_amount_from_faucet_units, load_config_file, load_token_map, parse_account_id,
-        update_config,
-    },
+    utils::{load_config_file, load_faucet_details_provider, parse_account_id, update_config},
     CLIENT_BINARY_NAME,
 };
 
@@ -148,33 +145,32 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
     // Vault Table
     {
         let assets = account.vault().assets();
-        let token_symbol_map = load_token_map()?;
+        let faucet_details_provider = load_faucet_details_provider()?;
         println!("Assets: ");
 
         let mut table =
             create_dynamic_table(&["Asset Type", "Faucet ID", "Token Symbol", "Amount"]);
         for asset in assets {
             let (asset_type, faucet_id, token_symbol, amount) = match asset {
-                Asset::Fungible(fungible_asset) => (
-                    "Fungible Asset",
-                    fungible_asset.faucet_id(),
-                    token_symbol_map.get_token_symbol_or_default(&fungible_asset.faucet_id()),
-                    get_amount_from_faucet_units(
-                        &client,
-                        fungible_asset.amount(),
-                        fungible_asset.faucet_id(),
-                    )?,
-                ),
-                Asset::NonFungible(non_fungible_asset) => {
-                    ("Non Fungible Asset", non_fungible_asset.faucet_id(), "-".to_string(), 1.0)
+                Asset::Fungible(fungible_asset) => {
+                    let (faucet_id, amount) =
+                        faucet_details_provider.format_fungible_asset(&client, &fungible_asset)?;
+                    (
+                        "Fungible Asset",
+                        faucet_id,
+                        faucet_details_provider
+                            .get_token_symbol_or_default(&fungible_asset.faucet_id()),
+                        amount,
+                    )
                 },
+                Asset::NonFungible(non_fungible_asset) => (
+                    "Non Fungible Asset",
+                    non_fungible_asset.faucet_id().to_hex(),
+                    "-".to_string(),
+                    1.0,
+                ),
             };
-            table.add_row(vec![
-                asset_type,
-                &faucet_id.to_hex(),
-                token_symbol.as_str(),
-                &amount.to_string(),
-            ]);
+            table.add_row(vec![asset_type, &faucet_id, token_symbol.as_str(), &amount.to_string()]);
         }
 
         println!("{table}\n");
@@ -246,8 +242,8 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
 fn account_type_display_name(account_id: &AccountId) -> Result<String, String> {
     Ok(match account_id.account_type() {
         AccountType::FungibleFaucet => {
-            let token_symbol_map = load_token_map()?;
-            let token_symbol = token_symbol_map.get_token_symbol_or_default(account_id);
+            let faucet_details_provider = load_faucet_details_provider()?;
+            let token_symbol = faucet_details_provider.get_token_symbol_or_default(account_id);
 
             format!("Fungible faucet (token symbol: {token_symbol})")
         },
