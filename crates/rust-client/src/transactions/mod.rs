@@ -238,6 +238,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         &mut self,
         transaction_request: TransactionRequest,
     ) -> Result<TransactionResult, ClientError> {
+        // Validates the transaction request before executing
+        self.validate_transaction(&transaction_request)?;
+
         let account_id = transaction_request.account_id();
         maybe_await!(self.tx_executor.load_account(account_id))
             .map_err(ClientError::TransactionExecutorError)?;
@@ -297,9 +300,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 tx_script_builder.build_auth_script(&self.tx_executor)?
             },
         };
-
-        // Validates the transaction request before executing
-        self.validate_transaction(&transaction_request)?;
 
         let tx_args = transaction_request.into_transaction_args(tx_script);
 
