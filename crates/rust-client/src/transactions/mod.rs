@@ -241,7 +241,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         transaction_request: TransactionRequest,
     ) -> Result<TransactionResult, ClientError> {
         // Validates the transaction request before executing
-        self.validate_request(&transaction_request)?;
+        maybe_await!(self.validate_request(&transaction_request))?;
 
         let account_id = transaction_request.account_id();
         maybe_await!(self.tx_executor.load_account(account_id))
