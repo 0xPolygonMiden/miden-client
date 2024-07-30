@@ -75,7 +75,7 @@ impl MintCmd {
         &self,
         client: &Client<N, R, S, A>,
     ) -> Result<TransactionTemplate, String> {
-        let faucet_details_provider = load_faucet_details_provider(client)?;
+        let faucet_details_provider = load_faucet_details_provider()?;
 
         let fungible_asset = faucet_details_provider.parse_fungible_asset(&self.asset)?;
 
@@ -133,7 +133,7 @@ impl SendCmd {
         &self,
         client: &Client<N, R, S, A>,
     ) -> Result<TransactionTemplate, String> {
-        let faucet_details_provider = load_faucet_details_provider(client)?;
+        let faucet_details_provider = load_faucet_details_provider()?;
 
         let fungible_asset = faucet_details_provider.parse_fungible_asset(&self.asset)?;
 
@@ -203,7 +203,7 @@ impl SwapCmd {
         &self,
         client: &Client<N, R, S, A>,
     ) -> Result<TransactionTemplate, String> {
-        let faucet_details_provider = load_faucet_details_provider(client)?;
+        let faucet_details_provider = load_faucet_details_provider()?;
 
         let offered_fungible_asset =
             faucet_details_provider.parse_fungible_asset(&self.offered_asset)?;
@@ -300,7 +300,7 @@ async fn execute_transaction<
     let transaction_execution_result = client.new_transaction(transaction_request)?;
 
     // Show delta and ask for confirmation
-    print_transaction_details(client, &transaction_execution_result)?;
+    print_transaction_details(&transaction_execution_result)?;
     if !force {
         println!("\nContinue with proving and submission? Changes will be irreversible once the proof is finalized on the rollup (Y/N)");
         let mut proceed_str: String = String::new();
@@ -350,15 +350,7 @@ async fn execute_transaction<
     Ok(())
 }
 
-fn print_transaction_details<
-    N: NodeRpcClient,
-    R: FeltRng,
-    S: Store,
-    A: TransactionAuthenticator,
->(
-    client: &Client<N, R, S, A>,
-    transaction_result: &TransactionResult,
-) -> Result<(), String> {
+fn print_transaction_details(transaction_result: &TransactionResult) -> Result<(), String> {
     println!("The transaction will have the following effects:\n");
 
     // INPUT NOTES
@@ -422,17 +414,14 @@ fn print_transaction_details<
         || !account_delta.vault().removed_assets.is_empty();
 
     if has_vault_changes {
-        let faucet_details_provider = load_faucet_details_provider(client)?;
+        let faucet_details_provider = load_faucet_details_provider()?;
         let mut table = create_dynamic_table(&["Asset Type", "Faucet ID", "Amount"]);
 
         for asset in account_delta.vault().added_assets.iter() {
             let (asset_type, faucet_id, amount) = match asset {
                 Asset::Fungible(fungible_asset) => {
                     let (faucet_id, amount) =
-                        faucet_details_provider.format_fungible_asset(fungible_asset).unwrap_or((
-                            fungible_asset.faucet_id().to_hex(),
-                            fungible_asset.amount() as f64,
-                        ));
+                        faucet_details_provider.format_fungible_asset(fungible_asset);
                     ("Fungible Asset", faucet_id, amount)
                 },
                 Asset::NonFungible(non_fungible_asset) => {
@@ -446,10 +435,7 @@ fn print_transaction_details<
             let (asset_type, faucet_id, amount) = match asset {
                 Asset::Fungible(fungible_asset) => {
                     let (faucet_id, amount) =
-                        faucet_details_provider.format_fungible_asset(fungible_asset).unwrap_or((
-                            fungible_asset.faucet_id().to_hex(),
-                            fungible_asset.amount() as f64,
-                        ));
+                        faucet_details_provider.format_fungible_asset(fungible_asset);
                     ("Fungible Asset", faucet_id, amount)
                 },
                 Asset::NonFungible(non_fungible_asset) => {

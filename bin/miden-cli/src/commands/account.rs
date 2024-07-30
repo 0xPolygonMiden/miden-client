@@ -105,7 +105,7 @@ fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthentic
     for (acc, _acc_seed) in accounts.iter() {
         table.add_row(vec![
             acc.id().to_string(),
-            account_type_display_name(&acc.id(), &client)?,
+            account_type_display_name(&acc.id())?,
             storage_type_display_name(&acc.id()),
             acc.nonce().as_int().to_string(),
         ]);
@@ -133,7 +133,7 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
     table.add_row(vec![
         account.id().to_string(),
         account.hash().to_string(),
-        account_type_display_name(&account_id, &client)?,
+        account_type_display_name(&account_id)?,
         storage_type_display_name(&account_id),
         account.code().commitment().to_string(),
         account.vault().asset_tree().root().to_string(),
@@ -145,32 +145,22 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
     // Vault Table
     {
         let assets = account.vault().assets();
-        let faucet_details_provider = load_faucet_details_provider(&client)?;
+        let faucet_details_provider = load_faucet_details_provider()?;
         println!("Assets: ");
 
-        let mut table =
-            create_dynamic_table(&["Asset Type", "Faucet ID", "Token Symbol", "Amount"]);
+        let mut table = create_dynamic_table(&["Asset Type", "Faucet", "Amount"]);
         for asset in assets {
-            let (asset_type, faucet_id, token_symbol, amount) = match asset {
+            let (asset_type, faucet, amount) = match asset {
                 Asset::Fungible(fungible_asset) => {
-                    let (faucet_id, amount) =
-                        faucet_details_provider.format_fungible_asset(&fungible_asset)?;
-                    (
-                        "Fungible Asset",
-                        faucet_id,
-                        faucet_details_provider
-                            .get_token_symbol_or_default(&fungible_asset.faucet_id()),
-                        amount,
-                    )
+                    let (faucet, amount) =
+                        faucet_details_provider.format_fungible_asset(&fungible_asset);
+                    ("Fungible Asset", faucet, amount)
                 },
-                Asset::NonFungible(non_fungible_asset) => (
-                    "Non Fungible Asset",
-                    non_fungible_asset.faucet_id().to_hex(),
-                    "-".to_string(),
-                    1.0,
-                ),
+                Asset::NonFungible(non_fungible_asset) => {
+                    ("Non Fungible Asset", non_fungible_asset.faucet_id().to_hex(), 1.0)
+                },
             };
-            table.add_row(vec![asset_type, &faucet_id, token_symbol.as_str(), &amount.to_string()]);
+            table.add_row(vec![asset_type, &faucet, &amount.to_string()]);
         }
 
         println!("{table}\n");
@@ -239,18 +229,10 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
 // HELPERS
 // ================================================================================================
 
-fn account_type_display_name<
-    N: NodeRpcClient,
-    R: FeltRng,
-    S: Store,
-    A: TransactionAuthenticator,
->(
-    account_id: &AccountId,
-    client: &Client<N, R, S, A>,
-) -> Result<String, String> {
+fn account_type_display_name(account_id: &AccountId) -> Result<String, String> {
     Ok(match account_id.account_type() {
         AccountType::FungibleFaucet => {
-            let faucet_details_provider = load_faucet_details_provider(client)?;
+            let faucet_details_provider = load_faucet_details_provider()?;
             let token_symbol = faucet_details_provider.get_token_symbol_or_default(account_id);
 
             format!("Fungible faucet (token symbol: {token_symbol})")

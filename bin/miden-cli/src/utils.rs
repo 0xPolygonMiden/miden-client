@@ -111,14 +111,7 @@ fn load_config(config_file: &Path) -> Result<CliConfig, String> {
 }
 
 /// Returns the faucet details provider using the config file.
-pub fn load_faucet_details_provider<
-    N: NodeRpcClient,
-    R: FeltRng,
-    S: Store,
-    A: TransactionAuthenticator,
->(
-    client: &Client<N, R, S, A>,
-) -> Result<FaucetDetailsProvider<N, R, S, A>, String> {
+pub fn load_faucet_details_provider() -> Result<FaucetDetailsProvider, String> {
     let (config, _) = load_config_file()?;
-    FaucetDetailsProvider::new(config.token_symbol_map_filepath, client)
+    FaucetDetailsProvider::new(config.token_symbol_map_filepath)
 }
