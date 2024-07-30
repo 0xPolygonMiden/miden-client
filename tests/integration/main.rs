@@ -117,6 +117,34 @@ async fn test_p2id_transfer() {
 }
 
 #[tokio::test]
+async fn test_p2id_transfer_failing_not_enough_balance() {
+    let mut client = create_test_client();
+    wait_for_node(&mut client).await;
+
+    let (first_regular_account, second_regular_account, faucet_account_stub) =
+        setup(&mut client, AccountStorageType::OffChain).await;
+
+    let from_account_id = first_regular_account.id();
+    let to_account_id = second_regular_account.id();
+    let faucet_account_id = faucet_account_stub.id();
+
+    // First Mint necesary token
+    let note = mint_note(&mut client, from_account_id, faucet_account_id, NoteType::Private).await;
+    consume_notes(&mut client, from_account_id, &[note]).await;
+    assert_account_has_single_asset(&client, from_account_id, faucet_account_id, MINT_AMOUNT).await;
+
+    // Do a transfer from first account to second account
+    let asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT + 1).unwrap();
+    let tx_template = TransactionTemplate::PayToId(
+        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
+        NoteType::Private,
+    );
+    println!("Running P2ID tx...");
+    let tx_request = client.build_transaction_request(tx_template).unwrap();
+    execute_failing_tx(&mut client, tx_request, ClientError::AssetError(miden_objects::AssetError::AssetAmountNotSufficient(MINT_AMOUNT, MINT_AMOUNT + 1))).await;
+}
+
+#[tokio::test]
 async fn test_p2idr_transfer_consumed_by_target() {
     let mut client = create_test_client();
     wait_for_node(&mut client).await;

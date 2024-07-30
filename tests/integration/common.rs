@@ -90,6 +90,11 @@ pub fn create_test_store_path() -> std::path::PathBuf {
     temp_file
 }
 
+pub async fn execute_failing_tx(client: &mut TestClient, tx_request: TransactionRequest, expected_error: ClientError) {
+    println!("Executing transaction...");
+    // We compare string since we can't compare the error directly
+    assert_eq!(client.new_transaction(tx_request).err().unwrap().to_string(), expected_error.to_string());
+}
 pub async fn execute_tx(client: &mut TestClient, tx_request: TransactionRequest) -> TransactionId {
     println!("Executing transaction...");
     let transaction_execution_result = client.new_transaction(tx_request).unwrap();
