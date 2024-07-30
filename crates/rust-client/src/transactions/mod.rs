@@ -9,10 +9,13 @@ use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
     accounts::{AccountDelta, AccountId, AccountType},
     assembly::ProgramAst,
-    assets::{FungibleAsset, NonFungibleAsset},
+    assets::{
+        Asset::{Fungible, NonFungible},
+        FungibleAsset, NonFungibleAsset
+    },
     notes::{Note, NoteDetails, NoteExecutionMode, NoteId, NoteTag, NoteType},
     transaction::{InputNotes, TransactionArgs},
-    Digest, Felt, FieldElement, NoteError, Word,
+    AssetError, Digest, Felt, FieldElement, NoteError, Word,
 };
 use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, TransactionProver};
 use request::{TransactionRequestError, TransactionScriptTemplate};
@@ -379,10 +382,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         &self,
         transaction_request: &TransactionRequest,
     ) -> Result<(), ClientError> {
-        use miden_objects::{
-            assets::Asset::{Fungible, NonFungible},
-            AssetError,
-        };
         // Get own notes assets
         let own_notes_assets = match transaction_request.script_template() {
             Some(TransactionScriptTemplate::SendNotes(notes)) => {
