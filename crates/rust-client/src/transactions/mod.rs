@@ -1,5 +1,5 @@
 use alloc::{
-    collections::{BTreeSet, BTreeMap},
+    collections::{BTreeMap, BTreeSet},
     string::{String, ToString},
     vec::Vec,
 };
@@ -9,7 +9,7 @@ use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
     accounts::{AccountDelta, AccountId, AccountType},
     assembly::ProgramAst,
-    assets::FungibleAsset,
+    assets::{FungibleAsset, NonFungibleAsset},
     notes::{Note, NoteDetails, NoteExecutionMode, NoteId, NoteTag, NoteType},
     transaction::{InputNotes, TransactionArgs},
     Digest, Felt, FieldElement, NoteError, Word,
@@ -373,6 +373,90 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
     // HELPERS
     // --------------------------------------------------------------------------------------------
+    // #[maybe_async]
+    // fn validate_request(
+    //     &self,
+    //     transaction_request: &TransactionRequest,
+    // ) -> Result<(), ClientError> {
+    //     use miden_objects::{
+    //         assets::Asset::{Fungible, NonFungible},
+    //         AssetError,
+    //     };
+
+    //     // Get own notes assets
+    //     let own_notes = match transaction_request.script_template().clone().unwrap() {
+    //         TransactionScriptTemplate::SendNotes(notes) => notes,
+    //         _ => vec![],
+    //     };
+
+    //     let own_notes_assets = own_notes
+    //         .iter()
+    //         .map(|note| (note.id(), note.assets()))
+    //         .collect::<Vec<(NoteId, &NoteAssets)>>();
+
+    //     // Get transaction output notes assets
+    //     let mut output_notes_assets = transaction_request
+    //         .expected_output_notes()
+    //         // .flat_map(|notes| notes.assets().iter());
+    //         .map(|note| (note.id(), note.assets())).collect::<Vec<(NoteId, &NoteAssets)>>();
+
+    //     // Merge own_notes_assets and output_notes_assets, and remove the repeted notes (notes that hold the same NoteId)
+    //     for own_note in own_notes_assets {
+    //         if !output_notes_assets.contains(&own_note) {
+    //             output_notes_assets.push(own_note);
+    //         }
+    //     }
+
+    //     // Flat into an Asset vector
+    //     let output_notes_assets_flatted: Vec<&Asset> = output_notes_assets
+    //         .iter()
+    //         .flat_map(|(_, note_asset)| note_asset.iter().collect::<Vec<&Asset>>())
+    //         .collect::<Vec<&Asset>>();
+
+    //     let mut fungible_balance_map: BTreeMap<AccountId, u64> = BTreeMap::new();
+    //     let mut non_fungible_vec: Vec<&NonFungibleAsset> = Vec::new();
+
+    //     // Create a map of the fungible assets in the output notes
+    //     output_notes_assets_flatted.into_iter().for_each(|item| {
+    //             match item {
+    //                 Fungible(asset) => {
+    //                     *fungible_balance_map.entry(asset.faucet_id()).or_insert(0) += asset.amount();
+    //                 },
+    //                 NonFungible(asset) => {
+    //                     non_fungible_vec.push(asset);
+    //                 },
+    //             };
+    //         });
+
+    //     // Get client assets
+    //     let (account, _) = maybe_await!(self.get_account(transaction_request.account_id()))?;
+    //     let account_assets = account.vault().assets();
+
+    //     // Check if the output notes assets are less than or equal to the account assets
+    //     for item in account_assets {
+    //         match item {
+    //             Fungible(asset) => {
+    //                 if let Some(amount) = fungible_balance_map.get(&asset.faucet_id()) {
+    //                     if asset.amount() < *amount {
+    //                         return Err(ClientError::AssetError(
+    //                             AssetError::AssetAmountNotSufficient(asset.amount(), *amount),
+    //                         ));
+    //                     }
+    //                 };
+    //             },
+    //             NonFungible(asset) => {
+    //                 if !non_fungible_vec.contains(&&asset) {
+    //                     return Err(ClientError::AssetError(
+    //                         AssetError::AssetAmountNotSufficient(1, 0),
+    //                     ));
+    //                 };
+    //             },
+    //         }
+    //     }
+
+    //     Ok(())
+    // }
+
     #[maybe_async]
     fn validate_request(
         &self,
@@ -382,50 +466,73 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             assets::Asset::{Fungible, NonFungible},
             AssetError,
         };
+        // Get own notes assets
+        let own_notes_assets = if let TransactionScriptTemplate::SendNotes(notes) =
+            transaction_request.script_template().as_ref().unwrap()
+        {
+            notes.iter().map(|note| (note.id(), note.assets())).collect::<Vec<_>>()
+        } else {
+            vec![]
+        };
+
+        // Get transaction output notes assets
+        let mut output_notes_assets = transaction_request
+            .expected_output_notes()
+            .map(|note| (note.id(), note.assets()))
+            .collect::<Vec<_>>();
+
+        //  Merge output with own notes, removing duplicates
+        let additional_notes: Vec<_> = own_notes_assets
+            .into_iter()
+            .filter(|own_note| !output_notes_assets.contains(own_note))
+            .collect();
+
+        output_notes_assets.extend(additional_notes);
+
+        // Flatten into an Asset vector
+        let mut fungible_balance_map: BTreeMap<AccountId, u64> = BTreeMap::new();
+        let mut non_fungible_vec: Vec<&NonFungibleAsset> = Vec::new();
+
+        // Create a map of the fungible and non-fungible assets in the output notes
+        for asset in output_notes_assets.iter().flat_map(|(_, note_assets)| note_assets.iter()) {
+            match asset {
+                Fungible(fungible) => {
+                    *fungible_balance_map.entry(fungible.faucet_id()).or_insert(0) +=
+                        fungible.amount();
+                },
+                NonFungible(non_fungible) => {
+                    non_fungible_vec.push(non_fungible);
+                },
+            }
+        }
 
         // Get client assets
         let (account, _) = maybe_await!(self.get_account(transaction_request.account_id()))?;
         let account_assets = account.vault().assets();
 
-        // Get transaction output notes assets
-        let output_notes_assets = transaction_request
-            .expected_output_notes()
-            .flat_map(|notes| notes.assets().iter());
-
-        // Create a map of the fungible assets in the output notes
-        let fungible_balance_map: BTreeMap<AccountId, u64> =
-            output_notes_assets.into_iter().fold(BTreeMap::new(), |mut acc, item| {
-                match item {
-                    Fungible(asset) => {
-                        *acc.entry(asset.faucet_id()).or_insert(0) += asset.amount();
-                    },
-                    NonFungible(asset) => {
-                        *acc.entry(asset.faucet_id()).or_insert(0) += 1;
-                    },
-                };
-                acc
-            });
-
         // Check if the output notes assets are less than or equal to the account assets
-        for item in account_assets {
-            match item {
-                Fungible(asset) => {
-                    if let Some(amount) = fungible_balance_map.get(&asset.faucet_id()) {
-                        if asset.amount() < *amount {
+        for account_asset in account_assets {
+            match account_asset {
+                Fungible(account_fungible) => {
+                    if let Some(&required_amount) =
+                        fungible_balance_map.get(&account_fungible.faucet_id())
+                    {
+                        if account_fungible.amount() < required_amount {
                             return Err(ClientError::AssetError(
-                                AssetError::AssetAmountNotSufficient(asset.amount(), *amount),
+                                AssetError::AssetAmountNotSufficient(
+                                    account_fungible.amount(),
+                                    required_amount,
+                                ),
                             ));
                         }
-                    };
+                    }
                 },
-                NonFungible(asset) => {
-                    if let Some(amount) = fungible_balance_map.get(&asset.faucet_id()) {
-                        if *amount < 1 {
-                            return Err(ClientError::AssetError(
-                                AssetError::AssetAmountNotSufficient(1, *amount),
-                            ));
-                        }
-                    };
+                NonFungible(account_non_fungible) => {
+                    if !non_fungible_vec.contains(&&account_non_fungible) {
+                        return Err(ClientError::AssetError(AssetError::AssetAmountNotSufficient(
+                            1, 0,
+                        )));
+                    }
                 },
             }
         }
