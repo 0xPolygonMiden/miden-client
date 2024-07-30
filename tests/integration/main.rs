@@ -141,7 +141,15 @@ async fn test_p2id_transfer_failing_not_enough_balance() {
     );
     println!("Running P2ID tx...");
     let tx_request = client.build_transaction_request(tx_template).unwrap();
-    execute_failing_tx(&mut client, tx_request, ClientError::AssetError(miden_objects::AssetError::AssetAmountNotSufficient(MINT_AMOUNT, MINT_AMOUNT + 1))).await;
+    execute_failing_tx(
+        &mut client,
+        tx_request,
+        ClientError::AssetError(miden_objects::AssetError::AssetAmountNotSufficient(
+            MINT_AMOUNT,
+            MINT_AMOUNT + 1,
+        )),
+    )
+    .await;
 }
 
 #[tokio::test]
