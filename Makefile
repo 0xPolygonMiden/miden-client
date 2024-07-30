@@ -61,6 +61,10 @@ doc: ## Generates & checks rust documentation. You'll need `jq` in order for thi
 test: ## Run tests
 	cargo nextest run --release --lib --features $(FEATURES_CLIENT)
 
+.PHONY: test-deps
+test-deps: ## Install dependencies for tests
+	cargo install cargo-nextest
+
 # --- Integration testing -------------------------------------------------------------------------
 
 .PHONY: integration-test
