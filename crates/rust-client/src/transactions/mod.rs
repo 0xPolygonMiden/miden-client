@@ -373,89 +373,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
     // HELPERS
     // --------------------------------------------------------------------------------------------
-    // #[maybe_async]
-    // fn validate_request(
-    //     &self,
-    //     transaction_request: &TransactionRequest,
-    // ) -> Result<(), ClientError> {
-    //     use miden_objects::{
-    //         assets::Asset::{Fungible, NonFungible},
-    //         AssetError,
-    //     };
-
-    //     // Get own notes assets
-    //     let own_notes = match transaction_request.script_template().clone().unwrap() {
-    //         TransactionScriptTemplate::SendNotes(notes) => notes,
-    //         _ => vec![],
-    //     };
-
-    //     let own_notes_assets = own_notes
-    //         .iter()
-    //         .map(|note| (note.id(), note.assets()))
-    //         .collect::<Vec<(NoteId, &NoteAssets)>>();
-
-    //     // Get transaction output notes assets
-    //     let mut output_notes_assets = transaction_request
-    //         .expected_output_notes()
-    //         // .flat_map(|notes| notes.assets().iter());
-    //         .map(|note| (note.id(), note.assets())).collect::<Vec<(NoteId, &NoteAssets)>>();
-
-    //     // Merge own_notes_assets and output_notes_assets, and remove the repeted notes (notes that hold the same NoteId)
-    //     for own_note in own_notes_assets {
-    //         if !output_notes_assets.contains(&own_note) {
-    //             output_notes_assets.push(own_note);
-    //         }
-    //     }
-
-    //     // Flat into an Asset vector
-    //     let output_notes_assets_flatted: Vec<&Asset> = output_notes_assets
-    //         .iter()
-    //         .flat_map(|(_, note_asset)| note_asset.iter().collect::<Vec<&Asset>>())
-    //         .collect::<Vec<&Asset>>();
-
-    //     let mut fungible_balance_map: BTreeMap<AccountId, u64> = BTreeMap::new();
-    //     let mut non_fungible_vec: Vec<&NonFungibleAsset> = Vec::new();
-
-    //     // Create a map of the fungible assets in the output notes
-    //     output_notes_assets_flatted.into_iter().for_each(|item| {
-    //             match item {
-    //                 Fungible(asset) => {
-    //                     *fungible_balance_map.entry(asset.faucet_id()).or_insert(0) += asset.amount();
-    //                 },
-    //                 NonFungible(asset) => {
-    //                     non_fungible_vec.push(asset);
-    //                 },
-    //             };
-    //         });
-
-    //     // Get client assets
-    //     let (account, _) = maybe_await!(self.get_account(transaction_request.account_id()))?;
-    //     let account_assets = account.vault().assets();
-
-    //     // Check if the output notes assets are less than or equal to the account assets
-    //     for item in account_assets {
-    //         match item {
-    //             Fungible(asset) => {
-    //                 if let Some(amount) = fungible_balance_map.get(&asset.faucet_id()) {
-    //                     if asset.amount() < *amount {
-    //                         return Err(ClientError::AssetError(
-    //                             AssetError::AssetAmountNotSufficient(asset.amount(), *amount),
-    //                         ));
-    //                     }
-    //                 };
-    //             },
-    //             NonFungible(asset) => {
-    //                 if !non_fungible_vec.contains(&&asset) {
-    //                     return Err(ClientError::AssetError(
-    //                         AssetError::AssetAmountNotSufficient(1, 0),
-    //                     ));
-    //                 };
-    //             },
-    //         }
-    //     }
-
-    //     Ok(())
-    // }
 
     #[maybe_async]
     fn validate_request(
@@ -467,12 +384,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             AssetError,
         };
         // Get own notes assets
-        let own_notes_assets = if let TransactionScriptTemplate::SendNotes(notes) =
-            transaction_request.script_template().as_ref().unwrap()
-        {
-            notes.iter().map(|note| (note.id(), note.assets())).collect::<Vec<_>>()
-        } else {
-            vec![]
+        let own_notes_assets = match transaction_request.script_template() {
+            Some(TransactionScriptTemplate::SendNotes(notes)) => {
+                notes.iter().map(|note| (note.id(), note.assets())).collect::<Vec<_>>()
+            },
+            _ => vec![],
         };
 
         // Get transaction output notes assets
