@@ -125,7 +125,7 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
         "Account Hash",
         "Type",
         "Storage mode",
-        "Code Root",
+        "Code Commitment",
         "Vault Root",
         "Storage Root",
         "Nonce",
@@ -135,7 +135,7 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
         account.hash().to_string(),
         account_type_display_name(&account_id)?,
         storage_type_display_name(&account_id),
-        account.code().root().to_string(),
+        account.code().commitment().to_string(),
         account.vault().asset_tree().root().to_string(),
         account.storage().root().to_string(),
         account.nonce().as_int().to_string(),
@@ -213,14 +213,14 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
     // Code related table
     {
         let module = account.code().module();
-        let procedure_digests = account.code().procedures();
+        let procedures = account.code().procedures();
 
         println!("Account Code Info:");
 
         let mut table = create_dynamic_table(&["Procedure Digests"]);
 
-        for digest in procedure_digests {
-            table.add_row(vec![digest.to_hex()]);
+        for proc_info in procedures {
+            table.add_row(vec![proc_info.mast_root()]);
         }
         println!("{table}\n");
 

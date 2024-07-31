@@ -406,9 +406,9 @@ impl SwapTransactionData {
 // ================================================================================================
 
 pub mod known_script_roots {
-    pub const P2ID: &str = "0x3df15bd183c3239332dcb535c6d0a25c668ead19a317fefe66fc2754e49ce4f1";
-    pub const P2IDR: &str = "0xf6513a4c607de61288263e1d9346889e9393f3c4024bfb42efc0e2ce3c64ee72";
-    pub const SWAP: &str = "0x5040bdb39e3e71d8ae4a93d65ff44d152f56192df97018a63b6b6342e87f97d5";
+    pub const P2ID: &str = "0x07db8e6726c0859648a4f0ad38376440c01d98674b7d5a03d7ad729ae2a21d8f";
+    pub const P2IDR: &str = "0xd43b69d65bbc22abf64dbae53ad22e3a4f6d5bfac8e47497b69c116824b46427";
+    pub const SWAP: &str = "0x9270b8c89303cf7a05340351d7f9962a9722c4f35d30b7d4980929b381e5d695";
 }
 
 // TESTS

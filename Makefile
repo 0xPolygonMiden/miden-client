@@ -10,7 +10,7 @@ FEATURES_CLIENT="testing, concurrent"
 FEATURES_CLI="testing, concurrent"
 NODE_FEATURES_TESTING="testing"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
-NODE_BRANCH="main"
+NODE_BRANCH="next"
 
 # --- Linting -------------------------------------------------------------------------------------
 
@@ -107,3 +107,13 @@ build: ## Builds the CLI binary and client library in release mode
 
 build-wasm: ## Builds the client library for wasm32
 	cargo build --target wasm32-unknown-unknown --features idxdb,web-tonic --no-default-features --package miden-client
+
+# --- Check ---------------------------------------------------------------------------------------
+
+.PHONY: check
+check: ## Builds the CLI binary and client library in release mode
+	cargo check --release --features $(FEATURES_CLI)
+
+.PHONY: check-wasm
+check-wasm: ## Builds the client library for wasm32
+	cargo check --target wasm32-unknown-unknown --features idxdb,web-tonic --no-default-features --package miden-client

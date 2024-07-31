@@ -174,9 +174,15 @@ export async function getAccountCode(
         const moduleArrayBuffer = await codeRecord.module.arrayBuffer();
         const moduleArray = new Uint8Array(moduleArrayBuffer);
         const moduleBase64 = uint8ArrayToBase64(moduleArray);
+
+        // Convert the procedures Blob to an ArrayBuffer
+        const proceduresArrayBuffer = await codeRecord.procedures.arrayBuffer();
+        const proceduresArray = new Uint8Array(proceduresArrayBuffer);
+        const proceduresBase64 = uint8ArrayToBase64(proceduresArray);
+        
         return {
             root: codeRecord.root,
-            procedures: codeRecord.procedures,
+            procedures: proceduresBase64,
             module: moduleBase64,
         };
     } catch (error) {
@@ -349,11 +355,12 @@ export async function insertAccountCode(
     try {
         // Create a Blob from the ArrayBuffer
         const moduleBlob = new Blob([new Uint8Array(module)]);
+        const codeBlob = new Blob([new Uint8Array(code)]);
 
         // Prepare the data object to insert
         const data = {
             root: codeRoot, // Using codeRoot as the key
-            procedures: code,
+            procedures: codeBlob,
             module: moduleBlob, // Blob created from ArrayBuffer
         };
 
