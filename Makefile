@@ -10,7 +10,7 @@ FEATURES_CLIENT="testing, concurrent"
 FEATURES_CLI="testing, concurrent"
 NODE_FEATURES_TESTING="testing"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
-NODE_BRANCH="main"
+NODE_BRANCH="next"
 
 # --- Linting -------------------------------------------------------------------------------------
 
