@@ -1,16 +1,23 @@
-name: "Changelog"
+# Runs changelog related jobs.
+# CI job heavily inspired by: https://github.com/tarides/changelog-check-action
+
+name: changelog
+
 on:
-  merge_group:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
+    types: [opened, reopened, synchronize, labeled, unlabeled]
 
 jobs:
-  # Enforces the update of a changelog file on every pull request 
-  # We only want this for user-visible changes, so we add a few labels
-  # for which the check is skipped
   changelog:
     runs-on: ubuntu-latest
     steps:
-    - uses: dangoslen/changelog-enforcer@v3
-      with:
-        skipLabels: pipelines,tests,documentation,no-changelog
+      - name: Checkout code
+        uses: actions/checkout@main
+        with:
+          fetch-depth: 0
+      - name: Check for changes in changelog
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          NO_CHANGELOG_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'no changelog') }}
+        run: ./scripts/check-changelog.sh "${{ inputs.changelog }}"
+        shell: bash
