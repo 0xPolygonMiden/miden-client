@@ -377,11 +377,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
-    #[maybe_async]
-    fn validate_request(
+    fn calculate_outgoing_assets(
         &self,
         transaction_request: &TransactionRequest,
-    ) -> Result<(), ClientError> {
+    ) -> (&BTreeMap<AccountId, u64>, BTreeSet<&NonFungibleAsset>) {
         // Get own notes assets
         let own_notes_assets = match transaction_request.script_template() {
             Some(TransactionScriptTemplate::SendNotes(notes)) => {
@@ -394,19 +393,19 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let mut output_notes_assets = transaction_request
             .expected_output_notes()
             .map(|note| (note.id(), note.assets()))
-            .collect::<Vec<_>>();
+            .collect::<BTreeMap<_, _>>();
+            
+        // Merge with own notes assets and delete duplicates
+        output_notes_assets
+        .append(
+            &mut BTreeMap::from_iter(
+                own_notes_assets
+                .into_iter()
+            )
+        );
 
-        //  Merge output with own notes, removing duplicates
-        let additional_notes: Vec<_> = own_notes_assets
-            .into_iter()
-            .filter(|own_note| !output_notes_assets.contains(own_note))
-            .collect();
-
-        output_notes_assets.extend(additional_notes);
-
-        // Flatten into an Asset vector
         let mut fungible_balance_map: BTreeMap<AccountId, u64> = BTreeMap::new();
-        let mut non_fungible_vec: Vec<&NonFungibleAsset> = Vec::new();
+        let mut non_fungible_vec: BTreeSet<&NonFungibleAsset> = BTreeSet::new(); 
 
         // Create a map of the fungible and non-fungible assets in the output notes
         for asset in output_notes_assets.iter().flat_map(|(_, note_assets)| note_assets.iter()) {
@@ -416,10 +415,21 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                         fungible.amount();
                 },
                 NonFungible(non_fungible) => {
-                    non_fungible_vec.push(non_fungible);
+                    non_fungible_vec.insert(non_fungible);
                 },
             }
         }
+
+        (&fungible_balance_map, non_fungible_vec)
+    }
+
+    #[maybe_async]
+    fn validate_request(
+        &self,
+        transaction_request: &TransactionRequest,
+    ) -> Result<(), ClientError> {
+        let (fungible_balance_map, non_fungible_vec) =
+            self.calculate_outgoing_assets(transaction_request);
 
         // Get client assets
         let (account, _) = maybe_await!(self.get_account(transaction_request.account_id()))?;
