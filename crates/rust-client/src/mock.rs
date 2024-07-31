@@ -418,7 +418,7 @@ pub async fn insert_mock_data(client: &mut MockClient) -> Vec<BlockHeader> {
         init_seed,
         account.account_type(),
         miden_objects::accounts::AccountStorageType::OffChain,
-        account.code().root(),
+        account.code().commitment(),
         account.storage().root(),
     )
     .unwrap();

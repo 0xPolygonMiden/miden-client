@@ -26,7 +26,7 @@ type SerializedAccountAuthParts = (i64, Vec<u8>);
 
 type SerializedAccountVaultData = (String, String);
 
-type SerializedAccountCodeData = (String, String, Vec<u8>);
+type SerializedAccountCodeData = (String, Vec<u8>, Vec<u8>);
 
 type SerializedAccountStorageData = (String, Vec<u8>);
 
@@ -315,7 +315,7 @@ pub(super) fn parse_account(
 /// Serialized the provided account into database compatible types.
 fn serialize_account(account: &Account) -> Result<SerializedAccountData, StoreError> {
     let id: u64 = account.id().into();
-    let code_root = account.code().root().to_string();
+    let code_root = account.code().commitment().to_string();
     let storage_root = account.storage().root().to_string();
     let vault_root = serde_json::to_string(&account.vault().commitment())
         .map_err(StoreError::InputSerializationError)?;
@@ -364,9 +364,8 @@ fn serialize_account_auth(
 fn serialize_account_code(
     account_code: &AccountCode,
 ) -> Result<SerializedAccountCodeData, StoreError> {
-    let root = account_code.root().to_string();
-    let procedures = serde_json::to_string(account_code.procedures())
-        .map_err(StoreError::InputSerializationError)?;
+    let root = account_code.commitment().to_string();
+    let procedures = account_code.procedures().to_bytes();
     let module = account_code.module().to_bytes(AstSerdeOptions { serialize_imports: true });
 
     Ok((root, procedures, module))

@@ -14,8 +14,8 @@ use super::{js_bindings::*, models::*};
 use crate::store::StoreError;
 
 pub async fn insert_account_code(account_code: &AccountCode) -> Result<(), ()> {
-    let root = account_code.root().to_string();
-    let procedures = serde_json::to_string(account_code.procedures()).unwrap();
+    let root = account_code.commitment().to_string();
+    let procedures = account_code.procedures().to_bytes();
     let module = account_code.module().to_bytes(AstSerdeOptions { serialize_imports: true });
 
     let promise = idxdb_insert_account_code(root, procedures, module);
@@ -68,7 +68,7 @@ pub async fn insert_account_record(
     account_seed: Option<Word>,
 ) -> Result<(), ()> {
     let account_id_str = account.id().to_string();
-    let code_root = account.code().root().to_string();
+    let code_root = account.code().commitment().to_string();
     let storage_root = account.storage().root().to_string();
     let vault_root = serde_json::to_string(&account.vault().commitment()).unwrap();
     let committed = account.is_on_chain();

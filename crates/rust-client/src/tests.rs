@@ -105,7 +105,7 @@ async fn insert_basic_account() {
     assert_eq!(account.nonce(), fetched_account.nonce());
     assert_eq!(account.vault(), fetched_account.vault());
     assert_eq!(account.storage().root(), fetched_account.storage().root());
-    assert_eq!(account.code().root(), fetched_account.code().root());
+    assert_eq!(account.code().commitment(), fetched_account.code().commitment());
 
     // Validate seed matches
     assert_eq!(account_seed, fetched_account_seed.unwrap());
@@ -139,7 +139,7 @@ async fn insert_faucet_account() {
     assert_eq!(account.nonce(), fetched_account.nonce());
     assert_eq!(account.vault(), fetched_account.vault());
     assert_eq!(account.storage(), fetched_account.storage());
-    assert_eq!(account.code().root(), fetched_account.code().root());
+    assert_eq!(account.code().commitment(), fetched_account.code().commitment());
 
     // Validate seed matches
     assert_eq!(account_seed, fetched_account_seed.unwrap());
