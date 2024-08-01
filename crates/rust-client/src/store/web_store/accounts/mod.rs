@@ -188,10 +188,7 @@ impl WebStore {
     }
 
     /// Returns an [AuthSecretKey] by a public key represented by a [Word]
-    pub(crate) fn get_account_auth_by_pub_key(
-        &self,
-        pub_key: Word,
-    ) -> Result<AuthSecretKey, StoreError> {
+    pub fn get_account_auth_by_pub_key(&self, pub_key: Word) -> Result<AuthSecretKey, StoreError> {
         let pub_key_bytes = pub_key.to_bytes();
 
         let js_value = idxdb_get_account_auth_by_pub_key(pub_key_bytes);
@@ -205,8 +202,7 @@ impl WebStore {
 
     /// Fetches an [AuthSecretKey] by a public key represented by a [Word] and caches it in the store.
     /// This is used in the web_client so adding this to ignore the dead code warning.
-    #[allow(dead_code)]
-    pub(crate) async fn fetch_and_cache_account_auth_by_pub_key(
+    pub async fn fetch_and_cache_account_auth_by_pub_key(
         &self,
         account_id: String,
     ) -> Result<AuthSecretKey, StoreError> {

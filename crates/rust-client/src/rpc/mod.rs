@@ -14,6 +14,9 @@ use miden_objects::{
     BlockHeader, Digest,
 };
 
+#[cfg(all(feature = "tonic", feature = "web-tonic"))]
+compile_error!("features `tonic` and `web-tonic` are mutually exclusive");
+
 #[cfg(any(feature = "tonic", feature = "web-tonic"))]
 mod domain;
 

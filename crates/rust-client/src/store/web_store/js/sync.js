@@ -161,7 +161,7 @@ async function updateBlockHeader(
             blockNum: blockNum,
             header: blockHeader,
             chainMmrPeaks: chainMmrPeaks,
-            hasClientNotes: hasClientNotes
+            hasClientNotes: hasClientNotes.toString()
         };
 
         await tx.blockHeaders.add(data);
@@ -283,7 +283,7 @@ async function updateCommittedTransactions(
     }
 }
 
-async function updateIgnoredNotesForTag(
+export async function updateIgnoredNotesForTag(
     tag
 ) {
     try {

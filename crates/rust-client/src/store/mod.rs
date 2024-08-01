@@ -18,6 +18,9 @@ pub mod data_store;
 mod errors;
 pub use errors::*;
 
+#[cfg(all(feature = "sqlite", feature = "idxdb"))]
+compile_error!("features `sqlite` and `idxdb` are mutually exclusive");
+
 #[cfg(feature = "sqlite")]
 pub mod sqlite_store;
 

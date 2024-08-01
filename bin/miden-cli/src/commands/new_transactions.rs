@@ -6,10 +6,11 @@ use miden_client::{
     assets::{Asset, FungibleAsset},
     auth::TransactionAuthenticator,
     crypto::{Digest, FeltRng},
-    notes::{NoteId, NoteType as MidenNoteType},
+    notes::{get_input_note_with_id_prefix, NoteId, NoteType as MidenNoteType},
     rpc::NodeRpcClient,
     store::Store,
     transactions::{
+        build_swap_tag,
         request::{PaymentTransactionData, SwapTransactionData, TransactionTemplate},
         TransactionResult,
     },
@@ -18,11 +19,8 @@ use miden_client::{
 use tracing::info;
 
 use crate::{
-    create_dynamic_table, get_input_note_with_id_prefix,
-    utils::{
-        build_swap_tag, get_input_acc_id_by_prefix_or_default, parse_account_id,
-        parse_fungible_asset,
-    },
+    create_dynamic_table,
+    utils::{get_input_acc_id_by_prefix_or_default, parse_account_id, parse_fungible_asset},
 };
 
 #[derive(Debug, Clone, Copy, ValueEnum)]

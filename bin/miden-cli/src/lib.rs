@@ -7,10 +7,7 @@ use miden_client::{
     auth::{StoreAuthenticator, TransactionAuthenticator},
     crypto::{FeltRng, RpoRandomCoin},
     rpc::{NodeRpcClient, TonicRpcClient},
-    store::{
-        sqlite_store::SqliteStore, InputNoteRecord, NoteFilter as ClientNoteFilter,
-        OutputNoteRecord, Store,
-    },
+    store::{sqlite_store::SqliteStore, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
     Client, ClientError, Felt, IdPrefixFetchError,
 };
 use rand::Rng;
@@ -153,58 +150,6 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
         .set_header(header_cells);
 
     table
-}
-
-/// Returns the client input note whose ID starts with `note_id_prefix`
-///
-/// # Errors
-///
-/// - Returns [IdPrefixFetchError::NoMatch] if we were unable to find any note where
-///   `note_id_prefix` is a prefix of its id.
-/// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found
-///   where `note_id_prefix` is a prefix of its id.
-pub(crate) fn get_input_note_with_id_prefix<
-    N: NodeRpcClient,
-    R: FeltRng,
-    S: Store,
-    A: TransactionAuthenticator,
->(
-    client: &Client<N, R, S, A>,
-    note_id_prefix: &str,
-) -> Result<InputNoteRecord, IdPrefixFetchError> {
-    let mut input_note_records = client
-        .get_input_notes(ClientNoteFilter::All)
-        .map_err(|err| {
-            tracing::error!("Error when fetching all notes from the store: {err}");
-            IdPrefixFetchError::NoMatch(format!("note ID prefix {note_id_prefix}").to_string())
-        })?
-        .into_iter()
-        .filter(|note_record| note_record.id().to_hex().starts_with(note_id_prefix))
-        .collect::<Vec<_>>();
-
-    if input_note_records.is_empty() {
-        return Err(IdPrefixFetchError::NoMatch(
-            format!("note ID prefix {note_id_prefix}").to_string(),
-        ));
-    }
-    if input_note_records.len() > 1 {
-        let input_note_record_ids = input_note_records
-            .iter()
-            .map(|input_note_record| input_note_record.id())
-            .collect::<Vec<_>>();
-        tracing::error!(
-            "Multiple notes found for the prefix {}: {:?}",
-            note_id_prefix,
-            input_note_record_ids
-        );
-        return Err(IdPrefixFetchError::MultipleMatches(
-            format!("note ID prefix {note_id_prefix}").to_string(),
-        ));
-    }
-
-    Ok(input_note_records
-        .pop()
-        .expect("input_note_records should always have one element"))
 }
 
 /// Returns the client output note whose ID starts with `note_id_prefix`
