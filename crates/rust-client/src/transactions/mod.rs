@@ -7,7 +7,7 @@ use core::fmt;
 
 use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
-    accounts::{AccountDelta, AccountId, AccountType},
+    accounts::{Account, AccountDelta, AccountId, AccountType},
     assembly::ProgramAst,
     assets::{
         Asset::{Fungible, NonFungible},
@@ -419,16 +419,15 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         (fungible_balance_map, non_fungible_set)
     }
 
-    #[maybe_async]
-    fn validate_request(
+    fn validate_basic_account_request(
         &self,
         transaction_request: &TransactionRequest,
+        account: &Account,
     ) -> Result<(), ClientError> {
         let (fungible_balance_map, non_fungible_set) =
             self.calculate_outgoing_assets(transaction_request);
 
         // Get client assets
-        let (account, _) = maybe_await!(self.get_account(transaction_request.account_id()))?;
 
         // Check if the fungible assets are less than or equal to the account asset
         for (faucet_id, amount) in fungible_balance_map {
@@ -462,6 +461,63 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         }
 
         Ok(())
+    }
+
+    fn validate_faucet_account_request(
+        &self,
+        transaction_request: &TransactionRequest,
+        account: &Account,
+    ) -> Result<(), ClientError> {
+        let own_notes_assets = match transaction_request.script_template() {
+            Some(TransactionScriptTemplate::SendNotes(notes)) => notes
+                .iter()
+                .map(|note| note.assets())
+                .flat_map(|assets| assets.iter())
+                .collect::<Vec<_>>(),
+            _ => Default::default(),
+        };
+
+        // Faucet account can only mint one asset (itself)
+        if own_notes_assets.len() > 1 {
+            return Err(ClientError::TransactionRequestError(
+                TransactionRequestError::InvalidFaucetMint(
+                    "Faucet can only mint one asset".to_string(),
+                ),
+            ));
+        }
+
+        // If there are no assets to mint, return
+        if own_notes_assets.is_empty() {
+            return Ok(());
+        };
+
+        // Faucet account can only mint assets of its own type
+        let asset_to_mint = own_notes_assets[0];
+
+        if asset_to_mint.faucet_id() != account.id() {
+            return Err(ClientError::TransactionRequestError(
+                TransactionRequestError::InvalidFaucetMint(format!(
+                    "Faucet account can only mint assets of its own type. Expected: {}, got: {}",
+                    account.id(),
+                    asset_to_mint.faucet_id()
+                )),
+            ));
+        };
+
+        Ok(())
+    }
+
+    #[maybe_async]
+    fn validate_request(
+        &self,
+        transaction_request: &TransactionRequest,
+    ) -> Result<(), ClientError> {
+        let (account, _) = maybe_await!(self.get_account(transaction_request.account_id()))?;
+        if account.is_faucet() {
+            self.validate_faucet_account_request(transaction_request, &account)
+        } else {
+            self.validate_basic_account_request(transaction_request, &account)
+        }
     }
 
     /// Helper to build a [TransactionRequest] for P2ID-type transactions easily.

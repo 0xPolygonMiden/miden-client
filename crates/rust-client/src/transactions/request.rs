@@ -268,6 +268,7 @@ pub enum TransactionRequestError {
     InvalidTransactionScript(AssemblyError),
     NoInputNotes,
     ScriptTemplateError(String),
+    InvalidFaucetMint(String),
 }
 impl fmt::Display for TransactionRequestError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -279,6 +280,7 @@ impl fmt::Display for TransactionRequestError {
             Self::InvalidTransactionScript(err) => write!(f, "Invalid transaction script: {}", err),
             Self::NoInputNotes => write!(f, "A transaction without output notes must have at least one input note"),
             Self::ScriptTemplateError(err) => write!(f, "Transaction script template error: {}", err),
+            Self::InvalidFaucetMint(err) => write!(f, "Faucet mint error: {}", err),
         }
     }
 }
