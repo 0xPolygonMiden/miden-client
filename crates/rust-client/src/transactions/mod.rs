@@ -377,10 +377,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
-    fn calculate_outgoing_assets<'a>(
-        &'a self,
-        transaction_request: &'a TransactionRequest,
-    ) -> (BTreeMap<AccountId, u64>, BTreeSet<&NonFungibleAsset>) {
+    fn calculate_outgoing_assets(
+        &self,
+        transaction_request: &TransactionRequest,
+    ) -> (BTreeMap<AccountId, u64>, BTreeSet<NonFungibleAsset>) {
         // Get own notes assets
         let own_notes_assets = match transaction_request.script_template() {
             Some(TransactionScriptTemplate::SendNotes(notes)) => {
@@ -388,7 +388,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             },
             _ => vec![],
         };
-
         // Get transaction output notes assets
         let mut output_notes_assets = transaction_request
             .expected_output_notes()
@@ -396,10 +395,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             .collect::<BTreeMap<_, _>>();
 
         // Merge with own notes assets and delete duplicates
-        output_notes_assets.append(&mut BTreeMap::from_iter(own_notes_assets.into_iter()));
+        output_notes_assets.append(&mut BTreeMap::from_iter(own_notes_assets));
 
         let mut fungible_balance_map: BTreeMap<AccountId, u64> = BTreeMap::new();
-        let mut non_fungible_set: BTreeSet<&NonFungibleAsset> = BTreeSet::new();
+        let mut non_fungible_set: BTreeSet<NonFungibleAsset> = BTreeSet::new();
 
         // Create a map of the fungible and non-fungible assets in the output notes
         output_notes_assets
@@ -413,7 +412,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                         .or_insert(fungible.amount());
                 },
                 NonFungible(non_fungible) => {
-                    non_fungible_set.insert(non_fungible);
+                    non_fungible_set.insert(*non_fungible);
                 },
             });
 
@@ -425,37 +424,36 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         &self,
         transaction_request: &TransactionRequest,
     ) -> Result<(), ClientError> {
-        let (fungible_balance_map, non_fungible_vec) =
+        let (fungible_balance_map, non_fungible_set) =
             self.calculate_outgoing_assets(transaction_request);
 
         // Get client assets
         let (account, _) = maybe_await!(self.get_account(transaction_request.account_id()))?;
-        let account_assets = account.vault().assets();
+        let mut account_assets = account.vault().assets();
 
-        // Check if the output notes assets are less than or equal to the account assets
-        for account_asset in account_assets {
-            match account_asset {
-                Fungible(account_fungible) => {
-                    if let Some(&required_amount) =
-                        fungible_balance_map.get(&account_fungible.faucet_id())
-                    {
-                        if account_fungible.amount() < required_amount {
-                            return Err(ClientError::AssetError(
-                                AssetError::AssetAmountNotSufficient(
-                                    account_fungible.amount(),
-                                    required_amount,
-                                ),
-                            ));
-                        }
-                    }
-                },
-                NonFungible(account_non_fungible) => {
-                    if !non_fungible_vec.contains(&&account_non_fungible) {
-                        return Err(ClientError::AssetError(AssetError::AssetAmountNotSufficient(
-                            1, 0,
-                        )));
-                    }
-                },
+        // Check if the fungible assets are less than or equal to the account assets
+        for (faucet_id, amount) in fungible_balance_map {
+            if let Some(account_asset) = account_assets.find(|account_asset| match account_asset {
+                Fungible(account_fungible) => account_fungible.faucet_id() == faucet_id,
+                NonFungible(_) => false,
+            }) {
+                let account_asset_amount = account_asset.unwrap_fungible().amount();
+                if account_asset_amount < amount {
+                    return Err(ClientError::AssetError(AssetError::AssetAmountNotSufficient(
+                        account_asset_amount,
+                        amount,
+                    )));
+                }
+            }
+        }
+
+        // Check if the non fungible assets are less than or equal to the account assets
+        for non_fungible in non_fungible_set {
+            if !account_assets.any(|asset| match asset {
+                Fungible(_) => false,
+                NonFungible(account_non_fungible) => account_non_fungible == non_fungible,
+            }) {
+                return Err(ClientError::AssetError(AssetError::AssetAmountNotSufficient(1, 0)));
             }
         }
 
