@@ -11,7 +11,7 @@ use miden_objects::{
     assembly::ProgramAst,
     assets::{
         Asset::{Fungible, NonFungible},
-        FungibleAsset, NonFungibleAsset
+        FungibleAsset, NonFungibleAsset,
     },
     notes::{Note, NoteDetails, NoteExecutionMode, NoteId, NoteTag, NoteType},
     transaction::{InputNotes, TransactionArgs},
