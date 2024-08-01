@@ -111,9 +111,9 @@ build-wasm: ## Builds the client library for wasm32
 # --- Check ---------------------------------------------------------------------------------------
 
 .PHONY: check
-check: ## Builds the CLI binary and client library in release mode
+check: ## Runs Check in the CLI binary and client library in release mode
 	cargo check --release --features $(FEATURES_CLI)
 
 .PHONY: check-wasm
-check-wasm: ## Builds the client library for wasm32
+check-wasm: ## Runs Check in the client library for wasm32
 	cargo check --target wasm32-unknown-unknown --features idxdb,web-tonic --no-default-features --package miden-client
