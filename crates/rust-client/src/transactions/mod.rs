@@ -377,10 +377,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
-    fn calculate_outgoing_assets(
-        &self,
-        transaction_request: &TransactionRequest,
-    ) -> (&BTreeMap<AccountId, u64>, BTreeSet<&NonFungibleAsset>) {
+    fn calculate_outgoing_assets<'a>(
+        &'a self,
+        transaction_request: &'a TransactionRequest,
+    ) -> (BTreeMap<AccountId, u64>, BTreeSet<&NonFungibleAsset>) {
         // Get own notes assets
         let own_notes_assets = match transaction_request.script_template() {
             Some(TransactionScriptTemplate::SendNotes(notes)) => {
@@ -394,33 +394,30 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             .expected_output_notes()
             .map(|note| (note.id(), note.assets()))
             .collect::<BTreeMap<_, _>>();
-            
+
         // Merge with own notes assets and delete duplicates
-        output_notes_assets
-        .append(
-            &mut BTreeMap::from_iter(
-                own_notes_assets
-                .into_iter()
-            )
-        );
+        output_notes_assets.append(&mut BTreeMap::from_iter(own_notes_assets.into_iter()));
 
         let mut fungible_balance_map: BTreeMap<AccountId, u64> = BTreeMap::new();
-        let mut non_fungible_vec: BTreeSet<&NonFungibleAsset> = BTreeSet::new(); 
+        let mut non_fungible_set: BTreeSet<&NonFungibleAsset> = BTreeSet::new();
 
         // Create a map of the fungible and non-fungible assets in the output notes
-        for asset in output_notes_assets.iter().flat_map(|(_, note_assets)| note_assets.iter()) {
-            match asset {
+        output_notes_assets
+            .values()
+            .flat_map(|note_assets| note_assets.iter())
+            .for_each(|asset| match asset {
                 Fungible(fungible) => {
-                    *fungible_balance_map.entry(fungible.faucet_id()).or_insert(0) +=
-                        fungible.amount();
+                    fungible_balance_map
+                        .entry(fungible.faucet_id())
+                        .and_modify(|balance| *balance += fungible.amount())
+                        .or_insert(fungible.amount());
                 },
                 NonFungible(non_fungible) => {
-                    non_fungible_vec.insert(non_fungible);
+                    non_fungible_set.insert(non_fungible);
                 },
-            }
-        }
+            });
 
-        (&fungible_balance_map, non_fungible_vec)
+        (fungible_balance_map, non_fungible_set)
     }
 
     #[maybe_async]
