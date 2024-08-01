@@ -97,7 +97,10 @@ pub async fn execute_failing_tx(
 ) {
     println!("Executing transaction...");
     // We compare string since we can't compare the error directly
-    assert!(matches!(client.new_transaction(tx_request).unwrap_err(), expected_error));
+    assert_eq!(
+        client.new_transaction(tx_request).unwrap_err().to_string(),
+        expected_error.to_string()
+    );
 }
 
 pub async fn execute_tx(client: &mut TestClient, tx_request: TransactionRequest) -> TransactionId {
