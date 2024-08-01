@@ -15,23 +15,23 @@ NODE_BRANCH="next"
 # --- Linting -------------------------------------------------------------------------------------
 
 .PHONY: clippy
- clippy: ## Runs Clippy with configs
+ clippy: ## Run Clippy with configs
 	cargo +nightly clippy --workspace --all-targets --features $(FEATURES_CLI) -- -D warnings
 
 .PHONY: fix
-fix: ## Runs Fix with configs
+fix: ## Run Fix with configs
 	cargo +nightly fix --allow-staged --allow-dirty --all-targets --features $(FEATURES_CLI)
 
 .PHONY: format
-format: ## Runs format using nightly toolchain
+format: ## Run format using nightly toolchain
 	cargo +nightly fmt --all
 
 .PHONY: format-check
-format-check: ## Runs format using nightly toolchain but only in check mode
+format-check: ## Run format using nightly toolchain but only in check mode
 	cargo +nightly fmt --all --check
 
 .PHONY: lint
-lint: format fix clippy ## Runs all linting tasks at once (clippy, fixing, formatting)
+lint: format fix clippy ## Run all linting tasks at once (clippy, fixing, formatting)
 
 # --- Documentation site --------------------------------------------------------------------------
 
@@ -50,7 +50,7 @@ doc-serve: doc-deps ## Serve documentation site
 # --- Rust documentation --------------------------------------------------------------------------
 
 .PHONY: doc
-doc: ## Generates & checks rust documentation. You'll need `jq` in order for this to run.
+doc: ## Generate & check rust documentation. You'll need `jq` in order for this to run.
 	@cd crates/rust-client && \
 	FEATURES=$$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "miden-client") | .features | keys[] | select(. != "web-tonic")' | tr '\n' ',') && \
 	RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --features "$$FEATURES" --keep-going --release
@@ -97,23 +97,23 @@ start-node: ## Run node. This requires the node repo to be present at `miden-nod
 
 # --- Installing ----------------------------------------------------------------------------------
 
-install: ## Installs the CLI binary
+install: ## Install the CLI binary
 	cargo install --features $(FEATURES_CLI) --path bin/miden-cli
 
 # --- Building ------------------------------------------------------------------------------------
 
-build: ## Builds the CLI binary and client library in release mode
+build: ## Build the CLI binary and client library in release mode
 	cargo build --release --features $(FEATURES_CLI)
 
-build-wasm: ## Builds the client library for wasm32
+build-wasm: ## Build the client library for wasm32
 	cargo build --target wasm32-unknown-unknown --features idxdb,web-tonic --no-default-features --package miden-client
 
 # --- Check ---------------------------------------------------------------------------------------
 
 .PHONY: check
-check: ## Builds the CLI binary and client library in release mode
+check: ## Check CLI and std client for errors without code generation
 	cargo check --release --features $(FEATURES_CLI)
 
 .PHONY: check-wasm
-check-wasm: ## Builds the client library for wasm32
+check-wasm: ## Check WASM client for errors without code generation
 	cargo check --target wasm32-unknown-unknown --features idxdb,web-tonic --no-default-features --package miden-client
