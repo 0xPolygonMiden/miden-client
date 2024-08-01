@@ -6,21 +6,30 @@ help: ## Show description of all commands
 
 # --- Variables -----------------------------------------------------------------------------------
 
-FEATURES_CLIENT="testing, concurrent"
-FEATURES_CLI="testing, concurrent"
-NODE_FEATURES_TESTING="testing"
+FEATURES_WEB_CLIENT=--features "testing"
+FEATURES_CLIENT=--features "testing, concurrent"
+FEATURES_CLI=--features "testing, concurrent"
+NODE_FEATURES_TESTING=--features "testing"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
 NODE_BRANCH="next"
 
 # --- Linting -------------------------------------------------------------------------------------
 
 .PHONY: clippy
- clippy: ## Run Clippy with configs
-	cargo +nightly clippy --workspace --all-targets --features $(FEATURES_CLI) -- -D warnings
+ clippy: ## Runs Clippy with configs
+	cargo +nightly clippy --workspace --exclude miden-client-web --all-targets $(FEATURES_CLI) -- -D warnings
+
+.PHONY: clippy-wasm
+ clippy-wasm: ## Runs Clippy for the miden-client-web package
+	cargo +nightly clippy --package miden-client-web --target wasm32-unknown-unknown --all-targets $(FEATURES_WEB_CLIENT) -- -D warnings
 
 .PHONY: fix
-fix: ## Run Fix with configs
-	cargo +nightly fix --allow-staged --allow-dirty --all-targets --features $(FEATURES_CLI)
+fix: ## Runs Fix with configs
+	cargo +nightly fix --workspace --exclude miden-client-web --allow-staged --allow-dirty --all-targets $(FEATURES_CLI)
+
+.PHONY: fix-wasm
+fix-wasm: ## Runs Fix for the miden-client-web package
+	cargo +nightly fix --package miden-client-web --target wasm32-unknown-unknown --allow-staged --allow-dirty --all-targets $(FEATURES_WEB_CLIENT)
 
 .PHONY: format
 format: ## Run format using nightly toolchain
@@ -31,7 +40,7 @@ format-check: ## Run format using nightly toolchain but only in check mode
 	cargo +nightly fmt --all --check
 
 .PHONY: lint
-lint: format fix clippy ## Run all linting tasks at once (clippy, fixing, formatting)
+lint: format fix clippy fix-wasm clippy-wasm ## Runs all linting tasks at once (clippy, fixing, formatting)
 
 # --- Documentation site --------------------------------------------------------------------------
 
@@ -52,14 +61,14 @@ doc-serve: doc-deps ## Serve documentation site
 .PHONY: doc
 doc: ## Generate & check rust documentation. You'll need `jq` in order for this to run.
 	@cd crates/rust-client && \
-	FEATURES=$$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "miden-client") | .features | keys[] | select(. != "web-tonic")' | tr '\n' ',') && \
+	FEATURES=$$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "miden-client") | .features | keys[] | select(. != "web-tonic" and . != "idxdb")' | tr '\n' ',') && \
 	RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --features "$$FEATURES" --keep-going --release
 
 # --- Testing -------------------------------------------------------------------------------------
 
 .PHONY: test
 test: ## Run tests
-	cargo nextest run --release --lib --features $(FEATURES_CLIENT)
+	cargo nextest run --workspace --exclude miden-client-web --release --lib $(FEATURES_CLIENT)
 
 .PHONY: test-deps
 test-deps: ## Install dependencies for tests
@@ -69,12 +78,12 @@ test-deps: ## Install dependencies for tests
 
 .PHONY: integration-test
 integration-test: ## Run integration tests
-	cargo nextest run --release --test=integration --features $(FEATURES_CLI) --no-default-features
+	cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) --no-default-features
 
 .PHONY: integration-test-full
 integration-test-full: ## Run the integration test binary with ignored tests included
-	cargo nextest run --release --test=integration --features $(FEATURES_CLI)
-	cargo nextest run --release --test=integration --features $(FEATURES_CLI) --run-ignored ignored-only -- test_import_genesis_accounts_can_be_used_for_transactions
+	cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI)
+	cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) --run-ignored ignored-only -- test_import_genesis_accounts_can_be_used_for_transactions
 
 .PHONY: kill-node
 kill-node: ## Kill node process
@@ -89,31 +98,31 @@ node: ## Setup node directory
 	if [ -d miden-node ]; then cd miden-node ; else git clone https://github.com/0xPolygonMiden/miden-node.git && cd miden-node; fi
 	cd miden-node && git checkout $(NODE_BRANCH) && git pull origin $(NODE_BRANCH) && cargo update
 	cd miden-node && rm -rf miden-store.sqlite3*
-	cd miden-node && cargo run --bin miden-node --features $(NODE_FEATURES_TESTING) -- make-genesis --inputs-path ../tests/config/genesis.toml --force
+	cd miden-node && cargo run --bin miden-node $(NODE_FEATURES_TESTING) -- make-genesis --inputs-path ../tests/config/genesis.toml --force
 
 .PHONY: start-node
 start-node: ## Run node. This requires the node repo to be present at `miden-node`
-	cd miden-node && cargo run --bin miden-node --features $(NODE_FEATURES_TESTING) -- start --config ../tests/config/miden-node.toml node
+	cd miden-node && cargo run --bin miden-node $(NODE_FEATURES_TESTING) -- start --config ../tests/config/miden-node.toml node
 
 # --- Installing ----------------------------------------------------------------------------------
 
-install: ## Install the CLI binary
-	cargo install --features $(FEATURES_CLI) --path bin/miden-cli
+install: ## Installs the CLI binary
+	cargo install $(FEATURES_CLI) --path bin/miden-cli
 
 # --- Building ------------------------------------------------------------------------------------
 
-build: ## Build the CLI binary and client library in release mode
-	cargo build --release --features $(FEATURES_CLI)
+build: ## Builds the CLI binary and client library in release mode
+	cargo build --workspace --exclude miden-client-web --release $(FEATURES_CLI)
 
-build-wasm: ## Build the client library for wasm32
-	cargo build --target wasm32-unknown-unknown --features idxdb,web-tonic --no-default-features --package miden-client
+build-wasm: ## Builds the client library for wasm32
+	cargo build --package miden-client-web --target wasm32-unknown-unknown $(FEATURES_WEB_CLIENT)
 
 # --- Check ---------------------------------------------------------------------------------------
 
 .PHONY: check
-check: ## Check CLI and std client for errors without code generation
-	cargo check --release --features $(FEATURES_CLI)
+check: ## Builds the CLI binary and client library in release mode
+	cargo check --workspace --exclude miden-client-web --release $(FEATURES_CLI)
 
 .PHONY: check-wasm
-check-wasm: ## Check WASM client for errors without code generation
-	cargo check --target wasm32-unknown-unknown --features idxdb,web-tonic --no-default-features --package miden-client
+check-wasm: ## Builds the client library for wasm32
+	cargo check --package miden-client-web --target wasm32-unknown-unknown $(FEATURES_WEB_CLIENT)

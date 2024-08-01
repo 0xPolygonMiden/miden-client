@@ -72,9 +72,7 @@ pub mod testing {
     pub use miden_objects::accounts::account_id::testing::*;
 }
 
-use alloc::rc::Rc;
-#[cfg(feature = "testing")]
-use alloc::vec::Vec;
+use alloc::{rc::Rc, vec::Vec};
 
 use miden_objects::crypto::rand::FeltRng;
 use miden_tx::{auth::TransactionAuthenticator, TransactionExecutor};
@@ -150,7 +148,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         &mut self.rpc_api
     }
 
-    #[cfg(any(test, feature = "testing"))]
+    // TODO: the idxdb feature access here is temporary and should be removed in the future once
+    // a good solution to the syncrhonous store access in the store authenticator is found.
+    // https://github.com/0xPolygonMiden/miden-base/issues/705
+    #[cfg(any(test, feature = "testing", feature = "idxdb"))]
     pub fn store(&mut self) -> &S {
         &self.store
     }

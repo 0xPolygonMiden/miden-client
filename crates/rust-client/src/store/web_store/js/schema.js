@@ -36,14 +36,14 @@ db.version(1).stores({
   [Table.AccountStorage]: indexes('root'),
   [Table.AccountVaults]: indexes('root'),
   [Table.AccountAuth]: indexes('accountId', 'pubKey'),
-  [Table.Accounts]: indexes('[id+nonce]', 'codeRoot', 'storageRoot', 'vaultRoot'),
+  [Table.Accounts]: indexes('[id+nonce]', 'codeRoot', 'storageRoot', 'vaultRoot', 'accountHash'),
   [Table.Transactions]: indexes('id'),
   [Table.TransactionScripts]: indexes('scriptHash'),
-  [Table.InputNotes]: indexes('noteId', 'recipient', 'status'),
-  [Table.OutputNotes]: indexes('noteId', 'recipient', 'status'),
+  [Table.InputNotes]: indexes('noteId', 'recipient', 'status', 'importedTag', 'ignored'),
+  [Table.OutputNotes]: indexes('noteId', 'recipient', 'status', 'importedTag', 'ignored'),
   [Table.NotesScripts]: indexes('scriptHash'),
   [Table.StateSync]: indexes('id'),
-  [Table.BlockHeaders]: indexes('blockNum'),
+  [Table.BlockHeaders]: indexes('blockNum', 'hasClientNotes'),
   [Table.ChainMmrNodes]: indexes('id'),
 });
 

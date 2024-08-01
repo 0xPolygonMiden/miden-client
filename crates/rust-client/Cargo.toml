@@ -32,15 +32,15 @@ chrono = { version = "0.4", optional = false }
 getrandom = { version = "0.2", features = ["js"], optional = true }
 hex = { version = "0.4" , optional = true}
 lazy_static = { version = "1.5", optional = true }
-miden-lib = { default-features = false, git = "https://github.com/0xPolygonMiden/miden-base", branch = "next"}
-miden-objects = { default-features = false, features = ["serde"], git = "https://github.com/0xPolygonMiden/miden-base", branch = "next" }
-miden-tx = { default-features = false , git = "https://github.com/0xPolygonMiden/miden-base", branch = "next" }
+miden-lib = { workspace = true }
+miden-objects = { workspace = true }
+miden-tx = { workspace = true }
 prost = { version = "0.12", optional = true, default-features = false, features = ["derive"] }
 rand = { workspace = true }
 rusqlite = { version = "0.31", features = ["vtab", "array", "bundled"], optional = true }
 rusqlite_migration = { version = "1.0", optional = true }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = { version = "1.0", features = ["raw_value"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
 serde-wasm-bindgen = { version = "0.6", optional = true }
 thiserror = { version = "1.0", optional = true }
 tokio = { workspace = true , optional = true }

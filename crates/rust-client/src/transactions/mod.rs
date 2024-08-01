@@ -10,9 +10,9 @@ use miden_objects::{
     accounts::{AccountDelta, AccountId, AccountType},
     assembly::ProgramAst,
     assets::FungibleAsset,
-    notes::{Note, NoteDetails, NoteId, NoteType},
+    notes::{Note, NoteDetails, NoteExecutionHint, NoteId, NoteTag, NoteType},
     transaction::{InputNotes, TransactionArgs},
-    Digest, Felt, FieldElement, Word,
+    Digest, Felt, FieldElement, NoteError, Word,
 };
 use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, TransactionProver};
 use request::{TransactionRequestError, TransactionScriptTemplate};
@@ -501,4 +501,43 @@ pub fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &No
                 todo!("For now, all details should be held in OutputNote::Fulls")
             },
         })
+}
+
+/// Returns a note tag for a swap note with the specified parameters.
+///
+/// Use case ID for the returned tag is set to 0.
+///
+/// Tag payload is constructed by taking asset tags (8 bits of faucet ID) and concatenating them
+/// together as offered_asset_tag + requested_asset tag.
+///
+/// Network execution hint for the returned tag is set to `Local`.
+///
+/// Based on miden-base's implementation (<https://github.com/0xPolygonMiden/miden-base/blob/9e4de88031b55bcc3524cb0ccfb269821d97fb29/miden-lib/src/notes/mod.rs#L153>)
+///
+/// TODO: we should make the function in base public and once that gets released use that one and
+/// delete this implementation.
+pub fn build_swap_tag(
+    note_type: NoteType,
+    offered_asset_faucet_id: AccountId,
+    requested_asset_faucet_id: AccountId,
+) -> Result<NoteTag, NoteError> {
+    const SWAP_USE_CASE_ID: u16 = 0;
+
+    // get bits 4..12 from faucet IDs of both assets, these bits will form the tag payload; the
+    // reason we skip the 4 most significant bits is that these encode metadata of underlying
+    // faucets and are likely to be the same for many different faucets.
+
+    let offered_asset_id: u64 = offered_asset_faucet_id.into();
+    let offered_asset_tag = (offered_asset_id >> 52) as u8;
+
+    let requested_asset_id: u64 = requested_asset_faucet_id.into();
+    let requested_asset_tag = (requested_asset_id >> 52) as u8;
+
+    let payload = ((offered_asset_tag as u16) << 8) | (requested_asset_tag as u16);
+
+    let execution = NoteExecutionHint::Local;
+    match note_type {
+        NoteType::Public => NoteTag::for_public_use_case(SWAP_USE_CASE_ID, payload, execution),
+        _ => NoteTag::for_local_use_case(SWAP_USE_CASE_ID, payload),
+    }
 }

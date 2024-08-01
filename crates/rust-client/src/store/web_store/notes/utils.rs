@@ -317,7 +317,7 @@ pub fn parse_input_note_idxdb_object(
     };
 
     let imported_tag_as_u32: Option<u32> =
-        note_idxdb.imported_tag.as_ref().map(|tag| tag.parse::<u32>().ok()).flatten();
+        note_idxdb.imported_tag.as_ref().and_then(|tag| tag.parse::<u32>().ok());
 
     Ok(InputNoteRecord::new(
         id,

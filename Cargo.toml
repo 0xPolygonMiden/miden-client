@@ -4,6 +4,7 @@ resolver = "2"
 members = [
   "bin/miden-cli",
   "crates/rust-client",
+  "crates/web-client",
   "tests"
 ]
 
@@ -15,6 +16,11 @@ authors = ["miden contributors"]
 repository = "https://github.com/0xPolygonMiden/miden-client"
 
 [workspace.dependencies]
+miden-lib = { default-features = false, git = "https://github.com/0xPolygonMiden/miden-base", branch = "next"}
+miden-objects = { default-features = false, features = ["serde"], git = "https://github.com/0xPolygonMiden/miden-base", branch = "next" }
+miden-tx = { default-features = false , git = "https://github.com/0xPolygonMiden/miden-base", branch = "next" }
 rand = { version = "0.8" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0", features = ["raw_value"] }
 tokio = { version = "1.38", features = ["rt-multi-thread", "net", "macros"] }
 tracing = { version = "0.1" }

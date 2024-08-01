@@ -5,16 +5,14 @@ use miden_client::{
     assets::Asset,
     auth::TransactionAuthenticator,
     crypto::{Digest, FeltRng},
-    notes::{NoteConsumability, NoteInputs, NoteMetadata},
+    notes::{get_input_note_with_id_prefix, NoteConsumability, NoteInputs, NoteMetadata},
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
     transactions::known_script_roots::{P2ID, P2IDR, SWAP},
     Client, ClientError, IdPrefixFetchError,
 };
 
-use crate::{
-    create_dynamic_table, get_input_note_with_id_prefix, get_output_note_with_id_prefix, Parser,
-};
+use crate::{create_dynamic_table, get_output_note_with_id_prefix, Parser};
 
 #[derive(Clone, Debug, ValueEnum)]
 pub enum NoteFilter {

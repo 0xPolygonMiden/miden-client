@@ -15,7 +15,7 @@ export async function insertBlockHeader(
             blockNum: blockNum,
             header: header,
             chainMmrPeaks: chainMmrPeaks,
-            hasClientNotes: hasClientNotes
+            hasClientNotes: hasClientNotes.toString()
         };
 
         const existingBlockHeader = await blockHeaders.get(blockNum);
@@ -23,7 +23,15 @@ export async function insertBlockHeader(
         if (!existingBlockHeader) {
             await blockHeaders.add(data);
         } else {
-            console.log("Block header already exists, ignoring.");
+            console.log("Block header already exists, checking for update.");
+
+            // Update the hasClientNotes if the existing value is false
+            if (existingBlockHeader.hasClientNotes === 'false' && hasClientNotes) {
+                await blockHeaders.update(blockNum, { hasClientNotes: hasClientNotes.toString() });
+                console.log("Updated hasClientNotes to true.");
+            } else {
+                console.log("No update needed for hasClientNotes.");
+            }
         }
     } catch (err) {
         console.error("Failed to insert block header: ", err);
@@ -65,7 +73,7 @@ export async function getBlockHeaders(
                     block_num: results[index].blockNum,
                     header: results[index].header,
                     chain_mmr: results[index].chainMmrPeaks,
-                    has_client_notes: results[index].hasClientNotes
+                    has_client_notes: results[index].hasClientNotes === "true"
                 }
             }
         });
@@ -82,9 +90,17 @@ export async function getTrackedBlockHeaders() {
         // Fetch all records matching the given root
         const allMatchingRecords = await blockHeaders
             .where('hasClientNotes')
-            .equals(true)
+            .equals("true")
             .toArray();
-        return allMatchingRecords;
+        // Convert hasClientNotes from string to boolean
+        const processedRecords = allMatchingRecords.map(record => ({
+            block_num: record.blockNum,
+            header: record.header,
+            chain_mmr: record.chainMmrPeaks,
+            has_client_notes: record.hasClientNotes === 'true'
+        }));
+
+        return processedRecords;
     } catch (err) {
         console.error("Failed to get tracked block headers: ", err);
         throw err;

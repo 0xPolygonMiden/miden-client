@@ -17,6 +17,19 @@ jobs:
           rustup +nightly component add clippy
       - name: make - clippy
         run: make clippy
+  
+  clippy-wasm:
+    name: Clippy WASM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - name: Install Rust with clippy
+        run: |
+          rustup update --no-self-update nightly
+          rustup target add wasm32-unknown-unknown --toolchain nightly
+          rustup +nightly component add clippy
+      - name: make - clippy-wasm
+        run: make clippy-wasm
 
   rustfmt:
     name: rustfmt
