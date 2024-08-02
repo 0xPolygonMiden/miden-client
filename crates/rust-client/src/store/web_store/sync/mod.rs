@@ -126,16 +126,12 @@ impl WebStore {
             .updated_output_notes()
             .iter()
             .map(|(_, inclusion_proof)| {
-                let block_num = inclusion_proof.origin().block_num;
-                let sub_hash = inclusion_proof.sub_hash();
-                let note_root = inclusion_proof.note_root();
-                let note_index = inclusion_proof.origin().node_index.value();
+                let block_num = inclusion_proof.location().block_num();
+                let note_index = inclusion_proof.location().node_index_in_block();
 
                 // Create a NoteInclusionProof and serialize it to JSON, handle errors with `?`
                 let proof = NoteInclusionProof::new(
                     block_num,
-                    sub_hash,
-                    note_root,
                     note_index,
                     inclusion_proof.note_path().clone(),
                 )

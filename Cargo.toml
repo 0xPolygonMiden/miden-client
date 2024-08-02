@@ -8,6 +8,8 @@ members = [
   "tests"
 ]
 
+default-members = ["crates/rust-client", "bin/miden-cli"]
+
 [workspace.package]
 edition = "2021"
 rust-version = "1.78"

@@ -26,8 +26,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             let block_num = note
                 .inclusion_proof()
                 .expect("Commited notes should have inclusion proofs")
-                .origin()
-                .block_num;
+                .location()
+                .block_num();
             self.get_and_store_authenticated_block(block_num, &mut current_partial_mmr)
                 .await?;
         }

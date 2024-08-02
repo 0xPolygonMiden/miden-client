@@ -114,8 +114,8 @@ pub trait Store {
                         &note
                             .inclusion_proof()
                             .expect("Committed note should have inclusion proof")
-                            .origin()
-                            .block_num,
+                            .location()
+                            .block_num(),
                     )
                 })
                 .collect();

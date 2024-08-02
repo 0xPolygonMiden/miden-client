@@ -81,15 +81,11 @@ pub(crate) fn serialize_input_note(
 
     let (inclusion_proof, status) = match note.inclusion_proof() {
         Some(proof) => {
-            let block_num = proof.origin().block_num;
-            let node_index = proof.origin().node_index.value();
-            let sub_hash = proof.sub_hash();
-            let note_root = proof.note_root();
+            let block_num = proof.location().block_num();
+            let node_index = proof.location().node_index_in_block();
 
             let inclusion_proof = serde_json::to_string(&NoteInclusionProof::new(
                 block_num,
-                sub_hash,
-                note_root,
                 node_index,
                 proof.note_path().clone(),
             )?)
@@ -166,15 +162,11 @@ pub(crate) fn serialize_output_note(
     let note_assets = note.assets().to_bytes();
     let (inclusion_proof, status) = match note.inclusion_proof() {
         Some(proof) => {
-            let block_num = proof.origin().block_num;
-            let node_index = proof.origin().node_index.value();
-            let sub_hash = proof.sub_hash();
-            let note_root = proof.note_root();
+            let block_num = proof.location().block_num();
+            let node_index = proof.location().node_index_in_block();
 
             let inclusion_proof = serde_json::to_string(&NoteInclusionProof::new(
                 block_num,
-                sub_hash,
-                note_root,
                 node_index,
                 proof.note_path().clone(),
             )?)
@@ -297,7 +289,7 @@ pub fn parse_input_note_idxdb_object(
         NOTE_STATUS_COMMITTED => NoteStatus::Committed {
             block_height: inclusion_proof
                 .clone()
-                .map(|proof| proof.origin().block_num as u64)
+                .map(|proof| proof.location().block_num() as u64)
                 .expect("Committed note should have inclusion proof"),
         },
         NOTE_STATUS_PROCESSING => NoteStatus::Processing {
@@ -392,7 +384,7 @@ pub fn parse_output_note_idxdb_object(
         NOTE_STATUS_COMMITTED => NoteStatus::Committed {
             block_height: inclusion_proof
                 .clone()
-                .map(|proof| proof.origin().block_num as u64)
+                .map(|proof| proof.location().block_num() as u64)
                 .expect("Committed note should have inclusion proof"),
         },
         NOTE_STATUS_PROCESSING => NoteStatus::Processing {
