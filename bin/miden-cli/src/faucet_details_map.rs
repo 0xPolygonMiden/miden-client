@@ -11,9 +11,9 @@ pub struct FaucetDetails {
     pub id: String,
     pub decimals: u8,
 }
-pub struct FaucetDetailsProvider(BTreeMap<String, FaucetDetails>);
+pub struct FaucetDetailsMap(BTreeMap<String, FaucetDetails>);
 
-impl FaucetDetailsProvider {
+impl FaucetDetailsMap {
     pub fn new(token_symbol_map_filepath: PathBuf) -> Result<Self, String> {
         let token_symbol_map: BTreeMap<String, FaucetDetails> =
             match std::fs::read_to_string(token_symbol_map_filepath) {

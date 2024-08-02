@@ -13,8 +13,7 @@ use miden_client::{
 };
 
 use crate::{
-    create_dynamic_table, get_output_note_with_id_prefix, utils::load_faucet_details_provider,
-    Parser,
+    create_dynamic_table, get_output_note_with_id_prefix, utils::load_faucet_details_map, Parser,
 };
 
 #[derive(Clone, Debug, ValueEnum)]
@@ -235,14 +234,13 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator
         Cell::new("Faucet ID").add_attribute(Attribute::Bold),
         Cell::new("Amount").add_attribute(Attribute::Bold),
     ]);
-    let faucet_details_provider = load_faucet_details_provider()?;
+    let faucet_details_map = load_faucet_details_map()?;
     let assets = assets.iter();
 
     for asset in assets {
         let (asset_type, faucet, amount) = match asset {
             Asset::Fungible(fungible_asset) => {
-                let (faucet, amount) =
-                    faucet_details_provider.format_fungible_asset(fungible_asset);
+                let (faucet, amount) = faucet_details_map.format_fungible_asset(fungible_asset);
 
                 ("Fungible Asset", faucet, amount)
             },

@@ -19,9 +19,7 @@ use tracing::info;
 
 use crate::{
     create_dynamic_table,
-    utils::{
-        get_input_acc_id_by_prefix_or_default, load_faucet_details_provider, parse_account_id,
-    },
+    utils::{get_input_acc_id_by_prefix_or_default, load_faucet_details_map, parse_account_id},
 };
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -75,9 +73,9 @@ impl MintCmd {
         &self,
         client: &Client<N, R, S, A>,
     ) -> Result<TransactionTemplate, String> {
-        let faucet_details_provider = load_faucet_details_provider()?;
+        let faucet_details_map = load_faucet_details_map()?;
 
-        let fungible_asset = faucet_details_provider.parse_fungible_asset(&self.asset)?;
+        let fungible_asset = faucet_details_map.parse_fungible_asset(&self.asset)?;
 
         let target_account_id = parse_account_id(client, self.target_account_id.as_str())?;
 
@@ -133,9 +131,9 @@ impl SendCmd {
         &self,
         client: &Client<N, R, S, A>,
     ) -> Result<TransactionTemplate, String> {
-        let faucet_details_provider = load_faucet_details_provider()?;
+        let faucet_details_map = load_faucet_details_map()?;
 
-        let fungible_asset = faucet_details_provider.parse_fungible_asset(&self.asset)?;
+        let fungible_asset = faucet_details_map.parse_fungible_asset(&self.asset)?;
 
         // try to use either the provided argument or the default account
         let sender_account_id =
@@ -203,12 +201,12 @@ impl SwapCmd {
         &self,
         client: &Client<N, R, S, A>,
     ) -> Result<TransactionTemplate, String> {
-        let faucet_details_provider = load_faucet_details_provider()?;
+        let faucet_details_map = load_faucet_details_map()?;
 
         let offered_fungible_asset =
-            faucet_details_provider.parse_fungible_asset(&self.offered_asset)?;
+            faucet_details_map.parse_fungible_asset(&self.offered_asset)?;
         let requested_fungible_asset =
-            faucet_details_provider.parse_fungible_asset(&self.requested_asset)?;
+            faucet_details_map.parse_fungible_asset(&self.requested_asset)?;
 
         // try to use either the provided argument or the default account
         let sender_account_id =
@@ -414,14 +412,14 @@ fn print_transaction_details(transaction_result: &TransactionResult) -> Result<(
         || !account_delta.vault().removed_assets.is_empty();
 
     if has_vault_changes {
-        let faucet_details_provider = load_faucet_details_provider()?;
+        let faucet_details_map = load_faucet_details_map()?;
         let mut table = create_dynamic_table(&["Asset Type", "Faucet ID", "Amount"]);
 
         for asset in account_delta.vault().added_assets.iter() {
             let (asset_type, faucet_id, amount) = match asset {
                 Asset::Fungible(fungible_asset) => {
                     let (faucet_id, amount) =
-                        faucet_details_provider.format_fungible_asset(fungible_asset);
+                        faucet_details_map.format_fungible_asset(fungible_asset);
                     ("Fungible Asset", faucet_id, amount)
                 },
                 Asset::NonFungible(non_fungible_asset) => {
@@ -435,7 +433,7 @@ fn print_transaction_details(transaction_result: &TransactionResult) -> Result<(
             let (asset_type, faucet_id, amount) = match asset {
                 Asset::Fungible(fungible_asset) => {
                     let (faucet_id, amount) =
-                        faucet_details_provider.format_fungible_asset(fungible_asset);
+                        faucet_details_map.format_fungible_asset(fungible_asset);
                     ("Fungible Asset", faucet_id, amount)
                 },
                 Asset::NonFungible(non_fungible_asset) => {
