@@ -12,6 +12,7 @@
 * Fixed flaky integration tests (#410).
 * Added conversions for `NoteRecordDetails` (#392).
 * Changed `TransactionRequest` to use `AdviceInputs` instead of `AdviceMap` (#436).
+* Change schema and code to to reflect changes to `NoteOrigin` (#463).
 
 ## v0.4.0 (2024-07-05)
 
