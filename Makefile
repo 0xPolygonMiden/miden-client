@@ -16,19 +16,19 @@ NODE_BRANCH="next"
 # --- Linting -------------------------------------------------------------------------------------
 
 .PHONY: clippy
- clippy: ## Runs Clippy with configs
+ clippy: ## Run Clippy with configs
 	cargo +nightly clippy --workspace --exclude miden-client-web --all-targets $(FEATURES_CLI) -- -D warnings
 
 .PHONY: clippy-wasm
- clippy-wasm: ## Runs Clippy for the miden-client-web package
+ clippy-wasm: ## Run Clippy for the miden-client-web package
 	cargo +nightly clippy --package miden-client-web --target wasm32-unknown-unknown --all-targets $(FEATURES_WEB_CLIENT) -- -D warnings
 
 .PHONY: fix
-fix: ## Runs Fix with configs
+fix: ## Run Fix with configs
 	cargo +nightly fix --workspace --exclude miden-client-web --allow-staged --allow-dirty --all-targets $(FEATURES_CLI)
 
 .PHONY: fix-wasm
-fix-wasm: ## Runs Fix for the miden-client-web package
+fix-wasm: ## Run Fix for the miden-client-web package
 	cargo +nightly fix --package miden-client-web --target wasm32-unknown-unknown --allow-staged --allow-dirty --all-targets $(FEATURES_WEB_CLIENT)
 
 .PHONY: format
@@ -40,7 +40,7 @@ format-check: ## Run format using nightly toolchain but only in check mode
 	cargo +nightly fmt --all --check
 
 .PHONY: lint
-lint: format fix clippy fix-wasm clippy-wasm ## Runs all linting tasks at once (clippy, fixing, formatting)
+lint: format fix clippy fix-wasm clippy-wasm ## Run all linting tasks at once (clippy, fixing, formatting)
 
 # --- Documentation site --------------------------------------------------------------------------
 
@@ -106,23 +106,23 @@ start-node: ## Run node. This requires the node repo to be present at `miden-nod
 
 # --- Installing ----------------------------------------------------------------------------------
 
-install: ## Installs the CLI binary
+install: ## Install the CLI binary
 	cargo install $(FEATURES_CLI) --path bin/miden-cli
 
 # --- Building ------------------------------------------------------------------------------------
 
-build: ## Builds the CLI binary and client library in release mode
+build: ## Build the CLI binary and client library in release mode
 	cargo build --workspace --exclude miden-client-web --release $(FEATURES_CLI)
 
-build-wasm: ## Builds the client library for wasm32
+build-wasm: ## Build the client library for wasm32
 	cargo build --package miden-client-web --target wasm32-unknown-unknown $(FEATURES_WEB_CLIENT)
 
 # --- Check ---------------------------------------------------------------------------------------
 
 .PHONY: check
-check: ## Builds the CLI binary and client library in release mode
+check: ## Build the CLI binary and client library in release mode
 	cargo check --workspace --exclude miden-client-web --release $(FEATURES_CLI)
 
 .PHONY: check-wasm
-check-wasm: ## Builds the client library for wasm32
+check-wasm: ## Build the client library for wasm32
 	cargo check --package miden-client-web --target wasm32-unknown-unknown $(FEATURES_WEB_CLIENT)
