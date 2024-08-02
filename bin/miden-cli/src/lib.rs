@@ -30,7 +30,7 @@ use commands::{
 use self::utils::load_config_file;
 
 mod config;
-mod faucet_details_provider;
+mod faucet_details_map;
 mod info;
 mod utils;
 

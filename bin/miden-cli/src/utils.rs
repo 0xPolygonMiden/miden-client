@@ -15,7 +15,7 @@ use miden_client::{
 use tracing::info;
 
 use super::{config::CliConfig, get_account_with_id_prefix, CLIENT_CONFIG_FILE_NAME};
-use crate::faucet_details_provider::FaucetDetailsProvider;
+use crate::faucet_details_map::FaucetDetailsMap;
 
 /// Returns a tracked Account ID matching a hex string or the default one defined in the Client config
 pub(crate) fn get_input_acc_id_by_prefix_or_default<
@@ -110,8 +110,8 @@ fn load_config(config_file: &Path) -> Result<CliConfig, String> {
         .map_err(|err| format!("Failed to load {} config file: {err}", config_file.display()))
 }
 
-/// Returns the faucet details provider using the config file.
-pub fn load_faucet_details_provider() -> Result<FaucetDetailsProvider, String> {
+/// Returns the faucet details map using the config file.
+pub fn load_faucet_details_map() -> Result<FaucetDetailsMap, String> {
     let (config, _) = load_config_file()?;
-    FaucetDetailsProvider::new(config.token_symbol_map_filepath)
+    FaucetDetailsMap::new(config.token_symbol_map_filepath)
 }

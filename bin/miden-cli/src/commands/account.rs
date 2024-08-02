@@ -13,7 +13,7 @@ use miden_client::{
 use crate::{
     config::CliConfig,
     create_dynamic_table,
-    utils::{load_config_file, load_faucet_details_provider, parse_account_id, update_config},
+    utils::{load_config_file, load_faucet_details_map, parse_account_id, update_config},
     CLIENT_BINARY_NAME,
 };
 
@@ -145,7 +145,7 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
     // Vault Table
     {
         let assets = account.vault().assets();
-        let faucet_details_provider = load_faucet_details_provider()?;
+        let faucet_details_map = load_faucet_details_map()?;
         println!("Assets: ");
 
         let mut table = create_dynamic_table(&["Asset Type", "Faucet", "Amount"]);
@@ -153,7 +153,7 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
             let (asset_type, faucet, amount) = match asset {
                 Asset::Fungible(fungible_asset) => {
                     let (faucet, amount) =
-                        faucet_details_provider.format_fungible_asset(&fungible_asset);
+                        faucet_details_map.format_fungible_asset(&fungible_asset);
                     ("Fungible Asset", faucet, amount)
                 },
                 Asset::NonFungible(non_fungible_asset) => {
@@ -232,8 +232,8 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
 fn account_type_display_name(account_id: &AccountId) -> Result<String, String> {
     Ok(match account_id.account_type() {
         AccountType::FungibleFaucet => {
-            let faucet_details_provider = load_faucet_details_provider()?;
-            let token_symbol = faucet_details_provider.get_token_symbol_or_default(account_id);
+            let faucet_details_map = load_faucet_details_map()?;
+            let token_symbol = faucet_details_map.get_token_symbol_or_default(account_id);
 
             format!("Fungible faucet (token symbol: {token_symbol})")
         },
