@@ -1,5 +1,5 @@
 use alloc::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeSet,
     string::{String, ToString},
     vec::Vec,
 };
@@ -9,10 +9,7 @@ use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
     accounts::{Account, AccountDelta, AccountId, AccountType},
     assembly::ProgramAst,
-    assets::{
-        Asset::{Fungible, NonFungible},
-        FungibleAsset, NonFungibleAsset,
-    },
+    assets::FungibleAsset,
     notes::{Note, NoteDetails, NoteExecutionMode, NoteId, NoteTag, NoteType},
     transaction::{InputNotes, TransactionArgs},
     AssetError, Digest, Felt, FieldElement, NoteError, Word,
@@ -377,63 +374,26 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
-    fn calculate_outgoing_assets(
-        &self,
-        transaction_request: &TransactionRequest,
-    ) -> (BTreeMap<AccountId, u64>, BTreeSet<NonFungibleAsset>) {
-        // Get own notes assets
-        let mut own_notes_assets = match transaction_request.script_template() {
-            Some(TransactionScriptTemplate::SendNotes(notes)) => {
-                notes.iter().map(|note| (note.id(), note.assets())).collect::<BTreeMap<_, _>>()
-            },
-            _ => Default::default(),
-        };
-        // Get transaction output notes assets
-        let mut output_notes_assets = transaction_request
-            .expected_output_notes()
-            .map(|note| (note.id(), note.assets()))
-            .collect::<BTreeMap<_, _>>();
-
-        // Merge with own notes assets and delete duplicates
-        output_notes_assets.append(&mut own_notes_assets);
-
-        let mut fungible_balance_map: BTreeMap<AccountId, u64> = BTreeMap::new();
-        let mut non_fungible_set: BTreeSet<NonFungibleAsset> = BTreeSet::new();
-
-        // Create a map of the fungible and non-fungible assets in the output notes
-        output_notes_assets
-            .values()
-            .flat_map(|note_assets| note_assets.iter())
-            .for_each(|asset| match asset {
-                Fungible(fungible) => {
-                    fungible_balance_map
-                        .entry(fungible.faucet_id())
-                        .and_modify(|balance| *balance += fungible.amount())
-                        .or_insert(fungible.amount());
-                },
-                NonFungible(non_fungible) => {
-                    non_fungible_set.insert(*non_fungible);
-                },
-            });
-
-        (fungible_balance_map, non_fungible_set)
-    }
-
+    #[maybe_async]
     fn validate_basic_account_request(
         &self,
         transaction_request: &TransactionRequest,
         account: &Account,
     ) -> Result<(), ClientError> {
-        let (fungible_balance_map, non_fungible_set) =
-            self.calculate_outgoing_assets(transaction_request);
+        // Get outgoing assets
+        let (fungible_balance_map, non_fungible_set) = transaction_request.get_outgoing_assets();
 
-        // Get client assets
+        // Get incoming assets
+        let (incoming_fungible_balance_map, incoming_non_fungible_balance_set) =
+            maybe_await!(transaction_request.get_incoming_assets(self))?;
 
         // Check if the fungible assets are less than or equal to the account asset
         for (faucet_id, amount) in fungible_balance_map {
             match account.vault().get_balance(faucet_id) {
                 Ok(account_asset_amount) => {
-                    if account_asset_amount < amount {
+                    let incoming_balance =
+                        incoming_fungible_balance_map.get(&faucet_id).unwrap_or(&0);
+                    if account_asset_amount + incoming_balance < amount {
                         return Err(ClientError::AssetError(AssetError::AssetAmountNotSufficient(
                             account_asset_amount,
                             amount,
@@ -452,6 +412,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         for non_fungible in non_fungible_set {
             match account.vault().has_non_fungible_asset(non_fungible.into()) {
                 Ok(true) => (),
+                Ok(false) => {
+                    // Check if the non fungible asset is in the incoming assets
+                    if !incoming_non_fungible_balance_set.contains(&non_fungible) {
+                        return Err(ClientError::AssetError(AssetError::AssetAmountNotSufficient(
+                            0, 1,
+                        )));
+                    }
+                },
                 _ => {
                     return Err(ClientError::AssetError(AssetError::AssetAmountNotSufficient(
                         0, 1,
@@ -465,44 +433,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
     fn validate_faucet_account_request(
         &self,
-        transaction_request: &TransactionRequest,
-        account: &Account,
+        _transaction_request: &TransactionRequest,
+        _account: &Account,
     ) -> Result<(), ClientError> {
-        let own_notes_assets = match transaction_request.script_template() {
-            Some(TransactionScriptTemplate::SendNotes(notes)) => notes
-                .iter()
-                .map(|note| note.assets())
-                .flat_map(|assets| assets.iter())
-                .collect::<Vec<_>>(),
-            _ => Default::default(),
-        };
-
-        // Faucet account can only mint one asset (itself)
-        if own_notes_assets.len() > 1 {
-            return Err(ClientError::TransactionRequestError(
-                TransactionRequestError::InvalidFaucetMint(
-                    "Faucet can only mint one asset".to_string(),
-                ),
-            ));
-        }
-
-        // If there are no assets to mint, return
-        if own_notes_assets.is_empty() {
-            return Ok(());
-        };
-
-        // Faucet account can only mint assets of its own type
-        let asset_to_mint = own_notes_assets[0];
-
-        if asset_to_mint.faucet_id() != account.id() {
-            return Err(ClientError::TransactionRequestError(
-                TransactionRequestError::InvalidFaucetMint(format!(
-                    "Faucet account can only mint assets of its own type. Expected: {}, got: {}",
-                    account.id(),
-                    asset_to_mint.faucet_id()
-                )),
-            ));
-        };
+        // TODO(SantiagoPittella): Add faucet account validations.
 
         Ok(())
     }
@@ -516,7 +450,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         if account.is_faucet() {
             self.validate_faucet_account_request(transaction_request, &account)
         } else {
-            self.validate_basic_account_request(transaction_request, &account)
+            maybe_await!(self.validate_basic_account_request(transaction_request, &account))
         }
     }
 
