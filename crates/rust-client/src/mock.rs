@@ -162,12 +162,14 @@ impl NodeRpcClient for MockRpcApi {
                 panic!("this function assumes all notes are offchain for now");
             }
             let inclusion_details = NoteInclusionDetails::new(
-                note.proof().expect("Note should have an inclusion proof").origin().block_num,
                 note.proof()
                     .expect("Note should have an inclusion proof")
-                    .origin()
-                    .node_index
-                    .value() as u32,
+                    .location()
+                    .block_num(),
+                note.proof()
+                    .expect("Note should have an inclusion proof")
+                    .location()
+                    .node_index_in_block(),
                 note.proof().expect("Note should have an inclusion proof").note_path().clone(),
             );
             return_notes.push(NoteDetails::OffChain(
@@ -390,9 +392,7 @@ pub fn mock_full_chain_mmr_and_notes(
                 note,
                 NoteInclusionProof::new(
                     block_header.block_num(),
-                    block_header.sub_hash(),
-                    block_header.note_root(),
-                    index as u64,
+                    index.try_into().unwrap(),
                     note_tree.get_note_path(BlockNoteIndex::new(1, index)).unwrap(),
                 )
                 .unwrap(),

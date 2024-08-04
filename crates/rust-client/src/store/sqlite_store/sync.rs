@@ -104,15 +104,11 @@ impl SqliteStore {
 
         // Update tracked output notes
         for (note_id, inclusion_proof) in committed_notes.updated_output_notes().iter() {
-            let block_num = inclusion_proof.origin().block_num;
-            let sub_hash = inclusion_proof.sub_hash();
-            let note_root = inclusion_proof.note_root();
-            let note_index = inclusion_proof.origin().node_index.value();
+            let block_num = inclusion_proof.location().block_num();
+            let note_index = inclusion_proof.location().node_index_in_block();
 
             let inclusion_proof = serde_json::to_string(&NoteInclusionProof::new(
                 block_num,
-                sub_hash,
-                note_root,
                 note_index,
                 inclusion_proof.note_path().clone(),
             )?)

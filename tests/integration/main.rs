@@ -457,7 +457,9 @@ async fn test_import_expected_notes() {
     client_2.import_note(NoteFile::NoteId(note.clone().id())).await.unwrap();
     client_2.sync_state().await.unwrap();
     let input_note = client_2.get_input_note(note.id()).unwrap();
-    assert!(new_sync_data.block_num > input_note.inclusion_proof().unwrap().origin().block_num + 1);
+    assert!(
+        new_sync_data.block_num > input_note.inclusion_proof().unwrap().location().block_num() + 1
+    );
 
     // If imported after execution and syncing then the inclusion proof should be Some
     assert!(input_note.inclusion_proof().is_some());

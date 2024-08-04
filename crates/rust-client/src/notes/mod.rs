@@ -150,19 +150,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 let inclusion_details = note_details.inclusion_details();
 
                 // Add the inclusion proof to the imported note
-                info!("Requesting MMR data for past block num {}", inclusion_details.block_num);
-                let mut current_partial_mmr = maybe_await!(self.build_current_partial_mmr(true))?;
-                let block_header = self
-                    .get_and_store_authenticated_block(
-                        inclusion_details.block_num,
-                        &mut current_partial_mmr,
-                    )
-                    .await?;
                 let inclusion_proof = NoteInclusionProof::new(
                     inclusion_details.block_num,
-                    block_header.sub_hash(),
-                    block_header.note_root(),
-                    inclusion_details.note_index.into(),
+                    inclusion_details.note_index,
                     inclusion_details.merkle_path.clone(),
                 )?;
 
@@ -186,7 +176,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                         node_note.recipient().digest(),
                         node_note.assets().clone(),
                         NoteStatus::Committed {
-                            block_height: inclusion_proof.origin().block_num as u64,
+                            block_height: inclusion_proof.location().block_num() as u64,
                         },
                         Some(*node_note.metadata()),
                         Some(inclusion_proof),
@@ -267,7 +257,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     note.recipient().digest(),
                     note.assets().clone(),
                     NoteStatus::Committed {
-                        block_height: inclusion_proof.origin().block_num as u64,
+                        block_height: inclusion_proof.location().block_num() as u64,
                     },
                     Some(*note.metadata()),
                     Some(inclusion_proof),

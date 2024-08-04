@@ -247,9 +247,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
             let note_inclusion_proof = NoteInclusionProof::new(
                 note_block.block_num(),
-                note_block.sub_hash(),
-                note_block.note_root(),
-                details.inclusion_details().note_index as u64,
+                details.inclusion_details().note_index,
                 details.inclusion_details().merkle_path.clone(),
             )
             .map_err(ClientError::NoteError)?;
@@ -432,9 +430,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 // The note belongs to our locally tracked set of expected notes, build the inclusion proof
                 let note_inclusion_proof = NoteInclusionProof::new(
                     block_header.block_num(),
-                    block_header.sub_hash(),
-                    block_header.note_root(),
-                    committed_note.note_index().into(),
+                    committed_note.note_index(),
                     committed_note.merkle_path().clone(),
                 )?;
 
@@ -458,9 +454,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             if expected_output_notes.contains(committed_note.note_id()) {
                 let note_id_with_inclusion_proof = NoteInclusionProof::new(
                     block_header.block_num(),
-                    block_header.sub_hash(),
-                    block_header.note_root(),
-                    committed_note.note_index().into(),
+                    committed_note.note_index(),
                     committed_note.merkle_path().clone(),
                 )
                 .map(|note_inclusion_proof| (*committed_note.note_id(), note_inclusion_proof))?;
@@ -514,9 +508,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     info!("Retrieved details for Note ID {}.", note.id());
                     let note_inclusion_proof = NoteInclusionProof::new(
                         block_header.block_num(),
-                        block_header.sub_hash(),
-                        block_header.note_root(),
-                        inclusion_proof.note_index as u64,
+                        inclusion_proof.note_index,
                         inclusion_proof.merkle_path,
                     )
                     .map_err(ClientError::NoteError)?;

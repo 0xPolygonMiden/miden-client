@@ -153,7 +153,7 @@ impl TryFrom<InputNoteRecord> for OutputNoteRecord {
                 recipient: input_note.recipient(),
                 status: input_note.status(),
             }),
-            None => Err(ClientError::NoteError(miden_objects::NoteError::invalid_origin_index(
+            None => Err(ClientError::NoteError(miden_objects::NoteError::invalid_location_index(
                 "Input Note Record contains no metadata".to_string(),
             ))),
         }

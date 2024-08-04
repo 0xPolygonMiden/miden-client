@@ -292,7 +292,7 @@ impl TryFrom<OutputNoteRecord> for InputNoteRecord {
                 ignored: false,
                 imported_tag: None,
             }),
-            None => Err(ClientError::NoteError(miden_objects::NoteError::invalid_origin_index(
+            None => Err(ClientError::NoteError(miden_objects::NoteError::invalid_location_index(
                 "Output Note Record contains no details".to_string(),
             ))),
         }
