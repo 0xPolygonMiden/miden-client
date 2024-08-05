@@ -8,27 +8,12 @@ use core::fmt;
 use miden_objects::{
     accounts::AccountId,
     assembly::AssemblyError,
-    assets::{
-        Asset,
-        Asset::{Fungible, NonFungible},
-        FungibleAsset, NonFungibleAsset,
-    },
-    crypto::{
-        merkle::{InnerNodeInfo, MerkleStore},
-        rand::FeltRng,
-    },
+    assets::{Asset, FungibleAsset},
+    crypto::merkle::{InnerNodeInfo, MerkleStore},
     notes::{Note, NoteDetails, NoteId, NoteType, PartialNote},
     transaction::{OutputNote, TransactionArgs, TransactionScript},
     vm::AdviceMap,
     Digest, Felt, Word,
-};
-use miden_tx::auth::TransactionAuthenticator;
-use winter_maybe_async::{maybe_async, maybe_await};
-
-use crate::{
-    rpc::NodeRpcClient,
-    store::{NoteFilter, Store},
-    Client,
 };
 
 // MASM SCRIPTS
@@ -268,84 +253,6 @@ impl TransactionRequest {
         tx_args.extend_merkle_store(merkle_store.inner_nodes());
 
         tx_args
-    }
-
-    pub fn get_outgoing_assets(&self) -> (BTreeMap<AccountId, u64>, BTreeSet<NonFungibleAsset>) {
-        // Get own notes assets
-        let mut own_notes_assets = match self.script_template() {
-            Some(TransactionScriptTemplate::SendNotes(notes)) => {
-                notes.iter().map(|note| (note.id(), note.assets())).collect::<BTreeMap<_, _>>()
-            },
-            _ => Default::default(),
-        };
-        // Get transaction output notes assets
-        let mut output_notes_assets = self
-            .expected_output_notes()
-            .map(|note| (note.id(), note.assets()))
-            .collect::<BTreeMap<_, _>>();
-
-        // Merge with own notes assets and delete duplicates
-        output_notes_assets.append(&mut own_notes_assets);
-
-        let mut fungible_balance_map: BTreeMap<AccountId, u64> = BTreeMap::new();
-        let mut non_fungible_set: BTreeSet<NonFungibleAsset> = BTreeSet::new();
-
-        // Create a map of the fungible and non-fungible assets in the output notes
-        output_notes_assets
-            .values()
-            .flat_map(|note_assets| note_assets.iter())
-            .for_each(|asset| match asset {
-                Fungible(fungible) => {
-                    fungible_balance_map
-                        .entry(fungible.faucet_id())
-                        .and_modify(|balance| *balance += fungible.amount())
-                        .or_insert(fungible.amount());
-                },
-                NonFungible(non_fungible) => {
-                    non_fungible_set.insert(*non_fungible);
-                },
-            });
-
-        (fungible_balance_map, non_fungible_set)
-    }
-
-    #[maybe_async]
-    pub fn get_incoming_assets(
-        &self,
-        client: &Client<
-            impl NodeRpcClient,
-            impl FeltRng,
-            impl Store,
-            impl TransactionAuthenticator,
-        >,
-    ) -> Result<(BTreeMap<AccountId, u64>, BTreeSet<NonFungibleAsset>), TransactionRequestError>
-    {
-        // Get incoming assets
-        let incoming_notes_ids =
-            self.input_notes().iter().map(|(note_id, _)| *note_id).collect::<Vec<_>>();
-
-        let mut fungible_balance_map: BTreeMap<AccountId, u64> = BTreeMap::new();
-        let mut non_fungible_set: BTreeSet<NonFungibleAsset> = BTreeSet::new();
-
-        maybe_await!(client.get_input_notes(NoteFilter::List(&incoming_notes_ids)))
-            .map_err(|err| TransactionRequestError::NoteNotFound(err.to_string()))?
-            .iter()
-            .flat_map(|input_note_record| input_note_record.assets().iter())
-            .collect::<Vec<&Asset>>()
-            .iter()
-            .for_each(|asset| match asset {
-                Fungible(fungible) => {
-                    fungible_balance_map
-                        .entry(fungible.faucet_id())
-                        .and_modify(|balance| *balance += fungible.amount())
-                        .or_insert(fungible.amount());
-                },
-                NonFungible(non_fungible) => {
-                    non_fungible_set.insert(*non_fungible);
-                },
-            });
-
-        Ok((fungible_balance_map, non_fungible_set))
     }
 }
 

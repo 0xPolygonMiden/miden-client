@@ -1,5 +1,5 @@
 use alloc::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     string::{String, ToString},
     vec::Vec,
 };
@@ -9,7 +9,10 @@ use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
     accounts::{Account, AccountDelta, AccountId, AccountType},
     assembly::ProgramAst,
-    assets::FungibleAsset,
+    assets::{
+        Asset::{self, Fungible, NonFungible},
+        FungibleAsset, NonFungibleAsset,
+    },
     notes::{Note, NoteDetails, NoteExecutionMode, NoteId, NoteTag, NoteType},
     transaction::{InputNotes, TransactionArgs},
     AssetError, Digest, Felt, FieldElement, NoteError, Word,
@@ -374,6 +377,85 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
+    pub fn get_outgoing_assets(
+        &self,
+        transaction_request: &TransactionRequest,
+    ) -> (BTreeMap<AccountId, u64>, BTreeSet<NonFungibleAsset>) {
+        // Get own notes assets
+        let mut own_notes_assets = match transaction_request.script_template() {
+            Some(TransactionScriptTemplate::SendNotes(notes)) => {
+                notes.iter().map(|note| (note.id(), note.assets())).collect::<BTreeMap<_, _>>()
+            },
+            _ => Default::default(),
+        };
+        // Get transaction output notes assets
+        let mut output_notes_assets = transaction_request
+            .expected_output_notes()
+            .map(|note| (note.id(), note.assets()))
+            .collect::<BTreeMap<_, _>>();
+
+        // Merge with own notes assets and delete duplicates
+        output_notes_assets.append(&mut own_notes_assets);
+
+        let mut fungible_balance_map: BTreeMap<AccountId, u64> = BTreeMap::new();
+        let mut non_fungible_set: BTreeSet<NonFungibleAsset> = BTreeSet::new();
+
+        // Create a map of the fungible and non-fungible assets in the output notes
+        output_notes_assets
+            .values()
+            .flat_map(|note_assets| note_assets.iter())
+            .for_each(|asset| match asset {
+                Fungible(fungible) => {
+                    fungible_balance_map
+                        .entry(fungible.faucet_id())
+                        .and_modify(|balance| *balance += fungible.amount())
+                        .or_insert(fungible.amount());
+                },
+                NonFungible(non_fungible) => {
+                    non_fungible_set.insert(*non_fungible);
+                },
+            });
+
+        (fungible_balance_map, non_fungible_set)
+    }
+
+    #[maybe_async]
+    pub fn get_incoming_assets(
+        &self,
+        transaction_request: &TransactionRequest,
+    ) -> Result<(BTreeMap<AccountId, u64>, BTreeSet<NonFungibleAsset>), TransactionRequestError>
+    {
+        // Get incoming assets
+        let incoming_notes_ids = transaction_request
+            .input_notes()
+            .iter()
+            .map(|(note_id, _)| *note_id)
+            .collect::<Vec<_>>();
+
+        let mut fungible_balance_map: BTreeMap<AccountId, u64> = BTreeMap::new();
+        let mut non_fungible_set: BTreeSet<NonFungibleAsset> = BTreeSet::new();
+
+        maybe_await!(self.get_input_notes(NoteFilter::List(&incoming_notes_ids)))
+            .map_err(|err| TransactionRequestError::NoteNotFound(err.to_string()))?
+            .iter()
+            .flat_map(|input_note_record| input_note_record.assets().iter())
+            .collect::<Vec<&Asset>>()
+            .iter()
+            .for_each(|asset| match asset {
+                Fungible(fungible) => {
+                    fungible_balance_map
+                        .entry(fungible.faucet_id())
+                        .and_modify(|balance| *balance += fungible.amount())
+                        .or_insert(fungible.amount());
+                },
+                NonFungible(non_fungible) => {
+                    non_fungible_set.insert(*non_fungible);
+                },
+            });
+
+        Ok((fungible_balance_map, non_fungible_set))
+    }
+
     #[maybe_async]
     fn validate_basic_account_request(
         &self,
@@ -381,11 +463,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         account: &Account,
     ) -> Result<(), ClientError> {
         // Get outgoing assets
-        let (fungible_balance_map, non_fungible_set) = transaction_request.get_outgoing_assets();
+        let (fungible_balance_map, non_fungible_set) =
+            self.get_outgoing_assets(transaction_request);
 
         // Get incoming assets
         let (incoming_fungible_balance_map, incoming_non_fungible_balance_set) =
-            maybe_await!(transaction_request.get_incoming_assets(self))?;
+            maybe_await!(self.get_incoming_assets(transaction_request))?;
 
         // Check if the fungible assets are less than or equal to the account asset
         for (faucet_id, amount) in fungible_balance_map {
