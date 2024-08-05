@@ -57,8 +57,9 @@ impl FaucetDetailsMap {
 
     /// Parses a string representing a [FungibleAsset]. There are two accepted formats for the string:
     /// - `<AMOUNT>::<FAUCET_ID>` where `<AMOUNT>` is in the faucet base units.
-    /// - `<AMOUNT>::<TOKEN_SYMBOL>` where `<TOKEN_SYMBOL>` should be tracked by the token symbol map
-    ///   file and `<AMOUNT>` is in the token's decimals.
+    /// - `<AMOUNT>::<TOKEN_SYMBOL>` where `<AMOUNT>` is a decimal number representing the quantity of 
+    ///   the token (specified to the precision allowed by the token's decimals), and `<TOKEN_SYMBOL>`
+    ///   is a symbol tracked in the token symbol map file.
     ///
     /// Some examples of valid `arg` values are `100::0x123456789` and `1.23::POL`.
     ///
@@ -71,21 +72,26 @@ impl FaucetDetailsMap {
     /// - The token symbol is not present in the token symbol map file.
     pub fn parse_fungible_asset(&self, arg: &str) -> Result<FungibleAsset, String> {
         let (amount, asset) = arg.split_once("::").ok_or("Separator `::` not found!")?;
-        let amount = amount.parse::<f64>().map_err(|err| err.to_string())?;
         let (faucet_id, amount) = if asset.starts_with("0x") {
-            if amount.fract() != 0.0 {
-                return Err(
-                    "If a faucet ID is specified, the amount should be in base units".to_string()
-                );
-            }
-            (AccountId::from_hex(asset).map_err(|err| err.to_string())?, amount as u64)
+            let amount = amount.parse::<u64>().map_err(|err| err.to_string())?;
+            (AccountId::from_hex(asset).map_err(|err| err.to_string())?, amount)
         } else {
-            let FaucetDetails { id, decimals } = self
+            let float_amount = amount.parse::<f64>().map_err(|err| err.to_string())?;
+            let amount_decimals = amount.split('.').last().unwrap_or("").len();
+
+            let amount = float_amount * 10.0_f64.powi(amount_decimals as i32);
+            assert!(amount.fract() == 0.0, "Amount should be an integer");
+
+            let FaucetDetails { id, decimals: faucet_decimals } = self
                 .get_faucet_details(&asset.to_string())
                 .ok_or(format!("Token symbol `{asset}` not found in token symbol map file"))?;
 
             let faucet_id = AccountId::from_hex(id).map_err(|err| err.to_string())?;
-            let amount = self.faucet_units_from_amount(amount, *decimals)?;
+            let amount = self.faucet_units_from_amount(
+                amount as u64,
+                amount_decimals as u8,
+                *faucet_decimals,
+            )?;
 
             (faucet_id, amount)
         };
@@ -104,7 +110,7 @@ impl FaucetDetailsMap {
                 .get_faucet_details(&token_symbol)
                 .expect("Token symbol should be present in the token symbol map")
                 .decimals;
-            let amount = self.amount_from_faucet_units(asset.amount(), decimals);
+            let amount = self.format_amount_from_faucet_units(asset.amount(), decimals);
 
             (token_symbol, amount)
         } else {
@@ -123,17 +129,27 @@ impl FaucetDetailsMap {
         )
     }
 
-    fn faucet_units_from_amount(&self, amount: f64, decimals: u8) -> Result<u64, String> {
-        let units = amount * 10.0_f64.powi(decimals as i32);
-
-        if units.fract() != 0.0 {
-            return Err(format!("The amount can't have more than {} decimals", decimals));
+    /// Converts an amount in the token's decimals to the faucet base units. `amount` should be
+    /// the decimal value converted to an integer (e.g., 1.23 -> 123) and `amount_decimals` should
+    /// be the number of decimals in the amount.
+    fn faucet_units_from_amount(
+        &self,
+        amount: u64,
+        amount_decimals: u8,
+        faucet_decimals: u8,
+    ) -> Result<u64, String> {
+        if amount_decimals > faucet_decimals {
+            return Err(format!("The amount can't have more than {} decimals", faucet_decimals));
         }
 
-        Ok(units as u64)
+        let units = amount * 10_i32.pow((faucet_decimals - amount_decimals).into()) as u64;
+
+        Ok(units)
     }
 
-    fn amount_from_faucet_units(&self, units: u64, decimals: u8) -> f64 {
+    /// Converts an amount in the faucet base units to the token's decimals. This amount should only
+    /// be used for display purposes and should not be used for calculations as it may lose precision.
+    fn format_amount_from_faucet_units(&self, units: u64, decimals: u8) -> f64 {
         units as f64 / 10.0_f64.powi(decimals as i32)
     }
 }
