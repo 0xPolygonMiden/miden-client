@@ -7,7 +7,7 @@ use miden_client::{
 use miden_objects::{
     accounts::{AccountId, AccountStorageType},
     assets::{Asset, FungibleAsset, TokenSymbol},
-    notes::{NoteDetails, NoteExecutionHint, NoteFile, NoteId, NoteTag, NoteType},
+    notes::{NoteDetails, NoteExecutionMode, NoteFile, NoteId, NoteTag, NoteType},
 };
 
 use super::common::*;
@@ -471,7 +471,7 @@ fn build_swap_tag(
 
     let payload = ((offered_asset_tag as u16) << 8) | (requested_asset_tag as u16);
 
-    let execution = NoteExecutionHint::Local;
+    let execution = NoteExecutionMode::Local;
     match note_type {
         NoteType::Public => NoteTag::for_public_use_case(SWAP_USE_CASE_ID, payload, execution),
         _ => NoteTag::for_local_use_case(SWAP_USE_CASE_ID, payload),

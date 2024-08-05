@@ -18,8 +18,9 @@ mod note_screener;
 
 pub use miden_objects::{
     notes::{
-        Note, NoteAssets, NoteExecutionHint, NoteFile, NoteId, NoteInclusionProof, NoteInputs,
-        NoteMetadata, NoteRecipient, NoteScript, NoteTag, NoteType, Nullifier,
+        Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteId,
+        NoteInclusionProof, NoteInputs, NoteMetadata, NoteRecipient, NoteScript, NoteTag, NoteType,
+        Nullifier,
     },
     NoteError,
 };
@@ -219,7 +220,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
                 let account_tags = maybe_await!(self.get_account_stubs())?
                     .into_iter()
-                    .map(|(stub, _)| NoteTag::from_account_id(stub.id(), NoteExecutionHint::Local))
+                    .map(|(stub, _)| NoteTag::from_account_id(stub.id(), NoteExecutionMode::Local))
                     .collect::<Result<Vec<_>, _>>()?;
 
                 let uncommited_note_tags =

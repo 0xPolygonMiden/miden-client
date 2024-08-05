@@ -10,7 +10,7 @@ use miden_objects::{
     accounts::{AccountDelta, AccountId, AccountType},
     assembly::ProgramAst,
     assets::FungibleAsset,
-    notes::{Note, NoteDetails, NoteExecutionHint, NoteId, NoteTag, NoteType},
+    notes::{Note, NoteDetails, NoteExecutionMode, NoteId, NoteTag, NoteType},
     transaction::{InputNotes, TransactionArgs},
     Digest, Felt, FieldElement, NoteError, Word,
 };
@@ -535,7 +535,7 @@ pub fn build_swap_tag(
 
     let payload = ((offered_asset_tag as u16) << 8) | (requested_asset_tag as u16);
 
-    let execution = NoteExecutionHint::Local;
+    let execution = NoteExecutionMode::Local;
     match note_type {
         NoteType::Public => NoteTag::for_public_use_case(SWAP_USE_CASE_ID, payload, execution),
         _ => NoteTag::for_local_use_case(SWAP_USE_CASE_ID, payload),
