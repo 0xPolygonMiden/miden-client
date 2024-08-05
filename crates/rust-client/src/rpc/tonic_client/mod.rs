@@ -317,7 +317,7 @@ impl NodeRpcClient for TonicRpcClient {
                 let nullifier = nullifier.try_into()?;
                 Ok((nullifier, nul.block_num))
             })
-            .collect::<Result<Vec<(miden_objects::notes::Nullifier, u32)>, RpcError>>()?;
+            .collect::<Result<Vec<(Nullifier, u32)>, RpcError>>()?;
         Ok(nullifiers)
     }
 }
