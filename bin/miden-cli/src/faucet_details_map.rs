@@ -6,6 +6,7 @@ use std::{
 use miden_client::{accounts::AccountId, assets::FungibleAsset};
 use serde::{Deserialize, Serialize};
 
+/// Stores the detail information of a faucet to be stored in the token symbol map file.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FaucetDetails {
     pub id: String,
@@ -57,11 +58,11 @@ impl FaucetDetailsMap {
 
     /// Parses a string representing a [FungibleAsset]. There are two accepted formats for the string:
     /// - `<AMOUNT>::<FAUCET_ID>` where `<AMOUNT>` is in the faucet base units.
-    /// - `<AMOUNT>::<TOKEN_SYMBOL>` where `<AMOUNT>` is a decimal number representing the quantity of 
+    /// - `<AMOUNT>::<TOKEN_SYMBOL>` where `<AMOUNT>` is a decimal number representing the quantity of
     ///   the token (specified to the precision allowed by the token's decimals), and `<TOKEN_SYMBOL>`
     ///   is a symbol tracked in the token symbol map file.
     ///
-    /// Some examples of valid `arg` values are `100::0x123456789` and `1.23::POL`.
+    /// Some examples of valid `arg` values are `100::0xabcdef0123456789` and `1.23::POL`.
     ///
     /// # Errors
     ///

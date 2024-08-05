@@ -46,9 +46,13 @@ pub struct MintCmd {
 
     /// Asset to be minted.
     ///
-    /// The asset should be in the format `<AMOUNT>::<ASSET>` where `<AMOUNT>` is the amount
-    /// of the asset and `<ASSET>` is either the faucet account ID hex or a symbol tracked
-    /// by the token symbol file. For example, `100::0xabcdef0123456789` or `20::POL`.
+    /// There are two accepted formats for the asset:
+    /// - `<AMOUNT>::<FAUCET_ID>` where `<AMOUNT>` is in the faucet base units.
+    /// - `<AMOUNT>::<TOKEN_SYMBOL>` where `<AMOUNT>` is a decimal number representing the quantity of
+    ///   the token (specified to the precision allowed by the token's decimals), and `<TOKEN_SYMBOL>`
+    ///   is a symbol tracked in the token symbol map file.
+    ///
+    /// For example, `100::0xabcdef0123456789` or `1.23::POL`.
     #[clap(short, long)]
     asset: String,
 
@@ -99,9 +103,13 @@ pub struct SendCmd {
 
     /// Asset to be sent.
     ///
-    /// The asset should be in the format `<AMOUNT>::<ASSET>` where `<AMOUNT>` is the amount
-    /// of the asset and `<ASSET>` is either the faucet account ID hex or a symbol tracked
-    /// by the token symbol file. For example, `100::0xabcdef0123456789` or `20::POL`.
+    /// There are two accepted formats for the asset:
+    /// - `<AMOUNT>::<FAUCET_ID>` where `<AMOUNT>` is in the faucet base units.
+    /// - `<AMOUNT>::<TOKEN_SYMBOL>` where `<AMOUNT>` is a decimal number representing the quantity of
+    ///   the token (specified to the precision allowed by the token's decimals), and `<TOKEN_SYMBOL>`
+    ///   is a symbol tracked in the token symbol map file.
+    ///
+    /// For example, `100::0xabcdef0123456789` or `1.23::POL`.
     #[clap(short, long)]
     asset: String,
 
@@ -166,17 +174,25 @@ pub struct SwapCmd {
 
     /// Asset offered.
     ///
-    /// The asset should be in the format `<AMOUNT>::<ASSET>` where `<AMOUNT>` is the amount
-    /// of the asset and `<ASSET>` is either the faucet account ID hex or a symbol tracked
-    /// by the token symbol file. For example, `100::0xabcdef0123456789` or `20::POL`.
+    /// There are two accepted formats for the asset:
+    /// - `<AMOUNT>::<FAUCET_ID>` where `<AMOUNT>` is in the faucet base units.
+    /// - `<AMOUNT>::<TOKEN_SYMBOL>` where `<AMOUNT>` is a decimal number representing the quantity of
+    ///   the token (specified to the precision allowed by the token's decimals), and `<TOKEN_SYMBOL>`
+    ///   is a symbol tracked in the token symbol map file.
+    ///
+    /// For example, `100::0xabcdef0123456789` or `1.23::POL`.
     #[clap(long = "offered-asset")]
     offered_asset: String,
 
     /// Asset requested.
     ///
-    /// The asset should be in the format `<AMOUNT>::<ASSET>` where `<AMOUNT>` is the amount
-    /// of the asset and `<ASSET>` is either the faucet account ID hex or a symbol tracked
-    /// by the token symbol file. For example, `100::0xabcdef0123456789` or `20::POL`.
+    /// There are two accepted formats for the asset:
+    /// - `<AMOUNT>::<FAUCET_ID>` where `<AMOUNT>` is in the faucet base units.
+    /// - `<AMOUNT>::<TOKEN_SYMBOL>` where `<AMOUNT>` is a decimal number representing the quantity of
+    ///   the token (specified to the precision allowed by the token's decimals), and `<TOKEN_SYMBOL>`
+    ///   is a symbol tracked in the token symbol map file.
+    ///
+    /// For example, `100::0xabcdef0123456789` or `1.23::POL`.
     #[clap(short, long)]
     requested_asset: String,
 
