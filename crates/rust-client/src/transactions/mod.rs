@@ -425,30 +425,47 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         transaction_request: &TransactionRequest,
     ) -> Result<(BTreeMap<AccountId, u64>, BTreeSet<NonFungibleAsset>), TransactionRequestError>
     {
-        // Get incoming assets
-        let incoming_notes_ids = transaction_request
+        // Get incoming asset notes excluding unauthenticated ones
+        let incoming_notes_ids: Vec<_> = transaction_request
             .input_notes()
             .iter()
-            .map(|(note_id, _)| *note_id)
-            .collect::<Vec<_>>();
+            .filter_map(|(note_id, _)| {
+                if transaction_request
+                    .unauthenticated_input_notes()
+                    .iter()
+                    .any(|note| note.id() == *note_id)
+                {
+                    None
+                } else {
+                    Some(*note_id)
+                }
+            })
+            .collect();
 
         let mut fungible_balance_map: BTreeMap<AccountId, u64> = BTreeMap::new();
         let mut non_fungible_set: BTreeSet<NonFungibleAsset> = BTreeSet::new();
 
-        maybe_await!(self.get_input_notes(NoteFilter::List(&incoming_notes_ids)))
-            .map_err(|err| TransactionRequestError::NoteNotFound(err.to_string()))?
+        let store_input_notes =
+            maybe_await!(self.get_input_notes(NoteFilter::List(&incoming_notes_ids)))
+                .map_err(|err| TransactionRequestError::NoteNotFound(err.to_string()))?;
+
+        store_input_notes
             .iter()
-            .flat_map(|input_note_record| input_note_record.assets().iter())
-            .collect::<Vec<&Asset>>()
-            .iter()
+            .flat_map(|note| note.assets().iter())
+            .chain(
+                transaction_request
+                    .unauthenticated_input_notes()
+                    .iter()
+                    .flat_map(|note| note.assets().iter()),
+            )
             .for_each(|asset| match asset {
-                Fungible(fungible) => {
+                Asset::Fungible(fungible) => {
                     fungible_balance_map
                         .entry(fungible.faucet_id())
                         .and_modify(|balance| *balance += fungible.amount())
                         .or_insert(fungible.amount());
                 },
-                NonFungible(non_fungible) => {
+                Asset::NonFungible(non_fungible) => {
                     non_fungible_set.insert(*non_fungible);
                 },
             });
