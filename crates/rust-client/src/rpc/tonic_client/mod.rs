@@ -15,7 +15,7 @@ use generated::{
 use miden_objects::{
     accounts::{Account, AccountId},
     crypto::merkle::{MerklePath, MmrProof},
-    notes::{Note, NoteId, NoteTag},
+    notes::{Note, NoteId, NoteTag, Nullifier},
     transaction::{ProvenTransaction, TransactionId},
     utils::Deserializable,
     BlockHeader, Digest,
@@ -294,7 +294,7 @@ impl NodeRpcClient for TonicRpcClient {
     async fn check_nullifiers_by_prefix(
         &mut self,
         prefixes: &[u16],
-    ) -> Result<Vec<(miden_objects::notes::Nullifier, u32)>, RpcError> {
+    ) -> Result<Vec<(Nullifier, u32)>, RpcError> {
         let request = CheckNullifiersByPrefixRequest {
             nullifiers: prefixes.iter().map(|&x| x as u32).collect(),
             prefix_len: 16,
