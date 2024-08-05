@@ -12,7 +12,7 @@ pub struct CheckNullifiersResponse {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckNullifiersByPrefixResponse {
-    /// List of nullifiers matching the 16-bit prefixes specified in the request.
+    /// List of nullifiers matching the prefixes specified in the request.
     #[prost(message, repeated, tag = "1")]
     pub nullifiers: ::prost::alloc::vec::Vec<NullifierUpdate>,
 }
@@ -176,4 +176,11 @@ pub struct GetBlockByNumberResponse {
     /// The requested `Block` data encoded using miden native format
     #[prost(bytes = "vec", optional, tag = "1")]
     pub block: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetAccountStateDeltaResponse {
+    /// The calculated `AccountStateDelta` encoded using miden native format
+    #[prost(bytes = "vec", optional, tag = "1")]
+    pub delta: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
 }

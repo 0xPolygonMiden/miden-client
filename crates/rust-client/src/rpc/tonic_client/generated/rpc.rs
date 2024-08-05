@@ -84,6 +84,30 @@ pub mod api_client {
             self.inner = self.inner.max_encoding_message_size(limit);
             self
         }
+        pub async fn check_nullifiers(
+            &mut self,
+            request: impl tonic::IntoRequest<
+                super::super::requests::CheckNullifiersRequest,
+            >,
+        ) -> std::result::Result<
+            tonic::Response<super::super::responses::CheckNullifiersResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/rpc.Api/CheckNullifiers");
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "CheckNullifiers"));
+            self.inner.unary(req, path, codec).await
+        }
         pub async fn check_nullifiers_by_prefix(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -111,30 +135,6 @@ pub mod api_client {
                 .insert(GrpcMethod::new("rpc.Api", "CheckNullifiersByPrefix"));
             self.inner.unary(req, path, codec).await
         }
-        pub async fn check_nullifiers(
-            &mut self,
-            request: impl tonic::IntoRequest<
-                super::super::requests::CheckNullifiersRequest,
-            >,
-        ) -> std::result::Result<
-            tonic::Response<super::super::responses::CheckNullifiersResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::new(
-                        tonic::Code::Unknown,
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
-            let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/rpc.Api/CheckNullifiers");
-            let mut req = request.into_request();
-            req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "CheckNullifiers"));
-            self.inner.unary(req, path, codec).await
-        }
         pub async fn get_account_details(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -159,6 +159,33 @@ pub mod api_client {
             );
             let mut req = request.into_request();
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "GetAccountDetails"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn get_account_state_delta(
+            &mut self,
+            request: impl tonic::IntoRequest<
+                super::super::requests::GetAccountStateDeltaRequest,
+            >,
+        ) -> std::result::Result<
+            tonic::Response<super::super::responses::GetAccountStateDeltaResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/rpc.Api/GetAccountStateDelta",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("rpc.Api", "GetAccountStateDelta"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn get_block_by_number(

@@ -77,7 +77,7 @@ fn import_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenti
 // IMPORT NOTE
 // ================================================================================================
 
-pub async fn read_note_file(filename: PathBuf) -> Result<NoteFile, String> {
+async fn read_note_file(filename: PathBuf) -> Result<NoteFile, String> {
     let mut contents = vec![];
     let mut _file = File::open(filename)
         .and_then(|mut f| f.read_to_end(&mut contents))
