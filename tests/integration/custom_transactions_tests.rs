@@ -11,7 +11,7 @@ use miden_objects::{
         rand::{FeltRng, RpoRandomCoin},
     },
     notes::{
-        Note, NoteAssets, NoteExecutionHint, NoteInputs, NoteMetadata, NoteRecipient, NoteTag,
+        Note, NoteAssets, NoteExecutionMode, NoteInputs, NoteMetadata, NoteRecipient, NoteTag,
         NoteType,
     },
     transaction::OutputNote,
@@ -301,7 +301,7 @@ fn create_custom_note(
     let note_metadata = NoteMetadata::new(
         faucet_account_id,
         NoteType::Private,
-        NoteTag::from_account_id(target_account_id, NoteExecutionHint::Local).unwrap(),
+        NoteTag::from_account_id(target_account_id, NoteExecutionMode::Local).unwrap(),
         Default::default(),
     )
     .unwrap();

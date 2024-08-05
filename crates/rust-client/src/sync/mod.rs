@@ -275,7 +275,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let account_note_tags: Vec<NoteTag> = accounts
             .iter()
             .map(|acc| {
-                NoteTag::from_account_id(acc.id(), miden_objects::notes::NoteExecutionHint::Local)
+                NoteTag::from_account_id(acc.id(), miden_objects::notes::NoteExecutionMode::Local)
             })
             .collect::<Result<Vec<_>, _>>()?;
 

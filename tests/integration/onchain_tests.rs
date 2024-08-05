@@ -296,7 +296,7 @@ async fn test_onchain_notes_sync_with_tag() {
         .add_note_tag(
             NoteTag::from_account_id(
                 target_account_id,
-                miden_objects::notes::NoteExecutionHint::Local,
+                miden_objects::notes::NoteExecutionMode::Local,
             )
             .unwrap(),
         )

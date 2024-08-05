@@ -622,7 +622,7 @@ pub fn mock_notes(assembler: &Assembler) -> (Vec<Note>, Vec<Note>) {
     let (note_script, _) = NoteScript::new(note_program_ast, assembler).unwrap();
 
     let note_tag: NoteTag =
-        NoteTag::from_account_id(sender, miden_objects::notes::NoteExecutionHint::Local).unwrap();
+        NoteTag::from_account_id(sender, miden_objects::notes::NoteExecutionMode::Local).unwrap();
 
     // Created Notes
     const SERIAL_NUM_4: Word = [Felt::new(13), Felt::new(14), Felt::new(15), Felt::new(16)];
