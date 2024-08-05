@@ -50,7 +50,7 @@ use crate::{
         InputNoteRecord,
     },
     store_authenticator::StoreAuthenticator,
-    sync::FILTER_ID_SHIFT,
+    sync::get_nullifier_prefix,
     transactions::{
         prepare_word,
         request::{PaymentTransactionData, TransactionTemplate},
@@ -243,7 +243,7 @@ fn create_mock_sync_state_request_for_account_and_notes(
 
     let nullifiers: Vec<u32> = consumed_notes
         .iter()
-        .map(|note| (note.note().nullifier().as_elements()[3].as_int() >> FILTER_ID_SHIFT) as u32)
+        .map(|note| get_nullifier_prefix(&note.note().nullifier()) as u32)
         .collect();
 
     let account = get_account_with_default_account_code(account_id, Word::default(), None);

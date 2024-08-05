@@ -10,7 +10,7 @@ use winter_maybe_async::{maybe_async, maybe_await};
 use crate::{
     rpc::{NodeRpcClient, NoteDetails},
     store::{InputNoteRecord, NoteFilter, NoteStatus, OutputNoteRecord, Store, StoreError},
-    sync::FILTER_ID_SHIFT,
+    sync::get_nullifier_prefix,
     Client, ClientError, IdPrefixFetchError,
 };
 
@@ -177,9 +177,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
                     let nullifiers = self
                         .rpc_api
-                        .check_nullifiers_by_prefix(&[((node_note.nullifier().inner()[3].as_int()
-                            >> FILTER_ID_SHIFT)
-                            as u16)])
+                        .check_nullifiers_by_prefix(&[get_nullifier_prefix(&node_note.nullifier())])
                         .await
                         .map_err(ClientError::RpcError)?;
 
@@ -294,9 +292,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
                 let nullifiers = self
                     .rpc_api
-                    .check_nullifiers_by_prefix(&[((note.nullifier().inner()[3].as_int()
-                        >> FILTER_ID_SHIFT)
-                        as u16)])
+                    .check_nullifiers_by_prefix(&[get_nullifier_prefix(&note.nullifier())])
                     .await
                     .map_err(ClientError::RpcError)?;
 
