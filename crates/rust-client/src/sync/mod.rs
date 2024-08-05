@@ -8,7 +8,7 @@ use crypto::merkle::{InOrderIndex, MmrPeaks};
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
     crypto::{self, rand::FeltRng},
-    notes::{Note, NoteId, NoteInclusionProof, NoteInputs, NoteRecipient, NoteTag},
+    notes::{Note, NoteId, NoteInclusionProof, NoteInputs, NoteRecipient, NoteTag, Nullifier},
     transaction::InputNote,
     BlockHeader, Digest,
 };
@@ -305,7 +305,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let nullifiers_tags: Vec<u16> =
             maybe_await!(self.store.get_unspent_input_note_nullifiers())?
                 .iter()
-                .map(|nullifier| (nullifier.inner()[3].as_int() >> FILTER_ID_SHIFT) as u16)
+                .map(get_nullifier_prefix)
                 .collect();
 
         // Send request
@@ -613,4 +613,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         }
         Ok(())
     }
+}
+
+pub fn get_nullifier_prefix(nullifier: &Nullifier) -> u16 {
+    (nullifier.inner()[3].as_int() >> FILTER_ID_SHIFT) as u16
 }
