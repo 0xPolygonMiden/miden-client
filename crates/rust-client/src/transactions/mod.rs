@@ -461,22 +461,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         // Check if the account balance plus incoming assets is greater than or equal to the outgoing
         // fungible assets
         for (faucet_id, amount) in fungible_balance_map {
-            match account.vault().get_balance(faucet_id) {
-                Ok(account_asset_amount) => {
-                    let incoming_balance =
-                        incoming_fungible_balance_map.get(&faucet_id).unwrap_or(&0);
-                    if account_asset_amount + incoming_balance < amount {
-                        return Err(ClientError::AssetError(AssetError::AssetAmountNotSufficient(
-                            account_asset_amount,
-                            amount,
-                        )));
-                    }
-                },
-                _ => {
-                    return Err(ClientError::AssetError(AssetError::AssetAmountNotSufficient(
-                        0, amount,
-                    )))
-                },
+            let account_asset_amount = account.vault().get_balance(faucet_id).unwrap_or(0);
+            let incoming_balance = incoming_fungible_balance_map.get(&faucet_id).unwrap_or(&0);
+            if account_asset_amount + incoming_balance < amount {
+                return Err(ClientError::AssetError(AssetError::AssetAmountNotSufficient(
+                    account_asset_amount,
+                    amount,
+                )));
             }
         }
 
