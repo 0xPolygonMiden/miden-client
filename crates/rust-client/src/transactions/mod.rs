@@ -377,7 +377,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
-    pub fn get_outgoing_assets(
+    fn get_outgoing_assets(
         &self,
         transaction_request: &TransactionRequest,
     ) -> (BTreeMap<AccountId, u64>, BTreeSet<NonFungibleAsset>) {
@@ -420,7 +420,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     }
 
     #[maybe_async]
-    pub fn get_incoming_assets(
+    fn get_incoming_assets(
         &self,
         transaction_request: &TransactionRequest,
     ) -> Result<(BTreeMap<AccountId, u64>, BTreeSet<NonFungibleAsset>), TransactionRequestError>
@@ -531,16 +531,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         Ok(())
     }
 
-    fn validate_faucet_account_request(
-        &self,
-        _transaction_request: &TransactionRequest,
-        _account: &Account,
-    ) -> Result<(), ClientError> {
-        // TODO(SantiagoPittella): Add faucet account validations.
-
-        Ok(())
-    }
-
     #[maybe_async]
     fn validate_request(
         &self,
@@ -548,7 +538,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ) -> Result<(), ClientError> {
         let (account, _) = maybe_await!(self.get_account(transaction_request.account_id()))?;
         if account.is_faucet() {
-            self.validate_faucet_account_request(transaction_request, &account)
+            // TODO(SantiagoPittella): Add faucet validations.
         } else {
             maybe_await!(self.validate_basic_account_request(transaction_request, &account))
         }
