@@ -1,5 +1,8 @@
 use miden_client::{
-    accounts::AccountTemplate, transactions::request::TransactionRequest, utils::Serializable, ZERO,
+    accounts::AccountTemplate,
+    transactions::request::TransactionRequest,
+    utils::{Deserializable, Serializable},
+    ZERO,
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorageType, AuthSecretKey},
@@ -148,6 +151,13 @@ async fn test_transaction_request() {
         .with_custom_script(tx_script)
         .unwrap()
         .extend_advice_map(advice_map);
+
+    // TEST CUSTOM SCRIPT SERIALIZATION
+    let mut buffer = Vec::new();
+    transaction_request.write_into(&mut buffer);
+
+    let deserialized_transaction_request = TransactionRequest::read_from_bytes(&buffer).unwrap();
+    assert_eq!(transaction_request, deserialized_transaction_request);
 
     execute_tx_and_sync(&mut client, transaction_request).await;
 
