@@ -109,6 +109,13 @@ impl MockRpcApi {
 }
 
 impl NodeRpcClient for MockRpcApi {
+    async fn sync_notes(
+        &mut self,
+        _block_num: u32,
+        _note_tags: &[NoteTag],
+    ) -> Result<crate::rpc::NoteSyncInfo, RpcError> {
+        todo!("sync_notes")
+    }
     /// Executes the specified sync state request and returns the response.
     async fn sync_state(
         &mut self,
