@@ -357,6 +357,10 @@ impl PartialEq for TransactionRequest {
         let same_script_template = match &self.script_template {
             Some(TransactionScriptTemplate::CustomScript(script)) => match &other.script_template {
                 Some(TransactionScriptTemplate::CustomScript(other_script)) => {
+                    // TODO: We should also compare the source code. However, the ProgramAst
+                    // serialization has a small bug that makes the end program a bit different.
+                    // We should add the comparison of the source code once we start using the
+                    // v0.10 `miden-vm`.
                     script.hash() == other_script.hash() && script.inputs() == other_script.inputs()
                 },
                 _ => false,
