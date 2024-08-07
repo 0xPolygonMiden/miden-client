@@ -168,6 +168,33 @@ pub trait NodeRpcClient {
         &mut self,
         account_id: AccountId,
     ) -> Result<AccountDetails, RpcError>;
+
+    async fn sync_notes(
+        &mut self,
+        block_num: u32,
+        note_tags: &[NoteTag],
+    ) -> Result<NoteSyncInfo, RpcError>;
+}
+
+// SYNC NOTE
+// ================================================================================================
+
+/// Represents a `SyncNoteResponse` with fields converted into domain types
+#[derive(Debug)]
+pub struct NoteSyncInfo {
+    /// Number of the latest block in the chain
+    pub chain_tip: u32,
+    /// Block header of the block with the first note matching the specified criteria
+    pub block_header: Option<BlockHeader>,
+    /// Proof for block header's MMR with respect to the chain tip.
+    ///
+    /// More specifically, the full proof consists of `forest`, `position` and `path` components. This
+    /// value constitutes the `path`. The other two components can be obtained as follows:
+    ///    - `position` is simply `resopnse.block_header.block_num`
+    ///    - `forest` is the same as `response.chain_tip + 1`
+    pub mmr_path: Option<MerklePath>,
+    /// List of all notes together with the Merkle paths from `response.block_header.note_root`
+    pub notes: Vec<CommittedNote>,
 }
 
 // STATE SYNC INFO
@@ -269,6 +296,7 @@ pub enum NodeRpcClientEndpoint {
     GetBlockHeaderByNumber,
     SyncState,
     SubmitProvenTx,
+    SyncNotes,
 }
 
 impl fmt::Display for NodeRpcClientEndpoint {
@@ -280,6 +308,7 @@ impl fmt::Display for NodeRpcClientEndpoint {
             },
             NodeRpcClientEndpoint::SyncState => write!(f, "sync_state"),
             NodeRpcClientEndpoint::SubmitProvenTx => write!(f, "submit_proven_transaction"),
+            NodeRpcClientEndpoint::SyncNotes => write!(f, "sync_notes"),
         }
     }
 }
