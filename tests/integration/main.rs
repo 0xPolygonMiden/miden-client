@@ -600,6 +600,58 @@ async fn test_import_expected_notes() {
 }
 
 #[tokio::test]
+async fn test_import_expected_notes_from_the_past_as_committed() {
+    let mut client_1 = create_test_client();
+    let (_first_basic_account, second_basic_account, faucet_account) =
+        setup(&mut client_1, AccountStorageType::OffChain).await;
+
+    let mut client_2 = create_test_client();
+    
+    wait_for_node(&mut client_2).await;
+
+    // Mint assets to an account in the first client.
+    let tx_template: TransactionTemplate = TransactionTemplate::MintFungibleAsset(
+        FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
+        second_basic_account.id(),
+        NoteType::Private,
+    );
+    let tx_request = client_1.build_transaction_request(tx_template).unwrap();
+
+    let expected_note = client_1
+        .get_output_notes(miden_client::store::NoteFilter::Expected).unwrap()
+        .pop()
+        .expect("should have an output note");
+
+    let note_details = NoteFile::NoteDetails(
+            expected_note.clone().try_into().unwrap(),
+            Some(expected_note.metadata().tag()),
+        );
+
+    execute_tx_and_sync(&mut client_1, tx_request).await;
+
+    // Use client 1 to wait until a couple of blocks have passed
+    wait_for_blocks(&mut client_1, 3).await;
+
+    // Sync the client 2.
+    // The previous transaction should be included in the node, but since it was not tracked by
+    // the client 2, it should not be included in the sync.
+    client_2.sync_state().await.unwrap();
+
+    // Import the note from the past as committed.
+    let note_id = client_2
+        .import_note(note_details)
+        .await
+        .unwrap();
+
+    let note = client_2
+        .get_input_note(note_id)
+        .unwrap();
+
+    assert!(note.inclusion_proof().is_some());
+    assert_eq!(note.status(), NoteStatus::Committed { block_height: 0 });
+}
+
+#[tokio::test]
 async fn test_get_account_update() {
     // Create a client with both public and private accounts.
     let mut client = create_test_client();

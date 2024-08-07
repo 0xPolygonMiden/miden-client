@@ -242,7 +242,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
                 let record_details = details.clone().into();
 
-                let (note_status, note_inclusion_proof) = self.sync_note(0, tag, &details).await?;
+                let (note_status, note_inclusion_proof) = self.sync_note(1, tag, &details).await?;
 
                 InputNoteRecord::new(
                     details.id(),
