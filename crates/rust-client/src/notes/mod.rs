@@ -242,13 +242,15 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
                 let record_details = details.clone().into();
 
+                let (note_status, note_inclusion_proof) = self.sync_note(0, tag, &details).await?;
+
                 InputNoteRecord::new(
                     details.id(),
                     details.recipient().digest(),
                     details.assets().clone(),
-                    NoteStatus::Expected { created_at: 0 },
+                    note_status,
                     None,
-                    None,
+                    note_inclusion_proof,
                     record_details,
                     ignored,
                     Some(tag),
@@ -289,6 +291,55 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         self.tx_executor
             .compile_note_script(note_script_ast, target_account_procs)
             .map_err(ClientError::TransactionExecutorError)
+    }
+
+    // HELPERS
+    // ===============================================================================================
+
+    /// Synchronizes a note with the chain.
+    async fn sync_note(
+        &mut self,
+        mut block_num: u32,
+        tag: NoteTag,
+        expected_note: &miden_objects::notes::NoteDetails,
+    ) -> Result<(NoteStatus, Option<NoteInclusionProof>), ClientError> {
+        loop {
+            let sync_notes = self.rpc_api().sync_notes(block_num, &[tag]).await?;
+
+            if sync_notes.block_header.is_none() {
+                // This means that no notes with that note_tag were found.
+                // Therefore, we should leave the note as expected.
+                return Ok((NoteStatus::Expected { created_at: 0 }, None));
+            }
+
+            // This means that notes with that note_tag were found.
+            // Therefore, we should check if a note with the same id was found.
+            let committed_note =
+                sync_notes.notes.iter().find(|note| note.note_id() == &expected_note.id());
+
+            if let Some(note) = committed_note {
+                // This means that a note with the same id was found.
+                // Therefore, we should mark the note as committed.
+                let note_inclusion_proof = NoteInclusionProof::new(
+                    sync_notes.block_header.as_ref().unwrap().block_num(),
+                    note.note_index(),
+                    note.merkle_path().clone(),
+                )?;
+
+                return Ok((
+                    NoteStatus::Committed {
+                        // Block header can't be None since we check that already in the if statement.
+                        block_height: sync_notes.block_header.as_ref().unwrap().block_num() as u64,
+                    },
+                    Some(note_inclusion_proof),
+                ));
+            } else {
+                // This means that a note with the same id was not found.
+                // Therefore, we should request again for sync_notes with the same note_tag
+                // and with the block_num of the last block header (sync_notes.block_header.unwrap()).
+                block_num = sync_notes.block_header.unwrap().block_num();
+            }
+        }
     }
 }
 
