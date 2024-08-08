@@ -242,11 +242,17 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
                 let record_details = details.clone().into();
 
-                let (note_status, metadata, note_inclusion_proof) = self.sync_note(1, tag, &details).await?;
+                let (note_status, metadata, note_inclusion_proof) =
+                    self.sync_note(1, tag, &details).await?;
 
                 if let NoteStatus::Committed { block_height } = note_status {
-                    let mut current_partial_mmr = maybe_await!(self.build_current_partial_mmr(true))?;
-                    self.get_and_store_authenticated_block(block_height.try_into().unwrap(), &mut current_partial_mmr).await?;
+                    let mut current_partial_mmr =
+                        maybe_await!(self.build_current_partial_mmr(true))?;
+                    self.get_and_store_authenticated_block(
+                        block_height.try_into().unwrap(),
+                        &mut current_partial_mmr,
+                    )
+                    .await?;
                 };
 
                 InputNoteRecord::new(
@@ -336,7 +342,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                         // Block header can't be None since we check that already in the if statement.
                         block_height: sync_notes.block_header.as_ref().unwrap().block_num() as u64,
                     },
-                    Some(note.metadata().clone()),
+                    Some(note.metadata()),
                     Some(note_inclusion_proof),
                 ));
             } else {

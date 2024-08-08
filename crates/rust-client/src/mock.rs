@@ -41,7 +41,9 @@ use crate::{
             note::NoteSyncRecord,
             requests::SyncStateRequest,
             responses::{NullifierUpdate, SyncNoteResponse, SyncStateResponse},
-        }, AccountDetails, NodeRpcClient, NodeRpcClientEndpoint, NoteDetails, NoteInclusionDetails, RpcError, StateSyncInfo
+        },
+        AccountDetails, NodeRpcClient, NodeRpcClientEndpoint, NoteDetails, NoteInclusionDetails,
+        RpcError, StateSyncInfo,
     },
     store::{
         sqlite_store::{config::SqliteStoreConfig, SqliteStore},
