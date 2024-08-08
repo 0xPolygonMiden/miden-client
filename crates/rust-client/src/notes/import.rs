@@ -79,9 +79,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             inclusion_details.merkle_path.clone(),
         )?;
 
-        let tracked_note = maybe_await!(self.get_input_note(id));
+        let store_note = maybe_await!(self.get_input_note(id));
 
-        if let Err(ClientError::StoreError(StoreError::NoteNotFound(_))) = tracked_note {
+        if let Err(ClientError::StoreError(StoreError::NoteNotFound(_))) = store_note {
             let node_note = match note_details {
                 crate::rpc::NoteDetails::Public(note, _) => note,
                 crate::rpc::NoteDetails::OffChain(..) => {
@@ -95,7 +95,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             let details = node_note.clone().into();
 
             let status = if let Some(block_height) =
-                self.nullifier_block_num(&node_note.nullifier()).await?
+                self.get_nullifier_block_num(&node_note.nullifier()).await?
             {
                 NoteStatus::Consumed { consumer_account_id: None, block_height }
             } else {
@@ -117,7 +117,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             )))
         } else {
             // If note is already tracked, we update the inclusion proof and metadata.
-            let tracked_note = tracked_note?;
+            let tracked_note = store_note?;
 
             // TODO: Join these calls to one method that updates both fields with one query (issue #404)
             maybe_await!(self
@@ -138,7 +138,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ) -> Result<InputNoteRecord, ClientError> {
         let details = note.clone().into();
 
-        let status = if let Some(block_height) = self.nullifier_block_num(&note.nullifier()).await?
+        let status = if let Some(block_height) = self.get_nullifier_block_num(&note.nullifier()).await?
         {
             NoteStatus::Consumed { consumer_account_id: None, block_height }
         } else {
@@ -233,7 +233,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         }
     }
 
-    async fn nullifier_block_num(
+    async fn get_nullifier_block_num(
         &mut self,
         nullifier: &Nullifier,
     ) -> Result<Option<u64>, ClientError> {
