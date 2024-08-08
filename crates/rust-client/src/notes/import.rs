@@ -138,14 +138,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ) -> Result<InputNoteRecord, ClientError> {
         let details = note.clone().into();
 
-        let status = if let Some(block_height) = self.get_nullifier_block_num(&note.nullifier()).await?
-        {
-            NoteStatus::Consumed { consumer_account_id: None, block_height }
-        } else {
-            NoteStatus::Committed {
-                block_height: inclusion_proof.location().block_num(),
-            }
-        };
+        let status =
+            if let Some(block_height) = self.get_nullifier_block_num(&note.nullifier()).await? {
+                NoteStatus::Consumed { consumer_account_id: None, block_height }
+            } else {
+                NoteStatus::Committed {
+                    block_height: inclusion_proof.location().block_num(),
+                }
+            };
 
         Ok(InputNoteRecord::new(
             note.id(),
@@ -195,22 +195,15 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 {
                     let mut current_partial_mmr =
                         maybe_await!(self.build_current_partial_mmr(true))?;
-                    self.get_and_store_authenticated_block(
-                        block_height.try_into().map_err(|_| {
-                            ClientError::NoteImportError(
-                                "Couldn't convert block height".to_string(),
-                            )
-                        })?,
-                        &mut current_partial_mmr,
-                    )
-                    .await?;
+                    self.get_and_store_authenticated_block(block_height, &mut current_partial_mmr)
+                        .await?;
                     Ok(InputNoteRecord::from(input_note))
                 } else {
                     Ok(InputNoteRecord::new(
                         details.id(),
                         details.recipient().digest(),
                         details.assets().clone(),
-                        NoteStatus::Expected { created_at: 0 },
+                        NoteStatus::Expected { created_at: None },
                         None,
                         None,
                         record_details,
@@ -223,7 +216,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 details.id(),
                 details.recipient().digest(),
                 details.assets().clone(),
-                NoteStatus::Expected { created_at: 0 },
+                NoteStatus::Expected { created_at: None },
                 None,
                 None,
                 record_details,
@@ -259,13 +252,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let current_block_num = maybe_await!(self.get_sync_height())?;
         loop {
             if request_block_num > current_block_num {
-                return Ok((NoteStatus::Expected { created_at: 0 }, None));
+                return Ok((NoteStatus::Expected { created_at: None }, None));
             };
 
             let sync_notes = self.rpc_api().sync_notes(request_block_num, &[tag]).await?;
 
             if sync_notes.block_header.block_num() == sync_notes.chain_tip {
-                return Ok((NoteStatus::Expected { created_at: 0 }, None));
+                return Ok((NoteStatus::Expected { created_at: None }, None));
             }
 
             // This means that notes with that note_tag were found.
@@ -287,7 +280,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 return Ok((
                     NoteStatus::Committed {
                         // Block header can't be None since we check that already in the if statement.
-                        block_height: note_block_num as u64,
+                        block_height: note_block_num,
                     },
                     Some(InputNote::authenticated(
                         Note::new(

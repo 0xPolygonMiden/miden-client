@@ -62,7 +62,7 @@ pub enum NoteStatus {
     /// Note is expected to be commited on chain.
     Expected {
         /// UNIX epoch-based timestamp (in seconds) when the note (either new or imported) started being tracked by the client.
-        created_at: u64,
+        created_at: Option<u64>,
     },
     /// Note has been commited on chain.
     Committed {
@@ -90,7 +90,7 @@ impl Serializable for NoteStatus {
         match self {
             NoteStatus::Expected { created_at } => {
                 target.write_u8(0);
-                target.write_u64(*created_at);
+                created_at.write_into(target);
             },
             NoteStatus::Committed { block_height } => {
                 target.write_u8(1);
@@ -115,7 +115,7 @@ impl Deserializable for NoteStatus {
         let status = source.read_u8()?;
         match status {
             0 => {
-                let created_at = source.read_u64()?;
+                let created_at = Option::<u64>::read_from(source)?;
                 Ok(NoteStatus::Expected { created_at })
             },
             1 => {
@@ -143,10 +143,13 @@ impl Display for NoteStatus {
             NoteStatus::Expected { created_at } => write!(
                 f,
                 "{NOTE_STATUS_EXPECTED} (created at {})",
-                Local
-                    .timestamp_opt(*created_at as i64, 0)
-                    .single()
-                    .expect("timestamp should be valid")
+                created_at
+                    .map(|ts| Local
+                        .timestamp_opt(ts as i64, 0)
+                        .single()
+                        .expect("timestamp should be valid")
+                        .to_string())
+                    .unwrap_or("?".to_string())
             ),
             NoteStatus::Committed { block_height } => {
                 write!(f, "{NOTE_STATUS_COMMITTED} (at block height {block_height})")
