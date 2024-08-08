@@ -40,10 +40,8 @@ use crate::{
             block_header::BlockHeader as NodeBlockHeader,
             note::NoteSyncRecord,
             requests::SyncStateRequest,
-            responses::{NullifierUpdate, SyncStateResponse},
-        },
-        AccountDetails, NodeRpcClient, NodeRpcClientEndpoint, NoteDetails, NoteInclusionDetails,
-        RpcError, StateSyncInfo,
+            responses::{NullifierUpdate, SyncNoteResponse, SyncStateResponse},
+        }, AccountDetails, NodeRpcClient, NodeRpcClientEndpoint, NoteDetails, NoteInclusionDetails, RpcError, StateSyncInfo
     },
     store::{
         sqlite_store::{config::SqliteStoreConfig, SqliteStore},
@@ -86,18 +84,28 @@ pub struct MockRpcApi {
     pub notes: BTreeMap<NoteId, InputNote>,
     pub mmr: Mmr,
     pub blocks: Vec<BlockHeader>,
+    pub sync_note_request: SyncNoteResponse,
 }
 
 impl Default for MockRpcApi {
     fn default() -> Self {
         let (genesis_block, state_sync_requests, notes, mmr, blocks) =
             generate_state_sync_mock_requests();
+
+        let sync_note_request = SyncNoteResponse {
+            chain_tip: 10,
+            notes: vec![],
+            block_header: None,
+            mmr_path: None,
+        };
+
         Self {
             state_sync_requests,
             genesis_block,
             notes,
             mmr,
             blocks,
+            sync_note_request,
         }
     }
 }
@@ -114,8 +122,11 @@ impl NodeRpcClient for MockRpcApi {
         _block_num: u32,
         _note_tags: &[NoteTag],
     ) -> Result<crate::rpc::NoteSyncInfo, RpcError> {
-        todo!("sync_notes")
+        let response = &self.sync_note_request;
+        let response = Response::new(response.clone());
+        response.into_inner().try_into()
     }
+
     /// Executes the specified sync state request and returns the response.
     async fn sync_state(
         &mut self,
