@@ -1,5 +1,5 @@
 use alloc::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     string::{String, ToString},
     vec::Vec,
 };
@@ -7,12 +7,12 @@ use core::fmt;
 
 use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
-    accounts::{AccountDelta, AccountId, AccountType},
+    accounts::{Account, AccountDelta, AccountId, AccountType},
     assembly::ProgramAst,
-    assets::FungibleAsset,
+    assets::{Asset, FungibleAsset, NonFungibleAsset},
     notes::{Note, NoteDetails, NoteExecutionMode, NoteId, NoteTag, NoteType},
     transaction::{InputNotes, TransactionArgs},
-    Digest, Felt, FieldElement, NoteError, Word,
+    AssetError, Digest, Felt, FieldElement, NoteError, Word,
 };
 use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, TransactionProver};
 use request::{TransactionRequestError, TransactionScriptTemplate};
@@ -237,6 +237,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         &mut self,
         transaction_request: TransactionRequest,
     ) -> Result<TransactionResult, ClientError> {
+        // Validates the transaction request before executing
+        maybe_await!(self.validate_request(&transaction_request))?;
+
         let account_id = transaction_request.account_id();
         maybe_await!(self.tx_executor.load_account(account_id))
             .map_err(ClientError::TransactionExecutorError)?;
@@ -371,6 +374,141 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
+    /// Helper to get the account outgoing assets.
+    ///
+    /// Any outgoing assets resulting from executing note scripts but not present in expected output
+    /// notes would not be included.
+    fn get_outgoing_assets(
+        &self,
+        transaction_request: &TransactionRequest,
+    ) -> (BTreeMap<AccountId, u64>, BTreeSet<NonFungibleAsset>) {
+        // Get own notes assets
+        let mut own_notes_assets = match transaction_request.script_template() {
+            Some(TransactionScriptTemplate::SendNotes(notes)) => {
+                notes.iter().map(|note| (note.id(), note.assets())).collect::<BTreeMap<_, _>>()
+            },
+            _ => Default::default(),
+        };
+        // Get transaction output notes assets
+        let mut output_notes_assets = transaction_request
+            .expected_output_notes()
+            .map(|note| (note.id(), note.assets()))
+            .collect::<BTreeMap<_, _>>();
+
+        // Merge with own notes assets and delete duplicates
+        output_notes_assets.append(&mut own_notes_assets);
+
+        // Create a map of the fungible and non-fungible assets in the output notes
+        let outgoing_assets =
+            output_notes_assets.values().flat_map(|note_assets| note_assets.iter());
+
+        collect_assets(outgoing_assets)
+    }
+
+    /// Helper to get the account incoming assets.
+    #[maybe_async]
+    fn get_incoming_assets(
+        &self,
+        transaction_request: &TransactionRequest,
+    ) -> Result<(BTreeMap<AccountId, u64>, BTreeSet<NonFungibleAsset>), TransactionRequestError>
+    {
+        // Get incoming asset notes excluding unauthenticated ones
+        let incoming_notes_ids: Vec<_> = transaction_request
+            .input_notes()
+            .iter()
+            .filter_map(|(note_id, _)| {
+                if transaction_request
+                    .unauthenticated_input_notes()
+                    .iter()
+                    .any(|note| note.id() == *note_id)
+                {
+                    None
+                } else {
+                    Some(*note_id)
+                }
+            })
+            .collect();
+
+        let store_input_notes =
+            maybe_await!(self.get_input_notes(NoteFilter::List(&incoming_notes_ids)))
+                .map_err(|err| TransactionRequestError::NoteNotFound(err.to_string()))?;
+
+        let all_incoming_assets =
+            store_input_notes.iter().flat_map(|note| note.assets().iter()).chain(
+                transaction_request
+                    .unauthenticated_input_notes()
+                    .iter()
+                    .flat_map(|note| note.assets().iter()),
+            );
+
+        Ok(collect_assets(all_incoming_assets))
+    }
+
+    #[maybe_async]
+    fn validate_basic_account_request(
+        &self,
+        transaction_request: &TransactionRequest,
+        account: &Account,
+    ) -> Result<(), ClientError> {
+        // Get outgoing assets
+        let (fungible_balance_map, non_fungible_set) =
+            self.get_outgoing_assets(transaction_request);
+
+        // Get incoming assets
+        let (incoming_fungible_balance_map, incoming_non_fungible_balance_set) =
+            maybe_await!(self.get_incoming_assets(transaction_request))?;
+
+        // Check if the account balance plus incoming assets is greater than or equal to the outgoing
+        // fungible assets
+        for (faucet_id, amount) in fungible_balance_map {
+            let account_asset_amount = account.vault().get_balance(faucet_id).unwrap_or(0);
+            let incoming_balance = incoming_fungible_balance_map.get(&faucet_id).unwrap_or(&0);
+            if account_asset_amount + incoming_balance < amount {
+                return Err(ClientError::AssetError(AssetError::AssetAmountNotSufficient(
+                    account_asset_amount,
+                    amount,
+                )));
+            }
+        }
+
+        // Check if the account balance plus incoming assets is greater than or equal to the outgoing
+        // non fungible assets
+        for non_fungible in non_fungible_set {
+            match account.vault().has_non_fungible_asset(non_fungible.into()) {
+                Ok(true) => (),
+                Ok(false) => {
+                    // Check if the non fungible asset is in the incoming assets
+                    if !incoming_non_fungible_balance_set.contains(&non_fungible) {
+                        return Err(ClientError::AssetError(AssetError::AssetAmountNotSufficient(
+                            0, 1,
+                        )));
+                    }
+                },
+                _ => {
+                    return Err(ClientError::AssetError(AssetError::AssetAmountNotSufficient(
+                        0, 1,
+                    )));
+                },
+            }
+        }
+
+        Ok(())
+    }
+
+    #[maybe_async]
+    fn validate_request(
+        &self,
+        transaction_request: &TransactionRequest,
+    ) -> Result<(), ClientError> {
+        let (account, _) = maybe_await!(self.get_account(transaction_request.account_id()))?;
+        if account.is_faucet() {
+            // TODO(SantiagoPittella): Add faucet validations.
+            Ok(())
+        } else {
+            maybe_await!(self.validate_basic_account_request(transaction_request, &account))
+        }
+    }
+
     /// Helper to build a [TransactionRequest] for P2ID-type transactions easily.
     ///
     /// - auth_info has to be from the executor account
@@ -480,6 +618,27 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
 // HELPERS
 // ================================================================================================
+
+fn collect_assets<'a>(
+    assets: impl Iterator<Item = &'a Asset>,
+) -> (BTreeMap<AccountId, u64>, BTreeSet<NonFungibleAsset>) {
+    let mut fungible_balance_map = BTreeMap::new();
+    let mut non_fungible_set = BTreeSet::new();
+
+    assets.for_each(|asset| match asset {
+        Asset::Fungible(fungible) => {
+            fungible_balance_map
+                .entry(fungible.faucet_id())
+                .and_modify(|balance| *balance += fungible.amount())
+                .or_insert(fungible.amount());
+        },
+        Asset::NonFungible(non_fungible) => {
+            non_fungible_set.insert(*non_fungible);
+        },
+    });
+
+    (fungible_balance_map, non_fungible_set)
+}
 
 pub(crate) fn prepare_word(word: &Word) -> String {
     word.iter().map(|x| x.as_int().to_string()).collect::<Vec<_>>().join(".")
