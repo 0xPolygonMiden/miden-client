@@ -47,7 +47,7 @@ type SerializedInputNoteData = (
     Option<String>,
     bool,
     Option<u32>,
-    Option<u64>,
+    Option<u32>,
 );
 type SerializedOutputNoteData = (
     String,
@@ -548,7 +548,7 @@ fn parse_input_note(
         NOTE_STATUS_COMMITTED => NoteStatus::Committed {
             block_height: inclusion_proof
                 .clone()
-                .map(|proof| proof.location().block_num() as u64)
+                .map(|proof| proof.location().block_num())
                 .expect("Committed note should have inclusion proof"),
         },
         NOTE_STATUS_PROCESSING => NoteStatus::Processing {
@@ -632,7 +632,7 @@ pub(crate) fn serialize_input_note(
             ))
         },
         NoteStatus::Consumed { block_height, .. } => {
-            (NOTE_STATUS_CONSUMED.to_string(), Some(block_height))
+            (NOTE_STATUS_CONSUMED.to_string(), Some(block_height as u32))
         },
     };
 
@@ -750,7 +750,7 @@ fn parse_output_note(
         NOTE_STATUS_COMMITTED => NoteStatus::Committed {
             block_height: inclusion_proof
                 .clone()
-                .map(|proof| proof.location().block_num() as u64)
+                .map(|proof| proof.location().block_num())
                 .expect("Committed note should have inclusion proof"),
         },
         NOTE_STATUS_PROCESSING => NoteStatus::Processing {

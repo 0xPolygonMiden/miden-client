@@ -615,6 +615,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     }
 }
 
-pub fn get_nullifier_prefix(nullifier: &Nullifier) -> u16 {
+pub(crate) fn get_nullifier_prefix(nullifier: &Nullifier) -> u16 {
     (nullifier.inner()[3].as_int() >> FILTER_ID_SHIFT) as u16
 }

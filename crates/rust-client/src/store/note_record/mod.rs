@@ -67,7 +67,7 @@ pub enum NoteStatus {
     /// Note has been commited on chain.
     Committed {
         /// Block height at which the note was commited.
-        block_height: u64,
+        block_height: u32,
     },
     /// Note has been consumed locally but not yet nullified on chain.
     Processing {
@@ -94,7 +94,7 @@ impl Serializable for NoteStatus {
             },
             NoteStatus::Committed { block_height } => {
                 target.write_u8(1);
-                target.write_u64(*block_height);
+                target.write_u32(*block_height);
             },
             NoteStatus::Processing { consumer_account_id, submitted_at } => {
                 target.write_u8(2);
@@ -119,7 +119,7 @@ impl Deserializable for NoteStatus {
                 Ok(NoteStatus::Expected { created_at })
             },
             1 => {
-                let block_height = source.read_u64()?;
+                let block_height = source.read_u32()?;
                 Ok(NoteStatus::Committed { block_height })
             },
             2 => {

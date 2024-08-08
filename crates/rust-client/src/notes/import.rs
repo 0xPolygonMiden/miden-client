@@ -99,7 +99,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 NoteStatus::Consumed { consumer_account_id: None, block_height }
             } else {
                 NoteStatus::Committed {
-                    block_height: inclusion_proof.location().block_num() as u64,
+                    block_height: inclusion_proof.location().block_num(),
                 }
             };
 
@@ -142,7 +142,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             NoteStatus::Consumed { consumer_account_id: None, block_height }
         } else {
             NoteStatus::Committed {
-                block_height: inclusion_proof.location().block_num() as u64,
+                block_height: inclusion_proof.location().block_num(),
             }
         };
 

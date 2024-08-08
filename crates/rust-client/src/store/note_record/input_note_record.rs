@@ -218,7 +218,7 @@ impl From<InputNote> for InputNoteRecord {
     fn from(recorded_note: InputNote) -> Self {
         let status = if let Some(inclusion_proof) = recorded_note.proof() {
             NoteStatus::Committed {
-                block_height: inclusion_proof.location().block_num() as u64,
+                block_height: inclusion_proof.location().block_num(),
             }
         } else {
             NoteStatus::Expected { created_at: 0 }

@@ -288,6 +288,28 @@ pub mod api_client {
                 .insert(GrpcMethod::new("rpc.Api", "SubmitProvenTransaction"));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn sync_notes(
+            &mut self,
+            request: impl tonic::IntoRequest<super::super::requests::SyncNoteRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::super::responses::SyncNoteResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/rpc.Api/SyncNotes");
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "SyncNotes"));
+            self.inner.unary(req, path, codec).await
+        }
         pub async fn sync_state(
             &mut self,
             request: impl tonic::IntoRequest<super::super::requests::SyncStateRequest>,
