@@ -544,7 +544,7 @@ fn parse_input_note(
 
     // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
     let status = match status.as_str() {
-        NOTE_STATUS_EXPECTED => NoteStatus::Expected { created_at },
+        NOTE_STATUS_EXPECTED => NoteStatus::Expected { created_at: Some(created_at) },
         NOTE_STATUS_COMMITTED => NoteStatus::Committed {
             block_height: inclusion_proof
                 .clone()
@@ -746,7 +746,7 @@ fn parse_output_note(
 
     // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
     let status = match status.as_str() {
-        NOTE_STATUS_EXPECTED => NoteStatus::Expected { created_at },
+        NOTE_STATUS_EXPECTED => NoteStatus::Expected { created_at: Some(created_at) },
         NOTE_STATUS_COMMITTED => NoteStatus::Committed {
             block_height: inclusion_proof
                 .clone()

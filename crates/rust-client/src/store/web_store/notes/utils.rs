@@ -285,7 +285,7 @@ pub fn parse_input_note_idxdb_object(
 
     // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
     let status = match note_idxdb.status.as_str() {
-        NOTE_STATUS_EXPECTED => NoteStatus::Expected { created_at },
+        NOTE_STATUS_EXPECTED => NoteStatus::Expected { created_at: Some(created_at) },
         NOTE_STATUS_COMMITTED => NoteStatus::Committed {
             block_height: inclusion_proof
                 .clone()
@@ -380,7 +380,7 @@ pub fn parse_output_note_idxdb_object(
 
     // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
     let status = match note_idxdb.status.as_str() {
-        NOTE_STATUS_EXPECTED => NoteStatus::Expected { created_at },
+        NOTE_STATUS_EXPECTED => NoteStatus::Expected { created_at: Some(created_at) },
         NOTE_STATUS_COMMITTED => NoteStatus::Committed {
             block_height: inclusion_proof
                 .clone()

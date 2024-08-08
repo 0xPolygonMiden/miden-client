@@ -137,14 +137,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ) -> Result<InputNoteRecord, ClientError> {
         let details = note.clone().into();
 
-        let status = if let Some(block_height) = self.get_nullifier_block_num(&note.nullifier()).await?
-        {
-            NoteStatus::Consumed { consumer_account_id: None, block_height }
-        } else {
-            NoteStatus::Committed {
-                block_height: inclusion_proof.location().block_num(),
-            }
-        };
+        let status =
+            if let Some(block_height) = self.get_nullifier_block_num(&note.nullifier()).await? {
+                NoteStatus::Consumed { consumer_account_id: None, block_height }
+            } else {
+                NoteStatus::Committed {
+                    block_height: inclusion_proof.location().block_num(),
+                }
+            };
 
         Ok(InputNoteRecord::new(
             note.id(),
@@ -192,7 +192,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     details.id(),
                     details.recipient().digest(),
                     details.assets().clone(),
-                    NoteStatus::Expected { created_at: 0 },
+                    NoteStatus::Expected { created_at: None },
                     None,
                     None,
                     record_details,
@@ -204,7 +204,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 details.id(),
                 details.recipient().digest(),
                 details.assets().clone(),
-                NoteStatus::Expected { created_at: 0 },
+                NoteStatus::Expected { created_at: None },
                 None,
                 None,
                 record_details,
