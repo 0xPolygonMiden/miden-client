@@ -289,7 +289,7 @@ pub fn parse_input_note_idxdb_object(
         NOTE_STATUS_COMMITTED => NoteStatus::Committed {
             block_height: inclusion_proof
                 .clone()
-                .map(|proof| proof.location().block_num() as u64)
+                .map(|proof| proof.location().block_num())
                 .expect("Committed note should have inclusion proof"),
         },
         NOTE_STATUS_PROCESSING => NoteStatus::Processing {
@@ -384,7 +384,7 @@ pub fn parse_output_note_idxdb_object(
         NOTE_STATUS_COMMITTED => NoteStatus::Committed {
             block_height: inclusion_proof
                 .clone()
-                .map(|proof| proof.location().block_num() as u64)
+                .map(|proof| proof.location().block_num())
                 .expect("Committed note should have inclusion proof"),
         },
         NOTE_STATUS_PROCESSING => NoteStatus::Processing {
