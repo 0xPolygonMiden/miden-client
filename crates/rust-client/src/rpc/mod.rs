@@ -243,7 +243,7 @@ pub struct NullifierUpdate {
 // ================================================================================================
 
 /// Represents a committed note, returned as part of a `SyncStateResponse`
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CommittedNote {
     /// Note ID of the committed note
     note_id: NoteId,

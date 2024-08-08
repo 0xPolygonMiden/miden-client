@@ -242,14 +242,19 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
                 let record_details = details.clone().into();
 
-                let (note_status, note_inclusion_proof) = self.sync_note(1, tag, &details).await?;
+                let (note_status, metadata, note_inclusion_proof) = self.sync_note(1, tag, &details).await?;
+
+                if let NoteStatus::Committed { block_height } = note_status {
+                    let mut current_partial_mmr = maybe_await!(self.build_current_partial_mmr(true))?;
+                    self.get_and_store_authenticated_block(block_height.try_into().unwrap(), &mut current_partial_mmr).await?;
+                };
 
                 InputNoteRecord::new(
                     details.id(),
                     details.recipient().digest(),
                     details.assets().clone(),
                     note_status,
-                    None,
+                    metadata,
                     note_inclusion_proof,
                     record_details,
                     ignored,
@@ -302,14 +307,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         mut block_num: u32,
         tag: NoteTag,
         expected_note: &miden_objects::notes::NoteDetails,
-    ) -> Result<(NoteStatus, Option<NoteInclusionProof>), ClientError> {
+    ) -> Result<(NoteStatus, Option<NoteMetadata>, Option<NoteInclusionProof>), ClientError> {
         loop {
             let sync_notes = self.rpc_api().sync_notes(block_num, &[tag]).await?;
 
             if sync_notes.block_header.is_none() {
                 // This means that no notes with that note_tag were found.
                 // Therefore, we should leave the note as expected.
-                return Ok((NoteStatus::Expected { created_at: 0 }, None));
+                return Ok((NoteStatus::Expected { created_at: 0 }, None, None));
             }
 
             // This means that notes with that note_tag were found.
@@ -331,6 +336,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                         // Block header can't be None since we check that already in the if statement.
                         block_height: sync_notes.block_header.as_ref().unwrap().block_num() as u64,
                     },
+                    Some(note.metadata().clone()),
                     Some(note_inclusion_proof),
                 ));
             } else {

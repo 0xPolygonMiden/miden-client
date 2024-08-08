@@ -36,6 +36,11 @@ impl ImportCmd {
         for filename in &self.filenames {
             let note_id = import_note(&mut client, filename.clone()).await;
 
+            if note_id.is_err() {
+                println!("Failed to import note from file {}", filename.to_string_lossy());
+                println!("With error: {:?}", note_id.clone().err().unwrap());
+            };
+
             if let Ok(note_id) = note_id {
                 println!("Succesfully imported note {}", note_id.inner());
             } else {
