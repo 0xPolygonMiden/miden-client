@@ -279,8 +279,8 @@ pub fn parse_input_note_idxdb_object(
     let submitted_at: Option<u64> = note_idxdb
         .submitted_at
         .map(|submitted_at| submitted_at.parse::<u64>().expect("Failed to parse submitted_at"));
-    let nullifier_height: Option<u64> = note_idxdb.nullifier_height.map(|nullifier_height| {
-        nullifier_height.parse::<u64>().expect("Failed to parse nullifier_height")
+    let nullifier_height: Option<u32> = note_idxdb.nullifier_height.map(|nullifier_height| {
+        nullifier_height.parse::<u32>().expect("Failed to parse nullifier_height")
     });
 
     // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
@@ -374,8 +374,8 @@ pub fn parse_output_note_idxdb_object(
     let submitted_at: Option<u64> = note_idxdb
         .submitted_at
         .map(|submitted_at| submitted_at.parse::<u64>().expect("Failed to parse submitted_at"));
-    let nullifier_height: Option<u64> = note_idxdb.nullifier_height.map(|nullifier_height| {
-        nullifier_height.parse::<u64>().expect("Failed to parse nullifier_height")
+    let nullifier_height: Option<u32> = note_idxdb.nullifier_height.map(|nullifier_height| {
+        nullifier_height.parse::<u32>().expect("Failed to parse nullifier_height")
     });
 
     // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain

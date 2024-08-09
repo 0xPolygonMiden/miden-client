@@ -72,7 +72,7 @@ type SerializedInputNoteParts = (
     Option<i64>,
     u64,
     Option<u64>,
-    Option<u64>,
+    Option<u32>,
     bool,
     Option<u32>,
 );
@@ -87,7 +87,7 @@ type SerializedOutputNoteParts = (
     Option<i64>,
     u64,
     Option<u64>,
-    Option<u64>,
+    Option<u32>,
 );
 
 // NOTE TABLE
@@ -461,7 +461,7 @@ fn parse_input_note_columns(
     let consumer_account_id: Option<i64> = row.get(7)?;
     let created_at: u64 = row.get(8)?;
     let submitted_at: Option<u64> = row.get(9)?;
-    let nullifier_height: Option<u64> = row.get(10)?;
+    let nullifier_height: Option<u32> = row.get(10)?;
     let ignored: bool = row.get(8)?;
     let imported_tag: Option<u32> = row.get(9)?;
 
@@ -632,7 +632,7 @@ pub(crate) fn serialize_input_note(
             ))
         },
         NoteStatus::Consumed { block_height, .. } => {
-            (NOTE_STATUS_CONSUMED.to_string(), Some(block_height as u32))
+            (NOTE_STATUS_CONSUMED.to_string(), Some(block_height))
         },
     };
 
@@ -666,7 +666,7 @@ fn parse_output_note_columns(
     let consumer_account_id: Option<i64> = row.get(7)?;
     let created_at: u64 = row.get(8)?;
     let submitted_at: Option<u64> = row.get(9)?;
-    let nullifier_height: Option<u64> = row.get(10)?;
+    let nullifier_height: Option<u32> = row.get(10)?;
 
     Ok((
         assets,
