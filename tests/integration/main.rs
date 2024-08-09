@@ -538,6 +538,54 @@ async fn test_import_expected_notes() {
 }
 
 #[tokio::test]
+async fn test_import_expected_notes_from_the_past_as_committed() {
+    let mut client_1 = create_test_client();
+    let (first_basic_account, _second_basic_account, faucet_account) =
+        setup(&mut client_1, AccountStorageType::OffChain).await;
+
+    let mut client_2 = create_test_client();
+    let (_client_2_account, _seed) = client_2
+        .new_account(AccountTemplate::BasicWallet {
+            mutable_code: true,
+            storage_type: AccountStorageType::OffChain,
+        })
+        .unwrap();
+
+    wait_for_node(&mut client_2).await;
+
+    let tx_template = TransactionTemplate::MintFungibleAsset(
+        FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
+        first_basic_account.id(),
+        NoteType::Public,
+    );
+
+    let tx_request = client_1.build_transaction_request(tx_template).unwrap();
+    let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
+
+    execute_tx_and_sync(&mut client_1, tx_request).await;
+
+    // Use client 1 to wait until a couple of blocks have passed
+    wait_for_blocks(&mut client_1, 3).await;
+    client_2.sync_state().await.unwrap();
+
+    // If the verification is requested before execution then the import should fail
+    let note_id = client_2
+        .import_note(NoteFile::NoteDetails(
+            note.clone().into(),
+            Some(note.metadata().unwrap().tag()),
+        ))
+        .await
+        .unwrap();
+
+    let imported_note = client_2.get_input_note(note_id).unwrap();
+
+    // Get the note status in client 1
+    let client_1_note_status = client_1.get_input_note(note_id).unwrap().status();
+
+    assert_eq!(imported_note.status(), client_1_note_status);
+}
+
+#[tokio::test]
 async fn test_get_account_update() {
     // Create a client with both public and private accounts.
     let mut client = create_test_client();

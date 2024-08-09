@@ -238,13 +238,26 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
                 let record_details = details.clone().into();
 
+                let (note_status, metadata, note_inclusion_proof) =
+                    self.sync_note(1, tag, &details).await?;
+
+                if let NoteStatus::Committed { block_height } = note_status {
+                    let mut current_partial_mmr =
+                        maybe_await!(self.build_current_partial_mmr(true))?;
+                    self.get_and_store_authenticated_block(
+                        block_height.try_into().unwrap(),
+                        &mut current_partial_mmr,
+                    )
+                    .await?;
+                };
+
                 InputNoteRecord::new(
                     details.id(),
                     details.recipient().digest(),
                     details.assets().clone(),
-                    NoteStatus::Expected { created_at: 0 },
-                    None,
-                    None,
+                    note_status,
+                    metadata,
+                    note_inclusion_proof,
                     record_details,
                     ignored,
                     Some(tag),
@@ -285,6 +298,62 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         self.tx_executor
             .compile_note_script(note_script_ast, target_account_procs)
             .map_err(ClientError::TransactionExecutorError)
+    }
+
+    // HELPERS
+    // ===============================================================================================
+
+    /// Synchronizes a note with the chain.
+    async fn sync_note(
+        &mut self,
+        mut block_num: u32,
+        tag: NoteTag,
+        expected_note: &miden_objects::notes::NoteDetails,
+    ) -> Result<(NoteStatus, Option<NoteMetadata>, Option<NoteInclusionProof>), ClientError> {
+        loop {
+            let sync_notes = self.rpc_api().sync_notes(block_num, &[tag]).await?;
+
+            if sync_notes.block_header.is_none() {
+                // This means that no notes with that note_tag were found.
+                // Therefore, we should leave the note as expected.
+                return Ok((NoteStatus::Expected { created_at: 0 }, None, None));
+            }
+
+            // This means that notes with that note_tag were found.
+            // Therefore, we should check if a note with the same id was found.
+            let committed_note =
+                sync_notes.notes.iter().find(|note| note.note_id() == &expected_note.id());
+
+            if let Some(note) = committed_note {
+                let note_block_num = sync_notes.block_header.as_ref().unwrap().block_num();
+                let current_block_num = maybe_await!(self.store.get_sync_height())?;
+                // This means that a note with the same id was found.
+                // Therefore, we should mark the note as committed.
+                if note_block_num >= current_block_num {
+                    return Ok((NoteStatus::Expected { created_at: 0 }, None, None));
+                };
+
+                let note_inclusion_proof = NoteInclusionProof::new(
+                    note_block_num,
+                    note.note_index(),
+                    note.merkle_path().clone(),
+                )?;
+
+                return Ok((
+                    NoteStatus::Committed {
+                        // Block header can't be None since we check that already in the if statement.
+                        block_height: note_block_num as u64,
+                    },
+                    Some(note.metadata()),
+                    Some(note_inclusion_proof),
+                ));
+            } else {
+                // This means that a note with the same id was not found.
+                // Therefore, we should request again for sync_notes with the same note_tag
+                // and with the block_num of the last block header (sync_notes.block_header.unwrap()).
+                block_num = sync_notes.block_header.unwrap().block_num();
+            }
+        }
     }
 }
 
