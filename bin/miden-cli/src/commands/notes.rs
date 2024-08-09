@@ -245,7 +245,7 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator
                 ("Fungible Asset", faucet, amount)
             },
             Asset::NonFungible(non_fungible_asset) => {
-                ("Non Fungible Asset", non_fungible_asset.faucet_id().to_hex(), 1.0)
+                ("Non Fungible Asset", non_fungible_asset.faucet_id().to_hex(), 1.0.to_string())
             },
         };
         table.add_row(vec![asset_type, &faucet, &amount.to_string()]);

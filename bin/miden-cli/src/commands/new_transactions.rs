@@ -439,7 +439,7 @@ fn print_transaction_details(transaction_result: &TransactionResult) -> Result<(
                     ("Fungible Asset", faucet_id, amount)
                 },
                 Asset::NonFungible(non_fungible_asset) => {
-                    ("Non Fungible Asset", non_fungible_asset.faucet_id().to_hex(), 1.0)
+                    ("Non Fungible Asset", non_fungible_asset.faucet_id().to_hex(), 1.0.to_string())
                 },
             };
             table.add_row(vec![asset_type, &faucet_id, &format!("+{}", amount)]);
@@ -453,7 +453,7 @@ fn print_transaction_details(transaction_result: &TransactionResult) -> Result<(
                     ("Fungible Asset", faucet_id, amount)
                 },
                 Asset::NonFungible(non_fungible_asset) => {
-                    ("Non Fungible Asset", non_fungible_asset.faucet_id().to_hex(), 1.0)
+                    ("Non Fungible Asset", non_fungible_asset.faucet_id().to_hex(), 1.0.to_string())
                 },
             };
             table.add_row(vec![asset_type, &faucet_id, &format!("-{}", amount)]);
