@@ -2,7 +2,7 @@ use miden_client::{
     accounts::AccountTemplate,
     notes::NoteRelevance,
     rpc::{AccountDetails, NodeRpcClient, TonicRpcClient},
-    store::{InputNoteRecord, NoteFilter, NoteStatus, TransactionFilter},
+    store::{InputNoteRecord, NoteFilter, NoteStatus, Store, TransactionFilter},
     transactions::{
         request::{PaymentTransactionData, TransactionTemplate},
         TransactionExecutorError, TransactionStatus,
@@ -578,8 +578,8 @@ async fn test_import_expected_notes() {
     client_2
         .import_note(NoteFile::NoteDetails {
             details: note.clone().into(),
+            after_block_num: client_1.store().get_sync_height().unwrap(),
             tag: Some(note.metadata().unwrap().tag()),
-            after_block_num: 0,
         })
         .await
         .unwrap();
@@ -624,6 +624,8 @@ async fn test_import_expected_notes_from_the_past_as_committed() {
     let tx_request = client_1.build_transaction_request(tx_template).unwrap();
     let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
 
+    let block_height_before = client_1.store().get_sync_height().unwrap();
+
     execute_tx_and_sync(&mut client_1, tx_request).await;
 
     // Use client 1 to wait until a couple of blocks have passed
@@ -632,10 +634,11 @@ async fn test_import_expected_notes_from_the_past_as_committed() {
 
     // If the verification is requested before execution then the import should fail
     let note_id = client_2
-        .import_note(NoteFile::NoteDetails(
-            note.clone().into(),
-            Some(note.metadata().unwrap().tag()),
-        ))
+        .import_note(NoteFile::NoteDetails {
+            details: note.clone().into(),
+            after_block_num: block_height_before,
+            tag: Some(note.metadata().unwrap().tag()),
+        })
         .await
         .unwrap();
 
@@ -897,6 +900,9 @@ async fn test_import_ignored_notes() {
 
     let tx_request = client_1.build_transaction_request(tx_template).unwrap();
     let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
+
+    let block_height_before = client_1.store().get_sync_height().unwrap();
+
     execute_tx_and_sync(&mut client_1, tx_request).await;
 
     client_2.sync_state().await.unwrap();
@@ -905,8 +911,8 @@ async fn test_import_ignored_notes() {
     client_2
         .import_note(NoteFile::NoteDetails {
             details: note.clone().into(),
+            after_block_num: block_height_before,
             tag: None,
-            after_block_num: 0,
         })
         .await
         .unwrap();
@@ -960,6 +966,7 @@ async fn test_update_ignored_tag() {
 
     let tx_request = client_1.build_transaction_request(tx_template).unwrap();
     let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
+    let block_height_before = client_1.store().get_sync_height().unwrap();
     execute_tx_and_sync(&mut client_1, tx_request).await;
 
     client_2.sync_state().await.unwrap();
@@ -969,8 +976,8 @@ async fn test_update_ignored_tag() {
     client_2
         .import_note(NoteFile::NoteDetails {
             details: note.clone().into(),
+            after_block_num: block_height_before,
             tag: Some(untracked_tag),
-            after_block_num: 0,
         })
         .await
         .unwrap();

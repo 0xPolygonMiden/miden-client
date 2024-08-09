@@ -215,11 +215,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     None,
                 )
             },
-            NoteFile::NoteDetails {
-                details,
-                after_block_num: _,
-                tag: Some(tag),
-            } => {
+            NoteFile::NoteDetails { details, after_block_num, tag: Some(tag) } => {
                 let tracked_tags = maybe_await!(self.get_note_tags())?;
 
                 let account_tags = maybe_await!(self.get_account_stubs())?
@@ -243,7 +239,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 let record_details = details.clone().into();
 
                 let (note_status, metadata, note_inclusion_proof) =
-                    self.sync_note(1, tag, &details).await?;
+                    self.sync_note(after_block_num, tag, &details).await?;
 
                 if let NoteStatus::Committed { block_height } = note_status {
                     let mut current_partial_mmr =
@@ -315,6 +311,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         expected_note: &miden_objects::notes::NoteDetails,
     ) -> Result<(NoteStatus, Option<NoteMetadata>, Option<NoteInclusionProof>), ClientError> {
         loop {
+            let current_block_num = maybe_await!(self.store.get_sync_height())?;
+            if block_num >= current_block_num {
+                return Ok((NoteStatus::Expected { created_at: 0 }, None, None));
+            };
+
             let sync_notes = self.rpc_api().sync_notes(block_num, &[tag]).await?;
 
             if sync_notes.block_header.is_none() {
@@ -329,13 +330,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 sync_notes.notes.iter().find(|note| note.note_id() == &expected_note.id());
 
             if let Some(note) = committed_note {
-                let note_block_num = sync_notes.block_header.as_ref().unwrap().block_num();
-                let current_block_num = maybe_await!(self.store.get_sync_height())?;
                 // This means that a note with the same id was found.
                 // Therefore, we should mark the note as committed.
-                if note_block_num >= current_block_num {
-                    return Ok((NoteStatus::Expected { created_at: 0 }, None, None));
-                };
+                let note_block_num = sync_notes.block_header.as_ref().unwrap().block_num();
 
                 let note_inclusion_proof = NoteInclusionProof::new(
                     note_block_num,

@@ -34,9 +34,14 @@ pub enum ExportType {
 impl ExportCmd {
     pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
         &self,
-        client: Client<N, R, S, A>,
+        mut client: Client<N, R, S, A>,
     ) -> Result<(), String> {
-        export_note(&client, self.id.as_str(), self.filename.clone(), self.export_type.clone())?;
+        export_note(
+            &mut client,
+            self.id.as_str(),
+            self.filename.clone(),
+            self.export_type.clone(),
+        )?;
         Ok(())
     }
 }
@@ -45,7 +50,7 @@ impl ExportCmd {
 // ================================================================================================
 
 pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: &Client<N, R, S, A>,
+    client: &mut Client<N, R, S, A>,
     note_id: &str,
     filename: Option<PathBuf>,
     export_type: ExportType,
@@ -69,8 +74,11 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthent
         },
         ExportType::Partial => NoteFile::NoteDetails {
             details: output_note.clone().try_into()?,
+            after_block_num: client
+                .store()
+                .get_sync_height()
+                .expect("Client should sync at least once"),
             tag: Some(output_note.metadata().tag()),
-            after_block_num: 0,
         },
     };
 

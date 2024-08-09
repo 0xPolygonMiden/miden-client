@@ -466,8 +466,8 @@ async fn test_import_note_validation() {
     client
         .import_note(NoteFile::NoteDetails {
             details: committed_note.clone().into(),
-            tag: None,
             after_block_num: 0,
+            tag: None,
         })
         .await
         .unwrap();
@@ -475,8 +475,8 @@ async fn test_import_note_validation() {
     client
         .import_note(NoteFile::NoteDetails {
             details: expected_note.clone().into(),
-            tag: None,
             after_block_num: 0,
+            tag: None,
         })
         .await
         .unwrap();

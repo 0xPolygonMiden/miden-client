@@ -1,7 +1,7 @@
 use miden_client::{
     accounts::AccountTemplate,
     notes::Note,
-    store::InputNoteRecord,
+    store::{InputNoteRecord, Store},
     transactions::request::{SwapTransactionData, TransactionTemplate},
 };
 use miden_objects::{
@@ -360,8 +360,8 @@ async fn test_swap_offchain() {
     client2
         .import_note(NoteFile::NoteDetails {
             details: exported_note.into(),
+            after_block_num: client1.store().get_sync_height().unwrap(),
             tag: Some(tag),
-            after_block_num: 0,
         })
         .await
         .unwrap();
