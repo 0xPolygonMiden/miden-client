@@ -1,8 +1,8 @@
-use alloc::{string::ToString, vec::Vec};
+use alloc::string::ToString;
 
 use miden_objects::{
     crypto::rand::FeltRng,
-    notes::{Note, NoteDetails, NoteExecutionMode, NoteFile, NoteId, NoteInclusionProof, NoteTag}, transaction::InputNote,
+    notes::{Note, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteTag}, transaction::InputNote,
 };
 use miden_tx::auth::TransactionAuthenticator;
 use tracing::info;
@@ -10,7 +10,7 @@ use winter_maybe_async::maybe_await;
 
 use crate::{
     rpc::NodeRpcClient,
-    store::{InputNoteRecord, NoteFilter, NoteStatus, Store, StoreError},
+    store::{InputNoteRecord, NoteStatus, Store, StoreError},
     Client, ClientError,
 };
 
@@ -156,21 +156,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         match tag {
             Some(tag) => {
-                let tracked_tags = maybe_await!(self.get_note_tags())?;
-
-                let account_tags = maybe_await!(self.get_account_stubs())?
-                    .into_iter()
-                    .map(|(stub, _)| NoteTag::from_account_id(stub.id(), NoteExecutionMode::Local))
-                    .collect::<Result<Vec<_>, _>>()?;
-
-                let uncommited_note_tags =
-                    maybe_await!(self.get_input_notes(NoteFilter::Expected))?
-                        .into_iter()
-                        .filter_map(|note| note.metadata().map(|metadata| metadata.tag()))
-                        .collect::<Vec<_>>();
-
-                let ignored =
-                    ![tracked_tags, account_tags, uncommited_note_tags].concat().contains(&tag);
+                let ignored = !maybe_await!(self.get_tracked_note_tags())?.contains(&tag);
 
                 if ignored {
                     info!("Ignoring note with tag {}", tag);
