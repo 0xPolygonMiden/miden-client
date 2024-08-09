@@ -329,10 +329,16 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 sync_notes.notes.iter().find(|note| note.note_id() == &expected_note.id());
 
             if let Some(note) = committed_note {
+                let note_block_num = sync_notes.block_header.as_ref().unwrap().block_num();
+                let current_block_num = maybe_await!(self.store.get_sync_height())?;
                 // This means that a note with the same id was found.
                 // Therefore, we should mark the note as committed.
+                if note_block_num >= current_block_num {
+                    return Ok((NoteStatus::Expected { created_at: 0 }, None, None));
+                };
+
                 let note_inclusion_proof = NoteInclusionProof::new(
-                    sync_notes.block_header.as_ref().unwrap().block_num(),
+                    note_block_num,
                     note.note_index(),
                     note.merkle_path().clone(),
                 )?;
@@ -340,7 +346,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 return Ok((
                     NoteStatus::Committed {
                         // Block header can't be None since we check that already in the if statement.
-                        block_height: sync_notes.block_header.as_ref().unwrap().block_num() as u64,
+                        block_height: note_block_num as u64,
                     },
                     Some(note.metadata()),
                     Some(note_inclusion_proof),
