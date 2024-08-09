@@ -81,7 +81,7 @@ pub enum NoteStatus {
         /// ID of account that consumed the note. If the consumer account is not known, this field will be `None`.
         consumer_account_id: Option<AccountId>,
         /// Block height at which the note was consumed.
-        block_height: u64,
+        block_height: u32,
     },
 }
 
@@ -103,7 +103,7 @@ impl Serializable for NoteStatus {
             },
             NoteStatus::Consumed { consumer_account_id, block_height } => {
                 target.write_u8(3);
-                target.write_u64(*block_height);
+                target.write_u32(*block_height);
                 consumer_account_id.write_into(target);
             },
         }
@@ -128,7 +128,7 @@ impl Deserializable for NoteStatus {
                 Ok(NoteStatus::Processing { consumer_account_id, submitted_at })
             },
             3 => {
-                let block_height = source.read_u64()?;
+                let block_height = source.read_u32()?;
                 let consumer_account_id = Option::<AccountId>::read_from(source)?;
                 Ok(NoteStatus::Consumed { consumer_account_id, block_height })
             },

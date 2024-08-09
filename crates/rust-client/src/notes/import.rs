@@ -2,11 +2,7 @@ use alloc::{string::ToString, vec::Vec};
 
 use miden_objects::{
     crypto::rand::FeltRng,
-    notes::{
-        Note, NoteDetails, NoteExecutionMode, NoteFile, NoteId, NoteInclusionProof, NoteTag,
-        Nullifier,
-    },
-    transaction::InputNote,
+    notes::{Note, NoteDetails, NoteExecutionMode, NoteFile, NoteId, NoteInclusionProof, NoteTag}, transaction::InputNote,
 };
 use miden_tx::auth::TransactionAuthenticator;
 use tracing::info;
@@ -15,7 +11,6 @@ use winter_maybe_async::maybe_await;
 use crate::{
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter, NoteStatus, Store, StoreError},
-    sync::get_nullifier_prefix,
     Client, ClientError,
 };
 
@@ -126,14 +121,15 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ) -> Result<InputNoteRecord, ClientError> {
         let details = note.clone().into();
 
-        let status =
-            if let Some(block_height) = self.get_nullifier_block_num(&note.nullifier()).await? {
-                NoteStatus::Consumed { consumer_account_id: None, block_height }
-            } else {
-                NoteStatus::Committed {
-                    block_height: inclusion_proof.location().block_num(),
-                }
-            };
+        let status = if let Some(block_height) =
+            self.rpc_api().get_nullifier_commit_height(&note.nullifier()).await?
+        {
+            NoteStatus::Consumed { consumer_account_id: None, block_height }
+        } else {
+            NoteStatus::Committed {
+                block_height: inclusion_proof.location().block_num(),
+            }
+        };
 
         Ok(InputNoteRecord::new(
             note.id(),
@@ -214,24 +210,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 None,
             )),
         }
-    }
-
-    /// Fetches the block number where the nullifier was consumed from the node. If the nullifier
-    /// is not found, then `None` is returned.
-    async fn get_nullifier_block_num(
-        &mut self,
-        nullifier: &Nullifier,
-    ) -> Result<Option<u64>, ClientError> {
-        let nullifiers = self
-            .rpc_api
-            .check_nullifiers_by_prefix(&[get_nullifier_prefix(nullifier)])
-            .await
-            .map_err(ClientError::RpcError)?;
-
-        Ok(nullifiers
-            .iter()
-            .find(|(n, _)| n == nullifier)
-            .map(|(_, block_num)| *block_num as u64))
     }
 
     /// Synchronizes a note with the chain.
