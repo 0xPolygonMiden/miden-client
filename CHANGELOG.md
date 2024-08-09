@@ -2,6 +2,7 @@
 
 ## v0.5.0 (TBD)
 
+* Added validation for consumed notes when importing (#449).
 * Added the Web Client Crate
 * Added validations in transaction requests (#447).
 * [BREAKING] Refactored `Client` to merge submit_transaction and prove_transaction (#445)

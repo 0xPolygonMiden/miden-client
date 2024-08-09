@@ -32,6 +32,8 @@ mod web_tonic_client;
 #[cfg(feature = "web-tonic")]
 pub use web_tonic_client::WebTonicRpcClient;
 
+use crate::sync::get_nullifier_prefix;
+
 // NOTE DETAILS
 // ================================================================================================
 
@@ -168,6 +170,26 @@ pub trait NodeRpcClient {
         &mut self,
         account_id: AccountId,
     ) -> Result<AccountDetails, RpcError>;
+
+    /// Fetches the nullifiers corresponding to a list of prefixes using the `/CheckNullifiersByPrefix` rpc endpoint
+    async fn check_nullifiers_by_prefix(
+        &mut self,
+        prefix: &[u16],
+    ) -> Result<Vec<(Nullifier, u32)>, RpcError>;
+
+    /// Fetches the commit height where the nullifier was consumed. If the nullifier is not found,
+    /// then `None` is returned.
+    ///
+    /// The default implementation of this method uses [NodeRpcClient::check_nullifiers_by_prefix].
+    async fn get_nullifier_commit_height(
+        &mut self,
+        nullifier: &Nullifier,
+    ) -> Result<Option<u32>, RpcError> {
+        let nullifiers =
+            self.check_nullifiers_by_prefix(&[get_nullifier_prefix(nullifier)]).await?;
+
+        Ok(nullifiers.iter().find(|(n, _)| n == nullifier).map(|(_, block_num)| *block_num))
+    }
 }
 
 // STATE SYNC INFO
@@ -269,6 +291,7 @@ pub enum NodeRpcClientEndpoint {
     GetBlockHeaderByNumber,
     SyncState,
     SubmitProvenTx,
+    CheckNullifiersByPrefix,
 }
 
 impl fmt::Display for NodeRpcClientEndpoint {
@@ -280,6 +303,9 @@ impl fmt::Display for NodeRpcClientEndpoint {
             },
             NodeRpcClientEndpoint::SyncState => write!(f, "sync_state"),
             NodeRpcClientEndpoint::SubmitProvenTx => write!(f, "submit_proven_transaction"),
+            NodeRpcClientEndpoint::CheckNullifiersByPrefix => {
+                write!(f, "check_nullifiers_by_prefix")
+            },
         }
     }
 }

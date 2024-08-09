@@ -27,7 +27,7 @@ pub enum ClientError {
     AccountError(AccountError),
     AssetError(AssetError),
     DataDeserializationError(DeserializationError),
-    ExistenceVerificationError(NoteId),
+    NoteNotFoundOnChain(NoteId),
     HexParseError(HexParseError),
     ImportNewAccountWithoutSeed,
     MissingOutputNotes(Vec<NoteId>),
@@ -52,7 +52,7 @@ impl fmt::Display for ClientError {
             ClientError::DataDeserializationError(err) => {
                 write!(f, "Data deserialization error: {err}")
             },
-            ClientError::ExistenceVerificationError(note_id) => {
+            ClientError::NoteNotFoundOnChain(note_id) => {
                 write!(f, "The note with ID {note_id} doesn't exist in the chain")
             },
             ClientError::HexParseError(err) => write!(f, "Error turning array to Digest: {err}"),
