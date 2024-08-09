@@ -26,13 +26,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// Imports a new input note into the client's store. The information stored depends on the
     /// type of note file provided.
     ///
-    /// If the note file is a [NoteFile::NoteId], the note is fecthed from the node and stored in
-    /// the client's store. If the note is private or does not exist, an error is returned. If the
-    /// ID was already stored, the inclusion proof and metadata are updated.
-    /// If the note file is a [NoteFile::NoteDetails], a new note is created with the provided
-    /// details. The note is marked as ignored if it contains no tag or if the tag is not relevant.
-    /// If the note file is a [NoteFile::NoteWithProof], the note is stored with the provided
-    /// inclusion proof and metadata. The MMR data is not fetched from the node.
+    /// - If the note file is a [NoteFile::NoteId], the note is fetched from the node and stored in
+    ///   the client's store. If the note is private or does not exist, an error is returned. If the
+    ///   ID was already stored, the inclusion proof and metadata are updated.
+    /// - If the note file is a [NoteFile::NoteDetails], a new note is created with the provided
+    ///   details. The note is marked as ignored if it contains no tag or if the tag is not relevant.
+    /// - If the note file is a [NoteFile::NoteWithProof], the note is stored with the provided
+    ///   inclusion proof and metadata. The MMR data is not fetched from the node.
     pub async fn import_note(&mut self, note_file: NoteFile) -> Result<NoteId, ClientError> {
         let note = match note_file {
             NoteFile::NoteId(id) => {
@@ -58,13 +58,21 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
     // HELPERS
     // ================================================================================================
+
+    /// Builds a note record from the note id. The note information is fetched from the node and
+    /// stored in the client's store. If the note already exists in the store, the inclusion proof
+    /// and metadata are updated.
+    ///
+    /// Errors:
+    /// - If the note does not exist on the node.
+    /// - If the note exists but is private.
     async fn get_note_record_by_id(
         &mut self,
         id: NoteId,
     ) -> Result<Option<InputNoteRecord>, ClientError> {
         let mut chain_notes = self.rpc_api.get_notes_by_id(&[id]).await?;
         if chain_notes.is_empty() {
-            return Err(ClientError::ExistenceVerificationError(id));
+            return Err(ClientError::NoteNotFoundOnChain(id));
         }
 
         let note_details: crate::rpc::NoteDetails =
@@ -81,56 +89,36 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let store_note = maybe_await!(self.get_input_note(id));
 
-        if let Err(ClientError::StoreError(StoreError::NoteNotFound(_))) = store_note {
-            let node_note = match note_details {
-                crate::rpc::NoteDetails::Public(note, _) => note,
-                crate::rpc::NoteDetails::OffChain(..) => {
-                    return Err(ClientError::NoteImportError(
-                        "Incomplete imported note is private".to_string(),
-                    ))
-                },
-            };
+        match store_note {
+            Ok(store_note) => {
+                // TODO: Join these calls to one method that updates both fields with one query (issue #404)
+                maybe_await!(self
+                    .store
+                    .update_note_inclusion_proof(store_note.id(), inclusion_proof))?;
+                maybe_await!(self
+                    .store
+                    .update_note_metadata(store_note.id(), *note_details.metadata()))?;
 
-            // If note is not tracked, we create a new one.
-            let details = node_note.clone().into();
+                Ok(None)
+            },
+            Err(ClientError::StoreError(StoreError::NoteNotFound(_))) => {
+                let node_note = match note_details {
+                    crate::rpc::NoteDetails::Public(note, _) => note,
+                    crate::rpc::NoteDetails::OffChain(..) => {
+                        return Err(ClientError::NoteImportError(
+                            "Incomplete imported note is private".to_string(),
+                        ))
+                    },
+                };
 
-            let status = if let Some(block_height) =
-                self.get_nullifier_block_num(&node_note.nullifier()).await?
-            {
-                NoteStatus::Consumed { consumer_account_id: None, block_height }
-            } else {
-                NoteStatus::Committed {
-                    block_height: inclusion_proof.location().block_num(),
-                }
-            };
-
-            Ok(Some(InputNoteRecord::new(
-                node_note.id(),
-                node_note.recipient().digest(),
-                node_note.assets().clone(),
-                status,
-                Some(*node_note.metadata()),
-                Some(inclusion_proof),
-                details,
-                false,
-                None,
-            )))
-        } else {
-            // If note is already tracked, we update the inclusion proof and metadata.
-            let tracked_note = store_note?;
-
-            // TODO: Join these calls to one method that updates both fields with one query (issue #404)
-            maybe_await!(self
-                .store
-                .update_note_inclusion_proof(tracked_note.id(), inclusion_proof))?;
-            maybe_await!(self
-                .store
-                .update_note_metadata(tracked_note.id(), *note_details.metadata()))?;
-
-            Ok(None)
+                self.get_note_record_by_proof(node_note, inclusion_proof).await.map(Some)
+            },
+            Err(err) => Err(err),
         }
     }
 
+    /// Builds a note record from the note and inclusion proof. The note's nullifier is used to
+    /// determine if the note has been consumed in the node and gives it the correct status.
     async fn get_note_record_by_proof(
         &mut self,
         note: Note,
@@ -160,6 +148,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         ))
     }
 
+    /// Builds a note record from the note details. If a tag is not provided or not tracked, the
+    /// note is marked as ignored.
     async fn get_note_record_by_details(
         &mut self,
         details: NoteDetails,
@@ -226,6 +216,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         }
     }
 
+    /// Fetches the block number where the nullifier was consumed from the node. If the nullifier
+    /// is not found, then `None` is returned.
     async fn get_nullifier_block_num(
         &mut self,
         nullifier: &Nullifier,
