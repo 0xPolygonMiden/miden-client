@@ -47,6 +47,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         };
         let id = note.id();
 
+        if maybe_await!(self.get_input_note(id)).is_ok() {
+            return Err(ClientError::NoteImportError(format!(
+                "Note with ID {} already exists",
+                id
+            )));
+        }
+
         maybe_await!(self.store.insert_input_note(note))?;
         Ok(id)
     }
