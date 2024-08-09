@@ -7,7 +7,7 @@ use core::fmt;
 
 use miden_objects::{
     accounts::AccountId,
-    assembly::{AssemblyError, AstSerdeOptions, ProgramAst},
+    assembly::AssemblyError,
     assets::{Asset, FungibleAsset},
     crypto::merkle::{InnerNodeInfo, MerkleStore},
     notes::{Note, NoteDetails, NoteId, NoteType, PartialNote},
@@ -32,7 +32,7 @@ pub const AUTH_SEND_ASSET_SCRIPT: &str =
 
 pub type NoteArgs = Word;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TransactionScriptTemplate {
     CustomScript(TransactionScript),
     SendNotes(Vec<PartialNote>),
@@ -266,10 +266,7 @@ impl Serializable for TransactionRequest {
             None => target.write_u8(0),
             Some(TransactionScriptTemplate::CustomScript(script)) => {
                 target.write_u8(1);
-                script.code().write_into(target, AstSerdeOptions { serialize_imports: true });
-                script.code().write_source_locations(target);
-                script.hash().write_into(target);
-                script.inputs().write_into(target);
+                script.write_into(target);
             },
             Some(TransactionScriptTemplate::SendNotes(notes)) => {
                 target.write_u8(2);
@@ -292,23 +289,7 @@ impl Deserializable for TransactionRequest {
         let script_template = match source.read_u8()? {
             0 => None,
             1 => {
-                let mut code = ProgramAst::read_from(source)?;
-                code.load_source_locations(source)?;
-                let hash = Digest::read_from(source)?;
-                let inputs = BTreeMap::<Digest, Vec<Felt>>::read_from(source)?;
-
-                let transaction_script = TransactionScript::from_parts(
-                    code,
-                    hash,
-                    inputs.into_iter().map(|(k, v)| (k.into(), v)),
-                )
-                .map_err(|err| {
-                    DeserializationError::UnknownError(format!(
-                        "Invalid transaction script: {}",
-                        err
-                    ))
-                })?;
-
+                let transaction_script = TransactionScript::read_from(source)?;
                 Some(TransactionScriptTemplate::CustomScript(transaction_script))
             },
             2 => {
@@ -354,28 +335,10 @@ impl PartialEq for TransactionRequest {
                 .into_iter()
                 .all(|elem| other.advice_map.get(&elem.0).map_or(false, |v| v == elem.1));
 
-        let same_script_template = match &self.script_template {
-            Some(TransactionScriptTemplate::CustomScript(script)) => match &other.script_template {
-                Some(TransactionScriptTemplate::CustomScript(other_script)) => {
-                    // TODO: We should also compare the source code. However, the ProgramAst
-                    // serialization has a small bug that makes the end program a bit different.
-                    // We should add the comparison of the source code once we start using the
-                    // v0.10 `miden-vm`.
-                    script.hash() == other_script.hash() && script.inputs() == other_script.inputs()
-                },
-                _ => false,
-            },
-            Some(TransactionScriptTemplate::SendNotes(notes)) => match &other.script_template {
-                Some(TransactionScriptTemplate::SendNotes(other_notes)) => notes == other_notes,
-                _ => false,
-            },
-            None => other.script_template.is_none(),
-        };
-
         self.account_id == other.account_id
             && self.unauthenticated_input_notes == other.unauthenticated_input_notes
             && self.input_notes == other.input_notes
-            && same_script_template
+            && self.script_template == other.script_template
             && self.expected_output_notes == other.expected_output_notes
             && self.expected_future_notes == other.expected_future_notes
             && same_advice_map
