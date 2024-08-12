@@ -75,7 +75,6 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthent
         ExportType::Partial => NoteFile::NoteDetails {
             details: output_note.clone().try_into()?,
             after_block_num: client
-                .store()
                 .get_sync_height()
                 .expect("Client should sync at least once"),
             tag: Some(output_note.metadata().tag()),

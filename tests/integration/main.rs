@@ -578,7 +578,7 @@ async fn test_import_expected_notes() {
     client_2
         .import_note(NoteFile::NoteDetails {
             details: note.clone().into(),
-            after_block_num: client_1.store().get_sync_height().unwrap(),
+            after_block_num: client_1.get_sync_height().unwrap(),
             tag: Some(note.metadata().unwrap().tag()),
         })
         .await
@@ -624,7 +624,7 @@ async fn test_import_expected_notes_from_the_past_as_committed() {
     let tx_request = client_1.build_transaction_request(tx_template).unwrap();
     let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
 
-    let block_height_before = client_1.store().get_sync_height().unwrap();
+    let block_height_before = client_1.get_sync_height().unwrap();
 
     execute_tx_and_sync(&mut client_1, tx_request).await;
 
@@ -901,7 +901,7 @@ async fn test_import_ignored_notes() {
     let tx_request = client_1.build_transaction_request(tx_template).unwrap();
     let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
 
-    let block_height_before = client_1.store().get_sync_height().unwrap();
+    let block_height_before = client_1.get_sync_height().unwrap();
 
     execute_tx_and_sync(&mut client_1, tx_request).await;
 
@@ -966,7 +966,7 @@ async fn test_update_ignored_tag() {
 
     let tx_request = client_1.build_transaction_request(tx_template).unwrap();
     let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
-    let block_height_before = client_1.store().get_sync_height().unwrap();
+    let block_height_before = client_1.get_sync_height().unwrap();
     execute_tx_and_sync(&mut client_1, tx_request).await;
 
     client_2.sync_state().await.unwrap();

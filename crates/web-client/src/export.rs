@@ -59,7 +59,6 @@ impl WebClient {
                         JsValue::from_str(&format!("Failed to convert output note: {}", err))
                     })?,
                     after_block_num: client
-                        .store()
                         .get_sync_height()
                         .await
                         .map_err(|err| JsValue::from_str(&format!("Store error: {}", err)))?,

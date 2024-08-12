@@ -311,7 +311,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         expected_note: &miden_objects::notes::NoteDetails,
     ) -> Result<(NoteStatus, Option<NoteMetadata>, Option<NoteInclusionProof>), ClientError> {
         loop {
-            let current_block_num = maybe_await!(self.store.get_sync_height())?;
+            let current_block_num = maybe_await!(self.get_sync_height())?;
             if block_num >= current_block_num {
                 return Ok((NoteStatus::Expected { created_at: 0 }, None, None));
             };
