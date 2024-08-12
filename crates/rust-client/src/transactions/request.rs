@@ -500,7 +500,7 @@ impl SwapTransactionData {
 pub mod known_script_roots {
     pub const P2ID: &str = "0x07db8e6726c0859648a4f0ad38376440c01d98674b7d5a03d7ad729ae2a21d8f";
     pub const P2IDR: &str = "0xd43b69d65bbc22abf64dbae53ad22e3a4f6d5bfac8e47497b69c116824b46427";
-    pub const SWAP: &str = "0x9270b8c89303cf7a05340351d7f9962a9722c4f35d30b7d4980929b381e5d695";
+    pub const SWAP: &str = "0x216ed058cf9f98e8ca423321d67688dce65b7e7771f7ecbb0958bd99e326b009";
 }
 
 // TESTS

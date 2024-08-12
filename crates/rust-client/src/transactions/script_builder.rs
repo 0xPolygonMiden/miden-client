@@ -84,7 +84,7 @@ impl AccountInterface {
                     body.push_str(&format!(
                         "
                         push.{amount}
-                        call.faucet::distribute dropw dropw
+                        call.faucet::distribute dropw dropw drop
                         ",
                         amount = asset.unwrap_fungible().amount()
                     ));
@@ -93,7 +93,7 @@ impl AccountInterface {
                     body.push_str(&format!(
                         "
                         push.{asset}
-                        call.wallet::send_asset dropw dropw dropw dropw
+                        call.wallet::send_asset dropw dropw dropw dropw drop
                         ",
                         asset = prepare_word(&asset.into())
                     ));
