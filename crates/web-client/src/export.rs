@@ -51,12 +51,13 @@ impl WebClient {
                     ),
                     None => return Err(JsValue::from_str("Note does not have inclusion proof")),
                 },
-                ExportType::Partial => NoteFile::NoteDetails(
-                    output_note.clone().try_into().map_err(|err| {
+                ExportType::Partial => NoteFile::NoteDetails {
+                    details: output_note.clone().try_into().map_err(|err| {
                         JsValue::from_str(&format!("Failed to convert output note: {}", err))
                     })?,
-                    Some(output_note.metadata().tag()),
-                ),
+                    tag: Some(output_note.metadata().tag()),
+                    after_block_num: 0,
+                },
             };
 
             let input_note_bytes = note_file.to_bytes();

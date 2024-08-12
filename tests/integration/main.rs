@@ -515,7 +515,7 @@ async fn test_import_expected_notes() {
     // Import an uncommited note without verification
     client_2.add_note_tag(note.metadata().unwrap().tag()).unwrap();
     client_2
-        .import_note(NoteFile::NoteDetails{
+        .import_note(NoteFile::NoteDetails {
             details: note.clone().into(),
             tag: Some(note.metadata().unwrap().tag()),
             after_block_num: 0,
@@ -794,7 +794,11 @@ async fn test_import_ignored_notes() {
 
     // Import note details without tag so the note is ignored
     client_2
-        .import_note(NoteFile::NoteDetails{details: note.clone().into(), tag:None, after_block_num:0})
+        .import_note(NoteFile::NoteDetails {
+            details: note.clone().into(),
+            tag: None,
+            after_block_num: 0,
+        })
         .await
         .unwrap();
 
@@ -854,7 +858,11 @@ async fn test_update_ignored_tag() {
     // Import note details with untracked tag so the note is ignored
     let untracked_tag = NoteTag::from(123);
     client_2
-        .import_note(NoteFile::NoteDetails{details:note.clone().into(), tag:Some(untracked_tag), after_block_num:0})
+        .import_note(NoteFile::NoteDetails {
+            details: note.clone().into(),
+            tag: Some(untracked_tag),
+            after_block_num: 0,
+        })
         .await
         .unwrap();
 

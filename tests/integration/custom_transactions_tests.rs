@@ -1,5 +1,9 @@
 use miden_client::{
-    accounts::AccountTemplate, notes::NoteExecutionHint, transactions::request::TransactionRequest, utils::{Deserializable, Serializable}, ZERO
+    accounts::AccountTemplate,
+    notes::NoteExecutionHint,
+    transactions::request::TransactionRequest,
+    utils::{Deserializable, Serializable},
+    ZERO,
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorageType, AuthSecretKey},
