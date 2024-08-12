@@ -67,10 +67,11 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthent
             },
             None => return Err("Note does not have inclusion proof".to_string()),
         },
-        ExportType::Partial => NoteFile::NoteDetails(
-            output_note.clone().try_into()?,
-            Some(output_note.metadata().tag()),
-        ),
+        ExportType::Partial => NoteFile::NoteDetails {
+            details: output_note.clone().try_into()?,
+            tag: Some(output_note.metadata().tag()),
+            after_block_num: 0,
+        },
     };
 
     let file_path = if let Some(filename) = filename {

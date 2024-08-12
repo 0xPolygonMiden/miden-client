@@ -1,8 +1,5 @@
 use miden_client::{
-    accounts::AccountTemplate,
-    transactions::request::TransactionRequest,
-    utils::{Deserializable, Serializable},
-    ZERO,
+    accounts::AccountTemplate, notes::NoteExecutionHint, transactions::request::TransactionRequest, utils::{Deserializable, Serializable}, ZERO
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorageType, AuthSecretKey},
@@ -312,6 +309,7 @@ fn create_custom_note(
         faucet_account_id,
         NoteType::Private,
         NoteTag::from_account_id(target_account_id, NoteExecutionMode::Local).unwrap(),
+        NoteExecutionHint::None,
         Default::default(),
     )
     .unwrap();

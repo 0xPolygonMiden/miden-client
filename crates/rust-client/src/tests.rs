@@ -69,7 +69,7 @@ async fn test_get_input_note() {
 
     // insert Note into database
     let note: InputNoteRecord = created_notes.first().unwrap().clone().into();
-    client.import_note(NoteFile::NoteDetails(note.into(), None)).await.unwrap();
+    client.import_note(NoteFile::NoteDetails{details:note.into(), tag:None, after_block_num:0}).await.unwrap();
 
     // retrieve note from database
     let retrieved_note =
@@ -457,12 +457,12 @@ async fn test_import_note_validation() {
     let expected_note = InputNoteRecord::from(created_notes.first().unwrap().clone());
 
     client
-        .import_note(NoteFile::NoteDetails(committed_note.clone().into(), None))
+        .import_note(NoteFile::NoteDetails{details: committed_note.clone().into(), tag:None, after_block_num:0})
         .await
         .unwrap();
     assert!(client.import_note(NoteFile::NoteId(expected_note.id())).await.is_err());
     client
-        .import_note(NoteFile::NoteDetails(expected_note.clone().into(), None))
+        .import_note(NoteFile::NoteDetails{details:expected_note.clone().into(), tag:None, after_block_num:0})
         .await
         .unwrap();
     assert!(expected_note.inclusion_proof().is_none());
