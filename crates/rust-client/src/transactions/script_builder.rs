@@ -63,12 +63,14 @@ impl AccountInterface {
             body.push_str(&format!(
                 "
                 push.{recipient}
+                push.{execution_hint}
                 push.{note_type}
                 push.{aux}
                 push.{tag}
                 ",
                 recipient = prepare_word(&partial_note.recipient_digest()),
                 note_type = Felt::from(partial_note.metadata().note_type()),
+                execution_hint = Felt::from(partial_note.metadata().execution_hint()),
                 aux = partial_note.metadata().aux(),
                 tag = Felt::from(partial_note.metadata().tag()),
             ));
