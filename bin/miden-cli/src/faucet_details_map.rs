@@ -86,7 +86,7 @@ impl FaucetDetailsMap {
                 .ok_or(format!("Token symbol `{asset}` not found in token symbol map file"))?;
 
             // Convert from decimal to integer.
-            let amount = parse_number_as_base_units(amount, faucet_decimals)?;
+            let amount = parse_number_as_base_units(amount, *faucet_decimals)?;
 
             let faucet_id = AccountId::from_hex(id).map_err(|err| err.to_string())?;
 
@@ -139,9 +139,13 @@ fn format_amount_from_faucet_units(units: u64, decimals: u8) -> String {
 /// The MAX_DECIMALS is 12
 // TODO: import that constant from the main code and add checks.
 // https://github.com/0xPolygonMiden/miden-client/issues/476
-fn parse_number_as_base_units(decimal_str: &str, n_decimals: &u8) -> Result<u64, String> {
+fn parse_number_as_base_units(decimal_str: &str, n_decimals: u8) -> Result<u64, String> {
     // Split the string on the decimal point
     let parts: Vec<&str> = decimal_str.split('.').collect();
+
+    if parts.len() > 2 {
+        return Err("Not a valid number: More than one decimal point".to_string());
+    }
 
     // Validate that the parts are valid numbers
     for part in &parts {
@@ -151,28 +155,25 @@ fn parse_number_as_base_units(decimal_str: &str, n_decimals: &u8) -> Result<u64,
     // Get the integer part
     let integer_part = parts[0];
 
-    // Get the fractional part and pad it if necessary
+    // Get the fractional part; remove trailing zeros
     let mut fractional_part = if parts.len() > 1 {
-        parts[1].to_string()
+        parts[1].trim_end_matches('0').to_string()
     } else {
         String::new()
     };
 
-    // Remove trailing zeros from the fractional part
-    fractional_part = fractional_part.trim_end_matches('0').to_string();
-
     // Check if the fractional part has more than N decimals
-    if fractional_part.len() > (*n_decimals).into() {
+    if fractional_part.len() > n_decimals.into() {
         return Err(format!("Amount has more than {} decimal places", n_decimals));
     }
 
     // Add extra zeros if the fractional part is shorter than N decimals
-    while fractional_part.len() < (*n_decimals).into() {
+    while fractional_part.len() < n_decimals.into() {
         fractional_part.push('0');
     }
 
     // Combine the integer and padded fractional part
-    let combined = format!("{}{}", integer_part, &fractional_part[0..(*n_decimals).into()]);
+    let combined = format!("{}{}", integer_part, &fractional_part[0..n_decimals.into()]);
 
     // Convert the combined string to an integer
     combined.parse::<u64>().map_err(|err| err.to_string())
@@ -183,30 +184,32 @@ fn parse_number_as_base_units(decimal_str: &str, n_decimals: &u8) -> Result<u64,
 
 #[test]
 fn test_parse_number_as_base_units() {
-    assert_eq!(parse_number_as_base_units("18446744.073709551615", &12), Ok(u64::MAX));
-    assert_eq!(parse_number_as_base_units("7531.2468", &8), Ok(753124680000));
-    assert_eq!(parse_number_as_base_units("7531.2468", &4), Ok(75312468));
-    assert_eq!(parse_number_as_base_units("0", &3), Ok(0));
-    assert_eq!(parse_number_as_base_units("0.000000000001", &12), Ok(1));
-    assert_eq!(parse_number_as_base_units("1234", &8), Ok(123400000000));
-    assert_eq!(parse_number_as_base_units("1", &0), Ok(1));
+    assert_eq!(parse_number_as_base_units("18446744.073709551615", 12), Ok(u64::MAX));
+    assert_eq!(parse_number_as_base_units("7531.2468", 8), Ok(753124680000));
+    assert_eq!(parse_number_as_base_units("7531.2468", 4), Ok(75312468));
+    assert_eq!(parse_number_as_base_units("0", 3), Ok(0));
+    assert_eq!(parse_number_as_base_units("0", 3), Ok(0));
+    assert_eq!(parse_number_as_base_units("0", 3), Ok(0));
+    assert_eq!(parse_number_as_base_units("1234", 8), Ok(123400000000));
+    assert_eq!(parse_number_as_base_units("1", 0), Ok(1));
     assert_eq!(
-        parse_number_as_base_units("1.1", &0),
+        parse_number_as_base_units("1.1", 0),
         Err("Amount has more than 0 decimal places".to_string())
     );
     assert_eq!(
-        parse_number_as_base_units("18446744.073709551615", &11),
+        parse_number_as_base_units("18446744.073709551615", 11),
         Err("Amount has more than 11 decimal places".to_string())
     );
     assert_eq!(
-        parse_number_as_base_units("123u3.23", &4),
+        parse_number_as_base_units("123u3.23", 4),
         Err("Not a valid number: invalid digit found in string".to_string())
     );
     assert_eq!(
-        parse_number_as_base_units("2.k3", &4),
+        parse_number_as_base_units("2.k3", 4),
         Err("Not a valid number: invalid digit found in string".to_string())
     );
-    assert_eq!(parse_number_as_base_units("12.345000", &4), Ok(123450));
+    assert_eq!(parse_number_as_base_units("12.345000", 4), Ok(123450));
+    assert!(parse_number_as_base_units("0.0001.00000001", 12).is_err());
 }
 
 #[test]
