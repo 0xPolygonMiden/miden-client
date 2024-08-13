@@ -2,8 +2,7 @@ use std::io;
 
 use clap::{Parser, ValueEnum};
 use miden_client::{
-    accounts::AccountId,
-    assets::{Asset, FungibleAsset},
+    assets::Asset,
     auth::TransactionAuthenticator,
     crypto::{Digest, FeltRng},
     notes::{get_input_note_with_id_prefix, NoteId, NoteType as MidenNoteType},
@@ -20,7 +19,10 @@ use tracing::info;
 
 use crate::{
     create_dynamic_table,
-    utils::{get_input_acc_id_by_prefix_or_default, parse_account_id, parse_fungible_asset},
+    utils::{
+        get_input_acc_id_by_prefix_or_default, load_faucet_details_map, parse_account_id,
+        SHARED_TOKEN_DOCUMENTATION,
+    },
 };
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -46,12 +48,8 @@ pub struct MintCmd {
     target_account_id: String,
 
     /// Asset to be minted.
-    ///
-    /// The asset should be in the format `<AMOUNT>::<ASSET>` where `<AMOUNT>` is the amount
-    /// of the asset and `<ASSET>` is either the faucet account ID hex or a symbol tracked
-    /// by the token symbol file. For example, `100::0xabcdef0123456789` or `20::POL`.
-    #[clap(short, long, value_parser = parse_fungible_asset)]
-    asset: (u64, AccountId),
+    #[clap(short, long, help=format!("Asset to be minted.\n{SHARED_TOKEN_DOCUMENTATION}"))]
+    asset: String,
 
     #[clap(short, long, value_enum)]
     note_type: NoteType,
@@ -74,9 +72,10 @@ impl MintCmd {
         &self,
         client: &Client<N, R, S, A>,
     ) -> Result<TransactionTemplate, String> {
-        let faucet_id = self.asset.1;
-        let fungible_asset =
-            FungibleAsset::new(faucet_id, self.asset.0).map_err(|err| err.to_string())?;
+        let faucet_details_map = load_faucet_details_map()?;
+
+        let fungible_asset = faucet_details_map.parse_fungible_asset(&self.asset)?;
+
         let target_account_id = parse_account_id(client, self.target_account_id.as_str())?;
 
         Ok(TransactionTemplate::MintFungibleAsset(
@@ -98,12 +97,8 @@ pub struct SendCmd {
     target_account_id: String,
 
     /// Asset to be sent.
-    ///
-    /// The asset should be in the format `<AMOUNT>::<ASSET>` where `<AMOUNT>` is the amount
-    /// of the asset and `<ASSET>` is either the faucet account ID hex or a symbol tracked
-    /// by the token symbol file. For example, `100::0xabcdef0123456789` or `20::POL`.
-    #[clap(short, long, value_parser = parse_fungible_asset)]
-    asset: (u64, AccountId),
+    #[clap(short, long, help=format!("Asset to be sent.\n{SHARED_TOKEN_DOCUMENTATION}"))]
+    asset: String,
 
     #[clap(short, long, value_enum)]
     note_type: NoteType,
@@ -131,18 +126,20 @@ impl SendCmd {
         &self,
         client: &Client<N, R, S, A>,
     ) -> Result<TransactionTemplate, String> {
-        let faucet_id = self.asset.1;
-        let fungible_asset = FungibleAsset::new(faucet_id, self.asset.0)
-            .map_err(|err| err.to_string())?
-            .into();
+        let faucet_details_map = load_faucet_details_map()?;
+
+        let fungible_asset = faucet_details_map.parse_fungible_asset(&self.asset)?;
 
         // try to use either the provided argument or the default account
         let sender_account_id =
             get_input_acc_id_by_prefix_or_default(client, self.sender_account_id.clone())?;
         let target_account_id = parse_account_id(client, self.target_account_id.as_str())?;
 
-        let payment_transaction =
-            PaymentTransactionData::new(fungible_asset, sender_account_id, target_account_id);
+        let payment_transaction = PaymentTransactionData::new(
+            fungible_asset.into(),
+            sender_account_id,
+            target_account_id,
+        );
         if let Some(recall_height) = self.recall_height {
             Ok(TransactionTemplate::PayToIdWithRecall(
                 payment_transaction,
@@ -162,21 +159,13 @@ pub struct SwapCmd {
     #[clap(short = 's', long = "source")]
     sender_account_id: Option<String>,
 
-    /// Asset offered.
-    ///
-    /// The asset should be in the format `<AMOUNT>::<ASSET>` where `<AMOUNT>` is the amount
-    /// of the asset and `<ASSET>` is either the faucet account ID hex or a symbol tracked
-    /// by the token symbol file. For example, `100::0xabcdef0123456789` or `20::POL`.
-    #[clap(long = "offered-asset", value_parser = parse_fungible_asset)]
-    offered_asset: (u64, AccountId),
+    /// Asset offered
+    #[clap(long = "offered-asset", help=format!("Asset offered.\n{SHARED_TOKEN_DOCUMENTATION}"))]
+    offered_asset: String,
 
-    /// Asset requested.
-    ///
-    /// The asset should be in the format `<AMOUNT>::<ASSET>` where `<AMOUNT>` is the amount
-    /// of the asset and `<ASSET>` is either the faucet account ID hex or a symbol tracked
-    /// by the token symbol file. For example, `100::0xabcdef0123456789` or `20::POL`.
-    #[clap(short, long, value_parser = parse_fungible_asset)]
-    requested_asset: (u64, AccountId),
+    /// Asset requested
+    #[clap(short, long, help=format!("Asset requested.\n{SHARED_TOKEN_DOCUMENTATION}"))]
+    requested_asset: String,
 
     #[clap(short, long, value_enum)]
     note_type: NoteType,
@@ -199,17 +188,12 @@ impl SwapCmd {
         &self,
         client: &Client<N, R, S, A>,
     ) -> Result<TransactionTemplate, String> {
-        let offered_asset_faucet_id = self.offered_asset.1;
-        let offered_fungible_asset =
-            FungibleAsset::new(offered_asset_faucet_id, self.offered_asset.0)
-                .map_err(|err| err.to_string())?
-                .into();
+        let faucet_details_map = load_faucet_details_map()?;
 
-        let requested_asset_faucet_id = self.requested_asset.1;
+        let offered_fungible_asset =
+            faucet_details_map.parse_fungible_asset(&self.offered_asset)?;
         let requested_fungible_asset =
-            FungibleAsset::new(requested_asset_faucet_id, self.requested_asset.0)
-                .map_err(|err| err.to_string())?
-                .into();
+            faucet_details_map.parse_fungible_asset(&self.requested_asset)?;
 
         // try to use either the provided argument or the default account
         let sender_account_id =
@@ -217,8 +201,8 @@ impl SwapCmd {
 
         let swap_transaction = SwapTransactionData::new(
             sender_account_id,
-            offered_fungible_asset,
-            requested_fungible_asset,
+            offered_fungible_asset.into(),
+            requested_fungible_asset.into(),
         );
 
         Ok(TransactionTemplate::Swap(swap_transaction, (&self.note_type).into()))
@@ -301,7 +285,7 @@ async fn execute_transaction<
     let transaction_execution_result = client.new_transaction(transaction_request)?;
 
     // Show delta and ask for confirmation
-    print_transaction_details(&transaction_execution_result);
+    print_transaction_details(&transaction_execution_result)?;
     if !force {
         println!("\nContinue with proving and submission? Changes will be irreversible once the proof is finalized on the rollup (Y/N)");
         let mut proceed_str: String = String::new();
@@ -351,7 +335,7 @@ async fn execute_transaction<
     Ok(())
 }
 
-fn print_transaction_details(transaction_result: &TransactionResult) {
+fn print_transaction_details(transaction_result: &TransactionResult) -> Result<(), String> {
     println!("The transaction will have the following effects:\n");
 
     // INPUT NOTES
@@ -415,30 +399,35 @@ fn print_transaction_details(transaction_result: &TransactionResult) {
         || !account_delta.vault().removed_assets.is_empty();
 
     if has_vault_changes {
+        let faucet_details_map = load_faucet_details_map()?;
         let mut table = create_dynamic_table(&["Asset Type", "Faucet ID", "Amount"]);
 
         for asset in account_delta.vault().added_assets.iter() {
             let (asset_type, faucet_id, amount) = match asset {
                 Asset::Fungible(fungible_asset) => {
-                    ("Fungible Asset", fungible_asset.faucet_id(), fungible_asset.amount())
+                    let (faucet_id, amount) =
+                        faucet_details_map.format_fungible_asset(fungible_asset)?;
+                    ("Fungible Asset", faucet_id, amount)
                 },
                 Asset::NonFungible(non_fungible_asset) => {
-                    ("Non Fungible Asset", non_fungible_asset.faucet_id(), 1)
+                    ("Non Fungible Asset", non_fungible_asset.faucet_id().to_hex(), 1.0.to_string())
                 },
             };
-            table.add_row(vec![asset_type, &faucet_id.to_hex(), &format!("+{}", amount)]);
+            table.add_row(vec![asset_type, &faucet_id, &format!("+{}", amount)]);
         }
 
         for asset in account_delta.vault().removed_assets.iter() {
             let (asset_type, faucet_id, amount) = match asset {
                 Asset::Fungible(fungible_asset) => {
-                    ("Fungible Asset", fungible_asset.faucet_id(), fungible_asset.amount())
+                    let (faucet_id, amount) =
+                        faucet_details_map.format_fungible_asset(fungible_asset)?;
+                    ("Fungible Asset", faucet_id, amount)
                 },
                 Asset::NonFungible(non_fungible_asset) => {
-                    ("Non Fungible Asset", non_fungible_asset.faucet_id(), 1)
+                    ("Non Fungible Asset", non_fungible_asset.faucet_id().to_hex(), 1.0.to_string())
                 },
             };
-            table.add_row(vec![asset_type, &faucet_id.to_hex(), &format!("-{}", amount)]);
+            table.add_row(vec![asset_type, &faucet_id, &format!("-{}", amount)]);
         }
 
         println!("Vault changes:");
@@ -452,4 +441,6 @@ fn print_transaction_details(transaction_result: &TransactionResult) {
     } else {
         println!("No nonce changes.")
     }
+
+    Ok(())
 }

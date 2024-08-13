@@ -12,7 +12,9 @@ use miden_client::{
     Client, ClientError, IdPrefixFetchError,
 };
 
-use crate::{create_dynamic_table, get_output_note_with_id_prefix, Parser};
+use crate::{
+    create_dynamic_table, get_output_note_with_id_prefix, utils::load_faucet_details_map, Parser,
+};
 
 #[derive(Clone, Debug, ValueEnum)]
 pub enum NoteFilter {
@@ -232,18 +234,21 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator
         Cell::new("Faucet ID").add_attribute(Attribute::Bold),
         Cell::new("Amount").add_attribute(Attribute::Bold),
     ]);
+    let faucet_details_map = load_faucet_details_map()?;
     let assets = assets.iter();
 
     for asset in assets {
-        let (asset_type, faucet_id, amount) = match asset {
+        let (asset_type, faucet, amount) = match asset {
             Asset::Fungible(fungible_asset) => {
-                ("Fungible Asset", fungible_asset.faucet_id(), fungible_asset.amount())
+                let (faucet, amount) = faucet_details_map.format_fungible_asset(fungible_asset)?;
+
+                ("Fungible Asset", faucet, amount)
             },
             Asset::NonFungible(non_fungible_asset) => {
-                ("Non Fungible Asset", non_fungible_asset.faucet_id(), 1)
+                ("Non Fungible Asset", non_fungible_asset.faucet_id().to_hex(), 1.0.to_string())
             },
         };
-        table.add_row(vec![asset_type, &faucet_id.to_hex(), &amount.to_string()]);
+        table.add_row(vec![asset_type, &faucet, &amount.to_string()]);
     }
     println!("{table}");
 
