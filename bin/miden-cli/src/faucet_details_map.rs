@@ -88,7 +88,7 @@ impl FaucetDetailsMap {
             amount.parse::<f64>().map_err(|err| err.to_string())?;
 
             // Convert from decimal to integer.
-            let amount = decimal_to_integer(amount, decimals)?;
+            let amount = decimal_to_integer(amount, faucet_decimals)?;
 
             let faucet_id = AccountId::from_hex(id).map_err(|err| err.to_string())?;
 
@@ -164,15 +164,15 @@ fn decimal_to_integer(decimal_str: &str, n_decimals: &u8) -> Result<u64, String>
     };
 
     // Add extra zeros if the fractional part is shorter than N decimals
-    while fractional_part.len() < n_decimals {
+    while fractional_part.len() < (*n_decimals).into() {
         fractional_part.push('0');
     }
 
     // Combine the integer and padded fractional part
-    let combined = format!("{}{}", integer_part, &fractional_part[0..n_decimals]);
+    let combined = format!("{}{}", integer_part, &fractional_part[0..(*n_decimals).into()]);
 
     // Convert the combined string to an integer
-    combined.parse::<u64>()
+    combined.parse::<u64>().map_err(|err| err.to_string())
 }
 
 // HELPER TESTS
@@ -180,14 +180,16 @@ fn decimal_to_integer(decimal_str: &str, n_decimals: &u8) -> Result<u64, String>
 
 #[test]
 fn test_decimal_to_integer() {
-    assert_eq!(decimal_to_integer("7531.2468", 18), 7531246800000000000000);
-    assert_eq!(decimal_to_integer("7531.2468", 8), 753124680000);
-    assert_eq!(decimal_to_integer("7531.2468", 4), 75312468);
+    // This is out of range for u64
+    // assert_eq!(decimal_to_integer("7531.2468", &18), Ok(7531246800000000000000));
+    assert_eq!(decimal_to_integer("7531.2468", &8), Ok(753124680000));
+    assert_eq!(decimal_to_integer("7531.2468", &4), Ok(75312468));
 }
 
 #[test]
 fn test_format_amount_from_faucet_units() {
-    assert_eq!(format_amount_from_faucet_units(7531246800000000000000, 18), "7531.2468");
-    assert_eq!(format_amount_from_faucet_units(753124680000, 8), "7531.2468");
+    // This is out of range for u64
+    // assert_eq!(format_amount_from_faucet_units(7531246800000000000000, 18), "7531.2468");
+    assert_eq!(format_amount_from_faucet_units(753124680000, 8), "7531.24680000");
     assert_eq!(format_amount_from_faucet_units(75312468, 4), "7531.2468");
 }
