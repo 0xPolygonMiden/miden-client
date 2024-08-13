@@ -15,6 +15,7 @@ use miden_objects::{
     vm::AdviceMap,
     Digest, Felt, Word,
 };
+use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 
 // MASM SCRIPTS
 // ================================================================================================
@@ -31,7 +32,7 @@ pub const AUTH_SEND_ASSET_SCRIPT: &str =
 
 pub type NoteArgs = Word;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TransactionScriptTemplate {
     CustomScript(TransactionScript),
     SendNotes(Vec<PartialNote>),
@@ -256,6 +257,113 @@ impl TransactionRequest {
     }
 }
 
+impl Serializable for TransactionRequest {
+    fn write_into<W: ByteWriter>(&self, target: &mut W) {
+        self.account_id.write_into(target);
+        self.unauthenticated_input_notes.write_into(target);
+        self.input_notes.write_into(target);
+        match &self.script_template {
+            None => target.write_u8(0),
+            Some(TransactionScriptTemplate::CustomScript(script)) => {
+                target.write_u8(1);
+                script.write_into(target);
+            },
+            Some(TransactionScriptTemplate::SendNotes(notes)) => {
+                target.write_u8(2);
+                notes.write_into(target);
+            },
+        }
+        self.expected_output_notes.write_into(target);
+        self.expected_future_notes.write_into(target);
+        self.advice_map.clone().into_iter().collect::<Vec<_>>().write_into(target);
+        self.merkle_store.write_into(target);
+    }
+}
+
+impl Deserializable for TransactionRequest {
+    fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
+        let account_id = AccountId::read_from(source)?;
+        let unauthenticated_input_notes = Vec::<Note>::read_from(source)?;
+        let input_notes = BTreeMap::<NoteId, Option<NoteArgs>>::read_from(source)?;
+
+        let script_template = match source.read_u8()? {
+            0 => None,
+            1 => {
+                let transaction_script = TransactionScript::read_from(source)?;
+                Some(TransactionScriptTemplate::CustomScript(transaction_script))
+            },
+            2 => {
+                let notes = Vec::<PartialNote>::read_from(source)?;
+                Some(TransactionScriptTemplate::SendNotes(notes))
+            },
+            _ => {
+                return Err(DeserializationError::InvalidValue(
+                    "Invalid script template type".to_string(),
+                ))
+            },
+        };
+
+        let expected_output_notes = BTreeMap::<NoteId, Note>::read_from(source)?;
+        let expected_future_notes = BTreeMap::<NoteId, NoteDetails>::read_from(source)?;
+
+        let mut advice_map = AdviceMap::new();
+        let advice_vec = Vec::<(Digest, Vec<Felt>)>::read_from(source)?;
+        advice_map.extend(advice_vec);
+        let merkle_store = MerkleStore::read_from(source)?;
+
+        Ok(TransactionRequest {
+            account_id,
+            unauthenticated_input_notes,
+            input_notes,
+            script_template,
+            expected_output_notes,
+            expected_future_notes,
+            advice_map,
+            merkle_store,
+        })
+    }
+}
+
+impl PartialEq for TransactionRequest {
+    fn eq(&self, other: &Self) -> bool {
+        let same_advice_map_count = self.advice_map.clone().into_iter().count()
+            == other.advice_map.clone().into_iter().count();
+        let same_advice_map = same_advice_map_count
+            && self
+                .advice_map
+                .clone()
+                .into_iter()
+                .all(|elem| other.advice_map.get(&elem.0).map_or(false, |v| v == elem.1));
+
+        // TODO: Simplify this. Because [TransactionScript] does not deserialize exactly into the
+        // original object, they are not directly comparable right now
+        let same_script = match &self.script_template {
+            Some(TransactionScriptTemplate::CustomScript(script)) => {
+                if let Some(TransactionScriptTemplate::CustomScript(other_script)) =
+                    &other.script_template
+                {
+                    other_script.hash() == script.hash()
+                } else {
+                    false
+                }
+            },
+            Some(TransactionScriptTemplate::SendNotes(_)) => {
+                self.script_template == other.script_template
+            },
+            None => other.script_template.is_none(),
+        };
+
+        same_script
+            && self.account_id == other.account_id
+            && self.unauthenticated_input_notes == other.unauthenticated_input_notes
+            && self.input_notes == other.input_notes
+            && self.expected_output_notes == other.expected_output_notes
+            && self.expected_future_notes == other.expected_future_notes
+            && same_advice_map
+            && self.merkle_store == other.merkle_store
+    }
+}
+
 // TRANSACTION REQUEST ERROR
 // ================================================================================================
 
@@ -410,7 +518,7 @@ impl SwapTransactionData {
 pub mod known_script_roots {
     pub const P2ID: &str = "0x07db8e6726c0859648a4f0ad38376440c01d98674b7d5a03d7ad729ae2a21d8f";
     pub const P2IDR: &str = "0xd43b69d65bbc22abf64dbae53ad22e3a4f6d5bfac8e47497b69c116824b46427";
-    pub const SWAP: &str = "0x9270b8c89303cf7a05340351d7f9962a9722c4f35d30b7d4980929b381e5d695";
+    pub const SWAP: &str = "0x216ed058cf9f98e8ca423321d67688dce65b7e7771f7ecbb0958bd99e326b009";
 }
 
 // TESTS
@@ -419,6 +527,7 @@ pub mod known_script_roots {
 #[cfg(test)]
 mod tests {
     use alloc::string::ToString;
+    use std::vec::Vec;
 
     use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
     use miden_objects::{
@@ -426,14 +535,17 @@ mod tests {
             account_id::testing::{
                 ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
             },
-            AccountId,
+            AccountId, AccountType,
         },
         assets::FungibleAsset,
-        crypto::rand::RpoRandomCoin,
+        crypto::rand::{FeltRng, RpoRandomCoin},
         notes::NoteType,
-        Felt, FieldElement,
+        transaction::OutputNote,
+        Digest, Felt, FieldElement, ZERO,
     };
+    use miden_tx::utils::{Deserializable, Serializable};
 
+    use super::TransactionRequest;
     use crate::transactions::known_script_roots::{P2ID, P2IDR, SWAP};
 
     // We need to make sure the script roots we use for filters are in line with the note scripts
@@ -478,5 +590,51 @@ mod tests {
         assert_eq!(p2id_note.script().hash().to_string(), P2ID);
         assert_eq!(p2idr_note.script().hash().to_string(), P2IDR);
         assert_eq!(swap_note.script().hash().to_string(), SWAP);
+    }
+
+    #[test]
+    fn transaction_request_serialization() {
+        let sender_id = AccountId::new_dummy([0u8; 32], AccountType::RegularAccountImmutableCode);
+        let target_id = AccountId::new_dummy([1u8; 32], AccountType::RegularAccountImmutableCode);
+        let faucet_id = AccountId::new_dummy([2u8; 32], AccountType::FungibleFaucet);
+        let mut rng = RpoRandomCoin::new(Default::default());
+
+        let mut notes = vec![];
+        for i in 0..6 {
+            let note = create_p2id_note(
+                sender_id,
+                target_id,
+                vec![FungibleAsset::new(faucet_id, 100 + i).unwrap().into()],
+                NoteType::Private,
+                ZERO,
+                &mut rng,
+            )
+            .unwrap();
+            notes.push(note);
+        }
+
+        let mut advice_vec: Vec<(Digest, Vec<Felt>)> = vec![];
+        for i in 0..10 {
+            advice_vec.push((Digest::new(rng.draw_word()), vec![Felt::new(i)]));
+        }
+
+        // This transaction request wouldn't be valid in a real scenario, it's intended for testing
+        let tx_request = TransactionRequest::new(sender_id)
+            .with_authenticated_input_notes(vec![(notes.pop().unwrap().id(), None)])
+            .with_unauthenticated_input_notes(vec![(notes.pop().unwrap(), None)])
+            .with_expected_output_notes(vec![notes.pop().unwrap()])
+            .with_expected_future_notes(vec![notes.pop().unwrap().into()])
+            .extend_advice_map(advice_vec)
+            .with_own_output_notes(vec![
+                OutputNote::Full(notes.pop().unwrap()),
+                OutputNote::Partial(notes.pop().unwrap().into()),
+            ])
+            .unwrap();
+
+        let mut buffer = Vec::new();
+        tx_request.write_into(&mut buffer);
+
+        let deserialized_tx_request = TransactionRequest::read_from_bytes(&buffer).unwrap();
+        assert_eq!(tx_request, deserialized_tx_request);
     }
 }

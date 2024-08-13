@@ -358,7 +358,11 @@ async fn test_swap_offchain() {
         build_swap_tag(NoteType::Private, offered_asset.faucet_id(), requested_asset.faucet_id());
     client2.add_note_tag(tag).unwrap();
     client2
-        .import_note(NoteFile::NoteDetails(exported_note.into(), Some(tag)))
+        .import_note(NoteFile::NoteDetails {
+            details: exported_note.into(),
+            tag: Some(tag),
+            after_block_num: 0,
+        })
         .await
         .unwrap();
 

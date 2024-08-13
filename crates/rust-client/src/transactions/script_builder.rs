@@ -63,12 +63,14 @@ impl AccountInterface {
             body.push_str(&format!(
                 "
                 push.{recipient}
+                push.{execution_hint}
                 push.{note_type}
                 push.{aux}
                 push.{tag}
                 ",
                 recipient = prepare_word(&partial_note.recipient_digest()),
                 note_type = Felt::from(partial_note.metadata().note_type()),
+                execution_hint = Felt::from(partial_note.metadata().execution_hint()),
                 aux = partial_note.metadata().aux(),
                 tag = Felt::from(partial_note.metadata().tag()),
             ));
@@ -82,7 +84,7 @@ impl AccountInterface {
                     body.push_str(&format!(
                         "
                         push.{amount}
-                        call.faucet::distribute dropw dropw
+                        call.faucet::distribute dropw dropw drop
                         ",
                         amount = asset.unwrap_fungible().amount()
                     ));
@@ -91,7 +93,7 @@ impl AccountInterface {
                     body.push_str(&format!(
                         "
                         push.{asset}
-                        call.wallet::send_asset dropw dropw dropw dropw
+                        call.wallet::send_asset dropw dropw dropw dropw drop
                         ",
                         asset = prepare_word(&asset.into())
                     ));

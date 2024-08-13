@@ -200,7 +200,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     return Ok(tracked_note.id());
                 }
             },
-            NoteFile::NoteDetails(details, None) => {
+            NoteFile::NoteDetails { details, after_block_num: _, tag: None } => {
                 let record_details = details.clone().into();
 
                 InputNoteRecord::new(
@@ -215,7 +215,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     None,
                 )
             },
-            NoteFile::NoteDetails(details, Some(tag)) => {
+            NoteFile::NoteDetails {
+                details,
+                after_block_num: _,
+                tag: Some(tag),
+            } => {
                 let tracked_tags = maybe_await!(self.get_note_tags())?;
 
                 let account_tags = maybe_await!(self.get_account_stubs())?
