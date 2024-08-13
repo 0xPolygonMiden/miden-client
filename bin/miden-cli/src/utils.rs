@@ -17,6 +17,14 @@ use tracing::info;
 use super::{config::CliConfig, get_account_with_id_prefix, CLIENT_CONFIG_FILE_NAME};
 use crate::faucet_details_map::FaucetDetailsMap;
 
+pub(crate) const SHARED_TOKEN_DOCUMENTATION: &str = "There are two accepted formats for the asset:
+- `<AMOUNT>::<FAUCET_ID>` where `<AMOUNT>` is in the faucet base units.
+- `<AMOUNT>::<TOKEN_SYMBOL>` where `<AMOUNT>` is a decimal number representing the quantity of
+the token (specified to the precision allowed by the token's decimals), and `<TOKEN_SYMBOL>`
+is a symbol tracked in the token symbol map file.
+
+For example, `100::0xabcdef0123456789` or `1.23::POL`";
+
 /// Returns a tracked Account ID matching a hex string or the default one defined in the Client config
 pub(crate) fn get_input_acc_id_by_prefix_or_default<
     N: NodeRpcClient,

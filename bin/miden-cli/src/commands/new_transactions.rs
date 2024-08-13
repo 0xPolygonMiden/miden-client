@@ -19,7 +19,10 @@ use tracing::info;
 
 use crate::{
     create_dynamic_table,
-    utils::{get_input_acc_id_by_prefix_or_default, load_faucet_details_map, parse_account_id},
+    utils::{
+        get_input_acc_id_by_prefix_or_default, load_faucet_details_map, parse_account_id,
+        SHARED_TOKEN_DOCUMENTATION,
+    },
 };
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -45,15 +48,7 @@ pub struct MintCmd {
     target_account_id: String,
 
     /// Asset to be minted.
-    ///
-    /// There are two accepted formats for the asset:
-    /// - `<AMOUNT>::<FAUCET_ID>` where `<AMOUNT>` is in the faucet base units.
-    /// - `<AMOUNT>::<TOKEN_SYMBOL>` where `<AMOUNT>` is a decimal number representing the quantity of
-    ///   the token (specified to the precision allowed by the token's decimals), and `<TOKEN_SYMBOL>`
-    ///   is a symbol tracked in the token symbol map file.
-    ///
-    /// For example, `100::0xabcdef0123456789` or `1.23::POL`.
-    #[clap(short, long)]
+    #[clap(short, long, help=format!("Asset to be minted.\n{SHARED_TOKEN_DOCUMENTATION}"))]
     asset: String,
 
     #[clap(short, long, value_enum)]
@@ -102,15 +97,7 @@ pub struct SendCmd {
     target_account_id: String,
 
     /// Asset to be sent.
-    ///
-    /// There are two accepted formats for the asset:
-    /// - `<AMOUNT>::<FAUCET_ID>` where `<AMOUNT>` is in the faucet base units.
-    /// - `<AMOUNT>::<TOKEN_SYMBOL>` where `<AMOUNT>` is a decimal number representing the quantity of
-    ///   the token (specified to the precision allowed by the token's decimals), and `<TOKEN_SYMBOL>`
-    ///   is a symbol tracked in the token symbol map file.
-    ///
-    /// For example, `100::0xabcdef0123456789` or `1.23::POL`.
-    #[clap(short, long)]
+    #[clap(short, long, help=format!("Asset to be sent.\n{SHARED_TOKEN_DOCUMENTATION}"))]
     asset: String,
 
     #[clap(short, long, value_enum)]
@@ -172,28 +159,12 @@ pub struct SwapCmd {
     #[clap(short = 's', long = "source")]
     sender_account_id: Option<String>,
 
-    /// Asset offered.
-    ///
-    /// There are two accepted formats for the asset:
-    /// - `<AMOUNT>::<FAUCET_ID>` where `<AMOUNT>` is in the faucet base units.
-    /// - `<AMOUNT>::<TOKEN_SYMBOL>` where `<AMOUNT>` is a decimal number representing the quantity of
-    ///   the token (specified to the precision allowed by the token's decimals), and `<TOKEN_SYMBOL>`
-    ///   is a symbol tracked in the token symbol map file.
-    ///
-    /// For example, `100::0xabcdef0123456789` or `1.23::POL`.
-    #[clap(long = "offered-asset")]
+    /// Asset offered
+    #[clap(long = "offered-asset", help=format!("Asset offered.\n{SHARED_TOKEN_DOCUMENTATION}"))]
     offered_asset: String,
 
-    /// Asset requested.
-    ///
-    /// There are two accepted formats for the asset:
-    /// - `<AMOUNT>::<FAUCET_ID>` where `<AMOUNT>` is in the faucet base units.
-    /// - `<AMOUNT>::<TOKEN_SYMBOL>` where `<AMOUNT>` is a decimal number representing the quantity of
-    ///   the token (specified to the precision allowed by the token's decimals), and `<TOKEN_SYMBOL>`
-    ///   is a symbol tracked in the token symbol map file.
-    ///
-    /// For example, `100::0xabcdef0123456789` or `1.23::POL`.
-    #[clap(short, long)]
+    /// Asset requested
+    #[clap(short, long, help=format!("Asset requested.\n{SHARED_TOKEN_DOCUMENTATION}"))]
     requested_asset: String,
 
     #[clap(short, long, value_enum)]
