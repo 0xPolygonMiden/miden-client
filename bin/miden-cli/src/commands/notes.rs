@@ -240,7 +240,7 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator
     for asset in assets {
         let (asset_type, faucet, amount) = match asset {
             Asset::Fungible(fungible_asset) => {
-                let (faucet, amount) = faucet_details_map.format_fungible_asset(fungible_asset);
+                let (faucet, amount) = faucet_details_map.format_fungible_asset(fungible_asset)?;
 
                 ("Fungible Asset", faucet, amount)
             },

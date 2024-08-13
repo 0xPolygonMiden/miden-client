@@ -153,7 +153,7 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
             let (asset_type, faucet, amount) = match asset {
                 Asset::Fungible(fungible_asset) => {
                     let (faucet, amount) =
-                        faucet_details_map.format_fungible_asset(&fungible_asset);
+                        faucet_details_map.format_fungible_asset(&fungible_asset)?;
                     ("Fungible Asset", faucet, amount)
                 },
                 Asset::NonFungible(non_fungible_asset) => {
