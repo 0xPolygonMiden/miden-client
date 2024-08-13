@@ -80,19 +80,17 @@ impl FaucetDetailsMap {
             let amount = amount.parse::<u64>().map_err(|err| err.to_string())?;
             (AccountId::from_hex(asset).map_err(|err| err.to_string())?, amount)
         } else {
-            let float_amount = amount.parse::<f64>().map_err(|err| err.to_string())?;
-            let amount_decimals = amount.split('.').last().unwrap_or("").len();
-
-            let amount = float_amount * 10.0_f64.powi(amount_decimals as i32);
-            assert!(amount.fract() == 0.0, "Amount should be an integer");
-
             let FaucetDetails { id, decimals: faucet_decimals } = self
                 .get_faucet_details(&asset.to_string())
                 .ok_or(format!("Token symbol `{asset}` not found in token symbol map file"))?;
 
+            // Validate that the amount is a valid number.
+            amount.parse::<f64>().map_err(|err| err.to_string())?;
+
+            // Convert from decimal to integer.
+            let amount = decimal_to_integer(amount, decimals)?;
+
             let faucet_id = AccountId::from_hex(id).map_err(|err| err.to_string())?;
-            let amount =
-                faucet_units_from_amount(amount as u64, amount_decimals as u8, *faucet_decimals)?;
 
             (faucet_id, amount)
         };
@@ -131,25 +129,48 @@ impl FaucetDetailsMap {
     }
 }
 
-/// Converts an amount in the token's decimals to the faucet base units. `amount` should be
-/// the decimal value converted to an integer (e.g., 1.23 -> 123) and `amount_decimals` should
-/// be the number of decimals in the amount.
-fn faucet_units_from_amount(
-    amount: u64,
-    amount_decimals: u8,
-    faucet_decimals: u8,
-) -> Result<u64, String> {
-    if amount_decimals > faucet_decimals {
-        return Err(format!("The amount can't have more than {} decimals", faucet_decimals));
-    }
-
-    let units = amount * 10_i32.pow((faucet_decimals - amount_decimals).into()) as u64;
-
-    Ok(units)
-}
-
 /// Converts an amount in the faucet base units to the token's decimals. This amount should only
 /// be used for display purposes and should not be used for calculations as it may lose precision.
 fn format_amount_from_faucet_units(units: u64, decimals: u8) -> String {
-    (units as f64 / 10.0_f64.powi(decimals as i32)).to_string()
+    let units_str = units.to_string();
+    let len = units_str.len();
+
+    if decimals as usize >= len {
+        // Handle cases where the number of decimals is greater than the length of units
+        let leading_zeros = "0.".to_owned() + &"0".repeat(decimals as usize - len) + &units_str;
+        leading_zeros
+    } else {
+        // Insert the decimal point at the correct position
+        let integer_part = &units_str[..len - decimals as usize];
+        let fractional_part = &units_str[len - decimals as usize..];
+        format!("{}.{}", integer_part, fractional_part)
+    }
+}
+
+/// Converts a decimal number, represented as a string, into an integer by shifting
+/// the decimal point to the right by a specified number of decimal places.
+fn decimal_to_integer(decimal_str: &str, n_decimals: &u8) -> Result<u64, String> {
+    // Split the string on the decimal point
+    let parts: Vec<&str> = decimal_str.split('.').collect();
+
+    // Get the integer part
+    let integer_part = parts[0];
+
+    // Get the fractional part and pad it if necessary
+    let mut fractional_part = if parts.len() > 1 {
+        parts[1].to_string()
+    } else {
+        String::new()
+    };
+
+    // Add extra zeros if the fractional part is shorter than N decimals
+    while fractional_part.len() < n_decimals {
+        fractional_part.push('0');
+    }
+
+    // Combine the integer and padded fractional part
+    let combined = format!("{}{}", integer_part, &fractional_part[0..n_decimals]);
+
+    // Convert the combined string to an integer
+    combined.parse::<u64>()
 }
