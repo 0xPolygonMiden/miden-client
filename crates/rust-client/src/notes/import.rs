@@ -2,7 +2,8 @@ use alloc::string::ToString;
 
 use miden_objects::{
     crypto::rand::FeltRng,
-    notes::{Note, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteTag}, transaction::InputNote,
+    notes::{Note, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteTag},
+    transaction::InputNote,
 };
 use miden_tx::auth::TransactionAuthenticator;
 use tracing::info;
