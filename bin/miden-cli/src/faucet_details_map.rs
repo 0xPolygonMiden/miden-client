@@ -158,6 +158,10 @@ fn parse_number_as_base_units(decimal_str: &str, n_decimals: &u8) -> Result<u64,
         String::new()
     };
 
+    // Remove trailing zeros from the fractional part
+    fractional_part = fractional_part.trim_end_matches('0').to_string();
+
+    // Check if the fractional part has more than N decimals
     if fractional_part.len() > (*n_decimals).into() {
         return Err(format!("Amount has more than {} decimal places", n_decimals));
     }
@@ -202,6 +206,7 @@ fn test_parse_number_as_base_units() {
         parse_number_as_base_units("2.k3", &4),
         Err("Not a valid number: invalid digit found in string".to_string())
     );
+    assert_eq!(parse_number_as_base_units("12.345000", &4), Ok(123450));
 }
 
 #[test]
