@@ -1,7 +1,4 @@
-use miden_client::{
-    store::NoteFilter,
-    utils::Serializable,
-};
+use miden_client::{store::NoteFilter, utils::Serializable};
 use miden_objects::{notes::NoteFile, Digest};
 use wasm_bindgen::prelude::*;
 
@@ -58,10 +55,9 @@ impl WebClient {
                     details: output_note.clone().try_into().map_err(|err| {
                         JsValue::from_str(&format!("Failed to convert output note: {}", err))
                     })?,
-                    after_block_num: client
-                        .get_sync_height()
-                        .await
-                        .map_err(|err| JsValue::from_str(&format!("Failed to get sync height: {}", err)))?,
+                    after_block_num: client.get_sync_height().await.map_err(|err| {
+                        JsValue::from_str(&format!("Failed to get sync height: {}", err))
+                    })?,
                     tag: Some(output_note.metadata().tag()),
                 },
             };

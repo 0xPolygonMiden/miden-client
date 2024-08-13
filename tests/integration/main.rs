@@ -2,7 +2,7 @@ use miden_client::{
     accounts::AccountTemplate,
     notes::NoteRelevance,
     rpc::{AccountDetails, NodeRpcClient, TonicRpcClient},
-    store::{InputNoteRecord, NoteFilter, NoteStatus, Store, TransactionFilter},
+    store::{InputNoteRecord, NoteFilter, NoteStatus, TransactionFilter},
     transactions::{
         request::{PaymentTransactionData, TransactionTemplate},
         TransactionExecutorError, TransactionStatus,
