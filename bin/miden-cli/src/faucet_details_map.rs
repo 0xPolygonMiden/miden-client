@@ -86,7 +86,7 @@ impl FaucetDetailsMap {
                 .ok_or(format!("Token symbol `{asset}` not found in token symbol map file"))?;
 
             // Convert from decimal to integer.
-            let amount = decimal_to_integer(amount, faucet_decimals)?;
+            let amount = parse_number_as_base_units(amount, faucet_decimals)?;
 
             let faucet_id = AccountId::from_hex(id).map_err(|err| err.to_string())?;
 
@@ -138,7 +138,7 @@ fn format_amount_from_faucet_units(units: u64, decimals: u8) -> String {
 ///
 /// The MAX_DECIMALS is 12
 /// TODO(SantiagoPittella): import that constant from the main code and add checks.
-fn decimal_to_integer(decimal_str: &str, n_decimals: &u8) -> Result<u64, String> {
+fn parse_number_as_base_units(decimal_str: &str, n_decimals: &u8) -> Result<u64, String> {
     // Validate that the amount is a valid number.
     decimal_str.parse::<f64>().map_err(|err| err.to_string())?;
 
@@ -171,10 +171,10 @@ fn decimal_to_integer(decimal_str: &str, n_decimals: &u8) -> Result<u64, String>
 // ================================================================================================
 
 #[test]
-fn test_decimal_to_integer() {
-    assert_eq!(decimal_to_integer("18446744.073709551615", &12), Ok(u64::MAX));
-    assert_eq!(decimal_to_integer("7531.2468", &8), Ok(753124680000));
-    assert_eq!(decimal_to_integer("7531.2468", &4), Ok(75312468));
+fn test_parse_number_as_base_units() {
+    assert_eq!(parse_number_as_base_units("18446744.073709551615", &12), Ok(u64::MAX));
+    assert_eq!(parse_number_as_base_units("7531.2468", &8), Ok(753124680000));
+    assert_eq!(parse_number_as_base_units("7531.2468", &4), Ok(75312468));
 }
 
 #[test]
