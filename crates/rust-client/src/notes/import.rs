@@ -32,7 +32,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     pub async fn import_note(&mut self, note_file: NoteFile) -> Result<NoteId, ClientError> {
         let note = match note_file {
             NoteFile::NoteId(id) => {
-                let note_record = self.get_note_record_by_id(id).await?;
+                let note_record = self.import_note_record_by_id(id).await?;
                 if note_record.is_none() {
                     return Ok(id);
                 }
@@ -40,10 +40,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 note_record.expect("The note record should be Some")
             },
             NoteFile::NoteDetails { details, after_block_num, tag } => {
-                self.get_note_record_by_details(details, after_block_num, tag).await?
+                self.import_note_record_by_details(details, after_block_num, tag).await?
             },
             NoteFile::NoteWithProof(note, inclusion_proof) => {
-                self.get_note_record_by_proof(note, inclusion_proof).await?
+                self.import_note_record_by_proof(note, inclusion_proof).await?
             },
         };
         let id = note.id();
@@ -69,7 +69,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// Errors:
     /// - If the note does not exist on the node.
     /// - If the note exists but is private.
-    async fn get_note_record_by_id(
+    async fn import_note_record_by_id(
         &mut self,
         id: NoteId,
     ) -> Result<Option<InputNoteRecord>, ClientError> {
@@ -114,7 +114,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     },
                 };
 
-                self.get_note_record_by_proof(node_note, inclusion_proof).await.map(Some)
+                self.import_note_record_by_proof(node_note, inclusion_proof).await.map(Some)
             },
             Err(err) => Err(err),
         }
@@ -122,7 +122,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
     /// Builds a note record from the note and inclusion proof. The note's nullifier is used to
     /// determine if the note has been consumed in the node and gives it the correct status.
-    async fn get_note_record_by_proof(
+    async fn import_note_record_by_proof(
         &mut self,
         note: Note,
         inclusion_proof: NoteInclusionProof,
@@ -154,7 +154,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
     /// Builds a note record from the note details. If a tag is not provided or not tracked, the
     /// note is marked as ignored.
-    async fn get_note_record_by_details(
+    async fn import_note_record_by_details(
         &mut self,
         details: NoteDetails,
         after_block_num: u32,
