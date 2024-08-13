@@ -335,10 +335,28 @@ impl PartialEq for TransactionRequest {
                 .into_iter()
                 .all(|elem| other.advice_map.get(&elem.0).map_or(false, |v| v == elem.1));
 
-        self.account_id == other.account_id
+        // TODO: Simplify this. Because [TransactionScript] does not deserialize exactly into the
+        // original object, they are not directly comparable right now
+        let same_script = match &self.script_template {
+            Some(TransactionScriptTemplate::CustomScript(script)) => {
+                if let Some(TransactionScriptTemplate::CustomScript(other_script)) =
+                    &other.script_template
+                {
+                    other_script.hash() == script.hash()
+                } else {
+                    false
+                }
+            },
+            Some(TransactionScriptTemplate::SendNotes(_)) => {
+                self.script_template == other.script_template
+            },
+            None => other.script_template.is_none(),
+        };
+
+        same_script
+            && self.account_id == other.account_id
             && self.unauthenticated_input_notes == other.unauthenticated_input_notes
             && self.input_notes == other.input_notes
-            && self.script_template == other.script_template
             && self.expected_output_notes == other.expected_output_notes
             && self.expected_future_notes == other.expected_future_notes
             && same_advice_map
