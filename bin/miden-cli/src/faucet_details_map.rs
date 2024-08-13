@@ -1,6 +1,7 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::PathBuf,
+    u64,
 };
 
 use miden_client::{accounts::AccountId, assets::FungibleAsset};
@@ -149,6 +150,9 @@ fn format_amount_from_faucet_units(units: u64, decimals: u8) -> String {
 
 /// Converts a decimal number, represented as a string, into an integer by shifting
 /// the decimal point to the right by a specified number of decimal places.
+///
+/// The MAX_DECIMALS is 12
+/// TODO(SantiagoPittella): import that constant from the main code and add checks.
 fn decimal_to_integer(decimal_str: &str, n_decimals: &u8) -> Result<u64, String> {
     // Split the string on the decimal point
     let parts: Vec<&str> = decimal_str.split('.').collect();
@@ -180,16 +184,14 @@ fn decimal_to_integer(decimal_str: &str, n_decimals: &u8) -> Result<u64, String>
 
 #[test]
 fn test_decimal_to_integer() {
-    // This is out of range for u64
-    // assert_eq!(decimal_to_integer("7531.2468", &18), Ok(7531246800000000000000));
+    assert_eq!(decimal_to_integer("18446744.073709551615", &12), Ok(u64::MAX));
     assert_eq!(decimal_to_integer("7531.2468", &8), Ok(753124680000));
     assert_eq!(decimal_to_integer("7531.2468", &4), Ok(75312468));
 }
 
 #[test]
 fn test_format_amount_from_faucet_units() {
-    // This is out of range for u64
-    // assert_eq!(format_amount_from_faucet_units(7531246800000000000000, 18), "7531.2468");
+    assert_eq!(format_amount_from_faucet_units(u64::MAX, 12), "18446744.073709551615");
     assert_eq!(format_amount_from_faucet_units(753124680000, 8), "7531.24680000");
     assert_eq!(format_amount_from_faucet_units(75312468, 4), "7531.2468");
 }
