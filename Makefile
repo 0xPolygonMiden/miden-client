@@ -11,7 +11,7 @@ FEATURES_CLIENT=--features "testing, concurrent"
 FEATURES_CLI=--features "testing, concurrent"
 NODE_FEATURES_TESTING=--features "testing"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
-NODE_BRANCH="add-note-exec-hint-to-store"
+NODE_BRANCH="next"
 
 # --- Linting -------------------------------------------------------------------------------------
 
