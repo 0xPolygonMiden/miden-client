@@ -174,3 +174,20 @@ fn decimal_to_integer(decimal_str: &str, n_decimals: &u8) -> Result<u64, String>
     // Convert the combined string to an integer
     combined.parse::<u64>()
 }
+
+// HELPER TESTS
+// ================================================================================================
+
+#[test]
+fn test_decimal_to_integer() {
+    assert_eq!(decimal_to_integer("7531.2468", 18), 7531246800000000000000);
+    assert_eq!(decimal_to_integer("7531.2468", 8), 753124680000);
+    assert_eq!(decimal_to_integer("7531.2468", 4), 75312468);
+}
+
+#[test]
+fn test_format_amount_from_faucet_units() {
+    assert_eq!(format_amount_from_faucet_units(7531246800000000000000, 18), "7531.2468");
+    assert_eq!(format_amount_from_faucet_units(753124680000, 8), "7531.2468");
+    assert_eq!(format_amount_from_faucet_units(75312468, 4), "7531.2468");
+}
