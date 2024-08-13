@@ -155,6 +155,10 @@ fn parse_number_as_base_units(decimal_str: &str, n_decimals: &u8) -> Result<u64,
         String::new()
     };
 
+    if fractional_part.len() > (*n_decimals).into() {
+        return Err(format!("Amount has more than {} decimal places", n_decimals));
+    }
+
     // Add extra zeros if the fractional part is shorter than N decimals
     while fractional_part.len() < (*n_decimals).into() {
         fractional_part.push('0');
@@ -175,6 +179,18 @@ fn test_parse_number_as_base_units() {
     assert_eq!(parse_number_as_base_units("18446744.073709551615", &12), Ok(u64::MAX));
     assert_eq!(parse_number_as_base_units("7531.2468", &8), Ok(753124680000));
     assert_eq!(parse_number_as_base_units("7531.2468", &4), Ok(75312468));
+    assert_eq!(parse_number_as_base_units("0", &3), Ok(0));
+    assert_eq!(parse_number_as_base_units("0.000000000001", &12), Ok(1));
+    assert_eq!(parse_number_as_base_units("1234", &8), Ok(123400000000));
+    assert_eq!(parse_number_as_base_units("1", &0), Ok(1));
+    assert_eq!(
+        parse_number_as_base_units("1.1", &0),
+        Err("Amount has more than 0 decimal places".to_string())
+    );
+    assert_eq!(
+        parse_number_as_base_units("18446744.073709551615", &11),
+        Err("Amount has more than 11 decimal places".to_string())
+    );
 }
 
 #[test]
