@@ -137,13 +137,16 @@ fn format_amount_from_faucet_units(units: u64, decimals: u8) -> String {
 /// the decimal point to the right by a specified number of decimal places.
 ///
 /// The MAX_DECIMALS is 12
-/// TODO(SantiagoPittella): import that constant from the main code and add checks.
+// TODO: import that constant from the main code and add checks.
+// https://github.com/0xPolygonMiden/miden-client/issues/476
 fn parse_number_as_base_units(decimal_str: &str, n_decimals: &u8) -> Result<u64, String> {
-    // Validate that the amount is a valid number.
-    decimal_str.parse::<f64>().map_err(|err| err.to_string())?;
-
     // Split the string on the decimal point
     let parts: Vec<&str> = decimal_str.split('.').collect();
+
+    // Validate that the parts are valid numbers
+    for part in &parts {
+        part.parse::<u64>().map_err(|err| format!("Not a valid number: {err}"))?;
+    }
 
     // Get the integer part
     let integer_part = parts[0];
@@ -190,6 +193,14 @@ fn test_parse_number_as_base_units() {
     assert_eq!(
         parse_number_as_base_units("18446744.073709551615", &11),
         Err("Amount has more than 11 decimal places".to_string())
+    );
+    assert_eq!(
+        parse_number_as_base_units("123u3.23", &4),
+        Err("Not a valid number: invalid digit found in string".to_string())
+    );
+    assert_eq!(
+        parse_number_as_base_units("2.k3", &4),
+        Err("Not a valid number: invalid digit found in string".to_string())
     );
 }
 
