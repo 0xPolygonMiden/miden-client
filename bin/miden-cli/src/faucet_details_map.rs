@@ -1,7 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::PathBuf,
-    u64,
 };
 
 use miden_client::{accounts::AccountId, assets::FungibleAsset};
@@ -82,11 +81,9 @@ impl FaucetDetailsMap {
             (AccountId::from_hex(asset).map_err(|err| err.to_string())?, amount)
         } else {
             let FaucetDetails { id, decimals: faucet_decimals } = self
-                .get_faucet_details(&asset.to_string())
+                .0
+                .get(asset)
                 .ok_or(format!("Token symbol `{asset}` not found in token symbol map file"))?;
-
-            // Validate that the amount is a valid number.
-            amount.parse::<f64>().map_err(|err| err.to_string())?;
 
             // Convert from decimal to integer.
             let amount = decimal_to_integer(amount, faucet_decimals)?;
@@ -104,42 +101,30 @@ impl FaucetDetailsMap {
     /// - If the faucet is tracked, the token symbol is returned along with the amount in the token's
     ///   decimals.
     /// - If the faucet is not tracked, the faucet ID is returned along with the amount in base units.
-    pub fn format_fungible_asset(&self, asset: &FungibleAsset) -> (String, String) {
+    pub fn format_fungible_asset(&self, asset: &FungibleAsset) -> Result<(String, String), String> {
         if let Some(token_symbol) = self.get_token_symbol(&asset.faucet_id()) {
             let decimals = self
-                .get_faucet_details(&token_symbol)
-                .expect("Token symbol should be present in the token symbol map")
+                .0
+                .get(&token_symbol)
+                .ok_or("Token symbol should be present in the token symbol map".to_string())?
                 .decimals;
             let amount = format_amount_from_faucet_units(asset.amount(), decimals);
 
-            (token_symbol, amount)
+            Ok((token_symbol, amount))
         } else {
-            (asset.faucet_id().to_hex(), asset.amount().to_string())
+            Ok((asset.faucet_id().to_hex(), asset.amount().to_string()))
         }
-    }
-
-    // HELPERS
-    // ================================================================================================
-
-    fn get_faucet_details(&self, token_symbol: &String) -> Option<&FaucetDetails> {
-        Some(
-            self.0
-                .get(token_symbol)
-                .expect("Token symbol should be present in the token symbol map"),
-        )
     }
 }
 
-/// Converts an amount in the faucet base units to the token's decimals. This amount should only
-/// be used for display purposes and should not be used for calculations as it may lose precision.
+/// Converts an amount in the faucet base units to the token's decimals.
 fn format_amount_from_faucet_units(units: u64, decimals: u8) -> String {
     let units_str = units.to_string();
     let len = units_str.len();
 
     if decimals as usize >= len {
         // Handle cases where the number of decimals is greater than the length of units
-        let leading_zeros = "0.".to_owned() + &"0".repeat(decimals as usize - len) + &units_str;
-        leading_zeros
+        "0.".to_owned() + &"0".repeat(decimals as usize - len) + &units_str
     } else {
         // Insert the decimal point at the correct position
         let integer_part = &units_str[..len - decimals as usize];
@@ -154,6 +139,9 @@ fn format_amount_from_faucet_units(units: u64, decimals: u8) -> String {
 /// The MAX_DECIMALS is 12
 /// TODO(SantiagoPittella): import that constant from the main code and add checks.
 fn decimal_to_integer(decimal_str: &str, n_decimals: &u8) -> Result<u64, String> {
+    // Validate that the amount is a valid number.
+    decimal_str.parse::<f64>().map_err(|err| err.to_string())?;
+
     // Split the string on the decimal point
     let parts: Vec<&str> = decimal_str.split('.').collect();
 
