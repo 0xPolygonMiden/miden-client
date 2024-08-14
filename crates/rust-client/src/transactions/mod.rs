@@ -157,7 +157,7 @@ impl TransactionRecord {
 }
 
 /// Represents the status of a transaction
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TransactionStatus {
     /// Transaction has been submitted but not yet committed
     Pending,

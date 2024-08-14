@@ -70,7 +70,7 @@ async fn test_multiple_tx_on_same_block() {
         PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
         NoteType::Private,
     );
-    
+
     println!("Running P2ID tx...");
     let tx_request_1 = client.build_transaction_request(tx_template.clone()).unwrap();
     let tx_request_2 = client.build_transaction_request(tx_template).unwrap();
@@ -81,18 +81,22 @@ async fn test_multiple_tx_on_same_block() {
     let tx_id_1 = execute_tx(&mut client, tx_request_1).await;
     let tx_id_2 = execute_tx(&mut client, tx_request_2).await;
 
-    wait_for_tx(&mut client, tx_id_1);
+    wait_for_tx(&mut client, tx_id_1).await;
+    wait_for_tx(&mut client, tx_id_2).await;
 
-    let transactions = client.get_transactions(crate::TransactionFilter::All).unwrap().into_iter().filter(|tx| {
-        tx.id == tx_id_1 || tx.id == tx_id_2
-    }).collect::<Vec<_>>();
-    
+    let transactions = client
+        .get_transactions(crate::TransactionFilter::All)
+        .unwrap()
+        .into_iter()
+        .filter(|tx| tx.id == tx_id_1 || tx.id == tx_id_2)
+        .collect::<Vec<_>>();
+
     assert_eq!(transactions.len(), 2);
-    assert_eq!(transactions[0].block_num, transactions[1].block_num);
-
-    println!("tx status 1: {:?}", transactions[0].transaction_status);
-    println!("tx status 2: {:?}", transactions[1].transaction_status);
-    assert!(false);
+    assert!(matches!(
+        transactions[0].transaction_status,
+        TransactionStatus::Committed { .. }
+    ));
+    assert_eq!(transactions[0].transaction_status, transactions[1].transaction_status);
 }
 
 #[tokio::test]
