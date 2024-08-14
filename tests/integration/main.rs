@@ -1,6 +1,6 @@
 use miden_client::{
     accounts::AccountTemplate,
-    notes::NoteRelevance,
+    notes::{NoteInputs, NoteRecipient, NoteRelevance},
     rpc::{AccountDetails, NodeRpcClient, TonicRpcClient},
     store::{InputNoteRecord, NoteFilter, NoteStatus, TransactionFilter},
     transactions::{
@@ -12,7 +12,7 @@ use miden_client::{
 use miden_objects::{
     accounts::{AccountId, AccountStorageType},
     assets::{Asset, FungibleAsset},
-    notes::{NoteFile, NoteTag, NoteType},
+    notes::{NoteDetails, NoteFile, NoteTag, NoteType},
 };
 
 mod common;
@@ -597,6 +597,54 @@ async fn test_import_expected_notes() {
 
     // If inclusion proof is invalid this should panic
     consume_notes(&mut client_1, first_basic_account.id(), &[input_note.try_into().unwrap()]).await;
+}
+
+#[tokio::test]
+async fn test_import_expected_note_uncommitted() {
+    let mut client_1 = create_test_client();
+    let (_, _second_basic_account, faucet_account) =
+        setup(&mut client_1, AccountStorageType::OffChain).await;
+
+    let mut client_2 = create_test_client();
+    let (client_2_account, _seed) = client_2
+        .new_account(AccountTemplate::BasicWallet {
+            mutable_code: true,
+            storage_type: AccountStorageType::OffChain,
+        })
+        .unwrap();
+
+    wait_for_node(&mut client_2).await;
+
+    let tx_template = TransactionTemplate::MintFungibleAsset(
+        FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
+        client_2_account.id(),
+        NoteType::Public,
+    );
+
+    let tx_request = client_1.build_transaction_request(tx_template).unwrap();
+    let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
+    client_2.sync_state().await.unwrap();
+
+    // If the verification is requested before execution then the import should fail
+    let imported_note_id = client_2
+        .import_note(NoteFile::NoteDetails {
+            details: NoteDetails::new(
+                note.assets().clone(),
+                NoteRecipient::new(
+                    note.details().serial_num(),
+                    note.details().script().clone(),
+                    NoteInputs::new(note.details().inputs().to_vec()).unwrap(),
+                ),
+            ),
+            after_block_num: 0,
+            tag: None,
+        })
+        .await
+        .unwrap();
+
+    let imported_note = client_2.get_input_note(imported_note_id).unwrap();
+
+    assert!(matches!(imported_note.status(), NoteStatus::Expected { .. }));
 }
 
 #[tokio::test]
