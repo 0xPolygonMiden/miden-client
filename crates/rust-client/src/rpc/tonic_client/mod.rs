@@ -311,9 +311,10 @@ impl NodeRpcClient for TonicRpcClient {
             .nullifiers
             .iter()
             .map(|nul| {
-                let nullifier = nul.nullifier.clone().ok_or(RpcError::ExpectedFieldMissing(
-                    "CheckNullifiersByPrefix response should have a `nullifier`".to_string(),
-                ))?;
+                let nullifier = nul
+                    .nullifier
+                    .clone()
+                    .ok_or(RpcError::ExpectedFieldMissing("Nullifier".to_string()))?;
                 let nullifier = nullifier.try_into()?;
                 Ok((nullifier, nul.block_num))
             })
