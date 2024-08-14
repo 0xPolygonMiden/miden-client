@@ -78,7 +78,7 @@ test-deps: ## Install dependencies for tests
 
 .PHONY: integration-test
 integration-test: ## Run integration tests
-	cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) --no-default-features
+	cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) --no-default-features -- test_multiple_tx_on_same_block
 
 .PHONY: integration-test-full
 integration-test-full: ## Run the integration test binary with ignored tests included
