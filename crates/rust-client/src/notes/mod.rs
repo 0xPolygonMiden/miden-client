@@ -1,6 +1,8 @@
 use alloc::{collections::BTreeSet, string::ToString, vec::Vec};
 
-use miden_objects::{accounts::AccountId, assembly::ProgramAst, crypto::rand::FeltRng};
+use miden_objects::{
+    accounts::AccountId, assembly::ProgramAst, crypto::rand::FeltRng, transaction::InputNote,
+};
 use miden_tx::{auth::TransactionAuthenticator, ScriptTarget};
 use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
@@ -238,30 +240,34 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
                 let record_details = details.clone().into();
 
-                let (note_status, metadata, note_inclusion_proof) =
-                    self.sync_note(after_block_num, tag, &details).await?;
-
-                if let NoteStatus::Committed { block_height } = note_status {
+                if let (NoteStatus::Committed { block_height }, Some(input_note)) =
+                    self.sync_note(after_block_num, tag, &details).await?
+                {
                     let mut current_partial_mmr =
                         maybe_await!(self.build_current_partial_mmr(true))?;
                     self.get_and_store_authenticated_block(
-                        block_height.try_into().unwrap(),
+                        block_height.try_into().map_err(|_| {
+                            ClientError::NoteImportError(
+                                "Couldn't convert block height".to_string(),
+                            )
+                        })?,
                         &mut current_partial_mmr,
                     )
                     .await?;
-                };
-
-                InputNoteRecord::new(
-                    details.id(),
-                    details.recipient().digest(),
-                    details.assets().clone(),
-                    note_status,
-                    metadata,
-                    note_inclusion_proof,
-                    record_details,
-                    ignored,
-                    Some(tag),
-                )
+                    InputNoteRecord::from(input_note)
+                } else {
+                    InputNoteRecord::new(
+                        details.id(),
+                        details.recipient().digest(),
+                        details.assets().clone(),
+                        NoteStatus::Expected { created_at: 0 },
+                        None,
+                        None,
+                        record_details,
+                        ignored,
+                        Some(tag),
+                    )
+                }
             },
             NoteFile::NoteWithProof(note, inclusion_proof) => {
                 let details = note.clone().into();
@@ -306,22 +312,20 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// Synchronizes a note with the chain.
     async fn sync_note(
         &mut self,
-        mut block_num: u32,
+        mut request_block_num: u32,
         tag: NoteTag,
         expected_note: &miden_objects::notes::NoteDetails,
-    ) -> Result<(NoteStatus, Option<NoteMetadata>, Option<NoteInclusionProof>), ClientError> {
+    ) -> Result<(NoteStatus, Option<InputNote>), ClientError> {
+        let current_block_num = maybe_await!(self.get_sync_height())?;
         loop {
-            let current_block_num = maybe_await!(self.get_sync_height())?;
-            if block_num >= current_block_num {
-                return Ok((NoteStatus::Expected { created_at: 0 }, None, None));
+            if request_block_num > current_block_num {
+                return Ok((NoteStatus::Expected { created_at: 0 }, None));
             };
 
-            let sync_notes = self.rpc_api().sync_notes(block_num, &[tag]).await?;
+            let sync_notes = self.rpc_api().sync_notes(request_block_num, &[tag]).await?;
 
-            if sync_notes.block_header.is_none() {
-                // This means that no notes with that note_tag were found.
-                // Therefore, we should leave the note as expected.
-                return Ok((NoteStatus::Expected { created_at: 0 }, None, None));
+            if sync_notes.block_header.block_num() == sync_notes.chain_tip {
+                return Ok((NoteStatus::Expected { created_at: 0 }, None));
             }
 
             // This means that notes with that note_tag were found.
@@ -332,7 +336,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             if let Some(note) = committed_note {
                 // This means that a note with the same id was found.
                 // Therefore, we should mark the note as committed.
-                let note_block_num = sync_notes.block_header.as_ref().unwrap().block_num();
+                let note_block_num = sync_notes.block_header.block_num();
 
                 let note_inclusion_proof = NoteInclusionProof::new(
                     note_block_num,
@@ -345,14 +349,20 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                         // Block header can't be None since we check that already in the if statement.
                         block_height: note_block_num as u64,
                     },
-                    Some(note.metadata()),
-                    Some(note_inclusion_proof),
+                    Some(InputNote::authenticated(
+                        Note::new(
+                            expected_note.assets().clone(),
+                            note.metadata(),
+                            expected_note.recipient().clone(),
+                        ),
+                        note_inclusion_proof,
+                    )),
                 ));
             } else {
                 // This means that a note with the same id was not found.
                 // Therefore, we should request again for sync_notes with the same note_tag
                 // and with the block_num of the last block header (sync_notes.block_header.unwrap()).
-                block_num = sync_notes.block_header.unwrap().block_num();
+                request_block_num = sync_notes.block_header.block_num();
             }
         }
     }

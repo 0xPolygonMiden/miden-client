@@ -281,8 +281,11 @@ impl TryFrom<SyncNoteResponse> for NoteSyncInfo {
         let chain_tip = value.chain_tip;
 
         // Validate and convert block header
-        let block_header =
-            value.block_header.map(|block_header| block_header.try_into()).transpose()?;
+        // Validate and convert block header
+        let block_header = value
+            .block_header
+            .ok_or(RpcError::ExpectedFieldMissing("BlockHeader".into()))?
+            .try_into()?;
 
         let mmr_path = value.mmr_path.map(|mmr_path| mmr_path.try_into()).transpose()?;
 

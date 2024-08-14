@@ -185,7 +185,7 @@ pub struct NoteSyncInfo {
     /// Number of the latest block in the chain
     pub chain_tip: u32,
     /// Block header of the block with the first note matching the specified criteria
-    pub block_header: Option<BlockHeader>,
+    pub block_header: BlockHeader,
     /// Proof for block header's MMR with respect to the chain tip.
     ///
     /// More specifically, the full proof consists of `forest`, `position` and `path` components. This

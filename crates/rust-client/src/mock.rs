@@ -97,7 +97,7 @@ impl Default for MockRpcApi {
         let sync_note_request = SyncNoteResponse {
             chain_tip: 10,
             notes: vec![],
-            block_header: None,
+            block_header: Some(BlockHeader::mock(1, None, None, &[]).into()),
             mmr_path: None,
         };
 
