@@ -1,7 +1,7 @@
 use miden_client::{
     accounts::AccountTemplate,
     store::{NoteFilter, NoteStatus},
-    transactions::request::{PaymentTransactionData, TransactionTemplate},
+    transactions::request::{PaymentTransactionData, TransactionRequest},
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorageType},
@@ -50,13 +50,12 @@ async fn test_onchain_notes_flow() {
     client_1.sync_state().await.unwrap();
     client_2.sync_state().await.unwrap();
 
-    let tx_template = TransactionTemplate::MintFungibleAsset(
+    let tx_request = TransactionRequest::mint_fungible_asset(
         FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
         basic_wallet_1.id(),
         NoteType::Public,
-    );
-
-    let tx_request = client_1.build_transaction_request(tx_template).unwrap();
+    )
+    .unwrap();
     let note = tx_request.expected_output_notes().next().unwrap().clone();
     execute_tx_and_sync(&mut client_1, tx_request).await;
 
@@ -79,11 +78,12 @@ async fn test_onchain_notes_flow() {
     .await;
 
     let p2id_asset = FungibleAsset::new(faucet_account.id(), TRANSFER_AMOUNT).unwrap();
-    let tx_template = TransactionTemplate::PayToId(
+    let tx_request = TransactionRequest::pay_to_id(
         PaymentTransactionData::new(p2id_asset.into(), basic_wallet_1.id(), basic_wallet_2.id()),
+        None,
         NoteType::Public,
-    );
-    let tx_request = client_2.build_transaction_request(tx_template).unwrap();
+    )
+    .unwrap();
     execute_tx_and_sync(&mut client_2, tx_request).await;
 
     // sync client 3 (basic account 2)
@@ -198,13 +198,14 @@ async fn test_onchain_accounts() {
         .unwrap_or(0);
 
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
-    let tx_template = TransactionTemplate::PayToId(
-        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
-        NoteType::Public,
-    );
 
     println!("Running P2ID tx...");
-    let tx_request = client_1.build_transaction_request(tx_template).unwrap();
+    let tx_request = TransactionRequest::pay_to_id(
+        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
+        None,
+        NoteType::Public,
+    )
+    .unwrap();
     execute_tx_and_sync(&mut client_1, tx_request).await;
 
     // sync on second client until we receive the note
@@ -217,8 +218,7 @@ async fn test_onchain_accounts() {
 
     // Consume the note
     println!("Consuming note on second client...");
-    let tx_template = TransactionTemplate::ConsumeNotes(to_account_id, vec![notes[0].id()]);
-    let tx_request = client_2.build_transaction_request(tx_template).unwrap();
+    let tx_request = TransactionRequest::consume_notes(to_account_id, vec![notes[0].id()]);
     execute_tx_and_sync(&mut client_2, tx_request).await;
 
     // sync on first client
@@ -281,13 +281,13 @@ async fn test_onchain_notes_sync_with_tag() {
     client_3.sync_state().await.unwrap();
 
     let target_account_id = AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap();
-    let tx_template = TransactionTemplate::MintFungibleAsset(
+
+    let tx_request = TransactionRequest::mint_fungible_asset(
         FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
         target_account_id,
         NoteType::Public,
-    );
-
-    let tx_request = client_1.build_transaction_request(tx_template).unwrap();
+    )
+    .unwrap();
     let note = tx_request.expected_output_notes().next().unwrap().clone();
     execute_tx_and_sync(&mut client_1, tx_request).await;
 
