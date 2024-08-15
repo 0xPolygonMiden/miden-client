@@ -307,7 +307,10 @@ impl TryFrom<SyncNoteResponse> for NoteSyncInfo {
             .ok_or(RpcError::ExpectedFieldMissing("BlockHeader".into()))?
             .try_into()?;
 
-        let mmr_path = value.mmr_path.map(|mmr_path| mmr_path.try_into()).transpose()?;
+        let mmr_path = value
+            .mmr_path
+            .ok_or(RpcError::ExpectedFieldMissing("MmrPath".into()))?
+            .try_into()?;
 
         // Validate and convert account note inclusions into an (AccountId, Digest) tuple
         let mut notes = vec![];

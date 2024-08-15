@@ -192,7 +192,7 @@ pub struct NoteSyncInfo {
     /// value constitutes the `path`. The other two components can be obtained as follows:
     ///    - `position` is simply `resopnse.block_header.block_num`
     ///    - `forest` is the same as `response.chain_tip + 1`
-    pub mmr_path: Option<MerklePath>,
+    pub mmr_path: MerklePath,
     /// List of all notes together with the Merkle paths from `response.block_header.note_root`
     pub notes: Vec<CommittedNote>,
 }

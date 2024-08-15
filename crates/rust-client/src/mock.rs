@@ -98,7 +98,7 @@ impl Default for MockRpcApi {
             chain_tip: 10,
             notes: vec![],
             block_header: Some(BlockHeader::mock(1, None, None, &[]).into()),
-            mmr_path: None,
+            mmr_path: Some(Default::default()),
         };
 
         Self {
