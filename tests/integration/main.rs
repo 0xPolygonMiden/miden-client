@@ -48,6 +48,67 @@ async fn test_added_notes() {
 }
 
 #[tokio::test]
+async fn test_multiple_tx_on_same_block() {
+    let mut client = create_test_client();
+    wait_for_node(&mut client).await;
+
+    let (first_regular_account, second_regular_account, faucet_account_stub) =
+        setup(&mut client, AccountStorageType::OffChain).await;
+
+    let from_account_id = first_regular_account.id();
+    let to_account_id = second_regular_account.id();
+    let faucet_account_id = faucet_account_stub.id();
+
+    // First Mint necesary token
+    let note = mint_note(&mut client, from_account_id, faucet_account_id, NoteType::Private).await;
+    consume_notes(&mut client, from_account_id, &[note]).await;
+    assert_account_has_single_asset(&client, from_account_id, faucet_account_id, MINT_AMOUNT).await;
+
+    // Do a transfer from first account to second account
+    let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
+    let tx_template = TransactionTemplate::PayToId(
+        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
+        NoteType::Private,
+    );
+
+    println!("Running P2ID tx...");
+    let tx_request_1 = client.build_transaction_request(tx_template.clone()).unwrap();
+    let tx_request_2 = client.build_transaction_request(tx_template).unwrap();
+
+    // wait for 1 block
+    wait_for_blocks(&mut client, 1).await;
+
+    let tx_id_1 = execute_tx(&mut client, tx_request_1).await;
+    let tx_id_2 = execute_tx(&mut client, tx_request_2).await;
+
+    wait_for_tx(&mut client, tx_id_1).await;
+
+    let transactions = client
+        .get_transactions(crate::TransactionFilter::All)
+        .unwrap()
+        .into_iter()
+        .filter(|tx| tx.id == tx_id_1 || tx.id == tx_id_2)
+        .collect::<Vec<_>>();
+
+    assert_eq!(transactions.len(), 2);
+    assert!(matches!(
+        transactions[0].transaction_status,
+        TransactionStatus::Committed { .. }
+    ));
+    assert_eq!(transactions[0].transaction_status, transactions[1].transaction_status);
+
+    let note_id = transactions[0].output_notes.iter().next().unwrap().id();
+    let note = client.get_output_note(note_id).unwrap();
+    assert!(matches!(note.status(), NoteStatus::Committed { .. }));
+
+    let (sender_account, _) = client.get_account(from_account_id).unwrap();
+    assert_eq!(
+        sender_account.vault().get_balance(faucet_account_id).unwrap(),
+        MINT_AMOUNT - (TRANSFER_AMOUNT * 2)
+    );
+}
+
+#[tokio::test]
 async fn test_p2id_transfer() {
     let mut client = create_test_client();
     wait_for_node(&mut client).await;
