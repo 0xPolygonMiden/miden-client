@@ -82,7 +82,6 @@ async fn test_multiple_tx_on_same_block() {
     let tx_id_2 = execute_tx(&mut client, tx_request_2).await;
 
     wait_for_tx(&mut client, tx_id_1).await;
-    wait_for_tx(&mut client, tx_id_2).await;
 
     let transactions = client
         .get_transactions(crate::TransactionFilter::All)
@@ -97,6 +96,16 @@ async fn test_multiple_tx_on_same_block() {
         TransactionStatus::Committed { .. }
     ));
     assert_eq!(transactions[0].transaction_status, transactions[1].transaction_status);
+
+    let note_id = transactions[0].output_notes.iter().next().unwrap().id();
+    let note = client.get_output_note(note_id).unwrap();
+    assert!(matches!(note.status(), NoteStatus::Committed { .. }));
+
+    let (sender_account, _) = client.get_account(from_account_id).unwrap();
+    assert_eq!(
+        sender_account.vault().get_balance(faucet_account_id).unwrap(),
+        MINT_AMOUNT - (TRANSFER_AMOUNT * 2)
+    );
 }
 
 #[tokio::test]
