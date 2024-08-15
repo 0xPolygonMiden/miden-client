@@ -2,7 +2,7 @@ use miden_client::{
     notes::get_input_note_with_id_prefix,
     transactions::{
         build_swap_tag,
-        request::{PaymentTransactionData, SwapTransactionData, TransactionTemplate},
+        request::{PaymentTransactionData, SwapTransactionData, TransactionRequest},
     },
 };
 use miden_objects::{accounts::AccountId, assets::FungibleAsset, notes::NoteType as MidenNoteType};
@@ -34,16 +34,12 @@ impl WebClient {
                 _ => MidenNoteType::Private,
             };
 
-            let mint_transaction_template = TransactionTemplate::MintFungibleAsset(
+            let mint_transaction_request = TransactionRequest::mint_fungible_asset(
                 fungible_asset,
                 target_account_id,
                 note_type,
-            );
-
-            let mint_transaction_request = client
-                .build_transaction_request(mint_transaction_template.clone())
-                .await
-                .unwrap();
+            )
+            .unwrap();
 
             let mint_transaction_execution_result =
                 client.new_transaction(mint_transaction_request).await.unwrap();
@@ -91,24 +87,20 @@ impl WebClient {
             let payment_transaction =
                 PaymentTransactionData::new(fungible_asset, sender_account_id, target_account_id);
 
-            let send_transaction_template: TransactionTemplate;
-            if let Some(recall_height) = recall_height {
+            let send_transaction_request = if let Some(recall_height) = recall_height {
                 let recall_height_as_u32: u32 =
                     recall_height.parse::<u32>().map_err(|err| err.to_string())?;
-                send_transaction_template = TransactionTemplate::PayToIdWithRecall(
-                    payment_transaction,
-                    recall_height_as_u32,
-                    note_type,
-                );
-            } else {
-                send_transaction_template =
-                    TransactionTemplate::PayToId(payment_transaction, note_type);
-            }
 
-            let send_transaction_request = client
-                .build_transaction_request(send_transaction_template.clone())
-                .await
-                .unwrap();
+                TransactionRequest::pay_to_id(
+                    payment_transaction,
+                    Some(recall_height_as_u32),
+                    note_type,
+                )
+                .unwrap()
+            } else {
+                TransactionRequest::pay_to_id(payment_transaction, None, note_type).unwrap()
+            };
+
             let send_transaction_execution_result =
                 client.new_transaction(send_transaction_request).await.unwrap();
             let result = NewTransactionResult::new(
@@ -143,13 +135,7 @@ impl WebClient {
                 }
             }
 
-            let consume_transaction_template =
-                TransactionTemplate::ConsumeNotes(account_id, result);
-
-            let consume_transaction_request = client
-                .build_transaction_request(consume_transaction_template.clone())
-                .await
-                .unwrap();
+            let consume_transaction_request = TransactionRequest::consume_notes(account_id, result);
             let consume_transaction_execution_result =
                 client.new_transaction(consume_transaction_request).await.unwrap();
             let result = NewTransactionResult::new(
@@ -210,12 +196,8 @@ impl WebClient {
                 requested_fungible_asset,
             );
 
-            let swap_transaction_template = TransactionTemplate::Swap(swap_transaction, note_type);
-
-            let swap_transaction_request = client
-                .build_transaction_request(swap_transaction_template.clone())
-                .await
-                .unwrap();
+            let swap_transaction_request =
+                TransactionRequest::swap(swap_transaction.clone(), note_type).unwrap();
             let swap_transaction_execution_result =
                 client.new_transaction(swap_transaction_request.clone()).await.unwrap();
             let mut result = NewSwapTransactionResult::new(
@@ -233,17 +215,15 @@ impl WebClient {
 
             client.submit_transaction(swap_transaction_execution_result).await.unwrap();
 
-            if let TransactionTemplate::Swap(swap_data, note_type) = swap_transaction_template {
-                let payback_note_tag_u32: u32 = build_swap_tag(
-                    note_type,
-                    swap_data.offered_asset().faucet_id(),
-                    swap_data.requested_asset().faucet_id(),
-                )
-                .map_err(|err| err.to_string())?
-                .into();
+            let payback_note_tag_u32: u32 = build_swap_tag(
+                note_type,
+                swap_transaction.offered_asset().faucet_id(),
+                swap_transaction.requested_asset().faucet_id(),
+            )
+            .map_err(|err| err.to_string())?
+            .into();
 
-                result.set_note_tag(payback_note_tag_u32.to_string());
-            }
+            result.set_note_tag(payback_note_tag_u32.to_string());
 
             Ok(result)
         } else {
