@@ -5,17 +5,22 @@ use alloc::{
 };
 use core::fmt;
 
+use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
     accounts::AccountId,
     assembly::AssemblyError,
     assets::{Asset, FungibleAsset},
-    crypto::merkle::{InnerNodeInfo, MerkleStore},
+    crypto::{
+        merkle::{InnerNodeInfo, MerkleStore},
+        rand::RpoRandomCoin,
+    },
     notes::{Note, NoteDetails, NoteId, NoteType, PartialNote},
     transaction::{OutputNote, TransactionArgs, TransactionScript},
     vm::AdviceMap,
-    Digest, Felt, Word,
+    Digest, Felt, FieldElement, NoteError, Word,
 };
 use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
+use rand::Rng;
 
 // MASM SCRIPTS
 // ================================================================================================
@@ -177,6 +182,105 @@ impl TransactionRequest {
     pub fn extend_merkle_store<T: IntoIterator<Item = InnerNodeInfo>>(mut self, iter: T) -> Self {
         self.merkle_store.extend(iter);
         self
+    }
+
+    // STANDARIZED REQUESTS
+    // --------------------------------------------------------------------------------------------
+
+    /// Constructor to build a [TransactionRequest] for transaction to consume notes.
+    pub fn consume_notes(account_id: AccountId, note_ids: Vec<NoteId>) -> Self {
+        let input_notes = note_ids.into_iter().map(|id| (id, None));
+        Self::new(account_id).with_authenticated_input_notes(input_notes)
+    }
+
+    /// Constructor to build a [TransactionRequest] for transaction to mint fungible tokens.
+    ///
+    /// - faucet_auth_info has to be from the faucet account
+    pub fn mint_fungible_asset(
+        asset: FungibleAsset,
+        target_id: AccountId,
+        note_type: NoteType,
+    ) -> Result<Self, TransactionRequestError> {
+        let mut rng = rand::thread_rng();
+        let coin_seed: [u64; 4] = rng.gen();
+        let mut rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
+
+        let created_note = create_p2id_note(
+            asset.faucet_id(),
+            target_id,
+            vec![asset.into()],
+            note_type,
+            Felt::ZERO,
+            &mut rng,
+        )?;
+
+        TransactionRequest::new(asset.faucet_id())
+            .with_own_output_notes(vec![OutputNote::Full(created_note)])
+    }
+
+    /// Constructor to build a [TransactionRequest] for P2ID-type transactions easily.
+    ///
+    /// - auth_info has to be from the executor account
+    /// - If recall_height is Some(), a P2IDR note will be created. Otherwise, a P2ID is created.
+    pub fn pay_to_id(
+        payment_data: PaymentTransactionData,
+        recall_height: Option<u32>,
+        note_type: NoteType,
+    ) -> Result<Self, TransactionRequestError> {
+        let mut rng = rand::thread_rng();
+        let coin_seed: [u64; 4] = rng.gen();
+        let mut rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
+
+        let created_note = if let Some(recall_height) = recall_height {
+            create_p2idr_note(
+                payment_data.account_id(),
+                payment_data.target_account_id(),
+                vec![payment_data.asset()],
+                note_type,
+                Felt::ZERO,
+                recall_height,
+                &mut rng,
+            )?
+        } else {
+            create_p2id_note(
+                payment_data.account_id(),
+                payment_data.target_account_id(),
+                vec![payment_data.asset()],
+                note_type,
+                Felt::ZERO,
+                &mut rng,
+            )?
+        };
+
+        TransactionRequest::new(payment_data.account_id())
+            .with_own_output_notes(vec![OutputNote::Full(created_note)])
+    }
+
+    /// Constructor to build a [TransactionRequest] for Swap-type transactions easily.
+    ///
+    /// - auth_info has to be from the executor account
+    pub fn swap(
+        swap_data: SwapTransactionData,
+        note_type: NoteType,
+    ) -> Result<Self, TransactionRequestError> {
+        let mut rng = rand::thread_rng();
+        let coin_seed: [u64; 4] = rng.gen();
+        let mut rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
+
+        // The created note is the one that we need as the output of the tx, the other one is the
+        // one that we expect to receive and consume eventually
+        let (created_note, payback_note_details) = create_swap_note(
+            swap_data.account_id(),
+            swap_data.offered_asset(),
+            swap_data.requested_asset(),
+            note_type,
+            Felt::ZERO,
+            &mut rng,
+        )?;
+
+        TransactionRequest::new(swap_data.account_id())
+            .with_expected_future_notes(vec![payback_note_details])
+            .with_own_output_notes(vec![OutputNote::Full(created_note)])
     }
 
     // PUBLIC ACCESSORS
@@ -377,6 +481,7 @@ pub enum TransactionRequestError {
     NoInputNotes,
     ScriptTemplateError(String),
     NoteNotFound(String),
+    NoteCreationError(NoteError),
 }
 impl fmt::Display for TransactionRequestError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -389,44 +494,19 @@ impl fmt::Display for TransactionRequestError {
             Self::NoInputNotes => write!(f, "A transaction without output notes must have at least one input note"),
             Self::ScriptTemplateError(err) => write!(f, "Transaction script template error: {}", err),
             Self::NoteNotFound(err) => write!(f, "Note not found: {}", err),
+            Self::NoteCreationError(err) => write!(f, "Note creation error: {}", err),
         }
+    }
+}
+
+impl From<NoteError> for TransactionRequestError {
+    fn from(err: NoteError) -> Self {
+        Self::NoteCreationError(err)
     }
 }
 
 #[cfg(feature = "std")]
 impl std::error::Error for TransactionRequestError {}
-
-// TRANSACTION TEMPLATE
-// ================================================================================================
-
-#[derive(Clone, Debug)]
-pub enum TransactionTemplate {
-    /// Consume the specified notes against an account.
-    ConsumeNotes(AccountId, Vec<NoteId>),
-    /// Mint fungible assets using a faucet account and creates a note with the specified
-    /// type that can be consumed by the target Account ID
-    MintFungibleAsset(FungibleAsset, AccountId, NoteType),
-    /// Creates a pay-to-id note with the specified type directed to a specific account
-    PayToId(PaymentTransactionData, NoteType),
-    /// Creates a pay-to-id note directed to a specific account, specifying a block height after
-    /// which the note can be recalled
-    PayToIdWithRecall(PaymentTransactionData, u32, NoteType),
-    /// Creates a swap note offering a specific asset in exchange for another specific asset
-    Swap(SwapTransactionData, NoteType),
-}
-
-impl TransactionTemplate {
-    /// Returns the [AccountId] of the account which the transaction will be executed against
-    pub fn account_id(&self) -> AccountId {
-        match self {
-            TransactionTemplate::ConsumeNotes(account_id, _) => *account_id,
-            TransactionTemplate::MintFungibleAsset(asset, ..) => asset.faucet_id(),
-            TransactionTemplate::PayToId(payment_data, _) => payment_data.account_id(),
-            TransactionTemplate::PayToIdWithRecall(payment_data, ..) => payment_data.account_id(),
-            TransactionTemplate::Swap(swap_data, ..) => swap_data.account_id(),
-        }
-    }
-}
 
 // PAYMENT TRANSACTION DATA
 // ================================================================================================

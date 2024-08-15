@@ -5,14 +5,13 @@ use alloc::{
 };
 use core::fmt;
 
-use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
     accounts::{Account, AccountDelta, AccountId, AccountType},
     assembly::ProgramAst,
-    assets::{Asset, FungibleAsset, NonFungibleAsset},
+    assets::{Asset, NonFungibleAsset},
     notes::{Note, NoteDetails, NoteExecutionMode, NoteId, NoteTag, NoteType},
     transaction::{InputNotes, TransactionArgs},
-    AssetError, Digest, Felt, FieldElement, NoteError, Word,
+    AssetError, Digest, Felt, NoteError, Word,
 };
 use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, TransactionProver};
 use request::{TransactionRequestError, TransactionScriptTemplate};
@@ -20,9 +19,7 @@ use script_builder::{AccountCapabilities, AccountInterface, TransactionScriptBui
 use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
 
-use self::request::{
-    PaymentTransactionData, SwapTransactionData, TransactionRequest, TransactionTemplate,
-};
+use self::request::TransactionRequest;
 use super::{rpc::NodeRpcClient, Client, FeltRng};
 use crate::{
     notes::NoteScreener,
@@ -192,37 +189,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
     // TRANSACTION
     // --------------------------------------------------------------------------------------------
-
-    /// Compiles a [TransactionTemplate] into a [TransactionRequest] that can be then executed by
-    /// the client
-    #[maybe_async]
-    pub fn build_transaction_request(
-        &mut self,
-        transaction_template: TransactionTemplate,
-    ) -> Result<TransactionRequest, ClientError> {
-        match transaction_template {
-            TransactionTemplate::ConsumeNotes(account_id, notes) => {
-                let notes = notes.iter().map(|id| (*id, None));
-
-                let tx_request =
-                    TransactionRequest::new(account_id).with_authenticated_input_notes(notes);
-
-                Ok(tx_request)
-            },
-            TransactionTemplate::MintFungibleAsset(asset, target_account_id, note_type) => {
-                self.build_mint_tx_request(asset, target_account_id, note_type)
-            },
-            TransactionTemplate::PayToId(payment_data, note_type) => {
-                self.build_p2id_tx_request(payment_data, None, note_type)
-            },
-            TransactionTemplate::PayToIdWithRecall(payment_data, recall_height, note_type) => {
-                self.build_p2id_tx_request(payment_data, Some(recall_height), note_type)
-            },
-            TransactionTemplate::Swap(swap_data, note_type) => {
-                self.build_swap_tx_request(swap_data, note_type)
-            },
-        }
-    }
 
     /// Creates and executes a transaction specified by the request, but does not change the
     /// local database.
@@ -509,87 +475,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         } else {
             maybe_await!(self.validate_basic_account_request(transaction_request, &account))
         }
-    }
-
-    /// Helper to build a [TransactionRequest] for P2ID-type transactions easily.
-    ///
-    /// - auth_info has to be from the executor account
-    /// - If recall_height is Some(), a P2IDR note will be created. Otherwise, a P2ID is created.
-    fn build_p2id_tx_request(
-        &mut self,
-        payment_data: PaymentTransactionData,
-        recall_height: Option<u32>,
-        note_type: NoteType,
-    ) -> Result<TransactionRequest, ClientError> {
-        let created_note = if let Some(recall_height) = recall_height {
-            create_p2idr_note(
-                payment_data.account_id(),
-                payment_data.target_account_id(),
-                vec![payment_data.asset()],
-                note_type,
-                Felt::ZERO,
-                recall_height,
-                &mut self.rng,
-            )?
-        } else {
-            create_p2id_note(
-                payment_data.account_id(),
-                payment_data.target_account_id(),
-                vec![payment_data.asset()],
-                note_type,
-                Felt::ZERO,
-                &mut self.rng,
-            )?
-        };
-
-        Ok(TransactionRequest::new(payment_data.account_id())
-            .with_own_output_notes(vec![OutputNote::Full(created_note)])?)
-    }
-
-    /// Helper to build a [TransactionRequest] for Swap-type transactions easily.
-    ///
-    /// - auth_info has to be from the executor account
-    fn build_swap_tx_request(
-        &mut self,
-        swap_data: SwapTransactionData,
-        note_type: NoteType,
-    ) -> Result<TransactionRequest, ClientError> {
-        // The created note is the one that we need as the output of the tx, the other one is the
-        // one that we expect to receive and consume eventually
-        let (created_note, payback_note_details) = create_swap_note(
-            swap_data.account_id(),
-            swap_data.offered_asset(),
-            swap_data.requested_asset(),
-            note_type,
-            Felt::ZERO,
-            &mut self.rng,
-        )?;
-
-        Ok(TransactionRequest::new(swap_data.account_id())
-            .with_expected_future_notes(vec![payback_note_details])
-            .with_own_output_notes(vec![OutputNote::Full(created_note)])?)
-    }
-
-    /// Helper to build a [TransactionRequest] for transaction to mint fungible tokens.
-    ///
-    /// - faucet_auth_info has to be from the faucet account
-    fn build_mint_tx_request(
-        &mut self,
-        asset: FungibleAsset,
-        target_account_id: AccountId,
-        note_type: NoteType,
-    ) -> Result<TransactionRequest, ClientError> {
-        let created_note = create_p2id_note(
-            asset.faucet_id(),
-            target_account_id,
-            vec![asset.into()],
-            note_type,
-            Felt::ZERO,
-            &mut self.rng,
-        )?;
-
-        Ok(TransactionRequest::new(asset.faucet_id())
-            .with_own_output_notes(vec![OutputNote::Full(created_note)])?)
     }
 
     /// Retrieves the account capabilities for the specified account.
