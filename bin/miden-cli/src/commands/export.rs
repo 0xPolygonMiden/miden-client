@@ -1,8 +1,14 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
 use miden_client::{
-    auth::TransactionAuthenticator, crypto::FeltRng, notes::NoteFile, rpc::NodeRpcClient,
-    store::Store, utils::Serializable, Client,
+    accounts::{AccountData, AccountId},
+    auth::TransactionAuthenticator,
+    crypto::FeltRng,
+    notes::NoteFile,
+    rpc::NodeRpcClient,
+    store::Store,
+    utils::Serializable,
+    Client,
 };
 use tracing::info;
 
@@ -11,7 +17,7 @@ use crate::{get_output_note_with_id_prefix, Parser};
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "Export client output notes")]
 pub struct ExportCmd {
-    /// ID (or a valid prefix) of the output note to export
+    /// ID (or a valid prefix) of the output note or account to export
     #[clap()]
     id: String,
 
@@ -29,6 +35,7 @@ pub enum ExportType {
     Id,
     Full,
     Partial,
+    Account,
 }
 
 impl ExportCmd {
@@ -36,14 +43,53 @@ impl ExportCmd {
         &self,
         mut client: Client<N, R, S, A>,
     ) -> Result<(), String> {
-        export_note(
-            &mut client,
-            self.id.as_str(),
-            self.filename.clone(),
-            self.export_type.clone(),
-        )?;
+        match self.export_type {
+            ExportType::Account => {
+                export_account(&client, self.id.as_str(), self.filename.clone())?;
+            },
+            _ => {
+                export_note(
+                    &mut client,
+                    self.id.as_str(),
+                    self.filename.clone(),
+                    self.export_type.clone(),
+                )?;
+            },
+        }
         Ok(())
     }
+}
+
+// EXPORT ACCOUNT
+// ================================================================================================
+
+pub fn export_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    client: &Client<N, R, S, A>,
+    account_id: &str,
+    filename: Option<PathBuf>,
+) -> Result<File, String> {
+    let account_id =
+        AccountId::from_hex(account_id).map_err(|_| "Invalid account ID".to_string())?;
+
+    let (account, account_seed) = client.get_account(account_id)?;
+
+    let auth = client.get_account_auth(account_id)?;
+
+    let account_data = AccountData::new(account, account_seed, auth);
+
+    let file_path = if let Some(filename) = filename {
+        filename
+    } else {
+        let current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
+        current_dir.join(format!("{}.acc", account_id.to_string()))
+    };
+
+    info!("Writing file to {}", file_path.to_string_lossy());
+    let mut file = File::create(file_path).map_err(|err| err.to_string())?;
+    account_data.write_into(&mut file);
+
+    println!("Succesfully exported account {}", account_id);
+    Ok(file)
 }
 
 // EXPORT NOTE
@@ -79,6 +125,7 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthent
             after_block_num: 0,
             tag: Some(output_note.metadata().tag()),
         },
+        _ => return Err("Invalid export type".to_string()),
     };
 
     let file_path = if let Some(filename) = filename {
