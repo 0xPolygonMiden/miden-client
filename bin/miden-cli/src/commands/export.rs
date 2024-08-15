@@ -81,7 +81,7 @@ pub fn export_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuth
         filename
     } else {
         let current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
-        current_dir.join(format!("{}.acc", account_id.to_string()))
+        current_dir.join(format!("{}.acc", account_id))
     };
 
     info!("Writing file to {}", file_path.to_string_lossy());
