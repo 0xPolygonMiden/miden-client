@@ -241,7 +241,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 let record_details = details.clone().into();
 
                 if let (NoteStatus::Committed { block_height }, Some(input_note)) =
-                    self.sync_note(after_block_num, tag, &details).await?
+                    self.check_expected_note(after_block_num, tag, &details).await?
                 {
                     let mut current_partial_mmr =
                         maybe_await!(self.build_current_partial_mmr(true))?;
@@ -310,7 +310,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // ===============================================================================================
 
     /// Synchronizes a note with the chain.
-    async fn sync_note(
+    async fn check_expected_note(
         &mut self,
         mut request_block_num: u32,
         tag: NoteTag,
