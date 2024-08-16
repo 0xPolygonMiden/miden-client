@@ -4,6 +4,7 @@
 
 * Added serialization for `TransactionRequest` (#471).
 * Added support for decimal values in the CLI (#454).
+* Added support for importing committed notes from older blocks than current (#472).
 * Added the Web Client Crate
 * Added validations in transaction requests (#447).
 * [BREAKING] Refactored `Client` to merge submit_transaction and prove_transaction (#445)

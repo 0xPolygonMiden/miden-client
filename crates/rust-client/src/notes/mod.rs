@@ -1,6 +1,8 @@
 use alloc::{collections::BTreeSet, string::ToString, vec::Vec};
 
-use miden_objects::{accounts::AccountId, assembly::ProgramAst, crypto::rand::FeltRng};
+use miden_objects::{
+    accounts::AccountId, assembly::ProgramAst, crypto::rand::FeltRng, transaction::InputNote,
+};
 use miden_tx::{auth::TransactionAuthenticator, ScriptTarget};
 use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
@@ -215,11 +217,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     None,
                 )
             },
-            NoteFile::NoteDetails {
-                details,
-                after_block_num: _,
-                tag: Some(tag),
-            } => {
+            NoteFile::NoteDetails { details, after_block_num, tag: Some(tag) } => {
                 let tracked_tags = maybe_await!(self.get_note_tags())?;
 
                 let account_tags = maybe_await!(self.get_account_stubs())?
@@ -242,17 +240,34 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
                 let record_details = details.clone().into();
 
-                InputNoteRecord::new(
-                    details.id(),
-                    details.recipient().digest(),
-                    details.assets().clone(),
-                    NoteStatus::Expected { created_at: 0 },
-                    None,
-                    None,
-                    record_details,
-                    ignored,
-                    Some(tag),
-                )
+                if let (NoteStatus::Committed { block_height }, Some(input_note)) =
+                    self.check_expected_note(after_block_num, tag, &details).await?
+                {
+                    let mut current_partial_mmr =
+                        maybe_await!(self.build_current_partial_mmr(true))?;
+                    self.get_and_store_authenticated_block(
+                        block_height.try_into().map_err(|_| {
+                            ClientError::NoteImportError(
+                                "Couldn't convert block height".to_string(),
+                            )
+                        })?,
+                        &mut current_partial_mmr,
+                    )
+                    .await?;
+                    InputNoteRecord::from(input_note)
+                } else {
+                    InputNoteRecord::new(
+                        details.id(),
+                        details.recipient().digest(),
+                        details.assets().clone(),
+                        NoteStatus::Expected { created_at: 0 },
+                        None,
+                        None,
+                        record_details,
+                        ignored,
+                        Some(tag),
+                    )
+                }
             },
             NoteFile::NoteWithProof(note, inclusion_proof) => {
                 let details = note.clone().into();
@@ -289,6 +304,67 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         self.tx_executor
             .compile_note_script(note_script_ast, target_account_procs)
             .map_err(ClientError::TransactionExecutorError)
+    }
+
+    // HELPERS
+    // ===============================================================================================
+
+    /// Synchronizes a note with the chain.
+    async fn check_expected_note(
+        &mut self,
+        mut request_block_num: u32,
+        tag: NoteTag,
+        expected_note: &miden_objects::notes::NoteDetails,
+    ) -> Result<(NoteStatus, Option<InputNote>), ClientError> {
+        let current_block_num = maybe_await!(self.get_sync_height())?;
+        loop {
+            if request_block_num > current_block_num {
+                return Ok((NoteStatus::Expected { created_at: 0 }, None));
+            };
+
+            let sync_notes = self.rpc_api().sync_notes(request_block_num, &[tag]).await?;
+
+            if sync_notes.block_header.block_num() == sync_notes.chain_tip {
+                return Ok((NoteStatus::Expected { created_at: 0 }, None));
+            }
+
+            // This means that notes with that note_tag were found.
+            // Therefore, we should check if a note with the same id was found.
+            let committed_note =
+                sync_notes.notes.iter().find(|note| note.note_id() == &expected_note.id());
+
+            if let Some(note) = committed_note {
+                // This means that a note with the same id was found.
+                // Therefore, we should mark the note as committed.
+                let note_block_num = sync_notes.block_header.block_num();
+
+                let note_inclusion_proof = NoteInclusionProof::new(
+                    note_block_num,
+                    note.note_index(),
+                    note.merkle_path().clone(),
+                )?;
+
+                return Ok((
+                    NoteStatus::Committed {
+                        // Block header can't be None since we check that already in the if statement.
+                        block_height: note_block_num as u64,
+                    },
+                    Some(InputNote::authenticated(
+                        Note::new(
+                            expected_note.assets().clone(),
+                            note.metadata(),
+                            expected_note.recipient().clone(),
+                        ),
+                        note_inclusion_proof,
+                    )),
+                ));
+            } else {
+                // This means that a note with the same id was not found.
+                // Therefore, we should request again for sync_notes with the same note_tag
+                // and with the block_num of the last block header (sync_notes.block_header.unwrap()).
+                request_block_num = sync_notes.block_header.block_num();
+            }
+        }
     }
 }
 

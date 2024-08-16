@@ -578,8 +578,8 @@ async fn test_import_expected_notes() {
     client_2
         .import_note(NoteFile::NoteDetails {
             details: note.clone().into(),
+            after_block_num: client_1.get_sync_height().unwrap(),
             tag: Some(note.metadata().unwrap().tag()),
-            after_block_num: 0,
         })
         .await
         .unwrap();
@@ -597,6 +597,98 @@ async fn test_import_expected_notes() {
 
     // If inclusion proof is invalid this should panic
     consume_notes(&mut client_1, first_basic_account.id(), &[input_note.try_into().unwrap()]).await;
+}
+
+#[tokio::test]
+async fn test_import_expected_note_uncommitted() {
+    let mut client_1 = create_test_client();
+    let (_, _second_basic_account, faucet_account) =
+        setup(&mut client_1, AccountStorageType::OffChain).await;
+
+    let mut client_2 = create_test_client();
+    let (client_2_account, _seed) = client_2
+        .new_account(AccountTemplate::BasicWallet {
+            mutable_code: true,
+            storage_type: AccountStorageType::OffChain,
+        })
+        .unwrap();
+
+    wait_for_node(&mut client_2).await;
+
+    let tx_template = TransactionTemplate::MintFungibleAsset(
+        FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
+        client_2_account.id(),
+        NoteType::Public,
+    );
+
+    let tx_request = client_1.build_transaction_request(tx_template).unwrap();
+    let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
+    client_2.sync_state().await.unwrap();
+
+    // If the verification is requested before execution then the import should fail
+    let imported_note_id = client_2
+        .import_note(NoteFile::NoteDetails {
+            details: note.clone().into(),
+            after_block_num: 0,
+            tag: None,
+        })
+        .await
+        .unwrap();
+
+    let imported_note = client_2.get_input_note(imported_note_id).unwrap();
+
+    assert!(matches!(imported_note.status(), NoteStatus::Expected { .. }));
+}
+
+#[tokio::test]
+async fn test_import_expected_notes_from_the_past_as_committed() {
+    let mut client_1 = create_test_client();
+    let (first_basic_account, _second_basic_account, faucet_account) =
+        setup(&mut client_1, AccountStorageType::OffChain).await;
+
+    let mut client_2 = create_test_client();
+    let (_client_2_account, _seed) = client_2
+        .new_account(AccountTemplate::BasicWallet {
+            mutable_code: true,
+            storage_type: AccountStorageType::OffChain,
+        })
+        .unwrap();
+
+    wait_for_node(&mut client_2).await;
+
+    let tx_template = TransactionTemplate::MintFungibleAsset(
+        FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
+        first_basic_account.id(),
+        NoteType::Public,
+    );
+
+    let tx_request = client_1.build_transaction_request(tx_template).unwrap();
+    let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
+
+    let block_height_before = client_1.get_sync_height().unwrap();
+
+    execute_tx_and_sync(&mut client_1, tx_request).await;
+
+    // Use client 1 to wait until a couple of blocks have passed
+    wait_for_blocks(&mut client_1, 3).await;
+    client_2.sync_state().await.unwrap();
+
+    // If the verification is requested before execution then the import should fail
+    let note_id = client_2
+        .import_note(NoteFile::NoteDetails {
+            details: note.clone().into(),
+            after_block_num: block_height_before,
+            tag: Some(note.metadata().unwrap().tag()),
+        })
+        .await
+        .unwrap();
+
+    let imported_note = client_2.get_input_note(note_id).unwrap();
+
+    // Get the note status in client 1
+    let client_1_note_status = client_1.get_input_note(note_id).unwrap().status();
+
+    assert_eq!(imported_note.status(), client_1_note_status);
 }
 
 #[tokio::test]
@@ -849,6 +941,9 @@ async fn test_import_ignored_notes() {
 
     let tx_request = client_1.build_transaction_request(tx_template).unwrap();
     let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
+
+    let block_height_before = client_1.get_sync_height().unwrap();
+
     execute_tx_and_sync(&mut client_1, tx_request).await;
 
     client_2.sync_state().await.unwrap();
@@ -857,8 +952,8 @@ async fn test_import_ignored_notes() {
     client_2
         .import_note(NoteFile::NoteDetails {
             details: note.clone().into(),
+            after_block_num: block_height_before,
             tag: None,
-            after_block_num: 0,
         })
         .await
         .unwrap();
@@ -912,6 +1007,7 @@ async fn test_update_ignored_tag() {
 
     let tx_request = client_1.build_transaction_request(tx_template).unwrap();
     let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
+    let block_height_before = client_1.get_sync_height().unwrap();
     execute_tx_and_sync(&mut client_1, tx_request).await;
 
     client_2.sync_state().await.unwrap();
@@ -921,8 +1017,8 @@ async fn test_update_ignored_tag() {
     client_2
         .import_note(NoteFile::NoteDetails {
             details: note.clone().into(),
+            after_block_num: block_height_before,
             tag: Some(untracked_tag),
-            after_block_num: 0,
         })
         .await
         .unwrap();

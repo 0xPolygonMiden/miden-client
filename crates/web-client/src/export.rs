@@ -55,8 +55,10 @@ impl WebClient {
                     details: output_note.clone().try_into().map_err(|err| {
                         JsValue::from_str(&format!("Failed to convert output note: {}", err))
                     })?,
+                    after_block_num: client.get_sync_height().await.map_err(|err| {
+                        JsValue::from_str(&format!("Failed to get sync height: {}", err))
+                    })?,
                     tag: Some(output_note.metadata().tag()),
-                    after_block_num: 0,
                 },
             };
 
