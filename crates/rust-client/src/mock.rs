@@ -577,7 +577,7 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
     // Insert a P2ID transaction object
 
     let transaction_request =
-        TransactionRequest::pay_to_id(payment_data, None, NoteType::Private).unwrap();
+        TransactionRequest::pay_to_id(payment_data, None, NoteType::Private, client.rng()).unwrap();
     let transaction_execution_result = client.new_transaction(transaction_request).unwrap();
 
     client.submit_transaction(transaction_execution_result).await.unwrap();

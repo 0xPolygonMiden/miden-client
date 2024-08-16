@@ -145,6 +145,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         Self { store, rng, rpc_api: api, tx_executor }
     }
 
+    pub fn rng(&mut self) -> &mut R {
+        &mut self.rng
+    }
+
     // TEST HELPERS
     // --------------------------------------------------------------------------------------------
 

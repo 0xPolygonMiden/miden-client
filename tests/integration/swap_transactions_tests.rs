@@ -127,6 +127,7 @@ async fn test_swap_fully_onchain() {
             Asset::Fungible(requested_asset),
         ),
         NoteType::Public,
+        client1.rng(),
     )
     .unwrap();
 
@@ -339,6 +340,7 @@ async fn test_swap_offchain() {
             Asset::Fungible(requested_asset),
         ),
         NoteType::Private,
+        client1.rng(),
     )
     .unwrap();
 
@@ -500,9 +502,13 @@ async fn mint(
     let fungible_asset = FungibleAsset::new(faucet_account_id, mint_amount).unwrap();
 
     println!("Minting Asset");
-    let tx_request =
-        TransactionRequest::mint_fungible_asset(fungible_asset, basic_account_id, note_type)
-            .unwrap();
+    let tx_request = TransactionRequest::mint_fungible_asset(
+        fungible_asset,
+        basic_account_id,
+        note_type,
+        client.rng(),
+    )
+    .unwrap();
     let id = tx_request.expected_output_notes().next().unwrap().id();
     execute_tx_and_sync(client, tx_request.clone()).await;
 

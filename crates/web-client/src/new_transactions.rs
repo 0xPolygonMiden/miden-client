@@ -38,6 +38,7 @@ impl WebClient {
                 fungible_asset,
                 target_account_id,
                 note_type,
+                client.rng(),
             )
             .unwrap();
 
@@ -95,10 +96,12 @@ impl WebClient {
                     payment_transaction,
                     Some(recall_height_as_u32),
                     note_type,
+                    client.rng(),
                 )
                 .unwrap()
             } else {
-                TransactionRequest::pay_to_id(payment_transaction, None, note_type).unwrap()
+                TransactionRequest::pay_to_id(payment_transaction, None, note_type, client.rng())
+                    .unwrap()
             };
 
             let send_transaction_execution_result =
@@ -197,7 +200,8 @@ impl WebClient {
             );
 
             let swap_transaction_request =
-                TransactionRequest::swap(swap_transaction.clone(), note_type).unwrap();
+                TransactionRequest::swap(swap_transaction.clone(), note_type, client.rng())
+                    .unwrap();
             let swap_transaction_execution_result =
                 client.new_transaction(swap_transaction_request.clone()).await.unwrap();
             let mut result = NewSwapTransactionResult::new(

@@ -54,6 +54,7 @@ async fn test_onchain_notes_flow() {
         FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
         basic_wallet_1.id(),
         NoteType::Public,
+        client_1.rng(),
     )
     .unwrap();
     let note = tx_request.expected_output_notes().next().unwrap().clone();
@@ -82,6 +83,7 @@ async fn test_onchain_notes_flow() {
         PaymentTransactionData::new(p2id_asset.into(), basic_wallet_1.id(), basic_wallet_2.id()),
         None,
         NoteType::Public,
+        client_2.rng(),
     )
     .unwrap();
     execute_tx_and_sync(&mut client_2, tx_request).await;
@@ -204,6 +206,7 @@ async fn test_onchain_accounts() {
         PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
         None,
         NoteType::Public,
+        client_1.rng(),
     )
     .unwrap();
     execute_tx_and_sync(&mut client_1, tx_request).await;
@@ -286,6 +289,7 @@ async fn test_onchain_notes_sync_with_tag() {
         FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
         target_account_id,
         NoteType::Public,
+        client_1.rng(),
     )
     .unwrap();
     let note = tx_request.expected_output_notes().next().unwrap().clone();

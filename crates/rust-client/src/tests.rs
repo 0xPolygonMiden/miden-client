@@ -398,6 +398,7 @@ async fn test_mint_transaction() {
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::from_hex("0x168187d729b31a84").unwrap(),
         miden_objects::notes::NoteType::Private,
+        client.rng(),
     )
     .unwrap();
 
@@ -435,6 +436,7 @@ async fn test_get_output_notes() {
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::from_hex("0x168187d729b31a84").unwrap(),
         miden_objects::notes::NoteType::Private,
+        client.rng(),
     )
     .unwrap();
 

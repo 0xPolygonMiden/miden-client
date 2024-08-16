@@ -12,7 +12,7 @@ use miden_objects::{
     assets::{Asset, FungibleAsset},
     crypto::{
         merkle::{InnerNodeInfo, MerkleStore},
-        rand::RpoRandomCoin,
+        rand::FeltRng,
     },
     notes::{Note, NoteDetails, NoteId, NoteType, PartialNote},
     transaction::{OutputNote, TransactionArgs, TransactionScript},
@@ -20,7 +20,6 @@ use miden_objects::{
     Digest, Felt, FieldElement, NoteError, Word,
 };
 use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
-use rand::Rng;
 
 // MASM SCRIPTS
 // ================================================================================================
@@ -196,22 +195,19 @@ impl TransactionRequest {
     /// Constructor to build a [TransactionRequest] for transaction to mint fungible tokens.
     ///
     /// - faucet_auth_info has to be from the faucet account
-    pub fn mint_fungible_asset(
+    pub fn mint_fungible_asset<R: FeltRng>(
         asset: FungibleAsset,
         target_id: AccountId,
         note_type: NoteType,
+        rng: &mut R,
     ) -> Result<Self, TransactionRequestError> {
-        let mut rng = rand::thread_rng();
-        let coin_seed: [u64; 4] = rng.gen();
-        let mut rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
-
         let created_note = create_p2id_note(
             asset.faucet_id(),
             target_id,
             vec![asset.into()],
             note_type,
             Felt::ZERO,
-            &mut rng,
+            rng,
         )?;
 
         TransactionRequest::new(asset.faucet_id())
@@ -222,15 +218,12 @@ impl TransactionRequest {
     ///
     /// - auth_info has to be from the executor account
     /// - If recall_height is Some(), a P2IDR note will be created. Otherwise, a P2ID is created.
-    pub fn pay_to_id(
+    pub fn pay_to_id<R: FeltRng>(
         payment_data: PaymentTransactionData,
         recall_height: Option<u32>,
         note_type: NoteType,
+        rng: &mut R,
     ) -> Result<Self, TransactionRequestError> {
-        let mut rng = rand::thread_rng();
-        let coin_seed: [u64; 4] = rng.gen();
-        let mut rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
-
         let created_note = if let Some(recall_height) = recall_height {
             create_p2idr_note(
                 payment_data.account_id(),
@@ -239,7 +232,7 @@ impl TransactionRequest {
                 note_type,
                 Felt::ZERO,
                 recall_height,
-                &mut rng,
+                rng,
             )?
         } else {
             create_p2id_note(
@@ -248,7 +241,7 @@ impl TransactionRequest {
                 vec![payment_data.asset()],
                 note_type,
                 Felt::ZERO,
-                &mut rng,
+                rng,
             )?
         };
 
@@ -259,14 +252,11 @@ impl TransactionRequest {
     /// Constructor to build a [TransactionRequest] for Swap-type transactions easily.
     ///
     /// - auth_info has to be from the executor account
-    pub fn swap(
+    pub fn swap<R: FeltRng>(
         swap_data: SwapTransactionData,
         note_type: NoteType,
+        rng: &mut R,
     ) -> Result<Self, TransactionRequestError> {
-        let mut rng = rand::thread_rng();
-        let coin_seed: [u64; 4] = rng.gen();
-        let mut rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
-
         // The created note is the one that we need as the output of the tx, the other one is the
         // one that we expect to receive and consume eventually
         let (created_note, payback_note_details) = create_swap_note(
@@ -275,7 +265,7 @@ impl TransactionRequest {
             swap_data.requested_asset(),
             note_type,
             Felt::ZERO,
-            &mut rng,
+            rng,
         )?;
 
         TransactionRequest::new(swap_data.account_id())

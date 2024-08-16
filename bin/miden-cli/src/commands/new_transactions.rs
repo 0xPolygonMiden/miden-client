@@ -74,6 +74,7 @@ impl MintCmd {
             fungible_asset,
             target_account_id,
             (&self.note_type).into(),
+            client.rng(),
         )
         .map_err(|err| err.to_string())?;
 
@@ -135,6 +136,7 @@ impl SendCmd {
             payment_transaction,
             self.recall_height,
             (&self.note_type).into(),
+            client.rng(),
         )
         .map_err(|err| err.to_string())?;
 
@@ -189,9 +191,12 @@ impl SwapCmd {
             requested_fungible_asset.into(),
         );
 
-        let transaction_request =
-            TransactionRequest::swap(swap_transaction.clone(), (&self.note_type).into())
-                .map_err(|err| err.to_string())?;
+        let transaction_request = TransactionRequest::swap(
+            swap_transaction.clone(),
+            (&self.note_type).into(),
+            client.rng(),
+        )
+        .map_err(|err| err.to_string())?;
 
         execute_transaction(&mut client, transaction_request, force).await?;
 

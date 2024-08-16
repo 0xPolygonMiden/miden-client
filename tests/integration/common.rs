@@ -240,9 +240,13 @@ pub async fn mint_note(
     // Create a Mint Tx for 1000 units of our fungible asset
     let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
     println!("Minting Asset");
-    let tx_request =
-        TransactionRequest::mint_fungible_asset(fungible_asset, basic_account_id, note_type)
-            .unwrap();
+    let tx_request = TransactionRequest::mint_fungible_asset(
+        fungible_asset,
+        basic_account_id,
+        note_type,
+        client.rng(),
+    )
+    .unwrap();
     execute_tx_and_sync(client, tx_request.clone()).await;
 
     // Check that note is committed and return it

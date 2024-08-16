@@ -36,6 +36,7 @@ async fn test_added_notes() {
         fungible_asset,
         AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap(),
         NoteType::Private,
+        client.rng(),
     )
     .unwrap();
     println!("Running Mint tx...");
@@ -132,6 +133,7 @@ async fn test_p2id_transfer() {
         PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
         None,
         NoteType::Private,
+        client.rng(),
     )
     .unwrap();
     execute_tx_and_sync(&mut client, tx_request).await;
@@ -201,6 +203,7 @@ async fn test_p2id_transfer_failing_not_enough_balance() {
         PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
         None,
         NoteType::Private,
+        client.rng(),
     )
     .unwrap();
     execute_failing_tx(
@@ -276,6 +279,7 @@ async fn test_p2idr_transfer_consumed_by_target() {
         PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
         Some(current_block_num + 50),
         NoteType::Private,
+        client.rng(),
     )
     .unwrap();
     execute_tx_and_sync(&mut client, tx_request.clone()).await;
@@ -349,6 +353,7 @@ async fn test_p2idr_transfer_consumed_by_sender() {
         PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
         Some(current_block_num + 5),
         NoteType::Private,
+        client.rng(),
     )
     .unwrap();
     execute_tx_and_sync(&mut client, tx_request).await;
@@ -438,6 +443,7 @@ async fn test_get_consumable_notes() {
         PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
         Some(100),
         NoteType::Private,
+        client.rng(),
     )
     .unwrap();
     execute_tx_and_sync(&mut client, tx_request).await;
@@ -500,6 +506,7 @@ async fn test_get_output_notes() {
         PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, random_account_id),
         None,
         NoteType::Private,
+        client.rng(),
     )
     .unwrap();
 
@@ -535,6 +542,7 @@ async fn test_import_expected_notes() {
         FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
         client_2_account.id(),
         NoteType::Public,
+        client_2.rng(),
     )
     .unwrap();
     let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
@@ -567,6 +575,7 @@ async fn test_import_expected_notes() {
         FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
         first_basic_account.id(),
         NoteType::Private,
+        client_2.rng(),
     )
     .unwrap();
     let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
@@ -768,6 +777,7 @@ async fn test_sync_detail_values() {
         PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
         Some(new_details.block_num + 5),
         NoteType::Public,
+        client1.rng(),
     )
     .unwrap();
     let note_id = tx_request.expected_output_notes().next().unwrap().id();
@@ -813,6 +823,7 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
             fungible_asset,
             from_account_id,
             NoteType::Private,
+            client.rng(),
         )
         .unwrap();
 
@@ -837,6 +848,7 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
             fungible_asset,
             from_account_id,
             NoteType::Private,
+            client.rng(),
         )
         .unwrap();
 
@@ -865,6 +877,7 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
             fungible_asset,
             from_account_id,
             NoteType::Private,
+            client.rng(),
         )
         .unwrap();
 
@@ -934,6 +947,7 @@ async fn test_import_ignored_notes() {
         FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
         client_2_account.id(),
         NoteType::Private,
+        client_1.rng(),
     )
     .unwrap();
     let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
@@ -999,6 +1013,7 @@ async fn test_update_ignored_tag() {
         FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
         client_2_account.id(),
         NoteType::Private,
+        client_1.rng(),
     )
     .unwrap();
     let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
@@ -1059,9 +1074,13 @@ async fn test_consume_expected_note() {
     // First Mint necesary Token
     let fungible_asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
 
-    let tx_request =
-        TransactionRequest::mint_fungible_asset(fungible_asset, to_account_id, NoteType::Private)
-            .unwrap();
+    let tx_request = TransactionRequest::mint_fungible_asset(
+        fungible_asset,
+        to_account_id,
+        NoteType::Private,
+        client.rng(),
+    )
+    .unwrap();
 
     println!("Minting Asset");
     execute_tx_and_sync(&mut client, tx_request.clone()).await;
