@@ -1,6 +1,6 @@
 use miden_client::{
     accounts::AccountTemplate,
-    notes::{NoteInputs, NoteRecipient, NoteRelevance},
+    notes::NoteRelevance,
     rpc::{AccountDetails, NodeRpcClient, TonicRpcClient},
     store::{InputNoteRecord, NoteFilter, NoteStatus, TransactionFilter},
     transactions::{
@@ -12,7 +12,7 @@ use miden_client::{
 use miden_objects::{
     accounts::{AccountId, AccountStorageType},
     assets::{Asset, FungibleAsset},
-    notes::{NoteDetails, NoteFile, NoteTag, NoteType},
+    notes::{NoteFile, NoteTag, NoteType},
 };
 
 mod common;
@@ -628,14 +628,7 @@ async fn test_import_expected_note_uncommitted() {
     // If the verification is requested before execution then the import should fail
     let imported_note_id = client_2
         .import_note(NoteFile::NoteDetails {
-            details: NoteDetails::new(
-                note.assets().clone(),
-                NoteRecipient::new(
-                    note.details().serial_num(),
-                    note.details().script().clone(),
-                    NoteInputs::new(note.details().inputs().to_vec()).unwrap(),
-                ),
-            ),
+            details: note.clone().into(),
             after_block_num: 0,
             tag: None,
         })
