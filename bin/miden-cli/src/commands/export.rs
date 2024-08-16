@@ -74,7 +74,9 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthent
         },
         ExportType::Partial => NoteFile::NoteDetails {
             details: output_note.clone().try_into()?,
-            after_block_num: client.get_sync_height().expect("Client should sync at least once"),
+            // TODO: This MUST be changed to the correct block number
+            // https://github.com/0xPolygonMiden/miden-client/issues/480
+            after_block_num: 0,
             tag: Some(output_note.metadata().tag()),
         },
     };
