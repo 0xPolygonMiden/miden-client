@@ -67,8 +67,6 @@ async fn test_multiple_tx_on_same_block() {
 
     // Do a transfer from first account to second account
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
-
-    println!("Running P2ID tx...");
     let tx_request_1 = TransactionRequest::pay_to_id(
         PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
         None,
@@ -83,6 +81,8 @@ async fn test_multiple_tx_on_same_block() {
         client.rng(),
     )
     .unwrap();
+
+    println!("Running P2ID tx...");
 
     // wait for 1 block
     wait_for_blocks(&mut client, 1).await;
@@ -1160,14 +1160,16 @@ async fn test_import_consumed_note_with_proof() {
 
     let current_block_num = client_1.get_sync_height().unwrap();
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
-    let tx_template = TransactionTemplate::PayToIdWithRecall(
-        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
-        current_block_num,
-        NoteType::Private,
-    );
+
     println!("Running P2IDR tx...");
-    let tx_request = client_1.build_transaction_request(tx_template).unwrap();
-    execute_tx_and_sync(&mut client_1, tx_request).await;
+    let tx_request = TransactionRequest::pay_to_id(
+        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
+        Some(current_block_num),
+        NoteType::Private,
+        client_1.rng(),
+    )
+    .unwrap();
+    execute_tx_and_sync(&mut client_1, from_account_id, tx_request).await;
     let note = client_1
         .get_input_notes(NoteFilter::Committed)
         .unwrap()
@@ -1176,10 +1178,10 @@ async fn test_import_consumed_note_with_proof() {
         .clone();
 
     // Consume the note with the sender account
-    let tx_template = TransactionTemplate::ConsumeNotes(from_account_id, vec![note.id()]);
+
     println!("Consuming Note...");
-    let tx_request = client_1.build_transaction_request(tx_template).unwrap();
-    execute_tx_and_sync(&mut client_1, tx_request).await;
+    let tx_request = TransactionRequest::consume_notes(vec![note.id()]);
+    execute_tx_and_sync(&mut client_1, from_account_id, tx_request).await;
 
     // Import the consumed note
     client_2
@@ -1215,14 +1217,16 @@ async fn test_import_consumed_note_with_id() {
 
     let current_block_num = client_1.get_sync_height().unwrap();
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
-    let tx_template = TransactionTemplate::PayToIdWithRecall(
-        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
-        current_block_num,
-        NoteType::Public,
-    );
+
     println!("Running P2IDR tx...");
-    let tx_request = client_1.build_transaction_request(tx_template).unwrap();
-    execute_tx_and_sync(&mut client_1, tx_request).await;
+    let tx_request = TransactionRequest::pay_to_id(
+        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
+        Some(current_block_num),
+        NoteType::Public,
+        client_1.rng(),
+    )
+    .unwrap();
+    execute_tx_and_sync(&mut client_1, from_account_id, tx_request).await;
     let note = client_1
         .get_input_notes(NoteFilter::Committed)
         .unwrap()
@@ -1231,10 +1235,10 @@ async fn test_import_consumed_note_with_id() {
         .clone();
 
     // Consume the note with the sender account
-    let tx_template = TransactionTemplate::ConsumeNotes(from_account_id, vec![note.id()]);
+
     println!("Consuming Note...");
-    let tx_request = client_1.build_transaction_request(tx_template).unwrap();
-    execute_tx_and_sync(&mut client_1, tx_request).await;
+    let tx_request = TransactionRequest::consume_notes(vec![note.id()]);
+    execute_tx_and_sync(&mut client_1, from_account_id, tx_request).await;
     client_2.sync_state().await.unwrap();
 
     // Import the consumed note
