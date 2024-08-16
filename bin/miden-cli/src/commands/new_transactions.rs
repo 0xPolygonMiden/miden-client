@@ -2,6 +2,7 @@ use std::io;
 
 use clap::{Parser, ValueEnum};
 use miden_client::{
+    accounts::AccountId,
     assets::{FungibleAsset, NonFungibleDeltaAction},
     auth::TransactionAuthenticator,
     crypto::{Digest, FeltRng},
@@ -78,7 +79,8 @@ impl MintCmd {
         )
         .map_err(|err| err.to_string())?;
 
-        execute_transaction(&mut client, transaction_request, force).await
+        execute_transaction(&mut client, fungible_asset.faucet_id(), transaction_request, force)
+            .await
     }
 }
 
@@ -140,7 +142,7 @@ impl SendCmd {
         )
         .map_err(|err| err.to_string())?;
 
-        execute_transaction(&mut client, transaction_request, force).await
+        execute_transaction(&mut client, sender_account_id, transaction_request, force).await
     }
 }
 
@@ -198,7 +200,7 @@ impl SwapCmd {
         )
         .map_err(|err| err.to_string())?;
 
-        execute_transaction(&mut client, transaction_request, force).await?;
+        execute_transaction(&mut client, sender_account_id, transaction_request, force).await?;
 
         let payback_note_tag: u32 = build_swap_tag(
             (&self.note_type).into(),
@@ -262,9 +264,9 @@ impl ConsumeNotesCmd {
             return Err(format!("No input notes were provided and the store does not contain any notes consumable by {account_id}"));
         }
 
-        let transaction_request = TransactionRequest::consume_notes(account_id, list_of_notes);
+        let transaction_request = TransactionRequest::consume_notes(list_of_notes);
 
-        execute_transaction(&mut client, transaction_request, force).await
+        execute_transaction(&mut client, account_id, transaction_request, force).await
     }
 }
 
@@ -278,11 +280,12 @@ async fn execute_transaction<
     A: TransactionAuthenticator,
 >(
     client: &mut Client<N, R, S, A>,
+    account_id: AccountId,
     transaction_request: TransactionRequest,
     force: bool,
 ) -> Result<(), String> {
     println!("Executing transaction...");
-    let transaction_execution_result = client.new_transaction(transaction_request)?;
+    let transaction_execution_result = client.new_transaction(account_id, transaction_request)?;
 
     // Show delta and ask for confirmation
     print_transaction_details(&transaction_execution_result)?;

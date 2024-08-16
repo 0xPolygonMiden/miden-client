@@ -120,14 +120,14 @@ async fn test_transaction_request() {
         client.compile_tx_script(program, script_inputs, vec![]).unwrap()
     };
 
-    let transaction_request = TransactionRequest::new(regular_account.id())
+    let transaction_request = TransactionRequest::new()
         .with_authenticated_input_notes(note_args_map.clone())
         .with_custom_script(tx_script)
         .unwrap()
         .extend_advice_map(advice_map.clone());
 
     // This fails becuase of {asserted_value} having the incorrect number passed in
-    assert!(client.new_transaction(transaction_request).is_err());
+    assert!(client.new_transaction(regular_account.id(), transaction_request).is_err());
 
     // SUCCESS EXECUTION
 
@@ -147,7 +147,7 @@ async fn test_transaction_request() {
         client.compile_tx_script(program, script_inputs, vec![]).unwrap()
     };
 
-    let transaction_request = TransactionRequest::new(regular_account.id())
+    let transaction_request = TransactionRequest::new()
         .with_authenticated_input_notes(note_args_map)
         .with_custom_script(tx_script)
         .unwrap()
@@ -160,7 +160,7 @@ async fn test_transaction_request() {
     let deserialized_transaction_request = TransactionRequest::read_from_bytes(&buffer).unwrap();
     assert_eq!(transaction_request, deserialized_transaction_request);
 
-    execute_tx_and_sync(&mut client, transaction_request).await;
+    execute_tx_and_sync(&mut client, regular_account.id(), transaction_request).await;
 
     client.sync_state().await.unwrap();
 }
@@ -260,14 +260,14 @@ async fn test_merkle_store() {
         client.compile_tx_script(program, script_inputs, vec![]).unwrap()
     };
 
-    let transaction_request = TransactionRequest::new(regular_account.id())
+    let transaction_request = TransactionRequest::new()
         .with_authenticated_input_notes(note_args_map)
         .with_custom_script(tx_script)
         .unwrap()
         .extend_advice_map(advice_map)
         .extend_merkle_store(merkle_store.inner_nodes());
 
-    execute_tx_and_sync(&mut client, transaction_request).await;
+    execute_tx_and_sync(&mut client, regular_account.id(), transaction_request).await;
 
     client.sync_state().await.unwrap();
 }
@@ -281,11 +281,11 @@ async fn mint_custom_note(
     let mut random_coin = RpoRandomCoin::new(Default::default());
     let note = create_custom_note(client, faucet_account_id, target_account_id, &mut random_coin);
 
-    let transaction_request = TransactionRequest::new(faucet_account_id)
+    let transaction_request = TransactionRequest::new()
         .with_own_output_notes(vec![OutputNote::Full(note.clone())])
         .unwrap();
 
-    execute_tx_and_sync(client, transaction_request).await;
+    execute_tx_and_sync(client, faucet_account_id, transaction_request).await;
     note
 }
 

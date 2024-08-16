@@ -190,8 +190,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // TRANSACTION
     // --------------------------------------------------------------------------------------------
 
-    /// Creates and executes a transaction specified by the request, but does not change the
-    /// local database.
+    /// Creates and executes a transaction specified by the request with the provided account, but
+    /// does not change the local database.
     ///
     /// # Errors
     ///
@@ -202,12 +202,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     #[maybe_async]
     pub fn new_transaction(
         &mut self,
+        account_id: AccountId,
         transaction_request: TransactionRequest,
     ) -> Result<TransactionResult, ClientError> {
         // Validates the transaction request before executing
-        maybe_await!(self.validate_request(&transaction_request))?;
+        maybe_await!(self.validate_request(account_id, &transaction_request))?;
 
-        let account_id = transaction_request.account_id();
         maybe_await!(self.tx_executor.load_account(account_id))
             .map_err(ClientError::TransactionExecutorError)?;
 
@@ -466,9 +466,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     #[maybe_async]
     fn validate_request(
         &self,
+        account_id: AccountId,
         transaction_request: &TransactionRequest,
     ) -> Result<(), ClientError> {
-        let (account, _) = maybe_await!(self.get_account(transaction_request.account_id()))?;
+        let (account, _) = maybe_await!(self.get_account(account_id))?;
         if account.is_faucet() {
             // TODO(SantiagoPittella): Add faucet validations.
             Ok(())

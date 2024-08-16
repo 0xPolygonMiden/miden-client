@@ -43,7 +43,7 @@ impl WebClient {
             .unwrap();
 
             let mint_transaction_execution_result =
-                client.new_transaction(mint_transaction_request).await.unwrap();
+                client.new_transaction(faucet_id, mint_transaction_request).await.unwrap();
 
             let result = NewTransactionResult::new(
                 mint_transaction_execution_result.executed_transaction().id().to_string(),
@@ -104,8 +104,10 @@ impl WebClient {
                     .unwrap()
             };
 
-            let send_transaction_execution_result =
-                client.new_transaction(send_transaction_request).await.unwrap();
+            let send_transaction_execution_result = client
+                .new_transaction(sender_account_id, send_transaction_request)
+                .await
+                .unwrap();
             let result = NewTransactionResult::new(
                 send_transaction_execution_result.executed_transaction().id().to_string(),
                 send_transaction_execution_result
@@ -138,9 +140,9 @@ impl WebClient {
                 }
             }
 
-            let consume_transaction_request = TransactionRequest::consume_notes(account_id, result);
+            let consume_transaction_request = TransactionRequest::consume_notes(result);
             let consume_transaction_execution_result =
-                client.new_transaction(consume_transaction_request).await.unwrap();
+                client.new_transaction(account_id, consume_transaction_request).await.unwrap();
             let result = NewTransactionResult::new(
                 consume_transaction_execution_result.executed_transaction().id().to_string(),
                 consume_transaction_execution_result
@@ -202,8 +204,10 @@ impl WebClient {
             let swap_transaction_request =
                 TransactionRequest::swap(swap_transaction.clone(), note_type, client.rng())
                     .unwrap();
-            let swap_transaction_execution_result =
-                client.new_transaction(swap_transaction_request.clone()).await.unwrap();
+            let swap_transaction_execution_result = client
+                .new_transaction(sender_account_id, swap_transaction_request.clone())
+                .await
+                .unwrap();
             let mut result = NewSwapTransactionResult::new(
                 swap_transaction_execution_result.executed_transaction().id().to_string(),
                 swap_transaction_request

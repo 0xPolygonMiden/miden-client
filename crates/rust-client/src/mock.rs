@@ -578,7 +578,8 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
 
     let transaction_request =
         TransactionRequest::pay_to_id(payment_data, None, NoteType::Private, client.rng()).unwrap();
-    let transaction_execution_result = client.new_transaction(transaction_request).unwrap();
+    let transaction_execution_result =
+        client.new_transaction(sender_account.id(), transaction_request).unwrap();
 
     client.submit_transaction(transaction_execution_result).await.unwrap();
 }

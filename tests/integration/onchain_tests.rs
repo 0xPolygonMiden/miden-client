@@ -58,7 +58,7 @@ async fn test_onchain_notes_flow() {
     )
     .unwrap();
     let note = tx_request.expected_output_notes().next().unwrap().clone();
-    execute_tx_and_sync(&mut client_1, tx_request).await;
+    execute_tx_and_sync(&mut client_1, faucet_account.id(), tx_request).await;
 
     // Client 2's account should receive the note here:
     client_2.sync_state().await.unwrap();
@@ -86,7 +86,7 @@ async fn test_onchain_notes_flow() {
         client_2.rng(),
     )
     .unwrap();
-    execute_tx_and_sync(&mut client_2, tx_request).await;
+    execute_tx_and_sync(&mut client_2, basic_wallet_1.id(), tx_request).await;
 
     // sync client 3 (basic account 2)
     client_3.sync_state().await.unwrap();
@@ -209,7 +209,7 @@ async fn test_onchain_accounts() {
         client_1.rng(),
     )
     .unwrap();
-    execute_tx_and_sync(&mut client_1, tx_request).await;
+    execute_tx_and_sync(&mut client_1, from_account_id, tx_request).await;
 
     // sync on second client until we receive the note
     println!("Syncing on second client...");
@@ -221,8 +221,8 @@ async fn test_onchain_accounts() {
 
     // Consume the note
     println!("Consuming note on second client...");
-    let tx_request = TransactionRequest::consume_notes(to_account_id, vec![notes[0].id()]);
-    execute_tx_and_sync(&mut client_2, tx_request).await;
+    let tx_request = TransactionRequest::consume_notes(vec![notes[0].id()]);
+    execute_tx_and_sync(&mut client_2, to_account_id, tx_request).await;
 
     // sync on first client
     println!("Syncing on first client...");
@@ -293,7 +293,7 @@ async fn test_onchain_notes_sync_with_tag() {
     )
     .unwrap();
     let note = tx_request.expected_output_notes().next().unwrap().clone();
-    execute_tx_and_sync(&mut client_1, tx_request).await;
+    execute_tx_and_sync(&mut client_1, faucet_account.id(), tx_request).await;
 
     // Load tag into client 2
     client_2
