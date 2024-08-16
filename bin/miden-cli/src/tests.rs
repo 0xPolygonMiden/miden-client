@@ -8,7 +8,7 @@ use std::{
 
 use assert_cmd::Command;
 use miden_client::{
-    accounts::{AccountStorageType, AccountTemplate},
+    accounts::{Account, AccountId, AccountStorageType, AccountTemplate},
     auth::StoreAuthenticator,
     config::RpcConfig,
     crypto::RpoRandomCoin,
@@ -405,6 +405,11 @@ fn test_cli_export_import_account() {
     init_cmd.args(["init", "--store-path", store_path_1.to_str().unwrap()]);
     init_cmd.current_dir(&temp_dir_1).assert().success();
 
+    // Init the second client
+    let mut init_cmd = Command::cargo_bin("miden").unwrap();
+    init_cmd.args(["init", "--store-path", store_path_2.to_str().unwrap()]);
+    init_cmd.current_dir(&temp_dir_2).assert().success();
+
     // Create wallet account
     let mut create_wallet_cmd = Command::cargo_bin("miden").unwrap();
     create_wallet_cmd.args(["new-wallet", "-s", "off-chain"]);
@@ -436,15 +441,19 @@ fn test_cli_export_import_account() {
     client_2_account_file_path.push(ACCOUNT_FILENAME);
     std::fs::copy(client_1_account_file_path, client_2_account_file_path).unwrap();
 
-    // Init the second client
-    let mut init_cmd = Command::cargo_bin("miden").unwrap();
-    init_cmd.args(["init", "--store-path", store_path_2.to_str().unwrap()]);
-    init_cmd.current_dir(&temp_dir_2).assert().success();
-
     // Import the account from the second client
     let mut import_cmd = Command::cargo_bin("miden").unwrap();
     import_cmd.args(["import", ACCOUNT_FILENAME]);
-    init_cmd.current_dir(&temp_dir_2).assert().success();
+    import_cmd.current_dir(&temp_dir_2).assert().success();
+
+    // Ensure the account was imported
+    let client_2 = create_test_client_with_store_path(&store_path_2);
+    assert!(matches!(
+        client_2
+            .get_account(AccountId::from_hex(&first_basic_account_id).unwrap())
+            .unwrap(),
+        (Account { .. }, _)
+    ));
 }
 
 // HELPERS
