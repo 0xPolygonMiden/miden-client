@@ -61,7 +61,8 @@ pub const NOTE_STATUS_PROCESSING: &str = "Processing";
 pub enum NoteStatus {
     /// Note is expected to be commited on chain.
     Expected {
-        /// UNIX epoch-based timestamp (in seconds) when the note (either new or imported) started being tracked by the client.
+        /// UNIX epoch-based timestamp (in seconds) when the note (either new or imported) started
+        /// being tracked by the client. If the timestamp is not known, this field will be `None`.
         created_at: Option<u64>,
     },
     /// Note has been commited on chain.

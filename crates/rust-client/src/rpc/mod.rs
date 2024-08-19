@@ -177,7 +177,8 @@ pub trait NodeRpcClient {
         note_tags: &[NoteTag],
     ) -> Result<NoteSyncInfo, RpcError>;
 
-    /// Fetches the nullifiers corresponding to a list of prefixes using the `/CheckNullifiersByPrefix` rpc endpoint
+    /// Fetches the nullifiers corresponding to a list of prefixes using the
+    /// `/CheckNullifiersByPrefix` rpc endpoint
     async fn check_nullifiers_by_prefix(
         &mut self,
         prefix: &[u16],

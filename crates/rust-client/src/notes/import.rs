@@ -28,7 +28,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// - If the note file is a [NoteFile::NoteDetails], a new note is created with the provided
     ///   details. The note is marked as ignored if it contains no tag or if the tag is not relevant.
     /// - If the note file is a [NoteFile::NoteWithProof], the note is stored with the provided
-    ///   inclusion proof and metadata. The MMR data is not fetched from the node.
+    ///   inclusion proof and metadata. The MMR data is only fetched from the node if the note is
+    ///   committed in the past relative to the client.
     pub async fn import_note(&mut self, note_file: NoteFile) -> Result<NoteId, ClientError> {
         let note = match note_file {
             NoteFile::NoteId(id) => {
@@ -122,6 +123,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
     /// Builds a note record from the note and inclusion proof. The note's nullifier is used to
     /// determine if the note has been consumed in the node and gives it the correct status.
+    ///
+    /// If the note is not consumed and it was committed in the past relative to the client, then
+    /// the MMR for the relevant block is fetched from the node and stored.
     async fn import_note_record_by_proof(
         &mut self,
         note: Note,
@@ -134,9 +138,17 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         {
             NoteStatus::Consumed { consumer_account_id: None, block_height }
         } else {
-            NoteStatus::Committed {
-                block_height: inclusion_proof.location().block_num(),
+            let block_height = inclusion_proof.location().block_num();
+            let current_block_num = maybe_await!(self.get_sync_height())?;
+
+            if block_height < current_block_num {
+                let mut current_partial_mmr = maybe_await!(self.build_current_partial_mmr(true))?;
+
+                self.get_and_store_authenticated_block(block_height, &mut current_partial_mmr)
+                    .await?;
             }
+
+            NoteStatus::Committed { block_height }
         };
 
         Ok(InputNoteRecord::new(
