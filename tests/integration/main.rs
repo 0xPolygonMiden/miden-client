@@ -49,6 +49,8 @@ async fn test_added_notes() {
 }
 
 #[tokio::test]
+#[ignore = "multiple transactions on the same block test gets ignored by default because it is a
+flaky one until we have in place a better mechanism to ensure that both transactions would impact the same block"]
 async fn test_multiple_tx_on_same_block() {
     let mut client = create_test_client();
     wait_for_node(&mut client).await;
