@@ -303,6 +303,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         &mut self,
         tx_result: TransactionResult,
     ) -> Result<(), ClientError> {
+        let proven_transaction = self.prove_transaction(&tx_result)?;
+        self.submit_proven_transaction(proven_transaction).await?;
+        maybe_await!(self.apply_transaction(tx_result))
+    }
+
+    fn prove_transaction(&mut self, tx_result: &TransactionResult) -> Result<ProvenTransaction, ClientError> {
         let transaction_prover = TransactionProver::new(ProvingOptions::default());
 
         info!("Proving transaction...");
@@ -310,16 +316,39 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             transaction_prover.prove_transaction(tx_result.executed_transaction().clone())?;
         info!("Transaction proven.");
 
+        Ok(proven_transaction)
+    }
+
+    async fn submit_proven_transaction(&mut self, proven_transaction: ProvenTransaction) -> Result<(), ClientError> {
         info!("Submitting transaction to the network...");
         self.rpc_api.submit_proven_transaction(proven_transaction).await?;
         info!("Transaction submitted.");
 
-        // Transaction was proven and submitted to the node correctly, persist note details and
-        // update account
+        Ok(())
+    }
+
+    #[maybe_async]
+    fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), ClientError> {
+        // Transaction was proven and submitted to the node correctly, persist note details and update account
         info!("Applying transaction to the local store...");
         maybe_await!(self.store.apply_transaction(tx_result))?;
         info!("Transaction stored.");
         Ok(())
+    }
+
+    #[cfg(feature = "testing")]
+    pub fn testing_prove_transaction(&mut self, tx_result: &TransactionResult) -> Result<ProvenTransaction, ClientError> {
+        self.prove_transaction(tx_result)
+    }
+
+    #[cfg(feature = "testing")]
+    pub async fn testing_submit_proven_transaction(&mut self, proven_transaction: ProvenTransaction) -> Result<(), ClientError> {
+        self.submit_proven_transaction(proven_transaction).await
+    }
+
+    #[cfg(feature = "testing")]
+    pub async fn testing_apply_transaction(&self, tx_result: TransactionResult) -> Result<(), ClientError> {
+        maybe_await!(self.apply_transaction(tx_result))
     }
 
     /// Compiles the provided transaction script source and inputs into a [TransactionScript] and
