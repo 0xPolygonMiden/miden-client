@@ -25,9 +25,17 @@ pub struct ExportCmd {
     #[clap(short, long)]
     filename: Option<PathBuf>,
 
+    /// Export account data (cannot be used with --note)
+    #[arg(long, conflicts_with = "note")]
+    account: bool,
+
+    /// Export note data (cannot be used with --account)
+    #[arg(long, requires = "export_type", conflicts_with = "account")]
+    note: bool,
+
     /// Exported note type
     #[clap(short, long, value_enum)]
-    export_type: ExportType,
+    export_type: Option<ExportType>,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
@@ -35,7 +43,6 @@ pub enum ExportType {
     Id,
     Full,
     Partial,
-    Account,
 }
 
 impl ExportCmd {
@@ -43,18 +50,15 @@ impl ExportCmd {
         &self,
         mut client: Client<N, R, S, A>,
     ) -> Result<(), String> {
-        match self.export_type {
-            ExportType::Account => {
-                export_account(&client, self.id.as_str(), self.filename.clone())?;
-            },
-            _ => {
-                export_note(
-                    &mut client,
-                    self.id.as_str(),
-                    self.filename.clone(),
-                    self.export_type.clone(),
-                )?;
-            },
+        if self.account {
+            export_account(&client, self.id.as_str(), self.filename.clone())?;
+        } else {
+            export_note(
+                &mut client,
+                self.id.as_str(),
+                self.filename.clone(),
+                self.export_type.clone().expect("Note export must have an export type"),
+            )?;
         }
         Ok(())
     }
@@ -81,7 +85,7 @@ pub fn export_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuth
         filename
     } else {
         let current_dir = std::env::current_dir().map_err(|err| err.to_string())?;
-        current_dir.join(format!("{}.acc", account_id))
+        current_dir.join(format!("{}.mac", account_id))
     };
 
     info!("Writing file to {}", file_path.to_string_lossy());
@@ -125,7 +129,6 @@ pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthent
             after_block_num: 0,
             tag: Some(output_note.metadata().tag()),
         },
-        _ => return Err("Invalid export type".to_string()),
     };
 
     let file_path = if let Some(filename) = filename {
