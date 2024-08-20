@@ -1,14 +1,8 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
 use miden_client::{
-    accounts::AccountData,
-    auth::TransactionAuthenticator,
-    crypto::FeltRng,
-    notes::NoteFile,
-    rpc::NodeRpcClient,
-    store::Store,
-    utils::Serializable,
-    Client,
+    accounts::AccountData, auth::TransactionAuthenticator, crypto::FeltRng, notes::NoteFile,
+    rpc::NodeRpcClient, store::Store, utils::Serializable, Client,
 };
 use tracing::info;
 
