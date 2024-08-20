@@ -264,7 +264,7 @@ impl SqliteStore {
 
     pub(crate) fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
         const QUERY: &str =
-                "SELECT json_extract(details, '$.nullifier') FROM input_notes WHERE status IN rarray(?)";
+                "SELECT json_extract(details, '$.nullifier') FROM input_notes WHERE status IN rarray(?) AND NOT(ignored)";
         let unspent_filters = Rc::new(vec![
             Value::from(NOTE_STATUS_COMMITTED.to_string()),
             Value::from(NOTE_STATUS_PROCESSING.to_string()),
