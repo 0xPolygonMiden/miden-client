@@ -12,7 +12,7 @@ use miden_client::{
 };
 use tracing::info;
 
-use crate::{get_output_note_with_id_prefix, Parser};
+use crate::{get_output_note_with_id_prefix, utils::parse_account_id, Parser};
 
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "Export client output notes")]
@@ -34,7 +34,7 @@ pub struct ExportCmd {
     note: bool,
 
     /// Exported note type
-    #[clap(short, long, value_enum)]
+    #[clap(short, long, value_enum, conflicts_with = "account")]
     export_type: Option<ExportType>,
 }
 
@@ -72,8 +72,7 @@ pub fn export_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuth
     account_id: &str,
     filename: Option<PathBuf>,
 ) -> Result<File, String> {
-    let account_id =
-        AccountId::from_hex(account_id).map_err(|_| "Invalid account ID".to_string())?;
+    let account_id = parse_account_id(client, account_id)?;
 
     let (account, account_seed) = client.get_account(account_id)?;
 
