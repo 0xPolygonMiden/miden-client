@@ -29,6 +29,8 @@ jobs:
       - uses: actions/checkout@main
       - name: Install Rust
         run: rustup update --no-self-update
+      - name: Install Node.js
+        uses: actions/setup-node@v3
       - uses: taiki-e/install-action@nextest
       - run: make clean-node
       - run: make node

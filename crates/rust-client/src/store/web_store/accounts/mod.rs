@@ -113,14 +113,14 @@ impl WebStore {
     pub(super) async fn get_account_code(
         &self,
         root: Digest,
-    ) -> Result<(Vec<Digest>, ModuleAst), StoreError> {
+    ) -> Result<(Vec<u8>, ModuleAst), StoreError> {
         let root_serialized = root.to_string();
 
         let promise = idxdb_get_account_code(root_serialized);
         let js_value = JsFuture::from(promise).await.unwrap();
         let account_code_idxdb: AccountCodeIdxdbObject = from_value(js_value).unwrap();
 
-        let procedures = serde_json::from_str(&account_code_idxdb.procedures).unwrap();
+        let procedures = account_code_idxdb.procedures;
 
         let module = ModuleAst::from_bytes(&account_code_idxdb.module).unwrap();
 
