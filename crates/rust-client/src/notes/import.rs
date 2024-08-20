@@ -247,6 +247,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 // Therefore, we should mark the note as committed.
                 let note_block_num = sync_notes.block_header.block_num();
 
+                if note_block_num > current_block_num {
+                    return Ok((NoteStatus::Expected { created_at: None }, None));
+                };
+
                 let note_inclusion_proof = NoteInclusionProof::new(
                     note_block_num,
                     note.note_index(),
