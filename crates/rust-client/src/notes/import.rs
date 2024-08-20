@@ -195,7 +195,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                         details.id(),
                         details.recipient().digest(),
                         details.assets().clone(),
-                        NoteStatus::Expected { created_at: None },
+                        NoteStatus::Expected {
+                            created_at: None,
+                            block_height: Some(after_block_num),
+                        },
                         None,
                         None,
                         record_details,
@@ -208,7 +211,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 details.id(),
                 details.recipient().digest(),
                 details.assets().clone(),
-                NoteStatus::Expected { created_at: None },
+                NoteStatus::Expected {
+                    created_at: None,
+                    block_height: Some(after_block_num),
+                },
                 None,
                 None,
                 record_details,
@@ -228,13 +234,25 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let current_block_num = maybe_await!(self.get_sync_height())?;
         loop {
             if request_block_num > current_block_num {
-                return Ok((NoteStatus::Expected { created_at: None }, None));
+                return Ok((
+                    NoteStatus::Expected {
+                        created_at: None,
+                        block_height: Some(request_block_num),
+                    },
+                    None,
+                ));
             };
 
             let sync_notes = self.rpc_api().sync_notes(request_block_num, &[tag]).await?;
 
             if sync_notes.block_header.block_num() == sync_notes.chain_tip {
-                return Ok((NoteStatus::Expected { created_at: None }, None));
+                return Ok((
+                    NoteStatus::Expected {
+                        created_at: None,
+                        block_height: Some(request_block_num),
+                    },
+                    None,
+                ));
             }
 
             // This means that notes with that note_tag were found.
@@ -248,7 +266,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 let note_block_num = sync_notes.block_header.block_num();
 
                 if note_block_num > current_block_num {
-                    return Ok((NoteStatus::Expected { created_at: None }, None));
+                    return Ok((
+                        NoteStatus::Expected {
+                            created_at: None,
+                            block_height: Some(request_block_num),
+                        },
+                        None,
+                    ));
                 };
 
                 let note_inclusion_proof = NoteInclusionProof::new(

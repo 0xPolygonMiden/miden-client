@@ -156,7 +156,11 @@ impl SqliteStore {
 
         // Commit new public notes
         for note in committed_notes.new_public_notes() {
-            insert_input_note_tx(&tx, note.clone().into())?;
+            insert_input_note_tx(
+                &tx,
+                note.location().expect("new public note should be authenticated").block_num(),
+                note.clone().into(),
+            )?;
         }
 
         // Update spent notes

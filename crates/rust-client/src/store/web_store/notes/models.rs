@@ -16,6 +16,7 @@ pub struct InputNoteIdxdbObject {
     pub serialized_note_script: Vec<u8>,
     pub consumer_account_id: Option<String>,
     pub created_at: String,
+    pub expected_height: Option<String>,
     pub submitted_at: Option<String>,
     pub nullifier_height: Option<String>,
     pub ignored: bool,
@@ -35,6 +36,7 @@ pub struct OutputNoteIdxdbObject {
     pub serialized_note_script: Option<Vec<u8>>,
     pub consumer_account_id: Option<String>,
     pub created_at: String,
+    pub expected_height: Option<String>,
     pub submitted_at: Option<String>,
     pub nullifier_height: Option<String>,
 }

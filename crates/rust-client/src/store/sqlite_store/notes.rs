@@ -27,8 +27,8 @@ use crate::store::{
 fn insert_note_query(table_name: NoteTable) -> String {
     format!("\
     INSERT INTO {table_name}
-        (note_id, assets, recipient, status, metadata, details, inclusion_proof, consumer_transaction_id, created_at, ignored, imported_tag, nullifier_height)
-     VALUES (:note_id, :assets, :recipient, :status, json(:metadata), json(:details), json(:inclusion_proof), :consumer_transaction_id, unixepoch(current_timestamp), :ignored, :imported_tag, :nullifier_height);",
+        (note_id, assets, recipient, status, metadata, details, inclusion_proof, consumer_transaction_id, created_at, expected_height, ignored, imported_tag, nullifier_height)
+     VALUES (:note_id, :assets, :recipient, :status, json(:metadata), json(:details), json(:inclusion_proof), :consumer_transaction_id, unixepoch(current_timestamp), :expected_height, :ignored, :imported_tag, :nullifier_height);",
             table_name = table_name)
 }
 
@@ -45,6 +45,7 @@ type SerializedInputNoteData = (
     String,
     Vec<u8>,
     Option<String>,
+    Option<u32>,
     bool,
     Option<u32>,
     Option<u32>,
@@ -71,6 +72,7 @@ type SerializedInputNoteParts = (
     Vec<u8>,
     Option<i64>,
     u64,
+    Option<u32>,
     Option<u64>,
     Option<u32>,
     bool,
@@ -86,6 +88,7 @@ type SerializedOutputNoteParts = (
     Option<Vec<u8>>,
     Option<i64>,
     u64,
+    Option<u32>,
     Option<u64>,
     Option<u32>,
 );
@@ -125,6 +128,7 @@ impl<'a> NoteFilter<'a> {
                     script.serialized_note_script,
                     tx.account_id,
                     note.created_at,
+                    note.expected_height,
                     note.submitted_at,
                     note.nullifier_height,
                     note.ignored,
@@ -254,10 +258,12 @@ impl SqliteStore {
     }
 
     pub(crate) fn insert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError> {
+        let block_num = self.get_sync_height()?;
+
         let mut db = self.db();
         let tx = db.transaction()?;
 
-        insert_input_note_tx(&tx, note)?;
+        insert_input_note_tx(&tx, block_num, note)?;
 
         Ok(tx.commit()?)
     }
@@ -333,6 +339,7 @@ impl SqliteStore {
 /// Inserts the provided input note into the database
 pub(super) fn insert_input_note_tx(
     tx: &Transaction<'_>,
+    block_num: u32,
     note: InputNoteRecord,
 ) -> Result<(), StoreError> {
     let (
@@ -345,6 +352,7 @@ pub(super) fn insert_input_note_tx(
         note_script_hash,
         serialized_note_script,
         inclusion_proof,
+        expected_height,
         ignored,
         imported_tag,
         nullifier_height,
@@ -361,6 +369,7 @@ pub(super) fn insert_input_note_tx(
             ":details": details,
             ":inclusion_proof": inclusion_proof,
             ":consumer_transaction_id": None::<String>,
+            ":expected_height": expected_height.unwrap_or(block_num),
             ":ignored": ignored,
             ":imported_tag": imported_tag,
             ":nullifier_height": nullifier_height
@@ -460,10 +469,11 @@ fn parse_input_note_columns(
     let serialized_note_script: Vec<u8> = row.get(6)?;
     let consumer_account_id: Option<i64> = row.get(7)?;
     let created_at: u64 = row.get(8)?;
-    let submitted_at: Option<u64> = row.get(9)?;
-    let nullifier_height: Option<u32> = row.get(10)?;
-    let ignored: bool = row.get(8)?;
-    let imported_tag: Option<u32> = row.get(9)?;
+    let expected_height: Option<u32> = row.get(9)?;
+    let submitted_at: Option<u64> = row.get(10)?;
+    let nullifier_height: Option<u32> = row.get(11)?;
+    let ignored: bool = row.get(12)?;
+    let imported_tag: Option<u32> = row.get(13)?;
 
     Ok((
         assets,
@@ -475,6 +485,7 @@ fn parse_input_note_columns(
         serialized_note_script,
         consumer_account_id,
         created_at,
+        expected_height,
         submitted_at,
         nullifier_height,
         ignored,
@@ -496,6 +507,7 @@ fn parse_input_note(
         serialized_note_script,
         consumer_account_id,
         created_at,
+        expected_height,
         submitted_at,
         nullifier_height,
         ignored,
@@ -544,7 +556,10 @@ fn parse_input_note(
 
     // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
     let status = match status.as_str() {
-        NOTE_STATUS_EXPECTED => NoteStatus::Expected { created_at: Some(created_at) },
+        NOTE_STATUS_EXPECTED => NoteStatus::Expected {
+            created_at: Some(created_at),
+            block_height: expected_height,
+        },
         NOTE_STATUS_COMMITTED => NoteStatus::Committed {
             block_height: inclusion_proof
                 .clone()
@@ -623,16 +638,18 @@ pub(crate) fn serialize_input_note(
 
     let imported_tag: Option<u32> = note.imported_tag().map(|tag| tag.into());
 
-    let (status, nullifier_height) = match note.status() {
-        NoteStatus::Expected { .. } => (NOTE_STATUS_EXPECTED.to_string(), None),
-        NoteStatus::Committed { .. } => (NOTE_STATUS_COMMITTED.to_string(), None),
+    let (status, expected_height, nullifier_height) = match note.status() {
+        NoteStatus::Expected { block_height, .. } => {
+            (NOTE_STATUS_EXPECTED.to_string(), block_height, None)
+        },
+        NoteStatus::Committed { .. } => (NOTE_STATUS_COMMITTED.to_string(), None, None),
         NoteStatus::Processing { .. } => {
             return Err(StoreError::DatabaseError(
                 "Processing notes should not be imported".to_string(),
             ))
         },
         NoteStatus::Consumed { block_height, .. } => {
-            (NOTE_STATUS_CONSUMED.to_string(), Some(block_height))
+            (NOTE_STATUS_CONSUMED.to_string(), None, Some(block_height))
         },
     };
 
@@ -646,6 +663,7 @@ pub(crate) fn serialize_input_note(
         note_script_hash,
         serialized_note_script,
         inclusion_proof,
+        expected_height,
         ignored,
         imported_tag,
         nullifier_height,
@@ -665,8 +683,9 @@ fn parse_output_note_columns(
     let serialized_note_script: Option<Vec<u8>> = row.get(6)?;
     let consumer_account_id: Option<i64> = row.get(7)?;
     let created_at: u64 = row.get(8)?;
-    let submitted_at: Option<u64> = row.get(9)?;
-    let nullifier_height: Option<u32> = row.get(10)?;
+    let expected_height: Option<u32> = row.get(9)?;
+    let submitted_at: Option<u64> = row.get(10)?;
+    let nullifier_height: Option<u32> = row.get(11)?;
 
     Ok((
         assets,
@@ -678,6 +697,7 @@ fn parse_output_note_columns(
         serialized_note_script,
         consumer_account_id,
         created_at,
+        expected_height,
         submitted_at,
         nullifier_height,
     ))
@@ -697,6 +717,7 @@ fn parse_output_note(
         serialized_note_script,
         consumer_account_id,
         created_at,
+        expected_height,
         submitted_at,
         nullifier_height,
     ) = serialized_output_note_parts;
@@ -746,7 +767,10 @@ fn parse_output_note(
 
     // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
     let status = match status.as_str() {
-        NOTE_STATUS_EXPECTED => NoteStatus::Expected { created_at: Some(created_at) },
+        NOTE_STATUS_EXPECTED => NoteStatus::Expected {
+            created_at: Some(created_at),
+            block_height: expected_height,
+        },
         NOTE_STATUS_COMMITTED => NoteStatus::Committed {
             block_height: inclusion_proof
                 .clone()

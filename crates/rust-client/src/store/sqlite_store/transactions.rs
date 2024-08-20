@@ -87,6 +87,7 @@ impl SqliteStore {
         let transaction_id = tx_result.executed_transaction().id();
         let account_id = tx_result.executed_transaction().account_id();
         let account_delta = tx_result.account_delta();
+        let block_num = self.get_sync_height()?;
 
         let (mut account, _seed) = self.get_account(account_id)?;
 
@@ -117,7 +118,7 @@ impl SqliteStore {
 
         // Updates for notes
         for note in created_input_notes {
-            insert_input_note_tx(&tx, note)?;
+            insert_input_note_tx(&tx, block_num, note)?;
         }
 
         for note in &created_output_notes {

@@ -276,6 +276,9 @@ pub fn parse_input_note_idxdb_object(
         None => None,
     };
     let created_at = note_idxdb.created_at.parse::<u64>().expect("Failed to parse created_at");
+    let expected_height: Option<u32> = note_idxdb.expected_height.map(|expected_height| {
+        expected_height.parse::<u32>().expect("Failed to parse expected_height")
+    });
     let submitted_at: Option<u64> = note_idxdb
         .submitted_at
         .map(|submitted_at| submitted_at.parse::<u64>().expect("Failed to parse submitted_at"));
@@ -285,7 +288,10 @@ pub fn parse_input_note_idxdb_object(
 
     // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
     let status = match note_idxdb.status.as_str() {
-        NOTE_STATUS_EXPECTED => NoteStatus::Expected { created_at: Some(created_at) },
+        NOTE_STATUS_EXPECTED => NoteStatus::Expected {
+            created_at: Some(created_at),
+            block_height: expected_height,
+        },
         NOTE_STATUS_COMMITTED => NoteStatus::Committed {
             block_height: inclusion_proof
                 .clone()
@@ -371,6 +377,9 @@ pub fn parse_output_note_idxdb_object(
         None => None,
     };
     let created_at = note_idxdb.created_at.parse::<u64>().expect("Failed to parse created_at");
+    let expected_height: Option<u32> = note_idxdb.expected_height.map(|expected_height| {
+        expected_height.parse::<u32>().expect("Failed to parse expected_height")
+    });
     let submitted_at: Option<u64> = note_idxdb
         .submitted_at
         .map(|submitted_at| submitted_at.parse::<u64>().expect("Failed to parse submitted_at"));
@@ -380,7 +389,10 @@ pub fn parse_output_note_idxdb_object(
 
     // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
     let status = match note_idxdb.status.as_str() {
-        NOTE_STATUS_EXPECTED => NoteStatus::Expected { created_at: Some(created_at) },
+        NOTE_STATUS_EXPECTED => NoteStatus::Expected {
+            created_at: Some(created_at),
+            block_height: expected_height,
+        },
         NOTE_STATUS_COMMITTED => NoteStatus::Committed {
             block_height: inclusion_proof
                 .clone()
