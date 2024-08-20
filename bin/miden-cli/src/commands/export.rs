@@ -1,7 +1,7 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
 use miden_client::{
-    accounts::{AccountData, AccountId},
+    accounts::AccountData,
     auth::TransactionAuthenticator,
     crypto::FeltRng,
     notes::NoteFile,
