@@ -427,8 +427,7 @@ fn test_cli_export_import_account() {
     export_cmd.args([
         "export",
         &first_basic_account_id,
-        "--export-type",
-        "account",
+        "--account",
         "--filename",
         ACCOUNT_FILENAME,
     ]);
