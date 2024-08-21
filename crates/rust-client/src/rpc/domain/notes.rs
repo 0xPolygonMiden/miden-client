@@ -20,8 +20,8 @@ impl TryFrom<ProtoNoteMetadata> for NoteMetadata {
             .try_into()?;
         let note_type = NoteType::try_from(value.note_type as u64)?;
         let tag = NoteTag::from(value.tag);
-        let execution_hint_tag = (value.execution_hint & 0xFF) as u8;
-        let execution_hint_payload = ((value.execution_hint >> 8) & 0xFFFFFF) as u32;
+        let execution_hint_tag = (value.execution_hint & 0xff) as u8;
+        let execution_hint_payload = ((value.execution_hint >> 8) & 0xffffff) as u32;
         let execution_hint =
             NoteExecutionHint::from_parts(execution_hint_tag, execution_hint_payload)?;
 

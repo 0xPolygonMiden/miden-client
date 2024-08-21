@@ -26,7 +26,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ///   the client's store. If the note is private or does not exist, an error is returned. If the
     ///   ID was already stored, the inclusion proof and metadata are updated.
     /// - If the note file is a [NoteFile::NoteDetails], a new note is created with the provided
-    ///   details. The note is marked as ignored if it contains no tag or if the tag is not relevant.
+    ///   details. The note is marked as ignored if it contains no tag or if the tag is not
+    ///   relevant.
     /// - If the note file is a [NoteFile::NoteWithProof], the note is stored with the provided
     ///   inclusion proof and metadata. The MMR data is only fetched from the node if the note is
     ///   committed in the past relative to the client.
@@ -95,7 +96,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         match store_note {
             Ok(store_note) => {
-                // TODO: Join these calls to one method that updates both fields with one query (issue #404)
+                // TODO: Join these calls to one method that updates both fields with one query
+                // (issue #404)
                 maybe_await!(self
                     .store
                     .update_note_inclusion_proof(store_note.id(), inclusion_proof))?;
@@ -255,7 +257,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
                 return Ok((
                     NoteStatus::Committed {
-                        // Block header can't be None since we check that already in the if statement.
+                        // Block header can't be None since we check that already in the if
+                        // statement.
                         block_height: note_block_num,
                     },
                     Some(InputNote::authenticated(
@@ -270,7 +273,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             } else {
                 // This means that a note with the same id was not found.
                 // Therefore, we should request again for sync_notes with the same note_tag
-                // and with the block_num of the last block header (sync_notes.block_header.unwrap()).
+                // and with the block_num of the last block header
+                // (sync_notes.block_header.unwrap()).
                 request_block_num = sync_notes.block_header.block_num();
             }
         }

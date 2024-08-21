@@ -451,7 +451,8 @@ async fn test_get_consumable_notes() {
     assert!(!client.get_consumable_notes(Some(from_account_id)).unwrap().is_empty());
     assert!(!client.get_consumable_notes(Some(to_account_id)).unwrap().is_empty());
 
-    // Check that the note is only consumable after block 100 for the account that sent the transaction
+    // Check that the note is only consumable after block 100 for the account that sent the
+    // transaction
     let from_account_relevance = relevant_accounts
         .iter()
         .find(|relevance| relevance.0 == from_account_id)
@@ -591,7 +592,8 @@ async fn test_import_expected_notes() {
     execute_tx_and_sync(&mut client_1, tx_request).await;
     client_2.sync_state().await.unwrap();
 
-    // After sync, the imported note should have inclusion proof even if it's not relevant for its accounts.
+    // After sync, the imported note should have inclusion proof even if it's not relevant for its
+    // accounts.
     let input_note = client_2.get_input_note(note.id()).unwrap();
     assert!(input_note.inclusion_proof().is_some());
 

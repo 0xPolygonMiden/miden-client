@@ -58,7 +58,8 @@ pub trait Store {
     /// [TransactionResult]
     ///
     /// An update involves:
-    /// - Applying the resulting [AccountDelta](miden_objects::accounts::AccountDelta) and storing the new [Account] state
+    /// - Applying the resulting [AccountDelta](miden_objects::accounts::AccountDelta) and storing
+    ///   the new [Account] state
     /// - Storing new notes and payback note details as a result of the transaction execution
     /// - Inserting the transaction into the store to track
     #[maybe_async]
@@ -71,7 +72,8 @@ pub trait Store {
     ///
     /// # Errors
     ///
-    /// Returns a [StoreError::NoteNotFound] if the filter is [NoteFilter::Unique] and there is no Note with the provided ID
+    /// Returns a [StoreError::NoteNotFound] if the filter is [NoteFilter::Unique] and there is no
+    /// Note with the provided ID
     #[maybe_async]
     fn get_input_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError>;
 
@@ -79,7 +81,8 @@ pub trait Store {
     ///
     /// # Errors
     ///
-    /// Returns a [StoreError::NoteNotFound] if the filter is [NoteFilter::Unique] and there is no Note with the provided ID
+    /// Returns a [StoreError::NoteNotFound] if the filter is [NoteFilter::Unique] and there is no
+    /// Note with the provided ID
     #[maybe_async]
     fn get_output_notes(&self, filter: NoteFilter) -> Result<Vec<OutputNoteRecord>, StoreError>;
 
@@ -99,7 +102,8 @@ pub trait Store {
 
     /// Returns the committed notes that don't have their block header tracked
     ///
-    /// The default implementation of this method uses [Store::get_tracked_block_headers] and [Store::get_input_notes].
+    /// The default implementation of this method uses [Store::get_tracked_block_headers] and
+    /// [Store::get_input_notes].
     #[maybe_async]
     fn get_notes_without_block_header(&self) -> Result<Vec<InputNoteRecord>, StoreError> {
         let tracked_block_nums: Vec<u32> = maybe_await!(self.get_tracked_block_headers())?
@@ -297,7 +301,8 @@ pub trait Store {
 
     /// Adds a note tag to the list of tags that the client is interested in.
     ///
-    /// If the tag was already being tracked, returns false since no new tags were actually added. Otherwise true.
+    /// If the tag was already being tracked, returns false since no new tags were actually added.
+    /// Otherwise true.
     #[maybe_async]
     fn add_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError>;
 
@@ -315,8 +320,8 @@ pub trait Store {
     /// Applies the state sync update to the store. An update involves:
     ///
     /// - Inserting the new block header to the store alongside new MMR peaks information
-    /// - Updating the notes, marking them as `committed` or `consumed` based on incoming
-    ///   inclusion proofs and nullifiers
+    /// - Updating the notes, marking them as `committed` or `consumed` based on incoming inclusion
+    ///   proofs and nullifiers
     /// - Updating transactions in the store, marking as `committed` the ones provided with
     ///   `committed_transactions`
     /// - Storing new MMR authentication nodes
@@ -352,13 +357,15 @@ pub enum TransactionFilter {
 pub enum NoteFilter<'a> {
     /// Return a list of all notes ([InputNoteRecord] or [OutputNoteRecord]).
     All,
-    /// Filter by consumed notes ([InputNoteRecord] or [OutputNoteRecord]). notes that have been used as inputs in transactions.
+    /// Filter by consumed notes ([InputNoteRecord] or [OutputNoteRecord]). notes that have been
+    /// used as inputs in transactions.
     Consumed,
-    /// Return a list of committed notes ([InputNoteRecord] or [OutputNoteRecord]). These represent notes that the blockchain
-    /// has included in a block, and for which we are storing anchor data.
+    /// Return a list of committed notes ([InputNoteRecord] or [OutputNoteRecord]). These represent
+    /// notes that the blockchain has included in a block, and for which we are storing anchor
+    /// data.
     Committed,
-    /// Return a list of expected notes ([InputNoteRecord] or [OutputNoteRecord]). These represent notes for which the store
-    /// does not have anchor data.
+    /// Return a list of expected notes ([InputNoteRecord] or [OutputNoteRecord]). These represent
+    /// notes for which the store does not have anchor data.
     Expected,
     /// Return a list of notes that are currently being processed.
     Processing,

@@ -46,7 +46,8 @@ pub type TestClient = Client<
 pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./tests/config/miden-client-rpc.toml";
 /// Creates a `TestClient`
 ///
-/// Creates the client using the config at `TEST_CLIENT_CONFIG_FILE_PATH`. The store's path is at a random temporary location, so the store section of the config file is ignored.
+/// Creates the client using the config at `TEST_CLIENT_CONFIG_FILE_PATH`. The store's path is at a
+/// random temporary location, so the store section of the config file is ignored.
 ///
 /// # Panics
 ///

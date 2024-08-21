@@ -220,15 +220,16 @@ impl NodeRpcClient for TonicRpcClient {
         response.into_inner().try_into()
     }
 
-    /// Sends a `GetAccountDetailsRequest` to the Miden node, and extracts an [AccountDetails] from the
-    /// `GetAccountDetailsResponse` response.
+    /// Sends a `GetAccountDetailsRequest` to the Miden node, and extracts an [AccountDetails] from
+    /// the `GetAccountDetailsResponse` response.
     ///
     /// # Errors
     ///
     /// This function will return an error if:
     ///
     /// - There was an error sending the request to the node
-    /// - The answer had a `None` for one of the expected fields (account, summary, account_hash, details).
+    /// - The answer had a `None` for one of the expected fields (account, summary, account_hash,
+    ///   details).
     /// - There is an error during [Account] deserialization
     async fn get_account_update(
         &mut self,
