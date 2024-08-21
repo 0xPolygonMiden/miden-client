@@ -1,8 +1,14 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
 use miden_client::{
-    accounts::AccountData, auth::TransactionAuthenticator, crypto::FeltRng, notes::NoteFile,
-    rpc::NodeRpcClient, store::Store, utils::Serializable, Client,
+    accounts::AccountData,
+    auth::TransactionAuthenticator,
+    crypto::FeltRng,
+    notes::NoteFile,
+    rpc::NodeRpcClient,
+    store::{NoteStatus, Store},
+    utils::Serializable,
+    Client,
 };
 use tracing::info;
 
@@ -115,12 +121,24 @@ fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticat
             },
             None => return Err("Note does not have inclusion proof".to_string()),
         },
-        ExportType::Partial => NoteFile::NoteDetails {
-            details: output_note.clone().try_into()?,
-            // TODO: This MUST be changed to the correct block number
-            // https://github.com/0xPolygonMiden/miden-client/issues/480
-            after_block_num: 0,
-            tag: Some(output_note.metadata().tag()),
+        ExportType::Partial => {
+            let after_block_num = match output_note.status() {
+                NoteStatus::Expected { block_height, .. } => block_height.unwrap_or(0),
+                _ => {
+                    output_note
+                        .inclusion_proof()
+                        .expect("Committed notes should have inclusion proof")
+                        .location()
+                        .block_num()
+                        - 1
+                },
+            };
+
+            NoteFile::NoteDetails {
+                details: output_note.clone().try_into()?,
+                after_block_num,
+                tag: Some(output_note.metadata().tag()),
+            }
         },
     };
 
