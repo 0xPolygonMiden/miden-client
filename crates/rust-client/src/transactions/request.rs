@@ -21,16 +21,6 @@ use miden_objects::{
 };
 use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 
-// MASM SCRIPTS
-// ================================================================================================
-
-pub const AUTH_CONSUME_NOTES_SCRIPT: &str =
-    include_str!("asm/transaction_scripts/auth_consume_notes.masm");
-pub const DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT: &str =
-    include_str!("asm/transaction_scripts/distribute_fungible_asset.masm");
-pub const AUTH_SEND_ASSET_SCRIPT: &str =
-    include_str!("asm/transaction_scripts/auth_send_asset.masm");
-
 // TRANSACTION REQUEST
 // ================================================================================================
 
