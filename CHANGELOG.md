@@ -2,6 +2,7 @@
 
 ## v0.5.0 (TBD)
 
+* Added validation for consumed notes when importing (#449).
 * Added serialization for `TransactionRequest` (#471).
 * Added support for decimal values in the CLI (#454).
 * Added support for importing committed notes from older blocks than current (#472).

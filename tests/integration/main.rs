@@ -1107,3 +1107,114 @@ async fn test_consume_expected_note() {
         panic!("Error: Account should have a fungible asset");
     }
 }
+
+#[tokio::test]
+async fn test_import_consumed_note_with_proof() {
+    let mut client_1 = create_test_client();
+    let (first_regular_account, _, faucet_account_stub) =
+        setup(&mut client_1, AccountStorageType::OffChain).await;
+
+    let mut client_2 = create_test_client();
+    let (client_2_account, _seed) = client_2
+        .new_account(AccountTemplate::BasicWallet {
+            mutable_code: true,
+            storage_type: AccountStorageType::OffChain,
+        })
+        .unwrap();
+
+    wait_for_node(&mut client_2).await;
+
+    let from_account_id = first_regular_account.id();
+    let to_account_id = client_2_account.id();
+    let faucet_account_id = faucet_account_stub.id();
+
+    let note =
+        mint_note(&mut client_1, from_account_id, faucet_account_id, NoteType::Private).await;
+
+    consume_notes(&mut client_1, from_account_id, &[note]).await;
+
+    let current_block_num = client_1.get_sync_height().unwrap();
+    let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
+    let tx_template = TransactionTemplate::PayToIdWithRecall(
+        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
+        current_block_num,
+        NoteType::Private,
+    );
+    println!("Running P2IDR tx...");
+    let tx_request = client_1.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(&mut client_1, tx_request).await;
+    let note = client_1
+        .get_input_notes(NoteFilter::Committed)
+        .unwrap()
+        .first()
+        .unwrap()
+        .clone();
+
+    // Consume the note with the sender account
+    let tx_template = TransactionTemplate::ConsumeNotes(from_account_id, vec![note.id()]);
+    println!("Consuming Note...");
+    let tx_request = client_1.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(&mut client_1, tx_request).await;
+
+    // Import the consumed note
+    client_2
+        .import_note(NoteFile::NoteWithProof(
+            note.clone().try_into().unwrap(),
+            note.inclusion_proof().unwrap().clone(),
+        ))
+        .await
+        .unwrap();
+
+    let consumed_note = client_2.get_input_note(note.id()).unwrap();
+    assert!(matches!(consumed_note.status(), NoteStatus::Consumed { .. }));
+}
+
+#[tokio::test]
+async fn test_import_consumed_note_with_id() {
+    let mut client_1 = create_test_client();
+    let (first_regular_account, second_regular_account, faucet_account_stub) =
+        setup(&mut client_1, AccountStorageType::OffChain).await;
+
+    let mut client_2 = create_test_client();
+
+    wait_for_node(&mut client_2).await;
+
+    let from_account_id = first_regular_account.id();
+    let to_account_id = second_regular_account.id();
+    let faucet_account_id = faucet_account_stub.id();
+
+    let note =
+        mint_note(&mut client_1, from_account_id, faucet_account_id, NoteType::Private).await;
+
+    consume_notes(&mut client_1, from_account_id, &[note]).await;
+
+    let current_block_num = client_1.get_sync_height().unwrap();
+    let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
+    let tx_template = TransactionTemplate::PayToIdWithRecall(
+        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
+        current_block_num,
+        NoteType::Public,
+    );
+    println!("Running P2IDR tx...");
+    let tx_request = client_1.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(&mut client_1, tx_request).await;
+    let note = client_1
+        .get_input_notes(NoteFilter::Committed)
+        .unwrap()
+        .first()
+        .unwrap()
+        .clone();
+
+    // Consume the note with the sender account
+    let tx_template = TransactionTemplate::ConsumeNotes(from_account_id, vec![note.id()]);
+    println!("Consuming Note...");
+    let tx_request = client_1.build_transaction_request(tx_template).unwrap();
+    execute_tx_and_sync(&mut client_1, tx_request).await;
+    client_2.sync_state().await.unwrap();
+
+    // Import the consumed note
+    client_2.import_note(NoteFile::NoteId(note.id())).await.unwrap();
+
+    let consumed_note = client_2.get_input_note(note.id()).unwrap();
+    assert!(matches!(consumed_note.status(), NoteStatus::Consumed { .. }));
+}

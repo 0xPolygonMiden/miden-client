@@ -61,13 +61,14 @@ pub const NOTE_STATUS_PROCESSING: &str = "Processing";
 pub enum NoteStatus {
     /// Note is expected to be commited on chain.
     Expected {
-        /// UNIX epoch-based timestamp (in seconds) when the note (either new or imported) started being tracked by the client.
-        created_at: u64,
+        /// UNIX epoch-based timestamp (in seconds) when the note (either new or imported) started
+        /// being tracked by the client. If the timestamp is not known, this field will be `None`.
+        created_at: Option<u64>,
     },
     /// Note has been commited on chain.
     Committed {
         /// Block height at which the note was commited.
-        block_height: u64,
+        block_height: u32,
     },
     /// Note has been consumed locally but not yet nullified on chain.
     Processing {
@@ -81,7 +82,7 @@ pub enum NoteStatus {
         /// ID of account that consumed the note. If the consumer account is not known, this field will be `None`.
         consumer_account_id: Option<AccountId>,
         /// Block height at which the note was consumed.
-        block_height: u64,
+        block_height: u32,
     },
 }
 
@@ -90,11 +91,11 @@ impl Serializable for NoteStatus {
         match self {
             NoteStatus::Expected { created_at } => {
                 target.write_u8(0);
-                target.write_u64(*created_at);
+                created_at.write_into(target);
             },
             NoteStatus::Committed { block_height } => {
                 target.write_u8(1);
-                target.write_u64(*block_height);
+                target.write_u32(*block_height);
             },
             NoteStatus::Processing { consumer_account_id, submitted_at } => {
                 target.write_u8(2);
@@ -103,7 +104,7 @@ impl Serializable for NoteStatus {
             },
             NoteStatus::Consumed { consumer_account_id, block_height } => {
                 target.write_u8(3);
-                target.write_u64(*block_height);
+                target.write_u32(*block_height);
                 consumer_account_id.write_into(target);
             },
         }
@@ -115,11 +116,11 @@ impl Deserializable for NoteStatus {
         let status = source.read_u8()?;
         match status {
             0 => {
-                let created_at = source.read_u64()?;
+                let created_at = Option::<u64>::read_from(source)?;
                 Ok(NoteStatus::Expected { created_at })
             },
             1 => {
-                let block_height = source.read_u64()?;
+                let block_height = source.read_u32()?;
                 Ok(NoteStatus::Committed { block_height })
             },
             2 => {
@@ -128,7 +129,7 @@ impl Deserializable for NoteStatus {
                 Ok(NoteStatus::Processing { consumer_account_id, submitted_at })
             },
             3 => {
-                let block_height = source.read_u64()?;
+                let block_height = source.read_u32()?;
                 let consumer_account_id = Option::<AccountId>::read_from(source)?;
                 Ok(NoteStatus::Consumed { consumer_account_id, block_height })
             },
@@ -143,10 +144,13 @@ impl Display for NoteStatus {
             NoteStatus::Expected { created_at } => write!(
                 f,
                 "{NOTE_STATUS_EXPECTED} (created at {})",
-                Local
-                    .timestamp_opt(*created_at as i64, 0)
-                    .single()
-                    .expect("timestamp should be valid")
+                created_at
+                    .map(|ts| Local
+                        .timestamp_opt(ts as i64, 0)
+                        .single()
+                        .expect("timestamp should be valid")
+                        .to_string())
+                    .unwrap_or("?".to_string())
             ),
             NoteStatus::Committed { block_height } => {
                 write!(f, "{NOTE_STATUS_COMMITTED} (at block height {block_height})")

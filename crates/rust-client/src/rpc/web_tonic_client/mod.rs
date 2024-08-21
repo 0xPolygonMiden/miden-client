@@ -5,8 +5,8 @@ use alloc::{
 
 use generated::{
     requests::{
-        GetAccountDetailsRequest, GetBlockHeaderByNumberRequest, GetNotesByIdRequest,
-        SubmitProvenTransactionRequest, SyncNoteRequest, SyncStateRequest,
+        CheckNullifiersByPrefixRequest, GetAccountDetailsRequest, GetBlockHeaderByNumberRequest,
+        GetNotesByIdRequest, SubmitProvenTransactionRequest, SyncNoteRequest, SyncStateRequest,
     },
     responses::{SyncNoteResponse, SyncStateResponse},
     rpc::api_client::ApiClient,
@@ -14,7 +14,7 @@ use generated::{
 use miden_objects::{
     accounts::{Account, AccountId},
     crypto::merkle::{MerklePath, MmrProof},
-    notes::{Note, NoteId, NoteTag},
+    notes::{Note, NoteId, NoteTag, Nullifier},
     transaction::{ProvenTransaction, TransactionId},
     utils::Deserializable,
     BlockHeader, Digest,
@@ -268,6 +268,39 @@ impl NodeRpcClient for WebTonicRpcClient {
         } else {
             Ok(AccountDetails::OffChain(account_id, update_summary))
         }
+    }
+
+    async fn check_nullifiers_by_prefix(
+        &mut self,
+        prefixes: &[u16],
+    ) -> Result<Vec<(Nullifier, u32)>, RpcError> {
+        let mut query_client = self.build_api_client();
+
+        let request = CheckNullifiersByPrefixRequest {
+            nullifiers: prefixes.iter().map(|&x| x as u32).collect(),
+            prefix_len: 16,
+        };
+
+        let response = query_client.check_nullifiers_by_prefix(request).await.map_err(|err| {
+            RpcError::RequestError(
+                NodeRpcClientEndpoint::CheckNullifiersByPrefix.to_string(),
+                err.to_string(),
+            )
+        })?;
+
+        let response = response.into_inner();
+        let nullifiers = response
+            .nullifiers
+            .iter()
+            .map(|nul| {
+                let nullifier = nul.nullifier.clone().ok_or(RpcError::ExpectedFieldMissing(
+                    "CheckNullifiersByPrefix response should have a `nullifier`".to_string(),
+                ))?;
+                let nullifier = nullifier.try_into()?;
+                Ok((nullifier, nul.block_num))
+            })
+            .collect::<Result<Vec<(Nullifier, u32)>, RpcError>>()?;
+        Ok(nullifiers)
     }
 }
 
