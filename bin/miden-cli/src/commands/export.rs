@@ -61,7 +61,7 @@ impl ExportCmd {
 // EXPORT ACCOUNT
 // ================================================================================================
 
-pub fn export_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+fn export_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
     client: &Client<N, R, S, A>,
     account_id: &str,
     filename: Option<PathBuf>,
@@ -92,7 +92,7 @@ pub fn export_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuth
 // EXPORT NOTE
 // ================================================================================================
 
-pub fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
     client: &mut Client<N, R, S, A>,
     note_id: &str,
     filename: Option<PathBuf>,
