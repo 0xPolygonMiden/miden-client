@@ -79,7 +79,8 @@ pub enum NoteStatus {
     },
     /// Note has been nullified on chain.
     Consumed {
-        /// ID of account that consumed the note. If the consumer account is not known, this field will be `None`.
+        /// ID of account that consumed the note. If the consumer account is not known, this field
+        /// will be `None`.
         consumer_account_id: Option<AccountId>,
         /// Block height at which the note was consumed.
         block_height: u32,

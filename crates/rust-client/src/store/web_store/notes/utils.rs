@@ -283,7 +283,8 @@ pub fn parse_input_note_idxdb_object(
         nullifier_height.parse::<u32>().expect("Failed to parse nullifier_height")
     });
 
-    // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
+    // If the note is committed and has a consumer account id, then it was consumed locally but the
+    // client is not synced with the chain
     let status = match note_idxdb.status.as_str() {
         NOTE_STATUS_EXPECTED => NoteStatus::Expected { created_at: Some(created_at) },
         NOTE_STATUS_COMMITTED => NoteStatus::Committed {
@@ -378,7 +379,8 @@ pub fn parse_output_note_idxdb_object(
         nullifier_height.parse::<u32>().expect("Failed to parse nullifier_height")
     });
 
-    // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
+    // If the note is committed and has a consumer account id, then it was consumed locally but the
+    // client is not synced with the chain
     let status = match note_idxdb.status.as_str() {
         NOTE_STATUS_EXPECTED => NoteStatus::Expected { created_at: Some(created_at) },
         NOTE_STATUS_COMMITTED => NoteStatus::Committed {

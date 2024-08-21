@@ -89,7 +89,8 @@ impl MintCmd {
 #[derive(Debug, Parser, Clone)]
 /// Create a pay-to-id transaction.
 pub struct SendCmd {
-    /// Sender account ID or its hex prefix. If none is provided, the default account's ID is used instead
+    /// Sender account ID or its hex prefix. If none is provided, the default account's ID is used
+    /// instead
     #[clap(short = 's', long = "sender")]
     sender_account_id: Option<String>,
     /// Target account ID or its hex prefix
@@ -105,7 +106,8 @@ pub struct SendCmd {
     /// Flag to submit the executed transaction without asking for confirmation
     #[clap(long, default_value_t = false)]
     force: bool,
-    /// Set the recall height for the transaction. If the note was not consumed by this height, the sender may consume it back.
+    /// Set the recall height for the transaction. If the note was not consumed by this height, the
+    /// sender may consume it back.
     ///
     /// Setting this flag turns the transaction from a PayToId to a PayToIdWithRecall.
     #[clap(short, long)]
@@ -155,7 +157,8 @@ impl SendCmd {
 #[derive(Debug, Parser, Clone)]
 /// Create a swap transaction.
 pub struct SwapCmd {
-    /// Sender account ID or its hex prefix. If none is provided, the default account's ID is used instead
+    /// Sender account ID or its hex prefix. If none is provided, the default account's ID is used
+    /// instead
     #[clap(short = 's', long = "source")]
     sender_account_id: Option<String>,
 
@@ -214,8 +217,8 @@ impl SwapCmd {
 /// If no account ID is provided, the default one is used. If no notes are provided, any notes
 /// that are identified to be owned by the account ID are consumed.
 pub struct ConsumeNotesCmd {
-    /// The account ID to be used to consume the note or its hex prefix. If none is provided, the default
-    /// account's ID is used instead
+    /// The account ID to be used to consume the note or its hex prefix. If none is provided, the
+    /// default account's ID is used instead
     #[clap(short = 'a', long = "account")]
     account_id: Option<String>,
     /// A list of note IDs or the hex prefixes of their corresponding IDs

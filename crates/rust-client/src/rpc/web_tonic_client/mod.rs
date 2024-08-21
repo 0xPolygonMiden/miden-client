@@ -224,7 +224,8 @@ impl NodeRpcClient for WebTonicRpcClient {
     /// - The provided account is not on-chain: this is due to the fact that for offchain accounts
     ///   the client is responsible
     /// - There was an error sending the request to the node
-    /// - The answer had a `None` for its account, or the account had a `None` at the `details` field.
+    /// - The answer had a `None` for its account, or the account had a `None` at the `details`
+    ///   field.
     /// - There is an error during [Account] deserialization
     async fn get_account_update(
         &mut self,

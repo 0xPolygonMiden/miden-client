@@ -275,7 +275,8 @@ pub(crate) fn set_default_account(account_id: Option<AccountId>) -> Result<(), S
     update_config(&config_path, current_config)
 }
 
-/// Sets the provided account ID as the default account and updates the config file, if not set already.
+/// Sets the provided account ID as the default account and updates the config file, if not set
+/// already.
 pub(crate) fn maybe_set_default_account(
     current_config: &mut CliConfig,
     account_id: AccountId,

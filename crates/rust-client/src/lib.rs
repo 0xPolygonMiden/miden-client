@@ -86,8 +86,8 @@ use tracing::info;
 /// A light client for connecting to the Miden rollup network.
 ///
 /// Miden client is responsible for managing a set of accounts. Specifically, the client:
-/// - Keeps track of the current and historical states of a set of accounts and related objects
-///   such as notes and transactions.
+/// - Keeps track of the current and historical states of a set of accounts and related objects such
+///   as notes and transactions.
 /// - Connects to one or more Miden nodes to periodically sync with the current state of the
 ///   network.
 /// - Executes, proves, and submits transactions to the network as directed by the user.
@@ -111,8 +111,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ///
     /// ## Arguments
     ///
-    /// - `api`: An instance of [NodeRpcClient] which provides a way for the client to connect
-    ///   to the Miden node.
+    /// - `api`: An instance of [NodeRpcClient] which provides a way for the client to connect to
+    ///   the Miden node.
     /// - `store`: An instance of [Store], which provides a way to write and read entities to
     ///   provide persistence.
     /// - `executor_store`: An instance of [Store] that provides a way for [TransactionExecutor] to
@@ -120,9 +120,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ///   store as the one for `store`, but it doesn't have to be the **same instance**.
     /// - `authenticator`: Defines the transaction authenticator that will be used by the
     ///   transaction executor whenever a signature is requested from within the VM.
-    /// - `in_debug_mode`: Instantiates the transaction executor (and in turn, its compiler)
-    ///   in debug mode, which will enable debug logs for scripts compiled with this mode for
-    ///   easier MASM debugging.
+    /// - `in_debug_mode`: Instantiates the transaction executor (and in turn, its compiler) in
+    ///   debug mode, which will enable debug logs for scripts compiled with this mode for easier
+    ///   MASM debugging.
     ///
     /// # Errors
     ///

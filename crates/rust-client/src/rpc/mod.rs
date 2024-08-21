@@ -149,8 +149,8 @@ pub trait NodeRpcClient {
     /// - `block_num` is the last block number known by the client. The returned [StateSyncInfo]
     ///   should contain data starting from the next block, until the first block which contains a
     ///   note of matching the requested tag, or the chain tip if there are no notes.
-    /// - `account_ids` is a list of account ids and determines the accounts the client is interested
-    ///   in and should receive account updates of.
+    /// - `account_ids` is a list of account ids and determines the accounts the client is
+    ///   interested in and should receive account updates of.
     /// - `note_tags` is a list of tags used to filter the notes the client is interested in, which
     ///   serves as a "note group" filter. Notice that you can't filter by a specific note id
     /// - `nullifiers_tags` similar to `note_tags`, is a list of tags used to filter the nullifiers
@@ -163,7 +163,8 @@ pub trait NodeRpcClient {
         nullifiers_tags: &[u16],
     ) -> Result<StateSyncInfo, RpcError>;
 
-    /// Fetches the current state of an account from the node using the `/GetAccountDetails` rpc endpoint
+    /// Fetches the current state of an account from the node using the `/GetAccountDetails` rpc
+    /// endpoint
     ///
     /// - `account_id` is the id of the wanted account.
     async fn get_account_update(
@@ -211,8 +212,8 @@ pub struct NoteSyncInfo {
     pub block_header: BlockHeader,
     /// Proof for block header's MMR with respect to the chain tip.
     ///
-    /// More specifically, the full proof consists of `forest`, `position` and `path` components. This
-    /// value constitutes the `path`. The other two components can be obtained as follows:
+    /// More specifically, the full proof consists of `forest`, `position` and `path` components.
+    /// This value constitutes the `path`. The other two components can be obtained as follows:
     ///    - `position` is simply `resopnse.block_header.block_num`
     ///    - `forest` is the same as `response.chain_tip + 1`
     pub mmr_path: MerklePath,

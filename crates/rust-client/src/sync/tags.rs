@@ -22,7 +22,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// When syncing the state with the node, these tags will be added to the sync request and
     /// note-related information will be retrieved for notes that have matching tags.
     ///
-    /// Note: Tags for accounts that are being tracked by the client are managed automatically by the client and do not need to be added here. That is, notes for managed accounts will be retrieved automatically by the client when syncing.
+    /// Note: Tags for accounts that are being tracked by the client are managed automatically by
+    /// the client and do not need to be added here. That is, notes for managed accounts will be
+    /// retrieved automatically by the client when syncing.
     #[maybe_async]
     pub fn get_note_tags(&self) -> Result<Vec<NoteTag>, ClientError> {
         maybe_await!(self.store.get_note_tags()).map_err(|err| err.into())

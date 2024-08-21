@@ -55,7 +55,8 @@ pub struct TransactionResult {
 }
 
 impl TransactionResult {
-    /// Screens the output notes to store and track the relevant ones, and instantiates a [TransactionResult]
+    /// Screens the output notes to store and track the relevant ones, and instantiates a
+    /// [TransactionResult]
     #[maybe_async]
     pub fn new<S: Store>(
         transaction: ExecutedTransaction,
@@ -192,8 +193,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // TRANSACTION
     // --------------------------------------------------------------------------------------------
 
-    /// Compiles a [TransactionTemplate] into a [TransactionRequest] that can be then executed by the
-    /// client
+    /// Compiles a [TransactionTemplate] into a [TransactionRequest] that can be then executed by
+    /// the client
     #[maybe_async]
     pub fn build_transaction_request(
         &mut self,
@@ -228,8 +229,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ///
     /// # Errors
     ///
-    /// - Returns [ClientError::MissingOutputNotes] if the [TransactionRequest] ouput notes are
-    ///   not a subset of executor's output notes
+    /// - Returns [ClientError::MissingOutputNotes] if the [TransactionRequest] ouput notes are not
+    ///   a subset of executor's output notes
     /// - Returns a [ClientError::TransactionExecutorError] if the execution fails
     /// - Returns a [ClientError::TransactionRequestError] if the request is invalid
     #[maybe_async]
@@ -347,7 +348,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         self.rpc_api.submit_proven_transaction(proven_transaction).await?;
         info!("Transaction submitted.");
 
-        // Transaction was proven and submitted to the node correctly, persist note details and update account
+        // Transaction was proven and submitted to the node correctly, persist note details and
+        // update account
         info!("Applying transaction to the local store...");
         maybe_await!(self.store.apply_transaction(tx_result))?;
         info!("Transaction stored.");
@@ -458,8 +460,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let (incoming_fungible_balance_map, incoming_non_fungible_balance_set) =
             maybe_await!(self.get_incoming_assets(transaction_request))?;
 
-        // Check if the account balance plus incoming assets is greater than or equal to the outgoing
-        // fungible assets
+        // Check if the account balance plus incoming assets is greater than or equal to the
+        // outgoing fungible assets
         for (faucet_id, amount) in fungible_balance_map {
             let account_asset_amount = account.vault().get_balance(faucet_id).unwrap_or(0);
             let incoming_balance = incoming_fungible_balance_map.get(&faucet_id).unwrap_or(&0);
@@ -471,8 +473,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             }
         }
 
-        // Check if the account balance plus incoming assets is greater than or equal to the outgoing
-        // non fungible assets
+        // Check if the account balance plus incoming assets is greater than or equal to the
+        // outgoing non fungible assets
         for non_fungible in non_fungible_set {
             match account.vault().has_non_fungible_asset(non_fungible.into()) {
                 Ok(true) => (),
