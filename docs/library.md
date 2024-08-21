@@ -77,7 +77,7 @@ The account's state is also tracked locally, but during sync the client updates 
 
 ## Execute transaction
 
-In order to execute a transaction, you first need to define which type of transaction is to be executed. This may be done with the `TransactionRequest` which represents a general definition of a transaction. Some standarized constructors are available for common transaction types.
+In order to execute a transaction, you first need to define which type of transaction is to be executed. This may be done with the `TransactionRequest` which represents a general definition of a transaction. Some standardized constructors are available for common transaction types.
 
 Here is an example for a `pay-to-id` transaction type:
 

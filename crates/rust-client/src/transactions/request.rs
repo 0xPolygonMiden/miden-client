@@ -180,10 +180,12 @@ impl TransactionRequest {
         self
     }
 
-    // STANDARIZED REQUESTS
+    // STANDARDIZED REQUESTS
     // --------------------------------------------------------------------------------------------
 
     /// Constructor to build a [TransactionRequest] for transaction to consume notes.
+    ///
+    /// - `note_ids` is a list of note IDs to be consumed.
     pub fn consume_notes(note_ids: Vec<NoteId>) -> Self {
         let input_notes = note_ids.into_iter().map(|id| (id, None));
         Self::new().with_authenticated_input_notes(input_notes)
@@ -191,7 +193,11 @@ impl TransactionRequest {
 
     /// Constructor to build a [TransactionRequest] for transaction to mint fungible tokens.
     ///
-    /// - faucet_auth_info has to be from the faucet account
+    /// - `asset` is the fungible asset to be minted.
+    /// - `target_id` is the account ID of the account to receive the minted asset.
+    /// - `note_type` determines the visibility of the note to be created.
+    /// - `rng` is the random number generator used to generate the serial number for the created
+    ///   note.
     pub fn mint_fungible_asset<R: FeltRng>(
         asset: FungibleAsset,
         target_id: AccountId,
@@ -212,8 +218,13 @@ impl TransactionRequest {
 
     /// Constructor to build a [TransactionRequest] for P2ID-type transactions easily.
     ///
-    /// - auth_info has to be from the executor account
-    /// - If recall_height is Some(), a P2IDR note will be created. Otherwise, a P2ID is created.
+    /// - `payment_data` is the data for the payment transaction that contains the asset to be
+    ///   transferred, the sender account ID, and the target account ID.
+    /// - `recall_height` is the block height after which the sender can recall the assets. If None,
+    ///   a P2ID note is created. If Some(), a P2IDR note is created.
+    /// - `note_type` determines the visibility of the note to be created.
+    /// - `rng` is the random number generator used to generate the serial number for the created
+    ///   note.
     pub fn pay_to_id<R: FeltRng>(
         payment_data: PaymentTransactionData,
         recall_height: Option<u32>,
@@ -246,7 +257,11 @@ impl TransactionRequest {
 
     /// Constructor to build a [TransactionRequest] for Swap-type transactions easily.
     ///
-    /// - auth_info has to be from the executor account
+    /// - `swap_data` is the data for the swap transaction that contains the sender account ID, the
+    ///   offered asset, and the requested asset.
+    /// - `note_type` determines the visibility of the note to be created.
+    /// - `rng` is the random number generator used to generate the serial number for the created
+    ///   note.
     pub fn swap<R: FeltRng>(
         swap_data: SwapTransactionData,
         note_type: NoteType,

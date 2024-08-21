@@ -463,8 +463,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         Ok(())
     }
 
+    /// Validates that the specified transaction request can be executed by the specified account.
     #[maybe_async]
-    fn validate_request(
+    pub fn validate_request(
         &self,
         account_id: AccountId,
         transaction_request: &TransactionRequest,
