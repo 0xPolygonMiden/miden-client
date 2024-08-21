@@ -527,10 +527,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             interfaces: account_capabilities,
         })
     }
+}
 
-    // TESTING
-    // --------------------------------------------------------------------------------------------
-    #[cfg(feature = "testing")]
+// ================================================================================================
+// TESTING HELPERS
+// ================================================================================================
+
+#[cfg(feature = "testing")]
+impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
     pub fn testing_prove_transaction(
         &mut self,
         tx_result: &TransactionResult,
@@ -538,7 +542,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         self.prove_transaction(tx_result)
     }
 
-    #[cfg(feature = "testing")]
     pub async fn testing_submit_proven_transaction(
         &mut self,
         proven_transaction: ProvenTransaction,
@@ -546,7 +549,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         self.submit_proven_transaction(proven_transaction).await
     }
 
-    #[cfg(feature = "testing")]
     pub async fn testing_apply_transaction(
         &self,
         tx_result: TransactionResult,

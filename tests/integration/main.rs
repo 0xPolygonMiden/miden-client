@@ -49,8 +49,6 @@ async fn test_added_notes() {
 }
 
 #[tokio::test]
-#[ignore = "multiple transactions on the same block test gets ignored by default because it is a
-flaky one until we have in place a better mechanism to ensure that both transactions would impact the same block"]
 async fn test_multiple_tx_on_same_block() {
     let mut client = create_test_client();
     wait_for_node(&mut client).await;
@@ -99,6 +97,8 @@ async fn test_multiple_tx_on_same_block() {
     let tx_prove_2 = client.testing_prove_transaction(&transaction_execution_result_2).unwrap();
     client.testing_apply_transaction(transaction_execution_result_2).await.unwrap();
 
+    client.sync_state().await.unwrap();
+
     // wait for 1 block
     wait_for_blocks(&mut client, 1).await;
 
@@ -107,7 +107,7 @@ async fn test_multiple_tx_on_same_block() {
     client.testing_submit_proven_transaction(tx_prove_2).await.unwrap();
 
     // wait for 1 block
-    wait_for_blocks(&mut client, 1).await;
+    wait_for_tx(&mut client, transaction_id_1).await;
 
     let transactions = client
         .get_transactions(crate::TransactionFilter::All)
