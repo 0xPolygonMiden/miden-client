@@ -145,6 +145,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         Self { store, rng, rpc_api: api, tx_executor }
     }
 
+    /// Returns a reference to the client's random number generator. This can be used to generate
+    /// randomness for various purposes such as serial numbers, keys, etc.
     pub fn rng(&mut self) -> &mut R {
         &mut self.rng
     }

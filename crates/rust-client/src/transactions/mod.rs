@@ -190,8 +190,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // TRANSACTION
     // --------------------------------------------------------------------------------------------
 
-    /// Creates and executes a transaction specified by the request with the provided account, but
-    /// does not change the local database.
+    /// Creates and executes a transaction specified by the request against the specified account,
+    /// but does not change the local database.
     ///
     /// # Errors
     ///
@@ -464,6 +464,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     }
 
     /// Validates that the specified transaction request can be executed by the specified account.
+    ///
+    /// This function checks that the account has enough balance to cover the outgoing assets. This
+    /// does't guarantee that the transaction will succeed, but it's useful to avoid submitting
+    /// transactions that are guaranteed to fail.
     #[maybe_async]
     pub fn validate_request(
         &self,

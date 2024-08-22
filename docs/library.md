@@ -1,6 +1,6 @@
 ---
 comments: true
-
+---
 
 To use the Miden client library in a Rust project, include it as a dependency. 
 
@@ -94,7 +94,7 @@ let payment_transaction = PaymentTransactionData::new(
     target_account_id,
 );
 
-let transaction_request: TransactionRequest = TransactionRequest::pay_to_id(
+let transaction_request = TransactionRequest::pay_to_id(
     payment_transaction,
     None,
     NoteType::Private,

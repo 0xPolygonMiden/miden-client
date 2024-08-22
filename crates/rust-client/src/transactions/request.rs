@@ -173,7 +173,7 @@ impl TransactionRequest {
     // STANDARDIZED REQUESTS
     // --------------------------------------------------------------------------------------------
 
-    /// Constructor to build a [TransactionRequest] for transaction to consume notes.
+    /// Returns a new [TransactionRequest] for a transaction to consume the specified notes.
     ///
     /// - `note_ids` is a list of note IDs to be consumed.
     pub fn consume_notes(note_ids: Vec<NoteId>) -> Self {
@@ -181,18 +181,19 @@ impl TransactionRequest {
         Self::new().with_authenticated_input_notes(input_notes)
     }
 
-    /// Constructor to build a [TransactionRequest] for transaction to mint fungible tokens.
+    /// Returns a new [TransactionRequest] for a transaction to mint fungible assets. This request
+    /// must be executed against a fungible faucet account.
     ///
     /// - `asset` is the fungible asset to be minted.
     /// - `target_id` is the account ID of the account to receive the minted asset.
     /// - `note_type` determines the visibility of the note to be created.
     /// - `rng` is the random number generator used to generate the serial number for the created
     ///   note.
-    pub fn mint_fungible_asset<R: FeltRng>(
+    pub fn mint_fungible_asset(
         asset: FungibleAsset,
         target_id: AccountId,
         note_type: NoteType,
-        rng: &mut R,
+        rng: &mut impl FeltRng,
     ) -> Result<Self, TransactionRequestError> {
         let created_note = create_p2id_note(
             asset.faucet_id(),
@@ -206,7 +207,8 @@ impl TransactionRequest {
         TransactionRequest::new().with_own_output_notes(vec![OutputNote::Full(created_note)])
     }
 
-    /// Constructor to build a [TransactionRequest] for P2ID-type transactions easily.
+    /// Returns a new [TransactionRequest] for a transaction to send a P2ID or P2IDR note. This
+    /// request must be executed against the wallet sender account.
     ///
     /// - `payment_data` is the data for the payment transaction that contains the asset to be
     ///   transferred, the sender account ID, and the target account ID.
@@ -215,11 +217,11 @@ impl TransactionRequest {
     /// - `note_type` determines the visibility of the note to be created.
     /// - `rng` is the random number generator used to generate the serial number for the created
     ///   note.
-    pub fn pay_to_id<R: FeltRng>(
+    pub fn pay_to_id(
         payment_data: PaymentTransactionData,
         recall_height: Option<u32>,
         note_type: NoteType,
-        rng: &mut R,
+        rng: &mut impl FeltRng,
     ) -> Result<Self, TransactionRequestError> {
         let created_note = if let Some(recall_height) = recall_height {
             create_p2idr_note(
@@ -245,17 +247,18 @@ impl TransactionRequest {
         TransactionRequest::new().with_own_output_notes(vec![OutputNote::Full(created_note)])
     }
 
-    /// Constructor to build a [TransactionRequest] for Swap-type transactions easily.
+    /// Returns a new [TransactionRequest] for a transaction to send a SWAP note. This request must
+    /// be executed against the wallet sender account.
     ///
     /// - `swap_data` is the data for the swap transaction that contains the sender account ID, the
     ///   offered asset, and the requested asset.
     /// - `note_type` determines the visibility of the note to be created.
     /// - `rng` is the random number generator used to generate the serial number for the created
     ///   note.
-    pub fn swap<R: FeltRng>(
+    pub fn swap(
         swap_data: SwapTransactionData,
         note_type: NoteType,
-        rng: &mut R,
+        rng: &mut impl FeltRng,
     ) -> Result<Self, TransactionRequestError> {
         // The created note is the one that we need as the output of the tx, the other one is the
         // one that we expect to receive and consume eventually
