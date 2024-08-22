@@ -30,7 +30,12 @@ pub mod assembly {
 }
 
 pub mod assets {
-    pub use miden_objects::assets::{Asset, AssetVault, FungibleAsset, TokenSymbol};
+    pub use miden_objects::{
+        accounts::delta::{
+            AccountVaultDelta, FungibleAssetDelta, NonFungibleAssetDelta, NonFungibleDeltaAction,
+        },
+        assets::{Asset, AssetVault, FungibleAsset, NonFungibleAsset, TokenSymbol},
+    };
 }
 
 pub mod auth {
