@@ -85,14 +85,15 @@ async fn test_multiple_tx_on_same_block() {
     println!("Running P2ID tx...");
 
     // Create transactions
-    let transaction_execution_result_1 = client.new_transaction(from_account_id, tx_request_1).unwrap();
-    let transaction_execution_result_2 = client.new_transaction(from_account_id, tx_request_2).unwrap();
-    
+    let transaction_execution_result_1 =
+        client.new_transaction(from_account_id, tx_request_1).unwrap();
+    let transaction_execution_result_2 =
+        client.new_transaction(from_account_id, tx_request_2).unwrap();
+
     let transaction_id_1 = transaction_execution_result_1.executed_transaction().id();
     let tx_prove_1 = client.testing_prove_transaction(&transaction_execution_result_1).unwrap();
     client.testing_apply_transaction(transaction_execution_result_1).await.unwrap();
 
-    let transaction_execution_result_2 = client.new_transaction(tx_request_2).unwrap();
     let transaction_id_2 = transaction_execution_result_2.executed_transaction().id();
     let tx_prove_2 = client.testing_prove_transaction(&transaction_execution_result_2).unwrap();
     client.testing_apply_transaction(transaction_execution_result_2).await.unwrap();
