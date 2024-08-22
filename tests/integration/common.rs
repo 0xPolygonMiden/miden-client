@@ -143,7 +143,8 @@ pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId)
             break;
         }
 
-        std::thread::sleep(std::time::Duration::new(3, 0));
+        // 500_000_000 ns = 0.5s
+        std::thread::sleep(std::time::Duration::new(0, 500_000_000));
     }
 }
 
@@ -161,7 +162,8 @@ pub async fn wait_for_blocks(client: &mut TestClient, amount_of_blocks: u32) -> 
             return summary;
         }
 
-        std::thread::sleep(std::time::Duration::new(3, 0));
+        // 500_000_000 ns = 0.5s
+        std::thread::sleep(std::time::Duration::new(0, 500_000_000));
     }
 }
 

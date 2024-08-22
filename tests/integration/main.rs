@@ -84,19 +84,36 @@ async fn test_multiple_tx_on_same_block() {
 
     println!("Running P2ID tx...");
 
+    // Create transactions
+    let transaction_execution_result_1 =
+        client.new_transaction(from_account_id, tx_request_1).unwrap();
+    let transaction_id_1 = transaction_execution_result_1.executed_transaction().id();
+    let tx_prove_1 = client.testing_prove_transaction(&transaction_execution_result_1).unwrap();
+    client.testing_apply_transaction(transaction_execution_result_1).await.unwrap();
+
+    let transaction_execution_result_2 =
+        client.new_transaction(from_account_id, tx_request_2).unwrap();
+    let transaction_id_2 = transaction_execution_result_2.executed_transaction().id();
+    let tx_prove_2 = client.testing_prove_transaction(&transaction_execution_result_2).unwrap();
+    client.testing_apply_transaction(transaction_execution_result_2).await.unwrap();
+
+    client.sync_state().await.unwrap();
+
     // wait for 1 block
     wait_for_blocks(&mut client, 1).await;
 
-    let tx_id_1 = execute_tx(&mut client, from_account_id, tx_request_1).await;
-    let tx_id_2 = execute_tx(&mut client, from_account_id, tx_request_2).await;
+    // Submit the proven transactions
+    client.testing_submit_proven_transaction(tx_prove_1).await.unwrap();
+    client.testing_submit_proven_transaction(tx_prove_2).await.unwrap();
 
-    wait_for_tx(&mut client, tx_id_1).await;
+    // wait for 1 block
+    wait_for_tx(&mut client, transaction_id_1).await;
 
     let transactions = client
         .get_transactions(crate::TransactionFilter::All)
         .unwrap()
         .into_iter()
-        .filter(|tx| tx.id == tx_id_1 || tx.id == tx_id_2)
+        .filter(|tx| tx.id == transaction_id_1 || tx.id == transaction_id_2)
         .collect::<Vec<_>>();
 
     assert_eq!(transactions.len(), 2);
