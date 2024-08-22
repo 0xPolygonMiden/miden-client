@@ -22,7 +22,7 @@ use crate::{
         mock_fungible_faucet_account, mock_notes, ACCOUNT_ID_REGULAR,
     },
     store::{InputNoteRecord, NoteFilter},
-    transactions::request::TransactionTemplate,
+    transactions::request::TransactionRequest,
 };
 
 #[tokio::test]
@@ -394,14 +394,15 @@ async fn test_mint_transaction() {
     client.sync_state().await.unwrap();
 
     // Test submitting a mint transaction
-    let transaction_template = TransactionTemplate::MintFungibleAsset(
+    let transaction_request = TransactionRequest::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::from_hex("0x168187d729b31a84").unwrap(),
         miden_objects::notes::NoteType::Private,
-    );
+        client.rng(),
+    )
+    .unwrap();
 
-    let transaction_request = client.build_transaction_request(transaction_template).unwrap();
-    let transaction = client.new_transaction(transaction_request).unwrap();
+    let transaction = client.new_transaction(faucet.id(), transaction_request).unwrap();
 
     assert!(transaction.executed_transaction().account_delta().nonce().is_some());
 }
@@ -431,18 +432,18 @@ async fn test_get_output_notes() {
     client.sync_state().await.unwrap();
 
     // Test submitting a mint transaction
-    let transaction_template = TransactionTemplate::MintFungibleAsset(
+    let transaction_request = TransactionRequest::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::from_hex("0x168187d729b31a84").unwrap(),
         miden_objects::notes::NoteType::Private,
-    );
-
-    let transaction_request = client.build_transaction_request(transaction_template).unwrap();
+        client.rng(),
+    )
+    .unwrap();
 
     //Before executing transaction, there are no output notes
     assert!(client.get_output_notes(NoteFilter::All).unwrap().is_empty());
 
-    let transaction = client.new_transaction(transaction_request).unwrap();
+    let transaction = client.new_transaction(faucet.id(), transaction_request).unwrap();
     client.submit_transaction(transaction).await.unwrap();
 
     // Check that there was an output note but it wasn't consumed

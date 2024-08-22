@@ -14,10 +14,7 @@ use miden_client::{
         NoteFilter, TransactionFilter,
     },
     sync::SyncSummary,
-    transactions::{
-        request::{TransactionRequest, TransactionTemplate},
-        DataStoreError, TransactionExecutorError,
-    },
+    transactions::{request::TransactionRequest, DataStoreError, TransactionExecutorError},
     Client, ClientError,
 };
 use miden_objects::{
@@ -93,20 +90,25 @@ pub fn create_test_store_path() -> std::path::PathBuf {
 
 pub async fn execute_failing_tx(
     client: &mut TestClient,
+    account_id: AccountId,
     tx_request: TransactionRequest,
     expected_error: ClientError,
 ) {
     println!("Executing transaction...");
     // We compare string since we can't compare the error directly
     assert_eq!(
-        client.new_transaction(tx_request).unwrap_err().to_string(),
+        client.new_transaction(account_id, tx_request).unwrap_err().to_string(),
         expected_error.to_string()
     );
 }
 
-pub async fn execute_tx(client: &mut TestClient, tx_request: TransactionRequest) -> TransactionId {
+pub async fn execute_tx(
+    client: &mut TestClient,
+    account_id: AccountId,
+    tx_request: TransactionRequest,
+) -> TransactionId {
     println!("Executing transaction...");
-    let transaction_execution_result = client.new_transaction(tx_request).unwrap();
+    let transaction_execution_result = client.new_transaction(account_id, tx_request).unwrap();
     let transaction_id = transaction_execution_result.executed_transaction().id();
 
     println!("Sending transaction to node");
@@ -115,8 +117,12 @@ pub async fn execute_tx(client: &mut TestClient, tx_request: TransactionRequest)
     transaction_id
 }
 
-pub async fn execute_tx_and_sync(client: &mut TestClient, tx_request: TransactionRequest) {
-    let transaction_id = execute_tx(client, tx_request).await;
+pub async fn execute_tx_and_sync(
+    client: &mut TestClient,
+    account_id: AccountId,
+    tx_request: TransactionRequest,
+) {
+    let transaction_id = execute_tx(client, account_id, tx_request).await;
     wait_for_tx(client, transaction_id).await;
 }
 
@@ -242,12 +248,15 @@ pub async fn mint_note(
 ) -> InputNote {
     // Create a Mint Tx for 1000 units of our fungible asset
     let fungible_asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT).unwrap();
-    let tx_template =
-        TransactionTemplate::MintFungibleAsset(fungible_asset, basic_account_id, note_type);
-
     println!("Minting Asset");
-    let tx_request = client.build_transaction_request(tx_template).unwrap();
-    execute_tx_and_sync(client, tx_request.clone()).await;
+    let tx_request = TransactionRequest::mint_fungible_asset(
+        fungible_asset,
+        basic_account_id,
+        note_type,
+        client.rng(),
+    )
+    .unwrap();
+    execute_tx_and_sync(client, fungible_asset.faucet_id(), tx_request.clone()).await;
 
     // Check that note is committed and return it
     println!("Fetching Committed Notes...");
@@ -263,11 +272,10 @@ pub async fn consume_notes(
     account_id: AccountId,
     input_notes: &[InputNote],
 ) {
-    let tx_template =
-        TransactionTemplate::ConsumeNotes(account_id, input_notes.iter().map(|n| n.id()).collect());
     println!("Consuming Note...");
-    let tx_request = client.build_transaction_request(tx_template).unwrap();
-    execute_tx_and_sync(client, tx_request).await;
+    let tx_request =
+        TransactionRequest::consume_notes(input_notes.iter().map(|n| n.id()).collect());
+    execute_tx_and_sync(client, account_id, tx_request).await;
 }
 
 pub async fn assert_account_has_single_asset(
@@ -295,13 +303,11 @@ pub async fn assert_note_cannot_be_consumed_twice(
     note_to_consume_id: NoteId,
 ) {
     // Check that we can't consume the P2ID note again
-    let tx_template =
-        TransactionTemplate::ConsumeNotes(consuming_account_id, vec![note_to_consume_id]);
     println!("Consuming Note...");
 
     // Double-spend error expected to be received since we are consuming the same note
-    let tx_request = client.build_transaction_request(tx_template).unwrap();
-    match client.new_transaction(tx_request) {
+    let tx_request = TransactionRequest::consume_notes(vec![note_to_consume_id]);
+    match client.new_transaction(consuming_account_id, tx_request) {
         Err(ClientError::TransactionExecutorError(
             TransactionExecutorError::FetchTransactionInputsFailed(
                 DataStoreError::NoteAlreadyConsumed(_),

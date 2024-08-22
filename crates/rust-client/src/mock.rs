@@ -53,7 +53,7 @@ use crate::{
     sync::get_nullifier_prefix,
     transactions::{
         prepare_word,
-        request::{PaymentTransactionData, TransactionTemplate},
+        request::{PaymentTransactionData, TransactionRequest},
     },
     Client,
 };
@@ -573,16 +573,13 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
         .unwrap();
 
     let asset: miden_objects::assets::Asset = FungibleAsset::new(faucet.id(), 5u64).unwrap().into();
-
+    let payment_data = PaymentTransactionData::new(asset, sender_account.id(), target_account.id());
     // Insert a P2ID transaction object
 
-    let transaction_template = TransactionTemplate::PayToId(
-        PaymentTransactionData::new(asset, sender_account.id(), target_account.id()),
-        NoteType::Private,
-    );
-
-    let transaction_request = client.build_transaction_request(transaction_template).unwrap();
-    let transaction_execution_result = client.new_transaction(transaction_request).unwrap();
+    let transaction_request =
+        TransactionRequest::pay_to_id(payment_data, None, NoteType::Private, client.rng()).unwrap();
+    let transaction_execution_result =
+        client.new_transaction(sender_account.id(), transaction_request).unwrap();
 
     client.submit_transaction(transaction_execution_result).await.unwrap();
 }
