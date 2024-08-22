@@ -2,7 +2,7 @@ use std::io;
 
 use clap::{Parser, ValueEnum};
 use miden_client::{
-    assets::Asset,
+    assets::{FungibleAsset, NonFungibleDeltaAction},
     auth::TransactionAuthenticator,
     crypto::{Digest, FeltRng},
     notes::{get_input_note_with_id_prefix, NoteId, NoteType as MidenNoteType},
@@ -375,16 +375,11 @@ fn print_transaction_details(transaction_result: &TransactionResult) -> Result<(
 
     let account_delta = transaction_result.account_delta();
 
-    let has_storage_changes = !account_delta.storage().cleared_items.is_empty()
-        || !account_delta.storage().updated_items.is_empty();
+    let has_storage_changes = !account_delta.storage().slots().is_empty();
     if has_storage_changes {
         let mut table = create_dynamic_table(&["Storage Slot", "Effect"]);
 
-        for cleared_item_slot in account_delta.storage().cleared_items.iter() {
-            table.add_row(vec![cleared_item_slot.to_string(), "Cleared".to_string()]);
-        }
-
-        for (updated_item_slot, new_value) in account_delta.storage().updated_items.iter() {
+        for (updated_item_slot, new_value) in account_delta.storage().slots() {
             let value_digest: Digest = new_value.into();
             table.add_row(vec![
                 updated_item_slot.to_string(),
@@ -398,39 +393,31 @@ fn print_transaction_details(transaction_result: &TransactionResult) -> Result<(
         println!("Account Storage will not be changed.");
     }
 
-    let has_vault_changes = !account_delta.vault().added_assets.is_empty()
-        || !account_delta.vault().removed_assets.is_empty();
-
-    if has_vault_changes {
+    if !account_delta.vault().is_empty() {
         let faucet_details_map = load_faucet_details_map()?;
         let mut table = create_dynamic_table(&["Asset Type", "Faucet ID", "Amount"]);
 
-        for asset in account_delta.vault().added_assets.iter() {
-            let (asset_type, faucet_id, amount) = match asset {
-                Asset::Fungible(fungible_asset) => {
-                    let (faucet_id, amount) =
-                        faucet_details_map.format_fungible_asset(fungible_asset)?;
-                    ("Fungible Asset", faucet_id, amount)
-                },
-                Asset::NonFungible(non_fungible_asset) => {
-                    ("Non Fungible Asset", non_fungible_asset.faucet_id().to_hex(), 1.0.to_string())
-                },
-            };
-            table.add_row(vec![asset_type, &faucet_id, &format!("+{}", amount)]);
+        for (faucet_id, amount) in account_delta.vault().fungible().iter() {
+            let asset = FungibleAsset::new(*faucet_id, amount.unsigned_abs())
+                .map_err(|err| err.to_string())?;
+            let (faucet_fmt, amount_fmt) = faucet_details_map.format_fungible_asset(&asset)?;
+
+            if amount.is_positive() {
+                table.add_row(vec!["Fungible Asset", &faucet_fmt, &format!("+{}", amount_fmt)]);
+            } else {
+                table.add_row(vec!["Fungible Asset", &faucet_fmt, &format!("-{}", amount_fmt)]);
+            }
         }
 
-        for asset in account_delta.vault().removed_assets.iter() {
-            let (asset_type, faucet_id, amount) = match asset {
-                Asset::Fungible(fungible_asset) => {
-                    let (faucet_id, amount) =
-                        faucet_details_map.format_fungible_asset(fungible_asset)?;
-                    ("Fungible Asset", faucet_id, amount)
+        for (asset, action) in account_delta.vault().non_fungible().iter() {
+            match action {
+                NonFungibleDeltaAction::Add => {
+                    table.add_row(vec!["Non Fungible Asset", &asset.faucet_id().to_hex(), "1"]);
                 },
-                Asset::NonFungible(non_fungible_asset) => {
-                    ("Non Fungible Asset", non_fungible_asset.faucet_id().to_hex(), 1.0.to_string())
+                NonFungibleDeltaAction::Remove => {
+                    table.add_row(vec!["Non Fungible Asset", &asset.faucet_id().to_hex(), "-1"]);
                 },
-            };
-            table.add_row(vec![asset_type, &faucet_id, &format!("-{}", amount)]);
+            }
         }
 
         println!("Vault changes:");
