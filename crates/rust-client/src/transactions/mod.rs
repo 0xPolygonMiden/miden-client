@@ -335,7 +335,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
     #[maybe_async]
     fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), ClientError> {
-        // Transaction was proven and submitted to the node correctly, persist note details and update account
+        // Transaction was proven and submitted to the node correctly, persist note details and
+        // update account
         info!("Applying transaction to the local store...");
         maybe_await!(self.store.apply_transaction(tx_result))?;
         info!("Transaction stored.");
