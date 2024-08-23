@@ -1,5 +1,4 @@
 use clap::Parser;
-use comfy_table::presets;
 use miden_client::{
     accounts::{AccountId, AccountStorage, AccountType, StorageSlotType},
     assets::Asset,
@@ -202,26 +201,6 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
             table.add_row(vec![&idx.to_string(), slot_type, &arity.to_string(), &item.to_hex()]);
         }
         println!("{table}\n");
-    }
-
-    // Code related table
-    {
-        let module = account.code().module();
-        let procedures = account.code().procedures();
-
-        println!("Account Code Info:");
-
-        let mut table = create_dynamic_table(&["Procedure Digests"]);
-
-        for proc_info in procedures {
-            table.add_row(vec![proc_info.mast_root()]);
-        }
-        println!("{table}\n");
-
-        let mut code_table = create_dynamic_table(&["Code"]);
-        code_table.load_preset(presets::UTF8_HORIZONTAL_ONLY);
-        code_table.add_row(vec![&module]);
-        println!("{code_table}\n");
     }
 
     Ok(())
