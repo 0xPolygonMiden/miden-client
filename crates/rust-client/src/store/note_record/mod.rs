@@ -5,9 +5,10 @@ use alloc::{
 use core::fmt::{self, Display};
 
 use chrono::{Local, TimeZone};
+use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::AccountId,
-    assembly::{Assembler, ProgramAst},
+    assembly::Assembler,
     notes::{Note, NoteDetails, NoteScript},
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
     Digest, Felt, Word,
@@ -175,11 +176,9 @@ impl Display for NoteStatus {
 }
 
 fn default_script() -> NoteScript {
-    let assembler = Assembler::default();
-    let note_program_ast =
-        ProgramAst::parse("begin end").expect("dummy script should be parseable");
-    let (note_script, _) = NoteScript::new(note_program_ast, &assembler)
-        .expect("dummy note script should be created without issues");
+    let note_program_ast = "begin end";
+    let note_script = NoteScript::compile(note_program_ast, TransactionKernel::assembler())
+        .expect("Default program is well-formed");
     note_script
 }
 

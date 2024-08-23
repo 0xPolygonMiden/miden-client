@@ -6,7 +6,6 @@ use alloc::{
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub, AuthSecretKey},
-    assembly::ModuleAst,
     assets::{Asset, AssetVault},
     Digest, Word,
 };
@@ -94,7 +93,8 @@ impl WebStore {
         let (_procedures, module_ast) =
             self.get_account_code(account_stub.code_commitment()).await.unwrap();
 
-        let account_code = AccountCode::new(module_ast, &TransactionKernel::assembler()).unwrap();
+        let account_code =
+            AccountCode::compile(module_ast, &TransactionKernel::assembler()).unwrap();
         let account_storage = self.get_account_storage(account_stub.storage_root()).await.unwrap();
         let account_vault = self.get_vault_assets(account_stub.vault_root()).await.unwrap();
         let account_vault = AssetVault::new(&account_vault).unwrap();

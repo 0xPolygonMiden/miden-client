@@ -6,7 +6,6 @@ use alloc::{
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub, AuthSecretKey},
-    assembly::{AstSerdeOptions, ModuleAst},
     assets::{Asset, AssetVault},
     Digest, Felt, Word,
 };

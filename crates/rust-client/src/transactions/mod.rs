@@ -5,13 +5,13 @@ use alloc::{
 };
 use core::fmt;
 
+use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::{Account, AccountDelta, AccountId, AccountType},
-    assembly::ProgramAst,
     assets::{Asset, NonFungibleAsset},
     notes::{Note, NoteDetails, NoteExecutionMode, NoteId, NoteTag, NoteType},
     transaction::{InputNotes, TransactionArgs},
-    AssetError, Digest, Felt, NoteError, Word,
+    AssetError, Digest, Felt, NoteError, TransactionScriptError, Word,
 };
 use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, TransactionProver};
 use request::{TransactionRequestError, TransactionScriptTemplate};
@@ -33,7 +33,7 @@ pub use miden_objects::transaction::{
     ExecutedTransaction, InputNote, OutputNote, OutputNotes, ProvenTransaction, TransactionId,
     TransactionScript,
 };
-pub use miden_tx::{DataStoreError, ScriptTarget, TransactionExecutorError};
+pub use miden_tx::{DataStoreError, TransactionExecutorError};
 pub use request::known_script_roots;
 
 // TRANSACTION RESULT
@@ -208,9 +208,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         // Validates the transaction request before executing
         maybe_await!(self.validate_request(account_id, &transaction_request))?;
 
-        maybe_await!(self.tx_executor.load_account(account_id))
-            .map_err(ClientError::TransactionExecutorError)?;
-
         // Ensure authenticated notes have their inclusion proofs (a.k.a they're in a committed
         // state). TODO: we should consider refactoring this in a way we can handle this in
         // `get_transaction_inputs`
@@ -263,7 +260,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     self.get_account_capabilities(account_id)
                 )?);
 
-                tx_script_builder.build_auth_script(&self.tx_executor)?
+                tx_script_builder.build_auth_script()?
             },
         };
 
@@ -343,21 +340,16 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         Ok(())
     }
 
-    /// Compiles the provided transaction script source and inputs into a [TransactionScript] and
-    /// checks (to the extent possible) that the transaction script can be executed against all
-    /// accounts with the specified interfaces.
+    /// Compiles the provided transaction script source and inputs into a [TransactionScript]
     pub fn compile_tx_script<T>(
         &self,
-        program: ProgramAst,
-        inputs: T,
-        target_account_procs: Vec<ScriptTarget>,
-    ) -> Result<TransactionScript, ClientError>
+        program: &str,
+    ) -> Result<TransactionScript, TransactionScriptError>
     where
         T: IntoIterator<Item = (Word, Vec<Felt>)>,
     {
-        self.tx_executor
-            .compile_tx_script(program, inputs, target_account_procs)
-            .map_err(ClientError::TransactionExecutorError)
+        // TODO: map error to ClientError
+        TransactionScript::compile(program, [], TransactionKernel::assembler())
     }
 
     // HELPERS

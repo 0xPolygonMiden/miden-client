@@ -1,8 +1,9 @@
 use alloc::string::String;
 
+use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::{AccountId, AuthSecretKey},
-    assembly::{AssemblyError, ProgramAst},
+    assembly::AssemblyError,
     notes::PartialNote,
     transaction::TransactionScript,
     Felt,
@@ -146,30 +147,25 @@ impl TransactionScriptBuilder {
             self.script_authentication()
         );
 
-        let program_ast = ProgramAst::parse(&script)
-            .map_err(|err| TransactionScriptBuilderError::InvalidTransactionScript(err.into()))?;
+        // TODO: map error to TransactionSCriptBuilderError
+        let tx_script =
+            TransactionScript::compile(script, vec![], TransactionKernel::assembler()).unwrap();
 
-        let tx_script = tx_executor
-            .compile_tx_script(program_ast, vec![], vec![])
-            .map_err(TransactionScriptBuilderError::TransactionExecutorError)?;
+        //tx_executor
+        //    .compile_tx_script(program_ast, vec![], vec![])
+        //    .map_err(TransactionScriptBuilderError::TransactionExecutorError)?;
 
         Ok(tx_script)
     }
 
     /// Builds a simple authentication script for the account that doesn't send any notes.
-    pub fn build_auth_script<D: DataStore, A: TransactionAuthenticator>(
-        &self,
-        tx_executor: &TransactionExecutor<D, A>,
-    ) -> Result<TransactionScript, TransactionScriptBuilderError> {
+    pub fn build_auth_script(&self) -> Result<TransactionScript, TransactionScriptBuilderError> {
         let script =
             format!("{} begin {} end", self.script_includes(), self.script_authentication());
 
-        let program_ast = ProgramAst::parse(&script)
-            .map_err(|err| TransactionScriptBuilderError::InvalidTransactionScript(err.into()))?;
-
-        let tx_script = tx_executor
-            .compile_tx_script(program_ast, vec![], vec![])
-            .map_err(TransactionScriptBuilderError::TransactionExecutorError)?;
+        // TODO: map error to TranscationScriptBuilderERror
+        let tx_script =
+            TransactionScript::compile(script, vec![], TransactionKernel::assembler()).unwrap();
 
         Ok(tx_script)
     }
