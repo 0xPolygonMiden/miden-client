@@ -18,8 +18,9 @@ use super::{js_bindings::*, InputNoteIdxdbObject, OutputNoteIdxdbObject};
 use crate::store::{
     note_record::{
         NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED, NOTE_STATUS_EXPECTED, NOTE_STATUS_PROCESSING,
+        PROOF_STATUS_INVALID, PROOF_STATUS_NOT_VERIFIED, PROOF_STATUS_VALID,
     },
-    InputNoteRecord, NoteRecordDetails, NoteStatus, OutputNoteRecord, StoreError,
+    InputNoteRecord, NoteRecordDetails, NoteStatus, OutputNoteRecord, ProofStatus, StoreError,
 };
 
 // TYPES
@@ -318,6 +319,21 @@ pub fn parse_input_note_idxdb_object(
     let imported_tag_as_u32: Option<u32> =
         note_idxdb.imported_tag.as_ref().and_then(|tag| tag.parse::<u32>().ok());
 
+    let proof_status = if let Some(proof_status) = note_idxdb.proof_status {
+        match proof_status.as_str() {
+            PROOF_STATUS_NOT_VERIFIED => Some(ProofStatus::NotVerified),
+            PROOF_STATUS_VALID => Some(ProofStatus::Valid),
+            PROOF_STATUS_INVALID => Some(ProofStatus::Invalid),
+            _ => {
+                return Err(StoreError::DataDeserializationError(
+                    DeserializationError::InvalidValue(format!("ProofStatus: {}", proof_status)),
+                ))
+            },
+        }
+    } else {
+        None
+    };
+
     Ok(InputNoteRecord::new(
         id,
         recipient,
@@ -325,6 +341,7 @@ pub fn parse_input_note_idxdb_object(
         status,
         note_metadata,
         inclusion_proof,
+        proof_status,
         note_details,
         note_idxdb.ignored,
         imported_tag_as_u32.map(NoteTag::from),

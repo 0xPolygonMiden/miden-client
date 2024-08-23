@@ -19,7 +19,9 @@ use rusqlite::{named_params, params, params_from_iter, types::Value, Transaction
 use super::SqliteStore;
 use crate::store::{
     note_record::{
-        NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED, NOTE_STATUS_EXPECTED, NOTE_STATUS_PROCESSING,
+        ProofStatus, NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED, NOTE_STATUS_EXPECTED,
+        NOTE_STATUS_PROCESSING, PROOF_STATUS_INVALID, PROOF_STATUS_NOT_VERIFIED,
+        PROOF_STATUS_VALID,
     },
     InputNoteRecord, NoteFilter, NoteRecordDetails, NoteStatus, OutputNoteRecord, StoreError,
 };
@@ -27,8 +29,8 @@ use crate::store::{
 fn insert_note_query(table_name: NoteTable) -> String {
     format!("\
     INSERT INTO {table_name}
-        (note_id, assets, recipient, status, metadata, details, inclusion_proof, consumer_transaction_id, created_at, expected_height, ignored, imported_tag, nullifier_height)
-     VALUES (:note_id, :assets, :recipient, :status, json(:metadata), json(:details), json(:inclusion_proof), :consumer_transaction_id, unixepoch(current_timestamp), :expected_height, :ignored, :imported_tag, :nullifier_height);",
+        (note_id, assets, recipient, status, metadata, details, inclusion_proof, proof_status, consumer_transaction_id, created_at, expected_height, ignored, imported_tag, nullifier_height)
+     VALUES (:note_id, :assets, :recipient, :status, json(:metadata), json(:details), json(:inclusion_proof), :proof_status, :consumer_transaction_id, unixepoch(current_timestamp), :expected_height, :ignored, :imported_tag, :nullifier_height);",
             table_name = table_name)
 }
 
@@ -44,6 +46,7 @@ type SerializedInputNoteData = (
     String,
     String,
     Vec<u8>,
+    Option<String>,
     Option<String>,
     Option<u32>,
     bool,
@@ -68,6 +71,7 @@ type SerializedInputNoteParts = (
     String,
     String,
     String,
+    Option<String>,
     Option<String>,
     Option<String>,
     Vec<u8>,
@@ -126,6 +130,7 @@ impl<'a> NoteFilter<'a> {
                     note.status,
                     note.metadata,
                     note.inclusion_proof,
+                    note.proof_status,
                     script.serialized_note_script,
                     tx.account_id,
                     note.created_at,
@@ -353,6 +358,7 @@ pub(super) fn insert_input_note_tx(
         note_script_hash,
         serialized_note_script,
         inclusion_proof,
+        proof_status,
         expected_height,
         ignored,
         imported_tag,
@@ -369,11 +375,12 @@ pub(super) fn insert_input_note_tx(
             ":metadata": metadata,
             ":details": details,
             ":inclusion_proof": inclusion_proof,
+            ":proof_status": proof_status,
             ":consumer_transaction_id": None::<String>,
             ":expected_height": expected_height.unwrap_or(block_num),
             ":ignored": ignored,
             ":imported_tag": imported_tag,
-            ":nullifier_height": nullifier_height
+            ":nullifier_height": nullifier_height,
         },
     )?;
 
@@ -470,14 +477,15 @@ fn parse_input_note_columns(
     let status: String = row.get(3)?;
     let metadata: Option<String> = row.get(4)?;
     let inclusion_proof: Option<String> = row.get(5)?;
-    let serialized_note_script: Vec<u8> = row.get(6)?;
-    let consumer_account_id: Option<i64> = row.get(7)?;
-    let created_at: u64 = row.get(8)?;
-    let expected_height: Option<u32> = row.get(9)?;
-    let submitted_at: Option<u64> = row.get(10)?;
-    let nullifier_height: Option<u32> = row.get(11)?;
-    let ignored: bool = row.get(12)?;
-    let imported_tag: Option<u32> = row.get(13)?;
+    let proof_status: Option<String> = row.get(6)?;
+    let serialized_note_script: Vec<u8> = row.get(7)?;
+    let consumer_account_id: Option<i64> = row.get(8)?;
+    let created_at: u64 = row.get(9)?;
+    let expected_height: Option<u32> = row.get(10)?;
+    let submitted_at: Option<u64> = row.get(11)?;
+    let nullifier_height: Option<u32> = row.get(12)?;
+    let ignored: bool = row.get(13)?;
+    let imported_tag: Option<u32> = row.get(14)?;
 
     Ok((
         assets,
@@ -486,6 +494,7 @@ fn parse_input_note_columns(
         status,
         metadata,
         inclusion_proof,
+        proof_status,
         serialized_note_script,
         consumer_account_id,
         created_at,
@@ -508,6 +517,7 @@ fn parse_input_note(
         status,
         note_metadata,
         note_inclusion_proof,
+        proof_status,
         serialized_note_script,
         consumer_account_id,
         created_at,
@@ -587,6 +597,21 @@ fn parse_input_note(
         },
     };
 
+    let proof_status = if let Some(proof_status) = proof_status {
+        match proof_status.as_str() {
+            PROOF_STATUS_NOT_VERIFIED => Some(ProofStatus::NotVerified),
+            PROOF_STATUS_VALID => Some(ProofStatus::Valid),
+            PROOF_STATUS_INVALID => Some(ProofStatus::Invalid),
+            _ => {
+                return Err(StoreError::DataDeserializationError(
+                    DeserializationError::InvalidValue(format!("ProofStatus: {}", proof_status)),
+                ))
+            },
+        }
+    } else {
+        None
+    };
+
     Ok(InputNoteRecord::new(
         id,
         recipient,
@@ -594,6 +619,7 @@ fn parse_input_note(
         status,
         note_metadata,
         inclusion_proof,
+        proof_status,
         note_details,
         ignored,
         imported_tag.map(NoteTag::from),
@@ -658,6 +684,15 @@ pub(crate) fn serialize_input_note(
         },
     };
 
+    let proof_status = match note.proof_status() {
+        Some(proof_status) => match proof_status {
+            ProofStatus::NotVerified => Some(PROOF_STATUS_NOT_VERIFIED.to_string()),
+            ProofStatus::Valid => Some(PROOF_STATUS_VALID.to_string()),
+            ProofStatus::Invalid => Some(PROOF_STATUS_INVALID.to_string()),
+        },
+        None => None,
+    };
+
     Ok((
         note_id,
         note_assets,
@@ -668,6 +703,7 @@ pub(crate) fn serialize_input_note(
         note_script_hash,
         serialized_note_script,
         inclusion_proof,
+        proof_status,
         expected_height,
         ignored,
         imported_tag,
@@ -685,12 +721,12 @@ fn parse_output_note_columns(
     let status: String = row.get(3)?;
     let metadata: String = row.get(4)?;
     let inclusion_proof: Option<String> = row.get(5)?;
-    let serialized_note_script: Option<Vec<u8>> = row.get(6)?;
-    let consumer_account_id: Option<i64> = row.get(7)?;
-    let created_at: u64 = row.get(8)?;
-    let expected_height: Option<u32> = row.get(9)?;
-    let submitted_at: Option<u64> = row.get(10)?;
-    let nullifier_height: Option<u32> = row.get(11)?;
+    let serialized_note_script: Option<Vec<u8>> = row.get(7)?;
+    let consumer_account_id: Option<i64> = row.get(8)?;
+    let created_at: u64 = row.get(9)?;
+    let expected_height: Option<u32> = row.get(10)?;
+    let submitted_at: Option<u64> = row.get(11)?;
+    let nullifier_height: Option<u32> = row.get(12)?;
 
     Ok((
         assets,

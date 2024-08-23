@@ -11,7 +11,7 @@ use winter_maybe_async::maybe_await;
 
 use crate::{
     rpc::NodeRpcClient,
-    store::{InputNoteRecord, NoteStatus, Store, StoreError},
+    store::{InputNoteRecord, NoteStatus, ProofStatus, Store, StoreError},
     Client, ClientError,
 };
 
@@ -160,6 +160,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             status,
             Some(*note.metadata()),
             Some(inclusion_proof),
+            Some(ProofStatus::NotVerified),
             details,
             false,
             None,
@@ -203,6 +204,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                         },
                         None,
                         None,
+                        None,
                         record_details,
                         ignored,
                         Some(tag),
@@ -217,6 +219,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     created_at: None,
                     block_height: Some(after_block_num),
                 },
+                None,
                 None,
                 None,
                 record_details,

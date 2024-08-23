@@ -12,6 +12,7 @@ pub struct InputNoteIdxdbObject {
     pub status: String,
     pub metadata: Option<String>,
     pub inclusion_proof: Option<String>,
+    pub proof_status: Option<String>,
     #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
     pub serialized_note_script: Vec<u8>,
     pub consumer_account_id: Option<String>,

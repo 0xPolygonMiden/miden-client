@@ -10,7 +10,7 @@ use miden_objects::{
     Digest,
 };
 
-use super::{NoteRecordDetails, NoteStatus, OutputNoteRecord};
+use super::{NoteRecordDetails, NoteStatus, OutputNoteRecord, ProofStatus};
 use crate::ClientError;
 
 // INPUT NOTE RECORD
@@ -38,6 +38,7 @@ pub struct InputNoteRecord {
     details: NoteRecordDetails,
     id: NoteId,
     inclusion_proof: Option<NoteInclusionProof>,
+    proof_status: Option<ProofStatus>,
     metadata: Option<NoteMetadata>,
     recipient: Digest,
     status: NoteStatus,
@@ -54,6 +55,7 @@ impl InputNoteRecord {
         status: NoteStatus,
         metadata: Option<NoteMetadata>,
         inclusion_proof: Option<NoteInclusionProof>,
+        proof_status: Option<ProofStatus>,
         details: NoteRecordDetails,
         ignored: bool,
         imported_tag: Option<NoteTag>,
@@ -65,6 +67,7 @@ impl InputNoteRecord {
             status,
             metadata,
             inclusion_proof,
+            proof_status,
             details,
             ignored,
             imported_tag,
@@ -97,6 +100,10 @@ impl InputNoteRecord {
 
     pub fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
         self.inclusion_proof.as_ref()
+    }
+
+    pub fn proof_status(&self) -> Option<&ProofStatus> {
+        self.proof_status.as_ref()
     }
 
     pub fn details(&self) -> &NoteRecordDetails {
@@ -135,6 +142,7 @@ impl From<&NoteDetails> for InputNoteRecord {
             recipient: note_details.recipient().digest(),
             metadata: None,
             inclusion_proof: None,
+            proof_status: None,
             status: NoteStatus::Expected { created_at: None, block_height: None },
             details: NoteRecordDetails {
                 nullifier: note_details.nullifier().to_string(),
@@ -191,6 +199,7 @@ impl Deserializable for InputNoteRecord {
             status,
             metadata,
             inclusion_proof,
+            proof_status: None,
             details,
             ignored: false,
             imported_tag: None,
@@ -207,6 +216,7 @@ impl From<Note> for InputNoteRecord {
             status: NoteStatus::Expected { created_at: None, block_height: None },
             metadata: Some(*note.metadata()),
             inclusion_proof: None,
+            proof_status: None,
             details: note.into(),
             ignored: false,
             imported_tag: None,
@@ -232,6 +242,7 @@ impl From<InputNote> for InputNoteRecord {
             metadata: Some(*recorded_note.note().metadata()),
             details: recorded_note.note().clone().into(),
             inclusion_proof: recorded_note.proof().cloned(),
+            proof_status: None,
             ignored: false,
             imported_tag: None,
         }
@@ -294,6 +305,7 @@ impl TryFrom<OutputNoteRecord> for InputNoteRecord {
                 details: details.clone(),
                 id: output_note.id(),
                 inclusion_proof: output_note.inclusion_proof().cloned(),
+                proof_status: None,
                 metadata: Some(*output_note.metadata()),
                 recipient: output_note.recipient(),
                 status: output_note.status(),

@@ -28,7 +28,9 @@ pub mod sqlite_store;
 pub mod web_store;
 
 mod note_record;
-pub use note_record::{InputNoteRecord, NoteRecordDetails, NoteStatus, OutputNoteRecord};
+pub use note_record::{
+    InputNoteRecord, NoteRecordDetails, NoteStatus, OutputNoteRecord, ProofStatus,
+};
 
 // STORE TRAIT
 // ================================================================================================

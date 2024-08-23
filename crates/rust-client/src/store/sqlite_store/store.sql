@@ -84,6 +84,9 @@ CREATE TABLE input_notes (
     -- sub_hash                                               -- sub hash of the block the note was included in stored as a hex string
     -- note_root                                              -- the note root of the block the note was created in
     -- note_path                                              -- the Merkle path to the note in the note Merkle tree of the block the note was created in, stored as an array of digests
+    proof_status TEXT CHECK( proof_status IN (                -- the status of the inclusion proof
+        'NotVerified', 'Valid', 'Invalid'
+    )),
 
     metadata JSON NULL,                                     -- JSON consisting of the following fields:
     -- sender_id                                              -- the account ID of the sender
@@ -133,6 +136,9 @@ CREATE TABLE output_notes (
     -- sub_hash                                               -- sub hash of the block the note was included in stored as a hex string
     -- note_root                                              -- the note root of the block the note was created in
     -- note_path                                              -- the Merkle path to the note in the note Merkle tree of the block the note was created in, stored as an array of digests
+    proof_status TEXT CHECK( proof_status IN (                -- the status of the inclusion proof
+        'NotVerified', 'Valid', 'Invalid'
+    )),
 
     metadata JSON NOT NULL,                                 -- JSON consisting of the following fields:
     -- sender_id                                              -- the account ID of the sender

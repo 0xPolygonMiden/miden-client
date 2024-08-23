@@ -186,6 +186,20 @@ fn default_script() -> NoteScript {
         .expect("Default program is well-formed")
 }
 
+// PROOF STATUS
+// ================================================================================================
+
+pub const PROOF_STATUS_NOT_VERIFIED: &str = "NotVerified";
+pub const PROOF_STATUS_VALID: &str = "Valid";
+pub const PROOF_STATUS_INVALID: &str = "Invalid";
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ProofStatus {
+    NotVerified,
+    Valid,
+    Invalid,
+}
+
 // NOTE: NoteInputs does not impl Serialize which is why we use Vec<Felt> here
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct NoteRecordDetails {
