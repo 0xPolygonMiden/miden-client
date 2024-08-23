@@ -8,9 +8,7 @@ use miden_objects::{
     transaction::TransactionScript,
     Felt,
 };
-use miden_tx::{
-    auth::TransactionAuthenticator, DataStore, TransactionExecutor, TransactionExecutorError,
-};
+use miden_tx::TransactionExecutorError;
 
 use super::prepare_word;
 
@@ -130,9 +128,8 @@ impl TransactionScriptBuilder {
 
     /// Builds a transaction script which sends the specified notes with the corresponding
     /// authentication.
-    pub fn build_send_notes_script<D: DataStore, A: TransactionAuthenticator>(
+    pub fn build_send_notes_script(
         &self,
-        tx_executor: &TransactionExecutor<D, A>,
         output_notes: &[PartialNote],
     ) -> Result<TransactionScript, TransactionScriptBuilderError> {
         let send_note_procedure = self

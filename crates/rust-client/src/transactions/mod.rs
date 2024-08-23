@@ -247,7 +247,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     self.get_account_capabilities(account_id)
                 )?);
 
-                tx_script_builder.build_send_notes_script(&self.tx_executor, notes)?
+                tx_script_builder.build_send_notes_script(notes)?
             },
             None => {
                 if transaction_request.input_notes().is_empty() {
@@ -343,13 +343,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// Compiles the provided transaction script source and inputs into a [TransactionScript]
     pub fn compile_tx_script<T>(
         &self,
+        inputs: T,
         program: &str,
     ) -> Result<TransactionScript, TransactionScriptError>
     where
         T: IntoIterator<Item = (Word, Vec<Felt>)>,
     {
         // TODO: map error to ClientError
-        TransactionScript::compile(program, [], TransactionKernel::assembler())
+        TransactionScript::compile(program, inputs, TransactionKernel::assembler())
     }
 
     // HELPERS

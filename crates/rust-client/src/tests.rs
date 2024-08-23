@@ -5,15 +5,15 @@ use alloc::vec::Vec;
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::{
-        account_id::testing::ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, AccountId, AccountStorageType,
-        AccountStub, AuthSecretKey,
+        account_id::testing::ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, AccountCode, AccountId,
+        AccountStorageType, AccountStub, AuthSecretKey,
     },
-    assembly::{AstSerdeOptions, ModuleAst},
     assets::{FungibleAsset, TokenSymbol},
     crypto::dsa::rpo_falcon512::SecretKey,
     notes::{NoteFile, NoteTag},
     Word,
 };
+use miden_tx::utils::{Deserializable, Serializable};
 
 use crate::{
     accounts::AccountTemplate,
@@ -33,7 +33,7 @@ async fn test_input_notes_round_trip() {
     // generate test data
 
     let assembler = TransactionKernel::assembler();
-    let (consumed_notes, _created_notes) = mock_notes(&assembler);
+    let (consumed_notes, _created_notes) = mock_notes(assembler);
     let (_, consumed_notes, ..) = mock_full_chain_mmr_and_notes(consumed_notes);
 
     // insert notes into database
@@ -65,7 +65,7 @@ async fn test_get_input_note() {
     let mut client = create_test_client();
 
     let assembler = TransactionKernel::assembler();
-    let (_consumed_notes, created_notes) = mock_notes(&assembler);
+    let (_consumed_notes, created_notes) = mock_notes(assembler);
 
     // insert Note into database
     let note: InputNoteRecord = created_notes.first().unwrap().clone().into();
@@ -190,25 +190,18 @@ async fn test_account_code() {
         None,
     );
 
-    let mut account_module = account.code().module().clone();
+    let account_code = account.code();
 
-    // this is needed due to the reconstruction not including source locations
-    account_module.clear_locations();
-    account_module.clear_imports();
-
-    let account_module_bytes = account_module.to_bytes(AstSerdeOptions { serialize_imports: true });
-    let reconstructed_ast = ModuleAst::from_bytes(&account_module_bytes).unwrap();
-    assert_eq!(account_module, reconstructed_ast);
+    let account_code_bytes = account_code.to_bytes();
+    let reconstructed_code = AccountCode::read_from_bytes(&account_code_bytes).unwrap();
+    assert_eq!(*account_code, reconstructed_code);
 
     client
         .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
         .unwrap();
     let (retrieved_acc, _) = client.get_account(account.id()).unwrap();
 
-    let mut account_module = account.code().module().clone();
-    account_module.clear_locations();
-    account_module.clear_imports();
-    assert_eq!(*account_module.procs(), *retrieved_acc.code().module().procs());
+    assert_eq!(*account.code(), *retrieved_acc.code());
 }
 
 #[tokio::test]
@@ -458,7 +451,7 @@ async fn test_import_note_validation() {
 
     // generate test data
     let assembler = TransactionKernel::assembler();
-    let (consumed_notes, created_notes) = mock_notes(&assembler);
+    let (consumed_notes, created_notes) = mock_notes(assembler);
     let (_, committed_notes, ..) = mock_full_chain_mmr_and_notes(consumed_notes);
 
     let committed_note: InputNoteRecord = committed_notes.first().unwrap().clone().into();

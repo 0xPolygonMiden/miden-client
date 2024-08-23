@@ -38,6 +38,7 @@ use crate::sync::get_nullifier_prefix;
 // ================================================================================================
 
 /// Describes the possible responses from  the `GetNotesById` endpoint for a single note
+#[allow(clippy::large_enum_variant)]
 pub enum NoteDetails {
     OffChain(NoteId, NoteMetadata, NoteInclusionDetails),
     Public(Note, NoteInclusionDetails),
