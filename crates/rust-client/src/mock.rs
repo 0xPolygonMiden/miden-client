@@ -37,7 +37,7 @@ use crate::{
         generated::{
             self,
             account::AccountId as ProtoAccountId,
-            block_header::BlockHeader as NodeBlockHeader,
+            block::BlockHeader as NodeBlockHeader,
             note::NoteSyncRecord,
             requests::SyncStateRequest,
             responses::{NullifierUpdate, SyncNoteResponse, SyncStateResponse},
@@ -68,12 +68,10 @@ pub const ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN: u64 = 323809837015
 pub const ACCOUNT_ID_REGULAR: u64 = ACCOUNT_ID_OFF_CHAIN_SENDER;
 pub const ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN: u64 = 0b1010011100 << 54;
 pub const DEFAULT_ACCOUNT_CODE: &str = "
-    use.miden::contracts::wallets::basic->basic_wallet
-    use.miden::contracts::auth::basic->basic_eoa
-
-    export.basic_wallet::receive_asset
-    export.basic_wallet::send_asset
-    export.basic_eoa::auth_tx_rpo_falcon512
+    export.::miden::contracts::wallets::basic::receive_asset
+    export.::miden::contracts::wallets::basic::create_note
+    export.::miden::contracts::wallets::basic::move_asset_to_note
+    export.::miden::contracts::auth::basic::auth_tx_rpo_falcon512
 ";
 
 /// Mock RPC API
