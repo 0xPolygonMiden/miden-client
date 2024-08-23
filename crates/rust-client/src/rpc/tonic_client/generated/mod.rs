@@ -1,4 +1,5 @@
 pub mod account;
+pub mod block;
 pub mod block_header;
 pub mod digest;
 pub mod merkle;
