@@ -29,10 +29,7 @@ use super::{
     NoteDetails, NoteInclusionDetails, NoteSyncInfo, NullifierUpdate, StateSyncInfo,
     TransactionUpdate,
 };
-use crate::{
-    config::RpcConfig,
-    rpc::RpcError,
-};
+use crate::{config::RpcConfig, rpc::RpcError};
 #[rustfmt::skip]
 pub mod generated;
 

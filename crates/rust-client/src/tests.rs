@@ -1,4 +1,5 @@
 use alloc::vec::Vec;
+use std::println;
 
 // TESTS
 // ================================================================================================
@@ -193,8 +194,12 @@ async fn test_account_code() {
     let account_code = account.code();
 
     let account_code_bytes = account_code.to_bytes();
+    println!("pr");
+
     let reconstructed_code = AccountCode::read_from_bytes(&account_code_bytes).unwrap();
+    println!("asd");
     assert_eq!(*account_code, reconstructed_code);
+    println!("asd2");
 
     client
         .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))

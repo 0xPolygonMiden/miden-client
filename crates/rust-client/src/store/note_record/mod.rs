@@ -175,7 +175,7 @@ impl Display for NoteStatus {
 }
 
 fn default_script() -> NoteScript {
-    let note_program_ast = "begin end";
+    let note_program_ast = "begin nop end";
     NoteScript::compile(note_program_ast, TransactionKernel::assembler())
         .expect("Default program is well-formed")
 }
