@@ -1,19 +1,64 @@
 use miden_client::{
     notes::get_input_note_with_id_prefix,
     transactions::{
-        build_swap_tag, PaymentTransactionData, SwapTransactionData, TransactionRequest,
+        build_swap_tag, PaymentTransactionData, SwapTransactionData,
+        TransactionRequest as NativeTransactionRequest,
+        TransactionResult as NativeTransactionResult,
     },
 };
-use miden_objects::{accounts::AccountId, assets::FungibleAsset, notes::NoteType as MidenNoteType};
+use miden_objects::{
+    accounts::AccountId as NativeAccountId, assets::FungibleAsset, notes::NoteType as MidenNoteType,
+};
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    models::transactions::{NewSwapTransactionResult, NewTransactionResult},
+    models::{
+        account_id::AccountId,
+        transaction_request::TransactionRequest,
+        transaction_result::TransactionResult,
+        transactions::{NewSwapTransactionResult, NewTransactionResult},
+    },
     WebClient,
 };
 
 #[wasm_bindgen]
 impl WebClient {
+    pub async fn new_transaction(
+        &mut self,
+        account_id: &AccountId,
+        transaction_request: &TransactionRequest,
+    ) -> Result<TransactionResult, JsValue> {
+        if let Some(client) = self.get_mut_inner() {
+            let native_account_id: NativeAccountId = account_id.into();
+            let native_transaction_request: NativeTransactionRequest =
+                transaction_request.into();
+            let native_transaction_execution_result: NativeTransactionResult = client
+                .new_transaction(native_account_id, native_transaction_request)
+                .await
+                .unwrap();
+            let transaction_execution_result = TransactionResult::from_native_transaction_result(
+                native_transaction_execution_result,
+            );
+            Ok(transaction_execution_result)
+        } else {
+            Err(JsValue::from_str("Client not initialized"))
+        }
+    }
+
+    pub async fn submit_transaction(
+        &mut self,
+        transaction_result: &TransactionResult,
+    ) -> Result<(), JsValue> {
+        if let Some(client) = self.get_mut_inner() {
+            let native_transaction_result: NativeTransactionResult =
+                transaction_result.into();
+            client.submit_transaction(native_transaction_result).await.unwrap();
+            Ok(())
+        } else {
+            Err(JsValue::from_str("Client not initialized"))
+        }
+    }
+
     pub async fn new_mint_transaction(
         &mut self,
         target_account_id: String,
@@ -22,8 +67,8 @@ impl WebClient {
         amount: String,
     ) -> Result<NewTransactionResult, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let target_account_id = AccountId::from_hex(&target_account_id).unwrap();
-            let faucet_id = AccountId::from_hex(&faucet_id).unwrap();
+            let target_account_id = NativeAccountId::from_hex(&target_account_id).unwrap();
+            let faucet_id = NativeAccountId::from_hex(&faucet_id).unwrap();
             let amount_as_u64: u64 = amount.parse::<u64>().map_err(|err| err.to_string())?;
             let fungible_asset =
                 FungibleAsset::new(faucet_id, amount_as_u64).map_err(|err| err.to_string())?;
@@ -33,7 +78,7 @@ impl WebClient {
                 _ => MidenNoteType::Private,
             };
 
-            let mint_transaction_request = TransactionRequest::mint_fungible_asset(
+            let mint_transaction_request = NativeTransactionRequest::mint_fungible_asset(
                 fungible_asset,
                 target_account_id,
                 note_type,
@@ -71,9 +116,9 @@ impl WebClient {
         recall_height: Option<String>,
     ) -> Result<NewTransactionResult, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let sender_account_id = AccountId::from_hex(&sender_account_id).unwrap();
-            let target_account_id = AccountId::from_hex(&target_account_id).unwrap();
-            let faucet_id = AccountId::from_hex(&faucet_id).unwrap();
+            let sender_account_id = NativeAccountId::from_hex(&sender_account_id).unwrap();
+            let target_account_id = NativeAccountId::from_hex(&target_account_id).unwrap();
+            let faucet_id = NativeAccountId::from_hex(&faucet_id).unwrap();
             let amount_as_u64: u64 = amount.parse::<u64>().map_err(|err| err.to_string())?;
             let fungible_asset = FungibleAsset::new(faucet_id, amount_as_u64)
                 .map_err(|err| err.to_string())?
@@ -91,7 +136,7 @@ impl WebClient {
                 let recall_height_as_u32: u32 =
                     recall_height.parse::<u32>().map_err(|err| err.to_string())?;
 
-                TransactionRequest::pay_to_id(
+                NativeTransactionRequest::pay_to_id(
                     payment_transaction,
                     Some(recall_height_as_u32),
                     note_type,
@@ -99,8 +144,13 @@ impl WebClient {
                 )
                 .unwrap()
             } else {
-                TransactionRequest::pay_to_id(payment_transaction, None, note_type, client.rng())
-                    .unwrap()
+                NativeTransactionRequest::pay_to_id(
+                    payment_transaction,
+                    None,
+                    note_type,
+                    client.rng(),
+                )
+                .unwrap()
             };
 
             let send_transaction_execution_result = client
@@ -130,7 +180,7 @@ impl WebClient {
         list_of_notes: Vec<String>,
     ) -> Result<NewTransactionResult, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let account_id = AccountId::from_hex(&account_id).unwrap();
+            let account_id = NativeAccountId::from_hex(&account_id).unwrap();
             let mut result = Vec::new();
             for note_id in list_of_notes {
                 match get_input_note_with_id_prefix(client, &note_id).await {
@@ -139,7 +189,7 @@ impl WebClient {
                 }
             }
 
-            let consume_transaction_request = TransactionRequest::consume_notes(result);
+            let consume_transaction_request = NativeTransactionRequest::consume_notes(result);
             let consume_transaction_execution_result =
                 client.new_transaction(account_id, consume_transaction_request).await.unwrap();
             let result = NewTransactionResult::new(
@@ -169,9 +219,10 @@ impl WebClient {
         note_type: String,
     ) -> Result<NewSwapTransactionResult, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let sender_account_id = AccountId::from_hex(&sender_account_id).unwrap();
+            let sender_account_id = NativeAccountId::from_hex(&sender_account_id).unwrap();
 
-            let offered_asset_faucet_id = AccountId::from_hex(&offered_asset_faucet_id).unwrap();
+            let offered_asset_faucet_id =
+                NativeAccountId::from_hex(&offered_asset_faucet_id).unwrap();
             let offered_asset_amount_as_u64: u64 =
                 offered_asset_amount.parse::<u64>().map_err(|err| err.to_string())?;
             let offered_fungible_asset =
@@ -180,7 +231,7 @@ impl WebClient {
                     .into();
 
             let requested_asset_faucet_id =
-                AccountId::from_hex(&requested_asset_faucet_id).unwrap();
+                NativeAccountId::from_hex(&requested_asset_faucet_id).unwrap();
             let requested_asset_amount_as_u64: u64 =
                 requested_asset_amount.parse::<u64>().map_err(|err| err.to_string())?;
             let requested_fungible_asset =
@@ -201,7 +252,7 @@ impl WebClient {
             );
 
             let swap_transaction_request =
-                TransactionRequest::swap(swap_transaction.clone(), note_type, client.rng())
+                NativeTransactionRequest::swap(swap_transaction.clone(), note_type, client.rng())
                     .unwrap();
             let swap_transaction_execution_result = client
                 .new_transaction(sender_account_id, swap_transaction_request.clone())

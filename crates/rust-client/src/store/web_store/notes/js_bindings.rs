@@ -46,8 +46,10 @@ extern "C" {
         serialized_note_script: Vec<u8>,
         inclusion_proof: Option<String>,
         serialized_created_at: String,
+        expected_height: Option<String>,
         ignored: bool,
         imported_tag: Option<String>,
+        nullifier_height: Option<String>,
     ) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = insertOutputNote)]
@@ -62,6 +64,7 @@ extern "C" {
         serialized_note_script: Option<Vec<u8>>,
         inclusion_proof: Option<String>,
         serialized_created_at: String,
+        expected_height: Option<String>,
     ) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = updateNoteConsumerTxId)]

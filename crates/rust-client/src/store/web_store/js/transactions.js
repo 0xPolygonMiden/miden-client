@@ -28,19 +28,19 @@ export async function getTransactions(
         // Create a map of scriptHash to script for quick lookup
         const scriptMap = new Map();
         scripts.forEach(script => {
-            scriptMap.set(script.scriptHash, script.program);
+            scriptMap.set(script.scriptHash, script.txScript);
         });
 
         const processedTransactions = await Promise.all(transactionRecords.map(async transactionRecord => {
-            let scriptBase64 = null;
+            let txScriptBase64 = null;
 
             if (transactionRecord.scriptHash) {
                 const txScript = scriptMap.get(transactionRecord.scriptHash);
 
                 if (txScript) {
-                    let scriptArrayBuffer = await txScript.arrayBuffer();
-                    let scriptArray = new Uint8Array(scriptArrayBuffer);
-                    scriptBase64 = uint8ArrayToBase64(scriptArray);
+                    let txScriptArrayBuffer = await txScript.arrayBuffer();
+                    let txScriptArray = new Uint8Array(txScriptArrayBuffer);
+                    txScriptBase64 = uint8ArrayToBase64(txScriptArray);
                 }
             }
 
@@ -58,7 +58,7 @@ export async function getTransactions(
                 input_notes: transactionRecord.inputNotes,
                 output_notes: transactionRecord.outputNotes,
                 script_hash: transactionRecord.scriptHash ? transactionRecord.scriptHash : null,
-                tx_script: scriptBase64,
+                tx_script: txScriptBase64,
                 block_num: transactionRecord.blockNum,
                 commit_height: transactionRecord.commitHeight ? transactionRecord.commitHeight : null
             }
@@ -91,15 +91,15 @@ export async function insertTransactionScript(
 
         let scriptHashArray = new Uint8Array(scriptHash);
         let scriptHashBase64 = uint8ArrayToBase64(scriptHashArray);
-        let scriptBlob = null;
 
-        if (txScript ) {
-            scriptBlob = new Blob([new Uint8Array(txScript)]);
+        let txScriptBlob = null;
+        if (txScript) {
+            txScriptBlob = new Blob([new Uint8Array(txScript)]);
         }
 
         const data = {
             scriptHash: scriptHashBase64,
-            script: scriptBlob
+            txScript: txScriptBlob
         }
 
         await transactionScripts.add(data);
