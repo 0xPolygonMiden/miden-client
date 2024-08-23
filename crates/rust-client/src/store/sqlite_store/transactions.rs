@@ -248,10 +248,10 @@ fn parse_transaction_columns(
     let final_account_state: String = row.get(3)?;
     let input_notes: String = row.get(4)?;
     let output_notes: Vec<u8> = row.get(5)?;
-    let tx_script: Option<Vec<u8>> = row.get(6)?;
-    let script_hash: Option<Vec<u8>> = row.get(7)?;
-    let block_num: u32 = row.get(9)?;
-    let commit_height: Option<u32> = row.get(10)?;
+    let script_hash: Option<Vec<u8>> = row.get(6)?;
+    let tx_script: Option<Vec<u8>> = row.get(7)?;
+    let block_num: u32 = row.get(8)?;
+    let commit_height: Option<u32> = row.get(9)?;
 
     Ok((
         id,

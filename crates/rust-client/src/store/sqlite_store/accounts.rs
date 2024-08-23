@@ -2,7 +2,6 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use std::println;
 
 use miden_objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub, AuthSecretKey},
@@ -294,8 +293,6 @@ pub(super) fn parse_account(
         .try_into()
         .expect("Conversion from stored AccountID should not panic");
     let account_code = AccountCode::from_bytes(&code)?;
-    println!("account code {:?} ", account_code);
-    println!("account code bytes {:?} ", code);
     let account_storage = AccountStorage::read_from_bytes(&storage)?;
     let account_assets: Vec<Asset> =
         serde_json::from_str(&assets).map_err(StoreError::JsonDataDeserializationError)?;
