@@ -90,11 +90,9 @@ impl WebStore {
         account_id: AccountId,
     ) -> Result<(Account, Option<Word>), StoreError> {
         let (account_stub, seed) = self.get_account_stub(account_id).await.unwrap();
-        let (_procedures, module_ast) =
-            self.get_account_code(account_stub.code_commitment()).await.unwrap();
-
         let account_code =
-            AccountCode::compile(module_ast, &TransactionKernel::assembler()).unwrap();
+            self.get_account_code(account_stub.code_commitment()).await.unwrap();
+            
         let account_storage = self.get_account_storage(account_stub.storage_root()).await.unwrap();
         let account_vault = self.get_vault_assets(account_stub.vault_root()).await.unwrap();
         let account_vault = AssetVault::new(&account_vault).unwrap();
@@ -113,18 +111,16 @@ impl WebStore {
     pub(super) async fn get_account_code(
         &self,
         root: Digest,
-    ) -> Result<(Vec<Digest>, ModuleAst), StoreError> {
+    ) -> Result<AccountCode, StoreError> {
         let root_serialized = root.to_string();
 
         let promise = idxdb_get_account_code(root_serialized);
         let js_value = JsFuture::from(promise).await.unwrap();
         let account_code_idxdb: AccountCodeIdxdbObject = from_value(js_value).unwrap();
 
-        let procedures = serde_json::from_str(&account_code_idxdb.procedures).unwrap();
+        let code = AccountCode::from_bytes(&account_code_idxdb.account_code).unwrap();
 
-        let module = ModuleAst::from_bytes(&account_code_idxdb.module).unwrap();
-
-        Ok((procedures, module))
+        Ok(code)
     }
 
     pub(super) async fn get_account_storage(
