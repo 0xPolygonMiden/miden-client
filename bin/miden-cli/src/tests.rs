@@ -8,7 +8,7 @@ use std::{
 
 use assert_cmd::Command;
 use miden_client::{
-    accounts::{AccountStorageType, AccountTemplate},
+    accounts::{Account, AccountId, AccountStorageType, AccountTemplate},
     auth::StoreAuthenticator,
     config::RpcConfig,
     crypto::RpoRandomCoin,
@@ -384,6 +384,75 @@ fn test_cli_export_import_note() {
 
     // Consume the note
     consume_note_cli(&temp_dir_2, &first_basic_account_id, &[&note_to_export_id]);
+}
+
+#[test]
+fn test_cli_export_import_account() {
+    const ACCOUNT_FILENAME: &str = "test_account.acc";
+
+    let store_path_1 = create_test_store_path();
+    let mut temp_dir_1 = temp_dir();
+    temp_dir_1.push(format!("{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(temp_dir_1.clone()).unwrap();
+
+    let store_path_2 = create_test_store_path();
+    let mut temp_dir_2 = temp_dir();
+    temp_dir_2.push(format!("{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(temp_dir_2.clone()).unwrap();
+
+    // Init the first client
+    let mut init_cmd = Command::cargo_bin("miden").unwrap();
+    init_cmd.args(["init", "--store-path", store_path_1.to_str().unwrap()]);
+    init_cmd.current_dir(&temp_dir_1).assert().success();
+
+    // Init the second client
+    let mut init_cmd = Command::cargo_bin("miden").unwrap();
+    init_cmd.args(["init", "--store-path", store_path_2.to_str().unwrap()]);
+    init_cmd.current_dir(&temp_dir_2).assert().success();
+
+    // Create wallet account
+    let mut create_wallet_cmd = Command::cargo_bin("miden").unwrap();
+    create_wallet_cmd.args(["new-wallet", "-s", "off-chain"]);
+    create_wallet_cmd.current_dir(&temp_dir_1).assert().success();
+
+    let first_basic_account_id = {
+        let client = create_test_client_with_store_path(&store_path_1);
+        let accounts = client.get_account_stubs().unwrap();
+
+        accounts.first().unwrap().0.id().to_hex()
+    };
+
+    // Export the account
+    let mut export_cmd = Command::cargo_bin("miden").unwrap();
+    export_cmd.args([
+        "export",
+        &first_basic_account_id,
+        "--account",
+        "--filename",
+        ACCOUNT_FILENAME,
+    ]);
+    export_cmd.current_dir(&temp_dir_1).assert().success();
+
+    // Copy the account file
+    let mut client_1_account_file_path = temp_dir_1.clone();
+    client_1_account_file_path.push(ACCOUNT_FILENAME);
+    let mut client_2_account_file_path = temp_dir_2.clone();
+    client_2_account_file_path.push(ACCOUNT_FILENAME);
+    std::fs::copy(client_1_account_file_path, client_2_account_file_path).unwrap();
+
+    // Import the account from the second client
+    let mut import_cmd = Command::cargo_bin("miden").unwrap();
+    import_cmd.args(["import", ACCOUNT_FILENAME]);
+    import_cmd.current_dir(&temp_dir_2).assert().success();
+
+    // Ensure the account was imported
+    let client_2 = create_test_client_with_store_path(&store_path_2);
+    assert!(matches!(
+        client_2
+            .get_account(AccountId::from_hex(&first_basic_account_id).unwrap())
+            .unwrap(),
+        (Account { .. }, _)
+    ));
 }
 
 // HELPERS

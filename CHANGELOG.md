@@ -4,6 +4,7 @@
 
 * [BREAKING] Remove `TransactionTemplate` and `account_id` from `TransactionRequest` (#478).
 * Added validation for consumed notes when importing (#449).
+* Added support for account export in the CLI (#479).
 * Added serialization for `TransactionRequest` (#471).
 * Added support for decimal values in the CLI (#454).
 * Added support for importing committed notes from older blocks than current (#472).
