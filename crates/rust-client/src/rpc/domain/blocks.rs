@@ -1,7 +1,11 @@
 use miden_objects::{crypto::merkle::MerklePath, BlockHeader};
 
 use super::MissingFieldHelper;
-use crate::rpc::{tonic_client::generated::block, RpcConversionError};
+#[cfg(feature = "tonic")]
+use crate::rpc::tonic_client::generated::block;
+#[cfg(feature = "web-tonic")]
+use crate::rpc::web_tonic_client::generated::block;
+use crate::rpc::RpcConversionError;
 
 // BLOCK HEADER
 // ================================================================================================

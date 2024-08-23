@@ -32,15 +32,15 @@ export async function getTransactions(
         });
 
         const processedTransactions = await Promise.all(transactionRecords.map(async transactionRecord => {
-            let scriptProgramBase64 = null;
+            let scriptBase64 = null;
 
             if (transactionRecord.scriptHash) {
-                const scriptProgram = scriptMap.get(transactionRecord.scriptHash);
+                const txScript = scriptMap.get(transactionRecord.scriptHash);
 
-                if (scriptProgram) {
-                    let scriptProgramArrayBuffer = await scriptProgram.arrayBuffer();
-                    let scriptProgramArray = new Uint8Array(scriptProgramArrayBuffer);
-                    scriptProgramBase64 = uint8ArrayToBase64(scriptProgramArray);
+                if (txScript) {
+                    let scriptArrayBuffer = await txScript.arrayBuffer();
+                    let scriptArray = new Uint8Array(scriptArrayBuffer);
+                    scriptBase64 = uint8ArrayToBase64(scriptArray);
                 }
             }
 
@@ -58,8 +58,7 @@ export async function getTransactions(
                 input_notes: transactionRecord.inputNotes,
                 output_notes: transactionRecord.outputNotes,
                 script_hash: transactionRecord.scriptHash ? transactionRecord.scriptHash : null,
-                script_program: scriptProgramBase64,
-                script_inputs: transactionRecord.scriptInputs ? transactionRecord.scriptInputs : null,
+                tx_script: scriptBase64,
                 block_num: transactionRecord.blockNum,
                 commit_height: transactionRecord.commitHeight ? transactionRecord.commitHeight : null
             }
@@ -76,7 +75,7 @@ export async function getTransactions(
 
 export async function insertTransactionScript(
     scriptHash,
-    scriptProgram
+    txScript
 ) {
     try {
         // check if script hash already exists 
@@ -92,15 +91,15 @@ export async function insertTransactionScript(
 
         let scriptHashArray = new Uint8Array(scriptHash);
         let scriptHashBase64 = uint8ArrayToBase64(scriptHashArray);
-        let scriptProgramBlob = null;
+        let scriptBlob = null;
 
-        if (scriptProgram ) {
-            scriptProgramBlob = new Blob([new Uint8Array(scriptProgram)]);
+        if (txScript ) {
+            scriptBlob = new Blob([new Uint8Array(txScript)]);
         }
 
         const data = {
             scriptHash: scriptHashBase64,
-            program: scriptProgramBlob
+            script: scriptBlob
         }
 
         await transactionScripts.add(data);
@@ -122,7 +121,6 @@ export async function insertProvenTransactionData(
     inputNotes,
     outputNotes,
     scriptHash,
-    scriptInputs,
     blockNum,
     committed
 ) {
@@ -142,7 +140,6 @@ export async function insertProvenTransactionData(
             inputNotes: inputNotes,
             outputNotes: outputNotesBlob,
             scriptHash: scriptHashBase64,
-            scriptInputs: scriptInputs ? scriptInputs : null,
             blockNum: blockNum,
             commitHeight: committed ? committed : null
         }
