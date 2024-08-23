@@ -7,7 +7,6 @@ use miden_client::{
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorageType, AuthSecretKey},
-    assembly::ProgramAst,
     assets::{FungibleAsset, TokenSymbol},
     crypto::{
         hash::rpo::Rpo256,
@@ -105,7 +104,6 @@ async fn test_transaction_request() {
     // FAILURE ATTEMPT
 
     let failure_code = code.replace("{asserted_value}", "1");
-    let program = ProgramAst::parse(&failure_code).unwrap();
 
     let tx_script = {
         let account_auth = client.get_account_auth(regular_account.id()).unwrap();
@@ -117,7 +115,7 @@ async fn test_transaction_request() {
         };
 
         let script_inputs = vec![(pubkey_input, advice_map)];
-        client.compile_tx_script(program, script_inputs, vec![]).unwrap()
+        client.compile_tx_script(script_inputs, &failure_code).unwrap()
     };
 
     let transaction_request = TransactionRequest::new()
@@ -132,7 +130,6 @@ async fn test_transaction_request() {
     // SUCCESS EXECUTION
 
     let success_code = code.replace("{asserted_value}", "0");
-    let program = ProgramAst::parse(&success_code).unwrap();
 
     let tx_script = {
         let account_auth = client.get_account_auth(regular_account.id()).unwrap();
@@ -144,7 +141,7 @@ async fn test_transaction_request() {
         };
 
         let script_inputs = vec![(pubkey_input, advice_map)];
-        client.compile_tx_script(program, script_inputs, vec![]).unwrap()
+        client.compile_tx_script(script_inputs, &success_code).unwrap()
     };
 
     let transaction_request = TransactionRequest::new()
@@ -246,7 +243,6 @@ async fn test_merkle_store() {
     code += "call.auth_tx::auth_tx_rpo_falcon512 end";
 
     // Build the transaction
-    let program = ProgramAst::parse(&code).unwrap();
     let tx_script = {
         let account_auth = client.get_account_auth(regular_account.id()).unwrap();
         let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
@@ -257,7 +253,7 @@ async fn test_merkle_store() {
         };
 
         let script_inputs = vec![(pubkey_input, advice_map)];
-        client.compile_tx_script(program, script_inputs, vec![]).unwrap()
+        client.compile_tx_script(script_inputs, &code).unwrap()
     };
 
     let transaction_request = TransactionRequest::new()
@@ -304,8 +300,7 @@ fn create_custom_note(
         .replace("{expected_note_arg_2}", &expected_note_args[4..=7].join("."))
         .replace("{mem_address}", &mem_addr.to_string())
         .replace("{mem_address_2}", &(mem_addr + 1).to_string());
-    let note_script = ProgramAst::parse(&note_script).unwrap();
-    let note_script = client.compile_note_script(note_script, vec![]).unwrap();
+    let note_script = client.compile_note_script(&note_script).unwrap();
 
     let inputs = NoteInputs::new(vec![target_account_id.into()]).unwrap();
     let serial_num = rng.draw_word();
