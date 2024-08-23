@@ -29,8 +29,10 @@ use super::{
     NoteDetails, NoteInclusionDetails, NoteSyncInfo, NullifierUpdate, StateSyncInfo,
     TransactionUpdate,
 };
-use crate::{config::RpcConfig, rpc::RpcError};
-
+use crate::{
+    config::RpcConfig,
+    rpc::RpcError,
+};
 #[rustfmt::skip]
 pub mod generated;
 
@@ -337,7 +339,8 @@ impl TryFrom<SyncNoteResponse> for NoteSyncInfo {
         let block_header = value
             .block_header
             .ok_or(RpcError::ExpectedFieldMissing("BlockHeader".into()))?
-            .try_into()?;
+            .try_into()
+            .unwrap();
 
         let mmr_path = value
             .mmr_path
@@ -387,7 +390,8 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
         let block_header: BlockHeader = value
             .block_header
             .ok_or(RpcError::ExpectedFieldMissing("BlockHeader".into()))?
-            .try_into()?;
+            .try_into()
+            .unwrap();
 
         // Validate and convert MMR Delta
         let mmr_delta = value

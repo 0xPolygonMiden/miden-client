@@ -14,11 +14,32 @@ use crate::rpc::RpcConversionError;
 // MERKLE PATH
 // ================================================================================================
 
+impl From<MerklePath> for generated::merkle::MerklePath {
+    fn from(value: MerklePath) -> Self {
+        (&value).into()
+    }
+}
+
+impl From<&MerklePath> for generated::merkle::MerklePath {
+    fn from(value: &MerklePath) -> Self {
+        let siblings = value.nodes().iter().map(generated::digest::Digest::from).collect();
+        generated::merkle::MerklePath { siblings }
+    }
+}
+
+impl TryFrom<&generated::merkle::MerklePath> for MerklePath {
+    type Error = RpcConversionError;
+
+    fn try_from(merkle_path: &generated::merkle::MerklePath) -> Result<Self, Self::Error> {
+        merkle_path.siblings.iter().map(Digest::try_from).collect()
+    }
+}
+
 impl TryFrom<generated::merkle::MerklePath> for MerklePath {
     type Error = RpcConversionError;
 
     fn try_from(merkle_path: generated::merkle::MerklePath) -> Result<Self, Self::Error> {
-        merkle_path.siblings.into_iter().map(Digest::try_from).collect()
+        MerklePath::try_from(&merkle_path)
     }
 }
 
