@@ -1,5 +1,5 @@
 use alloc::vec::Vec;
-use std::collections::BTreeSet;
+use alloc::collections::BTreeSet;
 
 use miden_objects::{
     crypto::rand::FeltRng,
