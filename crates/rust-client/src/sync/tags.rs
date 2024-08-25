@@ -1,5 +1,4 @@
-use alloc::vec::Vec;
-use alloc::collections::BTreeSet;
+use alloc::{collections::BTreeSet, vec::Vec};
 
 use miden_objects::{
     crypto::rand::FeltRng,
