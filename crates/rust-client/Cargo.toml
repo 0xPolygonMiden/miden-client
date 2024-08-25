@@ -29,7 +29,7 @@ web-tonic = ["dep:hex", "dep:prost", "dep:tonic", "dep:tonic-web-wasm-client", "
 [dependencies]
 base64 = { version = "0.22", optional = true }
 chrono = { version = "0.4", optional = false }
-getrandom = { version = "0.2", features = ["js"], optional = true }
+getrandom = { version = "0.2", features = ["js"] }
 hex = { version = "0.4" , optional = true}
 lazy_static = { version = "1.5", optional = true }
 miden-lib = { workspace = true }
@@ -53,8 +53,8 @@ winter-maybe-async = "0.10"
 
 [dev-dependencies]
 miden-client = { path = ".", features = ["testing", "concurrent", "sqlite", "tonic", "tokio"]}
-miden-lib = { default-features = false, features = ["testing"], git = "https://github.com/0xPolygonMiden/miden-base", branch = "next" }
-miden-objects = {default-features = false, features = ["serde", "testing"], git = "https://github.com/0xPolygonMiden/miden-base", branch = "next" }
+miden-lib = { default-features = false, features = ["testing"], git = "https://github.com/0xPolygonMiden/miden-base", branch = "igamigo-fix-wasm" }
+miden-objects = {default-features = false, features = ["serde", "testing"], git = "https://github.com/0xPolygonMiden/miden-base", branch = "igamigo-fix-wasm" }
 uuid = { version = "1.9", features = ["serde", "v4"] }
 
 [build-dependencies]
