@@ -1,5 +1,5 @@
 pub mod account;
-pub mod block_header;
+pub mod block;
 pub mod digest;
 pub mod merkle;
 pub mod mmr;

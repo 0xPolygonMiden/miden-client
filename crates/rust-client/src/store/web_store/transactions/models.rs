@@ -15,8 +15,7 @@ pub struct TransactionIdxdbObject {
     #[serde(deserialize_with = "base64_to_vec_u8_optional", default)]
     pub script_hash: Option<Vec<u8>>,
     #[serde(deserialize_with = "base64_to_vec_u8_optional", default)]
-    pub script_program: Option<Vec<u8>>,
-    pub script_inputs: Option<String>,
+    pub tx_script: Option<Vec<u8>>,
     pub block_num: String,             // usually u32
     pub commit_height: Option<String>, // usually Option<u32>
 }

@@ -42,10 +42,7 @@ extern "C" {
     // ================================================================================================
 
     #[wasm_bindgen(js_name = insertAccountCode)]
-    pub fn idxdb_insert_account_code(
-        code_root: String,
-        code: Vec<u8>,
-    ) -> js_sys::Promise;
+    pub fn idxdb_insert_account_code(code_root: String, code: Vec<u8>) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = insertAccountStorage)]
     pub fn idxdb_insert_account_storage(
