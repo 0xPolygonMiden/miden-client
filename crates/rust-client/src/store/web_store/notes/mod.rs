@@ -11,7 +11,10 @@ use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
 
 use super::WebStore;
-use crate::store::{InputNoteRecord, NoteFilter, OutputNoteRecord, StoreError};
+use crate::store::{
+    note_record::{PROOF_STATUS_INVALID, PROOF_STATUS_NOT_VERIFIED, PROOF_STATUS_VALID},
+    InputNoteRecord, NoteFilter, OutputNoteRecord, ProofStatus, StoreError,
+};
 
 mod js_bindings;
 use js_bindings::*;
@@ -178,11 +181,21 @@ impl WebStore {
         &self,
         note_id: NoteId,
         inclusion_proof: NoteInclusionProof,
+        proof_status: ProofStatus,
     ) -> Result<(), StoreError> {
         let note_id_as_str = note_id.inner().to_string();
         let inclusion_proof_as_str = serde_json::to_string(&inclusion_proof).unwrap();
+        let proof_status_as_str = match proof_status {
+            ProofStatus::NotVerified => PROOF_STATUS_NOT_VERIFIED,
+            ProofStatus::Valid => PROOF_STATUS_VALID,
+            ProofStatus::Invalid => PROOF_STATUS_INVALID,
+        };
 
-        let promise = idxdb_update_note_inclusion_proof(note_id_as_str, inclusion_proof_as_str);
+        let promise = idxdb_update_note_inclusion_proof(
+            note_id_as_str,
+            inclusion_proof_as_str,
+            proof_status_as_str.to_string(),
+        );
         let _ = JsFuture::from(promise).await.unwrap();
 
         Ok(())

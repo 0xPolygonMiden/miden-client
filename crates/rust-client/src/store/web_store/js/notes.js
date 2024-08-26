@@ -260,13 +260,14 @@ export async function updateNoteConsumerTxId(noteId, consumerTxId, submittedAt) 
 
 export async function updateNoteInclusionProof(
     noteId, 
-    inclusionProof
+    inclusionProof,
+    proofStatus,
 ) {
     try {
         await inputNotes
             .where('noteId')
             .equals(noteId)
-            .modify({ inclusionProof: inclusionProof, status: "Committed" });
+            .modify({ inclusionProof: inclusionProof, status: "Committed", proofStatus: proofStatus });
 
     } catch (err) {
         console.error("Failed to update inclusion proof: ", err);

@@ -98,9 +98,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             Ok(store_note) => {
                 // TODO: Join these calls to one method that updates both fields with one query
                 // (issue #404)
-                maybe_await!(self
-                    .store
-                    .update_note_inclusion_proof(store_note.id(), inclusion_proof))?;
+                maybe_await!(self.store.update_note_inclusion_proof(
+                    store_note.id(),
+                    inclusion_proof,
+                    ProofStatus::Valid
+                ))?;
                 maybe_await!(self
                     .store
                     .update_note_metadata(store_note.id(), *note_details.metadata()))?;

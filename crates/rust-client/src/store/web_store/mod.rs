@@ -10,6 +10,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::*;
 use winter_maybe_async::{maybe_async, maybe_await};
 
+use super::ProofStatus;
 use crate::{
     store::{
         ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store, StoreError,
@@ -112,8 +113,9 @@ impl Store for WebStore {
         &self,
         note_id: miden_objects::notes::NoteId,
         inclusion_proof: miden_objects::notes::NoteInclusionProof,
+        proof_status: ProofStatus,
     ) -> Result<(), StoreError> {
-        maybe_await!(self.update_note_inclusion_proof(note_id, inclusion_proof))
+        maybe_await!(self.update_note_inclusion_proof(note_id, inclusion_proof, proof_status))
     }
 
     #[maybe_async]

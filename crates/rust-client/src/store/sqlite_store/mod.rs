@@ -12,7 +12,8 @@ use winter_maybe_async::maybe_async;
 
 use self::config::SqliteStoreConfig;
 use super::{
-    ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store, TransactionFilter,
+    ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, ProofStatus, Store,
+    TransactionFilter,
 };
 use crate::{
     store::StoreError,
@@ -278,8 +279,9 @@ impl Store for SqliteStore {
         &self,
         note_id: miden_objects::notes::NoteId,
         inclusion_proof: miden_objects::notes::NoteInclusionProof,
+        proof_status: ProofStatus,
     ) -> Result<(), StoreError> {
-        self.update_note_inclusion_proof(note_id, inclusion_proof)
+        self.update_note_inclusion_proof(note_id, inclusion_proof, proof_status)
     }
 
     #[maybe_async]

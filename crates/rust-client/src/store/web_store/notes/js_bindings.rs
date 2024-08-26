@@ -75,6 +75,7 @@ extern "C" {
     pub fn idxdb_update_note_inclusion_proof(
         note_id: String,
         inclusion_proof: String,
+        proof_status: String,
     ) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = updateNoteMetadata)]

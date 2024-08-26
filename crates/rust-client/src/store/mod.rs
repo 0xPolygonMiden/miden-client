@@ -138,6 +138,7 @@ pub trait Store {
         &self,
         note_id: NoteId,
         inclusion_proof: NoteInclusionProof,
+        proof_status: ProofStatus,
     ) -> Result<(), StoreError>;
 
     #[maybe_async]

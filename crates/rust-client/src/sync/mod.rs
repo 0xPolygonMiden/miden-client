@@ -21,7 +21,7 @@ use crate::{
         AccountDetails, CommittedNote, NodeRpcClient, NoteDetails, NullifierUpdate, RpcError,
         TransactionUpdate,
     },
-    store::{InputNoteRecord, NoteFilter, Store, StoreError, TransactionFilter},
+    store::{InputNoteRecord, NoteFilter, ProofStatus, Store, StoreError, TransactionFilter},
     Client, ClientError,
 };
 
@@ -252,9 +252,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             )
             .map_err(ClientError::NoteError)?;
 
-            maybe_await!(self
-                .store
-                .update_note_inclusion_proof(details.id(), note_inclusion_proof))?;
+            maybe_await!(self.store.update_note_inclusion_proof(
+                details.id(),
+                note_inclusion_proof,
+                ProofStatus::Valid
+            ))?;
             maybe_await!(self.store.update_note_metadata(details.id(), *details.metadata()))?;
         }
 

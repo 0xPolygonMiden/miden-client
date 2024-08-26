@@ -300,8 +300,9 @@ impl SqliteStore {
         &self,
         note_id: NoteId,
         inclusion_proof: NoteInclusionProof,
+        proof_status: ProofStatus,
     ) -> Result<(), StoreError> {
-        const QUERY: &str = "UPDATE input_notes SET inclusion_proof = json(:inclusion_proof), status = 'Committed' WHERE note_id = :note_id";
+        const QUERY: &str = "UPDATE input_notes SET inclusion_proof = json(:inclusion_proof), proof_status = :proof_status, status = 'Committed' WHERE note_id = :note_id";
 
         self.db()
             .execute(
@@ -309,6 +310,11 @@ impl SqliteStore {
                 named_params! {
                     ":note_id": note_id.inner().to_string(),
                     ":inclusion_proof": serde_json::to_string(&inclusion_proof).map_err(StoreError::JsonDataDeserializationError)?,
+                    ":proof_status": match proof_status {
+                        ProofStatus::NotVerified => PROOF_STATUS_NOT_VERIFIED,
+                        ProofStatus::Valid => PROOF_STATUS_VALID,
+                        ProofStatus::Invalid => PROOF_STATUS_INVALID,
+                    },
                 },
             )
             .map_err(|err| StoreError::QueryError(err.to_string()))?;
