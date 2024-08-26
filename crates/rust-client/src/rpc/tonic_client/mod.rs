@@ -30,7 +30,6 @@ use super::{
     TransactionUpdate,
 };
 use crate::{config::RpcConfig, rpc::RpcError};
-
 #[rustfmt::skip]
 pub mod generated;
 

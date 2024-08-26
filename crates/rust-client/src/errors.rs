@@ -4,7 +4,9 @@ use alloc::{
 };
 use core::fmt;
 
-use miden_objects::{accounts::AccountId, notes::NoteId, AccountError, AssetError, NoteError};
+use miden_objects::{
+    accounts::AccountId, notes::NoteId, AccountError, AssetError, NoteError, TransactionScriptError,
+};
 use miden_tx::{
     utils::{DeserializationError, HexParseError},
     TransactionExecutorError, TransactionProverError,
@@ -42,6 +44,7 @@ pub enum ClientError {
     TransactionProvingError(TransactionProverError),
     TransactionRequestError(TransactionRequestError),
     TransactionScriptBuilderError(TransactionScriptBuilderError),
+    TransactionScriptError(TransactionScriptError),
 }
 
 impl fmt::Display for ClientError {
@@ -87,6 +90,9 @@ impl fmt::Display for ClientError {
             },
             ClientError::TransactionScriptBuilderError(err) => {
                 write!(f, "Transaction script builder error: {err}")
+            },
+            ClientError::TransactionScriptError(err) => {
+                write!(f, "Transaction script error: {err}")
             },
         }
     }

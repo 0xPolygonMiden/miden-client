@@ -25,10 +25,6 @@ pub mod tests;
 // RE-EXPORTS
 // ================================================================================================
 
-pub mod assembly {
-    pub use miden_objects::assembly::{AstSerdeOptions, ModuleAst, ProgramAst};
-}
-
 pub mod assets {
     pub use miden_objects::{
         accounts::delta::{

@@ -12,7 +12,7 @@ use miden_objects::{
         AccountCode, AccountId, AccountStorage, AccountStorageType, AccountType, AuthSecretKey,
         SlotItem, StorageSlot,
     },
-    assembly::{Assembler, ModuleAst, ProgramAst},
+    assembly::Assembler,
     assets::{Asset, AssetVault, FungibleAsset, TokenSymbol},
     block::{BlockNoteIndex, BlockNoteTree},
     crypto::{
@@ -37,7 +37,7 @@ use crate::{
         generated::{
             self,
             account::AccountId as ProtoAccountId,
-            block_header::BlockHeader as NodeBlockHeader,
+            block::BlockHeader as NodeBlockHeader,
             note::NoteSyncRecord,
             requests::SyncStateRequest,
             responses::{NullifierUpdate, SyncNoteResponse, SyncStateResponse},
@@ -68,12 +68,10 @@ pub const ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN: u64 = 323809837015
 pub const ACCOUNT_ID_REGULAR: u64 = ACCOUNT_ID_OFF_CHAIN_SENDER;
 pub const ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN: u64 = 0b1010011100 << 54;
 pub const DEFAULT_ACCOUNT_CODE: &str = "
-    use.miden::contracts::wallets::basic->basic_wallet
-    use.miden::contracts::auth::basic->basic_eoa
-
-    export.basic_wallet::receive_asset
-    export.basic_wallet::send_asset
-    export.basic_eoa::auth_tx_rpo_falcon512
+    export.::miden::contracts::wallets::basic::receive_asset
+    export.::miden::contracts::wallets::basic::create_note
+    export.::miden::contracts::wallets::basic::move_asset_to_note
+    export.::miden::contracts::auth::basic::auth_tx_rpo_falcon512
 ";
 
 /// Mock RPC API
@@ -355,7 +353,7 @@ fn generate_state_sync_mock_requests() -> (
 
     // create sync state requests
     let assembler = TransactionKernel::assembler();
-    let (consumed_notes, created_notes) = mock_notes(&assembler);
+    let (consumed_notes, created_notes) = mock_notes(assembler);
     let (mmr, input_notes, blocks, ..) = mock_full_chain_mmr_and_notes(consumed_notes);
 
     let genesis_block = BlockHeader::mock(0, None, None, &[]);
@@ -453,7 +451,7 @@ pub async fn insert_mock_data(client: &mut MockClient) -> Vec<BlockHeader> {
     .unwrap();
 
     let assembler = TransactionKernel::assembler();
-    let (consumed_notes, created_notes) = mock_notes(&assembler);
+    let (consumed_notes, created_notes) = mock_notes(assembler);
     let (_mmr, consumed_notes, tracked_block_headers, mmr_deltas) =
         mock_full_chain_mmr_and_notes(consumed_notes);
 
@@ -630,7 +628,7 @@ pub fn mock_fungible_faucet_account(
     )
 }
 
-pub fn mock_notes(assembler: &Assembler) -> (Vec<Note>, Vec<Note>) {
+pub fn mock_notes(assembler: Assembler) -> (Vec<Note>, Vec<Note>) {
     const ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_1: u64 =
         0b1010010001111111010110100011011110101011010001101111110110111100u64;
     const ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_2: u64 =
@@ -651,8 +649,7 @@ pub fn mock_notes(assembler: &Assembler) -> (Vec<Note>, Vec<Note>) {
     // CREATED NOTES
     // --------------------------------------------------------------------------------------------
     // create note script
-    let note_program_ast = ProgramAst::parse("begin push.1 drop end").unwrap();
-    let (note_script, _) = NoteScript::new(note_program_ast, assembler).unwrap();
+    let note_script = NoteScript::compile("begin push.1 drop end", assembler.clone()).unwrap();
 
     let note_tag: NoteTag =
         NoteTag::from_account_id(sender, miden_objects::notes::NoteExecutionMode::Local).unwrap();
@@ -734,8 +731,7 @@ pub fn mock_notes(assembler: &Assembler) -> (Vec<Note>, Vec<Note>) {
         created_note_1_tag = created_notes[1].metadata().tag(),
         created_note_1_asset = prepare_assets(created_notes[1].assets())[0],
     );
-    let note_1_script_ast = ProgramAst::parse(&note_1_script_src).unwrap();
-    let (_note_1_script, _) = NoteScript::new(note_1_script_ast, assembler).unwrap();
+    let _note_1_script = NoteScript::compile(note_1_script_src, assembler.clone()).unwrap();
 
     // create note 2 script
     let note_2_script_src = format!(
@@ -754,8 +750,7 @@ pub fn mock_notes(assembler: &Assembler) -> (Vec<Note>, Vec<Note>) {
         created_note_2_tag = created_notes[2].metadata().tag(),
         created_note_2_asset = prepare_assets(created_notes[2].assets())[0],
     );
-    let note_2_script_ast = ProgramAst::parse(&note_2_script_src).unwrap();
-    let (note_2_script, _) = NoteScript::new(note_2_script_ast, assembler).unwrap();
+    let note_2_script = NoteScript::compile(note_2_script_src, assembler.clone()).unwrap();
 
     // Consumed Notes
     const SERIAL_NUM_1: Word = [Felt::new(1), Felt::new(2), Felt::new(3), Felt::new(4)];
@@ -805,10 +800,9 @@ fn get_account_with_nonce(
     nonce: u64,
 ) -> Account {
     let account_code_src = DEFAULT_ACCOUNT_CODE;
-    let account_code_ast = ModuleAst::parse(account_code_src).unwrap();
     let account_assembler = TransactionKernel::assembler();
 
-    let account_code = AccountCode::new(account_code_ast, &account_assembler).unwrap();
+    let account_code = AccountCode::compile(account_code_src, account_assembler).unwrap();
     let slot_item = SlotItem {
         index: 0,
         slot: StorageSlot::new_value(public_key),

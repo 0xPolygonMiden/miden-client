@@ -586,10 +586,11 @@ impl SwapTransactionData {
 // KNOWN SCRIPT ROOTS
 // ================================================================================================
 
+// TODO: Remove this in favor of precompiled scripts
 pub mod known_script_roots {
-    pub const P2ID: &str = "0x07db8e6726c0859648a4f0ad38376440c01d98674b7d5a03d7ad729ae2a21d8f";
-    pub const P2IDR: &str = "0xd43b69d65bbc22abf64dbae53ad22e3a4f6d5bfac8e47497b69c116824b46427";
-    pub const SWAP: &str = "0x216ed058cf9f98e8ca423321d67688dce65b7e7771f7ecbb0958bd99e326b009";
+    pub const P2ID: &str = "0x39b8d330926f2617d631191af4566f953e39cd7b461ae4ede7cc4fde9b9c8de7";
+    pub const P2IDR: &str = "0x0355e580bd492cc03ec7f779b58041f5de68d7fe3a4843cd5623554acfbc862b";
+    pub const SWAP: &str = "0x76fbfd9b74214b9216ec1d50d0b864393e2e550a84b7737b28bbe4f2d5e85d77";
 }
 
 // TESTS

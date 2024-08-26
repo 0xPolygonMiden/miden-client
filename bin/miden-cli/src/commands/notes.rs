@@ -190,18 +190,12 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator
 
     println!("{table}");
 
-    let (script, inputs) = match (&input_note_record, &output_note_record) {
+    let inputs = match (&input_note_record, &output_note_record) {
         (Some(record), _) => {
             let details = record.details();
-            (Some(details.script().clone()), Some(details.inputs().clone()))
+            Some(details.inputs().clone())
         },
-        (_, Some(record)) => {
-            let details = record.details();
-            (
-                details.map(|details| details.script().clone()),
-                details.map(|details| details.inputs().clone()),
-            )
-        },
+        (_, Some(record)) => record.details().map(|details| details.inputs().clone()),
         (None, None) => {
             panic!("One of the two records should be Some")
         },
@@ -211,18 +205,6 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator
         .map(|record| record.assets().clone())
         .or(output_note_record.map(|record| record.assets().clone()))
         .expect("One of the two records should be Some");
-
-    // print note script
-    if script.is_some() {
-        let script = script.expect("Script should be Some");
-        let mut table = create_dynamic_table(&["Note Script Code"]);
-        table
-            .load_preset(presets::UTF8_HORIZONTAL_ONLY)
-            .set_content_arrangement(ContentArrangement::DynamicFullWidth);
-
-        table.add_row(vec![Cell::new(script.code())]);
-        println!("{table}");
-    };
 
     // print note vault
     let mut table = create_dynamic_table(&["Note Assets"]);

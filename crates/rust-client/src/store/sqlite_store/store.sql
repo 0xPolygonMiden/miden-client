@@ -1,8 +1,7 @@
 -- Create account_code table
 CREATE TABLE account_code (
     root BLOB NOT NULL,         -- root of the Merkle tree for all exported procedures in account module.
-    procedures BLOB NOT NULL,   -- serialized procedure digests for the account code.
-    module BLOB NOT NULL,       -- serialized ModuleAst for the account code.
+    code BLOB NOT NULL,         -- serialized account code.
     PRIMARY KEY (root)
 );
 
@@ -57,7 +56,6 @@ CREATE TABLE transactions (
     input_notes BLOB,                                -- Serialized list of input note hashes
     output_notes BLOB,                               -- Serialized list of output note hashes
     script_hash BLOB,                                -- Transaction script hash
-    script_inputs BLOB,                              -- Transaction script inputs
     block_num UNSIGNED BIG INT,                      -- Block number for the block against which the transaction was executed.
     commit_height UNSIGNED BIG INT NULL,             -- Block number of the block at which the transaction was included in the chain.
     FOREIGN KEY (script_hash) REFERENCES transaction_scripts(script_hash),
@@ -66,7 +64,7 @@ CREATE TABLE transactions (
 
 CREATE TABLE transaction_scripts (
     script_hash BLOB NOT NULL,                       -- Transaction script Hash
-    program BLOB,                                    -- Transaction script program, serialized
+    script BLOB,                                     -- serialized Transaction script
 
     PRIMARY KEY (script_hash)
 );

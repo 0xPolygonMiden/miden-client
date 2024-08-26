@@ -1,10 +1,9 @@
-use alloc::{collections::BTreeMap, string::ToString, vec::Vec};
+use alloc::{string::ToString, vec::Vec};
 
 use miden_objects::{
     accounts::AccountId,
-    assembly::ProgramAst,
     transaction::{OutputNotes, TransactionScript},
-    Digest, Felt,
+    Digest,
 };
 use miden_tx::utils::Deserializable;
 use serde_wasm_bindgen::from_value;
@@ -63,30 +62,11 @@ impl WebStore {
 
                 let transaction_script: Option<TransactionScript> =
                     if tx_idxdb.script_hash.is_some() {
-                        let script_hash = tx_idxdb
-                            .script_hash
-                            .map(|hash| Digest::read_from_bytes(&hash))
+                        let tx_script = tx_idxdb
+                            .tx_script
+                            .map(|script| TransactionScript::read_from_bytes(&script))
                             .transpose()?
-                            .expect("Script hash should be included in the row");
-
-                        let script_program = tx_idxdb
-                            .script_program
-                            .map(|program| ProgramAst::from_bytes(&program))
-                            .transpose()?
-                            .expect("Script program should be included in the row");
-
-                        let script_inputs = tx_idxdb
-                            .script_inputs
-                            .map(|hash| serde_json::from_str::<BTreeMap<Digest, Vec<Felt>>>(&hash))
-                            .transpose()
-                            .map_err(StoreError::JsonDataDeserializationError)?
-                            .expect("Script inputs should be included in the row");
-
-                        let tx_script = TransactionScript::from_parts(
-                            script_program,
-                            script_hash,
-                            script_inputs.into_iter().map(|(k, v)| (k.into(), v)),
-                        )?;
+                            .expect("Transaction script should be included in the row");
 
                         Some(tx_script)
                     } else {

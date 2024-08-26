@@ -1,7 +1,8 @@
 use alloc::{collections::BTreeSet, string::ToString, vec::Vec};
 
-use miden_objects::{accounts::AccountId, assembly::ProgramAst, crypto::rand::FeltRng};
-use miden_tx::{auth::TransactionAuthenticator, ScriptTarget};
+use miden_lib::transaction::TransactionKernel;
+use miden_objects::{accounts::AccountId, crypto::rand::FeltRng};
+use miden_tx::auth::TransactionAuthenticator;
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
@@ -124,17 +125,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             .expect("The vector always has one element for NoteFilter::Unique"))
     }
 
-    /// Compiles the provided program into a [NoteScript] and checks (to the extent possible) if
-    /// the specified note program could be executed against all accounts with the specified
-    /// interfaces.
-    pub fn compile_note_script(
-        &self,
-        note_script_ast: ProgramAst,
-        target_account_procs: Vec<ScriptTarget>,
-    ) -> Result<NoteScript, ClientError> {
-        self.tx_executor
-            .compile_note_script(note_script_ast, target_account_procs)
-            .map_err(ClientError::TransactionExecutorError)
+    /// Compiles the provided program into a [NoteScript]
+    pub fn compile_note_script(&self, note_script_ast: &str) -> Result<NoteScript, ClientError> {
+        NoteScript::compile(note_script_ast, TransactionKernel::assembler())
+            .map_err(ClientError::NoteError)
     }
 }
 

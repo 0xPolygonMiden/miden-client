@@ -4,9 +4,7 @@ use alloc::{
     vec::Vec,
 };
 
-use miden_objects::{
-    accounts::Account, assembly::AstSerdeOptions, transaction::ToInputNoteCommitments, Digest,
-};
+use miden_objects::{accounts::Account, transaction::ToInputNoteCommitments, Digest};
 use miden_tx::utils::Serializable;
 use wasm_bindgen_futures::*;
 
@@ -31,9 +29,8 @@ pub struct SerializedTransactionData {
     pub final_account_state: String,
     pub input_notes: String,
     pub output_notes: Vec<u8>,
-    pub script_program: Option<Vec<u8>>,
     pub script_hash: Option<Vec<u8>>,
-    pub script_inputs: Option<String>,
+    pub tx_script: Option<Vec<u8>>,
     pub block_num: String,
     pub commit_height: Option<String>,
 }
@@ -46,7 +43,7 @@ pub async fn insert_proven_transaction_data(
     let serialized_data = serialize_transaction_data(transaction_result)?;
 
     if let Some(hash) = serialized_data.script_hash.clone() {
-        let promise = idxdb_insert_transaction_script(hash, serialized_data.script_program.clone());
+        let promise = idxdb_insert_transaction_script(hash, serialized_data.tx_script);
         JsFuture::from(promise).await.unwrap();
     }
 
@@ -58,7 +55,6 @@ pub async fn insert_proven_transaction_data(
         serialized_data.input_notes,
         serialized_data.output_notes,
         serialized_data.script_hash.clone(),
-        serialized_data.script_inputs.clone(),
         serialized_data.block_num,
         serialized_data.commit_height,
     );
@@ -91,18 +87,12 @@ pub(super) fn serialize_transaction_data(
 
     // TODO: Scripts should be in their own tables and only identifiers should be stored here
     let transaction_args = transaction_result.transaction_arguments();
-    let mut script_program = None;
     let mut script_hash = None;
-    let mut script_inputs = None;
+    let mut tx_script = None;
 
-    if let Some(tx_script) = transaction_args.tx_script() {
-        script_program =
-            Some(tx_script.code().to_bytes(AstSerdeOptions { serialize_imports: true }));
-        script_hash = Some(tx_script.hash().to_bytes());
-        script_inputs = Some(
-            serde_json::to_string(&tx_script.inputs())
-                .map_err(StoreError::InputSerializationError)?,
-        );
+    if let Some(script) = transaction_args.tx_script() {
+        script_hash = Some(script.hash().to_bytes());
+        tx_script = Some(script.to_bytes());
     }
 
     Ok(SerializedTransactionData {
@@ -112,9 +102,8 @@ pub(super) fn serialize_transaction_data(
         final_account_state: final_account_state.to_owned(),
         input_notes,
         output_notes: output_notes.to_bytes(),
-        script_program,
         script_hash,
-        script_inputs,
+        tx_script,
         block_num: transaction_result.block_num().to_string(),
         commit_height: None,
     })
