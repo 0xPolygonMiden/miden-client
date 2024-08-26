@@ -2,7 +2,8 @@
 
 ## v0.5.0 (TBD)
 
-* [BREAKING] Remove `TransactionTemplate` and `account_id` from `TransactionRequest` (#478).
+* [BREAKING] Updated Rust Client to use the new version of `miden-base` (#492).
+* [BREAKING] Removed `TransactionTemplate` and `account_id` from `TransactionRequest` (#478).
 * Added validation for consumed notes when importing (#449).
 * Added serialization for `TransactionRequest` (#471).
 * Added support for decimal values in the CLI (#454).
