@@ -18,7 +18,7 @@ use miden_objects::{
 compile_error!("features `tonic` and `web-tonic` are mutually exclusive");
 
 #[cfg(any(feature = "tonic", feature = "web-tonic"))]
-pub mod domain;
+mod domain;
 
 #[cfg(feature = "tonic")]
 mod tonic_client;

@@ -336,8 +336,7 @@ impl TryFrom<SyncNoteResponse> for NoteSyncInfo {
         let block_header = value
             .block_header
             .ok_or(RpcError::ExpectedFieldMissing("BlockHeader".into()))?
-            .try_into()
-            .unwrap();
+            .try_into()?;
 
         let mmr_path = value
             .mmr_path
@@ -387,8 +386,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
         let block_header: BlockHeader = value
             .block_header
             .ok_or(RpcError::ExpectedFieldMissing("BlockHeader".into()))?
-            .try_into()
-            .unwrap();
+            .try_into()?;
 
         // Validate and convert MMR Delta
         let mmr_delta = value

@@ -190,18 +190,12 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator
 
     println!("{table}");
 
-    let (_script, inputs) = match (&input_note_record, &output_note_record) {
+    let inputs = match (&input_note_record, &output_note_record) {
         (Some(record), _) => {
             let details = record.details();
-            (Some(details.script().clone()), Some(details.inputs().clone()))
+            Some(details.inputs().clone())
         },
-        (_, Some(record)) => {
-            let details = record.details();
-            (
-                details.map(|details| details.script().clone()),
-                details.map(|details| details.inputs().clone()),
-            )
-        },
+        (_, Some(record)) => record.details().map(|details| details.inputs().clone()),
         (None, None) => {
             panic!("One of the two records should be Some")
         },
