@@ -3,7 +3,7 @@ resolver = "2"
 
 members = [
   "bin/miden-cli",
-  #"crates/rust-client",
+  "crates/rust-client",
   "crates/web-client",
   "tests"
 ]

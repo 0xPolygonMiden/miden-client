@@ -11,7 +11,7 @@ use miden_objects::{
     assets::{Asset, NonFungibleAsset},
     notes::{Note, NoteDetails, NoteExecutionMode, NoteId, NoteTag, NoteType},
     transaction::{InputNotes, TransactionArgs},
-    AssetError, Digest, Felt, NoteError, TransactionScriptError, Word,
+    AssetError, Digest, Felt, NoteError, Word,
 };
 use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, TransactionProver};
 use request::{TransactionRequestError, TransactionScriptTemplate};
@@ -345,12 +345,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         &self,
         inputs: T,
         program: &str,
-    ) -> Result<TransactionScript, TransactionScriptError>
+    ) -> Result<TransactionScript, ClientError>
     where
         T: IntoIterator<Item = (Word, Vec<Felt>)>,
     {
-        // TODO: map error to ClientError
         TransactionScript::compile(program, inputs, TransactionKernel::assembler())
+            .map_err(ClientError::TransactionScriptError)
     }
 
     // HELPERS

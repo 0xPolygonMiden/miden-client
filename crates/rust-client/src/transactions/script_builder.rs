@@ -3,10 +3,9 @@ use alloc::string::String;
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::{AccountId, AuthSecretKey},
-    assembly::AssemblyError,
     notes::PartialNote,
     transaction::TransactionScript,
-    Felt,
+    Felt, TransactionScriptError,
 };
 use miden_tx::TransactionExecutorError;
 
@@ -144,13 +143,8 @@ impl TransactionScriptBuilder {
             self.script_authentication()
         );
 
-        // TODO: map error to TransactionSCriptBuilderError
-        let tx_script =
-            TransactionScript::compile(script, vec![], TransactionKernel::assembler()).unwrap();
-
-        //tx_executor
-        //    .compile_tx_script(program_ast, vec![], vec![])
-        //    .map_err(TransactionScriptBuilderError::TransactionExecutorError)?;
+        let tx_script = TransactionScript::compile(script, vec![], TransactionKernel::assembler())
+            .map_err(TransactionScriptBuilderError::InvalidTransactionScript)?;
 
         Ok(tx_script)
     }
@@ -160,9 +154,8 @@ impl TransactionScriptBuilder {
         let script =
             format!("{} begin {} end", self.script_includes(), self.script_authentication());
 
-        // TODO: map error to TranscationScriptBuilderERror
-        let tx_script =
-            TransactionScript::compile(script, vec![], TransactionKernel::assembler()).unwrap();
+        let tx_script = TransactionScript::compile(script, vec![], TransactionKernel::assembler())
+            .map_err(TransactionScriptBuilderError::InvalidTransactionScript)?;
 
         Ok(tx_script)
     }
@@ -201,7 +194,7 @@ impl TransactionScriptBuilder {
 pub enum TransactionScriptBuilderError {
     InvalidAsset(AccountId),
     InvalidAssetAmount(usize),
-    InvalidTransactionScript(AssemblyError),
+    InvalidTransactionScript(TransactionScriptError),
     InvalidSenderAccount(AccountId),
     TransactionExecutorError(TransactionExecutorError),
 }
