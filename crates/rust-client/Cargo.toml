@@ -53,8 +53,8 @@ winter-maybe-async = "0.10"
 
 [dev-dependencies]
 miden-client = { path = ".", features = ["testing", "concurrent", "sqlite", "tonic", "tokio"]}
-miden-lib = { default-features = false, features = ["testing"], git = "https://github.com/0xPolygonMiden/miden-base", branch = "next" }
-miden-objects = {default-features = false, features = ["serde", "testing"], git = "https://github.com/0xPolygonMiden/miden-base", branch = "next" }
+miden-lib = { version = "0.5", default-features = false, features = ["testing"] }
+miden-objects = { version = "0.5", default-features = false, features = ["serde", "testing"] }
 uuid = { version = "1.9", features = ["serde", "v4"] }
 
 [build-dependencies]
