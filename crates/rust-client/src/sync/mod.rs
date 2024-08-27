@@ -8,7 +8,10 @@ use crypto::merkle::{InOrderIndex, MmrPeaks};
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
     crypto::{self, rand::FeltRng},
-    notes::{Note, NoteId, NoteInclusionProof, NoteInputs, NoteRecipient, NoteTag, Nullifier},
+    notes::{
+        compute_note_hash, Note, NoteId, NoteInclusionProof, NoteInputs, NoteRecipient, NoteTag,
+        Nullifier,
+    },
     transaction::InputNote,
     BlockHeader, Digest,
 };
@@ -216,6 +219,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             }
         }
         self.update_mmr_data().await?;
+        maybe_await!(self.validate_inclusion_proofs())?;
 
         Ok(total_sync_summary)
     }
@@ -590,6 +594,37 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 }
             }
         }
+        Ok(())
+    }
+
+    #[maybe_async]
+    fn validate_inclusion_proofs(&self) -> Result<(), ClientError> {
+        let notes = maybe_await!(self.get_input_notes(NoteFilter::ProofNotVerified))?;
+
+        for note in notes {
+            let inclusion_proof =
+                note.inclusion_proof().expect("Commited notes should have inclusion proofs");
+            let (block, _) = maybe_await!(self
+                .store
+                .get_block_header_by_num(inclusion_proof.location().block_num()))?;
+
+            if let Some(metadata) = note.metadata() {
+                let mut status = ProofStatus::Valid;
+                if !inclusion_proof.note_path().verify(
+                    inclusion_proof.location().node_index_in_block().into(),
+                    compute_note_hash(note.id(), metadata),
+                    &block.note_root(),
+                ) {
+                    status = ProofStatus::Invalid;
+                }
+                maybe_await!(self.store.update_note_inclusion_proof(
+                    note.id(),
+                    inclusion_proof.clone(),
+                    status,
+                ))?;
+            }
+        }
+
         Ok(())
     }
 }

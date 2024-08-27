@@ -163,6 +163,9 @@ impl<'a> NoteFilter<'a> {
                 format!("{base} WHERE status = '{NOTE_STATUS_PROCESSING}' AND NOT(ignored)")
             },
             NoteFilter::Ignored => format!("{base} WHERE ignored"),
+            NoteFilter::ProofNotVerified => {
+                format!("{base} WHERE proof_status = '{PROOF_STATUS_NOT_VERIFIED}'")
+            },
             NoteFilter::Unique(_) | NoteFilter::List(_) => {
                 format!("{base} WHERE note.note_id IN rarray(?)")
             },
@@ -302,7 +305,14 @@ impl SqliteStore {
         inclusion_proof: NoteInclusionProof,
         proof_status: ProofStatus,
     ) -> Result<(), StoreError> {
-        const QUERY: &str = "UPDATE input_notes SET inclusion_proof = json(:inclusion_proof), proof_status = :proof_status, status = 'Committed' WHERE note_id = :note_id";
+        let note = self.get_input_notes(NoteFilter::Unique(note_id))?.pop();
+        if note.is_none() {
+            return Err(StoreError::NoteNotFound(note_id));
+        }
+
+        let prev_status = note.expect("Note should exist").status();
+
+        const QUERY: &str = "UPDATE input_notes SET inclusion_proof = json(:inclusion_proof), proof_status = :proof_status, status = :status WHERE note_id = :note_id";
 
         self.db()
             .execute(
@@ -314,6 +324,11 @@ impl SqliteStore {
                         ProofStatus::NotVerified => PROOF_STATUS_NOT_VERIFIED,
                         ProofStatus::Valid => PROOF_STATUS_VALID,
                         ProofStatus::Invalid => PROOF_STATUS_INVALID,
+                    },
+                    ":status": match prev_status {
+                        NoteStatus::Processing { .. } => NOTE_STATUS_PROCESSING,
+                        NoteStatus::Consumed { .. } => NOTE_STATUS_CONSUMED,
+                        _ => NOTE_STATUS_COMMITTED,
                     },
                 },
             )

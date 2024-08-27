@@ -374,6 +374,8 @@ pub enum NoteFilter<'a> {
     Processing,
     /// Return a list of notes that the client ignores in sync.
     Ignored,
+    /// Return a list of notes with inclusion proofs that have not been verified.
+    ProofNotVerified,
     /// Return a list containing the note that matches with the provided [NoteId].
     List(&'a [NoteId]),
     /// Return a list containing the note that matches with the provided [NoteId].
