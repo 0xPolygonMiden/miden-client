@@ -230,6 +230,7 @@ async fn test_onchain_accounts() {
 
     // Check that the client doesn't know who consumed the note
     let input_note = client_1.get_input_note(notes[0].id()).unwrap();
+    println!("{:?}", input_note.status());
     assert!(matches!(
         input_note.status(),
         NoteStatus::Consumed {
