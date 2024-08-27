@@ -290,6 +290,12 @@ impl Store for SqliteStore {
     ) -> Result<(), StoreError> {
         self.update_note_metadata(note_id, metadata)
     }
+
+    // DELETE LATER
+    #[maybe_async]
+    fn testing_get_tracked_note_tag_single_query(&self) -> Result<Vec<NoteTag>, StoreError> {
+        self.testing_get_tracked_note_tag_single_query()
+    }
 }
 
 // TESTS

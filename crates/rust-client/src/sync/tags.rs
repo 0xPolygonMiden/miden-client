@@ -1,4 +1,5 @@
 use alloc::{collections::BTreeSet, vec::Vec};
+use std::println;
 
 use miden_objects::{
     crypto::rand::FeltRng,
@@ -74,11 +75,24 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let imported_tags: Vec<NoteTag> =
             expected_notes.iter().filter_map(|note| note.imported_tag()).collect();
 
-        Ok([account_tags, stored_tags, uncommited_note_tags, imported_tags]
+        let single_query = maybe_await!(self.store.testing_get_tracked_note_tag_single_query())?;
+
+        println!("account_tags: {:?}", account_tags.clone());
+        println!("stored_tags: {:?}", stored_tags.clone());
+        println!("uncommited_note_tags: {:?}", uncommited_note_tags.clone());
+        println!("imported_tags: {:?}", imported_tags.clone());
+
+        println!("single_query: {:?}", single_query.clone());
+
+        let multi_query = [account_tags, stored_tags, uncommited_note_tags, imported_tags]
             .concat()
             .into_iter()
             .collect::<BTreeSet<NoteTag>>()
             .into_iter()
-            .collect())
+            .collect();
+
+        assert_eq!(single_query, multi_query);
+
+        Ok(multi_query)
     }
 }

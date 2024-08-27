@@ -226,4 +226,8 @@ impl Store for WebStore {
     fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
         maybe_await!(self.get_unspent_input_note_nullifiers())
     }
+
+    async fn testing_get_tracked_note_tag_single_query(&self) -> Result<Vec<NoteTag>, StoreError> {
+        todo!()
+    }
 }

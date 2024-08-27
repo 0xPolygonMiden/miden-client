@@ -44,6 +44,12 @@ pub use note_record::{InputNoteRecord, NoteRecordDetails, NoteStatus, OutputNote
 /// mutability is expected to be implemented, which is why all methods receive `&self` and
 /// not `&mut self`.
 pub trait Store {
+    // TESTING DELETE
+    // --------------------------------------------------------------------------------------------
+
+    #[maybe_async]
+    fn testing_get_tracked_note_tag_single_query(&self) -> Result<Vec<NoteTag>, StoreError>;
+
     // TRANSACTIONS
     // --------------------------------------------------------------------------------------------
 

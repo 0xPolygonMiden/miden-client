@@ -4,6 +4,7 @@ use alloc::{
     vec::Vec,
 };
 use core::fmt;
+use std::print;
 
 use chrono::Utc;
 use miden_objects::{
@@ -324,6 +325,55 @@ impl SqliteStore {
             .map_err(|err| StoreError::QueryError(err.to_string()))?;
 
         Ok(())
+    }
+
+    pub(crate) fn testing_get_tracked_note_tag_single_query(
+        &self,
+    ) -> Result<Vec<NoteTag>, StoreError> {
+        const QUERY: &str = "SELECT
+            CAST(json_each.value AS UNSIGNED BIG INT) AS tag_value
+        FROM
+            state_sync,
+            json_each(state_sync.tags)
+
+        UNION
+
+        SELECT CAST(json_extract(metadata, '$.tag') AS UNSIGNED BIG INT) AS tag_value
+        FROM input_notes
+        WHERE metadata IS NOT NULL
+          AND json_extract(metadata, '$.tag') IS NOT NULL
+
+        UNION
+
+        SELECT CAST(imported_tag AS UNSIGNED BIG INT) AS tag_value
+        FROM input_notes
+        WHERE imported_tag IS NOT NULL
+
+        UNION
+
+        SELECT
+            CAST((((id >> 34) & 0xffff0000) | 0xc0000000) AS UNSIGNED BIG INT) AS tag_value
+        FROM accounts
+        WHERE id IS NOT NULL;";
+
+        self.db()
+            .prepare(QUERY)
+            .unwrap()
+            .query_map([], |row| row.get::<usize, i64>(0))
+            .expect("no binding parameters used in query")
+            .filter_map(|result| {
+                match result {
+                    Ok(id) if id != 0 => {
+                        // Convert to NoteTag if the id is not 0
+                        print!("id: {}", id.clone());
+                        let tag = NoteTag::try_from(id as u64).expect("account id is valid");
+                        Some(Ok(tag))
+                    },
+                    Ok(_) => None, // Exclude 0 values
+                    Err(err) => Some(Err(StoreError::QueryError(err.to_string()))), // Handle errors
+                }
+            })
+            .collect::<Result<Vec<NoteTag>, StoreError>>()
     }
 }
 
