@@ -53,12 +53,12 @@ winter-maybe-async = "0.10"
 
 [dev-dependencies]
 miden-client = { path = ".", features = ["testing", "concurrent", "sqlite", "tonic", "tokio"]}
-miden-lib = { default-features = false, features = ["testing"], git = "https://github.com/0xPolygonMiden/miden-base", branch = "next" }
-miden-objects = {default-features = false, features = ["serde", "testing"], git = "https://github.com/0xPolygonMiden/miden-base", branch = "next" }
+miden-lib = { workspace = true, features = ["testing"] }
+miden-objects = { workspace = true, default-features = false, features = ["serde", "testing"] }
 uuid = { version = "1.9", features = ["serde", "v4"] }
 
 [build-dependencies]
-miden-rpc-proto = { git = "https://github.com/0xPolygonMiden/miden-node", branch = "next" }
+miden-rpc-proto = { version = "0.5" }
 miette = { version = "7.2", features = ["fancy"] }
 prost = { version = "0.12", default-features = false, features = ["derive"] }
 prost-build = { version = "0.12", default-features = false }
