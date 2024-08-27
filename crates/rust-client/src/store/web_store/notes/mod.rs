@@ -50,6 +50,9 @@ impl WebStore {
                 idxdb_get_input_notes(filter_as_str.to_string())
             },
             NoteFilter::Ignored => idxdb_get_ignored_input_notes(),
+            NoteFilter::ProofNotVerified => {
+                idxdb_get_input_notes_by_proof_status(PROOF_STATUS_NOT_VERIFIED.to_string())
+            },
             NoteFilter::List(ids) => {
                 let note_ids_as_str: Vec<String> =
                     ids.iter().map(|id| id.inner().to_string()).collect();
@@ -117,6 +120,9 @@ impl WebStore {
                 idxdb_get_output_notes(filter_as_str.to_string())
             },
             NoteFilter::Ignored => idxdb_get_ignored_output_notes(),
+            NoteFilter::ProofNotVerified => {
+                idxdb_get_output_notes_by_proof_status(PROOF_STATUS_NOT_VERIFIED.to_string())
+            },
             NoteFilter::List(ids) => {
                 let note_ids_as_str: Vec<String> =
                     ids.iter().map(|id| id.inner().to_string()).collect();

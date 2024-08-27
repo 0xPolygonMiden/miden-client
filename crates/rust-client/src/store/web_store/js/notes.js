@@ -79,6 +79,40 @@ export async function getIgnoredOutputNotes() {
 
 }
 
+export async function getInputNotesByProofStatus(
+    status
+) {
+    try {
+        const notes = await inputNotes
+            .where('proof_status')
+            .equals(status)
+            .toArray();
+
+        return await processInputNotes(notes);
+    } catch (err) {
+        console.error("Failed to get input notes: ", err);
+        throw err;
+    }
+}
+
+export async function getOutputNotesByProofStatus(
+    status
+) {
+    try {
+        const notes = await outputNotes
+            .where('proof_status')
+            .equals(status)
+            .toArray();
+
+        return await processOutputNotes(notes);
+    } catch (err) {
+        console.error("Failed to get output notes: ", err);
+        throw err;
+    }
+
+}
+
+
 export async function getInputNotesFromIds(
     noteIds
 ) {

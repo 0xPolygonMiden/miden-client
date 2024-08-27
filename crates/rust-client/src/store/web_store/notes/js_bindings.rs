@@ -19,6 +19,12 @@ extern "C" {
     #[wasm_bindgen(js_name = getIgnoredOutputNotes)]
     pub fn idxdb_get_ignored_output_notes() -> js_sys::Promise;
 
+    #[wasm_bindgen(js_name = getInputNotesByProofStatus)]
+    pub fn idxdb_get_input_notes_by_proof_status(status: String) -> js_sys::Promise;
+
+    #[wasm_bindgen(js_name = getOutputNotesByProofStatus)]
+    pub fn idxdb_get_output_notes_by_proof_status(status: String) -> js_sys::Promise;
+
     #[wasm_bindgen(js_name = getInputNotesFromIds)]
     pub fn idxdb_get_input_notes_from_ids(note_ids: Vec<String>) -> js_sys::Promise;
 
