@@ -136,7 +136,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let details = note.clone().into();
 
         let status = if let Some(block_height) =
-            self.rpc_api().get_nullifier_commit_height(&note.nullifier()).await?
+            self.rpc_api.get_nullifier_commit_height(&note.nullifier()).await?
         {
             NoteStatus::Consumed { consumer_account_id: None, block_height }
         } else {
@@ -245,7 +245,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 ));
             };
 
-            let sync_notes = self.rpc_api().sync_notes(request_block_num, &[tag]).await?;
+            let sync_notes = self.rpc_api.sync_notes(request_block_num, &[tag]).await?;
 
             if sync_notes.block_header.block_num() == sync_notes.chain_tip {
                 return Ok((
