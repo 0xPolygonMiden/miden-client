@@ -26,8 +26,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             let block_num = note
                 .inclusion_proof()
                 .expect("Commited notes should have inclusion proofs")
-                .origin()
-                .block_num;
+                .location()
+                .block_num();
             self.get_and_store_authenticated_block(block_num, &mut current_partial_mmr)
                 .await?;
         }
@@ -63,8 +63,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
-    /// Extracts information about notes that the client is interested in, creating the note inclusion
-    /// proof in order to correctly update store data
+    /// Extracts information about notes that the client is interested in, creating the note
+    /// inclusion proof in order to correctly update store data
     pub(crate) async fn check_block_relevance(
         &mut self,
         committed_notes: &SyncedNewNotes,

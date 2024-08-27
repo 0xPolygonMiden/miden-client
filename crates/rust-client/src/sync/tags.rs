@@ -1,11 +1,19 @@
-use alloc::vec::Vec;
+use alloc::{collections::BTreeSet, vec::Vec};
 
-use miden_objects::{crypto::rand::FeltRng, notes::NoteTag};
+use miden_objects::{
+    crypto::rand::FeltRng,
+    notes::{NoteExecutionMode, NoteTag},
+};
 use miden_tx::auth::TransactionAuthenticator;
 use tracing::warn;
 use winter_maybe_async::{maybe_async, maybe_await};
 
-use crate::{errors::ClientError, rpc::NodeRpcClient, store::Store, Client};
+use crate::{
+    errors::ClientError,
+    rpc::NodeRpcClient,
+    store::{NoteFilter, Store},
+    Client,
+};
 
 impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
     /// Returns the list of note tags tracked by the client.
@@ -13,7 +21,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// When syncing the state with the node, these tags will be added to the sync request and
     /// note-related information will be retrieved for notes that have matching tags.
     ///
-    /// Note: Tags for accounts that are being tracked by the client are managed automatically by the client and do not need to be added here. That is, notes for managed accounts will be retrieved automatically by the client when syncing.
+    /// Note: Tags for accounts that are being tracked by the client are managed automatically by
+    /// the client and do not need to be added here. That is, notes for managed accounts will be
+    /// retrieved automatically by the client when syncing.
     #[maybe_async]
     pub fn get_note_tags(&self) -> Result<Vec<NoteTag>, ClientError> {
         maybe_await!(self.store.get_note_tags()).map_err(|err| err.into())
@@ -42,5 +52,33 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 Ok(())
             },
         }
+    }
+
+    /// Returns the list of note tags tracked by the client.
+    #[maybe_async]
+    pub(crate) fn get_tracked_note_tags(&self) -> Result<Vec<NoteTag>, ClientError> {
+        let stored_tags = maybe_await!(self.get_note_tags())?;
+
+        let account_tags = maybe_await!(self.get_account_stubs())?
+            .into_iter()
+            .map(|(stub, _)| NoteTag::from_account_id(stub.id(), NoteExecutionMode::Local))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let expected_notes = maybe_await!(self.store.get_input_notes(NoteFilter::Expected))?;
+
+        let uncommited_note_tags: Vec<NoteTag> = expected_notes
+            .iter()
+            .filter_map(|note| note.metadata().map(|metadata| metadata.tag()))
+            .collect();
+
+        let imported_tags: Vec<NoteTag> =
+            expected_notes.iter().filter_map(|note| note.imported_tag()).collect();
+
+        Ok([account_tags, stored_tags, uncommited_note_tags, imported_tags]
+            .concat()
+            .into_iter()
+            .collect::<BTreeSet<NoteTag>>()
+            .into_iter()
+            .collect())
     }
 }

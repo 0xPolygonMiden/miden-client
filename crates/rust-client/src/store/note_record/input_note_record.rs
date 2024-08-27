@@ -135,7 +135,7 @@ impl From<&NoteDetails> for InputNoteRecord {
             recipient: note_details.recipient().digest(),
             metadata: None,
             inclusion_proof: None,
-            status: NoteStatus::Expected { created_at: 0 },
+            status: NoteStatus::Expected { created_at: None, block_height: None },
             details: NoteRecordDetails {
                 nullifier: note_details.nullifier().to_string(),
                 script_hash: note_details.script().hash(),
@@ -204,15 +204,10 @@ impl From<Note> for InputNoteRecord {
             id: note.id(),
             recipient: note.recipient().digest(),
             assets: note.assets().clone(),
-            status: NoteStatus::Expected { created_at: 0 },
+            status: NoteStatus::Expected { created_at: None, block_height: None },
             metadata: Some(*note.metadata()),
             inclusion_proof: None,
-            details: NoteRecordDetails::new(
-                note.nullifier().to_string(),
-                note.script().clone(),
-                note.inputs().values().to_vec(),
-                note.serial_num(),
-            ),
+            details: note.into(),
             ignored: false,
             imported_tag: None,
         }
@@ -221,18 +216,21 @@ impl From<Note> for InputNoteRecord {
 
 impl From<InputNote> for InputNoteRecord {
     fn from(recorded_note: InputNote) -> Self {
+        let status = if let Some(inclusion_proof) = recorded_note.proof() {
+            NoteStatus::Committed {
+                block_height: inclusion_proof.location().block_num(),
+            }
+        } else {
+            NoteStatus::Expected { created_at: None, block_height: None }
+        };
+
         InputNoteRecord {
             id: recorded_note.note().id(),
             recipient: recorded_note.note().recipient().digest(),
             assets: recorded_note.note().assets().clone(),
-            status: NoteStatus::Expected { created_at: 0 },
+            status,
             metadata: Some(*recorded_note.note().metadata()),
-            details: NoteRecordDetails::new(
-                recorded_note.note().nullifier().to_string(),
-                recorded_note.note().script().clone(),
-                recorded_note.note().inputs().values().to_vec(),
-                recorded_note.note().serial_num(),
-            ),
+            details: recorded_note.note().clone().into(),
             inclusion_proof: recorded_note.proof().cloned(),
             ignored: false,
             imported_tag: None,
@@ -302,7 +300,7 @@ impl TryFrom<OutputNoteRecord> for InputNoteRecord {
                 ignored: false,
                 imported_tag: None,
             }),
-            None => Err(ClientError::NoteError(miden_objects::NoteError::invalid_origin_index(
+            None => Err(ClientError::NoteError(miden_objects::NoteError::invalid_location_index(
                 "Output Note Record contains no details".to_string(),
             ))),
         }

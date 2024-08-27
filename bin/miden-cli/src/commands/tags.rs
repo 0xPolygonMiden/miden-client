@@ -1,7 +1,7 @@
 use miden_client::{
     auth::TransactionAuthenticator,
     crypto::FeltRng,
-    notes::{NoteExecutionHint, NoteTag},
+    notes::{NoteExecutionMode, NoteTag},
     rpc::NodeRpcClient,
     store::Store,
     Client,
@@ -62,8 +62,8 @@ fn add_tag<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
 ) -> Result<(), String> {
     let tag: NoteTag = tag.into();
     let execution_mode = match tag.execution_hint() {
-        NoteExecutionHint::Local => "Local",
-        NoteExecutionHint::Network => "Network",
+        NoteExecutionMode::Local => "Local",
+        NoteExecutionMode::Network => "Network",
     };
     info!(
         "adding tag - Single Target? {} - Execution mode: {}",

@@ -8,7 +8,7 @@ use crypto::merkle::{InOrderIndex, MmrPeaks};
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
     crypto::{self, rand::FeltRng},
-    notes::{Note, NoteId, NoteInclusionProof, NoteInputs, NoteRecipient, NoteTag},
+    notes::{Note, NoteId, NoteInclusionProof, NoteInputs, NoteRecipient, NoteTag, Nullifier},
     transaction::InputNote,
     BlockHeader, Digest,
 };
@@ -247,9 +247,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
             let note_inclusion_proof = NoteInclusionProof::new(
                 note_block.block_num(),
-                note_block.sub_hash(),
-                note_block.note_root(),
-                details.inclusion_details().note_index as u64,
+                details.inclusion_details().note_index,
                 details.inclusion_details().merkle_path.clone(),
             )
             .map_err(ClientError::NoteError)?;
@@ -274,40 +272,16 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             .map(|(acc_stub, _)| acc_stub)
             .collect();
 
-        let account_note_tags: Vec<NoteTag> = accounts
-            .iter()
-            .map(|acc| {
-                NoteTag::from_account_id(acc.id(), miden_objects::notes::NoteExecutionHint::Local)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let stored_note_tags: Vec<NoteTag> = maybe_await!(self.store.get_note_tags())?;
-
-        let expected_notes = maybe_await!(self.store.get_input_notes(NoteFilter::Expected))?;
-
-        let uncommited_note_tags: Vec<NoteTag> = expected_notes
-            .iter()
-            .filter_map(|note| note.metadata().map(|metadata| metadata.tag()))
-            .collect();
-
-        let imported_tags: Vec<NoteTag> =
-            expected_notes.iter().filter_map(|note| note.imported_tag()).collect();
-
-        let note_tags: Vec<NoteTag> =
-            [account_note_tags, stored_note_tags, uncommited_note_tags, imported_tags]
-                .concat()
-                .into_iter()
-                .collect::<BTreeSet<NoteTag>>()
-                .into_iter()
-                .collect();
+        let note_tags: Vec<NoteTag> = maybe_await!(self.get_tracked_note_tags())?;
 
         // To receive information about added nullifiers, we reduce them to the higher 16 bits
         // Note that besides filtering by nullifier prefixes, the node also filters by block number
-        // (it only returns nullifiers from current_block_num until response.block_header.block_num())
+        // (it only returns nullifiers from current_block_num until
+        // response.block_header.block_num())
         let nullifiers_tags: Vec<u16> =
             maybe_await!(self.store.get_unspent_input_note_nullifiers())?
                 .iter()
-                .map(|nullifier| (nullifier.inner()[3].as_int() >> FILTER_ID_SHIFT) as u16)
+                .map(get_nullifier_prefix)
                 .collect();
 
         // Send request
@@ -335,7 +309,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             .get_updated_onchain_accounts(&response.account_hash_updates, &onchain_accounts)
             .await?;
 
-        self.validate_local_account_hashes(&response.account_hash_updates, &offchain_accounts)?;
+        maybe_await!(
+            self.validate_local_account_hashes(&response.account_hash_updates, &offchain_accounts)
+        )?;
 
         // Derive new nullifiers data
         let new_nullifiers = maybe_await!(self.get_new_nullifiers(response.nullifiers))?;
@@ -386,8 +362,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
-    /// Extracts information about notes that the client is interested in, creating the note inclusion
-    /// proof in order to correctly update store data
+    /// Extracts information about notes that the client is interested in, creating the note
+    /// inclusion proof in order to correctly update store data
     async fn get_note_details(
         &mut self,
         committed_notes: Vec<CommittedNote>,
@@ -427,12 +403,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         for committed_note in committed_notes {
             if let Some(note_record) = expected_input_notes.get(committed_note.note_id()) {
-                // The note belongs to our locally tracked set of expected notes, build the inclusion proof
+                // The note belongs to our locally tracked set of expected notes, build the
+                // inclusion proof
                 let note_inclusion_proof = NoteInclusionProof::new(
                     block_header.block_num(),
-                    block_header.sub_hash(),
-                    block_header.note_root(),
-                    committed_note.note_index().into(),
+                    committed_note.note_index(),
                     committed_note.merkle_path().clone(),
                 )?;
 
@@ -456,9 +431,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             if expected_output_notes.contains(committed_note.note_id()) {
                 let note_id_with_inclusion_proof = NoteInclusionProof::new(
                     block_header.block_num(),
-                    block_header.sub_hash(),
-                    block_header.note_root(),
-                    committed_note.note_index().into(),
+                    committed_note.note_index(),
                     committed_note.merkle_path().clone(),
                 )
                 .map(|note_inclusion_proof| (*committed_note.note_id(), note_inclusion_proof))?;
@@ -512,9 +485,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     info!("Retrieved details for Note ID {}.", note.id());
                     let note_inclusion_proof = NoteInclusionProof::new(
                         block_header.block_num(),
-                        block_header.sub_hash(),
-                        block_header.note_root(),
-                        inclusion_proof.note_index as u64,
+                        inclusion_proof.note_index,
                         inclusion_proof.merkle_path,
                     )
                     .map_err(ClientError::NoteError)?;
@@ -541,8 +512,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         Ok(new_nullifiers)
     }
 
-    /// Extracts information about transactions for uncommitted transactions that the client is tracking
-    /// from the received [SyncStateResponse]
+    /// Extracts information about transactions for uncommitted transactions that the client is
+    /// tracking from the received [SyncStateResponse]
     #[maybe_async]
     fn get_transactions_to_commit(
         &self,
@@ -578,7 +549,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 info!("On-chain account hash difference detected for account with ID: {}. Fetching node for updates...", tracked_account.id());
                 let account_details = self.rpc_api.get_account_update(tracked_account.id()).await?;
                 if let AccountDetails::Public(account, _) = account_details {
-                    accounts_to_update.push(account);
+                    // We should only do the update if it's newer, otherwise we ignore it
+                    if account.nonce().as_int() > tracked_account.nonce().as_int() {
+                        accounts_to_update.push(account);
+                    }
                 } else {
                     return Err(RpcError::AccountUpdateForPrivateAccountReceived(
                         account_details.account_id(),
@@ -591,6 +565,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     }
 
     /// Validates account hash updates and returns an error if there is a mismatch.
+    #[maybe_async]
     fn validate_local_account_hashes(
         &mut self,
         account_updates: &[(AccountId, Digest)],
@@ -602,11 +577,21 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 .iter()
                 .find(|acc| *remote_account_id == acc.id() && *remote_account_hash != acc.hash());
 
-            // OffChain accounts should always have the latest known state
+            // OffChain accounts should always have the latest known state. If we receive a stale
+            // update we ignore it.
             if mismatched_accounts.is_some() {
-                return Err(StoreError::AccountHashMismatch(*remote_account_id).into());
+                let account_by_hash =
+                    maybe_await!(self.store.get_account_stub_by_hash(*remote_account_hash))?;
+
+                if account_by_hash.is_none() {
+                    return Err(StoreError::AccountHashMismatch(*remote_account_id).into());
+                }
             }
         }
         Ok(())
     }
+}
+
+pub(crate) fn get_nullifier_prefix(nullifier: &Nullifier) -> u16 {
+    (nullifier.inner()[3].as_int() >> FILTER_ID_SHIFT) as u16
 }

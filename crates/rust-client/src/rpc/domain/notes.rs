@@ -1,5 +1,5 @@
 use miden_objects::{
-    notes::{NoteMetadata, NoteTag, NoteType},
+    notes::{NoteExecutionHint, NoteMetadata, NoteTag, NoteType},
     Felt,
 };
 
@@ -20,8 +20,13 @@ impl TryFrom<ProtoNoteMetadata> for NoteMetadata {
             .try_into()?;
         let note_type = NoteType::try_from(value.note_type as u64)?;
         let tag = NoteTag::from(value.tag);
+        let execution_hint_tag = (value.execution_hint & 0xff) as u8;
+        let execution_hint_payload = ((value.execution_hint >> 8) & 0xffffff) as u32;
+        let execution_hint =
+            NoteExecutionHint::from_parts(execution_hint_tag, execution_hint_payload)?;
+
         let aux = Felt::try_from(value.aux).map_err(|_| RpcConversionError::NotAValidFelt)?;
 
-        Ok(NoteMetadata::new(sender, note_type, tag, aux)?)
+        Ok(NoteMetadata::new(sender, note_type, tag, execution_hint, aux)?)
     }
 }

@@ -25,12 +25,13 @@ pub mod tests;
 // RE-EXPORTS
 // ================================================================================================
 
-pub mod assembly {
-    pub use miden_objects::assembly::{AstSerdeOptions, ModuleAst, ProgramAst};
-}
-
 pub mod assets {
-    pub use miden_objects::assets::{Asset, AssetVault, FungibleAsset, TokenSymbol};
+    pub use miden_objects::{
+        accounts::delta::{
+            AccountVaultDelta, FungibleAssetDelta, NonFungibleAssetDelta, NonFungibleDeltaAction,
+        },
+        assets::{Asset, AssetVault, FungibleAsset, NonFungibleAsset, TokenSymbol},
+    };
 }
 
 pub mod auth {
@@ -72,9 +73,7 @@ pub mod testing {
     pub use miden_objects::accounts::account_id::testing::*;
 }
 
-use alloc::rc::Rc;
-#[cfg(feature = "testing")]
-use alloc::vec::Vec;
+use alloc::{rc::Rc, vec::Vec};
 
 use miden_objects::crypto::rand::FeltRng;
 use miden_tx::{auth::TransactionAuthenticator, TransactionExecutor};
@@ -88,8 +87,8 @@ use tracing::info;
 /// A light client for connecting to the Miden rollup network.
 ///
 /// Miden client is responsible for managing a set of accounts. Specifically, the client:
-/// - Keeps track of the current and historical states of a set of accounts and related objects
-///   such as notes and transactions.
+/// - Keeps track of the current and historical states of a set of accounts and related objects such
+///   as notes and transactions.
 /// - Connects to one or more Miden nodes to periodically sync with the current state of the
 ///   network.
 /// - Executes, proves, and submits transactions to the network as directed by the user.
@@ -113,8 +112,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ///
     /// ## Arguments
     ///
-    /// - `api`: An instance of [NodeRpcClient] which provides a way for the client to connect
-    ///   to the Miden node.
+    /// - `api`: An instance of [NodeRpcClient] which provides a way for the client to connect to
+    ///   the Miden node.
     /// - `store`: An instance of [Store], which provides a way to write and read entities to
     ///   provide persistence.
     /// - `executor_store`: An instance of [Store] that provides a way for [TransactionExecutor] to
@@ -122,9 +121,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ///   store as the one for `store`, but it doesn't have to be the **same instance**.
     /// - `authenticator`: Defines the transaction authenticator that will be used by the
     ///   transaction executor whenever a signature is requested from within the VM.
-    /// - `in_debug_mode`: Instantiates the transaction executor (and in turn, its compiler)
-    ///   in debug mode, which will enable debug logs for scripts compiled with this mode for
-    ///   easier MASM debugging.
+    /// - `in_debug_mode`: Instantiates the transaction executor (and in turn, its compiler) in
+    ///   debug mode, which will enable debug logs for scripts compiled with this mode for easier
+    ///   MASM debugging.
     ///
     /// # Errors
     ///
@@ -142,6 +141,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         Self { store, rng, rpc_api: api, tx_executor }
     }
 
+    /// Returns a reference to the client's random number generator. This can be used to generate
+    /// randomness for various purposes such as serial numbers, keys, etc.
+    pub fn rng(&mut self) -> &mut R {
+        &mut self.rng
+    }
+
     // TEST HELPERS
     // --------------------------------------------------------------------------------------------
 
@@ -150,7 +155,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         &mut self.rpc_api
     }
 
-    #[cfg(any(test, feature = "testing"))]
+    // TODO: the idxdb feature access here is temporary and should be removed in the future once
+    // a good solution to the syncrhonous store access in the store authenticator is found.
+    // https://github.com/0xPolygonMiden/miden-base/issues/705
+    #[cfg(any(test, feature = "testing", feature = "idxdb"))]
     pub fn store(&mut self) -> &S {
         &self.store
     }

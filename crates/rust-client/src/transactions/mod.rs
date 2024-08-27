@@ -5,23 +5,21 @@ use alloc::{
 };
 use core::fmt;
 
-use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
+use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{AccountDelta, AccountId},
-    assembly::ProgramAst,
-    assets::FungibleAsset,
-    notes::{Note, NoteDetails, NoteId, NoteType},
+    accounts::{Account, AccountDelta, AccountId, AccountType},
+    assets::{Asset, NonFungibleAsset},
+    notes::{Note, NoteDetails, NoteExecutionMode, NoteId, NoteTag, NoteType},
     transaction::{InputNotes, TransactionArgs},
-    Digest, Felt, FieldElement, Word,
+    AssetError, Digest, Felt, NoteError, Word,
 };
 use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, TransactionProver};
+use request::{TransactionRequestError, TransactionScriptTemplate};
+use script_builder::{AccountCapabilities, AccountInterface, TransactionScriptBuilder};
 use tracing::info;
-use transaction_request::TransactionRequestError;
 use winter_maybe_async::{maybe_async, maybe_await};
 
-use self::transaction_request::{
-    PaymentTransactionData, SwapTransactionData, TransactionRequest, TransactionTemplate,
-};
+use self::request::TransactionRequest;
 use super::{rpc::NodeRpcClient, Client, FeltRng};
 use crate::{
     notes::NoteScreener,
@@ -29,13 +27,14 @@ use crate::{
     ClientError,
 };
 
-pub mod transaction_request;
+pub mod request;
+pub mod script_builder;
 pub use miden_objects::transaction::{
     ExecutedTransaction, InputNote, OutputNote, OutputNotes, ProvenTransaction, TransactionId,
     TransactionScript,
 };
-pub use miden_tx::{DataStoreError, ScriptTarget, TransactionExecutorError};
-pub use transaction_request::known_script_roots;
+pub use miden_tx::{DataStoreError, TransactionExecutorError};
+pub use request::known_script_roots;
 
 // TRANSACTION RESULT
 // --------------------------------------------------------------------------------------------
@@ -53,7 +52,8 @@ pub struct TransactionResult {
 }
 
 impl TransactionResult {
-    /// Screens the output notes to store and track the relevant ones, and instantiates a [TransactionResult]
+    /// Screens the output notes to store and track the relevant ones, and instantiates a
+    /// [TransactionResult]
     #[maybe_async]
     pub fn new<S: Store>(
         transaction: ExecutedTransaction,
@@ -155,7 +155,7 @@ impl TransactionRecord {
 }
 
 /// Represents the status of a transaction
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TransactionStatus {
     /// Transaction has been submitted but not yet committed
     Pending,
@@ -190,61 +190,23 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // TRANSACTION
     // --------------------------------------------------------------------------------------------
 
-    /// Compiles a [TransactionTemplate] into a [TransactionRequest] that can be then executed by the
-    /// client
-    #[maybe_async]
-    pub fn build_transaction_request(
-        &mut self,
-        transaction_template: TransactionTemplate,
-    ) -> Result<TransactionRequest, ClientError> {
-        match transaction_template {
-            TransactionTemplate::ConsumeNotes(account_id, notes) => {
-                let program_ast = ProgramAst::parse(transaction_request::AUTH_CONSUME_NOTES_SCRIPT)
-                    .expect("shipped MASM is well-formed");
-                let notes = notes.iter().map(|id| (*id, None)).collect();
-
-                let tx_script = self.tx_executor.compile_tx_script(program_ast, vec![], vec![])?;
-                Ok(TransactionRequest::new(
-                    account_id,
-                    vec![],
-                    notes,
-                    vec![],
-                    vec![],
-                    Some(tx_script),
-                    None,
-                )?)
-            },
-            TransactionTemplate::MintFungibleAsset(asset, target_account_id, note_type) => {
-                self.build_mint_tx_request(asset, target_account_id, note_type)
-            },
-            TransactionTemplate::PayToId(payment_data, note_type) => {
-                self.build_p2id_tx_request(payment_data, None, note_type)
-            },
-            TransactionTemplate::PayToIdWithRecall(payment_data, recall_height, note_type) => {
-                self.build_p2id_tx_request(payment_data, Some(recall_height), note_type)
-            },
-            TransactionTemplate::Swap(swap_data, note_type) => {
-                self.build_swap_tx_request(swap_data, note_type)
-            },
-        }
-    }
-
-    /// Creates and executes a transaction specified by the template, but does not change the
-    /// local database.
+    /// Creates and executes a transaction specified by the request against the specified account,
+    /// but does not change the local database.
     ///
     /// # Errors
     ///
-    /// - Returns [ClientError::MissingOutputNotes] if the [TransactionRequest] ouput notes are
-    ///   not a subset of executor's output notes
+    /// - Returns [ClientError::MissingOutputNotes] if the [TransactionRequest] ouput notes are not
+    ///   a subset of executor's output notes
     /// - Returns a [ClientError::TransactionExecutorError] if the execution fails
+    /// - Returns a [ClientError::TransactionRequestError] if the request is invalid
     #[maybe_async]
     pub fn new_transaction(
         &mut self,
+        account_id: AccountId,
         transaction_request: TransactionRequest,
     ) -> Result<TransactionResult, ClientError> {
-        let account_id = transaction_request.account_id();
-        maybe_await!(self.tx_executor.load_account(account_id))
-            .map_err(ClientError::TransactionExecutorError)?;
+        // Validates the transaction request before executing
+        maybe_await!(self.validate_request(account_id, &transaction_request))?;
 
         // Ensure authenticated notes have their inclusion proofs (a.k.a they're in a committed
         // state). TODO: we should consider refactoring this in a way we can handle this in
@@ -273,16 +235,41 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let block_num = maybe_await!(self.store.get_sync_height())?;
 
         let note_ids = transaction_request.get_input_note_ids();
-        let output_notes = transaction_request.expected_output_notes().to_vec();
-        let partial_notes = transaction_request.expected_partial_notes().to_vec();
+        let output_notes: Vec<Note> =
+            transaction_request.expected_output_notes().cloned().collect();
+        let future_notes: Vec<NoteDetails> =
+            transaction_request.expected_future_notes().cloned().collect();
+
+        let tx_script = match transaction_request.script_template() {
+            Some(TransactionScriptTemplate::CustomScript(script)) => script.clone(),
+            Some(TransactionScriptTemplate::SendNotes(notes)) => {
+                let tx_script_builder = TransactionScriptBuilder::new(maybe_await!(
+                    self.get_account_capabilities(account_id)
+                )?);
+
+                tx_script_builder.build_send_notes_script(notes)?
+            },
+            None => {
+                if transaction_request.input_notes().is_empty() {
+                    return Err(ClientError::TransactionRequestError(
+                        TransactionRequestError::NoInputNotes,
+                    ));
+                }
+
+                let tx_script_builder = TransactionScriptBuilder::new(maybe_await!(
+                    self.get_account_capabilities(account_id)
+                )?);
+
+                tx_script_builder.build_auth_script()?
+            },
+        };
+
+        let tx_args = transaction_request.into_transaction_args(tx_script);
 
         // Execute the transaction and get the witness
-        let executed_transaction = maybe_await!(self.tx_executor.execute_transaction(
-            account_id,
-            block_num,
-            &note_ids,
-            transaction_request.into(),
-        ))?;
+        let executed_transaction = maybe_await!(self
+            .tx_executor
+            .execute_transaction(account_id, block_num, &note_ids, tx_args,))?;
 
         // Check that the expected output notes matches the transaction outcome.
         // We compare authentication hashes where possible since that involves note IDs + metadata
@@ -304,227 +291,288 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let screener = NoteScreener::new(self.store.clone());
 
-        maybe_await!(TransactionResult::new(executed_transaction, screener, partial_notes))
+        maybe_await!(TransactionResult::new(executed_transaction, screener, future_notes))
     }
 
-    /// Proves the specified transaction witness, and returns a [ProvenTransaction] that can be
-    /// submitted to the node.
-    pub fn prove_transaction(
-        &mut self,
-        executed_transaction: ExecutedTransaction,
-    ) -> Result<ProvenTransaction, ClientError> {
-        let transaction_prover = TransactionProver::new(ProvingOptions::default());
-
-        let proven_transaction = transaction_prover.prove_transaction(executed_transaction)?;
-        Ok(proven_transaction)
-    }
-
-    /// Submits a [ProvenTransaction] to the node, and stores the transaction in
+    /// Proves the specified transaction, submits it to the network, and saves the transaction into
     /// the local database for tracking.
     pub async fn submit_transaction(
         &mut self,
         tx_result: TransactionResult,
+    ) -> Result<(), ClientError> {
+        let proven_transaction = self.prove_transaction(&tx_result)?;
+        self.submit_proven_transaction(proven_transaction).await?;
+        maybe_await!(self.apply_transaction(tx_result))
+    }
+
+    fn prove_transaction(
+        &mut self,
+        tx_result: &TransactionResult,
+    ) -> Result<ProvenTransaction, ClientError> {
+        let transaction_prover = TransactionProver::new(ProvingOptions::default());
+
+        info!("Proving transaction...");
+        let proven_transaction =
+            transaction_prover.prove_transaction(tx_result.executed_transaction().clone())?;
+        info!("Transaction proven.");
+
+        Ok(proven_transaction)
+    }
+
+    async fn submit_proven_transaction(
+        &mut self,
         proven_transaction: ProvenTransaction,
     ) -> Result<(), ClientError> {
+        info!("Submitting transaction to the network...");
         self.rpc_api.submit_proven_transaction(proven_transaction).await?;
-        info!("Transaction submitted");
+        info!("Transaction submitted.");
 
-        // Transaction was proven and submitted to the node correctly, persist note details and update account
-        maybe_await!(self.store.apply_transaction(tx_result))?;
-        info!("Transaction stored");
         Ok(())
     }
 
-    /// Compiles the provided transaction script source and inputs into a [TransactionScript] and
-    /// checks (to the extent possible) that the transaction script can be executed against all
-    /// accounts with the specified interfaces.
+    #[maybe_async]
+    fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), ClientError> {
+        // Transaction was proven and submitted to the node correctly, persist note details and
+        // update account
+        info!("Applying transaction to the local store...");
+        maybe_await!(self.store.apply_transaction(tx_result))?;
+        info!("Transaction stored.");
+        Ok(())
+    }
+
+    /// Compiles the provided transaction script source and inputs into a [TransactionScript]
     pub fn compile_tx_script<T>(
         &self,
-        program: ProgramAst,
         inputs: T,
-        target_account_procs: Vec<ScriptTarget>,
+        program: &str,
     ) -> Result<TransactionScript, ClientError>
     where
         T: IntoIterator<Item = (Word, Vec<Felt>)>,
     {
-        self.tx_executor
-            .compile_tx_script(program, inputs, target_account_procs)
-            .map_err(ClientError::TransactionExecutorError)
+        TransactionScript::compile(program, inputs, TransactionKernel::assembler())
+            .map_err(ClientError::TransactionScriptError)
     }
 
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
-    /// Helper to build a [TransactionRequest] for P2ID-type transactions easily.
+    /// Helper to get the account outgoing assets.
     ///
-    /// - auth_info has to be from the executor account
-    /// - If recall_height is Some(), a P2IDR note will be created. Otherwise, a P2ID is created.
-    fn build_p2id_tx_request(
-        &mut self,
-        payment_data: PaymentTransactionData,
-        recall_height: Option<u32>,
-        note_type: NoteType,
-    ) -> Result<TransactionRequest, ClientError> {
-        let created_note = if let Some(recall_height) = recall_height {
-            create_p2idr_note(
-                payment_data.account_id(),
-                payment_data.target_account_id(),
-                vec![payment_data.asset()],
-                note_type,
-                Felt::ZERO,
-                recall_height,
-                &mut self.rng,
-            )?
+    /// Any outgoing assets resulting from executing note scripts but not present in expected output
+    /// notes would not be included.
+    fn get_outgoing_assets(
+        &self,
+        transaction_request: &TransactionRequest,
+    ) -> (BTreeMap<AccountId, u64>, BTreeSet<NonFungibleAsset>) {
+        // Get own notes assets
+        let mut own_notes_assets = match transaction_request.script_template() {
+            Some(TransactionScriptTemplate::SendNotes(notes)) => {
+                notes.iter().map(|note| (note.id(), note.assets())).collect::<BTreeMap<_, _>>()
+            },
+            _ => Default::default(),
+        };
+        // Get transaction output notes assets
+        let mut output_notes_assets = transaction_request
+            .expected_output_notes()
+            .map(|note| (note.id(), note.assets()))
+            .collect::<BTreeMap<_, _>>();
+
+        // Merge with own notes assets and delete duplicates
+        output_notes_assets.append(&mut own_notes_assets);
+
+        // Create a map of the fungible and non-fungible assets in the output notes
+        let outgoing_assets =
+            output_notes_assets.values().flat_map(|note_assets| note_assets.iter());
+
+        collect_assets(outgoing_assets)
+    }
+
+    /// Helper to get the account incoming assets.
+    #[maybe_async]
+    fn get_incoming_assets(
+        &self,
+        transaction_request: &TransactionRequest,
+    ) -> Result<(BTreeMap<AccountId, u64>, BTreeSet<NonFungibleAsset>), TransactionRequestError>
+    {
+        // Get incoming asset notes excluding unauthenticated ones
+        let incoming_notes_ids: Vec<_> = transaction_request
+            .input_notes()
+            .iter()
+            .filter_map(|(note_id, _)| {
+                if transaction_request
+                    .unauthenticated_input_notes()
+                    .iter()
+                    .any(|note| note.id() == *note_id)
+                {
+                    None
+                } else {
+                    Some(*note_id)
+                }
+            })
+            .collect();
+
+        let store_input_notes =
+            maybe_await!(self.get_input_notes(NoteFilter::List(&incoming_notes_ids)))
+                .map_err(|err| TransactionRequestError::NoteNotFound(err.to_string()))?;
+
+        let all_incoming_assets =
+            store_input_notes.iter().flat_map(|note| note.assets().iter()).chain(
+                transaction_request
+                    .unauthenticated_input_notes()
+                    .iter()
+                    .flat_map(|note| note.assets().iter()),
+            );
+
+        Ok(collect_assets(all_incoming_assets))
+    }
+
+    #[maybe_async]
+    fn validate_basic_account_request(
+        &self,
+        transaction_request: &TransactionRequest,
+        account: &Account,
+    ) -> Result<(), ClientError> {
+        // Get outgoing assets
+        let (fungible_balance_map, non_fungible_set) =
+            self.get_outgoing_assets(transaction_request);
+
+        // Get incoming assets
+        let (incoming_fungible_balance_map, incoming_non_fungible_balance_set) =
+            maybe_await!(self.get_incoming_assets(transaction_request))?;
+
+        // Check if the account balance plus incoming assets is greater than or equal to the
+        // outgoing fungible assets
+        for (faucet_id, amount) in fungible_balance_map {
+            let account_asset_amount = account.vault().get_balance(faucet_id).unwrap_or(0);
+            let incoming_balance = incoming_fungible_balance_map.get(&faucet_id).unwrap_or(&0);
+            if account_asset_amount + incoming_balance < amount {
+                return Err(ClientError::AssetError(AssetError::AssetAmountNotSufficient(
+                    account_asset_amount,
+                    amount,
+                )));
+            }
+        }
+
+        // Check if the account balance plus incoming assets is greater than or equal to the
+        // outgoing non fungible assets
+        for non_fungible in non_fungible_set {
+            match account.vault().has_non_fungible_asset(non_fungible.into()) {
+                Ok(true) => (),
+                Ok(false) => {
+                    // Check if the non fungible asset is in the incoming assets
+                    if !incoming_non_fungible_balance_set.contains(&non_fungible) {
+                        return Err(ClientError::AssetError(AssetError::AssetAmountNotSufficient(
+                            0, 1,
+                        )));
+                    }
+                },
+                _ => {
+                    return Err(ClientError::AssetError(AssetError::AssetAmountNotSufficient(
+                        0, 1,
+                    )));
+                },
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Validates that the specified transaction request can be executed by the specified account.
+    ///
+    /// This function checks that the account has enough balance to cover the outgoing assets. This
+    /// does't guarantee that the transaction will succeed, but it's useful to avoid submitting
+    /// transactions that are guaranteed to fail.
+    #[maybe_async]
+    pub fn validate_request(
+        &self,
+        account_id: AccountId,
+        transaction_request: &TransactionRequest,
+    ) -> Result<(), ClientError> {
+        let (account, _) = maybe_await!(self.get_account(account_id))?;
+        if account.is_faucet() {
+            // TODO(SantiagoPittella): Add faucet validations.
+            Ok(())
         } else {
-            create_p2id_note(
-                payment_data.account_id(),
-                payment_data.target_account_id(),
-                vec![payment_data.asset()],
-                note_type,
-                Felt::ZERO,
-                &mut self.rng,
-            )?
+            maybe_await!(self.validate_basic_account_request(transaction_request, &account))
+        }
+    }
+
+    /// Retrieves the account capabilities for the specified account.
+    #[maybe_async]
+    fn get_account_capabilities(
+        &self,
+        account_id: AccountId,
+    ) -> Result<AccountCapabilities, ClientError> {
+        let account = maybe_await!(self.get_account(account_id))?.0;
+        let account_auth = maybe_await!(self.get_account_auth(account_id))?;
+
+        // TODO: we should check if the account actually exposes the interfaces we're trying to use
+        let account_capabilities = match account.account_type() {
+            AccountType::FungibleFaucet => AccountInterface::BasicFungibleFaucet,
+            AccountType::NonFungibleFaucet => todo!("Non fungible faucet not supported yet"),
+            AccountType::RegularAccountImmutableCode | AccountType::RegularAccountUpdatableCode => {
+                AccountInterface::BasicWallet
+            },
         };
 
-        let recipient = created_note
-            .recipient()
-            .digest()
-            .iter()
-            .map(|x| x.as_int().to_string())
-            .collect::<Vec<_>>()
-            .join(".");
+        Ok(AccountCapabilities {
+            account_id,
+            auth: account_auth,
+            interfaces: account_capabilities,
+        })
+    }
+}
 
-        let note_tag = created_note.metadata().tag().inner();
+// TESTING HELPERS
+// ================================================================================================
 
-        let tx_script = ProgramAst::parse(
-            &transaction_request::AUTH_SEND_ASSET_SCRIPT
-                .replace("{recipient}", &recipient)
-                .replace("{note_type}", &Felt::new(note_type as u64).to_string())
-                .replace("{aux}", &created_note.metadata().aux().to_string())
-                .replace("{tag}", &Felt::new(note_tag.into()).to_string())
-                .replace("{asset}", &prepare_word(&payment_data.asset().into()).to_string()),
-        )
-        .expect("shipped MASM is well-formed");
-
-        let tx_script = self.tx_executor.compile_tx_script(tx_script, vec![], vec![])?;
-
-        Ok(TransactionRequest::new(
-            payment_data.account_id(),
-            vec![],
-            BTreeMap::new(),
-            vec![created_note],
-            vec![],
-            Some(tx_script),
-            None,
-        )?)
+#[cfg(feature = "testing")]
+impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
+    pub fn testing_prove_transaction(
+        &mut self,
+        tx_result: &TransactionResult,
+    ) -> Result<ProvenTransaction, ClientError> {
+        self.prove_transaction(tx_result)
     }
 
-    /// Helper to build a [TransactionRequest] for Swap-type transactions easily.
-    ///
-    /// - auth_info has to be from the executor account
-    fn build_swap_tx_request(
+    pub async fn testing_submit_proven_transaction(
         &mut self,
-        swap_data: SwapTransactionData,
-        note_type: NoteType,
-    ) -> Result<TransactionRequest, ClientError> {
-        // The created note is the one that we need as the output of the tx, the other one is the
-        // one that we expect to receive and consume eventually
-        let (created_note, payback_note_details) = create_swap_note(
-            swap_data.account_id(),
-            swap_data.offered_asset(),
-            swap_data.requested_asset(),
-            note_type,
-            Felt::ZERO,
-            &mut self.rng,
-        )?;
-
-        let recipient = created_note
-            .recipient()
-            .digest()
-            .iter()
-            .map(|x| x.as_int().to_string())
-            .collect::<Vec<_>>()
-            .join(".");
-
-        let note_tag = created_note.metadata().tag().inner();
-
-        let tx_script = ProgramAst::parse(
-            &transaction_request::AUTH_SEND_ASSET_SCRIPT
-                .replace("{recipient}", &recipient)
-                .replace("{note_type}", &Felt::new(note_type as u64).to_string())
-                .replace("{aux}", &created_note.metadata().aux().to_string())
-                .replace("{tag}", &Felt::new(note_tag.into()).to_string())
-                .replace("{asset}", &prepare_word(&swap_data.offered_asset().into()).to_string()),
-        )
-        .expect("shipped MASM is well-formed");
-
-        let tx_script = self.tx_executor.compile_tx_script(tx_script, vec![], vec![])?;
-
-        Ok(TransactionRequest::new(
-            swap_data.account_id(),
-            vec![],
-            BTreeMap::new(),
-            vec![created_note],
-            vec![payback_note_details],
-            Some(tx_script),
-            None,
-        )?)
+        proven_transaction: ProvenTransaction,
+    ) -> Result<(), ClientError> {
+        self.submit_proven_transaction(proven_transaction).await
     }
 
-    /// Helper to build a [TransactionRequest] for transaction to mint fungible tokens.
-    ///
-    /// - faucet_auth_info has to be from the faucet account
-    fn build_mint_tx_request(
-        &mut self,
-        asset: FungibleAsset,
-        target_account_id: AccountId,
-        note_type: NoteType,
-    ) -> Result<TransactionRequest, ClientError> {
-        let created_note = create_p2id_note(
-            asset.faucet_id(),
-            target_account_id,
-            vec![asset.into()],
-            note_type,
-            Felt::ZERO,
-            &mut self.rng,
-        )?;
-
-        let recipient = created_note
-            .recipient()
-            .digest()
-            .iter()
-            .map(|x| x.as_int().to_string())
-            .collect::<Vec<_>>()
-            .join(".");
-
-        let note_tag = created_note.metadata().tag().inner();
-
-        let tx_script = ProgramAst::parse(
-            &transaction_request::DISTRIBUTE_FUNGIBLE_ASSET_SCRIPT
-                .replace("{recipient}", &recipient)
-                .replace("{note_type}", &Felt::new(note_type as u64).to_string())
-                .replace("{aux}", &created_note.metadata().aux().to_string())
-                .replace("{tag}", &Felt::new(note_tag.into()).to_string())
-                .replace("{amount}", &Felt::new(asset.amount()).to_string()),
-        )
-        .expect("shipped MASM is well-formed");
-
-        let tx_script = self.tx_executor.compile_tx_script(tx_script, vec![], vec![])?;
-
-        Ok(TransactionRequest::new(
-            asset.faucet_id(),
-            vec![],
-            BTreeMap::new(),
-            vec![created_note],
-            vec![],
-            Some(tx_script),
-            None,
-        )?)
+    pub async fn testing_apply_transaction(
+        &self,
+        tx_result: TransactionResult,
+    ) -> Result<(), ClientError> {
+        maybe_await!(self.apply_transaction(tx_result))
     }
 }
 
 // HELPERS
 // ================================================================================================
+
+fn collect_assets<'a>(
+    assets: impl Iterator<Item = &'a Asset>,
+) -> (BTreeMap<AccountId, u64>, BTreeSet<NonFungibleAsset>) {
+    let mut fungible_balance_map = BTreeMap::new();
+    let mut non_fungible_set = BTreeSet::new();
+
+    assets.for_each(|asset| match asset {
+        Asset::Fungible(fungible) => {
+            fungible_balance_map
+                .entry(fungible.faucet_id())
+                .and_modify(|balance| *balance += fungible.amount())
+                .or_insert(fungible.amount());
+        },
+        Asset::NonFungible(non_fungible) => {
+            non_fungible_set.insert(*non_fungible);
+        },
+    });
+
+    (fungible_balance_map, non_fungible_set)
+}
 
 pub(crate) fn prepare_word(word: &Word) -> String {
     word.iter().map(|x| x.as_int().to_string()).collect::<Vec<_>>().join(".")
@@ -546,4 +594,43 @@ pub fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &No
                 todo!("For now, all details should be held in OutputNote::Fulls")
             },
         })
+}
+
+/// Returns a note tag for a swap note with the specified parameters.
+///
+/// Use case ID for the returned tag is set to 0.
+///
+/// Tag payload is constructed by taking asset tags (8 bits of faucet ID) and concatenating them
+/// together as offered_asset_tag + requested_asset tag.
+///
+/// Network execution hint for the returned tag is set to `Local`.
+///
+/// Based on miden-base's implementation (<https://github.com/0xPolygonMiden/miden-base/blob/9e4de88031b55bcc3524cb0ccfb269821d97fb29/miden-lib/src/notes/mod.rs#L153>)
+///
+/// TODO: we should make the function in base public and once that gets released use that one and
+/// delete this implementation.
+pub fn build_swap_tag(
+    note_type: NoteType,
+    offered_asset_faucet_id: AccountId,
+    requested_asset_faucet_id: AccountId,
+) -> Result<NoteTag, NoteError> {
+    const SWAP_USE_CASE_ID: u16 = 0;
+
+    // get bits 4..12 from faucet IDs of both assets, these bits will form the tag payload; the
+    // reason we skip the 4 most significant bits is that these encode metadata of underlying
+    // faucets and are likely to be the same for many different faucets.
+
+    let offered_asset_id: u64 = offered_asset_faucet_id.into();
+    let offered_asset_tag = (offered_asset_id >> 52) as u8;
+
+    let requested_asset_id: u64 = requested_asset_faucet_id.into();
+    let requested_asset_tag = (requested_asset_id >> 52) as u8;
+
+    let payload = ((offered_asset_tag as u16) << 8) | (requested_asset_tag as u16);
+
+    let execution = NoteExecutionMode::Local;
+    match note_type {
+        NoteType::Public => NoteTag::for_public_use_case(SWAP_USE_CASE_ID, payload, execution),
+        _ => NoteTag::for_local_use_case(SWAP_USE_CASE_ID, payload),
+    }
 }

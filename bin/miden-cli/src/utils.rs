@@ -9,19 +9,24 @@ use figment::{
     Figment,
 };
 use miden_client::{
-    accounts::AccountId,
-    auth::TransactionAuthenticator,
-    crypto::FeltRng,
-    notes::{NoteError, NoteExecutionHint, NoteTag, NoteType},
-    rpc::NodeRpcClient,
-    store::Store,
-    Client,
+    accounts::AccountId, auth::TransactionAuthenticator, crypto::FeltRng, rpc::NodeRpcClient,
+    store::Store, Client,
 };
 use tracing::info;
 
 use super::{config::CliConfig, get_account_with_id_prefix, CLIENT_CONFIG_FILE_NAME};
+use crate::faucet_details_map::FaucetDetailsMap;
 
-/// Returns a tracked Account ID matching a hex string or the default one defined in the Client config
+pub(crate) const SHARED_TOKEN_DOCUMENTATION: &str = "There are two accepted formats for the asset:
+- `<AMOUNT>::<FAUCET_ID>` where `<AMOUNT>` is in the faucet base units.
+- `<AMOUNT>::<TOKEN_SYMBOL>` where `<AMOUNT>` is a decimal number representing the quantity of
+the token (specified to the precision allowed by the token's decimals), and `<TOKEN_SYMBOL>`
+is a symbol tracked in the token symbol map file.
+
+For example, `100::0xabcdef0123456789` or `1.23::POL`";
+
+/// Returns a tracked Account ID matching a hex string or the default one defined in the Client
+/// config
 pub(crate) fn get_input_acc_id_by_prefix_or_default<
     N: NodeRpcClient,
     R: FeltRng,
@@ -114,60 +119,8 @@ fn load_config(config_file: &Path) -> Result<CliConfig, String> {
         .map_err(|err| format!("Failed to load {} config file: {err}", config_file.display()))
 }
 
-/// Parses a fungible Asset and returns it as a tuple of the amount and the faucet account ID hex.
-///
-/// TODO: currently we'll only parse AccountId, however once we tackle
-/// [#258](https://github.com/0xPolygonMiden/miden-client/issues/258) we should also add the
-/// possibility to parse account aliases / token symbols dependeing on the path we choose.
-///
-/// # Errors
-///
-/// Will return an error if the provided `arg` doesn't match one of the expected format:
-///
-/// - `<AMOUNT>::<FAUCET_ID>`, such as `100::0x123456789`
-pub fn parse_fungible_asset(arg: &str) -> Result<(u64, AccountId), String> {
-    let (amount, faucet) = arg.split_once("::").ok_or("Separator `::` not found!")?;
-    let amount = amount.parse::<u64>().map_err(|err| err.to_string())?;
-    let faucet_id = AccountId::from_hex(faucet).map_err(|err| err.to_string())?;
-
-    Ok((amount, faucet_id))
-}
-
-/// Returns a note tag for a swap note with the specified parameters.
-///
-/// Use case ID for the returned tag is set to 0.
-///
-/// Tag payload is constructed by taking asset tags (8 bits of faucet ID) and concatenating them
-/// together as offered_asset_tag + requested_asset tag.
-///
-/// Network execution hint for the returned tag is set to `Local`.
-///
-/// Based on miden-base's implementation (<https://github.com/0xPolygonMiden/miden-base/blob/9e4de88031b55bcc3524cb0ccfb269821d97fb29/miden-lib/src/notes/mod.rs#L153>)
-///
-/// TODO: we should make the function in base public and once that gets released use that one and
-/// delete this implementation.
-pub fn build_swap_tag(
-    note_type: NoteType,
-    offered_asset_faucet_id: AccountId,
-    requested_asset_faucet_id: AccountId,
-) -> Result<NoteTag, NoteError> {
-    const SWAP_USE_CASE_ID: u16 = 0;
-
-    // get bits 4..12 from faucet IDs of both assets, these bits will form the tag payload; the
-    // reason we skip the 4 most significant bits is that these encode metadata of underlying
-    // faucets and are likely to be the same for many different faucets.
-
-    let offered_asset_id: u64 = offered_asset_faucet_id.into();
-    let offered_asset_tag = (offered_asset_id >> 52) as u8;
-
-    let requested_asset_id: u64 = requested_asset_faucet_id.into();
-    let requested_asset_tag = (requested_asset_id >> 52) as u8;
-
-    let payload = ((offered_asset_tag as u16) << 8) | (requested_asset_tag as u16);
-
-    let execution = NoteExecutionHint::Local;
-    match note_type {
-        NoteType::Public => NoteTag::for_public_use_case(SWAP_USE_CASE_ID, payload, execution),
-        _ => NoteTag::for_local_use_case(SWAP_USE_CASE_ID, payload),
-    }
+/// Returns the faucet details map using the config file.
+pub fn load_faucet_details_map() -> Result<FaucetDetailsMap, String> {
+    let (config, _) = load_config_file()?;
+    FaucetDetailsMap::new(config.token_symbol_map_filepath)
 }

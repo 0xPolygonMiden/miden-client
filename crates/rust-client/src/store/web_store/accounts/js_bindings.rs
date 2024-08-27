@@ -17,6 +17,9 @@ extern "C" {
     #[wasm_bindgen(js_name = getAccountStub)]
     pub fn idxdb_get_account_stub(account_id: String) -> js_sys::Promise;
 
+    #[wasm_bindgen(js_name = getAccountStubByHash)]
+    pub fn idxdb_get_account_stub_by_hash(account_hash: String) -> js_sys::Promise;
+
     #[wasm_bindgen(js_name = getAccountCode)]
     pub fn idxdb_get_account_code(code_root: String) -> js_sys::Promise;
 
@@ -39,11 +42,7 @@ extern "C" {
     // ================================================================================================
 
     #[wasm_bindgen(js_name = insertAccountCode)]
-    pub fn idxdb_insert_account_code(
-        code_root: String,
-        code: String,
-        module: Vec<u8>,
-    ) -> js_sys::Promise;
+    pub fn idxdb_insert_account_code(code_root: String, code: Vec<u8>) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = insertAccountStorage)]
     pub fn idxdb_insert_account_storage(
@@ -63,6 +62,7 @@ extern "C" {
         nonce: String,
         committed: bool,
         account_seed: Option<Vec<u8>>,
+        hash: String,
     ) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = insertAccountAuth)]

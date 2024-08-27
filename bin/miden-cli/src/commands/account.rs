@@ -1,5 +1,4 @@
 use clap::Parser;
-use comfy_table::presets;
 use miden_client::{
     accounts::{AccountId, AccountStorage, AccountType, StorageSlotType},
     assets::Asset,
@@ -13,7 +12,7 @@ use miden_client::{
 use crate::{
     config::CliConfig,
     create_dynamic_table,
-    utils::{load_config_file, parse_account_id, update_config},
+    utils::{load_config_file, load_faucet_details_map, parse_account_id, update_config},
     CLIENT_BINARY_NAME,
 };
 
@@ -102,14 +101,14 @@ fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthentic
     let accounts = client.get_account_stubs()?;
 
     let mut table = create_dynamic_table(&["Account ID", "Type", "Storage Mode", "Nonce"]);
-    accounts.iter().for_each(|(acc, _acc_seed)| {
+    for (acc, _acc_seed) in accounts.iter() {
         table.add_row(vec![
             acc.id().to_string(),
-            account_type_display_name(&acc.id().account_type()),
+            account_type_display_name(&acc.id())?,
             storage_type_display_name(&acc.id()),
             acc.nonce().as_int().to_string(),
         ]);
-    });
+    }
 
     println!("{table}");
     Ok(())
@@ -125,7 +124,7 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
         "Account Hash",
         "Type",
         "Storage mode",
-        "Code Root",
+        "Code Commitment",
         "Vault Root",
         "Storage Root",
         "Nonce",
@@ -133,9 +132,9 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
     table.add_row(vec![
         account.id().to_string(),
         account.hash().to_string(),
-        account_type_display_name(&account.account_type()),
+        account_type_display_name(&account_id)?,
         storage_type_display_name(&account_id),
-        account.code().root().to_string(),
+        account.code().commitment().to_string(),
         account.vault().asset_tree().root().to_string(),
         account.storage().root().to_string(),
         account.nonce().as_int().to_string(),
@@ -145,20 +144,23 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
     // Vault Table
     {
         let assets = account.vault().assets();
-
+        let faucet_details_map = load_faucet_details_map()?;
         println!("Assets: ");
 
-        let mut table = create_dynamic_table(&["Asset Type", "Faucet ID", "Amount"]);
+        let mut table = create_dynamic_table(&["Asset Type", "Faucet", "Amount"]);
         for asset in assets {
-            let (asset_type, faucet_id, amount) = match asset {
+            let (asset_type, faucet, amount) = match asset {
                 Asset::Fungible(fungible_asset) => {
-                    ("Fungible Asset", fungible_asset.faucet_id(), fungible_asset.amount())
+                    let (faucet, amount) =
+                        faucet_details_map.format_fungible_asset(&fungible_asset)?;
+                    ("Fungible Asset", faucet, amount)
                 },
                 Asset::NonFungible(non_fungible_asset) => {
-                    ("Non Fungible Asset", non_fungible_asset.faucet_id(), 1)
+                    // TODO: Display non-fungible assets more clearly.
+                    ("Non Fungible Asset", non_fungible_asset.faucet_id().to_hex(), 1.0.to_string())
                 },
             };
-            table.add_row(vec![asset_type, &faucet_id.to_hex(), &amount.to_string()]);
+            table.add_row(vec![asset_type, &faucet, &amount.to_string()]);
         }
 
         println!("{table}\n");
@@ -201,40 +203,24 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
         println!("{table}\n");
     }
 
-    // Code related table
-    {
-        let module = account.code().module();
-        let procedure_digests = account.code().procedures();
-
-        println!("Account Code Info:");
-
-        let mut table = create_dynamic_table(&["Procedure Digests"]);
-
-        for digest in procedure_digests {
-            table.add_row(vec![digest.to_hex()]);
-        }
-        println!("{table}\n");
-
-        let mut code_table = create_dynamic_table(&["Code"]);
-        code_table.load_preset(presets::UTF8_HORIZONTAL_ONLY);
-        code_table.add_row(vec![&module]);
-        println!("{code_table}\n");
-    }
-
     Ok(())
 }
 
 // HELPERS
 // ================================================================================================
 
-fn account_type_display_name(account_type: &AccountType) -> String {
-    match account_type {
-        AccountType::FungibleFaucet => "Fungible faucet",
-        AccountType::NonFungibleFaucet => "Non-fungible faucet",
-        AccountType::RegularAccountImmutableCode => "Regular",
-        AccountType::RegularAccountUpdatableCode => "Regular (updatable)",
-    }
-    .to_string()
+fn account_type_display_name(account_id: &AccountId) -> Result<String, String> {
+    Ok(match account_id.account_type() {
+        AccountType::FungibleFaucet => {
+            let faucet_details_map = load_faucet_details_map()?;
+            let token_symbol = faucet_details_map.get_token_symbol_or_default(account_id);
+
+            format!("Fungible faucet (token symbol: {token_symbol})")
+        },
+        AccountType::NonFungibleFaucet => "Non-fungible faucet".to_string(),
+        AccountType::RegularAccountImmutableCode => "Regular".to_string(),
+        AccountType::RegularAccountUpdatableCode => "Regular (updatable)".to_string(),
+    })
 }
 
 fn storage_type_display_name(account: &AccountId) -> String {
@@ -268,7 +254,8 @@ pub(crate) fn set_default_account(account_id: Option<AccountId>) -> Result<(), S
     update_config(&config_path, current_config)
 }
 
-/// Sets the provided account ID as the default account and updates the config file, if not set already.
+/// Sets the provided account ID as the default account and updates the config file, if not set
+/// already.
 pub(crate) fn maybe_set_default_account(
     current_config: &mut CliConfig,
     account_id: AccountId,

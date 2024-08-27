@@ -5,15 +5,15 @@ use alloc::vec::Vec;
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::{
-        account_id::testing::ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, AccountId, AccountStorageType,
-        AccountStub, AuthSecretKey,
+        account_id::testing::ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, AccountCode, AccountId,
+        AccountStorageType, AccountStub, AuthSecretKey,
     },
-    assembly::{AstSerdeOptions, ModuleAst},
     assets::{FungibleAsset, TokenSymbol},
     crypto::dsa::rpo_falcon512::SecretKey,
     notes::{NoteFile, NoteTag},
     Word,
 };
+use miden_tx::utils::{Deserializable, Serializable};
 
 use crate::{
     accounts::AccountTemplate,
@@ -22,7 +22,7 @@ use crate::{
         mock_fungible_faucet_account, mock_notes, ACCOUNT_ID_REGULAR,
     },
     store::{InputNoteRecord, NoteFilter},
-    transactions::transaction_request::TransactionTemplate,
+    transactions::request::TransactionRequest,
 };
 
 #[tokio::test]
@@ -33,7 +33,7 @@ async fn test_input_notes_round_trip() {
     // generate test data
 
     let assembler = TransactionKernel::assembler();
-    let (consumed_notes, _created_notes) = mock_notes(&assembler);
+    let (consumed_notes, _created_notes) = mock_notes(assembler);
     let (_, consumed_notes, ..) = mock_full_chain_mmr_and_notes(consumed_notes);
 
     // insert notes into database
@@ -65,11 +65,18 @@ async fn test_get_input_note() {
     let mut client = create_test_client();
 
     let assembler = TransactionKernel::assembler();
-    let (_consumed_notes, created_notes) = mock_notes(&assembler);
+    let (_consumed_notes, created_notes) = mock_notes(assembler);
 
     // insert Note into database
     let note: InputNoteRecord = created_notes.first().unwrap().clone().into();
-    client.import_note(NoteFile::NoteDetails(note.into(), None)).await.unwrap();
+    client
+        .import_note(NoteFile::NoteDetails {
+            details: note.into(),
+            tag: None,
+            after_block_num: 0,
+        })
+        .await
+        .unwrap();
 
     // retrieve note from database
     let retrieved_note =
@@ -105,7 +112,7 @@ async fn insert_basic_account() {
     assert_eq!(account.nonce(), fetched_account.nonce());
     assert_eq!(account.vault(), fetched_account.vault());
     assert_eq!(account.storage().root(), fetched_account.storage().root());
-    assert_eq!(account.code().root(), fetched_account.code().root());
+    assert_eq!(account.code().commitment(), fetched_account.code().commitment());
 
     // Validate seed matches
     assert_eq!(account_seed, fetched_account_seed.unwrap());
@@ -139,7 +146,7 @@ async fn insert_faucet_account() {
     assert_eq!(account.nonce(), fetched_account.nonce());
     assert_eq!(account.vault(), fetched_account.vault());
     assert_eq!(account.storage(), fetched_account.storage());
-    assert_eq!(account.code().root(), fetched_account.code().root());
+    assert_eq!(account.code().commitment(), fetched_account.code().commitment());
 
     // Validate seed matches
     assert_eq!(account_seed, fetched_account_seed.unwrap());
@@ -183,25 +190,19 @@ async fn test_account_code() {
         None,
     );
 
-    let mut account_module = account.code().module().clone();
+    let account_code = account.code();
 
-    // this is needed due to the reconstruction not including source locations
-    account_module.clear_locations();
-    account_module.clear_imports();
+    let account_code_bytes = account_code.to_bytes();
 
-    let account_module_bytes = account_module.to_bytes(AstSerdeOptions { serialize_imports: true });
-    let reconstructed_ast = ModuleAst::from_bytes(&account_module_bytes).unwrap();
-    assert_eq!(account_module, reconstructed_ast);
+    let reconstructed_code = AccountCode::read_from_bytes(&account_code_bytes).unwrap();
+    assert_eq!(*account_code, reconstructed_code);
 
     client
         .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
         .unwrap();
     let (retrieved_acc, _) = client.get_account(account.id()).unwrap();
 
-    let mut account_module = account.code().module().clone();
-    account_module.clear_locations();
-    account_module.clear_imports();
-    assert_eq!(*account_module.procs(), *retrieved_acc.code().module().procs());
+    assert_eq!(*account.code(), *retrieved_acc.code());
 }
 
 #[tokio::test]
@@ -387,15 +388,16 @@ async fn test_mint_transaction() {
     client.sync_state().await.unwrap();
 
     // Test submitting a mint transaction
-    let transaction_template = TransactionTemplate::MintFungibleAsset(
+    let transaction_request = TransactionRequest::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::from_hex("0x168187d729b31a84").unwrap(),
-        miden_objects::notes::NoteType::OffChain,
-    );
+        miden_objects::notes::NoteType::Private,
+        client.rng(),
+    )
+    .unwrap();
 
-    let transaction_request = client.build_transaction_request(transaction_template).unwrap();
+    let transaction = client.new_transaction(faucet.id(), transaction_request).unwrap();
 
-    let transaction = client.new_transaction(transaction_request).unwrap();
     assert!(transaction.executed_transaction().account_delta().nonce().is_some());
 }
 
@@ -424,21 +426,19 @@ async fn test_get_output_notes() {
     client.sync_state().await.unwrap();
 
     // Test submitting a mint transaction
-    let transaction_template = TransactionTemplate::MintFungibleAsset(
+    let transaction_request = TransactionRequest::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
         AccountId::from_hex("0x168187d729b31a84").unwrap(),
-        miden_objects::notes::NoteType::OffChain,
-    );
-
-    let transaction_request = client.build_transaction_request(transaction_template).unwrap();
+        miden_objects::notes::NoteType::Private,
+        client.rng(),
+    )
+    .unwrap();
 
     //Before executing transaction, there are no output notes
     assert!(client.get_output_notes(NoteFilter::All).unwrap().is_empty());
 
-    let transaction = client.new_transaction(transaction_request).unwrap();
-    let proven_transaction =
-        client.prove_transaction(transaction.executed_transaction().clone()).unwrap();
-    client.submit_transaction(transaction, proven_transaction).await.unwrap();
+    let transaction = client.new_transaction(faucet.id(), transaction_request).unwrap();
+    client.submit_transaction(transaction).await.unwrap();
 
     // Check that there was an output note but it wasn't consumed
     assert!(client.get_output_notes(NoteFilter::Consumed).unwrap().is_empty());
@@ -452,19 +452,27 @@ async fn test_import_note_validation() {
 
     // generate test data
     let assembler = TransactionKernel::assembler();
-    let (consumed_notes, created_notes) = mock_notes(&assembler);
+    let (consumed_notes, created_notes) = mock_notes(assembler);
     let (_, committed_notes, ..) = mock_full_chain_mmr_and_notes(consumed_notes);
 
     let committed_note: InputNoteRecord = committed_notes.first().unwrap().clone().into();
     let expected_note = InputNoteRecord::from(created_notes.first().unwrap().clone());
 
     client
-        .import_note(NoteFile::NoteDetails(committed_note.clone().into(), None))
+        .import_note(NoteFile::NoteDetails {
+            details: committed_note.clone().into(),
+            after_block_num: 0,
+            tag: None,
+        })
         .await
         .unwrap();
     assert!(client.import_note(NoteFile::NoteId(expected_note.id())).await.is_err());
     client
-        .import_note(NoteFile::NoteDetails(expected_note.clone().into(), None))
+        .import_note(NoteFile::NoteDetails {
+            details: expected_note.clone().into(),
+            after_block_num: 0,
+            tag: None,
+        })
         .await
         .unwrap();
     assert!(expected_note.inclusion_proof().is_none());

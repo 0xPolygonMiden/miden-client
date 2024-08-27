@@ -5,16 +5,16 @@ use alloc::{
 
 use generated::{
     requests::{
-        GetAccountDetailsRequest, GetBlockHeaderByNumberRequest, GetNotesByIdRequest,
-        SubmitProvenTransactionRequest, SyncStateRequest,
+        CheckNullifiersByPrefixRequest, GetAccountDetailsRequest, GetBlockHeaderByNumberRequest,
+        GetNotesByIdRequest, SubmitProvenTransactionRequest, SyncNoteRequest, SyncStateRequest,
     },
-    responses::SyncStateResponse,
+    responses::{SyncNoteResponse, SyncStateResponse},
     rpc::api_client::ApiClient,
 };
 use miden_objects::{
     accounts::{Account, AccountId},
     crypto::merkle::{MerklePath, MmrProof},
-    notes::{Note, NoteId, NoteTag},
+    notes::{Note, NoteId, NoteTag, Nullifier},
     transaction::{ProvenTransaction, TransactionId},
     utils::Deserializable,
     BlockHeader, Digest,
@@ -22,6 +22,7 @@ use miden_objects::{
 use miden_tx::utils::Serializable;
 use tonic_web_wasm_client::Client;
 
+use super::NoteSyncInfo;
 use crate::rpc::{
     AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
     NoteDetails, NoteInclusionDetails, NullifierUpdate, RpcError, StateSyncInfo, TransactionUpdate,
@@ -196,6 +197,23 @@ impl NodeRpcClient for WebTonicRpcClient {
         response.into_inner().try_into()
     }
 
+    async fn sync_notes(
+        &mut self,
+        block_num: u32,
+        note_tags: &[NoteTag],
+    ) -> Result<NoteSyncInfo, RpcError> {
+        let mut query_client = self.build_api_client();
+
+        let note_tags = note_tags.iter().map(|&note_tag| note_tag.into()).collect();
+
+        let request = SyncNoteRequest { block_num, note_tags };
+
+        let response = query_client.sync_notes(request).await.map_err(|err| {
+            RpcError::RequestError(NodeRpcClientEndpoint::SyncState.to_string(), err.to_string())
+        })?;
+        response.into_inner().try_into()
+    }
+
     /// Sends a [GetAccountDetailsRequest] to the Miden node, and extracts an [Account] from the
     /// `GetAccountDetailsResponse` response.
     ///
@@ -206,7 +224,8 @@ impl NodeRpcClient for WebTonicRpcClient {
     /// - The provided account is not on-chain: this is due to the fact that for offchain accounts
     ///   the client is responsible
     /// - There was an error sending the request to the node
-    /// - The answer had a `None` for its account, or the account had a `None` at the `details` field.
+    /// - The answer had a `None` for its account, or the account had a `None` at the `details`
+    ///   field.
     /// - There is an error during [Account] deserialization
     async fn get_account_update(
         &mut self,
@@ -250,6 +269,90 @@ impl NodeRpcClient for WebTonicRpcClient {
         } else {
             Ok(AccountDetails::OffChain(account_id, update_summary))
         }
+    }
+
+    async fn check_nullifiers_by_prefix(
+        &mut self,
+        prefixes: &[u16],
+    ) -> Result<Vec<(Nullifier, u32)>, RpcError> {
+        let mut query_client = self.build_api_client();
+
+        let request = CheckNullifiersByPrefixRequest {
+            nullifiers: prefixes.iter().map(|&x| x as u32).collect(),
+            prefix_len: 16,
+        };
+
+        let response = query_client.check_nullifiers_by_prefix(request).await.map_err(|err| {
+            RpcError::RequestError(
+                NodeRpcClientEndpoint::CheckNullifiersByPrefix.to_string(),
+                err.to_string(),
+            )
+        })?;
+
+        let response = response.into_inner();
+        let nullifiers = response
+            .nullifiers
+            .iter()
+            .map(|nul| {
+                let nullifier = nul.nullifier.clone().ok_or(RpcError::ExpectedFieldMissing(
+                    "CheckNullifiersByPrefix response should have a `nullifier`".to_string(),
+                ))?;
+                let nullifier = nullifier.try_into()?;
+                Ok((nullifier, nul.block_num))
+            })
+            .collect::<Result<Vec<(Nullifier, u32)>, RpcError>>()?;
+        Ok(nullifiers)
+    }
+}
+
+// NOTE SYNC INFO CONVERSION
+// ================================================================================================
+
+impl TryFrom<SyncNoteResponse> for NoteSyncInfo {
+    type Error = RpcError;
+
+    fn try_from(value: SyncNoteResponse) -> Result<Self, Self::Error> {
+        let chain_tip = value.chain_tip;
+
+        // Validate and convert block header
+        // Validate and convert block header
+        let block_header = value
+            .block_header
+            .ok_or(RpcError::ExpectedFieldMissing("BlockHeader".into()))?
+            .try_into()?;
+
+        let mmr_path = value
+            .mmr_path
+            .ok_or(RpcError::ExpectedFieldMissing("MmrPath".into()))?
+            .try_into()?;
+
+        // Validate and convert account note inclusions into an (AccountId, Digest) tuple
+        let mut notes = vec![];
+        for note in value.notes {
+            let note_id: Digest = note
+                .note_id
+                .ok_or(RpcError::ExpectedFieldMissing("Notes.Id".into()))?
+                .try_into()?;
+
+            let note_id: NoteId = note_id.into();
+
+            let merkle_path = note
+                .merkle_path
+                .ok_or(RpcError::ExpectedFieldMissing("Notes.MerklePath".into()))?
+                .try_into()?;
+
+            let metadata = note
+                .metadata
+                .ok_or(RpcError::ExpectedFieldMissing("Metadata".into()))?
+                .try_into()?;
+
+            let committed_note =
+                CommittedNote::new(note_id, note.note_index, merkle_path, metadata);
+
+            notes.push(committed_note);
+        }
+
+        Ok(NoteSyncInfo { chain_tip, block_header, mmr_path, notes })
     }
 }
 

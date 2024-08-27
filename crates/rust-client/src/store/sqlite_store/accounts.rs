@@ -3,10 +3,8 @@ use alloc::{
     vec::Vec,
 };
 
-use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub, AuthSecretKey},
-    assembly::{AstSerdeOptions, ModuleAst},
     assets::{Asset, AssetVault},
     Digest, Felt, Word,
 };
@@ -18,7 +16,7 @@ use crate::store::StoreError;
 
 // TYPES
 // ================================================================================================
-type SerializedAccountData = (i64, String, String, String, i64, bool);
+type SerializedAccountData = (i64, String, String, String, i64, bool, String);
 type SerializedAccountsParts = (i64, i64, String, String, String, Option<Vec<u8>>);
 
 type SerializedAccountAuthData = (i64, Vec<u8>, Vec<u8>);
@@ -26,7 +24,7 @@ type SerializedAccountAuthParts = (i64, Vec<u8>);
 
 type SerializedAccountVaultData = (String, String);
 
-type SerializedAccountCodeData = (String, String, Vec<u8>);
+type SerializedAccountCodeData = (String, Vec<u8>);
 
 type SerializedAccountStorageData = (String, Vec<u8>);
 
@@ -81,12 +79,31 @@ impl SqliteStore {
             .ok_or(StoreError::AccountDataNotFound(account_id))?
     }
 
+    pub(crate) fn get_account_stub_by_hash(
+        &self,
+        account_hash: Digest,
+    ) -> Result<Option<AccountStub>, StoreError> {
+        let account_hash_str: String = account_hash.to_string();
+        const QUERY: &str = "SELECT id, nonce, vault_root, storage_root, code_root, account_seed \
+            FROM accounts WHERE account_hash = ?";
+
+        self.db()
+            .prepare(QUERY)?
+            .query_map(params![account_hash_str], parse_accounts_columns)?
+            .map(|result| {
+                let result = result?;
+                Ok(parse_accounts(result)?.0)
+            })
+            .next()
+            .map_or(Ok(None), |result| result.map(Some))
+    }
+
     pub(crate) fn get_account(
         &self,
         account_id: AccountId,
     ) -> Result<(Account, Option<Word>), StoreError> {
         let account_id_int: u64 = account_id.into();
-        const QUERY: &str = "SELECT accounts.id, accounts.nonce, accounts.account_seed, account_code.module, account_storage.slots, account_vaults.assets \
+        const QUERY: &str = "SELECT accounts.id, accounts.nonce, accounts.account_seed, account_code.code, account_storage.slots, account_vaults.assets \
                             FROM accounts \
                             JOIN account_code ON accounts.code_root = account_code.root \
                             JOIN account_storage ON accounts.storage_root = account_storage.root \
@@ -175,24 +192,24 @@ pub(super) fn insert_account_record(
     account: &Account,
     account_seed: Option<Word>,
 ) -> Result<(), StoreError> {
-    let (id, code_root, storage_root, vault_root, nonce, committed) = serialize_account(account)?;
+    let (id, code_root, storage_root, vault_root, nonce, committed, hash) =
+        serialize_account(account)?;
 
     let account_seed = account_seed.map(|seed| seed.to_bytes());
 
-    const QUERY: &str =  "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed) VALUES (?, ?, ?, ?, ?, ?, ?)";
+    const QUERY: &str =  "INSERT INTO accounts (id, code_root, storage_root, vault_root, nonce, committed, account_seed, account_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
     tx.execute(
         QUERY,
-        params![id, code_root, storage_root, vault_root, nonce, committed, account_seed],
+        params![id, code_root, storage_root, vault_root, nonce, committed, account_seed, hash],
     )?;
     Ok(())
 }
 
 /// Inserts an [AccountCode]
 fn insert_account_code(tx: &Transaction<'_>, account_code: &AccountCode) -> Result<(), StoreError> {
-    let (code_root, code, module) = serialize_account_code(account_code)?;
-    const QUERY: &str =
-        "INSERT OR IGNORE INTO account_code (root, procedures, module) VALUES (?, ?, ?)";
-    tx.execute(QUERY, params![code_root, code, module,])?;
+    let (code_root, code) = serialize_account_code(account_code)?;
+    const QUERY: &str = "INSERT OR IGNORE INTO account_code (root, code) VALUES (?, ?)";
+    tx.execute(QUERY, params![code_root, code,])?;
     Ok(())
 }
 
@@ -270,12 +287,12 @@ pub(super) fn parse_accounts(
 pub(super) fn parse_account(
     serialized_account_parts: SerializedFullAccountParts,
 ) -> Result<(Account, Option<Word>), StoreError> {
-    let (id, nonce, account_seed, module, storage, assets) = serialized_account_parts;
+    let (id, nonce, account_seed, code, storage, assets) = serialized_account_parts;
     let account_seed = account_seed.map(|seed| Word::read_from_bytes(&seed)).transpose()?;
     let account_id: AccountId = (id as u64)
         .try_into()
         .expect("Conversion from stored AccountID should not panic");
-    let account_module = ModuleAst::from_bytes(&module)?;
+    let account_code = AccountCode::from_bytes(&code)?;
     let account_storage = AccountStorage::read_from_bytes(&storage)?;
     let account_assets: Vec<Asset> =
         serde_json::from_str(&assets).map_err(StoreError::JsonDataDeserializationError)?;
@@ -285,7 +302,7 @@ pub(super) fn parse_account(
             account_id,
             AssetVault::new(&account_assets)?,
             account_storage,
-            AccountCode::new(account_module, &TransactionKernel::assembler())?,
+            account_code,
             Felt::new(nonce as u64),
         ),
         account_seed,
@@ -295,14 +312,15 @@ pub(super) fn parse_account(
 /// Serialized the provided account into database compatible types.
 fn serialize_account(account: &Account) -> Result<SerializedAccountData, StoreError> {
     let id: u64 = account.id().into();
-    let code_root = account.code().root().to_string();
+    let code_root = account.code().commitment().to_string();
     let storage_root = account.storage().root().to_string();
     let vault_root = serde_json::to_string(&account.vault().commitment())
         .map_err(StoreError::InputSerializationError)?;
     let committed = account.is_on_chain();
     let nonce = account.nonce().as_int() as i64;
+    let hash = account.hash().to_string();
 
-    Ok((id as i64, code_root, storage_root, vault_root, nonce, committed))
+    Ok((id as i64, code_root, storage_root, vault_root, nonce, committed, hash))
 }
 
 /// Parse account_auth columns from the provided row into native types
@@ -343,12 +361,10 @@ fn serialize_account_auth(
 fn serialize_account_code(
     account_code: &AccountCode,
 ) -> Result<SerializedAccountCodeData, StoreError> {
-    let root = account_code.root().to_string();
-    let procedures = serde_json::to_string(account_code.procedures())
-        .map_err(StoreError::InputSerializationError)?;
-    let module = account_code.module().to_bytes(AstSerdeOptions { serialize_imports: true });
+    let root = account_code.commitment().to_string();
+    let code = account_code.to_bytes();
 
-    Ok((root, procedures, module))
+    Ok((root, code))
 }
 
 /// Serialize the provided account_storage into database compatible types.
@@ -379,17 +395,16 @@ pub(super) fn parse_account_columns(
     let id: i64 = row.get(0)?;
     let nonce: i64 = row.get(1)?;
     let account_seed: Option<Vec<u8>> = row.get(2)?;
-    let module: Vec<u8> = row.get(3)?;
+    let code: Vec<u8> = row.get(3)?;
     let storage: Vec<u8> = row.get(4)?;
     let assets: String = row.get(5)?;
-    Ok((id, nonce, account_seed, module, storage, assets))
+    Ok((id, nonce, account_seed, code, storage, assets))
 }
 
 #[cfg(test)]
 mod tests {
     use miden_objects::{
         accounts::{AccountCode, AccountId},
-        assembly::ModuleAst,
         crypto::dsa::rpo_falcon512::SecretKey,
     };
     use miden_tx::utils::{Deserializable, Serializable};
@@ -404,8 +419,7 @@ mod tests {
     fn test_account_code_insertion_no_duplicates() {
         let store = create_test_store();
         let assembler = miden_lib::transaction::TransactionKernel::assembler();
-        let module_ast = ModuleAst::parse(DEFAULT_ACCOUNT_CODE).unwrap();
-        let account_code = AccountCode::new(module_ast, &assembler).unwrap();
+        let account_code = AccountCode::compile(DEFAULT_ACCOUNT_CODE, assembler).unwrap();
         let mut db = store.db();
         let tx = db.transaction().unwrap();
 

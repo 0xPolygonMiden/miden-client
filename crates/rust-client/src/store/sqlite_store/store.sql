@@ -1,8 +1,7 @@
 -- Create account_code table
 CREATE TABLE account_code (
     root BLOB NOT NULL,         -- root of the Merkle tree for all exported procedures in account module.
-    procedures BLOB NOT NULL,   -- serialized procedure digests for the account code.
-    module BLOB NOT NULL,       -- serialized ModuleAst for the account code.
+    code BLOB NOT NULL,         -- serialized account code.
     PRIMARY KEY (root)
 );
 
@@ -37,6 +36,7 @@ CREATE TABLE accounts (
     nonce BIGINT NOT NULL,         -- Account nonce.
     committed BOOLEAN NOT NULL,    -- True if recorded, false if not.
     account_seed BLOB NULL,        -- Account seed used to generate the ID. Expected to be NULL for non-new accounts
+    account_hash BLOB NOT NULL UNIQUE,    -- Account state hash
     PRIMARY KEY (id, nonce),
     FOREIGN KEY (code_root) REFERENCES account_code(root),
     FOREIGN KEY (storage_root) REFERENCES account_storage(root),
@@ -44,6 +44,8 @@ CREATE TABLE accounts (
 
     CONSTRAINT check_seed_nonzero CHECK (NOT (nonce = 0 AND account_seed IS NULL))
 );
+
+CREATE UNIQUE INDEX idx_account_hash ON accounts(account_hash);
 
 -- Create transactions table
 CREATE TABLE transactions (
@@ -54,7 +56,6 @@ CREATE TABLE transactions (
     input_notes BLOB,                                -- Serialized list of input note hashes
     output_notes BLOB,                               -- Serialized list of output note hashes
     script_hash BLOB,                                -- Transaction script hash
-    script_inputs BLOB,                              -- Transaction script inputs
     block_num UNSIGNED BIG INT,                      -- Block number for the block against which the transaction was executed.
     commit_height UNSIGNED BIG INT NULL,             -- Block number of the block at which the transaction was included in the chain.
     FOREIGN KEY (script_hash) REFERENCES transaction_scripts(script_hash),
@@ -63,7 +64,7 @@ CREATE TABLE transactions (
 
 CREATE TABLE transaction_scripts (
     script_hash BLOB NOT NULL,                       -- Transaction script Hash
-    program BLOB,                                    -- Transaction script program, serialized
+    script BLOB,                                     -- serialized Transaction script
 
     PRIMARY KEY (script_hash)
 );
@@ -95,6 +96,7 @@ CREATE TABLE input_notes (
     -- serial_num                                             -- the note serial number
     consumer_transaction_id BLOB NULL,                      -- the transaction ID of the transaction that consumed the note
     created_at UNSIGNED BIG INT NOT NULL,                   -- timestamp of the note creation/import
+    expected_height UNSIGNED BIG INT NULL,                  -- block height when the note is expected to be committed
     submitted_at UNSIGNED BIG INT NULL,                      -- timestamp of the note submission to node
     nullifier_height UNSIGNED BIG INT NULL,                 -- block height when the nullifier arrived
     ignored BOOLEAN NOT NULL DEFAULT 0,                     -- whether the note is ignored in sync
@@ -106,10 +108,8 @@ CREATE TABLE input_notes (
     CONSTRAINT check_valid_inclusion_proof_json CHECK (
       inclusion_proof IS NULL OR
       (
-        json_extract(inclusion_proof, '$.origin.block_num') IS NOT NULL AND
-        json_extract(inclusion_proof, '$.origin.node_index') IS NOT NULL AND
-        json_extract(inclusion_proof, '$.sub_hash') IS NOT NULL AND
-        json_extract(inclusion_proof, '$.note_root') IS NOT NULL AND
+        json_extract(inclusion_proof, '$.location.block_num') IS NOT NULL AND
+        json_extract(inclusion_proof, '$.location.node_index_in_block') IS NOT NULL AND
         json_extract(inclusion_proof, '$.note_path') IS NOT NULL
       ))
     CONSTRAINT check_valid_metadata_json CHECK (metadata IS NULL OR (json_extract(metadata, '$.sender') IS NOT NULL AND json_extract(metadata, '$.tag') IS NOT NULL))
@@ -145,6 +145,7 @@ CREATE TABLE output_notes (
     -- serial_num                                             -- the note serial number
     consumer_transaction_id BLOB NULL,                      -- the transaction ID of the transaction that consumed the note
     created_at UNSIGNED BIG INT NOT NULL,                   -- timestamp of the note creation/import
+    expected_height UNSIGNED BIG INT NULL,                  -- block height when the note is expected to be committed
     submitted_at UNSIGNED BIG INT NULL,                      -- timestamp of the note submission to node
     nullifier_height UNSIGNED BIG INT NULL,                 -- block height when the nullifier arrived
     ignored BOOLEAN NOT NULL DEFAULT 0,                     -- whether the note is ignored in sync
@@ -156,10 +157,8 @@ CREATE TABLE output_notes (
     CONSTRAINT check_valid_inclusion_proof_json CHECK (
       inclusion_proof IS NULL OR
       (
-        json_extract(inclusion_proof, '$.origin.block_num') IS NOT NULL AND
-        json_extract(inclusion_proof, '$.origin.node_index') IS NOT NULL AND
-        json_extract(inclusion_proof, '$.sub_hash') IS NOT NULL AND
-        json_extract(inclusion_proof, '$.note_root') IS NOT NULL AND
+        json_extract(inclusion_proof, '$.location.block_num') IS NOT NULL AND
+        json_extract(inclusion_proof, '$.location.node_index_in_block') IS NOT NULL AND
         json_extract(inclusion_proof, '$.note_path') IS NOT NULL
       ))
     CONSTRAINT check_valid_details_json CHECK (

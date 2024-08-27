@@ -39,7 +39,7 @@ export async function getInputNotes(
             notes = await inputNotes
                 .where('status')
                 .equals(status)
-                .and(note => note.ignored === false)
+                .and(note => note.ignored === "false")
                 .toArray();
         }
 
@@ -54,7 +54,7 @@ export async function getIgnoredInputNotes() {
     try {
         const notes = await inputNotes
             .where('ignored')
-            .equals(true)
+            .equals("true")
             .toArray();
 
         return await processInputNotes(notes);
@@ -68,7 +68,7 @@ export async function getIgnoredOutputNotes() {
     try {
         const notes = await outputNotes
             .where('ignored')
-            .equals(true)
+            .equals("true")
             .toArray();
 
         return await processOutputNotes(notes);
@@ -152,10 +152,10 @@ export async function insertInputNote(
                 status: status,
                 metadata: metadata ? metadata : null,
                 details: details,
-                inclusionProof: inclusionProof ? JSON.stringify(inclusionProof) : null,
+                inclusionProof: inclusionProof ? inclusionProof : null,
                 consumerTransactionId: null,
                 createdAt: serializedCreatedAt,
-                ignored: ignored,
+                ignored: ignored.toString(),
                 importedTag: importedTag ? importedTag : null
             };
 
@@ -201,10 +201,10 @@ export async function insertOutputNote(
                 status: status,
                 metadata: metadata,
                 details: details ? details : null,
-                inclusionProof: inclusionProof ? JSON.stringify(inclusionProof) : null,
+                inclusionProof: inclusionProof ? inclusionProof : null,
                 consumerTransactionId: null,
                 createdAt: serializedCreatedAt,
-                ignored: false,
+                ignored: "false",
                 imported_tag: null
             };
 
@@ -338,10 +338,11 @@ async function processInputNotes(
             created_at: note.createdAt,
             submitted_at: note.submittedAt ? note.submittedAt : null,
             nullifier_height: note.nullifierHeight ? note.nullifierHeight : null,
-            ignored: note.ignored,
+            ignored: note.ignored === "true",
             imported_tag: note.importedTag ? note.importedTag : null
         };
     }));
+
     return processedNotes;
 }
 
@@ -392,7 +393,7 @@ async function processOutputNotes(
             created_at: note.createdAt,
             submitted_at: note.submittedAt ? note.submittedAt : null,
             nullifier_height: note.nullifierHeight ? note.nullifierHeight : null,
-            ignored: note.ignored,
+            ignored: note.ignored === "true",
             imported_tag: note.importedTag ? note.importedTag : null
         };
     }));

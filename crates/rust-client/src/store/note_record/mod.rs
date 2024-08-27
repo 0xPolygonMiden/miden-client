@@ -5,10 +5,10 @@ use alloc::{
 use core::fmt::{self, Display};
 
 use chrono::{Local, TimeZone};
+use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::AccountId,
-    assembly::{Assembler, ProgramAst},
-    notes::NoteScript,
+    notes::{Note, NoteDetails, NoteScript},
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
     Digest, Felt, Word,
 };
@@ -59,15 +59,19 @@ pub const NOTE_STATUS_PROCESSING: &str = "Processing";
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum NoteStatus {
-    /// Note is expected to be commited on chain.
+    /// Note is expected to be committed on chain.
     Expected {
-        /// UNIX epoch-based timestamp (in seconds) when the note (either new or imported) started being tracked by the client.
-        created_at: u64,
+        /// UNIX epoch-based timestamp (in seconds) when the note (either new or imported) started
+        /// being tracked by the client. If the timestamp is not known, this field will be `None`.
+        created_at: Option<u64>,
+        /// Block height at which the note is expected to be committed. If the block height is not
+        /// known, this field will be `None`.
+        block_height: Option<u32>,
     },
-    /// Note has been commited on chain.
+    /// Note has been committed on chain.
     Committed {
-        /// Block height at which the note was commited.
-        block_height: u64,
+        /// Block height at which the note was committed.
+        block_height: u32,
     },
     /// Note has been consumed locally but not yet nullified on chain.
     Processing {
@@ -78,32 +82,34 @@ pub enum NoteStatus {
     },
     /// Note has been nullified on chain.
     Consumed {
-        /// ID of account that consumed the note. If the consumer account is not known, this field will be `None`.
+        /// ID of account that consumed the note. If the consumer account is not known, this field
+        /// will be `None`.
         consumer_account_id: Option<AccountId>,
         /// Block height at which the note was consumed.
-        block_height: u64,
+        block_height: u32,
     },
 }
 
 impl Serializable for NoteStatus {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
         match self {
-            NoteStatus::Expected { created_at } => {
+            NoteStatus::Expected { created_at, block_height } => {
                 target.write_u8(0);
-                target.write_u64(*created_at);
+                created_at.write_into(target);
+                block_height.write_into(target);
             },
             NoteStatus::Committed { block_height } => {
                 target.write_u8(1);
-                target.write_u64(*block_height);
+                block_height.write_into(target);
             },
             NoteStatus::Processing { consumer_account_id, submitted_at } => {
                 target.write_u8(2);
-                target.write_u64(*submitted_at);
+                submitted_at.write_into(target);
                 consumer_account_id.write_into(target);
             },
             NoteStatus::Consumed { consumer_account_id, block_height } => {
                 target.write_u8(3);
-                target.write_u64(*block_height);
+                block_height.write_into(target);
                 consumer_account_id.write_into(target);
             },
         }
@@ -115,11 +121,12 @@ impl Deserializable for NoteStatus {
         let status = source.read_u8()?;
         match status {
             0 => {
-                let created_at = source.read_u64()?;
-                Ok(NoteStatus::Expected { created_at })
+                let created_at = Option::<u64>::read_from(source)?;
+                let block_height = Option::<u32>::read_from(source)?;
+                Ok(NoteStatus::Expected { created_at, block_height })
             },
             1 => {
-                let block_height = source.read_u64()?;
+                let block_height = source.read_u32()?;
                 Ok(NoteStatus::Committed { block_height })
             },
             2 => {
@@ -128,7 +135,7 @@ impl Deserializable for NoteStatus {
                 Ok(NoteStatus::Processing { consumer_account_id, submitted_at })
             },
             3 => {
-                let block_height = source.read_u64()?;
+                let block_height = source.read_u32()?;
                 let consumer_account_id = Option::<AccountId>::read_from(source)?;
                 Ok(NoteStatus::Consumed { consumer_account_id, block_height })
             },
@@ -140,13 +147,17 @@ impl Deserializable for NoteStatus {
 impl Display for NoteStatus {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NoteStatus::Expected { created_at } => write!(
+            NoteStatus::Expected { created_at, block_height } => write!(
                 f,
-                "{NOTE_STATUS_EXPECTED} (created at {})",
-                Local
-                    .timestamp_opt(*created_at as i64, 0)
-                    .single()
-                    .expect("timestamp should be valid")
+                "{NOTE_STATUS_EXPECTED} (created at {} and expected after block height {})",
+                created_at
+                    .map(|ts| Local
+                        .timestamp_opt(ts as i64, 0)
+                        .single()
+                        .expect("timestamp should be valid")
+                        .to_string())
+                    .unwrap_or("?".to_string()),
+                block_height.map(|h| h.to_string()).unwrap_or("?".to_string())
             ),
             NoteStatus::Committed { block_height } => {
                 write!(f, "{NOTE_STATUS_COMMITTED} (at block height {block_height})")
@@ -170,12 +181,9 @@ impl Display for NoteStatus {
 }
 
 fn default_script() -> NoteScript {
-    let assembler = Assembler::default();
-    let note_program_ast =
-        ProgramAst::parse("begin end").expect("dummy script should be parseable");
-    let (note_script, _) = NoteScript::new(note_program_ast, &assembler)
-        .expect("dummy note script should be created without issues");
-    note_script
+    let note_program_ast = "begin nop end";
+    NoteScript::compile(note_program_ast, TransactionKernel::assembler())
+        .expect("Default program is well-formed")
 }
 
 // NOTE: NoteInputs does not impl Serialize which is why we use Vec<Felt> here
@@ -252,5 +260,27 @@ impl Deserializable for NoteRecordDetails {
         let serial_num = Word::read_from(source)?;
 
         Ok(NoteRecordDetails::new(nullifier, script, inputs, serial_num))
+    }
+}
+
+impl From<Note> for NoteRecordDetails {
+    fn from(note: Note) -> Self {
+        Self::new(
+            note.nullifier().to_string(),
+            note.script().clone(),
+            note.inputs().values().to_vec(),
+            note.serial_num(),
+        )
+    }
+}
+
+impl From<NoteDetails> for NoteRecordDetails {
+    fn from(details: NoteDetails) -> Self {
+        Self::new(
+            details.nullifier().to_string(),
+            details.script().clone(),
+            details.inputs().values().to_vec(),
+            details.serial_num(),
+        )
     }
 }

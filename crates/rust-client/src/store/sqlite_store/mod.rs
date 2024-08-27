@@ -54,8 +54,8 @@ mod transactions;
 ///
 /// (Using raw string literals for the jsons is encouraged if possible)
 ///
-/// - To get data from any of the json fields you can use the `json_extract` function (in some
-///   cases you'll need to do some explicit type casting to help rusqlite figure out types):
+/// - To get data from any of the json fields you can use the `json_extract` function (in some cases
+///   you'll need to do some explicit type casting to help rusqlite figure out types):
 ///
 /// ```sql
 /// SELECT CAST(json_extract(some_json_col, '$.some_json_field') AS TEXT) from some_table
@@ -244,6 +244,14 @@ impl Store for SqliteStore {
         account_id: AccountId,
     ) -> Result<(AccountStub, Option<Word>), StoreError> {
         self.get_account_stub(account_id)
+    }
+
+    #[maybe_async]
+    fn get_account_stub_by_hash(
+        &self,
+        account_hash: Digest,
+    ) -> Result<Option<AccountStub>, StoreError> {
+        self.get_account_stub_by_hash(account_hash)
     }
 
     #[maybe_async]

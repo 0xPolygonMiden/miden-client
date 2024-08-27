@@ -99,15 +99,10 @@ impl From<Note> for OutputNoteRecord {
             id: note.id(),
             recipient: note.recipient().digest(),
             assets: note.assets().clone(),
-            status: NoteStatus::Expected { created_at: 0 },
+            status: NoteStatus::Expected { created_at: None, block_height: None },
             metadata: *note.metadata(),
             inclusion_proof: None,
-            details: Some(NoteRecordDetails::new(
-                note.nullifier().to_string(),
-                note.script().clone(),
-                note.inputs().values().to_vec(),
-                note.serial_num(),
-            )),
+            details: Some(note.into()),
         }
     }
 }
@@ -118,7 +113,7 @@ impl From<PartialNote> for OutputNoteRecord {
             partial_note.id(),
             partial_note.recipient_digest(),
             partial_note.assets().clone(),
-            NoteStatus::Expected { created_at: 0 },
+            NoteStatus::Expected { created_at: None, block_height: None },
             *partial_note.metadata(),
             None,
             None,
@@ -158,7 +153,7 @@ impl TryFrom<InputNoteRecord> for OutputNoteRecord {
                 recipient: input_note.recipient(),
                 status: input_note.status(),
             }),
-            None => Err(ClientError::NoteError(miden_objects::NoteError::invalid_origin_index(
+            None => Err(ClientError::NoteError(miden_objects::NoteError::invalid_location_index(
                 "Input Note Record contains no metadata".to_string(),
             ))),
         }

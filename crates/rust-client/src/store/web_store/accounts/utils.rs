@@ -2,7 +2,6 @@ use alloc::{string::ToString, vec::Vec};
 
 use miden_objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub, AuthSecretKey},
-    assembly::AstSerdeOptions,
     assets::{Asset, AssetVault},
     utils::Deserializable,
     Digest, Felt, Word,
@@ -14,11 +13,10 @@ use super::{js_bindings::*, models::*};
 use crate::store::StoreError;
 
 pub async fn insert_account_code(account_code: &AccountCode) -> Result<(), ()> {
-    let root = account_code.root().to_string();
-    let procedures = serde_json::to_string(account_code.procedures()).unwrap();
-    let module = account_code.module().to_bytes(AstSerdeOptions { serialize_imports: true });
+    let root = account_code.commitment().to_string();
+    let code = account_code.to_bytes();
 
-    let promise = idxdb_insert_account_code(root, procedures, module);
+    let promise = idxdb_insert_account_code(root, code);
     let _ = JsFuture::from(promise).await;
 
     Ok(())
@@ -68,12 +66,13 @@ pub async fn insert_account_record(
     account_seed: Option<Word>,
 ) -> Result<(), ()> {
     let account_id_str = account.id().to_string();
-    let code_root = account.code().root().to_string();
+    let code_root = account.code().commitment().to_string();
     let storage_root = account.storage().root().to_string();
     let vault_root = serde_json::to_string(&account.vault().commitment()).unwrap();
     let committed = account.is_on_chain();
     let nonce = account.nonce().to_string();
     let account_seed = account_seed.map(|seed| seed.to_bytes());
+    let hash = account.hash().to_string();
 
     let promise = idxdb_insert_account_record(
         account_id_str,
@@ -83,6 +82,7 @@ pub async fn insert_account_record(
         nonce,
         committed,
         account_seed,
+        hash,
     );
     let _ = JsFuture::from(promise).await;
 

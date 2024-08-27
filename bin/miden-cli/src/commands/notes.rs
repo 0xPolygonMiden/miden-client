@@ -5,7 +5,7 @@ use miden_client::{
     assets::Asset,
     auth::TransactionAuthenticator,
     crypto::{Digest, FeltRng},
-    notes::{NoteConsumability, NoteInputs, NoteMetadata},
+    notes::{get_input_note_with_id_prefix, NoteConsumability, NoteInputs, NoteMetadata},
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
     transactions::known_script_roots::{P2ID, P2IDR, SWAP},
@@ -13,7 +13,7 @@ use miden_client::{
 };
 
 use crate::{
-    create_dynamic_table, get_input_note_with_id_prefix, get_output_note_with_id_prefix, Parser,
+    create_dynamic_table, get_output_note_with_id_prefix, utils::load_faucet_details_map, Parser,
 };
 
 #[derive(Clone, Debug, ValueEnum)]
@@ -50,7 +50,8 @@ pub struct NotesCmd {
     /// Show note with the specified ID.
     #[clap(short, long, group = "action", value_name = "note_id")]
     show: Option<String>,
-    /// (only has effect on `--list consumable`) Account ID used to filter list. Only notes consumable by this account will be shown.
+    /// (only has effect on `--list consumable`) Account ID used to filter list. Only notes
+    /// consumable by this account will be shown.
     #[clap(short, long, value_name = "account_id")]
     account_id: Option<String>,
 }
@@ -189,18 +190,12 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator
 
     println!("{table}");
 
-    let (script, inputs) = match (&input_note_record, &output_note_record) {
+    let inputs = match (&input_note_record, &output_note_record) {
         (Some(record), _) => {
             let details = record.details();
-            (Some(details.script().clone()), Some(details.inputs().clone()))
+            Some(details.inputs().clone())
         },
-        (_, Some(record)) => {
-            let details = record.details();
-            (
-                details.map(|details| details.script().clone()),
-                details.map(|details| details.inputs().clone()),
-            )
-        },
+        (_, Some(record)) => record.details().map(|details| details.inputs().clone()),
         (None, None) => {
             panic!("One of the two records should be Some")
         },
@@ -210,18 +205,6 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator
         .map(|record| record.assets().clone())
         .or(output_note_record.map(|record| record.assets().clone()))
         .expect("One of the two records should be Some");
-
-    // print note script
-    if script.is_some() {
-        let script = script.expect("Script should be Some");
-        let mut table = create_dynamic_table(&["Note Script Code"]);
-        table
-            .load_preset(presets::UTF8_HORIZONTAL_ONLY)
-            .set_content_arrangement(ContentArrangement::DynamicFullWidth);
-
-        table.add_row(vec![Cell::new(script.code())]);
-        println!("{table}");
-    };
 
     // print note vault
     let mut table = create_dynamic_table(&["Note Assets"]);
@@ -234,18 +217,21 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator
         Cell::new("Faucet ID").add_attribute(Attribute::Bold),
         Cell::new("Amount").add_attribute(Attribute::Bold),
     ]);
+    let faucet_details_map = load_faucet_details_map()?;
     let assets = assets.iter();
 
     for asset in assets {
-        let (asset_type, faucet_id, amount) = match asset {
+        let (asset_type, faucet, amount) = match asset {
             Asset::Fungible(fungible_asset) => {
-                ("Fungible Asset", fungible_asset.faucet_id(), fungible_asset.amount())
+                let (faucet, amount) = faucet_details_map.format_fungible_asset(fungible_asset)?;
+
+                ("Fungible Asset", faucet, amount)
             },
             Asset::NonFungible(non_fungible_asset) => {
-                ("Non Fungible Asset", non_fungible_asset.faucet_id(), 1)
+                ("Non Fungible Asset", non_fungible_asset.faucet_id().to_hex(), 1.0.to_string())
             },
         };
-        table.add_row(vec![asset_type, &faucet_id.to_hex(), &amount.to_string()]);
+        table.add_row(vec![asset_type, &faucet, &amount.to_string()]);
     }
     println!("{table}");
 
@@ -329,7 +315,7 @@ where
 fn note_record_type(note_record_metadata: Option<&NoteMetadata>) -> String {
     match note_record_metadata {
         Some(metadata) => match metadata.note_type() {
-            miden_client::notes::NoteType::OffChain => "OffChain",
+            miden_client::notes::NoteType::Private => "Private",
             miden_client::notes::NoteType::Encrypted => "Encrypted",
             miden_client::notes::NoteType::Public => "Public",
         },

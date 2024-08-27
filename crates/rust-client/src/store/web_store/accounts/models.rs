@@ -1,14 +1,13 @@
 use alloc::{string::String, vec::Vec};
 
-use base64::decode as base64_decode;
+use base64::{engine::general_purpose, Engine as _};
 use serde::{de::Error, Deserialize, Deserializer, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct AccountCodeIdxdbObject {
     pub root: String,
-    pub procedures: String,
     #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
-    pub module: Vec<u8>,
+    pub account_code: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -47,7 +46,9 @@ where
     D: Deserializer<'de>,
 {
     let base64_str: String = Deserialize::deserialize(deserializer)?;
-    base64_decode(&base64_str).map_err(|e| Error::custom(format!("Base64 decode error: {}", e)))
+    general_purpose::STANDARD
+        .decode(&base64_str)
+        .map_err(|e| Error::custom(format!("Base64 decode error: {}", e)))
 }
 
 fn base64_to_vec_u8_optional<'de, D>(deserializer: D) -> Result<Option<Vec<u8>>, D::Error>
@@ -56,7 +57,8 @@ where
 {
     let base64_str: Option<String> = Option::deserialize(deserializer)?;
     match base64_str {
-        Some(str) => base64_decode(&str)
+        Some(str) => general_purpose::STANDARD
+            .decode(&str)
             .map(Some)
             .map_err(|e| Error::custom(format!("Base64 decode error: {}", e))),
         None => Ok(None),
