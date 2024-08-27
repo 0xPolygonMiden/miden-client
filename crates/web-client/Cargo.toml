@@ -33,3 +33,4 @@ wasm-bindgen-futures = { version = "0.4" }
 [dev-dependencies]
 miden-client = { path = "../rust-client", version = "0.5", default-features = false, features = ["idxdb", "web-tonic"] }
 miden-lib = { workspace = true, default-features = false, features = ["testing"] }
+miden-objects = { workspace = true, default-features = false, features = ["serde", "testing"] }
