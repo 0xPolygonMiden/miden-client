@@ -149,7 +149,7 @@ impl Display for NoteStatus {
         match self {
             NoteStatus::Expected { created_at, block_height } => write!(
                 f,
-                "{NOTE_STATUS_EXPECTED} (created at {} and expected at block height {})",
+                "{NOTE_STATUS_EXPECTED} (created at {} and expected after block height {})",
                 created_at
                     .map(|ts| Local
                         .timestamp_opt(ts as i64, 0)
