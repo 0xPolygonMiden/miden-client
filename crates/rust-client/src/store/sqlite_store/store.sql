@@ -96,6 +96,7 @@ CREATE TABLE input_notes (
     -- serial_num                                             -- the note serial number
     consumer_transaction_id BLOB NULL,                      -- the transaction ID of the transaction that consumed the note
     created_at UNSIGNED BIG INT NOT NULL,                   -- timestamp of the note creation/import
+    expected_height UNSIGNED BIG INT NULL,                  -- block height when the note is expected to be committed
     submitted_at UNSIGNED BIG INT NULL,                      -- timestamp of the note submission to node
     nullifier_height UNSIGNED BIG INT NULL,                 -- block height when the nullifier arrived
     ignored BOOLEAN NOT NULL DEFAULT 0,                     -- whether the note is ignored in sync
@@ -144,6 +145,7 @@ CREATE TABLE output_notes (
     -- serial_num                                             -- the note serial number
     consumer_transaction_id BLOB NULL,                      -- the transaction ID of the transaction that consumed the note
     created_at UNSIGNED BIG INT NOT NULL,                   -- timestamp of the note creation/import
+    expected_height UNSIGNED BIG INT NULL,                  -- block height when the note is expected to be committed
     submitted_at UNSIGNED BIG INT NULL,                      -- timestamp of the note submission to node
     nullifier_height UNSIGNED BIG INT NULL,                 -- block height when the nullifier arrived
     ignored BOOLEAN NOT NULL DEFAULT 0,                     -- whether the note is ignored in sync
