@@ -1,27 +1,42 @@
 # Changelog
 
-## v0.5.0 (TBD)
+## v0.5.0 (2024-08-27)
 
-* [BREAKING] Track expected block height for notes (#448).
-* [BREAKING] Updated Rust Client to use the new version of `miden-base` (#492).
-* [BREAKING] Removed `TransactionTemplate` and `account_id` from `TransactionRequest` (#478).
-* Added validation for consumed notes when importing (#449).
-* Added support for account export in the CLI (#479).
-* Added serialization for `TransactionRequest` (#471).
+### Features
+
 * Added support for decimal values in the CLI (#454).
+* Added serialization for `TransactionRequest` (#471).
 * Added support for importing committed notes from older blocks than current (#472).
+* Added support for account export in the CLI (#479).
 * Added the Web Client Crate
-* Added validations in transaction requests (#447).
-* [BREAKING] Refactored `Client` to merge submit_transaction and prove_transaction (#445)
-* Tracked token symbols with config file (#441).
 * [BREAKING] Refactored `TransactionRequest` to represent a generalized transaction (#438).
-* Fixed `get_consumable_notes` to consider block header information for consumability (#432).
-* Ignored stale updates received during sync process (#412).
-* Refactor `TransactionRequest` constructor (#434).
-* Fixed flaky integration tests (#410).
+
+### Enhancements
+
 * Added conversions for `NoteRecordDetails` (#392).
+* Ignored stale updates received during sync process (#412).
 * Changed `TransactionRequest` to use `AdviceInputs` instead of `AdviceMap` (#436).
+* Tracked token symbols with config file (#441).
+* Added validations in transaction requests (#447).
+* [BREAKING] Track expected block height for notes (#448).
+* Added validation for consumed notes when importing (#449).
+* [BREAKING] Removed `TransactionTemplate` and `account_id` from `TransactionRequest` (#478).
+
+### Changes
+
+* Refactor `TransactionRequest` constructor (#434).
+* [BREAKING] Refactored `Client` to merge submit_transaction and prove_transaction (#445).
 * Change schema and code to to reflect changes to `NoteOrigin` (#463).
+* [BREAKING] Updated Rust Client to use the new version of `miden-base` (#492).
+
+### Fixes
+
+* Fixed flaky integration tests (#410).
+* Fixed `get_consumable_notes` to consider block header information for consumability (#432).
+
+## v0.4.1 (2024-07-08) - `miden-client` crete only
+
+* Fixed the build script to avoid updating generated files in docs.rs environment (#433).
 
 ## v0.4.0 (2024-07-05)
 
