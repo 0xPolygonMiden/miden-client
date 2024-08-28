@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.6.0 (TBD)
+
+* [BREAKING] Verify inclusion proofs on sync (#499).
+
 ## v0.5.0 (2024-08-27)
 
 ### Features
