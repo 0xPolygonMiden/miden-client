@@ -327,9 +327,7 @@ impl SqliteStore {
         Ok(())
     }
 
-    pub(crate) fn testing_get_tracked_note_tag_single_query(
-        &self,
-    ) -> Result<Vec<NoteTag>, StoreError> {
+    pub(crate) fn get_tracked_note_tags(&self) -> Result<Vec<NoteTag>, StoreError> {
         const QUERY: &str = "SELECT
             CAST(json_each.value AS UNSIGNED BIG INT) AS tag_value
         FROM
