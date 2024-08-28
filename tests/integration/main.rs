@@ -1151,6 +1151,99 @@ async fn test_consume_expected_note() {
 }
 
 #[tokio::test]
+async fn test_consume_multiple_notes() {
+    let mut client = create_test_client();
+    wait_for_node(&mut client).await;
+
+    let (_, _, faucet_account_stub) = setup(&mut client, AccountStorageType::OffChain).await;
+
+    let mut unauth_client = create_test_client();
+    // Create regular accounts
+    let (target_basic_account, _) = unauth_client
+        .new_account(AccountTemplate::BasicWallet {
+            mutable_code: false,
+            storage_type: AccountStorageType::OffChain,
+        })
+        .unwrap();
+    unauth_client.sync_state().await.unwrap();
+    let to_account_id = target_basic_account.id();
+    let faucet_account_id = faucet_account_stub.id();
+
+    // First Mint necesary Token
+    let fungible_asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
+
+    let tx_request_1 = TransactionRequest::mint_fungible_asset(
+        fungible_asset,
+        to_account_id,
+        NoteType::Private,
+        client.rng(),
+    )
+    .unwrap();
+
+    execute_tx_and_sync(&mut client, faucet_account_id, tx_request_1.clone()).await;
+
+    let tx_request_2 = TransactionRequest::mint_fungible_asset(
+        fungible_asset,
+        to_account_id,
+        NoteType::Private,
+        client.rng(),
+    )
+    .unwrap();
+
+    execute_tx_and_sync(&mut client, faucet_account_id, tx_request_2.clone()).await;
+
+    let tx_request_3 = TransactionRequest::mint_fungible_asset(
+        fungible_asset,
+        to_account_id,
+        NoteType::Private,
+        client.rng(),
+    )
+    .unwrap();
+
+    execute_tx_and_sync(&mut client, faucet_account_id, tx_request_3.clone()).await;
+
+    // Consume notes with target account
+    let note_1 = tx_request_1.expected_output_notes().next().unwrap().clone();
+    let note_2 = tx_request_2.expected_output_notes().next().unwrap().clone();
+    let note_3 = tx_request_3.expected_output_notes().next().unwrap().clone();
+
+    println!("Executing consume notes tx without sync...");
+    let tx_request = TransactionRequest::consume_notes(vec![note_1.id(), note_2.id(), note_3.id()])
+        .with_unauthenticated_input_notes(vec![
+            (note_1.clone(), None),
+            (note_2.clone(), None),
+            (note_3.clone(), None),
+        ]);
+
+    let tx_id = execute_tx(&mut unauth_client, to_account_id, tx_request).await;
+
+    // Check that note is expected for the account to consume
+    println!("Fetching processing notes...");
+    let notes = unauth_client.get_input_notes(NoteFilter::Processing).unwrap();
+    assert!(!notes.is_empty());
+
+    wait_for_tx(&mut unauth_client, tx_id).await;
+
+    // Ensure we have nothing else to consume
+    let current_notes = unauth_client.get_input_notes(NoteFilter::Expected).unwrap();
+    assert!(current_notes.is_empty());
+
+    // The note now should be consumed
+    let current_notes = unauth_client.get_input_notes(NoteFilter::Consumed).unwrap();
+    assert!(!current_notes.is_empty());
+
+    let (regular_account, _seed) = unauth_client.get_account(to_account_id).unwrap();
+    assert_eq!(regular_account.vault().assets().count(), 1);
+    let asset = regular_account.vault().assets().next().unwrap();
+
+    if let Asset::Fungible(fungible_asset) = asset {
+        assert_eq!(fungible_asset.amount(), (TRANSFER_AMOUNT * 3));
+    } else {
+        panic!("Error: Account should have a fungible asset");
+    }
+}
+
+#[tokio::test]
 async fn test_import_consumed_note_with_proof() {
     let mut client_1 = create_test_client();
     let (first_regular_account, _, faucet_account_stub) =
