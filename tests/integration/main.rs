@@ -1401,8 +1401,9 @@ async fn test_invalid_note_with_proof() {
     assert!(not_verified_note.proof_status() == Some(&ProofStatus::NotVerified));
 
     // Sync the state to verify the note
-    client_2.sync_state().await.unwrap();
+    let sync_summary = client_2.sync_state().await.unwrap();
 
     let verified_note = client_2.get_input_note(note.id()).unwrap();
     assert!(verified_note.proof_status() == Some(&ProofStatus::Invalid));
+    assert!(sync_summary.invalid_proofs.contains(&note.id()));
 }

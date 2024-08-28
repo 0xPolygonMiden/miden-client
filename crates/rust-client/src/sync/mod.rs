@@ -47,6 +47,8 @@ pub struct SyncSummary {
     pub updated_onchain_accounts: Vec<AccountId>,
     /// IDs of committed transactions
     pub committed_transactions: Vec<TransactionId>,
+    /// IDs of notes that have invalid inclusion proofs
+    pub invalid_proofs: Vec<NoteId>,
 }
 
 impl SyncSummary {
@@ -57,6 +59,7 @@ impl SyncSummary {
         new_nullifiers: Vec<Nullifier>,
         updated_onchain_accounts: Vec<AccountId>,
         committed_transactions: Vec<TransactionId>,
+        invalid_proofs: Vec<NoteId>,
     ) -> Self {
         Self {
             block_num,
@@ -65,6 +68,7 @@ impl SyncSummary {
             new_nullifiers,
             updated_onchain_accounts,
             committed_transactions,
+            invalid_proofs,
         }
     }
 
@@ -76,6 +80,7 @@ impl SyncSummary {
             new_nullifiers: vec![],
             updated_onchain_accounts: vec![],
             committed_transactions: vec![],
+            invalid_proofs: vec![],
         }
     }
 
@@ -117,6 +122,7 @@ impl From<&StateSyncUpdate> for SyncSummary {
             sync_update.nullifiers.iter().map(|n| n.nullifier).collect(),
             sync_update.updated_onchain_accounts.iter().map(|acc| acc.id()).collect(),
             sync_update.transactions_to_commit.iter().map(|tx| tx.transaction_id).collect(),
+            vec![],
         )
     }
 }
@@ -224,7 +230,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             }
         }
         self.update_mmr_data().await?;
-        maybe_await!(self.validate_inclusion_proofs())?;
+
+        let invalid_notes = maybe_await!(self.validate_inclusion_proofs())?;
+        total_sync_summary.invalid_proofs = invalid_notes;
 
         Ok(total_sync_summary)
     }
@@ -602,9 +610,12 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         Ok(())
     }
 
+    /// Validates inclusion proofs that are not verified yet. It will update the status of the
+    /// proofs in the store. Returns a list of note IDs that have invalid inclusion proofs.
     #[maybe_async]
-    fn validate_inclusion_proofs(&self) -> Result<(), ClientError> {
+    fn validate_inclusion_proofs(&self) -> Result<Vec<NoteId>, ClientError> {
         let notes = maybe_await!(self.get_input_notes(NoteFilter::ProofNotVerified))?;
+        let mut invalid_notes = Vec::new();
 
         for note in notes {
             let inclusion_proof =
@@ -621,6 +632,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     &block.note_root(),
                 ) {
                     status = ProofStatus::Invalid;
+                    invalid_notes.push(note.id());
                 }
                 maybe_await!(self.store.update_note_inclusion_proof(
                     note.id(),
@@ -630,7 +642,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             }
         }
 
-        Ok(())
+        Ok(invalid_notes)
     }
 }
 
