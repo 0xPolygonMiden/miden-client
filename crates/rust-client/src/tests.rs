@@ -5,12 +5,15 @@ use alloc::vec::Vec;
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::{
-        account_id::testing::ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, AccountCode, AccountId,
-        AccountStorageType, AccountStub, AuthSecretKey,
+        account_id::testing::{
+            ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN,
+            ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
+        },
+        AccountCode, AccountId, AccountStorageType, AccountStub, AuthSecretKey,
     },
     assets::{FungibleAsset, TokenSymbol},
     crypto::dsa::rpo_falcon512::SecretKey,
-    notes::{NoteFile, NoteTag},
+    notes::{NoteExecutionMode, NoteFile, NoteTag},
     Word,
 };
 use miden_tx::utils::{Deserializable, Serializable};
@@ -18,8 +21,10 @@ use miden_tx::utils::{Deserializable, Serializable};
 use crate::{
     accounts::AccountTemplate,
     mock::{
-        create_test_client, get_account_with_default_account_code, mock_full_chain_mmr_and_notes,
+        create_test_client, get_account_with_default_account_code,
+        get_tracked_note_tags_old_method, mock_full_chain_mmr_and_notes,
         mock_fungible_faucet_account, mock_notes, ACCOUNT_ID_REGULAR,
+        ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN,
     },
     store::{InputNoteRecord, NoteFilter},
     transactions::request::TransactionRequest,
@@ -477,4 +482,68 @@ async fn test_import_note_validation() {
         .unwrap();
     assert!(expected_note.inclusion_proof().is_none());
     assert!(committed_note.inclusion_proof().is_some());
+}
+
+#[tokio::test]
+async fn test_get_tracked_note_tags() {
+    // generate test client
+    let mut client = create_test_client();
+
+    // Create accounts
+    // - Account 1
+    let account_1 = get_account_with_default_account_code(
+        AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap(),
+        Word::default(),
+        None,
+    );
+
+    let key_pair = SecretKey::new();
+
+    client
+        .insert_account(&account_1, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
+        .unwrap();
+    // - Account 2
+    let account_2 = get_account_with_default_account_code(
+        AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN).unwrap(),
+        Word::default(),
+        None,
+    );
+
+    let key_pair = SecretKey::new();
+
+    client
+        .insert_account(&account_2, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
+        .unwrap();
+
+    // - Account 3
+    let account_3 = get_account_with_default_account_code(
+        AccountId::try_from(ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN).unwrap(),
+        Word::default(),
+        None,
+    );
+
+    let key_pair = SecretKey::new();
+
+    client
+        .insert_account(&account_3, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
+        .unwrap();
+
+    // Create expected note with imported tag
+    // TODO
+
+    // Add random tags to track
+    let tag_1: NoteTag = 1.into();
+    let tag_2: NoteTag = 2.into();
+    client.add_note_tag(tag_1).unwrap();
+    client.add_note_tag(tag_2).unwrap();
+
+    // Adding an existing tag should not be repetead in the result
+    let account_1_tag: NoteTag =
+        NoteTag::from_account_id(account_1.id(), NoteExecutionMode::Local).unwrap();
+    client.add_note_tag(account_1_tag).unwrap();
+
+    // Check query result
+    let tracked_tags = client.get_tracked_note_tags().unwrap();
+
+    assert_eq!(tracked_tags, get_tracked_note_tags_old_method(client));
 }

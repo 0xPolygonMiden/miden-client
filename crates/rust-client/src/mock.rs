@@ -3,7 +3,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use std::{env::temp_dir, rc::Rc};
+use std::{collections::BTreeSet, env::temp_dir, rc::Rc};
 
 use miden_lib::{transaction::TransactionKernel, AuthScheme};
 use miden_objects::{
@@ -21,8 +21,8 @@ use miden_objects::{
         rand::RpoRandomCoin,
     },
     notes::{
-        Note, NoteAssets, NoteExecutionHint, NoteFile, NoteId, NoteInclusionProof, NoteInputs,
-        NoteMetadata, NoteRecipient, NoteScript, NoteTag, NoteType,
+        Note, NoteAssets, NoteExecutionHint, NoteExecutionMode, NoteFile, NoteId,
+        NoteInclusionProof, NoteInputs, NoteMetadata, NoteRecipient, NoteScript, NoteTag, NoteType,
     },
     transaction::{InputNote, ProvenTransaction},
     BlockHeader, Felt, Word,
@@ -47,7 +47,7 @@ use crate::{
     },
     store::{
         sqlite_store::{config::SqliteStoreConfig, SqliteStore},
-        InputNoteRecord,
+        InputNoteRecord, NoteFilter,
     },
     store_authenticator::StoreAuthenticator,
     sync::get_nullifier_prefix,
@@ -871,4 +871,33 @@ pub fn create_test_store_path() -> std::path::PathBuf {
     let mut temp_file = temp_dir();
     temp_file.push(format!("{}.sqlite3", Uuid::new_v4()));
     temp_file
+}
+
+pub fn get_tracked_note_tags_old_method(client: MockClient) -> Vec<NoteTag> {
+    let stored_tags = client.get_note_tags().unwrap();
+
+    let account_tags = client
+        .get_account_stubs()
+        .unwrap()
+        .into_iter()
+        .map(|(stub, _)| NoteTag::from_account_id(stub.id(), NoteExecutionMode::Local))
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+
+    let expected_notes = client.get_input_notes(NoteFilter::Expected).unwrap();
+
+    let uncommited_note_tags: Vec<NoteTag> = expected_notes
+        .iter()
+        .filter_map(|note| note.metadata().map(|metadata| metadata.tag()))
+        .collect();
+
+    let imported_tags: Vec<NoteTag> =
+        expected_notes.iter().filter_map(|note| note.imported_tag()).collect();
+
+    [account_tags, stored_tags, uncommited_note_tags, imported_tags]
+        .concat()
+        .into_iter()
+        .collect::<BTreeSet<NoteTag>>()
+        .into_iter()
+        .collect()
 }
