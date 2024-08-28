@@ -9,7 +9,7 @@ use rusqlite::{named_params, params};
 use super::SqliteStore;
 use crate::{
     store::{
-        note_record::{NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED},
+        note_record::{NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED, PROOF_STATUS_NOT_VERIFIED},
         sqlite_store::{accounts::update_account, notes::insert_input_note_tx},
         StoreError,
     },
@@ -116,7 +116,7 @@ impl SqliteStore {
 
             // Update output notes
             const COMMITTED_OUTPUT_NOTES_QUERY: &str =
-                "UPDATE output_notes SET status = :status , inclusion_proof = json(:inclusion_proof) WHERE note_id = :note_id";
+                "UPDATE output_notes SET status = :status , inclusion_proof = json(:inclusion_proof), proof_status = :proof_status WHERE note_id = :note_id";
 
             tx.execute(
                 COMMITTED_OUTPUT_NOTES_QUERY,
@@ -124,6 +124,7 @@ impl SqliteStore {
                     ":inclusion_proof": inclusion_proof,
                     ":note_id": note_id.inner().to_hex(),
                     ":status": NOTE_STATUS_COMMITTED.to_string(),
+                    ":proof_status": PROOF_STATUS_NOT_VERIFIED.to_string(),
                 },
             )?;
         }
@@ -141,7 +142,7 @@ impl SqliteStore {
                 serde_json::to_string(metadata).map_err(StoreError::InputSerializationError)?;
 
             const COMMITTED_INPUT_NOTES_QUERY: &str =
-                "UPDATE input_notes SET status = :status , inclusion_proof = json(:inclusion_proof), metadata = json(:metadata) WHERE note_id = :note_id";
+                "UPDATE input_notes SET status = :status , inclusion_proof = json(:inclusion_proof), metadata = json(:metadata), proof_status = :proof_status WHERE note_id = :note_id";
 
             tx.execute(
                 COMMITTED_INPUT_NOTES_QUERY,
@@ -150,6 +151,7 @@ impl SqliteStore {
                     ":metadata": metadata,
                     ":note_id": input_note.id().inner().to_hex(),
                     ":status": NOTE_STATUS_COMMITTED.to_string(),
+                    ":proof_status": PROOF_STATUS_NOT_VERIFIED.to_string(),
                 },
             )?;
         }

@@ -151,7 +151,7 @@ impl<'a> NoteFilter<'a> {
         match self {
             NoteFilter::All => base,
             NoteFilter::Committed => {
-                format!("{base} WHERE status = '{NOTE_STATUS_COMMITTED}' AND NOT(ignored)")
+                format!("{base} WHERE status = '{NOTE_STATUS_COMMITTED}' AND NOT(ignored) AND proof_status != '{PROOF_STATUS_INVALID}'")
             },
             NoteFilter::Consumed => {
                 format!("{base} WHERE status = '{NOTE_STATUS_CONSUMED}' AND NOT(ignored)")
@@ -160,7 +160,7 @@ impl<'a> NoteFilter<'a> {
                 format!("{base} WHERE status = '{NOTE_STATUS_EXPECTED}' AND NOT(ignored)")
             },
             NoteFilter::Processing => {
-                format!("{base} WHERE status = '{NOTE_STATUS_PROCESSING}' AND NOT(ignored)")
+                format!("{base} WHERE status = '{NOTE_STATUS_PROCESSING}' AND NOT(ignored) AND proof_status != '{PROOF_STATUS_INVALID}'")
             },
             NoteFilter::Ignored => format!("{base} WHERE ignored"),
             NoteFilter::ProofNotVerified => {
@@ -633,6 +633,9 @@ fn parse_input_note(
         None
     };
 
+    let inclusion_proof =
+        inclusion_proof.map(|proof| (proof, proof_status.unwrap_or(ProofStatus::NotVerified)));
+
     Ok(InputNoteRecord::new(
         id,
         recipient,
@@ -640,7 +643,6 @@ fn parse_input_note(
         status,
         note_metadata,
         inclusion_proof,
-        proof_status,
         note_details,
         ignored,
         imported_tag.map(NoteTag::from),

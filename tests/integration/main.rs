@@ -349,7 +349,7 @@ async fn test_p2idr_transfer_consumed_by_target() {
 }
 
 #[tokio::test]
-async fn test_p2idr_transfer_consumed_by_sender() {
+async fn tmp_test() {
     let mut client = create_test_client();
     wait_for_node(&mut client).await;
 
@@ -1128,8 +1128,13 @@ async fn test_consume_expected_note() {
 
     // Check that note is expected for the account to consume
     println!("Fetching processing notes...");
-    let notes = unauth_client.get_input_notes(NoteFilter::Processing).unwrap();
-    assert!(!notes.is_empty());
+    let note = unauth_client
+        .get_input_notes(NoteFilter::Unique(note.id()))
+        .unwrap()
+        .pop()
+        .unwrap();
+
+    assert!(matches!(note.status(), NoteStatus::Processing { .. }));
 
     wait_for_tx(&mut unauth_client, tx_id).await;
 

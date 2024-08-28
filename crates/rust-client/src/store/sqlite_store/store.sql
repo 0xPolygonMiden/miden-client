@@ -119,6 +119,7 @@ CREATE TABLE input_notes (
     CONSTRAINT check_valid_consumer_transaction_id CHECK (consumer_transaction_id IS NULL OR status != 'Expected')
     CONSTRAINT check_valid_submitted_at CHECK (submitted_at IS NOT NULL OR status != 'Processing')
     CONSTRAINT check_valid_nullifier_height CHECK (nullifier_height IS NOT NULL OR status != 'Consumed')
+    CONSTRAINT check_proof_status CHECK (inclusion_proof IS NULL OR (inclusion_proof IS NOT NULL AND proof_status IS NOT NULL))
 );
 
 -- Create output notes table
@@ -179,6 +180,7 @@ CREATE TABLE output_notes (
     CONSTRAINT check_valid_submitted_at CHECK (submitted_at IS NOT NULL OR status != 'Processing')
     CONSTRAINT check_valid_nullifier_height CHECK (nullifier_height IS NOT NULL OR status != 'Consumed')
     CONSTRAINT check_ignored_output_notes CHECK (NOT(ignored)) -- Output notes shouldn't be ignored. This check will be removed when we refactor the output notes table.
+    CONSTRAINT check_proof_status CHECK (inclusion_proof IS NULL OR (inclusion_proof IS NOT NULL AND proof_status IS NOT NULL))
 );
 
 -- Create note's scripts table, used for both input and output notes

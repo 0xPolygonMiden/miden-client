@@ -334,6 +334,9 @@ pub fn parse_input_note_idxdb_object(
         None
     };
 
+    let inclusion_proof =
+        inclusion_proof.map(|proof| (proof, proof_status.unwrap_or(ProofStatus::NotVerified)));
+
     Ok(InputNoteRecord::new(
         id,
         recipient,
@@ -341,7 +344,6 @@ pub fn parse_input_note_idxdb_object(
         status,
         note_metadata,
         inclusion_proof,
-        proof_status,
         note_details,
         note_idxdb.ignored,
         imported_tag_as_u32.map(NoteTag::from),

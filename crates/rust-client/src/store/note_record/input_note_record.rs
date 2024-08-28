@@ -37,8 +37,7 @@ pub struct InputNoteRecord {
     // gets released
     details: NoteRecordDetails,
     id: NoteId,
-    inclusion_proof: Option<NoteInclusionProof>,
-    proof_status: Option<ProofStatus>,
+    inclusion_proof: Option<(NoteInclusionProof, ProofStatus)>,
     metadata: Option<NoteMetadata>,
     recipient: Digest,
     status: NoteStatus,
@@ -54,8 +53,7 @@ impl InputNoteRecord {
         assets: NoteAssets,
         status: NoteStatus,
         metadata: Option<NoteMetadata>,
-        inclusion_proof: Option<NoteInclusionProof>,
-        proof_status: Option<ProofStatus>,
+        inclusion_proof: Option<(NoteInclusionProof, ProofStatus)>,
         details: NoteRecordDetails,
         ignored: bool,
         imported_tag: Option<NoteTag>,
@@ -67,7 +65,6 @@ impl InputNoteRecord {
             status,
             metadata,
             inclusion_proof,
-            proof_status,
             details,
             ignored,
             imported_tag,
@@ -99,18 +96,21 @@ impl InputNoteRecord {
     }
 
     pub fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
-        self.inclusion_proof.as_ref()
+        self.inclusion_proof.as_ref().map(|(proof, _)| proof)
     }
 
     pub fn proof_status(&self) -> Option<&ProofStatus> {
-        self.proof_status.as_ref()
+        self.inclusion_proof.as_ref().map(|(_, status)| status)
     }
 
     pub fn details(&self) -> &NoteRecordDetails {
         &self.details
     }
 
-    pub fn set_inclusion_proof(&mut self, inclusion_proof: Option<NoteInclusionProof>) {
+    pub fn set_inclusion_proof(
+        &mut self,
+        inclusion_proof: Option<(NoteInclusionProof, ProofStatus)>,
+    ) {
         self.inclusion_proof = inclusion_proof;
     }
 
@@ -142,7 +142,6 @@ impl From<&NoteDetails> for InputNoteRecord {
             recipient: note_details.recipient().digest(),
             metadata: None,
             inclusion_proof: None,
-            proof_status: None,
             status: NoteStatus::Expected { created_at: None, block_height: None },
             details: NoteRecordDetails {
                 nullifier: note_details.nullifier().to_string(),
@@ -198,8 +197,7 @@ impl Deserializable for InputNoteRecord {
             assets,
             status,
             metadata,
-            inclusion_proof,
-            proof_status: None,
+            inclusion_proof: inclusion_proof.map(|proof| (proof, ProofStatus::NotVerified)),
             details,
             ignored: false,
             imported_tag: None,
@@ -216,7 +214,6 @@ impl From<Note> for InputNoteRecord {
             status: NoteStatus::Expected { created_at: None, block_height: None },
             metadata: Some(*note.metadata()),
             inclusion_proof: None,
-            proof_status: None,
             details: note.into(),
             ignored: false,
             imported_tag: None,
@@ -241,8 +238,10 @@ impl From<InputNote> for InputNoteRecord {
             status,
             metadata: Some(*recorded_note.note().metadata()),
             details: recorded_note.note().clone().into(),
-            inclusion_proof: recorded_note.proof().cloned(),
-            proof_status: None,
+            inclusion_proof: recorded_note
+                .proof()
+                .cloned()
+                .map(|proof| (proof, ProofStatus::NotVerified)),
             ignored: false,
             imported_tag: None,
         }
@@ -254,7 +253,7 @@ impl TryInto<InputNote> for InputNoteRecord {
 
     fn try_into(self) -> Result<InputNote, Self::Error> {
         match (self.inclusion_proof, self.metadata) {
-            (Some(proof), Some(metadata)) => {
+            (Some((proof, _)), Some(metadata)) => {
                 // TODO: Write functions to get these fields more easily
                 let note_inputs = NoteInputs::new(self.details.inputs)?;
                 let note_recipient =
@@ -304,8 +303,10 @@ impl TryFrom<OutputNoteRecord> for InputNoteRecord {
                 assets: output_note.assets().clone(),
                 details: details.clone(),
                 id: output_note.id(),
-                inclusion_proof: output_note.inclusion_proof().cloned(),
-                proof_status: None,
+                inclusion_proof: output_note
+                    .inclusion_proof()
+                    .cloned()
+                    .map(|proof| (proof, ProofStatus::NotVerified)),
                 metadata: Some(*output_note.metadata()),
                 recipient: output_note.recipient(),
                 status: output_note.status(),
