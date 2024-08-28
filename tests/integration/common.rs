@@ -8,6 +8,7 @@ use miden_client::{
     accounts::AccountTemplate,
     auth::StoreAuthenticator,
     config::RpcConfig,
+    crypto::FeltRng,
     rpc::{RpcError, TonicRpcClient},
     store::{
         sqlite_store::{config::SqliteStoreConfig, SqliteStore},
@@ -17,6 +18,7 @@ use miden_client::{
     transactions::{request::TransactionRequest, DataStoreError, TransactionExecutorError},
     Client, ClientError,
 };
+use miden_lib::notes::create_p2id_note;
 use miden_objects::{
     accounts::{
         account_id::testing::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN, Account,
@@ -25,8 +27,8 @@ use miden_objects::{
     assets::{Asset, FungibleAsset, TokenSymbol},
     crypto::rand::RpoRandomCoin,
     notes::{NoteId, NoteType},
-    transaction::{InputNote, TransactionId},
-    Felt,
+    transaction::{InputNote, OutputNote, TransactionId},
+    Felt, FieldElement,
 };
 use rand::Rng;
 use uuid::Uuid;
@@ -318,4 +320,30 @@ pub async fn assert_note_cannot_be_consumed_twice(
         Ok(_) => panic!("Double-spend error: Note should not be consumable!"),
         err => panic!("Unexpected error {:?} for note ID: {}", err, note_to_consume_id.to_hex()),
     }
+}
+
+pub fn mint_multiple_fungible_asset(
+    asset: FungibleAsset,
+    target_id: Vec<AccountId>,
+    note_type: NoteType,
+    rng: &mut impl FeltRng,
+) -> TransactionRequest {
+    let notes = target_id
+        .iter()
+        .map(|account_id| {
+            OutputNote::Full(
+                create_p2id_note(
+                    asset.faucet_id(),
+                    *account_id,
+                    vec![asset.into()],
+                    note_type,
+                    Felt::ZERO,
+                    rng,
+                )
+                .unwrap(),
+            )
+        })
+        .collect::<Vec<OutputNote>>();
+
+    TransactionRequest::new().with_own_output_notes(notes).unwrap()
 }

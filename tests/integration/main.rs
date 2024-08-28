@@ -1104,40 +1104,20 @@ async fn test_consume_multiple_notes() {
     // First Mint necesary Token
     let fungible_asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
 
-    let tx_request_1 = TransactionRequest::mint_fungible_asset(
+    let mint_tx_request = mint_multiple_fungible_asset(
         fungible_asset,
-        to_account_id,
+        vec![to_account_id, to_account_id, to_account_id],
         NoteType::Private,
         client.rng(),
-    )
-    .unwrap();
+    );
 
-    execute_tx_and_sync(&mut client, faucet_account_id, tx_request_1.clone()).await;
-
-    let tx_request_2 = TransactionRequest::mint_fungible_asset(
-        fungible_asset,
-        to_account_id,
-        NoteType::Private,
-        client.rng(),
-    )
-    .unwrap();
-
-    execute_tx_and_sync(&mut client, faucet_account_id, tx_request_2.clone()).await;
-
-    let tx_request_3 = TransactionRequest::mint_fungible_asset(
-        fungible_asset,
-        to_account_id,
-        NoteType::Private,
-        client.rng(),
-    )
-    .unwrap();
-
-    execute_tx_and_sync(&mut client, faucet_account_id, tx_request_3.clone()).await;
+    execute_tx_and_sync(&mut client, faucet_account_id, mint_tx_request.clone()).await;
 
     // Consume notes with target account
-    let note_1 = tx_request_1.expected_output_notes().next().unwrap().clone();
-    let note_2 = tx_request_2.expected_output_notes().next().unwrap().clone();
-    let note_3 = tx_request_3.expected_output_notes().next().unwrap().clone();
+    let mut expected_output_notes = mint_tx_request.expected_output_notes();
+    let note_1 = expected_output_notes.next().unwrap().clone();
+    let note_2 = expected_output_notes.next().unwrap().clone();
+    let note_3 = expected_output_notes.next().unwrap().clone();
 
     println!("Executing consume notes tx without sync...");
     let tx_request = TransactionRequest::consume_notes(vec![note_1.id(), note_2.id(), note_3.id()])
