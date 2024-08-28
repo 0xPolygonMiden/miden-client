@@ -259,7 +259,7 @@ async fn test_sync_state() {
 
     // verify that we now have one consumed note after syncing state
     assert_eq!(client.get_input_notes(NoteFilter::Consumed).unwrap().len(), 1);
-    assert_eq!(sync_details.new_nullifiers, 1);
+    assert_eq!(sync_details.new_nullifiers.len(), 1);
 
     // verify that the expected note we had is now committed
     assert_ne!(client.get_input_notes(NoteFilter::Committed).unwrap(), expected_notes);

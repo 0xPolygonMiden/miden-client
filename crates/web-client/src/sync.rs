@@ -8,7 +8,7 @@ impl WebClient {
         if let Some(client) = self.get_mut_inner() {
             let mut sync_summary = client.sync_state().await.unwrap();
             if update_ignored {
-                sync_summary.combine_with(&client.update_ignored_notes().await.unwrap());
+                sync_summary.combine_with(client.update_ignored_notes().await.unwrap());
             }
 
             Ok(JsValue::from_f64(sync_summary.block_num as f64))

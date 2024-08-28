@@ -814,10 +814,10 @@ async fn test_sync_detail_values() {
 
     // Second client sync should have new note
     let new_details = client2.sync_state().await.unwrap();
-    assert_eq!(new_details.new_notes, 1);
-    assert_eq!(new_details.new_inclusion_proofs, 0);
-    assert_eq!(new_details.new_nullifiers, 0);
-    assert_eq!(new_details.updated_onchain_accounts, 0);
+    assert_eq!(new_details.new_notes.len(), 1);
+    assert_eq!(new_details.new_inclusion_proofs.len(), 0);
+    assert_eq!(new_details.new_nullifiers.len(), 0);
+    assert_eq!(new_details.updated_onchain_accounts.len(), 0);
 
     // Consume the note with the second account
     let tx_request = TransactionRequest::consume_notes(vec![note_id]);
@@ -825,9 +825,9 @@ async fn test_sync_detail_values() {
 
     // First client sync should have a new nullifier as the note was consumed
     let new_details = client1.sync_state().await.unwrap();
-    assert_eq!(new_details.new_notes, 0);
-    assert_eq!(new_details.new_inclusion_proofs, 0);
-    assert_eq!(new_details.new_nullifiers, 1);
+    assert_eq!(new_details.new_notes.len(), 0);
+    assert_eq!(new_details.new_inclusion_proofs.len(), 0);
+    assert_eq!(new_details.new_nullifiers.len(), 1);
 }
 
 /// This test runs 3 mint transactions that get included in different blocks so that once we sync
