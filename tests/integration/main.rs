@@ -1121,11 +1121,7 @@ async fn test_consume_multiple_notes() {
 
     println!("Executing consume notes tx without sync...");
     let tx_request = TransactionRequest::consume_notes(vec![note_1.id(), note_2.id(), note_3.id()])
-        .with_unauthenticated_input_notes(vec![
-            (note_1.clone(), None),
-            (note_2.clone(), None),
-            (note_3.clone(), None),
-        ]);
+        .with_unauthenticated_input_notes(vec![(note_1, None), (note_2, None), (note_3, None)]);
 
     let tx_id = execute_tx(&mut unauth_client, to_account_id, tx_request).await;
 
