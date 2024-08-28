@@ -4,7 +4,6 @@ use alloc::{
     vec::Vec,
 };
 use core::fmt;
-use std::print;
 
 use chrono::Utc;
 use miden_objects::{
@@ -367,7 +366,6 @@ impl SqliteStore {
                 match result {
                     Ok(id) if id != 0 => {
                         // Convert to NoteTag if the id is not 0
-                        print!("id: {}", id.clone());
                         let tag = NoteTag::try_from(id as u64).expect("account id is valid");
                         Some(Ok(tag))
                     },
