@@ -342,12 +342,16 @@ impl SqliteStore {
         FROM input_notes
         WHERE metadata IS NOT NULL
           AND json_extract(metadata, '$.tag') IS NOT NULL
+          AND status = 'Expected'
+          AND NOT(ignored)
 
         UNION
 
         SELECT CAST(imported_tag AS UNSIGNED BIG INT) AS tag_value
         FROM input_notes
         WHERE imported_tag IS NOT NULL
+            AND status = 'Expected'
+            AND NOT(ignored)
 
         UNION
 
