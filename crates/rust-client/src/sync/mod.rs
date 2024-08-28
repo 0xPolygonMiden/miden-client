@@ -12,7 +12,7 @@ use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
     crypto::{self, rand::FeltRng},
     notes::{Note, NoteId, NoteInclusionProof, NoteInputs, NoteRecipient, NoteTag, Nullifier},
-    transaction::InputNote,
+    transaction::{InputNote, TransactionId},
     BlockHeader, Digest,
 };
 use miden_tx::auth::TransactionAuthenticator;
@@ -37,62 +37,61 @@ mod tags;
 pub struct SyncSummary {
     /// Block number up to which the client has been synced.
     pub block_num: u32,
-    /// Number of new notes received.
-    pub new_notes: usize,
-    /// Number of tracked notes that received inclusion proofs
-    pub new_inclusion_proofs: usize,
-    /// Number of new nullifiers received
-    pub new_nullifiers: usize,
-    /// Number of on-chain accounts that have been updated
-    pub updated_onchain_accounts: usize,
-    /// Number of commited transactions
-    pub commited_transactions: usize,
+    /// IDs of new notes received
+    pub received_notes: Vec<NoteId>,
+    /// IDs of tracked notes that received inclusion proofs
+    pub committed_notes: Vec<NoteId>,
+    /// New nullifiers received
+    pub new_nullifiers: Vec<Nullifier>,
+    /// IDs of on-chain accounts that have been updated
+    pub updated_accounts: Vec<AccountId>,
+    /// IDs of committed transactions
+    pub committed_transactions: Vec<TransactionId>,
 }
 
 impl SyncSummary {
     pub fn new(
         block_num: u32,
-        new_notes: usize,
-        new_inclusion_proofs: usize,
-        new_nullifiers: usize,
-        updated_onchain_accounts: usize,
-        commited_transactions: usize,
+        received_notes: Vec<NoteId>,
+        committed_notes: Vec<NoteId>,
+        new_nullifiers: Vec<Nullifier>,
+        updated_accounts: Vec<AccountId>,
+        committed_transactions: Vec<TransactionId>,
     ) -> Self {
         Self {
             block_num,
-            new_notes,
-            new_inclusion_proofs,
+            received_notes,
+            committed_notes,
             new_nullifiers,
-            updated_onchain_accounts,
-            commited_transactions,
+            updated_accounts,
+            committed_transactions,
         }
     }
 
     pub fn new_empty(block_num: u32) -> Self {
         Self {
             block_num,
-            new_notes: 0,
-            new_inclusion_proofs: 0,
-            new_nullifiers: 0,
-            updated_onchain_accounts: 0,
-            commited_transactions: 0,
+            received_notes: vec![],
+            committed_notes: vec![],
+            new_nullifiers: vec![],
+            updated_accounts: vec![],
+            committed_transactions: vec![],
         }
     }
 
     pub fn is_empty(&self) -> bool {
-        self.new_notes == 0
-            && self.new_inclusion_proofs == 0
-            && self.new_nullifiers == 0
-            && self.updated_onchain_accounts == 0
+        self.received_notes.is_empty()
+            && self.committed_notes.is_empty()
+            && self.new_nullifiers.is_empty()
+            && self.updated_accounts.is_empty()
     }
 
-    pub fn combine_with(&mut self, other: &Self) {
+    pub fn combine_with(&mut self, mut other: Self) {
         self.block_num = max(self.block_num, other.block_num);
-        self.new_notes += other.new_notes;
-        self.new_inclusion_proofs += other.new_inclusion_proofs;
-        self.new_nullifiers += other.new_nullifiers;
-        self.updated_onchain_accounts += other.updated_onchain_accounts;
-        self.commited_transactions += other.commited_transactions;
+        self.received_notes.append(&mut other.received_notes);
+        self.committed_notes.append(&mut other.committed_notes);
+        self.new_nullifiers.append(&mut other.new_nullifiers);
+        self.updated_accounts.append(&mut other.updated_accounts);
     }
 }
 
@@ -108,11 +107,16 @@ impl From<&StateSyncUpdate> for SyncSummary {
 
         SyncSummary::new(
             sync_update.block_header.block_num(),
-            sync_update.synced_new_notes.new_public_notes().len(),
-            updated_note_set.len(),
-            sync_update.nullifiers.len(),
-            sync_update.updated_onchain_accounts.len(),
-            sync_update.transactions_to_commit.len(),
+            sync_update
+                .synced_new_notes
+                .new_public_notes()
+                .iter()
+                .map(|n| n.note().id())
+                .collect(),
+            updated_note_set.into_iter().collect(),
+            sync_update.nullifiers.iter().map(|n| n.nullifier).collect(),
+            sync_update.updated_onchain_accounts.iter().map(|acc| acc.id()).collect(),
+            sync_update.transactions_to_commit.iter().map(|tx| tx.transaction_id).collect(),
         )
     }
 }
@@ -123,7 +127,7 @@ enum SyncStatus {
 }
 
 impl SyncStatus {
-    pub fn sync_summary(&self) -> &SyncSummary {
+    pub fn into_sync_summary(self) -> SyncSummary {
         match self {
             SyncStatus::SyncedToLastBlock(summary) => summary,
             SyncStatus::SyncedToBlock(summary) => summary,
@@ -228,9 +232,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let mut total_sync_summary = SyncSummary::new_empty(0);
         loop {
             let response = self.sync_state_once().await?;
-            total_sync_summary.combine_with(response.sync_summary());
+            let is_last_block = matches!(response, SyncStatus::SyncedToLastBlock(_));
+            total_sync_summary.combine_with(response.into_sync_summary());
 
-            if let SyncStatus::SyncedToLastBlock(_) = response {
+            if is_last_block {
                 break;
             }
         }
@@ -253,7 +258,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let note_details = self.rpc_api.get_notes_by_id(&ignored_notes_ids).await?;
 
-        let updated_notes = note_details.len();
+        let updated_notes = note_details.iter().map(|note| note.id()).collect::<Vec<_>>();
 
         let mut current_partial_mmr = maybe_await!(self.build_current_partial_mmr(true))?;
         for details in note_details {
@@ -278,7 +283,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         }
 
         let mut sync_summary = SyncSummary::new_empty(0);
-        sync_summary.new_inclusion_proofs = updated_notes;
+        sync_summary.committed_notes = updated_notes;
 
         Ok(sync_summary)
     }
