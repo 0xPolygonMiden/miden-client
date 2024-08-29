@@ -32,7 +32,7 @@ nav:
   - Miden CLI:
       - Configuration: 'cli-config.md'
       - Reference: 'cli-reference.md'
-  - Install and run: install-and-run.md
+  - Install and run: install-and-run.md'
   - Examples: 'examples.md'
 
 
