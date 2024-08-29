@@ -22,7 +22,6 @@ miden-client = { path = "../crates/rust-client", features = [
 miden-objects = { workspace = true, default-features = false, features = [
     "serde",
 ] }
-miden-lib = { workspace = true }
 rand = { workspace = true }
 tokio = { workspace = true }
 uuid = { version = "1.9", features = ["serde", "v4"] }

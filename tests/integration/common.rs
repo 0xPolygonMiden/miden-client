@@ -9,6 +9,7 @@ use miden_client::{
     auth::StoreAuthenticator,
     config::RpcConfig,
     crypto::FeltRng,
+    notes::create_p2id_note,
     rpc::{RpcError, TonicRpcClient},
     store::{
         sqlite_store::{config::SqliteStoreConfig, SqliteStore},
@@ -18,7 +19,6 @@ use miden_client::{
     transactions::{request::TransactionRequest, DataStoreError, TransactionExecutorError},
     Client, ClientError,
 };
-use miden_lib::notes::create_p2id_note;
 use miden_objects::{
     accounts::{
         account_id::testing::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN, Account,
