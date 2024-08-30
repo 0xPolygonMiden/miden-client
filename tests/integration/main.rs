@@ -1133,7 +1133,7 @@ async fn test_consume_multiple_expected_notes() {
         unauth_owned_notes.iter().map(|note| note.id()).collect(),
     )
     .with_unauthenticated_input_notes(
-        unauth_owned_notes.iter().map(|note| ((*note).clone().clone(), None)),
+        unauth_owned_notes.iter().map(|note| ((*note).clone(), None)),
     );
 
     let tx_id_1 = execute_tx(&mut client, to_account_ids[0], tx_request_1).await;
