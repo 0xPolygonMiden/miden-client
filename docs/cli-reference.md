@@ -30,7 +30,8 @@ Note that the debug flag overrides the `MIDEN_DEBUG` environment variable.
 Creates a configuration file for the client in the current directory.
  
 ```sh
-# This will create a config using default values
+# This will create a config file named `miden-client.toml` using default values
+# This file contains information useful for the CLI like the RPC provider and database path
 miden init
 
 # You can use the --rpc flag to override the default rpc config

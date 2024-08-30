@@ -33,3 +33,6 @@ env/
 node_modules/
 *DS_Store
 *.iml
+
+# Ignore files that spawn using `miden init`
+miden-client.toml
