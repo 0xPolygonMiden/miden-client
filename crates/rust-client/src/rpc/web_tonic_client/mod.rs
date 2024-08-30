@@ -294,7 +294,7 @@ impl NodeRpcClient for WebTonicRpcClient {
             .nullifiers
             .iter()
             .map(|nul| {
-                let nullifier = nul.nullifier.clone().ok_or(RpcError::ExpectedFieldMissing(
+                let nullifier = nul.nullifier.ok_or(RpcError::ExpectedFieldMissing(
                     "CheckNullifiersByPrefix response should have a `nullifier`".to_string(),
                 ))?;
                 let nullifier = nullifier.try_into()?;
@@ -423,7 +423,6 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
             .map(|nul_update| {
                 let nullifier_digest = nul_update
                     .nullifier
-                    .clone()
                     .ok_or(RpcError::ExpectedFieldMissing("Nullifier".into()))?;
 
                 let nullifier_digest = Digest::try_from(nullifier_digest)?;
@@ -441,14 +440,14 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
             .transactions
             .iter()
             .map(|transaction_summary| {
-                let transaction_id = transaction_summary.transaction_id.clone().ok_or(
+                let transaction_id = transaction_summary.transaction_id.ok_or(
                     RpcError::ExpectedFieldMissing("TransactionSummary.TransactionId".into()),
                 )?;
                 let transaction_id = TransactionId::try_from(transaction_id)?;
 
                 let transaction_block_num = transaction_summary.block_num;
 
-                let transaction_account_id = transaction_summary.account_id.clone().ok_or(
+                let transaction_account_id = transaction_summary.account_id.ok_or(
                     RpcError::ExpectedFieldMissing("TransactionSummary.TransactionId".into()),
                 )?;
                 let transaction_account_id = AccountId::try_from(transaction_account_id)?;

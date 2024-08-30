@@ -127,7 +127,7 @@ impl TryFrom<&digest::Digest> for [Felt; 4] {
     type Error = RpcConversionError;
 
     fn try_from(value: &digest::Digest) -> Result<Self, Self::Error> {
-        value.clone().try_into()
+        (*value).try_into()
     }
 }
 
@@ -135,6 +135,6 @@ impl TryFrom<&digest::Digest> for Digest {
     type Error = RpcConversionError;
 
     fn try_from(value: &digest::Digest) -> Result<Self, Self::Error> {
-        value.clone().try_into()
+        (*value).try_into()
     }
 }
