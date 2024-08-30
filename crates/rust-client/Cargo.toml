@@ -35,17 +35,17 @@ lazy_static = { version = "1.5", optional = true }
 miden-lib = { workspace = true }
 miden-objects = { workspace = true }
 miden-tx = { workspace = true }
-prost = { version = "0.12", optional = true, default-features = false, features = ["derive"] }
+prost = { version = "0.13", optional = true, default-features = false, features = ["derive"] }
 rand = { workspace = true }
 rusqlite = { version = "0.31", features = ["vtab", "array", "bundled"], optional = true }
-rusqlite_migration = { version = "1.0", optional = true }
+rusqlite_migration = { version = "1.2", optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde-wasm-bindgen = { version = "0.6", optional = true }
 thiserror = { version = "1.0", optional = true }
 tokio = { workspace = true , optional = true }
-tonic = { version = "0.11", default-features = false, optional = true, features = ["prost", "codegen"] }
-tonic-web-wasm-client = { version = "0.5", optional = true, default-features = false }
+tonic = { version = "0.12", default-features = false, optional = true, features = ["prost", "codegen"] }
+tonic-web-wasm-client = { version = "0.6", optional = true, default-features = false }
 tracing = { workspace = true }
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"], optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
@@ -55,12 +55,12 @@ winter-maybe-async = "0.10"
 miden-client = { path = ".", features = ["testing", "concurrent", "sqlite", "tonic", "tokio"]}
 miden-lib = { workspace = true, features = ["testing"] }
 miden-objects = { workspace = true, default-features = false, features = ["serde", "testing"] }
-uuid = { version = "1.9", features = ["serde", "v4"] }
+uuid = { version = "1.10", features = ["serde", "v4"] }
 
 [build-dependencies]
 miden-rpc-proto = { version = "0.5" }
 miette = { version = "7.2", features = ["fancy"] }
-prost = { version = "0.12", default-features = false, features = ["derive"] }
-prost-build = { version = "0.12", default-features = false }
-protox = { version = "0.6" }
-tonic-build = { version = "0.11" }
+prost = { version = "0.13", default-features = false, features = ["derive"] }
+prost-build = { version = "0.13", default-features = false }
+protox = { version = "0.7" }
+tonic-build = { version = "0.12" }

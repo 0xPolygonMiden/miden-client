@@ -16,7 +16,7 @@ miden-client = { path = "../crates/rust-client", features = ["concurrent", "test
 miden-objects = { workspace = true, default-features = false, features = ["serde"] }
 rand = { workspace = true }
 tokio = { workspace = true }
-uuid = { version = "1.9", features = ["serde", "v4"] }
+uuid = { version = "1.10", features = ["serde", "v4"] }
 
 [[test]]
 name = "integration"
