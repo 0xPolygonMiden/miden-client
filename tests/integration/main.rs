@@ -1083,6 +1083,10 @@ async fn test_update_ignored_tag() {
 }
 
 #[tokio::test]
+/// Test that checks multiple features:
+/// - Consuming multiple notes in a single transaction.
+/// - Consuming authenticated notes.
+/// - Consuming unauthenticated notes.
 async fn test_consume_multiple_expected_notes() {
     let mut client = create_test_client();
     let mut unauth_client = create_test_client();
@@ -1150,8 +1154,14 @@ async fn test_consume_multiple_expected_notes() {
     assert!(client.get_input_notes(NoteFilter::Expected).unwrap().is_empty());
     assert!(unauth_client.get_input_notes(NoteFilter::Expected).unwrap().is_empty());
 
-    assert!(!client.get_input_notes(NoteFilter::Consumed).unwrap().is_empty());
-    assert!(!unauth_client.get_input_notes(NoteFilter::Consumed).unwrap().is_empty());
+    assert!(
+        !client.get_input_notes(NoteFilter::Consumed).unwrap().is_empty(),
+        "Authenticated notes are consumed"
+    );
+    assert!(
+        !unauth_client.get_input_notes(NoteFilter::Consumed).unwrap().is_empty(),
+        "Unauthenticated notes are consumed"
+    );
 
     // Validate the final asset amounts in each account
     for (client, account_id) in
