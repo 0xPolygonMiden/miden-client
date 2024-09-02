@@ -275,7 +275,7 @@ pub(super) fn parse_accounts(
                 .try_into()
                 .expect("Conversion from stored AccountID should not panic"),
             Felt::new(nonce as u64),
-            serde_json::from_str(&vault_root).map_err(StoreError::JsonDataDeserializationError)?,
+            Digest::try_from(&vault_root)?,
             Digest::try_from(&storage_root)?,
             Digest::try_from(&code_root)?,
         ),
@@ -314,8 +314,7 @@ fn serialize_account(account: &Account) -> Result<SerializedAccountData, StoreEr
     let id: u64 = account.id().into();
     let code_root = account.code().commitment().to_string();
     let storage_root = account.storage().root().to_string();
-    let vault_root = serde_json::to_string(&account.vault().commitment())
-        .map_err(StoreError::InputSerializationError)?;
+    let vault_root = String::from(&account.vault().commitment());
     let committed = account.is_on_chain();
     let nonce = account.nonce().as_int() as i64;
     let hash = account.hash().to_string();
@@ -381,8 +380,7 @@ fn serialize_account_storage(
 fn serialize_account_asset_vault(
     asset_vault: &AssetVault,
 ) -> Result<SerializedAccountVaultData, StoreError> {
-    let root = serde_json::to_string(&asset_vault.commitment())
-        .map_err(StoreError::InputSerializationError)?;
+    let root = String::from(&asset_vault.commitment());
     let assets: Vec<Asset> = asset_vault.assets().collect();
     let assets = serde_json::to_string(&assets).map_err(StoreError::InputSerializationError)?;
     Ok((root, assets))

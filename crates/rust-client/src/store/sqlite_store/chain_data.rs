@@ -1,11 +1,14 @@
 use alloc::{collections::BTreeMap, rc::Rc, string::String, vec::Vec};
-use std::num::NonZeroUsize;
+use core::slice::SlicePattern;
+use std::{num::NonZeroUsize, string::ToString};
 
 use miden_objects::{
     crypto::merkle::{InOrderIndex, MmrPeaks},
     BlockHeader, Digest,
 };
+use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{params, params_from_iter, types::Value, OptionalExtension, Transaction};
+use serde::Deserialize;
 
 use super::SqliteStore;
 use crate::store::{ChainMmrNodeFilter, StoreError};
@@ -192,8 +195,10 @@ fn serialize_block_header(
     has_client_notes: bool,
 ) -> Result<SerializedBlockHeaderData, StoreError> {
     let block_num = block_header.block_num();
+    let mut buffer = Vec::new();
+    block_header.write_into(&mut buffer);
     let header =
-        serde_json::to_string(&block_header).map_err(StoreError::InputSerializationError)?;
+        String::from_utf8(buffer).map_err(|err| StoreError::ParsingError(err.to_string()))?;
     let chain_mmr_peaks =
         serde_json::to_string(&chain_mmr_peaks).map_err(StoreError::InputSerializationError)?;
 
@@ -216,10 +221,8 @@ fn parse_block_header(
 ) -> Result<(BlockHeader, bool), StoreError> {
     let (_, header, _, has_client_notes) = serialized_block_header_parts;
 
-    Ok((
-        serde_json::from_str(&header).map_err(StoreError::JsonDataDeserializationError)?,
-        has_client_notes,
-    ))
+    let block_header = BlockHeader::read_from(&mut header.as_bytes().as_slice())?;
+    Ok((block_header, has_client_notes))
 }
 
 fn serialize_chain_mmr_node(
@@ -227,8 +230,7 @@ fn serialize_chain_mmr_node(
     node: Digest,
 ) -> Result<SerializedChainMmrNodeData, StoreError> {
     let id: u64 = id.into();
-    let node = serde_json::to_string(&node).map_err(StoreError::InputSerializationError)?;
-    Ok((id as i64, node))
+    Ok((id as i64, node.into()))
 }
 
 fn parse_chain_mmr_nodes_columns(
@@ -245,8 +247,7 @@ fn parse_chain_mmr_nodes(
     let (id, node) = serialized_chain_mmr_node_parts;
 
     let id = InOrderIndex::new(NonZeroUsize::new(id as usize).unwrap());
-    let node: Digest =
-        serde_json::from_str(&node).map_err(StoreError::JsonDataDeserializationError)?;
+    let node: Digest = Digest::try_from(&node)?;
     Ok((id, node))
 }
 

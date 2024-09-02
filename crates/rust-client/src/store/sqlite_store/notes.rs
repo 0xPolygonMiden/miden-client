@@ -298,12 +298,16 @@ impl SqliteStore {
     ) -> Result<(), StoreError> {
         const QUERY: &str = "UPDATE input_notes SET inclusion_proof = json(:inclusion_proof), status = 'Committed' WHERE note_id = :note_id";
 
+        let mut buffer = Vec::new();
+        inclusion_proof.write_into(&mut buffer);
+        let inclusion_proof =
+            String::from_utf8(buffer).map_err(|err| StoreError::ParsingError(err.to_string()))?;
         self.db()
             .execute(
                 QUERY,
                 named_params! {
                     ":note_id": note_id.inner().to_string(),
-                    ":inclusion_proof": serde_json::to_string(&inclusion_proof).map_err(StoreError::JsonDataDeserializationError)?,
+                    ":inclusion_proof": inclusion_proof,
                 },
             )
             .map_err(|err| StoreError::QueryError(err.to_string()))?;
@@ -320,12 +324,16 @@ impl SqliteStore {
         const QUERY: &str =
             "UPDATE input_notes SET metadata = json(:metadata) WHERE note_id = :note_id";
 
+        let mut buffer = Vec::new();
+        metadata.write_into(&mut buffer);
+        let metadata =
+            String::from_utf8(buffer).map_err(|err| StoreError::ParsingError(err.to_string()))?;
         self.db()
             .execute(
                 QUERY,
                 named_params! {
                     ":note_id": note_id.inner().to_string(),
-                    ":metadata": serde_json::to_string(&metadata).map_err(StoreError::JsonDataDeserializationError)?,
+                    ":metadata": metadata,
                 },
             )
             .map_err(|err| StoreError::QueryError(err.to_string()))?;
@@ -628,13 +636,19 @@ pub(crate) fn serialize_input_note(
     let recipient = note.recipient().to_hex();
 
     let metadata = if let Some(metadata) = note.metadata() {
-        Some(serde_json::to_string(metadata).map_err(StoreError::InputSerializationError)?)
+        let mut buffer = Vec::new();
+        metadata.write_into(&mut buffer);
+        let metadata =
+            String::from_utf8(buffer).map_err(|err| StoreError::ParsingError(err.to_string()))?;
+        Some(metadata)
     } else {
         None
     };
 
+    let mut buffer = Vec::new();
+    note.details().write_into(&mut buffer);
     let details =
-        serde_json::to_string(&note.details()).map_err(StoreError::InputSerializationError)?;
+        String::from_utf8(buffer).map_err(|err| StoreError::ParsingError(err.to_string()))?;
 
     let note_script_hash = note.details().script_hash().to_hex();
     let serialized_note_script = note.details().script().to_bytes();
