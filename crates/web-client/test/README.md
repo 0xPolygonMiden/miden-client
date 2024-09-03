@@ -6,14 +6,18 @@ within the context of the web page.
 
 ## Running tests
 
+1. Ensure the .wasm is built by running `yarn build`
 1. In crates/web-client run `yarn test` to run all tests
-2. For running an individual test by name run `yarn test -g <test-name>`
+
+   - Can alternatively run `yarn test:clean` to run the .wasm build process prior to testing. We provide both paths as the build process can take some time.
+
+1. For running an individual test by name run `yarn test -g <test-name>`
 
 ## Writing tests
 
 1. The test setup in `mocha.global.setup.mjs` should expose the `create_client` function which can be used inside tests.
    - Any further setup of wasm code should be done in this file and similarly expose a function for testing here
-2. `webClientTestUtils.js` should contain all interfaces for interacting with the web client. If further methods need to be added, follow existing patterns which use the exposed `testingPage` and pass through any required arguments to the page execution. Example:
+1. `webClientTestUtils.js` should contain all interfaces for interacting with the web client. If further methods need to be added, follow existing patterns which use the exposed `testingPage` and pass through any required arguments to the page execution. Example:
 
 ```
 /**
