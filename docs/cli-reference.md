@@ -30,7 +30,8 @@ Note that the debug flag overrides the `MIDEN_DEBUG` environment variable.
 Creates a configuration file for the client in the current directory.
  
 ```sh
-# This will create a config using default values
+# This will create a config file named `miden-client.toml` using default values
+# This file contains information useful for the CLI like the RPC provider and database path
 miden init
 
 # You can use the --rpc flag to override the default rpc config
@@ -253,9 +254,10 @@ Export input note data to a binary file .
 ##### Export type
 
 The user needs to specify how the note should be exported via the `--export-type` flag. The following options are available:
-- `id`: Only the note ID is exported. When importing, if the note ID is already tracked by the client, the note will be updated with missing information fetched from the node, this works for both public and private notes. If the note isn't tracked and the note is public, the whole note is fetched from the node and start being tracked.
-- `full`: The note is exported with all of its information (metadata and inclusion proof). When importing, the note is considered committed. The note may not be consumed directly after importing as it's block header will not be stored in the client. The block header will be fetched during the next sync.
-- `partial`: The note is exported with minimal information and may be imported even if the note is not committed on chain. When importing, the note will be considered to be "expected" and will be updated after a sync when the original note is committed. The note may not be consumed directly after importing as its metadata will not be stored in the client. The metadata will be fetched during the next sync.
+
+- `id`: Only the note ID is exported. When importing, if the note ID is already tracked by the client, the note will be updated with missing information fetched from the node. This works for both public and private notes. If the note isn't tracked and the note is public, the whole note is fetched from the node and is stored for later use.
+- `full`: The note is exported with all of its information (metadata and inclusion proof). When importing, the note is considered committed. The note may not be consumed directly after importing as its block header will not be stored in the client. The block header will be fetched during the next sync.
+- `partial`: The note is exported with minimal information and may be imported even if the note is not yet committed on chain. At the moment of importing the note, the client will check the status of the note by doing a note sync, using the note's tag. Depending on the response, the note will be either stored as "Expected" or "Committed". 
 
 #### `import`
 

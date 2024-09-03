@@ -13,6 +13,7 @@ use miden_tx::DataStoreError;
 // STORE ERROR
 // ================================================================================================
 
+/// Errors generated from the store.
 #[derive(Debug)]
 pub enum StoreError {
     AssetVaultError(AssetVaultError),

@@ -161,7 +161,7 @@ impl NodeRpcClient for WebTonicRpcClient {
                         .ok_or(RpcError::ExpectedFieldMissing("Notes.NoteId".into()))?
                         .try_into()?;
 
-                    NoteDetails::OffChain(NoteId::from(note_id), note_metadata, inclusion_details)
+                    NoteDetails::Private(NoteId::from(note_id), note_metadata, inclusion_details)
                 },
             };
             response_notes.push(note)
@@ -267,7 +267,7 @@ impl NodeRpcClient for WebTonicRpcClient {
 
             Ok(AccountDetails::Public(account, update_summary))
         } else {
-            Ok(AccountDetails::OffChain(account_id, update_summary))
+            Ok(AccountDetails::Private(account_id, update_summary))
         }
     }
 

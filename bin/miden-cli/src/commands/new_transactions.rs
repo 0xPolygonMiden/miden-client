@@ -10,8 +10,7 @@ use miden_client::{
     rpc::NodeRpcClient,
     store::Store,
     transactions::{
-        build_swap_tag,
-        request::{PaymentTransactionData, SwapTransactionData, TransactionRequest},
+        build_swap_tag, PaymentTransactionData, SwapTransactionData, TransactionRequest,
         TransactionResult,
     },
     Client,

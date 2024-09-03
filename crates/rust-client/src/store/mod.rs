@@ -1,3 +1,6 @@
+//! Defines the storage interfaces used by the Miden client. It provides mechanisms for persisting
+//! and retrieving data, such as account states, transaction history, and block headers.
+
 use alloc::{collections::BTreeMap, vec::Vec};
 use core::fmt::Debug;
 
@@ -14,7 +17,13 @@ use crate::{
     transactions::{TransactionRecord, TransactionResult},
 };
 
-pub mod data_store;
+/// Contains [ClientDataStore] to automatically implement [DataStore] for anything that implements
+/// [Store]. This is not public because it's an implementation detail to instantiate the executor.
+///
+/// The user is tasked with creating a [Store] which the client will wrap into a [ClientDataStore]
+/// at creation time.
+pub(crate) mod data_store;
+
 mod errors;
 pub use errors::*;
 
@@ -239,6 +248,7 @@ pub trait Store {
     /// Said account's state is the state according to the last sync performed.
     ///
     /// # Errors
+    ///
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
     #[maybe_async]
     fn get_account_stub(
@@ -331,7 +341,8 @@ pub trait Store {
 
 // CHAIN MMR NODE FILTER
 // ================================================================================================
-
+/// Filters for searching specific MMR nodes.
+// TODO: Should there be filters for specific blocks instead of nodes?
 pub enum ChainMmrNodeFilter<'a> {
     /// Return all nodes.
     All,
@@ -342,6 +353,7 @@ pub enum ChainMmrNodeFilter<'a> {
 // TRANSACTION FILTERS
 // ================================================================================================
 
+/// Filters for narrowing the set of transactions returned by the client's store.
 pub enum TransactionFilter {
     /// Return all transactions.
     All,
@@ -353,6 +365,7 @@ pub enum TransactionFilter {
 // NOTE FILTER
 // ================================================================================================
 
+/// Filters for narrowing the set of notes returned by the client's store.
 #[derive(Debug, Clone)]
 pub enum NoteFilter<'a> {
     /// Return a list of all notes ([InputNoteRecord] or [OutputNoteRecord]).

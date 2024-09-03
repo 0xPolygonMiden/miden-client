@@ -91,13 +91,13 @@ CREATE TABLE input_notes (
 
     details JSON NOT NULL,                                  -- JSON consisting of the following fields:
     -- nullifier                                              -- the nullifier of the note
-    -- script_hash                                                 -- the note's script hash
+    -- script_hash                                            -- the note's script hash
     -- inputs                                                 -- the serialized NoteInputs, including inputs hash and list of inputs
     -- serial_num                                             -- the note serial number
     consumer_transaction_id BLOB NULL,                      -- the transaction ID of the transaction that consumed the note
     created_at UNSIGNED BIG INT NOT NULL,                   -- timestamp of the note creation/import
     expected_height UNSIGNED BIG INT NULL,                  -- block height when the note is expected to be committed
-    submitted_at UNSIGNED BIG INT NULL,                      -- timestamp of the note submission to node
+    submitted_at UNSIGNED BIG INT NULL,                     -- timestamp of the note submission to node
     nullifier_height UNSIGNED BIG INT NULL,                 -- block height when the nullifier arrived
     ignored BOOLEAN NOT NULL DEFAULT 0,                     -- whether the note is ignored in sync
     imported_tag UNSIGNED INT NULL,                         -- imported tag for the note

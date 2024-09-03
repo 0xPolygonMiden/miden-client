@@ -1,3 +1,9 @@
+//! The `accounts` module provides types and client APIs for managing accounts within the Miden
+//! rollup network .
+//! 
+//! Accounts can be created or imported. Once they are tracked by the client, their state will be
+//! updated accordingly on every transaction, and validated against the rollup on every sync.
+
 use alloc::vec::Vec;
 
 use miden_lib::AuthScheme;
@@ -17,15 +23,26 @@ use winter_maybe_async::{maybe_async, maybe_await};
 use super::{rpc::NodeRpcClient, Client};
 use crate::{store::Store, ClientError};
 
+/// Defines templates for creating different types of Miden accounts.
 pub enum AccountTemplate {
+    /// The `BasicWallet` variant represents a regular wallet account.
     BasicWallet {
+        /// A boolean indicating whether the account's code can be modified after creation.
         mutable_code: bool,
+        /// Specifies the type of storage used by the account. This is defined by the
+        /// `AccountStorageType` enum.
         storage_type: AccountStorageType,
     },
+
+    /// The `FungibleFaucet` variant represents an account designed to issue fungible tokens.
     FungibleFaucet {
+        /// The symbol of the token being issued by the faucet.
         token_symbol: TokenSymbol,
+        /// The number of decimal places used by the token.
         decimals: u8,
+        /// The maximum supply of tokens that the faucet can issue.
         max_supply: u64,
+        /// Specifies the type of storage used by the account.
         storage_type: AccountStorageType,
     },
 }
@@ -34,7 +51,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 
-    /// Creates a new [Account] based on an [AccountTemplate] and saves it in the store
+    /// Creates a new [Account] based on an [AccountTemplate] and saves it in the client's store.
     #[maybe_async]
     pub fn new_account(
         &mut self,
@@ -189,13 +206,25 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // ACCOUNT DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
-    /// Returns summary info about the accounts managed by this client.
+    /// Returns a list of [AccountStub] of all accounts stored in the database along with the seeds
+    /// used to create them.
+    ///
+    /// Said accounts' state is the state after the last performed sync.
     #[maybe_async]
     pub fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, ClientError> {
         maybe_await!(self.store.get_account_stubs()).map_err(|err| err.into())
     }
 
-    /// Returns summary info about the specified account.
+    /// Retrieves a full [Account] object. The seed will be returned if the account is new,
+    /// otherwise it will be `None`.
+    ///
+    /// This function returns the [Account]'s latest state. If the account is new (that is, has
+    /// never executed a transaction), the returned seed will be `Some(Word)`; otherwise the seed
+    /// will be `None`
+    ///
+    /// # Errors
+    ///
+    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
     #[maybe_async]
     pub fn get_account(
         &self,
@@ -204,7 +233,15 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         maybe_await!(self.store.get_account(account_id)).map_err(|err| err.into())
     }
 
-    /// Returns summary info about the specified account.
+    /// Retrieves an [AccountStub] object for the specified [AccountId] along with the seed
+    /// used to create it. The seed will be returned if the account is new, otherwise it
+    /// will be `None`.
+    ///
+    /// Said account's state is the state according to the last sync performed.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
     #[maybe_async]
     pub fn get_account_stub_by_id(
         &self,
