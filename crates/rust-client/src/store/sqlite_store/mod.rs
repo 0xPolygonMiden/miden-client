@@ -1,5 +1,6 @@
 use alloc::{collections::BTreeMap, vec::Vec};
 use core::cell::{RefCell, RefMut};
+use std::path::Path;
 
 use miden_objects::{
     accounts::{Account, AccountId, AccountStub, AuthSecretKey},
@@ -99,9 +100,14 @@ impl SqliteStore {
 
     /// Returns a new instance of [Store] instantiated with the specified configuration options.
     pub fn new(config: &SqliteStoreConfig) -> Result<Self, StoreError> {
+        let database_exists = Path::new(&config.database_filepath).exists();
+
         let db = Connection::open(config.database_filepath.clone())?;
         array::load_module(&db)?;
-        db.execute_batch(include_str!("store.sql")).unwrap();
+
+        if !database_exists {
+            db.execute_batch(include_str!("store.sql"))?;
+        }
 
         Ok(Self { db: RefCell::new(db) })
     }

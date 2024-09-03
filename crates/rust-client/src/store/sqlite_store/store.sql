@@ -1,26 +1,26 @@
 -- Create account_code table
-CREATE TABLE IF NOT EXISTS account_code (
+CREATE TABLE account_code (
     root BLOB NOT NULL,         -- root of the Merkle tree for all exported procedures in account module.
     code BLOB NOT NULL,         -- serialized account code.
     PRIMARY KEY (root)
 );
 
 -- Create account_storage table
-CREATE TABLE IF NOT EXISTS account_storage (
+CREATE TABLE account_storage (
     root BLOB NOT NULL,         -- root of the account storage Merkle tree.
     slots BLOB NOT NULL,        -- serialized key-value pair of non-empty account slots.
     PRIMARY KEY (root)
 );
 
 -- Create account_vaults table
-CREATE TABLE IF NOT EXISTS account_vaults (
+CREATE TABLE account_vaults (
     root BLOB NOT NULL,         -- root of the Merkle tree for the account asset vault.
     assets BLOB NOT NULL,       -- serialized account vault assets.
     PRIMARY KEY (root)
 );
 
 -- Create account_auth table
-CREATE TABLE IF NOT EXISTS account_auth (
+CREATE TABLE account_auth (
     account_id UNSIGNED BIG INT NOT NULL,  -- ID of the account
     auth_info BLOB NOT NULL,               -- Serialized representation of information needed for authentication
     pub_key BLOB NOT NULL,                 -- Public key for easier authenticator use
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS account_auth (
 );
 
 -- Create accounts table
-CREATE TABLE IF NOT EXISTS accounts (
+CREATE TABLE accounts (
     id UNSIGNED BIG INT NOT NULL,  -- Account ID.
     code_root BLOB NOT NULL,       -- Root of the account_code
     storage_root BLOB NOT NULL,    -- Root of the account_storage Merkle tree.
@@ -45,10 +45,10 @@ CREATE TABLE IF NOT EXISTS accounts (
     CONSTRAINT check_seed_nonzero CHECK (NOT (nonce = 0 AND account_seed IS NULL))
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_account_hash ON accounts(account_hash);
+CREATE UNIQUE INDEX idx_account_hash ON accounts(account_hash);
 
 -- Create transactions table
-CREATE TABLE IF NOT EXISTS transactions (
+CREATE TABLE transactions (
     id BLOB NOT NULL,                                -- Transaction ID (hash of various components)
     account_id UNSIGNED BIG INT NOT NULL,            -- ID of the account against which the transaction was executed.
     init_account_state BLOB NOT NULL,                -- Hash of the account state before the transaction was executed.
@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     PRIMARY KEY (id)
 );
 
-CREATE TABLE IF NOT EXISTS transaction_scripts (
+CREATE TABLE transaction_scripts (
     script_hash BLOB NOT NULL,                       -- Transaction script Hash
     script BLOB,                                     -- serialized Transaction script
 
@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS transaction_scripts (
 );
 
 -- Create input notes table
-CREATE TABLE IF NOT EXISTS input_notes (
+CREATE TABLE input_notes (
     note_id BLOB NOT NULL,                                  -- the note id
     recipient BLOB NOT NULL,                                -- the note recipient
     assets BLOB NOT NULL,                                   -- the serialized NoteAssets, including vault hash and list of assets
@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS input_notes (
 );
 
 -- Create output notes table
-CREATE TABLE IF NOT EXISTS output_notes (
+CREATE TABLE output_notes (
     note_id BLOB NOT NULL,                                  -- the note id
     recipient BLOB NOT NULL,                                -- the note recipient
     assets BLOB NOT NULL,                                   -- the serialized NoteAssets, including vault hash and list of assets
@@ -177,7 +177,7 @@ CREATE TABLE IF NOT EXISTS output_notes (
 
 -- Create note's scripts table, used for both input and output notes
 -- TODO: can't do FOREIGN KEY over json fields, sure we're ok?
-CREATE TABLE IF NOT EXISTS notes_scripts (
+CREATE TABLE notes_scripts (
     script_hash BLOB NOT NULL,                       -- Note script Hash
     serialized_note_script BLOB,                     -- NoteScript, serialized
 
@@ -185,7 +185,7 @@ CREATE TABLE IF NOT EXISTS notes_scripts (
 );
 
 -- Create state sync table
-CREATE TABLE IF NOT EXISTS state_sync (
+CREATE TABLE state_sync (
     block_num UNSIGNED BIG INT NOT NULL,    -- the block number of the most recent state sync
     tags BLOB NOT NULL,                     -- the serialized list of tags
     PRIMARY KEY (block_num)
@@ -199,7 +199,7 @@ WHERE (
 ) = 0;
 
 -- Create block headers table
-CREATE TABLE IF NOT EXISTS block_headers (
+CREATE TABLE block_headers (
     block_num UNSIGNED BIG INT NOT NULL,  -- block number
     header BLOB NOT NULL,                 -- serialized block header
     chain_mmr_peaks BLOB NOT NULL,        -- serialized peaks of the chain MMR at this block
@@ -208,7 +208,7 @@ CREATE TABLE IF NOT EXISTS block_headers (
 );
 
 -- Create chain mmr nodes
-CREATE TABLE IF NOT EXISTS chain_mmr_nodes (
+CREATE TABLE chain_mmr_nodes (
     id UNSIGNED BIG INT NOT NULL,   -- in-order index of the internal MMR node
     node BLOB NOT NULL,             -- internal node value (hash)
     PRIMARY KEY (id)
