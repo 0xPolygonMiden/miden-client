@@ -135,7 +135,7 @@ impl From<&NoteDetails> for InputNoteRecord {
             recipient: note_details.recipient().digest(),
             metadata: None,
             inclusion_proof: None,
-            status: NoteStatus::Expected { created_at: 0 },
+            status: NoteStatus::Expected { created_at: None, block_height: None },
             details: NoteRecordDetails {
                 nullifier: note_details.nullifier().to_string(),
                 script_hash: note_details.script().hash(),
@@ -204,7 +204,7 @@ impl From<Note> for InputNoteRecord {
             id: note.id(),
             recipient: note.recipient().digest(),
             assets: note.assets().clone(),
-            status: NoteStatus::Expected { created_at: 0 },
+            status: NoteStatus::Expected { created_at: None, block_height: None },
             metadata: Some(*note.metadata()),
             inclusion_proof: None,
             details: note.into(),
@@ -216,11 +216,19 @@ impl From<Note> for InputNoteRecord {
 
 impl From<InputNote> for InputNoteRecord {
     fn from(recorded_note: InputNote) -> Self {
+        let status = if let Some(inclusion_proof) = recorded_note.proof() {
+            NoteStatus::Committed {
+                block_height: inclusion_proof.location().block_num(),
+            }
+        } else {
+            NoteStatus::Expected { created_at: None, block_height: None }
+        };
+
         InputNoteRecord {
             id: recorded_note.note().id(),
             recipient: recorded_note.note().recipient().digest(),
             assets: recorded_note.note().assets().clone(),
-            status: NoteStatus::Expected { created_at: 0 },
+            status,
             metadata: Some(*recorded_note.note().metadata()),
             details: recorded_note.note().clone().into(),
             inclusion_proof: recorded_note.proof().cloned(),

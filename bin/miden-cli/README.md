@@ -1,10 +1,10 @@
-# Miden Client CLI
+# Miden client CLI
 
 This binary allows the user to interact with the Miden rollup via a simple command-line interface (CLI). It's a wrapper around the [Miden client](https://crates.io/crates/miden-client) library exposing its functionality in order to create accounts, create and consume notes, all executed and proved using the Miden VM.
 
 ## Usage
 
-Before you can use the Miden client, you'll need to make sure you have both [Rust](https://www.rust-lang.org/tools/install) and sqlite3 installed. Miden client requires rust version **1.78** or higher.
+Before you can use the Miden client, you'll need to make sure you have both [Rust](https://www.rust-lang.org/tools/install) and sqlite3 installed. Miden client requires rust version **1.80** or higher.
 
 ### Running `miden-client`'s CLI
 

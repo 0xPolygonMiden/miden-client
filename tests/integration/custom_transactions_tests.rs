@@ -7,7 +7,6 @@ use miden_client::{
 };
 use miden_objects::{
     accounts::{AccountId, AccountStorageType, AuthSecretKey},
-    assembly::ProgramAst,
     assets::{FungibleAsset, TokenSymbol},
     crypto::{
         hash::rpo::Rpo256,
@@ -35,8 +34,8 @@ use super::common::*;
 //      - The args will be provided via the advice map
 //
 // - Create another transaction that consumes this note with custom code. This custom code only
-//   asserts that the {asserted_value} parameter is 0. To test this we first execute with
-//   an incorrect value passed in, and after that we try again with the correct value.
+//   asserts that the {asserted_value} parameter is 0. To test this we first execute with an
+//   incorrect value passed in, and after that we try again with the correct value.
 //
 // Because it's currently not possible to create/consume notes without assets, the P2ID code
 // is used as the base for the note code.
@@ -105,7 +104,6 @@ async fn test_transaction_request() {
     // FAILURE ATTEMPT
 
     let failure_code = code.replace("{asserted_value}", "1");
-    let program = ProgramAst::parse(&failure_code).unwrap();
 
     let tx_script = {
         let account_auth = client.get_account_auth(regular_account.id()).unwrap();
@@ -117,22 +115,21 @@ async fn test_transaction_request() {
         };
 
         let script_inputs = vec![(pubkey_input, advice_map)];
-        client.compile_tx_script(program, script_inputs, vec![]).unwrap()
+        client.compile_tx_script(script_inputs, &failure_code).unwrap()
     };
 
-    let transaction_request = TransactionRequest::new(regular_account.id())
+    let transaction_request = TransactionRequest::new()
         .with_authenticated_input_notes(note_args_map.clone())
         .with_custom_script(tx_script)
         .unwrap()
         .extend_advice_map(advice_map.clone());
 
     // This fails becuase of {asserted_value} having the incorrect number passed in
-    assert!(client.new_transaction(transaction_request).is_err());
+    assert!(client.new_transaction(regular_account.id(), transaction_request).is_err());
 
     // SUCCESS EXECUTION
 
     let success_code = code.replace("{asserted_value}", "0");
-    let program = ProgramAst::parse(&success_code).unwrap();
 
     let tx_script = {
         let account_auth = client.get_account_auth(regular_account.id()).unwrap();
@@ -144,10 +141,10 @@ async fn test_transaction_request() {
         };
 
         let script_inputs = vec![(pubkey_input, advice_map)];
-        client.compile_tx_script(program, script_inputs, vec![]).unwrap()
+        client.compile_tx_script(script_inputs, &success_code).unwrap()
     };
 
-    let transaction_request = TransactionRequest::new(regular_account.id())
+    let transaction_request = TransactionRequest::new()
         .with_authenticated_input_notes(note_args_map)
         .with_custom_script(tx_script)
         .unwrap()
@@ -160,7 +157,7 @@ async fn test_transaction_request() {
     let deserialized_transaction_request = TransactionRequest::read_from_bytes(&buffer).unwrap();
     assert_eq!(transaction_request, deserialized_transaction_request);
 
-    execute_tx_and_sync(&mut client, transaction_request).await;
+    execute_tx_and_sync(&mut client, regular_account.id(), transaction_request).await;
 
     client.sync_state().await.unwrap();
 }
@@ -246,7 +243,6 @@ async fn test_merkle_store() {
     code += "call.auth_tx::auth_tx_rpo_falcon512 end";
 
     // Build the transaction
-    let program = ProgramAst::parse(&code).unwrap();
     let tx_script = {
         let account_auth = client.get_account_auth(regular_account.id()).unwrap();
         let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
@@ -257,17 +253,17 @@ async fn test_merkle_store() {
         };
 
         let script_inputs = vec![(pubkey_input, advice_map)];
-        client.compile_tx_script(program, script_inputs, vec![]).unwrap()
+        client.compile_tx_script(script_inputs, &code).unwrap()
     };
 
-    let transaction_request = TransactionRequest::new(regular_account.id())
+    let transaction_request = TransactionRequest::new()
         .with_authenticated_input_notes(note_args_map)
         .with_custom_script(tx_script)
         .unwrap()
         .extend_advice_map(advice_map)
         .extend_merkle_store(merkle_store.inner_nodes());
 
-    execute_tx_and_sync(&mut client, transaction_request).await;
+    execute_tx_and_sync(&mut client, regular_account.id(), transaction_request).await;
 
     client.sync_state().await.unwrap();
 }
@@ -281,11 +277,11 @@ async fn mint_custom_note(
     let mut random_coin = RpoRandomCoin::new(Default::default());
     let note = create_custom_note(client, faucet_account_id, target_account_id, &mut random_coin);
 
-    let transaction_request = TransactionRequest::new(faucet_account_id)
+    let transaction_request = TransactionRequest::new()
         .with_own_output_notes(vec![OutputNote::Full(note.clone())])
         .unwrap();
 
-    execute_tx_and_sync(client, transaction_request).await;
+    execute_tx_and_sync(client, faucet_account_id, transaction_request).await;
     note
 }
 
@@ -304,8 +300,7 @@ fn create_custom_note(
         .replace("{expected_note_arg_2}", &expected_note_args[4..=7].join("."))
         .replace("{mem_address}", &mem_addr.to_string())
         .replace("{mem_address_2}", &(mem_addr + 1).to_string());
-    let note_script = ProgramAst::parse(&note_script).unwrap();
-    let note_script = client.compile_note_script(note_script, vec![]).unwrap();
+    let note_script = client.compile_note_script(&note_script).unwrap();
 
     let inputs = NoteInputs::new(vec![target_account_id.into()]).unwrap();
     let serial_num = rng.draw_word();

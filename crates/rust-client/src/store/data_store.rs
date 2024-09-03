@@ -7,7 +7,6 @@ use alloc::{
 
 use miden_objects::{
     accounts::AccountId,
-    assembly::ModuleAst,
     crypto::merkle::{InOrderIndex, MerklePath, PartialMmr},
     notes::NoteId,
     transaction::{ChainMmr, InputNote, InputNotes},
@@ -107,14 +106,6 @@ impl<S: Store> DataStore for ClientDataStore<S> {
 
         TransactionInputs::new(account, seed, block_header, chain_mmr, input_notes)
             .map_err(DataStoreError::InvalidTransactionInput)
-    }
-
-    #[maybe_async]
-    fn get_account_code(&self, account_id: AccountId) -> Result<ModuleAst, DataStoreError> {
-        let (account, _seed) = maybe_await!(self.store.get_account(account_id))?;
-        let module_ast = account.code().module().clone();
-
-        Ok(module_ast)
     }
 }
 

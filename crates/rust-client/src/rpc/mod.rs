@@ -32,10 +32,13 @@ mod web_tonic_client;
 #[cfg(feature = "web-tonic")]
 pub use web_tonic_client::WebTonicRpcClient;
 
+use crate::sync::get_nullifier_prefix;
+
 // NOTE DETAILS
 // ================================================================================================
 
 /// Describes the possible responses from  the `GetNotesById` endpoint for a single note
+#[allow(clippy::large_enum_variant)]
 pub enum NoteDetails {
     OffChain(NoteId, NoteMetadata, NoteInclusionDetails),
     Public(Note, NoteInclusionDetails),
@@ -147,8 +150,8 @@ pub trait NodeRpcClient {
     /// - `block_num` is the last block number known by the client. The returned [StateSyncInfo]
     ///   should contain data starting from the next block, until the first block which contains a
     ///   note of matching the requested tag, or the chain tip if there are no notes.
-    /// - `account_ids` is a list of account ids and determines the accounts the client is interested
-    ///   in and should receive account updates of.
+    /// - `account_ids` is a list of account ids and determines the accounts the client is
+    ///   interested in and should receive account updates of.
     /// - `note_tags` is a list of tags used to filter the notes the client is interested in, which
     ///   serves as a "note group" filter. Notice that you can't filter by a specific note id
     /// - `nullifiers_tags` similar to `note_tags`, is a list of tags used to filter the nullifiers
@@ -161,7 +164,8 @@ pub trait NodeRpcClient {
         nullifiers_tags: &[u16],
     ) -> Result<StateSyncInfo, RpcError>;
 
-    /// Fetches the current state of an account from the node using the `/GetAccountDetails` rpc endpoint
+    /// Fetches the current state of an account from the node using the `/GetAccountDetails` rpc
+    /// endpoint
     ///
     /// - `account_id` is the id of the wanted account.
     async fn get_account_update(
@@ -174,6 +178,27 @@ pub trait NodeRpcClient {
         block_num: u32,
         note_tags: &[NoteTag],
     ) -> Result<NoteSyncInfo, RpcError>;
+
+    /// Fetches the nullifiers corresponding to a list of prefixes using the
+    /// `/CheckNullifiersByPrefix` rpc endpoint
+    async fn check_nullifiers_by_prefix(
+        &mut self,
+        prefix: &[u16],
+    ) -> Result<Vec<(Nullifier, u32)>, RpcError>;
+
+    /// Fetches the commit height where the nullifier was consumed. If the nullifier is not found,
+    /// then `None` is returned.
+    ///
+    /// The default implementation of this method uses [NodeRpcClient::check_nullifiers_by_prefix].
+    async fn get_nullifier_commit_height(
+        &mut self,
+        nullifier: &Nullifier,
+    ) -> Result<Option<u32>, RpcError> {
+        let nullifiers =
+            self.check_nullifiers_by_prefix(&[get_nullifier_prefix(nullifier)]).await?;
+
+        Ok(nullifiers.iter().find(|(n, _)| n == nullifier).map(|(_, block_num)| *block_num))
+    }
 }
 
 // SYNC NOTE
@@ -188,8 +213,8 @@ pub struct NoteSyncInfo {
     pub block_header: BlockHeader,
     /// Proof for block header's MMR with respect to the chain tip.
     ///
-    /// More specifically, the full proof consists of `forest`, `position` and `path` components. This
-    /// value constitutes the `path`. The other two components can be obtained as follows:
+    /// More specifically, the full proof consists of `forest`, `position` and `path` components.
+    /// This value constitutes the `path`. The other two components can be obtained as follows:
     ///    - `position` is simply `resopnse.block_header.block_num`
     ///    - `forest` is the same as `response.chain_tip + 1`
     pub mmr_path: MerklePath,
@@ -292,6 +317,7 @@ impl CommittedNote {
 //
 #[derive(Debug)]
 pub enum NodeRpcClientEndpoint {
+    CheckNullifiersByPrefix,
     GetAccountDetails,
     GetBlockHeaderByNumber,
     SyncState,
@@ -302,6 +328,9 @@ pub enum NodeRpcClientEndpoint {
 impl fmt::Display for NodeRpcClientEndpoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            NodeRpcClientEndpoint::CheckNullifiersByPrefix => {
+                write!(f, "check_nullifiers_by_prefix")
+            },
             NodeRpcClientEndpoint::GetAccountDetails => write!(f, "get_account_details"),
             NodeRpcClientEndpoint::GetBlockHeaderByNumber => {
                 write!(f, "get_block_header_by_number")

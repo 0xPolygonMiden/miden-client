@@ -1,5 +1,4 @@
 use clap::Parser;
-use comfy_table::presets;
 use miden_client::{
     accounts::{AccountId, AccountStorage, AccountType, StorageSlotType},
     assets::Asset,
@@ -204,26 +203,6 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
         println!("{table}\n");
     }
 
-    // Code related table
-    {
-        let module = account.code().module();
-        let procedures = account.code().procedures();
-
-        println!("Account Code Info:");
-
-        let mut table = create_dynamic_table(&["Procedure Digests"]);
-
-        for proc_info in procedures {
-            table.add_row(vec![proc_info.mast_root()]);
-        }
-        println!("{table}\n");
-
-        let mut code_table = create_dynamic_table(&["Code"]);
-        code_table.load_preset(presets::UTF8_HORIZONTAL_ONLY);
-        code_table.add_row(vec![&module]);
-        println!("{code_table}\n");
-    }
-
     Ok(())
 }
 
@@ -275,7 +254,8 @@ pub(crate) fn set_default_account(account_id: Option<AccountId>) -> Result<(), S
     update_config(&config_path, current_config)
 }
 
-/// Sets the provided account ID as the default account and updates the config file, if not set already.
+/// Sets the provided account ID as the default account and updates the config file, if not set
+/// already.
 pub(crate) fn maybe_set_default_account(
     current_config: &mut CliConfig,
     account_id: AccountId,

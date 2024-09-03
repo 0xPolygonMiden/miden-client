@@ -22,16 +22,17 @@ theme:
 
 
 nav:
-  - Overview: 
+  - Overview:
       - Overview: index.md
       - Features: features.md
-  - Get started:
-      - Design: design.md
-      - Install and run: install-and-run.md
-  - Miden CLI: 
+  - Design:
+      - Overview: design.md
+      - API docs: api-docs.md
+  - Miden client library: 'library.md'
+  - Miden CLI:
       - Configuration: 'cli-config.md'
       - Reference: 'cli-reference.md'
-  - Using the client library: 'library.md'
+  - Install and run: install-and-run.md'
   - Examples: 'examples.md'
 
 

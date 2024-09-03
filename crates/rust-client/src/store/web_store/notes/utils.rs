@@ -276,20 +276,27 @@ pub fn parse_input_note_idxdb_object(
         None => None,
     };
     let created_at = note_idxdb.created_at.parse::<u64>().expect("Failed to parse created_at");
+    let expected_height: Option<u32> = note_idxdb.expected_height.map(|expected_height| {
+        expected_height.parse::<u32>().expect("Failed to parse expected_height")
+    });
     let submitted_at: Option<u64> = note_idxdb
         .submitted_at
         .map(|submitted_at| submitted_at.parse::<u64>().expect("Failed to parse submitted_at"));
-    let nullifier_height: Option<u64> = note_idxdb.nullifier_height.map(|nullifier_height| {
-        nullifier_height.parse::<u64>().expect("Failed to parse nullifier_height")
+    let nullifier_height: Option<u32> = note_idxdb.nullifier_height.map(|nullifier_height| {
+        nullifier_height.parse::<u32>().expect("Failed to parse nullifier_height")
     });
 
-    // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
+    // If the note is committed and has a consumer account id, then it was consumed locally but the
+    // client is not synced with the chain
     let status = match note_idxdb.status.as_str() {
-        NOTE_STATUS_EXPECTED => NoteStatus::Expected { created_at },
+        NOTE_STATUS_EXPECTED => NoteStatus::Expected {
+            created_at: Some(created_at),
+            block_height: expected_height,
+        },
         NOTE_STATUS_COMMITTED => NoteStatus::Committed {
             block_height: inclusion_proof
                 .clone()
-                .map(|proof| proof.location().block_num() as u64)
+                .map(|proof| proof.location().block_num())
                 .expect("Committed note should have inclusion proof"),
         },
         NOTE_STATUS_PROCESSING => NoteStatus::Processing {
@@ -371,20 +378,27 @@ pub fn parse_output_note_idxdb_object(
         None => None,
     };
     let created_at = note_idxdb.created_at.parse::<u64>().expect("Failed to parse created_at");
+    let expected_height: Option<u32> = note_idxdb.expected_height.map(|expected_height| {
+        expected_height.parse::<u32>().expect("Failed to parse expected_height")
+    });
     let submitted_at: Option<u64> = note_idxdb
         .submitted_at
         .map(|submitted_at| submitted_at.parse::<u64>().expect("Failed to parse submitted_at"));
-    let nullifier_height: Option<u64> = note_idxdb.nullifier_height.map(|nullifier_height| {
-        nullifier_height.parse::<u64>().expect("Failed to parse nullifier_height")
+    let nullifier_height: Option<u32> = note_idxdb.nullifier_height.map(|nullifier_height| {
+        nullifier_height.parse::<u32>().expect("Failed to parse nullifier_height")
     });
 
-    // If the note is committed and has a consumer account id, then it was consumed locally but the client is not synced with the chain
+    // If the note is committed and has a consumer account id, then it was consumed locally but the
+    // client is not synced with the chain
     let status = match note_idxdb.status.as_str() {
-        NOTE_STATUS_EXPECTED => NoteStatus::Expected { created_at },
+        NOTE_STATUS_EXPECTED => NoteStatus::Expected {
+            created_at: Some(created_at),
+            block_height: expected_height,
+        },
         NOTE_STATUS_COMMITTED => NoteStatus::Committed {
             block_height: inclusion_proof
                 .clone()
-                .map(|proof| proof.location().block_num() as u64)
+                .map(|proof| proof.location().block_num())
                 .expect("Committed note should have inclusion proof"),
         },
         NOTE_STATUS_PROCESSING => NoteStatus::Processing {

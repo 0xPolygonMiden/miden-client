@@ -2,7 +2,6 @@ use alloc::{string::ToString, vec::Vec};
 
 use miden_objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub, AuthSecretKey},
-    assembly::AstSerdeOptions,
     assets::{Asset, AssetVault},
     utils::Deserializable,
     Digest, Felt, Word,
@@ -15,10 +14,9 @@ use crate::store::StoreError;
 
 pub async fn insert_account_code(account_code: &AccountCode) -> Result<(), ()> {
     let root = account_code.commitment().to_string();
-    let procedures = account_code.procedures().to_bytes();
-    let module = account_code.module().to_bytes(AstSerdeOptions { serialize_imports: true });
+    let code = account_code.to_bytes();
 
-    let promise = idxdb_insert_account_code(root, procedures, module);
+    let promise = idxdb_insert_account_code(root, code);
     let _ = JsFuture::from(promise).await;
 
     Ok(())

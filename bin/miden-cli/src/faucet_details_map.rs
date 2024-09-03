@@ -59,11 +59,12 @@ impl FaucetDetailsMap {
         self.get_token_symbol(faucet_id).unwrap_or("Unknown".to_string())
     }
 
-    /// Parses a string representing a [FungibleAsset]. There are two accepted formats for the string:
+    /// Parses a string representing a [FungibleAsset]. There are two accepted formats for the
+    /// string:
     /// - `<AMOUNT>::<FAUCET_ID>` where `<AMOUNT>` is in the faucet base units.
-    /// - `<AMOUNT>::<TOKEN_SYMBOL>` where `<AMOUNT>` is a decimal number representing the quantity of
-    ///   the token (specified to the precision allowed by the token's decimals), and `<TOKEN_SYMBOL>`
-    ///   is a symbol tracked in the token symbol map file.
+    /// - `<AMOUNT>::<TOKEN_SYMBOL>` where `<AMOUNT>` is a decimal number representing the quantity
+    ///   of the token (specified to the precision allowed by the token's decimals), and
+    ///   `<TOKEN_SYMBOL>` is a symbol tracked in the token symbol map file.
     ///
     /// Some examples of valid `arg` values are `100::0xabcdef0123456789` and `1.23::POL`.
     ///
@@ -96,11 +97,12 @@ impl FaucetDetailsMap {
         FungibleAsset::new(faucet_id, amount).map_err(|err| err.to_string())
     }
 
-    /// Formats a [FungibleAsset] into a tuple containing the faucet and the amount. The returned values
-    /// depend on whether the faucet is tracked by the token symbol map file or not:
-    /// - If the faucet is tracked, the token symbol is returned along with the amount in the token's
-    ///   decimals.
-    /// - If the faucet is not tracked, the faucet ID is returned along with the amount in base units.
+    /// Formats a [FungibleAsset] into a tuple containing the faucet and the amount. The returned
+    /// values depend on whether the faucet is tracked by the token symbol map file or not:
+    /// - If the faucet is tracked, the token symbol is returned along with the amount in the
+    ///   token's decimals.
+    /// - If the faucet is not tracked, the faucet ID is returned along with the amount in base
+    ///   units.
     pub fn format_fungible_asset(&self, asset: &FungibleAsset) -> Result<(String, String), String> {
         if let Some(token_symbol) = self.get_token_symbol(&asset.faucet_id()) {
             let decimals = self

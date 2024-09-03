@@ -19,7 +19,7 @@ testing = ["miden-client/testing"]
 
 [dependencies]
 getrandom = { version = "0.2", features = ["js"] }
-miden-client = { path = "../rust-client", features = ["idxdb", "web-tonic"] }
+miden-client = { path = "../rust-client", default-features = false, features = ["idxdb", "web-tonic", "testing"] }
 miden-lib = { workspace = true }
 miden-objects = { workspace = true }
 miden-tx = { workspace = true }
@@ -31,6 +31,6 @@ wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 wasm-bindgen-futures = { version = "0.4" }
 
 [dev-dependencies]
-miden-client = { path = "../rust-client", features = ["testing", "concurrent", "idxdb", "web-tonic"] }
-miden-lib = { default-features = false, features = ["testing"], git = "https://github.com/0xPolygonMiden/miden-base", branch = "next" }
-miden-objects = {default-features = false, features = ["serde", "testing"], git = "https://github.com/0xPolygonMiden/miden-base", branch = "next" }
+miden-client = { path = "../rust-client", version = "0.5", default-features = false, features = ["idxdb", "web-tonic"] }
+miden-lib = { workspace = true, default-features = false, features = ["testing"] }
+miden-objects = { workspace = true, default-features = false, features = ["serde", "testing"] }

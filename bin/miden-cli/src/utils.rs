@@ -25,7 +25,8 @@ is a symbol tracked in the token symbol map file.
 
 For example, `100::0xabcdef0123456789` or `1.23::POL`";
 
-/// Returns a tracked Account ID matching a hex string or the default one defined in the Client config
+/// Returns a tracked Account ID matching a hex string or the default one defined in the Client
+/// config
 pub(crate) fn get_input_acc_id_by_prefix_or_default<
     N: NodeRpcClient,
     R: FeltRng,

@@ -1,15 +1,13 @@
 use alloc::string::String;
 
+use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::{AccountId, AuthSecretKey},
-    assembly::{AssemblyError, ProgramAst},
     notes::PartialNote,
     transaction::TransactionScript,
-    Felt,
+    Felt, TransactionScriptError,
 };
-use miden_tx::{
-    auth::TransactionAuthenticator, DataStore, TransactionExecutor, TransactionExecutorError,
-};
+use miden_tx::TransactionExecutorError;
 
 use super::prepare_word;
 
@@ -32,8 +30,8 @@ impl AccountInterface {
     /// Returns the script body that sends notes to the recipients.
     ///
     /// Errors:
-    /// - [TransactionScriptBuilderError::InvalidSenderAccount] if the sender of the note is not
-    ///   the account for which the script is being built.
+    /// - [TransactionScriptBuilderError::InvalidSenderAccount] if the sender of the note is not the
+    ///   account for which the script is being built.
     /// - [TransactionScriptBuilderError::InvalidAssetAmount] if the note does not contain exactly
     ///   one asset.
     /// - [TransactionScriptBuilderError::InvalidAsset] if a faucet tries to distribute an asset
@@ -129,9 +127,8 @@ impl TransactionScriptBuilder {
 
     /// Builds a transaction script which sends the specified notes with the corresponding
     /// authentication.
-    pub fn build_send_notes_script<D: DataStore, A: TransactionAuthenticator>(
+    pub fn build_send_notes_script(
         &self,
-        tx_executor: &TransactionExecutor<D, A>,
         output_notes: &[PartialNote],
     ) -> Result<TransactionScript, TransactionScriptBuilderError> {
         let send_note_procedure = self
@@ -146,30 +143,19 @@ impl TransactionScriptBuilder {
             self.script_authentication()
         );
 
-        let program_ast = ProgramAst::parse(&script)
-            .map_err(|err| TransactionScriptBuilderError::InvalidTransactionScript(err.into()))?;
-
-        let tx_script = tx_executor
-            .compile_tx_script(program_ast, vec![], vec![])
-            .map_err(TransactionScriptBuilderError::TransactionExecutorError)?;
+        let tx_script = TransactionScript::compile(script, vec![], TransactionKernel::assembler())
+            .map_err(TransactionScriptBuilderError::InvalidTransactionScript)?;
 
         Ok(tx_script)
     }
 
     /// Builds a simple authentication script for the account that doesn't send any notes.
-    pub fn build_auth_script<D: DataStore, A: TransactionAuthenticator>(
-        &self,
-        tx_executor: &TransactionExecutor<D, A>,
-    ) -> Result<TransactionScript, TransactionScriptBuilderError> {
+    pub fn build_auth_script(&self) -> Result<TransactionScript, TransactionScriptBuilderError> {
         let script =
             format!("{} begin {} end", self.script_includes(), self.script_authentication());
 
-        let program_ast = ProgramAst::parse(&script)
-            .map_err(|err| TransactionScriptBuilderError::InvalidTransactionScript(err.into()))?;
-
-        let tx_script = tx_executor
-            .compile_tx_script(program_ast, vec![], vec![])
-            .map_err(TransactionScriptBuilderError::TransactionExecutorError)?;
+        let tx_script = TransactionScript::compile(script, vec![], TransactionKernel::assembler())
+            .map_err(TransactionScriptBuilderError::InvalidTransactionScript)?;
 
         Ok(tx_script)
     }
@@ -208,7 +194,7 @@ impl TransactionScriptBuilder {
 pub enum TransactionScriptBuilderError {
     InvalidAsset(AccountId),
     InvalidAssetAmount(usize),
-    InvalidTransactionScript(AssemblyError),
+    InvalidTransactionScript(TransactionScriptError),
     InvalidSenderAccount(AccountId),
     TransactionExecutorError(TransactionExecutorError),
 }

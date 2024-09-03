@@ -11,7 +11,7 @@ FEATURES_CLIENT=--features "testing, concurrent"
 FEATURES_CLI=--features "testing, concurrent"
 NODE_FEATURES_TESTING=--features "testing"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
-NODE_BRANCH="next"
+NODE_BRANCH="main"
 
 # --- Linting -------------------------------------------------------------------------------------
 
@@ -103,7 +103,7 @@ node: ## Setup node directory
 	if [ -d miden-node ]; then cd miden-node ; else git clone https://github.com/0xPolygonMiden/miden-node.git && cd miden-node; fi
 	cd miden-node && git checkout $(NODE_BRANCH) && git pull origin $(NODE_BRANCH)
 	cd miden-node && rm -rf miden-store.sqlite3*
-	cd miden-node && cargo run --bin miden-node $(NODE_FEATURES_TESTING) -- make-genesis --inputs-path ../tests/config/genesis.toml --force
+	cd miden-node && cargo update && cargo run --bin miden-node $(NODE_FEATURES_TESTING) -- make-genesis --inputs-path ../tests/config/genesis.toml --force
 
 .PHONY: start-node
 start-node: ## Run node. This requires the node repo to be present at `miden-node`

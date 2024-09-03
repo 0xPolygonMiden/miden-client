@@ -42,7 +42,8 @@ impl WebStore {
                     _ => unreachable!(), // Safety net, should never be reached
                 };
 
-                // Assuming `js_fetch_notes` is your JavaScript function that handles simple string filters
+                // Assuming `js_fetch_notes` is your JavaScript function that handles simple string
+                // filters
                 idxdb_get_input_notes(filter_as_str.to_string())
             },
             NoteFilter::Ignored => idxdb_get_ignored_input_notes(),
@@ -107,7 +108,8 @@ impl WebStore {
                     _ => unreachable!(), // Safety net, should never be reached
                 };
 
-                // Assuming `js_fetch_notes` is your JavaScript function that handles simple string filters
+                // Assuming `js_fetch_notes` is your JavaScript function that handles simple string
+                // filters
 
                 idxdb_get_output_notes(filter_as_str.to_string())
             },
