@@ -24,7 +24,6 @@ mod accounts;
 mod chain_data;
 pub mod config;
 mod errors;
-pub(crate) mod migrations;
 mod notes;
 mod sync;
 mod transactions;
@@ -100,9 +99,9 @@ impl SqliteStore {
 
     /// Returns a new instance of [Store] instantiated with the specified configuration options.
     pub fn new(config: &SqliteStoreConfig) -> Result<Self, StoreError> {
-        let mut db = Connection::open(config.database_filepath.clone())?;
+        let db = Connection::open(config.database_filepath.clone())?;
         array::load_module(&db)?;
-        migrations::update_to_latest(&mut db)?;
+        db.execute_batch(include_str!("store.sql")).unwrap();
 
         Ok(Self { db: RefCell::new(db) })
     }
@@ -301,15 +300,14 @@ pub mod tests {
 
     use rusqlite::{vtab::array, Connection};
 
-    use super::{migrations, SqliteStore};
+    use super::SqliteStore;
     use crate::mock::create_test_store_path;
 
     pub(crate) fn create_test_store() -> SqliteStore {
         let temp_file = create_test_store_path();
-        let mut db = Connection::open(temp_file).unwrap();
+        let db = Connection::open(temp_file).unwrap();
         array::load_module(&db).unwrap();
-        migrations::update_to_latest(&mut db).unwrap();
-
+        db.execute_batch(include_str!("store.sql")).unwrap();
         SqliteStore { db: RefCell::new(db) }
     }
 }
