@@ -243,7 +243,7 @@ impl NodeRpcClient for WebTonicRpcClient {
         })?;
 
         let response = response.into_inner();
-        let account_info = response.account.ok_or(RpcError::ExpectedFieldMissing(
+        let account_info = response.details.ok_or(RpcError::ExpectedFieldMissing(
             "GetAccountDetails response should have an `account`".to_string(),
         ))?;
 

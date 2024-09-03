@@ -181,7 +181,7 @@ pub struct ListNotesResponse {
 pub struct GetAccountDetailsResponse {
     /// Account info (with details for on-chain accounts)
     #[prost(message, optional, tag = "1")]
-    pub account: ::core::option::Option<super::account::AccountInfo>,
+    pub details: ::core::option::Option<super::account::AccountInfo>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetBlockByNumberResponse {
