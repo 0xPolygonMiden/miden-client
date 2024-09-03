@@ -1,6 +1,6 @@
 //! The `accounts` module provides types and client APIs for managing accounts within the Miden
 //! rollup network .
-//! 
+//!
 //! Accounts can be created or imported. Once they are tracked by the client, their state will be
 //! updated accordingly on every transaction, and validated against the rollup on every sync.
 

@@ -1,5 +1,5 @@
 //! Provides APIs for transaction creation, execution, and proving.
-//! It also handles proof submission to the network. 
+//! It also handles proof submission to the network.
 
 use alloc::{
     collections::{BTreeMap, BTreeSet},
