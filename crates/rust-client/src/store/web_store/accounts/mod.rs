@@ -3,10 +3,8 @@ use alloc::{
     vec::Vec,
 };
 
-use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub, AuthSecretKey},
-    assembly::ModuleAst,
     assets::{Asset, AssetVault},
     Digest, Word,
 };
@@ -91,10 +89,8 @@ impl WebStore {
         account_id: AccountId,
     ) -> Result<(Account, Option<Word>), StoreError> {
         let (account_stub, seed) = self.get_account_stub(account_id).await.unwrap();
-        let (_procedures, module_ast) =
-            self.get_account_code(account_stub.code_commitment()).await.unwrap();
+        let account_code = self.get_account_code(account_stub.code_commitment()).await.unwrap();
 
-        let account_code = AccountCode::new(module_ast, &TransactionKernel::assembler()).unwrap();
         let account_storage = self.get_account_storage(account_stub.storage_root()).await.unwrap();
         let account_vault = self.get_vault_assets(account_stub.vault_root()).await.unwrap();
         let account_vault = AssetVault::new(&account_vault).unwrap();
@@ -110,21 +106,16 @@ impl WebStore {
         Ok((account, seed))
     }
 
-    pub(super) async fn get_account_code(
-        &self,
-        root: Digest,
-    ) -> Result<(Vec<u8>, ModuleAst), StoreError> {
+    pub(super) async fn get_account_code(&self, root: Digest) -> Result<AccountCode, StoreError> {
         let root_serialized = root.to_string();
 
         let promise = idxdb_get_account_code(root_serialized);
         let js_value = JsFuture::from(promise).await.unwrap();
         let account_code_idxdb: AccountCodeIdxdbObject = from_value(js_value).unwrap();
 
-        let procedures = account_code_idxdb.procedures;
+        let code = AccountCode::from_bytes(&account_code_idxdb.account_code).unwrap();
 
-        let module = ModuleAst::from_bytes(&account_code_idxdb.module).unwrap();
-
-        Ok((procedures, module))
+        Ok(code)
     }
 
     pub(super) async fn get_account_storage(
@@ -200,8 +191,8 @@ impl WebStore {
         Ok(auth_info)
     }
 
-    /// Fetches an [AuthSecretKey] by a public key represented by a [Word] and caches it in the store.
-    /// This is used in the web_client so adding this to ignore the dead code warning.
+    /// Fetches an [AuthSecretKey] by a public key represented by a [Word] and caches it in the
+    /// store. This is used in the web_client so adding this to ignore the dead code warning.
     pub async fn fetch_and_cache_account_auth_by_pub_key(
         &self,
         account_id: String,

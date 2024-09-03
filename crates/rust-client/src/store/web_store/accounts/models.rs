@@ -7,9 +7,7 @@ use serde::{de::Error, Deserialize, Deserializer, Serialize};
 pub struct AccountCodeIdxdbObject {
     pub root: String,
     #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
-    pub procedures: Vec<u8>,
-    #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
-    pub module: Vec<u8>,
+    pub account_code: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize)]
