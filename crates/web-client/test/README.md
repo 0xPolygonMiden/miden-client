@@ -6,6 +6,7 @@ within the context of the web page.
 
 ## Running tests
 
+1. Install dependencies via `yarn`
 1. Ensure the .wasm is built by running `yarn build`
 1. In crates/web-client run `yarn test` to run all tests
 
@@ -59,3 +60,16 @@ export const webClientCall = async (arg1, arg2) => {
 ```
 
 This will forward logs from the server to your terminal logs
+
+## Troubleshooting
+
+1. When trying to run the tests, if you receieve the following error:
+
+```
+     Error: Could not find Chrome (ver. 128.0.6613.119). This can occur if either
+ 1. you did not perform an installation before running the script (e.g. `npx puppeteer browsers install ${browserType}`) or
+ 2. your cache path is incorrectly configured (which is: /Users/ignacioamigo/.cache/puppeteer).
+For (2), check out our guide on configuring puppeteer at https://pptr.dev/guides/configuration.
+```
+
+Try running: `npx puppeteer browsers install` and then run the tests again
