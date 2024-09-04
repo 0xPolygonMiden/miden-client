@@ -813,7 +813,7 @@ async fn test_sync_detail_values() {
     let new_details = client2.sync_state().await.unwrap();
     assert_eq!(new_details.received_notes.len(), 1);
     assert_eq!(new_details.committed_notes.len(), 0);
-    assert_eq!(new_details.new_nullifiers.len(), 0);
+    assert_eq!(new_details.consumed_notes.len(), 0);
     assert_eq!(new_details.updated_accounts.len(), 0);
 
     // Consume the note with the second account
@@ -824,7 +824,7 @@ async fn test_sync_detail_values() {
     let new_details = client1.sync_state().await.unwrap();
     assert_eq!(new_details.received_notes.len(), 0);
     assert_eq!(new_details.committed_notes.len(), 0);
-    assert_eq!(new_details.new_nullifiers.len(), 1);
+    assert_eq!(new_details.consumed_notes.len(), 1);
 }
 
 /// This test runs 3 mint transactions that get included in different blocks so that once we sync
