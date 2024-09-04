@@ -43,7 +43,19 @@ before(async () => {
 after(async () => {
   console.log("Stopping test server...");
   await browser.close();
-  serverProcess.kill();
+  serverProcess.kill("SIGTERM");
+
+  await new Promise((resolve, reject) => {
+    serverProcess.on("close", (code) => {
+      console.log(`Server process exited with code ${code}`);
+      resolve();
+    });
+
+    serverProcess.on("error", (error) => {
+      console.error("Error killing server process:", error);
+      reject(error);
+    });
+  });
 });
 
 export { testingPage };
