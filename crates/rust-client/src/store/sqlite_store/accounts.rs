@@ -22,13 +22,13 @@ type SerializedAccountsParts = (i64, i64, String, String, String, Option<Vec<u8>
 type SerializedAccountAuthData = (i64, Vec<u8>, Vec<u8>);
 type SerializedAccountAuthParts = (i64, Vec<u8>);
 
-type SerializedAccountVaultData = (String, String);
+type SerializedAccountVaultData = (String, Vec<u8>);
 
 type SerializedAccountCodeData = (String, Vec<u8>);
 
 type SerializedAccountStorageData = (String, Vec<u8>);
 
-type SerializedFullAccountParts = (i64, i64, Option<Vec<u8>>, Vec<u8>, Vec<u8>, String);
+type SerializedFullAccountParts = (i64, i64, Option<Vec<u8>>, Vec<u8>, Vec<u8>, Vec<u8>);
 
 impl SqliteStore {
     // ACCOUNTS
@@ -277,7 +277,7 @@ pub(super) fn parse_accounts(
                 .try_into()
                 .expect("Conversion from stored AccountID should not panic"),
             Felt::new(nonce as u64),
-            serde_json::from_str(&vault_root).map_err(StoreError::JsonDataDeserializationError)?,
+            Digest::try_from(&vault_root)?,
             Digest::try_from(&storage_root)?,
             Digest::try_from(&code_root)?,
         ),
@@ -296,8 +296,7 @@ pub(super) fn parse_account(
         .expect("Conversion from stored AccountID should not panic");
     let account_code = AccountCode::from_bytes(&code)?;
     let account_storage = AccountStorage::read_from_bytes(&storage)?;
-    let account_assets: Vec<Asset> =
-        serde_json::from_str(&assets).map_err(StoreError::JsonDataDeserializationError)?;
+    let account_assets: Vec<Asset> = Vec::<Asset>::read_from_bytes(&assets)?;
 
     Ok((
         Account::from_parts(
@@ -316,13 +315,12 @@ fn serialize_account(account: &Account) -> Result<SerializedAccountData, StoreEr
     let id: u64 = account.id().into();
     let code_root = account.code().commitment().to_string();
     let commitment_root = account.storage().commitment().to_string();
-    let vault_root = serde_json::to_string(&account.vault().commitment())
-        .map_err(StoreError::InputSerializationError)?;
-    let committed = account.is_public();
+    let vault_root = &account.vault().commitment().to_string();
+    let committed = account.is_on_chain();
     let nonce = account.nonce().as_int() as i64;
     let hash = account.hash().to_string();
 
-    Ok((id as i64, code_root, commitment_root, vault_root, nonce, committed, hash))
+    Ok((id as i64, code_root, commitment_root, vault_root.to_string(), nonce, committed, hash))
 }
 
 /// Parse account_auth columns from the provided row into native types
@@ -383,10 +381,8 @@ fn serialize_account_storage(
 fn serialize_account_asset_vault(
     asset_vault: &AssetVault,
 ) -> Result<SerializedAccountVaultData, StoreError> {
-    let commitment = serde_json::to_string(&asset_vault.commitment())
-        .map_err(StoreError::InputSerializationError)?;
-    let assets: Vec<Asset> = asset_vault.assets().collect();
-    let assets = serde_json::to_string(&assets).map_err(StoreError::InputSerializationError)?;
+    let commitment = asset_vault.commitment().to_string();
+    let assets = asset_vault.assets().collect::<Vec<Asset>>().to_bytes();
     Ok((commitment, assets))
 }
 
@@ -399,7 +395,7 @@ pub(super) fn parse_account_columns(
     let account_seed: Option<Vec<u8>> = row.get(2)?;
     let code: Vec<u8> = row.get(3)?;
     let storage: Vec<u8> = row.get(4)?;
-    let assets: String = row.get(5)?;
+    let assets: Vec<u8> = row.get(5)?;
     Ok((id, nonce, account_seed, code, storage, assets))
 }
 
