@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use alloc::string::String;
 
 use serde::{Deserialize, Serialize};
@@ -9,5 +11,5 @@ pub struct SyncHeightIdxdbObject {
 
 #[derive(Serialize, Deserialize)]
 pub struct NoteTagsIdxdbObject {
-    pub tags: String,
+    pub tags: Vec<u8>,
 }

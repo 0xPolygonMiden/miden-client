@@ -27,7 +27,7 @@ pub struct SerializedTransactionData {
     pub account_id: String,
     pub init_account_state: String,
     pub final_account_state: String,
-    pub input_notes: String,
+    pub input_notes: Vec<u8>,
     pub output_notes: Vec<u8>,
     pub script_hash: Option<Vec<u8>>,
     pub tx_script: Option<Vec<u8>>,
@@ -80,8 +80,7 @@ pub(super) fn serialize_transaction_data(
         .map(|x| x.nullifier().inner())
         .collect();
 
-    let input_notes =
-        serde_json::to_string(&nullifiers).map_err(StoreError::InputSerializationError)?;
+    let input_notes = nullifiers.to_bytes();
 
     let output_notes = executed_transaction.output_notes();
 

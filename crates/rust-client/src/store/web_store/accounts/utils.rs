@@ -34,11 +34,11 @@ pub async fn insert_account_storage(account_storage: &AccountStorage) -> Result<
 }
 
 pub async fn insert_account_asset_vault(asset_vault: &AssetVault) -> Result<(), ()> {
-    let root = serde_json::to_string(&asset_vault.commitment()).unwrap();
+    let root = asset_vault.commitment().to_string();
     let assets: Vec<Asset> = asset_vault.assets().collect();
-    let assets_as_str = serde_json::to_string(&assets).unwrap();
+    let assets_as_vec = assets.to_bytes();
 
-    let promise = idxdb_insert_account_asset_vault(root, assets_as_str);
+    let promise = idxdb_insert_account_asset_vault(root, assets_as_vec);
     let _ = JsFuture::from(promise).await;
     Ok(())
 }
@@ -68,7 +68,7 @@ pub async fn insert_account_record(
     let account_id_str = account.id().to_string();
     let code_root = account.code().commitment().to_string();
     let storage_root = account.storage().commitment().to_string();
-    let vault_root = serde_json::to_string(&account.vault().commitment()).unwrap();
+    let vault_root = account.vault().commitment().to_string();
     let committed = account.is_public();
     let nonce = account.nonce().to_string();
     let account_seed = account_seed.map(|seed| seed.to_bytes());

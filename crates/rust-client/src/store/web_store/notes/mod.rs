@@ -7,6 +7,7 @@ use miden_objects::{
     notes::{NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
     Digest,
 };
+use miden_tx::utils::Serializable;
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
 
@@ -182,9 +183,9 @@ impl WebStore {
         inclusion_proof: NoteInclusionProof,
     ) -> Result<(), StoreError> {
         let note_id_as_str = note_id.inner().to_string();
-        let inclusion_proof_as_str = serde_json::to_string(&inclusion_proof).unwrap();
+        let inclusion_proof_as_vec = inclusion_proof.to_bytes();
 
-        let promise = idxdb_update_note_inclusion_proof(note_id_as_str, inclusion_proof_as_str);
+        let promise = idxdb_update_note_inclusion_proof(note_id_as_str, inclusion_proof_as_vec);
         let _ = JsFuture::from(promise).await.unwrap();
 
         Ok(())
@@ -196,9 +197,9 @@ impl WebStore {
         metadata: NoteMetadata,
     ) -> Result<(), StoreError> {
         let note_id_as_str = note_id.inner().to_string();
-        let metadata_as_str = serde_json::to_string(&metadata).unwrap();
+        let metadata_as_vec = metadata.to_bytes();
 
-        let promise = idxdb_update_note_metadata(note_id_as_str, metadata_as_str);
+        let promise = idxdb_update_note_metadata(note_id_as_str, metadata_as_vec);
         let _ = JsFuture::from(promise).await.unwrap();
 
         Ok(())

@@ -1,11 +1,11 @@
-use alloc::string::String;
+use alloc::{vec::Vec, string::String};
 
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct BlockHeaderIdxdbObject {
     pub block_num: String,
-    pub header: String,
+    pub header: Vec<u8>,
     pub chain_mmr: String,
     pub has_client_notes: bool,
 }
@@ -18,5 +18,5 @@ pub struct ChainMmrNodeIdxdbObject {
 
 #[derive(Serialize, Deserialize)]
 pub struct MmrPeaksIdxdbObject {
-    pub peaks: Option<String>,
+    pub peaks: Option<Vec<u8>>,
 }
