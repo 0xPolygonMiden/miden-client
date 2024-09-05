@@ -15,12 +15,11 @@ figment = { version = "0.10", features = ["toml", "env"] }
 miden-client = { path = "../crates/rust-client", features = [
     "concurrent",
     "testing",
+    "std",
     "sqlite",
     "tonic",
 ] }
-miden-objects = { workspace = true, default-features = false, features = [
-    "serde",
-] }
+miden-objects = { workspace = true, default-features = false }
 rand = { workspace = true }
 tokio = { workspace = true }
 uuid = { version = "1.10", features = ["serde", "v4"] }

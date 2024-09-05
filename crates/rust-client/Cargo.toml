@@ -30,7 +30,7 @@ web-tonic = ["dep:hex", "dep:prost", "dep:tonic", "dep:tonic-web-wasm-client", "
 base64 = { version = "0.22", optional = true }
 chrono = { version = "0.4", optional = false }
 getrandom = { version = "0.2", features = ["js"], optional = true }
-hex = { version = "0.4" , optional = true}
+hex = { version = "0.4", optional = true }
 miden-lib = { workspace = true }
 miden-objects = { workspace = true }
 miden-tx = { workspace = true }
@@ -41,7 +41,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde-wasm-bindgen = { version = "0.6", optional = true }
 thiserror = { version = "1.0", optional = true }
-tokio = { workspace = true , optional = true }
+tokio = { workspace = true, optional = true }
 tonic = { version = "0.12", default-features = false, optional = true, features = ["prost", "codegen"] }
 tonic-web-wasm-client = { version = "0.6", optional = true, default-features = false }
 tracing = { workspace = true }
@@ -50,9 +50,9 @@ wasm-bindgen-futures = { version = "0.4", optional = true }
 winter-maybe-async = "0.10"
 
 [dev-dependencies]
-miden-client = { path = ".", features = ["testing", "concurrent", "sqlite", "tonic", "tokio"]}
+miden-client = { path = ".", features = ["testing", "concurrent", "sqlite", "tonic", "tokio"] }
 miden-lib = { workspace = true, features = ["testing"] }
-miden-objects = { workspace = true, default-features = false, features = ["serde", "testing"] }
+miden-objects = { workspace = true, default-features = false, features = ["testing"] }
 uuid = { version = "1.10", features = ["serde", "v4"] }
 
 [build-dependencies]
