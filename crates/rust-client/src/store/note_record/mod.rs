@@ -35,14 +35,12 @@ use alloc::{
 use core::fmt::{self, Display};
 
 use chrono::{Local, TimeZone};
-use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::AccountId,
     notes::{Note, NoteDetails, NoteScript},
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
     Digest, Felt, Word,
 };
-use serde::{Deserialize, Serialize};
 
 mod input_note_record;
 mod output_note_record;
@@ -179,12 +177,6 @@ impl Display for NoteStatus {
             ),
         }
     }
-}
-
-fn default_script() -> NoteScript {
-    let note_program_ast = "begin nop end";
-    NoteScript::compile(note_program_ast, TransactionKernel::assembler())
-        .expect("Default program is well-formed")
 }
 
 // NOTE: NoteInputs does not impl Serialize which is why we use Vec<Felt> here

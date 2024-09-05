@@ -180,8 +180,8 @@ fn insert_chain_mmr_node(
     Ok(())
 }
 
-fn parse_mmr_peaks(forest: u32, mut peaks_nodes: Vec<u8>) -> Result<MmrPeaks, StoreError> {
-    let mmr_peaks_nodes = Vec::<Digest>::read_from_bytes(&mut peaks_nodes)?;
+fn parse_mmr_peaks(forest: u32, peaks_nodes: Vec<u8>) -> Result<MmrPeaks, StoreError> {
+    let mmr_peaks_nodes = Vec::<Digest>::read_from_bytes(&peaks_nodes)?;
 
     MmrPeaks::new(forest as usize, mmr_peaks_nodes).map_err(StoreError::MmrError)
 }
