@@ -115,7 +115,7 @@ impl SqliteStore {
 
             // Update output notes
             const COMMITTED_OUTPUT_NOTES_QUERY: &str =
-                "UPDATE output_notes SET status = :status , inclusion_proof = json(:inclusion_proof) WHERE note_id = :note_id";
+                "UPDATE output_notes SET status = :status , inclusion_proof = :inclusion_proof WHERE note_id = :note_id";
 
             tx.execute(
                 COMMITTED_OUTPUT_NOTES_QUERY,
@@ -138,7 +138,7 @@ impl SqliteStore {
             let metadata = metadata.to_bytes();
 
             const COMMITTED_INPUT_NOTES_QUERY: &str =
-                "UPDATE input_notes SET status = :status , inclusion_proof = json(:inclusion_proof), metadata = json(:metadata) WHERE note_id = :note_id";
+                "UPDATE input_notes SET status = :status , inclusion_proof = :inclusion_proof, metadata = :metadata WHERE note_id = :note_id";
 
             tx.execute(
                 COMMITTED_INPUT_NOTES_QUERY,
@@ -163,7 +163,7 @@ impl SqliteStore {
         // Update spent notes
         for nullifier_update in nullifiers.iter() {
             const SPENT_INPUT_NOTE_QUERY: &str =
-                "UPDATE input_notes SET status = ?, nullifier_height = ? WHERE json_extract(details, '$.nullifier') = ?";
+                "UPDATE input_notes SET status = ?, nullifier_height = ? WHERE nullifier = ?";
             let nullifier = nullifier_update.nullifier.to_hex();
             let block_num = nullifier_update.block_num;
             tx.execute(
@@ -172,7 +172,7 @@ impl SqliteStore {
             )?;
 
             const SPENT_OUTPUT_NOTE_QUERY: &str =
-                "UPDATE output_notes SET status = ?, nullifier_height = ? WHERE json_extract(details, '$.nullifier') = ?";
+                "UPDATE output_notes SET status = ?, nullifier_height = ? WHERE nullifier = ?";
             tx.execute(
                 SPENT_OUTPUT_NOTE_QUERY,
                 params![NOTE_STATUS_CONSUMED.to_string(), block_num, nullifier],

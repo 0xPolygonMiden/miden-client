@@ -1,11 +1,11 @@
 use alloc::{collections::BTreeMap, rc::Rc, string::String, vec::Vec};
-use miden_tx::utils::{Deserializable, Serializable};
 use std::num::NonZeroUsize;
 
 use miden_objects::{
     crypto::merkle::{InOrderIndex, MmrPeaks},
     BlockHeader, Digest,
 };
+use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{params, params_from_iter, types::Value, OptionalExtension, Transaction};
 
 use super::SqliteStore;

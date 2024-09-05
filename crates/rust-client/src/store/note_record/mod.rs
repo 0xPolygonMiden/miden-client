@@ -58,7 +58,7 @@ pub const NOTE_STATUS_CONSUMED: &str = "Consumed";
 pub const NOTE_STATUS_PROCESSING: &str = "Processing";
 
 /// Possible status for a single note. They describe the note's state and dictate its lifecycle.
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NoteStatus {
     /// Note is expected to be committed on chain.
     Expected {
@@ -188,12 +188,10 @@ fn default_script() -> NoteScript {
 }
 
 // NOTE: NoteInputs does not impl Serialize which is why we use Vec<Felt> here
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-
+#[derive(Clone, Debug, PartialEq)]
 pub struct NoteRecordDetails {
     nullifier: String,
     script_hash: Digest,
-    #[serde(skip_serializing, skip_deserializing, default = "default_script")]
     script: NoteScript,
     inputs: Vec<Felt>,
     serial_num: Word,

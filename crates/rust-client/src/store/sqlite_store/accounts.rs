@@ -320,7 +320,15 @@ fn serialize_account(account: &Account) -> Result<SerializedAccountData, StoreEr
     let nonce = account.nonce().as_int() as i64;
     let hash = account.hash().to_string();
 
-    Ok((id as i64, code_root, commitment_root, vault_root.to_string(), nonce, committed, hash))
+    Ok((
+        id as i64,
+        code_root,
+        commitment_root,
+        vault_root.to_string(),
+        nonce,
+        committed,
+        hash,
+    ))
 }
 
 /// Parse account_auth columns from the provided row into native types
