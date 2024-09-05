@@ -24,9 +24,10 @@ impl SqliteStore {
             .expect("no binding parameters used in query")
             .map(|result| {
                 result.map_err(|err| StoreError::ParsingError(err.to_string())).and_then(
-                    |v: Vec<u8>| {
-                        Vec::<NoteTag>::read_from_bytes(&v)
-                            .map_err(StoreError::DataDeserializationError)
+                    |v: Option<Vec<u8>>| match v {
+                        Some(tags) => Vec::<NoteTag>::read_from_bytes(&tags)
+                            .map_err(StoreError::DataDeserializationError),
+                        None => Ok(Vec::<NoteTag>::new()),
                     },
                 )
             })
@@ -42,8 +43,8 @@ impl SqliteStore {
         tags.push(tag);
         let tags = tags.to_bytes();
 
-        const QUERY: &str = "UPDATE state_sync SET tags = ?";
-        self.db().execute(QUERY, params![tags])?;
+        const QUERY: &str = "UPDATE state_sync SET tags = :tags";
+        self.db().execute(QUERY, named_params! {":tags": tags})?;
 
         const IGNORED_NOTES_QUERY: &str =
             "UPDATE input_notes SET ignored = 0 WHERE imported_tag = ?";

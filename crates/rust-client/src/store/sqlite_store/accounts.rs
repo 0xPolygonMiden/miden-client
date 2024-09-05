@@ -315,20 +315,12 @@ fn serialize_account(account: &Account) -> Result<SerializedAccountData, StoreEr
     let id: u64 = account.id().into();
     let code_root = account.code().commitment().to_string();
     let commitment_root = account.storage().commitment().to_string();
-    let vault_root = &account.vault().commitment().to_string();
-    let committed = account.is_on_chain();
+    let vault_root = account.vault().commitment().to_string();
+    let committed = account.is_public();
     let nonce = account.nonce().as_int() as i64;
     let hash = account.hash().to_string();
 
-    Ok((
-        id as i64,
-        code_root,
-        commitment_root,
-        vault_root.to_string(),
-        nonce,
-        committed,
-        hash,
-    ))
+    Ok((id as i64, code_root, commitment_root, vault_root, nonce, committed, hash))
 }
 
 /// Parse account_auth columns from the provided row into native types

@@ -341,7 +341,7 @@ pub(super) fn insert_input_note_tx(
     block_num: u32,
     note: InputNoteRecord,
 ) -> Result<(), StoreError> {
-    let nullifier = note.nullifier().to_bytes();
+    let nullifier = note.nullifier().to_string();
     let (
         note_id,
         assets,
@@ -404,6 +404,13 @@ pub fn insert_output_note_tx(
         expected_height,
     ) = serialize_output_note(note)?;
 
+    let nullifier: Option<String> = match details {
+        Some(ref bytes) => NoteRecordDetails::read_from_bytes(bytes)
+            .map(|details| details.nullifier().to_string())
+            .ok(),
+        None => None,
+    };
+
     tx.execute(
         &insert_note_query(NoteTable::OutputNotes),
         named_params! {
@@ -412,7 +419,7 @@ pub fn insert_output_note_tx(
             ":recipient": recipient,
             ":status": status,
             ":metadata": metadata,
-            ":nullifier": None::<Vec<u8>>,
+            ":nullifier": nullifier,
             ":script_hash": note_script_hash,
             ":details": details,
             ":inclusion_proof": inclusion_proof,

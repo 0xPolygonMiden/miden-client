@@ -78,11 +78,19 @@ CREATE TABLE input_notes (
         'Expected', 'Committed', 'Processing', 'Consumed'
         )),
 
+    consumer_transaction_id BLOB NULL,                      -- the transaction ID of the transaction that consumed the note
+    created_at UNSIGNED BIG INT NOT NULL,                   -- timestamp of the note creation/import
+    expected_height UNSIGNED BIG INT NULL,                  -- block height when the note is expected to be committed
+    submitted_at UNSIGNED BIG INT NULL,                      -- timestamp of the note submission to node
+    nullifier_height UNSIGNED BIG INT NULL,                 -- block height when the nullifier arrived
+    ignored BOOLEAN NOT NULL DEFAULT 0,                     -- whether the note is ignored in sync
+    imported_tag UNSIGNED INT NULL,                         -- imported tag for the note
+
     inclusion_proof BLOB NULL,                              -- serialized inclusion proof
 
     metadata BLOB NULL,                                     -- serialized metadata
 
-    nullifier BLOB NOT NULL,
+    nullifier TEXT NOT NULL,
     script_hash BLOB NOT NULL,
     details BLOB NOT NULL,                                  -- serialized note record details
 
@@ -107,7 +115,7 @@ CREATE TABLE output_notes (
 
     metadata BLOB NOT NULL,                                 -- serialized metadata
 
-    nullifier BLOB NULL,
+    nullifier TEXT NULL,
     script_hash BLOB NULL,
     details BLOB NULL,                                      -- serialized note record details
     consumer_transaction_id BLOB NULL,                      -- the transaction ID of the transaction that consumed the note
@@ -138,13 +146,13 @@ CREATE TABLE notes_scripts (
 -- Create state sync table
 CREATE TABLE state_sync (
     block_num UNSIGNED BIG INT NOT NULL,    -- the block number of the most recent state sync
-    tags BLOB NOT NULL,                     -- the serialized list of tags
+    tags BLOB NULL,                     -- the serialized list of tags, a NULL means an empty list
     PRIMARY KEY (block_num)
 );
 
 -- insert initial row into state_sync table
 INSERT OR IGNORE INTO state_sync (block_num, tags)
-SELECT 0, '[]'
+SELECT 0, NULL
 WHERE (
     SELECT COUNT(*) FROM state_sync
 ) = 0;
