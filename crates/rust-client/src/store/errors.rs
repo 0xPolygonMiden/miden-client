@@ -29,8 +29,6 @@ pub enum StoreError {
     DatabaseError(String),
     HexParseError(HexParseError),
     NoteNotFound(NoteId),
-    InputSerializationError(serde_json::Error),
-    JsonDataDeserializationError(serde_json::Error),
     MmrError(MmrError),
     NoteInclusionProofError(NoteError),
     NoteTagAlreadyTracked(u64),
@@ -120,12 +118,6 @@ impl fmt::Display for StoreError {
             },
             NoteNotFound(note_id) => {
                 write!(f, "note with note id {} not found", note_id.inner())
-            },
-            InputSerializationError(err) => {
-                write!(f, "error trying to serialize inputs for the store: {err}")
-            },
-            JsonDataDeserializationError(err) => {
-                write!(f, "error deserializing data from JSON from the store: {err}")
             },
             MmrError(err) => write!(f, "error constructing mmr: {err}"),
             NoteTagAlreadyTracked(tag) => write!(f, "note tag {} is already being tracked", tag),
