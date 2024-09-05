@@ -5,11 +5,6 @@ use crate::store::StoreError;
 // STORE ERROR
 // ================================================================================================
 
-impl From<rusqlite_migration::Error> for StoreError {
-    fn from(value: rusqlite_migration::Error) -> Self {
-        Self::DatabaseError(value.to_string())
-    }
-}
 impl From<rusqlite::Error> for StoreError {
     fn from(value: rusqlite::Error) -> Self {
         match value {

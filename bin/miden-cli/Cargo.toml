@@ -28,7 +28,7 @@ required-features = ["testing", "concurrent"]
 
 [dev-dependencies]
 assert_cmd = { version = "2.0" }
-uuid = { version = "1.6", features = ["serde", "v4"] }
+uuid = { version = "1.10", features = ["serde", "v4"] }
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
@@ -39,7 +39,7 @@ rand = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
 tokio = { workspace = true  }
-tonic = { version = "0.11" }
+tonic = { version = "0.12" }
 toml = { version = "0.8" }
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3" }

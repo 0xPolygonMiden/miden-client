@@ -245,7 +245,7 @@ impl NodeRpcClient for TonicRpcClient {
             )
         })?;
         let response = response.into_inner();
-        let account_info = response.account.ok_or(RpcError::ExpectedFieldMissing(
+        let account_info = response.details.ok_or(RpcError::ExpectedFieldMissing(
             "GetAccountDetails response should have an `account`".to_string(),
         ))?;
 
@@ -311,10 +311,8 @@ impl NodeRpcClient for TonicRpcClient {
             .nullifiers
             .iter()
             .map(|nul| {
-                let nullifier = nul
-                    .nullifier
-                    .clone()
-                    .ok_or(RpcError::ExpectedFieldMissing("Nullifier".to_string()))?;
+                let nullifier =
+                    nul.nullifier.ok_or(RpcError::ExpectedFieldMissing("Nullifier".to_string()))?;
                 let nullifier = nullifier.try_into()?;
                 Ok((nullifier, nul.block_num))
             })
@@ -440,7 +438,6 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
             .map(|nul_update| {
                 let nullifier_digest = nul_update
                     .nullifier
-                    .clone()
                     .ok_or(RpcError::ExpectedFieldMissing("Nullifier".into()))?;
 
                 let nullifier_digest = Digest::try_from(nullifier_digest)
@@ -459,7 +456,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
             .transactions
             .iter()
             .map(|transaction_summary| {
-                let transaction_id = transaction_summary.transaction_id.clone().ok_or(
+                let transaction_id = transaction_summary.transaction_id.ok_or(
                     RpcError::ExpectedFieldMissing("TransactionSummary.TransactionId".into()),
                 )?;
                 let transaction_id = TransactionId::try_from(transaction_id)
@@ -467,7 +464,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
 
                 let transaction_block_num = transaction_summary.block_num;
 
-                let transaction_account_id = transaction_summary.account_id.clone().ok_or(
+                let transaction_account_id = transaction_summary.account_id.ok_or(
                     RpcError::ExpectedFieldMissing("TransactionSummary.TransactionId".into()),
                 )?;
                 let transaction_account_id = AccountId::try_from(transaction_account_id)

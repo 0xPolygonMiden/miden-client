@@ -71,7 +71,9 @@ fn compile_tonic_client_proto(proto_dir: &Path) -> miette::Result<()> {
 fn replace_no_std_types() {
     let path = WEB_TONIC_CLIENT_PROTO_OUT_DIR.to_string() + "/rpc.rs";
     let file_str = fs::read_to_string(&path).unwrap();
-    let new_file_str = file_str.replace("std::result", "core::result");
+    let new_file_str = file_str
+        .replace("std::result", "core::result")
+        .replace("std::marker", "core::marker");
 
     let mut f = std::fs::OpenOptions::new().write(true).open(path).unwrap();
     f.write_all(new_file_str.as_bytes()).unwrap();
