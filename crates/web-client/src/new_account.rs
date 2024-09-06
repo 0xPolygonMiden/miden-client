@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use miden_client::accounts::AccountTemplate;
 use miden_objects::{accounts::AccountStorageMode, assets::TokenSymbol};
 use wasm_bindgen::prelude::*;

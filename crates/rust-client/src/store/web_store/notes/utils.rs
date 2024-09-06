@@ -97,11 +97,7 @@ pub(crate) fn serialize_input_note(
     };
     let recipient = note.recipient().to_hex();
 
-    let metadata = if let Some(metadata) = note.metadata() {
-        Some(metadata.to_bytes())
-    } else {
-        None
-    };
+    let metadata = note.metadata().map(|m| m.to_bytes());
 
     let details = note.details().to_bytes();
     let note_script_hash = note.details().script_hash().to_hex();
@@ -199,11 +195,8 @@ pub(crate) fn serialize_output_note(
 
     let metadata = note.metadata().to_bytes();
 
-    let details = if let Some(details) = note.details() {
-        Some(details.to_bytes())
-    } else {
-        None
-    };
+    let details = note.details().map(|d| d.to_bytes());
+
     let note_script_hash = note.details().map(|details| details.script_hash().to_hex());
     let note_script = note.details().map(|details| details.script().to_bytes());
     let created_at = Utc::now().timestamp().to_string();
