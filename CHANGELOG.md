@@ -9,6 +9,7 @@
 * Added support for importing committed notes from older blocks than current (#472).
 * Added support for account export in the CLI (#479).
 * Added the Web Client Crate
+* Added testing suite for the Web Client Crate
 * [BREAKING] Refactored `TransactionRequest` to represent a generalized transaction (#438).
 
 ### Enhancements
