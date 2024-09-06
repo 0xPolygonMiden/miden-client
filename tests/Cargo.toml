@@ -15,7 +15,6 @@ figment = { version = "0.10", features = ["toml", "env"] }
 miden-client = { path = "../crates/rust-client", features = [
     "concurrent",
     "testing",
-    "std",
     "sqlite",
     "tonic",
 ] }

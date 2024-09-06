@@ -4,8 +4,7 @@ use miden_client::{
     rpc::{AccountDetails, NodeRpcClient, TonicRpcClient},
     store::{InputNoteRecord, NoteFilter, NoteStatus, TransactionFilter},
     transactions::{
-        request::{PaymentTransactionData, TransactionRequest},
-        TransactionExecutorError, TransactionStatus,
+        PaymentTransactionData, TransactionExecutorError, TransactionRequest, TransactionStatus,
     },
     ClientError,
 };
@@ -763,7 +762,7 @@ async fn test_get_account_update() {
     let details1 = rpc_api.get_account_update(basic_wallet_1.id()).await.unwrap();
     let details2 = rpc_api.get_account_update(basic_wallet_2.id()).await.unwrap();
 
-    assert!(matches!(details1, AccountDetails::OffChain(_, _)));
+    assert!(matches!(details1, AccountDetails::Private(_, _)));
     assert!(matches!(details2, AccountDetails::Public(_, _)));
 }
 
@@ -1082,11 +1081,11 @@ async fn test_update_ignored_tag() {
     assert!(expected_notes.iter().any(|candidate_note| candidate_note.id() == note.id()));
 }
 
-#[tokio::test]
 /// Test that checks multiple features:
 /// - Consuming multiple notes in a single transaction.
 /// - Consuming authenticated notes.
 /// - Consuming unauthenticated notes.
+#[tokio::test]
 async fn test_consume_multiple_expected_notes() {
     let mut client = create_test_client();
     let mut unauth_client = create_test_client();

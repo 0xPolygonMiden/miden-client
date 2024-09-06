@@ -1,3 +1,6 @@
+//! Provides the client APIs for synchronizing the client's local state with the Miden
+//! rollup network. It ensures that the client maintains a valid, up-to-date view of the chain.
+
 use alloc::{
     collections::{BTreeMap, BTreeSet},
     vec::Vec,
@@ -30,11 +33,11 @@ use block_headers::apply_mmr_changes;
 
 mod tags;
 
-/// Contains stats about the sync operation
+/// Contains stats about the sync operation.
 pub struct SyncSummary {
-    /// Block number up to which the client has been synced
+    /// Block number up to which the client has been synced.
     pub block_num: u32,
-    /// Number of new notes received
+    /// Number of new notes received.
     pub new_notes: usize,
     /// Number of tracked notes that received inclusion proofs
     pub new_inclusion_proofs: usize,
@@ -128,7 +131,7 @@ impl SyncStatus {
     }
 }
 
-/// Contains information about new notes as consequence of a sync
+/// Contains information about new notes as consequence of a sync.
 pub struct SyncedNewNotes {
     /// A list of public notes that have been received on sync
     new_public_notes: Vec<InputNote>,
@@ -140,6 +143,7 @@ pub struct SyncedNewNotes {
 }
 
 impl SyncedNewNotes {
+    /// Creates a [SyncedNewNotes]
     pub fn new(
         new_public_notes: Vec<InputNote>,
         updated_input_notes: Vec<InputNote>,
@@ -152,14 +156,19 @@ impl SyncedNewNotes {
         }
     }
 
+    /// Returns all new public notes, meant to be tracked by the client.
     pub fn new_public_notes(&self) -> &[InputNote] {
         &self.new_public_notes
     }
 
+    /// Returns all updated input notes. That is, any notes that are locally tracked and have
+    /// been updated.
     pub fn updated_input_notes(&self) -> &[InputNote] {
         &self.updated_input_notes
     }
 
+    /// A list of note IDs alongside their inclusion proofs for locally-tracked
+    /// output notes
     pub fn updated_output_notes(&self) -> &[(NoteId, NoteInclusionProof)] {
         &self.updated_output_notes
     }
@@ -172,15 +181,25 @@ impl SyncedNewNotes {
     }
 }
 
-/// Contains all information needed to apply the update in the store after syncing with the node
+/// Contains all information needed to apply the update in the store after syncing with the node.
 pub struct StateSyncUpdate {
+    /// The new block header, returned as part of the [StateSyncInfo](crate::rpc::StateSyncInfo)
     pub block_header: BlockHeader,
+    /// New nullifiers. Each one corresponds to a spent note.
     pub nullifiers: Vec<NullifierUpdate>,
+    /// Information about new notes.
     pub synced_new_notes: SyncedNewNotes,
+    /// Transaction updates for any transaction that was committed between the sync request's
+    /// block number and the response's block number.
     pub transactions_to_commit: Vec<TransactionUpdate>,
+    /// New MMR peaks for the locally tracked MMR of the blockchain.
     pub new_mmr_peaks: MmrPeaks,
+    /// New authentications nodes that are meant to be stored in order to authenticate block
+    /// headers.
     pub new_authentication_nodes: Vec<(InOrderIndex, Digest)>,
+    /// Updated public accounts.
     pub updated_onchain_accounts: Vec<Account>,
+    /// Whether the block header has notes relevant to the client.
     pub block_has_relevant_notes: bool,
 }
 
@@ -476,7 +495,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let mut return_notes = Vec::with_capacity(query_notes.len());
         for note_data in notes_data {
             match note_data {
-                NoteDetails::OffChain(id, ..) => {
+                NoteDetails::Private(id, ..) => {
                     // TODO: Is there any benefit to not ignoring these? In any case we do not have
                     // the recipient which is mandatory right now.
                     info!("Note {} is private but the client is not tracking it, ignoring.", id);

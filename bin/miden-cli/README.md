@@ -28,7 +28,7 @@ These actions can also be executed when inside the repository via the Makefile w
 
 ### Using the CLI
 
-Before having a fully-functioning client CLI, you would need to set it up first. You can accomplish that with:
+To have a fully-functional client CLI, you would need to set it up first. You can accomplish that with:
 
 ```shell
 miden init
@@ -44,7 +44,7 @@ miden
 miden --help
 ```
 
-The first time that you sync your client (`miden sync`) a new file will be generated too, this file is the database of the client.
+The first time that you sync your client (`miden sync`) a new file will be generated based on the configurations set on `miden-client.toml`. This file is the database of the client.
 
 ## License
 This project is [MIT licensed](../../LICENSE).

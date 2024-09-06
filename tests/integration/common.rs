@@ -16,7 +16,7 @@ use miden_client::{
         NoteFilter, TransactionFilter,
     },
     sync::SyncSummary,
-    transactions::{request::TransactionRequest, DataStoreError, TransactionExecutorError},
+    transactions::{DataStoreError, TransactionExecutorError, TransactionRequest},
     Client, ClientError,
 };
 use miden_objects::{

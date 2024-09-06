@@ -1,3 +1,7 @@
+//! Provides an interface for the client to communicate with Miden nodes using
+//! Remote Procedure Calls (RPC). It facilitates syncing with the network and submitting
+//! transactions.
+
 #![allow(async_fn_in_trait)]
 
 use alloc::vec::Vec;
@@ -37,31 +41,37 @@ use crate::sync::get_nullifier_prefix;
 // NOTE DETAILS
 // ================================================================================================
 
-/// Describes the possible responses from  the `GetNotesById` endpoint for a single note
+/// Describes the possible responses from  the `GetNotesById` endpoint for a single note.
 #[allow(clippy::large_enum_variant)]
 pub enum NoteDetails {
-    OffChain(NoteId, NoteMetadata, NoteInclusionDetails),
+    /// Details for a private note only include its [NoteMetadata] and [NoteInclusionDetails].
+    /// Other details needed to consume the note are expected to be stored locally, off-chain.
+    Private(NoteId, NoteMetadata, NoteInclusionDetails),
+    /// Contains the full [Note] object alongside its [NoteInclusionDetails].
     Public(Note, NoteInclusionDetails),
 }
 
 impl NoteDetails {
+    /// Returns the note's inclusion details.
     pub fn inclusion_details(&self) -> &NoteInclusionDetails {
         match self {
-            NoteDetails::OffChain(_, _, inclusion_details) => inclusion_details,
+            NoteDetails::Private(_, _, inclusion_details) => inclusion_details,
             NoteDetails::Public(_, inclusion_details) => inclusion_details,
         }
     }
 
+    /// Returns the note's metadata.
     pub fn metadata(&self) -> &NoteMetadata {
         match self {
-            NoteDetails::OffChain(_, metadata, _) => metadata,
+            NoteDetails::Private(_, metadata, _) => metadata,
             NoteDetails::Public(note, _) => note.metadata(),
         }
     }
 
+    /// Returns the note's ID.
     pub fn id(&self) -> NoteId {
         match self {
-            NoteDetails::OffChain(id, ..) => *id,
+            NoteDetails::Private(id, ..) => *id,
             NoteDetails::Public(note, _) => note.id(),
         }
     }
@@ -69,42 +79,52 @@ impl NoteDetails {
 
 /// Describes the possible responses from the `GetAccountDetails` endpoint for an account
 pub enum AccountDetails {
-    OffChain(AccountId, AccountUpdateSummary),
+    /// Private accounts are stored off-chain. Only a commitment to the state of the account is
+    /// shared with the network. The full account state is to be tracked locally.
+    Private(AccountId, AccountUpdateSummary),
+    /// Public accounts are recorded on-chain. As such, its state is shared with the network and
+    /// can always be retrieved through the appropriate RPC method.
     Public(Account, AccountUpdateSummary),
 }
 
 impl AccountDetails {
+    /// Returns the account ID.
     pub fn account_id(&self) -> AccountId {
         match self {
-            Self::OffChain(account_id, _) => *account_id,
+            Self::Private(account_id, _) => *account_id,
             Self::Public(account, _) => account.id(),
         }
     }
 }
 
-/// Contains public updated information about the account requested
+/// Contains public updated information about the account requested.
 pub struct AccountUpdateSummary {
-    /// Account hash
+    /// Hash of the account, that represents a commitment to its updated state.
     pub hash: Digest,
-    /// Block number of last account update
+    /// Block number of last account update.
     pub last_block_num: u32,
 }
 
 impl AccountUpdateSummary {
+    /// Creates a new [AccountUpdateSummary].
     pub fn new(hash: Digest, last_block_num: u32) -> Self {
         Self { hash, last_block_num }
     }
 }
 
 /// Contains information related to the note inclusion, but not related to the block header
-/// that contains the note
+/// that contains the note.
 pub struct NoteInclusionDetails {
+    /// Block number in which the note was included.
     pub block_num: u32,
+    /// Index of the note in the block's note tree.
     pub note_index: u32,
+    /// Merkle path to the note root of the block header.
     pub merkle_path: MerklePath,
 }
 
 impl NoteInclusionDetails {
+    /// Creates a new [NoteInclusionDetails].
     pub fn new(block_num: u32, note_index: u32, merkle_path: MerklePath) -> Self {
         Self { block_num, note_index, merkle_path }
     }
@@ -120,7 +140,7 @@ impl NoteInclusionDetails {
 /// endpoints.
 pub trait NodeRpcClient {
     /// Given a Proven Transaction, send it to the node for it to be included in a future block
-    /// using the `/SubmitProvenTransaction` rpc endpoint
+    /// using the `/SubmitProvenTransaction` RPC endpoint.
     async fn submit_proven_transaction(
         &mut self,
         proven_transaction: ProvenTransaction,
@@ -131,7 +151,7 @@ pub trait NodeRpcClient {
     /// If `include_mmr_proof` is set to true and the function returns an `Ok`, the second value
     /// of the return tuple should always be Some(MmrProof)   
     ///
-    /// When `None` is provided, returns info regarding the latest block
+    /// When `None` is provided, returns info regarding the latest block.
     async fn get_block_header_by_number(
         &mut self,
         block_num: Option<u32>,
@@ -145,7 +165,7 @@ pub trait NodeRpcClient {
     async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NoteDetails>, RpcError>;
 
     /// Fetches info from the node necessary to perform a state sync using the
-    /// `/SyncState` rpc endpoint
+    /// `/SyncState` RPC endpoint
     ///
     /// - `block_num` is the last block number known by the client. The returned [StateSyncInfo]
     ///   should contain data starting from the next block, until the first block which contains a
@@ -155,7 +175,7 @@ pub trait NodeRpcClient {
     /// - `note_tags` is a list of tags used to filter the notes the client is interested in, which
     ///   serves as a "note group" filter. Notice that you can't filter by a specific note id
     /// - `nullifiers_tags` similar to `note_tags`, is a list of tags used to filter the nullifiers
-    ///   corresponding to some notes the client is interested in
+    ///   corresponding to some notes the client is interested in.
     async fn sync_state(
         &mut self,
         block_num: u32,
@@ -164,7 +184,7 @@ pub trait NodeRpcClient {
         nullifiers_tags: &[u16],
     ) -> Result<StateSyncInfo, RpcError>;
 
-    /// Fetches the current state of an account from the node using the `/GetAccountDetails` rpc
+    /// Fetches the current state of an account from the node using the `/GetAccountDetails` RPC
     /// endpoint
     ///
     /// - `account_id` is the id of the wanted account.
@@ -180,7 +200,7 @@ pub trait NodeRpcClient {
     ) -> Result<NoteSyncInfo, RpcError>;
 
     /// Fetches the nullifiers corresponding to a list of prefixes using the
-    /// `/CheckNullifiersByPrefix` rpc endpoint
+    /// `/CheckNullifiersByPrefix` RPC endpoint.
     async fn check_nullifiers_by_prefix(
         &mut self,
         prefix: &[u16],
@@ -204,41 +224,41 @@ pub trait NodeRpcClient {
 // SYNC NOTE
 // ================================================================================================
 
-/// Represents a `SyncNoteResponse` with fields converted into domain types
+/// Represents a `SyncNoteResponse` with fields converted into domain types.
 #[derive(Debug)]
 pub struct NoteSyncInfo {
-    /// Number of the latest block in the chain
+    /// Number of the latest block in the chain.
     pub chain_tip: u32,
-    /// Block header of the block with the first note matching the specified criteria
+    /// Block header of the block with the first note matching the specified criteria.
     pub block_header: BlockHeader,
     /// Proof for block header's MMR with respect to the chain tip.
     ///
     /// More specifically, the full proof consists of `forest`, `position` and `path` components.
     /// This value constitutes the `path`. The other two components can be obtained as follows:
     ///    - `position` is simply `resopnse.block_header.block_num`
-    ///    - `forest` is the same as `response.chain_tip + 1`
+    ///    - `forest` is the same as `response.chain_tip + 1`.
     pub mmr_path: MerklePath,
-    /// List of all notes together with the Merkle paths from `response.block_header.note_root`
+    /// List of all notes together with the Merkle paths from `response.block_header.note_root`.
     pub notes: Vec<CommittedNote>,
 }
 
 // STATE SYNC INFO
 // ================================================================================================
 
-/// Represents a `SyncStateResponse` with fields converted into domain types
+/// Represents a `SyncStateResponse` with fields converted into domain types.
 pub struct StateSyncInfo {
-    /// The block number of the chain tip at the moment of the response
+    /// The block number of the chain tip at the moment of the response.
     pub chain_tip: u32,
-    /// The returned block header
+    /// The returned block header.
     pub block_header: BlockHeader,
-    /// MMR delta that contains data for (current_block.num, incoming_block_header.num-1)
+    /// MMR delta that contains data for (current_block.num, incoming_block_header.num-1).
     pub mmr_delta: MmrDelta,
-    /// Tuples of AccountId alongside their new account hashes
+    /// Tuples of AccountId alongside their new account hashes.
     pub account_hash_updates: Vec<(AccountId, Digest)>,
-    /// List of tuples of Note ID, Note Index and Merkle Path for all new notes
+    /// List of tuples of Note ID, Note Index and Merkle Path for all new notes.
     pub note_inclusions: Vec<CommittedNote>,
     /// List of nullifiers that identify spent notes along with the block number at which they were
-    /// consumed
+    /// consumed.
     pub nullifiers: Vec<NullifierUpdate>,
     /// List of transaction IDs of transaction that were included in (request.block_num,
     /// response.block_num-1) along with the account the tx was executed against and the block
@@ -250,15 +270,15 @@ pub struct StateSyncInfo {
 pub struct TransactionUpdate {
     /// The transaction Identifier
     pub transaction_id: TransactionId,
-    /// The number of the block in which the transaction was included
+    /// The number of the block in which the transaction was included.
     pub block_num: u32,
-    /// The account that the transcation was executed against
+    /// The account that the transcation was executed against.
     pub account_id: AccountId,
 }
 
 /// Represents a note that was consumed in the node at a certain block.
 pub struct NullifierUpdate {
-    /// The nullifier of the consumed note
+    /// The nullifier of the consumed note.
     pub nullifier: Nullifier,
     /// The number of the block in which the note consumption was registered.
     pub block_num: u32,
@@ -267,16 +287,16 @@ pub struct NullifierUpdate {
 // COMMITTED NOTE
 // ================================================================================================
 
-/// Represents a committed note, returned as part of a `SyncStateResponse`
+/// Represents a committed note, returned as part of a `SyncStateResponse`.
 #[derive(Debug, Clone)]
 pub struct CommittedNote {
-    /// Note ID of the committed note
+    /// Note ID of the committed note.
     note_id: NoteId,
-    /// Note index for the note merkle tree
+    /// Note index for the note merkle tree.
     note_index: u32,
-    /// Merkle path for the note merkle tree up to the block's note root
+    /// Merkle path for the note merkle tree up to the block's note root.
     merkle_path: MerklePath,
-    /// Note metadata
+    /// Note metadata.
     metadata: NoteMetadata,
 }
 
@@ -315,6 +335,7 @@ impl CommittedNote {
 // RPC API ENDPOINT
 // ================================================================================================
 //
+/// RPC methods for the Miden protocol.
 #[derive(Debug)]
 pub enum NodeRpcClientEndpoint {
     CheckNullifiersByPrefix,

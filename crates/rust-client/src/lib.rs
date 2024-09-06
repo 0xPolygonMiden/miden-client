@@ -8,11 +8,9 @@ extern crate std;
 
 pub mod accounts;
 pub mod config;
-mod errors;
 pub mod notes;
 pub mod rpc;
 pub mod store;
-mod store_authenticator;
 pub mod sync;
 pub mod transactions;
 
@@ -22,9 +20,13 @@ pub mod mock;
 #[cfg(test)]
 pub mod tests;
 
+mod errors;
+mod store_authenticator;
+
 // RE-EXPORTS
 // ================================================================================================
 
+/// Provides types and utilities for working with assets within the Miden rollup network.
 pub mod assets {
     pub use miden_objects::{
         accounts::delta::{
@@ -34,6 +36,8 @@ pub mod assets {
     };
 }
 
+/// Provides authentication-related types and functionalities for the Miden
+/// rollup network.
 pub mod auth {
     pub use miden_objects::accounts::AuthSecretKey;
     pub use miden_tx::auth::TransactionAuthenticator;
@@ -41,10 +45,14 @@ pub mod auth {
     pub use crate::store_authenticator::StoreAuthenticator;
 }
 
+/// Provides types for working with blocks within the Miden rollup network.
 pub mod blocks {
     pub use miden_objects::BlockHeader;
 }
 
+/// Provides cryptographic types and utilities used within the Miden rollup
+/// network. It re-exports commonly used types and random number generators like `FeltRng` from
+/// the `miden_objects` crate.
 pub mod crypto {
     pub use miden_objects::{
         crypto::{
@@ -61,6 +69,8 @@ pub mod crypto {
 pub use errors::{ClientError, IdPrefixFetchError};
 pub use miden_objects::{Felt, StarkField, Word, ONE, ZERO};
 
+/// Provides various utilities that are commonly used throughout the Miden
+/// client library.
 pub mod utils {
     pub use miden_tx::utils::{
         bytes_to_hex_string, ByteReader, ByteWriter, Deserializable, DeserializationError,
@@ -68,12 +78,15 @@ pub mod utils {
     };
 }
 
+/// Provides test utilities for working with accounts and account IDs
+/// within the Miden rollup network. This module is only available when the `testing` feature is
+/// enabled.
 #[cfg(feature = "testing")]
 pub mod testing {
-    pub use miden_objects::accounts::account_id::testing::*;
+    pub use miden_objects::{accounts::account_id::testing::*, testing::*};
 }
 
-use alloc::{rc::Rc, vec::Vec};
+use alloc::rc::Rc;
 
 use miden_objects::crypto::rand::FeltRng;
 use miden_tx::{auth::TransactionAuthenticator, TransactionExecutor};
@@ -168,7 +181,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     pub fn get_block_headers(
         &self,
         block_numbers: &[u32],
-    ) -> Result<Vec<(miden_objects::BlockHeader, bool)>, crate::ClientError> {
+    ) -> Result<alloc::vec::Vec<(miden_objects::BlockHeader, bool)>, crate::ClientError> {
         let result = winter_maybe_async::maybe_await!(self.store.get_block_headers(block_numbers))?;
         Ok(result)
     }

@@ -110,7 +110,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             Err(ClientError::StoreError(StoreError::NoteNotFound(_))) => {
                 let node_note = match note_details {
                     crate::rpc::NoteDetails::Public(note, _) => note,
-                    crate::rpc::NoteDetails::OffChain(..) => {
+                    crate::rpc::NoteDetails::Private(..) => {
                         return Err(ClientError::NoteImportError(
                             "Incomplete imported note is private".to_string(),
                         ))

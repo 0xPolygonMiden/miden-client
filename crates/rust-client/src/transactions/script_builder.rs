@@ -190,6 +190,7 @@ impl TransactionScriptBuilder {
 // TRANSACTION SCRIPT BUILDER ERROR
 // ============================================================================================
 
+/// Errors related to building a transaction script.
 #[derive(Debug)]
 pub enum TransactionScriptBuilderError {
     InvalidAsset(AccountId),

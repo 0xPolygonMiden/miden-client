@@ -14,6 +14,7 @@ use crate::{
     transactions::known_script_roots::{P2ID, P2IDR, SWAP},
 };
 
+/// Describes the relevance of a note based on the screening.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum NoteRelevance {
     /// The note can be consumed at any time.
@@ -37,6 +38,12 @@ impl fmt::Display for NoteRelevance {
     }
 }
 
+/// Provides functionality for testing whether a note is relevant to the client or not.
+///
+/// Here, relevance is based on whether the note is able to be consumed by an account that is
+/// tracked in the provided `store`. This can be derived in a number of ways, such as looking
+/// at the combination of script root and note inputs. For example, a P2ID note is relevant
+/// for a specific account ID if this ID is its first note input.
 pub struct NoteScreener<S: Store> {
     store: Rc<S>,
 }

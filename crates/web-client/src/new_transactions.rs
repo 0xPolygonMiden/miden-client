@@ -1,8 +1,7 @@
 use miden_client::{
     notes::get_input_note_with_id_prefix,
     transactions::{
-        build_swap_tag,
-        request::{PaymentTransactionData, SwapTransactionData, TransactionRequest},
+        build_swap_tag, PaymentTransactionData, SwapTransactionData, TransactionRequest,
     },
 };
 use miden_objects::{accounts::AccountId, assets::FungibleAsset, notes::NoteType as MidenNoteType};

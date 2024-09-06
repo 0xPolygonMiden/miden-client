@@ -21,8 +21,8 @@ use crate::{store::StoreError, ClientError};
 // DATA STORE
 // ================================================================================================
 
-/// Wrapper structure that helps automatically implement [DataStore] over any [Store]
-pub struct ClientDataStore<S: Store> {
+/// Wrapper structure that implements [DataStore] over any [Store].
+pub(crate) struct ClientDataStore<S: Store> {
     /// Local database containing information about the accounts managed by this client.
     pub(crate) store: Rc<S>,
 }
@@ -49,14 +49,12 @@ impl<S: Store> DataStore for ClientDataStore<S> {
 
         // First validate that all notes were found and can be consumed
         for note_id in notes {
-            if !input_note_records.contains_key(note_id) {
+            if let Some(note_record) = input_note_records.get(note_id) {
+                if let NoteStatus::Consumed { .. } = note_record.status() {
+                    return Err(DataStoreError::NoteAlreadyConsumed(*note_id));
+                }
+            } else {
                 return Err(DataStoreError::NoteNotFound(*note_id));
-            }
-
-            let note_record = input_note_records.get(note_id).expect("should have key");
-
-            if let NoteStatus::Consumed { .. } = note_record.status() {
-                return Err(DataStoreError::NoteAlreadyConsumed(*note_id));
             }
         }
 
@@ -143,9 +141,10 @@ fn build_partial_mmr_with_paths<S: Store>(
 /// Retrieves all Chain MMR nodes required for authenticating the set of blocks, and then
 /// constructs the path for each of them.
 ///
-/// This method assumes `block_nums` cannot contain `forest`.
+/// This function assumes `block_nums` does not contain values above or equal to `forest`.
+/// If there are any such values, the function will panic when calling `mmr_merkle_path_len()`.
 #[maybe_async]
-pub fn get_authentication_path_for_blocks<S: Store>(
+fn get_authentication_path_for_blocks<S: Store>(
     store: &S,
     block_nums: &[u32],
     forest: usize,
@@ -164,7 +163,7 @@ pub fn get_authentication_path_for_blocks<S: Store>(
         }
     }
 
-    // Get all Mmr nodes based on collected indices
+    // Get all MMR nodes based on collected indices
     let node_indices: Vec<InOrderIndex> = node_indices.into_iter().collect();
 
     let filter = ChainMmrNodeFilter::List(&node_indices);
@@ -191,7 +190,7 @@ pub fn get_authentication_path_for_blocks<S: Store>(
 /// `leaf_index` is a 0-indexed leaf number and `forest` is the total amount of leaves
 /// in the MMR at this point.
 fn mmr_merkle_path_len(leaf_index: usize, forest: usize) -> usize {
-    let before = forest & leaf_index;
+    let before: usize = forest & leaf_index;
     let after = forest ^ before;
 
     after.ilog2() as usize

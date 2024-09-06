@@ -1,3 +1,5 @@
+//! Provides code related to configuring the client.
+
 use alloc::string::{String, ToString};
 use core::fmt::{self, Debug};
 
@@ -6,15 +8,28 @@ use serde::{Deserialize, Serialize};
 // ENDPOINT
 // ================================================================================================
 
+/// The `Endpoint` struct represents a network endpoint, consisting of a protocol, a host, and a
+/// port.
+///
+/// This struct is used to define the address of a Miden node that the client will connect to.
 #[derive(Clone, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 pub struct Endpoint {
+    /// The protocol used to connect to the endpoint (e.g., "http", "https").
     protocol: String,
+    /// The hostname or IP address of the endpoint.
     host: String,
+    /// The port number of the endpoint.
     port: u16,
 }
 
 impl Endpoint {
-    /// Returns a new instance of [Endpoint] with the specified protocol, host, and port.
+    /// Creates a new `Endpoint` with the specified protocol, host, and port.
+    ///
+    /// # Arguments
+    ///
+    /// * `protocol` - The protocol to use for the connection (e.g., "http", "https").
+    /// * `host` - The hostname or IP address of the endpoint.
+    /// * `port` - The port number to connect to.
     pub const fn new(protocol: String, host: String, port: u16) -> Self {
         Self { protocol, host, port }
     }
@@ -104,12 +119,12 @@ impl TryFrom<&str> for Endpoint {
 // RPC CONFIG
 // ================================================================================================
 
-/// Settings for the RPC client
+/// Settings for the RPC client.
 #[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct RpcConfig {
     /// Address of the Miden node to connect to.
     pub endpoint: Endpoint,
-    /// Timeout for the rpc api requests
+    /// Timeout for the RPC api requests, in milliseconds.
     #[serde(default = "default_timeout")]
     pub timeout_ms: u64,
 }
@@ -183,9 +198,9 @@ mod test {
 
     #[test]
     fn test_endpoint_parsing_with_protocol() {
-        let endpoint = Endpoint::try_from("http://some.test.domain").unwrap();
+        let endpoint = Endpoint::try_from("hkttp://some.test.domain").unwrap();
         let expected_endpoint = Endpoint {
-            protocol: "http".to_string(),
+            protocol: "hkttp".to_string(),
             host: "some.test.domain".to_string(),
             port: MIDEN_NODE_PORT,
         };
