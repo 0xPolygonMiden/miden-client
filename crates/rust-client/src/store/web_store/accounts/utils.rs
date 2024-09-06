@@ -105,8 +105,7 @@ pub fn parse_account_record_idxdb_object(
     let account_header = AccountHeader::new(
         native_account_id,
         Felt::new(native_nonce),
-        serde_json::from_str(&account_header_idxdb.vault_root)
-            .map_err(StoreError::InputSerializationError)?,
+        Digest::try_from(&account_header_idxdb.vault_root)?,
         Digest::try_from(&account_header_idxdb.storage_root)?,
         Digest::try_from(&account_header_idxdb.code_root)?,
     );

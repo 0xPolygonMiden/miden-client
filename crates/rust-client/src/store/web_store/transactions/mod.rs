@@ -55,8 +55,7 @@ impl WebStore {
                 let final_account_state: Digest = tx_idxdb.final_account_state.try_into()?;
 
                 let input_note_nullifiers: Vec<Digest> =
-                    serde_json::from_str(&tx_idxdb.input_notes)
-                        .map_err(StoreError::JsonDataDeserializationError)?;
+                    Vec::<Digest>::read_from_bytes(&tx_idxdb.input_notes)?;
 
                 let output_notes = OutputNotes::read_from_bytes(&tx_idxdb.output_notes)?;
 

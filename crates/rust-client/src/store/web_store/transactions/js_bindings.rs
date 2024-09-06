@@ -25,7 +25,7 @@ extern "C" {
         account_id: String,
         init_account_state: String,
         final_account_state: String,
-        input_notes: String,
+        input_notes: Vec<u8>,
         output_notes: Vec<u8>,
         script_hash: Option<Vec<u8>>,
         block_num: String,

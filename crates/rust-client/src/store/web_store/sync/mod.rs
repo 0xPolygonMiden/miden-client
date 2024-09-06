@@ -104,7 +104,7 @@ impl WebStore {
 
         // Serialize data for updating block header
         let block_header_as_bytes = block_header.to_bytes();
-        let new_mmr_peaks_as_bytes= new_mmr_peaks.peaks().to_vec().to_bytes();
+        let new_mmr_peaks_as_bytes = new_mmr_peaks.peaks().to_vec().to_bytes();
 
         // Serialize data for updating chain MMR nodes
         let mut serialized_node_ids = Vec::new();
@@ -121,7 +121,7 @@ impl WebStore {
             .iter()
             .map(|(note_id, _)| note_id.inner().to_hex())
             .collect();
-        let output_note_inclusion_proofs_as_bytes: Vec<Vec<u8>> = committed_notes
+        let output_note_inclusion_proofs_as_bytes: Vec<u8> = committed_notes
             .updated_output_notes()
             .iter()
             .map(|(_, inclusion_proof)| {
@@ -129,28 +129,21 @@ impl WebStore {
                 let note_index = inclusion_proof.location().node_index_in_block();
 
                 // Create a NoteInclusionProof and serialize it to JSON, handle errors with `?`
-                let proof = NoteInclusionProof::new(
-                    block_num,
-                    note_index,
-                    inclusion_proof.note_path().clone(),
-                )
-                .unwrap();
-
-                proof.to_bytes()
+                NoteInclusionProof::new(block_num, note_index, inclusion_proof.note_path().clone())
+                    .unwrap()
             })
-            .collect();
+            .collect::<Vec<NoteInclusionProof>>()
+            .to_bytes();
 
         let input_note_ids_as_str: Vec<String> = committed_notes
             .updated_input_notes()
             .iter()
             .map(|input_note| input_note.id().inner().to_hex())
             .collect();
-        let input_note_inclusion_proofs_as_bytes: Vec<u8> = committed_notes
-            .updated_input_notes()
-            .to_bytes();
-        let input_note_metadatas_as_bytes: Vec<u8> = committed_notes
-            .updated_input_notes()
-            .to_bytes();
+        let input_note_inclusion_proofs_as_bytes: Vec<u8> =
+            committed_notes.updated_input_notes().to_bytes();
+        let input_note_metadatas_as_bytes: Vec<u8> =
+            committed_notes.updated_input_notes().to_bytes();
 
         // TODO: LOP INTO idxdb_apply_state_sync call
         // Commit new public notes

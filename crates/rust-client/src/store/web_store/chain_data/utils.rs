@@ -6,6 +6,7 @@ use alloc::{
 use core::num::NonZeroUsize;
 
 use miden_objects::{crypto::merkle::InOrderIndex, BlockHeader, Digest};
+use miden_tx::utils::Serializable;
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen::JsValue;
 
@@ -13,8 +14,8 @@ use crate::store::{web_store::chain_data::ChainMmrNodeIdxdbObject, StoreError};
 
 pub struct SerializedBlockHeaderData {
     pub block_num: String,
-    pub header: String,
-    pub chain_mmr_peaks: String,
+    pub header: Vec<u8>,
+    pub chain_mmr_peaks: Vec<u8>,
     pub has_client_notes: bool,
 }
 
@@ -29,10 +30,8 @@ pub fn serialize_block_header(
     has_client_notes: bool,
 ) -> Result<SerializedBlockHeaderData, StoreError> {
     let block_num = block_header.block_num().to_string();
-    let header =
-        serde_json::to_string(&block_header).map_err(StoreError::InputSerializationError)?;
-    let chain_mmr_peaks =
-        serde_json::to_string(&chain_mmr_peaks).map_err(StoreError::InputSerializationError)?;
+    let header = block_header.to_bytes();
+    let chain_mmr_peaks = chain_mmr_peaks.to_bytes();
 
     Ok(SerializedBlockHeaderData {
         block_num,
@@ -48,7 +47,7 @@ pub fn serialize_chain_mmr_node(
 ) -> Result<SerializedChainMmrNodeData, StoreError> {
     let id: u64 = id.into();
     let id_as_str = id.to_string();
-    let node = serde_json::to_string(&node).map_err(StoreError::InputSerializationError)?;
+    let node = node.to_string();
     Ok(SerializedChainMmrNodeData { id: id_as_str, node })
 }
 
@@ -62,8 +61,7 @@ pub fn process_chain_mmr_nodes_from_js_value(
         .map(|record| {
             let id_as_u64: u64 = record.id.parse::<u64>().unwrap();
             let id = InOrderIndex::new(NonZeroUsize::new(id_as_u64 as usize).unwrap());
-            let node: Digest = serde_json::from_str(&record.node)
-                .map_err(StoreError::JsonDataDeserializationError)?;
+            let node = Digest::try_from(&record.node)?;
             Ok((id, node))
         })
         .collect();

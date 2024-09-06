@@ -1,6 +1,4 @@
-use alloc::vec::Vec;
-
-use alloc::string::String;
+use alloc::{string::String, vec::Vec};
 
 use serde::{Deserialize, Serialize};
 

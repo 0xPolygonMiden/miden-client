@@ -33,7 +33,7 @@ extern "C" {
         serialized_node_ids: Vec<String>,
         serialized_nodes: Vec<String>,
         output_note_ids: Vec<String>,
-        output_note_inclusion_proofs: Vec<Vec<u8>>,
+        output_note_inclusion_proofs: Vec<u8>,
         input_note_ids: Vec<String>,
         input_note_inclusion_proofs: Vec<u8>,
         input_note_metadatas: Vec<u8>,

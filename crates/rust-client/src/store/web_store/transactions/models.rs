@@ -9,7 +9,7 @@ pub struct TransactionIdxdbObject {
     pub account_id: String, // usually i64
     pub init_account_state: String,
     pub final_account_state: String,
-    pub input_notes: String,
+    pub input_notes: Vec<u8>,
     #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
     pub output_notes: Vec<u8>,
     #[serde(deserialize_with = "base64_to_vec_u8_optional", default)]

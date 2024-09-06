@@ -51,7 +51,8 @@ extern "C" {
     ) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = insertAccountAssetVault)]
-    pub fn idxdb_insert_account_asset_vault(vault_root: String, assets: Vec<u8>) -> js_sys::Promise;
+    pub fn idxdb_insert_account_asset_vault(vault_root: String, assets: Vec<u8>)
+        -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = insertAccountRecord)]
     pub fn idxdb_insert_account_record(
