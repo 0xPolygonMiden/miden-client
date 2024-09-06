@@ -4,8 +4,7 @@ use miden_client::{
     rpc::{AccountDetails, NodeRpcClient, TonicRpcClient},
     store::{InputNoteRecord, NoteFilter, NoteStatus, TransactionFilter},
     transactions::{
-        request::{PaymentTransactionData, TransactionRequest},
-        TransactionExecutorError, TransactionStatus,
+        PaymentTransactionData, TransactionExecutorError, TransactionRequest, TransactionStatus,
     },
     ClientError,
 };
@@ -763,7 +762,7 @@ async fn test_get_account_update() {
     let details1 = rpc_api.get_account_update(basic_wallet_1.id()).await.unwrap();
     let details2 = rpc_api.get_account_update(basic_wallet_2.id()).await.unwrap();
 
-    assert!(matches!(details1, AccountDetails::OffChain(_, _)));
+    assert!(matches!(details1, AccountDetails::Private(_, _)));
     assert!(matches!(details2, AccountDetails::Public(_, _)));
 }
 
@@ -1082,71 +1081,98 @@ async fn test_update_ignored_tag() {
     assert!(expected_notes.iter().any(|candidate_note| candidate_note.id() == note.id()));
 }
 
+/// Test that checks multiple features:
+/// - Consuming multiple notes in a single transaction.
+/// - Consuming authenticated notes.
+/// - Consuming unauthenticated notes.
 #[tokio::test]
-async fn test_consume_expected_note() {
+async fn test_consume_multiple_expected_notes() {
     let mut client = create_test_client();
+    let mut unauth_client = create_test_client();
+
     wait_for_node(&mut client).await;
 
-    let (_, _, faucet_account_stub) = setup(&mut client, AccountStorageType::OffChain).await;
-
-    let mut unauth_client = create_test_client();
-    // Create regular accounts
-    let (target_basic_account, _) = unauth_client
+    // Setup accounts
+    let (target_basic_account_1, _, faucet_account_stub) =
+        setup(&mut client, AccountStorageType::OffChain).await;
+    let (target_basic_account_2, _) = unauth_client
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
             storage_type: AccountStorageType::OffChain,
         })
         .unwrap();
     unauth_client.sync_state().await.unwrap();
-    let to_account_id = target_basic_account.id();
+
     let faucet_account_id = faucet_account_stub.id();
+    let to_account_ids = [target_basic_account_1.id(), target_basic_account_2.id()];
 
-    // First Mint necesary Token
+    // Mint tokens to the accounts
     let fungible_asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
-
-    let tx_request = TransactionRequest::mint_fungible_asset(
+    let mint_tx_request = mint_multiple_fungible_asset(
         fungible_asset,
-        to_account_id,
+        vec![to_account_ids[0], to_account_ids[0], to_account_ids[1], to_account_ids[1]],
         NoteType::Private,
         client.rng(),
+    );
+
+    execute_tx_and_sync(&mut client, faucet_account_id, mint_tx_request.clone()).await;
+    unauth_client.sync_state().await.unwrap();
+
+    // Filter notes by ownership
+    let expected_notes = mint_tx_request.expected_output_notes();
+    let client_notes: Vec<_> = client.get_input_notes(NoteFilter::All).unwrap();
+    let client_notes_ids: Vec<_> = client_notes.iter().map(|note| note.id()).collect();
+
+    let (client_owned_notes, unauth_owned_notes): (Vec<_>, Vec<_>) =
+        expected_notes.partition(|note| client_notes_ids.contains(&note.id()));
+
+    // Create and execute transactions
+    let tx_request_1 = TransactionRequest::consume_notes(
+        client_owned_notes.iter().map(|note| note.id()).collect(),
     )
-    .unwrap();
+    .with_authenticated_input_notes(client_owned_notes.iter().map(|note| (note.id(), None)));
 
-    println!("Minting Asset");
-    execute_tx_and_sync(&mut client, faucet_account_id, tx_request.clone()).await;
+    let tx_request_2 = TransactionRequest::consume_notes(
+        unauth_owned_notes.iter().map(|note| note.id()).collect(),
+    )
+    .with_unauthenticated_input_notes(
+        unauth_owned_notes.iter().map(|note| ((*note).clone(), None)),
+    );
 
-    // Consume notes with target account
-    let note = tx_request.expected_output_notes().next().unwrap().clone();
+    let tx_id_1 = execute_tx(&mut client, to_account_ids[0], tx_request_1).await;
+    let tx_id_2 = execute_tx(&mut unauth_client, to_account_ids[1], tx_request_2).await;
 
-    println!("Executing consume notes tx without sync...");
-    let tx_request = TransactionRequest::consume_notes(vec![note.id()])
-        .with_unauthenticated_input_notes(vec![(note.clone(), None)]);
+    // Ensure notes are processed
+    assert!(!client.get_input_notes(NoteFilter::Processing).unwrap().is_empty());
+    assert!(!unauth_client.get_input_notes(NoteFilter::Processing).unwrap().is_empty());
 
-    let tx_id = execute_tx(&mut unauth_client, to_account_id, tx_request).await;
+    wait_for_tx(&mut client, tx_id_1).await;
+    wait_for_tx(&mut unauth_client, tx_id_2).await;
 
-    // Check that note is expected for the account to consume
-    println!("Fetching processing notes...");
-    let notes = unauth_client.get_input_notes(NoteFilter::Processing).unwrap();
-    assert!(!notes.is_empty());
+    // Verify no remaining expected notes and all notes are consumed
+    assert!(client.get_input_notes(NoteFilter::Expected).unwrap().is_empty());
+    assert!(unauth_client.get_input_notes(NoteFilter::Expected).unwrap().is_empty());
 
-    wait_for_tx(&mut unauth_client, tx_id).await;
+    assert!(
+        !client.get_input_notes(NoteFilter::Consumed).unwrap().is_empty(),
+        "Authenticated notes are consumed"
+    );
+    assert!(
+        !unauth_client.get_input_notes(NoteFilter::Consumed).unwrap().is_empty(),
+        "Unauthenticated notes are consumed"
+    );
 
-    // Ensure we have nothing else to consume
-    let current_notes = unauth_client.get_input_notes(NoteFilter::Expected).unwrap();
-    assert!(current_notes.is_empty());
-
-    // The note now should be consumed
-    let current_notes = unauth_client.get_input_notes(NoteFilter::Consumed).unwrap();
-    assert!(!current_notes.is_empty());
-
-    let (regular_account, _seed) = unauth_client.get_account(to_account_id).unwrap();
-    assert_eq!(regular_account.vault().assets().count(), 1);
-    let asset = regular_account.vault().assets().next().unwrap();
-
-    if let Asset::Fungible(fungible_asset) = asset {
-        assert_eq!(fungible_asset.amount(), TRANSFER_AMOUNT);
-    } else {
-        panic!("Error: Account should have a fungible asset");
+    // Validate the final asset amounts in each account
+    for (client, account_id) in
+        vec![(client, to_account_ids[0]), (unauth_client, to_account_ids[1])]
+    {
+        assert_account_has_single_asset(
+            &client,
+            account_id,
+            faucet_account_id,
+            TRANSFER_AMOUNT * 2,
+        )
+        .await;
     }
 }
 

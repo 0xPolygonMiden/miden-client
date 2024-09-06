@@ -1,3 +1,6 @@
+//! Provides APIs for transaction creation, execution, and proving.
+//! It also handles proof submission to the network.
+
 use alloc::{
     collections::{BTreeMap, BTreeSet},
     string::{String, ToString},
@@ -14,12 +17,10 @@ use miden_objects::{
     AssetError, Digest, Felt, NoteError, Word,
 };
 use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, TransactionProver};
-use request::{TransactionRequestError, TransactionScriptTemplate};
 use script_builder::{AccountCapabilities, AccountInterface, TransactionScriptBuilder};
 use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
 
-use self::request::TransactionRequest;
 use super::{rpc::NodeRpcClient, Client, FeltRng};
 use crate::{
     notes::NoteScreener,
@@ -27,14 +28,20 @@ use crate::{
     ClientError,
 };
 
-pub mod request;
-pub mod script_builder;
+mod request;
+pub use request::{
+    NoteArgs, PaymentTransactionData, SwapTransactionData, TransactionRequest,
+    TransactionRequestError, TransactionScriptTemplate,
+};
+
+mod script_builder;
 pub use miden_objects::transaction::{
     ExecutedTransaction, InputNote, OutputNote, OutputNotes, ProvenTransaction, TransactionId,
     TransactionScript,
 };
 pub use miden_tx::{DataStoreError, TransactionExecutorError};
 pub use request::known_script_roots;
+pub use script_builder::TransactionScriptBuilderError;
 
 // TRANSACTION RESULT
 // --------------------------------------------------------------------------------------------
@@ -78,30 +85,37 @@ impl TransactionResult {
         Ok(tx_result)
     }
 
+    /// Returns the [ExecutedTransaction].
     pub fn executed_transaction(&self) -> &ExecutedTransaction {
         &self.transaction
     }
 
+    /// Returns the output notes that were generated as a result of the transaction execution.
     pub fn created_notes(&self) -> &OutputNotes {
         self.transaction.output_notes()
     }
 
+    /// Returns the list of notes that are relevant to the client, based on [NoteScreener].
     pub fn relevant_notes(&self) -> &[InputNoteRecord] {
         &self.relevant_notes
     }
 
+    /// Returns the block against which the transaction was executed.
     pub fn block_num(&self) -> u32 {
         self.transaction.block_header().block_num()
     }
 
+    /// Returns transaction's [TransactionArgs].
     pub fn transaction_arguments(&self) -> &TransactionArgs {
         self.transaction.tx_args()
     }
 
+    /// Returns the [AccountDelta] that describes the change of state for the executing [Account].
     pub fn account_delta(&self) -> &AccountDelta {
         self.transaction.account_delta()
     }
 
+    /// Returns input notes that were consumed as part of the transaction.
     pub fn consumed_notes(&self) -> &InputNotes<InputNote> {
         self.transaction.tx_inputs().input_notes()
     }

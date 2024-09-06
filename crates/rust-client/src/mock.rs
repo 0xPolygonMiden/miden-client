@@ -51,10 +51,7 @@ use crate::{
     },
     store_authenticator::StoreAuthenticator,
     sync::get_nullifier_prefix,
-    transactions::{
-        prepare_word,
-        request::{PaymentTransactionData, TransactionRequest},
-    },
+    transactions::{prepare_word, PaymentTransactionData, TransactionRequest},
     Client,
 };
 
@@ -190,7 +187,7 @@ impl NodeRpcClient for MockRpcApi {
                     .node_index_in_block(),
                 note.proof().expect("Note should have an inclusion proof").note_path().clone(),
             );
-            return_notes.push(NoteDetails::OffChain(
+            return_notes.push(NoteDetails::Private(
                 note.id(),
                 *note.note().metadata(),
                 inclusion_details,

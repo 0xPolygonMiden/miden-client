@@ -26,5 +26,25 @@ cargo install --features "testing, concurrent" miden-cli
 
 These actions can also be executed when inside the repository via the Makefile with `make build` or `make install`.
 
+### Using the CLI
+
+To have a fully-functional client CLI, you would need to set it up first. You can accomplish that with:
+
+```shell
+miden init
+```
+
+This would generate the `miden-client.toml` file, which contains useful information for the client like RPC provider's URL and database path.
+
+After this, your client should be set and ready to use. Get the available commands with:
+
+```shell
+miden
+# or
+miden --help
+```
+
+The first time that you sync your client (`miden sync`) a new file will be generated based on the configurations set on `miden-client.toml`. This file is the database of the client.
+
 ## License
 This project is [MIT licensed](../../LICENSE).

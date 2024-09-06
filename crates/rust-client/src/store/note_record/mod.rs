@@ -1,3 +1,33 @@
+//! This module defines common structs to be used within the [Store](crate::store::Store) for notes
+//! that are available to be consumed ([InputNoteRecord]) and notes that have been produced as a
+//! result of executing a transaction ([OutputNoteRecord]).
+//!
+//! # Features
+//!
+//! ## Serialization / Deserialization
+//!
+//! We provide serialization and deserialization support via [Serializable] and [Deserializable]
+//! traits implementations, and also via [Serialize] and [Deserialize] from `serde`, to provide the
+//! ability to serialize most fields into JSON. This is useful for example if you want to store
+//! some fields as JSON columns like we do in
+//! [SqliteStore](crate::store::sqlite_store::SqliteStore). For example, suppose we want to store
+//! [InputNoteRecord]'s metadata field in a JSON column. In that case, we could do something like:
+//!
+//! ```ignore
+//! fn insert_metadata_into_some_table(db: &mut Database, note: InputNoteRecord) {
+//!     let note_metadata_json = serde_json::to_string(note.metadata()).unwrap();
+//!
+//!     db.execute("INSERT INTO notes_metadata (note_id, note_metadata) VALUES (?, ?)",
+//!     note.id().to_hex(), note_metadata_json).unwrap()
+//! }
+//! ```
+//!
+//! ## Type conversion
+//!
+//! We also facilitate converting from/into [InputNote](miden_objects::transaction::InputNote) /
+//! [Note](miden_objects::notes::Note), although this is not always possible. Check both
+//! [InputNoteRecord]'s and [OutputNoteRecord]'s documentation for more details about this.
+
 use alloc::{
     string::{String, ToString},
     vec::Vec,
@@ -20,36 +50,6 @@ mod output_note_record;
 pub use input_note_record::InputNoteRecord;
 pub use output_note_record::OutputNoteRecord;
 
-/// This module defines common structs to be used within the [Store](crate::store::Store) for notes
-/// that are available to be consumed ([InputNoteRecord]) and notes that have been produced as a
-/// result of executing a transaction ([OutputNoteRecord]).
-///
-/// # Features
-///
-/// ## Serialization / Deserialization
-///
-/// We provide serialization and deserialization support via [Serializable] and [Deserializable]
-/// traits implementations, and also via [Serialize] and [Deserialize] from `serde`, to provide the
-/// ability to serialize most fields into JSON. This is useful for example if you want to store
-/// some fields as JSON columns like we do in
-/// [SqliteStore](crate::store::sqlite_store::SqliteStore). For example, suppose we want to store
-/// [InputNoteRecord]'s metadata field in a JSON column. In that case, we could do something like:
-///
-/// ```ignore
-/// fn insert_metadata_into_some_table(db: &mut Database, note: InputNoteRecord) {
-///     let note_metadata_json = serde_json::to_string(note.metadata()).unwrap();
-///
-///     db.execute("INSERT INTO notes_metadata (note_id, note_metadata) VALUES (?, ?)",
-///     note.id().to_hex(), note_metadata_json).unwrap()
-/// }
-/// ```
-///
-/// ## Type conversion
-///
-/// We also facilitate converting from/into [InputNote](miden_objects::transaction::InputNote) /
-/// [Note](miden_objects::notes::Note), although this is not always possible. Check both
-/// [InputNoteRecord]'s and [OutputNoteRecord]'s documentation for more details about this.
-
 // NOTE STATUS
 // ================================================================================================
 pub const NOTE_STATUS_EXPECTED: &str = "Expected";
@@ -57,6 +57,7 @@ pub const NOTE_STATUS_COMMITTED: &str = "Committed";
 pub const NOTE_STATUS_CONSUMED: &str = "Consumed";
 pub const NOTE_STATUS_PROCESSING: &str = "Processing";
 
+/// Possible status for a single note. They describe the note's state and dictate its lifecycle.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum NoteStatus {
     /// Note is expected to be committed on chain.
@@ -68,7 +69,7 @@ pub enum NoteStatus {
         /// known, this field will be `None`.
         block_height: Option<u32>,
     },
-    /// Note has been committed on chain.
+    /// Note has been committed on chain, and can be consumed in a transaction.
     Committed {
         /// Block height at which the note was committed.
         block_height: u32,
@@ -188,6 +189,7 @@ fn default_script() -> NoteScript {
 
 // NOTE: NoteInputs does not impl Serialize which is why we use Vec<Felt> here
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+
 pub struct NoteRecordDetails {
     nullifier: String,
     script_hash: Digest,
