@@ -88,7 +88,6 @@ integration-test-web-client: ## Run integration tests for the web client
 integration-test-full: ## Run the integration test binary with ignored tests included
 	cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI)
 	cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) --run-ignored ignored-only -- test_import_genesis_accounts_can_be_used_for_transactions
-	$(MAKE) integration-test-web-client
 
 .PHONY: kill-node
 kill-node: ## Kill node process

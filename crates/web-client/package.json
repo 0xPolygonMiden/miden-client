@@ -20,6 +20,7 @@
   "scripts": {
     "build": "rimraf dist && rollup -c rollup.config.js && cpr js/types dist && rimraf dist/wasm*",
     "test": "node --loader ts-node/esm --loader esm ./node_modules/mocha/bin/mocha --file ./test/mocha.global.setup.mjs",
+    "test:logs": "DEBUG_MODE=true node --loader ts-node/esm --loader esm ./node_modules/mocha/bin/mocha --file ./test/mocha.global.setup.mjs",
     "test:clean": "npm install && npm run build && node --loader ts-node/esm --loader esm ./node_modules/mocha/bin/mocha --file ./test/mocha.global.setup.mjs"
   },
   "devDependencies": {

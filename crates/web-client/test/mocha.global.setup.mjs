@@ -2,6 +2,7 @@ import puppeteer from "puppeteer";
 import { exec } from "child_process";
 
 import { register } from "ts-node";
+import { env } from "process";
 
 register({
   project: "./tsconfig.json",
@@ -24,8 +25,9 @@ before(async () => {
   testingPage = await browser.newPage();
   await testingPage.goto(TEST_SERVER);
 
-  // Uncomment below to enable console logging
-  // testingPage.on("console", (msg) => console.log("PAGE LOG:", msg.text()));
+  if (env.DEBUG_MODE) {
+    testingPage.on("console", (msg) => console.log("PAGE LOG:", msg.text()));
+  }
 
   // Creates the client in the test context and attach to window object
   await testingPage.exposeFunction("create_client", async () => {

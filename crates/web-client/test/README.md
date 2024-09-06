@@ -4,6 +4,12 @@ The .wasm must be run within the context of a webpage. To this end, we've set up
 test suite which hosts the .wasm on a local server and then executes WebClient commands
 within the context of the web page.
 
+## Prerequisites 
+
+1. [Node](https://nodejs.org/en/download/package-manager)
+  - Node Version >= v20.16.0
+1. These instructions utilize [yarn](https://classic.yarnpkg.com/lang/en/docs/install) but can also be executed with npm
+
 ## Running tests
 
 1. Install dependencies via `yarn`
@@ -13,6 +19,7 @@ within the context of the web page.
    - Can alternatively run `yarn test:clean` to run the .wasm build process prior to testing. We provide both paths as the build process can take some time.
 
 1. For running an individual test by name run `yarn test -g <test-name>`
+1. To enable logging from the client to the terminal, run `yarn test:logs` 
 
 ## Writing tests
 

@@ -29,13 +29,28 @@ jobs:
       - uses: actions/checkout@main
       - name: Install Rust
         run: rustup update --no-self-update
-      - name: Install Node.js
-        uses: actions/setup-node@v3
       - uses: taiki-e/install-action@nextest
       - run: make clean-node
       - run: make node
       - run: make start-node > /dev/null &
       - run: make integration-test-full
+      - name: Kill miden-node
+        if: always()
+        run: make kill-node
+
+  integration_tests_web_client:
+    name: integration_tests_web_client
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - name: Install Rust
+        run: rustup update --no-self-update
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+      - run: make clean-node
+      - run: make node
+      - run: make start-node > /dev/null &
+      - run: make integration-test-web-client
       - name: Kill miden-node
         if: always()
         run: make kill-node
