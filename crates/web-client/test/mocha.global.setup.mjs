@@ -44,10 +44,24 @@ before(async () => {
 
 after(async () => {
   console.log("Stopping test server...");
+
+  console.log("Closing browser...");
   await browser.close();
-  await serverProcess.kill("SIGTERM");
+  console.log("Killing server process...");
+
+  if (serverProcess && !serverProcess.killed) {
+    await serverProcess.kill("SIGTERM");
+  }
 
   await new Promise((resolve, reject) => {
+    if (serverProcess.exitCode !== null) {
+      // Process has already exited, resolve immediately
+      console.log(
+        `Server process had already exited with code ${serverProcess.exitCode}`
+      );
+      return resolve();
+    }
+
     serverProcess.on("close", (code) => {
       console.log(`Server process exited with code ${code}`);
       resolve();
@@ -58,6 +72,7 @@ after(async () => {
       reject(error);
     });
   });
+
   console.log("Test server stopped.");
 });
 
