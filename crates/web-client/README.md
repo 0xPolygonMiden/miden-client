@@ -306,21 +306,21 @@ import_account(account_bytes: any): Promise<string>;
 import_note(note_bytes: string, verify: boolean): Promise<any>;
 
 /**
- * @param {string} storage_type
+ * @param {string} storage_mode
  * @param {boolean} mutable
  * @returns {Promise<any>}
  */
-new_wallet(storage_type: string, mutable: boolean): Promise<any>;
+new_wallet(storage_mode: string, mutable: boolean): Promise<any>;
 
 /**
- * @param {string} storage_type
+ * @param {string} storage_mode
  * @param {boolean} non_fungible
  * @param {string} token_symbol
  * @param {string} decimals
  * @param {string} max_supply
  * @returns {Promise<any>}
  */
-new_faucet(storage_type: string, non_fungible: boolean, token_symbol: string, decimals: string, max_supply: string): Promise<any>;
+new_faucet(storage_mode: string, non_fungible: boolean, token_symbol: string, decimals: string, max_supply: string): Promise<any>;
 
 /**
  * @param {string} target_account_id

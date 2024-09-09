@@ -557,7 +557,7 @@ async fn test_import_expected_notes() {
     let (client_2_account, _seed) = client_2
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: true,
-            storage_type: AccountStorageMode::Private,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
 
@@ -642,7 +642,7 @@ async fn test_import_expected_note_uncommitted() {
     let (client_2_account, _seed) = client_2
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: true,
-            storage_type: AccountStorageMode::Private,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
 
@@ -684,7 +684,7 @@ async fn test_import_expected_notes_from_the_past_as_committed() {
     let (_client_2_account, _seed) = client_2
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: true,
-            storage_type: AccountStorageMode::Private,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
 
@@ -735,7 +735,7 @@ async fn test_get_account_update() {
     let (basic_wallet_2, _) = client
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_type: AccountStorageMode::Public,
+            storage_mode: AccountStorageMode::Public,
         })
         .unwrap();
 
@@ -778,7 +778,7 @@ async fn test_sync_detail_values() {
     let (second_regular_account, _) = client2
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_type: AccountStorageMode::Private,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
 
@@ -965,7 +965,7 @@ async fn test_import_ignored_notes() {
     let (client_2_account, _seed) = client_2
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: true,
-            storage_type: AccountStorageMode::Private,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
 
@@ -1031,7 +1031,7 @@ async fn test_update_ignored_tag() {
     let (client_2_account, _seed) = client_2
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: true,
-            storage_type: AccountStorageMode::Private,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
 
@@ -1097,7 +1097,7 @@ async fn test_consume_multiple_expected_notes() {
     let (target_basic_account_2, _) = unauth_client
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_type: AccountStorageMode::Private,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
     unauth_client.sync_state().await.unwrap();
@@ -1185,7 +1185,7 @@ async fn test_import_consumed_note_with_proof() {
     let (client_2_account, _seed) = client_2
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: true,
-            storage_type: AccountStorageMode::Private,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
 

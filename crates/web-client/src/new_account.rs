@@ -10,13 +10,13 @@ use crate::WebClient;
 impl WebClient {
     pub async fn new_wallet(
         &mut self,
-        storage_type: String,
+        storage_mode: String,
         mutable: bool,
     ) -> Result<JsValue, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let client_template = AccountTemplate::BasicWallet {
                 mutable_code: mutable,
-                storage_type: AccountStorageMode::try_from(storage_type.as_str())
+                storage_mode: AccountStorageMode::try_from(storage_mode.as_str())
                     .map_err(|_| JsValue::from_str("Invalid storage mode"))?,
             };
 
@@ -35,7 +35,7 @@ impl WebClient {
 
     pub async fn new_faucet(
         &mut self,
-        storage_type: String,
+        storage_mode: String,
         non_fungible: bool,
         token_symbol: String,
         decimals: String,
@@ -53,7 +53,7 @@ impl WebClient {
                 max_supply: max_supply
                     .parse::<u64>()
                     .map_err(|e| JsValue::from_str(&e.to_string()))?,
-                storage_type: AccountStorageMode::from_str(&storage_type)
+                storage_mode: AccountStorageMode::from_str(&storage_mode)
                     .map_err(|_| JsValue::from_str("Invalid storage mode"))?,
             };
 

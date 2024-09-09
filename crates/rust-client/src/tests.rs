@@ -93,7 +93,7 @@ async fn insert_basic_account() {
 
     let account_template = AccountTemplate::BasicWallet {
         mutable_code: true,
-        storage_type: AccountStorageMode::Private,
+        storage_mode: AccountStorageMode::Private,
     };
 
     // Insert Account
@@ -127,7 +127,7 @@ async fn insert_faucet_account() {
         token_symbol: TokenSymbol::new("TEST").unwrap(),
         decimals: 10,
         max_supply: 9999999999,
-        storage_type: AccountStorageMode::Private,
+        storage_mode: AccountStorageMode::Private,
     };
 
     // Insert Account

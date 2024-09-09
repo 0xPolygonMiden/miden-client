@@ -28,7 +28,7 @@ async fn test_onchain_notes_flow() {
             token_symbol: TokenSymbol::new("MATIC").unwrap(),
             decimals: 8,
             max_supply: 1_000_000_000,
-            storage_type: AccountStorageMode::Private,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
 
@@ -36,7 +36,7 @@ async fn test_onchain_notes_flow() {
     let (basic_wallet_1, _) = client_2
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_type: AccountStorageMode::Private,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
 
@@ -44,7 +44,7 @@ async fn test_onchain_notes_flow() {
     let (basic_wallet_2, _) = client_3
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_type: AccountStorageMode::Private,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
     client_1.sync_state().await.unwrap();
@@ -281,7 +281,7 @@ async fn test_onchain_notes_sync_with_tag() {
             token_symbol: TokenSymbol::new("MATIC").unwrap(),
             decimals: 8,
             max_supply: 1_000_000_000,
-            storage_type: AccountStorageMode::Private,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
 
