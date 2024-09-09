@@ -11,8 +11,8 @@ use crypto::merkle::{InOrderIndex, MmrPeaks};
 use miden_objects::{
     accounts::{Account, AccountHeader, AccountId},
     crypto::{self, rand::FeltRng},
-    notes::{Note, NoteId, NoteInclusionProof, NoteInputs, NoteRecipient, NoteTag, Nullifier},
-    transaction::{InputNote, TransactionId},
+    notes::{Note, NoteId, NoteInclusionProof, NoteRecipient, NoteTag, Nullifier},
+    transaction::InputNote,
     BlockHeader, Digest,
 };
 use miden_tx::auth::TransactionAuthenticator;
@@ -427,7 +427,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     committed_note.merkle_path().clone(),
                 )?;
 
-                let note_inputs = NoteInputs::new(note_record.details().inputs().clone())?;
+                let note_inputs = note_record.details().inputs().clone();
                 let note_recipient = NoteRecipient::new(
                     note_record.details().serial_num(),
                     note_record.details().script().clone(),

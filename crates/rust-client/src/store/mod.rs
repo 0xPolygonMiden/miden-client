@@ -37,7 +37,9 @@ pub mod sqlite_store;
 pub mod web_store;
 
 mod note_record;
-pub use note_record::{InputNoteRecord, NoteRecordDetails, NoteStatus, OutputNoteRecord};
+pub use note_record::{
+    InputNoteRecord, NoteRecordDetails, NoteState, NoteStatus, OutputNoteRecord,
+};
 
 // STORE TRAIT
 // ================================================================================================
@@ -103,7 +105,7 @@ pub trait Store {
         let nullifiers = maybe_await!(self.get_input_notes(NoteFilter::Committed))?
             .iter()
             .chain(maybe_await!(self.get_input_notes(NoteFilter::Processing))?.iter())
-            .map(|input_note| Ok(Nullifier::from(Digest::try_from(input_note.nullifier())?)))
+            .map(|input_note| Ok(input_note.nullifier()))
             .collect::<Result<Vec<_>, _>>();
 
         nullifiers

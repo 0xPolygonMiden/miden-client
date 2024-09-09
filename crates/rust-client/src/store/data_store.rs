@@ -15,7 +15,7 @@ use miden_objects::{
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
 use winter_maybe_async::{maybe_async, maybe_await};
 
-use super::{ChainMmrNodeFilter, InputNoteRecord, NoteFilter, NoteStatus, Store};
+use super::{ChainMmrNodeFilter, InputNoteRecord, NoteFilter, NoteState, Store};
 use crate::{store::StoreError, ClientError};
 
 // DATA STORE
@@ -50,7 +50,9 @@ impl<S: Store> DataStore for ClientDataStore<S> {
         // First validate that all notes were found and can be consumed
         for note_id in notes {
             if let Some(note_record) = input_note_records.get(note_id) {
-                if let NoteStatus::Consumed { .. } = note_record.status() {
+                if let NoteState::NativeConsumed { .. } | NoteState::ForeignConsumed { .. } =
+                    note_record.state()
+                {
                     return Err(DataStoreError::NoteAlreadyConsumed(*note_id));
                 }
             } else {

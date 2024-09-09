@@ -376,10 +376,9 @@ fn note_summary(
     );
 
     let status = input_note_record
-        .map(|record| record.status())
-        .or(output_note_record.map(|record| record.status()))
-        .expect("One of the two records should be Some")
-        .to_string();
+        .map(|record| record.state().to_string())
+        .or(output_note_record.map(|record| record.status().to_string()))
+        .expect("One of the two records should be Some");
 
     let note_metadata = input_note_record
         .map(|record| record.metadata())
