@@ -9,7 +9,7 @@ use miden_client::{
     ClientError,
 };
 use miden_objects::{
-    accounts::{AccountId, AccountStorageType},
+    accounts::{AccountId, AccountStorageMode},
     assets::{Asset, FungibleAsset},
     notes::{NoteFile, NoteTag, NoteType},
 };
@@ -26,11 +26,11 @@ async fn test_added_notes() {
     let mut client = create_test_client();
     wait_for_node(&mut client).await;
 
-    let (_, _, faucet_account_stub) = setup(&mut client, AccountStorageType::OffChain).await;
+    let (_, _, faucet_account_header) = setup(&mut client, AccountStorageMode::Private).await;
 
     // Mint some asset for an account not tracked by the client. It should not be stored as an
     // input note afterwards since it is not being tracked by the client
-    let fungible_asset = FungibleAsset::new(faucet_account_stub.id(), MINT_AMOUNT).unwrap();
+    let fungible_asset = FungibleAsset::new(faucet_account_header.id(), MINT_AMOUNT).unwrap();
     let tx_request = TransactionRequest::mint_fungible_asset(
         fungible_asset,
         AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap(),
@@ -39,7 +39,7 @@ async fn test_added_notes() {
     )
     .unwrap();
     println!("Running Mint tx...");
-    execute_tx_and_sync(&mut client, faucet_account_stub.id(), tx_request).await;
+    execute_tx_and_sync(&mut client, faucet_account_header.id(), tx_request).await;
 
     // Check that no new notes were added
     println!("Fetching Committed Notes...");
@@ -52,12 +52,12 @@ async fn test_multiple_tx_on_same_block() {
     let mut client = create_test_client();
     wait_for_node(&mut client).await;
 
-    let (first_regular_account, second_regular_account, faucet_account_stub) =
-        setup(&mut client, AccountStorageType::OffChain).await;
+    let (first_regular_account, second_regular_account, faucet_account_header) =
+        setup(&mut client, AccountStorageMode::Private).await;
 
     let from_account_id = first_regular_account.id();
     let to_account_id = second_regular_account.id();
-    let faucet_account_id = faucet_account_stub.id();
+    let faucet_account_id = faucet_account_header.id();
 
     // First Mint necesary token
     let note = mint_note(&mut client, from_account_id, faucet_account_id, NoteType::Private).await;
@@ -138,12 +138,12 @@ async fn test_p2id_transfer() {
     let mut client = create_test_client();
     wait_for_node(&mut client).await;
 
-    let (first_regular_account, second_regular_account, faucet_account_stub) =
-        setup(&mut client, AccountStorageType::OffChain).await;
+    let (first_regular_account, second_regular_account, faucet_account_header) =
+        setup(&mut client, AccountStorageMode::Private).await;
 
     let from_account_id = first_regular_account.id();
     let to_account_id = second_regular_account.id();
-    let faucet_account_id = faucet_account_stub.id();
+    let faucet_account_id = faucet_account_header.id();
 
     // First Mint necesary token
     let note = mint_note(&mut client, from_account_id, faucet_account_id, NoteType::Private).await;
@@ -208,12 +208,12 @@ async fn test_p2id_transfer_failing_not_enough_balance() {
     let mut client = create_test_client();
     wait_for_node(&mut client).await;
 
-    let (first_regular_account, second_regular_account, faucet_account_stub) =
-        setup(&mut client, AccountStorageType::OffChain).await;
+    let (first_regular_account, second_regular_account, faucet_account_header) =
+        setup(&mut client, AccountStorageMode::Private).await;
 
     let from_account_id = first_regular_account.id();
     let to_account_id = second_regular_account.id();
-    let faucet_account_id = faucet_account_stub.id();
+    let faucet_account_id = faucet_account_header.id();
 
     // First Mint necesary token
     let note = mint_note(&mut client, from_account_id, faucet_account_id, NoteType::Private).await;
@@ -247,12 +247,12 @@ async fn test_p2idr_transfer_consumed_by_target() {
     let mut client = create_test_client();
     wait_for_node(&mut client).await;
 
-    let (first_regular_account, second_regular_account, faucet_account_stub) =
-        setup(&mut client, AccountStorageType::OffChain).await;
+    let (first_regular_account, second_regular_account, faucet_account_header) =
+        setup(&mut client, AccountStorageMode::Private).await;
 
     let from_account_id = first_regular_account.id();
     let to_account_id = second_regular_account.id();
-    let faucet_account_id = faucet_account_stub.id();
+    let faucet_account_id = faucet_account_header.id();
 
     // First Mint necesary token
     let note = mint_note(&mut client, from_account_id, faucet_account_id, NoteType::Private).await;
@@ -350,12 +350,12 @@ async fn test_p2idr_transfer_consumed_by_sender() {
     let mut client = create_test_client();
     wait_for_node(&mut client).await;
 
-    let (first_regular_account, second_regular_account, faucet_account_stub) =
-        setup(&mut client, AccountStorageType::OffChain).await;
+    let (first_regular_account, second_regular_account, faucet_account_header) =
+        setup(&mut client, AccountStorageMode::Private).await;
 
     let from_account_id = first_regular_account.id();
     let to_account_id = second_regular_account.id();
-    let faucet_account_id = faucet_account_stub.id();
+    let faucet_account_id = faucet_account_header.id();
 
     // First Mint necesary token
     let note = mint_note(&mut client, from_account_id, faucet_account_id, NoteType::Private).await;
@@ -438,12 +438,12 @@ async fn test_p2idr_transfer_consumed_by_sender() {
 async fn test_get_consumable_notes() {
     let mut client = create_test_client();
 
-    let (first_regular_account, second_regular_account, faucet_account_stub) =
-        setup(&mut client, AccountStorageType::OffChain).await;
+    let (first_regular_account, second_regular_account, faucet_account_header) =
+        setup(&mut client, AccountStorageMode::Private).await;
 
     let from_account_id = first_regular_account.id();
     let to_account_id = second_regular_account.id();
-    let faucet_account_id = faucet_account_stub.id();
+    let faucet_account_id = faucet_account_header.id();
 
     //No consumable notes initially
     assert!(client.get_consumable_notes(None).unwrap().is_empty());
@@ -502,11 +502,11 @@ async fn test_get_consumable_notes() {
 async fn test_get_output_notes() {
     let mut client = create_test_client();
 
-    let (first_regular_account, _, faucet_account_stub) =
-        setup(&mut client, AccountStorageType::OffChain).await;
+    let (first_regular_account, _, faucet_account_header) =
+        setup(&mut client, AccountStorageMode::Private).await;
 
     let from_account_id = first_regular_account.id();
-    let faucet_account_id = faucet_account_stub.id();
+    let faucet_account_id = faucet_account_header.id();
     let random_account_id = AccountId::from_hex("0x0123456789abcdef").unwrap();
 
     // No output notes initially
@@ -551,13 +551,13 @@ async fn test_get_output_notes() {
 async fn test_import_expected_notes() {
     let mut client_1 = create_test_client();
     let (first_basic_account, _second_basic_account, faucet_account) =
-        setup(&mut client_1, AccountStorageType::OffChain).await;
+        setup(&mut client_1, AccountStorageMode::Private).await;
 
     let mut client_2 = create_test_client();
     let (client_2_account, _seed) = client_2
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: true,
-            storage_type: AccountStorageType::OffChain,
+            storage_type: AccountStorageMode::Private,
         })
         .unwrap();
 
@@ -636,13 +636,13 @@ async fn test_import_expected_notes() {
 async fn test_import_expected_note_uncommitted() {
     let mut client_1 = create_test_client();
     let (_, _second_basic_account, faucet_account) =
-        setup(&mut client_1, AccountStorageType::OffChain).await;
+        setup(&mut client_1, AccountStorageMode::Private).await;
 
     let mut client_2 = create_test_client();
     let (client_2_account, _seed) = client_2
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: true,
-            storage_type: AccountStorageType::OffChain,
+            storage_type: AccountStorageMode::Private,
         })
         .unwrap();
 
@@ -678,13 +678,13 @@ async fn test_import_expected_note_uncommitted() {
 async fn test_import_expected_notes_from_the_past_as_committed() {
     let mut client_1 = create_test_client();
     let (first_basic_account, _second_basic_account, faucet_account) =
-        setup(&mut client_1, AccountStorageType::OffChain).await;
+        setup(&mut client_1, AccountStorageMode::Private).await;
 
     let mut client_2 = create_test_client();
     let (_client_2_account, _seed) = client_2
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: true,
-            storage_type: AccountStorageType::OffChain,
+            storage_type: AccountStorageMode::Private,
         })
         .unwrap();
 
@@ -730,13 +730,12 @@ async fn test_get_account_update() {
     // Create a client with both public and private accounts.
     let mut client = create_test_client();
 
-    let (basic_wallet_1, _, faucet_account) =
-        setup(&mut client, AccountStorageType::OffChain).await;
+    let (basic_wallet_1, _, faucet_account) = setup(&mut client, AccountStorageMode::Private).await;
 
     let (basic_wallet_2, _) = client
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_type: AccountStorageType::OnChain,
+            storage_type: AccountStorageMode::Public,
         })
         .unwrap();
 
@@ -773,19 +772,19 @@ async fn test_sync_detail_values() {
     wait_for_node(&mut client1).await;
     wait_for_node(&mut client2).await;
 
-    let (first_regular_account, _, faucet_account_stub) =
-        setup(&mut client1, AccountStorageType::OffChain).await;
+    let (first_regular_account, _, faucet_account_header) =
+        setup(&mut client1, AccountStorageMode::Private).await;
 
     let (second_regular_account, _) = client2
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_type: AccountStorageType::OffChain,
+            storage_type: AccountStorageMode::Private,
         })
         .unwrap();
 
     let from_account_id = first_regular_account.id();
     let to_account_id = second_regular_account.id();
-    let faucet_account_id = faucet_account_stub.id();
+    let faucet_account_id = faucet_account_header.id();
 
     // First Mint necesary token
     let note = mint_note(&mut client1, from_account_id, faucet_account_id, NoteType::Private).await;
@@ -833,11 +832,11 @@ async fn test_sync_detail_values() {
 async fn test_multiple_transactions_can_be_committed_in_different_blocks_without_sync() {
     let mut client = create_test_client();
 
-    let (first_regular_account, _second_regular_account, faucet_account_stub) =
-        setup(&mut client, AccountStorageType::OffChain).await;
+    let (first_regular_account, _second_regular_account, faucet_account_header) =
+        setup(&mut client, AccountStorageMode::Private).await;
 
     let from_account_id = first_regular_account.id();
-    let faucet_account_id = faucet_account_stub.id();
+    let faucet_account_id = faucet_account_header.id();
 
     // Mint first note
     let (first_note_id, first_note_tx_id) = {
@@ -960,13 +959,13 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
 async fn test_import_ignored_notes() {
     let mut client_1 = create_test_client();
     let (_first_basic_account, _second_basic_account, faucet_account) =
-        setup(&mut client_1, AccountStorageType::OffChain).await;
+        setup(&mut client_1, AccountStorageMode::Private).await;
 
     let mut client_2 = create_test_client();
     let (client_2_account, _seed) = client_2
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: true,
-            storage_type: AccountStorageType::OffChain,
+            storage_type: AccountStorageMode::Private,
         })
         .unwrap();
 
@@ -1026,13 +1025,13 @@ async fn test_import_ignored_notes() {
 async fn test_update_ignored_tag() {
     let mut client_1 = create_test_client();
     let (_first_basic_account, _second_basic_account, faucet_account) =
-        setup(&mut client_1, AccountStorageType::OffChain).await;
+        setup(&mut client_1, AccountStorageMode::Private).await;
 
     let mut client_2 = create_test_client();
     let (client_2_account, _seed) = client_2
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: true,
-            storage_type: AccountStorageType::OffChain,
+            storage_type: AccountStorageMode::Private,
         })
         .unwrap();
 
@@ -1093,17 +1092,17 @@ async fn test_consume_multiple_expected_notes() {
     wait_for_node(&mut client).await;
 
     // Setup accounts
-    let (target_basic_account_1, _, faucet_account_stub) =
-        setup(&mut client, AccountStorageType::OffChain).await;
+    let (target_basic_account_1, _, faucet_account_header) =
+        setup(&mut client, AccountStorageMode::Private).await;
     let (target_basic_account_2, _) = unauth_client
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_type: AccountStorageType::OffChain,
+            storage_type: AccountStorageMode::Private,
         })
         .unwrap();
     unauth_client.sync_state().await.unwrap();
 
-    let faucet_account_id = faucet_account_stub.id();
+    let faucet_account_id = faucet_account_header.id();
     let to_account_ids = [target_basic_account_1.id(), target_basic_account_2.id()];
 
     // Mint tokens to the accounts
@@ -1179,14 +1178,14 @@ async fn test_consume_multiple_expected_notes() {
 #[tokio::test]
 async fn test_import_consumed_note_with_proof() {
     let mut client_1 = create_test_client();
-    let (first_regular_account, _, faucet_account_stub) =
-        setup(&mut client_1, AccountStorageType::OffChain).await;
+    let (first_regular_account, _, faucet_account_header) =
+        setup(&mut client_1, AccountStorageMode::Private).await;
 
     let mut client_2 = create_test_client();
     let (client_2_account, _seed) = client_2
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: true,
-            storage_type: AccountStorageType::OffChain,
+            storage_type: AccountStorageMode::Private,
         })
         .unwrap();
 
@@ -1194,7 +1193,7 @@ async fn test_import_consumed_note_with_proof() {
 
     let from_account_id = first_regular_account.id();
     let to_account_id = client_2_account.id();
-    let faucet_account_id = faucet_account_stub.id();
+    let faucet_account_id = faucet_account_header.id();
 
     let note =
         mint_note(&mut client_1, from_account_id, faucet_account_id, NoteType::Private).await;
@@ -1242,8 +1241,8 @@ async fn test_import_consumed_note_with_proof() {
 #[tokio::test]
 async fn test_import_consumed_note_with_id() {
     let mut client_1 = create_test_client();
-    let (first_regular_account, second_regular_account, faucet_account_stub) =
-        setup(&mut client_1, AccountStorageType::OffChain).await;
+    let (first_regular_account, second_regular_account, faucet_account_header) =
+        setup(&mut client_1, AccountStorageMode::Private).await;
 
     let mut client_2 = create_test_client();
 
@@ -1251,7 +1250,7 @@ async fn test_import_consumed_note_with_id() {
 
     let from_account_id = first_regular_account.id();
     let to_account_id = second_regular_account.id();
-    let faucet_account_id = faucet_account_stub.id();
+    let faucet_account_id = faucet_account_header.id();
 
     let note =
         mint_note(&mut client_1, from_account_id, faucet_account_id, NoteType::Private).await;

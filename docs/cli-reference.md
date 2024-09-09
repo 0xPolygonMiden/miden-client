@@ -81,7 +81,7 @@ For the `--default` flag, if `<ID>` is "none" then the previous default account 
 Creates a new wallet account.
 
 This command has two optional flags:
-- `--storage-type <TYPE>`: Used to select the storage type of the account (off-chain if not specified). It may receive "off-chain" or "on-chain".
+- `--storage-type <TYPE>`: Used to select the storage type of the account (private if not specified). It may receive "private" or "public".
 - `--mutable`: Makes the account code mutable (it's immutable by default).
 
 After creating an account with the `new-wallet` command, it is automatically stored and tracked by the client. This means the client can execute transactions that modify the state of accounts and track related changes by synchronizing with the Miden node.
@@ -91,7 +91,7 @@ After creating an account with the `new-wallet` command, it is automatically sto
 Creates a new faucet account.
 
 This command has two optional flags:
-- `--storage-type <type>`: Used to select the storage type of the account (off-chain if not specified). It may receive "off-chain" or "on-chain".
+- `--storage-type <type>`: Used to select the storage type of the account (private if not specified). It may receive "private" or "public".
 - `--non-fungible`: Makes the faucet asset non-fungible (it's fungible by default).
 
 After creating an account with the `new-faucet` command, it is automatically stored and tracked by the client. This means the client can execute transactions that modify the state of accounts and track related changes by synchronizing with the Miden node.

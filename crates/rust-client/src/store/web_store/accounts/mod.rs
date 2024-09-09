@@ -4,7 +4,7 @@ use alloc::{
 };
 
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub, AuthSecretKey},
+    accounts::{Account, AccountCode, AccountHeader, AccountId, AccountStorage, AuthSecretKey},
     assets::{Asset, AssetVault},
     Digest, Word,
 };
@@ -38,69 +38,73 @@ impl WebStore {
         Ok(native_account_ids)
     }
 
-    pub(super) async fn get_account_stubs(
+    pub(super) async fn get_account_headers(
         &self,
-    ) -> Result<Vec<(AccountStub, Option<Word>)>, StoreError> {
-        let promise = idxdb_get_account_stubs();
+    ) -> Result<Vec<(AccountHeader, Option<Word>)>, StoreError> {
+        let promise = idxdb_get_account_headers();
         let js_value = JsFuture::from(promise).await.unwrap();
-        let account_stubs_idxdb: Vec<AccountRecordIdxdbOjbect> = from_value(js_value).unwrap();
+        let account_headers_idxdb: Vec<AccountRecordIdxdbOjbect> = from_value(js_value).unwrap();
 
-        let account_stubs: Result<Vec<(AccountStub, Option<Word>)>, StoreError> =
-            account_stubs_idxdb.into_iter().map(parse_account_record_idxdb_object).collect(); // Collect results into a single Result
+        let account_headers: Result<Vec<(AccountHeader, Option<Word>)>, StoreError> =
+            account_headers_idxdb
+                .into_iter()
+                .map(parse_account_record_idxdb_object)
+                .collect(); // Collect results into a single Result
 
-        account_stubs
+        account_headers
     }
 
-    pub(crate) async fn get_account_stub(
+    pub(crate) async fn get_account_header(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountStub, Option<Word>), StoreError> {
+    ) -> Result<(AccountHeader, Option<Word>), StoreError> {
         let account_id_str = account_id.to_string();
 
-        let promise = idxdb_get_account_stub(account_id_str);
+        let promise = idxdb_get_account_header(account_id_str);
         let js_value = JsFuture::from(promise).await.unwrap();
-        let account_stub_idxdb: AccountRecordIdxdbOjbect = from_value(js_value).unwrap();
+        let account_header_idxdb: AccountRecordIdxdbOjbect = from_value(js_value).unwrap();
 
-        parse_account_record_idxdb_object(account_stub_idxdb)
+        parse_account_record_idxdb_object(account_header_idxdb)
     }
 
-    pub(crate) async fn get_account_stub_by_hash(
+    pub(crate) async fn get_account_header_by_hash(
         &self,
         account_hash: Digest,
-    ) -> Result<Option<AccountStub>, StoreError> {
+    ) -> Result<Option<AccountHeader>, StoreError> {
         let account_hash_str = account_hash.to_string();
 
-        let promise = idxdb_get_account_stub_by_hash(account_hash_str);
+        let promise = idxdb_get_account_header_by_hash(account_hash_str);
         let js_value = JsFuture::from(promise).await.unwrap();
-        let account_stub_idxdb: Option<AccountRecordIdxdbOjbect> = from_value(js_value).unwrap();
+        let account_header_idxdb: Option<AccountRecordIdxdbOjbect> = from_value(js_value).unwrap();
 
-        let account_stub: Result<Option<AccountStub>, StoreError> =
-            account_stub_idxdb.map_or(Ok(None), |account_record| {
+        let account_header: Result<Option<AccountHeader>, StoreError> = account_header_idxdb
+            .map_or(Ok(None), |account_record| {
                 let result = parse_account_record_idxdb_object(account_record);
 
-                result.map(|(account_stub, _account_seed)| Some(account_stub))
+                result.map(|(account_header, _account_seed)| Some(account_header))
             });
 
-        account_stub
+        account_header
     }
 
     pub(crate) async fn get_account(
         &self,
         account_id: AccountId,
     ) -> Result<(Account, Option<Word>), StoreError> {
-        let (account_stub, seed) = self.get_account_stub(account_id).await.unwrap();
-        let account_code = self.get_account_code(account_stub.code_commitment()).await.unwrap();
+        let (account_header, seed) = self.get_account_header(account_id).await.unwrap();
+        let account_code = self.get_account_code(account_header.code_commitment()).await.unwrap();
 
-        let account_storage = self.get_account_storage(account_stub.storage_root()).await.unwrap();
-        let account_vault = self.get_vault_assets(account_stub.vault_root()).await.unwrap();
+        let account_storage =
+            self.get_account_storage(account_header.storage_root()).await.unwrap();
+        let account_vault = self.get_vault_assets(account_header.vault_root()).await.unwrap();
         let account_vault = AssetVault::new(&account_vault).unwrap();
 
         let account = Account::from_parts(
-            account_stub.id(),
+            account_header.id(),
             account_vault,
             account_storage,
             account_code,
-            account_stub.nonce(),
+            account_header.nonce(),
         );
 
         Ok((account, seed))
