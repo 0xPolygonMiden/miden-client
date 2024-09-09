@@ -16,7 +16,7 @@ use miden_objects::{
     transaction::{InputNotes, TransactionArgs},
     AssetError, Digest, Felt, NoteError, Word,
 };
-use miden_tx::{auth::TransactionAuthenticator, ProvingOptions, TransactionProver};
+use miden_tx::{auth::TransactionAuthenticator, TransactionProver};
 use script_builder::{AccountCapabilities, AccountInterface, TransactionScriptBuilder};
 use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
@@ -188,7 +188,9 @@ impl fmt::Display for TransactionStatus {
     }
 }
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator, P: TransactionProver>
+    Client<N, R, S, A, P>
+{
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
@@ -314,20 +316,19 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         &mut self,
         tx_result: TransactionResult,
     ) -> Result<(), ClientError> {
-        let proven_transaction = self.prove_transaction(&tx_result)?;
+        let proven_transaction = maybe_await!(self.prove_transaction(&tx_result))?;
         self.submit_proven_transaction(proven_transaction).await?;
         maybe_await!(self.apply_transaction(tx_result))
     }
 
+    #[maybe_async]
     fn prove_transaction(
         &mut self,
         tx_result: &TransactionResult,
     ) -> Result<ProvenTransaction, ClientError> {
-        let transaction_prover = TransactionProver::new(ProvingOptions::default());
-
         info!("Proving transaction...");
         let proven_transaction =
-            transaction_prover.prove_transaction(tx_result.executed_transaction().clone())?;
+            maybe_await!(self.transaction_prover.prove(tx_result.executed_transaction().clone()))?;
         info!("Transaction proven.");
 
         Ok(proven_transaction)
@@ -541,12 +542,15 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 // ================================================================================================
 
 #[cfg(feature = "testing")]
-impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator, P: TransactionProver>
+    Client<N, R, S, A, P>
+{
+    #[maybe_async]
     pub fn testing_prove_transaction(
         &mut self,
         tx_result: &TransactionResult,
     ) -> Result<ProvenTransaction, ClientError> {
-        self.prove_transaction(tx_result)
+        maybe_await!(self.prove_transaction(tx_result))
     }
 
     pub async fn testing_submit_proven_transaction(
