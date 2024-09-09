@@ -34,7 +34,7 @@ async fn test_swap_fully_onchain() {
     let (account_a, _) = client1
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_type: AccountStorageMode::Private,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
 
@@ -42,7 +42,7 @@ async fn test_swap_fully_onchain() {
     let (account_b, _) = client2
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_type: AccountStorageMode::Private,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
 
@@ -52,7 +52,7 @@ async fn test_swap_fully_onchain() {
             token_symbol: TokenSymbol::new("BTC").unwrap(),
             decimals: 8,
             max_supply: 1_000_000,
-            storage_type: AccountStorageMode::Private,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
     // Create client with faucets ETH faucet (note: it's not real ETH)
@@ -61,7 +61,7 @@ async fn test_swap_fully_onchain() {
             token_symbol: TokenSymbol::new("ETH").unwrap(),
             decimals: 8,
             max_supply: 1_000_000,
-            storage_type: AccountStorageMode::Private,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
 
@@ -241,7 +241,7 @@ async fn test_swap_offchain() {
     let (account_a, _) = client1
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_type: AccountStorageMode::Private,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
 
@@ -249,7 +249,7 @@ async fn test_swap_offchain() {
     let (account_b, _) = client2
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_type: AccountStorageMode::Private,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
 
@@ -259,7 +259,7 @@ async fn test_swap_offchain() {
             token_symbol: TokenSymbol::new("BTC").unwrap(),
             decimals: 8,
             max_supply: 1_000_000,
-            storage_type: AccountStorageMode::Private,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
     // Create client with faucets ETH faucet (note: it's not real ETH)
@@ -268,7 +268,7 @@ async fn test_swap_offchain() {
             token_symbol: TokenSymbol::new("ETH").unwrap(),
             decimals: 8,
             max_supply: 1_000_000,
-            storage_type: AccountStorageMode::Private,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
 

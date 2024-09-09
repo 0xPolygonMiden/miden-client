@@ -31,7 +31,7 @@ pub enum AccountTemplate {
         mutable_code: bool,
         /// Specifies the type of storage used by the account. This is defined by the
         /// `AccountStorageMode` enum.
-        storage_type: AccountStorageMode,
+        storage_mode: AccountStorageMode,
     },
 
     /// The `FungibleFaucet` variant represents an account designed to issue fungible tokens.
@@ -43,7 +43,7 @@ pub enum AccountTemplate {
         /// The maximum supply of tokens that the faucet can issue.
         max_supply: u64,
         /// Specifies the type of storage used by the account.
-        storage_type: AccountStorageMode,
+        storage_mode: AccountStorageMode,
     },
 }
 
@@ -58,14 +58,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         template: AccountTemplate,
     ) -> Result<(Account, Word), ClientError> {
         let account_and_seed = match template {
-            AccountTemplate::BasicWallet { mutable_code, storage_type: storage_mode } => {
+            AccountTemplate::BasicWallet { mutable_code, storage_mode } => {
                 maybe_await!(self.new_basic_wallet(mutable_code, storage_mode))
             },
             AccountTemplate::FungibleFaucet {
                 token_symbol,
                 decimals,
                 max_supply,
-                storage_type: storage_mode,
+                storage_mode,
             } => maybe_await!(self.new_fungible_faucet(
                 token_symbol,
                 decimals,
@@ -114,7 +114,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     fn new_basic_wallet(
         &mut self,
         mutable_code: bool,
-        account_storage_type: AccountStorageMode,
+        account_storage_mode: AccountStorageMode,
     ) -> Result<(Account, Word), ClientError> {
         let key_pair = SecretKey::with_rng(&mut self.rng);
 
@@ -129,14 +129,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 init_seed,
                 auth_scheme,
                 AccountType::RegularAccountImmutableCode,
-                account_storage_type,
+                account_storage_mode,
             )
         } else {
             miden_lib::accounts::wallets::create_basic_wallet(
                 init_seed,
                 auth_scheme,
                 AccountType::RegularAccountUpdatableCode,
-                account_storage_type,
+                account_storage_mode,
             )
         }?;
 
@@ -154,7 +154,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         token_symbol: TokenSymbol,
         decimals: u8,
         max_supply: u64,
-        account_storage_type: AccountStorageMode,
+        account_storage_mode: AccountStorageMode,
     ) -> Result<(Account, Word), ClientError> {
         let key_pair = SecretKey::with_rng(&mut self.rng);
 
@@ -170,7 +170,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             decimals,
             Felt::try_from(max_supply.to_le_bytes().as_slice())
                 .expect("u64 can be safely converted to a field element"),
-            account_storage_type,
+            account_storage_mode,
             auth_scheme,
         )?;
 

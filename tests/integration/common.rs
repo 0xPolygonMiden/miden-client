@@ -215,7 +215,7 @@ pub async fn setup(
             token_symbol: TokenSymbol::new("MATIC").unwrap(),
             decimals: 8,
             max_supply: 1_000_000_000,
-            storage_type: accounts_storage_mode,
+            storage_mode: accounts_storage_mode,
         })
         .unwrap();
 
@@ -223,14 +223,14 @@ pub async fn setup(
     let (first_basic_account, _) = client
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_type: AccountStorageMode::Private,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
 
     let (second_basic_account, _) = client
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_type: AccountStorageMode::Private,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
 

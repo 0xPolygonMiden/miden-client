@@ -103,7 +103,7 @@ fn test_mint_with_untracked_account() {
         let mut client = create_test_client_with_store_path(&other_store_path);
         let account_template = AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_type: AccountStorageMode::Private,
+            storage_mode: AccountStorageMode::Private,
         };
         let (account, _seed) = client.new_account(account_template).unwrap();
 

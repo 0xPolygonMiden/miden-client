@@ -18,7 +18,7 @@ use crate::{
 pub struct NewFaucetCmd {
     #[clap(short, long, default_value_t = AccountStorageMode::Private)]
     /// Storage type of the account
-    storage_type: AccountStorageMode,
+    storage_mode: AccountStorageMode,
     #[clap(short, long)]
     /// Defines if the account assets are non-fungible (by default it is fungible)
     non_fungible: bool,
@@ -56,7 +56,7 @@ impl NewFaucetCmd {
                 .map_err(|err| format!("error: token symbol is invalid: {}", err))?,
             decimals,
             max_supply: self.max_supply.expect("max supply must be provided"),
-            storage_type: self.storage_type,
+            storage_mode: self.storage_mode,
         };
 
         let (new_account, _account_seed) = client.new_account(client_template)?;
@@ -75,7 +75,7 @@ impl NewFaucetCmd {
 pub struct NewWalletCmd {
     #[clap(short, long, default_value_t = AccountStorageMode::Private)]
     /// Storage type of the account
-    pub storage_type: AccountStorageMode,
+    pub storage_mode: AccountStorageMode,
     #[clap(short, long)]
     /// Defines if the account code is mutable (by default it is not mutable)
     pub mutable: bool,
@@ -88,7 +88,7 @@ impl NewWalletCmd {
     ) -> Result<(), String> {
         let client_template = AccountTemplate::BasicWallet {
             mutable_code: self.mutable,
-            storage_type: self.storage_type,
+            storage_mode: self.storage_mode,
         };
 
         let (new_account, _account_seed) = client.new_account(client_template)?;
