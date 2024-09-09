@@ -9,7 +9,7 @@ use miden_lib::{transaction::TransactionKernel, AuthScheme};
 use miden_objects::{
     accounts::{
         account_id::testing::ACCOUNT_ID_OFF_CHAIN_SENDER, get_account_seed_single, Account,
-        AccountCode, AccountId, AccountStorage, AccountStorageType, AccountType, AuthSecretKey,
+        AccountCode, AccountId, AccountStorage, AccountStorageMode, AccountType, AuthSecretKey,
         SlotItem, StorageSlot,
     },
     assembly::Assembler,
@@ -441,7 +441,7 @@ pub async fn insert_mock_data(client: &mut MockClient) -> Vec<BlockHeader> {
     let account_seed = get_account_seed_single(
         init_seed,
         account.account_type(),
-        miden_objects::accounts::AccountStorageType::OffChain,
+        miden_objects::accounts::AccountStorageMode::Private,
         account.code().commitment(),
         account.storage().root(),
     )
@@ -515,7 +515,7 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
         init_seed,
         auth_scheme,
         AccountType::RegularAccountImmutableCode,
-        AccountStorageType::OffChain,
+        AccountStorageMode::Private,
     )
     .unwrap();
 
@@ -535,7 +535,7 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
         init_seed,
         auth_scheme,
         AccountType::RegularAccountImmutableCode,
-        AccountStorageType::OffChain,
+        AccountStorageMode::Private,
     )
     .unwrap();
 
@@ -558,7 +558,7 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
         miden_objects::assets::TokenSymbol::new("MOCK").unwrap(),
         4u8,
         Felt::try_from(max_supply.as_slice()).unwrap(),
-        AccountStorageType::OffChain,
+        AccountStorageMode::Private,
         auth_scheme,
     )
     .unwrap();
@@ -594,7 +594,7 @@ pub fn mock_fungible_faucet_account(
         10u8,
         Felt::try_from(initial_balance.to_le_bytes().as_slice())
             .expect("u64 can be safely converted to a field element"),
-        AccountStorageType::OffChain,
+        AccountStorageMode::Private,
         auth_scheme,
     )
     .unwrap();

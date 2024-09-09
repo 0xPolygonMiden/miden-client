@@ -9,7 +9,7 @@ use core::cmp::max;
 
 use crypto::merkle::{InOrderIndex, MmrPeaks};
 use miden_objects::{
-    accounts::{Account, AccountId, AccountStub},
+    accounts::{Account, AccountHeader, AccountId},
     crypto::{self, rand::FeltRng},
     notes::{Note, NoteId, NoteInclusionProof, NoteInputs, NoteRecipient, NoteTag, Nullifier},
     transaction::InputNote,
@@ -286,9 +286,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     async fn sync_state_once(&mut self) -> Result<SyncStatus, ClientError> {
         let current_block_num = maybe_await!(self.store.get_sync_height())?;
 
-        let accounts: Vec<AccountStub> = maybe_await!(self.store.get_account_stubs())?
+        let accounts: Vec<AccountHeader> = maybe_await!(self.store.get_account_headers())?
             .into_iter()
-            .map(|(acc_stub, _)| acc_stub)
+            .map(|(acc_header, _)| acc_header)
             .collect();
 
         let note_tags: Vec<NoteTag> = maybe_await!(self.get_tracked_note_tags())?;
@@ -322,7 +322,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             self.check_block_relevance(&new_note_details).await?;
 
         let (onchain_accounts, offchain_accounts): (Vec<_>, Vec<_>) =
-            accounts.into_iter().partition(|account_stub| account_stub.id().is_on_chain());
+            accounts.into_iter().partition(|account_header| account_header.id().is_public());
 
         let updated_onchain_accounts = self
             .get_updated_onchain_accounts(&response.account_hash_updates, &onchain_accounts)
@@ -555,7 +555,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     async fn get_updated_onchain_accounts(
         &mut self,
         account_updates: &[(AccountId, Digest)],
-        current_onchain_accounts: &[AccountStub],
+        current_onchain_accounts: &[AccountHeader],
     ) -> Result<Vec<Account>, ClientError> {
         let mut accounts_to_update: Vec<Account> = Vec::new();
         for (remote_account_id, remote_account_hash) in account_updates {
@@ -565,7 +565,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 .find(|acc| *remote_account_id == acc.id() && *remote_account_hash != acc.hash());
 
             if let Some(tracked_account) = current_account {
-                info!("On-chain account hash difference detected for account with ID: {}. Fetching node for updates...", tracked_account.id());
+                info!("Public account hash difference detected for account with ID: {}. Fetching node for updates...", tracked_account.id());
                 let account_details = self.rpc_api.get_account_update(tracked_account.id()).await?;
                 if let AccountDetails::Public(account, _) = account_details {
                     // We should only do the update if it's newer, otherwise we ignore it
@@ -588,7 +588,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     fn validate_local_account_hashes(
         &mut self,
         account_updates: &[(AccountId, Digest)],
-        current_offchain_accounts: &[AccountStub],
+        current_offchain_accounts: &[AccountHeader],
     ) -> Result<(), ClientError> {
         for (remote_account_id, remote_account_hash) in account_updates {
             // ensure that if we track that account, it has the same hash
@@ -600,7 +600,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             // update we ignore it.
             if mismatched_accounts.is_some() {
                 let account_by_hash =
-                    maybe_await!(self.store.get_account_stub_by_hash(*remote_account_hash))?;
+                    maybe_await!(self.store.get_account_header_by_hash(*remote_account_hash))?;
 
                 if account_by_hash.is_none() {
                     return Err(StoreError::AccountHashMismatch(*remote_account_id).into());

@@ -23,7 +23,7 @@ export async function getAccountIds() {
     }
 }
 
-export async function getAllAccountStubs() {
+export async function getAllAccountHeaders() {
     try {        
         // Use a Map to track the latest record for each id based on nonce
         const latestRecordsMap = new Map();
@@ -59,12 +59,12 @@ export async function getAllAccountStubs() {
 
         return resultObject;
     } catch (error) {
-        console.error('Error fetching all latest account stubs:', error);
+        console.error('Error fetching all latest account headers:', error);
         throw error;
     }
 }
 
-export async function getAccountStub(
+export async function getAccountHeader(
     accountId
 ) {
     try {
@@ -97,7 +97,7 @@ export async function getAccountStub(
             let accountSeedArray = new Uint8Array(accountSeedArrayBuffer);
             accountSeedBase64 = uint8ArrayToBase64(accountSeedArray);
         }
-        const accountStub = {
+        const AccountHeader = {
             id: mostRecentRecord.id,
             nonce: mostRecentRecord.nonce,
             vault_root: mostRecentRecord.vaultRoot,
@@ -105,14 +105,14 @@ export async function getAccountStub(
             code_root: mostRecentRecord.codeRoot,
             account_seed: accountSeedBase64
         }
-        return accountStub;
+        return AccountHeader;
       } catch (error) {
         console.error('Error fetching most recent account record:', error);
         throw error; // Re-throw the error for further handling
       }
 }
 
-export async function getAccountStubByHash(
+export async function getAccountHeaderByHash(
     accountHash
 ) {
     try {
@@ -137,7 +137,7 @@ export async function getAccountStubByHash(
             let accountSeedArray = new Uint8Array(accountSeedArrayBuffer);
             accountSeedBase64 = uint8ArrayToBase64(accountSeedArray);
         }
-        const accountStub = {
+        const AccountHeader = {
             id: matchingRecord.id,
             nonce: matchingRecord.nonce,
             vault_root: matchingRecord.vaultRoot,
@@ -145,7 +145,7 @@ export async function getAccountStubByHash(
             code_root: matchingRecord.codeRoot,
             account_seed: accountSeedBase64
         }
-        return accountStub;
+        return AccountHeader;
       } catch (error) {
         console.error('Error fetching most recent account record:', error);
         throw error; // Re-throw the error for further handling

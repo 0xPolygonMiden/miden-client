@@ -22,7 +22,7 @@ use miden_client::{
 use miden_objects::{
     accounts::{
         account_id::testing::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN, Account,
-        AccountId, AccountStorageType,
+        AccountId, AccountStorageMode,
     },
     assets::{Asset, FungibleAsset, TokenSymbol},
     crypto::rand::RpoRandomCoin,
@@ -202,10 +202,10 @@ pub const TRANSFER_AMOUNT: u64 = 59;
 /// Sets up a basic client and returns (basic_account, basic_account, faucet_account)
 pub async fn setup(
     client: &mut TestClient,
-    accounts_storage_mode: AccountStorageType,
+    accounts_storage_mode: AccountStorageMode,
 ) -> (Account, Account, Account) {
     // Enusre clean state
-    assert!(client.get_account_stubs().unwrap().is_empty());
+    assert!(client.get_account_headers().unwrap().is_empty());
     assert!(client.get_transactions(TransactionFilter::All).unwrap().is_empty());
     assert!(client.get_input_notes(NoteFilter::All).unwrap().is_empty());
 
@@ -223,14 +223,14 @@ pub async fn setup(
     let (first_basic_account, _) = client
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_type: AccountStorageType::OffChain,
+            storage_type: AccountStorageMode::Private,
         })
         .unwrap();
 
     let (second_basic_account, _) = client
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_type: AccountStorageType::OffChain,
+            storage_type: AccountStorageMode::Private,
         })
         .unwrap();
 

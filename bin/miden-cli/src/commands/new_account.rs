@@ -1,6 +1,6 @@
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use miden_client::{
-    accounts::{AccountStorageType, AccountTemplate},
+    accounts::{AccountStorageMode, AccountTemplate},
     assets::TokenSymbol,
     auth::TransactionAuthenticator,
     crypto::FeltRng,
@@ -16,7 +16,7 @@ use crate::{
 #[derive(Debug, Parser, Clone)]
 /// Create a new faucet account
 pub struct NewFaucetCmd {
-    #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
+    #[clap(short, long, default_value_t = AccountStorageMode::Private)]
     /// Storage type of the account
     storage_type: AccountStorageMode,
     #[clap(short, long)]
@@ -56,7 +56,7 @@ impl NewFaucetCmd {
                 .map_err(|err| format!("error: token symbol is invalid: {}", err))?,
             decimals,
             max_supply: self.max_supply.expect("max supply must be provided"),
-            storage_type: self.storage_type.into(),
+            storage_type: self.storage_type,
         };
 
         let (new_account, _account_seed) = client.new_account(client_template)?;
@@ -73,7 +73,7 @@ impl NewFaucetCmd {
 #[derive(Debug, Parser, Clone)]
 /// Create a new wallet account
 pub struct NewWalletCmd {
-    #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
+    #[clap(short, long, default_value_t = AccountStorageMode::Private)]
     /// Storage type of the account
     pub storage_type: AccountStorageMode,
     #[clap(short, long)]
@@ -88,7 +88,7 @@ impl NewWalletCmd {
     ) -> Result<(), String> {
         let client_template = AccountTemplate::BasicWallet {
             mutable_code: self.mutable,
-            storage_type: self.storage_type.into(),
+            storage_type: self.storage_type,
         };
 
         let (new_account, _account_seed) = client.new_account(client_template)?;
@@ -102,26 +102,5 @@ impl NewWalletCmd {
         maybe_set_default_account(&mut current_config, new_account.id())?;
 
         Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Copy, ValueEnum)]
-pub enum AccountStorageMode {
-    OffChain,
-    OnChain,
-}
-
-impl From<AccountStorageMode> for AccountStorageType {
-    fn from(value: AccountStorageMode) -> Self {
-        match value {
-            AccountStorageMode::OffChain => AccountStorageType::OffChain,
-            AccountStorageMode::OnChain => AccountStorageType::OnChain,
-        }
-    }
-}
-
-impl From<&AccountStorageMode> for AccountStorageType {
-    fn from(value: &AccountStorageMode) -> Self {
-        AccountStorageType::from(*value)
     }
 }

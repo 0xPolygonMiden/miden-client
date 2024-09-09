@@ -247,7 +247,7 @@ const notes = await webClient.get_input_notes("All")
 
 ```typescript
 /**
- * @returns {Promise<SerializedAccountStub>}
+ * @returns {Promise<SerializedAccountHeader>}
  * 
  * Example of returned object:
  * {
@@ -258,7 +258,7 @@ const notes = await webClient.get_input_notes("All")
  *   code_root: string
  * }
  */
-get_accounts(): Promise<SerializedAccountStub>;
+get_accounts(): Promise<SerializedAccountHeader>;
 
 /**
  * @param {string} account_id

@@ -1,6 +1,6 @@
 export {
     WebClient,
     NewTransactionResult,
-    SerializedAccountStub,
+    SerializedAccountHeader,
     NewSwapTransactionResult
 } from "./crates/miden_client";

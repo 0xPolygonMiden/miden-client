@@ -1,12 +1,7 @@
 [workspace]
 resolver = "2"
 
-members = [
-  "bin/miden-cli",
-  "crates/rust-client",
-  "crates/web-client",
-  "tests"
-]
+members = ["bin/miden-cli", "crates/rust-client", "crates/web-client", "tests"]
 
 default-members = ["crates/rust-client", "bin/miden-cli"]
 
@@ -18,9 +13,9 @@ authors = ["miden contributors"]
 repository = "https://github.com/0xPolygonMiden/miden-client"
 
 [workspace.dependencies]
-miden-lib = { version = "0.5", default-features = false }
-miden-objects = { version = "0.5", default-features = false, features = ["serde"] }
-miden-tx = { version = "0.5", default-features = false }
+miden-lib = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next", default-features = false }
+miden-objects = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next", default-features = false, features = ["serde"]}
+miden-tx = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next", default-features = false }
 rand = { version = "0.8" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }

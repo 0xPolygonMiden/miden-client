@@ -8,7 +8,7 @@ use std::{
 
 use assert_cmd::Command;
 use miden_client::{
-    accounts::{Account, AccountId, AccountStorageType, AccountTemplate},
+    accounts::{Account, AccountId, AccountStorageMode, AccountTemplate},
     auth::StoreAuthenticator,
     config::RpcConfig,
     crypto::RpoRandomCoin,
@@ -103,7 +103,7 @@ fn test_mint_with_untracked_account() {
         let mut client = create_test_client_with_store_path(&other_store_path);
         let account_template = AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_type: AccountStorageType::OffChain,
+            storage_type: AccountStorageMode::Private,
         };
         let (account, _seed) = client.new_account(account_template).unwrap();
 
@@ -120,7 +120,7 @@ fn test_mint_with_untracked_account() {
     create_faucet_cmd.args([
         "new-faucet",
         "-s",
-        "off-chain",
+        "private",
         "-t",
         "BTC",
         "-d",
@@ -132,7 +132,7 @@ fn test_mint_with_untracked_account() {
 
     let fungible_faucet_account_id = {
         let client = create_test_client_with_store_path(&store_path);
-        let accounts = client.get_account_stubs().unwrap();
+        let accounts = client.get_account_headers().unwrap();
 
         accounts.first().unwrap().0.id().to_hex()
     };
@@ -201,7 +201,7 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
 
     let (first_basic_account_id, second_basic_account_id, fungible_faucet_account_id) = {
         let client = create_test_client_with_store_path(&store_path);
-        let accounts = client.get_account_stubs().unwrap();
+        let accounts = client.get_account_headers().unwrap();
 
         let account_ids = accounts.iter().map(|(acc, _seed)| acc.id()).collect::<Vec<_>>();
         let regular_accounts = account_ids.iter().filter(|id| !id.is_faucet()).collect::<Vec<_>>();
@@ -305,12 +305,12 @@ fn test_cli_export_import_note() {
 
     // Create wallet account
     let mut create_wallet_cmd = Command::cargo_bin("miden").unwrap();
-    create_wallet_cmd.args(["new-wallet", "-s", "off-chain"]);
+    create_wallet_cmd.args(["new-wallet", "-s", "private"]);
     create_wallet_cmd.current_dir(&temp_dir_2).assert().success();
 
     let first_basic_account_id = {
         let client = create_test_client_with_store_path(&store_path_2);
-        let accounts = client.get_account_stubs().unwrap();
+        let accounts = client.get_account_headers().unwrap();
 
         accounts.first().unwrap().0.id().to_hex()
     };
@@ -325,7 +325,7 @@ fn test_cli_export_import_note() {
     create_faucet_cmd.args([
         "new-faucet",
         "-s",
-        "off-chain",
+        "private",
         "-t",
         "BTC",
         "-d",
@@ -337,7 +337,7 @@ fn test_cli_export_import_note() {
 
     let fungible_faucet_account_id = {
         let client = create_test_client_with_store_path(&store_path_1);
-        let accounts = client.get_account_stubs().unwrap();
+        let accounts = client.get_account_headers().unwrap();
 
         accounts.first().unwrap().0.id().to_hex()
     };
@@ -412,12 +412,12 @@ fn test_cli_export_import_account() {
 
     // Create wallet account
     let mut create_wallet_cmd = Command::cargo_bin("miden").unwrap();
-    create_wallet_cmd.args(["new-wallet", "-s", "off-chain"]);
+    create_wallet_cmd.args(["new-wallet", "-s", "private"]);
     create_wallet_cmd.current_dir(&temp_dir_1).assert().success();
 
     let first_basic_account_id = {
         let client = create_test_client_with_store_path(&store_path_1);
-        let accounts = client.get_account_stubs().unwrap();
+        let accounts = client.get_account_headers().unwrap();
 
         accounts.first().unwrap().0.id().to_hex()
     };

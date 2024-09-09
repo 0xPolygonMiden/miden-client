@@ -6,7 +6,7 @@ use miden_client::{
     ZERO,
 };
 use miden_objects::{
-    accounts::{AccountId, AccountStorageType, AuthSecretKey},
+    accounts::{AccountId, AccountStorageMode, AuthSecretKey},
     assets::{FungibleAsset, TokenSymbol},
     crypto::{
         hash::rpo::Rpo256,
@@ -58,7 +58,7 @@ async fn test_transaction_request() {
 
     let account_template = AccountTemplate::BasicWallet {
         mutable_code: false,
-        storage_type: AccountStorageType::OffChain,
+        storage_type: AccountStorageMode::Private,
     };
 
     client.sync_state().await.unwrap();
@@ -69,7 +69,7 @@ async fn test_transaction_request() {
         token_symbol: TokenSymbol::new("TEST").unwrap(),
         decimals: 5u8,
         max_supply: 10_000u64,
-        storage_type: AccountStorageType::OffChain,
+        storage_type: AccountStorageMode::Private,
     };
     let (fungible_faucet, _seed) = client.new_account(account_template).unwrap();
 
@@ -169,7 +169,7 @@ async fn test_merkle_store() {
 
     let account_template = AccountTemplate::BasicWallet {
         mutable_code: false,
-        storage_type: AccountStorageType::OffChain,
+        storage_type: AccountStorageMode::Private,
     };
 
     client.sync_state().await.unwrap();
@@ -180,7 +180,7 @@ async fn test_merkle_store() {
         token_symbol: TokenSymbol::new("TEST").unwrap(),
         decimals: 5u8,
         max_supply: 10_000u64,
-        storage_type: AccountStorageType::OffChain,
+        storage_type: AccountStorageMode::Private,
     };
     let (fungible_faucet, _seed) = client.new_account(account_template).unwrap();
 
