@@ -1,17 +1,17 @@
 use miden_objects::accounts::AccountId;
 use wasm_bindgen::prelude::*;
 
-use crate::{models::accounts::SerializedAccountStub, WebClient};
+use crate::{models::accounts::SerializedAccountHeader, WebClient};
 
 #[wasm_bindgen]
 impl WebClient {
     pub async fn get_accounts(&mut self) -> Result<JsValue, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let account_tuples = client.get_account_stubs().await.unwrap();
-            let accounts: Vec<SerializedAccountStub> = account_tuples
+            let account_tuples = client.get_account_headers().await.unwrap();
+            let accounts: Vec<SerializedAccountHeader> = account_tuples
                 .into_iter()
                 .map(|(account, _)| {
-                    SerializedAccountStub::new(
+                    SerializedAccountHeader::new(
                         account.id().to_string(),
                         account.nonce().to_string(),
                         account.vault_root().to_string(),

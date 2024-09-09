@@ -89,7 +89,7 @@ pub mod testing {
 use alloc::rc::Rc;
 
 use miden_objects::crypto::rand::FeltRng;
-use miden_tx::{auth::TransactionAuthenticator, TransactionExecutor};
+use miden_tx::{auth::TransactionAuthenticator, TransactionExecutor, TransactionProver};
 use rpc::NodeRpcClient;
 use store::{data_store::ClientDataStore, Store};
 use tracing::info;
@@ -105,7 +105,13 @@ use tracing::info;
 /// - Connects to one or more Miden nodes to periodically sync with the current state of the
 ///   network.
 /// - Executes, proves, and submits transactions to the network as directed by the user.
-pub struct Client<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> {
+pub struct Client<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+    P: TransactionProver,
+> {
     /// The client's store, which provides a way to write and read entities to provide persistence.
     store: Rc<S>,
     /// An instance of [FeltRng] which provides randomness tools for generating new keys,
@@ -115,9 +121,13 @@ pub struct Client<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenti
     /// Miden node.
     rpc_api: N,
     tx_executor: TransactionExecutor<ClientDataStore<S>, A>,
+    /// An instance of [TransactionProver] which delegates proving.
+    transaction_prover: P,
 }
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator, P: TransactionProver>
+    Client<N, R, S, A, P>
+{
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
 
@@ -141,7 +151,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// # Errors
     ///
     /// Returns an error if the client could not be instantiated.
-    pub fn new(api: N, rng: R, store: Rc<S>, authenticator: A, in_debug_mode: bool) -> Self {
+    pub fn new(
+        api: N,
+        rng: R,
+        store: Rc<S>,
+        authenticator: A,
+        transaction_prover: P,
+        in_debug_mode: bool,
+    ) -> Self {
         if in_debug_mode {
             info!("Creating the Client in debug mode.");
         }
@@ -151,7 +168,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let tx_executor =
             TransactionExecutor::new(data_store, authenticator).with_debug_mode(in_debug_mode);
 
-        Self { store, rng, rpc_api: api, tx_executor }
+        Self {
+            store,
+            rng,
+            rpc_api: api,
+            transaction_prover,
+            tx_executor,
+        }
     }
 
     /// Returns a reference to the client's random number generator. This can be used to generate

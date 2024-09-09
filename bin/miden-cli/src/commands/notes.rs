@@ -8,7 +8,10 @@ use miden_client::{
     notes::{get_input_note_with_id_prefix, NoteConsumability, NoteInputs, NoteMetadata},
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
-    transactions::known_script_roots::{P2ID, P2IDR, SWAP},
+    transactions::{
+        known_script_roots::{P2ID, P2IDR, SWAP},
+        TransactionProver,
+    },
     Client, ClientError, IdPrefixFetchError,
 };
 
@@ -57,9 +60,15 @@ pub struct NotesCmd {
 }
 
 impl NotesCmd {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    pub async fn execute<
+        N: NodeRpcClient,
+        R: FeltRng,
+        S: Store,
+        A: TransactionAuthenticator,
+        P: TransactionProver,
+    >(
         &self,
-        client: Client<N, R, S, A>,
+        client: Client<N, R, S, A, P>,
     ) -> Result<(), String> {
         match self {
             NotesCmd { list: Some(NoteFilter::Consumable), .. } => {
@@ -97,8 +106,14 @@ struct CliNoteSummary {
 
 // LIST NOTES
 // ================================================================================================
-fn list_notes<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: Client<N, R, S, A>,
+fn list_notes<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+    P: TransactionProver,
+>(
+    client: Client<N, R, S, A, P>,
     filter: ClientNoteFilter,
 ) -> Result<(), String> {
     let input_notes = client
@@ -118,8 +133,14 @@ fn list_notes<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticato
 
 // SHOW NOTE
 // ================================================================================================
-fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: Client<N, R, S, A>,
+fn show_note<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+    P: TransactionProver,
+>(
+    client: Client<N, R, S, A, P>,
     note_id: String,
 ) -> Result<(), String> {
     let input_note_record = get_input_note_with_id_prefix(&client, &note_id);
@@ -258,8 +279,14 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator
 
 // LIST CONSUMABLE INPUT NOTES
 // ================================================================================================
-fn list_consumable_notes<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: Client<N, R, S, A>,
+fn list_consumable_notes<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+    P: TransactionProver,
+>(
+    client: Client<N, R, S, A, P>,
     account_id: &Option<String>,
 ) -> Result<(), String> {
     let account_id = match account_id {

@@ -1,11 +1,12 @@
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use miden_client::{
-    accounts::{AccountStorageType, AccountTemplate},
+    accounts::{AccountStorageMode, AccountTemplate},
     assets::TokenSymbol,
     auth::TransactionAuthenticator,
     crypto::FeltRng,
     rpc::NodeRpcClient,
     store::Store,
+    transactions::TransactionProver,
     Client,
 };
 
@@ -16,9 +17,9 @@ use crate::{
 #[derive(Debug, Parser, Clone)]
 /// Create a new faucet account
 pub struct NewFaucetCmd {
-    #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
+    #[clap(short, long, default_value_t = AccountStorageMode::Private)]
     /// Storage type of the account
-    storage_type: AccountStorageMode,
+    storage_mode: AccountStorageMode,
     #[clap(short, long)]
     /// Defines if the account assets are non-fungible (by default it is fungible)
     non_fungible: bool,
@@ -33,9 +34,15 @@ pub struct NewFaucetCmd {
 }
 
 impl NewFaucetCmd {
-    pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    pub fn execute<
+        N: NodeRpcClient,
+        R: FeltRng,
+        S: Store,
+        A: TransactionAuthenticator,
+        P: TransactionProver,
+    >(
         &self,
-        mut client: Client<N, R, S, A>,
+        mut client: Client<N, R, S, A, P>,
     ) -> Result<(), String> {
         if self.non_fungible {
             todo!("Non-fungible faucets are not supported yet");
@@ -56,7 +63,7 @@ impl NewFaucetCmd {
                 .map_err(|err| format!("error: token symbol is invalid: {}", err))?,
             decimals,
             max_supply: self.max_supply.expect("max supply must be provided"),
-            storage_type: self.storage_type.into(),
+            storage_mode: self.storage_mode,
         };
 
         let (new_account, _account_seed) = client.new_account(client_template)?;
@@ -73,22 +80,28 @@ impl NewFaucetCmd {
 #[derive(Debug, Parser, Clone)]
 /// Create a new wallet account
 pub struct NewWalletCmd {
-    #[clap(short, long, value_enum, default_value_t = AccountStorageMode::OffChain)]
+    #[clap(short, long, default_value_t = AccountStorageMode::Private)]
     /// Storage type of the account
-    pub storage_type: AccountStorageMode,
+    pub storage_mode: AccountStorageMode,
     #[clap(short, long)]
     /// Defines if the account code is mutable (by default it is not mutable)
     pub mutable: bool,
 }
 
 impl NewWalletCmd {
-    pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    pub fn execute<
+        N: NodeRpcClient,
+        R: FeltRng,
+        S: Store,
+        A: TransactionAuthenticator,
+        P: TransactionProver,
+    >(
         &self,
-        mut client: Client<N, R, S, A>,
+        mut client: Client<N, R, S, A, P>,
     ) -> Result<(), String> {
         let client_template = AccountTemplate::BasicWallet {
             mutable_code: self.mutable,
-            storage_type: self.storage_type.into(),
+            storage_mode: self.storage_mode,
         };
 
         let (new_account, _account_seed) = client.new_account(client_template)?;
@@ -102,26 +115,5 @@ impl NewWalletCmd {
         maybe_set_default_account(&mut current_config, new_account.id())?;
 
         Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Copy, ValueEnum)]
-pub enum AccountStorageMode {
-    OffChain,
-    OnChain,
-}
-
-impl From<AccountStorageMode> for AccountStorageType {
-    fn from(value: AccountStorageMode) -> Self {
-        match value {
-            AccountStorageMode::OffChain => AccountStorageType::OffChain,
-            AccountStorageMode::OnChain => AccountStorageType::OnChain,
-        }
-    }
-}
-
-impl From<&AccountStorageMode> for AccountStorageType {
-    fn from(value: &AccountStorageMode) -> Self {
-        AccountStorageType::from(*value)
     }
 }

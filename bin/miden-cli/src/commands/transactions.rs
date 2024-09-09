@@ -3,7 +3,7 @@ use miden_client::{
     crypto::FeltRng,
     rpc::NodeRpcClient,
     store::{Store, TransactionFilter},
-    transactions::TransactionRecord,
+    transactions::{TransactionProver, TransactionRecord},
     Client,
 };
 
@@ -18,9 +18,15 @@ pub struct TransactionCmd {
 }
 
 impl TransactionCmd {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    pub async fn execute<
+        N: NodeRpcClient,
+        R: FeltRng,
+        S: Store,
+        A: TransactionAuthenticator,
+        P: TransactionProver,
+    >(
         &self,
-        client: Client<N, R, S, A>,
+        client: Client<N, R, S, A, P>,
     ) -> Result<(), String> {
         list_transactions(client)?;
         Ok(())
@@ -29,8 +35,14 @@ impl TransactionCmd {
 
 // LIST TRANSACTIONS
 // ================================================================================================
-fn list_transactions<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: Client<N, R, S, A>,
+fn list_transactions<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+    P: TransactionProver,
+>(
+    client: Client<N, R, S, A, P>,
 ) -> Result<(), String> {
     let transactions = client.get_transactions(TransactionFilter::All)?;
     print_transactions_summary(&transactions);

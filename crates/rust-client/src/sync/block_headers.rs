@@ -5,7 +5,7 @@ use miden_objects::{
     crypto::{self, merkle::MerklePath, rand::FeltRng},
     BlockHeader, Digest,
 };
-use miden_tx::auth::TransactionAuthenticator;
+use miden_tx::{auth::TransactionAuthenticator, TransactionProver};
 use tracing::warn;
 use winter_maybe_async::{maybe_async, maybe_await};
 
@@ -17,7 +17,9 @@ use crate::{
     Client, ClientError,
 };
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator, P: TransactionProver>
+    Client<N, R, S, A, P>
+{
     /// Updates committed notes with no MMR data. These could be notes that were
     /// imported with an inclusion proof, but its block header is not tracked.
     pub(crate) async fn update_mmr_data(&mut self) -> Result<(), ClientError> {

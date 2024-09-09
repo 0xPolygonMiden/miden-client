@@ -48,7 +48,7 @@ let client: Client<TonicRpcClient, SqliteDataStore> = {
 
 ## Create local account
 
-With the Miden client, you can create and track any number of on-chain and local accounts. For local accounts, the state is tracked locally, and the rollup only keeps commitments to the data, which in turn guarantees privacy.
+With the Miden client, you can create and track any number of public and local accounts. For local accounts, the state is tracked locally, and the rollup only keeps commitments to the data, which in turn guarantees privacy.
 
 The `AccountTemplate` enum defines the type of account. The following code creates a new local account:
 
@@ -62,12 +62,12 @@ let (new_account, account_seed) = client.new_account(account_template)?;
 ```
 Once an account is created, it is kept locally and its state is automatically tracked by the client.
 
-To create an on-chain account, you can specify `AccountStorageMode::OnChain` like so:
+To create an public account, you can specify `AccountStorageMode::Public` like so:
 
 ```Rust
 let account_template = AccountTemplate::BasicWallet {
     mutable_code: false,
-    storage_mode: AccountStorageMode::OnChain,
+    storage_mode: AccountStorageMode::Public,
 };
 
 let (new_account, account_seed) = client.new_account(client_template)?;

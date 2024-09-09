@@ -11,14 +11,14 @@ extern "C" {
     #[wasm_bindgen(js_name = getAccountIds)]
     pub fn idxdb_get_account_ids() -> js_sys::Promise;
 
-    #[wasm_bindgen(js_name = getAllAccountStubs)]
-    pub fn idxdb_get_account_stubs() -> js_sys::Promise;
+    #[wasm_bindgen(js_name = getAllAccountHeaders)]
+    pub fn idxdb_get_account_headers() -> js_sys::Promise;
 
-    #[wasm_bindgen(js_name = getAccountStub)]
-    pub fn idxdb_get_account_stub(account_id: String) -> js_sys::Promise;
+    #[wasm_bindgen(js_name = getAccountHeader)]
+    pub fn idxdb_get_account_header(account_id: String) -> js_sys::Promise;
 
-    #[wasm_bindgen(js_name = getAccountStubByHash)]
-    pub fn idxdb_get_account_stub_by_hash(account_hash: String) -> js_sys::Promise;
+    #[wasm_bindgen(js_name = getAccountHeaderByHash)]
+    pub fn idxdb_get_account_header_by_hash(account_hash: String) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = getAccountCode)]
     pub fn idxdb_get_account_code(code_root: String) -> js_sys::Promise;

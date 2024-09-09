@@ -1,6 +1,7 @@
 use clap::Parser;
 use miden_client::{
-    auth::TransactionAuthenticator, crypto::FeltRng, rpc::NodeRpcClient, store::Store, Client,
+    auth::TransactionAuthenticator, crypto::FeltRng, rpc::NodeRpcClient, store::Store,
+    transactions::TransactionProver, Client,
 };
 
 #[derive(Debug, Parser, Clone)]
@@ -12,9 +13,15 @@ pub struct SyncCmd {
 }
 
 impl SyncCmd {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    pub async fn execute<
+        N: NodeRpcClient,
+        R: FeltRng,
+        S: Store,
+        A: TransactionAuthenticator,
+        P: TransactionProver,
+    >(
         &self,
-        mut client: Client<N, R, S, A>,
+        mut client: Client<N, R, S, A, P>,
     ) -> Result<(), String> {
         let mut new_details = client.sync_state().await?;
         if self.update_ignored {

@@ -7,6 +7,7 @@ use miden_client::{
     notes::NoteFile,
     rpc::NodeRpcClient,
     store::{NoteStatus, Store},
+    transactions::TransactionProver,
     utils::Serializable,
     Client,
 };
@@ -46,9 +47,15 @@ pub enum ExportType {
 }
 
 impl ExportCmd {
-    pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    pub fn execute<
+        N: NodeRpcClient,
+        R: FeltRng,
+        S: Store,
+        A: TransactionAuthenticator,
+        P: TransactionProver,
+    >(
         &self,
-        mut client: Client<N, R, S, A>,
+        mut client: Client<N, R, S, A, P>,
     ) -> Result<(), String> {
         if self.account {
             export_account(&client, self.id.as_str(), self.filename.clone())?;
@@ -67,8 +74,14 @@ impl ExportCmd {
 // EXPORT ACCOUNT
 // ================================================================================================
 
-fn export_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: &Client<N, R, S, A>,
+fn export_account<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+    P: TransactionProver,
+>(
+    client: &Client<N, R, S, A, P>,
     account_id: &str,
     filename: Option<PathBuf>,
 ) -> Result<File, String> {
@@ -98,8 +111,14 @@ fn export_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenti
 // EXPORT NOTE
 // ================================================================================================
 
-fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: &mut Client<N, R, S, A>,
+fn export_note<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+    P: TransactionProver,
+>(
+    client: &mut Client<N, R, S, A, P>,
     note_id: &str,
     filename: Option<PathBuf>,
     export_type: ExportType,

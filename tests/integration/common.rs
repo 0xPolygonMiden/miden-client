@@ -16,13 +16,15 @@ use miden_client::{
         NoteFilter, TransactionFilter,
     },
     sync::SyncSummary,
-    transactions::{DataStoreError, TransactionExecutorError, TransactionRequest},
+    transactions::{
+        DataStoreError, LocalTransactionProver, TransactionExecutorError, TransactionRequest,
+    },
     Client, ClientError,
 };
 use miden_objects::{
     accounts::{
         account_id::testing::ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN, Account,
-        AccountId, AccountStorageType,
+        AccountId, AccountStorageMode,
     },
     assets::{Asset, FungibleAsset, TokenSymbol},
     crypto::rand::RpoRandomCoin,
@@ -40,6 +42,7 @@ pub type TestClient = Client<
     RpoRandomCoin,
     SqliteStore,
     StoreAuthenticator<RpoRandomCoin, SqliteStore>,
+    LocalTransactionProver,
 >;
 
 pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./tests/config/miden-client-rpc.toml";
@@ -66,7 +69,17 @@ pub fn create_test_client() -> TestClient {
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
-    TestClient::new(TonicRpcClient::new(&rpc_config), rng, store, authenticator, true)
+
+    let transaction_prover = LocalTransactionProver::default();
+
+    TestClient::new(
+        TonicRpcClient::new(&rpc_config),
+        rng,
+        store,
+        authenticator,
+        transaction_prover,
+        true,
+    )
 }
 
 pub fn get_client_config() -> (RpcConfig, SqliteStoreConfig) {
@@ -202,10 +215,10 @@ pub const TRANSFER_AMOUNT: u64 = 59;
 /// Sets up a basic client and returns (basic_account, basic_account, faucet_account)
 pub async fn setup(
     client: &mut TestClient,
-    accounts_storage_mode: AccountStorageType,
+    accounts_storage_mode: AccountStorageMode,
 ) -> (Account, Account, Account) {
     // Enusre clean state
-    assert!(client.get_account_stubs().unwrap().is_empty());
+    assert!(client.get_account_headers().unwrap().is_empty());
     assert!(client.get_transactions(TransactionFilter::All).unwrap().is_empty());
     assert!(client.get_input_notes(NoteFilter::All).unwrap().is_empty());
 
@@ -215,7 +228,7 @@ pub async fn setup(
             token_symbol: TokenSymbol::new("MATIC").unwrap(),
             decimals: 8,
             max_supply: 1_000_000_000,
-            storage_type: accounts_storage_mode,
+            storage_mode: accounts_storage_mode,
         })
         .unwrap();
 
@@ -223,14 +236,14 @@ pub async fn setup(
     let (first_basic_account, _) = client
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_type: AccountStorageType::OffChain,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
 
     let (second_basic_account, _) = client
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_type: AccountStorageType::OffChain,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
 

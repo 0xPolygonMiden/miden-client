@@ -5,7 +5,7 @@ use alloc::{collections::BTreeMap, vec::Vec};
 use core::fmt::Debug;
 
 use miden_objects::{
-    accounts::{Account, AccountId, AccountStub, AuthSecretKey},
+    accounts::{Account, AccountHeader, AccountId, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::{NoteId, NoteInclusionProof, NoteMetadata, NoteTag, Nullifier},
     BlockHeader, Digest, Word,
@@ -234,14 +234,14 @@ pub trait Store {
     #[maybe_async]
     fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError>;
 
-    /// Returns a list of [AccountStub] of all accounts stored in the database along with the seeds
-    /// used to create them.
+    /// Returns a list of [AccountHeader] of all accounts stored in the database along with the
+    /// seeds used to create them.
     ///
     /// Said accounts' state is the state after the last performed sync.
     #[maybe_async]
-    fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, StoreError>;
+    fn get_account_headers(&self) -> Result<Vec<(AccountHeader, Option<Word>)>, StoreError>;
 
-    /// Retrieves an [AccountStub] object for the specified [AccountId] along with the seed
+    /// Retrieves an [AccountHeader] object for the specified [AccountId] along with the seed
     /// used to create it. The seed will be returned if the account is new, otherwise it
     /// will be `None`.
     ///
@@ -251,18 +251,18 @@ pub trait Store {
     ///
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
     #[maybe_async]
-    fn get_account_stub(
+    fn get_account_header(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountStub, Option<Word>), StoreError>;
+    ) -> Result<(AccountHeader, Option<Word>), StoreError>;
 
-    /// Returns an [AccountStub] corresponding to the stored account state that matches the given
+    /// Returns an [AccountHeader] corresponding to the stored account state that matches the given
     /// hash. If no account state matches the provided hash, `None` is returned.
     #[maybe_async]
-    fn get_account_stub_by_hash(
+    fn get_account_header_by_hash(
         &self,
         account_hash: Digest,
-    ) -> Result<Option<AccountStub>, StoreError>;
+    ) -> Result<Option<AccountHeader>, StoreError>;
 
     /// Retrieves a full [Account] object. The seed will be returned if the account is new,
     /// otherwise it will be `None`.

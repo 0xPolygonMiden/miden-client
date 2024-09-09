@@ -3,7 +3,7 @@ use core::cell::{RefCell, RefMut};
 use std::path::Path;
 
 use miden_objects::{
-    accounts::{Account, AccountId, AccountStub, AuthSecretKey},
+    accounts::{Account, AccountHeader, AccountId, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::{NoteTag, Nullifier},
     BlockHeader, Digest, Word,
@@ -239,24 +239,24 @@ impl Store for SqliteStore {
     }
 
     #[maybe_async]
-    fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, StoreError> {
-        self.get_account_stubs()
+    fn get_account_headers(&self) -> Result<Vec<(AccountHeader, Option<Word>)>, StoreError> {
+        self.get_account_headers()
     }
 
     #[maybe_async]
-    fn get_account_stub(
+    fn get_account_header(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountStub, Option<Word>), StoreError> {
-        self.get_account_stub(account_id)
+    ) -> Result<(AccountHeader, Option<Word>), StoreError> {
+        self.get_account_header(account_id)
     }
 
     #[maybe_async]
-    fn get_account_stub_by_hash(
+    fn get_account_header_by_hash(
         &self,
         account_hash: Digest,
-    ) -> Result<Option<AccountStub>, StoreError> {
-        self.get_account_stub_by_hash(account_hash)
+    ) -> Result<Option<AccountHeader>, StoreError> {
+        self.get_account_header_by_hash(account_hash)
     }
 
     #[maybe_async]

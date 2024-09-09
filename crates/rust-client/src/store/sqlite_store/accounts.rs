@@ -4,7 +4,7 @@ use alloc::{
 };
 
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub, AuthSecretKey},
+    accounts::{Account, AccountCode, AccountHeader, AccountId, AccountStorage, AuthSecretKey},
     assets::{Asset, AssetVault},
     Digest, Felt, Word,
 };
@@ -48,7 +48,9 @@ impl SqliteStore {
             .collect::<Result<Vec<AccountId>, StoreError>>()
     }
 
-    pub(super) fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, StoreError> {
+    pub(super) fn get_account_headers(
+        &self,
+    ) -> Result<Vec<(AccountHeader, Option<Word>)>, StoreError> {
         const QUERY: &str =
             "SELECT a.id, a.nonce, a.vault_root, a.storage_root, a.code_root, a.account_seed \
             FROM accounts a \
@@ -62,10 +64,10 @@ impl SqliteStore {
             .collect()
     }
 
-    pub(crate) fn get_account_stub(
+    pub(crate) fn get_account_header(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountStub, Option<Word>), StoreError> {
+    ) -> Result<(AccountHeader, Option<Word>), StoreError> {
         let account_id_int: u64 = account_id.into();
         const QUERY: &str = "SELECT id, nonce, vault_root, storage_root, code_root, account_seed \
             FROM accounts WHERE id = ? \
@@ -79,10 +81,10 @@ impl SqliteStore {
             .ok_or(StoreError::AccountDataNotFound(account_id))?
     }
 
-    pub(crate) fn get_account_stub_by_hash(
+    pub(crate) fn get_account_header_by_hash(
         &self,
         account_hash: Digest,
-    ) -> Result<Option<AccountStub>, StoreError> {
+    ) -> Result<Option<AccountHeader>, StoreError> {
         let account_hash_str: String = account_hash.to_string();
         const QUERY: &str = "SELECT id, nonce, vault_root, storage_root, code_root, account_seed \
             FROM accounts WHERE account_hash = ?";
@@ -265,12 +267,12 @@ pub(super) fn parse_accounts_columns(
 /// Parse an account from the provided parts.
 pub(super) fn parse_accounts(
     serialized_account_parts: SerializedAccountsParts,
-) -> Result<(AccountStub, Option<Word>), StoreError> {
+) -> Result<(AccountHeader, Option<Word>), StoreError> {
     let (id, nonce, vault_root, storage_root, code_root, account_seed) = serialized_account_parts;
     let account_seed = account_seed.map(|seed| Word::read_from_bytes(&seed)).transpose()?;
 
     Ok((
-        AccountStub::new(
+        AccountHeader::new(
             (id as u64)
                 .try_into()
                 .expect("Conversion from stored AccountID should not panic"),
@@ -316,7 +318,7 @@ fn serialize_account(account: &Account) -> Result<SerializedAccountData, StoreEr
     let storage_root = account.storage().root().to_string();
     let vault_root = serde_json::to_string(&account.vault().commitment())
         .map_err(StoreError::InputSerializationError)?;
-    let committed = account.is_on_chain();
+    let committed = account.is_public();
     let nonce = account.nonce().as_int() as i64;
     let hash = account.hash().to_string();
 

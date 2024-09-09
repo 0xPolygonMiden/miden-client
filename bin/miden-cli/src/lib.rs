@@ -3,11 +3,12 @@ use std::{env, rc::Rc};
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
-    accounts::AccountStub,
+    accounts::AccountHeader,
     auth::{StoreAuthenticator, TransactionAuthenticator},
     crypto::{FeltRng, RpoRandomCoin},
     rpc::{NodeRpcClient, TonicRpcClient},
     store::{sqlite_store::SqliteStore, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
+    transactions::{LocalTransactionProver, TransactionProver},
     Client, ClientError, Felt, IdPrefixFetchError,
 };
 use rand::Rng;
@@ -108,11 +109,14 @@ impl Cli {
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
         let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
 
+        let transaction_prover = LocalTransactionProver::default();
+
         let client = Client::new(
             TonicRpcClient::new(&cli_config.rpc),
             rng,
             store,
             authenticator,
+            transaction_prover,
             in_debug_mode,
         );
 
@@ -165,8 +169,9 @@ pub(crate) fn get_output_note_with_id_prefix<
     R: FeltRng,
     S: Store,
     A: TransactionAuthenticator,
+    P: TransactionProver,
 >(
-    client: &Client<N, R, S, A>,
+    client: &Client<N, R, S, A, P>,
     note_id_prefix: &str,
 ) -> Result<OutputNoteRecord, IdPrefixFetchError> {
     let mut output_note_records = client
@@ -217,12 +222,13 @@ fn get_account_with_id_prefix<
     R: FeltRng,
     S: Store,
     A: TransactionAuthenticator,
+    P: TransactionProver,
 >(
-    client: &Client<N, R, S, A>,
+    client: &Client<N, R, S, A, P>,
     account_id_prefix: &str,
-) -> Result<AccountStub, IdPrefixFetchError> {
+) -> Result<AccountHeader, IdPrefixFetchError> {
     let mut accounts = client
-        .get_account_stubs()
+        .get_account_headers()
         .map_err(|err| {
             tracing::error!("Error when fetching all accounts from the store: {err}");
             IdPrefixFetchError::NoMatch(
@@ -230,7 +236,7 @@ fn get_account_with_id_prefix<
             )
         })?
         .into_iter()
-        .filter(|(account_stub, _)| account_stub.id().to_hex().starts_with(account_id_prefix))
+        .filter(|(account_header, _)| account_header.id().to_hex().starts_with(account_id_prefix))
         .map(|(acc, _)| acc)
         .collect::<Vec<_>>();
 
@@ -240,7 +246,8 @@ fn get_account_with_id_prefix<
         ));
     }
     if accounts.len() > 1 {
-        let account_ids = accounts.iter().map(|account_stub| account_stub.id()).collect::<Vec<_>>();
+        let account_ids =
+            accounts.iter().map(|account_header| account_header.id()).collect::<Vec<_>>();
         tracing::error!(
             "Multiple accounts found for the prefix {}: {:?}",
             account_id_prefix,

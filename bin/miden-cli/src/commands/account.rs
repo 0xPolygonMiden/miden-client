@@ -6,6 +6,7 @@ use miden_client::{
     crypto::FeltRng,
     rpc::NodeRpcClient,
     store::Store,
+    transactions::TransactionProver,
     Client, ZERO,
 };
 
@@ -38,9 +39,15 @@ pub struct AccountCmd {
 }
 
 impl AccountCmd {
-    pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    pub fn execute<
+        N: NodeRpcClient,
+        R: FeltRng,
+        S: Store,
+        A: TransactionAuthenticator,
+        P: TransactionProver,
+    >(
         &self,
-        client: Client<N, R, S, A>,
+        client: Client<N, R, S, A, P>,
     ) -> Result<(), String> {
         match self {
             AccountCmd {
@@ -68,7 +75,7 @@ impl AccountCmd {
                                 .map_err(|_| "Input number was not a valid Account Id")?;
 
                             // Check whether we're tracking that account
-                            let (account, _) = client.get_account_stub_by_id(account_id)?;
+                            let (account, _) = client.get_account_header_by_id(account_id)?;
 
                             Some(account.id())
                         };
@@ -95,17 +102,23 @@ impl AccountCmd {
 // LIST ACCOUNTS
 // ================================================================================================
 
-fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: Client<N, R, S, A>,
+fn list_accounts<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+    P: TransactionProver,
+>(
+    client: Client<N, R, S, A, P>,
 ) -> Result<(), String> {
-    let accounts = client.get_account_stubs()?;
+    let accounts = client.get_account_headers()?;
 
     let mut table = create_dynamic_table(&["Account ID", "Type", "Storage Mode", "Nonce"]);
     for (acc, _acc_seed) in accounts.iter() {
         table.add_row(vec![
             acc.id().to_string(),
             account_type_display_name(&acc.id())?,
-            storage_type_display_name(&acc.id()),
+            acc.id().storage_mode().to_string(),
             acc.nonce().as_int().to_string(),
         ]);
     }
@@ -114,8 +127,14 @@ fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthentic
     Ok(())
 }
 
-pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: Client<N, R, S, A>,
+pub fn show_account<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+    P: TransactionProver,
+>(
+    client: Client<N, R, S, A, P>,
     account_id: AccountId,
 ) -> Result<(), String> {
     let (account, _) = client.get_account(account_id)?;
@@ -133,7 +152,7 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
         account.id().to_string(),
         account.hash().to_string(),
         account_type_display_name(&account_id)?,
-        storage_type_display_name(&account_id),
+        account_id.storage_mode().to_string(),
         account.code().commitment().to_string(),
         account.vault().asset_tree().root().to_string(),
         account.storage().root().to_string(),
@@ -221,14 +240,6 @@ fn account_type_display_name(account_id: &AccountId) -> Result<String, String> {
         AccountType::RegularAccountImmutableCode => "Regular".to_string(),
         AccountType::RegularAccountUpdatableCode => "Regular (updatable)".to_string(),
     })
-}
-
-fn storage_type_display_name(account: &AccountId) -> String {
-    match account.is_on_chain() {
-        true => "On-chain",
-        false => "Off-chain",
-    }
-    .to_string()
 }
 
 /// Loads config file and displays current default account ID

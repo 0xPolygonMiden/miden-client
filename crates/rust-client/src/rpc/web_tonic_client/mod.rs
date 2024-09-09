@@ -258,7 +258,7 @@ impl NodeRpcClient for WebTonicRpcClient {
         let hash = hash.try_into()?;
 
         let update_summary = AccountUpdateSummary::new(hash, account_summary.block_num);
-        if account_id.is_on_chain() {
+        if account_id.is_public() {
             let details_bytes = account_info.details.ok_or(RpcError::ExpectedFieldMissing(
                 "GetAccountDetails response's account should have `details`".to_string(),
             ))?;

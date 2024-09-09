@@ -4,7 +4,7 @@ use miden_objects::{
     crypto::rand::FeltRng,
     notes::{NoteExecutionMode, NoteTag},
 };
-use miden_tx::auth::TransactionAuthenticator;
+use miden_tx::{auth::TransactionAuthenticator, TransactionProver};
 use tracing::warn;
 use winter_maybe_async::{maybe_async, maybe_await};
 
@@ -15,7 +15,9 @@ use crate::{
     Client,
 };
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator, P: TransactionProver>
+    Client<N, R, S, A, P>
+{
     /// Returns the list of note tags tracked by the client.
     ///
     /// When syncing the state with the node, these tags will be added to the sync request and
@@ -59,9 +61,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     pub(crate) fn get_tracked_note_tags(&self) -> Result<Vec<NoteTag>, ClientError> {
         let stored_tags = maybe_await!(self.get_note_tags())?;
 
-        let account_tags = maybe_await!(self.get_account_stubs())?
+        let account_tags = maybe_await!(self.get_account_headers())?
             .into_iter()
-            .map(|(stub, _)| NoteTag::from_account_id(stub.id(), NoteExecutionMode::Local))
+            .map(|(header, _)| NoteTag::from_account_id(header.id(), NoteExecutionMode::Local))
             .collect::<Result<Vec<_>, _>>()?;
 
         let expected_notes = maybe_await!(self.store.get_input_notes(NoteFilter::Expected))?;

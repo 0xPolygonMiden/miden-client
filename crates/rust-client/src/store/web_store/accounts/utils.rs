@@ -1,7 +1,7 @@
 use alloc::{string::ToString, vec::Vec};
 
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountId, AccountStorage, AccountStub, AuthSecretKey},
+    accounts::{Account, AccountCode, AccountHeader, AccountId, AccountStorage, AuthSecretKey},
     assets::{Asset, AssetVault},
     utils::Deserializable,
     Digest, Felt, Word,
@@ -69,7 +69,7 @@ pub async fn insert_account_record(
     let code_root = account.code().commitment().to_string();
     let storage_root = account.storage().root().to_string();
     let vault_root = serde_json::to_string(&account.vault().commitment()).unwrap();
-    let committed = account.is_on_chain();
+    let committed = account.is_public();
     let nonce = account.nonce().to_string();
     let account_seed = account_seed.map(|seed| seed.to_bytes());
     let hash = account.hash().to_string();
@@ -90,26 +90,26 @@ pub async fn insert_account_record(
 }
 
 pub fn parse_account_record_idxdb_object(
-    account_stub_idxdb: AccountRecordIdxdbOjbect,
-) -> Result<(AccountStub, Option<Word>), StoreError> {
-    let native_account_id: AccountId = AccountId::from_hex(&account_stub_idxdb.id).unwrap();
-    let native_nonce: u64 = account_stub_idxdb
+    account_header_idxdb: AccountRecordIdxdbOjbect,
+) -> Result<(AccountHeader, Option<Word>), StoreError> {
+    let native_account_id: AccountId = AccountId::from_hex(&account_header_idxdb.id).unwrap();
+    let native_nonce: u64 = account_header_idxdb
         .nonce
         .parse::<u64>()
         .map_err(|err| StoreError::ParsingError(err.to_string()))?;
-    let account_seed = account_stub_idxdb
+    let account_seed = account_header_idxdb
         .account_seed
         .map(|seed| Word::read_from_bytes(&seed))
         .transpose()?;
 
-    let account_stub = AccountStub::new(
+    let account_header = AccountHeader::new(
         native_account_id,
         Felt::new(native_nonce),
-        serde_json::from_str(&account_stub_idxdb.vault_root)
+        serde_json::from_str(&account_header_idxdb.vault_root)
             .map_err(StoreError::InputSerializationError)?,
-        Digest::try_from(&account_stub_idxdb.storage_root)?,
-        Digest::try_from(&account_stub_idxdb.code_root)?,
+        Digest::try_from(&account_header_idxdb.storage_root)?,
+        Digest::try_from(&account_header_idxdb.code_root)?,
     );
 
-    Ok((account_stub, account_seed))
+    Ok((account_header, account_seed))
 }
