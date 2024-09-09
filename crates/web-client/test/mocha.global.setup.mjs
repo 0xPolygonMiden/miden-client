@@ -1,5 +1,5 @@
 import puppeteer from "puppeteer";
-import { exec } from "child_process";
+import { spawn } from "child_process";
 
 import { register } from "ts-node";
 import { env } from "process";
@@ -20,7 +20,10 @@ const LOCAL_MIDEN_NODE_PORT = 57291;
 
 before(async () => {
   console.log("Starting test server...");
-  serverProcess = exec(`http-server ./dist -p ${TEST_SERVER_PORT}`);
+  serverProcess = spawn("http-server", ["./dist", "-p", TEST_SERVER_PORT], {
+    stdio: "inherit",
+  });
+
   browser = await puppeteer.launch({ headless: true });
   testingPage = await browser.newPage();
   await testingPage.goto(TEST_SERVER);
@@ -47,12 +50,15 @@ after(async () => {
 
   console.log("Closing browser...");
   await browser.close();
-  console.log("Killing server process...");
+  console.log("Browser closed.");
 
+  console.log("Beginning server process cleanup...");
   if (serverProcess && !serverProcess.killed) {
-    await serverProcess.kill("SIGTERM");
+    console.log("Killing server process...");
+    serverProcess.kill("SIGTERM"); // Send the SIGTERM signal to terminate the server
   }
 
+  console.log("Waiting for server process to exit...");
   await new Promise((resolve, reject) => {
     if (serverProcess.exitCode !== null) {
       // Process has already exited, resolve immediately
