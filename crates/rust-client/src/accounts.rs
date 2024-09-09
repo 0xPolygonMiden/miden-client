@@ -17,7 +17,7 @@ use miden_objects::{
     crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
     Felt, Word,
 };
-use miden_tx::auth::TransactionAuthenticator;
+use miden_tx::{auth::TransactionAuthenticator, TransactionProver};
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use super::{rpc::NodeRpcClient, Client};
@@ -47,7 +47,9 @@ pub enum AccountTemplate {
     },
 }
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator, P: TransactionProver>
+    Client<N, R, S, A, P>
+{
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 

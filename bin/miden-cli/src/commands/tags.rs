@@ -4,6 +4,7 @@ use miden_client::{
     notes::{NoteExecutionMode, NoteTag},
     rpc::NodeRpcClient,
     store::Store,
+    transactions::TransactionProver,
     Client,
 };
 use tracing::info;
@@ -27,9 +28,15 @@ pub struct TagsCmd {
 }
 
 impl TagsCmd {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    pub async fn execute<
+        N: NodeRpcClient,
+        R: FeltRng,
+        S: Store,
+        A: TransactionAuthenticator,
+        P: TransactionProver,
+    >(
         &self,
-        client: Client<N, R, S, A>,
+        client: Client<N, R, S, A, P>,
     ) -> Result<(), String> {
         match self {
             TagsCmd { add: Some(tag), .. } => {
@@ -48,16 +55,28 @@ impl TagsCmd {
 
 // HELPERS
 // ================================================================================================
-fn list_tags<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: Client<N, R, S, A>,
+fn list_tags<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+    P: TransactionProver,
+>(
+    client: Client<N, R, S, A, P>,
 ) -> Result<(), String> {
     let tags = client.get_note_tags()?;
     println!("Tags: {:?}", tags);
     Ok(())
 }
 
-fn add_tag<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    mut client: Client<N, R, S, A>,
+fn add_tag<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+    P: TransactionProver,
+>(
+    mut client: Client<N, R, S, A, P>,
     tag: u32,
 ) -> Result<(), String> {
     let tag: NoteTag = tag.into();
@@ -75,8 +94,14 @@ fn add_tag<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
     Ok(())
 }
 
-fn remove_tag<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    mut client: Client<N, R, S, A>,
+fn remove_tag<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+    P: TransactionProver,
+>(
+    mut client: Client<N, R, S, A, P>,
     tag: u32,
 ) -> Result<(), String> {
     client.remove_note_tag(tag.into())?;

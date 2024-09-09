@@ -5,7 +5,7 @@ use miden_objects::{
     notes::{Note, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteTag},
     transaction::InputNote,
 };
-use miden_tx::auth::TransactionAuthenticator;
+use miden_tx::{auth::TransactionAuthenticator, TransactionProver};
 use tracing::info;
 use winter_maybe_async::maybe_await;
 
@@ -15,7 +15,9 @@ use crate::{
     Client, ClientError,
 };
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator, P: TransactionProver>
+    Client<N, R, S, A, P>
+{
     // INPUT NOTE CREATION
     // --------------------------------------------------------------------------------------------
 

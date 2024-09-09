@@ -8,6 +8,7 @@ use miden_client::{
     crypto::{FeltRng, RpoRandomCoin},
     rpc::{NodeRpcClient, TonicRpcClient},
     store::{sqlite_store::SqliteStore, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
+    transactions::{LocalTransactionProver, TransactionProver},
     Client, ClientError, Felt, IdPrefixFetchError,
 };
 use rand::Rng;
@@ -108,11 +109,14 @@ impl Cli {
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
         let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
 
+        let transaction_prover = LocalTransactionProver::default();
+
         let client = Client::new(
             TonicRpcClient::new(&cli_config.rpc),
             rng,
             store,
             authenticator,
+            transaction_prover,
             in_debug_mode,
         );
 
@@ -165,8 +169,9 @@ pub(crate) fn get_output_note_with_id_prefix<
     R: FeltRng,
     S: Store,
     A: TransactionAuthenticator,
+    P: TransactionProver,
 >(
-    client: &Client<N, R, S, A>,
+    client: &Client<N, R, S, A, P>,
     note_id_prefix: &str,
 ) -> Result<OutputNoteRecord, IdPrefixFetchError> {
     let mut output_note_records = client
@@ -217,8 +222,9 @@ fn get_account_with_id_prefix<
     R: FeltRng,
     S: Store,
     A: TransactionAuthenticator,
+    P: TransactionProver,
 >(
-    client: &Client<N, R, S, A>,
+    client: &Client<N, R, S, A, P>,
     account_id_prefix: &str,
 ) -> Result<AccountHeader, IdPrefixFetchError> {
     let mut accounts = client

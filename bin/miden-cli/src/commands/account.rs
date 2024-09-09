@@ -6,6 +6,7 @@ use miden_client::{
     crypto::FeltRng,
     rpc::NodeRpcClient,
     store::Store,
+    transactions::TransactionProver,
     Client, ZERO,
 };
 
@@ -38,9 +39,15 @@ pub struct AccountCmd {
 }
 
 impl AccountCmd {
-    pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    pub fn execute<
+        N: NodeRpcClient,
+        R: FeltRng,
+        S: Store,
+        A: TransactionAuthenticator,
+        P: TransactionProver,
+    >(
         &self,
-        client: Client<N, R, S, A>,
+        client: Client<N, R, S, A, P>,
     ) -> Result<(), String> {
         match self {
             AccountCmd {
@@ -95,8 +102,14 @@ impl AccountCmd {
 // LIST ACCOUNTS
 // ================================================================================================
 
-fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: Client<N, R, S, A>,
+fn list_accounts<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+    P: TransactionProver,
+>(
+    client: Client<N, R, S, A, P>,
 ) -> Result<(), String> {
     let accounts = client.get_account_headers()?;
 
@@ -114,8 +127,14 @@ fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthentic
     Ok(())
 }
 
-pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: Client<N, R, S, A>,
+pub fn show_account<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+    P: TransactionProver,
+>(
+    client: Client<N, R, S, A, P>,
     account_id: AccountId,
 ) -> Result<(), String> {
     let (account, _) = client.get_account(account_id)?;

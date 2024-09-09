@@ -16,7 +16,9 @@ use miden_client::{
         NoteFilter, TransactionFilter,
     },
     sync::SyncSummary,
-    transactions::{DataStoreError, TransactionExecutorError, TransactionRequest},
+    transactions::{
+        DataStoreError, LocalTransactionProver, TransactionExecutorError, TransactionRequest,
+    },
     Client, ClientError,
 };
 use miden_objects::{
@@ -40,6 +42,7 @@ pub type TestClient = Client<
     RpoRandomCoin,
     SqliteStore,
     StoreAuthenticator<RpoRandomCoin, SqliteStore>,
+    LocalTransactionProver,
 >;
 
 pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./tests/config/miden-client-rpc.toml";
@@ -66,7 +69,17 @@ pub fn create_test_client() -> TestClient {
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
-    TestClient::new(TonicRpcClient::new(&rpc_config), rng, store, authenticator, true)
+
+    let transaction_prover = LocalTransactionProver::default();
+
+    TestClient::new(
+        TonicRpcClient::new(&rpc_config),
+        rng,
+        store,
+        authenticator,
+        transaction_prover,
+        true,
+    )
 }
 
 pub fn get_client_config() -> (RpcConfig, SqliteStoreConfig) {

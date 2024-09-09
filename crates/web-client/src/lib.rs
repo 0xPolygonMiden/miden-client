@@ -5,6 +5,7 @@ use miden_client::{
     auth::StoreAuthenticator, rpc::WebTonicRpcClient, store::web_store::WebStore, Client,
 };
 use miden_objects::{crypto::rand::RpoRandomCoin, Felt};
+use miden_tx::LocalTransactionProver;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use wasm_bindgen::prelude::*;
 
@@ -19,16 +20,17 @@ pub mod sync;
 pub mod tags;
 pub mod transactions;
 
+type WebClientInner = Client<
+    WebTonicRpcClient,
+    RpoRandomCoin,
+    WebStore,
+    StoreAuthenticator<RpoRandomCoin, WebStore>,
+    LocalTransactionProver,
+>;
+
 #[wasm_bindgen]
 pub struct WebClient {
-    inner: Option<
-        Client<
-            WebTonicRpcClient,
-            RpoRandomCoin,
-            WebStore,
-            StoreAuthenticator<RpoRandomCoin, WebStore>,
-        >,
-    >,
+    inner: Option<WebClientInner>,
 }
 
 impl Default for WebClient {
@@ -44,16 +46,7 @@ impl WebClient {
         WebClient { inner: None }
     }
 
-    pub(crate) fn get_mut_inner(
-        &mut self,
-    ) -> Option<
-        &mut Client<
-            WebTonicRpcClient,
-            RpoRandomCoin,
-            WebStore,
-            StoreAuthenticator<RpoRandomCoin, WebStore>,
-        >,
-    > {
+    pub(crate) fn get_mut_inner(&mut self) -> Option<&mut WebClientInner> {
         self.inner.as_mut()
     }
 
@@ -72,7 +65,16 @@ impl WebClient {
             &node_url.unwrap_or_else(|| "http://18.203.155.106:57291".to_string()),
         );
 
-        self.inner = Some(Client::new(web_rpc_client, rng, web_store, authenticator, false));
+        let transaction_prover = LocalTransactionProver::default();
+
+        self.inner = Some(Client::new(
+            web_rpc_client,
+            rng,
+            web_store,
+            authenticator,
+            transaction_prover,
+            false,
+        ));
 
         Ok(JsValue::from_str("Client created successfully"))
     }

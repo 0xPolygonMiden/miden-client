@@ -15,7 +15,7 @@ use miden_client::{
 use tracing::info;
 
 use super::{config::CliConfig, get_account_with_id_prefix, CLIENT_CONFIG_FILE_NAME};
-use crate::faucet_details_map::FaucetDetailsMap;
+use crate::{faucet_details_map::FaucetDetailsMap, TransactionProver};
 
 pub(crate) const SHARED_TOKEN_DOCUMENTATION: &str = "There are two accepted formats for the asset:
 - `<AMOUNT>::<FAUCET_ID>` where `<AMOUNT>` is in the faucet base units.
@@ -32,8 +32,9 @@ pub(crate) fn get_input_acc_id_by_prefix_or_default<
     R: FeltRng,
     S: Store,
     A: TransactionAuthenticator,
+    P: TransactionProver,
 >(
-    client: &Client<N, R, S, A>,
+    client: &Client<N, R, S, A, P>,
     account_id: Option<String>,
 ) -> Result<AccountId, String> {
     let account_id_str = if let Some(account_id_prefix) = account_id {
@@ -65,8 +66,9 @@ pub(crate) fn parse_account_id<
     R: FeltRng,
     S: Store,
     A: TransactionAuthenticator,
+    P: TransactionProver,
 >(
-    client: &Client<N, R, S, A>,
+    client: &Client<N, R, S, A, P>,
     account_id: &str,
 ) -> Result<AccountId, String> {
     if let Ok(account_id) = AccountId::from_hex(account_id) {

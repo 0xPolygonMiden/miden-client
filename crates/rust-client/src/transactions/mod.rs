@@ -16,7 +16,7 @@ use miden_objects::{
     transaction::{InputNotes, TransactionArgs},
     AssetError, Digest, Felt, NoteError, Word,
 };
-use miden_tx::{auth::TransactionAuthenticator, TransactionProver};
+use miden_tx::auth::TransactionAuthenticator;
 use script_builder::{AccountCapabilities, AccountInterface, TransactionScriptBuilder};
 use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
@@ -39,7 +39,9 @@ pub use miden_objects::transaction::{
     ExecutedTransaction, InputNote, OutputNote, OutputNotes, ProvenTransaction, TransactionId,
     TransactionScript,
 };
-pub use miden_tx::{DataStoreError, TransactionExecutorError};
+pub use miden_tx::{
+    DataStoreError, LocalTransactionProver, TransactionExecutorError, TransactionProver,
+};
 pub use request::known_script_roots;
 pub use script_builder::TransactionScriptBuilderError;
 

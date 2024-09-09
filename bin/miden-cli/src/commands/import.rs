@@ -11,6 +11,7 @@ use miden_client::{
     notes::NoteFile,
     rpc::NodeRpcClient,
     store::Store,
+    transactions::TransactionProver,
     utils::Deserializable,
     Client,
 };
@@ -27,9 +28,15 @@ pub struct ImportCmd {
 }
 
 impl ImportCmd {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    pub async fn execute<
+        N: NodeRpcClient,
+        R: FeltRng,
+        S: Store,
+        A: TransactionAuthenticator,
+        P: TransactionProver,
+    >(
         &self,
-        mut client: Client<N, R, S, A>,
+        mut client: Client<N, R, S, A, P>,
     ) -> Result<(), String> {
         validate_paths(&self.filenames)?;
         let (mut current_config, _) = load_config_file()?;
@@ -56,8 +63,14 @@ impl ImportCmd {
 // IMPORT ACCOUNT
 // ================================================================================================
 
-fn import_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: &mut Client<N, R, S, A>,
+fn import_account<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+    P: TransactionProver,
+>(
+    client: &mut Client<N, R, S, A, P>,
     filename: &PathBuf,
 ) -> Result<AccountId, String> {
     info!(

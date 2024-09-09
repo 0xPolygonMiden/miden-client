@@ -6,6 +6,7 @@ use miden_client::{
     crypto::FeltRng,
     rpc::NodeRpcClient,
     store::Store,
+    transactions::TransactionProver,
     Client,
 };
 
@@ -33,9 +34,15 @@ pub struct NewFaucetCmd {
 }
 
 impl NewFaucetCmd {
-    pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    pub fn execute<
+        N: NodeRpcClient,
+        R: FeltRng,
+        S: Store,
+        A: TransactionAuthenticator,
+        P: TransactionProver,
+    >(
         &self,
-        mut client: Client<N, R, S, A>,
+        mut client: Client<N, R, S, A, P>,
     ) -> Result<(), String> {
         if self.non_fungible {
             todo!("Non-fungible faucets are not supported yet");
@@ -82,9 +89,15 @@ pub struct NewWalletCmd {
 }
 
 impl NewWalletCmd {
-    pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
+    pub fn execute<
+        N: NodeRpcClient,
+        R: FeltRng,
+        S: Store,
+        A: TransactionAuthenticator,
+        P: TransactionProver,
+    >(
         &self,
-        mut client: Client<N, R, S, A>,
+        mut client: Client<N, R, S, A, P>,
     ) -> Result<(), String> {
         let client_template = AccountTemplate::BasicWallet {
             mutable_code: self.mutable,

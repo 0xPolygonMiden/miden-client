@@ -27,6 +27,7 @@ use miden_objects::{
     transaction::{InputNote, ProvenTransaction},
     BlockHeader, Felt, Word,
 };
+use miden_tx::LocalTransactionProver;
 use rand::Rng;
 use tonic::{Response, Status};
 use uuid::Uuid;
@@ -55,8 +56,13 @@ use crate::{
     Client,
 };
 
-pub type MockClient =
-    Client<MockRpcApi, RpoRandomCoin, SqliteStore, StoreAuthenticator<RpoRandomCoin, SqliteStore>>;
+pub type MockClient = Client<
+    MockRpcApi,
+    RpoRandomCoin,
+    SqliteStore,
+    StoreAuthenticator<RpoRandomCoin, SqliteStore>,
+    LocalTransactionProver,
+>;
 
 // MOCK CONSTS
 // ================================================================================================
@@ -861,7 +867,16 @@ pub fn create_test_client() -> MockClient {
 
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
 
-    MockClient::new(MockRpcApi::new(&rpc_endpoint), rng, store, authenticator, true)
+    let transaction_prover = LocalTransactionProver::default();
+
+    MockClient::new(
+        MockRpcApi::new(&rpc_endpoint),
+        rng,
+        store,
+        authenticator,
+        transaction_prover,
+        true,
+    )
 }
 
 pub fn create_test_store_path() -> std::path::PathBuf {

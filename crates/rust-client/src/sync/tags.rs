@@ -4,7 +4,7 @@ use miden_objects::{
     crypto::rand::FeltRng,
     notes::{NoteExecutionMode, NoteTag},
 };
-use miden_tx::auth::TransactionAuthenticator;
+use miden_tx::{auth::TransactionAuthenticator, TransactionProver};
 use tracing::warn;
 use winter_maybe_async::{maybe_async, maybe_await};
 
@@ -15,7 +15,9 @@ use crate::{
     Client,
 };
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator, P: TransactionProver>
+    Client<N, R, S, A, P>
+{
     /// Returns the list of note tags tracked by the client.
     ///
     /// When syncing the state with the node, these tags will be added to the sync request and

@@ -15,7 +15,7 @@ use miden_objects::{
     transaction::InputNote,
     BlockHeader, Digest,
 };
-use miden_tx::auth::TransactionAuthenticator;
+use miden_tx::{auth::TransactionAuthenticator, TransactionProver};
 use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
 
@@ -209,7 +209,9 @@ pub struct StateSyncUpdate {
 /// The number of bits to shift identifiers for in use of filters.
 pub(crate) const FILTER_ID_SHIFT: u8 = 48;
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator, P: TransactionProver>
+    Client<N, R, S, A, P>
+{
     // SYNC STATE
     // --------------------------------------------------------------------------------------------
 

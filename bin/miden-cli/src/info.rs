@@ -5,13 +5,20 @@ use miden_client::{
     crypto::FeltRng,
     rpc::NodeRpcClient,
     store::{NoteFilter, Store},
+    transactions::TransactionProver,
     Client,
 };
 
 use super::config::CliConfig;
 
-pub fn print_client_info<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: &Client<N, R, S, A>,
+pub fn print_client_info<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+    P: TransactionProver,
+>(
+    client: &Client<N, R, S, A, P>,
     config: &CliConfig,
 ) -> Result<(), String> {
     println!("Client version: {}", env!("CARGO_PKG_VERSION"));
@@ -21,8 +28,14 @@ pub fn print_client_info<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionA
 
 // HELPERS
 // ================================================================================================
-fn print_client_stats<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: &Client<N, R, S, A>,
+fn print_client_stats<
+    N: NodeRpcClient,
+    R: FeltRng,
+    S: Store,
+    A: TransactionAuthenticator,
+    P: TransactionProver,
+>(
+    client: &Client<N, R, S, A, P>,
 ) -> Result<(), String> {
     println!("Block number: {}", client.get_sync_height().map_err(|e| e.to_string())?);
     println!(

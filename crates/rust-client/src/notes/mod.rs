@@ -5,7 +5,7 @@ use alloc::{collections::BTreeSet, string::ToString, vec::Vec};
 
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{accounts::AccountId, crypto::rand::FeltRng};
-use miden_tx::auth::TransactionAuthenticator;
+use miden_tx::{auth::TransactionAuthenticator, TransactionProver};
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
@@ -33,7 +33,9 @@ pub use note_screener::{NoteConsumability, NoteRelevance, NoteScreener, NoteScre
 // MIDEN CLIENT
 // ================================================================================================
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
+impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator, P: TransactionProver>
+    Client<N, R, S, A, P>
+{
     // INPUT NOTE DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
@@ -157,8 +159,9 @@ pub fn get_input_note_with_id_prefix<
     R: FeltRng,
     S: Store,
     A: TransactionAuthenticator,
+    P: TransactionProver,
 >(
-    client: &Client<N, R, S, A>,
+    client: &Client<N, R, S, A, P>,
     note_id_prefix: &str,
 ) -> Result<InputNoteRecord, IdPrefixFetchError> {
     let mut input_note_records = maybe_await!(client.get_input_notes(NoteFilter::All))
