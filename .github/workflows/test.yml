@@ -44,8 +44,9 @@ jobs:
     steps:
       - uses: actions/checkout@main
       - name: Install Rust
-        run: rustup update --no-self-update
-        run: rustup target add wasm32-unknown-unknown
+          run: |
+            rustup update --no-self-update
+            rustup target add wasm32-unknown-unknown
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
