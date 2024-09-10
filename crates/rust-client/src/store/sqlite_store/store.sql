@@ -72,34 +72,16 @@ CREATE TABLE transaction_scripts (
 -- Create input notes table
 CREATE TABLE input_notes (
     note_id BLOB NOT NULL,                                  -- the note id
-    recipient BLOB NOT NULL,                                -- the note recipient
     assets BLOB NOT NULL,                                   -- the serialized NoteAssets, including vault hash and list of assets
-    status TEXT CHECK( status IN (                          -- the status of the note - either expected, committed or consumed
-        'Expected', 'Committed', 'Processing', 'Consumed'
-        )),
-
-    consumer_transaction_id BLOB NULL,                      -- the transaction ID of the transaction that consumed the note
+    serial_number BLOB NOT NULL,                            -- the serial number of the note
+    inputs BLOB NOT NULL,                                   -- the serialized list of note inputs
+    script_hash BLOB NOT NULL,                              -- the script hash of the note
+    nullifier TEXT NOT NULL,                                -- the nullifier of the note
+    state_discriminant UNSIGNED INT NOT NULL,               -- state discriminant of the note
+    state BLOB NOT NULL,                                    -- serialized note state
     created_at UNSIGNED BIG INT NOT NULL,                   -- timestamp of the note creation/import
-    expected_height UNSIGNED BIG INT NULL,                  -- block height when the note is expected to be committed
-    submitted_at UNSIGNED BIG INT NULL,                      -- timestamp of the note submission to node
-    nullifier_height UNSIGNED BIG INT NULL,                 -- block height when the nullifier arrived
-    ignored BOOLEAN NOT NULL DEFAULT 0,                     -- whether the note is ignored in sync
-    imported_tag UNSIGNED INT NULL,                         -- imported tag for the note
 
-    inclusion_proof BLOB NULL,                              -- serialized inclusion proof
-
-    metadata BLOB NULL,                                     -- serialized metadata
-
-    nullifier TEXT NOT NULL,
-    script_hash BLOB NOT NULL,
-    details BLOB NOT NULL,                                  -- serialized note record details
-
-    FOREIGN KEY (consumer_transaction_id) REFERENCES transactions(id)
     PRIMARY KEY (note_id)
-
-    CONSTRAINT check_valid_consumer_transaction_id CHECK (consumer_transaction_id IS NULL OR status != 'Expected')
-    CONSTRAINT check_valid_submitted_at CHECK (submitted_at IS NOT NULL OR status != 'Processing')
-    CONSTRAINT check_valid_nullifier_height CHECK (nullifier_height IS NOT NULL OR status != 'Consumed')
 );
 
 -- Create output notes table
