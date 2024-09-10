@@ -12,7 +12,7 @@ use miden_objects::{
     accounts::{Account, AccountId, AccountStub},
     crypto::{self, rand::FeltRng},
     notes::{Note, NoteId, NoteInclusionProof, NoteInputs, NoteRecipient, NoteTag, Nullifier},
-    transaction::InputNote,
+    transaction::{InputNote, TransactionId},
     BlockHeader, Digest,
 };
 use miden_tx::auth::TransactionAuthenticator;
@@ -37,83 +37,61 @@ mod tags;
 pub struct SyncSummary {
     /// Block number up to which the client has been synced.
     pub block_num: u32,
-    /// Number of new notes received.
-    pub new_notes: usize,
-    /// Number of tracked notes that received inclusion proofs
-    pub new_inclusion_proofs: usize,
-    /// Number of new nullifiers received
-    pub new_nullifiers: usize,
-    /// Number of on-chain accounts that have been updated
-    pub updated_onchain_accounts: usize,
-    /// Number of commited transactions
-    pub commited_transactions: usize,
+    /// IDs of new notes received
+    pub received_notes: Vec<NoteId>,
+    /// IDs of tracked notes that received inclusion proofs
+    pub committed_notes: Vec<NoteId>,
+    /// IDs of notes that have been consumed
+    pub consumed_notes: Vec<NoteId>,
+    /// IDs of on-chain accounts that have been updated
+    pub updated_accounts: Vec<AccountId>,
+    /// IDs of committed transactions
+    pub committed_transactions: Vec<TransactionId>,
 }
 
 impl SyncSummary {
     pub fn new(
         block_num: u32,
-        new_notes: usize,
-        new_inclusion_proofs: usize,
-        new_nullifiers: usize,
-        updated_onchain_accounts: usize,
-        commited_transactions: usize,
+        received_notes: Vec<NoteId>,
+        committed_notes: Vec<NoteId>,
+        consumed_notes: Vec<NoteId>,
+        updated_accounts: Vec<AccountId>,
+        committed_transactions: Vec<TransactionId>,
     ) -> Self {
         Self {
             block_num,
-            new_notes,
-            new_inclusion_proofs,
-            new_nullifiers,
-            updated_onchain_accounts,
-            commited_transactions,
+            received_notes,
+            committed_notes,
+            consumed_notes,
+            updated_accounts,
+            committed_transactions,
         }
     }
 
     pub fn new_empty(block_num: u32) -> Self {
         Self {
             block_num,
-            new_notes: 0,
-            new_inclusion_proofs: 0,
-            new_nullifiers: 0,
-            updated_onchain_accounts: 0,
-            commited_transactions: 0,
+            received_notes: vec![],
+            committed_notes: vec![],
+            consumed_notes: vec![],
+            updated_accounts: vec![],
+            committed_transactions: vec![],
         }
     }
 
     pub fn is_empty(&self) -> bool {
-        self.new_notes == 0
-            && self.new_inclusion_proofs == 0
-            && self.new_nullifiers == 0
-            && self.updated_onchain_accounts == 0
+        self.received_notes.is_empty()
+            && self.committed_notes.is_empty()
+            && self.consumed_notes.is_empty()
+            && self.updated_accounts.is_empty()
     }
 
-    pub fn combine_with(&mut self, other: &Self) {
+    pub fn combine_with(&mut self, mut other: Self) {
         self.block_num = max(self.block_num, other.block_num);
-        self.new_notes += other.new_notes;
-        self.new_inclusion_proofs += other.new_inclusion_proofs;
-        self.new_nullifiers += other.new_nullifiers;
-        self.updated_onchain_accounts += other.updated_onchain_accounts;
-        self.commited_transactions += other.commited_transactions;
-    }
-}
-
-impl From<&StateSyncUpdate> for SyncSummary {
-    fn from(sync_update: &StateSyncUpdate) -> Self {
-        let updated_output_note_ids =
-            sync_update.synced_new_notes.updated_output_notes.iter().map(|(id, _)| *id);
-        let updated_input_note_ids =
-            sync_update.synced_new_notes.updated_input_notes.iter().map(|n| n.note().id());
-
-        let updated_note_set: BTreeSet<NoteId> =
-            updated_input_note_ids.chain(updated_output_note_ids).collect();
-
-        SyncSummary::new(
-            sync_update.block_header.block_num(),
-            sync_update.synced_new_notes.new_public_notes().len(),
-            updated_note_set.len(),
-            sync_update.nullifiers.len(),
-            sync_update.updated_onchain_accounts.len(),
-            sync_update.transactions_to_commit.len(),
-        )
+        self.received_notes.append(&mut other.received_notes);
+        self.committed_notes.append(&mut other.committed_notes);
+        self.consumed_notes.append(&mut other.consumed_notes);
+        self.updated_accounts.append(&mut other.updated_accounts);
     }
 }
 
@@ -123,7 +101,7 @@ enum SyncStatus {
 }
 
 impl SyncStatus {
-    pub fn sync_summary(&self) -> &SyncSummary {
+    pub fn into_sync_summary(self) -> SyncSummary {
         match self {
             SyncStatus::SyncedToLastBlock(summary) => summary,
             SyncStatus::SyncedToBlock(summary) => summary,
@@ -179,6 +157,13 @@ impl SyncedNewNotes {
             && self.updated_output_notes.is_empty()
             && self.new_public_notes.is_empty()
     }
+
+    pub fn updated_notes_ids(&self) -> BTreeSet<NoteId> {
+        let updated_output_note_ids = self.updated_output_notes.iter().map(|(id, _)| *id);
+        let updated_input_note_ids = self.updated_input_notes.iter().map(|n| n.note().id());
+
+        BTreeSet::from_iter(updated_input_note_ids.chain(updated_output_note_ids))
+    }
 }
 
 /// Contains all information needed to apply the update in the store after syncing with the node.
@@ -228,9 +213,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let mut total_sync_summary = SyncSummary::new_empty(0);
         loop {
             let response = self.sync_state_once().await?;
-            total_sync_summary.combine_with(response.sync_summary());
+            let is_last_block = matches!(response, SyncStatus::SyncedToLastBlock(_));
+            total_sync_summary.combine_with(response.into_sync_summary());
 
-            if let SyncStatus::SyncedToLastBlock(_) = response {
+            if is_last_block {
                 break;
             }
         }
@@ -253,7 +239,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let note_details = self.rpc_api.get_notes_by_id(&ignored_notes_ids).await?;
 
-        let updated_notes = note_details.len();
+        let updated_notes = note_details.iter().map(|note| note.id()).collect::<Vec<_>>();
 
         let mut current_partial_mmr = maybe_await!(self.build_current_partial_mmr(true))?;
         for details in note_details {
@@ -278,7 +264,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         }
 
         let mut sync_summary = SyncSummary::new_empty(0);
-        sync_summary.new_inclusion_proofs = updated_notes;
+        sync_summary.committed_notes = updated_notes;
 
         Ok(sync_summary)
     }
@@ -353,6 +339,20 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let transactions_to_commit =
             maybe_await!(self.get_transactions_to_commit(response.transactions))?;
 
+        let consumed_notes = maybe_await!(self
+            .store
+            .get_notes_by_nullifiers(new_nullifiers.iter().map(|n| n.nullifier).collect()))?;
+
+        // Store summary to return later
+        let sync_summary = SyncSummary::new(
+            response.block_header.block_num(),
+            new_note_details.new_public_notes().iter().map(|n| n.note().id()).collect(),
+            new_note_details.updated_notes_ids().into_iter().collect(),
+            consumed_notes.into_iter().map(|n| n.id()).collect(),
+            updated_onchain_accounts.iter().map(|acc| acc.id()).collect(),
+            transactions_to_commit.iter().map(|tx| tx.transaction_id).collect(),
+        );
+
         let state_sync_update = StateSyncUpdate {
             block_header: response.block_header,
             nullifiers: new_nullifiers,
@@ -363,9 +363,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             updated_onchain_accounts: updated_onchain_accounts.clone(),
             block_has_relevant_notes: incoming_block_has_relevant_notes,
         };
-
-        // Store summary to return later
-        let sync_summary = SyncSummary::from(&state_sync_update);
 
         // Apply received and computed updates to the store
         maybe_await!(self.store.apply_state_sync(state_sync_update))

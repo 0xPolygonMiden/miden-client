@@ -109,6 +109,28 @@ pub trait Store {
         nullifiers
     }
 
+    /// Returns the notes that match the provided nullifiers
+    ///
+    /// The default implementation of this method uses [Store::get_input_notes].
+    #[maybe_async]
+    fn get_notes_by_nullifiers(
+        &self,
+        nullifiers: Vec<Nullifier>,
+    ) -> Result<Vec<InputNoteRecord>, StoreError> {
+        let notes = maybe_await!(self.get_input_notes(NoteFilter::Committed))?
+            .into_iter()
+            .chain(maybe_await!(self.get_input_notes(NoteFilter::Processing))?)
+            .filter(|note| {
+                nullifiers.contains(
+                    &Nullifier::from_hex(note.nullifier())
+                        .expect("Note should have valid nullifier"),
+                )
+            })
+            .collect();
+
+        Ok(notes)
+    }
+
     /// Returns the committed notes that don't have their block header tracked
     ///
     /// The default implementation of this method uses [Store::get_tracked_block_headers] and
