@@ -128,9 +128,9 @@ impl SqliteStore {
                 .pop()
                 .expect("Unique query should return exactly one note");
 
-            input_note_record.consumed_locally(account_id, transaction_id);
-
-            insert_input_note_tx(&tx, input_note_record)?;
+            if input_note_record.consumed_locally(account_id, transaction_id)? {
+                insert_input_note_tx(&tx, input_note_record)?;
+            }
         }
 
         tx.commit()?;

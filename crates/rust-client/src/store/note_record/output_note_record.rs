@@ -9,8 +9,7 @@ use miden_objects::{
     Digest,
 };
 
-use super::{NoteRecordDetails, NoteStatus};
-use crate::ClientError;
+use super::{InputNoteRecord, NoteRecordDetails, NoteRecordError, NoteStatus};
 
 // OUTPUT NOTE RECORD
 // ================================================================================================
@@ -126,7 +125,7 @@ impl From<PartialNote> for OutputNoteRecord {
 /// [OutputNote::Header]. This also mean that `output_note.try_from()` can also be used as a way to
 /// filter the full and partial output notes
 impl TryFrom<OutputNote> for OutputNoteRecord {
-    type Error = ClientError;
+    type Error = NoteRecordError;
 
     fn try_from(output_note: OutputNote) -> Result<Self, Self::Error> {
         match output_note {
@@ -134,13 +133,13 @@ impl TryFrom<OutputNote> for OutputNoteRecord {
             OutputNote::Partial(partial_note)=> {
                 Ok(partial_note.into())
             },
-            OutputNote::Header(_) => Err(ClientError::NoteRecordError("Cannot transform a Header output note into an OutputNoteRecord: not enough information".to_string()))
+            OutputNote::Header(_) => Err(NoteRecordError::ConversionError("Cannot transform a Header output note into an OutputNoteRecord: not enough information".to_string()))
         }
     }
 }
 
 impl TryFrom<OutputNoteRecord> for NoteDetails {
-    type Error = ClientError;
+    type Error = NoteRecordError;
     fn try_from(value: OutputNoteRecord) -> Result<Self, Self::Error> {
         match value.details() {
             Some(details) => Ok(NoteDetails::new(
@@ -151,7 +150,7 @@ impl TryFrom<OutputNoteRecord> for NoteDetails {
                     NoteInputs::new(details.inputs.clone())?,
                 ),
             )),
-            None => Err(ClientError::NoteRecordError(
+            None => Err(NoteRecordError::ConversionError(
                 "Output Note Record contains no details".to_string(),
             )),
         }
@@ -159,7 +158,7 @@ impl TryFrom<OutputNoteRecord> for NoteDetails {
 }
 
 impl TryFrom<OutputNoteRecord> for Note {
-    type Error = ClientError;
+    type Error = NoteRecordError;
 
     fn try_from(value: OutputNoteRecord) -> Result<Self, Self::Error> {
         match value.details {
@@ -170,7 +169,7 @@ impl TryFrom<OutputNoteRecord> for Note {
                 let note = Note::new(value.assets, value.metadata, note_recipient);
                 Ok(note)
             },
-            None => Err(ClientError::NoteRecordError(
+            None => Err(NoteRecordError::ConversionError(
                 "Output Note Record contains no details".to_string(),
             )),
         }

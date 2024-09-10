@@ -38,7 +38,7 @@ pub mod web_store;
 
 mod note_record;
 pub use note_record::{
-    InputNoteRecord, NoteRecordDetails, NoteState, NoteStatus, OutputNoteRecord,
+    InputNoteRecord, NoteRecordDetails, NoteRecordError, NoteState, NoteStatus, OutputNoteRecord,
 };
 
 // STORE TRAIT

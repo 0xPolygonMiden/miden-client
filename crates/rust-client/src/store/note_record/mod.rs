@@ -40,7 +40,7 @@ use miden_objects::{
     notes::{Note, NoteDetails, NoteInclusionProof, NoteMetadata, NoteScript, NoteTag},
     transaction::TransactionId,
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
-    Digest, Felt, Word,
+    Digest, Felt, NoteError, Word,
 };
 
 mod input_note_record;
@@ -595,3 +595,40 @@ impl Deserializable for NoteSubmissionData {
         })
     }
 }
+
+// NOTE RECORD ERROR
+// ================================================================================================
+
+/// Errors generated from note records.
+#[derive(Debug)]
+pub enum NoteRecordError {
+    ConversionError(String),
+    NoteError(NoteError),
+    InvalidInclusionProof,
+    InvalidStateTransition { current_state: u8, new_state: u8 },
+    StateTransitionError(String),
+}
+
+impl fmt::Display for NoteRecordError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use NoteRecordError::*;
+        match self {
+            ConversionError(msg) => write!(f, "Note record conversion error: {}", msg),
+            NoteError(err) => write!(f, "Note error: {}", err),
+            InvalidInclusionProof => write!(f, "Invalid inclusion proof"),
+            InvalidStateTransition { current_state, new_state } => {
+                write!(f, "Invalid state transition: {} -> {}", current_state, new_state)
+            },
+            StateTransitionError(msg) => write!(f, "State transition error: {}", msg),
+        }
+    }
+}
+
+impl From<NoteError> for NoteRecordError {
+    fn from(error: NoteError) -> Self {
+        NoteRecordError::NoteError(error)
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for NoteRecordError {}

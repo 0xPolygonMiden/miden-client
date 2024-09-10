@@ -11,8 +11,7 @@ use miden_objects::{
     BlockHeader, Digest,
 };
 
-use super::{NoteState, NoteSubmissionData};
-use crate::ClientError;
+use super::{NoteRecordError, NoteState, NoteSubmissionData};
 
 // INPUT NOTE RECORD
 // ================================================================================================
@@ -113,7 +112,7 @@ impl InputNoteRecord {
         &mut self,
         inclusion_proof: NoteInclusionProof,
         metadata: NoteMetadata,
-    ) -> Result<bool, ClientError> {
+    ) -> Result<bool, NoteRecordError> {
         match &self.state {
             // Note had no inclusion proof
             NoteState::Expected { .. } | NoteState::Unknown => {
@@ -136,7 +135,7 @@ impl InputNoteRecord {
                 ..
             } => {
                 if old_inclusion_proof != &inclusion_proof || old_metadata != &metadata {
-                    return Err(ClientError::NoteRecordError(
+                    return Err(NoteRecordError::StateTransitionError(
                         "Inclusion proof or metadata do not match the expected values".to_string(),
                     ));
                 }
@@ -149,11 +148,11 @@ impl InputNoteRecord {
     pub fn block_header_received(
         &mut self,
         block_header: BlockHeader,
-    ) -> Result<bool, ClientError> {
+    ) -> Result<bool, NoteRecordError> {
         match &self.state {
             NoteState::Unverified { inclusion_proof, metadata } => {
                 if inclusion_proof.location().block_num() != block_header.block_num() {
-                    return Err(ClientError::NoteRecordError(
+                    return Err(NoteRecordError::StateTransitionError(
                         "Block header does not match the block number in the inclusion proof"
                             .to_string(),
                     ));
@@ -186,11 +185,11 @@ impl InputNoteRecord {
         &mut self,
         nullifier: Nullifier,
         nullifier_block_height: u32,
-    ) -> Result<bool, ClientError> {
+    ) -> Result<bool, NoteRecordError> {
         match &self.state {
             NoteState::ProcessingAuthenticated { metadata, inclusion_proof, block_note_root, submission_data } => {
                 if self.nullifier() != nullifier {
-                    return Err(ClientError::NoteRecordError(
+                    return Err(NoteRecordError::StateTransitionError(
                         "Nullifier does not match the expected value".to_string(),
                     ));
                 }
@@ -212,7 +211,7 @@ impl InputNoteRecord {
         &mut self,
         consumer_account: AccountId,
         consumer_transaction: TransactionId,
-    ) -> Result<bool, ClientError> {
+    ) -> Result<bool, NoteRecordError> {
         match &self.state {
             NoteState::Committed { metadata, inclusion_proof, block_note_root } => {
                 let submission_data = NoteSubmissionData{
@@ -289,7 +288,7 @@ impl From<InputNote> for InputNoteRecord {
 }
 
 impl TryInto<InputNote> for InputNoteRecord {
-    type Error = ClientError;
+    type Error = NoteRecordError;
 
     fn try_into(self) -> Result<InputNote, Self::Error> {
         match self.state {
@@ -304,13 +303,13 @@ impl TryInto<InputNote> for InputNoteRecord {
 
                 Ok(InputNote::authenticated(note, inclusion_proof))
             },
-            NoteState::Unverified { .. } => Err(ClientError::NoteRecordError(
+            NoteState::Unverified { .. } => Err(NoteRecordError::ConversionError(
                 "Input Note Record proof is unverified".to_string(),
             )),
-            NoteState::Invalid { .. } => {
-                Err(ClientError::NoteRecordError("Input Note Record proof is invalid".to_string()))
-            },
-            _ => Err(ClientError::NoteRecordError(
+            NoteState::Invalid { .. } => Err(NoteRecordError::ConversionError(
+                "Input Note Record proof is invalid".to_string(),
+            )),
+            _ => Err(NoteRecordError::ConversionError(
                 "Input Note Record contains no metadata".to_string(),
             )),
         }
@@ -318,7 +317,7 @@ impl TryInto<InputNote> for InputNoteRecord {
 }
 
 impl TryInto<Note> for InputNoteRecord {
-    type Error = ClientError;
+    type Error = NoteRecordError;
 
     fn try_into(self) -> Result<Note, Self::Error> {
         match self.metadata().cloned() {
@@ -327,7 +326,7 @@ impl TryInto<Note> for InputNoteRecord {
                 metadata,
                 self.details.recipient().clone(),
             )),
-            None => Err(ClientError::NoteRecordError(
+            None => Err(NoteRecordError::ConversionError(
                 "Input Note Record contains no metadata".to_string(),
             )),
         }

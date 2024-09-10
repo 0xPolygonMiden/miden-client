@@ -136,10 +136,11 @@ impl SqliteStore {
                 .pop()
                 .expect("Unique query should return exactly one note");
 
-            input_note_record.inclusion_proof_received(inclusion_proof.clone(), *metadata);
-            input_note_record.block_header_received(block_header);
-
-            insert_input_note_tx(&tx, input_note_record)?;
+            if input_note_record.inclusion_proof_received(inclusion_proof.clone(), *metadata)?
+                || input_note_record.block_header_received(block_header)?
+            {
+                insert_input_note_tx(&tx, input_note_record)?;
+            }
         }
 
         // Commit new public notes
@@ -171,8 +172,9 @@ impl SqliteStore {
                 self.get_input_notes(NoteFilter::Nullifiers(&[nullifier]))?.pop();
 
             if let Some(mut input_note_record) = input_note_record {
-                input_note_record.nullifier_received(nullifier, block_num);
-                insert_input_note_tx(&tx, input_note_record)?;
+                if input_note_record.nullifier_received(nullifier, block_num)? {
+                    insert_input_note_tx(&tx, input_note_record)?;
+                }
             }
 
             const SPENT_OUTPUT_NOTE_QUERY: &str =

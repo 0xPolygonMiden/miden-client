@@ -15,8 +15,10 @@ use miden_objects::{
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
 use winter_maybe_async::{maybe_async, maybe_await};
 
-use super::{ChainMmrNodeFilter, InputNoteRecord, NoteFilter, NoteState, Store};
-use crate::{store::StoreError, ClientError};
+use super::{
+    note_record::NoteRecordError, ChainMmrNodeFilter, InputNoteRecord, NoteFilter, NoteState, Store,
+};
+use crate::store::StoreError;
 
 // DATA STORE
 // ================================================================================================
@@ -73,7 +75,7 @@ impl<S: Store> DataStore for ClientDataStore<S> {
         for (_note_id, note_record) in input_note_records {
             let input_note: InputNote = note_record
                 .try_into()
-                .map_err(|err: ClientError| DataStoreError::InternalError(err.to_string()))?;
+                .map_err(|err: NoteRecordError| DataStoreError::InternalError(err.to_string()))?;
 
             list_of_notes.push(input_note.clone());
 
