@@ -18,15 +18,15 @@ impl SyncCmd {
     ) -> Result<(), String> {
         let mut new_details = client.sync_state().await?;
         if self.update_ignored {
-            new_details.combine_with(&client.update_ignored_notes().await?);
+            new_details.combine_with(client.update_ignored_notes().await?);
         }
 
         println!("State synced to block {}", new_details.block_num);
-        println!("New public notes: {}", new_details.new_notes);
-        println!("Tracked notes updated: {}", new_details.new_inclusion_proofs);
-        println!("Tracked notes consumed: {}", new_details.new_nullifiers);
-        println!("Tracked accounts updated: {}", new_details.updated_onchain_accounts);
-        println!("Commited transactions: {}", new_details.commited_transactions);
+        println!("New public notes: {}", new_details.received_notes.len());
+        println!("Tracked notes updated: {}", new_details.committed_notes.len());
+        println!("Tracked notes consumed: {}", new_details.consumed_notes.len());
+        println!("Tracked accounts updated: {}", new_details.updated_accounts.len());
+        println!("Commited transactions: {}", new_details.committed_transactions.len());
         Ok(())
     }
 }
