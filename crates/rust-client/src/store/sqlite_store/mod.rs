@@ -223,24 +223,6 @@ impl Store for SqliteStore {
     fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
         self.get_unspent_input_note_nullifiers()
     }
-
-    #[maybe_async]
-    fn update_note_inclusion_proof(
-        &self,
-        note_id: miden_objects::notes::NoteId,
-        inclusion_proof: miden_objects::notes::NoteInclusionProof,
-    ) -> Result<(), StoreError> {
-        self.update_note_inclusion_proof(note_id, inclusion_proof)
-    }
-
-    #[maybe_async]
-    fn update_note_metadata(
-        &self,
-        note_id: miden_objects::notes::NoteId,
-        metadata: miden_objects::notes::NoteMetadata,
-    ) -> Result<(), StoreError> {
-        self.update_note_metadata(note_id, metadata)
-    }
 }
 
 // TESTS

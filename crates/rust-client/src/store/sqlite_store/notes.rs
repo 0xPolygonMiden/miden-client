@@ -5,7 +5,6 @@ use alloc::{
 };
 use core::fmt;
 
-use chrono::Utc;
 use miden_objects::{
     accounts::AccountId,
     crypto::utils::{Deserializable, Serializable},
@@ -13,7 +12,6 @@ use miden_objects::{
         NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata,
         NoteRecipient, NoteScript, Nullifier,
     },
-    transaction::TransactionId,
     Digest, Word,
 };
 use miden_tx::utils::DeserializationError;
@@ -328,48 +326,6 @@ impl SqliteStore {
             })
             .collect::<Result<Vec<Nullifier>, _>>()
     }
-
-    /// Updates the inclusion proof of the input note with the provided ID
-    pub fn update_note_inclusion_proof(
-        &self,
-        note_id: NoteId,
-        inclusion_proof: NoteInclusionProof,
-    ) -> Result<(), StoreError> {
-        const QUERY: &str = "UPDATE input_notes SET inclusion_proof = :inclusion_proof, status = 'Committed' WHERE note_id = :note_id";
-
-        self.db()
-            .execute(
-                QUERY,
-                named_params! {
-                    ":note_id": note_id.inner().to_string(),
-                    ":inclusion_proof": inclusion_proof.to_bytes(),
-                },
-            )
-            .map_err(|err| StoreError::QueryError(err.to_string()))?;
-
-        Ok(())
-    }
-
-    /// Updates the metadata of the input note with the provided ID
-    pub fn update_note_metadata(
-        &self,
-        note_id: NoteId,
-        metadata: NoteMetadata,
-    ) -> Result<(), StoreError> {
-        const QUERY: &str = "UPDATE input_notes SET metadata = :metadata WHERE note_id = :note_id";
-
-        self.db()
-            .execute(
-                QUERY,
-                named_params! {
-                    ":note_id": note_id.inner().to_string(),
-                    ":metadata": metadata.to_bytes(),
-                },
-            )
-            .map_err(|err| StoreError::QueryError(err.to_string()))?;
-
-        Ok(())
-    }
 }
 
 // HELPERS
@@ -485,38 +441,6 @@ pub fn insert_output_note_tx(
             "INSERT OR REPLACE INTO notes_scripts (script_hash, serialized_note_script) VALUES (?, ?)";
         tx.execute(QUERY, params![note_script_hash, serialized_note_script,])?;
     }
-
-    Ok(())
-}
-
-pub fn update_note_consumer_tx_id(
-    tx: &Transaction<'_>,
-    note_id: NoteId,
-    consumer_tx_id: TransactionId,
-) -> Result<(), StoreError> {
-    const UPDATE_INPUT_NOTES_QUERY: &str = "UPDATE input_notes SET status = :status, consumer_transaction_id = :consumer_transaction_id, submitted_at = :submitted_at WHERE note_id = :note_id;";
-
-    tx.execute(
-        UPDATE_INPUT_NOTES_QUERY,
-        named_params! {
-            ":note_id": note_id.inner().to_string(),
-            ":consumer_transaction_id": consumer_tx_id.to_string(),
-            ":submitted_at": Utc::now().timestamp(),
-            ":status": NOTE_STATUS_PROCESSING,
-        },
-    )?;
-
-    const UPDATE_OUTPUT_NOTES_QUERY: &str = "UPDATE output_notes SET status = :status, consumer_transaction_id = :consumer_transaction_id, submitted_at = :submitted_at WHERE note_id = :note_id;";
-
-    tx.execute(
-        UPDATE_OUTPUT_NOTES_QUERY,
-        named_params! {
-            ":note_id": note_id.inner().to_string(),
-            ":consumer_transaction_id": consumer_tx_id.to_string(),
-            ":submitted_at": Utc::now().timestamp(),
-            ":status": NOTE_STATUS_PROCESSING,
-        },
-    )?;
 
     Ok(())
 }

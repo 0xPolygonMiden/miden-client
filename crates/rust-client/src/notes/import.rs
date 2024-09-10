@@ -34,14 +34,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ///   committed in the past relative to the client.
     pub async fn import_note(&mut self, note_file: NoteFile) -> Result<NoteId, ClientError> {
         let note = match note_file {
-            NoteFile::NoteId(id) => {
-                let note_record = self.import_note_record_by_id(id).await?;
-                if note_record.is_none() {
-                    return Ok(id);
-                }
-
-                note_record.expect("The note record should be Some")
-            },
+            NoteFile::NoteId(id) => self.import_note_record_by_id(id).await?,
             NoteFile::NoteDetails { details, after_block_num, tag } => {
                 self.import_note_record_by_details(details, after_block_num, tag).await?
             },
@@ -75,7 +68,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     async fn import_note_record_by_id(
         &mut self,
         id: NoteId,
-    ) -> Result<Option<InputNoteRecord>, ClientError> {
+    ) -> Result<InputNoteRecord, ClientError> {
         let mut chain_notes = self.rpc_api.get_notes_by_id(&[id]).await?;
         if chain_notes.is_empty() {
             return Err(ClientError::NoteNotFoundOnChain(id));
@@ -96,17 +89,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let store_note = maybe_await!(self.get_input_note(id));
 
         match store_note {
-            Ok(store_note) => {
-                // TODO: Join these calls to one method that updates both fields with one query
-                // (issue #404)
-                maybe_await!(self
-                    .store
-                    .update_note_inclusion_proof(store_note.id(), inclusion_proof))?;
-                maybe_await!(self
-                    .store
-                    .update_note_metadata(store_note.id(), *note_details.metadata()))?;
-
-                Ok(None)
+            Ok(mut store_note) => {
+                store_note.inclusion_proof_received(inclusion_proof, *note_details.metadata())?;
+                Ok(store_note)
             },
             Err(ClientError::StoreError(StoreError::NoteNotFound(_))) => {
                 let node_note = match note_details {
@@ -118,7 +103,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     },
                 };
 
-                self.import_note_record_by_proof(node_note, inclusion_proof).await.map(Some)
+                self.import_note_record_by_proof(node_note, inclusion_proof).await
             },
             Err(err) => Err(err),
         }
