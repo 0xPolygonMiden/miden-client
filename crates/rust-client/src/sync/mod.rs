@@ -12,7 +12,7 @@ use miden_objects::{
     accounts::{Account, AccountHeader, AccountId},
     crypto::{self, rand::FeltRng},
     notes::{Note, NoteId, NoteInclusionProof, NoteRecipient, NoteTag, Nullifier},
-    transaction::InputNote,
+    transaction::{InputNote, TransactionId},
     BlockHeader, Digest,
 };
 use miden_tx::auth::TransactionAuthenticator;

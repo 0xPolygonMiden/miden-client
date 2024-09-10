@@ -134,7 +134,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     .await?;
             }
             NoteState::Unverified {
-                metadata: note.metadata().clone(),
+                metadata: *note.metadata(),
                 inclusion_proof,
             }
         };
@@ -236,7 +236,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     note.merkle_path().clone(),
                 )?;
 
-                return Ok(Some((note.metadata().clone(), note_inclusion_proof)));
+                return Ok(Some((note.metadata(), note_inclusion_proof)));
             } else {
                 // This means that a note with the same id was not found.
                 // Therefore, we should request again for sync_notes with the same note_tag

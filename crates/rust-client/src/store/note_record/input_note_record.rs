@@ -55,7 +55,7 @@ impl InputNoteRecord {
     }
 
     pub fn assets(&self) -> &NoteAssets {
-        &self.details.assets()
+        self.details.assets()
     }
 
     pub fn state(&self) -> &NoteState {
@@ -97,12 +97,12 @@ impl InputNoteRecord {
     /// Returns whether the note record contains a valid inclusion proof correlated with its
     /// status
     pub fn is_authenticated(&self) -> bool {
-        match self.state {
+        matches!(
+            self.state,
             NoteState::Committed { .. }
-            | NoteState::ProcessingAuthenticated { .. }
-            | NoteState::NativeConsumed { .. } => true,
-            _ => false,
-        }
+                | NoteState::ProcessingAuthenticated { .. }
+                | NoteState::NativeConsumed { .. }
+        )
     }
 
     // TRANSITIONS
@@ -160,18 +160,18 @@ impl InputNoteRecord {
 
                 self.state = if inclusion_proof.note_path().verify(
                     inclusion_proof.location().node_index_in_block().into(),
-                    compute_note_hash(self.id(), &metadata),
+                    compute_note_hash(self.id(), metadata),
                     &block_header.note_root(),
                 ) {
                     NoteState::Committed {
                         inclusion_proof: inclusion_proof.clone(),
-                        metadata: metadata.clone(),
+                        metadata: *metadata,
                         block_note_root: block_header.note_root(),
                     }
                 } else {
                     NoteState::Invalid {
                         invalid_inclusion_proof: inclusion_proof.clone(),
-                        metadata: metadata.clone(),
+                        metadata: *metadata,
                         block_note_root: block_header.note_root(),
                     }
                 };
@@ -278,7 +278,7 @@ impl From<InputNote> for InputNoteRecord {
                 details: note.clone().into(),
                 created_at: None,
                 state: NoteState::Unverified {
-                    metadata: note.metadata().clone(),
+                    metadata: *note.metadata(),
                     inclusion_proof: proof,
                 },
             },
@@ -330,5 +330,11 @@ impl TryInto<Note> for InputNoteRecord {
                 "Input Note Record contains no metadata".to_string(),
             )),
         }
+    }
+}
+
+impl From<InputNoteRecord> for NoteDetails {
+    fn from(value: InputNoteRecord) -> Self {
+        value.details
     }
 }

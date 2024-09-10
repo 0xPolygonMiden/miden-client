@@ -195,7 +195,7 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator
     let inputs = match (&input_note_record, &output_note_record) {
         (Some(record), _) => {
             let details = record.details();
-            Some(details.inputs().clone())
+            Some(details.inputs().values().to_vec())
         },
         (_, Some(record)) => record.details().map(|details| details.inputs().clone()),
         (None, None) => {
@@ -346,10 +346,7 @@ fn note_summary(
             (Some(record), _) => {
                 let details = record.details();
                 (
-                    NoteInputs::new(details.inputs().clone())
-                        .map_err(ClientError::NoteError)?
-                        .commitment()
-                        .to_string(),
+                    details.inputs().commitment().to_string(),
                     Digest::new(details.serial_num()).to_string(),
                     details.script().hash().to_string(),
                 )

@@ -122,12 +122,7 @@ pub trait Store {
         let notes = maybe_await!(self.get_input_notes(NoteFilter::Committed))?
             .into_iter()
             .chain(maybe_await!(self.get_input_notes(NoteFilter::Processing))?)
-            .filter(|note| {
-                nullifiers.contains(
-                    &Nullifier::from_hex(note.nullifier())
-                        .expect("Note should have valid nullifier"),
-                )
-            })
+            .filter(|note| nullifiers.contains(&note.nullifier()))
             .collect();
 
         Ok(notes)

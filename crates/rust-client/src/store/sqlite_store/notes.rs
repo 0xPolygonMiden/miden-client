@@ -3,7 +3,6 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use core::fmt;
 
 use miden_objects::{
     accounts::AccountId,
@@ -27,14 +26,6 @@ use crate::store::{
     InputNoteRecord, NoteFilter, NoteRecordDetails, NoteState, NoteStatus, OutputNoteRecord,
     StoreError,
 };
-
-fn insert_note_query(table_name: NoteTable) -> String {
-    format!("\
-    INSERT INTO {table_name}
-        (note_id, assets, recipient, status, metadata, nullifier, script_hash, details, inclusion_proof, consumer_transaction_id, created_at, expected_height, ignored, imported_tag, nullifier_height)
-     VALUES (:note_id, :assets, :recipient, :status, :metadata, :nullifier, :script_hash, :details, :inclusion_proof, :consumer_transaction_id, unixepoch(current_timestamp), :expected_height, :ignored, :imported_tag, :nullifier_height);",
-            table_name = table_name)
-}
 
 // TYPES
 // ================================================================================================
@@ -90,32 +81,13 @@ type SerializedOutputNoteParts = (
     Option<u32>,
 );
 
-// NOTE TABLE
-// ================================================================================================
-
-/// Represents a table in the SQL DB used to store notes based on their use case
-enum NoteTable {
-    InputNotes,
-    OutputNotes,
-}
-
-impl fmt::Display for NoteTable {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            NoteTable::InputNotes => write!(f, "input_notes"),
-            NoteTable::OutputNotes => write!(f, "output_notes"),
-        }
-    }
-}
-
 // NOTE FILTER
 // ================================================================================================
 
 impl<'a> NoteFilter<'a> {
     /// Returns a [String] containing the query for this Filter
-    fn to_query(&self, notes_table: NoteTable) -> String {
-        let base = format!(
-            "SELECT
+    fn to_query_output_notes(&self) -> String {
+        let base = "SELECT
                     note.assets,
                     note.details,
                     note.recipient,
@@ -130,17 +102,16 @@ impl<'a> NoteFilter<'a> {
                     note.nullifier_height,
                     note.ignored,
                     note.imported_tag
-                    from {notes_table} AS note
+                    from output_notes AS note
                     LEFT OUTER JOIN notes_scripts AS script
                         ON note.details IS NOT NULL AND
                         note.script_hash = script.script_hash
                     LEFT OUTER JOIN transactions AS tx
                         ON note.consumer_transaction_id IS NOT NULL AND
-                        note.consumer_transaction_id = tx.id"
-        );
+                        note.consumer_transaction_id = tx.id";
 
         match self {
-            NoteFilter::All => base,
+            NoteFilter::All => base.to_string(),
             NoteFilter::Committed => {
                 format!("{base} WHERE status = '{NOTE_STATUS_COMMITTED}' AND NOT(ignored)")
             },
@@ -164,8 +135,7 @@ impl<'a> NoteFilter<'a> {
     }
 
     fn to_query_input_notes(&self) -> String {
-        let base = format!(
-            "SELECT
+        let base = "SELECT
                 note.assets,
                 note.serial_number,
                 note.inputs,
@@ -177,7 +147,7 @@ impl<'a> NoteFilter<'a> {
                     ON note.script_hash = script.script_hash";
 
         match self {
-            NoteFilter::All => base,
+            NoteFilter::All => base.to_string(),
             NoteFilter::Committed => {
                 format!("{base} WHERE state = {STATE_COMMITTED}")
             },
@@ -199,7 +169,7 @@ impl<'a> NoteFilter<'a> {
             NoteFilter::Unique(_) | NoteFilter::List(_) => {
                 format!("{base} WHERE note.note_id IN rarray(?)")
             },
-            _ => base, // TODO: This should be removed once all filters are
+            _ => base.to_string(), // TODO: This should be removed once all filters are
         }
     }
 }
@@ -230,7 +200,7 @@ impl SqliteStore {
         }
         let notes = self
             .db()
-            .prepare(&filter.to_query(NoteTable::InputNotes))?
+            .prepare(&filter.to_query_input_notes())?
             .query_map(params_from_iter(params), parse_input_note_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_input_note))
@@ -275,7 +245,7 @@ impl SqliteStore {
         }
         let notes = self
             .db()
-            .prepare(&filter.to_query(NoteTable::OutputNotes))?
+            .prepare(&filter.to_query_output_notes())?
             .query_map(params_from_iter(params), parse_output_note_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_output_note))
@@ -398,6 +368,40 @@ pub fn insert_output_note_tx(
     block_num: u32,
     note: &OutputNoteRecord,
 ) -> Result<(), StoreError> {
+    const NOTE_QUERY: &str = "
+        INSERT INTO output_notes(
+            note_id,
+            assets,
+            recipient,
+            status,
+            metadata,
+            nullifier,
+            script_hash,
+            details,
+            inclusion_proof,
+            consumer_transaction_id,
+            created_at,
+            expected_height,
+            ignored,
+            imported_tag,
+            nullifier_height
+        ) VALUES (
+            :note_id,
+            :assets,
+            :recipient,
+            :status,
+            :metadata,
+            :nullifier,
+            :script_hash,
+            :details,
+            :inclusion_proof,
+            :consumer_transaction_id,
+            unixepoch(current_timestamp),
+            :expected_height,
+            :ignored,
+            :imported_tag,
+            :nullifier_height);
+    ";
     let (
         note_id,
         assets,
@@ -419,7 +423,7 @@ pub fn insert_output_note_tx(
     };
 
     tx.execute(
-        &insert_note_query(NoteTable::OutputNotes),
+        NOTE_QUERY,
         named_params! {
             ":note_id": note_id,
             ":assets": assets,
@@ -494,9 +498,7 @@ fn parse_input_note(
 }
 
 /// Serialize the provided input note into database compatible types.
-pub(crate) fn serialize_input_note(
-    note: InputNoteRecord,
-) -> Result<SerializedInputNoteData, StoreError> {
+fn serialize_input_note(note: InputNoteRecord) -> Result<SerializedInputNoteData, StoreError> {
     let id = note.id().inner().to_string();
     let nullifier = note.nullifier().to_hex();
 
