@@ -159,6 +159,9 @@ impl<'a> NoteFilter<'a> {
             NoteFilter::Unique(_) | NoteFilter::List(_) => {
                 format!("{base} WHERE note.note_id IN rarray(?)")
             },
+            NoteFilter::Nullifiers(_) => {
+                format!("{base} WHERE note.nullifier IN rarray(?)")
+            },
         }
     }
 
@@ -378,7 +381,7 @@ pub(super) fn insert_input_note_tx(
     note: InputNoteRecord,
 ) -> Result<(), StoreError> {
     const NOTE_QUERY: &str = "
-        INSERT INTO input_notes (
+        INSERT OR REPLACE INTO input_notes (
             note_id,
             assets,
             serial_number,

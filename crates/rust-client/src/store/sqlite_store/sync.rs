@@ -9,7 +9,7 @@ use crate::{
     store::{
         note_record::{NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED},
         sqlite_store::{accounts::update_account, notes::insert_input_note_tx},
-        StoreError,
+        InputNoteRecord, NoteFilter, NoteState, StoreError,
     },
     sync::StateSyncUpdate,
 };
@@ -135,48 +135,55 @@ impl SqliteStore {
             ))?;
             let metadata = input_note.note().metadata();
 
-            let inclusion_proof = inclusion_proof.to_bytes();
-            let metadata = metadata.to_bytes();
+            let mut input_note_record = self
+                .get_input_notes(NoteFilter::Unique(input_note.id()))?
+                .pop()
+                .expect("Unique query should return exactly one note");
 
-            const COMMITTED_INPUT_NOTES_QUERY: &str =
-                "UPDATE input_notes SET status = :status , inclusion_proof = :inclusion_proof, metadata = :metadata WHERE note_id = :note_id";
+            input_note_record.inclusion_proof_received(inclusion_proof.clone(), *metadata);
+            input_note_record.block_header_received(block_header);
 
-            tx.execute(
-                COMMITTED_INPUT_NOTES_QUERY,
-                named_params! {
-                    ":inclusion_proof": inclusion_proof,
-                    ":metadata": metadata,
-                    ":note_id": input_note.id().inner().to_hex(),
-                    ":status": NOTE_STATUS_COMMITTED.to_string(),
-                },
-            )?;
+            insert_input_note_tx(&tx, input_note_record)?;
         }
 
         // Commit new public notes
-        for note in committed_notes.new_public_notes() {
-            insert_input_note_tx(
-                &tx,
-                note.location().expect("new public note should be authenticated").block_num(),
-                note.clone().into(),
-            )?;
+        for input_note in committed_notes.new_public_notes() {
+            let details = input_note.note().into();
+
+            let input_note_record = InputNoteRecord::new(
+                details,
+                None,
+                NoteState::Committed {
+                    metadata: *input_note.note().metadata(),
+                    inclusion_proof: input_note
+                        .proof()
+                        .expect("New public note should be authenticated")
+                        .clone(),
+                    block_note_root: block_header.note_root(),
+                },
+            );
+
+            insert_input_note_tx(&tx, input_note_record)?;
         }
 
         // Update spent notes
         for nullifier_update in nullifiers.iter() {
-            const SPENT_INPUT_NOTE_QUERY: &str =
-                "UPDATE input_notes SET status = ?, nullifier_height = ? WHERE nullifier = ?";
-            let nullifier = nullifier_update.nullifier.to_hex();
+            let nullifier = nullifier_update.nullifier;
             let block_num = nullifier_update.block_num;
-            tx.execute(
-                SPENT_INPUT_NOTE_QUERY,
-                params![NOTE_STATUS_CONSUMED.to_string(), block_num, nullifier],
-            )?;
+
+            let input_note_record =
+                self.get_input_notes(NoteFilter::Nullifiers(&[nullifier]))?.pop();
+
+            if let Some(mut input_note_record) = input_note_record {
+                input_note_record.nullifier_received(nullifier, block_num);
+                insert_input_note_tx(&tx, input_note_record)?;
+            }
 
             const SPENT_OUTPUT_NOTE_QUERY: &str =
                 "UPDATE output_notes SET status = ?, nullifier_height = ? WHERE nullifier = ?";
             tx.execute(
                 SPENT_OUTPUT_NOTE_QUERY,
-                params![NOTE_STATUS_CONSUMED.to_string(), block_num, nullifier],
+                params![NOTE_STATUS_CONSUMED.to_string(), block_num, nullifier.to_hex()],
             )?;
         }
 

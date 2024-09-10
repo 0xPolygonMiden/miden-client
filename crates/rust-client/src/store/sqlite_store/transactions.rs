@@ -15,12 +15,12 @@ use tracing::info;
 
 use super::{
     accounts::update_account,
-    notes::{insert_input_note_tx, insert_output_note_tx, update_note_consumer_tx_id},
+    notes::{insert_input_note_tx, insert_output_note_tx},
     SqliteStore,
 };
 use crate::{
     rpc::TransactionUpdate,
-    store::{StoreError, TransactionFilter},
+    store::{NoteFilter, StoreError, TransactionFilter},
     transactions::{TransactionRecord, TransactionResult, TransactionStatus},
 };
 
@@ -115,7 +115,7 @@ impl SqliteStore {
 
         // Updates for notes
         for note in created_input_notes {
-            insert_input_note_tx(&tx, block_num, note)?;
+            insert_input_note_tx(&tx, note)?;
         }
 
         for note in &created_output_notes {
@@ -123,7 +123,14 @@ impl SqliteStore {
         }
 
         for note_id in consumed_note_ids {
-            update_note_consumer_tx_id(&tx, note_id, transaction_id)?;
+            let mut input_note_record = self
+                .get_input_notes(NoteFilter::Unique(note_id))?
+                .pop()
+                .expect("Unique query should return exactly one note");
+
+            input_note_record.consumed_locally(account_id, transaction_id);
+
+            insert_input_note_tx(&tx, input_note_record)?;
         }
 
         tx.commit()?;

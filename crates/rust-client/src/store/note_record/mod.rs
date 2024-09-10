@@ -568,9 +568,9 @@ impl Deserializable for NoteState {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct NoteSubmissionData {
-    pub submitted_at: u64,
+    pub submitted_at: Option<u64>,
     pub consumer_account: AccountId,
     pub consumer_transaction: TransactionId,
 }
@@ -585,7 +585,7 @@ impl Serializable for NoteSubmissionData {
 
 impl Deserializable for NoteSubmissionData {
     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
-        let submitted_at = u64::read_from(source)?;
+        let submitted_at = Option::<u64>::read_from(source)?;
         let consumer_account = AccountId::read_from(source)?;
         let consumer_transaction = TransactionId::read_from(source)?;
         Ok(NoteSubmissionData {

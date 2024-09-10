@@ -1,13 +1,17 @@
 use alloc::string::ToString;
 
 use miden_objects::{
-    notes::{Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
-    transaction::InputNote,
+    accounts::AccountId,
+    notes::{
+        compute_note_hash, Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteMetadata,
+        Nullifier,
+    },
+    transaction::{InputNote, TransactionId},
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
-    Digest,
+    BlockHeader, Digest,
 };
 
-use super::NoteState;
+use super::{NoteState, NoteSubmissionData};
 use crate::ClientError;
 
 // INPUT NOTE RECORD
@@ -39,6 +43,9 @@ impl InputNoteRecord {
     pub fn new(details: NoteDetails, created_at: Option<u64>, state: NoteState) -> InputNoteRecord {
         InputNoteRecord { details, created_at, state }
     }
+
+    // PUBLIC ACCESSORS
+    // ================================================================================================
 
     pub fn id(&self) -> NoteId {
         self.details.id()
@@ -96,6 +103,128 @@ impl InputNoteRecord {
             | NoteState::ProcessingAuthenticated { .. }
             | NoteState::NativeConsumed { .. } => true,
             _ => false,
+        }
+    }
+
+    // TRANSITIONS
+    // ================================================================================================
+
+    pub fn inclusion_proof_received(
+        &mut self,
+        inclusion_proof: NoteInclusionProof,
+        metadata: NoteMetadata,
+    ) -> Result<bool, ClientError> {
+        match &self.state {
+            // Note had no inclusion proof
+            NoteState::Expected { .. } | NoteState::Unknown => {
+                self.state = NoteState::Unverified { inclusion_proof, metadata };
+                Ok(true)
+            },
+            // Note had an inclusion proof
+            NoteState::Unverified {
+                metadata: old_metadata,
+                inclusion_proof: old_inclusion_proof,
+            }
+            | NoteState::Committed {
+                metadata: old_metadata,
+                inclusion_proof: old_inclusion_proof,
+                ..
+            }
+            | NoteState::ProcessingAuthenticated {
+                metadata: old_metadata,
+                inclusion_proof: old_inclusion_proof,
+                ..
+            } => {
+                if old_inclusion_proof != &inclusion_proof || old_metadata != &metadata {
+                    return Err(ClientError::NoteRecordError(
+                        "Inclusion proof or metadata do not match the expected values".to_string(),
+                    ));
+                }
+                Ok(false)
+            },
+            _ => todo!("How should we deal with invalid/unnecessary transitions? Maybe we don't want a default '_' case"),
+        }
+    }
+
+    pub fn block_header_received(
+        &mut self,
+        block_header: BlockHeader,
+    ) -> Result<bool, ClientError> {
+        match &self.state {
+            NoteState::Unverified { inclusion_proof, metadata } => {
+                if inclusion_proof.location().block_num() != block_header.block_num() {
+                    return Err(ClientError::NoteRecordError(
+                        "Block header does not match the block number in the inclusion proof"
+                            .to_string(),
+                    ));
+                }
+
+                self.state = if inclusion_proof.note_path().verify(
+                    inclusion_proof.location().node_index_in_block().into(),
+                    compute_note_hash(self.id(), &metadata),
+                    &block_header.note_root(),
+                ) {
+                    NoteState::Committed {
+                        inclusion_proof: inclusion_proof.clone(),
+                        metadata: metadata.clone(),
+                        block_note_root: block_header.note_root(),
+                    }
+                } else {
+                    NoteState::Invalid {
+                        invalid_inclusion_proof: inclusion_proof.clone(),
+                        metadata: metadata.clone(),
+                        block_note_root: block_header.note_root(),
+                    }
+                };
+                Ok(true)
+            },
+            _ => todo!("How should we deal with invalid/unnecessary transitions? Maybe we don't want a default '_' case"),
+       }
+    }
+
+    pub fn nullifier_received(
+        &mut self,
+        nullifier: Nullifier,
+        nullifier_block_height: u32,
+    ) -> Result<bool, ClientError> {
+        match &self.state {
+            NoteState::ProcessingAuthenticated { metadata, inclusion_proof, block_note_root, submission_data } => {
+                if self.nullifier() != nullifier {
+                    return Err(ClientError::NoteRecordError(
+                        "Nullifier does not match the expected value".to_string(),
+                    ));
+                }
+                self.state = NoteState::NativeConsumed { metadata: *metadata, inclusion_proof: inclusion_proof.clone(), block_note_root: *block_note_root, nullifier_block_height , submission_data: *submission_data };
+                Ok(true)
+            },
+            NoteState::ProcessingUnauthenticated { after_block_num: _, submission_data: _ } => {
+                todo!("This should be NativeConsumed, but we don't have the metadata to set it.")
+            }
+            NoteState::Unknown | NoteState::Expected { .. } | NoteState::Committed { .. } | NoteState::Invalid { .. } | NoteState::Unverified { .. }  => {
+                self.state = NoteState::ForeignConsumed { nullifier_block_height };
+                Ok(true)
+            },
+            _ => todo!("How should we deal with invalid/unnecessary transitions? Maybe we don't want a default '_' case"),
+        }
+    }
+
+    pub fn consumed_locally(
+        &mut self,
+        consumer_account: AccountId,
+        consumer_transaction: TransactionId,
+    ) -> Result<bool, ClientError> {
+        match &self.state {
+            NoteState::Committed { metadata, inclusion_proof, block_note_root } => {
+                let submission_data = NoteSubmissionData{
+                    submitted_at: None,
+                    consumer_account,
+                    consumer_transaction,
+                };
+
+                self.state = NoteState::ProcessingAuthenticated { metadata: *metadata, inclusion_proof: inclusion_proof.clone(), block_note_root: *block_note_root, submission_data };
+                Ok(true)
+            },
+            _ => todo!("How should we deal with invalid/unnecessary transitions? Maybe we don't want a default '_' case"),
         }
     }
 }

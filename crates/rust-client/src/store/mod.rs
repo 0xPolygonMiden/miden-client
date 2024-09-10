@@ -412,4 +412,6 @@ pub enum NoteFilter<'a> {
     List(&'a [NoteId]),
     /// Return a list containing the note that matches with the provided [NoteId].
     Unique(NoteId),
+    /// Return a list of notes that match the provided [Nullifier].
+    Nullifiers(&'a [Nullifier]),
 }
