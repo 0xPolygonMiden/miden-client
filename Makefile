@@ -80,6 +80,10 @@ test-deps: ## Install dependencies for tests
 integration-test: ## Run integration tests
 	cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) --no-default-features
 
+.PHONY: integration-test-web-client
+integration-test-web-client: ## Run integration tests for the web client
+	cd ./crates/web-client && npm run test:clean
+
 .PHONY: integration-test-full
 integration-test-full: ## Run the integration test binary with ignored tests included
 	cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI)
