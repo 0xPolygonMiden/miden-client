@@ -179,7 +179,7 @@ pub struct ListNotesResponse {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetAccountDetailsResponse {
-    /// Account info (with details for on-chain accounts)
+    /// Account info (with details for public accounts)
     #[prost(message, optional, tag = "1")]
     pub details: ::core::option::Option<super::account::AccountInfo>,
 }

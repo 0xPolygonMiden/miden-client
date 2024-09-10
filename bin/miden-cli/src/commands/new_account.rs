@@ -17,7 +17,7 @@ use crate::{
 /// Create a new faucet account
 pub struct NewFaucetCmd {
     #[clap(short, long, default_value_t = AccountStorageMode::Private)]
-    /// Storage type of the account
+    /// Storage mode of the account
     storage_mode: AccountStorageMode,
     #[clap(short, long)]
     /// Defines if the account assets are non-fungible (by default it is fungible)
@@ -74,7 +74,7 @@ impl NewFaucetCmd {
 /// Create a new wallet account
 pub struct NewWalletCmd {
     #[clap(short, long, default_value_t = AccountStorageMode::Private)]
-    /// Storage type of the account
+    /// Storage mode of the account
     pub storage_mode: AccountStorageMode,
     #[clap(short, long)]
     /// Defines if the account code is mutable (by default it is not mutable)
