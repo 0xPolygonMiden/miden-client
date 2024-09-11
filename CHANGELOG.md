@@ -2,6 +2,7 @@
 
 ## 0.6.0 (TBD)
 
+* [BREAKING] Renamed `off-chain` and `on-chain` to `private` and `public` respectively for the account storage modes (#516).
 * [BREAKING] Added IDs to `SyncSummary` fields (#513).
 * [BREAKING] Re-exported `TransactionRequest` from submodule, renamed `AccountDetails::Offchain` to `AccountDetails::Private`, renamed `NoteDetails::OffChain` to `NoteDetails::Private` (#508).
 

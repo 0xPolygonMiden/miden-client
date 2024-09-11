@@ -8,8 +8,8 @@ use alloc::vec::Vec;
 
 use miden_lib::AuthScheme;
 pub use miden_objects::accounts::{
-    Account, AccountCode, AccountData, AccountId, AccountStorage, AccountStorageType, AccountStub,
-    AccountType, StorageSlotType,
+    Account, AccountCode, AccountData, AccountHeader, AccountId, AccountStorage,
+    AccountStorageMode, AccountType, StorageSlotType,
 };
 use miden_objects::{
     accounts::AuthSecretKey,
@@ -30,8 +30,8 @@ pub enum AccountTemplate {
         /// A boolean indicating whether the account's code can be modified after creation.
         mutable_code: bool,
         /// Specifies the type of storage used by the account. This is defined by the
-        /// `AccountStorageType` enum.
-        storage_type: AccountStorageType,
+        /// `AccountStorageMode` enum.
+        storage_mode: AccountStorageMode,
     },
 
     /// The `FungibleFaucet` variant represents an account designed to issue fungible tokens.
@@ -43,7 +43,7 @@ pub enum AccountTemplate {
         /// The maximum supply of tokens that the faucet can issue.
         max_supply: u64,
         /// Specifies the type of storage used by the account.
-        storage_type: AccountStorageType,
+        storage_mode: AccountStorageMode,
     },
 }
 
@@ -58,14 +58,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         template: AccountTemplate,
     ) -> Result<(Account, Word), ClientError> {
         let account_and_seed = match template {
-            AccountTemplate::BasicWallet { mutable_code, storage_type: storage_mode } => {
+            AccountTemplate::BasicWallet { mutable_code, storage_mode } => {
                 maybe_await!(self.new_basic_wallet(mutable_code, storage_mode))
             },
             AccountTemplate::FungibleFaucet {
                 token_symbol,
                 decimals,
                 max_supply,
-                storage_type: storage_mode,
+                storage_mode,
             } => maybe_await!(self.new_fungible_faucet(
                 token_symbol,
                 decimals,
@@ -114,7 +114,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     fn new_basic_wallet(
         &mut self,
         mutable_code: bool,
-        account_storage_type: AccountStorageType,
+        account_storage_mode: AccountStorageMode,
     ) -> Result<(Account, Word), ClientError> {
         let key_pair = SecretKey::with_rng(&mut self.rng);
 
@@ -129,14 +129,14 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 init_seed,
                 auth_scheme,
                 AccountType::RegularAccountImmutableCode,
-                account_storage_type,
+                account_storage_mode,
             )
         } else {
             miden_lib::accounts::wallets::create_basic_wallet(
                 init_seed,
                 auth_scheme,
                 AccountType::RegularAccountUpdatableCode,
-                account_storage_type,
+                account_storage_mode,
             )
         }?;
 
@@ -154,7 +154,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         token_symbol: TokenSymbol,
         decimals: u8,
         max_supply: u64,
-        account_storage_type: AccountStorageType,
+        account_storage_mode: AccountStorageMode,
     ) -> Result<(Account, Word), ClientError> {
         let key_pair = SecretKey::with_rng(&mut self.rng);
 
@@ -170,7 +170,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             decimals,
             Felt::try_from(max_supply.to_le_bytes().as_slice())
                 .expect("u64 can be safely converted to a field element"),
-            account_storage_type,
+            account_storage_mode,
             auth_scheme,
         )?;
 
@@ -206,13 +206,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // ACCOUNT DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
-    /// Returns a list of [AccountStub] of all accounts stored in the database along with the seeds
-    /// used to create them.
+    /// Returns a list of [AccountHeader] of all accounts stored in the database along with the
+    /// seeds used to create them.
     ///
     /// Said accounts' state is the state after the last performed sync.
     #[maybe_async]
-    pub fn get_account_stubs(&self) -> Result<Vec<(AccountStub, Option<Word>)>, ClientError> {
-        maybe_await!(self.store.get_account_stubs()).map_err(|err| err.into())
+    pub fn get_account_headers(&self) -> Result<Vec<(AccountHeader, Option<Word>)>, ClientError> {
+        maybe_await!(self.store.get_account_headers()).map_err(|err| err.into())
     }
 
     /// Retrieves a full [Account] object. The seed will be returned if the account is new,
@@ -233,7 +233,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         maybe_await!(self.store.get_account(account_id)).map_err(|err| err.into())
     }
 
-    /// Retrieves an [AccountStub] object for the specified [AccountId] along with the seed
+    /// Retrieves an [AccountHeader] object for the specified [AccountId] along with the seed
     /// used to create it. The seed will be returned if the account is new, otherwise it
     /// will be `None`.
     ///
@@ -243,11 +243,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ///
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
     #[maybe_async]
-    pub fn get_account_stub_by_id(
+    pub fn get_account_header_by_id(
         &self,
         account_id: AccountId,
-    ) -> Result<(AccountStub, Option<Word>), ClientError> {
-        maybe_await!(self.store.get_account_stub(account_id)).map_err(|err| err.into())
+    ) -> Result<(AccountHeader, Option<Word>), ClientError> {
+        maybe_await!(self.store.get_account_header(account_id)).map_err(|err| err.into())
     }
 
     /// Returns an [AuthSecretKey] object utilized to authenticate an account.
@@ -340,7 +340,7 @@ pub mod tests {
             .into_iter()
             .map(|account_data| account_data.account)
             .collect();
-        let accounts = client.get_account_stubs().unwrap();
+        let accounts = client.get_account_headers().unwrap();
 
         assert_eq!(accounts.len(), 2);
         for (client_acc, expected_acc) in accounts.iter().zip(expected_accounts.iter()) {

@@ -4,7 +4,7 @@ use miden_client::{
     transactions::{PaymentTransactionData, TransactionRequest},
 };
 use miden_objects::{
-    accounts::{AccountId, AccountStorageType},
+    accounts::{AccountId, AccountStorageMode},
     assets::{Asset, FungibleAsset, TokenSymbol},
     notes::{NoteFile, NoteTag, NoteType},
     transaction::InputNote,
@@ -28,7 +28,7 @@ async fn test_onchain_notes_flow() {
             token_symbol: TokenSymbol::new("MATIC").unwrap(),
             decimals: 8,
             max_supply: 1_000_000_000,
-            storage_type: AccountStorageType::OffChain,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
 
@@ -36,7 +36,7 @@ async fn test_onchain_notes_flow() {
     let (basic_wallet_1, _) = client_2
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_type: AccountStorageType::OffChain,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
 
@@ -44,7 +44,7 @@ async fn test_onchain_notes_flow() {
     let (basic_wallet_2, _) = client_3
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
-            storage_type: AccountStorageType::OffChain,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
     client_1.sync_state().await.unwrap();
@@ -116,22 +116,24 @@ async fn test_onchain_accounts() {
     let mut client_2 = create_test_client();
     wait_for_node(&mut client_2).await;
 
-    let (first_regular_account, _second_regular_account, faucet_account_stub) =
-        setup(&mut client_1, AccountStorageType::OnChain).await;
+    let (first_regular_account, _second_regular_account, faucet_account_header) =
+        setup(&mut client_1, AccountStorageMode::Public).await;
 
     let (
         second_client_first_regular_account,
         _other_second_regular_account,
-        _other_faucet_account_stub,
-    ) = setup(&mut client_2, AccountStorageType::OffChain).await;
+        _other_faucet_account_header,
+    ) = setup(&mut client_2, AccountStorageMode::Private).await;
 
     let target_account_id = first_regular_account.id();
     let second_client_target_account_id = second_client_first_regular_account.id();
-    let faucet_account_id = faucet_account_stub.id();
+    let faucet_account_id = faucet_account_header.id();
 
-    let (_, faucet_seed) = client_1.get_account_stub_by_id(faucet_account_id).unwrap();
+    let (_, faucet_seed) = client_1.get_account_header_by_id(faucet_account_id).unwrap();
     let auth_info = client_1.get_account_auth(faucet_account_id).unwrap();
-    client_2.insert_account(&faucet_account_stub, faucet_seed, &auth_info).unwrap();
+    client_2
+        .insert_account(&faucet_account_header, faucet_seed, &auth_info)
+        .unwrap();
 
     // First Mint necesary token
     println!("First client consuming note");
@@ -142,8 +144,10 @@ async fn test_onchain_accounts() {
     // between clients
     client_2.sync_state().await.unwrap();
 
-    let (client_1_faucet, _) = client_1.get_account_stub_by_id(faucet_account_stub.id()).unwrap();
-    let (client_2_faucet, _) = client_2.get_account_stub_by_id(faucet_account_stub.id()).unwrap();
+    let (client_1_faucet, _) =
+        client_1.get_account_header_by_id(faucet_account_header.id()).unwrap();
+    let (client_2_faucet, _) =
+        client_2.get_account_header_by_id(faucet_account_header.id()).unwrap();
 
     assert_eq!(client_1_faucet.hash(), client_2_faucet.hash());
 
@@ -174,8 +178,10 @@ async fn test_onchain_accounts() {
     )
     .await;
 
-    let (client_1_faucet, _) = client_1.get_account_stub_by_id(faucet_account_stub.id()).unwrap();
-    let (client_2_faucet, _) = client_2.get_account_stub_by_id(faucet_account_stub.id()).unwrap();
+    let (client_1_faucet, _) =
+        client_1.get_account_header_by_id(faucet_account_header.id()).unwrap();
+    let (client_2_faucet, _) =
+        client_2.get_account_header_by_id(faucet_account_header.id()).unwrap();
 
     assert_eq!(client_1_faucet.hash(), client_2_faucet.hash());
 
@@ -275,7 +281,7 @@ async fn test_onchain_notes_sync_with_tag() {
             token_symbol: TokenSymbol::new("MATIC").unwrap(),
             decimals: 8,
             max_supply: 1_000_000_000,
-            storage_type: AccountStorageType::OffChain,
+            storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
 

@@ -27,7 +27,7 @@ fn print_client_stats<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuth
     println!("Block number: {}", client.get_sync_height().map_err(|e| e.to_string())?);
     println!(
         "Tracked accounts: {}",
-        client.get_account_stubs().map_err(|e| e.to_string())?.len()
+        client.get_account_headers().map_err(|e| e.to_string())?.len()
     );
     println!(
         "Expected notes: {}",

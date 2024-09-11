@@ -24,7 +24,7 @@ pub struct Note {
     pub metadata: ::core::option::Option<NoteMetadata>,
     #[prost(message, optional, tag = "5")]
     pub merkle_path: ::core::option::Option<super::merkle::MerklePath>,
-    /// This field will be present when the note is on-chain.
+    /// This field will be present when the note is public.
     /// details contain the `Note` in a serialized format.
     #[prost(bytes = "vec", optional, tag = "6")]
     pub details: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,

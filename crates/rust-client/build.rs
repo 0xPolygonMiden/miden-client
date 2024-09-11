@@ -44,7 +44,7 @@ fn compile_tonic_client_proto(proto_dir: &Path) -> miette::Result<()> {
     let mut web_tonic_prost_config = prost_build::Config::new();
     web_tonic_prost_config.skip_debug(["AccountId", "Digest"]);
 
-    // Generate the stub of the user facing server from its proto file
+    // Generate the header of the user facing server from its proto file
     tonic_build::configure()
         .build_transport(false)
         .build_server(false)
