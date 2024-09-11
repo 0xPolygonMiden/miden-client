@@ -263,10 +263,11 @@ impl From<&NoteDetails> for InputNoteRecord {
 
 impl From<Note> for InputNoteRecord {
     fn from(value: Note) -> Self {
+        let tag = value.metadata().tag();
         Self {
             details: value.into(),
             created_at: None,
-            state: NoteState::Unknown,
+            state: NoteState::Expected { after_block_num: 0, tag },
         }
     }
 }
@@ -291,24 +292,20 @@ impl TryInto<InputNote> for InputNoteRecord {
     type Error = NoteRecordError;
 
     fn try_into(self) -> Result<InputNote, Self::Error> {
-        match self.state {
-            NoteState::Committed { inclusion_proof, metadata, .. }
-            | NoteState::ProcessingAuthenticated { inclusion_proof, metadata, .. }
-            | NoteState::NativeConsumed { inclusion_proof, metadata, .. } => {
-                let note = Note::new(
+        match (self.metadata(), self.inclusion_proof()) {
+            (Some(metadata), Some(inclusion_proof)) => Ok(InputNote::authenticated(
+                Note::new(
                     self.details.assets().clone(),
-                    metadata,
+                    *metadata,
                     self.details.recipient().clone(),
-                );
-
-                Ok(InputNote::authenticated(note, inclusion_proof))
-            },
-            NoteState::Unverified { .. } => Err(NoteRecordError::ConversionError(
-                "Input Note Record proof is unverified".to_string(),
+                ),
+                inclusion_proof.clone(),
             )),
-            NoteState::Invalid { .. } => Err(NoteRecordError::ConversionError(
-                "Input Note Record proof is invalid".to_string(),
-            )),
+            (Some(metadata), None) => Ok(InputNote::unauthenticated(Note::new(
+                self.details.assets().clone(),
+                *metadata,
+                self.details.recipient().clone(),
+            ))),
             _ => Err(NoteRecordError::ConversionError(
                 "Input Note Record contains no metadata".to_string(),
             )),

@@ -104,6 +104,8 @@ impl SqliteStore {
         let consumed_note_ids =
             tx_result.consumed_notes().iter().map(|note| note.id()).collect::<Vec<_>>();
 
+        let mut relevant_notes = self.get_input_notes(NoteFilter::List(&consumed_note_ids))?;
+
         let mut db = self.db();
         let tx = db.transaction()?;
 
@@ -123,13 +125,14 @@ impl SqliteStore {
         }
 
         for note_id in consumed_note_ids {
-            let mut input_note_record = self
-                .get_input_notes(NoteFilter::Unique(note_id))?
-                .pop()
-                .expect("Unique query should return exactly one note");
+            let note_pos = relevant_notes.iter().position(|n| n.id() == note_id);
 
-            if input_note_record.consumed_locally(account_id, transaction_id)? {
-                insert_input_note_tx(&tx, input_note_record)?;
+            if let Some(note_pos) = note_pos {
+                let mut input_note_record = relevant_notes.swap_remove(note_pos);
+
+                if input_note_record.consumed_locally(account_id, transaction_id)? {
+                    insert_input_note_tx(&tx, input_note_record)?;
+                }
             }
         }
 

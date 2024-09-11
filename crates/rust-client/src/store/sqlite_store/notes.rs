@@ -149,20 +149,20 @@ impl<'a> NoteFilter<'a> {
         match self {
             NoteFilter::All => base.to_string(),
             NoteFilter::Committed => {
-                format!("{base} WHERE state = {STATE_COMMITTED}")
+                format!("{base} WHERE state_discriminant = {STATE_COMMITTED}")
             },
             NoteFilter::Consumed => {
                 format!(
-                    "{base} WHERE state in ({}, {})",
+                    "{base} WHERE state_discriminant in ({}, {})",
                     STATE_NATIVE_CONSUMED, STATE_FOREIGN_CONSUMED
                 )
             },
             NoteFilter::Expected => {
-                format!("{base} WHERE state = {STATE_EXPECTED}")
+                format!("{base} WHERE state_discriminant = {}", STATE_EXPECTED)
             },
             NoteFilter::Processing => {
                 format!(
-                    "{base} WHERE state in ({}, {})",
+                    "{base} WHERE state_discriminant in ({}, {})",
                     STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED
                 )
             },

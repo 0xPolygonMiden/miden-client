@@ -80,6 +80,8 @@ impl SqliteStore {
         &self,
         state_sync_update: StateSyncUpdate,
     ) -> Result<(), StoreError> {
+        let mut relevant_input_notes = self.get_relevant_sync_input_notes(&state_sync_update)?;
+
         let StateSyncUpdate {
             block_header,
             nullifiers,
@@ -131,15 +133,19 @@ impl SqliteStore {
             ))?;
             let metadata = input_note.note().metadata();
 
-            let mut input_note_record = self
-                .get_input_notes(NoteFilter::Unique(input_note.id()))?
-                .pop()
-                .expect("Unique query should return exactly one note");
+            let note_position = relevant_input_notes.iter().position(|n| n.id() == input_note.id());
 
-            if input_note_record.inclusion_proof_received(inclusion_proof.clone(), *metadata)?
-                || input_note_record.block_header_received(block_header)?
-            {
-                insert_input_note_tx(&tx, input_note_record)?;
+            if let Some(note_position) = note_position {
+                let mut input_note_record = relevant_input_notes.swap_remove(note_position);
+
+                let inclusion_proof_received = input_note_record
+                    .inclusion_proof_received(inclusion_proof.clone(), *metadata)?;
+                let block_header_received =
+                    input_note_record.block_header_received(block_header)?;
+
+                if inclusion_proof_received || block_header_received {
+                    insert_input_note_tx(&tx, input_note_record)?;
+                }
             }
         }
 
@@ -168,10 +174,11 @@ impl SqliteStore {
             let nullifier = nullifier_update.nullifier;
             let block_num = nullifier_update.block_num;
 
-            let input_note_record =
-                self.get_input_notes(NoteFilter::Nullifiers(&[nullifier]))?.pop();
+            let note_pos = relevant_input_notes.iter().position(|n| n.nullifier() == nullifier);
 
-            if let Some(mut input_note_record) = input_note_record {
+            if let Some(note_pos) = note_pos {
+                let mut input_note_record = relevant_input_notes.swap_remove(note_pos);
+
                 if input_note_record.nullifier_received(nullifier, block_num)? {
                     insert_input_note_tx(&tx, input_note_record)?;
                 }
@@ -202,5 +209,31 @@ impl SqliteStore {
         tx.commit()?;
 
         Ok(())
+    }
+
+    fn get_relevant_sync_input_notes(
+        &self,
+        state_sync_update: &StateSyncUpdate,
+    ) -> Result<Vec<InputNoteRecord>, StoreError> {
+        let StateSyncUpdate { nullifiers, synced_new_notes, .. } = state_sync_update;
+
+        let updated_input_note_ids = synced_new_notes
+            .updated_input_notes()
+            .iter()
+            .map(|input_note| input_note.id())
+            .collect::<Vec<_>>();
+        let updated_input_notes =
+            self.get_input_notes(NoteFilter::List(&updated_input_note_ids))?;
+
+        let nullifiers = nullifiers
+            .iter()
+            .map(|nullifier_update| nullifier_update.nullifier)
+            .collect::<Vec<_>>();
+        let nullified_notes = self.get_input_notes(NoteFilter::Nullifiers(&nullifiers))?;
+
+        let mut relevant_notes = updated_input_notes;
+        relevant_notes.extend(nullified_notes);
+
+        Ok(relevant_notes)
     }
 }
