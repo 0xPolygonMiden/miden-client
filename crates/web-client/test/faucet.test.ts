@@ -3,7 +3,7 @@ import { createNewFaucet, isValidAddress } from "./webClientTestUtils.js";
 describe("faucet tests", () => {
   it("create a new faucet", async () => {
     const result = await createNewFaucet(
-      "OffChain",
+      "Private",
       false,
       "DMX",
       "10",

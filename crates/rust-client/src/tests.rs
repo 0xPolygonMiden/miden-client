@@ -5,8 +5,8 @@ use alloc::vec::Vec;
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::{
-        account_id::testing::ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, AccountCode, AccountId,
-        AccountStorageType, AccountStub, AuthSecretKey,
+        account_id::testing::ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, AccountCode, AccountHeader,
+        AccountId, AccountStorageMode, AuthSecretKey,
     },
     assets::{FungibleAsset, TokenSymbol},
     crypto::dsa::rpo_falcon512::SecretKey,
@@ -93,7 +93,7 @@ async fn insert_basic_account() {
 
     let account_template = AccountTemplate::BasicWallet {
         mutable_code: true,
-        storage_type: AccountStorageType::OffChain,
+        storage_mode: AccountStorageMode::Private,
     };
 
     // Insert Account
@@ -107,7 +107,7 @@ async fn insert_basic_account() {
     assert!(fetched_account_data.is_ok());
 
     let (fetched_account, fetched_account_seed) = fetched_account_data.unwrap();
-    // Validate stub has matching data
+    // Validate header has matching data
     assert_eq!(account.id(), fetched_account.id());
     assert_eq!(account.nonce(), fetched_account.nonce());
     assert_eq!(account.vault(), fetched_account.vault());
@@ -127,7 +127,7 @@ async fn insert_faucet_account() {
         token_symbol: TokenSymbol::new("TEST").unwrap(),
         decimals: 10,
         max_supply: 9999999999,
-        storage_type: AccountStorageType::OffChain,
+        storage_mode: AccountStorageMode::Private,
     };
 
     // Insert Account
@@ -141,7 +141,7 @@ async fn insert_faucet_account() {
     assert!(fetched_account_data.is_ok());
 
     let (fetched_account, fetched_account_seed) = fetched_account_data.unwrap();
-    // Validate stub has matching data
+    // Validate header has matching data
     assert_eq!(account.id(), fetched_account.id());
     assert_eq!(account.nonce(), fetched_account.nonce());
     assert_eq!(account.vault(), fetched_account.vault());
@@ -223,16 +223,16 @@ async fn test_get_account_by_id() {
         .unwrap();
 
     // Retrieving an existing account should succeed
-    let (acc_from_db, _account_seed) = match client.get_account_stub_by_id(account.id()) {
+    let (acc_from_db, _account_seed) = match client.get_account_header_by_id(account.id()) {
         Ok(account) => account,
         Err(err) => panic!("Error retrieving account: {}", err),
     };
-    assert_eq!(AccountStub::from(account), acc_from_db);
+    assert_eq!(AccountHeader::from(account), acc_from_db);
 
     // Retrieving a non existing account should fail
     let hex = format!("0x{}", "1".repeat(16));
     let invalid_id = AccountId::from_hex(&hex).unwrap();
-    assert!(client.get_account_stub_by_id(invalid_id).is_err());
+    assert!(client.get_account_header_by_id(invalid_id).is_err());
 }
 
 #[tokio::test]

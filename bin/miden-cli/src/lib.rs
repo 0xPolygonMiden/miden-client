@@ -3,7 +3,7 @@ use std::{env, rc::Rc};
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
-    accounts::AccountStub,
+    accounts::AccountHeader,
     auth::{StoreAuthenticator, TransactionAuthenticator},
     crypto::{FeltRng, RpoRandomCoin},
     rpc::{NodeRpcClient, TonicRpcClient},
@@ -220,9 +220,9 @@ fn get_account_with_id_prefix<
 >(
     client: &Client<N, R, S, A>,
     account_id_prefix: &str,
-) -> Result<AccountStub, IdPrefixFetchError> {
+) -> Result<AccountHeader, IdPrefixFetchError> {
     let mut accounts = client
-        .get_account_stubs()
+        .get_account_headers()
         .map_err(|err| {
             tracing::error!("Error when fetching all accounts from the store: {err}");
             IdPrefixFetchError::NoMatch(
@@ -230,7 +230,7 @@ fn get_account_with_id_prefix<
             )
         })?
         .into_iter()
-        .filter(|(account_stub, _)| account_stub.id().to_hex().starts_with(account_id_prefix))
+        .filter(|(account_header, _)| account_header.id().to_hex().starts_with(account_id_prefix))
         .map(|(acc, _)| acc)
         .collect::<Vec<_>>();
 
@@ -240,7 +240,8 @@ fn get_account_with_id_prefix<
         ));
     }
     if accounts.len() > 1 {
-        let account_ids = accounts.iter().map(|account_stub| account_stub.id()).collect::<Vec<_>>();
+        let account_ids =
+            accounts.iter().map(|account_header| account_header.id()).collect::<Vec<_>>();
         tracing::error!(
             "Multiple accounts found for the prefix {}: {:?}",
             account_id_prefix,

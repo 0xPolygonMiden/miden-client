@@ -1,5 +1,7 @@
+use std::str::FromStr;
+
 use miden_client::accounts::AccountTemplate;
-use miden_objects::{accounts::AccountStorageType, assets::TokenSymbol};
+use miden_objects::{accounts::AccountStorageMode, assets::TokenSymbol};
 use wasm_bindgen::prelude::*;
 
 use crate::WebClient;
@@ -8,17 +10,14 @@ use crate::WebClient;
 impl WebClient {
     pub async fn new_wallet(
         &mut self,
-        storage_type: String,
+        storage_mode: String,
         mutable: bool,
     ) -> Result<JsValue, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let client_template = AccountTemplate::BasicWallet {
                 mutable_code: mutable,
-                storage_type: match storage_type.as_str() {
-                    "OffChain" => AccountStorageType::OffChain,
-                    "OnChain" => AccountStorageType::OnChain,
-                    _ => return Err(JsValue::from_str("Invalid storage mode")),
-                },
+                storage_mode: AccountStorageMode::try_from(storage_mode.as_str())
+                    .map_err(|_| JsValue::from_str("Invalid storage mode"))?,
             };
 
             match client.new_account(client_template).await {
@@ -36,7 +35,7 @@ impl WebClient {
 
     pub async fn new_faucet(
         &mut self,
-        storage_type: String,
+        storage_mode: String,
         non_fungible: bool,
         token_symbol: String,
         decimals: String,
@@ -54,11 +53,8 @@ impl WebClient {
                 max_supply: max_supply
                     .parse::<u64>()
                     .map_err(|e| JsValue::from_str(&e.to_string()))?,
-                storage_type: match storage_type.as_str() {
-                    "OffChain" => AccountStorageType::OffChain,
-                    "OnChain" => AccountStorageType::OnChain,
-                    _ => return Err(JsValue::from_str("Invalid storage mode")),
-                },
+                storage_mode: AccountStorageMode::from_str(&storage_mode)
+                    .map_err(|_| JsValue::from_str("Invalid storage mode"))?,
             };
 
             match client.new_account(client_template).await {
