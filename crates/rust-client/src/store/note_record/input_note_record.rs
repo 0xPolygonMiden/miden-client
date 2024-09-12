@@ -68,7 +68,9 @@ impl InputNoteRecord {
             | NoteState::Unverified { metadata, .. }
             | NoteState::Invalid { metadata, .. }
             | NoteState::ProcessingAuthenticated { metadata, .. }
-            | NoteState::NativeConsumed { metadata, .. } => Some(metadata),
+            | NoteState::ProcessingUnauthenticated { metadata, .. }
+            | NoteState::NativeConsumedAuthenticated { metadata, .. } => Some(metadata),
+            NoteState::Expected { metadata, .. } => metadata.as_ref(),
             _ => None,
         }
     }
@@ -85,7 +87,9 @@ impl InputNoteRecord {
                 invalid_inclusion_proof: inclusion_proof, ..
             }
             | NoteState::ProcessingAuthenticated { inclusion_proof, .. }
-            | NoteState::NativeConsumed { inclusion_proof, .. } => Some(inclusion_proof),
+            | NoteState::NativeConsumedAuthenticated { inclusion_proof, .. } => {
+                Some(inclusion_proof)
+            },
             _ => None,
         }
     }
@@ -101,7 +105,7 @@ impl InputNoteRecord {
             self.state,
             NoteState::Committed { .. }
                 | NoteState::ProcessingAuthenticated { .. }
-                | NoteState::NativeConsumed { .. }
+                | NoteState::NativeConsumedAuthenticated { .. }
         )
     }
 
@@ -193,12 +197,13 @@ impl InputNoteRecord {
                         "Nullifier does not match the expected value".to_string(),
                     ));
                 }
-                self.state = NoteState::NativeConsumed { metadata: *metadata, inclusion_proof: inclusion_proof.clone(), block_note_root: *block_note_root, nullifier_block_height , submission_data: *submission_data };
+                self.state = NoteState::NativeConsumedAuthenticated { metadata: *metadata, inclusion_proof: inclusion_proof.clone(), block_note_root: *block_note_root, nullifier_block_height , submission_data: *submission_data };
                 Ok(true)
             },
-            NoteState::ProcessingUnauthenticated { after_block_num: _, submission_data: _ } => {
-                todo!("This should be NativeConsumed, but we don't have the metadata to set it.")
-            }
+            NoteState::ProcessingUnauthenticated { submission_data, .. } => {
+                self.state = NoteState::NativeConsumedUnauthenticated { nullifier_block_height, submission_data: *submission_data };
+                Ok(true)
+            },
             NoteState::Unknown | NoteState::Expected { .. } | NoteState::Committed { .. } | NoteState::Invalid { .. } | NoteState::Unverified { .. }  => {
                 self.state = NoteState::ForeignConsumed { nullifier_block_height };
                 Ok(true)
@@ -223,6 +228,21 @@ impl InputNoteRecord {
                 self.state = NoteState::ProcessingAuthenticated { metadata: *metadata, inclusion_proof: inclusion_proof.clone(), block_note_root: *block_note_root, submission_data };
                 Ok(true)
             },
+            NoteState::Expected { metadata: Some(metadata), after_block_num, .. } => {
+                let submission_data = NoteSubmissionData{
+                    submitted_at: None,
+                    consumer_account,
+                    consumer_transaction,
+                };
+
+                self.state = NoteState::ProcessingUnauthenticated { metadata: *metadata, after_block_num: *after_block_num, submission_data };
+                Ok(true)
+            },
+            NoteState::Expected { metadata: None, .. } => {
+                Err(NoteRecordError::StateTransitionError(
+                    "Cannot consume a note without metadata".to_string(),
+                ))
+            }
             _ => todo!("How should we deal with invalid/unnecessary transitions? Maybe we don't want a default '_' case"),
         }
     }
@@ -263,11 +283,15 @@ impl From<&NoteDetails> for InputNoteRecord {
 
 impl From<Note> for InputNoteRecord {
     fn from(value: Note) -> Self {
-        let tag = value.metadata().tag();
+        let metadata = *value.metadata();
         Self {
             details: value.into(),
             created_at: None,
-            state: NoteState::Expected { after_block_num: 0, tag },
+            state: NoteState::Expected {
+                after_block_num: 0,
+                tag: metadata.tag(),
+                metadata: Some(metadata),
+            },
         }
     }
 }

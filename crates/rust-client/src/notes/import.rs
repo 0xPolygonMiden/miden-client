@@ -189,7 +189,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     None => Ok(InputNoteRecord::new(
                         details,
                         None,
-                        NoteState::Expected { after_block_num, tag },
+                        NoteState::Expected { after_block_num, tag, metadata: None },
                     )),
                 }
             },

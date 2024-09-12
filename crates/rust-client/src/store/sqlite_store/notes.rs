@@ -20,8 +20,9 @@ use super::SqliteStore;
 use crate::store::{
     note_record::{
         NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED, NOTE_STATUS_EXPECTED, NOTE_STATUS_PROCESSING,
-        STATE_COMMITTED, STATE_EXPECTED, STATE_FOREIGN_CONSUMED, STATE_NATIVE_CONSUMED,
-        STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED,
+        STATE_COMMITTED, STATE_EXPECTED, STATE_FOREIGN_CONSUMED,
+        STATE_NATIVE_CONSUMED_AUTHENTICATED, STATE_NATIVE_CONSUMED_UNAUTHENTICATED,
+        STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED, STATE_UNKNOWN,
     },
     InputNoteRecord, NoteFilter, NoteRecordDetails, NoteState, NoteStatus, OutputNoteRecord,
     StoreError,
@@ -153,12 +154,14 @@ impl<'a> NoteFilter<'a> {
             },
             NoteFilter::Consumed => {
                 format!(
-                    "{base} WHERE state_discriminant in ({}, {})",
-                    STATE_NATIVE_CONSUMED, STATE_FOREIGN_CONSUMED
+                    "{base} WHERE state_discriminant in ({}, {}, {})",
+                    STATE_NATIVE_CONSUMED_AUTHENTICATED,
+                    STATE_NATIVE_CONSUMED_UNAUTHENTICATED,
+                    STATE_FOREIGN_CONSUMED
                 )
             },
             NoteFilter::Expected => {
-                format!("{base} WHERE state_discriminant = {}", STATE_EXPECTED)
+                format!("{base} WHERE state_discriminant in ({},{})", STATE_EXPECTED, STATE_UNKNOWN)
             },
             NoteFilter::Processing => {
                 format!(
@@ -280,7 +283,8 @@ impl SqliteStore {
         const QUERY: &str =
             "SELECT nullifier FROM input_notes WHERE state_discriminant NOT IN rarray(?)";
         let unspent_filters = Rc::new(vec![
-            Value::from(STATE_NATIVE_CONSUMED.to_string()),
+            Value::from(STATE_NATIVE_CONSUMED_AUTHENTICATED.to_string()),
+            Value::from(STATE_NATIVE_CONSUMED_UNAUTHENTICATED.to_string()),
             Value::from(STATE_FOREIGN_CONSUMED.to_string()),
         ]);
         self.db()

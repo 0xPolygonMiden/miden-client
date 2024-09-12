@@ -269,8 +269,8 @@ async fn test_p2idr_transfer_consumed_by_target() {
 
     // Check that the note is consumed by the target account
     let input_note = client.get_input_note(note.id()).unwrap();
-    assert!(matches!(input_note.state(), NoteState::NativeConsumed { .. }));
-    if let NoteState::NativeConsumed { submission_data, .. } = input_note.state() {
+    assert!(matches!(input_note.state(), NoteState::NativeConsumedAuthenticated { .. }));
+    if let NoteState::NativeConsumedAuthenticated { submission_data, .. } = input_note.state() {
         assert_eq!(submission_data.consumer_account, from_account_id);
     } else {
         panic!("Note should be consumed");

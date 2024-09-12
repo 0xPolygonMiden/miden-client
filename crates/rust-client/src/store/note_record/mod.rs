@@ -288,13 +288,15 @@ pub const STATE_COMMITTED: u8 = 3;
 pub const STATE_INVALID: u8 = 4;
 pub const STATE_PROCESSING_AUTHENTICATED: u8 = 5;
 pub const STATE_PROCESSING_UNAUTHENTICATED: u8 = 6;
-pub const STATE_NATIVE_CONSUMED: u8 = 7;
-pub const STATE_FOREIGN_CONSUMED: u8 = 8;
+pub const STATE_NATIVE_CONSUMED_AUTHENTICATED: u8 = 7;
+pub const STATE_NATIVE_CONSUMED_UNAUTHENTICATED: u8 = 8;
+pub const STATE_FOREIGN_CONSUMED: u8 = 9;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum NoteState {
     Unknown,
     Expected {
+        metadata: Option<NoteMetadata>,
         after_block_num: u32,
         tag: NoteTag,
     },
@@ -319,13 +321,18 @@ pub enum NoteState {
         submission_data: NoteSubmissionData,
     },
     ProcessingUnauthenticated {
+        metadata: NoteMetadata,
         after_block_num: u32,
         submission_data: NoteSubmissionData,
     },
-    NativeConsumed {
+    NativeConsumedAuthenticated {
         metadata: NoteMetadata,
         inclusion_proof: NoteInclusionProof,
         block_note_root: Digest,
+        nullifier_block_height: u32,
+        submission_data: NoteSubmissionData,
+    },
+    NativeConsumedUnauthenticated {
         nullifier_block_height: u32,
         submission_data: NoteSubmissionData,
     },
@@ -344,7 +351,10 @@ impl NoteState {
             NoteState::Invalid { .. } => STATE_INVALID,
             NoteState::ProcessingAuthenticated { .. } => STATE_PROCESSING_AUTHENTICATED,
             NoteState::ProcessingUnauthenticated { .. } => STATE_PROCESSING_UNAUTHENTICATED,
-            NoteState::NativeConsumed { .. } => STATE_NATIVE_CONSUMED,
+            NoteState::NativeConsumedAuthenticated { .. } => STATE_NATIVE_CONSUMED_AUTHENTICATED,
+            NoteState::NativeConsumedUnauthenticated { .. } => {
+                STATE_NATIVE_CONSUMED_UNAUTHENTICATED
+            },
             NoteState::ForeignConsumed { .. } => STATE_FOREIGN_CONSUMED,
         }
     }
@@ -355,7 +365,8 @@ impl Serializable for NoteState {
         target.write_u8(self.discriminant());
         match self {
             NoteState::Unknown => (),
-            NoteState::Expected { after_block_num, tag } => {
+            NoteState::Expected { metadata, after_block_num, tag } => {
+                metadata.write_into(target);
                 after_block_num.write_into(target);
                 tag.write_into(target);
             },
@@ -392,11 +403,16 @@ impl Serializable for NoteState {
                 block_note_root.write_into(target);
                 submission_data.write_into(target);
             },
-            NoteState::ProcessingUnauthenticated { after_block_num, submission_data } => {
+            NoteState::ProcessingUnauthenticated {
+                metadata,
+                after_block_num,
+                submission_data,
+            } => {
+                metadata.write_into(target);
                 after_block_num.write_into(target);
                 submission_data.write_into(target);
             },
-            NoteState::NativeConsumed {
+            NoteState::NativeConsumedAuthenticated {
                 metadata,
                 inclusion_proof,
                 block_note_root,
@@ -409,82 +425,15 @@ impl Serializable for NoteState {
                 nullifier_block_height.write_into(target);
                 submission_data.write_into(target);
             },
+            NoteState::NativeConsumedUnauthenticated {
+                nullifier_block_height,
+                submission_data,
+            } => {
+                nullifier_block_height.write_into(target);
+                submission_data.write_into(target);
+            },
             NoteState::ForeignConsumed { nullifier_block_height } => {
                 nullifier_block_height.write_into(target);
-            },
-        }
-    }
-}
-
-impl Display for NoteState {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            NoteState::Unknown => write!(f, "Unknown"),
-            NoteState::Expected { after_block_num, .. } => {
-                write!(f, "Expected (after block {})", after_block_num)
-            },
-            NoteState::Unverified { inclusion_proof, .. } => {
-                write!(
-                    f,
-                    "Unverified (with commit block {})",
-                    inclusion_proof.location().block_num()
-                )
-            },
-            NoteState::Committed { inclusion_proof, .. } => {
-                write!(f, "Committed (at block height {})", inclusion_proof.location().block_num())
-            },
-            NoteState::Invalid { invalid_inclusion_proof, .. } => {
-                write!(
-                    f,
-                    "Invalid (with commit block {})",
-                    invalid_inclusion_proof.location().block_num()
-                )
-            },
-            NoteState::ProcessingAuthenticated { submission_data, .. } => {
-                write!(
-                    f,
-                    "Processing Authenticated (submitted at {} by account {})",
-                    submission_data
-                        .submitted_at
-                        .map(|submitted_at| {
-                            Local
-                                .timestamp_opt(submitted_at as i64, 0)
-                                .single()
-                                .expect("timestamp should be valid")
-                                .to_string()
-                        })
-                        .unwrap_or("?".to_string()),
-                    submission_data.consumer_account
-                )
-            },
-            NoteState::ProcessingUnauthenticated { submission_data, .. } => {
-                write!(
-                    f,
-                    "Processing Unauthenticated (submitted at {} by account {})",
-                    submission_data
-                        .submitted_at
-                        .map(|submitted_at| {
-                            Local
-                                .timestamp_opt(submitted_at as i64, 0)
-                                .single()
-                                .expect("timestamp should be valid")
-                                .to_string()
-                        })
-                        .unwrap_or("?".to_string()),
-                    submission_data.consumer_account
-                )
-            },
-            NoteState::NativeConsumed {
-                nullifier_block_height, submission_data, ..
-            } => {
-                write!(
-                    f,
-                    "Natively Consumed (at block {} by account {})",
-                    nullifier_block_height, submission_data.consumer_account
-                )
-            },
-            NoteState::ForeignConsumed { nullifier_block_height } => {
-                write!(f, "Foreignly Consumed (at block {})", nullifier_block_height)
             },
         }
     }
@@ -496,9 +445,10 @@ impl Deserializable for NoteState {
         match discriminant {
             STATE_UNKNOWN => Ok(NoteState::Unknown),
             STATE_EXPECTED => {
+                let metadata = Option::<NoteMetadata>::read_from(source)?;
                 let after_block_num = u32::read_from(source)?;
                 let tag = NoteTag::read_from(source)?;
-                Ok(NoteState::Expected { after_block_num, tag })
+                Ok(NoteState::Expected { metadata, after_block_num, tag })
             },
             STATE_UNVERIFIED => {
                 let metadata = NoteMetadata::read_from(source)?;
@@ -538,20 +488,33 @@ impl Deserializable for NoteState {
                 })
             },
             STATE_PROCESSING_UNAUTHENTICATED => {
+                let metadata = NoteMetadata::read_from(source)?;
                 let after_block_num = u32::read_from(source)?;
                 let submission_data = NoteSubmissionData::read_from(source)?;
-                Ok(NoteState::ProcessingUnauthenticated { after_block_num, submission_data })
+                Ok(NoteState::ProcessingUnauthenticated {
+                    metadata,
+                    after_block_num,
+                    submission_data,
+                })
             },
-            STATE_NATIVE_CONSUMED => {
+            STATE_NATIVE_CONSUMED_AUTHENTICATED => {
                 let metadata = NoteMetadata::read_from(source)?;
                 let inclusion_proof = NoteInclusionProof::read_from(source)?;
                 let block_note_root = Digest::read_from(source)?;
                 let nullifier_block_height = u32::read_from(source)?;
                 let submission_data = NoteSubmissionData::read_from(source)?;
-                Ok(NoteState::NativeConsumed {
+                Ok(NoteState::NativeConsumedAuthenticated {
                     metadata,
                     inclusion_proof,
                     block_note_root,
+                    nullifier_block_height,
+                    submission_data,
+                })
+            },
+            STATE_NATIVE_CONSUMED_UNAUTHENTICATED => {
+                let nullifier_block_height = u32::read_from(source)?;
+                let submission_data = NoteSubmissionData::read_from(source)?;
+                Ok(NoteState::NativeConsumedUnauthenticated {
                     nullifier_block_height,
                     submission_data,
                 })
@@ -564,6 +527,70 @@ impl Deserializable for NoteState {
                 "Invalid NoteState discriminant: {}",
                 discriminant
             ))),
+        }
+    }
+}
+
+impl Display for NoteState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            NoteState::Unknown => write!(f, "Unknown"),
+            NoteState::Expected { after_block_num, .. } => {
+                write!(f, "Expected (after block {})", after_block_num)
+            },
+            NoteState::Unverified { inclusion_proof, .. } => {
+                write!(
+                    f,
+                    "Unverified (with commit block {})",
+                    inclusion_proof.location().block_num()
+                )
+            },
+            NoteState::Committed { inclusion_proof, .. } => {
+                write!(f, "Committed (at block height {})", inclusion_proof.location().block_num())
+            },
+            NoteState::Invalid { invalid_inclusion_proof, .. } => {
+                write!(
+                    f,
+                    "Invalid (with commit block {})",
+                    invalid_inclusion_proof.location().block_num()
+                )
+            },
+            NoteState::ProcessingAuthenticated { submission_data, .. }
+            | NoteState::ProcessingUnauthenticated { submission_data, .. } => {
+                write!(
+                    f,
+                    "Processing (submitted at {} by account {})",
+                    submission_data
+                        .submitted_at
+                        .map(|submitted_at| {
+                            Local
+                                .timestamp_opt(submitted_at as i64, 0)
+                                .single()
+                                .expect("timestamp should be valid")
+                                .to_string()
+                        })
+                        .unwrap_or("?".to_string()),
+                    submission_data.consumer_account
+                )
+            },
+            NoteState::NativeConsumedAuthenticated {
+                nullifier_block_height,
+                submission_data,
+                ..
+            }
+            | NoteState::NativeConsumedUnauthenticated {
+                nullifier_block_height,
+                submission_data,
+            } => {
+                write!(
+                    f,
+                    "Consumed (at block {} by account {})",
+                    nullifier_block_height, submission_data.consumer_account
+                )
+            },
+            NoteState::ForeignConsumed { nullifier_block_height } => {
+                write!(f, "Consumed (at block {})", nullifier_block_height)
+            },
         }
     }
 }
