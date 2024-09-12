@@ -145,7 +145,13 @@ impl InputNoteRecord {
                 }
                 Ok(false)
             },
-            _ => todo!("How should we deal with invalid/unnecessary transitions? Maybe we don't want a default '_' case"),
+            NoteState::NativeConsumedAuthenticated { .. }
+            | NoteState::NativeConsumedUnauthenticated { .. }
+            | NoteState::ForeignConsumed { .. } => Ok(false),
+            state => Err(NoteRecordError::InvalidStateTransition {
+                state: state.discriminant(),
+                transition_name: "inclusion_proof_received".to_string(),
+            }),
         }
     }
 
@@ -154,7 +160,12 @@ impl InputNoteRecord {
         block_header: BlockHeader,
     ) -> Result<bool, NoteRecordError> {
         match &self.state {
-            NoteState::Unverified { inclusion_proof, metadata } => {
+            NoteState::Unverified { inclusion_proof, metadata }
+            | NoteState::Invalid {
+                metadata,
+                invalid_inclusion_proof: inclusion_proof,
+                ..
+            } => {
                 if inclusion_proof.location().block_num() != block_header.block_num() {
                     return Err(NoteRecordError::StateTransitionError(
                         "Block header does not match the block number in the inclusion proof"
@@ -181,8 +192,24 @@ impl InputNoteRecord {
                 };
                 Ok(true)
             },
-            _ => todo!("How should we deal with invalid/unnecessary transitions? Maybe we don't want a default '_' case"),
-       }
+            NoteState::Committed { block_note_root, .. } => {
+                if block_header.note_root() != *block_note_root {
+                    return Err(NoteRecordError::StateTransitionError(
+                        "Block header does not match the expected note root".to_string(),
+                    ));
+                }
+                Ok(false)
+            },
+            NoteState::ProcessingAuthenticated { .. }
+            | NoteState::NativeConsumedAuthenticated { .. }
+            | NoteState::NativeConsumedUnauthenticated { .. }
+            | NoteState::ForeignConsumed { .. }
+            | NoteState::ProcessingUnauthenticated { .. } => Ok(false),
+            state => Err(NoteRecordError::InvalidStateTransition {
+                state: state.discriminant(),
+                transition_name: "block_header_received".to_string(),
+            }),
+        }
     }
 
     pub fn nullifier_received(
@@ -191,24 +218,44 @@ impl InputNoteRecord {
         nullifier_block_height: u32,
     ) -> Result<bool, NoteRecordError> {
         match &self.state {
-            NoteState::ProcessingAuthenticated { metadata, inclusion_proof, block_note_root, submission_data } => {
+            NoteState::ProcessingAuthenticated {
+                metadata,
+                inclusion_proof,
+                block_note_root,
+                submission_data,
+            } => {
                 if self.nullifier() != nullifier {
                     return Err(NoteRecordError::StateTransitionError(
                         "Nullifier does not match the expected value".to_string(),
                     ));
                 }
-                self.state = NoteState::NativeConsumedAuthenticated { metadata: *metadata, inclusion_proof: inclusion_proof.clone(), block_note_root: *block_note_root, nullifier_block_height , submission_data: *submission_data };
+                self.state = NoteState::NativeConsumedAuthenticated {
+                    metadata: *metadata,
+                    inclusion_proof: inclusion_proof.clone(),
+                    block_note_root: *block_note_root,
+                    nullifier_block_height,
+                    submission_data: *submission_data,
+                };
                 Ok(true)
             },
             NoteState::ProcessingUnauthenticated { submission_data, .. } => {
-                self.state = NoteState::NativeConsumedUnauthenticated { nullifier_block_height, submission_data: *submission_data };
+                self.state = NoteState::NativeConsumedUnauthenticated {
+                    nullifier_block_height,
+                    submission_data: *submission_data,
+                };
                 Ok(true)
             },
-            NoteState::Unknown | NoteState::Expected { .. } | NoteState::Committed { .. } | NoteState::Invalid { .. } | NoteState::Unverified { .. }  => {
+            NoteState::Unknown
+            | NoteState::Expected { .. }
+            | NoteState::Committed { .. }
+            | NoteState::Invalid { .. }
+            | NoteState::Unverified { .. } => {
                 self.state = NoteState::ForeignConsumed { nullifier_block_height };
                 Ok(true)
             },
-            _ => todo!("How should we deal with invalid/unnecessary transitions? Maybe we don't want a default '_' case"),
+            NoteState::NativeConsumedAuthenticated { .. }
+            | NoteState::NativeConsumedUnauthenticated { .. }
+            | NoteState::ForeignConsumed { .. } => Ok(false),
         }
     }
 
@@ -218,32 +265,55 @@ impl InputNoteRecord {
         consumer_transaction: TransactionId,
     ) -> Result<bool, NoteRecordError> {
         match &self.state {
-            NoteState::Committed { metadata, inclusion_proof, block_note_root } => {
-                let submission_data = NoteSubmissionData{
+            NoteState::Committed {
+                metadata,
+                inclusion_proof,
+                block_note_root,
+            } => {
+                let submission_data = NoteSubmissionData {
                     submitted_at: None,
                     consumer_account,
                     consumer_transaction,
                 };
 
-                self.state = NoteState::ProcessingAuthenticated { metadata: *metadata, inclusion_proof: inclusion_proof.clone(), block_note_root: *block_note_root, submission_data };
+                self.state = NoteState::ProcessingAuthenticated {
+                    metadata: *metadata,
+                    inclusion_proof: inclusion_proof.clone(),
+                    block_note_root: *block_note_root,
+                    submission_data,
+                };
                 Ok(true)
             },
-            NoteState::Expected { metadata: Some(metadata), after_block_num, .. } => {
-                let submission_data = NoteSubmissionData{
+            NoteState::Expected {
+                metadata: Some(metadata),
+                after_block_num,
+                ..
+            } => {
+                let submission_data = NoteSubmissionData {
                     submitted_at: None,
                     consumer_account,
                     consumer_transaction,
                 };
 
-                self.state = NoteState::ProcessingUnauthenticated { metadata: *metadata, after_block_num: *after_block_num, submission_data };
+                self.state = NoteState::ProcessingUnauthenticated {
+                    metadata: *metadata,
+                    after_block_num: *after_block_num,
+                    submission_data,
+                };
                 Ok(true)
             },
             NoteState::Expected { metadata: None, .. } => {
                 Err(NoteRecordError::StateTransitionError(
                     "Cannot consume a note without metadata".to_string(),
                 ))
-            }
-            _ => todo!("How should we deal with invalid/unnecessary transitions? Maybe we don't want a default '_' case"),
+            },
+            NoteState::Invalid { .. } => Err(NoteRecordError::StateTransitionError(
+                "Cannot consume an invalid note".to_string(),
+            )),
+            state => Err(NoteRecordError::InvalidStateTransition {
+                state: state.discriminant(),
+                transition_name: "consumed_locally".to_string(),
+            }),
         }
     }
 }

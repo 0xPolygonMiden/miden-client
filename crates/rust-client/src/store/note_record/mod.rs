@@ -632,7 +632,7 @@ pub enum NoteRecordError {
     ConversionError(String),
     NoteError(NoteError),
     InvalidInclusionProof,
-    InvalidStateTransition { current_state: u8, new_state: u8 },
+    InvalidStateTransition { state: u8, transition_name: String },
     StateTransitionError(String),
 }
 
@@ -643,8 +643,8 @@ impl fmt::Display for NoteRecordError {
             ConversionError(msg) => write!(f, "Note record conversion error: {}", msg),
             NoteError(err) => write!(f, "Note error: {}", err),
             InvalidInclusionProof => write!(f, "Invalid inclusion proof"),
-            InvalidStateTransition { current_state, new_state } => {
-                write!(f, "Invalid state transition: {} -> {}", current_state, new_state)
+            InvalidStateTransition { state, transition_name } => {
+                write!(f, "Invalid state transition {} for state {}", transition_name, state)
             },
             StateTransitionError(msg) => write!(f, "State transition error: {}", msg),
         }
