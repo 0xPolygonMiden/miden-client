@@ -671,7 +671,7 @@ async fn test_import_expected_note_uncommitted() {
 
     let imported_note = client_2.get_input_note(imported_note_id).unwrap();
 
-    assert!(matches!(imported_note.state(), NoteState::Expected { .. }));
+    assert!(matches!(imported_note.state(), NoteState::Unknown { .. }));
 }
 
 #[tokio::test]

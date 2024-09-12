@@ -44,13 +44,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         };
         let id = note.id();
 
-        if maybe_await!(self.get_input_note(id)).is_ok() {
-            return Err(ClientError::NoteImportError(format!(
-                "Note with ID {} already exists",
-                id
-            )));
-        }
-
         maybe_await!(self.store.insert_input_note(note))?;
         Ok(id)
     }
@@ -171,15 +164,15 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                             compute_note_hash(details.id(), &metadata),
                             &block_header.note_root(),
                         ) {
-                            NoteState::Invalid {
-                                metadata,
-                                invalid_inclusion_proof: inclusion_proof,
-                                block_note_root: block_header.note_root(),
-                            }
-                        } else {
                             NoteState::Committed {
                                 metadata,
                                 inclusion_proof,
+                                block_note_root: block_header.note_root(),
+                            }
+                        } else {
+                            NoteState::Invalid {
+                                metadata,
+                                invalid_inclusion_proof: inclusion_proof,
                                 block_note_root: block_header.note_root(),
                             }
                         };
