@@ -281,24 +281,22 @@ impl From<NoteDetails> for NoteRecordDetails {
 // NOTE STATE
 // ================================================================================================
 
-pub const STATE_UNKNOWN: u8 = 0;
-pub const STATE_EXPECTED: u8 = 1;
-pub const STATE_UNVERIFIED: u8 = 2;
-pub const STATE_COMMITTED: u8 = 3;
-pub const STATE_INVALID: u8 = 4;
-pub const STATE_PROCESSING_AUTHENTICATED: u8 = 5;
-pub const STATE_PROCESSING_UNAUTHENTICATED: u8 = 6;
-pub const STATE_NATIVE_CONSUMED_AUTHENTICATED: u8 = 7;
-pub const STATE_NATIVE_CONSUMED_UNAUTHENTICATED: u8 = 8;
-pub const STATE_FOREIGN_CONSUMED: u8 = 9;
+pub const STATE_EXPECTED: u8 = 0;
+pub const STATE_UNVERIFIED: u8 = 1;
+pub const STATE_COMMITTED: u8 = 2;
+pub const STATE_INVALID: u8 = 3;
+pub const STATE_PROCESSING_AUTHENTICATED: u8 = 4;
+pub const STATE_PROCESSING_UNAUTHENTICATED: u8 = 5;
+pub const STATE_NATIVE_CONSUMED_AUTHENTICATED: u8 = 6;
+pub const STATE_NATIVE_CONSUMED_UNAUTHENTICATED: u8 = 7;
+pub const STATE_FOREIGN_CONSUMED: u8 = 8;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum NoteState {
-    Unknown,
     Expected {
         metadata: Option<NoteMetadata>,
         after_block_num: u32,
-        tag: NoteTag,
+        tag: Option<NoteTag>,
     },
     Unverified {
         metadata: NoteMetadata,
@@ -344,7 +342,6 @@ pub enum NoteState {
 impl NoteState {
     pub fn discriminant(&self) -> u8 {
         match self {
-            NoteState::Unknown => STATE_UNKNOWN,
             NoteState::Expected { .. } => STATE_EXPECTED,
             NoteState::Unverified { .. } => STATE_UNVERIFIED,
             NoteState::Committed { .. } => STATE_COMMITTED,
@@ -364,7 +361,6 @@ impl Serializable for NoteState {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
         target.write_u8(self.discriminant());
         match self {
-            NoteState::Unknown => (),
             NoteState::Expected { metadata, after_block_num, tag } => {
                 metadata.write_into(target);
                 after_block_num.write_into(target);
@@ -443,11 +439,10 @@ impl Deserializable for NoteState {
     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
         let discriminant = source.read_u8()?;
         match discriminant {
-            STATE_UNKNOWN => Ok(NoteState::Unknown),
             STATE_EXPECTED => {
                 let metadata = Option::<NoteMetadata>::read_from(source)?;
                 let after_block_num = u32::read_from(source)?;
-                let tag = NoteTag::read_from(source)?;
+                let tag = Option::<NoteTag>::read_from(source)?;
                 Ok(NoteState::Expected { metadata, after_block_num, tag })
             },
             STATE_UNVERIFIED => {
@@ -534,7 +529,6 @@ impl Deserializable for NoteState {
 impl Display for NoteState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NoteState::Unknown => write!(f, "Unknown"),
             NoteState::Expected { after_block_num, .. } => {
                 write!(f, "Expected (after block {})", after_block_num)
             },

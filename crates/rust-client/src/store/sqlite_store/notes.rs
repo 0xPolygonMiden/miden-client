@@ -22,7 +22,7 @@ use crate::store::{
         NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED, NOTE_STATUS_EXPECTED, NOTE_STATUS_PROCESSING,
         STATE_COMMITTED, STATE_EXPECTED, STATE_FOREIGN_CONSUMED,
         STATE_NATIVE_CONSUMED_AUTHENTICATED, STATE_NATIVE_CONSUMED_UNAUTHENTICATED,
-        STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED, STATE_UNKNOWN,
+        STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED,
     },
     InputNoteRecord, NoteFilter, NoteRecordDetails, NoteState, NoteStatus, OutputNoteRecord,
     StoreError,
@@ -161,7 +161,7 @@ impl<'a> NoteFilter<'a> {
                 )
             },
             NoteFilter::Expected => {
-                format!("{base} WHERE state_discriminant in ({},{})", STATE_EXPECTED, STATE_UNKNOWN)
+                format!("{base} WHERE state_discriminant = {}", STATE_EXPECTED)
             },
             NoteFilter::Processing => {
                 format!(

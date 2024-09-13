@@ -119,7 +119,7 @@ impl InputNoteRecord {
     ) -> Result<bool, NoteRecordError> {
         match &self.state {
             // Note had no inclusion proof
-            NoteState::Expected { .. } | NoteState::Unknown => {
+            NoteState::Expected { .. } => {
                 self.state = NoteState::Unverified { inclusion_proof, metadata };
                 Ok(true)
             },
@@ -245,8 +245,7 @@ impl InputNoteRecord {
                 };
                 Ok(true)
             },
-            NoteState::Unknown
-            | NoteState::Expected { .. }
+            NoteState::Expected { .. }
             | NoteState::Committed { .. }
             | NoteState::Invalid { .. }
             | NoteState::Unverified { .. } => {
@@ -346,7 +345,11 @@ impl From<&NoteDetails> for InputNoteRecord {
         Self {
             details: value.clone(),
             created_at: None,
-            state: NoteState::Unknown,
+            state: NoteState::Expected {
+                metadata: None,
+                after_block_num: 0,
+                tag: None,
+            },
         }
     }
 }
@@ -359,7 +362,7 @@ impl From<Note> for InputNoteRecord {
             created_at: None,
             state: NoteState::Expected {
                 after_block_num: 0,
-                tag: metadata.tag(),
+                tag: Some(metadata.tag()),
                 metadata: Some(metadata),
             },
         }
