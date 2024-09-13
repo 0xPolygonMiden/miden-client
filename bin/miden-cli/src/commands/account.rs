@@ -119,6 +119,7 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
     account_id: AccountId,
 ) -> Result<(), String> {
     let (account, _) = client.get_account(account_id)?;
+
     let mut table = create_dynamic_table(&[
         "Account ID",
         "Account Hash",
@@ -136,7 +137,7 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
         account_id.storage_mode().to_string(),
         account.code().commitment().to_string(),
         account.vault().asset_tree().root().to_string(),
-        account.storage().root().to_string(),
+        account.storage().commitment().to_string(),
         account.nonce().as_int().to_string(),
     ]);
     println!("{table}\n");
@@ -178,27 +179,27 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
             "Value Arity",
             "Value/Commitment",
         ]);
-        for (idx, entry) in account_storage.layout().iter().enumerate() {
-            let item = account_storage.get_item(idx as u8);
+        for (idx, entry) in account_storage.slots().iter().enumerate() {
+            // TODO: Re-add this code, and make sure it supports the recent storage changes
 
-            // Last entry is reserved so I don't think the user cares about it Also, to keep the
-            // output smaller, if the [StorageSlotType] is a value and it's 0 we assume it's not
-            // initialized and skip it
-            if idx == AccountStorage::SLOT_LAYOUT_COMMITMENT_INDEX as usize {
-                continue;
-            }
-            if matches!(entry, StorageSlotType::Value { value_arity: _value_arity })
-                && item == [ZERO; 4].into()
-            {
-                continue;
-            }
+            // let item = account_storage.get_item(idx as u8);
 
-            let (slot_type, arity) = match entry {
-                StorageSlotType::Value { value_arity } => ("Value", value_arity),
-                StorageSlotType::Array { depth: _depth, value_arity } => ("Array", value_arity),
-                StorageSlotType::Map { value_arity } => ("Map", value_arity),
-            };
-            table.add_row(vec![&idx.to_string(), slot_type, &arity.to_string(), &item.to_hex()]);
+            // // Last entry is reserved so I don't think the user cares about it. Also, to keep the
+            // // output smaller, if the [StorageSlot] is a value and it's 0 we assume it's not
+            // // initialized and skip it
+            // if matches!(entry, StorageSlot::Value)
+            //     && item == [ZERO; 4].into()
+            // {
+            //     continue;
+            // }
+
+            // let (slot_type, arity) = match entry {
+            //     StorageSlotType::Value  => ("Value", arity),
+            //     StorageSlotType::Array { depth: _depth, value_arity } => ("Array", value_arity),
+            //     StorageSlotType::Map => ("Map", value_arity),
+            // };
+            // table.add_row(vec![&idx.to_string(), slot_type, &arity.to_string(),
+            // &item.to_hex()?]);
         }
         println!("{table}\n");
     }
