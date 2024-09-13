@@ -111,7 +111,7 @@ async fn insert_basic_account() {
     assert_eq!(account.id(), fetched_account.id());
     assert_eq!(account.nonce(), fetched_account.nonce());
     assert_eq!(account.vault(), fetched_account.vault());
-    assert_eq!(account.storage().root(), fetched_account.storage().root());
+    assert_eq!(account.storage().commitment(), fetched_account.storage().commitment());
     assert_eq!(account.code().commitment(), fetched_account.code().commitment());
 
     // Validate seed matches

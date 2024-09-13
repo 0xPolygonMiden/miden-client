@@ -1,12 +1,12 @@
 use clap::Parser;
 use miden_client::{
-    accounts::{AccountId, AccountStorage, AccountType, StorageSlotType},
+    accounts::{AccountId, AccountType},
     assets::Asset,
     auth::TransactionAuthenticator,
     crypto::FeltRng,
     rpc::NodeRpcClient,
     store::Store,
-    Client, ZERO,
+    Client,
 };
 
 use crate::{
@@ -169,40 +169,40 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
 
     // Storage Table
     {
-        let account_storage = account.storage();
+        let _account_storage = account.storage();
 
         println!("Storage: \n");
 
-        let mut table = create_dynamic_table(&[
+        let _table = create_dynamic_table(&[
             "Item Slot Index",
             "Item Slot Type",
             "Value Arity",
             "Value/Commitment",
         ]);
-        for (idx, entry) in account_storage.slots().iter().enumerate() {
-            // TODO: Re-add this code, and make sure it supports the recent storage changes
+        //for (_idx, _entry) in account_storage.slots().iter().enumerate() {
+        // TODO: Re-add this code, and make sure it supports the recent storage changes
 
-            // let item = account_storage.get_item(idx as u8);
+        // let item = account_storage.get_item(idx as u8);
 
-            // // Last entry is reserved so I don't think the user cares about it. Also, to keep the
-            // // output smaller, if the [StorageSlot] is a value and it's 0 we assume it's not
-            // // initialized and skip it
-            // if matches!(entry, StorageSlot::Value)
-            //     && item == [ZERO; 4].into()
-            // {
-            //     continue;
-            // }
+        // // Last entry is reserved so I don't think the user cares about it. Also, to keep the
+        // // output smaller, if the [StorageSlot] is a value and it's 0 we assume it's not
+        // // initialized and skip it
+        // if matches!(entry, StorageSlot::Value)
+        //     && item == [ZERO; 4].into()
+        // {
+        //     continue;
+        // }
 
-            // let (slot_type, arity) = match entry {
-            //     StorageSlotType::Value  => ("Value", arity),
-            //     StorageSlotType::Array { depth: _depth, value_arity } => ("Array", value_arity),
-            //     StorageSlotType::Map => ("Map", value_arity),
-            // };
-            // table.add_row(vec![&idx.to_string(), slot_type, &arity.to_string(),
-            // &item.to_hex()?]);
-        }
-        println!("{table}\n");
+        // let (slot_type, arity) = match entry {
+        //     StorageSlotType::Value  => ("Value", arity),
+        //     StorageSlotType::Array { depth: _depth, value_arity } => ("Array", value_arity),
+        //     StorageSlotType::Map => ("Map", value_arity),
+        // };
+        // table.add_row(vec![&idx.to_string(), slot_type, &arity.to_string(),
+        // &item.to_hex()?]);
     }
+    println!("{table}\n");
+    //}
 
     Ok(())
 }

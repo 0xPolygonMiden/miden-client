@@ -10,7 +10,7 @@ use miden_objects::{
     accounts::{
         account_id::testing::ACCOUNT_ID_OFF_CHAIN_SENDER, get_account_seed_single, Account,
         AccountCode, AccountId, AccountStorage, AccountStorageMode, AccountType, AuthSecretKey,
-        SlotItem, StorageSlot,
+        StorageSlot,
     },
     assembly::Assembler,
     assets::{Asset, AssetVault, FungibleAsset, TokenSymbol},
@@ -25,7 +25,7 @@ use miden_objects::{
         NoteMetadata, NoteRecipient, NoteScript, NoteTag, NoteType,
     },
     transaction::{InputNote, ProvenTransaction},
-    BlockHeader, Felt, Word,
+    BlockHeader, Felt, Word, ZERO,
 };
 use rand::Rng;
 use tonic::{Response, Status};
@@ -443,7 +443,7 @@ pub async fn insert_mock_data(client: &mut MockClient) -> Vec<BlockHeader> {
         account.account_type(),
         miden_objects::accounts::AccountStorageMode::Private,
         account.code().commitment(),
-        account.storage().root(),
+        account.storage().commitment(),
     )
     .unwrap();
 
@@ -581,46 +581,37 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
 
 pub fn mock_fungible_faucet_account(
     id: AccountId,
-    initial_balance: u64,
+    _initial_balance: u64,
     key_pair: SecretKey,
 ) -> Account {
     let mut rng = rand::thread_rng();
-    let init_seed: [u8; 32] = rng.gen();
+    let _init_seed: [u8; 32] = rng.gen();
     let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 { pub_key: key_pair.public_key() };
 
-    let (faucet, _seed) = miden_lib::accounts::faucets::create_basic_fungible_faucet(
-        init_seed,
-        TokenSymbol::new("TST").unwrap(),
-        10u8,
-        Felt::try_from(initial_balance.to_le_bytes().as_slice())
-            .expect("u64 can be safely converted to a field element"),
-        AccountStorageMode::Private,
-        auth_scheme,
-    )
-    .unwrap();
+    let (_auth_scheme_procedure, auth_data): (&str, Word) = match auth_scheme {
+        AuthScheme::RpoFalcon512 { pub_key } => ("auth_tx_rpo_falcon512", pub_key.into()),
+    };
+    let reserved_data = Word::default();
+    let metadata = [
+        Felt::new(10_000_000u64),
+        Felt::new(10u64),
+        TokenSymbol::new("TST").unwrap().into(),
+        ZERO,
+    ];
 
-    let faucet_storage_slot_1 =
-        [Felt::new(initial_balance), Felt::new(0), Felt::new(0), Felt::new(0)];
-    let faucet_account_storage = AccountStorage::new(
-        vec![
-            SlotItem {
-                index: 0,
-                slot: StorageSlot::new_value(key_pair.public_key().into()),
-            },
-            SlotItem {
-                index: 1,
-                slot: StorageSlot::new_value(faucet_storage_slot_1),
-            },
-        ],
-        BTreeMap::new(),
-    )
+    let faucet_account_storage = AccountStorage::new(vec![
+        StorageSlot::Value(reserved_data),
+        StorageSlot::Value(metadata),
+        StorageSlot::Value([ZERO, ZERO, ZERO, ZERO]),
+        StorageSlot::Value(auth_data),
+    ])
     .unwrap();
 
     Account::from_parts(
         id,
         AssetVault::new(&[]).unwrap(),
         faucet_account_storage.clone(),
-        faucet.code().clone(),
+        AccountCode::mock(),
         Felt::new(10u64),
     )
 }
@@ -800,11 +791,8 @@ fn get_account_with_nonce(
     let account_assembler = TransactionKernel::assembler();
 
     let account_code = AccountCode::compile(account_code_src, account_assembler).unwrap();
-    let slot_item = SlotItem {
-        index: 0,
-        slot: StorageSlot::new_value(public_key),
-    };
-    let account_storage = AccountStorage::new(vec![slot_item], BTreeMap::new()).unwrap();
+    let slot_item = StorageSlot::Value(public_key);
+    let account_storage = AccountStorage::new(vec![slot_item]).unwrap();
 
     let asset_vault = match assets {
         Some(asset) => AssetVault::new(&[asset]).unwrap(),

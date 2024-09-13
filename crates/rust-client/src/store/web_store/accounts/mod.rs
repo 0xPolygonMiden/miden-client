@@ -95,7 +95,7 @@ impl WebStore {
         let account_code = self.get_account_code(account_header.code_commitment()).await.unwrap();
 
         let account_storage =
-            self.get_account_storage(account_header.storage_root()).await.unwrap();
+            self.get_account_storage(account_header.storage_commitment()).await.unwrap();
         let account_vault = self.get_vault_assets(account_header.vault_root()).await.unwrap();
         let account_vault = AssetVault::new(&account_vault).unwrap();
 
