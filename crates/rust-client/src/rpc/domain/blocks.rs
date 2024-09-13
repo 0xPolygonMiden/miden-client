@@ -44,7 +44,7 @@ impl TryFrom<&block::BlockHeader> for BlockHeader {
 
 impl TryFrom<block::BlockHeader> for BlockHeader {
     type Error = RpcConversionError;
-    
+
     fn try_from(value: block::BlockHeader) -> Result<Self, Self::Error> {
         Ok(BlockHeader::new(
             value.version,
