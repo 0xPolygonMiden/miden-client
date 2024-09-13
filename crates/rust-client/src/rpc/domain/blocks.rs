@@ -44,19 +44,7 @@ impl TryFrom<&block::BlockHeader> for BlockHeader {
 
 impl TryFrom<block::BlockHeader> for BlockHeader {
     type Error = RpcConversionError;
-    /*
-    version: u32,
-    prev_hash: Digest,
-    block_num: u32,
-    chain_root: Digest,
-    account_root: Digest,
-    nullifier_root: Digest,
-    note_root: Digest,
-    tx_hash: Digest,
-    kernel_root: Digest,
-    proof_hash: Digest,
-    timestamp: u32,
-     */
+    
     fn try_from(value: block::BlockHeader) -> Result<Self, Self::Error> {
         Ok(BlockHeader::new(
             value.version,
