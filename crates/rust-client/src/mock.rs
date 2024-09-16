@@ -5,7 +5,7 @@ use alloc::{
 };
 use std::{env::temp_dir, rc::Rc};
 
-use miden_lib::{transaction::TransactionKernel, AuthScheme};
+use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::{
         account_id::testing::ACCOUNT_ID_OFF_CHAIN_SENDER, get_account_seed_single, Account,
@@ -13,7 +13,7 @@ use miden_objects::{
         StorageSlot,
     },
     assembly::Assembler,
-    assets::{Asset, AssetVault, FungibleAsset, TokenSymbol},
+    assets::{Asset, AssetVault, FungibleAsset},
     block::{BlockNoteIndex, BlockNoteTree},
     crypto::{
         dsa::rpo_falcon512::SecretKey,
@@ -25,7 +25,7 @@ use miden_objects::{
         NoteMetadata, NoteRecipient, NoteScript, NoteTag, NoteType,
     },
     transaction::{InputNote, ProvenTransaction},
-    BlockHeader, Felt, Word, ZERO,
+    BlockHeader, Felt, Word,
 };
 use rand::Rng;
 use tonic::{Response, Status};

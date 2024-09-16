@@ -4,10 +4,7 @@ use alloc::vec::Vec;
 // ================================================================================================
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{
-        account_id::testing::ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, AccountCode, AccountHeader,
-        AccountId, AccountStorageMode, AuthSecretKey,
-    },
+    accounts::{AccountCode, AccountHeader, AccountId, AccountStorageMode, AuthSecretKey},
     assets::{FungibleAsset, TokenSymbol},
     crypto::dsa::rpo_falcon512::SecretKey,
     notes::{NoteFile, NoteTag},
