@@ -73,7 +73,7 @@ impl TryFrom<block::BlockHeader> for BlockHeader {
                 .tx_hash
                 .ok_or(block::BlockHeader::missing_field(stringify!(tx_hash)))?
                 .try_into()?,
-                value
+            value
                 .kernel_root
                 .ok_or(block::BlockHeader::missing_field(stringify!(tx_hash)))?
                 .try_into()?,
