@@ -395,6 +395,7 @@ async fn test_mint_transaction() {
 async fn test_get_output_notes() {
     // generate test client with a random store name
     let mut client = create_test_client();
+    client.sync_state().await.unwrap();
 
     // Faucet account generation
     let (faucet, _seed) = client
@@ -406,12 +407,10 @@ async fn test_get_output_notes() {
         })
         .unwrap();
 
-    client.sync_state().await.unwrap();
-
     // Test submitting a mint transaction
     let transaction_request = TransactionRequest::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
-        AccountId::from_hex("0x168187d729b31a84").unwrap(),
+        AccountId::from_hex("0x0123456789abcdef").unwrap(),
         miden_objects::notes::NoteType::Private,
         client.rng(),
     )

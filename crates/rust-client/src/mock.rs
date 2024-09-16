@@ -28,6 +28,7 @@ use miden_objects::{
     BlockHeader, Felt, Word,
 };
 use rand::Rng;
+use rusqlite::Transaction;
 use tonic::{Response, Status};
 use uuid::Uuid;
 
@@ -92,7 +93,9 @@ impl Default for MockRpcApi {
         let sync_note_request = SyncNoteResponse {
             chain_tip: 10,
             notes: vec![],
-            block_header: Some(BlockHeader::mock(1, None, None, &[]).into()),
+            block_header: Some(
+                BlockHeader::mock(1, None, None, &[], TransactionKernel::kernel_root()).into(),
+            ),
             mmr_path: Some(Default::default()),
         };
 
@@ -249,20 +252,22 @@ fn create_mock_sync_state_request_for_account_and_notes(
         if let Some(tracked_block_headers) = tracked_block_headers {
             (tracked_block_headers, mmr_delta.unwrap())
         } else {
-            let mut mocked_tracked_headers =
-                vec![BlockHeader::mock(8, None, None, &[]), BlockHeader::mock(10, None, None, &[])];
+            let mut mocked_tracked_headers = vec![
+                BlockHeader::mock(8, None, None, &[], TransactionKernel::kernel_root()),
+                BlockHeader::mock(10, None, None, &[], TransactionKernel::kernel_root()),
+            ];
 
             let all_mocked_block_headers = vec![
                 *genesis_block,
-                BlockHeader::mock(1, None, None, &[]),
-                BlockHeader::mock(2, None, None, &[]),
-                BlockHeader::mock(3, None, None, &[]),
-                BlockHeader::mock(4, None, None, &[]),
-                BlockHeader::mock(5, None, None, &[]),
-                BlockHeader::mock(6, None, None, &[]),
-                BlockHeader::mock(7, None, None, &[]),
+                BlockHeader::mock(1, None, None, &[], TransactionKernel::kernel_root()),
+                BlockHeader::mock(2, None, None, &[], TransactionKernel::kernel_root()),
+                BlockHeader::mock(3, None, None, &[], TransactionKernel::kernel_root()),
+                BlockHeader::mock(4, None, None, &[], TransactionKernel::kernel_root()),
+                BlockHeader::mock(5, None, None, &[], TransactionKernel::kernel_root()),
+                BlockHeader::mock(6, None, None, &[], TransactionKernel::kernel_root()),
+                BlockHeader::mock(7, None, None, &[], TransactionKernel::kernel_root()),
                 mocked_tracked_headers[0],
-                BlockHeader::mock(9, None, None, &[]),
+                BlockHeader::mock(9, None, None, &[], TransactionKernel::kernel_root()),
                 mocked_tracked_headers[1],
             ];
 
@@ -280,6 +285,7 @@ fn create_mock_sync_state_request_for_account_and_notes(
                         Some(mmr.peaks(mmr.forest()).unwrap().hash_peaks()),
                         None,
                         &[],
+                        TransactionKernel::kernel_root(),
                     );
                     mocked_mmr_deltas.push(mmr.get_delta(9, mmr.forest()).unwrap());
                 }
@@ -353,7 +359,7 @@ fn generate_state_sync_mock_requests() -> (
     let (consumed_notes, created_notes) = mock_notes(assembler);
     let (mmr, input_notes, blocks, ..) = mock_full_chain_mmr_and_notes(consumed_notes);
 
-    let genesis_block = BlockHeader::mock(0, None, None, &[]);
+    let genesis_block = BlockHeader::mock(0, None, None, &[], TransactionKernel::kernel_root());
 
     let state_sync_request_responses = create_mock_sync_state_request_for_account_and_notes(
         account_id,
@@ -382,13 +388,13 @@ pub fn mock_full_chain_mmr_and_notes(
 
     // create a dummy chain of block headers
     let block_chain = vec![
-        BlockHeader::mock(0, None, None, &[]),
-        BlockHeader::mock(1, None, None, &[]),
-        BlockHeader::mock(2, None, Some(note_tree.root()), &[]),
-        BlockHeader::mock(3, None, None, &[]),
-        BlockHeader::mock(4, None, None, &[]),
-        BlockHeader::mock(5, None, None, &[]),
-        BlockHeader::mock(6, None, None, &[]),
+        BlockHeader::mock(0, None, None, &[], TransactionKernel::kernel_root()),
+        BlockHeader::mock(1, None, None, &[], TransactionKernel::kernel_root()),
+        BlockHeader::mock(2, None, Some(note_tree.root()), &[], TransactionKernel::kernel_root()),
+        BlockHeader::mock(3, None, None, &[], TransactionKernel::kernel_root()),
+        BlockHeader::mock(4, None, None, &[], TransactionKernel::kernel_root()),
+        BlockHeader::mock(5, None, None, &[], TransactionKernel::kernel_root()),
+        BlockHeader::mock(6, None, None, &[], TransactionKernel::kernel_root()),
     ];
 
     // instantiate and populate MMR
@@ -488,7 +494,7 @@ pub async fn insert_mock_data(client: &mut MockClient) -> Vec<BlockHeader> {
         .insert_account(&account, Some(account_seed), &AuthSecretKey::RpoFalcon512(secret_key))
         .unwrap();
 
-    let genesis_block = BlockHeader::mock(0, None, None, &[]);
+    let genesis_block = BlockHeader::mock(0, None, None, &[], TransactionKernel::kernel_root());
 
     client.rpc_api().state_sync_requests = create_mock_sync_state_request_for_account_and_notes(
         account.id(),
