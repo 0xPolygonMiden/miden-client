@@ -10,11 +10,11 @@ use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
 
 use super::{
-    notes::utils::{insert_input_note_tx, insert_output_note_tx, update_note_consumer_tx_id},
+    notes::utils::{insert_input_note_tx, insert_output_note_tx},
     WebStore,
 };
 use crate::{
-    store::{StoreError, TransactionFilter},
+    store::{NoteFilter, StoreError, TransactionFilter},
     transactions::{TransactionRecord, TransactionResult, TransactionStatus},
 };
 
@@ -116,6 +116,8 @@ impl WebStore {
         let consumed_note_ids =
             tx_result.consumed_notes().iter().map(|note| note.id()).collect::<Vec<_>>();
 
+        let mut relevant_notes = self.get_input_notes(NoteFilter::List(&consumed_note_ids)).await?;
+
         // Transaction Data
         insert_proven_transaction_data(tx_result).await.unwrap();
 
@@ -124,7 +126,7 @@ impl WebStore {
 
         // Updates for notes
         for note in created_input_notes {
-            insert_input_note_tx(block_num, note).await?;
+            insert_input_note_tx(note).await?;
         }
 
         for note in &created_output_notes {
@@ -132,7 +134,15 @@ impl WebStore {
         }
 
         for note_id in consumed_note_ids {
-            update_note_consumer_tx_id(note_id, transaction_id).await?;
+            let note_pos = relevant_notes.iter().position(|n| n.id() == note_id);
+
+            if let Some(note_pos) = note_pos {
+                let mut input_note_record = relevant_notes.swap_remove(note_pos);
+
+                if input_note_record.consumed_locally(account_id, transaction_id)? {
+                    insert_input_note_tx(input_note_record).await?;
+                }
+            }
         }
 
         Ok(())

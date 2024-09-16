@@ -107,24 +107,6 @@ impl Store for WebStore {
         maybe_await!(self.insert_input_note(note))
     }
 
-    #[maybe_async]
-    fn update_note_inclusion_proof(
-        &self,
-        note_id: miden_objects::notes::NoteId,
-        inclusion_proof: miden_objects::notes::NoteInclusionProof,
-    ) -> Result<(), StoreError> {
-        maybe_await!(self.update_note_inclusion_proof(note_id, inclusion_proof))
-    }
-
-    #[maybe_async]
-    fn update_note_metadata(
-        &self,
-        note_id: miden_objects::notes::NoteId,
-        metadata: miden_objects::notes::NoteMetadata,
-    ) -> Result<(), StoreError> {
-        maybe_await!(self.update_note_metadata(note_id, metadata))
-    }
-
     // CHAIN DATA
     // --------------------------------------------------------------------------------------------
 

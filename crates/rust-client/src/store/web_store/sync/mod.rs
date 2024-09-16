@@ -57,11 +57,6 @@ impl WebStore {
         let promise = idxdb_add_note_tag(tags);
         JsFuture::from(promise).await.unwrap();
 
-        let tag_as_u32 = u32::from(tag);
-        let tag_as_str = tag_as_u32.to_string();
-        let promise = idxdb_update_ignored_notes_for_tag(tag_as_str);
-        JsFuture::from(promise).await.unwrap();
-
         Ok(true)
     }
 
@@ -173,12 +168,7 @@ impl WebStore {
         // TODO: LOP INTO idxdb_apply_state_sync call
         // Commit new public notes
         for note in committed_notes.new_public_notes() {
-            insert_input_note_tx(
-                note.location().expect("new public note should be authenticated").block_num(),
-                note.clone().into(),
-            )
-            .await
-            .unwrap();
+            insert_input_note_tx(note.clone().into()).await.unwrap();
         }
 
         // Serialize data for updating committed transactions

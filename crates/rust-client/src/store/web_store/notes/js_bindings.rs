@@ -11,16 +11,16 @@ extern "C" {
     // ================================================================================================
 
     #[wasm_bindgen(js_name = getInputNotes)]
-    pub fn idxdb_get_input_notes(status: String) -> js_sys::Promise;
-
-    #[wasm_bindgen(js_name = getIgnoredInputNotes)]
-    pub fn idxdb_get_ignored_input_notes() -> js_sys::Promise;
+    pub fn idxdb_get_input_notes(states: Vec<u8>) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = getIgnoredOutputNotes)]
     pub fn idxdb_get_ignored_output_notes() -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = getInputNotesFromIds)]
     pub fn idxdb_get_input_notes_from_ids(note_ids: Vec<String>) -> js_sys::Promise;
+
+    #[wasm_bindgen(js_name = getInputNotesFromNullifiers)]
+    pub fn idxdb_get_input_notes_from_nullifiers(nullifiers: Vec<String>) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = getOutputNotes)]
     pub fn idxdb_get_output_notes(status: String) -> js_sys::Promise;
@@ -38,19 +38,14 @@ extern "C" {
     pub fn idxdb_insert_input_note(
         note_id: String,
         assets: Vec<u8>,
-        recipient: String,
-        status: String,
-        metadata: Option<Vec<u8>>,
-        nullifier: String,
-        details: Vec<u8>,
+        serial_number: Vec<u8>,
+        inputs: Vec<u8>,
         note_script_hash: String,
         serialized_note_script: Vec<u8>,
-        inclusion_proof: Option<Vec<u8>>,
+        nullifier: String,
         serialized_created_at: String,
-        expected_height: Option<String>,
-        ignored: bool,
-        imported_tag: Option<String>,
-        nullifier_height: Option<String>,
+        state_discriminant: u8,
+        state: Vec<u8>,
     ) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = insertOutputNote)]
@@ -68,20 +63,4 @@ extern "C" {
         serialized_created_at: String,
         expected_height: Option<String>,
     ) -> js_sys::Promise;
-
-    #[wasm_bindgen(js_name = updateNoteConsumerTxId)]
-    pub fn idxdb_update_note_consumer_tx_id(
-        note_id: String,
-        consumer_tx_id: String,
-        submitted_at: String,
-    ) -> js_sys::Promise;
-
-    #[wasm_bindgen(js_name = updateNoteInclusionProof)]
-    pub fn idxdb_update_note_inclusion_proof(
-        note_id: String,
-        inclusion_proof: Vec<u8>,
-    ) -> js_sys::Promise;
-
-    #[wasm_bindgen(js_name = updateNoteMetadata)]
-    pub fn idxdb_update_note_metadata(note_id: String, metadata: Vec<u8>) -> js_sys::Promise;
 }

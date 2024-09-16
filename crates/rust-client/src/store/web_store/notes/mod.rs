@@ -3,16 +3,19 @@ use alloc::{
     vec::Vec,
 };
 
-use miden_objects::{
-    notes::{NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
-    Digest,
-};
-use miden_tx::utils::Serializable;
+use miden_objects::{notes::Nullifier, Digest};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
 
 use super::WebStore;
-use crate::store::{InputNoteRecord, NoteFilter, OutputNoteRecord, StoreError};
+use crate::store::{
+    note_record::{
+        STATE_COMMITTED, STATE_EXPECTED, STATE_FOREIGN_CONSUMED,
+        STATE_NATIVE_CONSUMED_AUTHENTICATED, STATE_NATIVE_CONSUMED_UNAUTHENTICATED,
+        STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED,
+    },
+    InputNoteRecord, NoteFilter, OutputNoteRecord, StoreError,
+};
 
 mod js_bindings;
 use js_bindings::*;
@@ -34,20 +37,26 @@ impl WebStore {
             | NoteFilter::Committed
             | NoteFilter::Expected
             | NoteFilter::Processing => {
-                let filter_as_str = match filter {
-                    NoteFilter::All => "All",
-                    NoteFilter::Consumed => "Consumed",
-                    NoteFilter::Committed => "Committed",
-                    NoteFilter::Expected => "Expected",
-                    NoteFilter::Processing => "Processing",
+                let states: Vec<u8> = match filter {
+                    NoteFilter::All => vec![],
+                    NoteFilter::Consumed => vec![
+                        STATE_NATIVE_CONSUMED_AUTHENTICATED,
+                        STATE_NATIVE_CONSUMED_UNAUTHENTICATED,
+                        STATE_FOREIGN_CONSUMED,
+                    ],
+                    NoteFilter::Committed => vec![STATE_COMMITTED],
+                    NoteFilter::Expected => vec![STATE_EXPECTED],
+                    NoteFilter::Processing => {
+                        vec![STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED]
+                    },
                     _ => unreachable!(), // Safety net, should never be reached
                 };
 
                 // Assuming `js_fetch_notes` is your JavaScript function that handles simple string
                 // filters
-                idxdb_get_input_notes(filter_as_str.to_string())
+                idxdb_get_input_notes(states)
             },
-            NoteFilter::Ignored => idxdb_get_ignored_input_notes(),
+            NoteFilter::Ignored => idxdb_get_input_notes(vec![]),
             NoteFilter::List(ids) => {
                 let note_ids_as_str: Vec<String> =
                     ids.iter().map(|id| id.inner().to_string()).collect();
@@ -57,6 +66,14 @@ impl WebStore {
                 let note_id_as_str = id.inner().to_string();
                 let note_ids = vec![note_id_as_str];
                 idxdb_get_input_notes_from_ids(note_ids)
+            },
+            NoteFilter::Nullifiers(nullifiers) => {
+                let nullifiers_as_str = nullifiers
+                    .iter()
+                    .map(|nullifier| nullifier.to_string())
+                    .collect::<Vec<String>>();
+
+                idxdb_get_input_notes_from_nullifiers(nullifiers_as_str)
             },
         };
 
@@ -125,6 +142,9 @@ impl WebStore {
                 let note_ids = vec![note_id_as_str];
                 idxdb_get_output_notes_from_ids(note_ids)
             },
+            NoteFilter::Nullifiers(_) => {
+                todo!("Is not currently called, will be implemented in the future");
+            },
         };
 
         let js_value = JsFuture::from(promise).await.unwrap();
@@ -172,36 +192,6 @@ impl WebStore {
     }
 
     pub(crate) async fn insert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError> {
-        let block_num = self.get_sync_height().await?;
-
-        insert_input_note_tx(block_num, note).await
-    }
-
-    pub async fn update_note_inclusion_proof(
-        &self,
-        note_id: NoteId,
-        inclusion_proof: NoteInclusionProof,
-    ) -> Result<(), StoreError> {
-        let note_id_as_str = note_id.inner().to_string();
-        let inclusion_proof_as_vec = inclusion_proof.to_bytes();
-
-        let promise = idxdb_update_note_inclusion_proof(note_id_as_str, inclusion_proof_as_vec);
-        let _ = JsFuture::from(promise).await.unwrap();
-
-        Ok(())
-    }
-
-    pub async fn update_note_metadata(
-        &self,
-        note_id: NoteId,
-        metadata: NoteMetadata,
-    ) -> Result<(), StoreError> {
-        let note_id_as_str = note_id.inner().to_string();
-        let metadata_as_vec = metadata.to_bytes();
-
-        let promise = idxdb_update_note_metadata(note_id_as_str, metadata_as_vec);
-        let _ = JsFuture::from(promise).await.unwrap();
-
-        Ok(())
+        insert_input_note_tx(note).await
     }
 }
