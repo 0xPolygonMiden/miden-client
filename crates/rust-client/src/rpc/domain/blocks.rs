@@ -1,4 +1,3 @@
-use miden_lib::transaction::TransactionKernel;
 use miden_objects::{crypto::merkle::MerklePath, BlockHeader};
 
 use super::MissingFieldHelper;
@@ -22,6 +21,7 @@ impl From<&BlockHeader> for block::BlockHeader {
             nullifier_root: Some(header.nullifier_root().into()),
             note_root: Some(header.note_root().into()),
             tx_hash: Some(header.tx_hash().into()),
+            kernel_root: Some(header.kernel_root().into()),
             proof_hash: Some(header.proof_hash().into()),
             timestamp: header.timestamp(),
         }
@@ -73,7 +73,10 @@ impl TryFrom<block::BlockHeader> for BlockHeader {
                 .tx_hash
                 .ok_or(block::BlockHeader::missing_field(stringify!(tx_hash)))?
                 .try_into()?,
-            TransactionKernel::kernel_root(),
+                value
+                .kernel_root
+                .ok_or(block::BlockHeader::missing_field(stringify!(tx_hash)))?
+                .try_into()?,
             value
                 .proof_hash
                 .ok_or(block::BlockHeader::missing_field(stringify!(proof_hash)))?
