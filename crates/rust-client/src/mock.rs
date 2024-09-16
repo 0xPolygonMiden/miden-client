@@ -380,7 +380,7 @@ pub fn mock_full_chain_mmr_and_notes(
     let tree_entries = consumed_notes
         .iter()
         .enumerate()
-        .map(|(index, note)| (BlockNoteIndex::new(1, index), note.id().into(), *note.metadata()));
+        .map(|(index, note)| (BlockNoteIndex::new(1, index).unwrap(), note.id(), *note.metadata()));
     let note_tree = BlockNoteTree::with_entries(tree_entries).unwrap();
 
     let mut mmr_deltas = Vec::new();
@@ -422,7 +422,7 @@ pub fn mock_full_chain_mmr_and_notes(
                 NoteInclusionProof::new(
                     block_header.block_num(),
                     index.try_into().unwrap(),
-                    note_tree.get_note_path(BlockNoteIndex::new(1, index)).unwrap(),
+                    note_tree.get_note_path(BlockNoteIndex::new(1, index).unwrap()),
                 )
                 .unwrap(),
             )
