@@ -501,7 +501,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     info!("Retrieved details for Note ID {}.", note.id());
                     let note_inclusion_proof = NoteInclusionProof::new(
                         block_header.block_num(),
-                        inclusion_proof.note_index,
+                        inclusion_proof.note_index as u16,
                         inclusion_proof.merkle_path,
                     )
                     .map_err(ClientError::NoteError)?;
