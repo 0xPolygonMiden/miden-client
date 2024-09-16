@@ -5,7 +5,6 @@
 //! updated accordingly on every transaction, and validated against the rollup on every sync.
 
 use alloc::vec::Vec;
-use std::println;
 
 use miden_lib::AuthScheme;
 pub use miden_objects::accounts::{
@@ -174,8 +173,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             account_storage_mode,
             auth_scheme,
         )?;
-
-        println!("key pair {:?}", key_pair.public_key());
 
         maybe_await!(self.insert_account(
             &account,
