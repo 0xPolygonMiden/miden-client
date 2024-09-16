@@ -28,7 +28,6 @@ use miden_objects::{
     BlockHeader, Felt, Word,
 };
 use rand::Rng;
-use rusqlite::Transaction;
 use tonic::{Response, Status};
 use uuid::Uuid;
 
