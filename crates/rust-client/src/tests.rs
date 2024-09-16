@@ -19,7 +19,7 @@ use crate::{
     accounts::AccountTemplate,
     mock::{
         create_test_client, get_account_with_default_account_code, mock_full_chain_mmr_and_notes,
-        mock_fungible_faucet_account, mock_notes, ACCOUNT_ID_REGULAR,
+        mock_notes, ACCOUNT_ID_REGULAR,
     },
     store::{InputNoteRecord, NoteFilter},
     transactions::TransactionRequest,
@@ -365,24 +365,17 @@ async fn test_tags() {
 
 #[tokio::test]
 async fn test_mint_transaction() {
-    const FAUCET_ID: u64 = ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN;
-    const INITIAL_BALANCE: u64 = 1000;
-
     // generate test client with a random store name
     let mut client = create_test_client();
 
     // Faucet account generation
-    let key_pair = SecretKey::new();
-
-    let faucet = mock_fungible_faucet_account(
-        AccountId::try_from(FAUCET_ID).unwrap(),
-        INITIAL_BALANCE,
-        key_pair.clone(),
-    );
-
-    client
-        .store()
-        .insert_account(&faucet, None, &AuthSecretKey::RpoFalcon512(key_pair))
+    let (faucet, _seed) = client
+        .new_account(AccountTemplate::FungibleFaucet {
+            token_symbol: "TST".try_into().unwrap(),
+            decimals: 3,
+            max_supply: 10000,
+            storage_mode: AccountStorageMode::Private,
+        })
         .unwrap();
 
     client.sync_state().await.unwrap();
@@ -403,24 +396,17 @@ async fn test_mint_transaction() {
 
 #[tokio::test]
 async fn test_get_output_notes() {
-    const FAUCET_ID: u64 = ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN;
-    const INITIAL_BALANCE: u64 = 1000;
-
     // generate test client with a random store name
     let mut client = create_test_client();
 
     // Faucet account generation
-    let key_pair = SecretKey::new();
-
-    let faucet = mock_fungible_faucet_account(
-        AccountId::try_from(FAUCET_ID).unwrap(),
-        INITIAL_BALANCE,
-        key_pair.clone(),
-    );
-
-    client
-        .store()
-        .insert_account(&faucet, None, &AuthSecretKey::RpoFalcon512(key_pair))
+    let (faucet, _seed) = client
+        .new_account(AccountTemplate::FungibleFaucet {
+            token_symbol: "TST".try_into().unwrap(),
+            decimals: 3,
+            max_supply: 10000,
+            storage_mode: AccountStorageMode::Private,
+        })
         .unwrap();
 
     client.sync_state().await.unwrap();

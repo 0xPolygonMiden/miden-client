@@ -579,43 +579,6 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
     client.submit_transaction(transaction_execution_result).await.unwrap();
 }
 
-pub fn mock_fungible_faucet_account(
-    id: AccountId,
-    _initial_balance: u64,
-    key_pair: SecretKey,
-) -> Account {
-    let mut rng = rand::thread_rng();
-    let _init_seed: [u8; 32] = rng.gen();
-    let auth_scheme: AuthScheme = AuthScheme::RpoFalcon512 { pub_key: key_pair.public_key() };
-
-    let (_auth_scheme_procedure, auth_data): (&str, Word) = match auth_scheme {
-        AuthScheme::RpoFalcon512 { pub_key } => ("auth_tx_rpo_falcon512", pub_key.into()),
-    };
-    let reserved_data = Word::default();
-    let metadata = [
-        Felt::new(10_000_000u64),
-        Felt::new(10u64),
-        TokenSymbol::new("TST").unwrap().into(),
-        ZERO,
-    ];
-
-    let faucet_account_storage = AccountStorage::new(vec![
-        StorageSlot::Value(reserved_data),
-        StorageSlot::Value(metadata),
-        StorageSlot::Value([ZERO, ZERO, ZERO, ZERO]),
-        StorageSlot::Value(auth_data),
-    ])
-    .unwrap();
-
-    Account::from_parts(
-        id,
-        AssetVault::new(&[]).unwrap(),
-        faucet_account_storage.clone(),
-        AccountCode::mock(),
-        Felt::new(10u64),
-    )
-}
-
 pub fn mock_notes(assembler: Assembler) -> (Vec<Note>, Vec<Note>) {
     const ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_1: u64 =
         0b1010010001111111010110100011011110101011010001101111110110111100u64;
