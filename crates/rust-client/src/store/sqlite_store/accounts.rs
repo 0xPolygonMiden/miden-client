@@ -421,7 +421,7 @@ mod tests {
     fn test_account_code_insertion_no_duplicates() {
         let store = create_test_store();
         let assembler = miden_lib::transaction::TransactionKernel::assembler();
-        let account_code = AccountCode::compile(DEFAULT_ACCOUNT_CODE, assembler).unwrap();
+        let account_code = AccountCode::compile(DEFAULT_ACCOUNT_CODE, assembler, false).unwrap();
         let mut db = store.db();
         let tx = db.transaction().unwrap();
 
