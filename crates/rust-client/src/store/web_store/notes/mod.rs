@@ -12,7 +12,7 @@ use crate::store::{
     note_record::{
         STATE_COMMITTED, STATE_EXPECTED, STATE_FOREIGN_CONSUMED,
         STATE_NATIVE_CONSUMED_AUTHENTICATED, STATE_NATIVE_CONSUMED_UNAUTHENTICATED,
-        STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED,
+        STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED, STATE_UNVERIFIED,
     },
     InputNoteRecord, NoteFilter, OutputNoteRecord, StoreError,
 };
@@ -36,7 +36,8 @@ impl WebStore {
             | NoteFilter::Consumed
             | NoteFilter::Committed
             | NoteFilter::Expected
-            | NoteFilter::Processing => {
+            | NoteFilter::Processing
+            | NoteFilter::Unverified => {
                 let states: Vec<u8> = match filter {
                     NoteFilter::All => vec![],
                     NoteFilter::Consumed => vec![
@@ -49,6 +50,7 @@ impl WebStore {
                     NoteFilter::Processing => {
                         vec![STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED]
                     },
+                    NoteFilter::Unverified => vec![STATE_UNVERIFIED],
                     _ => unreachable!(), // Safety net, should never be reached
                 };
 
@@ -142,7 +144,7 @@ impl WebStore {
                 let note_ids = vec![note_id_as_str];
                 idxdb_get_output_notes_from_ids(note_ids)
             },
-            NoteFilter::Nullifiers(_) => {
+            NoteFilter::Nullifiers(_) | NoteFilter::Unverified => {
                 todo!("Is not currently called, will be implemented in the future");
             },
         };

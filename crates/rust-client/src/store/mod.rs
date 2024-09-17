@@ -111,49 +111,6 @@ pub trait Store {
         nullifiers
     }
 
-    /// Returns the notes that match the provided nullifiers
-    ///
-    /// The default implementation of this method uses [Store::get_input_notes].
-    #[maybe_async]
-    fn get_notes_by_nullifiers(
-        &self,
-        nullifiers: Vec<Nullifier>,
-    ) -> Result<Vec<InputNoteRecord>, StoreError> {
-        let notes = maybe_await!(self.get_input_notes(NoteFilter::Committed))?
-            .into_iter()
-            .chain(maybe_await!(self.get_input_notes(NoteFilter::Processing))?)
-            .filter(|note| nullifiers.contains(&note.nullifier()))
-            .collect();
-
-        Ok(notes)
-    }
-
-    /// Returns the committed notes that don't have their block header tracked
-    ///
-    /// The default implementation of this method uses [Store::get_tracked_block_headers] and
-    /// [Store::get_input_notes].
-    #[maybe_async]
-    fn get_notes_without_block_header(&self) -> Result<Vec<InputNoteRecord>, StoreError> {
-        let tracked_block_nums: Vec<u32> = maybe_await!(self.get_tracked_block_headers())?
-            .iter()
-            .map(|header| header.block_num())
-            .collect();
-        let notes_without_block_header: Vec<InputNoteRecord> =
-            maybe_await!(self.get_input_notes(NoteFilter::Committed))?
-                .into_iter()
-                .filter(|note| {
-                    !tracked_block_nums.contains(
-                        &note
-                            .inclusion_proof()
-                            .expect("Committed note should have inclusion proof")
-                            .location()
-                            .block_num(),
-                    )
-                })
-                .collect();
-        Ok(notes_without_block_header)
-    }
-
     /// Inserts the provided input note into the database
     #[maybe_async]
     fn insert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError>;
@@ -393,4 +350,6 @@ pub enum NoteFilter<'a> {
     Unique(NoteId),
     /// Return a list of notes that match the provided [Nullifier].
     Nullifiers(&'a [Nullifier]),
+    /// Return a list of notes that currently have an unverified proof.
+    Unverified,
 }

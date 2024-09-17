@@ -22,7 +22,7 @@ use crate::store::{
         NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED, NOTE_STATUS_EXPECTED, NOTE_STATUS_PROCESSING,
         STATE_COMMITTED, STATE_EXPECTED, STATE_FOREIGN_CONSUMED,
         STATE_NATIVE_CONSUMED_AUTHENTICATED, STATE_NATIVE_CONSUMED_UNAUTHENTICATED,
-        STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED,
+        STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED, STATE_UNVERIFIED,
     },
     InputNoteRecord, NoteFilter, NoteRecordDetails, NoteState, NoteStatus, OutputNoteRecord,
     StoreError,
@@ -132,6 +132,7 @@ impl<'a> NoteFilter<'a> {
             NoteFilter::Nullifiers(_) => {
                 format!("{base} WHERE note.nullifier IN rarray(?)")
             },
+            NoteFilter::Unverified => todo!("This filter shouldn't be used for output notes, once we refactor the filter system we can remove this"),
         }
     }
 
@@ -169,10 +170,16 @@ impl<'a> NoteFilter<'a> {
                     STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED
                 )
             },
+            NoteFilter::Unverified => {
+                format!("{base} WHERE state_discriminant = {}", STATE_UNVERIFIED)
+            },
             NoteFilter::Unique(_) | NoteFilter::List(_) => {
                 format!("{base} WHERE note.note_id IN rarray(?)")
             },
-            _ => base.to_string(), // TODO: This should be removed once all filters are
+            NoteFilter::Nullifiers(_) => {
+                format!("{base} WHERE note.nullifier IN rarray(?)")
+            },
+            NoteFilter::Ignored =>  todo!("This filter shouldn't be used for input notes, once we refactor the filter system we can remove this"),
         }
     }
 }
@@ -198,6 +205,14 @@ impl SqliteStore {
                     .collect::<Vec<Value>>();
 
                 params.push(Rc::new(note_ids_list))
+            },
+            NoteFilter::Nullifiers(nullifiers) => {
+                let nullifiers_list = nullifiers
+                    .iter()
+                    .map(|nullifier| Value::Text(nullifier.to_string()))
+                    .collect::<Vec<Value>>();
+
+                params.push(Rc::new(nullifiers_list))
             },
             _ => {},
         }
