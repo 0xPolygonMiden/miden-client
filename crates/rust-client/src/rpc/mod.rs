@@ -118,14 +118,14 @@ pub struct NoteInclusionDetails {
     /// Block number in which the note was included.
     pub block_num: u32,
     /// Index of the note in the block's note tree.
-    pub note_index: u32,
+    pub note_index: u16,
     /// Merkle path to the note root of the block header.
     pub merkle_path: MerklePath,
 }
 
 impl NoteInclusionDetails {
     /// Creates a new [NoteInclusionDetails].
-    pub fn new(block_num: u32, note_index: u32, merkle_path: MerklePath) -> Self {
+    pub fn new(block_num: u32, note_index: u16, merkle_path: MerklePath) -> Self {
         Self { block_num, note_index, merkle_path }
     }
 }
@@ -293,7 +293,7 @@ pub struct CommittedNote {
     /// Note ID of the committed note.
     note_id: NoteId,
     /// Note index for the note merkle tree.
-    note_index: u32,
+    note_index: u16,
     /// Merkle path for the note merkle tree up to the block's note root.
     merkle_path: MerklePath,
     /// Note metadata.
@@ -303,7 +303,7 @@ pub struct CommittedNote {
 impl CommittedNote {
     pub fn new(
         note_id: NoteId,
-        note_index: u32,
+        note_index: u16,
         merkle_path: MerklePath,
         metadata: NoteMetadata,
     ) -> Self {
@@ -319,7 +319,7 @@ impl CommittedNote {
         &self.note_id
     }
 
-    pub fn note_index(&self) -> u32 {
+    pub fn note_index(&self) -> u16 {
         self.note_index
     }
 

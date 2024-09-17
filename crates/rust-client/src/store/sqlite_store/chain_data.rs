@@ -268,6 +268,7 @@ fn set_block_header_has_client_notes(
 mod test {
     use alloc::vec::Vec;
 
+    use miden_lib::transaction::TransactionKernel;
     use miden_objects::{crypto::merkle::MmrPeaks, BlockHeader};
 
     use crate::store::{
@@ -276,8 +277,11 @@ mod test {
     };
 
     fn insert_dummy_block_headers(store: &mut SqliteStore) -> Vec<BlockHeader> {
-        let block_headers: Vec<BlockHeader> =
-            (0..5).map(|block_num| BlockHeader::mock(block_num, None, None, &[])).collect();
+        let block_headers: Vec<BlockHeader> = (0..5)
+            .map(|block_num| {
+                BlockHeader::mock(block_num, None, None, &[], TransactionKernel::kernel_root())
+            })
+            .collect();
         let mut db = store.db();
         let tx = db.transaction().unwrap();
         let dummy_peaks = MmrPeaks::new(0, Vec::new()).unwrap();

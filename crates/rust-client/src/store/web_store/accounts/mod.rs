@@ -95,7 +95,7 @@ impl WebStore {
         let account_code = self.get_account_code(account_header.code_commitment()).await.unwrap();
 
         let account_storage =
-            self.get_account_storage(account_header.storage_root()).await.unwrap();
+            self.get_account_storage(account_header.storage_commitment()).await.unwrap();
         let account_vault = self.get_vault_assets(account_header.vault_root()).await.unwrap();
         let account_vault = AssetVault::new(&account_vault).unwrap();
 
@@ -124,11 +124,11 @@ impl WebStore {
 
     pub(super) async fn get_account_storage(
         &self,
-        root: Digest,
+        commitment: Digest,
     ) -> Result<AccountStorage, StoreError> {
-        let root_serialized = root.to_string();
+        let commitment_serialized = commitment.to_string();
 
-        let promise = idxdb_get_account_storage(root_serialized);
+        let promise = idxdb_get_account_storage(commitment_serialized);
         let js_value = JsFuture::from(promise).await.unwrap();
         let account_storage_idxdb: AccountStorageIdxdbObject = from_value(js_value).unwrap();
 
@@ -136,10 +136,13 @@ impl WebStore {
         Ok(storage)
     }
 
-    pub(super) async fn get_vault_assets(&self, root: Digest) -> Result<Vec<Asset>, StoreError> {
-        let root_serialized = serde_json::to_string(&root.to_string()).unwrap();
+    pub(super) async fn get_vault_assets(
+        &self,
+        commitment: Digest,
+    ) -> Result<Vec<Asset>, StoreError> {
+        let commitment_serialized = serde_json::to_string(&commitment.to_string()).unwrap();
 
-        let promise = idxdb_get_account_asset_vault(root_serialized);
+        let promise = idxdb_get_account_asset_vault(commitment_serialized);
         let js_value = JsFuture::from(promise).await.unwrap();
         let vault_assets_idxdb: AccountVaultIdxdbObject = from_value(js_value).unwrap();
 

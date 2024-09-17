@@ -86,8 +86,9 @@ integration-test-web-client: ## Run integration tests for the web client
 
 .PHONY: integration-test-full
 integration-test-full: ## Run the integration test binary with ignored tests included
+	@echo "\033[33m!!!! WARNING: Account import test is currently not being executed. It should be reactivated once miden-base/875 gets merged !!!!\033[0m"
 	cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI)
-	cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) --run-ignored ignored-only -- test_import_genesis_accounts_can_be_used_for_transactions
+	#cargo nextest run --workspace --exclude miden-client-web --release --test=integration $(FEATURES_CLI) --run-ignored ignored-only -- test_import_genesis_accounts_can_be_used_for_transactions
 
 .PHONY: kill-node
 kill-node: ## Kill node process

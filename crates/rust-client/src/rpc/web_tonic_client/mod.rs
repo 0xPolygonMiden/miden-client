@@ -140,7 +140,7 @@ impl NodeRpcClient for WebTonicRpcClient {
                     .ok_or(RpcError::ExpectedFieldMissing("Notes.MerklePath".into()))?
                     .try_into()?;
 
-                NoteInclusionDetails::new(note.block_num, note.note_index, merkle_path)
+                NoteInclusionDetails::new(note.block_num, note.note_index as u16, merkle_path)
             };
 
             let note = match note.details {
@@ -347,7 +347,7 @@ impl TryFrom<SyncNoteResponse> for NoteSyncInfo {
                 .try_into()?;
 
             let committed_note =
-                CommittedNote::new(note_id, note.note_index, merkle_path, metadata);
+                CommittedNote::new(note_id, note.note_index as u16, merkle_path, metadata);
 
             notes.push(committed_note);
         }
@@ -412,7 +412,7 @@ impl TryFrom<SyncStateResponse> for StateSyncInfo {
                 .try_into()?;
 
             let committed_note =
-                CommittedNote::new(note_id, note.note_index, merkle_path, metadata);
+                CommittedNote::new(note_id, note.note_index as u16, merkle_path, metadata);
 
             note_inclusions.push(committed_note);
         }

@@ -360,11 +360,11 @@ fn print_transaction_details(transaction_result: &TransactionResult) -> Result<(
 
     let account_delta = transaction_result.account_delta();
 
-    let has_storage_changes = !account_delta.storage().slots().is_empty();
+    let has_storage_changes = !account_delta.storage().is_empty();
     if has_storage_changes {
         let mut table = create_dynamic_table(&["Storage Slot", "Effect"]);
 
-        for (updated_item_slot, new_value) in account_delta.storage().slots() {
+        for (updated_item_slot, new_value) in account_delta.storage().values() {
             let value_digest: Digest = new_value.into();
             table.add_row(vec![
                 updated_item_slot.to_string(),

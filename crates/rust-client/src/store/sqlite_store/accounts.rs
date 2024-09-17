@@ -315,14 +315,14 @@ pub(super) fn parse_account(
 fn serialize_account(account: &Account) -> Result<SerializedAccountData, StoreError> {
     let id: u64 = account.id().into();
     let code_root = account.code().commitment().to_string();
-    let storage_root = account.storage().root().to_string();
+    let commitment_root = account.storage().commitment().to_string();
     let vault_root = serde_json::to_string(&account.vault().commitment())
         .map_err(StoreError::InputSerializationError)?;
     let committed = account.is_public();
     let nonce = account.nonce().as_int() as i64;
     let hash = account.hash().to_string();
 
-    Ok((id as i64, code_root, storage_root, vault_root, nonce, committed, hash))
+    Ok((id as i64, code_root, commitment_root, vault_root, nonce, committed, hash))
 }
 
 /// Parse account_auth columns from the provided row into native types
@@ -363,31 +363,31 @@ fn serialize_account_auth(
 fn serialize_account_code(
     account_code: &AccountCode,
 ) -> Result<SerializedAccountCodeData, StoreError> {
-    let root = account_code.commitment().to_string();
+    let commitment = account_code.commitment().to_string();
     let code = account_code.to_bytes();
 
-    Ok((root, code))
+    Ok((commitment, code))
 }
 
 /// Serialize the provided account_storage into database compatible types.
 fn serialize_account_storage(
     account_storage: &AccountStorage,
 ) -> Result<SerializedAccountStorageData, StoreError> {
-    let root = account_storage.root().to_string();
+    let commitment = account_storage.commitment().to_string();
     let storage = account_storage.to_bytes();
 
-    Ok((root, storage))
+    Ok((commitment, storage))
 }
 
 /// Serialize the provided asset_vault into database compatible types.
 fn serialize_account_asset_vault(
     asset_vault: &AssetVault,
 ) -> Result<SerializedAccountVaultData, StoreError> {
-    let root = serde_json::to_string(&asset_vault.commitment())
+    let commitment = serde_json::to_string(&asset_vault.commitment())
         .map_err(StoreError::InputSerializationError)?;
     let assets: Vec<Asset> = asset_vault.assets().collect();
     let assets = serde_json::to_string(&assets).map_err(StoreError::InputSerializationError)?;
-    Ok((root, assets))
+    Ok((commitment, assets))
 }
 
 /// Parse accounts parts from the provided row into native types

@@ -9,7 +9,7 @@ use alloc::vec::Vec;
 use miden_lib::AuthScheme;
 pub use miden_objects::accounts::{
     Account, AccountCode, AccountData, AccountHeader, AccountId, AccountStorage,
-    AccountStorageMode, AccountType, StorageSlotType,
+    AccountStorageMode, AccountType, StorageSlot, StorageSlotType,
 };
 use miden_objects::{
     accounts::AuthSecretKey,
