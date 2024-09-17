@@ -758,7 +758,7 @@ fn get_account_with_nonce(
     let account_code_src = DEFAULT_ACCOUNT_CODE;
     let account_assembler = TransactionKernel::assembler();
 
-    let account_code = AccountCode::compile(account_code_src, account_assembler).unwrap();
+    let account_code = AccountCode::compile(account_code_src, account_assembler, false).unwrap();
     let slot_item = StorageSlot::Value(public_key);
     let account_storage = AccountStorage::new(vec![slot_item]).unwrap();
 
