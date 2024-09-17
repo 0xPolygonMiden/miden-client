@@ -173,7 +173,7 @@ pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthen
 
         println!("Storage: \n");
 
-        let _table = create_dynamic_table(&[
+        let mut table = create_dynamic_table(&[
             "Item Slot Index",
             "Item Slot Type",
             "Value Arity",
