@@ -69,7 +69,7 @@ impl InputNoteRecord {
             | NoteState::Invalid { metadata, .. }
             | NoteState::ProcessingAuthenticated { metadata, .. }
             | NoteState::ProcessingUnauthenticated { metadata, .. }
-            | NoteState::NativeConsumedAuthenticated { metadata, .. } => Some(metadata),
+            | NoteState::ConsumedAuthenticatedLocal { metadata, .. } => Some(metadata),
             NoteState::Expected { metadata, .. } => metadata.as_ref(),
             _ => None,
         }
@@ -87,7 +87,7 @@ impl InputNoteRecord {
                 invalid_inclusion_proof: inclusion_proof, ..
             }
             | NoteState::ProcessingAuthenticated { inclusion_proof, .. }
-            | NoteState::NativeConsumedAuthenticated { inclusion_proof, .. } => {
+            | NoteState::ConsumedAuthenticatedLocal { inclusion_proof, .. } => {
                 Some(inclusion_proof)
             },
             _ => None,
@@ -105,7 +105,7 @@ impl InputNoteRecord {
             self.state,
             NoteState::Committed { .. }
                 | NoteState::ProcessingAuthenticated { .. }
-                | NoteState::NativeConsumedAuthenticated { .. }
+                | NoteState::ConsumedAuthenticatedLocal { .. }
         )
     }
 
@@ -145,9 +145,9 @@ impl InputNoteRecord {
                 }
                 Ok(false)
             },
-            NoteState::NativeConsumedAuthenticated { .. }
-            | NoteState::NativeConsumedUnauthenticated { .. }
-            | NoteState::ForeignConsumed { .. } => Ok(false),
+            NoteState::ConsumedAuthenticatedLocal { .. }
+            | NoteState::ConsumedUnauthenticatedLocal { .. }
+            | NoteState::ConsumedExternal { .. } => Ok(false),
             state => Err(NoteRecordError::InvalidStateTransition {
                 state: state.discriminant(),
                 transition_name: "inclusion_proof_received".to_string(),
@@ -201,9 +201,9 @@ impl InputNoteRecord {
                 Ok(false)
             },
             NoteState::ProcessingAuthenticated { .. }
-            | NoteState::NativeConsumedAuthenticated { .. }
-            | NoteState::NativeConsumedUnauthenticated { .. }
-            | NoteState::ForeignConsumed { .. }
+            | NoteState::ConsumedAuthenticatedLocal { .. }
+            | NoteState::ConsumedUnauthenticatedLocal { .. }
+            | NoteState::ConsumedExternal { .. }
             | NoteState::ProcessingUnauthenticated { .. } => Ok(false),
             state => Err(NoteRecordError::InvalidStateTransition {
                 state: state.discriminant(),
@@ -229,7 +229,7 @@ impl InputNoteRecord {
                         "Nullifier does not match the expected value".to_string(),
                     ));
                 }
-                self.state = NoteState::NativeConsumedAuthenticated {
+                self.state = NoteState::ConsumedAuthenticatedLocal {
                     metadata: *metadata,
                     inclusion_proof: inclusion_proof.clone(),
                     block_note_root: *block_note_root,
@@ -238,8 +238,9 @@ impl InputNoteRecord {
                 };
                 Ok(true)
             },
-            NoteState::ProcessingUnauthenticated { submission_data, .. } => {
-                self.state = NoteState::NativeConsumedUnauthenticated {
+            NoteState::ProcessingUnauthenticated { submission_data, metadata, .. } => {
+                self.state = NoteState::ConsumedUnauthenticatedLocal {
+                    metadata: *metadata,
                     nullifier_block_height,
                     submission_data: *submission_data,
                 };
@@ -249,12 +250,12 @@ impl InputNoteRecord {
             | NoteState::Committed { .. }
             | NoteState::Invalid { .. }
             | NoteState::Unverified { .. } => {
-                self.state = NoteState::ForeignConsumed { nullifier_block_height };
+                self.state = NoteState::ConsumedExternal { nullifier_block_height };
                 Ok(true)
             },
-            NoteState::NativeConsumedAuthenticated { .. }
-            | NoteState::NativeConsumedUnauthenticated { .. }
-            | NoteState::ForeignConsumed { .. } => Ok(false),
+            NoteState::ConsumedAuthenticatedLocal { .. }
+            | NoteState::ConsumedUnauthenticatedLocal { .. }
+            | NoteState::ConsumedExternal { .. } => Ok(false),
         }
     }
 

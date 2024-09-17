@@ -115,7 +115,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let state = if let Some(block_height) =
             self.rpc_api.get_nullifier_commit_height(&note.nullifier()).await?
         {
-            NoteState::ForeignConsumed { nullifier_block_height: block_height }
+            NoteState::ConsumedExternal { nullifier_block_height: block_height }
         } else {
             let block_height = inclusion_proof.location().block_num();
             let current_block_num = maybe_await!(self.get_sync_height())?;

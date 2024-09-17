@@ -20,9 +20,9 @@ use super::SqliteStore;
 use crate::store::{
     note_record::{
         NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED, NOTE_STATUS_EXPECTED, NOTE_STATUS_PROCESSING,
-        STATE_COMMITTED, STATE_EXPECTED, STATE_FOREIGN_CONSUMED,
-        STATE_NATIVE_CONSUMED_AUTHENTICATED, STATE_NATIVE_CONSUMED_UNAUTHENTICATED,
-        STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED, STATE_UNVERIFIED,
+        STATE_COMMITTED, STATE_CONSUMED_AUTHENTICATED_LOCAL, STATE_CONSUMED_EXTERNAL,
+        STATE_CONSUMED_UNAUTHENTICATED_LOCAL, STATE_EXPECTED, STATE_PROCESSING_AUTHENTICATED,
+        STATE_PROCESSING_UNAUTHENTICATED, STATE_UNVERIFIED,
     },
     InputNoteRecord, NoteFilter, NoteRecordDetails, NoteState, NoteStatus, OutputNoteRecord,
     StoreError,
@@ -156,9 +156,9 @@ impl<'a> NoteFilter<'a> {
             NoteFilter::Consumed => {
                 format!(
                     "{base} WHERE state_discriminant in ({}, {}, {})",
-                    STATE_NATIVE_CONSUMED_AUTHENTICATED,
-                    STATE_NATIVE_CONSUMED_UNAUTHENTICATED,
-                    STATE_FOREIGN_CONSUMED
+                    STATE_CONSUMED_AUTHENTICATED_LOCAL,
+                    STATE_CONSUMED_UNAUTHENTICATED_LOCAL,
+                    STATE_CONSUMED_EXTERNAL
                 )
             },
             NoteFilter::Expected => {
@@ -298,9 +298,9 @@ impl SqliteStore {
         const QUERY: &str =
             "SELECT nullifier FROM input_notes WHERE state_discriminant NOT IN rarray(?)";
         let unspent_filters = Rc::new(vec![
-            Value::from(STATE_NATIVE_CONSUMED_AUTHENTICATED.to_string()),
-            Value::from(STATE_NATIVE_CONSUMED_UNAUTHENTICATED.to_string()),
-            Value::from(STATE_FOREIGN_CONSUMED.to_string()),
+            Value::from(STATE_CONSUMED_AUTHENTICATED_LOCAL.to_string()),
+            Value::from(STATE_CONSUMED_UNAUTHENTICATED_LOCAL.to_string()),
+            Value::from(STATE_CONSUMED_EXTERNAL.to_string()),
         ]);
         self.db()
             .prepare(QUERY)?

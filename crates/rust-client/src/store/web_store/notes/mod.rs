@@ -10,9 +10,9 @@ use wasm_bindgen_futures::*;
 use super::WebStore;
 use crate::store::{
     note_record::{
-        STATE_COMMITTED, STATE_EXPECTED, STATE_FOREIGN_CONSUMED,
-        STATE_NATIVE_CONSUMED_AUTHENTICATED, STATE_NATIVE_CONSUMED_UNAUTHENTICATED,
-        STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED, STATE_UNVERIFIED,
+        STATE_COMMITTED, STATE_CONSUMED_AUTHENTICATED_LOCAL, STATE_CONSUMED_EXTERNAL,
+        STATE_CONSUMED_UNAUTHENTICATED_LOCAL, STATE_EXPECTED, STATE_PROCESSING_AUTHENTICATED,
+        STATE_PROCESSING_UNAUTHENTICATED, STATE_UNVERIFIED,
     },
     InputNoteRecord, NoteFilter, OutputNoteRecord, StoreError,
 };
@@ -41,9 +41,9 @@ impl WebStore {
                 let states: Vec<u8> = match filter {
                     NoteFilter::All => vec![],
                     NoteFilter::Consumed => vec![
-                        STATE_NATIVE_CONSUMED_AUTHENTICATED,
-                        STATE_NATIVE_CONSUMED_UNAUTHENTICATED,
-                        STATE_FOREIGN_CONSUMED,
+                        STATE_CONSUMED_AUTHENTICATED_LOCAL,
+                        STATE_CONSUMED_UNAUTHENTICATED_LOCAL,
+                        STATE_CONSUMED_EXTERNAL,
                     ],
                     NoteFilter::Committed => vec![STATE_COMMITTED],
                     NoteFilter::Expected => vec![STATE_EXPECTED],

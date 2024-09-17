@@ -287,9 +287,9 @@ pub const STATE_COMMITTED: u8 = 2;
 pub const STATE_INVALID: u8 = 3;
 pub const STATE_PROCESSING_AUTHENTICATED: u8 = 4;
 pub const STATE_PROCESSING_UNAUTHENTICATED: u8 = 5;
-pub const STATE_NATIVE_CONSUMED_AUTHENTICATED: u8 = 6;
-pub const STATE_NATIVE_CONSUMED_UNAUTHENTICATED: u8 = 7;
-pub const STATE_FOREIGN_CONSUMED: u8 = 8;
+pub const STATE_CONSUMED_AUTHENTICATED_LOCAL: u8 = 6;
+pub const STATE_CONSUMED_UNAUTHENTICATED_LOCAL: u8 = 7;
+pub const STATE_CONSUMED_EXTERNAL: u8 = 8;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum NoteState {
@@ -323,18 +323,19 @@ pub enum NoteState {
         after_block_num: u32,
         submission_data: NoteSubmissionData,
     },
-    NativeConsumedAuthenticated {
+    ConsumedAuthenticatedLocal {
         metadata: NoteMetadata,
         inclusion_proof: NoteInclusionProof,
         block_note_root: Digest,
         nullifier_block_height: u32,
         submission_data: NoteSubmissionData,
     },
-    NativeConsumedUnauthenticated {
+    ConsumedUnauthenticatedLocal {
+        metadata: NoteMetadata,
         nullifier_block_height: u32,
         submission_data: NoteSubmissionData,
     },
-    ForeignConsumed {
+    ConsumedExternal {
         nullifier_block_height: u32,
     },
 }
@@ -348,11 +349,9 @@ impl NoteState {
             NoteState::Invalid { .. } => STATE_INVALID,
             NoteState::ProcessingAuthenticated { .. } => STATE_PROCESSING_AUTHENTICATED,
             NoteState::ProcessingUnauthenticated { .. } => STATE_PROCESSING_UNAUTHENTICATED,
-            NoteState::NativeConsumedAuthenticated { .. } => STATE_NATIVE_CONSUMED_AUTHENTICATED,
-            NoteState::NativeConsumedUnauthenticated { .. } => {
-                STATE_NATIVE_CONSUMED_UNAUTHENTICATED
-            },
-            NoteState::ForeignConsumed { .. } => STATE_FOREIGN_CONSUMED,
+            NoteState::ConsumedAuthenticatedLocal { .. } => STATE_CONSUMED_AUTHENTICATED_LOCAL,
+            NoteState::ConsumedUnauthenticatedLocal { .. } => STATE_CONSUMED_UNAUTHENTICATED_LOCAL,
+            NoteState::ConsumedExternal { .. } => STATE_CONSUMED_EXTERNAL,
         }
     }
 }
@@ -408,7 +407,7 @@ impl Serializable for NoteState {
                 after_block_num.write_into(target);
                 submission_data.write_into(target);
             },
-            NoteState::NativeConsumedAuthenticated {
+            NoteState::ConsumedAuthenticatedLocal {
                 metadata,
                 inclusion_proof,
                 block_note_root,
@@ -421,14 +420,16 @@ impl Serializable for NoteState {
                 nullifier_block_height.write_into(target);
                 submission_data.write_into(target);
             },
-            NoteState::NativeConsumedUnauthenticated {
+            NoteState::ConsumedUnauthenticatedLocal {
+                metadata,
                 nullifier_block_height,
                 submission_data,
             } => {
+                metadata.write_into(target);
                 nullifier_block_height.write_into(target);
                 submission_data.write_into(target);
             },
-            NoteState::ForeignConsumed { nullifier_block_height } => {
+            NoteState::ConsumedExternal { nullifier_block_height } => {
                 nullifier_block_height.write_into(target);
             },
         }
@@ -492,13 +493,13 @@ impl Deserializable for NoteState {
                     submission_data,
                 })
             },
-            STATE_NATIVE_CONSUMED_AUTHENTICATED => {
+            STATE_CONSUMED_AUTHENTICATED_LOCAL => {
                 let metadata = NoteMetadata::read_from(source)?;
                 let inclusion_proof = NoteInclusionProof::read_from(source)?;
                 let block_note_root = Digest::read_from(source)?;
                 let nullifier_block_height = u32::read_from(source)?;
                 let submission_data = NoteSubmissionData::read_from(source)?;
-                Ok(NoteState::NativeConsumedAuthenticated {
+                Ok(NoteState::ConsumedAuthenticatedLocal {
                     metadata,
                     inclusion_proof,
                     block_note_root,
@@ -506,17 +507,19 @@ impl Deserializable for NoteState {
                     submission_data,
                 })
             },
-            STATE_NATIVE_CONSUMED_UNAUTHENTICATED => {
+            STATE_CONSUMED_UNAUTHENTICATED_LOCAL => {
+                let metadata = NoteMetadata::read_from(source)?;
                 let nullifier_block_height = u32::read_from(source)?;
                 let submission_data = NoteSubmissionData::read_from(source)?;
-                Ok(NoteState::NativeConsumedUnauthenticated {
+                Ok(NoteState::ConsumedUnauthenticatedLocal {
+                    metadata,
                     nullifier_block_height,
                     submission_data,
                 })
             },
-            STATE_FOREIGN_CONSUMED => {
+            STATE_CONSUMED_EXTERNAL => {
                 let nullifier_block_height = u32::read_from(source)?;
-                Ok(NoteState::ForeignConsumed { nullifier_block_height })
+                Ok(NoteState::ConsumedExternal { nullifier_block_height })
             },
             _ => Err(DeserializationError::InvalidValue(format!(
                 "Invalid NoteState discriminant: {}",
@@ -567,14 +570,15 @@ impl Display for NoteState {
                     submission_data.consumer_account
                 )
             },
-            NoteState::NativeConsumedAuthenticated {
+            NoteState::ConsumedAuthenticatedLocal {
                 nullifier_block_height,
                 submission_data,
                 ..
             }
-            | NoteState::NativeConsumedUnauthenticated {
+            | NoteState::ConsumedUnauthenticatedLocal {
                 nullifier_block_height,
                 submission_data,
+                ..
             } => {
                 write!(
                     f,
@@ -582,7 +586,7 @@ impl Display for NoteState {
                     nullifier_block_height, submission_data.consumer_account
                 )
             },
-            NoteState::ForeignConsumed { nullifier_block_height } => {
+            NoteState::ConsumedExternal { nullifier_block_height } => {
                 write!(f, "Consumed (at block {})", nullifier_block_height)
             },
         }

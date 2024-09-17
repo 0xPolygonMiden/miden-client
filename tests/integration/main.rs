@@ -269,8 +269,8 @@ async fn test_p2idr_transfer_consumed_by_target() {
 
     // Check that the note is consumed by the target account
     let input_note = client.get_input_note(note.id()).unwrap();
-    assert!(matches!(input_note.state(), NoteState::NativeConsumedAuthenticated { .. }));
-    if let NoteState::NativeConsumedAuthenticated { submission_data, .. } = input_note.state() {
+    assert!(matches!(input_note.state(), NoteState::ConsumedAuthenticatedLocal { .. }));
+    if let NoteState::ConsumedAuthenticatedLocal { submission_data, .. } = input_note.state() {
         assert_eq!(submission_data.consumer_account, from_account_id);
     } else {
         panic!("Note should be consumed");
@@ -1110,7 +1110,7 @@ async fn test_import_consumed_note_with_proof() {
         .unwrap();
 
     let consumed_note = client_2.get_input_note(note.id()).unwrap();
-    assert!(matches!(consumed_note.state(), NoteState::ForeignConsumed { .. }));
+    assert!(matches!(consumed_note.state(), NoteState::ConsumedExternal { .. }));
 }
 
 #[tokio::test]
@@ -1162,5 +1162,5 @@ async fn test_import_consumed_note_with_id() {
     client_2.import_note(NoteFile::NoteId(note.id())).await.unwrap();
 
     let consumed_note = client_2.get_input_note(note.id()).unwrap();
-    assert!(matches!(consumed_note.state(), NoteState::ForeignConsumed { .. }));
+    assert!(matches!(consumed_note.state(), NoteState::ConsumedExternal { .. }));
 }

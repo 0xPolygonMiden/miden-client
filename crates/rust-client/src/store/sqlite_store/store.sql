@@ -72,7 +72,7 @@ CREATE TABLE transaction_scripts (
 -- Create input notes table
 CREATE TABLE input_notes (
     note_id BLOB NOT NULL,                                  -- the note id
-    assets BLOB NOT NULL,                                   -- the serialized NoteAssets, including vault hash and list of assets
+    assets BLOB NOT NULL,                                   -- the serialized list of assets
     serial_number BLOB NOT NULL,                            -- the serial number of the note
     inputs BLOB NOT NULL,                                   -- the serialized list of note inputs
     script_hash BLOB NOT NULL,                              -- the script hash of the note
