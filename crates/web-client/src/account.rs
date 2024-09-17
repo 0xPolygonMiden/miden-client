@@ -15,7 +15,7 @@ impl WebClient {
                         account.id().to_string(),
                         account.nonce().to_string(),
                         account.vault_root().to_string(),
-                        account.storage_root().to_string(),
+                        account.storage_commitment().to_string(),
                         account.code_commitment().to_string(),
                     )
                 })

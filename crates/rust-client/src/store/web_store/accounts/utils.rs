@@ -23,7 +23,7 @@ pub async fn insert_account_code(account_code: &AccountCode) -> Result<(), ()> {
 }
 
 pub async fn insert_account_storage(account_storage: &AccountStorage) -> Result<(), ()> {
-    let root = account_storage.root().to_string();
+    let root = account_storage.commitment().to_string();
 
     let storage = account_storage.to_bytes();
 
@@ -67,7 +67,7 @@ pub async fn insert_account_record(
 ) -> Result<(), ()> {
     let account_id_str = account.id().to_string();
     let code_root = account.code().commitment().to_string();
-    let storage_root = account.storage().root().to_string();
+    let storage_root = account.storage().commitment().to_string();
     let vault_root = serde_json::to_string(&account.vault().commitment()).unwrap();
     let committed = account.is_public();
     let nonce = account.nonce().to_string();

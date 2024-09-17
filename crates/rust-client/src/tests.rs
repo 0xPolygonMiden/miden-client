@@ -4,10 +4,7 @@ use alloc::vec::Vec;
 // ================================================================================================
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{
-        account_id::testing::ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, AccountCode, AccountHeader,
-        AccountId, AccountStorageMode, AuthSecretKey,
-    },
+    accounts::{AccountCode, AccountHeader, AccountId, AccountStorageMode, AuthSecretKey},
     assets::{FungibleAsset, TokenSymbol},
     crypto::dsa::rpo_falcon512::SecretKey,
     notes::{NoteFile, NoteTag},
@@ -19,7 +16,7 @@ use crate::{
     accounts::AccountTemplate,
     mock::{
         create_test_client, get_account_with_default_account_code, mock_full_chain_mmr_and_notes,
-        mock_fungible_faucet_account, mock_notes, ACCOUNT_ID_REGULAR,
+        mock_notes, ACCOUNT_ID_REGULAR,
     },
     store::{InputNoteRecord, NoteFilter},
     transactions::TransactionRequest,
@@ -111,7 +108,7 @@ async fn insert_basic_account() {
     assert_eq!(account.id(), fetched_account.id());
     assert_eq!(account.nonce(), fetched_account.nonce());
     assert_eq!(account.vault(), fetched_account.vault());
-    assert_eq!(account.storage().root(), fetched_account.storage().root());
+    assert_eq!(account.storage().commitment(), fetched_account.storage().commitment());
     assert_eq!(account.code().commitment(), fetched_account.code().commitment());
 
     // Validate seed matches
@@ -365,24 +362,17 @@ async fn test_tags() {
 
 #[tokio::test]
 async fn test_mint_transaction() {
-    const FAUCET_ID: u64 = ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN;
-    const INITIAL_BALANCE: u64 = 1000;
-
     // generate test client with a random store name
     let mut client = create_test_client();
 
     // Faucet account generation
-    let key_pair = SecretKey::new();
-
-    let faucet = mock_fungible_faucet_account(
-        AccountId::try_from(FAUCET_ID).unwrap(),
-        INITIAL_BALANCE,
-        key_pair.clone(),
-    );
-
-    client
-        .store()
-        .insert_account(&faucet, None, &AuthSecretKey::RpoFalcon512(key_pair))
+    let (faucet, _seed) = client
+        .new_account(AccountTemplate::FungibleFaucet {
+            token_symbol: "TST".try_into().unwrap(),
+            decimals: 3,
+            max_supply: 10000,
+            storage_mode: AccountStorageMode::Private,
+        })
         .unwrap();
 
     client.sync_state().await.unwrap();
@@ -403,32 +393,24 @@ async fn test_mint_transaction() {
 
 #[tokio::test]
 async fn test_get_output_notes() {
-    const FAUCET_ID: u64 = ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN;
-    const INITIAL_BALANCE: u64 = 1000;
-
     // generate test client with a random store name
     let mut client = create_test_client();
+    client.sync_state().await.unwrap();
 
     // Faucet account generation
-    let key_pair = SecretKey::new();
-
-    let faucet = mock_fungible_faucet_account(
-        AccountId::try_from(FAUCET_ID).unwrap(),
-        INITIAL_BALANCE,
-        key_pair.clone(),
-    );
-
-    client
-        .store()
-        .insert_account(&faucet, None, &AuthSecretKey::RpoFalcon512(key_pair))
+    let (faucet, _seed) = client
+        .new_account(AccountTemplate::FungibleFaucet {
+            token_symbol: "TST".try_into().unwrap(),
+            decimals: 3,
+            max_supply: 10000,
+            storage_mode: AccountStorageMode::Private,
+        })
         .unwrap();
-
-    client.sync_state().await.unwrap();
 
     // Test submitting a mint transaction
     let transaction_request = TransactionRequest::mint_fungible_asset(
         FungibleAsset::new(faucet.id(), 5u64).unwrap(),
-        AccountId::from_hex("0x168187d729b31a84").unwrap(),
+        AccountId::from_hex("0x0123456789abcdef").unwrap(),
         miden_objects::notes::NoteType::Private,
         client.rng(),
     )
