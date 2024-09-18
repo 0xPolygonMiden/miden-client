@@ -408,14 +408,12 @@ mod tests {
     use miden_objects::{
         accounts::{AccountCode, AccountId},
         crypto::dsa::rpo_falcon512::SecretKey,
+        testing::account_code::DEFAULT_ACCOUNT_CODE,
     };
     use miden_tx::utils::{Deserializable, Serializable};
 
     use super::{insert_account_auth, AuthSecretKey};
-    use crate::{
-        mock::DEFAULT_ACCOUNT_CODE,
-        store::sqlite_store::{accounts::insert_account_code, tests::create_test_store},
-    };
+    use crate::store::sqlite_store::{accounts::insert_account_code, tests::create_test_store};
 
     #[test]
     fn test_account_code_insertion_no_duplicates() {

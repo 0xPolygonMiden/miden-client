@@ -4,20 +4,25 @@ use alloc::vec::Vec;
 // ================================================================================================
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{AccountCode, AccountHeader, AccountId, AccountStorageMode, AuthSecretKey},
+    accounts::{
+        account_id::testing::{
+            ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_2,
+            ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
+            ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN,
+        },
+        Account, AccountCode, AccountHeader, AccountId, AccountStorageMode, AuthSecretKey,
+    },
     assets::{FungibleAsset, TokenSymbol},
     crypto::dsa::rpo_falcon512::SecretKey,
     notes::{NoteFile, NoteTag},
-    Word,
+    Felt, FieldElement, Word,
 };
 use miden_tx::utils::{Deserializable, Serializable};
 
 use crate::{
     accounts::AccountTemplate,
-    mock::{
-        create_test_client, get_account_with_default_account_code, mock_full_chain_mmr_and_notes,
-        mock_notes, ACCOUNT_ID_REGULAR,
-    },
+    mock::create_test_client,
+    rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter},
     transactions::TransactionRequest,
 };
@@ -27,14 +32,17 @@ async fn test_input_notes_round_trip() {
     // generate test client with a random store name
     let mut client = create_test_client();
 
+    client
+        .new_account(AccountTemplate::BasicWallet {
+            mutable_code: true,
+            storage_mode: AccountStorageMode::Public,
+        })
+        .unwrap();
     // generate test data
-
-    let assembler = TransactionKernel::assembler();
-    let (consumed_notes, _created_notes) = mock_notes(assembler);
-    let (_, consumed_notes, ..) = mock_full_chain_mmr_and_notes(consumed_notes);
+    let available_notes = [client.rpc_api.get_note_at(0), client.rpc_api.get_note_at(1)];
 
     // insert notes into database
-    for note in consumed_notes.iter() {
+    for note in available_notes.iter() {
         client
             .import_note(NoteFile::NoteWithProof(
                 note.note().clone(),
@@ -46,10 +54,10 @@ async fn test_input_notes_round_trip() {
 
     // retrieve notes from database
     let retrieved_notes = client.get_input_notes(NoteFilter::Committed).unwrap();
-    assert_eq!(retrieved_notes.len(), consumed_notes.len());
+    assert_eq!(retrieved_notes.len(), 2);
 
     let recorded_notes: Vec<InputNoteRecord> =
-        consumed_notes.iter().map(|n| n.clone().into()).collect();
+        available_notes.iter().map(|n| n.clone().into()).collect();
     // compare notes
     for (recorded_note, retrieved_note) in recorded_notes.iter().zip(retrieved_notes) {
         assert_eq!(recorded_note.id(), retrieved_note.id());
@@ -60,12 +68,11 @@ async fn test_input_notes_round_trip() {
 async fn test_get_input_note() {
     // generate test client with a random store name
     let mut client = create_test_client();
-
-    let assembler = TransactionKernel::assembler();
-    let (_consumed_notes, created_notes) = mock_notes(assembler);
+    // Get note from mocked RPC backend since any note works here
+    let original_note = client.rpc_api.get_note_at(0).note().clone();
 
     // insert Note into database
-    let note: InputNoteRecord = created_notes.first().unwrap().clone().into();
+    let note: InputNoteRecord = original_note.clone().into();
     client
         .import_note(NoteFile::NoteDetails {
             details: note.into(),
@@ -76,10 +83,9 @@ async fn test_get_input_note() {
         .unwrap();
 
     // retrieve note from database
-    let retrieved_note =
-        client.get_input_note(created_notes.first().unwrap().clone().id()).unwrap();
+    let retrieved_note = client.get_input_note(original_note.id()).unwrap();
 
-    let recorded_note: InputNoteRecord = created_notes.first().unwrap().clone().into();
+    let recorded_note: InputNoteRecord = original_note.into();
     assert_eq!(recorded_note.id(), retrieved_note.id());
 }
 
@@ -154,10 +160,10 @@ async fn insert_same_account_twice_fails() {
     // generate test client with a random store name
     let mut client = create_test_client();
 
-    let account = get_account_with_default_account_code(
-        AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap(),
-        Word::default(),
-        None,
+    let account = Account::mock(
+        ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_2,
+        Felt::new(2),
+        TransactionKernel::testing_assembler(),
     );
 
     let key_pair = SecretKey::new();
@@ -181,10 +187,10 @@ async fn test_account_code() {
 
     let key_pair = SecretKey::new();
 
-    let account = get_account_with_default_account_code(
-        AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap(),
-        Word::default(),
-        None,
+    let account = Account::mock(
+        ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN,
+        Felt::ZERO,
+        TransactionKernel::testing_assembler(),
     );
 
     let account_code = account.code();
@@ -198,7 +204,6 @@ async fn test_account_code() {
         .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
         .unwrap();
     let (retrieved_acc, _) = client.get_account(account.id()).unwrap();
-
     assert_eq!(*account.code(), *retrieved_acc.code());
 }
 
@@ -207,10 +212,10 @@ async fn test_get_account_by_id() {
     // generate test client with a random store name
     let mut client = create_test_client();
 
-    let account = get_account_with_default_account_code(
-        AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap(),
-        Word::default(),
-        None,
+    let account = Account::mock(
+        ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN,
+        Felt::new(10),
+        TransactionKernel::assembler(),
     );
 
     let key_pair = SecretKey::new();
@@ -237,11 +242,14 @@ async fn test_sync_state() {
     // generate test client with a random store name
     let mut client = create_test_client();
 
-    // generate test data
-    crate::mock::insert_mock_data(&mut client).await;
+    // Import first mockchain note as expected
+    let expected_note = client.rpc_api.get_note_at(1).note().clone();
+    client.store.insert_input_note(expected_note.clone().into()).unwrap();
 
     // assert that we have no consumed nor expected notes prior to syncing state
     assert_eq!(client.get_input_notes(NoteFilter::Consumed).unwrap().len(), 0);
+    assert_eq!(client.get_input_notes(NoteFilter::Expected).unwrap().len(), 1);
+    assert_eq!(client.get_input_notes(NoteFilter::Committed).unwrap().len(), 0);
 
     let expected_notes = client.get_input_notes(NoteFilter::Expected).unwrap();
 
@@ -251,20 +259,20 @@ async fn test_sync_state() {
     // verify that the client is synced to the latest block
     assert_eq!(
         sync_details.block_num,
-        client.rpc_api().state_sync_requests.first_key_value().unwrap().1.chain_tip
+        client.rpc_api().blocks.last().unwrap().header().block_num()
     );
+
+    // verify that the expected note we had is now committed
+    assert_ne!(client.get_input_notes(NoteFilter::Committed).unwrap(), expected_notes);
 
     // verify that we now have one consumed note after syncing state
     assert_eq!(client.get_input_notes(NoteFilter::Consumed).unwrap().len(), 1);
     assert_eq!(sync_details.consumed_notes.len(), 1);
 
-    // verify that the expected note we had is now committed
-    assert_ne!(client.get_input_notes(NoteFilter::Committed).unwrap(), expected_notes);
-
     // verify that the latest block number has been updated
     assert_eq!(
         client.get_sync_height().unwrap(),
-        client.rpc_api().state_sync_requests.first_key_value().unwrap().1.chain_tip
+        client.rpc_api().blocks.last().unwrap().header().block_num()
     );
 }
 
@@ -272,9 +280,17 @@ async fn test_sync_state() {
 async fn test_sync_state_mmr() {
     // generate test client with a random store name
     let mut client = create_test_client();
-
-    // generate test data
-    let tracked_block_headers = crate::mock::insert_mock_data(&mut client).await;
+    // Import note and create wallet so that synced notes do not get discarded (due to being
+    // irrelevant)
+    client
+        .new_account(AccountTemplate::BasicWallet {
+            mutable_code: false,
+            storage_mode: AccountStorageMode::Private,
+        })
+        .unwrap();
+    for (_, n) in client.rpc_api.notes.iter() {
+        client.store.insert_input_note(n.note().clone().into()).unwrap();
+    }
 
     // sync state
     let sync_details = client.sync_state().await.unwrap();
@@ -282,45 +298,41 @@ async fn test_sync_state_mmr() {
     // verify that the client is synced to the latest block
     assert_eq!(
         sync_details.block_num,
-        client.rpc_api().state_sync_requests.first_key_value().unwrap().1.chain_tip
+        client.rpc_api().blocks.last().unwrap().header().block_num()
     );
 
     // verify that the latest block number has been updated
     assert_eq!(
         client.get_sync_height().unwrap(),
-        client.rpc_api().state_sync_requests.first_key_value().unwrap().1.chain_tip
+        client.rpc_api().blocks.last().unwrap().header().block_num()
     );
 
-    // verify that we inserted the latest block into the db via the client
+    // verify that we inserted the latest block into the DB via the client
     let latest_block = client.get_sync_height().unwrap();
     assert_eq!(sync_details.block_num, latest_block);
     assert_eq!(
-        tracked_block_headers[tracked_block_headers.len() - 1],
-        client.get_block_headers(&[latest_block]).unwrap()[0].0
+        client.rpc_api().blocks.last().unwrap().hash(),
+        client.get_block_headers(&[latest_block]).unwrap()[0].0.hash()
     );
 
     // Try reconstructing the chain_mmr from what's in the database
     let partial_mmr = client.build_current_partial_mmr(true).unwrap();
-
-    // Since Mocked data contains three sync updates we should be "tracking" those blocks
-    // However, remember that we don't actually update the partial_mmr with the latest block but up
-    // to one block before instead. This is because the prologue will already build the
-    // authentication path for that block.
-    assert_eq!(partial_mmr.forest(), 7);
+    assert_eq!(partial_mmr.forest(), 6);
     assert!(partial_mmr.open(0).unwrap().is_none());
-    assert!(partial_mmr.open(1).unwrap().is_none());
-    assert!(partial_mmr.open(2).unwrap().is_some());
+    assert!(partial_mmr.open(1).unwrap().is_some());
+    assert!(partial_mmr.open(2).unwrap().is_none());
     assert!(partial_mmr.open(3).unwrap().is_none());
     assert!(partial_mmr.open(4).unwrap().is_some());
     assert!(partial_mmr.open(5).unwrap().is_none());
-    assert!(partial_mmr.open(6).unwrap().is_some());
 
     // Ensure the proofs are valid
-    let mmr_proof = partial_mmr.open(2).unwrap().unwrap();
-    assert!(partial_mmr.peaks().verify(tracked_block_headers[0].hash(), mmr_proof));
+    let mmr_proof = partial_mmr.open(1).unwrap().unwrap();
+    let (block_1, _) = client.rpc_api().get_block_header_by_number(Some(1), false).await.unwrap();
+    assert!(partial_mmr.peaks().verify(block_1.hash(), mmr_proof));
 
     let mmr_proof = partial_mmr.open(4).unwrap().unwrap();
-    assert!(partial_mmr.peaks().verify(tracked_block_headers[1].hash(), mmr_proof));
+    let (block_4, _) = client.rpc_api().get_block_header_by_number(Some(4), false).await.unwrap();
+    assert!(partial_mmr.peaks().verify(block_4.hash(), mmr_proof));
 }
 
 #[tokio::test]
@@ -433,12 +445,8 @@ async fn test_import_note_validation() {
     let mut client = create_test_client();
 
     // generate test data
-    let assembler = TransactionKernel::assembler();
-    let (consumed_notes, created_notes) = mock_notes(assembler);
-    let (_, committed_notes, ..) = mock_full_chain_mmr_and_notes(consumed_notes);
-
-    let committed_note: InputNoteRecord = committed_notes.first().unwrap().clone().into();
-    let expected_note = InputNoteRecord::from(created_notes.first().unwrap().clone());
+    let committed_note: InputNoteRecord = client.rpc_api.get_note_at(0).into();
+    let expected_note: InputNoteRecord = client.rpc_api.get_note_at(1).note().clone().into();
 
     client
         .import_note(NoteFile::NoteDetails {

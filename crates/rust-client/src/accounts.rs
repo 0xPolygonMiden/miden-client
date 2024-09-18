@@ -270,21 +270,23 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 pub mod tests {
     use alloc::vec::Vec;
 
+    use miden_lib::transaction::TransactionKernel;
     use miden_objects::{
-        accounts::{Account, AccountData, AccountId, AuthSecretKey},
+        accounts::{
+            account_id::testing::{
+                ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
+            },
+            Account, AccountData, AuthSecretKey,
+        },
         crypto::dsa::rpo_falcon512::SecretKey,
-        Word,
+        Felt, Word,
     };
 
-    use crate::mock::{
-        create_test_client, get_account_with_default_account_code,
-        get_new_account_with_default_account_code, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
-        ACCOUNT_ID_REGULAR,
-    };
+    use crate::mock::create_test_client;
 
     fn create_account_data(account_id: u64) -> AccountData {
-        let account_id = AccountId::try_from(account_id).unwrap();
-        let account = get_account_with_default_account_code(account_id, Word::default(), None);
+        let account =
+            Account::mock(account_id, Felt::new(2), TransactionKernel::testing_assembler());
 
         AccountData::new(
             account.clone(),
@@ -294,7 +296,7 @@ pub mod tests {
     }
 
     pub fn create_initial_accounts_data() -> Vec<AccountData> {
-        let account = create_account_data(ACCOUNT_ID_REGULAR);
+        let account = create_account_data(ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN);
 
         let faucet_account = create_account_data(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN);
 
@@ -309,10 +311,10 @@ pub mod tests {
         // generate test client
         let mut client = create_test_client();
 
-        let account = get_new_account_with_default_account_code(
-            AccountId::try_from(ACCOUNT_ID_REGULAR).unwrap(),
-            Word::default(),
-            None,
+        let account = Account::mock(
+            ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN,
+            Felt::new(0),
+            TransactionKernel::testing_assembler(),
         );
 
         let key_pair = SecretKey::new();

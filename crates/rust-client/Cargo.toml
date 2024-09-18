@@ -22,7 +22,7 @@ default = ["std"]
 idxdb = ["async", "dep:base64", "dep:serde-wasm-bindgen", "dep:wasm-bindgen", "dep:wasm-bindgen-futures"]
 sqlite = ["dep:rusqlite", "std"]
 std = ["miden-objects/std"]
-testing = ["miden-objects/testing", "miden-lib/testing"]
+testing = ["miden-objects/testing", "miden-lib/testing", "miden-tx/testing"]
 tonic = ["dep:hex", "dep:prost", "dep:tonic", "std", "tonic/transport"]
 web-tonic = ["dep:hex", "dep:prost", "dep:tonic", "dep:tonic-web-wasm-client", "getrandom/js"]
 
