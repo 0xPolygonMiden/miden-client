@@ -4,7 +4,7 @@ use miden_objects::accounts::{
 };
 use wasm_bindgen::prelude::*;
 
-use crate::{models::accounts::SerializedAccountHeader, auth_secret_key::AuthSecretKey, WebClient};
+use crate::{models::{account_id::AccountId, accounts::SerializedAccountHeader, auth_secret_key::AuthSecretKey}, WebClient};
 
 #[wasm_bindgen]
 impl WebClient {
