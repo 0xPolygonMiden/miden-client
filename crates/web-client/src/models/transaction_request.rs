@@ -4,13 +4,18 @@ use miden_client::transactions::{
 use miden_objects::{
     notes::{Note as NativeNote, NoteDetails as NativeNoteDetails, NoteId as NativeNoteId},
     transaction::{OutputNote as NativeOutputNote, TransactionScript as NativeTransactionScript},
-    vm::AdviceMap as NativeAdviceMap
+    vm::AdviceMap as NativeAdviceMap,
 };
 use wasm_bindgen::prelude::*;
 
 use super::{
-    advice_map::AdviceMap, note::{Note, NotesArray}, note_details::{NoteDetails, NoteDetailsArray}, note_id::NoteId,
-    output_note::{OutputNote, OutputNotesArray}, transaction_script::TransactionScript, word::Word,
+    advice_map::AdviceMap,
+    note::{Note, NotesArray},
+    note_details::NoteDetailsArray,
+    note_id::NoteId,
+    output_note::OutputNotesArray,
+    transaction_script::TransactionScript,
+    word::Word,
 };
 
 // NoteAndArgs Helper Structs
@@ -42,7 +47,8 @@ impl From<NoteAndArgs> for (NativeNote, Option<NativeNoteArgs>) {
 impl From<&NoteAndArgs> for (NativeNote, Option<NativeNoteArgs>) {
     fn from(note_and_args: &NoteAndArgs) -> Self {
         let native_note: NativeNote = note_and_args.note.clone().into();
-        let native_args: Option<NativeNoteArgs> = note_and_args.args.clone().map(|args| args.into());
+        let native_args: Option<NativeNoteArgs> =
+            note_and_args.args.clone().map(|args| args.into());
         (native_note, native_args)
     }
 }
@@ -76,11 +82,7 @@ impl From<NoteAndArgsArray> for Vec<(NativeNote, Option<NativeNoteArgs>)> {
 
 impl From<&NoteAndArgsArray> for Vec<(NativeNote, Option<NativeNoteArgs>)> {
     fn from(note_and_args_array: &NoteAndArgsArray) -> Self {
-        note_and_args_array
-            .0
-            .iter()
-            .map(|note_and_args| note_and_args.into())
-            .collect()
+        note_and_args_array.0.iter().map(|note_and_args| note_and_args.into()).collect()
     }
 }
 
@@ -112,7 +114,8 @@ impl From<NoteIdAndArgs> for (NativeNoteId, Option<NativeNoteArgs>) {
 impl From<&NoteIdAndArgs> for (NativeNoteId, Option<NativeNoteArgs>) {
     fn from(note_id_and_args: &NoteIdAndArgs) -> Self {
         let native_note_id: NativeNoteId = note_id_and_args.note_id.clone().into();
-        let native_args: Option<NativeNoteArgs> = note_id_and_args.args.clone().map(|args| args.clone().into());
+        let native_args: Option<NativeNoteArgs> =
+            note_id_and_args.args.clone().map(|args| args.clone().into());
         (native_note_id, native_args)
     }
 }
@@ -168,20 +171,15 @@ impl TransactionRequest {
         TransactionRequest(native_transaction_request)
     }
 
-    pub fn with_unauthenticated_input_notes(
-        mut self,
-        notes: &NoteAndArgsArray,
-    ) -> Self {
+    pub fn with_unauthenticated_input_notes(mut self, notes: &NoteAndArgsArray) -> Self {
         let native_note_and_note_args: Vec<(NativeNote, Option<NativeNoteArgs>)> = notes.into();
         self.0 = self.0.clone().with_unauthenticated_input_notes(native_note_and_note_args);
         self
     }
 
-    pub fn with_authenticated_input_notes(
-        mut self,
-        notes: &NoteIdAndArgsArray,
-    ) -> Self {
-        let native_note_id_and_note_args: Vec<(NativeNoteId, Option<NativeNoteArgs>)> = notes.into();
+    pub fn with_authenticated_input_notes(mut self, notes: &NoteIdAndArgsArray) -> Self {
+        let native_note_id_and_note_args: Vec<(NativeNoteId, Option<NativeNoteArgs>)> =
+            notes.into();
         self.0 = self.0.clone().with_authenticated_input_notes(native_note_id_and_note_args);
         self
     }

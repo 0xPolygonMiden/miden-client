@@ -1,9 +1,4 @@
-use std::process::Output;
-
-use miden_objects::{
-    notes::Note as NativeNote,
-    transaction::OutputNote as NativeOutputNote
-};
+use miden_objects::{notes::Note as NativeNote, transaction::OutputNote as NativeOutputNote};
 use wasm_bindgen::prelude::*;
 
 use super::note::Note;
@@ -55,20 +50,12 @@ impl OutputNotesArray {
 
 impl From<OutputNotesArray> for Vec<NativeOutputNote> {
     fn from(output_notes_array: OutputNotesArray) -> Self {
-        output_notes_array
-            .0
-            .into_iter()
-            .map(|output_note| output_note.into())
-            .collect()
+        output_notes_array.0.into_iter().map(|output_note| output_note.into()).collect()
     }
 }
 
 impl From<&OutputNotesArray> for Vec<NativeOutputNote> {
     fn from(output_notes_array: &OutputNotesArray) -> Self {
-        output_notes_array
-            .0
-            .iter()
-            .map(|output_note| output_note.into())
-            .collect()
+        output_notes_array.0.iter().map(|output_note| output_note.into()).collect()
     }
 }

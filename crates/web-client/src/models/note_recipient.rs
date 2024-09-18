@@ -1,6 +1,9 @@
 use miden_objects::{
     crypto::rand::{FeltRng, RpoRandomCoin},
-    notes::{NoteInputs as NativeNoteInputs, NoteRecipient as NativeNoteRecipient, NoteScript as NativeNoteScript},
+    notes::{
+        NoteInputs as NativeNoteInputs, NoteRecipient as NativeNoteRecipient,
+        NoteScript as NativeNoteScript,
+    },
 };
 use wasm_bindgen::prelude::*;
 

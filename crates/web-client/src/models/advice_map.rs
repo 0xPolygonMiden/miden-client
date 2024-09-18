@@ -1,11 +1,13 @@
 use miden_objects::{
-    crypto::hash::rpo::RpoDigest as NativeRpoDigest,
+    crypto::hash::rpo::RpoDigest as NativeRpoDigest, vm::AdviceMap as NativeAdviceMap,
     Felt as NativeFelt,
-    vm::AdviceMap as NativeAdviceMap
 };
 use wasm_bindgen::prelude::*;
 
-use super::{felt::{Felt, FeltArray}, rpo_digest::RpoDigest};
+use super::{
+    felt::{Felt, FeltArray},
+    rpo_digest::RpoDigest,
+};
 
 #[derive(Clone)]
 #[wasm_bindgen]

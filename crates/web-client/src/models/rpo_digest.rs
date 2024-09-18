@@ -43,7 +43,7 @@ impl From<NativeRpoDigest> for RpoDigest {
 
 impl From<&NativeRpoDigest> for RpoDigest {
     fn from(native_rpo_digest: &NativeRpoDigest) -> Self {
-        RpoDigest(native_rpo_digest.clone())
+        RpoDigest(*native_rpo_digest)
     }
 }
 
@@ -55,6 +55,6 @@ impl From<RpoDigest> for NativeRpoDigest {
 
 impl From<&RpoDigest> for NativeRpoDigest {
     fn from(rpo_digest: &RpoDigest) -> Self {
-        rpo_digest.0.clone()
+        rpo_digest.0
     }
 }

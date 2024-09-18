@@ -41,11 +41,8 @@ impl From<TransactionScriptInputPair> for (NativeWord, Vec<NativeFelt>) {
 impl From<&TransactionScriptInputPair> for (NativeWord, Vec<NativeFelt>) {
     fn from(transaction_script_input_pair: &TransactionScriptInputPair) -> Self {
         let native_word: NativeWord = transaction_script_input_pair.word.clone().into();
-        let native_felts: Vec<NativeFelt> = transaction_script_input_pair
-            .felts
-            .iter()
-            .map(|felt| felt.clone().into())
-            .collect();
+        let native_felts: Vec<NativeFelt> =
+            transaction_script_input_pair.felts.iter().map(|felt| (*felt).into()).collect();
         (native_word, native_felts)
     }
 }
@@ -57,7 +54,9 @@ pub struct TransactionScriptInputPairArray(Vec<TransactionScriptInputPair>);
 #[wasm_bindgen]
 impl TransactionScriptInputPairArray {
     #[wasm_bindgen(constructor)]
-    pub fn new(transaction_script_input_pairs: Option<Vec<TransactionScriptInputPair>>) -> TransactionScriptInputPairArray {
+    pub fn new(
+        transaction_script_input_pairs: Option<Vec<TransactionScriptInputPair>>,
+    ) -> TransactionScriptInputPairArray {
         let transaction_script_input_pairs = transaction_script_input_pairs.unwrap_or_default();
         TransactionScriptInputPairArray(transaction_script_input_pairs)
     }

@@ -1,10 +1,12 @@
-use miden_objects::accounts::{
-    AccountId as NativeAccountId,
-    AuthSecretKey as NativeAuthSecretKey,
-};
+use miden_objects::accounts::AccountId as NativeAccountId;
 use wasm_bindgen::prelude::*;
 
-use crate::{models::{account_id::AccountId, accounts::SerializedAccountHeader, auth_secret_key::AuthSecretKey}, WebClient};
+use crate::{
+    models::{
+        account_id::AccountId, accounts::SerializedAccountHeader, auth_secret_key::AuthSecretKey,
+    },
+    WebClient,
+};
 
 #[wasm_bindgen]
 impl WebClient {

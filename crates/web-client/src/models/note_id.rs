@@ -1,4 +1,4 @@
-use miden_objects::{notes::NoteId as NativeNoteId, Digest};
+use miden_objects::notes::NoteId as NativeNoteId;
 use wasm_bindgen::prelude::*;
 
 use super::rpo_digest::RpoDigest;

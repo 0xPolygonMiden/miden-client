@@ -2,14 +2,12 @@ use miden_client::{
     store::TransactionFilter,
     transactions::{TransactionRecord, TransactionScript as NativeTransactionScript},
 };
-use miden_objects::{
-    Felt as NativeFelt,
-    Word as NativeWord
-};
+use miden_objects::{Felt as NativeFelt, Word as NativeWord};
 use wasm_bindgen::prelude::*;
 
 use super::models::{
-    transaction_script::TransactionScript, transaction_script_inputs::{TransactionScriptInputPair, TransactionScriptInputPairArray},
+    transaction_script::TransactionScript,
+    transaction_script_inputs::TransactionScriptInputPairArray,
 };
 use crate::WebClient;
 
@@ -38,7 +36,8 @@ impl WebClient {
         transaction_script_input_pairs: &TransactionScriptInputPairArray,
     ) -> Result<JsValue, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let native_input_pairs: Vec<(NativeWord, Vec<NativeFelt>)> = transaction_script_input_pairs.into();
+            let native_input_pairs: Vec<(NativeWord, Vec<NativeFelt>)> =
+                transaction_script_input_pairs.into();
             let native_tx_script: NativeTransactionScript =
                 client.compile_tx_script(native_input_pairs, script).unwrap();
             let tx_script: TransactionScript =

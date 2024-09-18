@@ -1,26 +1,29 @@
 //!# Module Overview
 //!
-//! This module provides a set of structs and functionality that are exposed to JavaScript via `wasm_bindgen`.
-//! These structs serve as wrappers around native objects from the acrss the miden repositories.
-//! The goal is to provide a way to interact with these objects in a web context with JavaScript, mimicking the same
-//! level of functionality and usability as when working with them in Rust.
+//! This module provides a set of structs and functionality that are exposed to JavaScript via
+//! `wasm_bindgen`. These structs serve as wrappers around native objects from the acrss the miden
+//! repositories. The goal is to provide a way to interact with these objects in a web context with
+//! JavaScript, mimicking the same level of functionality and usability as when working with them in
+//! Rust.
 //!
 //! ## Purpose
 //!
-//! This module is designed to enable developers to work with core objects and data structures used in the miden client, 
-//! directly from JavaScript in a browser environment. By exposing Rust-native functionality via `wasm_bindgen`, 
-//! it ensures that the web-based use of the miden client is as close as possible to the Rust-native experience. 
-//! These bindings allow the creation and manipulation of important client structures, such as accounts, transactions, notes, 
-//! and assets, providing access to core methods and properties.
+//! This module is designed to enable developers to work with core objects and data structures used
+//! in the miden client, directly from JavaScript in a browser environment. By exposing Rust-native
+//! functionality via `wasm_bindgen`, it ensures that the web-based use of the miden client is as
+//! close as possible to the Rust-native experience. These bindings allow the creation and
+//! manipulation of important client structures, such as accounts, transactions, notes, and assets,
+//! providing access to core methods and properties.
 //!
 //! ## Usage
 //!
 //! Each module provides Rust structs and methods that are exposed to JavaScript via `wasm_bindgen`.
 //! These bindings allow developers to create and manipulate miden client objects in JavaScript,
-//! while maintaining the same functionality and control as would be available in a pure Rust environment.
-//! 
-//! This makes it easy to build web-based applications that interact with the miden client, enabling rich
-//! interaction with accounts, assets, and transactions directly from the browser.
+//! while maintaining the same functionality and control as would be available in a pure Rust
+//! environment.
+//!
+//! This makes it easy to build web-based applications that interact with the miden client, enabling
+//! rich interaction with accounts, assets, and transactions directly from the browser.
 
 pub mod account_id;
 pub mod accounts;

@@ -1,7 +1,7 @@
-use miden_objects::{notes::NoteInputs as NativeNoteInputs, Felt as NativeFelt};
+use miden_objects::notes::NoteInputs as NativeNoteInputs;
 use wasm_bindgen::prelude::*;
 
-use super::felt::{Felt, FeltArray};
+use super::felt::FeltArray;
 
 #[derive(Clone)]
 #[wasm_bindgen]

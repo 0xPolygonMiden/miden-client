@@ -18,11 +18,7 @@ impl Note {
         note_metadata: &NoteMetadata,
         note_recipient: &NoteRecipient,
     ) -> Note {
-        Note(NativeNote::new(
-            note_assets.into(),
-            note_metadata.into(),
-            note_recipient.into(),
-        ))
+        Note(NativeNote::new(note_assets.into(), note_metadata.into(), note_recipient.into()))
     }
 
     pub fn id(&self) -> NoteId {
@@ -30,7 +26,7 @@ impl Note {
     }
 
     pub fn metadata(&self) -> NoteMetadata {
-        self.0.metadata().clone().into()
+        (*self.0.metadata()).into()
     }
 
     pub fn recipient(&self) -> NoteRecipient {

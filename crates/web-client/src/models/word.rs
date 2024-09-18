@@ -48,7 +48,7 @@ impl From<NativeWord> for Word {
 
 impl From<&NativeWord> for Word {
     fn from(native_word: &NativeWord) -> Self {
-        Word(native_word.clone())
+        Word(*native_word)
     }
 }
 
@@ -60,6 +60,6 @@ impl From<Word> for NativeWord {
 
 impl From<&Word> for NativeWord {
     fn from(word: &Word) -> Self {
-        word.0.clone()
+        word.0
     }
 }

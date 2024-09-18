@@ -30,8 +30,7 @@ impl WebClient {
     ) -> Result<TransactionResult, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let native_account_id: NativeAccountId = account_id.into();
-            let native_transaction_request: NativeTransactionRequest =
-                transaction_request.into();
+            let native_transaction_request: NativeTransactionRequest = transaction_request.into();
             let native_transaction_execution_result: NativeTransactionResult = client
                 .new_transaction(native_account_id, native_transaction_request)
                 .await
@@ -50,8 +49,7 @@ impl WebClient {
         transaction_result: &TransactionResult,
     ) -> Result<(), JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let native_transaction_result: NativeTransactionResult =
-                transaction_result.into();
+            let native_transaction_result: NativeTransactionResult = transaction_result.into();
             client.submit_transaction(native_transaction_result).await.unwrap();
             Ok(())
         } else {

@@ -12,12 +12,13 @@ impl NoteAssets {
     #[wasm_bindgen(constructor)]
     pub fn new(assets_array: Option<Vec<FungibleAsset>>) -> NoteAssets {
         let assets = assets_array.unwrap_or_default();
-        let native_assets: Vec<NativeAsset> = assets.into_iter().map(|asset| asset.into()).collect();
+        let native_assets: Vec<NativeAsset> =
+            assets.into_iter().map(|asset| asset.into()).collect();
         NoteAssets(NativeNoteAssets::new(native_assets).unwrap())
     }
 
     pub fn push(&mut self, asset: &FungibleAsset) {
-        self.0.add_asset(asset.into());
+        let _ = self.0.add_asset(asset.into());
     }
 }
 

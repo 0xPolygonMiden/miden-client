@@ -1,6 +1,6 @@
 use miden_objects::{
     accounts::AccountId as NativeAccountId,
-    notes::{NoteExecutionMode as NativeNoteExecutionMode, NoteTag as NativeNoteTag}
+    notes::{NoteExecutionMode as NativeNoteExecutionMode, NoteTag as NativeNoteTag},
 };
 use wasm_bindgen::prelude::*;
 
@@ -26,18 +26,13 @@ impl NoteTag {
         execution: &NoteExecutionMode,
     ) -> NoteTag {
         let native_execution: NativeNoteExecutionMode = execution.into();
-        let native_note_tag = NativeNoteTag::for_public_use_case(
-            use_case_id,
-            payload,
-            native_execution,
-        )
-        .unwrap();
+        let native_note_tag =
+            NativeNoteTag::for_public_use_case(use_case_id, payload, native_execution).unwrap();
         NoteTag(native_note_tag)
     }
 
     pub fn for_local_use_case(use_case_id: u16, payload: u16) -> NoteTag {
-        let native_note_tag =
-            NativeNoteTag::for_local_use_case(use_case_id, payload).unwrap();
+        let native_note_tag = NativeNoteTag::for_local_use_case(use_case_id, payload).unwrap();
         NoteTag(native_note_tag)
     }
 

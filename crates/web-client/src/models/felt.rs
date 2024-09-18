@@ -69,21 +69,13 @@ impl FeltArray {
 
 impl From<FeltArray> for Vec<NativeFelt> {
     fn from(felt_array: FeltArray) -> Self {
-        felt_array
-            .0
-            .into_iter()
-            .map(|felt| felt.into())
-            .collect()
+        felt_array.0.into_iter().map(|felt| felt.into()).collect()
     }
 }
 
 impl From<&FeltArray> for Vec<NativeFelt> {
     fn from(felt_array: &FeltArray) -> Self {
-        felt_array
-            .0
-            .iter()
-            .map(|felt| felt.into())
-            .collect()
+        felt_array.0.iter().map(|felt| felt.into()).collect()
     }
 }
 

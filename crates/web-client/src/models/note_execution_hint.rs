@@ -19,11 +19,7 @@ impl NoteExecutionHint {
         NoteExecutionHint(NativeNoteExecutionHint::after_block(block_num))
     }
 
-    pub fn on_block_slot(
-        epoch_len: u8,
-        slot_len: u8,
-        slot_offset: u8,
-    ) -> NoteExecutionHint {
+    pub fn on_block_slot(epoch_len: u8, slot_len: u8, slot_offset: u8) -> NoteExecutionHint {
         NoteExecutionHint(NativeNoteExecutionHint::on_block_slot(epoch_len, slot_len, slot_offset))
     }
 

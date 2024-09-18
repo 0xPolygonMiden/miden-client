@@ -1,7 +1,10 @@
 use miden_objects::{
     accounts::AccountId as NativeAccountId,
+    notes::{
+        NoteExecutionHint as NativeNoteExecutionHint, NoteMetadata as NativeNoteMetadata,
+        NoteTag as NativeNoteTag, NoteType as NativeNoteType,
+    },
     Felt as NativeFelt,
-    notes::{NoteExecutionHint as NativeNoteExecutionHint, NoteMetadata as NativeNoteMetadata, NoteTag as NativeNoteTag, NoteType as NativeNoteType}
 };
 use wasm_bindgen::prelude::*;
 

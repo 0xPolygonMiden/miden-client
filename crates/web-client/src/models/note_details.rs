@@ -11,10 +11,7 @@ pub struct NoteDetails(NativeNoteDetails);
 impl NoteDetails {
     #[wasm_bindgen(constructor)]
     pub fn new(note_assets: &NoteAssets, note_recipient: &NoteRecipient) -> NoteDetails {
-        NoteDetails(NativeNoteDetails::new(
-            note_assets.into(),
-            note_recipient.into(),
-        ))
+        NoteDetails(NativeNoteDetails::new(note_assets.into(), note_recipient.into()))
     }
 }
 
@@ -59,10 +56,6 @@ impl From<NoteDetailsArray> for Vec<NativeNoteDetails> {
 
 impl From<&NoteDetailsArray> for Vec<NativeNoteDetails> {
     fn from(note_details_array: &NoteDetailsArray) -> Self {
-        note_details_array
-            .0
-            .iter()
-            .map(|note_details| note_details.into())
-            .collect()
+        note_details_array.0.iter().map(|note_details| note_details.into()).collect()
     }
 }
