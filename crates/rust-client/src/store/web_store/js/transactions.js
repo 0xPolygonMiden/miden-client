@@ -61,7 +61,7 @@ export async function getTransactions(
                 final_account_state: transactionRecord.finalAccountState,
                 input_notes: transactionRecord.inputNotes,
                 output_notes: transactionRecord.outputNotes,
-                script_hash: transactionRecord.scriptHash ? transactionRecord.scriptHash : null,
+                tx_script_hash: transactionRecord.scriptHash ? transactionRecord.scriptHash : null,
                 tx_script: txScriptBase64,
                 block_num: transactionRecord.blockNum,
                 commit_height: transactionRecord.commitHeight ? transactionRecord.commitHeight : null
@@ -93,16 +93,13 @@ export async function insertTransactionScript(
             throw new Error("Script hash must be provided");
         }
 
-        let scriptHashArray = new Uint8Array(scriptHash);
-        let scriptHashBase64 = uint8ArrayToBase64(scriptHashArray);
-
         let txScriptBlob = null;
         if (txScript) {
             txScriptBlob = new Blob([new Uint8Array(txScript)]);
         }
 
         const data = {
-            scriptHash: scriptHashBase64,
+            scriptHash,
             txScript: txScriptBlob
         }
 
@@ -129,13 +126,8 @@ export async function insertProvenTransactionData(
     committed
 ) {
     try {
-        let scriptHashBase64 = null;
         let inputNotesBlob = new Blob([new Uint8Array(inputNotes)]);
         let outputNotesBlob = new Blob([new Uint8Array(outputNotes)]);
-        if (scriptHash !== null) {
-            let scriptHashArray = new Uint8Array(scriptHash);
-            scriptHashBase64 = uint8ArrayToBase64(scriptHashArray);
-        }
 
         const data = {
             id: transactionId,
@@ -144,7 +136,7 @@ export async function insertProvenTransactionData(
             finalAccountState: finalAccountState,
             inputNotes: inputNotesBlob,
             outputNotes: outputNotesBlob,
-            scriptHash: scriptHashBase64,
+            scriptHash: scriptHash ? scriptHash : null,
             blockNum: blockNum,
             commitHeight: committed ? committed : null
         }
