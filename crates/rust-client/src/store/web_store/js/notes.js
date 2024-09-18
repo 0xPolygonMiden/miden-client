@@ -117,7 +117,7 @@ export async function getUnspentInputNoteNullifiers() {
             .where('status')
             .anyOf(['Committed', 'Processing'])
             .toArray();
-        const nullifiers = notes.map(note => JSON.parse(note.details).nullifier);
+        const nullifiers = notes.map(note => note.nullifier);
 
         return nullifiers;
     } catch (err) {
@@ -145,6 +145,9 @@ export async function insertInputNote(
     return db.transaction('rw', inputNotes, notesScripts, async (tx) => {
         try {
             let assetsBlob = new Blob([new Uint8Array(assets)]);
+            let detailsBlob = new Blob([new Uint8Array(details)]);
+            let metadataBlob = metadata ? new Blob([new Uint8Array(metadata)]) : null;
+            let inclusionProofBlob = inclusionProof ? new Blob([new Uint8Array(inclusionProof)]) : null;
 
             // Prepare the data object to insert
             const data = {
@@ -152,9 +155,10 @@ export async function insertInputNote(
                 assets: assetsBlob,
                 recipient: recipient,
                 status: status,
-                metadata: metadata ? metadata : null,
-                details: details,
-                inclusionProof: inclusionProof ? inclusionProof : null,
+                metadata: metadataBlob,
+                details: detailsBlob,
+                noteScriptHash: noteScriptHash ? noteScriptHash : null,
+                inclusionProof: inclusionProofBlob,
                 consumerTransactionId: null,
                 createdAt: serializedCreatedAt,
                 expectedHeight: expectedHeight ? expectedHeight : null,
@@ -197,6 +201,9 @@ export async function insertOutputNote(
     return db.transaction('rw', outputNotes, notesScripts, async (tx) => {
         try {
             let assetsBlob = new Blob([new Uint8Array(assets)]);
+            let detailsBlob = details ? new Blob([new Uint8Array(details)]) : null;
+            let metadataBlob = new Blob([new Uint8Array(metadata)]);
+            let inclusionProofBlob = inclusionProof ? new Blob([new Uint8Array(inclusionProof)]) : null;
 
             // Prepare the data object to insert
             const data = {
@@ -204,9 +211,10 @@ export async function insertOutputNote(
                 assets: assetsBlob,
                 recipient: recipient,
                 status: status,
-                metadata: metadata,
-                details: details ? details : null,
-                inclusionProof: inclusionProof ? inclusionProof : null,
+                metadata: metadataBlob,
+                details: detailsBlob,
+                noteScriptHash: noteScriptHash ? noteScriptHash : null,
+                inclusionProof: inclusionProofBlob,
                 consumerTransactionId: null,
                 createdAt: serializedCreatedAt,
                 expectedHeight: expectedHeight ? expectedHeight : null, // todo change to block_num
@@ -313,17 +321,35 @@ async function processInputNotes(
         const assetsBase64 = uint8ArrayToBase64(assetsArray);
         note.assets = assetsBase64;
 
+        // Convert the details blob to base64
+        const detailsArrayBuffer = await note.details.arrayBuffer();
+        const detailsArray = new Uint8Array(detailsArrayBuffer);
+        const detailsBase64 = uint8ArrayToBase64(detailsArray);
+        note.details = detailsBase64;
+
+        // Convert the metadata blob to base64
+        let metadataBase64 = null;
+        if (note.metadata) {
+            const metadataArrayBuffer = await note.metadata.arrayBuffer();
+            const metadataArray = new Uint8Array(metadataArrayBuffer);
+            metadataBase64 = uint8ArrayToBase64(metadataArray);
+        }
+
+        // Convert inclusion proof blob to base64
+        let inclusionProofBase64 = null;
+        if (note.inclusionProof) {
+            const inclusionProofArrayBuffer = await note.inclusionProof.arrayBuffer();
+            const inclusionProofArray = new Uint8Array(inclusionProofArrayBuffer);
+            inclusionProofBase64 = uint8ArrayToBase64(inclusionProofArray);
+        }
+
         // Convert the serialized note script blob to base64
         let serializedNoteScriptBase64 = null;
-        // Parse details JSON and perform a "join"
-        if (note.details) {
-            const details = JSON.parse(note.details);
-            if (details.script_hash) {
-                let serializedNoteScript = scriptMap.get(details.script_hash);
-                let serializedNoteScriptArrayBuffer = await serializedNoteScript.arrayBuffer();
-                const serializedNoteScriptArray = new Uint8Array(serializedNoteScriptArrayBuffer);
-                serializedNoteScriptBase64 = uint8ArrayToBase64(serializedNoteScriptArray);
-            }
+        if (note.noteScriptHash) {
+            let serializedNoteScript = scriptMap.get(details.noteScriptHash);
+            let serializedNoteScriptArrayBuffer = await serializedNoteScript.arrayBuffer();
+            const serializedNoteScriptArray = new Uint8Array(serializedNoteScriptArrayBuffer);
+            serializedNoteScriptBase64 = uint8ArrayToBase64(serializedNoteScriptArray);
         }
 
         // Perform a "join" with the transactions table
@@ -337,8 +363,8 @@ async function processInputNotes(
             details: note.details,
             recipient: note.recipient,
             status: note.status,
-            metadata: note.metadata ? note.metadata : null,
-            inclusion_proof: note.inclusionProof ? note.inclusionProof : null,
+            metadata: metadataBase64,
+            inclusion_proof: inclusionProofBase64,
             serialized_note_script: serializedNoteScriptBase64,
             consumer_account_id: consumerAccountId,
             created_at: note.createdAt,
@@ -370,16 +396,34 @@ async function processOutputNotes(
         const assetsBase64 = uint8ArrayToBase64(assetsArray);
         note.assets = assetsBase64;
 
-        let serializedNoteScriptBase64 = null;
-        // Parse details JSON and perform a "join"
+        // Convert the details blob to base64
+        let detailsBase64 = null;
         if (note.details) {
-            const details = JSON.parse(note.details);
-            if (details.script_hash) {
-                let serializedNoteScript = scriptMap.get(details.script_hash);
-                let serializedNoteScriptArrayBuffer = await serializedNoteScript.arrayBuffer();
-                const serializedNoteScriptArray = new Uint8Array(serializedNoteScriptArrayBuffer);
-                serializedNoteScriptBase64 = uint8ArrayToBase64(serializedNoteScriptArray);
-            }
+            const detailsArrayBuffer = await note.details.arrayBuffer();
+            const detailsArray = new Uint8Array(detailsArrayBuffer);
+            detailsBase64 = uint8ArrayToBase64(detailsArray);
+        }
+
+        // Convert the metadata blob to base64
+        const metadataArrayBuffer = await note.metadata.arrayBuffer();
+        const metadataArray = new Uint8Array(metadataArrayBuffer);
+        const metadataBase64 = uint8ArrayToBase64(metadataArray);
+        note.metadata = metadataBase64;
+
+        // Convert inclusion proof blob to base64
+        let inclusionProofBase64 = null;
+        if (note.inclusionProof) {
+            const inclusionProofArrayBuffer = await note.inclusionProof.arrayBuffer();
+            const inclusionProofArray = new Uint8Array(inclusionProofArrayBuffer);
+            inclusionProofBase64 = uint8ArrayToBase64(inclusionProofArray);
+        }
+
+        let serializedNoteScriptBase64 = null;
+        if (note.noteScriptHash) {
+            let serializedNoteScript = scriptMap.get(details.noteScriptHash);
+            let serializedNoteScriptArrayBuffer = await serializedNoteScript.arrayBuffer();
+            const serializedNoteScriptArray = new Uint8Array(serializedNoteScriptArrayBuffer);
+            serializedNoteScriptBase64 = uint8ArrayToBase64(serializedNoteScriptArray);
         }
 
         // Perform a "join" with the transactions table
@@ -390,11 +434,11 @@ async function processOutputNotes(
 
         return {
             assets: note.assets,
-            details: note.details ? note.details : null,
+            details: detailsBase64,
             recipient: note.recipient,
             status: note.status,
             metadata: note.metadata,
-            inclusion_proof: note.inclusionProof ? note.inclusionProof : null,
+            inclusion_proof: inclusionProofBase64,
             serialized_note_script: serializedNoteScriptBase64,
             consumer_account_id: consumerAccountId,
             created_at: note.createdAt,

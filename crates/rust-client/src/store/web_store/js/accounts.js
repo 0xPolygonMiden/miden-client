@@ -235,9 +235,14 @@ export async function getAccountAssetVault(
         // The first record is the only one due to the uniqueness constraint
         const vaultRecord = allMatchingRecords[0];
 
+        // Convert the assets Blob to an ArrayBuffer
+        const assetsArrayBuffer = await vaultRecord.assets.arrayBuffer();
+        const assetsArray = new Uint8Array(assetsArrayBuffer);
+        const assetsBase64 = uint8ArrayToBase64(assetsArray);
+
         return {
             root: vaultRecord.root,
-            assets: vaultRecord.assets
+            assets: assetsBase64
         };
     } catch (error) {
         console.error('Error fetching code record:', error);
@@ -389,10 +394,12 @@ export async function insertAccountAssetVault(
     assets
 ) {
     try {
+        const assetsBlob = new Blob([new Uint8Array(assets)]);
+
         // Prepare the data object to insert
         const data = {
             root: vaultRoot, // Using vaultRoot as the key
-            assets: assets,
+            assets: assetsBlob,
         };
 
         // Perform the insert using Dexie

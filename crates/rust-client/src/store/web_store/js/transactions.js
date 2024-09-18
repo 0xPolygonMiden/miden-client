@@ -44,10 +44,14 @@ export async function getTransactions(
                 }
             }
 
+            let inputNotesArrayBuffer = await transactionRecord.inputNotes.arrayBuffer();
+            let inputNotesArray = new Uint8Array(inputNotesArrayBuffer);
+            let inputNotesBase64 = uint8ArrayToBase64(inputNotesArray);
+            transactionRecord.inputNotes = inputNotesBase64;
+
             let outputNotesArrayBuffer = await transactionRecord.outputNotes.arrayBuffer();
             let outputNotesArray = new Uint8Array(outputNotesArrayBuffer);
             let outputNotesBase64 = uint8ArrayToBase64(outputNotesArray);
-
             transactionRecord.outputNotes = outputNotesBase64;
 
             let data = {
@@ -126,6 +130,7 @@ export async function insertProvenTransactionData(
 ) {
     try {
         let scriptHashBase64 = null;
+        let inputNotesBlob = new Blob([new Uint8Array(inputNotes)]);
         let outputNotesBlob = new Blob([new Uint8Array(outputNotes)]);
         if (scriptHash !== null) {
             let scriptHashArray = new Uint8Array(scriptHash);
@@ -137,7 +142,7 @@ export async function insertProvenTransactionData(
             accountId: accountId,
             initAccountState: initAccountState,
             finalAccountState: finalAccountState,
-            inputNotes: inputNotes,
+            inputNotes: inputNotesBlob,
             outputNotes: outputNotesBlob,
             scriptHash: scriptHashBase64,
             blockNum: blockNum,
