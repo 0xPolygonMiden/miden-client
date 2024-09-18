@@ -2,17 +2,14 @@ use alloc::string::ToString;
 
 use miden_objects::{
     crypto::rand::FeltRng,
-    notes::{
-        compute_note_hash, Note, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteMetadata,
-        NoteTag,
-    },
+    notes::{Note, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteMetadata, NoteTag},
 };
 use miden_tx::auth::TransactionAuthenticator;
 use winter_maybe_async::maybe_await;
 
 use crate::{
     rpc::NodeRpcClient,
-    store::{InputNoteRecord, NoteState, Store, StoreError},
+    store::{InputNoteRecord, NoteState, Store},
     Client, ClientError,
 };
 
@@ -33,18 +30,29 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     ///   inclusion proof and metadata. The MMR data is only fetched from the node if the note is
     ///   committed in the past relative to the client.
     pub async fn import_note(&mut self, note_file: NoteFile) -> Result<NoteId, ClientError> {
+        let id = match &note_file {
+            NoteFile::NoteId(id) => *id,
+            NoteFile::NoteDetails { details, .. } => details.id(),
+            NoteFile::NoteWithProof(note, _) => note.id(),
+        };
+
+        let previous_note = maybe_await!(self.get_input_note(id)).ok();
+
         let note = match note_file {
-            NoteFile::NoteId(id) => self.import_note_record_by_id(id).await?,
+            NoteFile::NoteId(id) => self.import_note_record_by_id(previous_note, id).await?,
             NoteFile::NoteDetails { details, after_block_num, tag } => {
-                self.import_note_record_by_details(details, after_block_num, tag).await?
+                self.import_note_record_by_details(previous_note, details, after_block_num, tag)
+                    .await?
             },
             NoteFile::NoteWithProof(note, inclusion_proof) => {
-                self.import_note_record_by_proof(note, inclusion_proof).await?
+                self.import_note_record_by_proof(previous_note, note, inclusion_proof).await?
             },
         };
-        let id = note.id();
 
-        maybe_await!(self.store.insert_input_note(note))?;
+        if let Some(note) = note {
+            maybe_await!(self.store.insert_input_note(note))?;
+        }
+
         Ok(id)
     }
 
@@ -60,8 +68,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// - If the note exists but is private.
     async fn import_note_record_by_id(
         &mut self,
+        previous_note: Option<InputNoteRecord>,
         id: NoteId,
-    ) -> Result<InputNoteRecord, ClientError> {
+    ) -> Result<Option<InputNoteRecord>, ClientError> {
         let mut chain_notes = self.rpc_api.get_notes_by_id(&[id]).await?;
         if chain_notes.is_empty() {
             return Err(ClientError::NoteNotFoundOnChain(id));
@@ -79,14 +88,17 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             inclusion_details.merkle_path.clone(),
         )?;
 
-        let store_note = maybe_await!(self.get_input_note(id));
-
-        match store_note {
-            Ok(mut store_note) => {
-                store_note.inclusion_proof_received(inclusion_proof, *note_details.metadata())?;
-                Ok(store_note)
+        match previous_note {
+            Some(mut previous_note) => {
+                if previous_note
+                    .inclusion_proof_received(inclusion_proof, *note_details.metadata())?
+                {
+                    Ok(Some(previous_note))
+                } else {
+                    Ok(None)
+                }
             },
-            Err(ClientError::StoreError(StoreError::NoteNotFound(_))) => {
+            None => {
                 let node_note = match note_details {
                     crate::rpc::NoteDetails::Public(note, _) => note,
                     crate::rpc::NoteDetails::Private(..) => {
@@ -96,9 +108,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     },
                 };
 
-                self.import_note_record_by_proof(node_note, inclusion_proof).await
+                self.import_note_record_by_proof(previous_note, node_note, inclusion_proof)
+                    .await
             },
-            Err(err) => Err(err),
         }
     }
 
@@ -109,96 +121,97 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// the MMR for the relevant block is fetched from the node and stored.
     async fn import_note_record_by_proof(
         &mut self,
+        previous_note: Option<InputNoteRecord>,
         note: Note,
         inclusion_proof: NoteInclusionProof,
-    ) -> Result<InputNoteRecord, ClientError> {
-        let state = if let Some(block_height) =
-            self.rpc_api.get_nullifier_commit_height(&note.nullifier()).await?
+    ) -> Result<Option<InputNoteRecord>, ClientError> {
+        let metadata = *note.metadata();
+        let mut note_record = previous_note.unwrap_or(InputNoteRecord::new(
+            note.into(),
+            None,
+            NoteState::Expected {
+                metadata: Some(metadata),
+                after_block_num: inclusion_proof.location().block_num(),
+                tag: Some(metadata.tag()),
+            },
+        ));
+
+        if let Some(block_height) =
+            self.rpc_api.get_nullifier_commit_height(&note_record.nullifier()).await?
         {
-            NoteState::ConsumedExternal { nullifier_block_height: block_height }
+            if note_record.nullifier_received(note_record.nullifier(), block_height)? {
+                return Ok(Some(note_record));
+            }
+
+            Ok(None)
         } else {
             let block_height = inclusion_proof.location().block_num();
             let current_block_num = maybe_await!(self.get_sync_height())?;
 
+            let mut note_changed =
+                note_record.inclusion_proof_received(inclusion_proof, metadata)?;
+
             if block_height < current_block_num {
                 let mut current_partial_mmr = maybe_await!(self.build_current_partial_mmr(true))?;
 
-                self.get_and_store_authenticated_block(block_height, &mut current_partial_mmr)
+                let block_header = self
+                    .get_and_store_authenticated_block(block_height, &mut current_partial_mmr)
                     .await?;
-            }
-            NoteState::Unverified {
-                metadata: *note.metadata(),
-                inclusion_proof,
-            }
-        };
 
-        Ok(InputNoteRecord::new(note.into(), None, state))
+                note_changed |= note_record.block_header_received(block_header)?;
+            }
+
+            if note_changed {
+                Ok(Some(note_record))
+            } else {
+                Ok(None)
+            }
+        }
     }
 
     /// Builds a note record from the note details. If a tag is not provided or not tracked, the
     /// note is marked as ignored.
     async fn import_note_record_by_details(
         &mut self,
+        previous_note: Option<InputNoteRecord>,
         details: NoteDetails,
         after_block_num: u32,
         tag: Option<NoteTag>,
-    ) -> Result<InputNoteRecord, ClientError> {
-        match tag {
-            Some(tag) => {
-                let commited_note_data =
-                    self.check_expected_note(after_block_num, tag, &details).await?;
-
-                match commited_note_data {
-                    Some((metadata, inclusion_proof)) => {
-                        let mut current_partial_mmr =
-                            maybe_await!(self.build_current_partial_mmr(true))?;
-                        let block_header = self
-                            .get_and_store_authenticated_block(
-                                inclusion_proof.location().block_num(),
-                                &mut current_partial_mmr,
-                            )
-                            .await?;
-
-                        let state = if inclusion_proof.note_path().verify(
-                            inclusion_proof.location().node_index_in_block().into(),
-                            compute_note_hash(details.id(), &metadata),
-                            &block_header.note_root(),
-                        ) {
-                            NoteState::Committed {
-                                metadata,
-                                inclusion_proof,
-                                block_note_root: block_header.note_root(),
-                            }
-                        } else {
-                            NoteState::Invalid {
-                                metadata,
-                                invalid_inclusion_proof: inclusion_proof,
-                                block_note_root: block_header.note_root(),
-                            }
-                        };
-
-                        Ok(InputNoteRecord::new(details, None, state))
-                    },
-                    None => Ok(InputNoteRecord::new(
-                        details,
-                        None,
-                        NoteState::Expected {
-                            after_block_num,
-                            tag: Some(tag),
-                            metadata: None,
-                        },
-                    )),
-                }
-            },
-            None => Ok(InputNoteRecord::new(
+    ) -> Result<Option<InputNoteRecord>, ClientError> {
+        let mut note_record = previous_note.unwrap_or({
+            InputNoteRecord::new(
                 details,
                 None,
-                NoteState::Expected {
-                    metadata: None,
-                    after_block_num,
-                    tag: None,
-                },
-            )),
+                NoteState::Expected { metadata: None, after_block_num, tag },
+            )
+        });
+
+        let committed_note_data = if let Some(tag) = tag {
+            self.check_expected_note(after_block_num, tag, note_record.details()).await?
+        } else {
+            None
+        };
+
+        match committed_note_data {
+            Some((metadata, inclusion_proof)) => {
+                let mut current_partial_mmr = maybe_await!(self.build_current_partial_mmr(true))?;
+                let block_header = self
+                    .get_and_store_authenticated_block(
+                        inclusion_proof.location().block_num(),
+                        &mut current_partial_mmr,
+                    )
+                    .await?;
+
+                let note_changed =
+                    note_record.inclusion_proof_received(inclusion_proof, metadata)?;
+
+                if note_record.block_header_received(block_header)? | note_changed {
+                    Ok(Some(note_record))
+                } else {
+                    Ok(None)
+                }
+            },
+            None => Ok(Some(note_record)),
         }
     }
 
