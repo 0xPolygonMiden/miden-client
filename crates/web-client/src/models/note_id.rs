@@ -15,7 +15,8 @@ impl NoteId {
     }
 }
 
-// Conversions
+// CONVERSIONS
+// ================================================================================================
 
 impl From<NativeNoteId> for NoteId {
     fn from(native_note_id: NativeNoteId) -> Self {

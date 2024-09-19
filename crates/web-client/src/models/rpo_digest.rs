@@ -33,7 +33,8 @@ impl RpoDigest {
     }
 }
 
-// Conversions
+// CONVERSIONS
+// ================================================================================================
 
 impl From<NativeRpoDigest> for RpoDigest {
     fn from(native_rpo_digest: NativeRpoDigest) -> Self {

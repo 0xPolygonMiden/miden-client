@@ -20,7 +20,8 @@ impl NoteType {
     }
 }
 
-// Conversions
+// CONVERSIONS
+// ================================================================================================
 
 impl From<NativeNoteType> for NoteType {
     fn from(native_note_type: NativeNoteType) -> Self {

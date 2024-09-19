@@ -38,7 +38,8 @@ impl Word {
     }
 }
 
-// Conversions
+// CONVERSIONS
+// ================================================================================================
 
 impl From<NativeWord> for Word {
     fn from(native_word: NativeWord) -> Self {

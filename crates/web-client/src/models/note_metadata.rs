@@ -1,11 +1,4 @@
-use miden_objects::{
-    accounts::AccountId as NativeAccountId,
-    notes::{
-        NoteExecutionHint as NativeNoteExecutionHint, NoteMetadata as NativeNoteMetadata,
-        NoteTag as NativeNoteTag, NoteType as NativeNoteType,
-    },
-    Felt as NativeFelt,
-};
+use miden_objects::notes::NoteMetadata as NativeNoteMetadata;
 use wasm_bindgen::prelude::*;
 
 use super::{
@@ -27,21 +20,12 @@ impl NoteMetadata {
         note_execution_hint: &NoteExecutionHint,
         aux: Option<Felt>, // Create an OptionFelt type so user has choice to consume or not
     ) -> NoteMetadata {
-        let native_sender: NativeAccountId = sender.into();
-        let native_note_type: NativeNoteType = note_type.into();
-        let native_tag: NativeNoteTag = note_tag.into();
-        let native_execution_hint: NativeNoteExecutionHint = note_execution_hint.into();
-        let native_aux: NativeFelt = match aux {
-            Some(felt) => felt.into(),
-            None => Default::default(),
-        };
-
         let native_note_metadata = NativeNoteMetadata::new(
-            native_sender,
-            native_note_type,
-            native_tag,
-            native_execution_hint,
-            native_aux,
+            sender.into(),
+            note_type.into(),
+            note_tag.into(),
+            note_execution_hint.into(),
+            aux.map_or(Default::default(), |felt| felt.into()),
         )
         .unwrap();
         NoteMetadata(native_note_metadata)
@@ -60,7 +44,8 @@ impl NoteMetadata {
     }
 }
 
-// Conversions
+// CONVERSIONS
+// ================================================================================================
 
 impl From<NativeNoteMetadata> for NoteMetadata {
     fn from(native_note_metadata: NativeNoteMetadata) -> Self {

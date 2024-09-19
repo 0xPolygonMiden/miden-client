@@ -34,7 +34,8 @@ impl AuthSecretKey {
     }
 }
 
-// Conversions
+// CONVERSIONS
+// ================================================================================================
 
 impl From<NativeAuthSecretKey> for AuthSecretKey {
     fn from(native_auth_secret_key: NativeAuthSecretKey) -> Self {

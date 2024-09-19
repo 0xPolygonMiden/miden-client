@@ -63,7 +63,8 @@ impl NotesArray {
     }
 }
 
-// Conversions
+// CONVERSIONS
+// ================================================================================================
 
 impl From<NotesArray> for Vec<NativeNote> {
     fn from(notes_array: NotesArray) -> Self {

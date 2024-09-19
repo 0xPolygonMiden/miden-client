@@ -22,8 +22,7 @@ impl AdviceMap {
 
     pub fn insert(&mut self, key: &RpoDigest, value: &FeltArray) -> Option<Vec<Felt>> {
         let native_rpo_digest: NativeRpoDigest = key.into();
-        let felts_vec: Vec<Felt> = value.into();
-        let native_felts: Vec<NativeFelt> = felts_vec.into_iter().map(|felt| felt.into()).collect();
+        let native_felts: Vec<NativeFelt> = value.into();
         let insert_result: Option<Vec<NativeFelt>> = self.0.insert(native_rpo_digest, native_felts);
         insert_result.map(|native_felts_vec| {
             native_felts_vec.into_iter().map(|native_felt| native_felt.into()).collect()
@@ -37,7 +36,8 @@ impl Default for AdviceMap {
     }
 }
 
-// Conversions
+// CONVERSIONS
+// ================================================================================================
 
 impl From<NativeAdviceMap> for AdviceMap {
     fn from(native_advice_map: NativeAdviceMap) -> Self {

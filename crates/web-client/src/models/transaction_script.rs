@@ -13,7 +13,8 @@ impl TransactionScript {
     }
 }
 
-// Conversions
+// CONVERSIONS
+// ================================================================================================
 
 impl From<TransactionScript> for NativeTransactionScript {
     fn from(transaction_script: TransactionScript) -> Self {

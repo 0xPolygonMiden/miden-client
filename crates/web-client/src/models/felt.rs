@@ -22,7 +22,8 @@ impl Felt {
     }
 }
 
-// Conversions
+// CONVERSIONS
+// ================================================================================================
 
 impl From<NativeFelt> for Felt {
     fn from(native_felt: NativeFelt) -> Self {
@@ -65,7 +66,8 @@ impl FeltArray {
     }
 }
 
-// Conversions
+// CONVERSIONS
+// ================================================================================================
 
 impl From<FeltArray> for Vec<NativeFelt> {
     fn from(felt_array: FeltArray) -> Self {

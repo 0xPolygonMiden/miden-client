@@ -13,7 +13,8 @@ impl TransactionResult {
     }
 }
 
-// Conversions
+// CONVERSIONS
+// ================================================================================================
 
 impl From<TransactionResult> for NativeTransactionResult {
     fn from(transaction_result: TransactionResult) -> Self {

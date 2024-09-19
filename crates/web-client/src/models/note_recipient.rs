@@ -32,7 +32,8 @@ impl NoteRecipient {
     }
 }
 
-// Conversions
+// CONVERSIONS
+// ================================================================================================
 
 impl From<NativeNoteRecipient> for NoteRecipient {
     fn from(native_note_recipient: NativeNoteRecipient) -> Self {

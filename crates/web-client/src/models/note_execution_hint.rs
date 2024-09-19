@@ -32,7 +32,8 @@ impl NoteExecutionHint {
     }
 }
 
-// Conversions
+// CONVERSIONS
+// ================================================================================================
 
 impl From<NoteExecutionHint> for NativeNoteExecutionHint {
     fn from(note_execution_hint: NoteExecutionHint) -> Self {

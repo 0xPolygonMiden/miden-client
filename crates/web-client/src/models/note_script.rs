@@ -5,7 +5,8 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen]
 pub struct NoteScript(NativeNoteScript);
 
-// Conversions
+// CONVERSIONS
+// ================================================================================================
 
 impl From<NativeNoteScript> for NoteScript {
     fn from(native_note_script: NativeNoteScript) -> Self {

@@ -45,7 +45,8 @@ impl NoteTag {
     }
 }
 
-// Conversions
+// CONVERSIONS
+// ================================================================================================
 
 impl From<NativeNoteTag> for NoteTag {
     fn from(native_note_tag: NativeNoteTag) -> Self {

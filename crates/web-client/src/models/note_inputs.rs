@@ -17,7 +17,8 @@ impl NoteInputs {
     }
 }
 
-// Conversions
+// CONVERSIONS
+// ================================================================================================
 
 impl From<NoteInputs> for NativeNoteInputs {
     fn from(note_inputs: NoteInputs) -> Self {

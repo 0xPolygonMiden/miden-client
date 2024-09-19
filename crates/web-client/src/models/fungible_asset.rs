@@ -35,7 +35,8 @@ impl FungibleAsset {
     }
 }
 
-// Conversions
+// CONVERSIONS
+// ================================================================================================
 
 impl From<FungibleAsset> for NativeAsset {
     fn from(fungible_asset: FungibleAsset) -> Self {

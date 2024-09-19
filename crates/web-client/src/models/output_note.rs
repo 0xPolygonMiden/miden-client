@@ -15,7 +15,8 @@ impl OutputNote {
     }
 }
 
-// Conversions
+// CONVERSIONS
+// ================================================================================================
 
 impl From<OutputNote> for NativeOutputNote {
     fn from(output_note: OutputNote) -> Self {
@@ -46,7 +47,8 @@ impl OutputNotesArray {
     }
 }
 
-// Conversions
+// CONVERSIONS
+// ================================================================================================
 
 impl From<OutputNotesArray> for Vec<NativeOutputNote> {
     fn from(output_notes_array: OutputNotesArray) -> Self {

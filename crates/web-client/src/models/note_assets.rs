@@ -22,7 +22,8 @@ impl NoteAssets {
     }
 }
 
-// Conversions
+// CONVERSIONS
+// ================================================================================================
 
 impl From<NoteAssets> for NativeNoteAssets {
     fn from(note_assets: NoteAssets) -> Self {

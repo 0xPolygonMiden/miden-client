@@ -215,7 +215,8 @@ impl TransactionRequest {
     }
 }
 
-// Conversions
+// CONVERSIONS
+// ================================================================================================
 
 impl From<TransactionRequest> for NativeTransactionRequest {
     fn from(transaction_request: TransactionRequest) -> Self {

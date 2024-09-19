@@ -25,7 +25,8 @@ impl NoteExecutionMode {
     }
 }
 
-// Conversions
+// CONVERSIONS
+// ================================================================================================
 
 impl From<NativeNoteExecutionMode> for NoteExecutionMode {
     fn from(native_note_execution_mode: NativeNoteExecutionMode) -> Self {
