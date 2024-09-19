@@ -1,6 +1,30 @@
 import wasm from "../dist/wasm.js";
 
 const {
+    AccountId,
+    AdviceMap,
+    AuthSecretKey,
+    Felt,
+    FeltArray,
+    FungibleAsset,
+    Note,
+    NoteAssets,
+    NoteExecutionHint,
+    NoteExecutionMode,
+    NoteId,
+    NoteIdAndArgs,
+    NoteIdAndArgsArray,
+    NoteInputs,
+    NoteMetadata,
+    NoteRecipient,
+    NoteTag,
+    NoteType,
+    OutputNote,
+    OutputNotesArray,
+    Rpo256,
+    TransactionRequest,
+    TransactionScriptInputPair,
+    TransactionScriptInputPairArray,
     WebClient
 } = await wasm({
     importHook: () => {
@@ -9,5 +33,29 @@ const {
 });
 
 export {
-    WebClient,
+    AccountId,
+    AdviceMap,
+    AuthSecretKey,
+    Felt,
+    FeltArray,
+    FungibleAsset,
+    Note,
+    NoteAssets,
+    NoteExecutionHint,
+    NoteExecutionMode,
+    NoteId,
+    NoteIdAndArgs,
+    NoteIdAndArgsArray,
+    NoteInputs,
+    NoteMetadata,
+    NoteRecipient,
+    NoteTag,
+    NoteType,
+    OutputNote,
+    OutputNotesArray,
+    Rpo256,
+    TransactionRequest,
+    TransactionScriptInputPair,
+    TransactionScriptInputPairArray,
+    WebClient
 };

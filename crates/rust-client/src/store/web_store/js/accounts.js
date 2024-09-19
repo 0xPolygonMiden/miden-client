@@ -170,20 +170,14 @@ export async function getAccountCode(
         // The first record is the only one due to the uniqueness constraint
         const codeRecord = allMatchingRecords[0];
 
-        // Convert the module Blob to an ArrayBuffer
-        const moduleArrayBuffer = await codeRecord.module.arrayBuffer();
-        const moduleArray = new Uint8Array(moduleArrayBuffer);
-        const moduleBase64 = uint8ArrayToBase64(moduleArray);
-
-        // Convert the procedures Blob to an ArrayBuffer
-        const proceduresArrayBuffer = await codeRecord.procedures.arrayBuffer();
-        const proceduresArray = new Uint8Array(proceduresArrayBuffer);
-        const proceduresBase64 = uint8ArrayToBase64(proceduresArray);
+        // Convert the code Blob to an ArrayBuffer
+        const codeArrayBuffer = await codeRecord.code.arrayBuffer();
+        const codeArray = new Uint8Array(codeArrayBuffer);
+        const codeBase64 = uint8ArrayToBase64(codeArray);
         
         return {
             root: codeRecord.root,
-            procedures: proceduresBase64,
-            module: moduleBase64,
+            code: codeBase64,
         };
     } catch (error) {
         console.error('Error fetching code record:', error);
@@ -350,18 +344,15 @@ export async function fetchAndCacheAccountAuthByPubKey(
 export async function insertAccountCode(
     codeRoot, 
     code, 
-    module
 ) {
     try {
         // Create a Blob from the ArrayBuffer
-        const moduleBlob = new Blob([new Uint8Array(module)]);
         const codeBlob = new Blob([new Uint8Array(code)]);
 
         // Prepare the data object to insert
         const data = {
             root: codeRoot, // Using codeRoot as the key
-            procedures: codeBlob,
-            module: moduleBlob, // Blob created from ArrayBuffer
+            code: codeBlob,
         };
 
         // Perform the insert using Dexie

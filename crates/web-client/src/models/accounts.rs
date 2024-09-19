@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
+// TODO - Revisit the Account struct and conform it to structure of
+// the other structs in the models directory
 #[wasm_bindgen]
 #[derive(Serialize, Deserialize)]
 pub struct SerializedAccountHeader {

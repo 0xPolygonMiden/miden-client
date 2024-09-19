@@ -137,8 +137,10 @@ export async function insertInputNote(
     serializedNoteScript,
     inclusionProof,
     serializedCreatedAt,
+    expectedHeight,
     ignored,
-    importedTag
+    importedTag,
+    nullifierHeight,
 ) {
     return db.transaction('rw', inputNotes, notesScripts, async (tx) => {
         try {
@@ -155,8 +157,10 @@ export async function insertInputNote(
                 inclusionProof: inclusionProof ? inclusionProof : null,
                 consumerTransactionId: null,
                 createdAt: serializedCreatedAt,
+                expectedHeight: expectedHeight ? expectedHeight : null,
                 ignored: ignored.toString(),
-                importedTag: importedTag ? importedTag : null
+                importedTag: importedTag ? importedTag : null,
+                nullifierHeight: nullifierHeight ? nullifierHeight : null
             };
 
             // Perform the insert using Dexie
@@ -188,6 +192,7 @@ export async function insertOutputNote(
     serializedNoteScript,
     inclusionProof,
     serializedCreatedAt,
+    expectedHeight
 ) {
     return db.transaction('rw', outputNotes, notesScripts, async (tx) => {
         try {
@@ -204,6 +209,7 @@ export async function insertOutputNote(
                 inclusionProof: inclusionProof ? inclusionProof : null,
                 consumerTransactionId: null,
                 createdAt: serializedCreatedAt,
+                expectedHeight: expectedHeight ? expectedHeight : null, // todo change to block_num
                 ignored: "false",
                 imported_tag: null
             };
@@ -336,6 +342,7 @@ async function processInputNotes(
             serialized_note_script: serializedNoteScriptBase64,
             consumer_account_id: consumerAccountId,
             created_at: note.createdAt,
+            expected_height: note.expectedHeight ? note.expectedHeight : null,
             submitted_at: note.submittedAt ? note.submittedAt : null,
             nullifier_height: note.nullifierHeight ? note.nullifierHeight : null,
             ignored: note.ignored === "true",
@@ -391,6 +398,7 @@ async function processOutputNotes(
             serialized_note_script: serializedNoteScriptBase64,
             consumer_account_id: consumerAccountId,
             created_at: note.createdAt,
+            expected_height: note.expectedHeight ? note.expectedHeight : null,
             submitted_at: note.submittedAt ? note.submittedAt : null,
             nullifier_height: note.nullifierHeight ? note.nullifierHeight : null,
             ignored: note.ignored === "true",

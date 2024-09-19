@@ -171,7 +171,9 @@ impl WebStore {
     }
 
     pub(crate) async fn insert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError> {
-        insert_input_note_tx(note).await
+        let block_num = self.get_sync_height().await?;
+
+        insert_input_note_tx(block_num, note).await
     }
 
     pub async fn update_note_inclusion_proof(

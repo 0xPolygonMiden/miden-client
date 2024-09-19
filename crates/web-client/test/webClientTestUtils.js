@@ -3,6 +3,7 @@ import { testingPage } from "./mocha.global.setup.mjs";
 
 /**
  * @typedef {import("../dist/index").WebClient} WebClient
+ * @typedef {import("../dist/index").AccountId} AccountId
  */
 
 /**
@@ -21,9 +22,9 @@ export const createNewWallet = async (storageMode, mutable) => {
 
       /** @type {WebClient} */
       const client = window.client;
-      const newWallet = client.new_wallet(_storageMode, _mutable);
+      const newWallet = await client.new_wallet(_storageMode, _mutable);
 
-      return newWallet;
+      return newWallet.to_string();
     },
     storageMode,
     mutable
@@ -72,7 +73,7 @@ export const getAccount = async (accountId) => {
  * @param {string} tokenSymbol
  * @param {string} decimals
  * @param {string} maxSupply
- * @returns {Promise<any>}
+ * @returns {Promise<string>}
  */
 export const createNewFaucet = async (
   storageMode,
@@ -89,13 +90,14 @@ export const createNewFaucet = async (
       console.log("creating new faucet...");
       /** @type {WebClient} */
       const client = window.client;
-      return client.new_faucet(
+      const result = await client.new_faucet(
         _storageMode,
         _nonFungible,
         _tokenSymbol,
         _decimals,
         _maxSupply
       );
+      return result.to_string();
     },
     storageMode,
     nonFungible,

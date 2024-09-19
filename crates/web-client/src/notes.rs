@@ -1,9 +1,13 @@
 use miden_client::store::{InputNoteRecord, NoteFilter, OutputNoteRecord};
-use miden_objects::{notes::NoteId, Digest};
+use miden_objects::{
+    notes::{NoteId, NoteScript as NativeNoteScript},
+    Digest,
+};
 use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen::prelude::*;
 
+use super::models::note_script::NoteScript;
 use crate::WebClient;
 
 #[derive(Serialize, Deserialize)]
@@ -81,6 +85,16 @@ impl WebClient {
 
             serde_wasm_bindgen::to_value(&note.id().to_string())
                 .map_err(|e| JsValue::from_str(&e.to_string()))
+        } else {
+            Err(JsValue::from_str("Client not initialized"))
+        }
+    }
+
+    pub async fn compile_note_script(&mut self, script: &str) -> Result<NoteScript, JsValue> {
+        if let Some(client) = self.get_mut_inner() {
+            let native_note_script: NativeNoteScript = client.compile_note_script(script).unwrap();
+
+            Ok(native_note_script.into())
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
