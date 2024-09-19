@@ -9,7 +9,7 @@ use winter_maybe_async::maybe_await;
 
 use crate::{
     rpc::NodeRpcClient,
-    store::{InputNoteRecord, NoteState, Store},
+    store::{ExpectedNoteState, InputNoteRecord, NoteState, Store},
     Client, ClientError,
 };
 
@@ -129,11 +129,11 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let mut note_record = previous_note.unwrap_or(InputNoteRecord::new(
             note.into(),
             None,
-            NoteState::Expected {
+            NoteState::Expected(ExpectedNoteState {
                 metadata: Some(metadata),
                 after_block_num: inclusion_proof.location().block_num(),
                 tag: Some(metadata.tag()),
-            },
+            }),
         ));
 
         if let Some(block_height) =
@@ -182,7 +182,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             InputNoteRecord::new(
                 details,
                 None,
-                NoteState::Expected { metadata: None, after_block_num, tag },
+                NoteState::Expected(ExpectedNoteState { metadata: None, after_block_num, tag }),
             )
         });
 

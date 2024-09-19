@@ -2,7 +2,10 @@ use miden_client::{
     accounts::AccountTemplate,
     notes::NoteRelevance,
     rpc::{AccountDetails, NodeRpcClient, TonicRpcClient},
-    store::{InputNoteRecord, NoteFilter, NoteState, NoteStatus, TransactionFilter},
+    store::{
+        ConsumedAuthenticatedLocalNoteState, InputNoteRecord, NoteFilter, NoteState, NoteStatus,
+        TransactionFilter,
+    },
     transactions::{
         PaymentTransactionData, TransactionExecutorError, TransactionRequest, TransactionStatus,
     },
@@ -270,7 +273,11 @@ async fn test_p2idr_transfer_consumed_by_target() {
     // Check that the note is consumed by the target account
     let input_note = client.get_input_note(note.id()).unwrap();
     assert!(matches!(input_note.state(), NoteState::ConsumedAuthenticatedLocal { .. }));
-    if let NoteState::ConsumedAuthenticatedLocal { submission_data, .. } = input_note.state() {
+    if let NoteState::ConsumedAuthenticatedLocal(ConsumedAuthenticatedLocalNoteState {
+        submission_data,
+        ..
+    }) = input_note.state()
+    {
         assert_eq!(submission_data.consumer_account, from_account_id);
     } else {
         panic!("Note should be consumed");

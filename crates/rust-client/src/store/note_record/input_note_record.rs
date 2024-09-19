@@ -2,16 +2,16 @@ use alloc::string::ToString;
 
 use miden_objects::{
     accounts::AccountId,
-    notes::{
-        compute_note_hash, Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteMetadata,
-        Nullifier,
-    },
+    notes::{Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
     transaction::{InputNote, TransactionId},
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
     BlockHeader, Digest,
 };
 
-use super::{NoteRecordError, NoteState, NoteSubmissionData};
+use super::{
+    states::{ExpectedNoteState, UnverifiedNoteState},
+    NoteRecordError, NoteState,
+};
 
 // INPUT NOTE RECORD
 // ================================================================================================
@@ -63,16 +63,7 @@ impl InputNoteRecord {
     }
 
     pub fn metadata(&self) -> Option<&NoteMetadata> {
-        match &self.state {
-            NoteState::Committed { metadata, .. }
-            | NoteState::Unverified { metadata, .. }
-            | NoteState::Invalid { metadata, .. }
-            | NoteState::ProcessingAuthenticated { metadata, .. }
-            | NoteState::ProcessingUnauthenticated { metadata, .. }
-            | NoteState::ConsumedAuthenticatedLocal { metadata, .. } => Some(metadata),
-            NoteState::Expected { metadata, .. } => metadata.as_ref(),
-            _ => None,
-        }
+        self.state.inner().metadata()
     }
 
     pub fn nullifier(&self) -> Nullifier {
@@ -80,18 +71,7 @@ impl InputNoteRecord {
     }
 
     pub fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
-        match &self.state {
-            NoteState::Committed { inclusion_proof, .. }
-            | NoteState::Unverified { inclusion_proof, .. }
-            | NoteState::Invalid {
-                invalid_inclusion_proof: inclusion_proof, ..
-            }
-            | NoteState::ProcessingAuthenticated { inclusion_proof, .. }
-            | NoteState::ConsumedAuthenticatedLocal { inclusion_proof, .. } => {
-                Some(inclusion_proof)
-            },
-            _ => None,
-        }
+        self.state.inner().inclusion_proof()
     }
 
     pub fn details(&self) -> &NoteDetails {
@@ -117,41 +97,12 @@ impl InputNoteRecord {
         inclusion_proof: NoteInclusionProof,
         metadata: NoteMetadata,
     ) -> Result<bool, NoteRecordError> {
-        match &self.state {
-            // Note had no inclusion proof
-            NoteState::Expected { .. } => {
-                self.state = NoteState::Unverified { inclusion_proof, metadata };
-                Ok(true)
-            },
-            // Note had an inclusion proof
-            NoteState::Unverified {
-                metadata: old_metadata,
-                inclusion_proof: old_inclusion_proof,
-            }
-            | NoteState::Committed {
-                metadata: old_metadata,
-                inclusion_proof: old_inclusion_proof,
-                ..
-            }
-            | NoteState::ProcessingAuthenticated {
-                metadata: old_metadata,
-                inclusion_proof: old_inclusion_proof,
-                ..
-            } => {
-                if old_inclusion_proof != &inclusion_proof || old_metadata != &metadata {
-                    return Err(NoteRecordError::StateTransitionError(
-                        "Inclusion proof or metadata do not match the expected values".to_string(),
-                    ));
-                }
-                Ok(false)
-            },
-            NoteState::ConsumedAuthenticatedLocal { .. }
-            | NoteState::ConsumedUnauthenticatedLocal { .. }
-            | NoteState::ConsumedExternal { .. } => Ok(false),
-            state => Err(NoteRecordError::InvalidStateTransition {
-                state: state.discriminant(),
-                transition_name: "inclusion_proof_received".to_string(),
-            }),
+        let new_state = self.state.inner().inclusion_proof_received(inclusion_proof, metadata)?;
+        if let Some(new_state) = new_state {
+            self.state = new_state;
+            Ok(true)
+        } else {
+            Ok(false)
         }
     }
 
@@ -159,56 +110,12 @@ impl InputNoteRecord {
         &mut self,
         block_header: BlockHeader,
     ) -> Result<bool, NoteRecordError> {
-        match &self.state {
-            NoteState::Unverified { inclusion_proof, metadata }
-            | NoteState::Invalid {
-                metadata,
-                invalid_inclusion_proof: inclusion_proof,
-                ..
-            } => {
-                if inclusion_proof.location().block_num() != block_header.block_num() {
-                    return Err(NoteRecordError::StateTransitionError(
-                        "Block header does not match the block number in the inclusion proof"
-                            .to_string(),
-                    ));
-                }
-
-                self.state = if inclusion_proof.note_path().verify(
-                    inclusion_proof.location().node_index_in_block().into(),
-                    compute_note_hash(self.id(), metadata),
-                    &block_header.note_root(),
-                ) {
-                    NoteState::Committed {
-                        inclusion_proof: inclusion_proof.clone(),
-                        metadata: *metadata,
-                        block_note_root: block_header.note_root(),
-                    }
-                } else {
-                    NoteState::Invalid {
-                        invalid_inclusion_proof: inclusion_proof.clone(),
-                        metadata: *metadata,
-                        block_note_root: block_header.note_root(),
-                    }
-                };
-                Ok(true)
-            },
-            NoteState::Committed { block_note_root, .. } => {
-                if block_header.note_root() != *block_note_root {
-                    return Err(NoteRecordError::StateTransitionError(
-                        "Block header does not match the expected note root".to_string(),
-                    ));
-                }
-                Ok(false)
-            },
-            NoteState::ProcessingAuthenticated { .. }
-            | NoteState::ConsumedAuthenticatedLocal { .. }
-            | NoteState::ConsumedUnauthenticatedLocal { .. }
-            | NoteState::ConsumedExternal { .. }
-            | NoteState::ProcessingUnauthenticated { .. } => Ok(false),
-            state => Err(NoteRecordError::InvalidStateTransition {
-                state: state.discriminant(),
-                transition_name: "block_header_received".to_string(),
-            }),
+        let new_state = self.state.inner().block_header_received(self.id(), block_header)?;
+        if let Some(new_state) = new_state {
+            self.state = new_state;
+            Ok(true)
+        } else {
+            Ok(false)
         }
     }
 
@@ -217,45 +124,18 @@ impl InputNoteRecord {
         nullifier: Nullifier,
         nullifier_block_height: u32,
     ) -> Result<bool, NoteRecordError> {
-        match &self.state {
-            NoteState::ProcessingAuthenticated {
-                metadata,
-                inclusion_proof,
-                block_note_root,
-                submission_data,
-            } => {
-                if self.nullifier() != nullifier {
-                    return Err(NoteRecordError::StateTransitionError(
-                        "Nullifier does not match the expected value".to_string(),
-                    ));
-                }
-                self.state = NoteState::ConsumedAuthenticatedLocal {
-                    metadata: *metadata,
-                    inclusion_proof: inclusion_proof.clone(),
-                    block_note_root: *block_note_root,
-                    nullifier_block_height,
-                    submission_data: *submission_data,
-                };
-                Ok(true)
-            },
-            NoteState::ProcessingUnauthenticated { submission_data, metadata, .. } => {
-                self.state = NoteState::ConsumedUnauthenticatedLocal {
-                    metadata: *metadata,
-                    nullifier_block_height,
-                    submission_data: *submission_data,
-                };
-                Ok(true)
-            },
-            NoteState::Expected { .. }
-            | NoteState::Committed { .. }
-            | NoteState::Invalid { .. }
-            | NoteState::Unverified { .. } => {
-                self.state = NoteState::ConsumedExternal { nullifier_block_height };
-                Ok(true)
-            },
-            NoteState::ConsumedAuthenticatedLocal { .. }
-            | NoteState::ConsumedUnauthenticatedLocal { .. }
-            | NoteState::ConsumedExternal { .. } => Ok(false),
+        if self.nullifier() != nullifier {
+            return Err(NoteRecordError::StateTransitionError(
+                "Nullifier does not match the expected value".to_string(),
+            ));
+        }
+
+        let new_state = self.state.inner().nullifier_received(nullifier_block_height)?;
+        if let Some(new_state) = new_state {
+            self.state = new_state;
+            Ok(true)
+        } else {
+            Ok(false)
         }
     }
 
@@ -264,56 +144,13 @@ impl InputNoteRecord {
         consumer_account: AccountId,
         consumer_transaction: TransactionId,
     ) -> Result<bool, NoteRecordError> {
-        match &self.state {
-            NoteState::Committed {
-                metadata,
-                inclusion_proof,
-                block_note_root,
-            } => {
-                let submission_data = NoteSubmissionData {
-                    submitted_at: None,
-                    consumer_account,
-                    consumer_transaction,
-                };
-
-                self.state = NoteState::ProcessingAuthenticated {
-                    metadata: *metadata,
-                    inclusion_proof: inclusion_proof.clone(),
-                    block_note_root: *block_note_root,
-                    submission_data,
-                };
-                Ok(true)
-            },
-            NoteState::Expected {
-                metadata: Some(metadata),
-                after_block_num,
-                ..
-            } => {
-                let submission_data = NoteSubmissionData {
-                    submitted_at: None,
-                    consumer_account,
-                    consumer_transaction,
-                };
-
-                self.state = NoteState::ProcessingUnauthenticated {
-                    metadata: *metadata,
-                    after_block_num: *after_block_num,
-                    submission_data,
-                };
-                Ok(true)
-            },
-            NoteState::Expected { metadata: None, .. } => {
-                Err(NoteRecordError::StateTransitionError(
-                    "Cannot consume a note without metadata".to_string(),
-                ))
-            },
-            NoteState::Invalid { .. } => Err(NoteRecordError::StateTransitionError(
-                "Cannot consume an invalid note".to_string(),
-            )),
-            state => Err(NoteRecordError::InvalidStateTransition {
-                state: state.discriminant(),
-                transition_name: "consumed_locally".to_string(),
-            }),
+        let new_state =
+            self.state.inner().consumed_locally(consumer_account, consumer_transaction)?;
+        if let Some(new_state) = new_state {
+            self.state = new_state;
+            Ok(true)
+        } else {
+            Ok(false)
         }
     }
 }
@@ -346,11 +183,11 @@ impl From<&NoteDetails> for InputNoteRecord {
         Self {
             details: value.clone(),
             created_at: None,
-            state: NoteState::Expected {
+            state: NoteState::Expected(ExpectedNoteState {
                 metadata: None,
                 after_block_num: 0,
                 tag: None,
-            },
+            }),
         }
     }
 }
@@ -361,11 +198,11 @@ impl From<Note> for InputNoteRecord {
         Self {
             details: value.into(),
             created_at: None,
-            state: NoteState::Expected {
+            state: NoteState::Expected(ExpectedNoteState {
+                metadata: Some(metadata),
                 after_block_num: 0,
                 tag: Some(metadata.tag()),
-                metadata: Some(metadata),
-            },
+            }),
         }
     }
 }
@@ -376,10 +213,10 @@ impl From<InputNote> for InputNoteRecord {
             InputNote::Authenticated { note, proof } => Self {
                 details: note.clone().into(),
                 created_at: None,
-                state: NoteState::Unverified {
+                state: NoteState::Unverified(UnverifiedNoteState {
                     metadata: *note.metadata(),
                     inclusion_proof: proof,
-                },
+                }),
             },
             InputNote::Unauthenticated { note } => note.into(),
         }
