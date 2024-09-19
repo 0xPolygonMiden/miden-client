@@ -22,6 +22,7 @@ before(async () => {
   console.log("Starting test server...");
   serverProcess = spawn("http-server", ["./dist", "-p", TEST_SERVER_PORT], {
     stdio: "inherit",
+    shell: process.platform == 'win32'
   });
 
   browser = await puppeteer.launch({ headless: true });

@@ -117,7 +117,7 @@ impl WebStore {
         let js_value = JsFuture::from(promise).await.unwrap();
         let account_code_idxdb: AccountCodeIdxdbObject = from_value(js_value).unwrap();
 
-        let code = AccountCode::from_bytes(&account_code_idxdb.account_code).unwrap();
+        let code = AccountCode::from_bytes(&account_code_idxdb.code).unwrap();
 
         Ok(code)
     }

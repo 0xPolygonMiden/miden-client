@@ -18,7 +18,7 @@
     "../LICENSE.md"
   ],
   "scripts": {
-    "build": "rimraf dist && rollup -c rollup.config.js && cpr js/types dist && rimraf dist/wasm*",
+    "build": "rimraf dist && rollup -c rollup.config.js && cpr js/types dist && node clean.js",
     "test": "node --loader ts-node/esm --loader esm ./node_modules/mocha/bin/mocha --file ./test/mocha.global.setup.mjs",
     "test:logs": "DEBUG_MODE=true node --loader ts-node/esm --loader esm ./node_modules/mocha/bin/mocha --file ./test/mocha.global.setup.mjs",
     "test:clean": "npm install && npm run build && node --loader ts-node/esm --loader esm ./node_modules/mocha/bin/mocha --file ./test/mocha.global.setup.mjs"
@@ -29,6 +29,7 @@
     "@types/chai": "^4.3.17",
     "@types/mocha": "^10.0.7",
     "@types/node": "^22.4.1",
+    "@wasm-tool/rollup-plugin-rust": "wasm-tool/rollup-plugin-rust",
     "chai": "^5.1.1",
     "cpr": "^3.0.1",
     "esm": "^3.2.25",
@@ -38,10 +39,10 @@
     "rimraf": "^6.0.1",
     "rollup": "^3.27.2",
     "ts-node": "^10.9.2",
-    "typescript": "^5.5.4",
-    "@wasm-tool/rollup-plugin-rust": "wasm-tool/rollup-plugin-rust"
+    "typescript": "^5.5.4"
   },
   "dependencies": {
-    "dexie": "^4.0.1"
+    "dexie": "^4.0.1",
+    "glob": "^11.0.0"
   }
 }

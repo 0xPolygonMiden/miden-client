@@ -36,8 +36,10 @@ pub struct SerializedInputNoteData {
     pub note_script: Vec<u8>,
     pub inclusion_proof: Option<String>,
     pub created_at: String,
+    pub expected_height: Option<String>,
     pub ignored: bool,
     pub imported_tag: Option<String>,
+    pub nullifier_height: Option<String>,
 }
 
 pub struct SerializedOutputNoteData {
@@ -51,6 +53,7 @@ pub struct SerializedOutputNoteData {
     pub note_script: Option<Vec<u8>>,
     pub inclusion_proof: Option<String>,
     pub created_at: String,
+    pub expected_height: Option<String>,
 }
 
 // ================================================================================================
@@ -79,7 +82,7 @@ pub(crate) fn serialize_input_note(
     let note_id = note.id().inner().to_string();
     let note_assets = note.assets().to_bytes();
 
-    let (inclusion_proof, status) = match note.inclusion_proof() {
+    let inclusion_proof = match note.inclusion_proof() {
         Some(proof) => {
             let block_num = proof.location().block_num();
             let node_index = proof.location().node_index_in_block();
@@ -91,14 +94,9 @@ pub(crate) fn serialize_input_note(
             )?)
             .map_err(StoreError::InputSerializationError)?;
 
-            let status = NOTE_STATUS_COMMITTED.to_string();
-            (Some(inclusion_proof), status)
+            Some(inclusion_proof)
         },
-        None => {
-            let status = NOTE_STATUS_EXPECTED.to_string();
-
-            (None, status)
-        },
+        None => None,
     };
     let recipient = note.recipient().to_hex();
 
@@ -117,6 +115,23 @@ pub(crate) fn serialize_input_note(
     let imported_tag: Option<u32> = note.imported_tag().map(|tag| tag.into());
     let imported_tag_str: Option<String> = imported_tag.map(|tag| tag.to_string());
 
+    let (status, expected_height, nullifier_height) = match note.status() {
+        NoteStatus::Expected { block_height, .. } => {
+            let block_height_as_str = block_height.map(|height| height.to_string());
+            (NOTE_STATUS_EXPECTED.to_string(), block_height_as_str, None)
+        },
+        NoteStatus::Committed { .. } => (NOTE_STATUS_COMMITTED.to_string(), None, None),
+        NoteStatus::Processing { .. } => {
+            return Err(StoreError::DatabaseError(
+                "Processing notes should not be imported".to_string(),
+            ))
+        },
+        NoteStatus::Consumed { block_height, .. } => {
+            let block_height_as_str = block_height.to_string();
+            (NOTE_STATUS_CONSUMED.to_string(), None, Some(block_height_as_str))
+        },
+    };
+
     Ok(SerializedInputNoteData {
         note_id,
         note_assets,
@@ -128,13 +143,16 @@ pub(crate) fn serialize_input_note(
         note_script,
         inclusion_proof,
         created_at,
+        expected_height,
         ignored,
         imported_tag: imported_tag_str,
+        nullifier_height,
     })
 }
 
-pub async fn insert_input_note_tx(note: InputNoteRecord) -> Result<(), StoreError> {
+pub async fn insert_input_note_tx(block_num: u32, note: InputNoteRecord) -> Result<(), StoreError> {
     let serialized_data = serialize_input_note(note)?;
+    let expected_height = serialized_data.expected_height.or(Some(block_num.to_string()));
 
     let promise = idxdb_insert_input_note(
         serialized_data.note_id,
@@ -147,8 +165,10 @@ pub async fn insert_input_note_tx(note: InputNoteRecord) -> Result<(), StoreErro
         serialized_data.note_script,
         serialized_data.inclusion_proof,
         serialized_data.created_at,
+        expected_height,
         serialized_data.ignored,
         serialized_data.imported_tag,
+        serialized_data.nullifier_height,
     );
     JsFuture::from(promise).await.unwrap();
 
@@ -195,6 +215,10 @@ pub(crate) fn serialize_output_note(
     let note_script_hash = note.details().map(|details| details.script_hash().to_hex());
     let note_script = note.details().map(|details| details.script().to_bytes());
     let created_at = Utc::now().timestamp().to_string();
+    let expected_height = match note.status() {
+        NoteStatus::Expected { block_height, .. } => block_height.map(|height| height.to_string()),
+        _ => None,
+    };
 
     Ok(SerializedOutputNoteData {
         note_id,
@@ -207,11 +231,16 @@ pub(crate) fn serialize_output_note(
         note_script,
         inclusion_proof,
         created_at,
+        expected_height,
     })
 }
 
-pub async fn insert_output_note_tx(note: &OutputNoteRecord) -> Result<(), StoreError> {
+pub async fn insert_output_note_tx(
+    block_num: u32,
+    note: &OutputNoteRecord,
+) -> Result<(), StoreError> {
     let serialized_data = serialize_output_note(note)?;
+    let expected_height = serialized_data.expected_height.or(Some(block_num.to_string()));
 
     let result = JsFuture::from(idxdb_insert_output_note(
         serialized_data.note_id,
@@ -224,6 +253,7 @@ pub async fn insert_output_note_tx(note: &OutputNoteRecord) -> Result<(), StoreE
         serialized_data.note_script,
         serialized_data.inclusion_proof,
         serialized_data.created_at,
+        expected_height,
     ))
     .await;
     match result {

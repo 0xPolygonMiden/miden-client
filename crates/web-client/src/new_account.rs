@@ -4,6 +4,7 @@ use miden_client::accounts::AccountTemplate;
 use miden_objects::{accounts::AccountStorageMode, assets::TokenSymbol};
 use wasm_bindgen::prelude::*;
 
+use super::models::account_id::AccountId;
 use crate::WebClient;
 
 #[wasm_bindgen]
@@ -21,8 +22,10 @@ impl WebClient {
             };
 
             match client.new_account(client_template).await {
-                Ok((account, _)) => serde_wasm_bindgen::to_value(&account.id().to_string())
-                    .map_err(|e| JsValue::from_str(&e.to_string())),
+                Ok((native_account, _)) => {
+                    let account_id: AccountId = native_account.id().into();
+                    Ok(JsValue::from(account_id))
+                },
                 Err(err) => {
                     let error_message = format!("Failed to create new account: {:?}", err);
                     Err(JsValue::from_str(&error_message))
@@ -58,8 +61,10 @@ impl WebClient {
             };
 
             match client.new_account(client_template).await {
-                Ok((account, _)) => serde_wasm_bindgen::to_value(&account.id().to_string())
-                    .map_err(|e| JsValue::from_str(&e.to_string())),
+                Ok((native_account, _)) => {
+                    let account_id: AccountId = native_account.id().into();
+                    Ok(JsValue::from(account_id))
+                },
                 Err(err) => {
                     let error_message = format!("Failed to create new account: {:?}", err);
                     Err(JsValue::from_str(&error_message))
