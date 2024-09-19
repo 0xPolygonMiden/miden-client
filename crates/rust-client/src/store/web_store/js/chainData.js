@@ -11,10 +11,13 @@ export async function insertBlockHeader(
     hasClientNotes
 ) {
     try {
+        const headerBlob = new Blob([new Uint8Array(header)]);
+        const chainMmrPeaksBlob = new Blob([new Uint8Array(chainMmrPeaks)]);
+
         const data = {
             blockNum: blockNum,
-            header: header,
-            chainMmrPeaks: chainMmrPeaks,
+            header: headerBlob,
+            chainMmrPeaks: chainMmrPeaksBlob,
             hasClientNotes: hasClientNotes.toString()
         };
 
@@ -64,15 +67,23 @@ export async function getBlockHeaders(
 ) {
     try {
         const results = await blockHeaders.bulkGet(blockNumbers);
-        
-        results.forEach((result, index) => {
+
+        results.forEach(async (result, index) => {
             if (result === undefined) {
                 results[index] = null;
             } else {
+                const headerArrayBuffer = await results[index].header.arrayBuffer();
+                const headerArray = new Uint8Array(headerArrayBuffer);
+                const headerBase64 = uint8ArrayToBase64(headerArray);
+
+                const chainMmrPeaksArrayBuffer = await results[index].chainMmrPeaks.arrayBuffer();
+                const chainMmrPeaksArray = new Uint8Array(chainMmrPeaksArrayBuffer);
+                const chainMmrPeaksBase64 = uint8ArrayToBase64(chainMmrPeaksArray);
+
                 results[index] = {
                     block_num: results[index].blockNum,
-                    header: results[index].header,
-                    chain_mmr: results[index].chainMmrPeaks,
+                    header: headerBase64,
+                    chain_mmr: chainMmrPeaksBase64,
                     has_client_notes: results[index].hasClientNotes === "true"
                 }
             }
@@ -93,12 +104,22 @@ export async function getTrackedBlockHeaders() {
             .equals("true")
             .toArray();
         // Convert hasClientNotes from string to boolean
-        const processedRecords = allMatchingRecords.map(record => ({
-            block_num: record.blockNum,
-            header: record.header,
-            chain_mmr: record.chainMmrPeaks,
-            has_client_notes: record.hasClientNotes === 'true'
-        }));
+        const processedRecords = allMatchingRecords.map(async record => {
+            const headerArrayBuffer = await record.header.arrayBuffer();
+            const headerArray = new Uint8Array(headerArrayBuffer);
+            const headerBase64 = uint8ArrayToBase64(headerArray);
+
+            const chainMmrPeaksArrayBuffer = await record.chainMmrPeaks.arrayBuffer();
+            const chainMmrPeaksArray = new Uint8Array(chainMmrPeaksArrayBuffer);
+            const chainMmrPeaksBase64 = uint8ArrayToBase64(chainMmrPeaksArray);
+
+            return {
+                block_num: record.blockNum,
+                header: headerBase64,
+                chain_mmr: chainMmrPeaksBase64,
+                has_client_notes: record.hasClientNotes === 'true'
+            };
+        });
 
         return processedRecords;
     } catch (err) {
@@ -112,8 +133,13 @@ export async function getChainMmrPeaksByBlockNum(
 ) {
     try {
         const blockHeader = await blockHeaders.get(blockNum);
+
+        const chainMmrPeaksArrayBuffer = await blockHeader.chainMmrPeaks.arrayBuffer();
+        const chainMmrPeaksArray = new Uint8Array(chainMmrPeaksArrayBuffer);
+        const chainMmrPeaksBase64 = uint8ArrayToBase64(chainMmrPeaksArray);
+
         return {
-            peaks: blockHeader.chainMmrPeaks
+            peaks: chainMmrPeaksBase64
         };
     } catch (err) {
         console.error("Failed to get chain mmr peaks: ", err);

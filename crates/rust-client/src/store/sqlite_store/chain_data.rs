@@ -5,13 +5,14 @@ use miden_objects::{
     crypto::merkle::{InOrderIndex, MmrPeaks},
     BlockHeader, Digest,
 };
+use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{params, params_from_iter, types::Value, OptionalExtension, Transaction};
 
 use super::SqliteStore;
 use crate::store::{ChainMmrNodeFilter, StoreError};
 
-type SerializedBlockHeaderData = (i64, String, String, bool);
-type SerializedBlockHeaderParts = (u64, String, String, bool);
+type SerializedBlockHeaderData = (i64, Vec<u8>, Vec<u8>, bool);
+type SerializedBlockHeaderParts = (u64, Vec<u8>, Vec<u8>, bool);
 
 type SerializedChainMmrNodeData = (i64, String);
 type SerializedChainMmrNodeParts = (u64, String);
@@ -105,7 +106,7 @@ impl SqliteStore {
             .db()
             .prepare(QUERY)?
             .query_row(params![block_num], |row| {
-                let peaks: String = row.get(0)?;
+                let peaks: Vec<u8> = row.get(0)?;
                 Ok(peaks)
             })
             .optional()?;
@@ -179,9 +180,8 @@ fn insert_chain_mmr_node(
     Ok(())
 }
 
-fn parse_mmr_peaks(forest: u32, peaks_nodes: String) -> Result<MmrPeaks, StoreError> {
-    let mmr_peaks_nodes: Vec<Digest> =
-        serde_json::from_str(&peaks_nodes).map_err(StoreError::JsonDataDeserializationError)?;
+fn parse_mmr_peaks(forest: u32, peaks_nodes: Vec<u8>) -> Result<MmrPeaks, StoreError> {
+    let mmr_peaks_nodes = Vec::<Digest>::read_from_bytes(&peaks_nodes)?;
 
     MmrPeaks::new(forest as usize, mmr_peaks_nodes).map_err(StoreError::MmrError)
 }
@@ -192,10 +192,8 @@ fn serialize_block_header(
     has_client_notes: bool,
 ) -> Result<SerializedBlockHeaderData, StoreError> {
     let block_num = block_header.block_num();
-    let header =
-        serde_json::to_string(&block_header).map_err(StoreError::InputSerializationError)?;
-    let chain_mmr_peaks =
-        serde_json::to_string(&chain_mmr_peaks).map_err(StoreError::InputSerializationError)?;
+    let header = block_header.to_bytes();
+    let chain_mmr_peaks = chain_mmr_peaks.to_bytes();
 
     Ok((block_num as i64, header, chain_mmr_peaks, has_client_notes))
 }
@@ -204,8 +202,8 @@ fn parse_block_headers_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedBlockHeaderParts, rusqlite::Error> {
     let block_num: i64 = row.get(0)?;
-    let header: String = row.get(1)?;
-    let chain_mmr: String = row.get(2)?;
+    let header: Vec<u8> = row.get(1)?;
+    let chain_mmr: Vec<u8> = row.get(2)?;
     let has_client_notes: bool = row.get(3)?;
 
     Ok((block_num as u64, header, chain_mmr, has_client_notes))
@@ -216,10 +214,7 @@ fn parse_block_header(
 ) -> Result<(BlockHeader, bool), StoreError> {
     let (_, header, _, has_client_notes) = serialized_block_header_parts;
 
-    Ok((
-        serde_json::from_str(&header).map_err(StoreError::JsonDataDeserializationError)?,
-        has_client_notes,
-    ))
+    Ok((BlockHeader::read_from_bytes(&header)?, has_client_notes))
 }
 
 fn serialize_chain_mmr_node(
@@ -227,7 +222,7 @@ fn serialize_chain_mmr_node(
     node: Digest,
 ) -> Result<SerializedChainMmrNodeData, StoreError> {
     let id: u64 = id.into();
-    let node = serde_json::to_string(&node).map_err(StoreError::InputSerializationError)?;
+    let node = node.to_hex();
     Ok((id as i64, node))
 }
 
@@ -245,8 +240,7 @@ fn parse_chain_mmr_nodes(
     let (id, node) = serialized_chain_mmr_node_parts;
 
     let id = InOrderIndex::new(NonZeroUsize::new(id as usize).unwrap());
-    let node: Digest =
-        serde_json::from_str(&node).map_err(StoreError::JsonDataDeserializationError)?;
+    let node: Digest = Digest::try_from(&node)?;
     Ok((id, node))
 }
 

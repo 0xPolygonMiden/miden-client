@@ -27,7 +27,8 @@ pub struct AccountStorageIdxdbObject {
 #[derive(Serialize, Deserialize)]
 pub struct AccountVaultIdxdbObject {
     pub root: String,
-    pub assets: String,
+    #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
+    pub assets: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize)]

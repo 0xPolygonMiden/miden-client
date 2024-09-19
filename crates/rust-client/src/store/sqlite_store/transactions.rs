@@ -57,7 +57,7 @@ type SerializedTransactionData = (
     i64,
     String,
     String,
-    String,
+    Vec<u8>,
     Vec<u8>,
     Option<Vec<u8>>,
     Option<Vec<u8>>,
@@ -213,8 +213,7 @@ pub(super) fn serialize_transaction_data(
         .map(|x| x.nullifier().inner())
         .collect();
 
-    let input_notes =
-        serde_json::to_string(&nullifiers).map_err(StoreError::InputSerializationError)?;
+    let input_notes = nullifiers.to_bytes();
 
     let output_notes = executed_transaction.output_notes();
 
@@ -247,7 +246,7 @@ fn parse_transaction_columns(
     let account_id: i64 = row.get(1)?;
     let init_account_state: String = row.get(2)?;
     let final_account_state: String = row.get(3)?;
-    let input_notes: String = row.get(4)?;
+    let input_notes: Vec<u8> = row.get(4)?;
     let output_notes: Vec<u8> = row.get(5)?;
     let script_hash: Option<Vec<u8>> = row.get(6)?;
     let tx_script: Option<Vec<u8>> = row.get(7)?;
@@ -290,8 +289,8 @@ fn parse_transaction(
 
     let final_account_state: Digest = final_account_state.try_into()?;
 
-    let input_note_nullifiers: Vec<Digest> =
-        serde_json::from_str(&input_notes).map_err(StoreError::JsonDataDeserializationError)?;
+    let input_note_nullifiers: Vec<Digest> = Vec::<Digest>::read_from_bytes(&input_notes)
+        .map_err(StoreError::DataDeserializationError)?;
 
     let output_notes = OutputNotes::read_from_bytes(&output_notes)?;
 

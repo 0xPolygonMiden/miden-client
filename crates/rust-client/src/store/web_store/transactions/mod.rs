@@ -55,13 +55,12 @@ impl WebStore {
                 let final_account_state: Digest = tx_idxdb.final_account_state.try_into()?;
 
                 let input_note_nullifiers: Vec<Digest> =
-                    serde_json::from_str(&tx_idxdb.input_notes)
-                        .map_err(StoreError::JsonDataDeserializationError)?;
+                    Vec::<Digest>::read_from_bytes(&tx_idxdb.input_notes)?;
 
                 let output_notes = OutputNotes::read_from_bytes(&tx_idxdb.output_notes)?;
 
                 let transaction_script: Option<TransactionScript> =
-                    if tx_idxdb.script_hash.is_some() {
+                    if tx_idxdb.tx_script_hash.is_some() {
                         let tx_script = tx_idxdb
                             .tx_script
                             .map(|script| TransactionScript::read_from_bytes(&script))

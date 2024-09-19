@@ -1,9 +1,7 @@
-use alloc::{
-    string::{String, ToString},
-    vec::Vec,
-};
+use alloc::{string::ToString, vec::Vec};
 
 use miden_objects::notes::{NoteInclusionProof, NoteTag};
+use miden_tx::utils::{Deserializable, Serializable};
 use rusqlite::{named_params, params};
 
 use super::SqliteStore;
@@ -26,8 +24,10 @@ impl SqliteStore {
             .expect("no binding parameters used in query")
             .map(|result| {
                 result.map_err(|err| StoreError::ParsingError(err.to_string())).and_then(
-                    |v: String| {
-                        serde_json::from_str(&v).map_err(StoreError::JsonDataDeserializationError)
+                    |v: Option<Vec<u8>>| match v {
+                        Some(tags) => Vec::<NoteTag>::read_from_bytes(&tags)
+                            .map_err(StoreError::DataDeserializationError),
+                        None => Ok(Vec::<NoteTag>::new()),
                     },
                 )
             })
@@ -41,10 +41,10 @@ impl SqliteStore {
             return Ok(false);
         }
         tags.push(tag);
-        let tags = serde_json::to_string(&tags).map_err(StoreError::InputSerializationError)?;
+        let tags = tags.to_bytes();
 
-        const QUERY: &str = "UPDATE state_sync SET tags = ?";
-        self.db().execute(QUERY, params![tags])?;
+        const QUERY: &str = "UPDATE state_sync SET tags = :tags";
+        self.db().execute(QUERY, named_params! {":tags": tags})?;
 
         const IGNORED_NOTES_QUERY: &str =
             "UPDATE input_notes SET ignored = 0 WHERE imported_tag = ?";
@@ -58,7 +58,7 @@ impl SqliteStore {
         if let Some(index_of_tag) = tags.iter().position(|&tag_candidate| tag_candidate == tag) {
             tags.remove(index_of_tag);
 
-            let tags = serde_json::to_string(&tags).map_err(StoreError::InputSerializationError)?;
+            let tags = tags.to_bytes();
 
             const QUERY: &str = "UPDATE state_sync SET tags = ?";
             self.db().execute(QUERY, params![tags])?;
@@ -107,16 +107,16 @@ impl SqliteStore {
             let block_num = inclusion_proof.location().block_num();
             let note_index = inclusion_proof.location().node_index_in_block();
 
-            let inclusion_proof = serde_json::to_string(&NoteInclusionProof::new(
+            let inclusion_proof = NoteInclusionProof::new(
                 block_num,
                 note_index,
                 inclusion_proof.note_path().clone(),
-            )?)
-            .map_err(StoreError::InputSerializationError)?;
+            )?
+            .to_bytes();
 
             // Update output notes
             const COMMITTED_OUTPUT_NOTES_QUERY: &str =
-                "UPDATE output_notes SET status = :status , inclusion_proof = json(:inclusion_proof) WHERE note_id = :note_id";
+                "UPDATE output_notes SET status = :status , inclusion_proof = :inclusion_proof WHERE note_id = :note_id";
 
             tx.execute(
                 COMMITTED_OUTPUT_NOTES_QUERY,
@@ -135,13 +135,11 @@ impl SqliteStore {
             ))?;
             let metadata = input_note.note().metadata();
 
-            let inclusion_proof = serde_json::to_string(inclusion_proof)
-                .map_err(StoreError::InputSerializationError)?;
-            let metadata =
-                serde_json::to_string(metadata).map_err(StoreError::InputSerializationError)?;
+            let inclusion_proof = inclusion_proof.to_bytes();
+            let metadata = metadata.to_bytes();
 
             const COMMITTED_INPUT_NOTES_QUERY: &str =
-                "UPDATE input_notes SET status = :status , inclusion_proof = json(:inclusion_proof), metadata = json(:metadata) WHERE note_id = :note_id";
+                "UPDATE input_notes SET status = :status , inclusion_proof = :inclusion_proof, metadata = :metadata WHERE note_id = :note_id";
 
             tx.execute(
                 COMMITTED_INPUT_NOTES_QUERY,
@@ -166,7 +164,7 @@ impl SqliteStore {
         // Update spent notes
         for nullifier_update in nullifiers.iter() {
             const SPENT_INPUT_NOTE_QUERY: &str =
-                "UPDATE input_notes SET status = ?, nullifier_height = ? WHERE json_extract(details, '$.nullifier') = ?";
+                "UPDATE input_notes SET status = ?, nullifier_height = ? WHERE nullifier = ?";
             let nullifier = nullifier_update.nullifier.to_hex();
             let block_num = nullifier_update.block_num;
             tx.execute(
@@ -175,7 +173,7 @@ impl SqliteStore {
             )?;
 
             const SPENT_OUTPUT_NOTE_QUERY: &str =
-                "UPDATE output_notes SET status = ?, nullifier_height = ? WHERE json_extract(details, '$.nullifier') = ?";
+                "UPDATE output_notes SET status = ?, nullifier_height = ? WHERE nullifier = ?";
             tx.execute(
                 SPENT_OUTPUT_NOTE_QUERY,
                 params![NOTE_STATUS_CONSUMED.to_string(), block_num, nullifier],

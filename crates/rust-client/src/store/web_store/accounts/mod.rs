@@ -146,7 +146,7 @@ impl WebStore {
         let js_value = JsFuture::from(promise).await.unwrap();
         let vault_assets_idxdb: AccountVaultIdxdbObject = from_value(js_value).unwrap();
 
-        let assets = serde_json::from_str(&vault_assets_idxdb.assets).unwrap();
+        let assets = Vec::<Asset>::read_from_bytes(&vault_assets_idxdb.assets).unwrap();
         Ok(assets)
     }
 

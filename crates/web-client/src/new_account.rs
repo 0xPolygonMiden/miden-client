@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use miden_client::accounts::AccountTemplate;
 use miden_objects::{accounts::AccountStorageMode, assets::TokenSymbol};
 use wasm_bindgen::prelude::*;
@@ -17,8 +15,11 @@ impl WebClient {
         if let Some(client) = self.get_mut_inner() {
             let client_template = AccountTemplate::BasicWallet {
                 mutable_code: mutable,
-                storage_mode: AccountStorageMode::try_from(storage_mode.as_str())
-                    .map_err(|_| JsValue::from_str("Invalid storage mode"))?,
+                storage_mode: match storage_mode.as_str() {
+                    "Private" => AccountStorageMode::Private,
+                    "Public" => AccountStorageMode::Public,
+                    _ => return Err(JsValue::from_str("Invalid storage mode")),
+                },
             };
 
             match client.new_account(client_template).await {
@@ -56,8 +57,11 @@ impl WebClient {
                 max_supply: max_supply
                     .parse::<u64>()
                     .map_err(|e| JsValue::from_str(&e.to_string()))?,
-                storage_mode: AccountStorageMode::from_str(&storage_mode)
-                    .map_err(|_| JsValue::from_str("Invalid storage mode"))?,
+                storage_mode: match storage_mode.as_str() {
+                    "Private" => AccountStorageMode::Private,
+                    "Public" => AccountStorageMode::Public,
+                    _ => return Err(JsValue::from_str("Invalid storage mode")),
+                },
             };
 
             match client.new_account(client_template).await {

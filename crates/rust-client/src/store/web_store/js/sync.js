@@ -12,17 +12,13 @@ export async function getNoteTags() {
     try {
         const record = await stateSync.get(1);  // Since id is the primary key and always 1
         if (record) {
-            let data = null;
-            if (record.tags.length === 0) {
-                data = {
-                    tags: JSON.stringify(record.tags)
-                }
-            } else {
-                data = {
-                    tags: record.tags
-                }
+            const tagsArrayBuffer = await record.tags.arrayBuffer();
+            const tagsArray = new Uint8Array(tagsArrayBuffer);
+            const tagsBase64 = uint8ArrayToBase64(tagsArray);
+
+            return {
+                tags: tagsBase64
             };
-            return data;
         } else {
             return null;
         }
@@ -53,7 +49,8 @@ export async function addNoteTag(
     tags
 ) {
     try {
-        await stateSync.update(1, { tags: tags });
+        const tagsBlob = new Blob([new Uint8Array(tags)]);
+        await stateSync.update(1, { tags: tagsBlob });
     } catch {
         console.error("Failed to add note tag: ", err);
         throw err;
