@@ -30,8 +30,8 @@ extern "C" {
     #[wasm_bindgen(js_name = insertBlockHeader)]
     pub fn idxdb_insert_block_header(
         block_num: String,
-        header: String,
-        chain_mmr_peaks: String,
+        header: Vec<u8>,
+        chain_mmr_peaks: Vec<u8>,
         has_client_notes: bool,
     ) -> js_sys::Promise;
 

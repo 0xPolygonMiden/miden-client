@@ -40,11 +40,11 @@ extern "C" {
         assets: Vec<u8>,
         recipient: String,
         status: String,
-        metadata: Option<String>,
-        details: String,
+        metadata: Option<Vec<u8>>,
+        details: Vec<u8>,
         note_script_hash: String,
         serialized_note_script: Vec<u8>,
-        inclusion_proof: Option<String>,
+        inclusion_proof: Option<Vec<u8>>,
         serialized_created_at: String,
         expected_height: Option<String>,
         ignored: bool,
@@ -58,11 +58,11 @@ extern "C" {
         assets: Vec<u8>,
         recipient: String,
         status: String,
-        metadata: String,
-        details: Option<String>,
+        metadata: Vec<u8>,
+        details: Option<Vec<u8>>,
         note_script_hash: Option<String>,
         serialized_note_script: Option<Vec<u8>>,
-        inclusion_proof: Option<String>,
+        inclusion_proof: Option<Vec<u8>>,
         serialized_created_at: String,
         expected_height: Option<String>,
     ) -> js_sys::Promise;
@@ -77,9 +77,9 @@ extern "C" {
     #[wasm_bindgen(js_name = updateNoteInclusionProof)]
     pub fn idxdb_update_note_inclusion_proof(
         note_id: String,
-        inclusion_proof: String,
+        inclusion_proof: Vec<u8>,
     ) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = updateNoteMetadata)]
-    pub fn idxdb_update_note_metadata(note_id: String, metadata: String) -> js_sys::Promise;
+    pub fn idxdb_update_note_metadata(note_id: String, metadata: Vec<u8>) -> js_sys::Promise;
 }

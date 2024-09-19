@@ -78,41 +78,25 @@ CREATE TABLE input_notes (
         'Expected', 'Committed', 'Processing', 'Consumed'
         )),
 
-    inclusion_proof JSON NULL,                              -- JSON consisting of the following fields:
-    -- block_num                                              -- number of the block the note was included in
-    -- note_index                                             -- the index of the note in the note Merkle tree of the block the note was created in.
-    -- sub_hash                                               -- sub hash of the block the note was included in stored as a hex string
-    -- note_root                                              -- the note root of the block the note was created in
-    -- note_path                                              -- the Merkle path to the note in the note Merkle tree of the block the note was created in, stored as an array of digests
-
-    metadata JSON NULL,                                     -- JSON consisting of the following fields:
-    -- sender_id                                              -- the account ID of the sender
-    -- tag                                                    -- the note tag
-
-    details JSON NOT NULL,                                  -- JSON consisting of the following fields:
-    -- nullifier                                              -- the nullifier of the note
-    -- script_hash                                            -- the note's script hash
-    -- inputs                                                 -- the serialized NoteInputs, including inputs hash and list of inputs
-    -- serial_num                                             -- the note serial number
     consumer_transaction_id BLOB NULL,                      -- the transaction ID of the transaction that consumed the note
     created_at UNSIGNED BIG INT NOT NULL,                   -- timestamp of the note creation/import
     expected_height UNSIGNED BIG INT NULL,                  -- block height when the note is expected to be committed
-    submitted_at UNSIGNED BIG INT NULL,                     -- timestamp of the note submission to node
+    submitted_at UNSIGNED BIG INT NULL,                      -- timestamp of the note submission to node
     nullifier_height UNSIGNED BIG INT NULL,                 -- block height when the nullifier arrived
     ignored BOOLEAN NOT NULL DEFAULT 0,                     -- whether the note is ignored in sync
     imported_tag UNSIGNED INT NULL,                         -- imported tag for the note
 
+    inclusion_proof BLOB NULL,                              -- serialized inclusion proof
+
+    metadata BLOB NULL,                                     -- serialized metadata
+
+    nullifier TEXT NOT NULL,
+    script_hash BLOB NOT NULL,
+    details BLOB NOT NULL,                                  -- serialized note record details
+
     FOREIGN KEY (consumer_transaction_id) REFERENCES transactions(id)
     PRIMARY KEY (note_id)
 
-    CONSTRAINT check_valid_inclusion_proof_json CHECK (
-      inclusion_proof IS NULL OR
-      (
-        json_extract(inclusion_proof, '$.location.block_num') IS NOT NULL AND
-        json_extract(inclusion_proof, '$.location.node_index_in_block') IS NOT NULL AND
-        json_extract(inclusion_proof, '$.note_path') IS NOT NULL
-      ))
-    CONSTRAINT check_valid_metadata_json CHECK (metadata IS NULL OR (json_extract(metadata, '$.sender') IS NOT NULL AND json_extract(metadata, '$.tag') IS NOT NULL))
     CONSTRAINT check_valid_consumer_transaction_id CHECK (consumer_transaction_id IS NULL OR status != 'Expected')
     CONSTRAINT check_valid_submitted_at CHECK (submitted_at IS NOT NULL OR status != 'Processing')
     CONSTRAINT check_valid_nullifier_height CHECK (nullifier_height IS NOT NULL OR status != 'Consumed')
@@ -127,22 +111,13 @@ CREATE TABLE output_notes (
         'Expected', 'Committed', 'Processing', 'Consumed'
         )),
 
-    inclusion_proof JSON NULL,                              -- JSON consisting of the following fields:
-    -- block_num                                              -- number of the block the note was included in
-    -- note_index                                             -- the index of the note in the note Merkle tree of the block the note was created in.
-    -- sub_hash                                               -- sub hash of the block the note was included in stored as a hex string
-    -- note_root                                              -- the note root of the block the note was created in
-    -- note_path                                              -- the Merkle path to the note in the note Merkle tree of the block the note was created in, stored as an array of digests
+    inclusion_proof BLOB NULL,                              -- serialized inclusion proof
 
-    metadata JSON NOT NULL,                                 -- JSON consisting of the following fields:
-    -- sender_id                                              -- the account ID of the sender
-    -- tag                                                    -- the note tag
+    metadata BLOB NOT NULL,                                 -- serialized metadata
 
-    details JSON NULL,                                      -- JSON consisting of the following fields:
-    -- nullifier                                              -- the nullifier of the note
-    -- script                                                 -- the note's script hash
-    -- inputs                                                 -- the serialized NoteInputs, including inputs hash and list of inputs
-    -- serial_num                                             -- the note serial number
+    nullifier TEXT NULL,
+    script_hash BLOB NULL,
+    details BLOB NULL,                                      -- serialized note record details
     consumer_transaction_id BLOB NULL,                      -- the transaction ID of the transaction that consumed the note
     created_at UNSIGNED BIG INT NOT NULL,                   -- timestamp of the note creation/import
     expected_height UNSIGNED BIG INT NULL,                  -- block height when the note is expected to be committed
@@ -154,21 +129,6 @@ CREATE TABLE output_notes (
     FOREIGN KEY (consumer_transaction_id) REFERENCES transactions(id)
     PRIMARY KEY (note_id)
 
-    CONSTRAINT check_valid_inclusion_proof_json CHECK (
-      inclusion_proof IS NULL OR
-      (
-        json_extract(inclusion_proof, '$.location.block_num') IS NOT NULL AND
-        json_extract(inclusion_proof, '$.location.node_index_in_block') IS NOT NULL AND
-        json_extract(inclusion_proof, '$.note_path') IS NOT NULL
-      ))
-    CONSTRAINT check_valid_details_json CHECK (
-      details IS NULL OR
-      (
-        json_extract(details, '$.nullifier') IS NOT NULL AND
-        json_extract(details, '$.script_hash') IS NOT NULL AND
-        json_extract(details, '$.inputs') IS NOT NULL AND
-        json_extract(details, '$.serial_num') IS NOT NULL
-      ))
     CONSTRAINT check_valid_consumer_transaction_id CHECK (consumer_transaction_id IS NULL OR status != 'Expected')
     CONSTRAINT check_valid_submitted_at CHECK (submitted_at IS NOT NULL OR status != 'Processing')
     CONSTRAINT check_valid_nullifier_height CHECK (nullifier_height IS NOT NULL OR status != 'Consumed')
@@ -176,7 +136,6 @@ CREATE TABLE output_notes (
 );
 
 -- Create note's scripts table, used for both input and output notes
--- TODO: can't do FOREIGN KEY over json fields, sure we're ok?
 CREATE TABLE notes_scripts (
     script_hash BLOB NOT NULL,                       -- Note script Hash
     serialized_note_script BLOB,                     -- NoteScript, serialized
@@ -187,13 +146,13 @@ CREATE TABLE notes_scripts (
 -- Create state sync table
 CREATE TABLE state_sync (
     block_num UNSIGNED BIG INT NOT NULL,    -- the block number of the most recent state sync
-    tags BLOB NOT NULL,                     -- the serialized list of tags
+    tags BLOB NULL,                     -- the serialized list of tags, a NULL means an empty list
     PRIMARY KEY (block_num)
 );
 
 -- insert initial row into state_sync table
 INSERT OR IGNORE INTO state_sync (block_num, tags)
-SELECT 0, '[]'
+SELECT 0, NULL
 WHERE (
     SELECT COUNT(*) FROM state_sync
 ) = 0;

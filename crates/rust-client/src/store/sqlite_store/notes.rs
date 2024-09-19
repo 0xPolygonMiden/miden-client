@@ -9,7 +9,7 @@ use chrono::Utc;
 use miden_objects::{
     accounts::AccountId,
     crypto::utils::{Deserializable, Serializable},
-    notes::{NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, NoteScript, NoteTag, Nullifier},
+    notes::{NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, NoteTag, Nullifier},
     transaction::TransactionId,
     Digest,
 };
@@ -27,8 +27,8 @@ use crate::store::{
 fn insert_note_query(table_name: NoteTable) -> String {
     format!("\
     INSERT INTO {table_name}
-        (note_id, assets, recipient, status, metadata, details, inclusion_proof, consumer_transaction_id, created_at, expected_height, ignored, imported_tag, nullifier_height)
-     VALUES (:note_id, :assets, :recipient, :status, json(:metadata), json(:details), json(:inclusion_proof), :consumer_transaction_id, unixepoch(current_timestamp), :expected_height, :ignored, :imported_tag, :nullifier_height);",
+        (note_id, assets, recipient, status, metadata, nullifier, script_hash, details, inclusion_proof, consumer_transaction_id, created_at, expected_height, ignored, imported_tag, nullifier_height)
+     VALUES (:note_id, :assets, :recipient, :status, :metadata, :nullifier, :script_hash, :details, :inclusion_proof, :consumer_transaction_id, unixepoch(current_timestamp), :expected_height, :ignored, :imported_tag, :nullifier_height);",
             table_name = table_name)
 }
 
@@ -40,11 +40,11 @@ type SerializedInputNoteData = (
     Vec<u8>,
     String,
     String,
-    Option<String>,
-    String,
+    Option<Vec<u8>>,
+    Vec<u8>,
     String,
     Vec<u8>,
-    Option<String>,
+    Option<Vec<u8>>,
     Option<u32>,
     bool,
     Option<u32>,
@@ -55,21 +55,21 @@ type SerializedOutputNoteData = (
     Vec<u8>,
     String,
     String,
-    String,
-    Option<String>,
-    Option<String>,
+    Vec<u8>,
     Option<Vec<u8>>,
     Option<String>,
+    Option<Vec<u8>>,
+    Option<Vec<u8>>,
     Option<u32>,
 );
 
 type SerializedInputNoteParts = (
     Vec<u8>,
+    Vec<u8>,
     String,
     String,
-    String,
-    Option<String>,
-    Option<String>,
+    Option<Vec<u8>>,
+    Option<Vec<u8>>,
     Vec<u8>,
     Option<i64>,
     u64,
@@ -81,11 +81,11 @@ type SerializedInputNoteParts = (
 );
 type SerializedOutputNoteParts = (
     Vec<u8>,
-    Option<String>,
+    Option<Vec<u8>>,
     String,
     String,
-    String,
-    Option<String>,
+    Vec<u8>,
+    Option<Vec<u8>>,
     Option<Vec<u8>>,
     Option<i64>,
     u64,
@@ -137,7 +137,7 @@ impl<'a> NoteFilter<'a> {
                     from {notes_table} AS note
                     LEFT OUTER JOIN notes_scripts AS script
                         ON note.details IS NOT NULL AND
-                        json_extract(note.details, '$.script_hash') = script.script_hash
+                        note.script_hash = script.script_hash
                     LEFT OUTER JOIN transactions AS tx
                         ON note.consumer_transaction_id IS NOT NULL AND
                         note.consumer_transaction_id = tx.id"
@@ -270,8 +270,7 @@ impl SqliteStore {
     }
 
     pub(crate) fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
-        const QUERY: &str =
-                "SELECT json_extract(details, '$.nullifier') FROM input_notes WHERE status IN rarray(?)";
+        const QUERY: &str = "SELECT nullifier FROM input_notes WHERE status IN rarray(?)";
         let unspent_filters = Rc::new(vec![
             Value::from(NOTE_STATUS_COMMITTED.to_string()),
             Value::from(NOTE_STATUS_PROCESSING.to_string()),
@@ -296,14 +295,14 @@ impl SqliteStore {
         note_id: NoteId,
         inclusion_proof: NoteInclusionProof,
     ) -> Result<(), StoreError> {
-        const QUERY: &str = "UPDATE input_notes SET inclusion_proof = json(:inclusion_proof), status = 'Committed' WHERE note_id = :note_id";
+        const QUERY: &str = "UPDATE input_notes SET inclusion_proof = :inclusion_proof, status = 'Committed' WHERE note_id = :note_id";
 
         self.db()
             .execute(
                 QUERY,
                 named_params! {
                     ":note_id": note_id.inner().to_string(),
-                    ":inclusion_proof": serde_json::to_string(&inclusion_proof).map_err(StoreError::JsonDataDeserializationError)?,
+                    ":inclusion_proof": inclusion_proof.to_bytes(),
                 },
             )
             .map_err(|err| StoreError::QueryError(err.to_string()))?;
@@ -317,15 +316,14 @@ impl SqliteStore {
         note_id: NoteId,
         metadata: NoteMetadata,
     ) -> Result<(), StoreError> {
-        const QUERY: &str =
-            "UPDATE input_notes SET metadata = json(:metadata) WHERE note_id = :note_id";
+        const QUERY: &str = "UPDATE input_notes SET metadata = :metadata WHERE note_id = :note_id";
 
         self.db()
             .execute(
                 QUERY,
                 named_params! {
                     ":note_id": note_id.inner().to_string(),
-                    ":metadata": serde_json::to_string(&metadata).map_err(StoreError::JsonDataDeserializationError)?,
+                    ":metadata": metadata.to_bytes(),
                 },
             )
             .map_err(|err| StoreError::QueryError(err.to_string()))?;
@@ -343,6 +341,7 @@ pub(super) fn insert_input_note_tx(
     block_num: u32,
     note: InputNoteRecord,
 ) -> Result<(), StoreError> {
+    let nullifier = note.nullifier().to_string();
     let (
         note_id,
         assets,
@@ -367,6 +366,8 @@ pub(super) fn insert_input_note_tx(
             ":recipient": recipient,
             ":status": status,
             ":metadata": metadata,
+            ":nullifier": nullifier,
+            ":script_hash": note_script_hash,
             ":details": details,
             ":inclusion_proof": inclusion_proof,
             ":consumer_transaction_id": None::<String>,
@@ -403,6 +404,13 @@ pub fn insert_output_note_tx(
         expected_height,
     ) = serialize_output_note(note)?;
 
+    let nullifier: Option<String> = match details {
+        Some(ref bytes) => NoteRecordDetails::read_from_bytes(bytes)
+            .map(|details| details.nullifier().to_string())
+            .ok(),
+        None => None,
+    };
+
     tx.execute(
         &insert_note_query(NoteTable::OutputNotes),
         named_params! {
@@ -411,6 +419,8 @@ pub fn insert_output_note_tx(
             ":recipient": recipient,
             ":status": status,
             ":metadata": metadata,
+            ":nullifier": nullifier,
+            ":script_hash": note_script_hash,
             ":details": details,
             ":inclusion_proof": inclusion_proof,
             ":expected_height": expected_height.unwrap_or(block_num),
@@ -465,11 +475,11 @@ fn parse_input_note_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedInputNoteParts, rusqlite::Error> {
     let assets: Vec<u8> = row.get(0)?;
-    let details: String = row.get(1)?;
+    let details: Vec<u8> = row.get(1)?;
     let recipient: String = row.get(2)?;
     let status: String = row.get(3)?;
-    let metadata: Option<String> = row.get(4)?;
-    let inclusion_proof: Option<String> = row.get(5)?;
+    let metadata: Option<Vec<u8>> = row.get(4)?;
+    let inclusion_proof: Option<Vec<u8>> = row.get(5)?;
     let serialized_note_script: Vec<u8> = row.get(6)?;
     let consumer_account_id: Option<i64> = row.get(7)?;
     let created_at: u64 = row.get(8)?;
@@ -508,7 +518,8 @@ fn parse_input_note(
         status,
         note_metadata,
         note_inclusion_proof,
-        serialized_note_script,
+        _serialized_note_script, /* TODO: Use separate script table instead of serializing the
+                                  * complete NoteRecordDetails */
         consumer_account_id,
         created_at,
         expected_height,
@@ -518,22 +529,10 @@ fn parse_input_note(
         imported_tag,
     ) = serialized_input_note_parts;
 
-    // Merge the info that comes from the input notes table and the notes script table
-    let note_script = NoteScript::read_from_bytes(&serialized_note_script)?;
-    let note_details: NoteRecordDetails =
-        serde_json::from_str(&note_details).map_err(StoreError::JsonDataDeserializationError)?;
-    let note_details = NoteRecordDetails::new(
-        note_details.nullifier().to_string(),
-        note_script,
-        note_details.inputs().clone(),
-        note_details.serial_num(),
-    );
+    let note_details: NoteRecordDetails = NoteRecordDetails::read_from_bytes(&note_details)?;
 
-    let note_metadata: Option<NoteMetadata> = if let Some(metadata_as_json_str) = note_metadata {
-        Some(
-            serde_json::from_str(&metadata_as_json_str)
-                .map_err(StoreError::JsonDataDeserializationError)?,
-        )
+    let note_metadata: Option<NoteMetadata> = if let Some(metadata_as_bytes) = note_metadata {
+        Some(NoteMetadata::read_from_bytes(&metadata_as_bytes)?)
     } else {
         None
     };
@@ -542,11 +541,7 @@ fn parse_input_note(
 
     let inclusion_proof = match note_inclusion_proof {
         Some(note_inclusion_proof) => {
-            let note_inclusion_proof: NoteInclusionProof =
-                serde_json::from_str(&note_inclusion_proof)
-                    .map_err(StoreError::JsonDataDeserializationError)?;
-
-            Some(note_inclusion_proof)
+            Some(NoteInclusionProof::read_from_bytes(&note_inclusion_proof)?)
         },
         _ => None,
     };
@@ -613,12 +608,9 @@ pub(crate) fn serialize_input_note(
             let block_num = proof.location().block_num();
             let node_index = proof.location().node_index_in_block();
 
-            let inclusion_proof = serde_json::to_string(&NoteInclusionProof::new(
-                block_num,
-                node_index,
-                proof.note_path().clone(),
-            )?)
-            .map_err(StoreError::InputSerializationError)?;
+            let inclusion_proof =
+                NoteInclusionProof::new(block_num, node_index, proof.note_path().clone())?
+                    .to_bytes();
 
             Some(inclusion_proof)
         },
@@ -627,14 +619,9 @@ pub(crate) fn serialize_input_note(
 
     let recipient = note.recipient().to_hex();
 
-    let metadata = if let Some(metadata) = note.metadata() {
-        Some(serde_json::to_string(metadata).map_err(StoreError::InputSerializationError)?)
-    } else {
-        None
-    };
+    let metadata = note.metadata().map(|m| m.to_bytes());
 
-    let details =
-        serde_json::to_string(&note.details()).map_err(StoreError::InputSerializationError)?;
+    let details = note.details().to_bytes();
 
     let note_script_hash = note.details().script_hash().to_hex();
     let serialized_note_script = note.details().script().to_bytes();
@@ -680,11 +667,11 @@ fn parse_output_note_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedOutputNoteParts, rusqlite::Error> {
     let assets: Vec<u8> = row.get(0)?;
-    let details: Option<String> = row.get(1)?;
+    let details: Option<Vec<u8>> = row.get(1)?;
     let recipient: String = row.get(2)?;
     let status: String = row.get(3)?;
-    let metadata: String = row.get(4)?;
-    let inclusion_proof: Option<String> = row.get(5)?;
+    let metadata: Vec<u8> = row.get(4)?;
+    let inclusion_proof: Option<Vec<u8>> = row.get(5)?;
     let serialized_note_script: Option<Vec<u8>> = row.get(6)?;
     let consumer_account_id: Option<i64> = row.get(7)?;
     let created_at: u64 = row.get(8)?;
@@ -719,7 +706,7 @@ fn parse_output_note(
         status,
         note_metadata,
         note_inclusion_proof,
-        serialized_note_script,
+        _serialized_note_script,
         consumer_account_id,
         created_at,
         expected_height,
@@ -727,35 +714,24 @@ fn parse_output_note(
         nullifier_height,
     ) = serialized_output_note_parts;
 
-    let note_details: Option<NoteRecordDetails> = if let Some(details_as_json_str) = note_details {
-        // Merge the info that comes from the input notes table and the notes script table
-        let serialized_note_script = serialized_note_script
-            .expect("Has note details so it should have the serialized script");
-        let note_script = NoteScript::read_from_bytes(&serialized_note_script)?;
-        let note_details: NoteRecordDetails = serde_json::from_str(&details_as_json_str)
-            .map_err(StoreError::JsonDataDeserializationError)?;
-        let note_details = NoteRecordDetails::new(
-            note_details.nullifier().to_string(),
-            note_script,
-            note_details.inputs().clone(),
-            note_details.serial_num(),
-        );
+    let note_details: Option<NoteRecordDetails> = if let Some(details_as_bytes) = note_details {
+        let note_details = NoteRecordDetails::read_from_bytes(&details_as_bytes)
+            .map_err(StoreError::DataDeserializationError)?;
 
         Some(note_details)
     } else {
         None
     };
 
-    let note_metadata: NoteMetadata =
-        serde_json::from_str(&note_metadata).map_err(StoreError::JsonDataDeserializationError)?;
+    let note_metadata = NoteMetadata::read_from_bytes(&note_metadata)
+        .map_err(StoreError::DataDeserializationError)?;
 
     let note_assets = NoteAssets::read_from_bytes(&note_assets)?;
 
     let inclusion_proof = match note_inclusion_proof {
         Some(note_inclusion_proof) => {
-            let note_inclusion_proof: NoteInclusionProof =
-                serde_json::from_str(&note_inclusion_proof)
-                    .map_err(StoreError::JsonDataDeserializationError)?;
+            let note_inclusion_proof = NoteInclusionProof::read_from_bytes(&note_inclusion_proof)
+                .map_err(StoreError::DataDeserializationError)?;
 
             Some(note_inclusion_proof)
         },
@@ -818,16 +794,7 @@ pub(crate) fn serialize_output_note(
     let note_assets = note.assets().to_bytes();
     let (inclusion_proof, status) = match note.inclusion_proof() {
         Some(proof) => {
-            let block_num = proof.location().block_num();
-            let node_index = proof.location().node_index_in_block();
-
-            let inclusion_proof = serde_json::to_string(&NoteInclusionProof::new(
-                block_num,
-                node_index,
-                proof.note_path().clone(),
-            )?)
-            .map_err(StoreError::InputSerializationError)?;
-
+            let inclusion_proof = proof.to_bytes();
             let status = NOTE_STATUS_COMMITTED.to_string();
 
             (Some(inclusion_proof), status)
@@ -840,14 +807,10 @@ pub(crate) fn serialize_output_note(
     };
     let recipient = note.recipient().to_hex();
 
-    let metadata =
-        serde_json::to_string(note.metadata()).map_err(StoreError::InputSerializationError)?;
+    let metadata = note.metadata().to_bytes();
 
-    let details = if let Some(details) = note.details() {
-        Some(serde_json::to_string(&details).map_err(StoreError::InputSerializationError)?)
-    } else {
-        None
-    };
+    let details = note.details().map(|details| details.to_bytes());
+
     let note_script_hash = note.details().map(|details| details.script_hash().to_hex());
     let serialized_note_script = note.details().map(|details| details.script().to_bytes());
     let expected_height = match note.status() {

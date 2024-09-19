@@ -35,14 +35,12 @@ use alloc::{
 use core::fmt::{self, Display};
 
 use chrono::{Local, TimeZone};
-use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::AccountId,
     notes::{Note, NoteDetails, NoteScript},
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
     Digest, Felt, Word,
 };
-use serde::{Deserialize, Serialize};
 
 mod input_note_record;
 mod output_note_record;
@@ -58,7 +56,7 @@ pub const NOTE_STATUS_CONSUMED: &str = "Consumed";
 pub const NOTE_STATUS_PROCESSING: &str = "Processing";
 
 /// Possible status for a single note. They describe the note's state and dictate its lifecycle.
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NoteStatus {
     /// Note is expected to be committed on chain.
     Expected {
@@ -181,19 +179,11 @@ impl Display for NoteStatus {
     }
 }
 
-fn default_script() -> NoteScript {
-    let note_program_ast = "begin nop end";
-    NoteScript::compile(note_program_ast, TransactionKernel::assembler())
-        .expect("Default program is well-formed")
-}
-
 // NOTE: NoteInputs does not impl Serialize which is why we use Vec<Felt> here
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-
+#[derive(Clone, Debug, PartialEq)]
 pub struct NoteRecordDetails {
     nullifier: String,
     script_hash: Digest,
-    #[serde(skip_serializing, skip_deserializing, default = "default_script")]
     script: NoteScript,
     inputs: Vec<Felt>,
     serial_num: Word,

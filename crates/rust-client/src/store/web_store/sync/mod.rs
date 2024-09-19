@@ -4,6 +4,7 @@ use alloc::{
 };
 
 use miden_objects::notes::{NoteInclusionProof, NoteTag};
+use miden_tx::utils::{Deserializable, Serializable};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
 
@@ -25,7 +26,7 @@ impl WebStore {
         let js_value = JsFuture::from(promise).await.unwrap();
         let tags_idxdb: NoteTagsIdxdbObject = from_value(js_value).unwrap();
 
-        let tags: Vec<NoteTag> = serde_json::from_str(&tags_idxdb.tags).unwrap();
+        let tags: Vec<NoteTag> = Vec::<NoteTag>::read_from_bytes(&tags_idxdb.tags).unwrap();
 
         Ok(tags)
     }
@@ -45,7 +46,7 @@ impl WebStore {
             return Ok(false);
         }
         tags.push(tag);
-        let tags = serde_json::to_string(&tags).map_err(StoreError::InputSerializationError)?;
+        let tags = tags.to_bytes();
 
         let promise = idxdb_add_note_tag(tags);
         JsFuture::from(promise).await.unwrap();
@@ -63,7 +64,7 @@ impl WebStore {
         if let Some(index_of_tag) = tags.iter().position(|&tag_candidate| tag_candidate == tag) {
             tags.remove(index_of_tag);
 
-            let tags = serde_json::to_string(&tags).map_err(StoreError::InputSerializationError)?;
+            let tags = tags.to_bytes();
 
             let promise = idxdb_add_note_tag(tags);
             JsFuture::from(promise).await.unwrap();
@@ -102,10 +103,8 @@ impl WebStore {
             .collect();
 
         // Serialize data for updating block header
-        let block_header_as_str =
-            serde_json::to_string(&block_header).map_err(StoreError::InputSerializationError)?;
-        let new_mmr_peaks_as_str = serde_json::to_string(&new_mmr_peaks.peaks().to_vec())
-            .map_err(StoreError::InputSerializationError)?;
+        let block_header_as_bytes = block_header.to_bytes();
+        let new_mmr_peaks_as_bytes = new_mmr_peaks.peaks().to_vec().to_bytes();
 
         // Serialize data for updating chain MMR nodes
         let mut serialized_node_ids = Vec::new();
@@ -122,7 +121,7 @@ impl WebStore {
             .iter()
             .map(|(note_id, _)| note_id.inner().to_hex())
             .collect();
-        let output_note_inclusion_proofs_as_str: Vec<String> = committed_notes
+        let output_note_inclusion_proofs_as_bytes: Vec<u8> = committed_notes
             .updated_output_notes()
             .iter()
             .map(|(_, inclusion_proof)| {
@@ -130,39 +129,21 @@ impl WebStore {
                 let note_index = inclusion_proof.location().node_index_in_block();
 
                 // Create a NoteInclusionProof and serialize it to JSON, handle errors with `?`
-                let proof = NoteInclusionProof::new(
-                    block_num,
-                    note_index,
-                    inclusion_proof.note_path().clone(),
-                )
-                .unwrap();
-
-                serde_json::to_string(&proof).unwrap()
+                NoteInclusionProof::new(block_num, note_index, inclusion_proof.note_path().clone())
+                    .unwrap()
             })
-            .collect();
+            .collect::<Vec<NoteInclusionProof>>()
+            .to_bytes();
 
         let input_note_ids_as_str: Vec<String> = committed_notes
             .updated_input_notes()
             .iter()
             .map(|input_note| input_note.id().inner().to_hex())
             .collect();
-        let input_note_inclusion_proofs_as_str: Vec<String> = committed_notes
-            .updated_input_notes()
-            .iter()
-            .map(|input_note| {
-                let inclusion_proof =
-                    input_note.proof().expect("Expected a valid NoteInclusionProof");
-                serde_json::to_string(inclusion_proof).unwrap()
-            })
-            .collect();
-        let input_note_metadatas_as_str: Vec<String> = committed_notes
-            .updated_input_notes()
-            .iter()
-            .map(|input_note| {
-                let metadata = input_note.note().metadata();
-                serde_json::to_string(metadata).unwrap()
-            })
-            .collect();
+        let input_note_inclusion_proofs_as_bytes: Vec<u8> =
+            committed_notes.updated_input_notes().to_bytes();
+        let input_note_metadatas_as_bytes: Vec<u8> =
+            committed_notes.updated_input_notes().to_bytes();
 
         // TODO: LOP INTO idxdb_apply_state_sync call
         // Commit new public notes
@@ -195,16 +176,16 @@ impl WebStore {
             block_num_as_str,
             nullifiers_as_str,
             nullifier_block_nums_as_str,
-            block_header_as_str,
-            new_mmr_peaks_as_str,
+            block_header_as_bytes,
+            new_mmr_peaks_as_bytes,
             block_has_relevant_notes,
             serialized_node_ids,
             serialized_nodes,
             output_note_ids_as_str,
-            output_note_inclusion_proofs_as_str,
+            output_note_inclusion_proofs_as_bytes,
             input_note_ids_as_str,
-            input_note_inclusion_proofs_as_str,
-            input_note_metadatas_as_str,
+            input_note_inclusion_proofs_as_bytes,
+            input_note_metadatas_as_bytes,
             transactions_to_commit_as_str,
             transactions_to_commit_block_nums_as_str,
         );

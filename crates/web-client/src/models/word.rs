@@ -4,7 +4,7 @@ use wasm_bindgen::prelude::*;
 use super::felt::Felt;
 
 #[wasm_bindgen]
-#[derive(Clone, serde::Deserialize)]
+#[derive(Clone)]
 pub struct Word(NativeWord);
 
 #[wasm_bindgen]
