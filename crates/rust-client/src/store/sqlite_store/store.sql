@@ -75,13 +75,14 @@ CREATE TABLE input_notes (
     assets BLOB NOT NULL,                                   -- the serialized list of assets
     serial_number BLOB NOT NULL,                            -- the serial number of the note
     inputs BLOB NOT NULL,                                   -- the serialized list of note inputs
-    script_hash BLOB NOT NULL,                              -- the script hash of the note
-    nullifier TEXT NOT NULL,                                -- the nullifier of the note
-    state_discriminant UNSIGNED INT NOT NULL,               -- state discriminant of the note
+    script_hash BLOB NOT NULL,                              -- the script hash of the note, used to join with the notes_scripts table
+    nullifier TEXT NOT NULL,                                -- the nullifier of the note, used to query by nullifier
+    state_discriminant UNSIGNED INT NOT NULL,               -- state discriminant of the note, used to query by state
     state BLOB NOT NULL,                                    -- serialized note state
     created_at UNSIGNED BIG INT NOT NULL,                   -- timestamp of the note creation/import
 
     PRIMARY KEY (note_id)
+    FOREIGN KEY (script_hash) REFERENCES notes_scripts(script_hash)
 );
 
 -- Create output notes table

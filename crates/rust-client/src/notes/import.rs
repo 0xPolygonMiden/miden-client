@@ -18,17 +18,16 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // --------------------------------------------------------------------------------------------
 
     /// Imports a new input note into the client's store. The information stored depends on the
-    /// type of note file provided.
+    /// type of note file provided. If the note existed previously, it will be updated with the
+    /// new information.
     ///
     /// - If the note file is a [NoteFile::NoteId], the note is fetched from the node and stored in
-    ///   the client's store. If the note is private or does not exist, an error is returned. If the
-    ///   ID was already stored, the inclusion proof and metadata are updated.
+    ///   the client's store. If the note is private or does not exist, an error is returned.
     /// - If the note file is a [NoteFile::NoteDetails], a new note is created with the provided
-    ///   details. The note is marked as ignored if it contains no tag or if the tag is not
-    ///   relevant.
+    ///   details and tag.
     /// - If the note file is a [NoteFile::NoteWithProof], the note is stored with the provided
-    ///   inclusion proof and metadata. The MMR data is only fetched from the node if the note is
-    ///   committed in the past relative to the client.
+    ///   inclusion proof and metadata. The block header data is only fetched from the node if the
+    ///   note is committed in the past relative to the client.
     pub async fn import_note(&mut self, note_file: NoteFile) -> Result<NoteId, ClientError> {
         let id = match &note_file {
             NoteFile::NoteId(id) => *id,
@@ -59,9 +58,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // HELPERS
     // ================================================================================================
 
-    /// Builds a note record from the note id. The note information is fetched from the node and
-    /// stored in the client's store. If the note already exists in the store, the inclusion proof
-    /// and metadata are updated.
+    /// Builds a note record from the note id. If a note with the same id was already stored it is
+    /// passed via `previous_note` so it can be updated. The note information is fetched from the
+    /// node and stored in the client's store.
     ///
     /// Errors:
     /// - If the note does not exist on the node.
@@ -114,8 +113,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         }
     }
 
-    /// Builds a note record from the note and inclusion proof. The note's nullifier is used to
-    /// determine if the note has been consumed in the node and gives it the correct status.
+    /// Builds a note record from the note and inclusion proof. If a note with the same id was
+    /// already stored it is passed via `previous_note` so it can be updated. The note's
+    /// nullifier is used to determine if the note has been consumed in the node and gives it
+    /// the correct status.
     ///
     /// If the note is not consumed and it was committed in the past relative to the client, then
     /// the MMR for the relevant block is fetched from the node and stored.
@@ -169,8 +170,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         }
     }
 
-    /// Builds a note record from the note details. If a tag is not provided or not tracked, the
-    /// note is marked as ignored.
+    /// Builds a note record from the note details. If a note with the same id was already stored it
+    /// is passed via `previous_note` so it can be updated.
     async fn import_note_record_by_details(
         &mut self,
         previous_note: Option<InputNoteRecord>,
@@ -215,7 +216,9 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         }
     }
 
-    /// Synchronizes a note with the chain.
+    /// Checks if a note with the given note_tag and id is present in the chain between the
+    /// `request_block_num` and the current block. If found it returns its metadata and inclusion
+    /// proof.
     async fn check_expected_note(
         &mut self,
         mut request_block_num: u32,

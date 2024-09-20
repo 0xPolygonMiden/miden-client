@@ -112,7 +112,8 @@ pub trait Store {
         nullifiers
     }
 
-    /// Inserts the provided input note into the database
+    /// Inserts the provided input note into the database. If a note with the same ID already
+    /// exists, it will be replaced.
     #[maybe_async]
     fn insert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError>;
 

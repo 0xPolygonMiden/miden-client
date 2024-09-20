@@ -320,7 +320,8 @@ impl SqliteStore {
 // HELPERS
 // ================================================================================================
 
-/// Inserts the provided input note into the database
+/// Inserts the provided input note into the database, if the note already exists, it will be
+/// replaced.
 pub(super) fn insert_input_note_tx(
     tx: &Transaction<'_>,
     note: InputNoteRecord,

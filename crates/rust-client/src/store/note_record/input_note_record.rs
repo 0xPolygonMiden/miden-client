@@ -18,16 +18,11 @@ use super::{
 
 /// Represents a Note of which the Store can keep track and retrieve.
 ///
-/// An [InputNoteRecord] contains all the information of a [Note], in addition of (optionally) the
-/// [NoteInclusionProof] that identifies when the note was included in the chain.
+/// An [InputNoteRecord] contains all the information of a [NoteDetails], in addition of specific
+/// information about the note state.
 ///
-/// Once the proof is set, the [InputNoteRecord] can be transformed into an [InputNote] and used as
-/// input for transactions.
-///
-/// The `consumer_account_id` field is used to keep track of the account that consumed the note. It
-/// is only valid if the `status` is [NoteStatus::Consumed]. If the note is consumed but the field
-/// is [None] it means that the note was consumed by an untracked account.
-///
+/// Once a proof is received, the [InputNoteRecord] can be transformed into an [InputNote] and used
+/// as input for transactions.
 /// It is also possible to convert [Note] and [InputNote] into [InputNoteRecord] (we fill the
 /// `metadata` and `inclusion_proof` fields if possible)
 #[derive(Clone, Debug, PartialEq)]
@@ -78,8 +73,6 @@ impl InputNoteRecord {
         &self.details
     }
 
-    /// Returns whether the note record contains a valid inclusion proof correlated with its
-    /// status
     pub fn is_authenticated(&self) -> bool {
         matches!(
             self.state,
@@ -92,6 +85,9 @@ impl InputNoteRecord {
     // TRANSITIONS
     // ================================================================================================
 
+    /// Modifies the state of the note record to reflect that the it has received an inclusion
+    /// proof. It is assumed to be unverified until the block header information is received.
+    /// Returns `true` if the state was changed.
     pub fn inclusion_proof_received(
         &mut self,
         inclusion_proof: NoteInclusionProof,
@@ -106,6 +102,9 @@ impl InputNoteRecord {
         }
     }
 
+    /// Modifies the state of the note record to reflect that the it has received a block header.
+    /// This will mark the note as verified or invalid, depending on the block header
+    /// information and inclusion proof. Returns `true` if the state was changed.
     pub fn block_header_received(
         &mut self,
         block_header: BlockHeader,
@@ -119,6 +118,11 @@ impl InputNoteRecord {
         }
     }
 
+    /// Modifies the state of the note record to reflect that its nullifier has been received,
+    /// meaning that the note has been spent. Returns `true` if the state was changed.
+    ///
+    /// Errors:
+    /// - If the nullifier does not match the expected value.
     pub fn nullifier_received(
         &mut self,
         nullifier: Nullifier,
@@ -139,6 +143,8 @@ impl InputNoteRecord {
         }
     }
 
+    /// Modifies the state of the note record to reflect that the client began processing the note
+    /// to be consumed. Returns `true` if the state was changed.
     pub fn consumed_locally(
         &mut self,
         consumer_account: AccountId,
