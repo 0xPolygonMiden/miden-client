@@ -208,6 +208,7 @@ async function updateCommittedNotes(
 ) {
     try {
         if (outputNoteIds.length !== outputNoteInclusionProofs.length) {
+            console.log({outputNoteIds}, {outputNoteInclusionProofs});
             throw new Error("Arrays outputNoteIds and outputNoteInclusionProofs must be of the same length");
         }
 
@@ -216,6 +217,7 @@ async function updateCommittedNotes(
             inputNoteIds.length !== inputNoteMetadatas.length && 
             inputNoteInclusionProofs.length !== inputNoteMetadatas.length
         ) {
+            console.log({inputNoteIds}, {inputNoteInclusionProofs}, {inputNoteMetadatas});
             throw new Error("Arrays inputNoteIds and inputNoteInclusionProofs and inputNoteMetadatas must be of the same length");
         }
 

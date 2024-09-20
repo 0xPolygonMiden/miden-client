@@ -20,11 +20,18 @@ export async function insertBlockHeader(
             chainMmrPeaks: chainMmrPeaksBlob,
             hasClientNotes: hasClientNotes.toString()
         };
+        console.log('in insertBlockHeader')
+        console.log({data})
 
         const existingBlockHeader = await blockHeaders.get(blockNum);
         
         if (!existingBlockHeader) {
             await blockHeaders.add(data);
+            console.log("Block header inserted.");
+            const testHeader = await blockHeaders.get(blockNum);
+            console.log({testHeader})
+            const testBulk = await blockHeaders.bulkGet([blockNum]);
+            console.log({testBulk})
         } else {
             console.log("Block header already exists, checking for update.");
 
@@ -68,9 +75,13 @@ export async function getBlockHeaders(
     try {
         const results = await blockHeaders.bulkGet(blockNumbers);
         console.log('results before processing: ', results)
+        if(results[0] !== undefined) {
+            console.log('type of header: ', typeof results[0].header)
+        }
 
-        results.forEach(async (result, index) => {
+        for( let[ index, result ] of results.entries()) {
             if (result === undefined) {
+                console.log('in here... ? ')
                 results[index] = null;
             } else {
                 const headerArrayBuffer = await results[index].header.arrayBuffer();
@@ -81,8 +92,10 @@ export async function getBlockHeaders(
                 const chainMmrPeaksArray = new Uint8Array(chainMmrPeaksArrayBuffer);
                 const chainMmrPeaksBase64 = uint8ArrayToBase64(chainMmrPeaksArray);
 
-                const block_num = results[index.blockNum]  // A blob right now ?
+                const block_num = results[index].blockNum  // A blob right now ?
                 console.log({block_num})
+                console.log('headerBase64 type: ', typeof headerBase64)
+                console.log('chainMmrPeaksBase64 type: ', typeof chainMmrPeaksBase64)
 
                 results[index] = {
                     block_num,
@@ -91,8 +104,8 @@ export async function getBlockHeaders(
                     has_client_notes: results[index].hasClientNotes === "true"
                 }
             }
-        });
 
+        }
         console.log('results after processing: ', results);
 
         return results

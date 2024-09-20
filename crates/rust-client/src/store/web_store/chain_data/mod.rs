@@ -10,6 +10,7 @@ use miden_objects::{
 };
 use miden_tx::utils::Deserializable;
 use serde_wasm_bindgen::from_value;
+use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::JsFuture;
 
 use super::WebStore;
@@ -57,8 +58,11 @@ impl WebStore {
 
         let promise = idxdb_get_block_headers(formatted_block_numbers_list);
         let js_value = JsFuture::from(promise).await.unwrap();
+        web_sys::console::log_1(&JsValue::from_str("get_block_headers".into()));
+        web_sys::console::log_1(&js_value);
+        web_sys::console::log_2(&JsValue::from_str("blockHeader type".into()), &js_value);
         let block_headers_idxdb: Vec<Option<BlockHeaderIdxdbObject>> =
-            from_value(js_value).unwrap_or_else(|_| vec![]);
+            from_value(js_value).unwrap();
 
         // Transform the list of Option<BlockHeaderIdxdbObject> to a list of results
         let results: Result<Vec<(BlockHeader, bool)>, StoreError> = block_headers_idxdb
