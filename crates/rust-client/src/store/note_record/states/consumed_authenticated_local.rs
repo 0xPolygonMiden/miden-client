@@ -89,3 +89,9 @@ impl miden_tx::utils::Deserializable for ConsumedAuthenticatedLocalNoteState {
         })
     }
 }
+
+impl From<ConsumedAuthenticatedLocalNoteState> for NoteState {
+    fn from(state: ConsumedAuthenticatedLocalNoteState) -> Self {
+        NoteState::ConsumedAuthenticatedLocal(state)
+    }
+}

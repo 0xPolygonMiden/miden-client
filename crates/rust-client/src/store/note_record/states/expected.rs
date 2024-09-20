@@ -102,3 +102,9 @@ impl miden_tx::utils::Deserializable for ExpectedNoteState {
         Ok(ExpectedNoteState { metadata, after_block_num, tag })
     }
 }
+
+impl From<ExpectedNoteState> for NoteState {
+    fn from(state: ExpectedNoteState) -> Self {
+        NoteState::Expected(state)
+    }
+}

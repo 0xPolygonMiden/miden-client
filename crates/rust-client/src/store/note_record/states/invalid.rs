@@ -102,3 +102,9 @@ impl miden_tx::utils::Deserializable for InvalidNoteState {
         })
     }
 }
+
+impl From<InvalidNoteState> for NoteState {
+    fn from(state: InvalidNoteState) -> Self {
+        NoteState::Invalid(state)
+    }
+}

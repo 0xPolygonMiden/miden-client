@@ -58,7 +58,7 @@ impl InputNoteRecord {
     }
 
     pub fn metadata(&self) -> Option<&NoteMetadata> {
-        self.state.inner().metadata()
+        self.state.metadata()
     }
 
     pub fn nullifier(&self) -> Nullifier {
@@ -66,7 +66,7 @@ impl InputNoteRecord {
     }
 
     pub fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
-        self.state.inner().inclusion_proof()
+        self.state.inclusion_proof()
     }
 
     pub fn details(&self) -> &NoteDetails {
@@ -82,6 +82,15 @@ impl InputNoteRecord {
         )
     }
 
+    pub fn is_consumed(&self) -> bool {
+        matches!(
+            self.state,
+            NoteState::ConsumedExternal { .. }
+                | NoteState::ConsumedAuthenticatedLocal { .. }
+                | NoteState::ConsumedUnauthenticatedLocal { .. }
+        )
+    }
+
     // TRANSITIONS
     // ================================================================================================
 
@@ -93,7 +102,7 @@ impl InputNoteRecord {
         inclusion_proof: NoteInclusionProof,
         metadata: NoteMetadata,
     ) -> Result<bool, NoteRecordError> {
-        let new_state = self.state.inner().inclusion_proof_received(inclusion_proof, metadata)?;
+        let new_state = self.state.inclusion_proof_received(inclusion_proof, metadata)?;
         if let Some(new_state) = new_state {
             self.state = new_state;
             Ok(true)
@@ -109,7 +118,7 @@ impl InputNoteRecord {
         &mut self,
         block_header: BlockHeader,
     ) -> Result<bool, NoteRecordError> {
-        let new_state = self.state.inner().block_header_received(self.id(), block_header)?;
+        let new_state = self.state.block_header_received(self.id(), block_header)?;
         if let Some(new_state) = new_state {
             self.state = new_state;
             Ok(true)
@@ -134,7 +143,7 @@ impl InputNoteRecord {
             ));
         }
 
-        let new_state = self.state.inner().nullifier_received(nullifier_block_height)?;
+        let new_state = self.state.nullifier_received(nullifier_block_height)?;
         if let Some(new_state) = new_state {
             self.state = new_state;
             Ok(true)
@@ -150,8 +159,7 @@ impl InputNoteRecord {
         consumer_account: AccountId,
         consumer_transaction: TransactionId,
     ) -> Result<bool, NoteRecordError> {
-        let new_state =
-            self.state.inner().consumed_locally(consumer_account, consumer_transaction)?;
+        let new_state = self.state.consumed_locally(consumer_account, consumer_transaction)?;
         if let Some(new_state) = new_state {
             self.state = new_state;
             Ok(true)

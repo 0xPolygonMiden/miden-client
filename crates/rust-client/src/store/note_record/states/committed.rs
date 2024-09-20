@@ -104,3 +104,9 @@ impl miden_tx::utils::Deserializable for CommittedNoteState {
         })
     }
 }
+
+impl From<CommittedNoteState> for NoteState {
+    fn from(state: CommittedNoteState) -> Self {
+        NoteState::Committed(state)
+    }
+}

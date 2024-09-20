@@ -103,3 +103,9 @@ impl miden_tx::utils::Deserializable for ProcessingAuthenticatedNoteState {
         })
     }
 }
+
+impl From<ProcessingAuthenticatedNoteState> for NoteState {
+    fn from(state: ProcessingAuthenticatedNoteState) -> Self {
+        NoteState::ProcessingAuthenticated(state)
+    }
+}

@@ -68,7 +68,7 @@ pub enum NoteState {
 
 impl NoteState {
     /// Returns the inner state handler that implements state transitions.
-    pub fn inner(&self) -> &dyn NoteStateHandler {
+    fn inner(&self) -> &dyn NoteStateHandler {
         match self {
             NoteState::Expected(inner) => inner,
             NoteState::Unverified(inner) => inner,
@@ -80,6 +80,14 @@ impl NoteState {
             NoteState::ConsumedUnauthenticatedLocal(inner) => inner,
             NoteState::ConsumedExternal(inner) => inner,
         }
+    }
+
+    pub fn metadata(&self) -> Option<&NoteMetadata> {
+        self.inner().metadata()
+    }
+
+    pub fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
+        self.inner().inclusion_proof()
     }
 
     /// Returns a unique identifier for each note state.
@@ -95,6 +103,51 @@ impl NoteState {
             NoteState::ConsumedUnauthenticatedLocal(_) => STATE_CONSUMED_UNAUTHENTICATED_LOCAL,
             NoteState::ConsumedExternal(_) => STATE_CONSUMED_EXTERNAL,
         }
+    }
+
+    /// Returns a new state to reflect that the note has received an inclusion proof. The proof is
+    /// assumed to be unverified until the block header information is received. If the note state
+    /// doesn't change, `None` is returned.
+    pub fn inclusion_proof_received(
+        &self,
+        inclusion_proof: NoteInclusionProof,
+        metadata: NoteMetadata,
+    ) -> Result<Option<NoteState>, NoteRecordError> {
+        self.inner().inclusion_proof_received(inclusion_proof, metadata)
+    }
+
+    /// Returns a new to reflect that its nullifier has been received, meaning that the note has
+    /// been spent. If the note state doesn't change, `None` is returned.
+    ///
+    /// Errors:
+    /// - If the nullifier does not match the expected value.
+    pub fn nullifier_received(
+        &self,
+        nullifier_block_height: u32,
+    ) -> Result<Option<NoteState>, NoteRecordError> {
+        self.inner().nullifier_received(nullifier_block_height)
+    }
+
+    /// Returns a new state to reflect that the note has received a block header.
+    /// This will mark the note as verified or invalid, depending on the block header
+    /// information and inclusion proof. If the note state
+    /// doesn't change, `None` is returned.
+    pub fn block_header_received(
+        &self,
+        note_id: NoteId,
+        block_header: BlockHeader,
+    ) -> Result<Option<NoteState>, NoteRecordError> {
+        self.inner().block_header_received(note_id, block_header)
+    }
+
+    /// Modifies the state of the note record to reflect that the client began processing the note
+    /// to be consumed. If the note state doesn't change, `None` is returned.
+    pub fn consumed_locally(
+        &self,
+        consumer_account: AccountId,
+        consumer_transaction: TransactionId,
+    ) -> Result<Option<NoteState>, NoteRecordError> {
+        self.inner().consumed_locally(consumer_account, consumer_transaction)
     }
 }
 
@@ -119,42 +172,23 @@ impl Deserializable for NoteState {
     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
         let discriminant = source.read_u8()?;
         match discriminant {
-            STATE_EXPECTED => {
-                let state = ExpectedNoteState::read_from(source)?;
-                Ok(NoteState::Expected(state))
-            },
-            STATE_UNVERIFIED => {
-                let state = UnverifiedNoteState::read_from(source)?;
-                Ok(NoteState::Unverified(state))
-            },
-            STATE_COMMITTED => {
-                let state = CommittedNoteState::read_from(source)?;
-                Ok(NoteState::Committed(state))
-            },
-            STATE_INVALID => {
-                let state = InvalidNoteState::read_from(source)?;
-                Ok(NoteState::Invalid(state))
-            },
+            STATE_EXPECTED => Ok(ExpectedNoteState::read_from(source)?.into()),
+            STATE_UNVERIFIED => Ok(UnverifiedNoteState::read_from(source)?.into()),
+            STATE_COMMITTED => Ok(CommittedNoteState::read_from(source)?.into()),
+            STATE_INVALID => Ok(InvalidNoteState::read_from(source)?.into()),
             STATE_PROCESSING_AUTHENTICATED => {
-                let state = ProcessingAuthenticatedNoteState::read_from(source)?;
-                Ok(NoteState::ProcessingAuthenticated(state))
+                Ok(ProcessingAuthenticatedNoteState::read_from(source)?.into())
             },
             STATE_PROCESSING_UNAUTHENTICATED => {
-                let state = ProcessingUnauthenticatedNoteState::read_from(source)?;
-                Ok(NoteState::ProcessingUnauthenticated(state))
+                Ok(ProcessingUnauthenticatedNoteState::read_from(source)?.into())
             },
             STATE_CONSUMED_AUTHENTICATED_LOCAL => {
-                let state = ConsumedAuthenticatedLocalNoteState::read_from(source)?;
-                Ok(NoteState::ConsumedAuthenticatedLocal(state))
+                Ok(ConsumedAuthenticatedLocalNoteState::read_from(source)?.into())
             },
             STATE_CONSUMED_UNAUTHENTICATED_LOCAL => {
-                let state = ConsumedUnauthenticatedLocalNoteState::read_from(source)?;
-                Ok(NoteState::ConsumedUnauthenticatedLocal(state))
+                Ok(ConsumedUnauthenticatedLocalNoteState::read_from(source)?.into())
             },
-            STATE_CONSUMED_EXTERNAL => {
-                let state = ConsumedExternalNoteState::read_from(source)?;
-                Ok(NoteState::ConsumedExternal(state))
-            },
+            STATE_CONSUMED_EXTERNAL => Ok(ConsumedExternalNoteState::read_from(source)?.into()),
             _ => Err(DeserializationError::InvalidValue(format!(
                 "Invalid NoteState discriminant: {}",
                 discriminant
@@ -242,37 +276,23 @@ pub trait NoteStateHandler {
 
     fn inclusion_proof(&self) -> Option<&NoteInclusionProof>;
 
-    /// Returns a new state to reflect that the note has received an inclusion proof. The proof is
-    /// assumed to be unverified until the block header information is received. If the note state
-    /// doesn't change, `None` is returned.
     fn inclusion_proof_received(
         &self,
         inclusion_proof: NoteInclusionProof,
         metadata: NoteMetadata,
     ) -> Result<Option<NoteState>, NoteRecordError>;
 
-    /// Returns a new to reflect that its nullifier has been received, meaning that the note has
-    /// been spent. If the note state doesn't change, `None` is returned.
-    ///
-    /// Errors:
-    /// - If the nullifier does not match the expected value.
     fn nullifier_received(
         &self,
         nullifier_block_height: u32,
     ) -> Result<Option<NoteState>, NoteRecordError>;
 
-    /// Returns a new state to reflect that the note has received a block header.
-    /// This will mark the note as verified or invalid, depending on the block header
-    /// information and inclusion proof. If the note state
-    /// doesn't change, `None` is returned.
     fn block_header_received(
         &self,
         note_id: NoteId,
         block_header: BlockHeader,
     ) -> Result<Option<NoteState>, NoteRecordError>;
 
-    /// Modifies the state of the note record to reflect that the client began processing the note
-    /// to be consumed. If the note state doesn't change, `None` is returned.
     fn consumed_locally(
         &self,
         consumer_account: AccountId,

@@ -100,3 +100,9 @@ impl miden_tx::utils::Deserializable for UnverifiedNoteState {
         Ok(UnverifiedNoteState { metadata, inclusion_proof })
     }
 }
+
+impl From<UnverifiedNoteState> for NoteState {
+    fn from(state: UnverifiedNoteState) -> Self {
+        NoteState::Unverified(state)
+    }
+}

@@ -71,3 +71,9 @@ impl miden_tx::utils::Deserializable for ConsumedExternalNoteState {
         Ok(ConsumedExternalNoteState { nullifier_block_height })
     }
 }
+
+impl From<ConsumedExternalNoteState> for NoteState {
+    fn from(state: ConsumedExternalNoteState) -> Self {
+        NoteState::ConsumedExternal(state)
+    }
+}
