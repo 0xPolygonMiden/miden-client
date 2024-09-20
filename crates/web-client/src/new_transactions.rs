@@ -127,8 +127,11 @@ impl WebClient {
                 "Private" => MidenNoteType::Private,
                 _ => MidenNoteType::Private,
             };
-            let payment_transaction =
-                PaymentTransactionData::new(fungible_asset, sender_account_id, target_account_id);
+            let payment_transaction = PaymentTransactionData::new(
+                vec![fungible_asset],
+                sender_account_id,
+                target_account_id,
+            );
 
             let send_transaction_request = if let Some(recall_height) = recall_height {
                 let recall_height_as_u32: u32 =
