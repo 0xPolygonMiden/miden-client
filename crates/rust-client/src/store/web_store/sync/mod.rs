@@ -25,8 +25,10 @@ impl WebStore {
         let promise = idxdb_get_note_tags();
         let js_value = JsFuture::from(promise).await.unwrap();
         let tags_idxdb: NoteTagsIdxdbObject = from_value(js_value).unwrap();
+        web_sys::console::log_1(&tags_idxdb.tags.clone().into());
 
-        let tags: Vec<NoteTag> = Vec::<NoteTag>::read_from_bytes(&tags_idxdb.tags).unwrap();
+        let tags: Vec<NoteTag> =
+            Vec::<NoteTag>::read_from_bytes(&tags_idxdb.tags).unwrap_or_else(|_| Vec::new());
 
         Ok(tags)
     }

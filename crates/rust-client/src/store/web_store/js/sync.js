@@ -50,6 +50,7 @@ export async function addNoteTag(
 ) {
     try {
         const tagsBlob = new Blob([new Uint8Array(tags)]);
+        console.log({tagsBlob})
         await stateSync.update(1, { tags: tagsBlob });
     } catch {
         console.error("Failed to add note tag: ", err);
@@ -294,4 +295,12 @@ export async function updateIgnoredNotesForTag(
         console.error("Failed to update ignored field for notes: ", err);
         throw err;
     }
+}
+
+export function uint8ArrayToBase64(bytes) {
+  const binary = bytes.reduce(
+    (acc, byte) => acc + String.fromCharCode(byte),
+    ""
+  );
+  return btoa(binary);
 }

@@ -5,6 +5,7 @@ use crate::WebClient;
 #[wasm_bindgen]
 impl WebClient {
     pub async fn sync_state(&mut self, update_ignored: bool) -> Result<JsValue, JsValue> {
+        console_error_panic_hook::set_once();
         if let Some(client) = self.get_mut_inner() {
             let mut sync_summary = client.sync_state().await.unwrap();
             if update_ignored {

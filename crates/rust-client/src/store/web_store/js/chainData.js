@@ -67,6 +67,7 @@ export async function getBlockHeaders(
 ) {
     try {
         const results = await blockHeaders.bulkGet(blockNumbers);
+        console.log('results before processing: ', results)
 
         results.forEach(async (result, index) => {
             if (result === undefined) {
@@ -80,14 +81,19 @@ export async function getBlockHeaders(
                 const chainMmrPeaksArray = new Uint8Array(chainMmrPeaksArrayBuffer);
                 const chainMmrPeaksBase64 = uint8ArrayToBase64(chainMmrPeaksArray);
 
+                const block_num = results[index.blockNum]  // A blob right now ?
+                console.log({block_num})
+
                 results[index] = {
-                    block_num: results[index].blockNum,
+                    block_num,
                     header: headerBase64,
                     chain_mmr: chainMmrPeaksBase64,
                     has_client_notes: results[index].hasClientNotes === "true"
                 }
             }
         });
+
+        console.log('results after processing: ', results);
 
         return results
     } catch (err) {
@@ -168,4 +174,12 @@ export async function getChainMmrNodes(
         console.error("Failed to get chain mmr nodes: ", err);
         throw err;
     }
+}
+
+function uint8ArrayToBase64(bytes) {
+  const binary = bytes.reduce(
+    (acc, byte) => acc + String.fromCharCode(byte),
+    ""
+  );
+  return btoa(binary);
 }

@@ -58,7 +58,7 @@ impl WebStore {
         let promise = idxdb_get_block_headers(formatted_block_numbers_list);
         let js_value = JsFuture::from(promise).await.unwrap();
         let block_headers_idxdb: Vec<Option<BlockHeaderIdxdbObject>> =
-            from_value(js_value).unwrap();
+            from_value(js_value).unwrap_or_else(|_| vec![]);
 
         // Transform the list of Option<BlockHeaderIdxdbObject> to a list of results
         let results: Result<Vec<(BlockHeader, bool)>, StoreError> = block_headers_idxdb

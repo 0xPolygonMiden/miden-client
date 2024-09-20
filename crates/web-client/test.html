@@ -167,7 +167,7 @@
                     decimals,
                     maxSupply
                 );
-                console.log(`Created new wallet account with id ${result}`);
+                console.log(`Created new faucet account with id ${result}`);
                 return result;
             } catch (error) {
                 console.error('Failed to call create account:', error);
@@ -486,11 +486,13 @@
             console.log('testNewMintTransaction started');
 
             let webClient = await createMidenWebClient();
-            let targetAccountId = await createNewWallet(webClient, "private", true);
-            let faucetId = await createNewFaucet(webClient, "private", false, "DEN", "10", "1000000");
+            let targetAccountId = await createNewWallet(webClient, "Private", true);
+            let faucetId = await createNewFaucet(webClient, "Private", false, "DEN", "10", "1000000");
+            console.log('syncing state');
             await syncState(webClient);
             await new Promise(r => setTimeout(r, 20000));
 
+            console.log('fetching account auth by pub key');
             await webClient.fetch_and_cache_account_auth_by_pub_key(faucetId.to_string());
             let result = await createNewMintTransaction(
                 webClient,
@@ -1285,7 +1287,7 @@
         // await testCreateNewFaucet();
         // await testGetAccounts();
         // await testGetAccount();
-        // await testNewMintTransaction();
+        await testNewMintTransaction();
         // await testNewConsumeTransaction();
         // await testNewSendTransaction();
         // await testNewSendTransactionWithRecallHeight();
@@ -1297,7 +1299,7 @@
         // await testGetOutputNote();
         // await testExportNote();
         // await testImportInputNote();
-        await testCustomTransaction();
+        // await testCustomTransaction();
     </script>
 </body>
 </html>
