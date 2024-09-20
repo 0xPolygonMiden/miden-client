@@ -50,22 +50,16 @@ impl AccountInterface {
                 ));
             }
 
-            if partial_note.assets().num_assets() != 1 {
-                return Err(TransactionScriptBuilderError::InvalidAssetAmount(
-                    partial_note.assets().num_assets(),
-                ));
-            }
-
             let asset = partial_note.assets().iter().next().expect("There should be an asset");
 
             body.push_str(&format!(
                 "
-                push.{recipient}
-                push.{execution_hint}
-                push.{note_type}
-                push.{aux}
-                push.{tag}
-                ",
+                    push.{recipient}
+                    push.{execution_hint}
+                    push.{note_type}
+                    push.{aux}
+                    push.{tag}
+                    ",
                 recipient = prepare_word(&partial_note.recipient_digest()),
                 note_type = Felt::from(partial_note.metadata().note_type()),
                 execution_hint = Felt::from(partial_note.metadata().execution_hint()),
@@ -88,13 +82,22 @@ impl AccountInterface {
                     ));
                 },
                 AccountInterface::BasicWallet => {
-                    body.push_str(&format!(
+                    body.push_str(
                         "
+                        call.wallet::create_note",
+                    );
+
+                    for asset in partial_note.assets().iter() {
+                        body.push_str(&format!(
+                            "
                         push.{asset}
-                        call.wallet::send_asset dropw dropw dropw dropw drop
+                        call.wallet::move_asset_to_note dropw 
                         ",
-                        asset = prepare_word(&asset.into())
-                    ));
+                            asset = prepare_word(&asset.into())
+                        ))
+                    }
+
+                    body.push_str("dropw dropw dropw drop");
                 },
             }
         }
@@ -194,7 +197,6 @@ impl TransactionScriptBuilder {
 #[derive(Debug)]
 pub enum TransactionScriptBuilderError {
     InvalidAsset(AccountId),
-    InvalidAssetAmount(usize),
     InvalidTransactionScript(TransactionScriptError),
     InvalidSenderAccount(AccountId),
     TransactionExecutorError(TransactionExecutorError),
@@ -205,9 +207,6 @@ impl core::fmt::Display for TransactionScriptBuilderError {
         match self {
             TransactionScriptBuilderError::InvalidAsset(account_id) => {
                 write!(f, "Invalid asset: {}", account_id)
-            },
-            TransactionScriptBuilderError::InvalidAssetAmount(num_assets) => {
-                write!(f, "Only notes with 1 type of asset are supported, but this note contains {} assets", num_assets)
             },
             TransactionScriptBuilderError::InvalidTransactionScript(err) => {
                 write!(f, "Invalid transaction script: {}", err)

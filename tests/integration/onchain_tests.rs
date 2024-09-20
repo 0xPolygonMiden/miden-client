@@ -80,7 +80,11 @@ async fn test_onchain_notes_flow() {
 
     let p2id_asset = FungibleAsset::new(faucet_account.id(), TRANSFER_AMOUNT).unwrap();
     let tx_request = TransactionRequest::pay_to_id(
-        PaymentTransactionData::new(p2id_asset.into(), basic_wallet_1.id(), basic_wallet_2.id()),
+        PaymentTransactionData::new(
+            vec![p2id_asset.into()],
+            basic_wallet_1.id(),
+            basic_wallet_2.id(),
+        ),
         None,
         NoteType::Public,
         client_2.rng(),
@@ -209,7 +213,7 @@ async fn test_onchain_accounts() {
 
     println!("Running P2ID tx...");
     let tx_request = TransactionRequest::pay_to_id(
-        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
+        PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
         None,
         NoteType::Public,
         client_1.rng(),
