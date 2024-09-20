@@ -553,7 +553,7 @@ impl std::error::Error for TransactionRequestError {}
 /// Contains information about a payment transaction.
 #[derive(Clone, Debug)]
 pub struct PaymentTransactionData {
-    /// Asssets that are meant to be sent to the target account.
+    /// Assets that are meant to be sent to the target account.
     assets: Vec<Asset>,
     /// Account ID of the sender account.
     sender_account_id: AccountId,
