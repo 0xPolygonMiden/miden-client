@@ -154,11 +154,7 @@ async fn test_p2id_transfer() {
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
     println!("Running P2ID tx...");
     let tx_request = TransactionRequest::pay_to_id(
-        PaymentTransactionData::new(
-            vec![Asset::Fungible(asset), Asset::Fungible(asset)],
-            from_account_id,
-            to_account_id,
-        ),
+        PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
         None,
         NoteType::Private,
         client.rng(),
@@ -199,7 +195,7 @@ async fn test_p2id_transfer() {
     let asset = regular_account.vault().assets().next().unwrap();
 
     if let Asset::Fungible(fungible_asset) = asset {
-        assert_eq!(fungible_asset.amount(), TRANSFER_AMOUNT * 2);
+        assert_eq!(fungible_asset.amount(), TRANSFER_AMOUNT);
     } else {
         panic!("Error: Account should have a fungible asset");
     }

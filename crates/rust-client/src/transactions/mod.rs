@@ -652,3 +652,76 @@ pub fn build_swap_tag(
         _ => NoteTag::for_local_use_case(SWAP_USE_CASE_ID, payload),
     }
 }
+
+#[cfg(test)]
+mod test {
+    use miden_lib::transaction::TransactionKernel;
+    use miden_objects::{
+        accounts::{
+            account_id::testing::{
+                ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN,
+                ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
+            },
+            AccountData, StorageSlot,
+        },
+        assets::{Asset, FungibleAsset},
+        crypto::{dsa::rpo_falcon512::SecretKey, rand::RpoRandomCoin},
+        notes::NoteType,
+        testing::account::AccountBuilder,
+        Felt,
+    };
+
+    use super::{PaymentTransactionData, TransactionRequest};
+    use crate::mock::{create_test_client, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN};
+
+    #[tokio::test]
+    async fn test_transaction_creates_two_notes() {
+        let mut client = create_test_client();
+        let asset_1: Asset =
+            FungibleAsset::new(ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN.try_into().unwrap(), 123)
+                .unwrap()
+                .into();
+        let asset_2: Asset =
+            FungibleAsset::new(ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN.try_into().unwrap(), 500)
+                .unwrap()
+                .into();
+
+        let key = SecretKey::new();
+        let (account, _) = AccountBuilder::new(RpoRandomCoin::new(Default::default()))
+            .nonce(Felt::new(1))
+            .default_code(TransactionKernel::assembler())
+            .add_assets([asset_1, asset_2])
+            .add_storage_slot(StorageSlot::Value(key.public_key().into()))
+            .build()
+            .unwrap();
+
+        client
+            .import_account(AccountData::new(
+                account.clone(),
+                None,
+                miden_objects::accounts::AuthSecretKey::RpoFalcon512(key.clone()),
+            ))
+            .unwrap();
+        client.sync_state().await.unwrap();
+        let tx_request = TransactionRequest::pay_to_id(
+            PaymentTransactionData::new(
+                vec![asset_1, asset_2],
+                account.id(),
+                ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN.try_into().unwrap(),
+            ),
+            None,
+            NoteType::Private,
+            client.rng(),
+        )
+        .unwrap();
+
+        let tx_result = client.new_transaction(account.id(), tx_request).unwrap();
+        assert!(tx_result
+            .created_notes()
+            .get_note(0)
+            .assets()
+            .is_some_and(|assets| assets.num_assets() == 2));
+        // Prove and apply transaction
+        client.testing_apply_transaction(tx_result.clone()).await.unwrap();
+    }
+}
