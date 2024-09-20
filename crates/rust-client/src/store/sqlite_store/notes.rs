@@ -326,6 +326,22 @@ pub(super) fn insert_input_note_tx(
     tx: &Transaction<'_>,
     note: InputNoteRecord,
 ) -> Result<(), StoreError> {
+    let SerializedInputNoteData {
+        id,
+        assets,
+        serial_number,
+        inputs,
+        script_hash,
+        script,
+        nullifier,
+        state_discriminant,
+        state,
+    } = serialize_input_note(note)?;
+
+    const SCRIPT_QUERY: &str =
+        "INSERT OR REPLACE INTO notes_scripts (script_hash, serialized_note_script) VALUES (?, ?)";
+    tx.execute(SCRIPT_QUERY, params![script_hash, script,])?;
+
     const NOTE_QUERY: &str = "
         INSERT OR REPLACE INTO input_notes (
             note_id,
@@ -349,18 +365,6 @@ pub(super) fn insert_input_note_tx(
             unixepoch(current_timestamp));
     ";
 
-    let SerializedInputNoteData {
-        id,
-        assets,
-        serial_number,
-        inputs,
-        script_hash,
-        script,
-        nullifier,
-        state_discriminant,
-        state,
-    } = serialize_input_note(note)?;
-
     tx.execute(
         NOTE_QUERY,
         named_params! {
@@ -373,13 +377,9 @@ pub(super) fn insert_input_note_tx(
             ":state_discriminant": state_discriminant,
             ":state": state,
         },
-    )?;
-
-    const SCRIPT_QUERY: &str =
-        "INSERT OR REPLACE INTO notes_scripts (script_hash, serialized_note_script) VALUES (?, ?)";
-    tx.execute(SCRIPT_QUERY, params![script_hash, script,])
-        .map_err(|err| StoreError::QueryError(err.to_string()))
-        .map(|_| ())
+    )
+    .map_err(|err| StoreError::QueryError(err.to_string()))
+    .map(|_| ())
 }
 
 /// Inserts the provided input note into the database
