@@ -67,14 +67,14 @@ async fn test_multiple_tx_on_same_block() {
     // Do a transfer from first account to second account
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
     let tx_request_1 = TransactionRequest::pay_to_id(
-        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
+        PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
         None,
         NoteType::Private,
         client.rng(),
     )
     .unwrap();
     let tx_request_2 = TransactionRequest::pay_to_id(
-        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
+        PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
         None,
         NoteType::Private,
         client.rng(),
@@ -154,7 +154,11 @@ async fn test_p2id_transfer() {
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
     println!("Running P2ID tx...");
     let tx_request = TransactionRequest::pay_to_id(
-        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
+        PaymentTransactionData::new(
+            vec![Asset::Fungible(asset), Asset::Fungible(asset)],
+            from_account_id,
+            to_account_id,
+        ),
         None,
         NoteType::Private,
         client.rng(),
@@ -195,7 +199,7 @@ async fn test_p2id_transfer() {
     let asset = regular_account.vault().assets().next().unwrap();
 
     if let Asset::Fungible(fungible_asset) = asset {
-        assert_eq!(fungible_asset.amount(), TRANSFER_AMOUNT);
+        assert_eq!(fungible_asset.amount(), TRANSFER_AMOUNT * 2);
     } else {
         panic!("Error: Account should have a fungible asset");
     }
@@ -224,7 +228,7 @@ async fn test_p2id_transfer_failing_not_enough_balance() {
     let asset = FungibleAsset::new(faucet_account_id, MINT_AMOUNT + 1).unwrap();
     println!("Running P2ID tx...");
     let tx_request = TransactionRequest::pay_to_id(
-        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
+        PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
         None,
         NoteType::Private,
         client.rng(),
@@ -301,7 +305,7 @@ async fn test_p2idr_transfer_consumed_by_target() {
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
     println!("Running P2IDR tx...");
     let tx_request = TransactionRequest::pay_to_id(
-        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
+        PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
         Some(current_block_num + 50),
         NoteType::Private,
         client.rng(),
@@ -375,7 +379,7 @@ async fn test_p2idr_transfer_consumed_by_sender() {
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
     println!("Running P2IDR tx...");
     let tx_request = TransactionRequest::pay_to_id(
-        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
+        PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
         Some(current_block_num + 5),
         NoteType::Private,
         client.rng(),
@@ -465,7 +469,7 @@ async fn test_get_consumable_notes() {
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
     println!("Running P2IDR tx...");
     let tx_request = TransactionRequest::pay_to_id(
-        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
+        PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
         Some(100),
         NoteType::Private,
         client.rng(),
@@ -528,7 +532,11 @@ async fn test_get_output_notes() {
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
     println!("Running P2ID tx...");
     let tx_request = TransactionRequest::pay_to_id(
-        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, random_account_id),
+        PaymentTransactionData::new(
+            vec![Asset::Fungible(asset)],
+            from_account_id,
+            random_account_id,
+        ),
         None,
         NoteType::Private,
         client.rng(),
@@ -799,7 +807,7 @@ async fn test_sync_detail_values() {
     // Do a transfer with recall from first account to second account
     let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
     let tx_request = TransactionRequest::pay_to_id(
-        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
+        PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
         Some(new_details.block_num + 5),
         NoteType::Public,
         client1.rng(),
@@ -1205,7 +1213,7 @@ async fn test_import_consumed_note_with_proof() {
 
     println!("Running P2IDR tx...");
     let tx_request = TransactionRequest::pay_to_id(
-        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
+        PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
         Some(current_block_num),
         NoteType::Private,
         client_1.rng(),
@@ -1262,7 +1270,7 @@ async fn test_import_consumed_note_with_id() {
 
     println!("Running P2IDR tx...");
     let tx_request = TransactionRequest::pay_to_id(
-        PaymentTransactionData::new(Asset::Fungible(asset), from_account_id, to_account_id),
+        PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
         Some(current_block_num),
         NoteType::Public,
         client_1.rng(),

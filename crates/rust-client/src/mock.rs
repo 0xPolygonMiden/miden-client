@@ -573,7 +573,8 @@ pub async fn create_mock_transaction(client: &mut MockClient) {
         .unwrap();
 
     let asset: miden_objects::assets::Asset = FungibleAsset::new(faucet.id(), 5u64).unwrap().into();
-    let payment_data = PaymentTransactionData::new(asset, sender_account.id(), target_account.id());
+    let payment_data =
+        PaymentTransactionData::new(vec![asset], sender_account.id(), target_account.id());
     // Insert a P2ID transaction object
 
     let transaction_request =

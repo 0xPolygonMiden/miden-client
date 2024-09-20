@@ -128,7 +128,7 @@ impl SendCmd {
         let target_account_id = parse_account_id(&client, self.target_account_id.as_str())?;
 
         let payment_transaction = PaymentTransactionData::new(
-            fungible_asset.into(),
+            vec![fungible_asset.into()],
             sender_account_id,
             target_account_id,
         );

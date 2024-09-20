@@ -250,11 +250,16 @@ impl TransactionRequest {
         note_type: NoteType,
         rng: &mut impl FeltRng,
     ) -> Result<Self, TransactionRequestError> {
+        let PaymentTransactionData {
+            assets,
+            sender_account_id,
+            target_account_id,
+        } = payment_data;
         let created_note = if let Some(recall_height) = recall_height {
             create_p2idr_note(
-                payment_data.account_id(),
-                payment_data.target_account_id(),
-                vec![payment_data.asset()],
+                sender_account_id,
+                target_account_id,
+                assets,
                 note_type,
                 Felt::ZERO,
                 recall_height,
@@ -262,9 +267,9 @@ impl TransactionRequest {
             )?
         } else {
             create_p2id_note(
-                payment_data.account_id(),
-                payment_data.target_account_id(),
-                vec![payment_data.asset()],
+                sender_account_id,
+                target_account_id,
+                assets,
                 note_type,
                 Felt::ZERO,
                 rng,
@@ -545,14 +550,14 @@ impl std::error::Error for TransactionRequestError {}
 // PAYMENT TRANSACTION DATA
 // ================================================================================================
 
-/// Contains information about a payment transaction
+/// Contains information about a payment transaction.
 #[derive(Clone, Debug)]
 pub struct PaymentTransactionData {
-    /// Assset that is meant to be sent to the target account
-    asset: Asset,
-    /// Account ID of the sender account
+    /// Asssets that are meant to be sent to the target account.
+    assets: Vec<Asset>,
+    /// Account ID of the sender account.
     sender_account_id: AccountId,
-    /// Account ID of the receiver account
+    /// Account ID of the receiver account.
     target_account_id: AccountId,
 }
 
@@ -562,12 +567,12 @@ impl PaymentTransactionData {
 
     /// Creates a new [PaymentTransactionData]
     pub fn new(
-        asset: Asset,
+        assets: Vec<Asset>,
         sender_account_id: AccountId,
         target_account_id: AccountId,
     ) -> PaymentTransactionData {
         PaymentTransactionData {
-            asset,
+            assets,
             sender_account_id,
             target_account_id,
         }
@@ -583,9 +588,9 @@ impl PaymentTransactionData {
         self.target_account_id
     }
 
-    /// Returns the transaction [Asset]
-    pub fn asset(&self) -> Asset {
-        self.asset
+    /// Returns the transaction's list of [Asset]
+    pub fn assets(&self) -> &Vec<Asset> {
+        &self.assets
     }
 }
 
