@@ -659,7 +659,7 @@ mod test {
     use miden_objects::{
         accounts::{
             account_id::testing::{
-                ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN,
+                ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
                 ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
             },
             AccountData, StorageSlot,
@@ -672,7 +672,7 @@ mod test {
     };
 
     use super::{PaymentTransactionData, TransactionRequest};
-    use crate::mock::{create_test_client, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN};
+    use crate::mock::create_test_client;
 
     #[tokio::test]
     async fn test_transaction_creates_two_notes() {
