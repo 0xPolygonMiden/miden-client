@@ -427,7 +427,7 @@
             console.log('testCreateNewWallet started');
             let webClient = await createMidenWebClient();
 
-            await createNewWallet(webClient, "private", true);
+            await createNewWallet(webClient, "Private", true);
 
             console.log('testCreateNewWallet finished');
         }
@@ -439,7 +439,7 @@
 
             await createNewFaucet(
                 webClient,
-                "private",
+                "Private",
                 false,
                 "DEN",
                 "10",
@@ -461,7 +461,7 @@
             console.log('testGetAccounts started');
             let webClient = await createMidenWebClient();
             if (shouldCreateAccounts) {
-                await createNewWallet(webClient, "private", true);
+                await createNewWallet(webClient, "Private", true);
             }
 
             await getAccounts(webClient);
@@ -474,7 +474,7 @@
             console.log('testGetAccount started');
 
             let webClient = await createMidenWebClient();
-            let accountId = await createNewWallet(webClient, "private", true);
+            let accountId = await createNewWallet(webClient, "Private", true);
 
             await getAccount(webClient, accountId.to_string());
 
@@ -486,8 +486,8 @@
             console.log('testNewMintTransaction started');
 
             let webClient = await createMidenWebClient();
-            let targetAccountId = await createNewWallet(webClient, "private", true);
-            let faucetId = await createNewFaucet(webClient, "private", false, "DEN", "10", "1000000");
+            let targetAccountId = await createNewWallet(webClient, "Private", true);
+            let faucetId = await createNewFaucet(webClient, "Private", false, "DEN", "10", "1000000");
             await syncState(webClient);
             await new Promise(r => setTimeout(r, 20000));
 
@@ -510,8 +510,8 @@
             console.log('testNewConsumeTransaction started');
 
             let webClient = await createMidenWebClient();
-            let targetAccountId = await createNewWallet(webClient, "private", true);
-            let faucetId = await createNewFaucet(webClient, "private", false, "DEN", "10", "1000000");
+            let targetAccountId = await createNewWallet(webClient, "Private", true);
+            let faucetId = await createNewFaucet(webClient, "Private", false, "DEN", "10", "1000000");
             await syncState(webClient);
             await new Promise(r => setTimeout(r, 20000));
 
@@ -543,9 +543,9 @@
             console.log('testNewSendTransaction started');
 
             let webClient = await createMidenWebClient();
-            let senderAccountId = await createNewWallet(webClient, "private", true);
-            let targetAccountId = await createNewWallet(webClient, "private", true);
-            let faucetId = await createNewFaucet(webClient, "private", false, "DEN", "10", "1000000");
+            let senderAccountId = await createNewWallet(webClient, "Private", true);
+            let targetAccountId = await createNewWallet(webClient, "Private", true);
+            let faucetId = await createNewFaucet(webClient, "Private", false, "DEN", "10", "1000000");
             await syncState(webClient);
             await new Promise(r => setTimeout(r, 20000));
 
@@ -599,9 +599,9 @@
             console.log('testNewSendTransactionWithRecallHeight started');
 
             let webClient = await createMidenWebClient();
-            let senderAccountId = await createNewWallet(webClient, "private", true);
-            let targetAccountId = await createNewWallet(webClient, "private", true);
-            let faucetId = await createNewFaucet(webClient, "private", false, "DEN", "10", "1000000");
+            let senderAccountId = await createNewWallet(webClient, "Private", true);
+            let targetAccountId = await createNewWallet(webClient, "Private", true);
+            let faucetId = await createNewFaucet(webClient, "Private", false, "DEN", "10", "1000000");
             await syncState(webClient);
             await new Promise(r => setTimeout(r, 20000));
 
@@ -655,10 +655,10 @@
             console.log('testNewSwapTransaction started');
             let webClient = await createMidenWebClient();
 
-            let walletAAccountId = await createNewWallet(webClient, "private", true);
-            let walletBAccountId = await createNewWallet(webClient, "private", true);
-            let offeredAssetFaucetId = await createNewFaucet(webClient, "private", false, "DEN", "10", "1000000");
-            let requestedAssetFaucetId = await createNewFaucet(webClient, "private", false, "GAR", "10", "1000000");
+            let walletAAccountId = await createNewWallet(webClient, "Private", true);
+            let walletBAccountId = await createNewWallet(webClient, "Private", true);
+            let offeredAssetFaucetId = await createNewFaucet(webClient, "Private", false, "DEN", "10", "1000000");
+            let requestedAssetFaucetId = await createNewFaucet(webClient, "Private", false, "GAR", "10", "1000000");
             await syncState(webClient);
             await new Promise(r => setTimeout(r, 20000));
 
@@ -745,8 +745,8 @@
             console.log("testGetTransactions started");
 
             let webClient = await createMidenWebClient();
-            let walletAccount = await createNewWallet(webClient, "private", true);
-            let faucetAccount = await createNewFaucet(webClient, "private", false, "DEN", "10", "1000000");
+            let walletAccount = await createNewWallet(webClient, "Private", true);
+            let faucetAccount = await createNewFaucet(webClient, "Private", false, "DEN", "10", "1000000");
             await syncState(webClient);
             await new Promise(r => setTimeout(r, 20000));
 
@@ -782,8 +782,8 @@
             console.log("testGetInputNotes started");
 
             let webClient = await createMidenWebClient();
-            let targetAccountId = await createNewWallet(webClient, "private", true);
-            let faucetId = await createNewFaucet(webClient, "private", false, "DEN", "10", "1000000");
+            let targetAccountId = await createNewWallet(webClient, "Private", true);
+            let faucetId = await createNewFaucet(webClient, "Private", false, "DEN", "10", "1000000");
             await syncState(webClient);
             await new Promise(r => setTimeout(r, 20000));
 
@@ -819,8 +819,8 @@
             console.log("testGetInputNote started");
 
             let webClient = await createMidenWebClient();
-            let targetAccountId = await createNewWallet(webClient, "private", true);
-            let faucetId = await createNewFaucet(webClient, "private", false, "DEN", "10", "1000000");
+            let targetAccountId = await createNewWallet(webClient, "Private", true);
+            let faucetId = await createNewFaucet(webClient, "Private", false, "DEN", "10", "1000000");
             await syncState(webClient);
             await new Promise(r => setTimeout(r, 20000));
 
@@ -890,8 +890,8 @@
             console.log("testGetOutputNotes started");
 
             let webClient = await createMidenWebClient();
-            let targetAccountId = await createNewWallet(webClient, "private", true);
-            let faucetId = await createNewFaucet(webClient, "private", false, "DEN", "10", "1000000");
+            let targetAccountId = await createNewWallet(webClient, "Private", true);
+            let faucetId = await createNewFaucet(webClient, "Private", false, "DEN", "10", "1000000");
             await syncState(webClient);
             await new Promise(r => setTimeout(r, 20000));
 
@@ -927,8 +927,8 @@
             console.log("testGetOutputNote started");
 
             let webClient = await createMidenWebClient();
-            let targetAccountId = await createNewWallet(webClient, "private", true);
-            let faucetId = await createNewFaucet(webClient, "private", false, "DEN", "10", "1000000");
+            let targetAccountId = await createNewWallet(webClient, "Private", true);
+            let faucetId = await createNewFaucet(webClient, "Private", false, "DEN", "10", "1000000");
             await syncState(webClient);
             await new Promise(r => setTimeout(r, 20000));
 
@@ -964,8 +964,8 @@
             console.log("testExportNote started");
 
             let webClient = await createMidenWebClient();
-            // let senderAccountId = await createNewWallet(webClient, "private", true);
-            let faucetId = await createNewFaucet(webClient, "private", false, "DEN", "10", "1000000");
+            // let senderAccountId = await createNewWallet(webClient, "Private", true);
+            let faucetId = await createNewFaucet(webClient, "Private", false, "DEN", "10", "1000000");
             await syncState(webClient);
             await new Promise(r => setTimeout(r, 20000));
 
@@ -1013,7 +1013,7 @@
             console.log("testImportInputNote started");
 
             let webClient = await createMidenWebClient();
-            let walletAccount = await createNewWallet(webClient, "private", true);
+            let walletAccount = await createNewWallet(webClient, "Private", true);
 
             function setupNoteFileInputListener(webClient, targetAccountId) {
                 document.getElementById('noteFileInput').addEventListener('change', async function(event) {
@@ -1055,10 +1055,10 @@
             console.log("testCustomTransaction started");
             // Creating Wallet and Faucet
             let webClient = await createMidenWebClient();
-            let walletId = await createNewWallet(webClient, "private", false);
+            let walletId = await createNewWallet(webClient, "Private", false);
             let faucetId = await createNewFaucet(
                 webClient,
-                "private",
+                "Private",
                 false,
                 "DEN",
                 "10",

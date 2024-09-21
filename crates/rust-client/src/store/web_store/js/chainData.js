@@ -62,34 +62,32 @@ export async function insertChainMmrNodes(
 }
 
 // GET FUNCTIONS
-export async function getBlockHeaders(
-    blockNumbers
-) {
+export async function getBlockHeaders(blockNumbers) {
     try {
         const results = await blockHeaders.bulkGet(blockNumbers);
 
-        results.forEach(async (result, index) => {
+        const processedResults = await Promise.all(results.map(async (result, index) => {
             if (result === undefined) {
-                results[index] = null;
+                return null;
             } else {
-                const headerArrayBuffer = await results[index].header.arrayBuffer();
+                const headerArrayBuffer = await result.header.arrayBuffer();
                 const headerArray = new Uint8Array(headerArrayBuffer);
                 const headerBase64 = uint8ArrayToBase64(headerArray);
 
-                const chainMmrPeaksArrayBuffer = await results[index].chainMmrPeaks.arrayBuffer();
+                const chainMmrPeaksArrayBuffer = await result.chainMmrPeaks.arrayBuffer();
                 const chainMmrPeaksArray = new Uint8Array(chainMmrPeaksArrayBuffer);
                 const chainMmrPeaksBase64 = uint8ArrayToBase64(chainMmrPeaksArray);
 
-                results[index] = {
-                    block_num: results[index].blockNum,
+                return {
+                    block_num: result.blockNum,
                     header: headerBase64,
                     chain_mmr: chainMmrPeaksBase64,
-                    has_client_notes: results[index].hasClientNotes === "true"
-                }
+                    has_client_notes: result.hasClientNotes === "true"
+                };
             }
-        });
+        }));
 
-        return results
+        return processedResults;
     } catch (err) {
         console.error("Failed to get block headers: ", err);
         throw err;
@@ -103,8 +101,9 @@ export async function getTrackedBlockHeaders() {
             .where('hasClientNotes')
             .equals("true")
             .toArray();
-        // Convert hasClientNotes from string to boolean
-        const processedRecords = allMatchingRecords.map(async record => {
+
+        // Process all records with async operations
+        const processedRecords = await Promise.all(allMatchingRecords.map(async (record) => {
             const headerArrayBuffer = await record.header.arrayBuffer();
             const headerArray = new Uint8Array(headerArrayBuffer);
             const headerBase64 = uint8ArrayToBase64(headerArray);
@@ -119,7 +118,7 @@ export async function getTrackedBlockHeaders() {
                 chain_mmr: chainMmrPeaksBase64,
                 has_client_notes: record.hasClientNotes === 'true'
             };
-        });
+        }));
 
         return processedRecords;
     } catch (err) {
@@ -168,4 +167,9 @@ export async function getChainMmrNodes(
         console.error("Failed to get chain mmr nodes: ", err);
         throw err;
     }
+}
+
+function uint8ArrayToBase64(bytes) {
+    const binary = bytes.reduce((acc, byte) => acc + String.fromCharCode(byte), '');
+    return btoa(binary);
 }

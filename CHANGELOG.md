@@ -2,6 +2,7 @@
 
 ## 0.6.0 (TBD)
 
+* Fix Broken WASM (#519).
 * [BREAKING] Changed `PaymentTransactionData` and `TransactionRequest` to allow for multiple assets per note (#525).
 * [BREAKING] Removed serde's de/serialization from `NoteRecordDetails` and `NoteStatus` (#514).
 * Added support for custom transactions in web client (#519)

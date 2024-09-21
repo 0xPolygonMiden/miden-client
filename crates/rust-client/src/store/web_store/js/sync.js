@@ -12,13 +12,18 @@ export async function getNoteTags() {
     try {
         const record = await stateSync.get(1);  // Since id is the primary key and always 1
         if (record) {
-            const tagsArrayBuffer = await record.tags.arrayBuffer();
-            const tagsArray = new Uint8Array(tagsArrayBuffer);
-            const tagsBase64 = uint8ArrayToBase64(tagsArray);
+            if (!record.tags) {
+                return { tags: null }
+            }
+            else {
+                const tagsArrayBuffer = await record.tags.arrayBuffer();
+                const tagsArray = new Uint8Array(tagsArrayBuffer);
+                const tagsBase64 = uint8ArrayToBase64(tagsArray);
 
-            return {
-                tags: tagsBase64
-            };
+                return {
+                    tags: tagsBase64
+                };
+            }
         } else {
             return null;
         }
@@ -67,10 +72,10 @@ export async function applyStateSync(
     nodeIndexes,
     nodes,
     outputNoteIds,
-    outputNoteInclusionProofs,
+    outputNoteInclusionProofsAsFlattenedVec,
     inputNoteIds,
-    inputNoteInluclusionProofs,
-    inputeNoteMetadatas,
+    inputNoteInluclusionProofsAsFlattenedVec,
+    inputNoteMetadatasAsFlattenedVec,
     transactionIds,
     transactionBlockNums
 ) {
@@ -79,7 +84,7 @@ export async function applyStateSync(
         await updateSpentNotes(tx, nullifierBlockNums, nullifiers);
         await updateBlockHeader(tx, blockNum, blockHeader, chainMmrPeaks, hasClientNotes);
         await updateChainMmrNodes(tx, nodeIndexes, nodes);
-        await updateCommittedNotes(tx, outputNoteIds, outputNoteInclusionProofs, inputNoteIds, inputNoteInluclusionProofs, inputeNoteMetadatas);
+        await updateCommittedNotes(tx, outputNoteIds, outputNoteInclusionProofsAsFlattenedVec, inputNoteIds, inputNoteInluclusionProofsAsFlattenedVec, inputNoteMetadatasAsFlattenedVec);
         await updateCommittedTransactions(tx, transactionBlockNums, transactionIds);
     });
 }
@@ -97,51 +102,33 @@ async function updateSyncHeight(
 }
 
 // NOTE: nullifierBlockNums are the same length and ordered consistently with nullifiers
-async function updateSpentNotes(
-    tx,
-    nullifierBlockNums,
-    nullifiers
-) {
+async function updateSpentNotes(tx, nullifierBlockNums, nullifiers) {
     try {
-        // Fetch all notes
-        const inputNotes = await tx.inputNotes.toArray();
-        const outputNotes = await tx.outputNotes.toArray();
-
-        // Pre-parse all details and store them with their respective note ids for quick access
-        const parsedInputNotes = inputNotes.map(note => ({
-            noteId: note.noteId,
-            details: JSON.parse(note.details)  // Parse the JSON string into an object
-        }));
-
-        // Iterate through each parsed note and check against the list of nullifiers
-        for (const note of parsedInputNotes) {
-            if (note.details && note.details.nullifier) {
-                const nullifierIndex = nullifiers.indexOf(note.details.nullifier);
+        // Modify all input notes that match any of the nullifiers
+        await tx.inputNotes
+            .where('nullifier')
+            .anyOf(nullifiers)
+            .modify((inputNote, ref) => {
+                const nullifierIndex = nullifiers.indexOf(inputNote.nullifier);
                 if (nullifierIndex !== -1) {
-                    // If the nullifier is in the list, update the note's status and set nullifierHeight to the index
-                    await tx.inputNotes.update(note.noteId, { status: 'Consumed', nullifierHeight: nullifierBlockNums[nullifierIndex] });
+                    ref.status = 'Consumed';
+                    ref.nullifierHeight = nullifierBlockNums[nullifierIndex];
                 }
-            }
-        }
+            });
 
-         // Pre-parse all details and store them with their respective note ids for quick access
-         const parsedOutputNotes = outputNotes.map(note => ({
-            noteId: note.noteId,
-            details: JSON.parse(note.details)  // Parse the JSON string into an object
-        }));
-
-        // Iterate through each parsed note and check against the list of nullifiers
-        for (const note of parsedOutputNotes) {
-            if (note.details && note.details.nullifier) {
-                const nullifierIndex = nullifiers.indexOf(note.details.nullifier);
+        // Modify all output notes that match any of the nullifiers
+        await tx.outputNotes
+            .where('nullifier')
+            .anyOf(nullifiers)
+            .modify((outputNote, ref) => {
+                const nullifierIndex = nullifiers.indexOf(outputNote.nullifier);
                 if (nullifierIndex !== -1) {
-                    // If the nullifier is in the list, update the note's status and set nullifierHeight to the index
-                    await tx.outputNotes.update(note.noteId, { status: 'Consumed', nullifierHeight: nullifierBlockNums[nullifierIndex] });
+                    ref.status = 'Consumed';
+                    ref.nullifierHeight = nullifierBlockNums[nullifierIndex];
                 }
-            }
-        }
+            });
     } catch (error) {
-        console.error("Error updating input notes:", error);
+        console.error("Error updating spent notes:", error);
         throw error;
     }
 }
@@ -154,17 +141,20 @@ async function updateBlockHeader(
     hasClientNotes
 ) {
     try {
+        const headerBlob = new Blob([new Uint8Array(blockHeader)]);
+        const chainMmrPeaksBlob = new Blob([new Uint8Array(chainMmrPeaks)]);
+
         const data = {
             blockNum: blockNum,
-            header: blockHeader,
-            chainMmrPeaks: chainMmrPeaks,
+            header: headerBlob,
+            chainMmrPeaks: chainMmrPeaksBlob,
             hasClientNotes: hasClientNotes.toString()
         };
 
         await tx.blockHeaders.add(data);
     } catch (err) {
         console.error("Failed to insert block header: ", err);
-        throw error;
+        throw err;
     }
 }
 
@@ -200,20 +190,40 @@ async function updateChainMmrNodes(
 async function updateCommittedNotes(
     tx, 
     outputNoteIds, 
-    outputNoteInclusionProofs,
+    outputNoteInclusionProofsAsFlattenedVec,
     inputNoteIds,
-    inputNoteInclusionProofs,
-    inputNoteMetadatas
+    inputNoteInluclusionProofsAsFlattenedVec,
+    inputNoteMetadatasAsFlattenedVec
 ) {
     try {
-        if (outputNoteIds.length !== outputNoteInclusionProofs.length) {
+        // Helper function to reconstruct arrays from flattened data
+        function reconstructFlattenedVec(flattenedVec) {
+            const data = flattenedVec.data();
+            console.log(data);   // Call data() method
+            const lengths = flattenedVec.lengths();
+            console.log(lengths);  // Call lengths() method
+
+            let index = 0;
+            const result = [];
+            lengths.forEach(length => {
+                result.push(data.slice(index, index + length));
+                index += length;
+            });
+            return result;
+        }
+
+        const outputNoteInclusionProofs = reconstructFlattenedVec(outputNoteInclusionProofsAsFlattenedVec);
+        const inputNoteInclusionProofs = reconstructFlattenedVec(inputNoteInluclusionProofsAsFlattenedVec);
+        const inputNoteMetadatas = reconstructFlattenedVec(inputNoteMetadatasAsFlattenedVec);
+
+        if (outputNoteIds.length !== outputNoteInclusionProofsAsFlattenedVec.num_inner_vecs()) {
             throw new Error("Arrays outputNoteIds and outputNoteInclusionProofs must be of the same length");
         }
 
         if (
-            inputNoteIds.length !== inputNoteInclusionProofs.length && 
-            inputNoteIds.length !== inputNoteMetadatas.length && 
-            inputNoteInclusionProofs.length !== inputNoteMetadatas.length
+            inputNoteIds.length !== inputNoteInluclusionProofsAsFlattenedVec.num_inner_vecs() && 
+            inputNoteIds.length !== inputNoteMetadatasAsFlattenedVec.num_inner_vecs() && 
+            inputNoteInluclusionProofsAsFlattenedVec.num_inner_vecs() !== inputNoteMetadatasAsFlattenedVec.num_inner_vecs()
         ) {
             throw new Error("Arrays inputNoteIds and inputNoteInclusionProofs and inputNoteMetadatas must be of the same length");
         }
@@ -221,11 +231,12 @@ async function updateCommittedNotes(
         for (let i = 0; i < outputNoteIds.length; i++) {
             const noteId = outputNoteIds[i];
             const inclusionProof = outputNoteInclusionProofs[i];
+            const inclusionProofBlob = new Blob([new Uint8Array(inclusionProof)]);
 
             // Update output notes
             await tx.outputNotes.where({ noteId: noteId }).modify({
                 status: 'Committed',
-                inclusionProof: inclusionProof
+                inclusionProof: inclusionProofBlob
             });
         }
 
@@ -233,12 +244,14 @@ async function updateCommittedNotes(
             const noteId = inputNoteIds[i];
             const inclusionProof = inputNoteInclusionProofs[i];
             const metadata = inputNoteMetadatas[i];
+            const inclusionProofBlob = new Blob([new Uint8Array(inclusionProof)]);
+            const metadataBlob = new Blob([new Uint8Array(metadata)]);
 
             // Update input notes
             await tx.inputNotes.where({ noteId: noteId }).modify({
                 status: 'Committed',
-                inclusionProof: inclusionProof,
-                metadata: metadata
+                inclusionProof: inclusionProofBlob,
+                metadata: metadataBlob
             });
         }
     } catch (error) {
