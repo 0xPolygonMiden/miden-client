@@ -6,7 +6,8 @@ use miden_objects::{
 };
 
 use super::{
-    CommittedNoteState, ConsumedExternalNoteState, NoteState, NoteStateHandler, STATE_INVALID,
+    CommittedNoteState, ConsumedExternalNoteState, NoteState, NoteStateHandler,
+    UnverifiedNoteState, STATE_INVALID,
 };
 use crate::store::NoteRecordError;
 
@@ -23,12 +24,7 @@ impl NoteStateHandler for InvalidNoteState {
         inclusion_proof: NoteInclusionProof,
         metadata: NoteMetadata,
     ) -> Result<Option<NoteState>, NoteRecordError> {
-        if self.invalid_inclusion_proof != inclusion_proof || self.metadata != metadata {
-            return Err(NoteRecordError::StateTransitionError(
-                "Inclusion proof or metadata do not match the expected values".to_string(),
-            ));
-        }
-        Ok(None)
+        Ok(Some(UnverifiedNoteState { inclusion_proof, metadata }.into()))
     }
 
     fn nullifier_received(
