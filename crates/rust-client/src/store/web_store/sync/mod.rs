@@ -20,13 +20,19 @@ use js_bindings::*;
 mod models;
 use models::*;
 
+mod flattened_vec;
+use flattened_vec::*;
+
 impl WebStore {
     pub(crate) async fn get_note_tags(&self) -> Result<Vec<NoteTag>, StoreError> {
         let promise = idxdb_get_note_tags();
         let js_value = JsFuture::from(promise).await.unwrap();
         let tags_idxdb: NoteTagsIdxdbObject = from_value(js_value).unwrap();
 
-        let tags: Vec<NoteTag> = Vec::<NoteTag>::read_from_bytes(&tags_idxdb.tags).unwrap();
+        let tags: Vec<NoteTag> = match tags_idxdb.tags {
+            Some(ref bytes) => Vec::<NoteTag>::read_from_bytes(bytes).unwrap_or_default(), /* Handle possible error in deserialization */
+            None => Vec::new(), // Return an empty Vec if tags_idxdb.tags is None
+        };
 
         Ok(tags)
     }
@@ -121,7 +127,8 @@ impl WebStore {
             .iter()
             .map(|(note_id, _)| note_id.inner().to_hex())
             .collect();
-        let output_note_inclusion_proofs_as_bytes: Vec<u8> = committed_notes
+
+        let output_note_inclusion_proofs_as_bytes: Vec<Vec<u8>> = committed_notes
             .updated_output_notes()
             .iter()
             .map(|(_, inclusion_proof)| {
@@ -131,19 +138,37 @@ impl WebStore {
                 // Create a NoteInclusionProof and serialize it to JSON, handle errors with `?`
                 NoteInclusionProof::new(block_num, note_index, inclusion_proof.note_path().clone())
                     .unwrap()
+                    .to_bytes()
             })
-            .collect::<Vec<NoteInclusionProof>>()
-            .to_bytes();
+            .collect::<Vec<Vec<u8>>>();
+        let flattened_nested_vec_output_note_inclusion_proofs =
+            flatten_nested_u8_vec(output_note_inclusion_proofs_as_bytes);
 
         let input_note_ids_as_str: Vec<String> = committed_notes
             .updated_input_notes()
             .iter()
             .map(|input_note| input_note.id().inner().to_hex())
             .collect();
-        let input_note_inclusion_proofs_as_bytes: Vec<u8> =
-            committed_notes.updated_input_notes().to_bytes();
-        let input_note_metadatas_as_bytes: Vec<u8> =
-            committed_notes.updated_input_notes().to_bytes();
+
+        let input_note_inclusion_proofs_as_bytes: Vec<Vec<u8>> = committed_notes
+            .updated_input_notes()
+            .iter()
+            .map(|input_note| {
+                let inclusion_proof =
+                    input_note.proof().expect("Input note doesn't have inclusion proof");
+                inclusion_proof.to_bytes()
+            })
+            .collect::<Vec<Vec<u8>>>();
+        let flattened_nested_vec_input_note_inclusion_proofs =
+            flatten_nested_u8_vec(input_note_inclusion_proofs_as_bytes);
+
+        let input_note_metadatas_as_bytes: Vec<Vec<u8>> = committed_notes
+            .updated_input_notes()
+            .iter()
+            .map(|input_note| input_note.note().metadata().to_bytes())
+            .collect::<Vec<Vec<u8>>>();
+        let flattened_nested_vec_input_note_metadatas =
+            flatten_nested_u8_vec(input_note_metadatas_as_bytes);
 
         // TODO: LOP INTO idxdb_apply_state_sync call
         // Commit new public notes
@@ -182,10 +207,10 @@ impl WebStore {
             serialized_node_ids,
             serialized_nodes,
             output_note_ids_as_str,
-            output_note_inclusion_proofs_as_bytes,
+            flattened_nested_vec_output_note_inclusion_proofs,
             input_note_ids_as_str,
-            input_note_inclusion_proofs_as_bytes,
-            input_note_metadatas_as_bytes,
+            flattened_nested_vec_input_note_inclusion_proofs,
+            flattened_nested_vec_input_note_metadatas,
             transactions_to_commit_as_str,
             transactions_to_commit_block_nums_as_str,
         );

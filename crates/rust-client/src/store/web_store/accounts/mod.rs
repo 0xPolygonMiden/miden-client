@@ -140,7 +140,7 @@ impl WebStore {
         &self,
         commitment: Digest,
     ) -> Result<Vec<Asset>, StoreError> {
-        let commitment_serialized = serde_json::to_string(&commitment.to_string()).unwrap();
+        let commitment_serialized = commitment.to_string();
 
         let promise = idxdb_get_account_asset_vault(commitment_serialized);
         let js_value = JsFuture::from(promise).await.unwrap();

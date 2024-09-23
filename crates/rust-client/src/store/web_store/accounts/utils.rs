@@ -34,11 +34,10 @@ pub async fn insert_account_storage(account_storage: &AccountStorage) -> Result<
 }
 
 pub async fn insert_account_asset_vault(asset_vault: &AssetVault) -> Result<(), ()> {
-    let root = asset_vault.commitment().to_string();
-    let assets: Vec<Asset> = asset_vault.assets().collect();
-    let assets_as_vec = assets.to_bytes();
+    let commitment = asset_vault.commitment().to_string();
+    let assets = asset_vault.assets().collect::<Vec<Asset>>().to_bytes();
 
-    let promise = idxdb_insert_account_asset_vault(root, assets_as_vec);
+    let promise = idxdb_insert_account_asset_vault(commitment, assets);
     let _ = JsFuture::from(promise).await;
     Ok(())
 }

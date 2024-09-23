@@ -6,7 +6,7 @@ use alloc::{
 use chrono::Utc;
 use miden_objects::{
     accounts::AccountId,
-    notes::{NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, NoteScript, NoteTag},
+    notes::{NoteAssets, NoteId, NoteInclusionProof, NoteMetadata, NoteTag},
     transaction::TransactionId,
     utils::Deserializable,
     Digest,
@@ -84,12 +84,7 @@ pub(crate) fn serialize_input_note(
 
     let inclusion_proof = match note.inclusion_proof() {
         Some(proof) => {
-            let block_num = proof.location().block_num();
-            let node_index = proof.location().node_index_in_block();
-
-            let inclusion_proof =
-                NoteInclusionProof::new(block_num, node_index, proof.note_path().clone())?
-                    .to_bytes();
+            let inclusion_proof = proof.to_bytes();
 
             Some(inclusion_proof)
         },
@@ -143,6 +138,7 @@ pub(crate) fn serialize_input_note(
 }
 
 pub async fn insert_input_note_tx(block_num: u32, note: InputNoteRecord) -> Result<(), StoreError> {
+    let nullifier = note.nullifier().to_string();
     let serialized_data = serialize_input_note(note)?;
     let expected_height = serialized_data.expected_height.or(Some(block_num.to_string()));
 
@@ -152,6 +148,7 @@ pub async fn insert_input_note_tx(block_num: u32, note: InputNoteRecord) -> Resu
         serialized_data.recipient,
         serialized_data.status,
         serialized_data.metadata,
+        nullifier,
         serialized_data.details,
         serialized_data.note_script_hash,
         serialized_data.note_script,
@@ -174,12 +171,7 @@ pub(crate) fn serialize_output_note(
     let note_assets = note.assets().to_bytes();
     let (inclusion_proof, status) = match note.inclusion_proof() {
         Some(proof) => {
-            let block_num = proof.location().block_num();
-            let node_index = proof.location().node_index_in_block();
-
-            let inclusion_proof =
-                NoteInclusionProof::new(block_num, node_index, proof.note_path().clone())?
-                    .to_bytes();
+            let inclusion_proof = proof.to_bytes();
 
             let status = NOTE_STATUS_COMMITTED.to_string();
 
@@ -226,6 +218,12 @@ pub async fn insert_output_note_tx(
 ) -> Result<(), StoreError> {
     let serialized_data = serialize_output_note(note)?;
     let expected_height = serialized_data.expected_height.or(Some(block_num.to_string()));
+    let nullifier: Option<String> = match serialized_data.details {
+        Some(ref bytes) => NoteRecordDetails::read_from_bytes(bytes)
+            .map(|details| details.nullifier().to_string())
+            .ok(),
+        None => None,
+    };
 
     let result = JsFuture::from(idxdb_insert_output_note(
         serialized_data.note_id,
@@ -233,6 +231,7 @@ pub async fn insert_output_note_tx(
         serialized_data.recipient,
         serialized_data.status,
         serialized_data.metadata,
+        nullifier,
         serialized_data.details,
         serialized_data.note_script_hash,
         serialized_data.note_script,
@@ -251,14 +250,7 @@ pub fn parse_input_note_idxdb_object(
     note_idxdb: InputNoteIdxdbObject,
 ) -> Result<InputNoteRecord, StoreError> {
     // Merge the info that comes from the input notes table and the notes script table
-    let note_script = NoteScript::read_from_bytes(&note_idxdb.serialized_note_script)?;
     let note_details: NoteRecordDetails = NoteRecordDetails::read_from_bytes(&note_idxdb.details)?;
-    let note_details = NoteRecordDetails::new(
-        note_details.nullifier().to_string(),
-        note_script,
-        note_details.inputs().clone(),
-        note_details.serial_num(),
-    );
 
     let note_metadata: Option<NoteMetadata> =
         if let Some(metadata_as_json_bytes) = note_idxdb.metadata {
@@ -271,8 +263,7 @@ pub fn parse_input_note_idxdb_object(
 
     let inclusion_proof = match note_idxdb.inclusion_proof {
         Some(note_inclusion_proof) => {
-            let note_inclusion_proof = NoteInclusionProof::read_from_bytes(&note_inclusion_proof)?;
-            Some(note_inclusion_proof)
+            Some(NoteInclusionProof::read_from_bytes(&note_inclusion_proof)?)
         },
         _ => None,
     };
@@ -344,19 +335,8 @@ pub fn parse_output_note_idxdb_object(
 ) -> Result<OutputNoteRecord, StoreError> {
     let note_details: Option<NoteRecordDetails> =
         if let Some(details_as_json_bytes) = note_idxdb.details {
-            // Merge the info that comes from the input notes table and the notes script table
-            let serialized_note_script = note_idxdb
-                .serialized_note_script
-                .expect("Has note details so it should have the serialized script");
-            let note_script = NoteScript::read_from_bytes(&serialized_note_script)?;
             let note_details: NoteRecordDetails =
                 NoteRecordDetails::read_from_bytes(&details_as_json_bytes)?;
-            let note_details = NoteRecordDetails::new(
-                note_details.nullifier().to_string(),
-                note_script,
-                note_details.inputs().clone(),
-                note_details.serial_num(),
-            );
 
             Some(note_details)
         } else {
