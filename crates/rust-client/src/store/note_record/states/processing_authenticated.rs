@@ -39,15 +39,16 @@ impl NoteStateHandler for ProcessingAuthenticatedNoteState {
         &self,
         nullifier_block_height: u32,
     ) -> Result<Option<NoteState>, NoteRecordError> {
-        Ok(Some(NoteState::ConsumedAuthenticatedLocal(
+        Ok(Some(
             ConsumedAuthenticatedLocalNoteState {
                 metadata: self.metadata,
                 inclusion_proof: self.inclusion_proof.clone(),
                 block_note_root: self.block_note_root,
                 nullifier_block_height,
                 submission_data: self.submission_data,
-            },
-        )))
+            }
+            .into(),
+        ))
     }
 
     fn block_header_received(

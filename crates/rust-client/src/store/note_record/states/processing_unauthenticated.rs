@@ -34,13 +34,14 @@ impl NoteStateHandler for ProcessingUnauthenticatedNoteState {
         &self,
         nullifier_block_height: u32,
     ) -> Result<Option<NoteState>, NoteRecordError> {
-        Ok(Some(NoteState::ConsumedUnauthenticatedLocal(
+        Ok(Some(
             ConsumedUnauthenticatedLocalNoteState {
                 metadata: self.metadata,
                 nullifier_block_height,
                 submission_data: self.submission_data,
-            },
-        )))
+            }
+            .into(),
+        ))
     }
 
     fn block_header_received(

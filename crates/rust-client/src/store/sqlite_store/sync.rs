@@ -9,7 +9,7 @@ use crate::{
     store::{
         note_record::{NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED},
         sqlite_store::{accounts::update_account, notes::insert_input_note_tx},
-        CommittedNoteState, InputNoteRecord, NoteFilter, NoteState, StoreError,
+        CommittedNoteState, InputNoteRecord, NoteFilter, StoreError,
     },
     sync::StateSyncUpdate,
 };
@@ -156,14 +156,15 @@ impl SqliteStore {
             let input_note_record = InputNoteRecord::new(
                 details,
                 None,
-                NoteState::Committed(CommittedNoteState {
+                CommittedNoteState {
                     metadata: *input_note.note().metadata(),
                     inclusion_proof: input_note
                         .proof()
                         .expect("New public note should be authenticated")
                         .clone(),
                     block_note_root: block_header.note_root(),
-                }),
+                }
+                .into(),
             );
 
             insert_input_note_tx(&tx, input_note_record)?;

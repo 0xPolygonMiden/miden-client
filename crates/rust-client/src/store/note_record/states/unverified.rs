@@ -21,16 +21,14 @@ impl NoteStateHandler for UnverifiedNoteState {
         inclusion_proof: NoteInclusionProof,
         metadata: NoteMetadata,
     ) -> Result<Option<NoteState>, NoteRecordError> {
-        Ok(Some(NoteState::Unverified(UnverifiedNoteState { metadata, inclusion_proof })))
+        Ok(Some(UnverifiedNoteState { metadata, inclusion_proof }.into()))
     }
 
     fn nullifier_received(
         &self,
         nullifier_block_height: u32,
     ) -> Result<Option<NoteState>, NoteRecordError> {
-        Ok(Some(NoteState::ConsumedExternal(ConsumedExternalNoteState {
-            nullifier_block_height,
-        })))
+        Ok(Some(ConsumedExternalNoteState { nullifier_block_height }.into()))
     }
 
     fn block_header_received(
@@ -43,17 +41,23 @@ impl NoteStateHandler for UnverifiedNoteState {
             compute_note_hash(note_id, &self.metadata),
             &block_header.note_root(),
         ) {
-            Ok(Some(NoteState::Committed(CommittedNoteState {
-                inclusion_proof: self.inclusion_proof.clone(),
-                metadata: self.metadata,
-                block_note_root: block_header.note_root(),
-            })))
+            Ok(Some(
+                CommittedNoteState {
+                    inclusion_proof: self.inclusion_proof.clone(),
+                    metadata: self.metadata,
+                    block_note_root: block_header.note_root(),
+                }
+                .into(),
+            ))
         } else {
-            Ok(Some(NoteState::Invalid(InvalidNoteState {
-                metadata: self.metadata,
-                invalid_inclusion_proof: self.inclusion_proof.clone(),
-                block_note_root: block_header.note_root(),
-            })))
+            Ok(Some(
+                InvalidNoteState {
+                    metadata: self.metadata,
+                    invalid_inclusion_proof: self.inclusion_proof.clone(),
+                    block_note_root: block_header.note_root(),
+                }
+                .into(),
+            ))
         }
     }
 
@@ -68,11 +72,14 @@ impl NoteStateHandler for UnverifiedNoteState {
             consumer_transaction,
         };
 
-        Ok(Some(NoteState::ProcessingUnauthenticated(ProcessingUnauthenticatedNoteState {
-            metadata: self.metadata,
-            after_block_num: self.inclusion_proof.location().block_num() - 1,
-            submission_data,
-        })))
+        Ok(Some(
+            ProcessingUnauthenticatedNoteState {
+                metadata: self.metadata,
+                after_block_num: self.inclusion_proof.location().block_num() - 1,
+                submission_data,
+            }
+            .into(),
+        ))
     }
 
     fn metadata(&self) -> Option<&NoteMetadata> {

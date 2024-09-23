@@ -197,11 +197,12 @@ impl From<&NoteDetails> for InputNoteRecord {
         Self {
             details: value.clone(),
             created_at: None,
-            state: NoteState::Expected(ExpectedNoteState {
+            state: ExpectedNoteState {
                 metadata: None,
                 after_block_num: 0,
                 tag: None,
-            }),
+            }
+            .into(),
         }
     }
 }
@@ -212,11 +213,12 @@ impl From<Note> for InputNoteRecord {
         Self {
             details: value.into(),
             created_at: None,
-            state: NoteState::Expected(ExpectedNoteState {
+            state: ExpectedNoteState {
                 metadata: Some(metadata),
                 after_block_num: 0,
                 tag: Some(metadata.tag()),
-            }),
+            }
+            .into(),
         }
     }
 }
@@ -227,10 +229,11 @@ impl From<InputNote> for InputNoteRecord {
             InputNote::Authenticated { note, proof } => Self {
                 details: note.clone().into(),
                 created_at: None,
-                state: NoteState::Unverified(UnverifiedNoteState {
+                state: UnverifiedNoteState {
                     metadata: *note.metadata(),
                     inclusion_proof: proof,
-                }),
+                }
+                .into(),
             },
             InputNote::Unauthenticated { note } => note.into(),
         }

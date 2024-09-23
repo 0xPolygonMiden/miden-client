@@ -26,16 +26,14 @@ impl NoteStateHandler for ExpectedNoteState {
         inclusion_proof: NoteInclusionProof,
         metadata: NoteMetadata,
     ) -> Result<Option<NoteState>, NoteRecordError> {
-        Ok(Some(NoteState::Unverified(UnverifiedNoteState { metadata, inclusion_proof })))
+        Ok(Some(UnverifiedNoteState { metadata, inclusion_proof }.into()))
     }
 
     fn nullifier_received(
         &self,
         nullifier_block_height: u32,
     ) -> Result<Option<NoteState>, NoteRecordError> {
-        Ok(Some(NoteState::ConsumedExternal(ConsumedExternalNoteState {
-            nullifier_block_height,
-        })))
+        Ok(Some(ConsumedExternalNoteState { nullifier_block_height }.into()))
     }
 
     fn block_header_received(
@@ -66,11 +64,14 @@ impl NoteStateHandler for ExpectedNoteState {
                     consumer_transaction,
                 };
 
-                Ok(Some(NoteState::ProcessingUnauthenticated(ProcessingUnauthenticatedNoteState {
-                    metadata,
-                    after_block_num: self.after_block_num,
-                    submission_data,
-                })))
+                Ok(Some(
+                    ProcessingUnauthenticatedNoteState {
+                        metadata,
+                        after_block_num: self.after_block_num,
+                        submission_data,
+                    }
+                    .into(),
+                ))
             },
         }
     }

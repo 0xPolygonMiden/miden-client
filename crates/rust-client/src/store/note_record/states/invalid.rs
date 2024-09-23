@@ -31,9 +31,7 @@ impl NoteStateHandler for InvalidNoteState {
         &self,
         nullifier_block_height: u32,
     ) -> Result<Option<NoteState>, NoteRecordError> {
-        Ok(Some(NoteState::ConsumedExternal(ConsumedExternalNoteState {
-            nullifier_block_height,
-        })))
+        Ok(Some(ConsumedExternalNoteState { nullifier_block_height }.into()))
     }
 
     fn block_header_received(
@@ -46,11 +44,14 @@ impl NoteStateHandler for InvalidNoteState {
             compute_note_hash(note_id, &self.metadata),
             &block_header.note_root(),
         ) {
-            Ok(Some(NoteState::Committed(CommittedNoteState {
-                inclusion_proof: self.invalid_inclusion_proof.clone(),
-                metadata: self.metadata,
-                block_note_root: block_header.note_root(),
-            })))
+            Ok(Some(
+                CommittedNoteState {
+                    inclusion_proof: self.invalid_inclusion_proof.clone(),
+                    metadata: self.metadata,
+                    block_note_root: block_header.note_root(),
+                }
+                .into(),
+            ))
         } else {
             Ok(None)
         }

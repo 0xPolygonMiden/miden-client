@@ -36,9 +36,7 @@ impl NoteStateHandler for CommittedNoteState {
         &self,
         nullifier_block_height: u32,
     ) -> Result<Option<NoteState>, NoteRecordError> {
-        Ok(Some(NoteState::ConsumedExternal(ConsumedExternalNoteState {
-            nullifier_block_height,
-        })))
+        Ok(Some(ConsumedExternalNoteState { nullifier_block_height }.into()))
     }
 
     fn block_header_received(
@@ -65,12 +63,15 @@ impl NoteStateHandler for CommittedNoteState {
             consumer_transaction,
         };
 
-        Ok(Some(NoteState::ProcessingAuthenticated(ProcessingAuthenticatedNoteState {
-            metadata: self.metadata,
-            inclusion_proof: self.inclusion_proof.clone(),
-            block_note_root: self.block_note_root,
-            submission_data,
-        })))
+        Ok(Some(
+            ProcessingAuthenticatedNoteState {
+                metadata: self.metadata,
+                inclusion_proof: self.inclusion_proof.clone(),
+                block_note_root: self.block_note_root,
+                submission_data,
+            }
+            .into(),
+        ))
     }
 
     fn metadata(&self) -> Option<&NoteMetadata> {
