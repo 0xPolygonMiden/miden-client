@@ -30,9 +30,7 @@ impl WebStore {
         let tags_idxdb: NoteTagsIdxdbObject = from_value(js_value).unwrap();
 
         let tags: Vec<NoteTag> = match tags_idxdb.tags {
-            Some(ref bytes) => {
-                Vec::<NoteTag>::read_from_bytes(bytes).unwrap_or_default()
-            }, // Handle possible error in deserialization
+            Some(ref bytes) => Vec::<NoteTag>::read_from_bytes(bytes).unwrap_or_default(), /* Handle possible error in deserialization */
             None => Vec::new(), // Return an empty Vec if tags_idxdb.tags is None
         };
 
