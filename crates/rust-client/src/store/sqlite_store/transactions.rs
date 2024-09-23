@@ -15,7 +15,7 @@ use tracing::info;
 
 use super::{
     accounts::update_account,
-    notes::{insert_input_note_tx, insert_output_note_tx},
+    notes::{insert_output_note_tx, upsert_input_note_tx},
     SqliteStore,
 };
 use crate::{
@@ -117,7 +117,7 @@ impl SqliteStore {
 
         // Updates for notes
         for note in created_input_notes {
-            insert_input_note_tx(&tx, note)?;
+            upsert_input_note_tx(&tx, note)?;
         }
 
         for note in &created_output_notes {
@@ -131,7 +131,7 @@ impl SqliteStore {
                 let mut input_note_record = relevant_notes.swap_remove(note_pos);
 
                 if input_note_record.consumed_locally(account_id, transaction_id)? {
-                    insert_input_note_tx(&tx, input_note_record)?;
+                    upsert_input_note_tx(&tx, input_note_record)?;
                 }
             }
         }

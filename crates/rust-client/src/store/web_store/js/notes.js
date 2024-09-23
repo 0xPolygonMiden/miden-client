@@ -127,7 +127,8 @@ export async function getUnspentInputNoteNullifiers() {
     }
 }
 
-export async function insertInputNote(
+
+export async function upsertInputNote(
     noteId,
     assets,
     serialNumber,

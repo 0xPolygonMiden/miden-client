@@ -34,8 +34,8 @@ extern "C" {
     // INSERTS
     // ================================================================================================
 
-    #[wasm_bindgen(js_name = insertInputNote)]
-    pub fn idxdb_insert_input_note(
+    #[wasm_bindgen(js_name = upsertInputNote)]
+    pub fn idxdb_upsert_input_note(
         note_id: String,
         assets: Vec<u8>,
         serial_number: Vec<u8>,

@@ -9,7 +9,7 @@ use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
 
 use super::{
-    chain_data::utils::serialize_chain_mmr_node, notes::utils::insert_input_note_tx,
+    chain_data::utils::serialize_chain_mmr_node, notes::utils::upsert_input_note_tx,
     transactions::utils::update_account, WebStore,
 };
 use crate::{store::StoreError, sync::StateSyncUpdate};
@@ -168,7 +168,7 @@ impl WebStore {
         // TODO: LOP INTO idxdb_apply_state_sync call
         // Commit new public notes
         for note in committed_notes.new_public_notes() {
-            insert_input_note_tx(note.clone().into()).await.unwrap();
+            upsert_input_note_tx(note.clone().into()).await.unwrap();
         }
 
         // Serialize data for updating committed transactions

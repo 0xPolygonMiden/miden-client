@@ -7,9 +7,7 @@ use miden_objects::{
     BlockHeader, Digest,
 };
 
-use super::{
-    ConsumedAuthenticatedLocalNoteState, NoteState, NoteStateHandler, NoteSubmissionData,
-};
+use super::{ConsumedAuthenticatedLocalNoteState, NoteState, NoteStateHandler, NoteSubmissionData};
 use crate::store::NoteRecordError;
 
 #[derive(Clone, Debug, PartialEq)]

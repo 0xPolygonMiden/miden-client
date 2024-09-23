@@ -6,8 +6,7 @@ use miden_objects::{
 };
 
 use super::{
-    CommittedNoteState, ConsumedExternalNoteState, NoteState, NoteStateHandler,
-    UnverifiedNoteState,
+    CommittedNoteState, ConsumedExternalNoteState, NoteState, NoteStateHandler, UnverifiedNoteState,
 };
 use crate::store::NoteRecordError;
 

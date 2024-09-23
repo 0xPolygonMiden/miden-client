@@ -33,7 +33,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 .await?;
 
             if note.block_header_received(block_header)? {
-                maybe_await!(self.store.insert_input_note(note))?;
+                maybe_await!(self.store.upsert_input_note(note))?;
             }
         }
 

@@ -89,10 +89,10 @@ pub(crate) fn serialize_input_note(
     })
 }
 
-pub async fn insert_input_note_tx(note: InputNoteRecord) -> Result<(), StoreError> {
+pub async fn upsert_input_note_tx(note: InputNoteRecord) -> Result<(), StoreError> {
     let serialized_data = serialize_input_note(note)?;
 
-    let promise = idxdb_insert_input_note(
+    let promise = idxdb_upsert_input_note(
         serialized_data.note_id,
         serialized_data.note_assets,
         serialized_data.serial_number,

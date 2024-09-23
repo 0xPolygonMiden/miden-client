@@ -8,7 +8,7 @@ use super::SqliteStore;
 use crate::{
     store::{
         note_record::{NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED},
-        sqlite_store::{accounts::update_account, notes::insert_input_note_tx},
+        sqlite_store::{accounts::update_account, notes::upsert_input_note_tx},
         CommittedNoteState, InputNoteRecord, NoteFilter, StoreError,
     },
     sync::StateSyncUpdate,
@@ -144,7 +144,7 @@ impl SqliteStore {
                     input_note_record.block_header_received(block_header)?;
 
                 if inclusion_proof_received || block_header_received {
-                    insert_input_note_tx(&tx, input_note_record)?;
+                    upsert_input_note_tx(&tx, input_note_record)?;
                 }
             }
         }
@@ -167,7 +167,7 @@ impl SqliteStore {
                 .into(),
             );
 
-            insert_input_note_tx(&tx, input_note_record)?;
+            upsert_input_note_tx(&tx, input_note_record)?;
         }
 
         // Update spent notes
@@ -181,7 +181,7 @@ impl SqliteStore {
                 let mut input_note_record = relevant_input_notes.swap_remove(note_pos);
 
                 if input_note_record.nullifier_received(nullifier, block_num)? {
-                    insert_input_note_tx(&tx, input_note_record)?;
+                    upsert_input_note_tx(&tx, input_note_record)?;
                 }
             }
 

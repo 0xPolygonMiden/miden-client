@@ -193,7 +193,7 @@ impl WebStore {
             .collect::<Result<Vec<Nullifier>, _>>()
     }
 
-    pub(crate) async fn insert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError> {
-        insert_input_note_tx(note).await
+    pub(crate) async fn upsert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError> {
+        upsert_input_note_tx(note).await
     }
 }

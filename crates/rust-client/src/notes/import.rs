@@ -49,7 +49,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         };
 
         if let Some(note) = note {
-            maybe_await!(self.store.insert_input_note(note))?;
+            maybe_await!(self.store.upsert_input_note(note))?;
         }
 
         Ok(id)

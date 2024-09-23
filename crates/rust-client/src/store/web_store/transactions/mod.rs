@@ -10,7 +10,7 @@ use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
 
 use super::{
-    notes::utils::{insert_input_note_tx, insert_output_note_tx},
+    notes::utils::{insert_output_note_tx, upsert_input_note_tx},
     WebStore,
 };
 use crate::{
@@ -126,7 +126,7 @@ impl WebStore {
 
         // Updates for notes
         for note in created_input_notes {
-            insert_input_note_tx(note).await?;
+            upsert_input_note_tx(note).await?;
         }
 
         for note in &created_output_notes {
@@ -140,7 +140,7 @@ impl WebStore {
                 let mut input_note_record = relevant_notes.swap_remove(note_pos);
 
                 if input_note_record.consumed_locally(account_id, transaction_id)? {
-                    insert_input_note_tx(input_note_record).await?;
+                    upsert_input_note_tx(input_note_record).await?;
                 }
             }
         }

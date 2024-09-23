@@ -5,9 +5,7 @@ use miden_objects::{
     BlockHeader,
 };
 
-use super::{
-    NoteState, NoteStateHandler, NoteSubmissionData,
-};
+use super::{NoteState, NoteStateHandler, NoteSubmissionData};
 use crate::store::NoteRecordError;
 
 #[derive(Clone, Debug, PartialEq)]

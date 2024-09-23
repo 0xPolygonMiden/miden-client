@@ -285,11 +285,11 @@ impl SqliteStore {
         Ok(notes)
     }
 
-    pub(crate) fn insert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError> {
+    pub(crate) fn upsert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError> {
         let mut db = self.db();
         let tx = db.transaction()?;
 
-        insert_input_note_tx(&tx, note)?;
+        upsert_input_note_tx(&tx, note)?;
 
         Ok(tx.commit()?)
     }
@@ -322,7 +322,7 @@ impl SqliteStore {
 
 /// Inserts the provided input note into the database, if the note already exists, it will be
 /// replaced.
-pub(super) fn insert_input_note_tx(
+pub(super) fn upsert_input_note_tx(
     tx: &Transaction<'_>,
     note: InputNoteRecord,
 ) -> Result<(), StoreError> {
