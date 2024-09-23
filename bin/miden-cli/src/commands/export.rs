@@ -6,7 +6,7 @@ use miden_client::{
     crypto::FeltRng,
     notes::NoteFile,
     rpc::NodeRpcClient,
-    store::{NoteRecordError, NoteStatus, Store},
+    store::{NoteStatus, Store},
     utils::Serializable,
     Client,
 };
@@ -116,10 +116,9 @@ fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticat
     let note_file = match export_type {
         ExportType::Id => NoteFile::NoteId(output_note.id()),
         ExportType::Full => match output_note.inclusion_proof() {
-            Some(inclusion_proof) => NoteFile::NoteWithProof(
-                output_note.clone().try_into().map_err(|err: NoteRecordError| err.to_string())?,
-                inclusion_proof.clone(),
-            ),
+            Some(inclusion_proof) => {
+                NoteFile::NoteWithProof(output_note.clone().try_into()?, inclusion_proof.clone())
+            },
             None => return Err("Note does not have inclusion proof".to_string()),
         },
         ExportType::Partial => {
@@ -136,10 +135,7 @@ fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticat
             };
 
             NoteFile::NoteDetails {
-                details: output_note
-                    .clone()
-                    .try_into()
-                    .map_err(|err: NoteRecordError| err.to_string())?,
+                details: output_note.clone().try_into()?,
                 after_block_num,
                 tag: Some(output_note.metadata().tag()),
             }

@@ -318,5 +318,11 @@ impl From<NoteError> for NoteRecordError {
     }
 }
 
+impl From<NoteRecordError> for String {
+    fn from(err: NoteRecordError) -> String {
+        err.to_string()
+    }
+}
+
 #[cfg(feature = "std")]
 impl std::error::Error for NoteRecordError {}
