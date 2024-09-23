@@ -292,8 +292,8 @@ impl From<NoteDetails> for NoteRecordDetails {
 pub enum NoteRecordError {
     ConversionError(String),
     NoteError(NoteError),
+    NoteNotConsumable(String),
     InvalidInclusionProof,
-    InvalidStateTransition { state: u8, transition_name: String },
     StateTransitionError(String),
 }
 
@@ -303,10 +303,8 @@ impl fmt::Display for NoteRecordError {
         match self {
             ConversionError(msg) => write!(f, "Note record conversion error: {}", msg),
             NoteError(err) => write!(f, "Note error: {}", err),
+            NoteNotConsumable(msg) => write!(f, "Note not consumable: {}", msg),
             InvalidInclusionProof => write!(f, "Invalid inclusion proof"),
-            InvalidStateTransition { state, transition_name } => {
-                write!(f, "Invalid state transition {} for state {}", transition_name, state)
-            },
             StateTransitionError(msg) => write!(f, "State transition error: {}", msg),
         }
     }

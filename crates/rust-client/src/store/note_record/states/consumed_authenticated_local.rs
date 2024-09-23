@@ -5,7 +5,7 @@ use miden_objects::{
     BlockHeader, Digest,
 };
 
-use super::{NoteState, NoteStateHandler, NoteSubmissionData, STATE_CONSUMED_AUTHENTICATED_LOCAL};
+use super::{NoteState, NoteStateHandler, NoteSubmissionData};
 use crate::store::NoteRecordError;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -46,10 +46,7 @@ impl NoteStateHandler for ConsumedAuthenticatedLocalNoteState {
         _consumer_account: miden_objects::accounts::AccountId,
         _consumer_transaction: miden_objects::transaction::TransactionId,
     ) -> Result<Option<NoteState>, NoteRecordError> {
-        Err(NoteRecordError::InvalidStateTransition {
-            state: STATE_CONSUMED_AUTHENTICATED_LOCAL,
-            transition_name: "consumed_locally".to_string(),
-        })
+        Err(NoteRecordError::NoteNotConsumable("Note already consumed".to_string()))
     }
 
     fn metadata(&self) -> Option<&NoteMetadata> {

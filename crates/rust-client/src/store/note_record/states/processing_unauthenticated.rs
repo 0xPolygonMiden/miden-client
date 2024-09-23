@@ -7,7 +7,6 @@ use miden_objects::{
 
 use super::{
     ConsumedUnauthenticatedLocalNoteState, NoteState, NoteStateHandler, NoteSubmissionData,
-    STATE_PROCESSING_UNAUTHENTICATED,
 };
 use crate::store::NoteRecordError;
 
@@ -24,10 +23,7 @@ impl NoteStateHandler for ProcessingUnauthenticatedNoteState {
         _inclusion_proof: NoteInclusionProof,
         _metadata: NoteMetadata,
     ) -> Result<Option<NoteState>, NoteRecordError> {
-        Err(NoteRecordError::InvalidStateTransition {
-            state: STATE_PROCESSING_UNAUTHENTICATED,
-            transition_name: "inclusion_proof_received".to_string(),
-        })
+        Ok(None)
     }
 
     fn nullifier_received(
@@ -57,10 +53,7 @@ impl NoteStateHandler for ProcessingUnauthenticatedNoteState {
         _consumer_account: miden_objects::accounts::AccountId,
         _consumer_transaction: miden_objects::transaction::TransactionId,
     ) -> Result<Option<NoteState>, NoteRecordError> {
-        Err(NoteRecordError::InvalidStateTransition {
-            state: STATE_PROCESSING_UNAUTHENTICATED,
-            transition_name: "consumed_locally".to_string(),
-        })
+        Err(NoteRecordError::NoteNotConsumable("Note being consumed".to_string()))
     }
 
     fn metadata(&self) -> Option<&NoteMetadata> {

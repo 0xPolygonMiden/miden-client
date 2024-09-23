@@ -9,7 +9,6 @@ use miden_objects::{
 
 use super::{
     ConsumedAuthenticatedLocalNoteState, NoteState, NoteStateHandler, NoteSubmissionData,
-    STATE_PROCESSING_AUTHENTICATED,
 };
 use crate::store::NoteRecordError;
 
@@ -64,10 +63,7 @@ impl NoteStateHandler for ProcessingAuthenticatedNoteState {
         _consumer_account: AccountId,
         _consumer_transaction: TransactionId,
     ) -> Result<Option<NoteState>, NoteRecordError> {
-        Err(NoteRecordError::InvalidStateTransition {
-            state: STATE_PROCESSING_AUTHENTICATED,
-            transition_name: "consumed_locally".to_string(),
-        })
+        Err(NoteRecordError::NoteNotConsumable("Note being consumed".to_string()))
     }
 
     fn metadata(&self) -> Option<&NoteMetadata> {

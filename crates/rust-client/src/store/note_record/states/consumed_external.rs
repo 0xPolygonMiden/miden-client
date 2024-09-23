@@ -5,7 +5,7 @@ use miden_objects::{
     BlockHeader,
 };
 
-use super::{NoteState, NoteStateHandler, STATE_CONSUMED_EXTERNAL};
+use super::{NoteState, NoteStateHandler};
 use crate::store::NoteRecordError;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -42,10 +42,7 @@ impl NoteStateHandler for ConsumedExternalNoteState {
         _consumer_account: miden_objects::accounts::AccountId,
         _consumer_transaction: miden_objects::transaction::TransactionId,
     ) -> Result<Option<NoteState>, NoteRecordError> {
-        Err(NoteRecordError::InvalidStateTransition {
-            state: STATE_CONSUMED_EXTERNAL,
-            transition_name: "consumed_locally".to_string(),
-        })
+        Err(NoteRecordError::NoteNotConsumable("Note already consumed".to_string()))
     }
 
     fn metadata(&self) -> Option<&NoteMetadata> {

@@ -9,7 +9,7 @@ use miden_objects::{
 
 use super::{
     ConsumedExternalNoteState, NoteState, NoteStateHandler, NoteSubmissionData,
-    ProcessingUnauthenticatedNoteState, UnverifiedNoteState, STATE_EXPECTED,
+    ProcessingUnauthenticatedNoteState, UnverifiedNoteState,
 };
 use crate::store::NoteRecordError;
 
@@ -41,10 +41,9 @@ impl NoteStateHandler for ExpectedNoteState {
         _note_id: NoteId,
         _block_header: BlockHeader,
     ) -> Result<Option<NoteState>, NoteRecordError> {
-        Err(NoteRecordError::InvalidStateTransition {
-            state: STATE_EXPECTED,
-            transition_name: "block_header_received".to_string(),
-        })
+        Err(NoteRecordError::StateTransitionError(
+            "Can't verify an expected note".to_string(),
+        ))
     }
 
     fn consumed_locally(
@@ -53,10 +52,9 @@ impl NoteStateHandler for ExpectedNoteState {
         consumer_transaction: TransactionId,
     ) -> Result<Option<NoteState>, NoteRecordError> {
         match self.metadata {
-            None => Err(NoteRecordError::InvalidStateTransition {
-                state: STATE_EXPECTED,
-                transition_name: "consumed_locally".to_string(),
-            }),
+            None => Err(NoteRecordError::NoteNotConsumable(
+                "Can't consume note without metadata".to_string(),
+            )),
             Some(metadata) => {
                 let submission_data = NoteSubmissionData {
                     submitted_at: None,
