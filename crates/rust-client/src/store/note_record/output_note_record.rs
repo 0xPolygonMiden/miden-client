@@ -9,7 +9,7 @@ use miden_objects::{
     Digest,
 };
 
-use super::{InputNoteRecord, NoteRecordDetails, NoteRecordError, NoteStatus};
+use super::{NoteRecordDetails, NoteRecordError, NoteStatus};
 
 // OUTPUT NOTE RECORD
 // ================================================================================================
