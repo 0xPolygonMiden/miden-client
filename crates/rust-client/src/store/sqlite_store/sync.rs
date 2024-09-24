@@ -7,9 +7,12 @@ use rusqlite::{named_params, params};
 use super::SqliteStore;
 use crate::{
     store::{
-        note_record::{NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED},
+        note_record::{
+            ProcessingAuthenticatedNoteState, ProcessingUnauthenticatedNoteState,
+            NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED,
+        },
         sqlite_store::{accounts::update_account, notes::upsert_input_note_tx},
-        CommittedNoteState, InputNoteRecord, NoteFilter, StoreError,
+        CommittedNoteState, InputNoteRecord, NoteFilter, NoteState, StoreError,
     },
     sync::StateSyncUpdate,
 };
@@ -169,6 +172,7 @@ impl SqliteStore {
         }
 
         // Update spent notes
+        let mut discarded_transactions = vec![];
         for nullifier_update in nullifiers.iter() {
             let nullifier = nullifier_update.nullifier;
             let block_num = nullifier_update.block_num;
@@ -176,6 +180,26 @@ impl SqliteStore {
             if let Some(input_note_record) =
                 relevant_input_notes.iter_mut().find(|n| n.nullifier() == nullifier)
             {
+                match input_note_record.state() {
+                    NoteState::ProcessingAuthenticated(ProcessingAuthenticatedNoteState {
+                        submission_data,
+                        ..
+                    })
+                    | NoteState::ProcessingUnauthenticated(ProcessingUnauthenticatedNoteState {
+                        submission_data,
+                        ..
+                    }) => {
+                        let transaction_id = submission_data.consumer_transaction;
+                        if !committed_transactions
+                            .iter()
+                            .any(|update| update.transaction_id == transaction_id)
+                        {
+                            discarded_transactions.push(transaction_id);
+                        }
+                    },
+                    _ => {},
+                }
+
                 if input_note_record.nullifier_received(nullifier, block_num)? {
                     upsert_input_note_tx(&tx, input_note_record)?;
                 }
@@ -196,6 +220,9 @@ impl SqliteStore {
 
         // Mark transactions as committed
         Self::mark_transactions_as_committed(&tx, &committed_transactions)?;
+
+        // Marc transactions as discarded
+        Self::mark_transactions_as_discarded(&tx, &discarded_transactions)?;
 
         // Update onchain accounts on the db that have been updated onchain
         for account in updated_onchain_accounts {

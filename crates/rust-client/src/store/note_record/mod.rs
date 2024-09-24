@@ -50,7 +50,8 @@ pub use input_note_record::InputNoteRecord;
 pub use output_note_record::OutputNoteRecord;
 pub use states::{
     CommittedNoteState, ConsumedAuthenticatedLocalNoteState, ExpectedNoteState, NoteState,
-    STATE_COMMITTED, STATE_CONSUMED_AUTHENTICATED_LOCAL, STATE_CONSUMED_EXTERNAL,
+    ProcessingAuthenticatedNoteState, ProcessingUnauthenticatedNoteState, STATE_COMMITTED,
+    STATE_CONSUMED_AUTHENTICATED_LOCAL, STATE_CONSUMED_EXTERNAL,
     STATE_CONSUMED_UNAUTHENTICATED_LOCAL, STATE_EXPECTED, STATE_PROCESSING_AUTHENTICATED,
     STATE_PROCESSING_UNAUTHENTICATED, STATE_UNVERIFIED,
 };

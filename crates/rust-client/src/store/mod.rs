@@ -40,6 +40,7 @@ mod note_record;
 pub use note_record::{
     CommittedNoteState, ConsumedAuthenticatedLocalNoteState, ExpectedNoteState, InputNoteRecord,
     NoteRecordDetails, NoteRecordError, NoteState, NoteStatus, OutputNoteRecord,
+    ProcessingAuthenticatedNoteState, ProcessingUnauthenticatedNoteState,
 };
 
 // STORE TRAIT
