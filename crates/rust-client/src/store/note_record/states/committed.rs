@@ -37,7 +37,7 @@ impl NoteStateHandler for CommittedNoteState {
         Ok(None)
     }
 
-    fn nullifier_received(
+    fn consumed_externally(
         &self,
         nullifier_block_height: u32,
     ) -> Result<Option<NoteState>, NoteRecordError> {

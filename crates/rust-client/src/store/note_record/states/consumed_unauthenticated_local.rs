@@ -29,7 +29,7 @@ impl NoteStateHandler for ConsumedUnauthenticatedLocalNoteState {
         Ok(None)
     }
 
-    fn nullifier_received(
+    fn consumed_externally(
         &self,
         _nullifier_block_height: u32,
     ) -> Result<Option<NoteState>, NoteRecordError> {

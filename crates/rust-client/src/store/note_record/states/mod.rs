@@ -125,11 +125,11 @@ impl NoteState {
     ///
     /// Errors:
     /// - If the nullifier does not match the expected value.
-    pub fn nullifier_received(
+    pub fn consumed_externally(
         &self,
         nullifier_block_height: u32,
     ) -> Result<Option<NoteState>, NoteRecordError> {
-        self.inner().nullifier_received(nullifier_block_height)
+        self.inner().consumed_externally(nullifier_block_height)
     }
 
     /// Returns a new state to reflect that the note has received a block header.
@@ -296,7 +296,7 @@ pub trait NoteStateHandler {
         metadata: NoteMetadata,
     ) -> Result<Option<NoteState>, NoteRecordError>;
 
-    fn nullifier_received(
+    fn consumed_externally(
         &self,
         nullifier_block_height: u32,
     ) -> Result<Option<NoteState>, NoteRecordError>;

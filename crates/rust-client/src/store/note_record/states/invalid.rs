@@ -31,7 +31,7 @@ impl NoteStateHandler for InvalidNoteState {
         Ok(Some(UnverifiedNoteState { inclusion_proof, metadata }.into()))
     }
 
-    fn nullifier_received(
+    fn consumed_externally(
         &self,
         nullifier_block_height: u32,
     ) -> Result<Option<NoteState>, NoteRecordError> {

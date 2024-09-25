@@ -200,7 +200,7 @@ impl SqliteStore {
                     );
                 }
 
-                if input_note_record.nullifier_received(nullifier, block_num)? {
+                if input_note_record.consumed_externally(nullifier, block_num)? {
                     upsert_input_note_tx(&tx, input_note_record)?;
                 }
             }

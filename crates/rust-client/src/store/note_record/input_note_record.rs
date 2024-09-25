@@ -146,7 +146,7 @@ impl InputNoteRecord {
     ///
     /// Errors:
     /// - If the nullifier does not match the expected value.
-    pub fn nullifier_received(
+    pub fn consumed_externally(
         &mut self,
         nullifier: Nullifier,
         nullifier_block_height: u32,
@@ -157,7 +157,7 @@ impl InputNoteRecord {
             ));
         }
 
-        let new_state = self.state.nullifier_received(nullifier_block_height)?;
+        let new_state = self.state.consumed_externally(nullifier_block_height)?;
         if let Some(new_state) = new_state {
             self.state = new_state;
             Ok(true)

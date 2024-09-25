@@ -35,7 +35,7 @@ impl NoteStateHandler for ExpectedNoteState {
         Ok(Some(UnverifiedNoteState { metadata, inclusion_proof }.into()))
     }
 
-    fn nullifier_received(
+    fn consumed_externally(
         &self,
         nullifier_block_height: u32,
     ) -> Result<Option<NoteState>, NoteRecordError> {
