@@ -645,86 +645,25 @@ impl SwapTransactionData {
     }
 }
 
-// KNOWN SCRIPT ROOTS
-// ================================================================================================
-
-// TODO: Remove this in favor of precompiled scripts
-pub mod known_script_roots {
-    pub const P2ID: &str = "0xc491aa07f9a0da9838de1ae841ea7dc8d45cd5641f74a89faeb2ff8fa8cf801b";
-    pub const P2IDR: &str = "0x143480f4ddf09a321c6373edd8ea4768d04ef4238aa41d221c0129f83e5c1d5a";
-    pub const SWAP: &str = "0x4dd86dfc6ec16cef9d169480850d4e5e6d0de4eca662323f27be87486b2b7d21";
-}
-
 // TESTS
 // ================================================================================================
 
 #[cfg(test)]
 mod tests {
-    use alloc::string::ToString;
     use std::vec::Vec;
 
-    use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
+    use miden_lib::notes::create_p2id_note;
     use miden_objects::{
-        accounts::{
-            account_id::testing::{
-                ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
-            },
-            AccountId, AccountType,
-        },
+        accounts::{AccountId, AccountType},
         assets::FungibleAsset,
         crypto::rand::{FeltRng, RpoRandomCoin},
         notes::NoteType,
         transaction::OutputNote,
-        Digest, Felt, FieldElement, ZERO,
+        Digest, Felt, ZERO,
     };
     use miden_tx::utils::{Deserializable, Serializable};
 
     use super::TransactionRequest;
-    use crate::transactions::known_script_roots::{P2ID, P2IDR, SWAP};
-
-    // We need to make sure the script roots we use for filters are in line with the note scripts
-    // coming from Miden objects
-    #[test]
-    fn ensure_correct_script_roots() {
-        // create dummy data for the notes
-        let faucet_id: AccountId = ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN.try_into().unwrap();
-        let account_id: AccountId = ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN.try_into().unwrap();
-        let mut rng = RpoRandomCoin::new(Default::default());
-
-        // create dummy notes to compare note script roots
-        let p2id_note = create_p2id_note(
-            account_id,
-            account_id,
-            vec![FungibleAsset::new(faucet_id, 100u64).unwrap().into()],
-            NoteType::Private,
-            Felt::ZERO,
-            &mut rng,
-        )
-        .unwrap();
-        let p2idr_note = create_p2idr_note(
-            account_id,
-            account_id,
-            vec![FungibleAsset::new(faucet_id, 100u64).unwrap().into()],
-            NoteType::Private,
-            Felt::ZERO,
-            10,
-            &mut rng,
-        )
-        .unwrap();
-        let (swap_note, _serial_num) = create_swap_note(
-            account_id,
-            FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
-            FungibleAsset::new(faucet_id, 100u64).unwrap().into(),
-            NoteType::Private,
-            Felt::ZERO,
-            &mut rng,
-        )
-        .unwrap();
-
-        assert_eq!(p2id_note.script().hash().to_string(), P2ID);
-        assert_eq!(p2idr_note.script().hash().to_string(), P2IDR);
-        assert_eq!(swap_note.script().hash().to_string(), SWAP);
-    }
 
     #[test]
     fn transaction_request_serialization() {

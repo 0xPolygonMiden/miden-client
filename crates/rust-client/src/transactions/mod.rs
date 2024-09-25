@@ -42,7 +42,6 @@ pub use miden_objects::transaction::{
     TransactionScript,
 };
 pub use miden_tx::{DataStoreError, TransactionExecutorError};
-pub use request::known_script_roots;
 pub use script_builder::TransactionScriptBuilderError;
 
 // TRANSACTION RESULT

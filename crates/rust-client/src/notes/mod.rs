@@ -14,9 +14,11 @@ use crate::{
     Client, ClientError, IdPrefixFetchError,
 };
 
-mod import;
+pub mod script_roots;
 
+mod import;
 mod note_screener;
+
 // RE-EXPORTS
 // ================================================================================================
 pub use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
