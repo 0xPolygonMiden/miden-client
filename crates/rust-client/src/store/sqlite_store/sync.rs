@@ -11,57 +11,50 @@ use crate::{
         sqlite_store::{accounts::update_account, notes::upsert_input_note_tx},
         CommittedNoteState, InputNoteRecord, NoteFilter, StoreError,
     },
-    sync::StateSyncUpdate,
+    sync::{NoteTagRecord, NoteTagSource, StateSyncUpdate},
 };
 
 impl SqliteStore {
-    pub(crate) fn get_note_tags(&self) -> Result<Vec<NoteTag>, StoreError> {
-        const QUERY: &str = "SELECT tags FROM state_sync";
+    pub(crate) fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, StoreError> {
+        const QUERY: &str = "SELECT tag, source FROM tags";
 
         self.db()
             .prepare(QUERY)?
-            .query_map([], |row| row.get(0))
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
             .expect("no binding parameters used in query")
             .map(|result| {
-                result.map_err(|err| StoreError::ParsingError(err.to_string())).and_then(
-                    |v: Option<Vec<u8>>| match v {
-                        Some(tags) => Vec::<NoteTag>::read_from_bytes(&tags)
-                            .map_err(StoreError::DataDeserializationError),
-                        None => Ok(Vec::<NoteTag>::new()),
-                    },
-                )
+                Ok(result?).and_then(|(tag, source): (Vec<u8>, Vec<u8>)| {
+                    Ok(NoteTagRecord {
+                        tag: NoteTag::read_from_bytes(&tag)
+                            .map_err(|err| StoreError::ParsingError(err.to_string()))?,
+                        source: NoteTagSource::read_from_bytes(&source)
+                            .map_err(|err| StoreError::ParsingError(err.to_string()))?,
+                    })
+                })
             })
-            .next()
-            .expect("state sync tags exist")
+            .collect::<Result<Vec<NoteTagRecord>, _>>()
     }
 
-    pub(super) fn add_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError> {
-        let mut tags = self.get_note_tags()?;
-        if tags.contains(&tag) {
+    pub(super) fn add_note_tag(&self, tag: NoteTagRecord) -> Result<bool, StoreError> {
+        if self.get_note_tags()?.contains(&tag) {
             return Ok(false);
         }
-        tags.push(tag);
-        let tags = tags.to_bytes();
 
-        const QUERY: &str = "UPDATE state_sync SET tags = :tags";
-        self.db().execute(QUERY, named_params! {":tags": tags})?;
+        const QUERY: &str = "INSERT INTO tags (tag, source) VALUES (?, ?)";
+        self.db().execute(QUERY, params![tag.tag.to_bytes(), tag.source.to_bytes()])?;
 
         Ok(true)
     }
 
-    pub(super) fn remove_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError> {
-        let mut tags = self.get_note_tags()?;
-        if let Some(index_of_tag) = tags.iter().position(|&tag_candidate| tag_candidate == tag) {
-            tags.remove(index_of_tag);
-
-            let tags = tags.to_bytes();
-
-            const QUERY: &str = "UPDATE state_sync SET tags = ?";
-            self.db().execute(QUERY, params![tags])?;
-            return Ok(true);
+    pub(super) fn remove_note_tag(&self, tag: NoteTagRecord) -> Result<bool, StoreError> {
+        if !self.get_note_tags()?.contains(&tag) {
+            return Ok(false);
         }
 
-        Ok(false)
+        const QUERY: &str = "DELETE FROM tags WHERE tag = ? AND source = ?";
+        self.db().execute(QUERY, params![tag.tag.to_bytes(), tag.source.to_bytes()])?;
+
+        Ok(true)
     }
 
     pub(super) fn get_sync_height(&self) -> Result<u32, StoreError> {

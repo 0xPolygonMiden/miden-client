@@ -8,13 +8,13 @@ use core::fmt::Debug;
 use miden_objects::{
     accounts::{Account, AccountHeader, AccountId, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::{NoteId, NoteTag, Nullifier},
+    notes::{NoteId, Nullifier},
     BlockHeader, Digest, Word,
 };
 use winter_maybe_async::*;
 
 use crate::{
-    sync::StateSyncUpdate,
+    sync::{NoteTagRecord, StateSyncUpdate},
     transactions::{TransactionRecord, TransactionResult},
 };
 
@@ -275,21 +275,21 @@ pub trait Store {
 
     /// Returns the note tags that the client is interested in.
     #[maybe_async]
-    fn get_note_tags(&self) -> Result<Vec<NoteTag>, StoreError>;
+    fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, StoreError>;
 
     /// Adds a note tag to the list of tags that the client is interested in.
     ///
     /// If the tag was already being tracked, returns false since no new tags were actually added.
     /// Otherwise true.
     #[maybe_async]
-    fn add_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError>;
+    fn add_note_tag(&self, tag: NoteTagRecord) -> Result<bool, StoreError>;
 
     /// Removes a note tag from the list of tags that the client is interested in.
     ///
     /// If the tag was not present in the store returns false since no tag was actually removed.
     /// Otherwise returns true.
     #[maybe_async]
-    fn remove_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError>;
+    fn remove_note_tag(&self, tag: NoteTagRecord) -> Result<bool, StoreError>;
 
     /// Returns the block number of the last state sync block.
     #[maybe_async]

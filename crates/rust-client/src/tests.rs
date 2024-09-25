@@ -336,7 +336,7 @@ async fn test_tags() {
     let (mut client, _rpc_api) = create_test_client();
 
     // Assert that the store gets created with the tag 0 (used for notes consumable by any account)
-    assert_eq!(client.get_note_tags().unwrap(), vec![]);
+    assert!(client.get_note_tags().unwrap().is_empty());
 
     // add a tag
     let tag_1: NoteTag = 1.into();
