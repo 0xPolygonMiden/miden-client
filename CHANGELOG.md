@@ -2,6 +2,7 @@
 
 ## 0.6.0 (TBD)
 
+* [BREAKING] Added support for committed and discarded transactions (#531).
 * Add Account Integration Tests for Web Client (#532)
 * [BREAKING] Refactored the `Store` structure and interface for input notes (#520).
 * Fix Broken WASM (#519).
