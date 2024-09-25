@@ -321,6 +321,3 @@ impl From<NoteRecordError> for String {
         err.to_string()
     }
 }
-
-#[cfg(feature = "std")]
-impl std::error::Error for NoteRecordError {}

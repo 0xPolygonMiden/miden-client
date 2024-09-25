@@ -178,9 +178,6 @@ impl From<TransactionScriptBuilderError> for ClientError {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for ClientError {}
-
 // ID PREFIX FETCH ERROR
 // ================================================================================================
 
