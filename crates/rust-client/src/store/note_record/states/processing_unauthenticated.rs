@@ -2,11 +2,13 @@ use alloc::string::ToString;
 
 use miden_objects::{
     notes::{NoteId, NoteInclusionProof, NoteMetadata},
+    transaction::TransactionId,
     BlockHeader,
 };
 
 use super::{
-    ConsumedUnauthenticatedLocalNoteState, NoteState, NoteStateHandler, NoteSubmissionData,
+    ConsumedExternalNoteState, ConsumedUnauthenticatedLocalNoteState, NoteState, NoteStateHandler,
+    NoteSubmissionData,
 };
 use crate::store::NoteRecordError;
 
@@ -34,14 +36,7 @@ impl NoteStateHandler for ProcessingUnauthenticatedNoteState {
         &self,
         nullifier_block_height: u32,
     ) -> Result<Option<NoteState>, NoteRecordError> {
-        Ok(Some(
-            ConsumedUnauthenticatedLocalNoteState {
-                metadata: self.metadata,
-                nullifier_block_height,
-                submission_data: self.submission_data,
-            }
-            .into(),
-        ))
+        Ok(Some(ConsumedExternalNoteState { nullifier_block_height }.into()))
     }
 
     fn block_header_received(
@@ -60,12 +55,37 @@ impl NoteStateHandler for ProcessingUnauthenticatedNoteState {
         Err(NoteRecordError::NoteNotConsumable("Note being consumed".to_string()))
     }
 
+    fn transaction_committed(
+        &self,
+        transaction_id: TransactionId,
+        block_height: u32,
+    ) -> Result<Option<NoteState>, NoteRecordError> {
+        if transaction_id != self.submission_data.consumer_transaction {
+            return Err(NoteRecordError::StateTransitionError(
+                "Transaction ID does not match the expected value".to_string(),
+            ));
+        }
+
+        Ok(Some(
+            ConsumedUnauthenticatedLocalNoteState {
+                metadata: self.metadata,
+                nullifier_block_height: block_height,
+                submission_data: self.submission_data,
+            }
+            .into(),
+        ))
+    }
+
     fn metadata(&self) -> Option<&NoteMetadata> {
         Some(&self.metadata)
     }
 
     fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
         None
+    }
+
+    fn consumer_transaction_id(&self) -> Option<&TransactionId> {
+        Some(&self.submission_data.consumer_transaction)
     }
 }
 

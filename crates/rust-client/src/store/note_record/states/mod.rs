@@ -90,6 +90,10 @@ impl NoteState {
         self.inner().inclusion_proof()
     }
 
+    pub fn consumer_transaction_id(&self) -> Option<&TransactionId> {
+        self.inner().consumer_transaction_id()
+    }
+
     /// Returns a unique identifier for each note state.
     pub fn discriminant(&self) -> u8 {
         match self {
@@ -148,6 +152,14 @@ impl NoteState {
         consumer_transaction: TransactionId,
     ) -> Result<Option<NoteState>, NoteRecordError> {
         self.inner().consumed_locally(consumer_account, consumer_transaction)
+    }
+
+    pub fn transaction_committed(
+        &self,
+        transaction_id: TransactionId,
+        block_height: u32,
+    ) -> Result<Option<NoteState>, NoteRecordError> {
+        self.inner().transaction_committed(transaction_id, block_height)
     }
 }
 
@@ -276,6 +288,8 @@ pub trait NoteStateHandler {
 
     fn inclusion_proof(&self) -> Option<&NoteInclusionProof>;
 
+    fn consumer_transaction_id(&self) -> Option<&TransactionId>;
+
     fn inclusion_proof_received(
         &self,
         inclusion_proof: NoteInclusionProof,
@@ -297,6 +311,12 @@ pub trait NoteStateHandler {
         &self,
         consumer_account: AccountId,
         consumer_transaction: TransactionId,
+    ) -> Result<Option<NoteState>, NoteRecordError>;
+
+    fn transaction_committed(
+        &self,
+        transaction_id: TransactionId,
+        block_height: u32,
     ) -> Result<Option<NoteState>, NoteRecordError>;
 }
 

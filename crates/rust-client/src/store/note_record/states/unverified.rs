@@ -1,5 +1,8 @@
+use alloc::string::ToString;
+
 use miden_objects::{
     notes::{compute_note_hash, NoteId, NoteInclusionProof, NoteMetadata},
+    transaction::TransactionId,
     BlockHeader,
 };
 
@@ -85,12 +88,26 @@ impl NoteStateHandler for UnverifiedNoteState {
         ))
     }
 
+    fn transaction_committed(
+        &self,
+        _transaction_id: TransactionId,
+        _block_height: u32,
+    ) -> Result<Option<NoteState>, NoteRecordError> {
+        Err(NoteRecordError::InvalidStateTransition(
+            "Only processing notes can be committed in a local transaction".to_string(),
+        ))
+    }
+
     fn metadata(&self) -> Option<&NoteMetadata> {
         Some(&self.metadata)
     }
 
     fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
         Some(&self.inclusion_proof)
+    }
+
+    fn consumer_transaction_id(&self) -> Option<&TransactionId> {
+        None
     }
 }
 

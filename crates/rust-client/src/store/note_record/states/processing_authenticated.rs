@@ -7,7 +7,10 @@ use miden_objects::{
     BlockHeader, Digest,
 };
 
-use super::{ConsumedAuthenticatedLocalNoteState, NoteState, NoteStateHandler, NoteSubmissionData};
+use super::{
+    ConsumedAuthenticatedLocalNoteState, ConsumedExternalNoteState, NoteState, NoteStateHandler,
+    NoteSubmissionData,
+};
 use crate::store::NoteRecordError;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -41,16 +44,7 @@ impl NoteStateHandler for ProcessingAuthenticatedNoteState {
         &self,
         nullifier_block_height: u32,
     ) -> Result<Option<NoteState>, NoteRecordError> {
-        Ok(Some(
-            ConsumedAuthenticatedLocalNoteState {
-                metadata: self.metadata,
-                inclusion_proof: self.inclusion_proof.clone(),
-                block_note_root: self.block_note_root,
-                nullifier_block_height,
-                submission_data: self.submission_data,
-            }
-            .into(),
-        ))
+        Ok(Some(ConsumedExternalNoteState { nullifier_block_height }.into()))
     }
 
     fn block_header_received(
@@ -69,12 +63,39 @@ impl NoteStateHandler for ProcessingAuthenticatedNoteState {
         Err(NoteRecordError::NoteNotConsumable("Note being consumed".to_string()))
     }
 
+    fn transaction_committed(
+        &self,
+        transaction_id: TransactionId,
+        block_height: u32,
+    ) -> Result<Option<NoteState>, NoteRecordError> {
+        if transaction_id != self.submission_data.consumer_transaction {
+            return Err(NoteRecordError::StateTransitionError(
+                "Transaction ID does not match the expected value".to_string(),
+            ));
+        }
+
+        Ok(Some(
+            ConsumedAuthenticatedLocalNoteState {
+                metadata: self.metadata,
+                inclusion_proof: self.inclusion_proof.clone(),
+                block_note_root: self.block_note_root,
+                nullifier_block_height: block_height,
+                submission_data: self.submission_data,
+            }
+            .into(),
+        ))
+    }
+
     fn metadata(&self) -> Option<&NoteMetadata> {
         Some(&self.metadata)
     }
 
     fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
         Some(&self.inclusion_proof)
+    }
+
+    fn consumer_transaction_id(&self) -> Option<&TransactionId> {
+        Some(&self.submission_data.consumer_transaction)
     }
 }
 

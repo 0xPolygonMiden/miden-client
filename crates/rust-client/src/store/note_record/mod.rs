@@ -299,6 +299,8 @@ pub enum NoteRecordError {
     NoteNotConsumable(String),
     /// Invalid inclusion proof.
     InvalidInclusionProof,
+    /// Invalid state transition.
+    InvalidStateTransition(String),
     /// Error generated during a state transition.
     StateTransitionError(String),
 }
@@ -311,6 +313,7 @@ impl fmt::Display for NoteRecordError {
             NoteError(err) => write!(f, "Note error: {}", err),
             NoteNotConsumable(msg) => write!(f, "Note not consumable: {}", msg),
             InvalidInclusionProof => write!(f, "Invalid inclusion proof"),
+            InvalidStateTransition(msg) => write!(f, "Invalid state transition: {}", msg),
             StateTransitionError(msg) => write!(f, "State transition error: {}", msg),
         }
     }

@@ -76,6 +76,10 @@ impl InputNoteRecord {
         &self.details
     }
 
+    pub fn consumer_transaction_id(&self) -> Option<&TransactionId> {
+        self.state.consumer_transaction_id()
+    }
+
     pub fn is_authenticated(&self) -> bool {
         matches!(
             self.state,
@@ -91,6 +95,13 @@ impl InputNoteRecord {
             NoteState::ConsumedExternal { .. }
                 | NoteState::ConsumedAuthenticatedLocal { .. }
                 | NoteState::ConsumedUnauthenticatedLocal { .. }
+        )
+    }
+
+    pub fn is_processing(&self) -> bool {
+        matches!(
+            self.state,
+            NoteState::ProcessingAuthenticated { .. } | NoteState::ProcessingUnauthenticated { .. }
         )
     }
 
@@ -163,6 +174,20 @@ impl InputNoteRecord {
         consumer_transaction: TransactionId,
     ) -> Result<bool, NoteRecordError> {
         let new_state = self.state.consumed_locally(consumer_account, consumer_transaction)?;
+        if let Some(new_state) = new_state {
+            self.state = new_state;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    pub fn transaction_committed(
+        &mut self,
+        transaction_id: TransactionId,
+        block_height: u32,
+    ) -> Result<bool, NoteRecordError> {
+        let new_state = self.state.transaction_committed(transaction_id, block_height)?;
         if let Some(new_state) = new_state {
             self.state = new_state;
             Ok(true)

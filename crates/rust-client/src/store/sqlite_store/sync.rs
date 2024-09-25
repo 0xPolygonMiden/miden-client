@@ -7,12 +7,9 @@ use rusqlite::{named_params, params};
 use super::SqliteStore;
 use crate::{
     store::{
-        note_record::{
-            ProcessingAuthenticatedNoteState, ProcessingUnauthenticatedNoteState,
-            NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED,
-        },
+        note_record::{NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED},
         sqlite_store::{accounts::update_account, notes::upsert_input_note_tx},
-        CommittedNoteState, InputNoteRecord, NoteFilter, NoteState, StoreError,
+        CommittedNoteState, InputNoteRecord, NoteFilter, StoreError,
     },
     sync::StateSyncUpdate,
 };
@@ -171,6 +168,21 @@ impl SqliteStore {
             upsert_input_note_tx(&tx, &input_note_record)?;
         }
 
+        // Committed transactions
+        for transaction_update in committed_transactions.iter() {
+            if let Some(input_note_record) = relevant_input_notes.iter_mut().find(|n| {
+                n.is_processing()
+                    && n.consumer_transaction_id() == Some(&transaction_update.transaction_id)
+            }) {
+                if input_note_record.transaction_committed(
+                    transaction_update.transaction_id,
+                    transaction_update.block_num,
+                )? {
+                    upsert_input_note_tx(&tx, input_note_record)?;
+                }
+            }
+        }
+
         // Update spent notes
         let mut discarded_transactions = vec![];
         for nullifier_update in nullifiers.iter() {
@@ -180,24 +192,12 @@ impl SqliteStore {
             if let Some(input_note_record) =
                 relevant_input_notes.iter_mut().find(|n| n.nullifier() == nullifier)
             {
-                match input_note_record.state() {
-                    NoteState::ProcessingAuthenticated(ProcessingAuthenticatedNoteState {
-                        submission_data,
-                        ..
-                    })
-                    | NoteState::ProcessingUnauthenticated(ProcessingUnauthenticatedNoteState {
-                        submission_data,
-                        ..
-                    }) => {
-                        let transaction_id = submission_data.consumer_transaction;
-                        if !committed_transactions
-                            .iter()
-                            .any(|update| update.transaction_id == transaction_id)
-                        {
-                            discarded_transactions.push(transaction_id);
-                        }
-                    },
-                    _ => {},
+                if input_note_record.is_processing() {
+                    discarded_transactions.push(
+                        *input_note_record
+                            .consumer_transaction_id()
+                            .expect("Processing note should have consumer transaction id"),
+                    );
                 }
 
                 if input_note_record.nullifier_received(nullifier, block_num)? {

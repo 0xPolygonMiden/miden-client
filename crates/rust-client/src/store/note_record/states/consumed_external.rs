@@ -2,6 +2,7 @@ use alloc::string::ToString;
 
 use miden_objects::{
     notes::{NoteId, NoteInclusionProof, NoteMetadata},
+    transaction::TransactionId,
     BlockHeader,
 };
 
@@ -46,11 +47,25 @@ impl NoteStateHandler for ConsumedExternalNoteState {
         Err(NoteRecordError::NoteNotConsumable("Note already consumed".to_string()))
     }
 
+    fn transaction_committed(
+        &self,
+        _transaction_id: TransactionId,
+        _block_height: u32,
+    ) -> Result<Option<NoteState>, NoteRecordError> {
+        Err(NoteRecordError::InvalidStateTransition(
+            "Only processing notes can be committed in a local transaction".to_string(),
+        ))
+    }
+
     fn metadata(&self) -> Option<&NoteMetadata> {
         None
     }
 
     fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
+        None
+    }
+
+    fn consumer_transaction_id(&self) -> Option<&TransactionId> {
         None
     }
 }
