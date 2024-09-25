@@ -39,8 +39,8 @@ db.version(1).stores({
   [Table.Accounts]: indexes('[id+nonce]', 'codeRoot', 'storageRoot', 'vaultRoot', 'accountHash'),
   [Table.Transactions]: indexes('id'),
   [Table.TransactionScripts]: indexes('scriptHash'),
-  [Table.InputNotes]: indexes('noteId', 'recipient', 'status', 'importedTag', 'ignored'),
-  [Table.OutputNotes]: indexes('noteId', 'recipient', 'status', 'importedTag', 'ignored'),
+  [Table.InputNotes]: indexes('noteId', 'recipient', 'status', 'importedTag', 'ignored', 'nullifier'),
+  [Table.OutputNotes]: indexes('noteId', 'recipient', 'status', 'importedTag', 'ignored', 'nullifier'),
   [Table.NotesScripts]: indexes('scriptHash'),
   [Table.StateSync]: indexes('id'),
   [Table.BlockHeaders]: indexes('blockNum', 'hasClientNotes'),
@@ -53,7 +53,7 @@ function indexes(...items) {
 
 db.on('populate', () => {
   // Populate the stateSync table with default values
-  db.stateSync.put({ id: 1, blockNum: "0", tags: [] });
+  db.stateSync.put({ id: 1, blockNum: "0", tags: null });
 });
 
 const accountCodes = db.table(Table.AccountCode);

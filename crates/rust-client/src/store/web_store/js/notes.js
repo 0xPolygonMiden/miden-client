@@ -132,6 +132,7 @@ export async function insertInputNote(
     recipient,
     status,
     metadata,
+    nullifier,
     details,
     noteScriptHash,
     serializedNoteScript,
@@ -156,6 +157,7 @@ export async function insertInputNote(
                 recipient: recipient,
                 status: status,
                 metadata: metadataBlob,
+                nullifier: nullifier,
                 details: detailsBlob,
                 noteScriptHash: noteScriptHash ? noteScriptHash : null,
                 inclusionProof: inclusionProofBlob,
@@ -191,6 +193,7 @@ export async function insertOutputNote(
     recipient,
     status,
     metadata,
+    nullifier,
     details,
     noteScriptHash,
     serializedNoteScript,
@@ -212,6 +215,7 @@ export async function insertOutputNote(
                 recipient: recipient,
                 status: status,
                 metadata: metadataBlob,
+                nullifier: nullifier ? nullifier : null,
                 details: detailsBlob,
                 noteScriptHash: noteScriptHash ? noteScriptHash : null,
                 inclusionProof: inclusionProofBlob,
@@ -277,10 +281,11 @@ export async function updateNoteInclusionProof(
     inclusionProof
 ) {
     try {
+        let inclusionProofBlob = new Blob([new Uint8Array(inclusionProof)]);
         await inputNotes
             .where('noteId')
             .equals(noteId)
-            .modify({ inclusionProof: inclusionProof, status: "Committed" });
+            .modify({ inclusionProof: inclusionProofBlob, status: "Committed" });
 
     } catch (err) {
         console.error("Failed to update inclusion proof: ", err);
@@ -293,10 +298,11 @@ export async function updateNoteMetadata(
     metadata
 ) {
     try {
+        let metadataBlob = new Blob([new Uint8Array(metadata)]);
         await inputNotes
             .where('noteId')
             .equals(noteId)
-            .modify({ metadata: metadata });
+            .modify({ metadata: metadataBlob });
 
     } catch (err) {
         console.error("Failed to update inclusion proof: ", err);
@@ -308,9 +314,6 @@ async function processInputNotes(
     notes
 ) {
     // Fetch all scripts from the scripts table for joining
-    const scripts = await notesScripts.toArray();
-    const scriptMap = new Map(scripts.map(script => [script.scriptHash, script.serializedNoteScript]));
-
     const transactionRecords = await transactions.toArray();
     const transactionMap = new Map(transactionRecords.map(transaction => [transaction.id, transaction.accountId]));
 
@@ -346,8 +349,8 @@ async function processInputNotes(
         // Convert the serialized note script blob to base64
         let serializedNoteScriptBase64 = null;
         if (note.noteScriptHash) {
-            let serializedNoteScript = scriptMap.get(details.noteScriptHash);
-            let serializedNoteScriptArrayBuffer = await serializedNoteScript.arrayBuffer();
+            let record = await notesScripts.get(note.noteScriptHash);
+            let serializedNoteScriptArrayBuffer = await record.serializedNoteScript.arrayBuffer();
             const serializedNoteScriptArray = new Uint8Array(serializedNoteScriptArrayBuffer);
             serializedNoteScriptBase64 = uint8ArrayToBase64(serializedNoteScriptArray);
         }
@@ -383,9 +386,6 @@ async function processOutputNotes(
     notes
 ) {
     // Fetch all scripts from the scripts table for joining
-    const scripts = await notesScripts.toArray();
-    const scriptMap = new Map(scripts.map(script => [script.scriptHash, script.serializedNoteScript]));
-
     const transactionRecords = await transactions.toArray();
     const transactionMap = new Map(transactionRecords.map(transaction => [transaction.id, transaction.accountId]));
 
@@ -420,8 +420,8 @@ async function processOutputNotes(
 
         let serializedNoteScriptBase64 = null;
         if (note.noteScriptHash) {
-            let serializedNoteScript = scriptMap.get(details.noteScriptHash);
-            let serializedNoteScriptArrayBuffer = await serializedNoteScript.arrayBuffer();
+            let record = await notesScripts.get(note.noteScriptHash);
+            let serializedNoteScriptArrayBuffer = await record.serializedNoteScript.arrayBuffer();
             const serializedNoteScriptArray = new Uint8Array(serializedNoteScriptArrayBuffer);
             serializedNoteScriptBase64 = uint8ArrayToBase64(serializedNoteScriptArray);
         }
