@@ -9,4 +9,3 @@ pub const P2IDR: &str = "0x143480f4ddf09a321c6373edd8ea4768d04ef4238aa41d221c012
 
 /// Script root of the SWAP note script
 pub const SWAP: &str = "0x4dd86dfc6ec16cef9d169480850d4e5e6d0de4eca662323f27be87486b2b7d21";
-

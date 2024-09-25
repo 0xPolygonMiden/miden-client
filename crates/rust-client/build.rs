@@ -99,7 +99,7 @@ fn generate_known_script_roots() -> std::io::Result<()> {
     writeln!(f, "pub const P2IDR: &str = \"{}\";\n", p2idr().hash())?;
 
     writeln!(f, "/// Script root of the SWAP note script")?;
-    writeln!(f, "pub const SWAP: &str = \"{}\";\n", swap().hash())?;
+    writeln!(f, "pub const SWAP: &str = \"{}\";", swap().hash())?;
 
     Ok(())
 }
