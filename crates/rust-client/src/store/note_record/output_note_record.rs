@@ -9,7 +9,7 @@ use miden_objects::{
     Digest,
 };
 
-use super::{InputNoteRecord, NoteRecordDetails, NoteStatus};
+use super::{NoteRecordDetails, NoteStatus};
 use crate::ClientError;
 
 // OUTPUT NOTE RECORD
@@ -135,27 +135,6 @@ impl TryFrom<OutputNote> for OutputNoteRecord {
                 Ok(partial_note.into())
             },
             OutputNote::Header(_) => Err(ClientError::NoteRecordError("Cannot transform a Header output note into an OutputNoteRecord: not enough information".to_string()))
-        }
-    }
-}
-
-impl TryFrom<InputNoteRecord> for OutputNoteRecord {
-    type Error = ClientError;
-
-    fn try_from(input_note: InputNoteRecord) -> Result<Self, Self::Error> {
-        match input_note.metadata() {
-            Some(metadata) => Ok(OutputNoteRecord {
-                assets: input_note.assets().clone(),
-                details: Some(input_note.details().clone()),
-                id: input_note.id(),
-                inclusion_proof: input_note.inclusion_proof().cloned(),
-                metadata: *metadata,
-                recipient: input_note.recipient(),
-                status: input_note.status(),
-            }),
-            None => Err(ClientError::NoteError(miden_objects::NoteError::invalid_location_index(
-                "Input Note Record contains no metadata".to_string(),
-            ))),
         }
     }
 }

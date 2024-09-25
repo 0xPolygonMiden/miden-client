@@ -5,10 +5,13 @@ use miden_client::{
     assets::Asset,
     auth::TransactionAuthenticator,
     crypto::{Digest, FeltRng},
-    notes::{get_input_note_with_id_prefix, NoteConsumability, NoteInputs, NoteMetadata},
+    notes::{
+        get_input_note_with_id_prefix,
+        script_roots::{P2ID, P2IDR, SWAP},
+        NoteConsumability, NoteInputs, NoteMetadata,
+    },
     rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
-    transactions::known_script_roots::{P2ID, P2IDR, SWAP},
     Client, ClientError, IdPrefixFetchError,
 };
 
@@ -169,7 +172,6 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator
         sender,
         exportable,
     } = note_summary(input_note_record.as_ref(), output_note_record.as_ref())?;
-
     table.add_row(vec![Cell::new("ID"), Cell::new(id)]);
     match script_hash.clone().as_str() {
         P2ID => script_hash += " (P2ID)",

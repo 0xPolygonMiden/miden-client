@@ -9,10 +9,8 @@ use miden_objects::{
 };
 use winter_maybe_async::{maybe_async, maybe_await};
 
-use crate::{
-    store::{Store, StoreError},
-    transactions::known_script_roots::{P2ID, P2IDR, SWAP},
-};
+use super::script_roots::{P2ID, P2IDR, SWAP};
+use crate::store::{Store, StoreError};
 
 /// Describes the relevance of a note based on the screening.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
