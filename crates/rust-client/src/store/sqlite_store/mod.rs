@@ -5,7 +5,7 @@ use std::path::Path;
 use miden_objects::{
     accounts::{Account, AccountHeader, AccountId, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::{NoteTag, Nullifier},
+    notes::Nullifier,
     BlockHeader, Digest, Word,
 };
 use rusqlite::{vtab::array, Connection};
@@ -17,7 +17,7 @@ use super::{
 };
 use crate::{
     store::StoreError,
-    sync::StateSyncUpdate,
+    sync::{NoteTagRecord, StateSyncUpdate},
     transactions::{TransactionRecord, TransactionResult},
 };
 
@@ -74,17 +74,17 @@ use alloc::boxed::Box;
 #[maybe_async_trait]
 impl Store for SqliteStore {
     #[maybe_async]
-    fn get_note_tags(&self) -> Result<Vec<NoteTag>, StoreError> {
+    fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, StoreError> {
         self.get_note_tags()
     }
 
     #[maybe_async]
-    fn add_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError> {
+    fn add_note_tag(&self, tag: NoteTagRecord) -> Result<bool, StoreError> {
         self.add_note_tag(tag)
     }
 
     #[maybe_async]
-    fn remove_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError> {
+    fn remove_note_tag(&self, tag: NoteTagRecord) -> Result<bool, StoreError> {
         self.remove_note_tag(tag)
     }
 
