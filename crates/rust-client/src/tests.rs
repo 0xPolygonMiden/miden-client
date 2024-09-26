@@ -467,5 +467,5 @@ async fn test_import_note_validation() {
         .unwrap();
 
     assert!(expected_note.inclusion_proof().is_none());
-    assert!(committed_note.inclusion_proof().is_some())
+    assert!(committed_note.inclusion_proof().is_some());
 }
