@@ -36,10 +36,7 @@ impl WebClient {
         }
     }
 
-    pub async fn get_account_auth(
-        &mut self,
-        account_id: &AccountId,
-    ) -> Result<AuthSecretKey, JsValue> {
+    pub async fn get_account_auth(&mut self, account_id: &str) -> Result<AuthSecretKey, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let native_auth_secret_key =
                 client.get_account_auth(account_id.into()).await.map_err(|err| {
