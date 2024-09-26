@@ -436,7 +436,7 @@ async fn test_get_output_notes() {
 
     // Check that there was an output note but it wasn't consumed
     assert!(client.get_output_notes(NoteFilter::Consumed).unwrap().is_empty());
-    assert!(!client.get_output_notes(NoteFilter::All).unwrap().is_empty());
+    assert!(!client.get_output_notes(NoteFilter::All).unwrap().is_empty())
 }
 
 #[tokio::test]
@@ -465,6 +465,7 @@ async fn test_import_note_validation() {
         })
         .await
         .unwrap();
+
     assert!(expected_note.inclusion_proof().is_none());
-    assert!(committed_note.inclusion_proof().is_some());
+    assert!(committed_note.inclusion_proof().is_some())
 }
