@@ -212,7 +212,8 @@ impl SqliteStore {
         Ok(())
     }
 
-    /// Get the input notes from the store that are relevant to the state sync update.
+    /// Get the input notes from the store that are relevant to the state sync update. Secifically,
+    /// notes that were updated and nullified during the sync.
     fn get_relevant_sync_input_notes(
         &self,
         state_sync_update: &StateSyncUpdate,

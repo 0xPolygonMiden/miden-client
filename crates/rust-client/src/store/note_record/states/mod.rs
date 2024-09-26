@@ -54,9 +54,9 @@ pub enum NoteState {
     Committed(CommittedNoteState),
     /// With invalid inclusion proof.
     Invalid(InvalidNoteState),
-    /// Authenticated note being consumed locally by the client but without chain confirmation.
+    /// Authenticated note being consumed locally by the client, awaiting chain confirmation.
     ProcessingAuthenticated(ProcessingAuthenticatedNoteState),
-    /// Unauthenticated note being consumed locally by the client but without chain confirmation.
+    /// Unauthenticated note being consumed locally by the client, awaiting chain confirmation.
     ProcessingUnauthenticated(ProcessingUnauthenticatedNoteState),
     /// Authenticated note consumed locally by the client and confirmed by the chain.
     ConsumedAuthenticatedLocal(ConsumedAuthenticatedLocalNoteState),

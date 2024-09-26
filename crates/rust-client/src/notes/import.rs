@@ -58,7 +58,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // HELPERS
     // ================================================================================================
 
-    /// Builds a note record from the note id. If a note with the same id was already stored it is
+    /// Builds a note record from the note ID. If a note with the same ID was already stored it is
     /// passed via `previous_note` so it can be updated. The note information is fetched from the
     /// node and stored in the client's store.
     ///
