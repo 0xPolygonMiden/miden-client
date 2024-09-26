@@ -133,11 +133,9 @@ impl SqliteStore {
             ))?;
             let metadata = input_note.note().metadata();
 
-            let note_position = relevant_input_notes.iter().position(|n| n.id() == input_note.id());
-
-            if let Some(note_position) = note_position {
-                let mut input_note_record = relevant_input_notes.swap_remove(note_position);
-
+            if let Some(input_note_record) =
+                relevant_input_notes.iter_mut().find(|n| n.id() == input_note.id())
+            {
                 let inclusion_proof_received = input_note_record
                     .inclusion_proof_received(inclusion_proof.clone(), *metadata)?;
                 let block_header_received =
@@ -167,7 +165,7 @@ impl SqliteStore {
                 .into(),
             );
 
-            upsert_input_note_tx(&tx, input_note_record)?;
+            upsert_input_note_tx(&tx, &input_note_record)?;
         }
 
         // Update spent notes
@@ -175,11 +173,9 @@ impl SqliteStore {
             let nullifier = nullifier_update.nullifier;
             let block_num = nullifier_update.block_num;
 
-            let note_pos = relevant_input_notes.iter().position(|n| n.nullifier() == nullifier);
-
-            if let Some(note_pos) = note_pos {
-                let mut input_note_record = relevant_input_notes.swap_remove(note_pos);
-
+            if let Some(input_note_record) =
+                relevant_input_notes.iter_mut().find(|n| n.nullifier() == nullifier)
+            {
                 if input_note_record.nullifier_received(nullifier, block_num)? {
                     upsert_input_note_tx(&tx, input_note_record)?;
                 }

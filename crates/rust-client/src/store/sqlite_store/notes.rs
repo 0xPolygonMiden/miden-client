@@ -289,7 +289,7 @@ impl SqliteStore {
         let mut db = self.db();
         let tx = db.transaction()?;
 
-        upsert_input_note_tx(&tx, note)?;
+        upsert_input_note_tx(&tx, &note)?;
 
         Ok(tx.commit()?)
     }
@@ -324,7 +324,7 @@ impl SqliteStore {
 /// replaced.
 pub(super) fn upsert_input_note_tx(
     tx: &Transaction<'_>,
-    note: InputNoteRecord,
+    note: &InputNoteRecord,
 ) -> Result<(), StoreError> {
     let SerializedInputNoteData {
         id,
@@ -518,7 +518,7 @@ fn parse_input_note(
 }
 
 /// Serialize the provided input note into database compatible types.
-fn serialize_input_note(note: InputNoteRecord) -> Result<SerializedInputNoteData, StoreError> {
+fn serialize_input_note(note: &InputNoteRecord) -> Result<SerializedInputNoteData, StoreError> {
     let id = note.id().inner().to_string();
     let nullifier = note.nullifier().to_hex();
 

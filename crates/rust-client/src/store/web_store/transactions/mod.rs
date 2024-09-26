@@ -116,7 +116,7 @@ impl WebStore {
         let consumed_note_ids =
             tx_result.consumed_notes().iter().map(|note| note.id()).collect::<Vec<_>>();
 
-        let mut relevant_notes = self.get_input_notes(NoteFilter::List(&consumed_note_ids)).await?;
+        let relevant_notes = self.get_input_notes(NoteFilter::List(&consumed_note_ids)).await?;
 
         // Transaction Data
         insert_proven_transaction_data(tx_result).await.unwrap();
@@ -133,15 +133,9 @@ impl WebStore {
             insert_output_note_tx(block_num, note).await?;
         }
 
-        for note_id in consumed_note_ids {
-            let note_pos = relevant_notes.iter().position(|n| n.id() == note_id);
-
-            if let Some(note_pos) = note_pos {
-                let mut input_note_record = relevant_notes.swap_remove(note_pos);
-
-                if input_note_record.consumed_locally(account_id, transaction_id)? {
-                    upsert_input_note_tx(input_note_record).await?;
-                }
+        for mut input_note_record in relevant_notes {
+            if input_note_record.consumed_locally(account_id, transaction_id)? {
+                upsert_input_note_tx(input_note_record).await?;
             }
         }
 
