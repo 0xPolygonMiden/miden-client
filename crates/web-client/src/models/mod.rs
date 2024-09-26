@@ -25,9 +25,15 @@
 //! This makes it easy to build web-based applications that interact with the miden client, enabling
 //! rich interaction with accounts, assets, and transactions directly from the browser.
 
+pub mod account;
+pub mod account_code;
+pub mod account_header;
 pub mod account_id;
+pub mod account_storage;
+pub mod account_storage_mode;
 pub mod accounts;
 pub mod advice_map;
+pub mod asset_vault;
 pub mod auth_secret_key;
 pub mod felt;
 pub mod fungible_asset;

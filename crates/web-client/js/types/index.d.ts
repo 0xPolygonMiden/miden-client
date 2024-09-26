@@ -1,5 +1,8 @@
 export {
+  Account, 
+  AccountHeader,
   AccountId,
+  AccountStorageMode,
   AdviceMap,
   AuthSecretKey,
   Felt,

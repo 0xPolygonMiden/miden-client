@@ -1,7 +1,10 @@
 import wasm from "../dist/wasm.js";
 
 const {
+    Account,
+    AccountHeader,
     AccountId,
+    AccountStorageMode,
     AdviceMap,
     AuthSecretKey,
     Felt,
@@ -33,7 +36,10 @@ const {
 });
 
 export {
+    Account,
+    AccountHeader,
     AccountId,
+    AccountStorageMode,
     AdviceMap,
     AuthSecretKey,
     Felt,

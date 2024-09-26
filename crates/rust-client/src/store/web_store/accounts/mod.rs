@@ -8,7 +8,7 @@ use miden_objects::{
     assets::{Asset, AssetVault},
     Digest, Word,
 };
-use miden_tx::utils::{Deserializable, Serializable};
+use miden_tx::utils::{Deserializable, DeserializationError, Serializable};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
 
@@ -42,16 +42,28 @@ impl WebStore {
         &self,
     ) -> Result<Vec<(AccountHeader, Option<Word>)>, StoreError> {
         let promise = idxdb_get_account_headers();
-        let js_value = JsFuture::from(promise).await.unwrap();
-        let account_headers_idxdb: Vec<AccountRecordIdxdbOjbect> = from_value(js_value).unwrap();
 
-        let account_headers: Result<Vec<(AccountHeader, Option<Word>)>, StoreError> =
-            account_headers_idxdb
-                .into_iter()
-                .map(parse_account_record_idxdb_object)
-                .collect(); // Collect results into a single Result
+        match JsFuture::from(promise).await {
+            Ok(js_value) => {
+                let account_headers_idxdb: Vec<AccountRecordIdxdbOjbect> = from_value(js_value)
+                    .map_err(|err| {
+                        StoreError::DataDeserializationError(DeserializationError::InvalidValue(
+                            format!("Failed to deserialize {:?}", err),
+                        ))
+                    })?;
+                let account_headers: Result<Vec<(AccountHeader, Option<Word>)>, StoreError> =
+                    account_headers_idxdb
+                        .into_iter()
+                        .map(parse_account_record_idxdb_object)
+                        .collect(); // Collect results into a single Result
 
-        account_headers
+                account_headers
+            },
+            Err(js_error) => Err(StoreError::DatabaseError(format!(
+                "Failed to fetch account headers: {:?}",
+                js_error
+            ))),
+        }
     }
 
     pub(crate) async fn get_account_header(
@@ -61,10 +73,21 @@ impl WebStore {
         let account_id_str = account_id.to_string();
 
         let promise = idxdb_get_account_header(account_id_str);
-        let js_value = JsFuture::from(promise).await.unwrap();
-        let account_header_idxdb: AccountRecordIdxdbOjbect = from_value(js_value).unwrap();
 
-        parse_account_record_idxdb_object(account_header_idxdb)
+        match JsFuture::from(promise).await {
+            Ok(js_value) => {
+                let account_header_idxdb: AccountRecordIdxdbOjbect =
+                    from_value(js_value).map_err(|err| {
+                        StoreError::DataDeserializationError(DeserializationError::InvalidValue(
+                            format!("Failed to deserialize {:?}", err),
+                        ))
+                    })?;
+                let parsed_account_record =
+                    parse_account_record_idxdb_object(account_header_idxdb)?;
+                Ok(parsed_account_record)
+            },
+            Err(_) => Err(StoreError::AccountDataNotFound(account_id)),
+        }
     }
 
     pub(crate) async fn get_account_header_by_hash(
@@ -91,7 +114,7 @@ impl WebStore {
         &self,
         account_id: AccountId,
     ) -> Result<(Account, Option<Word>), StoreError> {
-        let (account_header, seed) = self.get_account_header(account_id).await.unwrap();
+        let (account_header, seed) = self.get_account_header(account_id).await?;
         let account_code = self.get_account_code(account_header.code_commitment()).await.unwrap();
 
         let account_storage =
@@ -155,15 +178,22 @@ impl WebStore {
         account_id: AccountId,
     ) -> Result<AuthSecretKey, StoreError> {
         let account_id_str = account_id.to_string();
-
         let promise = idxdb_get_account_auth(account_id_str);
-        let js_value = JsFuture::from(promise).await.unwrap();
-        let auth_info_idxdb: AccountAuthIdxdbObject = from_value(js_value).unwrap();
 
-        // Convert the auth_info to the appropriate AuthInfo enum variant
-        let auth_info = AuthSecretKey::read_from_bytes(&auth_info_idxdb.auth_info)?;
+        match JsFuture::from(promise).await {
+            Ok(js_value) => {
+                let account_auth_idxdb: AccountAuthIdxdbObject =
+                    from_value(js_value).map_err(|err| {
+                        StoreError::DataDeserializationError(DeserializationError::InvalidValue(
+                            format!("Failed to deserialize {:?}", err),
+                        ))
+                    })?;
+                let auth_info = AuthSecretKey::read_from_bytes(&account_auth_idxdb.auth_info)?;
 
-        Ok(auth_info)
+                Ok(auth_info)
+            },
+            Err(_) => Err(StoreError::AccountDataNotFound(account_id)),
+        }
     }
 
     pub(crate) async fn insert_account(
@@ -202,15 +232,23 @@ impl WebStore {
     /// store. This is used in the web_client so adding this to ignore the dead code warning.
     pub async fn fetch_and_cache_account_auth_by_pub_key(
         &self,
-        account_id: String,
+        account_id: &str,
     ) -> Result<AuthSecretKey, StoreError> {
-        let promise = idxdb_fetch_and_cache_account_auth_by_pub_key(account_id);
-        let js_value = JsFuture::from(promise).await.unwrap();
-        let account_auth_idxdb: AccountAuthIdxdbObject = from_value(js_value).unwrap();
+        let promise = idxdb_fetch_and_cache_account_auth_by_pub_key(account_id.to_string());
 
-        // Convert the auth_info to the appropriate AuthInfo enum variant
-        let auth_info = AuthSecretKey::read_from_bytes(&account_auth_idxdb.auth_info)?;
+        match JsFuture::from(promise).await {
+            Ok(js_value) => {
+                let account_auth_idxdb: AccountAuthIdxdbObject =
+                    from_value(js_value).map_err(|err| {
+                        StoreError::DataDeserializationError(DeserializationError::InvalidValue(
+                            format!("Failed to deserialize {:?}", err),
+                        ))
+                    })?;
+                let auth_info = AuthSecretKey::read_from_bytes(&account_auth_idxdb.auth_info)?;
 
-        Ok(auth_info)
+                Ok(auth_info)
+            },
+            Err(_) => Err(StoreError::AccountDataNotFound(AccountId::from_hex(account_id)?)),
+        }
     }
 }

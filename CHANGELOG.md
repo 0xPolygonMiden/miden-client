@@ -2,6 +2,7 @@
 
 ## 0.6.0 (TBD)
 
+* Add Account Integration Tests for Web Client (#532)
 * Fix Broken WASM (#519).
 * [BREAKING] Changed `PaymentTransactionData` and `TransactionRequest` to allow for multiple assets per note (#525).
 * [BREAKING] Removed serde's de/serialization from `NoteRecordDetails` and `NoteStatus` (#514).
