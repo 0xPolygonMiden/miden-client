@@ -86,7 +86,7 @@ fn generate_known_script_roots() -> std::io::Result<()> {
     // Get the output directory from the environment variables
     let out_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     let dest_path = Path::new(&out_dir).join("src/notes/script_roots.rs");
-    println!("{:?}", dest_path);
+
     let mut f = File::create(&dest_path)?;
     // Write the top-level doc comment
     writeln!(f, "//! Well-known note script roots.")?;
