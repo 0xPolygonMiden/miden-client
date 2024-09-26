@@ -141,8 +141,8 @@ impl InputNoteRecord {
         }
     }
 
-    /// Modifies the state of the note record to reflect that its nullifier has been received,
-    /// meaning that the note has been spent. Returns `true` if the state was changed.
+    /// Modifies the state of the note record to reflect that the note has been consumed by an
+    /// external transaction. Returns `true` if the state was changed.
     ///
     /// Errors:
     /// - If the nullifier does not match the expected value.
@@ -182,6 +182,8 @@ impl InputNoteRecord {
         }
     }
 
+    /// Modifies the state of the note record to reflect that the transaction currently consuming
+    /// the note was committed. Returns `true` if the state was changed.3
     pub fn transaction_committed(
         &mut self,
         transaction_id: TransactionId,

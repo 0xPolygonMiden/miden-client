@@ -120,11 +120,8 @@ impl NoteState {
         self.inner().inclusion_proof_received(inclusion_proof, metadata)
     }
 
-    /// Returns a new to reflect that its nullifier has been received, meaning that the note has
-    /// been spent. If the note state doesn't change, `None` is returned.
-    ///
-    /// Errors:
-    /// - If the nullifier does not match the expected value.
+    /// Returns a new state to reflect that the note has been consumed by an external transaction.
+    /// If the note state doesn't change, `None` is returned.
     pub fn consumed_externally(
         &self,
         nullifier_block_height: u32,
@@ -154,6 +151,8 @@ impl NoteState {
         self.inner().consumed_locally(consumer_account, consumer_transaction)
     }
 
+    /// Returns a new state to reflect that the transaction currently consuming the note was
+    /// committed. If the note state doesn't change, `None` is returned.
     pub fn transaction_committed(
         &self,
         transaction_id: TransactionId,
