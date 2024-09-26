@@ -11,7 +11,10 @@ use crate::store::NoteRecordError;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct UnverifiedNoteState {
+    /// Metadata associated with the note, including sender, note type, tag and other additional
+    /// information.
     pub metadata: NoteMetadata,
+    /// Inclusion proof for the note inside the chain block. This proof is not yet verified.
     pub inclusion_proof: NoteInclusionProof,
 }
 

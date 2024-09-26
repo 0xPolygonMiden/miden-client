@@ -27,8 +27,11 @@ use super::{
 /// `metadata` and `inclusion_proof` fields if possible)
 #[derive(Clone, Debug, PartialEq)]
 pub struct InputNoteRecord {
+    /// Details of a note consisting of assets, script, inputs, and a serial number.
     details: NoteDetails,
+    /// The timestamp at which the note was created. If it's not known, it will be None.
     created_at: Option<u64>,
+    /// The state of the note, with specific fields for each one.
     state: NoteState,
 }
 

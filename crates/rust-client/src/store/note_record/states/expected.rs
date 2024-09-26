@@ -15,8 +15,14 @@ use crate::store::NoteRecordError;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ExpectedNoteState {
+    /// Metadata associated with the note, including sender, note type, tag and other additional
+    /// information. The note metadata is only known if the note was created by the client or by
+    /// retrieving it from the node. Imported or future notes may not have metadata.
     pub metadata: Option<NoteMetadata>,
+    /// Block height after which the note is expected to be committed.
     pub after_block_num: u32,
+    /// A tag used to identify the note. The tag may not be known if the note was imported without
+    /// it or if it's a future note.
     pub tag: Option<NoteTag>,
 }
 

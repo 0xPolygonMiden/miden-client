@@ -12,8 +12,12 @@ use crate::store::NoteRecordError;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct InvalidNoteState {
+    /// Metadata associated with the note, including sender, note type, tag and other additional
+    /// information.
     pub metadata: NoteMetadata,
+    /// Inclusion proof for the note inside the chain block.
     pub invalid_inclusion_proof: NoteInclusionProof,
+    /// Root of the note tree inside the block that invalidates the note inclusion proof.
     pub block_note_root: Digest,
 }
 

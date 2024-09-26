@@ -62,7 +62,7 @@ pub enum NoteState {
     ConsumedAuthenticatedLocal(ConsumedAuthenticatedLocalNoteState),
     /// Unauthenticated note consumed locally by the client and confirmed by the chain.
     ConsumedUnauthenticatedLocal(ConsumedUnauthenticatedLocalNoteState),
-    /// Note consumed in chain by an external account.
+    /// Note consumed in chain by an external account (e.g. an account not tracked by the client).
     ConsumedExternal(ConsumedExternalNoteState),
 }
 
@@ -303,8 +303,11 @@ pub trait NoteStateHandler {
 /// Information about a locally consumed note submitted to the node.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct NoteSubmissionData {
+    /// The timestamp at which the note was submitted.
     pub submitted_at: Option<u64>,
+    /// The ID of the account that is consuming the note.
     pub consumer_account: AccountId,
+    /// The ID of the transaction that is consuming the note.
     pub consumer_transaction: TransactionId,
 }
 

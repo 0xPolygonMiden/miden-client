@@ -10,6 +10,7 @@ use crate::store::NoteRecordError;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ConsumedExternalNoteState {
+    /// Block height at which the note was nullified.
     pub nullifier_block_height: u32,
 }
 

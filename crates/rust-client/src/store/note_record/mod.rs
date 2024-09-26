@@ -290,10 +290,15 @@ impl From<NoteDetails> for NoteRecordDetails {
 /// Errors generated from note records.
 #[derive(Debug)]
 pub enum NoteRecordError {
+    /// Error generated during conversion of note record.
     ConversionError(String),
+    /// Invalid underlying note object.
     NoteError(NoteError),
+    /// Note record is not consumable.
     NoteNotConsumable(String),
+    /// Invalid inclusion proof.
     InvalidInclusionProof,
+    /// Error generated during a state transition.
     StateTransitionError(String),
 }
 

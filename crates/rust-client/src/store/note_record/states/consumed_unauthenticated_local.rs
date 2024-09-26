@@ -10,8 +10,12 @@ use crate::store::NoteRecordError;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ConsumedUnauthenticatedLocalNoteState {
+    /// Metadata associated with the note, including sender, note type, tag and other additional
+    /// information.
     pub metadata: NoteMetadata,
+    /// Block height at which the note was nullified.
     pub nullifier_block_height: u32,
+    /// Information about the submission of the note.
     pub submission_data: NoteSubmissionData,
 }
 

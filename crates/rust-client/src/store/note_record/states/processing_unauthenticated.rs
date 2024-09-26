@@ -12,8 +12,12 @@ use crate::store::NoteRecordError;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProcessingUnauthenticatedNoteState {
+    /// Metadata associated with the note, including sender, note type, tag and other additional
+    /// information.
     pub metadata: NoteMetadata,
+    /// Block height after which the note is expected to be committed.
     pub after_block_num: u32,
+    /// Information about the submission of the note.
     pub submission_data: NoteSubmissionData,
 }
 
