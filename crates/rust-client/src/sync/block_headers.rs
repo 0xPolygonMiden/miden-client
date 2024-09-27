@@ -17,7 +17,7 @@ use crate::{
     Client, ClientError,
 };
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
+impl Client {
     /// Updates committed notes with no MMR data. These could be notes that were
     /// imported with an inclusion proof, but its block header is not tracked.
     pub(crate) async fn update_mmr_data(&mut self) -> Result<(), ClientError> {

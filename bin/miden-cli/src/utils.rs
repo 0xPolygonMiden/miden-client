@@ -27,13 +27,8 @@ For example, `100::0xabcdef0123456789` or `1.23::POL`";
 
 /// Returns a tracked Account ID matching a hex string or the default one defined in the Client
 /// config
-pub(crate) fn get_input_acc_id_by_prefix_or_default<
-    N: NodeRpcClient,
-    R: FeltRng,
-    S: Store,
-    A: TransactionAuthenticator,
->(
-    client: &Client<N, R, S, A>,
+pub(crate) fn get_input_acc_id_by_prefix_or_default(
+    client: &Client,
     account_id: Option<String>,
 ) -> Result<AccountId, String> {
     let account_id_str = if let Some(account_id_prefix) = account_id {
@@ -60,15 +55,7 @@ pub(crate) fn get_input_acc_id_by_prefix_or_default<
 ///
 /// - Will return a `IdPrefixFetchError` if the provided account id string can't be parsed as an
 ///   `AccountId` and does not correspond to an account tracked by the client either.
-pub(crate) fn parse_account_id<
-    N: NodeRpcClient,
-    R: FeltRng,
-    S: Store,
-    A: TransactionAuthenticator,
->(
-    client: &Client<N, R, S, A>,
-    account_id: &str,
-) -> Result<AccountId, String> {
+pub(crate) fn parse_account_id(client: &Client, account_id: &str) -> Result<AccountId, String> {
     if let Ok(account_id) = AccountId::from_hex(account_id) {
         return Ok(account_id);
     }

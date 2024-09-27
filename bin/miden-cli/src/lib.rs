@@ -160,13 +160,8 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
 ///   `note_id_prefix` is a prefix of its id.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found where
 ///   `note_id_prefix` is a prefix of its id.
-pub(crate) fn get_output_note_with_id_prefix<
-    N: NodeRpcClient,
-    R: FeltRng,
-    S: Store,
-    A: TransactionAuthenticator,
->(
-    client: &Client<N, R, S, A>,
+pub(crate) fn get_output_note_with_id_prefix(
+    client: &Client,
     note_id_prefix: &str,
 ) -> Result<OutputNoteRecord, IdPrefixFetchError> {
     let mut output_note_records = client
@@ -212,13 +207,8 @@ pub(crate) fn get_output_note_with_id_prefix<
 ///   `account_id_prefix` is a prefix of its id.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one account found where
 ///   `account_id_prefix` is a prefix of its id.
-fn get_account_with_id_prefix<
-    N: NodeRpcClient,
-    R: FeltRng,
-    S: Store,
-    A: TransactionAuthenticator,
->(
-    client: &Client<N, R, S, A>,
+fn get_account_with_id_prefix(
+    client: &Client,
     account_id_prefix: &str,
 ) -> Result<AccountHeader, IdPrefixFetchError> {
     let mut accounts = client

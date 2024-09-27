@@ -63,9 +63,9 @@ impl TransactionResult {
     /// Screens the output notes to store and track the relevant ones, and instantiates a
     /// [TransactionResult]
     #[maybe_async]
-    pub fn new<S: Store>(
+    pub fn new(
         transaction: ExecutedTransaction,
-        note_screener: NoteScreener<S>,
+        note_screener: NoteScreener,
         partial_notes: Vec<NoteDetails>,
     ) -> Result<Self, ClientError> {
         let mut relevant_notes = vec![];
@@ -189,7 +189,7 @@ impl fmt::Display for TransactionStatus {
     }
 }
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
+impl Client {
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
@@ -543,7 +543,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 // ================================================================================================
 
 #[cfg(feature = "testing")]
-impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
+impl Client {
     #[maybe_async]
     pub fn testing_prove_transaction(
         &mut self,

@@ -60,10 +60,7 @@ pub struct NotesCmd {
 }
 
 impl NotesCmd {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        &self,
-        client: Client<N, R, S, A>,
-    ) -> Result<(), String> {
+    pub async fn execute(&self, client: Client) -> Result<(), String> {
         match self {
             NotesCmd { list: Some(NoteFilter::Consumable), .. } => {
                 list_consumable_notes(client, &None)?;
@@ -100,10 +97,7 @@ struct CliNoteSummary {
 
 // LIST NOTES
 // ================================================================================================
-fn list_notes<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: Client<N, R, S, A>,
-    filter: ClientNoteFilter,
-) -> Result<(), String> {
+fn list_notes(client: Client, filter: ClientNoteFilter) -> Result<(), String> {
     let input_notes = client
         .get_input_notes(filter.clone())?
         .into_iter()
@@ -121,10 +115,7 @@ fn list_notes<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticato
 
 // SHOW NOTE
 // ================================================================================================
-fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: Client<N, R, S, A>,
-    note_id: String,
-) -> Result<(), String> {
+fn show_note(client: Client, note_id: String) -> Result<(), String> {
     let input_note_record = get_input_note_with_id_prefix(&client, &note_id);
     let output_note_record = get_output_note_with_id_prefix(&client, &note_id);
 
@@ -260,10 +251,7 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator
 
 // LIST CONSUMABLE INPUT NOTES
 // ================================================================================================
-fn list_consumable_notes<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: Client<N, R, S, A>,
-    account_id: &Option<String>,
-) -> Result<(), String> {
+fn list_consumable_notes(client: Client, account_id: &Option<String>) -> Result<(), String> {
     let account_id = match account_id {
         Some(id) => Some(AccountId::from_hex(id.as_str()).map_err(|err| err.to_string())?),
         None => None,

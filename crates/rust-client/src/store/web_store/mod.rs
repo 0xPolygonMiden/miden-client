@@ -1,5 +1,7 @@
 use alloc::{collections::BTreeMap, vec::Vec};
 
+#[cfg(feature = "async")]
+use async_trait::async_trait;
 use miden_objects::{
     accounts::{Account, AccountHeader, AccountId, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
@@ -41,6 +43,7 @@ impl WebStore {
     }
 }
 
+#[cfg_attr(feature = "async", async_trait)]
 impl Store for WebStore {
     // SYNC
     // --------------------------------------------------------------------------------------------

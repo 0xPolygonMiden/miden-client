@@ -1,8 +1,10 @@
 use alloc::{
+    boxed::Box,
     string::{String, ToString},
     vec::Vec,
 };
 
+use async_trait::async_trait;
 use generated::{
     requests::{
         CheckNullifiersByPrefixRequest, GetAccountDetailsRequest, GetBlockHeaderByNumberRequest,
@@ -46,6 +48,7 @@ impl WebTonicRpcClient {
     }
 }
 
+#[async_trait]
 impl NodeRpcClient for WebTonicRpcClient {
     async fn submit_proven_transaction(
         &mut self,

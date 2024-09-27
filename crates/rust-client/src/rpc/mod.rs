@@ -2,10 +2,10 @@
 //! Remote Procedure Calls (RPC). It facilitates syncing with the network and submitting
 //! transactions.
 
-#![allow(async_fn_in_trait)]
-
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 use core::fmt;
+
+use async_trait::async_trait;
 
 mod errors;
 pub(crate) use errors::RpcConversionError;
@@ -138,6 +138,7 @@ impl NoteInclusionDetails {
 /// The implementers are responsible for connecting to the Miden node, handling endpoint
 /// requests/responses, and translating responses into domain objects relevant for each of the
 /// endpoints.
+#[async_trait]
 pub trait NodeRpcClient {
     /// Given a Proven Transaction, send it to the node for it to be included in a future block
     /// using the `/SubmitProvenTransaction` RPC endpoint.

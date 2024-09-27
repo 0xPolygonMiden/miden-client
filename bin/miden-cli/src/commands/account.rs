@@ -38,10 +38,7 @@ pub struct AccountCmd {
 }
 
 impl AccountCmd {
-    pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        &self,
-        client: Client<N, R, S, A>,
-    ) -> Result<(), String> {
+    pub fn execute(&self, client: Client) -> Result<(), String> {
         match self {
             AccountCmd {
                 list: false,
@@ -95,9 +92,7 @@ impl AccountCmd {
 // LIST ACCOUNTS
 // ================================================================================================
 
-fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: Client<N, R, S, A>,
-) -> Result<(), String> {
+fn list_accounts(client: Client) -> Result<(), String> {
     let accounts = client.get_account_headers()?;
 
     let mut table = create_dynamic_table(&["Account ID", "Type", "Storage Mode", "Nonce"]);
@@ -114,10 +109,7 @@ fn list_accounts<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthentic
     Ok(())
 }
 
-pub fn show_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: Client<N, R, S, A>,
-    account_id: AccountId,
-) -> Result<(), String> {
+pub fn show_account(client: Client, account_id: AccountId) -> Result<(), String> {
     let (account, _) = client.get_account(account_id)?;
 
     let mut table = create_dynamic_table(&[

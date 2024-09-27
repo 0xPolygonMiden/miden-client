@@ -15,7 +15,7 @@ use crate::{
     Client,
 };
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
+impl Client {
     /// Returns the list of note tags tracked by the client.
     ///
     /// When syncing the state with the node, these tags will be added to the sync request and

@@ -22,18 +22,18 @@ use crate::{store::StoreError, ClientError};
 // ================================================================================================
 
 /// Wrapper structure that implements [DataStore] over any [Store].
-pub(crate) struct ClientDataStore<S: Store> {
+pub(crate) struct ClientDataStore {
     /// Local database containing information about the accounts managed by this client.
-    pub(crate) store: Rc<S>,
+    pub(crate) store: Rc<dyn Store>,
 }
 
-impl<S: Store> ClientDataStore<S> {
-    pub fn new(store: Rc<S>) -> Self {
+impl ClientDataStore {
+    pub fn new(store: Rc<dyn Store>) -> Self {
         Self { store }
     }
 }
 
-impl<S: Store> DataStore for ClientDataStore<S> {
+impl DataStore for ClientDataStore {
     #[maybe_async]
     fn get_transaction_inputs(
         &self,
@@ -91,11 +91,8 @@ impl<S: Store> DataStore for ClientDataStore<S> {
                 .map(|(header, _has_notes)| *header)
                 .collect();
 
-        let partial_mmr = maybe_await!(build_partial_mmr_with_paths(
-            self.store.as_ref(),
-            block_num,
-            &notes_blocks
-        ));
+        let partial_mmr =
+            maybe_await!(build_partial_mmr_with_paths(&self.store, block_num, &notes_blocks));
         let chain_mmr = ChainMmr::new(partial_mmr?, notes_blocks)
             .map_err(|err| DataStoreError::InternalError(err.to_string()))?;
 
@@ -113,8 +110,8 @@ impl<S: Store> DataStore for ClientDataStore<S> {
 /// `authenticated_blocks` cannot contain `forest`. For authenticating the last block we have,
 /// the kernel extends the MMR which is why it's not needed here.
 #[maybe_async]
-fn build_partial_mmr_with_paths<S: Store>(
-    store: &S,
+fn build_partial_mmr_with_paths(
+    store: &Rc<dyn Store>,
     forest: u32,
     authenticated_blocks: &[BlockHeader],
 ) -> Result<PartialMmr, DataStoreError> {
@@ -144,8 +141,8 @@ fn build_partial_mmr_with_paths<S: Store>(
 /// This function assumes `block_nums` does not contain values above or equal to `forest`.
 /// If there are any such values, the function will panic when calling `mmr_merkle_path_len()`.
 #[maybe_async]
-fn get_authentication_path_for_blocks<S: Store>(
-    store: &S,
+fn get_authentication_path_for_blocks(
+    store: &Rc<dyn Store>,
     block_nums: &[u32],
     forest: usize,
 ) -> Result<Vec<MerklePath>, StoreError> {

@@ -15,7 +15,7 @@ use crate::{
     Client, ClientError,
 };
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
+impl Client {
     // INPUT NOTE CREATION
     // --------------------------------------------------------------------------------------------
 

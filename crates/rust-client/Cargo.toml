@@ -27,6 +27,7 @@ tonic = ["dep:hex", "dep:prost", "dep:tonic", "std", "tonic/transport"]
 web-tonic = ["dep:hex", "dep:prost", "dep:tonic", "dep:tonic-web-wasm-client", "getrandom/js"]
 
 [dependencies]
+async-trait = { workspace = true }
 base64 = { version = "0.22", optional = true }
 chrono = { version = "0.4", optional = false }
 getrandom = { version = "0.2", features = ["js"], optional = true }

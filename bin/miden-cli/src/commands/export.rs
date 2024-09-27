@@ -46,10 +46,7 @@ pub enum ExportType {
 }
 
 impl ExportCmd {
-    pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        &self,
-        mut client: Client<N, R, S, A>,
-    ) -> Result<(), String> {
+    pub fn execute(&self, mut client: Client) -> Result<(), String> {
         if self.account {
             export_account(&client, self.id.as_str(), self.filename.clone())?;
         } else {
@@ -67,8 +64,8 @@ impl ExportCmd {
 // EXPORT ACCOUNT
 // ================================================================================================
 
-fn export_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: &Client<N, R, S, A>,
+fn export_account(
+    client: &Client,
     account_id: &str,
     filename: Option<PathBuf>,
 ) -> Result<File, String> {
@@ -98,8 +95,8 @@ fn export_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenti
 // EXPORT NOTE
 // ================================================================================================
 
-fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: &mut Client<N, R, S, A>,
+fn export_note(
+    client: &mut Client,
     note_id: &str,
     filename: Option<PathBuf>,
     export_type: ExportType,

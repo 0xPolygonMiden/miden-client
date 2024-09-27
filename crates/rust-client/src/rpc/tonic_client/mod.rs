@@ -1,9 +1,11 @@
 use alloc::{
+    boxed::Box,
     string::{String, ToString},
     vec::Vec,
 };
 use std::time::Duration;
 
+use async_trait::async_trait;
 use generated::{
     requests::{
         CheckNullifiersByPrefixRequest, GetAccountDetailsRequest, GetBlockHeaderByNumberRequest,
@@ -72,6 +74,7 @@ impl TonicRpcClient {
     }
 }
 
+#[async_trait]
 impl NodeRpcClient for TonicRpcClient {
     async fn submit_proven_transaction(
         &mut self,

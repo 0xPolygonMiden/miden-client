@@ -27,10 +27,7 @@ pub struct TagsCmd {
 }
 
 impl TagsCmd {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        &self,
-        client: Client<N, R, S, A>,
-    ) -> Result<(), String> {
+    pub async fn execute(&self, client: Client) -> Result<(), String> {
         match self {
             TagsCmd { add: Some(tag), .. } => {
                 add_tag(client, *tag)?;
@@ -48,18 +45,13 @@ impl TagsCmd {
 
 // HELPERS
 // ================================================================================================
-fn list_tags<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: Client<N, R, S, A>,
-) -> Result<(), String> {
+fn list_tags(client: Client) -> Result<(), String> {
     let tags = client.get_note_tags()?;
     println!("Tags: {:?}", tags);
     Ok(())
 }
 
-fn add_tag<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    mut client: Client<N, R, S, A>,
-    tag: u32,
-) -> Result<(), String> {
+fn add_tag(mut client: Client, tag: u32) -> Result<(), String> {
     let tag: NoteTag = tag.into();
     let execution_mode = match tag.execution_hint() {
         NoteExecutionMode::Local => "Local",
@@ -75,10 +67,7 @@ fn add_tag<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
     Ok(())
 }
 
-fn remove_tag<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    mut client: Client<N, R, S, A>,
-    tag: u32,
-) -> Result<(), String> {
+fn remove_tag(mut client: Client, tag: u32) -> Result<(), String> {
     client.remove_note_tag(tag.into())?;
     println!("Tag {} removed", tag);
     Ok(())

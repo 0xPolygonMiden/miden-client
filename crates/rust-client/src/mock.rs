@@ -1,6 +1,7 @@
 use alloc::{collections::BTreeMap, vec::Vec};
 use std::{env::temp_dir, rc::Rc};
 
+use async_trait::async_trait;
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::{
@@ -194,6 +195,7 @@ impl MockRpcApi {
     }
 }
 
+#[async_trait]
 impl NodeRpcClient for MockRpcApi {
     async fn sync_notes(
         &mut self,

@@ -12,10 +12,7 @@ pub struct SyncCmd {
 }
 
 impl SyncCmd {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        &self,
-        mut client: Client<N, R, S, A>,
-    ) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client) -> Result<(), String> {
         let mut new_details = client.sync_state().await?;
         if self.update_ignored {
             new_details.combine_with(client.update_ignored_notes().await?);

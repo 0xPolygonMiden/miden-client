@@ -194,7 +194,7 @@ pub struct StateSyncUpdate {
 /// The number of bits to shift identifiers for in use of filters.
 pub(crate) const FILTER_ID_SHIFT: u8 = 48;
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
+impl Client {
     // SYNC STATE
     // --------------------------------------------------------------------------------------------
 

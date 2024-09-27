@@ -33,10 +33,7 @@ pub struct NewFaucetCmd {
 }
 
 impl NewFaucetCmd {
-    pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        &self,
-        mut client: Client<N, R, S, A>,
-    ) -> Result<(), String> {
+    pub fn execute(&self, mut client: Client) -> Result<(), String> {
         if self.non_fungible {
             todo!("Non-fungible faucets are not supported yet");
         }
@@ -82,10 +79,7 @@ pub struct NewWalletCmd {
 }
 
 impl NewWalletCmd {
-    pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        &self,
-        mut client: Client<N, R, S, A>,
-    ) -> Result<(), String> {
+    pub fn execute(&self, mut client: Client) -> Result<(), String> {
         let client_template = AccountTemplate::BasicWallet {
             mutable_code: self.mutable,
             storage_mode: self.storage_mode,

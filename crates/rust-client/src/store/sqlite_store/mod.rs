@@ -2,6 +2,8 @@ use alloc::{collections::BTreeMap, vec::Vec};
 use core::cell::{RefCell, RefMut};
 use std::path::Path;
 
+#[cfg(feature = "async")]
+use async_trait::async_trait;
 use miden_objects::{
     accounts::{Account, AccountHeader, AccountId, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
@@ -68,6 +70,7 @@ impl SqliteStore {
 //
 // To simplify, all implementations rely on inner SqliteStore functions that map 1:1 by name
 // This way, the actual implementations are grouped by entity types in their own sub-modules
+#[cfg_attr(feature = "async", async_trait)]
 impl Store for SqliteStore {
     #[maybe_async]
     fn get_note_tags(&self) -> Result<Vec<NoteTag>, StoreError> {

@@ -13,6 +13,7 @@ authors = ["miden contributors"]
 repository = "https://github.com/0xPolygonMiden/miden-client"
 
 [workspace.dependencies]
+async-trait = "0.1"
 miden-lib = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next", default-features = false }
 miden-objects = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next", default-features = false }
 miden-tx = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next", default-features = false }
