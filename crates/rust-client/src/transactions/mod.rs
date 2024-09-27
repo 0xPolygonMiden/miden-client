@@ -129,7 +129,7 @@ impl TransactionResult {
 ///
 /// Currently, the `commit_height` (and `committed` status) is set based on the height
 /// at which the transaction's output notes are committed.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TransactionRecord {
     pub id: TransactionId,
     pub account_id: AccountId,

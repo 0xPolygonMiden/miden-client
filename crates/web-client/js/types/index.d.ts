@@ -27,6 +27,7 @@ export {
   Rpo256,
   SerializedAccountHeader,
   TestUtils,
+  TransactionFilter,
   TransactionRequest,
   TransactionScriptInputPair,
   TransactionScriptInputPairArray,

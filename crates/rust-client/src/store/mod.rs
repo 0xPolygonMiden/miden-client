@@ -376,6 +376,7 @@ pub enum ChainMmrNodeFilter<'a> {
 // ================================================================================================
 
 /// Filters for narrowing the set of transactions returned by the client's store.
+#[derive(Debug, Clone)]
 pub enum TransactionFilter {
     /// Return all transactions.
     All,

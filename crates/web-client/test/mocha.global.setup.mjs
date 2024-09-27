@@ -43,9 +43,31 @@ before(async () => {
       const { 
         Account,
         AccountHeader, 
-        AccountStorageMode, 
+        AccountStorageMode,
+        AdviceMap,
         AuthSecretKey, 
+        Felt,
+        FeltArray,
+        FungibleAsset,
+        Note,
+        NoteAssets,
+        NoteExecutionHint,
+        NoteExecutionMode,
+        NoteIdAndArgs,
+        NoteIdAndArgsArray,
+        NoteInputs,
+        NoteMetadata,
+        NoteRecipient,
+        NoteTag,
+        NoteType,
+        OutputNote,
+        OutputNotesArray,
+        Rpo256,
         TestUtils,
+        TransactionFilter,
+        TransactionRequest,
+        TransactionScriptInputPair,
+        TransactionScriptInputPairArray,
         WebClient 
       } = await import("./index.js");
       let rpc_url = `http://localhost:${port}`;
@@ -56,8 +78,30 @@ before(async () => {
       window.Account = Account;
       window.AccountHeader = AccountHeader;
       window.AccountStorageMode = AccountStorageMode;
-      window.AuthSecretKey = AuthSecretKey
+      window.AdviceMap = AdviceMap;
+      window.AuthSecretKey = AuthSecretKey;
+      window.Felt = Felt;
+      window.FeltArray = FeltArray;
+      window.FungibleAsset = FungibleAsset;
+      window.Note = Note;
+      window.NoteAssets = NoteAssets;
+      window.NoteExecutionHint = NoteExecutionHint;
+      window.NoteExecutionMode = NoteExecutionMode;
+      window.NoteIdAndArgs = NoteIdAndArgs;
+      window.NoteIdAndArgsArray = NoteIdAndArgsArray;
+      window.NoteInputs = NoteInputs;
+      window.NoteMetadata = NoteMetadata;
+      window.NoteRecipient = NoteRecipient;
+      window.NoteTag = NoteTag;
+      window.NoteType = NoteType;
+      window.OutputNote = OutputNote;
+      window.OutputNotesArray = OutputNotesArray;
+      window.Rpo256 = Rpo256;
       window.TestUtils = TestUtils;
+      window.TransactionFilter = TransactionFilter;
+      window.TransactionRequest = TransactionRequest;
+      window.TransactionScriptInputPair = TransactionScriptInputPair;
+      window.TransactionScriptInputPairArray = TransactionScriptInputPairArray;
     }, LOCAL_MIDEN_NODE_PORT);
   });
 });
