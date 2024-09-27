@@ -7,7 +7,8 @@ use miden_objects::{
 use winter_maybe_async::maybe_await;
 
 use crate::{
-    store::{ExpectedNoteState, InputNoteRecord},
+    store::{ExpectedNoteState, InputNoteRecord, NoteState},
+    sync::{NoteTagRecord, NoteTagSource},
     Client, ClientError,
 };
 
@@ -47,6 +48,12 @@ impl<R: FeltRng> Client<R> {
         };
 
         if let Some(note) = note {
+            if let NoteState::Expected(ExpectedNoteState { tag: Some(tag), .. }) = note.state() {
+                maybe_await!(self.store.add_note_tag(NoteTagRecord {
+                    tag: *tag,
+                    source: NoteTagSource::Note(note.id()),
+                }))?;
+            }
             maybe_await!(self.store.upsert_input_note(note))?;
         }
 

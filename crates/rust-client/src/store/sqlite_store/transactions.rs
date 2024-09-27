@@ -16,11 +16,13 @@ use tracing::info;
 use super::{
     accounts::update_account,
     notes::{insert_output_note_tx, upsert_input_note_tx},
+    sync::add_note_tag_tx,
     SqliteStore,
 };
 use crate::{
     rpc::TransactionUpdate,
-    store::{NoteFilter, StoreError, TransactionFilter},
+    store::{ExpectedNoteState, NoteFilter, NoteState, StoreError, TransactionFilter},
+    sync::{NoteTagRecord, NoteTagSource},
     transactions::{TransactionRecord, TransactionResult, TransactionStatus},
 };
 
@@ -119,6 +121,15 @@ impl SqliteStore {
         // Updates for notes
         for note in created_input_notes {
             upsert_input_note_tx(&tx, &note)?;
+            if let NoteState::Expected(ExpectedNoteState { tag: Some(tag), .. }) = note.state() {
+                add_note_tag_tx(
+                    &tx,
+                    NoteTagRecord {
+                        tag: *tag,
+                        source: NoteTagSource::Note(note.id()),
+                    },
+                )?;
+            }
         }
 
         for note in &created_output_notes {

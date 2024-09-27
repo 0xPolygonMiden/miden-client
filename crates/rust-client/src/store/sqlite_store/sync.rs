@@ -2,7 +2,7 @@ use alloc::{string::ToString, vec::Vec};
 
 use miden_objects::notes::{NoteInclusionProof, NoteTag};
 use miden_tx::utils::{Deserializable, Serializable};
-use rusqlite::{named_params, params};
+use rusqlite::{named_params, params, Transaction};
 
 use super::SqliteStore;
 use crate::{
@@ -40,8 +40,12 @@ impl SqliteStore {
             return Ok(false);
         }
 
-        const QUERY: &str = "INSERT INTO tags (tag, source) VALUES (?, ?)";
-        self.db().execute(QUERY, params![tag.tag.to_bytes(), tag.source.to_bytes()])?;
+        let mut db = self.db();
+        let tx = db.transaction()?;
+
+        add_note_tag_tx(&tx, tag)?;
+
+        tx.commit()?;
 
         Ok(true)
     }
@@ -254,4 +258,11 @@ impl SqliteStore {
 
         Ok(relevant_notes)
     }
+}
+
+pub(super) fn add_note_tag_tx(tx: &Transaction<'_>, tag: NoteTagRecord) -> Result<(), StoreError> {
+    const QUERY: &str = "INSERT INTO tags (tag, source) VALUES (?, ?)";
+    tx.execute(QUERY, params![tag.tag.to_bytes(), tag.source.to_bytes()])?;
+
+    Ok(())
 }

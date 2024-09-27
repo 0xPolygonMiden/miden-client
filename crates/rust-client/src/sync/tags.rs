@@ -3,16 +3,13 @@ use alloc::{collections::BTreeSet, vec::Vec};
 use miden_objects::{
     accounts::AccountId,
     crypto::rand::FeltRng,
-    notes::{NoteExecutionMode, NoteId, NoteTag},
+    notes::{NoteId, NoteTag},
 };
-use miden_tx::{
-    auth::TransactionAuthenticator,
-    utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
-};
+use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 use tracing::warn;
 use winter_maybe_async::{maybe_async, maybe_await};
 
-use crate::{errors::ClientError, store::NoteFilter, Client};
+use crate::{errors::ClientError, Client};
 
 impl<R: FeltRng> Client<R> {
     /// Returns the list of note tags tracked by the client.
@@ -61,23 +58,9 @@ impl<R: FeltRng> Client<R> {
     /// Returns the list of note tags tracked by the client.
     #[maybe_async]
     pub(crate) fn get_tracked_note_tags(&self) -> Result<Vec<NoteTag>, ClientError> {
-        let stored_tags = maybe_await!(self.get_note_tags())?.into_iter().map(|r| r.tag).collect();
-
-        let account_tags = maybe_await!(self.get_account_headers())?
+        Ok(maybe_await!(self.get_note_tags())?
             .into_iter()
-            .map(|(header, _)| NoteTag::from_account_id(header.id(), NoteExecutionMode::Local))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let expected_notes = maybe_await!(self.store.get_input_notes(NoteFilter::Expected))?;
-
-        let uncommited_note_tags: Vec<NoteTag> = expected_notes
-            .iter()
-            .filter_map(|note| note.metadata().map(|metadata| metadata.tag()))
-            .collect();
-
-        Ok([account_tags, stored_tags, uncommited_note_tags]
-            .concat()
-            .into_iter()
+            .map(|r| r.tag)
             .collect::<BTreeSet<NoteTag>>()
             .into_iter()
             .collect())
