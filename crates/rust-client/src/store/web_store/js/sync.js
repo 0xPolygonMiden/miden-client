@@ -6,29 +6,16 @@ import {
     transactions,
     blockHeaders,
     chainMmrNodes,
+    tags,
 } from './schema.js';
 
 export async function getNoteTags() {
     try {
-        const record = await stateSync.get(1);  // Since id is the primary key and always 1
-        if (record) {
-            if (!record.tags) {
-                return { tags: null }
-            }
-            else {
-                const tagsArrayBuffer = await record.tags.arrayBuffer();
-                const tagsArray = new Uint8Array(tagsArrayBuffer);
-                const tagsBase64 = uint8ArrayToBase64(tagsArray);
+        let records = await tags.toArray();
 
-                return {
-                    tags: tagsBase64
-                };
-            }
-        } else {
-            return null;
-        }
+        return records;
     } catch (error) {
-        console.error('Error fetching record:', error);
+        console.error('Error fetching tag record:', error.toString());
         return null;
     }
 }
@@ -45,17 +32,41 @@ export async function getSyncHeight() {
             return null;
         }
     } catch (error) {
-        console.error('Error fetching record:', error);
+        console.error('Error fetching sync height:', error.toString());
         return null;
     }
 }
 
 export async function addNoteTag(
-    tags
+    tag,
+    source
 ) {
     try {
-        const tagsBlob = new Blob([new Uint8Array(tags)]);
-        await stateSync.update(1, { tags: tagsBlob });
+        let tagArray = new Uint8Array(tag);
+        let tagBase64 = uint8ArrayToBase64(tagArray);
+
+        let sourceArray = new Uint8Array(source);
+        let sourceBase64 = uint8ArrayToBase64(sourceArray);
+
+        await tags.add({ tag: tagBase64, source: sourceBase64 });
+    } catch {
+        console.error("Failed to add note tag: ", err);
+        throw err;
+    }
+}
+
+export async function removeNoteTag(
+    tag,
+    source
+) {
+    try {
+        let tagHashArray = new Uint8Array(tag);
+        let tagHashBase64 = uint8ArrayToBase64(tagHashArray);
+
+        let sourceHashArray = new Uint8Array(source);
+        let sourceHashBase64 = uint8ArrayToBase64(sourceHashArray);
+
+        await tags.delete({ tag: tagHashBase64, source: sourceHashBase64 });
     } catch {
         console.error("Failed to add note tag: ", err);
         throw err;
@@ -291,4 +302,9 @@ async function updateCommittedTransactions(
         console.error("Failed to mark transactions as committed: ", err);
         throw err;
     }
+}
+
+function uint8ArrayToBase64(bytes) {
+    const binary = bytes.reduce((acc, byte) => acc + String.fromCharCode(byte), '');
+    return btoa(binary);
 }
