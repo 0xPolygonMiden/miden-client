@@ -3,7 +3,7 @@ use wasm_bindgen::prelude::*;
 
 use super::{
     account_code::AccountCode, account_id::AccountId, account_storage::AccountStorage,
-    asset_vault::AssetVault, felt::Felt,
+    asset_vault::AssetVault, felt::Felt, rpo_digest::RpoDigest,
 };
 
 #[wasm_bindgen]
@@ -13,6 +13,10 @@ pub struct Account(NativeAccount);
 impl Account {
     pub fn id(&self) -> AccountId {
         self.0.id().into()
+    }
+
+    pub fn hash(&self) -> RpoDigest {
+        self.0.hash().into()
     }
 
     pub fn nonce(&self) -> Felt {

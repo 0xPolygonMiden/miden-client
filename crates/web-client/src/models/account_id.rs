@@ -9,6 +9,11 @@ pub struct AccountId(NativeAccountId);
 
 #[wasm_bindgen]
 impl AccountId {
+    pub fn from_hex(hex: &str) -> AccountId {
+        let native_account_id = NativeAccountId::from_hex(hex).unwrap();
+        AccountId(native_account_id)
+    }
+
     pub fn is_faucet(&self) -> bool {
         self.0.is_faucet()
     }

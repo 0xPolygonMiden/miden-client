@@ -1,8 +1,10 @@
-use miden_objects::accounts::AccountId as NativeAccountId;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    models::{account::Account, account_header::AccountHeader, auth_secret_key::AuthSecretKey},
+    models::{
+        account::Account, account_header::AccountHeader, account_id::AccountId,
+        auth_secret_key::AuthSecretKey,
+    },
     WebClient,
 };
 
@@ -21,13 +23,10 @@ impl WebClient {
         }
     }
 
-    pub async fn get_account(&mut self, account_id: &str) -> Result<Account, JsValue> {
+    pub async fn get_account(&mut self, account_id: &AccountId) -> Result<Account, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let native_account_id = NativeAccountId::from_hex(account_id).map_err(|err| {
-                JsValue::from_str(&format!("Failed to parse account ID: {:?}", err))
-            })?;
             let result = client
-                .get_account(native_account_id)
+                .get_account(account_id.into())
                 .await
                 .map_err(|err| JsValue::from_str(&format!("Failed to get account: {}", err)))?;
 
@@ -37,13 +36,13 @@ impl WebClient {
         }
     }
 
-    pub async fn get_account_auth(&mut self, account_id: &str) -> Result<AuthSecretKey, JsValue> {
+    pub async fn get_account_auth(
+        &mut self,
+        account_id: &AccountId,
+    ) -> Result<AuthSecretKey, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let native_account_id = NativeAccountId::from_hex(account_id).map_err(|err| {
-                JsValue::from_str(&format!("Failed to parse account ID: {:?}", err))
-            })?;
             let native_auth_secret_key =
-                client.get_account_auth(native_account_id).await.map_err(|err| {
+                client.get_account_auth(account_id.into()).await.map_err(|err| {
                     JsValue::from_str(&format!("Failed to get account auth: {}", err))
                 })?;
 
@@ -55,12 +54,12 @@ impl WebClient {
 
     pub async fn fetch_and_cache_account_auth_by_pub_key(
         &mut self,
-        account_id: &str,
+        account_id: &AccountId,
     ) -> Result<AuthSecretKey, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let native_auth_secret_key = client
                 .store()
-                .fetch_and_cache_account_auth_by_pub_key(account_id)
+                .fetch_and_cache_account_auth_by_pub_key(&account_id.to_string())
                 .await
                 .map_err(|err| {
                     JsValue::from_str(&format!("Failed to fetch and cache account auth: {}", err))

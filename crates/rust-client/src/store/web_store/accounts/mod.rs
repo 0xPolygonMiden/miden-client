@@ -42,28 +42,24 @@ impl WebStore {
         &self,
     ) -> Result<Vec<(AccountHeader, Option<Word>)>, StoreError> {
         let promise = idxdb_get_account_headers();
+        let js_value = JsFuture::from(promise).await.map_err(|js_error| {
+            StoreError::DatabaseError(format!("Failed to fetch account headers: {:?}", js_error))
+        })?;
 
-        match JsFuture::from(promise).await {
-            Ok(js_value) => {
-                let account_headers_idxdb: Vec<AccountRecordIdxdbOjbect> = from_value(js_value)
-                    .map_err(|err| {
-                        StoreError::DataDeserializationError(DeserializationError::InvalidValue(
-                            format!("Failed to deserialize {:?}", err),
-                        ))
-                    })?;
-                let account_headers: Result<Vec<(AccountHeader, Option<Word>)>, StoreError> =
-                    account_headers_idxdb
-                        .into_iter()
-                        .map(parse_account_record_idxdb_object)
-                        .collect(); // Collect results into a single Result
+        let account_headers_idxdb: Vec<AccountRecordIdxdbOjbect> =
+            from_value(js_value).map_err(|err| {
+                StoreError::DataDeserializationError(DeserializationError::InvalidValue(format!(
+                    "Failed to deserialize {:?}",
+                    err
+                )))
+            })?;
 
-                account_headers
-            },
-            Err(js_error) => Err(StoreError::DatabaseError(format!(
-                "Failed to fetch account headers: {:?}",
-                js_error
-            ))),
-        }
+        let account_headers: Vec<(AccountHeader, Option<Word>)> = account_headers_idxdb
+            .into_iter()
+            .map(parse_account_record_idxdb_object)
+            .collect::<Result<Vec<_>, StoreError>>()?;
+
+        Ok(account_headers)
     }
 
     pub(crate) async fn get_account_header(
@@ -71,23 +67,23 @@ impl WebStore {
         account_id: AccountId,
     ) -> Result<(AccountHeader, Option<Word>), StoreError> {
         let account_id_str = account_id.to_string();
-
         let promise = idxdb_get_account_header(account_id_str);
 
-        match JsFuture::from(promise).await {
-            Ok(js_value) => {
-                let account_header_idxdb: AccountRecordIdxdbOjbect =
-                    from_value(js_value).map_err(|err| {
-                        StoreError::DataDeserializationError(DeserializationError::InvalidValue(
-                            format!("Failed to deserialize {:?}", err),
-                        ))
-                    })?;
-                let parsed_account_record =
-                    parse_account_record_idxdb_object(account_header_idxdb)?;
-                Ok(parsed_account_record)
-            },
-            Err(_) => Err(StoreError::AccountDataNotFound(account_id)),
-        }
+        let js_value = JsFuture::from(promise)
+            .await
+            .map_err(|_| StoreError::AccountDataNotFound(account_id))?;
+
+        let account_header_idxdb: AccountRecordIdxdbOjbect =
+            from_value(js_value).map_err(|err| {
+                StoreError::DataDeserializationError(DeserializationError::InvalidValue(format!(
+                    "Failed to deserialize {:?}",
+                    err
+                )))
+            })?;
+
+        let parsed_account_record = parse_account_record_idxdb_object(account_header_idxdb)?;
+
+        Ok(parsed_account_record)
     }
 
     pub(crate) async fn get_account_header_by_hash(
@@ -180,20 +176,26 @@ impl WebStore {
         let account_id_str = account_id.to_string();
         let promise = idxdb_get_account_auth(account_id_str);
 
-        match JsFuture::from(promise).await {
-            Ok(js_value) => {
-                let account_auth_idxdb: AccountAuthIdxdbObject =
-                    from_value(js_value).map_err(|err| {
-                        StoreError::DataDeserializationError(DeserializationError::InvalidValue(
-                            format!("Failed to deserialize {:?}", err),
-                        ))
-                    })?;
-                let auth_info = AuthSecretKey::read_from_bytes(&account_auth_idxdb.auth_info)?;
+        let js_value = JsFuture::from(promise)
+            .await
+            .map_err(|_| StoreError::AccountDataNotFound(account_id))?;
 
-                Ok(auth_info)
-            },
-            Err(_) => Err(StoreError::AccountDataNotFound(account_id)),
-        }
+        let account_auth_idxdb: AccountAuthIdxdbObject = from_value(js_value).map_err(|err| {
+            StoreError::DataDeserializationError(DeserializationError::InvalidValue(format!(
+                "Failed to deserialize {:?}",
+                err
+            )))
+        })?;
+
+        let auth_info =
+            AuthSecretKey::read_from_bytes(&account_auth_idxdb.auth_info).map_err(|err| {
+                StoreError::DataDeserializationError(DeserializationError::InvalidValue(format!(
+                    "Failed to read auth info: {:?}",
+                    err
+                )))
+            })?;
+
+        Ok(auth_info)
     }
 
     pub(crate) async fn insert_account(
@@ -236,19 +238,33 @@ impl WebStore {
     ) -> Result<AuthSecretKey, StoreError> {
         let promise = idxdb_fetch_and_cache_account_auth_by_pub_key(account_id.to_string());
 
-        match JsFuture::from(promise).await {
-            Ok(js_value) => {
-                let account_auth_idxdb: AccountAuthIdxdbObject =
-                    from_value(js_value).map_err(|err| {
-                        StoreError::DataDeserializationError(DeserializationError::InvalidValue(
-                            format!("Failed to deserialize {:?}", err),
-                        ))
-                    })?;
-                let auth_info = AuthSecretKey::read_from_bytes(&account_auth_idxdb.auth_info)?;
+        // Separate the conversion of the account_id
+        let account_id = AccountId::from_hex(account_id).map_err(|err| {
+            StoreError::DataDeserializationError(DeserializationError::InvalidValue(format!(
+                "Failed to parse account_id from hex: {:?}",
+                err
+            )))
+        })?;
 
-                Ok(auth_info)
-            },
-            Err(_) => Err(StoreError::AccountDataNotFound(AccountId::from_hex(account_id)?)),
-        }
+        let js_value = JsFuture::from(promise)
+            .await
+            .map_err(|_| StoreError::AccountDataNotFound(account_id))?;
+
+        let account_auth_idxdb: AccountAuthIdxdbObject = from_value(js_value).map_err(|err| {
+            StoreError::DataDeserializationError(DeserializationError::InvalidValue(format!(
+                "Failed to deserialize {:?}",
+                err
+            )))
+        })?;
+
+        let auth_info =
+            AuthSecretKey::read_from_bytes(&account_auth_idxdb.auth_info).map_err(|err| {
+                StoreError::DataDeserializationError(DeserializationError::InvalidValue(format!(
+                    "Failed to read auth info: {:?}",
+                    err
+                )))
+            })?;
+
+        Ok(auth_info)
     }
 }

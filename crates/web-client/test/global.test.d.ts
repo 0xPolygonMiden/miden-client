@@ -1,5 +1,5 @@
 import { Page } from "puppeteer";
-import { Account, AccountHeader, AccountStorageMode, AuthSecretKey, WebClient } from "../dist/index";
+import { Account, AccountHeader, AccountStorageMode, AuthSecretKey, TestUtils, WebClient } from "../dist/index";
 
 declare global {
   interface Window {
@@ -8,6 +8,7 @@ declare global {
     AccountHeader: typeof AccountHeader;
     AccountStorageMode: typeof AccountStorageMode;
     AuthSecretKey: typeof AuthSecretKey;
+    TestUtils: typeof TestUtils;
     create_client: () => Promise<void>;
   }
 }

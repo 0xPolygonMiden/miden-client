@@ -52,6 +52,7 @@ pub mod note_type;
 pub mod output_note;
 pub mod rpo256;
 pub mod rpo_digest;
+pub mod test_utils;
 pub mod transaction_request;
 pub mod transaction_result;
 pub mod transaction_script;

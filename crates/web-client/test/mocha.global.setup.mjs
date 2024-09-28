@@ -40,7 +40,14 @@ before(async () => {
   // Creates the client in the test context and attach to window object
   await testingPage.exposeFunction("create_client", async () => {
     await testingPage.evaluate(async (port) => {
-      const { Account, AccountHeader, AccountStorageMode, AuthSecretKey, WebClient } = await import("./index.js");
+      const { 
+        Account,
+        AccountHeader, 
+        AccountStorageMode, 
+        AuthSecretKey, 
+        TestUtils,
+        WebClient 
+      } = await import("./index.js");
       let rpc_url = `http://localhost:${port}`;
       const client = new WebClient();
       await client.create_client(rpc_url);
@@ -50,6 +57,7 @@ before(async () => {
       window.AccountHeader = AccountHeader;
       window.AccountStorageMode = AccountStorageMode;
       window.AuthSecretKey = AuthSecretKey
+      window.TestUtils = TestUtils;
     }, LOCAL_MIDEN_NODE_PORT);
   });
 });
