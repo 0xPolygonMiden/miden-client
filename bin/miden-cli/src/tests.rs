@@ -355,6 +355,11 @@ fn test_cli_export_import_note() {
         output_notes.first().unwrap().id().to_hex()
     };
 
+    // Export without type fails
+    let mut export_cmd = Command::cargo_bin("miden").unwrap();
+    export_cmd.args(["export", &note_to_export_id, "--filename", NOTE_FILENAME]);
+    export_cmd.current_dir(&temp_dir_1).assert().failure().code(1); // Code returned when the CLI handles an error
+
     // Export the note
     let mut export_cmd = Command::cargo_bin("miden").unwrap();
     export_cmd.args([
