@@ -97,6 +97,11 @@ impl<R: FeltRng> Client<R> {
                 if previous_note
                     .inclusion_proof_received(inclusion_proof, *note_details.metadata())?
                 {
+                    maybe_await!(self.store.remove_note_tag(NoteTagRecord {
+                        tag: note_details.metadata().tag(),
+                        source: NoteTagSource::Note(note_details.id()),
+                    }))?;
+
                     Ok(Some(previous_note))
                 } else {
                     Ok(None)
@@ -169,6 +174,11 @@ impl<R: FeltRng> Client<R> {
             }
 
             if note_changed {
+                maybe_await!(self.store.remove_note_tag(NoteTagRecord {
+                    tag: metadata.tag(),
+                    source: NoteTagSource::Note(note_record.id()),
+                }))?;
+
                 Ok(Some(note_record))
             } else {
                 Ok(None)
@@ -213,6 +223,11 @@ impl<R: FeltRng> Client<R> {
                     note_record.inclusion_proof_received(inclusion_proof, metadata)?;
 
                 if note_record.block_header_received(block_header)? | note_changed {
+                    maybe_await!(self.store.remove_note_tag(NoteTagRecord {
+                        tag: metadata.tag(),
+                        source: NoteTagSource::Note(note_record.id()),
+                    }))?;
+
                     Ok(Some(note_record))
                 } else {
                     Ok(None)

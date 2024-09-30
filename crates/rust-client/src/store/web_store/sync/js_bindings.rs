@@ -22,7 +22,11 @@ extern "C" {
     // ================================================================================================
 
     #[wasm_bindgen(js_name = addNoteTag)]
-    pub fn idxdb_add_note_tag(tag: Vec<u8>, source: Vec<u8>) -> js_sys::Promise;
+    pub fn idxdb_add_note_tag(
+        tag: Vec<u8>,
+        source_note_id: Option<String>,
+        source_account_id: Option<String>,
+    ) -> js_sys::Promise;
 
     #[wasm_bindgen(js_name = applyStateSync)]
     pub fn idxdb_apply_state_sync(
@@ -46,5 +50,9 @@ extern "C" {
     // DELETES
     // ================================================================================================
     #[wasm_bindgen(js_name = removeNoteTag)]
-    pub fn idxdb_remove_note_tag(tag: Vec<u8>, source: Vec<u8>) -> js_sys::Promise;
+    pub fn idxdb_remove_note_tag(
+        tag: Vec<u8>,
+        source_note_id: Option<String>,
+        source_account_id: Option<String>,
+    ) -> js_sys::Promise;
 }

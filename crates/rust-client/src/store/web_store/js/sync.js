@@ -39,16 +39,14 @@ export async function getSyncHeight() {
 
 export async function addNoteTag(
     tag,
-    source
+    source_note_id,
+    source_account_id
 ) {
     try {
         let tagArray = new Uint8Array(tag);
         let tagBase64 = uint8ArrayToBase64(tagArray);
 
-        let sourceArray = new Uint8Array(source);
-        let sourceBase64 = uint8ArrayToBase64(sourceArray);
-
-        await tags.add({ tag: tagBase64, source: sourceBase64 });
+        await tags.add({ tag: tagBase64, source_note_id, source_account_id  });
     } catch {
         console.error("Failed to add note tag: ", err);
         throw err;
@@ -57,18 +55,16 @@ export async function addNoteTag(
 
 export async function removeNoteTag(
     tag,
-    source
+    source_note_id,
+    source_account_id
 ) {
     try {
         let tagHashArray = new Uint8Array(tag);
         let tagHashBase64 = uint8ArrayToBase64(tagHashArray);
 
-        let sourceHashArray = new Uint8Array(source);
-        let sourceHashBase64 = uint8ArrayToBase64(sourceHashArray);
-
-        await tags.delete({ tag: tagHashBase64, source: sourceHashBase64 });
+        await tags.delete({ tag: tagHashBase64, source_note_id, source_account_id });
     } catch {
-        console.error("Failed to add note tag: ", err);
+        console.error("Failed to remove note tag: ", err);
         throw err;
     }
 }
@@ -264,6 +260,9 @@ async function updateCommittedNotes(
                 inclusionProof: inclusionProofBlob,
                 metadata: metadataBlob
             });
+
+            // Remove note tags
+            await tags.delete({ source_note_id: noteId });
         }
     } catch (error) {
         console.error("Error updating committed notes:", error);

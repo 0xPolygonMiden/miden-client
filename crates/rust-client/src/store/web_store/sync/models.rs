@@ -12,8 +12,8 @@ pub struct SyncHeightIdxdbObject {
 pub struct NoteTagIdxdbObject {
     #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
     pub tag: Vec<u8>,
-    #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
-    pub source: Vec<u8>,
+    pub source_note_id: Option<String>,
+    pub source_account_id: Option<String>,
 }
 
 fn base64_to_vec_u8_required<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
