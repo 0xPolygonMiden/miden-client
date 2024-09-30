@@ -15,7 +15,7 @@ use miden_tx::{
 use crate::{
     notes::NoteScreenerError,
     rpc::RpcError,
-    store::StoreError,
+    store::{NoteRecordError, StoreError},
     transactions::{TransactionRequestError, TransactionScriptBuilderError},
 };
 
@@ -34,7 +34,7 @@ pub enum ClientError {
     MissingOutputNotes(Vec<NoteId>),
     NoteError(NoteError),
     NoteImportError(String),
-    NoteRecordError(String),
+    NoteRecordError(NoteRecordError),
     NoConsumableNoteForAccount(AccountId),
     RpcError(RpcError),
     NoteScreenerError(NoteScreenerError),
@@ -124,6 +124,12 @@ impl From<NoteError> for ClientError {
     }
 }
 
+impl From<NoteRecordError> for ClientError {
+    fn from(err: NoteRecordError) -> Self {
+        Self::NoteRecordError(err)
+    }
+}
+
 impl From<RpcError> for ClientError {
     fn from(err: RpcError) -> Self {
         Self::RpcError(err)
@@ -171,9 +177,6 @@ impl From<TransactionScriptBuilderError> for ClientError {
         Self::TransactionScriptBuilderError(err)
     }
 }
-
-#[cfg(feature = "std")]
-impl std::error::Error for ClientError {}
 
 // ID PREFIX FETCH ERROR
 // ================================================================================================

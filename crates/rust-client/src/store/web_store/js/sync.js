@@ -90,7 +90,7 @@ export async function applyStateSync(
 }
 
 async function updateSyncHeight(
-    tx, 
+    tx,
     blockNum
 ) {
     try {
@@ -135,7 +135,7 @@ async function updateSpentNotes(tx, nullifierBlockNums, nullifiers) {
 
 async function updateBlockHeader(
     tx,
-    blockNum, 
+    blockNum,
     blockHeader,
     chainMmrPeaks,
     hasClientNotes
@@ -188,8 +188,8 @@ async function updateChainMmrNodes(
 }
 
 async function updateCommittedNotes(
-    tx, 
-    outputNoteIds, 
+    tx,
+    outputNoteIds,
     outputNoteInclusionProofsAsFlattenedVec,
     inputNoteIds,
     inputNoteInluclusionProofsAsFlattenedVec,
@@ -221,8 +221,8 @@ async function updateCommittedNotes(
         }
 
         if (
-            inputNoteIds.length !== inputNoteInluclusionProofsAsFlattenedVec.num_inner_vecs() && 
-            inputNoteIds.length !== inputNoteMetadatasAsFlattenedVec.num_inner_vecs() && 
+            inputNoteIds.length !== inputNoteInluclusionProofsAsFlattenedVec.num_inner_vecs() &&
+            inputNoteIds.length !== inputNoteMetadatasAsFlattenedVec.num_inner_vecs() &&
             inputNoteInluclusionProofsAsFlattenedVec.num_inner_vecs() !== inputNoteMetadatasAsFlattenedVec.num_inner_vecs()
         ) {
             throw new Error("Arrays inputNoteIds and inputNoteInclusionProofs and inputNoteMetadatas must be of the same length");
@@ -261,8 +261,8 @@ async function updateCommittedNotes(
 }
 
 async function updateCommittedTransactions(
-    tx, 
-    blockNums, 
+    tx,
+    blockNums,
     transactionIds
 ) {
     try {
@@ -289,22 +289,6 @@ async function updateCommittedTransactions(
         await tx.transactions.bulkPut(updates);
     } catch (err) {
         console.error("Failed to mark transactions as committed: ", err);
-        throw err;
-    }
-}
-
-export async function updateIgnoredNotesForTag(
-    tag
-) {
-    try {
-        await inputNotes
-            .where('importedTag')
-            .equals(tag)
-            .modify(note => {
-                note.ignored = false;
-            });
-    } catch (err) {
-        console.error("Failed to update ignored field for notes: ", err);
         throw err;
     }
 }

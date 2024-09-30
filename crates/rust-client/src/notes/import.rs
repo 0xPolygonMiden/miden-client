@@ -2,16 +2,14 @@ use alloc::string::ToString;
 
 use miden_objects::{
     crypto::rand::FeltRng,
-    notes::{Note, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteTag},
-    transaction::InputNote,
+    notes::{Note, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteMetadata, NoteTag},
 };
 use miden_tx::auth::TransactionAuthenticator;
-use tracing::info;
 use winter_maybe_async::maybe_await;
 
 use crate::{
     rpc::NodeRpcClient,
-    store::{InputNoteRecord, NoteStatus, Store, StoreError},
+    store::{ExpectedNoteState, InputNoteRecord, Store},
     Client, ClientError,
 };
 
@@ -20,59 +18,56 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     // --------------------------------------------------------------------------------------------
 
     /// Imports a new input note into the client's store. The information stored depends on the
-    /// type of note file provided.
+    /// type of note file provided. If the note existed previously, it will be updated with the
+    /// new information.
     ///
     /// - If the note file is a [NoteFile::NoteId], the note is fetched from the node and stored in
-    ///   the client's store. If the note is private or does not exist, an error is returned. If the
-    ///   ID was already stored, the inclusion proof and metadata are updated.
+    ///   the client's store. If the note is private or does not exist, an error is returned.
     /// - If the note file is a [NoteFile::NoteDetails], a new note is created with the provided
-    ///   details. The note is marked as ignored if it contains no tag or if the tag is not
-    ///   relevant.
+    ///   details and tag.
     /// - If the note file is a [NoteFile::NoteWithProof], the note is stored with the provided
-    ///   inclusion proof and metadata. The MMR data is only fetched from the node if the note is
-    ///   committed in the past relative to the client.
+    ///   inclusion proof and metadata. The block header data is only fetched from the node if the
+    ///   note is committed in the past relative to the client.
     pub async fn import_note(&mut self, note_file: NoteFile) -> Result<NoteId, ClientError> {
-        let note = match note_file {
-            NoteFile::NoteId(id) => {
-                let note_record = self.import_note_record_by_id(id).await?;
-                if note_record.is_none() {
-                    return Ok(id);
-                }
+        let id = match &note_file {
+            NoteFile::NoteId(id) => *id,
+            NoteFile::NoteDetails { details, .. } => details.id(),
+            NoteFile::NoteWithProof(note, _) => note.id(),
+        };
 
-                note_record.expect("The note record should be Some")
-            },
+        let previous_note = maybe_await!(self.get_input_note(id)).ok();
+
+        let note = match note_file {
+            NoteFile::NoteId(id) => self.import_note_record_by_id(previous_note, id).await?,
             NoteFile::NoteDetails { details, after_block_num, tag } => {
-                self.import_note_record_by_details(details, after_block_num, tag).await?
+                self.import_note_record_by_details(previous_note, details, after_block_num, tag)
+                    .await?
             },
             NoteFile::NoteWithProof(note, inclusion_proof) => {
-                self.import_note_record_by_proof(note, inclusion_proof).await?
+                self.import_note_record_by_proof(previous_note, note, inclusion_proof).await?
             },
         };
-        let id = note.id();
 
-        if maybe_await!(self.get_input_note(id)).is_ok() {
-            return Err(ClientError::NoteImportError(format!(
-                "Note with ID {} already exists",
-                id
-            )));
+        if let Some(note) = note {
+            maybe_await!(self.store.upsert_input_note(note))?;
         }
 
-        maybe_await!(self.store.insert_input_note(note))?;
         Ok(id)
     }
 
     // HELPERS
     // ================================================================================================
 
-    /// Builds a note record from the note id. The note information is fetched from the node and
-    /// stored in the client's store. If the note already exists in the store, the inclusion proof
-    /// and metadata are updated.
+    /// Builds a note record from the note ID. If a note with the same ID was already stored it is
+    /// passed via `previous_note` so it can be updated. The note information is fetched from the
+    /// node and stored in the client's store.
     ///
     /// Errors:
     /// - If the note does not exist on the node.
     /// - If the note exists but is private.
     async fn import_note_record_by_id(
         &mut self,
+        previous_note: Option<InputNoteRecord>,
         id: NoteId,
     ) -> Result<Option<InputNoteRecord>, ClientError> {
         let mut chain_notes = self.rpc_api.get_notes_by_id(&[id]).await?;
@@ -92,22 +87,17 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             inclusion_details.merkle_path.clone(),
         )?;
 
-        let store_note = maybe_await!(self.get_input_note(id));
-
-        match store_note {
-            Ok(store_note) => {
-                // TODO: Join these calls to one method that updates both fields with one query
-                // (issue #404)
-                maybe_await!(self
-                    .store
-                    .update_note_inclusion_proof(store_note.id(), inclusion_proof))?;
-                maybe_await!(self
-                    .store
-                    .update_note_metadata(store_note.id(), *note_details.metadata()))?;
-
-                Ok(None)
+        match previous_note {
+            Some(mut previous_note) => {
+                if previous_note
+                    .inclusion_proof_received(inclusion_proof, *note_details.metadata())?
+                {
+                    Ok(Some(previous_note))
+                } else {
+                    Ok(None)
+                }
             },
-            Err(ClientError::StoreError(StoreError::NoteNotFound(_))) => {
+            None => {
                 let node_note = match note_details {
                     crate::rpc::NoteDetails::Public(note, _) => note,
                     crate::rpc::NoteDetails::Private(..) => {
@@ -117,144 +107,135 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     },
                 };
 
-                self.import_note_record_by_proof(node_note, inclusion_proof).await.map(Some)
+                self.import_note_record_by_proof(previous_note, node_note, inclusion_proof)
+                    .await
             },
-            Err(err) => Err(err),
         }
     }
 
-    /// Builds a note record from the note and inclusion proof. The note's nullifier is used to
-    /// determine if the note has been consumed in the node and gives it the correct status.
+    /// Builds a note record from the note and inclusion proof. If a note with the same id was
+    /// already stored it is passed via `previous_note` so it can be updated. The note's
+    /// nullifier is used to determine if the note has been consumed in the node and gives it
+    /// the correct status.
     ///
     /// If the note is not consumed and it was committed in the past relative to the client, then
     /// the MMR for the relevant block is fetched from the node and stored.
     async fn import_note_record_by_proof(
         &mut self,
+        previous_note: Option<InputNoteRecord>,
         note: Note,
         inclusion_proof: NoteInclusionProof,
-    ) -> Result<InputNoteRecord, ClientError> {
-        let details = note.clone().into();
+    ) -> Result<Option<InputNoteRecord>, ClientError> {
+        let metadata = *note.metadata();
+        let mut note_record = previous_note.unwrap_or(InputNoteRecord::new(
+            note.into(),
+            None,
+            ExpectedNoteState {
+                metadata: Some(metadata),
+                after_block_num: inclusion_proof.location().block_num(),
+                tag: Some(metadata.tag()),
+            }
+            .into(),
+        ));
 
-        let status = if let Some(block_height) =
-            self.rpc_api.get_nullifier_commit_height(&note.nullifier()).await?
+        if let Some(block_height) =
+            self.rpc_api.get_nullifier_commit_height(&note_record.nullifier()).await?
         {
-            NoteStatus::Consumed { consumer_account_id: None, block_height }
+            if note_record.nullifier_received(note_record.nullifier(), block_height)? {
+                return Ok(Some(note_record));
+            }
+
+            Ok(None)
         } else {
             let block_height = inclusion_proof.location().block_num();
             let current_block_num = maybe_await!(self.get_sync_height())?;
 
+            let mut note_changed =
+                note_record.inclusion_proof_received(inclusion_proof, metadata)?;
+
             if block_height < current_block_num {
                 let mut current_partial_mmr = maybe_await!(self.build_current_partial_mmr(true))?;
 
-                self.get_and_store_authenticated_block(block_height, &mut current_partial_mmr)
+                let block_header = self
+                    .get_and_store_authenticated_block(block_height, &mut current_partial_mmr)
                     .await?;
+
+                note_changed |= note_record.block_header_received(block_header)?;
             }
 
-            NoteStatus::Committed { block_height }
-        };
-
-        Ok(InputNoteRecord::new(
-            note.id(),
-            note.recipient().digest(),
-            note.assets().clone(),
-            status,
-            Some(*note.metadata()),
-            Some(inclusion_proof),
-            details,
-            false,
-            None,
-        ))
-    }
-
-    /// Builds a note record from the note details. If a tag is not provided or not tracked, the
-    /// note is marked as ignored.
-    async fn import_note_record_by_details(
-        &mut self,
-        details: NoteDetails,
-        after_block_num: u32,
-        tag: Option<NoteTag>,
-    ) -> Result<InputNoteRecord, ClientError> {
-        let record_details = details.clone().into();
-
-        match tag {
-            Some(tag) => {
-                let ignored = !maybe_await!(self.get_tracked_note_tags())?.contains(&tag);
-
-                if ignored {
-                    info!("Ignoring note with tag {}", tag);
-                }
-
-                if let (NoteStatus::Committed { block_height }, Some(input_note)) =
-                    self.check_expected_note(after_block_num, tag, &details).await?
-                {
-                    let mut current_partial_mmr =
-                        maybe_await!(self.build_current_partial_mmr(true))?;
-                    self.get_and_store_authenticated_block(block_height, &mut current_partial_mmr)
-                        .await?;
-                    Ok(InputNoteRecord::from(input_note))
-                } else {
-                    Ok(InputNoteRecord::new(
-                        details.id(),
-                        details.recipient().digest(),
-                        details.assets().clone(),
-                        NoteStatus::Expected {
-                            created_at: None,
-                            block_height: Some(after_block_num),
-                        },
-                        None,
-                        None,
-                        record_details,
-                        ignored,
-                        Some(tag),
-                    ))
-                }
-            },
-            None => Ok(InputNoteRecord::new(
-                details.id(),
-                details.recipient().digest(),
-                details.assets().clone(),
-                NoteStatus::Expected {
-                    created_at: None,
-                    block_height: Some(after_block_num),
-                },
-                None,
-                None,
-                record_details,
-                true,
-                None,
-            )),
+            if note_changed {
+                Ok(Some(note_record))
+            } else {
+                Ok(None)
+            }
         }
     }
 
-    /// Synchronizes a note with the chain.
+    /// Builds a note record from the note details. If a note with the same id was already stored it
+    /// is passed via `previous_note` so it can be updated.
+    async fn import_note_record_by_details(
+        &mut self,
+        previous_note: Option<InputNoteRecord>,
+        details: NoteDetails,
+        after_block_num: u32,
+        tag: Option<NoteTag>,
+    ) -> Result<Option<InputNoteRecord>, ClientError> {
+        let mut note_record = previous_note.unwrap_or({
+            InputNoteRecord::new(
+                details,
+                None,
+                ExpectedNoteState { metadata: None, after_block_num, tag }.into(),
+            )
+        });
+
+        let committed_note_data = if let Some(tag) = tag {
+            self.check_expected_note(after_block_num, tag, note_record.details()).await?
+        } else {
+            None
+        };
+
+        match committed_note_data {
+            Some((metadata, inclusion_proof)) => {
+                let mut current_partial_mmr = maybe_await!(self.build_current_partial_mmr(true))?;
+                let block_header = self
+                    .get_and_store_authenticated_block(
+                        inclusion_proof.location().block_num(),
+                        &mut current_partial_mmr,
+                    )
+                    .await?;
+
+                let note_changed =
+                    note_record.inclusion_proof_received(inclusion_proof, metadata)?;
+
+                if note_record.block_header_received(block_header)? | note_changed {
+                    Ok(Some(note_record))
+                } else {
+                    Ok(None)
+                }
+            },
+            None => Ok(Some(note_record)),
+        }
+    }
+
+    /// Checks if a note with the given note_tag and id is present in the chain between the
+    /// `request_block_num` and the current block. If found it returns its metadata and inclusion
+    /// proof.
     async fn check_expected_note(
         &mut self,
         mut request_block_num: u32,
         tag: NoteTag,
         expected_note: &miden_objects::notes::NoteDetails,
-    ) -> Result<(NoteStatus, Option<InputNote>), ClientError> {
+    ) -> Result<Option<(NoteMetadata, NoteInclusionProof)>, ClientError> {
         let current_block_num = maybe_await!(self.get_sync_height())?;
         loop {
             if request_block_num > current_block_num {
-                return Ok((
-                    NoteStatus::Expected {
-                        created_at: None,
-                        block_height: Some(request_block_num),
-                    },
-                    None,
-                ));
+                return Ok(None);
             };
 
             let sync_notes = self.rpc_api.sync_notes(request_block_num, &[tag]).await?;
 
             if sync_notes.block_header.block_num() == sync_notes.chain_tip {
-                return Ok((
-                    NoteStatus::Expected {
-                        created_at: None,
-                        block_height: Some(request_block_num),
-                    },
-                    None,
-                ));
+                return Ok(None);
             }
 
             // This means that notes with that note_tag were found.
@@ -268,13 +249,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                 let note_block_num = sync_notes.block_header.block_num();
 
                 if note_block_num > current_block_num {
-                    return Ok((
-                        NoteStatus::Expected {
-                            created_at: None,
-                            block_height: Some(request_block_num),
-                        },
-                        None,
-                    ));
+                    return Ok(None);
                 };
 
                 let note_inclusion_proof = NoteInclusionProof::new(
@@ -283,21 +258,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
                     note.merkle_path().clone(),
                 )?;
 
-                return Ok((
-                    NoteStatus::Committed {
-                        // Block header can't be None since we check that already in the if
-                        // statement.
-                        block_height: note_block_num,
-                    },
-                    Some(InputNote::authenticated(
-                        Note::new(
-                            expected_note.assets().clone(),
-                            note.metadata(),
-                            expected_note.recipient().clone(),
-                        ),
-                        note_inclusion_proof,
-                    )),
-                ));
+                return Ok(Some((note.metadata(), note_inclusion_proof)));
             } else {
                 // This means that a note with the same id was not found.
                 // Therefore, we should request again for sync_notes with the same note_tag

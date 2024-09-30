@@ -42,7 +42,4 @@ extern "C" {
         transactions_to_commit: Vec<String>,
         transactions_to_commit_block_nums: Vec<String>,
     ) -> js_sys::Promise;
-
-    #[wasm_bindgen(js_name = updateIgnoredNotesForTag)]
-    pub fn idxdb_update_ignored_notes_for_tag(tag: String) -> js_sys::Promise;
 }

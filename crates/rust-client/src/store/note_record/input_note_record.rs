@@ -1,264 +1,267 @@
 use alloc::string::ToString;
 
 use miden_objects::{
-    notes::{
-        Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata,
-        NoteRecipient, NoteTag,
-    },
-    transaction::InputNote,
+    accounts::AccountId,
+    notes::{Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteMetadata, Nullifier},
+    transaction::{InputNote, TransactionId},
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
-    Digest,
+    BlockHeader, Digest,
 };
 
-use super::{NoteRecordDetails, NoteStatus, OutputNoteRecord};
-use crate::ClientError;
+use super::{
+    states::{ExpectedNoteState, UnverifiedNoteState},
+    NoteRecordError, NoteState,
+};
 
 // INPUT NOTE RECORD
 // ================================================================================================
 
 /// Represents a Note of which the Store can keep track and retrieve.
 ///
-/// An [InputNoteRecord] contains all the information of a [Note], in addition of (optionally) the
-/// [NoteInclusionProof] that identifies when the note was included in the chain.
+/// An [InputNoteRecord] contains all the information of a [NoteDetails], in addition of specific
+/// information about the note state.
 ///
-/// Once the proof is set, the [InputNoteRecord] can be transformed into an [InputNote] and used as
-/// input for transactions.
-///
-/// The `consumer_account_id` field is used to keep track of the account that consumed the note. It
-/// is only valid if the `status` is [NoteStatus::Consumed]. If the note is consumed but the field
-/// is [None] it means that the note was consumed by an untracked account.
-///
+/// Once a proof is received, the [InputNoteRecord] can be transformed into an [InputNote] and used
+/// as input for transactions.
 /// It is also possible to convert [Note] and [InputNote] into [InputNoteRecord] (we fill the
 /// `metadata` and `inclusion_proof` fields if possible)
 #[derive(Clone, Debug, PartialEq)]
 pub struct InputNoteRecord {
-    assets: NoteAssets,
-    // TODO: see if we can replace `NoteRecordDetails` with `NoteDetails` after miden-base v0.3
-    // gets released
-    details: NoteRecordDetails,
-    id: NoteId,
-    inclusion_proof: Option<NoteInclusionProof>,
-    metadata: Option<NoteMetadata>,
-    recipient: Digest,
-    status: NoteStatus,
-    ignored: bool,
-    imported_tag: Option<NoteTag>,
+    /// Details of a note consisting of assets, script, inputs, and a serial number.
+    details: NoteDetails,
+    /// The timestamp at which the note was created. If it's not known, it will be None.
+    created_at: Option<u64>,
+    /// The state of the note, with specific fields for each one.
+    state: NoteState,
 }
 
 impl InputNoteRecord {
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        id: NoteId,
-        recipient: Digest,
-        assets: NoteAssets,
-        status: NoteStatus,
-        metadata: Option<NoteMetadata>,
-        inclusion_proof: Option<NoteInclusionProof>,
-        details: NoteRecordDetails,
-        ignored: bool,
-        imported_tag: Option<NoteTag>,
-    ) -> InputNoteRecord {
-        InputNoteRecord {
-            id,
-            recipient,
-            assets,
-            status,
-            metadata,
-            inclusion_proof,
-            details,
-            ignored,
-            imported_tag,
-        }
+    pub fn new(details: NoteDetails, created_at: Option<u64>, state: NoteState) -> InputNoteRecord {
+        InputNoteRecord { details, created_at, state }
     }
 
+    // PUBLIC ACCESSORS
+    // ================================================================================================
+
     pub fn id(&self) -> NoteId {
-        self.id
+        self.details.id()
     }
 
     pub fn recipient(&self) -> Digest {
-        self.recipient
+        self.details.recipient().digest()
     }
 
     pub fn assets(&self) -> &NoteAssets {
-        &self.assets
+        self.details.assets()
     }
 
-    pub fn status(&self) -> NoteStatus {
-        self.status
+    pub fn state(&self) -> &NoteState {
+        &self.state
     }
 
     pub fn metadata(&self) -> Option<&NoteMetadata> {
-        self.metadata.as_ref()
+        self.state.metadata()
     }
 
-    pub fn nullifier(&self) -> &str {
-        &self.details.nullifier
+    pub fn nullifier(&self) -> Nullifier {
+        self.details.nullifier()
     }
 
     pub fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
-        self.inclusion_proof.as_ref()
+        self.state.inclusion_proof()
     }
 
-    pub fn details(&self) -> &NoteRecordDetails {
+    pub fn details(&self) -> &NoteDetails {
         &self.details
     }
 
-    pub fn set_inclusion_proof(&mut self, inclusion_proof: Option<NoteInclusionProof>) {
-        self.inclusion_proof = inclusion_proof;
-    }
-
-    pub fn ignored(&self) -> bool {
-        self.ignored
-    }
-
-    pub fn imported_tag(&self) -> Option<NoteTag> {
-        self.imported_tag
-    }
-
-    /// Returns whether the note record contains a valid inclusion proof correlated with its
-    /// status
     pub fn is_authenticated(&self) -> bool {
-        match self.status {
-            NoteStatus::Expected { .. } => false,
-            NoteStatus::Committed { .. }
-            | NoteStatus::Processing { .. }
-            | NoteStatus::Consumed { .. } => self.inclusion_proof.is_some(),
-        }
-    }
-}
-
-impl From<&NoteDetails> for InputNoteRecord {
-    fn from(note_details: &NoteDetails) -> Self {
-        InputNoteRecord {
-            id: note_details.id(),
-            assets: note_details.assets().clone(),
-            recipient: note_details.recipient().digest(),
-            metadata: None,
-            inclusion_proof: None,
-            status: NoteStatus::Expected { created_at: None, block_height: None },
-            details: NoteRecordDetails {
-                nullifier: note_details.nullifier().to_string(),
-                script_hash: note_details.script().hash(),
-                script: note_details.script().clone(),
-                inputs: note_details.inputs().values().to_vec(),
-                serial_num: note_details.serial_num(),
-            },
-            ignored: false,
-            imported_tag: None,
-        }
-    }
-}
-
-impl From<InputNoteRecord> for NoteDetails {
-    fn from(val: InputNoteRecord) -> Self {
-        NoteDetails::new(
-            val.assets,
-            NoteRecipient::new(
-                val.details.serial_num,
-                val.details.script,
-                NoteInputs::new(val.details.inputs).unwrap(),
-            ),
+        matches!(
+            self.state,
+            NoteState::Committed { .. }
+                | NoteState::ProcessingAuthenticated { .. }
+                | NoteState::ConsumedAuthenticatedLocal { .. }
         )
     }
+
+    pub fn is_consumed(&self) -> bool {
+        matches!(
+            self.state,
+            NoteState::ConsumedExternal { .. }
+                | NoteState::ConsumedAuthenticatedLocal { .. }
+                | NoteState::ConsumedUnauthenticatedLocal { .. }
+        )
+    }
+
+    // TRANSITIONS
+    // ================================================================================================
+
+    /// Modifies the state of the note record to reflect that the it has received an inclusion
+    /// proof. It is assumed to be unverified until the block header information is received.
+    /// Returns `true` if the state was changed.
+    pub fn inclusion_proof_received(
+        &mut self,
+        inclusion_proof: NoteInclusionProof,
+        metadata: NoteMetadata,
+    ) -> Result<bool, NoteRecordError> {
+        let new_state = self.state.inclusion_proof_received(inclusion_proof, metadata)?;
+        if let Some(new_state) = new_state {
+            self.state = new_state;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    /// Modifies the state of the note record to reflect that the it has received a block header.
+    /// This will mark the note as verified or invalid, depending on the block header
+    /// information and inclusion proof. Returns `true` if the state was changed.
+    pub fn block_header_received(
+        &mut self,
+        block_header: BlockHeader,
+    ) -> Result<bool, NoteRecordError> {
+        let new_state = self.state.block_header_received(self.id(), block_header)?;
+        if let Some(new_state) = new_state {
+            self.state = new_state;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    /// Modifies the state of the note record to reflect that its nullifier has been received,
+    /// meaning that the note has been spent. Returns `true` if the state was changed.
+    ///
+    /// Errors:
+    /// - If the nullifier does not match the expected value.
+    pub fn nullifier_received(
+        &mut self,
+        nullifier: Nullifier,
+        nullifier_block_height: u32,
+    ) -> Result<bool, NoteRecordError> {
+        if self.nullifier() != nullifier {
+            return Err(NoteRecordError::StateTransitionError(
+                "Nullifier does not match the expected value".to_string(),
+            ));
+        }
+
+        let new_state = self.state.nullifier_received(nullifier_block_height)?;
+        if let Some(new_state) = new_state {
+            self.state = new_state;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    /// Modifies the state of the note record to reflect that the client began processing the note
+    /// to be consumed. Returns `true` if the state was changed.
+    pub fn consumed_locally(
+        &mut self,
+        consumer_account: AccountId,
+        consumer_transaction: TransactionId,
+    ) -> Result<bool, NoteRecordError> {
+        let new_state = self.state.consumed_locally(consumer_account, consumer_transaction)?;
+        if let Some(new_state) = new_state {
+            self.state = new_state;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
 }
+
+// SERIALIZATION
+// ================================================================================================
 
 impl Serializable for InputNoteRecord {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
-        self.id().write_into(target);
-        self.recipient().write_into(target);
-        self.assets().write_into(target);
-        self.status().write_into(target);
-        self.metadata().write_into(target);
-        self.details().write_into(target);
-        self.inclusion_proof().write_into(target);
+        self.details.write_into(target);
+        self.created_at.write_into(target);
+        self.state.write_into(target);
     }
 }
 
 impl Deserializable for InputNoteRecord {
     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
-        let id = NoteId::read_from(source)?;
-        let recipient = Digest::read_from(source)?;
-        let assets = NoteAssets::read_from(source)?;
-        let status = NoteStatus::read_from(source)?;
-        let metadata = Option::<NoteMetadata>::read_from(source)?;
-        let details = NoteRecordDetails::read_from(source)?;
-        let inclusion_proof = Option::<NoteInclusionProof>::read_from(source)?;
+        let details = NoteDetails::read_from(source)?;
+        let created_at = Option::<u64>::read_from(source)?;
+        let state = NoteState::read_from(source)?;
 
-        Ok(InputNoteRecord {
-            id,
-            recipient,
-            assets,
-            status,
-            metadata,
-            inclusion_proof,
-            details,
-            ignored: false,
-            imported_tag: None,
-        })
+        Ok(InputNoteRecord { details, created_at, state })
+    }
+}
+
+// CONVERSION
+// ================================================================================================
+impl From<&NoteDetails> for InputNoteRecord {
+    fn from(value: &NoteDetails) -> Self {
+        Self {
+            details: value.clone(),
+            created_at: None,
+            state: ExpectedNoteState {
+                metadata: None,
+                after_block_num: 0,
+                tag: None,
+            }
+            .into(),
+        }
     }
 }
 
 impl From<Note> for InputNoteRecord {
-    fn from(note: Note) -> Self {
-        InputNoteRecord {
-            id: note.id(),
-            recipient: note.recipient().digest(),
-            assets: note.assets().clone(),
-            status: NoteStatus::Expected { created_at: None, block_height: None },
-            metadata: Some(*note.metadata()),
-            inclusion_proof: None,
-            details: note.into(),
-            ignored: false,
-            imported_tag: None,
+    fn from(value: Note) -> Self {
+        let metadata = *value.metadata();
+        Self {
+            details: value.into(),
+            created_at: None,
+            state: ExpectedNoteState {
+                metadata: Some(metadata),
+                after_block_num: 0,
+                tag: Some(metadata.tag()),
+            }
+            .into(),
         }
     }
 }
 
 impl From<InputNote> for InputNoteRecord {
-    fn from(recorded_note: InputNote) -> Self {
-        let status = if let Some(inclusion_proof) = recorded_note.proof() {
-            NoteStatus::Committed {
-                block_height: inclusion_proof.location().block_num(),
-            }
-        } else {
-            NoteStatus::Expected { created_at: None, block_height: None }
-        };
-
-        InputNoteRecord {
-            id: recorded_note.note().id(),
-            recipient: recorded_note.note().recipient().digest(),
-            assets: recorded_note.note().assets().clone(),
-            status,
-            metadata: Some(*recorded_note.note().metadata()),
-            details: recorded_note.note().clone().into(),
-            inclusion_proof: recorded_note.proof().cloned(),
-            ignored: false,
-            imported_tag: None,
+    fn from(value: InputNote) -> Self {
+        match value {
+            InputNote::Authenticated { note, proof } => Self {
+                details: note.clone().into(),
+                created_at: None,
+                state: UnverifiedNoteState {
+                    metadata: *note.metadata(),
+                    inclusion_proof: proof,
+                }
+                .into(),
+            },
+            InputNote::Unauthenticated { note } => note.into(),
         }
     }
 }
 
 impl TryInto<InputNote> for InputNoteRecord {
-    type Error = ClientError;
+    type Error = NoteRecordError;
 
     fn try_into(self) -> Result<InputNote, Self::Error> {
-        match (self.inclusion_proof, self.metadata) {
-            (Some(proof), Some(metadata)) => {
-                // TODO: Write functions to get these fields more easily
-                let note_inputs = NoteInputs::new(self.details.inputs)?;
-                let note_recipient =
-                    NoteRecipient::new(self.details.serial_num, self.details.script, note_inputs);
-                let note = Note::new(self.assets, metadata, note_recipient);
-                Ok(InputNote::authenticated(note, proof.clone()))
-            },
-            (None, Some(metadata)) => {
-                let note_inputs = NoteInputs::new(self.details.inputs)?;
-                let note_recipient =
-                    NoteRecipient::new(self.details.serial_num, self.details.script, note_inputs);
-                let note = Note::new(self.assets, metadata, note_recipient);
-                Ok(InputNote::unauthenticated(note))
-            },
-            (_, None) => Err(ClientError::NoteRecordError(
+        match (self.metadata(), self.inclusion_proof()) {
+            (Some(metadata), Some(inclusion_proof)) => Ok(InputNote::authenticated(
+                Note::new(
+                    self.details.assets().clone(),
+                    *metadata,
+                    self.details.recipient().clone(),
+                ),
+                inclusion_proof.clone(),
+            )),
+            (Some(metadata), None) => Ok(InputNote::unauthenticated(Note::new(
+                self.details.assets().clone(),
+                *metadata,
+                self.details.recipient().clone(),
+            ))),
+            _ => Err(NoteRecordError::ConversionError(
                 "Input Note Record contains no metadata".to_string(),
             )),
         }
@@ -266,43 +269,24 @@ impl TryInto<InputNote> for InputNoteRecord {
 }
 
 impl TryInto<Note> for InputNoteRecord {
-    type Error = ClientError;
+    type Error = NoteRecordError;
 
     fn try_into(self) -> Result<Note, Self::Error> {
-        match self.metadata {
-            Some(metadata) => {
-                let note_inputs = NoteInputs::new(self.details.inputs)?;
-                let note_recipient =
-                    NoteRecipient::new(self.details.serial_num, self.details.script, note_inputs);
-                let note = Note::new(self.assets, metadata, note_recipient);
-                Ok(note)
-            },
-            None => Err(ClientError::NoteRecordError(
+        match self.metadata().cloned() {
+            Some(metadata) => Ok(Note::new(
+                self.details.assets().clone(),
+                metadata,
+                self.details.recipient().clone(),
+            )),
+            None => Err(NoteRecordError::ConversionError(
                 "Input Note Record contains no metadata".to_string(),
             )),
         }
     }
 }
 
-impl TryFrom<OutputNoteRecord> for InputNoteRecord {
-    type Error = ClientError;
-
-    fn try_from(output_note: OutputNoteRecord) -> Result<Self, Self::Error> {
-        match output_note.details() {
-            Some(details) => Ok(InputNoteRecord {
-                assets: output_note.assets().clone(),
-                details: details.clone(),
-                id: output_note.id(),
-                inclusion_proof: output_note.inclusion_proof().cloned(),
-                metadata: Some(*output_note.metadata()),
-                recipient: output_note.recipient(),
-                status: output_note.status(),
-                ignored: false,
-                imported_tag: None,
-            }),
-            None => Err(ClientError::NoteError(miden_objects::NoteError::invalid_location_index(
-                "Output Note Record contains no details".to_string(),
-            ))),
-        }
+impl From<InputNoteRecord> for NoteDetails {
+    fn from(value: InputNoteRecord) -> Self {
+        value.details
     }
 }

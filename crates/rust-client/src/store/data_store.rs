@@ -15,8 +15,8 @@ use miden_objects::{
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
 use winter_maybe_async::{maybe_async, maybe_await};
 
-use super::{ChainMmrNodeFilter, InputNoteRecord, NoteFilter, NoteStatus, Store};
-use crate::{store::StoreError, ClientError};
+use super::{note_record::NoteRecordError, ChainMmrNodeFilter, InputNoteRecord, NoteFilter, Store};
+use crate::store::StoreError;
 
 // DATA STORE
 // ================================================================================================
@@ -50,7 +50,7 @@ impl<S: Store> DataStore for ClientDataStore<S> {
         // First validate that all notes were found and can be consumed
         for note_id in notes {
             if let Some(note_record) = input_note_records.get(note_id) {
-                if let NoteStatus::Consumed { .. } = note_record.status() {
+                if note_record.is_consumed() {
                     return Err(DataStoreError::NoteAlreadyConsumed(*note_id));
                 }
             } else {
@@ -71,7 +71,7 @@ impl<S: Store> DataStore for ClientDataStore<S> {
         for (_note_id, note_record) in input_note_records {
             let input_note: InputNote = note_record
                 .try_into()
-                .map_err(|err: ClientError| DataStoreError::InternalError(err.to_string()))?;
+                .map_err(|err: NoteRecordError| DataStoreError::InternalError(err.to_string()))?;
 
             list_of_notes.push(input_note.clone());
 
