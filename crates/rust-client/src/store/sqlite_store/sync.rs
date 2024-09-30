@@ -42,7 +42,6 @@ impl SqliteStore {
 
         let mut db = self.db();
         let tx = db.transaction()?;
-
         add_note_tag_tx(&tx, tag)?;
 
         tx.commit()?;
@@ -55,8 +54,11 @@ impl SqliteStore {
             return Ok(false);
         }
 
-        const QUERY: &str = "DELETE FROM tags WHERE tag = ? AND source = ?";
-        self.db().execute(QUERY, params![tag.tag.to_bytes(), tag.source.to_bytes()])?;
+        let mut db = self.db();
+        let tx = db.transaction()?;
+        remove_note_tag_tx(&tx, tag)?;
+
+        tx.commit()?;
 
         Ok(true)
     }
@@ -141,6 +143,14 @@ impl SqliteStore {
                 if inclusion_proof_received || block_header_received {
                     upsert_input_note_tx(&tx, input_note_record)?;
                 }
+
+                remove_note_tag_tx(
+                    &tx,
+                    NoteTagRecord {
+                        tag: input_note.note().metadata().tag(),
+                        source: NoteTagSource::Note(input_note_record.id()),
+                    },
+                )?;
             }
         }
 
@@ -262,6 +272,16 @@ impl SqliteStore {
 
 pub(super) fn add_note_tag_tx(tx: &Transaction<'_>, tag: NoteTagRecord) -> Result<(), StoreError> {
     const QUERY: &str = "INSERT INTO tags (tag, source) VALUES (?, ?)";
+    tx.execute(QUERY, params![tag.tag.to_bytes(), tag.source.to_bytes()])?;
+
+    Ok(())
+}
+
+pub(super) fn remove_note_tag_tx(
+    tx: &Transaction<'_>,
+    tag: NoteTagRecord,
+) -> Result<(), StoreError> {
+    const QUERY: &str = "DELETE FROM tags WHERE tag = ? AND source = ?";
     tx.execute(QUERY, params![tag.tag.to_bytes(), tag.source.to_bytes()])?;
 
     Ok(())

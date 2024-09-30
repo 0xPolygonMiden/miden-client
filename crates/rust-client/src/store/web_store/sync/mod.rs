@@ -3,7 +3,10 @@ use alloc::{
     vec::Vec,
 };
 
-use miden_objects::notes::{NoteInclusionProof, NoteTag};
+use miden_objects::{
+    accounts::AccountId,
+    notes::{NoteId, NoteInclusionProof, NoteTag},
+};
 use miden_tx::utils::{Deserializable, Serializable};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
@@ -35,9 +38,20 @@ impl WebStore {
         let tags = tags_idxdb
             .into_iter()
             .map(|t| -> Result<NoteTagRecord, StoreError> {
+                let source = match (t.source_account_id, t.source_note_id) {
+                    (None, None) => NoteTagSource::User,
+                    (Some(account_id), None) => {
+                        NoteTagSource::Account(AccountId::from_hex(account_id.as_str())?)
+                    },
+                    (None, Some(note_id)) => {
+                        NoteTagSource::Note(NoteId::try_from_hex(note_id.as_str())?)
+                    },
+                    _ => return Err(StoreError::ParsingError("Invalid NoteTagSource".to_string())),
+                };
+
                 Ok(NoteTagRecord {
                     tag: NoteTag::read_from_bytes(&t.tag)?,
-                    source: NoteTagSource::read_from_bytes(&t.source)?,
+                    source,
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -59,7 +73,13 @@ impl WebStore {
             return Ok(false);
         }
 
-        let promise = idxdb_add_note_tag(tag.tag.to_bytes(), tag.source.to_bytes());
+        let (source_note_id, source_account_id) = match tag.source {
+            NoteTagSource::Note(note_id) => (Some(note_id.to_hex()), None),
+            NoteTagSource::Account(account_id) => (None, Some(account_id.to_hex())),
+            NoteTagSource::User => (None, None),
+        };
+
+        let promise = idxdb_add_note_tag(tag.tag.to_bytes(), source_note_id, source_account_id);
         JsFuture::from(promise).await.unwrap();
 
         Ok(true)
@@ -70,7 +90,13 @@ impl WebStore {
             return Ok(false);
         }
 
-        let promise = idxdb_remove_note_tag(tag.tag.to_bytes(), tag.source.to_bytes());
+        let (source_note_id, source_account_id) = match tag.source {
+            NoteTagSource::Note(note_id) => (Some(note_id.to_hex()), None),
+            NoteTagSource::Account(account_id) => (None, Some(account_id.to_hex())),
+            NoteTagSource::User => (None, None),
+        };
+
+        let promise = idxdb_remove_note_tag(tag.tag.to_bytes(), source_note_id, source_account_id);
         JsFuture::from(promise).await.unwrap();
 
         Ok(true)

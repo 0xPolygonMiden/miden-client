@@ -46,7 +46,7 @@ db.version(1).stores({
   [Table.StateSync]: indexes('id'),
   [Table.BlockHeaders]: indexes('blockNum', 'hasClientNotes'),
   [Table.ChainMmrNodes]: indexes('id'),
-  [Table.Tags]: indexes('tag', 'source'),
+  [Table.Tags]: indexes('tag', 'source_note_id', 'source_account_id'),
 });
 
 function indexes(...items) {
