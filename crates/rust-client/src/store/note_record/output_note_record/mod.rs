@@ -3,8 +3,8 @@ use core::fmt::{self, Display};
 
 use miden_objects::{
     notes::{
-        Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteMetadata, NoteRecipient,
-        Nullifier, PartialNote,
+        Note, NoteAssets, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteMetadata,
+        NoteRecipient, Nullifier, PartialNote,
     },
     transaction::OutputNote,
     Digest,
@@ -36,6 +36,7 @@ pub struct OutputNoteRecord {
     metadata: NoteMetadata,
     recipient_digest: Digest,
     state: OutputNoteState,
+    after_block_height: Option<u32>,
 }
 
 impl OutputNoteRecord {
@@ -45,6 +46,7 @@ impl OutputNoteRecord {
         assets: NoteAssets,
         metadata: NoteMetadata,
         state: OutputNoteState,
+        after_block_height: Option<u32>,
     ) -> OutputNoteRecord {
         OutputNoteRecord {
             id,
@@ -52,6 +54,7 @@ impl OutputNoteRecord {
             assets,
             state,
             metadata,
+            after_block_height,
         }
     }
 
@@ -92,6 +95,13 @@ impl OutputNoteRecord {
             recipient.serial_num(),
         ))
     }
+
+    pub fn after_block_height(&self) -> Option<u32> {
+        self.after_block_height
+    }
+
+    // TRANSITIONS
+    // --------------------------------------------------------------------------------------------
 
     pub fn inclusion_proof_received(
         &mut self,
@@ -142,7 +152,8 @@ impl From<Note> for OutputNoteRecord {
             recipient_digest: recipient.digest(),
             assets,
             metadata: *header.metadata(),
-            state: OutputNoteState::ExpectedFull { block_height: None, recipient },
+            state: OutputNoteState::ExpectedFull { recipient },
+            after_block_height: None,
         }
     }
 }
@@ -154,7 +165,8 @@ impl From<PartialNote> for OutputNoteRecord {
             recipient_digest: partial_note.recipient_digest(),
             assets: partial_note.assets().clone(),
             metadata: *partial_note.metadata(),
-            state: OutputNoteState::ExpectedPartial { block_height: None },
+            state: OutputNoteState::ExpectedPartial,
+            after_block_height: None,
         }
     }
 }
@@ -205,6 +217,40 @@ impl TryFrom<OutputNoteRecord> for Note {
     }
 }
 
+pub enum NoteExportType {
+    NoteId,
+    NoteDetails,
+    NoteWithProof,
+}
+
+impl OutputNoteRecord {
+    pub fn into_note_file(self, export_type: NoteExportType) -> Result<NoteFile, NoteRecordError> {
+        match export_type {
+            NoteExportType::NoteId => Ok(NoteFile::NoteId(self.id())),
+            NoteExportType::NoteDetails => {
+                let after_block_num = self.after_block_height().unwrap_or(0);
+                let tag = Some(self.metadata().tag());
+
+                Ok(NoteFile::NoteDetails {
+                    details: self.try_into()?,
+                    after_block_num,
+                    tag,
+                })
+            },
+            NoteExportType::NoteWithProof => {
+                let proof = self
+                    .inclusion_proof()
+                    .ok_or(NoteRecordError::ConversionError(
+                        "Note record does not contain an inclusion proof".to_string(),
+                    ))?
+                    .clone();
+
+                Ok(NoteFile::NoteWithProof(self.try_into()?, proof))
+            },
+        }
+    }
+}
+
 // OUTPUT NOTE STATE
 // ================================================================================================
 
@@ -219,16 +265,9 @@ pub const STATE_CONSUMED: u8 = 4;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum OutputNoteState {
     /// Note without known recipient is expected to be committed on chain.
-    ExpectedPartial {
-        /// Block height at which the note is expected to be committed. If the block height is not
-        /// known, this field will be `None`.
-        block_height: Option<u32>,
-    },
+    ExpectedPartial,
     /// Note with known recipient is expected to be committed on chain.
     ExpectedFull {
-        /// Block height at which the note is expected to be committed. If the block height is not
-        /// known, this field will be `None`.
-        block_height: Option<u32>,
         /// Details needed consume the note.
         recipient: NoteRecipient,
     },
@@ -340,11 +379,8 @@ impl Serializable for OutputNoteState {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
         self.discriminant().write_into(target);
         match self {
-            OutputNoteState::ExpectedPartial { block_height } => {
-                block_height.write_into(target);
-            },
-            OutputNoteState::ExpectedFull { block_height, recipient } => {
-                block_height.write_into(target);
+            OutputNoteState::ExpectedPartial => {},
+            OutputNoteState::ExpectedFull { recipient } => {
                 recipient.write_into(target);
             },
             OutputNoteState::CommittedPartial { inclusion_proof } => {
@@ -366,17 +402,10 @@ impl Deserializable for OutputNoteState {
     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
         let status = source.read_u8()?;
         match status {
-            STATE_EXPECTED_PARTIAL => {
-                let block_height = source.read_u32()?;
-                Ok(OutputNoteState::ExpectedPartial { block_height: Some(block_height) })
-            },
+            STATE_EXPECTED_PARTIAL => Ok(OutputNoteState::ExpectedPartial),
             STATE_EXPECTED_FULL => {
-                let block_height = source.read_u32()?;
                 let recipient = NoteRecipient::read_from(source)?;
-                Ok(OutputNoteState::ExpectedFull {
-                    block_height: Some(block_height),
-                    recipient,
-                })
+                Ok(OutputNoteState::ExpectedFull { recipient })
             },
             STATE_COMMITTED_PARTIAL => {
                 let inclusion_proof = NoteInclusionProof::read_from(source)?;
