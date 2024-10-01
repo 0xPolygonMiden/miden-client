@@ -1,8 +1,12 @@
+import * as chai from 'chai';
+import chaiAsPromised from 'chai-as-promised';
 import puppeteer from "puppeteer";
 import { spawn } from "child_process";
 
 import { register } from "ts-node";
 import { env } from "process";
+
+chai.use(chaiAsPromised);
 
 register({
   project: "./tsconfig.json",
@@ -36,12 +40,24 @@ before(async () => {
   // Creates the client in the test context and attach to window object
   await testingPage.exposeFunction("create_client", async () => {
     await testingPage.evaluate(async (port) => {
-      const { WebClient } = await import("./index.js");
+      const { 
+        Account,
+        AccountHeader, 
+        AccountStorageMode, 
+        AuthSecretKey, 
+        TestUtils,
+        WebClient 
+      } = await import("./index.js");
       let rpc_url = `http://localhost:${port}`;
       const client = new WebClient();
       await client.create_client(rpc_url);
 
       window.client = client;
+      window.Account = Account;
+      window.AccountHeader = AccountHeader;
+      window.AccountStorageMode = AccountStorageMode;
+      window.AuthSecretKey = AuthSecretKey
+      window.TestUtils = TestUtils;
     }, LOCAL_MIDEN_NODE_PORT);
   });
 });

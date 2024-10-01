@@ -1,7 +1,10 @@
 import wasm from "../dist/wasm.js";
 
 const {
+    Account,
+    AccountHeader,
     AccountId,
+    AccountStorageMode,
     AdviceMap,
     AuthSecretKey,
     Felt,
@@ -22,6 +25,7 @@ const {
     OutputNote,
     OutputNotesArray,
     Rpo256,
+    TestUtils,
     TransactionRequest,
     TransactionScriptInputPair,
     TransactionScriptInputPairArray,
@@ -33,7 +37,10 @@ const {
 });
 
 export {
+    Account,
+    AccountHeader,
     AccountId,
+    AccountStorageMode,
     AdviceMap,
     AuthSecretKey,
     Felt,
@@ -54,6 +61,7 @@ export {
     OutputNote,
     OutputNotesArray,
     Rpo256,
+    TestUtils,
     TransactionRequest,
     TransactionScriptInputPair,
     TransactionScriptInputPairArray,

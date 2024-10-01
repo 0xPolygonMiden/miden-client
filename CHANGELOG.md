@@ -2,6 +2,7 @@
 
 ## 0.6.0 (TBD)
 
+* Add Account Integration Tests for Web Client (#532)
 * [BREAKING] Refactored the `Store` structure and interface for input notes (#520).
 * Fix Broken WASM (#519).
 * [BREAKING] Changed `PaymentTransactionData` and `TransactionRequest` to allow for multiple assets per note (#525).

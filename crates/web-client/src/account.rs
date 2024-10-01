@@ -1,50 +1,36 @@
-use miden_objects::accounts::AccountId as NativeAccountId;
 use wasm_bindgen::prelude::*;
 
 use crate::{
     models::{
-        account_id::AccountId, accounts::SerializedAccountHeader, auth_secret_key::AuthSecretKey,
+        account::Account, account_header::AccountHeader, account_id::AccountId,
+        auth_secret_key::AuthSecretKey,
     },
     WebClient,
 };
 
 #[wasm_bindgen]
 impl WebClient {
-    pub async fn get_accounts(&mut self) -> Result<JsValue, JsValue> {
+    pub async fn get_accounts(&mut self) -> Result<Vec<AccountHeader>, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let account_tuples = client.get_account_headers().await.unwrap();
-            let accounts: Vec<SerializedAccountHeader> = account_tuples
-                .into_iter()
-                .map(|(account, _)| {
-                    SerializedAccountHeader::new(
-                        account.id().to_string(),
-                        account.nonce().to_string(),
-                        account.vault_root().to_string(),
-                        account.storage_commitment().to_string(),
-                        account.code_commitment().to_string(),
-                    )
-                })
-                .collect();
+            let result = client
+                .get_account_headers()
+                .await
+                .map_err(|err| JsValue::from_str(&format!("Failed to get accounts: {}", err)))?;
 
-            let accounts_as_js_value =
-                serde_wasm_bindgen::to_value(&accounts).unwrap_or_else(|_| {
-                    wasm_bindgen::throw_val(JsValue::from_str("Serialization error"))
-                });
-
-            Ok(accounts_as_js_value)
+            Ok(result.into_iter().map(|(header, _)| header.into()).collect())
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
     }
 
-    pub async fn get_account(&mut self, account_id: String) -> Result<JsValue, JsValue> {
+    pub async fn get_account(&mut self, account_id: &AccountId) -> Result<Account, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let native_account_id = NativeAccountId::from_hex(&account_id).unwrap();
+            let result = client
+                .get_account(account_id.into())
+                .await
+                .map_err(|err| JsValue::from_str(&format!("Failed to get account: {}", err)))?;
 
-            let result = client.get_account(native_account_id).await.unwrap();
-
-            serde_wasm_bindgen::to_value(&result.0.id().to_string())
-                .map_err(|e| JsValue::from_str(&e.to_string()))
+            Ok(result.0.into())
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
@@ -55,8 +41,11 @@ impl WebClient {
         account_id: &AccountId,
     ) -> Result<AuthSecretKey, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let native_account_id: NativeAccountId = account_id.into();
-            let native_auth_secret_key = client.get_account_auth(native_account_id).await.unwrap();
+            let native_auth_secret_key =
+                client.get_account_auth(account_id.into()).await.map_err(|err| {
+                    JsValue::from_str(&format!("Failed to get account auth: {}", err))
+                })?;
+
             Ok(native_auth_secret_key.into())
         } else {
             Err(JsValue::from_str("Client not initialized"))
@@ -65,16 +54,18 @@ impl WebClient {
 
     pub async fn fetch_and_cache_account_auth_by_pub_key(
         &mut self,
-        account_id: String,
-    ) -> Result<JsValue, JsValue> {
+        account_id: &AccountId,
+    ) -> Result<AuthSecretKey, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let _ = client
+            let native_auth_secret_key = client
                 .store()
-                .fetch_and_cache_account_auth_by_pub_key(account_id)
+                .fetch_and_cache_account_auth_by_pub_key(&account_id.to_string())
                 .await
-                .unwrap();
+                .map_err(|err| {
+                    JsValue::from_str(&format!("Failed to fetch and cache account auth: {}", err))
+                })?;
 
-            Ok(JsValue::from_str("Okay, it worked"))
+            Ok(native_auth_secret_key.into())
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
