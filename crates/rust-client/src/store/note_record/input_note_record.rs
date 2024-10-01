@@ -222,21 +222,6 @@ impl Deserializable for InputNoteRecord {
 
 // CONVERSION
 // ================================================================================================
-impl From<&NoteDetails> for InputNoteRecord {
-    fn from(value: &NoteDetails) -> Self {
-        Self {
-            details: value.clone(),
-            created_at: None,
-            state: ExpectedNoteState {
-                metadata: None,
-                after_block_num: 0,
-                tag: None,
-            }
-            .into(),
-        }
-    }
-}
-
 impl From<Note> for InputNoteRecord {
     fn from(value: Note) -> Self {
         let metadata = *value.metadata();
