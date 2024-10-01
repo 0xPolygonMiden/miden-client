@@ -1,7 +1,6 @@
 use miden_client::{
     accounts::AccountTemplate,
     notes::Note,
-    store::InputNoteRecord,
     transactions::{SwapTransactionData, TransactionRequest},
 };
 use miden_objects::{
@@ -16,7 +15,7 @@ use super::common::*;
 // ================================================================================================
 
 #[tokio::test]
-async fn test_swap_fully_onchain() {
+async fn tmp_test() {
     const OFFERED_ASSET_AMOUNT: u64 = 1;
     const REQUESTED_ASSET_AMOUNT: u64 = 25;
     const BTC_MINT_AMOUNT: u64 = 1000;
@@ -345,17 +344,14 @@ async fn test_swap_offchain() {
     execute_tx_and_sync(&mut client1, account_a.id(), tx_request).await;
 
     // Export note from client 1 to client 2
-    let exported_note: InputNoteRecord = client1
-        .get_output_note(expected_output_notes[0].id())
-        .unwrap()
-        .try_into()
-        .unwrap();
+    let output_note = client1.get_output_note(expected_output_notes[0].id()).unwrap();
+
     let tag =
         build_swap_tag(NoteType::Private, offered_asset.faucet_id(), requested_asset.faucet_id());
     client2.add_note_tag(tag).unwrap();
     client2
         .import_note(NoteFile::NoteDetails {
-            details: exported_note.into(),
+            details: output_note.try_into().unwrap(),
             after_block_num: client1.get_sync_height().unwrap(),
             tag: Some(tag),
         })

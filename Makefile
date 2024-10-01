@@ -15,13 +15,15 @@ NODE_BRANCH="next"
 
 # --- Linting -------------------------------------------------------------------------------------
 
+## TODO: Remove '--allow clippy::needless_return' once rust-clippy issue #13458 is fixed
+
 .PHONY: clippy
  clippy: ## Run Clippy with configs
-	cargo +nightly clippy --workspace --exclude miden-client-web --all-targets $(FEATURES_CLI) -- -D warnings
+	cargo +nightly clippy --workspace --exclude miden-client-web --all-targets $(FEATURES_CLI) -- -D warnings --allow clippy::needless_return
 
 .PHONY: clippy-wasm
  clippy-wasm: ## Run Clippy for the miden-client-web package
-	cargo +nightly clippy --package miden-client-web --target wasm32-unknown-unknown --all-targets $(FEATURES_WEB_CLIENT) -- -D warnings
+	cargo +nightly clippy --package miden-client-web --target wasm32-unknown-unknown --all-targets $(FEATURES_WEB_CLIENT) -- -D warnings --allow clippy::needless_return
 
 .PHONY: fix
 fix: ## Run Fix with configs
