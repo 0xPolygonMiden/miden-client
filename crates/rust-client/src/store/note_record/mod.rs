@@ -47,7 +47,7 @@ mod output_note_record;
 mod states;
 
 pub use input_note_record::InputNoteRecord;
-pub use output_note_record::OutputNoteRecord;
+pub use output_note_record::{NoteExportType, OutputNoteRecord};
 pub use states::{
     CommittedNoteState, ConsumedAuthenticatedLocalNoteState, ExpectedNoteState, NoteState,
     ProcessingAuthenticatedNoteState, ProcessingUnauthenticatedNoteState, STATE_COMMITTED,

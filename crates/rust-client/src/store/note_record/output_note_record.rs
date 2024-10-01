@@ -2,8 +2,8 @@ use alloc::string::ToString;
 
 use miden_objects::{
     notes::{
-        Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteInputs, NoteMetadata,
-        NoteRecipient, PartialNote,
+        Note, NoteAssets, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteInputs,
+        NoteMetadata, NoteRecipient, PartialNote,
     },
     transaction::OutputNote,
     Digest,
@@ -172,6 +172,49 @@ impl TryFrom<OutputNoteRecord> for Note {
             None => Err(NoteRecordError::ConversionError(
                 "Output Note Record contains no details".to_string(),
             )),
+        }
+    }
+}
+
+pub enum NoteExportType {
+    NoteId,
+    NoteDetails,
+    NoteWithProof,
+}
+
+impl OutputNoteRecord {
+    pub fn into_note_file(self, export_type: NoteExportType) -> Result<NoteFile, NoteRecordError> {
+        match export_type {
+            NoteExportType::NoteId => Ok(NoteFile::NoteId(self.id())),
+            NoteExportType::NoteDetails => {
+                let after_block_num = match self.status() {
+                    NoteStatus::Expected { block_height, .. } => block_height.unwrap_or(0),
+                    _ => {
+                        self.inclusion_proof()
+                            .expect("Committed notes should have inclusion proof")
+                            .location()
+                            .block_num()
+                            - 1
+                    },
+                };
+                let tag = Some(self.metadata().tag());
+
+                Ok(NoteFile::NoteDetails {
+                    details: self.try_into()?,
+                    after_block_num,
+                    tag,
+                })
+            },
+            NoteExportType::NoteWithProof => {
+                let proof = self
+                    .inclusion_proof()
+                    .ok_or(NoteRecordError::ConversionError(
+                        "Note record does not contain an inclusion proof".to_string(),
+                    ))?
+                    .clone();
+
+                Ok(NoteFile::NoteWithProof(self.try_into()?, proof))
+            },
         }
     }
 }

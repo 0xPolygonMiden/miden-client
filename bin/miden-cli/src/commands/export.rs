@@ -1,8 +1,7 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
 use miden_client::{
-    accounts::AccountData, crypto::FeltRng, notes::NoteFile, store::NoteStatus,
-    utils::Serializable, Client,
+    accounts::AccountData, crypto::FeltRng, store::NoteExportType, utils::Serializable, Client,
 };
 use tracing::info;
 
@@ -37,6 +36,16 @@ pub enum ExportType {
     Id,
     Full,
     Partial,
+}
+
+impl From<ExportType> for NoteExportType {
+    fn from(export_type: ExportType) -> NoteExportType {
+        match export_type {
+            ExportType::Id => NoteExportType::NoteId,
+            ExportType::Full => NoteExportType::NoteWithProof,
+            ExportType::Partial => NoteExportType::NoteDetails,
+        }
+    }
 }
 
 impl ExportCmd {
@@ -101,34 +110,7 @@ fn export_note(
         .pop()
         .expect("should have an output note");
 
-    let note_file = match export_type {
-        ExportType::Id => NoteFile::NoteId(output_note.id()),
-        ExportType::Full => match output_note.inclusion_proof() {
-            Some(inclusion_proof) => {
-                NoteFile::NoteWithProof(output_note.clone().try_into()?, inclusion_proof.clone())
-            },
-            None => return Err("Note does not have inclusion proof".to_string()),
-        },
-        ExportType::Partial => {
-            let after_block_num = match output_note.status() {
-                NoteStatus::Expected { block_height, .. } => block_height.unwrap_or(0),
-                _ => {
-                    output_note
-                        .inclusion_proof()
-                        .expect("Committed notes should have inclusion proof")
-                        .location()
-                        .block_num()
-                        - 1
-                },
-            };
-
-            NoteFile::NoteDetails {
-                details: output_note.clone().try_into()?,
-                after_block_num,
-                tag: Some(output_note.metadata().tag()),
-            }
-        },
-    };
+    let note_file = output_note.into_note_file(export_type.into())?;
 
     let file_path = if let Some(filename) = filename {
         filename
