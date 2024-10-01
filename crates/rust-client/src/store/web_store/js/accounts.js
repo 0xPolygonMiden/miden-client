@@ -76,7 +76,7 @@ export async function getAccountHeader(
     
         if (allMatchingRecords.length === 0) {
           console.log('No records found for given ID.');
-          return null; // No records found
+          throw new Error("No records found for given ID.")
         }
     
         // Convert nonce to BigInt and sort
@@ -262,7 +262,7 @@ export async function getAccountAuth(
 
         if (allMatchingRecords.length === 0) {
             console.log('No records found for given account ID.');
-            return null; // No records found
+            throw new Error("No records found for given ID.")
         }
 
         // The first record is the only one due to the uniqueness constraint
@@ -317,7 +317,7 @@ export async function fetchAndCacheAccountAuthByPubKey(
 
         if (allMatchingRecords.length === 0) {
             console.log('No records found for given account ID.');
-            return null; // No records found
+            throw new Error("No records found for given ID.")
         }
 
         // The first record is the only one due to the uniqueness constraint

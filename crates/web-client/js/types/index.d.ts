@@ -1,5 +1,8 @@
 export {
+  Account, 
+  AccountHeader,
   AccountId,
+  AccountStorageMode,
   AdviceMap,
   AuthSecretKey,
   Felt,
@@ -23,6 +26,7 @@ export {
   OutputNotesArray,
   Rpo256,
   SerializedAccountHeader,
+  TestUtils,
   TransactionRequest,
   TransactionScriptInputPair,
   TransactionScriptInputPairArray,
