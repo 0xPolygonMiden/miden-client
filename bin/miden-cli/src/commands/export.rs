@@ -52,13 +52,10 @@ impl ExportCmd {
     ) -> Result<(), String> {
         if self.account {
             export_account(&client, self.id.as_str(), self.filename.clone())?;
+        } else if let Some(export_type) = &self.export_type {
+            export_note(&mut client, self.id.as_str(), self.filename.clone(), export_type.clone())?;
         } else {
-            export_note(
-                &mut client,
-                self.id.as_str(),
-                self.filename.clone(),
-                self.export_type.clone().expect("Note export must have an export type"),
-            )?;
+            return Err("Export type is required when exporting a note".to_string());
         }
         Ok(())
     }
