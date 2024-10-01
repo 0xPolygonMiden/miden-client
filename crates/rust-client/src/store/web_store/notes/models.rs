@@ -8,22 +8,14 @@ pub struct InputNoteIdxdbObject {
     #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
     pub assets: Vec<u8>,
     #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
-    pub details: Vec<u8>,
-    pub recipient: String,
-    pub status: String,
-    #[serde(deserialize_with = "base64_to_vec_u8_optional", default)]
-    pub metadata: Option<Vec<u8>>,
-    #[serde(deserialize_with = "base64_to_vec_u8_optional", default)]
-    pub inclusion_proof: Option<Vec<u8>>,
+    pub serial_number: Vec<u8>,
+    #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
+    pub inputs: Vec<u8>,
+    pub created_at: String,
     #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
     pub serialized_note_script: Vec<u8>,
-    pub consumer_account_id: Option<String>,
-    pub created_at: String,
-    pub expected_height: Option<String>,
-    pub submitted_at: Option<String>,
-    pub nullifier_height: Option<String>,
-    pub ignored: bool,
-    pub imported_tag: Option<String>,
+    #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
+    pub state: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize)]

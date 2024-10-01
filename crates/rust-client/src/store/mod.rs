@@ -7,7 +7,7 @@ use core::fmt::Debug;
 use miden_objects::{
     accounts::{Account, AccountHeader, AccountId, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::{NoteId, NoteInclusionProof, NoteMetadata, NoteTag, Nullifier},
+    notes::{NoteId, NoteTag, Nullifier},
     BlockHeader, Digest, Word,
 };
 use winter_maybe_async::{maybe_async, maybe_await};
@@ -37,7 +37,10 @@ pub mod sqlite_store;
 pub mod web_store;
 
 mod note_record;
-pub use note_record::{InputNoteRecord, NoteRecordDetails, NoteStatus, OutputNoteRecord};
+pub use note_record::{
+    CommittedNoteState, ConsumedAuthenticatedLocalNoteState, ExpectedNoteState, InputNoteRecord,
+    NoteRecordDetails, NoteRecordError, NoteState, NoteStatus, OutputNoteRecord,
+};
 
 // STORE TRAIT
 // ================================================================================================
@@ -103,79 +106,16 @@ pub trait Store {
         let nullifiers = maybe_await!(self.get_input_notes(NoteFilter::Committed))?
             .iter()
             .chain(maybe_await!(self.get_input_notes(NoteFilter::Processing))?.iter())
-            .map(|input_note| Ok(Nullifier::from(Digest::try_from(input_note.nullifier())?)))
+            .map(|input_note| Ok(input_note.nullifier()))
             .collect::<Result<Vec<_>, _>>();
 
         nullifiers
     }
 
-    /// Returns the notes that match the provided nullifiers
-    ///
-    /// The default implementation of this method uses [Store::get_input_notes].
+    /// Inserts the provided input note into the database. If a note with the same ID already
+    /// exists, it will be replaced.
     #[maybe_async]
-    fn get_notes_by_nullifiers(
-        &self,
-        nullifiers: Vec<Nullifier>,
-    ) -> Result<Vec<InputNoteRecord>, StoreError> {
-        let notes = maybe_await!(self.get_input_notes(NoteFilter::Committed))?
-            .into_iter()
-            .chain(maybe_await!(self.get_input_notes(NoteFilter::Processing))?)
-            .filter(|note| {
-                nullifiers.contains(
-                    &Nullifier::from_hex(note.nullifier())
-                        .expect("Note should have valid nullifier"),
-                )
-            })
-            .collect();
-
-        Ok(notes)
-    }
-
-    /// Returns the committed notes that don't have their block header tracked
-    ///
-    /// The default implementation of this method uses [Store::get_tracked_block_headers] and
-    /// [Store::get_input_notes].
-    #[maybe_async]
-    fn get_notes_without_block_header(&self) -> Result<Vec<InputNoteRecord>, StoreError> {
-        let tracked_block_nums: Vec<u32> = maybe_await!(self.get_tracked_block_headers())?
-            .iter()
-            .map(|header| header.block_num())
-            .collect();
-        let notes_without_block_header: Vec<InputNoteRecord> =
-            maybe_await!(self.get_input_notes(NoteFilter::Committed))?
-                .into_iter()
-                .filter(|note| {
-                    !tracked_block_nums.contains(
-                        &note
-                            .inclusion_proof()
-                            .expect("Committed note should have inclusion proof")
-                            .location()
-                            .block_num(),
-                    )
-                })
-                .collect();
-        Ok(notes_without_block_header)
-    }
-
-    /// Inserts the provided input note into the database
-    #[maybe_async]
-    fn insert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError>;
-
-    #[maybe_async]
-    /// Updates the inclusion proof of the input note with the provided ID
-    fn update_note_inclusion_proof(
-        &self,
-        note_id: NoteId,
-        inclusion_proof: NoteInclusionProof,
-    ) -> Result<(), StoreError>;
-
-    #[maybe_async]
-    /// Updates the metadata of the input note with the provided ID
-    fn update_note_metadata(
-        &self,
-        note_id: NoteId,
-        metadata: NoteMetadata,
-    ) -> Result<(), StoreError>;
+    fn upsert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError>;
 
     // CHAIN DATA
     // --------------------------------------------------------------------------------------------
@@ -411,4 +351,8 @@ pub enum NoteFilter<'a> {
     List(&'a [NoteId]),
     /// Return a list containing the note that matches with the provided [NoteId].
     Unique(NoteId),
+    /// Return a list of notes that match the provided [Nullifier] list.
+    Nullifiers(&'a [Nullifier]),
+    /// Return a list of notes that currently have an unverified proof.
+    Unverified,
 }

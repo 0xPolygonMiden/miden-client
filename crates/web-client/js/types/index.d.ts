@@ -1,5 +1,5 @@
 export {
-  Account, 
+  Account,
   AccountHeader,
   AccountId,
   AccountStorageMode,
@@ -31,5 +31,5 @@ export {
   TransactionRequest,
   TransactionScriptInputPair,
   TransactionScriptInputPairArray,
-  WebClient
+  WebClient,
 } from "./crates/miden_client_web";
