@@ -121,10 +121,10 @@ pub trait Store {
         nullifiers
     }
 
-    /// Inserts the provided input note into the database. If a note with the same ID already
+    /// Inserts the provided input notes into the database. If a note with the same ID already
     /// exists, it will be replaced.
     #[maybe_async]
-    fn upsert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError>;
+    fn upsert_input_notes(&self, notes: Vec<InputNoteRecord>) -> Result<(), StoreError>;
 
     // CHAIN DATA
     // --------------------------------------------------------------------------------------------
