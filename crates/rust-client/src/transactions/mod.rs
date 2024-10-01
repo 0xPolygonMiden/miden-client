@@ -24,7 +24,7 @@ use winter_maybe_async::{maybe_async, maybe_await};
 use super::{Client, FeltRng};
 use crate::{
     notes::NoteScreener,
-    store::{InputNoteRecord, NoteFilter, TransactionFilter},
+    store::{ExpectedNoteState, InputNoteRecord, NoteFilter, TransactionFilter},
     ClientError,
 };
 
@@ -64,7 +64,7 @@ impl TransactionResult {
     pub fn new(
         transaction: ExecutedTransaction,
         note_screener: NoteScreener,
-        partial_notes: Vec<NoteDetails>,
+        partial_notes: Vec<(NoteDetails, NoteTag)>,
     ) -> Result<Self, ClientError> {
         let mut relevant_notes = vec![];
 
@@ -77,7 +77,18 @@ impl TransactionResult {
         }
 
         // Include partial output notes into the relevant notes
-        relevant_notes.extend(partial_notes.iter().map(InputNoteRecord::from));
+        relevant_notes.extend(partial_notes.iter().map(|(note_details, tag)| {
+            InputNoteRecord::new(
+                note_details.clone(),
+                None,
+                ExpectedNoteState {
+                    metadata: None,
+                    after_block_num: 0,
+                    tag: Some(*tag),
+                }
+                .into(),
+            )
+        }));
 
         let tx_result = Self { transaction, relevant_notes };
 
@@ -256,7 +267,7 @@ impl<R: FeltRng> Client<R> {
         let note_ids = transaction_request.get_input_note_ids();
         let output_notes: Vec<Note> =
             transaction_request.expected_output_notes().cloned().collect();
-        let future_notes: Vec<NoteDetails> =
+        let future_notes: Vec<(NoteDetails, NoteTag)> =
             transaction_request.expected_future_notes().cloned().collect();
 
         let tx_script = match transaction_request.script_template() {
