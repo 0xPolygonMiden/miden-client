@@ -35,7 +35,7 @@ pub use note_screener::{NoteConsumability, NoteRelevance, NoteScreener, NoteScre
 // MIDEN CLIENT
 // ================================================================================================
 
-impl Client {
+impl<R: FeltRng> Client<R> {
     // INPUT NOTE DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
@@ -154,8 +154,8 @@ impl Client {
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found where
 ///   `note_id_prefix` is a prefix of its id.
 #[maybe_async]
-pub fn get_input_note_with_id_prefix(
-    client: &Client,
+pub fn get_input_note_with_id_prefix<R:FeltRng>(
+    client: &Client<R>,
     note_id_prefix: &str,
 ) -> Result<InputNoteRecord, IdPrefixFetchError> {
     let mut input_note_records = maybe_await!(client.get_input_notes(NoteFilter::All))

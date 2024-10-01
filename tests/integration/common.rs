@@ -1,4 +1,4 @@
-use std::{env::temp_dir, rc::Rc, time::Duration};
+use std::{env::temp_dir, rc::Rc, sync::Arc, time::Duration};
 
 use figment::{
     providers::{Format, Toml},
@@ -36,10 +36,7 @@ use uuid::Uuid;
 pub const ACCOUNT_ID_REGULAR: u64 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN;
 
 pub type TestClient = Client<
-    TonicRpcClient,
     RpoRandomCoin,
-    SqliteStore,
-    StoreAuthenticator<RpoRandomCoin, SqliteStore>,
 >;
 
 pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./tests/config/miden-client-rpc.toml";
@@ -57,7 +54,7 @@ pub fn create_test_client() -> TestClient {
 
     let store = {
         let sqlite_store = SqliteStore::new(&store_config).unwrap();
-        Rc::new(sqlite_store)
+        std::sync::Arc::new(sqlite_store)
     };
 
     let mut rng = rand::thread_rng();
@@ -66,7 +63,7 @@ pub fn create_test_client() -> TestClient {
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
-    TestClient::new(TonicRpcClient::new(&rpc_config), rng, store, authenticator, true)
+    TestClient::new(Box::new(TonicRpcClient::new(&rpc_config)), rng, store, Arc::new(authenticator), true)
 }
 
 pub fn get_client_config() -> (RpcConfig, SqliteStoreConfig) {

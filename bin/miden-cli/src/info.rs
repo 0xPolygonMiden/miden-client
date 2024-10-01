@@ -10,7 +10,7 @@ use miden_client::{
 
 use super::config::CliConfig;
 
-pub fn print_client_info(client: &Client, config: &CliConfig) -> Result<(), String> {
+pub fn print_client_info(client: &Client<impl FeltRng>, config: &CliConfig) -> Result<(), String> {
     println!("Client version: {}", env!("CARGO_PKG_VERSION"));
     print_config_stats(config)?;
     print_client_stats(client)
@@ -18,7 +18,7 @@ pub fn print_client_info(client: &Client, config: &CliConfig) -> Result<(), Stri
 
 // HELPERS
 // ================================================================================================
-fn print_client_stats(client: &Client) -> Result<(), String> {
+fn print_client_stats(client: &Client<impl FeltRng>) -> Result<(), String> {
     println!("Block number: {}", client.get_sync_height().map_err(|e| e.to_string())?);
     println!(
         "Tracked accounts: {}",

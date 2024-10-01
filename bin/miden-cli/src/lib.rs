@@ -1,4 +1,4 @@
-use std::{env, rc::Rc};
+use std::{env, rc::Rc, sync::Arc};
 
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
@@ -100,7 +100,7 @@ impl Cli {
         // Create the client
         let (cli_config, _config_path) = load_config_file()?;
         let store = SqliteStore::new(&cli_config.store).map_err(ClientError::StoreError)?;
-        let store = Rc::new(store);
+        let store = Arc::new(store);
 
         let mut rng = rand::thread_rng();
         let coin_seed: [u64; 4] = rng.gen();
@@ -109,10 +109,10 @@ impl Cli {
         let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
 
         let client = Client::new(
-            TonicRpcClient::new(&cli_config.rpc),
+            Box::new(TonicRpcClient::new(&cli_config.rpc)),
             rng,
             store,
-            authenticator,
+            Arc::new(authenticator),
             in_debug_mode,
         );
 
@@ -161,7 +161,7 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found where
 ///   `note_id_prefix` is a prefix of its id.
 pub(crate) fn get_output_note_with_id_prefix(
-    client: &Client,
+    client: &Client<impl FeltRng>,
     note_id_prefix: &str,
 ) -> Result<OutputNoteRecord, IdPrefixFetchError> {
     let mut output_note_records = client
@@ -208,7 +208,7 @@ pub(crate) fn get_output_note_with_id_prefix(
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one account found where
 ///   `account_id_prefix` is a prefix of its id.
 fn get_account_with_id_prefix(
-    client: &Client,
+    client: &Client<impl FeltRng>,
     account_id_prefix: &str,
 ) -> Result<AccountHeader, IdPrefixFetchError> {
     let mut accounts = client

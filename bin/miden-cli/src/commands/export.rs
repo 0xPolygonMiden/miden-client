@@ -46,7 +46,7 @@ pub enum ExportType {
 }
 
 impl ExportCmd {
-    pub fn execute(&self, mut client: Client) -> Result<(), String> {
+    pub fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         if self.account {
             export_account(&client, self.id.as_str(), self.filename.clone())?;
         } else {
@@ -64,8 +64,8 @@ impl ExportCmd {
 // EXPORT ACCOUNT
 // ================================================================================================
 
-fn export_account(
-    client: &Client,
+fn export_account<R:FeltRng>(
+    client: &Client<R>,
     account_id: &str,
     filename: Option<PathBuf>,
 ) -> Result<File, String> {
@@ -96,7 +96,7 @@ fn export_account(
 // ================================================================================================
 
 fn export_note(
-    client: &mut Client,
+    client: &mut Client<impl FeltRng>,
     note_id: &str,
     filename: Option<PathBuf>,
     export_type: ExportType,

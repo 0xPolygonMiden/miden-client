@@ -15,7 +15,7 @@ use crate::{
     Client,
 };
 
-impl Client {
+impl<R: FeltRng> Client<R> {
     /// Returns the list of note tags tracked by the client.
     ///
     /// When syncing the state with the node, these tags will be added to the sync request and

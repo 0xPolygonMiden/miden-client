@@ -189,7 +189,7 @@ impl fmt::Display for TransactionStatus {
     }
 }
 
-impl Client {
+impl<R: FeltRng> Client<R> {
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
@@ -543,7 +543,7 @@ impl Client {
 // ================================================================================================
 
 #[cfg(feature = "testing")]
-impl Client {
+impl<R: FeltRng> Client<R> {
     #[maybe_async]
     pub fn testing_prove_transaction(
         &mut self,
@@ -675,7 +675,7 @@ mod test {
 
     #[tokio::test]
     async fn test_transaction_creates_two_notes() {
-        let mut client = create_test_client();
+        let (mut client, _) = create_test_client();
         let asset_1: Asset =
             FungibleAsset::new(ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN.try_into().unwrap(), 123)
                 .unwrap()

@@ -49,12 +49,12 @@ fn compile_tonic_client_proto(proto_dir: &Path) -> miette::Result<()> {
 
     // Generate the header of the user facing server from its proto file
     tonic_build::configure()
-        .build_transport(false)
+        //.build_transport(false)
         .build_server(false)
         .file_descriptor_set_path(&file_descriptor_path)
         .skip_protoc_run()
         .out_dir(WEB_TONIC_CLIENT_PROTO_OUT_DIR)
-        .compile_with_config(web_tonic_prost_config, protos, includes)
+        .compile_protos_with_config(web_tonic_prost_config, protos, includes)
         .into_diagnostic()?;
 
     tonic_build::configure()
@@ -62,7 +62,7 @@ fn compile_tonic_client_proto(proto_dir: &Path) -> miette::Result<()> {
         .file_descriptor_set_path(&file_descriptor_path)
         .skip_protoc_run()
         .out_dir(TONIC_CLIENT_PROTO_OUT_DIR)
-        .compile_with_config(prost_config, protos, includes)
+        .compile_protos_with_config(prost_config, protos, includes)
         .into_diagnostic()?;
 
     Ok(())

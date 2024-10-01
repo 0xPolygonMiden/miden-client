@@ -12,7 +12,7 @@ pub struct SyncCmd {
 }
 
 impl SyncCmd {
-    pub async fn execute(&self, mut client: Client) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         let mut new_details = client.sync_state().await?;
         if self.update_ignored {
             new_details.combine_with(client.update_ignored_notes().await?);

@@ -27,7 +27,7 @@ pub struct ImportCmd {
 }
 
 impl ImportCmd {
-    pub async fn execute(&self, mut client: Client) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         validate_paths(&self.filenames)?;
         let (mut current_config, _) = load_config_file()?;
         for filename in &self.filenames {
@@ -53,7 +53,7 @@ impl ImportCmd {
 // IMPORT ACCOUNT
 // ================================================================================================
 
-fn import_account(client: &mut Client, filename: &PathBuf) -> Result<AccountId, String> {
+fn import_account(client: &mut Client<impl FeltRng>, filename: &PathBuf) -> Result<AccountId, String> {
     info!(
         "Attempting to import account data from {}...",
         fs::canonicalize(filename).map_err(|err| err.to_string())?.as_path().display()

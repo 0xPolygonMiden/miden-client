@@ -3,6 +3,8 @@
 #[macro_use]
 extern crate alloc;
 
+pub use alloc::boxed::Box;
+
 #[cfg(feature = "std")]
 extern crate std;
 
@@ -66,7 +68,7 @@ pub mod crypto {
     };
 }
 
-use std::boxed::Box;
+use alloc::rc::Rc;
 
 pub use errors::{ClientError, IdPrefixFetchError};
 pub use miden_objects::{Felt, StarkField, Word, ONE, ZERO};
@@ -88,13 +90,13 @@ pub mod testing {
     pub use miden_objects::{accounts::account_id::testing::*, testing::*};
 }
 
-use alloc::rc::Rc;
-
 use miden_objects::crypto::rand::FeltRng;
-use miden_tx::{auth::TransactionAuthenticator, TransactionExecutor};
+use miden_tx::{auth::TransactionAuthenticator, DataStore, TransactionExecutor};
 use rpc::NodeRpcClient;
 use store::{data_store::ClientDataStore, Store};
 use tracing::info;
+
+use alloc::sync::Arc;
 
 // MIDEN CLIENT
 // ================================================================================================
@@ -107,19 +109,19 @@ use tracing::info;
 /// - Connects to one or more Miden nodes to periodically sync with the current state of the
 ///   network.
 /// - Executes, proves, and submits transactions to the network as directed by the user.
-pub struct Client {
+pub struct Client<R: FeltRng> {
     /// The client's store, which provides a way to write and read entities to provide persistence.
-    store: Rc<dyn Store>,
+    store: Arc<dyn Store>,
     /// An instance of [FeltRng] which provides randomness tools for generating new keys,
     /// serial numbers, etc.
-    rng: Box<dyn FeltRng>,
+    rng: R,
     /// An instance of [NodeRpcClient] which provides a way for the client to connect to the
     /// Miden node.
     rpc_api: Box<dyn NodeRpcClient + Send>,
-    tx_executor: TransactionExecutor<ClientDataStore, Box<dyn TransactionAuthenticator>>,
+    tx_executor: TransactionExecutor,
 }
 
-impl Client {
+impl<R: FeltRng> Client<R> {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
 
@@ -145,16 +147,16 @@ impl Client {
     /// Returns an error if the client could not be instantiated.
     pub fn new(
         api: Box<dyn NodeRpcClient + Send>,
-        rng: Box<dyn FeltRng>,
-        store: Rc<dyn Store>,
-        authenticator: Rc<dyn TransactionAuthenticator>,
+        rng: R,
+        store: Arc<dyn Store>,
+        authenticator: Arc<dyn TransactionAuthenticator>,
         in_debug_mode: bool,
     ) -> Self {
         if in_debug_mode {
             info!("Creating the Client in debug mode.");
         }
 
-        let data_store = ClientDataStore::new(store.clone());
+        let data_store = Arc::new(ClientDataStore::new(store.clone())) as Arc<dyn DataStore>;
         let authenticator = Some(authenticator);
         let tx_executor =
             TransactionExecutor::new(data_store, authenticator).with_debug_mode(in_debug_mode);
@@ -164,8 +166,8 @@ impl Client {
 
     /// Returns a reference to the client's random number generator. This can be used to generate
     /// randomness for various purposes such as serial numbers, keys, etc.
-    pub fn rng(&mut self) -> &mut dyn FeltRng {
-        self.rng.as_mut()
+    pub fn rng(&mut self) -> &mut R {
+        &mut self.rng
     }
 
     // TEST HELPERS
@@ -176,11 +178,8 @@ impl Client {
         &mut self.rpc_api
     }
 
-    // TODO: the idxdb feature access here is temporary and should be removed in the future once
-    // a good solution to the syncrhonous store access in the store authenticator is found.
-    // https://github.com/0xPolygonMiden/miden-base/issues/705
     #[cfg(any(test, feature = "testing", feature = "idxdb"))]
-    pub fn store(&mut self) -> &Rc<dyn Store> {
+    pub fn store(&mut self) -> &Arc<dyn Store> {
         &self.store
     }
 

@@ -15,12 +15,12 @@ use crate::store::Store;
 
 /// Represents an authenticator based on a [Store]
 pub struct StoreAuthenticator<R, S> {
-    store: Rc<S>,
+    store: alloc::sync::Arc<S>,
     rng: RefCell<R>,
 }
 
 impl<R: Rng, S: Store> StoreAuthenticator<R, S> {
-    pub fn new_with_rng(store: Rc<S>, rng: R) -> Self {
+    pub fn new_with_rng(store: alloc::sync::Arc<S>, rng: R) -> Self {
         StoreAuthenticator { store, rng: RefCell::new(rng) }
     }
 }

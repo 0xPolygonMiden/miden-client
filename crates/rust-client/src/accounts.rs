@@ -47,7 +47,7 @@ pub enum AccountTemplate {
     },
 }
 
-impl Client {
+impl<R: FeltRng> Client<R> {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 
@@ -309,7 +309,7 @@ pub mod tests {
     #[test]
     pub fn try_import_new_account() {
         // generate test client
-        let mut client = create_test_client();
+        let (mut client, _rpc_api) = create_test_client();
 
         let account = Account::mock(
             ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN,
@@ -330,7 +330,7 @@ pub mod tests {
     #[test]
     fn load_accounts_test() {
         // generate test client
-        let mut client = create_test_client();
+        let (mut client, _) = create_test_client();
 
         let created_accounts_data = create_initial_accounts_data();
 

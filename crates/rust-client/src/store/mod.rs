@@ -54,7 +54,7 @@ pub use note_record::{InputNoteRecord, NoteRecordDetails, NoteStatus, OutputNote
 /// Because the [Store]'s ownership is shared between the executor and the client, interior
 /// mutability is expected to be implemented, which is why all methods receive `&self` and
 /// not `&mut self`.
-#[cfg_attr(feature = "async", async_trait)]
+#[maybe_async]
 pub trait Store {
     // TRANSACTIONS
     // --------------------------------------------------------------------------------------------

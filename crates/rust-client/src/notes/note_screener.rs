@@ -43,11 +43,11 @@ impl fmt::Display for NoteRelevance {
 /// at the combination of script root and note inputs. For example, a P2ID note is relevant
 /// for a specific account ID if this ID is its first note input.
 pub struct NoteScreener {
-    store: Rc<dyn Store>,
+    store: alloc::sync::Arc<dyn Store>,
 }
 
 impl NoteScreener {
-    pub fn new(store: Rc<dyn Store>) -> Self {
+    pub fn new(store: alloc::sync::Arc<dyn Store>) -> Self {
         Self { store }
     }
 

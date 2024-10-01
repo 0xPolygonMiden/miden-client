@@ -547,10 +547,7 @@ pub fn create_test_store_path() -> std::path::PathBuf {
 }
 
 pub type TestClient = Client<
-    TonicRpcClient,
     RpoRandomCoin,
-    SqliteStore,
-    StoreAuthenticator<RpoRandomCoin, SqliteStore>,
 >;
 
 fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
@@ -559,7 +556,7 @@ fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
 
     let store = {
         let sqlite_store = SqliteStore::new(&store_config).unwrap();
-        Rc::new(sqlite_store)
+        std::sync::Arc::new(sqlite_store)
     };
 
     let mut rng = rand::thread_rng();
@@ -568,5 +565,5 @@ fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
-    TestClient::new(TonicRpcClient::new(&rpc_config), rng, store, authenticator, true)
+    TestClient::new(Box::new(TonicRpcClient::new(&rpc_config)), rng, store, std::sync::Arc::new(authenticator), true)
 }

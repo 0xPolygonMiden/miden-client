@@ -13,6 +13,7 @@ use miden_objects::{
     BlockHeader,
 };
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
+use tonic::async_trait;
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use super::{ChainMmrNodeFilter, InputNoteRecord, NoteFilter, NoteStatus, Store};
@@ -24,15 +25,15 @@ use crate::{store::StoreError, ClientError};
 /// Wrapper structure that implements [DataStore] over any [Store].
 pub(crate) struct ClientDataStore {
     /// Local database containing information about the accounts managed by this client.
-    pub(crate) store: Rc<dyn Store>,
+    pub(crate) store: alloc::sync::Arc<dyn Store>,
 }
 
 impl ClientDataStore {
-    pub fn new(store: Rc<dyn Store>) -> Self {
+    pub fn new(store: alloc::sync::Arc<dyn Store>) -> Self {
         Self { store }
     }
 }
-
+#[async_trait]
 impl DataStore for ClientDataStore {
     #[maybe_async]
     fn get_transaction_inputs(
@@ -111,7 +112,7 @@ impl DataStore for ClientDataStore {
 /// the kernel extends the MMR which is why it's not needed here.
 #[maybe_async]
 fn build_partial_mmr_with_paths(
-    store: &Rc<dyn Store>,
+    store: &alloc::sync::Arc<dyn Store>,
     forest: u32,
     authenticated_blocks: &[BlockHeader],
 ) -> Result<PartialMmr, DataStoreError> {
@@ -142,7 +143,7 @@ fn build_partial_mmr_with_paths(
 /// If there are any such values, the function will panic when calling `mmr_merkle_path_len()`.
 #[maybe_async]
 fn get_authentication_path_for_blocks(
-    store: &Rc<dyn Store>,
+    store: &alloc::sync::Arc<dyn Store>,
     block_nums: &[u32],
     forest: usize,
 ) -> Result<Vec<MerklePath>, StoreError> {

@@ -18,7 +18,7 @@ pub struct TransactionCmd {
 }
 
 impl TransactionCmd {
-    pub async fn execute(&self, client: Client) -> Result<(), String> {
+    pub async fn execute(&self, client: Client<impl FeltRng>) -> Result<(), String> {
         list_transactions(client)?;
         Ok(())
     }
@@ -26,7 +26,7 @@ impl TransactionCmd {
 
 // LIST TRANSACTIONS
 // ================================================================================================
-fn list_transactions(client: Client) -> Result<(), String> {
+fn list_transactions(client: Client<impl FeltRng>) -> Result<(), String> {
     let transactions = client.get_transactions(TransactionFilter::All)?;
     print_transactions_summary(&transactions);
     Ok(())

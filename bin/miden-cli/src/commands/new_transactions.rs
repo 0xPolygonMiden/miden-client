@@ -59,7 +59,7 @@ pub struct MintCmd {
 }
 
 impl MintCmd {
-    pub async fn execute(&self, mut client: Client) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         let force = self.force;
         let faucet_details_map = load_faucet_details_map()?;
 
@@ -109,7 +109,7 @@ pub struct SendCmd {
 }
 
 impl SendCmd {
-    pub async fn execute(&self, mut client: Client) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         let force = self.force;
 
         let faucet_details_map = load_faucet_details_map()?;
@@ -163,7 +163,7 @@ pub struct SwapCmd {
 }
 
 impl SwapCmd {
-    pub async fn execute(&self, mut client: Client) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         let force = self.force;
 
         let faucet_details_map = load_faucet_details_map()?;
@@ -225,7 +225,7 @@ pub struct ConsumeNotesCmd {
 }
 
 impl ConsumeNotesCmd {
-    pub async fn execute(&self, mut client: Client) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         let force = self.force;
 
         let mut list_of_notes = self
@@ -261,7 +261,7 @@ impl ConsumeNotesCmd {
 // ================================================================================================
 
 async fn execute_transaction(
-    client: &mut Client,
+    client: &mut Client<impl FeltRng>,
     account_id: AccountId,
     transaction_request: TransactionRequest,
     force: bool,

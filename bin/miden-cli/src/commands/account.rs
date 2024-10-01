@@ -38,7 +38,7 @@ pub struct AccountCmd {
 }
 
 impl AccountCmd {
-    pub fn execute(&self, client: Client) -> Result<(), String> {
+    pub fn execute<R:FeltRng>(&self, client: Client<R>) -> Result<(), String> {
         match self {
             AccountCmd {
                 list: false,
@@ -92,7 +92,7 @@ impl AccountCmd {
 // LIST ACCOUNTS
 // ================================================================================================
 
-fn list_accounts(client: Client) -> Result<(), String> {
+fn list_accounts<R:FeltRng>(client: Client<R>) -> Result<(), String> {
     let accounts = client.get_account_headers()?;
 
     let mut table = create_dynamic_table(&["Account ID", "Type", "Storage Mode", "Nonce"]);
@@ -109,7 +109,7 @@ fn list_accounts(client: Client) -> Result<(), String> {
     Ok(())
 }
 
-pub fn show_account(client: Client, account_id: AccountId) -> Result<(), String> {
+pub fn show_account<R:FeltRng>(client: Client<R>, account_id: AccountId) -> Result<(), String> {
     let (account, _) = client.get_account(account_id)?;
 
     let mut table = create_dynamic_table(&[
