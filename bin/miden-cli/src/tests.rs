@@ -460,6 +460,33 @@ fn test_cli_export_import_account() {
     ));
 }
 
+#[test]
+fn test_cli_empty_commands() {
+    let store_path = create_test_store_path();
+    let mut temp_dir = temp_dir();
+    temp_dir.push(format!("{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(temp_dir.clone()).unwrap();
+
+    let mut init_cmd = Command::cargo_bin("miden").unwrap();
+    init_cmd.args(["init", "--rpc", "localhost", "--store-path", store_path.to_str().unwrap()]);
+    init_cmd.current_dir(&temp_dir).assert().success();
+
+    let mut create_faucet_cmd = Command::cargo_bin("miden").unwrap();
+    assert_command_fails_but_does_not_panic(create_faucet_cmd.args(["new-faucet"]));
+
+    let mut import_cmd = Command::cargo_bin("miden").unwrap();
+    assert_command_fails_but_does_not_panic(import_cmd.args(["export"]));
+
+    let mut mint_cmd = Command::cargo_bin("miden").unwrap();
+    assert_command_fails_but_does_not_panic(mint_cmd.args(["mint"]));
+
+    let mut send_cmd = Command::cargo_bin("miden").unwrap();
+    assert_command_fails_but_does_not_panic(send_cmd.args(["send"]));
+
+    let mut swam_cmd = Command::cargo_bin("miden").unwrap();
+    assert_command_fails_but_does_not_panic(swam_cmd.args(["swap"]));
+}
+
 // HELPERS
 // ================================================================================================
 
@@ -574,4 +601,11 @@ fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
 
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
     TestClient::new(TonicRpcClient::new(&rpc_config), rng, store, authenticator, true)
+}
+
+fn assert_command_fails_but_does_not_panic(command: &mut Command) {
+    let output_error = command.ok().unwrap_err();
+    let exit_code = output_error.as_output().unwrap().status.code().unwrap();
+    assert_ne!(exit_code, 0); // Command failed
+    assert_ne!(exit_code, 101); // Command didn't panic
 }
