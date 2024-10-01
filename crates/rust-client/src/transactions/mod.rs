@@ -243,10 +243,13 @@ impl<R: FeltRng> Client<R> {
         }
 
         // If tx request contains unauthenticated_input_notes we should insert them
-        for unauthenticated_input_note in transaction_request.unauthenticated_input_notes() {
-            // TODO: run this as a single TX
-            maybe_await!(self.store.upsert_input_note(unauthenticated_input_note.clone().into()))?;
-        }
+        let unauthenticated_input_notes = transaction_request
+            .unauthenticated_input_notes()
+            .iter()
+            .cloned()
+            .map(|note| note.into())
+            .collect::<Vec<_>>();
+        maybe_await!(self.store.upsert_input_notes(unauthenticated_input_notes))?;
 
         let block_num = maybe_await!(self.store.get_sync_height())?;
 

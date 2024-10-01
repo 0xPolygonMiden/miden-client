@@ -47,7 +47,7 @@ impl<R: FeltRng> Client<R> {
         };
 
         if let Some(note) = note {
-            maybe_await!(self.store.upsert_input_note(note))?;
+            maybe_await!(self.store.upsert_input_notes(vec![note]))?;
         }
 
         Ok(id)
