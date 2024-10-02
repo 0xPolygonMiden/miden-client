@@ -2,6 +2,8 @@ import rust from "@wasm-tool/rollup-plugin-rust";
 import resolve from "@rollup/plugin-node-resolve";
 import commonjs from "@rollup/plugin-commonjs";
 
+const testing = process.env.MIDEN_WEB_TESTING === 'true';
+
 /**
  * Rollup configuration file for building a Cargo project and creating a WebAssembly (WASM) module.
  * The configuration sets up two build processes:
@@ -36,6 +38,8 @@ export default [
                 experimental: {
                     typescriptDeclarationDir: "dist/crates",
                 },
+
+                wasmOptArgs: testing ? ["-O0"] : null,
             }),
             resolve(),
             commonjs(),
