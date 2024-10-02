@@ -8,7 +8,7 @@ use miden_client::{
     rpc::TonicRpcClient,
     store::{
         sqlite_store::{SqliteStore, SqliteStoreAuthenticator},
-        NoteFilter as ClientNoteFilter, OutputNoteRecord, Store,
+        NoteFilter as ClientNoteFilter, OutputNoteRecord,
     },
     Client, ClientError, Felt, IdPrefixFetchError,
 };

@@ -1,10 +1,6 @@
 use std::fs;
 
-use miden_client::{
-    crypto::FeltRng,
-    store::{NoteFilter, Store},
-    Client,
-};
+use miden_client::{crypto::FeltRng, store::NoteFilter, Client};
 
 use super::config::CliConfig;
 

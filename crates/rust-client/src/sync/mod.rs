@@ -15,16 +15,14 @@ use miden_objects::{
     transaction::{InputNote, TransactionId},
     BlockHeader, Digest,
 };
-use miden_tx::auth::TransactionAuthenticator;
 use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
     rpc::{
-        AccountDetails, CommittedNote, NodeRpcClient, NoteDetails, NullifierUpdate, RpcError,
-        TransactionUpdate,
+        AccountDetails, CommittedNote, NoteDetails, NullifierUpdate, RpcError, TransactionUpdate,
     },
-    store::{InputNoteRecord, NoteFilter, Store, StoreError, TransactionFilter},
+    store::{InputNoteRecord, NoteFilter, StoreError, TransactionFilter},
     Client, ClientError,
 };
 

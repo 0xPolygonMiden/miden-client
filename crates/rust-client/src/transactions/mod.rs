@@ -21,10 +21,10 @@ use script_builder::{AccountCapabilities, AccountInterface, TransactionScriptBui
 use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
 
-use super::{rpc::NodeRpcClient, Client, FeltRng};
+use super::{Client, FeltRng};
 use crate::{
     notes::NoteScreener,
-    store::{InputNoteRecord, NoteFilter, Store, TransactionFilter},
+    store::{InputNoteRecord, NoteFilter, TransactionFilter},
     ClientError,
 };
 

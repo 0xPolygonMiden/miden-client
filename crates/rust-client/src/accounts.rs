@@ -17,11 +17,10 @@ use miden_objects::{
     crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
     Felt, Word,
 };
-use miden_tx::auth::TransactionAuthenticator;
 use winter_maybe_async::{maybe_async, maybe_await};
 
-use super::{rpc::NodeRpcClient, Client};
-use crate::{store::Store, ClientError};
+use super::Client;
+use crate::ClientError;
 
 /// Defines templates for creating different types of Miden accounts.
 pub enum AccountTemplate {

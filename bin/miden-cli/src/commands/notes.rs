@@ -9,7 +9,7 @@ use miden_client::{
         script_roots::{P2ID, P2IDR, SWAP},
         NoteConsumability, NoteInputs, NoteMetadata,
     },
-    store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
+    store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord},
     Client, ClientError, IdPrefixFetchError,
 };
 

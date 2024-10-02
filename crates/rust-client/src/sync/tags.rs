@@ -7,11 +7,7 @@ use miden_objects::{
 use tracing::warn;
 use winter_maybe_async::{maybe_async, maybe_await};
 
-use crate::{
-    errors::ClientError,
-    store::{NoteFilter, Store},
-    Client,
-};
+use crate::{errors::ClientError, store::NoteFilter, Client};
 
 impl<R: FeltRng> Client<R> {
     /// Returns the list of note tags tracked by the client.

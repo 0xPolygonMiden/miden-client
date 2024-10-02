@@ -8,7 +8,7 @@ use miden_objects::{accounts::AccountId, crypto::rand::FeltRng};
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
-    store::{InputNoteRecord, NoteFilter, OutputNoteRecord, Store},
+    store::{InputNoteRecord, NoteFilter, OutputNoteRecord},
     Client, ClientError, IdPrefixFetchError,
 };
 

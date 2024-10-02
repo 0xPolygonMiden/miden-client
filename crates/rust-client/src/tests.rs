@@ -332,7 +332,7 @@ async fn test_sync_state_mmr() {
 #[tokio::test]
 async fn test_tags() {
     // generate test client with a random store name
-    let (mut client, rpc_api) = create_test_client();
+    let (mut client, _rpc_api) = create_test_client();
 
     // Assert that the store gets created with the tag 0 (used for notes consumable by any account)
     assert_eq!(client.get_note_tags().unwrap(), vec![]);

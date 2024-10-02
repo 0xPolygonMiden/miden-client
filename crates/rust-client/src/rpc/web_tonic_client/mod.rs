@@ -3,7 +3,6 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use core::time::Duration;
 
 use async_trait::async_trait;
 use generated::{
@@ -24,7 +23,6 @@ use miden_objects::{
 };
 use miden_tx::utils::Serializable;
 use tonic_web_wasm_client::Client;
-use winter_maybe_async::maybe_async;
 
 use super::NoteSyncInfo;
 use crate::rpc::{
@@ -49,6 +47,7 @@ impl WebTonicRpcClient {
         ApiClient::new(wasm_client)
     }
 }
+
 #[async_trait(?Send)]
 impl NodeRpcClient for WebTonicRpcClient {
     async fn submit_proven_transaction(

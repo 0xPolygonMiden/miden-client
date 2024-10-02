@@ -1,5 +1,5 @@
 extern crate alloc;
-use alloc::{rc::Rc, sync::Arc};
+use alloc::sync::Arc;
 
 use miden_client::{
     rpc::WebTonicRpcClient,

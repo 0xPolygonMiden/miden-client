@@ -1,3 +1,5 @@
+#[cfg(feature = "async")]
+use alloc::boxed::Box;
 use alloc::{
     collections::{BTreeMap, BTreeSet},
     string::ToString,
@@ -12,7 +14,7 @@ use miden_objects::{
     BlockHeader,
 };
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
-use winter_maybe_async::{maybe_async, maybe_await};
+use winter_maybe_async::*;
 
 use super::{ChainMmrNodeFilter, InputNoteRecord, NoteFilter, NoteStatus, Store};
 use crate::{store::StoreError, ClientError};
@@ -31,9 +33,9 @@ impl ClientDataStore {
         Self { store }
     }
 }
-use alloc::boxed::Box;
-#[maybe_async]
+#[maybe_async_trait]
 impl DataStore for ClientDataStore {
+    #[maybe_async]
     fn get_transaction_inputs(
         &self,
         account_id: AccountId,

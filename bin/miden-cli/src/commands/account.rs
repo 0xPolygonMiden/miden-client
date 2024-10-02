@@ -3,7 +3,6 @@ use miden_client::{
     accounts::{AccountId, AccountType, StorageSlot},
     assets::Asset,
     crypto::FeltRng,
-    store::Store,
     Client, ZERO,
 };
 

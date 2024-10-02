@@ -13,7 +13,7 @@ use miden_objects::{
 use miden_tx::{auth::TransactionAuthenticator, AuthenticationError};
 use rand::Rng;
 use rusqlite::{vtab::array, Connection};
-use winter_maybe_async::maybe_async;
+use winter_maybe_async::maybe_async_trait;
 
 use self::config::SqliteStoreConfig;
 use super::{
@@ -72,9 +72,7 @@ impl SqliteStore {
 //
 // To simplify, all implementations rely on inner SqliteStore functions that map 1:1 by name
 // This way, the actual implementations are grouped by entity types in their own sub-modules
-//unsafe impl Send for SqliteStore {}
-//unsafe impl Sync for SqliteStore {}
-#[maybe_async]
+#[maybe_async_trait]
 impl Store for SqliteStore {
     fn get_note_tags(&self) -> Result<Vec<NoteTag>, StoreError> {
         self.get_note_tags()

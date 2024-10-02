@@ -5,13 +5,11 @@ use miden_objects::{
     notes::{Note, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteTag},
     transaction::InputNote,
 };
-use miden_tx::auth::TransactionAuthenticator;
 use tracing::info;
 use winter_maybe_async::maybe_await;
 
 use crate::{
-    rpc::NodeRpcClient,
-    store::{InputNoteRecord, NoteStatus, Store, StoreError},
+    store::{InputNoteRecord, NoteStatus, StoreError},
     Client, ClientError,
 };
 
