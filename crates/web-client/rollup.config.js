@@ -2,11 +2,16 @@ import rust from "@wasm-tool/rollup-plugin-rust";
 import resolve from "@rollup/plugin-node-resolve";
 import commonjs from "@rollup/plugin-commonjs";
 
+// Flag that indicates if the build is meant for testing purposes.
+const testing = process.env.MIDEN_WEB_TESTING === 'true';
+
 /**
  * Rollup configuration file for building a Cargo project and creating a WebAssembly (WASM) module.
  * The configuration sets up two build processes:
  * 1. Compiling Rust code into WASM using the @wasm-tool/rollup-plugin-rust plugin, with specific
- *    cargo arguments to enable WebAssembly features and set maximum memory limits.
+ *    cargo arguments to enable WebAssembly features and set maximum memory limits. If the build is
+ *    meant for testing, the WASM optimization level is set to 0 to improve build times, this is
+ *    aimed at reducing the feedback loop during development.
  * 2. Resolving and bundling the generated WASM module along with the main JavaScript file
  *    (`index.js`) into the `dist` directory.
  *
@@ -36,6 +41,8 @@ export default [
                 experimental: {
                     typescriptDeclarationDir: "dist/crates",
                 },
+
+                wasmOptArgs: testing ? ["-O0"] : null,
             }),
             resolve(),
             commonjs(),
