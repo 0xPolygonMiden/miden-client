@@ -3,14 +3,12 @@ use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     accounts::AccountId,
     assets::Asset,
-    auth::TransactionAuthenticator,
     crypto::{Digest, FeltRng},
     notes::{
         get_input_note_with_id_prefix,
         script_roots::{P2ID, P2IDR, SWAP},
         NoteConsumability, NoteInputs, NoteMetadata,
     },
-    rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
     Client, ClientError, IdPrefixFetchError,
 };
@@ -29,10 +27,10 @@ pub enum NoteFilter {
     Consumable,
 }
 
-impl TryInto<ClientNoteFilter<'_>> for NoteFilter {
+impl TryInto<ClientNoteFilter> for NoteFilter {
     type Error = String;
 
-    fn try_into(self) -> Result<ClientNoteFilter<'static>, Self::Error> {
+    fn try_into(self) -> Result<ClientNoteFilter, Self::Error> {
         match self {
             NoteFilter::All => Ok(ClientNoteFilter::All),
             NoteFilter::Expected => Ok(ClientNoteFilter::Expected),
@@ -251,7 +249,10 @@ fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), String
 
 // LIST CONSUMABLE INPUT NOTES
 // ================================================================================================
-fn list_consumable_notes(client: Client<impl FeltRng>, account_id: &Option<String>) -> Result<(), String> {
+fn list_consumable_notes(
+    client: Client<impl FeltRng>,
+    account_id: &Option<String>,
+) -> Result<(), String> {
     let account_id = match account_id {
         Some(id) => Some(AccountId::from_hex(id.as_str()).map_err(|err| err.to_string())?),
         None => None,

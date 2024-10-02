@@ -67,12 +67,8 @@ impl WebClient {
         &mut self,
         account_id: String,
     ) -> Result<JsValue, JsValue> {
-        if let Some(client) = self.get_mut_inner() {
-            let _ = client
-                .store()
-                .fetch_and_cache_account_auth_by_pub_key(account_id)
-                .await
-                .unwrap();
+        if let Some(store) = self.get_mut_store() {
+            let _ = store.fetch_and_cache_account_auth_by_pub_key(account_id).await.unwrap();
 
             Ok(JsValue::from_str("Okay, it worked"))
         } else {

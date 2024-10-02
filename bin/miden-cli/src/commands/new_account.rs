@@ -2,10 +2,7 @@ use clap::Parser;
 use miden_client::{
     accounts::{AccountStorageMode, AccountTemplate},
     assets::TokenSymbol,
-    auth::TransactionAuthenticator,
     crypto::FeltRng,
-    rpc::NodeRpcClient,
-    store::Store,
     Client,
 };
 

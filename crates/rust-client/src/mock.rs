@@ -1,5 +1,4 @@
-use alloc::{collections::BTreeMap, vec::Vec};
-use alloc::sync::Arc;
+use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
 use std::env::temp_dir;
 
 use async_trait::async_trait;
@@ -36,12 +35,11 @@ use crate::{
         AccountDetails, NodeRpcClient, NoteDetails, NoteInclusionDetails, RpcError, StateSyncInfo,
     },
     store::sqlite_store::{config::SqliteStoreConfig, SqliteStore},
-    store_authenticator::StoreAuthenticator,
+    store_authenticator::SqliteStoreAuthenticator,
     Client,
 };
 
-pub type MockClient =
-    Client<RpoRandomCoin>;
+pub type MockClient = Client<RpoRandomCoin>;
 
 /// Mock RPC API
 ///
@@ -197,7 +195,7 @@ impl MockRpcApi {
     }
 }
 use alloc::boxed::Box;
-#[async_trait]
+#[maybe_async]
 impl NodeRpcClient for MockRpcApi {
     async fn sync_notes(
         &mut self,
@@ -321,7 +319,7 @@ pub fn create_test_client() -> (MockClient, MockRpcApi) {
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-    let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
+    let authenticator = SqliteStoreAuthenticator::new_with_rng(store.clone(), rng);
     let rpc_api = MockRpcApi::new();
     let boxed_rpc_api = Box::new(rpc_api.clone());
 

@@ -1,9 +1,7 @@
 use std::fs;
 
 use miden_client::{
-    auth::TransactionAuthenticator,
     crypto::FeltRng,
-    rpc::NodeRpcClient,
     store::{NoteFilter, Store},
     Client,
 };

@@ -23,7 +23,6 @@ pub mod mock;
 pub mod tests;
 
 mod errors;
-mod store_authenticator;
 
 // RE-EXPORTS
 // ================================================================================================
@@ -42,9 +41,7 @@ pub mod assets {
 /// rollup network.
 pub mod auth {
     pub use miden_objects::accounts::AuthSecretKey;
-    pub use miden_tx::auth::TransactionAuthenticator;
-
-    pub use crate::store_authenticator::StoreAuthenticator;
+    pub use miden_tx::auth::{BasicAuthenticator, TransactionAuthenticator};
 }
 
 /// Provides types for working with blocks within the Miden rollup network.
@@ -68,8 +65,6 @@ pub mod crypto {
     };
 }
 
-use alloc::rc::Rc;
-
 pub use errors::{ClientError, IdPrefixFetchError};
 pub use miden_objects::{Felt, StarkField, Word, ONE, ZERO};
 
@@ -90,13 +85,13 @@ pub mod testing {
     pub use miden_objects::{accounts::account_id::testing::*, testing::*};
 }
 
+use alloc::sync::Arc;
+
 use miden_objects::crypto::rand::FeltRng;
 use miden_tx::{auth::TransactionAuthenticator, DataStore, TransactionExecutor};
 use rpc::NodeRpcClient;
 use store::{data_store::ClientDataStore, Store};
 use tracing::info;
-
-use alloc::sync::Arc;
 
 // MIDEN CLIENT
 // ================================================================================================
@@ -176,11 +171,6 @@ impl<R: FeltRng> Client<R> {
     #[cfg(any(test, feature = "testing"))]
     pub fn rpc_api(&mut self) -> &mut Box<dyn NodeRpcClient + Send> {
         &mut self.rpc_api
-    }
-
-    #[cfg(any(test, feature = "testing", feature = "idxdb"))]
-    pub fn store(&mut self) -> &Arc<dyn Store> {
-        &self.store
     }
 
     #[cfg(any(test, feature = "testing"))]

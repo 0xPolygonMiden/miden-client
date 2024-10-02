@@ -5,11 +5,9 @@ use alloc::{collections::BTreeSet, string::ToString, vec::Vec};
 
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{accounts::AccountId, crypto::rand::FeltRng};
-use miden_tx::auth::TransactionAuthenticator;
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
-    rpc::NodeRpcClient,
     store::{InputNoteRecord, NoteFilter, OutputNoteRecord, Store},
     Client, ClientError, IdPrefixFetchError,
 };
@@ -46,10 +44,7 @@ impl<R: FeltRng> Client<R> {
     /// Returns a [ClientError::StoreError] if the filter is [NoteFilter::Unique] and there is no
     /// Note with the provided ID
     #[maybe_async]
-    pub fn get_input_notes(
-        &self,
-        filter: NoteFilter<'_>,
-    ) -> Result<Vec<InputNoteRecord>, ClientError> {
+    pub fn get_input_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, ClientError> {
         maybe_await!(self.store.get_input_notes(filter)).map_err(|err| err.into())
     }
 
@@ -125,7 +120,7 @@ impl<R: FeltRng> Client<R> {
     #[maybe_async]
     pub fn get_output_notes(
         &self,
-        filter: NoteFilter<'_>,
+        filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, ClientError> {
         maybe_await!(self.store.get_output_notes(filter)).map_err(|err| err.into())
     }
@@ -154,7 +149,7 @@ impl<R: FeltRng> Client<R> {
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found where
 ///   `note_id_prefix` is a prefix of its id.
 #[maybe_async]
-pub fn get_input_note_with_id_prefix<R:FeltRng>(
+pub fn get_input_note_with_id_prefix<R: FeltRng>(
     client: &Client<R>,
     note_id_prefix: &str,
 ) -> Result<InputNoteRecord, IdPrefixFetchError> {

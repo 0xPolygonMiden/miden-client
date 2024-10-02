@@ -18,7 +18,7 @@ crate-type = ["lib"]
 [features]
 async = ["miden-tx/async"]
 concurrent = ["miden-lib/concurrent", "miden-objects/concurrent", "miden-tx/concurrent", "std"]
-default = ["std"]
+default = []
 idxdb = ["async", "dep:base64", "dep:serde-wasm-bindgen", "dep:wasm-bindgen", "dep:wasm-bindgen-futures"]
 sqlite = ["dep:rusqlite", "std"]
 std = ["miden-objects/std"]
@@ -48,10 +48,10 @@ tonic-web-wasm-client = { version = "0.6", optional = true, default-features = f
 tracing = { workspace = true }
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"], optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
-winter-maybe-async = "0.10"
+winter-maybe-async = { git = "https://github.com/lambdaclass/winterfell", branch = "igamigo-maybe-async-trait" }
 
 [dev-dependencies]
-miden-client = { path = ".", features = ["testing", "concurrent", "sqlite", "tonic", "tokio"] }
+miden-client = { path = ".", features = ["testing", "concurrent", "sqlite", "tonic"] }
 miden-lib = { workspace = true, features = ["testing"] }
 miden-objects = { workspace = true, default-features = false, features = ["testing"] }
 uuid = { version = "1.10", features = ["serde", "v4"] }

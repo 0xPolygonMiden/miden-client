@@ -1,7 +1,5 @@
 use clap::Parser;
-use miden_client::{
-    auth::TransactionAuthenticator, crypto::FeltRng, rpc::NodeRpcClient, store::Store, Client,
-};
+use miden_client::{crypto::FeltRng, rpc::NodeRpcClient, Client};
 
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "Sync this client with the latest state of the Miden network.")]

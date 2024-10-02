@@ -1,6 +1,5 @@
 use alloc::{
     collections::{BTreeMap, BTreeSet},
-    rc::Rc,
     string::ToString,
     vec::Vec,
 };
@@ -13,7 +12,6 @@ use miden_objects::{
     BlockHeader,
 };
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
-use tonic::async_trait;
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use super::{ChainMmrNodeFilter, InputNoteRecord, NoteFilter, NoteStatus, Store};
@@ -33,9 +31,8 @@ impl ClientDataStore {
         Self { store }
     }
 }
-#[async_trait]
+#[maybe_async]
 impl DataStore for ClientDataStore {
-    #[maybe_async]
     fn get_transaction_inputs(
         &self,
         account_id: AccountId,
@@ -43,7 +40,7 @@ impl DataStore for ClientDataStore {
         notes: &[NoteId],
     ) -> Result<TransactionInputs, DataStoreError> {
         let input_note_records: BTreeMap<NoteId, InputNoteRecord> =
-            maybe_await!(self.store.get_input_notes(NoteFilter::List(notes)))?
+            maybe_await!(self.store.get_input_notes(NoteFilter::List(notes.to_vec())))?
                 .into_iter()
                 .map(|note_record| (note_record.id(), note_record))
                 .collect();
@@ -164,7 +161,7 @@ fn get_authentication_path_for_blocks(
     // Get all MMR nodes based on collected indices
     let node_indices: Vec<InOrderIndex> = node_indices.into_iter().collect();
 
-    let filter = ChainMmrNodeFilter::List(&node_indices);
+    let filter = ChainMmrNodeFilter::List(node_indices);
     let mmr_nodes = maybe_await!(store.get_chain_mmr_nodes(filter))?;
 
     // Construct authentication paths

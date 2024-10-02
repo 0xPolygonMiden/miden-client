@@ -74,7 +74,7 @@ impl TonicRpcClient {
     }
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl NodeRpcClient for TonicRpcClient {
     async fn submit_proven_transaction(
         &mut self,

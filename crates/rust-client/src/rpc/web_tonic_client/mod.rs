@@ -1,10 +1,9 @@
-use core::time::Duration;
-
 use alloc::{
     boxed::Box,
     string::{String, ToString},
     vec::Vec,
 };
+use core::time::Duration;
 
 use async_trait::async_trait;
 use generated::{
@@ -24,8 +23,8 @@ use miden_objects::{
     BlockHeader, Digest,
 };
 use miden_tx::utils::Serializable;
-use tonic::transport::Channel;
 use tonic_web_wasm_client::Client;
+use winter_maybe_async::maybe_async;
 
 use super::NoteSyncInfo;
 use crate::rpc::{
@@ -45,23 +44,18 @@ impl WebTonicRpcClient {
         Self { endpoint: endpoint.to_string() }
     }
 
-    pub async fn build_api_client(&self) -> ApiClient<Channel> {
-        let endpoint = tonic::transport::Endpoint::try_from(self.endpoint.clone())
-        .map_err(|err| RpcError::ConnectionError(err.to_string())).unwrap();
-        let rpc_api = ApiClient::connect(endpoint)
-        .await.unwrap();
-
-        rpc_api
+    pub fn build_api_client(&self) -> ApiClient<Client> {
+        let wasm_client = Client::new(self.endpoint.clone());
+        ApiClient::new(wasm_client)
     }
 }
-
-#[async_trait]
+#[async_trait(?Send)]
 impl NodeRpcClient for WebTonicRpcClient {
     async fn submit_proven_transaction(
         &mut self,
         proven_transaction: ProvenTransaction,
     ) -> Result<(), RpcError> {
-        let mut query_client = self.build_api_client().await;
+        let mut query_client = self.build_api_client();
 
         let request = SubmitProvenTransactionRequest {
             transaction: proven_transaction.to_bytes(),
@@ -82,7 +76,7 @@ impl NodeRpcClient for WebTonicRpcClient {
         block_num: Option<u32>,
         include_mmr_proof: bool,
     ) -> Result<(BlockHeader, Option<MmrProof>), RpcError> {
-        let mut query_client = self.build_api_client().await;
+        let mut query_client = self.build_api_client();
 
         let request = GetBlockHeaderByNumberRequest {
             block_num,
@@ -128,7 +122,7 @@ impl NodeRpcClient for WebTonicRpcClient {
     }
 
     async fn get_notes_by_id(&mut self, note_ids: &[NoteId]) -> Result<Vec<NoteDetails>, RpcError> {
-        let mut query_client = self.build_api_client().await;
+        let mut query_client = self.build_api_client();
 
         let request = GetNotesByIdRequest {
             note_ids: note_ids.iter().map(|id| id.inner().into()).collect(),
@@ -188,7 +182,7 @@ impl NodeRpcClient for WebTonicRpcClient {
         note_tags: &[NoteTag],
         nullifiers_tags: &[u16],
     ) -> Result<StateSyncInfo, RpcError> {
-        let mut query_client = self.build_api_client().await;
+        let mut query_client = self.build_api_client();
 
         let account_ids = account_ids.iter().map(|acc| (*acc).into()).collect();
         let nullifiers = nullifiers_tags.iter().map(|&nullifier| nullifier as u32).collect();
@@ -212,7 +206,7 @@ impl NodeRpcClient for WebTonicRpcClient {
         block_num: u32,
         note_tags: &[NoteTag],
     ) -> Result<NoteSyncInfo, RpcError> {
-        let mut query_client = self.build_api_client().await;
+        let mut query_client = self.build_api_client();
 
         let note_tags = note_tags.iter().map(|&note_tag| note_tag.into()).collect();
 
@@ -241,7 +235,7 @@ impl NodeRpcClient for WebTonicRpcClient {
         &mut self,
         account_id: AccountId,
     ) -> Result<AccountDetails, RpcError> {
-        let mut query_client = self.build_api_client().await;
+        let mut query_client = self.build_api_client();
 
         let request = GetAccountDetailsRequest { account_id: Some(account_id.into()) };
 
@@ -285,7 +279,7 @@ impl NodeRpcClient for WebTonicRpcClient {
         &mut self,
         prefixes: &[u16],
     ) -> Result<Vec<(Nullifier, u32)>, RpcError> {
-        let mut query_client = self.build_api_client().await;
+        let mut query_client = self.build_api_client();
 
         let request = CheckNullifiersByPrefixRequest {
             nullifiers: prefixes.iter().map(|&x| x as u32).collect(),

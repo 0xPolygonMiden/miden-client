@@ -8,10 +8,7 @@ use figment::{
     providers::{Format, Toml},
     Figment,
 };
-use miden_client::{
-    accounts::AccountId, auth::TransactionAuthenticator, crypto::FeltRng, rpc::NodeRpcClient,
-    store::Store, Client,
-};
+use miden_client::{accounts::AccountId, crypto::FeltRng, Client};
 use tracing::info;
 
 use super::{config::CliConfig, get_account_with_id_prefix, CLIENT_CONFIG_FILE_NAME};
@@ -55,7 +52,10 @@ pub(crate) fn get_input_acc_id_by_prefix_or_default(
 ///
 /// - Will return a `IdPrefixFetchError` if the provided account id string can't be parsed as an
 ///   `AccountId` and does not correspond to an account tracked by the client either.
-pub(crate) fn parse_account_id(client: &Client<impl FeltRng>, account_id: &str) -> Result<AccountId, String> {
+pub(crate) fn parse_account_id(
+    client: &Client<impl FeltRng>,
+    account_id: &str,
+) -> Result<AccountId, String> {
     if let Ok(account_id) = AccountId::from_hex(account_id) {
         return Ok(account_id);
     }

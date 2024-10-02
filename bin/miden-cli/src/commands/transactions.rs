@@ -1,7 +1,5 @@
 use miden_client::{
-    auth::TransactionAuthenticator,
     crypto::FeltRng,
-    rpc::NodeRpcClient,
     store::{Store, TransactionFilter},
     transactions::TransactionRecord,
     Client,

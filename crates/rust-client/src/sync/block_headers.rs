@@ -5,7 +5,6 @@ use miden_objects::{
     crypto::{self, merkle::MerklePath, rand::FeltRng},
     BlockHeader, Digest,
 };
-use miden_tx::auth::TransactionAuthenticator;
 use tracing::warn;
 use winter_maybe_async::{maybe_async, maybe_await};
 

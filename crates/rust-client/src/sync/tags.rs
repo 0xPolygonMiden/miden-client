@@ -4,13 +4,11 @@ use miden_objects::{
     crypto::rand::FeltRng,
     notes::{NoteExecutionMode, NoteTag},
 };
-use miden_tx::auth::TransactionAuthenticator;
 use tracing::warn;
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
     errors::ClientError,
-    rpc::NodeRpcClient,
     store::{NoteFilter, Store},
     Client,
 };

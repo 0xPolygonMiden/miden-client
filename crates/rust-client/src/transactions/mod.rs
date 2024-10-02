@@ -16,9 +16,7 @@ use miden_objects::{
     transaction::{InputNotes, TransactionArgs},
     AssetError, Digest, Felt, NoteError, Word,
 };
-use miden_tx::{
-    auth::TransactionAuthenticator, LocalTransactionProver, ProvingOptions, TransactionProver,
-};
+use miden_tx::{LocalTransactionProver, ProvingOptions, TransactionProver};
 use script_builder::{AccountCapabilities, AccountInterface, TransactionScriptBuilder};
 use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
@@ -231,7 +229,7 @@ impl<R: FeltRng> Client<R> {
 
         let authenticated_note_records = maybe_await!(self
             .store
-            .get_input_notes(NoteFilter::List(&authenticated_input_note_ids)))?;
+            .get_input_notes(NoteFilter::List(authenticated_input_note_ids.to_vec())))?;
 
         for authenticated_note_record in authenticated_note_records {
             if !authenticated_note_record.is_authenticated() {
@@ -428,7 +426,7 @@ impl<R: FeltRng> Client<R> {
             .collect();
 
         let store_input_notes =
-            maybe_await!(self.get_input_notes(NoteFilter::List(&incoming_notes_ids)))
+            maybe_await!(self.get_input_notes(NoteFilter::List(incoming_notes_ids.to_vec())))
                 .map_err(|err| TransactionRequestError::NoteNotFound(err.to_string()))?;
 
         let all_incoming_assets =

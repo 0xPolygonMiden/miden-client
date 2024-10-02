@@ -6,11 +6,8 @@ use std::{
 
 use miden_client::{
     accounts::{AccountData, AccountId},
-    auth::TransactionAuthenticator,
     crypto::FeltRng,
     notes::NoteFile,
-    rpc::NodeRpcClient,
-    store::Store,
     utils::Deserializable,
     Client,
 };
@@ -53,7 +50,10 @@ impl ImportCmd {
 // IMPORT ACCOUNT
 // ================================================================================================
 
-fn import_account(client: &mut Client<impl FeltRng>, filename: &PathBuf) -> Result<AccountId, String> {
+fn import_account(
+    client: &mut Client<impl FeltRng>,
+    filename: &PathBuf,
+) -> Result<AccountId, String> {
     info!(
         "Attempting to import account data from {}...",
         fs::canonicalize(filename).map_err(|err| err.to_string())?.as_path().display()

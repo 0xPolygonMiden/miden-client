@@ -2,10 +2,8 @@ use std::{fs::File, io::Write, path::PathBuf};
 
 use miden_client::{
     accounts::AccountData,
-    auth::TransactionAuthenticator,
     crypto::FeltRng,
     notes::NoteFile,
-    rpc::NodeRpcClient,
     store::{NoteStatus, Store},
     utils::Serializable,
     Client,
@@ -64,7 +62,7 @@ impl ExportCmd {
 // EXPORT ACCOUNT
 // ================================================================================================
 
-fn export_account<R:FeltRng>(
+fn export_account<R: FeltRng>(
     client: &Client<R>,
     account_id: &str,
     filename: Option<PathBuf>,

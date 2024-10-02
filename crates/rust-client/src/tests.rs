@@ -257,10 +257,7 @@ async fn test_sync_state() {
     let sync_details = client.sync_state().await.unwrap();
 
     // verify that the client is synced to the latest block
-    assert_eq!(
-        sync_details.block_num,
-        rpc_api.blocks.last().unwrap().header().block_num()
-    );
+    assert_eq!(sync_details.block_num, rpc_api.blocks.last().unwrap().header().block_num());
 
     // verify that the expected note we had is now committed
     assert_ne!(client.get_input_notes(NoteFilter::Committed).unwrap(), expected_notes);
@@ -296,10 +293,7 @@ async fn test_sync_state_mmr() {
     let sync_details = client.sync_state().await.unwrap();
 
     // verify that the client is synced to the latest block
-    assert_eq!(
-        sync_details.block_num,
-        rpc_api.blocks.last().unwrap().header().block_num()
-    );
+    assert_eq!(sync_details.block_num, rpc_api.blocks.last().unwrap().header().block_num());
 
     // verify that the latest block number has been updated
     assert_eq!(

@@ -1,8 +1,6 @@
 use miden_client::{
-    auth::TransactionAuthenticator,
     crypto::FeltRng,
     notes::{NoteExecutionMode, NoteTag},
-    rpc::NodeRpcClient,
     store::Store,
     Client,
 };

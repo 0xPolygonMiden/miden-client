@@ -4,11 +4,8 @@ use clap::{Parser, ValueEnum};
 use miden_client::{
     accounts::AccountId,
     assets::{FungibleAsset, NonFungibleDeltaAction},
-    auth::TransactionAuthenticator,
     crypto::{Digest, FeltRng},
     notes::{get_input_note_with_id_prefix, NoteId, NoteType as MidenNoteType},
-    rpc::NodeRpcClient,
-    store::Store,
     transactions::{
         build_swap_tag, PaymentTransactionData, SwapTransactionData, TransactionRequest,
         TransactionResult,

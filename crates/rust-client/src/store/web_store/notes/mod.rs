@@ -26,7 +26,7 @@ use utils::*;
 impl WebStore {
     pub(crate) async fn get_input_notes(
         &self,
-        filter: NoteFilter<'_>,
+        filter: NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
         let promise = match filter {
             NoteFilter::All
@@ -48,7 +48,7 @@ impl WebStore {
                 idxdb_get_input_notes(filter_as_str.to_string())
             },
             NoteFilter::Ignored => idxdb_get_ignored_input_notes(),
-            NoteFilter::List(ids) => {
+            NoteFilter::List(ref ids) => {
                 let note_ids_as_str: Vec<String> =
                     ids.iter().map(|id| id.inner().to_string()).collect();
                 idxdb_get_input_notes_from_ids(note_ids_as_str)
@@ -92,7 +92,7 @@ impl WebStore {
 
     pub(crate) async fn get_output_notes(
         &self,
-        filter: NoteFilter<'_>,
+        filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, StoreError> {
         let promise = match filter {
             NoteFilter::All
@@ -115,7 +115,7 @@ impl WebStore {
                 idxdb_get_output_notes(filter_as_str.to_string())
             },
             NoteFilter::Ignored => idxdb_get_ignored_output_notes(),
-            NoteFilter::List(ids) => {
+            NoteFilter::List(ref ids) => {
                 let note_ids_as_str: Vec<String> =
                     ids.iter().map(|id| id.inner().to_string()).collect();
                 idxdb_get_output_notes_from_ids(note_ids_as_str)

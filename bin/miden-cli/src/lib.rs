@@ -1,13 +1,15 @@
-use std::{env, rc::Rc, sync::Arc};
+use std::{env, sync::Arc};
 
 use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     accounts::AccountHeader,
-    auth::{StoreAuthenticator, TransactionAuthenticator},
     crypto::{FeltRng, RpoRandomCoin},
-    rpc::{NodeRpcClient, TonicRpcClient},
-    store::{sqlite_store::SqliteStore, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
+    rpc::TonicRpcClient,
+    store::{
+        sqlite_store::{SqliteStore, SqliteStoreAuthenticator},
+        NoteFilter as ClientNoteFilter, OutputNoteRecord, Store,
+    },
     Client, ClientError, Felt, IdPrefixFetchError,
 };
 use rand::Rng;
@@ -106,7 +108,7 @@ impl Cli {
         let coin_seed: [u64; 4] = rng.gen();
 
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
-        let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
+        let authenticator = SqliteStoreAuthenticator::new_with_rng(store.clone(), rng);
 
         let client = Client::new(
             Box::new(TonicRpcClient::new(&cli_config.rpc)),
