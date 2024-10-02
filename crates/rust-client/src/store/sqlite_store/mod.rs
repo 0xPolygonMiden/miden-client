@@ -72,8 +72,8 @@ impl SqliteStore {
 //
 // To simplify, all implementations rely on inner SqliteStore functions that map 1:1 by name
 // This way, the actual implementations are grouped by entity types in their own sub-modules
-unsafe impl Send for SqliteStore {}
-unsafe impl Sync for SqliteStore {}
+//unsafe impl Send for SqliteStore {}
+//unsafe impl Sync for SqliteStore {}
 #[maybe_async]
 impl Store for SqliteStore {
     fn get_note_tags(&self) -> Result<Vec<NoteTag>, StoreError> {

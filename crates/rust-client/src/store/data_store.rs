@@ -31,6 +31,7 @@ impl ClientDataStore {
         Self { store }
     }
 }
+use alloc::boxed::Box;
 #[maybe_async]
 impl DataStore for ClientDataStore {
     fn get_transaction_inputs(
