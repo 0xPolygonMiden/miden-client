@@ -20,19 +20,19 @@ export const getAllTransactions = async (): Promise<GetAllTransactionsResult> =>
 
         const targetAccount = await client.new_wallet(window.AccountStorageMode.private(), true);
         const faucetAccount = await client.new_faucet(window.AccountStorageMode.private(), false, "DAG", 8, BigInt(10000000));
-        await client.sync_state(false);
+        await client.sync_state();
 
         await client.fetch_and_cache_account_auth_by_pub_key(faucetAccount.id());
         let mint_transaction_result = await client.new_mint_transaction(targetAccount.id(), faucetAccount.id(), window.NoteType.private(), BigInt(1000));
         let created_notes = mint_transaction_result.created_notes().notes();
         let created_note_ids = created_notes.map(note => note.id().to_string());
         await new Promise(r => setTimeout(r, 20000)); // TODO: Replace this with loop of sync -> check uncommitted transactions -> sleep
-        await client.sync_state(false);
+        await client.sync_state();
 
         await client.fetch_and_cache_account_auth_by_pub_key(targetAccount.id());
         let consumeTransactionResult = await client.new_consume_transaction(targetAccount.id(), created_note_ids);
         await new Promise(r => setTimeout(r, 20000)); // TODO: Replace this with loop of sync -> check uncommitted transactions -> sleep
-        await client.sync_state(false);
+        await client.sync_state();
 
         let transactions = await client.get_transactions(window.TransactionFilter.all());
         let uncomitted_transactions = await client.get_transactions(window.TransactionFilter.uncomitted());
@@ -63,7 +63,7 @@ export const getUncomittedTransactions = async (): Promise<GetUncomittedTransact
 
         const targetAccount = await client.new_wallet(window.AccountStorageMode.private(), true);
         const faucetAccount = await client.new_faucet(window.AccountStorageMode.private(), false, "DAG", 8, BigInt(10000000));
-        await client.sync_state(false);
+        await client.sync_state();
 
         await client.fetch_and_cache_account_auth_by_pub_key(faucetAccount.id());
         let mint_transaction_result = await client.new_mint_transaction(targetAccount.id(), faucetAccount.id(), window.NoteType.private(), BigInt(1000));

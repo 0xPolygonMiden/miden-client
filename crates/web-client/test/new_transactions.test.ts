@@ -19,11 +19,19 @@ export const mintTransaction = async (): Promise<MintTransactionResult> => {
         const client = window.client;
         const targetAccount = await client.new_wallet(window.AccountStorageMode.private(), true);
         const faucetAccount = await client.new_faucet(window.AccountStorageMode.private(), false, "DAG", 8, BigInt(10000000));
-        await client.sync_state(false);
+        console.log('targetAccount: ', targetAccount.id().toString())
+        console.log('syncing state...')
+        await client.sync_state();
+        console.log('state synced')
+
+        await new Promise(r => setTimeout(r, 20000));
+
         await client.fetch_and_cache_account_auth_by_pub_key(faucetAccount.id());
+        console.log('fetched and cached account auth by pub key')
         const new_mint_transaction_result = await client.new_mint_transaction(targetAccount.id(), faucetAccount.id(), window.NoteType.private(), BigInt(1000));
+        console.log({new_mint_transaction_result})
         await new Promise(r => setTimeout(r, 20000)); // TODO: Replace this with loop of sync -> check uncommitted transactions -> sleep
-        await client.sync_state(false);
+        await client.sync_state();
 
         return {
             transaction_id: new_mint_transaction_result.executed_transaction().id().to_hex(),
@@ -35,6 +43,7 @@ export const mintTransaction = async (): Promise<MintTransactionResult> => {
 
 describe("new_transactions tests", () => {
     it("new_mint_transaction completes successfully", async () => {
+        console.log('starting new_mint_transaction test');
         const result = await mintTransaction();
 
         expect(result.transaction_id).to.not.be.empty;
@@ -62,19 +71,19 @@ export const consumeTransaction = async (): Promise<ConsumeTransactionResult> =>
 
         const targetAccount = await client.new_wallet(window.AccountStorageMode.private(), true);
         const faucetAccount = await client.new_faucet(window.AccountStorageMode.private(), false, "DAG", 8, BigInt(10000000));
-        await client.sync_state(false);
+        await client.sync_state();
 
         await client.fetch_and_cache_account_auth_by_pub_key(faucetAccount.id());
         let mint_transaction_result = await client.new_mint_transaction(targetAccount.id(), faucetAccount.id(), window.NoteType.private(), BigInt(1000));
         let created_notes = mint_transaction_result.created_notes().notes();
         let created_note_ids = created_notes.map(note => note.id().to_string());
         await new Promise(r => setTimeout(r, 20000)); // TODO: Replace this with loop of sync -> check uncommitted transactions -> sleep
-        await client.sync_state(false);
+        await client.sync_state();
 
         await client.fetch_and_cache_account_auth_by_pub_key(targetAccount.id());
         const consumeTransactionResult = await client.new_consume_transaction(targetAccount.id(), created_note_ids);
         await new Promise(r => setTimeout(r, 20000)); // TODO: Replace this with loop of sync -> check uncommitted transactions -> sleep
-        await client.sync_state(false);
+        await client.sync_state();
 
         const changedTargetAccount = await client.get_account(targetAccount.id());
 
@@ -116,31 +125,31 @@ export const sendTransaction = async (): Promise<SendTransactionResult> => {
         const senderAccount = await client.new_wallet(window.AccountStorageMode.private(), true);
         const targetAccount = await client.new_wallet(window.AccountStorageMode.private(), true);
         const faucetAccount = await client.new_faucet(window.AccountStorageMode.private(), false, "DAG", 8, BigInt(10000000));
-        await client.sync_state(false);
+        await client.sync_state();
 
         await client.fetch_and_cache_account_auth_by_pub_key(faucetAccount.id());
         let mint_transaction_result = await client.new_mint_transaction(senderAccount.id(), faucetAccount.id(), window.NoteType.private(), BigInt(1000));
         let created_notes = mint_transaction_result.created_notes().notes();
         let created_note_ids = created_notes.map(note => note.id().to_string());
         await new Promise(r => setTimeout(r, 20000)); // TODO: Replace this with loop of sync -> check uncommitted transactions -> sleep
-        await client.sync_state(false);
+        await client.sync_state();
 
         await client.fetch_and_cache_account_auth_by_pub_key(senderAccount.id());
         await client.new_consume_transaction(senderAccount.id(), created_note_ids);
         await new Promise(r => setTimeout(r, 20000)); // TODO: Replace this with loop of sync -> check uncommitted transactions -> sleep
-        await client.sync_state(false);
+        await client.sync_state();
 
         await client.fetch_and_cache_account_auth_by_pub_key(senderAccount.id());
         let send_transaction_result = await client.new_send_transaction(senderAccount.id(), targetAccount.id(), faucetAccount.id(), window.NoteType.private(), BigInt(100));
         let send_created_notes = send_transaction_result.created_notes().notes();
         let send_created_note_ids = send_created_notes.map(note => note.id().to_string());
         await new Promise(r => setTimeout(r, 20000)); // TODO: Replace this with loop of sync -> check uncommitted transactions -> sleep
-        await client.sync_state(false);
+        await client.sync_state();
 
         await client.fetch_and_cache_account_auth_by_pub_key(targetAccount.id());
         await client.new_consume_transaction(targetAccount.id(), send_created_note_ids);
         await new Promise(r => setTimeout(r, 20000)); // TODO: Replace this with loop of sync -> check uncommitted transactions -> sleep
-        await client.sync_state(false);
+        await client.sync_state();
 
         const changedSenderAccount = await client.get_account(senderAccount.id());
         const changedTargetAccount = await client.get_account(targetAccount.id());
@@ -173,7 +182,7 @@ export const customTransaction = async (asserted_value: string): Promise<void> =
 
         const walletAccount = await client.new_wallet(window.AccountStorageMode.private(), false);
         const faucetAccount = await client.new_faucet(window.AccountStorageMode.private(), false, "DAG", 8, BigInt(10000000));
-        await client.sync_state(false);
+        await client.sync_state();
 
         // Creating Custom Note which needs the following:
         // - Note Assets
@@ -342,7 +351,7 @@ export const customTransaction = async (asserted_value: string): Promise<void> =
         let transaction_result = await client.new_transaction(faucetAccount.id(), transaction_request);
         await client.submit_transaction(transaction_result);
         await new Promise(r => setTimeout(r, 20000));
-        await client.sync_state(false);
+        await client.sync_state();
 
         // Just like in the miden test, you can modify this script to get the execution to fail
         // by modifying the assert
@@ -385,7 +394,7 @@ export const customTransaction = async (asserted_value: string): Promise<void> =
         let transaction_result_2 = await client.new_transaction(walletAccount.id(), transaction_request_2);
         await client.submit_transaction(transaction_result_2);
         await new Promise(r => setTimeout(r, 10000));
-        await client.sync_state(false);
+        await client.sync_state();
     },
     asserted_value);
 };

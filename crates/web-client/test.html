@@ -18,6 +18,7 @@
         // Example of using the exported WebClient in the browser
         import { 
             AdviceMap,
+            AccountStorageMode,
             AuthSecretKey,
             Felt,
             FeltArray,
@@ -485,19 +486,25 @@
         async function testNewMintTransaction() {
             console.log('testNewMintTransaction started');
 
+            // let targetAccountId = await createNewWallet(webClient, "Private", true);
+            // let faucetId = await createNewFaucet(webClient, "Private", false, "DEN", "10", "1000000");
+
             let webClient = await createMidenWebClient();
-            let targetAccountId = await createNewWallet(webClient, "Private", true);
-            let faucetId = await createNewFaucet(webClient, "Private", false, "DEN", "10", "1000000");
+            let targetAccount = await createNewWallet(webClient, AccountStorageMode.private(), true);
+            let faucet = await createNewFaucet(webClient, AccountStorageMode.private(), false, "DAG", 8, BigInt(10000000));
+            console.log('syncing state...')
             await syncState(webClient);
+            console.log('state synced')
             await new Promise(r => setTimeout(r, 20000));
 
-            await webClient.fetch_and_cache_account_auth_by_pub_key(faucetId.to_string());
+            await webClient.fetch_and_cache_account_auth_by_pub_key(faucet.id());
+            console.log('fetched')
             let result = await createNewMintTransaction(
                 webClient,
-                targetAccountId.to_string(),
-                faucetId.to_string(),
-                "Private",
-                "1000"
+                targetAccount.id(),
+                faucet.id(),
+                NoteType.private(),
+                BigInt(1000)
             );
             await new Promise(r => setTimeout(r, 20000));
             await syncState(webClient);
@@ -1285,7 +1292,7 @@
         // await testCreateNewFaucet();
         // await testGetAccounts();
         // await testGetAccount();
-        // await testNewMintTransaction();
+        await testNewMintTransaction();
         // await testNewConsumeTransaction();
         // await testNewSendTransaction();
         // await testNewSendTransactionWithRecallHeight();
@@ -1297,7 +1304,7 @@
         // await testGetOutputNote();
         // await testExportNote();
         // await testImportInputNote();
-        await testCustomTransaction();
+        // await testCustomTransaction();
     </script>
 </body>
 </html>
