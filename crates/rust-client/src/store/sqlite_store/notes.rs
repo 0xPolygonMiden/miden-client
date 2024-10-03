@@ -22,7 +22,7 @@ use crate::store::{
         NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED, NOTE_STATUS_EXPECTED, NOTE_STATUS_PROCESSING,
         STATE_COMMITTED, STATE_CONSUMED_AUTHENTICATED_LOCAL, STATE_CONSUMED_EXTERNAL,
         STATE_CONSUMED_UNAUTHENTICATED_LOCAL, STATE_EXPECTED, STATE_PROCESSING_AUTHENTICATED,
-        STATE_PROCESSING_UNAUTHENTICATED, STATE_UNVERIFIED,
+        STATE_PROCESSING_UNAUTHENTICATED,
     },
     InputNoteRecord, NoteFilter, NoteRecordDetails, NoteState, NoteStatus, OutputNoteRecord,
     StoreError,
@@ -125,14 +125,13 @@ impl NoteFilter {
             NoteFilter::Processing => {
                 format!("{base} WHERE status = '{NOTE_STATUS_PROCESSING}' AND NOT(ignored)")
             },
-            NoteFilter::Ignored => format!("{base} WHERE ignored"),
             NoteFilter::Unique(_) | NoteFilter::List(_) => {
                 format!("{base} WHERE note.note_id IN rarray(?)")
             },
             NoteFilter::Nullifiers(_) => {
                 format!("{base} WHERE note.nullifier IN rarray(?)")
             },
-            NoteFilter::Unverified => todo!("This filter shouldn't be used for output notes, once we refactor the filter system we can remove this"),
+            NoteFilter::StateDiscriminant(_) => todo!("This filter shouldn't be used for output notes, once we refactor the filter system we can remove this"),
         }
     }
 
@@ -170,16 +169,15 @@ impl NoteFilter {
                     STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED
                 )
             },
-            NoteFilter::Unverified => {
-                format!("{base} WHERE state_discriminant = {}", STATE_UNVERIFIED)
-            },
             NoteFilter::Unique(_) | NoteFilter::List(_) => {
                 format!("{base} WHERE note.note_id IN rarray(?)")
             },
             NoteFilter::Nullifiers(_) => {
                 format!("{base} WHERE note.nullifier IN rarray(?)")
             },
-            NoteFilter::Ignored =>  todo!("This filter shouldn't be used for input notes, once we refactor the filter system we can remove this"),
+            NoteFilter::StateDiscriminant(discriminant) => {
+                format!("{base} WHERE state_discriminant = {}", discriminant)
+            },
         }
     }
 }
@@ -246,7 +244,7 @@ impl SqliteStore {
         filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, StoreError> {
         let mut params = Vec::new();
-        match filter {
+        match &filter {
             NoteFilter::Unique(note_id) => {
                 let note_ids_list = vec![Value::Text(note_id.inner().to_string())];
                 params.push(Rc::new(note_ids_list));

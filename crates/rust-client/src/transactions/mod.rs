@@ -243,7 +243,7 @@ impl<R: FeltRng> Client<R> {
 
         let authenticated_note_records = maybe_await!(self
             .store
-            .get_input_notes(NoteFilter::List(authenticated_input_note_ids.to_vec())))?;
+            .get_input_notes(NoteFilter::List(authenticated_input_note_ids)))?;
 
         for authenticated_note_record in authenticated_note_records {
             if !authenticated_note_record.is_authenticated() {
@@ -444,7 +444,7 @@ impl<R: FeltRng> Client<R> {
             .collect();
 
         let store_input_notes =
-            maybe_await!(self.get_input_notes(NoteFilter::List(incoming_notes_ids.to_vec())))
+            maybe_await!(self.get_input_notes(NoteFilter::List(incoming_notes_ids)))
                 .map_err(|err| TransactionRequestError::NoteNotFound(err.to_string()))?;
 
         let all_incoming_assets =

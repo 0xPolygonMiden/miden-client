@@ -47,7 +47,10 @@ mod note_record;
 pub use note_record::{
     CommittedNoteState, ConsumedAuthenticatedLocalNoteState, ExpectedNoteState, InputNoteRecord,
     NoteRecordDetails, NoteRecordError, NoteState, NoteStatus, OutputNoteRecord,
-    ProcessingAuthenticatedNoteState, ProcessingUnauthenticatedNoteState,
+    ProcessingAuthenticatedNoteState, ProcessingUnauthenticatedNoteState, STATE_COMMITTED,
+    STATE_CONSUMED_AUTHENTICATED_LOCAL, STATE_CONSUMED_EXTERNAL,
+    STATE_CONSUMED_UNAUTHENTICATED_LOCAL, STATE_EXPECTED, STATE_PROCESSING_AUTHENTICATED,
+    STATE_PROCESSING_UNAUTHENTICATED, STATE_UNVERIFIED,
 };
 
 // STORE TRAIT
@@ -359,14 +362,12 @@ pub enum NoteFilter {
     Expected,
     /// Return a list of notes that are currently being processed.
     Processing,
-    /// Return a list of notes that the client ignores in sync.
-    Ignored,
     /// Return a list containing the note that matches with the provided [NoteId].
     List(Vec<NoteId>),
     /// Return a list containing the note that matches with the provided [NoteId].
     Unique(NoteId),
     /// Return a list of notes that match the provided [Nullifier] list.
     Nullifiers(Vec<Nullifier>),
-    /// Return a list of notes that currently have an unverified proof.
-    Unverified,
+    /// Return a list of notes whose state match the discriminant provided.
+    StateDiscriminant(u8),
 }
