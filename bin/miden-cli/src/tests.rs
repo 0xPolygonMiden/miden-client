@@ -345,7 +345,12 @@ fn test_cli_export_import_note() {
 
     // Test send command
     let mock_target_id: AccountId = AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap();
-    send_cli(&temp_dir_2, &first_basic_account_id, &mock_target_id.to_hex(), &fungible_faucet_account_id);
+    send_cli(
+        &temp_dir_2,
+        &first_basic_account_id,
+        &mock_target_id.to_hex(),
+        &fungible_faucet_account_id,
+    );
 }
 
 #[test]
