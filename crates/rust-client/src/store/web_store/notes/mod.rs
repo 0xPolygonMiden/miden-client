@@ -12,7 +12,7 @@ use crate::store::{
     note_record::{
         STATE_COMMITTED, STATE_CONSUMED_AUTHENTICATED_LOCAL, STATE_CONSUMED_EXTERNAL,
         STATE_CONSUMED_UNAUTHENTICATED_LOCAL, STATE_EXPECTED, STATE_PROCESSING_AUTHENTICATED,
-        STATE_PROCESSING_UNAUTHENTICATED, STATE_UNVERIFIED,
+        STATE_PROCESSING_UNAUTHENTICATED,
     },
     InputNoteRecord, NoteFilter, OutputNoteRecord, StoreError,
 };
@@ -37,7 +37,7 @@ impl WebStore {
             | NoteFilter::Committed
             | NoteFilter::Expected
             | NoteFilter::Processing
-            | NoteFilter::Unverified => {
+            | NoteFilter::StateDiscriminant(_) => {
                 let states: Vec<u8> = match filter {
                     NoteFilter::All => vec![],
                     NoteFilter::Consumed => vec![
@@ -50,7 +50,7 @@ impl WebStore {
                     NoteFilter::Processing => {
                         vec![STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED]
                     },
-                    NoteFilter::Unverified => vec![STATE_UNVERIFIED],
+                    NoteFilter::StateDiscriminant(discriminant) => vec![discriminant],
                     _ => unreachable!(), // Safety net, should never be reached
                 };
 
@@ -58,7 +58,6 @@ impl WebStore {
                 // filters
                 idxdb_get_input_notes(states)
             },
-            NoteFilter::Ignored => idxdb_get_input_notes(vec![]),
             NoteFilter::List(ids) => {
                 let note_ids_as_str: Vec<String> =
                     ids.iter().map(|id| id.inner().to_string()).collect();
@@ -113,7 +112,7 @@ impl WebStore {
         &self,
         filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, StoreError> {
-        let promise = match filter {
+        let promise = match &filter {
             NoteFilter::All
             | NoteFilter::Consumed
             | NoteFilter::Committed
@@ -133,8 +132,7 @@ impl WebStore {
 
                 idxdb_get_output_notes(filter_as_str.to_string())
             },
-            NoteFilter::Ignored => idxdb_get_ignored_output_notes(),
-            NoteFilter::List(ref ids) => {
+            NoteFilter::List(ids) => {
                 let note_ids_as_str: Vec<String> =
                     ids.iter().map(|id| id.inner().to_string()).collect();
                 idxdb_get_output_notes_from_ids(note_ids_as_str)
@@ -144,7 +142,7 @@ impl WebStore {
                 let note_ids = vec![note_id_as_str];
                 idxdb_get_output_notes_from_ids(note_ids)
             },
-            NoteFilter::Nullifiers(_) | NoteFilter::Unverified => {
+            NoteFilter::Nullifiers(_) | NoteFilter::StateDiscriminant(_) => {
                 todo!("Is not currently called, will be implemented in the future");
             },
         };
