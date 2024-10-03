@@ -18,7 +18,7 @@ impl<R: FeltRng> Client<R> {
 
     /// Imports a new input note into the client's store. The information stored depends on the
     /// type of note file provided. If the note existed previously, it will be updated with the
-    /// new information.
+    /// new information. The tag specified by the `NoteFile` will start being tracked.
     ///
     /// - If the note file is a [NoteFile::NoteId], the note is fetched from the node and stored in
     ///   the client's store. If the note is private or does not exist, an error is returned.
