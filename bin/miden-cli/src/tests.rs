@@ -505,7 +505,7 @@ fn send_cli(cli_path: &Path, from_account_id: &str, to_account_id: &str, faucet_
         "--sender",
         &from_account_id[0..8],
         "--target",
-        &to_account_id,
+        to_account_id,
         "--asset",
         &format!("25::{faucet_id}"),
         "-n",
