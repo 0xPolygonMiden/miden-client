@@ -157,7 +157,8 @@ const GENESIS_ACCOUNTS_FILENAMES: [&str; 1] = ["account0.mac"];
 //
 // 1. Creates a new client
 // 2. Imports the genesis account
-// 3. Runs a mint tx and syncs until the transaction and note are committed
+// 3. Creates a wallet
+// 4. Runs a mint tx and syncs until the transaction and note are committed
 #[test]
 #[ignore = "import genesis test gets ignored by default so integration tests can be ran with dockerized and remote nodes where we might not have the genesis data"]
 fn test_import_genesis_accounts_can_be_used_for_transactions() {
@@ -208,9 +209,6 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
     };
 
     // Ensure they've been importing by showing them
-    // TODO: Once show is fixed for faucet account do the full iteration without skipping the
-    // faucet
-
     let args = vec!["account", "--show", &fungible_faucet_account_id];
     let mut show_cmd = Command::cargo_bin("miden").unwrap();
     show_cmd.args(&args);
@@ -341,8 +339,13 @@ fn test_cli_export_import_note() {
     // Wait until the note is committed on the node
     sync_until_no_notes(&store_path_2, &temp_dir_2, NoteFilter::Expected);
 
+    show_note_cli(&temp_dir_2, &note_to_export_id, false);
     // Consume the note
     consume_note_cli(&temp_dir_2, &first_basic_account_id, &[&note_to_export_id]);
+
+    // Test send command
+    let mock_target_id: AccountId = AccountId::try_from(ACCOUNT_ID_OFF_CHAIN_SENDER).unwrap();
+    send_cli(&temp_dir_2, &first_basic_account_id, &mock_target_id.to_hex(), &fungible_faucet_account_id);
 }
 
 #[test]
@@ -473,6 +476,38 @@ fn mint_cli(cli_path: &Path, target_account_id: &str, faucet_id: &str) {
         "--force",
     ]);
     mint_cmd.current_dir(cli_path).assert().success();
+}
+
+/// Shows note details using the cli and checks that the command runs
+/// successfully given account using the CLI given by `cli_path`.
+fn show_note_cli(cli_path: &Path, note_id: &str, should_fail: bool) {
+    let mut show_note_cmd = Command::cargo_bin("miden").unwrap();
+    show_note_cmd.args(["notes", "--show", note_id]);
+
+    if should_fail {
+        show_note_cmd.current_dir(cli_path).assert().failure();
+    } else {
+        show_note_cmd.current_dir(cli_path).assert().success();
+    }
+}
+
+/// Sends 25 units of the corresponding faucet and checks that the command runs successfully given
+/// account using the CLI given by `cli_path`.
+fn send_cli(cli_path: &Path, from_account_id: &str, to_account_id: &str, faucet_id: &str) {
+    let mut send_cmd = Command::cargo_bin("miden").unwrap();
+    send_cmd.args([
+        "send",
+        "--sender",
+        &from_account_id[0..8],
+        "--target",
+        &to_account_id,
+        "--asset",
+        &format!("25::{faucet_id}"),
+        "-n",
+        "private",
+        "--force",
+    ]);
+    send_cmd.current_dir(cli_path).assert().success();
 }
 
 /// Syncs until there are no input notes satisfying the provided filter
