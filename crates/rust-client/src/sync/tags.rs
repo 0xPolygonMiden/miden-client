@@ -67,12 +67,15 @@ impl<R: FeltRng> Client<R> {
     }
 }
 
+/// Represents a note tag of which the Store can keep track and retrieve.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct NoteTagRecord {
     pub tag: NoteTag,
     pub source: NoteTagSource,
 }
 
+/// Represents the source of the tag. This is used to differentiate between tags that are added by
+/// the user and tags that are added automatically by the client to track notes .
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum NoteTagSource {
     Account(AccountId),

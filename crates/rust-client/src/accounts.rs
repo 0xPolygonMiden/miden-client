@@ -54,7 +54,8 @@ impl<R: FeltRng> Client<R> {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 
-    /// Creates a new [Account] based on an [AccountTemplate] and saves it in the client's store.
+    /// Creates a new [Account] based on an [AccountTemplate] and saves it in the client's store. A
+    /// new tag derived from the account will start being tracked by the client.
     #[maybe_async]
     pub fn new_account(
         &mut self,
