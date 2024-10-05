@@ -7,6 +7,7 @@ use alloc::{
     vec::Vec,
 };
 use core::fmt;
+use wasm_bindgen::JsValue;
 
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
@@ -129,7 +130,7 @@ impl TransactionResult {
 ///
 /// Currently, the `commit_height` (and `committed` status) is set based on the height
 /// at which the transaction's output notes are committed.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TransactionRecord {
     pub id: TransactionId,
     pub account_id: AccountId,
@@ -250,11 +251,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let block_num = maybe_await!(self.store.get_sync_height())?;
 
         let note_ids = transaction_request.get_input_note_ids();
+
         let output_notes: Vec<Note> =
             transaction_request.expected_output_notes().cloned().collect();
         let future_notes: Vec<NoteDetails> =
             transaction_request.expected_future_notes().cloned().collect();
 
+        
         let tx_script = match transaction_request.script_template() {
             Some(TransactionScriptTemplate::CustomScript(script)) => script.clone(),
             Some(TransactionScriptTemplate::SendNotes(notes)) => {
@@ -290,6 +293,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         // We compare authentication hashes where possible since that involves note IDs + metadata
         // (as opposed to just note ID which remains the same regardless of metadata)
         // We also do the check for partial output notes
+
         let tx_note_auth_hashes: BTreeSet<Digest> =
             notes_from_output(executed_transaction.output_notes())
                 .map(|note| note.hash())
