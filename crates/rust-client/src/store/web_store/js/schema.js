@@ -39,7 +39,7 @@ db.version(1).stores({
   [Table.Accounts]: indexes('[id+nonce]', 'codeRoot', 'storageRoot', 'vaultRoot', 'accountHash'),
   [Table.Transactions]: indexes('id'),
   [Table.TransactionScripts]: indexes('scriptHash'),
-  [Table.InputNotes]: indexes('noteId', 'recipient', 'status', 'importedTag', 'ignored', 'nullifier', 'state_discriminant'),
+  [Table.InputNotes]: indexes('noteId', 'recipient', 'status', 'importedTag', 'ignored', 'nullifier', 'stateDiscriminant'),
   [Table.OutputNotes]: indexes('noteId', 'recipient', 'status', 'importedTag', 'ignored', 'nullifier'),
   [Table.NotesScripts]: indexes('scriptHash'),
   [Table.StateSync]: indexes('id'),

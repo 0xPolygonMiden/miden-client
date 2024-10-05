@@ -82,30 +82,6 @@ impl WebClient {
                 JsValue::from_str(&format!("Failed to create Mint Transaction Request: {}", err))
             })?;
 
-            web_sys::console::log_1(&JsValue::from_str("Input note ids from txn request: "));
-            web_sys::console::log_1(&JsValue::from_str(
-                &mint_transaction_request
-                    .get_input_note_ids()
-                    .iter()
-                    .map(|note| note.to_string())
-                    .collect::<Vec<String>>()
-                    .join(", "),
-            ));
-
-            web_sys::console::log_1(&JsValue::from_str("Output notes: "));
-            web_sys::console::log_1(&JsValue::from_str(
-                &mint_transaction_request
-                    .expected_output_notes()
-                    .flat_map(|note| {
-                        note.assets()
-                            .iter()
-                            .map(|asset| asset.unwrap_fungible().amount().to_string())
-                    })
-                    .collect::<Vec<String>>()
-                    .join(", "),
-            ));
-
-            web_sys::console::log_1(&JsValue::from_str("Before Mint Transaction Execution"));
             // TODO: Failing here
             let mint_transaction_execution_result = client
                 .new_transaction(faucet_id.into(), mint_transaction_request)

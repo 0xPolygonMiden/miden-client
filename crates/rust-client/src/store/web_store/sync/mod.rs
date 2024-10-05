@@ -7,12 +7,16 @@ use miden_objects::notes::{NoteInclusionProof, NoteTag};
 use miden_tx::utils::{Deserializable, Serializable};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
+use winter_maybe_async::maybe_await;
 
 use super::{
     chain_data::utils::serialize_chain_mmr_node, notes::utils::upsert_input_note_tx,
     transactions::utils::update_account, WebStore,
 };
-use crate::{store::StoreError, sync::StateSyncUpdate};
+use crate::{
+    store::{CommittedNoteState, InputNoteRecord, NoteFilter, StoreError},
+    sync::StateSyncUpdate,
+};
 
 mod js_bindings;
 use js_bindings::*;
@@ -79,6 +83,9 @@ impl WebStore {
         &self,
         state_sync_update: StateSyncUpdate,
     ) -> Result<(), StoreError> {
+        let mut relevant_input_notes =
+            self.get_relevant_sync_input_notes(&state_sync_update).await.unwrap();
+
         let StateSyncUpdate {
             block_header,
             nullifiers,
@@ -145,30 +152,48 @@ impl WebStore {
             .map(|input_note| input_note.id().inner().to_hex())
             .collect();
 
-        let input_note_inclusion_proofs_as_bytes: Vec<Vec<u8>> = committed_notes
-            .updated_input_notes()
-            .iter()
-            .map(|input_note| {
-                let inclusion_proof =
-                    input_note.proof().expect("Input note doesn't have inclusion proof");
-                inclusion_proof.to_bytes()
-            })
-            .collect::<Vec<Vec<u8>>>();
-        let flattened_nested_vec_input_note_inclusion_proofs =
-            flatten_nested_u8_vec(input_note_inclusion_proofs_as_bytes);
+        // TODO: LOP INTO idxdb_apply_state_sync call
+        for input_note in committed_notes.updated_input_notes().iter() {
+            let inclusion_proof = input_note.proof().ok_or(StoreError::DatabaseError(
+                "Input note doesn't have inclusion proof".to_string(),
+            ))?;
+            let metadata: &miden_objects::notes::NoteMetadata = input_note.note().metadata();
 
-        let input_note_metadatas_as_bytes: Vec<Vec<u8>> = committed_notes
-            .updated_input_notes()
-            .iter()
-            .map(|input_note| input_note.note().metadata().to_bytes())
-            .collect::<Vec<Vec<u8>>>();
-        let flattened_nested_vec_input_note_metadatas =
-            flatten_nested_u8_vec(input_note_metadatas_as_bytes);
+            if let Some(input_note_record) =
+                relevant_input_notes.iter_mut().find(|n| n.id() == input_note.id())
+            {
+
+                let inclusion_proof_received = input_note_record
+                    .inclusion_proof_received(inclusion_proof.clone(), *metadata)?;
+                let block_header_received =
+                    input_note_record.block_header_received(block_header)?;
+
+                if inclusion_proof_received || block_header_received {
+                    upsert_input_note_tx(input_note_record.clone()).await.unwrap();
+                }
+            }
+        }
 
         // TODO: LOP INTO idxdb_apply_state_sync call
         // Commit new public notes
         for note in committed_notes.new_public_notes() {
-            upsert_input_note_tx(note.clone().into()).await.unwrap();
+            let details = note.note().into();
+
+            let input_note_record = InputNoteRecord::new(
+                details,
+                None,
+                CommittedNoteState {
+                    metadata: *note.note().metadata(),
+                    inclusion_proof: note
+                        .proof()
+                        .expect("New public note should be authenticated")
+                        .clone(),
+                    block_note_root: block_header.note_root(),
+                }
+                .into(),
+            );
+
+            upsert_input_note_tx(input_note_record).await.unwrap();
         }
 
         // Serialize data for updating committed transactions
@@ -199,13 +224,40 @@ impl WebStore {
             output_note_ids_as_str,
             flattened_nested_vec_output_note_inclusion_proofs,
             input_note_ids_as_str,
-            flattened_nested_vec_input_note_inclusion_proofs,
-            flattened_nested_vec_input_note_metadatas,
             transactions_to_commit_as_str,
             transactions_to_commit_block_nums_as_str,
         );
         JsFuture::from(promise).await.unwrap();
 
         Ok(())
+    }
+
+    /// Get the input notes from the store that are relevant to the state sync update. Secifically,
+    /// notes that were updated and nullified during the sync.
+    async fn get_relevant_sync_input_notes(
+        &self,
+        state_sync_update: &StateSyncUpdate,
+    ) -> Result<Vec<InputNoteRecord>, StoreError> {
+        let StateSyncUpdate { nullifiers, synced_new_notes, .. } = state_sync_update;
+
+        let updated_input_note_ids = synced_new_notes
+            .updated_input_notes()
+            .iter()
+            .map(|input_note| input_note.id())
+            .collect::<Vec<_>>();
+        let updated_input_notes =
+            self.get_input_notes(NoteFilter::List(&updated_input_note_ids)).await.unwrap();
+
+        let nullifiers = nullifiers
+            .iter()
+            .map(|nullifier_update| nullifier_update.nullifier)
+            .collect::<Vec<_>>();
+        let nullified_notes =
+            self.get_input_notes(NoteFilter::Nullifiers(&nullifiers)).await.unwrap();
+
+        let mut relevant_notes = updated_input_notes;
+        relevant_notes.extend(nullified_notes);
+
+        Ok(relevant_notes)
     }
 }

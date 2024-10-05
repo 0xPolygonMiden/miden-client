@@ -230,18 +230,10 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let authenticated_input_note_ids: Vec<NoteId> =
             transaction_request.authenticated_input_note_ids().collect::<Vec<_>>();
 
-        web_sys::console::log_1(&"Authenticated input note ids length: ".into());
-        web_sys::console::log_1(&authenticated_input_note_ids.len().into());
-        // TODO: maybe the issue is here getting the notes?
-        web_sys::console::log_1(&"Getting authenticated notes".into());
         let authenticated_note_records = maybe_await!(self
             .store
             .get_input_notes(NoteFilter::List(&authenticated_input_note_ids)))?;
 
-        web_sys::console::log_1(&"Authenticated notes length".into());
-        web_sys::console::log_1(&authenticated_note_records.len().into());
-
-        web_sys::console::log_1(&"Checking authenticated note records".into());
         for authenticated_note_record in authenticated_note_records {
             if !authenticated_note_record.is_authenticated() {
                 return Err(ClientError::TransactionRequestError(
@@ -250,7 +242,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             }
         }
 
-        web_sys::console::log_1(&"Inserting unauth input notes".into());
         // If tx request contains unauthenticated_input_notes we should insert them
         for unauthenticated_input_note in transaction_request.unauthenticated_input_notes() {
             // TODO: run this as a single TX
@@ -260,26 +251,13 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let block_num = maybe_await!(self.store.get_sync_height())?;
 
         let note_ids = transaction_request.get_input_note_ids();
-        web_sys::console::log_1(&"Note ids length :".into());
-        web_sys::console::log_1(&note_ids.len().into());
-
-        web_sys::console::log_1(&"Note ids:".into());
-        note_ids.iter().for_each(|note_id| {
-            web_sys::console::log_1(&note_id.to_hex().into());
-        });
 
         let output_notes: Vec<Note> =
             transaction_request.expected_output_notes().cloned().collect();
         let future_notes: Vec<NoteDetails> =
             transaction_request.expected_future_notes().cloned().collect();
 
-        web_sys::console::log_1(&"Output notes len:".into());
-        web_sys::console::log_1(&output_notes.len().to_string().into());
-
-        web_sys::console::log_1(&"Future notes len:".into());
-        web_sys::console::log_1(&future_notes.len().to_string().into());
-
-        web_sys::console::log_1(&"Matching the tx script".into());
+        
         let tx_script = match transaction_request.script_template() {
             Some(TransactionScriptTemplate::CustomScript(script)) => script.clone(),
             Some(TransactionScriptTemplate::SendNotes(notes)) => {
@@ -306,7 +284,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let tx_args = transaction_request.into_transaction_args(tx_script);
 
-        web_sys::console::log_1(&"Execute the transaction and get the witness".into());
         // Execute the transaction and get the witness
         let executed_transaction = maybe_await!(self
             .tx_executor
@@ -316,22 +293,17 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         // We compare authentication hashes where possible since that involves note IDs + metadata
         // (as opposed to just note ID which remains the same regardless of metadata)
         // We also do the check for partial output notes
-        web_sys::console::log_1(
-            &"Check that the expected output notes matches the transaction outcome".into(),
-        );
 
         let tx_note_auth_hashes: BTreeSet<Digest> =
             notes_from_output(executed_transaction.output_notes())
                 .map(|note| note.hash())
                 .collect();
 
-        web_sys::console::log_1(&"Missing notes".into());
         let missing_note_ids: Vec<NoteId> = output_notes
             .iter()
             .filter_map(|n| (!tx_note_auth_hashes.contains(&n.hash())).then_some(n.id()))
             .collect();
 
-        web_sys::console::log_1(&"Missing notes empty check".into());
         if !missing_note_ids.is_empty() {
             return Err(ClientError::MissingOutputNotes(missing_note_ids));
         }

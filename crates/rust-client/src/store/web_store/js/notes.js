@@ -37,7 +37,7 @@ export async function getInputNotes(
             notes = await inputNotes.toArray();
         } else {
             notes = await inputNotes
-                .where('state_discriminant')
+                .where('stateDiscriminant')
                 .anyOf(states)
                 .toArray();
         }
@@ -115,7 +115,7 @@ export async function getOutputNotesFromIds(
 export async function getUnspentInputNoteNullifiers() {
     try {
         const notes = await inputNotes
-            .where('state_discriminant')
+            .where('stateDiscriminant')
             .anyOf([2, 4, 5]) // STATE_COMMITTED, STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED
             .toArray();
         const nullifiers = notes.map(note => note.nullifier);
@@ -256,10 +256,12 @@ async function processInputNotes(
         const assetsBase64 = uint8ArrayToBase64(assetsArray);
         note.assets = assetsBase64;
 
-        const detailsArrayBuffer = await note.details.arrayBuffer();
-        const detailsArray = new Uint8Array(detailsArrayBuffer);
-        const detailsBase64 = uint8ArrayToBase64(detailsArray);
-        note.details = detailsBase64;
+        // TODO: The details are missing here, NPE ... 
+        // Let's remove for now. I think its safe to do so
+        // const detailsArrayBuffer = await note.details.arrayBuffer();
+        // const detailsArray = new Uint8Array(detailsArrayBuffer);
+        // const detailsBase64 = uint8ArrayToBase64(detailsArray);
+        // note.details = detailsBase64;
 
         const serialNumberBuffer = await note.serialNumber.arrayBuffer();
         const serialNumberArray = new Uint8Array(serialNumberBuffer);

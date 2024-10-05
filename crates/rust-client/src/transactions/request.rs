@@ -231,13 +231,6 @@ impl TransactionRequest {
             rng,
         )?;
 
-        created_note.assets().iter().for_each(|asset| {
-            if asset.is_fungible() {
-                let fungible = asset.unwrap_fungible();
-                web_sys::console::log_1(&format!("Minted asset: {}", fungible.amount()).into());
-            }
-        });
-
         TransactionRequest::new().with_own_output_notes(vec![OutputNote::Full(created_note)])
     }
 
@@ -332,9 +325,6 @@ impl TransactionRequest {
     pub fn authenticated_input_note_ids(&self) -> impl Iterator<Item = NoteId> + '_ {
         let unauthenticated_note_ids: BTreeSet<NoteId> =
             BTreeSet::from_iter(self.unauthenticated_input_note_ids());
-
-        web_sys::console::log_1(&"unauthenticated_note_ids length".into());
-        web_sys::console::log_1(&unauthenticated_note_ids.len().into());
 
         self.input_notes()
             .iter()

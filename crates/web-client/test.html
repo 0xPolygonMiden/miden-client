@@ -168,7 +168,7 @@
                     decimals,
                     maxSupply
                 );
-                console.log(`Created new wallet account with id ${result}`);
+                console.log(`Created new faucet with id ${result}`);
                 return result;
             } catch (error) {
                 console.error('Failed to call create account:', error);
@@ -517,27 +517,33 @@
             console.log('testNewConsumeTransaction started');
 
             let webClient = await createMidenWebClient();
-            let targetAccountId = await createNewWallet(webClient, "Private", true);
-            let faucetId = await createNewFaucet(webClient, "Private", false, "DEN", "10", "1000000");
-            await syncState(webClient);
+            let targetAccount = await createNewWallet(webClient, AccountStorageMode.private(), true);
+            let faucet = await createNewFaucet(webClient, AccountStorageMode.private(), false, "DEN", 10, BigInt(1000000));
             await new Promise(r => setTimeout(r, 20000));
+            await syncState(webClient);
 
-            await webClient.fetch_and_cache_account_auth_by_pub_key(faucetId.to_string());
+
+            await webClient.fetch_and_cache_account_auth_by_pub_key(faucet.id());
             let mintTransactionResult = await createNewMintTransaction(
                 webClient,
-                targetAccountId.to_string(),
-                faucetId.to_string(),
-                "Private",
-                "1000"
+                targetAccount.id(),
+                faucet.id(),
+                NoteType.private(),
+                BigInt(1000)
             );
+
+            let created_notes = mintTransactionResult.created_notes().notes();
+            let created_note_ids = created_notes.map(note => note.id().to_string());
+
+            console.log('waiting on minted notes to get eaten by the rpc...')
             await new Promise(r => setTimeout(r, 20000));
             await syncState(webClient);
 
-            await webClient.fetch_and_cache_account_auth_by_pub_key(targetAccountId.to_string());
+            await webClient.fetch_and_cache_account_auth_by_pub_key(targetAccount.id());
             let consumeTransactionResult = await createNewConsumeTransaction(
                 webClient,
-                targetAccountId.to_string(),
-                mintTransactionResult.created_note_ids
+                targetAccount.id(),
+                created_note_ids
             );
             await new Promise(r => setTimeout(r, 20000));
             await syncState(webClient);
@@ -1292,8 +1298,8 @@
         // await testCreateNewFaucet();
         // await testGetAccounts();
         // await testGetAccount();
-        await testNewMintTransaction();
-        // await testNewConsumeTransaction();
+        // await testNewMintTransaction();
+        await testNewConsumeTransaction();
         // await testNewSendTransaction();
         // await testNewSendTransactionWithRecallHeight();
         // await testNewSwapTransaction();
