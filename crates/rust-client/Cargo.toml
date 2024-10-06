@@ -55,6 +55,7 @@ miden-client = { path = ".", features = ["testing", "concurrent", "sqlite", "ton
 miden-lib = { workspace = true, features = ["testing"] }
 miden-objects = { workspace = true, default-features = false, features = ["testing"] }
 uuid = { version = "1.10", features = ["serde", "v4"] }
+tokio = { workspace = true }
 
 [build-dependencies]
 miden-rpc-proto = { git = "https://github.com/0xPolygonMiden/miden-node", branch = "next" }

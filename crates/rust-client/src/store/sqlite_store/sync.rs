@@ -222,13 +222,10 @@ impl SqliteStore {
             .map(|input_note| input_note.id())
             .collect();
 
-        let updated_input_notes =
-            self.get_input_notes(NoteFilter::List(updated_input_note_ids))?;
+        let updated_input_notes = self.get_input_notes(NoteFilter::List(updated_input_note_ids))?;
 
-        let nullifiers = nullifiers
-            .iter()
-            .map(|nullifier_update| nullifier_update.nullifier)
-            .collect();
+        let nullifiers =
+            nullifiers.iter().map(|nullifier_update| nullifier_update.nullifier).collect();
 
         let nullified_notes = self.get_input_notes(NoteFilter::Nullifiers(nullifiers))?;
 

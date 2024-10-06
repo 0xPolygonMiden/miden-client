@@ -199,27 +199,6 @@ impl Store for SqliteStore {
     }
 }
 
-// TESTS
-// ================================================================================================
-
-#[cfg(test)]
-pub mod tests {
-    use std::cell::RefCell;
-
-    use rusqlite::{vtab::array, Connection};
-
-    use super::SqliteStore;
-    use crate::mock::create_test_store_path;
-
-    pub(crate) fn create_test_store() -> SqliteStore {
-        let temp_file = create_test_store_path();
-        let db = Connection::open(temp_file).unwrap();
-        array::load_module(&db).unwrap();
-        db.execute_batch(include_str!("store.sql")).unwrap();
-        SqliteStore { db: RefCell::new(db) }
-    }
-}
-
 /// Represents an authenticator based on a [Store]
 pub struct SqliteStoreAuthenticator<R> {
     store: alloc::sync::Arc<SqliteStore>,
@@ -255,5 +234,26 @@ impl<R: Rng> TransactionAuthenticator for SqliteStoreAuthenticator<R> {
 
         let AuthSecretKey::RpoFalcon512(k) = secret_key;
         miden_tx::auth::signatures::get_falcon_signature(&k, message, &mut *rng)
+    }
+}
+
+// TESTS
+// ================================================================================================
+
+#[cfg(test)]
+pub mod tests {
+    use std::cell::RefCell;
+
+    use rusqlite::{vtab::array, Connection};
+
+    use super::SqliteStore;
+    use crate::mock::create_test_store_path;
+
+    pub(crate) fn create_test_store() -> SqliteStore {
+        let temp_file = create_test_store_path();
+        let db = Connection::open(temp_file).unwrap();
+        array::load_module(&db).unwrap();
+        db.execute_batch(include_str!("store.sql")).unwrap();
+        SqliteStore { db: RefCell::new(db) }
     }
 }

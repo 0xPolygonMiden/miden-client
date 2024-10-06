@@ -1,11 +1,13 @@
 #[cfg(feature = "async")]
 use alloc::boxed::Box;
-use alloc::vec::Vec;
+use alloc::{collections::BTreeMap, vec::Vec};
 use core::cell::RefCell;
-use alloc::collections::BTreeMap;
 
 use miden_objects::{
-    accounts::{Account, AccountDelta, AccountHeader, AccountId, AuthSecretKey}, crypto::merkle::{InOrderIndex, MmrPeaks}, notes::{NoteTag, Nullifier}, BlockHeader, Digest, Felt, Word
+    accounts::{Account, AccountDelta, AccountHeader, AccountId, AuthSecretKey},
+    crypto::merkle::{InOrderIndex, MmrPeaks},
+    notes::{NoteTag, Nullifier},
+    BlockHeader, Digest, Felt, Word,
 };
 use miden_tx::{auth::TransactionAuthenticator, AuthenticationError};
 use rand::Rng;
@@ -13,9 +15,14 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::*;
 use winter_maybe_async::*;
 
-use crate::{sync::StateSyncUpdate, transactions::{TransactionRecord, TransactionResult}};
-
-use super::{ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store, StoreError, TransactionFilter};
+use super::{
+    ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store, StoreError,
+    TransactionFilter,
+};
+use crate::{
+    sync::StateSyncUpdate,
+    transactions::{TransactionRecord, TransactionResult},
+};
 
 pub mod accounts;
 pub mod chain_data;

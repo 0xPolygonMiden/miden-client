@@ -1,9 +1,10 @@
-use miden_client::{store::Store};
+use miden_client::store::Store;
 use wasm_bindgen::prelude::*;
 
 use crate::{
     models::{
-        account::Account, account_header::AccountHeader, account_id::AccountId, auth_secret_key::AuthSecretKey
+        account::Account, account_header::AccountHeader, account_id::AccountId,
+        auth_secret_key::AuthSecretKey,
     },
     WebClient,
 };
@@ -57,10 +58,8 @@ impl WebClient {
         account_id: &AccountId,
     ) -> Result<AuthSecretKey, JsValue> {
         if let Some(store) = &self.store {
-            let native_auth_secret_key = store
-                .get_account_auth(account_id.into())
-                .await
-                .map_err(|err| {
+            let native_auth_secret_key =
+                store.get_account_auth(account_id.into()).await.map_err(|err| {
                     JsValue::from_str(&format!("Failed to fetch and cache account auth: {}", err))
                 })?;
 

@@ -93,7 +93,7 @@ async fn test_get_input_note() {
 #[tokio::test]
 async fn insert_basic_account() {
     // generate test client with a random store name
-    let (mut client, rpc_api) = create_test_client();
+    let (mut client, _rpc_api) = create_test_client();
 
     let account_template = AccountTemplate::BasicWallet {
         mutable_code: true,
@@ -125,7 +125,7 @@ async fn insert_basic_account() {
 #[tokio::test]
 async fn insert_faucet_account() {
     // generate test client with a random store name
-    let (mut client, rpc_api) = create_test_client();
+    let (mut client, _rpc_api) = create_test_client();
 
     let faucet_template = AccountTemplate::FungibleFaucet {
         token_symbol: TokenSymbol::new("TEST").unwrap(),
@@ -159,7 +159,7 @@ async fn insert_faucet_account() {
 #[tokio::test]
 async fn insert_same_account_twice_fails() {
     // generate test client with a random store name
-    let (mut client, rpc_api) = create_test_client();
+    let (mut client, _rpc_api) = create_test_client();
 
     let account = Account::mock(
         ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_2,
@@ -184,7 +184,7 @@ async fn insert_same_account_twice_fails() {
 #[tokio::test]
 async fn test_account_code() {
     // generate test client with a random store name
-    let (mut client, rpc_api) = create_test_client();
+    let (mut client, _rpc_api) = create_test_client();
 
     let key_pair = SecretKey::new();
 
@@ -211,7 +211,7 @@ async fn test_account_code() {
 #[tokio::test]
 async fn test_get_account_by_id() {
     // generate test client with a random store name
-    let (mut client, rpc_api) = create_test_client();
+    let (mut client, _rpc_api) = create_test_client();
 
     let account = Account::mock(
         ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN,
@@ -244,7 +244,7 @@ async fn test_sync_state() {
     let (mut client, rpc_api) = create_test_client();
 
     // Import first mockchain note as expected
-    let expected_note = client.rpc_api.get_note_at(1).note().clone();
+    let expected_note = rpc_api.get_note_at(1).note().clone();
     client.store.upsert_input_note(expected_note.clone().into()).unwrap();
 
     // assert that we have no consumed nor expected notes prior to syncing state
@@ -286,7 +286,7 @@ async fn test_sync_state_mmr() {
             storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
-    for (_, n) in client.rpc_api.notes.iter() {
+    for (_, n) in rpc_api.notes.iter() {
         client.store.upsert_input_note(n.note().clone().into()).unwrap();
     }
 
@@ -370,7 +370,7 @@ async fn test_tags() {
 #[tokio::test]
 async fn test_mint_transaction() {
     // generate test client with a random store name
-    let (mut client, rpc_api) = create_test_client();
+    let (mut client, _rpc_api) = create_test_client();
 
     // Faucet account generation
     let (faucet, _seed) = client
@@ -401,7 +401,7 @@ async fn test_mint_transaction() {
 #[tokio::test]
 async fn test_get_output_notes() {
     // generate test client with a random store name
-    let (mut client, rpc_api) = create_test_client();
+    let (mut client, _rpc_api) = create_test_client();
     client.sync_state().await.unwrap();
 
     // Faucet account generation

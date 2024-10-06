@@ -34,8 +34,7 @@ use crate::{
         },
         AccountDetails, NodeRpcClient, NoteDetails, NoteInclusionDetails, RpcError, StateSyncInfo,
     },
-    store::sqlite_store::{config::SqliteStoreConfig, SqliteStore},
-    store_authenticator::SqliteStoreAuthenticator,
+    store::sqlite_store::{config::SqliteStoreConfig, SqliteStore, SqliteStoreAuthenticator},
     Client,
 };
 
@@ -195,7 +194,7 @@ impl MockRpcApi {
     }
 }
 use alloc::boxed::Box;
-#[maybe_async]
+#[async_trait(?Send)]
 impl NodeRpcClient for MockRpcApi {
     async fn sync_notes(
         &mut self,

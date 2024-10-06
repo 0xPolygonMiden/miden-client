@@ -113,8 +113,7 @@ impl WebStore {
             .filter_map(|output_note| output_note.try_into().ok())
             .collect::<Vec<_>>();
 
-        let consumed_note_ids =
-            tx_result.consumed_notes().iter().map(|note| note.id()).collect();
+        let consumed_note_ids = tx_result.consumed_notes().iter().map(|note| note.id()).collect();
 
         let relevant_notes = self.get_input_notes(NoteFilter::List(consumed_note_ids)).await?;
 
