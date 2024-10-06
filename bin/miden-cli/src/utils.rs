@@ -74,7 +74,7 @@ pub(crate) fn parse_account_id<
     }
 
     let account_id = get_account_with_id_prefix(client, account_id)
-    .map_err(|_err| "Input account ID {account_id} is neither a valid Account ID nor a prefix of a known Account ID")?
+    .map_err(|_err| format!("Input account ID {account_id} is neither a valid Account ID nor a prefix of a known Account ID"))?
     .id();
     Ok(account_id)
 }
