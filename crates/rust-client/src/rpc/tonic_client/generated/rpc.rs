@@ -164,6 +164,29 @@ pub mod api_client {
             req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "GetAccountDetails"));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn get_account_proofs(
+            &mut self,
+            request: impl tonic::IntoRequest<
+                super::super::requests::GetAccountProofsRequest,
+            >,
+        ) -> std::result::Result<
+            tonic::Response<super::super::responses::GetAccountProofsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/rpc.Api/GetAccountProofs");
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("rpc.Api", "GetAccountProofs"));
+            self.inner.unary(req, path, codec).await
+        }
         pub async fn get_account_state_delta(
             &mut self,
             request: impl tonic::IntoRequest<
