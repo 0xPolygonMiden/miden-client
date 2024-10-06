@@ -116,7 +116,6 @@ impl Store for SqliteStore {
         self.get_output_notes(note_filter)
     }
 
-    #[maybe_async]
     fn upsert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError> {
         self.upsert_input_note(note)
     }

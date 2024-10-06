@@ -1,6 +1,5 @@
 //! Defines the storage interfaces used by the Miden client. It provides mechanisms for persisting
 //! and retrieving data, such as account states, transaction history, and block headers.
-
 #[cfg(feature = "async")]
 use alloc::boxed::Box;
 use alloc::{collections::BTreeMap, vec::Vec};
@@ -346,7 +345,7 @@ pub enum NoteFilter {
     /// Return a list containing the note that matches with the provided [NoteId].
     Unique(NoteId),
     /// Return a list of notes that match the provided [Nullifier] list.
-    Nullifiers(&'a [Nullifier]),
+    Nullifiers(Vec<Nullifier>),
     /// Return a list of notes that currently have an unverified proof.
     Unverified,
 }

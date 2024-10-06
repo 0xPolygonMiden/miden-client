@@ -31,7 +31,7 @@ impl WebStore {
         &self,
         filter: NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
-        let promise = match filter {
+        let promise = match &filter {
             NoteFilter::All
             | NoteFilter::Consumed
             | NoteFilter::Committed
@@ -88,9 +88,9 @@ impl WebStore {
             .collect::<Result<Vec<_>, _>>(); // Collect results into a single Result
 
         match native_input_notes {
-            Ok(ref notes) => match filter {
+            Ok(ref notes) => match &filter {
                 NoteFilter::Unique(note_id) if notes.is_empty() => {
-                    return Err(StoreError::NoteNotFound(note_id));
+                    return Err(StoreError::NoteNotFound(*note_id));
                 },
                 NoteFilter::List(note_ids) if note_ids.len() != notes.len() => {
                     let missing_note_id = note_ids

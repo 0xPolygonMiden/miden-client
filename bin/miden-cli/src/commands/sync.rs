@@ -7,7 +7,7 @@ pub struct SyncCmd {}
 
 impl SyncCmd {
     pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
-        let mut new_details = client.sync_state().await?;
+        let new_details = client.sync_state().await?;
 
         println!("State synced to block {}", new_details.block_num);
         println!("New public notes: {}", new_details.received_notes.len());

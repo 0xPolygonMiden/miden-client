@@ -44,10 +44,6 @@ impl WebClient {
         self.inner.as_mut()
     }
 
-    pub(crate) fn get_mut_store(&mut self) -> Option<&mut Arc<WebStore>> {
-        self.store.as_mut()
-    }
-
     pub async fn create_client(&mut self, node_url: Option<String>) -> Result<JsValue, JsValue> {
         let mut rng = StdRng::from_entropy();
         let coin_seed: [u64; 4] = rng.gen();

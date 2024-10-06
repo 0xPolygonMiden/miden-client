@@ -114,9 +114,9 @@ impl WebStore {
             .collect::<Vec<_>>();
 
         let consumed_note_ids =
-            tx_result.consumed_notes().iter().map(|note| note.id()).collect::<Vec<_>>();
+            tx_result.consumed_notes().iter().map(|note| note.id()).collect();
 
-        let relevant_notes = self.get_input_notes(NoteFilter::List(&consumed_note_ids)).await?;
+        let relevant_notes = self.get_input_notes(NoteFilter::List(consumed_note_ids)).await?;
 
         // Transaction Data
         insert_proven_transaction_data(tx_result).await.unwrap();

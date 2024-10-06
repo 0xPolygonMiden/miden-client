@@ -4,12 +4,10 @@ use miden_objects::{
     crypto::rand::FeltRng,
     notes::{Note, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteMetadata, NoteTag},
 };
-use miden_tx::auth::TransactionAuthenticator;
 use winter_maybe_async::maybe_await;
 
 use crate::{
-    rpc::NodeRpcClient,
-    store::{ExpectedNoteState, InputNoteRecord, Store},
+    store::{ExpectedNoteState, InputNoteRecord},
     Client, ClientError,
 };
 

@@ -1,22 +1,20 @@
+use alloc::collections::BTreeMap;
+
 #[cfg(feature = "async")]
 use alloc::boxed::Box;
 use alloc::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeSet,
     string::ToString,
     vec::Vec,
 };
 
 use miden_objects::{
-    accounts::AccountId,
-    crypto::merkle::{InOrderIndex, MerklePath, PartialMmr},
-    notes::NoteId,
-    transaction::{ChainMmr, InputNote, InputNotes},
-    BlockHeader,
+    accounts::AccountId, crypto::merkle::{InOrderIndex, MerklePath, PartialMmr}, notes::NoteId, transaction::{ChainMmr, InputNote, InputNotes}, BlockHeader
 };
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
 use winter_maybe_async::*;
 
-use super::{note_record::NoteRecordError, ChainMmrNodeFilter, InputNoteRecord, NoteFilter, Store};
+use super::{ChainMmrNodeFilter, InputNoteRecord, NoteFilter, NoteRecordError, Store};
 use crate::store::StoreError;
 
 // DATA STORE

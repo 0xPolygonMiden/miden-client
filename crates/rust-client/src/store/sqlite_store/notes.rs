@@ -193,7 +193,7 @@ impl SqliteStore {
         filter: NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
         let mut params = Vec::new();
-        match filter {
+        match &filter {
             NoteFilter::Unique(note_id) => {
                 let note_ids_list = vec![Value::Text(note_id.inner().to_string())];
                 params.push(Rc::new(note_ids_list));
