@@ -2,7 +2,10 @@ use miden_client::{
     accounts::AccountTemplate,
     notes::NoteRelevance,
     rpc::{AccountDetails, NodeRpcClient, TonicRpcClient},
-    store::{InputNoteRecord, NoteFilter, NoteStatus, TransactionFilter},
+    store::{
+        ConsumedAuthenticatedLocalNoteState, InputNoteRecord, NoteFilter, NoteState, NoteStatus,
+        TransactionFilter,
+    },
     transactions::{
         PaymentTransactionData, TransactionExecutorError, TransactionRequest, TransactionStatus,
     },
@@ -11,7 +14,7 @@ use miden_client::{
 use miden_objects::{
     accounts::{AccountId, AccountStorageMode},
     assets::{Asset, FungibleAsset},
-    notes::{NoteFile, NoteTag, NoteType},
+    notes::{NoteFile, NoteType},
 };
 
 mod common;
@@ -260,8 +263,8 @@ async fn test_p2idr_transfer_consumed_by_target() {
 
     //Check that the note is not consumed by the target account
     assert!(matches!(
-        client.get_input_note(note.id()).unwrap().status(),
-        NoteStatus::Committed { .. }
+        client.get_input_note(note.id()).unwrap().state(),
+        NoteState::Committed { .. }
     ));
 
     consume_notes(&mut client, from_account_id, &[note.clone()]).await;
@@ -269,13 +272,13 @@ async fn test_p2idr_transfer_consumed_by_target() {
 
     // Check that the note is consumed by the target account
     let input_note = client.get_input_note(note.id()).unwrap();
-    assert!(matches!(input_note.status(), NoteStatus::Consumed { .. }));
-    if let NoteStatus::Consumed {
-        consumer_account_id: Some(consumer_account_id),
+    assert!(matches!(input_note.state(), NoteState::ConsumedAuthenticatedLocal { .. }));
+    if let NoteState::ConsumedAuthenticatedLocal(ConsumedAuthenticatedLocalNoteState {
+        submission_data,
         ..
-    } = input_note.status()
+    }) = input_note.state()
     {
-        assert_eq!(consumer_account_id, from_account_id);
+        assert_eq!(submission_data.consumer_account, from_account_id);
     } else {
         panic!("Note should be consumed");
     }
@@ -666,7 +669,7 @@ async fn test_import_expected_note_uncommitted() {
     // If the verification is requested before execution then the import should fail
     let imported_note_id = client_2
         .import_note(NoteFile::NoteDetails {
-            details: note.clone().into(),
+            details: note.into(),
             after_block_num: 0,
             tag: None,
         })
@@ -675,7 +678,7 @@ async fn test_import_expected_note_uncommitted() {
 
     let imported_note = client_2.get_input_note(imported_note_id).unwrap();
 
-    assert!(matches!(imported_note.status(), NoteStatus::Expected { .. }));
+    assert!(matches!(imported_note.state(), NoteState::Expected { .. }));
 }
 
 #[tokio::test]
@@ -724,9 +727,9 @@ async fn test_import_expected_notes_from_the_past_as_committed() {
     let imported_note = client_2.get_input_note(note_id).unwrap();
 
     // Get the note status in client 1
-    let client_1_note_status = client_1.get_input_note(note_id).unwrap().status();
+    let client_1_note = client_1.get_input_note(note_id).unwrap();
 
-    assert_eq!(imported_note.status(), client_1_note_status);
+    assert_eq!(imported_note.state(), client_1_note.state());
 }
 
 #[tokio::test]
@@ -959,131 +962,6 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
     }
 }
 
-#[tokio::test]
-async fn test_import_ignored_notes() {
-    let mut client_1 = create_test_client();
-    let (_first_basic_account, _second_basic_account, faucet_account) =
-        setup(&mut client_1, AccountStorageMode::Private).await;
-
-    let mut client_2 = create_test_client();
-    let (client_2_account, _seed) = client_2
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: true,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .unwrap();
-
-    wait_for_node(&mut client_2).await;
-
-    let tx_request = TransactionRequest::mint_fungible_asset(
-        FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
-        client_2_account.id(),
-        NoteType::Private,
-        client_1.rng(),
-    )
-    .unwrap();
-    let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
-
-    let block_height_before = client_1.get_sync_height().unwrap();
-
-    execute_tx_and_sync(&mut client_1, faucet_account.id(), tx_request).await;
-
-    client_2.sync_state().await.unwrap();
-
-    // Import note details without tag so the note is ignored
-    client_2
-        .import_note(NoteFile::NoteDetails {
-            details: note.clone().into(),
-            after_block_num: block_height_before,
-            tag: None,
-        })
-        .await
-        .unwrap();
-
-    // Ignored notes are only retrieved for "Ignored" or "All" filters
-    assert_eq!(client_2.get_input_notes(NoteFilter::All).unwrap().len(), 1);
-    assert_eq!(client_2.get_input_notes(NoteFilter::Ignored).unwrap().len(), 1);
-    assert_eq!(client_2.get_input_notes(NoteFilter::Expected).unwrap().len(), 0);
-
-    client_2.sync_state().await.unwrap();
-
-    // After sync the note shouldn't change status as it is ignored
-    let ignored_note = client_2.get_input_note(note.id()).unwrap();
-    assert!(matches!(ignored_note.status(), NoteStatus::Expected { .. }));
-
-    // Specifically update ignored notes
-    client_2.update_ignored_notes().await.unwrap();
-    let ignored_note = client_2.get_input_note(note.id()).unwrap();
-    assert!(matches!(ignored_note.status(), NoteStatus::Committed { .. }));
-    assert!(ignored_note.inclusion_proof().is_some());
-
-    // If client 2 successfully consumes the note, we confirm we have MMR and block header data
-    consume_notes(&mut client_2, client_2_account.id(), &[ignored_note.try_into().unwrap()]).await;
-
-    client_2.sync_state().await.unwrap();
-    let ignored_note = client_2.get_input_note(note.id()).unwrap();
-    assert!(matches!(ignored_note.status(), NoteStatus::Consumed { .. }));
-}
-
-#[tokio::test]
-async fn test_update_ignored_tag() {
-    let mut client_1 = create_test_client();
-    let (_first_basic_account, _second_basic_account, faucet_account) =
-        setup(&mut client_1, AccountStorageMode::Private).await;
-
-    let mut client_2 = create_test_client();
-    let (client_2_account, _seed) = client_2
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: true,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .unwrap();
-
-    wait_for_node(&mut client_2).await;
-
-    let tx_request = TransactionRequest::mint_fungible_asset(
-        FungibleAsset::new(faucet_account.id(), MINT_AMOUNT).unwrap(),
-        client_2_account.id(),
-        NoteType::Private,
-        client_1.rng(),
-    )
-    .unwrap();
-    let note: InputNoteRecord = tx_request.expected_output_notes().next().unwrap().clone().into();
-    let block_height_before = client_1.get_sync_height().unwrap();
-    execute_tx_and_sync(&mut client_1, faucet_account.id(), tx_request).await;
-
-    client_2.sync_state().await.unwrap();
-
-    // Import note details with untracked tag so the note is ignored
-    let untracked_tag = NoteTag::from(123);
-    client_2
-        .import_note(NoteFile::NoteDetails {
-            details: note.clone().into(),
-            after_block_num: block_height_before,
-            tag: Some(untracked_tag),
-        })
-        .await
-        .unwrap();
-
-    // Ignored notes are only retrieved for "Ignored" or "All" filters
-    let all_notes = client_2.get_input_notes(NoteFilter::All).unwrap();
-    let ignored_notes = client_2.get_input_notes(NoteFilter::Ignored).unwrap();
-    let expected_notes = client_2.get_input_notes(NoteFilter::Expected).unwrap();
-    assert!(all_notes.iter().any(|candidate_note| candidate_note.id() == note.id()));
-    assert!(ignored_notes.iter().any(|candidate_note| candidate_note.id() == note.id()));
-    assert!(expected_notes.iter().all(|candidate_note| candidate_note.id() != note.id()));
-
-    client_2.add_note_tag(untracked_tag).unwrap();
-
-    // After adding tag, the note stops being ignored
-    let all_notes = client_2.get_input_notes(NoteFilter::All).unwrap();
-    let ignored_notes = client_2.get_input_notes(NoteFilter::Ignored).unwrap();
-    let expected_notes = client_2.get_input_notes(NoteFilter::Expected).unwrap();
-    assert!(all_notes.iter().any(|candidate_note| candidate_note.id() == note.id()));
-    assert!(ignored_notes.iter().all(|candidate_note| candidate_note.id() != note.id()));
-    assert!(expected_notes.iter().any(|candidate_note| candidate_note.id() == note.id()));
-}
-
 /// Test that checks multiple features:
 /// - Consuming multiple notes in a single transaction.
 /// - Consuming authenticated notes.
@@ -1239,7 +1117,7 @@ async fn test_import_consumed_note_with_proof() {
         .unwrap();
 
     let consumed_note = client_2.get_input_note(note.id()).unwrap();
-    assert!(matches!(consumed_note.status(), NoteStatus::Consumed { .. }));
+    assert!(matches!(consumed_note.state(), NoteState::ConsumedExternal { .. }));
 }
 
 #[tokio::test]
@@ -1291,5 +1169,5 @@ async fn test_import_consumed_note_with_id() {
     client_2.import_note(NoteFile::NoteId(note.id())).await.unwrap();
 
     let consumed_note = client_2.get_input_note(note.id()).unwrap();
-    assert!(matches!(consumed_note.status(), NoteStatus::Consumed { .. }));
+    assert!(matches!(consumed_note.state(), NoteState::ConsumedExternal { .. }));
 }

@@ -2,7 +2,10 @@
 
 ## 0.6.0 (TBD)
 
-* Fix Broken WASM (#519).
+* Fixed panic on export command without type (#537).
+* Add Account Integration Tests for Web Client (#532)
+* [BREAKING] Refactored the `Store` structure and interface for input notes (#520).
+* Fixed Broken WASM (#519).
 * [BREAKING] Changed `PaymentTransactionData` and `TransactionRequest` to allow for multiple assets per note (#525).
 * [BREAKING] Removed serde's de/serialization from `NoteRecordDetails` and `NoteStatus` (#514).
 * Added support for custom transactions in web client (#519)

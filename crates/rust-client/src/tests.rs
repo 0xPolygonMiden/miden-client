@@ -53,7 +53,8 @@ async fn test_input_notes_round_trip() {
     }
 
     // retrieve notes from database
-    let retrieved_notes = client.get_input_notes(NoteFilter::Committed).unwrap();
+    // TODO: Once we get more specific filters this query should only get unverified notes.
+    let retrieved_notes = client.get_input_notes(NoteFilter::All).unwrap();
     assert_eq!(retrieved_notes.len(), 2);
 
     let recorded_notes: Vec<InputNoteRecord> =
@@ -243,8 +244,8 @@ async fn test_sync_state() {
     let (mut client, rpc_api) = create_test_client();
 
     // Import first mockchain note as expected
-    let expected_note = rpc_api.get_note_at(1).note().clone();
-    client.store.insert_input_note(expected_note.clone().into()).unwrap();
+    let expected_note = client.rpc_api.get_note_at(1).note().clone();
+    client.store.upsert_input_note(expected_note.clone().into()).unwrap();
 
     // assert that we have no consumed nor expected notes prior to syncing state
     assert_eq!(client.get_input_notes(NoteFilter::Consumed).unwrap().len(), 0);
@@ -285,8 +286,8 @@ async fn test_sync_state_mmr() {
             storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
-    for (_, n) in rpc_api.notes.iter() {
-        client.store.insert_input_note(n.note().clone().into()).unwrap();
+    for (_, n) in client.rpc_api.notes.iter() {
+        client.store.upsert_input_note(n.note().clone().into()).unwrap();
     }
 
     // sync state
@@ -459,6 +460,7 @@ async fn test_import_note_validation() {
         })
         .await
         .unwrap();
+
     assert!(expected_note.inclusion_proof().is_none());
     assert!(committed_note.inclusion_proof().is_some());
 }

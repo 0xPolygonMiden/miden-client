@@ -3,18 +3,11 @@ use miden_client::{crypto::FeltRng, Client};
 
 #[derive(Debug, Parser, Clone)]
 #[clap(about = "Sync this client with the latest state of the Miden network.")]
-pub struct SyncCmd {
-    /// If enabled, the ignored notes will also be updated by fetching them directly from the node.
-    #[clap(short, long)]
-    update_ignored: bool,
-}
+pub struct SyncCmd {}
 
 impl SyncCmd {
     pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         let mut new_details = client.sync_state().await?;
-        if self.update_ignored {
-            new_details.combine_with(client.update_ignored_notes().await?);
-        }
 
         println!("State synced to block {}", new_details.block_num);
         println!("New public notes: {}", new_details.received_notes.len());

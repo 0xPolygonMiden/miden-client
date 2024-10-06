@@ -1,7 +1,7 @@
 //! Contains the Client APIs related to notes. Notes can contain assets and scripts that are
 //! executed as part of transactions.
 
-use alloc::{collections::BTreeSet, string::ToString, vec::Vec};
+use alloc::{string::ToString, vec::Vec};
 
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{accounts::AccountId, crypto::rand::FeltRng};
@@ -58,21 +58,10 @@ impl<R: FeltRng> Client<R> {
     ) -> Result<Vec<(InputNoteRecord, Vec<NoteConsumability>)>, ClientError> {
         let commited_notes = maybe_await!(self.store.get_input_notes(NoteFilter::Committed))?;
 
-        // For a committed note to be consumable its block header and MMR info must be tracked
-        let unconsumable_committed_note_ids: BTreeSet<NoteId> =
-            maybe_await!(self.store.get_notes_without_block_header())?
-                .into_iter()
-                .map(|note| note.id())
-                .collect();
-
         let note_screener = NoteScreener::new(self.store.clone());
 
         let mut relevant_notes = Vec::new();
         for input_note in commited_notes {
-            if unconsumable_committed_note_ids.contains(&input_note.id()) {
-                continue;
-            }
-
             let mut account_relevance =
                 maybe_await!(note_screener.check_relevance(&input_note.clone().try_into()?))?;
 

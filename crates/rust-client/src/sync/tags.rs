@@ -65,10 +65,7 @@ impl<R: FeltRng> Client<R> {
             .filter_map(|note| note.metadata().map(|metadata| metadata.tag()))
             .collect();
 
-        let imported_tags: Vec<NoteTag> =
-            expected_notes.iter().filter_map(|note| note.imported_tag()).collect();
-
-        Ok([account_tags, stored_tags, uncommited_note_tags, imported_tags]
+        Ok([account_tags, stored_tags, uncommited_note_tags]
             .concat()
             .into_iter()
             .collect::<BTreeSet<NoteTag>>()

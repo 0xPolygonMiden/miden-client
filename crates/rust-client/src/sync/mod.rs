@@ -11,7 +11,7 @@ use crypto::merkle::{InOrderIndex, MmrPeaks};
 use miden_objects::{
     accounts::{Account, AccountHeader, AccountId},
     crypto::{self, rand::FeltRng},
-    notes::{Note, NoteId, NoteInclusionProof, NoteInputs, NoteRecipient, NoteTag, Nullifier},
+    notes::{Note, NoteId, NoteInclusionProof, NoteRecipient, NoteTag, Nullifier},
     transaction::{InputNote, TransactionId},
     BlockHeader, Digest,
 };
@@ -223,50 +223,6 @@ impl<R: FeltRng> Client<R> {
         Ok(total_sync_summary)
     }
 
-    /// Updates the inclusion proof and metadata for notes that are being ignored
-    /// by the client. This will not change their ignored status.
-    ///
-    /// This function will not update the current block number as the notes will
-    /// not be updated via a sync request. Because of this, the returned
-    /// [SyncSummary] will not have the corresponding block number.
-    pub async fn update_ignored_notes(&mut self) -> Result<SyncSummary, ClientError> {
-        let ignored_notes_ids = maybe_await!(self.get_input_notes(NoteFilter::Ignored))?
-            .iter()
-            .map(|note| note.id())
-            .collect::<Vec<_>>();
-
-        let note_details = self.rpc_api.get_notes_by_id(&ignored_notes_ids).await?;
-
-        let updated_notes = note_details.iter().map(|note| note.id()).collect::<Vec<_>>();
-
-        let mut current_partial_mmr = maybe_await!(self.build_current_partial_mmr(true))?;
-        for details in note_details {
-            let note_block = self
-                .get_and_store_authenticated_block(
-                    details.inclusion_details().block_num,
-                    &mut current_partial_mmr,
-                )
-                .await?;
-
-            let note_inclusion_proof = NoteInclusionProof::new(
-                note_block.block_num(),
-                details.inclusion_details().note_index,
-                details.inclusion_details().merkle_path.clone(),
-            )
-            .map_err(ClientError::NoteError)?;
-
-            maybe_await!(self
-                .store
-                .update_note_inclusion_proof(details.id(), note_inclusion_proof))?;
-            maybe_await!(self.store.update_note_metadata(details.id(), *details.metadata()))?;
-        }
-
-        let mut sync_summary = SyncSummary::new_empty(0);
-        sync_summary.committed_notes = updated_notes;
-
-        Ok(sync_summary)
-    }
-
     async fn sync_state_once(&mut self) -> Result<SyncStatus, ClientError> {
         let current_block_num = maybe_await!(self.store.get_sync_height())?;
 
@@ -337,9 +293,9 @@ impl<R: FeltRng> Client<R> {
         let transactions_to_commit =
             maybe_await!(self.get_transactions_to_commit(response.transactions))?;
 
-        let consumed_notes = maybe_await!(self
-            .store
-            .get_notes_by_nullifiers(new_nullifiers.iter().map(|n| n.nullifier).collect()))?;
+        let consumed_notes = maybe_await!(self.store.get_input_notes(NoteFilter::Nullifiers(
+            &new_nullifiers.iter().map(|n| n.nullifier).collect::<Vec<_>>()
+        )))?;
 
         // Store summary to return later
         let sync_summary = SyncSummary::new(
@@ -425,7 +381,7 @@ impl<R: FeltRng> Client<R> {
                     committed_note.merkle_path().clone(),
                 )?;
 
-                let note_inputs = NoteInputs::new(note_record.details().inputs().clone())?;
+                let note_inputs = note_record.details().inputs().clone();
                 let note_recipient = NoteRecipient::new(
                     note_record.details().serial_num(),
                     note_record.details().script().clone(),

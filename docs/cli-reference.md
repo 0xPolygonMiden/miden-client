@@ -28,7 +28,7 @@ Note that the debug flag overrides the `MIDEN_DEBUG` environment variable.
 ### `init`
 
 Creates a configuration file for the client in the current directory.
- 
+
 ```sh
 # This will create a config file named `miden-client.toml` using default values
 # This file contains information useful for the CLI like the RPC provider and database path
@@ -50,7 +50,7 @@ miden init --store_path db/store.sqlite3
 miden init --rpc 18.203.155.106 --store_path db/store.sqlite3
 ```
 
-### `account` 
+### `account`
 
 Inspect account details.
 
@@ -121,7 +121,7 @@ If no filter is specified then all notes are listed.
 The `--show` flag also accepts a partial ID instead of the full ID. For example, instead of:
 
 ```sh
-miden notes --show 0x70b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0 
+miden notes --show 0x70b7ecba1db44c3aa75e87a3394de95463cc094d7794b706e02a9228342faeb0
 ```
 
 You can call:
@@ -133,10 +133,6 @@ miden notes --show 0x70b7ec
 ### `sync`
 
 Sync the client with the latest state of the Miden network. Shows a brief summary at the end.
-
-| Flags             | Description                                                 | Short Flag |
-|-------------------|-------------------------------------------------------------|------------|
-|`--update-ignored` | Update ignored notes in sync                                | `-u`       |
 
 ### `tags`
 
@@ -202,7 +198,7 @@ Usage: `miden send --sender <SENDER ACCOUNT ID> --target <TARGET ACCOUNT ID> --a
 
 #### `swap`
 
-The source account creates a Swap note that offers some asset in exchange for some other asset. When another account consumes that note, it'll receive the offered amount and it'll have the requested amount removed from its assets (and put into a new note which the first account can then consume). Consuming the note will fail if the account doesn't have enough of the requested asset. 
+The source account creates a Swap note that offers some asset in exchange for some other asset. When another account consumes that note, it'll receive the offered amount and it'll have the requested amount removed from its assets (and put into a new note which the first account can then consume). Consuming the note will fail if the account doesn't have enough of the requested asset.
 
 Usage:  `miden swap --source <SOURCE ACCOUNT ID> --offered-asset <OFFERED AMOUNT>::<OFFERED FAUCET ID> --requested-asset <REQUESTED AMOUNT>::<REQUESTED FAUCET ID> --note-type <NOTE_TYPE>`
 
@@ -257,7 +253,7 @@ The user needs to specify how the note should be exported via the `--export-type
 
 - `id`: Only the note ID is exported. When importing, if the note ID is already tracked by the client, the note will be updated with missing information fetched from the node. This works for both public and private notes. If the note isn't tracked and the note is public, the whole note is fetched from the node and is stored for later use.
 - `full`: The note is exported with all of its information (metadata and inclusion proof). When importing, the note is considered committed. The note may not be consumed directly after importing as its block header will not be stored in the client. The block header will be fetched during the next sync.
-- `partial`: The note is exported with minimal information and may be imported even if the note is not yet committed on chain. At the moment of importing the note, the client will check the status of the note by doing a note sync, using the note's tag. Depending on the response, the note will be either stored as "Expected" or "Committed". 
+- `partial`: The note is exported with minimal information and may be imported even if the note is not yet committed on chain. At the moment of importing the note, the client will check the status of the note by doing a note sync, using the note's tag. Depending on the response, the note will be either stored as "Expected" or "Committed".
 
 #### `import`
 

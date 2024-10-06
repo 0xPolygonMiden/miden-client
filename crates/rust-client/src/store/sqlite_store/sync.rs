@@ -8,8 +8,8 @@ use super::SqliteStore;
 use crate::{
     store::{
         note_record::{NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED},
-        sqlite_store::{accounts::update_account, notes::insert_input_note_tx},
-        StoreError,
+        sqlite_store::{accounts::update_account, notes::upsert_input_note_tx},
+        CommittedNoteState, InputNoteRecord, NoteFilter, StoreError,
     },
     sync::StateSyncUpdate,
 };
@@ -46,10 +46,6 @@ impl SqliteStore {
         const QUERY: &str = "UPDATE state_sync SET tags = :tags";
         self.db().execute(QUERY, named_params! {":tags": tags})?;
 
-        const IGNORED_NOTES_QUERY: &str =
-            "UPDATE input_notes SET ignored = 0 WHERE imported_tag = ?";
-        self.db().execute(IGNORED_NOTES_QUERY, params![u32::from(tag)])?;
-
         Ok(true)
     }
 
@@ -84,6 +80,8 @@ impl SqliteStore {
         &self,
         state_sync_update: StateSyncUpdate,
     ) -> Result<(), StoreError> {
+        let mut relevant_input_notes = self.get_relevant_sync_input_notes(&state_sync_update)?;
+
         let StateSyncUpdate {
             block_header,
             nullifiers,
@@ -135,48 +133,59 @@ impl SqliteStore {
             ))?;
             let metadata = input_note.note().metadata();
 
-            let inclusion_proof = inclusion_proof.to_bytes();
-            let metadata = metadata.to_bytes();
+            if let Some(input_note_record) =
+                relevant_input_notes.iter_mut().find(|n| n.id() == input_note.id())
+            {
+                let inclusion_proof_received = input_note_record
+                    .inclusion_proof_received(inclusion_proof.clone(), *metadata)?;
+                let block_header_received =
+                    input_note_record.block_header_received(block_header)?;
 
-            const COMMITTED_INPUT_NOTES_QUERY: &str =
-                "UPDATE input_notes SET status = :status , inclusion_proof = :inclusion_proof, metadata = :metadata WHERE note_id = :note_id";
-
-            tx.execute(
-                COMMITTED_INPUT_NOTES_QUERY,
-                named_params! {
-                    ":inclusion_proof": inclusion_proof,
-                    ":metadata": metadata,
-                    ":note_id": input_note.id().inner().to_hex(),
-                    ":status": NOTE_STATUS_COMMITTED.to_string(),
-                },
-            )?;
+                if inclusion_proof_received || block_header_received {
+                    upsert_input_note_tx(&tx, input_note_record)?;
+                }
+            }
         }
 
         // Commit new public notes
-        for note in committed_notes.new_public_notes() {
-            insert_input_note_tx(
-                &tx,
-                note.location().expect("new public note should be authenticated").block_num(),
-                note.clone().into(),
-            )?;
+        for input_note in committed_notes.new_public_notes() {
+            let details = input_note.note().into();
+
+            let input_note_record = InputNoteRecord::new(
+                details,
+                None,
+                CommittedNoteState {
+                    metadata: *input_note.note().metadata(),
+                    inclusion_proof: input_note
+                        .proof()
+                        .expect("New public note should be authenticated")
+                        .clone(),
+                    block_note_root: block_header.note_root(),
+                }
+                .into(),
+            );
+
+            upsert_input_note_tx(&tx, &input_note_record)?;
         }
 
         // Update spent notes
         for nullifier_update in nullifiers.iter() {
-            const SPENT_INPUT_NOTE_QUERY: &str =
-                "UPDATE input_notes SET status = ?, nullifier_height = ? WHERE nullifier = ?";
-            let nullifier = nullifier_update.nullifier.to_hex();
+            let nullifier = nullifier_update.nullifier;
             let block_num = nullifier_update.block_num;
-            tx.execute(
-                SPENT_INPUT_NOTE_QUERY,
-                params![NOTE_STATUS_CONSUMED.to_string(), block_num, nullifier],
-            )?;
+
+            if let Some(input_note_record) =
+                relevant_input_notes.iter_mut().find(|n| n.nullifier() == nullifier)
+            {
+                if input_note_record.nullifier_received(nullifier, block_num)? {
+                    upsert_input_note_tx(&tx, input_note_record)?;
+                }
+            }
 
             const SPENT_OUTPUT_NOTE_QUERY: &str =
                 "UPDATE output_notes SET status = ?, nullifier_height = ? WHERE nullifier = ?";
             tx.execute(
                 SPENT_OUTPUT_NOTE_QUERY,
-                params![NOTE_STATUS_CONSUMED.to_string(), block_num, nullifier],
+                params![NOTE_STATUS_CONSUMED.to_string(), block_num, nullifier.to_hex()],
             )?;
         }
 
@@ -197,5 +206,33 @@ impl SqliteStore {
         tx.commit()?;
 
         Ok(())
+    }
+
+    /// Get the input notes from the store that are relevant to the state sync update. Secifically,
+    /// notes that were updated and nullified during the sync.
+    fn get_relevant_sync_input_notes(
+        &self,
+        state_sync_update: &StateSyncUpdate,
+    ) -> Result<Vec<InputNoteRecord>, StoreError> {
+        let StateSyncUpdate { nullifiers, synced_new_notes, .. } = state_sync_update;
+
+        let updated_input_note_ids = synced_new_notes
+            .updated_input_notes()
+            .iter()
+            .map(|input_note| input_note.id())
+            .collect::<Vec<_>>();
+        let updated_input_notes =
+            self.get_input_notes(NoteFilter::List(&updated_input_note_ids))?;
+
+        let nullifiers = nullifiers
+            .iter()
+            .map(|nullifier_update| nullifier_update.nullifier)
+            .collect::<Vec<_>>();
+        let nullified_notes = self.get_input_notes(NoteFilter::Nullifiers(&nullifiers))?;
+
+        let mut relevant_notes = updated_input_notes;
+        relevant_notes.extend(nullified_notes);
+
+        Ok(relevant_notes)
     }
 }

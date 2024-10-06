@@ -15,12 +15,12 @@ use tracing::info;
 
 use super::{
     accounts::update_account,
-    notes::{insert_input_note_tx, insert_output_note_tx, update_note_consumer_tx_id},
+    notes::{insert_output_note_tx, upsert_input_note_tx},
     SqliteStore,
 };
 use crate::{
     rpc::TransactionUpdate,
-    store::{StoreError, TransactionFilter},
+    store::{NoteFilter, StoreError, TransactionFilter},
     transactions::{TransactionRecord, TransactionResult, TransactionStatus},
 };
 
@@ -104,6 +104,8 @@ impl SqliteStore {
         let consumed_note_ids =
             tx_result.consumed_notes().iter().map(|note| note.id()).collect::<Vec<_>>();
 
+        let relevant_notes = self.get_input_notes(NoteFilter::List(&consumed_note_ids))?;
+
         let mut db = self.db();
         let tx = db.transaction()?;
 
@@ -115,15 +117,17 @@ impl SqliteStore {
 
         // Updates for notes
         for note in created_input_notes {
-            insert_input_note_tx(&tx, block_num, note)?;
+            upsert_input_note_tx(&tx, &note)?;
         }
 
         for note in &created_output_notes {
             insert_output_note_tx(&tx, block_num, note)?;
         }
 
-        for note_id in consumed_note_ids {
-            update_note_consumer_tx_id(&tx, note_id, transaction_id)?;
+        for mut input_note_record in relevant_notes {
+            if input_note_record.consumed_locally(account_id, transaction_id)? {
+                upsert_input_note_tx(&tx, &input_note_record)?;
+            }
         }
 
         tx.commit()?;

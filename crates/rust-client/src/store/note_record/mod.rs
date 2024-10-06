@@ -39,14 +39,21 @@ use miden_objects::{
     accounts::AccountId,
     notes::{Note, NoteDetails, NoteScript},
     utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable},
-    Digest, Felt, Word,
+    Digest, Felt, NoteError, Word,
 };
 
 mod input_note_record;
 mod output_note_record;
+mod states;
 
 pub use input_note_record::InputNoteRecord;
 pub use output_note_record::OutputNoteRecord;
+pub use states::{
+    CommittedNoteState, ConsumedAuthenticatedLocalNoteState, ExpectedNoteState, NoteState,
+    STATE_COMMITTED, STATE_CONSUMED_AUTHENTICATED_LOCAL, STATE_CONSUMED_EXTERNAL,
+    STATE_CONSUMED_UNAUTHENTICATED_LOCAL, STATE_EXPECTED, STATE_PROCESSING_AUTHENTICATED,
+    STATE_PROCESSING_UNAUTHENTICATED, STATE_UNVERIFIED,
+};
 
 // NOTE STATUS
 // ================================================================================================
@@ -274,5 +281,48 @@ impl From<NoteDetails> for NoteRecordDetails {
             details.inputs().values().to_vec(),
             details.serial_num(),
         )
+    }
+}
+
+// NOTE RECORD ERROR
+// ================================================================================================
+
+/// Errors generated from note records.
+#[derive(Debug)]
+pub enum NoteRecordError {
+    /// Error generated during conversion of note record.
+    ConversionError(String),
+    /// Invalid underlying note object.
+    NoteError(NoteError),
+    /// Note record is not consumable.
+    NoteNotConsumable(String),
+    /// Invalid inclusion proof.
+    InvalidInclusionProof,
+    /// Error generated during a state transition.
+    StateTransitionError(String),
+}
+
+impl fmt::Display for NoteRecordError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use NoteRecordError::*;
+        match self {
+            ConversionError(msg) => write!(f, "Note record conversion error: {}", msg),
+            NoteError(err) => write!(f, "Note error: {}", err),
+            NoteNotConsumable(msg) => write!(f, "Note not consumable: {}", msg),
+            InvalidInclusionProof => write!(f, "Invalid inclusion proof"),
+            StateTransitionError(msg) => write!(f, "State transition error: {}", msg),
+        }
+    }
+}
+
+impl From<NoteError> for NoteRecordError {
+    fn from(error: NoteError) -> Self {
+        NoteRecordError::NoteError(error)
+    }
+}
+
+impl From<NoteRecordError> for String {
+    fn from(err: NoteRecordError) -> String {
+        err.to_string()
     }
 }
