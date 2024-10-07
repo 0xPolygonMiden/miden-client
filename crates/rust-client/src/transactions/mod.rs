@@ -7,7 +7,6 @@ use alloc::{
     vec::Vec,
 };
 use core::fmt;
-use wasm_bindgen::JsValue;
 
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
@@ -257,7 +256,6 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
         let future_notes: Vec<NoteDetails> =
             transaction_request.expected_future_notes().cloned().collect();
 
-        
         let tx_script = match transaction_request.script_template() {
             Some(TransactionScriptTemplate::CustomScript(script)) => script.clone(),
             Some(TransactionScriptTemplate::SendNotes(notes)) => {
