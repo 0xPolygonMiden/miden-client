@@ -1,7 +1,7 @@
 # Changelog
 
 ## 0.6.0 (TBD)
-
+* Fixed WASM + added additional WASM models 
 * Fixed panic on export command without type (#537).
 * Add Account Integration Tests for Web Client (#532)
 * [BREAKING] Refactored the `Store` structure and interface for input notes (#520).
