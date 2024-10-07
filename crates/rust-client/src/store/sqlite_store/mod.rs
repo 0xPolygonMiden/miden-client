@@ -1,5 +1,4 @@
 use alloc::{collections::BTreeMap, vec::Vec};
-use winter_maybe_async::*;
 use core::cell::{RefCell, RefMut};
 use std::path::Path;
 
@@ -12,6 +11,7 @@ use miden_objects::{
 use miden_tx::{auth::TransactionAuthenticator, AuthenticationError};
 use rand::Rng;
 use rusqlite::{vtab::array, Connection};
+use winter_maybe_async::*;
 
 use self::config::SqliteStoreConfig;
 use super::{
@@ -73,7 +73,7 @@ impl SqliteStore {
 #[cfg(feature = "async")]
 use alloc::boxed::Box;
 
-#[maybe_async_trait]   
+#[maybe_async_trait]
 impl Store for SqliteStore {
     #[maybe_async]
     fn get_note_tags(&self) -> Result<Vec<NoteTag>, StoreError> {
