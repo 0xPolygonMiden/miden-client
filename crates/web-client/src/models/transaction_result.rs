@@ -36,12 +36,6 @@ impl TransactionResult {
     pub fn consumed_notes(&self) -> InputNotes {
         self.0.consumed_notes().into()
     }
-
-    pub(crate) fn from_native_transaction_result(
-        native_transaction_result: NativeTransactionResult,
-    ) -> TransactionResult {
-        TransactionResult(native_transaction_result)
-    }
 }
 
 // CONVERSIONS

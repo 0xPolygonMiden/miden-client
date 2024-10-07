@@ -6,19 +6,13 @@ use miden_client::{
         TransactionResult as NativeTransactionResult,
     },
 };
-use miden_objects::{
-    accounts::AccountId as NativeAccountId, assets::FungibleAsset,
-    notes::NoteType as NativeNoteType,
-};
+use miden_objects::{accounts::AccountId as NativeAccountId, assets::FungibleAsset};
 use wasm_bindgen::prelude::*;
 
 use crate::{
     models::{
-        account_id::AccountId,
-        note_type::NoteType,
-        transaction_request::TransactionRequest,
-        transaction_result::TransactionResult,
-        transactions::{NewSwapTransactionResult, NewTransactionResult},
+        account_id::AccountId, note_type::NoteType, transaction_request::TransactionRequest,
+        transaction_result::TransactionResult, transactions::NewSwapTransactionResult,
     },
     WebClient,
 };
@@ -66,7 +60,6 @@ impl WebClient {
         note_type: &NoteType,
         amount: u64,
     ) -> Result<TransactionResult, JsValue> {
-        console_error_panic_hook::set_once();
         if let Some(client) = self.get_mut_inner() {
             let fungible_asset = FungibleAsset::new(faucet_id.into(), amount).map_err(|err| {
                 JsValue::from_str(&format!("Failed to create Fungible Asset: {}", err))

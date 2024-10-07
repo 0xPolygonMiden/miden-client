@@ -7,7 +7,6 @@ use miden_objects::notes::{NoteInclusionProof, NoteTag};
 use miden_tx::utils::{Deserializable, Serializable};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
-use winter_maybe_async::maybe_await;
 
 use super::{
     chain_data::utils::serialize_chain_mmr_node, notes::utils::upsert_input_note_tx,

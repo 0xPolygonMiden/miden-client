@@ -3,8 +3,7 @@ use wasm_bindgen::prelude::*;
 
 use super::{
     account_id::AccountId, output_notes::OutputNotes, rpo_digest::RpoDigest,
-    transaction_id::TransactionId, transaction_script::TransactionScript,
-    transaction_status::TransactionStatus,
+    transaction_id::TransactionId, transaction_status::TransactionStatus,
 };
 
 #[derive(Clone)]

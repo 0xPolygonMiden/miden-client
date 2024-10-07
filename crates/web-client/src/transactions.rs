@@ -1,8 +1,5 @@
-use miden_client::{
-    store::TransactionFilter as NativeTransactionFilter,
-    transactions::{
-        TransactionRecord as NativeTransactionRecord, TransactionScript as NativeTransactionScript,
-    },
+use miden_client::transactions::{
+    TransactionRecord as NativeTransactionRecord, TransactionScript as NativeTransactionScript,
 };
 use miden_objects::{Felt as NativeFelt, Word as NativeWord};
 use wasm_bindgen::prelude::*;
