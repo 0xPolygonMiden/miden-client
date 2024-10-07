@@ -115,11 +115,15 @@ pub trait Store {
     /// The default implementation of this method uses [Store::get_input_notes].
     #[maybe_async]
     fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
-        let nullifiers = maybe_await!(self.get_input_notes(NoteFilter::Committed))?
-            .iter()
-            .chain(maybe_await!(self.get_input_notes(NoteFilter::Processing))?.iter())
-            .map(|input_note| Ok(input_note.nullifier()))
-            .collect::<Result<Vec<_>, _>>();
+        let nullifiers = maybe_await!(self.get_input_notes(NoteFilter::Or(vec![
+            NoteFilter::Expected,
+            NoteFilter::StateDiscriminant(STATE_UNVERIFIED),
+            NoteFilter::Committed,
+            NoteFilter::Processing
+        ])))?
+        .iter()
+        .map(|input_note| Ok(input_note.nullifier()))
+        .collect::<Result<Vec<_>, _>>();
 
         nullifiers
     }
@@ -370,4 +374,6 @@ pub enum NoteFilter {
     Nullifiers(Vec<Nullifier>),
     /// Return a list of notes whose state match the discriminant provided.
     StateDiscriminant(u8),
+    /// Return a list of notes that match any of the provided filters.
+    Or(Vec<NoteFilter>),
 }
