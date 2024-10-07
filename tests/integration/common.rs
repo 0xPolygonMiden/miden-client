@@ -15,7 +15,7 @@ use miden_client::{
         NoteFilter, TransactionFilter,
     },
     sync::SyncSummary,
-    transactions::{DataStoreError, TransactionExecutorError, TransactionRequest},
+    transactions::{DataStoreError, LocalTransactionProver, TransactionExecutorError, TransactionRequest},
     Client, ClientError,
 };
 use miden_objects::{
@@ -56,6 +56,7 @@ pub fn create_test_client() -> TestClient {
 
     let mut rng = rand::thread_rng();
     let coin_seed: [u64; 4] = rng.gen();
+    let tx_prover = Arc::new(LocalTransactionProver::default());
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
@@ -65,6 +66,7 @@ pub fn create_test_client() -> TestClient {
         rng,
         store,
         Arc::new(authenticator),
+        tx_prover,
         true,
     )
 }

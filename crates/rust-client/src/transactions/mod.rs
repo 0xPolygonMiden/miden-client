@@ -16,7 +16,6 @@ use miden_objects::{
     transaction::{InputNotes, TransactionArgs},
     AssetError, Digest, Felt, NoteError, Word,
 };
-use miden_tx::{LocalTransactionProver, ProvingOptions, TransactionProver};
 use script_builder::{AccountCapabilities, AccountInterface, TransactionScriptBuilder};
 use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
@@ -39,7 +38,7 @@ pub use miden_objects::transaction::{
     ExecutedTransaction, InputNote, OutputNote, OutputNotes, ProvenTransaction, TransactionId,
     TransactionScript,
 };
-pub use miden_tx::{DataStoreError, TransactionExecutorError};
+pub use miden_tx::{DataStoreError, LocalTransactionProver, TransactionExecutorError, TransactionProver};
 pub use script_builder::TransactionScriptBuilderError;
 
 // TRANSACTION RESULT
@@ -323,11 +322,9 @@ impl<R: FeltRng> Client<R> {
         &mut self,
         tx_result: &TransactionResult,
     ) -> Result<ProvenTransaction, ClientError> {
-        let transaction_prover = LocalTransactionProver::new(ProvingOptions::default());
-
         info!("Proving transaction...");
         let proven_transaction =
-            maybe_await!(transaction_prover.prove(tx_result.executed_transaction().clone()))?;
+            maybe_await!(self.tx_prover.prove(tx_result.executed_transaction().clone().into()))?;
         info!("Transaction proven.");
 
         Ok(proven_transaction)

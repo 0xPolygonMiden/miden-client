@@ -12,10 +12,10 @@ use miden_client::{
     },
     Client, ClientError, Felt, IdPrefixFetchError,
 };
+use miden_client::transactions::LocalTransactionProver;
 use rand::Rng;
 
 mod commands;
-
 use commands::{
     account::AccountCmd,
     export::ExportCmd,
@@ -115,6 +115,7 @@ impl Cli {
             rng,
             store,
             Arc::new(authenticator),
+            Arc::new(LocalTransactionProver::default()),
             in_debug_mode,
         );
 

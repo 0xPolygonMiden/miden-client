@@ -2,21 +2,15 @@ use std::{
     env::{self, temp_dir},
     fs::File,
     io::Read,
-    path::Path,
+    path::Path, sync::Arc,
 };
 
 use assert_cmd::Command;
 use miden_client::{
-    accounts::{Account, AccountId, AccountStorageMode, AccountTemplate},
-    config::RpcConfig,
-    crypto::RpoRandomCoin,
-    rpc::TonicRpcClient,
-    store::{
+    accounts::{Account, AccountId, AccountStorageMode, AccountTemplate}, config::RpcConfig, crypto::RpoRandomCoin, rpc::TonicRpcClient, store::{
         sqlite_store::{config::SqliteStoreConfig, SqliteStore, SqliteStoreAuthenticator},
         NoteFilter,
-    },
-    testing::ACCOUNT_ID_OFF_CHAIN_SENDER,
-    Client, Felt,
+    }, testing::ACCOUNT_ID_OFF_CHAIN_SENDER, transactions::LocalTransactionProver, Client, Felt
 };
 use rand::Rng;
 use uuid::Uuid;
@@ -552,6 +546,7 @@ fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
     let mut rng = rand::thread_rng();
     let coin_seed: [u64; 4] = rng.gen();
 
+    let tx_prover = Arc::new(LocalTransactionProver::default());
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
     let authenticator = SqliteStoreAuthenticator::new_with_rng(store.clone(), rng);
@@ -560,6 +555,7 @@ fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
         rng,
         store,
         std::sync::Arc::new(authenticator),
+        tx_prover,
         true,
     )
 }

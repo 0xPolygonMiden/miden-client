@@ -2,6 +2,7 @@
 
 ## 0.6.0 (TBD)
 
+* [BREAKING] Adds the `TransactionProver` component to the `Client` struct (#517).
 * [BREAKING] Refactored Client struct to use trait objects for inner struct fields (#539).
 * Fixed panic on export command without type (#537).
 * Add Account Integration Tests for Web Client (#532).
