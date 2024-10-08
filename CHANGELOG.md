@@ -4,7 +4,7 @@
 
 * [BREAKING] Refactored Client struct to use trait objects for inner struct fields (#539).
 * Fixed panic on export command without type (#537).
-* Add Account Integration Tests for Web Client (#532).
+* Added Account Integration Tests for Web Client (#532).
 * [BREAKING] Refactored the `Store` structure and interface for input notes (#520).
 * Fixed Broken WASM (#519).
 * [BREAKING] Changed `PaymentTransactionData` and `TransactionRequest` to allow for multiple assets per note (#525).
