@@ -5,12 +5,10 @@ use alloc::{string::ToString, vec::Vec};
 
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{accounts::AccountId, crypto::rand::FeltRng};
-use miden_tx::auth::TransactionAuthenticator;
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
-    rpc::NodeRpcClient,
-    store::{InputNoteRecord, NoteFilter, OutputNoteRecord, Store},
+    store::{InputNoteRecord, NoteFilter, OutputNoteRecord},
     Client, ClientError, IdPrefixFetchError,
 };
 
@@ -35,7 +33,7 @@ pub use note_screener::{NoteConsumability, NoteRelevance, NoteScreener, NoteScre
 // MIDEN CLIENT
 // ================================================================================================
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
+impl<R: FeltRng> Client<R> {
     // INPUT NOTE DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
@@ -46,10 +44,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     /// Returns a [ClientError::StoreError] if the filter is [NoteFilter::Unique] and there is no
     /// Note with the provided ID
     #[maybe_async]
-    pub fn get_input_notes(
-        &self,
-        filter: NoteFilter<'_>,
-    ) -> Result<Vec<InputNoteRecord>, ClientError> {
+    pub fn get_input_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, ClientError> {
         maybe_await!(self.store.get_input_notes(filter)).map_err(|err| err.into())
     }
 
@@ -114,7 +109,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
     #[maybe_async]
     pub fn get_output_notes(
         &self,
-        filter: NoteFilter<'_>,
+        filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, ClientError> {
         maybe_await!(self.store.get_output_notes(filter)).map_err(|err| err.into())
     }
@@ -143,13 +138,8 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found where
 ///   `note_id_prefix` is a prefix of its id.
 #[maybe_async]
-pub fn get_input_note_with_id_prefix<
-    N: NodeRpcClient,
-    R: FeltRng,
-    S: Store,
-    A: TransactionAuthenticator,
->(
-    client: &Client<N, R, S, A>,
+pub fn get_input_note_with_id_prefix<R: FeltRng>(
+    client: &Client<R>,
     note_id_prefix: &str,
 ) -> Result<InputNoteRecord, IdPrefixFetchError> {
     let mut input_note_records = maybe_await!(client.get_input_notes(NoteFilter::All))

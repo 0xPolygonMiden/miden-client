@@ -9,7 +9,7 @@ use miden_objects::{
     BlockHeader, Digest, Word,
 };
 use rusqlite::{vtab::array, Connection};
-use winter_maybe_async::maybe_async;
+use winter_maybe_async::*;
 
 use self::config::SqliteStoreConfig;
 use super::{
@@ -68,6 +68,10 @@ impl SqliteStore {
 //
 // To simplify, all implementations rely on inner SqliteStore functions that map 1:1 by name
 // This way, the actual implementations are grouped by entity types in their own sub-modules
+#[cfg(feature = "async")]
+use alloc::boxed::Box;
+
+#[maybe_async_trait]
 impl Store for SqliteStore {
     #[maybe_async]
     fn get_note_tags(&self) -> Result<Vec<NoteTag>, StoreError> {
@@ -108,17 +112,14 @@ impl Store for SqliteStore {
     }
 
     #[maybe_async]
-    fn get_input_notes(
-        &self,
-        note_filter: NoteFilter<'_>,
-    ) -> Result<Vec<InputNoteRecord>, StoreError> {
-        self.get_input_notes(note_filter)
+    fn get_input_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, StoreError> {
+        self.get_input_notes(filter)
     }
 
     #[maybe_async]
     fn get_output_notes(
         &self,
-        note_filter: NoteFilter<'_>,
+        note_filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, StoreError> {
         self.get_output_notes(note_filter)
     }
@@ -154,7 +155,7 @@ impl Store for SqliteStore {
     #[maybe_async]
     fn get_chain_mmr_nodes(
         &self,
-        filter: ChainMmrNodeFilter<'_>,
+        filter: ChainMmrNodeFilter,
     ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
         self.get_chain_mmr_nodes(filter)
     }
@@ -189,6 +190,10 @@ impl Store for SqliteStore {
         self.get_account_headers()
     }
 
+    fn get_account_auth_by_pub_key(&self, pub_key: Word) -> Result<AuthSecretKey, StoreError> {
+        self.get_account_auth_by_pub_key(pub_key)
+    }
+
     #[maybe_async]
     fn get_account_header(
         &self,
@@ -213,10 +218,6 @@ impl Store for SqliteStore {
     #[maybe_async]
     fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, StoreError> {
         self.get_account_auth(account_id)
-    }
-
-    fn get_account_auth_by_pub_key(&self, pub_key: Word) -> Result<AuthSecretKey, StoreError> {
-        self.get_account_auth_by_pub_key(pub_key)
     }
 
     #[maybe_async]

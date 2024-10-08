@@ -18,7 +18,7 @@ crate-type = ["lib"]
 [features]
 async = ["miden-tx/async"]
 concurrent = ["miden-lib/concurrent", "miden-objects/concurrent", "miden-tx/concurrent", "std"]
-default = ["std"]
+default = []
 idxdb = ["async", "dep:base64", "dep:serde-wasm-bindgen", "dep:wasm-bindgen", "dep:wasm-bindgen-futures"]
 sqlite = ["dep:rusqlite", "std"]
 std = ["miden-objects/std"]
@@ -27,6 +27,7 @@ tonic = ["dep:hex", "dep:prost", "dep:tonic", "std", "tonic/transport"]
 web-tonic = ["dep:hex", "dep:prost", "dep:tonic", "dep:tonic-web-wasm-client", "getrandom/js"]
 
 [dependencies]
+async-trait = { workspace = true }
 base64 = { version = "0.22", optional = true }
 chrono = { version = "0.4", optional = false }
 getrandom = { version = "0.2", features = ["js"], optional = true }
@@ -50,10 +51,11 @@ wasm-bindgen-futures = { version = "0.4", optional = true }
 winter-maybe-async = "0.10"
 
 [dev-dependencies]
-miden-client = { path = ".", features = ["testing", "concurrent", "sqlite", "tonic", "tokio"] }
+miden-client = { path = ".", features = ["testing", "concurrent", "sqlite", "tonic"] }
 miden-lib = { workspace = true, features = ["testing"] }
 miden-objects = { workspace = true, default-features = false, features = ["testing"] }
 uuid = { version = "1.10", features = ["serde", "v4"] }
+tokio = { workspace = true }
 
 [build-dependencies]
 miden-rpc-proto = { git = "https://github.com/0xPolygonMiden/miden-node", branch = "next" }

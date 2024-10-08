@@ -3,15 +3,13 @@ use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     accounts::AccountId,
     assets::Asset,
-    auth::TransactionAuthenticator,
     crypto::{Digest, FeltRng},
     notes::{
         get_input_note_with_id_prefix,
         script_roots::{P2ID, P2IDR, SWAP},
         NoteConsumability, NoteInputs, NoteMetadata,
     },
-    rpc::NodeRpcClient,
-    store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store},
+    store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord},
     Client, ClientError, IdPrefixFetchError,
 };
 
@@ -29,10 +27,10 @@ pub enum NoteFilter {
     Consumable,
 }
 
-impl TryInto<ClientNoteFilter<'_>> for NoteFilter {
+impl TryInto<ClientNoteFilter> for NoteFilter {
     type Error = String;
 
-    fn try_into(self) -> Result<ClientNoteFilter<'static>, Self::Error> {
+    fn try_into(self) -> Result<ClientNoteFilter, Self::Error> {
         match self {
             NoteFilter::All => Ok(ClientNoteFilter::All),
             NoteFilter::Expected => Ok(ClientNoteFilter::Expected),
@@ -60,10 +58,7 @@ pub struct NotesCmd {
 }
 
 impl NotesCmd {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        &self,
-        client: Client<N, R, S, A>,
-    ) -> Result<(), String> {
+    pub async fn execute(&self, client: Client<impl FeltRng>) -> Result<(), String> {
         match self {
             NotesCmd { list: Some(NoteFilter::Consumable), .. } => {
                 list_consumable_notes(client, &None)?;
@@ -100,10 +95,7 @@ struct CliNoteSummary {
 
 // LIST NOTES
 // ================================================================================================
-fn list_notes<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: Client<N, R, S, A>,
-    filter: ClientNoteFilter,
-) -> Result<(), String> {
+fn list_notes(client: Client<impl FeltRng>, filter: ClientNoteFilter) -> Result<(), String> {
     let input_notes = client
         .get_input_notes(filter.clone())?
         .into_iter()
@@ -121,10 +113,7 @@ fn list_notes<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticato
 
 // SHOW NOTE
 // ================================================================================================
-fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: Client<N, R, S, A>,
-    note_id: String,
-) -> Result<(), String> {
+fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), String> {
     let input_note_record = get_input_note_with_id_prefix(&client, &note_id);
     let output_note_record = get_output_note_with_id_prefix(&client, &note_id);
 
@@ -260,8 +249,8 @@ fn show_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator
 
 // LIST CONSUMABLE INPUT NOTES
 // ================================================================================================
-fn list_consumable_notes<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: Client<N, R, S, A>,
+fn list_consumable_notes(
+    client: Client<impl FeltRng>,
     account_id: &Option<String>,
 ) -> Result<(), String> {
     let account_id = match account_id {

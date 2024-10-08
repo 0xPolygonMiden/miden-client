@@ -15,16 +15,14 @@ use miden_objects::{
     transaction::{InputNote, TransactionId},
     BlockHeader, Digest,
 };
-use miden_tx::auth::TransactionAuthenticator;
 use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
     rpc::{
-        AccountDetails, CommittedNote, NodeRpcClient, NoteDetails, NullifierUpdate, RpcError,
-        TransactionUpdate,
+        AccountDetails, CommittedNote, NoteDetails, NullifierUpdate, RpcError, TransactionUpdate,
     },
-    store::{InputNoteRecord, NoteFilter, Store, StoreError, TransactionFilter},
+    store::{InputNoteRecord, NoteFilter, StoreError, TransactionFilter},
     Client, ClientError,
 };
 
@@ -194,7 +192,7 @@ pub struct StateSyncUpdate {
 /// The number of bits to shift identifiers for in use of filters.
 pub(crate) const FILTER_ID_SHIFT: u8 = 48;
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
+impl<R: FeltRng> Client<R> {
     // SYNC STATE
     // --------------------------------------------------------------------------------------------
 
@@ -296,7 +294,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             maybe_await!(self.get_transactions_to_commit(response.transactions))?;
 
         let consumed_notes = maybe_await!(self.store.get_input_notes(NoteFilter::Nullifiers(
-            &new_nullifiers.iter().map(|n| n.nullifier).collect::<Vec<_>>()
+            new_nullifiers.iter().map(|n| n.nullifier).collect()
         )))?;
 
         // Store summary to return later

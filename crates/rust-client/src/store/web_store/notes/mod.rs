@@ -29,9 +29,9 @@ use utils::*;
 impl WebStore {
     pub(crate) async fn get_input_notes(
         &self,
-        filter: NoteFilter<'_>,
+        filter: NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
-        let promise = match filter {
+        let promise = match &filter {
             NoteFilter::All
             | NoteFilter::Consumed
             | NoteFilter::Committed
@@ -88,9 +88,9 @@ impl WebStore {
             .collect::<Result<Vec<_>, _>>(); // Collect results into a single Result
 
         match native_input_notes {
-            Ok(ref notes) => match filter {
+            Ok(ref notes) => match &filter {
                 NoteFilter::Unique(note_id) if notes.is_empty() => {
-                    return Err(StoreError::NoteNotFound(note_id));
+                    return Err(StoreError::NoteNotFound(*note_id));
                 },
                 NoteFilter::List(note_ids) if note_ids.len() != notes.len() => {
                     let missing_note_id = note_ids
@@ -111,7 +111,7 @@ impl WebStore {
 
     pub(crate) async fn get_output_notes(
         &self,
-        filter: NoteFilter<'_>,
+        filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, StoreError> {
         let promise = match filter {
             NoteFilter::All
@@ -134,7 +134,7 @@ impl WebStore {
                 idxdb_get_output_notes(filter_as_str.to_string())
             },
             NoteFilter::Ignored => idxdb_get_ignored_output_notes(),
-            NoteFilter::List(ids) => {
+            NoteFilter::List(ref ids) => {
                 let note_ids_as_str: Vec<String> =
                     ids.iter().map(|id| id.inner().to_string()).collect();
                 idxdb_get_output_notes_from_ids(note_ids_as_str)

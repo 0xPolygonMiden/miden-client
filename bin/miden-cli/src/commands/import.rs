@@ -6,11 +6,8 @@ use std::{
 
 use miden_client::{
     accounts::{AccountData, AccountId},
-    auth::TransactionAuthenticator,
     crypto::FeltRng,
     notes::NoteFile,
-    rpc::NodeRpcClient,
-    store::Store,
     utils::Deserializable,
     Client,
 };
@@ -27,10 +24,7 @@ pub struct ImportCmd {
 }
 
 impl ImportCmd {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        &self,
-        mut client: Client<N, R, S, A>,
-    ) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         validate_paths(&self.filenames)?;
         let (mut current_config, _) = load_config_file()?;
         for filename in &self.filenames {
@@ -56,8 +50,8 @@ impl ImportCmd {
 // IMPORT ACCOUNT
 // ================================================================================================
 
-fn import_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: &mut Client<N, R, S, A>,
+fn import_account(
+    client: &mut Client<impl FeltRng>,
     filename: &PathBuf,
 ) -> Result<AccountId, String> {
     info!(

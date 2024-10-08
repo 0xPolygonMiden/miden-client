@@ -247,15 +247,14 @@ impl SqliteStore {
             .updated_input_notes()
             .iter()
             .map(|input_note| input_note.id())
-            .collect::<Vec<_>>();
-        let updated_input_notes =
-            self.get_input_notes(NoteFilter::List(&updated_input_note_ids))?;
+            .collect();
 
-        let nullifiers = nullifiers
-            .iter()
-            .map(|nullifier_update| nullifier_update.nullifier)
-            .collect::<Vec<_>>();
-        let nullified_notes = self.get_input_notes(NoteFilter::Nullifiers(&nullifiers))?;
+        let updated_input_notes = self.get_input_notes(NoteFilter::List(updated_input_note_ids))?;
+
+        let nullifiers =
+            nullifiers.iter().map(|nullifier_update| nullifier_update.nullifier).collect();
+
+        let nullified_notes = self.get_input_notes(NoteFilter::Nullifiers(nullifiers))?;
 
         let mut relevant_notes = updated_input_notes;
         relevant_notes.extend(nullified_notes);

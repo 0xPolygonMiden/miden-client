@@ -93,9 +93,9 @@ impl WebStore {
         results
     }
 
-    pub(crate) async fn get_chain_mmr_nodes<'a>(
-        &'a self,
-        filter: ChainMmrNodeFilter<'a>,
+    pub(crate) async fn get_chain_mmr_nodes(
+        &self,
+        filter: ChainMmrNodeFilter,
     ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
         match filter {
             ChainMmrNodeFilter::All => {

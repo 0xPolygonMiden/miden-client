@@ -85,7 +85,7 @@ type SerializedOutputNoteParts = (
 // NOTE FILTER
 // ================================================================================================
 
-impl<'a> NoteFilter<'a> {
+impl NoteFilter {
     /// Returns a [String] containing the query for this Filter
     fn to_query_output_notes(&self) -> String {
         let base = "SELECT
@@ -193,12 +193,12 @@ impl SqliteStore {
         filter: NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
         let mut params = Vec::new();
-        match filter {
+        match &filter {
             NoteFilter::Unique(note_id) => {
                 let note_ids_list = vec![Value::Text(note_id.inner().to_string())];
                 params.push(Rc::new(note_ids_list));
             },
-            NoteFilter::List(note_ids) => {
+            NoteFilter::List(ref note_ids) => {
                 let note_ids_list = note_ids
                     .iter()
                     .map(|note_id| Value::Text(note_id.inner().to_string()))
@@ -251,7 +251,7 @@ impl SqliteStore {
                 let note_ids_list = vec![Value::Text(note_id.inner().to_string())];
                 params.push(Rc::new(note_ids_list));
             },
-            NoteFilter::List(note_ids) => {
+            NoteFilter::List(ref note_ids) => {
                 let note_ids_list = note_ids
                     .iter()
                     .map(|note_id| Value::Text(note_id.inner().to_string()))
