@@ -26,7 +26,7 @@ jobs:
       - name: Install Rust with clippy
         run: |
           rustup update --no-self-update 
-          rustup target add wasm32-unknown-unknown --toolchain nightly
+          rustup target add wasm32-unknown-unknown
           rustup component add clippy
       - name: make - clippy-wasm
         run: make clippy-wasm
