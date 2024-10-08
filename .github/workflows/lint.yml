@@ -13,8 +13,8 @@ jobs:
       - uses: actions/checkout@main
       - name: Install Rust with clippy
         run: |
-          rustup update --no-self-update nightly
-          rustup +nightly component add clippy
+          rustup update --no-self-update 
+          rustup component add clippy
       - name: make - clippy
         run: make clippy
   
@@ -25,9 +25,9 @@ jobs:
       - uses: actions/checkout@main
       - name: Install Rust with clippy
         run: |
-          rustup update --no-self-update nightly
-          rustup target add wasm32-unknown-unknown --toolchain nightly
-          rustup +nightly component add clippy
+          rustup update --no-self-update 
+          rustup target add wasm32-unknown-unknown
+          rustup component add clippy
       - name: make - clippy-wasm
         run: make clippy-wasm
 

@@ -1,6 +1,7 @@
 //! Defines the storage interfaces used by the Miden client. It provides mechanisms for persisting
 //! and retrieving data, such as account states, transaction history, and block headers.
-
+#[cfg(feature = "async")]
+use alloc::boxed::Box;
 use alloc::{collections::BTreeMap, vec::Vec};
 use core::fmt::Debug;
 
@@ -10,7 +11,7 @@ use miden_objects::{
     notes::{NoteId, NoteTag, Nullifier},
     BlockHeader, Digest, Word,
 };
-use winter_maybe_async::{maybe_async, maybe_await};
+use winter_maybe_async::*;
 
 use crate::{
     sync::StateSyncUpdate,
@@ -23,6 +24,9 @@ use crate::{
 /// The user is tasked with creating a [Store] which the client will wrap into a [ClientDataStore]
 /// at creation time.
 pub(crate) mod data_store;
+
+mod authenticator;
+pub use authenticator::StoreAuthenticator;
 
 mod errors;
 pub use errors::*;
@@ -55,6 +59,7 @@ pub use note_record::{
 /// Because the [Store]'s ownership is shared between the executor and the client, interior
 /// mutability is expected to be implemented, which is why all methods receive `&self` and
 /// not `&mut self`.
+#[maybe_async_trait]
 pub trait Store {
     // TRANSACTIONS
     // --------------------------------------------------------------------------------------------
@@ -239,14 +244,6 @@ pub trait Store {
     #[maybe_async]
     fn get_account(&self, account_id: AccountId) -> Result<(Account, Option<Word>), StoreError>;
 
-    /// Retrieves an account's [AuthSecretKey], utilized to authenticate the account.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    #[maybe_async]
-    fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, StoreError>;
-
     /// Retrieves an account's [AuthSecretKey] by pub key, utilized to authenticate the account.
     /// This is mainly used for authentication in transactions.
     ///
@@ -254,6 +251,14 @@ pub trait Store {
     ///
     /// Returns a `StoreError::AccountKeyNotFound` if there is no account for the provided key
     fn get_account_auth_by_pub_key(&self, pub_key: Word) -> Result<AuthSecretKey, StoreError>;
+
+    /// Retrieves an account's [AuthSecretKey], utilized to authenticate the account.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
+    #[maybe_async]
+    fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, StoreError>;
 
     /// Inserts an [Account] along with the seed used to create it and its [AuthSecretKey]
     #[maybe_async]
@@ -305,11 +310,11 @@ pub trait Store {
 // ================================================================================================
 /// Filters for searching specific MMR nodes.
 // TODO: Should there be filters for specific blocks instead of nodes?
-pub enum ChainMmrNodeFilter<'a> {
+pub enum ChainMmrNodeFilter {
     /// Return all nodes.
     All,
     /// Filter by the specified in-order indices.
-    List(&'a [InOrderIndex]),
+    List(Vec<InOrderIndex>),
 }
 
 // TRANSACTION FILTERS
@@ -329,7 +334,7 @@ pub enum TransactionFilter {
 
 /// Filters for narrowing the set of notes returned by the client's store.
 #[derive(Debug, Clone)]
-pub enum NoteFilter<'a> {
+pub enum NoteFilter {
     /// Return a list of all notes ([InputNoteRecord] or [OutputNoteRecord]).
     All,
     /// Filter by consumed notes ([InputNoteRecord] or [OutputNoteRecord]). notes that have been
@@ -347,11 +352,11 @@ pub enum NoteFilter<'a> {
     /// Return a list of notes that the client ignores in sync.
     Ignored,
     /// Return a list containing the note that matches with the provided [NoteId].
-    List(&'a [NoteId]),
+    List(Vec<NoteId>),
     /// Return a list containing the note that matches with the provided [NoteId].
     Unique(NoteId),
     /// Return a list of notes that match the provided [Nullifier] list.
-    Nullifiers(&'a [Nullifier]),
+    Nullifiers(Vec<Nullifier>),
     /// Return a list of notes that currently have an unverified proof.
     Unverified,
 }

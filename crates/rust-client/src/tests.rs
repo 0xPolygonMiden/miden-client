@@ -30,7 +30,7 @@ use crate::{
 #[tokio::test]
 async fn test_input_notes_round_trip() {
     // generate test client with a random store name
-    let mut client = create_test_client();
+    let (mut client, rpc_api) = create_test_client();
 
     client
         .new_account(AccountTemplate::BasicWallet {
@@ -39,7 +39,7 @@ async fn test_input_notes_round_trip() {
         })
         .unwrap();
     // generate test data
-    let available_notes = [client.rpc_api.get_note_at(0), client.rpc_api.get_note_at(1)];
+    let available_notes = [rpc_api.get_note_at(0), rpc_api.get_note_at(1)];
 
     // insert notes into database
     for note in available_notes.iter() {
@@ -68,9 +68,9 @@ async fn test_input_notes_round_trip() {
 #[tokio::test]
 async fn test_get_input_note() {
     // generate test client with a random store name
-    let mut client = create_test_client();
+    let (mut client, rpc_api) = create_test_client();
     // Get note from mocked RPC backend since any note works here
-    let original_note = client.rpc_api.get_note_at(0).note().clone();
+    let original_note = rpc_api.get_note_at(0).note().clone();
 
     // insert Note into database
     let note: InputNoteRecord = original_note.clone().into();
@@ -93,7 +93,7 @@ async fn test_get_input_note() {
 #[tokio::test]
 async fn insert_basic_account() {
     // generate test client with a random store name
-    let mut client = create_test_client();
+    let (mut client, _rpc_api) = create_test_client();
 
     let account_template = AccountTemplate::BasicWallet {
         mutable_code: true,
@@ -125,7 +125,7 @@ async fn insert_basic_account() {
 #[tokio::test]
 async fn insert_faucet_account() {
     // generate test client with a random store name
-    let mut client = create_test_client();
+    let (mut client, _rpc_api) = create_test_client();
 
     let faucet_template = AccountTemplate::FungibleFaucet {
         token_symbol: TokenSymbol::new("TEST").unwrap(),
@@ -159,7 +159,7 @@ async fn insert_faucet_account() {
 #[tokio::test]
 async fn insert_same_account_twice_fails() {
     // generate test client with a random store name
-    let mut client = create_test_client();
+    let (mut client, _rpc_api) = create_test_client();
 
     let account = Account::mock(
         ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_2,
@@ -184,7 +184,7 @@ async fn insert_same_account_twice_fails() {
 #[tokio::test]
 async fn test_account_code() {
     // generate test client with a random store name
-    let mut client = create_test_client();
+    let (mut client, _rpc_api) = create_test_client();
 
     let key_pair = SecretKey::new();
 
@@ -211,7 +211,7 @@ async fn test_account_code() {
 #[tokio::test]
 async fn test_get_account_by_id() {
     // generate test client with a random store name
-    let mut client = create_test_client();
+    let (mut client, _rpc_api) = create_test_client();
 
     let account = Account::mock(
         ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN,
@@ -241,10 +241,10 @@ async fn test_get_account_by_id() {
 #[tokio::test]
 async fn test_sync_state() {
     // generate test client with a random store name
-    let mut client = create_test_client();
+    let (mut client, rpc_api) = create_test_client();
 
     // Import first mockchain note as expected
-    let expected_note = client.rpc_api.get_note_at(1).note().clone();
+    let expected_note = rpc_api.get_note_at(1).note().clone();
     client.store.upsert_input_note(expected_note.clone().into()).unwrap();
 
     // assert that we have no consumed nor expected notes prior to syncing state
@@ -258,10 +258,7 @@ async fn test_sync_state() {
     let sync_details = client.sync_state().await.unwrap();
 
     // verify that the client is synced to the latest block
-    assert_eq!(
-        sync_details.block_num,
-        client.rpc_api().blocks.last().unwrap().header().block_num()
-    );
+    assert_eq!(sync_details.block_num, rpc_api.blocks.last().unwrap().header().block_num());
 
     // verify that the expected note we had is now committed
     assert_ne!(client.get_input_notes(NoteFilter::Committed).unwrap(), expected_notes);
@@ -273,14 +270,14 @@ async fn test_sync_state() {
     // verify that the latest block number has been updated
     assert_eq!(
         client.get_sync_height().unwrap(),
-        client.rpc_api().blocks.last().unwrap().header().block_num()
+        rpc_api.blocks.last().unwrap().header().block_num()
     );
 }
 
 #[tokio::test]
 async fn test_sync_state_mmr() {
     // generate test client with a random store name
-    let mut client = create_test_client();
+    let (mut client, mut rpc_api) = create_test_client();
     // Import note and create wallet so that synced notes do not get discarded (due to being
     // irrelevant)
     client
@@ -289,7 +286,7 @@ async fn test_sync_state_mmr() {
             storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
-    for (_, n) in client.rpc_api.notes.iter() {
+    for (_, n) in rpc_api.notes.iter() {
         client.store.upsert_input_note(n.note().clone().into()).unwrap();
     }
 
@@ -297,22 +294,19 @@ async fn test_sync_state_mmr() {
     let sync_details = client.sync_state().await.unwrap();
 
     // verify that the client is synced to the latest block
-    assert_eq!(
-        sync_details.block_num,
-        client.rpc_api().blocks.last().unwrap().header().block_num()
-    );
+    assert_eq!(sync_details.block_num, rpc_api.blocks.last().unwrap().header().block_num());
 
     // verify that the latest block number has been updated
     assert_eq!(
         client.get_sync_height().unwrap(),
-        client.rpc_api().blocks.last().unwrap().header().block_num()
+        rpc_api.blocks.last().unwrap().header().block_num()
     );
 
     // verify that we inserted the latest block into the DB via the client
     let latest_block = client.get_sync_height().unwrap();
     assert_eq!(sync_details.block_num, latest_block);
     assert_eq!(
-        client.rpc_api().blocks.last().unwrap().hash(),
+        rpc_api.blocks.last().unwrap().hash(),
         client.get_block_headers(&[latest_block]).unwrap()[0].0.hash()
     );
 
@@ -328,18 +322,18 @@ async fn test_sync_state_mmr() {
 
     // Ensure the proofs are valid
     let mmr_proof = partial_mmr.open(1).unwrap().unwrap();
-    let (block_1, _) = client.rpc_api().get_block_header_by_number(Some(1), false).await.unwrap();
+    let (block_1, _) = rpc_api.get_block_header_by_number(Some(1), false).await.unwrap();
     assert!(partial_mmr.peaks().verify(block_1.hash(), mmr_proof));
 
     let mmr_proof = partial_mmr.open(4).unwrap().unwrap();
-    let (block_4, _) = client.rpc_api().get_block_header_by_number(Some(4), false).await.unwrap();
+    let (block_4, _) = rpc_api.get_block_header_by_number(Some(4), false).await.unwrap();
     assert!(partial_mmr.peaks().verify(block_4.hash(), mmr_proof));
 }
 
 #[tokio::test]
 async fn test_tags() {
     // generate test client with a random store name
-    let mut client = create_test_client();
+    let (mut client, _rpc_api) = create_test_client();
 
     // Assert that the store gets created with the tag 0 (used for notes consumable by any account)
     assert_eq!(client.get_note_tags().unwrap(), vec![]);
@@ -376,7 +370,7 @@ async fn test_tags() {
 #[tokio::test]
 async fn test_mint_transaction() {
     // generate test client with a random store name
-    let mut client = create_test_client();
+    let (mut client, _rpc_api) = create_test_client();
 
     // Faucet account generation
     let (faucet, _seed) = client
@@ -407,7 +401,7 @@ async fn test_mint_transaction() {
 #[tokio::test]
 async fn test_get_output_notes() {
     // generate test client with a random store name
-    let mut client = create_test_client();
+    let (mut client, _rpc_api) = create_test_client();
     client.sync_state().await.unwrap();
 
     // Faucet account generation
@@ -443,11 +437,11 @@ async fn test_get_output_notes() {
 #[tokio::test]
 async fn test_import_note_validation() {
     // generate test client
-    let mut client = create_test_client();
+    let (mut client, rpc_api) = create_test_client();
 
     // generate test data
-    let committed_note: InputNoteRecord = client.rpc_api.get_note_at(0).into();
-    let expected_note: InputNoteRecord = client.rpc_api.get_note_at(1).note().clone().into();
+    let committed_note: InputNoteRecord = rpc_api.get_note_at(0).into();
+    let expected_note: InputNoteRecord = rpc_api.get_note_at(1).note().clone().into();
 
     client
         .import_note(NoteFile::NoteDetails {

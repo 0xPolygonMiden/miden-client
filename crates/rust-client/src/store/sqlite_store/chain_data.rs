@@ -20,7 +20,7 @@ type SerializedChainMmrNodeParts = (u64, String);
 // CHAIN MMR NODE FILTER
 // --------------------------------------------------------------------------------------------
 
-impl ChainMmrNodeFilter<'_> {
+impl ChainMmrNodeFilter {
     fn to_query(&self) -> String {
         let base = String::from("SELECT id, node FROM chain_mmr_nodes");
         match self {
@@ -80,7 +80,7 @@ impl SqliteStore {
         filter: ChainMmrNodeFilter,
     ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
         let mut params = Vec::new();
-        if let ChainMmrNodeFilter::List(ids) = filter {
+        if let ChainMmrNodeFilter::List(ref ids) = filter {
             let id_values = ids
                 .iter()
                 .map(|id| Value::Integer(Into::<u64>::into(*id) as i64))

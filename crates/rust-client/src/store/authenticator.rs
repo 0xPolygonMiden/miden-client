@@ -1,31 +1,28 @@
-use alloc::{rc::Rc, vec::Vec};
+use alloc::{sync::Arc, vec::Vec};
 use core::cell::RefCell;
 
 use miden_objects::{
     accounts::{AccountDelta, AuthSecretKey},
     Digest, Felt, Word,
 };
-use miden_tx::{
-    auth::{signatures::get_falcon_signature, TransactionAuthenticator},
-    AuthenticationError,
-};
+use miden_tx::{auth::TransactionAuthenticator, AuthenticationError};
 use rand::Rng;
 
-use crate::store::Store;
+use super::Store;
 
 /// Represents an authenticator based on a [Store]
-pub struct StoreAuthenticator<R, S> {
-    store: Rc<S>,
+pub struct StoreAuthenticator<R> {
+    store: Arc<dyn Store>,
     rng: RefCell<R>,
 }
 
-impl<R: Rng, S: Store> StoreAuthenticator<R, S> {
-    pub fn new_with_rng(store: Rc<S>, rng: R) -> Self {
+impl<R: Rng> StoreAuthenticator<R> {
+    pub fn new_with_rng(store: Arc<dyn Store>, rng: R) -> Self {
         StoreAuthenticator { store, rng: RefCell::new(rng) }
     }
 }
 
-impl<R: Rng, S: Store> TransactionAuthenticator for StoreAuthenticator<R, S> {
+impl<R: Rng> TransactionAuthenticator for StoreAuthenticator<R> {
     /// Gets a signature over a message, given a public key.
     ///
     /// The pub key should correspond to one of the keys tracked by the authenticator's store.
@@ -47,6 +44,6 @@ impl<R: Rng, S: Store> TransactionAuthenticator for StoreAuthenticator<R, S> {
             .map_err(|_| AuthenticationError::UnknownKey(format!("{}", Digest::from(pub_key))))?;
 
         let AuthSecretKey::RpoFalcon512(k) = secret_key;
-        get_falcon_signature(&k, message, &mut *rng)
+        miden_tx::auth::signatures::get_falcon_signature(&k, message, &mut *rng)
     }
 }

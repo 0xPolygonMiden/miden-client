@@ -1,10 +1,5 @@
 use miden_client::{
-    auth::TransactionAuthenticator,
-    crypto::FeltRng,
-    rpc::NodeRpcClient,
-    store::{Store, TransactionFilter},
-    transactions::TransactionRecord,
-    Client,
+    crypto::FeltRng, store::TransactionFilter, transactions::TransactionRecord, Client,
 };
 
 use crate::{create_dynamic_table, Parser};
@@ -18,10 +13,7 @@ pub struct TransactionCmd {
 }
 
 impl TransactionCmd {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        &self,
-        client: Client<N, R, S, A>,
-    ) -> Result<(), String> {
+    pub async fn execute(&self, client: Client<impl FeltRng>) -> Result<(), String> {
         list_transactions(client)?;
         Ok(())
     }
@@ -29,9 +21,7 @@ impl TransactionCmd {
 
 // LIST TRANSACTIONS
 // ================================================================================================
-fn list_transactions<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: Client<N, R, S, A>,
-) -> Result<(), String> {
+fn list_transactions(client: Client<impl FeltRng>) -> Result<(), String> {
     let transactions = client.get_transactions(TransactionFilter::All)?;
     print_transactions_summary(&transactions);
     Ok(())
