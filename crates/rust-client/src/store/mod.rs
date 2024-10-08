@@ -25,6 +25,9 @@ use crate::{
 /// at creation time.
 pub(crate) mod data_store;
 
+mod authenticator;
+pub use authenticator::StoreAuthenticator;
+
 mod errors;
 pub use errors::*;
 
@@ -240,6 +243,14 @@ pub trait Store {
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
     #[maybe_async]
     fn get_account(&self, account_id: AccountId) -> Result<(Account, Option<Word>), StoreError>;
+
+    /// Retrieves an account's [AuthSecretKey] by pub key, utilized to authenticate the account.
+    /// This is mainly used for authentication in transactions.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `StoreError::AccountKeyNotFound` if there is no account for the provided key
+    fn get_account_auth_by_pub_key(&self, pub_key: Word) -> Result<AuthSecretKey, StoreError>;
 
     /// Retrieves an account's [AuthSecretKey], utilized to authenticate the account.
     ///

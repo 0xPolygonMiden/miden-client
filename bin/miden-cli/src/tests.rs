@@ -12,8 +12,8 @@ use miden_client::{
     crypto::RpoRandomCoin,
     rpc::TonicRpcClient,
     store::{
-        sqlite_store::{config::SqliteStoreConfig, SqliteStore, SqliteStoreAuthenticator},
-        NoteFilter,
+        sqlite_store::{config::SqliteStoreConfig, SqliteStore},
+        NoteFilter, StoreAuthenticator,
     },
     testing::ACCOUNT_ID_OFF_CHAIN_SENDER,
     Client, Felt,
@@ -554,7 +554,7 @@ fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-    let authenticator = SqliteStoreAuthenticator::new_with_rng(store.clone(), rng);
+    let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
     TestClient::new(
         Box::new(TonicRpcClient::new(&rpc_config)),
         rng,

@@ -3,13 +3,11 @@ use core::cell::{RefCell, RefMut};
 use std::path::Path;
 
 use miden_objects::{
-    accounts::{Account, AccountDelta, AccountHeader, AccountId, AuthSecretKey},
+    accounts::{Account, AccountHeader, AccountId, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
     notes::{NoteTag, Nullifier},
-    BlockHeader, Digest, Felt, Word,
+    BlockHeader, Digest, Word,
 };
-use miden_tx::{auth::TransactionAuthenticator, AuthenticationError};
-use rand::Rng;
 use rusqlite::{vtab::array, Connection};
 use winter_maybe_async::*;
 
@@ -192,6 +190,10 @@ impl Store for SqliteStore {
         self.get_account_headers()
     }
 
+    fn get_account_auth_by_pub_key(&self, pub_key: Word) -> Result<AuthSecretKey, StoreError> {
+        self.get_account_auth_by_pub_key(pub_key)
+    }
+
     #[maybe_async]
     fn get_account_header(
         &self,
@@ -221,44 +223,6 @@ impl Store for SqliteStore {
     #[maybe_async]
     fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
         self.get_unspent_input_note_nullifiers()
-    }
-}
-
-/// Represents an authenticator based on a [Store]
-pub struct SqliteStoreAuthenticator<R> {
-    store: alloc::sync::Arc<SqliteStore>,
-    rng: RefCell<R>,
-}
-
-impl<R: Rng> SqliteStoreAuthenticator<R> {
-    pub fn new_with_rng(store: alloc::sync::Arc<SqliteStore>, rng: R) -> Self {
-        SqliteStoreAuthenticator { store, rng: RefCell::new(rng) }
-    }
-}
-
-impl<R: Rng> TransactionAuthenticator for SqliteStoreAuthenticator<R> {
-    /// Gets a signature over a message, given a public key.
-    ///
-    /// The pub key should correspond to one of the keys tracked by the authenticator's store.
-    ///
-    /// # Errors
-    /// If the public key is not found in the store, [AuthenticationError::UnknownKey] is
-    /// returned.
-    fn get_signature(
-        &self,
-        pub_key: Word,
-        message: Word,
-        _account_delta: &AccountDelta,
-    ) -> Result<Vec<Felt>, AuthenticationError> {
-        let mut rng = self.rng.borrow_mut();
-
-        let secret_key = self
-            .store
-            .get_account_auth_by_pub_key(pub_key)
-            .map_err(|_| AuthenticationError::UnknownKey(format!("{}", Digest::from(pub_key))))?;
-
-        let AuthSecretKey::RpoFalcon512(k) = secret_key;
-        miden_tx::auth::signatures::get_falcon_signature(&k, message, &mut *rng)
     }
 }
 

@@ -34,7 +34,10 @@ use crate::{
         },
         AccountDetails, NodeRpcClient, NoteDetails, NoteInclusionDetails, RpcError, StateSyncInfo,
     },
-    store::sqlite_store::{config::SqliteStoreConfig, SqliteStore, SqliteStoreAuthenticator},
+    store::{
+        sqlite_store::{config::SqliteStoreConfig, SqliteStore},
+        StoreAuthenticator,
+    },
     Client,
 };
 
@@ -318,7 +321,7 @@ pub fn create_test_client() -> (MockClient, MockRpcApi) {
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-    let authenticator = SqliteStoreAuthenticator::new_with_rng(store.clone(), rng);
+    let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
     let rpc_api = MockRpcApi::new();
     let boxed_rpc_api = Box::new(rpc_api.clone());
 

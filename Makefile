@@ -19,11 +19,11 @@ NODE_BRANCH="next"
 
 .PHONY: clippy
  clippy: ## Run Clippy with configs
-	cargo +nightly clippy --workspace --exclude miden-client-web --all-targets $(FEATURES_CLI) -- -D warnings --allow clippy::needless_return --allow clippy::arc_with_non_send_sync
+	cargo clippy --workspace --exclude miden-client-web --all-targets $(FEATURES_CLI) -- -D warnings --allow clippy::needless_return --allow clippy::arc_with_non_send_sync
 
 .PHONY: clippy-wasm
  clippy-wasm: ## Run Clippy for the miden-client-web package
-	cargo +nightly clippy --package miden-client-web --target wasm32-unknown-unknown --all-targets $(FEATURES_WEB_CLIENT) -- -D warnings --allow clippy::needless_return  --allow clippy::arc_with_non_send_sync
+	cargo clippy --package miden-client-web --target wasm32-unknown-unknown --all-targets $(FEATURES_WEB_CLIENT) -- -D warnings --allow clippy::needless_return  --allow clippy::arc_with_non_send_sync
 
 .PHONY: fix
 fix: ## Run Fix with configs

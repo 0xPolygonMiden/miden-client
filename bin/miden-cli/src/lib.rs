@@ -7,8 +7,8 @@ use miden_client::{
     crypto::{FeltRng, RpoRandomCoin},
     rpc::TonicRpcClient,
     store::{
-        sqlite_store::{SqliteStore, SqliteStoreAuthenticator},
-        NoteFilter as ClientNoteFilter, OutputNoteRecord,
+        sqlite_store::SqliteStore, NoteFilter as ClientNoteFilter, OutputNoteRecord,
+        StoreAuthenticator,
     },
     Client, ClientError, Felt, IdPrefixFetchError,
 };
@@ -108,7 +108,7 @@ impl Cli {
         let coin_seed: [u64; 4] = rng.gen();
 
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
-        let authenticator = SqliteStoreAuthenticator::new_with_rng(store.clone(), rng);
+        let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
 
         let client = Client::new(
             Box::new(TonicRpcClient::new(&cli_config.rpc)),

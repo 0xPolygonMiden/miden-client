@@ -11,8 +11,8 @@ use miden_client::{
     notes::create_p2id_note,
     rpc::{RpcError, TonicRpcClient},
     store::{
-        sqlite_store::{config::SqliteStoreConfig, SqliteStore, SqliteStoreAuthenticator},
-        NoteFilter, TransactionFilter,
+        sqlite_store::{config::SqliteStoreConfig, SqliteStore},
+        NoteFilter, StoreAuthenticator, TransactionFilter,
     },
     sync::SyncSummary,
     transactions::{DataStoreError, TransactionExecutorError, TransactionRequest},
@@ -59,7 +59,7 @@ pub fn create_test_client() -> TestClient {
 
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
-    let authenticator = SqliteStoreAuthenticator::new_with_rng(store.clone(), rng);
+    let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
     TestClient::new(
         Box::new(TonicRpcClient::new(&rpc_config)),
         rng,

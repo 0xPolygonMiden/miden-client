@@ -3,7 +3,7 @@ use alloc::sync::Arc;
 
 use miden_client::{
     rpc::WebTonicRpcClient,
-    store::web_store::{WebStore, WebStoreAuthenticator},
+    store::{web_store::WebStore, StoreAuthenticator},
     Client,
 };
 use miden_objects::{crypto::rand::RpoRandomCoin, Felt};
@@ -53,7 +53,7 @@ impl WebClient {
             .await
             .map_err(|_| JsValue::from_str("Failed to initialize WebStore"))?;
         let web_store = Arc::new(web_store);
-        let authenticator = Arc::new(WebStoreAuthenticator::new_with_rng(web_store.clone(), rng));
+        let authenticator = Arc::new(StoreAuthenticator::new_with_rng(web_store.clone(), rng));
         let web_rpc_client = Box::new(WebTonicRpcClient::new(
             &node_url.unwrap_or_else(|| "http://18.203.155.106:57291".to_string()),
         ));
