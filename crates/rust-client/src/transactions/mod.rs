@@ -16,17 +16,15 @@ use miden_objects::{
     transaction::{InputNotes, TransactionArgs},
     AssetError, Digest, Felt, NoteError, Word,
 };
-use miden_tx::{
-    auth::TransactionAuthenticator, LocalTransactionProver, ProvingOptions, TransactionProver,
-};
+use miden_tx::{LocalTransactionProver, ProvingOptions, TransactionProver};
 use script_builder::{AccountCapabilities, AccountInterface, TransactionScriptBuilder};
 use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
 
-use super::{rpc::NodeRpcClient, Client, FeltRng};
+use super::{Client, FeltRng};
 use crate::{
     notes::NoteScreener,
-    store::{InputNoteRecord, NoteFilter, Store, TransactionFilter},
+    store::{InputNoteRecord, NoteFilter, TransactionFilter},
     ClientError,
 };
 
@@ -63,9 +61,9 @@ impl TransactionResult {
     /// Screens the output notes to store and track the relevant ones, and instantiates a
     /// [TransactionResult]
     #[maybe_async]
-    pub fn new<S: Store>(
+    pub fn new(
         transaction: ExecutedTransaction,
-        note_screener: NoteScreener<S>,
+        note_screener: NoteScreener,
         partial_notes: Vec<NoteDetails>,
     ) -> Result<Self, ClientError> {
         let mut relevant_notes = vec![];
@@ -189,7 +187,7 @@ impl fmt::Display for TransactionStatus {
     }
 }
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
+impl<R: FeltRng> Client<R> {
     // TRANSACTION DATA RETRIEVAL
     // --------------------------------------------------------------------------------------------
 
@@ -231,7 +229,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 
         let authenticated_note_records = maybe_await!(self
             .store
-            .get_input_notes(NoteFilter::List(&authenticated_input_note_ids)))?;
+            .get_input_notes(NoteFilter::List(authenticated_input_note_ids.to_vec())))?;
 
         for authenticated_note_record in authenticated_note_records {
             if !authenticated_note_record.is_authenticated() {
@@ -428,7 +426,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
             .collect();
 
         let store_input_notes =
-            maybe_await!(self.get_input_notes(NoteFilter::List(&incoming_notes_ids)))
+            maybe_await!(self.get_input_notes(NoteFilter::List(incoming_notes_ids.to_vec())))
                 .map_err(|err| TransactionRequestError::NoteNotFound(err.to_string()))?;
 
         let all_incoming_assets =
@@ -543,7 +541,7 @@ impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client
 // ================================================================================================
 
 #[cfg(feature = "testing")]
-impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
+impl<R: FeltRng> Client<R> {
     #[maybe_async]
     pub fn testing_prove_transaction(
         &mut self,
@@ -675,7 +673,7 @@ mod test {
 
     #[tokio::test]
     async fn test_transaction_creates_two_notes() {
-        let mut client = create_test_client();
+        let (mut client, _) = create_test_client();
         let asset_1: Asset =
             FungibleAsset::new(ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN.try_into().unwrap(), 123)
                 .unwrap()

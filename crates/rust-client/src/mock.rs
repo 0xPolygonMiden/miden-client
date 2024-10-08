@@ -1,6 +1,7 @@
-use alloc::{collections::BTreeMap, vec::Vec};
-use std::{env::temp_dir, rc::Rc};
+use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
+use std::env::temp_dir;
 
+use async_trait::async_trait;
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::{
@@ -33,18 +34,20 @@ use crate::{
         },
         AccountDetails, NodeRpcClient, NoteDetails, NoteInclusionDetails, RpcError, StateSyncInfo,
     },
-    store::sqlite_store::{config::SqliteStoreConfig, SqliteStore},
-    store_authenticator::StoreAuthenticator,
+    store::{
+        sqlite_store::{config::SqliteStoreConfig, SqliteStore},
+        StoreAuthenticator,
+    },
     Client,
 };
 
-pub type MockClient =
-    Client<MockRpcApi, RpoRandomCoin, SqliteStore, StoreAuthenticator<RpoRandomCoin, SqliteStore>>;
+pub type MockClient = Client<RpoRandomCoin>;
 
 /// Mock RPC API
 ///
 /// This struct implements the RPC API used by the client to communicate with the node. It is
 /// intended to be used for testing purposes only.
+#[derive(Clone)]
 pub struct MockRpcApi {
     pub notes: BTreeMap<NoteId, InputNote>,
     pub blocks: Vec<Block>,
@@ -193,7 +196,8 @@ impl MockRpcApi {
         })
     }
 }
-
+use alloc::boxed::Box;
+#[async_trait(?Send)]
 impl NodeRpcClient for MockRpcApi {
     async fn sync_notes(
         &mut self,
@@ -301,7 +305,7 @@ impl NodeRpcClient for MockRpcApi {
 // HELPERS
 // ================================================================================================
 
-pub fn create_test_client() -> MockClient {
+pub fn create_test_client() -> (MockClient, MockRpcApi) {
     let store: SqliteStoreConfig = create_test_store_path()
         .into_os_string()
         .into_string()
@@ -310,7 +314,7 @@ pub fn create_test_client() -> MockClient {
         .unwrap();
 
     let store = SqliteStore::new(&store).unwrap();
-    let store = Rc::new(store);
+    let store = Arc::new(store);
 
     let mut rng = rand::thread_rng();
     let coin_seed: [u64; 4] = rng.gen();
@@ -318,8 +322,11 @@ pub fn create_test_client() -> MockClient {
     let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
 
     let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
+    let rpc_api = MockRpcApi::new();
+    let boxed_rpc_api = Box::new(rpc_api.clone());
 
-    MockClient::new(MockRpcApi::new(), rng, store, authenticator, true)
+    let client = MockClient::new(boxed_rpc_api, rng, store, Arc::new(authenticator), true);
+    (client, rpc_api)
 }
 
 pub fn create_test_store_path() -> std::path::PathBuf {

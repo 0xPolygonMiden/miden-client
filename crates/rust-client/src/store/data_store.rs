@@ -1,6 +1,7 @@
+#[cfg(feature = "async")]
+use alloc::boxed::Box;
 use alloc::{
     collections::{BTreeMap, BTreeSet},
-    rc::Rc,
     string::ToString,
     vec::Vec,
 };
@@ -13,27 +14,27 @@ use miden_objects::{
     BlockHeader,
 };
 use miden_tx::{DataStore, DataStoreError, TransactionInputs};
-use winter_maybe_async::{maybe_async, maybe_await};
+use winter_maybe_async::*;
 
-use super::{note_record::NoteRecordError, ChainMmrNodeFilter, InputNoteRecord, NoteFilter, Store};
+use super::{ChainMmrNodeFilter, InputNoteRecord, NoteFilter, NoteRecordError, Store};
 use crate::store::StoreError;
 
 // DATA STORE
 // ================================================================================================
 
 /// Wrapper structure that implements [DataStore] over any [Store].
-pub(crate) struct ClientDataStore<S: Store> {
+pub(crate) struct ClientDataStore {
     /// Local database containing information about the accounts managed by this client.
-    pub(crate) store: Rc<S>,
+    pub(crate) store: alloc::sync::Arc<dyn Store>,
 }
 
-impl<S: Store> ClientDataStore<S> {
-    pub fn new(store: Rc<S>) -> Self {
+impl ClientDataStore {
+    pub fn new(store: alloc::sync::Arc<dyn Store>) -> Self {
         Self { store }
     }
 }
-
-impl<S: Store> DataStore for ClientDataStore<S> {
+#[maybe_async_trait]
+impl DataStore for ClientDataStore {
     #[maybe_async]
     fn get_transaction_inputs(
         &self,
@@ -42,7 +43,7 @@ impl<S: Store> DataStore for ClientDataStore<S> {
         notes: &[NoteId],
     ) -> Result<TransactionInputs, DataStoreError> {
         let input_note_records: BTreeMap<NoteId, InputNoteRecord> =
-            maybe_await!(self.store.get_input_notes(NoteFilter::List(notes)))?
+            maybe_await!(self.store.get_input_notes(NoteFilter::List(notes.to_vec())))?
                 .into_iter()
                 .map(|note_record| (note_record.id(), note_record))
                 .collect();
@@ -91,11 +92,8 @@ impl<S: Store> DataStore for ClientDataStore<S> {
                 .map(|(header, _has_notes)| *header)
                 .collect();
 
-        let partial_mmr = maybe_await!(build_partial_mmr_with_paths(
-            self.store.as_ref(),
-            block_num,
-            &notes_blocks
-        ));
+        let partial_mmr =
+            maybe_await!(build_partial_mmr_with_paths(&self.store, block_num, &notes_blocks));
         let chain_mmr = ChainMmr::new(partial_mmr?, notes_blocks)
             .map_err(|err| DataStoreError::InternalError(err.to_string()))?;
 
@@ -113,8 +111,8 @@ impl<S: Store> DataStore for ClientDataStore<S> {
 /// `authenticated_blocks` cannot contain `forest`. For authenticating the last block we have,
 /// the kernel extends the MMR which is why it's not needed here.
 #[maybe_async]
-fn build_partial_mmr_with_paths<S: Store>(
-    store: &S,
+fn build_partial_mmr_with_paths(
+    store: &alloc::sync::Arc<dyn Store>,
     forest: u32,
     authenticated_blocks: &[BlockHeader],
 ) -> Result<PartialMmr, DataStoreError> {
@@ -144,8 +142,8 @@ fn build_partial_mmr_with_paths<S: Store>(
 /// This function assumes `block_nums` does not contain values above or equal to `forest`.
 /// If there are any such values, the function will panic when calling `mmr_merkle_path_len()`.
 #[maybe_async]
-fn get_authentication_path_for_blocks<S: Store>(
-    store: &S,
+fn get_authentication_path_for_blocks(
+    store: &alloc::sync::Arc<dyn Store>,
     block_nums: &[u32],
     forest: usize,
 ) -> Result<Vec<MerklePath>, StoreError> {
@@ -166,7 +164,7 @@ fn get_authentication_path_for_blocks<S: Store>(
     // Get all MMR nodes based on collected indices
     let node_indices: Vec<InOrderIndex> = node_indices.into_iter().collect();
 
-    let filter = ChainMmrNodeFilter::List(&node_indices);
+    let filter = ChainMmrNodeFilter::List(node_indices);
     let mmr_nodes = maybe_await!(store.get_chain_mmr_nodes(filter))?;
 
     // Construct authentication paths

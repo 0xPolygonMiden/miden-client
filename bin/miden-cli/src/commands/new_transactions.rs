@@ -4,11 +4,8 @@ use clap::{Parser, ValueEnum};
 use miden_client::{
     accounts::AccountId,
     assets::{FungibleAsset, NonFungibleDeltaAction},
-    auth::TransactionAuthenticator,
     crypto::{Digest, FeltRng},
     notes::{get_input_note_with_id_prefix, NoteId, NoteType as MidenNoteType},
-    rpc::NodeRpcClient,
-    store::Store,
     transactions::{
         build_swap_tag, PaymentTransactionData, SwapTransactionData, TransactionRequest,
         TransactionResult,
@@ -59,10 +56,7 @@ pub struct MintCmd {
 }
 
 impl MintCmd {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        &self,
-        mut client: Client<N, R, S, A>,
-    ) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         let force = self.force;
         let faucet_details_map = load_faucet_details_map()?;
 
@@ -112,10 +106,7 @@ pub struct SendCmd {
 }
 
 impl SendCmd {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        &self,
-        mut client: Client<N, R, S, A>,
-    ) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         let force = self.force;
 
         let faucet_details_map = load_faucet_details_map()?;
@@ -169,10 +160,7 @@ pub struct SwapCmd {
 }
 
 impl SwapCmd {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        &self,
-        mut client: Client<N, R, S, A>,
-    ) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         let force = self.force;
 
         let faucet_details_map = load_faucet_details_map()?;
@@ -234,10 +222,7 @@ pub struct ConsumeNotesCmd {
 }
 
 impl ConsumeNotesCmd {
-    pub async fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        &self,
-        mut client: Client<N, R, S, A>,
-    ) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         let force = self.force;
 
         let mut list_of_notes = self
@@ -272,13 +257,8 @@ impl ConsumeNotesCmd {
 // EXECUTE TRANSACTION
 // ================================================================================================
 
-async fn execute_transaction<
-    N: NodeRpcClient,
-    R: FeltRng,
-    S: Store,
-    A: TransactionAuthenticator,
->(
-    client: &mut Client<N, R, S, A>,
+async fn execute_transaction(
+    client: &mut Client<impl FeltRng>,
     account_id: AccountId,
     transaction_request: TransactionRequest,
     force: bool,

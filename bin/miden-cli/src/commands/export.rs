@@ -1,14 +1,8 @@
 use std::{fs::File, io::Write, path::PathBuf};
 
 use miden_client::{
-    accounts::AccountData,
-    auth::TransactionAuthenticator,
-    crypto::FeltRng,
-    notes::NoteFile,
-    rpc::NodeRpcClient,
-    store::{NoteStatus, Store},
-    utils::Serializable,
-    Client,
+    accounts::AccountData, crypto::FeltRng, notes::NoteFile, store::NoteStatus,
+    utils::Serializable, Client,
 };
 use tracing::info;
 
@@ -46,10 +40,7 @@ pub enum ExportType {
 }
 
 impl ExportCmd {
-    pub fn execute<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-        &self,
-        mut client: Client<N, R, S, A>,
-    ) -> Result<(), String> {
+    pub fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         if self.account {
             export_account(&client, self.id.as_str(), self.filename.clone())?;
         } else if let Some(export_type) = &self.export_type {
@@ -64,8 +55,8 @@ impl ExportCmd {
 // EXPORT ACCOUNT
 // ================================================================================================
 
-fn export_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: &Client<N, R, S, A>,
+fn export_account<R: FeltRng>(
+    client: &Client<R>,
     account_id: &str,
     filename: Option<PathBuf>,
 ) -> Result<File, String> {
@@ -95,8 +86,8 @@ fn export_account<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenti
 // EXPORT NOTE
 // ================================================================================================
 
-fn export_note<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator>(
-    client: &mut Client<N, R, S, A>,
+fn export_note(
+    client: &mut Client<impl FeltRng>,
     note_id: &str,
     filename: Option<PathBuf>,
     export_type: ExportType,

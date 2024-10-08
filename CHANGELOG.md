@@ -2,13 +2,14 @@
 
 ## 0.6.0 (TBD)
 
+* [BREAKING] Refactored Client struct to use trait objects for inner struct fields (#539).
 * Fixed panic on export command without type (#537).
-* Add Account Integration Tests for Web Client (#532)
+* Added Account Integration Tests for Web Client (#532).
 * [BREAKING] Refactored the `Store` structure and interface for input notes (#520).
 * Fixed Broken WASM (#519).
 * [BREAKING] Changed `PaymentTransactionData` and `TransactionRequest` to allow for multiple assets per note (#525).
 * [BREAKING] Removed serde's de/serialization from `NoteRecordDetails` and `NoteStatus` (#514).
-* Added support for custom transactions in web client (#519)
+* Added support for custom transactions in web client (#519).
 * [BREAKING] Renamed `off-chain` and `on-chain` to `private` and `public` respectively for the account storage modes (#516).
 * [BREAKING] Added IDs to `SyncSummary` fields (#513).
 * [BREAKING] Re-exported `TransactionRequest` from submodule, renamed `AccountDetails::Offchain` to `AccountDetails::Private`, renamed `NoteDetails::OffChain` to `NoteDetails::Private` (#508).

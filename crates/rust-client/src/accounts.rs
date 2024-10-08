@@ -17,11 +17,10 @@ use miden_objects::{
     crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
     Felt, Word,
 };
-use miden_tx::auth::TransactionAuthenticator;
 use winter_maybe_async::{maybe_async, maybe_await};
 
-use super::{rpc::NodeRpcClient, Client};
-use crate::{store::Store, ClientError};
+use super::Client;
+use crate::ClientError;
 
 /// Defines templates for creating different types of Miden accounts.
 pub enum AccountTemplate {
@@ -47,7 +46,7 @@ pub enum AccountTemplate {
     },
 }
 
-impl<N: NodeRpcClient, R: FeltRng, S: Store, A: TransactionAuthenticator> Client<N, R, S, A> {
+impl<R: FeltRng> Client<R> {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 
@@ -309,7 +308,7 @@ pub mod tests {
     #[test]
     pub fn try_import_new_account() {
         // generate test client
-        let mut client = create_test_client();
+        let (mut client, _rpc_api) = create_test_client();
 
         let account = Account::mock(
             ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN,
@@ -330,7 +329,7 @@ pub mod tests {
     #[test]
     fn load_accounts_test() {
         // generate test client
-        let mut client = create_test_client();
+        let (mut client, _) = create_test_client();
 
         let created_accounts_data = create_initial_accounts_data();
 
