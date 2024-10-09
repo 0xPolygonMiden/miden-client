@@ -1171,3 +1171,80 @@ async fn test_import_consumed_note_with_id() {
     let consumed_note = client_2.get_input_note(note.id()).unwrap();
     assert!(matches!(consumed_note.state(), NoteState::ConsumedExternal { .. }));
 }
+
+#[tokio::test]
+async fn test_discarded_transaction() {
+    let mut client_1 = create_test_client();
+    let (first_regular_account, _, faucet_account_header) =
+        setup(&mut client_1, AccountStorageMode::Private).await;
+
+    let mut client_2 = create_test_client();
+    let (second_regular_account, _) = client_2
+        .new_account(AccountTemplate::BasicWallet {
+            mutable_code: false,
+            storage_mode: AccountStorageMode::Private,
+        })
+        .unwrap();
+
+    wait_for_node(&mut client_2).await;
+
+    let from_account_id = first_regular_account.id();
+    let to_account_id = second_regular_account.id();
+    let faucet_account_id = faucet_account_header.id();
+
+    let note =
+        mint_note(&mut client_1, from_account_id, faucet_account_id, NoteType::Private).await;
+
+    consume_notes(&mut client_1, from_account_id, &[note]).await;
+
+    let current_block_num = client_1.get_sync_height().unwrap();
+    let asset = FungibleAsset::new(faucet_account_id, TRANSFER_AMOUNT).unwrap();
+
+    println!("Running P2IDR tx...");
+    let tx_request = TransactionRequest::pay_to_id(
+        PaymentTransactionData::new(vec![Asset::Fungible(asset)], from_account_id, to_account_id),
+        Some(current_block_num),
+        NoteType::Public,
+        client_1.rng(),
+    )
+    .unwrap();
+
+    execute_tx_and_sync(&mut client_1, from_account_id, tx_request).await;
+    client_2.sync_state().await.unwrap();
+    let note = client_1
+        .get_input_notes(NoteFilter::Committed)
+        .unwrap()
+        .first()
+        .unwrap()
+        .clone();
+
+    println!("Consuming Note...");
+    let tx_request = TransactionRequest::consume_notes(vec![note.id()]);
+
+    // Consume the note in client 1 but dont submit it to the node
+    let tx_result = client_1.new_transaction(from_account_id, tx_request.clone()).unwrap();
+    let tx_id = tx_result.executed_transaction().id();
+    client_1.testing_prove_transaction(&tx_result).unwrap();
+    client_1.testing_apply_transaction(tx_result).await.unwrap();
+
+    let note_record = client_1.get_input_note(note.id()).unwrap();
+    assert!(matches!(note_record.state(), NoteState::ProcessingAuthenticated(_)));
+
+    // Consume the note in client 2
+    execute_tx_and_sync(&mut client_2, to_account_id, tx_request).await;
+
+    let note_record = client_2.get_input_note(note.id()).unwrap();
+    assert!(matches!(note_record.state(), NoteState::ConsumedAuthenticatedLocal(_)));
+
+    // After sync the note in client 1 should be consumed externally and the transaction discarded
+    client_1.sync_state().await.unwrap();
+    let note_record = client_1.get_input_note(note.id()).unwrap();
+    assert!(matches!(note_record.state(), NoteState::ConsumedExternal(_)));
+    let tx_record = client_1
+        .get_transactions(TransactionFilter::All)
+        .unwrap()
+        .into_iter()
+        .find(|tx| tx.id == tx_id)
+        .unwrap();
+    assert!(matches!(tx_record.transaction_status, TransactionStatus::Discarded));
+}

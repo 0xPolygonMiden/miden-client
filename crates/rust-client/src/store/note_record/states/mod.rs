@@ -90,6 +90,10 @@ impl NoteState {
         self.inner().inclusion_proof()
     }
 
+    pub fn consumer_transaction_id(&self) -> Option<&TransactionId> {
+        self.inner().consumer_transaction_id()
+    }
+
     /// Returns a unique identifier for each note state.
     pub fn discriminant(&self) -> u8 {
         match self {
@@ -116,16 +120,13 @@ impl NoteState {
         self.inner().inclusion_proof_received(inclusion_proof, metadata)
     }
 
-    /// Returns a new to reflect that its nullifier has been received, meaning that the note has
-    /// been spent. If the note state doesn't change, `None` is returned.
-    ///
-    /// Errors:
-    /// - If the nullifier does not match the expected value.
-    pub fn nullifier_received(
+    /// Returns a new state to reflect that the note has been consumed by an external transaction.
+    /// If the note state doesn't change, `None` is returned.
+    pub fn consumed_externally(
         &self,
         nullifier_block_height: u32,
     ) -> Result<Option<NoteState>, NoteRecordError> {
-        self.inner().nullifier_received(nullifier_block_height)
+        self.inner().consumed_externally(nullifier_block_height)
     }
 
     /// Returns a new state to reflect that the note has received a block header.
@@ -148,6 +149,16 @@ impl NoteState {
         consumer_transaction: TransactionId,
     ) -> Result<Option<NoteState>, NoteRecordError> {
         self.inner().consumed_locally(consumer_account, consumer_transaction)
+    }
+
+    /// Returns a new state to reflect that the transaction currently consuming the note was
+    /// committed. If the note state doesn't change, `None` is returned.
+    pub fn transaction_committed(
+        &self,
+        transaction_id: TransactionId,
+        block_height: u32,
+    ) -> Result<Option<NoteState>, NoteRecordError> {
+        self.inner().transaction_committed(transaction_id, block_height)
     }
 }
 
@@ -276,13 +287,15 @@ pub trait NoteStateHandler {
 
     fn inclusion_proof(&self) -> Option<&NoteInclusionProof>;
 
+    fn consumer_transaction_id(&self) -> Option<&TransactionId>;
+
     fn inclusion_proof_received(
         &self,
         inclusion_proof: NoteInclusionProof,
         metadata: NoteMetadata,
     ) -> Result<Option<NoteState>, NoteRecordError>;
 
-    fn nullifier_received(
+    fn consumed_externally(
         &self,
         nullifier_block_height: u32,
     ) -> Result<Option<NoteState>, NoteRecordError>;
@@ -297,6 +310,12 @@ pub trait NoteStateHandler {
         &self,
         consumer_account: AccountId,
         consumer_transaction: TransactionId,
+    ) -> Result<Option<NoteState>, NoteRecordError>;
+
+    fn transaction_committed(
+        &self,
+        transaction_id: TransactionId,
+        block_height: u32,
     ) -> Result<Option<NoteState>, NoteRecordError>;
 }
 

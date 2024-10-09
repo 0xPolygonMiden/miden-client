@@ -6,7 +6,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use core::fmt;
+use core::fmt::{self};
 
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
@@ -174,6 +174,8 @@ pub enum TransactionStatus {
     Pending,
     /// Transaction has been committed and included at the specified block number
     Committed(u32),
+    /// Transaction has been discarded and is not included in the node
+    Discarded,
 }
 
 impl fmt::Display for TransactionStatus {
@@ -183,6 +185,7 @@ impl fmt::Display for TransactionStatus {
             TransactionStatus::Committed(block_number) => {
                 write!(f, "Committed (Block: {})", block_number)
             },
+            TransactionStatus::Discarded => write!(f, "Discarded"),
         }
     }
 }

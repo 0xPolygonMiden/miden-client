@@ -139,7 +139,7 @@ impl<R: FeltRng> Client<R> {
         if let Some(block_height) =
             self.rpc_api.get_nullifier_commit_height(&note_record.nullifier()).await?
         {
-            if note_record.nullifier_received(note_record.nullifier(), block_height)? {
+            if note_record.consumed_externally(note_record.nullifier(), block_height)? {
                 return Ok(Some(note_record));
             }
 

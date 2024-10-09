@@ -35,7 +35,7 @@ impl NoteStateHandler for ExpectedNoteState {
         Ok(Some(UnverifiedNoteState { metadata, inclusion_proof }.into()))
     }
 
-    fn nullifier_received(
+    fn consumed_externally(
         &self,
         nullifier_block_height: u32,
     ) -> Result<Option<NoteState>, NoteRecordError> {
@@ -80,11 +80,25 @@ impl NoteStateHandler for ExpectedNoteState {
         }
     }
 
+    fn transaction_committed(
+        &self,
+        _transaction_id: TransactionId,
+        _block_height: u32,
+    ) -> Result<Option<NoteState>, NoteRecordError> {
+        Err(NoteRecordError::InvalidStateTransition(
+            "Only processing notes can be committed in a local transaction".to_string(),
+        ))
+    }
+
     fn metadata(&self) -> Option<&NoteMetadata> {
         self.metadata.as_ref()
     }
 
     fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
+        None
+    }
+
+    fn consumer_transaction_id(&self) -> Option<&TransactionId> {
         None
     }
 }
