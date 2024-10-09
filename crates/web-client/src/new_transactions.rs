@@ -6,17 +6,13 @@ use miden_client::{
         TransactionResult as NativeTransactionResult,
     },
 };
-use miden_objects::{
-    accounts::AccountId as NativeAccountId, assets::FungibleAsset, notes::NoteType as MidenNoteType,
-};
+use miden_objects::{accounts::AccountId as NativeAccountId, assets::FungibleAsset};
 use wasm_bindgen::prelude::*;
 
 use crate::{
     models::{
-        account_id::AccountId,
-        transaction_request::TransactionRequest,
-        transaction_result::TransactionResult,
-        transactions::{NewSwapTransactionResult, NewTransactionResult},
+        account_id::AccountId, note_type::NoteType, transaction_request::TransactionRequest,
+        transaction_result::TransactionResult, transactions::NewSwapTransactionResult,
     },
     WebClient,
 };
@@ -29,16 +25,14 @@ impl WebClient {
         transaction_request: &TransactionRequest,
     ) -> Result<TransactionResult, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let native_account_id: NativeAccountId = account_id.into();
-            let native_transaction_request: NativeTransactionRequest = transaction_request.into();
             let native_transaction_execution_result: NativeTransactionResult = client
-                .new_transaction(native_account_id, native_transaction_request)
+                .new_transaction(account_id.into(), transaction_request.into())
                 .await
-                .unwrap();
-            let transaction_execution_result = TransactionResult::from_native_transaction_result(
-                native_transaction_execution_result,
-            );
-            Ok(transaction_execution_result)
+                .map_err(|err| {
+                    JsValue::from_str(&format!("Failed to execute New Transaction: {}", err))
+                })?;
+
+            Ok(native_transaction_execution_result.into())
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }
@@ -50,7 +44,9 @@ impl WebClient {
     ) -> Result<(), JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let native_transaction_result: NativeTransactionResult = transaction_result.into();
-            client.submit_transaction(native_transaction_result).await.unwrap();
+            client.submit_transaction(native_transaction_result).await.map_err(|err| {
+                JsValue::from_str(&format!("Failed to submit Transaction: {}", err))
+            })?;
             Ok(())
         } else {
             Err(JsValue::from_str("Client not initialized"))
@@ -59,44 +55,42 @@ impl WebClient {
 
     pub async fn new_mint_transaction(
         &mut self,
-        target_account_id: String,
-        faucet_id: String,
-        note_type: String,
-        amount: String,
-    ) -> Result<NewTransactionResult, JsValue> {
+        target_account_id: &AccountId,
+        faucet_id: &AccountId,
+        note_type: &NoteType,
+        amount: u64,
+    ) -> Result<TransactionResult, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let target_account_id = NativeAccountId::from_hex(&target_account_id).unwrap();
-            let faucet_id = NativeAccountId::from_hex(&faucet_id).unwrap();
-            let amount_as_u64: u64 = amount.parse::<u64>().map_err(|err| err.to_string())?;
-            let fungible_asset =
-                FungibleAsset::new(faucet_id, amount_as_u64).map_err(|err| err.to_string())?;
-            let note_type = match note_type.as_str() {
-                "Public" => MidenNoteType::Public,
-                "Private" => MidenNoteType::Private,
-                _ => MidenNoteType::Private,
-            };
+            let fungible_asset = FungibleAsset::new(faucet_id.into(), amount).map_err(|err| {
+                JsValue::from_str(&format!("Failed to create Fungible Asset: {}", err))
+            })?;
 
             let mint_transaction_request = NativeTransactionRequest::mint_fungible_asset(
                 fungible_asset,
-                target_account_id,
-                note_type,
+                target_account_id.into(),
+                note_type.into(),
                 client.rng(),
             )
-            .unwrap();
+            .map_err(|err| {
+                JsValue::from_str(&format!("Failed to create Mint Transaction Request: {}", err))
+            })?;
 
-            let mint_transaction_execution_result =
-                client.new_transaction(faucet_id, mint_transaction_request).await.unwrap();
+            // TODO: Failing here
+            let mint_transaction_execution_result = client
+                .new_transaction(faucet_id.into(), mint_transaction_request)
+                .await
+                .map_err(|err| {
+                    JsValue::from_str(&format!("Failed to execute Mint Transaction: {}", err))
+                })?;
 
-            let result = NewTransactionResult::new(
-                mint_transaction_execution_result.executed_transaction().id().to_string(),
-                mint_transaction_execution_result
-                    .created_notes()
-                    .iter()
-                    .map(|note| note.id().to_string())
-                    .collect(),
-            );
+            let result = mint_transaction_execution_result.clone().into();
 
-            client.submit_transaction(mint_transaction_execution_result).await.unwrap();
+            client
+                .submit_transaction(mint_transaction_execution_result)
+                .await
+                .map_err(|err| {
+                    JsValue::from_str(&format!("Failed to submit Mint Transaction: {}", err))
+                })?;
 
             Ok(result)
         } else {
@@ -106,68 +100,67 @@ impl WebClient {
 
     pub async fn new_send_transaction(
         &mut self,
-        sender_account_id: String,
-        target_account_id: String,
-        faucet_id: String,
-        note_type: String,
-        amount: String,
-        recall_height: Option<String>,
-    ) -> Result<NewTransactionResult, JsValue> {
+        sender_account_id: &AccountId,
+        target_account_id: &AccountId,
+        faucet_id: &AccountId,
+        note_type: &NoteType,
+        amount: u64,
+        recall_height: Option<u32>,
+    ) -> Result<TransactionResult, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let sender_account_id = NativeAccountId::from_hex(&sender_account_id).unwrap();
-            let target_account_id = NativeAccountId::from_hex(&target_account_id).unwrap();
-            let faucet_id = NativeAccountId::from_hex(&faucet_id).unwrap();
-            let amount_as_u64: u64 = amount.parse::<u64>().map_err(|err| err.to_string())?;
-            let fungible_asset = FungibleAsset::new(faucet_id, amount_as_u64)
-                .map_err(|err| err.to_string())?
-                .into();
+            let fungible_asset = FungibleAsset::new(faucet_id.into(), amount).map_err(|err| {
+                JsValue::from_str(&format!("Failed to create Fungible Asset: {}", err))
+            })?;
 
-            let note_type = match note_type.as_str() {
-                "Public" => MidenNoteType::Public,
-                "Private" => MidenNoteType::Private,
-                _ => MidenNoteType::Private,
-            };
             let payment_transaction = PaymentTransactionData::new(
-                vec![fungible_asset],
-                sender_account_id,
-                target_account_id,
+                vec![fungible_asset.into()],
+                sender_account_id.into(),
+                target_account_id.into(),
             );
 
             let send_transaction_request = if let Some(recall_height) = recall_height {
-                let recall_height_as_u32: u32 =
-                    recall_height.parse::<u32>().map_err(|err| err.to_string())?;
-
                 NativeTransactionRequest::pay_to_id(
                     payment_transaction,
-                    Some(recall_height_as_u32),
-                    note_type,
+                    Some(recall_height),
+                    note_type.into(),
                     client.rng(),
                 )
-                .unwrap()
+                .map_err(|err| {
+                    JsValue::from_str(&format!(
+                        "Failed to create Send Transaction Request with Recall Height: {}",
+                        err
+                    ))
+                })?
             } else {
                 NativeTransactionRequest::pay_to_id(
                     payment_transaction,
                     None,
-                    note_type,
+                    note_type.into(),
                     client.rng(),
                 )
-                .unwrap()
+                .map_err(|err| {
+                    JsValue::from_str(&format!(
+                        "Failed to create Send Transaction Request: {}",
+                        err
+                    ))
+                })?
             };
 
             let send_transaction_execution_result = client
-                .new_transaction(sender_account_id, send_transaction_request)
+                .new_transaction(sender_account_id.into(), send_transaction_request)
                 .await
-                .unwrap();
-            let result = NewTransactionResult::new(
-                send_transaction_execution_result.executed_transaction().id().to_string(),
-                send_transaction_execution_result
-                    .created_notes()
-                    .iter()
-                    .map(|note| note.id().to_string())
-                    .collect(),
-            );
+                .map_err(|err| {
+                    JsValue::from_str(&format!("Failed to execute Send Transaction: {}", err))
+                })?;
 
-            client.submit_transaction(send_transaction_execution_result).await.unwrap();
+            let result = send_transaction_execution_result.clone().into();
+
+            client
+                .submit_transaction(send_transaction_execution_result)
+                .await
+                .map_err(|err| {
+                    JsValue::from_str(&format!("Failed to submit Mint Transaction: {}", err))
+                })?;
 
             Ok(result)
         } else {
@@ -177,32 +170,33 @@ impl WebClient {
 
     pub async fn new_consume_transaction(
         &mut self,
-        account_id: String,
-        list_of_notes: Vec<String>,
-    ) -> Result<NewTransactionResult, JsValue> {
+        account_id: &AccountId,
+        list_of_note_ids: Vec<String>,
+    ) -> Result<TransactionResult, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let account_id = NativeAccountId::from_hex(&account_id).unwrap();
             let mut result = Vec::new();
-            for note_id in list_of_notes {
-                match get_input_note_with_id_prefix(client, &note_id).await {
-                    Ok(note_record) => result.push(note_record.id()),
-                    Err(err) => return Err(JsValue::from_str(&err.to_string())),
-                }
+            for note_id in list_of_note_ids {
+                let note_record =
+                    get_input_note_with_id_prefix(client, &note_id).await.map_err(|err| {
+                        JsValue::from_str(&format!("Failed to get input note: {}", err))
+                    })?;
+                result.push(note_record.id());
             }
 
             let consume_transaction_request = NativeTransactionRequest::consume_notes(result);
-            let consume_transaction_execution_result =
-                client.new_transaction(account_id, consume_transaction_request).await.unwrap();
-            let result = NewTransactionResult::new(
-                consume_transaction_execution_result.executed_transaction().id().to_string(),
-                consume_transaction_execution_result
-                    .created_notes()
-                    .iter()
-                    .map(|note| note.id().to_string())
-                    .collect(),
-            );
 
-            client.submit_transaction(consume_transaction_execution_result).await.unwrap();
+            let consume_transaction_execution_result = client
+                .new_transaction(account_id.into(), consume_transaction_request)
+                .await
+                .map_err(|err| {
+                    JsValue::from_str(&format!("Failed to execute Consume Transaction: {}", err))
+                })?;
+
+            let result = consume_transaction_execution_result.clone().into();
+
+            client.submit_transaction(consume_transaction_execution_result).await.map_err(
+                |err| JsValue::from_str(&format!("Failed to submit Consume Transaction: {}", err)),
+            )?;
 
             Ok(result)
         } else {
@@ -217,7 +211,7 @@ impl WebClient {
         offered_asset_amount: String,
         requested_asset_faucet_id: String,
         requested_asset_amount: String,
-        note_type: String,
+        note_type: &NoteType,
     ) -> Result<NewSwapTransactionResult, JsValue> {
         if let Some(client) = self.get_mut_inner() {
             let sender_account_id = NativeAccountId::from_hex(&sender_account_id).unwrap();
@@ -240,21 +234,18 @@ impl WebClient {
                     .map_err(|err| err.to_string())?
                     .into();
 
-            let note_type = match note_type.as_str() {
-                "Public" => MidenNoteType::Public,
-                "Private" => MidenNoteType::Private,
-                _ => MidenNoteType::Private,
-            };
-
             let swap_transaction = SwapTransactionData::new(
                 sender_account_id,
                 offered_fungible_asset,
                 requested_fungible_asset,
             );
 
-            let swap_transaction_request =
-                NativeTransactionRequest::swap(swap_transaction.clone(), note_type, client.rng())
-                    .unwrap();
+            let swap_transaction_request = NativeTransactionRequest::swap(
+                swap_transaction.clone(),
+                note_type.into(),
+                client.rng(),
+            )
+            .unwrap();
             let swap_transaction_execution_result = client
                 .new_transaction(sender_account_id, swap_transaction_request.clone())
                 .await
@@ -275,7 +266,7 @@ impl WebClient {
             client.submit_transaction(swap_transaction_execution_result).await.unwrap();
 
             let payback_note_tag_u32: u32 = build_swap_tag(
-                note_type,
+                note_type.into(),
                 swap_transaction.offered_asset().faucet_id(),
                 swap_transaction.requested_asset().faucet_id(),
             )

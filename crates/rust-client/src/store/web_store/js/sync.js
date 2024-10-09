@@ -74,8 +74,6 @@ export async function applyStateSync(
     outputNoteIds,
     outputNoteInclusionProofsAsFlattenedVec,
     inputNoteIds,
-    inputNoteInluclusionProofsAsFlattenedVec,
-    inputNoteMetadatasAsFlattenedVec,
     transactionIds,
     transactionBlockNums
 ) {
@@ -84,7 +82,7 @@ export async function applyStateSync(
         await updateSpentNotes(tx, nullifierBlockNums, nullifiers);
         await updateBlockHeader(tx, blockNum, blockHeader, chainMmrPeaks, hasClientNotes);
         await updateChainMmrNodes(tx, nodeIndexes, nodes);
-        await updateCommittedNotes(tx, outputNoteIds, outputNoteInclusionProofsAsFlattenedVec, inputNoteIds, inputNoteInluclusionProofsAsFlattenedVec, inputNoteMetadatasAsFlattenedVec);
+        await updateCommittedNotes(tx, outputNoteIds, outputNoteInclusionProofsAsFlattenedVec, inputNoteIds);
         await updateCommittedTransactions(tx, transactionBlockNums, transactionIds);
     });
 }
@@ -192,16 +190,12 @@ async function updateCommittedNotes(
     outputNoteIds,
     outputNoteInclusionProofsAsFlattenedVec,
     inputNoteIds,
-    inputNoteInluclusionProofsAsFlattenedVec,
-    inputNoteMetadatasAsFlattenedVec
 ) {
     try {
         // Helper function to reconstruct arrays from flattened data
         function reconstructFlattenedVec(flattenedVec) {
             const data = flattenedVec.data();
-            console.log(data);   // Call data() method
             const lengths = flattenedVec.lengths();
-            console.log(lengths);  // Call lengths() method
 
             let index = 0;
             const result = [];
@@ -213,19 +207,9 @@ async function updateCommittedNotes(
         }
 
         const outputNoteInclusionProofs = reconstructFlattenedVec(outputNoteInclusionProofsAsFlattenedVec);
-        const inputNoteInclusionProofs = reconstructFlattenedVec(inputNoteInluclusionProofsAsFlattenedVec);
-        const inputNoteMetadatas = reconstructFlattenedVec(inputNoteMetadatasAsFlattenedVec);
 
         if (outputNoteIds.length !== outputNoteInclusionProofsAsFlattenedVec.num_inner_vecs()) {
             throw new Error("Arrays outputNoteIds and outputNoteInclusionProofs must be of the same length");
-        }
-
-        if (
-            inputNoteIds.length !== inputNoteInluclusionProofsAsFlattenedVec.num_inner_vecs() &&
-            inputNoteIds.length !== inputNoteMetadatasAsFlattenedVec.num_inner_vecs() &&
-            inputNoteInluclusionProofsAsFlattenedVec.num_inner_vecs() !== inputNoteMetadatasAsFlattenedVec.num_inner_vecs()
-        ) {
-            throw new Error("Arrays inputNoteIds and inputNoteInclusionProofs and inputNoteMetadatas must be of the same length");
         }
 
         for (let i = 0; i < outputNoteIds.length; i++) {
@@ -242,16 +226,10 @@ async function updateCommittedNotes(
 
         for (let i = 0; i < inputNoteIds.length; i++) {
             const noteId = inputNoteIds[i];
-            const inclusionProof = inputNoteInclusionProofs[i];
-            const metadata = inputNoteMetadatas[i];
-            const inclusionProofBlob = new Blob([new Uint8Array(inclusionProof)]);
-            const metadataBlob = new Blob([new Uint8Array(metadata)]);
 
             // Update input notes
             await tx.inputNotes.where({ noteId: noteId }).modify({
-                status: 'Committed',
-                inclusionProof: inclusionProofBlob,
-                metadata: metadataBlob
+                stateDiscriminant: 2, // STATE_COMMITTED
             });
         }
     } catch (error) {
