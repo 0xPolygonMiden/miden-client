@@ -22,7 +22,7 @@ use super::{
 use crate::{
     rpc::TransactionUpdate,
     store::{ExpectedNoteState, NoteFilter, NoteState, StoreError, TransactionFilter},
-    sync::{NoteTagRecord, NoteTagSource},
+    sync::NoteTagRecord,
     transactions::{TransactionRecord, TransactionResult, TransactionStatus},
 };
 
@@ -122,13 +122,7 @@ impl SqliteStore {
         for note in created_input_notes {
             upsert_input_note_tx(&tx, &note)?;
             if let NoteState::Expected(ExpectedNoteState { tag: Some(tag), .. }) = note.state() {
-                add_note_tag_tx(
-                    &tx,
-                    NoteTagRecord {
-                        tag: *tag,
-                        source: NoteTagSource::Note(note.id()),
-                    },
-                )?;
+                add_note_tag_tx(&tx, NoteTagRecord::with_note_source(*tag, note.id()))?;
             }
         }
 

@@ -45,9 +45,10 @@ impl<R: FeltRng> Client<R> {
     /// Removes a note tag for the client to track.
     #[maybe_async]
     pub fn remove_note_tag(&mut self, tag: NoteTag) -> Result<(), ClientError> {
-        if !maybe_await!(self
+        if maybe_await!(self
             .store
             .remove_note_tag(NoteTagRecord { tag, source: NoteTagSource::User }))?
+            == 0
         {
             warn!("Tag {} wasn't being tracked", tag);
         }
@@ -78,9 +79,28 @@ pub struct NoteTagRecord {
 /// the user and tags that are added automatically by the client to track notes .
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum NoteTagSource {
+    /// Tag for notes directed to a tracked account.
     Account(AccountId),
+    /// Tag for tracked expected notes.
     Note(NoteId),
+    /// Tag manually added by the user.
     User,
+}
+
+impl NoteTagRecord {
+    pub fn with_note_source(tag: NoteTag, note_id: NoteId) -> Self {
+        Self {
+            tag,
+            source: NoteTagSource::Note(note_id),
+        }
+    }
+
+    pub fn with_account_source(tag: NoteTag, account_id: AccountId) -> Self {
+        Self {
+            tag,
+            source: NoteTagSource::Account(account_id),
+        }
+    }
 }
 
 impl Serializable for NoteTagSource {

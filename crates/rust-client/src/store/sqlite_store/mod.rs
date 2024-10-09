@@ -84,7 +84,7 @@ impl Store for SqliteStore {
     }
 
     #[maybe_async]
-    fn remove_note_tag(&self, tag: NoteTagRecord) -> Result<bool, StoreError> {
+    fn remove_note_tag(&self, tag: NoteTagRecord) -> Result<usize, StoreError> {
         self.remove_note_tag(tag)
     }
 

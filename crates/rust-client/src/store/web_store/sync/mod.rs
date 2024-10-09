@@ -85,11 +85,7 @@ impl WebStore {
         Ok(true)
     }
 
-    pub(super) async fn remove_note_tag(&self, tag: NoteTagRecord) -> Result<bool, StoreError> {
-        if !self.get_note_tags().await?.contains(&tag) {
-            return Ok(false);
-        }
-
+    pub(super) async fn remove_note_tag(&self, tag: NoteTagRecord) -> Result<usize, StoreError> {
         let (source_note_id, source_account_id) = match tag.source {
             NoteTagSource::Note(note_id) => (Some(note_id.to_hex()), None),
             NoteTagSource::Account(account_id) => (None, Some(account_id.to_hex())),
@@ -97,9 +93,19 @@ impl WebStore {
         };
 
         let promise = idxdb_remove_note_tag(tag.tag.to_bytes(), source_note_id, source_account_id);
-        JsFuture::from(promise).await.unwrap();
+        let removed_tags = JsFuture::from(promise)
+            .await
+            .map_err(|js_error| {
+                StoreError::DatabaseError(format!("Failed to remove tags: {:?}", js_error))
+            })?
+            .as_string()
+            .ok_or(StoreError::ParsingError(
+                "Failed to parse number of removed tags".to_string(),
+            ))?;
 
-        Ok(true)
+        removed_tags.parse::<usize>().map_err(|_| {
+            StoreError::ParsingError("Failed to parse number of removed tags".to_string())
+        })
     }
 
     pub(super) async fn apply_state_sync(

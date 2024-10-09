@@ -62,7 +62,7 @@ export async function removeNoteTag(
         let tagHashArray = new Uint8Array(tag);
         let tagHashBase64 = uint8ArrayToBase64(tagHashArray);
 
-        await tags.delete({ tag: tagHashBase64, source_note_id, source_account_id });
+        return await tags.where({ tag: tagHashBase64, source_note_id, source_account_id }).delete();
     } catch {
         console.error("Failed to remove note tag: ", err);
         throw err;
