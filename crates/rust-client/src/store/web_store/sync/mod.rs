@@ -93,19 +93,9 @@ impl WebStore {
         };
 
         let promise = idxdb_remove_note_tag(tag.tag.to_bytes(), source_note_id, source_account_id);
-        let removed_tags = JsFuture::from(promise)
-            .await
-            .map_err(|js_error| {
-                StoreError::DatabaseError(format!("Failed to remove tags: {:?}", js_error))
-            })?
-            .as_string()
-            .ok_or(StoreError::ParsingError(
-                "Failed to parse number of removed tags".to_string(),
-            ))?;
+        let removed_tags = from_value(JsFuture::from(promise).await.unwrap()).unwrap();
 
-        removed_tags.parse::<usize>().map_err(|_| {
-            StoreError::ParsingError("Failed to parse number of removed tags".to_string())
-        })
+        Ok(removed_tags)
     }
 
     pub(super) async fn apply_state_sync(
