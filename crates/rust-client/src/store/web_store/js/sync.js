@@ -13,7 +13,13 @@ export async function getNoteTags() {
     try {
         let records = await tags.toArray();
 
-        return records;
+        let processedRecords = records.map((record) => {
+            record.source_note_id = record.source_note_id == "" ? null : record.source_note_id;
+            record.source_account_id = record.source_account_id == "" ? null : record.source_account_id;
+            return record;
+        });
+
+        return processedRecords;
     } catch (error) {
         console.error('Error fetching tag record:', error.toString());
         return null;
@@ -45,8 +51,11 @@ export async function addNoteTag(
     try {
         let tagArray = new Uint8Array(tag);
         let tagBase64 = uint8ArrayToBase64(tagArray);
-
-        await tags.add({ tag: tagBase64, source_note_id, source_account_id  });
+        await tags.add({
+            tag: tagBase64,
+            source_note_id: source_note_id ? source_note_id : "",
+            source_account_id: source_account_id ? source_account_id : ""
+        });
     } catch {
         console.error("Failed to add note tag: ", err);
         throw err;
@@ -59,12 +68,16 @@ export async function removeNoteTag(
     source_account_id
 ) {
     try {
-        let tagHashArray = new Uint8Array(tag);
-        let tagHashBase64 = uint8ArrayToBase64(tagHashArray);
+        let tagArray = new Uint8Array(tag);
+        let tagBase64 = uint8ArrayToBase64(tagArray);
 
-        return await tags.where({ tag: tagHashBase64, source_note_id, source_account_id }).delete();
+        return await tags.where({
+            tag: tagBase64,
+            source_note_id: source_note_id ? source_note_id : "",
+            source_account_id: source_account_id ? source_account_id : ""
+        }).delete();
     } catch {
-        console.error("Failed to remove note tag: ", err);
+        console.log("Failed to remove note tag: ", err.toString());
         throw err;
     }
 }
