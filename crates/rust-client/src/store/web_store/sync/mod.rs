@@ -161,7 +161,6 @@ impl WebStore {
             if let Some(input_note_record) =
                 relevant_input_notes.iter_mut().find(|n| n.id() == input_note.id())
             {
-
                 let inclusion_proof_received = input_note_record
                     .inclusion_proof_received(inclusion_proof.clone(), *metadata)?;
                 let block_header_received =
@@ -245,14 +244,14 @@ impl WebStore {
             .map(|input_note| input_note.id())
             .collect::<Vec<_>>();
         let updated_input_notes =
-            self.get_input_notes(NoteFilter::List(&updated_input_note_ids)).await.unwrap();
+            self.get_input_notes(NoteFilter::List(updated_input_note_ids)).await.unwrap();
 
         let nullifiers = nullifiers
             .iter()
             .map(|nullifier_update| nullifier_update.nullifier)
             .collect::<Vec<_>>();
         let nullified_notes =
-            self.get_input_notes(NoteFilter::Nullifiers(&nullifiers)).await.unwrap();
+            self.get_input_notes(NoteFilter::Nullifiers(nullifiers)).await.unwrap();
 
         let mut relevant_notes = updated_input_notes;
         relevant_notes.extend(nullified_notes);
