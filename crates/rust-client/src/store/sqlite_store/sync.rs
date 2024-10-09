@@ -26,9 +26,9 @@ impl SqliteStore {
                 Ok(result?).and_then(|(tag, source): (Vec<u8>, Vec<u8>)| {
                     Ok(NoteTagRecord {
                         tag: NoteTag::read_from_bytes(&tag)
-                            .map_err(|err| StoreError::ParsingError(err.to_string()))?,
+                            .map_err(StoreError::DataDeserializationError)?,
                         source: NoteTagSource::read_from_bytes(&source)
-                            .map_err(|err| StoreError::ParsingError(err.to_string()))?,
+                            .map_err(StoreError::DataDeserializationError)?,
                     })
                 })
             })
@@ -49,18 +49,14 @@ impl SqliteStore {
         Ok(true)
     }
 
-    pub(super) fn remove_note_tag(&self, tag: NoteTagRecord) -> Result<bool, StoreError> {
-        if !self.get_note_tags()?.contains(&tag) {
-            return Ok(false);
-        }
-
+    pub(super) fn remove_note_tag(&self, tag: NoteTagRecord) -> Result<usize, StoreError> {
         let mut db = self.db();
         let tx = db.transaction()?;
-        remove_note_tag_tx(&tx, tag)?;
+        let removed_tags = remove_note_tag_tx(&tx, tag)?;
 
         tx.commit()?;
 
-        Ok(true)
+        Ok(removed_tags)
     }
 
     pub(super) fn get_sync_height(&self) -> Result<u32, StoreError> {
@@ -146,10 +142,10 @@ impl SqliteStore {
 
                 remove_note_tag_tx(
                     &tx,
-                    NoteTagRecord {
-                        tag: input_note.note().metadata().tag(),
-                        source: NoteTagSource::Note(input_note_record.id()),
-                    },
+                    NoteTagRecord::with_note_source(
+                        input_note.note().metadata().tag(),
+                        input_note_record.id(),
+                    ),
                 )?;
             }
         }
@@ -280,9 +276,9 @@ pub(super) fn add_note_tag_tx(tx: &Transaction<'_>, tag: NoteTagRecord) -> Resul
 pub(super) fn remove_note_tag_tx(
     tx: &Transaction<'_>,
     tag: NoteTagRecord,
-) -> Result<(), StoreError> {
+) -> Result<usize, StoreError> {
     const QUERY: &str = "DELETE FROM tags WHERE tag = ? AND source = ?";
-    tx.execute(QUERY, params![tag.tag.to_bytes(), tag.source.to_bytes()])?;
+    let removed_tags = tx.execute(QUERY, params![tag.tag.to_bytes(), tag.source.to_bytes()])?;
 
-    Ok(())
+    Ok(removed_tags)
 }

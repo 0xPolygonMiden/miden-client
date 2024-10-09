@@ -289,7 +289,7 @@ pub trait Store {
     /// If the tag was not present in the store returns false since no tag was actually removed.
     /// Otherwise returns true.
     #[maybe_async]
-    fn remove_note_tag(&self, tag: NoteTagRecord) -> Result<bool, StoreError>;
+    fn remove_note_tag(&self, tag: NoteTagRecord) -> Result<usize, StoreError>;
 
     /// Returns the block number of the last state sync block.
     #[maybe_async]
