@@ -7,7 +7,7 @@ use alloc::{
 use miden_objects::{
     accounts::AccountId,
     crypto::utils::{Deserializable, Serializable},
-    transaction::{OutputNotes, ToInputNoteCommitments, TransactionScript},
+    transaction::{OutputNotes, ToInputNoteCommitments, TransactionId, TransactionScript},
     Digest,
 };
 use rusqlite::{params, Transaction};
@@ -26,8 +26,8 @@ use crate::{
 
 pub(crate) const INSERT_TRANSACTION_QUERY: &str =
     "INSERT INTO transactions (id, account_id, init_account_state, final_account_state, \
-    input_notes, output_notes, script_hash, block_num, commit_height) \
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    input_notes, output_notes, script_hash, block_num, commit_height, discarded) \
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
 pub(crate) const INSERT_TRANSACTION_SCRIPT_QUERY: &str =
     "INSERT OR IGNORE INTO transaction_scripts (script_hash, script) \
@@ -40,7 +40,8 @@ impl TransactionFilter {
     /// Returns a [String] containing the query for this Filter
     pub fn to_query(&self) -> String {
         const QUERY: &str = "SELECT tx.id, tx.account_id, tx.init_account_state, tx.final_account_state, \
-            tx.input_notes, tx.output_notes, tx.script_hash, script.script, tx.block_num, tx.commit_height \
+            tx.input_notes, tx.output_notes, tx.script_hash, script.script, tx.block_num, tx.commit_height, \
+            tx.discarded
             FROM transactions AS tx LEFT JOIN transaction_scripts AS script ON tx.script_hash = script.script_hash";
         match self {
             TransactionFilter::All => QUERY.to_string(),
@@ -63,6 +64,7 @@ type SerializedTransactionData = (
     Option<Vec<u8>>,
     u32,
     Option<u32>,
+    bool,
 );
 
 impl SqliteStore {
@@ -159,6 +161,25 @@ impl SqliteStore {
 
         Ok(rows)
     }
+
+    /// Set the provided transactions as committed
+    ///
+    /// # Errors
+    ///
+    /// This function can return an error if any of the updates to the transactions within the
+    /// database transaction fail.
+    pub(crate) fn mark_transactions_as_discarded(
+        tx: &Transaction<'_>,
+        transactions_to_discard: &[TransactionId],
+    ) -> Result<usize, StoreError> {
+        let mut rows = 0;
+        for transaction_id in transactions_to_discard {
+            const QUERY: &str = "UPDATE transactions set discarded=true where id=?";
+            rows += tx.execute(QUERY, params![transaction_id.to_string()])?;
+        }
+
+        Ok(rows)
+    }
 }
 
 pub(super) fn insert_proven_transaction_data(
@@ -176,6 +197,7 @@ pub(super) fn insert_proven_transaction_data(
         tx_script,
         block_num,
         committed,
+        discarded,
     ) = serialize_transaction_data(transaction_result)?;
 
     if let Some(hash) = script_hash.clone() {
@@ -194,6 +216,7 @@ pub(super) fn insert_proven_transaction_data(
             script_hash,
             block_num,
             committed,
+            discarded,
         ],
     )?;
 
@@ -239,6 +262,7 @@ pub(super) fn serialize_transaction_data(
         tx_script,
         transaction_result.block_num(),
         None,
+        false,
     ))
 }
 
@@ -255,6 +279,7 @@ fn parse_transaction_columns(
     let tx_script: Option<Vec<u8>> = row.get(7)?;
     let block_num: u32 = row.get(8)?;
     let commit_height: Option<u32> = row.get(9)?;
+    let discarded: bool = row.get(10)?;
 
     Ok((
         id,
@@ -267,6 +292,7 @@ fn parse_transaction_columns(
         tx_script,
         block_num,
         commit_height,
+        discarded,
     ))
 }
 
@@ -285,6 +311,7 @@ fn parse_transaction(
         tx_script,
         block_num,
         commit_height,
+        discarded,
     ) = serialized_transaction;
     let account_id = AccountId::try_from(account_id as u64)?;
     let id: Digest = id.try_into()?;
@@ -301,8 +328,11 @@ fn parse_transaction(
         .map(|script| TransactionScript::read_from_bytes(&script))
         .transpose()?;
 
-    let transaction_status =
-        commit_height.map_or(TransactionStatus::Pending, TransactionStatus::Committed);
+    let transaction_status = if discarded {
+        TransactionStatus::Discarded
+    } else {
+        commit_height.map_or(TransactionStatus::Pending, TransactionStatus::Committed)
+    };
 
     Ok(TransactionRecord {
         id: id.into(),

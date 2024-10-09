@@ -76,6 +76,10 @@ impl InputNoteRecord {
         &self.details
     }
 
+    pub fn consumer_transaction_id(&self) -> Option<&TransactionId> {
+        self.state.consumer_transaction_id()
+    }
+
     pub fn is_authenticated(&self) -> bool {
         matches!(
             self.state,
@@ -91,6 +95,13 @@ impl InputNoteRecord {
             NoteState::ConsumedExternal { .. }
                 | NoteState::ConsumedAuthenticatedLocal { .. }
                 | NoteState::ConsumedUnauthenticatedLocal { .. }
+        )
+    }
+
+    pub fn is_processing(&self) -> bool {
+        matches!(
+            self.state,
+            NoteState::ProcessingAuthenticated { .. } | NoteState::ProcessingUnauthenticated { .. }
         )
     }
 
@@ -130,12 +141,12 @@ impl InputNoteRecord {
         }
     }
 
-    /// Modifies the state of the note record to reflect that its nullifier has been received,
-    /// meaning that the note has been spent. Returns `true` if the state was changed.
+    /// Modifies the state of the note record to reflect that the note has been consumed by an
+    /// external transaction. Returns `true` if the state was changed.
     ///
     /// Errors:
     /// - If the nullifier does not match the expected value.
-    pub fn nullifier_received(
+    pub fn consumed_externally(
         &mut self,
         nullifier: Nullifier,
         nullifier_block_height: u32,
@@ -146,7 +157,7 @@ impl InputNoteRecord {
             ));
         }
 
-        let new_state = self.state.nullifier_received(nullifier_block_height)?;
+        let new_state = self.state.consumed_externally(nullifier_block_height)?;
         if let Some(new_state) = new_state {
             self.state = new_state;
             Ok(true)
@@ -163,6 +174,22 @@ impl InputNoteRecord {
         consumer_transaction: TransactionId,
     ) -> Result<bool, NoteRecordError> {
         let new_state = self.state.consumed_locally(consumer_account, consumer_transaction)?;
+        if let Some(new_state) = new_state {
+            self.state = new_state;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    /// Modifies the state of the note record to reflect that the transaction currently consuming
+    /// the note was committed. Returns `true` if the state was changed.3
+    pub fn transaction_committed(
+        &mut self,
+        transaction_id: TransactionId,
+        block_height: u32,
+    ) -> Result<bool, NoteRecordError> {
+        let new_state = self.state.transaction_committed(transaction_id, block_height)?;
         if let Some(new_state) = new_state {
             self.state = new_state;
             Ok(true)

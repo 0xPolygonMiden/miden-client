@@ -168,7 +168,23 @@ impl SqliteStore {
             upsert_input_note_tx(&tx, &input_note_record)?;
         }
 
+        // Committed transactions
+        for transaction_update in committed_transactions.iter() {
+            if let Some(input_note_record) = relevant_input_notes.iter_mut().find(|n| {
+                n.is_processing()
+                    && n.consumer_transaction_id() == Some(&transaction_update.transaction_id)
+            }) {
+                if input_note_record.transaction_committed(
+                    transaction_update.transaction_id,
+                    transaction_update.block_num,
+                )? {
+                    upsert_input_note_tx(&tx, input_note_record)?;
+                }
+            }
+        }
+
         // Update spent notes
+        let mut discarded_transactions = vec![];
         for nullifier_update in nullifiers.iter() {
             let nullifier = nullifier_update.nullifier;
             let block_num = nullifier_update.block_num;
@@ -176,7 +192,15 @@ impl SqliteStore {
             if let Some(input_note_record) =
                 relevant_input_notes.iter_mut().find(|n| n.nullifier() == nullifier)
             {
-                if input_note_record.nullifier_received(nullifier, block_num)? {
+                if input_note_record.is_processing() {
+                    discarded_transactions.push(
+                        *input_note_record
+                            .consumer_transaction_id()
+                            .expect("Processing note should have consumer transaction id"),
+                    );
+                }
+
+                if input_note_record.consumed_externally(nullifier, block_num)? {
                     upsert_input_note_tx(&tx, input_note_record)?;
                 }
             }
@@ -196,6 +220,9 @@ impl SqliteStore {
 
         // Mark transactions as committed
         Self::mark_transactions_as_committed(&tx, &committed_transactions)?;
+
+        // Marc transactions as discarded
+        Self::mark_transactions_as_discarded(&tx, &discarded_transactions)?;
 
         // Update onchain accounts on the db that have been updated onchain
         for account in updated_onchain_accounts {

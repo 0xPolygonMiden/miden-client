@@ -2,6 +2,7 @@ use alloc::string::ToString;
 
 use miden_objects::{
     notes::{compute_note_hash, NoteId, NoteInclusionProof, NoteMetadata},
+    transaction::TransactionId,
     BlockHeader, Digest,
 };
 
@@ -30,7 +31,7 @@ impl NoteStateHandler for InvalidNoteState {
         Ok(Some(UnverifiedNoteState { inclusion_proof, metadata }.into()))
     }
 
-    fn nullifier_received(
+    fn consumed_externally(
         &self,
         nullifier_block_height: u32,
     ) -> Result<Option<NoteState>, NoteRecordError> {
@@ -68,12 +69,26 @@ impl NoteStateHandler for InvalidNoteState {
         Err(NoteRecordError::NoteNotConsumable("Can't consume invalid note".to_string()))
     }
 
+    fn transaction_committed(
+        &self,
+        _transaction_id: TransactionId,
+        _block_height: u32,
+    ) -> Result<Option<NoteState>, NoteRecordError> {
+        Err(NoteRecordError::InvalidStateTransition(
+            "Only processing notes can be committed in a local transaction".to_string(),
+        ))
+    }
+
     fn metadata(&self) -> Option<&NoteMetadata> {
         Some(&self.metadata)
     }
 
     fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
         Some(&self.invalid_inclusion_proof)
+    }
+
+    fn consumer_transaction_id(&self) -> Option<&TransactionId> {
+        None
     }
 }
 

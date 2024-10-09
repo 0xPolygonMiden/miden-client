@@ -58,6 +58,7 @@ CREATE TABLE transactions (
     script_hash TEXT,                                -- Transaction script hash
     block_num UNSIGNED BIG INT,                      -- Block number for the block against which the transaction was executed.
     commit_height UNSIGNED BIG INT NULL,             -- Block number of the block at which the transaction was included in the chain.
+    discarded BOOLEAN NOT NULL,                      -- Boolean indicating if the transaction is discarded
     FOREIGN KEY (script_hash) REFERENCES transaction_scripts(script_hash),
     PRIMARY KEY (id)
 );
