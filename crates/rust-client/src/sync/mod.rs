@@ -30,6 +30,7 @@ mod block_headers;
 use block_headers::apply_mmr_changes;
 
 mod tags;
+pub use tags::{NoteTagRecord, NoteTagSource};
 
 /// Contains stats about the sync operation.
 pub struct SyncSummary {

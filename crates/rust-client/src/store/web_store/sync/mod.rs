@@ -3,7 +3,10 @@ use alloc::{
     vec::Vec,
 };
 
-use miden_objects::notes::{NoteInclusionProof, NoteTag};
+use miden_objects::{
+    accounts::AccountId,
+    notes::{NoteId, NoteInclusionProof, NoteTag},
+};
 use miden_tx::utils::{Deserializable, Serializable};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
@@ -12,7 +15,10 @@ use super::{
     chain_data::utils::serialize_chain_mmr_node, notes::utils::upsert_input_note_tx,
     transactions::utils::update_account, WebStore,
 };
-use crate::{store::StoreError, sync::StateSyncUpdate};
+use crate::{
+    store::StoreError,
+    sync::{NoteTagRecord, NoteTagSource, StateSyncUpdate},
+};
 
 mod js_bindings;
 use js_bindings::*;
@@ -24,15 +30,31 @@ mod flattened_vec;
 use flattened_vec::*;
 
 impl WebStore {
-    pub(crate) async fn get_note_tags(&self) -> Result<Vec<NoteTag>, StoreError> {
+    pub(crate) async fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, StoreError> {
         let promise = idxdb_get_note_tags();
         let js_value = JsFuture::from(promise).await.unwrap();
-        let tags_idxdb: NoteTagsIdxdbObject = from_value(js_value).unwrap();
+        let tags_idxdb: Vec<NoteTagIdxdbObject> = from_value(js_value).unwrap();
 
-        let tags: Vec<NoteTag> = match tags_idxdb.tags {
-            Some(ref bytes) => Vec::<NoteTag>::read_from_bytes(bytes).unwrap_or_default(), /* Handle possible error in deserialization */
-            None => Vec::new(), // Return an empty Vec if tags_idxdb.tags is None
-        };
+        let tags = tags_idxdb
+            .into_iter()
+            .map(|t| -> Result<NoteTagRecord, StoreError> {
+                let source = match (t.source_account_id, t.source_note_id) {
+                    (None, None) => NoteTagSource::User,
+                    (Some(account_id), None) => {
+                        NoteTagSource::Account(AccountId::from_hex(account_id.as_str())?)
+                    },
+                    (None, Some(note_id)) => {
+                        NoteTagSource::Note(NoteId::try_from_hex(note_id.as_str())?)
+                    },
+                    _ => return Err(StoreError::ParsingError("Invalid NoteTagSource".to_string())),
+                };
+
+                Ok(NoteTagRecord {
+                    tag: NoteTag::read_from_bytes(&t.tag)?,
+                    source,
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(tags)
     }
@@ -46,33 +68,34 @@ impl WebStore {
         Ok(block_num_as_u32)
     }
 
-    pub(super) async fn add_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError> {
-        let mut tags = self.get_note_tags().await.unwrap();
-        if tags.contains(&tag) {
+    pub(super) async fn add_note_tag(&self, tag: NoteTagRecord) -> Result<bool, StoreError> {
+        if self.get_note_tags().await?.contains(&tag) {
             return Ok(false);
         }
-        tags.push(tag);
-        let tags = tags.to_bytes();
 
-        let promise = idxdb_add_note_tag(tags);
+        let (source_note_id, source_account_id) = match tag.source {
+            NoteTagSource::Note(note_id) => (Some(note_id.to_hex()), None),
+            NoteTagSource::Account(account_id) => (None, Some(account_id.to_hex())),
+            NoteTagSource::User => (None, None),
+        };
+
+        let promise = idxdb_add_note_tag(tag.tag.to_bytes(), source_note_id, source_account_id);
         JsFuture::from(promise).await.unwrap();
 
         Ok(true)
     }
 
-    pub(super) async fn remove_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError> {
-        let mut tags = self.get_note_tags().await?;
-        if let Some(index_of_tag) = tags.iter().position(|&tag_candidate| tag_candidate == tag) {
-            tags.remove(index_of_tag);
+    pub(super) async fn remove_note_tag(&self, tag: NoteTagRecord) -> Result<usize, StoreError> {
+        let (source_note_id, source_account_id) = match tag.source {
+            NoteTagSource::Note(note_id) => (Some(note_id.to_hex()), None),
+            NoteTagSource::Account(account_id) => (None, Some(account_id.to_hex())),
+            NoteTagSource::User => (None, None),
+        };
 
-            let tags = tags.to_bytes();
+        let promise = idxdb_remove_note_tag(tag.tag.to_bytes(), source_note_id, source_account_id);
+        let removed_tags = from_value(JsFuture::from(promise).await.unwrap()).unwrap();
 
-            let promise = idxdb_add_note_tag(tags);
-            JsFuture::from(promise).await.unwrap();
-            return Ok(true);
-        }
-
-        Ok(false)
+        Ok(removed_tags)
     }
 
     pub(super) async fn apply_state_sync(

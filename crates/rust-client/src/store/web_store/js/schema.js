@@ -28,6 +28,7 @@ const Table = {
   StateSync: 'stateSync',
   BlockHeaders: 'blockHeaders',
   ChainMmrNodes: 'chainMmrNodes',
+  Tags: 'tags',
 };
 
 const db = new Dexie(DATABASE_NAME);
@@ -45,6 +46,7 @@ db.version(1).stores({
   [Table.StateSync]: indexes('id'),
   [Table.BlockHeaders]: indexes('blockNum', 'hasClientNotes'),
   [Table.ChainMmrNodes]: indexes('id'),
+  [Table.Tags]: indexes('tag', 'source_note_id', 'source_account_id'),
 });
 
 function indexes(...items) {
@@ -53,7 +55,7 @@ function indexes(...items) {
 
 db.on('populate', () => {
   // Populate the stateSync table with default values
-  db.stateSync.put({ id: 1, blockNum: "0", tags: null });
+  db.stateSync.put({ id: 1, blockNum: "0" });
 });
 
 const accountCodes = db.table(Table.AccountCode);
@@ -69,14 +71,15 @@ const notesScripts = db.table(Table.NotesScripts);
 const stateSync = db.table(Table.StateSync);
 const blockHeaders = db.table(Table.BlockHeaders);
 const chainMmrNodes = db.table(Table.ChainMmrNodes);
+const tags = db.table(Table.Tags);
 
-export { 
+export {
     db,
-    accountCodes, 
-    accountStorages, 
-    accountVaults, 
-    accountAuths, 
-    accounts, 
+    accountCodes,
+    accountStorages,
+    accountVaults,
+    accountAuths,
+    accounts,
     transactions,
     transactionScripts,
     inputNotes,
@@ -85,4 +88,5 @@ export {
     stateSync,
     blockHeaders,
     chainMmrNodes,
+    tags,
 };

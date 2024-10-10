@@ -5,7 +5,7 @@ use alloc::{collections::BTreeMap, vec::Vec};
 use miden_objects::{
     accounts::{Account, AccountHeader, AccountId, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::{NoteTag, Nullifier},
+    notes::Nullifier,
     BlockHeader, Digest, Word,
 };
 use wasm_bindgen::prelude::*;
@@ -17,7 +17,7 @@ use super::{
     TransactionFilter,
 };
 use crate::{
-    sync::StateSyncUpdate,
+    sync::{NoteTagRecord, StateSyncUpdate},
     transactions::{TransactionRecord, TransactionResult},
 };
 
@@ -47,17 +47,17 @@ impl Store for WebStore {
     // SYNC
     // --------------------------------------------------------------------------------------------
     #[maybe_async]
-    fn get_note_tags(&self) -> Result<Vec<NoteTag>, StoreError> {
+    fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, StoreError> {
         self.get_note_tags().await
     }
 
     #[maybe_async]
-    fn add_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError> {
+    fn add_note_tag(&self, tag: NoteTagRecord) -> Result<bool, StoreError> {
         self.add_note_tag(tag).await
     }
 
     #[maybe_async]
-    fn remove_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError> {
+    fn remove_note_tag(&self, tag: NoteTagRecord) -> Result<usize, StoreError> {
         self.remove_note_tag(tag).await
     }
 

@@ -130,13 +130,18 @@ CREATE TABLE notes_scripts (
 -- Create state sync table
 CREATE TABLE state_sync (
     block_num UNSIGNED BIG INT NOT NULL,    -- the block number of the most recent state sync
-    tags BLOB NULL,                     -- the serialized list of tags, a NULL means an empty list
     PRIMARY KEY (block_num)
 );
 
+-- Create tags table
+CREATE TABLE tags (
+    tag BLOB NOT NULL,                  -- the serialized tag
+    source BLOB NOT NULL               -- the serialized tag source
+);
+
 -- insert initial row into state_sync table
-INSERT OR IGNORE INTO state_sync (block_num, tags)
-SELECT 0, NULL
+INSERT OR IGNORE INTO state_sync (block_num)
+SELECT 0
 WHERE (
     SELECT COUNT(*) FROM state_sync
 ) = 0;

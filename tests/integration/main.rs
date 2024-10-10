@@ -6,6 +6,7 @@ use miden_client::{
         ConsumedAuthenticatedLocalNoteState, InputNoteRecord, NoteFilter, NoteState, NoteStatus,
         TransactionFilter,
     },
+    sync::NoteTagSource,
     transactions::{
         PaymentTransactionData, TransactionExecutorError, TransactionRequest, TransactionStatus,
     },
@@ -163,7 +164,24 @@ async fn test_p2id_transfer() {
         client.rng(),
     )
     .unwrap();
-    execute_tx_and_sync(&mut client, from_account_id, tx_request).await;
+    let note = tx_request.expected_output_notes().next().unwrap().clone();
+    let transaction_id = execute_tx(&mut client, from_account_id, tx_request).await;
+
+    // Check that a note tag started being tracked for this note.
+    assert!(client
+        .get_note_tags()
+        .unwrap()
+        .into_iter()
+        .any(|tag| tag.source == NoteTagSource::Note(note.id())));
+
+    wait_for_tx(&mut client, transaction_id).await;
+
+    // Check that the tag is not longer being tracked
+    assert!(!client
+        .get_note_tags()
+        .unwrap()
+        .into_iter()
+        .any(|tag| tag.source == NoteTagSource::Note(note.id())));
 
     // Check that note is committed for the second account to consume
     println!("Fetching Committed Notes...");

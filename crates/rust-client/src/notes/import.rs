@@ -7,7 +7,8 @@ use miden_objects::{
 use winter_maybe_async::maybe_await;
 
 use crate::{
-    store::{ExpectedNoteState, InputNoteRecord},
+    store::{ExpectedNoteState, InputNoteRecord, NoteState},
+    sync::NoteTagRecord,
     Client, ClientError,
 };
 
@@ -17,7 +18,7 @@ impl<R: FeltRng> Client<R> {
 
     /// Imports a new input note into the client's store. The information stored depends on the
     /// type of note file provided. If the note existed previously, it will be updated with the
-    /// new information.
+    /// new information. The tag specified by the `NoteFile` will start being tracked.
     ///
     /// - If the note file is a [NoteFile::NoteId], the note is fetched from the node and stored in
     ///   the client's store. If the note is private or does not exist, an error is returned.
@@ -47,6 +48,11 @@ impl<R: FeltRng> Client<R> {
         };
 
         if let Some(note) = note {
+            if let NoteState::Expected(ExpectedNoteState { tag: Some(tag), .. }) = note.state() {
+                maybe_await!(self
+                    .store
+                    .add_note_tag(NoteTagRecord::with_note_source(*tag, note.id())))?;
+            }
             maybe_await!(self.store.upsert_input_note(note))?;
         }
 
@@ -90,6 +96,11 @@ impl<R: FeltRng> Client<R> {
                 if previous_note
                     .inclusion_proof_received(inclusion_proof, *note_details.metadata())?
                 {
+                    maybe_await!(self.store.remove_note_tag(NoteTagRecord::with_note_source(
+                        note_details.metadata().tag(),
+                        note_details.id()
+                    )))?;
+
                     Ok(Some(previous_note))
                 } else {
                     Ok(None)
@@ -162,6 +173,11 @@ impl<R: FeltRng> Client<R> {
             }
 
             if note_changed {
+                maybe_await!(self.store.remove_note_tag(NoteTagRecord::with_note_source(
+                    metadata.tag(),
+                    note_record.id()
+                )))?;
+
                 Ok(Some(note_record))
             } else {
                 Ok(None)
@@ -206,6 +222,11 @@ impl<R: FeltRng> Client<R> {
                     note_record.inclusion_proof_received(inclusion_proof, metadata)?;
 
                 if note_record.block_header_received(block_header)? | note_changed {
+                    maybe_await!(self.store.remove_note_tag(NoteTagRecord::with_note_source(
+                        metadata.tag(),
+                        note_record.id()
+                    )))?;
+
                     Ok(Some(note_record))
                 } else {
                     Ok(None)

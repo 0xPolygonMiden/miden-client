@@ -1,9 +1,9 @@
-import { 
-    accountCodes, 
-    accountStorages, 
-    accountVaults, 
-    accountAuths, 
-    accounts 
+import {
+    accountCodes,
+    accountStorages,
+    accountVaults,
+    accountAuths,
+    accounts
 } from './schema.js';
 
 // GET FUNCTIONS
@@ -24,7 +24,7 @@ export async function getAccountIds() {
 }
 
 export async function getAllAccountHeaders() {
-    try {        
+    try {
         // Use a Map to track the latest record for each id based on nonce
         const latestRecordsMap = new Map();
 
@@ -73,12 +73,12 @@ export async function getAccountHeader(
           .where('id')
           .equals(accountId)
           .toArray();
-    
+
         if (allMatchingRecords.length === 0) {
           console.log('No records found for given ID.');
           throw new Error("No records found for given ID.")
         }
-    
+
         // Convert nonce to BigInt and sort
         // Note: This assumes all nonces are valid BigInt strings.
         const sortedRecords = allMatchingRecords.sort((a, b) => {
@@ -86,7 +86,7 @@ export async function getAccountHeader(
           const bigIntB = BigInt(b.nonce);
           return bigIntA > bigIntB ? -1 : bigIntA < bigIntB ? 1 : 0;
         });
-    
+
         // The first record is the most recent one due to the sorting
         const mostRecentRecord = sortedRecords[0];
 
@@ -174,7 +174,7 @@ export async function getAccountCode(
         const codeArrayBuffer = await codeRecord.code.arrayBuffer();
         const codeArray = new Uint8Array(codeArrayBuffer);
         const codeBase64 = uint8ArrayToBase64(codeArray);
-        
+
         return {
             root: codeRecord.root,
             code: codeBase64,
@@ -347,8 +347,8 @@ export async function fetchAndCacheAccountAuthByPubKey(
 // INSERT FUNCTIONS
 
 export async function insertAccountCode(
-    codeRoot, 
-    code, 
+    codeRoot,
+    code,
 ) {
     try {
         // Create a Blob from the ArrayBuffer
@@ -369,7 +369,7 @@ export async function insertAccountCode(
 }
 
 export async function insertAccountStorage(
-    storageRoot, 
+    storageRoot,
     storageSlots
 ) {
     try {
@@ -390,7 +390,7 @@ export async function insertAccountStorage(
 }
 
 export async function insertAccountAssetVault(
-    vaultRoot, 
+    vaultRoot,
     assets
 ) {
     try {
@@ -425,7 +425,7 @@ export async function insertAccountRecord(
         if (account_seed) {
             accountSeedBlob = new Blob([new Uint8Array(account_seed)]);
         }
-        
+
 
         // Prepare the data object to insert
         const data = {
@@ -448,7 +448,7 @@ export async function insertAccountRecord(
 }
 
 export async function insertAccountAuth(
-    accountId, 
+    accountId,
     authInfo,
     pubKey
 ) {
