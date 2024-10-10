@@ -229,7 +229,7 @@ impl<R: FeltRng> Client<R> {
         // `get_transaction_inputs`
         let authenticated_input_note_ids: Vec<NoteId> =
             transaction_request.authenticated_input_note_ids().collect::<Vec<_>>();
-        
+
         let authenticated_note_records = maybe_await!(self
             .store
             .get_input_notes(NoteFilter::List(authenticated_input_note_ids.to_vec())))?;
@@ -331,7 +331,9 @@ impl<R: FeltRng> Client<R> {
     ) -> Result<ProvenTransaction, ClientError> {
         let transaction_prover = LocalTransactionProver::new(ProvingOptions::default());
         info!("Proving transaction...");
-        let proven_transaction = maybe_await!(transaction_prover.prove(tx_result.executed_transaction().clone().into()))?;
+        let proven_transaction = maybe_await!(
+            transaction_prover.prove(tx_result.executed_transaction().clone().into())
+        )?;
         info!("Transaction proven.");
 
         Ok(proven_transaction)

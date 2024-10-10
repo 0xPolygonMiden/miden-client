@@ -16,17 +16,11 @@ impl TransactionStatus {
     }
 
     pub fn is_pending(&self) -> bool {
-        match self.0 {
-            NativeTransactionStatus::Pending => true,
-            _ => false,
-        }
+        matches!(self.0, NativeTransactionStatus::Pending)
     }
 
     pub fn is_committed(&self) -> bool {
-        match self.0 {
-            NativeTransactionStatus::Committed(_) => true,
-            _ => false,
-        }
+        matches!(self.0, NativeTransactionStatus::Committed(_))
     }
 
     pub fn get_block_num(&self) -> Option<u32> {

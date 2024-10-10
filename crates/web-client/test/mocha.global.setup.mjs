@@ -1,5 +1,5 @@
-import * as chai from 'chai';
-import chaiAsPromised from 'chai-as-promised';
+import * as chai from "chai";
+import chaiAsPromised from "chai-as-promised";
 import puppeteer from "puppeteer";
 import { spawn } from "child_process";
 
@@ -26,10 +26,10 @@ before(async () => {
   console.log("Starting test server...");
   serverProcess = spawn("http-server", ["./dist", "-p", TEST_SERVER_PORT], {
     stdio: "inherit",
-    shell: process.platform == 'win32'
+    shell: process.platform == "win32",
   });
 
-  browser = await puppeteer.launch({ headless: true });
+  browser = await puppeteer.launch({ headless: true, protocolTimeout: 60000 });
   testingPage = await browser.newPage();
   await testingPage.goto(TEST_SERVER);
 
@@ -40,12 +40,12 @@ before(async () => {
   // Creates the client in the test context and attach to window object
   await testingPage.exposeFunction("create_client", async () => {
     await testingPage.evaluate(async (port) => {
-      const { 
+      const {
         Account,
-        AccountHeader, 
+        AccountHeader,
         AccountStorageMode,
         AdviceMap,
-        AuthSecretKey, 
+        AuthSecretKey,
         Felt,
         FeltArray,
         FungibleAsset,
@@ -68,7 +68,7 @@ before(async () => {
         TransactionRequest,
         TransactionScriptInputPair,
         TransactionScriptInputPairArray,
-        WebClient 
+        WebClient,
       } = await import("./index.js");
       let rpc_url = `http://localhost:${port}`;
       const client = new WebClient();

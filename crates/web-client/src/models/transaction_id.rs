@@ -37,6 +37,6 @@ impl From<NativeTransactionId> for TransactionId {
 
 impl From<&NativeTransactionId> for TransactionId {
     fn from(native_id: &NativeTransactionId) -> Self {
-        TransactionId(native_id.clone())
+        TransactionId(*native_id)
     }
 }

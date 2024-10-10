@@ -35,7 +35,7 @@ impl From<NativeNoteHeader> for NoteHeader {
 
 impl From<&NativeNoteHeader> for NoteHeader {
     fn from(native_note_header: &NativeNoteHeader) -> Self {
-        NoteHeader(native_note_header.clone())
+        NoteHeader(*native_note_header)
     }
 }
 
@@ -47,6 +47,6 @@ impl From<NoteHeader> for NativeNoteHeader {
 
 impl From<&NoteHeader> for NativeNoteHeader {
     fn from(note_header: &NoteHeader) -> Self {
-        note_header.0.clone()
+        note_header.0
     }
 }
