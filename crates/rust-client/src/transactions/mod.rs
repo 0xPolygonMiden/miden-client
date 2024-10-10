@@ -331,8 +331,9 @@ impl<R: FeltRng> Client<R> {
         let transaction_prover = LocalTransactionProver::new(ProvingOptions::default());
 
         info!("Proving transaction...");
-        let proven_transaction =
-            maybe_await!(transaction_prover.prove(tx_result.executed_transaction().clone()))?;
+        let proven_transaction = maybe_await!(
+            transaction_prover.prove(tx_result.executed_transaction().clone().into())
+        )?;
         info!("Transaction proven.");
 
         Ok(proven_transaction)
