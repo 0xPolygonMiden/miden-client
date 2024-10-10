@@ -11,7 +11,7 @@ use winter_maybe_async::{maybe_async, maybe_await};
 use super::SyncedNewNotes;
 use crate::{
     notes::NoteScreener,
-    store::{ChainMmrNodeFilter, NoteFilter, StoreError},
+    store::{ChainMmrNodeFilter, NoteFilter, StoreError, STATE_UNVERIFIED},
     Client, ClientError,
 };
 
@@ -20,7 +20,12 @@ impl<R: FeltRng> Client<R> {
     /// imported with an inclusion proof, but its block header is not tracked.
     pub(crate) async fn update_mmr_data(&mut self) -> Result<(), ClientError> {
         let mut current_partial_mmr = maybe_await!(self.build_current_partial_mmr(true))?;
-        for mut note in maybe_await!(self.store.get_input_notes(NoteFilter::Unverified))? {
+
+        let mut changed_notes = vec![];
+        for mut note in maybe_await!(self
+            .store
+            .get_input_notes(NoteFilter::StateDiscriminant(STATE_UNVERIFIED)))?
+        {
             let block_num = note
                 .inclusion_proof()
                 .expect("Commited notes should have inclusion proofs")
@@ -31,9 +36,11 @@ impl<R: FeltRng> Client<R> {
                 .await?;
 
             if note.block_header_received(block_header)? {
-                maybe_await!(self.store.upsert_input_note(note))?;
+                changed_notes.push(note);
             }
         }
+
+        maybe_await!(self.store.upsert_input_notes(changed_notes))?;
 
         Ok(())
     }
