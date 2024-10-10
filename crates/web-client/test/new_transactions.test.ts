@@ -41,7 +41,7 @@ export const mintTransaction = async (): Promise<MintTransactionResult> => {
     });
 };
 
-describe("new_transactions tests", () => {
+describe("new_mint_transactions tests", () => {
     it("new_mint_transaction completes successfully", async () => {
         console.log('starting new_mint_transaction test');
         const result = await mintTransaction();

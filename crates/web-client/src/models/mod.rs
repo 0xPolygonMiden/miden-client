@@ -44,7 +44,6 @@ pub mod fungible_asset;
 pub mod input_note;
 pub mod input_notes;
 pub mod merkle_path;
-pub mod merkle_store;
 pub mod note;
 pub mod note_assets;
 pub mod note_details;

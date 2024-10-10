@@ -59,7 +59,7 @@ impl WebClient {
     ) -> Result<AuthSecretKey, JsValue> {
         if let Some(store) = &self.store {
             let native_auth_secret_key =
-                store.get_account_auth(account_id.into()).await.map_err(|err| {
+                store.fetch_and_cache_account_auth_by_pub_key(&account_id.to_string()).await.map_err(|err| {
                     JsValue::from_str(&format!("Failed to fetch and cache account auth: {}", err))
                 })?;
 

@@ -486,9 +486,6 @@
         async function testNewMintTransaction() {
             console.log('testNewMintTransaction started');
 
-            // let targetAccountId = await createNewWallet(webClient, "Private", true);
-            // let faucetId = await createNewFaucet(webClient, "Private", false, "DEN", "10", "1000000");
-
             let webClient = await createMidenWebClient();
             let targetAccount = await createNewWallet(webClient, AccountStorageMode.private(), true);
             let faucet = await createNewFaucet(webClient, AccountStorageMode.private(), false, "DAG", 8, BigInt(10000000));
@@ -1298,8 +1295,8 @@
         // await testCreateNewFaucet();
         // await testGetAccounts();
         // await testGetAccount();
-        // await testNewMintTransaction();
-        await testNewConsumeTransaction();
+        await testNewMintTransaction();
+        // await testNewConsumeTransaction();
         // await testNewSendTransaction();
         // await testNewSendTransactionWithRecallHeight();
         // await testNewSwapTransaction();
