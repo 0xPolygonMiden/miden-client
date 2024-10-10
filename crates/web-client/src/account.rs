@@ -1,4 +1,3 @@
-use miden_client::store::Store;
 use wasm_bindgen::prelude::*;
 
 use crate::{

@@ -60,7 +60,6 @@ impl WebClient {
         note_type: &NoteType,
         amount: u64,
     ) -> Result<TransactionResult, JsValue> {
-        console_error_panic_hook::set_once();
         if let Some(client) = self.get_mut_inner() {
             let fungible_asset = FungibleAsset::new(faucet_id.into(), amount).map_err(|err| {
                 JsValue::from_str(&format!("Failed to create Fungible Asset: {}", err))
