@@ -1,5 +1,34 @@
 import { Page } from "puppeteer";
-import { Account, AccountHeader, AccountStorageMode, AuthSecretKey, TestUtils, WebClient } from "../dist/index";
+import { 
+  Account, 
+  AccountHeader,
+  AccountStorageMode,
+  AdviceMap,
+  AuthSecretKey, 
+  Felt,
+  FeltArray,
+  FungibleAsset,
+  Note,
+  NoteAssets,
+  NoteExecutionHint,
+  NoteExecutionMode,
+  NoteIdAndArgs,
+  NoteIdAndArgsArray,
+  NoteInputs,
+  NoteMetadata,
+  NoteRecipient,
+  NoteTag,
+  NoteType,
+  OutputNote,
+  OutputNotesArray,
+  Rpo256,
+  TestUtils, 
+  TransactionFilter,
+  TransactionRequest,
+  TransactionScriptInputPair,
+  TransactionScriptInputPairArray,
+  WebClient 
+} from "../dist/index";
 
 declare global {
   interface Window {
@@ -7,8 +36,30 @@ declare global {
     Account: typeof Account;
     AccountHeader: typeof AccountHeader;
     AccountStorageMode: typeof AccountStorageMode;
+    AdviceMap: typeof AdviceMap;
     AuthSecretKey: typeof AuthSecretKey;
+    Felt: typeof Felt;
+    FeltArray: typeof FeltArray;
+    FungibleAsset: typeof FungibleAsset;
+    Note: typeof Note;
+    NoteAssets: typeof NoteAssets;
+    NoteExecutionHint: typeof NoteExecutionHint;
+    NoteExecutionMode: typeof NoteExecutionMode;
+    NoteIdAndArgs: typeof NoteIdAndArgs;
+    NoteIdAndArgsArray: typeof NoteIdAndArgsArray;
+    NoteInputs: typeof NoteInputs;
+    NoteMetadata: typeof NoteMetadata;
+    NoteRecipient: typeof NoteRecipient
+    NoteTag: typeof NoteTag;
+    NoteType: typeof NoteType;
+    OutputNote: typeof OutputNote;
+    OutputNotesArray: typeof OutputNotesArray;
+    Rpo256: typeof Rpo256;
     TestUtils: typeof TestUtils;
+    TransactionFilter: typeof TransactionFilter;
+    TransactionRequest: typeof TransactionRequest;
+    TransactionScriptInputPair: typeof TransactionScriptInputPair;
+    TransactionScriptInputPairArray: typeof TransactionScriptInputPairArray;
     create_client: () => Promise<void>;
   }
 }

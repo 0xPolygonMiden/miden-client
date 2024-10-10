@@ -34,6 +34,21 @@ impl Note {
     }
 }
 
+// CONVERSIONS
+// ================================================================================================
+
+impl From<NativeNote> for Note {
+    fn from(note: NativeNote) -> Self {
+        Note(note)
+    }
+}
+
+impl From<&NativeNote> for Note {
+    fn from(note: &NativeNote) -> Self {
+        Note(note.clone())
+    }
+}
+
 impl From<Note> for NativeNote {
     fn from(note: Note) -> Self {
         note.0

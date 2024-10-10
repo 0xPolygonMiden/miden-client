@@ -1,7 +1,13 @@
-use miden_objects::{notes::Note as NativeNote, transaction::OutputNote as NativeOutputNote};
+use miden_objects::{
+    notes::{Note as NativeNote, NoteHeader as NativeNoteHeader, PartialNote as NativePartialNote},
+    transaction::OutputNote as NativeOutputNote,
+};
 use wasm_bindgen::prelude::*;
 
-use super::note::Note;
+use super::{
+    note::Note, note_assets::NoteAssets, note_header::NoteHeader, note_id::NoteId,
+    note_metadata::NoteMetadata, partial_note::PartialNote, rpo_digest::RpoDigest,
+};
 
 #[derive(Clone)]
 #[wasm_bindgen]
@@ -13,10 +19,52 @@ impl OutputNote {
         let native_note: NativeNote = note.into();
         OutputNote(NativeOutputNote::Full(native_note))
     }
+
+    pub fn partial(partial_note: &PartialNote) -> OutputNote {
+        let native_partial_note: NativePartialNote = partial_note.into();
+        OutputNote(NativeOutputNote::Partial(native_partial_note))
+    }
+
+    pub fn header(note_header: &NoteHeader) -> OutputNote {
+        let native_note_header: NativeNoteHeader = note_header.into();
+        OutputNote(NativeOutputNote::Header(native_note_header))
+    }
+
+    pub fn assets(&self) -> Option<NoteAssets> {
+        self.0.assets().map(|assets| assets.into())
+    }
+
+    pub fn id(&self) -> NoteId {
+        self.0.id().into()
+    }
+
+    pub fn recipient_digest(&self) -> Option<RpoDigest> {
+        self.0.recipient_digest().map(|digest| digest.into())
+    }
+
+    pub fn metadata(&self) -> NoteMetadata {
+        self.0.metadata().into()
+    }
+
+    pub fn shrink(&self) -> OutputNote {
+        self.0.shrink().into()
+    }
 }
 
 // CONVERSIONS
 // ================================================================================================
+
+impl From<NativeOutputNote> for OutputNote {
+    fn from(native_output_note: NativeOutputNote) -> Self {
+        OutputNote(native_output_note)
+    }
+}
+
+impl From<&NativeOutputNote> for OutputNote {
+    fn from(native_output_note: &NativeOutputNote) -> Self {
+        OutputNote(native_output_note.clone())
+    }
+}
 
 impl From<OutputNote> for NativeOutputNote {
     fn from(output_note: OutputNote) -> Self {
