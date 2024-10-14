@@ -327,8 +327,10 @@ impl<R: FeltRng> Client<R> {
         tx_result: &TransactionResult,
     ) -> Result<ProvenTransaction, ClientError> {
         info!("Proving transaction...");
+
         let proven_transaction =
             maybe_await!(self.tx_prover.prove(tx_result.executed_transaction().clone().into()))?;
+
         info!("Transaction proven.");
 
         Ok(proven_transaction)
