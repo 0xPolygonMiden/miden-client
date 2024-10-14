@@ -30,6 +30,7 @@ mod block_headers;
 use block_headers::apply_mmr_changes;
 
 mod tags;
+pub use tags::{NoteTagRecord, NoteTagSource};
 
 /// Contains stats about the sync operation.
 pub struct SyncSummary {
@@ -231,7 +232,8 @@ impl<R: FeltRng> Client<R> {
             .map(|(acc_header, _)| acc_header)
             .collect();
 
-        let note_tags: Vec<NoteTag> = maybe_await!(self.get_tracked_note_tags())?;
+        let note_tags: Vec<NoteTag> =
+            maybe_await!(self.get_unique_note_tags())?.into_iter().collect();
 
         // To receive information about added nullifiers, we reduce them to the higher 16 bits
         // Note that besides filtering by nullifier prefixes, the node also filters by block number
