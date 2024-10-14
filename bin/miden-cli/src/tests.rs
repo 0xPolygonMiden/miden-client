@@ -2,15 +2,23 @@ use std::{
     env::{self, temp_dir},
     fs::File,
     io::Read,
-    path::Path, sync::Arc,
+    path::Path,
+    sync::Arc,
 };
 
 use assert_cmd::Command;
 use miden_client::{
-    accounts::{Account, AccountId, AccountStorageMode, AccountTemplate}, config::RpcConfig, crypto::RpoRandomCoin, rpc::TonicRpcClient, store::{
+    accounts::{Account, AccountId, AccountStorageMode, AccountTemplate},
+    config::RpcConfig,
+    crypto::RpoRandomCoin,
+    rpc::TonicRpcClient,
+    store::{
         sqlite_store::{config::SqliteStoreConfig, SqliteStore},
         NoteFilter, StoreAuthenticator,
-    }, testing::ACCOUNT_ID_OFF_CHAIN_SENDER, transactions::{LocalTransactionProver, ProvingOptions}, Client, Felt
+    },
+    testing::ACCOUNT_ID_OFF_CHAIN_SENDER,
+    transactions::{LocalTransactionProver, ProvingOptions},
+    Client, Felt,
 };
 use rand::Rng;
 use uuid::Uuid;
