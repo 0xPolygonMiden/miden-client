@@ -186,7 +186,9 @@ fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), String
             let details = record.details();
             Some(details.inputs().values().to_vec())
         },
-        (_, Some(record)) => record.details().map(|details| details.inputs().clone()),
+        (_, Some(record)) => {
+            record.recipient().map(|recipient| recipient.inputs().values().to_vec())
+        },
         (None, None) => {
             panic!("One of the two records should be Some")
         },
@@ -340,15 +342,12 @@ fn note_summary(
                     details.script().hash().to_string(),
                 )
             },
-            (None, Some(record)) if record.details().is_some() => {
-                let details = record.details().expect("output record should have details");
+            (None, Some(record)) if record.recipient().is_some() => {
+                let recipient = record.recipient().expect("output record should have recipient");
                 (
-                    NoteInputs::new(details.inputs().clone())
-                        .map_err(ClientError::NoteError)?
-                        .commitment()
-                        .to_string(),
-                    Digest::new(details.serial_num()).to_string(),
-                    details.script().hash().to_string(),
+                    recipient.inputs().commitment().to_string(),
+                    Digest::new(recipient.serial_num()).to_string(),
+                    recipient.script().hash().to_string(),
                 )
             },
             (None, Some(_record)) => ("-".to_string(), "-".to_string(), "-".to_string()),
@@ -363,7 +362,7 @@ fn note_summary(
 
     let status = input_note_record
         .map(|record| record.state().to_string())
-        .or(output_note_record.map(|record| record.status().to_string()))
+        .or(output_note_record.map(|record| record.state().to_string()))
         .expect("One of the two records should be Some");
 
     let note_metadata = input_note_record

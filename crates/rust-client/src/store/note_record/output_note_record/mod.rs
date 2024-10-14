@@ -145,7 +145,7 @@ impl OutputNoteRecord {
 // TODO: Improve conversions by implementing into_parts()
 impl From<Note> for OutputNoteRecord {
     fn from(note: Note) -> Self {
-        let header = note.header().clone();
+        let header = *note.header();
         let (assets, recipient) = NoteDetails::from(note).into_parts();
         OutputNoteRecord {
             id: header.id(),

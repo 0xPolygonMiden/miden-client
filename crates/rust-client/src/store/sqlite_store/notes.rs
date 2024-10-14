@@ -21,7 +21,6 @@ use crate::store::{
         STATE_CONSUMED, STATE_CONSUMED_AUTHENTICATED_LOCAL, STATE_CONSUMED_EXTERNAL,
         STATE_CONSUMED_UNAUTHENTICATED_LOCAL, STATE_EXPECTED, STATE_EXPECTED_FULL,
         STATE_EXPECTED_PARTIAL, STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED,
-        STATE_UNVERIFIED,
     },
     InputNoteRecord, NoteFilter, NoteState, OutputNoteRecord, StoreError,
 };
@@ -81,12 +80,12 @@ impl NoteFilter {
     /// Returns a [String] containing the query for this Filter
     fn to_query_output_notes(&self) -> (String, NoteQueryParams) {
         let base = "SELECT
-                    note.id,
+                    note.note_id,
                     note.recipient_digest,
                     note.assets,
                     note.metadata,
                     note.after_block_height,
-                    note.state,
+                    note.state
                     from output_notes AS note";
 
         let (condition, params) = self.output_notes_condition();
@@ -279,6 +278,7 @@ impl SqliteStore {
         filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, StoreError> {
         let (query, params) = filter.to_query_output_notes();
+
         let notes = self
             .db()
             .prepare(&query)?
@@ -416,19 +416,18 @@ pub fn upsert_output_note_tx(
             nullifier,
             after_block_height,
             state_discriminant,
-            state,
+            state
         ) VALUES (
             :note_id,
             :assets,
             :recipient,
             :metadata,
             :nullifier,
-            :script_hash,
-            :details,
-            :inclusion_proof,
-            :expected_height
-        );
-    ";
+            :after_block_height,
+            :state_discriminant,
+            :state
+        );";
+
     let SerializedOutputNoteData {
         id,
         assets,

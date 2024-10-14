@@ -3,8 +3,8 @@ use miden_client::{
     notes::NoteRelevance,
     rpc::{AccountDetails, NodeRpcClient, TonicRpcClient},
     store::{
-        ConsumedAuthenticatedLocalNoteState, InputNoteRecord, NoteFilter, NoteState, NoteStatus,
-        TransactionFilter,
+        ConsumedAuthenticatedLocalNoteState, InputNoteRecord, NoteFilter, NoteState,
+        OutputNoteState, TransactionFilter,
     },
     sync::NoteTagSource,
     transactions::{
@@ -128,7 +128,7 @@ async fn test_multiple_tx_on_same_block() {
 
     let note_id = transactions[0].output_notes.iter().next().unwrap().id();
     let note = client.get_output_note(note_id).unwrap();
-    assert!(matches!(note.status(), NoteStatus::Committed { .. }));
+    assert!(matches!(note.state(), OutputNoteState::CommittedFull { .. }));
 
     let (sender_account, _) = client.get_account(from_account_id).unwrap();
     assert_eq!(
