@@ -6,29 +6,22 @@ import {
     transactions,
     blockHeaders,
     chainMmrNodes,
+    tags,
 } from './schema.js';
 
 export async function getNoteTags() {
     try {
-        const record = await stateSync.get(1);  // Since id is the primary key and always 1
-        if (record) {
-            if (!record.tags) {
-                return { tags: null }
-            }
-            else {
-                const tagsArrayBuffer = await record.tags.arrayBuffer();
-                const tagsArray = new Uint8Array(tagsArrayBuffer);
-                const tagsBase64 = uint8ArrayToBase64(tagsArray);
+        let records = await tags.toArray();
 
-                return {
-                    tags: tagsBase64
-                };
-            }
-        } else {
-            return null;
-        }
+        let processedRecords = records.map((record) => {
+            record.source_note_id = record.source_note_id == "" ? null : record.source_note_id;
+            record.source_account_id = record.source_account_id == "" ? null : record.source_account_id;
+            return record;
+        });
+
+        return processedRecords;
     } catch (error) {
-        console.error('Error fetching record:', error);
+        console.error('Error fetching tag record:', error.toString());
         return null;
     }
 }
@@ -45,19 +38,46 @@ export async function getSyncHeight() {
             return null;
         }
     } catch (error) {
-        console.error('Error fetching record:', error);
+        console.error('Error fetching sync height:', error.toString());
         return null;
     }
 }
 
 export async function addNoteTag(
-    tags
+    tag,
+    source_note_id,
+    source_account_id
 ) {
     try {
-        const tagsBlob = new Blob([new Uint8Array(tags)]);
-        await stateSync.update(1, { tags: tagsBlob });
+        let tagArray = new Uint8Array(tag);
+        let tagBase64 = uint8ArrayToBase64(tagArray);
+        await tags.add({
+            tag: tagBase64,
+            source_note_id: source_note_id ? source_note_id : "",
+            source_account_id: source_account_id ? source_account_id : ""
+        });
     } catch {
         console.error("Failed to add note tag: ", err);
+        throw err;
+    }
+}
+
+export async function removeNoteTag(
+    tag,
+    source_note_id,
+    source_account_id
+) {
+    try {
+        let tagArray = new Uint8Array(tag);
+        let tagBase64 = uint8ArrayToBase64(tagArray);
+
+        return await tags.where({
+            tag: tagBase64,
+            source_note_id: source_note_id ? source_note_id : "",
+            source_account_id: source_account_id ? source_account_id : ""
+        }).delete();
+    } catch {
+        console.log("Failed to remove note tag: ", err.toString());
         throw err;
     }
 }
@@ -253,6 +273,9 @@ async function updateCommittedNotes(
                 inclusionProof: inclusionProofBlob,
                 metadata: metadataBlob
             });
+
+            // Remove note tags
+            await tags.delete({ source_note_id: noteId });
         }
     } catch (error) {
         console.error("Error updating committed notes:", error);
@@ -291,4 +314,9 @@ async function updateCommittedTransactions(
         console.error("Failed to mark transactions as committed: ", err);
         throw err;
     }
+}
+
+function uint8ArrayToBase64(bytes) {
+    const binary = bytes.reduce((acc, byte) => acc + String.fromCharCode(byte), '');
+    return btoa(binary);
 }
