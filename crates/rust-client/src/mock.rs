@@ -21,7 +21,7 @@ use miden_objects::{
     transaction::{InputNote, ProvenTransaction},
     BlockHeader, Felt, Word,
 };
-use miden_tx::testing::mock_chain::MockChain;
+use miden_tx::{testing::mock_chain::MockChain, LocalTransactionProver};
 use rand::Rng;
 use tonic::Response;
 use uuid::Uuid;
@@ -325,7 +325,9 @@ pub fn create_test_client() -> (MockClient, MockRpcApi) {
     let rpc_api = MockRpcApi::new();
     let boxed_rpc_api = Box::new(rpc_api.clone());
 
-    let client = MockClient::new(boxed_rpc_api, rng, store, Arc::new(authenticator), true);
+    let prover = Arc::new(LocalTransactionProver::default());
+
+    let client = MockClient::new(boxed_rpc_api, rng, store, Arc::new(authenticator), prover, true);
     (client, rpc_api)
 }
 
