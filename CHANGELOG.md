@@ -2,6 +2,7 @@
 
 ## 0.6.0 (TBD)
 
+* [BREAKING] Added transaction prover component to `Client` (#550).
 * [BREAKING] Added support for committed and discarded transactions (#531).
 * [BREAKING] Refactored Client struct to use trait objects for inner struct fields (#539).
 * Fixed panic on export command without type (#537).
