@@ -92,6 +92,41 @@ impl OutputNoteRecord {
             recipient.serial_num(),
         ))
     }
+
+    pub fn inclusion_proof_received(
+        &mut self,
+        inclusion_proof: NoteInclusionProof,
+    ) -> Result<bool, NoteRecordError> {
+        let new_state = self.state.inclusion_proof_received(inclusion_proof)?;
+        if let Some(new_state) = new_state {
+            self.state = new_state;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    pub fn nullifier_received(
+        &mut self,
+        nullifier: Nullifier,
+        block_height: u32,
+    ) -> Result<bool, NoteRecordError> {
+        if let Some(note_nullifier) = self.nullifier() {
+            if note_nullifier != nullifier {
+                return Err(NoteRecordError::StateTransitionError(
+                    "Nullifier does not match the expected value".to_string(),
+                ));
+            }
+        }
+
+        let new_state = self.state.nullifier_received(block_height)?;
+        if let Some(new_state) = new_state {
+            self.state = new_state;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
 }
 
 // CONVERSIONS
@@ -200,16 +235,12 @@ pub enum OutputNoteState {
     /// Note without known recipient has been committed on chain, and can be consumed in a
     /// transaction.
     CommittedPartial {
-        /// Block height at which the note was committed.
-        block_height: u32,
         /// Inclusion proof for the note inside the chain block.
         inclusion_proof: NoteInclusionProof,
     },
     /// Note with known recipient has been committed on chain, and can be consumed in a
     /// transaction.
     CommittedFull {
-        /// Block height at which the note was committed.
-        block_height: u32,
         /// Details needed to consume the note.
         recipient: NoteRecipient,
         /// Inclusion proof for the note inside the chain block.
@@ -221,8 +252,6 @@ pub enum OutputNoteState {
         block_height: u32,
         /// Details needed to consume the note.
         recipient: NoteRecipient,
-        /// Inclusion proof for the note inside the chain block.
-        inclusion_proof: NoteInclusionProof,
     },
 }
 
@@ -249,10 +278,60 @@ impl OutputNoteState {
 
     pub fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
         match self {
-            OutputNoteState::CommittedPartial { inclusion_proof, .. } => Some(inclusion_proof),
-            OutputNoteState::CommittedFull { inclusion_proof, .. } => Some(inclusion_proof),
-            OutputNoteState::Consumed { inclusion_proof, .. } => Some(inclusion_proof),
+            OutputNoteState::CommittedPartial { inclusion_proof, .. }
+            | OutputNoteState::CommittedFull { inclusion_proof, .. } => Some(inclusion_proof),
             _ => None,
+        }
+    }
+
+    pub fn inclusion_proof_received(
+        &self,
+        inclusion_proof: NoteInclusionProof,
+    ) -> Result<Option<OutputNoteState>, NoteRecordError> {
+        match self {
+            OutputNoteState::ExpectedPartial { .. } => {
+                Ok(Some(OutputNoteState::CommittedPartial { inclusion_proof }))
+            },
+            OutputNoteState::ExpectedFull { recipient, .. } => {
+                Ok(Some(OutputNoteState::CommittedFull {
+                    recipient: recipient.clone(),
+                    inclusion_proof,
+                }))
+            },
+            OutputNoteState::CommittedPartial { inclusion_proof: prev_inclusion_proof }
+            | OutputNoteState::CommittedFull {
+                inclusion_proof: prev_inclusion_proof, ..
+            } => {
+                if prev_inclusion_proof == &inclusion_proof {
+                    Ok(None)
+                } else {
+                    Err(NoteRecordError::StateTransitionError(
+                        "Cannot receive different inclusion proof for committed note".to_string(),
+                    ))
+                }
+            },
+            OutputNoteState::Consumed { .. } => Ok(None),
+        }
+    }
+
+    pub fn nullifier_received(
+        &self,
+        block_height: u32,
+    ) -> Result<Option<OutputNoteState>, NoteRecordError> {
+        match self {
+            OutputNoteState::Consumed { .. } => Ok(None),
+            OutputNoteState::ExpectedFull { recipient, .. }
+            | OutputNoteState::CommittedFull { recipient, .. } => {
+                Ok(Some(OutputNoteState::Consumed {
+                    block_height,
+                    recipient: recipient.clone(),
+                }))
+            },
+            OutputNoteState::ExpectedPartial { .. } | OutputNoteState::CommittedPartial { .. } => {
+                Err(NoteRecordError::InvalidStateTransition(
+                    "Cannot nullify note without recipient".to_string(),
+                ))
+            },
         }
     }
 }
@@ -268,19 +347,16 @@ impl Serializable for OutputNoteState {
                 block_height.write_into(target);
                 recipient.write_into(target);
             },
-            OutputNoteState::CommittedPartial { block_height, inclusion_proof } => {
-                block_height.write_into(target);
+            OutputNoteState::CommittedPartial { inclusion_proof } => {
                 inclusion_proof.write_into(target);
             },
-            OutputNoteState::CommittedFull { block_height, recipient, inclusion_proof } => {
-                block_height.write_into(target);
+            OutputNoteState::CommittedFull { recipient, inclusion_proof } => {
                 recipient.write_into(target);
                 inclusion_proof.write_into(target);
             },
-            OutputNoteState::Consumed { block_height, recipient, inclusion_proof } => {
+            OutputNoteState::Consumed { block_height, recipient } => {
                 block_height.write_into(target);
                 recipient.write_into(target);
-                inclusion_proof.write_into(target);
             },
         }
     }
@@ -303,21 +379,18 @@ impl Deserializable for OutputNoteState {
                 })
             },
             STATE_COMMITTED_PARTIAL => {
-                let block_height = source.read_u32()?;
                 let inclusion_proof = NoteInclusionProof::read_from(source)?;
-                Ok(OutputNoteState::CommittedPartial { block_height, inclusion_proof })
+                Ok(OutputNoteState::CommittedPartial { inclusion_proof })
             },
             STATE_COMMITTED_FULL => {
-                let block_height = source.read_u32()?;
                 let recipient = NoteRecipient::read_from(source)?;
                 let inclusion_proof = NoteInclusionProof::read_from(source)?;
-                Ok(OutputNoteState::CommittedFull { block_height, recipient, inclusion_proof })
+                Ok(OutputNoteState::CommittedFull { recipient, inclusion_proof })
             },
             STATE_CONSUMED => {
                 let block_height = source.read_u32()?;
                 let recipient = NoteRecipient::read_from(source)?;
-                let inclusion_proof = NoteInclusionProof::read_from(source)?;
-                Ok(OutputNoteState::Consumed { block_height, recipient, inclusion_proof })
+                Ok(OutputNoteState::Consumed { block_height, recipient })
             },
             _ => Err(DeserializationError::InvalidValue("OutputNoteState".to_string())),
         }

@@ -571,9 +571,7 @@ fn parse_output_note(
 }
 
 /// Serialize the provided output note into database compatible types.
-pub(crate) fn serialize_output_note(
-    note: &OutputNoteRecord,
-) -> Result<SerializedOutputNoteData, StoreError> {
+fn serialize_output_note(note: &OutputNoteRecord) -> Result<SerializedOutputNoteData, StoreError> {
     let id = note.id().inner().to_string();
     let assets = note.assets().to_bytes();
     let recipient_digest = note.recipient_digest().to_hex();
