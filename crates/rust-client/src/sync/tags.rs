@@ -25,6 +25,12 @@ impl<R: FeltRng> Client<R> {
         maybe_await!(self.store.get_note_tags()).map_err(|err| err.into())
     }
 
+    /// Returns the unique note tags (without source) that the client is interested in.
+    #[maybe_async]
+    pub fn get_unique_note_tags(&self) -> Result<BTreeSet<NoteTag>, ClientError> {
+        maybe_await!(self.store.get_unique_note_tags()).map_err(|err| err.into())
+    }
+
     /// Adds a note tag for the client to track.
     #[maybe_async]
     pub fn add_note_tag(&mut self, tag: NoteTag) -> Result<(), ClientError> {
@@ -54,17 +60,6 @@ impl<R: FeltRng> Client<R> {
         }
 
         Ok(())
-    }
-
-    /// Returns the list of note tags tracked by the client.
-    #[maybe_async]
-    pub(crate) fn get_tracked_note_tags(&self) -> Result<Vec<NoteTag>, ClientError> {
-        Ok(maybe_await!(self.get_note_tags())?
-            .into_iter()
-            .map(|r| r.tag)
-            .collect::<BTreeSet<NoteTag>>()
-            .into_iter()
-            .collect())
     }
 }
 

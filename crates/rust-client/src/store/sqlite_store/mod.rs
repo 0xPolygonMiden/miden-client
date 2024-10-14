@@ -1,11 +1,14 @@
-use alloc::{collections::BTreeMap, vec::Vec};
+use alloc::{
+    collections::{BTreeMap, BTreeSet},
+    vec::Vec,
+};
 use core::cell::{RefCell, RefMut};
 use std::path::Path;
 
 use miden_objects::{
     accounts::{Account, AccountHeader, AccountId, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
-    notes::Nullifier,
+    notes::{NoteTag, Nullifier},
     BlockHeader, Digest, Word,
 };
 use rusqlite::{vtab::array, Connection};
@@ -76,6 +79,11 @@ impl Store for SqliteStore {
     #[maybe_async]
     fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, StoreError> {
         self.get_note_tags()
+    }
+
+    #[maybe_async]
+    fn get_unique_note_tags(&self) -> Result<BTreeSet<NoteTag>, StoreError> {
+        self.get_unique_note_tags()
     }
 
     #[maybe_async]

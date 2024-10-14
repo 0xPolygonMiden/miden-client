@@ -1,4 +1,4 @@
-use alloc::{string::ToString, vec::Vec};
+use alloc::{collections::BTreeSet, string::ToString, vec::Vec};
 
 use miden_objects::notes::{NoteInclusionProof, NoteTag};
 use miden_tx::utils::{Deserializable, Serializable};
@@ -33,6 +33,21 @@ impl SqliteStore {
                 })
             })
             .collect::<Result<Vec<NoteTagRecord>, _>>()
+    }
+
+    pub(crate) fn get_unique_note_tags(&self) -> Result<BTreeSet<NoteTag>, StoreError> {
+        const QUERY: &str = "SELECT DISTINCT tag FROM tags";
+
+        self.db()
+            .prepare(QUERY)?
+            .query_map([], |row| row.get(0))
+            .expect("no binding parameters used in query")
+            .map(|result| {
+                Ok(result?).and_then(|tag: Vec<u8>| {
+                    NoteTag::read_from_bytes(&tag).map_err(StoreError::DataDeserializationError)
+                })
+            })
+            .collect::<Result<BTreeSet<NoteTag>, _>>()
     }
 
     pub(super) fn add_note_tag(&self, tag: NoteTagRecord) -> Result<bool, StoreError> {
