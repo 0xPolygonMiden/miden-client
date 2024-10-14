@@ -4,7 +4,7 @@ use core::fmt::{self, Display};
 use miden_objects::{
     notes::{
         Note, NoteAssets, NoteDetails, NoteId, NoteInclusionProof, NoteMetadata, NoteRecipient,
-        PartialNote,
+        Nullifier, PartialNote,
     },
     transaction::OutputNote,
     Digest,
@@ -81,6 +81,16 @@ impl OutputNoteRecord {
 
     pub fn recipient(&self) -> Option<&NoteRecipient> {
         self.state.recipient()
+    }
+
+    pub fn nullifier(&self) -> Option<Nullifier> {
+        let recipient = self.recipient()?;
+        Some(Nullifier::new(
+            recipient.script().hash(),
+            recipient.inputs().commitment(),
+            self.assets.commitment(),
+            recipient.serial_num(),
+        ))
     }
 }
 

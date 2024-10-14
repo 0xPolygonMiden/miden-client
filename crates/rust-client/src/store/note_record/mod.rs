@@ -43,7 +43,10 @@ pub use input_note_record::{
     STATE_CONSUMED_EXTERNAL, STATE_CONSUMED_UNAUTHENTICATED_LOCAL, STATE_EXPECTED,
     STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED, STATE_UNVERIFIED,
 };
-pub use output_note_record::OutputNoteRecord;
+pub use output_note_record::{
+    OutputNoteRecord, OutputNoteState, STATE_COMMITTED_FULL, STATE_COMMITTED_PARTIAL,
+    STATE_CONSUMED, STATE_EXPECTED_FULL, STATE_EXPECTED_PARTIAL,
+};
 
 // NOTE RECORD ERROR
 // ================================================================================================

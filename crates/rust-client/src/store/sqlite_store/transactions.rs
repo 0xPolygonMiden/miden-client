@@ -15,7 +15,7 @@ use tracing::info;
 
 use super::{
     accounts::update_account,
-    notes::{insert_output_note_tx, upsert_input_note_tx},
+    notes::{upsert_input_note_tx, upsert_output_note_tx},
     sync::add_note_tag_tx,
     SqliteStore,
 };
@@ -88,7 +88,6 @@ impl SqliteStore {
         let transaction_id = tx_result.executed_transaction().id();
         let account_id = tx_result.executed_transaction().account_id();
         let account_delta = tx_result.account_delta();
-        let block_num = self.get_sync_height()?;
 
         let (mut account, _seed) = self.get_account(account_id)?;
 
@@ -127,7 +126,7 @@ impl SqliteStore {
         }
 
         for note in &created_output_notes {
-            insert_output_note_tx(&tx, block_num, note)?;
+            upsert_output_note_tx(&tx, note)?;
         }
 
         for mut input_note_record in relevant_notes {

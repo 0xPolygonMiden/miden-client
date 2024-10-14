@@ -7,7 +7,6 @@ use rusqlite::{named_params, params, Transaction};
 use super::SqliteStore;
 use crate::{
     store::{
-        note_record::{NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED},
         sqlite_store::{accounts::update_account, notes::upsert_input_note_tx},
         CommittedNoteState, InputNoteRecord, NoteFilter, StoreError,
     },
