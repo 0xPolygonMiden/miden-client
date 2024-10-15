@@ -5,8 +5,13 @@ use figment::{
     value::{Dict, Map},
     Metadata, Profile, Provider,
 };
-use miden_client::{config::RpcConfig, store::sqlite_store::config::SqliteStoreConfig};
+use miden_client::{
+    config::{Endpoint, RpcConfig},
+    store::sqlite_store::config::SqliteStoreConfig,
+};
 use serde::{Deserialize, Serialize};
+
+use crate::ProvingMode;
 
 const TOKEN_SYMBOL_MAP_FILEPATH: &str = "token_symbol_map.toml";
 
@@ -23,6 +28,10 @@ pub struct CliConfig {
     pub default_account_id: Option<String>,
     /// Path to the file containing the token symbol map.
     pub token_symbol_map_filepath: PathBuf,
+    /// Proving mode.
+    pub proving_mode: ProvingMode,
+    /// RPC endpoint for the proving service. Required if proving mode is set to remote.
+    pub proving_rpc_endpoint: Option<Endpoint>,
 }
 
 // Make `ClientConfig` a provider itself for composability.
@@ -48,6 +57,8 @@ impl Default for CliConfig {
             store: SqliteStoreConfig::default(),
             default_account_id: None,
             token_symbol_map_filepath: Path::new(TOKEN_SYMBOL_MAP_FILEPATH).to_path_buf(),
+            proving_mode: ProvingMode::Local,
+            proving_rpc_endpoint: None,
         }
     }
 }
