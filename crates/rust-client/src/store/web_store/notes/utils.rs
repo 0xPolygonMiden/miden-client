@@ -39,7 +39,7 @@ pub struct SerializedOutputNoteData {
     pub recipient_digest: String,
     pub metadata: Vec<u8>,
     pub nullifier: Option<String>,
-    pub expected_height: Option<u32>,
+    pub expected_height: u32,
     pub state_discriminant: u8,
     pub state: Vec<u8>,
 }

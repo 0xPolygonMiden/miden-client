@@ -22,7 +22,8 @@ use super::NoteRecordError;
 /// An [OutputNoteRecord] contains all the information of a [Note] while it allows for not knowing
 /// the recipient details (nullifier, script, inputs and serial number).
 ///
-/// It is also possible to convert [Note] into [OutputNoteRecord] with the state [OutputNoteState::ExpectedFull].
+/// It is also possible to convert [Note] into [OutputNoteRecord] with the state
+/// [OutputNoteState::ExpectedFull].
 #[derive(Clone, Debug, PartialEq)]
 pub struct OutputNoteRecord {
     /// Assets contained in the note.
@@ -35,7 +36,7 @@ pub struct OutputNoteRecord {
     /// The state of the note, with specific fields for each one.
     state: OutputNoteState,
     /// The expected block height at which the note should be included in the chain.
-    expected_height: Option<u32>,
+    expected_height: u32,
 }
 
 impl OutputNoteRecord {
@@ -44,7 +45,7 @@ impl OutputNoteRecord {
         assets: NoteAssets,
         metadata: NoteMetadata,
         state: OutputNoteState,
-        expected_height: Option<u32>,
+        expected_height: u32,
     ) -> OutputNoteRecord {
         OutputNoteRecord {
             recipient_digest,
@@ -93,7 +94,7 @@ impl OutputNoteRecord {
         ))
     }
 
-    pub fn expected_height(&self) -> Option<u32> {
+    pub fn expected_height(&self) -> u32 {
         self.expected_height
     }
 
@@ -140,8 +141,8 @@ impl OutputNoteRecord {
 // ================================================================================================
 
 // TODO: Improve conversions by implementing into_parts()
-impl From<Note> for OutputNoteRecord {
-    fn from(note: Note) -> Self {
+impl OutputNoteRecord {
+    pub fn from_full_note(note: Note, expected_height: u32) -> Self {
         let header = *note.header();
         let (assets, recipient) = NoteDetails::from(note).into_parts();
         OutputNoteRecord {
@@ -149,37 +150,34 @@ impl From<Note> for OutputNoteRecord {
             assets,
             metadata: *header.metadata(),
             state: OutputNoteState::ExpectedFull { recipient },
-            expected_height: None,
+            expected_height,
         }
     }
-}
 
-impl From<PartialNote> for OutputNoteRecord {
-    fn from(partial_note: PartialNote) -> Self {
+    pub fn from_partial_note(partial_note: PartialNote, expected_height: u32) -> Self {
         OutputNoteRecord {
             recipient_digest: partial_note.recipient_digest(),
             assets: partial_note.assets().clone(),
             metadata: *partial_note.metadata(),
             state: OutputNoteState::ExpectedPartial,
-            expected_height: None,
+            expected_height,
         }
     }
-}
 
-/// [OutputNote] can always be turned into an [OutputNoteRecord] when they're either
-/// [OutputNote::Full] or [OutputNote::Partial] and always fail the conversion if it's
-/// [OutputNote::Header]. This also mean that `output_note.try_from()` can also be used as a way to
-/// filter the full and partial output notes
-impl TryFrom<OutputNote> for OutputNoteRecord {
-    type Error = NoteRecordError;
-
-    fn try_from(output_note: OutputNote) -> Result<Self, Self::Error> {
+    /// [OutputNote] can always be turned into an [OutputNoteRecord] when they're either
+    /// [OutputNote::Full] or [OutputNote::Partial] and always fail the conversion if it's
+    /// [OutputNote::Header]. This also mean that `output_note.try_from()` can also be used as a way
+    /// to filter the full and partial output notes
+    pub fn try_from_output_note(
+        output_note: OutputNote,
+        expected_height: u32,
+    ) -> Result<Self, NoteRecordError> {
         match output_note {
-            OutputNote::Full(note) => Ok(note.into()),
-            OutputNote::Partial(partial_note)=> {
-                Ok(partial_note.into())
-            },
-            OutputNote::Header(_) => Err(NoteRecordError::ConversionError("Cannot transform a Header output note into an OutputNoteRecord: not enough information".to_string()))
+            OutputNote::Full(note) => Ok(Self::from_full_note(note, expected_height)),
+            OutputNote::Partial(partial_note) => Ok(Self::from_partial_note(partial_note, expected_height)),
+            OutputNote::Header(_) => Err(NoteRecordError::ConversionError(
+                "Cannot transform a Header output note into an OutputNoteRecord: not enough information".to_string(),
+            )),
         }
     }
 }
@@ -224,7 +222,7 @@ impl OutputNoteRecord {
         match export_type {
             NoteExportType::NoteId => Ok(NoteFile::NoteId(self.id())),
             NoteExportType::NoteDetails => {
-                let after_block_num = self.expected_height().unwrap_or(0);
+                let after_block_num = self.expected_height();
                 let tag = Some(self.metadata().tag());
 
                 Ok(NoteFile::NoteDetails {

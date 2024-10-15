@@ -47,7 +47,7 @@ struct SerializedOutputNoteData {
     pub metadata: Vec<u8>,
     pub nullifier: Option<String>,
     pub recipient_digest: String,
-    pub expected_height: Option<u32>,
+    pub expected_height: u32,
     pub state_discriminant: u8,
     pub state: Vec<u8>,
 }
@@ -67,7 +67,7 @@ struct SerializedOutputNoteParts {
     pub assets: Vec<u8>,
     pub metadata: Vec<u8>,
     pub recipient_digest: String,
-    pub expected_height: Option<u32>,
+    pub expected_height: u32,
     pub state: Vec<u8>,
 }
 
@@ -539,7 +539,7 @@ fn parse_output_note_columns(
     let recipient_digest: String = row.get(0)?;
     let assets: Vec<u8> = row.get(1)?;
     let metadata: Vec<u8> = row.get(2)?;
-    let expected_height: Option<u32> = row.get(3)?;
+    let expected_height: u32 = row.get(3)?;
     let state: Vec<u8> = row.get(4)?;
 
     Ok(SerializedOutputNoteParts {

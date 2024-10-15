@@ -205,7 +205,7 @@ export async function upsertOutputNote(
                 recipientDigest: recipientDigest,
                 metadata: metadataBlob,
                 nullifier: nullifier ? nullifier : null,
-                expectedHeight: expectedHeight ? expectedHeight : null,
+                expectedHeight: expectedHeight,
                 stateDiscriminant,
                 state: stateBlob,
             };

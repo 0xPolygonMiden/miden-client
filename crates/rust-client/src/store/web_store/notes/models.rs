@@ -25,7 +25,7 @@ pub struct OutputNoteIdxdbObject {
     pub recipient_digest: String,
     #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
     pub metadata: Vec<u8>,
-    pub expected_height: Option<u32>,
+    pub expected_height: u32,
     #[serde(deserialize_with = "base64_to_vec_u8_required", default)]
     pub state: Vec<u8>,
 }

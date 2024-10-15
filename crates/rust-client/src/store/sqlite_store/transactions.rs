@@ -21,7 +21,10 @@ use super::{
 };
 use crate::{
     rpc::TransactionUpdate,
-    store::{ExpectedNoteState, NoteFilter, NoteState, StoreError, TransactionFilter},
+    store::{
+        ExpectedNoteState, InputNoteState, NoteFilter, OutputNoteRecord, StoreError,
+        TransactionFilter,
+    },
     sync::NoteTagRecord,
     transactions::{TransactionRecord, TransactionResult, TransactionStatus},
 };
@@ -85,6 +88,7 @@ impl SqliteStore {
 
     /// Inserts a transaction and updates the current state based on the `tx_result` changes
     pub fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), StoreError> {
+        let sync_height = self.get_sync_height()?;
         let transaction_id = tx_result.executed_transaction().id();
         let account_id = tx_result.executed_transaction().account_id();
         let account_delta = tx_result.account_delta();
@@ -101,7 +105,9 @@ impl SqliteStore {
             .created_notes()
             .iter()
             .cloned()
-            .filter_map(|output_note| output_note.try_into().ok())
+            .filter_map(|output_note| {
+                OutputNoteRecord::try_from_output_note(output_note, sync_height).ok()
+            })
             .collect::<Vec<_>>();
 
         let consumed_note_ids = tx_result.consumed_notes().iter().map(|note| note.id()).collect();
