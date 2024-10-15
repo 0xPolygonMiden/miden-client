@@ -36,7 +36,7 @@ pub struct OutputNoteRecord {
     metadata: NoteMetadata,
     recipient_digest: Digest,
     state: OutputNoteState,
-    after_block_height: Option<u32>,
+    expected_height: Option<u32>,
 }
 
 impl OutputNoteRecord {
@@ -46,7 +46,7 @@ impl OutputNoteRecord {
         assets: NoteAssets,
         metadata: NoteMetadata,
         state: OutputNoteState,
-        after_block_height: Option<u32>,
+        expected_height: Option<u32>,
     ) -> OutputNoteRecord {
         OutputNoteRecord {
             id,
@@ -54,7 +54,7 @@ impl OutputNoteRecord {
             assets,
             state,
             metadata,
-            after_block_height,
+            expected_height,
         }
     }
 
@@ -96,8 +96,8 @@ impl OutputNoteRecord {
         ))
     }
 
-    pub fn after_block_height(&self) -> Option<u32> {
-        self.after_block_height
+    pub fn expected_height(&self) -> Option<u32> {
+        self.expected_height
     }
 
     // TRANSITIONS
@@ -153,7 +153,7 @@ impl From<Note> for OutputNoteRecord {
             assets,
             metadata: *header.metadata(),
             state: OutputNoteState::ExpectedFull { recipient },
-            after_block_height: None,
+            expected_height: None,
         }
     }
 }
@@ -166,7 +166,7 @@ impl From<PartialNote> for OutputNoteRecord {
             assets: partial_note.assets().clone(),
             metadata: *partial_note.metadata(),
             state: OutputNoteState::ExpectedPartial,
-            after_block_height: None,
+            expected_height: None,
         }
     }
 }
@@ -228,7 +228,7 @@ impl OutputNoteRecord {
         match export_type {
             NoteExportType::NoteId => Ok(NoteFile::NoteId(self.id())),
             NoteExportType::NoteDetails => {
-                let after_block_num = self.after_block_height().unwrap_or(0);
+                let after_block_num = self.expected_height().unwrap_or(0);
                 let tag = Some(self.metadata().tag());
 
                 Ok(NoteFile::NoteDetails {

@@ -48,7 +48,7 @@ struct SerializedOutputNoteData {
     pub metadata: Vec<u8>,
     pub nullifier: Option<String>,
     pub recipient_digest: String,
-    pub after_block_height: Option<u32>,
+    pub expected_height: Option<u32>,
     pub state_discriminant: u8,
     pub state: Vec<u8>,
 }
@@ -69,7 +69,7 @@ struct SerializedOutputNoteParts {
     pub assets: Vec<u8>,
     pub metadata: Vec<u8>,
     pub recipient_digest: String,
-    pub after_block_height: Option<u32>,
+    pub expected_height: Option<u32>,
     pub state: Vec<u8>,
 }
 
@@ -84,7 +84,7 @@ impl NoteFilter {
                     note.recipient_digest,
                     note.assets,
                     note.metadata,
-                    note.after_block_height,
+                    note.expected_height,
                     note.state
                     from output_notes AS note";
 
@@ -414,7 +414,7 @@ pub fn upsert_output_note_tx(
             recipient_digest,
             metadata,
             nullifier,
-            after_block_height,
+            expected_height,
             state_discriminant,
             state
         ) VALUES (
@@ -423,7 +423,7 @@ pub fn upsert_output_note_tx(
             :recipient,
             :metadata,
             :nullifier,
-            :after_block_height,
+            :expected_height,
             :state_discriminant,
             :state
         );";
@@ -434,7 +434,7 @@ pub fn upsert_output_note_tx(
         metadata,
         nullifier,
         recipient_digest,
-        after_block_height,
+        expected_height,
         state_discriminant,
         state,
     } = serialize_output_note(note)?;
@@ -447,7 +447,7 @@ pub fn upsert_output_note_tx(
             ":recipient": recipient_digest,
             ":metadata": metadata,
             ":nullifier": nullifier,
-            ":after_block_height": after_block_height,
+            ":expected_height": expected_height,
             ":state_discriminant": state_discriminant,
             ":state": state,
         },
@@ -543,7 +543,7 @@ fn parse_output_note_columns(
     let recipient_digest: String = row.get(1)?;
     let assets: Vec<u8> = row.get(2)?;
     let metadata: Vec<u8> = row.get(3)?;
-    let after_block_height: Option<u32> = row.get(4)?;
+    let expected_height: Option<u32> = row.get(4)?;
     let state: Vec<u8> = row.get(5)?;
 
     Ok(SerializedOutputNoteParts {
@@ -551,7 +551,7 @@ fn parse_output_note_columns(
         recipient_digest,
         assets,
         metadata,
-        after_block_height,
+        expected_height,
         state,
     })
 }
@@ -565,7 +565,7 @@ fn parse_output_note(
         recipient_digest,
         assets,
         metadata,
-        after_block_height,
+        expected_height,
         state,
     } = serialized_output_note_parts;
 
@@ -581,7 +581,7 @@ fn parse_output_note(
         assets,
         metadata,
         state,
-        after_block_height,
+        expected_height,
     ))
 }
 
@@ -603,7 +603,7 @@ fn serialize_output_note(note: &OutputNoteRecord) -> Result<SerializedOutputNote
         metadata,
         nullifier,
         recipient_digest,
-        after_block_height: note.after_block_height(),
+        expected_height: note.expected_height(),
         state_discriminant,
         state,
     })

@@ -55,7 +55,7 @@ extern "C" {
         recipient_digest: String,
         metadata: Vec<u8>,
         nullifier: Option<String>,
-        after_block_height: Option<u32>,
+        expected_height: Option<u32>,
         state_discriminant: u8,
         state: Vec<u8>,
     ) -> js_sys::Promise;

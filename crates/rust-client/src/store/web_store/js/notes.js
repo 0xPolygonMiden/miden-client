@@ -188,7 +188,7 @@ export async function upsertOutputNote(
     recipientDigest,
     metadata,
     nullifier,
-    afterBlockHeight,
+    expectedHeight,
     stateDiscriminant,
     state
 ) {
@@ -205,7 +205,7 @@ export async function upsertOutputNote(
                 recipientDigest: recipientDigest,
                 metadata: metadataBlob,
                 nullifier: nullifier ? nullifier : null,
-                afterBlockHeight: afterBlockHeight ? afterBlockHeight : null,
+                expectedHeight: expectedHeight ? expectedHeight : null,
                 stateDiscriminant,
                 state: stateBlob,
             };
@@ -301,7 +301,7 @@ async function processOutputNotes(
             assets: note.assets,
             recipient_digest: note.recipientDigest,
             metadata: note.metadata,
-            after_block_height: note.afterBlockHeight,
+            expected_height: note.expectedHeight,
             state: note.state
         };
     }));

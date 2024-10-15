@@ -37,7 +37,7 @@ pub struct SerializedOutputNoteData {
     pub recipient_digest: String,
     pub metadata: Vec<u8>,
     pub nullifier: Option<String>,
-    pub after_block_height: Option<u32>,
+    pub expected_height: Option<u32>,
     pub state_discriminant: u8,
     pub state: Vec<u8>,
 }
@@ -118,7 +118,7 @@ pub(crate) fn serialize_output_note(
         nullifier,
         state_discriminant,
         state,
-        after_block_height: note.after_block_height(),
+        expected_height: note.expected_height(),
     })
 }
 
@@ -131,7 +131,7 @@ pub async fn insert_output_note_tx(note: &OutputNoteRecord) -> Result<(), StoreE
         serialized_data.recipient_digest,
         serialized_data.metadata,
         serialized_data.nullifier,
-        serialized_data.after_block_height,
+        serialized_data.expected_height,
         serialized_data.state_discriminant,
         serialized_data.state,
     ))
@@ -187,6 +187,6 @@ pub fn parse_output_note_idxdb_object(
         note_assets,
         note_metadata,
         state,
-        note_idxdb.after_block_height,
+        note_idxdb.expected_height,
     ))
 }
