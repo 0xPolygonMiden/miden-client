@@ -122,10 +122,10 @@ impl<R: FeltRng> Client<R> {
         }
     }
 
-    /// Builds a note record from the note and inclusion proof. If a note with the same id was
+    /// Builds a note record from the note and inclusion proof. If a note with the same ID was
     /// already stored it is passed via `previous_note` so it can be updated. The note's
     /// nullifier is used to determine if the note has been consumed in the node and gives it
-    /// the correct status.
+    /// the correct state.
     ///
     /// If the note is not consumed and it was committed in the past relative to the client, then
     /// the MMR for the relevant block is fetched from the node and stored.

@@ -20,21 +20,21 @@ use super::NoteRecordError;
 /// keep track and retrieve.
 ///
 /// An [OutputNoteRecord] contains all the information of a [Note] while it allows for not knowing
-/// the details (nullifier, script, inputs and serial number), in addition of (optionally) the
-/// [NoteInclusionProof] that identifies when the note was included in the chain.
+/// the recipient details (nullifier, script, inputs and serial number).
 ///
-/// It is also possible to convert [Note] into [OutputNoteRecord] (we fill the `details` and
-/// `inclusion_proof` fields if possible)
-///
-/// The `consumer_account_id` field is used to keep track of the account that consumed the note. It
-/// is only valid if the `status` is [OutputNoteState::Consumed]. If the note is consumed but the
-/// field is [None] it means that the note was consumed by an untracked account.
+/// It is also possible to convert [Note] into [OutputNoteRecord] with the state [OutputNoteState::ExpectedFull].
 #[derive(Clone, Debug, PartialEq)]
 pub struct OutputNoteRecord {
+    /// Assets contained in the note.
     assets: NoteAssets,
+    /// Metadata associated with the note, including sender, note type, tag and other additional
+    /// information.
     metadata: NoteMetadata,
+    /// A commitment to the note's serial number, script and inputs.
     recipient_digest: Digest,
+    /// The state of the note, with specific fields for each one.
     state: OutputNoteState,
+    /// The expected block height at which the note should be included in the chain.
     expected_height: Option<u32>,
 }
 
@@ -212,6 +212,7 @@ impl TryFrom<OutputNoteRecord> for Note {
     }
 }
 
+/// Variants of [NoteFile] that can be exported from an [OutputNoteRecord]
 pub enum NoteExportType {
     NoteId,
     NoteDetails,
@@ -395,8 +396,8 @@ impl Serializable for OutputNoteState {
 
 impl Deserializable for OutputNoteState {
     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
-        let status = source.read_u8()?;
-        match status {
+        let state = source.read_u8()?;
+        match state {
             STATE_EXPECTED_PARTIAL => Ok(OutputNoteState::ExpectedPartial),
             STATE_EXPECTED_FULL => {
                 let recipient = NoteRecipient::read_from(source)?;
