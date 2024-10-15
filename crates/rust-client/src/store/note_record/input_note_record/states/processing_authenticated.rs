@@ -8,8 +8,8 @@ use miden_objects::{
 };
 
 use super::{
-    ConsumedAuthenticatedLocalNoteState, ConsumedExternalNoteState, NoteState, NoteStateHandler,
-    NoteSubmissionData,
+    ConsumedAuthenticatedLocalNoteState, ConsumedExternalNoteState, InputNoteState,
+    NoteStateHandler, NoteSubmissionData,
 };
 use crate::store::NoteRecordError;
 
@@ -31,7 +31,7 @@ impl NoteStateHandler for ProcessingAuthenticatedNoteState {
         &self,
         inclusion_proof: NoteInclusionProof,
         metadata: NoteMetadata,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         if self.inclusion_proof != inclusion_proof || self.metadata != metadata {
             return Err(NoteRecordError::StateTransitionError(
                 "Inclusion proof or metadata do not match the expected values".to_string(),
@@ -43,7 +43,7 @@ impl NoteStateHandler for ProcessingAuthenticatedNoteState {
     fn consumed_externally(
         &self,
         nullifier_block_height: u32,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Ok(Some(ConsumedExternalNoteState { nullifier_block_height }.into()))
     }
 
@@ -51,7 +51,7 @@ impl NoteStateHandler for ProcessingAuthenticatedNoteState {
         &self,
         _note_id: NoteId,
         _block_header: BlockHeader,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Ok(None)
     }
 
@@ -59,7 +59,7 @@ impl NoteStateHandler for ProcessingAuthenticatedNoteState {
         &self,
         _consumer_account: AccountId,
         _consumer_transaction: TransactionId,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Err(NoteRecordError::NoteNotConsumable("Note being consumed".to_string()))
     }
 
@@ -67,7 +67,7 @@ impl NoteStateHandler for ProcessingAuthenticatedNoteState {
         &self,
         transaction_id: TransactionId,
         block_height: u32,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         if transaction_id != self.submission_data.consumer_transaction {
             return Err(NoteRecordError::StateTransitionError(
                 "Transaction ID does not match the expected value".to_string(),
@@ -125,8 +125,8 @@ impl miden_tx::utils::Deserializable for ProcessingAuthenticatedNoteState {
     }
 }
 
-impl From<ProcessingAuthenticatedNoteState> for NoteState {
+impl From<ProcessingAuthenticatedNoteState> for InputNoteState {
     fn from(state: ProcessingAuthenticatedNoteState) -> Self {
-        NoteState::ProcessingAuthenticated(state)
+        InputNoteState::ProcessingAuthenticated(state)
     }
 }

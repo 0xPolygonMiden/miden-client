@@ -7,8 +7,8 @@ use miden_objects::{
 };
 
 use super::{
-    CommittedNoteState, ConsumedExternalNoteState, InvalidNoteState, NoteState, NoteStateHandler,
-    NoteSubmissionData, ProcessingUnauthenticatedNoteState,
+    CommittedNoteState, ConsumedExternalNoteState, InputNoteState, InvalidNoteState,
+    NoteStateHandler, NoteSubmissionData, ProcessingUnauthenticatedNoteState,
 };
 use crate::store::NoteRecordError;
 
@@ -26,14 +26,14 @@ impl NoteStateHandler for UnverifiedNoteState {
         &self,
         inclusion_proof: NoteInclusionProof,
         metadata: NoteMetadata,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Ok(Some(UnverifiedNoteState { metadata, inclusion_proof }.into()))
     }
 
     fn consumed_externally(
         &self,
         nullifier_block_height: u32,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Ok(Some(ConsumedExternalNoteState { nullifier_block_height }.into()))
     }
 
@@ -41,7 +41,7 @@ impl NoteStateHandler for UnverifiedNoteState {
         &self,
         note_id: NoteId,
         block_header: BlockHeader,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         if self.inclusion_proof.note_path().verify(
             self.inclusion_proof.location().node_index_in_block().into(),
             compute_note_hash(note_id, &self.metadata),
@@ -71,7 +71,7 @@ impl NoteStateHandler for UnverifiedNoteState {
         &self,
         consumer_account: miden_objects::accounts::AccountId,
         consumer_transaction: miden_objects::transaction::TransactionId,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         let submission_data = NoteSubmissionData {
             submitted_at: None,
             consumer_account,
@@ -92,7 +92,7 @@ impl NoteStateHandler for UnverifiedNoteState {
         &self,
         _transaction_id: TransactionId,
         _block_height: u32,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Err(NoteRecordError::InvalidStateTransition(
             "Only processing notes can be committed in a local transaction".to_string(),
         ))
@@ -128,8 +128,8 @@ impl miden_tx::utils::Deserializable for UnverifiedNoteState {
     }
 }
 
-impl From<UnverifiedNoteState> for NoteState {
+impl From<UnverifiedNoteState> for InputNoteState {
     fn from(state: UnverifiedNoteState) -> Self {
-        NoteState::Unverified(state)
+        InputNoteState::Unverified(state)
     }
 }

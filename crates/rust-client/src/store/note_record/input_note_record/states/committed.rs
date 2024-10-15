@@ -7,7 +7,7 @@ use miden_objects::{
 };
 
 use super::{
-    ConsumedExternalNoteState, NoteState, NoteStateHandler, NoteSubmissionData,
+    ConsumedExternalNoteState, InputNoteState, NoteStateHandler, NoteSubmissionData,
     ProcessingAuthenticatedNoteState,
 };
 use crate::store::NoteRecordError;
@@ -28,7 +28,7 @@ impl NoteStateHandler for CommittedNoteState {
         &self,
         inclusion_proof: NoteInclusionProof,
         metadata: NoteMetadata,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         if self.inclusion_proof != inclusion_proof || self.metadata != metadata {
             return Err(NoteRecordError::StateTransitionError(
                 "Inclusion proof or metadata do not match the expected values".to_string(),
@@ -40,7 +40,7 @@ impl NoteStateHandler for CommittedNoteState {
     fn consumed_externally(
         &self,
         nullifier_block_height: u32,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Ok(Some(ConsumedExternalNoteState { nullifier_block_height }.into()))
     }
 
@@ -48,7 +48,7 @@ impl NoteStateHandler for CommittedNoteState {
         &self,
         _note_id: NoteId,
         block_header: BlockHeader,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         if block_header.note_root() != self.block_note_root {
             return Err(NoteRecordError::StateTransitionError(
                 "Block header does not match the expected note root".to_string(),
@@ -61,7 +61,7 @@ impl NoteStateHandler for CommittedNoteState {
         &self,
         consumer_account: miden_objects::accounts::AccountId,
         consumer_transaction: miden_objects::transaction::TransactionId,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         let submission_data = NoteSubmissionData {
             submitted_at: None,
             consumer_account,
@@ -83,7 +83,7 @@ impl NoteStateHandler for CommittedNoteState {
         &self,
         _transaction_id: TransactionId,
         _block_height: u32,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Err(NoteRecordError::InvalidStateTransition(
             "Only processing notes can be committed in a local transaction".to_string(),
         ))
@@ -125,8 +125,8 @@ impl miden_tx::utils::Deserializable for CommittedNoteState {
     }
 }
 
-impl From<CommittedNoteState> for NoteState {
+impl From<CommittedNoteState> for InputNoteState {
     fn from(state: CommittedNoteState) -> Self {
-        NoteState::Committed(state)
+        InputNoteState::Committed(state)
     }
 }

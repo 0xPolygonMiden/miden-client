@@ -12,8 +12,8 @@ use super::NoteRecordError;
 
 mod states;
 pub use states::{
-    CommittedNoteState, ConsumedAuthenticatedLocalNoteState, ExpectedNoteState, InvalidNoteState,
-    NoteState, ProcessingAuthenticatedNoteState, ProcessingUnauthenticatedNoteState,
+    CommittedNoteState, ConsumedAuthenticatedLocalNoteState, ExpectedNoteState, InputNoteState,
+    InvalidNoteState, ProcessingAuthenticatedNoteState, ProcessingUnauthenticatedNoteState,
     UnverifiedNoteState, STATE_COMMITTED, STATE_CONSUMED_AUTHENTICATED_LOCAL,
     STATE_CONSUMED_EXTERNAL, STATE_CONSUMED_UNAUTHENTICATED_LOCAL, STATE_EXPECTED,
     STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED, STATE_UNVERIFIED,
@@ -38,12 +38,16 @@ pub struct InputNoteRecord {
     /// The timestamp at which the note was created. If it's not known, it will be None.
     created_at: Option<u64>,
     /// The state of the note, with specific fields for each one.
-    state: NoteState,
+    state: InputNoteState,
 }
 
 impl InputNoteRecord {
     #[allow(clippy::too_many_arguments)]
-    pub fn new(details: NoteDetails, created_at: Option<u64>, state: NoteState) -> InputNoteRecord {
+    pub fn new(
+        details: NoteDetails,
+        created_at: Option<u64>,
+        state: InputNoteState,
+    ) -> InputNoteRecord {
         InputNoteRecord { details, created_at, state }
     }
 
@@ -62,7 +66,7 @@ impl InputNoteRecord {
         self.details.assets()
     }
 
-    pub fn state(&self) -> &NoteState {
+    pub fn state(&self) -> &InputNoteState {
         &self.state
     }
 
@@ -89,25 +93,26 @@ impl InputNoteRecord {
     pub fn is_authenticated(&self) -> bool {
         matches!(
             self.state,
-            NoteState::Committed { .. }
-                | NoteState::ProcessingAuthenticated { .. }
-                | NoteState::ConsumedAuthenticatedLocal { .. }
+            InputNoteState::Committed { .. }
+                | InputNoteState::ProcessingAuthenticated { .. }
+                | InputNoteState::ConsumedAuthenticatedLocal { .. }
         )
     }
 
     pub fn is_consumed(&self) -> bool {
         matches!(
             self.state,
-            NoteState::ConsumedExternal { .. }
-                | NoteState::ConsumedAuthenticatedLocal { .. }
-                | NoteState::ConsumedUnauthenticatedLocal { .. }
+            InputNoteState::ConsumedExternal { .. }
+                | InputNoteState::ConsumedAuthenticatedLocal { .. }
+                | InputNoteState::ConsumedUnauthenticatedLocal { .. }
         )
     }
 
     pub fn is_processing(&self) -> bool {
         matches!(
             self.state,
-            NoteState::ProcessingAuthenticated { .. } | NoteState::ProcessingUnauthenticated { .. }
+            InputNoteState::ProcessingAuthenticated { .. }
+                | InputNoteState::ProcessingUnauthenticated { .. }
         )
     }
 
@@ -220,7 +225,7 @@ impl Deserializable for InputNoteRecord {
     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
         let details = NoteDetails::read_from(source)?;
         let created_at = Option::<u64>::read_from(source)?;
-        let state = NoteState::read_from(source)?;
+        let state = InputNoteState::read_from(source)?;
 
         Ok(InputNoteRecord { details, created_at, state })
     }

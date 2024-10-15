@@ -38,7 +38,7 @@ mod output_note_record;
 
 pub use input_note_record::{
     CommittedNoteState, ConsumedAuthenticatedLocalNoteState, ExpectedNoteState, InputNoteRecord,
-    InvalidNoteState, NoteState, ProcessingAuthenticatedNoteState,
+    InputNoteState, InvalidNoteState, ProcessingAuthenticatedNoteState,
     ProcessingUnauthenticatedNoteState, STATE_COMMITTED, STATE_CONSUMED_AUTHENTICATED_LOCAL,
     STATE_CONSUMED_EXTERNAL, STATE_CONSUMED_UNAUTHENTICATED_LOCAL, STATE_EXPECTED,
     STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED, STATE_UNVERIFIED,

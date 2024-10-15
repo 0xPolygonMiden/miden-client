@@ -13,7 +13,9 @@ use miden_tx::utils::Serializable;
 use wasm_bindgen_futures::*;
 
 use super::{js_bindings::*, InputNoteIdxdbObject, OutputNoteIdxdbObject};
-use crate::store::{InputNoteRecord, NoteState, OutputNoteRecord, OutputNoteState, StoreError};
+use crate::store::{
+    InputNoteRecord, InputNoteState, OutputNoteRecord, OutputNoteState, StoreError,
+};
 
 // TYPES
 // ================================================================================================
@@ -164,7 +166,7 @@ pub fn parse_input_note_idxdb_object(
 
     let details = NoteDetails::new(assets, recipient);
 
-    let state = NoteState::read_from_bytes(&state)?;
+    let state = InputNoteState::read_from_bytes(&state)?;
     let created_at = created_at
         .parse::<u64>()
         .map_err(|_| StoreError::QueryError("Failed to parse created_at timestamp".to_string()))?;

@@ -21,7 +21,7 @@ use crate::store::{
         STATE_CONSUMED_UNAUTHENTICATED_LOCAL, STATE_EXPECTED, STATE_EXPECTED_FULL,
         STATE_EXPECTED_PARTIAL, STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED,
     },
-    InputNoteRecord, NoteFilter, NoteState, OutputNoteRecord, StoreError,
+    InputNoteRecord, InputNoteState, NoteFilter, OutputNoteRecord, StoreError,
 };
 
 // TYPES
@@ -496,7 +496,7 @@ fn parse_input_note(
 
     let details = NoteDetails::new(assets, recipient);
 
-    let state = NoteState::read_from_bytes(&state)?;
+    let state = InputNoteState::read_from_bytes(&state)?;
 
     Ok(InputNoteRecord::new(details, Some(created_at), state))
 }
