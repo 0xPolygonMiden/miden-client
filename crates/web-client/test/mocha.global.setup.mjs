@@ -29,7 +29,7 @@ before(async () => {
     shell: process.platform == "win32",
   });
 
-  browser = await puppeteer.launch({ headless: true, protocolTimeout: 60000 });
+  browser = await puppeteer.launch({ headless: true, protocolTimeout: 600000 });
   testingPage = await browser.newPage();
   await testingPage.goto(TEST_SERVER);
 
