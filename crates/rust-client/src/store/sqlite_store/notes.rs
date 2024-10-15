@@ -7,8 +7,7 @@ use alloc::{
 use miden_objects::{
     crypto::utils::{Deserializable, Serializable},
     notes::{
-        NoteAssets, NoteDetails, NoteId, NoteInputs, NoteMetadata, NoteRecipient, NoteScript,
-        Nullifier,
+        NoteAssets, NoteDetails, NoteInputs, NoteMetadata, NoteRecipient, NoteScript, Nullifier,
     },
     Digest, Word,
 };
@@ -65,7 +64,6 @@ struct SerializedInputNoteParts {
 
 /// Represents the parts retrieved from the database to build an `OutputNoteRecord`
 struct SerializedOutputNoteParts {
-    pub id: String,
     pub assets: Vec<u8>,
     pub metadata: Vec<u8>,
     pub recipient_digest: String,
@@ -80,7 +78,6 @@ impl NoteFilter {
     /// Returns a [String] containing the query for this Filter
     fn to_query_output_notes(&self) -> (String, NoteQueryParams) {
         let base = "SELECT
-                    note.note_id,
                     note.recipient_digest,
                     note.assets,
                     note.metadata,
@@ -539,15 +536,13 @@ fn serialize_input_note(note: &InputNoteRecord) -> Result<SerializedInputNoteDat
 fn parse_output_note_columns(
     row: &rusqlite::Row<'_>,
 ) -> Result<SerializedOutputNoteParts, rusqlite::Error> {
-    let id: String = row.get(0)?;
-    let recipient_digest: String = row.get(1)?;
-    let assets: Vec<u8> = row.get(2)?;
-    let metadata: Vec<u8> = row.get(3)?;
-    let expected_height: Option<u32> = row.get(4)?;
-    let state: Vec<u8> = row.get(5)?;
+    let recipient_digest: String = row.get(0)?;
+    let assets: Vec<u8> = row.get(1)?;
+    let metadata: Vec<u8> = row.get(2)?;
+    let expected_height: Option<u32> = row.get(3)?;
+    let state: Vec<u8> = row.get(4)?;
 
     Ok(SerializedOutputNoteParts {
-        id,
         recipient_digest,
         assets,
         metadata,
@@ -561,7 +556,6 @@ fn parse_output_note(
     serialized_output_note_parts: SerializedOutputNoteParts,
 ) -> Result<OutputNoteRecord, StoreError> {
     let SerializedOutputNoteParts {
-        id,
         recipient_digest,
         assets,
         metadata,
@@ -569,14 +563,12 @@ fn parse_output_note(
         state,
     } = serialized_output_note_parts;
 
-    let id = NoteId::try_from_hex(id.as_str())?;
     let recipient_digest = Digest::try_from(recipient_digest)?;
     let assets = NoteAssets::read_from_bytes(&assets)?;
     let metadata = NoteMetadata::read_from_bytes(&metadata)?;
     let state = OutputNoteState::read_from_bytes(&state)?;
 
     Ok(OutputNoteRecord::new(
-        id,
         recipient_digest,
         assets,
         metadata,

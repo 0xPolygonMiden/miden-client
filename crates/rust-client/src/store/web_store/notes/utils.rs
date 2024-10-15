@@ -5,7 +5,7 @@ use alloc::{
 
 use chrono::Utc;
 use miden_objects::{
-    notes::{NoteAssets, NoteDetails, NoteId, NoteInputs, NoteMetadata, NoteRecipient, NoteScript},
+    notes::{NoteAssets, NoteDetails, NoteInputs, NoteMetadata, NoteRecipient, NoteScript},
     utils::Deserializable,
     Digest, Word,
 };
@@ -178,11 +178,9 @@ pub fn parse_output_note_idxdb_object(
     let note_metadata = NoteMetadata::read_from_bytes(&note_idxdb.metadata)?;
     let note_assets = NoteAssets::read_from_bytes(&note_idxdb.assets)?;
     let recipient = Digest::try_from(note_idxdb.recipient_digest)?;
-    let id = NoteId::new(recipient, note_assets.commitment());
     let state = OutputNoteState::read_from_bytes(&note_idxdb.state)?;
 
     Ok(OutputNoteRecord::new(
-        id,
         recipient,
         note_assets,
         note_metadata,

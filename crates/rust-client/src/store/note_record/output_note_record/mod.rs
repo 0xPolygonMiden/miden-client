@@ -32,7 +32,6 @@ use super::NoteRecordError;
 #[derive(Clone, Debug, PartialEq)]
 pub struct OutputNoteRecord {
     assets: NoteAssets,
-    id: NoteId,
     metadata: NoteMetadata,
     recipient_digest: Digest,
     state: OutputNoteState,
@@ -41,7 +40,6 @@ pub struct OutputNoteRecord {
 
 impl OutputNoteRecord {
     pub fn new(
-        id: NoteId,
         recipient_digest: Digest,
         assets: NoteAssets,
         metadata: NoteMetadata,
@@ -49,7 +47,6 @@ impl OutputNoteRecord {
         expected_height: Option<u32>,
     ) -> OutputNoteRecord {
         OutputNoteRecord {
-            id,
             recipient_digest,
             assets,
             state,
@@ -59,7 +56,7 @@ impl OutputNoteRecord {
     }
 
     pub fn id(&self) -> NoteId {
-        self.id
+        NoteId::new(self.recipient_digest, self.assets.commitment())
     }
 
     pub fn recipient_digest(&self) -> Digest {
@@ -148,7 +145,6 @@ impl From<Note> for OutputNoteRecord {
         let header = *note.header();
         let (assets, recipient) = NoteDetails::from(note).into_parts();
         OutputNoteRecord {
-            id: header.id(),
             recipient_digest: recipient.digest(),
             assets,
             metadata: *header.metadata(),
@@ -161,7 +157,6 @@ impl From<Note> for OutputNoteRecord {
 impl From<PartialNote> for OutputNoteRecord {
     fn from(partial_note: PartialNote) -> Self {
         OutputNoteRecord {
-            id: partial_note.id(),
             recipient_digest: partial_note.recipient_digest(),
             assets: partial_note.assets().clone(),
             metadata: *partial_note.metadata(),
