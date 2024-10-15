@@ -126,7 +126,8 @@ impl SqliteStore {
         // Updates for notes
         for note in created_input_notes {
             upsert_input_note_tx(&tx, &note)?;
-            if let NoteState::Expected(ExpectedNoteState { tag: Some(tag), .. }) = note.state() {
+            if let InputNoteState::Expected(ExpectedNoteState { tag: Some(tag), .. }) = note.state()
+            {
                 add_note_tag_tx(&tx, NoteTagRecord::with_note_source(*tag, note.id()))?;
             }
         }

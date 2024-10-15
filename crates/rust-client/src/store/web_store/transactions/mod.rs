@@ -15,7 +15,7 @@ use super::{
 };
 use crate::{
     store::{
-        ExpectedNoteState, InputNoteState, NoteFilter, OutputNoteRercord, StoreError,
+        ExpectedNoteState, InputNoteState, NoteFilter, OutputNoteRecord, StoreError,
         TransactionFilter,
     },
     sync::NoteTagRecord,
@@ -131,7 +131,8 @@ impl WebStore {
 
         // Updates for notes
         for note in created_input_notes {
-            if let NoteState::Expected(ExpectedNoteState { tag: Some(tag), .. }) = note.state() {
+            if let InputNoteState::Expected(ExpectedNoteState { tag: Some(tag), .. }) = note.state()
+            {
                 self.add_note_tag(NoteTagRecord::with_note_source(*tag, note.id())).await?;
             }
             upsert_input_note_tx(note).await?;

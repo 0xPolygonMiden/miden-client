@@ -2,7 +2,7 @@ use alloc::{collections::BTreeSet, string::ToString, vec::Vec};
 
 use miden_objects::notes::{NoteTag, Nullifier};
 use miden_tx::utils::{Deserializable, Serializable};
-use rusqlite::{named_params, params, Transaction};
+use rusqlite::{params, Transaction};
 
 use super::SqliteStore;
 use crate::{
