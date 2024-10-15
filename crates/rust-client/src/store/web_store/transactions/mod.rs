@@ -94,7 +94,6 @@ impl WebStore {
     }
 
     pub async fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), StoreError> {
-        let block_num = self.get_sync_height().await?;
         let transaction_id = tx_result.executed_transaction().id();
         let account_id = tx_result.executed_transaction().account_id();
         let account_delta = tx_result.account_delta();
@@ -133,7 +132,7 @@ impl WebStore {
         }
 
         for note in &created_output_notes {
-            insert_output_note_tx(block_num, note).await?;
+            insert_output_note_tx(note).await?;
         }
 
         for mut input_note_record in relevant_notes {

@@ -41,7 +41,7 @@ db.version(1).stores({
   [Table.Transactions]: indexes('id'),
   [Table.TransactionScripts]: indexes('scriptHash'),
   [Table.InputNotes]: indexes('noteId', 'recipient', 'status', 'importedTag', 'ignored', 'nullifier'),
-  [Table.OutputNotes]: indexes('noteId', 'recipient', 'status', 'importedTag', 'ignored', 'nullifier'),
+  [Table.OutputNotes]: indexes('noteId', 'recipientDigest', 'stateDiscriminant', 'nullifier'),
   [Table.NotesScripts]: indexes('scriptHash'),
   [Table.StateSync]: indexes('id'),
   [Table.BlockHeaders]: indexes('blockNum', 'hasClientNotes'),

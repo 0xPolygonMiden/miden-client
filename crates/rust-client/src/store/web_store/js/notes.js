@@ -7,16 +7,19 @@ import {
 } from './schema.js';
 
 export async function getOutputNotes(
-    status
+    states
 ) {
     try {
         let notes;
 
         // Fetch the records based on the filter
-        if (status === 'All') {
-            notes = await outputNotes.toArray();
+        if (states.length === 0) {
+          notes = await outputNotes.toArray();
         } else {
-            notes = await outputNotes.where('status').equals(status).toArray();
+          notes = await outputNotes
+            .where("stateDiscriminant")
+            .anyOf(states)
+            .toArray();
         }
 
         return await processOutputNotes(notes);
@@ -49,21 +52,6 @@ export async function getInputNotes(
     }
 }
 
-export async function getIgnoredOutputNotes() {
-    try {
-        const notes = await outputNotes
-            .where('ignored')
-            .equals("true")
-            .toArray();
-
-        return await processOutputNotes(notes);
-    } catch (err) {
-        console.error("Failed to get ignored output notes: ", err);
-        throw err;
-    }
-
-}
-
 export async function getInputNotesFromIds(
     noteIds
 ) {
@@ -92,6 +80,22 @@ export async function getInputNotesFromNullifiers(
         return await processInputNotes(notes);
     } catch (err) {
         console.error("Failed to get input notes: ", err);
+        throw err;
+    }
+}
+
+export async function getOutputNotesFromNullifiers(
+    nullifiers
+) {
+    try {
+        let notes;
+
+        // Fetch the records based on a list of IDs
+        notes = await outputNotes.where('nullifier').anyOf(nullifiers).toArray();
+
+        return await processOutputNotes(notes);
+    } catch (err) {
+        console.error("Failed to get output notes: ", err);
         throw err;
     }
 }
@@ -178,63 +182,36 @@ export async function upsertInputNote(
     });
 }
 
-export async function insertOutputNote(
+export async function upsertOutputNote(
     noteId,
     assets,
-    recipient,
-    status,
+    recipientDigest,
     metadata,
     nullifier,
-    details,
-    noteScriptHash,
-    serializedNoteScript,
-    inclusionProof,
-    serializedCreatedAt,
-    expectedHeight
+    afterBlockHeight,
+    stateDiscriminant,
+    state
 ) {
     return db.transaction('rw', outputNotes, notesScripts, async (tx) => {
         try {
             let assetsBlob = new Blob([new Uint8Array(assets)]);
-            let detailsBlob = details ? new Blob([new Uint8Array(details)]) : null;
             let metadataBlob = new Blob([new Uint8Array(metadata)]);
-            let inclusionProofBlob = inclusionProof ? new Blob([new Uint8Array(inclusionProof)]) : null;
+            let stateBlob = new Blob([new Uint8Array(state)]);
 
             // Prepare the data object to insert
             const data = {
                 noteId: noteId,
                 assets: assetsBlob,
-                recipient: recipient,
-                status: status,
+                recipientDigest: recipientDigest,
                 metadata: metadataBlob,
                 nullifier: nullifier ? nullifier : null,
-                details: detailsBlob,
-                noteScriptHash: noteScriptHash ? noteScriptHash : null,
-                inclusionProof: inclusionProofBlob,
-                consumerTransactionId: null,
-                createdAt: serializedCreatedAt,
-                expectedHeight: expectedHeight ? expectedHeight : null, // todo change to block_num
-                ignored: "false",
-                imported_tag: null
+                afterBlockHeight: afterBlockHeight ? afterBlockHeight : null,
+                stateDiscriminant,
+                state: stateBlob,
             };
 
             // Perform the insert using Dexie
             await tx.outputNotes.add(data);
-
-            if (noteScriptHash) {
-                const exists = await tx.notesScripts.get(noteScriptHash);
-                if (!exists) {
-                    let serializedNoteScriptBlob = null;
-                    if (serializedNoteScript) {
-                        serializedNoteScriptBlob = new Blob([new Uint8Array(serializedNoteScript)]);
-                    }
-
-                    const data = {
-                        scriptHash: noteScriptHash,
-                        serializedNoteScript: serializedNoteScriptBlob,
-                    };
-                    await tx.notesScripts.add(data);
-                }
-            }
         } catch {
             console.error(`Error inserting note: ${noteId}:`, error);
             throw error; // Rethrow the error to handle it further up the call chain if needed
@@ -301,10 +278,6 @@ async function processInputNotes(
 async function processOutputNotes(
     notes
 ) {
-    // Fetch all scripts from the scripts table for joining
-    const transactionRecords = await transactions.toArray();
-    const transactionMap = new Map(transactionRecords.map(transaction => [transaction.id, transaction.accountId]));
-
     // Process each note to convert 'blobField' from Blob to Uint8Array
     const processedNotes = await Promise.all(notes.map(async note => {
         const assetsArrayBuffer = await note.assets.arrayBuffer();
@@ -312,57 +285,24 @@ async function processOutputNotes(
         const assetsBase64 = uint8ArrayToBase64(assetsArray);
         note.assets = assetsBase64;
 
-        // Convert the details blob to base64
-        let detailsBase64 = null;
-        if (note.details) {
-            const detailsArrayBuffer = await note.details.arrayBuffer();
-            const detailsArray = new Uint8Array(detailsArrayBuffer);
-            detailsBase64 = uint8ArrayToBase64(detailsArray);
-        }
-
         // Convert the metadata blob to base64
         const metadataArrayBuffer = await note.metadata.arrayBuffer();
         const metadataArray = new Uint8Array(metadataArrayBuffer);
         const metadataBase64 = uint8ArrayToBase64(metadataArray);
         note.metadata = metadataBase64;
 
-        // Convert inclusion proof blob to base64
-        let inclusionProofBase64 = null;
-        if (note.inclusionProof) {
-            const inclusionProofArrayBuffer = await note.inclusionProof.arrayBuffer();
-            const inclusionProofArray = new Uint8Array(inclusionProofArrayBuffer);
-            inclusionProofBase64 = uint8ArrayToBase64(inclusionProofArray);
-        }
-
-        let serializedNoteScriptBase64 = null;
-        if (note.noteScriptHash) {
-            let record = await notesScripts.get(note.noteScriptHash);
-            let serializedNoteScriptArrayBuffer = await record.serializedNoteScript.arrayBuffer();
-            const serializedNoteScriptArray = new Uint8Array(serializedNoteScriptArrayBuffer);
-            serializedNoteScriptBase64 = uint8ArrayToBase64(serializedNoteScriptArray);
-        }
-
-        // Perform a "join" with the transactions table
-        let consumerAccountId = null;
-        if (transactionMap.has(note.consumerTransactionId)) {
-            consumerAccountId = transactionMap.get(note.consumerTransactionId);
-        }
+        // Convert the state blob to base64
+        const stateBuffer = await note.state.arrayBuffer();
+        const stateArray = new Uint8Array(stateBuffer);
+        const stateBase64 = uint8ArrayToBase64(stateArray);
+        note.state = stateBase64;
 
         return {
             assets: note.assets,
-            details: detailsBase64,
-            recipient: note.recipient,
-            status: note.status,
+            recipient_digest: note.recipientDigest,
             metadata: note.metadata,
-            inclusion_proof: inclusionProofBase64,
-            serialized_note_script: serializedNoteScriptBase64,
-            consumer_account_id: consumerAccountId,
-            created_at: note.createdAt,
-            expected_height: note.expectedHeight ? note.expectedHeight : null,
-            submitted_at: note.submittedAt ? note.submittedAt : null,
-            nullifier_height: note.nullifierHeight ? note.nullifierHeight : null,
-            ignored: note.ignored === "true",
-            imported_tag: note.importedTag ? note.importedTag : null
+            after_block_height: note.afterBlockHeight,
+            state: note.state
         };
     }));
     return processedNotes;
