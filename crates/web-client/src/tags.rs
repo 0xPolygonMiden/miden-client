@@ -31,7 +31,13 @@ impl WebClient {
 
     pub async fn list_tags(&mut self) -> Result<JsValue, JsValue> {
         if let Some(client) = self.get_mut_inner() {
-            let tags: Vec<NoteTag> = client.get_note_tags().await.unwrap();
+            let tags: Vec<NoteTag> = client
+                .get_note_tags()
+                .await
+                .unwrap()
+                .into_iter()
+                .map(|tag_record| tag_record.tag)
+                .collect();
 
             // call toString() on each tag
             let result = tags.iter().map(|tag| tag.to_string()).collect::<Vec<String>>();

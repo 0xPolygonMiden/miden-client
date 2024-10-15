@@ -15,12 +15,13 @@ use miden_objects::{
     accounts::AuthSecretKey,
     assets::TokenSymbol,
     crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
+    notes::{NoteExecutionMode, NoteTag},
     Felt, Word,
 };
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use super::Client;
-use crate::ClientError;
+use crate::{sync::NoteTagRecord, ClientError};
 
 /// Defines templates for creating different types of Miden accounts.
 pub enum AccountTemplate {
@@ -50,7 +51,8 @@ impl<R: FeltRng> Client<R> {
     // ACCOUNT CREATION
     // --------------------------------------------------------------------------------------------
 
-    /// Creates a new [Account] based on an [AccountTemplate] and saves it in the client's store.
+    /// Creates a new [Account] based on an [AccountTemplate] and saves it in the client's store. A
+    /// new tag derived from the account will start being tracked by the client.
     #[maybe_async]
     pub fn new_account(
         &mut self,
@@ -72,6 +74,12 @@ impl<R: FeltRng> Client<R> {
                 storage_mode
             )),
         }?;
+
+        let id = account_and_seed.0.id();
+        maybe_await!(self.store.add_note_tag(NoteTagRecord::with_account_source(
+            NoteTag::from_account_id(id, NoteExecutionMode::Local)?,
+            id
+        )))?;
 
         Ok(account_and_seed)
     }

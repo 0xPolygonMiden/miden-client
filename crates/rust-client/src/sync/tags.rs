@@ -1,13 +1,15 @@
 use alloc::{collections::BTreeSet, vec::Vec};
 
 use miden_objects::{
+    accounts::AccountId,
     crypto::rand::FeltRng,
-    notes::{NoteExecutionMode, NoteTag},
+    notes::{NoteId, NoteTag},
 };
+use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 use tracing::warn;
 use winter_maybe_async::{maybe_async, maybe_await};
 
-use crate::{errors::ClientError, store::NoteFilter, Client};
+use crate::{errors::ClientError, Client};
 
 impl<R: FeltRng> Client<R> {
     /// Returns the list of note tags tracked by the client.
@@ -19,14 +21,24 @@ impl<R: FeltRng> Client<R> {
     /// the client and do not need to be added here. That is, notes for managed accounts will be
     /// retrieved automatically by the client when syncing.
     #[maybe_async]
-    pub fn get_note_tags(&self) -> Result<Vec<NoteTag>, ClientError> {
+    pub fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, ClientError> {
         maybe_await!(self.store.get_note_tags()).map_err(|err| err.into())
+    }
+
+    /// Returns the unique note tags (without source) that the client is interested in.
+    #[maybe_async]
+    pub fn get_unique_note_tags(&self) -> Result<BTreeSet<NoteTag>, ClientError> {
+        maybe_await!(self.store.get_unique_note_tags()).map_err(|err| err.into())
     }
 
     /// Adds a note tag for the client to track.
     #[maybe_async]
     pub fn add_note_tag(&mut self, tag: NoteTag) -> Result<(), ClientError> {
-        match maybe_await!(self.store.add_note_tag(tag)).map_err(|err| err.into()) {
+        match maybe_await!(self
+            .store
+            .add_note_tag(NoteTagRecord { tag, source: NoteTagSource::User }))
+        .map_err(|err| err.into())
+        {
             Ok(true) => Ok(()),
             Ok(false) => {
                 warn!("Tag {} is already being tracked", tag);
@@ -39,37 +51,82 @@ impl<R: FeltRng> Client<R> {
     /// Removes a note tag for the client to track.
     #[maybe_async]
     pub fn remove_note_tag(&mut self, tag: NoteTag) -> Result<(), ClientError> {
-        match maybe_await!(self.store.remove_note_tag(tag))? {
-            true => Ok(()),
-            false => {
-                warn!("Tag {} wasn't being tracked", tag);
-                Ok(())
-            },
+        if maybe_await!(self
+            .store
+            .remove_note_tag(NoteTagRecord { tag, source: NoteTagSource::User }))?
+            == 0
+        {
+            warn!("Tag {} wasn't being tracked", tag);
+        }
+
+        Ok(())
+    }
+}
+
+/// Represents a note tag of which the Store can keep track and retrieve.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct NoteTagRecord {
+    pub tag: NoteTag,
+    pub source: NoteTagSource,
+}
+
+/// Represents the source of the tag. This is used to differentiate between tags that are added by
+/// the user and tags that are added automatically by the client to track notes .
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum NoteTagSource {
+    /// Tag for notes directed to a tracked account.
+    Account(AccountId),
+    /// Tag for tracked expected notes.
+    Note(NoteId),
+    /// Tag manually added by the user.
+    User,
+}
+
+impl NoteTagRecord {
+    pub fn with_note_source(tag: NoteTag, note_id: NoteId) -> Self {
+        Self {
+            tag,
+            source: NoteTagSource::Note(note_id),
         }
     }
 
-    /// Returns the list of note tags tracked by the client.
-    #[maybe_async]
-    pub(crate) fn get_tracked_note_tags(&self) -> Result<Vec<NoteTag>, ClientError> {
-        let stored_tags = maybe_await!(self.get_note_tags())?;
+    pub fn with_account_source(tag: NoteTag, account_id: AccountId) -> Self {
+        Self {
+            tag,
+            source: NoteTagSource::Account(account_id),
+        }
+    }
+}
 
-        let account_tags = maybe_await!(self.get_account_headers())?
-            .into_iter()
-            .map(|(header, _)| NoteTag::from_account_id(header.id(), NoteExecutionMode::Local))
-            .collect::<Result<Vec<_>, _>>()?;
+impl Serializable for NoteTagSource {
+    fn write_into<W: ByteWriter>(&self, target: &mut W) {
+        match self {
+            NoteTagSource::Account(account_id) => {
+                target.write_u8(0);
+                account_id.write_into(target);
+            },
+            NoteTagSource::Note(note_id) => {
+                target.write_u8(1);
+                note_id.write_into(target);
+            },
+            NoteTagSource::User => target.write_u8(2),
+        }
+    }
+}
 
-        let expected_notes = maybe_await!(self.store.get_input_notes(NoteFilter::Expected))?;
+impl Deserializable for NoteTagSource {
+    fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
+        match source.read_u8()? {
+            0 => Ok(NoteTagSource::Account(AccountId::read_from(source)?)),
+            1 => Ok(NoteTagSource::Note(NoteId::read_from(source)?)),
+            2 => Ok(NoteTagSource::User),
+            val => Err(DeserializationError::InvalidValue(format!("Invalid tag source: {}", val))),
+        }
+    }
+}
 
-        let uncommited_note_tags: Vec<NoteTag> = expected_notes
-            .iter()
-            .filter_map(|note| note.metadata().map(|metadata| metadata.tag()))
-            .collect();
-
-        Ok([account_tags, stored_tags, uncommited_note_tags]
-            .concat()
-            .into_iter()
-            .collect::<BTreeSet<NoteTag>>()
-            .into_iter()
-            .collect())
+impl PartialEq<NoteTag> for NoteTagRecord {
+    fn eq(&self, other: &NoteTag) -> bool {
+        self.tag == *other
     }
 }

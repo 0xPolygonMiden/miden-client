@@ -1,4 +1,7 @@
-use alloc::{collections::BTreeMap, vec::Vec};
+use alloc::{
+    collections::{BTreeMap, BTreeSet},
+    vec::Vec,
+};
 use core::cell::{RefCell, RefMut};
 use std::path::Path;
 
@@ -17,7 +20,7 @@ use super::{
 };
 use crate::{
     store::StoreError,
-    sync::StateSyncUpdate,
+    sync::{NoteTagRecord, StateSyncUpdate},
     transactions::{TransactionRecord, TransactionResult},
 };
 
@@ -74,17 +77,22 @@ use alloc::boxed::Box;
 #[maybe_async_trait]
 impl Store for SqliteStore {
     #[maybe_async]
-    fn get_note_tags(&self) -> Result<Vec<NoteTag>, StoreError> {
+    fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, StoreError> {
         self.get_note_tags()
     }
 
     #[maybe_async]
-    fn add_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError> {
+    fn get_unique_note_tags(&self) -> Result<BTreeSet<NoteTag>, StoreError> {
+        self.get_unique_note_tags()
+    }
+
+    #[maybe_async]
+    fn add_note_tag(&self, tag: NoteTagRecord) -> Result<bool, StoreError> {
         self.add_note_tag(tag)
     }
 
     #[maybe_async]
-    fn remove_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError> {
+    fn remove_note_tag(&self, tag: NoteTagRecord) -> Result<usize, StoreError> {
         self.remove_note_tag(tag)
     }
 
