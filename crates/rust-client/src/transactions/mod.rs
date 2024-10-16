@@ -259,9 +259,10 @@ impl<R: FeltRng> Client<R> {
         let tx_script = match transaction_request.script_template() {
             Some(TransactionScriptTemplate::CustomScript(script)) => script.clone(),
             Some(TransactionScriptTemplate::SendNotes(notes)) => {
-                let tx_script_builder = TransactionScriptBuilder::new(maybe_await!(
-                    self.get_account_capabilities(account_id)
-                )?);
+                let tx_script_builder = TransactionScriptBuilder::new(
+                    maybe_await!(self.get_account_capabilities(account_id))?,
+                    None,
+                );
 
                 tx_script_builder.build_send_notes_script(notes)?
             },
@@ -272,9 +273,10 @@ impl<R: FeltRng> Client<R> {
                     ));
                 }
 
-                let tx_script_builder = TransactionScriptBuilder::new(maybe_await!(
-                    self.get_account_capabilities(account_id)
-                )?);
+                let tx_script_builder = TransactionScriptBuilder::new(
+                    maybe_await!(self.get_account_capabilities(account_id))?,
+                    None,
+                );
 
                 tx_script_builder.build_auth_script()?
             },
