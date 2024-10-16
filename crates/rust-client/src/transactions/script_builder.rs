@@ -1,4 +1,7 @@
-use alloc::string::String;
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
@@ -91,7 +94,7 @@ impl AccountInterface {
                         body.push_str(&format!(
                             "
                         push.{asset}
-                        call.wallet::move_asset_to_note dropw 
+                        call.wallet::move_asset_to_note dropw
                         ",
                             asset = prepare_word(&asset.into())
                         ))
@@ -121,11 +124,12 @@ pub(crate) struct TransactionScriptBuilder {
     /// Capabilities of the account for which the script is being built. The capabilities
     /// specify the authentication method and the interfaces exposed by the account.
     account_capabilities: AccountCapabilities,
+    expiry_delta: Option<u64>,
 }
 
 impl TransactionScriptBuilder {
-    pub fn new(account_capabilities: AccountCapabilities) -> Self {
-        Self { account_capabilities }
+    pub fn new(account_capabilities: AccountCapabilities, expiry_delta: Option<u64>) -> Self {
+        Self { account_capabilities, expiry_delta }
     }
 
     /// Builds a transaction script which sends the specified notes with the corresponding
@@ -139,23 +143,25 @@ impl TransactionScriptBuilder {
             .interfaces
             .send_note_procedure(self.account_capabilities.account_id, output_notes)?;
 
-        let script = format!(
-            "{} begin {} {} end",
-            self.script_includes(),
-            send_note_procedure,
-            self.script_authentication()
-        );
-
-        let tx_script = TransactionScript::compile(script, vec![], TransactionKernel::assembler())
-            .map_err(TransactionScriptBuilderError::InvalidTransactionScript)?;
-
-        Ok(tx_script)
+        self.build_script_with_sections(vec![send_note_procedure])
     }
 
     /// Builds a simple authentication script for the account that doesn't send any notes.
     pub fn build_auth_script(&self) -> Result<TransactionScript, TransactionScriptBuilderError> {
-        let script =
-            format!("{} begin {} end", self.script_includes(), self.script_authentication());
+        self.build_script_with_sections(vec![])
+    }
+
+    fn build_script_with_sections(
+        &self,
+        sections: Vec<String>,
+    ) -> Result<TransactionScript, TransactionScriptBuilderError> {
+        let script = format!(
+            "{} begin {} {} {} end",
+            self.script_includes(),
+            sections.join(" "),
+            self.script_expiration(),
+            self.script_authentication()
+        );
 
         let tx_script = TransactionScript::compile(script, vec![], TransactionKernel::assembler())
             .map_err(TransactionScriptBuilderError::InvalidTransactionScript)?;
@@ -174,19 +180,25 @@ impl TransactionScriptBuilder {
             },
         }
 
+        if self.expiry_delta.is_some() {
+            includes.push_str("use.miden::kernels::tx::update_expiration_block_num\n");
+        }
+
         includes
     }
 
     fn script_authentication(&self) -> String {
-        let mut body = String::new();
-
         match self.account_capabilities.auth {
-            AuthSecretKey::RpoFalcon512(_) => {
-                body.push_str("call.auth_tx::auth_tx_rpo_falcon512\n");
-            },
+            AuthSecretKey::RpoFalcon512(_) => "call.auth_tx::auth_tx_rpo_falcon512\n".to_string(),
         }
+    }
 
-        body
+    fn script_expiration(&self) -> String {
+        if let Some(expiry_delta) = self.expiry_delta {
+            format!("push.{} call.update_expiration_block_num", expiry_delta)
+        } else {
+            String::new()
+        }
     }
 }
 
