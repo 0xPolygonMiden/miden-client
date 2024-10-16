@@ -56,7 +56,7 @@ export async function addNoteTag(
             source_note_id: source_note_id ? source_note_id : "",
             source_account_id: source_account_id ? source_account_id : ""
         });
-    } catch {
+    } catch (err) {
         console.error("Failed to add note tag: ", err);
         throw err;
     }
@@ -97,7 +97,7 @@ export async function applyStateSync(
     transactionIds,
     transactionBlockNums
 ) {
-    return db.transaction('rw', stateSync, inputNotes, outputNotes, transactions, blockHeaders, chainMmrNodes, async (tx) => {
+    return db.transaction('rw', stateSync, inputNotes, outputNotes, transactions, blockHeaders, chainMmrNodes, tags, async (tx) => {
         await updateSyncHeight(tx, blockNum);
         await updateSpentNotes(tx, nullifierBlockNums, nullifiers);
         await updateBlockHeader(tx, blockNum, blockHeader, chainMmrPeaks, hasClientNotes);
@@ -253,7 +253,7 @@ async function updateCommittedNotes(
             });
 
             // Remove note tags
-            await tags.delete({ source_note_id: noteId });
+            await tx.tags.where('source_note_id').equals(noteId).delete();
         }
     } catch (error) {
         console.error("Error updating committed notes:", error);
