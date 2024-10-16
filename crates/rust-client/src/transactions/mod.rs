@@ -24,7 +24,7 @@ use winter_maybe_async::{maybe_async, maybe_await};
 use super::{Client, FeltRng};
 use crate::{
     notes::NoteScreener,
-    store::{ExpectedNoteState, InputNoteRecord, NoteFilter, TransactionFilter},
+    store::{input_note_states::ExpectedNoteState, InputNoteRecord, NoteFilter, TransactionFilter},
     ClientError,
 };
 

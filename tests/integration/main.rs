@@ -3,8 +3,8 @@ use miden_client::{
     notes::NoteRelevance,
     rpc::{AccountDetails, NodeRpcClient, TonicRpcClient},
     store::{
-        ConsumedAuthenticatedLocalNoteState, InputNoteRecord, InputNoteState, NoteFilter,
-        OutputNoteState, TransactionFilter,
+        input_note_states::ConsumedAuthenticatedLocalNoteState, InputNoteRecord, InputNoteState,
+        NoteFilter, OutputNoteState, TransactionFilter,
     },
     sync::NoteTagSource,
     transactions::{

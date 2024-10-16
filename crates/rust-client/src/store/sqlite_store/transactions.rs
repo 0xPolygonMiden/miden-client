@@ -22,8 +22,8 @@ use super::{
 use crate::{
     rpc::TransactionUpdate,
     store::{
-        ExpectedNoteState, InputNoteState, NoteFilter, OutputNoteRecord, StoreError,
-        TransactionFilter,
+        input_note_states::ExpectedNoteState, InputNoteState, NoteFilter, OutputNoteRecord,
+        StoreError, TransactionFilter,
     },
     sync::NoteTagRecord,
     transactions::{TransactionRecord, TransactionResult, TransactionStatus},

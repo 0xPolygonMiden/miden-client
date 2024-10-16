@@ -7,11 +7,12 @@ use rusqlite::{params, Transaction};
 use super::SqliteStore;
 use crate::{
     store::{
+        input_note_states::CommittedNoteState,
         sqlite_store::{
             accounts::update_account,
             notes::{upsert_input_note_tx, upsert_output_note_tx},
         },
-        CommittedNoteState, InputNoteRecord, NoteFilter, OutputNoteRecord, StoreError,
+        InputNoteRecord, NoteFilter, OutputNoteRecord, StoreError,
     },
     sync::{NoteTagRecord, NoteTagSource, StateSyncUpdate},
 };

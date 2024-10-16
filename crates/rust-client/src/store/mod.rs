@@ -45,12 +45,8 @@ pub mod web_store;
 
 mod note_record;
 pub use note_record::{
-    CommittedNoteState, ConsumedAuthenticatedLocalNoteState, ExpectedNoteState, InputNoteRecord,
-    InputNoteState, InvalidNoteState, NoteExportType, NoteRecordError, OutputNoteRecord,
-    OutputNoteState, ProcessingAuthenticatedNoteState, ProcessingUnauthenticatedNoteState,
-    STATE_CONSUMED_AUTHENTICATED_LOCAL, STATE_CONSUMED_EXTERNAL,
-    STATE_CONSUMED_UNAUTHENTICATED_LOCAL, STATE_EXPECTED, STATE_PROCESSING_AUTHENTICATED,
-    STATE_PROCESSING_UNAUTHENTICATED, STATE_UNVERIFIED,
+    input_note_states, InputNoteRecord, InputNoteState, NoteExportType, NoteRecordError,
+    OutputNoteRecord, OutputNoteState,
 };
 
 // STORE TRAIT
@@ -117,7 +113,7 @@ pub trait Store {
     fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
         let nullifiers = maybe_await!(self.get_input_notes(NoteFilter::Or(vec![
             NoteFilter::Expected,
-            NoteFilter::StateDiscriminant(STATE_UNVERIFIED),
+            NoteFilter::StateDiscriminant(InputNoteState::STATE_UNVERIFIED),
             NoteFilter::Committed,
             NoteFilter::Processing
         ])))?

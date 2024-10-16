@@ -248,12 +248,6 @@ impl OutputNoteRecord {
 // OUTPUT NOTE STATE
 // ================================================================================================
 
-pub const STATE_EXPECTED_PARTIAL: u8 = 0;
-pub const STATE_EXPECTED_FULL: u8 = 1;
-pub const STATE_COMMITTED_PARTIAL: u8 = 2;
-pub const STATE_COMMITTED_FULL: u8 = 3;
-pub const STATE_CONSUMED: u8 = 4;
-
 /// Possible states for a single output note. They describe the note's state and dictate its
 /// lifecycle.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -289,14 +283,20 @@ pub enum OutputNoteState {
 }
 
 impl OutputNoteState {
+    pub const STATE_EXPECTED_PARTIAL: u8 = 0;
+    pub const STATE_EXPECTED_FULL: u8 = 1;
+    pub const STATE_COMMITTED_PARTIAL: u8 = 2;
+    pub const STATE_COMMITTED_FULL: u8 = 3;
+    pub const STATE_CONSUMED: u8 = 4;
+
     /// Returns a unique identifier for each note state.
     pub fn discriminant(&self) -> u8 {
         match self {
-            OutputNoteState::ExpectedPartial { .. } => STATE_EXPECTED_PARTIAL,
-            OutputNoteState::ExpectedFull { .. } => STATE_EXPECTED_FULL,
-            OutputNoteState::CommittedPartial { .. } => STATE_COMMITTED_PARTIAL,
-            OutputNoteState::CommittedFull { .. } => STATE_COMMITTED_FULL,
-            OutputNoteState::Consumed { .. } => STATE_CONSUMED,
+            OutputNoteState::ExpectedPartial { .. } => Self::STATE_EXPECTED_PARTIAL,
+            OutputNoteState::ExpectedFull { .. } => Self::STATE_EXPECTED_FULL,
+            OutputNoteState::CommittedPartial { .. } => Self::STATE_COMMITTED_PARTIAL,
+            OutputNoteState::CommittedFull { .. } => Self::STATE_COMMITTED_FULL,
+            OutputNoteState::Consumed { .. } => Self::STATE_CONSUMED,
         }
     }
 
@@ -396,21 +396,21 @@ impl Deserializable for OutputNoteState {
     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
         let state = source.read_u8()?;
         match state {
-            STATE_EXPECTED_PARTIAL => Ok(OutputNoteState::ExpectedPartial),
-            STATE_EXPECTED_FULL => {
+            Self::STATE_EXPECTED_PARTIAL => Ok(OutputNoteState::ExpectedPartial),
+            Self::STATE_EXPECTED_FULL => {
                 let recipient = NoteRecipient::read_from(source)?;
                 Ok(OutputNoteState::ExpectedFull { recipient })
             },
-            STATE_COMMITTED_PARTIAL => {
+            Self::STATE_COMMITTED_PARTIAL => {
                 let inclusion_proof = NoteInclusionProof::read_from(source)?;
                 Ok(OutputNoteState::CommittedPartial { inclusion_proof })
             },
-            STATE_COMMITTED_FULL => {
+            Self::STATE_COMMITTED_FULL => {
                 let recipient = NoteRecipient::read_from(source)?;
                 let inclusion_proof = NoteInclusionProof::read_from(source)?;
                 Ok(OutputNoteState::CommittedFull { recipient, inclusion_proof })
             },
-            STATE_CONSUMED => {
+            Self::STATE_CONSUMED => {
                 let block_height = source.read_u32()?;
                 let recipient = NoteRecipient::read_from(source)?;
                 Ok(OutputNoteState::Consumed { block_height, recipient })

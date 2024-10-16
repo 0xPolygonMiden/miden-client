@@ -15,13 +15,8 @@ use rusqlite::{named_params, params, params_from_iter, types::Value, Transaction
 
 use super::SqliteStore;
 use crate::store::{
-    note_record::{
-        OutputNoteState, STATE_COMMITTED, STATE_COMMITTED_FULL, STATE_COMMITTED_PARTIAL,
-        STATE_CONSUMED, STATE_CONSUMED_AUTHENTICATED_LOCAL, STATE_CONSUMED_EXTERNAL,
-        STATE_CONSUMED_UNAUTHENTICATED_LOCAL, STATE_EXPECTED, STATE_EXPECTED_FULL,
-        STATE_EXPECTED_PARTIAL, STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED,
-    },
-    InputNoteRecord, InputNoteState, NoteFilter, OutputNoteRecord, StoreError,
+    note_record::OutputNoteState, InputNoteRecord, InputNoteState, NoteFilter, OutputNoteRecord,
+    StoreError,
 };
 
 // TYPES
@@ -98,16 +93,18 @@ impl NoteFilter {
             NoteFilter::Committed => {
                 format!(
                     "state_discriminant in ({}, {})",
-                    STATE_COMMITTED_PARTIAL, STATE_COMMITTED_FULL
+                    OutputNoteState::STATE_COMMITTED_PARTIAL,
+                    OutputNoteState::STATE_COMMITTED_FULL
                 )
             },
             NoteFilter::Consumed => {
-                format!("state_discriminant = '{STATE_CONSUMED}'")
+                format!("state_discriminant = {}", OutputNoteState::STATE_CONSUMED)
             },
             NoteFilter::Expected => {
                 format!(
                     "state_discriminant in ({}, {})",
-                    STATE_EXPECTED_PARTIAL, STATE_EXPECTED_FULL
+                    OutputNoteState::STATE_EXPECTED_PARTIAL,
+                    OutputNoteState::STATE_EXPECTED_FULL
                 )
             },
             NoteFilter::Processing => "1 = 0".to_string(), // There are no processing output notes
@@ -175,23 +172,24 @@ impl NoteFilter {
         let condition = match self {
             NoteFilter::All => "(1 = 1)".to_string(),
             NoteFilter::Committed => {
-                format!("(state_discriminant = {STATE_COMMITTED})")
+                format!("(state_discriminant = {})", InputNoteState::STATE_COMMITTED)
             },
             NoteFilter::Consumed => {
                 format!(
                     "(state_discriminant in ({}, {}, {}))",
-                    STATE_CONSUMED_AUTHENTICATED_LOCAL,
-                    STATE_CONSUMED_UNAUTHENTICATED_LOCAL,
-                    STATE_CONSUMED_EXTERNAL
+                    InputNoteState::STATE_CONSUMED_AUTHENTICATED_LOCAL,
+                    InputNoteState::STATE_CONSUMED_UNAUTHENTICATED_LOCAL,
+                    InputNoteState::STATE_CONSUMED_EXTERNAL
                 )
             },
             NoteFilter::Expected => {
-                format!("(state_discriminant = {})", STATE_EXPECTED)
+                format!("(state_discriminant = {})", InputNoteState::STATE_EXPECTED)
             },
             NoteFilter::Processing => {
                 format!(
                     "(state_discriminant in ({}, {}))",
-                    STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED
+                    InputNoteState::STATE_PROCESSING_AUTHENTICATED,
+                    InputNoteState::STATE_PROCESSING_UNAUTHENTICATED
                 )
             },
             NoteFilter::Unique(note_id) => {
@@ -315,9 +313,9 @@ impl SqliteStore {
         const QUERY: &str =
             "SELECT nullifier FROM input_notes WHERE state_discriminant NOT IN rarray(?)";
         let unspent_filters = Rc::new(vec![
-            Value::from(STATE_CONSUMED_AUTHENTICATED_LOCAL.to_string()),
-            Value::from(STATE_CONSUMED_UNAUTHENTICATED_LOCAL.to_string()),
-            Value::from(STATE_CONSUMED_EXTERNAL.to_string()),
+            Value::from(InputNoteState::STATE_CONSUMED_AUTHENTICATED_LOCAL.to_string()),
+            Value::from(InputNoteState::STATE_CONSUMED_UNAUTHENTICATED_LOCAL.to_string()),
+            Value::from(InputNoteState::STATE_CONSUMED_EXTERNAL.to_string()),
         ]);
         self.db()
             .prepare(QUERY)?

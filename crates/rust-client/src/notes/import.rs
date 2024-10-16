@@ -7,7 +7,7 @@ use miden_objects::{
 use winter_maybe_async::maybe_await;
 
 use crate::{
-    store::{ExpectedNoteState, InputNoteRecord, InputNoteState},
+    store::{input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState},
     sync::NoteTagRecord,
     Client, ClientError,
 };

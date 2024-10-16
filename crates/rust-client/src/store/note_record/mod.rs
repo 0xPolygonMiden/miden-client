@@ -36,17 +36,14 @@ use miden_objects::NoteError;
 mod input_note_record;
 mod output_note_record;
 
-pub use input_note_record::{
-    CommittedNoteState, ConsumedAuthenticatedLocalNoteState, ExpectedNoteState, InputNoteRecord,
-    InputNoteState, InvalidNoteState, ProcessingAuthenticatedNoteState,
-    ProcessingUnauthenticatedNoteState, STATE_COMMITTED, STATE_CONSUMED_AUTHENTICATED_LOCAL,
-    STATE_CONSUMED_EXTERNAL, STATE_CONSUMED_UNAUTHENTICATED_LOCAL, STATE_EXPECTED,
-    STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED, STATE_UNVERIFIED,
-};
-pub use output_note_record::{
-    NoteExportType, OutputNoteRecord, OutputNoteState, STATE_COMMITTED_FULL,
-    STATE_COMMITTED_PARTIAL, STATE_CONSUMED, STATE_EXPECTED_FULL, STATE_EXPECTED_PARTIAL,
-};
+pub use input_note_record::{InputNoteRecord, InputNoteState};
+pub use output_note_record::{NoteExportType, OutputNoteRecord, OutputNoteState};
+pub mod input_note_states {
+    pub use super::input_note_record::{
+        CommittedNoteState, ConsumedAuthenticatedLocalNoteState, ExpectedNoteState,
+        InvalidNoteState, ProcessingAuthenticatedNoteState, ProcessingUnauthenticatedNoteState,
+    };
+}
 
 // NOTE RECORD ERROR
 // ================================================================================================

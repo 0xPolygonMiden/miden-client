@@ -11,13 +11,7 @@ use wasm_bindgen_futures::*;
 
 use super::WebStore;
 use crate::store::{
-    note_record::{
-        STATE_COMMITTED, STATE_COMMITTED_FULL, STATE_COMMITTED_PARTIAL, STATE_CONSUMED,
-        STATE_CONSUMED_AUTHENTICATED_LOCAL, STATE_CONSUMED_EXTERNAL,
-        STATE_CONSUMED_UNAUTHENTICATED_LOCAL, STATE_EXPECTED, STATE_EXPECTED_FULL,
-        STATE_EXPECTED_PARTIAL, STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED,
-    },
-    InputNoteRecord, NoteFilter, OutputNoteRecord, StoreError,
+    InputNoteRecord, InputNoteState, NoteFilter, OutputNoteRecord, OutputNoteState, StoreError,
 };
 
 mod js_bindings;
@@ -136,14 +130,17 @@ impl NoteFilter {
                 let states: Vec<u8> = match self {
                     NoteFilter::All => vec![],
                     NoteFilter::Consumed => vec![
-                        STATE_CONSUMED_AUTHENTICATED_LOCAL,
-                        STATE_CONSUMED_UNAUTHENTICATED_LOCAL,
-                        STATE_CONSUMED_EXTERNAL,
+                        InputNoteState::STATE_CONSUMED_AUTHENTICATED_LOCAL,
+                        InputNoteState::STATE_CONSUMED_UNAUTHENTICATED_LOCAL,
+                        InputNoteState::STATE_CONSUMED_EXTERNAL,
                     ],
-                    NoteFilter::Committed => vec![STATE_COMMITTED],
-                    NoteFilter::Expected => vec![STATE_EXPECTED],
+                    NoteFilter::Committed => vec![InputNoteState::STATE_COMMITTED],
+                    NoteFilter::Expected => vec![InputNoteState::STATE_EXPECTED],
                     NoteFilter::Processing => {
-                        vec![STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED]
+                        vec![
+                            InputNoteState::STATE_PROCESSING_AUTHENTICATED,
+                            InputNoteState::STATE_PROCESSING_UNAUTHENTICATED,
+                        ]
                     },
                     NoteFilter::StateDiscriminant(discriminant) => vec![*discriminant],
                     _ => unreachable!(), // Safety net, should never be reached
@@ -190,9 +187,15 @@ impl NoteFilter {
             | NoteFilter::Expected => {
                 let states = match self {
                     NoteFilter::All => vec![],
-                    NoteFilter::Consumed => vec![STATE_CONSUMED],
-                    NoteFilter::Committed => vec![STATE_COMMITTED_FULL, STATE_COMMITTED_PARTIAL],
-                    NoteFilter::Expected => vec![STATE_EXPECTED_FULL, STATE_EXPECTED_PARTIAL],
+                    NoteFilter::Consumed => vec![OutputNoteState::STATE_CONSUMED],
+                    NoteFilter::Committed => vec![
+                        OutputNoteState::STATE_COMMITTED_FULL,
+                        OutputNoteState::STATE_COMMITTED_PARTIAL,
+                    ],
+                    NoteFilter::Expected => vec![
+                        OutputNoteState::STATE_EXPECTED_FULL,
+                        OutputNoteState::STATE_EXPECTED_PARTIAL,
+                    ],
                     _ => unreachable!(), // Safety net, should never be reached
                 };
 

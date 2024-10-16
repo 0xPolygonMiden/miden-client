@@ -8,6 +8,9 @@ use miden_objects::{
     transaction::TransactionId,
     BlockHeader,
 };
+pub use miden_tx::utils::{
+    ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable,
+};
 
 mod committed;
 mod consumed_authenticated_local;
@@ -25,24 +28,11 @@ pub use consumed_external::ConsumedExternalNoteState;
 pub use consumed_unauthenticated_local::ConsumedUnauthenticatedLocalNoteState;
 pub use expected::ExpectedNoteState;
 pub use invalid::InvalidNoteState;
-pub use miden_tx::utils::{
-    ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable,
-};
 pub use processing_authenticated::ProcessingAuthenticatedNoteState;
 pub use processing_unauthenticated::ProcessingUnauthenticatedNoteState;
 pub use unverified::UnverifiedNoteState;
 
 use super::NoteRecordError;
-
-pub const STATE_EXPECTED: u8 = 0;
-pub const STATE_UNVERIFIED: u8 = 1;
-pub const STATE_COMMITTED: u8 = 2;
-pub const STATE_INVALID: u8 = 3;
-pub const STATE_PROCESSING_AUTHENTICATED: u8 = 4;
-pub const STATE_PROCESSING_UNAUTHENTICATED: u8 = 5;
-pub const STATE_CONSUMED_AUTHENTICATED_LOCAL: u8 = 6;
-pub const STATE_CONSUMED_UNAUTHENTICATED_LOCAL: u8 = 7;
-pub const STATE_CONSUMED_EXTERNAL: u8 = 8;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum InputNoteState {
@@ -67,6 +57,16 @@ pub enum InputNoteState {
 }
 
 impl InputNoteState {
+    pub const STATE_EXPECTED: u8 = 0;
+    pub const STATE_UNVERIFIED: u8 = 1;
+    pub const STATE_COMMITTED: u8 = 2;
+    pub const STATE_INVALID: u8 = 3;
+    pub const STATE_PROCESSING_AUTHENTICATED: u8 = 4;
+    pub const STATE_PROCESSING_UNAUTHENTICATED: u8 = 5;
+    pub const STATE_CONSUMED_AUTHENTICATED_LOCAL: u8 = 6;
+    pub const STATE_CONSUMED_UNAUTHENTICATED_LOCAL: u8 = 7;
+    pub const STATE_CONSUMED_EXTERNAL: u8 = 8;
+
     /// Returns the inner state handler that implements state transitions.
     fn inner(&self) -> &dyn NoteStateHandler {
         match self {
@@ -97,15 +97,19 @@ impl InputNoteState {
     /// Returns a unique identifier for each note state.
     pub fn discriminant(&self) -> u8 {
         match self {
-            InputNoteState::Expected(_) => STATE_EXPECTED,
-            InputNoteState::Unverified(_) => STATE_UNVERIFIED,
-            InputNoteState::Committed(_) => STATE_COMMITTED,
-            InputNoteState::Invalid(_) => STATE_INVALID,
-            InputNoteState::ProcessingAuthenticated(_) => STATE_PROCESSING_AUTHENTICATED,
-            InputNoteState::ProcessingUnauthenticated(_) => STATE_PROCESSING_UNAUTHENTICATED,
-            InputNoteState::ConsumedAuthenticatedLocal(_) => STATE_CONSUMED_AUTHENTICATED_LOCAL,
-            InputNoteState::ConsumedUnauthenticatedLocal(_) => STATE_CONSUMED_UNAUTHENTICATED_LOCAL,
-            InputNoteState::ConsumedExternal(_) => STATE_CONSUMED_EXTERNAL,
+            InputNoteState::Expected(_) => Self::STATE_EXPECTED,
+            InputNoteState::Unverified(_) => Self::STATE_UNVERIFIED,
+            InputNoteState::Committed(_) => Self::STATE_COMMITTED,
+            InputNoteState::Invalid(_) => Self::STATE_INVALID,
+            InputNoteState::ProcessingAuthenticated(_) => Self::STATE_PROCESSING_AUTHENTICATED,
+            InputNoteState::ProcessingUnauthenticated(_) => Self::STATE_PROCESSING_UNAUTHENTICATED,
+            InputNoteState::ConsumedAuthenticatedLocal(_) => {
+                Self::STATE_CONSUMED_AUTHENTICATED_LOCAL
+            },
+            InputNoteState::ConsumedUnauthenticatedLocal(_) => {
+                Self::STATE_CONSUMED_UNAUTHENTICATED_LOCAL
+            },
+            InputNoteState::ConsumedExternal(_) => Self::STATE_CONSUMED_EXTERNAL,
         }
     }
 
@@ -183,23 +187,25 @@ impl Deserializable for InputNoteState {
     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
         let discriminant = source.read_u8()?;
         match discriminant {
-            STATE_EXPECTED => Ok(ExpectedNoteState::read_from(source)?.into()),
-            STATE_UNVERIFIED => Ok(UnverifiedNoteState::read_from(source)?.into()),
-            STATE_COMMITTED => Ok(CommittedNoteState::read_from(source)?.into()),
-            STATE_INVALID => Ok(InvalidNoteState::read_from(source)?.into()),
-            STATE_PROCESSING_AUTHENTICATED => {
+            Self::STATE_EXPECTED => Ok(ExpectedNoteState::read_from(source)?.into()),
+            Self::STATE_UNVERIFIED => Ok(UnverifiedNoteState::read_from(source)?.into()),
+            Self::STATE_COMMITTED => Ok(CommittedNoteState::read_from(source)?.into()),
+            Self::STATE_INVALID => Ok(InvalidNoteState::read_from(source)?.into()),
+            Self::STATE_PROCESSING_AUTHENTICATED => {
                 Ok(ProcessingAuthenticatedNoteState::read_from(source)?.into())
             },
-            STATE_PROCESSING_UNAUTHENTICATED => {
+            Self::STATE_PROCESSING_UNAUTHENTICATED => {
                 Ok(ProcessingUnauthenticatedNoteState::read_from(source)?.into())
             },
-            STATE_CONSUMED_AUTHENTICATED_LOCAL => {
+            Self::STATE_CONSUMED_AUTHENTICATED_LOCAL => {
                 Ok(ConsumedAuthenticatedLocalNoteState::read_from(source)?.into())
             },
-            STATE_CONSUMED_UNAUTHENTICATED_LOCAL => {
+            Self::STATE_CONSUMED_UNAUTHENTICATED_LOCAL => {
                 Ok(ConsumedUnauthenticatedLocalNoteState::read_from(source)?.into())
             },
-            STATE_CONSUMED_EXTERNAL => Ok(ConsumedExternalNoteState::read_from(source)?.into()),
+            Self::STATE_CONSUMED_EXTERNAL => {
+                Ok(ConsumedExternalNoteState::read_from(source)?.into())
+            },
             _ => Err(DeserializationError::InvalidValue(format!(
                 "Invalid NoteState discriminant: {}",
                 discriminant
