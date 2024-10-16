@@ -171,7 +171,7 @@ impl WebStore {
             .map(|input_note| input_note.id().inner().to_hex())
             .collect();
 
-        // TODO: LOP INTO idxdb_apply_state_sync call
+        // TODO: Remove upsert call and refactor input note(s) into idxdb_apply_state_sync call
         for input_note in committed_notes.updated_input_notes().iter() {
             let inclusion_proof = input_note.proof().ok_or(StoreError::DatabaseError(
                 "Input note doesn't have inclusion proof".to_string(),
@@ -192,7 +192,7 @@ impl WebStore {
             }
         }
 
-        // TODO: LOP INTO idxdb_apply_state_sync call
+        // TODO: Remove upsert call and refactor input note(s) into idxdb_apply_state_sync call
         // Commit new public notes
         for note in committed_notes.new_public_notes() {
             let details = note.note().into();

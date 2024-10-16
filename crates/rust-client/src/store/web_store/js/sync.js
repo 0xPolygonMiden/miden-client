@@ -247,11 +247,6 @@ async function updateCommittedNotes(
         for (let i = 0; i < inputNoteIds.length; i++) {
             const noteId = inputNoteIds[i];
 
-            // Update input notes
-            await tx.inputNotes.where({ noteId: noteId }).modify({
-                stateDiscriminant: 2, // STATE_COMMITTED
-            });
-
             // Remove note tags
             await tx.tags.where('source_note_id').equals(noteId).delete();
         }
