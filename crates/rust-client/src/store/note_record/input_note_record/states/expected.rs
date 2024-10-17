@@ -8,7 +8,7 @@ use miden_objects::{
 };
 
 use super::{
-    ConsumedExternalNoteState, NoteState, NoteStateHandler, NoteSubmissionData,
+    ConsumedExternalNoteState, InputNoteState, NoteStateHandler, NoteSubmissionData,
     ProcessingUnauthenticatedNoteState, UnverifiedNoteState,
 };
 use crate::store::NoteRecordError;
@@ -31,14 +31,14 @@ impl NoteStateHandler for ExpectedNoteState {
         &self,
         inclusion_proof: NoteInclusionProof,
         metadata: NoteMetadata,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Ok(Some(UnverifiedNoteState { metadata, inclusion_proof }.into()))
     }
 
     fn consumed_externally(
         &self,
         nullifier_block_height: u32,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Ok(Some(ConsumedExternalNoteState { nullifier_block_height }.into()))
     }
 
@@ -46,7 +46,7 @@ impl NoteStateHandler for ExpectedNoteState {
         &self,
         _note_id: NoteId,
         _block_header: BlockHeader,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Err(NoteRecordError::StateTransitionError(
             "Can't verify an expected note".to_string(),
         ))
@@ -56,7 +56,7 @@ impl NoteStateHandler for ExpectedNoteState {
         &self,
         consumer_account: AccountId,
         consumer_transaction: TransactionId,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         match self.metadata {
             None => Err(NoteRecordError::NoteNotConsumable(
                 "Can't consume note without metadata".to_string(),
@@ -84,7 +84,7 @@ impl NoteStateHandler for ExpectedNoteState {
         &self,
         _transaction_id: TransactionId,
         _block_height: u32,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Err(NoteRecordError::InvalidStateTransition(
             "Only processing notes can be committed in a local transaction".to_string(),
         ))
@@ -122,8 +122,8 @@ impl miden_tx::utils::Deserializable for ExpectedNoteState {
     }
 }
 
-impl From<ExpectedNoteState> for NoteState {
+impl From<ExpectedNoteState> for InputNoteState {
     fn from(state: ExpectedNoteState) -> Self {
-        NoteState::Expected(state)
+        InputNoteState::Expected(state)
     }
 }

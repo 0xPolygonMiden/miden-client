@@ -45,12 +45,8 @@ pub mod web_store;
 
 mod note_record;
 pub use note_record::{
-    CommittedNoteState, ConsumedAuthenticatedLocalNoteState, ExpectedNoteState, InputNoteRecord,
-    NoteRecordDetails, NoteRecordError, NoteState, NoteStatus, OutputNoteRecord,
-    ProcessingAuthenticatedNoteState, ProcessingUnauthenticatedNoteState, STATE_COMMITTED,
-    STATE_CONSUMED_AUTHENTICATED_LOCAL, STATE_CONSUMED_EXTERNAL,
-    STATE_CONSUMED_UNAUTHENTICATED_LOCAL, STATE_EXPECTED, STATE_PROCESSING_AUTHENTICATED,
-    STATE_PROCESSING_UNAUTHENTICATED, STATE_UNVERIFIED,
+    input_note_states, InputNoteRecord, InputNoteState, NoteExportType, NoteRecordError,
+    OutputNoteRecord, OutputNoteState,
 };
 
 // STORE TRAIT

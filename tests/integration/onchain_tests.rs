@@ -1,6 +1,6 @@
 use miden_client::{
     accounts::AccountTemplate,
-    store::{NoteFilter, NoteState},
+    store::{InputNoteState, NoteFilter},
     transactions::{PaymentTransactionData, TransactionRequest},
 };
 use miden_objects::{
@@ -240,7 +240,7 @@ async fn test_onchain_accounts() {
 
     // Check that the client doesn't know who consumed the note
     let input_note = client_1.get_input_note(notes[0].id()).unwrap();
-    assert!(matches!(input_note.state(), NoteState::ConsumedExternal { .. }));
+    assert!(matches!(input_note.state(), InputNoteState::ConsumedExternal { .. }));
 
     let new_from_account_balance = client_1
         .get_account(from_account_id)

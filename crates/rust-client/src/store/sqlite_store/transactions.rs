@@ -15,13 +15,16 @@ use tracing::info;
 
 use super::{
     accounts::update_account,
-    notes::{insert_output_note_tx, upsert_input_note_tx},
+    notes::{upsert_input_note_tx, upsert_output_note_tx},
     sync::add_note_tag_tx,
     SqliteStore,
 };
 use crate::{
     rpc::TransactionUpdate,
-    store::{ExpectedNoteState, NoteFilter, NoteState, StoreError, TransactionFilter},
+    store::{
+        input_note_states::ExpectedNoteState, InputNoteState, NoteFilter, OutputNoteRecord,
+        StoreError, TransactionFilter,
+    },
     sync::NoteTagRecord,
     transactions::{TransactionRecord, TransactionResult, TransactionStatus},
 };
@@ -85,10 +88,10 @@ impl SqliteStore {
 
     /// Inserts a transaction and updates the current state based on the `tx_result` changes
     pub fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), StoreError> {
+        let sync_height = self.get_sync_height()?;
         let transaction_id = tx_result.executed_transaction().id();
         let account_id = tx_result.executed_transaction().account_id();
         let account_delta = tx_result.account_delta();
-        let block_num = self.get_sync_height()?;
 
         let (mut account, _seed) = self.get_account(account_id)?;
 
@@ -102,7 +105,9 @@ impl SqliteStore {
             .created_notes()
             .iter()
             .cloned()
-            .filter_map(|output_note| output_note.try_into().ok())
+            .filter_map(|output_note| {
+                OutputNoteRecord::try_from_output_note(output_note, sync_height).ok()
+            })
             .collect::<Vec<_>>();
 
         let consumed_note_ids = tx_result.consumed_notes().iter().map(|note| note.id()).collect();
@@ -121,13 +126,14 @@ impl SqliteStore {
         // Updates for notes
         for note in created_input_notes {
             upsert_input_note_tx(&tx, &note)?;
-            if let NoteState::Expected(ExpectedNoteState { tag: Some(tag), .. }) = note.state() {
+            if let InputNoteState::Expected(ExpectedNoteState { tag: Some(tag), .. }) = note.state()
+            {
                 add_note_tag_tx(&tx, NoteTagRecord::with_note_source(*tag, note.id()))?;
             }
         }
 
         for note in &created_output_notes {
-            insert_output_note_tx(&tx, block_num, note)?;
+            upsert_output_note_tx(&tx, note)?;
         }
 
         for mut input_note_record in relevant_notes {

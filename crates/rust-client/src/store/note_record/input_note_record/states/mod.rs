@@ -8,6 +8,9 @@ use miden_objects::{
     transaction::TransactionId,
     BlockHeader,
 };
+pub use miden_tx::utils::{
+    ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable,
+};
 
 mod committed;
 mod consumed_authenticated_local;
@@ -25,27 +28,14 @@ pub use consumed_external::ConsumedExternalNoteState;
 pub use consumed_unauthenticated_local::ConsumedUnauthenticatedLocalNoteState;
 pub use expected::ExpectedNoteState;
 pub use invalid::InvalidNoteState;
-pub use miden_tx::utils::{
-    ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable,
-};
 pub use processing_authenticated::ProcessingAuthenticatedNoteState;
 pub use processing_unauthenticated::ProcessingUnauthenticatedNoteState;
 pub use unverified::UnverifiedNoteState;
 
 use super::NoteRecordError;
 
-pub const STATE_EXPECTED: u8 = 0;
-pub const STATE_UNVERIFIED: u8 = 1;
-pub const STATE_COMMITTED: u8 = 2;
-pub const STATE_INVALID: u8 = 3;
-pub const STATE_PROCESSING_AUTHENTICATED: u8 = 4;
-pub const STATE_PROCESSING_UNAUTHENTICATED: u8 = 5;
-pub const STATE_CONSUMED_AUTHENTICATED_LOCAL: u8 = 6;
-pub const STATE_CONSUMED_UNAUTHENTICATED_LOCAL: u8 = 7;
-pub const STATE_CONSUMED_EXTERNAL: u8 = 8;
-
 #[derive(Clone, Debug, PartialEq)]
-pub enum NoteState {
+pub enum InputNoteState {
     /// Tracked by the client but without a chain inclusion proof.
     Expected(ExpectedNoteState),
     /// With inclusion proof but not yet verified.
@@ -66,66 +56,80 @@ pub enum NoteState {
     ConsumedExternal(ConsumedExternalNoteState),
 }
 
-impl NoteState {
+impl InputNoteState {
+    pub const STATE_EXPECTED: u8 = 0;
+    pub const STATE_UNVERIFIED: u8 = 1;
+    pub const STATE_COMMITTED: u8 = 2;
+    pub const STATE_INVALID: u8 = 3;
+    pub const STATE_PROCESSING_AUTHENTICATED: u8 = 4;
+    pub const STATE_PROCESSING_UNAUTHENTICATED: u8 = 5;
+    pub const STATE_CONSUMED_AUTHENTICATED_LOCAL: u8 = 6;
+    pub const STATE_CONSUMED_UNAUTHENTICATED_LOCAL: u8 = 7;
+    pub const STATE_CONSUMED_EXTERNAL: u8 = 8;
+
     /// Returns the inner state handler that implements state transitions.
     fn inner(&self) -> &dyn NoteStateHandler {
         match self {
-            NoteState::Expected(inner) => inner,
-            NoteState::Unverified(inner) => inner,
-            NoteState::Committed(inner) => inner,
-            NoteState::Invalid(inner) => inner,
-            NoteState::ProcessingAuthenticated(inner) => inner,
-            NoteState::ProcessingUnauthenticated(inner) => inner,
-            NoteState::ConsumedAuthenticatedLocal(inner) => inner,
-            NoteState::ConsumedUnauthenticatedLocal(inner) => inner,
-            NoteState::ConsumedExternal(inner) => inner,
+            InputNoteState::Expected(inner) => inner,
+            InputNoteState::Unverified(inner) => inner,
+            InputNoteState::Committed(inner) => inner,
+            InputNoteState::Invalid(inner) => inner,
+            InputNoteState::ProcessingAuthenticated(inner) => inner,
+            InputNoteState::ProcessingUnauthenticated(inner) => inner,
+            InputNoteState::ConsumedAuthenticatedLocal(inner) => inner,
+            InputNoteState::ConsumedUnauthenticatedLocal(inner) => inner,
+            InputNoteState::ConsumedExternal(inner) => inner,
         }
     }
 
-    pub fn metadata(&self) -> Option<&NoteMetadata> {
+    pub(crate) fn metadata(&self) -> Option<&NoteMetadata> {
         self.inner().metadata()
     }
 
-    pub fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
+    pub(crate) fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
         self.inner().inclusion_proof()
     }
 
-    pub fn consumer_transaction_id(&self) -> Option<&TransactionId> {
+    pub(crate) fn consumer_transaction_id(&self) -> Option<&TransactionId> {
         self.inner().consumer_transaction_id()
     }
 
     /// Returns a unique identifier for each note state.
-    pub fn discriminant(&self) -> u8 {
+    pub(crate) fn discriminant(&self) -> u8 {
         match self {
-            NoteState::Expected(_) => STATE_EXPECTED,
-            NoteState::Unverified(_) => STATE_UNVERIFIED,
-            NoteState::Committed(_) => STATE_COMMITTED,
-            NoteState::Invalid(_) => STATE_INVALID,
-            NoteState::ProcessingAuthenticated(_) => STATE_PROCESSING_AUTHENTICATED,
-            NoteState::ProcessingUnauthenticated(_) => STATE_PROCESSING_UNAUTHENTICATED,
-            NoteState::ConsumedAuthenticatedLocal(_) => STATE_CONSUMED_AUTHENTICATED_LOCAL,
-            NoteState::ConsumedUnauthenticatedLocal(_) => STATE_CONSUMED_UNAUTHENTICATED_LOCAL,
-            NoteState::ConsumedExternal(_) => STATE_CONSUMED_EXTERNAL,
+            InputNoteState::Expected(_) => Self::STATE_EXPECTED,
+            InputNoteState::Unverified(_) => Self::STATE_UNVERIFIED,
+            InputNoteState::Committed(_) => Self::STATE_COMMITTED,
+            InputNoteState::Invalid(_) => Self::STATE_INVALID,
+            InputNoteState::ProcessingAuthenticated(_) => Self::STATE_PROCESSING_AUTHENTICATED,
+            InputNoteState::ProcessingUnauthenticated(_) => Self::STATE_PROCESSING_UNAUTHENTICATED,
+            InputNoteState::ConsumedAuthenticatedLocal(_) => {
+                Self::STATE_CONSUMED_AUTHENTICATED_LOCAL
+            },
+            InputNoteState::ConsumedUnauthenticatedLocal(_) => {
+                Self::STATE_CONSUMED_UNAUTHENTICATED_LOCAL
+            },
+            InputNoteState::ConsumedExternal(_) => Self::STATE_CONSUMED_EXTERNAL,
         }
     }
 
     /// Returns a new state to reflect that the note has received an inclusion proof. The proof is
     /// assumed to be unverified until the block header information is received. If the note state
     /// doesn't change, `None` is returned.
-    pub fn inclusion_proof_received(
+    pub(crate) fn inclusion_proof_received(
         &self,
         inclusion_proof: NoteInclusionProof,
         metadata: NoteMetadata,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         self.inner().inclusion_proof_received(inclusion_proof, metadata)
     }
 
     /// Returns a new state to reflect that the note has been consumed by an external transaction.
     /// If the note state doesn't change, `None` is returned.
-    pub fn consumed_externally(
+    pub(crate) fn consumed_externally(
         &self,
         nullifier_block_height: u32,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         self.inner().consumed_externally(nullifier_block_height)
     }
 
@@ -133,73 +137,75 @@ impl NoteState {
     /// This will mark the note as verified or invalid, depending on the block header
     /// information and inclusion proof. If the note state
     /// doesn't change, `None` is returned.
-    pub fn block_header_received(
+    pub(crate) fn block_header_received(
         &self,
         note_id: NoteId,
         block_header: BlockHeader,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         self.inner().block_header_received(note_id, block_header)
     }
 
     /// Modifies the state of the note record to reflect that the client began processing the note
     /// to be consumed. If the note state doesn't change, `None` is returned.
-    pub fn consumed_locally(
+    pub(crate) fn consumed_locally(
         &self,
         consumer_account: AccountId,
         consumer_transaction: TransactionId,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         self.inner().consumed_locally(consumer_account, consumer_transaction)
     }
 
     /// Returns a new state to reflect that the transaction currently consuming the note was
     /// committed. If the note state doesn't change, `None` is returned.
-    pub fn transaction_committed(
+    pub(crate) fn transaction_committed(
         &self,
         transaction_id: TransactionId,
         block_height: u32,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         self.inner().transaction_committed(transaction_id, block_height)
     }
 }
 
-impl Serializable for NoteState {
+impl Serializable for InputNoteState {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
         target.write_u8(self.discriminant());
         match self {
-            NoteState::Expected(inner) => inner.write_into(target),
-            NoteState::Unverified(inner) => inner.write_into(target),
-            NoteState::Committed(inner) => inner.write_into(target),
-            NoteState::Invalid(inner) => inner.write_into(target),
-            NoteState::ProcessingAuthenticated(inner) => inner.write_into(target),
-            NoteState::ProcessingUnauthenticated(inner) => inner.write_into(target),
-            NoteState::ConsumedAuthenticatedLocal(inner) => inner.write_into(target),
-            NoteState::ConsumedUnauthenticatedLocal(inner) => inner.write_into(target),
-            NoteState::ConsumedExternal(inner) => inner.write_into(target),
+            InputNoteState::Expected(inner) => inner.write_into(target),
+            InputNoteState::Unverified(inner) => inner.write_into(target),
+            InputNoteState::Committed(inner) => inner.write_into(target),
+            InputNoteState::Invalid(inner) => inner.write_into(target),
+            InputNoteState::ProcessingAuthenticated(inner) => inner.write_into(target),
+            InputNoteState::ProcessingUnauthenticated(inner) => inner.write_into(target),
+            InputNoteState::ConsumedAuthenticatedLocal(inner) => inner.write_into(target),
+            InputNoteState::ConsumedUnauthenticatedLocal(inner) => inner.write_into(target),
+            InputNoteState::ConsumedExternal(inner) => inner.write_into(target),
         }
     }
 }
 
-impl Deserializable for NoteState {
+impl Deserializable for InputNoteState {
     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
         let discriminant = source.read_u8()?;
         match discriminant {
-            STATE_EXPECTED => Ok(ExpectedNoteState::read_from(source)?.into()),
-            STATE_UNVERIFIED => Ok(UnverifiedNoteState::read_from(source)?.into()),
-            STATE_COMMITTED => Ok(CommittedNoteState::read_from(source)?.into()),
-            STATE_INVALID => Ok(InvalidNoteState::read_from(source)?.into()),
-            STATE_PROCESSING_AUTHENTICATED => {
+            Self::STATE_EXPECTED => Ok(ExpectedNoteState::read_from(source)?.into()),
+            Self::STATE_UNVERIFIED => Ok(UnverifiedNoteState::read_from(source)?.into()),
+            Self::STATE_COMMITTED => Ok(CommittedNoteState::read_from(source)?.into()),
+            Self::STATE_INVALID => Ok(InvalidNoteState::read_from(source)?.into()),
+            Self::STATE_PROCESSING_AUTHENTICATED => {
                 Ok(ProcessingAuthenticatedNoteState::read_from(source)?.into())
             },
-            STATE_PROCESSING_UNAUTHENTICATED => {
+            Self::STATE_PROCESSING_UNAUTHENTICATED => {
                 Ok(ProcessingUnauthenticatedNoteState::read_from(source)?.into())
             },
-            STATE_CONSUMED_AUTHENTICATED_LOCAL => {
+            Self::STATE_CONSUMED_AUTHENTICATED_LOCAL => {
                 Ok(ConsumedAuthenticatedLocalNoteState::read_from(source)?.into())
             },
-            STATE_CONSUMED_UNAUTHENTICATED_LOCAL => {
+            Self::STATE_CONSUMED_UNAUTHENTICATED_LOCAL => {
                 Ok(ConsumedUnauthenticatedLocalNoteState::read_from(source)?.into())
             },
-            STATE_CONSUMED_EXTERNAL => Ok(ConsumedExternalNoteState::read_from(source)?.into()),
+            Self::STATE_CONSUMED_EXTERNAL => {
+                Ok(ConsumedExternalNoteState::read_from(source)?.into())
+            },
             _ => Err(DeserializationError::InvalidValue(format!(
                 "Invalid NoteState discriminant: {}",
                 discriminant
@@ -208,38 +214,38 @@ impl Deserializable for NoteState {
     }
 }
 
-impl Display for NoteState {
+impl Display for InputNoteState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NoteState::Expected(state) => {
+            InputNoteState::Expected(state) => {
                 write!(f, "Expected (after block {})", state.after_block_num)
             },
-            NoteState::Unverified(state) => {
+            InputNoteState::Unverified(state) => {
                 write!(
                     f,
                     "Unverified (with commit block {})",
                     state.inclusion_proof.location().block_num()
                 )
             },
-            NoteState::Committed(state) => {
+            InputNoteState::Committed(state) => {
                 write!(
                     f,
                     "Committed (at block height {})",
                     state.inclusion_proof.location().block_num()
                 )
             },
-            NoteState::Invalid(state) => {
+            InputNoteState::Invalid(state) => {
                 write!(
                     f,
                     "Invalid (with commit block {})",
                     state.invalid_inclusion_proof.location().block_num()
                 )
             },
-            NoteState::ProcessingAuthenticated(ProcessingAuthenticatedNoteState {
+            InputNoteState::ProcessingAuthenticated(ProcessingAuthenticatedNoteState {
                 submission_data,
                 ..
             })
-            | NoteState::ProcessingUnauthenticated(ProcessingUnauthenticatedNoteState {
+            | InputNoteState::ProcessingUnauthenticated(ProcessingUnauthenticatedNoteState {
                 submission_data,
                 ..
             }) => {
@@ -259,23 +265,25 @@ impl Display for NoteState {
                     submission_data.consumer_account
                 )
             },
-            NoteState::ConsumedAuthenticatedLocal(ConsumedAuthenticatedLocalNoteState {
+            InputNoteState::ConsumedAuthenticatedLocal(ConsumedAuthenticatedLocalNoteState {
                 nullifier_block_height,
                 submission_data,
                 ..
             })
-            | NoteState::ConsumedUnauthenticatedLocal(ConsumedUnauthenticatedLocalNoteState {
-                nullifier_block_height,
-                submission_data,
-                ..
-            }) => {
+            | InputNoteState::ConsumedUnauthenticatedLocal(
+                ConsumedUnauthenticatedLocalNoteState {
+                    nullifier_block_height,
+                    submission_data,
+                    ..
+                },
+            ) => {
                 write!(
                     f,
                     "Consumed (at block {} by account {})",
                     nullifier_block_height, submission_data.consumer_account
                 )
             },
-            NoteState::ConsumedExternal(state) => {
+            InputNoteState::ConsumedExternal(state) => {
                 write!(f, "Consumed (at block {})", state.nullifier_block_height)
             },
         }
@@ -293,30 +301,30 @@ pub trait NoteStateHandler {
         &self,
         inclusion_proof: NoteInclusionProof,
         metadata: NoteMetadata,
-    ) -> Result<Option<NoteState>, NoteRecordError>;
+    ) -> Result<Option<InputNoteState>, NoteRecordError>;
 
     fn consumed_externally(
         &self,
         nullifier_block_height: u32,
-    ) -> Result<Option<NoteState>, NoteRecordError>;
+    ) -> Result<Option<InputNoteState>, NoteRecordError>;
 
     fn block_header_received(
         &self,
         note_id: NoteId,
         block_header: BlockHeader,
-    ) -> Result<Option<NoteState>, NoteRecordError>;
+    ) -> Result<Option<InputNoteState>, NoteRecordError>;
 
     fn consumed_locally(
         &self,
         consumer_account: AccountId,
         consumer_transaction: TransactionId,
-    ) -> Result<Option<NoteState>, NoteRecordError>;
+    ) -> Result<Option<InputNoteState>, NoteRecordError>;
 
     fn transaction_committed(
         &self,
         transaction_id: TransactionId,
         block_height: u32,
-    ) -> Result<Option<NoteState>, NoteRecordError>;
+    ) -> Result<Option<InputNoteState>, NoteRecordError>;
 }
 
 /// Information about a locally consumed note submitted to the node.

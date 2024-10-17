@@ -6,7 +6,7 @@ use miden_objects::{
     BlockHeader,
 };
 
-use super::{NoteState, NoteStateHandler, NoteSubmissionData};
+use super::{InputNoteState, NoteStateHandler, NoteSubmissionData};
 use crate::store::NoteRecordError;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -25,14 +25,14 @@ impl NoteStateHandler for ConsumedUnauthenticatedLocalNoteState {
         &self,
         _inclusion_proof: NoteInclusionProof,
         _metadata: NoteMetadata,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Ok(None)
     }
 
     fn consumed_externally(
         &self,
         _nullifier_block_height: u32,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Ok(None)
     }
 
@@ -40,7 +40,7 @@ impl NoteStateHandler for ConsumedUnauthenticatedLocalNoteState {
         &self,
         _note_id: NoteId,
         _block_header: BlockHeader,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Ok(None)
     }
 
@@ -48,7 +48,7 @@ impl NoteStateHandler for ConsumedUnauthenticatedLocalNoteState {
         &self,
         _consumer_account: miden_objects::accounts::AccountId,
         _consumer_transaction: miden_objects::transaction::TransactionId,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Err(NoteRecordError::NoteNotConsumable("Note already consumed".to_string()))
     }
 
@@ -56,7 +56,7 @@ impl NoteStateHandler for ConsumedUnauthenticatedLocalNoteState {
         &self,
         _transaction_id: TransactionId,
         _block_height: u32,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Err(NoteRecordError::InvalidStateTransition(
             "Only processing notes can be committed in a local transaction".to_string(),
         ))
@@ -98,8 +98,8 @@ impl miden_tx::utils::Deserializable for ConsumedUnauthenticatedLocalNoteState {
     }
 }
 
-impl From<ConsumedUnauthenticatedLocalNoteState> for NoteState {
+impl From<ConsumedUnauthenticatedLocalNoteState> for InputNoteState {
     fn from(state: ConsumedUnauthenticatedLocalNoteState) -> Self {
-        NoteState::ConsumedUnauthenticatedLocal(state)
+        InputNoteState::ConsumedUnauthenticatedLocal(state)
     }
 }

@@ -6,7 +6,7 @@ use miden_objects::{
     BlockHeader,
 };
 
-use super::{NoteState, NoteStateHandler};
+use super::{InputNoteState, NoteStateHandler};
 use crate::store::NoteRecordError;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -20,14 +20,14 @@ impl NoteStateHandler for ConsumedExternalNoteState {
         &self,
         _inclusion_proof: NoteInclusionProof,
         _metadata: NoteMetadata,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Ok(None)
     }
 
     fn consumed_externally(
         &self,
         _nullifier_block_height: u32,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Ok(None)
     }
 
@@ -35,7 +35,7 @@ impl NoteStateHandler for ConsumedExternalNoteState {
         &self,
         _note_id: NoteId,
         _block_header: BlockHeader,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Ok(None)
     }
 
@@ -43,7 +43,7 @@ impl NoteStateHandler for ConsumedExternalNoteState {
         &self,
         _consumer_account: miden_objects::accounts::AccountId,
         _consumer_transaction: miden_objects::transaction::TransactionId,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Err(NoteRecordError::NoteNotConsumable("Note already consumed".to_string()))
     }
 
@@ -51,7 +51,7 @@ impl NoteStateHandler for ConsumedExternalNoteState {
         &self,
         _transaction_id: TransactionId,
         _block_height: u32,
-    ) -> Result<Option<NoteState>, NoteRecordError> {
+    ) -> Result<Option<InputNoteState>, NoteRecordError> {
         Err(NoteRecordError::InvalidStateTransition(
             "Only processing notes can be committed in a local transaction".to_string(),
         ))
@@ -85,8 +85,8 @@ impl miden_tx::utils::Deserializable for ConsumedExternalNoteState {
     }
 }
 
-impl From<ConsumedExternalNoteState> for NoteState {
+impl From<ConsumedExternalNoteState> for InputNoteState {
     fn from(state: ConsumedExternalNoteState) -> Self {
-        NoteState::ConsumedExternal(state)
+        InputNoteState::ConsumedExternal(state)
     }
 }
