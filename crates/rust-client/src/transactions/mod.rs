@@ -138,7 +138,7 @@ impl TransactionResult {
 ///
 /// Currently, the `commit_height` (and `committed` status) is set based on the height
 /// at which the transaction's output notes are committed.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TransactionRecord {
     pub id: TransactionId,
     pub account_id: AccountId,
@@ -265,8 +265,10 @@ impl<R: FeltRng> Client<R> {
         let block_num = maybe_await!(self.store.get_sync_height())?;
 
         let note_ids = transaction_request.get_input_note_ids();
+
         let output_notes: Vec<Note> =
             transaction_request.expected_output_notes().cloned().collect();
+
         let future_notes: Vec<(NoteDetails, NoteTag)> =
             transaction_request.expected_future_notes().cloned().collect();
 
@@ -305,6 +307,7 @@ impl<R: FeltRng> Client<R> {
         // We compare authentication hashes where possible since that involves note IDs + metadata
         // (as opposed to just note ID which remains the same regardless of metadata)
         // We also do the check for partial output notes
+
         let tx_note_auth_hashes: BTreeSet<Digest> =
             notes_from_output(executed_transaction.output_notes())
                 .map(|note| note.hash())
@@ -341,7 +344,6 @@ impl<R: FeltRng> Client<R> {
         tx_result: &TransactionResult,
     ) -> Result<ProvenTransaction, ClientError> {
         let transaction_prover = LocalTransactionProver::new(ProvingOptions::default());
-
         info!("Proving transaction...");
         let proven_transaction = maybe_await!(
             transaction_prover.prove(tx_result.executed_transaction().clone().into())
