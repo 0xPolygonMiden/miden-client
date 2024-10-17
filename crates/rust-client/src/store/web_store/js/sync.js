@@ -6,29 +6,22 @@ import {
     transactions,
     blockHeaders,
     chainMmrNodes,
+    tags,
 } from './schema.js';
 
 export async function getNoteTags() {
     try {
-        const record = await stateSync.get(1);  // Since id is the primary key and always 1
-        if (record) {
-            if (!record.tags) {
-                return { tags: null }
-            }
-            else {
-                const tagsArrayBuffer = await record.tags.arrayBuffer();
-                const tagsArray = new Uint8Array(tagsArrayBuffer);
-                const tagsBase64 = uint8ArrayToBase64(tagsArray);
+        let records = await tags.toArray();
 
-                return {
-                    tags: tagsBase64
-                };
-            }
-        } else {
-            return null;
-        }
+        let processedRecords = records.map((record) => {
+            record.source_note_id = record.source_note_id == "" ? null : record.source_note_id;
+            record.source_account_id = record.source_account_id == "" ? null : record.source_account_id;
+            return record;
+        });
+
+        return processedRecords;
     } catch (error) {
-        console.error('Error fetching record:', error);
+        console.error('Error fetching tag record:', error.toString());
         return null;
     }
 }
@@ -45,19 +38,46 @@ export async function getSyncHeight() {
             return null;
         }
     } catch (error) {
-        console.error('Error fetching record:', error);
+        console.error('Error fetching sync height:', error.toString());
         return null;
     }
 }
 
 export async function addNoteTag(
-    tags
+    tag,
+    source_note_id,
+    source_account_id
 ) {
     try {
-        const tagsBlob = new Blob([new Uint8Array(tags)]);
-        await stateSync.update(1, { tags: tagsBlob });
-    } catch {
+        let tagArray = new Uint8Array(tag);
+        let tagBase64 = uint8ArrayToBase64(tagArray);
+        await tags.add({
+            tag: tagBase64,
+            source_note_id: source_note_id ? source_note_id : "",
+            source_account_id: source_account_id ? source_account_id : ""
+        });
+    } catch (err) {
         console.error("Failed to add note tag: ", err);
+        throw err;
+    }
+}
+
+export async function removeNoteTag(
+    tag,
+    source_note_id,
+    source_account_id
+) {
+    try {
+        let tagArray = new Uint8Array(tag);
+        let tagBase64 = uint8ArrayToBase64(tagArray);
+
+        return await tags.where({
+            tag: tagBase64,
+            source_note_id: source_note_id ? source_note_id : "",
+            source_account_id: source_account_id ? source_account_id : ""
+        }).delete();
+    } catch {
+        console.log("Failed to remove note tag: ", err.toString());
         throw err;
     }
 }
@@ -74,17 +94,15 @@ export async function applyStateSync(
     outputNoteIds,
     outputNoteInclusionProofsAsFlattenedVec,
     inputNoteIds,
-    inputNoteInluclusionProofsAsFlattenedVec,
-    inputNoteMetadatasAsFlattenedVec,
     transactionIds,
     transactionBlockNums
 ) {
-    return db.transaction('rw', stateSync, inputNotes, outputNotes, transactions, blockHeaders, chainMmrNodes, async (tx) => {
+    return db.transaction('rw', stateSync, inputNotes, outputNotes, transactions, blockHeaders, chainMmrNodes, tags, async (tx) => {
         await updateSyncHeight(tx, blockNum);
         await updateSpentNotes(tx, nullifierBlockNums, nullifiers);
         await updateBlockHeader(tx, blockNum, blockHeader, chainMmrPeaks, hasClientNotes);
         await updateChainMmrNodes(tx, nodeIndexes, nodes);
-        await updateCommittedNotes(tx, outputNoteIds, outputNoteInclusionProofsAsFlattenedVec, inputNoteIds, inputNoteInluclusionProofsAsFlattenedVec, inputNoteMetadatasAsFlattenedVec);
+        await updateCommittedNotes(tx, outputNoteIds, outputNoteInclusionProofsAsFlattenedVec, inputNoteIds);
         await updateCommittedTransactions(tx, transactionBlockNums, transactionIds);
     });
 }
@@ -192,16 +210,12 @@ async function updateCommittedNotes(
     outputNoteIds,
     outputNoteInclusionProofsAsFlattenedVec,
     inputNoteIds,
-    inputNoteInluclusionProofsAsFlattenedVec,
-    inputNoteMetadatasAsFlattenedVec
 ) {
     try {
         // Helper function to reconstruct arrays from flattened data
         function reconstructFlattenedVec(flattenedVec) {
             const data = flattenedVec.data();
-            console.log(data);   // Call data() method
             const lengths = flattenedVec.lengths();
-            console.log(lengths);  // Call lengths() method
 
             let index = 0;
             const result = [];
@@ -213,19 +227,9 @@ async function updateCommittedNotes(
         }
 
         const outputNoteInclusionProofs = reconstructFlattenedVec(outputNoteInclusionProofsAsFlattenedVec);
-        const inputNoteInclusionProofs = reconstructFlattenedVec(inputNoteInluclusionProofsAsFlattenedVec);
-        const inputNoteMetadatas = reconstructFlattenedVec(inputNoteMetadatasAsFlattenedVec);
 
         if (outputNoteIds.length !== outputNoteInclusionProofsAsFlattenedVec.num_inner_vecs()) {
             throw new Error("Arrays outputNoteIds and outputNoteInclusionProofs must be of the same length");
-        }
-
-        if (
-            inputNoteIds.length !== inputNoteInluclusionProofsAsFlattenedVec.num_inner_vecs() &&
-            inputNoteIds.length !== inputNoteMetadatasAsFlattenedVec.num_inner_vecs() &&
-            inputNoteInluclusionProofsAsFlattenedVec.num_inner_vecs() !== inputNoteMetadatasAsFlattenedVec.num_inner_vecs()
-        ) {
-            throw new Error("Arrays inputNoteIds and inputNoteInclusionProofs and inputNoteMetadatas must be of the same length");
         }
 
         for (let i = 0; i < outputNoteIds.length; i++) {
@@ -242,17 +246,9 @@ async function updateCommittedNotes(
 
         for (let i = 0; i < inputNoteIds.length; i++) {
             const noteId = inputNoteIds[i];
-            const inclusionProof = inputNoteInclusionProofs[i];
-            const metadata = inputNoteMetadatas[i];
-            const inclusionProofBlob = new Blob([new Uint8Array(inclusionProof)]);
-            const metadataBlob = new Blob([new Uint8Array(metadata)]);
 
-            // Update input notes
-            await tx.inputNotes.where({ noteId: noteId }).modify({
-                status: 'Committed',
-                inclusionProof: inclusionProofBlob,
-                metadata: metadataBlob
-            });
+            // Remove note tags
+            await tx.tags.where('source_note_id').equals(noteId).delete();
         }
     } catch (error) {
         console.error("Error updating committed notes:", error);
@@ -291,4 +287,9 @@ async function updateCommittedTransactions(
         console.error("Failed to mark transactions as committed: ", err);
         throw err;
     }
+}
+
+function uint8ArrayToBase64(bytes) {
+    const binary = bytes.reduce((acc, byte) => acc + String.fromCharCode(byte), '');
+    return btoa(binary);
 }

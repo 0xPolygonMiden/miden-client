@@ -146,8 +146,6 @@
 
 "@types/chai-as-promised@^8.0.0":
   version "8.0.0"
-  resolved "https://registry.yarnpkg.com/@types/chai-as-promised/-/chai-as-promised-8.0.0.tgz#52d399a5fe4a0ec5a2d18638711814b2fa2da821"
-  integrity sha512-YbYaXFqJwSABp9OXQTVrPPmstZgNjkRieWVd/xAl5Yc/e5+F44bXLeQggpvm0sjsS1bg+2Y5cwU+rquwwD2dXA==
   dependencies:
     "@types/chai" "*"
 
@@ -427,12 +425,12 @@ camelcase@^6.0.0:
 
 chai-as-promised@^8.0.0:
   version "8.0.0"
-  resolved "https://registry.yarnpkg.com/chai-as-promised/-/chai-as-promised-8.0.0.tgz#7eda823f2a6fe9fd3a76bc76878886e955232e6f"
+  resolved "https://registry.npmjs.org/chai-as-promised/-/chai-as-promised-8.0.0.tgz"
   integrity sha512-sMsGXTrS3FunP/wbqh/KxM8Kj/aLPXQGkNtvE5wPfSToq8wkkvBpTZo1LIiEVmC4BwkKpag+l5h/20lBMk6nUg==
   dependencies:
     check-error "^2.0.0"
 
-chai@^5.1.1:
+chai@^5.1.1, "chai@>= 2.1.2 < 6":
   version "5.1.1"
   resolved "https://registry.npmjs.org/chai/-/chai-5.1.1.tgz"
   integrity sha512-pT1ZgP8rPNqUgieVaEY+ryQr6Q4HXNg8Ei9UnLUrjN4IA7dvQC5JB+/kxVcPNDHyBcc/26CXPkbNzq3qwrOEKA==
@@ -576,7 +574,14 @@ create-require@^1.1.0:
   resolved "https://registry.npmjs.org/create-require/-/create-require-1.1.1.tgz"
   integrity sha512-dcKFX3jn0MpIaXjisoRvexIJVEKzaq7z2rZKxf+MSr9TkdmHmsU4m2lcLojrj/FHl8mk5VxMmYA+ftRkP/3oKQ==
 
-cross-spawn@^7.0.0:
+cross-env@^7.0.3:
+  version "7.0.3"
+  resolved "https://registry.npmjs.org/cross-env/-/cross-env-7.0.3.tgz"
+  integrity sha512-+/HKd6EgcQCJGh2PSjZuUitQBQynKor4wrFbRg4DtAgS1aWO+gU52xpH7M9ScGgXSYmAVS9bIJ8EzuaGw0oNAw==
+  dependencies:
+    cross-spawn "^7.0.1"
+
+cross-spawn@^7.0.0, cross-spawn@^7.0.1:
   version "7.0.3"
   resolved "https://registry.npmjs.org/cross-spawn/-/cross-spawn-7.0.3.tgz"
   integrity sha512-iRDPJKUPVEND7dHPO8rkbOnPpyDygcDFtWjpeWNCgy8WP2rXcxXL8TskReQl6OrB2G7+UJrags1q15Fudc7G6w==
@@ -1178,8 +1183,6 @@ jackspeak@^3.1.2:
 
 jackspeak@^4.0.1:
   version "4.0.1"
-  resolved "https://registry.npmjs.org/jackspeak/-/jackspeak-4.0.1.tgz"
-  integrity sha512-cub8rahkh0Q/bw1+GxP7aeSe29hHHn2V4m29nnDlvCdlgU+3UGxkZp7Z53jLUdpX3jdTO0nJZUDl3xvbWc2Xog==
   dependencies:
     "@isaacs/cliui" "^8.0.2"
   optionalDependencies:
@@ -1255,8 +1258,6 @@ lru-cache@^10.2.0:
 
 lru-cache@^11.0.0:
   version "11.0.0"
-  resolved "https://registry.npmjs.org/lru-cache/-/lru-cache-11.0.0.tgz"
-  integrity sha512-Qv32eSV1RSCfhY3fpPE2GNZ8jgM9X7rdAfemLWqTUxwiyIC4jJ6Sy0fZ8H+oLWevO6i4/bizg7c8d8i6bxrzbA==
 
 lru-cache@^7.14.1:
   version "7.18.3"
@@ -1683,7 +1684,10 @@ rollup@^1.20.0||^2.0.0||^3.0.0||^4.0.0, rollup@^2.68.0||^3.0.0||^4.0.0, rollup@^
   optionalDependencies:
     fsevents "~2.3.2"
 
-safe-buffer@^5.1.0, safe-buffer@5.1.2:
+safe-buffer@^5.1.0:
+  version "5.2.1"
+
+safe-buffer@5.1.2:
   version "5.1.2"
   resolved "https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.1.2.tgz"
   integrity sha512-Gd2UZBJDkXlY7GbJxfsE8/nvKkUEU1G38c1siN6QP6a9PT9MmHB8GnpscSmMJSoF8LOIrt8ud/wPtojys4G6+g==

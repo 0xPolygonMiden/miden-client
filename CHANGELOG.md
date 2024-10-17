@@ -2,6 +2,8 @@
 
 ## 0.6.0 (TBD)
 
+* Fixed WASM + added additional WASM models (#548)
+* Added dedicated separate table for tracked tags (#535).
 * [BREAKING] Added transaction prover component to `Client` (#550).
 * [BREAKING] Added support for committed and discarded transactions (#531).
 * [BREAKING] Refactored Client struct to use trait objects for inner struct fields (#539).

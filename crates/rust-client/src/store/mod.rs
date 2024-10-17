@@ -2,7 +2,10 @@
 //! and retrieving data, such as account states, transaction history, and block headers.
 #[cfg(feature = "async")]
 use alloc::boxed::Box;
-use alloc::{collections::BTreeMap, vec::Vec};
+use alloc::{
+    collections::{BTreeMap, BTreeSet},
+    vec::Vec,
+};
 use core::fmt::Debug;
 
 use miden_objects::{
@@ -14,7 +17,7 @@ use miden_objects::{
 use winter_maybe_async::*;
 
 use crate::{
-    sync::StateSyncUpdate,
+    sync::{NoteTagRecord, StateSyncUpdate},
     transactions::{TransactionRecord, TransactionResult},
 };
 
@@ -273,23 +276,29 @@ pub trait Store {
     // SYNC
     // --------------------------------------------------------------------------------------------
 
-    /// Returns the note tags that the client is interested in.
+    /// Returns the note tag records that the client is interested in.
     #[maybe_async]
-    fn get_note_tags(&self) -> Result<Vec<NoteTag>, StoreError>;
+    fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, StoreError>;
+
+    /// Returns the unique note tags (without source) that the client is interested in.
+    #[maybe_async]
+    fn get_unique_note_tags(&self) -> Result<BTreeSet<NoteTag>, StoreError> {
+        Ok(maybe_await!(self.get_note_tags())?.into_iter().map(|r| r.tag).collect())
+    }
 
     /// Adds a note tag to the list of tags that the client is interested in.
     ///
     /// If the tag was already being tracked, returns false since no new tags were actually added.
     /// Otherwise true.
     #[maybe_async]
-    fn add_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError>;
+    fn add_note_tag(&self, tag: NoteTagRecord) -> Result<bool, StoreError>;
 
     /// Removes a note tag from the list of tags that the client is interested in.
     ///
     /// If the tag was not present in the store returns false since no tag was actually removed.
     /// Otherwise returns true.
     #[maybe_async]
-    fn remove_note_tag(&self, tag: NoteTag) -> Result<bool, StoreError>;
+    fn remove_note_tag(&self, tag: NoteTagRecord) -> Result<usize, StoreError>;
 
     /// Returns the block number of the last state sync block.
     #[maybe_async]
@@ -322,6 +331,7 @@ pub enum ChainMmrNodeFilter {
 // ================================================================================================
 
 /// Filters for narrowing the set of transactions returned by the client's store.
+#[derive(Debug, Clone)]
 pub enum TransactionFilter {
     /// Return all transactions.
     All,
