@@ -2,6 +2,7 @@
 
 ## 0.6.0 (TBD)
 
+* WASM Input note tests + input note model updates (#554)
 * Fixed WASM + added additional WASM models (#548)
 * Added dedicated separate table for tracked tags (#535).
 * [BREAKING] Added support for committed and discarded transactions (#531).
