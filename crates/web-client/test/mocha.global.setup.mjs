@@ -38,11 +38,83 @@ before(async () => {
   }
 
   // Creates the client in the test context and attach to window object
+  await testingPage.evaluate(async (port) => {
+    const {
+      Account,
+      AccountHeader,
+      AccountId,
+      AccountStorageMode,
+      AdviceMap,
+      AuthSecretKey,
+      Felt,
+      FeltArray,
+      FungibleAsset,
+      Note,
+      NoteAssets,
+      NoteExecutionHint,
+      NoteExecutionMode,
+      NoteFilter,
+      NoteFilterTypes,
+      NoteIdAndArgs,
+      NoteIdAndArgsArray,
+      NoteInputs,
+      NoteMetadata,
+      NoteRecipient,
+      NoteTag,
+      NoteType,
+      OutputNote,
+      OutputNotesArray,
+      Rpo256,
+      TestUtils,
+      TransactionFilter,
+      TransactionRequest,
+      TransactionScriptInputPair,
+      TransactionScriptInputPairArray,
+      WebClient,
+    } = await import("./index.js");
+    let rpc_url = `http://localhost:${port}`;
+    const client = new WebClient();
+    await client.create_client(rpc_url);
+
+    window.client = client;
+    window.Account = Account;
+    window.AccountHeader = AccountHeader;
+    window.AccountId = AccountId;
+    window.AccountStorageMode = AccountStorageMode;
+    window.AdviceMap = AdviceMap;
+    window.AuthSecretKey = AuthSecretKey;
+    window.Felt = Felt;
+    window.FeltArray = FeltArray;
+    window.FungibleAsset = FungibleAsset;
+    window.Note = Note;
+    window.NoteAssets = NoteAssets;
+    window.NoteExecutionHint = NoteExecutionHint;
+    window.NoteExecutionMode = NoteExecutionMode;
+    window.NoteFilter = NoteFilter;
+    window.NoteFilterTypes = NoteFilterTypes;
+    window.NoteIdAndArgs = NoteIdAndArgs;
+    window.NoteIdAndArgsArray = NoteIdAndArgsArray;
+    window.NoteInputs = NoteInputs;
+    window.NoteMetadata = NoteMetadata;
+    window.NoteRecipient = NoteRecipient;
+    window.NoteTag = NoteTag;
+    window.NoteType = NoteType;
+    window.OutputNote = OutputNote;
+    window.OutputNotesArray = OutputNotesArray;
+    window.Rpo256 = Rpo256;
+    window.TestUtils = TestUtils;
+    window.TransactionFilter = TransactionFilter;
+    window.TransactionRequest = TransactionRequest;
+    window.TransactionScriptInputPair = TransactionScriptInputPair;
+    window.TransactionScriptInputPairArray = TransactionScriptInputPairArray;
+  }, LOCAL_MIDEN_NODE_PORT);
+
   await testingPage.exposeFunction("create_client", async () => {
     await testingPage.evaluate(async (port) => {
       const {
         Account,
         AccountHeader,
+        AccountId,
         AccountStorageMode,
         AdviceMap,
         AuthSecretKey,
@@ -53,6 +125,8 @@ before(async () => {
         NoteAssets,
         NoteExecutionHint,
         NoteExecutionMode,
+        NoteFilter,
+        NoteFilterTypes,
         NoteIdAndArgs,
         NoteIdAndArgsArray,
         NoteInputs,
@@ -77,6 +151,7 @@ before(async () => {
       window.client = client;
       window.Account = Account;
       window.AccountHeader = AccountHeader;
+      window.AccountId = AccountId;
       window.AccountStorageMode = AccountStorageMode;
       window.AdviceMap = AdviceMap;
       window.AuthSecretKey = AuthSecretKey;
@@ -87,6 +162,8 @@ before(async () => {
       window.NoteAssets = NoteAssets;
       window.NoteExecutionHint = NoteExecutionHint;
       window.NoteExecutionMode = NoteExecutionMode;
+      window.NoteFilter = NoteFilter;
+      window.NoteFilterTypes = NoteFilterTypes;
       window.NoteIdAndArgs = NoteIdAndArgs;
       window.NoteIdAndArgsArray = NoteIdAndArgsArray;
       window.NoteInputs = NoteInputs;
