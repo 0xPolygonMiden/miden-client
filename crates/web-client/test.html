@@ -27,6 +27,8 @@
             NoteAssets,
             NoteExecutionHint,
             NoteExecutionMode,
+            NoteFilter,
+            NoteState,
             NoteId,
             NoteIdAndArgs,
             NoteIdAndArgsArray,
@@ -428,7 +430,7 @@
             console.log('testCreateNewWallet started');
             let webClient = await createMidenWebClient();
 
-            await createNewWallet(webClient, "Private", true);
+            // await createNewWallet(webClient, "Private", true);
 
             console.log('testCreateNewWallet finished');
         }
@@ -1291,11 +1293,11 @@
             console.log("testCustomTransaction finished");
         }
 
-        // await testCreateNewWallet();
+        await testCreateNewWallet();
         // await testCreateNewFaucet();
         // await testGetAccounts();
         // await testGetAccount();
-        await testNewMintTransaction();
+        // await testNewMintTransaction();
         // await testNewConsumeTransaction();
         // await testNewSendTransaction();
         // await testNewSendTransactionWithRecallHeight();
