@@ -40,13 +40,13 @@ db.version(1).stores({
   [Table.Accounts]: indexes('[id+nonce]', 'codeRoot', 'storageRoot', 'vaultRoot', 'accountHash'),
   [Table.Transactions]: indexes('id'),
   [Table.TransactionScripts]: indexes('scriptHash'),
-  [Table.InputNotes]: indexes('noteId', 'recipient', 'status', 'importedTag', 'ignored', 'nullifier'),
+  [Table.InputNotes]: indexes('noteId', 'nullifier', 'stateDiscriminant'),
   [Table.OutputNotes]: indexes('noteId', 'recipientDigest', 'stateDiscriminant', 'nullifier'),
   [Table.NotesScripts]: indexes('scriptHash'),
   [Table.StateSync]: indexes('id'),
   [Table.BlockHeaders]: indexes('blockNum', 'hasClientNotes'),
   [Table.ChainMmrNodes]: indexes('id'),
-  [Table.Tags]: indexes('tag', 'source_note_id', 'source_account_id'),
+  [Table.Tags]: indexes('id++', 'tag', 'source_note_id', 'source_account_id'),
 });
 
 function indexes(...items) {

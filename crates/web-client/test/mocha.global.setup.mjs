@@ -1,5 +1,5 @@
-import * as chai from 'chai';
-import chaiAsPromised from 'chai-as-promised';
+import * as chai from "chai";
+import chaiAsPromised from "chai-as-promised";
 import puppeteer from "puppeteer";
 import { spawn } from "child_process";
 
@@ -26,10 +26,10 @@ before(async () => {
   console.log("Starting test server...");
   serverProcess = spawn("http-server", ["./dist", "-p", TEST_SERVER_PORT], {
     stdio: "inherit",
-    shell: process.platform == 'win32'
+    shell: process.platform == "win32",
   });
 
-  browser = await puppeteer.launch({ headless: true });
+  browser = await puppeteer.launch({ headless: true, protocolTimeout: 360000 });
   testingPage = await browser.newPage();
   await testingPage.goto(TEST_SERVER);
 
@@ -44,9 +44,31 @@ before(async () => {
         Account,
         AccountHeader,
         AccountStorageMode,
+        AdviceMap,
         AuthSecretKey,
+        Felt,
+        FeltArray,
+        FungibleAsset,
+        Note,
+        NoteAssets,
+        NoteExecutionHint,
+        NoteExecutionMode,
+        NoteIdAndArgs,
+        NoteIdAndArgsArray,
+        NoteInputs,
+        NoteMetadata,
+        NoteRecipient,
+        NoteTag,
+        NoteType,
+        OutputNote,
+        OutputNotesArray,
+        Rpo256,
         TestUtils,
-        WebClient
+        TransactionFilter,
+        TransactionRequest,
+        TransactionScriptInputPair,
+        TransactionScriptInputPairArray,
+        WebClient,
       } = await import("./index.js");
       let rpc_url = `http://localhost:${port}`;
       const client = new WebClient();
@@ -56,8 +78,30 @@ before(async () => {
       window.Account = Account;
       window.AccountHeader = AccountHeader;
       window.AccountStorageMode = AccountStorageMode;
-      window.AuthSecretKey = AuthSecretKey
+      window.AdviceMap = AdviceMap;
+      window.AuthSecretKey = AuthSecretKey;
+      window.Felt = Felt;
+      window.FeltArray = FeltArray;
+      window.FungibleAsset = FungibleAsset;
+      window.Note = Note;
+      window.NoteAssets = NoteAssets;
+      window.NoteExecutionHint = NoteExecutionHint;
+      window.NoteExecutionMode = NoteExecutionMode;
+      window.NoteIdAndArgs = NoteIdAndArgs;
+      window.NoteIdAndArgsArray = NoteIdAndArgsArray;
+      window.NoteInputs = NoteInputs;
+      window.NoteMetadata = NoteMetadata;
+      window.NoteRecipient = NoteRecipient;
+      window.NoteTag = NoteTag;
+      window.NoteType = NoteType;
+      window.OutputNote = OutputNote;
+      window.OutputNotesArray = OutputNotesArray;
+      window.Rpo256 = Rpo256;
       window.TestUtils = TestUtils;
+      window.TransactionFilter = TransactionFilter;
+      window.TransactionRequest = TransactionRequest;
+      window.TransactionScriptInputPair = TransactionScriptInputPair;
+      window.TransactionScriptInputPairArray = TransactionScriptInputPairArray;
     }, LOCAL_MIDEN_NODE_PORT);
   });
 });

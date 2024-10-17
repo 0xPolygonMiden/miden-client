@@ -133,7 +133,7 @@ impl Store for SqliteStore {
     }
 
     #[maybe_async]
-    fn upsert_input_notes(&self, notes: Vec<InputNoteRecord>) -> Result<(), StoreError> {
+    fn upsert_input_notes(&self, notes: &[InputNoteRecord]) -> Result<(), StoreError> {
         self.upsert_input_notes(notes)
     }
 

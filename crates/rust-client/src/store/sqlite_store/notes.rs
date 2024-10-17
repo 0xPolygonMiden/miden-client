@@ -131,18 +131,13 @@ impl NoteFilter {
                 params.push(Rc::new(nullifiers_list));
                 "note.nullifier IN rarray(?)".to_string()
             },
-            NoteFilter::StateDiscriminant(discriminant) => {
-                format!("(state_discriminant = {})", discriminant)
-            },
-            NoteFilter::Or(filters) => {
-                let mut conditions = Vec::new();
-                for filter in filters {
-                    let (condition, mut filter_params) = filter.output_notes_condition();
-                    params.append(&mut filter_params);
-                    conditions.push(condition);
-                }
-
-                format!("({})", conditions.join(" OR "))
+            NoteFilter::Unverified => "1 = 0".to_string(), // there are no unverified output notes
+            NoteFilter::Unspent => {
+                format!(
+                    "state_discriminant in ({}, {})",
+                    OutputNoteState::STATE_EXPECTED_FULL,
+                    OutputNoteState::STATE_COMMITTED_FULL,
+                )
             },
         };
 
@@ -215,18 +210,18 @@ impl NoteFilter {
                 params.push(Rc::new(nullifiers_list));
                 "(note.nullifier IN rarray(?))".to_string()
             },
-            NoteFilter::StateDiscriminant(discriminant) => {
-                format!("(state_discriminant = {})", discriminant)
+            NoteFilter::Unverified => {
+                format!("(state_discriminant = {})", InputNoteState::STATE_UNVERIFIED)
             },
-            NoteFilter::Or(filters) => {
-                let mut conditions = Vec::new();
-                for filter in filters {
-                    let (condition, mut filter_params) = filter.input_notes_condition();
-                    params.append(&mut filter_params);
-                    conditions.push(condition);
-                }
-
-                format!("({})", conditions.join(" OR "))
+            NoteFilter::Unspent => {
+                format!(
+                    "(state_discriminant in ({}, {}, {}, {}, {}))",
+                    InputNoteState::STATE_EXPECTED,
+                    InputNoteState::STATE_PROCESSING_AUTHENTICATED,
+                    InputNoteState::STATE_PROCESSING_UNAUTHENTICATED,
+                    InputNoteState::STATE_UNVERIFIED,
+                    InputNoteState::STATE_COMMITTED
+                )
             },
         };
 
@@ -298,12 +293,12 @@ impl SqliteStore {
         Ok(notes)
     }
 
-    pub(crate) fn upsert_input_notes(&self, notes: Vec<InputNoteRecord>) -> Result<(), StoreError> {
+    pub(crate) fn upsert_input_notes(&self, notes: &[InputNoteRecord]) -> Result<(), StoreError> {
         let mut db = self.db();
         let tx = db.transaction()?;
 
         for note in notes {
-            upsert_input_note_tx(&tx, &note)?;
+            upsert_input_note_tx(&tx, note)?;
         }
 
         Ok(tx.commit()?)

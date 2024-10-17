@@ -1,5 +1,5 @@
 export {
-  Account, 
+  Account,
   AccountHeader,
   AccountId,
   AccountStorageMode,
@@ -27,8 +27,9 @@ export {
   Rpo256,
   SerializedAccountHeader,
   TestUtils,
+  TransactionFilter,
   TransactionRequest,
   TransactionScriptInputPair,
   TransactionScriptInputPairArray,
-  WebClient
+  WebClient,
 } from "./crates/miden_client_web";

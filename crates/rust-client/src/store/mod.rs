@@ -111,15 +111,10 @@ pub trait Store {
     /// The default implementation of this method uses [Store::get_input_notes].
     #[maybe_async]
     fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
-        let nullifiers = maybe_await!(self.get_input_notes(NoteFilter::Or(vec![
-            NoteFilter::Expected,
-            NoteFilter::StateDiscriminant(InputNoteState::STATE_UNVERIFIED),
-            NoteFilter::Committed,
-            NoteFilter::Processing
-        ])))?
-        .iter()
-        .map(|input_note| Ok(input_note.nullifier()))
-        .collect::<Result<Vec<_>, _>>();
+        let nullifiers = maybe_await!(self.get_input_notes(NoteFilter::Unspent))?
+            .iter()
+            .map(|input_note| Ok(input_note.nullifier()))
+            .collect::<Result<Vec<_>, _>>();
 
         nullifiers
     }
@@ -127,7 +122,7 @@ pub trait Store {
     /// Inserts the provided input notes into the database. If a note with the same ID already
     /// exists, it will be replaced.
     #[maybe_async]
-    fn upsert_input_notes(&self, notes: Vec<InputNoteRecord>) -> Result<(), StoreError>;
+    fn upsert_input_notes(&self, notes: &[InputNoteRecord]) -> Result<(), StoreError>;
 
     // CHAIN DATA
     // --------------------------------------------------------------------------------------------
@@ -334,6 +329,7 @@ pub enum ChainMmrNodeFilter {
 // ================================================================================================
 
 /// Filters for narrowing the set of transactions returned by the client's store.
+#[derive(Debug, Clone)]
 pub enum TransactionFilter {
     /// Return all transactions.
     All,
@@ -350,26 +346,24 @@ pub enum TransactionFilter {
 pub enum NoteFilter {
     /// Return a list of all notes ([InputNoteRecord] or [OutputNoteRecord]).
     All,
-    /// Filter by consumed notes ([InputNoteRecord] or [OutputNoteRecord]). notes that have been
-    /// used as inputs in transactions.
-    Consumed,
     /// Return a list of committed notes ([InputNoteRecord] or [OutputNoteRecord]). These represent
     /// notes that the blockchain has included in a block, and for which we are storing anchor
     /// data.
     Committed,
+    /// Filter by consumed notes ([InputNoteRecord] or [OutputNoteRecord]). notes that have been
+    /// used as inputs in transactions.
+    Consumed,
     /// Return a list of expected notes ([InputNoteRecord] or [OutputNoteRecord]). These represent
     /// notes for which the store does not have anchor data.
     Expected,
+    /// Return a list containing the note that matches with the provided [NoteId].
+    List(Vec<NoteId>),
+    /// Return a list of notes that match the provided [Nullifier] list.
+    Nullifiers(Vec<Nullifier>),
     /// Return a list of notes that are currently being processed.
     Processing,
     /// Return a list containing the note that matches with the provided [NoteId].
-    List(Vec<NoteId>),
-    /// Return a list containing the note that matches with the provided [NoteId].
     Unique(NoteId),
-    /// Return a list of notes that match the provided [Nullifier] list.
-    Nullifiers(Vec<Nullifier>),
-    /// Return a list of notes whose state match the discriminant provided.
-    StateDiscriminant(u8),
-    /// Return a list of notes that match any of the provided filters.
-    Or(Vec<NoteFilter>),
+    Unspent,
+    Unverified,
 }

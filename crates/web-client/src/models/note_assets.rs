@@ -25,6 +25,18 @@ impl NoteAssets {
 // CONVERSIONS
 // ================================================================================================
 
+impl From<NativeNoteAssets> for NoteAssets {
+    fn from(native_note_assets: NativeNoteAssets) -> Self {
+        NoteAssets(native_note_assets)
+    }
+}
+
+impl From<&NativeNoteAssets> for NoteAssets {
+    fn from(native_note_assets: &NativeNoteAssets) -> Self {
+        NoteAssets(native_note_assets.clone())
+    }
+}
+
 impl From<NoteAssets> for NativeNoteAssets {
     fn from(note_assets: NoteAssets) -> Self {
         note_assets.0
