@@ -296,7 +296,7 @@ impl<R: FeltRng> Client<R> {
             maybe_await!(self.get_transactions_to_commit(response.transactions))?;
 
         let consumed_notes = maybe_await!(self.store.get_input_notes(NoteFilter::Nullifiers(
-            new_nullifiers.iter().map(|n| n.nullifier).collect()
+            new_nullifiers.iter().map(|n| n.nullifier).collect::<Vec<_>>()
         )))?;
 
         // Store summary to return later
