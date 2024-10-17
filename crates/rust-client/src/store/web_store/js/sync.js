@@ -84,26 +84,21 @@ export async function removeNoteTag(
 
 export async function applyStateSync(
     blockNum,
-    nullifiers,
-    nullifierBlockNums,
     blockHeader,
     chainMmrPeaks,
     hasClientNotes,
     nodeIndexes,
     nodes,
-    outputNoteIds,
-    outputNoteInclusionProofsAsFlattenedVec,
     inputNoteIds,
-    transactionIds,
-    transactionBlockNums
+    committedTransactionIds,
+    transactionBlockNums,
 ) {
     return db.transaction('rw', stateSync, inputNotes, outputNotes, transactions, blockHeaders, chainMmrNodes, tags, async (tx) => {
         await updateSyncHeight(tx, blockNum);
-        await updateSpentNotes(tx, nullifierBlockNums, nullifiers);
         await updateBlockHeader(tx, blockNum, blockHeader, chainMmrPeaks, hasClientNotes);
         await updateChainMmrNodes(tx, nodeIndexes, nodes);
-        await updateCommittedNotes(tx, outputNoteIds, outputNoteInclusionProofsAsFlattenedVec, inputNoteIds);
-        await updateCommittedTransactions(tx, transactionBlockNums, transactionIds);
+        await updateCommittedNoteTags(tx, inputNoteIds);
+        await updateCommittedTransactions(tx, transactionBlockNums, committedTransactionIds);
     });
 }
 
@@ -115,38 +110,6 @@ async function updateSyncHeight(
         await tx.stateSync.update(1, { blockNum: blockNum });
     } catch (error) {
         console.error("Failed to update sync height: ", error);
-        throw error;
-    }
-}
-
-// NOTE: nullifierBlockNums are the same length and ordered consistently with nullifiers
-async function updateSpentNotes(tx, nullifierBlockNums, nullifiers) {
-    try {
-        // Modify all input notes that match any of the nullifiers
-        await tx.inputNotes
-            .where('nullifier')
-            .anyOf(nullifiers)
-            .modify((inputNote, ref) => {
-                const nullifierIndex = nullifiers.indexOf(inputNote.nullifier);
-                if (nullifierIndex !== -1) {
-                    ref.status = 'Consumed';
-                    ref.nullifierHeight = nullifierBlockNums[nullifierIndex];
-                }
-            });
-
-        // Modify all output notes that match any of the nullifiers
-        await tx.outputNotes
-            .where('nullifier')
-            .anyOf(nullifiers)
-            .modify((outputNote, ref) => {
-                const nullifierIndex = nullifiers.indexOf(outputNote.nullifier);
-                if (nullifierIndex !== -1) {
-                    ref.status = 'Consumed';
-                    ref.nullifierHeight = nullifierBlockNums[nullifierIndex];
-                }
-            });
-    } catch (error) {
-        console.error("Error updating spent notes:", error);
         throw error;
     }
 }
@@ -201,48 +164,15 @@ async function updateChainMmrNodes(
         await tx.chainMmrNodes.bulkAdd(updates);
     } catch (err) {
         console.error("Failed to update chain mmr nodes: ", err);
-        throw error;
+        throw err;
     }
 }
 
-async function updateCommittedNotes(
+async function updateCommittedNoteTags(
     tx,
-    outputNoteIds,
-    outputNoteInclusionProofsAsFlattenedVec,
     inputNoteIds,
 ) {
     try {
-        // Helper function to reconstruct arrays from flattened data
-        function reconstructFlattenedVec(flattenedVec) {
-            const data = flattenedVec.data();
-            const lengths = flattenedVec.lengths();
-
-            let index = 0;
-            const result = [];
-            lengths.forEach(length => {
-                result.push(data.slice(index, index + length));
-                index += length;
-            });
-            return result;
-        }
-
-        const outputNoteInclusionProofs = reconstructFlattenedVec(outputNoteInclusionProofsAsFlattenedVec);
-
-        if (outputNoteIds.length !== outputNoteInclusionProofsAsFlattenedVec.num_inner_vecs()) {
-            throw new Error("Arrays outputNoteIds and outputNoteInclusionProofs must be of the same length");
-        }
-
-        for (let i = 0; i < outputNoteIds.length; i++) {
-            const noteId = outputNoteIds[i];
-            const inclusionProof = outputNoteInclusionProofs[i];
-            const inclusionProofBlob = new Blob([new Uint8Array(inclusionProof)]);
-
-            // Update output notes
-            await tx.outputNotes.where({ noteId: noteId }).modify({
-                status: 'Committed',
-                inclusionProof: inclusionProofBlob
-            });
-        }
 
         for (let i = 0; i < inputNoteIds.length; i++) {
             const noteId = inputNoteIds[i];

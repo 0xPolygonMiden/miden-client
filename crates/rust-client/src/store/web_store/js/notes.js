@@ -200,7 +200,7 @@ export async function upsertOutputNote(
       };
 
       // Perform the insert using Dexie
-      await tx.outputNotes.add(data);
+      await tx.outputNotes.put(data);
     } catch {
       console.error(`Error inserting note: ${noteId}:`, error);
       throw error; // Rethrow the error to handle it further up the call chain if needed

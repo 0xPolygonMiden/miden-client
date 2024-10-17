@@ -124,7 +124,7 @@ pub(crate) fn serialize_output_note(
     })
 }
 
-pub async fn insert_output_note_tx(note: &OutputNoteRecord) -> Result<(), StoreError> {
+pub async fn upsert_output_note_tx(note: &OutputNoteRecord) -> Result<(), StoreError> {
     let serialized_data = serialize_output_note(note)?;
 
     let result = JsFuture::from(idxdb_upsert_output_note(

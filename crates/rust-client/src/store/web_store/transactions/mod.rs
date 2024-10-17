@@ -10,7 +10,7 @@ use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
 
 use super::{
-    notes::utils::{insert_output_note_tx, upsert_input_note_tx},
+    notes::utils::{upsert_input_note_tx, upsert_output_note_tx},
     WebStore,
 };
 use crate::{
@@ -139,7 +139,7 @@ impl WebStore {
         }
 
         for note in &created_output_notes {
-            insert_output_note_tx(note).await?;
+            upsert_output_note_tx(note).await?;
         }
 
         for mut input_note_record in relevant_notes {
