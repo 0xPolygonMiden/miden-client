@@ -29,6 +29,9 @@ fn main() -> miette::Result<()> {
     Ok(())
 }
 
+/// NODE RPC CLIENT PROTO CODEGEN
+/// ===============================================================================================
+
 // Compiles the protobuf files into a file descriptor used to generate Rust types
 fn compile_tonic_client_proto(proto_dir: &Path) -> miette::Result<()> {
     // Compute the compiler's target file path.
@@ -81,6 +84,9 @@ fn replace_no_std_types() {
     let mut f = std::fs::OpenOptions::new().write(true).open(path).unwrap();
     f.write_all(new_file_str.as_bytes()).unwrap();
 }
+
+/// KNOWN SCRIPT ROOTS
+/// ===============================================================================================
 
 fn generate_known_script_roots() -> std::io::Result<()> {
     // Get the output directory from the environment variables

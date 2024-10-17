@@ -10,6 +10,7 @@ use miden_client::{
         sqlite_store::SqliteStore, NoteFilter as ClientNoteFilter, OutputNoteRecord,
         StoreAuthenticator,
     },
+    transactions::{LocalTransactionProver, ProvingOptions},
     Client, ClientError, Felt, IdPrefixFetchError,
 };
 use rand::Rng;
@@ -109,12 +110,14 @@ impl Cli {
 
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
         let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
+        let tx_prover = LocalTransactionProver::new(ProvingOptions::default());
 
         let client = Client::new(
             Box::new(TonicRpcClient::new(&cli_config.rpc)),
             rng,
             store,
             Arc::new(authenticator),
+            Arc::new(tx_prover),
             in_debug_mode,
         );
 
