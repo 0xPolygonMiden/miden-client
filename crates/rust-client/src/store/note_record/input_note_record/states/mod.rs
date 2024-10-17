@@ -82,20 +82,20 @@ impl InputNoteState {
         }
     }
 
-    pub fn metadata(&self) -> Option<&NoteMetadata> {
+    pub(crate) fn metadata(&self) -> Option<&NoteMetadata> {
         self.inner().metadata()
     }
 
-    pub fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
+    pub(crate) fn inclusion_proof(&self) -> Option<&NoteInclusionProof> {
         self.inner().inclusion_proof()
     }
 
-    pub fn consumer_transaction_id(&self) -> Option<&TransactionId> {
+    pub(crate) fn consumer_transaction_id(&self) -> Option<&TransactionId> {
         self.inner().consumer_transaction_id()
     }
 
     /// Returns a unique identifier for each note state.
-    pub fn discriminant(&self) -> u8 {
+    pub(crate) fn discriminant(&self) -> u8 {
         match self {
             InputNoteState::Expected(_) => Self::STATE_EXPECTED,
             InputNoteState::Unverified(_) => Self::STATE_UNVERIFIED,
@@ -116,7 +116,7 @@ impl InputNoteState {
     /// Returns a new state to reflect that the note has received an inclusion proof. The proof is
     /// assumed to be unverified until the block header information is received. If the note state
     /// doesn't change, `None` is returned.
-    pub fn inclusion_proof_received(
+    pub(crate) fn inclusion_proof_received(
         &self,
         inclusion_proof: NoteInclusionProof,
         metadata: NoteMetadata,
@@ -126,7 +126,7 @@ impl InputNoteState {
 
     /// Returns a new state to reflect that the note has been consumed by an external transaction.
     /// If the note state doesn't change, `None` is returned.
-    pub fn consumed_externally(
+    pub(crate) fn consumed_externally(
         &self,
         nullifier_block_height: u32,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
@@ -137,7 +137,7 @@ impl InputNoteState {
     /// This will mark the note as verified or invalid, depending on the block header
     /// information and inclusion proof. If the note state
     /// doesn't change, `None` is returned.
-    pub fn block_header_received(
+    pub(crate) fn block_header_received(
         &self,
         note_id: NoteId,
         block_header: BlockHeader,
@@ -147,7 +147,7 @@ impl InputNoteState {
 
     /// Modifies the state of the note record to reflect that the client began processing the note
     /// to be consumed. If the note state doesn't change, `None` is returned.
-    pub fn consumed_locally(
+    pub(crate) fn consumed_locally(
         &self,
         consumer_account: AccountId,
         consumer_transaction: TransactionId,
@@ -157,7 +157,7 @@ impl InputNoteState {
 
     /// Returns a new state to reflect that the transaction currently consuming the note was
     /// committed. If the note state doesn't change, `None` is returned.
-    pub fn transaction_committed(
+    pub(crate) fn transaction_committed(
         &self,
         transaction_id: TransactionId,
         block_height: u32,

@@ -101,7 +101,7 @@ impl OutputNoteRecord {
     // TRANSITIONS
     // --------------------------------------------------------------------------------------------
 
-    pub fn inclusion_proof_received(
+    pub(crate) fn inclusion_proof_received(
         &mut self,
         inclusion_proof: NoteInclusionProof,
     ) -> Result<bool, NoteRecordError> {
@@ -114,7 +114,7 @@ impl OutputNoteRecord {
         }
     }
 
-    pub fn nullifier_received(
+    pub(crate) fn nullifier_received(
         &mut self,
         nullifier: Nullifier,
         block_height: u32,
@@ -212,12 +212,22 @@ impl TryFrom<OutputNoteRecord> for Note {
 
 /// Variants of [NoteFile] that can be exported from an [OutputNoteRecord]
 pub enum NoteExportType {
+    /// Export only the note id
     NoteId,
+    /// Export the partial note with minimal details
     NoteDetails,
+    /// Export the full note with inclusion proof
     NoteWithProof,
 }
 
 impl OutputNoteRecord {
+    /// Converts the output note record into a note file for exporting. The export type is used to
+    /// determine the variant of [NoteFile] to be created.
+    ///
+    /// # Errors
+    ///
+    /// Will return an error if there is not enough information to create the requested [NoteFile]
+    /// variant.
     pub fn into_note_file(self, export_type: NoteExportType) -> Result<NoteFile, NoteRecordError> {
         match export_type {
             NoteExportType::NoteId => Ok(NoteFile::NoteId(self.id())),
