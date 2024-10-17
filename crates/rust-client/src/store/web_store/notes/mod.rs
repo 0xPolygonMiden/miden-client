@@ -112,7 +112,7 @@ impl WebStore {
 
     pub(crate) async fn upsert_input_notes(
         &self,
-        notes: Vec<InputNoteRecord>,
+        notes: &[InputNoteRecord],
     ) -> Result<(), StoreError> {
         for note in notes {
             upsert_input_note_tx(note).await?;

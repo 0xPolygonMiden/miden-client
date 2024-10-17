@@ -260,7 +260,7 @@ impl<R: FeltRng> Client<R> {
             .cloned()
             .map(|note| note.into())
             .collect::<Vec<_>>();
-        maybe_await!(self.store.upsert_input_notes(unauthenticated_input_notes))?;
+        maybe_await!(self.store.upsert_input_notes(&unauthenticated_input_notes))?;
 
         let block_num = maybe_await!(self.store.get_sync_height())?;
 

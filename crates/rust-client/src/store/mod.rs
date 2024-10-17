@@ -126,7 +126,7 @@ pub trait Store {
     /// Inserts the provided input notes into the database. If a note with the same ID already
     /// exists, it will be replaced.
     #[maybe_async]
-    fn upsert_input_notes(&self, notes: Vec<InputNoteRecord>) -> Result<(), StoreError>;
+    fn upsert_input_notes(&self, notes: &[InputNoteRecord]) -> Result<(), StoreError>;
 
     // CHAIN DATA
     // --------------------------------------------------------------------------------------------

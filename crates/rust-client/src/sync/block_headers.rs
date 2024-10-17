@@ -37,7 +37,7 @@ impl<R: FeltRng> Client<R> {
             }
         }
 
-        maybe_await!(self.store.upsert_input_notes(changed_notes))?;
+        maybe_await!(self.store.upsert_input_notes(&changed_notes))?;
 
         Ok(())
     }

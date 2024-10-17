@@ -312,12 +312,12 @@ impl SqliteStore {
         Ok(notes)
     }
 
-    pub(crate) fn upsert_input_notes(&self, notes: Vec<InputNoteRecord>) -> Result<(), StoreError> {
+    pub(crate) fn upsert_input_notes(&self, notes: &[InputNoteRecord]) -> Result<(), StoreError> {
         let mut db = self.db();
         let tx = db.transaction()?;
 
         for note in notes {
-            upsert_input_note_tx(&tx, &note)?;
+            upsert_input_note_tx(&tx, note)?;
         }
 
         Ok(tx.commit()?)
