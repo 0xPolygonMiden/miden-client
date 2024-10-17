@@ -61,7 +61,6 @@ console_error_panic_hook = "0.1.6"
 
 [build-dependencies]
 miden-rpc-proto = { git = "https://github.com/0xPolygonMiden/miden-node", branch = "next" }
-miden-tx-prover = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "igamigo-prover-maybe-async" }
 miden-lib = { workspace = true }
 miette = { version = "7.2", features = ["fancy"] }
 prost = { version = "0.13", default-features = false, features = ["derive"] }

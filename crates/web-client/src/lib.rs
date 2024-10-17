@@ -4,10 +4,10 @@ use alloc::sync::Arc;
 use miden_client::{
     rpc::WebTonicRpcClient,
     store::{web_store::WebStore, StoreAuthenticator},
+    transactions::LocalTransactionProver,
     Client,
 };
 use miden_objects::{crypto::rand::RpoRandomCoin, Felt};
-use miden_tx::{LocalTransactionProver, TransactionProgress};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use wasm_bindgen::prelude::*;
 
