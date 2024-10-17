@@ -25,7 +25,7 @@ use crate::store::{
         STATE_PROCESSING_UNAUTHENTICATED,
     },
     InputNoteRecord, NoteFilter, NoteRecordDetails, NoteState, NoteStatus, OutputNoteRecord,
-    StoreError,
+    StoreError, STATE_UNVERIFIED,
 };
 
 // TYPES
@@ -156,18 +156,9 @@ impl NoteFilter {
                 params.push(Rc::new(nullifiers_list));
                 "note.nullifier IN rarray(?)".to_string()
             },
-            NoteFilter::StateDiscriminant(_) => {
-                todo!("This filter shouldn't be used for output notes, once we refactor the filter system we can remove this")
-            },
-            NoteFilter::Or(filters) => {
-                let mut conditions = Vec::new();
-                for filter in filters {
-                    let (condition, mut filter_params) = filter.output_notes_condition();
-                    params.append(&mut filter_params);
-                    conditions.push(condition);
-                }
-
-                format!("({})", conditions.join(" OR "))
+            NoteFilter::Unverified => "1 = 0".to_string(), // there are no unverified output notes
+            NoteFilter::Unspent => {
+                format!("status IN ( '{NOTE_STATUS_EXPECTED}', '{NOTE_STATUS_PROCESSING}', '{NOTE_STATUS_COMMITTED}') AND NOT(ignored)")
             },
         };
 
@@ -239,18 +230,18 @@ impl NoteFilter {
                 params.push(Rc::new(nullifiers_list));
                 "(note.nullifier IN rarray(?))".to_string()
             },
-            NoteFilter::StateDiscriminant(discriminant) => {
-                format!("(state_discriminant = {})", discriminant)
+            NoteFilter::Unverified => {
+                format!("(state_discriminant = {STATE_UNVERIFIED})")
             },
-            NoteFilter::Or(filters) => {
-                let mut conditions = Vec::new();
-                for filter in filters {
-                    let (condition, mut filter_params) = filter.input_notes_condition();
-                    params.append(&mut filter_params);
-                    conditions.push(condition);
-                }
-
-                format!("({})", conditions.join(" OR "))
+            NoteFilter::Unspent => {
+                format!(
+                    "(state_discriminant in ({}, {}, {}, {}, {}))",
+                    STATE_EXPECTED,
+                    STATE_PROCESSING_AUTHENTICATED,
+                    STATE_PROCESSING_UNAUTHENTICATED,
+                    STATE_UNVERIFIED,
+                    STATE_COMMITTED
+                )
             },
         };
 
