@@ -17,7 +17,7 @@ use miden_objects::{
     AssetError, Digest, Felt, NoteError, Word,
 };
 pub use miden_tx::{LocalTransactionProver, ProvingOptions, TransactionProver};
-use script_builder::{AccountCapabilities, AccountInterface, TransactionScriptBuilder};
+use script_builder::{AccountCapabilities, AccountInterface};
 use tracing::info;
 use winter_maybe_async::*;
 
@@ -272,31 +272,8 @@ impl<R: FeltRng> Client<R> {
         let future_notes: Vec<(NoteDetails, NoteTag)> =
             transaction_request.expected_future_notes().cloned().collect();
 
-        let tx_script = match transaction_request.script_template() {
-            Some(TransactionScriptTemplate::CustomScript(script)) => script.clone(),
-            Some(TransactionScriptTemplate::SendNotes(notes)) => {
-                let tx_script_builder = TransactionScriptBuilder::new(
-                    maybe_await!(self.get_account_capabilities(account_id))?,
-                    None,
-                );
-
-                tx_script_builder.build_send_notes_script(notes)?
-            },
-            None => {
-                if transaction_request.input_notes().is_empty() {
-                    return Err(ClientError::TransactionRequestError(
-                        TransactionRequestError::NoInputNotes,
-                    ));
-                }
-
-                let tx_script_builder = TransactionScriptBuilder::new(
-                    maybe_await!(self.get_account_capabilities(account_id))?,
-                    None,
-                );
-
-                tx_script_builder.build_auth_script()?
-            },
-        };
+        let tx_script = transaction_request
+            .build_transaction_script(maybe_await!(self.get_account_capabilities(account_id))?)?;
 
         let tx_args = transaction_request.into_transaction_args(tx_script);
 

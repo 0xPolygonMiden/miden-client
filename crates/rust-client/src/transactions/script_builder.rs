@@ -124,12 +124,12 @@ pub(crate) struct TransactionScriptBuilder {
     /// Capabilities of the account for which the script is being built. The capabilities
     /// specify the authentication method and the interfaces exposed by the account.
     account_capabilities: AccountCapabilities,
-    expiry_delta: Option<u64>,
+    expiration_delta: Option<u32>,
 }
 
 impl TransactionScriptBuilder {
-    pub fn new(account_capabilities: AccountCapabilities, expiry_delta: Option<u64>) -> Self {
-        Self { account_capabilities, expiry_delta }
+    pub fn new(account_capabilities: AccountCapabilities, expiration_delta: Option<u32>) -> Self {
+        Self { account_capabilities, expiration_delta }
     }
 
     /// Builds a transaction script which sends the specified notes with the corresponding
@@ -180,7 +180,7 @@ impl TransactionScriptBuilder {
             },
         }
 
-        if self.expiry_delta.is_some() {
+        if self.expiration_delta.is_some() {
             includes.push_str("use.miden::kernels::tx::update_expiration_block_num\n");
         }
 
@@ -194,8 +194,8 @@ impl TransactionScriptBuilder {
     }
 
     fn script_expiration(&self) -> String {
-        if let Some(expiry_delta) = self.expiry_delta {
-            format!("push.{} call.update_expiration_block_num", expiry_delta)
+        if let Some(expiration_delta) = self.expiration_delta {
+            format!("push.{} call.update_expiration_block_num", expiration_delta)
         } else {
             String::new()
         }
