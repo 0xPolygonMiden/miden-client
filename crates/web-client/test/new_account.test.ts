@@ -1,6 +1,6 @@
-import { expect } from 'chai';
+import { expect } from "chai";
 import { testingPage } from "./mocha.global.setup.mjs";
-import { isValidAddress } from "./webClientTestUtils.js";
+import { isValidAddress } from "./webClientTestUtils";
 
 enum StorageMode {
   PRIVATE = "private",
@@ -24,16 +24,16 @@ interface NewAccountTestResult {
 // =======================================================================================================
 
 export const createNewWallet = async (
-  storageMode: StorageMode, 
+  storageMode: StorageMode,
   mutable: boolean
 ): Promise<NewAccountTestResult> => {
   return await testingPage.evaluate(
     async (_storageMode, _mutable) => {
-      if (!window.client) {
-        await window.create_client();
-      }
       const client = window.client;
-      const accountStorageMode = _storageMode === "private" ? window.AccountStorageMode.private() : window.AccountStorageMode.public();
+      const accountStorageMode =
+        _storageMode === "private"
+          ? window.AccountStorageMode.private()
+          : window.AccountStorageMode.public();
       const newWallet = await client.new_wallet(accountStorageMode, _mutable);
 
       return {
@@ -47,7 +47,7 @@ export const createNewWallet = async (
         is_updatable: newWallet.is_updatable(),
         is_public: newWallet.is_public(),
         is_new: newWallet.is_new(),
-      }
+      };
     },
     storageMode,
     mutable
@@ -61,38 +61,37 @@ describe("new_wallet tests", () => {
       storageMode: StorageMode.PRIVATE,
       mutable: false,
       expected: {
-
-        is_public: false, 
-        is_updatable: false, 
-      }
+        is_public: false,
+        is_updatable: false,
+      },
     },
     {
       description: "creates a new public, immutable wallet",
       storageMode: StorageMode.PUBLIC,
       mutable: false,
-      expected: { 
-        is_public: true, 
+      expected: {
+        is_public: true,
         is_updatable: false,
-      }
+      },
     },
     {
       description: "creates a new private, mutable wallet",
       storageMode: StorageMode.PRIVATE,
       mutable: true,
-      expected: { 
-        is_public: false, 
-        is_updatable: true, 
-      }
+      expected: {
+        is_public: false,
+        is_updatable: true,
+      },
     },
     {
       description: "creates a new public, mutable wallet",
       storageMode: StorageMode.PUBLIC,
       mutable: true,
-      expected: { 
-        is_public: true, 
-        is_updatable: true, 
-      }
-    }
+      expected: {
+        is_public: true,
+        is_updatable: true,
+      },
+    },
   ];
 
   testCases.forEach(({ description, storageMode, mutable, expected }) => {
@@ -125,11 +124,11 @@ export const createNewFaucet = async (
 ): Promise<NewAccountTestResult> => {
   return await testingPage.evaluate(
     async (_storageMode, _nonFungible, _tokenSymbol, _decimals, _maxSupply) => {
-      if (!window.client) {
-        await window.create_client();
-      }
       const client = window.client;
-      const accountStorageMode = _storageMode === "private" ? window.AccountStorageMode.private() : window.AccountStorageMode.public();
+      const accountStorageMode =
+        _storageMode === "private"
+          ? window.AccountStorageMode.private()
+          : window.AccountStorageMode.public();
       const newFaucet = await client.new_faucet(
         accountStorageMode,
         _nonFungible,
@@ -148,7 +147,7 @@ export const createNewFaucet = async (
         is_updatable: newFaucet.is_updatable(),
         is_public: newFaucet.is_public(),
         is_new: newFaucet.is_new(),
-      }
+      };
     },
     storageMode,
     nonFungible,
@@ -167,12 +166,12 @@ describe("new_faucet tests", () => {
       token_symbol: "DAG",
       decimals: 8,
       max_supply: BigInt(10000000),
-      expected: { 
-        is_public: false, 
-        is_updatable: false, 
-        is_regular_account: false, 
-        is_faucet: true 
-      }
+      expected: {
+        is_public: false,
+        is_updatable: false,
+        is_regular_account: false,
+        is_faucet: true,
+      },
     },
     {
       description: "creates a new public, fungible faucet",
@@ -181,31 +180,47 @@ describe("new_faucet tests", () => {
       token_symbol: "DAG",
       decimals: 8,
       max_supply: BigInt(10000000),
-      expected: { 
-        is_public: true, 
+      expected: {
+        is_public: true,
         is_updatable: false,
-        is_regular_account: false, 
-        is_faucet: true 
-      }
+        is_regular_account: false,
+        is_faucet: true,
+      },
     },
   ];
 
-  testCases.forEach(({ description, storageMode, non_fungible, token_symbol, decimals, max_supply, expected }) => {
-    it(description, async () => {
-      const result = await createNewFaucet(storageMode, non_fungible, token_symbol, decimals, max_supply);
+  testCases.forEach(
+    ({
+      description,
+      storageMode,
+      non_fungible,
+      token_symbol,
+      decimals,
+      max_supply,
+      expected,
+    }) => {
+      it(description, async () => {
+        const result = await createNewFaucet(
+          storageMode,
+          non_fungible,
+          token_symbol,
+          decimals,
+          max_supply
+        );
 
-      isValidAddress(result.id);
-      expect(result.nonce).to.equal("0");
-      isValidAddress(result.vault_commitment);
-      isValidAddress(result.storage_commitment);
-      isValidAddress(result.code_commitment);
-      expect(result.is_faucet).to.equal(true);
-      expect(result.is_regular_account).to.equal(false);
-      expect(result.is_updatable).to.equal(false);
-      expect(result.is_public).to.equal(expected.is_public);
-      expect(result.is_new).to.equal(true);
-    });
-  });
+        isValidAddress(result.id);
+        expect(result.nonce).to.equal("0");
+        isValidAddress(result.vault_commitment);
+        isValidAddress(result.storage_commitment);
+        isValidAddress(result.code_commitment);
+        expect(result.is_faucet).to.equal(true);
+        expect(result.is_regular_account).to.equal(false);
+        expect(result.is_updatable).to.equal(false);
+        expect(result.is_public).to.equal(expected.is_public);
+        expect(result.is_new).to.equal(true);
+      });
+    }
+  );
 
   it("throws an error when attempting to create a non-fungible faucet", async () => {
     await expect(
@@ -213,9 +228,17 @@ describe("new_faucet tests", () => {
     ).to.be.rejectedWith("Non-fungible faucets are not supported yet");
   });
 
-  it('throws an error when attempting to create a faucet with an invalid token symbol', async () => {
+  it("throws an error when attempting to create a faucet with an invalid token symbol", async () => {
     await expect(
-      createNewFaucet(StorageMode.PUBLIC, false, "INVALID_TOKEN", 8, BigInt(10000000))
-    ).to.be.rejectedWith(`TokenSymbolError("Token symbol must be between 1 and 6 characters long.")`);
+      createNewFaucet(
+        StorageMode.PUBLIC,
+        false,
+        "INVALID_TOKEN",
+        8,
+        BigInt(10000000)
+      )
+    ).to.be.rejectedWith(
+      `TokenSymbolError("Token symbol must be between 1 and 6 characters long.")`
+    );
   });
 });

@@ -11,9 +11,6 @@ interface AddTagSuccessResult {
 
 export const addTag = async (tag: string): Promise<AddTagSuccessResult> => {
     return await testingPage.evaluate(async (tag) => {
-        if (!window.client) {
-            await window.create_client();
-        }
 
         const client = window.client;
         await client.add_tag(tag);
@@ -45,9 +42,6 @@ interface RemoveTagSuccessResult {
 
 export const removeTag = async (tag: string): Promise<RemoveTagSuccessResult> => {
     return await testingPage.evaluate(async (tag) => {
-        if (!window.client) {
-            await window.create_client();
-        }
 
         const client = window.client;
         await client.add_tag(tag);

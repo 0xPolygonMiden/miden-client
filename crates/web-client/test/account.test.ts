@@ -12,10 +12,6 @@ interface GetAccountSuccessResult {
 
 export const getAccountOneMatch = async (): Promise<GetAccountSuccessResult> => {
     return await testingPage.evaluate(async () => {
-        if (!window.client) {
-            await window.create_client();
-        }
-
         const client = window.client;
         const newAccount = await client.new_wallet(window.AccountStorageMode.private(), true);
         const result = await client.get_account(newAccount.id());
@@ -35,10 +31,6 @@ interface GetAccountFailureResult {
 
 export const getAccountNoMatch = async (): Promise<GetAccountFailureResult> => {
     return await testingPage.evaluate(async () => {
-        if (!window.client) {
-            await window.create_client();
-        }
-
         const client = window.client;
         const nonExistingAccountId = window.TestUtils.create_mock_account_id();
         
@@ -86,10 +78,6 @@ interface GetAccountsSuccessResult {
 
 export const getAccountsManyMatches = async (): Promise<GetAccountsSuccessResult> => {
     return await testingPage.evaluate(async () => {
-        if (!window.client) {
-            await window.create_client();
-        }
-
         const client = window.client;
         const newAccount1 = await client.new_wallet(window.AccountStorageMode.private(), true);
         const newAccount2 = await client.new_wallet(window.AccountStorageMode.private(), true);
@@ -115,8 +103,6 @@ export const getAccountsManyMatches = async (): Promise<GetAccountsSuccessResult
 
 export const getAccountsNoMatches = async (): Promise<GetAccountsSuccessResult> => {
     return await testingPage.evaluate(async () => {
-        await window.create_client();
-
         const client = window.client;
             
         const result = await client.get_accounts();
@@ -178,10 +164,6 @@ interface GetAccountAuthSuccessResult {
 
 export const getAccountAuth = async (): Promise<GetAccountAuthSuccessResult> => {
     return await testingPage.evaluate(async () => {
-        if (!window.client) {
-            await window.create_client();
-        }
-
         const client = window.client;
         const newAccount = await client.new_wallet(window.AccountStorageMode.private(), true);
         
@@ -202,10 +184,6 @@ interface GetAccountAuthFailureResult {
 
 export const getAccountAuthNoMatch = async (): Promise<GetAccountAuthFailureResult> => {
     return await testingPage.evaluate(async () => {
-        if (!window.client) {
-            await window.create_client();
-        }
-
         const client = window.client;
         const nonExistingAccountId = window.TestUtils.create_mock_account_id();
 
@@ -254,10 +232,6 @@ interface FetchAndCacheAccountAuthByPubKeySuccessResult {
 
 export const fetchAndCacheAccountAuthByPubKey = async (): Promise<FetchAndCacheAccountAuthByPubKeySuccessResult> => {
     return await testingPage.evaluate(async () => {
-        if (!window.client) {
-            await window.create_client();
-        }
-
         const client = window.client;
         const newAccount = await client.new_wallet(window.AccountStorageMode.private(), true);
         
@@ -278,10 +252,6 @@ interface FetchAndCacheAccountAuthByPubKeyFailureResult {
 
 export const fetchAndCacheAccountAuthByPubKeyNoMatch = async (): Promise<FetchAndCacheAccountAuthByPubKeyFailureResult> => {
     return await testingPage.evaluate(async () => {
-        if (!window.client) {
-            await window.create_client();
-        }
-
         const client = window.client;
         const nonExistingAccountId = window.TestUtils.create_mock_account_id();
 

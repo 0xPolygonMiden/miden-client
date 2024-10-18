@@ -1,10 +1,11 @@
 import { Page } from "puppeteer";
-import { 
-  Account, 
+import {
+  Account,
   AccountHeader,
+  AccountId,
   AccountStorageMode,
   AdviceMap,
-  AuthSecretKey, 
+  AuthSecretKey,
   Felt,
   FeltArray,
   FungibleAsset,
@@ -12,6 +13,8 @@ import {
   NoteAssets,
   NoteExecutionHint,
   NoteExecutionMode,
+  NoteFilter,
+  NoteFilterTypes,
   NoteIdAndArgs,
   NoteIdAndArgsArray,
   NoteInputs,
@@ -22,12 +25,12 @@ import {
   OutputNote,
   OutputNotesArray,
   Rpo256,
-  TestUtils, 
+  TestUtils,
   TransactionFilter,
   TransactionRequest,
   TransactionScriptInputPair,
   TransactionScriptInputPairArray,
-  WebClient 
+  WebClient,
 } from "../dist/index";
 
 declare global {
@@ -35,6 +38,7 @@ declare global {
     client: WebClient;
     Account: typeof Account;
     AccountHeader: typeof AccountHeader;
+    AccountId: typeof AccountId;
     AccountStorageMode: typeof AccountStorageMode;
     AdviceMap: typeof AdviceMap;
     AuthSecretKey: typeof AuthSecretKey;
@@ -45,11 +49,13 @@ declare global {
     NoteAssets: typeof NoteAssets;
     NoteExecutionHint: typeof NoteExecutionHint;
     NoteExecutionMode: typeof NoteExecutionMode;
+    NoteFilter: typeof NoteFilter;
+    NoteFilterTypes: typeof NoteFilterTypes;
     NoteIdAndArgs: typeof NoteIdAndArgs;
     NoteIdAndArgsArray: typeof NoteIdAndArgsArray;
     NoteInputs: typeof NoteInputs;
     NoteMetadata: typeof NoteMetadata;
-    NoteRecipient: typeof NoteRecipient
+    NoteRecipient: typeof NoteRecipient;
     NoteTag: typeof NoteTag;
     NoteType: typeof NoteType;
     OutputNote: typeof OutputNote;
