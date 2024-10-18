@@ -80,7 +80,7 @@ impl SqliteStore {
         filter: ChainMmrNodeFilter,
     ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
         let mut params = Vec::new();
-        if let ChainMmrNodeFilter::List(ref ids) = filter {
+        if let ChainMmrNodeFilter::List(ids) = &filter {
             let id_values = ids
                 .iter()
                 .map(|id| Value::Integer(Into::<u64>::into(*id) as i64))

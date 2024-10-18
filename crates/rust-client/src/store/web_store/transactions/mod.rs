@@ -129,7 +129,7 @@ impl WebStore {
             if let NoteState::Expected(ExpectedNoteState { tag: Some(tag), .. }) = note.state() {
                 self.add_note_tag(NoteTagRecord::with_note_source(*tag, note.id())).await?;
             }
-            upsert_input_note_tx(note).await?;
+            upsert_input_note_tx(&note).await?;
         }
 
         for note in &created_output_notes {
@@ -138,7 +138,7 @@ impl WebStore {
 
         for mut input_note_record in relevant_notes {
             if input_note_record.consumed_locally(account_id, transaction_id)? {
-                upsert_input_note_tx(input_note_record).await?;
+                upsert_input_note_tx(&input_note_record).await?;
             }
         }
 

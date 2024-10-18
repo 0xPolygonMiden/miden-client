@@ -22,10 +22,10 @@ use crate::store::{
         NOTE_STATUS_COMMITTED, NOTE_STATUS_CONSUMED, NOTE_STATUS_EXPECTED, NOTE_STATUS_PROCESSING,
         STATE_COMMITTED, STATE_CONSUMED_AUTHENTICATED_LOCAL, STATE_CONSUMED_EXTERNAL,
         STATE_CONSUMED_UNAUTHENTICATED_LOCAL, STATE_EXPECTED, STATE_PROCESSING_AUTHENTICATED,
-        STATE_PROCESSING_UNAUTHENTICATED, STATE_UNVERIFIED,
+        STATE_PROCESSING_UNAUTHENTICATED,
     },
     InputNoteRecord, NoteFilter, NoteRecordDetails, NoteState, NoteStatus, OutputNoteRecord,
-    StoreError,
+    StoreError, STATE_UNVERIFIED,
 };
 
 // TYPES
@@ -84,10 +84,11 @@ type SerializedOutputNoteParts = (
 
 // NOTE FILTER
 // ================================================================================================
-
+type NoteQueryParams = Vec<Rc<Vec<Value>>>;
 impl NoteFilter {
-    /// Returns a [String] containing the query for this Filter
-    fn to_query_output_notes(&self) -> String {
+    /// Returns a [String] containing the full output notes query for this Filter and a vector of
+    /// parameters to be used in it.
+    fn to_query_output_notes(&self) -> (String, NoteQueryParams) {
         let base = "SELECT
                     note.assets,
                     note.details,
@@ -111,32 +112,65 @@ impl NoteFilter {
                         ON note.consumer_transaction_id IS NOT NULL AND
                         note.consumer_transaction_id = tx.id";
 
-        match self {
-            NoteFilter::All => base.to_string(),
-            NoteFilter::Committed => {
-                format!("{base} WHERE status = '{NOTE_STATUS_COMMITTED}' AND NOT(ignored)")
-            },
-            NoteFilter::Consumed => {
-                format!("{base} WHERE status = '{NOTE_STATUS_CONSUMED}' AND NOT(ignored)")
-            },
-            NoteFilter::Expected => {
-                format!("{base} WHERE status = '{NOTE_STATUS_EXPECTED}' AND NOT(ignored)")
-            },
-            NoteFilter::Processing => {
-                format!("{base} WHERE status = '{NOTE_STATUS_PROCESSING}' AND NOT(ignored)")
-            },
-            NoteFilter::Ignored => format!("{base} WHERE ignored"),
-            NoteFilter::Unique(_) | NoteFilter::List(_) => {
-                format!("{base} WHERE note.note_id IN rarray(?)")
-            },
-            NoteFilter::Nullifiers(_) => {
-                format!("{base} WHERE note.nullifier IN rarray(?)")
-            },
-            NoteFilter::Unverified => todo!("This filter shouldn't be used for output notes, once we refactor the filter system we can remove this"),
-        }
+        let (condition, params) = self.output_notes_condition();
+        let query = format!("{base} WHERE {condition}");
+
+        (query, params)
     }
 
-    fn to_query_input_notes(&self) -> String {
+    /// Returns a [String] containing the output notes query conditions for this Filter and a vector
+    /// of parameters to be used in it.
+    fn output_notes_condition(&self) -> (String, NoteQueryParams) {
+        let mut params = Vec::new();
+        let condition = match self {
+            NoteFilter::All => "1 = 1".to_string(),
+            NoteFilter::Committed => {
+                format!("status = '{NOTE_STATUS_COMMITTED}' AND NOT(ignored)")
+            },
+            NoteFilter::Consumed => {
+                format!("status = '{NOTE_STATUS_CONSUMED}' AND NOT(ignored)")
+            },
+            NoteFilter::Expected => {
+                format!("status = '{NOTE_STATUS_EXPECTED}' AND NOT(ignored)")
+            },
+            NoteFilter::Processing => {
+                format!("status = '{NOTE_STATUS_PROCESSING}' AND NOT(ignored)")
+            },
+            NoteFilter::Unique(note_id) => {
+                let note_ids_list = vec![Value::Text(note_id.inner().to_string())];
+                params.push(Rc::new(note_ids_list));
+                "note.note_id IN rarray(?)".to_string()
+            },
+            NoteFilter::List(note_ids) => {
+                let note_ids_list = note_ids
+                    .iter()
+                    .map(|note_id| Value::Text(note_id.inner().to_string()))
+                    .collect::<Vec<Value>>();
+
+                params.push(Rc::new(note_ids_list));
+                "note.note_id IN rarray(?)".to_string()
+            },
+            NoteFilter::Nullifiers(nullifiers) => {
+                let nullifiers_list = nullifiers
+                    .iter()
+                    .map(|nullifier| Value::Text(nullifier.to_string()))
+                    .collect::<Vec<Value>>();
+
+                params.push(Rc::new(nullifiers_list));
+                "note.nullifier IN rarray(?)".to_string()
+            },
+            NoteFilter::Unverified => "1 = 0".to_string(), // there are no unverified output notes
+            NoteFilter::Unspent => {
+                format!("status IN ( '{NOTE_STATUS_EXPECTED}', '{NOTE_STATUS_PROCESSING}', '{NOTE_STATUS_COMMITTED}') AND NOT(ignored)")
+            },
+        };
+
+        (condition, params)
+    }
+
+    /// Returns a [String] containing the full input notes query conditions for this Filter and a
+    /// vector of parameters to be used in it.
+    fn to_query_input_notes(&self) -> (String, NoteQueryParams) {
         let base = "SELECT
                 note.assets,
                 note.serial_number,
@@ -148,39 +182,77 @@ impl NoteFilter {
                 LEFT OUTER JOIN notes_scripts AS script
                     ON note.script_hash = script.script_hash";
 
-        match self {
-            NoteFilter::All => base.to_string(),
+        let (condition, params) = self.input_notes_condition();
+        let query = format!("{base} WHERE {condition}");
+
+        (query, params)
+    }
+
+    /// Returns a [String] containing the input notes query conditions for this Filter and a vector
+    /// of parameters to be used in it.
+    fn input_notes_condition(&self) -> (String, NoteQueryParams) {
+        let mut params = Vec::new();
+        let condition = match self {
+            NoteFilter::All => "(1 = 1)".to_string(),
             NoteFilter::Committed => {
-                format!("{base} WHERE state_discriminant = {STATE_COMMITTED}")
+                format!("(state_discriminant = {STATE_COMMITTED})")
             },
             NoteFilter::Consumed => {
                 format!(
-                    "{base} WHERE state_discriminant in ({}, {}, {})",
+                    "(state_discriminant in ({}, {}, {}))",
                     STATE_CONSUMED_AUTHENTICATED_LOCAL,
                     STATE_CONSUMED_UNAUTHENTICATED_LOCAL,
                     STATE_CONSUMED_EXTERNAL
                 )
             },
             NoteFilter::Expected => {
-                format!("{base} WHERE state_discriminant = {}", STATE_EXPECTED)
+                format!("(state_discriminant = {})", STATE_EXPECTED)
             },
             NoteFilter::Processing => {
                 format!(
-                    "{base} WHERE state_discriminant in ({}, {})",
+                    "(state_discriminant in ({}, {}))",
                     STATE_PROCESSING_AUTHENTICATED, STATE_PROCESSING_UNAUTHENTICATED
                 )
             },
+            NoteFilter::Unique(note_id) => {
+                let note_ids_list = vec![Value::Text(note_id.inner().to_string())];
+                params.push(Rc::new(note_ids_list));
+                "(note.note_id IN rarray(?))".to_string()
+            },
+            NoteFilter::List(note_ids) => {
+                let note_ids_list = note_ids
+                    .iter()
+                    .map(|note_id| Value::Text(note_id.inner().to_string()))
+                    .collect::<Vec<Value>>();
+
+                params.push(Rc::new(note_ids_list));
+                "(note.note_id IN rarray(?))".to_string()
+            },
+            NoteFilter::Nullifiers(nullifiers) => {
+                let nullifiers_list = nullifiers
+                    .iter()
+                    .map(|nullifier| Value::Text(nullifier.to_string()))
+                    .collect::<Vec<Value>>();
+
+                params.push(Rc::new(nullifiers_list));
+                "(note.nullifier IN rarray(?))".to_string()
+            },
             NoteFilter::Unverified => {
-                format!("{base} WHERE state_discriminant = {}", STATE_UNVERIFIED)
+                format!("(state_discriminant = {STATE_UNVERIFIED})")
             },
-            NoteFilter::Unique(_) | NoteFilter::List(_) => {
-                format!("{base} WHERE note.note_id IN rarray(?)")
+            NoteFilter::Unspent => {
+                format!(
+                    "(state_discriminant in ({}, {}, {}, {}, {}))",
+                    STATE_EXPECTED,
+                    STATE_PROCESSING_AUTHENTICATED,
+                    STATE_PROCESSING_UNAUTHENTICATED,
+                    STATE_UNVERIFIED,
+                    STATE_COMMITTED
+                )
             },
-            NoteFilter::Nullifiers(_) => {
-                format!("{base} WHERE note.nullifier IN rarray(?)")
-            },
-            NoteFilter::Ignored =>  todo!("This filter shouldn't be used for input notes, once we refactor the filter system we can remove this"),
-        }
+        };
+
+        (condition, params)
     }
 }
 
@@ -192,33 +264,10 @@ impl SqliteStore {
         &self,
         filter: NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
-        let mut params = Vec::new();
-        match &filter {
-            NoteFilter::Unique(note_id) => {
-                let note_ids_list = vec![Value::Text(note_id.inner().to_string())];
-                params.push(Rc::new(note_ids_list));
-            },
-            NoteFilter::List(ref note_ids) => {
-                let note_ids_list = note_ids
-                    .iter()
-                    .map(|note_id| Value::Text(note_id.inner().to_string()))
-                    .collect::<Vec<Value>>();
-
-                params.push(Rc::new(note_ids_list))
-            },
-            NoteFilter::Nullifiers(nullifiers) => {
-                let nullifiers_list = nullifiers
-                    .iter()
-                    .map(|nullifier| Value::Text(nullifier.to_string()))
-                    .collect::<Vec<Value>>();
-
-                params.push(Rc::new(nullifiers_list))
-            },
-            _ => {},
-        }
+        let (query, params) = filter.to_query_input_notes();
         let notes = self
             .db()
-            .prepare(&filter.to_query_input_notes())?
+            .prepare(query.as_str())?
             .query_map(params_from_iter(params), parse_input_note_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_input_note))
@@ -245,25 +294,10 @@ impl SqliteStore {
         &self,
         filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, StoreError> {
-        let mut params = Vec::new();
-        match filter {
-            NoteFilter::Unique(note_id) => {
-                let note_ids_list = vec![Value::Text(note_id.inner().to_string())];
-                params.push(Rc::new(note_ids_list));
-            },
-            NoteFilter::List(ref note_ids) => {
-                let note_ids_list = note_ids
-                    .iter()
-                    .map(|note_id| Value::Text(note_id.inner().to_string()))
-                    .collect::<Vec<Value>>();
-
-                params.push(Rc::new(note_ids_list))
-            },
-            _ => {},
-        }
+        let (query, params) = filter.to_query_output_notes();
         let notes = self
             .db()
-            .prepare(&filter.to_query_output_notes())?
+            .prepare(&query)?
             .query_map(params_from_iter(params), parse_output_note_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_output_note))
@@ -285,11 +319,13 @@ impl SqliteStore {
         Ok(notes)
     }
 
-    pub(crate) fn upsert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError> {
+    pub(crate) fn upsert_input_notes(&self, notes: &[InputNoteRecord]) -> Result<(), StoreError> {
         let mut db = self.db();
         let tx = db.transaction()?;
 
-        upsert_input_note_tx(&tx, &note)?;
+        for note in notes {
+            upsert_input_note_tx(&tx, note)?;
+        }
 
         Ok(tx.commit()?)
     }

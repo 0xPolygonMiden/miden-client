@@ -2,6 +2,9 @@
 
 ## 0.6.0 (TBD)
 
+* Added new variants for the `NoteFilter` struct (#538).
+* [BREAKING] Added note tags for future notes in `TransactionRequest` (#538).
+* Added support for multiple input note inserts at once (#538).
 * Expose full SyncSummary from WASM (#555)
 * Fixed WASM + added additional WASM models (#548)
 * Added dedicated separate table for tracked tags (#535).
