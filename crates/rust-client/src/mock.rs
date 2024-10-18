@@ -32,7 +32,8 @@ use crate::{
             note::NoteSyncRecord,
             responses::{NullifierUpdate, SyncNoteResponse, SyncStateResponse},
         },
-        AccountDetails, NodeRpcClient, NoteDetails, NoteInclusionDetails, RpcError, StateSyncInfo,
+        AccountDetails, AccountProof, NodeRpcClient, NoteDetails, NoteInclusionDetails, RpcError,
+        StateSyncInfo,
     },
     store::{
         sqlite_store::{config::SqliteStoreConfig, SqliteStore},
@@ -291,6 +292,14 @@ impl NodeRpcClient for MockRpcApi {
         _account_id: AccountId,
     ) -> Result<AccountDetails, RpcError> {
         panic!("shouldn't be used for now")
+    }
+
+    async fn get_account_proofs(
+        &mut self,
+        _account_ids: &[AccountId],
+        _include_headers: bool,
+    ) -> Result<Vec<AccountProof>, RpcError> {
+        todo!();
     }
 
     async fn check_nullifiers_by_prefix(

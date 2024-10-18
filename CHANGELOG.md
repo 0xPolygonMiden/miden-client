@@ -2,6 +2,7 @@
 
 ## 0.6.0 (TBD)
 
+* Implemented `GetAccountProof` endpoint (#556)
 * Fixed WASM + added additional WASM models (#548)
 * Added dedicated separate table for tracked tags (#535).
 * [BREAKING] Added transaction prover component to `Client` (#550).

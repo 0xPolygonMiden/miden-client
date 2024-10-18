@@ -7,14 +7,15 @@ use alloc::{
 use async_trait::async_trait;
 use generated::{
     requests::{
-        CheckNullifiersByPrefixRequest, GetAccountDetailsRequest, GetBlockHeaderByNumberRequest,
-        GetNotesByIdRequest, SubmitProvenTransactionRequest, SyncNoteRequest, SyncStateRequest,
+        CheckNullifiersByPrefixRequest, GetAccountDetailsRequest, GetAccountProofsRequest,
+        GetBlockHeaderByNumberRequest, GetNotesByIdRequest, SubmitProvenTransactionRequest,
+        SyncNoteRequest, SyncStateRequest,
     },
     responses::{SyncNoteResponse, SyncStateResponse},
     rpc::api_client::ApiClient,
 };
 use miden_objects::{
-    accounts::{Account, AccountId},
+    accounts::{Account, AccountId, AccountStorageHeader},
     crypto::merkle::{MerklePath, MmrProof},
     notes::{Note, NoteId, NoteTag, Nullifier},
     transaction::{ProvenTransaction, TransactionId},
@@ -24,7 +25,7 @@ use miden_objects::{
 use miden_tx::utils::Serializable;
 use tonic_web_wasm_client::Client;
 
-use super::NoteSyncInfo;
+use super::{AccountProof, NoteSyncInfo};
 use crate::rpc::{
     AccountDetails, AccountUpdateSummary, CommittedNote, NodeRpcClient, NodeRpcClientEndpoint,
     NoteDetails, NoteInclusionDetails, NullifierUpdate, RpcError, StateSyncInfo, TransactionUpdate,
@@ -215,6 +216,87 @@ impl NodeRpcClient for WebTonicRpcClient {
             RpcError::RequestError(NodeRpcClientEndpoint::SyncState.to_string(), err.to_string())
         })?;
         response.into_inner().try_into()
+    }
+
+    /// Sends a `GetAccountProofs` request to the Miden node, and extracts a list of [AccountProof]
+    /// from the response.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if:
+    ///
+    /// - There was an error sending the request to the node
+    /// - The answer had a `None` for one of the expected fields.
+    /// - There is an error during storage deserialization.
+    async fn get_account_proofs(
+        &mut self,
+        account_ids: &[AccountId],
+        include_headers: bool,
+    ) -> Result<Vec<AccountProof>, RpcError> {
+        let account_ids = account_ids.iter().map(|acc| (*acc).into()).collect();
+        let request = GetAccountProofsRequest {
+            account_ids,
+            include_headers: Some(include_headers),
+        };
+
+        let mut rpc_api = self.build_api_client();
+        let response = rpc_api
+            .get_account_proofs(request)
+            .await
+            .map_err(|err| {
+                RpcError::RequestError(
+                    NodeRpcClientEndpoint::SyncNotes.to_string(),
+                    err.to_string(),
+                )
+            })?
+            .into_inner();
+
+        let mut account_proofs = Vec::with_capacity(response.account_proofs.len());
+        for account in response.account_proofs {
+            let block_num = response.block_num;
+            let merkle_proof = account
+                .account_proof
+                .ok_or(RpcError::ExpectedFieldMissing("AccountProof".to_string()))?
+                .try_into()?;
+            let account_hash = account
+                .account_hash
+                .ok_or(RpcError::ExpectedFieldMissing("AccountHash".to_string()))?
+                .try_into()?;
+
+            let account_id = account
+                .account_id
+                .ok_or(RpcError::ExpectedFieldMissing("AccountId".to_string()))?
+                .try_into()?;
+
+            let headers = if include_headers {
+                let state_headers = account
+                    .state_header
+                    .ok_or(RpcError::ExpectedFieldMissing("Account.StateHeader".to_string()))?;
+
+                let account_header = state_headers
+                    .header
+                    .ok_or(RpcError::ExpectedFieldMissing(
+                        "Account.StateHeader.Header".to_string(),
+                    ))?
+                    .into_domain(account_id)?;
+
+                let storage_header =
+                    AccountStorageHeader::read_from_bytes(&state_headers.storage_header)?;
+                Some((account_header, storage_header))
+            } else {
+                None
+            };
+
+            account_proofs.push(AccountProof {
+                account_id,
+                block_num,
+                merkle_proof,
+                account_hash,
+                state_header: headers,
+            });
+        }
+
+        Ok(account_proofs)
     }
 
     /// Sends a [GetAccountDetailsRequest] to the Miden node, and extracts an [Account] from the
