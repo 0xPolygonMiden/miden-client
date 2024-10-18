@@ -486,11 +486,12 @@ async fn test_transaction_request_expiration() {
         miden_objects::notes::NoteType::Private,
         client.rng(),
     )
-    .unwrap();
+    .unwrap()
+    .with_expiration_delta(5);
 
     let transaction = client.new_transaction(faucet.id(), transaction_request).unwrap();
 
-    let (_, tx_outputs, _, _) = transaction.executed_transaction().clone().into_parts();
+    let (_, tx_outputs, ..) = transaction.executed_transaction().clone().into_parts();
 
     assert_eq!(tx_outputs.expiration_block_num, current_height + 5);
 }
