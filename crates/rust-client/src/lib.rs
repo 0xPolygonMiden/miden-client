@@ -88,7 +88,7 @@ pub mod testing {
 use alloc::sync::Arc;
 
 use miden_objects::crypto::rand::FeltRng;
-use miden_tx::{auth::TransactionAuthenticator, DataStore, TransactionExecutor};
+use miden_tx::{auth::TransactionAuthenticator, DataStore, TransactionExecutor, TransactionProver};
 use rpc::NodeRpcClient;
 use store::{data_store::ClientDataStore, Store};
 use tracing::info;
@@ -113,6 +113,8 @@ pub struct Client<R: FeltRng> {
     /// An instance of [NodeRpcClient] which provides a way for the client to connect to the
     /// Miden node.
     rpc_api: Box<dyn NodeRpcClient + Send>,
+    /// An instance of [TransactionProver] which delegates proving.
+    tx_prover: Arc<dyn TransactionProver>,
     tx_executor: TransactionExecutor,
 }
 
@@ -133,6 +135,7 @@ impl<R: FeltRng> Client<R> {
     ///   store as the one for `store`, but it doesn't have to be the **same instance**.
     /// - `authenticator`: Defines the transaction authenticator that will be used by the
     ///   transaction executor whenever a signature is requested from within the VM.
+    /// - `tx_prover`: Defines how transaction proving is performed.
     /// - `in_debug_mode`: Instantiates the transaction executor (and in turn, its compiler) in
     ///   debug mode, which will enable debug logs for scripts compiled with this mode for easier
     ///   MASM debugging.
@@ -141,10 +144,11 @@ impl<R: FeltRng> Client<R> {
     ///
     /// Returns an error if the client could not be instantiated.
     pub fn new(
-        api: Box<dyn NodeRpcClient + Send>,
+        rpc_api: Box<dyn NodeRpcClient + Send>,
         rng: R,
         store: Arc<dyn Store>,
         authenticator: Arc<dyn TransactionAuthenticator>,
+        tx_prover: Arc<dyn TransactionProver>,
         in_debug_mode: bool,
     ) -> Self {
         if in_debug_mode {
@@ -156,7 +160,13 @@ impl<R: FeltRng> Client<R> {
         let tx_executor =
             TransactionExecutor::new(data_store, authenticator).with_debug_mode(in_debug_mode);
 
-        Self { store, rng, rpc_api: api, tx_executor }
+        Self {
+            store,
+            rng,
+            rpc_api,
+            tx_executor,
+            tx_prover,
+        }
     }
 
     /// Returns a reference to the client's random number generator. This can be used to generate
