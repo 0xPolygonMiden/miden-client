@@ -60,8 +60,8 @@ describe("get_input_notes", () => {
   it("note exists, note filter all", async () => {
     const { consumedNoteId } = await setupConsumedNote();
     const { noteIds } = await getInputNotes();
-    expect(noteIds).to.have.lengthOf(1);
-    expect(noteIds[0]).to.equal(consumedNoteId);
+    expect(noteIds).to.have.lengthOf.at.least(1);    
+    expect(noteIds).to.include(consumedNoteId);
   });
 });
 

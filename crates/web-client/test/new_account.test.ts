@@ -29,9 +29,6 @@ export const createNewWallet = async (
 ): Promise<NewAccountTestResult> => {
   return await testingPage.evaluate(
     async (_storageMode, _mutable) => {
-      if (!window.client) {
-        await window.create_client();
-      }
       const client = window.client;
       const accountStorageMode =
         _storageMode === "private"
@@ -127,9 +124,6 @@ export const createNewFaucet = async (
 ): Promise<NewAccountTestResult> => {
   return await testingPage.evaluate(
     async (_storageMode, _nonFungible, _tokenSymbol, _decimals, _maxSupply) => {
-      if (!window.client) {
-        await window.create_client();
-      }
       const client = window.client;
       const accountStorageMode =
         _storageMode === "private"

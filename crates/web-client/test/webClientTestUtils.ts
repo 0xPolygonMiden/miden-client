@@ -16,9 +16,6 @@ export const mintTransaction = async (
 ): Promise<MintTransactionResult> => {
   return await testingPage.evaluate(
     async (_targetAccountId, _faucetAccountId) => {
-      if (!window.client) {
-        await window.create_client();
-      }
 
       const client = window.client;
 
@@ -148,9 +145,6 @@ export const fetchAndCacheAccountAuth = async (accountId: string) => {
 
 export const syncState = async () => {
   return await testingPage.evaluate(async () => {
-    if (!window.client) {
-      await window.create_client();
-    }
     const client = window.client;
     await client.sync_state();
   });

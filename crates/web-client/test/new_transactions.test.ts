@@ -47,9 +47,6 @@ interface SendTransactionResult {
 
 export const sendTransaction = async (): Promise<SendTransactionResult> => {
   return await testingPage.evaluate(async () => {
-    if (!window.client) {
-      await window.create_client();
-    }
     const client = window.client;
 
     const senderAccount = await client.new_wallet(
@@ -141,9 +138,6 @@ export const customTransaction = async (
   asserted_value: string
 ): Promise<void> => {
   return await testingPage.evaluate(async (_asserted_value: string) => {
-    if (!window.client) {
-      await window.create_client();
-    }
     const client = window.client;
 
     const walletAccount = await client.new_wallet(
