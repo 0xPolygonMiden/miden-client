@@ -86,7 +86,8 @@ type SerializedOutputNoteParts = (
 // ================================================================================================
 type NoteQueryParams = Vec<Rc<Vec<Value>>>;
 impl NoteFilter {
-    /// Returns a [String] containing the query for this Filter
+    /// Returns a [String] containing the full output notes query for this Filter and a vector of
+    /// parameters to be used in it.
     fn to_query_output_notes(&self) -> (String, NoteQueryParams) {
         let base = "SELECT
                     note.assets,
@@ -117,6 +118,8 @@ impl NoteFilter {
         (query, params)
     }
 
+    /// Returns a [String] containing the output notes query conditions for this Filter and a vector
+    /// of parameters to be used in it.
     fn output_notes_condition(&self) -> (String, NoteQueryParams) {
         let mut params = Vec::new();
         let condition = match self {
@@ -165,6 +168,8 @@ impl NoteFilter {
         (condition, params)
     }
 
+    /// Returns a [String] containing the full input notes query conditions for this Filter and a
+    /// vector of parameters to be used in it.
     fn to_query_input_notes(&self) -> (String, NoteQueryParams) {
         let base = "SELECT
                 note.assets,
@@ -183,6 +188,8 @@ impl NoteFilter {
         (query, params)
     }
 
+    /// Returns a [String] containing the input notes query conditions for this Filter and a vector
+    /// of parameters to be used in it.
     fn input_notes_condition(&self) -> (String, NoteQueryParams) {
         let mut params = Vec::new();
         let condition = match self {
