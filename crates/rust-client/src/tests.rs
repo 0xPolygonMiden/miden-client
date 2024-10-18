@@ -486,7 +486,8 @@ async fn test_transaction_request_expiration() {
         miden_objects::notes::NoteType::Private,
         client.rng(),
     )
-    .unwrap();
+    .unwrap()
+    .with_expiration_delta(5);
 
     let transaction = client.new_transaction(faucet.id(), transaction_request).unwrap();
 
