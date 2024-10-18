@@ -31,8 +31,7 @@ use crate::{
         generated::{
             note::NoteSyncRecord,
             responses::{NullifierUpdate, SyncNoteResponse, SyncStateResponse},
-        },
-        AccountDetails, NodeRpcClient, NoteDetails, NoteInclusionDetails, RpcError, StateSyncInfo,
+        }, AccountDetails, AccountProof, NodeRpcClient, NoteDetails, NoteInclusionDetails, RpcError, StateSyncInfo
     },
     store::{
         sqlite_store::{config::SqliteStoreConfig, SqliteStore},
@@ -295,8 +294,8 @@ impl NodeRpcClient for MockRpcApi {
 
     async fn get_account_proofs(
         &mut self,
-        account_ids: &[AccountId],
-        include_headers: bool,
+        _account_ids: &[AccountId],
+        _include_headers: bool,
     ) -> Result<Vec<AccountProof>, RpcError> {
         todo!();
     }
