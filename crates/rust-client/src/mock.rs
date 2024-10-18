@@ -31,7 +31,9 @@ use crate::{
         generated::{
             note::NoteSyncRecord,
             responses::{NullifierUpdate, SyncNoteResponse, SyncStateResponse},
-        }, AccountDetails, AccountProof, NodeRpcClient, NoteDetails, NoteInclusionDetails, RpcError, StateSyncInfo
+        },
+        AccountDetails, AccountProof, NodeRpcClient, NoteDetails, NoteInclusionDetails, RpcError,
+        StateSyncInfo,
     },
     store::{
         sqlite_store::{config::SqliteStoreConfig, SqliteStore},
