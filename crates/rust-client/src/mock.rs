@@ -293,6 +293,14 @@ impl NodeRpcClient for MockRpcApi {
         panic!("shouldn't be used for now")
     }
 
+    async fn get_account_proofs(
+        &mut self,
+        account_ids: &[AccountId],
+        include_headers: bool,
+    ) -> Result<Vec<AccountProof>, RpcError> {
+        todo!();
+    }
+
     async fn check_nullifiers_by_prefix(
         &mut self,
         _prefix: &[u16],

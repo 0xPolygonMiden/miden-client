@@ -11,7 +11,7 @@ mod errors;
 pub(crate) use errors::RpcConversionError;
 pub use errors::RpcError;
 use miden_objects::{
-    accounts::{Account, AccountId},
+    accounts::{Account, AccountHeader, AccountId, AccountStorageHeader},
     crypto::merkle::{MerklePath, MmrDelta, MmrProof},
     notes::{Note, NoteId, NoteMetadata, NoteTag, Nullifier},
     transaction::{ProvenTransaction, TransactionId},
@@ -130,6 +130,23 @@ impl NoteInclusionDetails {
     }
 }
 
+// ACCOUNT PROOF
+// ================================================================================================
+
+/// Represents a proof of existence of an account's state at a specific block number.
+pub struct AccountProof {
+    /// Account ID.
+    pub account_id: AccountId,
+    /// Block number at which the state is being represented.
+    pub block_num: u32,
+    /// Authentication path from the `account_root` of the block header to the account.
+    pub merkle_proof: MerklePath,
+    /// Account hash for the current state.
+    pub account_hash: Digest,
+    /// State headers of public accounts.
+    pub state_header: Option<(AccountHeader, AccountStorageHeader)>,
+}
+
 // NODE RPC CLIENT TRAIT
 // ================================================================================================
 
@@ -206,6 +223,13 @@ pub trait NodeRpcClient {
         &mut self,
         prefix: &[u16],
     ) -> Result<Vec<(Nullifier, u32)>, RpcError>;
+
+    /// Fetches the current account state, using th `/GetAccountProofs` RPC endpoint.
+    async fn get_account_proofs(
+        &mut self,
+        account_ids: &[AccountId],
+        includ_headers: bool,
+    ) -> Result<Vec<AccountProof>, RpcError>;
 
     /// Fetches the commit height where the nullifier was consumed. If the nullifier is not found,
     /// then `None` is returned.
@@ -341,6 +365,7 @@ impl CommittedNote {
 pub enum NodeRpcClientEndpoint {
     CheckNullifiersByPrefix,
     GetAccountDetails,
+    GetAccountProofs,
     GetBlockHeaderByNumber,
     SyncState,
     SubmitProvenTx,
@@ -354,6 +379,7 @@ impl fmt::Display for NodeRpcClientEndpoint {
                 write!(f, "check_nullifiers_by_prefix")
             },
             NodeRpcClientEndpoint::GetAccountDetails => write!(f, "get_account_details"),
+            NodeRpcClientEndpoint::GetAccountProofs => write!(f, "get_account_proofs"),
             NodeRpcClientEndpoint::GetBlockHeaderByNumber => {
                 write!(f, "get_block_header_by_number")
             },

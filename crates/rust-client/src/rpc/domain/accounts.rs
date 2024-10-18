@@ -1,12 +1,22 @@
+use alloc::string::String;
 use core::fmt::{self, Debug, Display, Formatter};
 
-use miden_objects::accounts::AccountId;
+use miden_objects::{
+    accounts::{AccountHeader, AccountId},
+    Felt,
+};
 
+use crate::rpc::RpcError;
 #[cfg(feature = "tonic")]
-use crate::rpc::tonic_client::generated::account::AccountId as ProtoAccountId;
+use crate::rpc::{
+    tonic_client::generated::account::AccountHeader as ProtoAccountHeader,
+    tonic_client::generated::account::AccountId as ProtoAccountId, RpcConversionError,
+};
 #[cfg(feature = "web-tonic")]
-use crate::rpc::web_tonic_client::generated::account::AccountId as ProtoAccountId;
-use crate::rpc::RpcConversionError;
+use crate::rpc::{
+    web_tonic_client::generated::account::AccountHeader as ProtoAccountHeader,
+    web_tonic_client::generated::account::AccountId as ProtoAccountId, RpcConversionError,
+};
 
 // ACCOUNT ID
 // ================================================================================================
@@ -40,5 +50,33 @@ impl TryFrom<ProtoAccountId> for AccountId {
 
     fn try_from(account_id: ProtoAccountId) -> Result<Self, Self::Error> {
         account_id.id.try_into().map_err(|_| RpcConversionError::NotAValidFelt)
+    }
+}
+
+impl ProtoAccountHeader {
+    pub fn into_domain(self, account_id: AccountId) -> Result<AccountHeader, RpcError> {
+        let ProtoAccountHeader {
+            nonce,
+            vault_root,
+            storage_commitment,
+            code_commitment,
+        } = self;
+        let vault_root = vault_root
+            .ok_or(RpcError::ExpectedFieldMissing(String::from("AccountHeader.VaultRoot")))?
+            .try_into()?;
+        let storage_commitment = storage_commitment
+            .ok_or(RpcError::ExpectedFieldMissing(String::from("AccountHeader.StorageCommitment")))?
+            .try_into()?;
+        let code_commitment = code_commitment
+            .ok_or(RpcError::ExpectedFieldMissing(String::from("AccountHeader.CodeCommitment")))?
+            .try_into()?;
+
+        Ok(AccountHeader::new(
+            account_id,
+            Felt::new(nonce),
+            vault_root,
+            storage_commitment,
+            code_commitment,
+        ))
     }
 }
