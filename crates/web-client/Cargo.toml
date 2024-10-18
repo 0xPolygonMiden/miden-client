@@ -34,3 +34,5 @@ wasm-bindgen-futures = { version = "0.4" }
 miden-client = { path = "../rust-client", default-features = false, features = ["idxdb", "web-tonic"] }
 miden-lib = { workspace = true, default-features = false, features = ["testing"] }
 miden-objects = { workspace = true, default-features = false, features = ["testing"] }
+web-sys = { version = "0.3", features = ["console"]} 
+console_error_panic_hook = "0.1.6"

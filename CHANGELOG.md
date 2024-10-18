@@ -6,6 +6,7 @@
 * Added new variants for the `NoteFilter` struct (#538).
 * [BREAKING] Added note tags for future notes in `TransactionRequest` (#538).
 * Added support for multiple input note inserts at once (#538).
+* Fixed WASM + added additional WASM models (#548)
 * Added dedicated separate table for tracked tags (#535).
 * [BREAKING] Added support for committed and discarded transactions (#531).
 * [BREAKING] Refactored Client struct to use trait objects for inner struct fields (#539).

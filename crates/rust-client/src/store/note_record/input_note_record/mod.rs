@@ -120,7 +120,7 @@ impl InputNoteRecord {
     /// Modifies the state of the note record to reflect that the it has received an inclusion
     /// proof. It is assumed to be unverified until the block header information is received.
     /// Returns `true` if the state was changed.
-    pub fn inclusion_proof_received(
+    pub(crate) fn inclusion_proof_received(
         &mut self,
         inclusion_proof: NoteInclusionProof,
         metadata: NoteMetadata,
@@ -137,7 +137,7 @@ impl InputNoteRecord {
     /// Modifies the state of the note record to reflect that the it has received a block header.
     /// This will mark the note as verified or invalid, depending on the block header
     /// information and inclusion proof. Returns `true` if the state was changed.
-    pub fn block_header_received(
+    pub(crate) fn block_header_received(
         &mut self,
         block_header: BlockHeader,
     ) -> Result<bool, NoteRecordError> {
@@ -155,7 +155,7 @@ impl InputNoteRecord {
     ///
     /// Errors:
     /// - If the nullifier does not match the expected value.
-    pub fn consumed_externally(
+    pub(crate) fn consumed_externally(
         &mut self,
         nullifier: Nullifier,
         nullifier_block_height: u32,
@@ -177,7 +177,7 @@ impl InputNoteRecord {
 
     /// Modifies the state of the note record to reflect that the client began processing the note
     /// to be consumed. Returns `true` if the state was changed.
-    pub fn consumed_locally(
+    pub(crate) fn consumed_locally(
         &mut self,
         consumer_account: AccountId,
         consumer_transaction: TransactionId,
@@ -193,7 +193,7 @@ impl InputNoteRecord {
 
     /// Modifies the state of the note record to reflect that the transaction currently consuming
     /// the note was committed. Returns `true` if the state was changed.3
-    pub fn transaction_committed(
+    pub(crate) fn transaction_committed(
         &mut self,
         transaction_id: TransactionId,
         block_height: u32,

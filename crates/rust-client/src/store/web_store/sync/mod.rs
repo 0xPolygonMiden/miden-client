@@ -5,18 +5,23 @@ use alloc::{
 
 use miden_objects::{
     accounts::AccountId,
-    notes::{NoteId, NoteInclusionProof, NoteTag},
+    notes::{NoteId, NoteTag, Nullifier},
 };
 use miden_tx::utils::{Deserializable, Serializable};
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
 
 use super::{
-    chain_data::utils::serialize_chain_mmr_node, notes::utils::upsert_input_note_tx,
-    transactions::utils::update_account, WebStore,
+    chain_data::utils::serialize_chain_mmr_node,
+    notes::utils::{upsert_input_note_tx, upsert_output_note_tx},
+    transactions::utils::update_account,
+    WebStore,
 };
 use crate::{
-    store::StoreError,
+    store::{
+        input_note_states::CommittedNoteState, InputNoteRecord, NoteFilter, OutputNoteRecord,
+        StoreError,
+    },
     sync::{NoteTagRecord, NoteTagSource, StateSyncUpdate},
 };
 
@@ -25,9 +30,6 @@ use js_bindings::*;
 
 mod models;
 use models::*;
-
-mod flattened_vec;
-use flattened_vec::*;
 
 impl WebStore {
     pub(crate) async fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, StoreError> {
@@ -102,6 +104,9 @@ impl WebStore {
         &self,
         state_sync_update: StateSyncUpdate,
     ) -> Result<(), StoreError> {
+        let (mut relevant_input_notes, mut relevant_output_notes) =
+            self.get_relevant_sync_notes(&state_sync_update).await?;
+
         let StateSyncUpdate {
             block_header,
             nullifiers,
@@ -116,16 +121,6 @@ impl WebStore {
         // Serialize data for updating state sync and block header
         let block_num_as_str = block_header.block_num().to_string();
 
-        // Serialize data for updating spent notes
-        let nullifiers_as_str = nullifiers
-            .iter()
-            .map(|nullifier_update| nullifier_update.nullifier.to_hex())
-            .collect();
-        let nullifier_block_nums_as_str = nullifiers
-            .iter()
-            .map(|nullifier_update| nullifier_update.block_num.to_string())
-            .collect();
-
         // Serialize data for updating block header
         let block_header_as_bytes = block_header.to_bytes();
         let new_mmr_peaks_as_bytes = new_mmr_peaks.peaks().to_vec().to_bytes();
@@ -139,28 +134,15 @@ impl WebStore {
             serialized_nodes.push(serialized_data.node);
         }
 
-        // Serialize data for updating committed notes
-        let output_note_ids_as_str: Vec<String> = committed_notes
-            .updated_output_notes()
-            .iter()
-            .map(|(note_id, _)| note_id.inner().to_hex())
-            .collect();
-
-        let output_note_inclusion_proofs_as_bytes: Vec<Vec<u8>> = committed_notes
-            .updated_output_notes()
-            .iter()
-            .map(|(_, inclusion_proof)| {
-                let block_num = inclusion_proof.location().block_num();
-                let note_index = inclusion_proof.location().node_index_in_block();
-
-                // Create a NoteInclusionProof and serialize it to JSON, handle errors with `?`
-                NoteInclusionProof::new(block_num, note_index, inclusion_proof.note_path().clone())
-                    .unwrap()
-                    .to_bytes()
-            })
-            .collect::<Vec<Vec<u8>>>();
-        let flattened_nested_vec_output_note_inclusion_proofs =
-            flatten_nested_u8_vec(output_note_inclusion_proofs_as_bytes);
+        for (note_id, inclusion_proof) in committed_notes.updated_output_notes().iter() {
+            if let Some(output_note_record) =
+                relevant_output_notes.iter_mut().find(|n| n.id() == *note_id)
+            {
+                if output_note_record.inclusion_proof_received(inclusion_proof.clone())? {
+                    upsert_output_note_tx(output_note_record).await?;
+                }
+            }
+        }
 
         let input_note_ids_as_str: Vec<String> = committed_notes
             .updated_input_notes()
@@ -168,30 +150,85 @@ impl WebStore {
             .map(|input_note| input_note.id().inner().to_hex())
             .collect();
 
-        let input_note_inclusion_proofs_as_bytes: Vec<Vec<u8>> = committed_notes
-            .updated_input_notes()
-            .iter()
-            .map(|input_note| {
-                let inclusion_proof =
-                    input_note.proof().expect("Input note doesn't have inclusion proof");
-                inclusion_proof.to_bytes()
-            })
-            .collect::<Vec<Vec<u8>>>();
-        let flattened_nested_vec_input_note_inclusion_proofs =
-            flatten_nested_u8_vec(input_note_inclusion_proofs_as_bytes);
+        // TODO: Remove upsert call and refactor input note(s) into idxdb_apply_state_sync call
+        for input_note in committed_notes.updated_input_notes().iter() {
+            let inclusion_proof = input_note.proof().ok_or(StoreError::DatabaseError(
+                "Input note doesn't have inclusion proof".to_string(),
+            ))?;
+            let metadata: &miden_objects::notes::NoteMetadata = input_note.note().metadata();
 
-        let input_note_metadatas_as_bytes: Vec<Vec<u8>> = committed_notes
-            .updated_input_notes()
-            .iter()
-            .map(|input_note| input_note.note().metadata().to_bytes())
-            .collect::<Vec<Vec<u8>>>();
-        let flattened_nested_vec_input_note_metadatas =
-            flatten_nested_u8_vec(input_note_metadatas_as_bytes);
+            if let Some(input_note_record) =
+                relevant_input_notes.iter_mut().find(|n| n.id() == input_note.id())
+            {
+                let inclusion_proof_received = input_note_record
+                    .inclusion_proof_received(inclusion_proof.clone(), *metadata)?;
+                let block_header_received =
+                    input_note_record.block_header_received(block_header)?;
 
-        // TODO: LOP INTO idxdb_apply_state_sync call
+                if inclusion_proof_received || block_header_received {
+                    upsert_input_note_tx(input_note_record).await.unwrap();
+                }
+            }
+        }
+
+        // TODO: Remove upsert call and refactor input note(s) into idxdb_apply_state_sync call
         // Commit new public notes
         for note in committed_notes.new_public_notes() {
-            upsert_input_note_tx(note.clone().into()).await.unwrap();
+            let details = note.note().into();
+
+            let input_note_record = InputNoteRecord::new(
+                details,
+                None,
+                CommittedNoteState {
+                    metadata: *note.note().metadata(),
+                    inclusion_proof: note
+                        .proof()
+                        .expect("New public note should be authenticated")
+                        .clone(),
+                    block_note_root: block_header.note_root(),
+                }
+                .into(),
+            );
+
+            upsert_input_note_tx(&input_note_record).await.unwrap();
+        }
+
+        // Committed transactions
+        for transaction_update in committed_transactions.iter() {
+            if let Some(input_note_record) = relevant_input_notes.iter_mut().find(|n| {
+                n.is_processing()
+                    && n.consumer_transaction_id() == Some(&transaction_update.transaction_id)
+            }) {
+                if input_note_record.transaction_committed(
+                    transaction_update.transaction_id,
+                    transaction_update.block_num,
+                )? {
+                    upsert_input_note_tx(input_note_record).await?;
+                }
+            }
+        }
+
+        // Update spent notes
+        for nullifier_update in nullifiers.iter() {
+            let nullifier = nullifier_update.nullifier;
+            let block_num = nullifier_update.block_num;
+
+            if let Some(input_note_record) =
+                relevant_input_notes.iter_mut().find(|n| n.nullifier() == nullifier)
+            {
+                if input_note_record.consumed_externally(nullifier, block_num)? {
+                    upsert_input_note_tx(input_note_record).await?;
+                }
+            }
+
+            if let Some(output_note_record) = relevant_output_notes
+                .iter_mut()
+                .find(|n| n.nullifier().is_some_and(|n| n == nullifier))
+            {
+                if output_note_record.nullifier_received(nullifier, block_num)? {
+                    upsert_output_note_tx(output_note_record).await?;
+                }
+            }
         }
 
         // Serialize data for updating committed transactions
@@ -212,23 +249,61 @@ impl WebStore {
 
         let promise = idxdb_apply_state_sync(
             block_num_as_str,
-            nullifiers_as_str,
-            nullifier_block_nums_as_str,
             block_header_as_bytes,
             new_mmr_peaks_as_bytes,
             block_has_relevant_notes,
             serialized_node_ids,
             serialized_nodes,
-            output_note_ids_as_str,
-            flattened_nested_vec_output_note_inclusion_proofs,
             input_note_ids_as_str,
-            flattened_nested_vec_input_note_inclusion_proofs,
-            flattened_nested_vec_input_note_metadatas,
             transactions_to_commit_as_str,
             transactions_to_commit_block_nums_as_str,
         );
         JsFuture::from(promise).await.unwrap();
 
         Ok(())
+    }
+
+    /// Get the notes from the store that are relevant to the state sync update. Secifically,
+    /// notes that were updated and nullified during the sync.
+    async fn get_relevant_sync_notes(
+        &self,
+        state_sync_update: &StateSyncUpdate,
+    ) -> Result<(Vec<InputNoteRecord>, Vec<OutputNoteRecord>), StoreError> {
+        let StateSyncUpdate { nullifiers, synced_new_notes, .. } = state_sync_update;
+
+        let updated_input_note_ids = synced_new_notes
+            .updated_input_notes()
+            .iter()
+            .map(|input_note| input_note.id())
+            .collect::<Vec<_>>();
+
+        let updated_output_note_ids = synced_new_notes
+            .updated_output_notes()
+            .iter()
+            .map(|output_note| output_note.0)
+            .collect::<Vec<_>>();
+
+        let updated_input_notes =
+            self.get_input_notes(NoteFilter::List(updated_input_note_ids)).await?;
+        let updated_output_notes =
+            self.get_output_notes(NoteFilter::List(updated_output_note_ids)).await?;
+
+        let nullifiers: Vec<Nullifier> = nullifiers
+            .iter()
+            .map(|nullifier_update| nullifier_update.nullifier)
+            .collect::<Vec<_>>();
+
+        let nullified_input_notes =
+            self.get_input_notes(NoteFilter::Nullifiers(nullifiers.clone())).await?;
+        let nullified_output_notes =
+            self.get_output_notes(NoteFilter::Nullifiers(nullifiers)).await?;
+
+        let mut relevant_input_notes = updated_input_notes;
+        relevant_input_notes.extend(nullified_input_notes);
+
+        let mut relevant_output_notes = updated_output_notes;
+        relevant_output_notes.extend(nullified_output_notes);
+
+        Ok((relevant_input_notes, relevant_output_notes))
     }
 }

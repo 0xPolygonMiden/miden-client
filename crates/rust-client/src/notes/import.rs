@@ -54,7 +54,7 @@ impl<R: FeltRng> Client<R> {
                     .store
                     .add_note_tag(NoteTagRecord::with_note_source(*tag, note.id())))?;
             }
-            maybe_await!(self.store.upsert_input_notes(vec![note]))?;
+            maybe_await!(self.store.upsert_input_notes(&[note]))?;
         }
 
         Ok(id)

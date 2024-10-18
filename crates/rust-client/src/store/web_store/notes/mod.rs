@@ -108,7 +108,7 @@ impl WebStore {
 
     pub(crate) async fn upsert_input_notes(
         &self,
-        notes: Vec<InputNoteRecord>,
+        notes: &[InputNoteRecord],
     ) -> Result<(), StoreError> {
         for note in notes {
             upsert_input_note_tx(note).await?;
@@ -126,7 +126,8 @@ impl NoteFilter {
             | NoteFilter::Committed
             | NoteFilter::Expected
             | NoteFilter::Processing
-            | NoteFilter::StateDiscriminant(_) => {
+            | NoteFilter::Unspent
+            | NoteFilter::Unverified => {
                 let states: Vec<u8> = match self {
                     NoteFilter::All => vec![],
                     NoteFilter::Consumed => vec![
@@ -142,7 +143,14 @@ impl NoteFilter {
                             InputNoteState::STATE_PROCESSING_UNAUTHENTICATED,
                         ]
                     },
-                    NoteFilter::StateDiscriminant(discriminant) => vec![*discriminant],
+                    NoteFilter::Unverified => vec![InputNoteState::STATE_UNVERIFIED],
+                    NoteFilter::Unspent => vec![
+                        InputNoteState::STATE_EXPECTED,
+                        InputNoteState::STATE_COMMITTED,
+                        InputNoteState::STATE_UNVERIFIED,
+                        InputNoteState::STATE_PROCESSING_AUTHENTICATED,
+                        InputNoteState::STATE_PROCESSING_UNAUTHENTICATED,
+                    ],
                     _ => unreachable!(), // Safety net, should never be reached
                 };
 
@@ -168,14 +176,6 @@ impl NoteFilter {
 
                 idxdb_get_input_notes_from_nullifiers(nullifiers_as_str)
             },
-            NoteFilter::Or(filters) => {
-                let mut promises: Vec<JsValue> = Vec::new();
-                for filter in filters {
-                    promises.push(filter.to_input_notes_promise().into());
-                }
-
-                Promise::all(&Array::from_iter(promises.iter()))
-            },
         }
     }
 
@@ -184,7 +184,8 @@ impl NoteFilter {
             NoteFilter::All
             | NoteFilter::Consumed
             | NoteFilter::Committed
-            | NoteFilter::Expected => {
+            | NoteFilter::Expected
+            | NoteFilter::Unspent => {
                 let states = match self {
                     NoteFilter::All => vec![],
                     NoteFilter::Consumed => vec![OutputNoteState::STATE_CONSUMED],
@@ -196,12 +197,18 @@ impl NoteFilter {
                         OutputNoteState::STATE_EXPECTED_FULL,
                         OutputNoteState::STATE_EXPECTED_PARTIAL,
                     ],
+                    NoteFilter::Unspent => vec![
+                        OutputNoteState::STATE_EXPECTED_FULL,
+                        OutputNoteState::STATE_COMMITTED_FULL,
+                    ],
                     _ => unreachable!(), // Safety net, should never be reached
                 };
 
                 idxdb_get_output_notes(states)
             },
-            NoteFilter::Processing => Promise::resolve(&JsValue::from(Array::new())),
+            NoteFilter::Processing | NoteFilter::Unverified => {
+                Promise::resolve(&JsValue::from(Array::new()))
+            },
             NoteFilter::List(ref ids) => {
                 let note_ids_as_str: Vec<String> =
                     ids.iter().map(|id| id.inner().to_string()).collect();
@@ -219,17 +226,6 @@ impl NoteFilter {
                     .collect::<Vec<String>>();
 
                 idxdb_get_output_notes_from_nullifiers(nullifiers_as_str)
-            },
-            NoteFilter::StateDiscriminant(discriminant) => {
-                idxdb_get_output_notes(vec![*discriminant])
-            },
-            NoteFilter::Or(filters) => {
-                let mut promises: Vec<JsValue> = Vec::new();
-                for filter in filters {
-                    promises.push(filter.to_output_note_promise().into());
-                }
-
-                Promise::all(&Array::from_iter(promises.iter()))
             },
         }
     }
