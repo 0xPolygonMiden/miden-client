@@ -1,16 +1,16 @@
 use std::{env, sync::Arc};
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     accounts::AccountHeader,
     crypto::{FeltRng, RpoRandomCoin},
     rpc::TonicRpcClient,
     store::{
-        sqlite_store::SqliteStore, NoteFilter as ClientNoteFilter, OutputNoteRecord,
+        sqlite_store::SqliteStore, NoteFilter as ClientNoteFilter, OutputNoteRecord, Store,
         StoreAuthenticator,
     },
-    transactions::{LocalTransactionProver, ProvingOptions},
+    transactions::{LocalTransactionProver, TransactionProver},
     Client, ClientError, Felt, IdPrefixFetchError,
 };
 use rand::Rng;
@@ -29,6 +29,7 @@ use commands::{
     tags::TagsCmd,
     transactions::TransactionCmd,
 };
+use serde::{Deserialize, Serialize};
 
 use self::utils::load_config_file;
 
@@ -42,6 +43,23 @@ const CLIENT_CONFIG_FILE_NAME: &str = "miden-client.toml";
 
 /// Client binary name
 pub const CLIENT_BINARY_NAME: &str = "miden";
+
+/// Posible proving modes
+#[derive(Clone, Debug, Default, PartialEq, Eq, ValueEnum, Serialize, Deserialize)]
+pub enum ProvingMode {
+    #[default]
+    Local,
+    Remote,
+}
+
+impl From<ProvingMode> for String {
+    fn from(proving_mode: ProvingMode) -> Self {
+        match proving_mode {
+            ProvingMode::Local => "local".to_string(),
+            ProvingMode::Remote => "remote".to_string(),
+        }
+    }
+}
 
 /// Root CLI struct
 #[derive(Parser, Debug)]
@@ -109,15 +127,21 @@ impl Cli {
         let coin_seed: [u64; 4] = rng.gen();
 
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
-        let authenticator = StoreAuthenticator::new_with_rng(store.clone(), rng);
-        let tx_prover = LocalTransactionProver::new(ProvingOptions::default());
+        let authenticator = StoreAuthenticator::new_with_rng(store.clone() as Arc<dyn Store>, rng);
+
+        let tx_prover = match &cli_config.proving_mode {
+            ProvingMode::Local => Arc::new(LocalTransactionProver::new(Default::default())),
+            ProvingMode::Remote => {
+                unimplemented!("Remote proving mode is not yet supported")
+            },
+        };
 
         let client = Client::new(
             Box::new(TonicRpcClient::new(&cli_config.rpc)),
             rng,
-            store,
+            store as Arc<dyn Store>,
             Arc::new(authenticator),
-            Arc::new(tx_prover),
+            tx_prover as Arc<dyn TransactionProver>,
             in_debug_mode,
         );
 
