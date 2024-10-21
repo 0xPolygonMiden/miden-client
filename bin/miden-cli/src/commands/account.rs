@@ -5,6 +5,7 @@ use miden_client::{
     crypto::FeltRng,
     Client, ZERO,
 };
+use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
     config::CliConfig,
@@ -35,6 +36,7 @@ pub struct AccountCmd {
 }
 
 impl AccountCmd {
+    #[maybe_async]
     pub fn execute<R: FeltRng>(&self, client: Client<R>) -> Result<(), String> {
         match self {
             AccountCmd {
@@ -42,8 +44,8 @@ impl AccountCmd {
                 show: Some(id),
                 default: None,
             } => {
-                let account_id = parse_account_id(&client, id)?;
-                show_account(client, account_id)?;
+                let account_id = maybe_await!(parse_account_id(&client, id))?;
+                maybe_await!(show_account(client, account_id))?;
             },
             AccountCmd {
                 list: false,
@@ -62,7 +64,8 @@ impl AccountCmd {
                                 .map_err(|_| "Input number was not a valid Account Id")?;
 
                             // Check whether we're tracking that account
-                            let (account, _) = client.get_account_header_by_id(account_id)?;
+                            let (account, _) =
+                                maybe_await!(client.get_account_header_by_id(account_id))?;
 
                             Some(account.id())
                         };
@@ -79,7 +82,7 @@ impl AccountCmd {
                 }
             },
             _ => {
-                list_accounts(client)?;
+                maybe_await!(list_accounts(client))?;
             },
         }
         Ok(())
@@ -89,8 +92,9 @@ impl AccountCmd {
 // LIST ACCOUNTS
 // ================================================================================================
 
+#[maybe_async]
 fn list_accounts<R: FeltRng>(client: Client<R>) -> Result<(), String> {
-    let accounts = client.get_account_headers()?;
+    let accounts = maybe_await!(client.get_account_headers())?;
 
     let mut table = create_dynamic_table(&["Account ID", "Type", "Storage Mode", "Nonce"]);
     for (acc, _acc_seed) in accounts.iter() {
@@ -106,8 +110,9 @@ fn list_accounts<R: FeltRng>(client: Client<R>) -> Result<(), String> {
     Ok(())
 }
 
+#[maybe_async]
 pub fn show_account<R: FeltRng>(client: Client<R>, account_id: AccountId) -> Result<(), String> {
-    let (account, _) = client.get_account(account_id)?;
+    let (account, _) = maybe_await!(client.get_account(account_id))?;
 
     let mut table = create_dynamic_table(&[
         "Account ID",

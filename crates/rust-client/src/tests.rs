@@ -18,6 +18,7 @@ use miden_objects::{
     Felt, FieldElement, Word,
 };
 use miden_tx::utils::{Deserializable, Serializable};
+use winter_maybe_async::maybe_await;
 
 use crate::{
     accounts::AccountTemplate,
@@ -32,12 +33,11 @@ async fn test_input_notes_round_trip() {
     // generate test client with a random store name
     let (mut client, rpc_api) = create_test_client();
 
-    client
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: true,
-            storage_mode: AccountStorageMode::Public,
-        })
-        .unwrap();
+    maybe_await!(client.new_account(AccountTemplate::BasicWallet {
+        mutable_code: true,
+        storage_mode: AccountStorageMode::Public,
+    }))
+    .unwrap();
     // generate test data
     let available_notes = [rpc_api.get_note_at(0), rpc_api.get_note_at(1)];
 
@@ -54,7 +54,7 @@ async fn test_input_notes_round_trip() {
 
     // retrieve notes from database
     // TODO: Once we get more specific filters this query should only get unverified notes.
-    let retrieved_notes = client.get_input_notes(NoteFilter::All).unwrap();
+    let retrieved_notes = maybe_await!(client.get_input_notes(NoteFilter::All)).unwrap();
     assert_eq!(retrieved_notes.len(), 2);
 
     let recorded_notes: Vec<InputNoteRecord> =
@@ -84,7 +84,7 @@ async fn test_get_input_note() {
         .unwrap();
 
     // retrieve note from database
-    let retrieved_note = client.get_input_note(original_note.id()).unwrap();
+    let retrieved_note = maybe_await!(client.get_input_note(original_note.id())).unwrap();
 
     let recorded_note: InputNoteRecord = original_note.into();
     assert_eq!(recorded_note.id(), retrieved_note.id());
@@ -101,13 +101,13 @@ async fn insert_basic_account() {
     };
 
     // Insert Account
-    let account_insert_result = client.new_account(account_template);
+    let account_insert_result = maybe_await!(client.new_account(account_template));
     assert!(account_insert_result.is_ok());
 
     let (account, account_seed) = account_insert_result.unwrap();
 
     // Fetch Account
-    let fetched_account_data = client.get_account(account.id());
+    let fetched_account_data = maybe_await!(client.get_account(account.id()));
     assert!(fetched_account_data.is_ok());
 
     let (fetched_account, fetched_account_seed) = fetched_account_data.unwrap();
@@ -135,13 +135,13 @@ async fn insert_faucet_account() {
     };
 
     // Insert Account
-    let account_insert_result = client.new_account(faucet_template);
+    let account_insert_result = maybe_await!(client.new_account(faucet_template));
     assert!(account_insert_result.is_ok());
 
     let (account, account_seed) = account_insert_result.unwrap();
 
     // Fetch Account
-    let fetched_account_data = client.get_account(account.id());
+    let fetched_account_data = maybe_await!(client.get_account(account.id()));
     assert!(fetched_account_data.is_ok());
 
     let (fetched_account, fetched_account_seed) = fetched_account_data.unwrap();
@@ -169,16 +169,18 @@ async fn insert_same_account_twice_fails() {
 
     let key_pair = SecretKey::new();
 
-    assert!(client
-        .insert_account(
-            &account,
-            Some(Word::default()),
-            &AuthSecretKey::RpoFalcon512(key_pair.clone())
-        )
-        .is_ok());
-    assert!(client
-        .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
-        .is_err());
+    assert!(maybe_await!(client.insert_account(
+        &account,
+        Some(Word::default()),
+        &AuthSecretKey::RpoFalcon512(key_pair.clone())
+    ))
+    .is_ok());
+    assert!(maybe_await!(client.insert_account(
+        &account,
+        Some(Word::default()),
+        &AuthSecretKey::RpoFalcon512(key_pair)
+    ))
+    .is_err());
 }
 
 #[tokio::test]
@@ -201,10 +203,13 @@ async fn test_account_code() {
     let reconstructed_code = AccountCode::read_from_bytes(&account_code_bytes).unwrap();
     assert_eq!(*account_code, reconstructed_code);
 
-    client
-        .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
-        .unwrap();
-    let (retrieved_acc, _) = client.get_account(account.id()).unwrap();
+    maybe_await!(client.insert_account(
+        &account,
+        Some(Word::default()),
+        &AuthSecretKey::RpoFalcon512(key_pair)
+    ))
+    .unwrap();
+    let (retrieved_acc, _) = maybe_await!(client.get_account(account.id())).unwrap();
     assert_eq!(*account.code(), *retrieved_acc.code());
 }
 
@@ -221,21 +226,25 @@ async fn test_get_account_by_id() {
 
     let key_pair = SecretKey::new();
 
-    client
-        .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
-        .unwrap();
+    maybe_await!(client.insert_account(
+        &account,
+        Some(Word::default()),
+        &AuthSecretKey::RpoFalcon512(key_pair)
+    ))
+    .unwrap();
 
     // Retrieving an existing account should succeed
-    let (acc_from_db, _account_seed) = match client.get_account_header_by_id(account.id()) {
-        Ok(account) => account,
-        Err(err) => panic!("Error retrieving account: {}", err),
-    };
+    let (acc_from_db, _account_seed) =
+        match maybe_await!(client.get_account_header_by_id(account.id())) {
+            Ok(account) => account,
+            Err(err) => panic!("Error retrieving account: {}", err),
+        };
     assert_eq!(AccountHeader::from(account), acc_from_db);
 
     // Retrieving a non existing account should fail
     let hex = format!("0x{}", "1".repeat(16));
     let invalid_id = AccountId::from_hex(&hex).unwrap();
-    assert!(client.get_account_header_by_id(invalid_id).is_err());
+    assert!(maybe_await!(client.get_account_header_by_id(invalid_id)).is_err());
 }
 
 #[tokio::test]
@@ -245,14 +254,14 @@ async fn test_sync_state() {
 
     // Import first mockchain note as expected
     let expected_note = rpc_api.get_note_at(1).note().clone();
-    client.store.upsert_input_notes(&[expected_note.clone().into()]).unwrap();
+    maybe_await!(client.store.upsert_input_notes(&[expected_note.clone().into()])).unwrap();
 
     // assert that we have no consumed nor expected notes prior to syncing state
-    assert_eq!(client.get_input_notes(NoteFilter::Consumed).unwrap().len(), 0);
-    assert_eq!(client.get_input_notes(NoteFilter::Expected).unwrap().len(), 1);
-    assert_eq!(client.get_input_notes(NoteFilter::Committed).unwrap().len(), 0);
+    assert_eq!(maybe_await!(client.get_input_notes(NoteFilter::Consumed)).unwrap().len(), 0);
+    assert_eq!(maybe_await!(client.get_input_notes(NoteFilter::Expected)).unwrap().len(), 1);
+    assert_eq!(maybe_await!(client.get_input_notes(NoteFilter::Committed)).unwrap().len(), 0);
 
-    let expected_notes = client.get_input_notes(NoteFilter::Expected).unwrap();
+    let expected_notes = maybe_await!(client.get_input_notes(NoteFilter::Expected)).unwrap();
 
     // sync state
     let sync_details = client.sync_state().await.unwrap();
@@ -261,15 +270,18 @@ async fn test_sync_state() {
     assert_eq!(sync_details.block_num, rpc_api.blocks.last().unwrap().header().block_num());
 
     // verify that the expected note we had is now committed
-    assert_ne!(client.get_input_notes(NoteFilter::Committed).unwrap(), expected_notes);
+    assert_ne!(
+        maybe_await!(client.get_input_notes(NoteFilter::Committed)).unwrap(),
+        expected_notes
+    );
 
     // verify that we now have one consumed note after syncing state
-    assert_eq!(client.get_input_notes(NoteFilter::Consumed).unwrap().len(), 1);
+    assert_eq!(maybe_await!(client.get_input_notes(NoteFilter::Consumed)).unwrap().len(), 1);
     assert_eq!(sync_details.consumed_notes.len(), 1);
 
     // verify that the latest block number has been updated
     assert_eq!(
-        client.get_sync_height().unwrap(),
+        maybe_await!(client.get_sync_height()).unwrap(),
         rpc_api.blocks.last().unwrap().header().block_num()
     );
 }
@@ -280,15 +292,13 @@ async fn test_sync_state_mmr() {
     let (mut client, mut rpc_api) = create_test_client();
     // Import note and create wallet so that synced notes do not get discarded (due to being
     // irrelevant)
-    client
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .unwrap();
-
+    maybe_await!(client.new_account(AccountTemplate::BasicWallet {
+        mutable_code: false,
+        storage_mode: AccountStorageMode::Private,
+    }))
+    .unwrap();
     let notes = rpc_api.notes.values().map(|n| n.note().clone().into()).collect::<Vec<_>>();
-    client.store.upsert_input_notes(&notes).unwrap();
+    maybe_await!(client.store.upsert_input_notes(&notes)).unwrap();
 
     // sync state
     let sync_details = client.sync_state().await.unwrap();
@@ -298,20 +308,20 @@ async fn test_sync_state_mmr() {
 
     // verify that the latest block number has been updated
     assert_eq!(
-        client.get_sync_height().unwrap(),
+        maybe_await!(client.get_sync_height()).unwrap(),
         rpc_api.blocks.last().unwrap().header().block_num()
     );
 
     // verify that we inserted the latest block into the DB via the client
-    let latest_block = client.get_sync_height().unwrap();
+    let latest_block = maybe_await!(client.get_sync_height()).unwrap();
     assert_eq!(sync_details.block_num, latest_block);
     assert_eq!(
         rpc_api.blocks.last().unwrap().hash(),
-        client.get_block_headers(&[latest_block]).unwrap()[0].0.hash()
+        maybe_await!(client.get_block_headers(&[latest_block])).unwrap()[0].0.hash()
     );
 
     // Try reconstructing the chain_mmr from what's in the database
-    let partial_mmr = client.build_current_partial_mmr(true).unwrap();
+    let partial_mmr = maybe_await!(client.build_current_partial_mmr(true)).unwrap();
     assert_eq!(partial_mmr.forest(), 6);
     assert!(partial_mmr.open(0).unwrap().is_none());
     assert!(partial_mmr.open(1).unwrap().is_some());
@@ -336,35 +346,35 @@ async fn test_tags() {
     let (mut client, _rpc_api) = create_test_client();
 
     // Assert that the store gets created with the tag 0 (used for notes consumable by any account)
-    assert!(client.get_note_tags().unwrap().is_empty());
+    assert!(maybe_await!(client.get_note_tags()).unwrap().is_empty());
 
     // add a tag
     let tag_1: NoteTag = 1.into();
     let tag_2: NoteTag = 2.into();
-    client.add_note_tag(tag_1).unwrap();
-    client.add_note_tag(tag_2).unwrap();
+    maybe_await!(client.add_note_tag(tag_1)).unwrap();
+    maybe_await!(client.add_note_tag(tag_2)).unwrap();
 
     // verify that the tag is being tracked
-    assert_eq!(client.get_note_tags().unwrap(), vec![tag_1, tag_2]);
+    assert_eq!(maybe_await!(client.get_note_tags()).unwrap(), vec![tag_1, tag_2]);
 
     // attempt to add the same tag again
-    client.add_note_tag(tag_1).unwrap();
+    maybe_await!(client.add_note_tag(tag_1)).unwrap();
 
     // verify that the tag is still being tracked only once
-    assert_eq!(client.get_note_tags().unwrap(), vec![tag_1, tag_2]);
+    assert_eq!(maybe_await!(client.get_note_tags()).unwrap(), vec![tag_1, tag_2]);
 
     // Try removing non-existent tag
     let tag_4: NoteTag = 4.into();
-    client.remove_note_tag(tag_4).unwrap();
+    maybe_await!(client.remove_note_tag(tag_4)).unwrap();
 
     // verify that the tracked tags are unchanged
-    assert_eq!(client.get_note_tags().unwrap(), vec![tag_1, tag_2]);
+    assert_eq!(maybe_await!(client.get_note_tags()).unwrap(), vec![tag_1, tag_2]);
 
     // remove second tag
-    client.remove_note_tag(tag_1).unwrap();
+    maybe_await!(client.remove_note_tag(tag_1)).unwrap();
 
     // verify that tag_1 is not tracked anymore
-    assert_eq!(client.get_note_tags().unwrap(), vec![tag_2]);
+    assert_eq!(maybe_await!(client.get_note_tags()).unwrap(), vec![tag_2]);
 }
 
 #[tokio::test]
@@ -373,14 +383,13 @@ async fn test_mint_transaction() {
     let (mut client, _rpc_api) = create_test_client();
 
     // Faucet account generation
-    let (faucet, _seed) = client
-        .new_account(AccountTemplate::FungibleFaucet {
-            token_symbol: "TST".try_into().unwrap(),
-            decimals: 3,
-            max_supply: 10000,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .unwrap();
+    let (faucet, _seed) = maybe_await!(client.new_account(AccountTemplate::FungibleFaucet {
+        token_symbol: "TST".try_into().unwrap(),
+        decimals: 3,
+        max_supply: 10000,
+        storage_mode: AccountStorageMode::Private,
+    }))
+    .unwrap();
 
     client.sync_state().await.unwrap();
 
@@ -393,7 +402,8 @@ async fn test_mint_transaction() {
     )
     .unwrap();
 
-    let transaction = client.new_transaction(faucet.id(), transaction_request).unwrap();
+    let transaction =
+        maybe_await!(client.new_transaction(faucet.id(), transaction_request)).unwrap();
 
     assert!(transaction.executed_transaction().account_delta().nonce().is_some());
 }
@@ -405,14 +415,13 @@ async fn test_get_output_notes() {
     client.sync_state().await.unwrap();
 
     // Faucet account generation
-    let (faucet, _seed) = client
-        .new_account(AccountTemplate::FungibleFaucet {
-            token_symbol: "TST".try_into().unwrap(),
-            decimals: 3,
-            max_supply: 10000,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .unwrap();
+    let (faucet, _seed) = maybe_await!(client.new_account(AccountTemplate::FungibleFaucet {
+        token_symbol: "TST".try_into().unwrap(),
+        decimals: 3,
+        max_supply: 10000,
+        storage_mode: AccountStorageMode::Private,
+    }))
+    .unwrap();
 
     // Test submitting a mint transaction
     let transaction_request = TransactionRequest::mint_fungible_asset(
@@ -424,14 +433,15 @@ async fn test_get_output_notes() {
     .unwrap();
 
     //Before executing transaction, there are no output notes
-    assert!(client.get_output_notes(NoteFilter::All).unwrap().is_empty());
+    assert!(maybe_await!(client.get_output_notes(NoteFilter::All)).unwrap().is_empty());
 
-    let transaction = client.new_transaction(faucet.id(), transaction_request).unwrap();
+    let transaction =
+        maybe_await!(client.new_transaction(faucet.id(), transaction_request)).unwrap();
     client.submit_transaction(transaction).await.unwrap();
 
     // Check that there was an output note but it wasn't consumed
-    assert!(client.get_output_notes(NoteFilter::Consumed).unwrap().is_empty());
-    assert!(!client.get_output_notes(NoteFilter::All).unwrap().is_empty());
+    assert!(maybe_await!(client.get_output_notes(NoteFilter::Consumed)).unwrap().is_empty());
+    assert!(!maybe_await!(client.get_output_notes(NoteFilter::All)).unwrap().is_empty());
 }
 
 #[tokio::test]

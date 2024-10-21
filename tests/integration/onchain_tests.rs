@@ -9,6 +9,7 @@ use miden_objects::{
     notes::{NoteFile, NoteTag, NoteType},
     transaction::InputNote,
 };
+use winter_maybe_async::maybe_await;
 
 use super::common::*;
 
@@ -23,30 +24,27 @@ async fn test_onchain_notes_flow() {
     wait_for_node(&mut client_3).await;
 
     // Create faucet account
-    let (faucet_account, _) = client_1
-        .new_account(AccountTemplate::FungibleFaucet {
-            token_symbol: TokenSymbol::new("MATIC").unwrap(),
-            decimals: 8,
-            max_supply: 1_000_000_000,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .unwrap();
+    let (faucet_account, _) = maybe_await!(client_1.new_account(AccountTemplate::FungibleFaucet {
+        token_symbol: TokenSymbol::new("MATIC").unwrap(),
+        decimals: 8,
+        max_supply: 1_000_000_000,
+        storage_mode: AccountStorageMode::Private,
+    }))
+    .unwrap();
 
     // Create regular accounts
-    let (basic_wallet_1, _) = client_2
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .unwrap();
+    let (basic_wallet_1, _) = maybe_await!(client_2.new_account(AccountTemplate::BasicWallet {
+        mutable_code: false,
+        storage_mode: AccountStorageMode::Private,
+    }))
+    .unwrap();
 
     // Create regular accounts
-    let (basic_wallet_2, _) = client_3
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .unwrap();
+    let (basic_wallet_2, _) = maybe_await!(client_3.new_account(AccountTemplate::BasicWallet {
+        mutable_code: false,
+        storage_mode: AccountStorageMode::Private,
+    }))
+    .unwrap();
     client_1.sync_state().await.unwrap();
     client_2.sync_state().await.unwrap();
 
@@ -64,7 +62,8 @@ async fn test_onchain_notes_flow() {
     client_2.sync_state().await.unwrap();
 
     // Assert that the note is the same
-    let received_note: InputNote = client_2.get_input_note(note.id()).unwrap().try_into().unwrap();
+    let received_note: InputNote =
+        maybe_await!(client_2.get_input_note(note.id())).unwrap().try_into().unwrap();
     assert_eq!(received_note.note().hash(), note.hash());
     assert_eq!(received_note.note(), &note);
 
@@ -95,8 +94,7 @@ async fn test_onchain_notes_flow() {
     // sync client 3 (basic account 2)
     client_3.sync_state().await.unwrap();
     // client 3 should only have one note
-    let note = client_3
-        .get_input_notes(NoteFilter::Committed)
+    let note = maybe_await!(client_3.get_input_notes(NoteFilter::Committed))
         .unwrap()
         .first()
         .unwrap()
@@ -133,11 +131,10 @@ async fn test_onchain_accounts() {
     let second_client_target_account_id = second_client_first_regular_account.id();
     let faucet_account_id = faucet_account_header.id();
 
-    let (_, faucet_seed) = client_1.get_account_header_by_id(faucet_account_id).unwrap();
-    let auth_info = client_1.get_account_auth(faucet_account_id).unwrap();
-    client_2
-        .insert_account(&faucet_account_header, faucet_seed, &auth_info)
-        .unwrap();
+    let (_, faucet_seed) =
+        maybe_await!(client_1.get_account_header_by_id(faucet_account_id)).unwrap();
+    let auth_info = maybe_await!(client_1.get_account_auth(faucet_account_id)).unwrap();
+    maybe_await!(client_2.insert_account(&faucet_account_header, faucet_seed, &auth_info)).unwrap();
 
     // First Mint necesary token
     println!("First client consuming note");
@@ -149,9 +146,9 @@ async fn test_onchain_accounts() {
     client_2.sync_state().await.unwrap();
 
     let (client_1_faucet, _) =
-        client_1.get_account_header_by_id(faucet_account_header.id()).unwrap();
+        maybe_await!(client_1.get_account_header_by_id(faucet_account_header.id())).unwrap();
     let (client_2_faucet, _) =
-        client_2.get_account_header_by_id(faucet_account_header.id()).unwrap();
+        maybe_await!(client_2.get_account_header_by_id(faucet_account_header.id())).unwrap();
 
     assert_eq!(client_1_faucet.hash(), client_2_faucet.hash());
 
@@ -183,9 +180,9 @@ async fn test_onchain_accounts() {
     .await;
 
     let (client_1_faucet, _) =
-        client_1.get_account_header_by_id(faucet_account_header.id()).unwrap();
+        maybe_await!(client_1.get_account_header_by_id(faucet_account_header.id())).unwrap();
     let (client_2_faucet, _) =
-        client_2.get_account_header_by_id(faucet_account_header.id()).unwrap();
+        maybe_await!(client_2.get_account_header_by_id(faucet_account_header.id())).unwrap();
 
     assert_eq!(client_1_faucet.hash(), client_2_faucet.hash());
 
@@ -194,15 +191,13 @@ async fn test_onchain_accounts() {
     let to_account_id = second_client_target_account_id;
 
     // get initial balances
-    let from_account_balance = client_1
-        .get_account(from_account_id)
+    let from_account_balance = maybe_await!(client_1.get_account(from_account_id))
         .unwrap()
         .0
         .vault()
         .get_balance(faucet_account_id)
         .unwrap_or(0);
-    let to_account_balance = client_2
-        .get_account(to_account_id)
+    let to_account_balance = maybe_await!(client_2.get_account(to_account_id))
         .unwrap()
         .0
         .vault()
@@ -224,7 +219,7 @@ async fn test_onchain_accounts() {
     // sync on second client until we receive the note
     println!("Syncing on second client...");
     client_2.sync_state().await.unwrap();
-    let notes = client_2.get_input_notes(NoteFilter::Committed).unwrap();
+    let notes = maybe_await!(client_2.get_input_notes(NoteFilter::Committed)).unwrap();
 
     //Import the note on the first client so that we can later check its consumer account
     client_1.import_note(NoteFile::NoteId(notes[0].id())).await.unwrap();
@@ -239,18 +234,16 @@ async fn test_onchain_accounts() {
     client_1.sync_state().await.unwrap();
 
     // Check that the client doesn't know who consumed the note
-    let input_note = client_1.get_input_note(notes[0].id()).unwrap();
+    let input_note = maybe_await!(client_1.get_input_note(notes[0].id())).unwrap();
     assert!(matches!(input_note.state(), InputNoteState::ConsumedExternal { .. }));
 
-    let new_from_account_balance = client_1
-        .get_account(from_account_id)
+    let new_from_account_balance = maybe_await!(client_1.get_account(from_account_id))
         .unwrap()
         .0
         .vault()
         .get_balance(faucet_account_id)
         .unwrap_or(0);
-    let new_to_account_balance = client_2
-        .get_account(to_account_id)
+    let new_to_account_balance = maybe_await!(client_2.get_account(to_account_id))
         .unwrap()
         .0
         .vault()
@@ -274,14 +267,13 @@ async fn test_onchain_notes_sync_with_tag() {
     wait_for_node(&mut client_3).await;
 
     // Create faucet account
-    let (faucet_account, _) = client_1
-        .new_account(AccountTemplate::FungibleFaucet {
-            token_symbol: TokenSymbol::new("MATIC").unwrap(),
-            decimals: 8,
-            max_supply: 1_000_000_000,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .unwrap();
+    let (faucet_account, _) = maybe_await!(client_1.new_account(AccountTemplate::FungibleFaucet {
+        token_symbol: TokenSymbol::new("MATIC").unwrap(),
+        decimals: 8,
+        max_supply: 1_000_000_000,
+        storage_mode: AccountStorageMode::Private,
+    }))
+    .unwrap();
 
     client_1.sync_state().await.unwrap();
     client_2.sync_state().await.unwrap();
@@ -300,23 +292,25 @@ async fn test_onchain_notes_sync_with_tag() {
     execute_tx_and_sync(&mut client_1, faucet_account.id(), tx_request).await;
 
     // Load tag into client 2
-    client_2
-        .add_note_tag(
+    maybe_await!(
+        client_2.add_note_tag(
             NoteTag::from_account_id(
                 target_account_id,
                 miden_objects::notes::NoteExecutionMode::Local,
             )
             .unwrap(),
         )
-        .unwrap();
+    )
+    .unwrap();
 
     // Client 2's account should receive the note here:
     client_2.sync_state().await.unwrap();
     client_3.sync_state().await.unwrap();
 
     // Assert that the note is the same
-    let received_note: InputNote = client_2.get_input_note(note.id()).unwrap().try_into().unwrap();
+    let received_note: InputNote =
+        maybe_await!(client_2.get_input_note(note.id())).unwrap().try_into().unwrap();
     assert_eq!(received_note.note().hash(), note.hash());
     assert_eq!(received_note.note(), &note);
-    assert!(client_3.get_input_notes(NoteFilter::All).unwrap().is_empty());
+    assert!(maybe_await!(client_3.get_input_notes(NoteFilter::All)).unwrap().is_empty());
 }

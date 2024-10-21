@@ -5,6 +5,7 @@ use miden_client::{
     crypto::FeltRng,
     Client,
 };
+use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
     commands::account::maybe_set_default_account, utils::load_config_file, CLIENT_BINARY_NAME,
@@ -30,6 +31,7 @@ pub struct NewFaucetCmd {
 }
 
 impl NewFaucetCmd {
+    #[maybe_async]
     pub fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         if self.non_fungible {
             todo!("Non-fungible faucets are not supported yet");
@@ -53,7 +55,7 @@ impl NewFaucetCmd {
             storage_mode: self.storage_mode,
         };
 
-        let (new_account, _account_seed) = client.new_account(client_template)?;
+        let (new_account, _account_seed) = maybe_await!(client.new_account(client_template))?;
         println!("Succesfully created new faucet.");
         println!(
             "To view account details execute `{CLIENT_BINARY_NAME} account -s {}`",
@@ -76,13 +78,14 @@ pub struct NewWalletCmd {
 }
 
 impl NewWalletCmd {
+    #[maybe_async]
     pub fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         let client_template = AccountTemplate::BasicWallet {
             mutable_code: self.mutable,
             storage_mode: self.storage_mode,
         };
 
-        let (new_account, _account_seed) = client.new_account(client_template)?;
+        let (new_account, _account_seed) = maybe_await!(client.new_account(client_template))?;
         println!("Succesfully created new wallet.");
         println!(
             "To view account details execute `{CLIENT_BINARY_NAME} account -s {}`",

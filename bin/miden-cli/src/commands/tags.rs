@@ -4,6 +4,7 @@ use miden_client::{
     Client,
 };
 use tracing::info;
+use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::Parser;
 
@@ -27,13 +28,13 @@ impl TagsCmd {
     pub async fn execute(&self, client: Client<impl FeltRng>) -> Result<(), String> {
         match self {
             TagsCmd { add: Some(tag), .. } => {
-                add_tag(client, *tag)?;
+                maybe_await!(add_tag(client, *tag))?;
             },
             TagsCmd { remove: Some(tag), .. } => {
-                remove_tag(client, *tag)?;
+                maybe_await!(remove_tag(client, *tag))?;
             },
             _ => {
-                list_tags(client)?;
+                maybe_await!(list_tags(client))?;
             },
         }
         Ok(())
@@ -42,12 +43,14 @@ impl TagsCmd {
 
 // HELPERS
 // ================================================================================================
+#[maybe_async]
 fn list_tags(client: Client<impl FeltRng>) -> Result<(), String> {
-    let tags = client.get_note_tags()?;
+    let tags = maybe_await!(client.get_note_tags())?;
     println!("Tags: {:?}", tags);
     Ok(())
 }
 
+#[maybe_async]
 fn add_tag(mut client: Client<impl FeltRng>, tag: u32) -> Result<(), String> {
     let tag: NoteTag = tag.into();
     let execution_mode = match tag.execution_hint() {
@@ -59,13 +62,14 @@ fn add_tag(mut client: Client<impl FeltRng>, tag: u32) -> Result<(), String> {
         tag.is_single_target(),
         execution_mode
     );
-    client.add_note_tag(tag)?;
+    maybe_await!(client.add_note_tag(tag))?;
     println!("Tag {} added", tag);
     Ok(())
 }
 
+#[maybe_async]
 fn remove_tag(mut client: Client<impl FeltRng>, tag: u32) -> Result<(), String> {
-    client.remove_note_tag(tag.into())?;
+    maybe_await!(client.remove_note_tag(tag.into()))?;
     println!("Tag {} removed", tag);
     Ok(())
 }

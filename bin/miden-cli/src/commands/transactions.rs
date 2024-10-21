@@ -1,6 +1,7 @@
 use miden_client::{
     crypto::FeltRng, store::TransactionFilter, transactions::TransactionRecord, Client,
 };
+use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{create_dynamic_table, Parser};
 
@@ -14,15 +15,16 @@ pub struct TransactionCmd {
 
 impl TransactionCmd {
     pub async fn execute(&self, client: Client<impl FeltRng>) -> Result<(), String> {
-        list_transactions(client)?;
+        maybe_await!(list_transactions(client))?;
         Ok(())
     }
 }
 
 // LIST TRANSACTIONS
 // ================================================================================================
+#[maybe_async]
 fn list_transactions(client: Client<impl FeltRng>) -> Result<(), String> {
-    let transactions = client.get_transactions(TransactionFilter::All)?;
+    let transactions = maybe_await!(client.get_transactions(TransactionFilter::All))?;
     print_transactions_summary(&transactions);
     Ok(())
 }

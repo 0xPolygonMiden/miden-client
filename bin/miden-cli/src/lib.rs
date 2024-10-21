@@ -16,8 +16,6 @@ use miden_client::{
 use miden_tx_prover::RemoteTransactionProver;
 use rand::Rng;
 mod commands;
-use winter_maybe_async::{maybe_await};
-
 use commands::{
     account::AccountCmd,
     export::ExportCmd,
@@ -31,6 +29,7 @@ use commands::{
     transactions::TransactionCmd,
 };
 use serde::{Deserialize, Serialize};
+use winter_maybe_async::{maybe_async, maybe_await};
 
 use self::utils::load_config_file;
 
@@ -152,17 +151,17 @@ impl Cli {
 
         // Execute CLI command
         match &self.action {
-            Command::Account(account) => account.execute(client),
-            Command::NewFaucet(new_faucet) => new_faucet.execute(client),
-            Command::NewWallet(new_wallet) => new_wallet.execute(client),
+            Command::Account(account) => maybe_await!(account.execute(client)),
+            Command::NewFaucet(new_faucet) => maybe_await!(new_faucet.execute(client)),
+            Command::NewWallet(new_wallet) => maybe_await!(new_wallet.execute(client)),
             Command::Import(import) => import.execute(client).await,
             Command::Init(_) => Ok(()),
-            Command::Info => info::print_client_info(&client, &cli_config),
+            Command::Info => maybe_await!(info::print_client_info(&client, &cli_config)),
             Command::Notes(notes) => notes.execute(client).await,
             Command::Sync(sync) => sync.execute(client).await,
             Command::Tags(tags) => tags.execute(client).await,
             Command::Transaction(transaction) => transaction.execute(client).await,
-            Command::Export(cmd) => cmd.execute(client),
+            Command::Export(cmd) => maybe_await!(cmd.execute(client)),
             Command::Mint(mint) => mint.execute(client).await,
             Command::Send(send) => send.execute(client).await,
             Command::Swap(swap) => swap.execute(client).await,
@@ -194,12 +193,12 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
 ///   `note_id_prefix` is a prefix of its id.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found where
 ///   `note_id_prefix` is a prefix of its id.
+#[maybe_async]
 pub(crate) fn get_output_note_with_id_prefix(
     client: &Client<impl FeltRng>,
     note_id_prefix: &str,
 ) -> Result<OutputNoteRecord, IdPrefixFetchError> {
-    let mut output_note_records = client
-        .get_output_notes(ClientNoteFilter::All)
+    let mut output_note_records = maybe_await!(client.get_output_notes(ClientNoteFilter::All))
         .map_err(|err| {
             tracing::error!("Error when fetching all notes from the store: {err}");
             IdPrefixFetchError::NoMatch(format!("note ID prefix {note_id_prefix}").to_string())
@@ -241,12 +240,12 @@ pub(crate) fn get_output_note_with_id_prefix(
 ///   `account_id_prefix` is a prefix of its id.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one account found where
 ///   `account_id_prefix` is a prefix of its id.
+#[maybe_async]
 fn get_account_with_id_prefix(
     client: &Client<impl FeltRng>,
     account_id_prefix: &str,
 ) -> Result<AccountHeader, IdPrefixFetchError> {
-    let mut accounts = client
-        .get_account_headers()
+    let mut accounts = maybe_await!(client.get_account_headers())
         .map_err(|err| {
             tracing::error!("Error when fetching all accounts from the store: {err}");
             IdPrefixFetchError::NoMatch(

@@ -8,6 +8,7 @@ use miden_objects::{
     assets::{Asset, FungibleAsset, TokenSymbol},
     notes::{NoteDetails, NoteExecutionMode, NoteFile, NoteId, NoteTag, NoteType},
 };
+use winter_maybe_async::maybe_await;
 
 use super::common::*;
 
@@ -30,38 +31,36 @@ async fn tmp_test() {
     client_with_faucets.sync_state().await.unwrap();
 
     // Create Client 1's basic wallet (We'll call it accountA)
-    let (account_a, _) = client1
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .unwrap();
+    let (account_a, _) = maybe_await!(client1.new_account(AccountTemplate::BasicWallet {
+        mutable_code: false,
+        storage_mode: AccountStorageMode::Private,
+    }))
+    .unwrap();
 
     // Create Client 2's basic wallet (We'll call it accountB)
-    let (account_b, _) = client2
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .unwrap();
+    let (account_b, _) = maybe_await!(client2.new_account(AccountTemplate::BasicWallet {
+        mutable_code: false,
+        storage_mode: AccountStorageMode::Private,
+    }))
+    .unwrap();
 
     // Create client with faucets BTC faucet (note: it's not real BTC)
-    let (btc_faucet_account, _) = client_with_faucets
-        .new_account(AccountTemplate::FungibleFaucet {
+    let (btc_faucet_account, _) =
+        maybe_await!(client_with_faucets.new_account(AccountTemplate::FungibleFaucet {
             token_symbol: TokenSymbol::new("BTC").unwrap(),
             decimals: 8,
             max_supply: 1_000_000,
             storage_mode: AccountStorageMode::Private,
-        })
+        }))
         .unwrap();
     // Create client with faucets ETH faucet (note: it's not real ETH)
-    let (eth_faucet_account, _) = client_with_faucets
-        .new_account(AccountTemplate::FungibleFaucet {
+    let (eth_faucet_account, _) =
+        maybe_await!(client_with_faucets.new_account(AccountTemplate::FungibleFaucet {
             token_symbol: TokenSymbol::new("ETH").unwrap(),
             decimals: 8,
             max_supply: 1_000_000,
             storage_mode: AccountStorageMode::Private,
-        })
+        }))
         .unwrap();
 
     // mint 1000 BTC for accountA
@@ -87,7 +86,8 @@ async fn tmp_test() {
 
     // Sync and consume note for accountA
     client1.sync_state().await.unwrap();
-    let client_1_consumable_notes = client1.get_consumable_notes(Some(account_a.id())).unwrap();
+    let client_1_consumable_notes =
+        maybe_await!(client1.get_consumable_notes(Some(account_a.id()))).unwrap();
     assert!(client_1_consumable_notes
         .iter()
         .any(|(note, _)| note.id() == account_a_mint_note_id));
@@ -99,7 +99,8 @@ async fn tmp_test() {
 
     // Sync and consume note for accountB
     client2.sync_state().await.unwrap();
-    let client_2_consumable_notes = client2.get_consumable_notes(Some(account_b.id())).unwrap();
+    let client_2_consumable_notes =
+        maybe_await!(client2.get_consumable_notes(Some(account_b.id()))).unwrap();
     assert!(client_2_consumable_notes
         .iter()
         .any(|(note, _)| note.id() == account_b_mint_note_id));
@@ -143,8 +144,8 @@ async fn tmp_test() {
     // we could technically avoid this step, but for the first iteration of swap notes we'll
     // require to manually add tags
     println!("Adding swap tags");
-    client1.add_note_tag(payback_note_tag).unwrap();
-    client2.add_note_tag(payback_note_tag).unwrap();
+    maybe_await!(client1.add_note_tag(payback_note_tag)).unwrap();
+    maybe_await!(client2.add_note_tag(payback_note_tag)).unwrap();
 
     // sync on client 2, we should get the swap note
     // consume swap note with accountB, and check that the vault changed appropiately
@@ -168,7 +169,7 @@ async fn tmp_test() {
     // - accountB: 1 BTC, 975 ETH
 
     // first reload the account
-    let (account_a, _) = client1.get_account(account_a.id()).unwrap();
+    let (account_a, _) = maybe_await!(client1.get_account(account_a.id())).unwrap();
     let account_a_assets = account_a.vault().assets();
     assert_eq!(account_a_assets.count(), 2);
     let mut account_a_assets = account_a.vault().assets();
@@ -194,7 +195,7 @@ async fn tmp_test() {
         _ => panic!("should only have fungible assets!"),
     }
 
-    let (account_b, _) = client2.get_account(account_b.id()).unwrap();
+    let (account_b, _) = maybe_await!(client2.get_account(account_b.id())).unwrap();
     let account_b_assets = account_b.vault().assets();
     assert_eq!(account_b_assets.count(), 2);
     let mut account_b_assets = account_b.vault().assets();
@@ -237,38 +238,36 @@ async fn test_swap_offchain() {
     client_with_faucets.sync_state().await.unwrap();
 
     // Create Client 1's basic wallet (We'll call it accountA)
-    let (account_a, _) = client1
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .unwrap();
+    let (account_a, _) = maybe_await!(client1.new_account(AccountTemplate::BasicWallet {
+        mutable_code: false,
+        storage_mode: AccountStorageMode::Private,
+    }))
+    .unwrap();
 
     // Create Client 2's basic wallet (We'll call it accountB)
-    let (account_b, _) = client2
-        .new_account(AccountTemplate::BasicWallet {
-            mutable_code: false,
-            storage_mode: AccountStorageMode::Private,
-        })
-        .unwrap();
+    let (account_b, _) = maybe_await!(client2.new_account(AccountTemplate::BasicWallet {
+        mutable_code: false,
+        storage_mode: AccountStorageMode::Private,
+    }))
+    .unwrap();
 
     // Create client with faucets BTC faucet (note: it's not real BTC)
-    let (btc_faucet_account, _) = client_with_faucets
-        .new_account(AccountTemplate::FungibleFaucet {
+    let (btc_faucet_account, _) =
+        maybe_await!(client_with_faucets.new_account(AccountTemplate::FungibleFaucet {
             token_symbol: TokenSymbol::new("BTC").unwrap(),
             decimals: 8,
             max_supply: 1_000_000,
             storage_mode: AccountStorageMode::Private,
-        })
+        }))
         .unwrap();
     // Create client with faucets ETH faucet (note: it's not real ETH)
-    let (eth_faucet_account, _) = client_with_faucets
-        .new_account(AccountTemplate::FungibleFaucet {
+    let (eth_faucet_account, _) =
+        maybe_await!(client_with_faucets.new_account(AccountTemplate::FungibleFaucet {
             token_symbol: TokenSymbol::new("ETH").unwrap(),
             decimals: 8,
             max_supply: 1_000_000,
             storage_mode: AccountStorageMode::Private,
-        })
+        }))
         .unwrap();
 
     // mint 1000 BTC for accountA
@@ -294,7 +293,8 @@ async fn test_swap_offchain() {
 
     // Sync and consume note for accountA
     client1.sync_state().await.unwrap();
-    let client_1_consumable_notes = client1.get_consumable_notes(Some(account_a.id())).unwrap();
+    let client_1_consumable_notes =
+        maybe_await!(client1.get_consumable_notes(Some(account_a.id()))).unwrap();
     assert!(client_1_consumable_notes
         .iter()
         .any(|(note, _)| note.id() == account_a_mint_note_id));
@@ -306,7 +306,8 @@ async fn test_swap_offchain() {
 
     // Sync and consume note for accountB
     client2.sync_state().await.unwrap();
-    let client_2_consumable_notes = client2.get_consumable_notes(Some(account_b.id())).unwrap();
+    let client_2_consumable_notes =
+        maybe_await!(client2.get_consumable_notes(Some(account_b.id()))).unwrap();
     assert!(client_2_consumable_notes
         .iter()
         .any(|(note, _)| note.id() == account_b_mint_note_id));
@@ -344,15 +345,15 @@ async fn test_swap_offchain() {
     execute_tx_and_sync(&mut client1, account_a.id(), tx_request).await;
 
     // Export note from client 1 to client 2
-    let output_note = client1.get_output_note(expected_output_notes[0].id()).unwrap();
+    let output_note = maybe_await!(client1.get_output_note(expected_output_notes[0].id())).unwrap();
 
     let tag =
         build_swap_tag(NoteType::Private, offered_asset.faucet_id(), requested_asset.faucet_id());
-    client2.add_note_tag(tag).unwrap();
+    maybe_await!(client2.add_note_tag(tag)).unwrap();
     client2
         .import_note(NoteFile::NoteDetails {
             details: output_note.try_into().unwrap(),
-            after_block_num: client1.get_sync_height().unwrap(),
+            after_block_num: maybe_await!(client1.get_sync_height()).unwrap(),
             tag: Some(tag),
         })
         .await
@@ -381,7 +382,7 @@ async fn test_swap_offchain() {
     // - accountB: 1 BTC, 975 ETH
 
     // first reload the account
-    let (account_a, _) = client1.get_account(account_a.id()).unwrap();
+    let (account_a, _) = maybe_await!(client1.get_account(account_a.id())).unwrap();
     let account_a_assets = account_a.vault().assets();
     assert_eq!(account_a_assets.count(), 2);
     let mut account_a_assets = account_a.vault().assets();
@@ -407,7 +408,7 @@ async fn test_swap_offchain() {
         _ => panic!("should only have fungible assets!"),
     }
 
-    let (account_b, _) = client2.get_account(account_b.id()).unwrap();
+    let (account_b, _) = maybe_await!(client2.get_account(account_b.id())).unwrap();
     let account_b_assets = account_b.vault().assets();
     assert_eq!(account_b_assets.count(), 2);
     let mut account_b_assets = account_b.vault().assets();

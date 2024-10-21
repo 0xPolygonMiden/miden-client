@@ -5,7 +5,7 @@ use miden_client::{
     accounts::AccountId,
     assets::{FungibleAsset, NonFungibleDeltaAction},
     crypto::{Digest, FeltRng},
-    notes::{get_input_note_with_id_prefix, NoteId, NoteType as MidenNoteType},
+    notes::{get_input_note_with_id_prefix, NoteType as MidenNoteType},
     transactions::{
         build_swap_tag, PaymentTransactionData, SwapTransactionData, TransactionRequest,
         TransactionResult,
@@ -13,6 +13,7 @@ use miden_client::{
     Client,
 };
 use tracing::info;
+use winter_maybe_async::maybe_await;
 
 use crate::{
     create_dynamic_table,
@@ -62,7 +63,8 @@ impl MintCmd {
 
         let fungible_asset = faucet_details_map.parse_fungible_asset(&self.asset)?;
 
-        let target_account_id = parse_account_id(&client, self.target_account_id.as_str())?;
+        let target_account_id =
+            maybe_await!(parse_account_id(&client, self.target_account_id.as_str()))?;
 
         let transaction_request = TransactionRequest::mint_fungible_asset(
             fungible_asset,
@@ -114,9 +116,12 @@ impl SendCmd {
         let fungible_asset = faucet_details_map.parse_fungible_asset(&self.asset)?;
 
         // try to use either the provided argument or the default account
-        let sender_account_id =
-            get_input_acc_id_by_prefix_or_default(&client, self.sender_account_id.clone())?;
-        let target_account_id = parse_account_id(&client, self.target_account_id.as_str())?;
+        let sender_account_id = maybe_await!(get_input_acc_id_by_prefix_or_default(
+            &client,
+            self.sender_account_id.clone()
+        ))?;
+        let target_account_id =
+            maybe_await!(parse_account_id(&client, self.target_account_id.as_str()))?;
 
         let payment_transaction = PaymentTransactionData::new(
             vec![fungible_asset.into()],
@@ -171,8 +176,10 @@ impl SwapCmd {
             faucet_details_map.parse_fungible_asset(&self.requested_asset)?;
 
         // try to use either the provided argument or the default account
-        let sender_account_id =
-            get_input_acc_id_by_prefix_or_default(&client, self.sender_account_id.clone())?;
+        let sender_account_id = maybe_await!(get_input_acc_id_by_prefix_or_default(
+            &client,
+            self.sender_account_id.clone()
+        ))?;
 
         let swap_transaction = SwapTransactionData::new(
             sender_account_id,
@@ -225,21 +232,19 @@ impl ConsumeNotesCmd {
     pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         let force = self.force;
 
-        let mut list_of_notes = self
-            .list_of_notes
-            .iter()
-            .map(|note_id| {
-                get_input_note_with_id_prefix(&client, note_id)
-                    .map(|note_record| note_record.id())
-                    .map_err(|err| err.to_string())
-            })
-            .collect::<Result<Vec<NoteId>, _>>()?;
+        let mut list_of_notes = Vec::new();
+        for note_id in &self.list_of_notes {
+            let note_record = maybe_await!(get_input_note_with_id_prefix(&client, note_id))
+                .map_err(|err| err.to_string())?;
+            list_of_notes.push(note_record.id());
+        }
 
-        let account_id = get_input_acc_id_by_prefix_or_default(&client, self.account_id.clone())?;
+        let account_id =
+            maybe_await!(get_input_acc_id_by_prefix_or_default(&client, self.account_id.clone()))?;
 
         if list_of_notes.is_empty() {
             info!("No input note IDs provided, getting all notes consumable by {}", account_id);
-            let consumable_notes = client.get_consumable_notes(Some(account_id))?;
+            let consumable_notes = maybe_await!(client.get_consumable_notes(Some(account_id)))?;
 
             list_of_notes.extend(consumable_notes.iter().map(|(note, _)| note.id()));
         }
@@ -264,7 +269,8 @@ async fn execute_transaction(
     force: bool,
 ) -> Result<(), String> {
     println!("Executing transaction...");
-    let transaction_execution_result = client.new_transaction(account_id, transaction_request)?;
+    let transaction_execution_result =
+        maybe_await!(client.new_transaction(account_id, transaction_request))?;
 
     // Show delta and ask for confirmation
     print_transaction_details(&transaction_execution_result)?;

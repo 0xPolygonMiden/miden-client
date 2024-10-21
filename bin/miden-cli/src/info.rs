@@ -1,26 +1,34 @@
 use std::fs;
 
 use miden_client::{crypto::FeltRng, store::NoteFilter, Client};
+use winter_maybe_async::{maybe_async, maybe_await};
 
 use super::config::CliConfig;
 
+#[maybe_async]
 pub fn print_client_info(client: &Client<impl FeltRng>, config: &CliConfig) -> Result<(), String> {
     println!("Client version: {}", env!("CARGO_PKG_VERSION"));
     print_config_stats(config)?;
-    print_client_stats(client)
+    maybe_await!(print_client_stats(client))
 }
 
 // HELPERS
 // ================================================================================================
+#[maybe_async]
 fn print_client_stats(client: &Client<impl FeltRng>) -> Result<(), String> {
-    println!("Block number: {}", client.get_sync_height().map_err(|e| e.to_string())?);
+    println!(
+        "Block number: {}",
+        maybe_await!(client.get_sync_height()).map_err(|e| e.to_string())?
+    );
     println!(
         "Tracked accounts: {}",
-        client.get_account_headers().map_err(|e| e.to_string())?.len()
+        maybe_await!(client.get_account_headers()).map_err(|e| e.to_string())?.len()
     );
     println!(
         "Expected notes: {}",
-        client.get_input_notes(NoteFilter::Expected).map_err(|e| e.to_string())?.len()
+        maybe_await!(client.get_input_notes(NoteFilter::Expected))
+            .map_err(|e| e.to_string())?
+            .len()
     );
     Ok(())
 }

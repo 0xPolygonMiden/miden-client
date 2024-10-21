@@ -12,6 +12,7 @@ use miden_client::{
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord},
     Client, ClientError, IdPrefixFetchError,
 };
+use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
     create_dynamic_table, get_output_note_with_id_prefix, utils::load_faucet_details_map, Parser,
@@ -61,19 +62,19 @@ impl NotesCmd {
     pub async fn execute(&self, client: Client<impl FeltRng>) -> Result<(), String> {
         match self {
             NotesCmd { list: Some(NoteFilter::Consumable), .. } => {
-                list_consumable_notes(client, &None)?;
+                maybe_await!(list_consumable_notes(client, &None))?;
             },
             NotesCmd { list: Some(filter), .. } => {
-                list_notes(
+                maybe_await!(list_notes(
                     client,
                     filter.clone().try_into().expect("Filter shouldn't be consumable"),
-                )?;
+                ))?;
             },
             NotesCmd { show: Some(id), .. } => {
-                show_note(client, id.to_owned())?;
+                maybe_await!(show_note(client, id.to_owned()))?;
             },
             _ => {
-                list_notes(client, ClientNoteFilter::All)?;
+                maybe_await!(list_notes(client, ClientNoteFilter::All))?;
             },
         }
         Ok(())
@@ -95,14 +96,13 @@ struct CliNoteSummary {
 
 // LIST NOTES
 // ================================================================================================
+#[maybe_async]
 fn list_notes(client: Client<impl FeltRng>, filter: ClientNoteFilter) -> Result<(), String> {
-    let input_notes = client
-        .get_input_notes(filter.clone())?
+    let input_notes = maybe_await!(client.get_input_notes(filter.clone()))?
         .into_iter()
         .map(|input_note_record| note_summary(Some(&input_note_record), None))
         .collect::<Result<Vec<CliNoteSummary>, String>>()?;
-    let output_notes = client
-        .get_output_notes(filter.clone())?
+    let output_notes = maybe_await!(client.get_output_notes(filter.clone()))?
         .into_iter()
         .map(|output_note_record| note_summary(None, Some(&output_note_record)))
         .collect::<Result<Vec<CliNoteSummary>, String>>()?;
@@ -113,9 +113,10 @@ fn list_notes(client: Client<impl FeltRng>, filter: ClientNoteFilter) -> Result<
 
 // SHOW NOTE
 // ================================================================================================
+#[maybe_async]
 fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), String> {
-    let input_note_record = get_input_note_with_id_prefix(&client, &note_id);
-    let output_note_record = get_output_note_with_id_prefix(&client, &note_id);
+    let input_note_record = maybe_await!(get_input_note_with_id_prefix(&client, &note_id));
+    let output_note_record = maybe_await!(get_output_note_with_id_prefix(&client, &note_id));
 
     // If we don't find an input note nor an output note return an error
     if matches!(input_note_record, Err(IdPrefixFetchError::NoMatch(_)))
@@ -251,6 +252,7 @@ fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), String
 
 // LIST CONSUMABLE INPUT NOTES
 // ================================================================================================
+#[maybe_async]
 fn list_consumable_notes(
     client: Client<impl FeltRng>,
     account_id: &Option<String>,
@@ -259,7 +261,7 @@ fn list_consumable_notes(
         Some(id) => Some(AccountId::from_hex(id.as_str()).map_err(|err| err.to_string())?),
         None => None,
     };
-    let notes = client.get_consumable_notes(account_id)?;
+    let notes = maybe_await!(client.get_consumable_notes(account_id))?;
     print_consumable_notes_summary(&notes)?;
     Ok(())
 }
