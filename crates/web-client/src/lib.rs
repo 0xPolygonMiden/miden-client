@@ -4,6 +4,7 @@ use alloc::sync::Arc;
 use miden_client::{
     rpc::WebTonicRpcClient,
     store::{web_store::WebStore, StoreAuthenticator},
+    transactions::LocalTransactionProver,
     Client,
 };
 use miden_objects::{crypto::rand::RpoRandomCoin, Felt};
@@ -58,8 +59,16 @@ impl WebClient {
             &node_url.unwrap_or_else(|| "http://18.203.155.106:57291".to_string()),
         ));
 
-        self.inner =
-            Some(Client::new(web_rpc_client, rng, web_store.clone(), authenticator, false));
+        let tx_prover = Arc::new(LocalTransactionProver::default());
+
+        self.inner = Some(Client::new(
+            web_rpc_client,
+            rng,
+            web_store.clone(),
+            authenticator,
+            tx_prover,
+            false,
+        ));
         self.store = Some(web_store);
 
         Ok(JsValue::from_str("Client created successfully"))

@@ -161,7 +161,8 @@ impl From<&NoteIdAndArgsArray> for Vec<(NativeNoteId, Option<NativeNoteArgs>)> {
     }
 }
 
-// NoteDetailsAndTag Helper Structs
+/// HELPER STRUCTS
+/// ================================================================================================
 
 #[derive(Clone)]
 #[wasm_bindgen]

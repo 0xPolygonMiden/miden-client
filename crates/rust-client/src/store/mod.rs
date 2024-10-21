@@ -360,10 +360,15 @@ pub enum NoteFilter {
     List(Vec<NoteId>),
     /// Return a list of notes that match the provided [Nullifier] list.
     Nullifiers(Vec<Nullifier>),
-    /// Return a list of notes that are currently being processed.
+    /// Return a list of notes that are currently being processed. This filter doesn't apply to
+    /// output notes.
     Processing,
     /// Return a list containing the note that matches with the provided [NoteId].
     Unique(NoteId),
+    /// Return a list containing notes that haven't been nullified yet, this includes expected,
+    /// committed, processing and unverified notes.
     Unspent,
+    /// Return a list containing notes with unverified inclusion proofs. This filter doesn't apply
+    /// to output notes.
     Unverified,
 }
