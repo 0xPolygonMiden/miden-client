@@ -1,6 +1,6 @@
 use std::{env, sync::Arc};
 
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use comfy_table::{presets, Attribute, Cell, ContentArrangement, Table};
 use miden_client::{
     accounts::AccountHeader,
@@ -28,7 +28,6 @@ use commands::{
     tags::TagsCmd,
     transactions::TransactionCmd,
 };
-use serde::{Deserialize, Serialize};
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use self::utils::load_config_file;
@@ -44,24 +43,6 @@ const CLIENT_CONFIG_FILE_NAME: &str = "miden-client.toml";
 /// Client binary name
 pub const CLIENT_BINARY_NAME: &str = "miden";
 
-/// Posible proving modes
-#[derive(Clone, Debug, Default, PartialEq, Eq, ValueEnum, Serialize, Deserialize)]
-pub enum ProvingMode {
-    #[default]
-    Local,
-    Remote,
-}
-
-impl From<ProvingMode> for String {
-    fn from(proving_mode: ProvingMode) -> Self {
-        match proving_mode {
-            ProvingMode::Local => "local".to_string(),
-            ProvingMode::Remote => "remote".to_string(),
-        }
-    }
-}
-
-/// Root CLI struct
 #[derive(Parser, Debug)]
 #[clap(name = "Miden", about = "Miden client", version, rename_all = "kebab-case")]
 pub struct Cli {
@@ -129,15 +110,13 @@ impl Cli {
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
         let authenticator = StoreAuthenticator::new_with_rng(store.clone() as Arc<dyn Store>, rng);
 
-        let tx_prover: Arc<dyn TransactionProver> = match &cli_config.proving_mode {
-            ProvingMode::Local => Arc::new(LocalTransactionProver::new(Default::default())),
-            ProvingMode::Remote => Arc::new(
-                RemoteTransactionProver::new(
-                    &cli_config.proving_rpc_endpoint.as_ref().unwrap().to_string(),
-                )
-                .await
-                .unwrap(),
+        let tx_prover: Arc<dyn TransactionProver> = match &cli_config.proving_rpc_endpoint {
+            Some(proving_url) => Arc::new(
+                RemoteTransactionProver::new(&proving_url.to_string())
+                    .await
+                    .map_err(|_err| "Failed to create remote transaction prover")?,
             ),
+            None => Arc::new(LocalTransactionProver::new(Default::default())),
         };
 
         let client = Client::new(
