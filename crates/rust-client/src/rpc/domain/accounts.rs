@@ -62,13 +62,13 @@ impl ProtoAccountHeader {
             code_commitment,
         } = self;
         let vault_root = vault_root
-            .ok_or(RpcError::ExpectedFieldMissing(String::from("AccountHeader.VaultRoot")))?
+            .ok_or(RpcError::ExpectedDataMissing(String::from("AccountHeader.VaultRoot")))?
             .try_into()?;
         let storage_commitment = storage_commitment
-            .ok_or(RpcError::ExpectedFieldMissing(String::from("AccountHeader.StorageCommitment")))?
+            .ok_or(RpcError::ExpectedDataMissing(String::from("AccountHeader.StorageCommitment")))?
             .try_into()?;
         let code_commitment = code_commitment
-            .ok_or(RpcError::ExpectedFieldMissing(String::from("AccountHeader.CodeCommitment")))?
+            .ok_or(RpcError::ExpectedDataMissing(String::from("AccountHeader.CodeCommitment")))?
             .try_into()?;
 
         Ok(AccountHeader::new(

@@ -136,15 +136,61 @@ impl NoteInclusionDetails {
 /// Represents a proof of existence of an account's state at a specific block number.
 pub struct AccountProof {
     /// Account ID.
-    pub account_id: AccountId,
+    account_id: AccountId,
     /// Block number at which the state is being represented.
-    pub block_num: u32,
+    block_num: u32,
     /// Authentication path from the `account_root` of the block header to the account.
-    pub merkle_proof: MerklePath,
+    merkle_proof: MerklePath,
     /// Account hash for the current state.
-    pub account_hash: Digest,
+    account_hash: Digest,
     /// State headers of public accounts.
-    pub state_header: Option<(AccountHeader, AccountStorageHeader)>,
+    state_headers: Option<(AccountHeader, AccountStorageHeader)>,
+}
+
+impl AccountProof {
+    pub fn new(
+        account_id: AccountId,
+        block_num: u32,
+        merkle_proof: MerklePath,
+        account_hash: Digest,
+        state_headers: Option<(AccountHeader, AccountStorageHeader)>,
+    ) -> Self {
+        Self {
+            account_id,
+            block_num,
+            merkle_proof,
+            account_hash,
+            state_headers,
+        }
+    }
+
+    pub fn account_id(&self) -> AccountId {
+        self.account_id
+    }
+
+    pub fn state_headers(&self) -> Option<&(AccountHeader, AccountStorageHeader)> {
+        self.state_headers.as_ref()
+    }
+
+    pub fn account_header(&self) -> Option<&AccountHeader> {
+        self.state_headers.as_ref().map(|headers| &headers.0)
+    }
+
+    pub fn storage_header(&self) -> Option<&AccountStorageHeader> {
+        self.state_headers.as_ref().map(|headers| &headers.1)
+    }
+
+    pub fn account_hash(&self) -> Digest {
+        self.account_hash
+    }
+
+    pub fn block_num(&self) -> u32 {
+        self.block_num
+    }
+
+    pub fn merkle_proof(&self) -> &MerklePath {
+        &self.merkle_proof
+    }
 }
 
 // NODE RPC CLIENT TRAIT
