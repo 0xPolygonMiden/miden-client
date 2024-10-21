@@ -13,9 +13,10 @@ use miden_client::{
     transactions::{LocalTransactionProver, TransactionProver},
     Client, ClientError, Felt, IdPrefixFetchError,
 };
+use miden_tx_prover::RemoteTransactionProver;
 use rand::Rng;
-
 mod commands;
+use winter_maybe_async::{maybe_await};
 
 use commands::{
     account::AccountCmd,
@@ -129,11 +130,15 @@ impl Cli {
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
         let authenticator = StoreAuthenticator::new_with_rng(store.clone() as Arc<dyn Store>, rng);
 
-        let tx_prover = match &cli_config.proving_mode {
+        let tx_prover: Arc<dyn TransactionProver> = match &cli_config.proving_mode {
             ProvingMode::Local => Arc::new(LocalTransactionProver::new(Default::default())),
-            ProvingMode::Remote => {
-                unimplemented!("Remote proving mode is not yet supported")
-            },
+            ProvingMode::Remote => Arc::new(
+                RemoteTransactionProver::new(
+                    &cli_config.proving_rpc_endpoint.as_ref().unwrap().to_string(),
+                )
+                .await
+                .unwrap(),
+            ),
         };
 
         let client = Client::new(
