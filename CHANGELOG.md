@@ -14,6 +14,7 @@
 * [BREAKING] Refactored `OutputNoteRecord` to use states and transitions for updates (#551).
 * Added better error handling for WASM sync state (#558).
 * Added WASM Input note tests + updated input note models (#554)
+* Added support for remote proving in the CLI (#552).
 * Added new variants for the `NoteFilter` struct (#538).
 * [BREAKING] Added note tags for future notes in `TransactionRequest` (#538).
 * Added support for multiple input note inserts at once (#538).
