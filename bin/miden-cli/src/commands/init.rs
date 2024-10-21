@@ -3,7 +3,7 @@ use std::{fs::File, io::Write, path::PathBuf};
 use clap::Parser;
 use miden_client::config::Endpoint;
 
-use crate::{config::CliConfig, ProvingMode, CLIENT_CONFIG_FILE_NAME};
+use crate::{config::CliConfig, CLIENT_CONFIG_FILE_NAME};
 
 // Init COMMAND
 // ================================================================================================
@@ -21,14 +21,10 @@ pub struct InitCmd {
     #[clap(long)]
     store_path: Option<String>,
 
-    /// Proving mode. It can be performed locally or remotely. If the remote option is selected,
-    /// the RPC endpoint must be provided.
-    #[clap(long, default_value = "local")]
-    proving_mode: ProvingMode,
-
     /// RPC endpoint for the proving service. Required if proving mode is set to remote.
     /// The endpoint must be in the form of "{protocol}://{hostname}:{port}", being the protocol
     /// and port optional.
+    /// If the proving RPC is not set, the proving mode will be set to local.
     #[clap(long)]
     proving_rpc: Option<String>,
 }
@@ -55,19 +51,9 @@ impl InitCmd {
             cli_config.store.database_filepath = path.to_string();
         }
 
-        cli_config.proving_mode = self.proving_mode.clone();
-
-        if self.proving_mode == ProvingMode::Remote && self.proving_rpc.is_none() {
-            return Err("Proving mode is set to remote, but proving RPC endpoint is not provided."
-                .to_string());
-        }
-
-        if let Some(proving_rpc) = &self.proving_rpc {
-            let endpoint = Endpoint::try_from(proving_rpc.as_str())
-                .map_err(|err| format!("Error parsing proving RPC endpoint: {err}"))?;
-
-            cli_config.proving_rpc_endpoint = Some(endpoint);
-        }
+        cli_config.proving_rpc_endpoint = self.proving_rpc.clone().map(|rpc| {
+            Endpoint::try_from(rpc.as_str()).expect("Error parsing proving RPC endpoint")
+        });
 
         let config_as_toml_string = toml::to_string_pretty(&cli_config)
             .map_err(|err| format!("Error formatting config: {err}"))?;
