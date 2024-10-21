@@ -366,13 +366,10 @@ impl NodeRpcClient for TonicRpcClient {
                 None
             };
 
-            account_proofs.push(AccountProof::new(
-                account_id,
-                block_num,
-                merkle_proof,
-                account_hash,
-                headers,
-            ));
+            let proof =
+                AccountProof::new(account_id, block_num, merkle_proof, account_hash, headers)
+                    .map_err(|err| RpcError::InvalidResponse(err.to_string()))?;
+            account_proofs.push(proof);
         }
 
         Ok(account_proofs)

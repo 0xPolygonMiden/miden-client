@@ -154,14 +154,23 @@ impl AccountProof {
         merkle_proof: MerklePath,
         account_hash: Digest,
         state_headers: Option<(AccountHeader, AccountStorageHeader)>,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, AccountProofError> {
+        if let Some((account_header, _)) = &state_headers {
+            if account_header.hash() != account_hash {
+                return Err(AccountProofError::InconsistentAccountHash);
+            }
+            if account_id != account_header.id() {
+                return Err(AccountProofError::InconsistentAccountId);
+            }
+        }
+
+        Ok(Self {
             account_id,
             block_num,
             merkle_proof,
             account_hash,
             state_headers,
-        }
+        })
     }
 
     pub fn account_id(&self) -> AccountId {
@@ -190,6 +199,20 @@ impl AccountProof {
 
     pub fn merkle_proof(&self) -> &MerklePath {
         &self.merkle_proof
+    }
+}
+
+pub enum AccountProofError {
+    InconsistentAccountHash,
+    InconsistentAccountId,
+}
+
+impl fmt::Display for AccountProofError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AccountProofError::InconsistentAccountHash => write!(f,"The received account hash does not match the received account header's account hash"),
+            AccountProofError::InconsistentAccountId => write!(f,"The received account ID does not match the received account header's ID"),
+        }
     }
 }
 
