@@ -1,6 +1,7 @@
 use std::fs;
 
 use miden_client::{crypto::FeltRng, store::NoteFilter, Client};
+use winter_maybe_async::{maybe_async, maybe_await};
 
 use super::config::CliConfig;
 

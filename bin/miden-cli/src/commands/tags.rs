@@ -4,6 +4,7 @@ use miden_client::{
     Client,
 };
 use tracing::info;
+use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::Parser;
 

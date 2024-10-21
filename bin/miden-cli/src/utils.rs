@@ -10,6 +10,7 @@ use figment::{
 };
 use miden_client::{accounts::AccountId, crypto::FeltRng, Client};
 use tracing::info;
+use winter_maybe_async::{maybe_async, maybe_await};
 
 use super::{config::CliConfig, get_account_with_id_prefix, CLIENT_CONFIG_FILE_NAME};
 use crate::faucet_details_map::FaucetDetailsMap;

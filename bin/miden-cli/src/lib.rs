@@ -16,8 +16,6 @@ use miden_client::{
 use miden_tx_prover::RemoteTransactionProver;
 use rand::Rng;
 mod commands;
-use winter_maybe_async::{maybe_await};
-
 use commands::{
     account::AccountCmd,
     export::ExportCmd,
@@ -31,6 +29,7 @@ use commands::{
     transactions::TransactionCmd,
 };
 use serde::{Deserialize, Serialize};
+use winter_maybe_async::{maybe_async, maybe_await};
 
 use self::utils::load_config_file;
 

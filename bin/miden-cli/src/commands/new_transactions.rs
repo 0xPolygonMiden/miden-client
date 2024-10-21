@@ -13,6 +13,7 @@ use miden_client::{
     Client,
 };
 use tracing::info;
+use winter_maybe_async::maybe_await;
 
 use crate::{
     create_dynamic_table,
@@ -226,17 +227,11 @@ impl ConsumeNotesCmd {
         let force = self.force;
 
         let mut list_of_notes = Vec::new();
-
         for note_id in &self.list_of_notes {
-            let result = get_input_note_with_id_prefix(&client, note_id)
+            let note_record = get_input_note_with_id_prefix(&client, note_id)
                 .await
-                .map(|note_record| note_record.id())
-                .map_err(|err| err.to_string());
-
-            match result {
-                Ok(note_id) => list_of_notes.push(note_id),
-                Err(e) => return Err(e), // If you want to stop on the first error
-            }
+                .map_err(|err| err.to_string())?;
+            list_of_notes.push(note_record.id());
         }
 
         let account_id =

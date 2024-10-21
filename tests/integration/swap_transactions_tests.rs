@@ -8,6 +8,7 @@ use miden_objects::{
     assets::{Asset, FungibleAsset, TokenSymbol},
     notes::{NoteDetails, NoteExecutionMode, NoteFile, NoteId, NoteTag, NoteType},
 };
+use winter_maybe_async::maybe_await;
 
 use super::common::*;
 
@@ -48,8 +49,8 @@ async fn test_swap_fully_onchain() {
         .unwrap();
 
     // Create client with faucets BTC faucet (note: it's not real BTC)
-    let (btc_faucet_account, _) = client_with_faucets
-        .new_account(AccountTemplate::FungibleFaucet {
+    let (btc_faucet_account, _) =
+        maybe_await!(client_with_faucets.new_account(AccountTemplate::FungibleFaucet {
             token_symbol: TokenSymbol::new("BTC").unwrap(),
             decimals: 8,
             max_supply: 1_000_000,
@@ -58,8 +59,8 @@ async fn test_swap_fully_onchain() {
         .await
         .unwrap();
     // Create client with faucets ETH faucet (note: it's not real ETH)
-    let (eth_faucet_account, _) = client_with_faucets
-        .new_account(AccountTemplate::FungibleFaucet {
+    let (eth_faucet_account, _) =
+        maybe_await!(client_with_faucets.new_account(AccountTemplate::FungibleFaucet {
             token_symbol: TokenSymbol::new("ETH").unwrap(),
             decimals: 8,
             max_supply: 1_000_000,
@@ -261,8 +262,8 @@ async fn test_swap_offchain() {
         .unwrap();
 
     // Create client with faucets BTC faucet (note: it's not real BTC)
-    let (btc_faucet_account, _) = client_with_faucets
-        .new_account(AccountTemplate::FungibleFaucet {
+    let (btc_faucet_account, _) =
+        maybe_await!(client_with_faucets.new_account(AccountTemplate::FungibleFaucet {
             token_symbol: TokenSymbol::new("BTC").unwrap(),
             decimals: 8,
             max_supply: 1_000_000,
@@ -271,8 +272,8 @@ async fn test_swap_offchain() {
         .await
         .unwrap();
     // Create client with faucets ETH faucet (note: it's not real ETH)
-    let (eth_faucet_account, _) = client_with_faucets
-        .new_account(AccountTemplate::FungibleFaucet {
+    let (eth_faucet_account, _) =
+        maybe_await!(client_with_faucets.new_account(AccountTemplate::FungibleFaucet {
             token_symbol: TokenSymbol::new("ETH").unwrap(),
             decimals: 8,
             max_supply: 1_000_000,

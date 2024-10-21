@@ -9,6 +9,7 @@ use miden_objects::{
     notes::{NoteFile, NoteTag, NoteType},
     transaction::InputNote,
 };
+use winter_maybe_async::maybe_await;
 
 use super::common::*;
 
@@ -311,8 +312,8 @@ async fn test_onchain_notes_sync_with_tag() {
     execute_tx_and_sync(&mut client_1, faucet_account.id(), tx_request).await;
 
     // Load tag into client 2
-    client_2
-        .add_note_tag(
+    maybe_await!(
+        client_2.add_note_tag(
             NoteTag::from_account_id(
                 target_account_id,
                 miden_objects::notes::NoteExecutionMode::Local,

@@ -1,6 +1,7 @@
 use miden_client::{
     crypto::FeltRng, store::TransactionFilter, transactions::TransactionRecord, Client,
 };
+use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{create_dynamic_table, Parser};
 

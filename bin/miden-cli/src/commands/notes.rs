@@ -12,6 +12,7 @@ use miden_client::{
     store::{InputNoteRecord, NoteFilter as ClientNoteFilter, OutputNoteRecord},
     Client, ClientError, IdPrefixFetchError,
 };
+use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
     create_dynamic_table, get_output_note_with_id_prefix, utils::load_faucet_details_map, Parser,
@@ -64,7 +65,7 @@ impl NotesCmd {
                 list_consumable_notes(client, &None).await?;
             },
             NotesCmd { list: Some(filter), .. } => {
-                list_notes(
+                maybe_await!(list_notes(
                     client,
                     filter.clone().try_into().expect("Filter shouldn't be consumable"),
                 )

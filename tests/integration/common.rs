@@ -33,6 +33,7 @@ use miden_objects::{
 };
 use rand::Rng;
 use uuid::Uuid;
+use winter_maybe_async::maybe_await;
 
 pub const ACCOUNT_ID_REGULAR: u64 = ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_OFF_CHAIN;
 
@@ -234,8 +235,8 @@ pub async fn setup(
         .await
         .unwrap();
 
-    let (second_basic_account, _) = client
-        .new_account(AccountTemplate::BasicWallet {
+    let (second_basic_account, _) =
+        maybe_await!(client.new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
             storage_mode: AccountStorageMode::Private,
         })

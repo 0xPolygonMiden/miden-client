@@ -783,6 +783,7 @@ mod test {
         testing::account_component::BASIC_WALLET_CODE,
         Felt, FieldElement, Word,
     };
+    use winter_maybe_async::maybe_await;
 
     use super::{PaymentTransactionData, TransactionRequest};
     use crate::mock::create_test_client;

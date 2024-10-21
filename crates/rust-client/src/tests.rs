@@ -18,6 +18,7 @@ use miden_objects::{
     Felt, FieldElement, Word,
 };
 use miden_tx::utils::{Deserializable, Serializable};
+use winter_maybe_async::maybe_await;
 
 use crate::{
     accounts::AccountTemplate,

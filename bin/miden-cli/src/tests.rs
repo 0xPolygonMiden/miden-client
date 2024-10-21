@@ -22,6 +22,7 @@ use miden_client::{
 };
 use rand::Rng;
 use uuid::Uuid;
+use winter_maybe_async::{maybe_async, maybe_await};
 
 /// CLI TESTS
 ///
