@@ -114,6 +114,10 @@ impl InputNoteRecord {
         )
     }
 
+    pub fn is_committed(&self) -> bool {
+        matches!(self.state, InputNoteState::Committed { .. })
+    }
+
     // TRANSITIONS
     // ================================================================================================
 
@@ -290,6 +294,23 @@ impl TryInto<InputNote> for InputNoteRecord {
 }
 
 impl TryInto<Note> for InputNoteRecord {
+    type Error = NoteRecordError;
+
+    fn try_into(self) -> Result<Note, Self::Error> {
+        match self.metadata().cloned() {
+            Some(metadata) => Ok(Note::new(
+                self.details.assets().clone(),
+                metadata,
+                self.details.recipient().clone(),
+            )),
+            None => Err(NoteRecordError::ConversionError(
+                "Input Note Record contains no metadata".to_string(),
+            )),
+        }
+    }
+}
+
+impl TryInto<Note> for &InputNoteRecord {
     type Error = NoteRecordError;
 
     fn try_into(self) -> Result<Note, Self::Error> {

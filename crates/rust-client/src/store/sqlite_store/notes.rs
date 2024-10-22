@@ -256,13 +256,6 @@ impl SqliteStore {
             NoteFilter::Unique(note_id) if notes.is_empty() => {
                 return Err(StoreError::NoteNotFound(note_id));
             },
-            NoteFilter::List(note_ids) if note_ids.len() != notes.len() => {
-                let missing_note_id = note_ids
-                    .iter()
-                    .find(|&note_id| !notes.iter().any(|note_record| note_record.id() == *note_id))
-                    .expect("should find one note id that wasn't retrieved by the db");
-                return Err(StoreError::NoteNotFound(*missing_note_id));
-            },
             _ => {},
         }
         Ok(notes)
@@ -285,13 +278,6 @@ impl SqliteStore {
         match filter {
             NoteFilter::Unique(note_id) if notes.is_empty() => {
                 return Err(StoreError::NoteNotFound(note_id));
-            },
-            NoteFilter::List(note_ids) if note_ids.len() != notes.len() => {
-                let missing_note_id = note_ids
-                    .iter()
-                    .find(|&note_id| !notes.iter().any(|note_record| note_record.id() == *note_id))
-                    .expect("should find one note id that wasn't retrieved by the db");
-                return Err(StoreError::NoteNotFound(*missing_note_id));
             },
             _ => {},
         }
