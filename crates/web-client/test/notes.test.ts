@@ -41,11 +41,9 @@ const setupConsumedNote = async () => {
 describe("get_input_note", () => {
   it("retrieve input note that does not exist", async () => {
     await setupWalletAndFaucet();
-    try {
-      await getInputNote(badHexId);
-    } catch (err) {
-      expect(err).to.contain("Failed to get input note:");
-    }
+    await expect(getInputNote(badHexId)).to.be.rejectedWith(
+      /Failed to get input note/
+    );
   });
 
   it("retrieve an input note that does exist", async () => {
@@ -60,7 +58,7 @@ describe("get_input_notes", () => {
   it("note exists, note filter all", async () => {
     const { consumedNoteId } = await setupConsumedNote();
     const { noteIds } = await getInputNotes();
-    expect(noteIds).to.have.lengthOf.at.least(1);    
+    expect(noteIds).to.have.lengthOf.at.least(1);
     expect(noteIds).to.include(consumedNoteId);
   });
 });

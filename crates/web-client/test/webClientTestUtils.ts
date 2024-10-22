@@ -16,7 +16,6 @@ export const mintTransaction = async (
 ): Promise<MintTransactionResult> => {
   return await testingPage.evaluate(
     async (_targetAccountId, _faucetAccountId) => {
-
       const client = window.client;
 
       await new Promise((r) => setTimeout(r, 20000));
@@ -157,5 +156,6 @@ export const isValidAddress = (address: string) => {
 };
 
 // Constants
+
 export const badHexId =
   "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
