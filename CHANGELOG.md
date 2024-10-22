@@ -2,7 +2,7 @@
 
 ## 0.6.0 (TBD)
 
-* WASM Input note tests + input note model updates (#554)
+* Added WASM Input note tests + updated input note models (#554)
 * Added new variants for the `NoteFilter` struct (#538).
 * [BREAKING] Added note tags for future notes in `TransactionRequest` (#538).
 * Added support for multiple input note inserts at once (#538).
