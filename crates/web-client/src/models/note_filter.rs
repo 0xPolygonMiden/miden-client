@@ -28,7 +28,6 @@ pub enum NoteFilterTypes {
     Committed,
     Expected,
     Processing,
-    Ignored,
     List,
     Unique,
     Nullifiers,
@@ -46,7 +45,6 @@ impl From<NoteFilter> for NativeNoteFilter {
             NoteFilterTypes::Committed => NativeNoteFilter::Committed,
             NoteFilterTypes::Expected => NativeNoteFilter::Expected,
             NoteFilterTypes::Processing => NativeNoteFilter::Processing,
-            NoteFilterTypes::Ignored => NativeNoteFilter::Ignored,
             NoteFilterTypes::List => {
                 let note_ids =
                     filter.note_ids.unwrap_or_else(|| panic!("Note IDs required for List filter"));
@@ -76,7 +74,6 @@ impl From<&NoteFilter> for NativeNoteFilter {
             NoteFilterTypes::Committed => NativeNoteFilter::Committed,
             NoteFilterTypes::Expected => NativeNoteFilter::Expected,
             NoteFilterTypes::Processing => NativeNoteFilter::Processing,
-            NoteFilterTypes::Ignored => NativeNoteFilter::Ignored,
             NoteFilterTypes::List => {
                 let note_ids = filter
                     .note_ids
