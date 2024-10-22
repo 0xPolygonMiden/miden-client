@@ -18,4 +18,9 @@
   ],  
   "files": ["./test/global.test.d.ts"],
   "exclude": ["node_modules", "js"],
+  "ts-node": {
+    "esm": true,
+    "experimentalSpecifierResolution": "node",
+    "transpileOnly": true
+  }
 }
