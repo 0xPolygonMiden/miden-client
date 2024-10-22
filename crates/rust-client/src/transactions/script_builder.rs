@@ -180,9 +180,9 @@ impl TransactionScriptBuilder {
             },
         }
 
-        // if self.expiration_delta.is_some() {
-        //     includes.push_str("use.update_expiration_block_num\n");
-        // }
+        if self.expiration_delta.is_some() {
+            includes.push_str("use.miden::tx\n");
+        }
 
         includes
     }
@@ -195,7 +195,7 @@ impl TransactionScriptBuilder {
 
     fn script_expiration(&self) -> String {
         if let Some(expiration_delta) = self.expiration_delta {
-            format!("push.{} call.faucet::update_expiration_block_num\n", expiration_delta)
+            format!("push.{} exec.tx::update_expiration_block_delta\n", expiration_delta)
         } else {
             String::new()
         }
