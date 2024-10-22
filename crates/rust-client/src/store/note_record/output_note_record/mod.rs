@@ -98,6 +98,17 @@ impl OutputNoteRecord {
         self.expected_height
     }
 
+    pub fn is_consumed(&self) -> bool {
+        matches!(self.state, OutputNoteState::Consumed { .. })
+    }
+
+    pub fn is_committed(&self) -> bool {
+        matches!(
+            self.state,
+            OutputNoteState::CommittedFull { .. } | OutputNoteState::CommittedPartial { .. }
+        )
+    }
+
     // TRANSITIONS
     // --------------------------------------------------------------------------------------------
 

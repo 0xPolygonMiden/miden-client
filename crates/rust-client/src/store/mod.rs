@@ -356,14 +356,15 @@ pub enum NoteFilter {
     /// Return a list of expected notes ([InputNoteRecord] or [OutputNoteRecord]). These represent
     /// notes for which the store does not have anchor data.
     Expected,
-    /// Return a list containing the note that matches with the provided [NoteId].
+    /// Return a list containing any notes that match with the provided [NoteId] vector.
     List(Vec<NoteId>),
-    /// Return a list of notes that match the provided [Nullifier] list.
+    /// Return a list containing any notes that match the provided [Nullifier] vector.
     Nullifiers(Vec<Nullifier>),
     /// Return a list of notes that are currently being processed. This filter doesn't apply to
     /// output notes.
     Processing,
-    /// Return a list containing the note that matches with the provided [NoteId].
+    /// Return a list containing the note that matches with the provided [NoteId]. The query will
+    /// return an error if the note is not found.
     Unique(NoteId),
     /// Return a list containing notes that haven't been nullified yet, this includes expected,
     /// committed, processing and unverified notes.
