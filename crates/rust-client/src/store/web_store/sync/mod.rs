@@ -187,7 +187,7 @@ impl WebStore {
                     input_note_record.block_header_received(block_header)?;
 
                 if inclusion_proof_received || block_header_received {
-                    upsert_input_note_tx(input_note_record.clone()).await.unwrap();
+                    upsert_input_note_tx(input_note_record).await.unwrap();
                 }
             }
         }
@@ -211,7 +211,7 @@ impl WebStore {
                 .into(),
             );
 
-            upsert_input_note_tx(input_note_record).await.unwrap();
+            upsert_input_note_tx(&input_note_record).await.unwrap();
         }
 
         // Serialize data for updating committed transactions

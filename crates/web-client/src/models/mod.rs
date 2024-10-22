@@ -67,6 +67,7 @@ pub mod output_notes;
 pub mod partial_note;
 pub mod rpo256;
 pub mod rpo_digest;
+pub mod sync_summary;
 pub mod test_utils;
 pub mod transaction_args;
 pub mod transaction_filter;

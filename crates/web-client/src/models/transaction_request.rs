@@ -2,7 +2,10 @@ use miden_client::transactions::{
     NoteArgs as NativeNoteArgs, TransactionRequest as NativeTransactionRequest,
 };
 use miden_objects::{
-    notes::{Note as NativeNote, NoteDetails as NativeNoteDetails, NoteId as NativeNoteId},
+    notes::{
+        Note as NativeNote, NoteDetails as NativeNoteDetails, NoteId as NativeNoteId,
+        NoteTag as NativeNoteTag,
+    },
     transaction::{OutputNote as NativeOutputNote, TransactionScript as NativeTransactionScript},
     vm::AdviceMap as NativeAdviceMap,
 };
@@ -11,8 +14,9 @@ use wasm_bindgen::prelude::*;
 use super::{
     advice_map::AdviceMap,
     note::{Note, NotesArray},
-    note_details::NoteDetailsArray,
+    note_details::NoteDetails,
     note_id::NoteId,
+    note_tag::NoteTag,
     output_note::OutputNotesArray,
     transaction_script::TransactionScript,
     word::Word,
@@ -157,6 +161,80 @@ impl From<&NoteIdAndArgsArray> for Vec<(NativeNoteId, Option<NativeNoteArgs>)> {
     }
 }
 
+/// HELPER STRUCTS
+/// ================================================================================================
+
+#[derive(Clone)]
+#[wasm_bindgen]
+pub struct NoteDetailsAndTag {
+    note_details: NoteDetails,
+    tag: NoteTag,
+}
+
+#[wasm_bindgen]
+impl NoteDetailsAndTag {
+    #[wasm_bindgen(constructor)]
+    pub fn new(note_details: NoteDetails, tag: NoteTag) -> NoteDetailsAndTag {
+        NoteDetailsAndTag { note_details, tag }
+    }
+}
+
+impl From<NoteDetailsAndTag> for (NativeNoteDetails, NativeNoteTag) {
+    fn from(note_details_and_args: NoteDetailsAndTag) -> Self {
+        let native_note_details: NativeNoteDetails = note_details_and_args.note_details.into();
+        let native_tag: NativeNoteTag = note_details_and_args.tag.into();
+        (native_note_details, native_tag)
+    }
+}
+
+impl From<&NoteDetailsAndTag> for (NativeNoteDetails, NativeNoteTag) {
+    fn from(note_details_and_args: &NoteDetailsAndTag) -> Self {
+        let native_note_details: NativeNoteDetails =
+            note_details_and_args.note_details.clone().into();
+        let native_tag: NativeNoteTag = note_details_and_args.tag.into();
+        (native_note_details, native_tag)
+    }
+}
+
+#[derive(Clone)]
+#[wasm_bindgen]
+pub struct NoteDetailsAndTagArray(Vec<NoteDetailsAndTag>);
+
+#[wasm_bindgen]
+impl NoteDetailsAndTagArray {
+    #[wasm_bindgen(constructor)]
+    pub fn new(
+        note_details_and_tag_array: Option<Vec<NoteDetailsAndTag>>,
+    ) -> NoteDetailsAndTagArray {
+        let note_details_and_tag_array = note_details_and_tag_array.unwrap_or_default();
+        NoteDetailsAndTagArray(note_details_and_tag_array)
+    }
+
+    pub fn push(&mut self, note_details_and_tag: &NoteDetailsAndTag) {
+        self.0.push(note_details_and_tag.clone());
+    }
+}
+
+impl From<NoteDetailsAndTagArray> for Vec<(NativeNoteDetails, NativeNoteTag)> {
+    fn from(note_details_and_tag_array: NoteDetailsAndTagArray) -> Self {
+        note_details_and_tag_array
+            .0
+            .into_iter()
+            .map(|note_details_and_tag| note_details_and_tag.into())
+            .collect()
+    }
+}
+
+impl From<&NoteDetailsAndTagArray> for Vec<(NativeNoteDetails, NativeNoteTag)> {
+    fn from(note_details_and_tag_array: &NoteDetailsAndTagArray) -> Self {
+        note_details_and_tag_array
+            .0
+            .iter()
+            .map(|note_details_and_tag| note_details_and_tag.into())
+            .collect()
+    }
+}
+
 // Transaction Request
 
 #[derive(Clone)]
@@ -202,9 +280,13 @@ impl TransactionRequest {
         self
     }
 
-    pub fn with_expected_future_notes(mut self, note_details: &NoteDetailsArray) -> Self {
-        let native_note_details: Vec<NativeNoteDetails> = note_details.into();
-        self.0 = self.0.clone().with_expected_future_notes(native_note_details);
+    pub fn with_expected_future_notes(
+        mut self,
+        note_details_and_tag: &NoteDetailsAndTagArray,
+    ) -> Self {
+        let native_note_details_and_tag: Vec<(NativeNoteDetails, NativeNoteTag)> =
+            note_details_and_tag.into();
+        self.0 = self.0.clone().with_expected_future_notes(native_note_details_and_tag);
         self
     }
 

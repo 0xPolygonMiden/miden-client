@@ -57,7 +57,7 @@ pub struct SerializedOutputNoteData {
 // ================================================================================================
 
 pub(crate) fn serialize_input_note(
-    note: InputNoteRecord,
+    note: &InputNoteRecord,
 ) -> Result<SerializedInputNoteData, StoreError> {
     let note_id = note.id().inner().to_string();
     let note_assets = note.assets().to_bytes();
@@ -89,7 +89,7 @@ pub(crate) fn serialize_input_note(
     })
 }
 
-pub async fn upsert_input_note_tx(note: InputNoteRecord) -> Result<(), StoreError> {
+pub async fn upsert_input_note_tx(note: &InputNoteRecord) -> Result<(), StoreError> {
     let serialized_data = serialize_input_note(note)?;
 
     let promise = idxdb_upsert_input_note(

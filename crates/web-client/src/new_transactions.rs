@@ -257,7 +257,7 @@ impl WebClient {
                     .collect(),
                 swap_transaction_request
                     .expected_future_notes()
-                    .map(|note| note.id().to_string())
+                    .map(|note| note.0.id().to_string())
                     .collect(),
                 None,
             );
