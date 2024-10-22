@@ -1,6 +1,6 @@
 {
   "name": "@demox-labs/miden-sdk",
-  "version": "0.0.12",
+  "version": "0.0.14",
   "description": "Polygon Miden Wasm SDK",
   "collaborators": [
     "Polygon Miden",
@@ -19,7 +19,7 @@
   ],
   "scripts": {
     "build": "rimraf dist && rollup -c rollup.config.js && cpr js/types dist && node clean.js",
-    "test": "node --loader ts-node/esm --loader esm ./node_modules/mocha/bin/mocha --file ./test/mocha.global.setup.mjs",
+    "test": "node --loader ts-node/esm ./node_modules/mocha/bin/mocha --file ./test/mocha.global.setup.mjs",
     "test:logs": "cross-env DEBUG_MODE=true node --loader ts-node/esm --loader esm ./node_modules/mocha/bin/mocha --file ./test/mocha.global.setup.mjs",
     "test:clean": "npm install && MIDEN_WEB_TESTING=true npm run build && node --loader ts-node/esm --loader esm ./node_modules/mocha/bin/mocha --file ./test/mocha.global.setup.mjs"
   },
