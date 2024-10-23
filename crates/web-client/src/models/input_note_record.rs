@@ -1,7 +1,7 @@
 use miden_client::store::InputNoteRecord as NativeInputNoteRecord;
 use wasm_bindgen::prelude::*;
 
-use super::{note_details::NoteDetails, note_id::NoteId, note_state::NoteState};
+use super::{input_note_state::InputNoteState, note_details::NoteDetails, note_id::NoteId};
 
 #[derive(Clone)]
 #[wasm_bindgen]
@@ -13,7 +13,7 @@ impl InputNoteRecord {
         self.0.id().into()
     }
 
-    pub fn state(&self) -> NoteState {
+    pub fn state(&self) -> InputNoteState {
         self.0.state().into()
     }
 
