@@ -3,8 +3,8 @@ use miden_client::{
     notes::NoteRelevance,
     rpc::{AccountDetails, NodeRpcClient, TonicRpcClient},
     store::{
-        ConsumedAuthenticatedLocalNoteState, InputNoteRecord, NoteFilter, NoteState, NoteStatus,
-        TransactionFilter,
+        input_note_states::ConsumedAuthenticatedLocalNoteState, InputNoteRecord, InputNoteState,
+        NoteFilter, OutputNoteState, TransactionFilter,
     },
     sync::NoteTagSource,
     transactions::{
@@ -128,7 +128,7 @@ async fn test_multiple_tx_on_same_block() {
 
     let note_id = transactions[0].output_notes.iter().next().unwrap().id();
     let note = client.get_output_note(note_id).unwrap();
-    assert!(matches!(note.status(), NoteStatus::Committed { .. }));
+    assert!(matches!(note.state(), OutputNoteState::CommittedFull { .. }));
 
     let (sender_account, _) = client.get_account(from_account_id).unwrap();
     assert_eq!(
@@ -282,7 +282,7 @@ async fn test_p2idr_transfer_consumed_by_target() {
     //Check that the note is not consumed by the target account
     assert!(matches!(
         client.get_input_note(note.id()).unwrap().state(),
-        NoteState::Committed { .. }
+        InputNoteState::Committed { .. }
     ));
 
     consume_notes(&mut client, from_account_id, &[note.clone()]).await;
@@ -290,8 +290,8 @@ async fn test_p2idr_transfer_consumed_by_target() {
 
     // Check that the note is consumed by the target account
     let input_note = client.get_input_note(note.id()).unwrap();
-    assert!(matches!(input_note.state(), NoteState::ConsumedAuthenticatedLocal { .. }));
-    if let NoteState::ConsumedAuthenticatedLocal(ConsumedAuthenticatedLocalNoteState {
+    assert!(matches!(input_note.state(), InputNoteState::ConsumedAuthenticatedLocal { .. }));
+    if let InputNoteState::ConsumedAuthenticatedLocal(ConsumedAuthenticatedLocalNoteState {
         submission_data,
         ..
     }) = input_note.state()
@@ -696,7 +696,7 @@ async fn test_import_expected_note_uncommitted() {
 
     let imported_note = client_2.get_input_note(imported_note_id).unwrap();
 
-    assert!(matches!(imported_note.state(), NoteState::Expected { .. }));
+    assert!(matches!(imported_note.state(), InputNoteState::Expected { .. }));
 }
 
 #[tokio::test]
@@ -1135,7 +1135,7 @@ async fn test_import_consumed_note_with_proof() {
         .unwrap();
 
     let consumed_note = client_2.get_input_note(note.id()).unwrap();
-    assert!(matches!(consumed_note.state(), NoteState::ConsumedExternal { .. }));
+    assert!(matches!(consumed_note.state(), InputNoteState::ConsumedExternal { .. }));
 }
 
 #[tokio::test]
@@ -1187,7 +1187,7 @@ async fn test_import_consumed_note_with_id() {
     client_2.import_note(NoteFile::NoteId(note.id())).await.unwrap();
 
     let consumed_note = client_2.get_input_note(note.id()).unwrap();
-    assert!(matches!(consumed_note.state(), NoteState::ConsumedExternal { .. }));
+    assert!(matches!(consumed_note.state(), InputNoteState::ConsumedExternal { .. }));
 }
 
 #[tokio::test]
@@ -1246,18 +1246,18 @@ async fn test_discarded_transaction() {
     client_1.testing_apply_transaction(tx_result).await.unwrap();
 
     let note_record = client_1.get_input_note(note.id()).unwrap();
-    assert!(matches!(note_record.state(), NoteState::ProcessingAuthenticated(_)));
+    assert!(matches!(note_record.state(), InputNoteState::ProcessingAuthenticated(_)));
 
     // Consume the note in client 2
     execute_tx_and_sync(&mut client_2, to_account_id, tx_request).await;
 
     let note_record = client_2.get_input_note(note.id()).unwrap();
-    assert!(matches!(note_record.state(), NoteState::ConsumedAuthenticatedLocal(_)));
+    assert!(matches!(note_record.state(), InputNoteState::ConsumedAuthenticatedLocal(_)));
 
     // After sync the note in client 1 should be consumed externally and the transaction discarded
     client_1.sync_state().await.unwrap();
     let note_record = client_1.get_input_note(note.id()).unwrap();
-    assert!(matches!(note_record.state(), NoteState::ConsumedExternal(_)));
+    assert!(matches!(note_record.state(), InputNoteState::ConsumedExternal(_)));
     let tx_record = client_1
         .get_transactions(TransactionFilter::All)
         .unwrap()

@@ -2,6 +2,7 @@
 
 ## 0.6.0 (TBD)
 
+* [BREAKING] Refactored `OutputNoteRecord` to use states and transitions for updates (#551).
 * Added better error handling for WASM sync state 
 * Added WASM Input note tests + updated input note models (#554)
 * Added new variants for the `NoteFilter` struct (#538).

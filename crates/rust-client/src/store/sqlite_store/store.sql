@@ -89,34 +89,17 @@ CREATE TABLE input_notes (
 -- Create output notes table
 CREATE TABLE output_notes (
     note_id TEXT NOT NULL,                                  -- the note id
-    recipient BLOB NOT NULL,                                -- the note recipient
+    recipient_digest TEXT NOT NULL,                                -- the note recipient
     assets BLOB NOT NULL,                                   -- the serialized NoteAssets, including vault hash and list of assets
-    status TEXT CHECK( status IN (                          -- the status of the note - either expected, committed, processing or consumed
-        'Expected', 'Committed', 'Processing', 'Consumed'
-        )),
-
-    inclusion_proof BLOB NULL,                              -- serialized inclusion proof
-
     metadata BLOB NOT NULL,                                 -- serialized metadata
-
     nullifier TEXT NULL,
-    script_hash TEXT NULL,
-    details BLOB NULL,                                      -- serialized note record details
-    consumer_transaction_id BLOB NULL,                      -- the transaction ID of the transaction that consumed the note
-    created_at UNSIGNED BIG INT NOT NULL,                   -- timestamp of the note creation/import
-    expected_height UNSIGNED BIG INT NULL,                  -- block height when the note is expected to be committed
-    submitted_at UNSIGNED BIG INT NULL,                      -- timestamp of the note submission to node
-    nullifier_height UNSIGNED BIG INT NULL,                 -- block height when the nullifier arrived
-    ignored BOOLEAN NOT NULL DEFAULT 0,                     -- whether the note is ignored in sync
-    imported_tag UNSIGNED INT NULL,                         -- imported tag for the note
+    expected_height UNSIGNED INT NOT NULL,                  -- the block height after which the note is expected to be created
+-- TODO: normalize script data for output notes
+--     script_hash TEXT NULL,
+    state_discriminant UNSIGNED INT NOT NULL,               -- state discriminant of the note, used to query by state
+    state BLOB NOT NULL,                                    -- serialized note state
 
-    FOREIGN KEY (consumer_transaction_id) REFERENCES transactions(id)
     PRIMARY KEY (note_id)
-
-    CONSTRAINT check_valid_consumer_transaction_id CHECK (consumer_transaction_id IS NULL OR status != 'Expected')
-    CONSTRAINT check_valid_submitted_at CHECK (submitted_at IS NOT NULL OR status != 'Processing')
-    CONSTRAINT check_valid_nullifier_height CHECK (nullifier_height IS NOT NULL OR status != 'Consumed')
-    CONSTRAINT check_ignored_output_notes CHECK (NOT(ignored)) -- Output notes shouldn't be ignored. This check will be removed when we refactor the output notes table.
 );
 
 -- Create note's scripts table, used for both input and output notes
