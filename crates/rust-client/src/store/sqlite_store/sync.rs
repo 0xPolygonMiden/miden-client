@@ -59,7 +59,7 @@ impl SqliteStore {
 
         let mut db = self.db();
         let tx = db.transaction()?;
-        add_note_tag_tx(&tx, tag)?;
+        add_note_tag_tx(&tx, &tag)?;
 
         tx.commit()?;
 
@@ -150,7 +150,7 @@ impl SqliteStore {
     }
 }
 
-pub(super) fn add_note_tag_tx(tx: &Transaction<'_>, tag: NoteTagRecord) -> Result<(), StoreError> {
+pub(super) fn add_note_tag_tx(tx: &Transaction<'_>, tag: &NoteTagRecord) -> Result<(), StoreError> {
     const QUERY: &str = "INSERT INTO tags (tag, source) VALUES (?, ?)";
     tx.execute(QUERY, params![tag.tag.to_bytes(), tag.source.to_bytes()])?;
 

@@ -7,7 +7,9 @@ use alloc::{
 use miden_objects::{
     accounts::AccountId,
     crypto::utils::{Deserializable, Serializable},
-    transaction::{OutputNotes, ToInputNoteCommitments, TransactionId, TransactionScript},
+    transaction::{
+        ExecutedTransaction, OutputNotes, ToInputNoteCommitments, TransactionId, TransactionScript,
+    },
     Digest,
 };
 use rusqlite::{params, Transaction};
@@ -21,12 +23,8 @@ use super::{
 };
 use crate::{
     rpc::TransactionUpdate,
-    store::{
-        input_note_states::ExpectedNoteState, InputNoteState, NoteFilter, OutputNoteRecord,
-        StoreError, TransactionFilter,
-    },
-    sync::NoteTagRecord,
-    transactions::{TransactionRecord, TransactionResult, TransactionStatus},
+    store::{StoreError, TransactionFilter},
+    transactions::{TransactionRecord, TransactionStatus, TransactionStoreUpdate},
 };
 
 pub(crate) const INSERT_TRANSACTION_QUERY: &str =
@@ -87,59 +85,27 @@ impl SqliteStore {
     }
 
     /// Inserts a transaction and updates the current state based on the `tx_result` changes
-    pub fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), StoreError> {
-        let sync_height = self.get_sync_height()?;
-        let transaction_id = tx_result.executed_transaction().id();
-        let account_id = tx_result.executed_transaction().account_id();
-        let account_delta = tx_result.account_delta();
-
-        let (mut account, _seed) = self.get_account(account_id)?;
-
-        account.apply_delta(account_delta).map_err(StoreError::AccountError)?;
-
-        // Save only input notes that we care for (based on the note screener assessment)
-        let created_input_notes = tx_result.relevant_notes().to_vec();
-
-        // Save all output notes
-        let created_output_notes = tx_result
-            .created_notes()
-            .iter()
-            .cloned()
-            .filter_map(|output_note| {
-                OutputNoteRecord::try_from_output_note(output_note, sync_height).ok()
-            })
-            .collect::<Vec<_>>();
-
-        let consumed_note_ids = tx_result.consumed_notes().iter().map(|note| note.id()).collect();
-
-        let relevant_notes = self.get_input_notes(NoteFilter::List(consumed_note_ids))?;
-
+    pub fn apply_transaction(&self, tx_update: TransactionStoreUpdate) -> Result<(), StoreError> {
         let mut db = self.db();
         let tx = db.transaction()?;
 
         // Transaction Data
-        insert_proven_transaction_data(&tx, tx_result)?;
+        insert_proven_transaction_data(&tx, tx_update.executed_transaction())?;
 
         // Account Data
-        update_account(&tx, &account)?;
+        update_account(&tx, tx_update.updated_account())?;
 
         // Updates for notes
-        for note in created_input_notes {
-            upsert_input_note_tx(&tx, &note)?;
-            if let InputNoteState::Expected(ExpectedNoteState { tag: Some(tag), .. }) = note.state()
-            {
-                add_note_tag_tx(&tx, NoteTagRecord::with_note_source(*tag, note.id()))?;
-            }
+        for note in tx_update.created_input_notes().iter().chain(tx_update.updated_input_notes()) {
+            upsert_input_note_tx(&tx, note)?;
         }
 
-        for note in &created_output_notes {
+        for note in tx_update.created_output_notes() {
             upsert_output_note_tx(&tx, note)?;
         }
 
-        for mut input_note_record in relevant_notes {
-            if input_note_record.consumed_locally(account_id, transaction_id)? {
-                upsert_input_note_tx(&tx, &input_note_record)?;
-            }
+        for tag_record in tx_update.new_tags() {
+            add_note_tag_tx(&tx, tag_record)?;
         }
 
         tx.commit()?;
@@ -195,7 +161,7 @@ impl SqliteStore {
 
 pub(super) fn insert_proven_transaction_data(
     tx: &Transaction<'_>,
-    transaction_result: TransactionResult,
+    executed_transaction: &ExecutedTransaction,
 ) -> Result<(), StoreError> {
     let (
         transaction_id,
@@ -209,7 +175,7 @@ pub(super) fn insert_proven_transaction_data(
         block_num,
         committed,
         discarded,
-    ) = serialize_transaction_data(transaction_result)?;
+    ) = serialize_transaction_data(executed_transaction)?;
 
     if let Some(hash) = script_hash.clone() {
         tx.execute(INSERT_TRANSACTION_SCRIPT_QUERY, params![hash, tx_script])?;
@@ -235,9 +201,8 @@ pub(super) fn insert_proven_transaction_data(
 }
 
 pub(super) fn serialize_transaction_data(
-    transaction_result: TransactionResult,
+    executed_transaction: &ExecutedTransaction,
 ) -> Result<SerializedTransactionData, StoreError> {
-    let executed_transaction = transaction_result.executed_transaction();
     let transaction_id: String = executed_transaction.id().inner().into();
     let account_id: u64 = executed_transaction.account_id().into();
     let init_account_state = &executed_transaction.initial_account().hash().to_string();
@@ -258,7 +223,7 @@ pub(super) fn serialize_transaction_data(
     info!("Transaction account ID: {}", executed_transaction.account_id());
 
     // TODO: Scripts should be in their own tables and only identifiers should be stored here
-    let transaction_args = transaction_result.transaction_arguments();
+    let transaction_args = executed_transaction.tx_args();
     let tx_script = transaction_args.tx_script().map(|script| script.to_bytes());
     let script_hash = transaction_args.tx_script().map(|script| script.hash().to_bytes());
 
@@ -271,7 +236,7 @@ pub(super) fn serialize_transaction_data(
         output_notes.to_bytes(),
         script_hash,
         tx_script,
-        transaction_result.block_num(),
+        executed_transaction.block_header().block_num(),
         None,
         false,
     ))

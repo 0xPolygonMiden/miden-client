@@ -18,7 +18,7 @@ use winter_maybe_async::*;
 
 use crate::{
     sync::{NoteTagRecord, StateSyncUpdate},
-    transactions::{TransactionRecord, TransactionResult},
+    transactions::{TransactionRecord, TransactionStoreUpdate},
 };
 
 /// Contains [ClientDataStore] to automatically implement [DataStore] for anything that implements
@@ -74,16 +74,8 @@ pub trait Store {
         filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, StoreError>;
 
-    /// Applies a transaction, atomically updating the current state based on the
-    /// [TransactionResult]
-    ///
-    /// An update involves:
-    /// - Applying the resulting [AccountDelta](miden_objects::accounts::AccountDelta) and storing
-    ///   the new [Account] state
-    /// - Storing new notes and payback note details as a result of the transaction execution
-    /// - Inserting the transaction into the store to track
     #[maybe_async]
-    fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), StoreError>;
+    fn apply_transaction(&self, tx_update: TransactionStoreUpdate) -> Result<(), StoreError>;
 
     // NOTES
     // --------------------------------------------------------------------------------------------
