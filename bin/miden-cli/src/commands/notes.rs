@@ -87,7 +87,7 @@ struct CliNoteSummary {
     inputs_commitment: String,
     serial_num: String,
     note_type: String,
-    status: String,
+    state: String,
     tag: String,
     sender: String,
     exportable: bool,
@@ -156,7 +156,7 @@ fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), String
         inputs_commitment,
         serial_num,
         note_type,
-        status,
+        state,
         tag,
         sender,
         exportable,
@@ -174,7 +174,7 @@ fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), String
     table.add_row(vec![Cell::new("Inputs Hash"), Cell::new(inputs_commitment)]);
     table.add_row(vec![Cell::new("Serial Number"), Cell::new(serial_num)]);
     table.add_row(vec![Cell::new("Type"), Cell::new(note_type)]);
-    table.add_row(vec![Cell::new("Status"), Cell::new(status)]);
+    table.add_row(vec![Cell::new("State"), Cell::new(state)]);
     table.add_row(vec![Cell::new("Tag"), Cell::new(tag)]);
     table.add_row(vec![Cell::new("Sender"), Cell::new(sender)]);
     table.add_row(vec![Cell::new("Exportable"), Cell::new(if exportable { "✔" } else { "✘" })]);
@@ -186,7 +186,9 @@ fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), String
             let details = record.details();
             Some(details.inputs().values().to_vec())
         },
-        (_, Some(record)) => record.details().map(|details| details.inputs().clone()),
+        (_, Some(record)) => {
+            record.recipient().map(|recipient| recipient.inputs().values().to_vec())
+        },
         (None, None) => {
             panic!("One of the two records should be Some")
         },
@@ -276,7 +278,7 @@ where
     println!("\n{table}");
 
     for summary in notes {
-        println!(" {} {}", summary.id, summary.status);
+        println!(" {} {}", summary.id, summary.state);
     }
 
     Ok(())
@@ -340,15 +342,12 @@ fn note_summary(
                     details.script().hash().to_string(),
                 )
             },
-            (None, Some(record)) if record.details().is_some() => {
-                let details = record.details().expect("output record should have details");
+            (None, Some(record)) if record.recipient().is_some() => {
+                let recipient = record.recipient().expect("output record should have recipient");
                 (
-                    NoteInputs::new(details.inputs().clone())
-                        .map_err(ClientError::NoteError)?
-                        .commitment()
-                        .to_string(),
-                    Digest::new(details.serial_num()).to_string(),
-                    details.script().hash().to_string(),
+                    recipient.inputs().commitment().to_string(),
+                    Digest::new(recipient.serial_num()).to_string(),
+                    recipient.script().hash().to_string(),
                 )
             },
             (None, Some(_record)) => ("-".to_string(), "-".to_string(), "-".to_string()),
@@ -361,9 +360,9 @@ fn note_summary(
             .or(output_note_record.map(|record| record.metadata())),
     );
 
-    let status = input_note_record
+    let state = input_note_record
         .map(|record| record.state().to_string())
-        .or(output_note_record.map(|record| record.status().to_string()))
+        .or(output_note_record.map(|record| record.state().to_string()))
         .expect("One of the two records should be Some");
 
     let note_metadata = input_note_record
@@ -386,7 +385,7 @@ fn note_summary(
         inputs_commitment: inputs_commitment_str,
         serial_num,
         note_type,
-        status,
+        state,
         tag: note_tag_str,
         sender: note_sender_str,
         exportable: output_note_record.is_some(),
