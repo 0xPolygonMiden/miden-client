@@ -103,8 +103,8 @@ impl Store for WebStore {
     }
 
     #[maybe_async]
-    fn upsert_input_note(&self, note: InputNoteRecord) -> Result<(), StoreError> {
-        maybe_await!(self.upsert_input_note(note))
+    fn upsert_input_notes(&self, notes: &[InputNoteRecord]) -> Result<(), StoreError> {
+        maybe_await!(self.upsert_input_notes(notes))
     }
 
     // CHAIN DATA

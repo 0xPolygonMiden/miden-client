@@ -10,11 +10,14 @@ use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
 
 use super::{
-    notes::utils::{insert_output_note_tx, upsert_input_note_tx},
+    notes::utils::{upsert_input_note_tx, upsert_output_note_tx},
     WebStore,
 };
 use crate::{
-    store::{ExpectedNoteState, NoteFilter, NoteState, StoreError, TransactionFilter},
+    store::{
+        input_note_states::ExpectedNoteState, InputNoteState, NoteFilter, OutputNoteRecord,
+        StoreError, TransactionFilter,
+    },
     sync::NoteTagRecord,
     transactions::{TransactionRecord, TransactionResult, TransactionStatus},
 };
@@ -94,7 +97,7 @@ impl WebStore {
     }
 
     pub async fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), StoreError> {
-        let block_num = self.get_sync_height().await?;
+        let sync_height = self.get_sync_height().await?;
         let transaction_id = tx_result.executed_transaction().id();
         let account_id = tx_result.executed_transaction().account_id();
         let account_delta = tx_result.account_delta();
@@ -111,7 +114,9 @@ impl WebStore {
             .created_notes()
             .iter()
             .cloned()
-            .filter_map(|output_note| output_note.try_into().ok())
+            .filter_map(|output_note| {
+                OutputNoteRecord::try_from_output_note(output_note, sync_height).ok()
+            })
             .collect::<Vec<_>>();
 
         let consumed_note_ids = tx_result.consumed_notes().iter().map(|note| note.id()).collect();
@@ -126,19 +131,20 @@ impl WebStore {
 
         // Updates for notes
         for note in created_input_notes {
-            if let NoteState::Expected(ExpectedNoteState { tag: Some(tag), .. }) = note.state() {
+            if let InputNoteState::Expected(ExpectedNoteState { tag: Some(tag), .. }) = note.state()
+            {
                 self.add_note_tag(NoteTagRecord::with_note_source(*tag, note.id())).await?;
             }
-            upsert_input_note_tx(note).await?;
+            upsert_input_note_tx(&note).await?;
         }
 
         for note in &created_output_notes {
-            insert_output_note_tx(block_num, note).await?;
+            upsert_output_note_tx(note).await?;
         }
 
         for mut input_note_record in relevant_notes {
             if input_note_record.consumed_locally(account_id, transaction_id)? {
-                upsert_input_note_tx(input_note_record).await?;
+                upsert_input_note_tx(&input_note_record).await?;
             }
         }
 

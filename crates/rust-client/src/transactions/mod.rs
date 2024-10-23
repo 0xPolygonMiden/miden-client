@@ -24,7 +24,7 @@ use winter_maybe_async::*;
 use super::{Client, FeltRng};
 use crate::{
     notes::NoteScreener,
-    store::{InputNoteRecord, NoteFilter, TransactionFilter},
+    store::{input_note_states::ExpectedNoteState, InputNoteRecord, NoteFilter, TransactionFilter},
     ClientError,
 };
 
@@ -64,7 +64,7 @@ impl TransactionResult {
     pub fn new(
         transaction: ExecutedTransaction,
         note_screener: NoteScreener,
-        partial_notes: Vec<NoteDetails>,
+        partial_notes: Vec<(NoteDetails, NoteTag)>,
     ) -> Result<Self, ClientError> {
         let mut relevant_notes = vec![];
 
@@ -77,7 +77,18 @@ impl TransactionResult {
         }
 
         // Include partial output notes into the relevant notes
-        relevant_notes.extend(partial_notes.iter().map(InputNoteRecord::from));
+        relevant_notes.extend(partial_notes.iter().map(|(note_details, tag)| {
+            InputNoteRecord::new(
+                note_details.clone(),
+                None,
+                ExpectedNoteState {
+                    metadata: None,
+                    after_block_num: 0,
+                    tag: Some(*tag),
+                }
+                .into(),
+            )
+        }));
 
         let tx_result = Self { transaction, relevant_notes };
 
@@ -232,7 +243,7 @@ impl<R: FeltRng> Client<R> {
 
         let authenticated_note_records = maybe_await!(self
             .store
-            .get_input_notes(NoteFilter::List(authenticated_input_note_ids.to_vec())))?;
+            .get_input_notes(NoteFilter::List(authenticated_input_note_ids)))?;
 
         for authenticated_note_record in authenticated_note_records {
             if !authenticated_note_record.is_authenticated() {
@@ -243,10 +254,13 @@ impl<R: FeltRng> Client<R> {
         }
 
         // If tx request contains unauthenticated_input_notes we should insert them
-        for unauthenticated_input_note in transaction_request.unauthenticated_input_notes() {
-            // TODO: run this as a single TX
-            maybe_await!(self.store.upsert_input_note(unauthenticated_input_note.clone().into()))?;
-        }
+        let unauthenticated_input_notes = transaction_request
+            .unauthenticated_input_notes()
+            .iter()
+            .cloned()
+            .map(|note| note.into())
+            .collect::<Vec<_>>();
+        maybe_await!(self.store.upsert_input_notes(&unauthenticated_input_notes))?;
 
         let block_num = maybe_await!(self.store.get_sync_height())?;
 
@@ -255,7 +269,7 @@ impl<R: FeltRng> Client<R> {
         let output_notes: Vec<Note> =
             transaction_request.expected_output_notes().cloned().collect();
 
-        let future_notes: Vec<NoteDetails> =
+        let future_notes: Vec<(NoteDetails, NoteTag)> =
             transaction_request.expected_future_notes().cloned().collect();
 
         let tx_script = match transaction_request.script_template() {
@@ -432,7 +446,7 @@ impl<R: FeltRng> Client<R> {
             .collect();
 
         let store_input_notes =
-            maybe_await!(self.get_input_notes(NoteFilter::List(incoming_notes_ids.to_vec())))
+            maybe_await!(self.get_input_notes(NoteFilter::List(incoming_notes_ids)))
                 .map_err(|err| TransactionRequestError::NoteNotFound(err.to_string()))?;
 
         let all_incoming_assets =

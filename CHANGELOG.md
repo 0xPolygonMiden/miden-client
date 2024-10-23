@@ -2,6 +2,13 @@
 
 ## 0.6.0 (TBD)
 
+* [BREAKING] Refactored `OutputNoteRecord` to use states and transitions for updates (#551).
+* Added better error handling for WASM sync state 
+* Added WASM Input note tests + updated input note models (#554)
+* Added new variants for the `NoteFilter` struct (#538).
+* [BREAKING] Added note tags for future notes in `TransactionRequest` (#538).
+* Added support for multiple input note inserts at once (#538).
+* Expose full SyncSummary from WASM (#555)
 * Implemented `GetAccountProof` endpoint (#556)
 * Fixed WASM + added additional WASM models (#548)
 * Added dedicated separate table for tracked tags (#535).

@@ -15,7 +15,7 @@ use generated::{
     rpc::api_client::ApiClient,
 };
 use miden_objects::{
-    accounts::{Account, AccountId, AccountStorageHeader},
+    accounts::{Account, AccountCode, AccountId, AccountStorageHeader},
     crypto::merkle::{MerklePath, MmrProof},
     notes::{Note, NoteId, NoteTag, Nullifier},
     transaction::{ProvenTransaction, TransactionId},
@@ -229,21 +229,10 @@ impl NodeRpcClient for WebTonicRpcClient {
     /// - There was an error sending the request to the node.
     /// - The answer had a `None` for one of the expected fields.
     /// - There is an error during storage deserialization.
-
-    /// Sends a `GetAccountProofs` request to the Miden node, and extracts a list of [AccountProof]
-    /// from the response.
-    ///
-    /// # Errors
-    ///
-    /// This function will return an error if:
-    ///
-    /// - One of the requested Accounts is not public, or is not returned by the node.
-    /// - There was an error sending the request to the node.
-    /// - The answer had a `None` for one of the expected fields.
-    /// - There is an error during storage deserialization.
     async fn get_account_proofs(
         &mut self,
         account_ids: &[AccountId],
+        code_commitments: &[Digest],
         include_headers: bool,
     ) -> Result<Vec<AccountProof>, RpcError> {
         // Deduplicate the account IDs first
@@ -263,6 +252,7 @@ impl NodeRpcClient for WebTonicRpcClient {
         let request = GetAccountProofsRequest {
             account_ids: account_ids.iter().map(|&id| id.into()).collect(),
             include_headers: Some(include_headers),
+            code_commitments: code_commitments.iter().map(|c| c.into()).collect(),
         };
 
         let mut rpc_api = self.build_api_client();
@@ -314,7 +304,12 @@ impl NodeRpcClient for WebTonicRpcClient {
                 let storage_header =
                     AccountStorageHeader::read_from_bytes(&state_headers.storage_header)?;
 
-                Some((account_header, storage_header))
+                let account_code = state_headers
+                    .account_code
+                    .map(|c| AccountCode::read_from_bytes(&c))
+                    .transpose()?;
+
+                Some((account_header, storage_header, account_code))
             } else {
                 None
             };
@@ -322,7 +317,6 @@ impl NodeRpcClient for WebTonicRpcClient {
             let proof =
                 AccountProof::new(account_id, block_num, merkle_proof, account_hash, headers)
                     .map_err(|err| RpcError::InvalidResponse(err.to_string()))?;
-
             account_proofs.push(proof);
         }
 

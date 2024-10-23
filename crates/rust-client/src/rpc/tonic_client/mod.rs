@@ -16,7 +16,7 @@ use generated::{
     rpc::api_client::ApiClient,
 };
 use miden_objects::{
-    accounts::{Account, AccountId, AccountStorageHeader},
+    accounts::{Account, AccountCode, AccountId, AccountStorageHeader},
     crypto::merkle::{MerklePath, MmrProof},
     notes::{Note, NoteId, NoteTag, Nullifier},
     transaction::{ProvenTransaction, TransactionId},
@@ -291,6 +291,7 @@ impl NodeRpcClient for TonicRpcClient {
     async fn get_account_proofs(
         &mut self,
         account_ids: &[AccountId],
+        code_commitments: &[Digest],
         include_headers: bool,
     ) -> Result<Vec<AccountProof>, RpcError> {
         // Deduplicate the account IDs first
@@ -310,6 +311,7 @@ impl NodeRpcClient for TonicRpcClient {
         let request = GetAccountProofsRequest {
             account_ids: account_ids.iter().map(|&id| id.into()).collect(),
             include_headers: Some(include_headers),
+            code_commitments: code_commitments.iter().map(|c| c.into()).collect(),
         };
 
         let rpc_api = self.rpc_api().await?;
@@ -361,7 +363,12 @@ impl NodeRpcClient for TonicRpcClient {
                 let storage_header =
                     AccountStorageHeader::read_from_bytes(&state_headers.storage_header)?;
 
-                Some((account_header, storage_header))
+                let account_code = state_headers
+                    .account_code
+                    .map(|c| AccountCode::read_from_bytes(&c))
+                    .transpose()?;
+
+                Some((account_header, storage_header, account_code))
             } else {
                 None
             };

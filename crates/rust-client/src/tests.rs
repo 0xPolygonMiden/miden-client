@@ -245,7 +245,7 @@ async fn test_sync_state() {
 
     // Import first mockchain note as expected
     let expected_note = rpc_api.get_note_at(1).note().clone();
-    client.store.upsert_input_note(expected_note.clone().into()).unwrap();
+    client.store.upsert_input_notes(&[expected_note.clone().into()]).unwrap();
 
     // assert that we have no consumed nor expected notes prior to syncing state
     assert_eq!(client.get_input_notes(NoteFilter::Consumed).unwrap().len(), 0);
@@ -286,9 +286,9 @@ async fn test_sync_state_mmr() {
             storage_mode: AccountStorageMode::Private,
         })
         .unwrap();
-    for (_, n) in rpc_api.notes.iter() {
-        client.store.upsert_input_note(n.note().clone().into()).unwrap();
-    }
+
+    let notes = rpc_api.notes.values().map(|n| n.note().clone().into()).collect::<Vec<_>>();
+    client.store.upsert_input_notes(&notes).unwrap();
 
     // sync state
     let sync_details = client.sync_state().await.unwrap();

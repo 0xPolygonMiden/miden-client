@@ -19,7 +19,7 @@ use miden_objects::{
     notes::{Note, NoteId, NoteTag},
     testing::notes::NoteBuilder,
     transaction::{InputNote, ProvenTransaction},
-    BlockHeader, Felt, Word,
+    BlockHeader, Digest, Felt, Word,
 };
 use miden_tx::{testing::mock_chain::MockChain, LocalTransactionProver};
 use rand::Rng;
@@ -297,6 +297,7 @@ impl NodeRpcClient for MockRpcApi {
     async fn get_account_proofs(
         &mut self,
         _account_ids: &[AccountId],
+        _code_commitments: &[Digest],
         _include_headers: bool,
     ) -> Result<Vec<AccountProof>, RpcError> {
         todo!();

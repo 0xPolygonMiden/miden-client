@@ -8,9 +8,13 @@ use miden_objects::{
     BlockHeader, Digest,
 };
 
-use super::{
-    states::{ExpectedNoteState, UnverifiedNoteState},
-    NoteRecordError, NoteState,
+use super::NoteRecordError;
+
+mod states;
+pub use states::{
+    CommittedNoteState, ConsumedAuthenticatedLocalNoteState, ExpectedNoteState, InputNoteState,
+    InvalidNoteState, ProcessingAuthenticatedNoteState, ProcessingUnauthenticatedNoteState,
+    UnverifiedNoteState,
 };
 
 // INPUT NOTE RECORD
@@ -32,12 +36,16 @@ pub struct InputNoteRecord {
     /// The timestamp at which the note was created. If it's not known, it will be None.
     created_at: Option<u64>,
     /// The state of the note, with specific fields for each one.
-    state: NoteState,
+    state: InputNoteState,
 }
 
 impl InputNoteRecord {
     #[allow(clippy::too_many_arguments)]
-    pub fn new(details: NoteDetails, created_at: Option<u64>, state: NoteState) -> InputNoteRecord {
+    pub fn new(
+        details: NoteDetails,
+        created_at: Option<u64>,
+        state: InputNoteState,
+    ) -> InputNoteRecord {
         InputNoteRecord { details, created_at, state }
     }
 
@@ -56,7 +64,7 @@ impl InputNoteRecord {
         self.details.assets()
     }
 
-    pub fn state(&self) -> &NoteState {
+    pub fn state(&self) -> &InputNoteState {
         &self.state
     }
 
@@ -83,25 +91,26 @@ impl InputNoteRecord {
     pub fn is_authenticated(&self) -> bool {
         matches!(
             self.state,
-            NoteState::Committed { .. }
-                | NoteState::ProcessingAuthenticated { .. }
-                | NoteState::ConsumedAuthenticatedLocal { .. }
+            InputNoteState::Committed { .. }
+                | InputNoteState::ProcessingAuthenticated { .. }
+                | InputNoteState::ConsumedAuthenticatedLocal { .. }
         )
     }
 
     pub fn is_consumed(&self) -> bool {
         matches!(
             self.state,
-            NoteState::ConsumedExternal { .. }
-                | NoteState::ConsumedAuthenticatedLocal { .. }
-                | NoteState::ConsumedUnauthenticatedLocal { .. }
+            InputNoteState::ConsumedExternal { .. }
+                | InputNoteState::ConsumedAuthenticatedLocal { .. }
+                | InputNoteState::ConsumedUnauthenticatedLocal { .. }
         )
     }
 
     pub fn is_processing(&self) -> bool {
         matches!(
             self.state,
-            NoteState::ProcessingAuthenticated { .. } | NoteState::ProcessingUnauthenticated { .. }
+            InputNoteState::ProcessingAuthenticated { .. }
+                | InputNoteState::ProcessingUnauthenticated { .. }
         )
     }
 
@@ -111,7 +120,7 @@ impl InputNoteRecord {
     /// Modifies the state of the note record to reflect that the it has received an inclusion
     /// proof. It is assumed to be unverified until the block header information is received.
     /// Returns `true` if the state was changed.
-    pub fn inclusion_proof_received(
+    pub(crate) fn inclusion_proof_received(
         &mut self,
         inclusion_proof: NoteInclusionProof,
         metadata: NoteMetadata,
@@ -128,7 +137,7 @@ impl InputNoteRecord {
     /// Modifies the state of the note record to reflect that the it has received a block header.
     /// This will mark the note as verified or invalid, depending on the block header
     /// information and inclusion proof. Returns `true` if the state was changed.
-    pub fn block_header_received(
+    pub(crate) fn block_header_received(
         &mut self,
         block_header: BlockHeader,
     ) -> Result<bool, NoteRecordError> {
@@ -146,7 +155,7 @@ impl InputNoteRecord {
     ///
     /// Errors:
     /// - If the nullifier does not match the expected value.
-    pub fn consumed_externally(
+    pub(crate) fn consumed_externally(
         &mut self,
         nullifier: Nullifier,
         nullifier_block_height: u32,
@@ -168,7 +177,7 @@ impl InputNoteRecord {
 
     /// Modifies the state of the note record to reflect that the client began processing the note
     /// to be consumed. Returns `true` if the state was changed.
-    pub fn consumed_locally(
+    pub(crate) fn consumed_locally(
         &mut self,
         consumer_account: AccountId,
         consumer_transaction: TransactionId,
@@ -184,7 +193,7 @@ impl InputNoteRecord {
 
     /// Modifies the state of the note record to reflect that the transaction currently consuming
     /// the note was committed. Returns `true` if the state was changed.3
-    pub fn transaction_committed(
+    pub(crate) fn transaction_committed(
         &mut self,
         transaction_id: TransactionId,
         block_height: u32,
@@ -214,7 +223,7 @@ impl Deserializable for InputNoteRecord {
     fn read_from<R: ByteReader>(source: &mut R) -> Result<Self, DeserializationError> {
         let details = NoteDetails::read_from(source)?;
         let created_at = Option::<u64>::read_from(source)?;
-        let state = NoteState::read_from(source)?;
+        let state = InputNoteState::read_from(source)?;
 
         Ok(InputNoteRecord { details, created_at, state })
     }
@@ -222,21 +231,6 @@ impl Deserializable for InputNoteRecord {
 
 // CONVERSION
 // ================================================================================================
-impl From<&NoteDetails> for InputNoteRecord {
-    fn from(value: &NoteDetails) -> Self {
-        Self {
-            details: value.clone(),
-            created_at: None,
-            state: ExpectedNoteState {
-                metadata: None,
-                after_block_num: 0,
-                tag: None,
-            }
-            .into(),
-        }
-    }
-}
-
 impl From<Note> for InputNoteRecord {
     fn from(value: Note) -> Self {
         let metadata = *value.metadata();

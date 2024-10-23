@@ -11,7 +11,7 @@ mod errors;
 pub(crate) use errors::RpcConversionError;
 pub use errors::RpcError;
 use miden_objects::{
-    accounts::{Account, AccountHeader, AccountId, AccountStorageHeader},
+    accounts::{Account, AccountCode, AccountHeader, AccountId, AccountStorageHeader},
     crypto::merkle::{MerklePath, MmrDelta, MmrProof},
     notes::{Note, NoteId, NoteMetadata, NoteTag, Nullifier},
     transaction::{ProvenTransaction, TransactionId},
@@ -144,7 +144,7 @@ pub struct AccountProof {
     /// Account hash for the current state.
     account_hash: Digest,
     /// State headers of public accounts.
-    state_headers: Option<(AccountHeader, AccountStorageHeader)>,
+    state_headers: Option<(AccountHeader, AccountStorageHeader, Option<AccountCode>)>,
 }
 
 impl AccountProof {
@@ -153,9 +153,9 @@ impl AccountProof {
         block_num: u32,
         merkle_proof: MerklePath,
         account_hash: Digest,
-        state_headers: Option<(AccountHeader, AccountStorageHeader)>,
+        state_headers: Option<(AccountHeader, AccountStorageHeader, Option<AccountCode>)>,
     ) -> Result<Self, AccountProofError> {
-        if let Some((account_header, _)) = &state_headers {
+        if let Some((account_header, ..)) = &state_headers {
             if account_header.hash() != account_hash {
                 return Err(AccountProofError::InconsistentAccountHash);
             }
@@ -177,7 +177,9 @@ impl AccountProof {
         self.account_id
     }
 
-    pub fn state_headers(&self) -> Option<&(AccountHeader, AccountStorageHeader)> {
+    pub fn state_headers(
+        &self,
+    ) -> Option<&(AccountHeader, AccountStorageHeader, Option<AccountCode>)> {
         self.state_headers.as_ref()
     }
 
@@ -186,6 +188,18 @@ impl AccountProof {
     }
 
     pub fn storage_header(&self) -> Option<&AccountStorageHeader> {
+        self.state_headers.as_ref().map(|headers| &headers.1)
+    }
+
+    pub fn account_code(&self) -> Option<&AccountCode> {
+        if let Some((_, _, Some(ref code))) = self.state_headers {
+            Some(code)
+        } else {
+            None
+        }
+    }
+
+    pub fn code_commitment(&self) -> Option<&AccountStorageHeader> {
         self.state_headers.as_ref().map(|headers| &headers.1)
     }
 
@@ -297,7 +311,8 @@ pub trait NodeRpcClient {
     async fn get_account_proofs(
         &mut self,
         account_ids: &[AccountId],
-        includ_headers: bool,
+        code_commitments: &[Digest],
+        include_headers: bool,
     ) -> Result<Vec<AccountProof>, RpcError>;
 
     /// Fetches the commit height where the nullifier was consumed. If the nullifier is not found,
