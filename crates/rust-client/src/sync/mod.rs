@@ -383,19 +383,17 @@ impl<R: FeltRng> Client<R> {
         let relevant_note_filter =
             NoteFilter::List(committed_notes.iter().map(|note| note.note_id()).cloned().collect());
 
-        let mut committed_input_notes: BTreeMap<NoteId, InputNoteRecord> = self
-            .store
-            .get_input_notes(relevant_note_filter.clone())?
-            .into_iter()
-            .map(|n| (n.id(), n))
-            .collect();
+        let mut committed_input_notes: BTreeMap<NoteId, InputNoteRecord> =
+            maybe_await!(self.store.get_input_notes(relevant_note_filter.clone()))?
+                .into_iter()
+                .map(|n| (n.id(), n))
+                .collect();
 
-        let mut committed_output_notes: BTreeMap<NoteId, OutputNoteRecord> = self
-            .store
-            .get_output_notes(relevant_note_filter)?
-            .into_iter()
-            .map(|n| (n.id(), n))
-            .collect();
+        let mut committed_output_notes: BTreeMap<NoteId, OutputNoteRecord> =
+            maybe_await!(self.store.get_output_notes(relevant_note_filter))?
+                .into_iter()
+                .map(|n| (n.id(), n))
+                .collect();
 
         let mut new_public_notes = vec![];
         let mut committed_tracked_input_notes = vec![];
@@ -465,25 +463,23 @@ impl<R: FeltRng> Client<R> {
             nullifiers.iter().map(|nullifier_update| nullifier_update.nullifier).collect(),
         );
 
-        let mut consumed_input_notes: BTreeMap<Nullifier, InputNoteRecord> = self
-            .store
-            .get_input_notes(nullifier_filter.clone())?
-            .into_iter()
-            .map(|n| (n.nullifier(), n))
-            .collect();
+        let mut consumed_input_notes: BTreeMap<Nullifier, InputNoteRecord> =
+            maybe_await!(self.store.get_input_notes(nullifier_filter.clone()))?
+                .into_iter()
+                .map(|n| (n.nullifier(), n))
+                .collect();
 
-        let mut consumed_output_notes: BTreeMap<Nullifier, OutputNoteRecord> = self
-            .store
-            .get_output_notes(nullifier_filter)?
-            .into_iter()
-            .map(|n| {
-                (
-                    n.nullifier()
-                        .expect("Output notes returned by this query should have nullifiers"),
-                    n,
-                )
-            })
-            .collect();
+        let mut consumed_output_notes: BTreeMap<Nullifier, OutputNoteRecord> =
+            maybe_await!(self.store.get_output_notes(nullifier_filter))?
+                .into_iter()
+                .map(|n| {
+                    (
+                        n.nullifier()
+                            .expect("Output notes returned by this query should have nullifiers"),
+                        n,
+                    )
+                })
+                .collect();
 
         let mut consumed_tracked_input_notes = vec![];
         let mut consumed_tracked_output_notes = vec![];
