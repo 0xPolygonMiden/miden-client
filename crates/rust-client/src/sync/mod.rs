@@ -414,14 +414,11 @@ impl<R: FeltRng> Client<R> {
                     .inclusion_proof_received(inclusion_proof.clone(), committed_note.metadata())?;
                 let block_header_received = note_record.block_header_received(*block_header)?;
 
+                removed_tags.push((&note_record).try_into()?);
+
                 if inclusion_proof_received || block_header_received {
                     committed_tracked_input_notes.push(note_record);
                 }
-
-                removed_tags.push(NoteTagRecord::with_note_source(
-                    committed_note.metadata().tag(),
-                    *committed_note.note_id(),
-                ));
             }
 
             if let Some(mut note_record) = committed_output_notes.remove(committed_note.note_id()) {
