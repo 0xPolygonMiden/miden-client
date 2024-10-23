@@ -2,6 +2,7 @@
 
 ## 0.6.0 (TBD)
 
+* Moved note update logic outside of the `Store` (#559)
 * Allow to set expiration delta for `TransactionRequest` (#553).
 * [BREAKING] Refactored `OutputNoteRecord` to use states and transitions for updates (#551).
 * Added better error handling for WASM sync state (#558).
