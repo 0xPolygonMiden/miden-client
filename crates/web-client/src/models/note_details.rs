@@ -13,6 +13,14 @@ impl NoteDetails {
     pub fn new(note_assets: &NoteAssets, note_recipient: &NoteRecipient) -> NoteDetails {
         NoteDetails(NativeNoteDetails::new(note_assets.into(), note_recipient.into()))
     }
+
+    pub fn assets(&self) -> NoteAssets {
+        self.0.assets().into()
+    }
+
+    pub fn recipient(&self) -> NoteRecipient {
+        self.0.recipient().into()
+    }
 }
 
 impl From<NoteDetails> for NativeNoteDetails {
@@ -24,6 +32,18 @@ impl From<NoteDetails> for NativeNoteDetails {
 impl From<&NoteDetails> for NativeNoteDetails {
     fn from(note_details: &NoteDetails) -> Self {
         note_details.0.clone()
+    }
+}
+
+impl From<NativeNoteDetails> for NoteDetails {
+    fn from(note_details: NativeNoteDetails) -> NoteDetails {
+        NoteDetails(note_details)
+    }
+}
+
+impl From<&NativeNoteDetails> for NoteDetails {
+    fn from(note_details: &NativeNoteDetails) -> NoteDetails {
+        NoteDetails(note_details.clone())
     }
 }
 
