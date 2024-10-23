@@ -28,9 +28,9 @@ use tonic::transport::Channel;
 use tracing::info;
 
 use super::{
-    AccountDetails, AccountProof, AccountUpdateSummary, CommittedNote, NodeRpcClient,
-    NodeRpcClientEndpoint, NoteDetails, NoteInclusionDetails, NoteSyncInfo, NullifierUpdate,
-    StateSyncInfo, TransactionUpdate,
+    AccountDetails, AccountProof, AccountProofs, AccountUpdateSummary, CommittedNote,
+    NodeRpcClient, NodeRpcClientEndpoint, NoteDetails, NoteInclusionDetails, NoteSyncInfo,
+    NullifierUpdate, StateSyncInfo, TransactionUpdate,
 };
 use crate::{config::RpcConfig, rpc::RpcError};
 #[rustfmt::skip]
@@ -293,7 +293,7 @@ impl NodeRpcClient for TonicRpcClient {
         account_ids: &[AccountId],
         code_commitments: &[Digest],
         include_headers: bool,
-    ) -> Result<Vec<AccountProof>, RpcError> {
+    ) -> Result<AccountProofs, RpcError> {
         // Deduplicate the account IDs first
         let mut account_ids: Vec<AccountId> = account_ids.to_vec();
         account_ids.dedup();
@@ -327,9 +327,9 @@ impl NodeRpcClient for TonicRpcClient {
             .into_inner();
 
         let mut account_proofs = Vec::with_capacity(response.account_proofs.len());
+        let block_num = response.block_num;
 
         for account in response.account_proofs {
-            let block_num = response.block_num;
             let merkle_proof = account
                 .account_proof
                 .ok_or(RpcError::ExpectedDataMissing("AccountProof".to_string()))?
@@ -373,13 +373,12 @@ impl NodeRpcClient for TonicRpcClient {
                 None
             };
 
-            let proof =
-                AccountProof::new(account_id, block_num, merkle_proof, account_hash, headers)
-                    .map_err(|err| RpcError::InvalidResponse(err.to_string()))?;
+            let proof = AccountProof::new(account_id, merkle_proof, account_hash, headers)
+                .map_err(|err| RpcError::InvalidResponse(err.to_string()))?;
             account_proofs.push(proof);
         }
 
-        Ok(account_proofs)
+        Ok((block_num, account_proofs))
     }
 
     async fn sync_notes(

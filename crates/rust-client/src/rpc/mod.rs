@@ -133,12 +133,12 @@ impl NoteInclusionDetails {
 // ACCOUNT PROOF
 // ================================================================================================
 
+pub type AccountProofs = (u32, Vec<AccountProof>);
+
 /// Represents a proof of existence of an account's state at a specific block number.
 pub struct AccountProof {
     /// Account ID.
     account_id: AccountId,
-    /// Block number at which the state is being represented.
-    block_num: u32,
     /// Authentication path from the `account_root` of the block header to the account.
     merkle_proof: MerklePath,
     /// Account hash for the current state.
@@ -150,7 +150,6 @@ pub struct AccountProof {
 impl AccountProof {
     pub fn new(
         account_id: AccountId,
-        block_num: u32,
         merkle_proof: MerklePath,
         account_hash: Digest,
         state_headers: Option<(AccountHeader, AccountStorageHeader, Option<AccountCode>)>,
@@ -166,7 +165,6 @@ impl AccountProof {
 
         Ok(Self {
             account_id,
-            block_num,
             merkle_proof,
             account_hash,
             state_headers,
@@ -205,10 +203,6 @@ impl AccountProof {
 
     pub fn account_hash(&self) -> Digest {
         self.account_hash
-    }
-
-    pub fn block_num(&self) -> u32 {
-        self.block_num
     }
 
     pub fn merkle_proof(&self) -> &MerklePath {
@@ -313,7 +307,7 @@ pub trait NodeRpcClient {
         account_ids: &[AccountId],
         code_commitments: &[Digest],
         include_headers: bool,
-    ) -> Result<Vec<AccountProof>, RpcError>;
+    ) -> Result<AccountProofs, RpcError>;
 
     /// Fetches the commit height where the nullifier was consumed. If the nullifier is not found,
     /// then `None` is returned.

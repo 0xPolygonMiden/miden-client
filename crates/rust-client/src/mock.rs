@@ -32,7 +32,7 @@ use crate::{
             note::NoteSyncRecord,
             responses::{NullifierUpdate, SyncNoteResponse, SyncStateResponse},
         },
-        AccountDetails, AccountProof, NodeRpcClient, NoteDetails, NoteInclusionDetails, RpcError,
+        AccountDetails, AccountProofs, NodeRpcClient, NoteDetails, NoteInclusionDetails, RpcError,
         StateSyncInfo,
     },
     store::{
@@ -299,7 +299,7 @@ impl NodeRpcClient for MockRpcApi {
         _account_ids: &[AccountId],
         _code_commitments: &[Digest],
         _include_headers: bool,
-    ) -> Result<Vec<AccountProof>, RpcError> {
+    ) -> Result<AccountProofs, RpcError> {
         todo!();
     }
 
