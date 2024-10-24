@@ -7,15 +7,16 @@ use alloc::{
     vec::Vec,
 };
 use core::fmt::{self};
+use std::println;
 
 pub use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::{Account, AccountDelta, AccountId, AccountType},
     assets::{Asset, NonFungibleAsset},
-    notes::{Note, NoteDetails, NoteExecutionMode, NoteId, NoteTag, NoteType},
+    notes::{Note, NoteDetails, NoteId, NoteTag},
     transaction::{InputNotes, TransactionArgs},
     vm::AdviceInputs,
-    AssetError, Digest, Felt, NoteError, Word, ZERO,
+    AssetError, Digest, Felt, Word, ZERO,
 };
 pub use miden_tx::{LocalTransactionProver, ProvingOptions, TransactionProver};
 use script_builder::{AccountCapabilities, AccountInterface, TransactionScriptBuilder};
@@ -304,6 +305,22 @@ impl<R: FeltRng> Client<R> {
         let AdviceInputs { map, store, .. } = foreign_data_advice_inputs;
         tx_args.extend_advice_map(map);
         tx_args.extend_merkle_store(store.inner_nodes());
+
+        for (x, y) in tx_args.advice_inputs().map.clone() {
+            let v = Digest::try_from(
+                "0x1ef1a9cc88bb5808d9eef908cc79c29ff84c065be7d037d5adf34ead18691810",
+            )
+            .unwrap()
+            .as_elements()
+            .first()
+            .cloned()
+            .unwrap();
+            if y.contains(&v) {
+                println!("FOUND IT");
+                println!(" ");
+                println!("{x} |-> {:?}", y);
+            }
+        }
 
         // Execute the transaction and get the witness
         let executed_transaction = maybe_await!(self
@@ -611,6 +628,10 @@ impl<R: FeltRng> Client<R> {
             let account_code = account_proof.account_code().ok_or_else(|| {
                 ClientError::RpcError(RpcError::ExpectedDataMissing("AccountCode".to_string()))
             })?;
+
+            // for proc in account_code.procedure_roots() {
+            //     println!("ROOT {}", proc);
+            // }
 
             // Extend the advice inputs with the new data
             advice_inputs.extend_map([

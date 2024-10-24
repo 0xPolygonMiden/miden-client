@@ -1,11 +1,12 @@
 use miden_client::{
     accounts::{AccountCode, AccountData, AccountTemplate},
-    testing::account::AccountBuilder,
+    testing::{account::AccountBuilder, prepare_word},
     transactions::{TransactionKernel, TransactionRequest},
 };
 use miden_objects::{
     accounts::{AccountStorageMode, AuthSecretKey},
     transaction::TransactionScript,
+    Digest,
 };
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
@@ -39,12 +40,7 @@ async fn test_fpi() {
 
     let deployment_tx_script = TransactionScript::compile(
         "begin 
-            #push.9.12.18.3
-            #push.0 # Storage key index 1
-            #call.::miden::account::set_item 
-            #dropw dropw dropw dropw dropw dropw
             call.::miden::contracts::auth::basic::auth_tx_rpo_falcon512 
-            #dropw dropw dropw dropw dropw dropw
         end",
         vec![],
         TransactionKernel::assembler(),
@@ -83,18 +79,24 @@ async fn test_fpi() {
         # push the index of desired storage item
         push.0
 
-        # get the hash of the `get_item_foreign` account procedure
-        procref.account::get_item_foreign
+        # push hash of foreign proc - push_number
+        # this can be done with the procref call, but it needs to be in the assembler
+        push.{push_number_root}
 
         # push the foreign account id
         push.{foreign_account_id}
         # => [foreign_account_id, FOREIGN_PROC_ROOT, storage_item_index, pad(11)]
 
         exec.tx::execute_foreign_procedure
-        # => [STORAGE_VALUE_1]
-        nop
+        # => [9]
+
+        eq.9 assert
     end
-    "
+    ",
+        push_number_root = prepare_word(
+            &Digest::try_from("0x805f708a5cfdb803c0255859bf001e9e5ae35d50baf8531ff35b3cd852a5eb6e")
+                .unwrap()
+        ),
     );
 
     let tx_script =
@@ -113,17 +115,34 @@ async fn test_fpi() {
 }
 
 pub fn foreign_account_code() -> AccountCode {
-    AccountCode::compile(
-        "export.::miden::contracts::wallets::basic::receive_asset
+    let code = AccountCode::compile(
+        "
+    use.miden::account
+        
+    export.::miden::contracts::wallets::basic::receive_asset
     export.::miden::contracts::wallets::basic::create_note
     export.::miden::contracts::wallets::basic::move_asset_to_note
     export.::miden::contracts::auth::basic::auth_tx_rpo_falcon512
-    export.::miden::account::get_item_foreign
-    export.::miden::account::get_map_item_foreign
-    export.::miden::account::set_item
+
+    export.push_number
+        push.9
+    end
+
+    export.push_storage_value
+        push.0
+        exec.account::get_item
+        movup.8 drop movup.8 drop movup.8 drop
+    end
     ",
         TransactionKernel::assembler(),
         false,
     )
-    .unwrap()
+    .unwrap();
+
+    // todo: remove
+    for proc in code.procedure_roots() {
+        println!("proc roots {}", proc);
+    }
+
+    code
 }
