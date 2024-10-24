@@ -59,8 +59,9 @@ async fn test_fpi() {
         )
         .await
         .unwrap();
-    client.sync_state().await;
+    let tx_id = tx.executed_transaction().id();
     client.submit_transaction(tx).await.unwrap();
+    wait_for_tx(&mut client, tx_id).await;
 
     println!("Calling FPI functions with new account");
     let (native_account, native_seed) = client
@@ -91,18 +92,19 @@ async fn test_fpi() {
 
         exec.tx::execute_foreign_procedure
         # => [STORAGE_VALUE_1]
+        nop
     end
     "
     );
 
     let tx_script =
         TransactionScript::compile(tx_script, vec![], TransactionKernel::assembler()).unwrap();
-    client.sync_state();
+    let _ = client.sync_state().await;
     let tx_result = client
         .new_transaction(
             native_account.id(),
             TransactionRequest::new()
-                .with_foreign_public_account_data([(foreign_account_id, vec![])])
+                .with_foreign_public_accounts([foreign_account_id])
                 .with_custom_script(tx_script)
                 .unwrap(),
         )

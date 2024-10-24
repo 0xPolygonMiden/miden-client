@@ -7,10 +7,7 @@ use alloc::{
 };
 use core::fmt;
 
-use miden_lib::{
-    notes::{create_p2id_note, create_p2idr_note, create_swap_note},
-    transaction::memory::StorageSlot,
-};
+use miden_lib::notes::{create_p2id_note, create_p2idr_note, create_swap_note};
 use miden_objects::{
     accounts::AccountId,
     assembly::AssemblyError,
@@ -74,7 +71,7 @@ pub struct TransactionRequest {
     merkle_store: MerkleStore,
     /// Foreign account data requirements. On execution time, data will be retrieved and injected
     /// as advice inputs.
-    foreign_account_data: Vec<(AccountId, Vec<StorageSlot>)>,
+    foreign_account_data: Vec<AccountId>,
 }
 
 impl TransactionRequest {
@@ -168,13 +165,15 @@ impl TransactionRequest {
         Ok(self)
     }
 
-    pub fn with_foreign_public_account_data(
+    /// Specifies public account IDs that contain data that the transaction will utilize.
+    ///
+    /// On execution, the client queries the node and retrieves the state and current code for
+    /// these accounts, and injects them as advice inputs.
+    pub fn with_foreign_public_accounts(
         mut self,
-        foreign_account_data: impl IntoIterator<Item = (AccountId, Vec<u8>)>,
+        foreign_account_data: impl IntoIterator<Item = AccountId>,
     ) -> Self {
-        let foreign_accounts = foreign_account_data
-            .into_iter()
-            .map(|(account_id, data)| (account_id, data.to_vec()));
+        let foreign_accounts = foreign_account_data.into_iter();
 
         self.foreign_account_data.extend(foreign_accounts);
 
@@ -401,7 +400,7 @@ impl TransactionRequest {
     }
 
     /// Returns the foreign account data requirements for the transaction request.
-    pub fn foreign_account_data(&self) -> &[(AccountId, Vec<StorageSlot>)] {
+    pub fn foreign_account_data(&self) -> &[AccountId] {
         &self.foreign_account_data
     }
 
@@ -477,7 +476,7 @@ impl Deserializable for TransactionRequest {
         let advice_vec = Vec::<(Digest, Vec<Felt>)>::read_from(source)?;
         advice_map.extend(advice_vec);
         let merkle_store = MerkleStore::read_from(source)?;
-        let foreign_account_data = Vec::<(AccountId, Vec<StorageSlot>)>::read_from(source)?;
+        let foreign_account_data = Vec::<AccountId>::read_from(source)?;
 
         Ok(TransactionRequest {
             unauthenticated_input_notes,
@@ -694,7 +693,7 @@ mod tests {
                 NoteTag::from_account_id(sender_id, NoteExecutionMode::Local).unwrap(),
             )])
             .extend_advice_map(advice_vec)
-            .with_foreign_public_account_data([(target_id, vec![2u8, 3u8])])
+            .with_foreign_public_accounts([(target_id, vec![2u8, 3u8])])
             .with_own_output_notes(vec![
                 OutputNote::Full(notes.pop().unwrap()),
                 OutputNote::Partial(notes.pop().unwrap().into()),

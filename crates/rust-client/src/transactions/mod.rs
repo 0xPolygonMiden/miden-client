@@ -563,22 +563,20 @@ impl<R: FeltRng> Client<R> {
         })
     }
 
-    pub async fn get_foreign_account_inputs(
+    /// Fetches foreign public account data as needed and returns related advice inputs.
+    async fn get_foreign_account_inputs(
         &mut self,
         transaction_request: &TransactionRequest,
     ) -> Result<AdviceInputs, ClientError> {
-        let foreign_account_ids: Vec<AccountId> = transaction_request
-            .foreign_account_data()
-            .iter()
-            .map(|(account_id, _)| *account_id)
-            .collect();
-
-        // Fetch account proofs for the foreign accounts
-
+        if transaction_request.foreign_account_data().is_empty() {
+            return Ok(AdviceInputs::default());
+        }
         // TODO: We want to cache account code for a specific account here, so that we can send
         // latest-known commitments to the node and avoid some bandwidth pressure when possible
-        let (_block_num, account_proofs) =
-            self.rpc_api.get_account_proofs(&foreign_account_ids, &[], true).await?;
+        let (_block_num, account_proofs) = self
+            .rpc_api
+            .get_account_proofs(transaction_request.foreign_account_data(), &[], true)
+            .await?;
 
         let mut advice_inputs = AdviceInputs::default();
 
