@@ -687,6 +687,7 @@ mod test {
         testing::account::AccountBuilder,
         Felt,
     };
+    use winter_maybe_async::maybe_await;
 
     use super::{PaymentTransactionData, TransactionRequest};
     use crate::mock::create_test_client;
@@ -712,13 +713,12 @@ mod test {
             .build()
             .unwrap();
 
-        client
-            .import_account(AccountData::new(
-                account.clone(),
-                None,
-                miden_objects::accounts::AuthSecretKey::RpoFalcon512(key.clone()),
-            ))
-            .unwrap();
+        maybe_await!(client.import_account(AccountData::new(
+            account.clone(),
+            None,
+            miden_objects::accounts::AuthSecretKey::RpoFalcon512(key.clone()),
+        )))
+        .unwrap();
         client.sync_state().await.unwrap();
         let tx_request = TransactionRequest::pay_to_id(
             PaymentTransactionData::new(
@@ -732,7 +732,7 @@ mod test {
         )
         .unwrap();
 
-        let tx_result = client.new_transaction(account.id(), tx_request).unwrap();
+        let tx_result = maybe_await!(client.new_transaction(account.id(), tx_request)).unwrap();
         assert!(tx_result
             .created_notes()
             .get_note(0)

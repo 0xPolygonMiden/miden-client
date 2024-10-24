@@ -4,6 +4,7 @@ use miden_client::{
     accounts::AccountData, crypto::FeltRng, store::NoteExportType, utils::Serializable, Client,
 };
 use tracing::info;
+use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{get_output_note_with_id_prefix, utils::parse_account_id, Parser};
 
@@ -49,11 +50,17 @@ impl From<ExportType> for NoteExportType {
 }
 
 impl ExportCmd {
+    #[maybe_async]
     pub fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         if self.account {
-            export_account(&client, self.id.as_str(), self.filename.clone())?;
+            maybe_await!(export_account(&client, self.id.as_str(), self.filename.clone()))?;
         } else if let Some(export_type) = &self.export_type {
-            export_note(&mut client, self.id.as_str(), self.filename.clone(), export_type.clone())?;
+            maybe_await!(export_note(
+                &mut client,
+                self.id.as_str(),
+                self.filename.clone(),
+                export_type.clone()
+            ))?;
         } else {
             return Err("Export type is required when exporting a note".to_string());
         }
@@ -64,16 +71,17 @@ impl ExportCmd {
 // EXPORT ACCOUNT
 // ================================================================================================
 
+#[maybe_async]
 fn export_account<R: FeltRng>(
     client: &Client<R>,
     account_id: &str,
     filename: Option<PathBuf>,
 ) -> Result<File, String> {
-    let account_id = parse_account_id(client, account_id)?;
+    let account_id = maybe_await!(parse_account_id(client, account_id))?;
 
-    let (account, account_seed) = client.get_account(account_id)?;
+    let (account, account_seed) = maybe_await!(client.get_account(account_id))?;
 
-    let auth = client.get_account_auth(account_id)?;
+    let auth = maybe_await!(client.get_account_auth(account_id))?;
 
     let account_data = AccountData::new(account, account_seed, auth);
 
@@ -95,20 +103,21 @@ fn export_account<R: FeltRng>(
 // EXPORT NOTE
 // ================================================================================================
 
+#[maybe_async]
 fn export_note(
     client: &mut Client<impl FeltRng>,
     note_id: &str,
     filename: Option<PathBuf>,
     export_type: ExportType,
 ) -> Result<File, String> {
-    let note_id = get_output_note_with_id_prefix(client, note_id)
+    let note_id = maybe_await!(get_output_note_with_id_prefix(client, note_id))
         .map_err(|err| err.to_string())?
         .id();
 
-    let output_note = client
-        .get_output_notes(miden_client::store::NoteFilter::Unique(note_id))?
-        .pop()
-        .expect("should have an output note");
+    let output_note =
+        maybe_await!(client.get_output_notes(miden_client::store::NoteFilter::Unique(note_id)))?
+            .pop()
+            .expect("should have an output note");
 
     let note_file = output_note.into_note_file(export_type.into())?;
 

@@ -20,6 +20,13 @@ pub struct InitCmd {
     /// Store file path
     #[clap(long)]
     store_path: Option<String>,
+
+    /// RPC endpoint for the proving service. Required if proving mode is set to remote.
+    /// The endpoint must be in the form of "{protocol}://{hostname}:{port}", being the protocol
+    /// and port optional.
+    /// If the proving RPC is not set, the proving mode will be set to local.
+    #[clap(long)]
+    proving_rpc: Option<String>,
 }
 
 impl InitCmd {
@@ -43,6 +50,10 @@ impl InitCmd {
         if let Some(path) = &self.store_path {
             cli_config.store.database_filepath = path.to_string();
         }
+
+        cli_config.proving_rpc_endpoint = self.proving_rpc.clone().map(|rpc| {
+            Endpoint::try_from(rpc.as_str()).expect("Error parsing proving RPC endpoint")
+        });
 
         let config_as_toml_string = toml::to_string_pretty(&cli_config)
             .map_err(|err| format!("Error formatting config: {err}"))?;

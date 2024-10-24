@@ -12,6 +12,7 @@ use miden_client::{
     Client,
 };
 use tracing::info;
+use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{commands::account::maybe_set_default_account, utils::load_config_file, Parser};
 
@@ -34,7 +35,7 @@ impl ImportCmd {
                 let note_id = client.import_note(note_file).await.map_err(|err| err.to_string())?;
                 println!("Succesfully imported note {}", note_id.inner());
             } else {
-                let account_id = import_account(&mut client, filename)
+                let account_id = maybe_await!(import_account(&mut client, filename))
                     .map_err(|_| format!("Failed to parse file {}", filename.to_string_lossy()))?;
                 println!("Succesfully imported account {}", account_id);
 
@@ -50,6 +51,7 @@ impl ImportCmd {
 // IMPORT ACCOUNT
 // ================================================================================================
 
+#[maybe_async]
 fn import_account(
     client: &mut Client<impl FeltRng>,
     filename: &PathBuf,
@@ -63,7 +65,7 @@ fn import_account(
         AccountData::read_from_bytes(&account_data_file_contents).map_err(|err| err.to_string())?;
     let account_id = account_data.account.id();
 
-    client.import_account(account_data)?;
+    maybe_await!(client.import_account(account_data))?;
 
     Ok(account_id)
 }
