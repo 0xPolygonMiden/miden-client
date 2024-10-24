@@ -19,7 +19,7 @@ use miden_objects::{
     notes::{Note, NoteId, NoteTag},
     testing::notes::NoteBuilder,
     transaction::{InputNote, ProvenTransaction},
-    BlockHeader, Felt, Word,
+    BlockHeader, Digest, Felt, Word,
 };
 use miden_tx::{testing::mock_chain::MockChain, LocalTransactionProver};
 use rand::Rng;
@@ -32,7 +32,8 @@ use crate::{
             note::NoteSyncRecord,
             responses::{NullifierUpdate, SyncNoteResponse, SyncStateResponse},
         },
-        AccountDetails, NodeRpcClient, NoteDetails, NoteInclusionDetails, RpcError, StateSyncInfo,
+        AccountDetails, AccountProofs, NodeRpcClient, NoteDetails, NoteInclusionDetails, RpcError,
+        StateSyncInfo,
     },
     store::{
         sqlite_store::{config::SqliteStoreConfig, SqliteStore},
@@ -291,6 +292,15 @@ impl NodeRpcClient for MockRpcApi {
         _account_id: AccountId,
     ) -> Result<AccountDetails, RpcError> {
         panic!("shouldn't be used for now")
+    }
+
+    async fn get_account_proofs(
+        &mut self,
+        _account_ids: &[AccountId],
+        _code_commitments: &[Digest],
+        _include_headers: bool,
+    ) -> Result<AccountProofs, RpcError> {
+        todo!();
     }
 
     async fn check_nullifiers_by_prefix(
