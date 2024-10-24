@@ -64,7 +64,7 @@ async fn test_fpi() {
     wait_for_tx(&mut client, tx_id).await;
 
     println!("Calling FPI functions with new account");
-    let (native_account, native_seed) = client
+    let (native_account, _native_seed) = client
         .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
             storage_mode: AccountStorageMode::Private,
@@ -100,7 +100,7 @@ async fn test_fpi() {
     let tx_script =
         TransactionScript::compile(tx_script, vec![], TransactionKernel::assembler()).unwrap();
     let _ = client.sync_state().await;
-    let tx_result = client
+    let _tx_result = client
         .new_transaction(
             native_account.id(),
             TransactionRequest::new()
