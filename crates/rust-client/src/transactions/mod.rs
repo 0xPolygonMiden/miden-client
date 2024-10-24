@@ -222,7 +222,6 @@ pub struct TransactionStoreUpdate {
 
 impl TransactionStoreUpdate {
     /// Creates a new [TransactionStoreUpdate] instance.
-    #[maybe_async]
     pub fn new(
         executed_transaction: ExecutedTransaction,
         updated_account: Account,
@@ -417,7 +416,7 @@ impl<R: FeltRng> Client<R> {
     #[maybe_async]
     fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), ClientError> {
         let transaction_id = tx_result.executed_transaction().id();
-        let sync_height = self.get_sync_height()?;
+        let sync_height = maybe_await!(self.get_sync_height())?;
 
         // Transaction was proven and submitted to the node correctly, persist note details and
         // update account
@@ -425,7 +424,7 @@ impl<R: FeltRng> Client<R> {
 
         let account_id = tx_result.executed_transaction().account_id();
         let account_delta = tx_result.account_delta();
-        let (mut account, _seed) = self.get_account(account_id)?;
+        let (mut account, _seed) = maybe_await!(self.get_account(account_id))?;
 
         account.apply_delta(account_delta)?;
 
@@ -455,7 +454,8 @@ impl<R: FeltRng> Client<R> {
             .collect::<Vec<_>>();
 
         let consumed_note_ids = tx_result.consumed_notes().iter().map(|note| note.id()).collect();
-        let consumed_notes = self.get_input_notes(NoteFilter::List(consumed_note_ids))?;
+        let consumed_notes =
+            maybe_await!(self.get_input_notes(NoteFilter::List(consumed_note_ids)))?;
 
         let mut updated_input_notes = vec![];
         for mut input_note_record in consumed_notes {
