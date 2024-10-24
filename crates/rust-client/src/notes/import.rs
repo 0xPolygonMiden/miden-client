@@ -97,10 +97,7 @@ impl<R: FeltRng> Client<R> {
                 if previous_note
                     .inclusion_proof_received(inclusion_proof, *note_details.metadata())?
                 {
-                    maybe_await!(self.store.remove_note_tag(NoteTagRecord::with_note_source(
-                        note_details.metadata().tag(),
-                        note_details.id()
-                    )))?;
+                    maybe_await!(self.store.remove_note_tag((&previous_note).try_into()?))?;
 
                     Ok(Some(previous_note))
                 } else {
@@ -174,10 +171,7 @@ impl<R: FeltRng> Client<R> {
             }
 
             if note_changed {
-                maybe_await!(self.store.remove_note_tag(NoteTagRecord::with_note_source(
-                    metadata.tag(),
-                    note_record.id()
-                )))?;
+                maybe_await!(self.store.remove_note_tag((&note_record).try_into()?))?;
 
                 Ok(Some(note_record))
             } else {

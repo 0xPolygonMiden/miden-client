@@ -8,7 +8,7 @@ use miden_objects::{
 use tracing::warn;
 use winter_maybe_async::{maybe_async, maybe_await};
 
-use super::SyncedNewNotes;
+use super::NoteUpdates;
 use crate::{
     notes::NoteScreener,
     store::{ChainMmrNodeFilter, NoteFilter, StoreError},
@@ -74,7 +74,7 @@ impl<R: FeltRng> Client<R> {
     /// inclusion proof in order to correctly update store data
     pub(crate) async fn check_block_relevance(
         &mut self,
-        committed_notes: &SyncedNewNotes,
+        committed_notes: &NoteUpdates,
     ) -> Result<bool, ClientError> {
         // We'll only do the check for either incoming public notes or expected input notes as
         // output notes are not really candidates to be consumed here.
@@ -83,13 +83,21 @@ impl<R: FeltRng> Client<R> {
 
         // Find all relevant Input Notes using the note checker
         for input_note in committed_notes.updated_input_notes() {
-            if !maybe_await!(note_screener.check_relevance(input_note.note()))?.is_empty() {
+            if !maybe_await!(note_screener.check_relevance(
+                &input_note.try_into().expect("Committed notes should contain metadata")
+            ))?
+            .is_empty()
+            {
                 return Ok(true);
             }
         }
 
         for public_input_note in committed_notes.new_public_notes() {
-            if !maybe_await!(note_screener.check_relevance(public_input_note.note()))?.is_empty() {
+            if !maybe_await!(note_screener.check_relevance(
+                &public_input_note.try_into().expect("Committed notes should contain metadata")
+            ))?
+            .is_empty()
+            {
                 return Ok(true);
             }
         }

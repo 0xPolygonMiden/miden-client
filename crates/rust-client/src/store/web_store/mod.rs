@@ -18,7 +18,7 @@ use super::{
 };
 use crate::{
     sync::{NoteTagRecord, StateSyncUpdate},
-    transactions::{TransactionRecord, TransactionResult},
+    transactions::{TransactionRecord, TransactionStoreUpdate},
 };
 
 pub mod accounts;
@@ -83,8 +83,8 @@ impl Store for WebStore {
     }
 
     #[maybe_async]
-    fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), StoreError> {
-        self.apply_transaction(tx_result).await
+    fn apply_transaction(&self, tx_update: TransactionStoreUpdate) -> Result<(), StoreError> {
+        self.apply_transaction(tx_update).await
     }
 
     // NOTES

@@ -18,7 +18,7 @@ use winter_maybe_async::*;
 
 use crate::{
     sync::{NoteTagRecord, StateSyncUpdate},
-    transactions::{TransactionRecord, TransactionResult},
+    transactions::{TransactionRecord, TransactionStoreUpdate},
 };
 
 /// Contains [ClientDataStore] to automatically implement [DataStore] for anything that implements
@@ -75,15 +75,17 @@ pub trait Store {
     ) -> Result<Vec<TransactionRecord>, StoreError>;
 
     /// Applies a transaction, atomically updating the current state based on the
-    /// [TransactionResult]
+    /// [TransactionStoreUpdate]
     ///
     /// An update involves:
-    /// - Applying the resulting [AccountDelta](miden_objects::accounts::AccountDelta) and storing
-    ///   the new [Account] state
-    /// - Storing new notes and payback note details as a result of the transaction execution
+    /// - Updating the stored account which is being modified by the transaction
+    /// - Storing new input/output notes and payback note details as a result of the transaction
+    ///   execution
+    /// - Updating the input notes that are being processed by the transaction
+    /// - Inserting the new tracked tags into the store
     /// - Inserting the transaction into the store to track
     #[maybe_async]
-    fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), StoreError>;
+    fn apply_transaction(&self, tx_update: TransactionStoreUpdate) -> Result<(), StoreError>;
 
     // NOTES
     // --------------------------------------------------------------------------------------------
@@ -305,11 +307,11 @@ pub trait Store {
     /// Applies the state sync update to the store. An update involves:
     ///
     /// - Inserting the new block header to the store alongside new MMR peaks information
-    /// - Updating the notes, marking them as `committed` or `consumed` based on incoming inclusion
-    ///   proofs and nullifiers
-    /// - Updating transactions in the store, marking as `committed` the ones provided with
-    ///   `committed_transactions`
+    /// - Updating the corresponding tracked input/output notes
+    /// - Removing note tags that are no longer relevant
+    /// - Updating transactions in the store, marking as `committed` or `discarded`
     /// - Storing new MMR authentication nodes
+    /// - Updating the tracked on-chain accounts
     #[maybe_async]
     fn apply_state_sync(&self, state_sync_update: StateSyncUpdate) -> Result<(), StoreError>;
 }
@@ -356,14 +358,15 @@ pub enum NoteFilter {
     /// Return a list of expected notes ([InputNoteRecord] or [OutputNoteRecord]). These represent
     /// notes for which the store does not have anchor data.
     Expected,
-    /// Return a list containing the note that matches with the provided [NoteId].
+    /// Return a list containing any notes that match with the provided [NoteId] vector.
     List(Vec<NoteId>),
-    /// Return a list of notes that match the provided [Nullifier] list.
+    /// Return a list containing any notes that match the provided [Nullifier] vector.
     Nullifiers(Vec<Nullifier>),
     /// Return a list of notes that are currently being processed. This filter doesn't apply to
     /// output notes.
     Processing,
-    /// Return a list containing the note that matches with the provided [NoteId].
+    /// Return a list containing the note that matches with the provided [NoteId]. The query will
+    /// return an error if the note is not found.
     Unique(NoteId),
     /// Return a list containing notes that haven't been nullified yet, this includes expected,
     /// committed, processing and unverified notes.
