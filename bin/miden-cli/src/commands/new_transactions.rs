@@ -264,7 +264,8 @@ async fn execute_transaction(
     force: bool,
 ) -> Result<(), String> {
     println!("Executing transaction...");
-    let transaction_execution_result = client.new_transaction(account_id, transaction_request)?;
+    let transaction_execution_result =
+        client.new_transaction(account_id, transaction_request).await?;
 
     // Show delta and ask for confirmation
     print_transaction_details(&transaction_execution_result)?;

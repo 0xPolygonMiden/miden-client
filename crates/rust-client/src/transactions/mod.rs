@@ -8,13 +8,14 @@ use alloc::{
 };
 use core::fmt::{self};
 
-use miden_lib::transaction::TransactionKernel;
+pub use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
     accounts::{Account, AccountDelta, AccountId, AccountType},
     assets::{Asset, NonFungibleAsset},
     notes::{Note, NoteDetails, NoteExecutionMode, NoteId, NoteTag, NoteType},
     transaction::{InputNotes, TransactionArgs},
-    AssetError, Digest, Felt, NoteError, Word,
+    vm::AdviceInputs,
+    AssetError, Digest, Felt, NoteError, Word, ZERO,
 };
 pub use miden_tx::{LocalTransactionProver, ProvingOptions, TransactionProver};
 use script_builder::{AccountCapabilities, AccountInterface, TransactionScriptBuilder};
@@ -24,6 +25,7 @@ use winter_maybe_async::*;
 use super::{Client, FeltRng};
 use crate::{
     notes::NoteScreener,
+    rpc::RpcError,
     store::{input_note_states::ExpectedNoteState, InputNoteRecord, NoteFilter, TransactionFilter},
     ClientError,
 };
@@ -226,8 +228,7 @@ impl<R: FeltRng> Client<R> {
     ///   a subset of executor's output notes
     /// - Returns a [ClientError::TransactionExecutorError] if the execution fails
     /// - Returns a [ClientError::TransactionRequestError] if the request is invalid
-    #[maybe_async]
-    pub fn new_transaction(
+    pub async fn new_transaction(
         &mut self,
         account_id: AccountId,
         transaction_request: TransactionRequest,
@@ -296,7 +297,13 @@ impl<R: FeltRng> Client<R> {
             },
         };
 
-        let tx_args = transaction_request.into_transaction_args(tx_script);
+        // Inject foreign account data
+        let foreign_data_advice_inputs =
+            self.get_foreign_account_inputs(&transaction_request).await?;
+        let mut tx_args = transaction_request.into_transaction_args(tx_script);
+        let AdviceInputs { map, store, .. } = foreign_data_advice_inputs;
+        tx_args.extend_advice_map(map);
+        tx_args.extend_merkle_store(store.inner_nodes());
 
         // Execute the transaction and get the witness
         let executed_transaction = maybe_await!(self
@@ -555,6 +562,87 @@ impl<R: FeltRng> Client<R> {
             interfaces: account_capabilities,
         })
     }
+
+    pub async fn get_foreign_account_inputs(
+        &mut self,
+        transaction_request: &TransactionRequest,
+    ) -> Result<AdviceInputs, ClientError> {
+        let foreign_account_ids: Vec<AccountId> = transaction_request
+            .foreign_account_data()
+            .iter()
+            .map(|(account_id, _)| *account_id)
+            .collect();
+
+        // Fetch account proofs for the foreign accounts
+
+        // TODO: We want to cache account code for a specific account here, so that we can send
+        // latest-known commitments to the node and avoid some bandwidth pressure when possible
+        let (_block_num, account_proofs) =
+            self.rpc_api.get_account_proofs(&foreign_account_ids, &[], true).await?;
+
+        let mut advice_inputs = AdviceInputs::default();
+
+        for account_proof in account_proofs.into_iter() {
+            let account_header = account_proof.account_header().ok_or_else(|| {
+                ClientError::RpcError(RpcError::ExpectedDataMissing("AccountHeader".to_string()))
+            })?;
+
+            let account_id = account_header.id();
+            let account_nonce = account_header.nonce();
+            let vault_root = account_header.vault_root();
+            let storage_root = account_header.storage_commitment();
+            let code_root = account_header.code_commitment();
+
+            let foreign_id_root = Digest::from([account_id.into(), ZERO, ZERO, ZERO]);
+            let foreign_id_and_nonce = [account_id.into(), ZERO, ZERO, account_nonce];
+
+            let storage_header = account_proof.storage_header().ok_or_else(|| {
+                ClientError::RpcError(RpcError::ExpectedDataMissing("StorageHeader".to_string()))
+            })?;
+
+            // Prepare storage slot data
+            let mut slots_data = Vec::new();
+            for (slot_type, value) in storage_header.slots() {
+                let mut elements = [ZERO; 8];
+                elements[0..4].copy_from_slice(value);
+                elements[4..8].copy_from_slice(&slot_type.as_word());
+                slots_data.extend_from_slice(&elements);
+            }
+
+            let account_code = account_proof.account_code().ok_or_else(|| {
+                ClientError::RpcError(RpcError::ExpectedDataMissing("AccountCode".to_string()))
+            })?;
+
+            // Extend the advice inputs with the new data
+            advice_inputs.extend_map([
+                // ACCOUNT_ID -> [ID_AND_NONCE, VAULT_ROOT, STORAGE_ROOT, CODE_ROOT]
+                (
+                    foreign_id_root,
+                    [
+                        &foreign_id_and_nonce,
+                        vault_root.as_elements(),
+                        storage_root.as_elements(),
+                        code_root.as_elements(),
+                    ]
+                    .concat(),
+                ),
+                // STORAGE_ROOT -> [STORAGE_SLOT_DATA]
+                (storage_root, slots_data),
+                // CODE_ROOT -> [ACCOUNT_CODE_DATA]
+                (code_root, account_code.as_elements()),
+            ]);
+
+            // TODO: Remove this unwrap
+            advice_inputs.extend_merkle_store(
+                account_proof
+                    .merkle_proof()
+                    .inner_nodes(account_id.into(), account_header.hash())
+                    .unwrap(),
+            );
+        }
+
+        Ok(advice_inputs)
+    }
 }
 
 // TESTING HELPERS
@@ -732,7 +820,7 @@ mod test {
         )
         .unwrap();
 
-        let tx_result = client.new_transaction(account.id(), tx_request).unwrap();
+        let tx_result = client.new_transaction(account.id(), tx_request).await.unwrap();
         assert!(tx_result
             .created_notes()
             .get_note(0)

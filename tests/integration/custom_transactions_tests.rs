@@ -125,7 +125,7 @@ async fn test_transaction_request() {
         .extend_advice_map(advice_map.clone());
 
     // This fails becuase of {asserted_value} having the incorrect number passed in
-    assert!(client.new_transaction(regular_account.id(), transaction_request).is_err());
+    assert!(client.new_transaction(regular_account.id(), transaction_request).await.is_err());
 
     // SUCCESS EXECUTION
 
