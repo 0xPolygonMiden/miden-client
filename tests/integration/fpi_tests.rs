@@ -16,13 +16,14 @@ use super::common::*;
 // ================================================================================================
 
 #[tokio::test]
-async fn test_multiple_tx_on_same_block() {
+async fn test_fpi() {
     let mut client = create_test_client();
     wait_for_node(&mut client).await;
 
     let (foreign_account, foreign_seed, secret_key) =
         AccountBuilder::new(ChaCha20Rng::from_entropy())
             .code(foreign_account_code())
+            .storage_mode(AccountStorageMode::Public)
             .build_with_auth(&mut ChaCha20Rng::from_entropy())
             .unwrap();
 
@@ -38,11 +39,13 @@ async fn test_multiple_tx_on_same_block() {
 
     let deployment_tx_script = TransactionScript::compile(
         "begin 
-        push.9.12.18.3
-        push.1 # Storage key index 1
-        call.::miden::account::set_item
-        call.::miden::contracts::auth::basic::auth_tx_rpo_falcon512 
-    end",
+            #push.9.12.18.3
+            #push.0 # Storage key index 1
+            #call.::miden::account::set_item 
+            #dropw dropw dropw dropw dropw dropw
+            call.::miden::contracts::auth::basic::auth_tx_rpo_falcon512 
+            #dropw dropw dropw dropw dropw dropw
+        end",
         vec![],
         TransactionKernel::assembler(),
     )
@@ -56,7 +59,7 @@ async fn test_multiple_tx_on_same_block() {
         )
         .await
         .unwrap();
-    client.sync_state();
+    client.sync_state().await;
     client.submit_transaction(tx).await.unwrap();
 
     println!("Calling FPI functions with new account");
@@ -67,7 +70,8 @@ async fn test_multiple_tx_on_same_block() {
         })
         .unwrap();
 
-    let tx_script = "
+    let tx_script = format!(
+        "
     use.miden::tx
     use.miden::account
     begin
@@ -82,14 +86,14 @@ async fn test_multiple_tx_on_same_block() {
         procref.account::get_item_foreign
 
         # push the foreign account id
-        push.{account_id}
+        push.{foreign_account_id}
         # => [foreign_account_id, FOREIGN_PROC_ROOT, storage_item_index, pad(11)]
 
         exec.tx::execute_foreign_procedure
         # => [STORAGE_VALUE_1]
     end
     "
-    .to_string();
+    );
 
     let tx_script =
         TransactionScript::compile(tx_script, vec![], TransactionKernel::assembler()).unwrap();
