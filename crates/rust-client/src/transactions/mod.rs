@@ -211,12 +211,23 @@ impl fmt::Display for TransactionStatus {
     }
 }
 
+// TRANSACTION STORE UPDATE
+// --------------------------------------------------------------------------------------------
+
+/// Represents the changes that need to be applied to the client store as a result of a
+/// transaction execution.
 pub struct TransactionStoreUpdate {
+    /// Details of the executed transaction to be inserted
     executed_transaction: ExecutedTransaction,
+    /// Updated account state after the [AccountDelta] has been applied
     updated_account: Account,
-    created_input_notes: Vec<InputNoteRecord>,
+    /// Output notes that were created as a result of the transaction execution
     created_output_notes: Vec<OutputNoteRecord>,
+    /// Notes created by the transaction that are relevant to the client
+    created_input_notes: Vec<InputNoteRecord>,
+    /// Updated input notes that are being processed by the transaction
     updated_input_notes: Vec<InputNoteRecord>,
+    /// New note tags to be tracked
     new_tags: Vec<NoteTagRecord>,
 }
 

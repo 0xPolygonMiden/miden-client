@@ -74,6 +74,16 @@ pub trait Store {
         filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, StoreError>;
 
+    /// Applies a transaction, atomically updating the current state based on the
+    /// [TransactionStoreUpdate]
+    ///
+    /// An update involves:
+    /// - Updating the stored account which is being modified by the transaction
+    /// - Storing new input/output notes and payback note details as a result of the transaction
+    ///   execution
+    /// - Updating the input notes that are being processed by the transaction
+    /// - Inserting the new tracked tags into the store
+    /// - Inserting the transaction into the store to track
     #[maybe_async]
     fn apply_transaction(&self, tx_update: TransactionStoreUpdate) -> Result<(), StoreError>;
 
@@ -297,11 +307,11 @@ pub trait Store {
     /// Applies the state sync update to the store. An update involves:
     ///
     /// - Inserting the new block header to the store alongside new MMR peaks information
-    /// - Updating the notes, marking them as `committed` or `consumed` based on incoming inclusion
-    ///   proofs and nullifiers
-    /// - Updating transactions in the store, marking as `committed` the ones provided with
-    ///   `committed_transactions`
+    /// - Updating the corresponding tracked input/output notes
+    /// - Removing note tags that are no longer relevant
+    /// - Updating transactions in the store, marking as `committed` or `discarded`
     /// - Storing new MMR authentication nodes
+    /// - Updating the tracked on-chain accounts
     #[maybe_async]
     fn apply_state_sync(&self, state_sync_update: StateSyncUpdate) -> Result<(), StoreError>;
 }

@@ -111,19 +111,18 @@ impl SyncStatus {
     }
 }
 
-/// Contains information about new notes as consequence of a sync.
+/// Contains information about new and updated notes as consequence of a sync.
 pub struct NoteUpdates {
     /// A list of public notes that have been received on sync
     new_public_notes: Vec<InputNoteRecord>,
-    /// A list of updated input note records corresponding to updated locally-tracked input notes
+    /// A list of updated input note records corresponding to locally-tracked input notes
     updated_input_notes: Vec<InputNoteRecord>,
-    /// A list of note updated output note records corresponding to updated locally-tracked output
-    /// notes
+    /// A list of updated output note records corresponding to locally-tracked output notes
     updated_output_notes: Vec<OutputNoteRecord>,
 }
 
 impl NoteUpdates {
-    /// Creates a [SyncedNewNotes]
+    /// Creates a [NoteUpdates]
     pub fn new(
         new_public_notes: Vec<InputNoteRecord>,
         updated_input_notes: Vec<InputNoteRecord>,
@@ -136,6 +135,7 @@ impl NoteUpdates {
         }
     }
 
+    /// Combines two [NoteUpdates] into a single one.
     pub fn combine_with(mut self, other: Self) -> Self {
         self.new_public_notes.extend(other.new_public_notes);
         self.updated_input_notes.extend(other.updated_input_notes);
@@ -144,7 +144,7 @@ impl NoteUpdates {
         self
     }
 
-    /// Returns all new public notes, meant to be tracked by the client.
+    /// Returns all new public note records, meant to be tracked by the client.
     pub fn new_public_notes(&self) -> &[InputNoteRecord] {
         &self.new_public_notes
     }
@@ -168,6 +168,7 @@ impl NoteUpdates {
             && self.new_public_notes.is_empty()
     }
 
+    /// Returns the IDs of all notes that have been committed
     pub fn committed_note_ids(&self) -> BTreeSet<NoteId> {
         let committed_output_note_ids = self
             .updated_output_notes
@@ -184,6 +185,7 @@ impl NoteUpdates {
         BTreeSet::from_iter(committed_input_note_ids.chain(committed_output_note_ids))
     }
 
+    /// Returns the IDs of all notes that have been consumed
     pub fn consumed_note_ids(&self) -> BTreeSet<NoteId> {
         let consumed_output_note_ids = self
             .updated_output_notes
@@ -210,6 +212,7 @@ pub struct StateSyncUpdate {
     /// Transaction updates for any transaction that was committed between the sync request's
     /// block number and the response's block number.
     pub transactions_to_commit: Vec<TransactionUpdate>,
+    /// Transaction IDs for any transactions that were discarded in the sync
     pub transactions_to_discard: Vec<TransactionId>,
     /// New MMR peaks for the locally tracked MMR of the blockchain.
     pub new_mmr_peaks: MmrPeaks,
@@ -220,6 +223,7 @@ pub struct StateSyncUpdate {
     pub updated_onchain_accounts: Vec<Account>,
     /// Whether the block header has notes relevant to the client.
     pub block_has_relevant_notes: bool,
+    /// Tag records that are no longer relevant
     pub tags_to_remove: Vec<NoteTagRecord>,
 }
 
@@ -370,8 +374,8 @@ impl<R: FeltRng> Client<R> {
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
-    /// Extracts information about notes that the client is interested in, creating the note
-    /// inclusion proof in order to correctly update store data
+    /// Returns the [NoteUpdates] containing new public note and committed input/output notes and a
+    /// list or note tag records to be removed from the store.
     async fn committed_note_updates(
         &mut self,
         committed_notes: Vec<CommittedNote>,
@@ -451,6 +455,8 @@ impl<R: FeltRng> Client<R> {
         ))
     }
 
+    /// Returns the [NoteUpdates] containing consumed input/output notes and a list of IDs of the
+    /// transactions that were discarded.
     async fn consumed_note_updates(
         &mut self,
         nullifiers: Vec<NullifierUpdate>,
