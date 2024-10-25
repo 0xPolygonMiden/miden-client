@@ -6,11 +6,13 @@ import {
   AccountStorageMode,
   AdviceMap,
   AuthSecretKey,
+  ConsumableNoteRecord,
   Felt,
   FeltArray,
   FungibleAsset,
   Note,
   NoteAssets,
+  NoteConsumability,
   NoteExecutionHint,
   NoteExecutionMode,
   NoteFilter,
@@ -42,11 +44,13 @@ declare global {
     AccountStorageMode: typeof AccountStorageMode;
     AdviceMap: typeof AdviceMap;
     AuthSecretKey: typeof AuthSecretKey;
+    ConsumableNoteRecord: typeof ConsumableNoteRecord;
     Felt: typeof Felt;
     FeltArray: typeof FeltArray;
     FungibleAsset: typeof FungibleAsset;
     Note: typeof Note;
     NoteAssets: typeof NoteAssets;
+    NoteConsumability: typeof NoteConsumability;
     NoteExecutionHint: typeof NoteExecutionHint;
     NoteExecutionMode: typeof NoteExecutionMode;
     NoteFilter: typeof NoteFilter;
