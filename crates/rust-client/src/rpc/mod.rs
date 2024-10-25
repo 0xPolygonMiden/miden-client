@@ -133,6 +133,7 @@ impl NoteInclusionDetails {
 // ACCOUNT PROOF
 // ================================================================================================
 
+/// Contains a block number, and a list of account proofs at that block.
 pub type AccountProofs = (u32, Vec<AccountProof>);
 
 /// Represents a proof of existence of an account's state at a specific block number.
@@ -154,12 +155,17 @@ impl AccountProof {
         account_hash: Digest,
         state_headers: Option<(AccountHeader, AccountStorageHeader, Option<AccountCode>)>,
     ) -> Result<Self, AccountProofError> {
-        if let Some((account_header, ..)) = &state_headers {
+        if let Some((account_header, _, code)) = &state_headers {
             if account_header.hash() != account_hash {
                 return Err(AccountProofError::InconsistentAccountHash);
             }
             if account_id != account_header.id() {
                 return Err(AccountProofError::InconsistentAccountId);
+            }
+            if let Some(code) = code {
+                if code.commitment() != account_header.code_commitment() {
+                    return Err(AccountProofError::InconsistentCodeCommitment);
+                }
             }
         }
 
@@ -213,6 +219,7 @@ impl AccountProof {
 pub enum AccountProofError {
     InconsistentAccountHash,
     InconsistentAccountId,
+    InconsistentCodeCommitment,
 }
 
 impl fmt::Display for AccountProofError {
@@ -220,6 +227,7 @@ impl fmt::Display for AccountProofError {
         match self {
             AccountProofError::InconsistentAccountHash => write!(f,"The received account hash does not match the received account header's account hash"),
             AccountProofError::InconsistentAccountId => write!(f,"The received account ID does not match the received account header's ID"),
+            AccountProofError::InconsistentCodeCommitment => write!(f,"The received code commitment does not match the received account header's code commitment"),
         }
     }
 }

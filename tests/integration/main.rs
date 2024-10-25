@@ -22,6 +22,7 @@ mod common;
 use common::*;
 
 mod custom_transactions_tests;
+mod fpi_tests;
 mod onchain_tests;
 mod swap_transactions_tests;
 
@@ -89,13 +90,13 @@ async fn test_multiple_tx_on_same_block() {
 
     // Create transactions
     let transaction_execution_result_1 =
-        client.new_transaction(from_account_id, tx_request_1).unwrap();
+        client.new_transaction(from_account_id, tx_request_1).await.unwrap();
     let transaction_id_1 = transaction_execution_result_1.executed_transaction().id();
     let tx_prove_1 = client.testing_prove_transaction(&transaction_execution_result_1).unwrap();
     client.testing_apply_transaction(transaction_execution_result_1).await.unwrap();
 
     let transaction_execution_result_2 =
-        client.new_transaction(from_account_id, tx_request_2).unwrap();
+        client.new_transaction(from_account_id, tx_request_2).await.unwrap();
     let transaction_id_2 = transaction_execution_result_2.executed_transaction().id();
     let tx_prove_2 = client.testing_prove_transaction(&transaction_execution_result_2).unwrap();
     client.testing_apply_transaction(transaction_execution_result_2).await.unwrap();
@@ -412,7 +413,7 @@ async fn test_p2idr_transfer_consumed_by_sender() {
     // Check that it's still too early to consume
     println!("Consuming Note (too early)...");
     let tx_request = TransactionRequest::consume_notes(vec![notes[0].id()]);
-    let transaction_execution_result = client.new_transaction(from_account_id, tx_request);
+    let transaction_execution_result = client.new_transaction(from_account_id, tx_request).await;
     assert!(transaction_execution_result.is_err_and(|err| {
         matches!(
             err,
@@ -879,7 +880,7 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
 
         println!("Executing transaction...");
         let transaction_execution_result =
-            client.new_transaction(faucet_account_id, tx_request.clone()).unwrap();
+            client.new_transaction(faucet_account_id, tx_request.clone()).await.unwrap();
         let transaction_id = transaction_execution_result.executed_transaction().id();
 
         println!("Sending transaction to node");
@@ -905,7 +906,7 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
 
         println!("Executing transaction...");
         let transaction_execution_result =
-            client.new_transaction(faucet_account_id, tx_request.clone()).unwrap();
+            client.new_transaction(faucet_account_id, tx_request.clone()).await.unwrap();
         let transaction_id = transaction_execution_result.executed_transaction().id();
 
         println!("Sending transaction to node");
@@ -935,7 +936,7 @@ async fn test_multiple_transactions_can_be_committed_in_different_blocks_without
 
         println!("Executing transaction...");
         let transaction_execution_result =
-            client.new_transaction(faucet_account_id, tx_request.clone()).unwrap();
+            client.new_transaction(faucet_account_id, tx_request.clone()).await.unwrap();
         let transaction_id = transaction_execution_result.executed_transaction().id();
 
         println!("Sending transaction to node");
@@ -1240,7 +1241,7 @@ async fn test_discarded_transaction() {
     let tx_request = TransactionRequest::consume_notes(vec![note.id()]);
 
     // Consume the note in client 1 but dont submit it to the node
-    let tx_result = client_1.new_transaction(from_account_id, tx_request.clone()).unwrap();
+    let tx_result = client_1.new_transaction(from_account_id, tx_request.clone()).await.unwrap();
     let tx_id = tx_result.executed_transaction().id();
     client_1.testing_prove_transaction(&tx_result).unwrap();
     client_1.testing_apply_transaction(tx_result).await.unwrap();

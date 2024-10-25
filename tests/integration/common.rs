@@ -103,7 +103,7 @@ pub async fn execute_failing_tx(
     println!("Executing transaction...");
     // We compare string since we can't compare the error directly
     assert_eq!(
-        client.new_transaction(account_id, tx_request).unwrap_err().to_string(),
+        client.new_transaction(account_id, tx_request).await.unwrap_err().to_string(),
         expected_error.to_string()
     );
 }
@@ -114,7 +114,8 @@ pub async fn execute_tx(
     tx_request: TransactionRequest,
 ) -> TransactionId {
     println!("Executing transaction...");
-    let transaction_execution_result = client.new_transaction(account_id, tx_request).unwrap();
+    let transaction_execution_result =
+        client.new_transaction(account_id, tx_request).await.unwrap();
     let transaction_id = transaction_execution_result.executed_transaction().id();
 
     println!("Sending transaction to node");
@@ -315,7 +316,7 @@ pub async fn assert_note_cannot_be_consumed_twice(
 
     // Double-spend error expected to be received since we are consuming the same note
     let tx_request = TransactionRequest::consume_notes(vec![note_to_consume_id]);
-    match client.new_transaction(consuming_account_id, tx_request) {
+    match client.new_transaction(consuming_account_id, tx_request).await {
         Err(ClientError::TransactionExecutorError(
             TransactionExecutorError::FetchTransactionInputsFailed(
                 DataStoreError::NoteAlreadyConsumed(_),
