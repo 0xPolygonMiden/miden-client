@@ -124,11 +124,13 @@ pub(crate) struct TransactionScriptBuilder {
     /// Capabilities of the account for which the script is being built. The capabilities
     /// specify the authentication method and the interfaces exposed by the account.
     account_capabilities: AccountCapabilities,
-    expiration_delta: Option<u32>,
+    /// The number of blocks in relation to the transaction's reference block after which the
+    /// transaction will expire.
+    expiration_delta: Option<u16>,
 }
 
 impl TransactionScriptBuilder {
-    pub fn new(account_capabilities: AccountCapabilities, expiration_delta: Option<u32>) -> Self {
+    pub fn new(account_capabilities: AccountCapabilities, expiration_delta: Option<u16>) -> Self {
         Self { account_capabilities, expiration_delta }
     }
 
@@ -146,11 +148,16 @@ impl TransactionScriptBuilder {
         self.build_script_with_sections(vec![send_note_procedure])
     }
 
-    /// Builds a simple authentication script for the account that doesn't send any notes.
+    /// Builds a simple authentication script for the transaction that doesn't send any notes.
     pub fn build_auth_script(&self) -> Result<TransactionScript, TransactionScriptBuilderError> {
         self.build_script_with_sections(vec![])
     }
 
+    /// Builds a transaction script with the specified sections.
+    ///
+    /// The `sections` parameter is a vector of strings, where each string represents a distinct
+    /// part of the script body. The script includes, authentication, and expiration sections are
+    /// automatically added to the script.
     fn build_script_with_sections(
         &self,
         sections: Vec<String>,
@@ -169,6 +176,7 @@ impl TransactionScriptBuilder {
         Ok(tx_script)
     }
 
+    /// Returns a string with the needed include instructions for the script.
     fn script_includes(&self) -> String {
         let mut includes = String::new();
 
@@ -187,12 +195,14 @@ impl TransactionScriptBuilder {
         includes
     }
 
+    /// Returns a string with the authentication procedure call for the script.
     fn script_authentication(&self) -> String {
         match self.account_capabilities.auth {
             AuthSecretKey::RpoFalcon512(_) => "call.auth_tx::auth_tx_rpo_falcon512\n".to_string(),
         }
     }
 
+    /// Returns a string with the expiration delta update procedure call for the script.
     fn script_expiration(&self) -> String {
         if let Some(expiration_delta) = self.expiration_delta {
             format!("push.{} exec.tx::update_expiration_block_delta\n", expiration_delta)

@@ -74,8 +74,9 @@ pub struct TransactionRequest {
     advice_map: AdviceMap,
     /// Initial state of the `MerkleStore` that provides data during runtime.
     merkle_store: MerkleStore,
-    /// The number of blocks after which the transaction will expire.
-    expiration_delta: Option<u32>,
+    /// The number of blocks in relation to the transaction's reference block after which the
+    /// transaction will expire.
+    expiration_delta: Option<u16>,
 }
 
 impl TransactionRequest {
@@ -164,6 +165,10 @@ impl TransactionRequest {
             return Err(TransactionRequestError::ScriptTemplateError(
                 "Cannot set custom script when a script template is already set".to_string(),
             ));
+        } else if self.expiration_delta.is_some() {
+            return Err(TransactionRequestError::ScriptTemplateError(
+                "Cannot set custom script when an expiration delta is already set".to_string(),
+            ));
         }
         self.script_template = Some(TransactionScriptTemplate::CustomScript(script));
         Ok(self)
@@ -207,9 +212,18 @@ impl TransactionRequest {
     }
 
     /// Sets the number of blocks after which the transaction will expire.
-    pub fn with_expiration_delta(mut self, expiration_delta: u32) -> Self {
+    pub fn with_expiration_delta(
+        mut self,
+        expiration_delta: u16,
+    ) -> Result<Self, TransactionRequestError> {
+        if let Some(TransactionScriptTemplate::CustomScript(_)) = self.script_template {
+            return Err(TransactionRequestError::ScriptTemplateError(
+                "Cannot set expiration delta when a custom script is set".to_string(),
+            ));
+        }
+
         self.expiration_delta = Some(expiration_delta);
-        self
+        Ok(self)
     }
 
     // STANDARDIZED REQUESTS
@@ -491,7 +505,7 @@ impl Deserializable for TransactionRequest {
         let advice_vec = Vec::<(Digest, Vec<Felt>)>::read_from(source)?;
         advice_map.extend(advice_vec);
         let merkle_store = MerkleStore::read_from(source)?;
-        let expiration_delta = Option::<u32>::read_from(source)?;
+        let expiration_delta = Option::<u16>::read_from(source)?;
 
         Ok(TransactionRequest {
             unauthenticated_input_notes,

@@ -487,7 +487,8 @@ async fn test_transaction_request_expiration() {
         client.rng(),
     )
     .unwrap()
-    .with_expiration_delta(5);
+    .with_expiration_delta(5)
+    .unwrap();
 
     let transaction = client.new_transaction(faucet.id(), transaction_request).unwrap();
 
