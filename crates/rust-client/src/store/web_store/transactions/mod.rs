@@ -9,10 +9,7 @@ use miden_tx::utils::Deserializable;
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
 
-use super::{
-    notes::utils::{upsert_input_note_tx, upsert_output_note_tx},
-    WebStore,
-};
+use super::{notes::utils::apply_note_updates_tx, WebStore};
 use crate::{
     store::{StoreError, TransactionFilter},
     transactions::{TransactionRecord, TransactionStatus, TransactionStoreUpdate},
@@ -103,13 +100,7 @@ impl WebStore {
         update_account(tx_update.updated_account()).await.unwrap();
 
         // Updates for notes
-        for note in tx_update.created_input_notes().iter().chain(tx_update.updated_input_notes()) {
-            upsert_input_note_tx(note).await?;
-        }
-
-        for note in tx_update.created_output_notes() {
-            upsert_output_note_tx(note).await?;
-        }
+        apply_note_updates_tx(tx_update.note_updates()).await?;
 
         for tag_record in tx_update.new_tags() {
             self.add_note_tag(*tag_record).await?;

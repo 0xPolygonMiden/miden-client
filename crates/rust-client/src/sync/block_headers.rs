@@ -92,7 +92,7 @@ impl<R: FeltRng> Client<R> {
             }
         }
 
-        for public_input_note in committed_notes.new_public_notes() {
+        for public_input_note in committed_notes.new_input_notes() {
             if !maybe_await!(note_screener.check_relevance(
                 &public_input_note.try_into().expect("Committed notes should contain metadata")
             ))?

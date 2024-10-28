@@ -16,10 +16,7 @@ use rusqlite::{params, Transaction};
 use tracing::info;
 
 use super::{
-    accounts::update_account,
-    notes::{upsert_input_note_tx, upsert_output_note_tx},
-    sync::add_note_tag_tx,
-    SqliteStore,
+    accounts::update_account, notes::apply_note_updates_tx, sync::add_note_tag_tx, SqliteStore,
 };
 use crate::{
     rpc::TransactionUpdate,
@@ -95,14 +92,8 @@ impl SqliteStore {
         // Account Data
         update_account(&tx, tx_update.updated_account())?;
 
-        // Updates for notes
-        for note in tx_update.created_input_notes().iter().chain(tx_update.updated_input_notes()) {
-            upsert_input_note_tx(&tx, note)?;
-        }
-
-        for note in tx_update.created_output_notes() {
-            upsert_output_note_tx(&tx, note)?;
-        }
+        // Note Updates
+        apply_note_updates_tx(&tx, tx_update.note_updates())?;
 
         for tag_record in tx_update.new_tags() {
             add_note_tag_tx(&tx, tag_record)?;

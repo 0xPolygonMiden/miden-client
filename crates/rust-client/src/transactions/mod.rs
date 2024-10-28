@@ -23,7 +23,7 @@ use winter_maybe_async::*;
 
 use super::{Client, FeltRng};
 use crate::{
-    notes::NoteScreener,
+    notes::{NoteScreener, NoteUpdates},
     store::{
         input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState, NoteFilter,
         OutputNoteRecord, TransactionFilter,
@@ -221,12 +221,8 @@ pub struct TransactionStoreUpdate {
     executed_transaction: ExecutedTransaction,
     /// Updated account state after the [AccountDelta] has been applied
     updated_account: Account,
-    /// Output notes that were created as a result of the transaction execution
-    created_output_notes: Vec<OutputNoteRecord>,
-    /// Notes created by the transaction that are relevant to the client
-    created_input_notes: Vec<InputNoteRecord>,
-    /// Updated input notes that are being processed by the transaction
-    updated_input_notes: Vec<InputNoteRecord>,
+    /// Information about note changes after the transaction execution.
+    note_updates: NoteUpdates,
     /// New note tags to be tracked
     new_tags: Vec<NoteTagRecord>,
 }
@@ -244,9 +240,12 @@ impl TransactionStoreUpdate {
         Self {
             executed_transaction,
             updated_account,
-            created_input_notes,
-            created_output_notes,
-            updated_input_notes,
+            note_updates: NoteUpdates::new(
+                created_input_notes,
+                created_output_notes,
+                updated_input_notes,
+                vec![],
+            ),
             new_tags,
         }
     }
@@ -261,19 +260,9 @@ impl TransactionStoreUpdate {
         &self.updated_account
     }
 
-    /// Returns the input notes that were created as part of the transaction.
-    pub fn created_input_notes(&self) -> &[InputNoteRecord] {
-        &self.created_input_notes
-    }
-
-    /// Returns the output notes that were created as part of the transaction.
-    pub fn created_output_notes(&self) -> &[OutputNoteRecord] {
-        &self.created_output_notes
-    }
-
-    /// Returns the input notes that were updated as part of the transaction.
-    pub fn updated_input_notes(&self) -> &[InputNoteRecord] {
-        &self.updated_input_notes
+    /// Returns the note updates that need to be applied after the transaction execution.
+    pub fn note_updates(&self) -> &NoteUpdates {
+        &self.note_updates
     }
 
     /// Returns the new tags that were created as part of the transaction.

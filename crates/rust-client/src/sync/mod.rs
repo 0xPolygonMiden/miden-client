@@ -1,10 +1,7 @@
 //! Provides the client APIs for synchronizing the client's local state with the Miden
 //! rollup network. It ensures that the client maintains a valid, up-to-date view of the chain.
 
-use alloc::{
-    collections::{BTreeMap, BTreeSet},
-    vec::Vec,
-};
+use alloc::{collections::BTreeMap, vec::Vec};
 use core::cmp::max;
 
 use crypto::merkle::{InOrderIndex, MmrPeaks};
@@ -19,6 +16,7 @@ use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
+    notes::NoteUpdates,
     rpc::{
         AccountDetails, CommittedNote, NoteDetails, NullifierUpdate, RpcError, TransactionUpdate,
     },
@@ -111,103 +109,11 @@ impl SyncStatus {
     }
 }
 
-/// Contains information about new and updated notes as consequence of a sync.
-pub struct NoteUpdates {
-    /// A list of public notes that have been received on sync
-    new_public_notes: Vec<InputNoteRecord>,
-    /// A list of updated input note records corresponding to locally-tracked input notes
-    updated_input_notes: Vec<InputNoteRecord>,
-    /// A list of updated output note records corresponding to locally-tracked output notes
-    updated_output_notes: Vec<OutputNoteRecord>,
-}
-
-impl NoteUpdates {
-    /// Creates a [NoteUpdates]
-    pub fn new(
-        new_public_notes: Vec<InputNoteRecord>,
-        updated_input_notes: Vec<InputNoteRecord>,
-        updated_output_notes: Vec<OutputNoteRecord>,
-    ) -> Self {
-        Self {
-            new_public_notes,
-            updated_input_notes,
-            updated_output_notes,
-        }
-    }
-
-    /// Combines two [NoteUpdates] into a single one.
-    pub fn combine_with(mut self, other: Self) -> Self {
-        self.new_public_notes.extend(other.new_public_notes);
-        self.updated_input_notes.extend(other.updated_input_notes);
-        self.updated_output_notes.extend(other.updated_output_notes);
-
-        self
-    }
-
-    /// Returns all new public note records, meant to be tracked by the client.
-    pub fn new_public_notes(&self) -> &[InputNoteRecord] {
-        &self.new_public_notes
-    }
-
-    /// Returns all updated input note records. That is, any input notes that are locally tracked
-    /// and have been updated.
-    pub fn updated_input_notes(&self) -> &[InputNoteRecord] {
-        &self.updated_input_notes
-    }
-
-    /// Returns all updated output note records. That is, any output notes that are locally tracked
-    /// and have been updated.
-    pub fn updated_output_notes(&self) -> &[OutputNoteRecord] {
-        &self.updated_output_notes
-    }
-
-    /// Returns whether no new note-related information has been retrieved
-    pub fn is_empty(&self) -> bool {
-        self.updated_input_notes.is_empty()
-            && self.updated_output_notes.is_empty()
-            && self.new_public_notes.is_empty()
-    }
-
-    /// Returns the IDs of all notes that have been committed
-    pub fn committed_note_ids(&self) -> BTreeSet<NoteId> {
-        let committed_output_note_ids = self
-            .updated_output_notes
-            .iter()
-            .filter(|note_record| note_record.is_committed())
-            .map(|note_record| note_record.id());
-
-        let committed_input_note_ids = self
-            .updated_input_notes
-            .iter()
-            .filter(|note_record| note_record.is_committed())
-            .map(|note_record| note_record.id());
-
-        BTreeSet::from_iter(committed_input_note_ids.chain(committed_output_note_ids))
-    }
-
-    /// Returns the IDs of all notes that have been consumed
-    pub fn consumed_note_ids(&self) -> BTreeSet<NoteId> {
-        let consumed_output_note_ids = self
-            .updated_output_notes
-            .iter()
-            .filter(|note_record| note_record.is_consumed())
-            .map(|note_record| note_record.id());
-
-        let consumed_input_note_ids = self
-            .updated_input_notes
-            .iter()
-            .filter(|note_record| note_record.is_consumed())
-            .map(|note_record| note_record.id());
-
-        BTreeSet::from_iter(consumed_input_note_ids.chain(consumed_output_note_ids))
-    }
-}
-
 /// Contains all information needed to apply the update in the store after syncing with the node.
 pub struct StateSyncUpdate {
     /// The new block header, returned as part of the [StateSyncInfo](crate::rpc::StateSyncInfo)
     pub block_header: BlockHeader,
-    /// Information about new notes.
+    /// Information about note changes after the sync.
     pub note_updates: NoteUpdates,
     /// Transaction updates for any transaction that was committed between the sync request's
     /// block number and the response's block number.
@@ -341,7 +247,7 @@ impl<R: FeltRng> Client<R> {
         // Store summary to return later
         let sync_summary = SyncSummary::new(
             response.block_header.block_num(),
-            note_updates.new_public_notes().iter().map(|n| n.id()).collect(),
+            note_updates.new_input_notes().iter().map(|n| n.id()).collect(),
             note_updates.committed_note_ids().into_iter().collect(),
             note_updates.consumed_note_ids().into_iter().collect(),
             updated_onchain_accounts.iter().map(|acc| acc.id()).collect(),
@@ -448,6 +354,7 @@ impl<R: FeltRng> Client<R> {
         Ok((
             NoteUpdates::new(
                 new_public_notes,
+                vec![],
                 committed_tracked_input_notes,
                 committed_tracked_output_notes,
             ),
@@ -544,7 +451,12 @@ impl<R: FeltRng> Client<R> {
         }
 
         Ok((
-            NoteUpdates::new(vec![], consumed_tracked_input_notes, consumed_tracked_output_notes),
+            NoteUpdates::new(
+                vec![],
+                vec![],
+                consumed_tracked_input_notes,
+                consumed_tracked_output_notes,
+            ),
             discarded_transactions,
         ))
     }

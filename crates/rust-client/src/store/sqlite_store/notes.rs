@@ -14,9 +14,12 @@ use miden_objects::{
 use rusqlite::{named_params, params, params_from_iter, types::Value, Transaction};
 
 use super::SqliteStore;
-use crate::store::{
-    note_record::OutputNoteState, InputNoteRecord, InputNoteState, NoteFilter, OutputNoteRecord,
-    StoreError,
+use crate::{
+    notes::NoteUpdates,
+    store::{
+        note_record::OutputNoteState, InputNoteRecord, InputNoteState, NoteFilter,
+        OutputNoteRecord, StoreError,
+    },
 };
 
 // TYPES
@@ -583,4 +586,25 @@ fn serialize_output_note(note: &OutputNoteRecord) -> Result<SerializedOutputNote
         state_discriminant,
         state,
     })
+}
+
+pub(crate) fn apply_note_updates_tx(
+    tx: &Transaction,
+    note_updates: &NoteUpdates,
+) -> Result<(), StoreError> {
+    for input_note in
+        note_updates.new_input_notes().iter().chain(note_updates.updated_input_notes())
+    {
+        upsert_input_note_tx(tx, input_note)?;
+    }
+
+    for output_note in note_updates
+        .new_output_notes()
+        .iter()
+        .chain(note_updates.updated_output_notes())
+    {
+        upsert_output_note_tx(tx, output_note)?;
+    }
+
+    Ok(())
 }

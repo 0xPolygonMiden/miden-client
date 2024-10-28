@@ -12,10 +12,8 @@ use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
 
 use super::{
-    chain_data::utils::serialize_chain_mmr_node,
-    notes::utils::{upsert_input_note_tx, upsert_output_note_tx},
-    transactions::utils::update_account,
-    WebStore,
+    chain_data::utils::serialize_chain_mmr_node, notes::utils::apply_note_updates_tx,
+    transactions::utils::update_account, WebStore,
 };
 use crate::{
     store::StoreError,
@@ -131,16 +129,8 @@ impl WebStore {
         }
 
         // TODO: LOP INTO idxdb_apply_state_sync call
-        // Upsert notes
-        for input_note in
-            note_updates.new_public_notes().iter().chain(note_updates.updated_input_notes())
-        {
-            upsert_input_note_tx(input_note).await?;
-        }
-
-        for output_note in note_updates.updated_output_notes() {
-            upsert_output_note_tx(output_note).await?;
-        }
+        // Update notes
+        apply_note_updates_tx(&note_updates).await?;
 
         // Tags to remove
         let note_tags_to_remove_as_str: Vec<String> = tags_to_remove

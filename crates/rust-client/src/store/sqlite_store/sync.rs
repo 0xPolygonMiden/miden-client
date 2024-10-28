@@ -7,10 +7,7 @@ use rusqlite::{params, Transaction};
 use super::SqliteStore;
 use crate::{
     store::{
-        sqlite_store::{
-            accounts::update_account,
-            notes::{upsert_input_note_tx, upsert_output_note_tx},
-        },
+        sqlite_store::{accounts::update_account, notes::apply_note_updates_tx},
         StoreError,
     },
     sync::{NoteTagRecord, NoteTagSource, StateSyncUpdate},
@@ -113,16 +110,8 @@ impl SqliteStore {
 
         Self::insert_block_header_tx(&tx, block_header, new_mmr_peaks, block_has_relevant_notes)?;
 
-        // Upsert notes
-        for input_note in
-            note_updates.new_public_notes().iter().chain(note_updates.updated_input_notes())
-        {
-            upsert_input_note_tx(&tx, input_note)?;
-        }
-
-        for output_note in note_updates.updated_output_notes() {
-            upsert_output_note_tx(&tx, output_note)?;
-        }
+        // Update notes
+        apply_note_updates_tx(&tx, &note_updates)?;
 
         // Remove tags
         for tag in tags_to_remove {
