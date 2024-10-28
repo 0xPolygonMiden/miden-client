@@ -287,7 +287,7 @@ impl TryInto<InputNote> for InputNoteRecord {
                 self.details.recipient().clone(),
             ))),
             _ => Err(NoteRecordError::ConversionError(
-                "Input Note Record contains no metadata".to_string(),
+                "Input Note Record does not contain metadata".to_string(),
             )),
         }
     }
@@ -304,7 +304,7 @@ impl TryInto<Note> for InputNoteRecord {
                 self.details.recipient().clone(),
             )),
             None => Err(NoteRecordError::ConversionError(
-                "Input Note Record contains no metadata".to_string(),
+                "Input Note Record does not contain metadata".to_string(),
             )),
         }
     }
@@ -321,7 +321,7 @@ impl TryInto<Note> for &InputNoteRecord {
                 self.details.recipient().clone(),
             )),
             None => Err(NoteRecordError::ConversionError(
-                "Input Note Record contains no metadata".to_string(),
+                "Input Note Record does not contain metadata".to_string(),
             )),
         }
     }

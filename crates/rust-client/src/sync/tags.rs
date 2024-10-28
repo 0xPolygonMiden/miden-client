@@ -143,7 +143,7 @@ impl TryInto<NoteTagRecord> for &InputNoteRecord {
         match self.metadata() {
             Some(metadata) => Ok(NoteTagRecord::with_note_source(metadata.tag(), self.id())),
             None => Err(NoteRecordError::ConversionError(
-                "Input Note Record contains no tag".to_string(),
+                "Input Note Record does not contain tag".to_string(),
             )),
         }
     }

@@ -199,7 +199,7 @@ impl TryFrom<OutputNoteRecord> for NoteDetails {
         match value.recipient() {
             Some(recipient) => Ok(NoteDetails::new(value.assets.clone(), recipient.clone())),
             None => Err(NoteRecordError::ConversionError(
-                "Output Note Record contains no details".to_string(),
+                "Output Note Record does not contain details".to_string(),
             )),
         }
     }
@@ -215,7 +215,7 @@ impl TryFrom<OutputNoteRecord> for Note {
                 Ok(note)
             },
             None => Err(NoteRecordError::ConversionError(
-                "Output Note Record contains no details".to_string(),
+                "Output Note Record does not contain details".to_string(),
             )),
         }
     }
