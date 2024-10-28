@@ -23,6 +23,11 @@ use miden_objects::{
 };
 use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 
+use super::{
+    script_builder::{AccountCapabilities, TransactionScriptBuilder},
+    TransactionScriptBuilderError,
+};
+
 // TRANSACTION REQUEST
 // ================================================================================================
 
@@ -69,6 +74,9 @@ pub struct TransactionRequest {
     advice_map: AdviceMap,
     /// Initial state of the `MerkleStore` that provides data during runtime.
     merkle_store: MerkleStore,
+    /// The number of blocks in relation to the transaction's reference block after which the
+    /// transaction will expire.
+    expiration_delta: Option<u16>,
 }
 
 impl TransactionRequest {
@@ -85,6 +93,7 @@ impl TransactionRequest {
             expected_future_notes: BTreeMap::new(),
             advice_map: AdviceMap::default(),
             merkle_store: MerkleStore::default(),
+            expiration_delta: None,
         }
     }
 
@@ -156,6 +165,10 @@ impl TransactionRequest {
             return Err(TransactionRequestError::ScriptTemplateError(
                 "Cannot set custom script when a script template is already set".to_string(),
             ));
+        } else if self.expiration_delta.is_some() {
+            return Err(TransactionRequestError::ScriptTemplateError(
+                "Cannot set custom script when an expiration delta is already set".to_string(),
+            ));
         }
         self.script_template = Some(TransactionScriptTemplate::CustomScript(script));
         Ok(self)
@@ -196,6 +209,26 @@ impl TransactionRequest {
     pub fn extend_merkle_store<T: IntoIterator<Item = InnerNodeInfo>>(mut self, iter: T) -> Self {
         self.merkle_store.extend(iter);
         self
+    }
+
+    /// The number of blocks in relation to the transaction's reference block after which the
+    /// transaction will expire.
+    ///
+    /// Setting transaction expiration delta defines an upper bound for transaction expiration,
+    /// but other code executed during the transaction may impose an even smaller transaction
+    /// expiration delta.
+    pub fn with_expiration_delta(
+        mut self,
+        expiration_delta: u16,
+    ) -> Result<Self, TransactionRequestError> {
+        if let Some(TransactionScriptTemplate::CustomScript(_)) = self.script_template {
+            return Err(TransactionRequestError::ScriptTemplateError(
+                "Cannot set expiration delta when a custom script is set".to_string(),
+            ));
+        }
+
+        self.expiration_delta = Some(expiration_delta);
+        Ok(self)
     }
 
     // STANDARDIZED REQUESTS
@@ -398,6 +431,31 @@ impl TransactionRequest {
 
         tx_args
     }
+
+    pub(crate) fn build_transaction_script(
+        &self,
+        account_capabilities: AccountCapabilities,
+    ) -> Result<TransactionScript, TransactionRequestError> {
+        match &self.script_template {
+            Some(TransactionScriptTemplate::CustomScript(script)) => Ok(script.clone()),
+            Some(TransactionScriptTemplate::SendNotes(notes)) => {
+                let tx_script_builder =
+                    TransactionScriptBuilder::new(account_capabilities, self.expiration_delta);
+
+                Ok(tx_script_builder.build_send_notes_script(notes)?)
+            },
+            None => {
+                if self.input_notes.is_empty() {
+                    Err(TransactionRequestError::NoInputNotes)
+                } else {
+                    let tx_script_builder =
+                        TransactionScriptBuilder::new(account_capabilities, self.expiration_delta);
+
+                    Ok(tx_script_builder.build_auth_script()?)
+                }
+            },
+        }
+    }
 }
 
 impl Serializable for TransactionRequest {
@@ -419,6 +477,7 @@ impl Serializable for TransactionRequest {
         self.expected_future_notes.write_into(target);
         self.advice_map.clone().into_iter().collect::<Vec<_>>().write_into(target);
         self.merkle_store.write_into(target);
+        self.expiration_delta.write_into(target);
     }
 }
 
@@ -451,6 +510,7 @@ impl Deserializable for TransactionRequest {
         let advice_vec = Vec::<(Digest, Vec<Felt>)>::read_from(source)?;
         advice_map.extend(advice_vec);
         let merkle_store = MerkleStore::read_from(source)?;
+        let expiration_delta = Option::<u16>::read_from(source)?;
 
         Ok(TransactionRequest {
             unauthenticated_input_notes,
@@ -460,6 +520,7 @@ impl Deserializable for TransactionRequest {
             expected_future_notes,
             advice_map,
             merkle_store,
+            expiration_delta,
         })
     }
 }
@@ -524,6 +585,13 @@ pub enum TransactionRequestError {
     ScriptTemplateError(String),
     NoteNotFound(String),
     NoteCreationError(NoteError),
+    TransactionScriptBuilderError(TransactionScriptBuilderError),
+}
+
+impl From<TransactionScriptBuilderError> for TransactionRequestError {
+    fn from(err: TransactionScriptBuilderError) -> Self {
+        Self::TransactionScriptBuilderError(err)
+    }
 }
 
 impl fmt::Display for TransactionRequestError {
@@ -538,6 +606,7 @@ impl fmt::Display for TransactionRequestError {
             Self::ScriptTemplateError(err) => write!(f, "Transaction script template error: {}", err),
             Self::NoteNotFound(err) => write!(f, "Note not found: {}", err),
             Self::NoteCreationError(err) => write!(f, "Note creation error: {}", err),
+            Self::TransactionScriptBuilderError(err) => write!(f, "Transaction script builder error: {}", err),
         }
     }
 }
