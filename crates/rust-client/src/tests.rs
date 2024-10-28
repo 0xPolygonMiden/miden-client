@@ -323,11 +323,11 @@ async fn test_sync_state_mmr() {
     // Ensure the proofs are valid
     let mmr_proof = partial_mmr.open(1).unwrap().unwrap();
     let (block_1, _) = rpc_api.get_block_header_by_number(Some(1), false).await.unwrap();
-    assert!(partial_mmr.peaks().verify(block_1.hash(), mmr_proof));
+    partial_mmr.peaks().verify(block_1.hash(), mmr_proof).unwrap();
 
     let mmr_proof = partial_mmr.open(4).unwrap().unwrap();
     let (block_4, _) = rpc_api.get_block_header_by_number(Some(4), false).await.unwrap();
-    assert!(partial_mmr.peaks().verify(block_4.hash(), mmr_proof));
+    partial_mmr.peaks().verify(block_4.hash(), mmr_proof).unwrap();
 }
 
 #[tokio::test]
