@@ -26,7 +26,7 @@ pub struct CliConfig {
     pub default_account_id: Option<String>,
     /// Path to the file containing the token symbol map.
     pub token_symbol_map_filepath: PathBuf,
-    /// RPC endpoint for the proving service. Required if proving mode is set to remote.
+    /// RPC endpoint for the proving service. If this is not present, a local prover will be used.
     pub proving_rpc_endpoint: Option<Endpoint>,
 }
 
