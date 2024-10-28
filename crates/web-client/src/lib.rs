@@ -1,6 +1,7 @@
 extern crate alloc;
 use alloc::sync::Arc;
 
+use console_error_panic_hook::set_once;
 use miden_client::{
     rpc::WebTonicRpcClient,
     store::{web_store::WebStore, StoreAuthenticator},
@@ -39,6 +40,7 @@ impl Default for WebClient {
 impl WebClient {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
+        set_once();
         WebClient { inner: None, store: None }
     }
 
