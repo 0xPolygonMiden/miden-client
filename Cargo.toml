@@ -12,7 +12,7 @@ default-members = ["crates/rust-client", "bin/miden-cli"]
 
 [workspace.package]
 edition = "2021"
-rust-version = "1.80"
+rust-version = "1.82"
 license = "MIT"
 authors = ["miden contributors"]
 repository = "https://github.com/0xPolygonMiden/miden-client"
