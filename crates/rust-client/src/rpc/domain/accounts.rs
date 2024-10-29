@@ -90,18 +90,14 @@ impl ProtoAccountHeader {
 // ------------------------------------------------------------------------------------------------
 
 impl ProtoAccountStateHeader {
-    pub fn into_domain(&self, account_id: AccountId) -> Result<StateHeaders, RpcError> {
-        let account_header = self
-            .header
-            .ok_or(RpcError::ExpectedDataMissing("Account.StateHeader".to_string()))?;
+    pub fn into_domain(self, account_id: AccountId) -> Result<StateHeaders, RpcError> {
+        let ProtoAccountStateHeader { header, storage_header, account_code } = self;
+        let account_header =
+            header.ok_or(RpcError::ExpectedDataMissing("Account.StateHeader".to_string()))?;
 
-        let storage_header = AccountStorageHeader::read_from_bytes(&self.storage_header)?;
+        let storage_header = AccountStorageHeader::read_from_bytes(&storage_header)?;
 
-        let code = self
-            .account_code
-            .as_ref()
-            .map(|c| AccountCode::read_from_bytes(c))
-            .transpose()?;
+        let code = account_code.map(|c| AccountCode::read_from_bytes(&c)).transpose()?;
 
         Ok(StateHeaders {
             account_header: account_header.into_domain(account_id)?,
