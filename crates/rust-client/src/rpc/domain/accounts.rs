@@ -1,22 +1,27 @@
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use core::fmt::{self, Debug, Display, Formatter};
 
 use miden_objects::{
-    accounts::{AccountHeader, AccountId},
+    accounts::{AccountCode, AccountHeader, AccountId, AccountStorageHeader},
     Felt,
 };
+use miden_tx::utils::Deserializable;
 
-use crate::rpc::RpcError;
 #[cfg(feature = "tonic")]
 use crate::rpc::{
     tonic_client::generated::account::AccountHeader as ProtoAccountHeader,
-    tonic_client::generated::account::AccountId as ProtoAccountId, RpcConversionError,
+    tonic_client::generated::account::AccountId as ProtoAccountId,
+    tonic_client::generated::responses::AccountStateHeader as ProtoAccountStateHeader,
+    RpcConversionError,
 };
 #[cfg(feature = "web-tonic")]
 use crate::rpc::{
     web_tonic_client::generated::account::AccountHeader as ProtoAccountHeader,
-    web_tonic_client::generated::account::AccountId as ProtoAccountId, RpcConversionError,
+    web_tonic_client::generated::account::AccountId as ProtoAccountId,
+    web_tonic_client::generated::responses::AccountStateHeader as ProtoAccountStateHeader,
+    RpcConversionError,
 };
+use crate::rpc::{RpcError, StateHeaders};
 
 // ACCOUNT ID
 // ================================================================================================
@@ -53,9 +58,6 @@ impl TryFrom<ProtoAccountId> for AccountId {
     }
 }
 
-// ACCOUNT HEADER
-// ================================================================================================
-
 impl ProtoAccountHeader {
     pub fn into_domain(self, account_id: AccountId) -> Result<AccountHeader, RpcError> {
         let ProtoAccountHeader {
@@ -81,5 +83,30 @@ impl ProtoAccountHeader {
             storage_commitment,
             code_commitment,
         ))
+    }
+}
+
+// FROM PROTO ACCOUNT HEADERS
+// ------------------------------------------------------------------------------------------------
+
+impl ProtoAccountStateHeader {
+    pub fn into_domain(&self, account_id: AccountId) -> Result<StateHeaders, RpcError> {
+        let account_header = self
+            .header
+            .ok_or(RpcError::ExpectedDataMissing("Account.StateHeader".to_string()))?;
+
+        let storage_header = AccountStorageHeader::read_from_bytes(&self.storage_header)?;
+
+        let code = self
+            .account_code
+            .as_ref()
+            .map(|c| AccountCode::read_from_bytes(c))
+            .transpose()?;
+
+        Ok(StateHeaders {
+            account_header: account_header.into_domain(account_id)?,
+            storage_header,
+            code,
+        })
     }
 }

@@ -136,6 +136,13 @@ impl NoteInclusionDetails {
 /// List of account proofs related to a specific block number.
 pub type AccountProofs = (u32, Vec<AccountProof>);
 
+/// Account state headers.
+pub struct StateHeaders {
+    pub account_header: AccountHeader,
+    pub storage_header: AccountStorageHeader,
+    pub code: Option<AccountCode>,
+}
+
 /// Represents a proof of existence of an account's state at a specific block number.
 pub struct AccountProof {
     /// Account ID.
@@ -145,7 +152,7 @@ pub struct AccountProof {
     /// Account hash for the current state.
     account_hash: Digest,
     /// State headers of public accounts.
-    state_headers: Option<(AccountHeader, AccountStorageHeader, Option<AccountCode>)>,
+    state_headers: Option<StateHeaders>,
 }
 
 impl AccountProof {
@@ -153,13 +160,13 @@ impl AccountProof {
         account_id: AccountId,
         merkle_proof: MerklePath,
         account_hash: Digest,
-        state_headers: Option<(AccountHeader, AccountStorageHeader, Option<AccountCode>)>,
+        state_headers: Option<StateHeaders>,
     ) -> Result<Self, AccountProofError> {
-        if let Some((account_header, ..)) = &state_headers {
-            if account_header.hash() != account_hash {
+        if let Some(state_headers) = &state_headers {
+            if state_headers.account_header.hash() != account_hash {
                 return Err(AccountProofError::InconsistentAccountHash);
             }
-            if account_id != account_header.id() {
+            if account_id != state_headers.account_header.id() {
                 return Err(AccountProofError::InconsistentAccountId);
             }
         }
@@ -176,31 +183,27 @@ impl AccountProof {
         self.account_id
     }
 
-    pub fn state_headers(
-        &self,
-    ) -> Option<&(AccountHeader, AccountStorageHeader, Option<AccountCode>)> {
-        self.state_headers.as_ref()
-    }
-
     pub fn account_header(&self) -> Option<&AccountHeader> {
-        self.state_headers.as_ref().map(|headers| &headers.0)
+        self.state_headers.as_ref().map(|headers| &headers.account_header)
     }
 
     pub fn storage_header(&self) -> Option<&AccountStorageHeader> {
-        self.state_headers.as_ref().map(|headers| &headers.1)
+        self.state_headers.as_ref().map(|headers| &headers.storage_header)
     }
 
     pub fn account_code(&self) -> Option<&AccountCode> {
-        if let Some((_, _, Some(ref code))) = self.state_headers {
-            Some(code)
+        if let Some(StateHeaders { code, .. }) = &self.state_headers {
+            code.as_ref()
         } else {
             None
         }
     }
 
-    pub fn code_commitment(&self) -> Option<&Digest> {
-        self.state_headers.as_ref()
-        .map(|headers| &headers.2.map(|c| c.commitment()))
+    pub fn code_commitment(&self) -> Option<Digest> {
+        match &self.state_headers {
+            Some(StateHeaders { code: Some(code), .. }) => Some(code.commitment()),
+            _ => None,
+        }
     }
 
     pub fn account_hash(&self) -> Digest {

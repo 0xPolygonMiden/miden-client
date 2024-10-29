@@ -16,7 +16,7 @@ use generated::{
     rpc::api_client::ApiClient,
 };
 use miden_objects::{
-    accounts::{Account, AccountCode, AccountId, AccountStorageHeader},
+    accounts::{Account, AccountId},
     crypto::merkle::{MerklePath, MmrProof},
     notes::{Note, NoteId, NoteTag, Nullifier},
     transaction::{ProvenTransaction, TransactionId},
@@ -351,24 +351,12 @@ impl NodeRpcClient for TonicRpcClient {
             }
 
             let headers = if include_headers {
-                let state_headers = account
-                    .state_header
-                    .ok_or(RpcError::ExpectedDataMissing("Account.StateHeader".to_string()))?;
-
-                let account_header = state_headers
-                    .header
-                    .ok_or(RpcError::ExpectedDataMissing("Account.StateHeader.Header".to_string()))?
-                    .into_domain(account_id)?;
-
-                let storage_header =
-                    AccountStorageHeader::read_from_bytes(&state_headers.storage_header)?;
-
-                let account_code = state_headers
-                    .account_code
-                    .map(|c| AccountCode::read_from_bytes(&c))
-                    .transpose()?;
-
-                Some((account_header, storage_header, account_code))
+                Some(
+                    account
+                        .state_header
+                        .ok_or(RpcError::ExpectedDataMissing("Account.StateHeader".to_string()))?
+                        .into_domain(account_id)?,
+                )
             } else {
                 None
             };
