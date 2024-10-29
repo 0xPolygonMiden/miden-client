@@ -21,20 +21,8 @@ use crate::store::StoreError;
 
 // DATA STORE
 // ================================================================================================
-
-/// Wrapper structure that implements [DataStore] over any [Store].
-pub(crate) struct ClientDataStore {
-    /// Local database containing information about the accounts managed by this client.
-    pub(crate) store: alloc::sync::Arc<dyn Store>,
-}
-
-impl ClientDataStore {
-    pub fn new(store: alloc::sync::Arc<dyn Store>) -> Self {
-        Self { store }
-    }
-}
 #[maybe_async_trait]
-impl DataStore for ClientDataStore {
+impl DataStore for dyn Store {
     #[maybe_async]
     fn get_transaction_inputs(
         &self,
@@ -43,7 +31,7 @@ impl DataStore for ClientDataStore {
         notes: &[NoteId],
     ) -> Result<TransactionInputs, DataStoreError> {
         let input_note_records: BTreeMap<NoteId, InputNoteRecord> =
-            maybe_await!(self.store.get_input_notes(NoteFilter::List(notes.to_vec())))?
+            maybe_await!(self.get_input_notes(NoteFilter::List(notes.to_vec())))?
                 .into_iter()
                 .map(|note_record| (note_record.id(), note_record))
                 .collect();
@@ -60,11 +48,10 @@ impl DataStore for ClientDataStore {
         }
 
         // Construct Account
-        let (account, seed) = maybe_await!(self.store.get_account(account_id))?;
+        let (account, seed) = maybe_await!(self.get_account(account_id))?;
 
         // Get header data
-        let (block_header, _had_notes) =
-            maybe_await!(self.store.get_block_header_by_num(block_num))?;
+        let (block_header, _had_notes) = maybe_await!(self.get_block_header_by_num(block_num))?;
 
         let mut list_of_notes = vec![];
         let mut notes_blocks: Vec<u32> = vec![];
@@ -86,14 +73,13 @@ impl DataStore for ClientDataStore {
             }
         }
 
-        let notes_blocks: Vec<BlockHeader> =
-            maybe_await!(self.store.get_block_headers(&notes_blocks))?
-                .iter()
-                .map(|(header, _has_notes)| *header)
-                .collect();
+        let notes_blocks: Vec<BlockHeader> = maybe_await!(self.get_block_headers(&notes_blocks))?
+            .iter()
+            .map(|(header, _has_notes)| *header)
+            .collect();
 
         let partial_mmr =
-            maybe_await!(build_partial_mmr_with_paths(&self.store, block_num, &notes_blocks));
+            maybe_await!(build_partial_mmr_with_paths(self, block_num, &notes_blocks));
         let chain_mmr = ChainMmr::new(partial_mmr?, notes_blocks)
             .map_err(|err| DataStoreError::InternalError(err.to_string()))?;
 
@@ -112,7 +98,7 @@ impl DataStore for ClientDataStore {
 /// the kernel extends the MMR which is why it's not needed here.
 #[maybe_async]
 fn build_partial_mmr_with_paths(
-    store: &alloc::sync::Arc<dyn Store>,
+    store: &dyn Store,
     forest: u32,
     authenticated_blocks: &[BlockHeader],
 ) -> Result<PartialMmr, DataStoreError> {
@@ -143,7 +129,7 @@ fn build_partial_mmr_with_paths(
 /// If there are any such values, the function will panic when calling `mmr_merkle_path_len()`.
 #[maybe_async]
 fn get_authentication_path_for_blocks(
-    store: &alloc::sync::Arc<dyn Store>,
+    store: &dyn Store,
     block_nums: &[u32],
     forest: usize,
 ) -> Result<Vec<MerklePath>, StoreError> {

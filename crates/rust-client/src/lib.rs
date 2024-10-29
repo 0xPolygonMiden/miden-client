@@ -90,7 +90,7 @@ use alloc::sync::Arc;
 use miden_objects::crypto::rand::FeltRng;
 use miden_tx::{auth::TransactionAuthenticator, DataStore, TransactionExecutor, TransactionProver};
 use rpc::NodeRpcClient;
-use store::{data_store::ClientDataStore, Store};
+use store::Store;
 use tracing::info;
 
 // MIDEN CLIENT
@@ -155,7 +155,7 @@ impl<R: FeltRng> Client<R> {
             info!("Creating the Client in debug mode.");
         }
 
-        let data_store = Arc::new(ClientDataStore::new(store.clone())) as Arc<dyn DataStore>;
+        let data_store = store.clone() as Arc<dyn DataStore>;
         let authenticator = Some(authenticator);
         let tx_executor =
             TransactionExecutor::new(data_store, authenticator).with_debug_mode(in_debug_mode);
