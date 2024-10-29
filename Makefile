@@ -12,7 +12,7 @@ FEATURES_CLI=--features "testing, concurrent"
 NODE_FEATURES_TESTING=--features "testing"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
 NODE_BRANCH="next"
-PROVER_BRANCH="tomyrd-lazy-remote-prover-connection"
+PROVER_BRANCH="next"
 PROVER_FEATURES_TESTING=--features "testing"
 
 # --- Linting -------------------------------------------------------------------------------------
