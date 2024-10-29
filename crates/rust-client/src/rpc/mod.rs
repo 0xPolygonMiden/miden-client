@@ -133,6 +133,7 @@ impl NoteInclusionDetails {
 // ACCOUNT PROOF
 // ================================================================================================
 
+/// List of account proofs related to a specific block number.
 pub type AccountProofs = (u32, Vec<AccountProof>);
 
 /// Represents a proof of existence of an account's state at a specific block number.
@@ -197,8 +198,9 @@ impl AccountProof {
         }
     }
 
-    pub fn code_commitment(&self) -> Option<&AccountStorageHeader> {
-        self.state_headers.as_ref().map(|headers| &headers.1)
+    pub fn code_commitment(&self) -> Option<&Digest> {
+        self.state_headers.as_ref()
+        .map(|headers| &headers.2.map(|c| c.commitment()))
     }
 
     pub fn account_hash(&self) -> Digest {
