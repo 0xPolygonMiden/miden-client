@@ -98,10 +98,13 @@ impl OutputNoteRecord {
         self.expected_height
     }
 
+    /// Returns true if the note has been nullified on chain.
     pub fn is_consumed(&self) -> bool {
         matches!(self.state, OutputNoteState::Consumed { .. })
     }
 
+    /// Returns true if the note is in a committed state (i.e. it has a inclusion proof but is not
+    /// consumed) regardless of whether it is full or partial.
     pub fn is_committed(&self) -> bool {
         matches!(
             self.state,

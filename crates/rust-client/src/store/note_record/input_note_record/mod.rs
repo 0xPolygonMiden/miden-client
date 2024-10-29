@@ -88,6 +88,8 @@ impl InputNoteRecord {
         self.state.consumer_transaction_id()
     }
 
+    /// Returns true if the note is authenticated, meaning that it has the necessary inclusion
+    /// proof and block header information to be considered valid.
     pub fn is_authenticated(&self) -> bool {
         matches!(
             self.state,
@@ -97,6 +99,7 @@ impl InputNoteRecord {
         )
     }
 
+    /// Returns true if the note has been nullified on chain.
     pub fn is_consumed(&self) -> bool {
         matches!(
             self.state,
@@ -106,6 +109,7 @@ impl InputNoteRecord {
         )
     }
 
+    /// Returns true if the note is currently being processed by a local transaction.
     pub fn is_processing(&self) -> bool {
         matches!(
             self.state,
@@ -114,6 +118,8 @@ impl InputNoteRecord {
         )
     }
 
+    /// Returns true if the note is in a committed state (i.e. it has a valid inclusion proof but is
+    /// not consumed or being processed).
     pub fn is_committed(&self) -> bool {
         matches!(self.state, InputNoteState::Committed { .. })
     }
