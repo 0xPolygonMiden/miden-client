@@ -126,7 +126,7 @@ prover: ## Setup prover directory
 
 .PHONY: start-prover
 start-prover: ## Run prover. This requires the base repo to be present at `miden-base`
-	cd miden-base && RUST_LOG=info cargo run --bin miden-tx-prover --locked $(PROVER_FEATURES_TESTING)
+	cd miden-base && RUST_LOG=info cargo run --bin miden-tx-prover --locked $(PROVER_FEATURES_TESTING) --release
 
 .PHONY: kill-prover
 kill-prover: ## Kill prover process
