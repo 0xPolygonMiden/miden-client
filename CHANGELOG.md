@@ -2,9 +2,10 @@
 
 ## 0.6.0 (TBD)
 
+* Allow to set expiration delta for `TransactionRequest` (#553).
 * Implemented `GetAccountProof` endpoint (#556)
 * [BREAKING] Refactored `OutputNoteRecord` to use states and transitions for updates (#551).
-* Added better error handling for WASM sync state 
+* Added better error handling for WASM sync state (#558).
 * Added WASM Input note tests + updated input note models (#554)
 * Added new variants for the `NoteFilter` struct (#538).
 * [BREAKING] Added note tags for future notes in `TransactionRequest` (#538).

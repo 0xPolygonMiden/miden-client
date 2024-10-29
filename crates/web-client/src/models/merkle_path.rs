@@ -22,7 +22,7 @@ impl MerklePath {
     }
 
     pub fn verify(&self, index: u64, node: &RpoDigest, root: &RpoDigest) -> bool {
-        self.0.verify(index, node.clone().into(), &root.clone().into())
+        self.0.verify(index, node.clone().into(), &root.clone().into()).is_ok()
     }
 }
 

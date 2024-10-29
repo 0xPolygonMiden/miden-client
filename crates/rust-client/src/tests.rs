@@ -323,11 +323,11 @@ async fn test_sync_state_mmr() {
     // Ensure the proofs are valid
     let mmr_proof = partial_mmr.open(1).unwrap().unwrap();
     let (block_1, _) = rpc_api.get_block_header_by_number(Some(1), false).await.unwrap();
-    assert!(partial_mmr.peaks().verify(block_1.hash(), mmr_proof));
+    partial_mmr.peaks().verify(block_1.hash(), mmr_proof).unwrap();
 
     let mmr_proof = partial_mmr.open(4).unwrap().unwrap();
     let (block_4, _) = rpc_api.get_block_header_by_number(Some(4), false).await.unwrap();
-    assert!(partial_mmr.peaks().verify(block_4.hash(), mmr_proof));
+    partial_mmr.peaks().verify(block_4.hash(), mmr_proof).unwrap();
 }
 
 #[tokio::test]
@@ -463,4 +463,36 @@ async fn test_import_note_validation() {
 
     assert!(expected_note.inclusion_proof().is_none());
     assert!(committed_note.inclusion_proof().is_some());
+}
+
+#[tokio::test]
+async fn test_transaction_request_expiration() {
+    let (mut client, _) = create_test_client();
+    client.sync_state().await.unwrap();
+
+    let current_height = client.get_sync_height().unwrap();
+    let (faucet, _seed) = client
+        .new_account(AccountTemplate::FungibleFaucet {
+            token_symbol: "TST".try_into().unwrap(),
+            decimals: 3,
+            max_supply: 10000,
+            storage_mode: AccountStorageMode::Private,
+        })
+        .unwrap();
+
+    let transaction_request = TransactionRequest::mint_fungible_asset(
+        FungibleAsset::new(faucet.id(), 5u64).unwrap(),
+        AccountId::from_hex("0x168187d729b31a84").unwrap(),
+        miden_objects::notes::NoteType::Private,
+        client.rng(),
+    )
+    .unwrap()
+    .with_expiration_delta(5)
+    .unwrap();
+
+    let transaction = client.new_transaction(faucet.id(), transaction_request).unwrap();
+
+    let (_, tx_outputs, ..) = transaction.executed_transaction().clone().into_parts();
+
+    assert_eq!(tx_outputs.expiration_block_num, current_height + 5);
 }

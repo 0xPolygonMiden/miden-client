@@ -44,11 +44,16 @@ impl NoteStateHandler for InvalidNoteState {
         note_id: NoteId,
         block_header: BlockHeader,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
-        if self.invalid_inclusion_proof.note_path().verify(
-            self.invalid_inclusion_proof.location().node_index_in_block().into(),
-            compute_note_hash(note_id, &self.metadata),
-            &block_header.note_root(),
-        ) {
+        if self
+            .invalid_inclusion_proof
+            .note_path()
+            .verify(
+                self.invalid_inclusion_proof.location().node_index_in_block().into(),
+                compute_note_hash(note_id, &self.metadata),
+                &block_header.note_root(),
+            )
+            .is_ok()
+        {
             Ok(Some(
                 CommittedNoteState {
                     inclusion_proof: self.invalid_inclusion_proof.clone(),

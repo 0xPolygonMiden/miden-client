@@ -246,7 +246,7 @@ impl NodeRpcClient for MockRpcApi {
             .unwrap();
 
         let mmr_proof = if include_mmr_proof {
-            Some(self.get_mmr().open(block_num.unwrap() as usize, self.blocks.len()).unwrap())
+            Some(self.get_mmr().open(block_num.unwrap() as usize).unwrap())
         } else {
             None
         };
