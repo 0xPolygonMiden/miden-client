@@ -82,7 +82,7 @@ export const sendTransaction = async (
         senderAccountId,
         window.AccountId.from_hex(_faucetAccountId),
         window.NoteType.private(),
-        BigInt(1000)
+        BigInt(_amount)
       );
       let created_notes = mint_transaction_result.created_notes().notes();
       let created_note_ids = created_notes.map((note) => note.id().to_string());
