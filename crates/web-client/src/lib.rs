@@ -4,10 +4,11 @@ use alloc::sync::Arc;
 use miden_client::{
     rpc::WebTonicRpcClient,
     store::{web_store::WebStore, StoreAuthenticator},
-    transactions::LocalTransactionProver,
+    transactions::{LocalTransactionProver, TransactionProver},
     Client,
 };
 use miden_objects::{crypto::rand::RpoRandomCoin, Felt};
+use miden_tx_prover::RemoteTransactionProver;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use wasm_bindgen::prelude::*;
 
@@ -45,7 +46,11 @@ impl WebClient {
         self.inner.as_mut()
     }
 
-    pub async fn create_client(&mut self, node_url: Option<String>) -> Result<JsValue, JsValue> {
+    pub async fn create_client(
+        &mut self,
+        node_url: Option<String>,
+        proving_url: Option<String>,
+    ) -> Result<JsValue, JsValue> {
         let mut rng = StdRng::from_entropy();
         let coin_seed: [u64; 4] = rng.gen();
 
@@ -59,7 +64,10 @@ impl WebClient {
             &node_url.unwrap_or_else(|| "http://18.203.155.106:57291".to_string()),
         ));
 
-        let tx_prover = Arc::new(LocalTransactionProver::default());
+        let tx_prover: Arc<dyn TransactionProver> = match proving_url {
+            Some(proving_url) => Arc::new(RemoteTransactionProver::new(&proving_url.to_string())),
+            None => Arc::new(LocalTransactionProver::new(Default::default())),
+        };
 
         self.inner = Some(Client::new(
             web_rpc_client,
