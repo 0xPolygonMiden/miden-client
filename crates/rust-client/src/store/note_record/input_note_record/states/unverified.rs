@@ -42,16 +42,11 @@ impl NoteStateHandler for UnverifiedNoteState {
         note_id: NoteId,
         block_header: BlockHeader,
     ) -> Result<Option<InputNoteState>, NoteRecordError> {
-        if self
-            .inclusion_proof
-            .note_path()
-            .verify(
-                self.inclusion_proof.location().node_index_in_block().into(),
-                compute_note_hash(note_id, &self.metadata),
-                &block_header.note_root(),
-            )
-            .is_ok()
-        {
+        if self.inclusion_proof.note_path().verify(
+            self.inclusion_proof.location().node_index_in_block().into(),
+            compute_note_hash(note_id, &self.metadata),
+            &block_header.note_root(),
+        ) {
             Ok(Some(
                 CommittedNoteState {
                     inclusion_proof: self.inclusion_proof.clone(),
