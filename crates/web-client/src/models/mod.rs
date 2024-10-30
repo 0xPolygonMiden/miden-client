@@ -38,6 +38,7 @@ pub mod advice_map;
 pub mod asset_vault;
 pub mod auth_secret_key;
 pub mod block_header;
+pub mod consumable_note_record;
 pub mod executed_transaction;
 pub mod felt;
 pub mod fungible_asset;

@@ -46,11 +46,13 @@ before(async () => {
       AccountStorageMode,
       AdviceMap,
       AuthSecretKey,
+      ConsumableNoteRecord,
       Felt,
       FeltArray,
       FungibleAsset,
       Note,
       NoteAssets,
+      NoteConsumability,
       NoteExecutionHint,
       NoteExecutionMode,
       NoteFilter,
@@ -83,11 +85,13 @@ before(async () => {
     window.AccountStorageMode = AccountStorageMode;
     window.AdviceMap = AdviceMap;
     window.AuthSecretKey = AuthSecretKey;
+    window.ConsumableNoteRecord = ConsumableNoteRecord;
     window.Felt = Felt;
     window.FeltArray = FeltArray;
     window.FungibleAsset = FungibleAsset;
     window.Note = Note;
     window.NoteAssets = NoteAssets;
+    window.NoteConsumability = NoteConsumability;
     window.NoteExecutionHint = NoteExecutionHint;
     window.NoteExecutionMode = NoteExecutionMode;
     window.NoteFilter = NoteFilter;
@@ -108,7 +112,17 @@ before(async () => {
     window.TransactionScriptInputPair = TransactionScriptInputPair;
     window.TransactionScriptInputPairArray = TransactionScriptInputPairArray;
   }, LOCAL_MIDEN_NODE_PORT);
+});
 
+beforeEach(async () => {
+  await testingPage.evaluate(async () => {
+    // Open a connection to the list of databases
+    const databases = await indexedDB.databases();
+    for (const db of databases) {
+      // Delete each database by name
+      indexedDB.deleteDatabase(db.name);
+    }
+  });
 });
 
 after(async () => {
