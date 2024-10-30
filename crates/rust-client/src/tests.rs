@@ -37,6 +37,7 @@ async fn test_input_notes_round_trip() {
             mutable_code: true,
             storage_mode: AccountStorageMode::Public,
         })
+        .await
         .unwrap();
     // generate test data
     let available_notes = [rpc_api.get_note_at(0), rpc_api.get_note_at(1)];

@@ -64,8 +64,7 @@ pub struct TransactionResult {
 impl TransactionResult {
     /// Screens the output notes to store and track the relevant ones, and instantiates a
     /// [TransactionResult]
-    #[maybe_async]
-    pub fn new(
+    pub async fn new(
         transaction: ExecutedTransaction,
         note_screener: NoteScreener,
         partial_notes: Vec<(NoteDetails, NoteTag)>,
@@ -73,7 +72,7 @@ impl TransactionResult {
         let mut relevant_notes = vec![];
 
         for note in notes_from_output(transaction.output_notes()) {
-            let account_relevance = maybe_await!(note_screener.check_relevance(note))?;
+            let account_relevance = note_screener.check_relevance(note).await?;
 
             if !account_relevance.is_empty() {
                 relevant_notes.push(note.clone().into());
@@ -276,8 +275,7 @@ impl<R: FeltRng> Client<R> {
     // --------------------------------------------------------------------------------------------
 
     /// Retrieves tracked transactions, filtered by [TransactionFilter].
-    #[maybe_async]
-    pub fn get_transactions(
+    pub async fn get_transactions(
         &self,
         filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, ClientError> {
@@ -296,14 +294,13 @@ impl<R: FeltRng> Client<R> {
     ///   a subset of executor's output notes
     /// - Returns a [ClientError::TransactionExecutorError] if the execution fails
     /// - Returns a [ClientError::TransactionRequestError] if the request is invalid
-    #[maybe_async]
-    pub fn new_transaction(
+    pub async fn new_transaction(
         &mut self,
         account_id: AccountId,
         transaction_request: TransactionRequest,
     ) -> Result<TransactionResult, ClientError> {
         // Validates the transaction request before executing
-        maybe_await!(self.validate_request(account_id, &transaction_request))?;
+        self.validate_request(account_id, &transaction_request).await?;
 
         // Ensure authenticated notes have their inclusion proofs (a.k.a they're in a committed
         // state). TODO: we should consider refactoring this in a way we can handle this in
@@ -344,7 +341,7 @@ impl<R: FeltRng> Client<R> {
             transaction_request.expected_future_notes().cloned().collect();
 
         let tx_script = transaction_request
-            .build_transaction_script(maybe_await!(self.get_account_capabilities(account_id))?)?;
+            .build_transaction_script(self.get_account_capabilities(account_id).await?)?;
 
         let tx_args = transaction_request.into_transaction_args(tx_script);
 
@@ -374,7 +371,7 @@ impl<R: FeltRng> Client<R> {
 
         let screener = NoteScreener::new(self.store.clone());
 
-        maybe_await!(TransactionResult::new(executed_transaction, screener, future_notes))
+        TransactionResult::new(executed_transaction, screener, future_notes).await
     }
 
     /// Proves the specified transaction, submits it to the network, and saves the transaction into
@@ -383,13 +380,12 @@ impl<R: FeltRng> Client<R> {
         &mut self,
         tx_result: TransactionResult,
     ) -> Result<(), ClientError> {
-        let proven_transaction = maybe_await!(self.prove_transaction(&tx_result))?;
+        let proven_transaction = self.prove_transaction(&tx_result).await?;
         self.submit_proven_transaction(proven_transaction).await?;
-        maybe_await!(self.apply_transaction(tx_result))
+        self.apply_transaction(tx_result).await
     }
 
-    #[maybe_async]
-    fn prove_transaction(
+    async fn prove_transaction(
         &mut self,
         tx_result: &TransactionResult,
     ) -> Result<ProvenTransaction, ClientError> {
@@ -414,10 +410,9 @@ impl<R: FeltRng> Client<R> {
         Ok(())
     }
 
-    #[maybe_async]
-    fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), ClientError> {
+    async fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), ClientError> {
         let transaction_id = tx_result.executed_transaction().id();
-        let sync_height = maybe_await!(self.get_sync_height())?;
+        let sync_height = self.get_sync_height().await?;
 
         // Transaction was proven and submitted to the node correctly, persist note details and
         // update account
@@ -425,7 +420,7 @@ impl<R: FeltRng> Client<R> {
 
         let account_id = tx_result.executed_transaction().account_id();
         let account_delta = tx_result.account_delta();
-        let (mut account, _seed) = maybe_await!(self.get_account(account_id))?;
+        let (mut account, _seed) = self.get_account(account_id).await?;
 
         account.apply_delta(account_delta)?;
 
@@ -456,7 +451,7 @@ impl<R: FeltRng> Client<R> {
 
         let consumed_note_ids = tx_result.consumed_notes().iter().map(|note| note.id()).collect();
         let consumed_notes =
-            maybe_await!(self.get_input_notes(NoteFilter::List(consumed_note_ids)))?;
+            self.get_input_notes(NoteFilter::List(consumed_note_ids)).await?;
 
         let mut updated_input_notes = vec![];
         for mut input_note_record in consumed_notes {
@@ -527,8 +522,7 @@ impl<R: FeltRng> Client<R> {
     }
 
     /// Helper to get the account incoming assets.
-    #[maybe_async]
-    fn get_incoming_assets(
+    async fn get_incoming_assets(
         &self,
         transaction_request: &TransactionRequest,
     ) -> Result<(BTreeMap<AccountId, u64>, BTreeSet<NonFungibleAsset>), TransactionRequestError>
@@ -550,9 +544,10 @@ impl<R: FeltRng> Client<R> {
             })
             .collect();
 
-        let store_input_notes =
-            maybe_await!(self.get_input_notes(NoteFilter::List(incoming_notes_ids)))
-                .map_err(|err| TransactionRequestError::NoteNotFound(err.to_string()))?;
+        let store_input_notes = self
+            .get_input_notes(NoteFilter::List(incoming_notes_ids))
+            .await
+            .map_err(|err| TransactionRequestError::NoteNotFound(err.to_string()))?;
 
         let all_incoming_assets =
             store_input_notes.iter().flat_map(|note| note.assets().iter()).chain(
@@ -565,8 +560,7 @@ impl<R: FeltRng> Client<R> {
         Ok(collect_assets(all_incoming_assets))
     }
 
-    #[maybe_async]
-    fn validate_basic_account_request(
+    async fn validate_basic_account_request(
         &self,
         transaction_request: &TransactionRequest,
         account: &Account,
@@ -577,7 +571,7 @@ impl<R: FeltRng> Client<R> {
 
         // Get incoming assets
         let (incoming_fungible_balance_map, incoming_non_fungible_balance_set) =
-            maybe_await!(self.get_incoming_assets(transaction_request))?;
+            self.get_incoming_assets(transaction_request).await?;
 
         // Check if the account balance plus incoming assets is greater than or equal to the
         // outgoing fungible assets
@@ -621,29 +615,27 @@ impl<R: FeltRng> Client<R> {
     /// This function checks that the account has enough balance to cover the outgoing assets. This
     /// does't guarantee that the transaction will succeed, but it's useful to avoid submitting
     /// transactions that are guaranteed to fail.
-    #[maybe_async]
-    pub fn validate_request(
+    pub async fn validate_request(
         &self,
         account_id: AccountId,
         transaction_request: &TransactionRequest,
     ) -> Result<(), ClientError> {
-        let (account, _) = maybe_await!(self.get_account(account_id))?;
+        let (account, _) = self.get_account(account_id).await?;
         if account.is_faucet() {
             // TODO(SantiagoPittella): Add faucet validations.
             Ok(())
         } else {
-            maybe_await!(self.validate_basic_account_request(transaction_request, &account))
+            self.validate_basic_account_request(transaction_request, &account).await
         }
     }
 
     /// Retrieves the account capabilities for the specified account.
-    #[maybe_async]
-    fn get_account_capabilities(
+    async fn get_account_capabilities(
         &self,
         account_id: AccountId,
     ) -> Result<AccountCapabilities, ClientError> {
-        let account = maybe_await!(self.get_account(account_id))?.0;
-        let account_auth = maybe_await!(self.get_account_auth(account_id))?;
+        let account = self.get_account(account_id).await?.0;
+        let account_auth = self.get_account_auth(account_id).await?;
 
         // TODO: we should check if the account actually exposes the interfaces we're trying to use
         let account_capabilities = match account.account_type() {
@@ -667,12 +659,11 @@ impl<R: FeltRng> Client<R> {
 
 #[cfg(feature = "testing")]
 impl<R: FeltRng> Client<R> {
-    #[maybe_async]
-    pub fn testing_prove_transaction(
+    pub async fn testing_prove_transaction(
         &mut self,
         tx_result: &TransactionResult,
     ) -> Result<ProvenTransaction, ClientError> {
-        maybe_await!(self.prove_transaction(tx_result))
+        self.prove_transaction(tx_result).await
     }
 
     pub async fn testing_submit_proven_transaction(
@@ -686,7 +677,7 @@ impl<R: FeltRng> Client<R> {
         &self,
         tx_result: TransactionResult,
     ) -> Result<(), ClientError> {
-        maybe_await!(self.apply_transaction(tx_result))
+        self.apply_transaction(tx_result).await
     }
 }
 

@@ -34,7 +34,7 @@ impl<R: FeltRng> Client<R> {
             NoteFile::NoteWithProof(note, _) => note.id(),
         };
 
-        let previous_note = maybe_await!(self.get_input_note(id)).ok();
+        let previous_note = self.get_input_note(id).await.ok();
 
         let note = match note_file {
             NoteFile::NoteId(id) => self.import_note_record_by_id(previous_note, id).await?,
@@ -155,13 +155,13 @@ impl<R: FeltRng> Client<R> {
             Ok(None)
         } else {
             let block_height = inclusion_proof.location().block_num();
-            let current_block_num = maybe_await!(self.get_sync_height())?;
+            let current_block_num = self.get_sync_height().await?;
 
             let mut note_changed =
                 note_record.inclusion_proof_received(inclusion_proof, metadata)?;
 
             if block_height < current_block_num {
-                let mut current_partial_mmr = maybe_await!(self.build_current_partial_mmr(true))?;
+                let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
 
                 let block_header = self
                     .get_and_store_authenticated_block(block_height, &mut current_partial_mmr)
@@ -205,7 +205,7 @@ impl<R: FeltRng> Client<R> {
 
         match committed_note_data {
             Some((metadata, inclusion_proof)) => {
-                let mut current_partial_mmr = maybe_await!(self.build_current_partial_mmr(true))?;
+                let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
                 let block_header = self
                     .get_and_store_authenticated_block(
                         inclusion_proof.location().block_num(),
@@ -240,7 +240,7 @@ impl<R: FeltRng> Client<R> {
         tag: NoteTag,
         expected_note: &miden_objects::notes::NoteDetails,
     ) -> Result<Option<(NoteMetadata, NoteInclusionProof)>, ClientError> {
-        let current_block_num = maybe_await!(self.get_sync_height())?;
+        let current_block_num = self.get_sync_height().await?;
         loop {
             if request_block_num > current_block_num {
                 return Ok(None);

@@ -13,7 +13,7 @@ use miden_objects::{
     BlockHeader, Digest,
 };
 use tracing::info;
-use winter_maybe_async::{maybe_async, maybe_await};
+use winter_maybe_async::maybe_await;
 
 use crate::{
     notes::NoteUpdates,
@@ -144,8 +144,7 @@ impl<R: FeltRng> Client<R> {
     // --------------------------------------------------------------------------------------------
 
     /// Returns the block number of the last state sync block.
-    #[maybe_async]
-    pub fn get_sync_height(&self) -> Result<u32, ClientError> {
+    pub async fn get_sync_height(&self) -> Result<u32, ClientError> {
         maybe_await!(self.store.get_sync_height()).map_err(|err| err.into())
     }
 
@@ -178,8 +177,7 @@ impl<R: FeltRng> Client<R> {
             .map(|(acc_header, _)| acc_header)
             .collect();
 
-        let note_tags: Vec<NoteTag> =
-            maybe_await!(self.get_unique_note_tags())?.into_iter().collect();
+        let note_tags: Vec<NoteTag> = self.get_unique_note_tags().await?.into_iter().collect();
 
         // To receive information about added nullifiers, we reduce them to the higher 16 bits
         // Note that besides filtering by nullifier prefixes, the node also filters by block number
@@ -211,7 +209,7 @@ impl<R: FeltRng> Client<R> {
             self.check_block_relevance(&committed_note_updates).await?;
 
         let transactions_to_commit =
-            maybe_await!(self.get_transactions_to_commit(response.transactions))?;
+            self.get_transactions_to_commit(response.transactions).await?;
 
         let (consumed_note_updates, transactions_to_discard) =
             self.consumed_note_updates(response.nullifiers, &transactions_to_commit).await?;
@@ -225,13 +223,12 @@ impl<R: FeltRng> Client<R> {
             .get_updated_onchain_accounts(&response.account_hash_updates, &onchain_accounts)
             .await?;
 
-        maybe_await!(
-            self.validate_local_account_hashes(&response.account_hash_updates, &offchain_accounts)
-        )?;
+        self.validate_local_account_hashes(&response.account_hash_updates, &offchain_accounts)
+            .await?;
 
         // Build PartialMmr with current data and apply updates
         let (new_peaks, new_authentication_nodes) = {
-            let current_partial_mmr = maybe_await!(self.build_current_partial_mmr(false))?;
+            let current_partial_mmr = self.build_current_partial_mmr(false).await?;
 
             let (current_block, has_relevant_notes) =
                 maybe_await!(self.store.get_block_header_by_num(current_block_num))?;
@@ -512,8 +509,7 @@ impl<R: FeltRng> Client<R> {
 
     /// Extracts information about transactions for uncommitted transactions that the client is
     /// tracking from the received [SyncStateResponse]
-    #[maybe_async]
-    fn get_transactions_to_commit(
+    async fn get_transactions_to_commit(
         &self,
         mut transactions: Vec<TransactionUpdate>,
     ) -> Result<Vec<TransactionUpdate>, ClientError> {
@@ -563,8 +559,7 @@ impl<R: FeltRng> Client<R> {
     }
 
     /// Validates account hash updates and returns an error if there is a mismatch.
-    #[maybe_async]
-    fn validate_local_account_hashes(
+    async fn validate_local_account_hashes(
         &mut self,
         account_updates: &[(AccountId, Digest)],
         current_offchain_accounts: &[AccountHeader],

@@ -6,7 +6,7 @@ use miden_objects::{
     BlockHeader, Digest,
 };
 use tracing::warn;
-use winter_maybe_async::{maybe_async, maybe_await};
+use winter_maybe_async::maybe_await;
 
 use super::NoteUpdates;
 use crate::{
@@ -19,7 +19,7 @@ impl<R: FeltRng> Client<R> {
     /// Updates committed notes with no MMR data. These could be notes that were
     /// imported with an inclusion proof, but its block header is not tracked.
     pub(crate) async fn update_mmr_data(&mut self) -> Result<(), ClientError> {
-        let mut current_partial_mmr = maybe_await!(self.build_current_partial_mmr(true))?;
+        let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
 
         let mut changed_notes = vec![];
         for mut note in maybe_await!(self.store.get_input_notes(NoteFilter::Unverified))? {
@@ -87,9 +87,10 @@ impl<R: FeltRng> Client<R> {
             .iter()
             .chain(committed_notes.new_input_notes().iter())
         {
-            if !maybe_await!(note_screener
-                .check_relevance(&input_note.try_into().map_err(ClientError::NoteRecordError)?))?
-            .is_empty()
+            if !note_screener
+                .check_relevance(&input_note.try_into().map_err(ClientError::NoteRecordError)?)
+                .await?
+                .is_empty()
             {
                 return Ok(true);
             }
@@ -104,8 +105,7 @@ impl<R: FeltRng> Client<R> {
     ///
     /// As part of the syncing process, we add the current block number so we don't need to
     /// track it here.
-    #[maybe_async]
-    pub(crate) fn build_current_partial_mmr(
+    pub(crate) async fn build_current_partial_mmr(
         &self,
         include_current_block: bool,
     ) -> Result<PartialMmr, ClientError> {

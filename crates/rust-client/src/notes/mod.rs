@@ -5,7 +5,7 @@ use alloc::{collections::BTreeSet, string::ToString, vec::Vec};
 
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{accounts::AccountId, crypto::rand::FeltRng};
-use winter_maybe_async::{maybe_async, maybe_await};
+use winter_maybe_async::maybe_await;
 
 use crate::{
     store::{InputNoteRecord, NoteFilter, OutputNoteRecord},
@@ -44,16 +44,17 @@ impl<R: FeltRng> Client<R> {
     ///
     /// Returns a [ClientError::StoreError] if the filter is [NoteFilter::Unique] and there is no
     /// Note with the provided ID
-    #[maybe_async]
-    pub fn get_input_notes(&self, filter: NoteFilter) -> Result<Vec<InputNoteRecord>, ClientError> {
+    pub async fn get_input_notes(
+        &self,
+        filter: NoteFilter,
+    ) -> Result<Vec<InputNoteRecord>, ClientError> {
         maybe_await!(self.store.get_input_notes(filter)).map_err(|err| err.into())
     }
 
     /// Returns the input notes and their consumability.
     ///
     /// If account_id is None then all consumable input notes are returned.
-    #[maybe_async]
-    pub fn get_consumable_notes(
+    pub async fn get_consumable_notes(
         &self,
         account_id: Option<AccountId>,
     ) -> Result<Vec<(InputNoteRecord, Vec<NoteConsumability>)>, ClientError> {
@@ -64,7 +65,7 @@ impl<R: FeltRng> Client<R> {
         let mut relevant_notes = Vec::new();
         for input_note in commited_notes {
             let mut account_relevance =
-                maybe_await!(note_screener.check_relevance(&input_note.clone().try_into()?))?;
+                note_screener.check_relevance(&input_note.clone().try_into()?).await?;
 
             if let Some(account_id) = account_id {
                 account_relevance.retain(|(id, _)| *id == account_id);
@@ -81,13 +82,14 @@ impl<R: FeltRng> Client<R> {
     }
 
     /// Returns the consumability of the provided note.
-    #[maybe_async]
-    pub fn get_note_consumability(
+    pub async fn get_note_consumability(
         &self,
         note: InputNoteRecord,
     ) -> Result<Vec<NoteConsumability>, ClientError> {
         let note_screener = NoteScreener::new(self.store.clone());
-        maybe_await!(note_screener.check_relevance(&note.clone().try_into()?))
+        note_screener
+            .check_relevance(&note.clone().try_into()?)
+            .await
             .map_err(|err| err.into())
     }
 
@@ -96,8 +98,7 @@ impl<R: FeltRng> Client<R> {
     /// # Errors
     ///
     /// Returns an error if there is no Note with the provided ID
-    #[maybe_async]
-    pub fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, ClientError> {
+    pub async fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, ClientError> {
         Ok(maybe_await!(self.store.get_input_notes(NoteFilter::Unique(note_id)))?
             .pop()
             .expect("The vector always has one element for NoteFilter::Unique"))
@@ -107,8 +108,7 @@ impl<R: FeltRng> Client<R> {
     // --------------------------------------------------------------------------------------------
 
     /// Returns output notes managed by this client.
-    #[maybe_async]
-    pub fn get_output_notes(
+    pub async fn get_output_notes(
         &self,
         filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, ClientError> {
@@ -116,8 +116,7 @@ impl<R: FeltRng> Client<R> {
     }
 
     /// Returns the output note with the specified hash.
-    #[maybe_async]
-    pub fn get_output_note(&self, note_id: NoteId) -> Result<OutputNoteRecord, ClientError> {
+    pub async fn get_output_note(&self, note_id: NoteId) -> Result<OutputNoteRecord, ClientError> {
         Ok(maybe_await!(self.store.get_output_notes(NoteFilter::Unique(note_id)))?
             .pop()
             .expect("The vector always has one element for NoteFilter::Unique"))
@@ -138,12 +137,13 @@ impl<R: FeltRng> Client<R> {
 ///   `note_id_prefix` is a prefix of its id.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found where
 ///   `note_id_prefix` is a prefix of its id.
-#[maybe_async]
-pub fn get_input_note_with_id_prefix<R: FeltRng>(
+pub async fn get_input_note_with_id_prefix<R: FeltRng>(
     client: &Client<R>,
     note_id_prefix: &str,
 ) -> Result<InputNoteRecord, IdPrefixFetchError> {
-    let mut input_note_records = maybe_await!(client.get_input_notes(NoteFilter::All))
+    let mut input_note_records = client
+        .get_input_notes(NoteFilter::All)
+        .await
         .map_err(|err| {
             tracing::error!("Error when fetching all notes from the store: {err}");
             IdPrefixFetchError::NoMatch(format!("note ID prefix {note_id_prefix}").to_string())

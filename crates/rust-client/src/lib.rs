@@ -184,8 +184,7 @@ impl<R: FeltRng> Client<R> {
     }
 
     #[cfg(any(test, feature = "testing"))]
-    #[winter_maybe_async::maybe_async]
-    pub fn get_block_headers(
+    pub async fn get_block_headers(
         &self,
         block_numbers: &[u32],
     ) -> Result<alloc::vec::Vec<(miden_objects::BlockHeader, bool)>, crate::ClientError> {

@@ -14,15 +14,15 @@ pub struct TransactionCmd {
 
 impl TransactionCmd {
     pub async fn execute(&self, client: Client<impl FeltRng>) -> Result<(), String> {
-        list_transactions(client)?;
+        list_transactions(client).await?;
         Ok(())
     }
 }
 
 // LIST TRANSACTIONS
 // ================================================================================================
-fn list_transactions(client: Client<impl FeltRng>) -> Result<(), String> {
-    let transactions = client.get_transactions(TransactionFilter::All)?;
+async fn list_transactions(client: Client<impl FeltRng>) -> Result<(), String> {
+    let transactions = client.get_transactions(TransactionFilter::All).await?;
     print_transactions_summary(&transactions);
     Ok(())
 }

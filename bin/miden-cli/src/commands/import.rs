@@ -35,6 +35,7 @@ impl ImportCmd {
                 println!("Succesfully imported note {}", note_id.inner());
             } else {
                 let account_id = import_account(&mut client, filename)
+                    .await
                     .map_err(|_| format!("Failed to parse file {}", filename.to_string_lossy()))?;
                 println!("Succesfully imported account {}", account_id);
 
@@ -50,7 +51,7 @@ impl ImportCmd {
 // IMPORT ACCOUNT
 // ================================================================================================
 
-fn import_account(
+async fn import_account(
     client: &mut Client<impl FeltRng>,
     filename: &PathBuf,
 ) -> Result<AccountId, String> {
@@ -63,7 +64,7 @@ fn import_account(
         AccountData::read_from_bytes(&account_data_file_contents).map_err(|err| err.to_string())?;
     let account_id = account_data.account.id();
 
-    client.import_account(account_data)?;
+    client.import_account(account_data).await?;
 
     Ok(account_id)
 }
