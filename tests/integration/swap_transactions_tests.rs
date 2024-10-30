@@ -174,7 +174,7 @@ async fn test_swap_fully_onchain() {
     // - accountB: 1 BTC, 975 ETH
 
     // first reload the account
-    let (account_a, _) = client1.get_account(account_a.id()).unwrap();
+    let (account_a, _) = client1.get_account(account_a.id()).await.unwrap();
     let account_a_assets = account_a.vault().assets();
     assert_eq!(account_a_assets.count(), 2);
     let mut account_a_assets = account_a.vault().assets();
@@ -364,7 +364,7 @@ async fn test_swap_offchain() {
     client2
         .import_note(NoteFile::NoteDetails {
             details: output_note.try_into().unwrap(),
-            after_block_num: client1.get_sync_height().unwrap(),
+            after_block_num: client1.get_sync_height().await.unwrap(),
             tag: Some(tag),
         })
         .await

@@ -92,8 +92,8 @@ fn test_init_with_params() {
 // ================================================================================================
 
 /// This test tries to run a mint TX using the CLI for an account that is not tracked.
-#[test]
-fn test_mint_with_untracked_account() {
+#[tokio::test]
+async fn test_mint_with_untracked_account() {
     let store_path = create_test_store_path();
     let mut temp_dir = temp_dir();
     temp_dir.push(format!("{}", uuid::Uuid::new_v4()));
@@ -106,7 +106,7 @@ fn test_mint_with_untracked_account() {
             mutable_code: false,
             storage_mode: AccountStorageMode::Private,
         };
-        let (account, _seed) = client.new_account(account_template).unwrap();
+        let (account, _seed) = client.new_account(account_template).await.unwrap();
 
         account.id().to_hex()
     };
@@ -133,7 +133,7 @@ fn test_mint_with_untracked_account() {
 
     let fungible_faucet_account_id = {
         let client = create_test_client_with_store_path(&store_path);
-        let accounts = client.get_account_headers().unwrap();
+        let accounts = client.get_account_headers().await.unwrap();
 
         accounts.first().unwrap().0.id().to_hex()
     };
@@ -144,7 +144,7 @@ fn test_mint_with_untracked_account() {
     mint_cli(&temp_dir, &target_account_id, &fungible_faucet_account_id);
 
     // Sleep for a while to ensure the note is committed on the node
-    sync_until_no_notes(&store_path, &temp_dir, NoteFilter::Expected);
+    sync_until_no_notes(&store_path, &temp_dir, NoteFilter::Expected).await;
 }
 
 // IMPORT TESTS
@@ -159,9 +159,9 @@ const GENESIS_ACCOUNTS_FILENAMES: [&str; 1] = ["faucet.mac"];
 // 2. Imports the genesis account
 // 3. Creates a wallet
 // 4. Runs a mint tx and syncs until the transaction and note are committed
-#[test]
+#[tokio::test]
 #[ignore = "import genesis test gets ignored by default so integration tests can be ran with dockerized and remote nodes where we might not have the genesis data"]
-fn test_import_genesis_accounts_can_be_used_for_transactions() {
+async fn test_import_genesis_accounts_can_be_used_for_transactions() {
     let store_path = create_test_store_path();
     let mut temp_dir = temp_dir();
     temp_dir.push(format!("{}", uuid::Uuid::new_v4()));
@@ -198,7 +198,7 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
 
     let fungible_faucet_account_id = {
         let client = create_test_client_with_store_path(&store_path);
-        let accounts = client.get_account_headers().unwrap();
+        let accounts = client.get_account_headers().await.unwrap();
 
         let account_ids = accounts.iter().map(|(acc, _seed)| acc.id()).collect::<Vec<_>>();
         let faucet_accounts = account_ids.iter().filter(|id| id.is_faucet()).collect::<Vec<_>>();
@@ -227,7 +227,7 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
     );
 
     // Wait until the note is committed on the node
-    sync_until_no_notes(&store_path, &temp_dir, NoteFilter::Expected);
+    sync_until_no_notes(&store_path, &temp_dir, NoteFilter::Expected).await;
 }
 
 // This tests that it's possible to export and import notes into other CLIs. To do so it:
@@ -236,8 +236,8 @@ fn test_import_genesis_accounts_can_be_used_for_transactions() {
 // 2. Creates a client B with a regular account
 // 3. On client A runs a mint transaction, and exports the output note
 // 4. On client B imports the note and consumes it
-#[test]
-fn test_cli_export_import_note() {
+#[tokio::test]
+async fn test_cli_export_import_note() {
     const NOTE_FILENAME: &str = "test_note.mno";
 
     let store_path_1 = create_test_store_path();
@@ -262,7 +262,7 @@ fn test_cli_export_import_note() {
 
     let first_basic_account_id = {
         let client = create_test_client_with_store_path(&store_path_2);
-        let accounts = client.get_account_headers().unwrap();
+        let accounts = client.get_account_headers().await.unwrap();
 
         accounts.first().unwrap().0.id().to_hex()
     };
@@ -289,7 +289,7 @@ fn test_cli_export_import_note() {
 
     let fungible_faucet_account_id = {
         let client = create_test_client_with_store_path(&store_path_1);
-        let accounts = client.get_account_headers().unwrap();
+        let accounts = client.get_account_headers().await.unwrap();
 
         accounts.first().unwrap().0.id().to_hex()
     };
@@ -302,7 +302,7 @@ fn test_cli_export_import_note() {
     // Create a Client to get notes
     let note_to_export_id = {
         let client = create_test_client_with_store_path(&store_path_1);
-        let output_notes = client.get_output_notes(NoteFilter::All).unwrap();
+        let output_notes = client.get_output_notes(NoteFilter::All).await.unwrap();
 
         output_notes.first().unwrap().id().to_hex()
     };
@@ -337,7 +337,7 @@ fn test_cli_export_import_note() {
     import_cmd.current_dir(&temp_dir_2).assert().success();
 
     // Wait until the note is committed on the node
-    sync_until_no_notes(&store_path_2, &temp_dir_2, NoteFilter::Expected);
+    sync_until_no_notes(&store_path_2, &temp_dir_2, NoteFilter::Expected).await;
 
     show_note_cli(&temp_dir_2, &note_to_export_id, false);
     // Consume the note
@@ -353,8 +353,8 @@ fn test_cli_export_import_note() {
     );
 }
 
-#[test]
-fn test_cli_export_import_account() {
+#[tokio::test]
+async fn test_cli_export_import_account() {
     const ACCOUNT_FILENAME: &str = "test_account.acc";
 
     let store_path_1 = create_test_store_path();
@@ -384,7 +384,7 @@ fn test_cli_export_import_account() {
 
     let first_basic_account_id = {
         let client = create_test_client_with_store_path(&store_path_1);
-        let accounts = client.get_account_headers().unwrap();
+        let accounts = client.get_account_headers().await.unwrap();
 
         accounts.first().unwrap().0.id().to_hex()
     };
@@ -417,6 +417,7 @@ fn test_cli_export_import_account() {
     assert!(matches!(
         client_2
             .get_account(AccountId::from_hex(&first_basic_account_id).unwrap())
+            .await
             .unwrap(),
         (Account { .. }, _)
     ));
@@ -516,10 +517,10 @@ fn send_cli(cli_path: &Path, from_account_id: &str, to_account_id: &str, faucet_
 }
 
 /// Syncs until there are no input notes satisfying the provided filter
-fn sync_until_no_notes(store_path: &Path, cli_path: &Path, filter: NoteFilter) {
+async fn sync_until_no_notes(store_path: &Path, cli_path: &Path, filter: NoteFilter) {
     let client = create_test_client_with_store_path(store_path);
 
-    while !client.get_input_notes(filter.clone()).unwrap().is_empty() {
+    while !client.get_input_notes(filter.clone()).await.unwrap().is_empty() {
         sync_cli(cli_path);
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
