@@ -7,7 +7,10 @@ use wasm_bindgen::prelude::*;
 
 use super::models::note_script::NoteScript;
 use crate::{
-    models::{input_note_record::InputNoteRecord, note_filter::NoteFilter},
+    models::{
+        account_id::AccountId, consumable_note_record::ConsumableNoteRecord,
+        input_note_record::InputNoteRecord, note_filter::NoteFilter,
+    },
     WebClient,
 };
 
@@ -76,6 +79,22 @@ impl WebClient {
             let native_note_script: NativeNoteScript = client.compile_note_script(script).unwrap();
 
             Ok(native_note_script.into())
+        } else {
+            Err(JsValue::from_str("Client not initialized"))
+        }
+    }
+
+    pub async fn get_consumable_notes(
+        &mut self,
+        account_id: Option<AccountId>,
+    ) -> Result<Vec<ConsumableNoteRecord>, JsValue> {
+        if let Some(client) = self.get_mut_inner() {
+            let native_account_id = account_id.map(|id| id.into());
+            let result = client.get_consumable_notes(native_account_id).await.map_err(|err| {
+                JsValue::from_str(&format!("Failed to get consumable notes: {}", err))
+            })?;
+
+            Ok(result.into_iter().map(|record| record.into()).collect())
         } else {
             Err(JsValue::from_str("Client not initialized"))
         }

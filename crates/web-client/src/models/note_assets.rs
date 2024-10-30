@@ -20,6 +20,19 @@ impl NoteAssets {
     pub fn push(&mut self, asset: &FungibleAsset) {
         let _ = self.0.add_asset(asset.into());
     }
+
+    pub fn assets(&self) -> Vec<FungibleAsset> {
+        self.0
+            .iter()
+            .filter_map(|asset| {
+                if asset.is_fungible() {
+                    Some(asset.unwrap_fungible().into())
+                } else {
+                    None // TODO: Support non fungible assets
+                }
+            })
+            .collect()
+    }
 }
 
 // CONVERSIONS
