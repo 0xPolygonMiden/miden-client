@@ -290,8 +290,8 @@ pub mod tests {
         accounts
     }
 
-    #[test]
-    pub fn try_import_new_account() {
+    #[tokio::test]
+    pub async fn try_import_new_account() {
         // generate test client
         let (mut client, _rpc_api) = create_test_client();
 
@@ -305,28 +305,30 @@ pub mod tests {
 
         assert!(client
             .insert_account(&account, None, &AuthSecretKey::RpoFalcon512(key_pair.clone()))
+            .await
             .is_err());
         assert!(client
             .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
+            .await
             .is_ok());
     }
 
-    #[test]
-    fn load_accounts_test() {
+    #[tokio::test]
+    async fn load_accounts_test() {
         // generate test client
         let (mut client, _) = create_test_client();
 
         let created_accounts_data = create_initial_accounts_data();
 
         for account_data in created_accounts_data.clone() {
-            client.import_account(account_data).unwrap();
+            client.import_account(account_data).await.unwrap();
         }
 
         let expected_accounts: Vec<Account> = created_accounts_data
             .into_iter()
             .map(|account_data| account_data.account)
             .collect();
-        let accounts = client.get_account_headers().unwrap();
+        let accounts = client.get_account_headers().await.unwrap();
 
         assert_eq!(accounts.len(), 2);
         for (client_acc, expected_acc) in accounts.iter().zip(expected_accounts.iter()) {

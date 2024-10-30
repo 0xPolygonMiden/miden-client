@@ -55,7 +55,7 @@ async fn test_input_notes_round_trip() {
 
     // retrieve notes from database
     // TODO: Once we get more specific filters this query should only get unverified notes.
-    let retrieved_notes = client.get_input_notes(NoteFilter::All).unwrap();
+    let retrieved_notes = client.get_input_notes(NoteFilter::All).await.unwrap();
     assert_eq!(retrieved_notes.len(), 2);
 
     let recorded_notes: Vec<InputNoteRecord> =
@@ -85,7 +85,7 @@ async fn test_get_input_note() {
         .unwrap();
 
     // retrieve note from database
-    let retrieved_note = client.get_input_note(original_note.id()).unwrap();
+    let retrieved_note = client.get_input_note(original_note.id()).await.unwrap();
 
     let recorded_note: InputNoteRecord = original_note.into();
     assert_eq!(recorded_note.id(), retrieved_note.id());
@@ -102,13 +102,13 @@ async fn insert_basic_account() {
     };
 
     // Insert Account
-    let account_insert_result = client.new_account(account_template);
+    let account_insert_result = client.new_account(account_template).await;
     assert!(account_insert_result.is_ok());
 
     let (account, account_seed) = account_insert_result.unwrap();
 
     // Fetch Account
-    let fetched_account_data = client.get_account(account.id());
+    let fetched_account_data = client.get_account(account.id()).await;
     assert!(fetched_account_data.is_ok());
 
     let (fetched_account, fetched_account_seed) = fetched_account_data.unwrap();
@@ -136,13 +136,13 @@ async fn insert_faucet_account() {
     };
 
     // Insert Account
-    let account_insert_result = client.new_account(faucet_template);
+    let account_insert_result = client.new_account(faucet_template).await;
     assert!(account_insert_result.is_ok());
 
     let (account, account_seed) = account_insert_result.unwrap();
 
     // Fetch Account
-    let fetched_account_data = client.get_account(account.id());
+    let fetched_account_data = client.get_account(account.id()).await;
     assert!(fetched_account_data.is_ok());
 
     let (fetched_account, fetched_account_seed) = fetched_account_data.unwrap();
@@ -176,9 +176,11 @@ async fn insert_same_account_twice_fails() {
             Some(Word::default()),
             &AuthSecretKey::RpoFalcon512(key_pair.clone())
         )
+        .await
         .is_ok());
     assert!(client
         .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
+        .await
         .is_err());
 }
 
@@ -204,8 +206,9 @@ async fn test_account_code() {
 
     client
         .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
+        .await
         .unwrap();
-    let (retrieved_acc, _) = client.get_account(account.id()).unwrap();
+    let (retrieved_acc, _) = client.get_account(account.id()).await.unwrap();
     assert_eq!(*account.code(), *retrieved_acc.code());
 }
 
@@ -224,10 +227,11 @@ async fn test_get_account_by_id() {
 
     client
         .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
+        .await
         .unwrap();
 
     // Retrieving an existing account should succeed
-    let (acc_from_db, _account_seed) = match client.get_account_header_by_id(account.id()) {
+    let (acc_from_db, _account_seed) = match client.get_account_header_by_id(account.id()).await {
         Ok(account) => account,
         Err(err) => panic!("Error retrieving account: {}", err),
     };
@@ -236,7 +240,7 @@ async fn test_get_account_by_id() {
     // Retrieving a non existing account should fail
     let hex = format!("0x{}", "1".repeat(16));
     let invalid_id = AccountId::from_hex(&hex).unwrap();
-    assert!(client.get_account_header_by_id(invalid_id).is_err());
+    assert!(client.get_account_header_by_id(invalid_id).await.is_err());
 }
 
 #[tokio::test]
@@ -249,11 +253,11 @@ async fn test_sync_state() {
     client.store.upsert_input_notes(&[expected_note.clone().into()]).unwrap();
 
     // assert that we have no consumed nor expected notes prior to syncing state
-    assert_eq!(client.get_input_notes(NoteFilter::Consumed).unwrap().len(), 0);
-    assert_eq!(client.get_input_notes(NoteFilter::Expected).unwrap().len(), 1);
-    assert_eq!(client.get_input_notes(NoteFilter::Committed).unwrap().len(), 0);
+    assert_eq!(client.get_input_notes(NoteFilter::Consumed).await.unwrap().len(), 0);
+    assert_eq!(client.get_input_notes(NoteFilter::Expected).await.unwrap().len(), 1);
+    assert_eq!(client.get_input_notes(NoteFilter::Committed).await.unwrap().len(), 0);
 
-    let expected_notes = client.get_input_notes(NoteFilter::Expected).unwrap();
+    let expected_notes = client.get_input_notes(NoteFilter::Expected).await.unwrap();
 
     // sync state
     let sync_details = client.sync_state().await.unwrap();
@@ -262,15 +266,15 @@ async fn test_sync_state() {
     assert_eq!(sync_details.block_num, rpc_api.blocks.last().unwrap().header().block_num());
 
     // verify that the expected note we had is now committed
-    assert_ne!(client.get_input_notes(NoteFilter::Committed).unwrap(), expected_notes);
+    assert_ne!(client.get_input_notes(NoteFilter::Committed).await.unwrap(), expected_notes);
 
     // verify that we now have one consumed note after syncing state
-    assert_eq!(client.get_input_notes(NoteFilter::Consumed).unwrap().len(), 1);
+    assert_eq!(client.get_input_notes(NoteFilter::Consumed).await.unwrap().len(), 1);
     assert_eq!(sync_details.consumed_notes.len(), 1);
 
     // verify that the latest block number has been updated
     assert_eq!(
-        client.get_sync_height().unwrap(),
+        client.get_sync_height().await.unwrap(),
         rpc_api.blocks.last().unwrap().header().block_num()
     );
 }
@@ -286,6 +290,7 @@ async fn test_sync_state_mmr() {
             mutable_code: false,
             storage_mode: AccountStorageMode::Private,
         })
+        .await
         .unwrap();
 
     let notes = rpc_api.notes.values().map(|n| n.note().clone().into()).collect::<Vec<_>>();
@@ -299,20 +304,20 @@ async fn test_sync_state_mmr() {
 
     // verify that the latest block number has been updated
     assert_eq!(
-        client.get_sync_height().unwrap(),
+        client.get_sync_height().await.unwrap(),
         rpc_api.blocks.last().unwrap().header().block_num()
     );
 
     // verify that we inserted the latest block into the DB via the client
-    let latest_block = client.get_sync_height().unwrap();
+    let latest_block = client.get_sync_height().await.unwrap();
     assert_eq!(sync_details.block_num, latest_block);
     assert_eq!(
         rpc_api.blocks.last().unwrap().hash(),
-        client.get_block_headers(&[latest_block]).unwrap()[0].0.hash()
+        client.get_block_headers(&[latest_block]).await.unwrap()[0].0.hash()
     );
 
     // Try reconstructing the chain_mmr from what's in the database
-    let partial_mmr = client.build_current_partial_mmr(true).unwrap();
+    let partial_mmr = client.build_current_partial_mmr(true).await.unwrap();
     assert_eq!(partial_mmr.forest(), 6);
     assert!(partial_mmr.open(0).unwrap().is_none());
     assert!(partial_mmr.open(1).unwrap().is_some());
@@ -337,35 +342,35 @@ async fn test_tags() {
     let (mut client, _rpc_api) = create_test_client();
 
     // Assert that the store gets created with the tag 0 (used for notes consumable by any account)
-    assert!(client.get_note_tags().unwrap().is_empty());
+    assert!(client.get_note_tags().await.unwrap().is_empty());
 
     // add a tag
     let tag_1: NoteTag = 1.into();
     let tag_2: NoteTag = 2.into();
-    client.add_note_tag(tag_1).unwrap();
-    client.add_note_tag(tag_2).unwrap();
+    client.add_note_tag(tag_1).await.unwrap();
+    client.add_note_tag(tag_2).await.unwrap();
 
     // verify that the tag is being tracked
-    assert_eq!(client.get_note_tags().unwrap(), vec![tag_1, tag_2]);
+    assert_eq!(client.get_note_tags().await.unwrap(), vec![tag_1, tag_2]);
 
     // attempt to add the same tag again
-    client.add_note_tag(tag_1).unwrap();
+    client.add_note_tag(tag_1).await.unwrap();
 
     // verify that the tag is still being tracked only once
-    assert_eq!(client.get_note_tags().unwrap(), vec![tag_1, tag_2]);
+    assert_eq!(client.get_note_tags().await.unwrap(), vec![tag_1, tag_2]);
 
     // Try removing non-existent tag
     let tag_4: NoteTag = 4.into();
-    client.remove_note_tag(tag_4).unwrap();
+    client.remove_note_tag(tag_4).await.unwrap();
 
     // verify that the tracked tags are unchanged
-    assert_eq!(client.get_note_tags().unwrap(), vec![tag_1, tag_2]);
+    assert_eq!(client.get_note_tags().await.unwrap(), vec![tag_1, tag_2]);
 
     // remove second tag
-    client.remove_note_tag(tag_1).unwrap();
+    client.remove_note_tag(tag_1).await.unwrap();
 
     // verify that tag_1 is not tracked anymore
-    assert_eq!(client.get_note_tags().unwrap(), vec![tag_2]);
+    assert_eq!(client.get_note_tags().await.unwrap(), vec![tag_2]);
 }
 
 #[tokio::test]
@@ -381,6 +386,7 @@ async fn test_mint_transaction() {
             max_supply: 10000,
             storage_mode: AccountStorageMode::Private,
         })
+        .await
         .unwrap();
 
     client.sync_state().await.unwrap();
@@ -394,7 +400,7 @@ async fn test_mint_transaction() {
     )
     .unwrap();
 
-    let transaction = client.new_transaction(faucet.id(), transaction_request).unwrap();
+    let transaction = client.new_transaction(faucet.id(), transaction_request).await.unwrap();
 
     assert!(transaction.executed_transaction().account_delta().nonce().is_some());
 }
@@ -413,6 +419,7 @@ async fn test_get_output_notes() {
             max_supply: 10000,
             storage_mode: AccountStorageMode::Private,
         })
+        .await
         .unwrap();
 
     // Test submitting a mint transaction
@@ -425,14 +432,14 @@ async fn test_get_output_notes() {
     .unwrap();
 
     //Before executing transaction, there are no output notes
-    assert!(client.get_output_notes(NoteFilter::All).unwrap().is_empty());
+    assert!(client.get_output_notes(NoteFilter::All).await.unwrap().is_empty());
 
-    let transaction = client.new_transaction(faucet.id(), transaction_request).unwrap();
+    let transaction = client.new_transaction(faucet.id(), transaction_request).await.unwrap();
     client.submit_transaction(transaction).await.unwrap();
 
     // Check that there was an output note but it wasn't consumed
-    assert!(client.get_output_notes(NoteFilter::Consumed).unwrap().is_empty());
-    assert!(!client.get_output_notes(NoteFilter::All).unwrap().is_empty());
+    assert!(client.get_output_notes(NoteFilter::Consumed).await.unwrap().is_empty());
+    assert!(!client.get_output_notes(NoteFilter::All).await.unwrap().is_empty());
 }
 
 #[tokio::test]
@@ -471,7 +478,7 @@ async fn test_transaction_request_expiration() {
     let (mut client, _) = create_test_client();
     client.sync_state().await.unwrap();
 
-    let current_height = client.get_sync_height().unwrap();
+    let current_height = client.get_sync_height().await.unwrap();
     let (faucet, _seed) = client
         .new_account(AccountTemplate::FungibleFaucet {
             token_symbol: "TST".try_into().unwrap(),
@@ -479,6 +486,7 @@ async fn test_transaction_request_expiration() {
             max_supply: 10000,
             storage_mode: AccountStorageMode::Private,
         })
+        .await
         .unwrap();
 
     let transaction_request = TransactionRequest::mint_fungible_asset(
@@ -491,7 +499,7 @@ async fn test_transaction_request_expiration() {
     .with_expiration_delta(5)
     .unwrap();
 
-    let transaction = client.new_transaction(faucet.id(), transaction_request).unwrap();
+    let transaction = client.new_transaction(faucet.id(), transaction_request).await.unwrap();
 
     let (_, tx_outputs, ..) = transaction.executed_transaction().clone().into_parts();
 

@@ -208,8 +208,7 @@ impl<R: FeltRng> Client<R> {
         let incoming_block_has_relevant_notes =
             self.check_block_relevance(&committed_note_updates).await?;
 
-        let transactions_to_commit =
-            self.get_transactions_to_commit(response.transactions).await?;
+        let transactions_to_commit = self.get_transactions_to_commit(response.transactions).await?;
 
         let (consumed_note_updates, transactions_to_discard) =
             self.consumed_note_updates(response.nullifiers, &transactions_to_commit).await?;

@@ -47,7 +47,7 @@ async fn test_added_notes() {
 
     // Check that no new notes were added
     println!("Fetching Committed Notes...");
-    let notes = client.get_input_notes(NoteFilter::Committed).unwrap();
+    let notes = client.get_input_notes(NoteFilter::Committed).await.unwrap();
     assert!(notes.is_empty())
 }
 
@@ -1256,10 +1256,11 @@ async fn test_discarded_transaction() {
 
     // After sync the note in client 1 should be consumed externally and the transaction discarded
     client_1.sync_state().await.unwrap();
-    let note_record = client_1.get_input_note(note.id()).unwrap();
+    let note_record = client_1.get_input_note(note.id()).await.unwrap();
     assert!(matches!(note_record.state(), InputNoteState::ConsumedExternal(_)));
     let tx_record = client_1
         .get_transactions(TransactionFilter::All)
+        .await
         .unwrap()
         .into_iter()
         .find(|tx| tx.id == tx_id)

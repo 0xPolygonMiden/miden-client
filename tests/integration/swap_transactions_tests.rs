@@ -35,6 +35,7 @@ async fn test_swap_fully_onchain() {
             mutable_code: false,
             storage_mode: AccountStorageMode::Private,
         })
+        .await
         .unwrap();
 
     // Create Client 2's basic wallet (We'll call it accountB)
@@ -43,6 +44,7 @@ async fn test_swap_fully_onchain() {
             mutable_code: false,
             storage_mode: AccountStorageMode::Private,
         })
+        .await
         .unwrap();
 
     // Create client with faucets BTC faucet (note: it's not real BTC)
@@ -53,6 +55,7 @@ async fn test_swap_fully_onchain() {
             max_supply: 1_000_000,
             storage_mode: AccountStorageMode::Private,
         })
+        .await
         .unwrap();
     // Create client with faucets ETH faucet (note: it's not real ETH)
     let (eth_faucet_account, _) = client_with_faucets
@@ -62,6 +65,7 @@ async fn test_swap_fully_onchain() {
             max_supply: 1_000_000,
             storage_mode: AccountStorageMode::Private,
         })
+        .await
         .unwrap();
 
     // mint 1000 BTC for accountA
@@ -87,7 +91,8 @@ async fn test_swap_fully_onchain() {
 
     // Sync and consume note for accountA
     client1.sync_state().await.unwrap();
-    let client_1_consumable_notes = client1.get_consumable_notes(Some(account_a.id())).unwrap();
+    let client_1_consumable_notes =
+        client1.get_consumable_notes(Some(account_a.id())).await.unwrap();
     assert!(client_1_consumable_notes
         .iter()
         .any(|(note, _)| note.id() == account_a_mint_note_id));
@@ -99,7 +104,8 @@ async fn test_swap_fully_onchain() {
 
     // Sync and consume note for accountB
     client2.sync_state().await.unwrap();
-    let client_2_consumable_notes = client2.get_consumable_notes(Some(account_b.id())).unwrap();
+    let client_2_consumable_notes =
+        client2.get_consumable_notes(Some(account_b.id())).await.unwrap();
     assert!(client_2_consumable_notes
         .iter()
         .any(|(note, _)| note.id() == account_b_mint_note_id));
@@ -143,8 +149,8 @@ async fn test_swap_fully_onchain() {
     // we could technically avoid this step, but for the first iteration of swap notes we'll
     // require to manually add tags
     println!("Adding swap tags");
-    client1.add_note_tag(payback_note_tag).unwrap();
-    client2.add_note_tag(payback_note_tag).unwrap();
+    client1.add_note_tag(payback_note_tag).await.unwrap();
+    client2.add_note_tag(payback_note_tag).await.unwrap();
 
     // sync on client 2, we should get the swap note
     // consume swap note with accountB, and check that the vault changed appropiately
@@ -194,7 +200,7 @@ async fn test_swap_fully_onchain() {
         _ => panic!("should only have fungible assets!"),
     }
 
-    let (account_b, _) = client2.get_account(account_b.id()).unwrap();
+    let (account_b, _) = client2.get_account(account_b.id()).await.unwrap();
     let account_b_assets = account_b.vault().assets();
     assert_eq!(account_b_assets.count(), 2);
     let mut account_b_assets = account_b.vault().assets();
@@ -242,6 +248,7 @@ async fn test_swap_offchain() {
             mutable_code: false,
             storage_mode: AccountStorageMode::Private,
         })
+        .await
         .unwrap();
 
     // Create Client 2's basic wallet (We'll call it accountB)
@@ -250,6 +257,7 @@ async fn test_swap_offchain() {
             mutable_code: false,
             storage_mode: AccountStorageMode::Private,
         })
+        .await
         .unwrap();
 
     // Create client with faucets BTC faucet (note: it's not real BTC)
@@ -260,6 +268,7 @@ async fn test_swap_offchain() {
             max_supply: 1_000_000,
             storage_mode: AccountStorageMode::Private,
         })
+        .await
         .unwrap();
     // Create client with faucets ETH faucet (note: it's not real ETH)
     let (eth_faucet_account, _) = client_with_faucets
@@ -269,6 +278,7 @@ async fn test_swap_offchain() {
             max_supply: 1_000_000,
             storage_mode: AccountStorageMode::Private,
         })
+        .await
         .unwrap();
 
     // mint 1000 BTC for accountA
@@ -294,7 +304,8 @@ async fn test_swap_offchain() {
 
     // Sync and consume note for accountA
     client1.sync_state().await.unwrap();
-    let client_1_consumable_notes = client1.get_consumable_notes(Some(account_a.id())).unwrap();
+    let client_1_consumable_notes =
+        client1.get_consumable_notes(Some(account_a.id())).await.unwrap();
     assert!(client_1_consumable_notes
         .iter()
         .any(|(note, _)| note.id() == account_a_mint_note_id));
@@ -306,7 +317,8 @@ async fn test_swap_offchain() {
 
     // Sync and consume note for accountB
     client2.sync_state().await.unwrap();
-    let client_2_consumable_notes = client2.get_consumable_notes(Some(account_b.id())).unwrap();
+    let client_2_consumable_notes =
+        client2.get_consumable_notes(Some(account_b.id())).await.unwrap();
     assert!(client_2_consumable_notes
         .iter()
         .any(|(note, _)| note.id() == account_b_mint_note_id));
@@ -344,11 +356,11 @@ async fn test_swap_offchain() {
     execute_tx_and_sync(&mut client1, account_a.id(), tx_request).await;
 
     // Export note from client 1 to client 2
-    let output_note = client1.get_output_note(expected_output_notes[0].id()).unwrap();
+    let output_note = client1.get_output_note(expected_output_notes[0].id()).await.unwrap();
 
     let tag =
         build_swap_tag(NoteType::Private, offered_asset.faucet_id(), requested_asset.faucet_id());
-    client2.add_note_tag(tag).unwrap();
+    client2.add_note_tag(tag).await.unwrap();
     client2
         .import_note(NoteFile::NoteDetails {
             details: output_note.try_into().unwrap(),
@@ -381,7 +393,7 @@ async fn test_swap_offchain() {
     // - accountB: 1 BTC, 975 ETH
 
     // first reload the account
-    let (account_a, _) = client1.get_account(account_a.id()).unwrap();
+    let (account_a, _) = client1.get_account(account_a.id()).await.unwrap();
     let account_a_assets = account_a.vault().assets();
     assert_eq!(account_a_assets.count(), 2);
     let mut account_a_assets = account_a.vault().assets();
@@ -407,7 +419,7 @@ async fn test_swap_offchain() {
         _ => panic!("should only have fungible assets!"),
     }
 
-    let (account_b, _) = client2.get_account(account_b.id()).unwrap();
+    let (account_b, _) = client2.get_account(account_b.id()).await.unwrap();
     let account_b_assets = account_b.vault().assets();
     assert_eq!(account_b_assets.count(), 2);
     let mut account_b_assets = account_b.vault().assets();

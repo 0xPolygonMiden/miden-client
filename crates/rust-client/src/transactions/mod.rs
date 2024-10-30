@@ -450,8 +450,7 @@ impl<R: FeltRng> Client<R> {
             .collect::<Vec<_>>();
 
         let consumed_note_ids = tx_result.consumed_notes().iter().map(|note| note.id()).collect();
-        let consumed_notes =
-            self.get_input_notes(NoteFilter::List(consumed_note_ids)).await?;
+        let consumed_notes = self.get_input_notes(NoteFilter::List(consumed_note_ids)).await?;
 
         let mut updated_input_notes = vec![];
         for mut input_note_record in consumed_notes {
@@ -824,6 +823,7 @@ mod test {
                 None,
                 miden_objects::accounts::AuthSecretKey::RpoFalcon512(secret_key.clone()),
             ))
+            .await
             .unwrap();
         client.sync_state().await.unwrap();
         let tx_request = TransactionRequest::pay_to_id(
@@ -838,7 +838,7 @@ mod test {
         )
         .unwrap();
 
-        let tx_result = client.new_transaction(account.id(), tx_request).unwrap();
+        let tx_result = client.new_transaction(account.id(), tx_request).await.unwrap();
         assert!(tx_result
             .created_notes()
             .get_note(0)
