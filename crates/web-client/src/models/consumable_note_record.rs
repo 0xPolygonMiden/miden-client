@@ -25,8 +25,10 @@ pub struct NoteConsumability {
 
 #[wasm_bindgen]
 impl NoteConsumability {
-    #[wasm_bindgen(constructor)]
-    pub fn new(account_id: AccountId, consumable_after_block: Option<u32>) -> NoteConsumability {
+    pub(crate) fn new(
+        account_id: AccountId,
+        consumable_after_block: Option<u32>,
+    ) -> NoteConsumability {
         NoteConsumability { account_id, consumable_after_block }
     }
 

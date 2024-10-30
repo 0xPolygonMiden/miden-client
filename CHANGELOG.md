@@ -2,7 +2,6 @@
 
 ## 0.6.0 (TBD)
 
-* Added WASM consumable notes API + improved note models (#561).
 * Allow to set expiration delta for `TransactionRequest` (#553).
 * Added WASM consumable notes API + improved note models (#561).
 * [BREAKING] Refactored `OutputNoteRecord` to use states and transitions for updates (#551).

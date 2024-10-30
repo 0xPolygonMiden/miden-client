@@ -5,7 +5,9 @@ import {
   consumeTransaction,
   fetchAndCacheAccountAuth,
   mintTransaction,
+  sendTransaction,
   setupWalletAndFaucet,
+  syncState,
 } from "./webClientTestUtils";
 
 const getInputNote = async (noteId: string) => {
@@ -49,6 +51,7 @@ const getConsumableNotes = async (accountId?: string) => {
     const client = window.client;
     let records;
     if (_accountId) {
+      console.log({ _accountId });
       const accountId = window.AccountId.from_hex(_accountId);
       records = await client.get_consumable_notes(accountId);
     } else {
@@ -102,6 +105,7 @@ describe("get_consumable_notes", () => {
       expect(record.consumability).to.have.lengthOf(1);
       expect(record.consumability[0].accountId).to.equal(accountId1);
       expect(record.noteId).to.equal(noteId1);
+      expect(record.consumability[0].consumableAfterBlock).to.be.undefined;
     });
   });
   it("no filter by account", async () => {
@@ -117,6 +121,39 @@ describe("get_consumable_notes", () => {
       accountId2,
     ]);
     expect(result).to.have.lengthOf(2);
+    const consumableRecord1 = result.find((r) => r.noteId === noteId1);
+    const consumableRecord2 = result.find((r) => r.noteId === noteId2);
+
+    consumableRecord1!!.consumability.forEach((c) => {
+      expect(c.accountId).to.equal(accountId1);
+    });
+
+    consumableRecord2!!.consumability.forEach((c) => {
+      expect(c.accountId).to.equal(accountId2);
+    });
+  });
+  it.only("p2idr consume after block", async () => {
+    const { accountId: senderAccountId, faucetId } =
+      await setupWalletAndFaucet();
+    const { accountId: targetAccountId } = await setupWalletAndFaucet();
+    const recallHeight = 100;
+    await sendTransaction(
+      senderAccountId,
+      targetAccountId,
+      faucetId,
+      100,
+      recallHeight
+    );
+
+    const consumableRecipient = await getConsumableNotes(targetAccountId);
+    const consumableSender = await getConsumableNotes(senderAccountId);
+    expect(consumableSender).to.have.lengthOf(1);
+    expect(consumableSender[0].consumability[0].consumableAfterBlock).to.equal(
+      recallHeight
+    );
+    expect(consumableRecipient).to.have.lengthOf(1);
+    expect(consumableRecipient[0].consumability[0].consumableAfterBlock).to.be
+      .undefined;
   });
 });
 

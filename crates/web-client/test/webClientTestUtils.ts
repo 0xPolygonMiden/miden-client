@@ -54,6 +54,72 @@ export const mintTransaction = async (
   );
 };
 
+export const sendTransaction = async (
+  senderAccountId: string,
+  targetAccountId: string,
+  faucetAccountId: string,
+  amount: number,
+  recallHeight?: number
+) => {
+  return testingPage.evaluate(
+    async (
+      _senderAccountId,
+      _targetAccountId,
+      _faucetAccountId,
+      _amount,
+      _recallHeight
+    ) => {
+      const client = window.client;
+
+      const senderAccountId = window.AccountId.from_hex(_senderAccountId);
+      const targetAccountId = window.AccountId.from_hex(_targetAccountId);
+      const faucetAccountId = window.AccountId.from_hex(_faucetAccountId);
+
+      await client.fetch_and_cache_account_auth_by_pub_key(
+        window.AccountId.from_hex(_faucetAccountId)
+      );
+      let mint_transaction_result = await client.new_mint_transaction(
+        senderAccountId,
+        window.AccountId.from_hex(_faucetAccountId),
+        window.NoteType.private(),
+        BigInt(1000)
+      );
+      let created_notes = mint_transaction_result.created_notes().notes();
+      let created_note_ids = created_notes.map((note) => note.id().to_string());
+      await new Promise((r) => setTimeout(r, 20000)); // TODO: Replace this with loop of sync -> check uncommitted transactions -> sleep
+      await client.sync_state();
+
+      await client.fetch_and_cache_account_auth_by_pub_key(senderAccountId);
+      await client.new_consume_transaction(senderAccountId, created_note_ids);
+      await new Promise((r) => setTimeout(r, 20000)); // TODO: Replace this with loop of sync -> check uncommitted transactions -> sleep
+      await client.sync_state();
+
+      await client.fetch_and_cache_account_auth_by_pub_key(senderAccountId);
+      let send_transaction_result = await client.new_send_transaction(
+        senderAccountId,
+        targetAccountId,
+        faucetAccountId,
+        window.NoteType.public(),
+        BigInt(_amount),
+        _recallHeight
+      );
+      let send_created_notes = send_transaction_result.created_notes().notes();
+      let send_created_note_ids = send_created_notes.map((note) =>
+        note.id().to_string()
+      );
+      await new Promise((r) => setTimeout(r, 20000)); // TODO: Replace this with loop of sync -> check uncommitted transactions -> sleep
+      await client.sync_state();
+
+      return send_created_note_ids;
+    },
+    senderAccountId,
+    targetAccountId,
+    faucetAccountId,
+    amount,
+    recallHeight
+  );
+};
+
 interface ConsumeTransactionResult {
   transactionId: string;
   nonce: string | undefined;
@@ -145,7 +211,10 @@ export const fetchAndCacheAccountAuth = async (accountId: string) => {
 export const syncState = async () => {
   return await testingPage.evaluate(async () => {
     const client = window.client;
-    await client.sync_state();
+    const summary = await client.sync_state();
+    return {
+      blockNum: summary.block_num(),
+    };
   });
 };
 
