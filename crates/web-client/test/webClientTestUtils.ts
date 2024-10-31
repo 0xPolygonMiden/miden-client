@@ -12,10 +12,11 @@ interface MintTransactionResult {
 
 export const mintTransaction = async (
   targetAccountId: string,
-  faucetAccountId: string
+  faucetAccountId: string,
+  sync: boolean = true
 ): Promise<MintTransactionResult> => {
   return await testingPage.evaluate(
-    async (_targetAccountId, _faucetAccountId) => {
+    async (_targetAccountId, _faucetAccountId, _sync) => {
       const client = window.client;
 
       await new Promise((r) => setTimeout(r, 20000));
@@ -30,8 +31,10 @@ export const mintTransaction = async (
         BigInt(1000)
       );
 
-      await new Promise((r) => setTimeout(r, 20000)); // TODO: Replace this with loop of sync -> check uncommitted transactions -> sleep
-      await client.sync_state();
+      if (_sync) {
+        await new Promise((r) => setTimeout(r, 20000)); // TODO: Replace this with loop of sync -> check uncommitted transactions -> sleep
+        await client.sync_state();
+      }
 
       return {
         transactionId: new_mint_transaction_result
@@ -50,7 +53,8 @@ export const mintTransaction = async (
       };
     },
     targetAccountId,
-    faucetAccountId
+    faucetAccountId,
+    sync
   );
 };
 
