@@ -3,7 +3,7 @@ use wasm_bindgen::prelude::*;
 
 use super::{
     input_note_state::InputNoteState, note_details::NoteDetails, note_id::NoteId,
-    note_metadata::NoteMetadata,
+    note_inclusion_proof::NoteInclusionProof, note_metadata::NoteMetadata,
 };
 
 #[derive(Clone)]
@@ -25,10 +25,31 @@ impl InputNoteRecord {
     }
 
     pub fn metadata(&self) -> Option<NoteMetadata> {
-        match self.0.metadata() {
-            Some(metadata) => Some(metadata.into()),
-            None => None,
-        }
+        self.0.metadata().map(|metadata| metadata.into())
+    }
+
+    pub fn inclusion_proof(&self) -> Option<NoteInclusionProof> {
+        self.0.inclusion_proof().map(|proof| proof.into())
+    }
+
+    pub fn consumer_transaction_id(&self) -> Option<String> {
+        self.0.consumer_transaction_id().map(|id| id.to_string())
+    }
+
+    pub fn nullifier(&self) -> String {
+        self.0.nullifier().to_hex()
+    }
+
+    pub fn is_authenticated(&self) -> bool {
+        self.0.is_authenticated()
+    }
+
+    pub fn is_consumed(&self) -> bool {
+        self.0.is_consumed()
+    }
+
+    pub fn is_processing(&self) -> bool {
+        self.0.is_processing()
     }
 }
 
