@@ -58,6 +58,9 @@ impl TryFrom<ProtoAccountId> for AccountId {
     }
 }
 
+// ACCOUNT HEADER
+// ================================================================================================
+
 impl ProtoAccountHeader {
     pub fn into_domain(self, account_id: AccountId) -> Result<AccountHeader, RpcError> {
         let ProtoAccountHeader {
