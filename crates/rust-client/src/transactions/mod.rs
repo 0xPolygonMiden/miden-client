@@ -279,7 +279,7 @@ impl<R: FeltRng> Client<R> {
         &self,
         filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, ClientError> {
-        maybe_await!(self.store.get_transactions(filter)).map_err(|err| err.into())
+        self.store.get_transactions(filter).await.map_err(|err| err.into())
     }
 
     // TRANSACTION
@@ -308,9 +308,10 @@ impl<R: FeltRng> Client<R> {
         let authenticated_input_note_ids: Vec<NoteId> =
             transaction_request.authenticated_input_note_ids().collect::<Vec<_>>();
 
-        let authenticated_note_records = maybe_await!(self
+        let authenticated_note_records = self
             .store
-            .get_input_notes(NoteFilter::List(authenticated_input_note_ids)))?;
+            .get_input_notes(NoteFilter::List(authenticated_input_note_ids))
+            .await?;
 
         for authenticated_note_record in authenticated_note_records {
             if !authenticated_note_record.is_authenticated() {
@@ -328,9 +329,9 @@ impl<R: FeltRng> Client<R> {
             .map(|note| note.into())
             .collect::<Vec<_>>();
 
-        maybe_await!(self.store.upsert_input_notes(&unauthenticated_input_notes))?;
+        self.store.upsert_input_notes(&unauthenticated_input_notes).await?;
 
-        let block_num = maybe_await!(self.store.get_sync_height())?;
+        let block_num = self.store.get_sync_height().await?;
 
         let note_ids = transaction_request.get_input_note_ids();
 

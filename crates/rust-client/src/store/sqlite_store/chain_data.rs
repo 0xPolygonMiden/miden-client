@@ -6,7 +6,9 @@ use miden_objects::{
     BlockHeader, Digest,
 };
 use miden_tx::utils::{Deserializable, Serializable};
-use rusqlite::{params, params_from_iter, types::Value, OptionalExtension, Transaction};
+use rusqlite::{
+    params, params_from_iter, types::Value, Connection, OptionalExtension, Transaction,
+};
 
 use super::SqliteStore;
 use crate::store::{ChainMmrNodeFilter, StoreError};
@@ -34,13 +36,12 @@ impl ChainMmrNodeFilter {
 
 impl SqliteStore {
     pub(crate) fn insert_block_header(
-        &self,
+        conn: &mut Connection,
         block_header: BlockHeader,
         chain_mmr_peaks: MmrPeaks,
         has_client_notes: bool,
     ) -> Result<(), StoreError> {
-        let mut db = self.db();
-        let tx = db.transaction()?;
+        let tx = conn.transaction()?;
 
         Self::insert_block_header_tx(&tx, block_header, chain_mmr_peaks, has_client_notes)?;
 
@@ -49,7 +50,7 @@ impl SqliteStore {
     }
 
     pub(crate) fn get_block_headers(
-        &self,
+        conn: &mut Connection,
         block_numbers: &[u32],
     ) -> Result<Vec<(BlockHeader, bool)>, StoreError> {
         let block_number_list = block_numbers
@@ -59,24 +60,24 @@ impl SqliteStore {
 
         const QUERY : &str = "SELECT block_num, header, chain_mmr_peaks, has_client_notes FROM block_headers WHERE block_num IN rarray(?)";
 
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map(params![Rc::new(block_number_list)], parse_block_headers_columns)?
             .map(|result| Ok(result?).and_then(parse_block_header))
             .collect()
     }
 
-    pub(crate) fn get_tracked_block_headers(&self) -> Result<Vec<BlockHeader>, StoreError> {
+    pub(crate) fn get_tracked_block_headers(
+        conn: &mut Connection,
+    ) -> Result<Vec<BlockHeader>, StoreError> {
         const QUERY: &str = "SELECT block_num, header, chain_mmr_peaks, has_client_notes FROM block_headers WHERE has_client_notes=true";
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map(params![], parse_block_headers_columns)?
             .map(|result| Ok(result?).and_then(parse_block_header).map(|(block, _)| block))
             .collect()
     }
 
     pub(crate) fn get_chain_mmr_nodes(
-        &self,
+        conn: &mut Connection,
         filter: ChainMmrNodeFilter,
     ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
         let mut params = Vec::new();
@@ -89,21 +90,19 @@ impl SqliteStore {
             params.push(Rc::new(id_values));
         }
 
-        self.db()
-            .prepare(&filter.to_query())?
+        conn.prepare(&filter.to_query())?
             .query_map(params_from_iter(params), parse_chain_mmr_nodes_columns)?
             .map(|result| Ok(result?).and_then(parse_chain_mmr_nodes))
             .collect()
     }
 
     pub(crate) fn get_chain_mmr_peaks_by_block_num(
-        &self,
+        conn: &mut Connection,
         block_num: u32,
     ) -> Result<MmrPeaks, StoreError> {
         const QUERY: &str = "SELECT chain_mmr_peaks FROM block_headers WHERE block_num = ?";
 
-        let mmr_peaks = self
-            .db()
+        let mmr_peaks = conn
             .prepare(QUERY)?
             .query_row(params![block_num], |row| {
                 let peaks: Vec<u8> = row.get(0)?;
@@ -119,11 +118,10 @@ impl SqliteStore {
     }
 
     pub fn insert_chain_mmr_nodes(
-        &self,
+        conn: &mut Connection,
         nodes: &[(InOrderIndex, Digest)],
     ) -> Result<(), StoreError> {
-        let mut db = self.db();
-        let tx = db.transaction()?;
+        let tx = conn.transaction()?;
 
         Self::insert_chain_mmr_nodes_tx(&tx, nodes)?;
 

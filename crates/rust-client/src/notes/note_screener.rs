@@ -7,7 +7,6 @@ use miden_objects::{
     notes::{Note, NoteId},
     AccountError, AssetError, Word,
 };
-use winter_maybe_async::maybe_await;
 
 use super::script_roots::{P2ID, P2IDR, SWAP};
 use crate::store::{Store, StoreError};
@@ -61,7 +60,7 @@ impl NoteScreener {
         &self,
         note: &Note,
     ) -> Result<Vec<NoteConsumability>, NoteScreenerError> {
-        let account_ids = BTreeSet::from_iter(maybe_await!(self.store.get_account_ids())?);
+        let account_ids = BTreeSet::from_iter(self.store.get_account_ids().await?);
 
         let script_hash = note.script().hash().to_string();
         let note_relevance = match script_hash.as_str() {
@@ -159,7 +158,7 @@ impl NoteScreener {
         let mut accounts_with_relevance = Vec::new();
 
         for account_id in account_ids {
-            let (account, _) = maybe_await!(self.store.get_account(*account_id))?;
+            let (account, _) = self.store.get_account(*account_id).await?;
 
             // Check that the account can cover the demanded asset
             match asset {

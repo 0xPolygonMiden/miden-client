@@ -4,7 +4,6 @@ use miden_objects::{
     crypto::rand::FeltRng,
     notes::{Note, NoteDetails, NoteFile, NoteId, NoteInclusionProof, NoteMetadata, NoteTag},
 };
-use winter_maybe_async::maybe_await;
 
 use crate::{
     store::{input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState},
@@ -50,11 +49,11 @@ impl<R: FeltRng> Client<R> {
         if let Some(note) = note {
             if let InputNoteState::Expected(ExpectedNoteState { tag: Some(tag), .. }) = note.state()
             {
-                maybe_await!(self
-                    .store
-                    .add_note_tag(NoteTagRecord::with_note_source(*tag, note.id())))?;
+                self.store
+                    .add_note_tag(NoteTagRecord::with_note_source(*tag, note.id()))
+                    .await?;
             }
-            maybe_await!(self.store.upsert_input_notes(&[note]))?;
+            self.store.upsert_input_notes(&[note]).await?;
         }
 
         Ok(id)
@@ -97,7 +96,7 @@ impl<R: FeltRng> Client<R> {
                 if previous_note
                     .inclusion_proof_received(inclusion_proof, *note_details.metadata())?
                 {
-                    maybe_await!(self.store.remove_note_tag((&previous_note).try_into()?))?;
+                    self.store.remove_note_tag((&previous_note).try_into()?).await?;
 
                     Ok(Some(previous_note))
                 } else {
@@ -171,7 +170,7 @@ impl<R: FeltRng> Client<R> {
             }
 
             if note_changed {
-                maybe_await!(self.store.remove_note_tag((&note_record).try_into()?))?;
+                self.store.remove_note_tag((&note_record).try_into()?).await?;
 
                 Ok(Some(note_record))
             } else {
@@ -217,10 +216,12 @@ impl<R: FeltRng> Client<R> {
                     note_record.inclusion_proof_received(inclusion_proof, metadata)?;
 
                 if note_record.block_header_received(block_header)? | note_changed {
-                    maybe_await!(self.store.remove_note_tag(NoteTagRecord::with_note_source(
-                        metadata.tag(),
-                        note_record.id()
-                    )))?;
+                    self.store
+                        .remove_note_tag(NoteTagRecord::with_note_source(
+                            metadata.tag(),
+                            note_record.id(),
+                        ))
+                        .await?;
 
                     Ok(Some(note_record))
                 } else {

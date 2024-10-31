@@ -9,7 +9,7 @@ use miden_objects::{
     Digest, Felt, Word,
 };
 use miden_tx::utils::{Deserializable, Serializable};
-use rusqlite::{params, Transaction};
+use rusqlite::{params, Connection, Transaction};
 
 use super::SqliteStore;
 use crate::store::StoreError;
@@ -34,11 +34,10 @@ impl SqliteStore {
     // ACCOUNTS
     // --------------------------------------------------------------------------------------------
 
-    pub(super) fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {
+    pub(super) fn get_account_ids(conn: &mut Connection) -> Result<Vec<AccountId>, StoreError> {
         const QUERY: &str = "SELECT DISTINCT id FROM accounts";
 
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
             .map(|result| {
@@ -49,15 +48,14 @@ impl SqliteStore {
     }
 
     pub(super) fn get_account_headers(
-        &self,
+        conn: &mut Connection,
     ) -> Result<Vec<(AccountHeader, Option<Word>)>, StoreError> {
         const QUERY: &str =
             "SELECT a.id, a.nonce, a.vault_root, a.storage_root, a.code_root, a.account_seed \
             FROM accounts a \
             WHERE a.nonce = (SELECT MAX(b.nonce) FROM accounts b WHERE b.id = a.id)";
 
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map([], parse_accounts_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_accounts))
@@ -65,7 +63,7 @@ impl SqliteStore {
     }
 
     pub(crate) fn get_account_header(
-        &self,
+        conn: &mut Connection,
         account_id: AccountId,
     ) -> Result<(AccountHeader, Option<Word>), StoreError> {
         let account_id_int: u64 = account_id.into();
@@ -73,8 +71,7 @@ impl SqliteStore {
             FROM accounts WHERE id = ? \
             ORDER BY nonce DESC \
             LIMIT 1";
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map(params![account_id_int as i64], parse_accounts_columns)?
             .map(|result| Ok(result?).and_then(parse_accounts))
             .next()
@@ -82,15 +79,14 @@ impl SqliteStore {
     }
 
     pub(crate) fn get_account_header_by_hash(
-        &self,
+        conn: &mut Connection,
         account_hash: Digest,
     ) -> Result<Option<AccountHeader>, StoreError> {
         let account_hash_str: String = account_hash.to_string();
         const QUERY: &str = "SELECT id, nonce, vault_root, storage_root, code_root, account_seed \
             FROM accounts WHERE account_hash = ?";
 
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map(params![account_hash_str], parse_accounts_columns)?
             .map(|result| {
                 let result = result?;
@@ -101,7 +97,7 @@ impl SqliteStore {
     }
 
     pub(crate) fn get_account(
-        &self,
+        conn: &mut Connection,
         account_id: AccountId,
     ) -> Result<(Account, Option<Word>), StoreError> {
         let account_id_int: u64 = account_id.into();
@@ -114,8 +110,7 @@ impl SqliteStore {
                             ORDER BY accounts.nonce DESC \
                             LIMIT 1";
 
-        let result = self
-            .db()
+        let result = conn
             .prepare(QUERY)?
             .query_map(params![account_id_int as i64], parse_account_columns)?
             .map(|result| Ok(result?).and_then(parse_account))
@@ -128,13 +123,12 @@ impl SqliteStore {
 
     /// Retrieve account keys data by Account Id
     pub(crate) fn get_account_auth(
-        &self,
+        conn: &mut Connection,
         account_id: AccountId,
     ) -> Result<AuthSecretKey, StoreError> {
         let account_id_int: u64 = account_id.into();
         const QUERY: &str = "SELECT account_id, auth_info FROM account_auth WHERE account_id = ?";
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map(params![account_id_int as i64], parse_account_auth_columns)?
             .map(|result| Ok(result?).and_then(parse_account_auth))
             .next()
@@ -142,13 +136,12 @@ impl SqliteStore {
     }
 
     pub(crate) fn insert_account(
-        &self,
+        conn: &mut Connection,
         account: &Account,
         account_seed: Option<Word>,
         auth_info: &AuthSecretKey,
     ) -> Result<(), StoreError> {
-        let mut db = self.db();
-        let tx = db.transaction()?;
+        let tx = conn.transaction()?;
 
         insert_account_code(&tx, account.code())?;
         insert_account_storage(&tx, account.storage())?;
@@ -160,11 +153,13 @@ impl SqliteStore {
     }
 
     /// Returns an [AuthSecretKey] by a public key represented by a [Word]
-    pub fn get_account_auth_by_pub_key(&self, pub_key: Word) -> Result<AuthSecretKey, StoreError> {
+    pub fn get_account_auth_by_pub_key(
+        conn: &mut Connection,
+        pub_key: Word,
+    ) -> Result<AuthSecretKey, StoreError> {
         let pub_key_bytes = pub_key.to_bytes();
         const QUERY: &str = "SELECT account_id, auth_info FROM account_auth WHERE pub_key = ?";
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map(params![pub_key_bytes], parse_account_auth_columns)?
             .map(|result| Ok(result?).and_then(parse_account_auth))
             .next()
