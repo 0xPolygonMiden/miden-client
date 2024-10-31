@@ -49,3 +49,15 @@ impl From<&FungibleAsset> for NativeAsset {
         fungible_asset.0.into()
     }
 }
+
+impl From<FungibleAssetNative> for FungibleAsset {
+    fn from(native_asset: FungibleAssetNative) -> Self {
+        FungibleAsset(native_asset)
+    }
+}
+
+impl From<&FungibleAssetNative> for FungibleAsset {
+    fn from(native_asset: &FungibleAssetNative) -> Self {
+        FungibleAsset(*native_asset)
+    }
+}
