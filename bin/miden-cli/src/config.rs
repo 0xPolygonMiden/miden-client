@@ -27,7 +27,7 @@ pub struct CliConfig {
     /// Path to the file containing the token symbol map.
     pub token_symbol_map_filepath: PathBuf,
     /// RPC endpoint for the proving service. If this is not present, a local prover will be used.
-    pub proving_rpc_endpoint: Option<Endpoint>,
+    pub remote_prover_endpoint: Option<Endpoint>,
 }
 
 // Make `ClientConfig` a provider itself for composability.
@@ -53,7 +53,7 @@ impl Default for CliConfig {
             store: SqliteStoreConfig::default(),
             default_account_id: None,
             token_symbol_map_filepath: Path::new(TOKEN_SYMBOL_MAP_FILEPATH).to_path_buf(),
-            proving_rpc_endpoint: None,
+            remote_prover_endpoint: None,
         }
     }
 }

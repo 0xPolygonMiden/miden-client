@@ -110,12 +110,8 @@ impl Cli {
         let rng = RpoRandomCoin::new(coin_seed.map(Felt::new));
         let authenticator = StoreAuthenticator::new_with_rng(store.clone() as Arc<dyn Store>, rng);
 
-        let tx_prover: Arc<dyn TransactionProver> = match &cli_config.proving_rpc_endpoint {
-            Some(proving_url) => Arc::new(
-                RemoteTransactionProver::new(&proving_url.to_string())
-                    .await
-                    .map_err(|_err| "Failed to create remote transaction prover")?,
-            ),
+        let tx_prover: Arc<dyn TransactionProver> = match &cli_config.remote_prover_endpoint {
+            Some(proving_url) => Arc::new(RemoteTransactionProver::new(&proving_url.to_string())),
             None => Arc::new(LocalTransactionProver::new(Default::default())),
         };
 
