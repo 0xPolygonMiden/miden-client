@@ -3,7 +3,7 @@
 ## 0.6.0 (TBD)
 
 * Allow to set expiration delta for `TransactionRequest` (#553).
-* Implemented `GetAccountProof` endpoint (#556)
+* Implemented `GetAccountProof` endpoint (#556).
 * Added WASM consumable notes API + improved note models (#561).
 * [BREAKING] Refactored `OutputNoteRecord` to use states and transitions for updates (#551).
 * Added better error handling for WASM sync state (#558).
