@@ -234,8 +234,14 @@ impl Store for SqliteStore {
         self.interact_with_connection(SqliteStore::get_account_headers).await
     }
 
-    fn get_account_auth_by_pub_key(&self, _pub_key: Word) -> Result<AuthSecretKey, StoreError> {
-        todo!();
+    async fn get_account_auth_by_pub_key(
+        &self,
+        pub_key: Word,
+    ) -> Result<AuthSecretKey, StoreError> {
+        self.interact_with_connection(move |conn| {
+            SqliteStore::get_account_auth_by_pub_key(conn, pub_key)
+        })
+        .await
     }
 
     async fn get_account_header(

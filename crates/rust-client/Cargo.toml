@@ -36,6 +36,7 @@ hex = { version = "0.4", optional = true }
 miden-lib = { workspace = true }
 miden-objects = { workspace = true }
 miden-tx = { workspace = true }
+pollster = { version = "0.4" }
 prost = { version = "0.13", optional = true, default-features = false, features = ["derive"] }
 rand = { workspace = true }
 rusqlite = { version = "0.32", features = ["vtab", "array", "bundled"], optional = true }
@@ -57,7 +58,7 @@ miden-lib = { workspace = true, features = ["testing"] }
 miden-objects = { workspace = true, default-features = false, features = ["testing"] }
 uuid = { version = "1.10", features = ["serde", "v4"] }
 tokio = { workspace = true }
-web-sys = { version = "0.3", features = ["console"]} 
+web-sys = { version = "0.3", features = ["console"]}
 console_error_panic_hook = "0.1.6"
 
 [build-dependencies]

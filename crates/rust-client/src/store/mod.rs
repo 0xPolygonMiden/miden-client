@@ -251,7 +251,8 @@ pub trait Store {
     /// # Errors
     ///
     /// Returns a `StoreError::AccountKeyNotFound` if there is no account for the provided key
-    fn get_account_auth_by_pub_key(&self, pub_key: Word) -> Result<AuthSecretKey, StoreError>;
+    async fn get_account_auth_by_pub_key(&self, pub_key: Word)
+        -> Result<AuthSecretKey, StoreError>;
 
     /// Retrieves an account's [AuthSecretKey], utilized to authenticate the account.
     ///

@@ -6,6 +6,7 @@ use miden_objects::{
     Digest, Felt, Word,
 };
 use miden_tx::{auth::TransactionAuthenticator, AuthenticationError};
+use pollster::FutureExt as _;
 use rand::Rng;
 
 use super::Store;
@@ -38,10 +39,10 @@ impl<R: Rng> TransactionAuthenticator for StoreAuthenticator<R> {
     ) -> Result<Vec<Felt>, AuthenticationError> {
         let mut rng = self.rng.borrow_mut();
 
-        let secret_key = self
-            .store
-            .get_account_auth_by_pub_key(pub_key)
-            .map_err(|_| AuthenticationError::UnknownKey(format!("{}", Digest::from(pub_key))))?;
+        let secret_key =
+            self.store.get_account_auth_by_pub_key(pub_key).block_on().map_err(|_| {
+                AuthenticationError::UnknownKey(format!("{}", Digest::from(pub_key)))
+            })?;
 
         let AuthSecretKey::RpoFalcon512(k) = secret_key;
         miden_tx::auth::signatures::get_falcon_signature(&k, message, &mut *rng)
