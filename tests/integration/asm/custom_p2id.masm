@@ -50,10 +50,6 @@ proc.add_note_assets_to_account
 end
 
 begin
-    # drop the note script root
-    dropw
-    # => [NOTE_ARG] 
-    
     # push data from the advice map into the advice stack
     adv.push_mapval
     # => [NOTE_ARG] 

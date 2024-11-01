@@ -6,7 +6,7 @@ use miden_client::{
     ZERO,
 };
 use miden_objects::{
-    accounts::{AccountId, AccountStorageMode, AuthSecretKey},
+    accounts::{AccountId, AccountStorageMode},
     assets::{FungibleAsset, TokenSymbol},
     crypto::{
         hash::rpo::Rpo256,
@@ -84,13 +84,11 @@ async fn test_transaction_request() {
     let note_args_commitment = Rpo256::hash_elements(&NOTE_ARGS);
 
     let note_args_map = vec![(note.id(), Some(note_args_commitment.into()))];
-    let mut advice_map = AdviceMap::new();
+    let mut advice_map = AdviceMap::default();
     advice_map.insert(note_args_commitment, NOTE_ARGS.to_vec());
 
     let code = "
         use.miden::contracts::auth::basic->auth_tx
-        use.miden::kernels::tx::prologue
-        use.miden::kernels::tx::memory
 
         begin
             push.0 push.{asserted_value}
@@ -100,23 +98,11 @@ async fn test_transaction_request() {
             call.auth_tx::auth_tx_rpo_falcon512
         end
         ";
-
     // FAILURE ATTEMPT
 
     let failure_code = code.replace("{asserted_value}", "1");
 
-    let tx_script = {
-        let account_auth = client.get_account_auth(regular_account.id()).unwrap();
-        let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
-            AuthSecretKey::RpoFalcon512(key) => (
-                key.public_key().into(),
-                key.to_bytes().iter().map(|a| Felt::new(*a as u64)).collect::<Vec<Felt>>(),
-            ),
-        };
-
-        let script_inputs = vec![(pubkey_input, advice_map)];
-        client.compile_tx_script(script_inputs, &failure_code).unwrap()
-    };
+    let tx_script = client.compile_tx_script(vec![], &failure_code).unwrap();
 
     let transaction_request = TransactionRequest::new()
         .with_authenticated_input_notes(note_args_map.clone())
@@ -131,18 +117,7 @@ async fn test_transaction_request() {
 
     let success_code = code.replace("{asserted_value}", "0");
 
-    let tx_script = {
-        let account_auth = client.get_account_auth(regular_account.id()).unwrap();
-        let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
-            AuthSecretKey::RpoFalcon512(key) => (
-                key.public_key().into(),
-                key.to_bytes().iter().map(|a| Felt::new(*a as u64)).collect::<Vec<Felt>>(),
-            ),
-        };
-
-        let script_inputs = vec![(pubkey_input, advice_map)];
-        client.compile_tx_script(script_inputs, &success_code).unwrap()
-    };
+    let tx_script = client.compile_tx_script(vec![], &success_code).unwrap();
 
     let transaction_request = TransactionRequest::new()
         .with_authenticated_input_notes(note_args_map)
