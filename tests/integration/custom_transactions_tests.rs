@@ -243,18 +243,7 @@ async fn test_merkle_store() {
     code += "call.auth_tx::auth_tx_rpo_falcon512 end";
 
     // Build the transaction
-    let tx_script = {
-        let account_auth = client.get_account_auth(regular_account.id()).unwrap();
-        let (pubkey_input, advice_map): (Word, Vec<Felt>) = match account_auth {
-            AuthSecretKey::RpoFalcon512(key) => (
-                key.public_key().into(),
-                key.to_bytes().iter().map(|a| Felt::new(*a as u64)).collect::<Vec<Felt>>(),
-            ),
-        };
-
-        let script_inputs = vec![(pubkey_input, advice_map)];
-        client.compile_tx_script(script_inputs, &code).unwrap()
-    };
+    let tx_script = client.compile_tx_script(vec![], &code).unwrap();
 
     let transaction_request = TransactionRequest::new()
         .with_authenticated_input_notes(note_args_map)
