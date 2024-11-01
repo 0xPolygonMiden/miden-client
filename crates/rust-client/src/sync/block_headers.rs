@@ -88,7 +88,7 @@ impl<R: FeltRng> Client<R> {
             .chain(committed_notes.new_input_notes().iter())
         {
             if !maybe_await!(note_screener.check_relevance(
-                &input_note.try_into().expect("Committed notes should contain metadata")
+                &input_note.try_into().map_err(|err| ClientError::NoteRecordError(err))?
             ))?
             .is_empty()
             {
