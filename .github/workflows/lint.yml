@@ -31,8 +31,8 @@ jobs:
       - name: make - clippy-wasm
         run: make clippy-wasm
 
-  rustfmt:
-    name: rustfmt
+  format:
+    name: format check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
@@ -40,6 +40,8 @@ jobs:
         run: |
           rustup update --no-self-update nightly
           rustup +nightly component add rustfmt
+      - name: Install prettier
+        run: yarn install
       - name: make - format-check
         run: make format-check
 
