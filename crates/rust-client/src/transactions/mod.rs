@@ -789,7 +789,7 @@ mod test {
 
     #[tokio::test]
     async fn test_transaction_creates_two_notes() {
-        let (mut client, _) = create_test_client();
+        let (mut client, _) = create_test_client().await;
         let asset_1: Asset =
             FungibleAsset::new(ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN.try_into().unwrap(), 123)
                 .unwrap()

@@ -404,11 +404,14 @@ mod tests {
     use miden_tx::utils::{Deserializable, Serializable};
 
     use super::{insert_account_auth, AuthSecretKey};
-    use crate::store::sqlite_store::{accounts::insert_account_code, tests::create_test_store};
+    use crate::store::{
+        sqlite_store::{accounts::insert_account_code, tests::create_test_store},
+        Store,
+    };
 
-    #[test]
-    fn test_account_code_insertion_no_duplicates() {
-        let store = create_test_store();
+    #[tokio::test]
+    async fn test_account_code_insertion_no_duplicates() {
+        let store = create_test_store().await;
         let assembler = miden_lib::transaction::TransactionKernel::assembler();
         let account_component = AccountComponent::compile(BASIC_WALLET_CODE, assembler, vec![])
             .unwrap()
@@ -418,27 +421,38 @@ mod tests {
             miden_objects::accounts::AccountType::RegularAccountUpdatableCode,
         )
         .unwrap();
-        let mut db = store.db();
-        let tx = db.transaction().unwrap();
+        store
+            .interact_with_connection(move |conn| {
+                let tx = conn.transaction().unwrap();
 
-        // Table is empty at the beginning
-        let mut actual: usize =
-            tx.query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0)).unwrap();
-        assert_eq!(actual, 0);
+                // Table is empty at the beginning
+                let mut actual: usize = tx
+                    .query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0))
+                    .unwrap();
+                assert_eq!(actual, 0);
 
-        // First insertion generates a new row
-        insert_account_code(&tx, &account_code).unwrap();
-        actual = tx.query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0)).unwrap();
-        assert_eq!(actual, 1);
+                // First insertion generates a new row
+                insert_account_code(&tx, &account_code).unwrap();
+                actual = tx
+                    .query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0))
+                    .unwrap();
+                assert_eq!(actual, 1);
 
-        // Second insertion passes but does not generate a new row
-        assert!(insert_account_code(&tx, &account_code).is_ok());
-        actual = tx.query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0)).unwrap();
-        assert_eq!(actual, 1);
+                // Second insertion passes but does not generate a new row
+                assert!(insert_account_code(&tx, &account_code).is_ok());
+                actual = tx
+                    .query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0))
+                    .unwrap();
+                assert_eq!(actual, 1);
+
+                Ok(())
+            })
+            .await
+            .unwrap();
     }
 
-    #[test]
-    fn test_auth_info_serialization() {
+    #[tokio::test]
+    async fn test_auth_info_serialization() {
         let exp_key_pair = SecretKey::new();
         let auth_info = AuthSecretKey::RpoFalcon512(exp_key_pair.clone());
         let bytes = auth_info.to_bytes();
@@ -451,26 +465,33 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_auth_info_store() {
+    #[tokio::test]
+    async fn test_auth_info_store() {
         let exp_key_pair = SecretKey::new();
 
-        let store = create_test_store();
+        let store = create_test_store().await;
 
         let account_id = AccountId::try_from(3238098370154045919u64).unwrap();
         {
-            let mut db = store.db();
-            let tx = db.transaction().unwrap();
-            insert_account_auth(
-                &tx,
-                account_id,
-                &AuthSecretKey::RpoFalcon512(exp_key_pair.clone()),
-            )
-            .unwrap();
-            tx.commit().unwrap();
+            let exp_key_pair_clone = exp_key_pair.clone();
+            store
+                .interact_with_connection(move |conn| {
+                    let tx = conn.transaction().unwrap();
+                    insert_account_auth(
+                        &tx,
+                        account_id,
+                        &AuthSecretKey::RpoFalcon512(exp_key_pair_clone),
+                    )
+                    .unwrap();
+                    tx.commit().unwrap();
+                    Ok(())
+                })
+                .await
+                .unwrap();
         }
 
-        let account_auth = store.get_account_auth(account_id).unwrap();
+        let account_auth = Store::get_account_auth(&store, account_id).await.unwrap();
+
         match account_auth {
             AuthSecretKey::RpoFalcon512(act_key_pair) => {
                 assert_eq!(exp_key_pair.to_bytes(), act_key_pair.to_bytes());

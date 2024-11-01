@@ -48,11 +48,11 @@ pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./tests/config/miden-client-
 ///
 /// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
 /// deserialized into a [ClientConfig]
-pub fn create_test_client() -> TestClient {
+pub async fn create_test_client() -> TestClient {
     let (rpc_config, store_config) = get_client_config();
 
     let store = {
-        let sqlite_store = SqliteStore::new(&store_config).unwrap();
+        let sqlite_store = SqliteStore::new(&store_config).await.unwrap();
         std::sync::Arc::new(sqlite_store)
     };
 

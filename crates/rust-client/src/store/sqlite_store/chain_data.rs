@@ -268,46 +268,52 @@ mod test {
         Store,
     };
 
-    fn insert_dummy_block_headers(store: &mut SqliteStore) -> Vec<BlockHeader> {
+    async fn insert_dummy_block_headers(store: &mut SqliteStore) -> Vec<BlockHeader> {
         let block_headers: Vec<BlockHeader> = (0..5)
             .map(|block_num| {
                 BlockHeader::mock(block_num, None, None, &[], TransactionKernel::kernel_root())
             })
             .collect();
-        let mut db = store.db();
-        let tx = db.transaction().unwrap();
-        let dummy_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
-        (0..5).for_each(|block_num| {
-            SqliteStore::insert_block_header_tx(
-                &tx,
-                block_headers[block_num],
-                dummy_peaks.clone(),
-                false,
-            )
-            .unwrap()
-        });
-        tx.commit().unwrap();
+
+        let block_headers_clone = block_headers.clone();
+        store
+            .interact_with_connection(move |conn| {
+                let tx = conn.transaction().unwrap();
+                let dummy_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
+                (0..5).for_each(|block_num| {
+                    SqliteStore::insert_block_header_tx(
+                        &tx,
+                        block_headers_clone[block_num],
+                        dummy_peaks.clone(),
+                        false,
+                    )
+                    .unwrap()
+                });
+                tx.commit().unwrap();
+                Ok(())
+            })
+            .await
+            .unwrap();
 
         block_headers
     }
 
     #[tokio::test]
     async fn insert_and_get_block_headers_by_number() {
-        let mut store = create_test_store();
-        let block_headers = insert_dummy_block_headers(&mut store);
+        let mut store = create_test_store().await;
+        let block_headers = insert_dummy_block_headers(&mut store).await;
 
-        let block_header =
-            winter_maybe_async::maybe_await!(store.get_block_header_by_num(3)).unwrap();
+        let block_header = Store::get_block_header_by_num(&store, 3).await.unwrap();
         assert_eq!(block_headers[3], block_header.0);
     }
 
-    #[test]
-    fn insert_and_get_block_headers_by_list() {
-        let mut store = create_test_store();
-        let mock_block_headers = insert_dummy_block_headers(&mut store);
+    #[tokio::test]
+    async fn insert_and_get_block_headers_by_list() {
+        let mut store = create_test_store().await;
+        let mock_block_headers = insert_dummy_block_headers(&mut store).await;
 
-        let block_headers: Vec<BlockHeader> = store
-            .get_block_headers(&[1, 3])
+        let block_headers: Vec<BlockHeader> = Store::get_block_headers(&store, &[1, 3])
+            .await
             .unwrap()
             .into_iter()
             .map(|(block_header, _has_notes)| block_header)

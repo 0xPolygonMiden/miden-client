@@ -23,14 +23,14 @@ use crate::{
     accounts::AccountTemplate,
     mock::create_test_client,
     rpc::NodeRpcClient,
-    store::{InputNoteRecord, NoteFilter},
+    store::{InputNoteRecord, NoteFilter, Store},
     transactions::TransactionRequest,
 };
 
 #[tokio::test]
 async fn test_input_notes_round_trip() {
     // generate test client with a random store name
-    let (mut client, rpc_api) = create_test_client();
+    let (mut client, rpc_api) = create_test_client().await;
 
     client
         .new_account(AccountTemplate::BasicWallet {
@@ -69,7 +69,7 @@ async fn test_input_notes_round_trip() {
 #[tokio::test]
 async fn test_get_input_note() {
     // generate test client with a random store name
-    let (mut client, rpc_api) = create_test_client();
+    let (mut client, rpc_api) = create_test_client().await;
     // Get note from mocked RPC backend since any note works here
     let original_note = rpc_api.get_note_at(0).note().clone();
 
@@ -94,7 +94,7 @@ async fn test_get_input_note() {
 #[tokio::test]
 async fn insert_basic_account() {
     // generate test client with a random store name
-    let (mut client, _rpc_api) = create_test_client();
+    let (mut client, _rpc_api) = create_test_client().await;
 
     let account_template = AccountTemplate::BasicWallet {
         mutable_code: true,
@@ -126,7 +126,7 @@ async fn insert_basic_account() {
 #[tokio::test]
 async fn insert_faucet_account() {
     // generate test client with a random store name
-    let (mut client, _rpc_api) = create_test_client();
+    let (mut client, _rpc_api) = create_test_client().await;
 
     let faucet_template = AccountTemplate::FungibleFaucet {
         token_symbol: TokenSymbol::new("TEST").unwrap(),
@@ -160,7 +160,7 @@ async fn insert_faucet_account() {
 #[tokio::test]
 async fn insert_same_account_twice_fails() {
     // generate test client with a random store name
-    let (mut client, _rpc_api) = create_test_client();
+    let (mut client, _rpc_api) = create_test_client().await;
 
     let account = Account::mock(
         ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN_2,
@@ -187,7 +187,7 @@ async fn insert_same_account_twice_fails() {
 #[tokio::test]
 async fn test_account_code() {
     // generate test client with a random store name
-    let (mut client, _rpc_api) = create_test_client();
+    let (mut client, _rpc_api) = create_test_client().await;
 
     let key_pair = SecretKey::new();
 
@@ -215,7 +215,7 @@ async fn test_account_code() {
 #[tokio::test]
 async fn test_get_account_by_id() {
     // generate test client with a random store name
-    let (mut client, _rpc_api) = create_test_client();
+    let (mut client, _rpc_api) = create_test_client().await;
 
     let account = Account::mock(
         ACCOUNT_ID_REGULAR_ACCOUNT_UPDATABLE_CODE_ON_CHAIN,
@@ -246,11 +246,13 @@ async fn test_get_account_by_id() {
 #[tokio::test]
 async fn test_sync_state() {
     // generate test client with a random store name
-    let (mut client, rpc_api) = create_test_client();
+    let (mut client, rpc_api) = create_test_client().await;
 
     // Import first mockchain note as expected
     let expected_note = rpc_api.get_note_at(1).note().clone();
-    client.store.upsert_input_notes(&[expected_note.clone().into()]).unwrap();
+    Store::upsert_input_notes(client.store.as_ref(), &[expected_note.clone().into()])
+        .await
+        .unwrap();
 
     // assert that we have no consumed nor expected notes prior to syncing state
     assert_eq!(client.get_input_notes(NoteFilter::Consumed).await.unwrap().len(), 0);
@@ -282,7 +284,7 @@ async fn test_sync_state() {
 #[tokio::test]
 async fn test_sync_state_mmr() {
     // generate test client with a random store name
-    let (mut client, mut rpc_api) = create_test_client();
+    let (mut client, mut rpc_api) = create_test_client().await;
     // Import note and create wallet so that synced notes do not get discarded (due to being
     // irrelevant)
     client
@@ -294,7 +296,7 @@ async fn test_sync_state_mmr() {
         .unwrap();
 
     let notes = rpc_api.notes.values().map(|n| n.note().clone().into()).collect::<Vec<_>>();
-    client.store.upsert_input_notes(&notes).unwrap();
+    Store::upsert_input_notes(client.store.as_ref(), &notes).await.unwrap();
 
     // sync state
     let sync_details = client.sync_state().await.unwrap();
@@ -339,7 +341,7 @@ async fn test_sync_state_mmr() {
 #[tokio::test]
 async fn test_tags() {
     // generate test client with a random store name
-    let (mut client, _rpc_api) = create_test_client();
+    let (mut client, _rpc_api) = create_test_client().await;
 
     // Assert that the store gets created with the tag 0 (used for notes consumable by any account)
     assert!(client.get_note_tags().await.unwrap().is_empty());
@@ -376,7 +378,7 @@ async fn test_tags() {
 #[tokio::test]
 async fn test_mint_transaction() {
     // generate test client with a random store name
-    let (mut client, _rpc_api) = create_test_client();
+    let (mut client, _rpc_api) = create_test_client().await;
 
     // Faucet account generation
     let (faucet, _seed) = client
@@ -408,7 +410,7 @@ async fn test_mint_transaction() {
 #[tokio::test]
 async fn test_get_output_notes() {
     // generate test client with a random store name
-    let (mut client, _rpc_api) = create_test_client();
+    let (mut client, _rpc_api) = create_test_client().await;
     client.sync_state().await.unwrap();
 
     // Faucet account generation
@@ -445,7 +447,7 @@ async fn test_get_output_notes() {
 #[tokio::test]
 async fn test_import_note_validation() {
     // generate test client
-    let (mut client, rpc_api) = create_test_client();
+    let (mut client, rpc_api) = create_test_client().await;
 
     // generate test data
     let committed_note: InputNoteRecord = rpc_api.get_note_at(0).into();
@@ -475,7 +477,7 @@ async fn test_import_note_validation() {
 
 #[tokio::test]
 async fn test_transaction_request_expiration() {
-    let (mut client, _) = create_test_client();
+    let (mut client, _) = create_test_client().await;
     client.sync_state().await.unwrap();
 
     let current_height = client.get_sync_height().await.unwrap();

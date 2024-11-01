@@ -53,7 +53,7 @@ const NOTE_ARGS: [Felt; 8] = [
 
 #[tokio::test]
 async fn test_transaction_request() {
-    let mut client = create_test_client();
+    let mut client = create_test_client().await;
     wait_for_node(&mut client).await;
 
     let account_template = AccountTemplate::BasicWallet {
@@ -139,7 +139,7 @@ async fn test_transaction_request() {
 
 #[tokio::test]
 async fn test_merkle_store() {
-    let mut client = create_test_client();
+    let mut client = create_test_client().await;
     wait_for_node(&mut client).await;
 
     let account_template = AccountTemplate::BasicWallet {
