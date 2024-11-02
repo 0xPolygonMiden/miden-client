@@ -8,34 +8,38 @@ use miden_objects::{accounts::AccountId, utils::DeserializationError, NoteError}
 
 #[derive(Debug)]
 pub enum RpcError {
+    AccountUpdateForPrivateAccountReceived(AccountId),
     ConnectionError(String),
     DeserializationError(String),
-    ExpectedFieldMissing(String),
-    AccountUpdateForPrivateAccountReceived(AccountId),
+    ExpectedDataMissing(String),
+    InvalidResponse(String),
     RequestError(String, String),
 }
 
 impl fmt::Display for RpcError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            RpcError::AccountUpdateForPrivateAccountReceived(account_id) => {
+                write!(
+                    f,
+                    "RPC API response contained an update for a private account: {}",
+                    account_id.to_hex()
+                )
+            },
             RpcError::ConnectionError(err) => {
                 write!(f, "failed to connect to the API server: {err}")
             },
             RpcError::DeserializationError(err) => {
                 write!(f, "failed to deserialize RPC data: {err}")
             },
-            RpcError::ExpectedFieldMissing(err) => {
-                write!(f, "rpc API response missing an expected field: {err}")
+            RpcError::ExpectedDataMissing(err) => {
+                write!(f, "RPC API response missing an expected field: {err}")
             },
-            RpcError::AccountUpdateForPrivateAccountReceived(account_id) => {
-                write!(
-                    f,
-                    "rpc API response contained an update for a private account: {}",
-                    account_id.to_hex()
-                )
+            RpcError::InvalidResponse(err) => {
+                write!(f, "RPC API response is invalidw: {err}")
             },
             RpcError::RequestError(endpoint, err) => {
-                write!(f, "rpc request failed for {endpoint}: {err}")
+                write!(f, "RPC request failed for {endpoint}: {err}")
             },
         }
     }

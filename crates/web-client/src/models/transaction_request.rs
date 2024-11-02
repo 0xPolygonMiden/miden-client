@@ -236,7 +236,6 @@ impl From<&NoteDetailsAndTagArray> for Vec<(NativeNoteDetails, NativeNoteTag)> {
 }
 
 // Transaction Request
-
 #[derive(Clone)]
 #[wasm_bindgen]
 pub struct TransactionRequest(NativeTransactionRequest);
