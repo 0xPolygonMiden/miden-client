@@ -245,10 +245,6 @@ export const customTransaction = async (
             end
 
             begin
-                # drop the note script root
-                dropw
-                # => [NOTE_ARG] 
-                
                 # push data from the advice map into the advice stack
                 adv.push_mapval
                 # => [NOTE_ARG] 
@@ -281,9 +277,6 @@ export const customTransaction = async (
 
                 push.${expectedNoteArg2} assert_eqw
                 # => []
-
-                # drop the note script root
-                dropw
 
                 # store the note inputs to memory starting at address 0
                 push.0 exec.note::get_inputs
