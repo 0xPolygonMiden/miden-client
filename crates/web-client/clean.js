@@ -1,10 +1,10 @@
-import { glob } from 'glob';
-import { rimraf } from 'rimraf';
+import { glob } from "glob";
+import { rimraf } from "rimraf";
 
 // Use glob to find all directories or files matching 'dist/wasm*'
-glob('dist/wasm*', (err, files) => {
+glob("dist/wasm*", (err, files) => {
   if (err) {
-    console.error('Error finding files:', err);
+    console.error("Error finding files:", err);
     return;
   }
 

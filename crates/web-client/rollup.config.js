@@ -3,7 +3,7 @@ import resolve from "@rollup/plugin-node-resolve";
 import commonjs from "@rollup/plugin-commonjs";
 
 // Flag that indicates if the build is meant for testing purposes.
-const testing = process.env.MIDEN_WEB_TESTING === 'true';
+const testing = process.env.MIDEN_WEB_TESTING === "true";
 
 /**
  * Rollup configuration file for building a Cargo project and creating a WebAssembly (WASM) module.
@@ -20,46 +20,45 @@ const testing = process.env.MIDEN_WEB_TESTING === 'true';
  * Both configurations output ES module format files with source maps for easier debugging.
  */
 export default [
-    {
-        input: {
-            wasm: "./js/wasm.js",
-        },
-        output: {
-            dir: `dist`,
-            format: "es",
-            sourcemap: true,
-            assetFileNames: "assets/[name][extname]",
-        },
-        plugins: [
-            rust({
-                cargoArgs: [
-                    "--features", "testing",
-                    "--config", `build.rustflags=["-C", "target-feature=+atomics,+bulk-memory,+mutable-globals", "-C", "link-arg=--max-memory=4294967296"]`,
-                    "--no-default-features",
-                ],
-
-                experimental: {
-                    typescriptDeclarationDir: "dist/crates",
-                },
-
-                wasmOptArgs: testing ? ["-O0"] : null,
-            }),
-            resolve(),
-            commonjs(),
-        ],
+  {
+    input: {
+      wasm: "./js/wasm.js",
     },
-    {
-        input: {
-            index: "./js/index.js",
-        },
-        output: {
-            dir: `dist`,
-            format: "es",
-            sourcemap: true,
-        },
-        plugins: [
-            resolve(),
-            commonjs(),
+    output: {
+      dir: `dist`,
+      format: "es",
+      sourcemap: true,
+      assetFileNames: "assets/[name][extname]",
+    },
+    plugins: [
+      rust({
+        cargoArgs: [
+          "--features",
+          "testing",
+          "--config",
+          `build.rustflags=["-C", "target-feature=+atomics,+bulk-memory,+mutable-globals", "-C", "link-arg=--max-memory=4294967296"]`,
+          "--no-default-features",
         ],
-    }
+
+        experimental: {
+          typescriptDeclarationDir: "dist/crates",
+        },
+
+        wasmOptArgs: testing ? ["-O0"] : null,
+      }),
+      resolve(),
+      commonjs(),
+    ],
+  },
+  {
+    input: {
+      index: "./js/index.js",
+    },
+    output: {
+      dir: `dist`,
+      format: "es",
+      sourcemap: true,
+    },
+    plugins: [resolve(), commonjs()],
+  },
 ];

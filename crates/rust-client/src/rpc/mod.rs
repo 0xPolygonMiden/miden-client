@@ -11,7 +11,7 @@ mod errors;
 pub(crate) use errors::RpcConversionError;
 pub use errors::RpcError;
 use miden_objects::{
-    accounts::{Account, AccountId},
+    accounts::{Account, AccountCode, AccountHeader, AccountId, AccountStorageHeader},
     crypto::merkle::{MerklePath, MmrDelta, MmrProof},
     notes::{Note, NoteId, NoteMetadata, NoteTag, Nullifier},
     transaction::{ProvenTransaction, TransactionId},
@@ -130,6 +130,105 @@ impl NoteInclusionDetails {
     }
 }
 
+// ACCOUNT PROOF
+// ================================================================================================
+
+/// List of account proofs related to a specific block number.
+pub type AccountProofs = (u32, Vec<AccountProof>);
+
+/// Account state headers.
+pub struct StateHeaders {
+    pub account_header: AccountHeader,
+    pub storage_header: AccountStorageHeader,
+    pub code: Option<AccountCode>,
+}
+
+/// Represents a proof of existence of an account's state at a specific block number.
+pub struct AccountProof {
+    /// Account ID.
+    account_id: AccountId,
+    /// Authentication path from the `account_root` of the block header to the account.
+    merkle_proof: MerklePath,
+    /// Account hash for the current state.
+    account_hash: Digest,
+    /// State headers of public accounts.
+    state_headers: Option<StateHeaders>,
+}
+
+impl AccountProof {
+    pub fn new(
+        account_id: AccountId,
+        merkle_proof: MerklePath,
+        account_hash: Digest,
+        state_headers: Option<StateHeaders>,
+    ) -> Result<Self, AccountProofError> {
+        if let Some(state_headers) = &state_headers {
+            if state_headers.account_header.hash() != account_hash {
+                return Err(AccountProofError::InconsistentAccountHash);
+            }
+            if account_id != state_headers.account_header.id() {
+                return Err(AccountProofError::InconsistentAccountId);
+            }
+        }
+
+        Ok(Self {
+            account_id,
+            merkle_proof,
+            account_hash,
+            state_headers,
+        })
+    }
+
+    pub fn account_id(&self) -> AccountId {
+        self.account_id
+    }
+
+    pub fn account_header(&self) -> Option<&AccountHeader> {
+        self.state_headers.as_ref().map(|headers| &headers.account_header)
+    }
+
+    pub fn storage_header(&self) -> Option<&AccountStorageHeader> {
+        self.state_headers.as_ref().map(|headers| &headers.storage_header)
+    }
+
+    pub fn account_code(&self) -> Option<&AccountCode> {
+        if let Some(StateHeaders { code, .. }) = &self.state_headers {
+            code.as_ref()
+        } else {
+            None
+        }
+    }
+
+    pub fn code_commitment(&self) -> Option<Digest> {
+        match &self.state_headers {
+            Some(StateHeaders { code: Some(code), .. }) => Some(code.commitment()),
+            _ => None,
+        }
+    }
+
+    pub fn account_hash(&self) -> Digest {
+        self.account_hash
+    }
+
+    pub fn merkle_proof(&self) -> &MerklePath {
+        &self.merkle_proof
+    }
+}
+
+pub enum AccountProofError {
+    InconsistentAccountHash,
+    InconsistentAccountId,
+}
+
+impl fmt::Display for AccountProofError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AccountProofError::InconsistentAccountHash => write!(f,"The received account hash does not match the received account header's account hash"),
+            AccountProofError::InconsistentAccountId => write!(f,"The received account ID does not match the received account header's ID"),
+        }
+    }
+}
+
 // NODE RPC CLIENT TRAIT
 // ================================================================================================
 
@@ -206,6 +305,14 @@ pub trait NodeRpcClient {
         &mut self,
         prefix: &[u16],
     ) -> Result<Vec<(Nullifier, u32)>, RpcError>;
+
+    /// Fetches the current account state, using th `/GetAccountProofs` RPC endpoint.
+    async fn get_account_proofs(
+        &mut self,
+        account_ids: &[AccountId],
+        code_commitments: &[Digest],
+        include_headers: bool,
+    ) -> Result<AccountProofs, RpcError>;
 
     /// Fetches the commit height where the nullifier was consumed. If the nullifier is not found,
     /// then `None` is returned.
@@ -341,6 +448,7 @@ impl CommittedNote {
 pub enum NodeRpcClientEndpoint {
     CheckNullifiersByPrefix,
     GetAccountDetails,
+    GetAccountProofs,
     GetBlockHeaderByNumber,
     SyncState,
     SubmitProvenTx,
@@ -354,6 +462,7 @@ impl fmt::Display for NodeRpcClientEndpoint {
                 write!(f, "check_nullifiers_by_prefix")
             },
             NodeRpcClientEndpoint::GetAccountDetails => write!(f, "get_account_details"),
+            NodeRpcClientEndpoint::GetAccountProofs => write!(f, "get_account_proofs"),
             NodeRpcClientEndpoint::GetBlockHeaderByNumber => {
                 write!(f, "get_block_header_by_number")
             },
