@@ -3,6 +3,8 @@
 ## 0.6.0 (TBD)
 
 * Rebuilt WASM with latest dependencies (#575).
+* Added Transaction Integration Tests for Web Client (#569).
+* Moved note update logic outside of the `Store` (#559)
 * Added delegated proving for web client + improved note models (#566).
 * Allow to set expiration delta for `TransactionRequest` (#553).
 * Added WASM consumable notes API + improved note models (#561).

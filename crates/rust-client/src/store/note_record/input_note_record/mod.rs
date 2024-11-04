@@ -88,6 +88,8 @@ impl InputNoteRecord {
         self.state.consumer_transaction_id()
     }
 
+    /// Returns true if the note is authenticated, meaning that it has the necessary inclusion
+    /// proof and block header information to be considered valid.
     pub fn is_authenticated(&self) -> bool {
         matches!(
             self.state,
@@ -97,6 +99,7 @@ impl InputNoteRecord {
         )
     }
 
+    /// Returns true if the note has been nullified on chain.
     pub fn is_consumed(&self) -> bool {
         matches!(
             self.state,
@@ -106,12 +109,19 @@ impl InputNoteRecord {
         )
     }
 
+    /// Returns true if the note is currently being processed by a local transaction.
     pub fn is_processing(&self) -> bool {
         matches!(
             self.state,
             InputNoteState::ProcessingAuthenticated { .. }
                 | InputNoteState::ProcessingUnauthenticated { .. }
         )
+    }
+
+    /// Returns true if the note is in a committed state (i.e. it has a valid inclusion proof but is
+    /// not consumed or being processed).
+    pub fn is_committed(&self) -> bool {
+        matches!(self.state, InputNoteState::Committed { .. })
     }
 
     // TRANSITIONS
@@ -283,7 +293,7 @@ impl TryInto<InputNote> for InputNoteRecord {
                 self.details.recipient().clone(),
             ))),
             _ => Err(NoteRecordError::ConversionError(
-                "Input Note Record contains no metadata".to_string(),
+                "Input Note Record does not contain metadata".to_string(),
             )),
         }
     }
@@ -300,7 +310,24 @@ impl TryInto<Note> for InputNoteRecord {
                 self.details.recipient().clone(),
             )),
             None => Err(NoteRecordError::ConversionError(
-                "Input Note Record contains no metadata".to_string(),
+                "Input Note Record does not contain metadata".to_string(),
+            )),
+        }
+    }
+}
+
+impl TryInto<Note> for &InputNoteRecord {
+    type Error = NoteRecordError;
+
+    fn try_into(self) -> Result<Note, Self::Error> {
+        match self.metadata().cloned() {
+            Some(metadata) => Ok(Note::new(
+                self.details.assets().clone(),
+                metadata,
+                self.details.recipient().clone(),
+            )),
+            None => Err(NoteRecordError::ConversionError(
+                "Input Note Record does not contain metadata".to_string(),
             )),
         }
     }

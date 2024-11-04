@@ -23,8 +23,12 @@ use winter_maybe_async::*;
 
 use super::{Client, FeltRng};
 use crate::{
-    notes::NoteScreener,
-    store::{input_note_states::ExpectedNoteState, InputNoteRecord, NoteFilter, TransactionFilter},
+    notes::{NoteScreener, NoteUpdates},
+    store::{
+        input_note_states::ExpectedNoteState, InputNoteRecord, InputNoteState, NoteFilter,
+        OutputNoteRecord, TransactionFilter,
+    },
+    sync::NoteTagRecord,
     ClientError,
 };
 
@@ -131,6 +135,12 @@ impl TransactionResult {
     }
 }
 
+impl From<TransactionResult> for ExecutedTransaction {
+    fn from(tx_result: TransactionResult) -> ExecutedTransaction {
+        tx_result.transaction
+    }
+}
+
 // TRANSACTION RECORD
 // --------------------------------------------------------------------------------------------
 
@@ -198,6 +208,66 @@ impl fmt::Display for TransactionStatus {
             },
             TransactionStatus::Discarded => write!(f, "Discarded"),
         }
+    }
+}
+
+// TRANSACTION STORE UPDATE
+// --------------------------------------------------------------------------------------------
+
+/// Represents the changes that need to be applied to the client store as a result of a
+/// transaction execution.
+pub struct TransactionStoreUpdate {
+    /// Details of the executed transaction to be inserted
+    executed_transaction: ExecutedTransaction,
+    /// Updated account state after the [AccountDelta] has been applied
+    updated_account: Account,
+    /// Information about note changes after the transaction execution.
+    note_updates: NoteUpdates,
+    /// New note tags to be tracked
+    new_tags: Vec<NoteTagRecord>,
+}
+
+impl TransactionStoreUpdate {
+    /// Creates a new [TransactionStoreUpdate] instance.
+    pub fn new(
+        executed_transaction: ExecutedTransaction,
+        updated_account: Account,
+        created_input_notes: Vec<InputNoteRecord>,
+        created_output_notes: Vec<OutputNoteRecord>,
+        updated_input_notes: Vec<InputNoteRecord>,
+        new_tags: Vec<NoteTagRecord>,
+    ) -> Self {
+        Self {
+            executed_transaction,
+            updated_account,
+            note_updates: NoteUpdates::new(
+                created_input_notes,
+                created_output_notes,
+                updated_input_notes,
+                vec![],
+            ),
+            new_tags,
+        }
+    }
+
+    /// Returns the executed transaction.
+    pub fn executed_transaction(&self) -> &ExecutedTransaction {
+        &self.executed_transaction
+    }
+
+    /// Returns the updated account.
+    pub fn updated_account(&self) -> &Account {
+        &self.updated_account
+    }
+
+    /// Returns the note updates that need to be applied after the transaction execution.
+    pub fn note_updates(&self) -> &NoteUpdates {
+        &self.note_updates
+    }
+
+    /// Returns the new tags that were created as part of the transaction.
+    pub fn new_tags(&self) -> &[NoteTagRecord] {
+        &self.new_tags
     }
 }
 
@@ -346,10 +416,65 @@ impl<R: FeltRng> Client<R> {
 
     #[maybe_async]
     fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), ClientError> {
+        let transaction_id = tx_result.executed_transaction().id();
+        let sync_height = maybe_await!(self.get_sync_height())?;
+
         // Transaction was proven and submitted to the node correctly, persist note details and
         // update account
         info!("Applying transaction to the local store...");
-        maybe_await!(self.store.apply_transaction(tx_result))?;
+
+        let account_id = tx_result.executed_transaction().account_id();
+        let account_delta = tx_result.account_delta();
+        let (mut account, _seed) = maybe_await!(self.get_account(account_id))?;
+
+        account.apply_delta(account_delta)?;
+
+        // Save only input notes that we care for (based on the note screener assessment)
+        let created_input_notes = tx_result.relevant_notes().to_vec();
+        let new_tags = created_input_notes
+            .iter()
+            .filter_map(|note| {
+                if let InputNoteState::Expected(ExpectedNoteState { tag: Some(tag), .. }) =
+                    note.state()
+                {
+                    Some(NoteTagRecord::with_note_source(*tag, note.id()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        // Save all output notes
+        let created_output_notes = tx_result
+            .created_notes()
+            .iter()
+            .cloned()
+            .filter_map(|output_note| {
+                OutputNoteRecord::try_from_output_note(output_note, sync_height).ok()
+            })
+            .collect::<Vec<_>>();
+
+        let consumed_note_ids = tx_result.consumed_notes().iter().map(|note| note.id()).collect();
+        let consumed_notes =
+            maybe_await!(self.get_input_notes(NoteFilter::List(consumed_note_ids)))?;
+
+        let mut updated_input_notes = vec![];
+        for mut input_note_record in consumed_notes {
+            if input_note_record.consumed_locally(account_id, transaction_id)? {
+                updated_input_notes.push(input_note_record);
+            }
+        }
+
+        let tx_update = TransactionStoreUpdate::new(
+            tx_result.into(),
+            account,
+            created_input_notes,
+            created_output_notes,
+            updated_input_notes,
+            new_tags,
+        );
+
+        maybe_await!(self.store.apply_transaction(tx_update))?;
         info!("Transaction stored.");
         Ok(())
     }
@@ -652,20 +777,20 @@ pub fn build_swap_tag(
 
 #[cfg(test)]
 mod test {
-    use miden_lib::transaction::TransactionKernel;
+    use miden_lib::{accounts::auth::RpoFalcon512, transaction::TransactionKernel};
     use miden_objects::{
         accounts::{
             account_id::testing::{
                 ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
                 ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
             },
-            AccountData, StorageSlot,
+            AccountComponent, AccountData, StorageMap, StorageSlot,
         },
         assets::{Asset, FungibleAsset},
         crypto::{dsa::rpo_falcon512::SecretKey, rand::RpoRandomCoin},
         notes::NoteType,
-        testing::account::AccountBuilder,
-        Felt,
+        testing::{account_builder::AccountBuilder, account_component::BASIC_WALLET_CODE},
+        Felt, Word,
     };
 
     use super::{PaymentTransactionData, TransactionRequest};
@@ -683,12 +808,21 @@ mod test {
                 .unwrap()
                 .into();
 
-        let key = SecretKey::new();
+        let secret_key = SecretKey::new();
+
+        let wallet_component = AccountComponent::compile(
+            BASIC_WALLET_CODE,
+            TransactionKernel::assembler(),
+            vec![StorageSlot::Value(Word::default()), StorageSlot::Map(StorageMap::default())],
+        )
+        .unwrap()
+        .with_supports_all_types();
+
         let (account, _) = AccountBuilder::new(RpoRandomCoin::new(Default::default()))
             .nonce(Felt::new(1))
-            .default_code(TransactionKernel::assembler())
+            .add_component(wallet_component)
+            .add_component(RpoFalcon512::new(secret_key.public_key()))
             .add_assets([asset_1, asset_2])
-            .add_storage_slot(StorageSlot::Value(key.public_key().into()))
             .build()
             .unwrap();
 
@@ -696,7 +830,7 @@ mod test {
             .import_account(AccountData::new(
                 account.clone(),
                 None,
-                miden_objects::accounts::AuthSecretKey::RpoFalcon512(key.clone()),
+                miden_objects::accounts::AuthSecretKey::RpoFalcon512(secret_key.clone()),
             ))
             .unwrap();
         client.sync_state().await.unwrap();
