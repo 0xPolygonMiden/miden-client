@@ -2,6 +2,7 @@
 
 ## 0.6.0 (TBD)
 
+* Added Transaction Integration Tests for Web Client (#569).
 * Moved note update logic outside of the `Store` (#559)
 * Added delegated proving for web client + improved note models (#566).
 * Allow to set expiration delta for `TransactionRequest` (#553).
