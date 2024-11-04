@@ -1,15 +1,20 @@
-use alloc::{collections::BTreeSet, vec::Vec};
+use alloc::{collections::BTreeSet, string::ToString, vec::Vec};
 
 use miden_objects::{
-    accounts::AccountId,
+    accounts::{Account, AccountId},
     crypto::rand::FeltRng,
-    notes::{NoteId, NoteTag},
+    notes::{NoteExecutionMode, NoteId, NoteTag},
+    NoteError,
 };
 use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 use tracing::warn;
 use winter_maybe_async::{maybe_async, maybe_await};
 
-use crate::{errors::ClientError, Client};
+use crate::{
+    errors::ClientError,
+    store::{InputNoteRecord, NoteRecordError},
+    Client,
+};
 
 impl<R: FeltRng> Client<R> {
     /// Returns the list of note tags tracked by the client.
@@ -128,5 +133,28 @@ impl Deserializable for NoteTagSource {
 impl PartialEq<NoteTag> for NoteTagRecord {
     fn eq(&self, other: &NoteTag) -> bool {
         self.tag == *other
+    }
+}
+
+impl TryInto<NoteTagRecord> for &InputNoteRecord {
+    type Error = NoteRecordError;
+
+    fn try_into(self) -> Result<NoteTagRecord, Self::Error> {
+        match self.metadata() {
+            Some(metadata) => Ok(NoteTagRecord::with_note_source(metadata.tag(), self.id())),
+            None => Err(NoteRecordError::ConversionError(
+                "Input Note Record does not contain tag".to_string(),
+            )),
+        }
+    }
+}
+
+impl TryInto<NoteTagRecord> for &Account {
+    type Error = NoteError;
+    fn try_into(self) -> Result<NoteTagRecord, Self::Error> {
+        Ok(NoteTagRecord::with_account_source(
+            NoteTag::from_account_id(self.id(), NoteExecutionMode::Local)?,
+            self.id(),
+        ))
     }
 }

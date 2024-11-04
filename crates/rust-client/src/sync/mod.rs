@@ -1,28 +1,29 @@
 //! Provides the client APIs for synchronizing the client's local state with the Miden
 //! rollup network. It ensures that the client maintains a valid, up-to-date view of the chain.
 
-use alloc::{
-    collections::{BTreeMap, BTreeSet},
-    vec::Vec,
-};
+use alloc::{collections::BTreeMap, vec::Vec};
 use core::cmp::max;
 
 use crypto::merkle::{InOrderIndex, MmrPeaks};
 use miden_objects::{
     accounts::{Account, AccountHeader, AccountId},
     crypto::{self, rand::FeltRng},
-    notes::{Note, NoteId, NoteInclusionProof, NoteRecipient, NoteTag, Nullifier},
-    transaction::{InputNote, TransactionId},
+    notes::{NoteId, NoteInclusionProof, NoteTag, Nullifier},
+    transaction::TransactionId,
     BlockHeader, Digest,
 };
 use tracing::info;
 use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
+    notes::NoteUpdates,
     rpc::{
         AccountDetails, CommittedNote, NoteDetails, NullifierUpdate, RpcError, TransactionUpdate,
     },
-    store::{InputNoteRecord, NoteFilter, StoreError, TransactionFilter},
+    store::{
+        input_note_states::CommittedNoteState, InputNoteRecord, NoteFilter, OutputNoteRecord,
+        StoreError, TransactionFilter,
+    },
     Client, ClientError,
 };
 
@@ -108,74 +109,17 @@ impl SyncStatus {
     }
 }
 
-/// Contains information about new notes as consequence of a sync.
-pub struct SyncedNewNotes {
-    /// A list of public notes that have been received on sync
-    new_public_notes: Vec<InputNote>,
-    /// A list of input notes corresponding to updated locally-tracked input notes
-    updated_input_notes: Vec<InputNote>,
-    /// A list of note IDs alongside their inclusion proofs for locally-tracked
-    /// output notes
-    updated_output_notes: Vec<(NoteId, NoteInclusionProof)>,
-}
-
-impl SyncedNewNotes {
-    /// Creates a [SyncedNewNotes]
-    pub fn new(
-        new_public_notes: Vec<InputNote>,
-        updated_input_notes: Vec<InputNote>,
-        updated_output_notes: Vec<(NoteId, NoteInclusionProof)>,
-    ) -> Self {
-        Self {
-            new_public_notes,
-            updated_input_notes,
-            updated_output_notes,
-        }
-    }
-
-    /// Returns all new public notes, meant to be tracked by the client.
-    pub fn new_public_notes(&self) -> &[InputNote] {
-        &self.new_public_notes
-    }
-
-    /// Returns all updated input notes. That is, any notes that are locally tracked and have
-    /// been updated.
-    pub fn updated_input_notes(&self) -> &[InputNote] {
-        &self.updated_input_notes
-    }
-
-    /// A list of note IDs alongside their inclusion proofs for locally-tracked
-    /// output notes
-    pub fn updated_output_notes(&self) -> &[(NoteId, NoteInclusionProof)] {
-        &self.updated_output_notes
-    }
-
-    /// Returns whether no new note-related information has been retrieved
-    pub fn is_empty(&self) -> bool {
-        self.updated_input_notes.is_empty()
-            && self.updated_output_notes.is_empty()
-            && self.new_public_notes.is_empty()
-    }
-
-    pub fn updated_notes_ids(&self) -> BTreeSet<NoteId> {
-        let updated_output_note_ids = self.updated_output_notes.iter().map(|(id, _)| *id);
-        let updated_input_note_ids = self.updated_input_notes.iter().map(|n| n.note().id());
-
-        BTreeSet::from_iter(updated_input_note_ids.chain(updated_output_note_ids))
-    }
-}
-
 /// Contains all information needed to apply the update in the store after syncing with the node.
 pub struct StateSyncUpdate {
     /// The new block header, returned as part of the [StateSyncInfo](crate::rpc::StateSyncInfo)
     pub block_header: BlockHeader,
-    /// New nullifiers. Each one corresponds to a spent note.
-    pub nullifiers: Vec<NullifierUpdate>,
-    /// Information about new notes.
-    pub synced_new_notes: SyncedNewNotes,
+    /// Information about note changes after the sync.
+    pub note_updates: NoteUpdates,
     /// Transaction updates for any transaction that was committed between the sync request's
     /// block number and the response's block number.
     pub transactions_to_commit: Vec<TransactionUpdate>,
+    /// Transaction IDs for any transactions that were discarded in the sync
+    pub transactions_to_discard: Vec<TransactionId>,
     /// New MMR peaks for the locally tracked MMR of the blockchain.
     pub new_mmr_peaks: MmrPeaks,
     /// New authentications nodes that are meant to be stored in order to authenticate block
@@ -185,6 +129,8 @@ pub struct StateSyncUpdate {
     pub updated_onchain_accounts: Vec<Account>,
     /// Whether the block header has notes relevant to the client.
     pub block_has_relevant_notes: bool,
+    /// Tag records that are no longer relevant
+    pub tags_to_remove: Vec<NoteTagRecord>,
 }
 
 // CONSTANTS
@@ -257,11 +203,20 @@ impl<R: FeltRng> Client<R> {
             return Ok(SyncStatus::SyncedToLastBlock(SyncSummary::new_empty(current_block_num)));
         }
 
-        let new_note_details =
-            self.get_note_details(response.note_inclusions, &response.block_header).await?;
+        let (committed_note_updates, tags_to_remove) = self
+            .committed_note_updates(response.note_inclusions, &response.block_header)
+            .await?;
 
         let incoming_block_has_relevant_notes =
-            self.check_block_relevance(&new_note_details).await?;
+            self.check_block_relevance(&committed_note_updates).await?;
+
+        let transactions_to_commit =
+            maybe_await!(self.get_transactions_to_commit(response.transactions))?;
+
+        let (consumed_note_updates, transactions_to_discard) =
+            self.consumed_note_updates(response.nullifiers, &transactions_to_commit).await?;
+
+        let note_updates = committed_note_updates.combine_with(consumed_note_updates);
 
         let (onchain_accounts, offchain_accounts): (Vec<_>, Vec<_>) =
             accounts.into_iter().partition(|account_header| account_header.id().is_public());
@@ -273,9 +228,6 @@ impl<R: FeltRng> Client<R> {
         maybe_await!(
             self.validate_local_account_hashes(&response.account_hash_updates, &offchain_accounts)
         )?;
-
-        // Derive new nullifiers data
-        let new_nullifiers = maybe_await!(self.get_new_nullifiers(response.nullifiers))?;
 
         // Build PartialMmr with current data and apply updates
         let (new_peaks, new_authentication_nodes) = {
@@ -292,32 +244,26 @@ impl<R: FeltRng> Client<R> {
             )?
         };
 
-        let transactions_to_commit =
-            maybe_await!(self.get_transactions_to_commit(response.transactions))?;
-
-        let consumed_notes = maybe_await!(self.store.get_input_notes(NoteFilter::Nullifiers(
-            new_nullifiers.iter().map(|n| n.nullifier).collect::<Vec<_>>()
-        )))?;
-
         // Store summary to return later
         let sync_summary = SyncSummary::new(
             response.block_header.block_num(),
-            new_note_details.new_public_notes().iter().map(|n| n.note().id()).collect(),
-            new_note_details.updated_notes_ids().into_iter().collect(),
-            consumed_notes.into_iter().map(|n| n.id()).collect(),
+            note_updates.new_input_notes().iter().map(|n| n.id()).collect(),
+            note_updates.committed_note_ids().into_iter().collect(),
+            note_updates.consumed_note_ids().into_iter().collect(),
             updated_onchain_accounts.iter().map(|acc| acc.id()).collect(),
             transactions_to_commit.iter().map(|tx| tx.transaction_id).collect(),
         );
 
         let state_sync_update = StateSyncUpdate {
             block_header: response.block_header,
-            nullifiers: new_nullifiers,
-            synced_new_notes: new_note_details,
+            note_updates,
             transactions_to_commit,
             new_mmr_peaks: new_peaks,
             new_authentication_nodes,
             updated_onchain_accounts: updated_onchain_accounts.clone(),
             block_has_relevant_notes: incoming_block_has_relevant_notes,
+            transactions_to_discard,
+            tags_to_remove,
         };
 
         // Apply received and computed updates to the store
@@ -334,85 +280,67 @@ impl<R: FeltRng> Client<R> {
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
-    /// Extracts information about notes that the client is interested in, creating the note
-    /// inclusion proof in order to correctly update store data
-    async fn get_note_details(
+    /// Returns the [NoteUpdates] containing new public note and committed input/output notes and a
+    /// list or note tag records to be removed from the store.
+    async fn committed_note_updates(
         &mut self,
         committed_notes: Vec<CommittedNote>,
         block_header: &BlockHeader,
-    ) -> Result<SyncedNewNotes, ClientError> {
+    ) -> Result<(NoteUpdates, Vec<NoteTagRecord>), ClientError> {
         // We'll only pick committed notes that we are tracking as input/output notes. Since the
         // sync response contains notes matching either the provided accounts or the provided tag
         // we might get many notes when we only care about a few of those.
+        let relevant_note_filter =
+            NoteFilter::List(committed_notes.iter().map(|note| note.note_id()).cloned().collect());
 
-        let mut new_public_notes = vec![];
-        let mut tracked_input_notes = vec![];
-        let mut tracked_output_notes_proofs = vec![];
-
-        let mut expected_input_notes: BTreeMap<NoteId, InputNoteRecord> =
-            maybe_await!(self.store.get_input_notes(NoteFilter::Expected))?
+        let mut committed_input_notes: BTreeMap<NoteId, InputNoteRecord> =
+            maybe_await!(self.store.get_input_notes(relevant_note_filter.clone()))?
                 .into_iter()
                 .map(|n| (n.id(), n))
                 .collect();
 
-        expected_input_notes.extend(
-            maybe_await!(self.store.get_input_notes(NoteFilter::Processing))?
+        let mut committed_output_notes: BTreeMap<NoteId, OutputNoteRecord> =
+            maybe_await!(self.store.get_output_notes(relevant_note_filter))?
                 .into_iter()
-                .map(|input_note| (input_note.id(), input_note)),
-        );
-
-        let mut expected_output_notes: BTreeSet<NoteId> =
-            maybe_await!(self.store.get_output_notes(NoteFilter::Expected))?
-                .into_iter()
-                .map(|n| n.id())
+                .map(|n| (n.id(), n))
                 .collect();
 
-        expected_output_notes.extend(
-            maybe_await!(self.store.get_output_notes(NoteFilter::Processing))?
-                .into_iter()
-                .map(|output_note| output_note.id()),
-        );
+        let mut new_public_notes = vec![];
+        let mut committed_tracked_input_notes = vec![];
+        let mut committed_tracked_output_notes = vec![];
+        let mut removed_tags = vec![];
 
         for committed_note in committed_notes {
-            if let Some(note_record) = expected_input_notes.get(committed_note.note_id()) {
-                // The note belongs to our locally tracked set of expected notes, build the
-                // inclusion proof
-                let note_inclusion_proof = NoteInclusionProof::new(
-                    block_header.block_num(),
-                    committed_note.note_index(),
-                    committed_note.merkle_path().clone(),
-                )?;
+            let inclusion_proof = NoteInclusionProof::new(
+                block_header.block_num(),
+                committed_note.note_index(),
+                committed_note.merkle_path().clone(),
+            )?;
 
-                let note_inputs = note_record.details().inputs().clone();
-                let note_recipient = NoteRecipient::new(
-                    note_record.details().serial_num(),
-                    note_record.details().script().clone(),
-                    note_inputs,
-                );
-                let note = Note::new(
-                    note_record.assets().clone(),
-                    committed_note.metadata(),
-                    note_recipient,
-                );
+            if let Some(mut note_record) = committed_input_notes.remove(committed_note.note_id()) {
+                // The note belongs to our locally tracked set of input notes
 
-                let input_note = InputNote::authenticated(note, note_inclusion_proof);
+                let inclusion_proof_received = note_record
+                    .inclusion_proof_received(inclusion_proof.clone(), committed_note.metadata())?;
+                let block_header_received = note_record.block_header_received(*block_header)?;
 
-                tracked_input_notes.push(input_note);
+                removed_tags.push((&note_record).try_into()?);
+
+                if inclusion_proof_received || block_header_received {
+                    committed_tracked_input_notes.push(note_record);
+                }
             }
 
-            if expected_output_notes.contains(committed_note.note_id()) {
-                let note_id_with_inclusion_proof = NoteInclusionProof::new(
-                    block_header.block_num(),
-                    committed_note.note_index(),
-                    committed_note.merkle_path().clone(),
-                )
-                .map(|note_inclusion_proof| (*committed_note.note_id(), note_inclusion_proof))?;
+            if let Some(mut note_record) = committed_output_notes.remove(committed_note.note_id()) {
+                // The note belongs to our locally tracked set of output notes
 
-                tracked_output_notes_proofs.push(note_id_with_inclusion_proof);
+                if note_record.inclusion_proof_received(inclusion_proof.clone())? {
+                    committed_tracked_output_notes.push(note_record);
+                }
             }
 
-            if !expected_input_notes.contains_key(committed_note.note_id())
-                && !expected_output_notes.contains(committed_note.note_id())
+            if !committed_input_notes.contains_key(committed_note.note_id())
+                && !committed_output_notes.contains_key(committed_note.note_id())
             {
                 // The note is public and we are not tracking it, push to the list of IDs to query
                 new_public_notes.push(*committed_note.note_id());
@@ -423,10 +351,113 @@ impl<R: FeltRng> Client<R> {
         let new_public_notes =
             self.fetch_public_note_details(&new_public_notes, block_header).await?;
 
-        Ok(SyncedNewNotes::new(
-            new_public_notes,
-            tracked_input_notes,
-            tracked_output_notes_proofs,
+        Ok((
+            NoteUpdates::new(
+                new_public_notes,
+                vec![],
+                committed_tracked_input_notes,
+                committed_tracked_output_notes,
+            ),
+            removed_tags,
+        ))
+    }
+
+    /// Returns the [NoteUpdates] containing consumed input/output notes and a list of IDs of the
+    /// transactions that were discarded.
+    async fn consumed_note_updates(
+        &mut self,
+        nullifiers: Vec<NullifierUpdate>,
+        committed_transactions: &[TransactionUpdate],
+    ) -> Result<(NoteUpdates, Vec<TransactionId>), ClientError> {
+        let nullifier_filter = NoteFilter::Nullifiers(
+            nullifiers.iter().map(|nullifier_update| nullifier_update.nullifier).collect(),
+        );
+
+        let mut consumed_input_notes: BTreeMap<Nullifier, InputNoteRecord> =
+            maybe_await!(self.store.get_input_notes(nullifier_filter.clone()))?
+                .into_iter()
+                .map(|n| (n.nullifier(), n))
+                .collect();
+
+        let mut consumed_output_notes: BTreeMap<Nullifier, OutputNoteRecord> =
+            maybe_await!(self.store.get_output_notes(nullifier_filter))?
+                .into_iter()
+                .map(|n| {
+                    (
+                        n.nullifier()
+                            .expect("Output notes returned by this query should have nullifiers"),
+                        n,
+                    )
+                })
+                .collect();
+
+        let mut consumed_tracked_input_notes = vec![];
+        let mut consumed_tracked_output_notes = vec![];
+
+        // Committed transactions
+        for transaction_update in committed_transactions {
+            let transaction_nullifiers: Vec<Nullifier> = consumed_input_notes
+                .iter()
+                .filter_map(|(nullifier, note_record)| {
+                    if note_record.is_processing()
+                        && note_record.consumer_transaction_id()
+                            == Some(&transaction_update.transaction_id)
+                    {
+                        Some(nullifier)
+                    } else {
+                        None
+                    }
+                })
+                .cloned()
+                .collect();
+
+            for nullifier in transaction_nullifiers {
+                if let Some(mut input_note_record) = consumed_input_notes.remove(&nullifier) {
+                    if input_note_record.transaction_committed(
+                        transaction_update.transaction_id,
+                        transaction_update.block_num,
+                    )? {
+                        consumed_tracked_input_notes.push(input_note_record);
+                    }
+                }
+            }
+        }
+
+        // Nullified notes
+        let mut discarded_transactions = vec![];
+        for nullifier_update in nullifiers {
+            let nullifier = nullifier_update.nullifier;
+            let block_num = nullifier_update.block_num;
+
+            if let Some(mut input_note_record) = consumed_input_notes.remove(&nullifier) {
+                if input_note_record.is_processing() {
+                    discarded_transactions.push(
+                        *input_note_record
+                            .consumer_transaction_id()
+                            .expect("Processing note should have consumer transaction id"),
+                    );
+                }
+
+                if input_note_record.consumed_externally(nullifier, block_num)? {
+                    consumed_tracked_input_notes.push(input_note_record);
+                }
+            }
+
+            if let Some(mut output_note_record) = consumed_output_notes.remove(&nullifier) {
+                if output_note_record.nullifier_received(nullifier, block_num)? {
+                    consumed_tracked_output_notes.push(output_note_record);
+                }
+            }
+        }
+
+        Ok((
+            NoteUpdates::new(
+                vec![],
+                vec![],
+                consumed_tracked_input_notes,
+                consumed_tracked_output_notes,
+            ),
+            discarded_transactions,
         ))
     }
 
@@ -438,7 +469,7 @@ impl<R: FeltRng> Client<R> {
         &mut self,
         query_notes: &[NoteId],
         block_header: &BlockHeader,
-    ) -> Result<Vec<InputNote>, ClientError> {
+    ) -> Result<Vec<InputNoteRecord>, ClientError> {
         if query_notes.is_empty() {
             return Ok(vec![]);
         }
@@ -455,33 +486,28 @@ impl<R: FeltRng> Client<R> {
                 },
                 NoteDetails::Public(note, inclusion_proof) => {
                     info!("Retrieved details for Note ID {}.", note.id());
-                    let note_inclusion_proof = NoteInclusionProof::new(
+                    let inclusion_proof = NoteInclusionProof::new(
                         block_header.block_num(),
                         inclusion_proof.note_index,
                         inclusion_proof.merkle_path,
                     )
                     .map_err(ClientError::NoteError)?;
+                    let metadata = *note.metadata();
 
-                    return_notes.push(InputNote::authenticated(note, note_inclusion_proof))
+                    return_notes.push(InputNoteRecord::new(
+                        note.into(),
+                        None,
+                        CommittedNoteState {
+                            metadata,
+                            inclusion_proof,
+                            block_note_root: block_header.note_root(),
+                        }
+                        .into(),
+                    ))
                 },
             }
         }
         Ok(return_notes)
-    }
-
-    /// Extracts information about nullifiers for unspent input notes that the client is tracking
-    /// from the received list of nullifiers in the sync response
-    #[maybe_async]
-    fn get_new_nullifiers(
-        &self,
-        mut new_nullifiers: Vec<NullifierUpdate>,
-    ) -> Result<Vec<NullifierUpdate>, ClientError> {
-        // Get current unspent nullifiers
-        let nullifiers = maybe_await!(self.store.get_unspent_input_note_nullifiers())?;
-
-        new_nullifiers.retain(|nullifier_update| nullifiers.contains(&nullifier_update.nullifier));
-
-        Ok(new_nullifiers)
     }
 
     /// Extracts information about transactions for uncommitted transactions that the client is

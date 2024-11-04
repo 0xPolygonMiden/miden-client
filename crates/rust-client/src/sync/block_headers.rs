@@ -8,7 +8,7 @@ use miden_objects::{
 use tracing::warn;
 use winter_maybe_async::{maybe_async, maybe_await};
 
-use super::SyncedNewNotes;
+use super::NoteUpdates;
 use crate::{
     notes::NoteScreener,
     store::{ChainMmrNodeFilter, NoteFilter, StoreError},
@@ -70,11 +70,11 @@ impl<R: FeltRng> Client<R> {
     // HELPERS
     // --------------------------------------------------------------------------------------------
 
-    /// Extracts information about notes that the client is interested in, creating the note
-    /// inclusion proof in order to correctly update store data
+    /// Checks the relevance of the block by verifying if any of the input notes in the block are
+    /// relevant to the client. If any of the notes are relevant, the function returns `true`.
     pub(crate) async fn check_block_relevance(
         &mut self,
-        committed_notes: &SyncedNewNotes,
+        committed_notes: &NoteUpdates,
     ) -> Result<bool, ClientError> {
         // We'll only do the check for either incoming public notes or expected input notes as
         // output notes are not really candidates to be consumed here.
@@ -82,14 +82,15 @@ impl<R: FeltRng> Client<R> {
         let note_screener = NoteScreener::new(self.store.clone());
 
         // Find all relevant Input Notes using the note checker
-        for input_note in committed_notes.updated_input_notes() {
-            if !maybe_await!(note_screener.check_relevance(input_note.note()))?.is_empty() {
-                return Ok(true);
-            }
-        }
-
-        for public_input_note in committed_notes.new_public_notes() {
-            if !maybe_await!(note_screener.check_relevance(public_input_note.note()))?.is_empty() {
+        for input_note in committed_notes
+            .updated_input_notes()
+            .iter()
+            .chain(committed_notes.new_input_notes().iter())
+        {
+            if !maybe_await!(note_screener
+                .check_relevance(&input_note.try_into().map_err(ClientError::NoteRecordError)?))?
+            .is_empty()
+            {
                 return Ok(true);
             }
         }

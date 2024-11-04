@@ -14,9 +14,12 @@ use miden_objects::{
 use rusqlite::{named_params, params, params_from_iter, types::Value, Transaction};
 
 use super::SqliteStore;
-use crate::store::{
-    note_record::OutputNoteState, InputNoteRecord, InputNoteState, NoteFilter, OutputNoteRecord,
-    StoreError,
+use crate::{
+    notes::NoteUpdates,
+    store::{
+        note_record::OutputNoteState, InputNoteRecord, InputNoteState, NoteFilter,
+        OutputNoteRecord, StoreError,
+    },
 };
 
 // TYPES
@@ -256,13 +259,6 @@ impl SqliteStore {
             NoteFilter::Unique(note_id) if notes.is_empty() => {
                 return Err(StoreError::NoteNotFound(note_id));
             },
-            NoteFilter::List(note_ids) if note_ids.len() != notes.len() => {
-                let missing_note_id = note_ids
-                    .iter()
-                    .find(|&note_id| !notes.iter().any(|note_record| note_record.id() == *note_id))
-                    .expect("should find one note id that wasn't retrieved by the db");
-                return Err(StoreError::NoteNotFound(*missing_note_id));
-            },
             _ => {},
         }
         Ok(notes)
@@ -285,13 +281,6 @@ impl SqliteStore {
         match filter {
             NoteFilter::Unique(note_id) if notes.is_empty() => {
                 return Err(StoreError::NoteNotFound(note_id));
-            },
-            NoteFilter::List(note_ids) if note_ids.len() != notes.len() => {
-                let missing_note_id = note_ids
-                    .iter()
-                    .find(|&note_id| !notes.iter().any(|note_record| note_record.id() == *note_id))
-                    .expect("should find one note id that wasn't retrieved by the db");
-                return Err(StoreError::NoteNotFound(*missing_note_id));
             },
             _ => {},
         }
@@ -597,4 +586,25 @@ fn serialize_output_note(note: &OutputNoteRecord) -> Result<SerializedOutputNote
         state_discriminant,
         state,
     })
+}
+
+pub(crate) fn apply_note_updates_tx(
+    tx: &Transaction,
+    note_updates: &NoteUpdates,
+) -> Result<(), StoreError> {
+    for input_note in
+        note_updates.new_input_notes().iter().chain(note_updates.updated_input_notes())
+    {
+        upsert_input_note_tx(tx, input_note)?;
+    }
+
+    for output_note in note_updates
+        .new_output_notes()
+        .iter()
+        .chain(note_updates.updated_output_notes())
+    {
+        upsert_output_note_tx(tx, output_note)?;
+    }
+
+    Ok(())
 }

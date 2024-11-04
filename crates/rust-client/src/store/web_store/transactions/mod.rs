@@ -9,17 +9,10 @@ use miden_tx::utils::Deserializable;
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen_futures::*;
 
-use super::{
-    notes::utils::{upsert_input_note_tx, upsert_output_note_tx},
-    WebStore,
-};
+use super::{notes::utils::apply_note_updates_tx, WebStore};
 use crate::{
-    store::{
-        input_note_states::ExpectedNoteState, InputNoteState, NoteFilter, OutputNoteRecord,
-        StoreError, TransactionFilter,
-    },
-    sync::NoteTagRecord,
-    transactions::{TransactionRecord, TransactionResult, TransactionStatus},
+    store::{StoreError, TransactionFilter},
+    transactions::{TransactionRecord, TransactionStatus, TransactionStoreUpdate},
 };
 
 mod js_bindings;
@@ -96,56 +89,21 @@ impl WebStore {
         transaction_records
     }
 
-    pub async fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), StoreError> {
-        let sync_height = self.get_sync_height().await?;
-        let transaction_id = tx_result.executed_transaction().id();
-        let account_id = tx_result.executed_transaction().account_id();
-        let account_delta = tx_result.account_delta();
-
-        let (mut account, _seed) = self.get_account(account_id).await.unwrap();
-
-        account.apply_delta(account_delta).map_err(StoreError::AccountError)?;
-
-        // Save only input notes that we care for (based on the note screener assessment)
-        let created_input_notes = tx_result.relevant_notes().to_vec();
-
-        // Save all output notes
-        let created_output_notes = tx_result
-            .created_notes()
-            .iter()
-            .cloned()
-            .filter_map(|output_note| {
-                OutputNoteRecord::try_from_output_note(output_note, sync_height).ok()
-            })
-            .collect::<Vec<_>>();
-
-        let consumed_note_ids = tx_result.consumed_notes().iter().map(|note| note.id()).collect();
-
-        let relevant_notes = self.get_input_notes(NoteFilter::List(consumed_note_ids)).await?;
-
+    pub async fn apply_transaction(
+        &self,
+        tx_update: TransactionStoreUpdate,
+    ) -> Result<(), StoreError> {
         // Transaction Data
-        insert_proven_transaction_data(tx_result).await.unwrap();
+        insert_proven_transaction_data(tx_update.executed_transaction()).await?;
 
         // Account Data
-        update_account(&account).await.unwrap();
+        update_account(tx_update.updated_account()).await.unwrap();
 
         // Updates for notes
-        for note in created_input_notes {
-            if let InputNoteState::Expected(ExpectedNoteState { tag: Some(tag), .. }) = note.state()
-            {
-                self.add_note_tag(NoteTagRecord::with_note_source(*tag, note.id())).await?;
-            }
-            upsert_input_note_tx(&note).await?;
-        }
+        apply_note_updates_tx(tx_update.note_updates()).await?;
 
-        for note in &created_output_notes {
-            upsert_output_note_tx(note).await?;
-        }
-
-        for mut input_note_record in relevant_notes {
-            if input_note_record.consumed_locally(account_id, transaction_id)? {
-                upsert_input_note_tx(&input_note_record).await?;
-            }
+        for tag_record in tx_update.new_tags() {
+            self.add_note_tag(*tag_record).await?;
         }
 
         Ok(())
