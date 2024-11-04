@@ -268,12 +268,12 @@ impl NoteUpdates {
         let consumed_output_note_ids = self
             .updated_output_notes
             .iter()
-            .filter_map(|note_record| note_record.is_committed().then_some(note_record.id()));
+            .filter_map(|note_record| note_record.is_consumed().then_some(note_record.id()));
 
         let consumed_input_note_ids = self
             .updated_input_notes
             .iter()
-            .filter_map(|note_record| note_record.is_committed().then_some(note_record.id()));
+            .filter_map(|note_record| note_record.is_consumed().then_some(note_record.id()));
 
         BTreeSet::from_iter(consumed_input_note_ids.chain(consumed_output_note_ids))
     }

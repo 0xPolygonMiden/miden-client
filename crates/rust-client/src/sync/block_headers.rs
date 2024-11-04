@@ -87,9 +87,8 @@ impl<R: FeltRng> Client<R> {
             .iter()
             .chain(committed_notes.new_input_notes().iter())
         {
-            if !maybe_await!(note_screener.check_relevance(
-                &input_note.try_into().map_err(|err| ClientError::NoteRecordError(err))?
-            ))?
+            if !maybe_await!(note_screener
+                .check_relevance(&input_note.try_into().map_err(ClientError::NoteRecordError)?))?
             .is_empty()
             {
                 return Ok(true);
