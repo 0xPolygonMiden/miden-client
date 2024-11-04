@@ -79,7 +79,10 @@ impl SqliteStore {
             .get()
             .await
             .map_err(|err| StoreError::DatabaseError(err.to_string()))?
-            .interact(f)
+            .interact(|conn| {
+                array::load_module(conn)?;
+                f(conn)
+            })
             .await
             .map_err(|err| StoreError::DatabaseError(err.to_string()))?
     }
