@@ -86,8 +86,8 @@ integration-test: ## Run integration tests
 integration-test-web-client: ## Run integration tests for the web client
 	cd ./crates/web-client && npm run test:clean
 
-.PHONY: prover-integration-test-web-client
-prover-integration-test-web-client: ## Run integration tests for the web client with remote prover
+.PHONY: integration-test-remote-prover-web-client
+integration-test-remote-prover-web-client: ## Run integration tests for the web client with remote prover
 	cd ./crates/web-client && npm run test:remote_prover
 
 .PHONY: integration-test-full
@@ -126,7 +126,7 @@ prover: ## Setup prover directory
 
 .PHONY: start-prover
 start-prover: ## Run prover. This requires the base repo to be present at `miden-base`
-	cd miden-base && RUST_LOG=info cargo run --bin miden-tx-prover --locked $(PROVER_FEATURES_TESTING) --release
+	cd miden-base && RUST_LOG=info cargo run --bin miden-tx-prover-worker --locked $(PROVER_FEATURES_TESTING) --release
 
 .PHONY: kill-prover
 kill-prover: ## Kill prover process
