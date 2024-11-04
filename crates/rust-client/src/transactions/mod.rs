@@ -777,20 +777,20 @@ pub fn build_swap_tag(
 
 #[cfg(test)]
 mod test {
-    use miden_lib::transaction::TransactionKernel;
+    use miden_lib::{accounts::auth::RpoFalcon512, transaction::TransactionKernel};
     use miden_objects::{
         accounts::{
             account_id::testing::{
                 ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
                 ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
             },
-            AccountData, StorageSlot,
+            AccountComponent, AccountData, StorageMap, StorageSlot,
         },
         assets::{Asset, FungibleAsset},
         crypto::{dsa::rpo_falcon512::SecretKey, rand::RpoRandomCoin},
         notes::NoteType,
-        testing::account::AccountBuilder,
-        Felt,
+        testing::{account_builder::AccountBuilder, account_component::BASIC_WALLET_CODE},
+        Felt, Word,
     };
 
     use super::{PaymentTransactionData, TransactionRequest};
@@ -808,12 +808,21 @@ mod test {
                 .unwrap()
                 .into();
 
-        let key = SecretKey::new();
+        let secret_key = SecretKey::new();
+
+        let wallet_component = AccountComponent::compile(
+            BASIC_WALLET_CODE,
+            TransactionKernel::assembler(),
+            vec![StorageSlot::Value(Word::default()), StorageSlot::Map(StorageMap::default())],
+        )
+        .unwrap()
+        .with_supports_all_types();
+
         let (account, _) = AccountBuilder::new(RpoRandomCoin::new(Default::default()))
             .nonce(Felt::new(1))
-            .default_code(TransactionKernel::assembler())
+            .add_component(wallet_component)
+            .add_component(RpoFalcon512::new(secret_key.public_key()))
             .add_assets([asset_1, asset_2])
-            .add_storage_slot(StorageSlot::Value(key.public_key().into()))
             .build()
             .unwrap();
 
@@ -821,7 +830,7 @@ mod test {
             .import_account(AccountData::new(
                 account.clone(),
                 None,
-                miden_objects::accounts::AuthSecretKey::RpoFalcon512(key.clone()),
+                miden_objects::accounts::AuthSecretKey::RpoFalcon512(secret_key.clone()),
             ))
             .unwrap();
         client.sync_state().await.unwrap();
