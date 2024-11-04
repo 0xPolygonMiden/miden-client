@@ -2,6 +2,7 @@
 
 ## 0.6.0 (TBD)
 
+* Moved note update logic outside of the `Store` (#559)
 * Added delegated proving for web client + improved note models (#566).
 * Allow to set expiration delta for `TransactionRequest` (#553).
 * Added WASM consumable notes API + improved note models (#561).

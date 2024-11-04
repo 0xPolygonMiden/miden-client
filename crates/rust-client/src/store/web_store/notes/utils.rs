@@ -13,8 +13,9 @@ use miden_tx::utils::Serializable;
 use wasm_bindgen_futures::*;
 
 use super::{js_bindings::*, InputNoteIdxdbObject, OutputNoteIdxdbObject};
-use crate::store::{
-    InputNoteRecord, InputNoteState, OutputNoteRecord, OutputNoteState, StoreError,
+use crate::{
+    notes::NoteUpdates,
+    store::{InputNoteRecord, InputNoteState, OutputNoteRecord, OutputNoteState, StoreError},
 };
 
 // TYPES
@@ -189,4 +190,22 @@ pub fn parse_output_note_idxdb_object(
         state,
         note_idxdb.expected_height,
     ))
+}
+
+pub(crate) async fn apply_note_updates_tx(note_updates: &NoteUpdates) -> Result<(), StoreError> {
+    for input_note in
+        note_updates.new_input_notes().iter().chain(note_updates.updated_input_notes())
+    {
+        upsert_input_note_tx(input_note).await?;
+    }
+
+    for output_note in note_updates
+        .new_output_notes()
+        .iter()
+        .chain(note_updates.updated_output_notes())
+    {
+        upsert_output_note_tx(output_note).await?;
+    }
+
+    Ok(())
 }

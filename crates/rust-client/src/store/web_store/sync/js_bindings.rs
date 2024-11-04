@@ -34,7 +34,7 @@ extern "C" {
         has_client_notes: bool,
         serialized_node_ids: Vec<String>,
         serialized_nodes: Vec<String>,
-        input_note_ids: Vec<String>,
+        note_tags_to_remove_as_str: Vec<String>,
         transactions_to_commit: Vec<String>,
         transactions_to_commit_block_nums: Vec<String>,
     ) -> js_sys::Promise;

@@ -15,7 +15,7 @@ use super::common::*;
 // ================================================================================================
 
 #[tokio::test]
-async fn tmp_test() {
+async fn test_swap_fully_onchain() {
     const OFFERED_ASSET_AMOUNT: u64 = 1;
     const REQUESTED_ASSET_AMOUNT: u64 = 25;
     const BTC_MINT_AMOUNT: u64 = 1000;

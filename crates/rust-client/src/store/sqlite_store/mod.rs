@@ -21,7 +21,7 @@ use super::{
 use crate::{
     store::StoreError,
     sync::{NoteTagRecord, StateSyncUpdate},
-    transactions::{TransactionRecord, TransactionResult},
+    transactions::{TransactionRecord, TransactionStoreUpdate},
 };
 
 mod accounts;
@@ -115,8 +115,8 @@ impl Store for SqliteStore {
     }
 
     #[maybe_async]
-    fn apply_transaction(&self, tx_result: TransactionResult) -> Result<(), StoreError> {
-        self.apply_transaction(tx_result)
+    fn apply_transaction(&self, tx_update: TransactionStoreUpdate) -> Result<(), StoreError> {
+        self.apply_transaction(tx_update)
     }
 
     #[maybe_async]
