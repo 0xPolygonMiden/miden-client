@@ -402,9 +402,9 @@ pub(super) fn parse_account_columns(
 #[cfg(test)]
 mod tests {
     use miden_objects::{
-        accounts::{AccountCode, AccountId},
+        accounts::{AccountCode, AccountComponent, AccountId},
         crypto::dsa::rpo_falcon512::SecretKey,
-        testing::account_code::DEFAULT_ACCOUNT_CODE,
+        testing::account_component::BASIC_WALLET_CODE,
     };
     use miden_tx::utils::{Deserializable, Serializable};
 
@@ -415,7 +415,14 @@ mod tests {
     fn test_account_code_insertion_no_duplicates() {
         let store = create_test_store();
         let assembler = miden_lib::transaction::TransactionKernel::assembler();
-        let account_code = AccountCode::compile(DEFAULT_ACCOUNT_CODE, assembler, false).unwrap();
+        let account_component = AccountComponent::compile(BASIC_WALLET_CODE, assembler, vec![])
+            .unwrap()
+            .with_supports_all_types();
+        let account_code = AccountCode::from_components(
+            &[account_component],
+            miden_objects::accounts::AccountType::RegularAccountUpdatableCode,
+        )
+        .unwrap();
         let mut db = store.db();
         let tx = db.transaction().unwrap();
 
