@@ -8,9 +8,9 @@ use miden_objects::{
     notes::Nullifier,
     BlockHeader, Digest, Word,
 };
+use tonic::async_trait;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::*;
-use winter_maybe_async::*;
 
 use super::{
     ChainMmrNodeFilter, InputNoteRecord, NoteFilter, OutputNoteRecord, Store, StoreError,
@@ -77,7 +77,7 @@ impl Store for WebStore {
     }
 
     async fn apply_transaction(&self, tx_update: TransactionStoreUpdate) -> Result<(), StoreError> {
-        self.apply_transaction(tx_result).await
+        self.apply_transaction(tx_update).await
     }
 
     // NOTES
@@ -97,7 +97,7 @@ impl Store for WebStore {
     }
 
     async fn upsert_input_notes(&self, notes: &[InputNoteRecord]) -> Result<(), StoreError> {
-        maybe_await!(self.upsert_input_notes(notes))
+        self.upsert_input_notes(notes).await
     }
 
     // CHAIN DATA
@@ -160,7 +160,10 @@ impl Store for WebStore {
         self.get_account_ids().await
     }
 
-    fn get_account_auth_by_pub_key(&self, pub_key: Word) -> Result<AuthSecretKey, StoreError> {
+    async fn get_account_auth_by_pub_key(
+        &self,
+        pub_key: Word,
+    ) -> Result<AuthSecretKey, StoreError> {
         self.get_account_auth_by_pub_key(pub_key)
     }
 
