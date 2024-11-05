@@ -58,3 +58,30 @@ jobs:
       - name: Kill miden-node
         if: always()
         run: make kill-node
+
+  integration_tests_remote_prover_web_client:
+    name: integration_tests_remote_prover_web_client
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - name: Install Rust
+        run: |
+          rustup update --no-self-update
+          rustup target add wasm32-unknown-unknown
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: make clean-node
+      - run: make node
+      - run: make start-node > /dev/null &
+      - run: make clean-prover
+      - run: make prover
+      - run: make start-prover > /dev/null &
+      - run: make integration-test-remote-prover-web-client
+      - name: Kill miden-node
+        if: always()
+        run: make kill-node
+      - name: Kill miden-prover
+        if: always()
+        run: make kill-prover
