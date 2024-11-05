@@ -122,7 +122,7 @@ clean-prover: ## Clean prover directory
 prover: ## Setup prover directory
 	if [ -d miden-base ]; then cd miden-base; else git clone https://github.com/0xPolygonMiden/miden-base.git && cd miden-base; fi
 	cd miden-base && git checkout $(PROVER_BRANCH) && git pull origin $(PROVER_BRANCH)
-	cd miden-base && cargo update
+	cd miden-base && cargo update && cargo build --bin miden-tx-prover-worker --locked $(PROVER_FEATURES_TESTING) --release
 
 .PHONY: start-prover
 start-prover: ## Run prover. This requires the base repo to be present at `miden-base`
