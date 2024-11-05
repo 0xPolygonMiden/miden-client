@@ -784,13 +784,13 @@ mod test {
                 ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN, ACCOUNT_ID_FUNGIBLE_FAUCET_ON_CHAIN,
                 ACCOUNT_ID_REGULAR_ACCOUNT_IMMUTABLE_CODE_ON_CHAIN,
             },
-            AccountComponent, AccountData, StorageMap, StorageSlot,
+            AccountBuilder, AccountComponent, AccountData, StorageMap, StorageSlot,
         },
         assets::{Asset, FungibleAsset},
-        crypto::{dsa::rpo_falcon512::SecretKey, rand::RpoRandomCoin},
+        crypto::dsa::rpo_falcon512::SecretKey,
         notes::NoteType,
-        testing::{account_builder::AccountBuilder, account_component::BASIC_WALLET_CODE},
-        Felt, Word,
+        testing::account_component::BASIC_WALLET_CODE,
+        Felt, FieldElement, Word,
     };
 
     use super::{PaymentTransactionData, TransactionRequest};
@@ -818,12 +818,13 @@ mod test {
         .unwrap()
         .with_supports_all_types();
 
-        let (account, _) = AccountBuilder::new(RpoRandomCoin::new(Default::default()))
-            .nonce(Felt::new(1))
-            .add_component(wallet_component)
-            .add_component(RpoFalcon512::new(secret_key.public_key()))
-            .add_assets([asset_1, asset_2])
-            .build()
+        let (account, _) = AccountBuilder::new()
+            .init_seed(Default::default())
+            .nonce(Felt::ONE)
+            .with_component(wallet_component)
+            .with_component(RpoFalcon512::new(secret_key.public_key()))
+            .with_assets([asset_1, asset_2])
+            .build_testing()
             .unwrap();
 
         client
