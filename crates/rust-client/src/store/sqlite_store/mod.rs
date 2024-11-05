@@ -5,7 +5,7 @@ use alloc::{
 };
 use std::{path::Path, string::ToString};
 
-use deadpool_sqlite::{Config, Pool, Runtime};
+use deadpool_sqlite::{Config, Hook, HookError, Pool, Runtime};
 use miden_objects::{
     accounts::{Account, AccountHeader, AccountId, AuthSecretKey},
     crypto::merkle::{InOrderIndex, MmrPeaks},
@@ -53,16 +53,30 @@ impl SqliteStore {
         let database_exists = Path::new(&config.database_filepath).exists();
 
         let connection_cfg = Config::new(config.database_filepath.clone());
-        let pool = connection_cfg.create_pool(Runtime::Tokio1).unwrap();
+        let pool = connection_cfg
+            .builder(Runtime::Tokio1)
+            .map_err(|err| StoreError::DatabaseError(err.to_string()))?
+            .post_create(Hook::async_fn(move |conn, _| {
+                Box::pin(async move {
+                    // Feature used to support `IN` and `NOT IN` queries. We need to load this
+                    // module for every connection we create to the DB to
+                    // support the queries we want to run
+                    let _ = conn
+                        .interact(|conn| array::load_module(conn))
+                        .await
+                        .map_err(|_| HookError::message("Loading rarray module failed"))?;
+
+                    Ok(())
+                })
+            }))
+            .build()
+            .map_err(|err| StoreError::DatabaseError(err.to_string()))?;
 
         if !database_exists {
             pool.get()
                 .await
                 .map_err(|err| StoreError::DatabaseError(err.to_string()))?
-                .interact(|conn| {
-                    array::load_module(conn)?;
-                    conn.execute_batch(include_str!("store.sql"))
-                })
+                .interact(|conn| conn.execute_batch(include_str!("store.sql")))
                 .await
                 .map_err(|err| StoreError::DatabaseError(err.to_string()))??;
         }
@@ -79,10 +93,7 @@ impl SqliteStore {
             .get()
             .await
             .map_err(|err| StoreError::DatabaseError(err.to_string()))?
-            .interact(|conn| {
-                array::load_module(conn)?;
-                f(conn)
-            })
+            .interact(f)
             .await
             .map_err(|err| StoreError::DatabaseError(err.to_string()))?
     }
