@@ -824,7 +824,7 @@ mod test {
             .with_component(wallet_component)
             .with_component(RpoFalcon512::new(secret_key.public_key()))
             .with_assets([asset_1, asset_2])
-            .build_testing()
+            .build()
             .unwrap();
 
         client
