@@ -35,9 +35,9 @@ mod transactions;
 
 // SQLITE STORE
 // ================================================================================================
-///
-/// Represents a connection with an sqlite database
-///
+
+/// Represents a pool of connections with an sqlite database. The pool is used to interact
+/// concurrently with the underlying database in a safe and efficient manner.
 ///
 /// Current table definitions can be found at `store.sql` migration file.
 pub struct SqliteStore {
@@ -84,7 +84,13 @@ impl SqliteStore {
         Ok(Self { pool })
     }
 
-    pub async fn interact_with_connection<F, R>(&self, f: F) -> Result<R, StoreError>
+    /// Interacts with the database by executing the provided function on a connection from the
+    /// pool.
+    ///
+    /// This function is a helper method which simplifies the process of making queries to the
+    /// database. It acquires a connection from the pool and executes the provided function,
+    /// returning the result.
+    async fn interact_with_connection<F, R>(&self, f: F) -> Result<R, StoreError>
     where
         F: FnOnce(&mut Connection) -> Result<R, StoreError> + Send + 'static,
         R: Send + 'static,
