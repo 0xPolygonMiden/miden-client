@@ -19,7 +19,6 @@ use miden_objects::{
 pub use miden_tx::{LocalTransactionProver, ProvingOptions, TransactionProver};
 use script_builder::{AccountCapabilities, AccountInterface};
 use tracing::info;
-use winter_maybe_async::*;
 
 use super::{Client, FeltRng};
 use crate::{
@@ -347,9 +346,10 @@ impl<R: FeltRng> Client<R> {
         let tx_args = transaction_request.into_transaction_args(tx_script);
 
         // Execute the transaction and get the witness
-        let executed_transaction = maybe_await!(self
+        let executed_transaction = self
             .tx_executor
-            .execute_transaction(account_id, block_num, &note_ids, tx_args,))?;
+            .execute_transaction(account_id, block_num, &note_ids, tx_args)
+            .await?;
 
         // Check that the expected output notes matches the transaction outcome.
         // We compare authentication hashes where possible since that involves note IDs + metadata
@@ -393,7 +393,7 @@ impl<R: FeltRng> Client<R> {
         info!("Proving transaction...");
 
         let proven_transaction =
-            maybe_await!(self.tx_prover.prove(tx_result.executed_transaction().clone().into()))?;
+            self.tx_prover.prove(tx_result.executed_transaction().clone().into()).await?;
 
         info!("Transaction proven.");
 
@@ -469,7 +469,7 @@ impl<R: FeltRng> Client<R> {
             new_tags,
         );
 
-        maybe_await!(self.store.apply_transaction(tx_update))?;
+        self.store.apply_transaction(tx_update).await?;
         info!("Transaction stored.");
         Ok(())
     }
