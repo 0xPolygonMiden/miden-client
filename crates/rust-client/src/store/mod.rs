@@ -62,7 +62,7 @@ pub use note_record::{
 /// mutability is expected to be implemented, which is why all methods receive `&self` and
 /// not `&mut self`.
 #[async_trait(?Send)]
-pub trait Store {
+pub trait Store: Send + Sync {
     // TRANSACTIONS
     // --------------------------------------------------------------------------------------------
 
