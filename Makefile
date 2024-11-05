@@ -9,9 +9,15 @@ help: ## Show description of all commands
 FEATURES_WEB_CLIENT=--features "testing"
 FEATURES_CLIENT=--features "testing, concurrent"
 FEATURES_CLI=--features "testing, concurrent"
-NODE_FEATURES_TESTING=--features "testing"
 WARNINGS=RUSTDOCFLAGS="-D warnings"
+
+NODE_DIR="miden-node"
+NODE_REPO="https://github.com/0xPolygonMiden/miden-node.git"
 NODE_BRANCH="next"
+NODE_FEATURES_TESTING=--features "testing"
+
+PROVER_DIR="miden-base"
+PROVER_REPO="https://github.com/0xPolygonMiden/miden-base.git"
 PROVER_BRANCH="next"
 PROVER_FEATURES_TESTING=--features "testing"
 PROVER_PORT=50051
@@ -105,11 +111,19 @@ clean-node: ## Clean node directory
 	rm -rf miden-node
 
 .PHONY: node
-node: ## Setup node directory
-	if [ -d miden-node ]; then cd miden-node ; else git clone https://github.com/0xPolygonMiden/miden-node.git && cd miden-node; fi
-	cd miden-node && git checkout $(NODE_BRANCH) && git pull origin $(NODE_BRANCH)
-	cd miden-node && rm -rf miden-store.sqlite3*
-	cd miden-node && cargo update && cargo run --bin miden-node $(NODE_FEATURES_TESTING) -- make-genesis --inputs-path ../tests/config/genesis.toml --force
+node: setup-miden-node update-node-branch build-node ## Setup node directory
+
+.PHONY: setup-miden-node
+setup-miden-node: ## Clone the miden-node repository if it doesn't exist
+	if [ ! -d $(NODE_DIR) ]; then git clone $(NODE_REPO) $(NODE_DIR); fi
+
+.PHONY: update-node-branch
+update-node-branch: setup-miden-base ## Checkout and update the specified branch in miden-node
+	cd $(NODE_DIR) && git checkout $(NODE_BRANCH) && git pull origin $(NODE_BRANCH)
+
+.PHONY: build-node
+build-node: update-node-branch ## Update dependencies and build the node binary with specified features
+	cd $(NODE_DIR) && rm -rf miden-store.sqlite3* && cargo update && cargo run --bin miden-node $(NODE_FEATURES_TESTING) -- make-genesis --inputs-path ../tests/config/genesis.toml --force
 
 .PHONY: start-node
 start-node: ## Run node. This requires the node repo to be present at `miden-node`
@@ -120,12 +134,23 @@ clean-prover: ## Uninstall prover
 	cargo uninstall miden-tx-prover || echo 'prover not installed'
 
 .PHONY: prover
-prover: ## Download and install the prover binary
-	cargo install --git https://github.com/0xPolygonMiden/miden-base $(PROVER_FEATURES_TESTING) miden-tx-prover --branch $(PROVER_BRANCH) --locked
+prover: setup-miden-base update-prover-branch build-prover ## Setup prover directory
+
+.PHONY: setup-miden-base
+setup-miden-base: ## Clone the miden-base repository if it doesn't exist
+	if [ ! -d $(PROVER_DIR) ]; then git clone $(PROVER_REPO) $(PROVER_DIR); fi
+
+.PHONY: update-prover-branch
+update-prover-branch: setup-miden-base ## Checkout and update the specified branch in miden-base
+	cd $(PROVER_DIR) && git checkout $(PROVER_BRANCH) && git pull origin $(PROVER_BRANCH)
+
+.PHONY: build-prover
+build-prover: update-prover-branch ## Update dependencies and build the prover binary with specified features
+	cd $(PROVER_DIR) && cargo update && cargo build --bin miden-tx-prover --locked $(PROVER_FEATURES_TESTING) --release
 
 .PHONY: start-prover
 start-prover: ## Run prover. This requires the base repo to be present at `miden-base`
-	RUST_LOG=info miden-tx-prover start-worker -p $(PROVER_PORT)
+	cd $(PROVER_DIR) && RUST_LOG=info cargo run --bin miden-tx-prover $(PROVER_FEATURES_TESTING) --release --locked -- start-worker -p $(PROVER_PORT)
 
 .PHONY: kill-prover
 kill-prover: ## Kill prover process
