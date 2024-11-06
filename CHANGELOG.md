@@ -7,7 +7,7 @@
 * Moved note update logic outside of the `Store` (#559).
 * Added delegated proving for web client + improved note models (#566).
 * Added remote prover support to the web client with CI tests (#562).
-* [BREAKING] Replaced `maybe_await` from `Client` and `Store` with `async`, removed `async` feature (#565).
+* [BREAKING] Replaced `maybe_await` from `Client` and `Store` with `async`, removed `async` feature (#565, #570).
 * Allow to set expiration delta for `TransactionRequest` (#553).
 * Added WASM consumable notes API + improved note models (#561).
 * Implemented `GetAccountProof` endpoint (#556).
