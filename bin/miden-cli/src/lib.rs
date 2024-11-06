@@ -102,7 +102,7 @@ impl Cli {
 
         // Create the client
         let (cli_config, _config_path) = load_config_file()?;
-        let store = SqliteStore::new(&cli_config.store).map_err(ClientError::StoreError)?;
+        let store = SqliteStore::new(&cli_config.store).await.map_err(ClientError::StoreError)?;
         let store = Arc::new(store);
 
         let mut rng = rand::thread_rng();
@@ -123,17 +123,17 @@ impl Cli {
 
         // Execute CLI command
         match &self.action {
-            Command::Account(account) => account.execute(client),
-            Command::NewFaucet(new_faucet) => new_faucet.execute(client),
-            Command::NewWallet(new_wallet) => new_wallet.execute(client),
+            Command::Account(account) => account.execute(client).await,
+            Command::NewFaucet(new_faucet) => new_faucet.execute(client).await,
+            Command::NewWallet(new_wallet) => new_wallet.execute(client).await,
             Command::Import(import) => import.execute(client).await,
             Command::Init(_) => Ok(()),
-            Command::Info => info::print_client_info(&client, &cli_config),
+            Command::Info => info::print_client_info(&client, &cli_config).await,
             Command::Notes(notes) => notes.execute(client).await,
             Command::Sync(sync) => sync.execute(client).await,
             Command::Tags(tags) => tags.execute(client).await,
             Command::Transaction(transaction) => transaction.execute(client).await,
-            Command::Export(cmd) => cmd.execute(client),
+            Command::Export(cmd) => cmd.execute(client).await,
             Command::Mint(mint) => mint.execute(client).await,
             Command::Send(send) => send.execute(client).await,
             Command::Swap(swap) => swap.execute(client).await,
@@ -165,12 +165,13 @@ pub fn create_dynamic_table(headers: &[&str]) -> Table {
 ///   `note_id_prefix` is a prefix of its id.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one note found where
 ///   `note_id_prefix` is a prefix of its id.
-pub(crate) fn get_output_note_with_id_prefix(
+pub(crate) async fn get_output_note_with_id_prefix(
     client: &Client<impl FeltRng>,
     note_id_prefix: &str,
 ) -> Result<OutputNoteRecord, IdPrefixFetchError> {
     let mut output_note_records = client
         .get_output_notes(ClientNoteFilter::All)
+        .await
         .map_err(|err| {
             tracing::error!("Error when fetching all notes from the store: {err}");
             IdPrefixFetchError::NoMatch(format!("note ID prefix {note_id_prefix}").to_string())
@@ -212,12 +213,13 @@ pub(crate) fn get_output_note_with_id_prefix(
 ///   `account_id_prefix` is a prefix of its id.
 /// - Returns [IdPrefixFetchError::MultipleMatches] if there were more than one account found where
 ///   `account_id_prefix` is a prefix of its id.
-fn get_account_with_id_prefix(
+async fn get_account_with_id_prefix(
     client: &Client<impl FeltRng>,
     account_id_prefix: &str,
 ) -> Result<AccountHeader, IdPrefixFetchError> {
     let mut accounts = client
         .get_account_headers()
+        .await
         .map_err(|err| {
             tracing::error!("Error when fetching all accounts from the store: {err}");
             IdPrefixFetchError::NoMatch(

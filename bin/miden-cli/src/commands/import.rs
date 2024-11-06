@@ -28,13 +28,14 @@ impl ImportCmd {
         validate_paths(&self.filenames)?;
         let (mut current_config, _) = load_config_file()?;
         for filename in &self.filenames {
-            let note_file = read_note_file(filename.clone()).await;
+            let note_file = read_note_file(filename.clone());
 
             if let Ok(note_file) = note_file {
                 let note_id = client.import_note(note_file).await.map_err(|err| err.to_string())?;
                 println!("Succesfully imported note {}", note_id.inner());
             } else {
                 let account_id = import_account(&mut client, filename)
+                    .await
                     .map_err(|_| format!("Failed to parse file {}", filename.to_string_lossy()))?;
                 println!("Succesfully imported account {}", account_id);
 
@@ -50,7 +51,7 @@ impl ImportCmd {
 // IMPORT ACCOUNT
 // ================================================================================================
 
-fn import_account(
+async fn import_account(
     client: &mut Client<impl FeltRng>,
     filename: &PathBuf,
 ) -> Result<AccountId, String> {
@@ -63,7 +64,7 @@ fn import_account(
         AccountData::read_from_bytes(&account_data_file_contents).map_err(|err| err.to_string())?;
     let account_id = account_data.account.id();
 
-    client.import_account(account_data)?;
+    client.import_account(account_data).await?;
 
     Ok(account_id)
 }
@@ -71,7 +72,7 @@ fn import_account(
 // IMPORT NOTE
 // ================================================================================================
 
-async fn read_note_file(filename: PathBuf) -> Result<NoteFile, String> {
+fn read_note_file(filename: PathBuf) -> Result<NoteFile, String> {
     let mut contents = vec![];
     let mut _file = File::open(filename)
         .and_then(|mut f| f.read_to_end(&mut contents))

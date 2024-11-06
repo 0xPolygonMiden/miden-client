@@ -11,7 +11,7 @@ use miden_objects::{
     },
     Digest, Word,
 };
-use rusqlite::{named_params, params, params_from_iter, types::Value, Transaction};
+use rusqlite::{named_params, params, params_from_iter, types::Value, Connection, Transaction};
 
 use super::SqliteStore;
 use crate::{
@@ -243,12 +243,11 @@ impl NoteFilter {
 
 impl SqliteStore {
     pub(crate) fn get_input_notes(
-        &self,
+        conn: &mut Connection,
         filter: NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, StoreError> {
         let (query, params) = filter.to_query_input_notes();
-        let notes = self
-            .db()
+        let notes = conn
             .prepare(query.as_str())?
             .query_map(params_from_iter(params), parse_input_note_columns)
             .expect("no binding parameters used in query")
@@ -266,12 +265,11 @@ impl SqliteStore {
 
     /// Retrieves the output notes from the database
     pub(crate) fn get_output_notes(
-        &self,
+        conn: &mut Connection,
         filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, StoreError> {
         let (query, params) = filter.to_query_output_notes();
-        let notes = self
-            .db()
+        let notes = conn
             .prepare(&query)?
             .query_map(params_from_iter(params), parse_output_note_columns)
             .expect("no binding parameters used in query")
@@ -287,9 +285,11 @@ impl SqliteStore {
         Ok(notes)
     }
 
-    pub(crate) fn upsert_input_notes(&self, notes: &[InputNoteRecord]) -> Result<(), StoreError> {
-        let mut db = self.db();
-        let tx = db.transaction()?;
+    pub(crate) fn upsert_input_notes(
+        conn: &mut Connection,
+        notes: &[InputNoteRecord],
+    ) -> Result<(), StoreError> {
+        let tx = conn.transaction()?;
 
         for note in notes {
             upsert_input_note_tx(&tx, note)?;
@@ -298,7 +298,9 @@ impl SqliteStore {
         Ok(tx.commit()?)
     }
 
-    pub(crate) fn get_unspent_input_note_nullifiers(&self) -> Result<Vec<Nullifier>, StoreError> {
+    pub(crate) fn get_unspent_input_note_nullifiers(
+        conn: &mut Connection,
+    ) -> Result<Vec<Nullifier>, StoreError> {
         const QUERY: &str =
             "SELECT nullifier FROM input_notes WHERE state_discriminant NOT IN rarray(?)";
         let unspent_filters = Rc::new(vec![
@@ -306,8 +308,7 @@ impl SqliteStore {
             Value::from(InputNoteState::STATE_CONSUMED_UNAUTHENTICATED_LOCAL.to_string()),
             Value::from(InputNoteState::STATE_CONSUMED_EXTERNAL.to_string()),
         ]);
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map([unspent_filters], |row| row.get(0))
             .expect("no binding parameters used in query")
             .map(|result| {

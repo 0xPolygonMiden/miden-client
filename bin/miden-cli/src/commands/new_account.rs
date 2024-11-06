@@ -30,7 +30,7 @@ pub struct NewFaucetCmd {
 }
 
 impl NewFaucetCmd {
-    pub fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         if self.non_fungible {
             todo!("Non-fungible faucets are not supported yet");
         }
@@ -53,7 +53,7 @@ impl NewFaucetCmd {
             storage_mode: self.storage_mode,
         };
 
-        let (new_account, _account_seed) = client.new_account(client_template)?;
+        let (new_account, _account_seed) = client.new_account(client_template).await?;
         println!("Succesfully created new faucet.");
         println!(
             "To view account details execute `{CLIENT_BINARY_NAME} account -s {}`",
@@ -76,13 +76,13 @@ pub struct NewWalletCmd {
 }
 
 impl NewWalletCmd {
-    pub fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
+    pub async fn execute(&self, mut client: Client<impl FeltRng>) -> Result<(), String> {
         let client_template = AccountTemplate::BasicWallet {
             mutable_code: self.mutable,
             storage_mode: self.storage_mode,
         };
 
-        let (new_account, _account_seed) = client.new_account(client_template)?;
+        let (new_account, _account_seed) = client.new_account(client_template).await?;
         println!("Succesfully created new wallet.");
         println!(
             "To view account details execute `{CLIENT_BINARY_NAME} account -s {}`",

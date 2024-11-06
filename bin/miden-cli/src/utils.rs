@@ -24,7 +24,7 @@ For example, `100::0xabcdef0123456789` or `1.23::POL`";
 
 /// Returns a tracked Account ID matching a hex string or the default one defined in the Client
 /// config
-pub(crate) fn get_input_acc_id_by_prefix_or_default(
+pub(crate) async fn get_input_acc_id_by_prefix_or_default(
     client: &Client<impl FeltRng>,
     account_id: Option<String>,
 ) -> Result<AccountId, String> {
@@ -38,7 +38,7 @@ pub(crate) fn get_input_acc_id_by_prefix_or_default(
             .ok_or("No input account ID nor default account defined")?
     };
 
-    parse_account_id(client, &account_id_str)
+    parse_account_id(client, &account_id_str).await
 }
 
 /// Parses a user provided account id string and returns the corresponding `AccountId`
@@ -52,7 +52,7 @@ pub(crate) fn get_input_acc_id_by_prefix_or_default(
 ///
 /// - Will return a `IdPrefixFetchError` if the provided account id string can't be parsed as an
 ///   `AccountId` and does not correspond to an account tracked by the client either.
-pub(crate) fn parse_account_id(
+pub(crate) async fn parse_account_id(
     client: &Client<impl FeltRng>,
     account_id: &str,
 ) -> Result<AccountId, String> {
@@ -61,6 +61,7 @@ pub(crate) fn parse_account_id(
     }
 
     let account_id = get_account_with_id_prefix(client, account_id)
+    .await
     .map_err(|_err| format!("Input account ID {account_id} is neither a valid Account ID nor a prefix of a known Account ID"))?
     .id();
     Ok(account_id)
