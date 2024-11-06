@@ -28,7 +28,7 @@ impl ImportCmd {
         validate_paths(&self.filenames)?;
         let (mut current_config, _) = load_config_file()?;
         for filename in &self.filenames {
-            let note_file = read_note_file(filename.clone()).await;
+            let note_file = read_note_file(filename.clone());
 
             if let Ok(note_file) = note_file {
                 let note_id = client.import_note(note_file).await.map_err(|err| err.to_string())?;
@@ -72,7 +72,7 @@ async fn import_account(
 // IMPORT NOTE
 // ================================================================================================
 
-async fn read_note_file(filename: PathBuf) -> Result<NoteFile, String> {
+fn read_note_file(filename: PathBuf) -> Result<NoteFile, String> {
     let mut contents = vec![];
     let mut _file = File::open(filename)
         .and_then(|mut f| f.read_to_end(&mut contents))
