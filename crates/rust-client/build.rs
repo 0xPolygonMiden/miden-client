@@ -14,6 +14,9 @@ const TONIC_CLIENT_PROTO_OUT_DIR: &str = "src/rpc/tonic_client/generated";
 const WEB_TONIC_CLIENT_PROTO_OUT_DIR: &str = "src/rpc/web_tonic_client/generated";
 
 fn main() -> miette::Result<()> {
+    println!("cargo:rerun-if-changed=Cargo.toml");
+    println!("cargo:rerun-if-changed=Cargo.lock");
+
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR should be set");
     let dest_path = PathBuf::from(out_dir);
 

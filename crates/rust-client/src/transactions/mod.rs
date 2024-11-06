@@ -8,13 +8,18 @@ use alloc::{
 };
 use core::fmt::{self};
 
-use miden_lib::transaction::TransactionKernel;
+pub use miden_lib::transaction::TransactionKernel;
 use miden_objects::{
-    accounts::{Account, AccountDelta, AccountId, AccountType},
+    accounts::{
+        Account, AccountCode, AccountDelta, AccountHeader, AccountId, AccountStorageHeader,
+        AccountType,
+    },
     assets::{Asset, NonFungibleAsset},
-    notes::{Note, NoteDetails, NoteExecutionMode, NoteId, NoteTag, NoteType},
+    crypto::merkle::MerklePath,
+    notes::{Note, NoteDetails, NoteId, NoteTag},
     transaction::{InputNotes, TransactionArgs},
-    AssetError, Digest, Felt, NoteError, Word,
+    vm::AdviceInputs,
+    AssetError, Digest, Felt, Word, ZERO,
 };
 pub use miden_tx::{LocalTransactionProver, ProvingOptions, TransactionProver};
 use script_builder::{AccountCapabilities, AccountInterface};
@@ -287,12 +292,16 @@ impl<R: FeltRng> Client<R> {
     /// Creates and executes a transaction specified by the request against the specified account,
     /// but does not change the local database.
     ///
+    /// If the transaction utilizes foreign account data, there is a chance that the client does
+    /// not have the required block header in the local database. In these scenarios, a sync to
+    /// the chain tip is performed, and the required block header is retrieved.
+    ///
     /// # Errors
     ///
     /// - Returns [ClientError::MissingOutputNotes] if the [TransactionRequest] ouput notes are not
-    ///   a subset of executor's output notes
-    /// - Returns a [ClientError::TransactionExecutorError] if the execution fails
-    /// - Returns a [ClientError::TransactionRequestError] if the request is invalid
+    ///   a subset of executor's output notes.
+    /// - Returns a [ClientError::TransactionExecutorError] if the execution fails.
+    /// - Returns a [ClientError::TransactionRequestError] if the request is invalid.
     pub async fn new_transaction(
         &mut self,
         account_id: AccountId,
@@ -330,8 +339,6 @@ impl<R: FeltRng> Client<R> {
 
         self.store.upsert_input_notes(&unauthenticated_input_notes).await?;
 
-        let block_num = self.store.get_sync_height().await?;
-
         let note_ids = transaction_request.get_input_note_ids();
 
         let output_notes: Vec<Note> =
@@ -343,7 +350,24 @@ impl<R: FeltRng> Client<R> {
         let tx_script = transaction_request
             .build_transaction_script(self.get_account_capabilities(account_id).await?)?;
 
-        let tx_args = transaction_request.into_transaction_args(tx_script);
+        // Inject foreign account data
+        let (foreign_data_advice_inputs, foreign_account_codes, fpi_block_num) = self
+            .get_foreign_account_inputs(transaction_request.foreign_account_data())
+            .await?;
+
+        let tx_args = transaction_request
+            .into_transaction_args(tx_script)
+            .with_advice_inputs(foreign_data_advice_inputs);
+
+        foreign_account_codes
+            .iter()
+            .for_each(|code| self.tx_executor.load_account_code(code));
+
+        let block_num = if let Some(block_num) = fpi_block_num {
+            block_num
+        } else {
+            self.store.get_sync_height().await?
+        };
 
         // Execute the transaction and get the witness
         let executed_transaction = self
@@ -652,6 +676,61 @@ impl<R: FeltRng> Client<R> {
             interfaces: account_capabilities,
         })
     }
+
+    /// Fetches foreign public account data as needed and returns advice inputs and account codes.
+    /// Additionally, it returns the block number pertinent to the foreign data.
+    ///
+    /// Account data is retrieved for the node's current chain tip, so we need to check whether we
+    /// currently have the corresponding block header data. Otherwise, we additionally need to
+    /// retrieve it.
+    async fn get_foreign_account_inputs(
+        &mut self,
+        account_ids: &[AccountId],
+    ) -> Result<(AdviceInputs, Vec<AccountCode>, Option<u32>), ClientError> {
+        let mut advice_inputs = AdviceInputs::default();
+        let mut account_codes = Vec::new();
+
+        if account_ids.is_empty() {
+            return Ok((AdviceInputs::default(), vec![], None));
+        }
+
+        // Fetch account proofs
+        let (block_num, account_proofs) =
+            self.rpc_api.get_account_proofs(account_ids, &[], true).await?;
+
+        for account_proof in account_proofs.into_iter() {
+            let account_header = account_proof.account_header().expect("RPC response should include this field becuase `include_headers` is on and no code commitments were sent");
+            let account_code = account_proof.account_code().expect("RPC response should include this field becuase `include_headers` is on and no code commitments were sent");
+            let storage_header = account_proof.storage_header().expect("RPC response should include this field becuase `include_headers` is on and no code commitments were sent");
+
+            account_codes.push(account_code.clone());
+
+            let merkle_path = account_proof.merkle_proof();
+
+            // Extend advice inputs using the extracted data
+            extend_advice_inputs_for_account(
+                &mut advice_inputs,
+                account_header,
+                account_code,
+                storage_header,
+                merkle_path,
+            )?;
+        }
+
+        // Optionally retrieve block header if we don't have it
+        if self.get_block_headers(&[block_num]).await?.is_empty() {
+            info!("Getting current block header data to execute transaction with foreign account requirements");
+            let summary = self.sync_state().await?;
+
+            if summary.block_num != block_num {
+                let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
+                self.get_and_store_authenticated_block(block_num, &mut current_partial_mmr)
+                    .await?;
+            }
+        }
+
+        Ok((advice_inputs, account_codes, Some(block_num)))
+    }
 }
 
 // TESTING HELPERS
@@ -679,6 +758,58 @@ impl<R: FeltRng> Client<R> {
     ) -> Result<(), ClientError> {
         self.apply_transaction(tx_result).await
     }
+}
+
+/// Extends the advice inputs with account data and Merkle proofs.
+fn extend_advice_inputs_for_account(
+    advice_inputs: &mut AdviceInputs,
+    account_header: &AccountHeader,
+    account_code: &AccountCode,
+    storage_header: &AccountStorageHeader,
+    merkle_path: &MerklePath,
+) -> Result<(), ClientError> {
+    let account_id = account_header.id();
+    let account_nonce = account_header.nonce();
+    let vault_root = account_header.vault_root();
+    let storage_root = account_header.storage_commitment();
+    let code_root = account_header.code_commitment();
+
+    let foreign_id_root = Digest::from([account_id.into(), ZERO, ZERO, ZERO]);
+    let foreign_id_and_nonce = [account_id.into(), ZERO, ZERO, account_nonce];
+
+    // Prepare storage slot data
+    let mut slots_data = Vec::new();
+    for (slot_type, value) in storage_header.slots() {
+        let mut elements = [ZERO; 8];
+        elements[0..4].copy_from_slice(value);
+        elements[4..8].copy_from_slice(&slot_type.as_word());
+        slots_data.extend_from_slice(&elements);
+    }
+
+    // Extend the advice inputs with the new data
+    advice_inputs.extend_map([
+        // ACCOUNT_ID -> [ID_AND_NONCE, VAULT_ROOT, STORAGE_ROOT, CODE_ROOT]
+        (
+            foreign_id_root,
+            [
+                &foreign_id_and_nonce,
+                vault_root.as_elements(),
+                storage_root.as_elements(),
+                code_root.as_elements(),
+            ]
+            .concat(),
+        ),
+        // STORAGE_ROOT -> [STORAGE_SLOT_DATA]
+        (storage_root, slots_data),
+        // CODE_ROOT -> [ACCOUNT_CODE_DATA]
+        (code_root, account_code.as_elements()),
+    ]);
+
+    // Extend the advice inputs with Merkle store data
+    advice_inputs
+        .extend_merkle_store(merkle_path.inner_nodes(account_id.into(), account_header.hash())?);
+
+    Ok(())
 }
 
 // HELPERS
@@ -725,45 +856,6 @@ pub fn notes_from_output(output_notes: &OutputNotes) -> impl Iterator<Item = &No
                 todo!("For now, all details should be held in OutputNote::Fulls")
             },
         })
-}
-
-/// Returns a note tag for a swap note with the specified parameters.
-///
-/// Use case ID for the returned tag is set to 0.
-///
-/// Tag payload is constructed by taking asset tags (8 bits of faucet ID) and concatenating them
-/// together as offered_asset_tag + requested_asset tag.
-///
-/// Network execution hint for the returned tag is set to `Local`.
-///
-/// Based on miden-base's implementation (<https://github.com/0xPolygonMiden/miden-base/blob/9e4de88031b55bcc3524cb0ccfb269821d97fb29/miden-lib/src/notes/mod.rs#L153>)
-///
-/// TODO: we should make the function in base public and once that gets released use that one and
-/// delete this implementation.
-pub fn build_swap_tag(
-    note_type: NoteType,
-    offered_asset_faucet_id: AccountId,
-    requested_asset_faucet_id: AccountId,
-) -> Result<NoteTag, NoteError> {
-    const SWAP_USE_CASE_ID: u16 = 0;
-
-    // get bits 4..12 from faucet IDs of both assets, these bits will form the tag payload; the
-    // reason we skip the 4 most significant bits is that these encode metadata of underlying
-    // faucets and are likely to be the same for many different faucets.
-
-    let offered_asset_id: u64 = offered_asset_faucet_id.into();
-    let offered_asset_tag = (offered_asset_id >> 52) as u8;
-
-    let requested_asset_id: u64 = requested_asset_faucet_id.into();
-    let requested_asset_tag = (requested_asset_id >> 52) as u8;
-
-    let payload = ((offered_asset_tag as u16) << 8) | (requested_asset_tag as u16);
-
-    let execution = NoteExecutionMode::Local;
-    match note_type {
-        NoteType::Public => NoteTag::for_public_use_case(SWAP_USE_CASE_ID, payload, execution),
-        _ => NoteTag::for_local_use_case(SWAP_USE_CASE_ID, payload),
-    }
 }
 
 #[cfg(test)]

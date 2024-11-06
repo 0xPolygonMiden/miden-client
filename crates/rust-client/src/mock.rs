@@ -300,7 +300,8 @@ impl NodeRpcClient for MockRpcApi {
         _code_commitments: &[Digest],
         _include_headers: bool,
     ) -> Result<AccountProofs, RpcError> {
-        todo!();
+        // TODO: Implement fully
+        Ok((self.blocks.last().unwrap().header().block_num(), vec![]))
     }
 
     async fn check_nullifiers_by_prefix(

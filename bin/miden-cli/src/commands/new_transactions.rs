@@ -5,10 +5,9 @@ use miden_client::{
     accounts::AccountId,
     assets::{FungibleAsset, NonFungibleDeltaAction},
     crypto::{Digest, FeltRng},
-    notes::{get_input_note_with_id_prefix, NoteType as MidenNoteType},
+    notes::{build_swap_tag, get_input_note_with_id_prefix, NoteType as MidenNoteType},
     transactions::{
-        build_swap_tag, PaymentTransactionData, SwapTransactionData, TransactionRequest,
-        TransactionResult,
+        PaymentTransactionData, SwapTransactionData, TransactionRequest, TransactionResult,
     },
     Client,
 };
@@ -191,8 +190,8 @@ impl SwapCmd {
 
         let payback_note_tag: u32 = build_swap_tag(
             (&self.note_type).into(),
-            swap_transaction.offered_asset().faucet_id(),
-            swap_transaction.requested_asset().faucet_id(),
+            &swap_transaction.offered_asset(),
+            &swap_transaction.requested_asset(),
         )
         .map_err(|err| err.to_string())?
         .into();

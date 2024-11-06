@@ -160,7 +160,6 @@ pub async fn wait_for_blocks(client: &mut TestClient, amount_of_blocks: u32) -> 
     let current_block = client.get_sync_height().await.unwrap();
     let final_block = current_block + amount_of_blocks;
     println!("Syncing until block {}...", final_block);
-    // wait until tx is committed
     loop {
         let summary = client.sync_state().await.unwrap();
         println!("Synced to block {} (syncing until {})...", summary.block_num, final_block);
