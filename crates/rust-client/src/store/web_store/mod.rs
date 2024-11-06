@@ -1,6 +1,4 @@
-#[cfg(feature = "async")]
-use alloc::boxed::Box;
-use alloc::{collections::BTreeMap, vec::Vec};
+use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
 
 use miden_objects::{
     accounts::{Account, AccountHeader, AccountId, AuthSecretKey},
