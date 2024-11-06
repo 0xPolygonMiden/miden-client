@@ -9,7 +9,7 @@ use miden_objects::{
     Digest, Felt, Word,
 };
 use miden_tx::utils::{Deserializable, Serializable};
-use rusqlite::{params, Transaction};
+use rusqlite::{params, Connection, Transaction};
 
 use super::SqliteStore;
 use crate::store::StoreError;
@@ -34,11 +34,10 @@ impl SqliteStore {
     // ACCOUNTS
     // --------------------------------------------------------------------------------------------
 
-    pub(super) fn get_account_ids(&self) -> Result<Vec<AccountId>, StoreError> {
+    pub(super) fn get_account_ids(conn: &mut Connection) -> Result<Vec<AccountId>, StoreError> {
         const QUERY: &str = "SELECT DISTINCT id FROM accounts";
 
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
             .map(|result| {
@@ -49,15 +48,14 @@ impl SqliteStore {
     }
 
     pub(super) fn get_account_headers(
-        &self,
+        conn: &mut Connection,
     ) -> Result<Vec<(AccountHeader, Option<Word>)>, StoreError> {
         const QUERY: &str =
             "SELECT a.id, a.nonce, a.vault_root, a.storage_root, a.code_root, a.account_seed \
             FROM accounts a \
             WHERE a.nonce = (SELECT MAX(b.nonce) FROM accounts b WHERE b.id = a.id)";
 
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map([], parse_accounts_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_accounts))
@@ -65,7 +63,7 @@ impl SqliteStore {
     }
 
     pub(crate) fn get_account_header(
-        &self,
+        conn: &mut Connection,
         account_id: AccountId,
     ) -> Result<(AccountHeader, Option<Word>), StoreError> {
         let account_id_int: u64 = account_id.into();
@@ -73,8 +71,7 @@ impl SqliteStore {
             FROM accounts WHERE id = ? \
             ORDER BY nonce DESC \
             LIMIT 1";
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map(params![account_id_int as i64], parse_accounts_columns)?
             .map(|result| Ok(result?).and_then(parse_accounts))
             .next()
@@ -82,15 +79,14 @@ impl SqliteStore {
     }
 
     pub(crate) fn get_account_header_by_hash(
-        &self,
+        conn: &mut Connection,
         account_hash: Digest,
     ) -> Result<Option<AccountHeader>, StoreError> {
         let account_hash_str: String = account_hash.to_string();
         const QUERY: &str = "SELECT id, nonce, vault_root, storage_root, code_root, account_seed \
             FROM accounts WHERE account_hash = ?";
 
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map(params![account_hash_str], parse_accounts_columns)?
             .map(|result| {
                 let result = result?;
@@ -101,7 +97,7 @@ impl SqliteStore {
     }
 
     pub(crate) fn get_account(
-        &self,
+        conn: &mut Connection,
         account_id: AccountId,
     ) -> Result<(Account, Option<Word>), StoreError> {
         let account_id_int: u64 = account_id.into();
@@ -114,8 +110,7 @@ impl SqliteStore {
                             ORDER BY accounts.nonce DESC \
                             LIMIT 1";
 
-        let result = self
-            .db()
+        let result = conn
             .prepare(QUERY)?
             .query_map(params![account_id_int as i64], parse_account_columns)?
             .map(|result| Ok(result?).and_then(parse_account))
@@ -128,13 +123,12 @@ impl SqliteStore {
 
     /// Retrieve account keys data by Account Id
     pub(crate) fn get_account_auth(
-        &self,
+        conn: &mut Connection,
         account_id: AccountId,
     ) -> Result<AuthSecretKey, StoreError> {
         let account_id_int: u64 = account_id.into();
         const QUERY: &str = "SELECT account_id, auth_info FROM account_auth WHERE account_id = ?";
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map(params![account_id_int as i64], parse_account_auth_columns)?
             .map(|result| Ok(result?).and_then(parse_account_auth))
             .next()
@@ -142,13 +136,12 @@ impl SqliteStore {
     }
 
     pub(crate) fn insert_account(
-        &self,
+        conn: &mut Connection,
         account: &Account,
         account_seed: Option<Word>,
         auth_info: &AuthSecretKey,
     ) -> Result<(), StoreError> {
-        let mut db = self.db();
-        let tx = db.transaction()?;
+        let tx = conn.transaction()?;
 
         insert_account_code(&tx, account.code())?;
         insert_account_storage(&tx, account.storage())?;
@@ -160,11 +153,13 @@ impl SqliteStore {
     }
 
     /// Returns an [AuthSecretKey] by a public key represented by a [Word]
-    pub fn get_account_auth_by_pub_key(&self, pub_key: Word) -> Result<AuthSecretKey, StoreError> {
+    pub fn get_account_auth_by_pub_key(
+        conn: &mut Connection,
+        pub_key: Word,
+    ) -> Result<AuthSecretKey, StoreError> {
         let pub_key_bytes = pub_key.to_bytes();
         const QUERY: &str = "SELECT account_id, auth_info FROM account_auth WHERE pub_key = ?";
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map(params![pub_key_bytes], parse_account_auth_columns)?
             .map(|result| Ok(result?).and_then(parse_account_auth))
             .next()
@@ -409,11 +404,14 @@ mod tests {
     use miden_tx::utils::{Deserializable, Serializable};
 
     use super::{insert_account_auth, AuthSecretKey};
-    use crate::store::sqlite_store::{accounts::insert_account_code, tests::create_test_store};
+    use crate::store::{
+        sqlite_store::{accounts::insert_account_code, tests::create_test_store},
+        Store,
+    };
 
-    #[test]
-    fn test_account_code_insertion_no_duplicates() {
-        let store = create_test_store();
+    #[tokio::test]
+    async fn test_account_code_insertion_no_duplicates() {
+        let store = create_test_store().await;
         let assembler = miden_lib::transaction::TransactionKernel::assembler();
         let account_component = AccountComponent::compile(BASIC_WALLET_CODE, assembler, vec![])
             .unwrap()
@@ -423,27 +421,38 @@ mod tests {
             miden_objects::accounts::AccountType::RegularAccountUpdatableCode,
         )
         .unwrap();
-        let mut db = store.db();
-        let tx = db.transaction().unwrap();
+        store
+            .interact_with_connection(move |conn| {
+                let tx = conn.transaction().unwrap();
 
-        // Table is empty at the beginning
-        let mut actual: usize =
-            tx.query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0)).unwrap();
-        assert_eq!(actual, 0);
+                // Table is empty at the beginning
+                let mut actual: usize = tx
+                    .query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0))
+                    .unwrap();
+                assert_eq!(actual, 0);
 
-        // First insertion generates a new row
-        insert_account_code(&tx, &account_code).unwrap();
-        actual = tx.query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0)).unwrap();
-        assert_eq!(actual, 1);
+                // First insertion generates a new row
+                insert_account_code(&tx, &account_code).unwrap();
+                actual = tx
+                    .query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0))
+                    .unwrap();
+                assert_eq!(actual, 1);
 
-        // Second insertion passes but does not generate a new row
-        assert!(insert_account_code(&tx, &account_code).is_ok());
-        actual = tx.query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0)).unwrap();
-        assert_eq!(actual, 1);
+                // Second insertion passes but does not generate a new row
+                assert!(insert_account_code(&tx, &account_code).is_ok());
+                actual = tx
+                    .query_row("SELECT Count(*) FROM account_code", [], |row| row.get(0))
+                    .unwrap();
+                assert_eq!(actual, 1);
+
+                Ok(())
+            })
+            .await
+            .unwrap();
     }
 
-    #[test]
-    fn test_auth_info_serialization() {
+    #[tokio::test]
+    async fn test_auth_info_serialization() {
         let exp_key_pair = SecretKey::new();
         let auth_info = AuthSecretKey::RpoFalcon512(exp_key_pair.clone());
         let bytes = auth_info.to_bytes();
@@ -456,26 +465,33 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_auth_info_store() {
+    #[tokio::test]
+    async fn test_auth_info_store() {
         let exp_key_pair = SecretKey::new();
 
-        let store = create_test_store();
+        let store = create_test_store().await;
 
         let account_id = AccountId::try_from(3238098370154045919u64).unwrap();
         {
-            let mut db = store.db();
-            let tx = db.transaction().unwrap();
-            insert_account_auth(
-                &tx,
-                account_id,
-                &AuthSecretKey::RpoFalcon512(exp_key_pair.clone()),
-            )
-            .unwrap();
-            tx.commit().unwrap();
+            let exp_key_pair_clone = exp_key_pair.clone();
+            store
+                .interact_with_connection(move |conn| {
+                    let tx = conn.transaction().unwrap();
+                    insert_account_auth(
+                        &tx,
+                        account_id,
+                        &AuthSecretKey::RpoFalcon512(exp_key_pair_clone),
+                    )
+                    .unwrap();
+                    tx.commit().unwrap();
+                    Ok(())
+                })
+                .await
+                .unwrap();
         }
 
-        let account_auth = store.get_account_auth(account_id).unwrap();
+        let account_auth = Store::get_account_auth(&store, account_id).await.unwrap();
+
         match account_auth {
             AuthSecretKey::RpoFalcon512(act_key_pair) => {
                 assert_eq!(exp_key_pair.to_bytes(), act_key_pair.to_bytes());

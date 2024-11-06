@@ -8,7 +8,6 @@ use miden_objects::{
 };
 use miden_tx::utils::{ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable};
 use tracing::warn;
-use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
     errors::ClientError,
@@ -25,24 +24,22 @@ impl<R: FeltRng> Client<R> {
     /// Note: Tags for accounts that are being tracked by the client are managed automatically by
     /// the client and do not need to be added here. That is, notes for managed accounts will be
     /// retrieved automatically by the client when syncing.
-    #[maybe_async]
-    pub fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, ClientError> {
-        maybe_await!(self.store.get_note_tags()).map_err(|err| err.into())
+    pub async fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, ClientError> {
+        self.store.get_note_tags().await.map_err(|err| err.into())
     }
 
     /// Returns the unique note tags (without source) that the client is interested in.
-    #[maybe_async]
-    pub fn get_unique_note_tags(&self) -> Result<BTreeSet<NoteTag>, ClientError> {
-        maybe_await!(self.store.get_unique_note_tags()).map_err(|err| err.into())
+    pub async fn get_unique_note_tags(&self) -> Result<BTreeSet<NoteTag>, ClientError> {
+        self.store.get_unique_note_tags().await.map_err(|err| err.into())
     }
 
     /// Adds a note tag for the client to track.
-    #[maybe_async]
-    pub fn add_note_tag(&mut self, tag: NoteTag) -> Result<(), ClientError> {
-        match maybe_await!(self
+    pub async fn add_note_tag(&mut self, tag: NoteTag) -> Result<(), ClientError> {
+        match self
             .store
-            .add_note_tag(NoteTagRecord { tag, source: NoteTagSource::User }))
-        .map_err(|err| err.into())
+            .add_note_tag(NoteTagRecord { tag, source: NoteTagSource::User })
+            .await
+            .map_err(|err| err.into())
         {
             Ok(true) => Ok(()),
             Ok(false) => {
@@ -54,11 +51,11 @@ impl<R: FeltRng> Client<R> {
     }
 
     /// Removes a note tag for the client to track.
-    #[maybe_async]
-    pub fn remove_note_tag(&mut self, tag: NoteTag) -> Result<(), ClientError> {
-        if maybe_await!(self
+    pub async fn remove_note_tag(&mut self, tag: NoteTag) -> Result<(), ClientError> {
+        if self
             .store
-            .remove_note_tag(NoteTagRecord { tag, source: NoteTagSource::User }))?
+            .remove_note_tag(NoteTagRecord { tag, source: NoteTagSource::User })
+            .await?
             == 0
         {
             warn!("Tag {} wasn't being tracked", tag);

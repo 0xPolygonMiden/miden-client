@@ -12,7 +12,6 @@ miden-client = { version = "0.5" }
 
 ## Crate Features
 
-- `async`: enables async traits. Automatically enabled for `web-tonic` feature. Disabled by default.
 - `concurrent`: used to enable concurrency during execution and proof generation. Disabled by default.
 - `idxdb`: includes `WebStore`, an IdexedDB implementation of the `Store` trait. Disabled by default.
 - `sqlite`: includes `SqliteStore`, a SQLite implementation of the `Store` trait. Disabled by default.

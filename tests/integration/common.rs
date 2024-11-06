@@ -48,11 +48,11 @@ pub const TEST_CLIENT_RPC_CONFIG_FILE_PATH: &str = "./tests/config/miden-client-
 ///
 /// Panics if there is no config file at `TEST_CLIENT_CONFIG_FILE_PATH`, or it cannot be
 /// deserialized into a [ClientConfig]
-pub fn create_test_client() -> TestClient {
+pub async fn create_test_client() -> TestClient {
     let (rpc_config, store_config) = get_client_config();
 
     let store = {
-        let sqlite_store = SqliteStore::new(&store_config).unwrap();
+        let sqlite_store = SqliteStore::new(&store_config).await.unwrap();
         std::sync::Arc::new(sqlite_store)
     };
 
@@ -103,7 +103,7 @@ pub async fn execute_failing_tx(
     println!("Executing transaction...");
     // We compare string since we can't compare the error directly
     assert_eq!(
-        client.new_transaction(account_id, tx_request).unwrap_err().to_string(),
+        client.new_transaction(account_id, tx_request).await.unwrap_err().to_string(),
         expected_error.to_string()
     );
 }
@@ -114,7 +114,8 @@ pub async fn execute_tx(
     tx_request: TransactionRequest,
 ) -> TransactionId {
     println!("Executing transaction...");
-    let transaction_execution_result = client.new_transaction(account_id, tx_request).unwrap();
+    let transaction_execution_result =
+        client.new_transaction(account_id, tx_request).await.unwrap();
     let transaction_id = transaction_execution_result.executed_transaction().id();
 
     println!("Sending transaction to node");
@@ -140,7 +141,7 @@ pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId)
 
         // Check if executed transaction got committed by the node
         let uncommited_transactions =
-            client.get_transactions(TransactionFilter::Uncomitted).unwrap();
+            client.get_transactions(TransactionFilter::Uncomitted).await.unwrap();
         let is_tx_committed = uncommited_transactions
             .iter()
             .all(|uncommited_tx| uncommited_tx.id != transaction_id);
@@ -156,7 +157,7 @@ pub async fn wait_for_tx(client: &mut TestClient, transaction_id: TransactionId)
 
 // Syncs until `amount_of_blocks` have been created onchain compared to client's sync height
 pub async fn wait_for_blocks(client: &mut TestClient, amount_of_blocks: u32) -> SyncSummary {
-    let current_block = client.get_sync_height().unwrap();
+    let current_block = client.get_sync_height().await.unwrap();
     let final_block = current_block + amount_of_blocks;
     println!("Syncing until block {}...", final_block);
     // wait until tx is committed
@@ -209,9 +210,9 @@ pub async fn setup(
     accounts_storage_mode: AccountStorageMode,
 ) -> (Account, Account, Account) {
     // Enusre clean state
-    assert!(client.get_account_headers().unwrap().is_empty());
-    assert!(client.get_transactions(TransactionFilter::All).unwrap().is_empty());
-    assert!(client.get_input_notes(NoteFilter::All).unwrap().is_empty());
+    assert!(client.get_account_headers().await.unwrap().is_empty());
+    assert!(client.get_transactions(TransactionFilter::All).await.unwrap().is_empty());
+    assert!(client.get_input_notes(NoteFilter::All).await.unwrap().is_empty());
 
     // Create faucet account
     let (faucet_account, _) = client
@@ -221,6 +222,7 @@ pub async fn setup(
             max_supply: 1_000_000_000,
             storage_mode: accounts_storage_mode,
         })
+        .await
         .unwrap();
 
     // Create regular accounts
@@ -229,6 +231,7 @@ pub async fn setup(
             mutable_code: false,
             storage_mode: AccountStorageMode::Private,
         })
+        .await
         .unwrap();
 
     let (second_basic_account, _) = client
@@ -236,6 +239,7 @@ pub async fn setup(
             mutable_code: false,
             storage_mode: AccountStorageMode::Private,
         })
+        .await
         .unwrap();
 
     println!("Syncing State...");
@@ -269,7 +273,7 @@ pub async fn mint_note(
     // Check that note is committed and return it
     println!("Fetching Committed Notes...");
     let note_id = tx_request.expected_output_notes().next().unwrap().id();
-    let note = client.get_input_note(note_id).unwrap();
+    let note = client.get_input_note(note_id).await.unwrap();
     note.try_into().unwrap()
 }
 
@@ -292,7 +296,7 @@ pub async fn assert_account_has_single_asset(
     asset_account_id: AccountId,
     expected_amount: u64,
 ) {
-    let (regular_account, _seed) = client.get_account(account_id).unwrap();
+    let (regular_account, _seed) = client.get_account(account_id).await.unwrap();
 
     assert_eq!(regular_account.vault().assets().count(), 1);
     let asset = regular_account.vault().assets().next().unwrap();
@@ -315,7 +319,7 @@ pub async fn assert_note_cannot_be_consumed_twice(
 
     // Double-spend error expected to be received since we are consuming the same note
     let tx_request = TransactionRequest::consume_notes(vec![note_to_consume_id]);
-    match client.new_transaction(consuming_account_id, tx_request) {
+    match client.new_transaction(consuming_account_id, tx_request).await {
         Err(ClientError::TransactionExecutorError(
             TransactionExecutorError::FetchTransactionInputsFailed(
                 DataStoreError::NoteAlreadyConsumed(_),

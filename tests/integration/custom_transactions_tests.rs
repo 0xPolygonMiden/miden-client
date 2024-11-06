@@ -53,7 +53,7 @@ const NOTE_ARGS: [Felt; 8] = [
 
 #[tokio::test]
 async fn test_transaction_request() {
-    let mut client = create_test_client();
+    let mut client = create_test_client().await;
     wait_for_node(&mut client).await;
 
     let account_template = AccountTemplate::BasicWallet {
@@ -63,7 +63,7 @@ async fn test_transaction_request() {
 
     client.sync_state().await.unwrap();
     // Insert Account
-    let (regular_account, _seed) = client.new_account(account_template).unwrap();
+    let (regular_account, _seed) = client.new_account(account_template).await.unwrap();
 
     let account_template = AccountTemplate::FungibleFaucet {
         token_symbol: TokenSymbol::new("TEST").unwrap(),
@@ -71,7 +71,7 @@ async fn test_transaction_request() {
         max_supply: 10_000u64,
         storage_mode: AccountStorageMode::Private,
     };
-    let (fungible_faucet, _seed) = client.new_account(account_template).unwrap();
+    let (fungible_faucet, _seed) = client.new_account(account_template).await.unwrap();
 
     // Execute mint transaction in order to create custom note
     let note = mint_custom_note(&mut client, fungible_faucet.id(), regular_account.id()).await;
@@ -111,7 +111,7 @@ async fn test_transaction_request() {
         .extend_advice_map(advice_map.clone());
 
     // This fails becuase of {asserted_value} having the incorrect number passed in
-    assert!(client.new_transaction(regular_account.id(), transaction_request).is_err());
+    assert!(client.new_transaction(regular_account.id(), transaction_request).await.is_err());
 
     // SUCCESS EXECUTION
 
@@ -139,7 +139,7 @@ async fn test_transaction_request() {
 
 #[tokio::test]
 async fn test_merkle_store() {
-    let mut client = create_test_client();
+    let mut client = create_test_client().await;
     wait_for_node(&mut client).await;
 
     let account_template = AccountTemplate::BasicWallet {
@@ -149,7 +149,7 @@ async fn test_merkle_store() {
 
     client.sync_state().await.unwrap();
     // Insert Account
-    let (regular_account, _seed) = client.new_account(account_template).unwrap();
+    let (regular_account, _seed) = client.new_account(account_template).await.unwrap();
 
     let account_template = AccountTemplate::FungibleFaucet {
         token_symbol: TokenSymbol::new("TEST").unwrap(),
@@ -157,7 +157,7 @@ async fn test_merkle_store() {
         max_supply: 10_000u64,
         storage_mode: AccountStorageMode::Private,
     };
-    let (fungible_faucet, _seed) = client.new_account(account_template).unwrap();
+    let (fungible_faucet, _seed) = client.new_account(account_template).await.unwrap();
 
     // Execute mint transaction in order to increase nonce
     let note = mint_custom_note(&mut client, fungible_faucet.id(), regular_account.id()).await;

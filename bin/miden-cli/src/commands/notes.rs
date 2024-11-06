@@ -61,19 +61,20 @@ impl NotesCmd {
     pub async fn execute(&self, client: Client<impl FeltRng>) -> Result<(), String> {
         match self {
             NotesCmd { list: Some(NoteFilter::Consumable), .. } => {
-                list_consumable_notes(client, &None)?;
+                list_consumable_notes(client, &None).await?;
             },
             NotesCmd { list: Some(filter), .. } => {
                 list_notes(
                     client,
                     filter.clone().try_into().expect("Filter shouldn't be consumable"),
-                )?;
+                )
+                .await?;
             },
             NotesCmd { show: Some(id), .. } => {
-                show_note(client, id.to_owned())?;
+                show_note(client, id.to_owned()).await?;
             },
             _ => {
-                list_notes(client, ClientNoteFilter::All)?;
+                list_notes(client, ClientNoteFilter::All).await?;
             },
         }
         Ok(())
@@ -95,14 +96,16 @@ struct CliNoteSummary {
 
 // LIST NOTES
 // ================================================================================================
-fn list_notes(client: Client<impl FeltRng>, filter: ClientNoteFilter) -> Result<(), String> {
+async fn list_notes(client: Client<impl FeltRng>, filter: ClientNoteFilter) -> Result<(), String> {
     let input_notes = client
-        .get_input_notes(filter.clone())?
+        .get_input_notes(filter.clone())
+        .await?
         .into_iter()
         .map(|input_note_record| note_summary(Some(&input_note_record), None))
         .collect::<Result<Vec<CliNoteSummary>, String>>()?;
     let output_notes = client
-        .get_output_notes(filter.clone())?
+        .get_output_notes(filter.clone())
+        .await?
         .into_iter()
         .map(|output_note_record| note_summary(None, Some(&output_note_record)))
         .collect::<Result<Vec<CliNoteSummary>, String>>()?;
@@ -113,9 +116,9 @@ fn list_notes(client: Client<impl FeltRng>, filter: ClientNoteFilter) -> Result<
 
 // SHOW NOTE
 // ================================================================================================
-fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), String> {
-    let input_note_record = get_input_note_with_id_prefix(&client, &note_id);
-    let output_note_record = get_output_note_with_id_prefix(&client, &note_id);
+async fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), String> {
+    let input_note_record = get_input_note_with_id_prefix(&client, &note_id).await;
+    let output_note_record = get_output_note_with_id_prefix(&client, &note_id).await;
 
     // If we don't find an input note nor an output note return an error
     if matches!(input_note_record, Err(IdPrefixFetchError::NoMatch(_)))
@@ -251,7 +254,7 @@ fn show_note(client: Client<impl FeltRng>, note_id: String) -> Result<(), String
 
 // LIST CONSUMABLE INPUT NOTES
 // ================================================================================================
-fn list_consumable_notes(
+async fn list_consumable_notes(
     client: Client<impl FeltRng>,
     account_id: &Option<String>,
 ) -> Result<(), String> {
@@ -259,7 +262,7 @@ fn list_consumable_notes(
         Some(id) => Some(AccountId::from_hex(id.as_str()).map_err(|err| err.to_string())?),
         None => None,
     };
-    let notes = client.get_consumable_notes(account_id)?;
+    let notes = client.get_consumable_notes(account_id).await?;
     print_consumable_notes_summary(&notes)?;
     Ok(())
 }

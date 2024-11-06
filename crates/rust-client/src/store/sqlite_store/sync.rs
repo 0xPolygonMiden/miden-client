@@ -2,7 +2,7 @@ use alloc::{collections::BTreeSet, vec::Vec};
 
 use miden_objects::notes::NoteTag;
 use miden_tx::utils::{Deserializable, Serializable};
-use rusqlite::{params, Transaction};
+use rusqlite::{params, Connection, Transaction};
 
 use super::SqliteStore;
 use crate::{
@@ -14,11 +14,10 @@ use crate::{
 };
 
 impl SqliteStore {
-    pub(crate) fn get_note_tags(&self) -> Result<Vec<NoteTagRecord>, StoreError> {
+    pub(crate) fn get_note_tags(conn: &mut Connection) -> Result<Vec<NoteTagRecord>, StoreError> {
         const QUERY: &str = "SELECT tag, source FROM tags";
 
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
             .expect("no binding parameters used in query")
             .map(|result| {
@@ -34,11 +33,12 @@ impl SqliteStore {
             .collect::<Result<Vec<NoteTagRecord>, _>>()
     }
 
-    pub(crate) fn get_unique_note_tags(&self) -> Result<BTreeSet<NoteTag>, StoreError> {
+    pub(crate) fn get_unique_note_tags(
+        conn: &mut Connection,
+    ) -> Result<BTreeSet<NoteTag>, StoreError> {
         const QUERY: &str = "SELECT DISTINCT tag FROM tags";
 
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
             .map(|result| {
@@ -49,13 +49,15 @@ impl SqliteStore {
             .collect::<Result<BTreeSet<NoteTag>, _>>()
     }
 
-    pub(super) fn add_note_tag(&self, tag: NoteTagRecord) -> Result<bool, StoreError> {
-        if self.get_note_tags()?.contains(&tag) {
+    pub(super) fn add_note_tag(
+        conn: &mut Connection,
+        tag: NoteTagRecord,
+    ) -> Result<bool, StoreError> {
+        if Self::get_note_tags(conn)?.contains(&tag) {
             return Ok(false);
         }
 
-        let mut db = self.db();
-        let tx = db.transaction()?;
+        let tx = conn.transaction()?;
         add_note_tag_tx(&tx, &tag)?;
 
         tx.commit()?;
@@ -63,9 +65,11 @@ impl SqliteStore {
         Ok(true)
     }
 
-    pub(super) fn remove_note_tag(&self, tag: NoteTagRecord) -> Result<usize, StoreError> {
-        let mut db = self.db();
-        let tx = db.transaction()?;
+    pub(super) fn remove_note_tag(
+        conn: &mut Connection,
+        tag: NoteTagRecord,
+    ) -> Result<usize, StoreError> {
+        let tx = conn.transaction()?;
         let removed_tags = remove_note_tag_tx(&tx, tag)?;
 
         tx.commit()?;
@@ -73,11 +77,10 @@ impl SqliteStore {
         Ok(removed_tags)
     }
 
-    pub(super) fn get_sync_height(&self) -> Result<u32, StoreError> {
+    pub(super) fn get_sync_height(conn: &mut Connection) -> Result<u32, StoreError> {
         const QUERY: &str = "SELECT block_num FROM state_sync";
 
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map([], |row| row.get(0))
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).map(|v: i64| v as u32))
@@ -86,7 +89,7 @@ impl SqliteStore {
     }
 
     pub(super) fn apply_state_sync(
-        &self,
+        conn: &mut Connection,
         state_sync_update: StateSyncUpdate,
     ) -> Result<(), StoreError> {
         let StateSyncUpdate {
@@ -101,8 +104,7 @@ impl SqliteStore {
             tags_to_remove,
         } = state_sync_update;
 
-        let mut db = self.db();
-        let tx = db.transaction()?;
+        let tx = conn.transaction()?;
 
         // Update state sync block number
         const BLOCK_NUMBER_QUERY: &str = "UPDATE state_sync SET block_num = ?";

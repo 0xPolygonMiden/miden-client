@@ -6,7 +6,9 @@ use miden_objects::{
     BlockHeader, Digest,
 };
 use miden_tx::utils::{Deserializable, Serializable};
-use rusqlite::{params, params_from_iter, types::Value, OptionalExtension, Transaction};
+use rusqlite::{
+    params, params_from_iter, types::Value, Connection, OptionalExtension, Transaction,
+};
 
 use super::SqliteStore;
 use crate::store::{ChainMmrNodeFilter, StoreError};
@@ -34,13 +36,12 @@ impl ChainMmrNodeFilter {
 
 impl SqliteStore {
     pub(crate) fn insert_block_header(
-        &self,
+        conn: &mut Connection,
         block_header: BlockHeader,
         chain_mmr_peaks: MmrPeaks,
         has_client_notes: bool,
     ) -> Result<(), StoreError> {
-        let mut db = self.db();
-        let tx = db.transaction()?;
+        let tx = conn.transaction()?;
 
         Self::insert_block_header_tx(&tx, block_header, chain_mmr_peaks, has_client_notes)?;
 
@@ -49,7 +50,7 @@ impl SqliteStore {
     }
 
     pub(crate) fn get_block_headers(
-        &self,
+        conn: &mut Connection,
         block_numbers: &[u32],
     ) -> Result<Vec<(BlockHeader, bool)>, StoreError> {
         let block_number_list = block_numbers
@@ -59,24 +60,24 @@ impl SqliteStore {
 
         const QUERY : &str = "SELECT block_num, header, chain_mmr_peaks, has_client_notes FROM block_headers WHERE block_num IN rarray(?)";
 
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map(params![Rc::new(block_number_list)], parse_block_headers_columns)?
             .map(|result| Ok(result?).and_then(parse_block_header))
             .collect()
     }
 
-    pub(crate) fn get_tracked_block_headers(&self) -> Result<Vec<BlockHeader>, StoreError> {
+    pub(crate) fn get_tracked_block_headers(
+        conn: &mut Connection,
+    ) -> Result<Vec<BlockHeader>, StoreError> {
         const QUERY: &str = "SELECT block_num, header, chain_mmr_peaks, has_client_notes FROM block_headers WHERE has_client_notes=true";
-        self.db()
-            .prepare(QUERY)?
+        conn.prepare(QUERY)?
             .query_map(params![], parse_block_headers_columns)?
             .map(|result| Ok(result?).and_then(parse_block_header).map(|(block, _)| block))
             .collect()
     }
 
     pub(crate) fn get_chain_mmr_nodes(
-        &self,
+        conn: &mut Connection,
         filter: ChainMmrNodeFilter,
     ) -> Result<BTreeMap<InOrderIndex, Digest>, StoreError> {
         let mut params = Vec::new();
@@ -89,21 +90,19 @@ impl SqliteStore {
             params.push(Rc::new(id_values));
         }
 
-        self.db()
-            .prepare(&filter.to_query())?
+        conn.prepare(&filter.to_query())?
             .query_map(params_from_iter(params), parse_chain_mmr_nodes_columns)?
             .map(|result| Ok(result?).and_then(parse_chain_mmr_nodes))
             .collect()
     }
 
     pub(crate) fn get_chain_mmr_peaks_by_block_num(
-        &self,
+        conn: &mut Connection,
         block_num: u32,
     ) -> Result<MmrPeaks, StoreError> {
         const QUERY: &str = "SELECT chain_mmr_peaks FROM block_headers WHERE block_num = ?";
 
-        let mmr_peaks = self
-            .db()
+        let mmr_peaks = conn
             .prepare(QUERY)?
             .query_row(params![block_num], |row| {
                 let peaks: Vec<u8> = row.get(0)?;
@@ -119,11 +118,10 @@ impl SqliteStore {
     }
 
     pub fn insert_chain_mmr_nodes(
-        &self,
+        conn: &mut Connection,
         nodes: &[(InOrderIndex, Digest)],
     ) -> Result<(), StoreError> {
-        let mut db = self.db();
-        let tx = db.transaction()?;
+        let tx = conn.transaction()?;
 
         Self::insert_chain_mmr_nodes_tx(&tx, nodes)?;
 
@@ -270,46 +268,52 @@ mod test {
         Store,
     };
 
-    fn insert_dummy_block_headers(store: &mut SqliteStore) -> Vec<BlockHeader> {
+    async fn insert_dummy_block_headers(store: &mut SqliteStore) -> Vec<BlockHeader> {
         let block_headers: Vec<BlockHeader> = (0..5)
             .map(|block_num| {
                 BlockHeader::mock(block_num, None, None, &[], TransactionKernel::kernel_root())
             })
             .collect();
-        let mut db = store.db();
-        let tx = db.transaction().unwrap();
-        let dummy_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
-        (0..5).for_each(|block_num| {
-            SqliteStore::insert_block_header_tx(
-                &tx,
-                block_headers[block_num],
-                dummy_peaks.clone(),
-                false,
-            )
-            .unwrap()
-        });
-        tx.commit().unwrap();
+
+        let block_headers_clone = block_headers.clone();
+        store
+            .interact_with_connection(move |conn| {
+                let tx = conn.transaction().unwrap();
+                let dummy_peaks = MmrPeaks::new(0, Vec::new()).unwrap();
+                (0..5).for_each(|block_num| {
+                    SqliteStore::insert_block_header_tx(
+                        &tx,
+                        block_headers_clone[block_num],
+                        dummy_peaks.clone(),
+                        false,
+                    )
+                    .unwrap()
+                });
+                tx.commit().unwrap();
+                Ok(())
+            })
+            .await
+            .unwrap();
 
         block_headers
     }
 
     #[tokio::test]
     async fn insert_and_get_block_headers_by_number() {
-        let mut store = create_test_store();
-        let block_headers = insert_dummy_block_headers(&mut store);
+        let mut store = create_test_store().await;
+        let block_headers = insert_dummy_block_headers(&mut store).await;
 
-        let block_header =
-            winter_maybe_async::maybe_await!(store.get_block_header_by_num(3)).unwrap();
+        let block_header = Store::get_block_header_by_num(&store, 3).await.unwrap();
         assert_eq!(block_headers[3], block_header.0);
     }
 
-    #[test]
-    fn insert_and_get_block_headers_by_list() {
-        let mut store = create_test_store();
-        let mock_block_headers = insert_dummy_block_headers(&mut store);
+    #[tokio::test]
+    async fn insert_and_get_block_headers_by_list() {
+        let mut store = create_test_store().await;
+        let mock_block_headers = insert_dummy_block_headers(&mut store).await;
 
-        let block_headers: Vec<BlockHeader> = store
-            .get_block_headers(&[1, 3])
+        let block_headers: Vec<BlockHeader> = Store::get_block_headers(&store, &[1, 3])
+            .await
             .unwrap()
             .into_iter()
             .map(|(block_header, _has_notes)| block_header)

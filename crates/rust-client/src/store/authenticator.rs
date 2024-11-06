@@ -1,11 +1,11 @@
 use alloc::{sync::Arc, vec::Vec};
-use core::cell::RefCell;
 
 use miden_objects::{
     accounts::{AccountDelta, AuthSecretKey},
     Digest, Felt, Word,
 };
-use miden_tx::{auth::TransactionAuthenticator, AuthenticationError};
+use miden_tx::{auth::TransactionAuthenticator, utils::sync::RwLock, AuthenticationError};
+use pollster::FutureExt as _;
 use rand::Rng;
 
 use super::Store;
@@ -13,12 +13,12 @@ use super::Store;
 /// Represents an authenticator based on a [Store]
 pub struct StoreAuthenticator<R> {
     store: Arc<dyn Store>,
-    rng: RefCell<R>,
+    rng: Arc<RwLock<R>>,
 }
 
 impl<R: Rng> StoreAuthenticator<R> {
     pub fn new_with_rng(store: Arc<dyn Store>, rng: R) -> Self {
-        StoreAuthenticator { store, rng: RefCell::new(rng) }
+        StoreAuthenticator { store, rng: Arc::new(RwLock::new(rng)) }
     }
 }
 
@@ -36,12 +36,12 @@ impl<R: Rng> TransactionAuthenticator for StoreAuthenticator<R> {
         message: Word,
         _account_delta: &AccountDelta,
     ) -> Result<Vec<Felt>, AuthenticationError> {
-        let mut rng = self.rng.borrow_mut();
+        let mut rng = self.rng.write();
 
-        let secret_key = self
-            .store
-            .get_account_auth_by_pub_key(pub_key)
-            .map_err(|_| AuthenticationError::UnknownKey(format!("{}", Digest::from(pub_key))))?;
+        let secret_key =
+            self.store.get_account_auth_by_pub_key(pub_key).block_on().map_err(|_| {
+                AuthenticationError::UnknownKey(format!("{}", Digest::from(pub_key)))
+            })?;
 
         let AuthSecretKey::RpoFalcon512(k) = secret_key;
         miden_tx::auth::signatures::get_falcon_signature(&k, message, &mut *rng)

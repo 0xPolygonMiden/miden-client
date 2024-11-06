@@ -17,7 +17,6 @@ use miden_objects::{
     crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
     Felt, Word,
 };
-use winter_maybe_async::{maybe_async, maybe_await};
 
 use super::Client;
 use crate::ClientError;
@@ -52,29 +51,23 @@ impl<R: FeltRng> Client<R> {
 
     /// Creates a new [Account] based on an [AccountTemplate] and saves it in the client's store. A
     /// new tag derived from the account will start being tracked by the client.
-    #[maybe_async]
-    pub fn new_account(
+    pub async fn new_account(
         &mut self,
         template: AccountTemplate,
     ) -> Result<(Account, Word), ClientError> {
         let account_and_seed = match template {
             AccountTemplate::BasicWallet { mutable_code, storage_mode } => {
-                maybe_await!(self.new_basic_wallet(mutable_code, storage_mode))
+                self.new_basic_wallet(mutable_code, storage_mode).await
             },
             AccountTemplate::FungibleFaucet {
                 token_symbol,
                 decimals,
                 max_supply,
                 storage_mode,
-            } => maybe_await!(self.new_fungible_faucet(
-                token_symbol,
-                decimals,
-                max_supply,
-                storage_mode
-            )),
+            } => self.new_fungible_faucet(token_symbol, decimals, max_supply, storage_mode).await,
         }?;
 
-        maybe_await!(self.store.add_note_tag((&account_and_seed.0).try_into()?))?;
+        self.store.add_note_tag((&account_and_seed.0).try_into()?).await?;
 
         Ok(account_and_seed)
     }
@@ -89,8 +82,7 @@ impl<R: FeltRng> Client<R> {
     ///
     /// Will panic when trying to import a non-new account without a seed since this functionality
     /// is not currently implemented
-    #[maybe_async]
-    pub fn import_account(&mut self, account_data: AccountData) -> Result<(), ClientError> {
+    pub async fn import_account(&mut self, account_data: AccountData) -> Result<(), ClientError> {
         let account_seed = if !account_data.account.is_new() && account_data.account_seed.is_some()
         {
             tracing::warn!("Imported an existing account and still provided a seed when it is not needed. It's possible that the account's file was incorrectly generated. The seed will be ignored.");
@@ -104,16 +96,12 @@ impl<R: FeltRng> Client<R> {
             account_data.account_seed
         };
 
-        maybe_await!(self.insert_account(
-            &account_data.account,
-            account_seed,
-            &account_data.auth_secret_key
-        ))
+        self.insert_account(&account_data.account, account_seed, &account_data.auth_secret_key)
+            .await
     }
 
     /// Creates a new regular account and saves it in the store along with its seed and auth data
-    #[maybe_async]
-    fn new_basic_wallet(
+    async fn new_basic_wallet(
         &mut self,
         mutable_code: bool,
         account_storage_mode: AccountStorageMode,
@@ -142,16 +130,12 @@ impl<R: FeltRng> Client<R> {
             )
         }?;
 
-        maybe_await!(self.insert_account(
-            &account,
-            Some(seed),
-            &AuthSecretKey::RpoFalcon512(key_pair)
-        ))?;
+        self.insert_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair))
+            .await?;
         Ok((account, seed))
     }
 
-    #[maybe_async]
-    fn new_fungible_faucet(
+    async fn new_fungible_faucet(
         &mut self,
         token_symbol: TokenSymbol,
         decimals: u8,
@@ -176,11 +160,8 @@ impl<R: FeltRng> Client<R> {
             auth_scheme,
         )?;
 
-        maybe_await!(self.insert_account(
-            &account,
-            Some(seed),
-            &AuthSecretKey::RpoFalcon512(key_pair)
-        ))?;
+        self.insert_account(&account, Some(seed), &AuthSecretKey::RpoFalcon512(key_pair))
+            .await?;
         Ok((account, seed))
     }
 
@@ -190,8 +171,7 @@ impl<R: FeltRng> Client<R> {
     ///
     /// If an account is new and no seed is provided, the function errors out because the client
     /// cannot execute transactions against new accounts for which it does not know the seed.
-    #[maybe_async]
-    pub fn insert_account(
+    pub async fn insert_account(
         &mut self,
         account: &Account,
         account_seed: Option<Word>,
@@ -201,7 +181,9 @@ impl<R: FeltRng> Client<R> {
             return Err(ClientError::ImportNewAccountWithoutSeed);
         }
 
-        maybe_await!(self.store.insert_account(account, account_seed, auth_info))
+        self.store
+            .insert_account(account, account_seed, auth_info)
+            .await
             .map_err(ClientError::StoreError)
     }
 
@@ -212,9 +194,10 @@ impl<R: FeltRng> Client<R> {
     /// seeds used to create them.
     ///
     /// Said accounts' state is the state after the last performed sync.
-    #[maybe_async]
-    pub fn get_account_headers(&self) -> Result<Vec<(AccountHeader, Option<Word>)>, ClientError> {
-        maybe_await!(self.store.get_account_headers()).map_err(|err| err.into())
+    pub async fn get_account_headers(
+        &self,
+    ) -> Result<Vec<(AccountHeader, Option<Word>)>, ClientError> {
+        self.store.get_account_headers().await.map_err(|err| err.into())
     }
 
     /// Retrieves a full [Account] object. The seed will be returned if the account is new,
@@ -227,12 +210,11 @@ impl<R: FeltRng> Client<R> {
     /// # Errors
     ///
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    #[maybe_async]
-    pub fn get_account(
+    pub async fn get_account(
         &self,
         account_id: AccountId,
     ) -> Result<(Account, Option<Word>), ClientError> {
-        maybe_await!(self.store.get_account(account_id)).map_err(|err| err.into())
+        self.store.get_account(account_id).await.map_err(|err| err.into())
     }
 
     /// Retrieves an [AccountHeader] object for the specified [AccountId] along with the seed
@@ -244,12 +226,11 @@ impl<R: FeltRng> Client<R> {
     /// # Errors
     ///
     /// Returns a `StoreError::AccountDataNotFound` if there is no account for the provided ID
-    #[maybe_async]
-    pub fn get_account_header_by_id(
+    pub async fn get_account_header_by_id(
         &self,
         account_id: AccountId,
     ) -> Result<(AccountHeader, Option<Word>), ClientError> {
-        maybe_await!(self.store.get_account_header(account_id)).map_err(|err| err.into())
+        self.store.get_account_header(account_id).await.map_err(|err| err.into())
     }
 
     /// Returns an [AuthSecretKey] object utilized to authenticate an account.
@@ -259,9 +240,11 @@ impl<R: FeltRng> Client<R> {
     /// Returns a [ClientError::StoreError] with a
     /// [StoreError::AccountDataNotFound](crate::store::StoreError::AccountDataNotFound) if the
     /// provided ID does not correspond to an existing account.
-    #[maybe_async]
-    pub fn get_account_auth(&self, account_id: AccountId) -> Result<AuthSecretKey, ClientError> {
-        maybe_await!(self.store.get_account_auth(account_id)).map_err(|err| err.into())
+    pub async fn get_account_auth(
+        &self,
+        account_id: AccountId,
+    ) -> Result<AuthSecretKey, ClientError> {
+        self.store.get_account_auth(account_id).await.map_err(|err| err.into())
     }
 }
 
@@ -308,10 +291,10 @@ pub mod tests {
         accounts
     }
 
-    #[test]
-    pub fn try_import_new_account() {
+    #[tokio::test]
+    pub async fn try_import_new_account() {
         // generate test client
-        let (mut client, _rpc_api) = create_test_client();
+        let (mut client, _rpc_api) = create_test_client().await;
 
         let account = Account::mock(
             ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN,
@@ -323,28 +306,30 @@ pub mod tests {
 
         assert!(client
             .insert_account(&account, None, &AuthSecretKey::RpoFalcon512(key_pair.clone()))
+            .await
             .is_err());
         assert!(client
             .insert_account(&account, Some(Word::default()), &AuthSecretKey::RpoFalcon512(key_pair))
+            .await
             .is_ok());
     }
 
-    #[test]
-    fn load_accounts_test() {
+    #[tokio::test]
+    async fn load_accounts_test() {
         // generate test client
-        let (mut client, _) = create_test_client();
+        let (mut client, _) = create_test_client().await;
 
         let created_accounts_data = create_initial_accounts_data();
 
         for account_data in created_accounts_data.clone() {
-            client.import_account(account_data).unwrap();
+            client.import_account(account_data).await.unwrap();
         }
 
         let expected_accounts: Vec<Account> = created_accounts_data
             .into_iter()
             .map(|account_data| account_data.account)
             .collect();
-        let accounts = client.get_account_headers().unwrap();
+        let accounts = client.get_account_headers().await.unwrap();
 
         assert_eq!(accounts.len(), 2);
         for (client_acc, expected_acc) in accounts.iter().zip(expected_accounts.iter()) {
