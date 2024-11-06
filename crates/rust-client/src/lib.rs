@@ -188,7 +188,7 @@ impl<R: FeltRng> Client<R> {
         &self,
         block_numbers: &[u32],
     ) -> Result<alloc::vec::Vec<(miden_objects::BlockHeader, bool)>, crate::ClientError> {
-        let result = winter_maybe_async::maybe_await!(self.store.get_block_headers(block_numbers))?;
+        let result = self.store.get_block_headers(block_numbers).await?;
         Ok(result)
     }
 }

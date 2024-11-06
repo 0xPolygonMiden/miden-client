@@ -13,7 +13,6 @@ use miden_objects::{
     BlockHeader, Digest,
 };
 use tracing::info;
-use winter_maybe_async::maybe_await;
 
 use crate::{
     notes::NoteUpdates,
@@ -145,7 +144,7 @@ impl<R: FeltRng> Client<R> {
 
     /// Returns the block number of the last state sync block.
     pub async fn get_sync_height(&self) -> Result<u32, ClientError> {
-        maybe_await!(self.store.get_sync_height()).map_err(|err| err.into())
+        self.store.get_sync_height().await.map_err(|err| err.into())
     }
 
     /// Syncs the client's state with the current state of the Miden network.
@@ -170,9 +169,12 @@ impl<R: FeltRng> Client<R> {
     }
 
     async fn sync_state_once(&mut self) -> Result<SyncStatus, ClientError> {
-        let current_block_num = maybe_await!(self.store.get_sync_height())?;
+        let current_block_num = self.store.get_sync_height().await?;
 
-        let accounts: Vec<AccountHeader> = maybe_await!(self.store.get_account_headers())?
+        let accounts: Vec<AccountHeader> = self
+            .store
+            .get_account_headers()
+            .await?
             .into_iter()
             .map(|(acc_header, _)| acc_header)
             .collect();
@@ -183,11 +185,13 @@ impl<R: FeltRng> Client<R> {
         // Note that besides filtering by nullifier prefixes, the node also filters by block number
         // (it only returns nullifiers from current_block_num until
         // response.block_header.block_num())
-        let nullifiers_tags: Vec<u16> =
-            maybe_await!(self.store.get_unspent_input_note_nullifiers())?
-                .iter()
-                .map(get_nullifier_prefix)
-                .collect();
+        let nullifiers_tags: Vec<u16> = self
+            .store
+            .get_unspent_input_note_nullifiers()
+            .await?
+            .iter()
+            .map(get_nullifier_prefix)
+            .collect();
 
         // Send request
         let account_ids: Vec<AccountId> = accounts.iter().map(|acc| acc.id()).collect();
@@ -230,7 +234,7 @@ impl<R: FeltRng> Client<R> {
             let current_partial_mmr = self.build_current_partial_mmr(false).await?;
 
             let (current_block, has_relevant_notes) =
-                maybe_await!(self.store.get_block_header_by_num(current_block_num))?;
+                self.store.get_block_header_by_num(current_block_num).await?;
 
             apply_mmr_changes(
                 current_partial_mmr,
@@ -263,7 +267,9 @@ impl<R: FeltRng> Client<R> {
         };
 
         // Apply received and computed updates to the store
-        maybe_await!(self.store.apply_state_sync(state_sync_update))
+        self.store
+            .apply_state_sync(state_sync_update)
+            .await
             .map_err(ClientError::StoreError)?;
 
         if response.chain_tip == response.block_header.block_num() {
@@ -289,17 +295,21 @@ impl<R: FeltRng> Client<R> {
         let relevant_note_filter =
             NoteFilter::List(committed_notes.iter().map(|note| note.note_id()).cloned().collect());
 
-        let mut committed_input_notes: BTreeMap<NoteId, InputNoteRecord> =
-            maybe_await!(self.store.get_input_notes(relevant_note_filter.clone()))?
-                .into_iter()
-                .map(|n| (n.id(), n))
-                .collect();
+        let mut committed_input_notes: BTreeMap<NoteId, InputNoteRecord> = self
+            .store
+            .get_input_notes(relevant_note_filter.clone())
+            .await?
+            .into_iter()
+            .map(|n| (n.id(), n))
+            .collect();
 
-        let mut committed_output_notes: BTreeMap<NoteId, OutputNoteRecord> =
-            maybe_await!(self.store.get_output_notes(relevant_note_filter))?
-                .into_iter()
-                .map(|n| (n.id(), n))
-                .collect();
+        let mut committed_output_notes: BTreeMap<NoteId, OutputNoteRecord> = self
+            .store
+            .get_output_notes(relevant_note_filter)
+            .await?
+            .into_iter()
+            .map(|n| (n.id(), n))
+            .collect();
 
         let mut new_public_notes = vec![];
         let mut committed_tracked_input_notes = vec![];
@@ -369,23 +379,27 @@ impl<R: FeltRng> Client<R> {
             nullifiers.iter().map(|nullifier_update| nullifier_update.nullifier).collect(),
         );
 
-        let mut consumed_input_notes: BTreeMap<Nullifier, InputNoteRecord> =
-            maybe_await!(self.store.get_input_notes(nullifier_filter.clone()))?
-                .into_iter()
-                .map(|n| (n.nullifier(), n))
-                .collect();
+        let mut consumed_input_notes: BTreeMap<Nullifier, InputNoteRecord> = self
+            .store
+            .get_input_notes(nullifier_filter.clone())
+            .await?
+            .into_iter()
+            .map(|n| (n.nullifier(), n))
+            .collect();
 
-        let mut consumed_output_notes: BTreeMap<Nullifier, OutputNoteRecord> =
-            maybe_await!(self.store.get_output_notes(nullifier_filter))?
-                .into_iter()
-                .map(|n| {
-                    (
-                        n.nullifier()
-                            .expect("Output notes returned by this query should have nullifiers"),
-                        n,
-                    )
-                })
-                .collect();
+        let mut consumed_output_notes: BTreeMap<Nullifier, OutputNoteRecord> = self
+            .store
+            .get_output_notes(nullifier_filter)
+            .await?
+            .into_iter()
+            .map(|n| {
+                (
+                    n.nullifier()
+                        .expect("Output notes returned by this query should have nullifiers"),
+                    n,
+                )
+            })
+            .collect();
 
         let mut consumed_tracked_input_notes = vec![];
         let mut consumed_tracked_output_notes = vec![];
@@ -513,11 +527,13 @@ impl<R: FeltRng> Client<R> {
         mut transactions: Vec<TransactionUpdate>,
     ) -> Result<Vec<TransactionUpdate>, ClientError> {
         // Get current uncommitted transactions
-        let uncommitted_transaction_ids =
-            maybe_await!(self.store.get_transactions(TransactionFilter::Uncomitted))?
-                .into_iter()
-                .map(|tx| tx.id)
-                .collect::<Vec<_>>();
+        let uncommitted_transaction_ids = self
+            .store
+            .get_transactions(TransactionFilter::Uncomitted)
+            .await?
+            .into_iter()
+            .map(|tx| tx.id)
+            .collect::<Vec<_>>();
 
         transactions.retain(|transaction_update| {
             uncommitted_transaction_ids.contains(&transaction_update.transaction_id)
@@ -573,7 +589,7 @@ impl<R: FeltRng> Client<R> {
             // update we ignore it.
             if mismatched_accounts.is_some() {
                 let account_by_hash =
-                    maybe_await!(self.store.get_account_header_by_hash(*remote_account_hash))?;
+                    self.store.get_account_header_by_hash(*remote_account_hash).await?;
 
                 if account_by_hash.is_none() {
                     return Err(StoreError::AccountHashMismatch(*remote_account_id).into());

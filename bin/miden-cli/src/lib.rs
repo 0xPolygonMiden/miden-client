@@ -102,7 +102,7 @@ impl Cli {
 
         // Create the client
         let (cli_config, _config_path) = load_config_file()?;
-        let store = SqliteStore::new(&cli_config.store).map_err(ClientError::StoreError)?;
+        let store = SqliteStore::new(&cli_config.store).await.map_err(ClientError::StoreError)?;
         let store = Arc::new(store);
 
         let mut rng = rand::thread_rng();

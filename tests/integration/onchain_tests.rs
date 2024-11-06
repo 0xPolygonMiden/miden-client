@@ -15,11 +15,11 @@ use super::common::*;
 #[tokio::test]
 async fn test_onchain_notes_flow() {
     // Client 1 is an offchain faucet which will mint an onchain note for client 2
-    let mut client_1 = create_test_client();
+    let mut client_1 = create_test_client().await;
     // Client 2 is an offchain account which will consume the note that it will sync from the node
-    let mut client_2 = create_test_client();
+    let mut client_2 = create_test_client().await;
     // Client 3 will be transferred part of the assets by client 2's account
-    let mut client_3 = create_test_client();
+    let mut client_3 = create_test_client().await;
     wait_for_node(&mut client_3).await;
 
     // Create faucet account
@@ -121,8 +121,8 @@ async fn test_onchain_notes_flow() {
 
 #[tokio::test]
 async fn test_onchain_accounts() {
-    let mut client_1 = create_test_client();
-    let mut client_2 = create_test_client();
+    let mut client_1 = create_test_client().await;
+    let mut client_2 = create_test_client().await;
     wait_for_node(&mut client_2).await;
 
     let (first_regular_account, _second_regular_account, faucet_account_header) =
@@ -274,13 +274,13 @@ async fn test_onchain_accounts() {
 #[tokio::test]
 async fn test_onchain_notes_sync_with_tag() {
     // Client 1 has an offchain faucet which will mint an onchain note for client 2
-    let mut client_1 = create_test_client();
+    let mut client_1 = create_test_client().await;
     // Client 2 will be used to sync and check that by adding the tag we can still fetch notes
     // whose tag doesn't necessarily match any of its accounts
-    let mut client_2 = create_test_client();
+    let mut client_2 = create_test_client().await;
     // Client 3 will be the control client. We won't add any tags and expect the note not to be
     // fetched
-    let mut client_3 = create_test_client();
+    let mut client_3 = create_test_client().await;
     wait_for_node(&mut client_3).await;
 
     // Create faucet account

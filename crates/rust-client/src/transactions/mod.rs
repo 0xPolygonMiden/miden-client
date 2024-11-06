@@ -19,7 +19,6 @@ use miden_objects::{
 pub use miden_tx::{LocalTransactionProver, ProvingOptions, TransactionProver};
 use script_builder::{AccountCapabilities, AccountInterface};
 use tracing::info;
-use winter_maybe_async::*;
 
 use super::{Client, FeltRng};
 use crate::{
@@ -279,7 +278,7 @@ impl<R: FeltRng> Client<R> {
         &self,
         filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, ClientError> {
-        maybe_await!(self.store.get_transactions(filter)).map_err(|err| err.into())
+        self.store.get_transactions(filter).await.map_err(|err| err.into())
     }
 
     // TRANSACTION
@@ -308,9 +307,10 @@ impl<R: FeltRng> Client<R> {
         let authenticated_input_note_ids: Vec<NoteId> =
             transaction_request.authenticated_input_note_ids().collect::<Vec<_>>();
 
-        let authenticated_note_records = maybe_await!(self
+        let authenticated_note_records = self
             .store
-            .get_input_notes(NoteFilter::List(authenticated_input_note_ids)))?;
+            .get_input_notes(NoteFilter::List(authenticated_input_note_ids))
+            .await?;
 
         for authenticated_note_record in authenticated_note_records {
             if !authenticated_note_record.is_authenticated() {
@@ -328,9 +328,9 @@ impl<R: FeltRng> Client<R> {
             .map(|note| note.into())
             .collect::<Vec<_>>();
 
-        maybe_await!(self.store.upsert_input_notes(&unauthenticated_input_notes))?;
+        self.store.upsert_input_notes(&unauthenticated_input_notes).await?;
 
-        let block_num = maybe_await!(self.store.get_sync_height())?;
+        let block_num = self.store.get_sync_height().await?;
 
         let note_ids = transaction_request.get_input_note_ids();
 
@@ -346,9 +346,10 @@ impl<R: FeltRng> Client<R> {
         let tx_args = transaction_request.into_transaction_args(tx_script);
 
         // Execute the transaction and get the witness
-        let executed_transaction = maybe_await!(self
+        let executed_transaction = self
             .tx_executor
-            .execute_transaction(account_id, block_num, &note_ids, tx_args,))?;
+            .execute_transaction(account_id, block_num, &note_ids, tx_args)
+            .await?;
 
         // Check that the expected output notes matches the transaction outcome.
         // We compare authentication hashes where possible since that involves note IDs + metadata
@@ -392,7 +393,7 @@ impl<R: FeltRng> Client<R> {
         info!("Proving transaction...");
 
         let proven_transaction =
-            maybe_await!(self.tx_prover.prove(tx_result.executed_transaction().clone().into()))?;
+            self.tx_prover.prove(tx_result.executed_transaction().clone().into()).await?;
 
         info!("Transaction proven.");
 
@@ -468,7 +469,7 @@ impl<R: FeltRng> Client<R> {
             new_tags,
         );
 
-        maybe_await!(self.store.apply_transaction(tx_update))?;
+        self.store.apply_transaction(tx_update).await?;
         info!("Transaction stored.");
         Ok(())
     }
@@ -788,7 +789,7 @@ mod test {
 
     #[tokio::test]
     async fn test_transaction_creates_two_notes() {
-        let (mut client, _) = create_test_client();
+        let (mut client, _) = create_test_client().await;
         let asset_1: Asset =
             FungibleAsset::new(ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN.try_into().unwrap(), 123)
                 .unwrap()

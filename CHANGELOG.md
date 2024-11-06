@@ -4,7 +4,7 @@
 
 * Rebuilt WASM with latest dependencies (#575).
 * Added Transaction Integration Tests for Web Client (#569).
-* Moved note update logic outside of the `Store` (#559)
+* Moved note update logic outside of the `Store` (#559).
 * Added delegated proving for web client + improved note models (#566).
 * Added remote prover support to the web client with CI tests (#562).
 * [BREAKING] Replaced `maybe_await` from `Client` methods in favor of using `async` (#565).

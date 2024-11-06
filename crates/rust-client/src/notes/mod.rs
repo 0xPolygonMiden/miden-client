@@ -5,7 +5,6 @@ use alloc::{collections::BTreeSet, string::ToString, vec::Vec};
 
 use miden_lib::transaction::TransactionKernel;
 use miden_objects::{accounts::AccountId, crypto::rand::FeltRng};
-use winter_maybe_async::maybe_await;
 
 use crate::{
     store::{InputNoteRecord, NoteFilter, OutputNoteRecord},
@@ -48,7 +47,7 @@ impl<R: FeltRng> Client<R> {
         &self,
         filter: NoteFilter,
     ) -> Result<Vec<InputNoteRecord>, ClientError> {
-        maybe_await!(self.store.get_input_notes(filter)).map_err(|err| err.into())
+        self.store.get_input_notes(filter).await.map_err(|err| err.into())
     }
 
     /// Returns the input notes and their consumability.
@@ -58,7 +57,7 @@ impl<R: FeltRng> Client<R> {
         &self,
         account_id: Option<AccountId>,
     ) -> Result<Vec<(InputNoteRecord, Vec<NoteConsumability>)>, ClientError> {
-        let commited_notes = maybe_await!(self.store.get_input_notes(NoteFilter::Committed))?;
+        let commited_notes = self.store.get_input_notes(NoteFilter::Committed).await?;
 
         let note_screener = NoteScreener::new(self.store.clone());
 
@@ -99,7 +98,10 @@ impl<R: FeltRng> Client<R> {
     ///
     /// Returns an error if there is no Note with the provided ID
     pub async fn get_input_note(&self, note_id: NoteId) -> Result<InputNoteRecord, ClientError> {
-        Ok(maybe_await!(self.store.get_input_notes(NoteFilter::Unique(note_id)))?
+        Ok(self
+            .store
+            .get_input_notes(NoteFilter::Unique(note_id))
+            .await?
             .pop()
             .expect("The vector always has one element for NoteFilter::Unique"))
     }
@@ -112,12 +114,15 @@ impl<R: FeltRng> Client<R> {
         &self,
         filter: NoteFilter,
     ) -> Result<Vec<OutputNoteRecord>, ClientError> {
-        maybe_await!(self.store.get_output_notes(filter)).map_err(|err| err.into())
+        self.store.get_output_notes(filter).await.map_err(|err| err.into())
     }
 
     /// Returns the output note with the specified hash.
     pub async fn get_output_note(&self, note_id: NoteId) -> Result<OutputNoteRecord, ClientError> {
-        Ok(maybe_await!(self.store.get_output_notes(NoteFilter::Unique(note_id)))?
+        Ok(self
+            .store
+            .get_output_notes(NoteFilter::Unique(note_id))
+            .await?
             .pop()
             .expect("The vector always has one element for NoteFilter::Unique"))
     }

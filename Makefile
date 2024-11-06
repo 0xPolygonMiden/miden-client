@@ -19,11 +19,11 @@ PROVER_FEATURES_TESTING=--features "testing"
 
 .PHONY: clippy
  clippy: ## Run Clippy with configs
-	cargo clippy --workspace --exclude miden-client-web --all-targets $(FEATURES_CLI) -- -D warnings --allow clippy::arc_with_non_send_sync
+	cargo clippy --workspace --exclude miden-client-web --all-targets $(FEATURES_CLI) -- -D warnings
 
 .PHONY: clippy-wasm
  clippy-wasm: ## Run Clippy for the miden-client-web package
-	cargo clippy --package miden-client-web --target wasm32-unknown-unknown --all-targets $(FEATURES_WEB_CLIENT) -- -D warnings --allow clippy::arc_with_non_send_sync
+	cargo clippy --package miden-client-web --target wasm32-unknown-unknown --all-targets $(FEATURES_WEB_CLIENT) -- -D warnings
 
 .PHONY: fix
 fix: ## Run Fix with configs

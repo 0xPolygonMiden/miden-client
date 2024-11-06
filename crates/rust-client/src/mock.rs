@@ -315,7 +315,7 @@ impl NodeRpcClient for MockRpcApi {
 // HELPERS
 // ================================================================================================
 
-pub fn create_test_client() -> (MockClient, MockRpcApi) {
+pub async fn create_test_client() -> (MockClient, MockRpcApi) {
     let store: SqliteStoreConfig = create_test_store_path()
         .into_os_string()
         .into_string()
@@ -323,7 +323,7 @@ pub fn create_test_client() -> (MockClient, MockRpcApi) {
         .try_into()
         .unwrap();
 
-    let store = SqliteStore::new(&store).unwrap();
+    let store = SqliteStore::new(&store).await.unwrap();
     let store = Arc::new(store);
 
     let mut rng = rand::thread_rng();

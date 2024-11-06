@@ -20,10 +20,10 @@ async fn test_swap_fully_onchain() {
     const REQUESTED_ASSET_AMOUNT: u64 = 25;
     const BTC_MINT_AMOUNT: u64 = 1000;
     const ETH_MINT_AMOUNT: u64 = 1000;
-    let mut client1 = create_test_client();
+    let mut client1 = create_test_client().await;
     wait_for_node(&mut client1).await;
-    let mut client2 = create_test_client();
-    let mut client_with_faucets = create_test_client();
+    let mut client2 = create_test_client().await;
+    let mut client_with_faucets = create_test_client().await;
 
     client1.sync_state().await.unwrap();
     client2.sync_state().await.unwrap();
@@ -233,10 +233,10 @@ async fn test_swap_offchain() {
     const REQUESTED_ASSET_AMOUNT: u64 = 25;
     const BTC_MINT_AMOUNT: u64 = 1000;
     const ETH_MINT_AMOUNT: u64 = 1000;
-    let mut client1 = create_test_client();
+    let mut client1 = create_test_client().await;
     wait_for_node(&mut client1).await;
-    let mut client2 = create_test_client();
-    let mut client_with_faucets = create_test_client();
+    let mut client2 = create_test_client().await;
+    let mut client_with_faucets = create_test_client().await;
 
     client1.sync_state().await.unwrap();
     client2.sync_state().await.unwrap();

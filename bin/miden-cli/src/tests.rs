@@ -101,7 +101,7 @@ async fn test_mint_with_untracked_account() {
 
     let target_account_id = {
         let other_store_path = create_test_store_path();
-        let mut client = create_test_client_with_store_path(&other_store_path);
+        let mut client = create_test_client_with_store_path(&other_store_path).await;
         let account_template = AccountTemplate::BasicWallet {
             mutable_code: false,
             storage_mode: AccountStorageMode::Private,
@@ -132,7 +132,7 @@ async fn test_mint_with_untracked_account() {
     create_faucet_cmd.current_dir(&temp_dir).assert().success();
 
     let fungible_faucet_account_id = {
-        let client = create_test_client_with_store_path(&store_path);
+        let client = create_test_client_with_store_path(&store_path).await;
         let accounts = client.get_account_headers().await.unwrap();
 
         accounts.first().unwrap().0.id().to_hex()
@@ -197,7 +197,7 @@ async fn test_import_genesis_accounts_can_be_used_for_transactions() {
     sync_cli(&temp_dir);
 
     let fungible_faucet_account_id = {
-        let client = create_test_client_with_store_path(&store_path);
+        let client = create_test_client_with_store_path(&store_path).await;
         let accounts = client.get_account_headers().await.unwrap();
 
         let account_ids = accounts.iter().map(|(acc, _seed)| acc.id()).collect::<Vec<_>>();
@@ -261,7 +261,7 @@ async fn test_cli_export_import_note() {
     create_wallet_cmd.current_dir(&temp_dir_2).assert().success();
 
     let first_basic_account_id = {
-        let client = create_test_client_with_store_path(&store_path_2);
+        let client = create_test_client_with_store_path(&store_path_2).await;
         let accounts = client.get_account_headers().await.unwrap();
 
         accounts.first().unwrap().0.id().to_hex()
@@ -288,7 +288,7 @@ async fn test_cli_export_import_note() {
     create_faucet_cmd.current_dir(&temp_dir_1).assert().success();
 
     let fungible_faucet_account_id = {
-        let client = create_test_client_with_store_path(&store_path_1);
+        let client = create_test_client_with_store_path(&store_path_1).await;
         let accounts = client.get_account_headers().await.unwrap();
 
         accounts.first().unwrap().0.id().to_hex()
@@ -301,7 +301,7 @@ async fn test_cli_export_import_note() {
 
     // Create a Client to get notes
     let note_to_export_id = {
-        let client = create_test_client_with_store_path(&store_path_1);
+        let client = create_test_client_with_store_path(&store_path_1).await;
         let output_notes = client.get_output_notes(NoteFilter::All).await.unwrap();
 
         output_notes.first().unwrap().id().to_hex()
@@ -383,7 +383,7 @@ async fn test_cli_export_import_account() {
     create_wallet_cmd.current_dir(&temp_dir_1).assert().success();
 
     let first_basic_account_id = {
-        let client = create_test_client_with_store_path(&store_path_1);
+        let client = create_test_client_with_store_path(&store_path_1).await;
         let accounts = client.get_account_headers().await.unwrap();
 
         accounts.first().unwrap().0.id().to_hex()
@@ -413,7 +413,7 @@ async fn test_cli_export_import_account() {
     import_cmd.current_dir(&temp_dir_2).assert().success();
 
     // Ensure the account was imported
-    let client_2 = create_test_client_with_store_path(&store_path_2);
+    let client_2 = create_test_client_with_store_path(&store_path_2).await;
     assert!(matches!(
         client_2
             .get_account(AccountId::from_hex(&first_basic_account_id).unwrap())
@@ -518,7 +518,7 @@ fn send_cli(cli_path: &Path, from_account_id: &str, to_account_id: &str, faucet_
 
 /// Syncs until there are no input notes satisfying the provided filter
 async fn sync_until_no_notes(store_path: &Path, cli_path: &Path, filter: NoteFilter) {
-    let client = create_test_client_with_store_path(store_path);
+    let client = create_test_client_with_store_path(store_path).await;
 
     while !client.get_input_notes(filter.clone()).await.unwrap().is_empty() {
         sync_cli(cli_path);
@@ -543,12 +543,12 @@ pub fn create_test_store_path() -> std::path::PathBuf {
 
 pub type TestClient = Client<RpoRandomCoin>;
 
-fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
+async fn create_test_client_with_store_path(store_path: &Path) -> TestClient {
     let store_config = SqliteStoreConfig::try_from(store_path.to_str().unwrap()).unwrap();
     let rpc_config = RpcConfig::default();
 
     let store = {
-        let sqlite_store = SqliteStore::new(&store_config).unwrap();
+        let sqlite_store = SqliteStore::new(&store_config).await.unwrap();
         std::sync::Arc::new(sqlite_store)
     };
 

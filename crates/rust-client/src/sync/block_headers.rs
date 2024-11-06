@@ -6,7 +6,6 @@ use miden_objects::{
     BlockHeader, Digest,
 };
 use tracing::warn;
-use winter_maybe_async::maybe_await;
 
 use super::NoteUpdates;
 use crate::{
@@ -22,7 +21,7 @@ impl<R: FeltRng> Client<R> {
         let mut current_partial_mmr = self.build_current_partial_mmr(true).await?;
 
         let mut changed_notes = vec![];
-        for mut note in maybe_await!(self.store.get_input_notes(NoteFilter::Unverified))? {
+        for mut note in self.store.get_input_notes(NoteFilter::Unverified).await? {
             let block_num = note
                 .inclusion_proof()
                 .expect("Commited notes should have inclusion proofs")
@@ -37,7 +36,7 @@ impl<R: FeltRng> Client<R> {
             }
         }
 
-        maybe_await!(self.store.upsert_input_notes(&changed_notes))?;
+        self.store.upsert_input_notes(&changed_notes).await?;
 
         Ok(())
     }
@@ -45,7 +44,7 @@ impl<R: FeltRng> Client<R> {
     /// Attempts to retrieve the genesis block from the store. If not found,
     /// it requests it from the node and store it.
     pub(crate) async fn ensure_genesis_in_place(&mut self) -> Result<(), ClientError> {
-        let genesis = maybe_await!(self.store.get_block_header_by_num(0));
+        let genesis = self.store.get_block_header_by_num(0).await;
 
         match genesis {
             Ok(_) => Ok(()),
@@ -63,7 +62,7 @@ impl<R: FeltRng> Client<R> {
             MmrPeaks::new(0, vec![]).expect("Blank MmrPeaks should not fail to instantiate");
         // NOTE: If genesis block data ever includes notes in the future, the third parameter in
         // this `insert_block_header` call may be `true`
-        maybe_await!(self.store.insert_block_header(genesis_block, blank_mmr_peaks, false))?;
+        self.store.insert_block_header(genesis_block, blank_mmr_peaks, false).await?;
         Ok(())
     }
 
@@ -109,14 +108,13 @@ impl<R: FeltRng> Client<R> {
         &self,
         include_current_block: bool,
     ) -> Result<PartialMmr, ClientError> {
-        let current_block_num = maybe_await!(self.store.get_sync_height())?;
+        let current_block_num = self.store.get_sync_height().await?;
 
-        let tracked_nodes = maybe_await!(self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All))?;
-        let current_peaks =
-            maybe_await!(self.store.get_chain_mmr_peaks_by_block_num(current_block_num))?;
+        let tracked_nodes = self.store.get_chain_mmr_nodes(ChainMmrNodeFilter::All).await?;
+        let current_peaks = self.store.get_chain_mmr_peaks_by_block_num(current_block_num).await?;
 
         let track_latest = if current_block_num != 0 {
-            match maybe_await!(self.store.get_block_header_by_num(current_block_num - 1)) {
+            match self.store.get_block_header_by_num(current_block_num - 1).await {
                 Ok((_, previous_block_had_notes)) => Ok(previous_block_had_notes),
                 Err(StoreError::BlockHeaderNotFound(_)) => Ok(false),
                 Err(err) => Err(ClientError::StoreError(err)),
@@ -130,7 +128,7 @@ impl<R: FeltRng> Client<R> {
 
         if include_current_block {
             let (current_block, has_client_notes) =
-                maybe_await!(self.store.get_block_header_by_num(current_block_num))?;
+                self.store.get_block_header_by_num(current_block_num).await?;
 
             current_partial_mmr.add(current_block.hash(), has_client_notes);
         }
@@ -149,7 +147,7 @@ impl<R: FeltRng> Client<R> {
     ) -> Result<BlockHeader, ClientError> {
         if current_partial_mmr.is_tracked(block_num as usize) {
             warn!("Current partial MMR already contains the requested data");
-            let (block_header, _) = maybe_await!(self.store.get_block_header_by_num(block_num))?;
+            let (block_header, _) = self.store.get_block_header_by_num(block_num).await?;
             return Ok(block_header);
         }
 
@@ -173,12 +171,10 @@ impl<R: FeltRng> Client<R> {
             .map_err(StoreError::MmrError)?;
 
         // Insert header and MMR nodes
-        maybe_await!(self.store.insert_block_header(
-            block_header,
-            current_partial_mmr.peaks(),
-            true
-        ))?;
-        maybe_await!(self.store.insert_chain_mmr_nodes(&path_nodes))?;
+        self.store
+            .insert_block_header(block_header, current_partial_mmr.peaks(), true)
+            .await?;
+        self.store.insert_chain_mmr_nodes(&path_nodes).await?;
 
         Ok(block_header)
     }

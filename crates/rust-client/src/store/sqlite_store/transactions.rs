@@ -12,7 +12,7 @@ use miden_objects::{
     },
     Digest,
 };
-use rusqlite::{params, Transaction};
+use rusqlite::{params, Connection, Transaction};
 use tracing::info;
 
 use super::{
@@ -70,11 +70,10 @@ type SerializedTransactionData = (
 impl SqliteStore {
     /// Retrieves tracked transactions, filtered by [TransactionFilter].
     pub fn get_transactions(
-        &self,
+        conn: &mut Connection,
         filter: TransactionFilter,
     ) -> Result<Vec<TransactionRecord>, StoreError> {
-        self.db()
-            .prepare(&filter.to_query())?
+        conn.prepare(&filter.to_query())?
             .query_map([], parse_transaction_columns)
             .expect("no binding parameters used in query")
             .map(|result| Ok(result?).and_then(parse_transaction))
@@ -82,9 +81,11 @@ impl SqliteStore {
     }
 
     /// Inserts a transaction and updates the current state based on the `tx_result` changes
-    pub fn apply_transaction(&self, tx_update: TransactionStoreUpdate) -> Result<(), StoreError> {
-        let mut db = self.db();
-        let tx = db.transaction()?;
+    pub fn apply_transaction(
+        conn: &mut Connection,
+        tx_update: TransactionStoreUpdate,
+    ) -> Result<(), StoreError> {
+        let tx = conn.transaction()?;
 
         // Transaction Data
         insert_proven_transaction_data(&tx, tx_update.executed_transaction())?;

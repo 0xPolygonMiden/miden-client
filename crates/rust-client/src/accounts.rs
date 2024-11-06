@@ -17,7 +17,6 @@ use miden_objects::{
     crypto::{dsa::rpo_falcon512::SecretKey, rand::FeltRng},
     Felt, Word,
 };
-use winter_maybe_async::maybe_await;
 
 use super::Client;
 use crate::ClientError;
@@ -68,7 +67,7 @@ impl<R: FeltRng> Client<R> {
             } => self.new_fungible_faucet(token_symbol, decimals, max_supply, storage_mode).await,
         }?;
 
-        maybe_await!(self.store.add_note_tag((&account_and_seed.0).try_into()?))?;
+        self.store.add_note_tag((&account_and_seed.0).try_into()?).await?;
 
         Ok(account_and_seed)
     }
@@ -182,7 +181,9 @@ impl<R: FeltRng> Client<R> {
             return Err(ClientError::ImportNewAccountWithoutSeed);
         }
 
-        maybe_await!(self.store.insert_account(account, account_seed, auth_info))
+        self.store
+            .insert_account(account, account_seed, auth_info)
+            .await
             .map_err(ClientError::StoreError)
     }
 
@@ -196,7 +197,7 @@ impl<R: FeltRng> Client<R> {
     pub async fn get_account_headers(
         &self,
     ) -> Result<Vec<(AccountHeader, Option<Word>)>, ClientError> {
-        maybe_await!(self.store.get_account_headers()).map_err(|err| err.into())
+        self.store.get_account_headers().await.map_err(|err| err.into())
     }
 
     /// Retrieves a full [Account] object. The seed will be returned if the account is new,
@@ -213,7 +214,7 @@ impl<R: FeltRng> Client<R> {
         &self,
         account_id: AccountId,
     ) -> Result<(Account, Option<Word>), ClientError> {
-        maybe_await!(self.store.get_account(account_id)).map_err(|err| err.into())
+        self.store.get_account(account_id).await.map_err(|err| err.into())
     }
 
     /// Retrieves an [AccountHeader] object for the specified [AccountId] along with the seed
@@ -229,7 +230,7 @@ impl<R: FeltRng> Client<R> {
         &self,
         account_id: AccountId,
     ) -> Result<(AccountHeader, Option<Word>), ClientError> {
-        maybe_await!(self.store.get_account_header(account_id)).map_err(|err| err.into())
+        self.store.get_account_header(account_id).await.map_err(|err| err.into())
     }
 
     /// Returns an [AuthSecretKey] object utilized to authenticate an account.
@@ -243,7 +244,7 @@ impl<R: FeltRng> Client<R> {
         &self,
         account_id: AccountId,
     ) -> Result<AuthSecretKey, ClientError> {
-        maybe_await!(self.store.get_account_auth(account_id)).map_err(|err| err.into())
+        self.store.get_account_auth(account_id).await.map_err(|err| err.into())
     }
 }
 
@@ -293,7 +294,7 @@ pub mod tests {
     #[tokio::test]
     pub async fn try_import_new_account() {
         // generate test client
-        let (mut client, _rpc_api) = create_test_client();
+        let (mut client, _rpc_api) = create_test_client().await;
 
         let account = Account::mock(
             ACCOUNT_ID_FUNGIBLE_FAUCET_OFF_CHAIN,
@@ -316,7 +317,7 @@ pub mod tests {
     #[tokio::test]
     async fn load_accounts_test() {
         // generate test client
-        let (mut client, _) = create_test_client();
+        let (mut client, _) = create_test_client().await;
 
         let created_accounts_data = create_initial_accounts_data();
 
