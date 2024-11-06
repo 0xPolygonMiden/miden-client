@@ -28,7 +28,6 @@ use commands::{
     tags::TagsCmd,
     transactions::TransactionCmd,
 };
-use winter_maybe_async::{maybe_async, maybe_await};
 
 use self::utils::load_config_file;
 

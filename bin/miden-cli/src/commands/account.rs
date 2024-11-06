@@ -5,7 +5,6 @@ use miden_client::{
     crypto::FeltRng,
     Client, ZERO,
 };
-use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
     config::CliConfig,

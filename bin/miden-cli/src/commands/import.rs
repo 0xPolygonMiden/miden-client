@@ -12,7 +12,6 @@ use miden_client::{
     Client,
 };
 use tracing::info;
-use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{commands::account::maybe_set_default_account, utils::load_config_file, Parser};
 

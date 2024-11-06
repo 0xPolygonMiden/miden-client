@@ -5,7 +5,6 @@ use miden_client::{
     crypto::FeltRng,
     Client,
 };
-use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{
     commands::account::maybe_set_default_account, utils::load_config_file, CLIENT_BINARY_NAME,

@@ -4,7 +4,6 @@ use miden_client::{
     accounts::AccountData, crypto::FeltRng, store::NoteExportType, utils::Serializable, Client,
 };
 use tracing::info;
-use winter_maybe_async::{maybe_async, maybe_await};
 
 use crate::{get_output_note_with_id_prefix, utils::parse_account_id, Parser};
 

@@ -20,7 +20,6 @@ use miden_objects::{
 
 mod common;
 use common::*;
-use winter_maybe_async::maybe_await;
 
 mod custom_transactions_tests;
 mod onchain_tests;
@@ -813,8 +812,8 @@ async fn test_sync_detail_values() {
     let (first_regular_account, _, faucet_account_header) =
         setup(&mut client1, AccountStorageMode::Private).await;
 
-    let (second_regular_account, _) =
-        maybe_await!(client2.new_account(AccountTemplate::BasicWallet {
+    let (second_regular_account, _) = client2
+        .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
             storage_mode: AccountStorageMode::Private,
         })
@@ -1008,8 +1007,8 @@ async fn test_consume_multiple_expected_notes() {
     // Setup accounts
     let (target_basic_account_1, _, faucet_account_header) =
         setup(&mut client, AccountStorageMode::Private).await;
-    let (target_basic_account_2, _) =
-        maybe_await!(unauth_client.new_account(AccountTemplate::BasicWallet {
+    let (target_basic_account_2, _) = unauth_client
+        .new_account(AccountTemplate::BasicWallet {
             mutable_code: false,
             storage_mode: AccountStorageMode::Private,
         })

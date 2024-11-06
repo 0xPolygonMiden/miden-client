@@ -21,7 +21,6 @@ use miden_objects::{
     vm::AdviceMap,
     Felt, Word,
 };
-use winter_maybe_async::maybe_await;
 
 use super::common::*;
 

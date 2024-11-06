@@ -266,7 +266,6 @@ pub mod tests {
         crypto::dsa::rpo_falcon512::SecretKey,
         Felt, Word,
     };
-    use winter_maybe_async::{maybe_async, maybe_await};
 
     use crate::mock::create_test_client;
 
