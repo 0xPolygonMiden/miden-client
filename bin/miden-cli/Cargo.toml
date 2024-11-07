@@ -1,9 +1,9 @@
 [package]
 name = "miden-cli"
-version = "0.5.0"
+version = "0.6.0"
 description = "CLI binary application that facilitates interaction with the Miden rollup"
 readme = "README.md"
-documentation = "https://docs.rs/miden-cli/0.5.0"
+documentation = "https://docs.rs/miden-cli/0.6.0"
 categories = ["command-line-utilities"]
 keywords = ["miden", "client", "cli"]
 license.workspace = true
@@ -43,4 +43,4 @@ tonic = { version = "0.12" }
 toml = { version = "0.8" }
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3" }
-miden-tx-prover = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next", features = ["async"] }
+miden-tx-prover = { version = "0.6", features = ["async"] }

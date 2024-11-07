@@ -1,9 +1,10 @@
 [package]
 name = "miden-client-web"
-version = "0.5.0"
+version = "0.6.0"
 description = "Web Client library that facilitates interaction with the Miden rollup"
 readme = "README.md"
 categories = ["no-std"]
+documentation = "https://docs.rs/miden-client-web/0.6.0"
 keywords = ["miden", "client", "web", "wasm"]
 license.workspace = true
 authors.workspace = true
@@ -19,10 +20,10 @@ testing = ["miden-client/testing"]
 
 [dependencies]
 getrandom = { version = "0.2", features = ["js"] }
-miden-client = { path = "../rust-client", version = "0.5", default-features = false, features = ["idxdb", "web-tonic", "testing"] }
+miden-client = { path = "../rust-client", version = "0.6", default-features = false, features = ["idxdb", "web-tonic", "testing"] }
 miden-lib = { workspace = true }
 miden-objects = { workspace = true }
-miden-tx-prover = { git = "https://github.com/0xPolygonMiden/miden-base", branch = "next", features = ["async", "testing"], default-features = false }
+miden-tx-prover = { version = "0.6", default-features = false, features = ["async", "testing"] }
 rand = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
