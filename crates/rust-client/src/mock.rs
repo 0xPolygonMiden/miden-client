@@ -1,4 +1,8 @@
-use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
+use alloc::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+    vec::Vec,
+};
 use std::env::temp_dir;
 
 use async_trait::async_trait;
@@ -296,7 +300,7 @@ impl NodeRpcClient for MockRpcApi {
 
     async fn get_account_proofs(
         &mut self,
-        _account_ids: &[AccountId],
+        _account_ids: &BTreeSet<AccountId>,
         _code_commitments: &[Digest],
         _include_headers: bool,
     ) -> Result<AccountProofs, RpcError> {

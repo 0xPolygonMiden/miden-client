@@ -2,7 +2,7 @@
 //! Remote Procedure Calls (RPC). It facilitates syncing with the network and submitting
 //! transactions.
 
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{boxed::Box, collections::BTreeSet, vec::Vec};
 use core::fmt;
 
 use async_trait::async_trait;
@@ -316,7 +316,7 @@ pub trait NodeRpcClient {
     /// Fetches the current account state, using th `/GetAccountProofs` RPC endpoint.
     async fn get_account_proofs(
         &mut self,
-        account_ids: &[AccountId],
+        account_ids: &BTreeSet<AccountId>,
         code_commitments: &[Digest],
         include_headers: bool,
     ) -> Result<AccountProofs, RpcError>;

@@ -102,7 +102,8 @@ async fn test_fpi() {
         .new_transaction(
             native_account.id(),
             TransactionRequest::new()
-                .with_foreign_public_accounts([foreign_account_id])
+                .with_public_foreign_accounts([foreign_account_id])
+                .unwrap()
                 .with_custom_script(tx_script)
                 .unwrap(),
         )

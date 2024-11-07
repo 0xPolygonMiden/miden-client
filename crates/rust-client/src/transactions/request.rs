@@ -74,9 +74,10 @@ pub struct TransactionRequest {
     advice_map: AdviceMap,
     /// Initial state of the `MerkleStore` that provides data during runtime.
     merkle_store: MerkleStore,
-    /// Foreign account data requirements. At execution time, data will be retrieved and injected
-    /// as advice inputs.
-    foreign_account_data: Vec<AccountId>,
+    /// Foreign account data requirements. At execution time, account state will be retrieved from
+    /// the network, and injected as advice inputs. Additionally, the account's code will be
+    /// added to the executor and prover.
+    foreign_account_ids: BTreeSet<AccountId>,
     /// The number of blocks in relation to the transaction's reference block after which the
     /// transaction will expire.
     expiration_delta: Option<u16>,
@@ -97,7 +98,7 @@ impl TransactionRequest {
             advice_map: AdviceMap::default(),
             merkle_store: MerkleStore::default(),
             expiration_delta: None,
-            foreign_account_data: Vec::default(),
+            foreign_account_ids: BTreeSet::default(),
         }
     }
 
@@ -182,15 +183,18 @@ impl TransactionRequest {
     ///
     /// At execution, the client queries the node and retrieves the state and current code for
     /// these accounts, and injects them as advice inputs.
-    pub fn with_foreign_public_accounts(
+    pub fn with_public_foreign_accounts(
         mut self,
-        foreign_account_data: impl IntoIterator<Item = AccountId>,
-    ) -> Self {
-        let foreign_accounts = foreign_account_data.into_iter();
+        foreign_account_ids: impl IntoIterator<Item = AccountId>,
+    ) -> Result<Self, TransactionRequestError> {
+        let mut foreign_accounts = foreign_account_ids.into_iter();
+        if let Some(private_account_id) = foreign_accounts.find(|acc_id| !acc_id.is_public()) {
+            return Err(TransactionRequestError::InvalidForeignAccountId(private_account_id));
+        }
 
-        self.foreign_account_data.extend(foreign_accounts);
+        self.foreign_account_ids.extend(foreign_accounts);
 
-        self
+        Ok(self)
     }
 
     /// Specifies a transaction's expected output notes.
@@ -432,9 +436,9 @@ impl TransactionRequest {
         &self.merkle_store
     }
 
-    /// Returns the foreign account data requirements for the transaction request.
-    pub fn foreign_account_data(&self) -> &[AccountId] {
-        &self.foreign_account_data
+    /// Returns the IDs of the required foreign accounts for the transaction request.
+    pub fn foreign_accounts(&self) -> &BTreeSet<AccountId> {
+        &self.foreign_account_ids
     }
 
     /// Converts the [TransactionRequest] into [TransactionArgs] in order to be executed by a Miden
@@ -501,7 +505,7 @@ impl Serializable for TransactionRequest {
         self.expected_future_notes.write_into(target);
         self.advice_map.clone().into_iter().collect::<Vec<_>>().write_into(target);
         self.merkle_store.write_into(target);
-        self.foreign_account_data.write_into(target);
+        self.foreign_account_ids.write_into(target);
         self.expiration_delta.write_into(target);
     }
 }
@@ -535,7 +539,7 @@ impl Deserializable for TransactionRequest {
         let advice_vec = Vec::<(Digest, Vec<Felt>)>::read_from(source)?;
         advice_map.extend(advice_vec);
         let merkle_store = MerkleStore::read_from(source)?;
-        let foreign_account_data = Vec::<AccountId>::read_from(source)?;
+        let foreign_account_data = BTreeSet::<AccountId>::read_from(source)?;
         let expiration_delta = Option::<u16>::read_from(source)?;
 
         Ok(TransactionRequest {
@@ -546,7 +550,7 @@ impl Deserializable for TransactionRequest {
             expected_future_notes,
             advice_map,
             merkle_store,
-            foreign_account_data,
+            foreign_account_ids: foreign_account_data,
             expiration_delta,
         })
     }
@@ -564,6 +568,7 @@ impl Default for TransactionRequest {
 /// Errors related to a [TransactionRequest]
 #[derive(Debug)]
 pub enum TransactionRequestError {
+    InvalidForeignAccountId(AccountId),
     InputNoteNotAuthenticated,
     InputNotesMapMissingUnauthenticatedNotes,
     InvalidNoteVariant,
@@ -585,6 +590,7 @@ impl From<TransactionScriptBuilderError> for TransactionRequestError {
 impl fmt::Display for TransactionRequestError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::InvalidForeignAccountId(acc_id) => write!(f, "Requested foreign account with ID {acc_id} is not public"),
             Self::InputNoteNotAuthenticated => write!(f, "Every authenticated note to be consumed should be committed and contain a valid inclusion proof"),
             Self::InputNotesMapMissingUnauthenticatedNotes => write!(f, "The input notes map should include keys for all provided unauthenticated input notes"),
             Self::InvalidNoteVariant => write!(f, "Own notes should be either full or partial, but not header"),
@@ -762,7 +768,8 @@ mod tests {
                 NoteTag::from_account_id(sender_id, NoteExecutionMode::Local).unwrap(),
             )])
             .extend_advice_map(advice_vec)
-            .with_foreign_public_accounts([target_id])
+            .with_public_foreign_accounts([target_id])
+            .unwrap()
             .with_own_output_notes(vec![
                 OutputNote::Full(notes.pop().unwrap()),
                 OutputNote::Partial(notes.pop().unwrap().into()),

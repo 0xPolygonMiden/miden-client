@@ -351,9 +351,8 @@ impl<R: FeltRng> Client<R> {
             .build_transaction_script(self.get_account_capabilities(account_id).await?)?;
 
         // Inject foreign account data
-        let (foreign_data_advice_inputs, foreign_account_codes, fpi_block_num) = self
-            .get_foreign_account_inputs(transaction_request.foreign_account_data())
-            .await?;
+        let (foreign_data_advice_inputs, foreign_account_codes, fpi_block_num) =
+            self.get_foreign_account_inputs(transaction_request.foreign_accounts()).await?;
 
         let tx_args = transaction_request
             .into_transaction_args(tx_script)
@@ -685,7 +684,7 @@ impl<R: FeltRng> Client<R> {
     /// retrieve it.
     async fn get_foreign_account_inputs(
         &mut self,
-        account_ids: &[AccountId],
+        account_ids: &BTreeSet<AccountId>,
     ) -> Result<(AdviceInputs, Vec<AccountCode>, Option<u32>), ClientError> {
         let mut advice_inputs = AdviceInputs::default();
         let mut account_codes = Vec::new();
