@@ -1,40 +1,48 @@
 # Changelog
 
-## 0.6.0 (TBD)
+## 0.6.0 (2024-11-08)
 
-* Rebuilt WASM with latest dependencies (#575).
-* Added Transaction Integration Tests for Web Client (#569).
-* Moved note update logic outside of the `Store` (#559).
+### Features
+
 * Added FPI (Foreign Procedure Invocation) support for `TransactionRequest` (#560).
-* Added delegated proving for web client + improved note models (#566).
-* Added remote prover support to the web client with CI tests (#562).
-* [BREAKING] Replaced `maybe_await` from `Client` and `Store` with `async`, removed `async` feature (#565, #570).
-* Allow to set expiration delta for `TransactionRequest` (#553).
+* [BREAKING] Added transaction prover component to `Client` (#550).
 * Added WASM consumable notes API + improved note models (#561).
+* Added remote prover support to the web client with CI tests (#562).
+* Added delegated proving for web client + improved note models (#566).
+* Enabled setting expiration delta for `TransactionRequest` (#553).
 * Implemented `GetAccountProof` endpoint (#556).
-* [BREAKING] Refactored `OutputNoteRecord` to use states and transitions for updates (#551).
-* Added better error handling for WASM sync state (#558).
-* Added WASM Input note tests + updated input note models (#554)
-* Added support for remote proving in the CLI (#552).
-* Added new variants for the `NoteFilter` struct (#538).
+* [BREAKING] Added support for committed and discarded transactions (#531).
 * [BREAKING] Added note tags for future notes in `TransactionRequest` (#538).
 * Added support for multiple input note inserts at once (#538).
-* Expose full SyncSummary from WASM (#555).
-* Fixed WASM + added additional WASM models (#548).
-* Added dedicated separate table for tracked tags (#535).
-* [BREAKING] Added transaction prover component to `Client` (#550).
-* [BREAKING] Added support for committed and discarded transactions (#531).
-* [BREAKING] Refactored Client struct to use trait objects for inner struct fields (#539).
-* Fixed panic on export command without type (#537).
-* Added Account Integration Tests for Web Client (#532).
-* [BREAKING] Refactored the `Store` structure and interface for input notes (#520).
-* Fixed Broken WASM (#519).
-* [BREAKING] Changed `PaymentTransactionData` and `TransactionRequest` to allow for multiple assets per note (#525).
-* [BREAKING] Removed serde's de/serialization from `NoteRecordDetails` and `NoteStatus` (#514).
 * Added support for custom transactions in web client (#519).
-* [BREAKING] Renamed `off-chain` and `on-chain` to `private` and `public` respectively for the account storage modes (#516).
+* Added support for remote proving in the CLI (#552).
+
+### Enhancements
+
+* Moved note update logic outside of the `Store` (#559).
+* Added Transaction Integration Tests for Web Client (#569).
+* Expose full SyncSummary from WASM (#555).
+* Added new variants for the `NoteFilter` struct (#538).
+* Added Account Integration Tests for Web Client (#532).
+* Fixed WASM + added additional WASM models (#548).
 * [BREAKING] Added IDs to `SyncSummary` fields (#513).
+* Added better error handling for WASM sync state (#558).
+* Fixed Broken WASM (#519).
+* [BREAKING] Refactored Client struct to use trait objects for inner struct fields (#539).
+* Added WASM Input note tests + updated input note models (#554)
+* Fixed panic on export command without type (#537).
+
+### Changes
+
+* [BREAKING] Refactored the `Store` structure and interface for input notes (#520).
+* [BREAKING] Replaced `maybe_await` from `Client` and `Store` with `async`, removed `async` feature (#565, #570).
+* [BREAKING] Refactored `OutputNoteRecord` to use states and transitions for updates (#551).
+* Rebuilt WASM with latest dependencies (#575).
+* [BREAKING] Removed serde's de/serialization from `NoteRecordDetails` and `NoteStatus` (#514).
 * [BREAKING] Re-exported `TransactionRequest` from submodule, renamed `AccountDetails::Offchain` to `AccountDetails::Private`, renamed `NoteDetails::OffChain` to `NoteDetails::Private` (#508).
+* [BREAKING] Changed `PaymentTransactionData` and `TransactionRequest` to allow for multiple assets per note (#525).
+* Added dedicated separate table for tracked tags (#535).
+* [BREAKING] Renamed `off-chain` and `on-chain` to `private` and `public` respectively for the account storage modes (#516).
 
 ## v0.5.0 (2024-08-27)
 
