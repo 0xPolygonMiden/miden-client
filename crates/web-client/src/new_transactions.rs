@@ -1,11 +1,12 @@
 use miden_client::{
     notes::get_input_note_with_id_prefix,
     transactions::{
-        build_swap_tag, PaymentTransactionData, SwapTransactionData,
+        PaymentTransactionData, SwapTransactionData,
         TransactionRequest as NativeTransactionRequest,
         TransactionResult as NativeTransactionResult,
     },
 };
+use miden_lib::notes::utils::build_swap_tag;
 use miden_objects::{accounts::AccountId as NativeAccountId, assets::FungibleAsset};
 use wasm_bindgen::prelude::*;
 
@@ -266,8 +267,8 @@ impl WebClient {
 
             let payback_note_tag_u32: u32 = build_swap_tag(
                 note_type.into(),
-                swap_transaction.offered_asset().faucet_id(),
-                swap_transaction.requested_asset().faucet_id(),
+                &swap_transaction.offered_asset(),
+                &swap_transaction.requested_asset(),
             )
             .map_err(|err| err.to_string())?
             .into();

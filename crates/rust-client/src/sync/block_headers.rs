@@ -150,7 +150,6 @@ impl<R: FeltRng> Client<R> {
             let (block_header, _) = self.store.get_block_header_by_num(block_num).await?;
             return Ok(block_header);
         }
-
         let (block_header, mmr_proof) =
             self.rpc_api.get_block_header_by_number(Some(block_num), true).await?;
 

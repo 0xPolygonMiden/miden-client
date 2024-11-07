@@ -5,7 +5,8 @@ use alloc::{
 use core::fmt;
 
 use miden_objects::{
-    accounts::AccountId, notes::NoteId, AccountError, AssetError, NoteError, TransactionScriptError,
+    accounts::AccountId, crypto::merkle::MerkleError, notes::NoteId, AccountError, AssetError,
+    NoteError, TransactionScriptError,
 };
 use miden_tx::{
     utils::{DeserializationError, HexParseError},
@@ -31,6 +32,7 @@ pub enum ClientError {
     NoteNotFoundOnChain(NoteId),
     HexParseError(HexParseError),
     ImportNewAccountWithoutSeed,
+    MerkleError(MerkleError),
     MissingOutputNotes(Vec<NoteId>),
     NoteError(NoteError),
     NoteImportError(String),
@@ -62,6 +64,9 @@ impl fmt::Display for ClientError {
                 f,
                 "Import account error: can't import a new account without its initial seed"
             ),
+            ClientError::MerkleError(merkle_error) => {
+                write!(f, "Error with merkle path: {merkle_error}")
+            },
             ClientError::MissingOutputNotes(note_ids) => {
                 write!(
                     f,
@@ -127,6 +132,12 @@ impl From<NoteError> for ClientError {
 impl From<NoteRecordError> for ClientError {
     fn from(err: NoteRecordError) -> Self {
         Self::NoteRecordError(err)
+    }
+}
+
+impl From<MerkleError> for ClientError {
+    fn from(err: MerkleError) -> Self {
+        Self::MerkleError(err)
     }
 }
 

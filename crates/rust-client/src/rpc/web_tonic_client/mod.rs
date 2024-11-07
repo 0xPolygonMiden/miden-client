@@ -1,5 +1,6 @@
 use alloc::{
     boxed::Box,
+    collections::BTreeSet,
     string::{String, ToString},
     vec::Vec,
 };
@@ -231,13 +232,11 @@ impl NodeRpcClient for WebTonicRpcClient {
     /// - There is an error during storage deserialization.
     async fn get_account_proofs(
         &mut self,
-        account_ids: &[AccountId],
+        account_ids: &BTreeSet<AccountId>,
         code_commitments: &[Digest],
         include_headers: bool,
     ) -> Result<AccountProofs, RpcError> {
-        // Deduplicate the account IDs first
-        let mut account_ids: Vec<AccountId> = account_ids.to_vec();
-        account_ids.dedup();
+        let account_ids: Vec<AccountId> = account_ids.iter().copied().collect();
 
         // Ensure all account IDs are public
         for account_id in &account_ids {
