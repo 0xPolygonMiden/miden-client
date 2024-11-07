@@ -47,6 +47,8 @@ By default none is set, but you can set and unset it with:
 miden account --default <ACCOUNT_ID> #Sets default account
 miden account --default none #Unsets default account
 ```
+!!! note
+    - The account must be tracked by the client in order to be set as the default account.
 
 You can also see the current default account ID with:
 

@@ -113,8 +113,9 @@ View and manage notes.
 
 The `--list` flag receives an optional filter:
     - expected: Only lists expected notes.
-    - commited: Only lists commited notes.
+    - committed: Only lists committed notes.
     - consumed: Only lists consumed notes.
+    - processing: Only lists processing notes.
     - consumable: Only lists consumable notes. An additional `--account-id <ID>` flag may be added to only show notes consumable by the specified account.
 If no filter is specified then all notes are listed.
 
@@ -158,7 +159,7 @@ View transactions.
 
 After a transaction gets executed, two entities start being tracked:
 
-- The transaction itself: It follows a lifecycle from `expected` (initial state) and `committed` (after the node receives it).
+- The transaction itself: It follows a lifecycle from `Pending` (initial state) and `Committed` (after the node receives it). It may also be `Discarded` if the transaction was not included in a block.
 - Output notes that might have been created as part of the transaction (for example, when executing a pay-to-id transaction).
 
 ### Transaction creation commands
@@ -192,7 +193,7 @@ Either `Expected` or `Committed` notes may be consumed by this command, changing
 
 #### `send`
 
-Sends assets to another account. Sender Account creates a note that a target Account ID can consume. The asset is identifed by the tuple `(FAUCET ID, AMOUNT)`. The note can be configured to be recallable making the sender able to consume it after a height is reached.
+Sends assets to another account. Sender Account creates a note that a target Account ID can consume. The asset is identified by the tuple `(FAUCET ID, AMOUNT)`. The note can be configured to be recallable making the sender able to consume it after a height is reached.
 
 Usage: `miden send --sender <SENDER ACCOUNT ID> --target <TARGET ACCOUNT ID> --asset <AMOUNT>::<FAUCET ID> --note-type <NOTE_TYPE> <RECALL_HEIGHT>`
 
@@ -252,7 +253,7 @@ Export input note data to a binary file .
 The user needs to specify how the note should be exported via the `--export-type` flag. The following options are available:
 
 - `id`: Only the note ID is exported. When importing, if the note ID is already tracked by the client, the note will be updated with missing information fetched from the node. This works for both public and private notes. If the note isn't tracked and the note is public, the whole note is fetched from the node and is stored for later use.
-- `full`: The note is exported with all of its information (metadata and inclusion proof). When importing, the note is considered committed. The note may not be consumed directly after importing as its block header will not be stored in the client. The block header will be fetched during the next sync.
+- `full`: The note is exported with all of its information (metadata and inclusion proof). When importing, the note is considered unverified. The note may not be consumed directly after importing as its block header will not be stored in the client. The block header will be fetched and be used to verify the note during the next sync. At this point the note will be committed and may be consumed.
 - `partial`: The note is exported with minimal information and may be imported even if the note is not yet committed on chain. At the moment of importing the note, the client will check the state of the note by doing a note sync, using the note's tag. Depending on the response, the note will be either stored as "Expected" or "Committed".
 
 #### `import`
