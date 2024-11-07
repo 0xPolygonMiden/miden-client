@@ -154,7 +154,7 @@
 * Added `NoteScreener` struct capable of detecting notes consumable by a client (via heuristics), for storing only relevant notes.
 * Added `TransactionRequest` for defining transactions with arbitrary scripts, inputs and outputs and changed the client API to use this definition.
 * Added `ClientRng` trait for randomness component within `Client`.
-* Refactored integration tests to be ran as regular rust tests.
+* Refactored integration tests to be run as regular rust tests.
 * Normalized note script fields for input note and output note tables in SQLite implementation.
 * Added support for P2IDR (pay-to-id with recall) transactions on both the CLI and the lib.
 * Removed the `mock-data` command from the CLI.

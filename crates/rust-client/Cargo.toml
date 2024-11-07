@@ -1,9 +1,9 @@
 [package]
 name = "miden-client"
-version = "0.5.0"
+version = "0.6.0"
 description = "Client library that facilitates interaction with the Miden rollup"
 readme = "README.md"
-documentation = "https://docs.rs/miden-client/0.5.0"
+documentation = "https://docs.rs/miden-client/0.6.0"
 categories = ["no-std"]
 keywords = ["miden", "client"]
 license.workspace = true
@@ -60,7 +60,7 @@ web-sys = { version = "0.3", features = ["console"]}
 console_error_panic_hook = "0.1.6"
 
 [build-dependencies]
-miden-rpc-proto = { git = "https://github.com/0xPolygonMiden/miden-node", branch = "next" }
+miden-rpc-proto = { version = "0.6" }
 miden-lib = { workspace = true }
 miette = { version = "7.2", features = ["fancy"] }
 prost = { version = "0.13", default-features = false, features = ["derive"] }

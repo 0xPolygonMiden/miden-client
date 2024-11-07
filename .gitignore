@@ -40,3 +40,6 @@ node_modules/
 
 # Ignore files that spawn using `miden init`
 miden-client.toml
+
+# Ignore files that spawn using `miden init`
+miden-client.toml
