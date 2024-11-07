@@ -21,6 +21,7 @@ It manages the persistence of the following entities:
 - Accounts; including their state history and related information such as vault assets and account code.
 - Transactions and their scripts.
 - Notes.
+- Note tags.
 - Block headers and chain information that the client needs to execute transactions and consume notes.
  
 Because Miden allows off-chain executing and proving, the client needs to know about the state of the blockchain at the moment of execution. To avoid state bloat, however, the client does not need to see the whole blockchain history, just the chain history intervals that are relevant to the user. 
