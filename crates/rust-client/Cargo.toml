@@ -49,7 +49,6 @@ tonic-web-wasm-client = { version = "0.6", optional = true, default-features = f
 tracing = { workspace = true }
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"], optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
-winter-maybe-async = "0.10"
 
 [dev-dependencies]
 miden-client = { path = ".", features = ["testing", "concurrent", "sqlite", "tonic"] }
