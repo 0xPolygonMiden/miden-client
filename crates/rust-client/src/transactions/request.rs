@@ -183,16 +183,20 @@ impl TransactionRequest {
     ///
     /// At execution, the client queries the node and retrieves the state and current code for
     /// these accounts, and injects them as advice inputs.
+    ///
+    /// # Errors
+    ///
+    /// - If `foreign_account_ids` contains an ID corresponding to a private account.
     pub fn with_public_foreign_accounts(
         mut self,
         foreign_account_ids: impl IntoIterator<Item = AccountId>,
     ) -> Result<Self, TransactionRequestError> {
-        let mut foreign_accounts = foreign_account_ids.into_iter();
-        if let Some(private_account_id) = foreign_accounts.find(|acc_id| !acc_id.is_public()) {
-            return Err(TransactionRequestError::InvalidForeignAccountId(private_account_id));
+        for account_id in foreign_account_ids {
+            if !account_id.is_public() {
+                return Err(TransactionRequestError::InvalidForeignAccountId(account_id));
+            }
+            self.foreign_account_ids.insert(account_id);
         }
-
-        self.foreign_account_ids.extend(foreign_accounts);
 
         Ok(self)
     }
@@ -539,7 +543,7 @@ impl Deserializable for TransactionRequest {
         let advice_vec = Vec::<(Digest, Vec<Felt>)>::read_from(source)?;
         advice_map.extend(advice_vec);
         let merkle_store = MerkleStore::read_from(source)?;
-        let foreign_account_data = BTreeSet::<AccountId>::read_from(source)?;
+        let foreign_account_ids = BTreeSet::<AccountId>::read_from(source)?;
         let expiration_delta = Option::<u16>::read_from(source)?;
 
         Ok(TransactionRequest {
@@ -550,7 +554,7 @@ impl Deserializable for TransactionRequest {
             expected_future_notes,
             advice_map,
             merkle_store,
-            foreign_account_ids: foreign_account_data,
+            foreign_account_ids,
             expiration_delta,
         })
     }
