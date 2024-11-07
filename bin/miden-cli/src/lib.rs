@@ -42,6 +42,7 @@ const CLIENT_CONFIG_FILE_NAME: &str = "miden-client.toml";
 /// Client binary name
 pub const CLIENT_BINARY_NAME: &str = "miden";
 
+/// Root CLI struct
 #[derive(Parser, Debug)]
 #[clap(name = "Miden", about = "Miden client", version, rename_all = "kebab-case")]
 pub struct Cli {
