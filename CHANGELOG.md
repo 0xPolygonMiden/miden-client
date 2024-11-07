@@ -16,30 +16,30 @@
 * Added support for multiple input note inserts at once (#538).
 * Added support for custom transactions in web client (#519).
 * Added support for remote proving in the CLI (#552).
-
-### Enhancements
-
-* Moved note update logic outside of the `Store` (#559).
 * Added Transaction Integration Tests for Web Client (#569).
-* Expose full SyncSummary from WASM (#555).
-* Added new variants for the `NoteFilter` struct (#538).
+* Added WASM Input note tests + updated input note models (#554)
 * Added Account Integration Tests for Web Client (#532).
+
+### Fixes
+
 * Fixed WASM + added additional WASM models (#548).
 * [BREAKING] Added IDs to `SyncSummary` fields (#513).
 * Added better error handling for WASM sync state (#558).
 * Fixed Broken WASM (#519).
 * [BREAKING] Refactored Client struct to use trait objects for inner struct fields (#539).
-* Added WASM Input note tests + updated input note models (#554)
 * Fixed panic on export command without type (#537).
 
 ### Changes
 
+* Moved note update logic outside of the `Store` (#559).
 * [BREAKING] Refactored the `Store` structure and interface for input notes (#520).
 * [BREAKING] Replaced `maybe_await` from `Client` and `Store` with `async`, removed `async` feature (#565, #570).
 * [BREAKING] Refactored `OutputNoteRecord` to use states and transitions for updates (#551).
 * Rebuilt WASM with latest dependencies (#575).
 * [BREAKING] Removed serde's de/serialization from `NoteRecordDetails` and `NoteStatus` (#514).
+* Added new variants for the `NoteFilter` struct (#538).
 * [BREAKING] Re-exported `TransactionRequest` from submodule, renamed `AccountDetails::Offchain` to `AccountDetails::Private`, renamed `NoteDetails::OffChain` to `NoteDetails::Private` (#508).
+* Expose full SyncSummary from WASM (#555).
 * [BREAKING] Changed `PaymentTransactionData` and `TransactionRequest` to allow for multiple assets per note (#525).
 * Added dedicated separate table for tracked tags (#535).
 * [BREAKING] Renamed `off-chain` and `on-chain` to `private` and `public` respectively for the account storage modes (#516).
